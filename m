@@ -1,52 +1,132 @@
-From: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-Subject: Re: [net-next 10/10] toshiba: Move the Toshiba drivers
-Date: Fri, 12 Aug 2011 10:22:58 +0200
-Message-ID: <OF34D52D90.9E92842E-ONC12578EA.002DB7A5-C12578EA.002E0C4B@de.ibm.com>
-References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com> <1313134384-7287-11-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: Re: [PATCH v11 3/6] flexcan: Fix up fsl-flexcan device tree binding.
+Date: Fri, 12 Aug 2011 03:28:24 -0500
+Message-ID: <20110812082824.GH4926@sgi.com>
+References: <1313078831-2511-1-git-send-email-holt@sgi.com>
+	<1313078831-2511-4-git-send-email-holt@sgi.com>
+	<CACxGe6vA8K7fhrSvBpKC+9aKftUc2+1EAUQ=A0SmmwzJ2Le=9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, Geoff Levand <geoff@infradead.org>,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
-	netdev@vger.kernel.org, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:46085 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750992Ab1HLIYi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 04:24:38 -0400
-Received: from d06nrmr1707.portsmouth.uk.ibm.com (d06nrmr1707.portsmouth.uk.ibm.com [9.149.39.225])
-	by mtagate7.uk.ibm.com (8.13.1/8.13.1) with ESMTP id p7C8OStI014599
-	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 08:24:28 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1707.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p7C8OS2C2146370
-	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 09:24:28 +0100
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p7C8OR1m011805
-	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 02:24:28 -0600
-In-Reply-To: <1313134384-7287-11-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CACxGe6vA8K7fhrSvBpKC+9aKftUc2+1EAUQ=A0SmmwzJ2Le=9A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Aug 11, 2011 at 10:53:43AM -0600, Grant Likely wrote:
+> On Thu, Aug 11, 2011 at 10:07 AM, Robin Holt <holt-sJ/iWh9BUns@public.gmane.org> wrote:
+> > +- compatible : Should be "fsl,<processor>-flexcan" and "fsl,flexcan"
+> =
 
-> [net-next 10/10] toshiba: Move the Toshiba drivers
->
-> Move the Toshiba ethernet drivers into drivers/net/ethernet/toshiba
-> and make the necessary Kconfig and Makefile changes.
->
-> CC: Geoff Levand <geoff@infradead.org>
-> CC: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-> CC: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Don't do this.  "fsl,flexcan" is far too generic.  Be specific to the
+> soc part number or the ip core implementation version.
 
-Jeff, looks good from my side, but it would be good to have Ishizakis
-Signed-off-by as well.
+I don't have any crumbs to go with here.  There is nothing in the
+documentation I have found to indicate what this is or should be.
+I looked at the documentation for the P1010 processor and there is nothing
+in there which I noticed that indicates what I could possibly use other
+than flexcan.  They don't even indicate the registers are equivalent or
+identical to their i.MX implementations for i.MX25 and i.MX35.  The only
+thing they call it is flexcan.  I have asked our local freescale rep and
+he said "There is no 'chip', it is just flexcan.  flexcan is flexcan."
+His tone was such that I got the feeling he thought the question was
+crazy as flexcan is flexcan.
 
-Thanks,
+> > -Can Engine Clock Source
+> > - =A0 =A0 =A0 There are two sources for CAN clock
+> > - =A0 =A0 =A0 - Platform Clock =A0It represents the bus clock
+> > - =A0 =A0 =A0 - Oscillator Clock
+> > + =A0An implementation should also claim any of the following compatibl=
+es
+> > + =A0that it is fully backwards compatible with:
+> >
+> > - =A0 =A0 =A0 Peripheral Clock (PLL)
+> > - =A0 =A0 =A0 --------------
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0|
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 --------- =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 -------------
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 |CPI Clock =A0 =A0 =
+=A0 =A0| Prescaler | =A0 =A0 =A0 Sclock
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 |---------------->|=
+ (1.. 256) |------------>
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 --------- =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 -------------
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0|
+> > - =A0 =A0 =A0 -------------- =A0---------------------CLK_SRC
+> > - =A0 =A0 =A0 Oscillator Clock
+> > + =A0- fsl,p1010-flexcan
+> >
+> > -- fsl,flexcan-clock-source : CAN Engine Clock Source.This property sel=
+ects
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0the peripheral=
+ clock. PLL clock is fed to the
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0prescaler to g=
+enerate the Serial Clock (Sclock).
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Valid values a=
+re "oscillator" and "platform"
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"oscillator": =
+CAN engine clock source is oscillator clock.
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"platform" The=
+ CAN engine clock source is the bus clock
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(platform cloc=
+k).
+> > +- reg : Offset and length of the register set for this device
+> > +- interrupts : Interrupt tuple for this device
+> >
+> > -- fsl,flexcan-clock-divider : for the reference and system clock, an a=
+dditional
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clock divider=
+ can be specified.
+> > -- clock-frequency: frequency required to calculate the bitrate for Fle=
+xCAN.
+> > +Example:
+> >
+> > -Note:
+> > - =A0 =A0 =A0 - v1.0 of flexcan-v1.0 represent the IP block version for=
+ P1010 SOC.
+> > - =A0 =A0 =A0 - P1010 does not have oscillator as the Clock Source.So t=
+he default
+> > - =A0 =A0 =A0 =A0 Clock Source is platform clock.
+> > -Examples:
+> > -
+> > - =A0 =A0 =A0 can0@1c000 {
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 compatible =3D "fsl,flexcan-v1.0";
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 reg =3D <0x1c000 0x1000>;
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 interrupts =3D <48 0x2>;
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 interrupt-parent =3D <&mpic>;
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,flexcan-clock-source =3D "platform";
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 fsl,flexcan-clock-divider =3D <2>;
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 clock-frequency =3D <fixed by u-boot>;
+> > - =A0 =A0 =A0 };
+> > + =A0can@1c000 {
+> > + =A0 =A0 =A0 =A0 =A0compatible =3D "fsl,p1010-flexcan", "fsl,flexcan";
+> > + =A0 =A0 =A0 =A0 =A0reg =3D <0x1c000 0x1000>;
+> > + =A0 =A0 =A0 =A0 =A0interrupts =3D <48 0x2>;
+> > + =A0 =A0 =A0 =A0 =A0interrupt-parent =3D <&mpic>;
+> > + =A0};
+> =
 
-Jens
+> The diffstat for this patch looks too big because the whitespace has
+> changed.  Try to restrict whitespace changes so that the patch is
+> friendly to reviewers.
 
-Signed-off-by: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
+Reworked the best I can.  That reduced the diffstat by 3 lines.
 
-[..]
-
+Robin
