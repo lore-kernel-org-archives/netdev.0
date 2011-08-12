@@ -1,40 +1,65 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: linux-next: Tree for Aug 12 (benet/be2net)
-Date: Fri, 12 Aug 2011 13:56:18 -0700
-Message-ID: <20110812135618.a209d9af.rdunlap@xenotime.net>
+Date: Fri, 12 Aug 2011 15:06:07 -0700
+Message-ID: <20110812150607.2303e10e@nehalam.ftrdhcpuser.net>
 References: <20110812171311.4d7bb640f38838bf7c34df50@canb.auug.org.au>
+	<20110812135618.a209d9af.rdunlap@xenotime.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
 	Sathya Perla <sathya.perla@emulex.com>,
 	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
 	Ajit Khaparde <ajit.khaparde@emulex.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110812171311.4d7bb640f38838bf7c34df50@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:55199 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752290Ab1HLWGB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 18:06:01 -0400
+In-Reply-To: <20110812135618.a209d9af.rdunlap@xenotime.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Aug 2011 17:13:11 +1000 Stephen Rothwell wrote:
+On Fri, 12 Aug 2011 13:56:18 -0700
+Randy Dunlap <rdunlap@xenotime.net> wrote:
 
-> Hi all,
+> On Fri, 12 Aug 2011 17:13:11 +1000 Stephen Rothwell wrote:
 > 
-> [The kernel.org mirroring is being very slow today]
+> > Hi all,
+> > 
+> > [The kernel.org mirroring is being very slow today]
+> 
+>   [s.l.o.w.]
+>  
+> > The net tree gained a build failure do I used the version from
+> > next-20110811.
+> 
+> 
+> On i386:
+> 
+> drivers/built-in.o: In function `be_rx_eqd_update':
+> be_main.c:(.text+0x569229): undefined reference to `__udivdi3'
+> 
 
-  [s.l.o.w.]
- 
-> The net tree gained a build failure do I used the version from
-> next-20110811.
+Already fixed:
 
+Author: Eric Dumazet <eric.dumazet@gmail.com>  2011-08-08 23:23:07
+Committer: David S. Miller <davem@davemloft.net>  2011-08-12 02:54:22
+Parent: 9aebddd11be42366f89b0296590770c02797aa98 (be2net: Move the Emulex driver)
+Branches: master, remotes/origin/master
+Follows: v3.0
+Precedes: 
 
-On i386:
-
-drivers/built-in.o: In function `be_rx_eqd_update':
-be_main.c:(.text+0x569229): undefined reference to `__udivdi3'
-
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+    benet: fix build error on 32bit arch
+    
+    Error comes from commit ac124ff973e27802797
+    (be2net: cleanup and refactor stats code)
+    
+    ERROR: "__udivdi3" [drivers/net/benet/be2net.ko] undefined!
+    
+    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+    CC: Sathya Perla <sathya.perla@emulex.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
