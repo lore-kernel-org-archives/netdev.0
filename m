@@ -1,264 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/10] skge/sky2/mv643xx/pxa168: Move the Marvell Ethernet drivers
-Date: Fri, 12 Aug 2011 00:32:59 -0700
-Message-ID: <1313134384-7287-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/10] seeq: Move the SEEQ drivers
+Date: Fri, 12 Aug 2011 00:32:57 -0700
+Message-ID: <1313134384-7287-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Sachin Sanap <ssanap@marvell.com>,
-	Zhangfei Gao <zgao6@marvell.com>,
-	Philip Rakity <prakity@marvell.com>,
-	Mark Brown <markb@marvell.com>,
-	Lennert Buytenhek <buytenh@marvell.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
+	Russell King <linux@arm.linux.org.uk>,
+	Hamish Coleman <hamish@zot.apana.org.au>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:58632 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751348Ab1HLHdL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 03:33:11 -0400
+	id S1751513Ab1HLHdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 03:33:09 -0400
 In-Reply-To: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Marvell Ethernet drivers into drivers/net/ethernet/marvell/
+Move the drivers that use SEEQ chipset into drivers/net/ethernet/seeq
 and make the necessary Kconfig and Makefile changes.
 
-CC: Sachin Sanap <ssanap@marvell.com>
-CC: Zhangfei Gao <zgao6@marvell.com>
-CC: Philip Rakity <prakity@marvell.com>
-CC: Mark Brown <markb@marvell.com>
-CC: Lennert Buytenhek <buytenh@marvell.com>
-CC: Stephen Hemminger <shemminger@linux-foundation.org>
+CC: Russell King <linux@arm.linux.org.uk>
+CC: Hamish Coleman <hamish@zot.apana.org.au>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                      |    5 +-
- drivers/net/Kconfig                              |   90 ------------------
- drivers/net/Makefile                             |    4 -
- drivers/net/ethernet/Kconfig                     |    1 +
- drivers/net/ethernet/Makefile                    |    1 +
- drivers/net/ethernet/marvell/Kconfig             |  110 ++++++++++++++++++++++
- drivers/net/ethernet/marvell/Makefile            |    8 ++
- drivers/net/{ => ethernet/marvell}/mv643xx_eth.c |    0
- drivers/net/{ => ethernet/marvell}/pxa168_eth.c  |    0
- drivers/net/{ => ethernet/marvell}/skge.c        |    0
- drivers/net/{ => ethernet/marvell}/skge.h        |    0
- drivers/net/{ => ethernet/marvell}/sky2.c        |    0
- drivers/net/{ => ethernet/marvell}/sky2.h        |    0
- 13 files changed, 122 insertions(+), 97 deletions(-)
- create mode 100644 drivers/net/ethernet/marvell/Kconfig
- create mode 100644 drivers/net/ethernet/marvell/Makefile
- rename drivers/net/{ => ethernet/marvell}/mv643xx_eth.c (100%)
- rename drivers/net/{ => ethernet/marvell}/pxa168_eth.c (100%)
- rename drivers/net/{ => ethernet/marvell}/skge.c (100%)
- rename drivers/net/{ => ethernet/marvell}/skge.h (100%)
- rename drivers/net/{ => ethernet/marvell}/sky2.c (100%)
- rename drivers/net/{ => ethernet/marvell}/sky2.h (100%)
+ MAINTAINERS                                 |    3 +-
+ drivers/net/Kconfig                         |   18 -----------
+ drivers/net/Makefile                        |    2 -
+ drivers/net/arm/Kconfig                     |    7 ----
+ drivers/net/arm/Makefile                    |    1 -
+ drivers/net/ethernet/Kconfig                |    1 +
+ drivers/net/ethernet/Makefile               |    1 +
+ drivers/net/ethernet/seeq/Kconfig           |   45 +++++++++++++++++++++++++++
+ drivers/net/ethernet/seeq/Makefile          |    7 ++++
+ drivers/net/{arm => ethernet/seeq}/ether3.c |    0
+ drivers/net/{arm => ethernet/seeq}/ether3.h |    0
+ drivers/net/{ => ethernet/seeq}/seeq8005.c  |    0
+ drivers/net/{ => ethernet/seeq}/seeq8005.h  |    0
+ drivers/net/{ => ethernet/seeq}/sgiseeq.c   |    0
+ drivers/net/{ => ethernet/seeq}/sgiseeq.h   |    0
+ 15 files changed, 56 insertions(+), 29 deletions(-)
+ create mode 100644 drivers/net/ethernet/seeq/Kconfig
+ create mode 100644 drivers/net/ethernet/seeq/Makefile
+ rename drivers/net/{arm => ethernet/seeq}/ether3.c (100%)
+ rename drivers/net/{arm => ethernet/seeq}/ether3.h (100%)
+ rename drivers/net/{ => ethernet/seeq}/seeq8005.c (100%)
+ rename drivers/net/{ => ethernet/seeq}/seeq8005.h (100%)
+ rename drivers/net/{ => ethernet/seeq}/sgiseeq.c (100%)
+ rename drivers/net/{ => ethernet/seeq}/sgiseeq.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index e986e3e..b9acfde 100644
+index 1bd9fbd..e986e3e 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4122,7 +4122,7 @@ MARVELL MV643XX ETHERNET DRIVER
- M:	Lennert Buytenhek <buytenh@wantstofly.org>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/mv643xx_eth.*
-+F:	drivers/net/ethernet/marvell/mv643xx_eth.*
- F:	include/linux/mv643xx.h
+@@ -1014,7 +1014,8 @@ F:	arch/arm/include/asm/hardware/ioc.h
+ F:	arch/arm/include/asm/hardware/iomd.h
+ F:	arch/arm/include/asm/hardware/memc.h
+ F:	arch/arm/mach-rpc/
+-F:	drivers/net/arm/ether3*
++F:	drivers/net/ethernet/i825xx/ether1*
++F:	drivers/net/ethernet/seeq/ether3*
+ F:	drivers/scsi/arm/
  
- MARVELL MWIFIEX WIRELESS DRIVER
-@@ -5854,8 +5854,7 @@ SKGE, SKY2 10/100/1000 GIGABIT ETHERNET DRIVERS
- M:	Stephen Hemminger <shemminger@linux-foundation.org>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/skge.*
--F:	drivers/net/sky2.*
-+F:	drivers/net/ethernet/marvell/sk*
- 
- SLAB ALLOCATOR
- M:	Christoph Lameter <cl@linux-foundation.org>
+ ARM/SHARK MACHINE SUPPORT
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 87e7a12..cb6c694 100644
+index aec74ad..696464c 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -313,16 +313,6 @@ config BFIN_MAC_USE_HWSTAMP
- 	help
- 	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
+@@ -489,17 +489,6 @@ config ETH16I
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called eth16i.
  
--config PXA168_ETH
--	tristate "Marvell pxa168 ethernet support"
--	depends on CPU_PXA168
--	select PHYLIB
+-config SEEQ8005
+-	tristate "SEEQ8005 support (EXPERIMENTAL)"
+-	depends on NET_ISA && EXPERIMENTAL
 -	help
--	  This driver supports the pxa168 Ethernet ports.
+-	  This is a driver for the SEEQ 8005 network (Ethernet) card.  If this
+-	  is for you, read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
 -
 -	  To compile this driver as a module, choose M here. The module
--	  will be called pxa168_eth.
+-	  will be called seeq8005.
 -
- config NET_NETX
- 	tristate "NetX Ethernet support"
- 	select MII
-@@ -803,73 +793,6 @@ config SIS190
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called sis190.  This is recommended.
+ config NET_PCI
+ 	bool "EISA, VLB, PCI and on board controllers"
+ 	depends on ISA || EISA || PCI
+@@ -690,13 +679,6 @@ config NET_POCKET
+ 	  the questions about this class of network devices. If you say Y, you
+ 	  will be asked for your specific device in the following questions.
  
--config SKGE
--	tristate "Marvell Yukon Gigabit Ethernet support"
--	depends on PCI
--	select CRC32
--	---help---
--	  This driver support the Marvell Yukon or SysKonnect SK-98xx/SK-95xx
--	  and related Gigabit Ethernet adapters. It is a new smaller driver
--	  with better performance and more complete ethtool support.
--
--	  It does not support the link failover and network management 
--	  features that "portable" vendor supplied sk98lin driver does.
--
--	  This driver supports adapters based on the original Yukon chipset:
--	  Marvell 88E8001, Belkin F5D5005, CNet GigaCard, DLink DGE-530T,
--	  Linksys EG1032/EG1064, 3Com 3C940/3C940B, SysKonnect SK-9871/9872.
--
--	  It does not support the newer Yukon2 chipset: a separate driver,
--	  sky2, is provided for these adapters.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called skge.  This is recommended.
--
--config SKGE_DEBUG
--	bool "Debugging interface"
--	depends on SKGE && DEBUG_FS
+-config SGISEEQ
+-	tristate "SGI Seeq ethernet controller support"
+-	depends on SGI_HAS_SEEQ
 -	help
--	  This option adds the ability to dump driver state for debugging.
--	  The file /sys/kernel/debug/skge/ethX displays the state of the internal
--	  transmit and receive rings.
+-	  Say Y here if you have an Seeq based Ethernet network card. This is
+-	  used in many Silicon Graphics machines.
 -
--	  If unsure, say N.
--
--config SKGE_GENESIS
--       bool "Support for older SysKonnect Genesis boards"
--       depends on SKGE
--       help
--         This enables support for the older and uncommon SysKonnect Genesis
--	 chips, which support MII via an external transceiver, instead of
--	 an internal one. Disabling this option will save some memory
--	 by making code smaller. If unsure say Y.
--
--config SKY2
--	tristate "Marvell Yukon 2 support"
--	depends on PCI
--	select CRC32
--	---help---
--	  This driver supports Gigabit Ethernet adapters based on the
--	  Marvell Yukon 2 chipset:
--	  Marvell 88E8021/88E8022/88E8035/88E8036/88E8038/88E8050/88E8052/
--	  88E8053/88E8055/88E8061/88E8062, SysKonnect SK-9E21D/SK-9S21
--
--	  There is companion driver for the older Marvell Yukon and
--	  SysKonnect Genesis based adapters: skge.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called sky2.  This is recommended.
--
--config SKY2_DEBUG
--	bool "Debugging interface"
--	depends on SKY2 && DEBUG_FS
--	help
--	  This option adds the ability to dump driver state for debugging.
--	  The file /sys/kernel/debug/sky2/ethX displays the state of the internal
--	  transmit and receive rings.
--
--	  If unsure, say N.
--
- config VIA_VELOCITY
- 	tristate "VIA Velocity support"
- 	depends on PCI
-@@ -952,19 +875,6 @@ config UGETH_TX_ON_DEMAND
- 	bool "Transmit on Demand support"
- 	depends on UCC_GETH
- 
--config MV643XX_ETH
--	tristate "Marvell Discovery (643XX) and Orion ethernet support"
--	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
--	select INET_LRO
--	select PHYLIB
--	help
--	  This driver supports the gigabit ethernet MACs in the
--	  Marvell Discovery PPC/MIPS chipset family (MV643XX) and
--	  in the Marvell Orion ARM SoC family.
--
--	  Some boards that use the Discovery chipset are the Momenco
--	  Ocelot C and Jaguar ATX and Pegasos II.
--
- config XILINX_LL_TEMAC
- 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
- 	depends on PPC || MICROBLAZE
+ config FEC
+ 	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
+ 	depends on M523x || M527x || M5272 || M528x || M520x || M532x || \
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 141ed25..69ca6a0 100644
+index c98e1ad..b1ead87 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -46,8 +46,6 @@ obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
- gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
- ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
- obj-$(CONFIG_TC35815) += tc35815.o
--obj-$(CONFIG_SKGE) += skge.o
--obj-$(CONFIG_SKY2) += sky2.o
- obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_KS8842)	+= ks8842.o
- obj-$(CONFIG_KS8851)	+= ks8851.o
-@@ -75,7 +73,6 @@ endif
- obj-$(CONFIG_FORCEDETH) += forcedeth.o
+@@ -65,7 +65,6 @@ obj-$(CONFIG_SH_ETH) += sh_eth.o
  
- obj-$(CONFIG_TSI108_ETH) += tsi108_eth.o
--obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
- ll_temac-objs := ll_temac_main.o ll_temac_mdio.o
- obj-$(CONFIG_XILINX_LL_TEMAC) += ll_temac.o
- obj-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
-@@ -111,7 +108,6 @@ obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
--obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
- obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
- obj-$(CONFIG_DM9000) += dm9000.o
- obj-$(CONFIG_ENC28J60) += enc28j60.o
+ obj-$(CONFIG_HAMACHI) += hamachi.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+-obj-$(CONFIG_SEEQ8005) += seeq8005.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+ obj-$(CONFIG_HP100) += hp100.o
+ obj-$(CONFIG_FEC) += fec.o
+@@ -102,7 +101,6 @@ obj-$(CONFIG_IFB) += ifb.o
+ obj-$(CONFIG_MACVLAN) += macvlan.o
+ obj-$(CONFIG_MACVTAP) += macvtap.o
+ obj-$(CONFIG_DEFXX) += defxx.o
+-obj-$(CONFIG_SGISEEQ) += sgiseeq.o
+ obj-$(CONFIG_AT1700) += at1700.o
+ obj-$(CONFIG_CPMAC) += cpmac.o
+ 
+diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
+index 4320e88..b6f7302 100644
+--- a/drivers/net/arm/Kconfig
++++ b/drivers/net/arm/Kconfig
+@@ -3,13 +3,6 @@
+ #  These are for Acorn's Expansion card network interfaces
+ #
+ 
+-config ARM_ETHER3
+-	tristate "Acorn/ANT Ether3 support"
+-	depends on ARM && ARCH_ACORN
+-	help
+-	  If you have an Acorn system with one of these network cards, you
+-	  should say Y to this option if you wish to use it with Linux.
+-
+ config ARM_AT91_ETHER
+ 	tristate "AT91RM9200 Ethernet support"
+ 	depends on ARM && ARCH_AT91RM9200
+diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
+index 5a0f141..a2532e6 100644
+--- a/drivers/net/arm/Makefile
++++ b/drivers/net/arm/Makefile
+@@ -3,7 +3,6 @@
+ # Makefile for the ARM network device drivers
+ #
+ 
+-obj-$(CONFIG_ARM_ETHER3)	+= ether3.o
+ obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
+ obj-$(CONFIG_ARM_KS8695_ETHER)	+= ks8695net.o
+ obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 0eaf957..1c447d9 100644
+index 7d25fa4..35ed4c2 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -28,6 +28,7 @@ source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
- source "drivers/net/ethernet/xscale/Kconfig"
-+source "drivers/net/ethernet/marvell/Kconfig"
- source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/natsemi/Kconfig"
+@@ -36,6 +36,7 @@ source "drivers/net/ethernet/pasemi/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/realtek/Kconfig"
++source "drivers/net/ethernet/seeq/Kconfig"
+ source "drivers/net/ethernet/sfc/Kconfig"
+ source "drivers/net/ethernet/sgi/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index b5ca872..48c8656 100644
+index ec58715..ea0999f 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
- obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
-+obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+@@ -27,6 +27,7 @@ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+ obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
++obj-$(CONFIG_NET_VENDOR_SEEQ) += seeq/
+ obj-$(CONFIG_SFC) += sfc/
+ obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+diff --git a/drivers/net/ethernet/seeq/Kconfig b/drivers/net/ethernet/seeq/Kconfig
 new file mode 100644
-index 0000000..e525408
+index 0000000..0266791
 --- /dev/null
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -0,0 +1,110 @@
++++ b/drivers/net/ethernet/seeq/Kconfig
+@@ -0,0 +1,45 @@
 +#
-+# Marvell device configuration
++# SEEQ device configuration
 +#
 +
-+config NET_VENDOR_MARVELL
-+	bool "Marvell devices"
-+	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET
++config NET_VENDOR_SEEQ
++	bool "SEEQ devices"
++	depends on (ARM && ARCH_ACORN) || SGI_HAS_SEEQ || EXPERIMENTAL
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -266,140 +193,74 @@ index 0000000..e525408
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Marvell devices. If you say Y, you will be
-+	  asked for your specific card in the following questions.
++	  the questions about SEEQ devices. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+if NET_VENDOR_MARVELL
++if NET_VENDOR_SEEQ
 +
-+config MV643XX_ETH
-+	tristate "Marvell Discovery (643XX) and Orion ethernet support"
-+	depends on (MV64X60 || PPC32 || PLAT_ORION) && INET
-+	select INET_LRO
-+	select PHYLIB
++config ARM_ETHER3
++	tristate "Acorn/ANT Ether3 support"
++	depends on ARM && ARCH_ACORN
 +	---help---
-+	  This driver supports the gigabit ethernet MACs in the
-+	  Marvell Discovery PPC/MIPS chipset family (MV643XX) and
-+	  in the Marvell Orion ARM SoC family.
++	  If you have an Acorn system with one of these network cards, you
++	  should say Y to this option if you wish to use it with Linux.
 +
-+	  Some boards that use the Discovery chipset are the Momenco
-+	  Ocelot C and Jaguar ATX and Pegasos II.
-+
-+config PXA168_ETH
-+	tristate "Marvell pxa168 ethernet support"
-+	depends on CPU_PXA168
-+	select PHYLIB
++config SEEQ8005
++	tristate "SEEQ8005 support (EXPERIMENTAL)"
++	depends on EXPERIMENTAL
 +	---help---
-+	  This driver supports the pxa168 Ethernet ports.
++	  This is a driver for the SEEQ 8005 network (Ethernet) card.  If this
++	  is for you, read the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  To compile this driver as a module, choose M here. The module
-+	  will be called pxa168_eth.
++	  will be called seeq8005.
 +
-+config SKGE
-+	tristate "Marvell Yukon Gigabit Ethernet support"
-+	depends on PCI
-+	select CRC32
++config SGISEEQ
++	tristate "SGI Seeq ethernet controller support"
++	depends on SGI_HAS_SEEQ
 +	---help---
-+	  This driver support the Marvell Yukon or SysKonnect SK-98xx/SK-95xx
-+	  and related Gigabit Ethernet adapters. It is a new smaller driver
-+	  with better performance and more complete ethtool support.
++	  Say Y here if you have an Seeq based Ethernet network card. This is
++	  used in many Silicon Graphics machines.
 +
-+	  It does not support the link failover and network management
-+	  features that "portable" vendor supplied sk98lin driver does.
-+
-+	  This driver supports adapters based on the original Yukon chipset:
-+	  Marvell 88E8001, Belkin F5D5005, CNet GigaCard, DLink DGE-530T,
-+	  Linksys EG1032/EG1064, 3Com 3C940/3C940B, SysKonnect SK-9871/9872.
-+
-+	  It does not support the newer Yukon2 chipset: a separate driver,
-+	  sky2, is provided for these adapters.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called skge.  This is recommended.
-+
-+config SKGE_DEBUG
-+	bool "Debugging interface"
-+	depends on SKGE && DEBUG_FS
-+	---help---
-+	  This option adds the ability to dump driver state for debugging.
-+	  The file /sys/kernel/debug/skge/ethX displays the state of the internal
-+	  transmit and receive rings.
-+
-+	  If unsure, say N.
-+
-+config SKGE_GENESIS
-+	bool "Support for older SysKonnect Genesis boards"
-+	depends on SKGE
-+	---help---
-+	 This enables support for the older and uncommon SysKonnect Genesis
-+	 chips, which support MII via an external transceiver, instead of
-+	 an internal one. Disabling this option will save some memory
-+	 by making code smaller. If unsure say Y.
-+
-+config SKY2
-+	tristate "Marvell Yukon 2 support"
-+	depends on PCI
-+	select CRC32
-+	---help---
-+	  This driver supports Gigabit Ethernet adapters based on the
-+	  Marvell Yukon 2 chipset:
-+	  Marvell 88E8021/88E8022/88E8035/88E8036/88E8038/88E8050/88E8052/
-+	  88E8053/88E8055/88E8061/88E8062, SysKonnect SK-9E21D/SK-9S21
-+
-+	  There is companion driver for the older Marvell Yukon and
-+	  SysKonnect Genesis based adapters: skge.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sky2.  This is recommended.
-+
-+config SKY2_DEBUG
-+	bool "Debugging interface"
-+	depends on SKY2 && DEBUG_FS
-+	---help---
-+	  This option adds the ability to dump driver state for debugging.
-+	  The file /sys/kernel/debug/sky2/ethX displays the state of the internal
-+	  transmit and receive rings.
-+
-+	  If unsure, say N.
-+
-+endif # NET_VENDOR_MARVELL
-diff --git a/drivers/net/ethernet/marvell/Makefile b/drivers/net/ethernet/marvell/Makefile
++endif # NET_VENDOR_SEEQ
+diff --git a/drivers/net/ethernet/seeq/Makefile b/drivers/net/ethernet/seeq/Makefile
 new file mode 100644
-index 0000000..57e3234
+index 0000000..3e258a5
 --- /dev/null
-+++ b/drivers/net/ethernet/marvell/Makefile
-@@ -0,0 +1,8 @@
++++ b/drivers/net/ethernet/seeq/Makefile
+@@ -0,0 +1,7 @@
 +#
-+# Makefile for the Marvell device drivers.
++# Makefile for the SEEQ network device drivers
 +#
 +
-+obj-$(CONFIG_MV643XX_ETH) += mv643xx_eth.o
-+obj-$(CONFIG_PXA168_ETH) += pxa168_eth.o
-+obj-$(CONFIG_SKGE) += skge.o
-+obj-$(CONFIG_SKY2) += sky2.o
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
++obj-$(CONFIG_ARM_ETHER3) += ether3.o
++obj-$(CONFIG_SEEQ8005) += seeq8005.o
++obj-$(CONFIG_SGISEEQ) += sgiseeq.o
+diff --git a/drivers/net/arm/ether3.c b/drivers/net/ethernet/seeq/ether3.c
 similarity index 100%
-rename from drivers/net/mv643xx_eth.c
-rename to drivers/net/ethernet/marvell/mv643xx_eth.c
-diff --git a/drivers/net/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+rename from drivers/net/arm/ether3.c
+rename to drivers/net/ethernet/seeq/ether3.c
+diff --git a/drivers/net/arm/ether3.h b/drivers/net/ethernet/seeq/ether3.h
 similarity index 100%
-rename from drivers/net/pxa168_eth.c
-rename to drivers/net/ethernet/marvell/pxa168_eth.c
-diff --git a/drivers/net/skge.c b/drivers/net/ethernet/marvell/skge.c
+rename from drivers/net/arm/ether3.h
+rename to drivers/net/ethernet/seeq/ether3.h
+diff --git a/drivers/net/seeq8005.c b/drivers/net/ethernet/seeq/seeq8005.c
 similarity index 100%
-rename from drivers/net/skge.c
-rename to drivers/net/ethernet/marvell/skge.c
-diff --git a/drivers/net/skge.h b/drivers/net/ethernet/marvell/skge.h
+rename from drivers/net/seeq8005.c
+rename to drivers/net/ethernet/seeq/seeq8005.c
+diff --git a/drivers/net/seeq8005.h b/drivers/net/ethernet/seeq/seeq8005.h
 similarity index 100%
-rename from drivers/net/skge.h
-rename to drivers/net/ethernet/marvell/skge.h
-diff --git a/drivers/net/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+rename from drivers/net/seeq8005.h
+rename to drivers/net/ethernet/seeq/seeq8005.h
+diff --git a/drivers/net/sgiseeq.c b/drivers/net/ethernet/seeq/sgiseeq.c
 similarity index 100%
-rename from drivers/net/sky2.c
-rename to drivers/net/ethernet/marvell/sky2.c
-diff --git a/drivers/net/sky2.h b/drivers/net/ethernet/marvell/sky2.h
+rename from drivers/net/sgiseeq.c
+rename to drivers/net/ethernet/seeq/sgiseeq.c
+diff --git a/drivers/net/sgiseeq.h b/drivers/net/ethernet/seeq/sgiseeq.h
 similarity index 100%
-rename from drivers/net/sky2.h
-rename to drivers/net/ethernet/marvell/sky2.h
+rename from drivers/net/sgiseeq.h
+rename to drivers/net/ethernet/seeq/sgiseeq.h
 -- 
 1.7.6
 
