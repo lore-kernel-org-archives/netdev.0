@@ -1,8 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next RFC PATCH 5/7] tuntap: add ioctls to attach
-	or detach a	file form tap device
-Date: Fri, 12 Aug 2011 09:55:31 +0800
-Message-ID: <20110812015531.31613.47224.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+Subject: [net-next RFC PATCH 6/7] Change virtqueue structure
+Date: Fri, 12 Aug 2011 09:55:41 +0800
+Message-ID: <20110812015541.31613.99230.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 References: <20110812015221.31613.95001.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -25,115 +24,79 @@ Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
 Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds userspace interface for multi-queue based
-tap device. Two new ioctls were added. The first is
-TUNATTACHQUEUE which is used to attach an opened file
-descriptor to an existed tap device. Another is
-TUNDETACHQUEUE which is used to detach an file from an
-existed tap device, and this file could be re-attach to the
-tap device as a queue again.
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-After those ioctls were added, userspace can create a
-multiqueue tap device by open /dev/net/tap and call
-TUNSETIFF, then it could easily control the number of queues
-through TUNATTACHQUEUE and TUNDETACHQUEUE.
+Move queue_index from virtio_pci_vq_info to virtqueue.  This
+allows callback handlers to figure out the queue number for
+the vq that needs attention.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- drivers/net/tun.c      |   29 ++++++++++++++++++++++++-----
- include/linux/if_tun.h |    3 +++
- 2 files changed, 27 insertions(+), 5 deletions(-)
+ drivers/virtio/virtio_pci.c |   10 +++-------
+ include/linux/virtio.h      |    1 +
+ 2 files changed, 4 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8bc6dff..3bc9dca 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -158,8 +158,8 @@ static int tun_get_slot(struct tun_struct *tun, struct tun_file *tfile)
- 			return i;
- 	}
+diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
+index 4bcc8b8..395af63 100644
+--- a/drivers/virtio/virtio_pci.c
++++ b/drivers/virtio/virtio_pci.c
+@@ -75,9 +75,6 @@ struct virtio_pci_vq_info
+ 	/* the number of entries in the queue */
+ 	int num;
  
--       /* Should never happen */
--       BUG_ON(1);
-+	/* This is possible when call TUNDETACHQUEUE with wrong ifname */
-+	return -1;
+-	/* the index of the queue */
+-	int queue_index;
+-
+ 	/* the virtual address of the ring queue */
+ 	void *queue;
+ 
+@@ -180,11 +177,10 @@ static void vp_reset(struct virtio_device *vdev)
+ static void vp_notify(struct virtqueue *vq)
+ {
+ 	struct virtio_pci_device *vp_dev = to_vp_device(vq->vdev);
+-	struct virtio_pci_vq_info *info = vq->priv;
+ 
+ 	/* we write the queue's selector into the notification register to
+ 	 * signal the other end */
+-	iowrite16(info->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_NOTIFY);
++	iowrite16(vq->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_NOTIFY);
  }
  
- /*
-@@ -1367,11 +1367,12 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- {
- 	struct tun_file *tfile = file->private_data;
- 	struct tun_struct *tun;
-+	struct net_device *dev = NULL;
- 	void __user* argp = (void __user*)arg;
- 	struct ifreq ifr;
- 	int ret;
+ /* Handle a configuration change: Tell driver if it wants to know. */
+@@ -380,7 +376,6 @@ static struct virtqueue *setup_vq(struct virtio_device *vdev, unsigned index,
+ 	if (!info)
+ 		return ERR_PTR(-ENOMEM);
  
--	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
-+	if (cmd == TUNSETIFF || cmd == TUNATTACHQUEUE || _IOC_TYPE(cmd) == 0x89)
- 		if (copy_from_user(&ifr, argp, ifreq_len))
- 			return -EFAULT;
+-	info->queue_index = index;
+ 	info->num = num;
+ 	info->msix_vector = msix_vec;
  
-@@ -1380,7 +1381,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		 * This is needed because we never checked for invalid flags on
- 		 * TUNSETIFF. */
- 		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
--				IFF_VNET_HDR,
-+				IFF_VNET_HDR | IFF_MULTI_QUEUE,
- 				(unsigned int __user*)argp);
+@@ -403,6 +398,7 @@ static struct virtqueue *setup_vq(struct virtio_device *vdev, unsigned index,
+ 		goto out_activate_queue;
  	}
  
-@@ -1396,6 +1397,9 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 			return -EFAULT;
- 		return ret;
- 	}
-+	if (cmd == TUNDETACHQUEUE) {
-+		return tun_detach(tfile, false);
-+	}
++	vq->queue_index = index;
+ 	vq->priv = info;
+ 	info->vq = vq;
  
- 	rtnl_lock();
+@@ -441,7 +437,7 @@ static void vp_del_vq(struct virtqueue *vq)
+ 	list_del(&info->node);
+ 	spin_unlock_irqrestore(&vp_dev->lock, flags);
  
-@@ -1403,7 +1407,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+-	iowrite16(info->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_SEL);
++	iowrite16(vq->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_SEL);
  
- 	ret = -EBADFD;
- 	tun = rcu_dereference(tfile->tun);
--	if (!tun)
-+	if (!tun && cmd != TUNATTACHQUEUE)
- 		goto unlock;
+ 	if (vp_dev->msix_enabled) {
+ 		iowrite16(VIRTIO_MSI_NO_VECTOR,
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index 7108857..ddfbce9 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -22,6 +22,7 @@ struct virtqueue {
+ 	void (*callback)(struct virtqueue *vq);
+ 	const char *name;
+ 	struct virtio_device *vdev;
++	int queue_index;	/* the index of the queue */
+ 	void *priv;
+ };
  
- 
-@@ -1418,6 +1422,21 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 			ret = -EFAULT;
- 		goto out;
- 
-+       case TUNATTACHQUEUE:
-+               dev = __dev_get_by_name(tfile->net, ifr.ifr_name);
-+               if (!dev || dev->netdev_ops != &tap_netdev_ops) {
-+                       ret = -EINVAL;
-+               } else if (ifr.ifr_flags &
-+                       ~(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR)) {
-+		       /* ignore illegal flag */
-+                       ret = -EINVAL;
-+               } else {
-+                       tfile->flags = TUN_TAP_DEV | TUN_NO_PI | TUN_VNET_HDR;
-+                       tun = netdev_priv(dev);
-+                       ret = tun_attach(tun, file);
-+               }
-+               break;
-+
- 	case TUNSETNOCSUM:
- 		/* Disable/Enable checksum */
- 
-diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
-index c92a291..d3f24d8 100644
---- a/include/linux/if_tun.h
-+++ b/include/linux/if_tun.h
-@@ -54,6 +54,9 @@
- #define TUNDETACHFILTER _IOW('T', 214, struct sock_fprog)
- #define TUNGETVNETHDRSZ _IOR('T', 215, int)
- #define TUNSETVNETHDRSZ _IOW('T', 216, int)
-+#define TUNATTACHQUEUE  _IOW('T', 217, int)
-+#define TUNDETACHQUEUE  _IOW('T', 218, int)
-+
- 
- /* TUNSETIFF ifr flags */
- #define IFF_TUN		0x0001
