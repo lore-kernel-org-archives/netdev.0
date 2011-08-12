@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: add Documentation/networking/scaling.txt
-Date: Wed, 10 Aug 2011 07:57:12 -0700 (PDT)
-Message-ID: <20110810.075712.969951188477872063.davem@davemloft.net>
-References: <1312899648.5889.14.camel@gopher.nyc.corp.google.com>
+Subject: Re: [net-next 00/10] drivers/net organize Ethernet drivers (4th
+ series)
+Date: Fri, 12 Aug 2011 01:20:34 -0700 (PDT)
+Message-ID: <20110812.012034.166030319993392913.davem@davemloft.net>
+References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdunlap@xenotime.net, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, therbert@google.com
-To: willemb@google.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1312899648.5889.14.camel@gopher.nyc.corp.google.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:38903 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751887Ab1HLIVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 04:21:30 -0400
+In-Reply-To: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Tue, 09 Aug 2011 10:20:48 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 12 Aug 2011 00:32:54 -0700
 
-> Describes RSS, RPS, RFS, accelerated RFS, and XPS.
+> This is the fourth of seven 10 patch series to move the Ethernet
+> drivers into drivers/net/ethernet/
 > 
-> This version incorporates comments by Randy Dunlap and Rick Jones.
-> Besides text cleanup, it adds an explicit "Suggested Configuration" 
-> heading to each section.
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> The following are changes since commit 5ff2241dd42ade03572753f9ed7743719b47c474:
+>   spider_net: fix compile issue introduced by driver move
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
 
-Applied, thanks.
+Pulled, thanks.
