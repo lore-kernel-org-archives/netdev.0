@@ -1,24 +1,26 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Compat-wireless for 3.1-rc1 is out
-Date: Thu, 11 Aug 2011 17:27:20 -0700
-Message-ID: <CAB=NE6XUU5Pt5D4LQ-SQBFqRW0gp=NoY_hXMin_j_i0fyyx8tg@mail.gmail.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH 00/02] small changes to Documentation/networking/00-INDEX
+ and scaling.txt
+Date: Thu, 11 Aug 2011 20:34:53 -0400
+Message-ID: <4E44752D.1080905@google.com>
+References: <1312899648.5889.14.camel@gopher.nyc.corp.google.com> <4E418030.2010102@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, linux-doc@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <4E418030.2010102@hp.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The linux-3.1-rc1 stable compat-wireless release has been made [1],
-check the full ChangeLog for details [2], for more details see the
-compat-wireless stable page [3]. Please report any issues. This has
-been run time tested on 2.6.38 with iwlagn loaded.
+A previous patch that added Documentation/networking/scaling.txt missed
+some feedback and lacked a line to 00-INDEX. This trivial patch set 
 
-[1] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.1/compat-wireless-3.1-rc1-1.tar.bz2
-[2] http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.1/ChangeLog-3.1-wireless
-[3] http://wireless.kernel.org/en/users/Download/stable
+[1/2] adds descriptions to 00-INDEX for all currently unlisted files and
+[2/2] revises scaling.txt to clarify interrupt coalescing, hyperthreading
+      and cache affinity.
 
-  Luis
+  willem
+
