@@ -1,59 +1,249 @@
-From: Sven-Haegar Koch <haegar@sdinet.de>
-Subject: Re: Bridge stays down until a port is added
-Date: Fri, 12 Aug 2011 14:22:27 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1108121418090.11637@aurora>
-References: <20110811070659.GA21307@torres.zugschlus.de> <20110811081706.7307e8b2@nehalam.ftrdhcpuser.net> <20110811205429.GB21307@torres.zugschlus.de>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] Fix RCU warning in rt_cache_seq_show
+Date: Fri, 12 Aug 2011 05:49:59 -0700
+Message-ID: <20110812124959.GE2372@linux.vnet.ibm.com>
+References: <1312909360-2675-1-git-send-email-mark.rutland@arm.com>
+ <1312910336.2371.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <4e424f6c.12cde30a.131e.ffffec9bSMTPIN_ADDED@mx.google.com>
+ <1313081901.3261.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20110812023237.GA2372@linux.vnet.ibm.com>
+ <1313133830.2669.34.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Marc Haber <mh+netdev@zugschlus.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Gergely Kalman <synapse@hippy.csoma.elte.hu>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sdinet.de ([78.47.32.153]:37175 "EHLO mail.sdinet.de"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:35402 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751130Ab1HLM3w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 08:29:52 -0400
-In-Reply-To: <20110811205429.GB21307@torres.zugschlus.de>
+	id S1751196Ab1HLOEK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 10:04:10 -0400
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by e6.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p7CDe1Nl016041
+	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 09:40:01 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p7CE49Ye120376
+	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 10:04:09 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p7CE47b5019608
+	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 10:04:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1313133830.2669.34.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 11 Aug 2011, Marc Haber wrote:
+On Fri, Aug 12, 2011 at 09:23:50AM +0200, Eric Dumazet wrote:
+> Le jeudi 11 ao=FBt 2011 =E0 19:32 -0700, Paul E. McKenney a =E9crit :
+> > On Thu, Aug 11, 2011 at 06:58:21PM +0200, Eric Dumazet wrote:
+> > > Le mercredi 10 ao=FBt 2011 =E0 10:28 +0100, Mark Rutland a =E9cri=
+t :
+> > > > > -----Original Message-----
+> > > > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> > > > > Sent: 09 August 2011 18:19
+> > > > > To: Mark Rutland; Paul E. McKenney
+> > > > > Cc: netdev@vger.kernel.org; David S. Miller; Gergely Kalman
+> > > > > Subject: Re: [PATCH] Fix RCU warning in rt_cache_seq_show
+> > > > >=20
+> > > > > Le mardi 09 ao=FBt 2011 =E0 18:02 +0100, Mark Rutland a =E9cr=
+it :
+> > > > > > Commit f2c31e32 ("net: fix NULL dereferences in check_peer_=
+redir()")
+> > > > > > added rcu protection to dst neighbour, and updated callsite=
+s for
+> > > > > > dst_{get,set}_neighbour. Unfortunately, it missed rt_cache_=
+seq_show.
+> > > > > >
+> > > > > > This produces a warning on v3.1-rc1 (on a preemptible kerne=
+l, on an
+> > > > > > ARM Vexpress A9x4):
+> > > > > >
+> > > > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+> > > > > > [ INFO: suspicious rcu_dereference_check() usage. ]
+> > > > > > ---------------------------------------------------
+> > > > > > include/net/dst.h:91 invoked rcu_dereference_check() withou=
+t
+> > > > > protection!
+> > > > > >
+> > > > > > other info that might help us debug this:
+> > > > > >
+> > > > > > rcu_scheduler_active =3D 1, debug_locks =3D 0
+> > > > > > 2 locks held by proc01/32159:
+> > > > > >
+> > > > > > stack backtrace:
+> > > > > > [<80014880>] (unwind_backtrace+0x0/0xf8) from [<802e5c78>]
+> > > > > (rt_cache_seq_show+0x18c/0x1c4)
+> > > > > > [<802e5c78>] (rt_cache_seq_show+0x18c/0x1c4) from [<800e0c5=
+c>]
+> > > > > (seq_read+0x324/0x4a4)
+> > > > > > [<800e0c5c>] (seq_read+0x324/0x4a4) from [<8010786c>]
+> > > > > (proc_reg_read+0x70/0x94)
+> > > > > > [<8010786c>] (proc_reg_read+0x70/0x94) from [<800c0ba8>]
+> > > > > (vfs_read+0xb0/0x144)
+> > > > > > [<800c0ba8>] (vfs_read+0xb0/0x144) from [<800c0ea8>]
+> > > > > (sys_read+0x40/0x70)
+> > > > > > [<800c0ea8>] (sys_read+0x40/0x70) from [<8000e0c0>]
+> > > > > (ret_fast_syscall+0x0/0x3c)
+> > > > > >
+> > > > > > This patch adds calls to rcu_read_{lock,unlock} in rt_cache=
+_seq_show,
+> > > > > > protecting the dereferenced variable, and clearing the warn=
+ing.
+> > > > > >
+> > > > > > Signed-off-by: Mark Rutland <mark.rutland@arm.com>
+> > > > > > Cc: David S. Miller <davem@davemloft.net>
+> > > > > > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > > > > > Cc: Gergely Kalman <synapse@hippy.csoma.elte.hu>
+> > > > > > ---
+> > > > > >  net/ipv4/route.c |    2 ++
+> > > > > >  1 files changed, 2 insertions(+), 0 deletions(-)
+> > > > > >
+> > > > > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > > > > > index e3dec1c..6699ef7 100644
+> > > > > > --- a/net/ipv4/route.c
+> > > > > > +++ b/net/ipv4/route.c
+> > > > > > @@ -419,6 +419,7 @@ static int rt_cache_seq_show(struct seq=
+_file
+> > > > > *seq, void *v)
+> > > > > >  		struct neighbour *n;
+> > > > > >  		int len;
+> > > > > >
+> > > > > > +		rcu_read_lock();
+> > > > > >  		n =3D dst_get_neighbour(&r->dst);
+> > > > > >  		seq_printf(seq, "%s\t%08X\t%08X\t%8X\t%d\t%u\t%d\t"
+> > > > > >  			      "%08X\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
+> > > > > > @@ -435,6 +436,7 @@ static int rt_cache_seq_show(struct seq=
+_file
+> > > > > *seq, void *v)
+> > > > > >  			-1,
+> > > > > >  			(n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0,
+> > > > > >  			r->rt_spec_dst, &len);
+> > > > > > +		rcu_read_unlock();
+> > > > > >
+> > > > > >  		seq_printf(seq, "%*s\n", 127 - len, "");
+> > > > > >  	}
+> > > > >=20
+> > > > >=20
+> > > > > Hmm, I though rcu_read_lock_bh() (done by caller of this func=
+tion) was
+> > > > > protecting us here.
+> > > >=20
+> > > > Aha. Being a bit trigger-happy, I'd had a quick look at the fun=
+ctions
+> > > > mentioned in the backtrace, and not looked at any possible inli=
+ning.
+> > > >=20
+> > > > This being my first real exposure to RCU, I wasn't aware of the=
+ *_bh
+> > > > variants. Looking at the documentation (Documentation/RCU/check=
+list.txt),
+> > > > I think the real problem is that we should be using rcu_derefer=
+ence_bh in
+> > > > this case:
+> > > >=20
+> > > >   > read-side critical sections are delimited by rcu_read_lock(=
+)
+> > > >   > and rcu_read_unlock(), or by similar primitives such as
+> > > >   > rcu_read_lock_bh() and rcu_read_unlock_bh(), in which case
+> > > >   > the matching rcu_dereference() primitive must be used in or=
+der
+> > > >   > to keep lockdep happy, in this case, rcu_dereference_bh().
+> > >=20
+> > > Hmm.
+> > >=20
+> > > I do think dst_get_neighbour() should use rcu_dereference(), beca=
+use
+> > > dst->_neighbour are freed by call_rcu().
+> > >=20
+> > > The question is : Is following construct [A] safe or not ?
+> > >=20
+> > > {
+> > > rcu_read_lock_bh();
+> > > 	/* BH are now disabled, and we are not allowed to sleep */
+> > > 	...
+> > >=20
+> > > 	ptr =3D rcu_dereference();
+> >=20
+> > This should be:
+> >=20
+> > 	ptr =3D rcu_dereference_bh();
+> >=20
+> > As you say below.  Never mind!  ;-)
+> >=20
+> > > 	...
+> > > rcu_read_unlock_bh();
+> > > }
+> > >=20
+> > >=20
+> > > I dont really understand why lockdep wants [B] instead :
+> > >=20
+> > > {
+> > > rcu_read_lock_bh();
+> > > 	...
+> > >=20
+> > > 	{
+> > > 	rcu_read_lock();
+> > > 	ptr =3D rcu_dereference();
+> >=20
+> > Here you are protected by both RCU and RCU-bh, so you should be abl=
+e
+> > to use either rcu_dereference() or rcu_dereference_bh().  A bit
+> > strange to use rcu_dereference_bh(), though.  Except perhaps if a
+> > pointer to a function was passed in from the outer RCU-bh read-side
+> > critical section or something.
+> >=20
+> > > 	rcu_read_unlock();
+> > > 	}
+> > > 	...
+> > > rcu_read_unlock_bh();
+> > > }
+> > >=20
+> > >=20
+> > >=20
+> > > However, I can understand the other way [C], this is really neede=
+d :
+> > >=20
+> > > {
+> > > rcu_read_lock();
+> > > 	...
+> > >=20
+> > > 	{
+> > > 	rcu_read_lock_bh();
+> > > 	ptr =3D rcu_dereference_bh();
+> > > 	rcu_read_unlock_bh();
+> > > 	}
+> > > 	...
+> > > rcu_read_unlock();
+> > > }
+> > >=20
+> > > I believe [A] should be allowed by lockdep.
+> >=20
+> > OK, I'll bite.  Why?
+> >=20
+>=20
+> Oh well, I assumed local_bh_disable() disables preemption.
+>=20
+> It does since day-0
+> add_preempt_count(SOFTIRQ_DISABLE_OFFSET);
+>=20
+> So following should be safe :
+>=20
+> local_bh_disable();
+> {
+> ptr =3D rcu_dereference(...);
+> use(ptr);
+> }
+> local_bh_enable();
+>=20
+> Maybe they are longterm plans to break this assumption, I dont know.
 
-> On Thu, Aug 11, 2011 at 08:17:06AM -0700, Stephen Hemminger wrote:
-> > On Thu, 11 Aug 2011 09:06:59 +0200
-> > Marc Haber <mh+netdev@zugschlus.de> wrote:
-> > > Is that a feature? If so, why does the interface stay pingable after
-> > > removing the dummy0 interface from the bridge?
-> > 
-> > Yes, there are no links to send a packet so it seems logical
-> > that there would be no carrier.
-> 
-> Yes, but if I can configure an IP address to the bridge I would expect
-> it to be reachable even if there are no interfaces in the bridge.
-> "Older" kernels used to behave like that.
+It would be safe for TINY_RCU and TREE_RCU, but not for either
+TINY_PREEMPT_RCU or TREE_PREEMPT_RCU.  These last two do not
+recognize a preempt-disable region as an RCU read-side critical
+section.
 
-For me (using kernel 3.0.0) it seems to work as I expect it:
-
-aurora:~# brctl addbr br0
-aurora:~# ifconfig br0 192.168.254.1 netmask 255.255.255.0 up
-aurora:~# ping 192.168.254.1
-PING 192.168.254.1 (192.168.254.1) 56(84) bytes of data.
-64 bytes from 192.168.254.1: icmp_req=1 ttl=64 time=0.087 ms
-
-aurora:~# ifconfig br0
-br0       Link encap:Ethernet  HWaddr 96:e1:ba:9f:91:f9  
-          inet addr:192.168.254.1  Bcast:192.168.254.255  Mask:255.255.255.0
-          UP BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
-
-The br0 interface has no carrier / is not "running", exactly like an 
-ethernet port without a cable.
-
-c'ya
-sven-haegar
-
--- 
-Three may keep a secret, if two of them are dead.
-- Ben F.
+						Thanx, Paul
