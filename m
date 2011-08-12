@@ -1,227 +1,278 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/10] pch_gbe: Move the OKI Semiconductor driver
-Date: Fri, 12 Aug 2011 00:32:58 -0700
-Message-ID: <1313134384-7287-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/10] eth16i: Move the Allied Telesis/Fujitsu drivers
+Date: Fri, 12 Aug 2011 00:33:01 -0700
+Message-ID: <1313134384-7287-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Tomoya <tomoya-linux@dsn.okisemi.com>,
-	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+	Shingo Fujimoto <shingo@flab.fujitsu.co.jp>,
+	Yutaka Tamiya <tamy@flab.fujitsu.co.jp>,
+	Rene Schmit <rene@bss.lu>, Mika Kuoppala <miku@iki.fi>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:58636 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:58632 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750890Ab1HLHdK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 03:33:10 -0400
+	id S1751482Ab1HLHdM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 03:33:12 -0400
 In-Reply-To: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the OKI Semiconductor driver into driver/net/ethernet/oki-semi/
+Move the Allied Telesis/Fujitsu drivers into drivers/net/ethernet/fujitsu/
 and make the necessary Kconfig and Makefile changes.
 
-Note: there is no documented maintainer for this driver, so I CC'd
-the last 2 major contributors.
-
-CC: Tomoya <tomoya-linux@dsn.okisemi.com>
-CC: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+CC: Shingo Fujimoto <shingo@flab.fujitsu.co.jp>
+CC: Yutaka Tamiya <tamy@flab.fujitsu.co.jp>
+CC: Rene Schmit <rene@bss.lu>
+CC: Mika Kuoppala <miku@iki.fi>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                                |   19 -----------------
- drivers/net/Makefile                               |    1 -
+ MAINTAINERS                                        |    2 +-
+ drivers/net/Kconfig                                |   40 ---------------
+ drivers/net/Makefile                               |    3 -
  drivers/net/ethernet/Kconfig                       |    1 +
  drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/oki-semi/Kconfig              |   22 ++++++++++++++++++++
- drivers/net/ethernet/oki-semi/Makefile             |    5 ++++
- drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |   20 ++++++++++++++++++
- .../net/{ => ethernet/oki-semi}/pch_gbe/Makefile   |    0
- .../net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe.h  |    0
- .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.c  |    0
- .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.h  |    0
- .../oki-semi}/pch_gbe/pch_gbe_ethtool.c            |    0
- .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_main.c |    0
- .../oki-semi}/pch_gbe/pch_gbe_param.c              |    0
- .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.c  |    0
- .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.h  |    0
- 16 files changed, 49 insertions(+), 20 deletions(-)
- create mode 100644 drivers/net/ethernet/oki-semi/Kconfig
- create mode 100644 drivers/net/ethernet/oki-semi/Makefile
- create mode 100644 drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/Makefile (100%)
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe.h (100%)
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.c (100%)
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.h (100%)
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_ethtool.c (100%)
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_main.c (100%)
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_param.c (100%)
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.c (100%)
- rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.h (100%)
+ drivers/net/ethernet/fujitsu/Kconfig               |   53 ++++++++++++++++++++
+ drivers/net/ethernet/fujitsu/Makefile              |    7 +++
+ drivers/net/{ => ethernet/fujitsu}/at1700.c        |    0
+ drivers/net/{ => ethernet/fujitsu}/eth16i.c        |    0
+ .../net/{pcmcia => ethernet/fujitsu}/fmvj18x_cs.c  |    0
+ drivers/net/pcmcia/Kconfig                         |   10 ----
+ drivers/net/pcmcia/Makefile                        |    1 -
+ 12 files changed, 63 insertions(+), 55 deletions(-)
+ create mode 100644 drivers/net/ethernet/fujitsu/Kconfig
+ create mode 100644 drivers/net/ethernet/fujitsu/Makefile
+ rename drivers/net/{ => ethernet/fujitsu}/at1700.c (100%)
+ rename drivers/net/{ => ethernet/fujitsu}/eth16i.c (100%)
+ rename drivers/net/{pcmcia => ethernet/fujitsu}/fmvj18x_cs.c (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 51d9281..5b2ad6c 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2525,7 +2525,7 @@ F:	net/bridge/
+ ETHERTEAM 16I DRIVER
+ M:	Mika Kuoppala <miku@iki.fi>
+ S:	Maintained
+-F:	drivers/net/eth16i.c
++F:	drivers/net/ethernet/fujitsu/eth16i.c
+ 
+ EXT2 FILE SYSTEM
+ M:	Jan Kara <jack@suse.cz>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 696464c..87e7a12 100644
+index c1e491a..27f97b4e 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -996,25 +996,6 @@ config S6GMAC
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called s6gmac.
+@@ -428,18 +428,6 @@ config DNET
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called dnet.
  
--config PCH_GBE
--	tristate "Intel EG20T PCH / OKI SEMICONDUCTOR ML7223 IOH GbE"
--	depends on PCI
--	select MII
+-config AT1700
+-	tristate "AT1700/1720 support (EXPERIMENTAL)"
+-	depends on (ISA || MCA_LEGACY) && EXPERIMENTAL
+-	select CRC32
 -	---help---
--	  This is a gigabit ethernet driver for EG20T PCH.
--	  EG20T PCH is the platform controller hub that is used in Intel's
--	  general embedded platform.
--	  EG20T PCH has Gigabit Ethernet interface.
--	  Using this interface, it is able to access system devices connected
--	  to Gigabit Ethernet.
--	  This driver enables Gigabit Ethernet function.
+-	  If you have a network (Ethernet) card of this type, say Y and read
+-	  the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
 -
--	  This driver also can be used for OKI SEMICONDUCTOR IOH(Input/
--	  Output Hub), ML7223.
--	  ML7223 IOH is for MP(Media Phone) use.
--	  ML7223 is companion chip for Intel Atom E6xx series.
--	  ML7223 is completely compatible for Intel EG20T PCH.
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called at1700.
 -
- endif # NETDEV_1000
+ config HP100
+ 	tristate "HP 10/100VG PCLAN (ISA, EISA, PCI) support"
+ 	depends on ISA || EISA || PCI
+@@ -451,34 +439,6 @@ config HP100
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called hp100.
  
- #
+-config NET_ISA
+-	bool "Other ISA cards"
+-	depends on ISA
+-	---help---
+-	  If your network (Ethernet) card hasn't been mentioned yet and its
+-	  bus system (that's the way the cards talks to the other components
+-	  of your computer) is ISA (as opposed to EISA, VLB or PCI), say Y.
+-	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
+-	  available from <http://www.tldp.org/docs.html#howto>.
+-
+-	  If unsure, say Y.
+-
+-	  Note that the answer to this question doesn't directly affect the
+-	  kernel: saying N will just cause the configurator to skip all
+-	  the remaining ISA network card questions. If you say Y, you will be
+-	  asked for your specific card in the following questions.
+-
+-config ETH16I
+-	tristate "ICL EtherTeam 16i/32 support"
+-	depends on NET_ISA
+-	help
+-	  If you have a network (Ethernet) card of this type, say Y and read
+-	  the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called eth16i.
+-
+ config NET_PCI
+ 	bool "EISA, VLB, PCI and on board controllers"
+ 	depends on ISA || EISA || PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index b1ead87..141ed25 100644
+index 7e1128f..07cad1a 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -156,5 +156,4 @@ obj-$(CONFIG_WIMAX) += wimax/
- obj-$(CONFIG_CAIF) += caif/
- 
- obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
--obj-$(CONFIG_PCH_GBE) += pch_gbe/
- obj-$(CONFIG_TILE_NET) += tile/
+@@ -96,10 +96,7 @@ obj-$(CONFIG_IFB) += ifb.o
+ obj-$(CONFIG_MACVLAN) += macvlan.o
+ obj-$(CONFIG_MACVTAP) += macvtap.o
+ obj-$(CONFIG_DEFXX) += defxx.o
+-obj-$(CONFIG_AT1700) += at1700.o
+ obj-$(CONFIG_CPMAC) += cpmac.o
+-
+-obj-$(CONFIG_ETH16I) += eth16i.o
+ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_KORINA) += korina.o
+ obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 35ed4c2..0eaf957 100644
+index bdc0df8..d3aff74 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -32,6 +32,7 @@ source "drivers/net/ethernet/mellanox/Kconfig"
- source "drivers/net/ethernet/myricom/Kconfig"
- source "drivers/net/ethernet/natsemi/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
-+source "drivers/net/ethernet/oki-semi/Kconfig"
- source "drivers/net/ethernet/pasemi/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
+@@ -24,6 +24,7 @@ source "drivers/net/ethernet/dlink/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
+ source "drivers/net/ethernet/neterion/Kconfig"
+ source "drivers/net/ethernet/faraday/Kconfig"
++source "drivers/net/ethernet/fujitsu/Kconfig"
+ source "drivers/net/ethernet/ibm/Kconfig"
+ source "drivers/net/ethernet/intel/Kconfig"
+ source "drivers/net/ethernet/i825xx/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index ea0999f..b5ca872 100644
+index ac60ac9..b098c5e 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -23,6 +23,7 @@ obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-+obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
- obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
-diff --git a/drivers/net/ethernet/oki-semi/Kconfig b/drivers/net/ethernet/oki-semi/Kconfig
+@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
+ obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
++obj-$(CONFIG_NET_VENDOR_FUJITSU) += fujitsu/
+ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+ obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+diff --git a/drivers/net/ethernet/fujitsu/Kconfig b/drivers/net/ethernet/fujitsu/Kconfig
 new file mode 100644
-index 0000000..97f5e72
+index 0000000..2cd968e
 --- /dev/null
-+++ b/drivers/net/ethernet/oki-semi/Kconfig
-@@ -0,0 +1,22 @@
++++ b/drivers/net/ethernet/fujitsu/Kconfig
+@@ -0,0 +1,53 @@
 +#
-+# OKI Semiconductor device configuration
++# Fujitsu Network device configuration
 +#
 +
-+config NET_VENDOR_OKI
-+	bool "OKI Semiconductor devices"
-+	depends on PCI
++config NET_VENDOR_FUJITSU
++	bool "Fujitsu devices"
++	depends on ISA || PCMCIA || ((ISA || MCA_LEGACY) && EXPERIMENTAL)
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about OKI Semiconductor cards. If you say Y, you will
-+	  be asked for your specific card in the following questions.
++	  the questions about Fujitsu cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+if NET_VENDOR_OKI
++if NET_VENDOR_FUJITSU
 +
-+source "drivers/net/ethernet/oki-semi/pch_gbe/Kconfig"
-+
-+endif # NET_VENDOR_OKI
-diff --git a/drivers/net/ethernet/oki-semi/Makefile b/drivers/net/ethernet/oki-semi/Makefile
-new file mode 100644
-index 0000000..b6780c8
---- /dev/null
-+++ b/drivers/net/ethernet/oki-semi/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the OKI Semiconductor device drivers.
-+#
-+
-+obj-$(CONFIG_PCH_GBE) += pch_gbe/
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-new file mode 100644
-index 0000000..c85709d
---- /dev/null
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-@@ -0,0 +1,20 @@
-+#
-+# OKI Semiconductor device configuration
-+#
-+
-+config PCH_GBE
-+	tristate "OKI SEMICONDUCTOR ML7223 IOH GbE (Intel EG20T PCH)"
-+	depends on PCI
-+	select MII
++config AT1700
++	tristate "AT1700/1720 support (EXPERIMENTAL)"
++	depends on (ISA || MCA_LEGACY) && EXPERIMENTAL
++	select CRC32
 +	---help---
-+	  This is a gigabit ethernet driver for EG20T PCH.
-+	  EG20T PCH is the platform controller hub that is used in Intel's
-+	  general embedded platform.  EG20T PCH has Gigabit Ethernet interface.
-+	  Using this interface, it is able to access system devices connected
-+	  to Gigabit Ethernet.  This driver enables Gigabit Ethernet function.
++	  If you have a network (Ethernet) card of this type, say Y and read
++	  the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
 +
-+	  This driver also can be used for OKI SEMICONDUCTOR IOH(Input/
-+	  Output Hub), ML7223.
-+	  ML7223 IOH is for MP(Media Phone) use.
-+	  ML7223 is companion chip for Intel Atom E6xx series.
-+	  ML7223 is completely compatible for Intel EG20T PCH.
-diff --git a/drivers/net/pch_gbe/Makefile b/drivers/net/ethernet/oki-semi/pch_gbe/Makefile
++	  To compile this driver as a module, choose M here. The module
++	  will be called at1700.
++
++config PCMCIA_FMVJ18X
++	tristate "Fujitsu FMV-J18x PCMCIA support"
++	depends on PCMCIA
++	select CRC32
++	---help---
++	  Say Y here if you intend to attach a Fujitsu FMV-J18x or compatible
++	  PCMCIA (PC-card) Ethernet card to your computer.
++
++	  To compile this driver as a module, choose M here: the module will be
++	  called fmvj18x_cs.  If unsure, say N.
++
++config ETH16I
++	tristate "ICL EtherTeam 16i/32 support"
++	depends on ISA
++	---help---
++	  If you have a network (Ethernet) card of this type, say Y and read
++	  the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called eth16i.
++
++endif # NET_VENDOR_FUJITSU
+diff --git a/drivers/net/ethernet/fujitsu/Makefile b/drivers/net/ethernet/fujitsu/Makefile
+new file mode 100644
+index 0000000..2730ae6
+--- /dev/null
++++ b/drivers/net/ethernet/fujitsu/Makefile
+@@ -0,0 +1,7 @@
++#
++# Makefile for the Fujitsu network device drivers.
++#
++
++obj-$(CONFIG_AT1700) += at1700.o
++obj-$(CONFIG_ETH16I) += eth16i.o
++obj-$(CONFIG_PCMCIA_FMVJ18X) += fmvj18x_cs.o
+diff --git a/drivers/net/at1700.c b/drivers/net/ethernet/fujitsu/at1700.c
 similarity index 100%
-rename from drivers/net/pch_gbe/Makefile
-rename to drivers/net/ethernet/oki-semi/pch_gbe/Makefile
-diff --git a/drivers/net/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+rename from drivers/net/at1700.c
+rename to drivers/net/ethernet/fujitsu/at1700.c
+diff --git a/drivers/net/eth16i.c b/drivers/net/ethernet/fujitsu/eth16i.c
 similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe.h
-rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-diff --git a/drivers/net/pch_gbe/pch_gbe_api.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
+rename from drivers/net/eth16i.c
+rename to drivers/net/ethernet/fujitsu/eth16i.c
+diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
 similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_api.c
-rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_api.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.h
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_api.h
-rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.h
-diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_ethtool.c
-rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_main.c
-rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_param.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_param.c
-rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_phy.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_phy.c
-rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
-diff --git a/drivers/net/pch_gbe/pch_gbe_phy.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
-similarity index 100%
-rename from drivers/net/pch_gbe/pch_gbe_phy.h
-rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
+rename from drivers/net/pcmcia/fmvj18x_cs.c
+rename to drivers/net/ethernet/fujitsu/fmvj18x_cs.c
+diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
+index f5a738f..80d291e 100644
+--- a/drivers/net/pcmcia/Kconfig
++++ b/drivers/net/pcmcia/Kconfig
+@@ -21,16 +21,6 @@ menuconfig NET_PCMCIA
+ 
+ if NET_PCMCIA && PCMCIA
+ 
+-config PCMCIA_FMVJ18X
+-	tristate "Fujitsu FMV-J18x PCMCIA support"
+-	select CRC32
+-	help
+-	  Say Y here if you intend to attach a Fujitsu FMV-J18x or compatible
+-	  PCMCIA (PC-card) Ethernet card to your computer.
+-
+-	  To compile this driver as a module, choose M here: the module will be
+-	  called fmvj18x_cs.  If unsure, say N.
+-
+ config PCMCIA_XIRC2PS
+ 	tristate "Xircom 16-bit PCMCIA support"
+ 	help
+diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
+index f9c9883..ccf5535 100644
+--- a/drivers/net/pcmcia/Makefile
++++ b/drivers/net/pcmcia/Makefile
+@@ -3,7 +3,6 @@
+ #
+ 
+ # 16-bit client drivers
+-obj-$(CONFIG_PCMCIA_FMVJ18X)	+= fmvj18x_cs.o
+ obj-$(CONFIG_PCMCIA_XIRC2PS)	+= xirc2ps_cs.o
+ obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
+ 
 -- 
 1.7.6
 
