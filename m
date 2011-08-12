@@ -1,189 +1,74 @@
-From: Chetan Loke <loke.chetan@gmail.com>
-Subject: [PATCH net-next v4 af-packet 1/2] Enhance af-packet to provide (near zero)lossless packet capture functionality.
-Date: Thu, 11 Aug 2011 22:30:59 -0400
-Message-ID: <1313116260-1000-2-git-send-email-loke.chetan@gmail.com>
-References: <1313116260-1000-1-git-send-email-loke.chetan@gmail.com>
-Cc: Chetan Loke <loke.chetan@gmail.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:59256 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753184Ab1HLCb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2011 22:31:27 -0400
-Received: by vxi9 with SMTP id 9so2087461vxi.19
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2011 19:31:26 -0700 (PDT)
-In-Reply-To: <1313116260-1000-1-git-send-email-loke.chetan@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Thu, 11 Aug 2011 19:31:35 -0700
+Message-ID: <1313116296.2057.30.camel@jtkirshe-mobl>
+References: <20110812120248.a23ecc95e9c1111da3a8ef30@canb.auug.org.au>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-L1PAMMkqYFRbGe2Ao24X"
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110812120248.a23ecc95e9c1111da3a8ef30@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Chetan Loke <loke.chetan@gmail.com>
----
- include/linux/if_packet.h |  119 +++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 119 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
-index c148606..5926d59 100644
---- a/include/linux/if_packet.h
-+++ b/include/linux/if_packet.h
-@@ -61,6 +61,17 @@ struct tpacket_stats {
- 	unsigned int	tp_drops;
- };
- 
-+struct tpacket_stats_v3 {
-+	unsigned int	tp_packets;
-+	unsigned int	tp_drops;
-+	unsigned int	tp_freeze_q_cnt;
-+};
-+
-+union tpacket_stats_u {
-+	struct tpacket_stats stats1;
-+	struct tpacket_stats_v3 stats3;
-+};
-+
- struct tpacket_auxdata {
- 	__u32		tp_status;
- 	__u32		tp_len;
-@@ -78,6 +89,7 @@ struct tpacket_auxdata {
- #define TP_STATUS_LOSING	0x4
- #define TP_STATUS_CSUMNOTREADY	0x8
- #define TP_STATUS_VLAN_VALID   0x10 /* auxdata has valid tp_vlan_tci */
-+#define TP_STATUS_BLK_TMO	0x20
- 
- /* Tx ring - header status */
- #define TP_STATUS_AVAILABLE	0x0
-@@ -85,6 +97,9 @@ struct tpacket_auxdata {
- #define TP_STATUS_SENDING	0x2
- #define TP_STATUS_WRONG_FORMAT	0x4
- 
-+/* Rx ring - feature request bits */
-+#define TP_FT_REQ_FILL_RXHASH	0x1
-+
- struct tpacket_hdr {
- 	unsigned long	tp_status;
- 	unsigned int	tp_len;
-@@ -111,11 +126,100 @@ struct tpacket2_hdr {
- 	__u16		tp_padding;
- };
- 
-+struct hdr_variant1 {
-+	__u32	tp_rxhash;
-+	__u32	tp_vlan_tci;
-+};
-+
-+struct tpacket3_hdr {
-+	__u32		tp_next_offset;
-+	__u32		tp_sec;
-+	__u32		tp_nsec;
-+	__u32		tp_snaplen;
-+	__u32		tp_len;
-+	__u32		tp_status;
-+	__u16		tp_mac;
-+	__u16		tp_net;
-+	/* pkt_hdr variants */
-+	union {
-+		struct hdr_variant1 hv1;
-+	};
-+};
-+
-+struct bd_ts {
-+	unsigned int ts_sec;
-+	union {
-+		unsigned int ts_usec;
-+		unsigned int ts_nsec;
-+	};
-+};
-+
-+struct hdr_v1 {
-+	__u32	block_status;
-+	__u32	num_pkts;
-+	__u32	offset_to_first_pkt;
-+
-+	/* Number of valid bytes (including padding)
-+	 * blk_len <= tp_block_size
-+	 */
-+	__u32	blk_len;
-+
-+	/*
-+	 * Quite a few uses of sequence number:
-+	 * 1. Make sure cache flush etc worked.
-+	 *    Well, one can argue - why not use the increasing ts below?
-+	 *    But look at 2. below first.
-+	 * 2. When you pass around blocks to other user space decoders,
-+	 *    you can see which blk[s] is[are] outstanding etc.
-+	 * 3. Validate kernel code.
-+	 */
-+	aligned_u64	seq_num;
-+
-+	/*
-+	 * ts_last_pkt:
-+	 *
-+	 * Case 1.	Block has 'N'(N >=1) packets and TMO'd(timed out)
-+	 *		ts_last_pkt == 'time-stamp of last packet' and NOT the
-+	 *		time when the timer fired and the block was closed.
-+	 *		By providing the ts of the last packet we can absolutely
-+	 *		guarantee that time-stamp wise, the first packet in the
-+	 *		next block will never precede the last packet of the
-+	 *		previous block.
-+	 * Case 2.	Block has zero packets and TMO'd
-+	 *		ts_last_pkt = time when the timer fired and the block
-+	 *		was closed.
-+	 * Case 3.	Block has 'N' packets and NO TMO.
-+	 *		ts_last_pkt = time-stamp of the last pkt in the block.
-+	 *
-+	 * ts_first_pkt:
-+	 *		Is always the time-stamp when the block was opened.
-+	 *		Case a)	ZERO packets
-+	 *			No packets to deal with but atleast you know the
-+	 *			time-interval of this block.
-+	 *		Case b) Non-zero packets
-+	 *			Use the ts of the first packet in the block.
-+	 *
-+	 */
-+	struct bd_ts	ts_first_pkt, ts_last_pkt;
-+};
-+
-+union bd_header_u {
-+	struct hdr_v1 bh1;
-+};
-+
-+struct block_desc {
-+	__u32 version;
-+	__u32 offset_to_priv;
-+	union bd_header_u hdr;
-+};
-+
- #define TPACKET2_HDRLEN		(TPACKET_ALIGN(sizeof(struct tpacket2_hdr)) + sizeof(struct sockaddr_ll))
-+#define TPACKET3_HDRLEN		(TPACKET_ALIGN(sizeof(struct tpacket3_hdr)) + sizeof(struct sockaddr_ll))
- 
- enum tpacket_versions {
- 	TPACKET_V1,
- 	TPACKET_V2,
-+	TPACKET_V3
- };
- 
- /*
-@@ -138,6 +242,21 @@ struct tpacket_req {
- 	unsigned int	tp_frame_nr;	/* Total number of frames */
- };
- 
-+struct tpacket_req3 {
-+	unsigned int	tp_block_size;	/* Minimal size of contiguous block */
-+	unsigned int	tp_block_nr;	/* Number of blocks */
-+	unsigned int	tp_frame_size;	/* Size of frame */
-+	unsigned int	tp_frame_nr;	/* Total number of frames */
-+	unsigned int	tp_retire_blk_tov; /* timeout in msecs */
-+	unsigned int	tp_sizeof_priv; /* offset to private data area */
-+	unsigned int	tp_feature_req_word;
-+};
-+
-+union tpacket_req_u {
-+	struct tpacket_req	req;
-+	struct tpacket_req3	req3;
-+};
-+
- struct packet_mreq {
- 	int		mr_ifindex;
- 	unsigned short	mr_type;
--- 
-1.7.5.2
+--=-L1PAMMkqYFRbGe2Ao24X
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+On Thu, 2011-08-11 at 19:02 -0700, Stephen Rothwell wrote:
+> Hi all,
+>=20
+> After merging the net tree, today's linux-next build (powerpc
+> ppc64_defconfig) failed like this:
+>=20
+> Assembler messages:
+> Fatal error: can't create drivers/net/ethernet/sun/.tmp_sungem_phy.o: No =
+such file or directory
+>=20
+> Presumably caused by commit e689cf4a0427 ("cassini/niu/sun*: Move the Sun
+> drivers") theough I don't know why.  I tried throwing away my object
+> directory, but that didn't help.
+>=20
+> Ah, ha!  This looks suspicious (change to drivers/net/Makefile):
+>=20
+> +obj-$(CONFIG_SPIDER_NET) +=3D spidernet.o ethernet/sun/sungem_phy.o
+>=20
+> I have used the net tree from next-20110811 for today.
+
+I am curious, can you compile the Sun GEM support driver?  and if so,
+does the Spider Net driver compile?
+
+I know I did not have the PPC hardware to test the compilation of the
+Spider Net driver, but I was basing the Makefile changes on similar
+changes that the Broadcom driver required, which I did compile test.
+
+I want to resolve this before continuing on with the next set of
+patches.
+
+
+
+--=-L1PAMMkqYFRbGe2Ao24X
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJORJCHAAoJECTsCADr/EWUnpkIAILvMD+I8W516JsOSSCxV2WW
+PaST8wJQx0+nqD0TTaOM3n2Gw6hwSbz9wJGXCMv6U+xreJCGv4tr09AvGHOQC/8L
+sJRQ+CJ4NUfsZ5y7gCqbBcsJSDr3MKr0o/L3aETNVaRTJph8/W4xFhiYBPVKRLL9
+81y0TtcHiQNc/53M7Q4vTqGI1Ju/JDotQBjYMPQZk+fUcfYMiHEvn9oD0rSKK2Fz
+E1nQhsIGFbavhNi0eXLnO4FVymQCi6Ggf5r5A8tQGulBR+5/9+I0VthW9nMPYQhz
+QpGo2Eg9T8E/sBQNEWgG8UouHQZfqcxnVnqIjHwKDU+e2nxQRGx5OCXkBlLHkdE=
+=Ml6H
+-----END PGP SIGNATURE-----
+
+--=-L1PAMMkqYFRbGe2Ao24X--
