@@ -1,232 +1,135 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/10] sis*: Move the Silicon Integrated Systems (SiS) drivers
-Date: Fri, 12 Aug 2011 03:52:42 -0700
-Message-ID: <1313146371-6562-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/10] octeon: Move the Cavium driver
+Date: Fri, 12 Aug 2011 03:52:49 -0700
+Message-ID: <1313146371-6562-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Daniele Venzano <venza@brownhat.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
+	David Daney <david.daney@cavium.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:32672 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:54616 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751476Ab1HLKwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 06:52:54 -0400
+	id S1752720Ab1HLKxA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 06:53:00 -0400
 In-Reply-To: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the SiS drivers into drivers/net/ethernet/sis/ and make the
-necessary Kconfig and Makefile changes
+Move the Cavium driver to drivers/net/ethernet/octeon/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Daniele Venzano <venza@brownhat.org>
-CC: Francois Romieu <romieu@fr.zoreil.com>
+CC: David Daney <david.daney@cavium.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: David Daney <david.daney@cavium.com>
 ---
- MAINTAINERS                             |    4 +-
- drivers/net/Kconfig                     |   30 ------------------
- drivers/net/Makefile                    |    2 -
- drivers/net/ethernet/Kconfig            |    1 +
- drivers/net/ethernet/Makefile           |    1 +
- drivers/net/ethernet/sis/Kconfig        |   50 +++++++++++++++++++++++++++++++
- drivers/net/ethernet/sis/Makefile       |    6 ++++
- drivers/net/{ => ethernet/sis}/sis190.c |    0
- drivers/net/{ => ethernet/sis}/sis900.c |    0
- drivers/net/{ => ethernet/sis}/sis900.h |    0
- 10 files changed, 60 insertions(+), 34 deletions(-)
- create mode 100644 drivers/net/ethernet/sis/Kconfig
- create mode 100644 drivers/net/ethernet/sis/Makefile
- rename drivers/net/{ => ethernet/sis}/sis190.c (100%)
- rename drivers/net/{ => ethernet/sis}/sis900.c (100%)
- rename drivers/net/{ => ethernet/sis}/sis900.h (100%)
+ drivers/net/Kconfig                             |    2 --
+ drivers/net/Makefile                            |    1 -
+ drivers/net/ethernet/Kconfig                    |    1 +
+ drivers/net/ethernet/Makefile                   |    1 +
+ drivers/net/{ => ethernet}/octeon/Kconfig       |    6 +++++-
+ drivers/net/ethernet/octeon/Makefile            |    5 +++++
+ drivers/net/{ => ethernet}/octeon/octeon_mgmt.c |    0
+ drivers/net/octeon/Makefile                     |    2 --
+ 8 files changed, 12 insertions(+), 6 deletions(-)
+ rename drivers/net/{ => ethernet}/octeon/Kconfig (85%)
+ create mode 100644 drivers/net/ethernet/octeon/Makefile
+ rename drivers/net/{ => ethernet}/octeon/octeon_mgmt.c (100%)
+ delete mode 100644 drivers/net/octeon/Makefile
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 84948bd..96a2d47 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5820,14 +5820,14 @@ SIS 190 ETHERNET DRIVER
- M:	Francois Romieu <romieu@fr.zoreil.com>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/sis190.c
-+F:	drivers/net/ethernet/sis/sis190.c
- 
- SIS 900/7016 FAST ETHERNET DRIVER
- M:	Daniele Venzano <venza@brownhat.org>
- W:	http://www.brownhat.org/sis900.html
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/sis900.*
-+F:	drivers/net/ethernet/sis/sis900.*
- 
- SIS 96X I2C/SMBUS DRIVER
- M:	"Mark M. Hoffman" <mhoffman@lightlink.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 1e1df3d..33df254 100644
+index 99b209e..b896621 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -500,22 +500,6 @@ config R6040
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called r6040. This is recommended.
+@@ -506,8 +506,6 @@ config LANTIQ_ETOP
+ 	help
+ 	  Support for the MII0 inside the Lantiq SoC
  
--config SIS900
--	tristate "SiS 900/7016 PCI Fast Ethernet Adapter support"
--	depends on NET_PCI && PCI
--	select CRC32
--	select MII
--	---help---
--	  This is a driver for the Fast Ethernet PCI network cards based on
--	  the SiS 900 and SiS 7016 chips. The SiS 900 core is also embedded in
--	  SiS 630 and SiS 540 chipsets.
+-source "drivers/net/octeon/Kconfig"
 -
--	  This driver also supports AMD 79C901 HomePNA so that you can use
--	  your phone line as a network cable.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called sis900.  This is recommended.
--
- config TLAN
- 	tristate "TI ThunderLAN support"
- 	depends on NET_PCI && (PCI || EISA)
-@@ -639,20 +623,6 @@ config YELLOWFIN
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called yellowfin.  This is recommended.
+ endif # NET_ETHERNET
  
--config SIS190
--	tristate "SiS190/SiS191 gigabit ethernet support"
--	depends on PCI
--	select CRC32
--	select MII
--	---help---
--	  Say Y here if you have a SiS 190 PCI Fast Ethernet adapter or
--	  a SiS 191 PCI Gigabit Ethernet adapter. Both are expected to
--	  appear in lan on motherboard designs which are based on SiS 965
--	  and SiS 966 south bridge.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called sis190.  This is recommended.
--
- config TSI108_ETH
- 	tristate "Tundra TSI108 gigabit Ethernet support"
- 	depends on TSI108_BRIDGE
+ #
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 275ed4a..3b14f1a 100644
+index d8c286e..648fa5c 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -24,8 +24,6 @@ obj-$(CONFIG_PLIP) += plip.o
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
+@@ -105,5 +105,4 @@ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_WIMAX) += wimax/
+ obj-$(CONFIG_CAIF) += caif/
  
- obj-$(CONFIG_TLAN) += tlan.o
--obj-$(CONFIG_SIS190) += sis190.o
--obj-$(CONFIG_SIS900) += sis900.o
- obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_YELLOWFIN) += yellowfin.o
- obj-$(CONFIG_FEALNX) += fealnx.o
+-obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
+ obj-$(CONFIG_TILE_NET) += tile/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 9754247..b15b1e2 100644
+index 140dd73..70c60ef 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -42,6 +42,7 @@ source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/realtek/Kconfig"
- source "drivers/net/ethernet/seeq/Kconfig"
-+source "drivers/net/ethernet/sis/Kconfig"
- source "drivers/net/ethernet/sfc/Kconfig"
- source "drivers/net/ethernet/sgi/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
+@@ -38,6 +38,7 @@ source "drivers/net/ethernet/myricom/Kconfig"
+ source "drivers/net/ethernet/natsemi/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
+ source "drivers/net/ethernet/nuvoton/Kconfig"
++source "drivers/net/ethernet/octeon/Kconfig"
+ source "drivers/net/ethernet/oki-semi/Kconfig"
+ source "drivers/net/ethernet/packetengines/Kconfig"
+ source "drivers/net/ethernet/pasemi/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 7e7a319..1f45ec9 100644
+index 8a97b19..929ee29 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -33,6 +33,7 @@ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
- obj-$(CONFIG_NET_VENDOR_SEEQ) += seeq/
-+obj-$(CONFIG_NET_VENDOR_SIS) += sis/
- obj-$(CONFIG_SFC) += sfc/
- obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
-diff --git a/drivers/net/ethernet/sis/Kconfig b/drivers/net/ethernet/sis/Kconfig
+@@ -29,6 +29,7 @@ obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
+ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
+ obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
+ obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
++obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
+ obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
+ obj-$(CONFIG_NET_PACKET_ENGINE) += packetengines/
+ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
+diff --git a/drivers/net/octeon/Kconfig b/drivers/net/ethernet/octeon/Kconfig
+similarity index 85%
+rename from drivers/net/octeon/Kconfig
+rename to drivers/net/ethernet/octeon/Kconfig
+index 1e56bbf..3de52ff 100644
+--- a/drivers/net/octeon/Kconfig
++++ b/drivers/net/ethernet/octeon/Kconfig
+@@ -1,10 +1,14 @@
++#
++# Cavium network device configuration
++#
++
+ config OCTEON_MGMT_ETHERNET
+ 	tristate "Octeon Management port ethernet driver (CN5XXX, CN6XXX)"
+ 	depends on  CPU_CAVIUM_OCTEON
+ 	select PHYLIB
+ 	select MDIO_OCTEON
+ 	default y
+-	help
++	---help---
+ 	  This option enables the ethernet driver for the management
+ 	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
+ 	  CN54XX, CN52XX, and CN6XXX chips.
+diff --git a/drivers/net/ethernet/octeon/Makefile b/drivers/net/ethernet/octeon/Makefile
 new file mode 100644
-index 0000000..01d43e8
+index 0000000..efa41c1
 --- /dev/null
-+++ b/drivers/net/ethernet/sis/Kconfig
-@@ -0,0 +1,50 @@
++++ b/drivers/net/ethernet/octeon/Makefile
+@@ -0,0 +1,5 @@
 +#
-+# Silicon Integrated Systems (SiS) device configuration
-+#
-+
-+config NET_VENDOR_SIS
-+	bool "Silicon Integrated Systems (SiS) devices"
-+	depends on PCI
-+	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about SiS devices. If you say Y, you will be asked for
-+	  your specific card in the following questions.
-+
-+if NET_VENDOR_SIS
-+
-+config SIS900
-+	tristate "SiS 900/7016 PCI Fast Ethernet Adapter support"
-+	depends on PCI
-+	select CRC32
-+	select MII
-+	---help---
-+	  This is a driver for the Fast Ethernet PCI network cards based on
-+	  the SiS 900 and SiS 7016 chips. The SiS 900 core is also embedded in
-+	  SiS 630 and SiS 540 chipsets.
-+
-+	  This driver also supports AMD 79C901 HomePNA so that you can use
-+	  your phone line as a network cable.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sis900.  This is recommended.
-+
-+config SIS190
-+	tristate "SiS190/SiS191 gigabit ethernet support"
-+	depends on PCI
-+	select CRC32
-+	select MII
-+	---help---
-+	  Say Y here if you have a SiS 190 PCI Fast Ethernet adapter or
-+	  a SiS 191 PCI Gigabit Ethernet adapter. Both are expected to
-+	  appear in lan on motherboard designs which are based on SiS 965
-+	  and SiS 966 south bridge.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sis190.  This is recommended.
-+
-+endif # NET_VENDOR_SIS
-diff --git a/drivers/net/ethernet/sis/Makefile b/drivers/net/ethernet/sis/Makefile
-new file mode 100644
-index 0000000..58d3ac1
---- /dev/null
-+++ b/drivers/net/ethernet/sis/Makefile
-@@ -0,0 +1,6 @@
-+#
-+# Makefile for Silicon Integrated Systems (SiS) network device drivers.
++# Makefile for the Cavium network device drivers.
 +#
 +
-+obj-$(CONFIG_SIS190) += sis190.o
-+obj-$(CONFIG_SIS900) += sis900.o
-diff --git a/drivers/net/sis190.c b/drivers/net/ethernet/sis/sis190.c
++obj-$(CONFIG_OCTEON_MGMT_ETHERNET)	+= octeon_mgmt.o
+diff --git a/drivers/net/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
 similarity index 100%
-rename from drivers/net/sis190.c
-rename to drivers/net/ethernet/sis/sis190.c
-diff --git a/drivers/net/sis900.c b/drivers/net/ethernet/sis/sis900.c
-similarity index 100%
-rename from drivers/net/sis900.c
-rename to drivers/net/ethernet/sis/sis900.c
-diff --git a/drivers/net/sis900.h b/drivers/net/ethernet/sis/sis900.h
-similarity index 100%
-rename from drivers/net/sis900.h
-rename to drivers/net/ethernet/sis/sis900.h
+rename from drivers/net/octeon/octeon_mgmt.c
+rename to drivers/net/ethernet/octeon/octeon_mgmt.c
+diff --git a/drivers/net/octeon/Makefile b/drivers/net/octeon/Makefile
+deleted file mode 100644
+index 906edec..0000000
+--- a/drivers/net/octeon/Makefile
++++ /dev/null
+@@ -1,2 +0,0 @@
+-
+-obj-$(CONFIG_OCTEON_MGMT_ETHERNET)	+= octeon_mgmt.o
 -- 
 1.7.6
 
