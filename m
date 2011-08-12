@@ -1,55 +1,59 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v12 5/6] flexcan: Prefer device tree clock frequency if
-	available.
-Date: Fri, 12 Aug 2011 14:22:56 +0200
-Message-ID: <4E451B20.2070207@grandegger.com>
-References: <1313138752-24006-1-git-send-email-holt@sgi.com>
-	<1313138752-24006-6-git-send-email-holt@sgi.com>
+From: Sven-Haegar Koch <haegar@sdinet.de>
+Subject: Re: Bridge stays down until a port is added
+Date: Fri, 12 Aug 2011 14:22:27 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1108121418090.11637@aurora>
+References: <20110811070659.GA21307@torres.zugschlus.de> <20110811081706.7307e8b2@nehalam.ftrdhcpuser.net> <20110811205429.GB21307@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1313138752-24006-6-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Marc Haber <mh+netdev@zugschlus.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.sdinet.de ([78.47.32.153]:37175 "EHLO mail.sdinet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751130Ab1HLM3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 08:29:52 -0400
+In-Reply-To: <20110811205429.GB21307@torres.zugschlus.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2011 10:45 AM, Robin Holt wrote:
-> If our CAN device's device tree node has a clock-frequency property,
-> then use that value for the can devices clock frequency.  If not, fall
-> back to asking the platform/mach code for the clock frequency associated
-> with the flexcan device.
+On Thu, 11 Aug 2011, Marc Haber wrote:
+
+> On Thu, Aug 11, 2011 at 08:17:06AM -0700, Stephen Hemminger wrote:
+> > On Thu, 11 Aug 2011 09:06:59 +0200
+> > Marc Haber <mh+netdev@zugschlus.de> wrote:
+> > > Is that a feature? If so, why does the interface stay pingable after
+> > > removing the dummy0 interface from the bridge?
+> > 
+> > Yes, there are no links to send a packet so it seems logical
+> > that there would be no carrier.
 > 
-> Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-> To: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-> To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-> To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-> To: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> To: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-> Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> Yes, but if I can configure an IP address to the bridge I would expect
+> it to be reachable even if there are no interfaces in the bridge.
+> "Older" kernels used to behave like that.
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+For me (using kernel 3.0.0) it seems to work as I expect it:
 
->From the Socket-CAN point of view, this and the other patches can go in.
-Thanks for your effort.
+aurora:~# brctl addbr br0
+aurora:~# ifconfig br0 192.168.254.1 netmask 255.255.255.0 up
+aurora:~# ping 192.168.254.1
+PING 192.168.254.1 (192.168.254.1) 56(84) bytes of data.
+64 bytes from 192.168.254.1: icmp_req=1 ttl=64 time=0.087 ms
 
-Wolfgang.
+aurora:~# ifconfig br0
+br0       Link encap:Ethernet  HWaddr 96:e1:ba:9f:91:f9  
+          inet addr:192.168.254.1  Bcast:192.168.254.255  Mask:255.255.255.0
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+The br0 interface has no carrier / is not "running", exactly like an 
+ethernet port without a cable.
+
+c'ya
+sven-haegar
+
+-- 
+Three may keep a secret, if two of them are dead.
+- Ben F.
