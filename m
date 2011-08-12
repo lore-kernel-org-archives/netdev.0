@@ -1,146 +1,194 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/10] ioc3-eth/meth: Move the SGI drivers
-Date: Fri, 12 Aug 2011 00:32:56 -0700
-Message-ID: <1313134384-7287-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/10] toshiba: Move the Toshiba drivers
+Date: Fri, 12 Aug 2011 00:33:04 -0700
+Message-ID: <1313134384-7287-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Ralf Baechle <ralf@linux-mips.org>
+	Geoff Levand <geoff@infradead.org>,
+	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:58636 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:58632 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751482Ab1HLHdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 03:33:09 -0400
+	id S1752496Ab1HLHdO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 03:33:14 -0400
 In-Reply-To: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the SGI drivers into drivers/net/ethernet/sgi/ and make the
-necessary Kconfig and Makefile changes.
+Move the Toshiba ethernet drivers into drivers/net/ethernet/toshiba
+and make the necessary Kconfig and Makefile changes.
 
-CC: Ralf Baechle <ralf@linux-mips.org>
+CC: Geoff Levand <geoff@infradead.org>
+CC: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
+CC: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                               |    2 +-
- drivers/net/Kconfig                       |   14 ------------
- drivers/net/Makefile                      |    2 -
- drivers/net/ethernet/Kconfig              |    1 +
- drivers/net/ethernet/Makefile             |    1 +
- drivers/net/ethernet/sgi/Kconfig          |   34 +++++++++++++++++++++++++++++
- drivers/net/ethernet/sgi/Makefile         |    6 +++++
- drivers/net/{ => ethernet/sgi}/ioc3-eth.c |    0
- drivers/net/{ => ethernet/sgi}/meth.c     |    0
- drivers/net/{ => ethernet/sgi}/meth.h     |    0
- 10 files changed, 43 insertions(+), 17 deletions(-)
- create mode 100644 drivers/net/ethernet/sgi/Kconfig
- create mode 100644 drivers/net/ethernet/sgi/Makefile
- rename drivers/net/{ => ethernet/sgi}/ioc3-eth.c (100%)
- rename drivers/net/{ => ethernet/sgi}/meth.c (100%)
- rename drivers/net/{ => ethernet/sgi}/meth.h (100%)
+ MAINTAINERS                                        |    4 +-
+ drivers/net/Kconfig                                |   37 -------------
+ drivers/net/Makefile                               |    6 --
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/toshiba/Kconfig               |   56 ++++++++++++++++++++
+ drivers/net/ethernet/toshiba/Makefile              |   10 ++++
+ drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.c |    0
+ drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.h |    0
+ .../{ => ethernet/toshiba}/ps3_gelic_wireless.c    |    0
+ .../{ => ethernet/toshiba}/ps3_gelic_wireless.h    |    0
+ drivers/net/{ => ethernet/toshiba}/spider_net.c    |    0
+ drivers/net/{ => ethernet/toshiba}/spider_net.h    |    0
+ .../{ => ethernet/toshiba}/spider_net_ethtool.c    |    0
+ drivers/net/{ => ethernet/toshiba}/tc35815.c       |    0
+ 15 files changed, 70 insertions(+), 45 deletions(-)
+ create mode 100644 drivers/net/ethernet/toshiba/Kconfig
+ create mode 100644 drivers/net/ethernet/toshiba/Makefile
+ rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.c (100%)
+ rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.h (100%)
+ rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_wireless.c (100%)
+ rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_wireless.h (100%)
+ rename drivers/net/{ => ethernet/toshiba}/spider_net.c (100%)
+ rename drivers/net/{ => ethernet/toshiba}/spider_net.h (100%)
+ rename drivers/net/{ => ethernet/toshiba}/spider_net_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/toshiba}/tc35815.c (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index fbafbb6..1bd9fbd 100644
+index 77ca430..84948bd 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -3424,7 +3424,7 @@ IOC3 ETHERNET DRIVER
- M:	Ralf Baechle <ralf@linux-mips.org>
- L:	linux-mips@linux-mips.org
+@@ -5127,7 +5127,7 @@ M:	Geoff Levand <geoff@infradead.org>
+ L:	netdev@vger.kernel.org
+ L:	cbe-oss-dev@lists.ozlabs.org
  S:	Maintained
--F:	drivers/net/ioc3-eth.c
-+F:	drivers/net/ethernet/sgi/ioc3-eth.c
+-F:	drivers/net/ps3_gelic_net.*
++F:	drivers/net/ethernet/toshiba/ps3_gelic_net.*
  
- IOC3 SERIAL DRIVER
- M:	Pat Gefre <pfg@sgi.com>
+ PS3 PLATFORM SUPPORT
+ M:	Geoff Levand <geoff@infradead.org>
+@@ -6084,7 +6084,7 @@ M:	Jens Osterkamp <jens@de.ibm.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	Documentation/networking/spider_net.txt
+-F:	drivers/net/spider_net*
++F:	drivers/net/ethernet/toshiba/spider_net*
+ 
+ SPU FILE SYSTEM
+ M:	Jeremy Kerr <jk@ozlabs.org>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0cb136c..aec74ad 100644
+index a6edd354..1e1df3d 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -244,16 +244,6 @@ config KORINA
- 	  If you have a Mikrotik RouterBoard 500 or IDT RC32434
- 	  based system say Y. Otherwise say N.
+@@ -478,11 +478,6 @@ config FORCEDETH
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called forcedeth.
  
--config SGI_IOC3_ETH
--	bool "SGI IOC3 Ethernet"
--	depends on PCI && SGI_IP27
--	select CRC32
--	select MII
+-config TC35815
+-	tristate "TOSHIBA TC35815 Ethernet support"
+-	depends on NET_PCI && PCI && MIPS
+-	select PHYLIB
+-
+ config FEALNX
+ 	tristate "Myson MTD-8xx PCI Ethernet support"
+ 	depends on NET_PCI && PCI
+@@ -658,15 +653,6 @@ config SIS190
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called sis190.  This is recommended.
+ 
+-config SPIDER_NET
+-	tristate "Spider Gigabit Ethernet driver"
+-	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
+-	select FW_LOADER
+-	select SUNGEM_PHY
 -	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	  This driver supports the Gigabit Ethernet chips present on the
+-	  Cell Processor-Based Blades from IBM.
 -
- config MIPS_SIM_NET
- 	tristate "MIPS simulator Network device"
- 	depends on MIPS_SIM
-@@ -262,10 +252,6 @@ config MIPS_SIM_NET
- 	  emulated by the MIPS Simulator.
- 	  If you are not using a MIPSsim or are unsure, say N.
+ config TSI108_ETH
+ 	tristate "Tundra TSI108 gigabit Ethernet support"
+ 	depends on TSI108_BRIDGE
+@@ -675,29 +661,6 @@ config TSI108_ETH
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called tsi108_eth.
  
--config SGI_O2MACE_ETH
--	tristate "SGI O2 MACE Fast Ethernet support"
--	depends on SGI_IP32=y
+-config GELIC_NET
+-	tristate "PS3 Gigabit Ethernet driver"
+-	depends on PPC_PS3
+-	select PS3_SYS_MANAGER
+-	help
+-	  This driver supports the network device on the PS3 game
+-	  console.  This driver has built-in support for Ethernet.
 -
- config SH_ETH
- 	tristate "Renesas SuperH Ethernet support"
- 	depends on SUPERH && \
+-	  To compile this driver as a module, choose M here: the
+-	  module will be called ps3_gelic.
+-
+-config GELIC_WIRELESS
+-	bool "PS3 Wireless support"
+-	depends on WLAN
+-	depends on GELIC_NET
+-	select WIRELESS_EXT
+-	help
+-	  This option adds the support for the wireless feature of PS3.
+-	  If you have the wireless-less model of PS3 or have no plan to
+-	  use wireless feature, disabling this option saves memory.  As
+-	  the driver automatically distinguishes the models, you can
+-	  safely enable this option even if you have a wireless-less model.
+-
+ config XILINX_LL_TEMAC
+ 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
+ 	depends on PPC || MICROBLAZE
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 8a56733..c98e1ad 100644
+index e448e6e..275ed4a 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -103,7 +103,6 @@ obj-$(CONFIG_MACVLAN) += macvlan.o
- obj-$(CONFIG_MACVTAP) += macvtap.o
- obj-$(CONFIG_DEFXX) += defxx.o
- obj-$(CONFIG_SGISEEQ) += sgiseeq.o
--obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
- obj-$(CONFIG_AT1700) += at1700.o
- obj-$(CONFIG_CPMAC) += cpmac.o
- 
-@@ -111,7 +110,6 @@ obj-$(CONFIG_ETH16I) += eth16i.o
- obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_KORINA) += korina.o
- obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
--obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_NET_NETX) += netx-eth.o
+@@ -29,12 +29,6 @@ obj-$(CONFIG_SIS900) += sis900.o
+ obj-$(CONFIG_R6040) += r6040.o
+ obj-$(CONFIG_YELLOWFIN) += yellowfin.o
+ obj-$(CONFIG_FEALNX) += fealnx.o
+-spidernet-y += spider_net.o spider_net_ethtool.o
+-obj-$(CONFIG_SPIDER_NET) += spidernet.o
+-obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+-gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
+-ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
+-obj-$(CONFIG_TC35815) += tc35815.o
+ obj-$(CONFIG_SKFP) += skfp/
+ obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+ obj-$(CONFIG_RIONET) += rionet.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index ed42850..7d25fa4 100644
+index d90f47f3..9754247 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -37,6 +37,7 @@ source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/realtek/Kconfig"
- source "drivers/net/ethernet/sfc/Kconfig"
-+source "drivers/net/ethernet/sgi/Kconfig"
- source "drivers/net/ethernet/smsc/Kconfig"
+@@ -48,6 +48,7 @@ source "drivers/net/ethernet/smsc/Kconfig"
  source "drivers/net/ethernet/stmicro/Kconfig"
  source "drivers/net/ethernet/sun/Kconfig"
+ source "drivers/net/ethernet/tehuti/Kconfig"
++source "drivers/net/ethernet/toshiba/Kconfig"
+ source "drivers/net/ethernet/via/Kconfig"
+ 
+ endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 3de8249..ec58715 100644
+index cf27ae0..7e7a319 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -28,6 +28,7 @@ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
- obj-$(CONFIG_SFC) += sfc/
-+obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
- obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+@@ -39,4 +39,5 @@ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
  obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
  obj-$(CONFIG_NET_VENDOR_SUN) += sun/
-diff --git a/drivers/net/ethernet/sgi/Kconfig b/drivers/net/ethernet/sgi/Kconfig
+ obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
++obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
+ obj-$(CONFIG_NET_VENDOR_VIA) += via/
+diff --git a/drivers/net/ethernet/toshiba/Kconfig b/drivers/net/ethernet/toshiba/Kconfig
 new file mode 100644
-index 0000000..3098594
+index 0000000..6ef2ce2
 --- /dev/null
-+++ b/drivers/net/ethernet/sgi/Kconfig
-@@ -0,0 +1,34 @@
++++ b/drivers/net/ethernet/toshiba/Kconfig
+@@ -0,0 +1,56 @@
 +#
-+# SGI device configuration
++# Toshiba network device configuration
 +#
 +
-+config NET_VENDOR_SGI
-+	bool "SGI devices"
-+	depends on (PCI && SGI_IP27) || SGI_IP32
++config NET_VENDOR_TOSHIBA
++	bool "Toshiba devices"
++	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB) || PPC_PS3
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -148,50 +196,96 @@ index 0000000..3098594
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about SGI devices. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  the questions about Toshiba cards. If you say Y, you will be asked
++	  for your specific card in the following questions.
 +
-+if NET_VENDOR_SGI
++if NET_VENDOR_TOSHIBA
 +
-+config SGI_IOC3_ETH
-+	bool "SGI IOC3 Ethernet"
-+	depends on PCI && SGI_IP27
-+	select CRC32
-+	select MII
++config GELIC_NET
++	tristate "PS3 Gigabit Ethernet driver"
++	depends on PPC_PS3
++	select PS3_SYS_MANAGER
 +	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  This driver supports the network device on the PS3 game
++	  console.  This driver has built-in support for Ethernet.
 +
-+config SGI_O2MACE_ETH
-+	tristate "SGI O2 MACE Fast Ethernet support"
-+	depends on SGI_IP32=y
++	  To compile this driver as a module, choose M here: the
++	  module will be called ps3_gelic.
 +
-+endif # NET_VENDOR_SGI
-diff --git a/drivers/net/ethernet/sgi/Makefile b/drivers/net/ethernet/sgi/Makefile
++config GELIC_WIRELESS
++	bool "PS3 Wireless support"
++	depends on GELIC_NET && WLAN
++	select WIRELESS_EXT
++	---help---
++	  This option adds the support for the wireless feature of PS3.
++	  If you have the wireless-less model of PS3 or have no plan to
++	  use wireless feature, disabling this option saves memory.  As
++	  the driver automatically distinguishes the models, you can
++	  safely enable this option even if you have a wireless-less model.
++
++config SPIDER_NET
++	tristate "Spider Gigabit Ethernet driver"
++	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
++	select FW_LOADER
++	select SUNGEM_PHY
++	---help---
++	  This driver supports the Gigabit Ethernet chips present on the
++	  Cell Processor-Based Blades from IBM.
++
++config TC35815
++	tristate "TOSHIBA TC35815 Ethernet support"
++	depends on PCI && MIPS
++	select PHYLIB
++
++endif # NET_VENDOR_TOSHIBA
+diff --git a/drivers/net/ethernet/toshiba/Makefile b/drivers/net/ethernet/toshiba/Makefile
 new file mode 100644
-index 0000000..e5bedd2
+index 0000000..71d861f
 --- /dev/null
-+++ b/drivers/net/ethernet/sgi/Makefile
-@@ -0,0 +1,6 @@
++++ b/drivers/net/ethernet/toshiba/Makefile
+@@ -0,0 +1,10 @@
 +#
-+# Makefile for the SGI device drivers.
++# Makefile for the Toshiba network device drivers.
 +#
 +
-+obj-$(CONFIG_SGI_O2MACE_ETH) += meth.o
-+obj-$(CONFIG_SGI_IOC3_ETH) += ioc3-eth.o
-diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
++obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
++gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
++ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
++spidernet-y += spider_net.o spider_net_ethtool.o
++obj-$(CONFIG_SPIDER_NET) += spidernet.o ethernet/sun/sungem_phy.o
++obj-$(CONFIG_TC35815) += tc35815.o
+diff --git a/drivers/net/ps3_gelic_net.c b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
 similarity index 100%
-rename from drivers/net/ioc3-eth.c
-rename to drivers/net/ethernet/sgi/ioc3-eth.c
-diff --git a/drivers/net/meth.c b/drivers/net/ethernet/sgi/meth.c
+rename from drivers/net/ps3_gelic_net.c
+rename to drivers/net/ethernet/toshiba/ps3_gelic_net.c
+diff --git a/drivers/net/ps3_gelic_net.h b/drivers/net/ethernet/toshiba/ps3_gelic_net.h
 similarity index 100%
-rename from drivers/net/meth.c
-rename to drivers/net/ethernet/sgi/meth.c
-diff --git a/drivers/net/meth.h b/drivers/net/ethernet/sgi/meth.h
+rename from drivers/net/ps3_gelic_net.h
+rename to drivers/net/ethernet/toshiba/ps3_gelic_net.h
+diff --git a/drivers/net/ps3_gelic_wireless.c b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
 similarity index 100%
-rename from drivers/net/meth.h
-rename to drivers/net/ethernet/sgi/meth.h
+rename from drivers/net/ps3_gelic_wireless.c
+rename to drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
+diff --git a/drivers/net/ps3_gelic_wireless.h b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.h
+similarity index 100%
+rename from drivers/net/ps3_gelic_wireless.h
+rename to drivers/net/ethernet/toshiba/ps3_gelic_wireless.h
+diff --git a/drivers/net/spider_net.c b/drivers/net/ethernet/toshiba/spider_net.c
+similarity index 100%
+rename from drivers/net/spider_net.c
+rename to drivers/net/ethernet/toshiba/spider_net.c
+diff --git a/drivers/net/spider_net.h b/drivers/net/ethernet/toshiba/spider_net.h
+similarity index 100%
+rename from drivers/net/spider_net.h
+rename to drivers/net/ethernet/toshiba/spider_net.h
+diff --git a/drivers/net/spider_net_ethtool.c b/drivers/net/ethernet/toshiba/spider_net_ethtool.c
+similarity index 100%
+rename from drivers/net/spider_net_ethtool.c
+rename to drivers/net/ethernet/toshiba/spider_net_ethtool.c
+diff --git a/drivers/net/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
+similarity index 100%
+rename from drivers/net/tc35815.c
+rename to drivers/net/ethernet/toshiba/tc35815.c
 -- 
 1.7.6
 
