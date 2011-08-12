@@ -1,119 +1,39 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/10] drivers/net organize Ethernet drivers (4th series)
-Date: Fri, 12 Aug 2011 00:32:54 -0700
-Message-ID: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/10] pch_gbe: Move the OKI Semiconductor driver
+Date: Fri, 12 Aug 2011 00:32:58 -0700
+Message-ID: <1313134384-7287-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+	gospo@redhat.com, sassmann@redhat.com,
+	Tomoya <tomoya-linux@dsn.okisemi.com>,
+	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:58632 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:58636 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751013Ab1HLHdH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 03:33:07 -0400
+	id S1750890Ab1HLHdK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 03:33:10 -0400
+In-Reply-To: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the fourth of seven 10 patch series to move the Ethernet
-drivers into drivers/net/ethernet/
+Move the OKI Semiconductor driver into driver/net/ethernet/oki-semi/
+and make the necessary Kconfig and Makefile changes.
 
-The following are changes since commit 5ff2241dd42ade03572753f9ed7743719b47c474:
-  spider_net: fix compile issue introduced by driver move
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
+Note: there is no documented maintainer for this driver, so I CC'd
+the last 2 major contributors.
 
-Jeff Kirsher (10):
-  ewrk3/tulip: Move the DEC - Tulip drivers
-  ioc3-eth/meth: Move the SGI drivers
-  seeq: Move the SEEQ drivers
-  pch_gbe: Move the OKI Semiconductor driver
-  skge/sky2/mv643xx/pxa168: Move the Marvell Ethernet drivers
-  via-*: Move the VIA drivers
-  eth16i: Move the Allied Telesis/Fujitsu drivers
-  freescale: Move the Freescale drivers
-  ks8*/ksz8*: Move the Micrel drivers
-  toshiba: Move the Toshiba drivers
-
- MAINTAINERS                                        |   28 +-
- drivers/net/Kconfig                                |  371 --------------------
- drivers/net/Makefile                               |   44 ---
- drivers/net/arm/Kconfig                            |   15 -
- drivers/net/arm/Makefile                           |    2 -
- drivers/net/ethernet/Kconfig                       |   10 +
- drivers/net/ethernet/Makefile                      |   10 +
- drivers/net/ethernet/dec/Kconfig                   |   36 ++
- drivers/net/ethernet/dec/Makefile                  |    6 +
- drivers/net/{ => ethernet/dec}/ewrk3.c             |    0
- drivers/net/{ => ethernet/dec}/ewrk3.h             |    0
- drivers/net/{ => ethernet/dec}/tulip/21142.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/Kconfig       |   20 +-
- drivers/net/{ => ethernet/dec}/tulip/Makefile      |    0
- drivers/net/{ => ethernet/dec}/tulip/de2104x.c     |    0
- drivers/net/{ => ethernet/dec}/tulip/de4x5.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/de4x5.h       |    0
- drivers/net/{ => ethernet/dec}/tulip/dmfe.c        |    0
- drivers/net/{ => ethernet/dec}/tulip/eeprom.c      |    0
- drivers/net/{ => ethernet/dec}/tulip/interrupt.c   |    0
- drivers/net/{ => ethernet/dec}/tulip/media.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/pnic.c        |    0
- drivers/net/{ => ethernet/dec}/tulip/pnic2.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/timer.c       |    0
- drivers/net/{ => ethernet/dec}/tulip/tulip.h       |    0
- drivers/net/{ => ethernet/dec}/tulip/tulip_core.c  |    0
- drivers/net/{ => ethernet/dec}/tulip/uli526x.c     |    0
- drivers/net/{ => ethernet/dec}/tulip/winbond-840.c |    0
- drivers/net/{ => ethernet/dec}/tulip/xircom_cb.c   |    0
- drivers/net/ethernet/freescale/Kconfig             |   88 +++++
- drivers/net/ethernet/freescale/Makefile            |   18 +
- drivers/net/{ => ethernet/freescale}/fec.c         |    0
- drivers/net/{ => ethernet/freescale}/fec.h         |    0
- drivers/net/{ => ethernet/freescale}/fec_mpc52xx.c |    0
- drivers/net/{ => ethernet/freescale}/fec_mpc52xx.h |    0
- .../net/{ => ethernet/freescale}/fec_mpc52xx_phy.c |    0
- .../net/{ => ethernet/freescale}/fs_enet/Kconfig   |    2 +-
- .../net/{ => ethernet/freescale}/fs_enet/Makefile  |    0
- drivers/net/{ => ethernet/freescale}/fs_enet/fec.h |    0
- .../freescale}/fs_enet/fs_enet-main.c              |    0
- .../net/{ => ethernet/freescale}/fs_enet/fs_enet.h |    0
- .../net/{ => ethernet/freescale}/fs_enet/mac-fcc.c |    0
- .../net/{ => ethernet/freescale}/fs_enet/mac-fec.c |    0
- .../net/{ => ethernet/freescale}/fs_enet/mac-scc.c |    0
- .../{ => ethernet/freescale}/fs_enet/mii-bitbang.c |    0
- .../net/{ => ethernet/freescale}/fs_enet/mii-fec.c |    0
- drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.c |    0
- drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.h |    0
- drivers/net/{ => ethernet/freescale}/gianfar.c     |    0
- drivers/net/{ => ethernet/freescale}/gianfar.h     |    0
- .../net/{ => ethernet/freescale}/gianfar_ethtool.c |    0
- drivers/net/{ => ethernet/freescale}/gianfar_ptp.c |    0
- .../net/{ => ethernet/freescale}/gianfar_sysfs.c   |    0
- drivers/net/{ => ethernet/freescale}/ucc_geth.c    |    0
- drivers/net/{ => ethernet/freescale}/ucc_geth.h    |    0
- .../{ => ethernet/freescale}/ucc_geth_ethtool.c    |    0
- drivers/net/ethernet/fujitsu/Kconfig               |   53 +++
- drivers/net/ethernet/fujitsu/Makefile              |    7 +
- drivers/net/{ => ethernet/fujitsu}/at1700.c        |    0
- drivers/net/{ => ethernet/fujitsu}/eth16i.c        |    0
- .../net/{pcmcia => ethernet/fujitsu}/fmvj18x_cs.c  |    0
- drivers/net/ethernet/marvell/Kconfig               |  110 ++++++
- drivers/net/ethernet/marvell/Makefile              |    8 +
- drivers/net/{ => ethernet/marvell}/mv643xx_eth.c   |    0
- drivers/net/{ => ethernet/marvell}/pxa168_eth.c    |    0
- drivers/net/{ => ethernet/marvell}/skge.c          |    0
- drivers/net/{ => ethernet/marvell}/skge.h          |    0
- drivers/net/{ => ethernet/marvell}/sky2.c          |    0
- drivers/net/{ => ethernet/marvell}/sky2.h          |    0
- drivers/net/ethernet/micrel/Kconfig                |   64 ++++
- drivers/net/ethernet/micrel/Makefile               |    9 +
- drivers/net/{arm => ethernet/micrel}/ks8695net.c   |    0
- drivers/net/{arm => ethernet/micrel}/ks8695net.h   |    0
- drivers/net/{ => ethernet/micrel}/ks8842.c         |    0
- drivers/net/{ => ethernet/micrel}/ks8851.c         |    0
- drivers/net/{ => ethernet/micrel}/ks8851.h         |    0
- drivers/net/{ => ethernet/micrel}/ks8851_mll.c     |    0
- drivers/net/{ => ethernet/micrel}/ksz884x.c        |    0
- drivers/net/ethernet/oki-semi/Kconfig              |   22 ++
- drivers/net/ethernet/oki-semi/Makefile             |    5 +
- drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |   20 +
+CC: Tomoya <tomoya-linux@dsn.okisemi.com>
+CC: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/Kconfig                                |   19 -----------------
+ drivers/net/Makefile                               |    1 -
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/oki-semi/Kconfig              |   22 ++++++++++++++++++++
+ drivers/net/ethernet/oki-semi/Makefile             |    5 ++++
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |   20 ++++++++++++++++++
  .../net/{ => ethernet/oki-semi}/pch_gbe/Makefile   |    0
  .../net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe.h  |    0
  .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.c  |    0
@@ -123,108 +43,7 @@ Jeff Kirsher (10):
  .../oki-semi}/pch_gbe/pch_gbe_param.c              |    0
  .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.c  |    0
  .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.h  |    0
- drivers/net/ethernet/seeq/Kconfig                  |   45 +++
- drivers/net/ethernet/seeq/Makefile                 |    7 +
- drivers/net/{arm => ethernet/seeq}/ether3.c        |    0
- drivers/net/{arm => ethernet/seeq}/ether3.h        |    0
- drivers/net/{ => ethernet/seeq}/seeq8005.c         |    0
- drivers/net/{ => ethernet/seeq}/seeq8005.h         |    0
- drivers/net/{ => ethernet/seeq}/sgiseeq.c          |    0
- drivers/net/{ => ethernet/seeq}/sgiseeq.h          |    0
- drivers/net/ethernet/sgi/Kconfig                   |   34 ++
- drivers/net/ethernet/sgi/Makefile                  |    6 +
- drivers/net/{ => ethernet/sgi}/ioc3-eth.c          |    0
- drivers/net/{ => ethernet/sgi}/meth.c              |    0
- drivers/net/{ => ethernet/sgi}/meth.h              |    0
- drivers/net/ethernet/toshiba/Kconfig               |   56 +++
- drivers/net/ethernet/toshiba/Makefile              |   10 +
- drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.c |    0
- drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.h |    0
- .../{ => ethernet/toshiba}/ps3_gelic_wireless.c    |    0
- .../{ => ethernet/toshiba}/ps3_gelic_wireless.h    |    0
- drivers/net/{ => ethernet/toshiba}/spider_net.c    |    0
- drivers/net/{ => ethernet/toshiba}/spider_net.h    |    0
- .../{ => ethernet/toshiba}/spider_net_ethtool.c    |    0
- drivers/net/{ => ethernet/toshiba}/tc35815.c       |    0
- drivers/net/ethernet/via/Kconfig                   |   56 +++
- drivers/net/ethernet/via/Makefile                  |    6 +
- drivers/net/{ => ethernet/via}/via-rhine.c         |    0
- drivers/net/{ => ethernet/via}/via-velocity.c      |    0
- drivers/net/{ => ethernet/via}/via-velocity.h      |    0
- drivers/net/pcmcia/Kconfig                         |   10 -
- drivers/net/pcmcia/Makefile                        |    1 -
- 120 files changed, 711 insertions(+), 468 deletions(-)
- create mode 100644 drivers/net/ethernet/dec/Kconfig
- create mode 100644 drivers/net/ethernet/dec/Makefile
- rename drivers/net/{ => ethernet/dec}/ewrk3.c (100%)
- rename drivers/net/{ => ethernet/dec}/ewrk3.h (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/21142.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/Kconfig (96%)
- rename drivers/net/{ => ethernet/dec}/tulip/Makefile (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/de2104x.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/de4x5.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/de4x5.h (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/dmfe.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/eeprom.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/interrupt.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/media.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/pnic.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/pnic2.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/timer.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/tulip.h (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/tulip_core.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/uli526x.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/winbond-840.c (100%)
- rename drivers/net/{ => ethernet/dec}/tulip/xircom_cb.c (100%)
- create mode 100644 drivers/net/ethernet/freescale/Kconfig
- create mode 100644 drivers/net/ethernet/freescale/Makefile
- rename drivers/net/{ => ethernet/freescale}/fec.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fec.h (100%)
- rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx.h (100%)
- rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx_phy.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/Kconfig (91%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/Makefile (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/fec.h (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/fs_enet-main.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/fs_enet.h (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-fcc.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-fec.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-scc.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/mii-bitbang.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fs_enet/mii-fec.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.c (100%)
- rename drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.h (100%)
- rename drivers/net/{ => ethernet/freescale}/gianfar.c (100%)
- rename drivers/net/{ => ethernet/freescale}/gianfar.h (100%)
- rename drivers/net/{ => ethernet/freescale}/gianfar_ethtool.c (100%)
- rename drivers/net/{ => ethernet/freescale}/gianfar_ptp.c (100%)
- rename drivers/net/{ => ethernet/freescale}/gianfar_sysfs.c (100%)
- rename drivers/net/{ => ethernet/freescale}/ucc_geth.c (100%)
- rename drivers/net/{ => ethernet/freescale}/ucc_geth.h (100%)
- rename drivers/net/{ => ethernet/freescale}/ucc_geth_ethtool.c (100%)
- create mode 100644 drivers/net/ethernet/fujitsu/Kconfig
- create mode 100644 drivers/net/ethernet/fujitsu/Makefile
- rename drivers/net/{ => ethernet/fujitsu}/at1700.c (100%)
- rename drivers/net/{ => ethernet/fujitsu}/eth16i.c (100%)
- rename drivers/net/{pcmcia => ethernet/fujitsu}/fmvj18x_cs.c (100%)
- create mode 100644 drivers/net/ethernet/marvell/Kconfig
- create mode 100644 drivers/net/ethernet/marvell/Makefile
- rename drivers/net/{ => ethernet/marvell}/mv643xx_eth.c (100%)
- rename drivers/net/{ => ethernet/marvell}/pxa168_eth.c (100%)
- rename drivers/net/{ => ethernet/marvell}/skge.c (100%)
- rename drivers/net/{ => ethernet/marvell}/skge.h (100%)
- rename drivers/net/{ => ethernet/marvell}/sky2.c (100%)
- rename drivers/net/{ => ethernet/marvell}/sky2.h (100%)
- create mode 100644 drivers/net/ethernet/micrel/Kconfig
- create mode 100644 drivers/net/ethernet/micrel/Makefile
- rename drivers/net/{arm => ethernet/micrel}/ks8695net.c (100%)
- rename drivers/net/{arm => ethernet/micrel}/ks8695net.h (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8842.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851.h (100%)
- rename drivers/net/{ => ethernet/micrel}/ks8851_mll.c (100%)
- rename drivers/net/{ => ethernet/micrel}/ksz884x.c (100%)
+ 16 files changed, 49 insertions(+), 20 deletions(-)
  create mode 100644 drivers/net/ethernet/oki-semi/Kconfig
  create mode 100644 drivers/net/ethernet/oki-semi/Makefile
  create mode 100644 drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
@@ -237,35 +56,172 @@ Jeff Kirsher (10):
  rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_param.c (100%)
  rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.c (100%)
  rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.h (100%)
- create mode 100644 drivers/net/ethernet/seeq/Kconfig
- create mode 100644 drivers/net/ethernet/seeq/Makefile
- rename drivers/net/{arm => ethernet/seeq}/ether3.c (100%)
- rename drivers/net/{arm => ethernet/seeq}/ether3.h (100%)
- rename drivers/net/{ => ethernet/seeq}/seeq8005.c (100%)
- rename drivers/net/{ => ethernet/seeq}/seeq8005.h (100%)
- rename drivers/net/{ => ethernet/seeq}/sgiseeq.c (100%)
- rename drivers/net/{ => ethernet/seeq}/sgiseeq.h (100%)
- create mode 100644 drivers/net/ethernet/sgi/Kconfig
- create mode 100644 drivers/net/ethernet/sgi/Makefile
- rename drivers/net/{ => ethernet/sgi}/ioc3-eth.c (100%)
- rename drivers/net/{ => ethernet/sgi}/meth.c (100%)
- rename drivers/net/{ => ethernet/sgi}/meth.h (100%)
- create mode 100644 drivers/net/ethernet/toshiba/Kconfig
- create mode 100644 drivers/net/ethernet/toshiba/Makefile
- rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.c (100%)
- rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.h (100%)
- rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_wireless.c (100%)
- rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_wireless.h (100%)
- rename drivers/net/{ => ethernet/toshiba}/spider_net.c (100%)
- rename drivers/net/{ => ethernet/toshiba}/spider_net.h (100%)
- rename drivers/net/{ => ethernet/toshiba}/spider_net_ethtool.c (100%)
- rename drivers/net/{ => ethernet/toshiba}/tc35815.c (100%)
- create mode 100644 drivers/net/ethernet/via/Kconfig
- create mode 100644 drivers/net/ethernet/via/Makefile
- rename drivers/net/{ => ethernet/via}/via-rhine.c (100%)
- rename drivers/net/{ => ethernet/via}/via-velocity.c (100%)
- rename drivers/net/{ => ethernet/via}/via-velocity.h (100%)
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 696464c..87e7a12 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -996,25 +996,6 @@ config S6GMAC
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called s6gmac.
+ 
+-config PCH_GBE
+-	tristate "Intel EG20T PCH / OKI SEMICONDUCTOR ML7223 IOH GbE"
+-	depends on PCI
+-	select MII
+-	---help---
+-	  This is a gigabit ethernet driver for EG20T PCH.
+-	  EG20T PCH is the platform controller hub that is used in Intel's
+-	  general embedded platform.
+-	  EG20T PCH has Gigabit Ethernet interface.
+-	  Using this interface, it is able to access system devices connected
+-	  to Gigabit Ethernet.
+-	  This driver enables Gigabit Ethernet function.
+-
+-	  This driver also can be used for OKI SEMICONDUCTOR IOH(Input/
+-	  Output Hub), ML7223.
+-	  ML7223 IOH is for MP(Media Phone) use.
+-	  ML7223 is companion chip for Intel Atom E6xx series.
+-	  ML7223 is completely compatible for Intel EG20T PCH.
+-
+ endif # NETDEV_1000
+ 
+ #
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index b1ead87..141ed25 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -156,5 +156,4 @@ obj-$(CONFIG_WIMAX) += wimax/
+ obj-$(CONFIG_CAIF) += caif/
+ 
+ obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
+-obj-$(CONFIG_PCH_GBE) += pch_gbe/
+ obj-$(CONFIG_TILE_NET) += tile/
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 35ed4c2..0eaf957 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -32,6 +32,7 @@ source "drivers/net/ethernet/mellanox/Kconfig"
+ source "drivers/net/ethernet/myricom/Kconfig"
+ source "drivers/net/ethernet/natsemi/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
++source "drivers/net/ethernet/oki-semi/Kconfig"
+ source "drivers/net/ethernet/pasemi/Kconfig"
+ source "drivers/net/ethernet/qlogic/Kconfig"
+ source "drivers/net/ethernet/racal/Kconfig"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index ea0999f..b5ca872 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -23,6 +23,7 @@ obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
+ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
+ obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
++obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
+ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
+ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+ obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
+diff --git a/drivers/net/ethernet/oki-semi/Kconfig b/drivers/net/ethernet/oki-semi/Kconfig
+new file mode 100644
+index 0000000..97f5e72
+--- /dev/null
++++ b/drivers/net/ethernet/oki-semi/Kconfig
+@@ -0,0 +1,22 @@
++#
++# OKI Semiconductor device configuration
++#
++
++config NET_VENDOR_OKI
++	bool "OKI Semiconductor devices"
++	depends on PCI
++	---help---
++	  If you have a network (Ethernet) card belonging to this class, say Y
++	  and read the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about OKI Semiconductor cards. If you say Y, you will
++	  be asked for your specific card in the following questions.
++
++if NET_VENDOR_OKI
++
++source "drivers/net/ethernet/oki-semi/pch_gbe/Kconfig"
++
++endif # NET_VENDOR_OKI
+diff --git a/drivers/net/ethernet/oki-semi/Makefile b/drivers/net/ethernet/oki-semi/Makefile
+new file mode 100644
+index 0000000..b6780c8
+--- /dev/null
++++ b/drivers/net/ethernet/oki-semi/Makefile
+@@ -0,0 +1,5 @@
++#
++# Makefile for the OKI Semiconductor device drivers.
++#
++
++obj-$(CONFIG_PCH_GBE) += pch_gbe/
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+new file mode 100644
+index 0000000..c85709d
+--- /dev/null
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+@@ -0,0 +1,20 @@
++#
++# OKI Semiconductor device configuration
++#
++
++config PCH_GBE
++	tristate "OKI SEMICONDUCTOR ML7223 IOH GbE (Intel EG20T PCH)"
++	depends on PCI
++	select MII
++	---help---
++	  This is a gigabit ethernet driver for EG20T PCH.
++	  EG20T PCH is the platform controller hub that is used in Intel's
++	  general embedded platform.  EG20T PCH has Gigabit Ethernet interface.
++	  Using this interface, it is able to access system devices connected
++	  to Gigabit Ethernet.  This driver enables Gigabit Ethernet function.
++
++	  This driver also can be used for OKI SEMICONDUCTOR IOH(Input/
++	  Output Hub), ML7223.
++	  ML7223 IOH is for MP(Media Phone) use.
++	  ML7223 is companion chip for Intel Atom E6xx series.
++	  ML7223 is completely compatible for Intel EG20T PCH.
+diff --git a/drivers/net/pch_gbe/Makefile b/drivers/net/ethernet/oki-semi/pch_gbe/Makefile
+similarity index 100%
+rename from drivers/net/pch_gbe/Makefile
+rename to drivers/net/ethernet/oki-semi/pch_gbe/Makefile
+diff --git a/drivers/net/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+similarity index 100%
+rename from drivers/net/pch_gbe/pch_gbe.h
+rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+diff --git a/drivers/net/pch_gbe/pch_gbe_api.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
+similarity index 100%
+rename from drivers/net/pch_gbe/pch_gbe_api.c
+rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
+diff --git a/drivers/net/pch_gbe/pch_gbe_api.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.h
+similarity index 100%
+rename from drivers/net/pch_gbe/pch_gbe_api.h
+rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.h
+diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+similarity index 100%
+rename from drivers/net/pch_gbe/pch_gbe_ethtool.c
+rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+similarity index 100%
+rename from drivers/net/pch_gbe/pch_gbe_main.c
+rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+diff --git a/drivers/net/pch_gbe/pch_gbe_param.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
+similarity index 100%
+rename from drivers/net/pch_gbe/pch_gbe_param.c
+rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
+diff --git a/drivers/net/pch_gbe/pch_gbe_phy.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
+similarity index 100%
+rename from drivers/net/pch_gbe/pch_gbe_phy.c
+rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
+diff --git a/drivers/net/pch_gbe/pch_gbe_phy.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
+similarity index 100%
+rename from drivers/net/pch_gbe/pch_gbe_phy.h
+rename to drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
 -- 
 1.7.6
 
