@@ -1,278 +1,290 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/10] eth16i: Move the Allied Telesis/Fujitsu drivers
-Date: Fri, 12 Aug 2011 00:33:01 -0700
-Message-ID: <1313134384-7287-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/10] ks8*/ksz8*: Move the Micrel drivers
+Date: Fri, 12 Aug 2011 00:33:03 -0700
+Message-ID: <1313134384-7287-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Shingo Fujimoto <shingo@flab.fujitsu.co.jp>,
-	Yutaka Tamiya <tamy@flab.fujitsu.co.jp>,
-	Rene Schmit <rene@bss.lu>, Mika Kuoppala <miku@iki.fi>
+	Ben Dooks <ben@simtec.co.uk>,
+	Tristram Ha <Tristram.Ha@micrel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:58632 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751482Ab1HLHdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 03:33:12 -0400
+	id S1751921Ab1HLHdO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 03:33:14 -0400
 In-Reply-To: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Allied Telesis/Fujitsu drivers into drivers/net/ethernet/fujitsu/
-and make the necessary Kconfig and Makefile changes.
+Move the Micrel drivers into drivers/net/ethernet/micrel/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Shingo Fujimoto <shingo@flab.fujitsu.co.jp>
-CC: Yutaka Tamiya <tamy@flab.fujitsu.co.jp>
-CC: Rene Schmit <rene@bss.lu>
-CC: Mika Kuoppala <miku@iki.fi>
+CC: Ben Dooks <ben@simtec.co.uk>
+CC: Tristram Ha <Tristram.Ha@micrel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    2 +-
- drivers/net/Kconfig                                |   40 ---------------
- drivers/net/Makefile                               |    3 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/fujitsu/Kconfig               |   53 ++++++++++++++++++++
- drivers/net/ethernet/fujitsu/Makefile              |    7 +++
- drivers/net/{ => ethernet/fujitsu}/at1700.c        |    0
- drivers/net/{ => ethernet/fujitsu}/eth16i.c        |    0
- .../net/{pcmcia => ethernet/fujitsu}/fmvj18x_cs.c  |    0
- drivers/net/pcmcia/Kconfig                         |   10 ----
- drivers/net/pcmcia/Makefile                        |    1 -
- 12 files changed, 63 insertions(+), 55 deletions(-)
- create mode 100644 drivers/net/ethernet/fujitsu/Kconfig
- create mode 100644 drivers/net/ethernet/fujitsu/Makefile
- rename drivers/net/{ => ethernet/fujitsu}/at1700.c (100%)
- rename drivers/net/{ => ethernet/fujitsu}/eth16i.c (100%)
- rename drivers/net/{pcmcia => ethernet/fujitsu}/fmvj18x_cs.c (100%)
+ drivers/net/Kconfig                              |   35 ------------
+ drivers/net/Makefile                             |    4 --
+ drivers/net/arm/Kconfig                          |    8 ---
+ drivers/net/arm/Makefile                         |    1 -
+ drivers/net/ethernet/Kconfig                     |    1 +
+ drivers/net/ethernet/Makefile                    |    1 +
+ drivers/net/ethernet/micrel/Kconfig              |   64 ++++++++++++++++++++++
+ drivers/net/ethernet/micrel/Makefile             |    9 +++
+ drivers/net/{arm => ethernet/micrel}/ks8695net.c |    0
+ drivers/net/{arm => ethernet/micrel}/ks8695net.h |    0
+ drivers/net/{ => ethernet/micrel}/ks8842.c       |    0
+ drivers/net/{ => ethernet/micrel}/ks8851.c       |    0
+ drivers/net/{ => ethernet/micrel}/ks8851.h       |    0
+ drivers/net/{ => ethernet/micrel}/ks8851_mll.c   |    0
+ drivers/net/{ => ethernet/micrel}/ksz884x.c      |    0
+ 15 files changed, 75 insertions(+), 48 deletions(-)
+ create mode 100644 drivers/net/ethernet/micrel/Kconfig
+ create mode 100644 drivers/net/ethernet/micrel/Makefile
+ rename drivers/net/{arm => ethernet/micrel}/ks8695net.c (100%)
+ rename drivers/net/{arm => ethernet/micrel}/ks8695net.h (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8842.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851.h (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851_mll.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ksz884x.c (100%)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 51d9281..5b2ad6c 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2525,7 +2525,7 @@ F:	net/bridge/
- ETHERTEAM 16I DRIVER
- M:	Mika Kuoppala <miku@iki.fi>
- S:	Maintained
--F:	drivers/net/eth16i.c
-+F:	drivers/net/ethernet/fujitsu/eth16i.c
- 
- EXT2 FILE SYSTEM
- M:	Jan Kara <jack@suse.cz>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index c1e491a..27f97b4e 100644
+index b645a73..a6edd354 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -428,18 +428,6 @@ config DNET
+@@ -467,17 +467,6 @@ config ADAPTEC_STARFIRE
  	  To compile this driver as a module, choose M here: the module
- 	  will be called dnet.
+ 	  will be called starfire.  This is recommended.
  
--config AT1700
--	tristate "AT1700/1720 support (EXPERIMENTAL)"
--	depends on (ISA || MCA_LEGACY) && EXPERIMENTAL
+-config KSZ884X_PCI
+-	tristate "Micrel KSZ8841/2 PCI"
+-	depends on NET_PCI && PCI
+-	select MII
 -	select CRC32
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called at1700.
--
- config HP100
- 	tristate "HP 10/100VG PCLAN (ISA, EISA, PCI) support"
- 	depends on ISA || EISA || PCI
-@@ -451,34 +439,6 @@ config HP100
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called hp100.
- 
--config NET_ISA
--	bool "Other ISA cards"
--	depends on ISA
--	---help---
--	  If your network (Ethernet) card hasn't been mentioned yet and its
--	  bus system (that's the way the cards talks to the other components
--	  of your computer) is ISA (as opposed to EISA, VLB or PCI), say Y.
--	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
--	  available from <http://www.tldp.org/docs.html#howto>.
--
--	  If unsure, say Y.
--
--	  Note that the answer to this question doesn't directly affect the
--	  kernel: saying N will just cause the configurator to skip all
--	  the remaining ISA network card questions. If you say Y, you will be
--	  asked for your specific card in the following questions.
--
--config ETH16I
--	tristate "ICL EtherTeam 16i/32 support"
--	depends on NET_ISA
 -	help
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
 -
 -	  To compile this driver as a module, choose M here. The module
--	  will be called eth16i.
+-	  will be called ksz884x.
 -
- config NET_PCI
- 	bool "EISA, VLB, PCI and on board controllers"
- 	depends on ISA || EISA || PCI
+ config FORCEDETH
+ 	tristate "nForce Ethernet support"
+ 	depends on NET_PCI && PCI
+@@ -550,30 +539,6 @@ config TLAN
+ 
+ 	  Please email feedback to <torben.mathiasen@compaq.com>.
+ 
+-config KS8842
+-	tristate "Micrel KSZ8841/42 with generic bus interface"
+-	depends on HAS_IOMEM && DMA_ENGINE
+-	help
+-	  This platform driver is for KSZ8841(1-port) / KS8842(2-port)
+-	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
+-	  Timberdale(FPGA).
+-
+-config KS8851
+-	tristate "Micrel KS8851 SPI"
+-	depends on SPI
+-	select MII
+-	select CRC32
+-	help
+-	  SPI driver for Micrel KS8851 SPI attached network chip.
+-
+-config KS8851_MLL
+-	tristate "Micrel KS8851 MLL"
+-	depends on HAS_IOMEM
+-	select MII
+-	help
+-	  This platform driver is for Micrel KS8851 Address/data bus
+-	  multiplexed network chip.
+-
+ config CPMAC
+ 	tristate "TI AR7 CPMAC Ethernet support (EXPERIMENTAL)"
+ 	depends on NET_ETHERNET && EXPERIMENTAL && AR7
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 7e1128f..07cad1a 100644
+index 39fe730..e448e6e 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -96,10 +96,7 @@ obj-$(CONFIG_IFB) += ifb.o
- obj-$(CONFIG_MACVLAN) += macvlan.o
- obj-$(CONFIG_MACVTAP) += macvtap.o
- obj-$(CONFIG_DEFXX) += defxx.o
--obj-$(CONFIG_AT1700) += at1700.o
- obj-$(CONFIG_CPMAC) += cpmac.o
+@@ -36,10 +36,6 @@ gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
+ ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
+ obj-$(CONFIG_TC35815) += tc35815.o
+ obj-$(CONFIG_SKFP) += skfp/
+-obj-$(CONFIG_KS8842)	+= ks8842.o
+-obj-$(CONFIG_KS8851)	+= ks8851.o
+-obj-$(CONFIG_KS8851_MLL)	+= ks8851_mll.o
+-obj-$(CONFIG_KSZ884X_PCI)	+= ksz884x.o
+ obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_SH_ETH) += sh_eth.o
+diff --git a/drivers/net/arm/Kconfig b/drivers/net/arm/Kconfig
+index b6f7302..4f748cc 100644
+--- a/drivers/net/arm/Kconfig
++++ b/drivers/net/arm/Kconfig
+@@ -11,14 +11,6 @@ config ARM_AT91_ETHER
+ 	  If you wish to compile a kernel for the AT91RM9200 and enable
+ 	  ethernet support, then you should always answer Y to this.
+ 
+-config ARM_KS8695_ETHER
+-	tristate "KS8695 Ethernet support"
+-	depends on ARM && ARCH_KS8695
+-	select MII
+-	help
+-	  If you wish to compile a kernel for the KS8695 and want to
+-	  use the internal ethernet then you should answer Y to this.
 -
--obj-$(CONFIG_ETH16I) += eth16i.o
- obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_KORINA) += korina.o
- obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
+ config EP93XX_ETH
+ 	tristate "EP93xx Ethernet support"
+ 	depends on ARM && ARCH_EP93XX
+diff --git a/drivers/net/arm/Makefile b/drivers/net/arm/Makefile
+index a2532e6..316b06c 100644
+--- a/drivers/net/arm/Makefile
++++ b/drivers/net/arm/Makefile
+@@ -4,6 +4,5 @@
+ #
+ 
+ obj-$(CONFIG_ARM_AT91_ETHER)	+= at91_ether.o
+-obj-$(CONFIG_ARM_KS8695_ETHER)	+= ks8695net.o
+ obj-$(CONFIG_EP93XX_ETH)	+= ep93xx_eth.o
+ obj-$(CONFIG_W90P910_ETH)	+= w90p910_ether.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index bdc0df8..d3aff74 100644
+index 924c287..d90f47f3 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -24,6 +24,7 @@ source "drivers/net/ethernet/dlink/Kconfig"
- source "drivers/net/ethernet/emulex/Kconfig"
- source "drivers/net/ethernet/neterion/Kconfig"
- source "drivers/net/ethernet/faraday/Kconfig"
-+source "drivers/net/ethernet/fujitsu/Kconfig"
- source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
+@@ -32,6 +32,7 @@ source "drivers/net/ethernet/i825xx/Kconfig"
+ source "drivers/net/ethernet/xscale/Kconfig"
+ source "drivers/net/ethernet/marvell/Kconfig"
+ source "drivers/net/ethernet/mellanox/Kconfig"
++source "drivers/net/ethernet/micrel/Kconfig"
+ source "drivers/net/ethernet/myricom/Kconfig"
+ source "drivers/net/ethernet/natsemi/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index ac60ac9..b098c5e 100644
+index 025d7b7..cf27ae0 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
- obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
- obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
- obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
-+obj-$(CONFIG_NET_VENDOR_FUJITSU) += fujitsu/
- obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
-diff --git a/drivers/net/ethernet/fujitsu/Kconfig b/drivers/net/ethernet/fujitsu/Kconfig
+@@ -24,6 +24,7 @@ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
+ obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
+ obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
++obj-$(CONFIG_NET_VENDOR_MICREL) += micrel/
+ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
+ obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
+ obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
+diff --git a/drivers/net/ethernet/micrel/Kconfig b/drivers/net/ethernet/micrel/Kconfig
 new file mode 100644
-index 0000000..2cd968e
+index 0000000..4227de6
 --- /dev/null
-+++ b/drivers/net/ethernet/fujitsu/Kconfig
-@@ -0,0 +1,53 @@
++++ b/drivers/net/ethernet/micrel/Kconfig
+@@ -0,0 +1,64 @@
 +#
-+# Fujitsu Network device configuration
++# Micrel device configuration
 +#
 +
-+config NET_VENDOR_FUJITSU
-+	bool "Fujitsu devices"
-+	depends on ISA || PCMCIA || ((ISA || MCA_LEGACY) && EXPERIMENTAL)
++config NET_VENDOR_MICREL
++	bool "Micrel devices"
++	depends on (HAS_IOMEM && DMA_ENGINE) || SPI || PCI || HAS_IOMEM || \
++		   (ARM && ARCH_KS8695)
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
 +	  <http://www.tldp.org/docs.html#howto>.
 +
 +	  Note that the answer to this question doesn't directly affect the
-+	  the questions about Fujitsu cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about Micrel devices. If you say Y, you will be asked
++	  for your specific card in the following questions.
 +
-+if NET_VENDOR_FUJITSU
++if NET_VENDOR_MICREL
 +
-+config AT1700
-+	tristate "AT1700/1720 support (EXPERIMENTAL)"
-+	depends on (ISA || MCA_LEGACY) && EXPERIMENTAL
++config ARM_KS8695_ETHER
++	tristate "KS8695 Ethernet support"
++	depends on ARM && ARCH_KS8695
++	select MII
++	---help---
++	  If you wish to compile a kernel for the KS8695 and want to
++	  use the internal ethernet then you should answer Y to this.
++
++config KS8842
++	tristate "Micrel KSZ8841/42 with generic bus interface"
++	depends on HAS_IOMEM && DMA_ENGINE
++	---help---
++	  This platform driver is for KSZ8841(1-port) / KS8842(2-port)
++	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
++	  Timberdale(FPGA).
++
++config KS8851
++	tristate "Micrel KS8851 SPI"
++	depends on SPI
++	select MII
 +	select CRC32
 +	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  SPI driver for Micrel KS8851 SPI attached network chip.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called at1700.
++config KS8851_MLL
++	tristate "Micrel KS8851 MLL"
++	depends on HAS_IOMEM
++	select MII
++	---help---
++	  This platform driver is for Micrel KS8851 Address/data bus
++	  multiplexed network chip.
 +
-+config PCMCIA_FMVJ18X
-+	tristate "Fujitsu FMV-J18x PCMCIA support"
-+	depends on PCMCIA
++config KSZ884X_PCI
++	tristate "Micrel KSZ8841/2 PCI"
++	depends on PCI
++	select MII
 +	select CRC32
 +	---help---
-+	  Say Y here if you intend to attach a Fujitsu FMV-J18x or compatible
-+	  PCMCIA (PC-card) Ethernet card to your computer.
-+
-+	  To compile this driver as a module, choose M here: the module will be
-+	  called fmvj18x_cs.  If unsure, say N.
-+
-+config ETH16I
-+	tristate "ICL EtherTeam 16i/32 support"
-+	depends on ISA
-+	---help---
-+	  If you have a network (Ethernet) card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  This PCI driver is for Micrel KSZ8841/KSZ8842 PCI Ethernet chip.
 +
 +	  To compile this driver as a module, choose M here. The module
-+	  will be called eth16i.
++	  will be called ksz884x.
 +
-+endif # NET_VENDOR_FUJITSU
-diff --git a/drivers/net/ethernet/fujitsu/Makefile b/drivers/net/ethernet/fujitsu/Makefile
++endif # NET_VENDOR_MICREL
+diff --git a/drivers/net/ethernet/micrel/Makefile b/drivers/net/ethernet/micrel/Makefile
 new file mode 100644
-index 0000000..2730ae6
+index 0000000..c83e4bc
 --- /dev/null
-+++ b/drivers/net/ethernet/fujitsu/Makefile
-@@ -0,0 +1,7 @@
++++ b/drivers/net/ethernet/micrel/Makefile
+@@ -0,0 +1,9 @@
 +#
-+# Makefile for the Fujitsu network device drivers.
++# Makefile for the Micrel network device drivers.
 +#
 +
-+obj-$(CONFIG_AT1700) += at1700.o
-+obj-$(CONFIG_ETH16I) += eth16i.o
-+obj-$(CONFIG_PCMCIA_FMVJ18X) += fmvj18x_cs.o
-diff --git a/drivers/net/at1700.c b/drivers/net/ethernet/fujitsu/at1700.c
++obj-$(CONFIG_ARM_KS8695_ETHER) += ks8695net.o
++obj-$(CONFIG_KS8842) += ks8842.o
++obj-$(CONFIG_KS8851) += ks8851.o
++obj-$(CONFIG_KS8851_MLL) += ks8851_mll.o
++obj-$(CONFIG_KSZ884X_PCI) += ksz884x.o
+diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
 similarity index 100%
-rename from drivers/net/at1700.c
-rename to drivers/net/ethernet/fujitsu/at1700.c
-diff --git a/drivers/net/eth16i.c b/drivers/net/ethernet/fujitsu/eth16i.c
+rename from drivers/net/arm/ks8695net.c
+rename to drivers/net/ethernet/micrel/ks8695net.c
+diff --git a/drivers/net/arm/ks8695net.h b/drivers/net/ethernet/micrel/ks8695net.h
 similarity index 100%
-rename from drivers/net/eth16i.c
-rename to drivers/net/ethernet/fujitsu/eth16i.c
-diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
+rename from drivers/net/arm/ks8695net.h
+rename to drivers/net/ethernet/micrel/ks8695net.h
+diff --git a/drivers/net/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
 similarity index 100%
-rename from drivers/net/pcmcia/fmvj18x_cs.c
-rename to drivers/net/ethernet/fujitsu/fmvj18x_cs.c
-diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
-index f5a738f..80d291e 100644
---- a/drivers/net/pcmcia/Kconfig
-+++ b/drivers/net/pcmcia/Kconfig
-@@ -21,16 +21,6 @@ menuconfig NET_PCMCIA
- 
- if NET_PCMCIA && PCMCIA
- 
--config PCMCIA_FMVJ18X
--	tristate "Fujitsu FMV-J18x PCMCIA support"
--	select CRC32
--	help
--	  Say Y here if you intend to attach a Fujitsu FMV-J18x or compatible
--	  PCMCIA (PC-card) Ethernet card to your computer.
--
--	  To compile this driver as a module, choose M here: the module will be
--	  called fmvj18x_cs.  If unsure, say N.
--
- config PCMCIA_XIRC2PS
- 	tristate "Xircom 16-bit PCMCIA support"
- 	help
-diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
-index f9c9883..ccf5535 100644
---- a/drivers/net/pcmcia/Makefile
-+++ b/drivers/net/pcmcia/Makefile
-@@ -3,7 +3,6 @@
- #
- 
- # 16-bit client drivers
--obj-$(CONFIG_PCMCIA_FMVJ18X)	+= fmvj18x_cs.o
- obj-$(CONFIG_PCMCIA_XIRC2PS)	+= xirc2ps_cs.o
- obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
- 
+rename from drivers/net/ks8842.c
+rename to drivers/net/ethernet/micrel/ks8842.c
+diff --git a/drivers/net/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+similarity index 100%
+rename from drivers/net/ks8851.c
+rename to drivers/net/ethernet/micrel/ks8851.c
+diff --git a/drivers/net/ks8851.h b/drivers/net/ethernet/micrel/ks8851.h
+similarity index 100%
+rename from drivers/net/ks8851.h
+rename to drivers/net/ethernet/micrel/ks8851.h
+diff --git a/drivers/net/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+similarity index 100%
+rename from drivers/net/ks8851_mll.c
+rename to drivers/net/ethernet/micrel/ks8851_mll.c
+diff --git a/drivers/net/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+similarity index 100%
+rename from drivers/net/ksz884x.c
+rename to drivers/net/ethernet/micrel/ksz884x.c
 -- 
 1.7.6
 
