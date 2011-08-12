@@ -1,194 +1,168 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/10] toshiba: Move the Toshiba drivers
-Date: Fri, 12 Aug 2011 00:33:04 -0700
-Message-ID: <1313134384-7287-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/10] via-*: Move the VIA drivers
+Date: Fri, 12 Aug 2011 00:33:00 -0700
+Message-ID: <1313134384-7287-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Geoff Levand <geoff@infradead.org>,
-	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
-	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+	Roger Luethi <rl@hellgate.ch>,
+	Francois Romieu <romieu@fr.zoreil.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:58632 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:58636 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752496Ab1HLHdO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 03:33:14 -0400
+	id S1752128Ab1HLHdL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 03:33:11 -0400
 In-Reply-To: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Toshiba ethernet drivers into drivers/net/ethernet/toshiba
-and make the necessary Kconfig and Makefile changes.
+Move the VIA drivers into drivers/net/ethernet/via/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: Geoff Levand <geoff@infradead.org>
-CC: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-CC: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+CC: Roger Luethi <rl@hellgate.ch>
+CC: Francois Romieu <romieu@fr.zoreil.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                                        |    4 +-
- drivers/net/Kconfig                                |   37 -------------
- drivers/net/Makefile                               |    6 --
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/toshiba/Kconfig               |   56 ++++++++++++++++++++
- drivers/net/ethernet/toshiba/Makefile              |   10 ++++
- drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.c |    0
- drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.h |    0
- .../{ => ethernet/toshiba}/ps3_gelic_wireless.c    |    0
- .../{ => ethernet/toshiba}/ps3_gelic_wireless.h    |    0
- drivers/net/{ => ethernet/toshiba}/spider_net.c    |    0
- drivers/net/{ => ethernet/toshiba}/spider_net.h    |    0
- .../{ => ethernet/toshiba}/spider_net_ethtool.c    |    0
- drivers/net/{ => ethernet/toshiba}/tc35815.c       |    0
- 15 files changed, 70 insertions(+), 45 deletions(-)
- create mode 100644 drivers/net/ethernet/toshiba/Kconfig
- create mode 100644 drivers/net/ethernet/toshiba/Makefile
- rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.c (100%)
- rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.h (100%)
- rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_wireless.c (100%)
- rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_wireless.h (100%)
- rename drivers/net/{ => ethernet/toshiba}/spider_net.c (100%)
- rename drivers/net/{ => ethernet/toshiba}/spider_net.h (100%)
- rename drivers/net/{ => ethernet/toshiba}/spider_net_ethtool.c (100%)
- rename drivers/net/{ => ethernet/toshiba}/tc35815.c (100%)
+ MAINTAINERS                                   |    4 +-
+ drivers/net/Kconfig                           |   36 ----------------
+ drivers/net/Makefile                          |    2 -
+ drivers/net/ethernet/Kconfig                  |    1 +
+ drivers/net/ethernet/Makefile                 |    1 +
+ drivers/net/ethernet/via/Kconfig              |   56 +++++++++++++++++++++++++
+ drivers/net/ethernet/via/Makefile             |    6 +++
+ drivers/net/{ => ethernet/via}/via-rhine.c    |    0
+ drivers/net/{ => ethernet/via}/via-velocity.c |    0
+ drivers/net/{ => ethernet/via}/via-velocity.h |    0
+ 10 files changed, 66 insertions(+), 40 deletions(-)
+ create mode 100644 drivers/net/ethernet/via/Kconfig
+ create mode 100644 drivers/net/ethernet/via/Makefile
+ rename drivers/net/{ => ethernet/via}/via-rhine.c (100%)
+ rename drivers/net/{ => ethernet/via}/via-velocity.c (100%)
+ rename drivers/net/{ => ethernet/via}/via-velocity.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 77ca430..84948bd 100644
+index b9acfde..51d9281 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -5127,7 +5127,7 @@ M:	Geoff Levand <geoff@infradead.org>
- L:	netdev@vger.kernel.org
- L:	cbe-oss-dev@lists.ozlabs.org
+@@ -6988,7 +6988,7 @@ F:	include/linux/vhost.h
+ VIA RHINE NETWORK DRIVER
+ M:	Roger Luethi <rl@hellgate.ch>
  S:	Maintained
--F:	drivers/net/ps3_gelic_net.*
-+F:	drivers/net/ethernet/toshiba/ps3_gelic_net.*
+-F:	drivers/net/via-rhine.c
++F:	drivers/net/ethernet/via/via-rhine.c
  
- PS3 PLATFORM SUPPORT
- M:	Geoff Levand <geoff@infradead.org>
-@@ -6084,7 +6084,7 @@ M:	Jens Osterkamp <jens@de.ibm.com>
+ VIAPRO SMBUS DRIVER
+ M:	Jean Delvare <khali@linux-fr.org>
+@@ -7016,7 +7016,7 @@ VIA VELOCITY NETWORK DRIVER
+ M:	Francois Romieu <romieu@fr.zoreil.com>
  L:	netdev@vger.kernel.org
- S:	Supported
- F:	Documentation/networking/spider_net.txt
--F:	drivers/net/spider_net*
-+F:	drivers/net/ethernet/toshiba/spider_net*
+ S:	Maintained
+-F:	drivers/net/via-velocity.*
++F:	drivers/net/ethernet/via/via-velocity.*
  
- SPU FILE SYSTEM
- M:	Jeremy Kerr <jk@ozlabs.org>
+ VLAN (802.1Q)
+ M:	Patrick McHardy <kaber@trash.net>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index a6edd354..1e1df3d 100644
+index cb6c694..c1e491a 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -478,11 +478,6 @@ config FORCEDETH
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called forcedeth.
+@@ -614,30 +614,6 @@ config KS8851_MLL
+ 	  This platform driver is for Micrel KS8851 Address/data bus
+ 	  multiplexed network chip.
  
--config TC35815
--	tristate "TOSHIBA TC35815 Ethernet support"
--	depends on NET_PCI && PCI && MIPS
--	select PHYLIB
+-config VIA_RHINE
+-	tristate "VIA Rhine support"
+-	depends on NET_PCI && PCI
+-	select CRC32
+-	select MII
+-	help
+-	  If you have a VIA "Rhine" based network card (Rhine-I (VT86C100A),
+-	  Rhine-II (VT6102), or Rhine-III (VT6105)), say Y here. Rhine-type
+-	  Ethernet functions can also be found integrated on South Bridges
+-	  (e.g. VT8235).
 -
- config FEALNX
- 	tristate "Myson MTD-8xx PCI Ethernet support"
- 	depends on NET_PCI && PCI
-@@ -658,15 +653,6 @@ config SIS190
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called via-rhine.
+-
+-config VIA_RHINE_MMIO
+-	bool "Use MMIO instead of PIO"
+-	depends on VIA_RHINE
+-	help
+-	  This instructs the driver to use PCI shared memory (MMIO) instead of
+-	  programmed I/O ports (PIO). Enabling this gives an improvement in
+-	  processing time in parts of the driver.
+-
+-	  If unsure, say Y.
+-
+ config CPMAC
+ 	tristate "TI AR7 CPMAC Ethernet support (EXPERIMENTAL)"
+ 	depends on NET_ETHERNET && EXPERIMENTAL && AR7
+@@ -793,18 +769,6 @@ config SIS190
  	  To compile this driver as a module, choose M here: the module
  	  will be called sis190.  This is recommended.
  
--config SPIDER_NET
--	tristate "Spider Gigabit Ethernet driver"
--	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
--	select FW_LOADER
--	select SUNGEM_PHY
+-config VIA_VELOCITY
+-	tristate "VIA Velocity support"
+-	depends on PCI
+-	select CRC32
+-	select CRC_CCITT
+-	select MII
 -	help
--	  This driver supports the Gigabit Ethernet chips present on the
--	  Cell Processor-Based Blades from IBM.
+-	  If you have a VIA "Velocity" based network card say Y here.
 -
- config TSI108_ETH
- 	tristate "Tundra TSI108 gigabit Ethernet support"
- 	depends on TSI108_BRIDGE
-@@ -675,29 +661,6 @@ config TSI108_ETH
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called tsi108_eth.
- 
--config GELIC_NET
--	tristate "PS3 Gigabit Ethernet driver"
--	depends on PPC_PS3
--	select PS3_SYS_MANAGER
--	help
--	  This driver supports the network device on the PS3 game
--	  console.  This driver has built-in support for Ethernet.
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called via-velocity.
 -
--	  To compile this driver as a module, choose M here: the
--	  module will be called ps3_gelic.
--
--config GELIC_WIRELESS
--	bool "PS3 Wireless support"
--	depends on WLAN
--	depends on GELIC_NET
--	select WIRELESS_EXT
--	help
--	  This option adds the support for the wireless feature of PS3.
--	  If you have the wireless-less model of PS3 or have no plan to
--	  use wireless feature, disabling this option saves memory.  As
--	  the driver automatically distinguishes the models, you can
--	  safely enable this option even if you have a wireless-less model.
--
- config XILINX_LL_TEMAC
- 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
- 	depends on PPC || MICROBLAZE
+ config SPIDER_NET
+ 	tristate "Spider Gigabit Ethernet driver"
+ 	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index e448e6e..275ed4a 100644
+index 69ca6a0..7e1128f 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -29,12 +29,6 @@ obj-$(CONFIG_SIS900) += sis900.o
- obj-$(CONFIG_R6040) += r6040.o
- obj-$(CONFIG_YELLOWFIN) += yellowfin.o
- obj-$(CONFIG_FEALNX) += fealnx.o
--spidernet-y += spider_net.o spider_net_ethtool.o
--obj-$(CONFIG_SPIDER_NET) += spidernet.o
--obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
--gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
--ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
--obj-$(CONFIG_TC35815) += tc35815.o
- obj-$(CONFIG_SKFP) += skfp/
+@@ -51,8 +51,6 @@ obj-$(CONFIG_KS8842)	+= ks8842.o
+ obj-$(CONFIG_KS8851)	+= ks8851.o
+ obj-$(CONFIG_KS8851_MLL)	+= ks8851_mll.o
+ obj-$(CONFIG_KSZ884X_PCI)	+= ksz884x.o
+-obj-$(CONFIG_VIA_RHINE) += via-rhine.o
+-obj-$(CONFIG_VIA_VELOCITY) += via-velocity.o
  obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
  obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_SH_ETH) += sh_eth.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index d90f47f3..9754247 100644
+index 1c447d9..bdc0df8 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -48,6 +48,7 @@ source "drivers/net/ethernet/smsc/Kconfig"
+@@ -45,5 +45,6 @@ source "drivers/net/ethernet/smsc/Kconfig"
  source "drivers/net/ethernet/stmicro/Kconfig"
  source "drivers/net/ethernet/sun/Kconfig"
  source "drivers/net/ethernet/tehuti/Kconfig"
-+source "drivers/net/ethernet/toshiba/Kconfig"
- source "drivers/net/ethernet/via/Kconfig"
++source "drivers/net/ethernet/via/Kconfig"
  
  endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index cf27ae0..7e7a319 100644
+index 48c8656..ac60ac9 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -39,4 +39,5 @@ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+@@ -36,3 +36,4 @@ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
  obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
  obj-$(CONFIG_NET_VENDOR_SUN) += sun/
  obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
-+obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
- obj-$(CONFIG_NET_VENDOR_VIA) += via/
-diff --git a/drivers/net/ethernet/toshiba/Kconfig b/drivers/net/ethernet/toshiba/Kconfig
++obj-$(CONFIG_NET_VENDOR_VIA) += via/
+diff --git a/drivers/net/ethernet/via/Kconfig b/drivers/net/ethernet/via/Kconfig
 new file mode 100644
-index 0000000..6ef2ce2
+index 0000000..7199194
 --- /dev/null
-+++ b/drivers/net/ethernet/toshiba/Kconfig
++++ b/drivers/net/ethernet/via/Kconfig
 @@ -0,0 +1,56 @@
 +#
-+# Toshiba network device configuration
++# VIA device configuration
 +#
 +
-+config NET_VENDOR_TOSHIBA
-+	bool "Toshiba devices"
-+	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB) || PPC_PS3
++config NET_VENDOR_VIA
++	bool "VIA devices"
++	depends on PCI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
 +	  and read the Ethernet-HOWTO, available from
@@ -196,96 +170,72 @@ index 0000000..6ef2ce2
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Toshiba cards. If you say Y, you will be asked
-+	  for your specific card in the following questions.
++	  the questions about VIA devices. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+if NET_VENDOR_TOSHIBA
++if NET_VENDOR_VIA
 +
-+config GELIC_NET
-+	tristate "PS3 Gigabit Ethernet driver"
-+	depends on PPC_PS3
-+	select PS3_SYS_MANAGER
++config VIA_RHINE
++	tristate "VIA Rhine support"
++	depends on PCI
++	select CRC32
++	select MII
 +	---help---
-+	  This driver supports the network device on the PS3 game
-+	  console.  This driver has built-in support for Ethernet.
++	  If you have a VIA "Rhine" based network card (Rhine-I (VT86C100A),
++	  Rhine-II (VT6102), or Rhine-III (VT6105)), say Y here. Rhine-type
++	  Ethernet functions can also be found integrated on South Bridges
++	  (e.g. VT8235).
 +
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called ps3_gelic.
++	  To compile this driver as a module, choose M here. The module
++	  will be called via-rhine.
 +
-+config GELIC_WIRELESS
-+	bool "PS3 Wireless support"
-+	depends on GELIC_NET && WLAN
-+	select WIRELESS_EXT
++config VIA_RHINE_MMIO
++	bool "Use MMIO instead of PIO"
++	depends on VIA_RHINE
 +	---help---
-+	  This option adds the support for the wireless feature of PS3.
-+	  If you have the wireless-less model of PS3 or have no plan to
-+	  use wireless feature, disabling this option saves memory.  As
-+	  the driver automatically distinguishes the models, you can
-+	  safely enable this option even if you have a wireless-less model.
++	  This instructs the driver to use PCI shared memory (MMIO) instead of
++	  programmed I/O ports (PIO). Enabling this gives an improvement in
++	  processing time in parts of the driver.
 +
-+config SPIDER_NET
-+	tristate "Spider Gigabit Ethernet driver"
-+	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
-+	select FW_LOADER
-+	select SUNGEM_PHY
++	  If unsure, say Y.
++
++config VIA_VELOCITY
++	tristate "VIA Velocity support"
++	depends on PCI
++	select CRC32
++	select CRC_CCITT
++	select MII
 +	---help---
-+	  This driver supports the Gigabit Ethernet chips present on the
-+	  Cell Processor-Based Blades from IBM.
++	  If you have a VIA "Velocity" based network card say Y here.
 +
-+config TC35815
-+	tristate "TOSHIBA TC35815 Ethernet support"
-+	depends on PCI && MIPS
-+	select PHYLIB
++	  To compile this driver as a module, choose M here. The module
++	  will be called via-velocity.
 +
-+endif # NET_VENDOR_TOSHIBA
-diff --git a/drivers/net/ethernet/toshiba/Makefile b/drivers/net/ethernet/toshiba/Makefile
++endif # NET_VENDOR_VIA
+diff --git a/drivers/net/ethernet/via/Makefile b/drivers/net/ethernet/via/Makefile
 new file mode 100644
-index 0000000..71d861f
+index 0000000..46c5d4a
 --- /dev/null
-+++ b/drivers/net/ethernet/toshiba/Makefile
-@@ -0,0 +1,10 @@
++++ b/drivers/net/ethernet/via/Makefile
+@@ -0,0 +1,6 @@
 +#
-+# Makefile for the Toshiba network device drivers.
++# Makefile for the VIA device drivers.
 +#
 +
-+obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
-+gelic_wireless-$(CONFIG_GELIC_WIRELESS) += ps3_gelic_wireless.o
-+ps3_gelic-objs += ps3_gelic_net.o $(gelic_wireless-y)
-+spidernet-y += spider_net.o spider_net_ethtool.o
-+obj-$(CONFIG_SPIDER_NET) += spidernet.o ethernet/sun/sungem_phy.o
-+obj-$(CONFIG_TC35815) += tc35815.o
-diff --git a/drivers/net/ps3_gelic_net.c b/drivers/net/ethernet/toshiba/ps3_gelic_net.c
++obj-$(CONFIG_VIA_RHINE) += via-rhine.o
++obj-$(CONFIG_VIA_VELOCITY) += via-velocity.o
+diff --git a/drivers/net/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
 similarity index 100%
-rename from drivers/net/ps3_gelic_net.c
-rename to drivers/net/ethernet/toshiba/ps3_gelic_net.c
-diff --git a/drivers/net/ps3_gelic_net.h b/drivers/net/ethernet/toshiba/ps3_gelic_net.h
+rename from drivers/net/via-rhine.c
+rename to drivers/net/ethernet/via/via-rhine.c
+diff --git a/drivers/net/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
 similarity index 100%
-rename from drivers/net/ps3_gelic_net.h
-rename to drivers/net/ethernet/toshiba/ps3_gelic_net.h
-diff --git a/drivers/net/ps3_gelic_wireless.c b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
+rename from drivers/net/via-velocity.c
+rename to drivers/net/ethernet/via/via-velocity.c
+diff --git a/drivers/net/via-velocity.h b/drivers/net/ethernet/via/via-velocity.h
 similarity index 100%
-rename from drivers/net/ps3_gelic_wireless.c
-rename to drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
-diff --git a/drivers/net/ps3_gelic_wireless.h b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.h
-similarity index 100%
-rename from drivers/net/ps3_gelic_wireless.h
-rename to drivers/net/ethernet/toshiba/ps3_gelic_wireless.h
-diff --git a/drivers/net/spider_net.c b/drivers/net/ethernet/toshiba/spider_net.c
-similarity index 100%
-rename from drivers/net/spider_net.c
-rename to drivers/net/ethernet/toshiba/spider_net.c
-diff --git a/drivers/net/spider_net.h b/drivers/net/ethernet/toshiba/spider_net.h
-similarity index 100%
-rename from drivers/net/spider_net.h
-rename to drivers/net/ethernet/toshiba/spider_net.h
-diff --git a/drivers/net/spider_net_ethtool.c b/drivers/net/ethernet/toshiba/spider_net_ethtool.c
-similarity index 100%
-rename from drivers/net/spider_net_ethtool.c
-rename to drivers/net/ethernet/toshiba/spider_net_ethtool.c
-diff --git a/drivers/net/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
-similarity index 100%
-rename from drivers/net/tc35815.c
-rename to drivers/net/ethernet/toshiba/tc35815.c
+rename from drivers/net/via-velocity.h
+rename to drivers/net/ethernet/via/via-velocity.h
 -- 
 1.7.6
 
