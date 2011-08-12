@@ -1,152 +1,242 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/10] ipg: Move the IC Plus driver
-Date: Fri, 12 Aug 2011 12:45:35 -0700
-Message-ID: <1313178344-8168-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/10] bfin_mac: Move the Analog Devices Inc driver
+Date: Fri, 12 Aug 2011 12:45:39 -0700
+Message-ID: <1313178344-8168-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313178344-8168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, <craig_rich@sundanceti.com>,
-	<sorbica@icplus.com.tw>, <jesse@icplus.com.tw>
+	gospo@redhat.com, sassmann@redhat.com,
+	<uclinux-dist-devel@blackfin.uclinux.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:63200 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:63224 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751912Ab1HLTps (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 15:45:48 -0400
+	id S1753886Ab1HLTpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 15:45:51 -0400
 In-Reply-To: <1313178344-8168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the IC Plus driver into drivers/net/ethernet/icplus/ and
+Move the Analog Devices Inc driver into drivers/net/ethernet/adi/ and
 make the necessary Kconfig and Makefile changes.
 
-CC: <craig_rich@sundanceti.com>
-CC: <sorbica@icplus.com.tw>
-CC: <jesse@icplus.com.tw>
+CC: <uclinux-dist-devel@blackfin.uclinux.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Bob Liu <bob.liu@analog.com>
 ---
- MAINTAINERS                             |    2 +-
- drivers/net/Kconfig                     |   10 ----------
- drivers/net/Makefile                    |    1 -
- drivers/net/ethernet/Kconfig            |    1 +
- drivers/net/ethernet/Makefile           |    1 +
- drivers/net/ethernet/icplus/Kconfig     |   13 +++++++++++++
- drivers/net/ethernet/icplus/Makefile    |    5 +++++
- drivers/net/{ => ethernet/icplus}/ipg.c |    0
- drivers/net/{ => ethernet/icplus}/ipg.h |    0
- 9 files changed, 21 insertions(+), 12 deletions(-)
- create mode 100644 drivers/net/ethernet/icplus/Kconfig
- create mode 100644 drivers/net/ethernet/icplus/Makefile
- rename drivers/net/{ => ethernet/icplus}/ipg.c (100%)
- rename drivers/net/{ => ethernet/icplus}/ipg.h (100%)
+ MAINTAINERS                               |    2 +-
+ drivers/net/Kconfig                       |   46 -------------------
+ drivers/net/Makefile                      |    1 -
+ drivers/net/ethernet/Kconfig              |    1 +
+ drivers/net/ethernet/Makefile             |    1 +
+ drivers/net/ethernet/adi/Kconfig          |   68 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/adi/Makefile         |    5 ++
+ drivers/net/{ => ethernet/adi}/bfin_mac.c |    0
+ drivers/net/{ => ethernet/adi}/bfin_mac.h |    0
+ 9 files changed, 76 insertions(+), 48 deletions(-)
+ create mode 100644 drivers/net/ethernet/adi/Kconfig
+ create mode 100644 drivers/net/ethernet/adi/Makefile
+ rename drivers/net/{ => ethernet/adi}/bfin_mac.c (100%)
+ rename drivers/net/{ => ethernet/adi}/bfin_mac.h (100%)
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 37cbe14..879c17e 100644
+index 879c17e..15d7021 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -3443,7 +3443,7 @@ M:	Francois Romieu <romieu@fr.zoreil.com>
- M:	Sorbica Shieh <sorbica@icplus.com.tw>
- L:	netdev@vger.kernel.org
- S:	Maintained
--F:	drivers/net/ipg.*
-+F:	drivers/net/ethernet/icplus/ipg.*
+@@ -1446,7 +1446,7 @@ BLACKFIN EMAC DRIVER
+ L:	uclinux-dist-devel@blackfin.uclinux.org
+ W:	http://blackfin.uclinux.org
+ S:	Supported
+-F:	drivers/net/bfin_mac.*
++F:	drivers/net/ethernet/adi/
  
- IPATH DRIVER
- M:	Mike Marciniszyn <infinipath@qlogic.com>
+ BLACKFIN RTC DRIVER
+ M:	Mike Frysinger <vapier.adi@gmail.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 2607a44..bcf7368 100644
+index fd33380..10c25b5 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -522,16 +522,6 @@ menuconfig NETDEV_1000
+@@ -252,52 +252,6 @@ config SH_ETH
+ 	  This driver supporting CPUs are:
+ 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
  
- if NETDEV_1000
- 
--config IP1000
--	tristate "IP1000 Gigabit Ethernet support"
--	depends on PCI && EXPERIMENTAL
+-config BFIN_MAC
+-	tristate "Blackfin on-chip MAC support"
+-	depends on NET_ETHERNET && (BF516 || BF518 || BF526 || BF527 || BF536 || BF537)
+-	select CRC32
 -	select MII
--	---help---
--	  This driver supports IP1000 gigabit Ethernet cards.
+-	select PHYLIB
+-	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
+-	help
+-	  This is the driver for Blackfin on-chip mac device. Say Y if you want it
+-	  compiled into the kernel. This driver is also available as a module
+-	  ( = code which can be inserted in and removed from the running kernel
+-	  whenever you want). The module will be called bfin_mac.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called ipg.  This is recommended.
+-config BFIN_MAC_USE_L1
+-	bool "Use L1 memory for rx/tx packets"
+-	depends on BFIN_MAC && (BF527 || BF537)
+-	default y
+-	help
+-	  To get maximum network performance, you should use L1 memory as rx/tx buffers.
+-	  Say N here if you want to reserve L1 memory for other uses.
 -
- endif # NETDEV_1000
- 
- #
+-config BFIN_TX_DESC_NUM
+-	int "Number of transmit buffer packets"
+-	depends on BFIN_MAC
+-	range 6 10 if BFIN_MAC_USE_L1
+-	range 10 100
+-	default "10"
+-	help
+-	  Set the number of buffer packets used in driver.
+-
+-config BFIN_RX_DESC_NUM
+-	int "Number of receive buffer packets"
+-	depends on BFIN_MAC
+-	range 20 100 if BFIN_MAC_USE_L1
+-	range 20 800
+-	default "20"
+-	help
+-	  Set the number of buffer packets used in driver.
+-
+-config BFIN_MAC_USE_HWSTAMP
+-	bool "Use IEEE 1588 hwstamp"
+-	depends on BFIN_MAC && BF518
+-	default y
+-	help
+-	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
+-
+ config NET_NETX
+ 	tristate "NetX Ethernet support"
+ 	select MII
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 4c7af02..2fb039b 100644
+index 8e6dbd7..d249d76 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -5,7 +5,6 @@
- obj-$(CONFIG_MII) += mii.o
- obj-$(CONFIG_MDIO) += mdio.o
- obj-$(CONFIG_PHYLIB) += phy/
--obj-$(CONFIG_IP1000) += ipg.o
- obj-$(CONFIG_CAN) += can/
- obj-$(CONFIG_BONDING) += bonding/
- obj-$(CONFIG_VMXNET3) += vmxnet3/
+@@ -57,7 +57,6 @@ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
+-obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+ obj-$(CONFIG_ENC28J60) += enc28j60.o
+ obj-$(CONFIG_ETHOC) += ethoc.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 922f4d1..72d0f5e 100644
+index 6b3b3dc..e087337 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -31,6 +31,7 @@ source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
- source "drivers/net/ethernet/i825xx/Kconfig"
- source "drivers/net/ethernet/xscale/Kconfig"
-+source "drivers/net/ethernet/icplus/Kconfig"
- 
- config JME
- 	tristate "JMicron(R) PCI-Express Gigabit Ethernet support"
+@@ -15,6 +15,7 @@ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
+ source "drivers/net/ethernet/atheros/Kconfig"
++source "drivers/net/ethernet/adi/Kconfig"
+ source "drivers/net/ethernet/broadcom/Kconfig"
+ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index fcecd5f..a8d8913 100644
+index 2a1cbce..826db27 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -23,6 +23,7 @@ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
- obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
- obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
-+obj-$(CONFIG_IP1000) += icplus/
- obj-$(CONFIG_JME) += jme.o
- obj-$(CONFIG_NET_VENDOR_MARVELL) += marvell/
- obj-$(CONFIG_NET_VENDOR_MELLANOX) += mellanox/
-diff --git a/drivers/net/ethernet/icplus/Kconfig b/drivers/net/ethernet/icplus/Kconfig
+@@ -7,6 +7,7 @@ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
++obj-$(CONFIG_NET_BFIN) += adi/
+ obj-$(CONFIG_NET_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+diff --git a/drivers/net/ethernet/adi/Kconfig b/drivers/net/ethernet/adi/Kconfig
 new file mode 100644
-index 0000000..e888222
+index 0000000..6de9851
 --- /dev/null
-+++ b/drivers/net/ethernet/icplus/Kconfig
-@@ -0,0 +1,13 @@
++++ b/drivers/net/ethernet/adi/Kconfig
+@@ -0,0 +1,68 @@
 +#
-+# IC Plus device configuration
++# Blackfin device configuration
 +#
 +
-+config IP1000
-+	tristate "IP1000 Gigabit Ethernet support"
-+	depends on PCI && EXPERIMENTAL
-+	select MII
++config NET_BFIN
++	bool "Blackfin devices"
++	depends on BF516 || BF518 || BF526 || BF527 || BF536 || BF537
 +	---help---
-+	  This driver supports IP1000 gigabit Ethernet cards.
++	  If you have a network (Ethernet) card belonging to this class, say Y.
++	  Make sure you know the name of your card. Read the Ethernet-HOWTO,
++	  available from <http://www.tldp.org/docs.html#howto>.
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called ipg.  This is recommended.
-diff --git a/drivers/net/ethernet/icplus/Makefile b/drivers/net/ethernet/icplus/Makefile
++	  If unsure, say Y.
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the remaining Blackfin card questions. If you say Y, you will be
++	  asked for your specific card in the following questions.
++
++if NET_BFIN
++
++config BFIN_MAC
++	tristate "Blackfin on-chip MAC support"
++	depends on (BF516 || BF518 || BF526 || BF527 || BF536 || BF537)
++	select CRC32
++	select MII
++	select PHYLIB
++	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
++	---help---
++	  This is the driver for Blackfin on-chip mac device. Say Y if you want
++	  it compiled into the kernel. This driver is also available as a
++	  module ( = code which can be inserted in and removed from the running
++	  kernel whenever you want). The module will be called bfin_mac.
++
++config BFIN_MAC_USE_L1
++	bool "Use L1 memory for rx/tx packets"
++	depends on BFIN_MAC && (BF527 || BF537)
++	default y
++	---help---
++	  To get maximum network performance, you should use L1 memory as rx/tx
++	  buffers. Say N here if you want to reserve L1 memory for other uses.
++
++config BFIN_TX_DESC_NUM
++	int "Number of transmit buffer packets"
++	depends on BFIN_MAC
++	range 6 10 if BFIN_MAC_USE_L1
++	range 10 100
++	default "10"
++	---help---
++	  Set the number of buffer packets used in driver.
++
++config BFIN_RX_DESC_NUM
++	int "Number of receive buffer packets"
++	depends on BFIN_MAC
++	range 20 100 if BFIN_MAC_USE_L1
++	range 20 800
++	default "20"
++	---help---
++	  Set the number of buffer packets used in driver.
++
++config BFIN_MAC_USE_HWSTAMP
++	bool "Use IEEE 1588 hwstamp"
++	depends on BFIN_MAC && BF518
++	default y
++	---help---
++	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
++
++endif # NET_BFIN
+diff --git a/drivers/net/ethernet/adi/Makefile b/drivers/net/ethernet/adi/Makefile
 new file mode 100644
-index 0000000..5bc87c1
+index 0000000..b1fbe19
 --- /dev/null
-+++ b/drivers/net/ethernet/icplus/Makefile
++++ b/drivers/net/ethernet/adi/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the IC Plus device drivers
++# Makefile for the Blackfin device drivers.
 +#
 +
-+obj-$(CONFIG_IP1000) += ipg.o
-diff --git a/drivers/net/ipg.c b/drivers/net/ethernet/icplus/ipg.c
++obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
 similarity index 100%
-rename from drivers/net/ipg.c
-rename to drivers/net/ethernet/icplus/ipg.c
-diff --git a/drivers/net/ipg.h b/drivers/net/ethernet/icplus/ipg.h
+rename from drivers/net/bfin_mac.c
+rename to drivers/net/ethernet/adi/bfin_mac.c
+diff --git a/drivers/net/bfin_mac.h b/drivers/net/ethernet/adi/bfin_mac.h
 similarity index 100%
-rename from drivers/net/ipg.h
-rename to drivers/net/ethernet/icplus/ipg.h
+rename from drivers/net/bfin_mac.h
+rename to drivers/net/ethernet/adi/bfin_mac.h
 -- 
 1.7.6
 
