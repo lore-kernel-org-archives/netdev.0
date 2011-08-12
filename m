@@ -1,44 +1,46 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH][Trivial] net/wan/hdlc_ppp: remove dead goto
-Date: Sat, 13 Aug 2011 01:39:43 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1108130138100.7387@swampdragon.chaosbits.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 2/2] net: minor update to Documentation/networking/scaling.txt
+Date: Fri, 12 Aug 2011 16:32:32 -0700
+Message-ID: <4E45B810.3000501@hp.com>
+References: <1312899648.5889.14.camel@gopher.nyc.corp.google.com> <4E418030.2010102@hp.com> <4E44752D.1080905@google.com> <4E4476CC.5050900@google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	trivial@kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, linux-doc@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <4E4476CC.5050900@google.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jj@chaosbits.net>
+On 08/11/2011 05:41 PM, Willem de Bruijn wrote:
+> Incorporate last comments about hyperthreading, interrupt coalescing and
+> the definition of cache domains into the network scaling document scaling.txt
+>
+> Signed-off-by: Willem de Bruijn<willemb@google.com>
+>
+> ---
+>   Documentation/networking/scaling.txt |   23 +++++++++++++++--------
+>   1 files changed, 15 insertions(+), 8 deletions(-)
+>
+> diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
+> index 3da03c3..6197126 100644
+> --- a/Documentation/networking/scaling.txt
+> +++ b/Documentation/networking/scaling.txt
+> @@ -52,7 +52,8 @@ module parameter for specifying the number of hardware queues to
+>   configure. In the bnx2x driver, for instance, this parameter is called
+>   num_queues. A typical RSS configuration would be to have one receive queue
+>   for each CPU if the device supports enough queues, or otherwise at least
+> -one for each cache domain at a particular cache level (L1, L2, etc.).
+> +one for each memory domain, where a memory domain is a set of CPUs that
+> +share a particular memory level (L1, L2, NUMA node, etc.).
 
-We'll either hit one of the case labels or the default in the switch
-and in all cases do we then 'goto out', so having 'goto out' right
-after the switch is pointless as we can never hit it - remove it.
+I'd suggest simply "share a particular level in the memory hierarchy 
+(Cache, NUMA node, etc)"  and that way you get away from people asking 
+nitpicky questions about where cache hierarchy counting starts, and at 
+what level caches might be shared :)
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/net/wan/hdlc_ppp.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+Apart from that, looks fine.
 
-diff --git a/drivers/net/wan/hdlc_ppp.c b/drivers/net/wan/hdlc_ppp.c
-index 055a918..5385876 100644
---- a/drivers/net/wan/hdlc_ppp.c
-+++ b/drivers/net/wan/hdlc_ppp.c
-@@ -547,7 +547,6 @@ static int ppp_rx(struct sk_buff *skb)
- 		ppp_cp_event(dev, pid, RUC, 0, 0, len, cp);
- 		goto out;
- 	}
--	goto out;
- 
- rx_error:
- 	dev->stats.rx_errors++;
--- 
-1.7.6
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+rick jones
