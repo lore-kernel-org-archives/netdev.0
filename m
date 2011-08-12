@@ -1,134 +1,164 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/10] hamachi/yellowfin: Move the packet engine drivers
-Date: Fri, 12 Aug 2011 03:52:48 -0700
-Message-ID: <1313146371-6562-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/10] sis*: Move the Silicon Integrated Systems (SiS) drivers
+Date: Fri, 12 Aug 2011 03:52:42 -0700
+Message-ID: <1313146371-6562-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Donald Becker <becker@scyld.com>
+	Daniele Venzano <venza@brownhat.org>,
+	Francois Romieu <romieu@fr.zoreil.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:55857 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:32672 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752705Ab1HLKw7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 06:52:59 -0400
+	id S1751476Ab1HLKwy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 06:52:54 -0400
 In-Reply-To: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the packet engine drivers to drivers/net/ethernet/packetengines/
-and the necessary Kconfig and Makefile changes.
+Move the SiS drivers into drivers/net/ethernet/sis/ and make the
+necessary Kconfig and Makefile changes
 
-CC: Donald Becker <becker@scyld.com>
+CC: Daniele Venzano <venza@brownhat.org>
+CC: Francois Romieu <romieu@fr.zoreil.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                                |   26 -----------
- drivers/net/Makefile                               |    2 -
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/packetengines/Kconfig         |   46 ++++++++++++++++++++
- drivers/net/ethernet/packetengines/Makefile        |    6 +++
- drivers/net/{ => ethernet/packetengines}/hamachi.c |    0
- .../net/{ => ethernet/packetengines}/yellowfin.c   |    0
- 8 files changed, 54 insertions(+), 28 deletions(-)
- create mode 100644 drivers/net/ethernet/packetengines/Kconfig
- create mode 100644 drivers/net/ethernet/packetengines/Makefile
- rename drivers/net/{ => ethernet/packetengines}/hamachi.c (100%)
- rename drivers/net/{ => ethernet/packetengines}/yellowfin.c (100%)
+ MAINTAINERS                             |    4 +-
+ drivers/net/Kconfig                     |   30 ------------------
+ drivers/net/Makefile                    |    2 -
+ drivers/net/ethernet/Kconfig            |    1 +
+ drivers/net/ethernet/Makefile           |    1 +
+ drivers/net/ethernet/sis/Kconfig        |   50 +++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sis/Makefile       |    6 ++++
+ drivers/net/{ => ethernet/sis}/sis190.c |    0
+ drivers/net/{ => ethernet/sis}/sis900.c |    0
+ drivers/net/{ => ethernet/sis}/sis900.h |    0
+ 10 files changed, 60 insertions(+), 34 deletions(-)
+ create mode 100644 drivers/net/ethernet/sis/Kconfig
+ create mode 100644 drivers/net/ethernet/sis/Makefile
+ rename drivers/net/{ => ethernet/sis}/sis190.c (100%)
+ rename drivers/net/{ => ethernet/sis}/sis900.c (100%)
+ rename drivers/net/{ => ethernet/sis}/sis900.h (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 84948bd..96a2d47 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5820,14 +5820,14 @@ SIS 190 ETHERNET DRIVER
+ M:	Francois Romieu <romieu@fr.zoreil.com>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/sis190.c
++F:	drivers/net/ethernet/sis/sis190.c
+ 
+ SIS 900/7016 FAST ETHERNET DRIVER
+ M:	Daniele Venzano <venza@brownhat.org>
+ W:	http://www.brownhat.org/sis900.html
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/sis900.*
++F:	drivers/net/ethernet/sis/sis900.*
+ 
+ SIS 96X I2C/SMBUS DRIVER
+ M:	"Mark M. Hoffman" <mhoffman@lightlink.com>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index e8d65fe..99b209e 100644
+index 1e1df3d..33df254 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -541,32 +541,6 @@ config IP1000
+@@ -500,22 +500,6 @@ config R6040
  	  To compile this driver as a module, choose M here: the module
- 	  will be called ipg.  This is recommended.
+ 	  will be called r6040. This is recommended.
  
--config HAMACHI
--	tristate "Packet Engines Hamachi GNIC-II support"
--	depends on PCI
--	select MII
--	help
--	  If you have a Gigabit Ethernet card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module will be
--	  called hamachi.
--
--config YELLOWFIN
--	tristate "Packet Engines Yellowfin Gigabit-NIC support (EXPERIMENTAL)"
--	depends on PCI && EXPERIMENTAL
+-config SIS900
+-	tristate "SiS 900/7016 PCI Fast Ethernet Adapter support"
+-	depends on NET_PCI && PCI
 -	select CRC32
+-	select MII
 -	---help---
--	  Say Y here if you have a Packet Engines G-NIC PCI Gigabit Ethernet
--	  adapter or the SYM53C885 Ethernet controller. The Gigabit adapter is
--	  used by the Beowulf Linux cluster project.  See
--	  <http://cesdis.gsfc.nasa.gov/linux/drivers/yellowfin.html> for more
--	  information about this driver in particular and Beowulf in general.
+-	  This is a driver for the Fast Ethernet PCI network cards based on
+-	  the SiS 900 and SiS 7016 chips. The SiS 900 core is also embedded in
+-	  SiS 630 and SiS 540 chipsets.
+-
+-	  This driver also supports AMD 79C901 HomePNA so that you can use
+-	  your phone line as a network cable.
 -
 -	  To compile this driver as a module, choose M here: the module
--	  will be called yellowfin.  This is recommended.
+-	  will be called sis900.  This is recommended.
 -
- config XILINX_LL_TEMAC
- 	tristate "Xilinx LL TEMAC (LocalLink Tri-mode Ethernet MAC) driver"
- 	depends on PPC || MICROBLAZE
+ config TLAN
+ 	tristate "TI ThunderLAN support"
+ 	depends on NET_PCI && (PCI || EISA)
+@@ -639,20 +623,6 @@ config YELLOWFIN
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called yellowfin.  This is recommended.
+ 
+-config SIS190
+-	tristate "SiS190/SiS191 gigabit ethernet support"
+-	depends on PCI
+-	select CRC32
+-	select MII
+-	---help---
+-	  Say Y here if you have a SiS 190 PCI Fast Ethernet adapter or
+-	  a SiS 191 PCI Gigabit Ethernet adapter. Both are expected to
+-	  appear in lan on motherboard designs which are based on SiS 965
+-	  and SiS 966 south bridge.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called sis190.  This is recommended.
+-
+ config TSI108_ETH
+ 	tristate "Tundra TSI108 gigabit Ethernet support"
+ 	depends on TSI108_BRIDGE
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 96112dd..d8c286e 100644
+index 275ed4a..3b14f1a 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -19,7 +19,6 @@ obj-$(CONFIG_PLIP) += plip.o
+@@ -24,8 +24,6 @@ obj-$(CONFIG_PLIP) += plip.o
  obj-$(CONFIG_ROADRUNNER) += rrunner.o
  
+ obj-$(CONFIG_TLAN) += tlan.o
+-obj-$(CONFIG_SIS190) += sis190.o
+-obj-$(CONFIG_SIS900) += sis900.o
  obj-$(CONFIG_R6040) += r6040.o
--obj-$(CONFIG_YELLOWFIN) += yellowfin.o
+ obj-$(CONFIG_YELLOWFIN) += yellowfin.o
  obj-$(CONFIG_FEALNX) += fealnx.o
- obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
-@@ -30,7 +29,6 @@ obj-$(CONFIG_SH_ETH) += sh_eth.o
- # end link order section
- #
- 
--obj-$(CONFIG_HAMACHI) += hamachi.o
- obj-$(CONFIG_NET) += Space.o loopback.o
- obj-$(CONFIG_NET_SB1000) += sb1000.o
- obj-$(CONFIG_HP100) += hp100.o
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 3983e70..140dd73 100644
+index 9754247..b15b1e2 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -39,6 +39,7 @@ source "drivers/net/ethernet/natsemi/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
- source "drivers/net/ethernet/nuvoton/Kconfig"
- source "drivers/net/ethernet/oki-semi/Kconfig"
-+source "drivers/net/ethernet/packetengines/Kconfig"
- source "drivers/net/ethernet/pasemi/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
+@@ -42,6 +42,7 @@ source "drivers/net/ethernet/qlogic/Kconfig"
  source "drivers/net/ethernet/racal/Kconfig"
+ source "drivers/net/ethernet/realtek/Kconfig"
+ source "drivers/net/ethernet/seeq/Kconfig"
++source "drivers/net/ethernet/sis/Kconfig"
+ source "drivers/net/ethernet/sfc/Kconfig"
+ source "drivers/net/ethernet/sgi/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 873d275..8a97b19 100644
+index 7e7a319..1f45ec9 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -30,6 +30,7 @@ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
- obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
- obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
-+obj-$(CONFIG_NET_PACKET_ENGINE) += packetengines/
- obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+@@ -33,6 +33,7 @@ obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
  obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
-diff --git a/drivers/net/ethernet/packetengines/Kconfig b/drivers/net/ethernet/packetengines/Kconfig
+ obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
+ obj-$(CONFIG_NET_VENDOR_SEEQ) += seeq/
++obj-$(CONFIG_NET_VENDOR_SIS) += sis/
+ obj-$(CONFIG_SFC) += sfc/
+ obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+diff --git a/drivers/net/ethernet/sis/Kconfig b/drivers/net/ethernet/sis/Kconfig
 new file mode 100644
-index 0000000..4add1db
+index 0000000..01d43e8
 --- /dev/null
-+++ b/drivers/net/ethernet/packetengines/Kconfig
-@@ -0,0 +1,46 @@
++++ b/drivers/net/ethernet/sis/Kconfig
+@@ -0,0 +1,50 @@
 +#
-+# Packet engine device configuration
++# Silicon Integrated Systems (SiS) device configuration
 +#
 +
-+config NET_PACKET_ENGINE
-+	bool "Packet Engine devices"
++config NET_VENDOR_SIS
++	bool "Silicon Integrated Systems (SiS) devices"
 +	depends on PCI
 +	---help---
 +	  If you have a network (Ethernet) card belonging to this class, say Y
@@ -137,58 +167,66 @@ index 0000000..4add1db
 +
 +	  Note that the answer to this question doesn't directly affect the
 +	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about packet engine devices. If you say Y, you will
-+	  be asked for your specific card in the following questions.
++	  the questions about SiS devices. If you say Y, you will be asked for
++	  your specific card in the following questions.
 +
-+if NET_PACKET_ENGINE
++if NET_VENDOR_SIS
 +
-+config HAMACHI
-+	tristate "Packet Engines Hamachi GNIC-II support"
++config SIS900
++	tristate "SiS 900/7016 PCI Fast Ethernet Adapter support"
 +	depends on PCI
++	select CRC32
 +	select MII
 +	---help---
-+	  If you have a Gigabit Ethernet card of this type, say Y and read
-+	  the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  This is a driver for the Fast Ethernet PCI network cards based on
++	  the SiS 900 and SiS 7016 chips. The SiS 900 core is also embedded in
++	  SiS 630 and SiS 540 chipsets.
 +
-+	  To compile this driver as a module, choose M here. The module will be
-+	  called hamachi.
-+
-+config YELLOWFIN
-+	tristate "Packet Engines Yellowfin Gigabit-NIC support (EXPERIMENTAL)"
-+	depends on PCI && EXPERIMENTAL
-+	select CRC32
-+	---help---
-+	  Say Y here if you have a Packet Engines G-NIC PCI Gigabit Ethernet
-+	  adapter or the SYM53C885 Ethernet controller. The Gigabit adapter is
-+	  used by the Beowulf Linux cluster project.  See
-+	  <http://cesdis.gsfc.nasa.gov/linux/drivers/yellowfin.html> for more
-+	  information about this driver in particular and Beowulf in general.
++	  This driver also supports AMD 79C901 HomePNA so that you can use
++	  your phone line as a network cable.
 +
 +	  To compile this driver as a module, choose M here: the module
-+	  will be called yellowfin.  This is recommended.
++	  will be called sis900.  This is recommended.
 +
-+endif # NET_PACKET_ENGINE
-diff --git a/drivers/net/ethernet/packetengines/Makefile b/drivers/net/ethernet/packetengines/Makefile
++config SIS190
++	tristate "SiS190/SiS191 gigabit ethernet support"
++	depends on PCI
++	select CRC32
++	select MII
++	---help---
++	  Say Y here if you have a SiS 190 PCI Fast Ethernet adapter or
++	  a SiS 191 PCI Gigabit Ethernet adapter. Both are expected to
++	  appear in lan on motherboard designs which are based on SiS 965
++	  and SiS 966 south bridge.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called sis190.  This is recommended.
++
++endif # NET_VENDOR_SIS
+diff --git a/drivers/net/ethernet/sis/Makefile b/drivers/net/ethernet/sis/Makefile
 new file mode 100644
-index 0000000..995ccd0
+index 0000000..58d3ac1
 --- /dev/null
-+++ b/drivers/net/ethernet/packetengines/Makefile
++++ b/drivers/net/ethernet/sis/Makefile
 @@ -0,0 +1,6 @@
 +#
-+# Makefile for the Packet Engine network device drivers.
++# Makefile for Silicon Integrated Systems (SiS) network device drivers.
 +#
 +
-+obj-$(CONFIG_HAMACHI) += hamachi.o
-+obj-$(CONFIG_YELLOWFIN) += yellowfin.o
-diff --git a/drivers/net/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
++obj-$(CONFIG_SIS190) += sis190.o
++obj-$(CONFIG_SIS900) += sis900.o
+diff --git a/drivers/net/sis190.c b/drivers/net/ethernet/sis/sis190.c
 similarity index 100%
-rename from drivers/net/hamachi.c
-rename to drivers/net/ethernet/packetengines/hamachi.c
-diff --git a/drivers/net/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
+rename from drivers/net/sis190.c
+rename to drivers/net/ethernet/sis/sis190.c
+diff --git a/drivers/net/sis900.c b/drivers/net/ethernet/sis/sis900.c
 similarity index 100%
-rename from drivers/net/yellowfin.c
-rename to drivers/net/ethernet/packetengines/yellowfin.c
+rename from drivers/net/sis900.c
+rename to drivers/net/ethernet/sis/sis900.c
+diff --git a/drivers/net/sis900.h b/drivers/net/ethernet/sis/sis900.h
+similarity index 100%
+rename from drivers/net/sis900.h
+rename to drivers/net/ethernet/sis/sis900.h
 -- 
 1.7.6
 
