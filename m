@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/10] drivers/net organize Ethernet drivers (5th
- series)
-Date: Fri, 12 Aug 2011 04:35:07 -0700 (PDT)
-Message-ID: <20110812.043507.288447368143242527.davem@davemloft.net>
-References: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Ulrich Weber <ulrich.weber@sophos.com>
+Subject: bridge: accept bridge own MAC address as local
+Date: Fri, 12 Aug 2011 13:30:24 +0200
+Message-ID: <20110812113024.GA8900@babylon>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52153 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331Ab1HLLfl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 07:35:41 -0400
-In-Reply-To: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from dhost002-30.dex002.intermedia.net ([64.78.21.74]:26278 "EHLO
+	dhost002-30.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751786Ab1HLLgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 07:36:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 12 Aug 2011 03:52:41 -0700
+bridge: accept bridge own MAC address as local
+if MAC address of bridge is manually set (BR_SET_MAC_ADDR). Otherwise
+only MAC addresses of bridge members will work if manually set.
 
-> This is the fifth of seven 10 patch series to move the Ethernet
-> drivers into drivers/net/ethernet/
->   
-> The following are changes since commit 4c78893b3d107e2a053c8f51c526510857c09858:
->   cnic: Fix select dependencies in bnx2fc/bnx2i Kconfig.
-> and are available in the git repository at:
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
+Signed-off-by: Ulrich Weber <ulrich.weber@sophos.com>
+---
+ net/bridge/br_input.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-Pulled, thanks Jeff.
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index f06ee39..3adabe3 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -93,7 +93,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 			skb2 = skb;
+ 
+ 		br->dev->stats.multicast++;
+-	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
++	} else if ((br->flags & BR_SET_MAC_ADDR &&
++		    !compare_ether_addr(br->bridge_id.addr, dest)) ||
++		   ((dst = __br_fdb_get(br, dest)) && dst->is_local)) {
+ 		skb2 = skb;
+ 		/* Do not forward the packet since it's local. */
+ 		skb = NULL;
+-- 
+1.7.4.1
+
