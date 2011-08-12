@@ -1,233 +1,271 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: [PATCH] Proportional Rate Reduction for TCP.
-Date: Fri, 12 Aug 2011 00:29:57 -0700
-Message-ID: <1313134197-5082-1-git-send-email-nanditad@google.com>
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/10] drivers/net organize Ethernet drivers (4th series)
+Date: Fri, 12 Aug 2011 00:32:54 -0700
+Message-ID: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:3030 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890Ab1HLHaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 03:30:14 -0400
+Received: from mga09.intel.com ([134.134.136.24]:58632 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751013Ab1HLHdH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2011 03:33:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements Proportional Rate Reduction (PRR) for TCP.
-PRR is an algorithm that determines TCP's sending rate in fast
-recovery. PRR avoids excessive window reductions and aims for
-the actual congestion window size at the end of recovery to be as
-close as possible to the window determined by the congestion control
-algorithm. PRR also improves accuracy of the amount of data sent
-during loss recovery.
+This is the fourth of seven 10 patch series to move the Ethernet
+drivers into drivers/net/ethernet/
 
-The patch implements the recommended flavor of PRR called PRR-SSRB
-(Proportional rate reduction with slow start reduction bound) and
-replaces the existing rate halving algorithm. PRR improves upon the
-existing Linux fast recovery under a number of conditions including:
-  1) burst losses where the losses implicitly reduce the amount of
-outstanding data (pipe) below the ssthresh value selected by the
-congestion control algorithm and,
-  2) losses near the end of short flows where application runs out of
-data to send.
+The following are changes since commit 5ff2241dd42ade03572753f9ed7743719b47c474:
+  spider_net: fix compile issue introduced by driver move
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
 
-As an example, with the existing rate halving implementation a single
-loss event can cause a connection carrying short Web transactions to
-go into the slow start mode after the recovery. This is because during
-recovery Linux pulls the congestion window down to packets_in_flight+1
-on every ACK. A short Web response often runs out of new data to send
-and its pipe reduces to zero by the end of recovery when all its packets
-are drained from the network. Subsequent HTTP responses using the same
-connection will have to slow start to raise cwnd to ssthresh. PRR on
-the other hand aims for the cwnd to be as close as possible to ssthresh
-by the end of recovery.
+Jeff Kirsher (10):
+  ewrk3/tulip: Move the DEC - Tulip drivers
+  ioc3-eth/meth: Move the SGI drivers
+  seeq: Move the SEEQ drivers
+  pch_gbe: Move the OKI Semiconductor driver
+  skge/sky2/mv643xx/pxa168: Move the Marvell Ethernet drivers
+  via-*: Move the VIA drivers
+  eth16i: Move the Allied Telesis/Fujitsu drivers
+  freescale: Move the Freescale drivers
+  ks8*/ksz8*: Move the Micrel drivers
+  toshiba: Move the Toshiba drivers
 
-A description of PRR and a discussion of its performance can be found at
-the following links:
-- IETF Draft:
-    http://tools.ietf.org/html/draft-mathis-tcpm-proportional-rate-reduction-01
-- IETF Slides:
-    http://www.ietf.org/proceedings/80/slides/tcpm-6.pdf
-    http://tools.ietf.org/agenda/81/slides/tcpm-2.pdf
-- Paper to appear in Internet Measurements Conference (IMC) 2011:
-    Improving TCP Loss Recovery
-    Nandita Dukkipati, Matt Mathis, Yuchung Cheng
+ MAINTAINERS                                        |   28 +-
+ drivers/net/Kconfig                                |  371 --------------------
+ drivers/net/Makefile                               |   44 ---
+ drivers/net/arm/Kconfig                            |   15 -
+ drivers/net/arm/Makefile                           |    2 -
+ drivers/net/ethernet/Kconfig                       |   10 +
+ drivers/net/ethernet/Makefile                      |   10 +
+ drivers/net/ethernet/dec/Kconfig                   |   36 ++
+ drivers/net/ethernet/dec/Makefile                  |    6 +
+ drivers/net/{ => ethernet/dec}/ewrk3.c             |    0
+ drivers/net/{ => ethernet/dec}/ewrk3.h             |    0
+ drivers/net/{ => ethernet/dec}/tulip/21142.c       |    0
+ drivers/net/{ => ethernet/dec}/tulip/Kconfig       |   20 +-
+ drivers/net/{ => ethernet/dec}/tulip/Makefile      |    0
+ drivers/net/{ => ethernet/dec}/tulip/de2104x.c     |    0
+ drivers/net/{ => ethernet/dec}/tulip/de4x5.c       |    0
+ drivers/net/{ => ethernet/dec}/tulip/de4x5.h       |    0
+ drivers/net/{ => ethernet/dec}/tulip/dmfe.c        |    0
+ drivers/net/{ => ethernet/dec}/tulip/eeprom.c      |    0
+ drivers/net/{ => ethernet/dec}/tulip/interrupt.c   |    0
+ drivers/net/{ => ethernet/dec}/tulip/media.c       |    0
+ drivers/net/{ => ethernet/dec}/tulip/pnic.c        |    0
+ drivers/net/{ => ethernet/dec}/tulip/pnic2.c       |    0
+ drivers/net/{ => ethernet/dec}/tulip/timer.c       |    0
+ drivers/net/{ => ethernet/dec}/tulip/tulip.h       |    0
+ drivers/net/{ => ethernet/dec}/tulip/tulip_core.c  |    0
+ drivers/net/{ => ethernet/dec}/tulip/uli526x.c     |    0
+ drivers/net/{ => ethernet/dec}/tulip/winbond-840.c |    0
+ drivers/net/{ => ethernet/dec}/tulip/xircom_cb.c   |    0
+ drivers/net/ethernet/freescale/Kconfig             |   88 +++++
+ drivers/net/ethernet/freescale/Makefile            |   18 +
+ drivers/net/{ => ethernet/freescale}/fec.c         |    0
+ drivers/net/{ => ethernet/freescale}/fec.h         |    0
+ drivers/net/{ => ethernet/freescale}/fec_mpc52xx.c |    0
+ drivers/net/{ => ethernet/freescale}/fec_mpc52xx.h |    0
+ .../net/{ => ethernet/freescale}/fec_mpc52xx_phy.c |    0
+ .../net/{ => ethernet/freescale}/fs_enet/Kconfig   |    2 +-
+ .../net/{ => ethernet/freescale}/fs_enet/Makefile  |    0
+ drivers/net/{ => ethernet/freescale}/fs_enet/fec.h |    0
+ .../freescale}/fs_enet/fs_enet-main.c              |    0
+ .../net/{ => ethernet/freescale}/fs_enet/fs_enet.h |    0
+ .../net/{ => ethernet/freescale}/fs_enet/mac-fcc.c |    0
+ .../net/{ => ethernet/freescale}/fs_enet/mac-fec.c |    0
+ .../net/{ => ethernet/freescale}/fs_enet/mac-scc.c |    0
+ .../{ => ethernet/freescale}/fs_enet/mii-bitbang.c |    0
+ .../net/{ => ethernet/freescale}/fs_enet/mii-fec.c |    0
+ drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.c |    0
+ drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.h |    0
+ drivers/net/{ => ethernet/freescale}/gianfar.c     |    0
+ drivers/net/{ => ethernet/freescale}/gianfar.h     |    0
+ .../net/{ => ethernet/freescale}/gianfar_ethtool.c |    0
+ drivers/net/{ => ethernet/freescale}/gianfar_ptp.c |    0
+ .../net/{ => ethernet/freescale}/gianfar_sysfs.c   |    0
+ drivers/net/{ => ethernet/freescale}/ucc_geth.c    |    0
+ drivers/net/{ => ethernet/freescale}/ucc_geth.h    |    0
+ .../{ => ethernet/freescale}/ucc_geth_ethtool.c    |    0
+ drivers/net/ethernet/fujitsu/Kconfig               |   53 +++
+ drivers/net/ethernet/fujitsu/Makefile              |    7 +
+ drivers/net/{ => ethernet/fujitsu}/at1700.c        |    0
+ drivers/net/{ => ethernet/fujitsu}/eth16i.c        |    0
+ .../net/{pcmcia => ethernet/fujitsu}/fmvj18x_cs.c  |    0
+ drivers/net/ethernet/marvell/Kconfig               |  110 ++++++
+ drivers/net/ethernet/marvell/Makefile              |    8 +
+ drivers/net/{ => ethernet/marvell}/mv643xx_eth.c   |    0
+ drivers/net/{ => ethernet/marvell}/pxa168_eth.c    |    0
+ drivers/net/{ => ethernet/marvell}/skge.c          |    0
+ drivers/net/{ => ethernet/marvell}/skge.h          |    0
+ drivers/net/{ => ethernet/marvell}/sky2.c          |    0
+ drivers/net/{ => ethernet/marvell}/sky2.h          |    0
+ drivers/net/ethernet/micrel/Kconfig                |   64 ++++
+ drivers/net/ethernet/micrel/Makefile               |    9 +
+ drivers/net/{arm => ethernet/micrel}/ks8695net.c   |    0
+ drivers/net/{arm => ethernet/micrel}/ks8695net.h   |    0
+ drivers/net/{ => ethernet/micrel}/ks8842.c         |    0
+ drivers/net/{ => ethernet/micrel}/ks8851.c         |    0
+ drivers/net/{ => ethernet/micrel}/ks8851.h         |    0
+ drivers/net/{ => ethernet/micrel}/ks8851_mll.c     |    0
+ drivers/net/{ => ethernet/micrel}/ksz884x.c        |    0
+ drivers/net/ethernet/oki-semi/Kconfig              |   22 ++
+ drivers/net/ethernet/oki-semi/Makefile             |    5 +
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |   20 +
+ .../net/{ => ethernet/oki-semi}/pch_gbe/Makefile   |    0
+ .../net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe.h  |    0
+ .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.c  |    0
+ .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.h  |    0
+ .../oki-semi}/pch_gbe/pch_gbe_ethtool.c            |    0
+ .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_main.c |    0
+ .../oki-semi}/pch_gbe/pch_gbe_param.c              |    0
+ .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.c  |    0
+ .../{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.h  |    0
+ drivers/net/ethernet/seeq/Kconfig                  |   45 +++
+ drivers/net/ethernet/seeq/Makefile                 |    7 +
+ drivers/net/{arm => ethernet/seeq}/ether3.c        |    0
+ drivers/net/{arm => ethernet/seeq}/ether3.h        |    0
+ drivers/net/{ => ethernet/seeq}/seeq8005.c         |    0
+ drivers/net/{ => ethernet/seeq}/seeq8005.h         |    0
+ drivers/net/{ => ethernet/seeq}/sgiseeq.c          |    0
+ drivers/net/{ => ethernet/seeq}/sgiseeq.h          |    0
+ drivers/net/ethernet/sgi/Kconfig                   |   34 ++
+ drivers/net/ethernet/sgi/Makefile                  |    6 +
+ drivers/net/{ => ethernet/sgi}/ioc3-eth.c          |    0
+ drivers/net/{ => ethernet/sgi}/meth.c              |    0
+ drivers/net/{ => ethernet/sgi}/meth.h              |    0
+ drivers/net/ethernet/toshiba/Kconfig               |   56 +++
+ drivers/net/ethernet/toshiba/Makefile              |   10 +
+ drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.c |    0
+ drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.h |    0
+ .../{ => ethernet/toshiba}/ps3_gelic_wireless.c    |    0
+ .../{ => ethernet/toshiba}/ps3_gelic_wireless.h    |    0
+ drivers/net/{ => ethernet/toshiba}/spider_net.c    |    0
+ drivers/net/{ => ethernet/toshiba}/spider_net.h    |    0
+ .../{ => ethernet/toshiba}/spider_net_ethtool.c    |    0
+ drivers/net/{ => ethernet/toshiba}/tc35815.c       |    0
+ drivers/net/ethernet/via/Kconfig                   |   56 +++
+ drivers/net/ethernet/via/Makefile                  |    6 +
+ drivers/net/{ => ethernet/via}/via-rhine.c         |    0
+ drivers/net/{ => ethernet/via}/via-velocity.c      |    0
+ drivers/net/{ => ethernet/via}/via-velocity.h      |    0
+ drivers/net/pcmcia/Kconfig                         |   10 -
+ drivers/net/pcmcia/Makefile                        |    1 -
+ 120 files changed, 711 insertions(+), 468 deletions(-)
+ create mode 100644 drivers/net/ethernet/dec/Kconfig
+ create mode 100644 drivers/net/ethernet/dec/Makefile
+ rename drivers/net/{ => ethernet/dec}/ewrk3.c (100%)
+ rename drivers/net/{ => ethernet/dec}/ewrk3.h (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/21142.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/Kconfig (96%)
+ rename drivers/net/{ => ethernet/dec}/tulip/Makefile (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/de2104x.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/de4x5.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/de4x5.h (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/dmfe.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/eeprom.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/interrupt.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/media.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/pnic.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/pnic2.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/timer.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/tulip.h (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/tulip_core.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/uli526x.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/winbond-840.c (100%)
+ rename drivers/net/{ => ethernet/dec}/tulip/xircom_cb.c (100%)
+ create mode 100644 drivers/net/ethernet/freescale/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/Makefile
+ rename drivers/net/{ => ethernet/freescale}/fec.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fec.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/fec_mpc52xx_phy.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/Kconfig (91%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/Makefile (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/fec.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/fs_enet-main.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/fs_enet.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-fcc.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-fec.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mac-scc.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mii-bitbang.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fs_enet/mii-fec.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/fsl_pq_mdio.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar_ptp.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/gianfar_sysfs.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/ucc_geth.c (100%)
+ rename drivers/net/{ => ethernet/freescale}/ucc_geth.h (100%)
+ rename drivers/net/{ => ethernet/freescale}/ucc_geth_ethtool.c (100%)
+ create mode 100644 drivers/net/ethernet/fujitsu/Kconfig
+ create mode 100644 drivers/net/ethernet/fujitsu/Makefile
+ rename drivers/net/{ => ethernet/fujitsu}/at1700.c (100%)
+ rename drivers/net/{ => ethernet/fujitsu}/eth16i.c (100%)
+ rename drivers/net/{pcmcia => ethernet/fujitsu}/fmvj18x_cs.c (100%)
+ create mode 100644 drivers/net/ethernet/marvell/Kconfig
+ create mode 100644 drivers/net/ethernet/marvell/Makefile
+ rename drivers/net/{ => ethernet/marvell}/mv643xx_eth.c (100%)
+ rename drivers/net/{ => ethernet/marvell}/pxa168_eth.c (100%)
+ rename drivers/net/{ => ethernet/marvell}/skge.c (100%)
+ rename drivers/net/{ => ethernet/marvell}/skge.h (100%)
+ rename drivers/net/{ => ethernet/marvell}/sky2.c (100%)
+ rename drivers/net/{ => ethernet/marvell}/sky2.h (100%)
+ create mode 100644 drivers/net/ethernet/micrel/Kconfig
+ create mode 100644 drivers/net/ethernet/micrel/Makefile
+ rename drivers/net/{arm => ethernet/micrel}/ks8695net.c (100%)
+ rename drivers/net/{arm => ethernet/micrel}/ks8695net.h (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8842.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851.h (100%)
+ rename drivers/net/{ => ethernet/micrel}/ks8851_mll.c (100%)
+ rename drivers/net/{ => ethernet/micrel}/ksz884x.c (100%)
+ create mode 100644 drivers/net/ethernet/oki-semi/Kconfig
+ create mode 100644 drivers/net/ethernet/oki-semi/Makefile
+ create mode 100644 drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/Makefile (100%)
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe.h (100%)
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.c (100%)
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_api.h (100%)
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_main.c (100%)
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_param.c (100%)
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.c (100%)
+ rename drivers/net/{ => ethernet/oki-semi}/pch_gbe/pch_gbe_phy.h (100%)
+ create mode 100644 drivers/net/ethernet/seeq/Kconfig
+ create mode 100644 drivers/net/ethernet/seeq/Makefile
+ rename drivers/net/{arm => ethernet/seeq}/ether3.c (100%)
+ rename drivers/net/{arm => ethernet/seeq}/ether3.h (100%)
+ rename drivers/net/{ => ethernet/seeq}/seeq8005.c (100%)
+ rename drivers/net/{ => ethernet/seeq}/seeq8005.h (100%)
+ rename drivers/net/{ => ethernet/seeq}/sgiseeq.c (100%)
+ rename drivers/net/{ => ethernet/seeq}/sgiseeq.h (100%)
+ create mode 100644 drivers/net/ethernet/sgi/Kconfig
+ create mode 100644 drivers/net/ethernet/sgi/Makefile
+ rename drivers/net/{ => ethernet/sgi}/ioc3-eth.c (100%)
+ rename drivers/net/{ => ethernet/sgi}/meth.c (100%)
+ rename drivers/net/{ => ethernet/sgi}/meth.h (100%)
+ create mode 100644 drivers/net/ethernet/toshiba/Kconfig
+ create mode 100644 drivers/net/ethernet/toshiba/Makefile
+ rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.c (100%)
+ rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_net.h (100%)
+ rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_wireless.c (100%)
+ rename drivers/net/{ => ethernet/toshiba}/ps3_gelic_wireless.h (100%)
+ rename drivers/net/{ => ethernet/toshiba}/spider_net.c (100%)
+ rename drivers/net/{ => ethernet/toshiba}/spider_net.h (100%)
+ rename drivers/net/{ => ethernet/toshiba}/spider_net_ethtool.c (100%)
+ rename drivers/net/{ => ethernet/toshiba}/tc35815.c (100%)
+ create mode 100644 drivers/net/ethernet/via/Kconfig
+ create mode 100644 drivers/net/ethernet/via/Makefile
+ rename drivers/net/{ => ethernet/via}/via-rhine.c (100%)
+ rename drivers/net/{ => ethernet/via}/via-velocity.c (100%)
+ rename drivers/net/{ => ethernet/via}/via-velocity.h (100%)
 
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
----
- include/linux/tcp.h   |    4 +++
- net/ipv4/tcp_input.c  |   63 ++++++++++++++++++++++++++++++++++++++++++++----
- net/ipv4/tcp_output.c |    7 ++++-
- 3 files changed, 67 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 531ede8..dda4f2e1 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -379,6 +379,10 @@ struct tcp_sock {
- 	u32	snd_cwnd_clamp; /* Do not allow snd_cwnd to grow above this */
- 	u32	snd_cwnd_used;
- 	u32	snd_cwnd_stamp;
-+	u32	prr_cwnd;	/* Congestion window at start of Recovery. */
-+	u32	prr_delivered;	/* Number of newly delivered packets to
-+				 * receiver in Recovery. */
-+	u32	prr_out;	/* Total number of pkts sent during Recovery. */
- 
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ea0d218..601eff0 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2830,9 +2830,14 @@ static int tcp_try_undo_loss(struct sock *sk)
- static inline void tcp_complete_cwr(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
--	/* Do not moderate cwnd if it's already undone in cwr or recovery */
--	if (tp->undo_marker && tp->snd_cwnd > tp->snd_ssthresh) {
--		tp->snd_cwnd = tp->snd_ssthresh;
-+
-+	/* Do not moderate cwnd if it's already undone in cwr or recovery. */
-+	if (tp->undo_marker) {
-+
-+		if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR)
-+			tp->snd_cwnd = min(tp->snd_cwnd, tp->snd_ssthresh);
-+		else /* PRR */
-+			tp->snd_cwnd = tp->snd_ssthresh;
- 		tp->snd_cwnd_stamp = tcp_time_stamp;
- 	}
- 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
-@@ -2950,6 +2955,39 @@ void tcp_simple_retransmit(struct sock *sk)
- }
- EXPORT_SYMBOL(tcp_simple_retransmit);
- 
-+/* This function implements the PRR algorithm, specifcally the PRR-SSRB
-+ * (proportional rate reduction with slow start reduction bound) as described in
-+ * http://www.ietf.org/id/draft-mathis-tcpm-proportional-rate-reduction-01.txt.
-+ * It computes the number of packets to send (sndcnt) based on packets newly
-+ * delivered:
-+ *   1) If the packets in flight is larger than ssthresh, PRR spreads the
-+ *	cwnd reductions across a full RTT.
-+ *   2) If packets in flight is lower than ssthresh (such as due to excess
-+ *	losses and/or application stalls), do not perform any further cwnd
-+ *	reductions, but instead slow start up to ssthresh.
-+ */
-+static void tcp_update_cwnd_in_recovery(struct sock *sk, int pkts_delivered,
-+					int fast_rexmit, int flag)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	int sndcnt = 0;
-+	int delta = tp->snd_ssthresh - tcp_packets_in_flight(tp);
-+
-+	if (tcp_packets_in_flight(tp) > tp->snd_ssthresh) {
-+		if (WARN_ON(!tp->prr_cwnd))
-+			tp->prr_cwnd = 1;
-+		sndcnt = DIV_ROUND_UP(tp->prr_delivered * tp->snd_ssthresh,
-+				      tp->prr_cwnd) - tp->prr_out;
-+	} else {
-+		sndcnt = min_t(int, delta,
-+			       max_t(int, tp->prr_delivered - tp->prr_out,
-+				     pkts_delivered) + 1);
-+	}
-+
-+	sndcnt = max(sndcnt, (fast_rexmit ? 1 : 0));
-+	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
-+}
-+
- /* Process an event, which can update packets-in-flight not trivially.
-  * Main goal of this function is to calculate new estimate for left_out,
-  * taking into account both packets sitting in receiver's buffer and
-@@ -2961,7 +2999,8 @@ EXPORT_SYMBOL(tcp_simple_retransmit);
-  * It does _not_ decide what to send, it is made in function
-  * tcp_xmit_retransmit_queue().
-  */
--static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
-+static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
-+				  int pkts_delivered, int flag)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
-@@ -3111,13 +3150,17 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
- 
- 		tp->bytes_acked = 0;
- 		tp->snd_cwnd_cnt = 0;
-+		tp->prr_cwnd = tp->snd_cwnd;
-+		tp->prr_delivered = 0;
-+		tp->prr_out = 0;
- 		tcp_set_ca_state(sk, TCP_CA_Recovery);
- 		fast_rexmit = 1;
- 	}
- 
- 	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
- 		tcp_update_scoreboard(sk, fast_rexmit);
--	tcp_cwnd_down(sk, flag);
-+	tp->prr_delivered += pkts_delivered;
-+	tcp_update_cwnd_in_recovery(sk, pkts_delivered, fast_rexmit, flag);
- 	tcp_xmit_retransmit_queue(sk);
- }
- 
-@@ -3632,6 +3675,11 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	u32 prior_in_flight;
- 	u32 prior_fackets;
- 	int prior_packets;
-+	int prior_sacked = tp->sacked_out;
-+	/* pkts_delivered is number of packets newly cumulatively acked or
-+	 * sacked on this ACK.
-+	 */
-+	int pkts_delivered = 0;
- 	int frto_cwnd = 0;
- 
- 	/* If the ack is older than previous acks
-@@ -3703,6 +3751,9 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	/* See if we can take anything off of the retransmit queue. */
- 	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una);
- 
-+	pkts_delivered = (prior_packets - prior_sacked) -
-+			 (tp->packets_out - tp->sacked_out);
-+
- 	if (tp->frto_counter)
- 		frto_cwnd = tcp_process_frto(sk, flag);
- 	/* Guarantee sacktag reordering detection against wrap-arounds */
-@@ -3715,7 +3766,7 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 		    tcp_may_raise_cwnd(sk, flag))
- 			tcp_cong_avoid(sk, ack, prior_in_flight);
- 		tcp_fastretrans_alert(sk, prior_packets - tp->packets_out,
--				      flag);
-+				      pkts_delivered, flag);
- 	} else {
- 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
- 			tcp_cong_avoid(sk, ack, prior_in_flight);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 882e0b0..ca50408 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1796,11 +1796,13 @@ static int tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 		tcp_event_new_data_sent(sk, skb);
- 
- 		tcp_minshall_update(tp, mss_now, skb);
--		sent_pkts++;
-+		sent_pkts += tcp_skb_pcount(skb);
- 
- 		if (push_one)
- 			break;
- 	}
-+	if (inet_csk(sk)->icsk_ca_state == TCP_CA_Recovery)
-+		tp->prr_out += sent_pkts;
- 
- 	if (likely(sent_pkts)) {
- 		tcp_cwnd_validate(sk);
-@@ -2294,6 +2296,9 @@ begin_fwd:
- 			return;
- 		NET_INC_STATS_BH(sock_net(sk), mib_idx);
- 
-+		if (inet_csk(sk)->icsk_ca_state == TCP_CA_Recovery)
-+			tp->prr_out += tcp_skb_pcount(skb);
-+
- 		if (skb == tcp_write_queue_head(sk))
- 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 						  inet_csk(sk)->icsk_rto,
 -- 
-1.7.3.1
+1.7.6
 
