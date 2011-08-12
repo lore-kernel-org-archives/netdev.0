@@ -1,54 +1,62 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: TCP port firewall controlled by UDP packets
-Date: Fri, 12 Aug 2011 12:40:34 -0400
-Message-ID: <6556.1313167234@turing-police.cc.vt.edu>
-References: <1313106969-18733-1-git-send-email-as@strmilov.cz>
+From: H Hartley Sweeten <hartleys@visionengravers.com>
+Subject: RE: [net-next 02/10] cirrus: Move the Cirrus network driver
+Date: Fri, 12 Aug 2011 12:29:00 -0500
+Message-ID: <ADE657CA350FB648AAC2C43247A983F001F388389C76@AUSP01VMBX24.collaborationhost.net>
+References: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1313146371-6562-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1313167234_2634P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tonda <as@strmilov.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Fri, 12 Aug 2011 01:56:09 +0200."
-             <1313106969-18733-1-git-send-email-as@strmilov.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail209.messagelabs.com ([216.82.255.3]:42669 "EHLO
+	mail209.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751939Ab1HLR3F convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 13:29:05 -0400
+In-Reply-To: <1313146371-6562-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1313167234_2634P
-Content-Type: text/plain; charset=us-ascii
+On Friday, August 12, 2011 3:53 AM, Jeff Kirsher wrote:
+>
+> Move the Cirrus Ethernet driver into drivers/net/ethernet/cirrus/
+> and make the necessary Kconfig and Makefile changes
+>
+> CC: Hartley Sweeten <hsweeten@visionengravers.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  MAINTAINERS                                       |    2 +-
+>  drivers/net/arm/Kconfig                           |    8 ------
+>  drivers/net/arm/Makefile                          |    1 -
+>  drivers/net/ethernet/Kconfig                      |    1 +
+>  drivers/net/ethernet/Makefile                     |    1 +
+>  drivers/net/ethernet/cirrus/Kconfig               |   28 +++++++++++++++++++++
+>  drivers/net/ethernet/cirrus/Makefile              |    5 +++
+>  drivers/net/{arm => ethernet/cirrus}/ep93xx_eth.c |    0
+>  8 files changed, 36 insertions(+), 10 deletions(-)
+>  create mode 100644 drivers/net/ethernet/cirrus/Kconfig
+>  create mode 100644 drivers/net/ethernet/cirrus/Makefile
+>  rename drivers/net/{arm => ethernet/cirrus}/ep93xx_eth.c (100%)
 
-On Fri, 12 Aug 2011 01:56:09 +0200, Tonda said:
-> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -624,3 +624,7 @@
->  	  on the Internet.
->  
->  	  If unsure, say N.
-> +
-> +config TCPFIREWALL
-> +	tristate "TCP Firewall controlled by UDP queries"
-> +	depends on m
+Acked-by: H Hartley Sweeten <hsweeten@visionengravers.com>
 
-I don't suppose it would be asking too much to support UPNP here, would it?
-https://secure.wikimedia.org/wikipedia/en/wiki/Internet_Gateway_Device_Protocol
+Will the Kconfig change require an update to ep93xx_defconfig in order to
+have CONFIG_EP93XX_ETH selected?
 
-(If this in fact *does* do the UPNP thing, then this *really* needs better docs).
+Currently it has these relevant selections:
 
+CONFIG_NET=y
+CONFIG_NETDEVICES=y
+CONFIG_NET_ETHERNET=y
+CONFIG_EP93XX_ETH=y
 
---==_Exmh_1313167234_2634P
-Content-Type: application/pgp-signature
+Will CONFIG_NET_VENDOR_CIRRUS need to be added or will kconfig figure out
+the dependency automatically?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFORVeCcC3lWbTT17ARArKFAKCYJ+Eq1gVGp+7tcrQFTpz6cF1WrwCg+4/U
-BXGIxPr7tXpJbXcx5TZF6Kk=
-=6ULu
------END PGP SIGNATURE-----
-
---==_Exmh_1313167234_2634P--
+Regards,
+Hartley
