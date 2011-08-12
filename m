@@ -1,249 +1,84 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] Fix RCU warning in rt_cache_seq_show
-Date: Fri, 12 Aug 2011 05:49:59 -0700
-Message-ID: <20110812124959.GE2372@linux.vnet.ibm.com>
-References: <1312909360-2675-1-git-send-email-mark.rutland@arm.com>
- <1312910336.2371.61.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <4e424f6c.12cde30a.131e.ffffec9bSMTPIN_ADDED@mx.google.com>
- <1313081901.3261.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20110812023237.GA2372@linux.vnet.ibm.com>
- <1313133830.2669.34.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next RFC PATCH 4/7] tuntap: multiqueue support
+Date: Fri, 12 Aug 2011 16:29:36 +0200
+Message-ID: <1313159376.2354.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20110812015221.31613.95001.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+	<20110812015520.31613.99890.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Gergely Kalman <synapse@hippy.csoma.elte.hu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:35402 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751196Ab1HLOEK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2011 10:04:10 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e6.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p7CDe1Nl016041
-	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 09:40:01 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p7CE49Ye120376
-	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 10:04:09 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p7CE47b5019608
-	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 10:04:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1313133830.2669.34.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
+	qemu-devel@nongnu.org, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	mirq-linux@rere.qmqm.pl, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+In-Reply-To: <20110812015520.31613.99890.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: </archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 12, 2011 at 09:23:50AM +0200, Eric Dumazet wrote:
-> Le jeudi 11 ao=FBt 2011 =E0 19:32 -0700, Paul E. McKenney a =E9crit :
-> > On Thu, Aug 11, 2011 at 06:58:21PM +0200, Eric Dumazet wrote:
-> > > Le mercredi 10 ao=FBt 2011 =E0 10:28 +0100, Mark Rutland a =E9cri=
-t :
-> > > > > -----Original Message-----
-> > > > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > > > > Sent: 09 August 2011 18:19
-> > > > > To: Mark Rutland; Paul E. McKenney
-> > > > > Cc: netdev@vger.kernel.org; David S. Miller; Gergely Kalman
-> > > > > Subject: Re: [PATCH] Fix RCU warning in rt_cache_seq_show
-> > > > >=20
-> > > > > Le mardi 09 ao=FBt 2011 =E0 18:02 +0100, Mark Rutland a =E9cr=
-it :
-> > > > > > Commit f2c31e32 ("net: fix NULL dereferences in check_peer_=
-redir()")
-> > > > > > added rcu protection to dst neighbour, and updated callsite=
-s for
-> > > > > > dst_{get,set}_neighbour. Unfortunately, it missed rt_cache_=
-seq_show.
-> > > > > >
-> > > > > > This produces a warning on v3.1-rc1 (on a preemptible kerne=
-l, on an
-> > > > > > ARM Vexpress A9x4):
-> > > > > >
-> > > > > > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D
-> > > > > > [ INFO: suspicious rcu_dereference_check() usage. ]
-> > > > > > ---------------------------------------------------
-> > > > > > include/net/dst.h:91 invoked rcu_dereference_check() withou=
-t
-> > > > > protection!
-> > > > > >
-> > > > > > other info that might help us debug this:
-> > > > > >
-> > > > > > rcu_scheduler_active =3D 1, debug_locks =3D 0
-> > > > > > 2 locks held by proc01/32159:
-> > > > > >
-> > > > > > stack backtrace:
-> > > > > > [<80014880>] (unwind_backtrace+0x0/0xf8) from [<802e5c78>]
-> > > > > (rt_cache_seq_show+0x18c/0x1c4)
-> > > > > > [<802e5c78>] (rt_cache_seq_show+0x18c/0x1c4) from [<800e0c5=
-c>]
-> > > > > (seq_read+0x324/0x4a4)
-> > > > > > [<800e0c5c>] (seq_read+0x324/0x4a4) from [<8010786c>]
-> > > > > (proc_reg_read+0x70/0x94)
-> > > > > > [<8010786c>] (proc_reg_read+0x70/0x94) from [<800c0ba8>]
-> > > > > (vfs_read+0xb0/0x144)
-> > > > > > [<800c0ba8>] (vfs_read+0xb0/0x144) from [<800c0ea8>]
-> > > > > (sys_read+0x40/0x70)
-> > > > > > [<800c0ea8>] (sys_read+0x40/0x70) from [<8000e0c0>]
-> > > > > (ret_fast_syscall+0x0/0x3c)
-> > > > > >
-> > > > > > This patch adds calls to rcu_read_{lock,unlock} in rt_cache=
-_seq_show,
-> > > > > > protecting the dereferenced variable, and clearing the warn=
-ing.
-> > > > > >
-> > > > > > Signed-off-by: Mark Rutland <mark.rutland@arm.com>
-> > > > > > Cc: David S. Miller <davem@davemloft.net>
-> > > > > > Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> > > > > > Cc: Gergely Kalman <synapse@hippy.csoma.elte.hu>
-> > > > > > ---
-> > > > > >  net/ipv4/route.c |    2 ++
-> > > > > >  1 files changed, 2 insertions(+), 0 deletions(-)
-> > > > > >
-> > > > > > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > > > > > index e3dec1c..6699ef7 100644
-> > > > > > --- a/net/ipv4/route.c
-> > > > > > +++ b/net/ipv4/route.c
-> > > > > > @@ -419,6 +419,7 @@ static int rt_cache_seq_show(struct seq=
-_file
-> > > > > *seq, void *v)
-> > > > > >  		struct neighbour *n;
-> > > > > >  		int len;
-> > > > > >
-> > > > > > +		rcu_read_lock();
-> > > > > >  		n =3D dst_get_neighbour(&r->dst);
-> > > > > >  		seq_printf(seq, "%s\t%08X\t%08X\t%8X\t%d\t%u\t%d\t"
-> > > > > >  			      "%08X\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X%n",
-> > > > > > @@ -435,6 +436,7 @@ static int rt_cache_seq_show(struct seq=
-_file
-> > > > > *seq, void *v)
-> > > > > >  			-1,
-> > > > > >  			(n && (n->nud_state & NUD_CONNECTED)) ? 1 : 0,
-> > > > > >  			r->rt_spec_dst, &len);
-> > > > > > +		rcu_read_unlock();
-> > > > > >
-> > > > > >  		seq_printf(seq, "%*s\n", 127 - len, "");
-> > > > > >  	}
-> > > > >=20
-> > > > >=20
-> > > > > Hmm, I though rcu_read_lock_bh() (done by caller of this func=
-tion) was
-> > > > > protecting us here.
-> > > >=20
-> > > > Aha. Being a bit trigger-happy, I'd had a quick look at the fun=
-ctions
-> > > > mentioned in the backtrace, and not looked at any possible inli=
-ning.
-> > > >=20
-> > > > This being my first real exposure to RCU, I wasn't aware of the=
- *_bh
-> > > > variants. Looking at the documentation (Documentation/RCU/check=
-list.txt),
-> > > > I think the real problem is that we should be using rcu_derefer=
-ence_bh in
-> > > > this case:
-> > > >=20
-> > > >   > read-side critical sections are delimited by rcu_read_lock(=
-)
-> > > >   > and rcu_read_unlock(), or by similar primitives such as
-> > > >   > rcu_read_lock_bh() and rcu_read_unlock_bh(), in which case
-> > > >   > the matching rcu_dereference() primitive must be used in or=
-der
-> > > >   > to keep lockdep happy, in this case, rcu_dereference_bh().
-> > >=20
-> > > Hmm.
-> > >=20
-> > > I do think dst_get_neighbour() should use rcu_dereference(), beca=
-use
-> > > dst->_neighbour are freed by call_rcu().
-> > >=20
-> > > The question is : Is following construct [A] safe or not ?
-> > >=20
-> > > {
-> > > rcu_read_lock_bh();
-> > > 	/* BH are now disabled, and we are not allowed to sleep */
-> > > 	...
-> > >=20
-> > > 	ptr =3D rcu_dereference();
-> >=20
-> > This should be:
-> >=20
-> > 	ptr =3D rcu_dereference_bh();
-> >=20
-> > As you say below.  Never mind!  ;-)
-> >=20
-> > > 	...
-> > > rcu_read_unlock_bh();
-> > > }
-> > >=20
-> > >=20
-> > > I dont really understand why lockdep wants [B] instead :
-> > >=20
-> > > {
-> > > rcu_read_lock_bh();
-> > > 	...
-> > >=20
-> > > 	{
-> > > 	rcu_read_lock();
-> > > 	ptr =3D rcu_dereference();
-> >=20
-> > Here you are protected by both RCU and RCU-bh, so you should be abl=
-e
-> > to use either rcu_dereference() or rcu_dereference_bh().  A bit
-> > strange to use rcu_dereference_bh(), though.  Except perhaps if a
-> > pointer to a function was passed in from the outer RCU-bh read-side
-> > critical section or something.
-> >=20
-> > > 	rcu_read_unlock();
-> > > 	}
-> > > 	...
-> > > rcu_read_unlock_bh();
-> > > }
-> > >=20
-> > >=20
-> > >=20
-> > > However, I can understand the other way [C], this is really neede=
-d :
-> > >=20
-> > > {
-> > > rcu_read_lock();
-> > > 	...
-> > >=20
-> > > 	{
-> > > 	rcu_read_lock_bh();
-> > > 	ptr =3D rcu_dereference_bh();
-> > > 	rcu_read_unlock_bh();
-> > > 	}
-> > > 	...
-> > > rcu_read_unlock();
-> > > }
-> > >=20
-> > > I believe [A] should be allowed by lockdep.
-> >=20
-> > OK, I'll bite.  Why?
-> >=20
->=20
-> Oh well, I assumed local_bh_disable() disables preemption.
->=20
-> It does since day-0
-> add_preempt_count(SOFTIRQ_DISABLE_OFFSET);
->=20
-> So following should be safe :
->=20
-> local_bh_disable();
-> {
-> ptr =3D rcu_dereference(...);
-> use(ptr);
-> }
-> local_bh_enable();
->=20
-> Maybe they are longterm plans to break this assumption, I dont know.
+Le vendredi 12 août 2011 à 09:55 +0800, Jason Wang a écrit :
 
-It would be safe for TINY_RCU and TREE_RCU, but not for either
-TINY_PREEMPT_RCU or TREE_PREEMPT_RCU.  These last two do not
-recognize a preempt-disable region as an RCU read-side critical
-section.
+>+       rxq = skb_get_rxhash(skb);
+>+       if (rxq) {
+>+               tfile = rcu_dereference(tun->tfiles[rxq % numqueues]);
+>+               if (tfile)
+>+                       goto out;
+>+       }
 
-						Thanx, Paul
+You can avoid an expensive divide with following trick :
+
+u32 idx = ((u64)rxq * numqueues) >> 32;
+
+
+
+> -static struct tun_struct *tun_get(struct file *file)
+> +static void tun_detach_all(struct net_device *dev)
+>  {
+> -	return __tun_get(file->private_data);
+> +	struct tun_struct *tun = netdev_priv(dev);
+> +	struct tun_file *tfile, *tfile_list[MAX_TAP_QUEUES];
+> +	int i, j = 0;
+> +
+> +	spin_lock(&tun_lock);
+> +
+> +	for (i = 0; i < MAX_TAP_QUEUES && tun->numqueues; i++) {
+> +		tfile = rcu_dereference_protected(tun->tfiles[i],
+> +						lockdep_is_held(&tun_lock));
+> +		if (tfile) {
+> +			wake_up_all(&tfile->wq.wait);
+> +			tfile_list[i++] = tfile;
+
+	typo here, you want tfile_list[j++] = tfile;
+
+> +			rcu_assign_pointer(tun->tfiles[i], NULL);
+> +			rcu_assign_pointer(tfile->tun, NULL);
+> +			--tun->numqueues;
+> +		}
+> +	}
+> +	BUG_ON(tun->numqueues != 0);
+> +	spin_unlock(&tun_lock);
+> +
+> +	synchronize_rcu();
+> +	for(--j; j >= 0; j--)
+> +		sock_put(&tfile_list[j]->sk);
+>  }
+>  
+
+Could you take a look at net/packet/af_packet.c, to check how David did
+the whole fanout thing ?
+
+__fanout_unlink() 
+
+Trick is to not leave NULL entries in the tun->tfiles[] array.
+
+It makes things easier in hot path.
