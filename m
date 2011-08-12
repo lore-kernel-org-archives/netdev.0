@@ -1,56 +1,96 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: Question about the drivers movement (IBM_NEW_EMAC)
-Date: Fri, 12 Aug 2011 12:54:02 +1000
-Message-ID: <20110812125402.f54c52c09a18cb40ecc5489b@canb.auug.org.au>
-References: <20110812120744.1912ca01ab4e76faaa93892c@canb.auug.org.au>
+From: stufever@gmail.com
+Subject: [PATCH RESEND] gianfar: reduce stack usage in gianfar_ethtool.c
+Date: Fri, 12 Aug 2011 11:07:25 +0800
+Message-ID: <1313118445-25594-1-git-send-email-wangshaoyan.pt@taobao.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__12_Aug_2011_12_54_02_+1000_8HytCwul1kD=4bjH"
-Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, ppc-dev <linuxppc-dev@lists.ozlabs.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	sebastian.poehn@belden.com,
+	Wang Shaoyan <wangshaoyan.pt@taobao.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110812120744.1912ca01ab4e76faaa93892c@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__12_Aug_2011_12_54_02_+1000_8HytCwul1kD=4bjH
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+=46rom: Wang Shaoyan <wangshaoyan.pt@taobao.com>
 
-[just cc'ing linuxppc-dev mailing list]
+  drivers/net/gianfar_ethtool.c:765: warning: the frame size of 2048 by=
+tes is larger than 1024 bytes
 
-On Fri, 12 Aug 2011 12:07:44 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
+Signed-off-by: Wang Shaoyan <wangshaoyan.pt@taobao.com>
+Reviewed-and-tested-by: Sebastian P=C3=B6hn <sebastian.poehn@belden.com=
 >
-> Hi Jeff,
->=20
-> In commit 9aa328359545 ("ehea/ibm*: Move the IBM drivers") from Dave's
-> net tree, you not only move the drivers around, but you change
-> CONFIG_IBM_NEW_EMAC to CONFIG_IBM_EMAC.  Won't that mean that all the
-> PowerPC configs that currently set CONFIG_IBM_NEW_EMAC to y will no
-> longer build this driver?
+---
+ drivers/net/gianfar_ethtool.c |   26 +++++++++++++++++++++-----
+ 1 files changed, 21 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtoo=
+l.c
+index 6e35069..25a8c2a 100644
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -686,10 +686,21 @@ static int gfar_ethflow_to_filer_table(struct gfa=
+r_private *priv, u64 ethflow, u
+ {
+ 	unsigned int last_rule_idx =3D priv->cur_filer_idx;
+ 	unsigned int cmp_rqfpr;
+-	unsigned int local_rqfpr[MAX_FILER_IDX + 1];
+-	unsigned int local_rqfcr[MAX_FILER_IDX + 1];
++	unsigned int *local_rqfpr;
++	unsigned int *local_rqfcr;
+ 	int i =3D 0x0, k =3D 0x0;
+ 	int j =3D MAX_FILER_IDX, l =3D 0x0;
++	int ret =3D 1;
++
++	local_rqfpr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
++		GFP_KERNEL);
++	local_rqfcr =3D kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
++		GFP_KERNEL);
++	if (!local_rqfpr || !local_rqfcr) {
++		pr_err("Out of memory\n");
++		ret =3D 0;
++		goto err;
++	}
+=20
+ 	switch (class) {
+ 	case TCP_V4_FLOW:
+@@ -706,7 +717,8 @@ static int gfar_ethflow_to_filer_table(struct gfar_=
+private *priv, u64 ethflow, u
+ 		break;
+ 	default:
+ 		pr_err("Right now this class is not supported\n");
+-		return 0;
++		ret =3D 0;
++		goto err;
+ 	}
+=20
+ 	for (i =3D 0; i < MAX_FILER_IDX + 1; i++) {
+@@ -721,7 +733,8 @@ static int gfar_ethflow_to_filer_table(struct gfar_=
+private *priv, u64 ethflow, u
+=20
+ 	if (i =3D=3D MAX_FILER_IDX + 1) {
+ 		pr_err("No parse rule found, can't create hash rules\n");
+-		return 0;
++		ret =3D 0;
++		goto err;
+ 	}
+=20
+ 	/* If a match was found, then it begins the starting of a cluster rul=
+e
+@@ -765,7 +778,10 @@ static int gfar_ethflow_to_filer_table(struct gfar=
+_private *priv, u64 ethflow, u
+ 		priv->cur_filer_idx =3D priv->cur_filer_idx - 1;
+ 	}
+=20
+-	return 1;
++err:
++	kfree(local_rqfcr);
++	kfree(local_rqfpr);
++	return ret;
+ }
+=20
+ static int gfar_set_hash_opts(struct gfar_private *priv, struct ethtoo=
+l_rxnfc *cmd)
 --=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Fri__12_Aug_2011_12_54_02_+1000_8HytCwul1kD=4bjH
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJORJXKAAoJEDMEi1NhKgbs2FMH/AupNfIXYr5afODGIH4sSgNW
-i6G8xTD5o2euiBLupdKnA6FeY9nxaGhWLJ7K9qpXPUyym5I4ptOONcLkOXvLx1c6
-mJNgdzZp/Qp1py9T5cpdOaQRDA4iuohsLNbcq1pXbBZEMq8bDecZJIIP7knbGQtb
-DZRmVPW2bJXvpTKfahQbuKujiJAi8bRtUxv4/o+BIVDI3bUdcv+/NJeAM1Rdfi4Q
-8hohZ8eZsvFMHUR1Qnt69ci4hsDe/ewfzleWkz8wBz6TMIBORM0desgJiqAq135U
-BtUD1fSW0zdoGYMVI5z7EIynKA4uJrsBiRYYfRz6oVT/HIiGegiQvMZsOXukqnA=
-=QEju
------END PGP SIGNATURE-----
-
---Signature=_Fri__12_Aug_2011_12_54_02_+1000_8HytCwul1kD=4bjH--
+1.7.4.1
