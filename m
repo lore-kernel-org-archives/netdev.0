@@ -1,18 +1,32 @@
-From: info@pbl.com
-Subject: =?iso-8859-1?Q?=A3980=2C000=3A00_Pound=20?=
-Date: Fri, 12 Aug 2011 11:42:22 +0200
-Message-ID: <20110812114222.c55c7bc3@posta.sosmgp.cz>
-Reply-To: mrwilliam_garry@hotmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/10] drivers/net organize Ethernet drivers (5th
+ series)
+Date: Fri, 12 Aug 2011 04:35:07 -0700 (PDT)
+Message-ID: <20110812.043507.288447368143242527.davem@davemloft.net>
+References: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 4.9.broadband7.iol.cz ([88.102.9.4]:3207 "EHLO posta.sosmgp.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751311Ab1HLK6E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 06:58:04 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:52153 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751331Ab1HLLfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 07:35:41 -0400
+In-Reply-To: <1313146371-6562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=C2=A3980,000:00 Pound for more info Email: mrwilliam_garry@hotmail.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 12 Aug 2011 03:52:41 -0700
+
+> This is the fifth of seven 10 patch series to move the Ethernet
+> drivers into drivers/net/ethernet/
+>   
+> The following are changes since commit 4c78893b3d107e2a053c8f51c526510857c09858:
+>   cnic: Fix select dependencies in bnx2fc/bnx2i Kconfig.
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
+
+Pulled, thanks Jeff.
