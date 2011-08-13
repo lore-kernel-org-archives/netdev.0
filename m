@@ -1,143 +1,132 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/12] xircom: Move the Xircom driver
-Date: Sat, 13 Aug 2011 00:56:33 -0700
-Message-ID: <1313222196-10074-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/12] greth: Move the Aeroflex Gaisler driver
+Date: Sat, 13 Aug 2011 00:56:28 -0700
+Message-ID: <1313222196-10074-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, <psheer@icon.co.za>,
-	Dominik Brodowski <linux@dominikbrodowski.net>
+	gospo@redhat.com, sassmann@redhat.com,
+	Kristoffer Glembo <kristoffer@gaisler.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8913 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:3492 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751724Ab1HMH4n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Aug 2011 03:56:43 -0400
+	id S1751348Ab1HMH4l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Aug 2011 03:56:41 -0400
 In-Reply-To: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Xircom driver into drivers/net/ethernet/xircom/ and
-make the necessary Kconfig and Makefile changes.
+Move the Aeroflex Gaisler driver into drivers/net/ethernet/aeroflex/
+and make the necessary Kconfig and Makefile changes.
 
-CC: <psheer@icon.co.za>
-CC: Dominik Brodowski <linux@dominikbrodowski.net>
+CC: Kristoffer Glembo <kristoffer@gaisler.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/xircom/Kconfig                |   30 ++++++++++++++++++++
- drivers/net/ethernet/xircom/Makefile               |    5 +++
- .../net/{pcmcia => ethernet/xircom}/xirc2ps_cs.c   |    0
- drivers/net/pcmcia/Kconfig                         |    9 ------
- drivers/net/pcmcia/Makefile                        |    1 -
- 7 files changed, 37 insertions(+), 10 deletions(-)
- create mode 100644 drivers/net/ethernet/xircom/Kconfig
- create mode 100644 drivers/net/ethernet/xircom/Makefile
- rename drivers/net/{pcmcia => ethernet/xircom}/xirc2ps_cs.c (100%)
+ drivers/net/Kconfig                         |    8 --------
+ drivers/net/Makefile                        |    1 -
+ drivers/net/ethernet/Kconfig                |    1 +
+ drivers/net/ethernet/Makefile               |    1 +
+ drivers/net/ethernet/aeroflex/Kconfig       |   11 +++++++++++
+ drivers/net/ethernet/aeroflex/Makefile      |    5 +++++
+ drivers/net/{ => ethernet/aeroflex}/greth.c |    0
+ drivers/net/{ => ethernet/aeroflex}/greth.h |    0
+ 8 files changed, 18 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/ethernet/aeroflex/Kconfig
+ create mode 100644 drivers/net/ethernet/aeroflex/Makefile
+ rename drivers/net/{ => ethernet/aeroflex}/greth.c (100%)
+ rename drivers/net/{ => ethernet/aeroflex}/greth.h (100%)
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index fe2a8bc..75ca0da 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -291,14 +291,6 @@ config ENC28J60_WRITEVERIFY
+ 	  Enable the verify after the buffer write useful for debugging purpose.
+ 	  If unsure, say N.
+ 
+-config GRETH
+-	tristate "Aeroflex Gaisler GRETH Ethernet MAC support"
+-	depends on SPARC
+-	select PHYLIB
+-	select CRC32
+-	help
+-	  Say Y here if you want to use the Aeroflex Gaisler GRETH Ethernet MAC.
+-
+ config NET_PCI
+ 	bool "EISA, VLB, PCI and on board controllers"
+ 	depends on ISA || EISA || PCI
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 4e74d93..e2f1f55 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -54,7 +54,6 @@ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
+ obj-$(CONFIG_DM9000) += dm9000.o
+ obj-$(CONFIG_ENC28J60) += enc28j60.o
+-obj-$(CONFIG_GRETH) += greth.o
+ 
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_ETHERNET) += ethernet/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index df8940d..f011665 100644
+index e89bb27..32561c7 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -160,5 +160,6 @@ source "drivers/net/ethernet/toshiba/Kconfig"
- source "drivers/net/ethernet/tundra/Kconfig"
- source "drivers/net/ethernet/via/Kconfig"
- source "drivers/net/ethernet/xilinx/Kconfig"
-+source "drivers/net/ethernet/xircom/Kconfig"
+@@ -13,6 +13,7 @@ if ETHERNET
  
- endif # ETHERNET
+ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/adaptec/Kconfig"
++source "drivers/net/ethernet/aeroflex/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
+ source "drivers/net/ethernet/atheros/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 09f26b6..7f3b73c 100644
+index 5ef1218..94f1be8 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -69,3 +69,4 @@ obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
- obj-$(CONFIG_NET_VENDOR_TUNDRA) += tundra/
- obj-$(CONFIG_NET_VENDOR_VIA) += via/
- obj-$(CONFIG_NET_VENDOR_XILINX) += xilinx/
-+obj-$(CONFIG_NET_VENDOR_XIRCOM) += xircom/
-diff --git a/drivers/net/ethernet/xircom/Kconfig b/drivers/net/ethernet/xircom/Kconfig
+@@ -5,6 +5,7 @@
+ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
++obj-$(CONFIG_GRETH) += aeroflex/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
+diff --git a/drivers/net/ethernet/aeroflex/Kconfig b/drivers/net/ethernet/aeroflex/Kconfig
 new file mode 100644
-index 0000000..3d64e58
+index 0000000..4f4a8d7
 --- /dev/null
-+++ b/drivers/net/ethernet/xircom/Kconfig
-@@ -0,0 +1,30 @@
++++ b/drivers/net/ethernet/aeroflex/Kconfig
+@@ -0,0 +1,11 @@
 +#
-+# Xircom network device configuration
++# Aeroflex Gaisler network device configuration
 +#
 +
-+config NET_VENDOR_XIRCOM
-+	bool "Xircom devices"
-+	depends on PCMCIA
++config GRETH
++	tristate "Aeroflex Gaisler GRETH Ethernet MAC support"
++	depends on SPARC
++	select PHYLIB
++	select CRC32
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Xircom cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
-+
-+if NET_VENDOR_XIRCOM
-+
-+config PCMCIA_XIRC2PS
-+	tristate "Xircom 16-bit PCMCIA support"
-+	depends on PCMCIA
-+	---help---
-+	  Say Y here if you intend to attach a Xircom 16-bit PCMCIA (PC-card)
-+	  Ethernet or Fast Ethernet card to your computer.
-+
-+	  To compile this driver as a module, choose M here: the module will be
-+	  called xirc2ps_cs.  If unsure, say N.
-+
-+endif # NET_VENDOR_XIRCOM
-diff --git a/drivers/net/ethernet/xircom/Makefile b/drivers/net/ethernet/xircom/Makefile
++	  Say Y here if you want to use the Aeroflex Gaisler GRETH Ethernet MAC.
+diff --git a/drivers/net/ethernet/aeroflex/Makefile b/drivers/net/ethernet/aeroflex/Makefile
 new file mode 100644
-index 0000000..3b7aebd
+index 0000000..6e62a67
 --- /dev/null
-+++ b/drivers/net/ethernet/xircom/Makefile
++++ b/drivers/net/ethernet/aeroflex/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Xircom network device drivers.
++# Makefile for the Aeroflex Gaisler network device drivers.
 +#
 +
-+obj-$(CONFIG_PCMCIA_XIRC2PS) += xirc2ps_cs.o
-diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/ethernet/xircom/xirc2ps_cs.c
++obj-$(CONFIG_GRETH) += greth.o
+diff --git a/drivers/net/greth.c b/drivers/net/ethernet/aeroflex/greth.c
 similarity index 100%
-rename from drivers/net/pcmcia/xirc2ps_cs.c
-rename to drivers/net/ethernet/xircom/xirc2ps_cs.c
-diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
-index 80d291e..12e7ae4 100644
---- a/drivers/net/pcmcia/Kconfig
-+++ b/drivers/net/pcmcia/Kconfig
-@@ -21,15 +21,6 @@ menuconfig NET_PCMCIA
- 
- if NET_PCMCIA && PCMCIA
- 
--config PCMCIA_XIRC2PS
--	tristate "Xircom 16-bit PCMCIA support"
--	help
--	  Say Y here if you intend to attach a Xircom 16-bit PCMCIA (PC-card)
--	  Ethernet or Fast Ethernet card to your computer.
--
--	  To compile this driver as a module, choose M here: the module will be
--	  called xirc2ps_cs.  If unsure, say N.
--
- config ARCNET_COM20020_CS
- 	tristate "COM20020 ARCnet PCMCIA support"
- 	depends on ARCNET_COM20020
-diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
-index ccf5535..618e816 100644
---- a/drivers/net/pcmcia/Makefile
-+++ b/drivers/net/pcmcia/Makefile
-@@ -3,7 +3,6 @@
- #
- 
- # 16-bit client drivers
--obj-$(CONFIG_PCMCIA_XIRC2PS)	+= xirc2ps_cs.o
- obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
- 
- obj-$(CONFIG_PCMCIA_IBMTR)	+= ibmtr_cs.o
+rename from drivers/net/greth.c
+rename to drivers/net/ethernet/aeroflex/greth.c
+diff --git a/drivers/net/greth.h b/drivers/net/ethernet/aeroflex/greth.h
+similarity index 100%
+rename from drivers/net/greth.h
+rename to drivers/net/ethernet/aeroflex/greth.h
 -- 
 1.7.6
 
