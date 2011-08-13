@@ -1,107 +1,143 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/12] netx: Move the netx driver
-Date: Sat, 13 Aug 2011 00:56:31 -0700
-Message-ID: <1313222196-10074-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/12] xircom: Move the Xircom driver
+Date: Sat, 13 Aug 2011 00:56:33 -0700
+Message-ID: <1313222196-10074-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Sascha Hauer <s.hauer@pengutronix.de>
+	gospo@redhat.com, sassmann@redhat.com, <psheer@icon.co.za>,
+	Dominik Brodowski <linux@dominikbrodowski.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:3492 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8913 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751535Ab1HMH4m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Aug 2011 03:56:42 -0400
+	id S1751724Ab1HMH4n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Aug 2011 03:56:43 -0400
 In-Reply-To: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the netx driver into drivers/net/ethernet/ and make the
-necessary Kconfig and Makefile changes.
+Move the Xircom driver into drivers/net/ethernet/xircom/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Sascha Hauer <s.hauer@pengutronix.de>
+CC: <psheer@icon.co.za>
+CC: Dominik Brodowski <linux@dominikbrodowski.net>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
 ---
- drivers/net/Kconfig                   |   10 ----------
- drivers/net/Makefile                  |    1 -
- drivers/net/ethernet/Kconfig          |   11 +++++++++++
- drivers/net/ethernet/Makefile         |    1 +
- drivers/net/{ => ethernet}/netx-eth.c |    0
- 5 files changed, 12 insertions(+), 11 deletions(-)
- rename drivers/net/{ => ethernet}/netx-eth.c (100%)
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/xircom/Kconfig                |   30 ++++++++++++++++++++
+ drivers/net/ethernet/xircom/Makefile               |    5 +++
+ .../net/{pcmcia => ethernet/xircom}/xirc2ps_cs.c   |    0
+ drivers/net/pcmcia/Kconfig                         |    9 ------
+ drivers/net/pcmcia/Makefile                        |    1 -
+ 7 files changed, 37 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/net/ethernet/xircom/Kconfig
+ create mode 100644 drivers/net/ethernet/xircom/Makefile
+ rename drivers/net/{pcmcia => ethernet/xircom}/xirc2ps_cs.c (100%)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 23155cc..572ddf2 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -236,16 +236,6 @@ config SH_ETH
- 	  This driver supporting CPUs are:
- 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
- 
--config NET_NETX
--	tristate "NetX Ethernet support"
--	select MII
--	depends on ARCH_NETX
--	help
--	  This is support for the Hilscher netX builtin Ethernet ports
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called netx-eth.
--
- config NET_PCI
- 	bool "EISA, VLB, PCI and on board controllers"
- 	depends on ISA || EISA || PCI
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 298587f..8fa5b60 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -51,7 +51,6 @@ obj-$(CONFIG_DEFXX) += defxx.o
- obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
--obj-$(CONFIG_NET_NETX) += netx-eth.o
- 
- obj-$(CONFIG_DEV_APPLETALK) += appletalk/
- obj-$(CONFIG_ETHERNET) += ethernet/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 45eef59..6e36196 100644
+index df8940d..f011665 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -102,6 +102,17 @@ config FEALNX
+@@ -160,5 +160,6 @@ source "drivers/net/ethernet/toshiba/Kconfig"
+ source "drivers/net/ethernet/tundra/Kconfig"
+ source "drivers/net/ethernet/via/Kconfig"
+ source "drivers/net/ethernet/xilinx/Kconfig"
++source "drivers/net/ethernet/xircom/Kconfig"
  
- source "drivers/net/ethernet/natsemi/Kconfig"
- source "drivers/net/ethernet/8390/Kconfig"
-+
-+config NET_NETX
-+	tristate "NetX Ethernet support"
-+	select MII
-+	depends on ARCH_NETX
-+	---help---
-+	  This is support for the Hilscher netX builtin Ethernet ports
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called netx-eth.
-+
- source "drivers/net/ethernet/nuvoton/Kconfig"
- source "drivers/net/ethernet/nvidia/Kconfig"
- source "drivers/net/ethernet/octeon/Kconfig"
+ endif # ETHERNET
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index dfd5146..c274820 100644
+index 09f26b6..7f3b73c 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -42,6 +42,7 @@ obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
- obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
- obj-$(CONFIG_FEALNX) += fealnx.o
- obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
-+obj-$(CONFIG_NET_NETX) += netx-eth.o
- obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
- obj-$(CONFIG_NET_VENDOR_NVIDIA) += nvidia/
- obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
-diff --git a/drivers/net/netx-eth.c b/drivers/net/ethernet/netx-eth.c
+@@ -69,3 +69,4 @@ obj-$(CONFIG_NET_VENDOR_TOSHIBA) += toshiba/
+ obj-$(CONFIG_NET_VENDOR_TUNDRA) += tundra/
+ obj-$(CONFIG_NET_VENDOR_VIA) += via/
+ obj-$(CONFIG_NET_VENDOR_XILINX) += xilinx/
++obj-$(CONFIG_NET_VENDOR_XIRCOM) += xircom/
+diff --git a/drivers/net/ethernet/xircom/Kconfig b/drivers/net/ethernet/xircom/Kconfig
+new file mode 100644
+index 0000000..3d64e58
+--- /dev/null
++++ b/drivers/net/ethernet/xircom/Kconfig
+@@ -0,0 +1,30 @@
++#
++# Xircom network device configuration
++#
++
++config NET_VENDOR_XIRCOM
++	bool "Xircom devices"
++	depends on PCMCIA
++	---help---
++	  If you have a network (Ethernet) card belonging to this class, say Y
++	  and read the Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about Xircom cards. If you say Y, you will be asked for
++	  your specific card in the following questions.
++
++if NET_VENDOR_XIRCOM
++
++config PCMCIA_XIRC2PS
++	tristate "Xircom 16-bit PCMCIA support"
++	depends on PCMCIA
++	---help---
++	  Say Y here if you intend to attach a Xircom 16-bit PCMCIA (PC-card)
++	  Ethernet or Fast Ethernet card to your computer.
++
++	  To compile this driver as a module, choose M here: the module will be
++	  called xirc2ps_cs.  If unsure, say N.
++
++endif # NET_VENDOR_XIRCOM
+diff --git a/drivers/net/ethernet/xircom/Makefile b/drivers/net/ethernet/xircom/Makefile
+new file mode 100644
+index 0000000..3b7aebd
+--- /dev/null
++++ b/drivers/net/ethernet/xircom/Makefile
+@@ -0,0 +1,5 @@
++#
++# Makefile for the Xircom network device drivers.
++#
++
++obj-$(CONFIG_PCMCIA_XIRC2PS) += xirc2ps_cs.o
+diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/ethernet/xircom/xirc2ps_cs.c
 similarity index 100%
-rename from drivers/net/netx-eth.c
-rename to drivers/net/ethernet/netx-eth.c
+rename from drivers/net/pcmcia/xirc2ps_cs.c
+rename to drivers/net/ethernet/xircom/xirc2ps_cs.c
+diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
+index 80d291e..12e7ae4 100644
+--- a/drivers/net/pcmcia/Kconfig
++++ b/drivers/net/pcmcia/Kconfig
+@@ -21,15 +21,6 @@ menuconfig NET_PCMCIA
+ 
+ if NET_PCMCIA && PCMCIA
+ 
+-config PCMCIA_XIRC2PS
+-	tristate "Xircom 16-bit PCMCIA support"
+-	help
+-	  Say Y here if you intend to attach a Xircom 16-bit PCMCIA (PC-card)
+-	  Ethernet or Fast Ethernet card to your computer.
+-
+-	  To compile this driver as a module, choose M here: the module will be
+-	  called xirc2ps_cs.  If unsure, say N.
+-
+ config ARCNET_COM20020_CS
+ 	tristate "COM20020 ARCnet PCMCIA support"
+ 	depends on ARCNET_COM20020
+diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
+index ccf5535..618e816 100644
+--- a/drivers/net/pcmcia/Makefile
++++ b/drivers/net/pcmcia/Makefile
+@@ -3,7 +3,6 @@
+ #
+ 
+ # 16-bit client drivers
+-obj-$(CONFIG_PCMCIA_XIRC2PS)	+= xirc2ps_cs.o
+ obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
+ 
+ obj-$(CONFIG_PCMCIA_IBMTR)	+= ibmtr_cs.o
 -- 
 1.7.6
 
