@@ -1,72 +1,40 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [PATCH] virtio-net: Read MAC only after initializing MSI-X
-Date: Sat, 13 Aug 2011 11:51:01 +0300
-Message-ID: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com>
-Cc: Sasha Levin <levinsasha928@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/4][pull request] Intel Wired LAN Drive Update
+Date: Sat, 13 Aug 2011 02:23:36 -0700
+Message-ID: <1313227420-9974-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:12891 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751008Ab1HMJXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Aug 2011 05:23:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The MAC of a virtio-net device is located at the first field of the device
-specific header. This header is located at offset 20 if the device doesn't
-support MSI-X or offset 24 if it does.
+The following series contains updates to e1000e and ixgbe.
 
-Current code in virtnet_probe() used to probe the MAC before checking for
-MSI-X, which means that the read was always made from offset 20 regardless
-of whether MSI-X in enabled or not.
+The following are changes since commit d80bcf46f1dae47805260dc60fb900cc4dabe35e:
+  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net master
 
-This patch moves the MAC probe to after the detection of whether MSI-X is
-enabled. This way the MAC will be read from offset 24 if the device indeed
-supports MSI-X.
+Alexander Duyck (1):
+  ixgbe: Fix FCOE memory leak for DDP packets
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: virtualization@lists.linux-foundation.org
-Cc: netdev@vger.kernel.org
-Cc: kvm@vger.kernel.org
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
----
- drivers/net/virtio_net.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+Bruce Allan (3):
+  e1000e: Spurious interrupts & dropped packets with 82577/8/9 in
+    half-duplex
+  e1000e: workaround for packet drop on 82579 at 100Mbps
+  e1000e: workaround invalid Tx/Rx tail descriptor register write
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 0c7321c..55ccf96 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -981,14 +981,6 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		/* (!csum && gso) case will be fixed by register_netdev() */
- 	}
- 
--	/* Configuration may specify what MAC to use.  Otherwise random. */
--	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
--		vdev->config->get(vdev,
--				  offsetof(struct virtio_net_config, mac),
--				  dev->dev_addr, dev->addr_len);
--	} else
--		random_ether_addr(dev->dev_addr);
--
- 	/* Set up our device-specific information */
- 	vi = netdev_priv(dev);
- 	netif_napi_add(dev, &vi->napi, virtnet_poll, napi_weight);
-@@ -1032,6 +1024,14 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			dev->features |= NETIF_F_HW_VLAN_FILTER;
- 	}
- 
-+	/* Configuration may specify what MAC to use.  Otherwise random. */
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
-+		vdev->config->get(vdev,
-+				  offsetof(struct virtio_net_config, mac),
-+				  dev->dev_addr, dev->addr_len);
-+	} else
-+		random_ether_addr(dev->dev_addr);
-+
- 	err = register_netdev(dev);
- 	if (err) {
- 		pr_debug("virtio_net: registering device failed\n");
+ drivers/net/e1000e/e1000.h     |    4 ++
+ drivers/net/e1000e/ich8lan.c   |   65 ++++++++++++++++++++++++++------
+ drivers/net/e1000e/netdev.c    |   80 ++++++++++++++++++++++++++++++++++++++--
+ drivers/net/ixgbe/ixgbe_main.c |    4 +-
+ 4 files changed, 135 insertions(+), 18 deletions(-)
+
 -- 
 1.7.6
+
