@@ -1,146 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/12] sh_eth: Move the Renesas SuperH driver
-Date: Sat, 13 Aug 2011 00:56:32 -0700
-Message-ID: <1313222196-10074-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/12] netx: Move the netx driver
+Date: Sat, 13 Aug 2011 00:56:31 -0700
+Message-ID: <1313222196-10074-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Yoshihiro Shimoda <yoshihiro.shirmoda.uh@renesas.com>
+	Sascha Hauer <s.hauer@pengutronix.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:3492 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751611Ab1HMH4n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Aug 2011 03:56:43 -0400
+	id S1751535Ab1HMH4m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Aug 2011 03:56:42 -0400
 In-Reply-To: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Renesas driver into drivers/net/ethernet/renesas/ and make
-the necessary Kconfig and Makefile changes.
+Move the netx driver into drivers/net/ethernet/ and make the
+necessary Kconfig and Makefile changes.
 
-CC: Yoshihiro Shimoda <yoshihiro.shirmoda.uh@renesas.com>
+CC: Sascha Hauer <s.hauer@pengutronix.de>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
 ---
- drivers/net/Kconfig                         |   15 ---------------
- drivers/net/Makefile                        |    1 -
- drivers/net/ethernet/Kconfig                |    1 +
- drivers/net/ethernet/Makefile               |    1 +
- drivers/net/ethernet/renesas/Kconfig        |   18 ++++++++++++++++++
- drivers/net/ethernet/renesas/Makefile       |    5 +++++
- drivers/net/{ => ethernet/renesas}/sh_eth.c |    0
- drivers/net/{ => ethernet/renesas}/sh_eth.h |    0
- 8 files changed, 25 insertions(+), 16 deletions(-)
- create mode 100644 drivers/net/ethernet/renesas/Kconfig
- create mode 100644 drivers/net/ethernet/renesas/Makefile
- rename drivers/net/{ => ethernet/renesas}/sh_eth.c (100%)
- rename drivers/net/{ => ethernet/renesas}/sh_eth.h (100%)
+ drivers/net/Kconfig                   |   10 ----------
+ drivers/net/Makefile                  |    1 -
+ drivers/net/ethernet/Kconfig          |   11 +++++++++++
+ drivers/net/ethernet/Makefile         |    1 +
+ drivers/net/{ => ethernet}/netx-eth.c |    0
+ 5 files changed, 12 insertions(+), 11 deletions(-)
+ rename drivers/net/{ => ethernet}/netx-eth.c (100%)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 572ddf2..c83a1c0 100644
+index 23155cc..572ddf2 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -221,21 +221,6 @@ menuconfig NET_ETHERNET
+@@ -236,16 +236,6 @@ config SH_ETH
+ 	  This driver supporting CPUs are:
+ 		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
  
- if NET_ETHERNET
- 
--config SH_ETH
--	tristate "Renesas SuperH Ethernet support"
--	depends on SUPERH && \
--		(CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
--		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
--		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7757)
--	select CRC32
+-config NET_NETX
+-	tristate "NetX Ethernet support"
 -	select MII
--	select MDIO_BITBANG
--	select PHYLIB
+-	depends on ARCH_NETX
 -	help
--	  Renesas SuperH Ethernet device driver.
--	  This driver supporting CPUs are:
--		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
+-	  This is support for the Hilscher netX builtin Ethernet ports
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called netx-eth.
 -
  config NET_PCI
  	bool "EISA, VLB, PCI and on board controllers"
  	depends on ISA || EISA || PCI
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 8fa5b60..620abd7 100644
+index 298587f..8fa5b60 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -18,7 +18,6 @@ obj-$(CONFIG_ROADRUNNER) += rrunner.o
+@@ -51,7 +51,6 @@ obj-$(CONFIG_DEFXX) += defxx.o
+ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+-obj-$(CONFIG_NET_NETX) += netx-eth.o
  
- obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_RIONET) += rionet.o
--obj-$(CONFIG_SH_ETH) += sh_eth.o
- 
- #
- # end link order section
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_ETHERNET) += ethernet/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 6e36196..df8940d 100644
+index 45eef59..6e36196 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -133,6 +133,7 @@ source "drivers/net/ethernet/pasemi/Kconfig"
- source "drivers/net/ethernet/qlogic/Kconfig"
- source "drivers/net/ethernet/racal/Kconfig"
- source "drivers/net/ethernet/realtek/Kconfig"
-+source "drivers/net/ethernet/renesas/Kconfig"
- source "drivers/net/ethernet/rdc/Kconfig"
+@@ -102,6 +102,17 @@ config FEALNX
  
- config S6GMAC
+ source "drivers/net/ethernet/natsemi/Kconfig"
+ source "drivers/net/ethernet/8390/Kconfig"
++
++config NET_NETX
++	tristate "NetX Ethernet support"
++	select MII
++	depends on ARCH_NETX
++	---help---
++	  This is support for the Hilscher netX builtin Ethernet ports
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called netx-eth.
++
+ source "drivers/net/ethernet/nuvoton/Kconfig"
+ source "drivers/net/ethernet/nvidia/Kconfig"
+ source "drivers/net/ethernet/octeon/Kconfig"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index c274820..09f26b6 100644
+index dfd5146..c274820 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -53,6 +53,7 @@ obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
- obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
- obj-$(CONFIG_NET_VENDOR_RACAL) += racal/
- obj-$(CONFIG_NET_VENDOR_REALTEK) += realtek/
-+obj-$(CONFIG_SH_ETH) += renesas/
- obj-$(CONFIG_NET_VENDOR_RDC) += rdc/
- obj-$(CONFIG_S6GMAC) += s6gmac.o
- obj-$(CONFIG_NET_VENDOR_SEEQ) += seeq/
-diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
-new file mode 100644
-index 0000000..f57ae23
---- /dev/null
-+++ b/drivers/net/ethernet/renesas/Kconfig
-@@ -0,0 +1,18 @@
-+#
-+# Renesas device configuration
-+#
-+
-+config SH_ETH
-+	tristate "Renesas SuperH Ethernet support"
-+	depends on SUPERH && \
-+		(CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
-+		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
-+		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7757)
-+	select CRC32
-+	select MII
-+	select MDIO_BITBANG
-+	select PHYLIB
-+	---help---
-+	  Renesas SuperH Ethernet device driver.
-+	  This driver supporting CPUs are:
-+		- SH7710, SH7712, SH7763, SH7619, SH7724, and SH7757.
-diff --git a/drivers/net/ethernet/renesas/Makefile b/drivers/net/ethernet/renesas/Makefile
-new file mode 100644
-index 0000000..1c278a8
---- /dev/null
-+++ b/drivers/net/ethernet/renesas/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Renesas device drivers.
-+#
-+
-+obj-$(CONFIG_SH_ETH) += sh_eth.o
-diff --git a/drivers/net/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -42,6 +42,7 @@ obj-$(CONFIG_MIPS_SIM_NET) += mipsnet.o
+ obj-$(CONFIG_NET_VENDOR_MYRI) += myricom/
+ obj-$(CONFIG_FEALNX) += fealnx.o
+ obj-$(CONFIG_NET_VENDOR_NATSEMI) += natsemi/
++obj-$(CONFIG_NET_NETX) += netx-eth.o
+ obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
+ obj-$(CONFIG_NET_VENDOR_NVIDIA) += nvidia/
+ obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
+diff --git a/drivers/net/netx-eth.c b/drivers/net/ethernet/netx-eth.c
 similarity index 100%
-rename from drivers/net/sh_eth.c
-rename to drivers/net/ethernet/renesas/sh_eth.c
-diff --git a/drivers/net/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-similarity index 100%
-rename from drivers/net/sh_eth.h
-rename to drivers/net/ethernet/renesas/sh_eth.h
+rename from drivers/net/netx-eth.c
+rename to drivers/net/ethernet/netx-eth.c
 -- 
 1.7.6
 
