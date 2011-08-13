@@ -1,22 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/02] small changes to
- Documentation/networking/00-INDEX and scaling.txt
-Date: Sat, 13 Aug 2011 18:03:02 -0700 (PDT)
-Message-ID: <20110813.180302.1235051711433149574.davem@davemloft.net>
-References: <1312899648.5889.14.camel@gopher.nyc.corp.google.com>
-	<4E418030.2010102@hp.com>
-	<4E44752D.1080905@google.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [net-next 10/12] tile: Move the Tilera driver
+Date: Sat, 13 Aug 2011 08:15:12 -0400
+Message-ID: <4E466AD0.4030704@tilera.com>
+References: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com> <1313222196-10074-11-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, rdunlap@xenotime.net,
-	linux-doc@vger.kernel.org, netdev@vger.kernel.org,
-	therbert@google.com
-To: willemb@google.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <4E44752D.1080905@google.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<gospo@redhat.com>, <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usmamail.tilera.com ([206.83.70.75]:40899 "EHLO
+	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752688Ab1HNBN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2011 21:13:58 -0400
+In-Reply-To: <1313222196-10074-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 8/13/2011 3:56 AM, Jeff Kirsher wrote:
+> Move the Tilera driver into drivers/net/ethernet/tile and
+> make the necessary Kconfig and Makefile changes.
+>
+> Updated the Kconfig so that the options defualt to y if TILE kernel.
+>
+> CC: Chris Metcalf <cmetcalf@tilera.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Both applied, thanks.
+Acked-by: Chris Metcalf <cmetcalf@tilera.com>
+
+But note commit typo, "defualt" not "default" :-)
+
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
+
