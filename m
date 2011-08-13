@@ -1,124 +1,114 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/12] drivers/net organize Ethernet drivers (7th series)
-Date: Sat, 13 Aug 2011 00:56:24 -0700
-Message-ID: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/12] dnet: Move the Dave Ethernet driver
+Date: Sat, 13 Aug 2011 00:56:26 -0700
+Message-ID: <1313222196-10074-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+	gospo@redhat.com, sassmann@redhat.com,
+	Ilya Yanok <yanok@emcraft.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:39635 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750912Ab1HMH4i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Aug 2011 03:56:38 -0400
+	id S1750985Ab1HMH4j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Aug 2011 03:56:39 -0400
+In-Reply-To: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the seventh of seven 10 patch series (although this series is 12
-patches) to move the Ethernet drivers into drivers/net/ethernet/.
+Move the Dave Ethernet driver into drivers/net/ethernet/ and
+make the necessary Kconfig and Makefile changes.
 
-There is still a bit of cleanup left (FDDI, PPP, SLIP, etc), which will
-be coming shortly and small in comparison to the Ethernet driver move.
-  
-The following are changes since commit 9bba23b0ae933a143f8ea89e59c6becf0c1c1d1e:
-  starfire: Move the Adaptec driver
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
-
-Jeff Kirsher (12):
-  hp100: Move the HP driver
-  dnet: Move the Dave Ethernet driver
-  ethoc: Move the Avionic driver
-  greth: Move the Aeroflex Gaisler driver
-  enc28j60: Move the Microchip driver
-  dm9000: Move the Davicom driver
-  netx: Move the netx driver
-  sh_eth: Move the Renesas SuperH driver
-  xircom: Move the Xircom driver
-  tile: Move the Tilera driver
-  acenic: Move the Alteon driver
-  drivers/net: Kconfig and Makefile cleanup
-
- MAINTAINERS                                        |    6 +-
- drivers/net/Kconfig                                |  238 ---
- drivers/net/Makefile                               |   14 -
- drivers/net/ethernet/3com/Kconfig                  |   27 -
- drivers/net/ethernet/3com/Makefile                 |    1 -
- drivers/net/ethernet/Kconfig                       |   48 +
- drivers/net/ethernet/Makefile                      |   11 +
- drivers/net/ethernet/aeroflex/Kconfig              |   11 +
- drivers/net/ethernet/aeroflex/Makefile             |    5 +
- drivers/net/{ => ethernet/aeroflex}/greth.c        |    0
- drivers/net/{ => ethernet/aeroflex}/greth.h        |    0
- drivers/net/ethernet/alteon/Kconfig                |   47 +
- drivers/net/ethernet/alteon/Makefile               |    5 +
- drivers/net/ethernet/{3com => alteon}/acenic.c     |    0
- drivers/net/ethernet/{3com => alteon}/acenic.h     |    0
- drivers/net/ethernet/davicom/Kconfig               |   31 +
- drivers/net/ethernet/davicom/Makefile              |    5 +
- drivers/net/{ => ethernet/davicom}/dm9000.c        |    0
- drivers/net/{ => ethernet/davicom}/dm9000.h        |    0
- drivers/net/{ => ethernet}/dnet.c                  |    0
- drivers/net/{ => ethernet}/dnet.h                  |    0
- drivers/net/{ => ethernet}/ethoc.c                 |    0
- drivers/net/ethernet/hp/Kconfig                    |   31 +
- drivers/net/ethernet/hp/Makefile                   |    5 +
- drivers/net/{ => ethernet/hp}/hp100.c              |    0
- drivers/net/{ => ethernet/hp}/hp100.h              |    0
- drivers/net/ethernet/microchip/Kconfig             |   37 +
- drivers/net/ethernet/microchip/Makefile            |    5 +
- drivers/net/{ => ethernet/microchip}/enc28j60.c    |    0
- drivers/net/{ => ethernet/microchip}/enc28j60_hw.h |    0
- drivers/net/{ => ethernet}/netx-eth.c              |    0
- drivers/net/ethernet/renesas/Kconfig               |   18 +
- drivers/net/ethernet/renesas/Makefile              |    5 +
- drivers/net/{ => ethernet/renesas}/sh_eth.c        |    0
- drivers/net/{ => ethernet/renesas}/sh_eth.h        |    0
- drivers/net/ethernet/tile/Kconfig                  |   15 +
- drivers/net/{ => ethernet}/tile/Makefile           |    0
- drivers/net/{ => ethernet}/tile/tilepro.c          |    0
- drivers/net/ethernet/xircom/Kconfig                |   30 +
- drivers/net/ethernet/xircom/Makefile               |    5 +
- .../net/{pcmcia => ethernet/xircom}/xirc2ps_cs.c   |    0
- drivers/net/pci-skeleton.c                         | 1923 --------------------
- drivers/net/pcmcia/Kconfig                         |    9 -
- drivers/net/pcmcia/Makefile                        |    1 -
- 44 files changed, 317 insertions(+), 2216 deletions(-)
- create mode 100644 drivers/net/ethernet/aeroflex/Kconfig
- create mode 100644 drivers/net/ethernet/aeroflex/Makefile
- rename drivers/net/{ => ethernet/aeroflex}/greth.c (100%)
- rename drivers/net/{ => ethernet/aeroflex}/greth.h (100%)
- create mode 100644 drivers/net/ethernet/alteon/Kconfig
- create mode 100644 drivers/net/ethernet/alteon/Makefile
- rename drivers/net/ethernet/{3com => alteon}/acenic.c (100%)
- rename drivers/net/ethernet/{3com => alteon}/acenic.h (100%)
- create mode 100644 drivers/net/ethernet/davicom/Kconfig
- create mode 100644 drivers/net/ethernet/davicom/Makefile
- rename drivers/net/{ => ethernet/davicom}/dm9000.c (100%)
- rename drivers/net/{ => ethernet/davicom}/dm9000.h (100%)
+CC: Ilya Yanok <yanok@emcraft.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/Kconfig               |   11 -----------
+ drivers/net/Makefile              |    1 -
+ drivers/net/ethernet/Kconfig      |   12 ++++++++++++
+ drivers/net/ethernet/Makefile     |    1 +
+ drivers/net/{ => ethernet}/dnet.c |    0
+ drivers/net/{ => ethernet}/dnet.h |    0
+ 6 files changed, 13 insertions(+), 12 deletions(-)
  rename drivers/net/{ => ethernet}/dnet.c (100%)
  rename drivers/net/{ => ethernet}/dnet.h (100%)
- rename drivers/net/{ => ethernet}/ethoc.c (100%)
- create mode 100644 drivers/net/ethernet/hp/Kconfig
- create mode 100644 drivers/net/ethernet/hp/Makefile
- rename drivers/net/{ => ethernet/hp}/hp100.c (100%)
- rename drivers/net/{ => ethernet/hp}/hp100.h (100%)
- create mode 100644 drivers/net/ethernet/microchip/Kconfig
- create mode 100644 drivers/net/ethernet/microchip/Makefile
- rename drivers/net/{ => ethernet/microchip}/enc28j60.c (100%)
- rename drivers/net/{ => ethernet/microchip}/enc28j60_hw.h (100%)
- rename drivers/net/{ => ethernet}/netx-eth.c (100%)
- create mode 100644 drivers/net/ethernet/renesas/Kconfig
- create mode 100644 drivers/net/ethernet/renesas/Makefile
- rename drivers/net/{ => ethernet/renesas}/sh_eth.c (100%)
- rename drivers/net/{ => ethernet/renesas}/sh_eth.h (100%)
- create mode 100644 drivers/net/ethernet/tile/Kconfig
- rename drivers/net/{ => ethernet}/tile/Makefile (100%)
- rename drivers/net/{ => ethernet}/tile/tilepro.c (100%)
- create mode 100644 drivers/net/ethernet/xircom/Kconfig
- create mode 100644 drivers/net/ethernet/xircom/Makefile
- rename drivers/net/{pcmcia => ethernet/xircom}/xirc2ps_cs.c (100%)
- delete mode 100644 drivers/net/pci-skeleton.c
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 39ba799..d292da7 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -309,17 +309,6 @@ config GRETH
+ 	help
+ 	  Say Y here if you want to use the Aeroflex Gaisler GRETH Ethernet MAC.
+ 
+-config DNET
+-	tristate "Dave ethernet support (DNET)"
+-	depends on NET_ETHERNET && HAS_IOMEM
+-	select PHYLIB
+-	help
+-	  The Dave ethernet interface (DNET) is found on Qong Board FPGA.
+-	  Say Y to include support for the DNET chip.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called dnet.
+-
+ config NET_PCI
+ 	bool "EISA, VLB, PCI and on board controllers"
+ 	depends on ISA || EISA || PCI
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 5b37149..14960d4 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -57,7 +57,6 @@ obj-$(CONFIG_ENC28J60) += enc28j60.o
+ obj-$(CONFIG_ETHOC) += ethoc.o
+ obj-$(CONFIG_GRETH) += greth.o
+ 
+-obj-$(CONFIG_DNET) += dnet.o
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_ETHERNET) += ethernet/
+ obj-$(CONFIG_TR) += tokenring/
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index c1ce356..a911753 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -23,6 +23,18 @@ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/cirrus/Kconfig"
+ source "drivers/net/ethernet/cisco/Kconfig"
++
++config DNET
++	tristate "Dave ethernet support (DNET)"
++	depends on HAS_IOMEM
++	select PHYLIB
++	---help---
++	  The Dave ethernet interface (DNET) is found on Qong Board FPGA.
++	  Say Y to include support for the DNET chip.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called dnet.
++
+ source "drivers/net/ethernet/dec/Kconfig"
+ source "drivers/net/ethernet/dlink/Kconfig"
+ source "drivers/net/ethernet/emulex/Kconfig"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index 34e84fa..5154291 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -15,6 +15,7 @@ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_CIRRUS) += cirrus/
+ obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
++obj-$(CONFIG_DNET) += dnet.o
+ obj-$(CONFIG_NET_VENDOR_DEC) += dec/
+ obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
+ obj-$(CONFIG_NET_VENDOR_EMULEX) += emulex/
+diff --git a/drivers/net/dnet.c b/drivers/net/ethernet/dnet.c
+similarity index 100%
+rename from drivers/net/dnet.c
+rename to drivers/net/ethernet/dnet.c
+diff --git a/drivers/net/dnet.h b/drivers/net/ethernet/dnet.h
+similarity index 100%
+rename from drivers/net/dnet.h
+rename to drivers/net/ethernet/dnet.h
 -- 
 1.7.6
 
