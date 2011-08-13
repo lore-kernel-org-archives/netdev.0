@@ -1,200 +1,175 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/12] acenic: Move the Alteon driver
-Date: Sat, 13 Aug 2011 00:56:35 -0700
-Message-ID: <1313222196-10074-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/12] dm9000: Move the Davicom driver
+Date: Sat, 13 Aug 2011 00:56:30 -0700
+Message-ID: <1313222196-10074-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Jes Sorensen <jes@trained-monkey.org>,
-	Alan Cox <alan@linux.intel.com>
+	Ben Dooks <ben@simtec.co.uk>,
+	Sascha Hauer <s.hauer@pengutronix.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43690 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:3492 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751770Ab1HMH4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Aug 2011 03:56:45 -0400
+	id S1751483Ab1HMH4m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Aug 2011 03:56:42 -0400
 In-Reply-To: <1313222196-10074-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on feedback from Alan Cox, the acenic driver moved to
-drivers/net/ethernet/alteon/ and made the necessary Kconfig and
-Makefile changes.
+Move the Davicom driver into drivers/net/ethernet/davicom/ and
+make the necessary Kconfig and Makefile changes.
 
-CC: Jes Sorensen <jes@trained-monkey.org>
-CC: Alan Cox <alan@linux.intel.com>
+CC: Ben Dooks <ben@simtec.co.uk>
+CC: Sascha Hauer <s.hauer@pengutronix.de>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
 ---
- MAINTAINERS                                    |    2 +-
- drivers/net/ethernet/3com/Kconfig              |   27 --------------
- drivers/net/ethernet/3com/Makefile             |    1 -
- drivers/net/ethernet/Kconfig                   |    1 +
- drivers/net/ethernet/Makefile                  |    1 +
- drivers/net/ethernet/alteon/Kconfig            |   47 ++++++++++++++++++++++++
- drivers/net/ethernet/alteon/Makefile           |    5 +++
- drivers/net/ethernet/{3com => alteon}/acenic.c |    0
- drivers/net/ethernet/{3com => alteon}/acenic.h |    0
- 9 files changed, 55 insertions(+), 29 deletions(-)
- create mode 100644 drivers/net/ethernet/alteon/Kconfig
- create mode 100644 drivers/net/ethernet/alteon/Makefile
- rename drivers/net/ethernet/{3com => alteon}/acenic.c (100%)
- rename drivers/net/ethernet/{3com => alteon}/acenic.h (100%)
+ drivers/net/Kconfig                         |   28 ------------------------
+ drivers/net/Makefile                        |    1 -
+ drivers/net/ethernet/Kconfig                |    1 +
+ drivers/net/ethernet/Makefile               |    1 +
+ drivers/net/ethernet/davicom/Kconfig        |   31 +++++++++++++++++++++++++++
+ drivers/net/ethernet/davicom/Makefile       |    5 ++++
+ drivers/net/{ => ethernet/davicom}/dm9000.c |    0
+ drivers/net/{ => ethernet/davicom}/dm9000.h |    0
+ 8 files changed, 38 insertions(+), 29 deletions(-)
+ create mode 100644 drivers/net/ethernet/davicom/Kconfig
+ create mode 100644 drivers/net/ethernet/davicom/Makefile
+ rename drivers/net/{ => ethernet/davicom}/dm9000.c (100%)
+ rename drivers/net/{ => ethernet/davicom}/dm9000.h (100%)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3d8a6a6..d374c6f 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -213,7 +213,7 @@ ACENIC DRIVER
- M:	Jes Sorensen <jes@trained-monkey.org>
- L:	linux-acenic@sunsite.dk
- S:	Maintained
--F:	drivers/net/ethernet/3com/acenic*
-+F:	drivers/net/ethernet/alteon/acenic*
- 
- ACER ASPIRE ONE TEMPERATURE AND FAN DRIVER
- M:	Peter Feuerer <peter@piie.net>
-diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
-index 497f038..65cc129 100644
---- a/drivers/net/ethernet/3com/Kconfig
-+++ b/drivers/net/ethernet/3com/Kconfig
-@@ -117,31 +117,4 @@ config TYPHOON
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index e83f559..23155cc 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -246,34 +246,6 @@ config NET_NETX
  	  To compile this driver as a module, choose M here. The module
- 	  will be called typhoon.
+ 	  will be called netx-eth.
  
--config ACENIC
--	tristate "Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit support"
--	depends on PCI
+-config DM9000
+-	tristate "DM9000 support"
+-	depends on ARM || BLACKFIN || MIPS
+-	select CRC32
+-	select MII
 -	---help---
--	  Say Y here if you have an Alteon AceNIC, 3Com 3C985(B), NetGear
--	  GA620, SGI Gigabit or Farallon PN9000-SX PCI Gigabit Ethernet
--	  adapter. The driver allows for using the Jumbo Frame option (9000
--	  bytes/frame) however it requires that your switches can handle this
--	  as well. To enable Jumbo Frames, add `mtu 9000' to your ifconfig
--	  line.
+-	  Support for DM9000 chipset.
 -
--	  To compile this driver as a module, choose M here: the
--	  module will be called acenic.
+-	  To compile this driver as a module, choose M here.  The module
+-	  will be called dm9000.
 -
--config ACENIC_OMIT_TIGON_I
--	bool "Omit support for old Tigon I based AceNICs"
--	depends on ACENIC
+-config DM9000_DEBUGLEVEL
+-	int "DM9000 maximum debug level"
+-	depends on DM9000
+-	default 4
+-	help
+-	  The maximum level of debugging code compiled into the DM9000
+-	  driver.
+-
+-config DM9000_FORCE_SIMPLE_PHY_POLL
+-	bool "Force simple NSR based PHY polling"
+-	depends on DM9000
 -	---help---
--	  Say Y here if you only have Tigon II based AceNICs and want to leave
--	  out support for the older Tigon I based cards which are no longer
--	  being sold (ie. the original Alteon AceNIC and 3Com 3C985 (non B
--	  version)).  This will reduce the size of the driver object by
--	  app. 100KB.  If you are not sure whether your card is a Tigon I or a
--	  Tigon II, say N here.
+-	  This configuration forces the DM9000 to use the NSR's LinkStatus
+-	  bit to determine if the link is up or down instead of the more
+-	  costly MII PHY reads. Note, this will not work if the chip is
+-	  operating with an external PHY.
 -
--	  The safe and default value for this is N.
--
- endif # NET_VENDOR_3COM
-diff --git a/drivers/net/ethernet/3com/Makefile b/drivers/net/ethernet/3com/Makefile
-index 96d1d60..1e5382a 100644
---- a/drivers/net/ethernet/3com/Makefile
-+++ b/drivers/net/ethernet/3com/Makefile
-@@ -8,5 +8,4 @@ obj-$(CONFIG_3C515) += 3c515.o
- obj-$(CONFIG_PCMCIA_3C589) += 3c589_cs.o
- obj-$(CONFIG_PCMCIA_3C574) += 3c574_cs.o
- obj-$(CONFIG_VORTEX) += 3c59x.o
--obj-$(CONFIG_ACENIC) += acenic.o
- obj-$(CONFIG_TYPHOON) += typhoon.o
+ config NET_PCI
+ 	bool "EISA, VLB, PCI and on board controllers"
+ 	depends on ISA || EISA || PCI
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 08ee56f..298587f 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -52,7 +52,6 @@ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_NET_NETX) += netx-eth.o
+-obj-$(CONFIG_DM9000) += dm9000.o
+ 
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_ETHERNET) += ethernet/
 diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index cff6ef5..1f5a32d 100644
+index 0cec25c..45eef59 100644
 --- a/drivers/net/ethernet/Kconfig
 +++ b/drivers/net/ethernet/Kconfig
-@@ -14,6 +14,7 @@ if ETHERNET
- source "drivers/net/ethernet/3com/Kconfig"
- source "drivers/net/ethernet/adaptec/Kconfig"
- source "drivers/net/ethernet/aeroflex/Kconfig"
-+source "drivers/net/ethernet/alteon/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
- source "drivers/net/ethernet/atheros/Kconfig"
+@@ -24,6 +24,7 @@ source "drivers/net/ethernet/brocade/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/cirrus/Kconfig"
+ source "drivers/net/ethernet/cisco/Kconfig"
++source "drivers/net/ethernet/davicom/Kconfig"
+ 
+ config DNET
+ 	tristate "Dave ethernet support (DNET)"
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 986def7..c53ad3a 100644
+index ebe8aee..dfd5146 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
- obj-$(CONFIG_NET_VENDOR_8390) += 8390/
- obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
- obj-$(CONFIG_GRETH) += aeroflex/
-+obj-$(CONFIG_NET_VENDOR_ALTEON) += alteon/
- obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
- obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
-diff --git a/drivers/net/ethernet/alteon/Kconfig b/drivers/net/ethernet/alteon/Kconfig
+@@ -16,6 +16,7 @@ obj-$(CONFIG_NET_VENDOR_BROCADE) += brocade/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_CIRRUS) += cirrus/
+ obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
++obj-$(CONFIG_DM9000) += davicom/
+ obj-$(CONFIG_DNET) += dnet.o
+ obj-$(CONFIG_NET_VENDOR_DEC) += dec/
+ obj-$(CONFIG_NET_VENDOR_DLINK) += dlink/
+diff --git a/drivers/net/ethernet/davicom/Kconfig b/drivers/net/ethernet/davicom/Kconfig
 new file mode 100644
-index 0000000..68862e4
+index 0000000..1809d25
 --- /dev/null
-+++ b/drivers/net/ethernet/alteon/Kconfig
-@@ -0,0 +1,47 @@
++++ b/drivers/net/ethernet/davicom/Kconfig
+@@ -0,0 +1,31 @@
 +#
-+# Alteon network device configuration
++# Davicom device configuration
 +#
 +
-+config NET_VENDOR_ALTEON
-+	bool "Alteon devices"
-+	depends on PCI
++config DM9000
++	tristate "DM9000 support"
++	depends on ARM || BLACKFIN || MIPS
++	select CRC32
++	select MII
 +	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
++	  Support for DM9000 chipset.
 +
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about Alteon cards. If you say Y, you will be asked for
-+	  your specific card in the following questions.
++	  To compile this driver as a module, choose M here.  The module
++	  will be called dm9000.
 +
-+if NET_VENDOR_ALTEON
-+
-+config ACENIC
-+	tristate "Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit support"
-+	depends on PCI
++config DM9000_DEBUGLEVEL
++	int "DM9000 maximum debug level"
++	depends on DM9000
++	default 4
 +	---help---
-+	  Say Y here if you have an Alteon AceNIC, 3Com 3C985(B), NetGear
-+	  GA620, SGI Gigabit or Farallon PN9000-SX PCI Gigabit Ethernet
-+	  adapter. The driver allows for using the Jumbo Frame option (9000
-+	  bytes/frame) however it requires that your switches can handle this
-+	  as well. To enable Jumbo Frames, add `mtu 9000' to your ifconfig
-+	  line.
++	  The maximum level of debugging code compiled into the DM9000
++	  driver.
 +
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called acenic.
-+
-+config ACENIC_OMIT_TIGON_I
-+	bool "Omit support for old Tigon I based AceNICs"
-+	depends on ACENIC
++config DM9000_FORCE_SIMPLE_PHY_POLL
++	bool "Force simple NSR based PHY polling"
++	depends on DM9000
 +	---help---
-+	  Say Y here if you only have Tigon II based AceNICs and want to leave
-+	  out support for the older Tigon I based cards which are no longer
-+	  being sold (ie. the original Alteon AceNIC and 3Com 3C985 (non B
-+	  version)).  This will reduce the size of the driver object by
-+	  app. 100KB.  If you are not sure whether your card is a Tigon I or a
-+	  Tigon II, say N here.
-+
-+	  The safe and default value for this is N.
-+
-+endif # NET_VENDOR_ALTEON
-diff --git a/drivers/net/ethernet/alteon/Makefile b/drivers/net/ethernet/alteon/Makefile
++	  This configuration forces the DM9000 to use the NSR's LinkStatus
++	  bit to determine if the link is up or down instead of the more
++	  costly MII PHY reads. Note, this will not work if the chip is
++	  operating with an external PHY.
+diff --git a/drivers/net/ethernet/davicom/Makefile b/drivers/net/ethernet/davicom/Makefile
 new file mode 100644
-index 0000000..a2ca173
+index 0000000..74b31f0
 --- /dev/null
-+++ b/drivers/net/ethernet/alteon/Makefile
++++ b/drivers/net/ethernet/davicom/Makefile
 @@ -0,0 +1,5 @@
 +#
-+# Makefile for the Alteon network device drivers.
++# Makefile for the Davicom device drivers.
 +#
 +
-+obj-$(CONFIG_ACENIC) += acenic.o
-diff --git a/drivers/net/ethernet/3com/acenic.c b/drivers/net/ethernet/alteon/acenic.c
++obj-$(CONFIG_DM9000) += dm9000.o
+diff --git a/drivers/net/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
 similarity index 100%
-rename from drivers/net/ethernet/3com/acenic.c
-rename to drivers/net/ethernet/alteon/acenic.c
-diff --git a/drivers/net/ethernet/3com/acenic.h b/drivers/net/ethernet/alteon/acenic.h
+rename from drivers/net/dm9000.c
+rename to drivers/net/ethernet/davicom/dm9000.c
+diff --git a/drivers/net/dm9000.h b/drivers/net/ethernet/davicom/dm9000.h
 similarity index 100%
-rename from drivers/net/ethernet/3com/acenic.h
-rename to drivers/net/ethernet/alteon/acenic.h
+rename from drivers/net/dm9000.h
+rename to drivers/net/ethernet/davicom/dm9000.h
 -- 
 1.7.6
 
