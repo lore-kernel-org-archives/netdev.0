@@ -1,430 +1,208 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH V2 net-next 3/3] bnx2x: Use pr_fmt and message logging cleanups
-Date: Sun, 14 Aug 2011 15:16:21 -0700
-Message-ID: <2d33739418a06602c817d002b30fedd57cbe5f11.1313360101.git.joe@perches.com>
-References: <cover.1313360100.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eilon Greenstein <eilong@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1313360100.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Nigerian Embassy" <notification@nigeriaembassyusa.org>
+Subject: Your Email Has Qualified For A Free Visa To 16 Countries.
+Date: Sat, 13 Aug 2011 15:36:17 +0200
+Message-ID: <B0072410062@mail.milwpc.com>
+Reply-To: <nigerian_embassy@mail2airforce.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_001F_01C2A9A6.4D621DB2"
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.milwpc.com ([207.250.248.28]:1158 "EHLO mail.milwpc.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751208Ab1HNXpp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Aug 2011 19:45:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add pr_fmt(fmt) KBUILD_MODNAME ": " to prefix messages with "bnx2x: ".
-Remove #define DP_LEVEL and use pr_notice.
-Repeating KERN_<LEVEL> isn't necessary in multi-line printks.
-printk macro neatening, use fmt and ##__VA_ARGS__.
-Coalesce long formats.
+This is a multi-part message in MIME format.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |   63 ++++++++++----------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |    6 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c    |    3 +
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   23 ++++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   25 +++-----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c     |    3 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |   46 +++++++-------
- 7 files changed, 87 insertions(+), 82 deletions(-)
+------=_NextPart_000_001F_01C2A9A6.4D621DB2
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 5aac959..f127768 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -66,69 +66,68 @@
- #define BNX2X_MSG_SP			0x100000 /* was: NETIF_MSG_INTR */
- #define BNX2X_MSG_FP			0x200000 /* was: NETIF_MSG_INTR */
- 
--#define DP_LEVEL			KERN_NOTICE	/* was: KERN_DEBUG */
--
- /* regular debug print */
--#define DP(__mask, __fmt, __args...)				\
-+#define DP(__mask, fmt, ...)					\
- do {								\
- 	if (bp->msg_enable & (__mask))				\
--		printk(DP_LEVEL "[%s:%d(%s)]" __fmt,		\
--		       __func__, __LINE__,			\
--		       bp->dev ? (bp->dev->name) : "?",		\
--		       ##__args);				\
-+		pr_notice("[%s:%d(%s)]" fmt,			\
-+			  __func__, __LINE__,			\
-+			  bp->dev ? (bp->dev->name) : "?",	\
-+			  ##__VA_ARGS__);			\
- } while (0)
- 
--#define DP_CONT(__mask, __fmt, __args...)			\
-+#define DP_CONT(__mask, fmt, ...)				\
- do {								\
- 	if (bp->msg_enable & (__mask))				\
--		pr_cont(__fmt, ##__args);			\
-+		pr_cont(fmt, ##__VA_ARGS__);			\
- } while (0)
- 
- /* errors debug print */
--#define BNX2X_DBG_ERR(__fmt, __args...)				\
-+#define BNX2X_DBG_ERR(fmt, ...)					\
- do {								\
- 	if (netif_msg_probe(bp))				\
--		pr_err("[%s:%d(%s)]" __fmt,			\
-+		pr_err("[%s:%d(%s)]" fmt,			\
- 		       __func__, __LINE__,			\
- 		       bp->dev ? (bp->dev->name) : "?",		\
--		       ##__args);				\
-+		       ##__VA_ARGS__);				\
- } while (0)
- 
- /* for errors (never masked) */
--#define BNX2X_ERR(__fmt, __args...)				\
-+#define BNX2X_ERR(fmt, ...)					\
- do {								\
--	pr_err("[%s:%d(%s)]" __fmt,				\
-+	pr_err("[%s:%d(%s)]" fmt,				\
- 	       __func__, __LINE__,				\
- 	       bp->dev ? (bp->dev->name) : "?",			\
--	       ##__args);					\
--	} while (0)
-+	       ##__VA_ARGS__);					\
-+} while (0)
- 
--#define BNX2X_ERROR(__fmt, __args...) do { \
--	pr_err("[%s:%d]" __fmt, __func__, __LINE__, ##__args); \
--	} while (0)
-+#define BNX2X_ERROR(fmt, ...)					\
-+	pr_err("[%s:%d]" fmt, __func__, __LINE__, ##__VA_ARGS__)
- 
- 
- /* before we have a dev->name use dev_info() */
--#define BNX2X_DEV_INFO(__fmt, __args...)			 \
-+#define BNX2X_DEV_INFO(fmt, ...)				 \
- do {								 \
- 	if (netif_msg_probe(bp))				 \
--		dev_info(&bp->pdev->dev, __fmt, ##__args);	 \
-+		dev_info(&bp->pdev->dev, fmt, ##__VA_ARGS__);	 \
- } while (0)
- 
- #ifdef BNX2X_STOP_ON_ERROR
- void bnx2x_int_disable(struct bnx2x *bp);
--#define bnx2x_panic() do { \
--		bp->panic = 1; \
--		BNX2X_ERR("driver assert\n"); \
--		bnx2x_int_disable(bp); \
--		bnx2x_panic_dump(bp); \
--	} while (0)
-+#define bnx2x_panic()				\
-+do {						\
-+	bp->panic = 1;				\
-+	BNX2X_ERR("driver assert\n");		\
-+	bnx2x_int_disable(bp);			\
-+	bnx2x_panic_dump(bp);			\
-+} while (0)
- #else
--#define bnx2x_panic() do { \
--		bp->panic = 1; \
--		BNX2X_ERR("driver assert\n"); \
--		bnx2x_panic_dump(bp); \
--	} while (0)
-+#define bnx2x_panic()				\
-+do {						\
-+	bp->panic = 1;				\
-+	BNX2X_ERR("driver assert\n");		\
-+	bnx2x_panic_dump(bp);			\
-+} while (0)
- #endif
- 
- #define bnx2x_mc_addr(ha)      ((ha)->addr)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 3254b9e..23b37dd 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -15,6 +15,8 @@
-  *
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/etherdevice.h>
- #include <linux/if_vlan.h>
- #include <linux/interrupt.h>
-@@ -3369,7 +3371,7 @@ int bnx2x_change_mtu(struct net_device *dev, int new_mtu)
- 	struct bnx2x *bp = netdev_priv(dev);
- 
- 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
--		printk(KERN_ERR "Handling parity error recovery. Try again later\n");
-+		pr_err("Handling parity error recovery. Try again later\n");
- 		return -EAGAIN;
- 	}
- 
-@@ -3495,7 +3497,7 @@ int bnx2x_resume(struct pci_dev *pdev)
- 	bp = netdev_priv(dev);
- 
- 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
--		printk(KERN_ERR "Handling parity error recovery. Try again later\n");
-+		pr_err("Handling parity error recovery. Try again later\n");
- 		return -EAGAIN;
- 	}
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index 38b5ca5..9525b93 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -16,6 +16,9 @@
-  * Written by: Dmitry Kravkov
-  *
-  */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/netdevice.h>
- #include <linux/types.h>
- #include <linux/errno.h>
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 2218630..767c229 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -14,6 +14,9 @@
-  * Statistics and Link management by Yitchak Gertner
-  *
-  */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/ethtool.h>
- #include <linux/netdevice.h>
- #include <linux/types.h>
-@@ -239,9 +242,9 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	cmd->maxrxpkt = 0;
- 
- 	DP(NETIF_MSG_LINK, "ethtool_cmd: cmd %d\n"
--	   DP_LEVEL "  supported 0x%x  advertising 0x%x  speed %u\n"
--	   DP_LEVEL "  duplex %d  port %d  phy_address %d  transceiver %d\n"
--	   DP_LEVEL "  autoneg %d  maxtxpkt %d  maxrxpkt %d\n",
-+	   "  supported 0x%x  advertising 0x%x  speed %u\n"
-+	   "  duplex %d  port %d  phy_address %d  transceiver %d\n"
-+	   "  autoneg %d  maxtxpkt %d  maxrxpkt %d\n",
- 	   cmd->cmd, cmd->supported, cmd->advertising,
- 	   ethtool_cmd_speed(cmd),
- 	   cmd->duplex, cmd->port, cmd->phy_address, cmd->transceiver,
-@@ -482,7 +485,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	}
- 
- 	DP(NETIF_MSG_LINK, "req_line_speed %d\n"
--	   DP_LEVEL "  req_duplex %d  advertising 0x%x\n",
-+	   "  req_duplex %d  advertising 0x%x\n",
- 	   bp->link_params.req_line_speed[cfg_idx],
- 	   bp->link_params.req_duplex[cfg_idx],
- 	   bp->port.advertising[cfg_idx]);
-@@ -1028,7 +1031,7 @@ static int bnx2x_get_eeprom(struct net_device *dev,
- 		return -EAGAIN;
- 
- 	DP(BNX2X_MSG_NVM, "ethtool_eeprom: cmd %d\n"
--	   DP_LEVEL "  magic 0x%x  offset 0x%x (%d)  len 0x%x (%d)\n",
-+	   "  magic 0x%x  offset 0x%x (%d)  len 0x%x (%d)\n",
- 	   eeprom->cmd, eeprom->magic, eeprom->offset, eeprom->offset,
- 	   eeprom->len, eeprom->len);
- 
-@@ -1199,7 +1202,7 @@ static int bnx2x_set_eeprom(struct net_device *dev,
- 		return -EAGAIN;
- 
- 	DP(BNX2X_MSG_NVM, "ethtool_eeprom: cmd %d\n"
--	   DP_LEVEL "  magic 0x%x  offset 0x%x (%d)  len 0x%x (%d)\n",
-+	   "  magic 0x%x  offset 0x%x (%d)  len 0x%x (%d)\n",
- 	   eeprom->cmd, eeprom->magic, eeprom->offset, eeprom->offset,
- 	   eeprom->len, eeprom->len);
- 
-@@ -1328,7 +1331,7 @@ static int bnx2x_set_ringparam(struct net_device *dev,
- 	struct bnx2x *bp = netdev_priv(dev);
- 
- 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
--		printk(KERN_ERR "Handling parity error recovery. Try again later\n");
-+		pr_err("Handling parity error recovery. Try again later\n");
- 		return -EAGAIN;
- 	}
- 
-@@ -1359,7 +1362,7 @@ static void bnx2x_get_pauseparam(struct net_device *dev,
- 			    BNX2X_FLOW_CTRL_TX);
- 
- 	DP(NETIF_MSG_LINK, "ethtool_pauseparam: cmd %d\n"
--	   DP_LEVEL "  autoneg %d  rx_pause %d  tx_pause %d\n",
-+	   "  autoneg %d  rx_pause %d  tx_pause %d\n",
- 	   epause->cmd, epause->autoneg, epause->rx_pause, epause->tx_pause);
- }
- 
-@@ -1372,7 +1375,7 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
- 		return 0;
- 
- 	DP(NETIF_MSG_LINK, "ethtool_pauseparam: cmd %d\n"
--	   DP_LEVEL "  autoneg %d  rx_pause %d  tx_pause %d\n",
-+	   "  autoneg %d  rx_pause %d  tx_pause %d\n",
- 	   epause->cmd, epause->autoneg, epause->rx_pause, epause->tx_pause);
- 
- 	bp->link_params.req_flow_ctrl[cfg_idx] = BNX2X_FLOW_CTRL_AUTO;
-@@ -1970,7 +1973,7 @@ static void bnx2x_self_test(struct net_device *dev,
- 	struct bnx2x *bp = netdev_priv(dev);
- 	u8 is_serdes;
- 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
--		printk(KERN_ERR "Handling parity error recovery. Try again later\n");
-+		pr_err("Handling parity error recovery. Try again later\n");
- 		etest->flags |= ETH_TEST_FL_FAILED;
- 		return;
- 	}
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index e899e87..f90e3fa 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -15,6 +15,8 @@
-  *
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/moduleparam.h>
- #include <linux/kernel.h>
-@@ -350,17 +352,15 @@ static void bnx2x_dp_dmae(struct bnx2x *bp, struct dmae_command *dmae,
- 	default:
- 		if (src_type == DMAE_CMD_SRC_PCI)
- 			DP(msglvl, "DMAE: opcode 0x%08x\n"
--			   DP_LEVEL "src_addr [%x:%08x]  len [%d * 4]  "
--				    "dst_addr [none]\n"
--			   DP_LEVEL "comp_addr [%x:%08x]  comp_val 0x%08x\n",
-+			   "src_addr [%x:%08x]  len [%d * 4]  dst_addr [none]\n"
-+			   "comp_addr [%x:%08x]  comp_val 0x%08x\n",
- 			   dmae->opcode, dmae->src_addr_hi, dmae->src_addr_lo,
- 			   dmae->len, dmae->comp_addr_hi, dmae->comp_addr_lo,
- 			   dmae->comp_val);
- 		else
- 			DP(msglvl, "DMAE: opcode 0x%08x\n"
--			   DP_LEVEL "src_addr [%08x]  len [%d * 4]  "
--				    "dst_addr [none]\n"
--			   DP_LEVEL "comp_addr [%x:%08x]  comp_val 0x%08x\n",
-+			   "src_addr [%08x]  len [%d * 4]  dst_addr [none]\n"
-+			   "comp_addr [%x:%08x]  comp_val 0x%08x\n",
- 			   dmae->opcode, dmae->src_addr_lo >> 2,
- 			   dmae->len, dmae->comp_addr_hi, dmae->comp_addr_lo,
- 			   dmae->comp_val);
-@@ -789,18 +789,15 @@ void bnx2x_panic_dump(struct bnx2x *bp)
- 	BNX2X_ERR("     def (");
- 	for (i = 0; i < HC_SP_SB_MAX_INDICES; i++)
- 		pr_cont("0x%x%s",
--		       bp->def_status_blk->sp_sb.index_values[i],
--		       (i == HC_SP_SB_MAX_INDICES - 1) ? ")  " : " ");
-+			bp->def_status_blk->sp_sb.index_values[i],
-+			(i == HC_SP_SB_MAX_INDICES - 1) ? ")  " : " ");
- 
- 	for (i = 0; i < sizeof(struct hc_sp_status_block_data)/sizeof(u32); i++)
- 		*((u32 *)&sp_sb_data + i) = REG_RD(bp, BAR_CSTRORM_INTMEM +
- 			CSTORM_SP_STATUS_BLOCK_DATA_OFFSET(func) +
- 			i*sizeof(u32));
- 
--	pr_cont("igu_sb_id(0x%x)  igu_seg_id(0x%x) "
--			 "pf_id(0x%x)  vnic_id(0x%x)  "
--			 "vf_id(0x%x)  vf_valid (0x%x) "
--			 "state(0x%x)\n",
-+	pr_cont("igu_sb_id(0x%x)  igu_seg_id(0x%x) pf_id(0x%x)  vnic_id(0x%x)  vf_id(0x%x)  vf_valid (0x%x) state(0x%x)\n",
- 	       sp_sb_data.igu_sb_id,
- 	       sp_sb_data.igu_seg_id,
- 	       sp_sb_data.p_func.pf_id,
-@@ -3721,9 +3718,7 @@ static inline void bnx2x_clear_load_cnt(struct bnx2x *bp)
- 
- static inline void _print_next_block(int idx, const char *blk)
- {
--	if (idx)
--		pr_cont(", ");
--	pr_cont("%s", blk);
-+	pr_cont("%s%s", idx ? ", " : "", blk);
- }
- 
- static inline int bnx2x_check_blocks_with_parity0(u32 sig, int par_num,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 1f88c19..0440425 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -16,6 +16,9 @@
-  * Written by: Vladislav Zolotarov
-  *
-  */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/crc32.h>
- #include <linux/netdevice.h>
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-index 771f680..628f7b9 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-@@ -14,6 +14,9 @@
-  * Statistics and Link management by Yitchak Gertner
-  *
-  */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include "bnx2x_stats.h"
- #include "bnx2x_cmn.h"
- 
-@@ -1194,14 +1197,13 @@ static void bnx2x_stats_update(struct bnx2x *bp)
- 			struct bnx2x_fastpath *fp = &bp->fp[i];
- 			struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
- 
--			printk(KERN_DEBUG "%s: rx usage(%4u)  *rx_cons_sb(%u)"
--					  "  rx pkt(%lu)  rx calls(%lu %lu)\n",
--			       fp->name, (le16_to_cpu(*fp->rx_cons_sb) -
--			       fp->rx_comp_cons),
--			       le16_to_cpu(*fp->rx_cons_sb),
--			       bnx2x_hilo(&qstats->
--					  total_unicast_packets_received_hi),
--			       fp->rx_calls, fp->rx_pkt);
-+			pr_debug("%s: rx usage(%4u)  *rx_cons_sb(%u)  rx pkt(%lu)  rx calls(%lu %lu)\n",
-+				 fp->name, (le16_to_cpu(*fp->rx_cons_sb) -
-+					    fp->rx_comp_cons),
-+				 le16_to_cpu(*fp->rx_cons_sb),
-+				 bnx2x_hilo(&qstats->
-+					    total_unicast_packets_received_hi),
-+				 fp->rx_calls, fp->rx_pkt);
- 		}
- 
- 		for_each_eth_queue(bp, i) {
-@@ -1210,27 +1212,25 @@ static void bnx2x_stats_update(struct bnx2x *bp)
- 			struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
- 			struct netdev_queue *txq;
- 
--			printk(KERN_DEBUG "%s: tx pkt(%lu) (Xoff events %u)",
--				fp->name, bnx2x_hilo(
--				&qstats->total_unicast_packets_transmitted_hi),
--				qstats->driver_xoff);
-+			pr_debug("%s: tx pkt(%lu) (Xoff events %u)",
-+				 fp->name,
-+				 bnx2x_hilo(
-+					 &qstats->total_unicast_packets_transmitted_hi),
-+				 qstats->driver_xoff);
- 
- 			for_each_cos_in_tx_queue(fp, cos) {
- 				txdata = &fp->txdata[cos];
- 				txq = netdev_get_tx_queue(bp->dev,
- 						FP_COS_TO_TXQ(fp, cos));
- 
--				printk(KERN_DEBUG "%d: tx avail(%4u)"
--				       "  *tx_cons_sb(%u)"
--				       "  tx calls (%lu)"
--				       "  %s\n",
--				       cos,
--				       bnx2x_tx_avail(bp, txdata),
--				       le16_to_cpu(*txdata->tx_cons_sb),
--				       txdata->tx_pkt,
--				       (netif_tx_queue_stopped(txq) ?
--					"Xoff" : "Xon")
--				       );
-+				pr_debug("%d: tx avail(%4u)  *tx_cons_sb(%u)  tx calls (%lu)  %s\n",
-+					 cos,
-+					 bnx2x_tx_avail(bp, txdata),
-+					 le16_to_cpu(*txdata->tx_cons_sb),
-+					 txdata->tx_pkt,
-+					 (netif_tx_queue_stopped(txq) ?
-+					  "Xoff" : "Xon")
-+					);
- 			}
- 		}
- 	}
--- 
-1.7.6.405.gc1be0
+Dear Email Holder,
+
+We just finished our 2011 Visa pass hosted by the Nigerian Embassy and your email has emerged the 14th winner this year. For security reasons we have attached the full details in which you are required to download and view and get back to us within the next 24 hours. We await your urgent response.
+
+Yours Sincerely
+The Nigerian Embassy Visa Pass 2011
+
+------=_NextPart_000_001F_01C2A9A6.4D621DB2
+Content-Type: application/octet-stream;
+	name="Visa.html"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="Visa.html"
+
+PGh0bWw+DQo8Ym9keSBzdHlsZT0iYmFja2dyb3VuZC1jb2xvcjpibHVlO2Zv
+bnQtdHlwZTphcmlhbDtjb2xvcjp3aGl0ZTtmb250LXNpemU6MjJweDt0ZXh0
+LWFsaWduOmNlbnRlciI+DQo8dGl0bGU+WW91IEhhdmUgQmVlbiBJc3N1ZWQg
+QW4gSW52aXRhdGlvbjwvdGl0bGU+DQombmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDs8aW1nIHNy
+Yz0iaHR0cDovL3d3dy5uaWdlcmlhZW1iYXNzeXVzYS5vcmcvaW1hZ2VzL2Nv
+YXRvZmFybXMuZ2lmIj4mbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDs8aW1nIHNyYz0iaHR0cDovL3VraW51c2EuZmNv
+Lmdvdi51ay9yZXNvdXJjZXMvZW4vZ2lmL3BhZ2UtZnVybml0dXJlL3dhc2hp
+bmd0b24uZ2lmIj4mbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDs8aW1nIHNyYz0iaHR0cDovL3d3dy51c2VtYmFzc3ku
+Z292L2Ntc191c2Vycy91c2Rvcy1sb2dvLXNlYWwucG5nIj4mbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDs8aW1nIHNy
+Yz0iaHR0cDovL21hbGF5c2lhLmVtYmFzc3lob21lcGFnZS5jb20vbWFsYXlz
+aWFuX2VtYmFzc3lfbG9uZG9uX3VrLmdpZiI+Jm5ic3A7Jm5ic3A7Jm5ic3A7
+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PGltZyBzcmM9Imh0dHA6
+Ly90My5nc3RhdGljLmNvbS9pbWFnZXM/cT10Ym46QU5kOUdjUzlmcEZBT080
+YVlDUERyZWMyTjB5cDRtQWYwRE85VHVIX0FDcTJGZ0Y2aEk4VEEyb0oiPjxi
+cj4NCjxicj4NCjx1PjxiPlRoZSBOaWdlcmlhbiBFbWJhc3N5IEhhcyBHcmFu
+dGVkIFlvdSBBbiBJbnZpdGF0aW9uIEFuZCBBIDEgWWVhciBGcmVlIFZpc2Eg
+SW50byBBbnkgT2YgVGhlIDE2IENvdW50cmllczwvYj48L3U+PGJyPg0KPGJy
+Pg0KPC9ib2R5Pg0KRGVhciB3aW5uZXIgb2YgdGhlIE5pZ2VyaWFuIEVtYmFz
+c3kgVmlzYSBGcmVlIFBhc3MgMjAxMSw8YnI+DQpUaGUgTmlnZXJpYW4gRW1i
+YXNzeSBpbiBjb2xsYWJvcmF0aW9uIHdpdGggMTYgb3RoZXIgY291bnRyaWVz
+IHVzdWFsbHkgaG9sZHMgYSB5ZWFybHkgcHJvZ3JhbW1lPGJyPg0KdGhhdCBn
+cmFudHMgNDAgcGVvcGxlIHdvcmxkd2lkZSBmcmVlIHZpc2EgYW5kIGludml0
+YXRpb24gaW50byBhbnkgb2YgdGhlIDE2IHBhcnRpY2lwYXRpbmcgY291bnRy
+aWVzLjxicj4NClRoZSBwcm9ncmFtbWUgaXMgaGVsZCBvbmxpbmUgYnkgYmFs
+bG90aW5nIHN5c3RlbSB3aGVyZWJ5IHdlIHJhbmRvbWx5IHBpY2sgNDAgZW1h
+aWxzIHdvcmxkd2lkZS48YnI+DQpZb3VyIEVtYWlsIGFkZHJlc3MgaGFzIGVt
+ZXJnZWQgdGhlIDE0dGggdGhpcyB5ZWFyIHdoZXJlIGJ5IHF1YWxpZnlpbmcg
+eW91IGZvciBhIGZyZWUgdmlzYSBhbmQgaW52aXRhdGlvbjxicj4NCmxldHRl
+ciBpbnRvIGFueSBvZiB0aGUgMTYgcGFydGljaXBhdGluZyBjb3VudHJpZXMu
+IFRoaXMgcHJvZ3JhbW1lIGhvbGRzIHllYXJseSBhbmQgeW91IGhhdmUgZW1l
+cmdlZCBhcyB0aGUgMTR0aDxicj4NCndpbm5lciB0aGlzIHllYXIsIGV2ZXJ5
+IHdpbm5lciBoYXMgbGVzcyB0aGFuIDQ4IGhvdXJzIHRvIGdldCBiYWNrIHRv
+IHVzIHdpdGggdGhlIGluZm9ybWF0aW9ucyBkZW1hbmRlZCBiZWxvdyA8YnI+
+DQp0byBwcm9jZWVkIHdpdGggdGhpcyBwcm9ncmFtbWUuIFRoaXMgcHJvZ3Jh
+bW1lIGlzIHZpcnR1YWxseSBmcmVlIGJ1dCB3aWxsIGludm9sdmUgYSBwYXBl
+ciB3b3JrIHRoYXQgd2lsbCBjb3N0IDxicj4NCnlvdSBqdXN0ICQxNTAsIG9u
+Y2UgdGhhdCBoYXMgYmVlbiBwYWlkIHlvdXIgVklTQSBhbmQgSW52aXRhdGlv
+biB3aWxsIGJlIHByb2Nlc3NlZCBhbmQgeW91IHdpbGwgYmUgZ2V0dGluZyBh
+IGxldHRlcjxicj4NCmZyb20geW91ciBlbWJhc3N5IGluIGxlc3MgdGhhbiAy
+NCBob3Vycy4gUGxlYXNlIG5vdGUgdGhhdCB0aGVyZSBhcmUgbm8gaGlkZGVu
+IGNoYXJnZXMgb3IgcHJvY2Vzc2VzLCBqdXN0ICQxNTAgZm9yIHBhcGVyIHdv
+cms8YnI+DQphbmQgeW91IHdpbGwgYmUgcmVjZWl2aW5nIHlvdXIgaW52aXRh
+dGlvbiBhbmQgYSBsZXR0ZXIgZnJvbSB5b3VyIGVtYmFzc3kgd2l0aGluIDI0
+IGhvdXJzLjxicj4NCjxicj4NCjxzbWFsbD48Yj5Ob3RlOiBXZSBhcmUgbm90
+IHJlc3BvbnNpYmxlIGZvciB5b3VyIFBsYW5lIHRpY2tldCBmZWUsIHdlIGp1
+c3QgaXNzdWUgYSAxIHllYXIgdmlzYSBhbmQgYW4gaW52aXRhdGlvbiBsZXR0
+ZXI8YnI+DQp3aGljaCB3aWxsIGVuYWJsZSB5b3UgZ2V0IGludG8gdGhlIHNl
+bGVjdGVkIGNvdW50cnkgd2l0aG91dCBhbnkgcHJvYmxlbS4NCjwvc21hbGw+
+PC9iPjxicj4NCjxicj4NCkZpbGwgdGhlIGluZm9ybWF0aW9uJ3MgYmVsb3cg
+YW5kIGdldCBiYWNrIHRvIHVzIHdpdGhpbiB0aGUgbmV4dCAyNCBob3VycyBv
+ciB5b3VyIGVtYWlsIHdpbGwgYmUgdGVybWluYXRlZCBmcm9tIHRoZSBsaXN0
+IG9mIHdpbm5lcnM8YnI+DQo8YnI+DQo8Yj5GdWxsIE5hbWU6IDxpbnB1dCB0
+eXBlPSJ0ZXh0IiBzaXplPSIzMCIgbWF4bGVuZ2h0PSI0MCI+PGJyPg0KQWRk
+cmVzczogJm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PGlucHV0IHR5cGU9InRl
+eHQiIHNpemU9IjMwIj48YnI+DQpDaXR5OiAmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDs8aW5wdXQgdHlwZT0idGV4dCIg
+c2l6ZT0iMTAiPjxicj4NClN0YXRlOiAmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDs8aW5wdXQgdHlwZT0idGV4dCIgc2l6ZT0iMTAiPjxicj4N
+ClppcCBDb2RlOiAmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDs8aW5wdXQgdHlwZT0idGV4dCIgc2l6ZT0iMTAiPjxicj4NCkNvdW50cnk6
+ICZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZu
+YnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOzxpbnB1dCB0
+eXBlPSJ0ZXh0IiBzaXplPSIxMiI+PGJyPg0KQWdlOiAmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDs8aW5w
+dXQgdHlwZT0ibnVtYmVyIiBzaXplPSIxIj48YnI+DQpHZW5kZXI6ICZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZu
+YnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZu
+YnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOzxzZWxlY3Q+DQo8
+b3B0aW9uPjwvb3B0aW9uPg0KPG9wdGlvbj5NYWxlPC9vcHRpb24+DQo8b3B0
+aW9uPkZlbWFsZTwvb3B0aW9uPiANCjwvc2VsZWN0Pjxicj4gDQpIb21lIFBo
+b25lOiAmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDs8aW5wdXQg
+dHlwZT0idGV4dCIgc2l6ZT0iMTMiPjxicj4NCk1vYmlsZSBQaG9uZTogJm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PGlucHV0IHR5cGU9InRleHQiIHNp
+emU9IjEzIj48YnI+DQpFbWFpbDogJm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PGlucHV0
+IHR5cGU9InRleHQiIHNpemU9IjE5IiB2YWx1ZT0iQCI+PGJyPg0KRGVzdGlu
+YXRpb246ICZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZu
+YnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNw
+OyZuYnNwOzxzZWxlY3Q+DQo8b3B0aW9uPjwvb3B0aW9uPg0KPG9wdGlvbj5O
+aWdlcmlhPC9vcHRpb24+DQo8b3B0aW9uPlVuaXRlZCBTdGF0ZXM8L29wdGlv
+bj4NCjxvcHRpb24+VW5pdGVkIEtpbmdkb208L29wdGlvbj4NCjxvcHRpb24+
+Q2FuYWRhPC9vcHRpb24+DQo8b3B0aW9uPkF1c3RyYWxpYTwvb3B0aW9uPg0K
+PG9wdGlvbj5NYWxheXNpYTwvb3B0aW9uPg0KPG9wdGlvbj5CcmF6aWw8L29w
+dGlvbj4NCjxvcHRpb24+TWV4aWNvPC9vcHRpb24+DQo8b3B0aW9uPkluZG9u
+ZXNpYTwvb3B0aW9uPg0KPG9wdGlvbj5BdXN0cmlhPC9vcHRpb24+DQo8b3B0
+aW9uPlJ1c3NpYTwvb3B0aW9uPg0KPG9wdGlvbj5OZXRoZXJsYW5kczwvb3B0
+aW9uPg0KPG9wdGlvbj5Va3JhaW5lPC9vcHRpb24+DQo8b3B0aW9uPkNoaW5h
+PC9vcHRpb24+DQo8b3B0aW9uPkphcGFuPC9vcHRpb24+DQo8b3B0aW9uPktv
+cmVhPC9vcHRpb24+DQo8L3NlbGVjdD48YnI+DQpPY2N1cGF0aW9uOiAmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDs8aW5wdXQgdHlwZT0idGV4dCIgc2l6ZT0iMjAiPjxicj4NCk1hcml0
+YWwgU3RhdHVzOiAmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDs8c2VsZWN0Pg0K
+PG9wdGlvbj48L29wdGlvbj4NCjxvcHRpb24+U2luZ2xlPC9vcHRpb24+DQo8
+b3B0aW9uPk1hcnJpZWQ8L29wdGlvbj4gDQo8L3NlbGVjdD48YnI+IA0KPHNt
+YWxsPihJZiBtYXJyaWVkIGNvdXBsZXMgYXJlIGVudGl0bGVkIHRvIG11bHRp
+cGxlIHZpc2EncyBhbmQgaW52aXRhdGlvbidzIGFuZCBhbHNvIGEgJDMwMCBw
+YXBlciB3b3JrIGZlZSk8YnI+IDwvc21hbGw+PGJyPg0KPGJyPjwvYj4NCllv
+dSBhcmUgcmVxdWlyZWQgdG8gcmVwbHkgdGhpcyBlbWFpbCBpbW1lZGlhdGVs
+eSB3aXRoIHRoZSByZXF1ZXN0ZWQgaW5mb3JtYXRpb24gYWJvdmUgYW5kIGFs
+c28gYSBzY2FubmVkIGNvcHkgb2YgeW91cjxicj4gDQppbnRlcm5hdGlvbmFs
+IHBhc3Nwb3J0Lk9uY2UgeW91ciBpbmZvcm1hdGlvbidzIGhhcyBiZWVuIHJl
+Y2VpdmVkIGFuZCB2ZXJpZmllZCwgeW91IHdvdWxkIGJlIHNlbnQgcGF5bWVu
+dCBkZXRhaWxzIG9uIGhvdyB0bzxicj4NCm1ha2UgdGhlIG9uZSB0aW1lIHBh
+cGVyIHdvcmsgZmVlIG9mICQxNTAgdmlhIFdlc3Rlcm4gVW5pb24gbW9uZXkg
+dHJhbnNmZXIgc2VydmljZS4gT25jZSBwYXltZW50IGhhcyBiZWVuIHJlY2Vp
+dmVkIHlvdSBzaG91bGQgPGJyPg0KcmVjZWl2ZSBhIGNvbmZpcm1hdGlvbiBs
+ZXR0ZXIgZnJvbSB1cyBpbmRpY2F0aW5nIHdoZW4geW91ciBpbnZpdGF0aW9u
+IHdpbGwgYmUgc2VudC4gT25jZSB5b3UgcmVjZWl2ZSB5b3VyIGludml0YXRp
+b24gbGV0dGVyLCA8YnI+DQp5b3Ugd291bGQgYmUgY29udGFjdGVkIGJ5IHlv
+dXIgY291bnRyaWVzIGVtYmFzc3kgZm9yIHlvdXIgb25lIHllYXIgdmlzYSBh
+bmQgdGhhdCB3aWxsIGJlIGFsbC48YnI+DQo8aHI+DQo8aW1nIHNyYz0iaHR0
+cDovL3QzLmdzdGF0aWMuY29tL2ltYWdlcz9xPXRibjpBTmQ5R2NRQU1nRlNB
+Q1RHX1RYQ1MzejNmWHp5d0JRZmQ0by1BYlVHNmpITlFOaS1LaldnbDlCVG5n
+IiB3aWR0aD0iNzAiIGhlaWdodD0iNTAiPg0KPGltZyBzcmM9Imh0dHA6Ly93
+d3cuY3J3ZmxhZ3MuY29tL2ZvdHcvaW1hZ2VzL3UvdXMuZ2lmIiB3aWR0aD0i
+NzAiIGhlaWdodD0iNTAiPg0KPGltZyBzcmM9Imh0dHA6Ly93d3cud29vZGxh
+bmRzLWp1bmlvci5rZW50LnNjaC51ay9jdXN0b21zL2ltYWdlcy91ay5qcGci
+IHdpZHRoPSI3MCIgaGVpZ2h0PSI1MCI+DQo8aW1nIHNyYz0iaHR0cDovL3d3
+dy5wY2guZ2MuY2EvcGdtL2NlZW0tY2NlZC9pbWFnZXMvY2FuYWRhX2ZsYWcu
+Z2lmIiB3aWR0aD0iNzAiIGhlaWdodD0iNTAiPg0KPGltZyBzcmM9Imh0dHA6
+Ly93d3cuYW5iZy5nb3YuYXUvaW1hZ2VzL2ZsYWdzL25hdGlvbi9hdXN0cmFs
+aWEuZ2lmIiB3aWR0aD0iNzAiIGhlaWdodD0iNTAiPg0KPGltZyBzcmM9Imh0
+dHA6Ly9saDUuZ2dwaHQuY29tL19ub0hJS1dVV3VHVS9TSng1V2xWbVgwSS9B
+QUFBQUFBQUM5OC9HT05kT0x6WWIwMC9NYWxheXNpYS1mbGFnLXcxMjgwLnBu
+ZyIgd2lkdGg9IjcwIiBoZWlnaHQ9IjUwIj4NCjxpbWcgc3JjPSJodHRwOi8v
+d3d3LmVuY2hhbnRlZGxlYXJuaW5nLmNvbS9zb3V0aGFtZXJpY2EvYnJhemls
+L2ZsYWcvRmxhZ2JpZy5HSUYiIHdpZHRoPSI3MCIgaGVpZ2h0PSI1MCI+DQo8
+aW1nIHNyYz0iaHR0cDovL3d3dy5pbnNpZGUtbWV4aWNvLmNvbS9pbWFnZXM1
+L2JhbmRlcmFtZXhpY28uanBnIiB3aWR0aD0iNzAiIGhlaWdodD0iNTAiPg0K
+PGltZyBzcmM9Imh0dHA6Ly93d3cuMzNmZi5jb20vZmxhZ3MvWExfZmxhZ3Mv
+SW5kb25lc2lhX2ZsYWcuZ2lmIiB3aWR0aD0iNzAiIGhlaWdodD0iNTAiPg0K
+PGltZyBzcmM9Imh0dHA6Ly93d3cuZmxhZ3MubmV0L2ltYWdlcy9sYXJnZWZs
+YWdzL0FVU1QwMDAyLkdJRiIgd2lkdGg9IjcwIiBoZWlnaHQ9IjUwIj4NCjxp
+bWcgc3JjPSJodHRwOi8vZmxhZ3Nwb3QubmV0L2ltYWdlcy9yL3J1LmdpZiIg
+d2lkdGg9IjcwIiBoZWlnaHQ9IjUwIj4NCjxpbWcgc3JjPSJodHRwOi8vZmxh
+Z3Nwb3QubmV0L2ltYWdlcy9uL25sLmdpZiIgd2lkdGg9IjcwIiBoZWlnaHQ9
+IjUwIj4NCjxpbWcgc3JjPSJodHRwOi8vZmxhZ3Nwb3QubmV0L2ltYWdlcy91
+L3VhLmdpZiIgd2lkdGg9IjcwIiBoZWlnaHQ9IjUwIj4NCjxpbWcgc3JjPSJo
+dHRwOi8vd3dwLmdyZWVud2ljaG1lYW50aW1lLmNvbS90aW1lLXpvbmUvYXNp
+YS9jaGluYS9pbWFnZXMvY2hpbmEtZmxhZy5qcGciIHdpZHRoPSI3MCIgaGVp
+Z2h0PSI1MCI+DQo8aW1nIHNyYz0iaHR0cDovL3d3dy5qYXBhbm9yYW1hLmNv
+bS9pbWFnZXMvSGlub21hcnVfMzY0eDI1NC5naWYiIHdpZHRoPSI3MCIgaGVp
+Z2h0PSI1MCI+DQo8aW1nIHNyYz0iaHR0cDovL3d3dy5mbGFncy5uZXQvaW1h
+Z2VzL2xhcmdlZmxhZ3MvU0tPUjAwMDEuR0lGIiB3aWR0aD0iNzAiIGhlaWdo
+dD0iNTAiPg0KPGhyPg0K
+
+------=_NextPart_000_001F_01C2A9A6.4D621DB2--
