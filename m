@@ -1,37 +1,41 @@
-From: Ed Swierk <eswierk@bigswitch.com>
-Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast groups
-Date: Fri, 12 Aug 2011 22:43:33 -0700
-Message-ID: <CAF5U64B_fb2tFMLHmK+zw3n6gmq+bYDyFnXhLE0ayssK5m+THA@mail.gmail.com>
-References: <CAF5U64C+WgQhfJL3zfVnvzE7p=G61humQCObHGUxAvY2-MGAFQ@mail.gmail.com>
- <CAF5U64CJTWDn8E9+XVLFsdaSbiu-4Rd9XmxZq7ReziRNZviO6Q@mail.gmail.com> <20110812154545.79d8313f@nehalam.ftrdhcpuser.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for Aug 12 (benet/be2net)
+Date: Fri, 12 Aug 2011 23:19:09 -0700 (PDT)
+Message-ID: <20110812.231909.939460841377364522.davem@davemloft.net>
+References: <20110812171311.4d7bb640f38838bf7c34df50@canb.auug.org.au>
+	<20110812135618.a209d9af.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:45959 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918Ab1HMFoO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2011 01:44:14 -0400
-Received: by vxi9 with SMTP id 9so2882637vxi.19
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 22:44:13 -0700 (PDT)
-In-Reply-To: <20110812154545.79d8313f@nehalam.ftrdhcpuser.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com
+To: rdunlap@xenotime.net
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110812135618.a209d9af.rdunlap@xenotime.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 12, 2011 at 3:45 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> If you turn off STP that is what it does right now. It forwards STP
-> and 802.1X frames. The patch was only related to turning on STP
-> and still expecting 802.1X frames to be forwarded (in violation of
-> the spec).
+From: Randy Dunlap <rdunlap@xenotime.net>
+Date: Fri, 12 Aug 2011 13:56:18 -0700
 
-As far as I can tell, the only case currently where the bridge
-forwards a packet destined for a link-local multicast address is
+> On Fri, 12 Aug 2011 17:13:11 +1000 Stephen Rothwell wrote:
+> 
+>> Hi all,
+>> 
+>> [The kernel.org mirroring is being very slow today]
+> 
+>   [s.l.o.w.]
+>  
+>> The net tree gained a build failure do I used the version from
+>> next-20110811.
+> 
+> 
+> On i386:
+> 
+> drivers/built-in.o: In function `be_rx_eqd_update':
+> be_main.c:(.text+0x569229): undefined reference to `__udivdi3'
 
-  if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
-
-dest[5] != 0 for an LLDP packet, whose destination address is
-01-80-C2-00-00-0E per IEEE 802.1AB-2005.
-
---Ed
+This is fixed in the net-next tree already by Eric Dumazet, but
+thanks for reporting. :-)
