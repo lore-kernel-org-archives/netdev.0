@@ -1,46 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 2/2] net: minor update to Documentation/networking/scaling.txt
-Date: Fri, 12 Aug 2011 16:32:32 -0700
-Message-ID: <4E45B810.3000501@hp.com>
-References: <1312899648.5889.14.camel@gopher.nyc.corp.google.com> <4E418030.2010102@hp.com> <4E44752D.1080905@google.com> <4E4476CC.5050900@google.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC PATCH v2 0/9] bql: Byte Queue Limits
+Date: Fri, 12 Aug 2011 17:33:24 -0700
+Message-ID: <CA+mtBx-nezRVZ7Q3h1uFCycEK6bL+ZsBR8Go69KsMu+g0UYvLw@mail.gmail.com>
+References: <alpine.DEB.2.00.1108072129010.13386@pokey.mtv.corp.google.com>
+	<20110812112025.5788de0b@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rdunlap@xenotime.net, linux-doc@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <4E4476CC.5050900@google.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:58385 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752371Ab1HMAd2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2011 20:33:28 -0400
+Received: from wpaz13.hot.corp.google.com (wpaz13.hot.corp.google.com [172.24.198.77])
+	by smtp-out.google.com with ESMTP id p7D0XQDG000919
+	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 17:33:26 -0700
+Received: from iyk2 (iyk2.prod.google.com [10.241.51.130])
+	by wpaz13.hot.corp.google.com with ESMTP id p7D0X6Uh013480
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 17:33:25 -0700
+Received: by iyk2 with SMTP id 2so2084126iyk.18
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2011 17:33:24 -0700 (PDT)
+In-Reply-To: <20110812112025.5788de0b@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/11/2011 05:41 PM, Willem de Bruijn wrote:
-> Incorporate last comments about hyperthreading, interrupt coalescing and
-> the definition of cache domains into the network scaling document scaling.txt
+> 1. Need a way to configure the values. =A0My preference would be new
+> =A0 netlink attribute and via 'ip link set' ...
 >
-> Signed-off-by: Willem de Bruijn<willemb@google.com>
->
-> ---
->   Documentation/networking/scaling.txt |   23 +++++++++++++++--------
->   1 files changed, 15 insertions(+), 8 deletions(-)
->
-> diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
-> index 3da03c3..6197126 100644
-> --- a/Documentation/networking/scaling.txt
-> +++ b/Documentation/networking/scaling.txt
-> @@ -52,7 +52,8 @@ module parameter for specifying the number of hardware queues to
->   configure. In the bnx2x driver, for instance, this parameter is called
->   num_queues. A typical RSS configuration would be to have one receive queue
->   for each CPU if the device supports enough queues, or otherwise at least
-> -one for each cache domain at a particular cache level (L1, L2, etc.).
-> +one for each memory domain, where a memory domain is a set of CPUs that
-> +share a particular memory level (L1, L2, NUMA node, etc.).
+As opposed to using sysfs entries?
 
-I'd suggest simply "share a particular level in the memory hierarchy 
-(Cache, NUMA node, etc)"  and that way you get away from people asking 
-nitpicky questions about where cache hierarchy counting starts, and at 
-what level caches might be shared :)
+> 2. Does this need to know the speed of the link (autonegotiation) or
 
-Apart from that, looks fine.
+No.
 
-rick jones
+> =A0 is it self clocking?
+
+It is self clocking.  The only time related tunable is hold_time
+(which I think can have a reasonable default).
+
+Tom
