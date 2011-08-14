@@ -1,21 +1,33 @@
-From: Song Li <info@mail.com>
-Subject: Re: Thanks
-Date: Mon, 15 Aug 2011 05:13:46 -0700
-Message-ID: <20110814210127.D1E7549EC2E__29611.7851780311$1313356200$gmane$org@mail.najdschools.edu.sa>
-Reply-To: lilsong@w.cn
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <info@mail.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH V2 net-next 0/3] bnx2x: Message logging cleanups
+Date: Sun, 14 Aug 2011 15:16:18 -0700
+Message-ID: <cover.1313360100.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org
+To: Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.najdschools.edu.sa ([212.119.79.83]:44046 "EHLO
-	mail.najdschools.edu.sa" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753730Ab1HNVJf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2011 17:09:35 -0400
-Content-Description: Mail message body
+Received: from wondertoys-mx.wondertoys.net ([206.117.179.246]:43872 "EHLO
+	labridge.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754546Ab1HNWQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2011 18:16:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l am a Staff of Hang Seng Bank HongKong, I do not know if we can work
-together in transferring $19,500,000.USD from my bank to you account.
-Finally if you are interested I shall provide you with more details.
+Joe Perches (3):
+  bnx2x: Remove local defines for %pM and mac address
+  bnx2x: Coalesce pr_cont uses and fix DP typos
+  bnx2x: Use pr_fmt and message logging cleanups
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |   67 ++++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   48 ++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |    4 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c    |    5 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   23 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c   |  153 ++++++++++----------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   72 ++++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c     |   67 ++++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |   46 +++---
+ 9 files changed, 244 insertions(+), 241 deletions(-)
+
+-- 
+1.7.6.405.gc1be0
+
