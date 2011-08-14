@@ -1,137 +1,61 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC PATCH 0/7] multiqueue support for
-	tun/tap
-Date: Sun, 14 Aug 2011 02:19:41 -0400 (EDT)
-Message-ID: <410484089.165922.1313302781804.JavaMail.root@zmail05.collab.prod.int.phx2.redhat.com>
-References: <1313196390.28682.14.camel@w-sridhar.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	qemu-devel@nongnu.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	mirq-linux@rere.qmqm.pl, davem@davemloft.net
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <1313196390.28682.14.camel@w-sridhar.beaverton.ibm.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: </archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+From: hachi <hachi@kuiki.net>
+Subject: Linux ipsec and dynamic routing
+Date: Sun, 14 Aug 2011 01:58:50 -0700
+Message-ID: <2B8C0848-C5A1-4F19-AFDF-C7CB443789E0@kuiki.net>
+Mime-Version: 1.0 (Apple Message framework v1084)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sachiko.kuiki.net ([80.68.89.100]:33501 "EHLO sachiko.kuiki.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751939Ab1HNJEk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2011 05:04:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello heroes!
 
+I am after an eventual goal of dynamic routing (BGP) via the linux kernel using ipsec tunneling and no inner tunnel (gre or others). On the way to this goal I've done some light source diving of source and talked a little theory with others to hunt down as much as I could to get closer. I have a lot of questions here, so thanks for any answers or suggestions you may give.
 
------ Original Message -----
-> On Fri, 2011-08-12 at 09:54 +0800, Jason Wang wrote:
-> > As multi-queue nics were commonly used for high-end servers,
-> > current single queue based tap can not satisfy the
-> > requirement of scaling guest network performance as the
-> > numbers of vcpus increase. So the following series
-> > implements multiple queue support in tun/tap.
-> >
-> > In order to take advantages of this, a multi-queue capable
-> > driver and qemu were also needed. I just rebase the latest
-> > version of Krishna's multi-queue virtio-net driver into this
-> > series to simplify the test. And for multiqueue supported
-> > qemu, you can refer the patches I post in
-> > http://www.spinics.net/lists/kvm/msg52808.html. Vhost is
-> > also a must to achieve high performance and its code could
-> > be used for multi-queue without modification. Alternatively,
-> > this series can be also used for Krishna's M:N
-> > implementation of multiqueue but I didn't test it.
-> >
-> > The idea is simple: each socket were abstracted as a queue
-> > for tun/tap, and userspace may open as many files as
-> > required and then attach them to the devices. In order to
-> > keep the ABI compatibility, device creation were still
-> > finished in TUNSETIFF, and two new ioctls TUNATTACHQUEUE and
-> > TUNDETACHQUEUE were added for user to manipulate the numbers
-> > of queues for the tun/tap.
-> 
-> Is it possible to have tap create these queues automatically when
-> TUNSETIFF is called instead of having userspace to do the new
-> ioctls. I am just wondering if it is possible to get multi-queue
-> to be enabled without any changes to qemu. I guess the number of
-> queues
-> could be based on the number of vhost threads/guest virtio-net queues.
+All of my testing is done using openswan, and debian stable (linux 2.6.32, iproute 20100519)
 
-It's possible but we need at least pass the number of queues
-through TUNSETIFF which may break the ABI? And this method
-is not flexible as adding new ioctls, consider we may
-disable some queues for some reaons such as running a single
-queue guest or pxe on an multiple virtio-net backened.
+* Are there any existing methods of implementing dynamic routed ipsec armored ip forwarding?
 
-> 
-> Also, is it possible to enable multi-queue on the host alone without
-> any guest virtio-net changes?
+I haven't been able to find anyone who has a working setup in this regard. My goal is very similar to the exposed routing setup of Amazon's VPC ipsec connections. I'm trying to implement one or both ends in linux successfully and haven't found any docs on the subject.
 
-If we use current driver without changes, it can run on host
-that multiqueu enabled. But it can not make use all of the
-queues.
+* The ip xfrm policy selector syntax has a 'dev' argument that can be supplied. I was unable to figure out what the intention of this argument is via source, and I never found any docs or samples of its use. Can anyone enlighten me?
 
-> 
-> Have you done any multiple TCP_RR/UDP_RR testing with small packet
-> sizes? 256byte request/response with 50-100 instances?
+* Are there any plans or generally accepted patches to expand the rules that may be used to select what frames are transformed?
 
-Not yet, I would do it after I was back from KVM Forum.
+Currently the rules I can use are source address, destination address, and the mysterious 'dev' setting. I think the ultimate solution for me would be able to select frames for forwarding based on the gateway defined in the normal routing tables.
 
-> 
-> >
-> > I've done some basic performance testing of multi queue
-> > tap. For tun, I just test it through vpnc.
-> >
-> > Notes:
-> > - Test shows improvement when receving packets from
-> > local/external host to guest, and send big packet from guest
-> > to local/external host.
-> > - Current multiqueue based virtio-net/tap introduce a
-> > regression of send small packet (512 byte) from guest to
-> > local/external host. I suspect it's the issue of queue
-> > selection in both guest driver and tap. Would continue to
-> > investigate.
-> > - I would post the perforamnce numbers as a reply of this
-> > mail.
-> >
-> > TODO:
-> > - solve the issue of packet transmission of small packets.
-> > - addressing the comments of virtio-net driver
-> > - performance tunning
-> >
-> > Please review and comment it, Thanks.
-> >
-> > ---
-> >
-> > Jason Wang (5):
-> >       tuntap: move socket/sock related structures to tun_file
-> >       tuntap: categorize ioctl
-> >       tuntap: introduce multiqueue related flags
-> >       tuntap: multiqueue support
-> >       tuntap: add ioctls to attach or detach a file form tap device
-> >
-> > Krishna Kumar (2):
-> >       Change virtqueue structure
-> >       virtio-net changes
-> >
-> >
-> >  drivers/net/tun.c | 738 ++++++++++++++++++++++++++-----------------
-> >  drivers/net/virtio_net.c | 578 ++++++++++++++++++++++++----------
-> >  drivers/virtio/virtio_pci.c | 10 -
-> >  include/linux/if_tun.h | 5
-> >  include/linux/virtio.h | 1
-> >  include/linux/virtio_net.h | 3
-> >  6 files changed, 867 insertions(+), 468 deletions(-)
-> >
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe
-> linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at http://www.tux.org/lkml/
+* Do ip xfrm policy rules bypass normal routing policy?
+
+I'm relatively certain the answer to this is 'yes'. However I may not have the full story.
+
+I ran a simple test of two /24 exposed at either end of an ipsec tunnel. The left end is 10.24.2.0/24, the right is 10.24.3.0/24, and the transit is being done via 10.24.1.0/30. I configured this test using openswan and after setting up and checking to see if the boxes can pass frames I examined the policy list and the routing table.
+
+src 10.24.3.0/24 dst 10.24.2.0/24 
+	dir fwd priority 2344 ptype main 
+	tmpl src 10.24.1.2 dst 10.24.1.1
+		proto esp reqid 16385 mode tunnel
+
+10.24.1.0/30 dev eth1  proto kernel  scope link  src 10.24.1.1 
+10.24.2.0/24 dev eth0  proto kernel  scope link  src 10.24.2.2 
+172.16.3.0/24 dev eth0  proto kernel  scope link  src 172.16.3.16 
+default via 172.16.3.1 dev eth0
+
+The opposite end is appropriately reversed, and there are two more policies for 'in' and 'out', but they are appropriately similar.
+
+What I notice is that despite not having a route for the exposed subnet on the other end of the tunnel linux happily forwards the frames and encodes them to the other end, and visa versa.
+
+I can watch the frames passing across eth1 and they are appropriately encrypted as specified, and if I turn the ipsec tunnel off on both sides the forwarding capability does indeed shut down. If I add routes for the opposing ends then the kernel starts forwarding frames as expected.
+
+* If I need to dive into this more to seek an implementation, does anyone know if the general theory should be the dynamic routing daemon in userspace should expand its code to update xfrm policies, or is the fact that xfrm policy is taking precedence over routing an oversight of the kernel code that should be fixed/updated/etc. ?
+
+* Is there any hope for policy routing table support to extend into this as well?
+
+I hope I'm reaching out to the proper group for this inquiry, please let me know if this was wrong :)
+
+--hachi
