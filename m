@@ -1,61 +1,54 @@
-From: hachi <hachi@kuiki.net>
-Subject: Linux ipsec and dynamic routing
-Date: Sun, 14 Aug 2011 01:58:50 -0700
-Message-ID: <2B8C0848-C5A1-4F19-AFDF-C7CB443789E0@kuiki.net>
-Mime-Version: 1.0 (Apple Message framework v1084)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
+From: Kjun Chen <kjun-chen@sambodha.org>
+Subject: r8169 hard-freezes the system on big network loads
+Date: Sun, 14 Aug 2011 13:08:28 +0200
+Message-ID: <201108141308.28140.kjun-chen@sambodha.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, nic_swsd@realtek.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sachiko.kuiki.net ([80.68.89.100]:33501 "EHLO sachiko.kuiki.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751939Ab1HNJEk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2011 05:04:40 -0400
+Received: from mail.sambodha.org ([87.118.110.134]:63804 "EHLO
+	mail.sambodha.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109Ab1HNLZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2011 07:25:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello heroes!
+Hi,
 
-I am after an eventual goal of dynamic routing (BGP) via the linux kernel using ipsec tunneling and no inner tunnel (gre or others). On the way to this goal I've done some light source diving of source and talked a little theory with others to hunt down as much as I could to get closer. I have a lot of questions here, so thanks for any answers or suggestions you may give.
+as I have mentioned to linux-kernel, this is perfectly reproducible: receiving 
+70 MB/s or more freezes my laptop (Dell Vostro, amd64, 6 GB RAM, 8x Intel Core 
+i7 CPU Q 740 @ 1.73GHz) completely, sometimes within seconds, sometimes only 
+after a minute.
 
-All of my testing is done using openswan, and debian stable (linux 2.6.32, iproute 20100519)
+Watching the normal console I get loads of
 
-* Are there any existing methods of implementing dynamic routed ipsec armored ip forwarding?
+r8169 0000:13:00.0: eth0: link up
+r8169 0000:13:00.0: eth0: link up
+[...]
 
-I haven't been able to find anyone who has a working setup in this regard. My goal is very similar to the exposed routing setup of Amazon's VPC ipsec connections. I'm trying to implement one or both ends in linux successfully and haven't found any docs on the subject.
+one message about every 1-2 seconds (sometimes even 2 per second) while 
+network is active on 2.6.37.6. Up to the latest kernel (3.0.1) this freeze 
+happens. However, 2.6.32.28 works with no problems, and it doesn't show those 
+"eth0: link up" messages. I haven't tried kernels between .32 and .37.
 
-* The ip xfrm policy selector syntax has a 'dev' argument that can be supplied. I was unable to figure out what the intention of this argument is via source, and I never found any docs or samples of its use. Can anyone enlighten me?
+lspci says:
 
-* Are there any plans or generally accepted patches to expand the rules that may be used to select what frames are transformed?
+13:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI 
+Express Gigabit Ethernet controller (rev 03)
 
-Currently the rules I can use are source address, destination address, and the mysterious 'dev' setting. I think the ultimate solution for me would be able to select frames for forwarding based on the gateway defined in the normal routing tables.
+The solution with 2.6.37 and above: use the r8168 module from the realtek 
+website. I have tested it with >30 GB at rates of 112 MB/s and experienced no 
+freezes anymore.
 
-* Do ip xfrm policy rules bypass normal routing policy?
+If you need any other information or help, please let me know.
 
-I'm relatively certain the answer to this is 'yes'. However I may not have the full story.
+cheers,
+  Michael
 
-I ran a simple test of two /24 exposed at either end of an ipsec tunnel. The left end is 10.24.2.0/24, the right is 10.24.3.0/24, and the transit is being done via 10.24.1.0/30. I configured this test using openswan and after setting up and checking to see if the boxes can pass frames I examined the policy list and the routing table.
 
-src 10.24.3.0/24 dst 10.24.2.0/24 
-	dir fwd priority 2344 ptype main 
-	tmpl src 10.24.1.2 dst 10.24.1.1
-		proto esp reqid 16385 mode tunnel
+-- 
+Sambodha: The Return of True Self-Knowledge
 
-10.24.1.0/30 dev eth1  proto kernel  scope link  src 10.24.1.1 
-10.24.2.0/24 dev eth0  proto kernel  scope link  src 10.24.2.2 
-172.16.3.0/24 dev eth0  proto kernel  scope link  src 172.16.3.16 
-default via 172.16.3.1 dev eth0
-
-The opposite end is appropriately reversed, and there are two more policies for 'in' and 'out', but they are appropriately similar.
-
-What I notice is that despite not having a route for the exposed subnet on the other end of the tunnel linux happily forwards the frames and encodes them to the other end, and visa versa.
-
-I can watch the frames passing across eth1 and they are appropriately encrypted as specified, and if I turn the ipsec tunnel off on both sides the forwarding capability does indeed shut down. If I add routes for the opposing ends then the kernel starts forwarding frames as expected.
-
-* If I need to dive into this more to seek an implementation, does anyone know if the general theory should be the dynamic routing daemon in userspace should expand its code to update xfrm policies, or is the fact that xfrm policy is taking precedence over routing an oversight of the kernel code that should be fixed/updated/etc. ?
-
-* Is there any hope for policy routing table support to extend into this as well?
-
-I hope I'm reaching out to the proper group for this inquiry, please let me know if this was wrong :)
-
---hachi
