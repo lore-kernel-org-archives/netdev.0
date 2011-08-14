@@ -1,45 +1,44 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
-Date: Sun, 14 Aug 2011 12:23:44 +0930
-Message-ID: <878vqw9007.fsf@rustcorp.com.au>
-References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] Proportional Rate Reduction for TCP.
+Date: Sat, 13 Aug 2011 22:05:25 -0700
+Message-ID: <m262m0lh0q.fsf@firstfloor.org>
+References: <1313134197-5082-1-git-send-email-nanditad@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sasha Levin <levinsasha928@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>, linux-kernel@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>
+To: Nandita Dukkipati <nanditad@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:62247 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750727Ab1HNFF2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Aug 2011 01:05:28 -0400
+In-Reply-To: <1313134197-5082-1-git-send-email-nanditad@google.com> (Nandita
+	Dukkipati's message of "Fri, 12 Aug 2011 00:29:57 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 13 Aug 2011 11:51:01 +0300, Sasha Levin <levinsasha928@gmail.com> wrote:
-> The MAC of a virtio-net device is located at the first field of the device
-> specific header. This header is located at offset 20 if the device doesn't
-> support MSI-X or offset 24 if it does.
+Nandita Dukkipati <nanditad@google.com> writes:
+> +
+> +	if (tcp_packets_in_flight(tp) > tp->snd_ssthresh) {
+> +		if (WARN_ON(!tp->prr_cwnd))
+> +			tp->prr_cwnd = 1;
+> +		sndcnt = DIV_ROUND_UP(tp->prr_delivered * tp->snd_ssthresh,
+> +				      tp->prr_cwnd) - tp->prr_out;
+> +	} else {
+> +		sndcnt = min_t(int, delta,
+> +			       max_t(int, tp->prr_delivered -
+> tp->prr_out,
 
-Erk.  This means, in general, we have to do virtio_find_single_vq or
-config->find_vqs before we examine any config options.
+u32s here? This will likely do bad things with large enough windows.
 
-Look at virtio_blk, which has the same error.
+The rest looks good to me as code, but I don't claim to fully understand the 
+algorithm. Perhaps a sysctl to turn it off and a linux mib counter when 
+it triggers would be useful in addition.
 
-Solutions in order of best to worst:
-(1) Enable MSI-X before calling device probe.  This means reserving two
-    vectors in virtio_pci_probe to ensure we *can* do this, I think.  Michael?
+-Andi
 
-(2) Ensure ordering of "find_vqs then access config space" statically.  This
-    probably means handing the vqs array to virtio_config_val, so noone
-    can call it before they have their virtqueues.
-
-(3) Ensure ordering dynamically, ie. BUG_ON() if they haven't done
-    find_vqs when they call the config accessors.
-
-If (1) is too invasive for -stable, then we should rearrange the drivers
-in separate patches (and cc: -stable), then fix it properly.
-
-Good catch Sasha!
-
-Cheers,
-Rusty.
+-- 
+ak@linux.intel.com -- Speaking for myself only
