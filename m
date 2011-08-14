@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: Bisected Gianfar in bridge not forwarding packets
-Date: Sat, 13 Aug 2011 18:02:22 -0700 (PDT)
-Message-ID: <20110813.180222.2091598025825238892.davem@davemloft.net>
-References: <CAMvAeqO2bLaPwmdW+c+7hz-ec=-tF6Z0EFBv=FA7+rU_QZ_wDA@mail.gmail.com>
-	<CAMvAeqM-oH1UzxEp9PgO6ZP-AKtqosuMg5za25_X8DpPJMDX2w@mail.gmail.com>
-	<20110810111947.GC1909@minipsycho.brq.redhat.com>
+Subject: Re: [PATCH] net: sh_eth: Fix build by forgot including
+ linux/interrupt.h
+Date: Sat, 13 Aug 2011 18:02:29 -0700 (PDT)
+Message-ID: <20110813.180229.401223475214365969.davem@davemloft.net>
+References: <1312956950-32598-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mguntsche@gmail.com, shemminger@vyatta.com,
-	sebastian.belden@googlemail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jpirko@redhat.com
+Cc: netdev@vger.kernel.org, adobriyan@gmail.com
+To: nobuhiro.iwamatsu.yj@renesas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48614 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48622 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752822Ab1HNBC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2011 21:02:28 -0400
-In-Reply-To: <20110810111947.GC1909@minipsycho.brq.redhat.com>
+	with ESMTP id S1752864Ab1HNBCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2011 21:02:35 -0400
+In-Reply-To: <1312956950-32598-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Wed, 10 Aug 2011 13:19:48 +0200
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Date: Wed, 10 Aug 2011 15:15:50 +0900
 
-> Subject: [patch net-2.6] gianfar: prevent buggy hw rx vlan tagging
+> By a6b7a407865aab9f849dd99a71072b7cd1175116, remove interrupt.h
+> from netdevice.h. But this forget to revise sh_eth.
 > 
-> On some buggy chips, "vlan tag present" flag is set which causes packet
-> loss. Fix this by checking if rx vlan accel is enabled in features.
+> This fix the build failure.
 > 
-> Reported-by: Michael Guntsche <mguntsche@gmail.com>
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> error: expected '=', ',', ';', 'asm' or '__attribute__' before 'sh_eth_interrupt'
+> error: implicit declaration of function 'request_irq'
+> error: 'sh_eth_interrupt' undeclared (first use in this function)
+> error: (Each undeclared identifier is reported only once
+> 	drivers/net/sh_eth.c:1386: error: for each function it appears in.)
+> error: 'IRQF_SHARED' undeclared (first use in this function)
+> error: implicit declaration of function 'free_irq'
+> 
+> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+> CC: Alexey Dobriyan <adobriyan@gmail.com>
 
 Applied.
