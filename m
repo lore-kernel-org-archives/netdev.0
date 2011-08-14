@@ -1,53 +1,37 @@
-From: Lionel Elie Mamane <lionel@mamane.lu>
-Subject: [PATCH] sit tunnels: propagate IPv6 transport class to IPv4 Type
- of Service
-Date: Sun, 14 Aug 2011 02:04:38 +0200
-Message-ID: <20110814000438.GA30127@capsaicin.mamane.lu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vmxnet3: Don't enable vlan filters in promiscuous
+ mode.
+Date: Sat, 13 Aug 2011 18:00:59 -0700 (PDT)
+Message-ID: <20110813.180059.1188956980281941385.davem@davemloft.net>
+References: <1312794947-3163-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, scottjg@vmware.com, sbhatewara@vmware.com,
+	pv-drivers@vmware.com
+To: jesse@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48569 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752681Ab1HNBBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2011 21:01:06 -0400
+In-Reply-To: <1312794947-3163-1-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sit tunnels (IPv6 tunnel over IPv4) do not implement the "tos inherit"
-case to copy the IPv6 transport class byte from the inner packet to
-the IPv4 type of service byte in the outer packet. By contrast, ipip
-tunnels and GRE tunnels do.
+From: Jesse Gross <jesse@nicira.com>
+Date: Mon,  8 Aug 2011 02:15:47 -0700
 
-This patch, adapted from the similar code in net/ipv4/ipip.c and
-net/ipv4/ip_gre.c, implements that.
+> The vmxnet3 driver enables vlan filters if filtering is enabled for
+> any vlan.  In promiscuous mode the filter table is cleared to in
+> order to disable filtering.  However, if a vlan device is subsequently
+> created that vlan will be added to the filter, re-engaging it.  As a
+> result, not only do we not see all the vlans in promiscuous mode, we
+> don't even see vlans for which a filter was previously created.
+> 
+> CC: Scott J. Goldman <scottjg@vmware.com>
+> CC: Shreyas Bhatewara <sbhatewara@vmware.com>
+> CC: VMware PV-Drivers <pv-drivers@vmware.com>
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
 
-This patch applies to 3.0.1, and has been tested on that version.
-
-
-Signed-off-by: Lionel Elie Mamane <lionel@mamane.lu>
-
----
- net/ipv6/sit.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 1cca576..bbe2468 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -672,6 +672,10 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	if (skb->protocol != htons(ETH_P_IPV6))
- 		goto tx_error;
- 
-+
-+	if (tos == 1)
-+		tos = ipv6_get_dsfield(iph6);
-+
- 	/* ISATAP (RFC4214) - must come before 6to4 */
- 	if (dev->priv_flags & IFF_ISATAP) {
- 		struct neighbour *neigh = NULL;
--- 
-Lionel Mamane
+Applied.
