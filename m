@@ -1,107 +1,69 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH v12 3/6] flexcan: Fix up fsl-flexcan device tree binding.
-Date: Mon, 15 Aug 2011 18:13:45 +0200
-Message-ID: <4E4945B9.2020201@pengutronix.de>
-References: <1313138752-24006-1-git-send-email-holt@sgi.com>
-	<1313138752-24006-4-git-send-email-holt@sgi.com>
-	<20110815150357.GM4926@sgi.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net-next] ipv4: one more case for non-local saddr in ICMP
+Date: Mon, 15 Aug 2011 19:21:23 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108151857420.1481@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1435794236241750116=="
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
-	Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110815150357.GM4926-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============1435794236241750116==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig3856E2123D9DE0B80222F236"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig3856E2123D9DE0B80222F236
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 08/15/2011 05:03 PM, Robin Holt wrote:
-> Earlier, you had asked for a more specific name for the compatible
-> property of the Freescale flexcan device.  I still have not gotten a
-> more specific answer.  Hopefully Marc can give you more details about
-> the flexcan implementations.
-
-There are at least 2 versions of the flexcan ip core in the wild. Due to
-lack of version numbers or other names I call them old and new here :).
-
-The newer one supports rx fifo mode, whereas the older one doesn't. The
-mainline flexcan driver just supports the new core [1]. The older core
-is found on coldfire processors. I don't know if there are coldfire cpus
-with the new flexcan core, too. The driver can be adopted to the old
-core if needed.
-
-The first cpus with the new core I got in touch with was the mx35
-(arm11) and mx25 (arm9) both at the same time. Ask fsl which one was
-released first. After this there was mx28 (arm9) and there should be an
-mx53 (coretexa8) with flexcan too.
-
-> Other than an agreement on the compatible property, I believe we have
-> agreement on all the other code changes in these patches.  Is this chan=
-ge
-> acceptable as is and if we get a better resolution on the fsl,flexcan
-> name later, we can update the documentation and driver then?
-
-cheers, Marc
-
-[1] http://lxr.linux.no/linux+v3.0.1/drivers/net/can/flexcan.c#L871
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:53288 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752657Ab1HOQQA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Aug 2011 12:16:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---------------enig3856E2123D9DE0B80222F236
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+	May be there is one more case that we can avoid using
+non-local source for ICMP errors: xfrm_lookup, num_xfrms = 0 when
+reverse "Flow passes untransformed". Avoid using the input route
+if xfrm_lookup returns same dst.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
 
-iEYEARECAAYFAk5JRbwACgkQjTAFq1RaXHMlAgCeLCfI0CuYJRapp88vYkdlauBf
-arUAoI6CTN3jhmmFsf355McyGVf7sSV4
-=YPDm
------END PGP SIGNATURE-----
+	In fact, should we use local IP in all cases when
+sending ICMP? I'm asking it for the following case:
 
---------------enig3856E2123D9DE0B80222F236--
+	Large packet is forwarded but is rejected with ICMP FRAG
+NEEDED. We usually send ICMP with local saddr instead of the
+original non-local destination. What is the role of
+this reverse check? May be after xfrm_decode_session_reverse
+we should use 'fl4_dec.saddr = fl4->saddr;' so that xfrm_lookup
+works with ICMP from local IP? What is right thing to do here?
+I don't see code that looks in the embedded header...
 
---===============1435794236241750116==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============1435794236241750116==--
+--- net-next/net/ipv4/icmp.c	2011-08-15 18:42:21.289899686 +0300
++++ linux/net/ipv4/icmp.c	2011-08-15 18:38:25.816244111 +0300
+@@ -379,7 +379,7 @@ static struct rtable *icmp_route_lookup(
+ 					int type, int code,
+ 					struct icmp_bxm *param)
+ {
+-	struct rtable *rt, *rt2;
++	struct rtable *rt, *rt2, *rt3;
+ 	struct flowi4 fl4_dec;
+ 	int err;
+ 
+@@ -440,13 +440,18 @@ static struct rtable *icmp_route_lookup(
+ 	if (err)
+ 		goto relookup_failed;
+ 
++	rt3 = rt2;
+ 	rt2 = (struct rtable *) xfrm_lookup(net, &rt2->dst,
+ 					    flowi4_to_flowi(&fl4_dec), NULL,
+ 					    XFRM_LOOKUP_ICMP);
+ 	if (!IS_ERR(rt2)) {
+-		dst_release(&rt->dst);
+-		memcpy(fl4, &fl4_dec, sizeof(*fl4));
+-		rt = rt2;
++		if (rt2 == rt3 && rt) {
++			dst_release(&rt2->dst);
++		} else {
++			dst_release(&rt->dst);
++			memcpy(fl4, &fl4_dec, sizeof(*fl4));
++			rt = rt2;
++		}
+ 	} else if (PTR_ERR(rt2) == -EPERM) {
+ 		if (rt)
+ 			dst_release(&rt->dst);
