@@ -1,64 +1,49 @@
-From: Vladimir Zapolskiy <vz@mleia.com>
-Subject: [PATCH] dm9000: control debug level of the driver
-Date: Mon, 15 Aug 2011 19:38:34 +0300
-Message-ID: <1313426314-6422-1-git-send-email-vz@mleia.com>
-Cc: netdev@vger.kernel.org, Vladimir Zapolskiy <vz@mleia.com>,
-	Ben Dooks <ben-linux@fluff.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Enquiries <enquiries@matheson.co.uk>
+Subject: Kindly read and reply through my private email...
+  inna.patarkat3@qatar.io
+Date: Mon, 15 Aug 2011 16:26:32 +0100
+Message-ID: <E2BF5BEEF28451448269E7F06E27353B79EA0009D8@MATHEX3.Matheson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from li271-223.members.linode.com ([178.79.152.223]:59364 "EHLO
-	mail.mleia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750735Ab1HOQqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Aug 2011 12:46:25 -0400
+Received: from mail1.matheson.co.uk ([212.161.50.207]:2942 "EHLO
+	mail1.matheson.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750735Ab1HOQxX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 12:53:23 -0400
+Received: from MATHEX2.Matheson.com ([192.168.107.111])
+	by mail1.matheson.co.uk (mail1.matheson.co.uk)
+	(MDaemon PRO v12.0.3)
+	with ESMTP id md50000378093.msg
+	for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 16:26:40 +0100
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change allows to get driver specific debug messages output
-setting a default value for db->debug_level. As far as the maximum
-level of verbosity is too high, it is demoted by default.
+Kindly read and reply through my private email...  inna.patarkat3@qatar.io
+An Emergency from Mrs. Inna Patarkatsishvil
+Greetings in the name of the Lord, I am Mrs. Inna Patarkatsishvili, the widow of late Georgian business tycoon Mr. Badri Patarkatsishvili, I have a business proposal which will be of great benefit to you and myself. I will send you further details once i receive your response back. Please for security reason, i will strongly recommend that you write me through my private email account only.Thanks for your understanding.
+Yours truly, 
+Mrs. Inna Patarkatsishvili 
+Private Email:  inna.patarkat4@qatar.io
+-------------------------------------------------------------------------
+DISCLAIMER:-
 
-Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
-Cc: Ben Dooks <ben-linux@fluff.org>
----
- drivers/net/Kconfig  |    2 +-
- drivers/net/dm9000.c |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+Matheson & Co., Limited is a company registered in England and Wales.
+Company Registration Number: 100295.
+Registered Office: 3 Lombard Street, London EC3V 9AQ, UK
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 8d0314d..20e7936 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -988,7 +988,7 @@ config DM9000
- config DM9000_DEBUGLEVEL
- 	int "DM9000 maximum debug level"
- 	depends on DM9000
--	default 4
-+	default 0
- 	help
- 	  The maximum level of debugging code compiled into the DM9000
- 	  driver.
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index 8ef31dc..b8509a8 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -138,8 +138,7 @@ typedef struct board_info {
- /* debug code */
- 
- #define dm9000_dbg(db, lev, msg...) do {		\
--	if ((lev) < CONFIG_DM9000_DEBUGLEVEL &&		\
--	    (lev) < db->debug_level) {			\
-+	if ((lev) < db->debug_level) {			\
- 		dev_dbg(db->dev, msg);			\
- 	}						\
- } while (0)
-@@ -1381,6 +1380,7 @@ dm9000_probe(struct platform_device *pdev)
- 
- 	db->dev = &pdev->dev;
- 	db->ndev = ndev;
-+	db->debug_level = CONFIG_DM9000_DEBUGLEVEL;
- 
- 	spin_lock_init(&db->lock);
- 	mutex_init(&db->addr_lock);
--- 
-1.7.5.1
+Matheson & Co., Limited, established in London in 1848, is a wholly owned
+subsidiary of Jardine Matheson Holdings Limited.
+
+This email is confidential and intended only for the use
+of the individual or entity named above and may contain
+information that is privileged. If you are not the intended
+recipient, you are notified that any dissemination, distribution
+or copying of this email is strictly prohibited.
+If you have received this email in error, please notify us immediately by
+return email or telephone 020 7816 8100 and destroy the original message. 
+Thank you.
+-------------------------------------------------------------------------
 
