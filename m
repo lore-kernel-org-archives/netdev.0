@@ -1,59 +1,88 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: suppress repeated error messages about Max
- BW
-Date: Mon, 15 Aug 2011 15:33:05 +0300
-Message-ID: <1313411585.31417.35.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <20110812143324.5740.45824.stgit@dhcp-29-224.brq.redhat.com>
- <1313405680.31417.6.camel@lb-tlvb-eilong.il.broadcom.com>
- <4E490A1E.3060209@redhat.com>
-Reply-To: eilong@broadcom.com
+From: Renato Westphal <renatowestphal@gmail.com>
+Subject: Re: Move interface across network namespaces
+Date: Mon, 15 Aug 2011 10:10:24 -0300
+Message-ID: <CAChaeg=1WSU0webhYDpQcnq3cJje17FQ5Z8rypD8sdkyzcLT-g@mail.gmail.com>
+References: <CAChaegkomwjL0X7HnfLi1XH26jDKOL6fCgjfms67cjjU4gRXPg@mail.gmail.com>
+	<m1r54s8lq4.fsf@fess.ebiederm.org>
+	<CAChaegm2d3LywMAcq66PgPZwF5Fu=_zuqcTh8VdCG6zvhyPJXQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Vladislav Zolotarov" <vladz@broadcom.com>
-To: "Michal Schmidt" <mschmidt@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kaber@trash.net,
+	David Lamparter <equinox@diac24.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2276 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752921Ab1HOMdT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Aug 2011 08:33:19 -0400
-In-Reply-To: <4E490A1E.3060209@redhat.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:40096 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752333Ab1HONKZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 09:10:25 -0400
+Received: by vws1 with SMTP id 1so3864515vws.19
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 06:10:24 -0700 (PDT)
+In-Reply-To: <CAChaegm2d3LywMAcq66PgPZwF5Fu=_zuqcTh8VdCG6zvhyPJXQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-08-15 at 04:59 -0700, Michal Schmidt wrote:
-> On 08/15/2011 12:54 PM, Eilon Greenstein wrote:
-> > On Fri, 2011-08-12 at 07:33 -0700, Michal Schmidt wrote:
-> >> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-> >> index c423504..648e165 100644
-> >> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-> >> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-> >> @@ -1220,6 +1220,7 @@ struct bnx2x {
-> >>   	struct cmng_struct_per_port cmng;
-> >>   	u32			vn_weight_sum;
-> >>   	u32			mf_config[E1HVN_MAX];
-> >> +	bool			prev_max_cfg_invalid[E1HVN_MAX];
-> > The warning is always for the current VN, so if you insist on showing a
-> > warning only once on a board with invalid configuration, you can use a
-> > single boolean.
-> 
-> bnx2x_cmng_fns_init() iterates over VNs:
-> 
->       for (vn = VN_0; vn < E1HVN_MAX; vn++)
->               bnx2x_init_vn_minmax(bp, vn);
-> 
-> and bnx2x_init_vn_minmax() calls bnx2x_extract_max_cfg() on the given 
-> VN, so it seems that the warning can be produced for a non-current VN.
+2011/8/11 Renato Westphal <renatowestphal@gmail.com>:
+> 2011/8/11 Eric W. Biederman <ebiederm@xmission.com>:
+>> Renato Westphal <renatowestphal@gmail.com> writes:
+>>
+>>> Hello,
+>>>
+>>> I have two questions regarding the process of moving a network
+>>> interface across different network namespaces:
+>>>
+>>> * When I move an interface, all the virtual interfaces attached to =
+it
+>>> are deleted. Is there any reason for such odd behavior? I would lik=
+e
+>>> to move some network interfaces and keep the attached vlans untouch=
+ed.
+>>
+>> The defined semantics are that a network device is unregistered from
+>> the networking stack in one network namespace and then registered
+>> with the networking stack in another. =A0It is an unfortunate fact
+>> that when vlan devices see their underlying device being unregistere=
+d
+>> they decide to delete themselves.
+>>
+>> A different vlan implementation might be able to have different
+>> properties but I can't think of any obvious solution other than
+>> don't do move the device that you have your vlans on top of.
+>>
+>
+> Thanks for the info, I can handle with that by modifying my quagga-vr=
+f patches.
 
-You are right, only one function (the PMF) will call this code for all
-functions. But I suspect that if you have zero values, you will have
-them for all VNs - is that the case? If so, you can still warn only
-once. Adding 4 boolean variables to the bnx2x structure just to overcome
-a bad configuration seems excessive to me.
+I forgot to mention that I'm using kernel v2.6.35 (with a lot of
+backports). For future reference, the commit 3b27e105550f7c4a ("netns:
+keep vlan slaves on master netns move", merged into v2.6.37-rc1) fixes
+this problem.
 
+>>> * The target network namespace sends a RTM_NEWLINK netlink message
+>>> when an interface is moved to it. In the other hand, the source
+>>> network namespace doesn't sends a RTM_DELLINK message when an
+>>> interface is moved from it. This is very annoying because user spac=
+e
+>>> applications (such as zebra) can't detect some interface moving
+>>> operations and then get into an inconsistent state. Anyone knows if
+>>> there's a workaround for this?
+>>
+>> Not getting RTM_DELLINK is a bug. =A0The device registration and
+>> unregistration code has changed since dev_change_net_namespace was
+>> written and apparently one of the changes failed to update
+>> dev_change_net_namespace.
+>>
+>
+> Good, that makes a lot more sense. In the kernel 2.6.32.43 the
+> RTM_DELLINK netlink message is sent when a network interface is moved
+> from a network namespace. The same doesn't happens in the kernel
+> 2.6.35.13. I'll try to isolate the problem some more.
 
+Well, this regression was introduced by commit a2835763e130c343ac,
+which was merged into v2.6.34. Reverting parts of this commit makes
+the problem go away but breaks the support of "specifying device flags
+during device creation". I don't know the best way to fix this... any
+ideas?
 
-
+--=20
+Renato Westphal
