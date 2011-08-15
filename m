@@ -1,51 +1,21 @@
-From: "BBC NATIONAL PROMO" <info@bbc.co.uk>
-Subject: Congratulation!!!
-Date: Sun, 14 Aug 2011 19:49:36 -0000 (UTC)
-Message-ID: <3333.82.128.14.36.1313351376.squirrel@mail.fstbm.ac.ma>
-Reply-To: bbconline04@hotmail.com
+From: Song Li <info@mail.com>
+Subject: Re: Thanks
+Date: Mon, 15 Aug 2011 05:13:46 -0700
+Message-ID: <20110814210127.D1E7549EC2E__29611.7851780311$1313356200$gmane$org@mail.najdschools.edu.sa>
+Reply-To: lilsong@w.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <info@mail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [196.200.177.4] ([196.200.177.4]:43417 "EHLO
-	servmail.fstbm.ac.ma" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752062Ab1HNUaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2011 16:30:35 -0400
+Received: from mail.najdschools.edu.sa ([212.119.79.83]:44046 "EHLO
+	mail.najdschools.edu.sa" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753730Ab1HNVJf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2011 17:09:35 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-
-BBC E-MAIL PROMOTION WINNERS NOTICE,
-WINNING NOTIFICATION !!!
-BBC NATIONAL LOTTERY PROMO
-UK HEAD OFFICE.
-SUITES 23-30,LION TOWERS
-CENTRAL LONDON
-ENGLAND
-http://www.bbc.co.uk/lottery/
-
-Your Email Address was selected thereby Winning for you,=A31.000,000 (o=
-ne
-million pounds) in the British Broadcasting corporation (BBC) Online Pr=
-omo
-Held on this month of August 2011, and you are to acknowledge the recei=
-pt of
-this mail with the details below to.
-
-CLAIMS DIRECTOR BBC ONLINE PROMOTION.
-
-1.Full name:
-2.Tel:
-3.Country :
-
-Sincerely,
-Mr. Scott Carson
-
---=20
-This message has been scanned for viruses and
-dangerous content by MailScanner, and is
-believed to be clean.
-
+l am a Staff of Hang Seng Bank HongKong, I do not know if we can work
+together in transferring $19,500,000.USD from my bank to you account.
+Finally if you are interested I shall provide you with more details.
