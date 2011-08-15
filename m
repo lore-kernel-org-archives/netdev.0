@@ -1,109 +1,79 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH v2 9/9] sfc: Support for byte queue limits
-Date: Mon, 15 Aug 2011 19:36:35 +0100
-Message-ID: <1313433395.2731.30.camel@bwh-desktop>
-References: <alpine.DEB.2.00.1108072151500.13386@pokey.mtv.corp.google.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH] bnx2x: suppress repeated error messages about Max
+ BW
+Date: Mon, 15 Aug 2011 21:47:22 +0300
+Message-ID: <1313434042.30399.0.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <20110812143324.5740.45824.stgit@dhcp-29-224.brq.redhat.com>
+ <1313405680.31417.6.camel@lb-tlvb-eilong.il.broadcom.com>
+ <4E490A1E.3060209@redhat.com>
+ <1313411585.31417.35.camel@lb-tlvb-eilong.il.broadcom.com>
+ <4E493798.7010405@redhat.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>
+To: "Michal Schmidt" <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:19497 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751873Ab1HOSgt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 14:36:49 -0400
-In-Reply-To: <alpine.DEB.2.00.1108072151500.13386@pokey.mtv.corp.google.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:2057 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752390Ab1HOSrm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 14:47:42 -0400
+In-Reply-To: <4E493798.7010405@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-08-07 at 21:53 -0700, Tom Herbert wrote:
-> Changes to sfc to use byte queue limits.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  drivers/net/sfc/tx.c |   27 +++++++++++++++++++++------
->  1 files changed, 21 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-> index 84eb99e..9aa4339 100644
-> --- a/drivers/net/sfc/tx.c
-> +++ b/drivers/net/sfc/tx.c
-> @@ -31,7 +31,9 @@
->  #define EFX_TXQ_THRESHOLD(_efx) ((_efx)->txq_entries / 2u)
->  
->  static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
-> -			       struct efx_tx_buffer *buffer)
-> +			       struct efx_tx_buffer *buffer,
-> +			       unsigned int *pkts_compl,
-> +			       unsigned int *bytes_compl)
->  {
->  	if (buffer->unmap_len) {
->  		struct pci_dev *pci_dev = tx_queue->efx->pci_dev;
-> @@ -48,6 +50,8 @@ static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
->  	}
->  
->  	if (buffer->skb) {
-> +		(*pkts_compl)++;
-> +		(*bytes_compl) += buffer->skb->len;
+On Mon, 2011-08-15 at 08:13 -0700, Michal Schmidt wrote:
+> On 08/15/2011 02:33 PM, Eilon Greenstein wrote:
+> > On Mon, 2011-08-15 at 04:59 -0700, Michal Schmidt wrote:
+> >> and bnx2x_init_vn_minmax() calls bnx2x_extract_max_cfg() on the gi=
+ven
+> >> VN, so it seems that the warning can be produced for a non-current=
+ VN.
+> >
+> > You are right, only one function (the PMF) will call this code for =
+all
+> > functions. But I suspect that if you have zero values, you will hav=
+e
+> > them for all VNs - is that the case?
+>=20
+> A tester reported getting only these 4 messages with the patch applie=
+d:
+>=20
+> [bnx2x_extract_max_cfg:1074(eth4)]Illegal configuration detected for =
+Max=20
+> BW on vn 2 - using 100 instead
+> [bnx2x_extract_max_cfg:1074(eth5)]Illegal configuration detected for =
+Max=20
+> BW on vn 2 - using 100 instead
+> [bnx2x_extract_max_cfg:1074(eth6)]Illegal configuration detected for =
+Max=20
+> BW on vn 3 - using 100 instead
+> [bnx2x_extract_max_cfg:1074(eth7)]Illegal configuration detected for =
+Max=20
+> BW on vn 3 - using 100 instead
+>=20
+> This suggests that VNs 0 and 1 had non-zero Max BW configuration.
 
-We avoid using *buffer->skb on the completion path, as it is liklely to
-be cache-cold.  I would prefer to add and subtract fragment lengths
-(buffer->len) instead.  (This will also result in a slightly more
-accurate estimate of the queue length when TSO is used.)
+Michal - this is a great point of data! It helped me finding a bug in
+that code - the code is not suitable for 4 port devices, it always
+assumes 4 VN per PCI function, while in 4 port devices there are only 2
+VN per PCI function. I assume that you are seeing this problem on a
+57800 with 2x10G + 2x1G - and the 1G devices are in single function mod=
+e
+and therefore you are seeing this error message. I will send a patch to
+fix the problem on 4 port devices soon (after testing it for a while) -
+please confirm that you are seeing this issue on 2x10G+2x1G 57800
+device.
 
->  		dev_kfree_skb_any((struct sk_buff *) buffer->skb);
->  		buffer->skb = NULL;
->  		netif_vdbg(tx_queue->efx, tx_done, tx_queue->efx->net_dev,
-> @@ -254,6 +258,8 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
->  	buffer->skb = skb;
->  	buffer->continuation = false;
->  
-> +	netdev_tx_sent_queue(tx_queue->core_txq, 1, skb->len);
-> +
->  	/* Pass off to hardware */
->  	efx_nic_push_buffers(tx_queue);
->  
-> @@ -271,10 +277,11 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
->   unwind:
->  	/* Work backwards until we hit the original insert pointer value */
->  	while (tx_queue->insert_count != tx_queue->write_count) {
-> +		unsigned int pkts_compl = 0, bytes_compl = 0;
->  		--tx_queue->insert_count;
->  		insert_ptr = tx_queue->insert_count & tx_queue->ptr_mask;
->  		buffer = &tx_queue->buffer[insert_ptr];
-> -		efx_dequeue_buffer(tx_queue, buffer);
-> +		efx_dequeue_buffer(tx_queue, buffer, &pkts_compl, &bytes_compl);
->  		buffer->len = 0;
->  	}
->  
-> @@ -297,7 +304,9 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
->   * specified index.
->   */
->  static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
-> -				unsigned int index)
-> +				unsigned int index,
-> +				unsigned int *pkts_compl,
-> +				unsigned int *bytes_compl)
->  {
->  	struct efx_nic *efx = tx_queue->efx;
->  	unsigned int stop_index, read_ptr;
-> @@ -315,7 +324,7 @@ static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
->  			return;
->  		}
->  
-> -		efx_dequeue_buffer(tx_queue, buffer);
-> +		efx_dequeue_buffer(tx_queue, buffer, pkts_compl, bytes_compl);
-[...]
+Now it all makes sense to me - it=E2=80=99s not just misconfigured boar=
+d
+workaround, this is a real issue :)
 
-Since efx_deqeueue_buffers() is the only caller of efx_dequeue_buffer()
-that actually wants to count the completed packets & bytes, the counting
-should be done here.
+Thanks for helping in identifying it!
+Eilon
 
-Ben.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
