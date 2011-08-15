@@ -1,51 +1,47 @@
-From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: Re: [PATCH v12 3/6] flexcan: Fix up fsl-flexcan device tree binding.
-Date: Mon, 15 Aug 2011 10:25:40 -0500
-Message-ID: <20110815152540.GP4926@sgi.com>
-References: <1313138752-24006-1-git-send-email-holt@sgi.com>
-	<1313138752-24006-4-git-send-email-holt@sgi.com>
-	<20110815150357.GM4926@sgi.com>
-	<CACxGe6vafc6mYyKCAO+HqkRPsZ3GmeVJnK+z8=BX_wQQMG4LmQ@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH] net_sched: fix port mirror/redirect stats reporting
+Date: Mon, 15 Aug 2011 11:25:40 -0400
+Message-ID: <1313421940.1798.2.camel@mojatatu>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CACxGe6vafc6mYyKCAO+HqkRPsZ3GmeVJnK+z8=BX_wQQMG4LmQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:41093 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754489Ab1HOPZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 11:25:50 -0400
+Received: by ewy4 with SMTP id 4so1866564ewy.19
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 08:25:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 15, 2011 at 09:13:50AM -0600, Grant Likely wrote:
-> On Mon, Aug 15, 2011 at 9:03 AM, Robin Holt <holt-sJ/iWh9BUns@public.gmane.org> wrote:
-> > Grant,
-> >
-> > Earlier, you had asked for a more specific name for the compatible
-> > property of the Freescale flexcan device. =A0I still have not gotten a
-> > more specific answer. =A0Hopefully Marc can give you more details about
-> > the flexcan implementations.
-> =
+commit 6a51508a01671114c236602d071d4bff53422c60
+Author: Jamal Hadi Salim <jhs@mojatatu.com>
+Date:   Mon Aug 15 11:17:06 2011 -0400
 
-> If there is no ip core version, then just stick with the
-> fsl,<soc>-flexcan name and drop "fsl,flexcan".  Marketing may say
-> flexcan is flexcan, but hardware engineers like to change things.
-> Trying to be too generic in compatible values will just lead to
-> problems in the future.
+    [PATCH] net_sched: fix port mirror/redirect stats reporting
+    
+    When a redirected or mirrored packet is dropped by the target
+    device we need to record statistics.
+    
+    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Thanks,
-Robin
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 961386e..d5ef6ec 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -196,8 +196,7 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
+ 
+ 	skb2->skb_iif = skb->dev->ifindex;
+ 	skb2->dev = dev;
+-	dev_queue_xmit(skb2);
+-	err = 0;
++	err = dev_queue_xmit(skb2);
+ 
+ out:
+ 	if (err) {
+
+
