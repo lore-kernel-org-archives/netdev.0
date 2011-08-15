@@ -1,59 +1,109 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH] net: netdev-features.txt update to Documentation/networking/00-INDEX
-Date: Mon, 15 Aug 2011 14:27:50 -0400
-Message-ID: <4E496526.8090201@google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH v2 9/9] sfc: Support for byte queue limits
+Date: Mon, 15 Aug 2011 19:36:35 +0100
+Message-ID: <1313433395.2731.30.camel@bwh-desktop>
+References: <alpine.DEB.2.00.1108072151500.13386@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mircus@gmail.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:16343 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751302Ab1HOS14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 14:27:56 -0400
-Received: from hpaq14.eem.corp.google.com (hpaq14.eem.corp.google.com [172.25.149.14])
-	by smtp-out.google.com with ESMTP id p7FIRsau025349
-	for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 11:27:54 -0700
-Received: from vxh24 (vxh24.prod.google.com [10.241.34.216])
-	by hpaq14.eem.corp.google.com with ESMTP id p7FIRrZq029288
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 11:27:53 -0700
-Received: by vxh24 with SMTP id 24so4502579vxh.29
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 11:27:52 -0700 (PDT)
+Received: from mail.solarflare.com ([216.237.3.220]:19497 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751873Ab1HOSgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 14:36:49 -0400
+In-Reply-To: <alpine.DEB.2.00.1108072151500.13386@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update netdev-features.txt entry in 00-INDEX to incorporate
-feedback by Micha=C5=82 Miros=C5=82aw. A trivial update to my previous
-patch, but I was too late with preparing a v2. Will try to
-avoid having to send patches to my own patches in the future.=20
+On Sun, 2011-08-07 at 21:53 -0700, Tom Herbert wrote:
+> Changes to sfc to use byte queue limits.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  drivers/net/sfc/tx.c |   27 +++++++++++++++++++++------
+>  1 files changed, 21 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
+> index 84eb99e..9aa4339 100644
+> --- a/drivers/net/sfc/tx.c
+> +++ b/drivers/net/sfc/tx.c
+> @@ -31,7 +31,9 @@
+>  #define EFX_TXQ_THRESHOLD(_efx) ((_efx)->txq_entries / 2u)
+>  
+>  static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
+> -			       struct efx_tx_buffer *buffer)
+> +			       struct efx_tx_buffer *buffer,
+> +			       unsigned int *pkts_compl,
+> +			       unsigned int *bytes_compl)
+>  {
+>  	if (buffer->unmap_len) {
+>  		struct pci_dev *pci_dev = tx_queue->efx->pci_dev;
+> @@ -48,6 +50,8 @@ static void efx_dequeue_buffer(struct efx_tx_queue *tx_queue,
+>  	}
+>  
+>  	if (buffer->skb) {
+> +		(*pkts_compl)++;
+> +		(*bytes_compl) += buffer->skb->len;
 
-  willem
+We avoid using *buffer->skb on the completion path, as it is liklely to
+be cache-cold.  I would prefer to add and subtract fragment lengths
+(buffer->len) instead.  (This will also result in a slightly more
+accurate estimate of the queue length when TSO is used.)
 
-Signed-off-by: Willem de Bruijn <willemb@gmail.com>
+>  		dev_kfree_skb_any((struct sk_buff *) buffer->skb);
+>  		buffer->skb = NULL;
+>  		netif_vdbg(tx_queue->efx, tx_done, tx_queue->efx->net_dev,
+> @@ -254,6 +258,8 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+>  	buffer->skb = skb;
+>  	buffer->continuation = false;
+>  
+> +	netdev_tx_sent_queue(tx_queue->core_txq, 1, skb->len);
+> +
+>  	/* Pass off to hardware */
+>  	efx_nic_push_buffers(tx_queue);
+>  
+> @@ -271,10 +277,11 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+>   unwind:
+>  	/* Work backwards until we hit the original insert pointer value */
+>  	while (tx_queue->insert_count != tx_queue->write_count) {
+> +		unsigned int pkts_compl = 0, bytes_compl = 0;
+>  		--tx_queue->insert_count;
+>  		insert_ptr = tx_queue->insert_count & tx_queue->ptr_mask;
+>  		buffer = &tx_queue->buffer[insert_ptr];
+> -		efx_dequeue_buffer(tx_queue, buffer);
+> +		efx_dequeue_buffer(tx_queue, buffer, &pkts_compl, &bytes_compl);
+>  		buffer->len = 0;
+>  	}
+>  
+> @@ -297,7 +304,9 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+>   * specified index.
+>   */
+>  static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
+> -				unsigned int index)
+> +				unsigned int index,
+> +				unsigned int *pkts_compl,
+> +				unsigned int *bytes_compl)
+>  {
+>  	struct efx_nic *efx = tx_queue->efx;
+>  	unsigned int stop_index, read_ptr;
+> @@ -315,7 +324,7 @@ static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
+>  			return;
+>  		}
+>  
+> -		efx_dequeue_buffer(tx_queue, buffer);
+> +		efx_dequeue_buffer(tx_queue, buffer, pkts_compl, bytes_compl);
+[...]
 
----
- Documentation/networking/00-INDEX |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Since efx_deqeueue_buffers() is the only caller of efx_dequeue_buffer()
+that actually wants to count the completed packets & bytes, the counting
+should be done here.
 
-diff --git a/Documentation/networking/00-INDEX b/Documentation/networki=
-ng/00-INDEX
-index 811252b..bbce121 100644
---- a/Documentation/networking/00-INDEX
-+++ b/Documentation/networking/00-INDEX
-@@ -135,7 +135,7 @@ multiqueue.txt
- netconsole.txt
-        - The network console module netconsole.ko: configuration and n=
-otes.
- netdev-features.txt
--       - Network interface "feature mess and how to get out from it al=
-ive".
-+       - Network interface features API description.
- netdevices.txt
-        - info on network device driver functions exported to the kerne=
-l.
- netif-msg.txt
---=20
-1.7.3.1
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
