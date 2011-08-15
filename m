@@ -1,44 +1,46 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH] bnx2x: suppress repeated error messages about Max BW
-Date: Mon, 15 Aug 2011 17:13:28 +0200
-Message-ID: <4E493798.7010405@redhat.com>
-References: <20110812143324.5740.45824.stgit@dhcp-29-224.brq.redhat.com> <1313405680.31417.6.camel@lb-tlvb-eilong.il.broadcom.com> <4E490A1E.3060209@redhat.com> <1313411585.31417.35.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH v12 3/6] flexcan: Fix up fsl-flexcan device tree binding.
+Date: Mon, 15 Aug 2011 09:13:50 -0600
+Message-ID: <CACxGe6vafc6mYyKCAO+HqkRPsZ3GmeVJnK+z8=BX_wQQMG4LmQ@mail.gmail.com>
+References: <1313138752-24006-1-git-send-email-holt@sgi.com>
+	<1313138752-24006-4-git-send-email-holt@sgi.com>
+	<20110815150357.GM4926@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>
-To: eilong@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5514 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754368Ab1HOPNc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Aug 2011 11:13:32 -0400
-In-Reply-To: <1313411585.31417.35.camel@lb-tlvb-eilong.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110815150357.GM4926-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/15/2011 02:33 PM, Eilon Greenstein wrote:
-> On Mon, 2011-08-15 at 04:59 -0700, Michal Schmidt wrote:
->> and bnx2x_init_vn_minmax() calls bnx2x_extract_max_cfg() on the given
->> VN, so it seems that the warning can be produced for a non-current VN.
+On Mon, Aug 15, 2011 at 9:03 AM, Robin Holt <holt-sJ/iWh9BUns@public.gmane.org> wrote:
+> Grant,
 >
-> You are right, only one function (the PMF) will call this code for all
-> functions. But I suspect that if you have zero values, you will have
-> them for all VNs - is that the case?
+> Earlier, you had asked for a more specific name for the compatible
+> property of the Freescale flexcan device. =A0I still have not gotten a
+> more specific answer. =A0Hopefully Marc can give you more details about
+> the flexcan implementations.
 
-A tester reported getting only these 4 messages with the patch applied:
+If there is no ip core version, then just stick with the
+fsl,<soc>-flexcan name and drop "fsl,flexcan".  Marketing may say
+flexcan is flexcan, but hardware engineers like to change things.
+Trying to be too generic in compatible values will just lead to
+problems in the future.
 
-[bnx2x_extract_max_cfg:1074(eth4)]Illegal configuration detected for Max 
-BW on vn 2 - using 100 instead
-[bnx2x_extract_max_cfg:1074(eth5)]Illegal configuration detected for Max 
-BW on vn 2 - using 100 instead
-[bnx2x_extract_max_cfg:1074(eth6)]Illegal configuration detected for Max 
-BW on vn 3 - using 100 instead
-[bnx2x_extract_max_cfg:1074(eth7)]Illegal configuration detected for Max 
-BW on vn 3 - using 100 instead
-
-This suggests that VNs 0 and 1 had non-zero Max BW configuration.
-
-Michal
+g.
