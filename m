@@ -1,88 +1,85 @@
-From: Renato Westphal <renatowestphal@gmail.com>
-Subject: Re: Move interface across network namespaces
-Date: Mon, 15 Aug 2011 10:10:24 -0300
-Message-ID: <CAChaeg=1WSU0webhYDpQcnq3cJje17FQ5Z8rypD8sdkyzcLT-g@mail.gmail.com>
-References: <CAChaegkomwjL0X7HnfLi1XH26jDKOL6fCgjfms67cjjU4gRXPg@mail.gmail.com>
-	<m1r54s8lq4.fsf@fess.ebiederm.org>
-	<CAChaegm2d3LywMAcq66PgPZwF5Fu=_zuqcTh8VdCG6zvhyPJXQ@mail.gmail.com>
+From: Jamie Iles <jamie@jamieiles.com>
+Subject: Re: [RFC PATCH v2] net: dm9000: add support for device tree probing
+Date: Mon, 15 Aug 2011 15:21:16 +0100
+Message-ID: <20110815142116.GG2636@pulham.picochip.com>
+References: <1313343252-19634-1-git-send-email-daniel.morsing@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kaber@trash.net,
-	David Lamparter <equinox@diac24.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	Ben Dooks <ben-linux@fluff.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Daniel Morsing <daniel.morsing@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:40096 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752333Ab1HONKZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 09:10:25 -0400
-Received: by vws1 with SMTP id 1so3864515vws.19
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 06:10:24 -0700 (PDT)
-In-Reply-To: <CAChaegm2d3LywMAcq66PgPZwF5Fu=_zuqcTh8VdCG6zvhyPJXQ@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33673 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753020Ab1HOOVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 10:21:20 -0400
+Received: by wyg24 with SMTP id 24so3517992wyg.19
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 07:21:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1313343252-19634-1-git-send-email-daniel.morsing@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/8/11 Renato Westphal <renatowestphal@gmail.com>:
-> 2011/8/11 Eric W. Biederman <ebiederm@xmission.com>:
->> Renato Westphal <renatowestphal@gmail.com> writes:
->>
->>> Hello,
->>>
->>> I have two questions regarding the process of moving a network
->>> interface across different network namespaces:
->>>
->>> * When I move an interface, all the virtual interfaces attached to =
-it
->>> are deleted. Is there any reason for such odd behavior? I would lik=
-e
->>> to move some network interfaces and keep the attached vlans untouch=
-ed.
->>
->> The defined semantics are that a network device is unregistered from
->> the networking stack in one network namespace and then registered
->> with the networking stack in another. =A0It is an unfortunate fact
->> that when vlan devices see their underlying device being unregistere=
-d
->> they decide to delete themselves.
->>
->> A different vlan implementation might be able to have different
->> properties but I can't think of any obvious solution other than
->> don't do move the device that you have your vlans on top of.
->>
->
-> Thanks for the info, I can handle with that by modifying my quagga-vr=
-f patches.
+Hi Daniel,
 
-I forgot to mention that I'm using kernel v2.6.35 (with a lot of
-backports). For future reference, the commit 3b27e105550f7c4a ("netns:
-keep vlan slaves on master netns move", merged into v2.6.37-rc1) fixes
-this problem.
+On Sun, Aug 14, 2011 at 07:34:12PM +0200, Daniel Morsing wrote:
+> This patch adds support for probing the dm9000 driver through device
+> trees.
+> 
+> The patch works by supplying its own platform_data struct when probed
+> via device tree. This allows us to rely on the existing options parsing
+> in the driver and avoid ifdeffery in the probe function.
+> 
+> Signed-off-by: Daniel Morsing <daniel.morsing@gmail.com>
+> ---
+> Currently there are no users of this functionality, but once support for
+> DT on OMAP3 matures, I plan to migrate the devkit8000 board to DT.
+> 
+>  Changes since v1:
+> 	- Changed the binding with input from Grant Likely.
+> 	- Make explicit what the bindings do instead of refering
+> 	  to linux specific flags.
+> 	- Length check the mac address read so we don't copy random data.
+> 	- simplify parsing of the device tree.
+> 	- Add relevant driver maintainers to CC (sorry about that)
+> 
+>  Documentation/devicetree/bindings/net/dm9000.txt |   42 +++++++++++
+>  drivers/net/dm9000.c                             |   83 +++++++++++++++++++++-
+>  2 files changed, 122 insertions(+), 3 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/dm9000.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/dm9000.txt b/Documentation/devicetree/bindings/net/dm9000.txt
+> new file mode 100644
+> index 0000000..cbbdb3d
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/dm9000.txt
+> @@ -0,0 +1,42 @@
+> +Davicom DM9000 ethernet controller
+> +
+> +Required properties:
+> +
+> + - compatible : Should be "davicom,dm9000"
+> +
+> + - interrupts : Interrupt controller specific encoding, which specifies 1
+> +   or 2 interrupts. The first interrupt is for rx/tx and is required by the
+> +   driver to function. The second interrupt is for wake on lan support
+> +   and is optional.
+> +
+> + - reg : 2 Physical address specifiers, where the first specifies the address
+> +   register of device, and the second specifies the data register of the device
+> +
+> +Optional properties:
+> +
+> + - local-mac-address : Binary data specifying a mac address override
+> +
+> + - reg-io-width : one cell specifying the width of IO operations in bits.
+> +   valid values are 8, 16, and 32. If this property is not specified, or has
+> +   an invalid value, the driver will default to 32 bits.
 
->>> * The target network namespace sends a RTM_NEWLINK netlink message
->>> when an interface is moved to it. In the other hand, the source
->>> network namespace doesn't sends a RTM_DELLINK message when an
->>> interface is moved from it. This is very annoying because user spac=
-e
->>> applications (such as zebra) can't detect some interface moving
->>> operations and then get into an inconsistent state. Anyone knows if
->>> there's a workaround for this?
->>
->> Not getting RTM_DELLINK is a bug. =A0The device registration and
->> unregistration code has changed since dev_change_net_namespace was
->> written and apparently one of the changes failed to update
->> dev_change_net_namespace.
->>
->
-> Good, that makes a lot more sense. In the kernel 2.6.32.43 the
-> RTM_DELLINK netlink message is sent when a network interface is moved
-> from a network namespace. The same doesn't happens in the kernel
-> 2.6.35.13. I'll try to isolate the problem some more.
+Minor nit, but rightly or wrongly, the of-serial binding that uses 
+reg-io-width specifies this in bytes and it would be nice to be 
+consistent here.
 
-Well, this regression was introduced by commit a2835763e130c343ac,
-which was merged into v2.6.34. Reverting parts of this commit makes
-the problem go away but breaks the support of "specifying device flags
-during device creation". I don't know the best way to fix this... any
-ideas?
-
---=20
-Renato Westphal
+Jamie
