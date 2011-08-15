@@ -1,73 +1,59 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
- groups
-Date: Mon, 15 Aug 2011 11:25:01 -0700
-Message-ID: <20110815112501.3a3c01ad@nehalam.ftrdhcpuser.net>
-References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
-	<CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
-	<20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
-	<20110712113643.GC616804@jupiter.n2.diac24.net>
-	<CAEJpZP1Da=G3--jThbaj5H4+H+836quXXEfGXtBwdPewr-Pjrg@mail.gmail.com>
-	<20110715160357.GC1407585@jupiter.n2.diac24.net>
-	<20110715163345.GD1407585@jupiter.n2.diac24.net>
-	<20110727111714.GA2027462@jupiter.n2.diac24.net>
-	<20110728084106.22166324@nehalam.ftrdhcpuser.net>
-	<CAEJpZP3PHC32i8m74-ML6DDGii8ojJ6v12CqQ+v2MKEMSDU=7A@mail.gmail.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH] net: netdev-features.txt update to Documentation/networking/00-INDEX
+Date: Mon, 15 Aug 2011 14:27:50 -0400
+Message-ID: <4E496526.8090201@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
-	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	davem@davemloft.net
-To: Nick Carter <ncarter100@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mircus@gmail.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58678 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751302Ab1HOS0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 14:26:14 -0400
-In-Reply-To: <CAEJpZP3PHC32i8m74-ML6DDGii8ojJ6v12CqQ+v2MKEMSDU=7A@mail.gmail.com>
+Received: from smtp-out.google.com ([74.125.121.67]:16343 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302Ab1HOS14 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 14:27:56 -0400
+Received: from hpaq14.eem.corp.google.com (hpaq14.eem.corp.google.com [172.25.149.14])
+	by smtp-out.google.com with ESMTP id p7FIRsau025349
+	for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 11:27:54 -0700
+Received: from vxh24 (vxh24.prod.google.com [10.241.34.216])
+	by hpaq14.eem.corp.google.com with ESMTP id p7FIRrZq029288
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 11:27:53 -0700
+Received: by vxh24 with SMTP id 24so4502579vxh.29
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 11:27:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 15 Aug 2011 17:27:12 +0100
-Nick Carter <ncarter100@gmail.com> wrote:
+Update netdev-features.txt entry in 00-INDEX to incorporate
+feedback by Micha=C5=82 Miros=C5=82aw. A trivial update to my previous
+patch, but I was too late with preparing a v2. Will try to
+avoid having to send patches to my own patches in the future.=20
 
-> On 28 July 2011 16:41, Stephen Hemminger
-> <shemminger@linux-foundation.org> wrote:
-> > On Wed, 27 Jul 2011 13:17:15 +0200
-> > David Lamparter <equinox@diac24.net> wrote:
-> >
-> >> On Fri, Jul 15, 2011 at 06:33:45PM +0200, David Lamparter wrote:
-> >> > On Fri, Jul 15, 2011 at 06:03:57PM +0200, David Lamparter wrote:
-> >> > > On Fri, Jul 15, 2011 at 04:44:50PM +0100, Nick Carter wrote:
-> >> > > > On 12 July 2011 12:36, David Lamparter <equinox@diac24.net> wrote:
-> >> > > > > On Mon, Jul 11, 2011 at 08:27:55AM -0700, Stephen Hemminger wrote:
-> >> > > > >> I am still undecided on this. Understand the need, but don't like idea
-> >> > > > >> of bridge behaving in non-conforming manner. Will see if IEEE 802 committee
-> >> > > > >> has any input.
-> >> > > > >
-> >> > > > > The patch doesn't make the bridge behave nonconformant. The default mask
-> >> > > > > is 0, which just keeps the old behaviour.
-> >> >
-> >> > P.S.: I'd like to once more stress this. In my opinion the patch should
-> >> > be merged because it provides desireable functionality at a small cost
-> >> > (one test, one knob) and __does not change any default behaviour__.
-> >>
-> >> Stephen, anything new on this?
-> >
-> > No.
-> > Don't like adding yet another hack user visible API which will have
-> > to be maintained for too long. But on the other hand I don't have
-> > a better solution at my finger tips. If better idea doesn't come
-> > along, then we can go with yours.
-> >
-> I have not noticed any other proposals and this thread has been open
-> for quite a while.  Have we waited long enough ? If so can this patch
-> be taken ?
-> 
+  willem
 
-I am testing an alternative. The problem with your proposal is that
-it relies on the multicast address. It turns out there are people using
-other addresses for the STP group address, so using that as a identifier
-is incorrect.
+Signed-off-by: Willem de Bruijn <willemb@gmail.com>
+
+---
+ Documentation/networking/00-INDEX |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/Documentation/networking/00-INDEX b/Documentation/networki=
+ng/00-INDEX
+index 811252b..bbce121 100644
+--- a/Documentation/networking/00-INDEX
++++ b/Documentation/networking/00-INDEX
+@@ -135,7 +135,7 @@ multiqueue.txt
+ netconsole.txt
+        - The network console module netconsole.ko: configuration and n=
+otes.
+ netdev-features.txt
+-       - Network interface "feature mess and how to get out from it al=
+ive".
++       - Network interface features API description.
+ netdevices.txt
+        - info on network device driver functions exported to the kerne=
+l.
+ netif-msg.txt
+--=20
+1.7.3.1
 
