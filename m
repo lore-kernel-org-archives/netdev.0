@@ -1,61 +1,125 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree (net tree
- related)
-Date: Mon, 15 Aug 2011 15:20:48 +1000
-Message-ID: <20110815152048.3b8f8484faf1891ef2fce266@canb.auug.org.au>
+From: "Jun.Kondo" <jun.kondo@ctc-g.co.jp>
+Subject: [PATCH] net: configurable sysctl parameter "net.core.tcp_lowat" for
+ sk_stream_min_wspace()
+Date: Mon, 15 Aug 2011 14:38:11 +0900
+Message-ID: <4E48B0C3.2010203@ctc-g.co.jp>
+Reply-To: jun.kondo@ctc-g.co.jp
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__15_Aug_2011_15_20_48_+1000_sj.gc6QjjrsJyLO7"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: "omega-g1@ctc-g.co.jp" <omega-g1@ctc-g.co.jp>, notsuki@redhat.com,
+	"Kozaki, Motokazu" <motokazu.kozaki@hp.com>,
+	Hajime Taira <htaira@redhat.com>, netdev@vger.kernel.org,
+	TomohikoTAKAHASHI <tomohiko.takahashi@ctc-g.co.jp>,
+	Kotaro Sakai <kotaro.sakai@ctc-g.co.jp>,
+	ken sugawara <ken.sugawara@ctc-g.co.jp>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__15_Aug_2011_15_20_48_+1000_sj.gc6QjjrsJyLO7
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+CTC had the following demand;
 
-Hi Dave,
+1. to ensure high throughput from the beginning of
+tcp connection at normal times by acquiring large
+default transmission buffer value
 
-After merging the final tree, today's linux-next build (powerpc
-allyesconfig) failed like this:
+2. to limit the block time of the write in order to
+prevent the timeout of upper layer applications
+even when the connection has low throughput, such
+as low rate streaming
 
-make[5]: *** No rule to make target `drivers/net/ethernet/toshiba/ethernet/=
-sun/sungem_phy.o', needed by `drivers/net/ethernet/toshiba/built-in.o'.
-In file included from drivers/net/ethernet/toshiba/spider_net_ethtool.c:28:=
-0:
-drivers/net/ethernet/toshiba/spider_net.h:30:39: fatal error: ./ethernet/su=
-n/sungem_phy.h: No such file or directory
-In file included from drivers/net/ethernet/toshiba/spider_net.c:54:0:
-drivers/net/ethernet/toshiba/spider_net.h:30:39: fatal error: ./ethernet/su=
-n/sungem_phy.h: No such file or directory
 
-Caused by commit 8df158ac36fa ("toshiba: Move the Toshiba drivers") or
-the surrounding commits.
+The root of the issue;
 
-I have just left this failure for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+2 can not be achieved with the configuration that
+satisfies 1.
 
---Signature=_Mon__15_Aug_2011_15_20_48_+1000_sj.gc6QjjrsJyLO7
-Content-Type: application/pgp-signature
+The current behavior is as follows;
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Write is blocked when tcp transmission buffer (wmem)
+becomes full.
+In order to write again after that, one third of the
+transmission buffer (sk_wmem_queued/2) must be freed.
 
-iQEcBAEBAgAGBQJOSKywAAoJEDMEi1NhKgbs9oAIAJMNG3nRuYhoE8dw1BxFhW2S
-rkbXMrScxhCURomXgX+Gx/hKwhtiEGFfFaHh1lD5PSe95CBH5WUDHRojvJITk/ns
-g4xQk00LKZvwKihgGPKOpnvG1wIDcKVC0Gu3XdHVxf3eAR4chbPLSh7pjn13xys9
-c1sjd5d2mywPol8s/0eCrBo9U6iUfAX0293KKlZDaOGdygF+DriC5VpZQChmNrQz
-RC9orrMEb5dZ8dxMwJdSl+dznIwF1igyN5jHqJPQqZL5AdupJxif50jcF/j8eVIb
-ljZpCqScvSgE9LphES2RnXFbIPe0tLDWZQPS93t9TRiG14m2RfIIgxoJT5KEWiA=
-=8biw
------END PGP SIGNATURE-----
+When the throughput is low, timeout occurs by the time
+when the free buffer space is created, which affects
+streaming service.
 
---Signature=_Mon__15_Aug_2011_15_20_48_+1000_sj.gc6QjjrsJyLO7--
+
+The effect of the patch;
+
+By putting xxx into the variable yyy, the portion of
+the transmission buffer becomes zzz, thus timeout will
+not occur in the low throughput network environment.
+
+xxx → integer(e.g. 4)
+yyy → "sysctl_tcp_lowat"
+zzz → "sk_wmem_queued >> 4"
+
+Also, we think one third of the transmission buffer
+(sk_wmem_queued/2) is too deterministic, and it should
+be configurable.
+
+--------------------------------------------------
+--- linux-mainline/include/net/sock.h.orig	2011-07-27 14:26:43.000000000 +0900
++++ linux-mainline/include/net/sock.h	2011-08-15 11:40:20.000000000 +0900
+@@ -604,9 +604,11 @@ static inline int sk_acceptq_is_full(str
+ /*
+  * Compute minimal free write space needed to queue new packets.
+  */
++extern __u32 sysctl_tcp_lowat;
++
+ static inline int sk_stream_min_wspace(struct sock *sk)
+ {
+-	return sk->sk_wmem_queued >> 1;
++	return sk->sk_wmem_queued >> sysctl_tcp_lowat;
+ }
+ 
+ static inline int sk_stream_wspace(struct sock *sk)
+--- linux-mainline/net/core/sock.c.orig	2011-07-24 05:04:06.000000000 +0900
++++ linux-mainline/net/core/sock.c	2011-08-15 11:34:27.000000000 +0900
+@@ -217,6 +217,9 @@ __u32 sysctl_rmem_max __read_mostly = SK
+ __u32 sysctl_wmem_default __read_mostly = SK_WMEM_MAX;
+ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
+ 
++__u32 sysctl_tcp_lowat = 1;
++EXPORT_SYMBOL(sysctl_tcp_lowat);
++
+ /* Maximal space eaten by iovec or ancillary data plus some space */
+ int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
+ EXPORT_SYMBOL(sysctl_optmem_max);
+@@ -1330,6 +1333,8 @@ void __init sk_init(void)
+ 		sysctl_wmem_max = 131071;
+ 		sysctl_rmem_max = 131071;
+ 	}
++
++	sysctl_tcp_lowat = 1;
+ }
+ 
+ /*
+--- linux-mainline/net/core/sysctl_net_core.c.orig	2011-05-29 06:01:16.000000000 +0900
++++ linux-mainline/net/core/sysctl_net_core.c	2011-08-15 11:05:38.000000000 +0900
+@@ -168,6 +168,13 @@ static struct ctl_table net_core_table[]
+ 		.proc_handler	= rps_sock_flow_sysctl
+ 	},
+ #endif
++	{
++		.procname	= "tcp_lowat",
++		.data		= &sysctl_tcp_lowat,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
+ #endif /* CONFIG_NET */
+ 	{
+ 		.procname	= "netdev_budget",
+
+--------------------------------------------------
+
+------------------------------------------
+Jun.Kondo
+ITOCHU TECHNO-SOLUTIONS Corporation(CTC)
+tel:+81-3-6238-6607
+fax:+81-3-5226-2369
+------------------------------------------
