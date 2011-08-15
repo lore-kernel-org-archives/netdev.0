@@ -1,40 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: igb transmit queue timed out, rcu_sched_state detected stall
-Date: Mon, 15 Aug 2011 19:07:34 +0100
-Message-ID: <1313431654.2731.20.camel@bwh-desktop>
-References: <CALJvf+qLZyXpxfDR-3aJVn2Qf558SKPc85NpQOosafqxCUC46w@mail.gmail.com>
-	 <CALJvf+qGt=GkD2oV8GEz7DWLzpCZGaAE5Gpse8HvPjgpT2Wmxw@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
+ groups
+Date: Mon, 15 Aug 2011 11:25:01 -0700
+Message-ID: <20110815112501.3a3c01ad@nehalam.ftrdhcpuser.net>
+References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
+	<CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
+	<20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
+	<20110712113643.GC616804@jupiter.n2.diac24.net>
+	<CAEJpZP1Da=G3--jThbaj5H4+H+836quXXEfGXtBwdPewr-Pjrg@mail.gmail.com>
+	<20110715160357.GC1407585@jupiter.n2.diac24.net>
+	<20110715163345.GD1407585@jupiter.n2.diac24.net>
+	<20110727111714.GA2027462@jupiter.n2.diac24.net>
+	<20110728084106.22166324@nehalam.ftrdhcpuser.net>
+	<CAEJpZP3PHC32i8m74-ML6DDGii8ojJ6v12CqQ+v2MKEMSDU=7A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Peter Neal <doabackflip@gmail.com>
+Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
+	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	davem@davemloft.net
+To: Nick Carter <ncarter100@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:17134 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751934Ab1HOSHj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 14:07:39 -0400
-In-Reply-To: <CALJvf+qGt=GkD2oV8GEz7DWLzpCZGaAE5Gpse8HvPjgpT2Wmxw@mail.gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58678 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751302Ab1HOS0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 14:26:14 -0400
+In-Reply-To: <CAEJpZP3PHC32i8m74-ML6DDGii8ojJ6v12CqQ+v2MKEMSDU=7A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-08-15 at 15:33 +0100, Peter Neal wrote:
-> I have updated the BIOS, iproute2, e1000e and igb drivers, but am
-> still seeing issues, any thoughts?
-[...]
+On Mon, 15 Aug 2011 17:27:12 +0100
+Nick Carter <ncarter100@gmail.com> wrote:
 
-This issue doesn't seem network-related.  However it might be related to
-this regression that I saw discussed just a few minutes ago:
+> On 28 July 2011 16:41, Stephen Hemminger
+> <shemminger@linux-foundation.org> wrote:
+> > On Wed, 27 Jul 2011 13:17:15 +0200
+> > David Lamparter <equinox@diac24.net> wrote:
+> >
+> >> On Fri, Jul 15, 2011 at 06:33:45PM +0200, David Lamparter wrote:
+> >> > On Fri, Jul 15, 2011 at 06:03:57PM +0200, David Lamparter wrote:
+> >> > > On Fri, Jul 15, 2011 at 04:44:50PM +0100, Nick Carter wrote:
+> >> > > > On 12 July 2011 12:36, David Lamparter <equinox@diac24.net> wrote:
+> >> > > > > On Mon, Jul 11, 2011 at 08:27:55AM -0700, Stephen Hemminger wrote:
+> >> > > > >> I am still undecided on this. Understand the need, but don't like idea
+> >> > > > >> of bridge behaving in non-conforming manner. Will see if IEEE 802 committee
+> >> > > > >> has any input.
+> >> > > > >
+> >> > > > > The patch doesn't make the bridge behave nonconformant. The default mask
+> >> > > > > is 0, which just keeps the old behaviour.
+> >> >
+> >> > P.S.: I'd like to once more stress this. In my opinion the patch should
+> >> > be merged because it provides desireable functionality at a small cost
+> >> > (one test, one knob) and __does not change any default behaviour__.
+> >>
+> >> Stephen, anything new on this?
+> >
+> > No.
+> > Don't like adding yet another hack user visible API which will have
+> > to be maintained for too long. But on the other hand I don't have
+> > a better solution at my finger tips. If better idea doesn't come
+> > along, then we can go with yours.
+> >
+> I have not noticed any other proposals and this thread has been open
+> for quite a while.  Have we waited long enough ? If so can this patch
+> be taken ?
+> 
 
-Bug-Entry     : http://bugzilla.kernel.org/show_bug.cgi?id=40092
-Subject       : RCU stall in linux-3.0.0
-Submitter     : Philip Armstrong <phil@kantaka.co.uk>
-Date          : 2011-07-25 21:44 (21 days old)
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I am testing an alternative. The problem with your proposal is that
+it relies on the multicast address. It turns out there are people using
+other addresses for the STP group address, so using that as a identifier
+is incorrect.
 
