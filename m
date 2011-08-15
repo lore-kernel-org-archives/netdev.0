@@ -1,46 +1,89 @@
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: [PATCH v12 3/6] flexcan: Fix up fsl-flexcan device tree binding.
-Date: Mon, 15 Aug 2011 09:13:50 -0600
-Message-ID: <CACxGe6vafc6mYyKCAO+HqkRPsZ3GmeVJnK+z8=BX_wQQMG4LmQ@mail.gmail.com>
-References: <1313138752-24006-1-git-send-email-holt@sgi.com>
-	<1313138752-24006-4-git-send-email-holt@sgi.com>
-	<20110815150357.GM4926@sgi.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Fw: [Bug 39132] Starting with 3.0.0-rc6, masquerading seems to
+ be broken.
+Date: Mon, 15 Aug 2011 18:27:13 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108151804580.1481@ja.ssi.bg>
+References: <20110804193107.68d93727@schatten.dmk.lab> <alpine.LFD.2.00.1108042131040.1495@ja.ssi.bg> <8A188C9C23A54337A5A276BAE29DC6E0@delorimier>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110815150357.GM4926-sJ/iWh9BUns@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Florian Mickler <florian@mickler.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	bugzilla-daemon@bugzilla.kernel.org
+To: David Hill <hilld@binarystorm.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:51824 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753020Ab1HOPWC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Aug 2011 11:22:02 -0400
+In-Reply-To: <8A188C9C23A54337A5A276BAE29DC6E0@delorimier>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 15, 2011 at 9:03 AM, Robin Holt <holt-sJ/iWh9BUns@public.gmane.org> wrote:
-> Grant,
->
-> Earlier, you had asked for a more specific name for the compatible
-> property of the Freescale flexcan device. =A0I still have not gotten a
-> more specific answer. =A0Hopefully Marc can give you more details about
-> the flexcan implementations.
 
-If there is no ip core version, then just stick with the
-fsl,<soc>-flexcan name and drop "fsl,flexcan".  Marketing may say
-flexcan is flexcan, but hardware engineers like to change things.
-Trying to be too generic in compatible values will just lead to
-problems in the future.
+	Hello,
 
-g.
+On Fri, 5 Aug 2011, David Hill wrote:
+
+> Hello Julian,
+> 
+>    I'm not using TPROXY and I've used a blank firewall with only masquerading
+> and reproduced the issue.
+> Nothing is in NAT/mangle nor OUTPUT  but the rules mentionned in the attached
+> files to this bug.
+> 
+> Francis Whittle  (Comment #18) has the same issue.
+> 
+> > Hello,
+> > 
+> > On Thu, 4 Aug 2011, Florian Mickler wrote:
+> > 
+> > > Can someone take a look at this regression?
+> > > 
+> > > Begin forwarded message:
+> > > 
+> > > Date: Thu, 28 Jul 2011 04:51:12 GMT
+> > > From: bugzilla-daemon@bugzilla.kernel.org
+> > > To: florian@mickler.org
+> > > Subject: [Bug 39132] Starting with 3.0.0-rc6, masquerading seems to be
+> > > broken.
+> > > 
+> > > 
+> > > https://bugzilla.kernel.org/show_bug.cgi?id=39132
+> > 
+> > So, problem points again to
+> > "Fix ip_route_me_harder triggering ip_rt_bug" ? May be
+> > David C. Hill or Florian can provide some information, eg. is
+> > tproxy used, what NAT rules are used, any rules in OUTPUT
+> > hooks (NAT/mangle) and which packets are dropped.
+
+	May be it is a sequence of two problems. I now
+checked the tcpdump log from Francis Whittle. The
+"seq 352:1792" packet at 18:44:29.235154 that is not
+SNAT-ed is long, can it be some PMTU event that triggers
+ICMP response to the internal host? Because I see changes
+in MSS. May be rc5 triggers ICMP FRAG NEEDED while rc6
+does not. It can happen because:
+
+1. ICMP uses non-local iph->saddr when XFRM is compiled,
+reverse lookup fails with ENOENT but fl4->saddr is
+already damaged with the original daddr (non-local).
+
+	Fix is here: http://marc.info/?t=131118984300003&r=1&w=2
+
+2. The patched ip_route_me_harder between 3.0-rc5 and
+3.0-rc6 expects that sockets always provide local address.
+This is wrong for some cases such as TCP (uses different
+SOCK_RAW socket for some packets and can cause problem
+for tproxy), RAW (can use spoofed sources) and now the
+ICMP code that incorrectly provides non-local address.
+
+	Fix is here: http://marc.info/?t=131274411600001&r=1&w=2
+
+	I hope (any of) these two fixes should solve the
+masquerading problems. If that is not true, tcpdump from rc5
+would be helpful for comparison.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
