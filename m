@@ -1,71 +1,56 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH 1/3] drivers/staging/rtl8187se: Don't pass huge struct
- by value
-Date: Mon, 15 Aug 2011 09:58:22 +1000
-Message-ID: <20110815095822.7f7e32c5c8ba237b40cca863@canb.auug.org.au>
-References: <alpine.LNX.2.00.1108130054220.7387@swampdragon.chaosbits.net>
-	<20110813180531.34a47d9bf4851f8c1e9a227c@canb.auug.org.au>
-	<alpine.LNX.2.00.1108142031330.14271@swampdragon.chaosbits.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
+Date: Mon, 15 Aug 2011 09:55:26 +0930
+Message-ID: <87vctz7c7d.fsf@rustcorp.com.au>
+References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com> <878vqw9007.fsf@rustcorp.com.au> <1313330252.2422.12.camel@sasha>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__15_Aug_2011_09_58_22_+1000_IIj2HV4fgswkLVGa"
-Cc: Greg Kroah-Hartman <gregkh@suse.de>, devel@driverdev.osuosl.org,
-	linux-kernel@vger.kernel.org,
-	Andrea Merello <andreamrl@tiscali.it>,
-	Andre Nogueira <andre.neo.net@gmail.com>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	"David S. Miller" <davem@davemloft.net>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Stefan Weil <weil@mail.berlios.de>,
-	Ilia Mirkin <imirkin@alum.mit.edu>, netdev@vger.kernel.org
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:55832 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751272Ab1HNX6h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Aug 2011 19:58:37 -0400
-In-Reply-To: <alpine.LNX.2.00.1108142031330.14271@swampdragon.chaosbits.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1313330252.2422.12.camel@sasha>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__15_Aug_2011_09_58_22_+1000_IIj2HV4fgswkLVGa
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Sun, 14 Aug 2011 16:57:32 +0300, Sasha Levin <levinsasha928@gmail.com> wrote:
+> On Sun, 2011-08-14 at 12:23 +0930, Rusty Russell wrote:
+> > On Sat, 13 Aug 2011 11:51:01 +0300, Sasha Levin <levinsasha928@gmail.com> wrote:
+> > > The MAC of a virtio-net device is located at the first field of the device
+> > > specific header. This header is located at offset 20 if the device doesn't
+> > > support MSI-X or offset 24 if it does.
+> > 
+> > Erk.  This means, in general, we have to do virtio_find_single_vq or
+> > config->find_vqs before we examine any config options.
+> > 
+> > Look at virtio_blk, which has the same error.
+> > 
+> > Solutions in order of best to worst:
+> > (1) Enable MSI-X before calling device probe.  This means reserving two
+> >     vectors in virtio_pci_probe to ensure we *can* do this, I think.  Michael?
+> 
+> Do you mean reserving the vectors even before we probed the device for
+> MSI-X support? Wouldn't we need 3 vectors then? (config, input, output).
 
-Hi Jesper,
+We want three, but *need* two: see vp_find_vqs().  Also, the generic
+code doesn't know how many virtqueues we have on the device.
 
-On Sun, 14 Aug 2011 20:32:49 +0200 (CEST) Jesper Juhl <jj@chaosbits.net> wr=
-ote:
->
-> the "static inline" and defined in the header bits I didn't do because I=
-=20
-> was afraid that that was not valid in combination with EXPORT_SYMBOL().
+> > (2) Ensure ordering of "find_vqs then access config space" statically.  This
+> >     probably means handing the vqs array to virtio_config_val, so noone
+> >     can call it before they have their virtqueues.
+> 
+> Just noticed that only virtio-blk uses virtio_config_val(), while the
+> others are still doing 'if(virtio_has_feature()) vdev->config->get()',
+> I'll send patches to fix that regardless of what we end up doing here.
 
-You don't need to/cannot EXPORT_SYMBOL() static inlines in header files.
-Any use in modules will pick up the static inline definition from the
-header file when they are built.  Unless, of course, someone takes the
-addresses of these functions, then you should not inline them.
+Thanks.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+> Did you want to pass the vq array to virtio_config_val() just to check
+> that they were already found? 
 
---Signature=_Mon__15_Aug_2011_09_58_22_+1000_IIj2HV4fgswkLVGa
-Content-Type: application/pgp-signature
+Not if we fix is using method #1...
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJOSGEeAAoJEDMEi1NhKgbsklEH/1D32CK1/+NkLmqjBsMhqPF7
-ieGmEnPRlVZs3K21bF/E2iU922J2ZKg/vMMMx/KnzqPy44UV4KfybUvCYaa/s75U
-7Kk9UKtG9/vgY7mzW+se2BdNSQCnTCQSFxDv3CAWwPssaUstinS9+f24CVXfnqyV
-1oNb5lY2ZbIeTIOeTUO2m631IQZpdqWc6d1r4n+RSUHSkEOuZ+TbF5ke4B0EtoF3
-cD1X3Q3hIXET7EQFlbih25UlXbgi8d767+ux2x2nHNMq9Qtwhr3/570n2/VvAZVF
-CmlgrFg8HJNrEe2zHXHSP9X5Yxrp7lZkPGCxrmWDB0rWP3xaJztl72F1+9PJsrs=
-=IvWb
------END PGP SIGNATURE-----
-
---Signature=_Mon__15_Aug_2011_09_58_22_+1000_IIj2HV4fgswkLVGa--
+Thanks,
+Rusty.
