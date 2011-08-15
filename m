@@ -1,125 +1,36 @@
-From: "Jun.Kondo" <jun.kondo@ctc-g.co.jp>
-Subject: [PATCH] net: configurable sysctl parameter "net.core.tcp_lowat" for
- sk_stream_min_wspace()
-Date: Mon, 15 Aug 2011 14:38:11 +0900
-Message-ID: <4E48B0C3.2010203@ctc-g.co.jp>
-Reply-To: jun.kondo@ctc-g.co.jp
+From: Alex Dubov <oakad@yahoo.com>
+Subject: Re: iproute2: make arpd daemon write pid file on fork
+Date: Sun, 14 Aug 2011 22:42:08 -0700 (PDT)
+Message-ID: <1313386928.11965.YahooMailNeo@web121001.mail.ne1.yahoo.com>
+References: <1313080925.3635.YahooMailNeo@web121018.mail.ne1.yahoo.com> <20110811110029.023a5955@nehalam.ftrdhcpuser.net> <201108121623.24984.oakad@yahoo.com> <20110812091547.17c40798@nehalam.ftrdhcpuser.net>
+Reply-To: Alex Dubov <oakad@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: "omega-g1@ctc-g.co.jp" <omega-g1@ctc-g.co.jp>, notsuki@redhat.com,
-	"Kozaki, Motokazu" <motokazu.kozaki@hp.com>,
-	Hajime Taira <htaira@redhat.com>, netdev@vger.kernel.org,
-	TomohikoTAKAHASHI <tomohiko.takahashi@ctc-g.co.jp>,
-	Kotaro Sakai <kotaro.sakai@ctc-g.co.jp>,
-	ken sugawara <ken.sugawara@ctc-g.co.jp>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm28-vm1.bullet.mail.ne1.yahoo.com ([98.138.91.35]:35755 "HELO
+	nm28-vm1.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751694Ab1HOFmK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Aug 2011 01:42:10 -0400
+In-Reply-To: <20110812091547.17c40798@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CTC had the following demand;
+----- Original Message -----
 
-1. to ensure high throughput from the beginning of
-tcp connection at normal times by acquiring large
-default transmission buffer value
+> 
+>>  The included patch makes arpd write it's own pid file after fork, in a 
+> common 
+>>  LSB fashion, so as to better inter-operate with start up scripts. Removal 
+> of 
+>>  stale pid files is handled elsewhere.
+> 
+> I already checked in a version which has the -p pidfile option.
+>
 
-2. to limit the block time of the write in order to
-prevent the timeout of upper layer applications
-even when the connection has low throughput, such
-as low rate streaming
+Thanks for that.
+It will be enough for arpd to fit with the rest of init scripts.
 
-
-The root of the issue;
-
-2 can not be achieved with the configuration that
-satisfies 1.
-
-The current behavior is as follows;
-
-Write is blocked when tcp transmission buffer (wmem)
-becomes full.
-In order to write again after that, one third of the
-transmission buffer (sk_wmem_queued/2) must be freed.
-
-When the throughput is low, timeout occurs by the time
-when the free buffer space is created, which affects
-streaming service.
-
-
-The effect of the patch;
-
-By putting xxx into the variable yyy, the portion of
-the transmission buffer becomes zzz, thus timeout will
-not occur in the low throughput network environment.
-
-xxx → integer(e.g. 4)
-yyy → "sysctl_tcp_lowat"
-zzz → "sk_wmem_queued >> 4"
-
-Also, we think one third of the transmission buffer
-(sk_wmem_queued/2) is too deterministic, and it should
-be configurable.
-
---------------------------------------------------
---- linux-mainline/include/net/sock.h.orig	2011-07-27 14:26:43.000000000 +0900
-+++ linux-mainline/include/net/sock.h	2011-08-15 11:40:20.000000000 +0900
-@@ -604,9 +604,11 @@ static inline int sk_acceptq_is_full(str
- /*
-  * Compute minimal free write space needed to queue new packets.
-  */
-+extern __u32 sysctl_tcp_lowat;
-+
- static inline int sk_stream_min_wspace(struct sock *sk)
- {
--	return sk->sk_wmem_queued >> 1;
-+	return sk->sk_wmem_queued >> sysctl_tcp_lowat;
- }
- 
- static inline int sk_stream_wspace(struct sock *sk)
---- linux-mainline/net/core/sock.c.orig	2011-07-24 05:04:06.000000000 +0900
-+++ linux-mainline/net/core/sock.c	2011-08-15 11:34:27.000000000 +0900
-@@ -217,6 +217,9 @@ __u32 sysctl_rmem_max __read_mostly = SK
- __u32 sysctl_wmem_default __read_mostly = SK_WMEM_MAX;
- __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
- 
-+__u32 sysctl_tcp_lowat = 1;
-+EXPORT_SYMBOL(sysctl_tcp_lowat);
-+
- /* Maximal space eaten by iovec or ancillary data plus some space */
- int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
- EXPORT_SYMBOL(sysctl_optmem_max);
-@@ -1330,6 +1333,8 @@ void __init sk_init(void)
- 		sysctl_wmem_max = 131071;
- 		sysctl_rmem_max = 131071;
- 	}
-+
-+	sysctl_tcp_lowat = 1;
- }
- 
- /*
---- linux-mainline/net/core/sysctl_net_core.c.orig	2011-05-29 06:01:16.000000000 +0900
-+++ linux-mainline/net/core/sysctl_net_core.c	2011-08-15 11:05:38.000000000 +0900
-@@ -168,6 +168,13 @@ static struct ctl_table net_core_table[]
- 		.proc_handler	= rps_sock_flow_sysctl
- 	},
- #endif
-+	{
-+		.procname	= "tcp_lowat",
-+		.data		= &sysctl_tcp_lowat,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec
-+	},
- #endif /* CONFIG_NET */
- 	{
- 		.procname	= "netdev_budget",
-
---------------------------------------------------
-
-------------------------------------------
-Jun.Kondo
-ITOCHU TECHNO-SOLUTIONS Corporation(CTC)
-tel:+81-3-6238-6607
-fax:+81-3-5226-2369
-------------------------------------------
