@@ -1,49 +1,30 @@
-From: Enquiries <enquiries@matheson.co.uk>
-Subject: Kindly read and reply through my private email...
-  inna.patarkat3@qatar.io
-Date: Mon, 15 Aug 2011 16:26:32 +0100
-Message-ID: <E2BF5BEEF28451448269E7F06E27353B79EA0009D8@MATHEX3.Matheson.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 2/2] net: minor update to Documentation/networking/scaling.txt
+Date: Mon, 15 Aug 2011 09:56:54 -0700
+Message-ID: <4E494FD6.6090400@hp.com>
+References: <1312899648.5889.14.camel@gopher.nyc.corp.google.com> <4E418030.2010102@hp.com> <4E44752D.1080905@google.com> <4E4476CC.5050900@google.com> <4E45B810.3000501@hp.com> <CA+FuTScsrN5=NLeHgyNP+TXL+_auU6p80Lb5JUaMb_o5aGGqww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.matheson.co.uk ([212.161.50.207]:2942 "EHLO
-	mail1.matheson.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735Ab1HOQxX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 12:53:23 -0400
-Received: from MATHEX2.Matheson.com ([192.168.107.111])
-	by mail1.matheson.co.uk (mail1.matheson.co.uk)
-	(MDaemon PRO v12.0.3)
-	with ESMTP id md50000378093.msg
-	for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 16:26:40 +0100
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, linux-doc@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org, therbert@google.com
+To: Will de Bruijn <willemb@google.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CA+FuTScsrN5=NLeHgyNP+TXL+_auU6p80Lb5JUaMb_o5aGGqww@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kindly read and reply through my private email...  inna.patarkat3@qatar.io
-An Emergency from Mrs. Inna Patarkatsishvil
-Greetings in the name of the Lord, I am Mrs. Inna Patarkatsishvili, the widow of late Georgian business tycoon Mr. Badri Patarkatsishvili, I have a business proposal which will be of great benefit to you and myself. I will send you further details once i receive your response back. Please for security reason, i will strongly recommend that you write me through my private email account only.Thanks for your understanding.
-Yours truly, 
-Mrs. Inna Patarkatsishvili 
-Private Email:  inna.patarkat4@qatar.io
--------------------------------------------------------------------------
-DISCLAIMER:-
+On 08/15/2011 09:11 AM, Will de Bruijn wrote:
+>> I'd suggest simply "share a particular level in the memory hierarchy (Cache,
+>> NUMA node, etc)"  and that way you get away from people asking nitpicky
+>> questions about where cache hierarchy counting starts, and at what level
+>> caches might be shared :)
+>>
+>> Apart from that, looks fine.
+>
+> Thanks. It is already applied, so if you don't feel strongly about
+> this, I'll leave it as is (and take any nitpicky flak if that comes ;)
 
-Matheson & Co., Limited is a company registered in England and Wales.
-Company Registration Number: 100295.
-Registered Office: 3 Lombard Street, London EC3V 9AQ, UK
+Sounds like a plan.
 
-Matheson & Co., Limited, established in London in 1848, is a wholly owned
-subsidiary of Jardine Matheson Holdings Limited.
-
-This email is confidential and intended only for the use
-of the individual or entity named above and may contain
-information that is privileged. If you are not the intended
-recipient, you are notified that any dissemination, distribution
-or copying of this email is strictly prohibited.
-If you have received this email in error, please notify us immediately by
-return email or telephone 020 7816 8100 and destroy the original message. 
-Thank you.
--------------------------------------------------------------------------
-
+rick
