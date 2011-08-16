@@ -1,82 +1,54 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net-2.6 V2] bonding:reset backup and inactive flag of slave
-Date: Tue, 16 Aug 2011 09:57:35 +0800
-Message-ID: <8ed5a280dcc02566671810bcf7df83a05cb6a35d.1313459746.git.panweiping3@gmail.com>
-References: <j2bgs2$pf5$1@dough.gmane.org>
-Cc: Weiping Pan <panweiping3@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:44849 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752747Ab1HPB4C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2011 21:56:02 -0400
-Received: by qwk3 with SMTP id 3so2748392qwk.19
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2011 18:56:01 -0700 (PDT)
-In-Reply-To: <j2bgs2$pf5$1@dough.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Tue, 16 Aug 2011 13:26:59 +1000
+Message-ID: <20110816132659.7719837bd136aa520c5814ac@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eduard Sinelnikov (eduard.sinelnikov@gmail.com) found that if we change
-bonding mode from active backup to round robin, some slaves are still keeping
-"backup", and won't transmit packets.
+Hi all,
 
-As Jay Vosburgh(fubar@us.ibm.com) pointed out that we can work around that by
-removing the bond_is_active_slave() check, because the "backup" flag is only
-meaningful for active backup mode.
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+failed like this:
 
-But if we just simply ignore the bond_is_active_slave() check,
-the transmission will work fine, but we can't maintain the correct value of
-"backup" flag for each slaves, though it is meaningless for other mode than
-active backup.
+drivers/net/ethernet/sun/sungem_phy.c:36:24: fatal error: sungem_phy.h: No such file or directory
 
-I'd like to reset "backup" and "inactive" flag in bond_open,
-thus we can keep the correct value of them.
+Caused by commit 2bb698412d8a ("net: Move sungem_phy.h under
+include/linux").
 
-As for bond_is_active_slave(), I'd like to prepare another patch to handle it.
+I applied this patch for today:
 
-V2:
-Use C style comment.
-Move read_lock(&bond->curr_slave_lock).
-Replace restore with reset, for active backup mode, it means "restore",
-but for other modes, it means "reset".
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 16 Aug 2011 13:22:24 +1000
+Subject: [PATCH] sungem: sungem_phy.h moved
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
- drivers/net/bonding/bond_main.c |   18 ++++++++++++++++++
- 1 files changed, 18 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/sun/sungem_phy.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 38a83ac..43f2ea5 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3419,9 +3419,27 @@ static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
- static int bond_open(struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	int i;
+diff --git a/drivers/net/ethernet/sun/sungem_phy.c b/drivers/net/ethernet/sun/sungem_phy.c
+index d16880d..db99c22 100644
+--- a/drivers/net/ethernet/sun/sungem_phy.c
++++ b/drivers/net/ethernet/sun/sungem_phy.c
+@@ -33,7 +33,7 @@
+ #include <asm/prom.h>
+ #endif
  
- 	bond->kill_timers = 0;
+-#include "sungem_phy.h"
++#include <linux/sungem_phy.h>
  
-+	/* reset slave->backup and slave->inactive */
-+	read_lock(&bond->lock);
-+	if (bond->slave_cnt > 0) {
-+		read_lock(&bond->curr_slave_lock);
-+		bond_for_each_slave(bond, slave, i) {
-+			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP)
-+				&& (slave != bond->curr_active_slave)) {
-+				bond_set_slave_inactive_flags(slave);
-+			} else {
-+				bond_set_slave_active_flags(slave);
-+			}
-+		}
-+		read_unlock(&bond->curr_slave_lock);
-+	}
-+	read_unlock(&bond->lock);
-+
- 	INIT_DELAYED_WORK(&bond->mcast_work, bond_resend_igmp_join_requests_delayed);
- 
- 	if (bond_is_lb(bond)) {
+ /* Link modes of the BCM5400 PHY */
+ static const int phy_BCM5400_link_table[8][3] = {
 -- 
-1.7.4.4
+1.7.5.4
 
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
