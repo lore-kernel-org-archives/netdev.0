@@ -1,17 +1,17 @@
 From: "Webmail Technical Upgrade Team Alert" <abiodunkelly36@yahoo.com.hk>
 Subject: Webmail Help Desk
-Date: Tue, 16 Aug 2011 20:32:27 -0000
-Message-ID: <6043d73cbd02db912d61c6e127e631ab.squirrel@civil.becs.ac.in>
+Date: Tue, 16 Aug 2011 20:27:37 -0000
+Message-ID: <257d9fd248ea0cdb130a8e2be3867a10.squirrel@civil.becs.ac.in>
 Reply-To: barharryraydesk@shqiptar.eu
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [220.225.86.86] ([220.225.86.86]:44504 "EHLO civil.becs.ac.in"
+Received: from [220.225.86.86] ([220.225.86.86]:58078 "EHLO civil.becs.ac.in"
 	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751485Ab1HPWKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2011 18:10:52 -0400
+	id S1751485Ab1HPWTy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2011 18:19:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
