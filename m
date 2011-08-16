@@ -1,42 +1,38 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH 1/1] OMAP: wlan: Set the WLAN Regulator to be
- always on
-Date: Tue, 16 Aug 2011 09:07:03 -0700
-Message-ID: <20110816160703.GA19544@kroah.com>
-References: <1313507037-2467-1-git-send-email-panduranga_mallireddy@ti.com>
- <1313507037-2467-2-git-send-email-panduranga_mallireddy@ti.com>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: ath: Could not kill baseband RX
+Date: Tue, 16 Aug 2011 09:11:00 -0700
+Message-ID: <4E4A9694.1010803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@kernel.org, ohad@wizery.com, pradeepgurumath@ti.com,
-	coelho@ti.com, netdev@vger.kernel.org, naveen_jain@ti.com,
-	x-boudet@ti.com, vishalm@ti.com, manjunatha_halli@ti.com,
-	benzyg@ti.com, linux-omap@vger.kernel.org
-To: panduranga_mallireddy@ti.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4.smtp.messagingengine.com ([66.111.4.28]:53598 "EHLO
-	out4.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751562Ab1HPQHh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 12:07:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1313507037-2467-2-git-send-email-panduranga_mallireddy@ti.com>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:60743 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751819Ab1HPQLV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 12:11:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 16, 2011 at 10:03:57AM -0500, panduranga_mallireddy@ti.com wrote:
-> From: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
-> 
-> For regulator omap4_clk32k used by wlan, set .constraints.always_on to 1.
-> This regulator should never be disabled.
-> 
-> Signed-off-by: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
-> ---
->  arch/arm/mach-omap2/twl-common.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
+seems with the current I have hit:
 
-<formletter>
+ath: Could not kill baseband RX
+[  966.943524] ath: Unable to reset channel (2412 MHz), reset status -5
+[  966.943631] ath: Unable to set channel
+[  967.066100] ath: Could not kill baseband RX
+[  967.189233] ath: Unable to reset channel (2417 MHz), reset status -5
+[  967.189294] ath: Unable to set channel
+[  967.311597] ath: Could not kill baseband RX
+[  967.434729] ath: Unable to reset channel (2422 MHz), reset status -5
+[  967.434796] ath: Unable to set channel
 
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
+full dmesg..:  http://fpaste.org/voy7/
+wireless goes out, a reboot is the only way to get the wireless back up 
+and running.
 
-</formletter>
+there is a similar bug, but looks different than this one(but could be 
+wrong). https://bugzilla.kernel.org/show_bug.cgi?id=31702
+
+Justin P. Mattock
+
