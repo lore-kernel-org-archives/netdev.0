@@ -1,75 +1,60 @@
-From: Bernd Schubert <bernd.schubert-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH 2/2] Rename 'n' into a longer variable name.
-Date: Tue, 16 Aug 2011 12:56:59 +0200
-Message-ID: <20110816105659.1805137.44398.stgit@fsdevel3>
-References: <20110816105648.1805137.35191.stgit@fsdevel3>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: Re: [PATCH] bnx2x: suppress repeated error messages about Max BW
+Date: Tue, 16 Aug 2011 13:38:40 +0200
+Message-ID: <4E4A56C0.4030009@redhat.com>
+References: <20110812143324.5740.45824.stgit@dhcp-29-224.brq.redhat.com> <1313405680.31417.6.camel@lb-tlvb-eilong.il.broadcom.com> <4E490A1E.3060209@redhat.com> <1313411585.31417.35.camel@lb-tlvb-eilong.il.broadcom.com> <4E493798.7010405@redhat.com> <1313434042.30399.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110816105648.1805137.35191.stgit@fsdevel3>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Vladislav Zolotarov <vladz@broadcom.com>
+To: eilong@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1031 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751465Ab1HPLio (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2011 07:38:44 -0400
+In-Reply-To: <1313434042.30399.0.camel@lb-tlvb-eilong.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When it comes to me variable names consisting of a single letter
-should be forbidden by coding style guide lines, as it is rather
-difficult to search for single letter, such as 'n'.
+On 08/15/2011 08:47 PM, Eilon Greenstein wrote:
+> On Mon, 2011-08-15 at 08:13 -0700, Michal Schmidt wrote:
+>> A tester reported getting only these 4 messages with the patch applied:
+>>
+>> [bnx2x_extract_max_cfg:1074(eth4)]Illegal configuration detected for Max
+>> BW on vn 2 - using 100 instead
+>> [bnx2x_extract_max_cfg:1074(eth5)]Illegal configuration detected for Max
+>> BW on vn 2 - using 100 instead
+>> [bnx2x_extract_max_cfg:1074(eth6)]Illegal configuration detected for Max
+>> BW on vn 3 - using 100 instead
+>> [bnx2x_extract_max_cfg:1074(eth7)]Illegal configuration detected for Max
+>> BW on vn 3 - using 100 instead
+>>
+>> This suggests that VNs 0 and 1 had non-zero Max BW configuration.
+>
+> Michal - this is a great point of data! It helped me finding a bug in
+> that code - the code is not suitable for 4 port devices, it always
+> assumes 4 VN per PCI function, while in 4 port devices there are only 2
+> VN per PCI function. I assume that you are seeing this problem on a
+> 57800 with 2x10G + 2x1G - and the 1G devices are in single function mode
+> and therefore you are seeing this error message. I will send a patch to
+> fix the problem on 4 port devices soon (after testing it for a while) -
+> please confirm that you are seeing this issue on 2x10G+2x1G 57800
+> device.
 
-Rename struct neighbour *n to dst_neigh
+Eilon,
+the tester is seeing this with BCM57711E. It's a HP-Blade bl460c-g6 with 
+HP VirtualConnect. Quote from him:
 
+   hp-agents reports 4 dual port nic's, Linux kernel reports 8 identical
+   nic's but it's actual a blade with 2 LOM's (lan on motherboard) with
+   each one port. Via VC we present max 4 FlexNic's per port, but for
+   this server we present 2 FlexNic's per port.
 
-Signed-off-by: Bernd Schubert <bernd.schubert-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
----
- drivers/infiniband/ulp/ipoib/ipoib_main.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+   The fun with Linux is that it always sees all FlexNic's devices even
+   if we configure 2 FlexNics via a VC profile on a port like on this
+   server.
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index fe89c46..189d4cb 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -717,22 +717,22 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
- 	struct ipoib_neigh *neigh;
--	struct neighbour *n = NULL;
-+	struct neighbour *dst_neigh = NULL;
- 	unsigned long flags;
- 
- 	if (likely(skb_dst(skb)))
--		n = dst_get_neighbour(skb_dst(skb));
-+		dst_neigh = dst_get_neighbour(skb_dst(skb));
- 
--	if (likely(n)) {
--		if (unlikely(!*to_ipoib_neigh(n))) {
-+	if (likely(dst_neigh)) {
-+		if (unlikely(!*to_ipoib_neigh(dst_neigh))) {
- 			ipoib_path_lookup(skb, dev);
- 			return NETDEV_TX_OK;
- 		}
- 
--		neigh = *to_ipoib_neigh(n);
-+		neigh = *to_ipoib_neigh(dst_neigh);
- 
- 		if (unlikely((memcmp(&neigh->dgid.raw,
--				     n->ha + 4,
-+				     dst_neigh->ha + 4,
- 				     sizeof(union ib_gid))) ||
- 			     (neigh->dev != dev))) {
- 			spin_lock_irqsave(&priv->lock, flags);
-@@ -758,7 +758,8 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 				return NETDEV_TX_OK;
- 			}
- 		} else if (neigh->ah) {
--			ipoib_send(dev, skb, neigh->ah, IPOIB_QPN(n->ha));
-+			ipoib_send(dev, skb, neigh->ah,
-+				   IPOIB_QPN(dst_neigh->ha));
- 			return NETDEV_TX_OK;
- 		}
- 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Michal
