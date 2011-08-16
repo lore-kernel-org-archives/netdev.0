@@ -1,9 +1,9 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 06/14] bna: TX Path and RX Path Changes
-Date: Tue, 16 Aug 2011 22:45:55 +0100
-Message-ID: <1313531155.2725.61.camel@bwh-desktop>
+Subject: Re: [PATCH 04/14] bna: Add Multiple Tx Queue Support
+Date: Tue, 16 Aug 2011 22:48:58 +0100
+Message-ID: <1313531338.2725.63.camel@bwh-desktop>
 References: <1313529591-3718-1-git-send-email-rmody@brocade.com>
-	 <1313529591-3718-7-git-send-email-rmody@brocade.com>
+	 <1313529591-3718-5-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,59 +12,36 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:2923 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:3239 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816Ab1HPVqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 17:46:01 -0400
-In-Reply-To: <1313529591-3718-7-git-send-email-rmody@brocade.com>
+	with ESMTP id S1753074Ab1HPVtC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 17:49:02 -0400
+In-Reply-To: <1313529591-3718-5-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, 2011-08-16 at 14:19 -0700, Rasesh Mody wrote:
 > Change details:
->  - Disable and enable interrupts from the same polling context to prevent
->    reordering in Rx path.
->  - Add Rx NAPI debug counters.
->  - Make NAPI budget check more generic
->  - Add a macro bnad_dim_timer_stop for DIM(Dynamic Interrupt Moderation)
->    timer stop
->  - Handle reduced MSI-X vectors case in bnad_enable_msix
->  - Replace existing checks with macros and add more checks for illegal skbs
->    in transmit path. Add more tx_skb counters for dropped skbs.
->  - Check for single frame TSO skbs and send them out as non-TSO.
->  - Put memory barrier after bna_txq_prod_indx_doorbell()
-> 
-> Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
-> Signed-off-by: Rasesh Mody <rmody@brocade.com>
-> ---
->  drivers/net/ethernet/brocade/bna/bnad.c |  207 +++++++++++++++++--------------
->  drivers/net/ethernet/brocade/bna/bnad.h |   33 +++++-
->  2 files changed, 148 insertions(+), 92 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-> index 64e2106..0faa8a1 100644
-> --- a/drivers/net/ethernet/brocade/bna/bnad.c
-> +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-> @@ -532,7 +532,7 @@ bnad_poll_cq(struct bnad *bnad, struct bna_ccb *ccb, int budget)
->  		      (flags & BNA_CQ_EF_L4_CKSUM_OK)))
->  			skb->ip_summed = CHECKSUM_UNNECESSARY;
->  		else
-> -			skb_checksum_none_assert(skb);
-> +			skb->ip_summed = CHECKSUM_NONE;
->  
->  		rcb->rxq->rx_packets++;
->  		rcb->rxq->rx_bytes += skb->len;
+>  - Add macros bna_prio_allow, bna_default_nw_prio, bna_iscsi_prio,
+>    bna_is_iscsi_over_cee
+>  - Added support for multipe Tx queues with a separate iSCSI Tx queue based
+>    on the default value of iSCSI port number. The feature is supported based
+>    on the underlying hardware and enabled for DCB (CEE) mode only.
+>  - Allocate multiple TxQ resource in netdev
+>  - Implement bnad_tx_select_queue() which enables the correct selection of
+>    TxQ Id (and tcb). This function is called either by the kernel to channel
+>    packets to the right TxQ
+>  - bnad_tx_select_queue() returns priority, while only a few packets during
+>    transition could have wrong priority, all will be associated with a valid
+>    non-NULL tcb.
+>  - Implement bnad_iscsi_tcb_get() and BNAD_IS_ISCSI_PKT() for iSCSI packet
+>    inspection and retrieval of tcb corresponding to the iSCSI priority.
+>  - Construction of priority indirection table to be used by bnad to direct
+>    packets into TxQs
 [...]
 
-This is reverting part of:
-
-commit bc8acf2c8c3e43fcc192762a9f964b3e9a17748b
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Thu Sep 2 13:07:41 2010 -0700
-
-    drivers/net: avoid some skb->ip_summed initializations
-
-and I don't see any justification for that.
+You probably should implement TX priority classes through the
+ndo_setup_tc operation, not ndo_select_queue.
 
 Ben.
 
