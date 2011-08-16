@@ -1,54 +1,29 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [PATCH 04/14] bna: Add Multiple Tx Queue Support
-Date: Tue, 16 Aug 2011 16:32:20 -0700
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A94D99537C@HQ1-EXCH01.corp.brocade.com>
-References: <1313529591-3718-1-git-send-email-rmody@brocade.com>
-	 <1313529591-3718-5-git-send-email-rmody@brocade.com>
- <1313531338.2725.63.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/5] ethtool: Reformat struct ethtool_coalesce
+ comments into kernel-doc format
+Date: Tue, 16 Aug 2011 16:36:35 -0700 (PDT)
+Message-ID: <20110816.163635.675044188092401661.davem@davemloft.net>
+References: <1313453180.2731.57.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Adapter Linux Open SRC Team
-	<adapter_linux_open_src_team@Brocade.COM>,
-	Gurunatha Karaje <gkaraje@Brocade.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eli@dev.mellanox.co.il
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:34646 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752096Ab1HPXc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 19:32:26 -0400
-In-Reply-To: <1313531338.2725.63.camel@bwh-desktop>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:42593 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752001Ab1HPXgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 19:36:40 -0400
+In-Reply-To: <1313453180.2731.57.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PkZyb206IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tXQ0K
-PlNlbnQ6IFR1ZXNkYXksIEF1Z3VzdCAxNiwgMjAxMSAyOjQ5IFBNDQo+DQo+T24gVHVlLCAyMDEx
-LTA4LTE2IGF0IDE0OjE5IC0wNzAwLCBSYXNlc2ggTW9keSB3cm90ZToNCj4+IENoYW5nZSBkZXRh
-aWxzOg0KPj4gIC0gQWRkIG1hY3JvcyBibmFfcHJpb19hbGxvdywgYm5hX2RlZmF1bHRfbndfcHJp
-bywgYm5hX2lzY3NpX3ByaW8sDQo+PiAgICBibmFfaXNfaXNjc2lfb3Zlcl9jZWUNCj4+ICAtIEFk
-ZGVkIHN1cHBvcnQgZm9yIG11bHRpcGUgVHggcXVldWVzIHdpdGggYSBzZXBhcmF0ZSBpU0NTSSBU
-eCBxdWV1ZQ0KPmJhc2VkDQo+PiAgICBvbiB0aGUgZGVmYXVsdCB2YWx1ZSBvZiBpU0NTSSBwb3J0
-IG51bWJlci4gVGhlIGZlYXR1cmUgaXMgc3VwcG9ydGVkDQo+YmFzZWQNCj4+ICAgIG9uIHRoZSB1
-bmRlcmx5aW5nIGhhcmR3YXJlIGFuZCBlbmFibGVkIGZvciBEQ0IgKENFRSkgbW9kZSBvbmx5Lg0K
-Pj4gIC0gQWxsb2NhdGUgbXVsdGlwbGUgVHhRIHJlc291cmNlIGluIG5ldGRldg0KPj4gIC0gSW1w
-bGVtZW50IGJuYWRfdHhfc2VsZWN0X3F1ZXVlKCkgd2hpY2ggZW5hYmxlcyB0aGUgY29ycmVjdA0K
-PnNlbGVjdGlvbiBvZg0KPj4gICAgVHhRIElkIChhbmQgdGNiKS4gVGhpcyBmdW5jdGlvbiBpcyBj
-YWxsZWQgZWl0aGVyIGJ5IHRoZSBrZXJuZWwgdG8NCj5jaGFubmVsDQo+PiAgICBwYWNrZXRzIHRv
-IHRoZSByaWdodCBUeFENCj4+ICAtIGJuYWRfdHhfc2VsZWN0X3F1ZXVlKCkgcmV0dXJucyBwcmlv
-cml0eSwgd2hpbGUgb25seSBhIGZldyBwYWNrZXRzDQo+ZHVyaW5nDQo+PiAgICB0cmFuc2l0aW9u
-IGNvdWxkIGhhdmUgd3JvbmcgcHJpb3JpdHksIGFsbCB3aWxsIGJlIGFzc29jaWF0ZWQgd2l0aCBh
-DQo+dmFsaWQNCj4+ICAgIG5vbi1OVUxMIHRjYi4NCj4+ICAtIEltcGxlbWVudCBibmFkX2lzY3Np
-X3RjYl9nZXQoKSBhbmQgQk5BRF9JU19JU0NTSV9QS1QoKSBmb3IgaVNDU0kNCj5wYWNrZXQNCj4+
-ICAgIGluc3BlY3Rpb24gYW5kIHJldHJpZXZhbCBvZiB0Y2IgY29ycmVzcG9uZGluZyB0byB0aGUg
-aVNDU0kNCj5wcmlvcml0eS4NCj4+ICAtIENvbnN0cnVjdGlvbiBvZiBwcmlvcml0eSBpbmRpcmVj
-dGlvbiB0YWJsZSB0byBiZSB1c2VkIGJ5IGJuYWQgdG8NCj5kaXJlY3QNCj4+ICAgIHBhY2tldHMg
-aW50byBUeFFzDQo+Wy4uLl0NCj4NCj5Zb3UgcHJvYmFibHkgc2hvdWxkIGltcGxlbWVudCBUWCBw
-cmlvcml0eSBjbGFzc2VzIHRocm91Z2ggdGhlDQo+bmRvX3NldHVwX3RjIG9wZXJhdGlvbiwgbm90
-IG5kb19zZWxlY3RfcXVldWUuDQoNClRoZSByZWFzb24gd2Ugd2VudCB3aXRoIG5kb19zZWxlY3Rf
-cXVldWUgaXMgZHVlIHRvIHRoZSBuZWVkIGZvciBtYXBwaW5nDQppU0NTSSBwYWNrZXRzIChUQ1Ag
-cG9ydCAzMjYwKSB0byBhIHByaW9yaXR5IGRlcml2ZWQgZnJvbSBEQ0IgY29uZmlndXJhdGlvbi4N
-CkhlcmUgdGhlIGlTQ1NJIHBhY2tldHMgbWF5IG5vdCBoYXZlIGFueSB0YyBkZWZpbmVkIGluIHRo
-ZSBwYWNrZXQgaGVhZGVyLiANClRoYW5rcywNClJhc2VzaA0K
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 16 Aug 2011 01:06:20 +0100
+
+> This reorders and duplicates some wording, but should make no
+> substantive changes.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+
+Applied.
