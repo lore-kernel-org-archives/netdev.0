@@ -1,31 +1,68 @@
-From: "Webmail Technical Upgrade Team Alert" <abiodunkelly36@yahoo.com.hk>
-Subject: Webmail Help Desk
-Date: Tue, 16 Aug 2011 20:27:37 -0000
-Message-ID: <257d9fd248ea0cdb130a8e2be3867a10.squirrel@civil.becs.ac.in>
-Reply-To: barharryraydesk@shqiptar.eu
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH 09/14] bna: Ethtool Enhancements and Fix
+Date: Tue, 16 Aug 2011 16:26:39 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A94D995377@HQ1-EXCH01.corp.brocade.com>
+References: <1313529591-3718-1-git-send-email-rmody@brocade.com>
+	 <1313529591-3718-10-git-send-email-rmody@brocade.com>
+ <1313530999.2725.58.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Adapter Linux Open SRC Team
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Gurunatha Karaje <gkaraje@Brocade.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [220.225.86.86] ([220.225.86.86]:58078 "EHLO civil.becs.ac.in"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751485Ab1HPWTy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2011 18:19:54 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:34469 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752096Ab1HPX0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 19:26:45 -0400
+In-Reply-To: <1313530999.2725.58.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your mailbox has exceeded the storage limit which is 20GB as set by you=
-r
-administrator, you are currently running on 20.9GB, you may not be able=
- to
-send or receive new mail until you re-validate your mailbox. To
-re-validate your mailbox please click or visit this link below to updat=
-e
-your account:  http://www.spamagent.gofreeserve.com/
-
-
-Thanks
-Webmail Help Desk
-=A9 2011 All Right Reserved
-
+PkZyb206IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tXQ0K
+PlNlbnQ6IFR1ZXNkYXksIEF1Z3VzdCAxNiwgMjAxMSAyOjQzIFBNDQo+DQo+T24gVHVlLCAyMDEx
+LTA4LTE2IGF0IDE0OjE5IC0wNzAwLCBSYXNlc2ggTW9keSB3cm90ZToNCj4+IENoYW5nZSBkZXRh
+aWxzOg0KPj4gIC0gU2V0IGNvYWxlc2NpbmcgdGltZSBvdXQgZm9yIG11bHRpcGxlIHR4IG9iamVj
+dHMuDQo+PiAgLSBVc2UgYm5hZF9kaW1fdGltZXJfc3RvcCBtYWNybyBpbiBibmFkX3NldF9jb2Fs
+ZXNjZS4NCj4+ICAtIEFkZCB0eF9za2IgY291bnRlcnMgYW5kIE5BUEkgZGVidWcgY291bnRlcnMg
+dG8gZXRodG9vbCBzdGF0cy4NCj4+ICAtIEFkZCBybGIgc3RhdHMgc3RyaW5ncyB0byBibmFkX25l
+dF9zdGF0c19zdHJpbmdze30gYXJyYXkuIHJsYl9zdGF0cw0KPmZpZWxkDQo+PiAgICB3YXMgYWRk
+ZWQgdG8gc3RydWN0IGJmaV9lbmV0X3N0YXRzIHt9IGJ1dCB0aGUgY29ycmVzcG9uZGluZyBuYW1l
+DQo+c3RydWN0dXJlDQo+PiAgICBhcnJheSBmb3IgZXRodG9vbCB3YXMgbm90IGluaXRpYWxpemVk
+IHdpdGggcmlnaHQgc3RyaW5ncywgZXZlbg0KPnRob3VnaCB0aGUNCj4+ICAgIGFjdHVhbCBuYW1l
+IHN0cnVjdHVyZSBhcnJheSBnb3QgZXhwYW5kZWQuIFRoaXMgY2F1c2VkIGEgTlVMTA0KPnBvaW50
+ZXINCj4+ICAgIHZpb2xhdGlvbiBhbmQgYSBjcmFzaCB3aGVuIGRvaW5nIGVodG9vbCAtUyA8aWZf
+bmFtZT4uDQo+PiAgLSBXaGlsZSBzZXR0aW5nIHRoZSByaW5nIHBhcmFtZXRlciByZXN0b3JlIHRo
+ZSByeCwgdmxhbiBjb25maWd1cmF0aW9uDQo+YW5kDQo+PiAgICBzZXQgcnggbW9kZQ0KPj4gIC0g
+SW5kZW50YXRpb24gZml4DQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogR3VydW5hdGhhIEthcmFqZSA8
+Z2thcmFqZUBicm9jYWRlLmNvbT4NCj4+IFNpZ25lZC1vZmYtYnk6IFJhc2VzaCBNb2R5IDxybW9k
+eUBicm9jYWRlLmNvbT4NCj4+IC0tLQ0KPj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2NhZGUv
+Ym5hL2JuYWQuYyAgICAgICAgIHwgICAyMSArKystLS0NCj4+ICBkcml2ZXJzL25ldC9ldGhlcm5l
+dC9icm9jYWRlL2JuYS9ibmFkLmggICAgICAgICB8ICAgMTAgKystDQo+PiAgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvYnJvY2FkZS9ibmEvYm5hZF9ldGh0b29sLmMgfCAgIDg4DQo+KysrKysrKysrKysr
+KysrKysrKy0tLS0NCj4+ICAzIGZpbGVzIGNoYW5nZWQsIDkyIGluc2VydGlvbnMoKyksIDI3IGRl
+bGV0aW9ucygtKQ0KPj4NCj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9j
+YWRlL2JuYS9ibmFkLmMNCj5iL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2NhZGUvYm5hL2JuYWQu
+Yw0KPj4gaW5kZXggMTFjMDU4ZS4uNzZiZmExOSAxMDA2NDQNCj4+IC0tLSBhL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L2Jyb2NhZGUvYm5hL2JuYWQuYw0KPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvYnJvY2FkZS9ibmEvYm5hZC5jDQo+PiBAQCAtMjAwOCwxMiArMjAwOCwxNSBAQCB2b2lkDQo+
+PiAgYm5hZF90eF9jb2FsZXNjaW5nX3RpbWVvX3NldChzdHJ1Y3QgYm5hZCAqYm5hZCkNCj4+ICB7
+DQo+PiAgCXN0cnVjdCBibmFkX3R4X2luZm8gKnR4X2luZm87DQo+PiArCWludCBpOw0KPj4NCj4+
+IC0JdHhfaW5mbyA9ICZibmFkLT50eF9pbmZvWzBdOw0KPj4gLQlpZiAoIXR4X2luZm8tPnR4KQ0K
+Pj4gLQkJcmV0dXJuOw0KPj4gLQ0KPj4gLQlibmFfdHhfY29hbGVzY2luZ190aW1lb19zZXQodHhf
+aW5mby0+dHgsIGJuYWQtDQo+PnR4X2NvYWxlc2NpbmdfdGltZW8pOw0KPj4gKwlmb3IgKGkgPSAw
+OyBpIDwgYm5hZC0+bnVtX3R4OyBpKyspIHsNCj4+ICsJCXR4X2luZm8gPSAmYm5hZC0+dHhfaW5m
+b1tpXTsNCj4+ICsJCWlmICghdHhfaW5mby0+dHgpDQo+PiArCQkJY29udGludWU7DQo+PiArCQli
+bmFfdHhfY29hbGVzY2luZ190aW1lb19zZXQodHhfaW5mby0+dHgsDQo+PiArCQkJCWJuYWQtPnR4
+X2NvYWxlc2NpbmdfdGltZW8pOw0KPj4gKwl9DQo+PiAgfQ0KPlsuLi5dDQo+DQo+RG9lc24ndCB0
+aGlzIG5lZWQgdG8gYmUgZG9uZSBhdCB0aGUgc2FtZSB0aW1lIGFzIHBhdGNoIDA0LzE0ICJibmE6
+IEFkZA0KPk11bHRpcGxlIFR4IFF1ZXVlIFN1cHBvcnQiPw0KDQpCZW4sDQpUaGFua3MgZm9yIHRo
+ZSBmZWVkYmFjayENCg0KWWVzLCB0aGlzIGlzIE11bHRpcGxlIFRYUSByZWxhdGVkIGNoYW5nZSBh
+bmQgd2lsbCBtb3ZlIGl0IHRvIDA0LzE0LiBTaW5jZQ0KZXRodG9vbCBpcyB1c2luZyBpdCwgd2Ug
+dGhvdWdodCBpdCB3b3VsZCBtYWtlIG1vcmUgc2Vuc2UgdG8gZG8gdGhpcyBjaGFuZ2UNCndpdGgg
+b3RoZXIgZXRodG9vbCBjaGFuZ2VzLg0KDQpSYXNlc2ggDQo=
