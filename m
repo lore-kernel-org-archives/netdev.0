@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 03/14] bna: Interrupt Polling and NAPI Init Changes
-Date: Tue, 16 Aug 2011 14:19:40 -0700
-Message-ID: <1313529591-3718-4-git-send-email-rmody@brocade.com>
+Subject: [PATCH 04/14] bna: Add Multiple Tx Queue Support
+Date: Tue, 16 Aug 2011 14:19:41 -0700
+Message-ID: <1313529591-3718-5-git-send-email-rmody@brocade.com>
 References: <1313529591-3718-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,243 +10,353 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:57387 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751960Ab1HPVUQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 17:20:16 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:47899 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752789Ab1HPVUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 17:20:23 -0400
 In-Reply-To: <1313529591-3718-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Remove unnecessary ccb check from bnad_poll_cq
- - Add bnad pointer to rx_ctrl structure, so that bnad can be accessed directly
-   from rx_ctrl in the NAPI poll routines, even if ccb is NULL
- - Validate ccb before referencing to it in bnad_msix_rx and bnad_napi_poll_rx
- - Fix the order of NAPI init / uninit in Tx / Rx setup / teardown path:
-   a. Kill bnad tx free tasklet ahead of call to bna_tx_destroy()
-   b. Call NAPI disable only after call to Rx free_irq(). This makes sure Rx
-      interrupt does not schedule a poll when NAPI is already disabled
- - NAPI poll runs before the h/w has completed configuration. This causes a
-   crash. Delay enabling NAPI till after bna_rx_enable(). Split NAPI
-   initialization into 2 steps, bnad_napi_init() & bnad_napi_enable().
+ - Add macros bna_prio_allow, bna_default_nw_prio, bna_iscsi_prio,
+   bna_is_iscsi_over_cee
+ - Added support for multipe Tx queues with a separate iSCSI Tx queue based
+   on the default value of iSCSI port number. The feature is supported based
+   on the underlying hardware and enabled for DCB (CEE) mode only.
+ - Allocate multiple TxQ resource in netdev
+ - Implement bnad_tx_select_queue() which enables the correct selection of
+   TxQ Id (and tcb). This function is called either by the kernel to channel
+   packets to the right TxQ
+ - bnad_tx_select_queue() returns priority, while only a few packets during
+   transition could have wrong priority, all will be associated with a valid
+   non-NULL tcb.
+ - Implement bnad_iscsi_tcb_get() and BNAD_IS_ISCSI_PKT() for iSCSI packet
+   inspection and retrieval of tcb corresponding to the iSCSI priority.
+ - Construction of priority indirection table to be used by bnad to direct
+   packets into TxQs
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |   83 ++++++++++++++++++++-----------
- drivers/net/ethernet/brocade/bna/bnad.h |    1 +
- 2 files changed, 54 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna.h  |    8 ++
+ drivers/net/ethernet/brocade/bna/bnad.c |  131 ++++++++++++++++++++++++-------
+ drivers/net/ethernet/brocade/bna/bnad.h |   13 +++-
+ 3 files changed, 121 insertions(+), 31 deletions(-)
 
+diff --git a/drivers/net/ethernet/brocade/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
+index 2a587c5..e4f914c 100644
+--- a/drivers/net/ethernet/brocade/bna/bna.h
++++ b/drivers/net/ethernet/brocade/bna/bna.h
+@@ -351,6 +351,14 @@ do {									\
+ 	}								\
+ } while (0)
+ 
++#define bna_prio_allowed(_bna, _prio) ((_bna)->tx_mod.prio_map & (1 << _prio))
++
++#define bna_iscsi_prio(_bna) ((_bna)->tx_mod.iscsi_prio)
++
++#define bna_default_prio(_bna) ((_bna)->tx_mod.default_prio)
++
++#define bna_is_iscsi_over_cee(_bna) ((_bna)->tx_mod.iscsi_over_cee)
++
+ /**
+  *
+  *  Inline functions
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 8db7247..327b274 100644
+index 327b274..895f18b 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -535,16 +535,11 @@ next:
- 
- 	BNA_QE_INDX_ADD(ccb->producer_index, wis, ccb->q_depth);
- 
--	if (likely(ccb)) {
--		if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
--			bna_ib_ack(ccb->i_dbell, packets);
--		bnad_refill_rxq(bnad, ccb->rcb[0]);
--		if (ccb->rcb[1])
--			bnad_refill_rxq(bnad, ccb->rcb[1]);
--	} else {
--		if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
--			bna_ib_ack(ccb->i_dbell, 0);
--	}
-+	if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
-+		bna_ib_ack(ccb->i_dbell, packets);
-+	bnad_refill_rxq(bnad, ccb->rcb[0]);
-+	if (ccb->rcb[1])
-+		bnad_refill_rxq(bnad, ccb->rcb[1]);
- 
- 	clear_bit(BNAD_FP_IN_RX_PATH, &rx_ctrl->flags);
- 
-@@ -590,9 +585,9 @@ static irqreturn_t
- bnad_msix_rx(int irq, void *data)
+@@ -246,7 +246,7 @@ bnad_tx_free_tasklet(unsigned long bnad_ptr)
  {
- 	struct bna_ccb *ccb = (struct bna_ccb *)data;
--	struct bnad *bnad = ccb->bnad;
+ 	struct bnad *bnad = (struct bnad *)bnad_ptr;
+ 	struct bna_tcb *tcb;
+-	u32		acked = 0;
++	u32		acked = 0, txq_id;
+ 	int			i, j;
  
--	bnad_netif_rx_schedule_poll(bnad, ccb);
-+	if (ccb)
-+		bnad_netif_rx_schedule_poll(ccb->bnad, ccb);
- 
- 	return IRQ_HANDLED;
- }
-@@ -1658,18 +1653,14 @@ bnad_napi_poll_rx(struct napi_struct *napi, int budget)
+ 	for (i = 0; i < bnad->num_tx; i++) {
+@@ -265,14 +265,20 @@ bnad_tx_free_tasklet(unsigned long bnad_ptr)
+ 				smp_mb__before_clear_bit();
+ 				clear_bit(BNAD_TXQ_FREE_SENT, &tcb->flags);
+ 			}
++			/*
++			 * Check again, because this bit can be set from another
++			 * context. This is not lock protected.
++			 */
+ 			if (unlikely(!test_bit(BNAD_TXQ_TX_STARTED,
+ 						&tcb->flags)))
+ 				continue;
+-			if (netif_queue_stopped(bnad->netdev)) {
++			txq_id = tcb->id;
++			if (__netif_subqueue_stopped(bnad->netdev, txq_id)) {
+ 				if (acked && netif_carrier_ok(bnad->netdev) &&
+ 					BNA_QE_FREE_CNT(tcb, tcb->q_depth) >=
+ 						BNAD_NETIF_WAKE_THRESHOLD) {
+-					netif_wake_queue(bnad->netdev);
++					netif_wake_subqueue(bnad->netdev,
++									txq_id);
+ 					/* TODO */
+ 					/* Counters for individual TxQs? */
+ 					BNAD_UPDATE_CTR(bnad,
+@@ -287,19 +293,21 @@ static u32
+ bnad_tx(struct bnad *bnad, struct bna_tcb *tcb)
  {
- 	struct bnad_rx_ctrl *rx_ctrl =
- 		container_of(napi, struct bnad_rx_ctrl, napi);
--	struct bna_ccb *ccb;
--	struct bnad *bnad;
-+	struct bnad *bnad = rx_ctrl->bnad;
- 	int rcvd = 0;
+ 	struct net_device *netdev = bnad->netdev;
+-	u32 sent = 0;
++	u32 sent = 0, txq_id;
  
--	ccb = rx_ctrl->ccb;
--
--	bnad = ccb->bnad;
+ 	if (test_and_set_bit(BNAD_TXQ_FREE_SENT, &tcb->flags))
+ 		return 0;
  
- 	if (!netif_carrier_ok(bnad->netdev))
- 		goto poll_exit;
- 
--	rcvd = bnad_poll_cq(bnad, ccb, budget);
-+	rcvd = bnad_poll_cq(bnad, rx_ctrl->ccb, budget);
- 	if (rcvd == budget)
- 		return rcvd;
- 
-@@ -1678,12 +1669,15 @@ poll_exit:
- 
- 	BNAD_UPDATE_CTR(bnad, netif_rx_complete);
- 
--	bnad_enable_rx_irq(bnad, ccb);
+ 	sent = bnad_free_txbufs(bnad, tcb);
+ 	if (sent) {
+-		if (netif_queue_stopped(netdev) &&
++		txq_id = tcb->id;
 +
-+	if (rx_ctrl->ccb)
-+		bnad_enable_rx_irq(bnad, rx_ctrl->ccb);
- 	return rcvd;
- }
- 
-+#define BNAD_NAPI_POLL_QUOTA		64
++		if (__netif_subqueue_stopped(netdev, txq_id) &&
+ 		    netif_carrier_ok(netdev) &&
+ 		    BNA_QE_FREE_CNT(tcb, tcb->q_depth) >=
+ 				    BNAD_NETIF_WAKE_THRESHOLD) {
+ 			if (test_bit(BNAD_TXQ_TX_STARTED, &tcb->flags)) {
+-				netif_wake_queue(netdev);
++				netif_wake_subqueue(netdev, txq_id);
+ 				BNAD_UPDATE_CTR(bnad, netif_queue_wakeup);
+ 			}
+ 		}
+@@ -2247,38 +2255,45 @@ bnad_tso_prepare(struct bnad *bnad, struct sk_buff *skb)
  static void
--bnad_napi_enable(struct bnad *bnad, u32 rx_id)
-+bnad_napi_init(struct bnad *bnad, u32 rx_id)
+ bnad_q_num_init(struct bnad *bnad)
  {
- 	struct bnad_rx_ctrl *rx_ctrl;
- 	int i;
-@@ -1691,9 +1685,20 @@ bnad_napi_enable(struct bnad *bnad, u32 rx_id)
- 	/* Initialize & enable NAPI */
- 	for (i = 0; i <	bnad->num_rxp_per_rx; i++) {
- 		rx_ctrl = &bnad->rx_info[rx_id].rx_ctrl[i];
--
- 		netif_napi_add(bnad->netdev, &rx_ctrl->napi,
--			       bnad_napi_poll_rx, 64);
-+			       bnad_napi_poll_rx, BNAD_NAPI_POLL_QUOTA);
+-	int rxps;
++	int rxps = min((u32)num_online_cpus(),
++			(u32)(BNAD_MAX_RXP_PER_RX));
+ 
+-	rxps = min((uint)num_online_cpus(),
+-			(uint)(BNAD_MAX_RX * BNAD_MAX_RXP_PER_RX));
++	BNA_TO_POWER_OF_2(rxps);
+ 
+ 	if (!(bnad->cfg_flags & BNAD_CF_MSIX))
+ 		rxps = 1;	/* INTx */
+ 
+-	bnad->num_rx = 1;
+-	bnad->num_tx = 1;
++	bnad->num_rx = BNAD_MAX_RX;
++	bnad->num_tx = BNAD_MAX_TX;
+ 	bnad->num_rxp_per_rx = rxps;
+-	bnad->num_txq_per_tx = BNAD_TXQ_NUM;
++	bnad->num_txq_per_tx = BNAD_MAX_TXQ_PER_TX;
+ }
+ 
+ /*
+- * Adjusts the Q numbers, given a number of msix vectors
++ * Adjusts the Q numbers, given a number of max possible queues.
+  * Give preference to RSS as opposed to Tx priority Queues,
+  * in such a case, just use 1 Tx Q
+  * Called with bnad->bna_lock held b'cos of cfg_flags access
+  */
+ static void
+-bnad_q_num_adjust(struct bnad *bnad, int msix_vectors, int temp)
++bnad_q_num_adjust(struct bnad *bnad, int max_txq, int max_rxq)
+ {
+-	bnad->num_txq_per_tx = 1;
+-	if ((msix_vectors >= (bnad->num_tx * bnad->num_txq_per_tx)  +
+-	     bnad_rxqs_per_cq + BNAD_MAILBOX_MSIX_VECTORS) &&
+-	    (bnad->cfg_flags & BNAD_CF_MSIX)) {
+-		bnad->num_rxp_per_rx = msix_vectors -
+-			(bnad->num_tx * bnad->num_txq_per_tx) -
+-			BNAD_MAILBOX_MSIX_VECTORS;
+-	} else
+-		bnad->num_rxp_per_rx = 1;
++	if (!(bnad->cfg_flags & BNAD_CF_MSIX)) {
++		bnad->num_tx = bnad->num_txq_per_tx = 1;
++		bnad->num_rx = bnad->num_rxp_per_rx = 1;
++		return;
 +	}
-+}
 +
-+static void
-+bnad_napi_enable(struct bnad *bnad, u32 rx_id)
-+{
-+	struct bnad_rx_ctrl *rx_ctrl;
-+	int i;
++	if (max_txq < BNAD_NUM_TXQ) {
++		bnad->num_txq_per_tx = 1;
++		bnad->num_tx = 1;
++	}
 +
-+	/* Initialize & enable NAPI */
-+	for (i = 0; i <	bnad->num_rxp_per_rx; i++) {
-+		rx_ctrl = &bnad->rx_info[rx_id].rx_ctrl[i];
- 
- 		napi_enable(&rx_ctrl->napi);
- 	}
-@@ -1732,6 +1737,9 @@ bnad_cleanup_tx(struct bnad *bnad, u32 tx_id)
- 		bnad_tx_msix_unregister(bnad, tx_info,
- 			bnad->num_txq_per_tx);
- 
-+	if (0 == tx_id)
-+		tasklet_kill(&bnad->tx_free_tasklet);
-+
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_tx_destroy(tx_info->tx);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-@@ -1739,9 +1747,6 @@ bnad_cleanup_tx(struct bnad *bnad, u32 tx_id)
- 	tx_info->tx = NULL;
- 	tx_info->tx_id = 0;
- 
--	if (0 == tx_id)
--		tasklet_kill(&bnad->tx_free_tasklet);
--
- 	bnad_tx_res_free(bnad, res_info);
++	bnad->num_rx = 1;
++	bnad->num_rxp_per_rx = min((u32)(min((u32)num_online_cpus(),
++					(u32)(BNAD_MAX_RXP_PER_RX))),
++					(u32)max_rxq);
++	BNA_TO_POWER_OF_2(bnad->num_rxp_per_rx);
  }
  
-@@ -1852,6 +1857,16 @@ bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
- 	rx_config->vlan_strip_status = BNA_STATUS_T_ENABLED;
+ /* Enable / disable ioceth */
+@@ -2537,15 +2552,15 @@ static netdev_tx_t
+ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct bnad *bnad = netdev_priv(netdev);
+-	u32 txq_id = 0;
+-	struct bna_tcb *tcb = bnad->tx_info[0].tcb[txq_id];
++	struct bna_tcb *tcb = NULL;
++	u32 txq_id;
++	struct bnad_unmap_q *unmap_q;
+ 
+ 	u16		txq_prod, vlan_tag = 0;
+ 	u32		unmap_prod, wis, wis_used, wi_range;
+ 	u32		vectors, vect_id, i, acked;
+ 	int			err;
+ 
+-	struct bnad_unmap_q *unmap_q = tcb->unmap_q;
+ 	dma_addr_t		dma_addr;
+ 	struct bna_txq_entry *txqent;
+ 	u16	flags;
+@@ -2556,6 +2571,16 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 		return NETDEV_TX_OK;
+ 	}
+ 
++	txq_id = skb_get_queue_mapping(skb);
++
++	tcb = bnad->tx_info[0].tcb[txq_id];
++
++	if (unlikely(!tcb)) {
++		dev_kfree_skb(skb);
++		return NETDEV_TX_OK;
++	}
++
++	unmap_q = tcb->unmap_q;
+ 	/*
+ 	 * Takes care of the Tx that is scheduled between clearing the flag
+ 	 * and the netif_stop_all_queue() call.
+@@ -2583,7 +2608,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 			smp_mb__before_clear_bit();
+ 			clear_bit(BNAD_TXQ_FREE_SENT, &tcb->flags);
+ 		} else {
+-			netif_stop_queue(netdev);
++			netif_stop_subqueue(netdev, txq_id);
+ 			BNAD_UPDATE_CTR(bnad, netif_queue_stop);
+ 		}
+ 
+@@ -2599,7 +2624,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 			BNAD_UPDATE_CTR(bnad, netif_queue_stop);
+ 			return NETDEV_TX_BUSY;
+ 		} else {
+-			netif_wake_queue(netdev);
++			netif_wake_subqueue(netdev, txq_id);
+ 			BNAD_UPDATE_CTR(bnad, netif_queue_wakeup);
+ 		}
+ 	}
+@@ -2624,7 +2649,8 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	}
+ 	if (test_bit(BNAD_RF_CEE_RUNNING, &bnad->run_flags)) {
+ 		vlan_tag =
+-			(tcb->priority & 0x7) << 13 | (vlan_tag & 0x1fff);
++			((tcb->priority & 0x7) << VLAN_PRIO_SHIFT)
++							| (vlan_tag & 0x1fff);
+ 		flags |= (BNA_TXQ_WI_CF_INS_PRIO | BNA_TXQ_WI_CF_INS_VLAN);
+ 	}
+ 
+@@ -2771,6 +2797,50 @@ bnad_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
+ 	return stats;
  }
  
-+static void
-+bnad_rx_ctrl_init(struct bnad *bnad, u32 rx_id)
++static bool bnad_is_iscsi(struct sk_buff *skb)
 +{
-+	struct bnad_rx_info *rx_info = &bnad->rx_info[rx_id];
-+	int i;
++	u16		proto = 0;
++	struct tcphdr		*th;
 +
-+	for (i = 0; i < bnad->num_rxp_per_rx; i++)
-+		rx_info->rx_ctrl[i].bnad = bnad;
++	if (skb->protocol == htons(ETH_P_IP))
++		proto = ip_hdr(skb)->protocol;
++	else if (skb->protocol == htons(ETH_P_IPV6))
++		/* nexthdr may not be TCP immediately. */
++		proto = ipv6_hdr(skb)->nexthdr;
++	if (proto == IPPROTO_TCP) {
++		th = tcp_hdr(skb);
++		if (BNAD_IS_ISCSI_PKT(th))
++			return true;
++	}
++
++	return false;
 +}
 +
- /* Called with mutex_lock(&bnad->conf_mutex) held */
- void
- bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
-@@ -1875,8 +1890,6 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
- 			del_timer_sync(&bnad->dim_timer);
- 	}
- 
--	bnad_napi_disable(bnad, rx_id);
--
- 	init_completion(&bnad->bnad_completions.rx_comp);
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_rx_disable(rx_info->rx, BNA_HARD_CLEANUP, bnad_cb_rx_disabled);
-@@ -1886,6 +1899,8 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
- 	if (rx_info->rx_ctrl[0].ccb->intr_type == BNA_INTR_T_MSIX)
- 		bnad_rx_msix_unregister(bnad, rx_info, rx_config->num_paths);
- 
-+	bnad_napi_disable(bnad, rx_id);
++static u16
++bnad_tx_select_queue(struct net_device *netdev, struct sk_buff *skb)
++{
++	struct bnad *bnad =  netdev_priv(netdev);
++	struct bna *bna = &bnad->bna;
++	u8	prio = 0;
 +
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_rx_destroy(rx_info->rx);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-@@ -1939,6 +1954,8 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 	if (err)
- 		return err;
- 
-+	bnad_rx_ctrl_init(bnad, rx_id);
++	if (bnad->num_txq_per_tx < BFI_TX_MAX_PRIO)
++		prio = 0;
++	else if (bna_is_iscsi_over_cee(&bnad->bna) && bnad_is_iscsi(skb))
++		prio = bna_iscsi_prio(bna);
++	else if (vlan_tx_tag_present(skb)) {
++		u8 pkt_vlan_prio = 0;
++		u16 pkt_vlan_tag = 0;
++		pkt_vlan_tag = (u16)vlan_tx_tag_get(skb);
++		pkt_vlan_prio = (pkt_vlan_tag & VLAN_PRIO_MASK)
++					>> VLAN_PRIO_SHIFT;
++		prio = bna_prio_allowed(bna, pkt_vlan_prio) ?
++			pkt_vlan_prio : bna_default_prio(bna);
++	} else
++		prio = bna_default_prio(bna);
 +
- 	/* Ask BNA to create one Rx object, supplying required resources */
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	rx = bna_rx_create(&bnad->bna, bnad, rx_config, &rx_cbfn, res_info,
-@@ -1948,6 +1965,12 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 		goto err_return;
- 	rx_info->rx = rx;
- 
-+	/*
-+	 * Init NAPI, so that state is set to NAPI_STATE_SCHED,
-+	 * so that IRQ handler cannot schedule NAPI at this point.
-+	 */
-+	bnad_napi_init(bnad, rx_id);
++	return (u16)prio;
++}
 +
- 	/* Register ISR for the Rx object */
- 	if (intr_info->intr_type == BNA_INTR_T_MSIX) {
- 		err = bnad_rx_msix_register(bnad, rx_info, rx_id,
-@@ -1956,9 +1979,6 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 			goto err_return;
- 	}
- 
--	/* Enable NAPI */
--	bnad_napi_enable(bnad, rx_id);
--
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	if (0 == rx_id) {
- 		/* Set up Dynamic Interrupt Moderation Vector */
-@@ -1975,6 +1995,9 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 	bna_rx_enable(rx);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 
-+	/* Enable scheduling of NAPI */
-+	bnad_napi_enable(bnad, rx_id);
-+
- 	return 0;
- 
- err_return:
+ static void
+ bnad_set_rx_mode(struct net_device *netdev)
+ {
+@@ -2977,6 +3047,7 @@ bnad_netpoll(struct net_device *netdev)
+ static const struct net_device_ops bnad_netdev_ops = {
+ 	.ndo_open		= bnad_open,
+ 	.ndo_stop		= bnad_stop,
++	.ndo_select_queue	= bnad_tx_select_queue,
+ 	.ndo_start_xmit		= bnad_start_xmit,
+ 	.ndo_get_stats64		= bnad_get_stats64,
+ 	.ndo_set_rx_mode	= bnad_set_rx_mode,
+@@ -3173,7 +3244,7 @@ bnad_pci_probe(struct pci_dev *pdev,
+ 	 * Allocates sizeof(struct net_device + struct bnad)
+ 	 * bnad = netdev->priv
+ 	 */
+-	netdev = alloc_etherdev(sizeof(struct bnad));
++	netdev = alloc_etherdev_mq(sizeof(struct bnad), BNAD_MAX_TXQ);
+ 	if (!netdev) {
+ 		dev_err(&pdev->dev, "netdev allocation failed\n");
+ 		err = -ENOMEM;
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index 3c23139..60c2e9d 100644
+index 60c2e9d..c8664d5 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.h
 +++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -53,6 +53,7 @@
-  */
- struct bnad_rx_ctrl {
- 	struct bna_ccb *ccb;
-+	struct bnad *bnad;
- 	unsigned long  flags;
- 	struct napi_struct	napi;
- };
+@@ -40,7 +40,6 @@
+ 
+ #define BNAD_MAX_TX		1
+ #define BNAD_MAX_TXQ_PER_TX	8	/* 8 priority queues */
+-#define BNAD_TXQ_NUM		1
+ 
+ #define BNAD_MAX_RX		1
+ #define BNAD_MAX_RXP_PER_RX	16
+@@ -98,6 +97,9 @@ struct bnad_rx_ctrl {
+ #define BNAD_RXQ_STARTED		1
+ 
+ /* Resource limits */
++#define BNAD_MAX_TXQ			(BNAD_MAX_TX * BNAD_MAX_TXQ_PER_TX)
++#define BNAD_MAX_RXP			(BNAD_MAX_RX * BNAD_MAX_RXP_PER_RX)
++
+ #define BNAD_NUM_TXQ			(bnad->num_tx * bnad->num_txq_per_tx)
+ #define BNAD_NUM_RXP			(bnad->num_rx * bnad->num_rxp_per_rx)
+ 
+@@ -231,6 +233,15 @@ struct bnad_unmap_q {
+ /* Defined as bit positions */
+ #define BNAD_FP_IN_RX_PATH	      0
+ 
++/*
++ * Deep Inspection : Checks if packet is ISCSI based on
++ * standard iSCSI port
++ */
++#define BNAD_TCP_ISCSI_PORT 3260
++#define BNAD_IS_ISCSI_PKT(_tch)				\
++(((_tch)->source == ntohs(BNAD_TCP_ISCSI_PORT)) ||	\
++	((_tch)->dest == ntohs(BNAD_TCP_ISCSI_PORT)))
++
+ struct bnad {
+ 	struct net_device	*netdev;
+ 
 -- 
 1.7.1
 
