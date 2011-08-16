@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sit tunnels: propagate IPv6 transport class to IPv4
- Type of Service
-Date: Tue, 16 Aug 2011 16:30:36 -0700 (PDT)
-Message-ID: <20110816.163036.838746426835627017.davem@davemloft.net>
-References: <20110814000438.GA30127@capsaicin.mamane.lu>
+Subject: Re: [PATCH net-next 4/5] ethtool: Explicitly state the exit
+ condition for interrupt coalescing
+Date: Tue, 16 Aug 2011 16:36:53 -0700 (PDT)
+Message-ID: <20110816.163653.254574274746456949.davem@davemloft.net>
+References: <1313453180.2731.57.camel@bwh-desktop>
+	<1313453317.2731.60.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: lionel@mamane.lu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110814000438.GA30127@capsaicin.mamane.lu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eli@dev.mellanox.co.il
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42615 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752957Ab1HPXg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 19:36:58 -0400
+In-Reply-To: <1313453317.2731.60.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lionel Elie Mamane <lionel@mamane.lu>
-Date: Sun, 14 Aug 2011 02:04:38 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 16 Aug 2011 01:08:37 +0100
 
-> sit tunnels (IPv6 tunnel over IPv4) do not implement the "tos inherit"
-> case to copy the IPv6 transport class byte from the inner packet to
-> the IPv4 type of service byte in the outer packet. By contrast, ipip
-> tunnels and GRE tunnels do.
+> Also explicitly state how to disable interrupt coalescing.
 > 
-> This patch, adapted from the similar code in net/ipv4/ipip.c and
-> net/ipv4/ip_gre.c, implements that.
+> Remove the now-redundant text from field descriptions.
 > 
-> This patch applies to 3.0.1, and has been tested on that version.
-> 
-> 
-> Signed-off-by: Lionel Elie Mamane <lionel@mamane.lu>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Applied, thanks.
+Applied.
