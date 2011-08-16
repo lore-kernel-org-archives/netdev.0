@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/5] ethtool: Correct description of
- 'max_coalesced_frames' fields
-Date: Tue, 16 Aug 2011 16:36:48 -0700 (PDT)
-Message-ID: <20110816.163648.1633803245748781972.davem@davemloft.net>
-References: <1313453180.2731.57.camel@bwh-desktop>
-	<1313453267.2731.59.camel@bwh-desktop>
+Subject: Re: [PATCH] sit tunnels: propagate IPv6 transport class to IPv4
+ Type of Service
+Date: Tue, 16 Aug 2011 16:30:36 -0700 (PDT)
+Message-ID: <20110816.163036.838746426835627017.davem@davemloft.net>
+References: <20110814000438.GA30127@capsaicin.mamane.lu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eli@dev.mellanox.co.il
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42605 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752001Ab1HPXgu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 19:36:50 -0400
-In-Reply-To: <1313453267.2731.59.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: lionel@mamane.lu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110814000438.GA30127@capsaicin.mamane.lu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 16 Aug 2011 01:07:47 +0100
+From: Lionel Elie Mamane <lionel@mamane.lu>
+Date: Sun, 14 Aug 2011 02:04:38 +0200
 
-> The current descriptions state that these fields specify 'How many
-> packets to delay ... after a packet ...' which implies that the
-> hardware should wait for (max_coalesced_frames + 1) completions before
-> generating an interrupt.  It is also stated that setting both this
-> field and the corresponding 'coalesce_usecs' field to 0 is invalid.
-> Together, this implies that the hardware must always be configured
-> to delay a completion IRQ for at least 1 usec or 1 more completion.
+> sit tunnels (IPv6 tunnel over IPv4) do not implement the "tos inherit"
+> case to copy the IPv6 transport class byte from the inner packet to
+> the IPv4 type of service byte in the outer packet. By contrast, ipip
+> tunnels and GRE tunnels do.
 > 
-> I believe that the addition of 1 is not intended, and David Miller
-> confirms that the original implementation (in tg3) does not do this.
-> Clarify the descriptions of these fields to avoid this interpretation.
+> This patch, adapted from the similar code in net/ipv4/ipip.c and
+> net/ipv4/ip_gre.c, implements that.
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> This patch applies to 3.0.1, and has been tested on that version.
+> 
+> 
+> Signed-off-by: Lionel Elie Mamane <lionel@mamane.lu>
 
-Applied.
+Applied, thanks.
