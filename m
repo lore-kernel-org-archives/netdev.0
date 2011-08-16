@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree (net
- tree related)
-Date: Tue, 16 Aug 2011 00:17:11 -0700 (PDT)
-Message-ID: <20110816.001711.169179303753669881.davem@davemloft.net>
-References: <20110816152815.911f15937efa2ebf58a2795d@canb.auug.org.au>
-	<20110815.231116.1728582609642497613.davem@davemloft.net>
-	<20110816165744.5c069b0c9f2e329e48ecd7d0@canb.auug.org.au>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: =?UTF-8?q?=5Bpatch=20net-2=2E6=5D=20via-velocity=3A=20remove=20non-tagged=20packet=20filtering?=
+Date: Tue, 16 Aug 2011 10:33:34 +0200
+Message-ID: <1313483614-2188-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110816165744.5c069b0c9f2e329e48ecd7d0@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, shemminger@linux-foundation.org,
+	romieu@fr.zoreil.com, stephan.baerwolf@tu-ilmenau.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:64788 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751020Ab1HPIdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2011 04:33:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 16 Aug 2011 16:57:44 +1000
+It's undesired to filter untagged packets at any time. So simply remove=
+ this.
 
-> Hi Dave,
-> 
-> On Mon, 15 Aug 2011 23:11:16 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
->>
->> Please test this patch:
->> 
->> --------------------
->> net: Fix sungem_phy sharing.
-> 
-> This fixes my allyesconfig build (and doesn't break any of the others :-)).
-> 
-> Tested-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Reported-by: Stephan B=C3=A4rwolf <stephan.baerwolf@tu-ilmenau.de>
+Tested-by: Stephan B=C3=A4rwolf <stephan.baerwolf@tu-ilmenau.de>
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/via-velocity.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-Thanks a lot for testing.
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index deb1eca..7c5336c 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -515,10 +515,6 @@ static void velocity_init_cam_filter(struct veloci=
+ty_info *vptr)
+ 	mac_set_cam_mask(regs, vptr->mCAMmask);
+=20
+ 	/* Enable VCAMs */
+-
+-	if (test_bit(0, vptr->active_vlans))
+-		WORD_REG_BITS_ON(MCFG_RTGOPT, &regs->MCFG);
+-
+ 	for_each_set_bit(vid, vptr->active_vlans, VLAN_N_VID) {
+ 		mac_set_vlan_cam(regs, i, (u8 *) &vid);
+ 		vptr->vCAMmask[i / 8] |=3D 0x1 << (i % 8);
+--=20
+1.7.6
+
