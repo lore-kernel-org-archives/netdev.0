@@ -1,30 +1,92 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] Rename 'n' into a longer variable name.
-Date: Tue, 16 Aug 2011 11:47:31 -0700 (PDT)
-Message-ID: <20110816.114731.1896288385663354570.davem@davemloft.net>
-References: <20110816105648.1805137.35191.stgit@fsdevel3>
-	<20110816105659.1805137.44398.stgit@fsdevel3>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: add Documentation/networking/scaling.txt
+Date: Tue, 16 Aug 2011 20:53:24 +0100
+Message-ID: <1313524404.2725.50.camel@bwh-desktop>
+References: <alpine.DEB.2.00.1107312346350.28722@pokey.mtv.corp.google.com>
+	 <4E36F524.7090301@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: bernd.schubert-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110816105659.1805137.44398.stgit@fsdevel3>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <therbert@google.com>, rdunlap@xenotime.net,
+	linux-doc@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, willemb@google.com
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:53943 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043Ab1HPTxa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 15:53:30 -0400
+In-Reply-To: <4E36F524.7090301@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bernd Schubert <bernd.schubert-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Date: Tue, 16 Aug 2011 12:56:59 +0200
+On Mon, 2011-08-01 at 11:49 -0700, Rick Jones wrote:
+> On 07/31/2011 11:56 PM, Tom Herbert wrote:
+> > Describes RSS, RPS, RFS, accelerated RFS, and XPS.
+> >
+> > Signed-off-by: Tom Herbert<therbert@google.com>
+> > ---
+> >   Documentation/networking/scaling.txt |  346 ++++++++++++++++++++++++++++++++++
+> >   1 files changed, 346 insertions(+), 0 deletions(-)
+> >   create mode 100644 Documentation/networking/scaling.txt
+> >
+> > diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
+> > new file mode 100644
+> > index 0000000..aa51f0f
+> > --- /dev/null
+> > +++ b/Documentation/networking/scaling.txt
+> > @@ -0,0 +1,346 @@
+> > +Scaling in the Linux Networking Stack
+> > +
+> > +
+> > +Introduction
+> > +============
+> > +
+> > +This document describes a set of complementary techniques in the Linux
+> > +networking stack to increase parallelism and improve performance (in
+> > +throughput, latency, CPU utilization, etc.) for multi-processor systems.
+> 
+> Why not just leave-out the parenthetical lest some picky pedant find a 
+> specific example where either of those three are not improved?
 
-> When it comes to me variable names consisting of a single letter
-> should be forbidden by coding style guide lines, as it is rather
-> difficult to search for single letter, such as 'n'.
+As I'm sure you're aware, there is often a trade-off between throughput
+and latency.  It might be useful to provide some guidelines for
+optimising each of the above.
 
-I totally disagree and use such things aggressively myself.
+[...]
+> > +== RSS IRQ Configuration
+> > +
+> > +Each receive queue has a separate IRQ associated with it. The NIC
+> > +triggers this to notify a CPU when new packets arrive on the given
+> > +queue. The signaling path for PCIe devices uses message signaled
+> > +interrupts (MSI-X), that can route each interrupt to a particular CPU.
+> > +The active mapping of queues to IRQs can be determined from
+> > +/proc/interrupts. By default, all IRQs are routed to CPU0.  Because a
+> 
+> Really?
 
-I am not applying this patch.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The default affinity for most IRQs is all-CPUs.  At least on x86, that
+really means CPU 0 only, so far as I can see.
+
+[...]
+> > +== Accelerated RFS Configuration
+> > +
+> > +Accelerated RFS is only available if the kernel is compiled with
+> > +CONFIG_RFS_ACCEL and support is provided by the NIC device and driver.
+> > +It also requires that ntuple filtering is enabled via ethtool.
+> 
+> Requires that ntuple filtering be enabled?
+[...]
+
+As a matter of fact, n-tuple filtering is enabled by default where
+available.  So it might actually make more sense to say that RFS
+acceleration can be *disabled* by disabling n-tuple filtering using
+ethtool.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
