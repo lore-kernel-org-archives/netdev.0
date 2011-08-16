@@ -1,45 +1,56 @@
-From: Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>
-Subject: Re: 3.1-rc1-git9: Reported regressions 2.6.39 -> 3.0
-Date: Tue, 16 Aug 2011 16:57:04 +0200
-Message-ID: <20110816165704.59fda93d@schatten.dmk.lab>
-References: <xuTC4jRtHbB.A.l4H.gMCSOB@chimera>
-	<4E498E09.1000208@fastmail.fm>
+From: <panduranga_mallireddy@ti.com>
+Subject: [PATCH 1/1] OMAP: wlan: Set the WLAN Regulator to be
+	always on
+Date: Tue, 16 Aug 2011 10:03:57 -0500
+Message-ID: <1313507037-2467-2-git-send-email-panduranga_mallireddy@ti.com>
+References: <1313507037-2467-1-git-send-email-panduranga_mallireddy@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Bernd Schubert <bernd.schubert-97jfqw80gc6171pxa8y+qA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4E498E09.1000208-97jfqw80gc6171pxa8y+qA@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: ohad@wizery.com, Panduranga Mallireddy <panduranga_mallireddy@ti.com>,
+        pradeepgurumath@ti.com, coelho@ti.com, netdev@vger.kernel.org,
+        naveen_jain@ti.com, x-boudet@ti.com, vishalm@ti.com,
+        manjunatha_halli@ti.com, benzyg@ti.com, linux-omap@vger.kernel.org
+To: <stable@kernel.org>
+Return-path: <stable-bounces@linux.kernel.org>
+In-Reply-To: <1313507037-2467-1-git-send-email-panduranga_mallireddy@ti.com>
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Aug 2011 23:22:17 +0200
-Bernd Schubert <bernd.schubert-97jfqw80gc6171pxa8y+qA@public.gmane.org> wrote:
+From: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
 
-> On 08/14/2011 09:02 PM, Rafael J. Wysocki wrote:
-> 
-> > Please let the tracking team know if there are any Bugzilla entries that
-> > should be added to the list in there.
-> > 
-> 
-> Could you please add
-> 
-> Bug-Entry       : https://bugzilla.kernel.org/show_bug.cgi?id=41212
-> Subject         : ipoib causes kernel panic (NULL pointer dereference)
-> Submitter       : Bernd Schubert <bernd.schubert-97jfqw80gc6171pxa8y+qA@public.gmane.org>
-> Date            : 2011-08-15 15:40
-> Patch           : https://bugzilla.kernel.org/attachment.cgi?id=68942
-> 
-> 
-> Thanks,
-> Bernd
+For regulator omap4_clk32k used by wlan, set .constraints.always_on to 1.
+This regulator should never be disabled.
 
-Done. Please submit the patch to netdev mailinglist for review. 
+Signed-off-by: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
+---
+ arch/arm/mach-omap2/twl-common.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Regards,
-Flo
+diff --git a/arch/arm/mach-omap2/twl-common.c b/arch/arm/mach-omap2/twl-common.c
+index 2543342..536ad71 100644
+--- a/arch/arm/mach-omap2/twl-common.c
++++ b/arch/arm/mach-omap2/twl-common.c
+@@ -229,6 +229,7 @@ static struct regulator_init_data omap4_vusb_idata = {
+ static struct regulator_init_data omap4_clk32kg_idata = {
+ 	.constraints = {
+ 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
++		.always_on			= true,
+ 	},
+ };
+ 
+-- 
+1.7.1
+
+_______________________________________________
+stable mailing list
+stable@linux.kernel.org
+http://linux.kernel.org/mailman/listinfo/stable
