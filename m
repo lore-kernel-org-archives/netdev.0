@@ -1,64 +1,46 @@
-From: Bill Matern <wtm@ncomm.com>
-Subject: Re: 802.3ah on linux
-Date: Tue, 16 Aug 2011 19:52:32 +0000 (UTC)
-Message-ID: <loom.20110816T214341-418@post.gmane.org>
-References: <CAChS5kNRi2Wn5VqZ4EewdFF6e+ChDYFiLxHJAbnB3-_ota_7hA@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 2/3] net: remove use of
+ ndo_set_multicast_list in drivers
+Date: Tue, 16 Aug 2011 22:07:45 +0200
+Message-ID: <20110816200744.GA1971@minipsycho>
+References: <1313512142-3355-1-git-send-email-jpirko@redhat.com>
+ <1313512142-3355-3-git-send-email-jpirko@redhat.com>
+ <1313520028.2725.35.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, eric.dumazet@gmail.com,
+	kaber@trash.net, yoshfuji@linux-ipv6.org, rdunlap@xenotime.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, mirqus@gmail.com,
+	jesse@nicira.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:60044 "EHLO lo.gmane.org"
+Received: from mx1.redhat.com ([209.132.183.28]:40003 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751653Ab1HPTzO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2011 15:55:14 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1QtPj9-0004no-1V
-	for netdev@vger.kernel.org; Tue, 16 Aug 2011 21:55:07 +0200
-Received: from c-24-128-182-194.hsd1.nh.comcast.net ([24.128.182.194])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 16 Aug 2011 21:55:07 +0200
-Received: from wtm by c-24-128-182-194.hsd1.nh.comcast.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 16 Aug 2011 21:55:07 +0200
+	id S1751485Ab1HPUJA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2011 16:09:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1313520028.2725.35.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Satendra... <satendra.pratap <at> gmail.com> writes:
+Tue, Aug 16, 2011 at 08:40:28PM CEST, bhutchings@solarflare.com wrote:
+>On Tue, 2011-08-16 at 18:29 +0200, Jiri Pirko wrote:
+>> replace it by ndo_set_rx_mode
+>[...]
+>
+>Shouldn't this also rename the implementations whose names include
+>'multicast'?
 
-> 
-> Hi,
-> 
-> Does linux kernel has support for 802.3ah ? if yes could u plz mention
-> the version?
-> 
-> Thanks,
-> Satendra
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo <at> vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+I was thinking about that. But sometimes it's not absolutelly trivial.
+Also, I think that perserving the existing names would cause any
+troubles so I left that as it is. Feel free to do incremental patch :)
 
-
-Satendra,
-
-NComm offers a complete solution for IEEE 802.3ah (now Clause 57) under 
-multiple versions of Linux.  In addition, we support both IEEE 802.3ag and ITU 
-Y.1731.  We can provide a solution that can get you up and running in a week or 
-less.
-
-You can contact us at  info@ncomm.com
-
-Regards,
-Bill Matern
-wtm at ncomm.com
-www.ncomm.com
-603-329-5221 x32
-
-
-
-
+>
+>Ben.
+>
+>-- 
+>Ben Hutchings, Staff Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
+>
