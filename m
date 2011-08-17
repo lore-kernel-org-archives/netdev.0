@@ -1,54 +1,68 @@
-From: Pascal Hambourg <pascal@plouf.fr.eu.org>
-Subject: Re: Linux vs FreeBSD Which is correct.
-Date: Wed, 17 Aug 2011 22:15:52 +0200
-Message-ID: <4E4C2178.1000809@plouf.fr.eu.org>
-References: <4E4BF456.9000807@earthlink.net> <201108172017.48683.remi@remlab.net> <4E4C1A00.80207@earthlink.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 41312] New: Regression: some web services
+ (e.g. Dropbox, Amazon Cloud Reader) stops working in 3.1-rc2
+Date: Wed, 17 Aug 2011 13:41:06 -0700
+Message-ID: <20110817134106.015135cd.akpm@linux-foundation.org>
+References: <bug-41312-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-15?Q?R=E9mi_Denis-Courmont?= <remi@remlab.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: sclark46@earthlink.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, salimma@fedoraproject.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from poutre.nerim.net ([62.4.16.124]:62385 "EHLO poutre.nerim.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751727Ab1HQUXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Aug 2011 16:23:31 -0400
-In-Reply-To: <4E4C1A00.80207@earthlink.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54566 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754499Ab1HQUlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2011 16:41:12 -0400
+In-Reply-To: <bug-41312-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-Stephen Clark a =E9crit :
-> On 08/17/2011 01:17 PM, R=E9mi Denis-Courmont wrote:
->> Le mercredi 17 ao=FBt 2011 20:03:18 Stephen Clark, vous avez =E9crit=
- :
->>   =20
->>> I have run into a situation where if I ping our HQ the response com=
-es
->>> back on a different
->>> interface than what the request went out on. FreeBSD is happy and s=
-ays
->>> it got the response,
->>> Linux is not and gives no indication it got a response.
->>>
->>> So is FreeBSD wrong or is Linux wrong?
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Neither is right or wrong. It partly depends whether you want to enforc=
-e
-so-called "weak" or "strong" host model.
+On Wed, 17 Aug 2011 20:17:05 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
->> Most distributions enable reverse path filtering by default.
->> It can be disabled:
->> # echo -n 0>  /proc/sys/net/ipv4/conf/all/rp_filter
->>
->> But you should probably fix the configuration instead (e.g. /etc/sys=
-ctl.conf).
->>   =20
-> Sorry that didn't help either.
+> https://bugzilla.kernel.org/show_bug.cgi?id=41312
+> 
+>            Summary: Regression: some web services (e.g. Dropbox, Amazon
+>                     Cloud Reader) stops working in 3.1-rc2
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.1-rc2
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: salimma@fedoraproject.org
+>         Regression: Yes
+> 
+> 
+> Created an attachment (id=69102)
+>  --> (https://bugzilla.kernel.org/attachment.cgi?id=69102)
+> (working) config for kernel 3.0
+> 
+> Dropbox and Amazon Cloud Reader works just fine on kernel 3.0, but the former
+> does not work on 3.1-rc1 and 3.1-rc2, and the latter does not work on 3.1-rc2
+> (I no longer have a copy of the 3.1-rc1 build I did).
+> 
+> With Dropbox, ps reports that the daemon process is in an uninterruptible
+> state, and it cannot be killed (even with kill -9). Setting SELinux to
+> permissive does not affect things (and Dropbox works with SELinux set to
+> enforcing with kernel 3.0).
+> 
+> With Cloud Reader, on Chrome, it does not display any book -- I perpetually get
+> the "refreshing" icon.
+> 
+> Will attach kernel configurations (I keep the 3.0 and 3.1-rc2 configs as
+> similar as possible, by using 'make oldconfig' on 3.0 with 3.1-rc2's .config.
+> 
+> Reported on Dropbox's forum: http://forums.dropbox.com/topic.php?id=43140
+> 
 
-Since some kernel version the logic of this sysctl has changed from
-AND(all, $interface) to MAX(all, $interface). So you must set
-net/ipv4/conf/$interface/rp_filter to 0 too to disable it.
-Or set net/ipv4/conf/all/rp_filter to 2 to make it weaker.
