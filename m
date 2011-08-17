@@ -1,49 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/2] pktgen: Clone skb to avoid corruption of skbs in
- ndo_start_xmit methods (v3)
-Date: Wed, 17 Aug 2011 16:07:17 +0100
-Message-ID: <1313593637.2776.9.camel@bwh-desktop>
-References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
-	 <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH] bnx2x: downgrade Max BW error message to debug
+Date: Wed, 17 Aug 2011 17:50:37 +0200
+Message-ID: <20110817175037.2777724a@brian.englab.brq.redhat.com>
+References: <20110812143324.5740.45824.stgit@dhcp-29-224.brq.redhat.com>
+	<1313405680.31417.6.camel@lb-tlvb-eilong.il.broadcom.com>
+	<4E490A1E.3060209@redhat.com>
+	<1313411585.31417.35.camel@lb-tlvb-eilong.il.broadcom.com>
+	<4E493798.7010405@redhat.com>
+	<1313434042.30399.0.camel@lb-tlvb-eilong.il.broadcom.com>
+	<4E4A56C0.4030009@redhat.com>
+	<1313498708.24298.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:8678 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753520Ab1HQPHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2011 11:07:21 -0400
-In-Reply-To: <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:21665 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753745Ab1HQPun (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2011 11:50:43 -0400
+In-Reply-To: <1313498708.24298.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-07-26 at 12:05 -0400, Neil Horman wrote:
-> Ok, after considering all your comments, Dave suggested this as an alternate
-> approach:
-> 
-> 1) We create a new priv_flag, IFF_SKB_TX_SHARED, to identify drivers capable of
-> handling shared skbs.  Default is to not set this flag
-> 
-> 2) Modify ether_setup to enable this flag, under the assumption that any driver
-> calling this  function is initalizing a real ethernet device and as such can
-> handle shared skbs since they don't tend to store state in the skb struct.
-> Pktgen can then query this flag when a user script attempts to issue the
-> clone_skb command and decide if it is to be alowed or not.
-[...]
+There are valid configurations where Max BW is configured to zero for
+some VNs.
+Print the message only if debugging is enabled and do not call the
+configuration "illegal".
 
-A bunch of Ethernet drivers do skb_pad() or skb_padto() in their
-ndo_start_xmit implementations, either to avoid hardware bugs or because
-the MAC doesn't automatically pad to the minimum frame length.  This
-presumably means they can't generally handle shared skbs, though in the
-specific case of pktgen it should be safe as long as a single skb is not
-submitted by multiple threads at once.
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 
-Ben.
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 223bfee..8245e02 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -1481,8 +1481,7 @@ static inline u16 bnx2x_extract_max_cfg(struct bnx2x *bp, u32 mf_cfg)
+ 	u16 max_cfg = (mf_cfg & FUNC_MF_CFG_MAX_BW_MASK) >>
+ 			      FUNC_MF_CFG_MAX_BW_SHIFT;
+ 	if (!max_cfg) {
+-		BNX2X_ERR("Illegal configuration detected for Max BW - "
+-			  "using 100 instead\n");
++		BNX2X_DBG_ERR("Max BW configured to 0 - using 100 instead\n");
+ 		max_cfg = 100;
+ 	}
+ 	return max_cfg;
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+1.7.6
