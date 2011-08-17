@@ -1,15 +1,13 @@
 From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Subject: [PATCH v13 4/6] flexcan: Add of_match to platform_device definition.
-Date: Tue, 16 Aug 2011 22:32:22 -0500
-Message-ID: <1313551944-28603-5-git-send-email-holt@sgi.com>
+Subject: [PATCH v13 6/6] flexcan: Add flexcan device support for p1010rdb.
+Date: Tue, 16 Aug 2011 22:32:24 -0500
+Message-ID: <1313551944-28603-7-git-send-email-holt@sgi.com>
 References: <1313551944-28603-1-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+Cc: , netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
 	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
 	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
 	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
@@ -30,47 +28,32 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On powerpc, the OpenFirmware devices are not matched without specifying
-an of_match array.  Introduce that array as that is used for matching
-on the Freescale P1010 processor.
+Allow the p1010 processor to select the flexcan network driver.
 
 Signed-off-by: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
-Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
 Cc: U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 Cc: PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Cc: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
 ---
- drivers/net/can/flexcan.c |   13 ++++++++++++-
- 1 files changed, 12 insertions(+), 1 deletions(-)
+ arch/powerpc/Kconfig |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index 68cbe52..cc1e0a7 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -1027,8 +1027,19 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
- 	return 0;
- }
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 6926b61..47682b6 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -656,6 +656,8 @@ config SBUS
  
-+static struct of_device_id flexcan_of_match[] = {
-+	{
-+		.compatible = "fsl,p1010-flexcan",
-+	},
-+	{},
-+};
-+
- static struct platform_driver flexcan_driver = {
--	.driver.name = DRV_NAME,
-+	.driver = {
-+		.name = DRV_NAME,
-+		.owner = THIS_MODULE,
-+		.of_match_table = flexcan_of_match,
-+	},
- 	.probe = flexcan_probe,
- 	.remove = __devexit_p(flexcan_remove),
- };
+ config FSL_SOC
+ 	bool
++	select HAVE_CAN_FLEXCAN if NET && CAN
++	select PPC_CLOCK if CAN_FLEXCAN
+ 
+ config FSL_PCI
+  	bool
 -- 
 1.7.2.1
