@@ -1,73 +1,96 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: boot test failure (net tree)
-Date: Wed, 17 Aug 2011 11:21:10 +1000
-Message-ID: <20110817112110.ec81ef078204bf4a02049a66@canb.auug.org.au>
-References: <20110817100146.3b557cf815a5a2ae09bc09a7@canb.auug.org.au>
-	<20110816.171525.639251389938336183.davem@davemloft.net>
-	<20110817105002.efebf85d08460ad99b14be8e@canb.auug.org.au>
-	<20110816.175657.1688139393736610845.davem@davemloft.net>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH 04/14] bna: Add Multiple Tx Queue Support
+Date: Tue, 16 Aug 2011 19:14:01 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A94D9953ED@HQ1-EXCH01.corp.brocade.com>
+References: <1313529591-3718-1-git-send-email-rmody@brocade.com>
+  <1313529591-3718-5-git-send-email-rmody@brocade.com>
+  <1313531338.2725.63.camel@bwh-desktop>
+  <E5313AF6F2BFD14293E5FD0F94750F86A94D99537C@HQ1-EXCH01.corp.brocade.com>
+ <1313538196.2725.74.camel@bwh-desktop> <4E4B089E.9080102@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__17_Aug_2011_11_21_10_+1000_5_nkI05MstdTgYNs"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110816.175657.1688139393736610845.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Adapter Linux Open SRC Team
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Gurunatha Karaje <gkaraje@Brocade.com>
+To: John Fastabend <john.r.fastabend@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:40239 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751771Ab1HQCOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 22:14:12 -0400
+In-Reply-To: <4E4B089E.9080102@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__17_Aug_2011_11_21_10_+1000_5_nkI05MstdTgYNs
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Dave,
-
-On Tue, 16 Aug 2011 17:56:57 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Wed, 17 Aug 2011 10:50:02 +1000
->=20
-> > Which is a bit of a pain for automated systems.  Ours does (essentially=
-):
-> >=20
-> > yes '' | make oldconfig
-> >=20
-> > We really don't want to select every new config item that comes along.
->=20
-> If you're indeed piping "yes" output to "make oldconfig" on an
-> existing config, it would select the new guards for you.
-
-Notice the '' that just is the same as typing return to every prompt.  In
-the case of these new gueards, that means 'n'.  This will be the same
-with "make silentoldconfig".
-
-> This happens on other occaisions, I see new group guards all
-> the time when I resync my net and net-next trees with Linus.
-
-"All the time"?  really?
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__17_Aug_2011_11_21_10_+1000_5_nkI05MstdTgYNs
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJOSxeGAAoJEDMEi1NhKgbs4yAIAIVTC3VMasJyGhXNJvpBsCV8
-ux9PSxAs+tBgMrlzvylUGOt0xZKm8pLj4qpjB29MhZlEeircR1xZt6Upb/MVlov/
-M1rzZLCyj2f8Zenrzeq+aNYYHusUBLXbQkqL/+i6rGhq7DaRLvpht3pTiXpyebiY
-cUjb1nH4Px99gUhq+ySFVcO7P7emByzM6W7gWcQ4SBHonqb4P14s2zrVBSi+QGaX
-lwPAMRA8luJZMXRuoI0yR6szZKRILik4sgiVI8AbV/lJoPFe39DLjnvUlK+kPnEi
-M29Zz8PCTAhlUR3NRQHHAJV5bS0TTP2+F9jdyi8uFEHfZ43GPQvTKuJndE41SNs=
-=oYQ6
------END PGP SIGNATURE-----
-
---Signature=_Wed__17_Aug_2011_11_21_10_+1000_5_nkI05MstdTgYNs--
+PkZyb206IEpvaG4gRmFzdGFiZW5kIFttYWlsdG86am9obi5yLmZhc3RhYmVuZEBpbnRlbC5jb21d
+DQo+U2VudDogVHVlc2RheSwgQXVndXN0IDE2LCAyMDExIDU6MTggUE0NCj4NCj5PbiA4LzE2LzIw
+MTEgNDo0MyBQTSwgQmVuIEh1dGNoaW5ncyB3cm90ZToNCj4+IE9uIFR1ZSwgMjAxMS0wOC0xNiBh
+dCAxNjozMiAtMDcwMCwgUmFzZXNoIE1vZHkgd3JvdGU6DQo+Pj4+IEZyb206IEJlbiBIdXRjaGlu
+Z3MgW21haWx0bzpiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tXQ0KPj4+PiBTZW50OiBUdWVzZGF5
+LCBBdWd1c3QgMTYsIDIwMTEgMjo0OSBQTQ0KPj4+Pg0KPj4+PiBPbiBUdWUsIDIwMTEtMDgtMTYg
+YXQgMTQ6MTkgLTA3MDAsIFJhc2VzaCBNb2R5IHdyb3RlOg0KPj4+Pj4gQ2hhbmdlIGRldGFpbHM6
+DQo+Pj4+PiAgLSBBZGQgbWFjcm9zIGJuYV9wcmlvX2FsbG93LCBibmFfZGVmYXVsdF9ud19wcmlv
+LCBibmFfaXNjc2lfcHJpbywNCj4+Pj4+ICAgIGJuYV9pc19pc2NzaV9vdmVyX2NlZQ0KPj4+Pj4g
+IC0gQWRkZWQgc3VwcG9ydCBmb3IgbXVsdGlwZSBUeCBxdWV1ZXMgd2l0aCBhIHNlcGFyYXRlIGlT
+Q1NJIFR4DQo+cXVldWUNCj4+Pj4gYmFzZWQNCj4+Pj4+ICAgIG9uIHRoZSBkZWZhdWx0IHZhbHVl
+IG9mIGlTQ1NJIHBvcnQgbnVtYmVyLiBUaGUgZmVhdHVyZSBpcw0KPnN1cHBvcnRlZA0KPj4+PiBi
+YXNlZA0KPj4+Pj4gICAgb24gdGhlIHVuZGVybHlpbmcgaGFyZHdhcmUgYW5kIGVuYWJsZWQgZm9y
+IERDQiAoQ0VFKSBtb2RlIG9ubHkuDQo+Pj4+PiAgLSBBbGxvY2F0ZSBtdWx0aXBsZSBUeFEgcmVz
+b3VyY2UgaW4gbmV0ZGV2DQo+Pj4+PiAgLSBJbXBsZW1lbnQgYm5hZF90eF9zZWxlY3RfcXVldWUo
+KSB3aGljaCBlbmFibGVzIHRoZSBjb3JyZWN0DQo+Pj4+IHNlbGVjdGlvbiBvZg0KPj4+Pj4gICAg
+VHhRIElkIChhbmQgdGNiKS4gVGhpcyBmdW5jdGlvbiBpcyBjYWxsZWQgZWl0aGVyIGJ5IHRoZSBr
+ZXJuZWwNCj50bw0KPj4+PiBjaGFubmVsDQo+Pj4+PiAgICBwYWNrZXRzIHRvIHRoZSByaWdodCBU
+eFENCj4+Pj4+ICAtIGJuYWRfdHhfc2VsZWN0X3F1ZXVlKCkgcmV0dXJucyBwcmlvcml0eSwgd2hp
+bGUgb25seSBhIGZldw0KPnBhY2tldHMNCj4+Pj4gZHVyaW5nDQo+Pj4+PiAgICB0cmFuc2l0aW9u
+IGNvdWxkIGhhdmUgd3JvbmcgcHJpb3JpdHksIGFsbCB3aWxsIGJlIGFzc29jaWF0ZWQNCj53aXRo
+IGENCj4+Pj4gdmFsaWQNCj4+Pj4+ICAgIG5vbi1OVUxMIHRjYi4NCj4+Pj4+ICAtIEltcGxlbWVu
+dCBibmFkX2lzY3NpX3RjYl9nZXQoKSBhbmQgQk5BRF9JU19JU0NTSV9QS1QoKSBmb3IgaVNDU0kN
+Cj4+Pj4gcGFja2V0DQo+Pj4+PiAgICBpbnNwZWN0aW9uIGFuZCByZXRyaWV2YWwgb2YgdGNiIGNv
+cnJlc3BvbmRpbmcgdG8gdGhlIGlTQ1NJDQo+Pj4+IHByaW9yaXR5Lg0KPj4+Pj4gIC0gQ29uc3Ry
+dWN0aW9uIG9mIHByaW9yaXR5IGluZGlyZWN0aW9uIHRhYmxlIHRvIGJlIHVzZWQgYnkgYm5hZCB0
+bw0KPj4+PiBkaXJlY3QNCj4+Pj4+ICAgIHBhY2tldHMgaW50byBUeFFzDQo+Pj4+IFsuLi5dDQo+
+Pj4+DQo+Pj4+IFlvdSBwcm9iYWJseSBzaG91bGQgaW1wbGVtZW50IFRYIHByaW9yaXR5IGNsYXNz
+ZXMgdGhyb3VnaCB0aGUNCj4+Pj4gbmRvX3NldHVwX3RjIG9wZXJhdGlvbiwgbm90IG5kb19zZWxl
+Y3RfcXVldWUuDQo+Pj4NCj4+PiBUaGUgcmVhc29uIHdlIHdlbnQgd2l0aCBuZG9fc2VsZWN0X3F1
+ZXVlIGlzIGR1ZSB0byB0aGUgbmVlZCBmb3INCj5tYXBwaW5nDQo+Pj4gaVNDU0kgcGFja2V0cyAo
+VENQIHBvcnQgMzI2MCkgdG8gYSBwcmlvcml0eSBkZXJpdmVkIGZyb20gRENCDQo+Y29uZmlndXJh
+dGlvbi4NCj4+PiBIZXJlIHRoZSBpU0NTSSBwYWNrZXRzIG1heSBub3QgaGF2ZSBhbnkgdGMgZGVm
+aW5lZCBpbiB0aGUgcGFja2V0DQo+aGVhZGVyLg0KPj4NCj4+IFRoZXJlIGlzIGFuIHNrYiBwcmlv
+cml0eSwgd2hpY2ggaXMgZGVyaXZlZCBmcm9tIHRoZSBzb2NrZXQgcHJpb3JpdHkNCj4+IG9wdGlv
+biAoU09fUFJJT1JJVFkpLiAgSWYgeW91IGltcGxlbWVudCBuZG9fc2V0dXBfdGMgdGhlbiB0aGUN
+Cj5uZXR3b3JraW5nDQo+PiBjb3JlIHdpbGwgdGFrZSBjYXJlIG9mIG1hcHBpbmcgdGhlIHNrYiBw
+cmlvcml0eSBvbnRvIGEgZGlmZmVyZW50IHF1ZXVlDQo+PiAob3IgcmFuZ2Ugb2YgcXVldWVzKS4N
+Cj4+DQo+PiBJIGRvbid0IGtub3cgd2hldGhlciB0aGUgc29ja2V0IHByaW9yaXR5IG9wdGlvbiBp
+cyBlYXNpbHkgY29uZmlndXJhYmxlDQo+PiBmb3IgdGhlIGV4aXN0aW5nIGlTQ1NJIGltcGxlbWVu
+dGF0aW9ucy4gIEJ1dCBsb29raW5nIGF0IHBvcnQgbnVtYmVycw0KPj4gcmVhbGx5IGRvZXNuJ3Qg
+c2VlbSBsaWtlIHRoZSByaWdodCB3YXkgdG8gZG8gdGhpcy4NCj4+DQo+PiBCZW4uDQo+Pg0KPg0K
+PkF0IGxlYXN0IG9wZW4taXNjc2kgc3VwcG9ydHMgRENCIGJ5IGxpc3RlbmluZyB0byB0aGUgUlRO
+TEdSUF9EQ0IgZm9yDQo+ZXZlbnRzLg0KPlRoZXNlIGFyZSBnZW5lcmF0ZWQgd2l0aCBkY2JubF9j
+ZWVfbm90aWZ5IGFuZCBkY2JubF9pZWVlX25vdGlmeS4gVG8NCj5zdXBwb3J0DQo+dGhpcyBpbiB5
+b3VyIGRyaXZlciB5b3UgbmVlZCB0byBjYWxsIGRjYl9zZXRhcHAoKSBvciBkY2JfaWVlZV9zZXRh
+cHAoKQ0KPnRvDQo+YWRkIHRoZSBhcHBsaWNhdGlvbiBkYXRhIGFuZCBmb2xsb3cgdGhpcyB3aXRo
+IHRoZSBhcHByb3ByaWF0ZSBub3RpZnkNCj5jYWxsLg0KPlRoZW4gYXNzdW1pbmcgeW91IGRvIHRo
+ZSBuZWNlc3NhcnkgdGMgc2V0dXAgd29yayB0aGUgc3RhY2sgd2lsbCBoYW5kbGUNCj50aGUNCj5t
+YXBwaW5nIG9mIHByaW9yaXR5IHRvIHF1ZXVlcy4NCg0KVGhpcyBpcyBob3cgaVNDU0kgb3ZlciBE
+Q0IgZmVhdHVyZSBpcyBleHBlY3RlZCB0byB3b3JrcyBpbiBCTkEgZHJpdmVyOi0NCkZXIHJ1bm5p
+bmcgaW4gdGhlIEJOQSBhZGFwdGVyIGltcGxlbWVudHMgdGhlIERDQiBwcm90b2NvbC4gSXQgbGVh
+cm5zIHRoZQ0KaVNDU0kgcHJpb3JpdHkgZnJvbSB0aGUgc3dpdGNoIHRocm91Z2ggaVNDU0kgVExW
+IGV4Y2hhbmdlLiBCTkEgZHJpdmVyDQpleHRyYWN0cyB0aGUgaVNDU0kgcHJpb3JpdHkgZnJvbSB0
+aGUgRlcgdGhhdCBuZWVkcyB0byBiZSB1c2VkIGZvciBpU0NTSQ0KcGFja2V0cy4gRm9yIGV2ZXJ5
+IG91dGdvaW5nIHBhY2tldCwgQk5BIGRyaXZlciBkb2VzIGEgVENQIGhlYWRlcg0KaW5zcGVjdGlv
+biB0byBjbGFzc2lmeSBpU0NTSSBwYWNrZXQgYW5kIGF0dGFjaCByaWdodCA4MDIuMXEgcHJpb3Jp
+dHkgJg0Kc2VuZCBpdCBvbiB0aGUgY29ycmVjdCBUWCBxdWV1ZS4NCg0KVGhpcyBpcyBleHBlY3Rl
+ZCB0byB3b3JrIHdpdGggaVNDU0kgYXBwbGljYXRpb25zIHRoYXQgZG8gbm90IGNvbmZpZ3VyZSB0
+aGUNCnByaW9yaXR5IHdpdGggU09fUFJJT1JJVFkgLSBoZXJlIHRoZSBpU0NTSSBwcmlvcml0eSBj
+b25maWd1cmF0aW9uIGFjdHVhbGx5DQpjb21lcyBmcm9tIHRoZSBzd2l0Y2ggdG8gdGhlIGFkYXB0
+ZXIuDQoNClRoZSBnb2FsIG9mIHRoaXMgaVNDU0kgcHJpb3JpdHkgaXM6DQphKSBhZGFwdGVyIGFw
+cGxpZXMgcHJpb3JpdGl6ZWQgc2NoZWR1bGluZyBmb3IgcGFja2V0cyBpbiBpdHMgZWdyZXNzIC0g
+dG8NCmd1YXJhbnRlZSBtaW5pbXVtIGJhbmR3aWR0aCBhcyBwZXIgRVRTDQpiKSBwYWNrZXRzIGFy
+ZSB0YWdnZWQgd2l0aCByaWdodCBwcmlvcml0eSBzbyB0aGF0IHN3aXRjaCBjYW4gYWxzbyBpZGVu
+dGlmeQ0KYW5kIGd1YXJhbnRlZSBCVyBvbiBpdHMgZWdyZXNzLg0KDQpIb3BlIHRoaXMgZXhwbGFp
+bnMuDQoNClRoYW5rcywNClJhc2VzaA0K
