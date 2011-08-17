@@ -1,86 +1,70 @@
-From: David Martin <david.martin.mailbox@googlemail.com>
-Subject: Re: Influencing triggering of xfrm acquire messages?
-Date: Wed, 17 Aug 2011 12:21:15 +0200
-Message-ID: <CAGsyNe2770am88um7W+tw=o0Hxnd0KiR7xfJs0+h_XM6o3XHCg@mail.gmail.com>
-References: <CAGsyNe2oAkT+idnC-fuOoULTdEubbL8CabLesacjp=2tPiWVmA@mail.gmail.com>
-	<20110811.073645.142128983331087817.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [Bugme-new] [Bug 41152] New: kernel 3.0 and above fails to
+ handle vlan id 0 (802.1p) packets properly without hardware acceleration
+Date: Wed, 17 Aug 2011 12:59:51 +0200
+Message-ID: <20110817105950.GA4259@minipsycho.brq.redhat.com>
+References: <bug-41152-10286@https.bugzilla.kernel.org/>
+ <20110816150918.5b2d7067.akpm@linux-foundation.org>
+ <20110817053737.GA1936@minipsycho>
+ <4E4B615F.8060403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: Mike Auty <mike.auty@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:35473 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771Ab1HQKVS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2011 06:21:18 -0400
-Received: by bke11 with SMTP id 11so573058bke.19
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2011 03:21:16 -0700 (PDT)
-In-Reply-To: <20110811.073645.142128983331087817.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:1194 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752943Ab1HQK76 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2011 06:59:58 -0400
+Content-Disposition: inline
+In-Reply-To: <4E4B615F.8060403@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Thu, Aug 11, 2011 at 4:36 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: David Martin <david.martin.mailbox@googlemail.com>
-> Date: Thu, 11 Aug 2011 16:21:07 +0200
+Wed, Aug 17, 2011 at 08:36:15AM CEST, mike.auty@gmail.com wrote:
+>On 17/08/11 06:37, Jiri Pirko wrote:
+>> 
+>> Hi Mike. May I ask what NIC are you seeing the regression on?
+>> It may have something to do with dev->vlangrp and ndo_vlan_add/kill_vid.
+>> VID 0 was recently only added by the latter ones. So if driver only
+>> depended on dev->vlangrp, 0 was not there. This was changed recently by
+>> my "vlan cleanup" patches. It may work for you again on net-next today.
+>> 
 >
->> As long as it exists no additional acquire will be triggered which i=
-s a problem,
->> for example when shortly after an exchange the daemon is restarted a=
-nd needs to
->> start another exchange with the same peer host.
->>
->> Is this state supposed to be set up? Is it supposed to be removed au=
-tomatically
->> once we set up our own SA? Is there a way to remove it manually to
->> trigger another acquire? Any input is welcome, thanks a lot in advan=
-ce.
+>Hi there,
 >
-> The usage model is that the IPSEC daemon, like a routing daemon, mana=
-ges
-> all IPSEC state. =A0And therefore it flushes all IPSEC state when it =
-starts
-> up.
+>I'm finding it on the following two NICs:
 >
-> If you want the acquire messages, you need to flush the entries for w=
-hich
-> you want the acquire to trigger when you startup.
+>02:00.0 Ethernet controller: Attansic Technology Corp. L1 Gigabit
+>Ethernet Adapter (rev b0)
+>
+>05:01.0 Network controller [0280]: Broadcom Corporation BCM4306
+>802.11b/g Wireless LAN Controller [14e4:4320] (rev 03)
+>
+>and (on a different machine):
+>
+>02:00.0 Network controller [0280]: Intel Corporation WiFi Link 6000
+>Series [8086:422c] (rev 35)
 
-thanks for your reply, that sounds reasonable. The problem is this
-specific state I
-mentioned (see below).
+I just obtained very similar card (8086:422b). Going to look at it right
+away.
 
-> martin@pisa1:~$ sudo ip xfrm state
-> src 2001:1a:a148:104c:92bb:671e:8100:9354 dst 2001:1c:5000:45b6:2d33:=
-2c10:2726:a043
->   proto 0 reqid 0 mode transport
->   replay-window 0
->   sel src 2001:1a:a148:104c:92bb:671e:8100:9354/128 dst 2001:1c:5000:=
-45b6:2d33:2c10:2726:a043/128 proto udp sport 49024 dport 1025
-
-It is not set up explicitly by us but on its own when the acquire is tr=
-iggered.
-We already take care of "our" states and flush them on exit / startup s=
-o that
-they do not prohibit another acquire. This one though remains for a cer=
-tain
-time and the question is: how can I remove it? Which parameters do I ne=
-ed
-to pass to the xfrm interface to flush it?
-
-It does not seem to be possible with the iproute2 implementation
-('ip xfrm state delete ...') as it requires a protocol in
-{esp | ah | comp | route2 | hao} to delete a state. proto 0 as it is he=
-re is not
-supported and refused as invalid. I have tried to adapt our code and se=
-nd
-a delete request with protocol, spi and ports set to 0 but this does no=
-t have
-the desired effect.
-
-Any idea how to tackle this?
-
-David
+One more thing. What do you use to generate vlan0 tagged packets? I'm
+using pktgen with "vlan_id 0". Would you please try that it behaves the
+same for you?
+	
+>
+>The only one I have had any success with is:
+>
+>00:19.0 Ethernet controller [0200]: Intel Corporation 82577LM Gigabit
+>Network Connection [8086:10ea] (rev 05)
+>
+>Which I assume is because it has actual hardware acceleration.  I may be
+>able to put net-next on the Intel Wifi box for testing at some point,
+>but I don't know how soon I'll be able to do that.  Please let me know
+>whether that would be a worthwhile test, and if so I'll try and get it
+>done.  Thanks...
+>
+>Mike  5:)
+>
