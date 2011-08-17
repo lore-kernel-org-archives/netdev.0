@@ -1,30 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: boot test failure (net tree)
-Date: Tue, 16 Aug 2011 20:05:28 -0700 (PDT)
-Message-ID: <20110816.200528.63647861483543536.davem@davemloft.net>
-References: <20110817105002.efebf85d08460ad99b14be8e@canb.auug.org.au>
-	<20110816.175657.1688139393736610845.davem@davemloft.net>
-	<20110817112110.ec81ef078204bf4a02049a66@canb.auug.org.au>
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Subject: [PATCH v13 0/6] flexcan: Add support for powerpc flexcan (freescale
+	p1010)
+Date: Tue, 16 Aug 2011 22:32:18 -0500
+Message-ID: <1313551944-28603-1-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110817112110.ec81ef078204bf4a02049a66@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+To: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	Marc Kleine-Budde <mkl@pengutronix
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 17 Aug 2011 11:21:10 +1000
+David,
 
-> On Tue, 16 Aug 2011 17:56:57 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
->>
->> This happens on other occaisions, I see new group guards all
->> the time when I resync my net and net-next trees with Linus.
-> 
-> "All the time"?  really?
+The following set of patches have been reviewed by the above parties and
+all comments have been integrated.  Although the patches stray from the
+drivers/net/can directory, the diversions are related to changes for
+the flexcan driver.
 
-I can't think of too many days during the merge window where this
-doesn't happen, quite frankly.
+The patch set is based upon your net-next-2.6 tree's commit 6c37e46.
+
+Could you please queue these up for the next appropriate push to Linus'
+tree?
+
+Thanks,
+Robin Holt
