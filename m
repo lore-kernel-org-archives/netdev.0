@@ -1,100 +1,261 @@
-From: Mike Auty <mike.auty@gmail.com>
-Subject: Re: [Bugme-new] [Bug 41152] New: kernel 3.0 and above fails to handle
- vlan id 0 (802.1p) packets properly without hardware acceleration
-Date: Wed, 17 Aug 2011 23:48:41 +0100
-Message-ID: <4E4C4549.6020802@gmail.com>
-References: <bug-41152-10286@https.bugzilla.kernel.org/> <20110816150918.5b2d7067.akpm@linux-foundation.org> <20110817053737.GA1936@minipsycho> <4E4B615F.8060403@gmail.com> <20110817105950.GA4259@minipsycho.brq.redhat.com>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: [Patch] Scm: Remove unnecessary pid & credential references in
+ Unix socket's send and receive path
+Date: Wed, 17 Aug 2011 16:56:14 -0700
+Message-ID: <1313625374.2576.2908.camel@schen9-DESK>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060206040505060804060303"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@linux.intel.com>,
+	Matt Fleming <matt.fleming@linux.intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2.smtp.messagingengine.com ([66.111.4.26]:60219 "EHLO
-	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754315Ab1HQWsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2011 18:48:43 -0400
-In-Reply-To: <20110817105950.GA4259@minipsycho.brq.redhat.com>
+Received: from mga09.intel.com ([134.134.136.24]:9198 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752890Ab1HQX4F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2011 19:56:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060206040505060804060303
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Patch series 109f6e39..7361c36c back in 2.6.36 added functionality to
+allow credentials to work across pid namespaces for packets sent via
+UNIX sockets.  However, the atomic reference counts on pid and
+credentials caused plenty of cache bouncing when there are numerous
+threads of the same pid sharing a UNIX socket.  This patch mitigates the
+problem by eliminating extraneous reference counts on pid and
+credentials on both send and receive path of UNIX sockets. I found a 2x
+improvement in hackbench's threaded case.
 
-On 17/08/11 11:59, Jiri Pirko wrote:
-> 
-> I just obtained very similar card (8086:422b). Going to look at it right
-> away.
-> 
-> One more thing. What do you use to generate vlan0 tagged packets? I'm
-> using pktgen with "vlan_id 0". Would you please try that it behaves the
-> same for you?
-> 	
+On the receive path in unix_dgram_recvmsg, currently there is an
+increment of reference count on pid and credentials in scm_set_cred.
+Then there are two decrement of the reference counts.  Once in scm_recv
+and once when skb_free_datagram call skb->destructor function
+unix_destruct_scm.  One pair of increment and decrement of ref count on
+pid and credentials can be eliminated from the receive path.  Until we
+destroy the skb, we already set a reference when we created the skb on
+the send side.
 
-Sorry, I haven't been using pktgen.  I've got an actual device (a
-Samsung android phone) which seems to tag all normal outbound packets
-with this type of vlan tag.  I only discovered a month ago that I needed
-the 8021q module to be able to talk to it, and then suddenly it stopped
-working once I moved to the 3.0 kernel.
+On the send path, there are two increments of ref count on pid and
+credentials, once in scm_send and once in unix_scm_to_skb.  Then there
+is a decrement of the reference counts in scm_destroy's call to
+scm_destroy_cred at the end of unix_dgram_send* functions.   One pair of
+increment and decrement of the reference counts can be removed so we
+only need to increment the ref counts once.
 
-I might not have made it clear, but the packets are received (in so much
-as the packet is definitely sent, and it's seen by tools such as
-wireshark), but no reply is ever sent.  I've attached packet logs from
-the 3.0.1 kernel and the 2.6.39.3 kernel.  Oddly the tagging only seems
-to be used on the first SYN,ACK packet, but again I don't know enough
-about the pipeline or what the Samsung kernel's doing to cause that.
+By incorporating these changes, for hackbench running on a 4 socket
+NHM-EX machine with 40 cores, the execution of hackbench on
+50 groups of 20 threads sped up by factor of 2.
 
-I hope that's of some help?  I may be able to get systemtap support
-rolled into my kernel tomorrow at some point, but if not then it will
-have to wait until the weekend.  I don't know if that will provide
-useful information for debugging this, but I am happy to run whatever
-tests I can to figure this out...
+Hackbench command used for testing:
+./hackbench 50 thread 2000
 
-Mike  5:)
+Reviews and comments are appreciated.
 
---------------060206040505060804060303
-Content-Type: application/x-extension-pcap;
- name="vlan0-on-kernel-2.6.39.3.pcap"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="vlan0-on-kernel-2.6.39.3.pcap"
+Thanks.
 
-1MOyoQIABAAAAAAAAAAAAP//AAABAAAA4CFMTnAOCwAqAAAAKgAAAP///////1iUa1LY1AgG
-AAEIAAYEAAFYlGtS2NTAqLwCAAAAAAAAwKi8BeAhTE5oPgsAKgAAACoAAABYlGtS2NR41vCV
-2XEIBgABCAAGBAACeNbwldlxwKi8BViUa1LY1MCovALgIUxOdj4LAEoAAABKAAAAeNbwldlx
-WJRrUtjUCABFAAA8qA5AAEAGmVTAqLwCwKi8BdjqABaN46nuAAAAAKACOQj5hwAAAgQFtAQC
-CAr//QHgAAAAAAEDAwfgIUxOtnQLAE4AAABOAAAAWJRrUtjUeNbwldlxgQDAAAgARRAAPAAA
-QABABkFTwKi8BcCovAIAFtjqUx73EI3jqe+gEhagFhUAAAIEBbQEAggKAjvCy//9AeABAwMB
-4CFMTsB0CwBOAAAATgAAAFiUa1LY1HjW8JXZcYEAwAAIAEUQADwAAEAAQAZBU8CovAXAqLwC
-ABbY6lMe9xCN46nvoBIWoBYVAAACBAW0BAIICgI7wsv//QHgAQMDAeAhTE70dAsAQgAAAEIA
-AAB41vCV2XFYlGtS2NQIAEUAADSoD0AAQAaZW8CovALAqLwF2OoAFo3jqe9THvcRgBAAc/l/
-AAABAQgK//0B+wI7wsvgIUxOwusMAFkAAABZAAAAWJRrUtjUeNbwldlxCABFEABLNd9AAEAG
-C2XAqLwFwKi8AgAW2OpTHvcRjeOp74AYC1Dw0gAAAQEICgI7wuD//QH7U1NILTIuMC1kcm9w
-YmVhcl8wLjUyDQrgIUxOD+wMAEIAAABCAAAAeNbwldlxWJRrUtjUCABFAAA0qBBAAEAGmVrA
-qLwCwKi8BdjqABaN46nvUx73KIAQAHP5fwAAAQEICv/9AlsCO8Lg
---------------060206040505060804060303
-Content-Type: application/x-extension-pcap;
- name="vlan0-on-kernel-3.0.1.pcap"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="vlan0-on-kernel-3.0.1.pcap"
+Tim
 
-1MOyoQIABAAAAAAAAAAAAP//AAABAAAAmBhMTjPLBQAqAAAAKgAAAP///////1iUa1LY1AgG
-AAEIAAYEAAFYlGtS2NTAqLwCAAAAAAAAwKi8BZgYTE5o5gUAKgAAACoAAABYlGtS2NR41vCV
-2XEIBgABCAAGBAACeNbwldlxwKi8BViUa1LY1MCovAKYGExOd+YFAEoAAABKAAAAeNbwldlx
-WJRrUtjUCABFAAA8iplAAEAGtsnAqLwCwKi8Bcx+ABbo10w6AAAAAKACOQj5hwAAAgQFtAQC
-CAoAAMajAAAAAAEDAwaYGExOag4GAE4AAABOAAAAWJRrUtjUeNbwldlxgQDAAAgARRAAPAAA
-QABABkFTwKi8BcCovAIAFsx+pkp8HejXTDugEhagyLkAAAIEBbQEAggKAjSCWwAAxqMBAwMB
-mxhMTuvaBQBKAAAASgAAAHjW8JXZcViUa1LY1AgARQAAPIqaQABABrbIwKi8AsCovAXMfgAW
-6NdMOgAAAACgAjkI+YcAAAIEBbQEAggKAADSYAAAAAABAwMGmxhMTuIBBwBOAAAATgAAAFiU
-a1LY1HjW8JXZcYEAwAAIAEUQADwAAEAAQAZBU8CovAXAqLwCABbMfqZKfB3o10w7oBIWoMZT
-AAACBAW0BAIICgI0hMEAAMajAQMDAZwYTE42GQMATgAAAE4AAABYlGtS2NR41vCV2XGBAMAA
-CABFEAA8AABAAEAGQVPAqLwFwKi8AgAWzH6mSnwd6NdMO6ASFqDFwAAAAgQFtAQCCAoCNIVU
-AADGowEDAwGhGExOnhkGAEoAAABKAAAAeNbwldlxWJRrUtjUCABFAAA8iptAAEAGtsfAqLwC
-wKi8Bcx+ABbo10w6AAAAAKACOQj5hwAAAgQFtAQCCAoAAOngAAAAAAEDAwaiGExOKTQJAE4A
-AABOAAAAWJRrUtjUeNbwldlxgQDAAAgARRAAPAAAQABABkFTwKi8BcCovAIAFsx+pkp8HejX
-TDugEhagwMAAAAIEBbQEAggKAjSKVAAAxqMBAwMB
---------------060206040505060804060303--
+---
+
+Signed-off-by: Tim Chen <tim.c.chen@linux.intel.com>
+--
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 745460f..e24ec88 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -53,6 +53,14 @@ static __inline__ void scm_set_cred(struct scm_cookie *scm,
+ 	cred_to_ucred(pid, cred, &scm->creds);
+ }
+ 
++static __inline__ void scm_set_cred_noref(struct scm_cookie *scm,
++				    struct pid *pid, const struct cred *cred)
++{
++	scm->pid  = pid;
++	scm->cred = cred;
++	cred_to_ucred(pid, cred, &scm->creds);
++}
++
+ static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
+ {
+ 	put_pid(scm->pid);
+@@ -70,6 +78,15 @@ static __inline__ void scm_destroy(struct scm_cookie *scm)
+ 		__scm_destroy(scm);
+ }
+ 
++static __inline__ void scm_release(struct scm_cookie *scm)
++{
++	/* keep ref on pid and cred */
++	scm->pid = NULL;
++	scm->cred = NULL;
++	if (scm && scm->fp)
++		__scm_destroy(scm);
++}
++
+ static __inline__ int scm_send(struct socket *sock, struct msghdr *msg,
+ 			       struct scm_cookie *scm)
+ {
+@@ -108,15 +125,14 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
+ 	if (!msg->msg_control) {
+ 		if (test_bit(SOCK_PASSCRED, &sock->flags) || scm->fp)
+ 			msg->msg_flags |= MSG_CTRUNC;
+-		scm_destroy(scm);
++		if (scm && scm->fp)
++			__scm_destroy(scm);
+ 		return;
+ 	}
+ 
+ 	if (test_bit(SOCK_PASSCRED, &sock->flags))
+ 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(scm->creds), &scm->creds);
+ 
+-	scm_destroy_cred(scm);
+-
+ 	scm_passec(sock, msg, scm);
+ 
+ 	if (!scm->fp)
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 0722a25..bd85c06 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1382,11 +1382,17 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ 	return max_level;
+ }
+ 
+-static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool send_fds)
++static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb,
++			   bool send_fds, bool ref)
+ {
+ 	int err = 0;
+-	UNIXCB(skb).pid  = get_pid(scm->pid);
+-	UNIXCB(skb).cred = get_cred(scm->cred);
++	if (ref) {
++		UNIXCB(skb).pid  = get_pid(scm->pid);
++		UNIXCB(skb).cred = get_cred(scm->cred);
++	} else {
++		UNIXCB(skb).pid  = scm->pid;
++		UNIXCB(skb).cred = scm->cred;
++	}
+ 	UNIXCB(skb).fp = NULL;
+ 	if (scm->fp && send_fds)
+ 		err = unix_attach_fds(scm, skb);
+@@ -1411,7 +1417,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	int namelen = 0; /* fake GCC */
+ 	int err;
+ 	unsigned hash;
+-	struct sk_buff *skb;
++	struct sk_buff *skb = NULL;
+ 	long timeo;
+ 	struct scm_cookie tmp_scm;
+ 	int max_level;
+@@ -1452,7 +1458,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (skb == NULL)
+ 		goto out;
+ 
+-	err = unix_scm_to_skb(siocb->scm, skb, true);
++	err = unix_scm_to_skb(siocb->scm, skb, true, false);
+ 	if (err < 0)
+ 		goto out_free;
+ 	max_level = err + 1;
+@@ -1548,7 +1554,7 @@ restart:
+ 	unix_state_unlock(other);
+ 	other->sk_data_ready(other, len);
+ 	sock_put(other);
+-	scm_destroy(siocb->scm);
++	scm_release(siocb->scm);
+ 	return len;
+ 
+ out_unlock:
+@@ -1558,7 +1564,8 @@ out_free:
+ out:
+ 	if (other)
+ 		sock_put(other);
+-	scm_destroy(siocb->scm);
++	if (skb == NULL)
++		scm_destroy(siocb->scm);
+ 	return err;
+ }
+ 
+@@ -1570,7 +1577,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	struct sock *sk = sock->sk;
+ 	struct sock *other = NULL;
+ 	int err, size;
+-	struct sk_buff *skb;
++	struct sk_buff *skb = NULL;
+ 	int sent = 0;
+ 	struct scm_cookie tmp_scm;
+ 	bool fds_sent = false;
+@@ -1635,11 +1642,14 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		size = min_t(int, size, skb_tailroom(skb));
+ 
+ 
+-		/* Only send the fds in the first buffer */
+-		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent);
++		/* Only send the fds and no ref to pid in the first buffer */
++		if (fds_sent)
++			err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, true);
++		else
++			err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, false);
+ 		if (err < 0) {
+ 			kfree_skb(skb);
+-			goto out_err;
++			goto out;
+ 		}
+ 		max_level = err + 1;
+ 		fds_sent = true;
+@@ -1647,7 +1657,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
+ 		if (err) {
+ 			kfree_skb(skb);
+-			goto out_err;
++			goto out;
+ 		}
+ 
+ 		unix_state_lock(other);
+@@ -1664,7 +1674,10 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		sent += size;
+ 	}
+ 
+-	scm_destroy(siocb->scm);
++	if (skb)
++		scm_release(siocb->scm);
++	else
++		scm_destroy(siocb->scm);
+ 	siocb->scm = NULL;
+ 
+ 	return sent;
+@@ -1677,7 +1690,9 @@ pipe_err:
+ 		send_sig(SIGPIPE, current, 0);
+ 	err = -EPIPE;
+ out_err:
+-	scm_destroy(siocb->scm);
++	if (skb == NULL)
++		scm_destroy(siocb->scm);
++out:
+ 	siocb->scm = NULL;
+ 	return sent ? : err;
+ }
+@@ -1781,7 +1796,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		siocb->scm = &tmp_scm;
+ 		memset(&tmp_scm, 0, sizeof(tmp_scm));
+ 	}
+-	scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
++	scm_set_cred_noref(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
+ 	unix_set_secdata(siocb->scm, skb);
+ 
+ 	if (!(flags & MSG_PEEK)) {
+@@ -1943,7 +1958,8 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 			}
+ 		} else {
+ 			/* Copy credentials */
+-			scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
++			scm_set_cred_noref(siocb->scm, UNIXCB(skb).pid,
++					   UNIXCB(skb).cred);
+ 			check_creds = 1;
+ 		}
+ 
+
+
+
