@@ -1,82 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH 04/14] bna: Add Multiple Tx Queue Support
-Date: Wed, 17 Aug 2011 00:43:16 +0100
-Message-ID: <1313538196.2725.74.camel@bwh-desktop>
-References: <1313529591-3718-1-git-send-email-rmody@brocade.com>
-	 <1313529591-3718-5-git-send-email-rmody@brocade.com>
-	 <1313531338.2725.63.camel@bwh-desktop>
-	 <E5313AF6F2BFD14293E5FD0F94750F86A94D99537C@HQ1-EXCH01.corp.brocade.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: boot test failure (net tree)
+Date: Wed, 17 Aug 2011 10:01:46 +1000
+Message-ID: <20110817100146.3b557cf815a5a2ae09bc09a7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Adapter Linux Open SRC Team
-	<adapter_linux_open_src_team@Brocade.COM>,
-	Gurunatha Karaje <gkaraje@Brocade.com>
-To: Rasesh Mody <rmody@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:10501 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752551Ab1HPXnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 19:43:20 -0400
-In-Reply-To: <E5313AF6F2BFD14293E5FD0F94750F86A94D99537C@HQ1-EXCH01.corp.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__17_Aug_2011_10_01_46_+1000_DqzQb1=P662eBQRn"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-08-16 at 16:32 -0700, Rasesh Mody wrote:
-> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >Sent: Tuesday, August 16, 2011 2:49 PM
-> >
-> >On Tue, 2011-08-16 at 14:19 -0700, Rasesh Mody wrote:
-> >> Change details:
-> >>  - Add macros bna_prio_allow, bna_default_nw_prio, bna_iscsi_prio,
-> >>    bna_is_iscsi_over_cee
-> >>  - Added support for multipe Tx queues with a separate iSCSI Tx queue
-> >based
-> >>    on the default value of iSCSI port number. The feature is supported
-> >based
-> >>    on the underlying hardware and enabled for DCB (CEE) mode only.
-> >>  - Allocate multiple TxQ resource in netdev
-> >>  - Implement bnad_tx_select_queue() which enables the correct
-> >selection of
-> >>    TxQ Id (and tcb). This function is called either by the kernel to
-> >channel
-> >>    packets to the right TxQ
-> >>  - bnad_tx_select_queue() returns priority, while only a few packets
-> >during
-> >>    transition could have wrong priority, all will be associated with a
-> >valid
-> >>    non-NULL tcb.
-> >>  - Implement bnad_iscsi_tcb_get() and BNAD_IS_ISCSI_PKT() for iSCSI
-> >packet
-> >>    inspection and retrieval of tcb corresponding to the iSCSI
-> >priority.
-> >>  - Construction of priority indirection table to be used by bnad to
-> >direct
-> >>    packets into TxQs
-> >[...]
-> >
-> >You probably should implement TX priority classes through the
-> >ndo_setup_tc operation, not ndo_select_queue.
-> 
-> The reason we went with ndo_select_queue is due to the need for mapping
-> iSCSI packets (TCP port 3260) to a priority derived from DCB configuration.
-> Here the iSCSI packets may not have any tc defined in the packet header. 
+--Signature=_Wed__17_Aug_2011_10_01_46_+1000_DqzQb1=P662eBQRn
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-There is an skb priority, which is derived from the socket priority
-option (SO_PRIORITY).  If you implement ndo_setup_tc then the networking
-core will take care of mapping the skb priority onto a different queue
-(or range of queues).
+Hi all,
 
-I don't know whether the socket priority option is easily configurable
-for the existing iSCSI implementations.  But looking at port numbers
-really doesn't seem like the right way to do this.
+I do build and boot tests for various PowerPC servers I have access to.
+Last night's test failed due to the fact that their ethernet drivers are
+not longer being built.  In particular, CONFIG_TIGON3 newly depends on
+CONFIG_NET_VENDOR_BROADCOM which will no be selected when doing a "make
+oldconfig" from a working config.  Similarly for CONFIG_IBM_VETH and (the
+new) CONFIG_VENDOR_IBM.  The original config had both CONFIG_TIGON3 and
+CONFIG_IBM_VETH set (to y and m resp.) and the final config had neither.
 
-Ben.
+These Kconfig changes need to be revised so that "make oldconfig" from a
+working config builds the same set of drivers ...
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Wed__17_Aug_2011_10_01_46_+1000_DqzQb1=P662eBQRn
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJOSwTqAAoJEDMEi1NhKgbsYwgH/1JPwPg3Bgu/7suOANAjluWJ
+FO7GCUZnON9YYgSAnorvkRYhbwG2UkiK7XV4du7pjjobI5KO2ZLRqygnSx0dAVKi
+eqlRz5tSL+bfeiBGOX/+jF9oUenXbRjiv1KyO5FUNSRz9YOE9eBEqveRXuh9ypWy
+oDfR7FAVr4fCc+0a3yLQBNyosq17E8i4zI8LhK4xUr9csnHh+ZZlooF2rzTPGRlK
+6KoEA5r0ejxSwyRRvVm2p7of65Q2o5aHpNNOYf8U9qrk/YqKwFdGkWGY2JY8guwQ
+DBCiLKANsid/K0MYhlxDMDsklHuEEkasuHBGdEqB3drTqeZwRR8EugyLoSZpCzQ=
+=u8Vw
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__17_Aug_2011_10_01_46_+1000_DqzQb1=P662eBQRn--
