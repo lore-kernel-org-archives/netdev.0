@@ -1,70 +1,51 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [Bugme-new] [Bug 41152] New: kernel 3.0 and above fails to
- handle vlan id 0 (802.1p) packets properly without hardware acceleration
-Date: Wed, 17 Aug 2011 12:59:51 +0200
-Message-ID: <20110817105950.GA4259@minipsycho.brq.redhat.com>
-References: <bug-41152-10286@https.bugzilla.kernel.org/>
- <20110816150918.5b2d7067.akpm@linux-foundation.org>
- <20110817053737.GA1936@minipsycho>
- <4E4B615F.8060403@gmail.com>
+From: WANG Cong <xiyou.wangcong@gmail.com>
+Subject: Re: [net-next RFC PATCH 7/7] virtio-net changes
+Date: Wed, 17 Aug 2011 13:24:59 +0000 (UTC)
+Message-ID: <j2gff7$cn1$1@dough.gmane.org>
+References: <20110812015221.31613.95001.stgit@intel-e5620-16-2.englab.nay.redhat.com>
+	<20110812015551.31613.13885.stgit@intel-e5620-16-2.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: Mike Auty <mike.auty@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: qemu-devel@nongnu.org, linux-kernel@vger.kernel.org,
+	kvm@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1194 "EHLO mx1.redhat.com"
+Received: from lo.gmane.org ([80.91.229.12]:33667 "EHLO lo.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752943Ab1HQK76 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Aug 2011 06:59:58 -0400
-Content-Disposition: inline
-In-Reply-To: <4E4B615F.8060403@gmail.com>
+	id S1753389Ab1HQNZP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2011 09:25:15 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Qtg7N-00057b-Or
+	for netdev@vger.kernel.org; Wed, 17 Aug 2011 15:25:13 +0200
+Received: from 116.53.101.235 ([116.53.101.235])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2011 15:25:13 +0200
+Received: from xiyou.wangcong by 116.53.101.235 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2011 15:25:13 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 17, 2011 at 08:36:15AM CEST, mike.auty@gmail.com wrote:
->On 17/08/11 06:37, Jiri Pirko wrote:
->> 
->> Hi Mike. May I ask what NIC are you seeing the regression on?
->> It may have something to do with dev->vlangrp and ndo_vlan_add/kill_vid.
->> VID 0 was recently only added by the latter ones. So if driver only
->> depended on dev->vlangrp, 0 was not there. This was changed recently by
->> my "vlan cleanup" patches. It may work for you again on net-next today.
->> 
->
->Hi there,
->
->I'm finding it on the following two NICs:
->
->02:00.0 Ethernet controller: Attansic Technology Corp. L1 Gigabit
->Ethernet Adapter (rev b0)
->
->05:01.0 Network controller [0280]: Broadcom Corporation BCM4306
->802.11b/g Wireless LAN Controller [14e4:4320] (rev 03)
->
->and (on a different machine):
->
->02:00.0 Network controller [0280]: Intel Corporation WiFi Link 6000
->Series [8086:422c] (rev 35)
+On Fri, 12 Aug 2011 09:55:51 +0800, Jason Wang wrote:
 
-I just obtained very similar card (8086:422b). Going to look at it right
-away.
+> From: Krishna Kumar <krkumar2@in.ibm.com>
+> 
+> Implement mq virtio-net driver.
+> 
+> Though struct virtio_net_config changes, it works with the old qemu
+> since the last element is not accessed unless qemu sets
+> VIRTIO_NET_F_MULTIQUEUE.
+> 
+...
+> +
+> +#if 1
+<...>
+> +#else
+<...>
+> +#endif
 
-One more thing. What do you use to generate vlan0 tagged packets? I'm
-using pktgen with "vlan_id 0". Would you please try that it behaves the
-same for you?
-	
->
->The only one I have had any success with is:
->
->00:19.0 Ethernet controller [0200]: Intel Corporation 82577LM Gigabit
->Network Connection [8086:10ea] (rev 05)
->
->Which I assume is because it has actual hardware acceleration.  I may be
->able to put net-next on the Intel Wifi box for testing at some point,
->but I don't know how soon I'll be able to do that.  Please let me know
->whether that would be a worthwhile test, and if so I'll try and get it
->done.  Thanks...
->
->Mike  5:)
->
+Any reason to keep this #else code of #if 1? which is dead.
+
