@@ -1,46 +1,29 @@
-From: "Mr.Sani Mohammed" <info@yahoo.com>
-Subject: Attention
-Date: Wed, 17 Aug 2011 03:26:48 +0200
-Message-ID: <20110817032648.39176jfkc2qwp0xs@webmail.tu-darmstadt.de>
-Reply-To: sani_moh9090@yahoo.com.my
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: boot test failure (net tree)
+Date: Tue, 16 Aug 2011 20:04:53 -0700 (PDT)
+Message-ID: <20110816.200453.1648804479684623262.davem@davemloft.net>
+References: <20110817105002.efebf85d08460ad99b14be8e@canb.auug.org.au>
+	<20110816.175657.1688139393736610845.davem@davemloft.net>
+	<1313543952.2981.132.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lnx500.hrz.tu-darmstadt.de ([130.83.156.225]:35875 "EHLO
-	lnx500.hrz.tu-darmstadt.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751771Ab1HQC0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2011 22:26:07 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: bhutchings@solarflare.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1313543952.2981.132.camel@deadeye>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 17 Aug 2011 02:19:12 +0100
 
-I wrote to know if this is your valid email. Please, let me know if
-this Email is valid. I have information to pass to you. The G-20
-meeting that was hold recently in France has appointed you through an
-email electronic ballot system selection. That makes you the beneficiary
-of 1.2 Million USD, in this year?s annual financial meeting for the  
-development
-of your geographical area that will enhance the economic growth of the  
-society.
+> If you were to use just "yes", then of course it would.  But since there
+> is no explicit default, "yes ''" will deselect them.
+> 
+> Maybe these guards should have "default y"?
 
-Please confirm your email to the G-20 Secretarial in Malaysia.
-
-Please notify us if your email is valid by providing the below details.
-
-Full Name:
-Country:
-
-Email: sani_moh9090@yahoo.com.my
-
-Mr.Sani Mohammed
-Tele: +601116300759
-
-
-
-
+The point is to declutter xconfig and friends, if it defaults to
+'y' everything will just always expand.
