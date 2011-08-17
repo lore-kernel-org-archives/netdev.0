@@ -1,146 +1,52 @@
-From: Robin Holt <holt@sgi.com>
-Subject: [PATCH v13 5/6] flexcan: Prefer device tree clock frequency if available.
-Date: Tue, 16 Aug 2011 22:32:23 -0500
-Message-ID: <1313551944-28603-6-git-send-email-holt@sgi.com>
-References: <1313551944-28603-1-git-send-email-holt@sgi.com>
-Cc: Robin Holt <holt@sgi.com>, Wolfgang Grandegger <wg@grandegger.com>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	U Bhaskar-B22300 <B22300@freescale.com>,
-	Scott Wood <scottwood@freescale.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	PPC list <linuxppc-dev@lists.ozlabs.org>,
-	devicetree-discuss@lists.ozlabs.org
-To: Robin Holt <holt@sgi.com>, "David S. Miller" <davem@davemloft.net>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix
+From: "Mr. Vincent Cheng" <isaac.merin@ehu.es>
+Subject: PROTECTED PROJECT
+Date: Wed, 17 Aug 2011 06:44:01 +0200
+Message-ID: <20110817064401.16194y9jes3wfv48@www.ehu.es>
+Reply-To: vincent.cheng@qatar.io
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.sgi.com ([192.48.179.30]:52471 "EHLO relay.sgi.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752167Ab1HQDc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2011 23:32:59 -0400
-In-Reply-To: <1313551944-28603-1-git-send-email-holt@sgi.com>
+Received: from smtp.lg.ehu.es ([158.227.0.66]:54817 "EHLO smtp.ehu.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750813Ab1HQFJ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2011 01:09:56 -0400
+Received: from lgux66.lgp.ehu.es (localhost.localdomain [127.0.0.1])
+	by smtp.ehu.es (8.14.4/8.14.4) with ESMTP id p7H4lf8V003730
+	for <netdev@vger.kernel.org>; Wed, 17 Aug 2011 06:48:29 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If our CAN device's device tree node has a clock-frequency property,
-then use that value for the can devices clock frequency.  If not, fall
-back to asking the platform/mach code for the clock frequency associated
-with the flexcan device.
 
-Signed-off-by: Robin Holt <holt@sgi.com>
-Acked-by: Wolfgang Grandegger <wg@grandegger.com>,
-Cc: Kumar Gala <galak@kernel.crashing.org>
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-Cc: U Bhaskar-B22300 <B22300@freescale.com>
-Cc: Scott Wood <scottwood@freescale.com>
-Cc: Grant Likely <grant.likely@secretlab.ca>
-Cc: socketcan-core@lists.berlios.de,
-Cc: netdev@vger.kernel.org,
-Cc: PPC list <linuxppc-dev@lists.ozlabs.org>
-Cc: devicetree-discuss@lists.ozlabs.org
----
- .../devicetree/bindings/net/can/fsl-flexcan.txt    |    2 +
- drivers/net/can/flexcan.c                          |   34 ++++++++++++++-----
- 2 files changed, 27 insertions(+), 9 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt b/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
-index 8dfb98b..1ad80d5 100644
---- a/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
-+++ b/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
-@@ -11,6 +11,7 @@ Required properties:
- 
- - reg : Offset and length of the register set for this device
- - interrupts : Interrupt tuple for this device
-+- clock-frequency : The oscillator frequency driving the flexcan device
- 
- Example:
- 
-@@ -19,4 +20,5 @@ Example:
- 		reg = <0x1c000 0x1000>;
- 		interrupts = <48 0x2>;
- 		interrupt-parent = <&mpic>;
-+		clock-frequency = <200000000>; // filled in by bootloader
- 	};
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index cc1e0a7..e023379 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -33,6 +33,7 @@
- #include <linux/kernel.h>
- #include <linux/list.h>
- #include <linux/module.h>
-+#include <linux/of.h>
- #include <linux/platform_device.h>
- 
- #define DRV_NAME			"flexcan"
-@@ -925,16 +926,29 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
- 	struct net_device *dev;
- 	struct flexcan_priv *priv;
- 	struct resource *mem;
--	struct clk *clk;
-+	struct clk *clk = NULL;
- 	void __iomem *base;
- 	resource_size_t mem_size;
- 	int err, irq;
-+	u32 clock_freq = 0;
-+
-+	if (pdev->dev.of_node) {
-+		const u32 *clock_freq_p;
- 
--	clk = clk_get(&pdev->dev, NULL);
--	if (IS_ERR(clk)) {
--		dev_err(&pdev->dev, "no clock defined\n");
--		err = PTR_ERR(clk);
--		goto failed_clock;
-+		clock_freq_p = of_get_property(pdev->dev.of_node,
-+						"clock-frequency", NULL);
-+		if (clock_freq_p)
-+			clock_freq = *clock_freq_p;
-+	}
-+
-+	if (!clock_freq) {
-+		clk = clk_get(&pdev->dev, NULL);
-+		if (IS_ERR(clk)) {
-+			dev_err(&pdev->dev, "no clock defined\n");
-+			err = PTR_ERR(clk);
-+			goto failed_clock;
-+		}
-+		clock_freq = clk_get_rate(clk);
- 	}
- 
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -967,7 +981,7 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
- 	dev->flags |= IFF_ECHO; /* we support local echo in hardware */
- 
- 	priv = netdev_priv(dev);
--	priv->can.clock.freq = clk_get_rate(clk);
-+	priv->can.clock.freq = clock_freq;
- 	priv->can.bittiming_const = &flexcan_bittiming_const;
- 	priv->can.do_set_mode = flexcan_set_mode;
- 	priv->can.do_get_berr_counter = flexcan_get_berr_counter;
-@@ -1002,7 +1016,8 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
-  failed_map:
- 	release_mem_region(mem->start, mem_size);
-  failed_get:
--	clk_put(clk);
-+	if (clk)
-+		clk_put(clk);
-  failed_clock:
- 	return err;
- }
-@@ -1020,7 +1035,8 @@ static int __devexit flexcan_remove(struct platform_device *pdev)
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	release_mem_region(mem->start, resource_size(mem));
- 
--	clk_put(priv->clk);
-+	if (priv->clk)
-+		clk_put(priv->clk);
- 
- 	free_candev(dev);
- 
--- 
-1.7.2.1
+I am Mr. Vincent Cheng, GBS, JP Chairman of the Hong Kong and Shanghai  
+Banking Corporation Limited.
+i have a business proposal of Twenty Two million Five Hundred Thousand  
+United State Dollars only for you to
+transact with me from my bank to your country.Having gone through a  
+methodical search, I decided to contact you hoping
+that you will find this proposal interesting. Please on your  
+confirmation of this message and indicating your interest
+
+All confirmable documents to back up the claims will be made available  
+to you prior to your acceptance
+and as soon as I receive your return mail Via my email  
+address:vincent.cheng@qatar.io and I will let
+you know what is required of you,your earliest response to this letter  
+will be appreciated.
+
+Endeavor to let me know your decision rather than keep me waiting
+
+Best Regards,
+Mr. Vincent Cheng
+
+
+
+
+
 
