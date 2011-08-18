@@ -1,36 +1,63 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [patch net-2.6] vlan: reset headers on accel emulation path
-Date: Thu, 18 Aug 2011 11:16:53 -0700
-Message-ID: <20110818181653.GA18213@suse.de>
-References: <1313685345-2417-1-git-send-email-jpirko@redhat.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [net-next 03/10] seeq: Move the SEEQ drivers
+Date: Thu, 18 Aug 2011 20:36:32 +0100
+Message-ID: <20110818193632.GA27388@linux-mips.org>
+References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1313134384-7287-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
-	shemminger@linux-foundation.org, eric.dumazet@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com, Russell King <linux@arm.linux.org.uk>,
+	Hamish Coleman <hamish@zot.apana.org.au>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:43771 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751206Ab1HRSZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Aug 2011 14:25:28 -0400
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:41815 "EHLO linux-mips.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751295Ab1HRTgx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Aug 2011 15:36:53 -0400
 Content-Disposition: inline
-In-Reply-To: <1313685345-2417-1-git-send-email-jpirko@redhat.com>
+In-Reply-To: <1313134384-7287-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 18, 2011 at 06:35:45PM +0200, Jiri Pirko wrote:
-> It's after all necessary to do reset headers here. The reason is we
-> cannot depend that it gets reseted in __netif_receive_skb once skb is
-> reinjected. For incoming vlanids without vlan_dev, vlan_do_receive()
-> returns false with skb != NULL and __netif_reveive_skb continues, skb is
-> not reinjected.
+On Fri, Aug 12, 2011 at 12:32:57AM -0700, Jeff Kirsher wrote:
+
+> Move the drivers that use SEEQ chipset into drivers/net/ethernet/seeq
+> and make the necessary Kconfig and Makefile changes.
 > 
-> This might be good material for 3.0-stable as well
+> CC: Russell King <linux@arm.linux.org.uk>
+> CC: Hamish Coleman <hamish@zot.apana.org.au>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  MAINTAINERS                                 |    3 +-
+>  drivers/net/Kconfig                         |   18 -----------
+>  drivers/net/Makefile                        |    2 -
+>  drivers/net/arm/Kconfig                     |    7 ----
+>  drivers/net/arm/Makefile                    |    1 -
+>  drivers/net/ethernet/Kconfig                |    1 +
+>  drivers/net/ethernet/Makefile               |    1 +
+>  drivers/net/ethernet/seeq/Kconfig           |   45 +++++++++++++++++++++++++++
+>  drivers/net/ethernet/seeq/Makefile          |    7 ++++
+>  drivers/net/{arm => ethernet/seeq}/ether3.c |    0
+>  drivers/net/{arm => ethernet/seeq}/ether3.h |    0
+>  drivers/net/{ => ethernet/seeq}/seeq8005.c  |    0
+>  drivers/net/{ => ethernet/seeq}/seeq8005.h  |    0
+>  drivers/net/{ => ethernet/seeq}/sgiseeq.c   |    0
+>  drivers/net/{ => ethernet/seeq}/sgiseeq.h   |    0
+>  15 files changed, 56 insertions(+), 29 deletions(-)
+>  create mode 100644 drivers/net/ethernet/seeq/Kconfig
+>  create mode 100644 drivers/net/ethernet/seeq/Makefile
+>  rename drivers/net/{arm => ethernet/seeq}/ether3.c (100%)
+>  rename drivers/net/{arm => ethernet/seeq}/ether3.h (100%)
+>  rename drivers/net/{ => ethernet/seeq}/seeq8005.c (100%)
+>  rename drivers/net/{ => ethernet/seeq}/seeq8005.h (100%)
+>  rename drivers/net/{ => ethernet/seeq}/sgiseeq.c (100%)
+>  rename drivers/net/{ => ethernet/seeq}/sgiseeq.h (100%)
 
-<formletter>
+This makes a lot more sense than shoving the Seeq drivers into
+drivers/net/ethernet/sgi/ - even though sgiseeq depends on an SGI IP22/IP28
+specific DMA engine.
 
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-</formletter>
+  Ralf
