@@ -1,19 +1,15 @@
 From: san@google.com (San Mehat)
-Subject: (unknown)
-Date: Thu, 18 Aug 2011 15:07:32 -0700 (PDT)
-Message-ID: <20110818220732.459185C80B@san.sea.corp.google.com>
+Subject: [RFC 0/0] Introducing a generic socket offload framework
+Date: Thu, 18 Aug 2011 15:07:56 -0700 (PDT)
+Message-ID: <20110818220756.5C93E5C80B@san.sea.corp.google.com>
 Cc: linux-kernel@vger.kernel.org,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	digitaleric@google.com, mikew@google.com, miche@google.com,
 	maccarro@google.com
 To: davem@davemloft.net, mst@redhat.com, rusty@rustcorp.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:44477 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754351Ab1HRWHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 18:07:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 TL;DR
