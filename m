@@ -1,30 +1,40 @@
-From: <Catherine.Bellenfant@ac-nice.fr>
-Subject: (unknown)
-Date: Wed, 17 Aug 2011 20:04:59 -0700
-Message-ID: <d0b0ac8a6d878f85.4e4c1eeb@ac-nice.fr>
-Reply-To: mrallenailliams@hotmail.com
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v13 0/6] flexcan: Add support for powerpc flexcan
+	(freescale p1010)
+Date: Wed, 17 Aug 2011 20:36:52 -0700 (PDT)
+Message-ID: <20110817.203652.1534418728105616430.davem@davemloft.net>
+References: <1313551944-28603-1-git-send-email-holt@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ac-nice.fr ([194.167.84.68]:58984 "EHLO smtp.ac-nice.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752706Ab1HRDf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Aug 2011 23:35:29 -0400
-Content-Language: en
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org, galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: holt-sJ/iWh9BUns@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1313551944-28603-1-git-send-email-holt-sJ/iWh9BUns@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: Robin Holt <holt-sJ/iWh9BUns@public.gmane.org>
+Date: Tue, 16 Aug 2011 22:32:18 -0500
 
+> The following set of patches have been reviewed by the above parties and
+> all comments have been integrated.  Although the patches stray from the
+> drivers/net/can directory, the diversions are related to changes for
+> the flexcan driver.
+> 
+> The patch set is based upon your net-next-2.6 tree's commit 6c37e46.
+> 
+> Could you please queue these up for the next appropriate push to Linus'
+> tree?
 
-Dear beneficiary,
-
-This is to re-notify you of the $300,000.00 USD that was deposited
-here in the western union office in your name is available for pickup.
-Contact us via email for your M.T.C.N Numbers.
-
-Contact Person:Mr. Allen Williams
-Email: mrallenailliams@hotmail.com
-Tel. +447024037299
+Applied to net-next, thanks!
