@@ -1,34 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix IBM EMAC driver after rename.
-Date: Wed, 17 Aug 2011 23:49:47 -0700 (PDT)
-Message-ID: <20110817.234947.611559275017926008.davem@davemloft.net>
-References: <20110818061354.GD19739@ozlabs.org>
+From: "Naveen B N (nbn)" <nbn@cisco.com>
+Subject: protect raw sockets
+Date: Thu, 18 Aug 2011 13:45:58 +0530
+Message-ID: <A2354B6A9F807641B21EEABD666ECEEA011AFCE2@XMB-BGL-416.cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: tony@bakeyournoodle.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60821 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753024Ab1HRGv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 02:51:57 -0400
-In-Reply-To: <20110818061354.GD19739@ozlabs.org>
+Received: from ams-iport-1.cisco.com ([144.254.224.140]:43216 "EHLO
+	ams-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755328Ab1HRIQP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 04:16:15 -0400
+Received: from xbh-bgl-411.cisco.com (xbh-bgl-411.cisco.com [72.163.129.201])
+	by bgl-core-1.cisco.com (8.14.3/8.14.3) with ESMTP id p7I8FXrB006052
+	for <netdev@vger.kernel.org>; Thu, 18 Aug 2011 08:16:13 GMT
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tony Breeds <tony@bakeyournoodle.com>
-Date: Thu, 18 Aug 2011 16:13:55 +1000
+Hi All,
+Is there a way to enforce IPsec protection for packets sent from
+application using RAW_SOCKET.
 
-> In commit 9aa3283595451ca093500ff0977b106e1f465586 (ehea/ibm*: Move the
-> IBM drivers) the IBM_NEW_EMAC* were renames to IBM_EMAC*
-> 
-> The conversion was incomplete so that even if the driver was added to
-> the .config it wasn't built, but there were no errors)
-> 
-> This should fix those omissions.
-> 
-> Tested on a canyondlands board.
+My analysis is to add a code at the raw_sendmsg() & raw_v4_input() to
+call xfrm_policy_check() ..
+Is it a good method to proceed or is there a better and smart way to
+achieve this .
 
-You also need to select the dependencies, such as "ETHERNET" for this
-to be correct.
+Hoping for some guide lines ..
+
+Thanks in advance ..
+
+Thanks and Regards
+Naveen
