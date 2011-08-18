@@ -1,57 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] bridge: allow passing link-local multicast
-Date: Thu, 18 Aug 2011 09:39:41 -0700
-Message-ID: <20110818093941.5ebf716b@nehalam.ftrdhcpuser.net>
-References: <CAF5U64C+WgQhfJL3zfVnvzE7p=G61humQCObHGUxAvY2-MGAFQ@mail.gmail.com>
-	<CAF5U64CJTWDn8E9+XVLFsdaSbiu-4Rd9XmxZq7ReziRNZviO6Q@mail.gmail.com>
-	<20110812154545.79d8313f@nehalam.ftrdhcpuser.net>
-	<CAF5U64B_fb2tFMLHmK+zw3n6gmq+bYDyFnXhLE0ayssK5m+THA@mail.gmail.com>
-	<20110815150501.3a6cc432@nehalam.ftrdhcpuser.net>
-	<CAEJpZP0fOydMMbgquAud7dfwcO28BXAMzAwnMjSZO6TvEjxgpQ@mail.gmail.com>
-	<20110818081019.4b9bb79e@nehalam.ftrdhcpuser.net>
-	<CAEJpZP2FGhPmTi0+eS+QRhj4y+aqfQHnEUrjmOOLHUay1SuAKg@mail.gmail.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [patch v2] net: netdev-features.txt update to Documentation/networking/00-INDEX
+Date: Thu, 18 Aug 2011 12:44:45 -0400
+Message-ID: <4E4D417D.9020806@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ed Swierk <eswierk@bigswitch.com>, netdev@vger.kernel.org,
-	David Lamparter <equinox@diac24.net>,
-	bridge@linux-foundation.org
-To: Nick Carter <ncarter100@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56369 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755455Ab1HRQjd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Aug 2011 12:39:33 -0400
-In-Reply-To: <CAEJpZP2FGhPmTi0+eS+QRhj4y+aqfQHnEUrjmOOLHUay1SuAKg@mail.gmail.com>
+Received: from smtp-out.google.com ([216.239.44.51]:32022 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756070Ab1HRQot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 12:44:49 -0400
+Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
+	by smtp-out.google.com with ESMTP id p7IGim1g001551
+	for <netdev@vger.kernel.org>; Thu, 18 Aug 2011 09:44:48 -0700
+Received: from vws7 (vws7.prod.google.com [10.241.21.135])
+	by wpaz37.hot.corp.google.com with ESMTP id p7IGiNfa014507
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 18 Aug 2011 09:44:47 -0700
+Received: by vws7 with SMTP id 7so2426282vws.21
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2011 09:44:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Aug 2011 16:52:45 +0100
-Nick Carter <ncarter100@gmail.com> wrote:
+Update netdev-features.txt entry in 00-INDEX to incorporate
+feedback by Micha=C5=82 Miros=C5=82aw.
 
-> On 18 August 2011 16:10, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> > On Thu, 18 Aug 2011 16:06:19 +0100
-> > Nick Carter <ncarter100@gmail.com> wrote:
-> >
-> >> Why can't we use the 802.1D specified STP group address to identify ?
-> >> The existing code uses that address.
-> >> I know you said on another thread that there are people using other addresses.
-> >> Who are these people ?
-> >> Are they following any standard ?
-> >> What address / address range are they using ?
-> >
-> > The group address can be reprogrammed, and it is settable on other
-> > routing equipment. People do it to create spanning tree domains.
-> >
-> But before the new
-> +               if (!is_stp_bpdu(skb) && br_forward_link_local)
-> check, we have already checked
-> 	if (unlikely(is_link_local(dest))) {
-> So the frame must have a link local destination.  If the reprogrammed
-> group address is outside of the link local range then the new code in
-> this patch will never be hit.  If the reprogrammed group address is in
-> the link local range then i'd suggest my previous group_fwd_mask patch
-> is cleaner and more flexible.
+v2: restored tabs that were inadvertently changed to spaces in v1.
+sorry for the error.
 
-The problem is that the group_fwd_mask is specific to the address
-not the protocol.
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ Documentation/networking/00-INDEX |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/Documentation/networking/00-INDEX b/Documentation/networki=
+ng/00-INDEX
+index 811252b..bbce121 100644
+--- a/Documentation/networking/00-INDEX
++++ b/Documentation/networking/00-INDEX
+@@ -135,7 +135,7 @@ multiqueue.txt
+ netconsole.txt
+ 	- The network console module netconsole.ko: configuration and notes.
+ netdev-features.txt
+-	- Network interface "feature mess and how to get out from it alive".
++	- Network interface features API description.
+ netdevices.txt
+ 	- info on network device driver functions exported to the kernel.
+ netif-msg.txt
+--=20
+1.7.3.1
+
+
