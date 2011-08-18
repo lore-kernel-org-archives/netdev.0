@@ -1,63 +1,35 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [net-next 03/10] seeq: Move the SEEQ drivers
-Date: Thu, 18 Aug 2011 20:36:32 +0100
-Message-ID: <20110818193632.GA27388@linux-mips.org>
-References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1313134384-7287-4-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Mike Auty <mike.auty@gmail.com>
+Subject: Re: [Bugme-new] [Bug 41152] New: kernel 3.0 and above fails to handle
+ vlan id 0 (802.1p) packets properly without hardware acceleration
+Date: Thu, 18 Aug 2011 20:39:18 +0100
+Message-ID: <4E4D6A66.3080908@gmail.com>
+References: <bug-41152-10286@https.bugzilla.kernel.org/> <20110816150918.5b2d7067.akpm@linux-foundation.org> <20110817053737.GA1936@minipsycho> <4E4B615F.8060403@gmail.com> <20110817105950.GA4259@minipsycho.brq.redhat.com> <4E4C4549.6020802@gmail.com> <20110818163702.GA1911@minipsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, Russell King <linux@arm.linux.org.uk>,
-	Hamish Coleman <hamish@zot.apana.org.au>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:41815 "EHLO linux-mips.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751295Ab1HRTgx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Aug 2011 15:36:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1313134384-7287-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from out2.smtp.messagingengine.com ([66.111.4.26]:44918 "EHLO
+	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751295Ab1HRTjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 15:39:21 -0400
+In-Reply-To: <20110818163702.GA1911@minipsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 12, 2011 at 12:32:57AM -0700, Jeff Kirsher wrote:
-
-> Move the drivers that use SEEQ chipset into drivers/net/ethernet/seeq
-> and make the necessary Kconfig and Makefile changes.
+On 18/08/11 17:37, Jiri Pirko wrote:
 > 
-> CC: Russell King <linux@arm.linux.org.uk>
-> CC: Hamish Coleman <hamish@zot.apana.org.au>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  MAINTAINERS                                 |    3 +-
->  drivers/net/Kconfig                         |   18 -----------
->  drivers/net/Makefile                        |    2 -
->  drivers/net/arm/Kconfig                     |    7 ----
->  drivers/net/arm/Makefile                    |    1 -
->  drivers/net/ethernet/Kconfig                |    1 +
->  drivers/net/ethernet/Makefile               |    1 +
->  drivers/net/ethernet/seeq/Kconfig           |   45 +++++++++++++++++++++++++++
->  drivers/net/ethernet/seeq/Makefile          |    7 ++++
->  drivers/net/{arm => ethernet/seeq}/ether3.c |    0
->  drivers/net/{arm => ethernet/seeq}/ether3.h |    0
->  drivers/net/{ => ethernet/seeq}/seeq8005.c  |    0
->  drivers/net/{ => ethernet/seeq}/seeq8005.h  |    0
->  drivers/net/{ => ethernet/seeq}/sgiseeq.c   |    0
->  drivers/net/{ => ethernet/seeq}/sgiseeq.h   |    0
->  15 files changed, 56 insertions(+), 29 deletions(-)
->  create mode 100644 drivers/net/ethernet/seeq/Kconfig
->  create mode 100644 drivers/net/ethernet/seeq/Makefile
->  rename drivers/net/{arm => ethernet/seeq}/ether3.c (100%)
->  rename drivers/net/{arm => ethernet/seeq}/ether3.h (100%)
->  rename drivers/net/{ => ethernet/seeq}/seeq8005.c (100%)
->  rename drivers/net/{ => ethernet/seeq}/seeq8005.h (100%)
->  rename drivers/net/{ => ethernet/seeq}/sgiseeq.c (100%)
->  rename drivers/net/{ => ethernet/seeq}/sgiseeq.h (100%)
+> Patch posted:
+> http://patchwork.ozlabs.org/patch/110535/
+> 
+> sorry I forgot to cc you Mike. Thanks a lot for report!
 
-This makes a lot more sense than shoving the Seeq drivers into
-drivers/net/ethernet/sgi/ - even though sgiseeq depends on an SGI IP22/IP28
-specific DMA engine.
+No problem,
 
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
+Thanks very much for the speedy fix!  I've applied the patch and can
+confirm it solves my problem.  I look forward to seeing it hit the
+mainline...  5:)
 
-  Ralf
+Mike  5:)
