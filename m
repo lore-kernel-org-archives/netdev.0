@@ -1,79 +1,52 @@
-From: Stephen Clark <sclark46@earthlink.net>
-Subject: Re: Linux vs FreeBSD Which is correct.
-Date: Thu, 18 Aug 2011 08:42:32 -0400
-Message-ID: <4E4D08B8.8020309@earthlink.net>
-References: <4E4BF456.9000807@earthlink.net> <201108172017.48683.remi@remlab.net> <4E4C1A00.80207@earthlink.net> <4E4C2178.1000809@plouf.fr.eu.org>
-Reply-To: sclark46@earthlink.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH] net: vlan: 802.1ad S-VLAN support
+Date: Thu, 18 Aug 2011 15:38:02 +0100
+Message-ID: <1313678282.2739.16.camel@bwh-desktop>
+References: <1310936105-3494206-1-git-send-email-equinox@diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-15?Q?R=E9mi_Denis-Courmont?= <remi@remlab.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pascal Hambourg <pascal@plouf.fr.eu.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:49569 "EHLO
-	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755765Ab1HRMmh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 08:42:37 -0400
-In-Reply-To: <4E4C2178.1000809@plouf.fr.eu.org>
+Received: from mail.solarflare.com ([216.237.3.220]:43054 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755295Ab1HROiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 10:38:06 -0400
+In-Reply-To: <1310936105-3494206-1-git-send-email-equinox@diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2011 04:15 PM, Pascal Hambourg wrote:
-> Hello,
->
-> Stephen Clark a =E9crit :
->   =20
->> On 08/17/2011 01:17 PM, R=E9mi Denis-Courmont wrote:
->>     =20
->>> Le mercredi 17 ao=FBt 2011 20:03:18 Stephen Clark, vous avez =E9cri=
-t :
->>>
->>>       =20
->>>> I have run into a situation where if I ping our HQ the response co=
-mes
->>>> back on a different
->>>> interface than what the request went out on. FreeBSD is happy and =
-says
->>>> it got the response,
->>>> Linux is not and gives no indication it got a response.
->>>>
->>>> So is FreeBSD wrong or is Linux wrong?
->>>>         =20
-> Neither is right or wrong. It partly depends whether you want to enfo=
-rce
-> so-called "weak" or "strong" host model.
->
->   =20
->>> Most distributions enable reverse path filtering by default.
->>> It can be disabled:
->>> # echo -n 0>   /proc/sys/net/ipv4/conf/all/rp_filter
->>>
->>> But you should probably fix the configuration instead (e.g. /etc/sy=
-sctl.conf).
->>>
->>>       =20
->> Sorry that didn't help either.
->>     =20
-> Since some kernel version the logic of this sysctl has changed from
-> AND(all, $interface) to MAX(all, $interface). So you must set
-> net/ipv4/conf/$interface/rp_filter to 0 too to disable it.
-> Or set net/ipv4/conf/all/rp_filter to 2 to make it weaker.
->
->   =20
-I guess I don't really understand what reverse path filter stuff is all=
-=20
-about, much less making it weaker.
-But using 2 made the pings responses be seen.
+On Sun, 2011-07-17 at 22:55 +0200, David Lamparter wrote:
+> this adds support for 802.1ad S-VLANs, which basically are regular VLANs
+> with a different protocol field. also supported are the legacy QinQ
+> 9100/9200/9300 ethertypes. as with the CFI bit for 802.1Q, the DEI bit
+> is blissfully ignored.
+> 
+> this patch modifies the 802.1Q code, but keeps the regular VLAN
+> acceleration architecture unchanged. the S-VLAN code does not use that;
+> I am not aware of any NIC implementing it for ethertypes other than
+> 8100.
+[...]
 
---=20
+I've not heard of multiple-VLAN-tag-insertion, but any controller that
+implements a generic 16-bit checksum should be able to do TX checksum
+offload regardless of the number of tags present.  So I think VLAN
+devices should have their own vlan_features set to at least:
+    NETIF_F_HW_CSUM | NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDM
 
-"They that give up essential liberty to obtain temporary safety,
-deserve neither liberty nor safety."  (Ben Franklin)
+Some controllers that rely on header parsing for TX checksum offload can
+also handle multiple VLAN tags; our current chips recognise up to 3 VLAN
+tags with any of those Ethertypes.  It would be good to have some way
+for physical device drivers to advertise this feature so that nested
+VLAN devices can take advantage of it.  (I am definitely *not* proposing
+vlan2_features, vlan3_features, which wouldn't even be sufficient to
+represent Ethertype constraints.)
 
-"The course of history shows that as a government grows, liberty
-decreases."  (Thomas Jefferson)
+Ben.
 
-
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
