@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] rps: Look into tunnels to get hash
-Date: Wed, 17 Aug 2011 20:06:59 -0700 (PDT)
-Message-ID: <20110817.200659.480003313920436612.davem@davemloft.net>
-References: <alpine.DEB.2.00.1108142135340.24599@pokey.mtv.corp.google.com>
+Subject: Re: [PATCH] net: netdev-features.txt update to
+ Documentation/networking/00-INDEX
+Date: Wed, 17 Aug 2011 20:09:11 -0700 (PDT)
+Message-ID: <20110817.200911.601240964918936596.davem@davemloft.net>
+References: <4E496526.8090201@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, mircus@gmail.com
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44794 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38425 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752706Ab1HRDHC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2011 23:07:02 -0400
-In-Reply-To: <alpine.DEB.2.00.1108142135340.24599@pokey.mtv.corp.google.com>
+	with ESMTP id S1754902Ab1HRDJP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2011 23:09:15 -0400
+In-Reply-To: <4E496526.8090201@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sun, 14 Aug 2011 22:44:33 -0700 (PDT)
+=46rom: Willem de Bruijn <willemb@google.com>
+Date: Mon, 15 Aug 2011 14:27:50 -0400
 
-> In this version fixed calls to sock_rps_save_rxhash in IPv6 with correct
-> arguments and addressed comments from Eric Dumazet.
-> 
-> The patches in this series are to look into encapsulated packets
-> to compute the rx hash for RPS.  Before these patches, all packets
-> received on the same tunnel would wind up on the same RPS CPU-- this
-> can lead to very poor loading, and make RFS ineffective on these
-> packets.
-> 
-> This patch supports getting the rxhash out of a GRE encapsulated packet.
+> Update netdev-features.txt entry in 00-INDEX to incorporate
+> feedback by Micha=A9=A9 Miros=A9=A9aw. A trivial update to my previou=
+s
+> patch, but I was too late with preparing a v2. Will try to
+> avoid having to send patches to my own patches in the future.=20
+>=20
+>   willem
+>=20
+> Signed-off-by: Willem de Bruijn <willemb@gmail.com>
 
-I'm sure we'll have some follow-on tweaks to this, but the basic
-infrastructure looks fine to me.
+Patch corrupted by your email client, please fix and do a full
+fresh resubmission.
 
-Applied, thanks!
+Thanks.
