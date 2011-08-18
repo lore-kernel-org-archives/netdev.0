@@ -1,58 +1,79 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: downgrade Max BW error message to debug
-Date: Thu, 18 Aug 2011 15:22:00 +0300
-Message-ID: <1313670121.5576.0.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <20110812143324.5740.45824.stgit@dhcp-29-224.brq.redhat.com>
- <1313405680.31417.6.camel@lb-tlvb-eilong.il.broadcom.com>
- <4E490A1E.3060209@redhat.com>
- <1313411585.31417.35.camel@lb-tlvb-eilong.il.broadcom.com>
- <4E493798.7010405@redhat.com>
- <1313434042.30399.0.camel@lb-tlvb-eilong.il.broadcom.com>
- <4E4A56C0.4030009@redhat.com>
- <1313498708.24298.0.camel@lb-tlvb-eilong.il.broadcom.com>
- <20110817175037.2777724a@brian.englab.brq.redhat.com>
- <1313603055.12483.3.camel@lb-tlvb-eilong.il.broadcom.com>
- <20110818133751.3ba77279@brian.englab.brq.redhat.com>
-Reply-To: eilong@broadcom.com
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: Linux vs FreeBSD Which is correct.
+Date: Thu, 18 Aug 2011 08:42:32 -0400
+Message-ID: <4E4D08B8.8020309@earthlink.net>
+References: <4E4BF456.9000807@earthlink.net> <201108172017.48683.remi@remlab.net> <4E4C1A00.80207@earthlink.net> <4E4C2178.1000809@plouf.fr.eu.org>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Vladislav Zolotarov" <vladz@broadcom.com>
-To: "Michal Schmidt" <mschmidt@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-15;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-15?Q?R=E9mi_Denis-Courmont?= <remi@remlab.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pascal Hambourg <pascal@plouf.fr.eu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1645 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755786Ab1HRMWT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Aug 2011 08:22:19 -0400
-In-Reply-To: <20110818133751.3ba77279@brian.englab.brq.redhat.com>
+Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:49569 "EHLO
+	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755765Ab1HRMmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 08:42:37 -0400
+In-Reply-To: <4E4C2178.1000809@plouf.fr.eu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-08-18 at 04:37 -0700, Michal Schmidt wrote:
-> On Wed, 17 Aug 2011 20:44:15 +0300 Eilon Greenstein wrote:
-> > I think that we should use DP instead of DBG_ERR. How about this one:
-> ... 
-> > Can you sing-off on somethign like this?
-> 
-> OK, let's use DP. Thanks!
-> 
-> 
-> Subject: [PATCH v2] bnx2x: downgrade Max BW error message to debug
-> 
-> There are valid configurations where Max BW is configured to zero for
-> some VNs.
-> Print the message only if debugging is enabled and do not call the
-> configuration "illegal".
-> 
-> [v2: use DP(), not BNX2X_DBG_ERR(); recommended by Eilon Greenstein.]
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+On 08/17/2011 04:15 PM, Pascal Hambourg wrote:
+> Hello,
+>
+> Stephen Clark a =E9crit :
+>   =20
+>> On 08/17/2011 01:17 PM, R=E9mi Denis-Courmont wrote:
+>>     =20
+>>> Le mercredi 17 ao=FBt 2011 20:03:18 Stephen Clark, vous avez =E9cri=
+t :
+>>>
+>>>       =20
+>>>> I have run into a situation where if I ping our HQ the response co=
+mes
+>>>> back on a different
+>>>> interface than what the request went out on. FreeBSD is happy and =
+says
+>>>> it got the response,
+>>>> Linux is not and gives no indication it got a response.
+>>>>
+>>>> So is FreeBSD wrong or is Linux wrong?
+>>>>         =20
+> Neither is right or wrong. It partly depends whether you want to enfo=
+rce
+> so-called "weak" or "strong" host model.
+>
+>   =20
+>>> Most distributions enable reverse path filtering by default.
+>>> It can be disabled:
+>>> # echo -n 0>   /proc/sys/net/ipv4/conf/all/rp_filter
+>>>
+>>> But you should probably fix the configuration instead (e.g. /etc/sy=
+sctl.conf).
+>>>
+>>>       =20
+>> Sorry that didn't help either.
+>>     =20
+> Since some kernel version the logic of this sysctl has changed from
+> AND(all, $interface) to MAX(all, $interface). So you must set
+> net/ipv4/conf/$interface/rp_filter to 0 too to disable it.
+> Or set net/ipv4/conf/all/rp_filter to 2 to make it weaker.
+>
+>   =20
+I guess I don't really understand what reverse path filter stuff is all=
+=20
+about, much less making it weaker.
+But using 2 made the pings responses be seen.
 
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
+--=20
 
-Thanks Michal!
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
+
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
+
 
 
