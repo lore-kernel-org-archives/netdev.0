@@ -1,100 +1,105 @@
-From: krbmit siso <krbmit@gmail.com>
-Subject: Re: protect raw sockets
-Date: Thu, 18 Aug 2011 13:58:58 +0530
-Message-ID: <CABjs8yWMgyyPHC1Nfgs2TZ1ixN7Khq0OimEhUhTs-Ux_9LAx5g@mail.gmail.com>
-References: <A2354B6A9F807641B21EEABD666ECEEA011AFCE2@XMB-BGL-416.cisco.com>
+From: Michel Alexandre Salim <salimma@fedoraproject.org>
+Subject: Re: [Bugme-new] [Bug 41312] New: Regression: some web services (e.g.
+ Dropbox, Amazon Cloud Reader) stops working in 3.1-rc2
+Date: Thu, 18 Aug 2011 12:26:51 +0200
+Message-ID: <CALRZsj2p2_AVsJPFucwuYy25YTODnfTcnNqBsuQBURK=w+xJVQ@mail.gmail.com>
+References: <bug-41312-10286@https.bugzilla.kernel.org/> <20110817134106.015135cd.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, ipsec-tools-users@lists.sourceforge.net,
-	ipsec-tools-devel@lists.sourceforge.net,
-	ikev2-devel@lists.sourceforge.net,
-	=?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:45954 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752081Ab1HRI27 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 04:28:59 -0400
-Received: by ywf7 with SMTP id 7so1313196ywf.19
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2011 01:28:58 -0700 (PDT)
-In-Reply-To: <A2354B6A9F807641B21EEABD666ECEEA011AFCE2@XMB-BGL-416.cisco.com>
+Received: from mail-yi0-f46.google.com ([209.85.218.46]:36485 "EHLO
+	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752825Ab1HRK1M convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 06:27:12 -0400
+Received: by yie30 with SMTP id 30so1364818yie.19
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2011 03:27:11 -0700 (PDT)
+In-Reply-To: <20110817134106.015135cd.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Timo,
-
-Thanks for your reply .
-Yes i did explore this yesterday and i was successful in sending the IK=
-E
-messages unprotected after using the below code only for UDP sockets.
-
-int setsockopt_bypass(int fd, int family)
-{
-        struct sadb_x_policy policy;
-        int level, optname;
-
-        switch (family) {
-                case AF_INET:
-                        level =3D IPPROTO_IP;
-                        optname =3D IP_IPSEC_POLICY;
-                        break;
-                case AF_INET6:
-                        level =3D IPPROTO_IPV6;
-                        optname =3D IPV6_IPSEC_POLICY;
-                        break;
-                default:
-                        return -1;
-        }
-
-        memset(&policy, 0, sizeof(policy));
-        policy.sadb_x_policy_len =3D PFKEY_UNIT64(sizeof(policy));
-        policy.sadb_x_policy_exttype =3D SADB_X_EXT_POLICY;
-        policy.sadb_x_policy_type =3D IPSEC_POLICY_BYPASS;
-        policy.sadb_x_policy_dir =3D IPSEC_DIR_INBOUND;
-        if (setsockopt(fd, level, optname, &policy, sizeof(policy)) =3D=
-=3D -1) {
-                return -1;
-        }
-        policy.sadb_x_policy_dir =3D IPSEC_DIR_OUTBOUND;
-        if (setsockopt(fd, level, optname, &policy, sizeof(policy)) =3D=
-=3D -1) {
-                return -1;
-        }
-        return 0;
-}
-
-But i did try the same on RAW socket by setting the policy has
-policy.sadb_x_policy_type =3D IPSEC_POLICY_ENTRUST|IPSEC_POLICY_IPSEC;
-But the packet is going unprotected .
-Please show some light on how to protect RAW packets if there is a Poli=
-cy
-matching in the SPD saying it need to be protected.
-I have checked the posting there is no help on this isues , could
-you please give some options , if it is possible from Application.
-
-
-Thanks and Regards
-Naveen
-
-On Thu, Aug 18, 2011 at 1:45 PM, Naveen B N (nbn) <nbn@cisco.com> wrote=
-:
-> Hi All,
-> Is there a way to enforce IPsec protection for packets sent from
-> application using RAW_SOCKET.
+On Wed, Aug 17, 2011 at 10:41 PM, Andrew Morton
+<akpm@linux-foundation.org> wrote:
 >
-> My analysis is to add a code at the raw_sendmsg() & raw_v4_input() to
-> call xfrm_policy_check() ..
-> Is it a good method to proceed or is there a better and smart way to
-> achieve this .
+> (switched to email. =A0Please respond via emailed reply-to-all, not v=
+ia the
+> bugzilla web interface).
 >
-> Hoping for some guide lines ..
+
+Replying via email; please let me know if there's any further tests I
+can do. I forgot to add the system details: tested on
+
+- Fedora 15 x86_64, wireless network (ath9k)
+- Fedora 15 x86_64, wired network    (e1000e)
+
+
+> On Wed, 17 Aug 2011 20:17:05 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
 >
-> Thanks in advance ..
+>> https://bugzilla.kernel.org/show_bug.cgi?id=3D41312
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0Summary: Regression: some web services (e.g. =
+Dropbox, Amazon
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 Cloud Reader) stops working =
+in 3.1-rc2
+>> =A0 =A0 =A0 =A0 =A0 =A0Product: Networking
+>> =A0 =A0 =A0 =A0 =A0 =A0Version: 2.5
+>> =A0 =A0 Kernel Version: 3.1-rc2
+>> =A0 =A0 =A0 =A0 =A0 Platform: All
+>> =A0 =A0 =A0 =A0 OS/Version: Linux
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 Tree: Mainline
+>> =A0 =A0 =A0 =A0 =A0 =A0 Status: NEW
+>> =A0 =A0 =A0 =A0 =A0 Severity: normal
+>> =A0 =A0 =A0 =A0 =A0 Priority: P1
+>> =A0 =A0 =A0 =A0 =A0Component: IPV4
+>> =A0 =A0 =A0 =A0 AssignedTo: shemminger@linux-foundation.org
+>> =A0 =A0 =A0 =A0 ReportedBy: salimma@fedoraproject.org
+>> =A0 =A0 =A0 =A0 Regression: Yes
+>>
+>>
+>> Created an attachment (id=3D69102)
+>> =A0--> (https://bugzilla.kernel.org/attachment.cgi?id=3D69102)
+>> (working) config for kernel 3.0
+>>
+>> Dropbox and Amazon Cloud Reader works just fine on kernel 3.0, but t=
+he former
+>> does not work on 3.1-rc1 and 3.1-rc2, and the latter does not work o=
+n 3.1-rc2
+>> (I no longer have a copy of the 3.1-rc1 build I did).
+>>
+>> With Dropbox, ps reports that the daemon process is in an uninterrup=
+tible
+>> state, and it cannot be killed (even with kill -9). Setting SELinux =
+to
+>> permissive does not affect things (and Dropbox works with SELinux se=
+t to
+>> enforcing with kernel 3.0).
+>>
+>> With Cloud Reader, on Chrome, it does not display any book -- I perp=
+etually get
+>> the "refreshing" icon.
+>>
+>> Will attach kernel configurations (I keep the 3.0 and 3.1-rc2 config=
+s as
+>> similar as possible, by using 'make oldconfig' on 3.0 with 3.1-rc2's=
+ .config.
+>>
+>> Reported on Dropbox's forum: http://forums.dropbox.com/topic.php?id=3D=
+43140
+>>
 >
-> Thanks and Regards
-> Naveen
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
 >
+
+
+
+--=20
+Michel Alexandre Salim
+=46edora Project Contributor: http://fedoraproject.org/
+
+Email: =A0salimma@fedoraproject.org =A0| GPG key ID: 78884778
+Jabber: hircus@jabber.ccc.de =A0 =A0 =A0 | IRC: hircus@irc.freenode.net
+
+() =A0ascii ribbon campaign - against html e-mail
+/\ =A0www.asciiribbon.org =A0 - against proprietary attachments
