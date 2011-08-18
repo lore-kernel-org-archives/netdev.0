@@ -1,44 +1,53 @@
-From: Roland Dreier <roland@purestorage.com>
-Subject: Re: [Bug 41212] New: [regression] [3.1-git] ipoib causes kernel panic
- (NULL pointer dereference)
-Date: Thu, 18 Aug 2011 08:50:06 -0700
-Message-ID: <CAL1RGDW+iv0Apm=P6M26=U387dxpmZjoB3a8QgnqC1RMiJ7OiA@mail.gmail.com>
-References: <bug-41212-11804@https.bugzilla.kernel.org/> <CAAk-MO8EToGY4OhmX1xPN01iAXR9WSsJXWxHG9EVyrSGYP3h5w@mail.gmail.com>
- <4E4A47BE.9090903@fastmail.fm>
+From: Nick Carter <ncarter100@gmail.com>
+Subject: Re: [RFC] bridge: allow passing link-local multicast
+Date: Thu, 18 Aug 2011 16:52:45 +0100
+Message-ID: <CAEJpZP2FGhPmTi0+eS+QRhj4y+aqfQHnEUrjmOOLHUay1SuAKg@mail.gmail.com>
+References: <CAF5U64C+WgQhfJL3zfVnvzE7p=G61humQCObHGUxAvY2-MGAFQ@mail.gmail.com>
+	<CAF5U64CJTWDn8E9+XVLFsdaSbiu-4Rd9XmxZq7ReziRNZviO6Q@mail.gmail.com>
+	<20110812154545.79d8313f@nehalam.ftrdhcpuser.net>
+	<CAF5U64B_fb2tFMLHmK+zw3n6gmq+bYDyFnXhLE0ayssK5m+THA@mail.gmail.com>
+	<20110815150501.3a6cc432@nehalam.ftrdhcpuser.net>
+	<CAEJpZP0fOydMMbgquAud7dfwcO28BXAMzAwnMjSZO6TvEjxgpQ@mail.gmail.com>
+	<20110818081019.4b9bb79e@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Erez Shitrit <erezsh@dev.mellanox.co.il>,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-To: Bernd Schubert <bernd.schubert@fastmail.fm>
+Cc: Ed Swierk <eswierk@bigswitch.com>, netdev@vger.kernel.org,
+	David Lamparter <equinox@diac24.net>,
+	bridge@linux-foundation.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog109.obsmtp.com ([74.125.245.86]:42683 "HELO
-	na3sys010aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755409Ab1HRPu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 11:50:28 -0400
-In-Reply-To: <4E4A47BE.9090903@fastmail.fm>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:54007 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755278Ab1HRPwq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2011 11:52:46 -0400
+Received: by ywf7 with SMTP id 7so1570976ywf.19
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2011 08:52:45 -0700 (PDT)
+In-Reply-To: <20110818081019.4b9bb79e@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remember that kernels after the release of 3.0 but before 3.1-rc1 will
-report their version as 3.0 (even though they may have lots of commits
-that went in after the 3.0 release).  Could that be the explanation?
+On 18 August 2011 16:10, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> On Thu, 18 Aug 2011 16:06:19 +0100
+> Nick Carter <ncarter100@gmail.com> wrote:
+>
+>> Why can't we use the 802.1D specified STP group address to identify ?
+>> The existing code uses that address.
+>> I know you said on another thread that there are people using other addresses.
+>> Who are these people ?
+>> Are they following any standard ?
+>> What address / address range are they using ?
+>
+> The group address can be reprogrammed, and it is settable on other
+> routing equipment. People do it to create spanning tree domains.
+>
+But before the new
++               if (!is_stp_bpdu(skb) && br_forward_link_local)
+check, we have already checked
+	if (unlikely(is_link_local(dest))) {
+So the frame must have a link local destination.  If the reprogrammed
+group address is outside of the link local range then the new code in
+this patch will never be hit.  If the reprogrammed group address is in
+the link local range then i'd suggest my previous group_fwd_mask patch
+is cleaner and more flexible.
 
-On Tue, Aug 16, 2011 at 3:34 AM, Bernd Schubert
-<bernd.schubert@fastmail.fm> wrote:
-> Hello Erez,
->
-> are you sure? Commit 69cce1d1404968f78b177a0314f5822d5afdbbfb is not in 3.0
-> yet and I also don't see how 3.0 should fail there, as it tests immediately
-> for "if (likely(skb_dst(skb)"
->
->
-> Thanks,
-> Bernd
->
-> On 08/16/2011 10:06 AM, Erez Shitrit wrote:
->>
->> Hi,
->> it happened in 3.0 also, if you take the git tag v3.0-rc7 and below it
->> will work.
->>
->> Thanks, Erez
+Nick
