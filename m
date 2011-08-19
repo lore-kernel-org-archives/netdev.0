@@ -1,50 +1,56 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 54/75] tehuti: convert to SKB paged frag API.
-Date: Fri, 19 Aug 2011 14:27:26 +0100
-Message-ID: <1313760467-8598-54-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 52/75] sungem: convert to SKB paged frag API.
+Date: Fri, 19 Aug 2011 14:27:24 +0100
+Message-ID: <1313760467-8598-52-git-send-email-ian.campbell@citrix.com>
 References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org,
 	Ian Campbell <ian.campbell@citrix.com>,
-	Alexander Indenbaum <baum@tehutinetworks.net>,
-	Andy Gospodarek <andy@greyhouse.net>
+	Grant Likely <grant.likely@secretlab.ca>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Kosina <jkosina@suse.cz>, Joe Perches <joe@perches.com>,
+	David Decotigny <decot@google.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	devicetree-discuss@lists.ozlabs.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:1160 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755310Ab1HSN3k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Aug 2011 09:29:40 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Alexander Indenbaum <baum@tehutinetworks.net>
-Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Jiri Kosina <jkosina@suse.cz>
+Cc: Joe Perches <joe@perches.com>
+Cc: David Decotigny <decot@google.com>
+Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
+Cc: devicetree-discuss@lists.ozlabs.org
 ---
- drivers/net/tehuti.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/sungem.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
-index 749bbf1..b2c11db 100644
---- a/drivers/net/tehuti.c
-+++ b/drivers/net/tehuti.c
-@@ -1497,9 +1497,9 @@ bdx_tx_map_skb(struct bdx_priv *priv, struct sk_buff *skb,
- 
- 		frag = &skb_shinfo(skb)->frags[i];
- 		db->wptr->len = frag->size;
--		db->wptr->addr.dma =
--		    pci_map_page(priv->pdev, frag->page, frag->page_offset,
--				 frag->size, PCI_DMA_TODEVICE);
-+		db->wptr->addr.dma = skb_frag_dma_map(&priv->pdev->dev, frag,
-+						      0, frag->size,
-+						      PCI_DMA_TODEVICE);
- 
- 		pbl++;
- 		pbl->len = CPU_CHIP_SWAP32(db->wptr->len);
--- 
+diff --git a/drivers/net/sungem.c b/drivers/net/sungem.c
+index ade35dd..39189bf 100644
+--- a/drivers/net/sungem.c
++++ b/drivers/net/sungem.c
+@@ -1071,10 +1071,8 @@ static netdev_tx_t gem_start_xmit(struct sk_buff=
+ *skb,
+ 			u64 this_ctrl;
+=20
+ 			len =3D this_frag->size;
+-			mapping =3D pci_map_page(gp->pdev,
+-					       this_frag->page,
+-					       this_frag->page_offset,
+-					       len, PCI_DMA_TODEVICE);
++			mapping =3D skb_frag_dma_map(&gp->pdev->dev, this_frag,
++						   0, len, PCI_DMA_TODEVICE);
+ 			this_ctrl =3D ctrl;
+ 			if (frag =3D=3D skb_shinfo(skb)->nr_frags - 1)
+ 				this_ctrl |=3D TXDCTRL_EOF;
+--=20
 1.7.2.5
-
