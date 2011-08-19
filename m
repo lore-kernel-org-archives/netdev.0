@@ -1,33 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] Scm: Remove unnecessary pid & credential references in
- Unix socket's send and receive path
-Date: Thu, 18 Aug 2011 22:04:32 -0700 (PDT)
-Message-ID: <20110818.220432.1711182086933489213.davem@davemloft.net>
-References: <1313625374.2576.2908.camel@schen9-DESK>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, viro@zeniv.linux.org.uk,
-	ebiederm@xmission.com, ak@linux.intel.com,
-	matt.fleming@linux.intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: tim.c.chen@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1313625374.2576.2908.camel@schen9-DESK>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: net: rps: support 802.1Q
+Date: Fri, 19 Aug 2011 13:05:53 +0800
+Message-ID: <1313730353-25379-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:40317 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751254Ab1HSFGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 01:06:45 -0400
+Received: by pzk37 with SMTP id 37so4216128pzk.1
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2011 22:06:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tim Chen <tim.c.chen@linux.intel.com>
-Date: Wed, 17 Aug 2011 16:56:14 -0700
+For the 802.1Q packets, if the NIC doesn't support hw-accel-vlan-rx, RPS
+won't inspect the internal 4 tuples to generate skb->rxhash, so this kind
+of traffic can't get any benefit from RPS.
 
-> +static __inline__ void scm_release(struct scm_cookie *scm)
-> +{
-> +	/* keep ref on pid and cred */
-> +	scm->pid = NULL;
-> +	scm->cred = NULL;
-> +	if (scm && scm->fp)
-> +		__scm_destroy(scm);
-> +}
+This patch adds the support for 802.1Q to RPS.
 
-After dereferencing scm-> already, it seems a big redundant to test
-it subsequently against NULL.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ net/core/dev.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ead0366..be7ee50 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2529,6 +2529,7 @@ void __skb_get_rxhash(struct sk_buff *skb)
+ 	int nhoff, hash = 0, poff;
+ 	const struct ipv6hdr *ip6;
+ 	const struct iphdr *ip;
++	const struct vlan_hdr *vlan;
+ 	u8 ip_proto;
+ 	u32 addr1, addr2;
+ 	u16 proto;
+@@ -2565,6 +2566,13 @@ again:
+ 		addr2 = (__force u32) ip6->daddr.s6_addr32[3];
+ 		nhoff += 40;
+ 		break;
++	case __constant_htons(ETH_P_8021Q):
++		if (!pskb_may_pull(skb, sizeof(*vlan) + nhoff))
++			goto done;
++		vlan = (const struct vlan_hdr *) (skb->data + nhoff);
++		proto = vlan->h_vlan_encapsulated_proto;
++		nhoff += sizeof(*vlan);
++		goto again;
+ 	default:
+ 		goto done;
+ 	}
