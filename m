@@ -1,87 +1,62 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 12/13] bna: SKB PCI UNMAP Fix
-Date: Fri, 19 Aug 2011 14:39:31 -0700
-Message-ID: <1313789972-22711-13-git-send-email-rmody@brocade.com>
-References: <1313789972-22711-1-git-send-email-rmody@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adapter_linux_open_src_team@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>,
-	Gurunatha Karaje <gkaraje@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Daniel Schwierzeck <daniel.schwierzeck@googlemail.com>
+Subject: [PATCH] atm: br2684: Fix oops due to skb->dev being NULL
+Date: Sat, 20 Aug 2011 00:04:20 +0200
+Message-ID: <1313791460-13652-1-git-send-email-daniel.schwierzeck@googlemail.com>
+Cc: stable@kernel.org, "David S . Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38100 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755515Ab1HSVkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 17:40:12 -0400
-In-Reply-To: <1313789972-22711-1-git-send-email-rmody@brocade.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:65469 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753295Ab1HSWEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 18:04:30 -0400
+Received: by fxh19 with SMTP id 19so2199556fxh.19
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 15:04:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - Found a leak in sk_buff unmapping of PCI dma addresses where boundary
-   conditions are not properly handled in freeing all Tx buffers. Freeing
-   of all Tx buffers is done considering sk_buffs data and fragments can
-   be mapped at the boundary.
+This oops have been already fixed with commit
 
-Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
+    27141666b69f535a4d63d7bc6d9e84ee5032f82a
+
+    atm: [br2684] Fix oops due to skb->dev being NULL
+
+    It happens that if a packet arrives in a VC between the call to open it on
+    the hardware and the call to change the backend to br2684, br2684_regvcc
+    processes the packet and oopses dereferencing skb->dev because it is
+    NULL before the call to br2684_push().
+
+but have been introduced again with commit
+
+    b6211ae7f2e56837c6a4849316396d1535606e90
+
+    atm: Use SKB queue and list helpers instead of doing it by-hand.
+
+Signed-off-by: Daniel Schwierzeck <daniel.schwierzeck@googlemail.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |   39 ++++++++-----------------------
- 1 files changed, 10 insertions(+), 29 deletions(-)
+ net/atm/br2684.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 3f597f9..74425f5 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -145,39 +145,20 @@ bnad_free_all_txbufs(struct bnad *bnad,
- 	struct bnad_unmap_q *unmap_q = tcb->unmap_q;
- 	struct bnad_skb_unmap *unmap_array;
- 	struct sk_buff		*skb = NULL;
--	int			i;
-+	int			q;
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 52cfd0c..d07223c 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -558,12 +558,13 @@ static int br2684_regvcc(struct atm_vcc *atmvcc, void __user * arg)
+ 	spin_unlock_irqrestore(&rq->lock, flags);
  
- 	unmap_array = unmap_q->unmap_array;
+ 	skb_queue_walk_safe(&queue, skb, tmp) {
+-		struct net_device *dev = skb->dev;
++		struct net_device *dev;
++
++		br2684_push(atmvcc, skb);
++		dev = skb->dev;
  
--	unmap_cons = 0;
--	while (unmap_cons < unmap_q->q_depth) {
--		skb = unmap_array[unmap_cons].skb;
--		if (!skb) {
--			unmap_cons++;
-+	for (q = 0; q < unmap_q->q_depth; q++) {
-+		skb = unmap_array[q].skb;
-+		if (!skb)
- 			continue;
--		}
--		unmap_array[unmap_cons].skb = NULL;
+ 		dev->stats.rx_bytes -= skb->len;
+ 		dev->stats.rx_packets--;
 -
--		dma_unmap_single(&bnad->pcidev->dev,
--				 dma_unmap_addr(&unmap_array[unmap_cons],
--						dma_addr), skb_headlen(skb),
--						DMA_TO_DEVICE);
- 
--		dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr, 0);
--		if (++unmap_cons >= unmap_q->q_depth)
--			break;
-+		unmap_cons = q;
-+		BNAD_PCI_UNMAP_SKB(&bnad->pcidev->dev, unmap_array, unmap_cons,
-+				   unmap_q->q_depth, skb,
-+				   skb_shinfo(skb)->nr_frags);
- 
--		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--			dma_unmap_page(&bnad->pcidev->dev,
--				       dma_unmap_addr(&unmap_array[unmap_cons],
--						      dma_addr),
--				       skb_shinfo(skb)->frags[i].size,
--				       DMA_TO_DEVICE);
--			dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr,
--					   0);
--			if (++unmap_cons >= unmap_q->q_depth)
--				break;
--		}
- 		dev_kfree_skb_any(skb);
+-		br2684_push(atmvcc, skb);
  	}
- }
+ 
+ 	/* initialize netdev carrier state */
 -- 
-1.7.1
+1.7.6
 
