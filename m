@@ -1,163 +1,227 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 34/75] mlx4: convert to SKB paged frag API.
-Date: Fri, 19 Aug 2011 14:27:06 +0100
-Message-ID: <1313760467-8598-34-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 25/75] intel: convert to SKB paged frag API.
+Date: Fri, 19 Aug 2011 14:26:57 +0100
+Message-ID: <1313760467-8598-25-git-send-email-ian.campbell@citrix.com>
 References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: linux-kernel@vger.kernel.org,
 	Ian Campbell <ian.campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Markuze Alex <markuze@mellanox.co.il>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Joe Perches <joe@perches.com>,
-	Luciano Coelho <luciano.coelho@nokia.com>,
-	Jon Mason <jdmason@kudzu.us>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	e1000-devel@lists.sourceforge.net
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:37564 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754838Ab1HSN3B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Aug 2011 09:29:01 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Markuze Alex <markuze@mellanox.co.il>
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Cc: Joe Perches <joe@perches.com>
-Cc: Luciano Coelho <luciano.coelho@nokia.com>
-Cc: Jon Mason <jdmason@kudzu.us>
-Cc: Lucas De Marchi <lucas.demarchi@profusion.mobi>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>
+Cc: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+Cc: Alex Duyck <alexander.h.duyck@intel.com>
+Cc: John Ronciak <john.ronciak@intel.com>
+Cc: e1000-devel@lists.sourceforge.net
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 ---
- drivers/net/mlx4/en_rx.c |   22 ++++++++++------------
- drivers/net/mlx4/en_tx.c |   20 ++++----------------
- 2 files changed, 14 insertions(+), 28 deletions(-)
+ drivers/net/e1000/e1000_main.c     |   16 +++++++++-------
+ drivers/net/e1000e/netdev.c        |    7 +++----
+ drivers/net/igb/igb_main.c         |    5 +----
+ drivers/net/igbvf/netdev.c         |    5 +----
+ drivers/net/ixgb/ixgb_main.c       |    6 +++---
+ drivers/net/ixgbe/ixgbe_main.c     |    9 ++++-----
+ drivers/net/ixgbevf/ixgbevf_main.c |   10 ++++------
+ 7 files changed, 25 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/mlx4/en_rx.c b/drivers/net/mlx4/en_rx.c
-index 37cc9e5..0c26ee7 100644
---- a/drivers/net/mlx4/en_rx.c
-+++ b/drivers/net/mlx4/en_rx.c
-@@ -60,20 +60,18 @@ static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
- 		if (!page)
- 			return -ENOMEM;
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index f97afda..c96770c 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -2909,9 +2909,10 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
  
--		skb_frags[i].page = page_alloc->page;
-+		__skb_frag_set_page(&skb_frags[i], page_alloc->page);
- 		skb_frags[i].page_offset = page_alloc->offset;
- 		page_alloc->page = page;
- 		page_alloc->offset = frag_info->frag_align;
- 	} else {
--		page = page_alloc->page;
--		get_page(page);
--
--		skb_frags[i].page = page;
-+		__skb_frag_set_page(&skb_frags[i], page_alloc->page);
-+		__skb_frag_ref(&skb_frags[i]);
- 		skb_frags[i].page_offset = page_alloc->offset;
- 		page_alloc->offset += frag_info->frag_stride;
- 	}
--	dma = pci_map_single(mdev->pdev, page_address(skb_frags[i].page) +
--			     skb_frags[i].page_offset, frag_info->frag_size,
-+	dma = pci_map_single(mdev->pdev, skb_frag_address(&skb_frags[i]),
-+			     frag_info->frag_size,
- 			     PCI_DMA_FROMDEVICE);
- 	rx_desc->data[i].addr = cpu_to_be64(dma);
- 	return 0;
-@@ -169,7 +167,7 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
+ 		frag = &skb_shinfo(skb)->frags[f];
+ 		len = frag->size;
+-		offset = frag->page_offset;
++		offset = 0;
  
- err:
- 	while (i--)
--		put_page(skb_frags[i].page);
-+		__skb_frag_unref(&skb_frags[i]);
- 	return -ENOMEM;
- }
+ 		while (len) {
++			unsigned long bufend;
+ 			i++;
+ 			if (unlikely(i == tx_ring->count))
+ 				i = 0;
+@@ -2925,18 +2926,19 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 			/* Workaround for potential 82544 hang in PCI-X.
+ 			 * Avoid terminating buffers within evenly-aligned
+ 			 * dwords. */
++			bufend = (unsigned long)
++				page_to_phys(skb_frag_page(frag));
++			bufend += offset + size - 1;
+ 			if (unlikely(adapter->pcix_82544 &&
+-			    !((unsigned long)(page_to_phys(frag->page) + offset
+-			                      + size - 1) & 4) &&
+-			    size > 4))
++				     !(bufend & 4) &&
++				     size > 4))
+ 				size -= 4;
  
-@@ -196,7 +194,7 @@ static void mlx4_en_free_rx_desc(struct mlx4_en_priv *priv,
- 		en_dbg(DRV, priv, "Unmapping buffer at dma:0x%llx\n", (u64) dma);
- 		pci_unmap_single(mdev->pdev, dma, skb_frags[nr].size,
- 				 PCI_DMA_FROMDEVICE);
--		put_page(skb_frags[nr].page);
-+		__skb_frag_unref(&skb_frags[nr]);
- 	}
- }
+ 			buffer_info->length = size;
+ 			buffer_info->time_stamp = jiffies;
+ 			buffer_info->mapped_as_page = true;
+-			buffer_info->dma = dma_map_page(&pdev->dev, frag->page,
+-							offset,	size,
+-							DMA_TO_DEVICE);
++			buffer_info->dma = skb_frag_dma_map(&pdev->dev, frag,
++						offset, size, DMA_TO_DEVICE);
+ 			if (dma_mapping_error(&pdev->dev, buffer_info->dma))
+ 				goto dma_error;
+ 			buffer_info->next_to_watch = i;
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 362f703..446a571 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4581,7 +4581,7 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
  
-@@ -420,7 +418,7 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 			break;
+ 		frag = &skb_shinfo(skb)->frags[f];
+ 		len = frag->size;
+-		offset = frag->page_offset;
++		offset = 0;
  
- 		/* Save page reference in skb */
--		skb_frags_rx[nr].page = skb_frags[nr].page;
-+		__skb_frag_set_page(&skb_frags_rx[nr], skb_frags[nr].page);
- 		skb_frags_rx[nr].size = skb_frags[nr].size;
- 		skb_frags_rx[nr].page_offset = skb_frags[nr].page_offset;
- 		dma = be64_to_cpu(rx_desc->data[nr].addr);
-@@ -444,7 +442,7 @@ fail:
- 	 * the descriptor) of this packet; remaining fragments are reused... */
- 	while (nr > 0) {
- 		nr--;
--		put_page(skb_frags_rx[nr].page);
-+		__skb_frag_unref(&skb_frags_rx[nr]);
- 	}
- 	return 0;
- }
-@@ -474,7 +472,7 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 		while (len) {
+ 			i++;
+@@ -4594,9 +4594,8 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 			buffer_info->length = size;
+ 			buffer_info->time_stamp = jiffies;
+ 			buffer_info->next_to_watch = i;
+-			buffer_info->dma = dma_map_page(&pdev->dev, frag->page,
+-							offset, size,
+-							DMA_TO_DEVICE);
++			buffer_info->dma = skb_frag_dma_map(&pdev->dev, frag,
++						offset, size, DMA_TO_DEVICE);
+ 			buffer_info->mapped_as_page = true;
+ 			if (dma_mapping_error(&pdev->dev, buffer_info->dma))
+ 				goto dma_error;
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 40d4c40..8e84e63 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -4172,10 +4172,7 @@ static inline int igb_tx_map_adv(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 		buffer_info->time_stamp = jiffies;
+ 		buffer_info->next_to_watch = i;
+ 		buffer_info->mapped_as_page = true;
+-		buffer_info->dma = dma_map_page(dev,
+-						frag->page,
+-						frag->page_offset,
+-						len,
++		buffer_info->dma = skb_frag_dma_map(dev, frag, 0, len,
+ 						DMA_TO_DEVICE);
+ 		if (dma_mapping_error(dev, buffer_info->dma))
+ 			goto dma_error;
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index 40ed066..27f68d3 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -2061,10 +2061,7 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
+ 		buffer_info->time_stamp = jiffies;
+ 		buffer_info->next_to_watch = i;
+ 		buffer_info->mapped_as_page = true;
+-		buffer_info->dma = dma_map_page(&pdev->dev,
+-						frag->page,
+-						frag->page_offset,
+-						len,
++		buffer_info->dma = skb_frag_dma_map(&pdev->dev, frag, 0, len,
+ 						DMA_TO_DEVICE);
+ 		if (dma_mapping_error(&pdev->dev, buffer_info->dma))
+ 			goto dma_error;
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index 6a130eb..45c4e90 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -1341,7 +1341,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
  
- 	/* Get pointer to first fragment so we could copy the headers into the
- 	 * (linear part of the) skb */
--	va = page_address(skb_frags[0].page) + skb_frags[0].page_offset;
-+	va = skb_frag_address(&skb_frags[0]);
+ 		frag = &skb_shinfo(skb)->frags[f];
+ 		len = frag->size;
+-		offset = frag->page_offset;
++		offset = 0;
  
- 	if (length <= SMALL_PACKET_SIZE) {
- 		/* We are copying all relevant data to the skb - temporarily
-diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
-index 6e03de0..4eae254 100644
---- a/drivers/net/mlx4/en_tx.c
-+++ b/drivers/net/mlx4/en_tx.c
-@@ -460,26 +460,13 @@ static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind)
- 		}
- }
+ 		while (len) {
+ 			i++;
+@@ -1361,8 +1361,8 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
+ 			buffer_info->time_stamp = jiffies;
+ 			buffer_info->mapped_as_page = true;
+ 			buffer_info->dma =
+-				dma_map_page(&pdev->dev, frag->page,
+-					     offset, size, DMA_TO_DEVICE);
++				skb_frag_dma_map(&pdev->dev, frag, offset, size,
++						 DMA_TO_DEVICE);
+ 			if (dma_mapping_error(&pdev->dev, buffer_info->dma))
+ 				goto dma_error;
+ 			buffer_info->next_to_watch = 0;
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index e86297b..23ae14f 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -6459,7 +6459,7 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
  
--static void *get_frag_ptr(struct sk_buff *skb)
--{
--	struct skb_frag_struct *frag =  &skb_shinfo(skb)->frags[0];
--	struct page *page = frag->page;
--	void *ptr;
--
--	ptr = page_address(page);
--	if (unlikely(!ptr))
--		return NULL;
--
--	return ptr + frag->page_offset;
--}
--
- static int is_inline(struct sk_buff *skb, void **pfrag)
- {
- 	void *ptr;
+ 		frag = &skb_shinfo(skb)->frags[f];
+ 		len = min((unsigned int)frag->size, total);
+-		offset = frag->page_offset;
++		offset = 0;
  
- 	if (inline_thold && !skb_is_gso(skb) && skb->len <= inline_thold) {
- 		if (skb_shinfo(skb)->nr_frags == 1) {
--			ptr = get_frag_ptr(skb);
-+			ptr = skb_frag_address_safe(&skb_shinfo(skb)->frags[0]);
- 			if (unlikely(!ptr))
- 				return 0;
+ 		while (len) {
+ 			i++;
+@@ -6470,10 +6470,9 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
+ 			size = min(len, (uint)IXGBE_MAX_DATA_PER_TXD);
  
-@@ -756,8 +743,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		/* Map fragments */
- 		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
- 			frag = &skb_shinfo(skb)->frags[i];
--			dma = pci_map_page(mdev->dev->pdev, frag->page, frag->page_offset,
--					   frag->size, PCI_DMA_TODEVICE);
-+			dma = skb_frag_dma_map(&mdev->dev->pdev->dev, frag,
-+					       0, frag->size,
-+					       PCI_DMA_TODEVICE);
- 			data->addr = cpu_to_be64(dma);
- 			data->lkey = cpu_to_be32(mdev->mr.key);
- 			wmb();
+ 			tx_buffer_info->length = size;
+-			tx_buffer_info->dma = dma_map_page(dev,
+-							   frag->page,
+-							   offset, size,
+-							   DMA_TO_DEVICE);
++			tx_buffer_info->dma =
++				skb_frag_dma_map(dev, frag, offset, size,
++					     DMA_TO_DEVICE);
+ 			tx_buffer_info->mapped_as_page = true;
+ 			if (dma_mapping_error(dev, tx_buffer_info->dma))
+ 				goto dma_error;
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index 3b880a2..0b8b7a6 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -2918,18 +2918,16 @@ static int ixgbevf_tx_map(struct ixgbevf_adapter *adapter,
+ 
+ 		frag = &skb_shinfo(skb)->frags[f];
+ 		len = min((unsigned int)frag->size, total);
+-		offset = frag->page_offset;
++		offset = 0;
+ 
+ 		while (len) {
+ 			tx_buffer_info = &tx_ring->tx_buffer_info[i];
+ 			size = min(len, (unsigned int)IXGBE_MAX_DATA_PER_TXD);
+ 
+ 			tx_buffer_info->length = size;
+-			tx_buffer_info->dma = dma_map_page(&adapter->pdev->dev,
+-							   frag->page,
+-							   offset,
+-							   size,
+-							   DMA_TO_DEVICE);
++			tx_buffer_info->dma =
++				skb_frag_dma_map(&adapter->pdev->dev, frag,
++						 offset, size, DMA_TO_DEVICE);
+ 			tx_buffer_info->mapped_as_page = true;
+ 			if (dma_mapping_error(&pdev->dev, tx_buffer_info->dma))
+ 				goto dma_error;
 -- 
 1.7.2.5
-
