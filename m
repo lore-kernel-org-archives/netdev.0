@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 04/13] bna: SKB Check and Drop Macros
-Date: Fri, 19 Aug 2011 14:39:23 -0700
-Message-ID: <1313789972-22711-5-git-send-email-rmody@brocade.com>
+Subject: [PATCH 08/13] bna: Ethtool Enhancements and Fix
+Date: Fri, 19 Aug 2011 14:39:27 -0700
+Message-ID: <1313789972-22711-9-git-send-email-rmody@brocade.com>
 References: <1313789972-22711-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,143 +10,272 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:38045 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755130Ab1HSVkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 17:40:00 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38093 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754759Ab1HSVkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 17:40:07 -0400
 In-Reply-To: <1313789972-22711-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add macros to check and drop skb from transmit path and return.
+Change details:
+ - Use available bnad_dim_timer_stop macro in bnad_set_coalesce.
+ - Add tx_skb counters and NAPI debug counters to ethtool stats.
+ - Add rlb stats strings to bnad_net_stats_strings{} array. rlb_stats field
+   was added to struct bfi_enet_stats {} but the corresponding name structure
+   array for ethtool was not initialized with right strings, even though the
+   actual name structure array got expanded. This caused a NULL pointer
+   violation and a crash when doing ehtool -S <if_name>.
+ - While setting the ring parameter restore the rx, vlan configuration and
+   set rx mode
+ - Indentation fix
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |   68 +++++++++++++++++-------------
- drivers/net/ethernet/brocade/bna/bnad.h |    2 +
- 2 files changed, 40 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c         |    8 +-
+ drivers/net/ethernet/brocade/bna/bnad.h         |   10 ++-
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |   88 +++++++++++++++++++----
+ 3 files changed, 84 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 095eac9..beeffa2 100644
+index 7cbc88e..bfed285 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -74,6 +74,36 @@ do {								\
- 
- #define BNAD_TXRX_SYNC_MDELAY	250	/* 250 msecs */
- 
-+#define BNAD_DROP_AND_RETURN(_counter)	\
-+{ \
-+	dev_kfree_skb(skb); \
-+	BNAD_UPDATE_CTR(bnad, _counter); \
-+	return NETDEV_TX_OK; \
-+}
-+
-+#define BNAD_DROP_AND_RETURN_IF(_condition, _counter)	\
-+if (unlikely(_condition)) { \
-+	BNAD_DROP_AND_RETURN(_counter); \
-+}
-+
-+#define BNAD_PCI_UNMAP_SKB(_pdev, _array, _index, _depth, _skb, _frag) \
-+{ \
-+	int j; \
-+	(_array)[_index].skb = NULL; \
-+	dma_unmap_single(_pdev, dma_unmap_addr(&(_array)[_index], dma_addr), \
-+			skb_headlen(_skb), DMA_TO_DEVICE); \
-+	dma_unmap_addr_set(&(_array)[_index], dma_addr, 0); \
-+	BNA_QE_INDX_ADD(_index, 1, _depth); \
-+	for (j = 0; j < (_frag); j++) { \
-+		prefetch(&(_array)[(_index) + 1]); \
-+		dma_unmap_page(_pdev, dma_unmap_addr(&(_array)[_index], \
-+						     dma_addr), \
-+			  skb_shinfo(_skb)->frags[j].size, DMA_TO_DEVICE); \
-+		dma_unmap_addr_set(&(_array)[_index], dma_addr, 0); \
-+		BNA_QE_INDX_ADD(_index, 1, _depth); \
-+	} \
-+}
-+
+@@ -2027,7 +2027,7 @@ bnad_rx_coalescing_timeo_set(struct bnad *bnad)
  /*
-  * Reinitialize completions in CQ, once Rx is taken down
+  * Called with bnad->bna_lock held
   */
-@@ -169,7 +199,6 @@ bnad_free_txbufs(struct bnad *bnad,
- 	struct bnad_unmap_q *unmap_q = tcb->unmap_q;
- 	struct bnad_skb_unmap *unmap_array;
- 	struct sk_buff		*skb;
--	int i;
+-static int
++int
+ bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr)
+ {
+ 	int ret;
+@@ -2047,7 +2047,7 @@ bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr)
+ }
  
- 	/*
- 	 * Just return if TX is stopped. This check is useful
-@@ -195,32 +224,14 @@ bnad_free_txbufs(struct bnad *bnad,
- 	while (wis) {
- 		skb = unmap_array[unmap_cons].skb;
+ /* Should be called with conf_lock held */
+-static int
++int
+ bnad_enable_default_bcast(struct bnad *bnad)
+ {
+ 	struct bnad_rx_info *rx_info = &bnad->rx_info[0];
+@@ -2073,7 +2073,7 @@ bnad_enable_default_bcast(struct bnad *bnad)
+ }
  
--		unmap_array[unmap_cons].skb = NULL;
--
- 		sent_packets++;
- 		sent_bytes += skb->len;
- 		wis -= BNA_TXQ_WI_NEEDED(1 + skb_shinfo(skb)->nr_frags);
+ /* Called with mutex_lock(&bnad->conf_mutex) held */
+-static void
++void
+ bnad_restore_vlans(struct bnad *bnad, u32 rx_id)
+ {
+ 	u16 vid;
+@@ -2787,7 +2787,7 @@ bnad_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
+ 	return stats;
+ }
  
--		dma_unmap_single(&bnad->pcidev->dev,
--				 dma_unmap_addr(&unmap_array[unmap_cons],
--						dma_addr), skb_headlen(skb),
--				 DMA_TO_DEVICE);
--		dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr, 0);
--		BNA_QE_INDX_ADD(unmap_cons, 1, unmap_q->q_depth);
--
--		prefetch(&unmap_array[unmap_cons + 1]);
--		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--			prefetch(&unmap_array[unmap_cons + 1]);
-+		BNAD_PCI_UNMAP_SKB(&bnad->pcidev->dev, unmap_array, unmap_cons,
-+				   unmap_q->q_depth, skb,
-+				   skb_shinfo(skb)->nr_frags);
- 
--			dma_unmap_page(&bnad->pcidev->dev,
--				       dma_unmap_addr(&unmap_array[unmap_cons],
--						      dma_addr),
--				       skb_shinfo(skb)->frags[i].size,
--				       DMA_TO_DEVICE);
--			dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr,
--					   0);
--			BNA_QE_INDX_ADD(unmap_cons, 1, unmap_q->q_depth);
--		}
- 		dev_kfree_skb_any(skb);
- 	}
- 
-@@ -2560,16 +2571,13 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	 * Takes care of the Tx that is scheduled between clearing the flag
- 	 * and the netif_stop_all_queue() call.
- 	 */
--	if (unlikely(!test_bit(BNAD_TXQ_TX_STARTED, &tcb->flags))) {
--		dev_kfree_skb(skb);
--		return NETDEV_TX_OK;
--	}
-+	BNAD_DROP_AND_RETURN_IF(!test_bit(BNAD_TXQ_TX_STARTED, &tcb->flags),
-+				tx_skb_stopping);
- 
- 	vectors = 1 + skb_shinfo(skb)->nr_frags;
--	if (vectors > BFI_TX_MAX_VECTORS_PER_PKT) {
--		dev_kfree_skb(skb);
--		return NETDEV_TX_OK;
--	}
-+	BNAD_DROP_AND_RETURN_IF(vectors > BFI_TX_MAX_VECTORS_PER_PKT,
-+				tx_skb_max_vectors);
-+
- 	wis = BNA_TXQ_WI_NEEDED(vectors);	/* 4 vectors per work item */
- 	acked = 0;
- 	if (unlikely(wis > BNA_QE_FREE_CNT(tcb, tcb->q_depth) ||
+-static void
++void
+ bnad_set_rx_mode(struct net_device *netdev)
+ {
+ 	struct bnad *bnad = netdev_priv(netdev);
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index 60c2e9d..c4772e3 100644
+index b03e3a9..b31b893 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.h
 +++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -148,6 +148,8 @@ struct bnad_drv_stats {
- 	u64		udpcsum_offload;
- 	u64		csum_help;
- 	u64		csum_help_err;
-+	u64		tx_skb_stopping;
-+	u64		tx_skb_max_vectors;
+@@ -328,6 +328,12 @@ extern u32		bnad_rxqs_per_cq;
+  */
+ extern u32 *cna_get_firmware_buf(struct pci_dev *pdev);
+ /* Netdev entry point prototypes */
++extern void bnad_set_rx_mode(struct net_device *netdev);
++extern struct net_device_stats *bnad_get_netdev_stats(
++				struct net_device *netdev);
++extern int bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr);
++extern int bnad_enable_default_bcast(struct bnad *bnad);
++extern void bnad_restore_vlans(struct bnad *bnad, u32 rx_id);
+ extern void bnad_set_ethtool_ops(struct net_device *netdev);
  
- 	u64		hw_stats_updates;
- 	u64		netif_rx_schedule;
+ /* Configuration & setup */
+@@ -366,10 +372,6 @@ extern void bnad_netdev_hwstats_fill(struct bnad *bnad,
+ 	}							\
+ }
+ 
+-#define bnad_dim_timer_running(_bnad)				\
+-	(((_bnad)->cfg_flags & BNAD_CF_DIM_ENABLED) &&		\
+-	(test_bit(BNAD_RF_DIM_TIMER_RUNNING, &((_bnad)->run_flags))))
+-
+ /*
+  * Stops the DIM timer
+  * Called with bnad->bna_lock held
+diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+index 1c19dce..1199f01 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
++++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+@@ -75,14 +75,25 @@ static char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
+ 	"tcpcsum_offload",
+ 	"udpcsum_offload",
+ 	"csum_help",
+-	"csum_help_err",
++	"tx_skb_too_short",
++	"tx_skb_stopping",
++	"tx_skb_max_vectors",
++	"tx_skb_mss_too_long",
++	"tx_skb_tso_too_short",
++	"tx_skb_tso_prepare",
++	"tx_skb_non_tso_too_long",
++	"tx_skb_tcp_hdr",
++	"tx_skb_udp_hdr",
++	"tx_skb_csum_err",
++	"tx_skb_headlen_too_long",
++	"tx_skb_headlen_zero",
++	"tx_skb_frag_zero",
++	"tx_skb_len_mismatch",
+ 	"hw_stats_updates",
+-	"netif_rx_schedule",
+-	"netif_rx_complete",
+ 	"netif_rx_dropped",
+ 
+ 	"link_toggle",
+-	"cee_up",
++	"cee_toggle",
+ 
+ 	"rxp_info_alloc_failed",
+ 	"mbox_intr_disabled",
+@@ -201,6 +212,20 @@ static char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
+ 	"rad_rx_bcast_vlan",
+ 	"rad_rx_drops",
+ 
++	"rlb_rad_rx_frames",
++	"rlb_rad_rx_octets",
++	"rlb_rad_rx_vlan_frames",
++	"rlb_rad_rx_ucast",
++	"rlb_rad_rx_ucast_octets",
++	"rlb_rad_rx_ucast_vlan",
++	"rlb_rad_rx_mcast",
++	"rlb_rad_rx_mcast_octets",
++	"rlb_rad_rx_mcast_vlan",
++	"rlb_rad_rx_bcast",
++	"rlb_rad_rx_bcast_octets",
++	"rlb_rad_rx_bcast_vlan",
++	"rlb_rad_rx_drops",
++
+ 	"fc_rx_ucast_octets",
+ 	"fc_rx_ucast",
+ 	"fc_rx_ucast_vlan",
+@@ -321,7 +346,6 @@ bnad_set_coalesce(struct net_device *netdev, struct ethtool_coalesce *coalesce)
+ {
+ 	struct bnad *bnad = netdev_priv(netdev);
+ 	unsigned long flags;
+-	int dim_timer_del = 0;
+ 
+ 	if (coalesce->rx_coalesce_usecs == 0 ||
+ 	    coalesce->rx_coalesce_usecs >
+@@ -348,14 +372,7 @@ bnad_set_coalesce(struct net_device *netdev, struct ethtool_coalesce *coalesce)
+ 	} else {
+ 		if (bnad->cfg_flags & BNAD_CF_DIM_ENABLED) {
+ 			bnad->cfg_flags &= ~BNAD_CF_DIM_ENABLED;
+-			dim_timer_del = bnad_dim_timer_running(bnad);
+-			if (dim_timer_del) {
+-				clear_bit(BNAD_RF_DIM_TIMER_RUNNING,
+-							&bnad->run_flags);
+-				spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-				del_timer_sync(&bnad->dim_timer);
+-				spin_lock_irqsave(&bnad->bna_lock, flags);
+-			}
++			bnad_dim_timer_stop(bnad, flags);
+ 			bnad_rx_coalescing_timeo_set(bnad);
+ 		}
+ 	}
+@@ -407,6 +424,7 @@ bnad_set_ringparam(struct net_device *netdev,
+ {
+ 	int i, current_err, err = 0;
+ 	struct bnad *bnad = netdev_priv(netdev);
++	unsigned long flags;
+ 
+ 	mutex_lock(&bnad->conf_mutex);
+ 	if (ringparam->rx_pending == bnad->rxq_depth &&
+@@ -430,6 +448,11 @@ bnad_set_ringparam(struct net_device *netdev,
+ 
+ 	if (ringparam->rx_pending != bnad->rxq_depth) {
+ 		bnad->rxq_depth = ringparam->rx_pending;
++		if (!netif_running(netdev)) {
++			mutex_unlock(&bnad->conf_mutex);
++			return 0;
++		}
++
+ 		for (i = 0; i < bnad->num_rx; i++) {
+ 			if (!bnad->rx_info[i].rx)
+ 				continue;
+@@ -437,10 +460,26 @@ bnad_set_ringparam(struct net_device *netdev,
+ 			current_err = bnad_setup_rx(bnad, i);
+ 			if (current_err && !err)
+ 				err = current_err;
++			if (!err)
++				bnad_restore_vlans(bnad, i);
++		}
++
++		if (!err && bnad->rx_info[0].rx) {
++			/* restore rx configuration */
++			bnad_enable_default_bcast(bnad);
++			spin_lock_irqsave(&bnad->bna_lock, flags);
++			bnad_mac_addr_set_locked(bnad, netdev->dev_addr);
++			spin_unlock_irqrestore(&bnad->bna_lock, flags);
++			bnad_set_rx_mode(netdev);
+ 		}
+ 	}
+ 	if (ringparam->tx_pending != bnad->txq_depth) {
+ 		bnad->txq_depth = ringparam->tx_pending;
++		if (!netif_running(netdev)) {
++			mutex_unlock(&bnad->conf_mutex);
++			return 0;
++		}
++
+ 		for (i = 0; i < bnad->num_tx; i++) {
+ 			if (!bnad->tx_info[i].tx)
+ 				continue;
+@@ -578,6 +617,16 @@ bnad_get_strings(struct net_device *netdev, u32 stringset, u8 * string)
+ 				sprintf(string, "cq%d_hw_producer_index",
+ 					q_num);
+ 				string += ETH_GSTRING_LEN;
++				sprintf(string, "cq%d_intr", q_num);
++				string += ETH_GSTRING_LEN;
++				sprintf(string, "cq%d_poll", q_num);
++				string += ETH_GSTRING_LEN;
++				sprintf(string, "cq%d_schedule", q_num);
++				string += ETH_GSTRING_LEN;
++				sprintf(string, "cq%d_keep_poll", q_num);
++				string += ETH_GSTRING_LEN;
++				sprintf(string, "cq%d_complete", q_num);
++				string += ETH_GSTRING_LEN;
+ 				q_num++;
+ 			}
+ 		}
+@@ -660,7 +709,7 @@ static int
+ bnad_get_stats_count_locked(struct net_device *netdev)
+ {
+ 	struct bnad *bnad = netdev_priv(netdev);
+-	int i, j, count, rxf_active_num = 0, txf_active_num = 0;
++	int i, j, count = 0, rxf_active_num = 0, txf_active_num = 0;
+ 	u32 bmap;
+ 
+ 	bmap = bna_tx_rid_mask(&bnad->bna);
+@@ -718,6 +767,17 @@ bnad_per_q_stats_fill(struct bnad *bnad, u64 *buf, int bi)
+ 				buf[bi++] = 0; /* ccb->consumer_index */
+ 				buf[bi++] = *(bnad->rx_info[i].rx_ctrl[j].
+ 						ccb->hw_producer_index);
++
++				buf[bi++] = bnad->rx_info[i].
++						rx_ctrl[j].rx_intr_ctr;
++				buf[bi++] = bnad->rx_info[i].
++						rx_ctrl[j].rx_poll_ctr;
++				buf[bi++] = bnad->rx_info[i].
++						rx_ctrl[j].rx_schedule;
++				buf[bi++] = bnad->rx_info[i].
++						rx_ctrl[j].rx_keep_poll;
++				buf[bi++] = bnad->rx_info[i].
++						rx_ctrl[j].rx_complete;
+ 			}
+ 	}
+ 	for (i = 0; i < bnad->num_rx; i++) {
 -- 
 1.7.1
 
