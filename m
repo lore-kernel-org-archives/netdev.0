@@ -1,48 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: downgrade Max BW error message to debug
-Date: Thu, 18 Aug 2011 21:51:12 -0700 (PDT)
-Message-ID: <20110818.215112.1568702081859624457.davem@davemloft.net>
-References: <1313603055.12483.3.camel@lb-tlvb-eilong.il.broadcom.com>
-	<20110818133751.3ba77279@brian.englab.brq.redhat.com>
-	<1313670121.5576.0.camel@lb-tlvb-eilong.il.broadcom.com>
+Subject: Re: [PATCH net-next-2.6] be2net: Storing the 'vid' got by the grp5
+ event instead of storing the vlan_tag
+Date: Thu, 18 Aug 2011 21:51:57 -0700 (PDT)
+Message-ID: <20110818.215157.966716613076716209.davem@davemloft.net>
+References: <fda860a7-48ac-4ce1-a55e-f24f16aa2cae@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mschmidt@redhat.com, netdev@vger.kernel.org, dmitry@broadcom.com,
-	vladz@broadcom.com
-To: eilong@broadcom.com
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42357 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42371 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750859Ab1HSEv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 00:51:28 -0400
-In-Reply-To: <1313670121.5576.0.camel@lb-tlvb-eilong.il.broadcom.com>
+	with ESMTP id S1750859Ab1HSEwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 00:52:00 -0400
+In-Reply-To: <fda860a7-48ac-4ce1-a55e-f24f16aa2cae@exht1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Thu, 18 Aug 2011 15:22:00 +0300
+From: Somnath Kotur <somnath.kotur@Emulex.Com>
+Date: Thu, 18 Aug 2011 22:10:42 +0530
 
-> On Thu, 2011-08-18 at 04:37 -0700, Michal Schmidt wrote:
->> On Wed, 17 Aug 2011 20:44:15 +0300 Eilon Greenstein wrote:
->> > I think that we should use DP instead of DBG_ERR. How about this one:
->> ... 
->> > Can you sing-off on somethign like this?
->> 
->> OK, let's use DP. Thanks!
->> 
->> 
->> Subject: [PATCH v2] bnx2x: downgrade Max BW error message to debug
->> 
->> There are valid configurations where Max BW is configured to zero for
->> some VNs.
->> Print the message only if debugging is enabled and do not call the
->> configuration "illegal".
->> 
->> [v2: use DP(), not BNX2X_DBG_ERR(); recommended by Eilon Greenstein.]
->> 
->> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 > 
-> Acked-by: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 
-Applied, thanks everyone.
+Applied, thanks.
