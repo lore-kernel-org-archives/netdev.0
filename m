@@ -1,27 +1,48 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH/RFC v3 0/75] enable SKB paged fragment lifetime
- visibility
-Date: Fri, 19 Aug 2011 06:29:58 -0700 (PDT)
-Message-ID: <20110819.062958.1560313540665582388.davem@davemloft.net>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH 61/75] vxge: convert to SKB paged frag API.
+Date: Fri, 19 Aug 2011 14:27:33 +0100
+Message-ID: <1313760467-8598-61-git-send-email-ian.campbell@citrix.com>
 References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1313760393.5010.356.camel-o4Be2W7LfRlXesXXhkcM7miJhflN2719@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Jon Mason <jdmason@kudzu.us>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:64883 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755379Ab1HSN3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Aug 2011 09:29:52 -0400
+In-Reply-To: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Date: Fri, 19 Aug 2011 14:26:33 +0100
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Jon Mason <jdmason@kudzu.us>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/vxge/vxge-main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-> This is v3 of my series to enable visibility into SKB paged fragment's
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+index 178348a2..4baec97 100644
+--- a/drivers/net/vxge/vxge-main.c
++++ b/drivers/net/vxge/vxge-main.c
+@@ -923,9 +923,9 @@ vxge_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if (!frag->size)
+ 			continue;
+ 
+-		dma_pointer = (u64) pci_map_page(fifo->pdev, frag->page,
+-				frag->page_offset, frag->size,
+-				PCI_DMA_TODEVICE);
++		dma_pointer = (u64)skb_frag_dma_map(&fifo->pdev->dev, frag,
++						    0, frag->size,
++						    PCI_DMA_TODEVICE);
+ 
+ 		if (unlikely(pci_dma_mapping_error(fifo->pdev, dma_pointer)))
+ 			goto _exit2;
+-- 
+1.7.2.5
 
-Please tone down the patch count :-/  I'm not going to review anything more
-than ~20 or so patches at a time from any one person.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
