@@ -1,141 +1,252 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] bridge: add netfilter hook for forwarding 802.1D group
- addresses
-Date: Fri, 19 Aug 2011 13:58:10 -0700
-Message-ID: <20110819135810.1a529ab2@nehalam.ftrdhcpuser.net>
-References: <CAF5U64C+WgQhfJL3zfVnvzE7p=G61humQCObHGUxAvY2-MGAFQ@mail.gmail.com>
-	<CAF5U64CJTWDn8E9+XVLFsdaSbiu-4Rd9XmxZq7ReziRNZviO6Q@mail.gmail.com>
-	<20110812154545.79d8313f@nehalam.ftrdhcpuser.net>
-	<CAF5U64B_fb2tFMLHmK+zw3n6gmq+bYDyFnXhLE0ayssK5m+THA@mail.gmail.com>
-	<20110815150501.3a6cc432@nehalam.ftrdhcpuser.net>
-	<CAEJpZP0fOydMMbgquAud7dfwcO28BXAMzAwnMjSZO6TvEjxgpQ@mail.gmail.com>
-	<20110818081019.4b9bb79e@nehalam.ftrdhcpuser.net>
-	<CAEJpZP2FGhPmTi0+eS+QRhj4y+aqfQHnEUrjmOOLHUay1SuAKg@mail.gmail.com>
-	<20110818093941.5ebf716b@nehalam.ftrdhcpuser.net>
-	<20110819022731.GC180151@jupiter.n2.diac24.net>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 03/13] bna: Interrupt Polling and NAPI Init Changes
+Date: Fri, 19 Aug 2011 14:39:22 -0700
+Message-ID: <1313789972-22711-4-git-send-email-rmody@brocade.com>
+References: <1313789972-22711-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Nick Carter <ncarter100@gmail.com>,
-	Ed Swierk <eswierk@bigswitch.com>, netdev@vger.kernel.org,
-	bridge@linux-foundation.org, netfilter-devel@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110819022731.GC180151@jupiter.n2.diac24.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>,
+	Gurunatha Karaje <gkaraje@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38063 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755130Ab1HSVj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 17:39:56 -0400
+In-Reply-To: <1313789972-22711-1-git-send-email-rmody@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The IEEE standard expects that link local multicast packets will not
-be forwarded by a bridge. But there are cases like 802.1X which may
-require that packets be forwarded. For maximum flexibilty implement
-this via netfilter.
+Change details:
+ - Remove unnecessary ccb check from bnad_poll_cq
+ - Add bnad pointer to rx_ctrl structure, so that bnad can be accessed directly
+   from rx_ctrl in the NAPI poll routines, even if ccb is NULL
+ - Validate ccb before referencing to it in bnad_msix_rx and bnad_napi_poll_rx
+ - Fix the order of NAPI init / uninit in Tx / Rx setup / teardown path:
+   a. Kill bnad tx free tasklet ahead of call to bna_tx_destroy()
+   b. Call NAPI disable only after call to Rx free_irq(). This makes sure Rx
+      interrupt does not schedule a poll when NAPI is already disabled
+ - NAPI poll runs before the h/w has completed configuration. This causes a
+   crash. Delay enabling NAPI till after bna_rx_enable(). Split NAPI
+   initialization into 2 steps, bnad_napi_init() & bnad_napi_enable().
 
-The netfilter chain is slightly different from other chains in that
-if packet is ACCEPTED by the chain, it means it should be forwarded.
-And if the packet verdict result is DROP, the packet is processed
-as a local packet. The default result for this chain is DROP and
-therefore users who do not install any rules will get the same
-result as before; ie. packets are only processed on the local host
-and not forwarded.
-
-Spanning Tree Packets are treated specially and do not
-go through the new chain.
-
-This code is conceptual design concept only. It compiles but
-hasn't been tested.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
+Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- include/linux/netfilter_bridge.h      |    5 ++++-
- net/bridge/br_input.c                 |   15 ++++++++++++---
- net/bridge/netfilter/ebtable_filter.c |   18 ++++++++++++++++--
- 3 files changed, 32 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c |   83 ++++++++++++++++++++-----------
+ drivers/net/ethernet/brocade/bna/bnad.h |    1 +
+ 2 files changed, 54 insertions(+), 30 deletions(-)
 
---- a/include/linux/netfilter_bridge.h	2011-08-19 13:11:51.972125670 -0700
-+++ b/include/linux/netfilter_bridge.h	2011-08-19 13:13:36.452130443 -0700
-@@ -22,7 +22,10 @@
- #define NF_BR_POST_ROUTING	4
- /* Not really a hook, but used for the ebtables broute table */
- #define NF_BR_BROUTING		5
--#define NF_BR_NUMHOOKS		6
-+/* Packets to link local multicast addresses (01-80-C2-00-00-XX) */
-+#define NF_BR_LINK_LOCAL_IN	6
-+
-+#define NF_BR_NUMHOOKS		7
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 3f19a4d..095eac9 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -535,16 +535,11 @@ next:
  
- #ifdef __KERNEL__
+ 	BNA_QE_INDX_ADD(ccb->producer_index, wis, ccb->q_depth);
  
---- a/net/bridge/br_input.c	2011-08-18 16:12:02.576672548 -0700
-+++ b/net/bridge/br_input.c	2011-08-19 13:28:13.696170518 -0700
-@@ -166,10 +166,19 @@ rx_handler_result_t br_handle_frame(stru
- 		if (skb->protocol == htons(ETH_P_PAUSE))
- 			goto drop;
+-	if (likely(ccb)) {
+-		if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
+-			bna_ib_ack(ccb->i_dbell, packets);
+-		bnad_refill_rxq(bnad, ccb->rcb[0]);
+-		if (ccb->rcb[1])
+-			bnad_refill_rxq(bnad, ccb->rcb[1]);
+-	} else {
+-		if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
+-			bna_ib_ack(ccb->i_dbell, 0);
+-	}
++	if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
++		bna_ib_ack(ccb->i_dbell, packets);
++	bnad_refill_rxq(bnad, ccb->rcb[0]);
++	if (ccb->rcb[1])
++		bnad_refill_rxq(bnad, ccb->rcb[1]);
  
--		/* If STP is turned off, then forward */
--		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
--			goto forward;
-+		/* If this is Spanning Tree Protocol packet */
-+		if (dest[5] == 0) {
-+			/* and STP is turned off, then forward */
-+			if (p->br->stp_enabled == BR_NO_STP)
-+				goto forward;
-+		}
-+		/* Hook to allow forwarding other group MAC addresses */
-+		else if (p->state == BR_STATE_FORWARDING &&
-+			 NF_HOOK(NFPROTO_BRIDGE, NF_BR_LINK_LOCAL_IN, skb, skb->dev,
-+				 NULL, br_handle_frame_finish))
-+			return RX_HANDLER_CONSUMED;	/* forwarded */
+ 	clear_bit(BNAD_FP_IN_RX_PATH, &rx_ctrl->flags);
  
-+		/* Packet will go only to the local host. */
- 		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
- 			    NULL, br_handle_local_finish)) {
- 			return RX_HANDLER_CONSUMED; /* consumed by filter */
---- a/net/bridge/netfilter/ebtable_filter.c	2011-08-19 13:14:46.232133631 -0700
-+++ b/net/bridge/netfilter/ebtable_filter.c	2011-08-19 13:27:33.436168679 -0700
-@@ -11,8 +11,10 @@
- #include <linux/netfilter_bridge/ebtables.h>
- #include <linux/module.h>
- 
--#define FILTER_VALID_HOOKS ((1 << NF_BR_LOCAL_IN) | (1 << NF_BR_FORWARD) | \
--   (1 << NF_BR_LOCAL_OUT))
-+#define FILTER_VALID_HOOKS ((1 << NF_BR_LOCAL_IN) | \
-+			    (1 << NF_BR_FORWARD) | \
-+			    (1 << NF_BR_LOCAL_OUT) | \
-+			    (1 << NF_BR_LINK_LOCAL_IN))
- 
- static struct ebt_entries initial_chains[] =
+@@ -590,9 +585,9 @@ static irqreturn_t
+ bnad_msix_rx(int irq, void *data)
  {
-@@ -28,6 +30,10 @@ static struct ebt_entries initial_chains
- 		.name	= "OUTPUT",
- 		.policy	= EBT_ACCEPT,
- 	},
-+	{
-+		.name	= "LINKLOCAL",
-+		.policy = EBT_DROP,
-+	},
- };
+ 	struct bna_ccb *ccb = (struct bna_ccb *)data;
+-	struct bnad *bnad = ccb->bnad;
  
- static struct ebt_replace_kernel initial_table =
-@@ -39,6 +45,7 @@ static struct ebt_replace_kernel initial
- 		[NF_BR_LOCAL_IN]	= &initial_chains[0],
- 		[NF_BR_FORWARD]		= &initial_chains[1],
- 		[NF_BR_LOCAL_OUT]	= &initial_chains[2],
-+		[NF_BR_LINK_LOCAL_IN]	= &initial_chains[3],
- 	},
- 	.entries	= (char *)initial_chains,
- };
-@@ -95,6 +102,13 @@ static struct nf_hook_ops ebt_ops_filter
- 		.hooknum	= NF_BR_LOCAL_OUT,
- 		.priority	= NF_BR_PRI_FILTER_OTHER,
- 	},
-+	{
-+		.hook		= ebt_in_hook,
-+		.owner		= THIS_MODULE,
-+		.pf		= NFPROTO_BRIDGE,
-+		.hooknum	= NF_BR_LINK_LOCAL_IN,
-+		.priority	= NF_BR_PRI_FILTER_BRIDGED,
-+	},
- };
+-	bnad_netif_rx_schedule_poll(bnad, ccb);
++	if (ccb)
++		bnad_netif_rx_schedule_poll(ccb->bnad, ccb);
  
- static int __net_init frame_filter_net_init(struct net *net)
+ 	return IRQ_HANDLED;
+ }
+@@ -1658,18 +1653,14 @@ bnad_napi_poll_rx(struct napi_struct *napi, int budget)
+ {
+ 	struct bnad_rx_ctrl *rx_ctrl =
+ 		container_of(napi, struct bnad_rx_ctrl, napi);
+-	struct bna_ccb *ccb;
+-	struct bnad *bnad;
++	struct bnad *bnad = rx_ctrl->bnad;
+ 	int rcvd = 0;
+ 
+-	ccb = rx_ctrl->ccb;
+-
+-	bnad = ccb->bnad;
+ 
+ 	if (!netif_carrier_ok(bnad->netdev))
+ 		goto poll_exit;
+ 
+-	rcvd = bnad_poll_cq(bnad, ccb, budget);
++	rcvd = bnad_poll_cq(bnad, rx_ctrl->ccb, budget);
+ 	if (rcvd == budget)
+ 		return rcvd;
+ 
+@@ -1678,12 +1669,15 @@ poll_exit:
+ 
+ 	BNAD_UPDATE_CTR(bnad, netif_rx_complete);
+ 
+-	bnad_enable_rx_irq(bnad, ccb);
++
++	if (rx_ctrl->ccb)
++		bnad_enable_rx_irq(bnad, rx_ctrl->ccb);
+ 	return rcvd;
+ }
+ 
++#define BNAD_NAPI_POLL_QUOTA		64
+ static void
+-bnad_napi_enable(struct bnad *bnad, u32 rx_id)
++bnad_napi_init(struct bnad *bnad, u32 rx_id)
+ {
+ 	struct bnad_rx_ctrl *rx_ctrl;
+ 	int i;
+@@ -1691,9 +1685,20 @@ bnad_napi_enable(struct bnad *bnad, u32 rx_id)
+ 	/* Initialize & enable NAPI */
+ 	for (i = 0; i <	bnad->num_rxp_per_rx; i++) {
+ 		rx_ctrl = &bnad->rx_info[rx_id].rx_ctrl[i];
+-
+ 		netif_napi_add(bnad->netdev, &rx_ctrl->napi,
+-			       bnad_napi_poll_rx, 64);
++			       bnad_napi_poll_rx, BNAD_NAPI_POLL_QUOTA);
++	}
++}
++
++static void
++bnad_napi_enable(struct bnad *bnad, u32 rx_id)
++{
++	struct bnad_rx_ctrl *rx_ctrl;
++	int i;
++
++	/* Initialize & enable NAPI */
++	for (i = 0; i <	bnad->num_rxp_per_rx; i++) {
++		rx_ctrl = &bnad->rx_info[rx_id].rx_ctrl[i];
+ 
+ 		napi_enable(&rx_ctrl->napi);
+ 	}
+@@ -1732,6 +1737,9 @@ bnad_cleanup_tx(struct bnad *bnad, u32 tx_id)
+ 		bnad_tx_msix_unregister(bnad, tx_info,
+ 			bnad->num_txq_per_tx);
+ 
++	if (0 == tx_id)
++		tasklet_kill(&bnad->tx_free_tasklet);
++
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	bna_tx_destroy(tx_info->tx);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+@@ -1739,9 +1747,6 @@ bnad_cleanup_tx(struct bnad *bnad, u32 tx_id)
+ 	tx_info->tx = NULL;
+ 	tx_info->tx_id = 0;
+ 
+-	if (0 == tx_id)
+-		tasklet_kill(&bnad->tx_free_tasklet);
+-
+ 	bnad_tx_res_free(bnad, res_info);
+ }
+ 
+@@ -1852,6 +1857,16 @@ bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
+ 	rx_config->vlan_strip_status = BNA_STATUS_T_ENABLED;
+ }
+ 
++static void
++bnad_rx_ctrl_init(struct bnad *bnad, u32 rx_id)
++{
++	struct bnad_rx_info *rx_info = &bnad->rx_info[rx_id];
++	int i;
++
++	for (i = 0; i < bnad->num_rxp_per_rx; i++)
++		rx_info->rx_ctrl[i].bnad = bnad;
++}
++
+ /* Called with mutex_lock(&bnad->conf_mutex) held */
+ void
+ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
+@@ -1875,8 +1890,6 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
+ 			del_timer_sync(&bnad->dim_timer);
+ 	}
+ 
+-	bnad_napi_disable(bnad, rx_id);
+-
+ 	init_completion(&bnad->bnad_completions.rx_comp);
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	bna_rx_disable(rx_info->rx, BNA_HARD_CLEANUP, bnad_cb_rx_disabled);
+@@ -1886,6 +1899,8 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
+ 	if (rx_info->rx_ctrl[0].ccb->intr_type == BNA_INTR_T_MSIX)
+ 		bnad_rx_msix_unregister(bnad, rx_info, rx_config->num_paths);
+ 
++	bnad_napi_disable(bnad, rx_id);
++
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	bna_rx_destroy(rx_info->rx);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+@@ -1939,6 +1954,8 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
+ 	if (err)
+ 		return err;
+ 
++	bnad_rx_ctrl_init(bnad, rx_id);
++
+ 	/* Ask BNA to create one Rx object, supplying required resources */
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	rx = bna_rx_create(&bnad->bna, bnad, rx_config, &rx_cbfn, res_info,
+@@ -1948,6 +1965,12 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
+ 		goto err_return;
+ 	rx_info->rx = rx;
+ 
++	/*
++	 * Init NAPI, so that state is set to NAPI_STATE_SCHED,
++	 * so that IRQ handler cannot schedule NAPI at this point.
++	 */
++	bnad_napi_init(bnad, rx_id);
++
+ 	/* Register ISR for the Rx object */
+ 	if (intr_info->intr_type == BNA_INTR_T_MSIX) {
+ 		err = bnad_rx_msix_register(bnad, rx_info, rx_id,
+@@ -1956,9 +1979,6 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
+ 			goto err_return;
+ 	}
+ 
+-	/* Enable NAPI */
+-	bnad_napi_enable(bnad, rx_id);
+-
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	if (0 == rx_id) {
+ 		/* Set up Dynamic Interrupt Moderation Vector */
+@@ -1975,6 +1995,9 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
+ 	bna_rx_enable(rx);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
++	/* Enable scheduling of NAPI */
++	bnad_napi_enable(bnad, rx_id);
++
+ 	return 0;
+ 
+ err_return:
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index 3c23139..60c2e9d 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -53,6 +53,7 @@
+  */
+ struct bnad_rx_ctrl {
+ 	struct bna_ccb *ccb;
++	struct bnad *bnad;
+ 	unsigned long  flags;
+ 	struct napi_struct	napi;
+ };
+-- 
+1.7.1
+
