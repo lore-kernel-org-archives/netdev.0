@@ -1,50 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add the comment for skb->l4_hash
-Date: Fri, 19 Aug 2011 07:27:57 -0700 (PDT)
-Message-ID: <20110819.072757.1262017366945258503.davem@davemloft.net>
-References: <20110819.071918.2148980329707419757.davem@davemloft.net>
-	<CABa6K_G+cv3z-WoFSu3s017uVa54aHcn_D=R6WX3=-YA2o2j8g@mail.gmail.com>
-	<20110819.072547.515057198170181830.davem@davemloft.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH/RFC v3 0/75] enable SKB paged fragment lifetime
+ visibility
+Date: Fri, 19 Aug 2011 15:30:15 +0100
+Message-ID: <1313764215.5010.377.camel@zakaz.uk.xensource.com>
+References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
+	 <20110819.062958.1560313540665582388.davem@davemloft.net>
+	 <20110819.063410.475175569086272526.davem@davemloft.net>
+	 <20110819.070451.1651299907098952592.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Cc: <netdev@vger.kernel.org>, <linux-nfs@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56196 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754805Ab1HSO2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 10:28:01 -0400
-In-Reply-To: <20110819.072547.515057198170181830.davem@davemloft.net>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:50649 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755684Ab1HSOaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 10:30:17 -0400
+In-Reply-To: <20110819.070451.1651299907098952592.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 19 Aug 2011 07:25:47 -0700 (PDT)
-
-> From: Changli Gao <xiaosuo@gmail.com>
-> Date: Fri, 19 Aug 2011 22:22:24 +0800
+On Fri, 2011-08-19 at 07:04 -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Fri, 19 Aug 2011 06:34:10 -0700 (PDT)
 > 
->> On Fri, Aug 19, 2011 at 10:19 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Changli Gao <xiaosuo@gmail.com>
->>> Date: Fri, 19 Aug 2011 22:14:12 +0800
->>>
->>>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
->>>
->>> It was obvious to me this time, but please in the future indicate in
->>> "[PATCH]" that a change is targetted for net-next as this one was.
->>>
->>> Applied, thanks.
->>>
->> 
->> Sorry again. Please apply the new one instead, as I made a typo
->> mistake in the previous two patches. Thanks.
+> > From: David Miller <davem@davemloft.net>
+> > Date: Fri, 19 Aug 2011 06:29:58 -0700 (PDT)
+> > 
+> >> From: Ian Campbell <Ian.Campbell@citrix.com>
+> >> Date: Fri, 19 Aug 2011 14:26:33 +0100
+> >> 
+> >>> This is v3 of my series to enable visibility into SKB paged fragment's
+> >> 
+> >> Please tone down the patch count :-/  I'm not going to review anything more
+> >> than ~20 or so patches at a time from any one person.
+> > 
+> > Also none of your patches will even apply to net-next GIT since nearly
+> > all the ethernet drivers have been moved under drivers/net/ethernet
 > 
-> Ok, done.
+> Ian, please acknowledge my grievances here.  I see you replying to other
+> people, but not to me and I'm the one who has to process all of this
+> stuff eventually.
 
-BTW for next time, "net-next" indication belongs inside of "[]"
-brackets, it should look something like:
+Sorry, I thought I had replied to you first, did it go missing?
 
-	Subject: [PATCH net-next] net: blah blah blah
+> If you want this series to be taken seriously:
+> 
+> 1) Make your patches against net-next GIT, none of your driver patches will
+>    apply because they have all been moved around to different locations
+>    under drivers/net
 
-Thanks.
+> 2) Submit this in a _SANE_ way.  This means, get the first patch that adds
+>    the new interfaces approved and merged.  Then slowly and carefuly submit
+>    small, reasonably sized, sets of patches that convert the drivers over.
+
+That all makes sense, I'll do it that way.
+
+> Otherwise there is no way I'm even looking at this stuff, let alone actually
+> apply it.
+
+> Realize that every time you patch bomb rediculiously like this I have
+> to click and classify every single patch in your bomb at
+> http://patchwork.ozlabs.org/project/netdev/list/
+
+Ah, right, I hadn't considered the patchwork thing, I'm very sorry about
+that!
+
+Ian.
+
+
