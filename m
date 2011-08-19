@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] be2net: Storing the 'vid' got by the grp5
- event instead of storing the vlan_tag
-Date: Thu, 18 Aug 2011 21:51:57 -0700 (PDT)
-Message-ID: <20110818.215157.966716613076716209.davem@davemloft.net>
-References: <fda860a7-48ac-4ce1-a55e-f24f16aa2cae@exht1.ad.emulex.com>
+Subject: Re: [PATCH][Trivial] net/wan/hdlc_ppp: remove dead goto
+Date: Thu, 18 Aug 2011 22:02:49 -0700 (PDT)
+Message-ID: <20110818.220249.1523360015062657902.davem@davemloft.net>
+References: <alpine.LNX.2.00.1108130138100.7387@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: somnath.kotur@Emulex.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42371 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750859Ab1HSEwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 00:52:00 -0400
-In-Reply-To: <fda860a7-48ac-4ce1-a55e-f24f16aa2cae@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, trivial@kernel.org
+To: jj@chaosbits.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1108130138100.7387@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Somnath Kotur <somnath.kotur@Emulex.Com>
-Date: Thu, 18 Aug 2011 22:10:42 +0530
+From: Jesper Juhl <jj@chaosbits.net>
+Date: Sat, 13 Aug 2011 01:39:43 +0200 (CEST)
 
+> From: Jesper Juhl <jj@chaosbits.net>
 > 
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> We'll either hit one of the case labels or the default in the switch
+> and in all cases do we then 'goto out', so having 'goto out' right
+> after the switch is pointless as we can never hit it - remove it.
+> 
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-Applied, thanks.
+Probably a lot cleaner to use break statements in the switch() statement
+and keep this goto in place.
+
+That's more straightforward control flow than what this thing is doing.
