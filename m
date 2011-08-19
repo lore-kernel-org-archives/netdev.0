@@ -1,49 +1,92 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: net: rps: support 802.1Q
-Date: Fri, 19 Aug 2011 23:05:18 +0800
-Message-ID: <CABa6K_FhG9_XrCfhJDhhUArFEeG5FqOoU_HN1vY-TOKmjMxBKQ@mail.gmail.com>
-References: <1313730353-25379-1-git-send-email-xiaosuo@gmail.com> <1313754853.2814.8.camel@deadeye>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
+Date: Fri, 19 Aug 2011 18:23:35 +0300
+Message-ID: <20110819152335.GA19489@redhat.com>
+References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:65174 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832Ab1HSPFj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 11:05:39 -0400
-Received: by ewy4 with SMTP id 4so1156913ewy.19
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 08:05:38 -0700 (PDT)
-In-Reply-To: <1313754853.2814.8.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 19, 2011 at 7:54 PM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
->
-> Should this really be reading an unlimited number of tags?
+On Sat, Aug 13, 2011 at 11:51:01AM +0300, Sasha Levin wrote:
+> The MAC of a virtio-net device is located at the first field of the device
+> specific header. This header is located at offset 20 if the device doesn't
+> support MSI-X or offset 24 if it does.
+> 
+> Current code in virtnet_probe() used to probe the MAC before checking for
+> MSI-X, which means that the read was always made from offset 20 regardless
+> of whether MSI-X in enabled or not.
+> 
+> This patch moves the MAC probe to after the detection of whether MSI-X is
+> enabled. This way the MAC will be read from offset 24 if the device indeed
+> supports MSI-X.
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: virtualization@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
+> Cc: kvm@vger.kernel.org
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
 
-Not unlimited, but it won't stop until reaching the end of the packet.
+I am not sure I see a bug in virtio: the config pace layout simply
+changes as msix is enabled and disabled (and if you look at the latest
+draft, also on whether 64 bit features are enabled).
+It doesn't depend on msix capability being present in device.
 
-> =A0What if an
-> attacker starts sending packets full of VLAN tags? =A0Since this runs
-> before netfilter, there would be no way to prevent those packets burn=
-ing
-> our CPU time. =A0And if there are legitimately multiple VLAN tags, th=
-ey
-> presumably won't all have the 802.1q Ethertype.
->
+The spec seems to be explicit enough:
+	If MSI-X is enabled for the device, two additional fields immediately
+	follow this header.
 
-Do we need to limit the number of rounds to stop this kind of "bad"
-packets from burning our CPU time? Then,  __netif_receive_skb() has to
-be update too, so the inspection of tunnel in __skb_get_rxhash() does.
-Is there a such limitation in xfrm?
+So I'm guessing the bug is in kvm tools which assume
+same layout for when msix is enabled and disabled.
+qemu-kvm seems to do the right thing so the device
+seems to get the correct mac.
 
-Thanks.
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+> ---
+>  drivers/net/virtio_net.c |   16 ++++++++--------
+>  1 files changed, 8 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 0c7321c..55ccf96 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -981,14 +981,6 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		/* (!csum && gso) case will be fixed by register_netdev() */
+>  	}
+>  
+> -	/* Configuration may specify what MAC to use.  Otherwise random. */
+> -	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
+> -		vdev->config->get(vdev,
+> -				  offsetof(struct virtio_net_config, mac),
+> -				  dev->dev_addr, dev->addr_len);
+> -	} else
+> -		random_ether_addr(dev->dev_addr);
+> -
+>  	/* Set up our device-specific information */
+>  	vi = netdev_priv(dev);
+>  	netif_napi_add(dev, &vi->napi, virtnet_poll, napi_weight);
+> @@ -1032,6 +1024,14 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  			dev->features |= NETIF_F_HW_VLAN_FILTER;
+>  	}
+>  
+> +	/* Configuration may specify what MAC to use.  Otherwise random. */
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
+> +		vdev->config->get(vdev,
+> +				  offsetof(struct virtio_net_config, mac),
+> +				  dev->dev_addr, dev->addr_len);
+> +	} else
+> +		random_ether_addr(dev->dev_addr);
+> +
+>  	err = register_netdev(dev);
+>  	if (err) {
+>  		pr_debug("virtio_net: registering device failed\n");
+> -- 
+> 1.7.6
