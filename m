@@ -1,59 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH/RFC v3 0/75] enable SKB paged fragment lifetime
- visibility
-Date: Fri, 19 Aug 2011 07:04:51 -0700 (PDT)
-Message-ID: <20110819.070451.1651299907098952592.davem@davemloft.net>
-References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
-	<20110819.062958.1560313540665582388.davem@davemloft.net>
-	<20110819.063410.475175569086272526.davem@davemloft.net>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [PATCH net-next v4 af-packet 0/2] Enhance af-packet to provide
+ (near zero)lossless packet capture functionality.
+Date: Fri, 19 Aug 2011 10:12:39 -0400
+Message-ID: <CAAsGZS4J7i8cvHuGH9AFFwzub+nL-6D0JQzGALCHUkk3K7dDxQ@mail.gmail.com>
+References: <1313116260-1000-1-git-send-email-loke.chetan@gmail.com>
+	<20110819.033311.1204611705865122620.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-nfs@vger.kernel.org
-To: Ian.Campbell@citrix.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60634 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752123Ab1HSOEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 10:04:54 -0400
-In-Reply-To: <20110819.063410.475175569086272526.davem@davemloft.net>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:65292 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752602Ab1HSOMk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 10:12:40 -0400
+Received: by pzk37 with SMTP id 37so4904068pzk.1
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 07:12:39 -0700 (PDT)
+In-Reply-To: <20110819.033311.1204611705865122620.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 19 Aug 2011 06:34:10 -0700 (PDT)
+On Fri, Aug 19, 2011 at 6:33 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Chetan Loke <loke.chetan@gmail.com>
+> Date: Thu, 11 Aug 2011 22:30:58 -0400
+>
+>> This patch attempts to:
+>> 1)Improve network capture visibility by increasing packet density
+>> 2)Assist in analyzing multiple(aggregated) capture ports.
+>
+> Just some general comments before I say something about the actual
+> code.
+>
+> Claiming loss-less, or almost loss-less, packet capture is something
+> which is highly dependent upon the hardware and traffic load.
 
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 19 Aug 2011 06:29:58 -0700 (PDT)
-> 
->> From: Ian Campbell <Ian.Campbell@citrix.com>
->> Date: Fri, 19 Aug 2011 14:26:33 +0100
->> 
->>> This is v3 of my series to enable visibility into SKB paged fragment's
->> 
->> Please tone down the patch count :-/  I'm not going to review anything more
->> than ~20 or so patches at a time from any one person.
-> 
-> Also none of your patches will even apply to net-next GIT since nearly
-> all the ethernet drivers have been moved under drivers/net/ethernet
+Totally agree. I have added the text in [Patch 2/2], bullet 1.3 -
+capture 99% traffic as seen by the kernel. So lossless is relative to
+'the traffic processed by the kernel' and not to the (inline)hardware.
+But yes, the patch subject itself could be misleading. Not trying to
+argue but just wanted to make sure we are all on the same page.
 
-Ian, please acknowledge my grievances here.  I see you replying to other
-people, but not to me and I'm the one who has to process all of this
-stuff eventually.
 
-If you want this series to be taken seriously:
+> So I want you to describe this as what it is, an improvement. =C2=A0M=
+ore
+> specifically it's just a more flexible mmap ring buffer scheme that
+> reduces the wastage incurred by the fixed buffer size scheme we
+> have currently.
+>
+Oki. I will change the cover-subject to 'Enhance af-packet to provide
+a flexible mmap ring buffer scheme eliminating fixed frame-size
+requirement'.
 
-1) Make your patches against net-next GIT, none of your driver patches will
-   apply because they have all been moved around to different locations
-   under drivers/net
+> Next, you need to use a different subject line for the two patches.
+> Right now you say the same thing in both, and someone scanning the
+> changesets headers will have no idea what is different about one
+> change vs. the other.
+>
+Done.
 
-2) Submit this in a _SANE_ way.  This means, get the first patch that adds
-   the new interfaces approved and merged.  Then slowly and carefuly submit
-   small, reasonably sized, sets of patches that convert the drivers over.
 
-Otherwise there is no way I'm even looking at this stuff, let alone actually
-apply it.
-
-Realize that every time you patch bomb rediculiously like this I have
-to click and classify every single patch in your bomb at
-http://patchwork.ozlabs.org/project/netdev/list/
+Chetan Loke
