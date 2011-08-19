@@ -1,38 +1,21 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Traceroute and "ping" sockets: some questions
-Date: Fri, 19 Aug 2011 04:38:16 -0700 (PDT)
-Message-ID: <20110819.043816.1648681777223816477.davem@davemloft.net>
-References: <4E4E46B4.9010909@odu.neva.ru>
+From: Microsoft <m.loto.yahoo.co.uk@[207.255.205.200]>
+Subject: winner
+Date: Fri, 19 Aug 2011 11:07:38 +0200
+Message-ID: <0LQ6008CNAZOQB44@a-mtaout23.012.net.il>
+Reply-To: agentpaulines@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=Windows-1251
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: buc@odusz.so-cdu.ru
+To: Undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42874 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753758Ab1HSLiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 07:38:50 -0400
-In-Reply-To: <4E4E46B4.9010909@odu.neva.ru>
+Received: from mtaout23.012.net.il ([80.179.55.175]:43040 "EHLO
+	mtaout23.012.net.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751378Ab1HSLoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 07:44:23 -0400
+Received: from conversion-daemon.a-mtaout23.012.net.il by a-mtaout23.012.net.il (HyperSendmail v2007.08) id <0LQ600B00AVH6P00@a-mtaout23.012.net.il> for netdev@vger.kernel.org; Fri, 19 Aug 2011 14:38:43 +0300 (IDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Butskoy <buc@odusz.so-cdu.ru>
-Date: Fri, 19 Aug 2011 15:19:16 +0400
-
-> I would like to ask some questions:
-> 
-> - Currently such "ping" sockets implemented for IPv4 only. Are there any
-> - plans to implement it for IPv6 as well?
-
-I think the original authors of the kernel component said they would
-work on this, but it hasn't materialized yet.
-
-> - Are there any plans to implement some "rate control" (maybe
-> - sysctl-configurable too), to restrict unprivileged users to send icmp
-> - echoes too fast (ie. faster than 200 ms -- the current ping(8)
-> - restriction)?
-
-Why limit?  He can spam with UDP socket just as easily at any rate
-he pleases, and rate limiting is policy issue and there relegated
-to netfilter and/or the packet scheduler layer.
+You have won 500.000 GBP
+send your phone number
+and address
