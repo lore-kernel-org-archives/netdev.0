@@ -1,62 +1,51 @@
-From: Daniel Schwierzeck <daniel.schwierzeck@googlemail.com>
-Subject: [PATCH] atm: br2684: Fix oops due to skb->dev being NULL
-Date: Sat, 20 Aug 2011 00:04:20 +0200
-Message-ID: <1313791460-13652-1-git-send-email-daniel.schwierzeck@googlemail.com>
-Cc: stable@kernel.org, "David S . Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:65469 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753295Ab1HSWEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 18:04:30 -0400
-Received: by fxh19 with SMTP id 19so2199556fxh.19
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 15:04:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] bridge: add netfilter hook for forwarding 802.1D group
+ addresses
+Date: Fri, 19 Aug 2011 15:24:15 -0700
+Message-ID: <20110819152415.00e1c795@nehalam.ftrdhcpuser.net>
+References: <CAF5U64C+WgQhfJL3zfVnvzE7p=G61humQCObHGUxAvY2-MGAFQ@mail.gmail.com>
+	<CAF5U64CJTWDn8E9+XVLFsdaSbiu-4Rd9XmxZq7ReziRNZviO6Q@mail.gmail.com>
+	<20110812154545.79d8313f@nehalam.ftrdhcpuser.net>
+	<CAF5U64B_fb2tFMLHmK+zw3n6gmq+bYDyFnXhLE0ayssK5m+THA@mail.gmail.com>
+	<20110815150501.3a6cc432@nehalam.ftrdhcpuser.net>
+	<CAEJpZP0fOydMMbgquAud7dfwcO28BXAMzAwnMjSZO6TvEjxgpQ@mail.gmail.com>
+	<20110818081019.4b9bb79e@nehalam.ftrdhcpuser.net>
+	<CAEJpZP2FGhPmTi0+eS+QRhj4y+aqfQHnEUrjmOOLHUay1SuAKg@mail.gmail.com>
+	<20110818093941.5ebf716b@nehalam.ftrdhcpuser.net>
+	<20110819022731.GC180151@jupiter.n2.diac24.net>
+	<20110819135810.1a529ab2@nehalam.ftrdhcpuser.net>
+	<184D23435BECB444AB6B9D4630C8EC830258A300@XMB-RCD-303.cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David Lamparter" <equinox@diac24.net>,
+	"Nick Carter" <ncarter100@gmail.com>,
+	"Ed Swierk" <eswierk@bigswitch.com>, <netdev@vger.kernel.org>,
+	<bridge@linux-foundation.org>, <netfilter-devel@vger.kernel.org>
+To: "Christian Benvenuti (benve)" <benve@cisco.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <184D23435BECB444AB6B9D4630C8EC830258A300@XMB-RCD-303.cisco.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This oops have been already fixed with commit
+On Fri, 19 Aug 2011 17:18:04 -0500
+"Christian Benvenuti (benve)" <benve@cisco.com> wrote:
 
-    27141666b69f535a4d63d7bc6d9e84ee5032f82a
+> The patch description and the code are clearly saying that STP is
+> an exception, but I am just worried about the users.
+> Maybe a proper description in the iptables help is sufficient.
+> 
+> Users may otherwise try to use this new hook for STP too
+> (for example to generate logs or produce statistics/counters
+> or divert STP traffic to userspace, etc).
 
-    atm: [br2684] Fix oops due to skb->dev being NULL
+STP traffic already goes to userspace. And gets processed
+by the LOCAL_IN chain. So I don't think it is needed.
 
-    It happens that if a packet arrives in a VC between the call to open it on
-    the hardware and the call to change the backend to br2684, br2684_regvcc
-    processes the packet and oopses dereferencing skb->dev because it is
-    NULL before the call to br2684_push().
 
-but have been introduced again with commit
+> Out of curiosity, ... if this gets accepted, shouldn't you provide
+> NF_BR_LINK_LOCAL_OUT too?
+> Or maybe you should call it NF_BR_LINK_LOCAL_FWD instead of
+> NF_BR_LINK_LOCAL_IN?
 
-    b6211ae7f2e56837c6a4849316396d1535606e90
-
-    atm: Use SKB queue and list helpers instead of doing it by-hand.
-
-Signed-off-by: Daniel Schwierzeck <daniel.schwierzeck@googlemail.com>
----
- net/atm/br2684.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index 52cfd0c..d07223c 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -558,12 +558,13 @@ static int br2684_regvcc(struct atm_vcc *atmvcc, void __user * arg)
- 	spin_unlock_irqrestore(&rq->lock, flags);
- 
- 	skb_queue_walk_safe(&queue, skb, tmp) {
--		struct net_device *dev = skb->dev;
-+		struct net_device *dev;
-+
-+		br2684_push(atmvcc, skb);
-+		dev = skb->dev;
- 
- 		dev->stats.rx_bytes -= skb->len;
- 		dev->stats.rx_packets--;
--
--		br2684_push(atmvcc, skb);
- 	}
- 
- 	/* initialize netdev carrier state */
--- 
-1.7.6
-
+Thanks, that is a better name, I'll change it in next version.
