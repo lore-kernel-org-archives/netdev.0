@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: rps: support 802.1Q
-Date: Thu, 18 Aug 2011 22:08:05 -0700 (PDT)
-Message-ID: <20110818.220805.1212231373721016529.davem@davemloft.net>
-References: <1313730353-25379-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH] dm9000: control debug level of the driver
+Date: Thu, 18 Aug 2011 22:09:02 -0700 (PDT)
+Message-ID: <20110818.220902.1663745747317150778.davem@davemloft.net>
+References: <1313426314-6422-1-git-send-email-vz@mleia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Cc: netdev@vger.kernel.org, ben-linux@fluff.org
+To: vz@mleia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50143 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40864 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751630Ab1HSFII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 01:08:08 -0400
-In-Reply-To: <1313730353-25379-1-git-send-email-xiaosuo@gmail.com>
+	with ESMTP id S1751630Ab1HSFJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 01:09:20 -0400
+In-Reply-To: <1313426314-6422-1-git-send-email-vz@mleia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Fri, 19 Aug 2011 13:05:53 +0800
+From: Vladimir Zapolskiy <vz@mleia.com>
+Date: Mon, 15 Aug 2011 19:38:34 +0300
 
-> For the 802.1Q packets, if the NIC doesn't support hw-accel-vlan-rx, RPS
-> won't inspect the internal 4 tuples to generate skb->rxhash, so this kind
-> of traffic can't get any benefit from RPS.
+> This change allows to get driver specific debug messages output
+> setting a default value for db->debug_level. As far as the maximum
+> level of verbosity is too high, it is demoted by default.
 > 
-> This patch adds the support for 802.1Q to RPS.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
+> Cc: Ben Dooks <ben-linux@fluff.org>
 
-Looks fine, applied to net-next, thanks!
+I would much rather see this config option eliminated entirely.
+
+The default can be set by the user at kernel boot or module
+load time with command line settings.
