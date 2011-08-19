@@ -1,51 +1,68 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 15/75] atlx: convert to SKB paged frag API.
-Date: Fri, 19 Aug 2011 14:26:47 +0100
-Message-ID: <1313760467-8598-15-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 26/75] enic: convert to SKB paged frag API.
+Date: Fri, 19 Aug 2011 14:26:58 +0100
+Message-ID: <1313760467-8598-26-git-send-email-ian.campbell@citrix.com>
 References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: linux-kernel@vger.kernel.org,
 	Ian Campbell <ian.campbell@citrix.com>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jie Yang <jie.yang@atheros.com>
+	Christian Benvenuti <benve@cisco.com>,
+	Vasanthy Kolluri <vkolluri@cisco.com>,
+	Roopa Prabhu <roprabhu@cisco.com>,
+	David Wang <dwang2@cisco.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:16586 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754006Ab1HSN2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Aug 2011 09:28:22 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
-Cc: Jie Yang <jie.yang@atheros.com>
+Cc: Christian Benvenuti <benve@cisco.com>
+Cc: Vasanthy Kolluri <vkolluri@cisco.com>
+Cc: Roopa Prabhu <roprabhu@cisco.com>
+Cc: David Wang <dwang2@cisco.com>
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 ---
- drivers/net/atlx/atl1.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/enic/enic_main.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index 97e6954..995eb3c 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -2283,9 +2283,8 @@ static void atl1_tx_map(struct atl1_adapter *adapter, struct sk_buff *skb,
- 			buffer_info->length = (buf_len > ATL1_MAX_TX_BUF_LEN) ?
- 				ATL1_MAX_TX_BUF_LEN : buf_len;
- 			buf_len -= buffer_info->length;
--			buffer_info->dma = pci_map_page(adapter->pdev,
--				frag->page,
--				frag->page_offset + (i * ATL1_MAX_TX_BUF_LEN),
-+			buffer_info->dma = skb_frag_dma_map(&adapter->pdev->dev,
-+				frag, i * ATL1_MAX_TX_BUF_LEN,
- 				buffer_info->length, PCI_DMA_TODEVICE);
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 67a27cd..fc470fa 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -590,9 +590,9 @@ static inline void enic_queue_wq_skb_cont(struct enic *enic,
+ 	for (frag = skb_shinfo(skb)->frags; len_left; frag++) {
+ 		len_left -= frag->size;
+ 		enic_queue_wq_desc_cont(wq, skb,
+-			pci_map_page(enic->pdev, frag->page,
+-				frag->page_offset, frag->size,
+-				PCI_DMA_TODEVICE),
++			skb_frag_dma_map(&enic->pdev->dev,
++					 frag, 0, frag->size,
++					 PCI_DMA_TODEVICE),
+ 			frag->size,
+ 			(len_left == 0),	/* EOP? */
+ 			loopback);
+@@ -704,14 +704,14 @@ static inline void enic_queue_wq_skb_tso(struct enic *enic,
+ 	for (frag = skb_shinfo(skb)->frags; len_left; frag++) {
+ 		len_left -= frag->size;
+ 		frag_len_left = frag->size;
+-		offset = frag->page_offset;
++		offset = 0;
  
- 			if (++next_to_use == tpd_ring->count)
+ 		while (frag_len_left) {
+ 			len = min(frag_len_left,
+ 				(unsigned int)WQ_ENET_MAX_DESC_LEN);
+-			dma_addr = pci_map_page(enic->pdev, frag->page,
+-				offset, len,
+-				PCI_DMA_TODEVICE);
++			dma_addr = skb_frag_dma_map(&enic->pdev->dev, frag,
++						    offset, len,
++						    PCI_DMA_TODEVICE);
+ 			enic_queue_wq_desc_cont(wq, skb,
+ 				dma_addr,
+ 				len,
 -- 
 1.7.2.5
-
