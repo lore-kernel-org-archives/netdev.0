@@ -1,64 +1,34 @@
-From: Renato Westphal <renatowestphal@gmail.com>
-Subject: Re: Move interface across network namespaces
-Date: Fri, 19 Aug 2011 11:38:33 -0300
-Message-ID: <CAChaegnHchLT0BV-_RaPT2-J3ZLin_U1x8X0KBi7ku1MArug1g@mail.gmail.com>
-References: <CAChaegkomwjL0X7HnfLi1XH26jDKOL6fCgjfms67cjjU4gRXPg@mail.gmail.com>
-	<m1r54s8lq4.fsf@fess.ebiederm.org>
-	<CAChaegm2d3LywMAcq66PgPZwF5Fu=_zuqcTh8VdCG6zvhyPJXQ@mail.gmail.com>
-	<CAChaeg=1WSU0webhYDpQcnq3cJje17FQ5Z8rypD8sdkyzcLT-g@mail.gmail.com>
-	<m14o1e71qe.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kaber@trash.net,
-	David Lamparter <equinox@diac24.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH net-next] net: reserve ooo_okay when copying skb header
+Date: Fri, 19 Aug 2011 22:44:18 +0800
+Message-ID: <1313765058-9315-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:48214 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752590Ab1HSOif convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 10:38:35 -0400
-Received: by vws1 with SMTP id 1so2436465vws.19
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 07:38:33 -0700 (PDT)
-In-Reply-To: <m14o1e71qe.fsf@fess.ebiederm.org>
+Received: from mail-iy0-f170.google.com ([209.85.210.170]:63679 "EHLO
+	mail-iy0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754635Ab1HSOpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 10:45:19 -0400
+Received: by iye16 with SMTP id 16so5697084iye.1
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 07:45:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> Well, this regression was introduced by commit a2835763e130c343ac,
->> which was merged into v2.6.34. Reverting parts of this commit makes
->> the problem go away but breaks the support of "specifying device fla=
-gs
->> during device creation". I don't know the best way to fix this... an=
-y
->> ideas?
->
-> Everything going through dev_change_net_namespace already needs to be
-> in the initialized state. =A0So it looks like we just need to do:
->
-> Does the patch below work for you?
->
-> Eric
->
-> ---
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 17d67b5..bfbde69 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6108,6 +6108,8 @@ int dev_change_net_namespace(struct net_device =
-*dev, struct net *net, const char
-> =A0 =A0 =A0 =A0call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
-> =A0 =A0 =A0 =A0call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev)=
-;
->
-> + =A0 =A0 =A0 rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
-> +
-> =A0 =A0 =A0 =A0/*
-> =A0 =A0 =A0 =A0 * =A0 =A0 =A0Flush the unicast and multicast chains
-> =A0 =A0 =A0 =A0 */
->
-
- This works pretty fine. Thanks! :)
-
---=20
-Renato Westphal
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ net/core/skbuff.c |    1 +
+ 1 file changed, 1 insertion(+)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index edb66f3..e27334e 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -529,6 +529,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->mac_header		= old->mac_header;
+ 	skb_dst_copy(new, old);
+ 	new->rxhash		= old->rxhash;
++	new->ooo_okay		= old->ooo_okay;
+ 	new->l4_rxhash		= old->l4_rxhash;
+ #ifdef CONFIG_XFRM
+ 	new->sp			= secpath_get(old->sp);
