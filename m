@@ -1,44 +1,33 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [PATCH 68/75] hv: netvsc: convert to SKB paged frag API.
-Date: Fri, 19 Aug 2011 14:46:27 +0100
-Message-ID: <1313761587.5010.365.camel@zakaz.uk.xensource.com>
-References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
-	<1313760467-8598-68-git-send-email-ian.campbell@citrix.com>
-	<20110819133739.GA3715@shale.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
-	Abhishek Kane <v-abkane@microsoft.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Haiyang Zhang <haiyangz@microsoft.com>, Greg
-	Kroah-Hartman <gregkh@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20110819133739.GA3715@shale.localdomain>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] net: add the comment for skb->l4_hash
+Date: Fri, 19 Aug 2011 21:45:41 +0800
+Message-ID: <1313761541-1109-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:54169 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754466Ab1HSNqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 09:46:40 -0400
+Received: by pzk37 with SMTP id 37so4871314pzk.1
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 06:46:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-08-19 at 14:37 +0100, Dan Carpenter wrote:
-> On Fri, Aug 19, 2011 at 02:27:40PM +0100, Ian Campbell wrote:
-> >  	/* usually there's just one frag */
-> > -	skb_frag_set_page(skb, 0, gl->frags[0].page);
-> > +	skb_frag_set_page(skb, 0, gl->frags[0].page.p);	/* XXX */
-> 
-> There are bunch of new /* XXX */ comments.  What are they for?
-
-They are a reminder referring to the dilemma I mentioned in the intro
-mail. Basically that ".p" is ugly because gl->frags[0].page isn't
-actually a paged fragment, it's just that this driver uses skb_frag_t in
-its internal datastructures.
-
-Ian.
+---
+ include/linux/skbuff.h |    2 ++
+ 1 file changed, 2 insertions(+)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f902c33..10109a0 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -322,6 +322,8 @@ typedef unsigned char *sk_buff_data_t;
+  *	@queue_mapping: Queue mapping for multiqueue devices
+  *	@ndisc_nodetype: router type (from link layer)
+  *	@ooo_okay: allow the mapping of a socket to a queue to be changed
++ *	@l4_hash: indicate rxhash is a canonical 4-tuple hash over transport
++ *		ports.
+  *	@dma_cookie: a cookie to one of several possible DMA operations
+  *		done by skb DMA functions
+  *	@secmark: security marking
