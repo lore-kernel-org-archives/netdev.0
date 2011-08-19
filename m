@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 11/13] bna: Queue Depth and SKB Unmap Array Fix
-Date: Fri, 19 Aug 2011 14:39:30 -0700
-Message-ID: <1313789972-22711-12-git-send-email-rmody@brocade.com>
+Subject: [PATCH 09/13] bna: Async Mode Tx Rx Init Fix
+Date: Fri, 19 Aug 2011 14:39:28 -0700
+Message-ID: <1313789972-22711-10-git-send-email-rmody@brocade.com>
 References: <1313789972-22711-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,92 +10,128 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38098 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755493Ab1HSVkL (ORCPT
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:38064 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755467Ab1HSVkL (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 17:40:11 -0400
 In-Reply-To: <1313789972-22711-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - sk_buff unmap_array grows greater than 65536 (x2) with Tx ring of 65536.
-   The index used for accessing it is incorrectly declared as u16. It quickly
-   wraps around and accesses null sk_buff ptr. So using u32 to handle
-   unmap_array.
- - Reducing TXQ depth and safe(max) acking of Tx events to 32768 (same as Rx)
+ - Async mode of Tx/Rx queue initialization in BNAD from a task queue context
+   runs into non-unique taskq allocation issues. Get rid of Tx/Rx
+   initialization from task q context
+ - In the attach function, wait for IOC enable, then do Tx/Rx queue
+   initialization. Default BNA attributes are used when IOC enable from attach
+   fails and values are set to:
+   1 TxQ, 1 RxQ, 1 Unicast MAC, 1 RIT entry
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c         |    4 ++--
- drivers/net/ethernet/brocade/bna/bnad.h         |    4 ++++
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    8 ++++----
- 3 files changed, 10 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_enet.c    |   29 ++++++++++++++++++-----
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    4 +++
+ drivers/net/ethernet/brocade/bna/bna_types.h   |    1 +
+ 3 files changed, 27 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 28864f6..3f597f9 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -194,8 +194,8 @@ static u32
- bnad_free_txbufs(struct bnad *bnad,
- 		 struct bna_tcb *tcb)
- {
--	u32		sent_packets = 0, sent_bytes = 0;
--	u16		wis, unmap_cons, updated_hw_cons;
-+	u32		unmap_cons, sent_packets = 0, sent_bytes = 0;
-+	u16		wis, updated_hw_cons;
- 	struct bnad_unmap_q *unmap_q = tcb->unmap_q;
- 	struct bnad_skb_unmap *unmap_array;
- 	struct sk_buff		*skb;
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index b31b893..41c984c 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -86,6 +86,10 @@ struct bnad_rx_ctrl {
- #define BNAD_MAX_Q_DEPTH		0x10000
- #define BNAD_MIN_Q_DEPTH		0x200
+diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
+index 68a275d..26f5c5a 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_enet.c
++++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
+@@ -167,13 +167,14 @@ bna_bfi_attr_get_rsp(struct bna_ioceth *ioceth,
+ 	 * Store only if not set earlier, since BNAD can override the HW
+ 	 * attributes
+ 	 */
+-	if (!ioceth->attr.num_txq)
++	if (!ioceth->attr.fw_query_complete) {
+ 		ioceth->attr.num_txq = ntohl(rsp->max_cfg);
+-	if (!ioceth->attr.num_rxp)
+ 		ioceth->attr.num_rxp = ntohl(rsp->max_cfg);
+-	ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
+-	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
+-	ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
++		ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
++		ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
++		ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
++		ioceth->attr.fw_query_complete = true;
++	}
  
-+#define BNAD_MAX_RXQ_DEPTH		(BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq)
-+/* keeping MAX TX and RX Q depth equal */
-+#define BNAD_MAX_TXQ_DEPTH		BNAD_MAX_RXQ_DEPTH
+ 	bfa_fsm_send_event(ioceth, IOCETH_E_ENET_ATTR_RESP);
+ }
+@@ -1693,6 +1694,16 @@ static struct bfa_ioc_cbfn bna_ioceth_cbfn = {
+ 	bna_cb_ioceth_reset
+ };
+ 
++static void bna_attr_init(struct bna_ioceth *ioceth)
++{
++	ioceth->attr.num_txq = BFI_ENET_DEF_TXQ;
++	ioceth->attr.num_rxp = BFI_ENET_DEF_RXP;
++	ioceth->attr.num_ucmac = BFI_ENET_DEF_UCAM;
++	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
++	ioceth->attr.max_rit_size = BFI_ENET_DEF_RITSZ;
++	ioceth->attr.fw_query_complete = false;
++}
 +
- #define BNAD_JUMBO_MTU			9000
+ static void
+ bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
+ 		struct bna_res_info *res_info)
+@@ -1738,6 +1749,8 @@ bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
+ 	ioceth->stop_cbfn = NULL;
+ 	ioceth->stop_cbarg = NULL;
  
- #define BNAD_NETIF_WAKE_THRESHOLD	8
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index 1199f01..e85fb2b 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -407,10 +407,10 @@ bnad_get_ringparam(struct net_device *netdev,
++	bna_attr_init(ioceth);
++
+ 	bfa_fsm_set_state(ioceth, bna_ioceth_sm_stopped);
+ }
+ 
+@@ -2036,7 +2049,8 @@ bna_uninit(struct bna *bna)
+ int
+ bna_num_txq_set(struct bna *bna, int num_txq)
  {
- 	struct bnad *bnad = netdev_priv(netdev);
- 
--	ringparam->rx_max_pending = BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq;
-+	ringparam->rx_max_pending = BNAD_MAX_RXQ_DEPTH;
- 	ringparam->rx_mini_max_pending = 0;
- 	ringparam->rx_jumbo_max_pending = 0;
--	ringparam->tx_max_pending = BNAD_MAX_Q_DEPTH;
-+	ringparam->tx_max_pending = BNAD_MAX_TXQ_DEPTH;
- 
- 	ringparam->rx_pending = bnad->rxq_depth;
- 	ringparam->rx_mini_max_pending = 0;
-@@ -434,13 +434,13 @@ bnad_set_ringparam(struct net_device *netdev,
+-	if (num_txq > 0 && (num_txq <= bna->ioceth.attr.num_txq)) {
++	if (bna->ioceth.attr.fw_query_complete &&
++		(num_txq <= bna->ioceth.attr.num_txq)) {
+ 		bna->ioceth.attr.num_txq = num_txq;
+ 		return BNA_CB_SUCCESS;
  	}
- 
- 	if (ringparam->rx_pending < BNAD_MIN_Q_DEPTH ||
--	    ringparam->rx_pending > BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq ||
-+	    ringparam->rx_pending > BNAD_MAX_RXQ_DEPTH ||
- 	    !BNA_POWER_OF_2(ringparam->rx_pending)) {
- 		mutex_unlock(&bnad->conf_mutex);
- 		return -EINVAL;
+@@ -2047,7 +2061,8 @@ bna_num_txq_set(struct bna *bna, int num_txq)
+ int
+ bna_num_rxp_set(struct bna *bna, int num_rxp)
+ {
+-	if (num_rxp > 0 && (num_rxp <= bna->ioceth.attr.num_rxp)) {
++	if (bna->ioceth.attr.fw_query_complete &&
++		(num_rxp <= bna->ioceth.attr.num_rxp)) {
+ 		bna->ioceth.attr.num_rxp = num_rxp;
+ 		return BNA_CB_SUCCESS;
  	}
- 	if (ringparam->tx_pending < BNAD_MIN_Q_DEPTH ||
--	    ringparam->tx_pending > BNAD_MAX_Q_DEPTH ||
-+	    ringparam->tx_pending > BNAD_MAX_TXQ_DEPTH ||
- 	    !BNA_POWER_OF_2(ringparam->tx_pending)) {
- 		mutex_unlock(&bnad->conf_mutex);
- 		return -EINVAL;
+diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+index 7ecdca5..dde8a46 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+@@ -30,6 +30,10 @@
+  * SW imposed limits
+  *
+  */
++#define BFI_ENET_DEF_TXQ		1
++#define BFI_ENET_DEF_RXP		1
++#define BFI_ENET_DEF_UCAM		1
++#define BFI_ENET_DEF_RITSZ		1
+ 
+ #define BFI_ENET_MAX_MCAM		256
+ 
+diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
+index 59417b1..242d799 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_types.h
++++ b/drivers/net/ethernet/brocade/bna/bna_types.h
+@@ -323,6 +323,7 @@ struct bna_qpt {
+ };
+ 
+ struct bna_attr {
++	bool			fw_query_complete;
+ 	int			num_txq;
+ 	int			num_rxp;
+ 	int			num_ucmac;
 -- 
 1.7.1
 
