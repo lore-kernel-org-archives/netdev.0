@@ -1,71 +1,45 @@
-From: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 29/75] greth: convert to SKB paged frag API.
-Date: Fri, 19 Aug 2011 14:27:01 +0100
-Message-ID: <1313760467-8598-29-git-send-email-ian.campbell@citrix.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH 43/75] qlcnic: convert to SKB paged frag API.
+Date: Fri, 19 Aug 2011 14:27:15 +0100
+Message-ID: <1313760467-8598-43-git-send-email-ian.campbell@citrix.com>
 References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1313760393.5010.356.camel-o4Be2W7LfRlXesXXhkcM7miJhflN2719@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	linux-driver@qlogic.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to avoid long lines also use phys_to_virt(page_to_phys(page)) =>
-page_address(page) (since the are effectively the same thing for lowmem pages).
-
-Also dump the frag's size instead of the headlen when dumping a frag.
-
-Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Cc: Kristoffer Glembo <kristoffer-FkzTOoA/JUlBDgjK7y7TUQ@public.gmane.org>
-Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Cc: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Cc: linux-driver@qlogic.com
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- drivers/net/greth.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/greth.c b/drivers/net/greth.c
-index 16ce45c..562a251 100644
---- a/drivers/net/greth.c
-+++ b/drivers/net/greth.c
-@@ -113,9 +113,8 @@ static void greth_print_tx_packet(struct sk_buff *skb)
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 5ca1b56..cea2e6b 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -2127,8 +2127,8 @@ qlcnic_map_tx_skb(struct pci_dev *pdev,
+ 		frag = &skb_shinfo(skb)->frags[i];
+ 		nf = &pbuf->frag_array[i+1];
  
- 		print_hex_dump(KERN_DEBUG, "TX: ", DUMP_PREFIX_OFFSET, 16, 1,
--			       phys_to_virt(page_to_phys(skb_shinfo(skb)->frags[i].page)) +
--			       skb_shinfo(skb)->frags[i].page_offset,
--			       length, true);
-+			       skb_frag_address(&skb_shinfo(skb)->frags[i]),
-+			       skb_shinfo(skb)->frags[i].size, true);
- 	}
- }
+-		map = pci_map_page(pdev, frag->page, frag->page_offset,
+-				frag->size, PCI_DMA_TODEVICE);
++		map = skb_frag_dma_map(&pdev->dev, frag, 0, frag->size,
++				       PCI_DMA_TODEVICE);
+ 		if (pci_dma_mapping_error(pdev, map))
+ 			goto unwind;
  
-@@ -528,11 +527,8 @@ greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
- 
- 		greth_write_bd(&bdp->stat, status);
- 
--		dma_addr = dma_map_page(greth->dev,
--					frag->page,
--					frag->page_offset,
--					frag->size,
--					DMA_TO_DEVICE);
-+		dma_addr = skb_frag_dma_map(greth->dev, frag, 0, frag->size,
-+					    DMA_TO_DEVICE);
- 
- 		if (unlikely(dma_mapping_error(greth->dev, dma_addr)))
- 			goto frag_map_error;
 -- 
 1.7.2.5
