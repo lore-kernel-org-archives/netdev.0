@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] fix IBM EMAC driver after rename.
-Date: Thu, 18 Aug 2011 21:33:57 -0700 (PDT)
-Message-ID: <20110818.213357.918078950828913782.davem@davemloft.net>
-References: <20110819035413.GH19739@ozlabs.org>
+Subject: Re: [PATCH] bnx2x: downgrade Max BW error message to debug
+Date: Thu, 18 Aug 2011 21:51:12 -0700 (PDT)
+Message-ID: <20110818.215112.1568702081859624457.davem@davemloft.net>
+References: <1313603055.12483.3.camel@lb-tlvb-eilong.il.broadcom.com>
+	<20110818133751.3ba77279@brian.englab.brq.redhat.com>
+	<1313670121.5576.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: tony@bakeyournoodle.com
+Cc: mschmidt@redhat.com, netdev@vger.kernel.org, dmitry@broadcom.com,
+	vladz@broadcom.com
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39486 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42357 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751332Ab1HSEgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 00:36:03 -0400
-In-Reply-To: <20110819035413.GH19739@ozlabs.org>
+	with ESMTP id S1750859Ab1HSEv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 00:51:28 -0400
+In-Reply-To: <1313670121.5576.0.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tony Breeds <tony@bakeyournoodle.com>
-Date: Fri, 19 Aug 2011 13:54:13 +1000
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Thu, 18 Aug 2011 15:22:00 +0300
 
-> In commit 9aa3283595451ca093500ff0977b106e1f465586 (ehea/ibm*: Move the
-> IBM drivers) the IBM_NEW_EMAC* were renames to IBM_EMAC*
+> On Thu, 2011-08-18 at 04:37 -0700, Michal Schmidt wrote:
+>> On Wed, 17 Aug 2011 20:44:15 +0300 Eilon Greenstein wrote:
+>> > I think that we should use DP instead of DBG_ERR. How about this one:
+>> ... 
+>> > Can you sing-off on somethign like this?
+>> 
+>> OK, let's use DP. Thanks!
+>> 
+>> 
+>> Subject: [PATCH v2] bnx2x: downgrade Max BW error message to debug
+>> 
+>> There are valid configurations where Max BW is configured to zero for
+>> some VNs.
+>> Print the message only if debugging is enabled and do not call the
+>> configuration "illegal".
+>> 
+>> [v2: use DP(), not BNX2X_DBG_ERR(); recommended by Eilon Greenstein.]
+>> 
+>> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 > 
-> The conversion was incomplete so that even if the driver was added to
-> the .config it wasn't built, but there were no errors).  In this commit
-> we also update the various defconfigs that use EMAC to use the new
-> Kconfig symbol, and explicitly add the NET_VENDOR_IBM guard.
-> 
-> We do not explicitly select the Kconfig dependencies, as this would force
-> EMAC on.  Doing it in the defconfig allows more flexibility.
-> 
-> Tested on a canyondlands board.
-> 
-> Signed-off-by: Tony Breeds <tony@bakeyournoodle.com>
+> Acked-by: Eilon Greenstein <eilong@broadcom.com>
 
-Applied, thanks.
+Applied, thanks everyone.
