@@ -1,56 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: net: rps: support 802.1Q
-Date: Fri, 19 Aug 2011 12:54:13 +0100
-Message-ID: <1313754853.2814.8.camel@deadeye>
-References: <1313730353-25379-1-git-send-email-xiaosuo@gmail.com>
+From: Dmitry Butskoy <buc@odusz.so-cdu.ru>
+Subject: Re: Traceroute and "ping" sockets: some questions
+Date: Fri, 19 Aug 2011 16:22:38 +0400
+Message-ID: <4E4E558E.5050905@odu.neva.ru>
+References: <4E4E46B4.9010909@odu.neva.ru> <20110819.043816.1648681777223816477.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:1683 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753096Ab1HSLyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 07:54:17 -0400
-In-Reply-To: <1313730353-25379-1-git-send-email-xiaosuo@gmail.com>
+Received: from mail2.odu.neva.ru ([194.85.100.6]:38187 "EHLO mail2.odu.neva.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751153Ab1HSMWk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Aug 2011 08:22:40 -0400
+Received: from buc.odu.neva.ru (buc.odu.neva.ru [194.85.100.33])
+	by mail2.odu.neva.ru (Postfix) with ESMTPA id DFD8514A8039
+	for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 16:22:38 +0400 (MSD)
+In-Reply-To: <20110819.043816.1648681777223816477.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-08-19 at 13:05 +0800, Changli Gao wrote:
-> For the 802.1Q packets, if the NIC doesn't support hw-accel-vlan-rx, RPS
-> won't inspect the internal 4 tuples to generate skb->rxhash, so this kind
-> of traffic can't get any benefit from RPS.
-> 
-> This patch adds the support for 802.1Q to RPS.
-[...]
-> @@ -2565,6 +2566,13 @@ again:
->  		addr2 = (__force u32) ip6->daddr.s6_addr32[3];
->  		nhoff += 40;
->  		break;
-> +	case __constant_htons(ETH_P_8021Q):
-> +		if (!pskb_may_pull(skb, sizeof(*vlan) + nhoff))
-> +			goto done;
-> +		vlan = (const struct vlan_hdr *) (skb->data + nhoff);
-> +		proto = vlan->h_vlan_encapsulated_proto;
-> +		nhoff += sizeof(*vlan);
-> +		goto again;
->  	default:
->  		goto done;
->  	}
+David Miller wrote:
+>> - Are there any plans to implement some "rate control" (maybe
+>> - sysctl-configurable too), to restrict unprivileged users to send icmp
+>> - echoes too fast (ie. faster than 200 ms -- the current ping(8)
+>> - restriction)?
+>>      
+> Why limit?  He can spam with UDP socket just as easily at any rate
+> he pleases,
+>    
+Yes, but most cases such UDP is "one-way" spam (until services like 
+"echo 7/udp" are enabled).
+For icmp ping, we normally receive icmp replies, hence it is 
+bidirectional crap. Which was not present before.
 
-Should this really be reading an unlimited number of tags?  What if an
-attacker starts sending packets full of VLAN tags?  Since this runs
-before netfilter, there would be no way to prevent those packets burning
-our CPU time.  And if there are legitimately multiple VLAN tags, they
-presumably won't all have the 802.1q Ethertype.
+Besides that ping(8) is normally present in the system even if C 
+development is not installed (ie. user cannot build its spam software at 
+the host etc...)
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Regards,
+Dmitry
+http://www.fedoraproject.org/wiki/DmitryButskoy
