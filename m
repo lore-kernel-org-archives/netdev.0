@@ -1,52 +1,29 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the wireless tree with the net tree
-Date: Fri, 19 Aug 2011 10:59:46 +1000
-Message-ID: <20110819105946.a46aa8a997f466d8a2e7f2f3@canb.auug.org.au>
+From: Tony Breeds <tony@bakeyournoodle.com>
+Subject: Re: [PATCH] fix IBM EMAC driver after rename.
+Date: Fri, 19 Aug 2011 11:21:19 +1000
+Message-ID: <20110819012119.GE19739@ozlabs.org>
+References: <20110818061354.GD19739@ozlabs.org>
+ <4E4CB653.9080907@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__19_Aug_2011_10_59_46_+1000_3TWA2cR.Qq.Q7=VJ"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Fri__19_Aug_2011_10_59_46_+1000_3TWA2cR.Qq.Q7=VJ
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
+Cc: Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:50286 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751500Ab1HSBVW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Aug 2011 21:21:22 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <4E4CB653.9080907@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi John,
+On Thu, Aug 18, 2011 at 08:50:59AM +0200, Oliver Hartkopp wrote:
 
-Today's linux-next merge of the wireless tree got a conflict in
-drivers/staging/ath6kl/os/linux/ar6000_drv.c between commit afc4b13df143
-("net: remove use of ndo_set_multicast_list in drivers") from the net
-tree and commit af2bf4b4ee58 ("staging: remove ath6kl") from the wireless
-tree.
+> What about renaming of newemac -> emac in this part of the Makefile?
 
-I just removed the file.
+Sure see version 2.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Fri__19_Aug_2011_10_59_46_+1000_3TWA2cR.Qq.Q7=VJ
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJOTbWCAAoJEDMEi1NhKgbsSGcH/3cyiezvgd2uvLSO2JICN5+w
-cNoFte40/9NxTDNxVmALuqWSCcKd/UjUXRgxb9Y7xAd1wwlMfayCq1Yb6VgO6yE3
-9l9BY2kjOm/dv3fZbwpUwVhQhvKc3ODSQCI+ZJRylsUZBuXir+O16I5NuDXi9/t+
-pYDTnRoGNxT9R0EhAyBveuBuWiTl8tm/ZUbD2/HzYAXrY7Lgeb8rI/6Y/K8LMQBr
-Kih2oALEcSe57CPRrWqwIPfJUP5pGqLL883UJxgdTFzjsY8r/CVRrcT9OFIZipQd
-rbQY5RtofbsGlFA3lQHvyvvHLbIxFULviJt60Q9B75HMIPvVyHtXgEzdIGX5enQ=
-=nNmG
------END PGP SIGNATURE-----
-
---Signature=_Fri__19_Aug_2011_10_59_46_+1000_3TWA2cR.Qq.Q7=VJ--
+Yours Tony
