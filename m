@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][Trivial] net/wan/hdlc_ppp: remove dead goto
-Date: Thu, 18 Aug 2011 22:02:49 -0700 (PDT)
-Message-ID: <20110818.220249.1523360015062657902.davem@davemloft.net>
-References: <alpine.LNX.2.00.1108130138100.7387@swampdragon.chaosbits.net>
+Subject: Re: re commit d4f73c8e459d355e10051174d859ffd0ef5764c0
+Date: Thu, 18 Aug 2011 22:03:34 -0700 (PDT)
+Message-ID: <20110818.220334.1296591603444896642.davem@davemloft.net>
+References: <20110815121213.GA2013@minipsycho.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, trivial@kernel.org
-To: jj@chaosbits.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1108130138100.7387@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	stephan.baerwolf@tu-ilmenau.de
+To: jpirko@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58492 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751376Ab1HSFDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 01:03:42 -0400
+In-Reply-To: <20110815121213.GA2013@minipsycho.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Sat, 13 Aug 2011 01:39:43 +0200 (CEST)
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Mon, 15 Aug 2011 14:12:14 +0200
 
-> From: Jesper Juhl <jj@chaosbits.net>
+> Hi Francois.
 > 
-> We'll either hit one of the case labels or the default in the switch
-> and in all cases do we then 'goto out', so having 'goto out' right
-> after the switch is pointless as we can never hit it - remove it.
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> Looking at mentioned commit, Not sure if the functionality is correct.
 
-Probably a lot cleaner to use break statements in the switch() statement
-and keep this goto in place.
-
-That's more straightforward control flow than what this thing is doing.
+Francois is away on vacation so it may take some time for him to reply
+to this.  Just FYI...
