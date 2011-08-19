@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 08/13] bna: Ethtool Enhancements and Fix
-Date: Fri, 19 Aug 2011 14:39:27 -0700
-Message-ID: <1313789972-22711-9-git-send-email-rmody@brocade.com>
+Subject: [PATCH 05/13] bna: TX Path and RX Path Changes
+Date: Fri, 19 Aug 2011 14:39:24 -0700
+Message-ID: <1313789972-22711-6-git-send-email-rmody@brocade.com>
 References: <1313789972-22711-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,272 +10,470 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38093 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754759Ab1HSVkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 17:40:07 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:38047 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754759Ab1HSVkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 17:40:03 -0400
 In-Reply-To: <1313789972-22711-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Use available bnad_dim_timer_stop macro in bnad_set_coalesce.
- - Add tx_skb counters and NAPI debug counters to ethtool stats.
- - Add rlb stats strings to bnad_net_stats_strings{} array. rlb_stats field
-   was added to struct bfi_enet_stats {} but the corresponding name structure
-   array for ethtool was not initialized with right strings, even though the
-   actual name structure array got expanded. This caused a NULL pointer
-   violation and a crash when doing ehtool -S <if_name>.
- - While setting the ring parameter restore the rx, vlan configuration and
-   set rx mode
- - Indentation fix
+ - Disable and enable interrupts from the same polling context to prevent
+   reordering in Rx path.
+ - Add Rx NAPI debug counters.
+ - Make NAPI budget check more generic
+ - Add a macro bnad_dim_timer_stop for DIM(Dynamic Interrupt Moderation)
+   timer stop
+ - Handle reduced MSI-X vectors case in bnad_enable_msix
+ - Replace existing checks with macros and add more checks for illegal skbs
+   in transmit path. Add more tx_skb counters for dropped skbs.
+ - Check for single frame TSO skbs and send them out as non-TSO.
+ - Put memory barrier after bna_txq_prod_indx_doorbell()
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c         |    8 +-
- drivers/net/ethernet/brocade/bna/bnad.h         |   10 ++-
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c |   88 +++++++++++++++++++----
- 3 files changed, 84 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c |  200 ++++++++++++++++++-------------
+ drivers/net/ethernet/brocade/bna/bnad.h |   33 +++++-
+ 2 files changed, 147 insertions(+), 86 deletions(-)
 
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 7cbc88e..bfed285 100644
+index beeffa2..b53267f 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -2027,7 +2027,7 @@ bnad_rx_coalescing_timeo_set(struct bnad *bnad)
- /*
-  * Called with bnad->bna_lock held
-  */
--static int
-+int
- bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr)
- {
- 	int ret;
-@@ -2047,7 +2047,7 @@ bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr)
- }
+@@ -547,7 +547,8 @@ next:
+ 	BNA_QE_INDX_ADD(ccb->producer_index, wis, ccb->q_depth);
  
- /* Should be called with conf_lock held */
--static int
-+int
- bnad_enable_default_bcast(struct bnad *bnad)
- {
- 	struct bnad_rx_info *rx_info = &bnad->rx_info[0];
-@@ -2073,7 +2073,7 @@ bnad_enable_default_bcast(struct bnad *bnad)
- }
- 
- /* Called with mutex_lock(&bnad->conf_mutex) held */
--static void
-+void
- bnad_restore_vlans(struct bnad *bnad, u32 rx_id)
- {
- 	u16 vid;
-@@ -2787,7 +2787,7 @@ bnad_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
- 	return stats;
- }
- 
--static void
-+void
- bnad_set_rx_mode(struct net_device *netdev)
- {
- 	struct bnad *bnad = netdev_priv(netdev);
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index b03e3a9..b31b893 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -328,6 +328,12 @@ extern u32		bnad_rxqs_per_cq;
-  */
- extern u32 *cna_get_firmware_buf(struct pci_dev *pdev);
- /* Netdev entry point prototypes */
-+extern void bnad_set_rx_mode(struct net_device *netdev);
-+extern struct net_device_stats *bnad_get_netdev_stats(
-+				struct net_device *netdev);
-+extern int bnad_mac_addr_set_locked(struct bnad *bnad, u8 *mac_addr);
-+extern int bnad_enable_default_bcast(struct bnad *bnad);
-+extern void bnad_restore_vlans(struct bnad *bnad, u32 rx_id);
- extern void bnad_set_ethtool_ops(struct net_device *netdev);
- 
- /* Configuration & setup */
-@@ -366,10 +372,6 @@ extern void bnad_netdev_hwstats_fill(struct bnad *bnad,
- 	}							\
- }
- 
--#define bnad_dim_timer_running(_bnad)				\
--	(((_bnad)->cfg_flags & BNAD_CF_DIM_ENABLED) &&		\
--	(test_bit(BNAD_RF_DIM_TIMER_RUNNING, &((_bnad)->run_flags))))
--
- /*
-  * Stops the DIM timer
-  * Called with bnad->bna_lock held
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index 1c19dce..1199f01 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -75,14 +75,25 @@ static char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
- 	"tcpcsum_offload",
- 	"udpcsum_offload",
- 	"csum_help",
--	"csum_help_err",
-+	"tx_skb_too_short",
-+	"tx_skb_stopping",
-+	"tx_skb_max_vectors",
-+	"tx_skb_mss_too_long",
-+	"tx_skb_tso_too_short",
-+	"tx_skb_tso_prepare",
-+	"tx_skb_non_tso_too_long",
-+	"tx_skb_tcp_hdr",
-+	"tx_skb_udp_hdr",
-+	"tx_skb_csum_err",
-+	"tx_skb_headlen_too_long",
-+	"tx_skb_headlen_zero",
-+	"tx_skb_frag_zero",
-+	"tx_skb_len_mismatch",
- 	"hw_stats_updates",
--	"netif_rx_schedule",
--	"netif_rx_complete",
- 	"netif_rx_dropped",
- 
- 	"link_toggle",
--	"cee_up",
-+	"cee_toggle",
- 
- 	"rxp_info_alloc_failed",
- 	"mbox_intr_disabled",
-@@ -201,6 +212,20 @@ static char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
- 	"rad_rx_bcast_vlan",
- 	"rad_rx_drops",
- 
-+	"rlb_rad_rx_frames",
-+	"rlb_rad_rx_octets",
-+	"rlb_rad_rx_vlan_frames",
-+	"rlb_rad_rx_ucast",
-+	"rlb_rad_rx_ucast_octets",
-+	"rlb_rad_rx_ucast_vlan",
-+	"rlb_rad_rx_mcast",
-+	"rlb_rad_rx_mcast_octets",
-+	"rlb_rad_rx_mcast_vlan",
-+	"rlb_rad_rx_bcast",
-+	"rlb_rad_rx_bcast_octets",
-+	"rlb_rad_rx_bcast_vlan",
-+	"rlb_rad_rx_drops",
+ 	if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags)))
+-		bna_ib_ack(ccb->i_dbell, packets);
++		bna_ib_ack_disable_irq(ccb->i_dbell, packets);
 +
- 	"fc_rx_ucast_octets",
- 	"fc_rx_ucast",
- 	"fc_rx_ucast_vlan",
-@@ -321,7 +346,6 @@ bnad_set_coalesce(struct net_device *netdev, struct ethtool_coalesce *coalesce)
+ 	bnad_refill_rxq(bnad, ccb->rcb[0]);
+ 	if (ccb->rcb[1])
+ 		bnad_refill_rxq(bnad, ccb->rcb[1]);
+@@ -585,10 +586,9 @@ bnad_netif_rx_schedule_poll(struct bnad *bnad, struct bna_ccb *ccb)
+ 	struct napi_struct *napi = &rx_ctrl->napi;
+ 
+ 	if (likely(napi_schedule_prep(napi))) {
+-		bnad_disable_rx_irq(bnad, ccb);
+ 		__napi_schedule(napi);
++		rx_ctrl->rx_schedule++;
+ 	}
+-	BNAD_UPDATE_CTR(bnad, netif_rx_schedule);
+ }
+ 
+ /* MSIX Rx Path Handler */
+@@ -597,8 +597,10 @@ bnad_msix_rx(int irq, void *data)
  {
- 	struct bnad *bnad = netdev_priv(netdev);
+ 	struct bna_ccb *ccb = (struct bna_ccb *)data;
+ 
+-	if (ccb)
++	if (ccb) {
++		((struct bnad_rx_ctrl *)(ccb->ctrl))->rx_intr_ctr++;
+ 		bnad_netif_rx_schedule_poll(ccb->bnad, ccb);
++	}
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -1667,22 +1669,23 @@ bnad_napi_poll_rx(struct napi_struct *napi, int budget)
+ 	struct bnad *bnad = rx_ctrl->bnad;
+ 	int rcvd = 0;
+ 
++	rx_ctrl->rx_poll_ctr++;
+ 
+ 	if (!netif_carrier_ok(bnad->netdev))
+ 		goto poll_exit;
+ 
+ 	rcvd = bnad_poll_cq(bnad, rx_ctrl->ccb, budget);
+-	if (rcvd == budget)
++	if (rcvd >= budget)
+ 		return rcvd;
+ 
+ poll_exit:
+ 	napi_complete((napi));
+ 
+-	BNAD_UPDATE_CTR(bnad, netif_rx_complete);
+-
++	rx_ctrl->rx_complete++;
+ 
+ 	if (rx_ctrl->ccb)
+-		bnad_enable_rx_irq(bnad, rx_ctrl->ccb);
++		bnad_enable_rx_irq_unsafe(rx_ctrl->ccb);
++
+ 	return rcvd;
+ }
+ 
+@@ -1886,20 +1889,14 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
+ 	struct bna_rx_config *rx_config = &bnad->rx_config[rx_id];
+ 	struct bna_res_info *res_info = &bnad->rx_res_info[rx_id].res_info[0];
  	unsigned long flags;
 -	int dim_timer_del = 0;
  
- 	if (coalesce->rx_coalesce_usecs == 0 ||
- 	    coalesce->rx_coalesce_usecs >
-@@ -348,14 +372,7 @@ bnad_set_coalesce(struct net_device *netdev, struct ethtool_coalesce *coalesce)
- 	} else {
- 		if (bnad->cfg_flags & BNAD_CF_DIM_ENABLED) {
- 			bnad->cfg_flags &= ~BNAD_CF_DIM_ENABLED;
--			dim_timer_del = bnad_dim_timer_running(bnad);
--			if (dim_timer_del) {
--				clear_bit(BNAD_RF_DIM_TIMER_RUNNING,
--							&bnad->run_flags);
--				spin_unlock_irqrestore(&bnad->bna_lock, flags);
--				del_timer_sync(&bnad->dim_timer);
--				spin_lock_irqsave(&bnad->bna_lock, flags);
--			}
-+			bnad_dim_timer_stop(bnad, flags);
- 			bnad_rx_coalescing_timeo_set(bnad);
+ 	if (!rx_info->rx)
+ 		return;
+ 
+-	if (0 == rx_id) {
+-		spin_lock_irqsave(&bnad->bna_lock, flags);
+-		dim_timer_del = bnad_dim_timer_running(bnad);
+-		if (dim_timer_del)
+-			clear_bit(BNAD_RF_DIM_TIMER_RUNNING, &bnad->run_flags);
+-		spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-		if (dim_timer_del)
+-			del_timer_sync(&bnad->dim_timer);
+-	}
++	spin_lock_irqsave(&bnad->bna_lock, flags);
++	if (0 == rx_id)
++		bnad_dim_timer_stop(bnad, flags);
++	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+ 	init_completion(&bnad->bnad_completions.rx_comp);
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -2393,12 +2390,11 @@ bnad_enable_msix(struct bnad *bnad)
+ 
+ 		spin_lock_irqsave(&bnad->bna_lock, flags);
+ 		/* ret = #of vectors that we got */
+-		bnad_q_num_adjust(bnad, ret, 0);
++		bnad_q_num_adjust(bnad, (ret - BNAD_MAILBOX_MSIX_VECTORS) / 2,
++			(ret - BNAD_MAILBOX_MSIX_VECTORS) / 2);
+ 		spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+-		bnad->msix_num = (bnad->num_tx * bnad->num_txq_per_tx)
+-			+ (bnad->num_rx
+-			* bnad->num_rxp_per_rx) +
++		bnad->msix_num = BNAD_NUM_TXQ + BNAD_NUM_RXP +
+ 			 BNAD_MAILBOX_MSIX_VECTORS;
+ 
+ 		if (bnad->msix_num > ret)
+@@ -2555,17 +2551,17 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	u32		unmap_prod, wis, wis_used, wi_range;
+ 	u32		vectors, vect_id, i, acked;
+ 	int			err;
++	unsigned int		len;
+ 
+ 	struct bnad_unmap_q *unmap_q = tcb->unmap_q;
+ 	dma_addr_t		dma_addr;
+ 	struct bna_txq_entry *txqent;
+ 	u16	flags;
+ 
+-	if (unlikely
+-	    (skb->len <= ETH_HLEN || skb->len > BFI_TX_MAX_DATA_PER_PKT)) {
+-		dev_kfree_skb(skb);
+-		return NETDEV_TX_OK;
+-	}
++	BNAD_DROP_AND_RETURN_IF(skb->len <= ETH_HLEN, tx_skb_too_short);
++	BNAD_DROP_AND_RETURN_IF(skb_headlen(skb) > BFI_TX_MAX_DATA_PER_VECTOR,
++				tx_skb_headlen_too_long);
++	BNAD_DROP_AND_RETURN_IF(skb_headlen(skb) == 0, tx_skb_headlen_zero);
+ 
+ 	/*
+ 	 * Takes care of the Tx that is scheduled between clearing the flag
+@@ -2613,8 +2609,6 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	}
+ 
+ 	unmap_prod = unmap_q->producer_index;
+-	wis_used = 1;
+-	vect_id = 0;
+ 	flags = 0;
+ 
+ 	txq_prod = tcb->producer_index;
+@@ -2622,9 +2616,6 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	BUG_ON(!(wi_range <= tcb->q_depth));
+ 	txqent->hdr.wi.reserved = 0;
+ 	txqent->hdr.wi.num_vectors = vectors;
+-	txqent->hdr.wi.opcode =
+-		htons((skb_is_gso(skb) ? BNA_TXQ_WI_SEND_LSO :
+-		       BNA_TXQ_WI_SEND));
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+ 		vlan_tag = (u16) vlan_tx_tag_get(skb);
+@@ -2639,62 +2630,74 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	txqent->hdr.wi.vlan_tag = htons(vlan_tag);
+ 
+ 	if (skb_is_gso(skb)) {
+-		err = bnad_tso_prepare(bnad, skb);
+-		if (err) {
+-			dev_kfree_skb(skb);
+-			return NETDEV_TX_OK;
++		BNAD_DROP_AND_RETURN_IF(skb_is_gso(skb) > netdev->mtu,
++					tx_skb_mss_too_long);
++		if (unlikely((skb_is_gso(skb) + skb_transport_offset(skb) +
++			      tcp_hdrlen(skb)) >= skb->len)) {
++			txqent->hdr.wi.opcode =
++				__constant_htons(BNA_TXQ_WI_SEND);
++			txqent->hdr.wi.lso_mss = 0;
++			BNAD_UPDATE_CTR(bnad, tx_skb_tso_too_short);
++		} else {
++			txqent->hdr.wi.opcode =
++				__constant_htons(BNA_TXQ_WI_SEND_LSO);
++			txqent->hdr.wi.lso_mss = htons(skb_is_gso(skb));
+ 		}
+-		txqent->hdr.wi.lso_mss = htons(skb_is_gso(skb));
++
++		err = bnad_tso_prepare(bnad, skb);
++		BNAD_DROP_AND_RETURN_IF(err, tx_skb_tso_prepare);
+ 		flags |= (BNA_TXQ_WI_CF_IP_CKSUM | BNA_TXQ_WI_CF_TCP_CKSUM);
+ 		txqent->hdr.wi.l4_hdr_size_n_offset =
+ 			htons(BNA_TXQ_WI_L4_HDR_N_OFFSET
+ 			      (tcp_hdrlen(skb) >> 2,
+ 			       skb_transport_offset(skb)));
+-	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		u8 proto = 0;
+-
++	} else {
++		txqent->hdr.wi.opcode =	__constant_htons(BNA_TXQ_WI_SEND);
+ 		txqent->hdr.wi.lso_mss = 0;
+ 
+-		if (skb->protocol == htons(ETH_P_IP))
+-			proto = ip_hdr(skb)->protocol;
+-		else if (skb->protocol == htons(ETH_P_IPV6)) {
+-			/* nexthdr may not be TCP immediately. */
+-			proto = ipv6_hdr(skb)->nexthdr;
+-		}
+-		if (proto == IPPROTO_TCP) {
+-			flags |= BNA_TXQ_WI_CF_TCP_CKSUM;
+-			txqent->hdr.wi.l4_hdr_size_n_offset =
+-				htons(BNA_TXQ_WI_L4_HDR_N_OFFSET
+-				      (0, skb_transport_offset(skb)));
+-
+-			BNAD_UPDATE_CTR(bnad, tcpcsum_offload);
+-
+-			BUG_ON(!(skb_headlen(skb) >=
+-				skb_transport_offset(skb) + tcp_hdrlen(skb)));
+-
+-		} else if (proto == IPPROTO_UDP) {
+-			flags |= BNA_TXQ_WI_CF_UDP_CKSUM;
+-			txqent->hdr.wi.l4_hdr_size_n_offset =
+-				htons(BNA_TXQ_WI_L4_HDR_N_OFFSET
+-				      (0, skb_transport_offset(skb)));
++		BNAD_DROP_AND_RETURN_IF(skb->len > (netdev->mtu + ETH_HLEN),
++					tx_skb_non_tso_too_long);
+ 
+-			BNAD_UPDATE_CTR(bnad, udpcsum_offload);
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			u8 proto = 0;
+ 
+-			BUG_ON(!(skb_headlen(skb) >=
+-				   skb_transport_offset(skb) +
+-				   sizeof(struct udphdr)));
+-		} else {
+-			err = skb_checksum_help(skb);
+-			BNAD_UPDATE_CTR(bnad, csum_help);
+-			if (err) {
+-				dev_kfree_skb(skb);
+-				BNAD_UPDATE_CTR(bnad, csum_help_err);
+-				return NETDEV_TX_OK;
++			if (skb->protocol == __constant_htons(ETH_P_IP))
++				proto = ip_hdr(skb)->protocol;
++			else if (skb->protocol ==
++				 __constant_htons(ETH_P_IPV6)) {
++				/* nexthdr may not be TCP immediately. */
++				proto = ipv6_hdr(skb)->nexthdr;
++			}
++			if (proto == IPPROTO_TCP) {
++				flags |= BNA_TXQ_WI_CF_TCP_CKSUM;
++				txqent->hdr.wi.l4_hdr_size_n_offset =
++					htons(BNA_TXQ_WI_L4_HDR_N_OFFSET
++					      (0, skb_transport_offset(skb)));
++
++				BNAD_UPDATE_CTR(bnad, tcpcsum_offload);
++
++				BNAD_DROP_AND_RETURN_IF(skb_headlen(skb) <
++					    skb_transport_offset(skb) +
++					    tcp_hdrlen(skb), tx_skb_tcp_hdr);
++
++			} else if (proto == IPPROTO_UDP) {
++				flags |= BNA_TXQ_WI_CF_UDP_CKSUM;
++				txqent->hdr.wi.l4_hdr_size_n_offset =
++					htons(BNA_TXQ_WI_L4_HDR_N_OFFSET
++					      (0, skb_transport_offset(skb)));
++
++				BNAD_UPDATE_CTR(bnad, udpcsum_offload);
++				BNAD_DROP_AND_RETURN_IF(skb_headlen(skb) <
++					    skb_transport_offset(skb) +
++					    sizeof(struct udphdr),
++							tx_skb_udp_hdr);
++
++			} else {
++				BNAD_DROP_AND_RETURN(tx_skb_csum_err);
+ 			}
++		} else {
++			txqent->hdr.wi.l4_hdr_size_n_offset = 0;
+ 		}
+-	} else {
+-		txqent->hdr.wi.lso_mss = 0;
+-		txqent->hdr.wi.l4_hdr_size_n_offset = 0;
+ 	}
+ 
+ 	txqent->hdr.wi.flags = htons(flags);
+@@ -2702,20 +2705,36 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	txqent->hdr.wi.frame_length = htonl(skb->len);
+ 
+ 	unmap_q->unmap_array[unmap_prod].skb = skb;
+-	BUG_ON(!(skb_headlen(skb) <= BFI_TX_MAX_DATA_PER_VECTOR));
+-	txqent->vector[vect_id].length = htons(skb_headlen(skb));
++	len = skb_headlen(skb);
++	txqent->vector[0].length = htons(len);
+ 	dma_addr = dma_map_single(&bnad->pcidev->dev, skb->data,
+ 				  skb_headlen(skb), DMA_TO_DEVICE);
+ 	dma_unmap_addr_set(&unmap_q->unmap_array[unmap_prod], dma_addr,
+ 			   dma_addr);
+ 
+-	BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
++	BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[0].host_addr);
+ 	BNA_QE_INDX_ADD(unmap_prod, 1, unmap_q->q_depth);
+ 
++	vect_id = 0;
++	wis_used = 1;
++
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
+ 		u16		size = frag->size;
+ 
++		if (unlikely(size == 0)) {
++			unmap_prod = unmap_q->producer_index;
++			prefetch(&unmap_q->unmap_array[unmap_prod + 1]);
++
++			BNAD_PCI_UNMAP_SKB(&bnad->pcidev->dev,
++					   unmap_q->unmap_array,
++					   unmap_prod, unmap_q->q_depth, skb,
++					   i);
++			BNAD_DROP_AND_RETURN(tx_skb_frag_zero);
++		}
++
++		len += size;
++
+ 		if (++vect_id == BFI_TX_MAX_VECTORS_PER_WI) {
+ 			vect_id = 0;
+ 			if (--wi_range)
+@@ -2726,10 +2745,10 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 				wis_used = 0;
+ 				BNA_TXQ_QPGE_PTR_GET(txq_prod, tcb->sw_qpt,
+ 						     txqent, wi_range);
+-				BUG_ON(!(wi_range <= tcb->q_depth));
+ 			}
+ 			wis_used++;
+-			txqent->hdr.wi_ext.opcode = htons(BNA_TXQ_WI_EXTENSION);
++			txqent->hdr.wi_ext.opcode =
++				__constant_htons(BNA_TXQ_WI_EXTENSION);
+ 		}
+ 
+ 		BUG_ON(!(size <= BFI_TX_MAX_DATA_PER_VECTOR));
+@@ -2742,6 +2761,16 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 		BNA_QE_INDX_ADD(unmap_prod, 1, unmap_q->q_depth);
+ 	}
+ 
++	if (unlikely(len != skb->len)) {
++		unmap_prod = unmap_q->producer_index;
++		prefetch(&unmap_q->unmap_array[unmap_prod + 1]);
++
++		BNAD_PCI_UNMAP_SKB(&bnad->pcidev->dev, unmap_q->unmap_array,
++				   unmap_prod, unmap_q->q_depth, skb,
++				   skb_shinfo(skb)->nr_frags);
++		BNAD_DROP_AND_RETURN(tx_skb_len_mismatch);
++	}
++
+ 	unmap_q->producer_index = unmap_prod;
+ 	BNA_QE_INDX_ADD(txq_prod, wis_used, tcb->q_depth);
+ 	tcb->producer_index = txq_prod;
+@@ -2752,6 +2781,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 		return NETDEV_TX_OK;
+ 
+ 	bna_txq_prod_indx_doorbell(tcb);
++	smp_mb();
+ 
+ 	if ((u16) (*tcb->hw_consumer_index) != tcb->consumer_index)
+ 		tasklet_schedule(&bnad->tx_free_tasklet);
+@@ -2818,6 +2848,9 @@ bnad_set_rx_mode(struct net_device *netdev)
  		}
  	}
-@@ -407,6 +424,7 @@ bnad_set_ringparam(struct net_device *netdev,
- {
- 	int i, current_err, err = 0;
- 	struct bnad *bnad = netdev_priv(netdev);
-+	unsigned long flags;
  
- 	mutex_lock(&bnad->conf_mutex);
- 	if (ringparam->rx_pending == bnad->rxq_depth &&
-@@ -430,6 +448,11 @@ bnad_set_ringparam(struct net_device *netdev,
++	if (bnad->rx_info[0].rx == NULL)
++		goto unlock;
++
+ 	bna_rx_mode_set(bnad->rx_info[0].rx, new_mask, valid_mask, NULL);
  
- 	if (ringparam->rx_pending != bnad->rxq_depth) {
- 		bnad->rxq_depth = ringparam->rx_pending;
-+		if (!netif_running(netdev)) {
-+			mutex_unlock(&bnad->conf_mutex);
-+			return 0;
-+		}
-+
- 		for (i = 0; i < bnad->num_rx; i++) {
- 			if (!bnad->rx_info[i].rx)
+ 	if (!netdev_mc_empty(netdev)) {
+@@ -2970,12 +3003,9 @@ bnad_netpoll(struct net_device *netdev)
  				continue;
-@@ -437,10 +460,26 @@ bnad_set_ringparam(struct net_device *netdev,
- 			current_err = bnad_setup_rx(bnad, i);
- 			if (current_err && !err)
- 				err = current_err;
-+			if (!err)
-+				bnad_restore_vlans(bnad, i);
-+		}
-+
-+		if (!err && bnad->rx_info[0].rx) {
-+			/* restore rx configuration */
-+			bnad_enable_default_bcast(bnad);
-+			spin_lock_irqsave(&bnad->bna_lock, flags);
-+			bnad_mac_addr_set_locked(bnad, netdev->dev_addr);
-+			spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+			bnad_set_rx_mode(netdev);
- 		}
- 	}
- 	if (ringparam->tx_pending != bnad->txq_depth) {
- 		bnad->txq_depth = ringparam->tx_pending;
-+		if (!netif_running(netdev)) {
-+			mutex_unlock(&bnad->conf_mutex);
-+			return 0;
-+		}
-+
- 		for (i = 0; i < bnad->num_tx; i++) {
- 			if (!bnad->tx_info[i].tx)
- 				continue;
-@@ -578,6 +617,16 @@ bnad_get_strings(struct net_device *netdev, u32 stringset, u8 * string)
- 				sprintf(string, "cq%d_hw_producer_index",
- 					q_num);
- 				string += ETH_GSTRING_LEN;
-+				sprintf(string, "cq%d_intr", q_num);
-+				string += ETH_GSTRING_LEN;
-+				sprintf(string, "cq%d_poll", q_num);
-+				string += ETH_GSTRING_LEN;
-+				sprintf(string, "cq%d_schedule", q_num);
-+				string += ETH_GSTRING_LEN;
-+				sprintf(string, "cq%d_keep_poll", q_num);
-+				string += ETH_GSTRING_LEN;
-+				sprintf(string, "cq%d_complete", q_num);
-+				string += ETH_GSTRING_LEN;
- 				q_num++;
+ 			for (j = 0; j < bnad->num_rxp_per_rx; j++) {
+ 				rx_ctrl = &rx_info->rx_ctrl[j];
+-				if (rx_ctrl->ccb) {
+-					bnad_disable_rx_irq(bnad,
+-							    rx_ctrl->ccb);
++				if (rx_ctrl->ccb)
+ 					bnad_netif_rx_schedule_poll(bnad,
+ 							    rx_ctrl->ccb);
+-				}
  			}
  		}
-@@ -660,7 +709,7 @@ static int
- bnad_get_stats_count_locked(struct net_device *netdev)
- {
- 	struct bnad *bnad = netdev_priv(netdev);
--	int i, j, count, rxf_active_num = 0, txf_active_num = 0;
-+	int i, j, count = 0, rxf_active_num = 0, txf_active_num = 0;
- 	u32 bmap;
- 
- 	bmap = bna_tx_rid_mask(&bnad->bna);
-@@ -718,6 +767,17 @@ bnad_per_q_stats_fill(struct bnad *bnad, u64 *buf, int bi)
- 				buf[bi++] = 0; /* ccb->consumer_index */
- 				buf[bi++] = *(bnad->rx_info[i].rx_ctrl[j].
- 						ccb->hw_producer_index);
-+
-+				buf[bi++] = bnad->rx_info[i].
-+						rx_ctrl[j].rx_intr_ctr;
-+				buf[bi++] = bnad->rx_info[i].
-+						rx_ctrl[j].rx_poll_ctr;
-+				buf[bi++] = bnad->rx_info[i].
-+						rx_ctrl[j].rx_schedule;
-+				buf[bi++] = bnad->rx_info[i].
-+						rx_ctrl[j].rx_keep_poll;
-+				buf[bi++] = bnad->rx_info[i].
-+						rx_ctrl[j].rx_complete;
- 			}
  	}
- 	for (i = 0; i < bnad->num_rx; i++) {
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index c4772e3..8a31882 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -56,6 +56,11 @@ struct bnad_rx_ctrl {
+ 	struct bnad *bnad;
+ 	unsigned long  flags;
+ 	struct napi_struct	napi;
++	u64		rx_intr_ctr;
++	u64		rx_poll_ctr;
++	u64		rx_schedule;
++	u64		rx_keep_poll;
++	u64		rx_complete;
+ };
+ 
+ #define BNAD_RXMODE_PROMISC_DEFAULT	BNA_RXMODE_PROMISC
+@@ -148,8 +153,20 @@ struct bnad_drv_stats {
+ 	u64		udpcsum_offload;
+ 	u64		csum_help;
+ 	u64		csum_help_err;
++	u64		tx_skb_too_short;
+ 	u64		tx_skb_stopping;
+ 	u64		tx_skb_max_vectors;
++	u64		tx_skb_mss_too_long;
++	u64		tx_skb_tso_too_short;
++	u64		tx_skb_tso_prepare;
++	u64		tx_skb_non_tso_too_long;
++	u64		tx_skb_tcp_hdr;
++	u64		tx_skb_udp_hdr;
++	u64		tx_skb_csum_err;
++	u64		tx_skb_headlen_too_long;
++	u64		tx_skb_headlen_zero;
++	u64		tx_skb_frag_zero;
++	u64		tx_skb_len_mismatch;
+ 
+ 	u64		hw_stats_updates;
+ 	u64		netif_rx_schedule;
+@@ -348,7 +365,7 @@ extern void bnad_netdev_hwstats_fill(struct bnad *bnad,
+ 
+ #define bnad_enable_rx_irq_unsafe(_ccb)			\
+ {							\
+-	if (likely(test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags))) {\
++	if (likely(test_bit(BNAD_RXQ_STARTED, &(_ccb)->rcb[0]->flags))) {\
+ 		bna_ib_coalescing_timer_set((_ccb)->i_dbell,	\
+ 			(_ccb)->rx_coalescing_timeo);		\
+ 		bna_ib_ack((_ccb)->i_dbell, 0);			\
+@@ -358,5 +375,19 @@ extern void bnad_netdev_hwstats_fill(struct bnad *bnad,
+ #define bnad_dim_timer_running(_bnad)				\
+ 	(((_bnad)->cfg_flags & BNAD_CF_DIM_ENABLED) &&		\
+ 	(test_bit(BNAD_RF_DIM_TIMER_RUNNING, &((_bnad)->run_flags))))
++#define bnad_dim_timer_stop(_bnad, _flags)		\
++do {							\
++	int to_del = 0;					\
++							\
++	if ((_bnad)->cfg_flags & BNAD_CF_DIM_ENABLED &&	\
++	    test_bit(BNAD_RF_DIM_TIMER_RUNNING, &(_bnad)->run_flags)) {\
++		clear_bit(BNAD_RF_DIM_TIMER_RUNNING, &(_bnad)->run_flags);\
++		to_del = 1;				\
++	}						\
++	spin_unlock_irqrestore(&(_bnad)->bna_lock, (_flags));	\
++	if (to_del)					\
++		del_timer_sync(&(_bnad)->dim_timer);	\
++	spin_lock_irqsave(&(_bnad)->bna_lock, (_flags));\
++} while (0)
+ 
+ #endif /* __BNAD_H__ */
 -- 
 1.7.1
 
