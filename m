@@ -1,90 +1,38 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH net-next v4 af-packet 2/2] Enhance af-packet to provide
- (near zero)lossless packet capture functionality.
-Date: Fri, 19 Aug 2011 10:22:00 -0400
-Message-ID: <CAAsGZS4H_np15HvoSwWYy3kN33Dk4rK+LE1i+xuTvv5O4ntE_w@mail.gmail.com>
-References: <1313116260-1000-1-git-send-email-loke.chetan@gmail.com>
-	<1313116260-1000-3-git-send-email-loke.chetan@gmail.com>
-	<20110819.033613.1959565749346388734.davem@davemloft.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: add the comment for skb->l4_hash
+Date: Fri, 19 Aug 2011 22:22:24 +0800
+Message-ID: <CABa6K_G+cv3z-WoFSu3s017uVa54aHcn_D=R6WX3=-YA2o2j8g@mail.gmail.com>
+References: <1313763252-3235-1-git-send-email-xiaosuo@gmail.com> <20110819.071918.2148980329707419757.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:60599 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753346Ab1HSOWB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 10:22:01 -0400
-Received: by pzk37 with SMTP id 37so4915387pzk.1
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 07:22:00 -0700 (PDT)
-In-Reply-To: <20110819.033613.1959565749346388734.davem@davemloft.net>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:61159 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753346Ab1HSOWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 10:22:45 -0400
+Received: by ewy4 with SMTP id 4so1141775ewy.19
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2011 07:22:44 -0700 (PDT)
+In-Reply-To: <20110819.071918.2148980329707419757.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 19, 2011 at 6:36 AM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Chetan Loke <loke.chetan@gmail.com>
-> Date: Thu, 11 Aug 2011 22:31:00 -0400
+On Fri, Aug 19, 2011 at 10:19 PM, David Miller <davem@davemloft.net> wrote:
+> From: Changli Gao <xiaosuo@gmail.com>
+> Date: Fri, 19 Aug 2011 22:14:12 +0800
 >
->> +struct kbdq_ft_ops {
->> + =C2=A0 =C2=A0 int num_ops;
->> + =C2=A0 =C2=A0 void (*ft_ops[2])(void *, void *);
->> +};
-> ...
->> + =C2=A0 =C2=A0 struct kbdq_ft_ops kfops;
-> =C2=A0...
->> +static void prb_init_ft_ops(struct kbdq_core *p1,
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 union tpacket_req_u *req_u)
->> +{
->> + =C2=A0 =C2=A0 p1->kfops.ft_ops[p1->kfops.num_ops++] =3D prb_fill_v=
-lan_info;
->> +
->> + =C2=A0 =C2=A0 if (req_u->req3.tp_feature_req_word) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (req_u->req3.tp_featu=
-re_req_word & TP_FT_REQ_FILL_RXHASH)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 p1->kfops.ft_ops[p1->kfops.num_ops++] =3D prb_fill_rxhash;
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 else
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 p1->kfops.ft_ops[p1->kfops.num_ops++] =3D
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 prb_clear_rxhash;
->> + =C2=A0 =C2=A0 }
->> +}
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 >
-> It is a lot cheaper to just test the flags in-line than do indirect c=
-alls.
-> Indirect calls are very expensive on many cpus.
+> It was obvious to me this time, but please in the future indicate in
+> "[PATCH]" that a change is targetted for net-next as this one was.
 >
-> In fact, since the first op (prb_fill_vlan_info) is unconditional, we=
- eat
-> the indirect call cost for absolutely no reason at all.
-
-Oki. Will test the flags in-line in prb_run_all_ft_ops().
-
-
->
-> This kfops stuff was not present in your previous changes. =C2=A0And =
-I'm
-> going to tell you that if you keep adding things each revision instea=
-d
-> of just fixing the specific items you've received feedback about, a
-> set of changes this invasive and of this size will never get merged.
+> Applied, thanks.
 >
 
-=46irst, thanks(to you and others) for reviewing the huge patchset. I
-did think about breaking it into multiple patches but since it
-involves changes in a single file it was a little difficult. And I
-didn't want to create a separate file for this.
+Sorry again. Please apply the new one instead, as I made a typo
+mistake in the previous two patches. Thanks.
 
-> Please resist the urge to further tinker with the code, and just
-> address the feedback we give you.
->
-Sorry won't happen. These changes should have been present in v3 when
-I added the feature-request word because that was the intent of that
-word. It was a screw up on my part.
-
-
-Chetan Loke
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
