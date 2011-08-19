@@ -1,72 +1,62 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 16/75] benet: convert to SKB paged frag API.
-Date: Fri, 19 Aug 2011 14:26:48 +0100
-Message-ID: <1313760467-8598-16-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 13/75] atl1c: convert to SKB paged frag API.
+Date: Fri, 19 Aug 2011 14:26:45 +0100
+Message-ID: <1313760467-8598-13-git-send-email-ian.campbell@citrix.com>
 References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org,
 	Ian Campbell <ian.campbell@citrix.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:26037 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754157Ab1HSN2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 09:28:18 -0400
 In-Reply-To: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Sathya Perla <sathya.perla@emulex.com>
-Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 ---
- drivers/net/benet/be_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/atl1c/atl1c_main.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index c411bb1..6464b25 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -720,8 +720,8 @@ static int make_tx_wrbs(struct be_adapter *adapter, struct be_queue_info *txq,
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		struct skb_frag_struct *frag =
- 			&skb_shinfo(skb)->frags[i];
--		busaddr = dma_map_page(dev, frag->page, frag->page_offset,
--				       frag->size, DMA_TO_DEVICE);
-+		busaddr = skb_frag_dma_map(dev, frag, 0,
-+					   frag->size, DMA_TO_DEVICE);
- 		if (dma_mapping_error(dev, busaddr))
- 			goto dma_err;
- 		wrb = queue_head_node(txq);
-@@ -1119,7 +1119,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter, struct be_rx_obj *rxo,
- 		skb->tail += curr_frag_len;
- 	} else {
- 		skb_shinfo(skb)->nr_frags = 1;
--		skb_shinfo(skb)->frags[0].page = page_info->page;
-+		skb_frag_set_page(skb, 0, page_info->page);
- 		skb_shinfo(skb)->frags[0].page_offset =
- 					page_info->page_offset + hdr_len;
- 		skb_shinfo(skb)->frags[0].size = curr_frag_len - hdr_len;
-@@ -1144,7 +1144,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter, struct be_rx_obj *rxo,
- 		if (page_info->page_offset == 0) {
- 			/* Fresh page */
- 			j++;
--			skb_shinfo(skb)->frags[j].page = page_info->page;
-+			skb_frag_set_page(skb, j, page_info->page);
- 			skb_shinfo(skb)->frags[j].page_offset =
- 							page_info->page_offset;
- 			skb_shinfo(skb)->frags[j].size = 0;
-@@ -1226,7 +1226,7 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
- 		if (i == 0 || page_info->page_offset == 0) {
- 			/* First frag or Fresh page */
- 			j++;
--			skb_shinfo(skb)->frags[j].page = page_info->page;
-+			skb_frag_set_page(skb, j, page_info->page);
- 			skb_shinfo(skb)->frags[j].page_offset =
- 							page_info->page_offset;
- 			skb_shinfo(skb)->frags[j].size = 0;
--- 
+diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_m=
+ain.c
+index 9722442..7ecb30c 100644
+--- a/drivers/net/atl1c/atl1c_main.c
++++ b/drivers/net/atl1c/atl1c_main.c
+@@ -2180,11 +2180,10 @@ static void atl1c_tx_map(struct atl1c_adapter *=
+adapter,
+=20
+ 		buffer_info =3D atl1c_get_tx_buffer(adapter, use_tpd);
+ 		buffer_info->length =3D frag->size;
+-		buffer_info->dma =3D
+-			pci_map_page(adapter->pdev, frag->page,
+-					frag->page_offset,
+-					buffer_info->length,
+-					PCI_DMA_TODEVICE);
++		buffer_info->dma =3D skb_frag_dma_map(&adapter->pdev->dev,
++						    frag, 0,
++						    buffer_info->length,
++						    PCI_DMA_TODEVICE);
+ 		ATL1C_SET_BUFFER_STATE(buffer_info, ATL1C_BUFFER_BUSY);
+ 		ATL1C_SET_PCIMAP_TYPE(buffer_info, ATL1C_PCIMAP_PAGE,
+ 			ATL1C_PCIMAP_TODEVICE);
+--=20
 1.7.2.5
+
