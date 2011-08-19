@@ -1,237 +1,156 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 71/75] sunrpc: use SKB fragment destructors to delay completion until page is released by network stack.
-Date: Fri, 19 Aug 2011 14:27:43 +0100
-Message-ID: <1313760467-8598-71-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 74/75] net: add skb_frag_k(un)map convenience functions.
+Date: Fri, 19 Aug 2011 14:27:46 +0100
+Message-ID: <1313760467-8598-74-git-send-email-ian.campbell@citrix.com>
 References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org,
 	Ian Campbell <ian.campbell@citrix.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Neil Brown <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@fieldses.org>, linux-nfs@vger.kernel.org
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	Tom Herbert <therbert@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:56612 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755571Ab1HSNaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 09:30:14 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:24015 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755571Ab1HSNaW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Aug 2011 09:30:22 -0400
 In-Reply-To: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This prevents an issue where an ACK is delayed, a retransmit is queued (either
-at the RPC or TCP level) and the ACK arrives before the retransmission hits the
-wire. If this happens to an NFS WRITE RPC then the write() system call
-completes and the userspace process can continue, potentially modifying data
-referenced by the retransmission before the retransmission occurs.
-
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Acked-by: Trond Myklebust <Trond.Myklebust@netapp.com>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Neil Brown <neilb@suse.de>
-Cc: "J. Bruce Fields" <bfields@fieldses.org>
-Cc: linux-nfs@vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
-[since v1:
-  Push down from NFS layer into RPM layer
-]
 ---
- include/linux/sunrpc/xdr.h  |    2 ++
- include/linux/sunrpc/xprt.h |    5 ++++-
- net/sunrpc/clnt.c           |   27 ++++++++++++++++++++++-----
- net/sunrpc/svcsock.c        |    3 ++-
- net/sunrpc/xprt.c           |   13 +++++++++++++
- net/sunrpc/xprtsock.c       |    3 ++-
- 6 files changed, 45 insertions(+), 8 deletions(-)
+ include/linux/skbuff.h |   22 ++++++++++++++++++++++
+ net/core/datagram.c    |   20 ++++++++------------
+ 2 files changed, 30 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
-index a20970e..172f81e 100644
---- a/include/linux/sunrpc/xdr.h
-+++ b/include/linux/sunrpc/xdr.h
-@@ -16,6 +16,7 @@
- #include <asm/byteorder.h>
- #include <asm/unaligned.h>
- #include <linux/scatterlist.h>
-+#include <linux/skbuff.h>
- 
- /*
-  * Buffer adjustment
-@@ -57,6 +58,7 @@ struct xdr_buf {
- 			tail[1];	/* Appended after page data */
- 
- 	struct page **	pages;		/* Array of contiguous pages */
-+	struct skb_frag_destructor *destructor;
- 	unsigned int	page_base,	/* Start of page data */
- 			page_len,	/* Length of page data */
- 			flags;		/* Flags for data disposition */
-diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
-index 15518a1..75131eb 100644
---- a/include/linux/sunrpc/xprt.h
-+++ b/include/linux/sunrpc/xprt.h
-@@ -92,7 +92,10 @@ struct rpc_rqst {
- 						/* A cookie used to track the
- 						   state of the transport
- 						   connection */
--	
-+	struct skb_frag_destructor destructor;	/* SKB paged fragment
-+						 * destructor for
-+						 * transmitted pages*/
-+
- 	/*
- 	 * Partial send handling
- 	 */
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index c5347d2..919538d 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -61,6 +61,7 @@ static void	call_reserve(struct rpc_task *task);
- static void	call_reserveresult(struct rpc_task *task);
- static void	call_allocate(struct rpc_task *task);
- static void	call_decode(struct rpc_task *task);
-+static void	call_complete(struct rpc_task *task);
- static void	call_bind(struct rpc_task *task);
- static void	call_bind_status(struct rpc_task *task);
- static void	call_transmit(struct rpc_task *task);
-@@ -1113,6 +1114,8 @@ rpc_xdr_encode(struct rpc_task *task)
- 			 (char *)req->rq_buffer + req->rq_callsize,
- 			 req->rq_rcvsize);
- 
-+	req->rq_snd_buf.destructor = &req->destructor;
-+
- 	p = rpc_encode_header(task);
- 	if (p == NULL) {
- 		printk(KERN_INFO "RPC: couldn't encode RPC header, exit EIO\n");
-@@ -1276,6 +1279,7 @@ call_connect_status(struct rpc_task *task)
- static void
- call_transmit(struct rpc_task *task)
- {
-+	struct rpc_rqst *req = task->tk_rqstp;
- 	dprint_status(task);
- 
- 	task->tk_action = call_status;
-@@ -1309,8 +1313,8 @@ call_transmit(struct rpc_task *task)
- 	call_transmit_status(task);
- 	if (rpc_reply_expected(task))
- 		return;
--	task->tk_action = rpc_exit_task;
--	rpc_wake_up_queued_task(&task->tk_xprt->pending, task);
-+	task->tk_action = call_complete;
-+	skb_frag_destructor_unref(&req->destructor);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 73d8f7a..0328428 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1839,6 +1839,28 @@ static inline void skb_frag_kunmap_atomic(void *=
+vaddr)
  }
- 
- /*
-@@ -1383,7 +1387,8 @@ call_bc_transmit(struct rpc_task *task)
- 		return;
- 	}
- 
--	task->tk_action = rpc_exit_task;
-+	task->tk_action = call_complete;
-+	skb_frag_destructor_unref(&req->destructor);
- 	if (task->tk_status < 0) {
- 		printk(KERN_NOTICE "RPC: Could not send backchannel reply "
- 			"error: %d\n", task->tk_status);
-@@ -1423,7 +1428,6 @@ call_bc_transmit(struct rpc_task *task)
- 			"error: %d\n", task->tk_status);
- 		break;
- 	}
--	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
- }
- #endif /* CONFIG_SUNRPC_BACKCHANNEL */
- 
-@@ -1589,12 +1593,14 @@ call_decode(struct rpc_task *task)
- 		return;
- 	}
- 
--	task->tk_action = rpc_exit_task;
-+	task->tk_action = call_complete;
- 
- 	if (decode) {
- 		task->tk_status = rpcauth_unwrap_resp(task, decode, req, p,
- 						      task->tk_msg.rpc_resp);
- 	}
-+	rpc_sleep_on(&req->rq_xprt->pending, task, NULL);
-+	skb_frag_destructor_unref(&req->destructor);
- 	dprintk("RPC: %5u call_decode result %d\n", task->tk_pid,
- 			task->tk_status);
- 	return;
-@@ -1609,6 +1615,17 @@ out_retry:
- 	}
- }
- 
-+/*
-+ * 8.	Wait for pages to be released by the network stack.
+=20
+ /**
++ * skb_frag_kmap - kmaps a paged fragment
++ * @frag: the paged fragment
++ *
++ * kmap()s the paged fragment @frag and returns the virtual address.
 + */
-+static void
-+call_complete(struct rpc_task *task)
++static inline void *skb_frag_kmap(skb_frag_t *frag)
 +{
-+	dprintk("RPC: %5u call_complete result %d\n",
-+		task->tk_pid, task->tk_status);
-+	task->tk_action = rpc_exit_task;
++	return kmap(skb_frag_page(frag));
 +}
 +
- static __be32 *
- rpc_encode_header(struct rpc_task *task)
- {
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 852a258..3685cad 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -196,7 +196,8 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
- 	while (pglen > 0) {
- 		if (slen == size)
- 			flags = 0;
--		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
-+		result = kernel_sendpage(sock, *ppage, xdr->destructor,
-+					 base, size, flags);
- 		if (result > 0)
- 			len += result;
- 		if (result != size)
-diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-index f4385e4..925aa0c 100644
---- a/net/sunrpc/xprt.c
-+++ b/net/sunrpc/xprt.c
-@@ -1103,6 +1103,16 @@ static inline void xprt_init_xid(struct rpc_xprt *xprt)
- 	xprt->xid = net_random();
- }
- 
-+static int xprt_complete_skb_pages(void *calldata)
++/**
++ * skb_frag_kunmap - kunmaps a paged fragment
++ * @frag: the paged fragment
++ *
++ * kunmap()s the paged fragment @frag.
++ */
++static inline void skb_frag_kunmap(skb_frag_t *frag)
 +{
-+	struct rpc_task *task = calldata;
-+	struct rpc_rqst	*req = task->tk_rqstp;
-+
-+	dprintk("RPC: %5u completing skb pages\n", task->tk_pid);
-+	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
-+	return 0;
++	kunmap(skb_frag_page(frag));
 +}
 +
- static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
- {
- 	struct rpc_rqst	*req = task->tk_rqstp;
-@@ -1115,6 +1125,9 @@ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
- 	req->rq_xid     = xprt_alloc_xid(xprt);
- 	req->rq_release_snd_buf = NULL;
- 	xprt_reset_majortimeo(req);
-+	atomic_set(&req->destructor.ref, 1);
-+	req->destructor.destroy = &xprt_complete_skb_pages;
-+	req->destructor.data = task;
- 	dprintk("RPC: %5u reserved req %p xid %08x\n", task->tk_pid,
- 			req, ntohl(req->rq_xid));
- }
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index f79e40e..af3a106 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -408,7 +408,8 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
- 		remainder -= len;
- 		if (remainder != 0 || more)
- 			flags |= MSG_MORE;
--		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
-+		err = sock->ops->sendpage(sock, *ppage, xdr->destructor,
-+					  base, len, flags);
- 		if (remainder == 0 || err != len)
- 			break;
- 		sent += err;
--- 
++/**
+  * skb_frag_dma_map - maps a paged fragment via the DMA API
+  * @device: the device to map the fragment to
+  * @frag: the paged fragment to map
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 6449bed..f0dcaa2 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -332,14 +332,13 @@ int skb_copy_datagram_iovec(const struct sk_buff =
+*skb, int offset,
+ 			int err;
+ 			u8  *vaddr;
+ 			skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+-			struct page *page =3D skb_frag_page(frag);
+=20
+ 			if (copy > len)
+ 				copy =3D len;
+-			vaddr =3D kmap(page);
++			vaddr =3D skb_frag_kmap(frag);
+ 			err =3D memcpy_toiovec(to, vaddr + frag->page_offset +
+ 					     offset - start, copy);
+-			kunmap(page);
++			skb_frag_kunmap(frag);
+ 			if (err)
+ 				goto fault;
+ 			if (!(len -=3D copy))
+@@ -418,14 +417,13 @@ int skb_copy_datagram_const_iovec(const struct sk=
+_buff *skb, int offset,
+ 			int err;
+ 			u8  *vaddr;
+ 			skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+-			struct page *page =3D skb_frag_page(frag);
+=20
+ 			if (copy > len)
+ 				copy =3D len;
+-			vaddr =3D kmap(page);
++			vaddr =3D skb_frag_kmap(frag);
+ 			err =3D memcpy_toiovecend(to, vaddr + frag->page_offset +
+ 						offset - start, to_offset, copy);
+-			kunmap(page);
++			skb_frag_kunmap(frag);
+ 			if (err)
+ 				goto fault;
+ 			if (!(len -=3D copy))
+@@ -508,15 +506,14 @@ int skb_copy_datagram_from_iovec(struct sk_buff *=
+skb, int offset,
+ 			int err;
+ 			u8  *vaddr;
+ 			skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+-			struct page *page =3D skb_frag_page(frag);
+=20
+ 			if (copy > len)
+ 				copy =3D len;
+-			vaddr =3D kmap(page);
++			vaddr =3D skb_frag_kmap(frag);
+ 			err =3D memcpy_fromiovecend(vaddr + frag->page_offset +
+ 						  offset - start,
+ 						  from, from_offset, copy);
+-			kunmap(page);
++			skb_frag_kunmap(frag);
+ 			if (err)
+ 				goto fault;
+=20
+@@ -594,16 +591,15 @@ static int skb_copy_and_csum_datagram(const struc=
+t sk_buff *skb, int offset,
+ 			int err =3D 0;
+ 			u8  *vaddr;
+ 			skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+-			struct page *page =3D skb_frag_page(frag);
+=20
+ 			if (copy > len)
+ 				copy =3D len;
+-			vaddr =3D kmap(page);
++			vaddr =3D skb_frag_kmap(frag);
+ 			csum2 =3D csum_and_copy_to_user(vaddr +
+ 							frag->page_offset +
+ 							offset - start,
+ 						      to, copy, 0, &err);
+-			kunmap(page);
++			skb_frag_kunmap(frag);
+ 			if (err)
+ 				goto fault;
+ 			*csump =3D csum_block_add(*csump, csum2, pos);
+--=20
 1.7.2.5
 
