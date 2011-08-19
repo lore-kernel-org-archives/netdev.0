@@ -1,57 +1,54 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 18/75] bnx2: convert to SKB paged frag API.
-Date: Fri, 19 Aug 2011 14:26:50 +0100
-Message-ID: <1313760467-8598-18-git-send-email-ian.campbell@citrix.com>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [PATCH/RFC v3 0/75] enable SKB paged fragment lifetime
+ visibility
+Date: Fri, 19 Aug 2011 14:45:20 +0100
+Message-ID: <1313761520.5010.363.camel@zakaz.uk.xensource.com>
 References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
+	 <20110819.062958.1560313540665582388.davem@davemloft.net>
+	 <20110819.063410.475175569086272526.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Michael Chan <mchan@broadcom.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:58675 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754472Ab1HSN2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 09:28:49 -0400
-In-Reply-To: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:32040 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754766Ab1HSNpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 09:45:22 -0400
+In-Reply-To: <20110819.063410.475175569086272526.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Michael Chan <mchan@broadcom.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/bnx2.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+On Fri, 2011-08-19 at 14:34 +0100, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Fri, 19 Aug 2011 06:29:58 -0700 (PDT)
+> 
+> > From: Ian Campbell <Ian.Campbell@citrix.com>
+> > Date: Fri, 19 Aug 2011 14:26:33 +0100
+> > 
+> >> This is v3 of my series to enable visibility into SKB paged fragment's
+> > 
+> > Please tone down the patch count :-/  I'm not going to review anything more
+> > than ~20 or so patches at a time from any one person.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 4b2b570..005dd81 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -2929,8 +2929,8 @@ bnx2_reuse_rx_skb_pages(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr,
- 
- 		shinfo = skb_shinfo(skb);
- 		shinfo->nr_frags--;
--		page = shinfo->frags[shinfo->nr_frags].page;
--		shinfo->frags[shinfo->nr_frags].page = NULL;
-+		page = skb_frag_page(&shinfo->frags[shinfo->nr_frags]);
-+		__skb_frag_set_page(&shinfo->frags[shinfo->nr_frags], NULL);
- 
- 		cons_rx_pg->page = page;
- 		dev_kfree_skb(skb);
-@@ -6510,8 +6510,8 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		txbd = &txr->tx_desc_ring[ring_prod];
- 
- 		len = frag->size;
--		mapping = dma_map_page(&bp->pdev->dev, frag->page, frag->page_offset,
--				       len, PCI_DMA_TODEVICE);
-+		mapping = skb_frag_dma_map(&bp->pdev->dev, frag, 0, len,
-+					   PCI_DMA_TODEVICE);
- 		if (dma_mapping_error(&bp->pdev->dev, mapping))
- 			goto dma_error;
- 		dma_unmap_addr_set(&txr->tx_buf_ring[ring_prod], mapping,
--- 
-1.7.2.5
+Unfortunately I didn't see any middle ground between one massive patch
+munging drivers with lots of different maintainers and one patch per
+maintainer (which is loads).
+
+I'll resend in batches of ~20. After the first patch all the "convert to
+SKB paged frag API" patches are independent.
+
+Would you be willing to just review patches 1-20 of this series? In
+which case I could avoid spamming the list with those again now.
+
+> Also none of your patches will even apply to net-next GIT since nearly
+> all the ethernet drivers have been moved under drivers/net/ethernet
+
+Yes, I noted that in my intro mail and will rebase for v4. Since it's
+mostly just been code motion I think review in the old place will still
+be largely valid.
+
+Ian.
 
