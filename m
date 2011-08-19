@@ -1,233 +1,98 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/6] ixgbe: Cleanup FCOE and VLAN handling in xmit_frame_ring
-Date: Fri, 19 Aug 2011 06:11:26 -0700
-Message-ID: <1313759486-23575-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1313759486-23575-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:30602 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753346Ab1HSNLb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Aug 2011 09:11:31 -0400
-In-Reply-To: <1313759486-23575-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ian Campbell <Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH/RFC v3 0/75] enable SKB paged fragment lifetime visibility
+Date: Fri, 19 Aug 2011 14:26:33 +0100
+Message-ID: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Hi,
 
-This change is meant to further cleanup the transmit path by streamlining
-some of the VLAN and FCOE/DCB tasks in the transmit path.  In addition it
-adds code for support software VLANs in the event that they are used in
-conjunction with DCB and/or FCOE.
+This is v3 of my series to enable visibility into SKB paged fragment's
+lifecycles, v1 is at [0] and contains some more background and rational=
+e
+but basically the series allows entities which inject pages into the
+networking stack to receive a notification when the stack has really
+finished with those pages (i.e. including retransmissions, clones,
+pull-ups etc) and not just when the original skb is finished with, whic=
+h
+is beneficial to many subsystems which wish to inject pages into the
+network stack without giving up full ownership of those page's
+lifecycle. It implements something broadly along the lines of what was
+described in [1].
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   16 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  108 +++++++++++++++----------
- 2 files changed, 73 insertions(+), 51 deletions(-)
+I have updated based on the feedback from v2. In particular:
+      * Rebase to v3.2-rc2
+      * Rework to move reliance on core struct page const'ness change t=
+o
+        end or series (David Miller).=20
+      * Remove inadvertent semantic change to drivers/atm/eni.c (David)
+      * Add skb_frag_set_destructor instead of adding a parameter to
+        skb_fill_page_desc (Micha=C5=82 Miros=C5=82aw)
+      * Resolved conflict with skb zero-copy buffers (nb: I revolved
+        this with no functional change but I have a suspicion that this
+        could be vastly simplified using the new destructor hook,
+        although I've not looked all that closely)
+      * Split drivers/* patches up from the huge monolithic patch.
+      * Build tested defconfig on a bunch architectures (arm i386 m68k
+        mips64 mips s390x sparc64 x86_64) and fixed a variety of issues
+        arising from this.
+      * Unfortunately I found an interesting breakage in
+        kernel/signals.c arising from the additional #include of
+        highmem.h in skbuff.h which. See:
+        http://lkml.kernel.org/r/1313675198-7413-1-git-send-email-ian.c=
+ampbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org I split the addition of skb_frag_kmap out and moved =
+it to the end of the series to avoid this blocking the rest.
+      * s/kmap_skb_frag/skb_frag_kmap_atomic/ (similar for kunmap) sinc=
+e
+        the names kmap_skb_frag and skb_frag_kmap were confusingly
+        similar. At the same time I moved them to skbuff.h since they
+        are used in a couple of places outside net/core (open coded in
+        drivers/scsi/fcoe/fcoe.c and #include "../core/kmap_skb.h" in
+        net/appletalk/ddp.c)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index a12fd9f..378ce46 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -91,14 +91,16 @@
- #define IXGBE_RX_BUFFER_WRITE	16	/* Must be power of 2 */
- 
- #define IXGBE_TX_FLAGS_CSUM		(u32)(1)
--#define IXGBE_TX_FLAGS_VLAN		(u32)(1 << 1)
--#define IXGBE_TX_FLAGS_TSO		(u32)(1 << 2)
--#define IXGBE_TX_FLAGS_IPV4		(u32)(1 << 3)
--#define IXGBE_TX_FLAGS_FCOE		(u32)(1 << 4)
--#define IXGBE_TX_FLAGS_FSO		(u32)(1 << 5)
--#define IXGBE_TX_FLAGS_MAPPED_AS_PAGE	(u32)(1 << 6)
-+#define IXGBE_TX_FLAGS_HW_VLAN		(u32)(1 << 1)
-+#define IXGBE_TX_FLAGS_SW_VLAN		(u32)(1 << 2)
-+#define IXGBE_TX_FLAGS_TSO		(u32)(1 << 3)
-+#define IXGBE_TX_FLAGS_IPV4		(u32)(1 << 4)
-+#define IXGBE_TX_FLAGS_FCOE		(u32)(1 << 5)
-+#define IXGBE_TX_FLAGS_FSO		(u32)(1 << 6)
-+#define IXGBE_TX_FLAGS_MAPPED_AS_PAGE	(u32)(1 << 7)
- #define IXGBE_TX_FLAGS_VLAN_MASK	0xffff0000
--#define IXGBE_TX_FLAGS_VLAN_PRIO_MASK   0x0000e000
-+#define IXGBE_TX_FLAGS_VLAN_PRIO_MASK	0xe0000000
-+#define IXGBE_TX_FLAGS_VLAN_PRIO_SHIFT  29
- #define IXGBE_TX_FLAGS_VLAN_SHIFT	16
- 
- #define IXGBE_MAX_RSC_INT_RATE          162760
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 9a2d2d4..44ded0c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6369,7 +6369,7 @@ static bool ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
- 	u32 type_tucmd = 0;
- 
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
--	    if (!(tx_flags & IXGBE_TX_FLAGS_VLAN))
-+	    if (!(tx_flags & IXGBE_TX_FLAGS_HW_VLAN))
- 			return false;
- 	} else {
- 		u8 l4_hdr = 0;
-@@ -6434,7 +6434,7 @@ static __le32 ixgbe_tx_cmd_type(u32 tx_flags)
- 				      IXGBE_ADVTXD_DCMD_DEXT);
- 
- 	/* set HW vlan bit if vlan is present */
--	if (tx_flags & IXGBE_TX_FLAGS_VLAN)
-+	if (tx_flags & IXGBE_TX_FLAGS_HW_VLAN)
- 		cmd_type |= cpu_to_le32(IXGBE_ADVTXD_DCMD_VLE);
- 
- 	/* set segmentation enable bits for TSO/FSO */
-@@ -6670,8 +6670,8 @@ static void ixgbe_atr(struct ixgbe_ring *ring, struct sk_buff *skb,
- 
- 	th = tcp_hdr(skb);
- 
--	/* skip this packet since the socket is closing */
--	if (th->fin)
-+	/* skip this packet since it is invalid or the socket is closing */
-+	if (!th || th->fin)
- 		return;
- 
- 	/* sample on all syn packets or once every atr sample count */
-@@ -6696,7 +6696,7 @@ static void ixgbe_atr(struct ixgbe_ring *ring, struct sk_buff *skb,
- 	 * since src port and flex bytes occupy the same word XOR them together
- 	 * and write the value to source port portion of compressed dword
- 	 */
--	if (vlan_id)
-+	if (tx_flags & (IXGBE_TX_FLAGS_SW_VLAN | IXGBE_TX_FLAGS_HW_VLAN))
- 		common.port.src ^= th->dest ^ __constant_htons(ETH_P_8021Q);
- 	else
- 		common.port.src ^= th->dest ^ protocol;
-@@ -6785,7 +6785,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 	unsigned short f;
- #endif
- 	u16 count = TXD_USE_COUNT(skb_headlen(skb));
--	__be16 protocol;
-+	__be16 protocol = skb->protocol;
- 	u8 hdr_len = 0;
- 
- 	/*
-@@ -6806,59 +6806,79 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	protocol = vlan_get_protocol(skb);
--
-+	/* if we have a HW VLAN tag being added default to the HW one */
- 	if (vlan_tx_tag_present(skb)) {
--		tx_flags |= vlan_tx_tag_get(skb);
--		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
--			tx_flags &= ~IXGBE_TX_FLAGS_VLAN_PRIO_MASK;
--			tx_flags |= tx_ring->dcb_tc << 13;
-+		tx_flags |= vlan_tx_tag_get(skb) << IXGBE_TX_FLAGS_VLAN_SHIFT;
-+		tx_flags |= IXGBE_TX_FLAGS_HW_VLAN;
-+	/* else if it is a SW VLAN check the next protocol and store the tag */
-+	} else if (protocol == __constant_htons(ETH_P_8021Q)) {
-+		struct vlan_hdr *vhdr, _vhdr;
-+		vhdr = skb_header_pointer(skb, ETH_HLEN, sizeof(_vhdr), &_vhdr);
-+		if (!vhdr)
-+			goto out_drop;
-+
-+		protocol = vhdr->h_vlan_encapsulated_proto;
-+		tx_flags |= ntohs(vhdr->h_vlan_TCI) << IXGBE_TX_FLAGS_VLAN_SHIFT;
-+		tx_flags |= IXGBE_TX_FLAGS_SW_VLAN;
-+	}
-+
-+	if ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
-+	    skb->priority != TC_PRIO_CONTROL) {
-+		tx_flags &= ~IXGBE_TX_FLAGS_VLAN_PRIO_MASK;
-+		tx_flags |= tx_ring->dcb_tc <<
-+			    IXGBE_TX_FLAGS_VLAN_PRIO_SHIFT;
-+		if (tx_flags & IXGBE_TX_FLAGS_SW_VLAN) {
-+			struct vlan_ethhdr *vhdr;
-+			if (skb_header_cloned(skb) &&
-+			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
-+				goto out_drop;
-+			vhdr = (struct vlan_ethhdr *)skb->data;
-+			vhdr->h_vlan_TCI = htons(tx_flags >>
-+						 IXGBE_TX_FLAGS_VLAN_SHIFT);
-+		} else {
-+			tx_flags |= IXGBE_TX_FLAGS_HW_VLAN;
- 		}
--		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
--		tx_flags |= IXGBE_TX_FLAGS_VLAN;
--	} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED &&
--		   skb->priority != TC_PRIO_CONTROL) {
--		tx_flags |= tx_ring->dcb_tc << 13;
--		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
--		tx_flags |= IXGBE_TX_FLAGS_VLAN;
- 	}
- 
--#ifdef IXGBE_FCOE
--	/* for FCoE with DCB, we force the priority to what
--	 * was specified by the switch */
--	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED &&
--	    (protocol == htons(ETH_P_FCOE)))
--		tx_flags |= IXGBE_TX_FLAGS_FCOE;
--
--#endif
- 	/* record the location of the first descriptor for this packet */
- 	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
- 
--	if (tx_flags & IXGBE_TX_FLAGS_FCOE) {
- #ifdef IXGBE_FCOE
--		/* setup tx offload for FCoE */
-+	/* setup tx offload for FCoE */
-+	if ((protocol == __constant_htons(ETH_P_FCOE)) &&
-+	    (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)) {
- 		tso = ixgbe_fso(tx_ring, skb, tx_flags, &hdr_len);
- 		if (tso < 0)
- 			goto out_drop;
- 		else if (tso)
--			tx_flags |= IXGBE_TX_FLAGS_FSO;
--#endif /* IXGBE_FCOE */
--	} else {
--		if (protocol == htons(ETH_P_IP))
--			tx_flags |= IXGBE_TX_FLAGS_IPV4;
--		tso = ixgbe_tso(tx_ring, skb, tx_flags, protocol, &hdr_len);
--		if (tso < 0)
--			goto out_drop;
--		else if (tso)
--			tx_flags |= IXGBE_TX_FLAGS_TSO;
--		else if (ixgbe_tx_csum(tx_ring, skb, tx_flags, protocol))
--			tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+			tx_flags |= IXGBE_TX_FLAGS_FSO |
-+				    IXGBE_TX_FLAGS_FCOE;
-+		else
-+			tx_flags |= IXGBE_TX_FLAGS_FCOE;
- 
--		/* add the ATR filter if ATR is on */
--		if (test_bit(__IXGBE_TX_FDIR_INIT_DONE, &tx_ring->state))
--			ixgbe_atr(tx_ring, skb, tx_flags, protocol);
-+		goto xmit_fcoe;
- 	}
- 
-+#endif /* IXGBE_FCOE */
-+	/* setup IPv4/IPv6 offloads */
-+	if (protocol == __constant_htons(ETH_P_IP))
-+		tx_flags |= IXGBE_TX_FLAGS_IPV4;
-+
-+	tso = ixgbe_tso(tx_ring, skb, tx_flags, protocol, &hdr_len);
-+	if (tso < 0)
-+		goto out_drop;
-+	else if (tso)
-+		tx_flags |= IXGBE_TX_FLAGS_TSO;
-+	else if (ixgbe_tx_csum(tx_ring, skb, tx_flags, protocol))
-+		tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+
-+	/* add the ATR filter if ATR is on */
-+	if (test_bit(__IXGBE_TX_FDIR_INIT_DONE, &tx_ring->state))
-+		ixgbe_atr(tx_ring, skb, tx_flags, protocol);
-+
-+#ifdef IXGBE_FCOE
-+xmit_fcoe:
-+#endif /* IXGBE_FCOE */
- 	ixgbe_tx_map(tx_ring, skb, first, tx_flags, hdr_len);
- 
- 	ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
--- 
-1.7.6
+Changes between v1 and v2:
+      * Added destructor directly to sendpage() protocol hooks instead
+        of inventing sendpage_destructor() (David Miller)
+      * Dropped skb_frag_pci_map in favour of skb_frag_dma_map on Micha=
+=C5=82
+        Miros=C5=82aw's advice
+      * Pushed the NFS fix down into the RPC layer. (Trond)
+      * I also split out the patches to make protocols use the new
+        interface into per-protocol patches. I held back on splitting u=
+p
+        the patch to drivers/* (since that will cause an explosion in
+        the series length) -- I'll do this split for v3.
 
+I've a bit of an open dilemma regarding what to do about the small
+number of drivers which use skb_frag_t as part of their internal
+datastructures (it's a convenient page+offset+len container). It's a bi=
+t
+ugly sprinkling the ".p" in around those drivers. I've considered
+leaving skb_frag_t alone and defining skb_shared_info->frag as an
+anonymous struct with the new layout (i.e. repurposing the existing
+skb_frag_t for the alternative use and making a new struct for the
+traditional/proper use). This would need a new accessor to copy one to
+the other. Alternatively perhaps a generic struct subpage would be
+useful in its own right and I could transition those drivers to that?
+Opinions?
+
+=46or v4 I will investigate that issue, collect maintainers ACKs and
+rebase over the big drivers/net re-org which is going on (lets see what
+git rebase is made of ;-))
+
+Cheers,
+Ian.
+
+[0] http://marc.info/?l=3Dlinux-netdev&m=3D131072801125521&w=3D2
+[1] http://marc.info/?l=3Dlinux-netdev&m=3D130925719513084&w=3D2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
