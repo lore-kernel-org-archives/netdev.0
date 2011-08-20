@@ -1,101 +1,103 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
-Date: Sat, 20 Aug 2011 23:00:44 +0300
-Message-ID: <20110820200043.GB5276@redhat.com>
-References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com>
- <20110819152335.GA19489@redhat.com>
- <1313771587.12243.16.camel@lappy>
+From: =?UTF-8?Q?Nicol=C3=A1s_Sigal_|_LocalHost_Soluci?=
+	 =?UTF-8?Q?ones_Innovadoras?= <nicolas.sigal@localhost.net.ar>
+Subject: Re: Linux Kernel | Intel Driver Bug - please update
+Date: Sat, 20 Aug 2011 17:35:52 -0300
+Message-ID: <504DB0A1B3544F7F8719EF324951BBA7@NOTENIKO>
+References: <0BE7A0BD7DFE4537AA0C03E333326E52@NOTENIKO> <1311547638.2835.72.camel@jtkirshe-mobl>
+Reply-To: =?UTF-8?Q?Nicol=C3=A1s_Sigal_|_LocalHost_Soluci?=
+	   =?UTF-8?Q?ones_Innovadoras?= <nicolas.sigal@localhost.net.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1313771587.12243.16.camel@lappy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <kristoffer@gaisler.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"netdev" <netdev@vger.kernel.org>
+To: <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.localhost.net.ar ([200.43.192.6]:60769 "EHLO
+	mail.localhost.net.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752637Ab1HTUgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2011 16:36:16 -0400
+In-Reply-To: <1311547638.2835.72.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 19, 2011 at 07:33:07PM +0300, Sasha Levin wrote:
-> On Fri, 2011-08-19 at 18:23 +0300, Michael S. Tsirkin wrote:
-> > On Sat, Aug 13, 2011 at 11:51:01AM +0300, Sasha Levin wrote:
-> > > The MAC of a virtio-net device is located at the first field of the device
-> > > specific header. This header is located at offset 20 if the device doesn't
-> > > support MSI-X or offset 24 if it does.
-> > > 
-> > > Current code in virtnet_probe() used to probe the MAC before checking for
-> > > MSI-X, which means that the read was always made from offset 20 regardless
-> > > of whether MSI-X in enabled or not.
-> > > 
-> > > This patch moves the MAC probe to after the detection of whether MSI-X is
-> > > enabled. This way the MAC will be read from offset 24 if the device indeed
-> > > supports MSI-X.
-> > > 
-> > > Cc: Rusty Russell <rusty@rustcorp.com.au>
-> > > Cc: Michael S. Tsirkin <mst@redhat.com>
-> > > Cc: virtualization@lists.linux-foundation.org
-> > > Cc: netdev@vger.kernel.org
-> > > Cc: kvm@vger.kernel.org
-> > > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> > 
-> > I am not sure I see a bug in virtio: the config pace layout simply
-> > changes as msix is enabled and disabled (and if you look at the latest
-> > draft, also on whether 64 bit features are enabled).
-> > It doesn't depend on msix capability being present in device.
-> > 
-> > The spec seems to be explicit enough:
-> > 	If MSI-X is enabled for the device, two additional fields immediately
-> > 	follow this header.
-> > 
-> > So I'm guessing the bug is in kvm tools which assume
-> > same layout for when msix is enabled and disabled.
-> > qemu-kvm seems to do the right thing so the device
-> > seems to get the correct mac.
-> 
-> We assumed that PCI config space has a static layout like most other
-> devices. Having a behavior of "First bit 20 does something, but after
-> enabling MSI-X it does something completely different" sounds strange.
+Please Jeff, we need the update as soon as possible, we still having cr=
+ashes=20
+of eth because the driver..
 
-The layout is always virtio header followed by device specific header.
-We started with a small header so when more data was added, we could not
-extend the header unconditionally.
+Best regards;
 
-We can't change that behaviour for MSI-X now, guests and
-hosts rely on it.
+=2E................................................
+Nicol=C3=A1s Sigal
+CEO :: LocalHost Soluciones Innovadoras
+Mendoza 2917 :: C1428DKY
+Ciudad Aut=C3=B3noma de Buenos Aires :: Argentina
+Tel/Fax: 0810 55 LOCALHOST :: (011) 4784.6993
+http://www.localhost.net.ar/
+nicolas.sigal@localhost.net.ar
 
+----- Original Message -----=20
+=46rom: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+To: "Nicol=C3=A1s Sigal | LocalHost Soluciones Innovadoras"=20
+<nicolas.sigal@localhost.net.ar>
+Cc: <kristoffer@gaisler.com>; "Brandeburg, Jesse"=20
+<jesse.brandeburg@intel.com>; "Allan, Bruce W" <bruce.w.allan@intel.com=
+>;=20
+"Ronciak, John" <john.ronciak@intel.com>; <support@localhost.net.ar>;=20
+"netdev" <netdev@vger.kernel.org>
+Sent: Sunday, July 24, 2011 7:47 PM
+Subject: Re: Linux Kernel | Intel Driver Bug - please update
+
+On Sun, 2011-07-24 at 13:28 -0700, Nicol=C3=A1s Sigal | LocalHost Soluc=
+iones
+Innovadoras wrote:
+> Please, can you update the e1000e driver of the kernel to v1.4.4?
 >
-> I'm wondering why offsets of the config structure change during run time
-> and are not statically defined when the device is started.
+> http://downloadcenter.intel.com/Detail_Desc.aspx?agr=3DY&ProdId=3D329=
+9&DwnldID=3D15817&ProductFamily=3DComponentes+Ethernet&ProductLine=3DCo=
+ntroladores+Ethernet&ProductProduct=3DControlador+Intel%C2%AE+82579+Gig=
+abit+Ethernet&DownloadType=3DControladoresspa
+>
+> This version have an important bug fixed:
+> * 82579: Fix for Tx Hang on FTS ME Platform
+>
+> And we have this problem in all of our servers with this NIC and ME
+> on.
+>
+> Debug:
+>
+> Jul 24 14:23:27 [kernel] e1000e 0000:00:19.0: eth0: Detected Hardware
+> Unit Hang:
+> Jul 24 14:23:27 [kernel]   TDH                  <0>
+> Jul 24 14:23:27 [kernel]   TDT                  <16>
+> Jul 24 14:23:27 [kernel]   next_to_use          <16>
+> Jul 24 14:23:27 [kernel]   next_to_clean        <0>
+> Jul 24 14:23:27 [kernel] buffer_info[next_to_clean]:
+> Jul 24 14:23:27 [kernel]   time_stamp           <10282156f>
+> Jul 24 14:23:27 [kernel]   next_to_watch        <0>
+> Jul 24 14:23:27 [kernel]   jiffies              <102821aed>
+> Jul 24 14:23:27 [kernel]   next_to_watch.status <0>
+> Jul 24 14:23:27 [kernel] MAC Status             <80143>
+> Jul 24 14:23:27 [kernel] PHY Status             <796d>
+> Jul 24 14:23:27 [kernel] PHY 1000BASE-T Status  <0>
+> Jul 24 14:23:27 [kernel] PHY Extended Status    <3000>
+> Jul 24 14:23:27 [kernel] PCI Status             <10>
+> Jul 24 14:23:28 [kernel] e1000e 0000:00:19.0: eth0: Reset adapter
+> Jul 24 14:23:30 [kernel] e1000e: eth0 NIC Link is Up 100 Mbps Full
+> Duplex, Flow Control: Rx/Tx
+> Jul 24 14:23:30 [kernel] e1000e 0000:00:19.0: eth0: 10/100 speed:
+> disabling TSO
+>
 
-That's because of backwards compatibility with old guests.
-When we know the guest is new, we expose new layout,
-but old guests must see old layout.
 
-> It's not like VIRTIO_F_FEATURES_HI can be disabled after it was enabled,
+[removed ixgbe/igb Intel maintainers, and Linus from the email thread]
+Added a more appropriate mailing list (netdev)
 
-Yes it can, e.g. at guest reset. Generally features can be tweaked
-any way guest likes until status is set to OK.
+We currently have the kernel patches in review and testing to update th=
+e
+e1000e driver to v1.4.4.  I should be able to push some, if not all of
+the changes upstream later this week.
 
-> or MSI-X can be simply disabled during run time.
-
-Not sure what you mean by 'run time'. Guest can reset
-or disable the device, change any parameters,
-then re-enable.
-
-> Maybe this is better solved by copying the way it was done in PCI itself
-> with capability linked list?
-> 
-> -- 
-> 
-> Sasha.
-
-There are any number of ways to lay out the structure.  I went for what
-seemed a simplest one.  For MSI-X the train has left the station.  We
-can probably still tweak where the high 32 bit features
-for 64 bit features are.  No idea if it's worth it.
-
-
--- 
-MST
