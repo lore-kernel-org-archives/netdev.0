@@ -1,90 +1,66 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 1/6] tg3: Remove dead code
-Date: Fri, 19 Aug 2011 16:58:19 -0700
-Message-ID: <1313798304-26171-2-git-send-email-mcarlson@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: net: rps: support 802.1Q
+Date: Sat, 20 Aug 2011 02:12:49 +0100
+Message-ID: <1313802769.2814.33.camel@deadeye>
+References: <1313730353-25379-1-git-send-email-xiaosuo@gmail.com>
+	 <1313754853.2814.8.camel@deadeye>
+	 <CABa6K_FhG9_XrCfhJDhhUArFEeG5FqOoU_HN1vY-TOKmjMxBKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
-To: davem@davemloft.net
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1769 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756622Ab1HSXvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Aug 2011 19:51:07 -0400
+Received: from mail.solarflare.com ([216.237.3.220]:51895 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754247Ab1HTBMx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2011 21:12:53 -0400
+In-Reply-To: <CABa6K_FhG9_XrCfhJDhhUArFEeG5FqOoU_HN1vY-TOKmjMxBKQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that CPMU devices don't do MAC loopback, all the CPMU power saving
-mode adjustments are unneeded.  This patch removes the dead code.
+On Fri, 2011-08-19 at 23:05 +0800, Changli Gao wrote:
+> On Fri, Aug 19, 2011 at 7:54 PM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> >
+> > Should this really be reading an unlimited number of tags?
+> 
+> Not unlimited, but it won't stop until reaching the end of the packet.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c |   35 +----------------------------------
- 1 files changed, 1 insertions(+), 34 deletions(-)
+Right, I understand that the parsing is properly range-checked against
+the length of the packet.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index dc3fbf6..756e2bb 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -11527,7 +11527,7 @@ out:
- static int tg3_test_loopback(struct tg3 *tp)
- {
- 	int err = 0;
--	u32 eee_cap, cpmuctrl = 0;
-+	u32 eee_cap;
- 
- 	if (!netif_running(tp->dev))
- 		return TG3_LOOPBACK_FAILED;
-@@ -11554,32 +11554,6 @@ static int tg3_test_loopback(struct tg3 *tp)
- 	if (tp->phy_flags & TG3_PHYFLG_ENABLE_APD)
- 		tg3_phy_toggle_apd(tp, false);
- 
--	if (tg3_flag(tp, CPMU_PRESENT)) {
--		int i;
--		u32 status;
--
--		tw32(TG3_CPMU_MUTEX_REQ, CPMU_MUTEX_REQ_DRIVER);
--
--		/* Wait for up to 40 microseconds to acquire lock. */
--		for (i = 0; i < 4; i++) {
--			status = tr32(TG3_CPMU_MUTEX_GNT);
--			if (status == CPMU_MUTEX_GNT_DRIVER)
--				break;
--			udelay(10);
--		}
--
--		if (status != CPMU_MUTEX_GNT_DRIVER) {
--			err = TG3_LOOPBACK_FAILED;
--			goto done;
--		}
--
--		/* Turn off link-based power management. */
--		cpmuctrl = tr32(TG3_CPMU_CTRL);
--		tw32(TG3_CPMU_CTRL,
--		     cpmuctrl & ~(CPMU_CTRL_LINK_SPEED_MODE |
--				  CPMU_CTRL_LINK_AWARE_MODE));
--	}
--
- 	if (tg3_run_loopback(tp, ETH_FRAME_LEN, TG3_MAC_LOOPBACK))
- 		err |= TG3_STD_LOOPBACK_FAILED << TG3_MAC_LOOPBACK_SHIFT;
- 
-@@ -11587,13 +11561,6 @@ static int tg3_test_loopback(struct tg3 *tp)
- 	    tg3_run_loopback(tp, 9000 + ETH_HLEN, TG3_MAC_LOOPBACK))
- 		err |= TG3_JMB_LOOPBACK_FAILED << TG3_MAC_LOOPBACK_SHIFT;
- 
--	if (tg3_flag(tp, CPMU_PRESENT)) {
--		tw32(TG3_CPMU_CTRL, cpmuctrl);
--
--		/* Release the mutex */
--		tw32(TG3_CPMU_MUTEX_GNT, CPMU_MUTEX_GNT_DRIVER);
--	}
--
- 	if (!(tp->phy_flags & TG3_PHYFLG_PHY_SERDES) &&
- 	    !tg3_flag(tp, USE_PHYLIB)) {
- 		if (tg3_run_loopback(tp, ETH_FRAME_LEN, TG3_PHY_LOOPBACK))
+> >  What if an
+> > attacker starts sending packets full of VLAN tags?  Since this runs
+> > before netfilter, there would be no way to prevent those packets burning
+> > our CPU time.  And if there are legitimately multiple VLAN tags, they
+> > presumably won't all have the 802.1q Ethertype.
+> >
+> 
+> Do we need to limit the number of rounds to stop this kind of "bad"
+> packets from burning our CPU time?
+
+Well, maybe.  Then again, the most effective way for an attacker to
+waste a target's CPU time (aside from application-level vulnerabilities)
+will often be just to send minimum size packets.
+
+> Then,  __netif_receive_skb() has to
+> be update too, so the inspection of tunnel in __skb_get_rxhash() does.
+
+Yes, if we agree this is something worth defending against then we would
+need to be consistent in limiting any such parsing loop in pre-netfilter
+processing.
+
+> Is there a such limitation in xfrm?
+
+It appears to be limited to 6 levels of encapsulation.
+
+Ben.
+
 -- 
-1.7.3.4
-
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
