@@ -1,57 +1,48 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: [PATCH] fix pushed_seq in keepalive / zero window probe timer
-Date: Mon, 22 Aug 2011 14:57:21 +0800
-Message-ID: <4E51FDD1.2010607@gmail.com>
+From: KAHAL Louisa <LKAHAL@inrets.fr>
+Subject: Bussiness Proposal
+Date: Mon, 22 Aug 2011 00:30:54 +0200
+Message-ID: <20110822003054.43343rdhuaf0d1y6__42836.7595574402$1314000873$gmane$org@webmail.inrets.fr>
+Reply-To: vincentcheng209@yahoo.co.jp
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	davem@davemloft.net, ilpo.jarvinen@helsinki.fi
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:64381 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806Ab1HVG5f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 02:57:35 -0400
-Received: by pzk37 with SMTP id 37so8193213pzk.1
-        for <netdev@vger.kernel.org>; Sun, 21 Aug 2011 23:57:35 -0700 (PDT)
+Received: from smtp-out.inrets.fr ([137.121.250.15]:49123 "EHLO
+	smtp-out.inrets.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752057Ab1HVIOJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 04:14:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Good day,
 
-In tcp_write_wakeup(), we may split the probe segment since send window=
- or mss is larger than it.
-so I think that we should update tp->pushed_seq after tcp_fragment(), i=
-s it right? thanks.
+I am Mr. Vincent Cheng, GBS, JP Chairman of the Hong Kong and Shanghai  
+Banking Corporation Limited.
+i have a business proposal of Twenty Two Million, Five Hundred  
+Thousand United State Dollars only for you to
+transact with me from my bank to your country.Having gone through a  
+methodical search, I decided to contact you hoping
+that you will find this proposal interesting. Please on your  
+confirmation of this message and indicating your interest
 
-Signed-off-by: Li Yu <raise.sail@gmail.com>
-CC: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
-CC: David S. Miller <davem@davemloft.net>
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 882e0b0..659a71f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2784,9 +2784,6 @@ int tcp_write_wakeup(struct sock *sk)
- 		unsigned int mss =3D tcp_current_mss(sk);
- 		unsigned int seg_size =3D tcp_wnd_end(tp) - TCP_SKB_CB(skb)->seq;
-=20
--		if (before(tp->pushed_seq, TCP_SKB_CB(skb)->end_seq))
--			tp->pushed_seq =3D TCP_SKB_CB(skb)->end_seq;
--
- 		/* We are probing the opening of a window
- 		 * but the window size is !=3D 0
- 		 * must have been a result SWS avoidance ( sender )
-@@ -2803,8 +2800,11 @@ int tcp_write_wakeup(struct sock *sk)
- 		TCP_SKB_CB(skb)->flags |=3D TCPHDR_PSH;
- 		TCP_SKB_CB(skb)->when =3D tcp_time_stamp;
- 		err =3D tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
--		if (!err)
-+		if (!err) {
- 			tcp_event_new_data_sent(sk, skb);
-+			if (before(tp->pushed_seq, TCP_SKB_CB(skb)->end_seq))
-+				tp->pushed_seq =3D TCP_SKB_CB(skb)->end_seq;
-+		}
- 		return err;
- 	} else {
- 		if (between(tp->snd_up, tp->snd_una + 1, tp->snd_una + 0xFFFF))
+All confirmable documents to back up the claims will be made available  
+to you prior to your acceptance
+and as soon as I receive your return mail Via my email address:  
+vincentcheng209@yahoo.co.jp and I will let
+you know what is required of you,your earliest response to this letter  
+will be appreciated.
+
+Endeavour to let me know your decision rather than keep me waiting.
+
+Best Regards,
+Mr.Vincent Cheng.
+
+
+
+
 
