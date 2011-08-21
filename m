@@ -1,94 +1,125 @@
-From: "George Spelvin" <linux@horizon.com>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: [PATCH 0/2] Improve sequence number generation.
-Date: 20 Aug 2011 20:49:39 -0400
-Message-ID: <20110821004939.10392.qmail@science.horizon.com>
-References: <20110820.164436.684817976385970137.davem@davemloft.net>
-Cc: dan@doxpara.com, gerrit@erg.abdn.ac.uk,
-	herbert@gondor.hengli.com.au, linux-kernel@vger.kernel.org,
-	mpm@selenic.com, netdev@vger.kernel.org, w@1wt.eu
-To: davem@davemloft.net, linux@horizon.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([71.41.210.146]:42357 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751774Ab1HUAtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2011 20:49:41 -0400
-In-Reply-To: <20110820.164436.684817976385970137.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Date: Sun, 21 Aug 2011 03:28:44 +0200
+Message-ID: <20110821012844.GA15222@1wt.eu>
+References: <20110816103028.1360.qmail@science.horizon.com> <20110820233951.6428.qmail@science.horizon.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, mpm@selenic.com, dan@doxpara.com,
+	gerrit@erg.abdn.ac.uk, herbert@gondor.hengli.com.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: George Spelvin <linux@horizon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110820233951.6428.qmail@science.horizon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> While the increase to 32 bits is definitely desirable, and defends
->> against a much less sophisticated attack, I'm concerned that this is a
->> case of robbing Peter to pay Paul.
+Hi George,
 
-> I disagree, attacking this random number selection is much more theoretical
-> than the brute force attacks possible on 24-bits of entropy.
+On Sat, Aug 20, 2011 at 07:39:51PM -0400, George Spelvin wrote:
+(...)
+> A few questions, all related to performance requirements:
+> * Should I worry about 32-bit x86 performance at all, since it's
+>   pretty unlikely that a 32-bit machine will be running traffic levels
+>   (1000+ connections/sec) where it matters?
 
-Can you explain more precisely what you disagree with?
+1000 connections per second is a moderately low load even for a
+32-bit machine. I'm used to play in the 10-100k/s range on 32-bit,
+depending on the usage pattern, I even reached 300k/s on an anti-ddos
+machine. So yes, performance matters a lot, especially when we risk
+to slow down one small operation that is done many times a second.
 
-What you state after the comma appears to be agreeing with what I
-wrote (it seems like a restatement of my first two clauses), so I'm
-unenlightened as to where the disagreement is.
+> * Should I worry about 32-bit IPv6 performance, since that's even more
+>   unlikely to be running heavy loads on 32-bit hardware?
 
-I'm not saying you didn't address a real problem, just that fixing
-one problem exposed another, and it would be nice to address *both*.
+On x86 you're probably right, but there are other very fast platforms
+such as ARM, which are used to build routers or appliances, and which
+are 32-bit and there it may matter.
 
-> Show me a usable attack on a real system, then we can talk.
+> * If yes, is this fast enough to be acceptable, or do I need to work
+>   harder to find more speed?
 
-If you like.  It's about a week of implementation work.  (And I
-don't have 1 week/week of free time, so more than that elapsed.)
+I'd suggest that the most important is no performance regression. Probably
+that if you can bring something which brings back what we lost with MD5,
+your work would gain interest.
 
-> By comparison, real attacks against the 24-bit value have been
-> demonstrated.
+> Willy, apparently you did some benchmarking of various hash functions.
+> Is that data available somewhere?  Even if not, just a brief description
+> of the methodology and assumptions would help to make sure I'm measuring
+> in a reasonable way.
 
-Anywhere that I can see?
+I'm copy-pasting here the memo I exchanged in private after my tests, there
+is nothing secret in it, so better post the whole explanation :
 
->> 2) Do *both*: Use a fixed 32-bit offset *plus* a time-varing one.
->>    They can be added together and provide the security advantages of
->>    both.  The only cost is having to compute two hashes per SYN.
->> 
->>    The main problem here is coming up with a hash function fast enough
->>    that computing both hashes is no slower than one MD5 invocation.
+-------------------------------------------------------------------------
+I did an ugly patch which consists in replacing calls to md5_transform()
+with sha_transform() in secure_ip_id(), secure_tcp_sequence_number(),
+secure_ipv4_port_ephemeral() on top of David's patches. I kept the same
+hashing method, without calling sha_init() and by filling the hash with
+net_secret, eg :
 
-> Doubling the hashing cost is a non-starter.   Going to MD5 itself was
-> a huge lose, and was right at the brink of acceptable performance loss.
-> 
-> This whole change was nearly nixed because of the cost introduced
-> merely by going to MD5.
+@@ -104,28 +107,32 @@ __u32 secure_ipv6_id(const __be32 daddr[4])
+ __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+                                 __be16 sport, __be16 dport)
+ {
+-       u32 hash[MD5_DIGEST_WORDS];
++       u32 hash[SHA_DIGEST_WORDS];
++       u32 workspace[SHA_WORKSPACE_WORDS];
 
-Okay, I'll make certain a proposed solution is strictly faster than MD5.
-I was asking about performance goals, and you've given me an answer.
-Thank you very much!
+        hash[0] = (__force u32)saddr;
+        hash[1] = (__force u32)daddr;
+        hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
+-       hash[3] = net_secret[15];
++       hash[3] = net_secret[14];
++       hash[4] = net_secret[15];
 
-The patch comment was fairly offhand about the performance cost, and
-prior discussion was apparently private, so it wasn't clear how much
-pain people experienced.
+-       md5_transform(hash, net_secret);
++       sha_transform(hash, (const char *)net_secret, workspace);
 
-My only other question is whether IPv6 on x86-32 specificaly needs to be
-faster than MD5.  Is that negotiable, or is that also a hard limit?
-(This is challenging because it's trying to hash 288 bits of address material
-in 224 bits of available registers.)
-
-Eureka!  The possible source addresses are very limited.  It's possible to
-pre-hash them, then you only have 160 bits of per-connection variability,
-which can fit in a second hash block.
-
-This requires finding somewhere in the network stack to store the
-pre-hashed IPv6 addresses, as well as a fallback to use when spoofing
-other source addresses, but that shouldn't be TOO difficult.
-
->> 3) Extend the 24-bit time-varying hash to a 28-bit one.
->>    This can cause the sequence numbers to wrap in 7/8 of the time
->>    they would with a fixed offset, but that doesn't seem too bad.
->>    (That's worst case; it's a triangular distribution centered
->>    on 15/16.)
-
-> I want to stay with a 32-bits of entropy, thank you very much.
-
-My goal is to give you *both*.  32 bits fixed + 28 bits time-varying.
-An attacker would have to cryptanalyze the 32 bits (which the 28 bits
-makes harder) *and* brute-force the 28 bits.
-
-(It's almost certainly simpler to brute-force 32 bits.)
+        return seq_scale(hash[0]);
+ }
 
 
-Thank you for your response!
+With this I could run tests on mainline (called "MD4" below), David's code
+("MD5") and the transform above ("SHA1"). The tests involved connecting
+from the test machine to an external HTTP server and retrieving an empty
+object. This test was followed by two other series, one on a server which
+immediately resets upon accept (to reproduce the SYN, SYN/ACK, ACK, RST
+sequence I'm used to encounter when setting up anti-DDoS filters), and
+a SYN, RST sequence caused by sending the traffic to a closed port, in
+order to more accurately observe the differences.
+
+I switch the test machine to an Atom N450 running in 64-bit mode in order
+to benefit from the SHA1 optimizations.
+
+Numbers are in connections per second.
+
+kernel   http   RST server   closed port
+-------+------+------------+------------
+ MD4     9610      7840       16950
+ MD5     9340      7560       16360
+ SHA1    9250      7280       15400
+
+In HTTP, performance drops by 2.8% when switching to MD5, and by 3.75
+when using SHA1 instead. With the reset server, MD5 takes a 3.6% hit
+and SHA1 7.15%. On the closed port test, which sees only SYN and RST
+packets, MD5 takes a 3.5% hit and SHA1 a 9.15% one.
+
+Note that the biggest hit was still the 2.6.35.11 -> 3.0-git upgrade,
+because HTTP gives me 10040 cps in 2.6.35.11. I think it's the compiler
+and not the kernel : I used to build 2.6.35 with gcc-3.4 but had to
+use a more recent toolchain (gcc 4.4) with 3.0 due to cmpxchg16b, and
+my experience with gcc has always been a noticeable performance loss
+with each new version, so that seems consistent...
+
+All in all, while the SHA1 cost becomes concerning, it could be used
+as an alternative to MD5 when we add a sysctl to select between
+performance and security.
+-------------------------------------------------------------------------
+
+Note that this wasn't the best machine for the test, but it was available
+and moreover it required little additional hardware to saturate it ;-)
+
+Best regards,
+Willy
