@@ -1,44 +1,30 @@
-From: "George Spelvin" <linux@horizon.com>
+From: Ted Ts'o <tytso@mit.edu>
 Subject: Re: [PATCH 0/2] Improve sequence number generation.
-Date: 20 Aug 2011 23:04:15 -0400
-Message-ID: <20110821030415.18106.qmail@science.horizon.com>
+Date: Sat, 20 Aug 2011 23:27:53 -0400
+Message-ID: <20110821032753.GA8992@thunk.org>
 References: <20110821012844.GA15222@1wt.eu>
-Cc: dan@doxpara.com, davem@davemloft.net, gerrit@erg.abdn.ac.uk,
-	herbert@gondor.hengli.com.au, linux-kernel@vger.kernel.org,
-	mpm@selenic.com, netdev@vger.kernel.org
-To: linux@horizon.com, w@1wt.eu
+ <20110821030415.18106.qmail@science.horizon.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: w@1wt.eu, dan@doxpara.com, davem@davemloft.net,
+	gerrit@erg.abdn.ac.uk, herbert@gondor.hengli.com.au,
+	linux-kernel@vger.kernel.org, mpm@selenic.com,
+	netdev@vger.kernel.org
+To: George Spelvin <linux@horizon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([71.41.210.146]:41677 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752301Ab1HUDEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2011 23:04:16 -0400
-In-Reply-To: <20110821012844.GA15222@1wt.eu>
+Received: from li9-11.members.linode.com ([67.18.176.11]:41381 "EHLO
+	test.thunk.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752301Ab1HUD2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 Aug 2011 23:28:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20110821030415.18106.qmail@science.horizon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> * Should I worry about 32-bit IPv6 performance, since that's even more
->>   unlikely to be running heavy loads on 32-bit hardware?
+Here's a random thought --- it won't help on anything other than
+modern x86's, but who's to say we have to use the same algorithm on
+all platforms?  Does the AES-NI facility provide enough of a speedup
+that it's worth using it instead of MD5, at least on modern x86
+systems which have this support?
 
-> On x86 you're probably right, but there are other very fast platforms
-> such as ARM, which are used to build routers or appliances, and which
-> are 32-bit and there it may matter.
-
-Thanks for the feedback.  Your point about routers is well-taken.
-It's particularly x86-32 which gives me fits, but I'll keep ARM
-performance in mind, too.
-
->> * If yes, is this fast enough to be acceptable, or do I need to work
->>   harder to find more speed?
-
-> I'd suggest that the most important is no performance regression. Probably
-> that if you can bring something which brings back what we lost with MD5,
-> your work would gain interest.
-
-Okay, I'll go back to the drawing board on performance.
-
-Damn, this is going to be tough.
-
-> I'm copy-pasting here the memo I exchanged in private after my tests, there
-> is nothing secret in it, so better post the whole explanation :
-
-Thank you very much.  It helps me figure out what the time budget is.
+					- Ted
