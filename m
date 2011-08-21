@@ -1,33 +1,35 @@
-From: =?UTF-8?B?RMOibmllbA==?= Fraga <fragabr@gmail.com>
-Subject: Re: inetd and Linux kernel 3.0
-Date: Sat, 20 Aug 2011 20:48:55 -0300
-Message-ID: <4e5047ea.4874ec0a.317c.ffffa715@mx.google.com>
-References: <4e503565.28b8ec0a.650c.5823@mx.google.com>
-	<20110820.163312.1686705823210711719.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Update
+Date: Sat, 20 Aug 2011 17:29:19 -0700 (PDT)
+Message-ID: <20110820.172919.1482966002228420753.davem@davemloft.net>
+References: <1313759486-23575-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:59613 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754697Ab1HTXs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2011 19:48:59 -0400
-Received: by gya6 with SMTP id 6so2920970gya.19
-        for <netdev@vger.kernel.org>; Sat, 20 Aug 2011 16:48:59 -0700 (PDT)
-In-Reply-To: <20110820.163312.1686705823210711719.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41602 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752073Ab1HUA3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2011 20:29:23 -0400
+In-Reply-To: <1313759486-23575-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 20 Aug 2011 16:33:12 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 19 Aug 2011 06:11:20 -0700
 
-> It is trying to bind to an ipv6 address using an ipv4 socket.
+> The following series contains updates to e1000e and ixgbe.
+> 
+> The following are changes since commit ae1511bf769cafeae5ab61aaf9947a16a22cbd10:
+>   net: rps: support PPPOE session messages
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-	Thanks David! Exactly. I compiled inetd with ipv6 disabled and
-now everything is fine.
+I had done a net --> net-next merge right before pulling this so there
+was a slight merge conflict, which I think I resolved correctly.
 
-	Thank you very much!
+Please double-check my work.
 
--- 
+Thanks.
