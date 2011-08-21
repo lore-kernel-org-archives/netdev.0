@@ -1,70 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Update
-Date: Sat, 20 Aug 2011 19:55:36 -0700
-Message-ID: <1313895336.2128.194.camel@jtkirshe-mobl>
-References: <1313759486-23575-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110820.172919.1482966002228420753.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-0J6SOuEAxxvbpB7waOy2"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: David Miller <davem@davemloft.net>
+From: "George Spelvin" <linux@horizon.com>
+Subject: Re: [PATCH 0/2] Improve sequence number generation.
+Date: 20 Aug 2011 23:04:15 -0400
+Message-ID: <20110821030415.18106.qmail@science.horizon.com>
+References: <20110821012844.GA15222@1wt.eu>
+Cc: dan@doxpara.com, davem@davemloft.net, gerrit@erg.abdn.ac.uk,
+	herbert@gondor.hengli.com.au, linux-kernel@vger.kernel.org,
+	mpm@selenic.com, netdev@vger.kernel.org
+To: linux@horizon.com, w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:29350 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753933Ab1HUCzh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 Aug 2011 22:55:37 -0400
-In-Reply-To: <20110820.172919.1482966002228420753.davem@davemloft.net>
+Received: from science.horizon.com ([71.41.210.146]:41677 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752301Ab1HUDEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2011 23:04:16 -0400
+In-Reply-To: <20110821012844.GA15222@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>> * Should I worry about 32-bit IPv6 performance, since that's even more
+>>   unlikely to be running heavy loads on 32-bit hardware?
 
---=-0J6SOuEAxxvbpB7waOy2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> On x86 you're probably right, but there are other very fast platforms
+> such as ARM, which are used to build routers or appliances, and which
+> are 32-bit and there it may matter.
 
-On Sat, 2011-08-20 at 17:29 -0700, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Fri, 19 Aug 2011 06:11:20 -0700
->=20
-> > The following series contains updates to e1000e and ixgbe.
-> >=20
-> > The following are changes since commit ae1511bf769cafeae5ab61aaf9947a16=
-a22cbd10:
-> >   net: rps: support PPPOE session messages
-> > and are available in the git repository at:
-> >   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next master
->=20
-> I had done a net --> net-next merge right before pulling this so there
-> was a slight merge conflict, which I think I resolved correctly.
->=20
-> Please double-check my work.
->=20
-> Thanks.
+Thanks for the feedback.  Your point about routers is well-taken.
+It's particularly x86-32 which gives me fits, but I'll keep ARM
+performance in mind, too.
 
-I knew the e1000e driver version would conflict as soon as a I saw you
-updated against net.
+>> * If yes, is this fast enough to be acceptable, or do I need to work
+>>   harder to find more speed?
 
-e1000e and ixgbe look good, thanks Dave.
+> I'd suggest that the most important is no performance regression. Probably
+> that if you can bring something which brings back what we lost with MD5,
+> your work would gain interest.
 
---=-0J6SOuEAxxvbpB7waOy2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Okay, I'll go back to the drawing board on performance.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Damn, this is going to be tough.
 
-iQEcBAABAgAGBQJOUHOoAAoJECTsCADr/EWUjiAIALFY+RBFwXBL6C74vhCxhjxX
-RYEreDDCdrG5cHlN1efiCqODvbImbBbCk79GaBQNrhrEEv2sdGKAbpyqppqSPqhI
-CD4mgTqMuGkOh9ktgnNw8NJ9LBX4jmpo2j0Gt+ePDYA9eQWmycPY8CQhextgEPdx
-8EPb1VOSgzNP9o8bEbxCSvC/Tk8RXbFX3JqA9RfyYADRp3mDmsQP+HAlfjif9a0c
-aH58tPwKPXCpgh2zJfx2AudKN0rvvV+gnUHBVK7ml78cAU2epTIDC+hlHVvkl+dE
-LC9xR0gxlIFdfaaA95bJVjrbDL+fvPCHNWvFgZd0v72+QYuRvu+6qPjpUsli6hE=
-=ww+n
------END PGP SIGNATURE-----
+> I'm copy-pasting here the memo I exchanged in private after my tests, there
+> is nothing secret in it, so better post the whole explanation :
 
---=-0J6SOuEAxxvbpB7waOy2--
-
+Thank you very much.  It helps me figure out what the time budget is.
