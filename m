@@ -1,48 +1,58 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [PATCH] net: add APIs for manipulating skb page fragments.
-Date: Sun, 21 Aug 2011 09:23:57 +0100
-Message-ID: <1313915037.17978.686.camel@dagon.hellion.org.uk>
-References: <1313771100-22993-1-git-send-email-ian.campbell@citrix.com>
-	 <20110820.173133.1612902138924735868.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: strange routing issue--packets stop getting forwarded for a live
+ connection
+Date: Sun, 21 Aug 2011 12:02:51 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108211142180.1581@ja.ssi.bg>
+References: <4E506A46.6060407@fatooh.org> <alpine.LFD.2.00.1108210924010.1581@ja.ssi.bg> <4E50BDFB.7050502@fatooh.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"mirq-linux@rere.qmqm.pl" <mirq-linux@rere.qmqm.pl>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:43370 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135Ab1HUIYW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2011 04:24:22 -0400
-In-Reply-To: <20110820.173133.1612902138924735868.davem@davemloft.net>
+Received: from ja.ssi.bg ([178.16.129.10]:52561 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751266Ab1HUI5J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 Aug 2011 04:57:09 -0400
+In-Reply-To: <4E50BDFB.7050502@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-08-21 at 01:31 +0100, David Miller wrote:
-> From: Ian Campbell <ian.campbell@citrix.com>
-> Date: Fri, 19 Aug 2011 17:25:00 +0100
-> 
-> > The primary aim is to add skb_frag_(ref|unref) in order to remove the use of
-> > bare get/put_page on SKB pages fragments and to isolate users from subsequent
-> > changes to the skb_frag_t data structure.
+
+	Hello,
+
+On Sun, 21 Aug 2011, Corey Hickey wrote:
+
+> >> 3. MTU size; 1500 on eth0 and 1406 on tun0. Bigger packets have been
+> >> transferred fine.
 > > 
-> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> > 	Lower MTU, it can be PMTUD problem. At 04:50:24.112658
+> > I see 7801:9169 is 1420 bytes and no ICMP FRAG NEEDED is generated.
+> > May be these two regressions explain it:
+> > 
+> > http://marc.info/?l=linux-netdev&m=131342172722536&w=2
+> > 
+> > 	There are 2 fixes you can try or more recent kernel
+> > tree, for example 3.1-rc2 has the fixes.
 > 
-> You're going to have to protect all of the things using the interfaces
-> from linux/dma-mapping.h with CONFIG_HAS_DMA otherwise it won't build
-> on platforms like S390.
+> Many thanks for your reply--it looks like you're on to something. You
+> didn't specify which interface to lower the MTU on, so I tried them each
+> in turn, and found that lowering the MTU on the client machine to 1406
+> (matching tun0 on the router) did indeed solve the problem. That makes
+> sense in retrospect.
 
-s390 is one of the arches which I build tested and I initially saw this
-issue too. I did add CONFIG_HAS_DMA but it turns out that
-linux/dma-mapping.h takes care of this by including
-asm-generic/dma-mapping-broken.h for you so I removed the #ifdef again.
-The header defines the prototypes to allow building but causes a link
-time failure if anything actually uses the interfaces.
+	I just wanted to note the difference in MTUs
+as a possible cause that triggers the problem. And after
+your confirmation I think the new/patched kernel should work
+without playing with MTUs.
 
-I just tested a s390x defconfig build again and it appears to be fine.
+> It's a bit late at night for me to be patching my kernel, but I'll see
+> if I can do it tomorrow.
+> 
+> Thanks again, and I'll let you know how it turns out.
+> 
+> -Corey
 
-Ian.
+Regards
 
+--
+Julian Anastasov <ja@ssi.bg>
