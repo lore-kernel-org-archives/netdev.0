@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Update
-Date: Sat, 20 Aug 2011 17:29:19 -0700 (PDT)
-Message-ID: <20110820.172919.1482966002228420753.davem@davemloft.net>
-References: <1313759486-23575-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] net: add APIs for manipulating skb page fragments.
+Date: Sat, 20 Aug 2011 17:31:33 -0700 (PDT)
+Message-ID: <20110820.173133.1612902138924735868.davem@davemloft.net>
+References: <1313771100-22993-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41602 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073Ab1HUA3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2011 20:29:23 -0400
-In-Reply-To: <1313759486-23575-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, mirq-linux@rere.qmqm.pl
+To: ian.campbell@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1313771100-22993-1-git-send-email-ian.campbell@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 19 Aug 2011 06:11:20 -0700
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Fri, 19 Aug 2011 17:25:00 +0100
 
-> The following series contains updates to e1000e and ixgbe.
+> The primary aim is to add skb_frag_(ref|unref) in order to remove the use of
+> bare get/put_page on SKB pages fragments and to isolate users from subsequent
+> changes to the skb_frag_t data structure.
 > 
-> The following are changes since commit ae1511bf769cafeae5ab61aaf9947a16a22cbd10:
->   net: rps: support PPPOE session messages
-> and are available in the git repository at:
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next master
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 
-I had done a net --> net-next merge right before pulling this so there
-was a slight merge conflict, which I think I resolved correctly.
-
-Please double-check my work.
-
-Thanks.
+You're going to have to protect all of the things using the interfaces
+from linux/dma-mapping.h with CONFIG_HAS_DMA otherwise it won't build
+on platforms like S390.
