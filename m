@@ -1,69 +1,33 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Re: Bridge stays down until a port is added
-Date: Sun, 21 Aug 2011 14:13:05 +0200
-Message-ID: <20110821121305.GA22232@torres.zugschlus.de>
-References: <20110811070659.GA21307@torres.zugschlus.de>
- <20110811081706.7307e8b2@nehalam.ftrdhcpuser.net>
- <20110811205429.GB21307@torres.zugschlus.de>
- <alpine.DEB.2.02.1108121418090.11637@aurora>
- <20110820094712.GC21307@torres.zugschlus.de>
- <20110820093059.75c37a1f@nehalam.ftrdhcpuser.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 hard-freezes the system on big network loads
+Date: Sun, 21 Aug 2011 14:33:11 +0200
+Message-ID: <20110821123311.GA20605@electric-eye.fr.zoreil.com>
+References: <201108141308.28140.kjun-chen@sambodha.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, Sven-Haegar Koch <haegar@sdinet.de>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	Michael Brade <brade@informatik.uni-muenchen.de>
+To: Kjun Chen <kjun-chen@sambodha.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:45650 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754197Ab1HUMNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2011 08:13:08 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38162 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751367Ab1HUMu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2011 08:50:59 -0400
 Content-Disposition: inline
-In-Reply-To: <20110820093059.75c37a1f@nehalam.ftrdhcpuser.net>
+In-Reply-To: <201108141308.28140.kjun-chen@sambodha.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 20, 2011 at 09:30:59AM -0700, Stephen Hemminger wrote:
-> The problem is that IPv6 Duplicate Address Detection needs to
-> work. This is not a simple problem.  If the bridge asserted
-> carrier with no ports then:
-> 
-> 1. IPv6 address assigned and IPv6 decides it is okay.
-> 2. Port added later
-> 3. Another system has the same address.
-> *broke*
+(Michael, please don't use the e-mail address of your Solar meditation teacher)
 
-Same situation when a system-to-system-link is added after bringing up
-an interface. I agree that the issue is not an issue if a real switch
-is being used.
+Kjun Chen <kjun-chen@sambodha.org> :
+[...]
+> If you need any other information or help, please let me know.
 
-> If you want to avoid DAD, then you can configure disable DAD
-> by setting /proc/sys/net/ipv6/conf/br0/accept_dad to 0
+The XID line included in any recent kernel dmesg by the r8169 driver would
+be welcome.
 
-I'd like to avoid that.
-
-2001:db8::1
-
-Would it acceptable (and clean!) to have:
-
-eth0: 2001:db8:1::100/64 default gw to the internet is 2001:db8:1::1
-lo: 127.0.0.1/8, ::1/128, 2001:db8:2::100/64
-br0: 2001:db8:2::1/64 (being default gw for the VMs connected to br0,
-routing 2001:db8:2::/64 to the Internet)
-
-Note 2001:db8:2::/64 being used both on lo and br0, with 2001:db8:2::100 meant
-to be reachable from the Internet even if no VM is already up. my
-hostname will be A-Recorded to 2001:db8:2::100 with proper reverse
-DNS. The background for doing so is that I cannot control the reverse
-DNS for the IP addresses inside 200a:db8:1::/64 in a lot of my setups
-(for example, if my IPv6 comes in via Sixxs).
-
-Is this going to work in a clean way?
-
-Greetings
-Marc
+Thanks.
 
 -- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
+Ueimor
