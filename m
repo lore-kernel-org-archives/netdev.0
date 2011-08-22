@@ -1,243 +1,65 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: [PATCH v4] Proportional Rate Reduction for TCP.
-Date: Sun, 21 Aug 2011 23:21:57 -0700
-Message-ID: <1313994117-7374-1-git-send-email-nanditad@google.com>
-References: <1313803779-6221-1-git-send-email-nanditad@google.com>
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: KVM induced panic on 2.6.38[2367] & 2.6.39
+Date: Mon, 22 Aug 2011 09:36:04 +0300
+Message-ID: <4E51F8D4.5070804@redhat.com>
+References: <20110601011527.GN19505@random.random>	 <alpine.LSU.2.00.1105312120530.22808@sister.anvils>	 <4DE5DCA8.7070704@fnarfbargle.com> <4DE5E29E.7080009@redhat.com>	 <4DE60669.9050606@fnarfbargle.com> <4DE60918.3010008@redhat.com>	 <4DE60940.1070107@redhat.com> <4DE61A2B.7000008@fnarfbargle.com>	 <20110601111841.GB3956@zip.com.au> <4DE62801.9080804@fnarfbargle.com>	 <20110601230342.GC3956@zip.com.au> <4DE8E3ED.7080004@fnarfbargle.com>	 <4DEB3AE4.8040700@redhat.com>  <4DEB8872.2060801@fnarfbargle.com>	 <1307391746.2642.11.camel@edumazet-laptop>	 <4DEE273F.7090402@fnarfbargle.com> <1307453874.3091.14.camel@edumazet-laptop> <4E4FB3B7.4040501@fnarfbargle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, CaT <cat@zip.com.au>,
+	Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
+	kvm@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Brad Campbell <lists2009@fnarfbargle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:17072 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751762Ab1HVGWK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 02:22:10 -0400
-In-Reply-To: <1313803779-6221-1-git-send-email-nanditad@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1025 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751869Ab1HVGg0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Aug 2011 02:36:26 -0400
+In-Reply-To: <4E4FB3B7.4040501@fnarfbargle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements Proportional Rate Reduction (PRR) for TCP.
-PRR is an algorithm that determines TCP's sending rate in fast
-recovery. PRR avoids excessive window reductions and aims for
-the actual congestion window size at the end of recovery to be as
-close as possible to the window determined by the congestion control
-algorithm. PRR also improves accuracy of the amount of data sent
-during loss recovery.
+On 08/20/2011 04:16 PM, Brad Campbell wrote:
+> Author: Alexander Duyck <alexander.h.duyck@intel.com>
+> Date:   Thu Jul 1 13:28:27 2010 +0000
+>
+>     x86: Drop CONFIG_MCORE2 check around setting of NET_IP_ALIGN
+>
+>     This patch removes the CONFIG_MCORE2 check from around 
+> NET_IP_ALIGN.  It is
+>     based on a suggestion from Andi Kleen.  The assumption is that 
+> there are
+>     not any x86 cores where unaligned access is really slow, and this 
+> change
+>     would allow for a performance improvement to still exist on 
+> configurations
+>     that are not necessarily optimized for Core 2.
+>
+>     Cc: Andi Kleen <ak@linux.intel.com>
+>     Cc: Thomas Gleixner <tglx@linutronix.de>
+>     Cc: Ingo Molnar <mingo@redhat.com>
+>     Cc: "H. Peter Anvin" <hpa@zytor.com>
+>     Cc: x86@kernel.org
+>     Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>     Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>     Acked-by: H. Peter Anvin <hpa@zytor.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> :040000 040000 5a15867789080a2f67a74b17c4422f85b7a9fb4a 
+> b98769348bd765731ca3ff03b33764257e23226c M    arch
+>
+> I can confirm this bug exists in the 3.0 kernel, however I'm unable to 
+> reproduce it on todays git.
+>
+> So anyone using netfilter, kvm and bridge on kernels between 
+> 2.6.36-rc1 and 3.0 may hit this bug, but it looks like it is fixed in 
+> the current 3.1-rc kernels.
+>
 
-The patch implements the recommended flavor of PRR called PRR-SSRB
-(Proportional rate reduction with slow start reduction bound) and
-replaces the existing rate halving algorithm. PRR improves upon the
-existing Linux fast recovery under a number of conditions including:
-  1) burst losses where the losses implicitly reduce the amount of
-outstanding data (pipe) below the ssthresh value selected by the
-congestion control algorithm and,
-  2) losses near the end of short flows where application runs out of
-data to send.
+Thanks for this effort.  I don't think this patch is buggy in itself, it 
+merely exposed another bug which was fixed later on.
 
-As an example, with the existing rate halving implementation a single
-loss event can cause a connection carrying short Web transactions to
-go into the slow start mode after the recovery. This is because during
-recovery Linux pulls the congestion window down to packets_in_flight+1
-on every ACK. A short Web response often runs out of new data to send
-and its pipe reduces to zero by the end of recovery when all its packets
-are drained from the network. Subsequent HTTP responses using the same
-connection will have to slow start to raise cwnd to ssthresh. PRR on
-the other hand aims for the cwnd to be as close as possible to ssthresh
-by the end of recovery.
-
-A description of PRR and a discussion of its performance can be found at
-the following links:
-- IETF Draft:
-    http://tools.ietf.org/html/draft-mathis-tcpm-proportional-rate-reduction-01
-- IETF Slides:
-    http://www.ietf.org/proceedings/80/slides/tcpm-6.pdf
-    http://tools.ietf.org/agenda/81/slides/tcpm-2.pdf
-- Paper to appear in Internet Measurements Conference (IMC) 2011:
-    Improving TCP Loss Recovery
-    Nandita Dukkipati, Matt Mathis, Yuchung Cheng
-
-Signed-off-by: Nandita Dukkipati <nanditad@google.com>
----
-Changelog since v3:
-- Removed the fallback of cwnd to 1 in tcp_update_cwnd_recovery(), for the extremely
-  unlikely event that tp->prior_cwnd takes on a value of 0 (bug outside of PRR).
-
-Changelog since v2:
-- Used div_u64 in tcp_update_cwnd_in_recovery() to ensure portable 64-bit division.
-- Removed an empty line in tcp_complete_cwr().
-
-Changelog since v1:
-- Took care of overflow for large congestion windows in tcp_update_cwnd_in_recovery().
-- Renamed prr_cwnd to prior_cwnd.
-- Renamed pkts_delivered to newly_acked_sacked.
-
- include/linux/tcp.h   |    4 +++
- net/ipv4/tcp_input.c  |   58 +++++++++++++++++++++++++++++++++++++++++++-----
- net/ipv4/tcp_output.c |    7 +++++-
- 3 files changed, 62 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 531ede8..6b63b31 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -379,6 +379,10 @@ struct tcp_sock {
- 	u32	snd_cwnd_clamp; /* Do not allow snd_cwnd to grow above this */
- 	u32	snd_cwnd_used;
- 	u32	snd_cwnd_stamp;
-+	u32	prior_cwnd;	/* Congestion window at start of Recovery. */
-+	u32	prr_delivered;	/* Number of newly delivered packets to
-+				 * receiver in Recovery. */
-+	u32	prr_out;	/* Total number of pkts sent during Recovery. */
- 
-  	u32	rcv_wnd;	/* Current receiver window		*/
- 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ea0d218..385c470 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2830,9 +2830,13 @@ static int tcp_try_undo_loss(struct sock *sk)
- static inline void tcp_complete_cwr(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
--	/* Do not moderate cwnd if it's already undone in cwr or recovery */
--	if (tp->undo_marker && tp->snd_cwnd > tp->snd_ssthresh) {
--		tp->snd_cwnd = tp->snd_ssthresh;
-+
-+	/* Do not moderate cwnd if it's already undone in cwr or recovery. */
-+	if (tp->undo_marker) {
-+		if (inet_csk(sk)->icsk_ca_state == TCP_CA_CWR)
-+			tp->snd_cwnd = min(tp->snd_cwnd, tp->snd_ssthresh);
-+		else /* PRR */
-+			tp->snd_cwnd = tp->snd_ssthresh;
- 		tp->snd_cwnd_stamp = tcp_time_stamp;
- 	}
- 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
-@@ -2950,6 +2954,38 @@ void tcp_simple_retransmit(struct sock *sk)
- }
- EXPORT_SYMBOL(tcp_simple_retransmit);
- 
-+/* This function implements the PRR algorithm, specifcally the PRR-SSRB
-+ * (proportional rate reduction with slow start reduction bound) as described in
-+ * http://www.ietf.org/id/draft-mathis-tcpm-proportional-rate-reduction-01.txt.
-+ * It computes the number of packets to send (sndcnt) based on packets newly
-+ * delivered:
-+ *   1) If the packets in flight is larger than ssthresh, PRR spreads the
-+ *	cwnd reductions across a full RTT.
-+ *   2) If packets in flight is lower than ssthresh (such as due to excess
-+ *	losses and/or application stalls), do not perform any further cwnd
-+ *	reductions, but instead slow start up to ssthresh.
-+ */
-+static void tcp_update_cwnd_in_recovery(struct sock *sk, int newly_acked_sacked,
-+					int fast_rexmit, int flag)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	int sndcnt = 0;
-+	int delta = tp->snd_ssthresh - tcp_packets_in_flight(tp);
-+
-+	if (tcp_packets_in_flight(tp) > tp->snd_ssthresh) {
-+		u64 dividend = (u64)tp->snd_ssthresh * tp->prr_delivered +
-+			       tp->prior_cwnd - 1;
-+		sndcnt = div_u64(dividend, tp->prior_cwnd) - tp->prr_out;
-+	} else {
-+		sndcnt = min_t(int, delta,
-+			       max_t(int, tp->prr_delivered - tp->prr_out,
-+				     newly_acked_sacked) + 1);
-+	}
-+
-+	sndcnt = max(sndcnt, (fast_rexmit ? 1 : 0));
-+	tp->snd_cwnd = tcp_packets_in_flight(tp) + sndcnt;
-+}
-+
- /* Process an event, which can update packets-in-flight not trivially.
-  * Main goal of this function is to calculate new estimate for left_out,
-  * taking into account both packets sitting in receiver's buffer and
-@@ -2961,7 +2997,8 @@ EXPORT_SYMBOL(tcp_simple_retransmit);
-  * It does _not_ decide what to send, it is made in function
-  * tcp_xmit_retransmit_queue().
-  */
--static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
-+static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
-+				  int newly_acked_sacked, int flag)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
-@@ -3111,13 +3148,17 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
- 
- 		tp->bytes_acked = 0;
- 		tp->snd_cwnd_cnt = 0;
-+		tp->prior_cwnd = tp->snd_cwnd;
-+		tp->prr_delivered = 0;
-+		tp->prr_out = 0;
- 		tcp_set_ca_state(sk, TCP_CA_Recovery);
- 		fast_rexmit = 1;
- 	}
- 
- 	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
- 		tcp_update_scoreboard(sk, fast_rexmit);
--	tcp_cwnd_down(sk, flag);
-+	tp->prr_delivered += newly_acked_sacked;
-+	tcp_update_cwnd_in_recovery(sk, newly_acked_sacked, fast_rexmit, flag);
- 	tcp_xmit_retransmit_queue(sk);
- }
- 
-@@ -3632,6 +3673,8 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	u32 prior_in_flight;
- 	u32 prior_fackets;
- 	int prior_packets;
-+	int prior_sacked = tp->sacked_out;
-+	int newly_acked_sacked = 0;
- 	int frto_cwnd = 0;
- 
- 	/* If the ack is older than previous acks
-@@ -3703,6 +3746,9 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	/* See if we can take anything off of the retransmit queue. */
- 	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una);
- 
-+	newly_acked_sacked = (prior_packets - prior_sacked) -
-+			     (tp->packets_out - tp->sacked_out);
-+
- 	if (tp->frto_counter)
- 		frto_cwnd = tcp_process_frto(sk, flag);
- 	/* Guarantee sacktag reordering detection against wrap-arounds */
-@@ -3715,7 +3761,7 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 		    tcp_may_raise_cwnd(sk, flag))
- 			tcp_cong_avoid(sk, ack, prior_in_flight);
- 		tcp_fastretrans_alert(sk, prior_packets - tp->packets_out,
--				      flag);
-+				      newly_acked_sacked, flag);
- 	} else {
- 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
- 			tcp_cong_avoid(sk, ack, prior_in_flight);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 882e0b0..ca50408 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1796,11 +1796,13 @@ static int tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 		tcp_event_new_data_sent(sk, skb);
- 
- 		tcp_minshall_update(tp, mss_now, skb);
--		sent_pkts++;
-+		sent_pkts += tcp_skb_pcount(skb);
- 
- 		if (push_one)
- 			break;
- 	}
-+	if (inet_csk(sk)->icsk_ca_state == TCP_CA_Recovery)
-+		tp->prr_out += sent_pkts;
- 
- 	if (likely(sent_pkts)) {
- 		tcp_cwnd_validate(sk);
-@@ -2294,6 +2296,9 @@ begin_fwd:
- 			return;
- 		NET_INC_STATS_BH(sock_net(sk), mib_idx);
- 
-+		if (inet_csk(sk)->icsk_ca_state == TCP_CA_Recovery)
-+			tp->prr_out += tcp_skb_pcount(skb);
-+
- 		if (skb == tcp_write_queue_head(sk))
- 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 						  inet_csk(sk)->icsk_rto,
 -- 
-1.7.3.1
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
 
