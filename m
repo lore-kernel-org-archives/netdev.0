@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 09/12] bna: MBOX IRQ Flag Check after Locking
-Date: Mon, 22 Aug 2011 15:41:06 -0700
-Message-ID: <1314052869-7407-10-git-send-email-rmody@brocade.com>
+Subject: [net-next 08/12] bna: Async Mode Tx Rx Init Fix
+Date: Mon, 22 Aug 2011 15:41:05 -0700
+Message-ID: <1314052869-7407-9-git-send-email-rmody@brocade.com>
 References: <1314052869-7407-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,65 +10,128 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:55635 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754168Ab1HVWmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 18:42:00 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:40744 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754195Ab1HVWl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 18:41:56 -0400
 In-Reply-To: <1314052869-7407-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Check the BNAD_RF_MBOX_IRQ_DISABLED flag after acquiring the bna_lock.
+ - Async mode of Tx/Rx queue initialization in BNAD from a task queue context
+   runs into non-unique taskq allocation issues. Get rid of Tx/Rx
+   initialization from task q context
+ - In the attach function, wait for IOC enable, then do Tx/Rx queue
+   initialization. Default BNA attributes are used when IOC enable from attach
+   fails and values are set to:
+   1 TxQ, 1 RxQ, 1 Unicast MAC, 1 RIT entry
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_enet.c    |   29 ++++++++++++++++++-----
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    4 +++
+ drivers/net/ethernet/brocade/bna/bna_types.h   |    1 +
+ 3 files changed, 27 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 2f808c7..5df21d0 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -582,10 +582,11 @@ bnad_msix_mbox_handler(int irq, void *data)
- 	unsigned long flags;
- 	struct bnad *bnad = (struct bnad *)data;
- 
--	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags)))
--		return IRQ_HANDLED;
--
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags))) {
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+		return IRQ_HANDLED;
+diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
+index 68a275d..26f5c5a 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_enet.c
++++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
+@@ -167,13 +167,14 @@ bna_bfi_attr_get_rsp(struct bna_ioceth *ioceth,
+ 	 * Store only if not set earlier, since BNAD can override the HW
+ 	 * attributes
+ 	 */
+-	if (!ioceth->attr.num_txq)
++	if (!ioceth->attr.fw_query_complete) {
+ 		ioceth->attr.num_txq = ntohl(rsp->max_cfg);
+-	if (!ioceth->attr.num_rxp)
+ 		ioceth->attr.num_rxp = ntohl(rsp->max_cfg);
+-	ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
+-	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
+-	ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
++		ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
++		ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
++		ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
++		ioceth->attr.fw_query_complete = true;
 +	}
  
- 	bna_intr_status_get(&bnad->bna, intr_status);
+ 	bfa_fsm_send_event(ioceth, IOCETH_E_ENET_ATTR_RESP);
+ }
+@@ -1693,6 +1694,16 @@ static struct bfa_ioc_cbfn bna_ioceth_cbfn = {
+ 	bna_cb_ioceth_reset
+ };
  
-@@ -608,15 +609,18 @@ bnad_isr(int irq, void *data)
- 	struct bnad_rx_ctrl *rx_ctrl;
- 	struct bna_tcb *tcb = NULL;
++static void bna_attr_init(struct bna_ioceth *ioceth)
++{
++	ioceth->attr.num_txq = BFI_ENET_DEF_TXQ;
++	ioceth->attr.num_rxp = BFI_ENET_DEF_RXP;
++	ioceth->attr.num_ucmac = BFI_ENET_DEF_UCAM;
++	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
++	ioceth->attr.max_rit_size = BFI_ENET_DEF_RITSZ;
++	ioceth->attr.fw_query_complete = false;
++}
++
+ static void
+ bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
+ 		struct bna_res_info *res_info)
+@@ -1738,6 +1749,8 @@ bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
+ 	ioceth->stop_cbfn = NULL;
+ 	ioceth->stop_cbarg = NULL;
  
--	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags)))
-+	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags))) {
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 		return IRQ_NONE;
-+	}
++	bna_attr_init(ioceth);
++
+ 	bfa_fsm_set_state(ioceth, bna_ioceth_sm_stopped);
+ }
  
- 	bna_intr_status_get(&bnad->bna, intr_status);
+@@ -2036,7 +2049,8 @@ bna_uninit(struct bna *bna)
+ int
+ bna_num_txq_set(struct bna *bna, int num_txq)
+ {
+-	if (num_txq > 0 && (num_txq <= bna->ioceth.attr.num_txq)) {
++	if (bna->ioceth.attr.fw_query_complete &&
++		(num_txq <= bna->ioceth.attr.num_txq)) {
+ 		bna->ioceth.attr.num_txq = num_txq;
+ 		return BNA_CB_SUCCESS;
+ 	}
+@@ -2047,7 +2061,8 @@ bna_num_txq_set(struct bna *bna, int num_txq)
+ int
+ bna_num_rxp_set(struct bna *bna, int num_rxp)
+ {
+-	if (num_rxp > 0 && (num_rxp <= bna->ioceth.attr.num_rxp)) {
++	if (bna->ioceth.attr.fw_query_complete &&
++		(num_rxp <= bna->ioceth.attr.num_rxp)) {
+ 		bna->ioceth.attr.num_rxp = num_rxp;
+ 		return BNA_CB_SUCCESS;
+ 	}
+diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+index 7ecdca5..dde8a46 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+@@ -30,6 +30,10 @@
+  * SW imposed limits
+  *
+  */
++#define BFI_ENET_DEF_TXQ		1
++#define BFI_ENET_DEF_RXP		1
++#define BFI_ENET_DEF_UCAM		1
++#define BFI_ENET_DEF_RITSZ		1
  
--	if (unlikely(!intr_status))
-+	if (unlikely(!intr_status)) {
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 		return IRQ_NONE;
--
--	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	}
+ #define BFI_ENET_MAX_MCAM		256
  
- 	if (BNA_IS_MBOX_ERR_INTR(&bnad->bna, intr_status))
- 		bna_mbox_handler(&bnad->bna, intr_status);
+diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
+index 59417b1..242d799 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_types.h
++++ b/drivers/net/ethernet/brocade/bna/bna_types.h
+@@ -323,6 +323,7 @@ struct bna_qpt {
+ };
+ 
+ struct bna_attr {
++	bool			fw_query_complete;
+ 	int			num_txq;
+ 	int			num_rxp;
+ 	int			num_ucmac;
 -- 
 1.7.1
 
