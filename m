@@ -1,38 +1,37 @@
-From: "Mail Administrator" <web.support@bent.cc>
-Subject: Email Quota Exceeded.
-Date: Mon, 22 Aug 2011 16:25:26 -0400
-Message-ID: <web-29586923@correoantiguo.usach.cl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][Trivial] net/wan/hdlc_ppp: remove dead goto
+Date: Mon, 22 Aug 2011 13:52:00 -0700 (PDT)
+Message-ID: <20110822.135200.2097710885170099050.davem@davemloft.net>
+References: <alpine.LNX.2.00.1108130138100.7387@swampdragon.chaosbits.net>
+	<20110818.220249.1523360015062657902.davem@davemloft.net>
+	<alpine.LNX.2.00.1108212337380.8097@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: tech@support.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, trivial@kernel.org
+To: jj@chaosbits.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lauca.usach.cl ([158.170.64.28]:53874 "HELO
-	correoantiguo.usach.cl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with SMTP id S1753334Ab1HVUb0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 16:31:26 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:55868 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753493Ab1HVUw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 16:52:27 -0400
+In-Reply-To: <alpine.LNX.2.00.1108212337380.8097@swampdragon.chaosbits.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Subscriber,
-This is to inform you that you have exceeded your E-mail 
-Quota Limit and you need to increase your E-mail Quota 
-Limit because in less than 96 hours your E- mail Account 
-will be disabled. Increase your E-mail Quota Limit and 
-continue to use your Webmail Account.
+From: Jesper Juhl <jj@chaosbits.net>
+Date: Sun, 21 Aug 2011 23:38:51 +0200 (CEST)
 
-To increase your E-mail Quota Limit to 2.7GB, You are to 
-send your email account details which are as follows:
+> From: Jesper Juhl <jj@chaosbits.net>
+> Subject: [PATCH] net/wan/hdlc_ppp: use break in switch
+> 
+> We'll either hit one of the case labels or the default in the switch
+> and in all cases do we then 'goto out' and we also have a 'goto out'
+> after the switch that is redundant. Change to just use break in the
+> case statements and leave the 'goto out' after the lop for everyone to
+> hit.
+> 
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-EMAIL ADDRESS:
-USERNAME:
-PASSWORD:
-CONFIRM PASSWORD:
-DATE OF BIRTH:
-
-Thank you for your understanding and co-operation in 
-helping us give you the Best of E-mail Service.
-
-Regards,
-Tech. Support Team
+Applied.
