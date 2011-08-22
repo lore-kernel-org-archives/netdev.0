@@ -1,45 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/5] be2net: fix erx->rx_drops_no_frags wrap
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next 3/5] be2net: fix erx->rx_drops_no_frags wrap
  around
-Date: Mon, 22 Aug 2011 13:47:38 +0200
-Message-ID: <1314013658.2307.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Date: Mon, 22 Aug 2011 05:15:45 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F642D8EDB85A@EXMAIL.ad.emulex.com>
 References: <1314011613-4519-1-git-send-email-sathya.perla@emulex.com>
 	 <1314011613-4519-4-git-send-email-sathya.perla@emulex.com>
 	 <1314013414.2307.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1314013658.2307.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Sathya Perla <sathya.perla@emulex.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48825 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab1HVLrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 07:47:36 -0400
-Received: by wyg24 with SMTP id 24so3417473wyg.19
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 04:47:35 -0700 (PDT)
-In-Reply-To: <1314013414.2307.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from exht1.emulex.com ([138.239.113.183]:13325 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751504Ab1HVMQQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 08:16:16 -0400
+In-Reply-To: <1314013658.2307.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 22 ao=C3=BBt 2011 =C3=A0 13:43 +0200, Eric Dumazet a =C3=A9cri=
-t :
-
-> This adds a race for lockless SNMP readers (in be_get_stats64())
->=20
-> They can see the 32bit value going backward.
->=20
-> You have to be very careful to read the *acc once, and write it once.
-
-The "write once" is the only requirement.
-
-Something like :
-
-u32 newval =3D hi(*acc) + val;
-
-if (wrapped)
-	newval +=3D 65536;
-ACCESS_ONCE(*acc) =3D newval;
-
-
-
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86
+ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj5TZW50OiBNb25kYXksIEF1Z3VzdCAyMiwgMjAxMSA1
+OjE4IFBNDQo+DQo+TGUgbHVuZGkgMjIgYW/Du3QgMjAxMSDDoCAxMzo0MyArMDIwMCwgRXJpYyBE
+dW1hemV0IGEgw6ljcml0IDoNCj4NCj4+IFRoaXMgYWRkcyBhIHJhY2UgZm9yIGxvY2tsZXNzIFNO
+TVAgcmVhZGVycyAoaW4gYmVfZ2V0X3N0YXRzNjQoKSkNCj4+DQo+PiBUaGV5IGNhbiBzZWUgdGhl
+IDMyYml0IHZhbHVlIGdvaW5nIGJhY2t3YXJkLg0KPj4NCj4+IFlvdSBoYXZlIHRvIGJlIHZlcnkg
+Y2FyZWZ1bCB0byByZWFkIHRoZSAqYWNjIG9uY2UsIGFuZCB3cml0ZSBpdCBvbmNlLg0KPg0KPlRo
+ZSAid3JpdGUgb25jZSIgaXMgdGhlIG9ubHkgcmVxdWlyZW1lbnQuDQo+DQo+U29tZXRoaW5nIGxp
+a2UgOg0KPg0KPnUzMiBuZXd2YWwgPSBoaSgqYWNjKSArIHZhbDsNCj4NCj5pZiAod3JhcHBlZCkN
+Cj4JbmV3dmFsICs9IDY1NTM2Ow0KPkFDQ0VTU19PTkNFKCphY2MpID0gbmV3dmFsOw0KPg0KDQpF
+cmljLA0KDQpJJ20gd29uZGVyaW5nIHdoeSB5b3UnZCBuZWVkIEFDQ0VTU19PTkNFKCkgaGVyZT8g
+V291bGRuJ3QgdXNpbmcgdGhlIHRlbXAgdmFyaWFibGUgKG5ld3ZhbCkgYXMgeW91IHN1Z2dlc3Rl
+ZCwNCmVuc3VyZSB0aGF0IHRoZSByZWFkZXIgZG9lc24ndCBzZWUgYSBoYWxmLWJha2VkIHZhbHVl
+Pw0KDQo=
