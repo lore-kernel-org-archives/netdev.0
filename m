@@ -1,90 +1,75 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH 2/2] sctp: Bundle HEAERTBEAT into ASCONF_ACK
-Date: Tue, 23 Aug 2011 00:44:52 +0900
-Message-ID: <E2795E69-CB32-4F53-AB1D-2114BDF5C2EB@sfc.wide.ad.jp>
-Mime-Version: 1.0 (Apple Message framework v1244.3)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Yongjun <weiyj.lk@gmail.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: net_device leak after "bridge: allow creating bridge devices
+ with netlink"?
+Date: Mon, 22 Aug 2011 08:55:32 -0700
+Message-ID: <20110822085532.2ff4479c@nehalam.ftrdhcpuser.net>
+References: <4E525ADA020000780005278A@nat28.tlf.novell.com>
+	<1314017401.2307.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jan Beulich <JBeulich@novell.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:57882 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751535Ab1HVPox convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 11:44:53 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:40338 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751254Ab1HVPzV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 11:55:21 -0400
+In-Reply-To: <1314017401.2307.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From e7cbeb4d796fec8351ede4affbd4269346639db9 Mon Sep 17 00:00:00 2001
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Thu, 16 Jun 2011 17:14:34 +0900
-Subject: [PATCH 2/2] sctp: Bundle HEAERTBEAT into ASCONF_ACK
+On Mon, 22 Aug 2011 14:50:01 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-With this patch a HEARTBEAT chunk is bundled into the ASCONF-ACK
-for ADD IP ADDRESS, confirming the new destination as quickly as
-possible.
+> Le lundi 22 ao=FBt 2011 =E0 12:34 +0100, Jan Beulich a =E9crit :
+> > Stephen,
+> >=20
+> > directly returning the result of register_netdev() from br_add_brid=
+ge()
+> > would - to me - appear to be leaking "dev" in case of failure. Or a=
+m I
+> > overlooking some implicit mechanism by which this would get freed?
+> >=20
+> > Thanks, Jan
+>=20
+> You're 100 % right, there is a leak here.
+>=20
+> (But "ip" or "brctl" commands first check link already exist before
+> trying create it, so you need to tweak them to actually hit this bug)
+>=20
+> We have to add a free_netdev() call to free the net_device.
+>=20
+>=20
+>=20
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index 2cdf007..e738154 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -231,6 +231,7 @@ static struct net_bridge_port *new_nbp(struct net=
+_bridge *br,
+>  int br_add_bridge(struct net *net, const char *name)
+>  {
+>  	struct net_device *dev;
+> +	int res;
+> =20
+>  	dev =3D alloc_netdev(sizeof(struct net_bridge), name,
+>  			   br_dev_setup);
+> @@ -240,7 +241,10 @@ int br_add_bridge(struct net *net, const char *n=
+ame)
+> =20
+>  	dev_net_set(dev, net);
+> =20
+> -	return register_netdev(dev);
+> +	res =3D register_netdev(dev);
+> +	if (res)
+> +		free_netdev(dev);
+> +	return res;
+>  }
+> =20
+>  int br_del_bridge(struct net *net, const char *name)
 
-Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
----
- include/net/sctp/structs.h |    1 +
- net/sctp/associola.c       |    1 +
- net/sctp/sm_make_chunk.c   |    1 +
- net/sctp/sm_statefuns.c    |    5 +++++
- 4 files changed, 8 insertions(+), 0 deletions(-)
+Missing Signed-off-by:?
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index f7d9c3f..e90e7a9 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1915,6 +1915,7 @@ struct sctp_association {
- 	__u32 addip_serial;
- 	union sctp_addr *asconf_addr_del_pending;
- 	int src_out_of_asoc_ok;
-+	struct sctp_transport *new_transport;
- 
- 	/* SCTP AUTH: list of the endpoint shared keys.  These
- 	 * keys are provided out of band by the user applicaton
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index dc16b90..152b5b3 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -282,6 +282,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 		asoc->peer.asconf_capable = 1;
- 	asoc->asconf_addr_del_pending = NULL;
- 	asoc->src_out_of_asoc_ok = 0;
-+	asoc->new_transport = NULL;
- 
- 	/* Create an input queue.  */
- 	sctp_inq_init(&asoc->base.inqueue);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 81db4e3..0121e0a 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3015,6 +3015,7 @@ static __be16 sctp_process_asconf_param(struct sctp_association *asoc,
- 		/* Start the heartbeat timer. */
- 		if (!mod_timer(&peer->hb_timer, sctp_transport_timeout(peer)))
- 			sctp_transport_hold(peer);
-+		asoc->new_transport = peer;
- 		break;
- 	case SCTP_PARAM_DEL_IP:
- 		/* ADDIP 4.3 D7) If a request is received to delete the
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 49b847b..73d14fc 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3612,6 +3612,11 @@ sctp_disposition_t sctp_sf_do_asconf(const struct sctp_endpoint *ep,
- 	 */
- 	asconf_ack->dest = chunk->source;
- 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(asconf_ack));
-+	if (asoc->new_transport) {
-+	        sctp_sf_heartbeat(ep, asoc, type, asoc->new_transport,
-+                    commands);
-+		((struct sctp_association *)asoc)->new_transport = NULL;
-+	}
- 
- 	return SCTP_DISPOSITION_CONSUME;
- }
--- 
-1.7.3.2
-
-
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
