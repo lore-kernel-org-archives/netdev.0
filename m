@@ -1,129 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net_device leak after "bridge: allow creating bridge devices
- with netlink"?
-Date: Mon, 22 Aug 2011 18:05:59 +0200
-Message-ID: <1314029159.2307.99.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4E525ADA020000780005278A@nat28.tlf.novell.com>
-	 <1314017401.2307.37.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20110822085532.2ff4479c@nehalam.ftrdhcpuser.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/2] pktgen: Clone skb to avoid corruption of skbs in
+ ndo_start_xmit methods (v3)
+Date: Mon, 22 Aug 2011 17:17:37 +0100
+Message-ID: <1314029857.2803.6.camel@bwh-desktop>
+References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
+	 <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
+	 <1313593637.2776.9.camel@bwh-desktop>
+	 <20110822002641.GA2550@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Beulich <JBeulich@novell.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38017 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753273Ab1HVQF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 12:05:57 -0400
-Received: by wwf5 with SMTP id 5so5365051wwf.1
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 09:05:56 -0700 (PDT)
-In-Reply-To: <20110822085532.2ff4479c@nehalam.ftrdhcpuser.net>
+Received: from exchange.solarflare.com ([216.237.3.220]:7202 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751974Ab1HVQRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 12:17:41 -0400
+In-Reply-To: <20110822002641.GA2550@neilslaptop.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 22 ao=C3=BBt 2011 =C3=A0 08:55 -0700, Stephen Hemminger a =C3=A9=
-crit :
-> On Mon, 22 Aug 2011 14:50:01 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > Le lundi 22 ao=C3=BBt 2011 =C3=A0 12:34 +0100, Jan Beulich a =C3=A9=
-crit :
-> > > Stephen,
-> > >=20
-> > > directly returning the result of register_netdev() from br_add_br=
-idge()
-> > > would - to me - appear to be leaking "dev" in case of failure. Or=
- am I
-> > > overlooking some implicit mechanism by which this would get freed=
-?
-> > >=20
-> > > Thanks, Jan
-> >=20
-> > You're 100 % right, there is a leak here.
-> >=20
-> > (But "ip" or "brctl" commands first check link already exist before
-> > trying create it, so you need to tweak them to actually hit this bu=
-g)
-> >=20
-> > We have to add a free_netdev() call to free the net_device.
-> >=20
-> >=20
-> >=20
-> > diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> > index 2cdf007..e738154 100644
-> > --- a/net/bridge/br_if.c
-> > +++ b/net/bridge/br_if.c
-> > @@ -231,6 +231,7 @@ static struct net_bridge_port *new_nbp(struct n=
-et_bridge *br,
-> >  int br_add_bridge(struct net *net, const char *name)
-> >  {
-> >  	struct net_device *dev;
-> > +	int res;
-> > =20
-> >  	dev =3D alloc_netdev(sizeof(struct net_bridge), name,
-> >  			   br_dev_setup);
-> > @@ -240,7 +241,10 @@ int br_add_bridge(struct net *net, const char =
-*name)
-> > =20
-> >  	dev_net_set(dev, net);
-> > =20
-> > -	return register_netdev(dev);
-> > +	res =3D register_netdev(dev);
-> > +	if (res)
-> > +		free_netdev(dev);
-> > +	return res;
-> >  }
-> > =20
-> >  int br_del_bridge(struct net *net, const char *name)
->=20
-> Missing Signed-off-by:?
->=20
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+On Sun, 2011-08-21 at 20:27 -0400, Neil Horman wrote:
+> On Wed, Aug 17, 2011 at 04:07:17PM +0100, Ben Hutchings wrote:
+> > On Tue, 2011-07-26 at 12:05 -0400, Neil Horman wrote:
+> > > Ok, after considering all your comments, Dave suggested this as an alternate
+> > > approach:
+> > > 
+> > > 1) We create a new priv_flag, IFF_SKB_TX_SHARED, to identify drivers capable of
+> > > handling shared skbs.  Default is to not set this flag
+> > > 
+> > > 2) Modify ether_setup to enable this flag, under the assumption that any driver
+> > > calling this  function is initalizing a real ethernet device and as such can
+> > > handle shared skbs since they don't tend to store state in the skb struct.
+> > > Pktgen can then query this flag when a user script attempts to issue the
+> > > clone_skb command and decide if it is to be alowed or not.
+> > [...]
+> > 
+> > A bunch of Ethernet drivers do skb_pad() or skb_padto() in their
+> > ndo_start_xmit implementations, either to avoid hardware bugs or because
+> > the MAC doesn't automatically pad to the minimum frame length.  This
+> > presumably means they can't generally handle shared skbs, though in the
+> > specific case of pktgen it should be safe as long as a single skb is not
+> > submitted by multiple threads at once.
+> > 
+> Agreed, given that pktgen is doing skb sharing in a serialized manner (i.e. one
+> thread of execution increasing skb->users rather than in multiple threads), the
+> skb_pad[to] cases are safe.  Are there cases in which shared skbs are
+> transmitted in parallel threads that we need to check for?
 
-Well, its only a direct coding of Jan report ;)
+Not that I'm aware of.  However, you have defined the flag to mean 'safe
+to send shared skbs', and this is not generally true for those drivers.
 
-Thanks
+So please decide whether:
+a. The flag means 'safe to send shared skbs' (i.e. the TX path does not
+modify the skb) and drivers which pad must clear it on their devices.
+b. The flag means 'safe to send shared skbs in the way ptkgen does', and
+the restrictions this places on the user and driver should be specified.
 
-[PATCH] bridge: fix a possible net_device leak
+Ben.
 
-Jan Beulich reported a possible net_device leak in bridge code after
-commit bb900b27a2f4 (bridge: allow creating bridge devices with netlink=
-)
-
-Reported-by: Jan Beulich <JBeulich@novell.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
----
- net/bridge/br_if.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 2cdf007..e738154 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -231,6 +231,7 @@ static struct net_bridge_port *new_nbp(struct net_b=
-ridge *br,
- int br_add_bridge(struct net *net, const char *name)
- {
- 	struct net_device *dev;
-+	int res;
-=20
- 	dev =3D alloc_netdev(sizeof(struct net_bridge), name,
- 			   br_dev_setup);
-@@ -240,7 +241,10 @@ int br_add_bridge(struct net *net, const char *nam=
-e)
-=20
- 	dev_net_set(dev, net);
-=20
--	return register_netdev(dev);
-+	res =3D register_netdev(dev);
-+	if (res)
-+		free_netdev(dev);
-+	return res;
- }
-=20
- int br_del_bridge(struct net *net, const char *name)
-
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
