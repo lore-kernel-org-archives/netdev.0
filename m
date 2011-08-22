@@ -1,49 +1,62 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] stmmac: remove the STBus bridge setting from the GMAC code
-Date: Mon, 22 Aug 2011 15:58:27 +0200
-Message-ID: <1314021507-26955-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [RFC] bridge: add netfilter hook for forwarding 802.1D group
+ addresses
+Date: Mon, 22 Aug 2011 15:59:29 +0200
+Message-ID: <20110822135929.GA611458@jupiter.n2.diac24.net>
+References: <CAF5U64CJTWDn8E9+XVLFsdaSbiu-4Rd9XmxZq7ReziRNZviO6Q@mail.gmail.com>
+ <20110812154545.79d8313f@nehalam.ftrdhcpuser.net>
+ <CAF5U64B_fb2tFMLHmK+zw3n6gmq+bYDyFnXhLE0ayssK5m+THA@mail.gmail.com>
+ <20110815150501.3a6cc432@nehalam.ftrdhcpuser.net>
+ <CAEJpZP0fOydMMbgquAud7dfwcO28BXAMzAwnMjSZO6TvEjxgpQ@mail.gmail.com>
+ <20110818081019.4b9bb79e@nehalam.ftrdhcpuser.net>
+ <CAEJpZP2FGhPmTi0+eS+QRhj4y+aqfQHnEUrjmOOLHUay1SuAKg@mail.gmail.com>
+ <20110818093941.5ebf716b@nehalam.ftrdhcpuser.net>
+ <20110819022731.GC180151@jupiter.n2.diac24.net>
+ <20110819135810.1a529ab2@nehalam.ftrdhcpuser.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+	Nick Carter <ncarter100@gmail.com>,
+	Ed Swierk <eswierk@bigswitch.com>, netdev@vger.kernel.org,
+	bridge@linux-foundation.org, netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:60339 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751216Ab1HVN6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 09:58:36 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 84B97150
-	for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 13:58:34 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id DCE3C20DA
-	for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 13:58:33 +0000 (GMT)
+Received: from spaceboyz.net ([87.106.131.203]:58809 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751788Ab1HVN7r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Aug 2011 09:59:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20110819135810.1a529ab2@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes a piece of code (actually commented)
-only useful for some ST platforms in the past.
+On Fri, Aug 19, 2011 at 01:58:10PM -0700, Stephen Hemminger wrote:
+> The IEEE standard expects that link local multicast packets will not
+> be forwarded by a bridge. But there are cases like 802.1X which may
+> require that packets be forwarded. For maximum flexibilty implement
+> this via netfilter.
+> 
+> The netfilter chain is slightly different from other chains in that
+> if packet is ACCEPTED by the chain, it means it should be forwarded.
+> And if the packet verdict result is DROP, the packet is processed
+> as a local packet.
 
-This kind of setting now can be done by using the platform
-callbacks provided in linux/stmmac.h (see the stmmac.txt for
-further details).
+Exactly this functionality already exists by way of the BROUTING chain
+in the broute table. Currently, link-local packets are hardcodedly
+treated as local before they even reach that chain. Nick's patch, in
+conjunction with BROUTING, provides exactly what you're trying to do.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/stmmac/dwmac1000_core.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+Now, without bridge netfilter, your patch becomes rather useless while
+Nick's patch still allows per-group (and therefore per-protocol)
+control.
 
-diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/stmmac/dwmac1000_core.c
-index 0f63b3c..eea184a 100644
---- a/drivers/net/stmmac/dwmac1000_core.c
-+++ b/drivers/net/stmmac/dwmac1000_core.c
-@@ -37,9 +37,6 @@ static void dwmac1000_core_init(void __iomem *ioaddr)
- 	value |= GMAC_CORE_INIT;
- 	writel(value, ioaddr + GMAC_CONTROL);
- 
--	/* STBus Bridge Configuration */
--	/*writel(0xc5608, ioaddr + 0x00007000);*/
--
- 	/* Freeze MMC counters */
- 	writel(0x8, ioaddr + GMAC_MMC_CTRL);
- 	/* Mask GMAC interrupts */
--- 
-1.7.4.4
+Further, Nick's patch is considerably less intrusive.
 
+I would therefore ask for Nick's patch to be merged.
+
+
+-David
+
+
+P.S.: this whole issue is starting to get rather annoying
