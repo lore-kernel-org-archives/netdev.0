@@ -1,51 +1,182 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the  tree
-Date: Mon, 22 Aug 2011 11:51:18 +1000
-Message-ID: <20110822115118.e5d97beb22befc4ba9396e9d@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__22_Aug_2011_11_51_18_+1000_gKhHYF+iNKel0..r"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Josh Boyer <jwboyer@gmail.com>,
-	Niklaus Giger <niklaus.giger@member.fsf.org>,
-	Tony Breeds <tony@bakeyournoodle.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "George Spelvin" <linux@horizon.com>
+Subject: Re: [PATCH 0/2] Improve sequence number generation.
+Date: 21 Aug 2011 22:06:08 -0400
+Message-ID: <20110822020608.11889.qmail@science.horizon.com>
+References: <20110821032753.GA8992@thunk.org>
+Cc: dan@doxpara.com, davem@davemloft.net, gerrit@erg.abdn.ac.uk,
+	herbert@gondor.hengli.com.au, linux-kernel@vger.kernel.org,
+	mpm@selenic.com, netdev@vger.kernel.org, w@1wt.eu
+To: linux@horizon.com, tytso@mit.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from science.horizon.com ([71.41.210.146]:42433 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756589Ab1HVCGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2011 22:06:11 -0400
+In-Reply-To: <20110821032753.GA8992@thunk.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__22_Aug_2011_11_51_18_+1000_gKhHYF+iNKel0..r
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Here's a random thought --- it won't help on anything other than
+> modern x86's, but who's to say we have to use the same algorithm on
+> all platforms?
 
-Hi all,
+We absolutely do not.  With 15 64-bit registers, there are a lot more
+efficient algorithms available than x86-32.
 
-Today's linux-next merge of the net tree got a conflict in
-arch/powerpc/configs/40x/hcu4_defconfig between commit 9fcd768d0cc8
-("powerpc/40x: Remove obsolete HCU4 board") from the 4xx tree and commit
-3b3bceef26f8 ("net: fix IBM EMAC driver after rename") from the net tree.
+Here are my current timing experiments trying to find an efficient
+hash for that case.  Timings are for 100,000 iterations, so these are
+generally in the 100-200 cycles range per operation.
 
-The former commit removes the file, so I just did that.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+This is 32-bit code, even though it's running on 64-bit machines.
 
---Signature=_Mon__22_Aug_2011_11_51_18_+1000_gKhHYF+iNKel0..r
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+The first 3 are various MD5 implementations (standard, with the k[]
+constants in an external array, with the input and K values scheduled
+separately so it's a 64-word linear fetch while running).
 
-iQEcBAEBAgAGBQJOUbYWAAoJEDMEi1NhKgbs/TYH/01K9djlGn1GqkEH7/cRk90Y
-PqyAXfaCqHis+75rBHvFmmXrNXJ8TeSIHkMTebTC7hHsmnAFI8rzUz2c6oynWBTY
-iTj3V8jNCn38LICRep5c21rFiVCP6e98pQBNYtBsIFyno1mMgbX8UtjpHCdJYpAJ
-WRFyN4PGK5z5+X/qfKIIeZkV8tPXXItBg+XV1o9fnLhowpV1ljmHORgDxU89xJde
-WY6RRrCVBmPymvf0nOwTuvpLvjwRcCfNnCSoENLRkgmbWgkaaOIPmm0/fF8xxTdV
-Zf5XPNxFQ4WWl+G6O28h1k77CslgRUdZu6NWhaaTCaX8WzN8042TBeRwxMl+3IE=
-=WpNp
------END PGP SIGNATURE-----
+Then are three similar variants of two-at-a-time MD5 computation.
+The lines reporting 0 time are the second outputs.
 
---Signature=_Mon__22_Aug_2011_11_51_18_+1000_gKhHYF+iNKel0..r--
+The last two MD5 timings (9 and 10) are the current half_md4_transform
+and twothirdsMD4Transform.  Those are the timing figures to match,
+or preferably beat.
+
+ChaCha is 8 rounds, and simply not fast enough.
+
+The Skein192 (to be renamed; it's NOT approved by the designers!) is a
+36-round, 6x32-bit variant of the SHA-3 candidate Skein.  0 is C code,
+1 and 2 are rolled up assembly variants, 3 and 4 are unrolled assembly,
+and 5 is unrolled assembly that also drops the tweak words.  (Which is
+hardly important if we're only hashing one block.)
+
+That, as you can see, is about half the time of MD5 and competitive with
+the 2/3 MD4.  And probably considerably more secure.  (It's basically a
+secure 192-bit hash with zero margin; I could maybe shave another couple
+of rounds and still have 128-bit security.)
+
+Shabal is a supposedly-fast SHA-3 candidate that made it to round 2,
+just to see what the timing is like.  The second line is a half-size
+variant that works on 8 as opposed to 16 words at a time.
+
+2.4 GHz Phenom, hot cache:
+MD5 (& half MD4) implementations:
+ 0:  36912577 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 1:  36937728 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 2:  37354723 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 3:  58866027 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 4:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 5:  96074375 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 6:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 7: 101722571 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 8:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 9:  12321905 cycles  b4b721c6 5635b583 b06c6474 c9871bee
+10:  18038018 cycles  336f8820 5565aa9b 0133a23a 0b62780f
+
+ChaCha implementations:
+ 0:  37345090 cycles  751ddf6a 6977b031 60730a4f c1e2d89e
+ 1:  30782411 cycles  d5fec2fe a8937844 33da9645 cbff3484
+
+Skein192 implementations:
+ 0:  30343213 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 1:  22137253 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 2:  22439643 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 3:  18189990 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 4:  19025781 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 5:  17335443 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+
+Shabal implementations:
+ 0: 177585782 cycles  6c192c71 ed0912f7 ec4513bb c8f03710 8e4e71b2 5200adff f4f40b0c 81ab7e54
+ 1:  88048716 cycles  51e5dab0 ed0912f7 ec4513bb c8f03710 8e4e71b2 5200adff f4f40b0c 81ab7e54
+
+
+2.4 GHz Phenom, "cool cache": Run each of the 20 code paths once, then repeat 100,000 times.
+MD5 (& half MD4) implementations:
+ 0:  43746107 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 1:  43682485 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 2:  43554706 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 3:  65376283 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 4:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 5: 105050654 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 6:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 7: 109949761 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 8:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 9:  19284802 cycles  b4b721c6 5635b583 b06c6474 c9871bee
+10:  24359312 cycles  336f8820 5565aa9b 0133a23a 0b62780f
+
+ChaCha implementations:
+ 0:  46379423 cycles  751ddf6a 6977b031 60730a4f c1e2d89e
+ 1:  38641131 cycles  d5fec2fe a8937844 33da9645 cbff3484
+
+Skein192 implementations:
+ 0:  38125833 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 1:  31800936 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 2:  29010869 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 3:  25627838 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 4:  25913924 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 5:  24318110 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+
+Shabal implementations:
+ 0: 185723030 cycles  6c192c71 ed0912f7 ec4513bb c8f03710 8e4e71b2 5200adff f4f40b0c 81ab7e54
+ 1:  92834811 cycles  51e5dab0 ed0912f7 ec4513bb c8f03710 8e4e71b2 5200adff f4f40b0c 81ab7e54
+
+
+2.67 GHz i7 (Xeon W3520), hot cache:
+MD5 (& half MD4) implementations:
+ 0:  36919956 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 1:  37156578 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 2:  35044283 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 3:  61506553 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 4:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 5:  97228616 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 6:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 7: 102025434 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 8:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 9:  11890788 cycles  b4b721c6 5635b583 b06c6474 c9871bee
+10:  19542853 cycles  336f8820 5565aa9b 0133a23a 0b62780f
+
+ChaCha implementations:
+ 0:  32864931 cycles  751ddf6a 6977b031 60730a4f c1e2d89e
+ 1:  28502254 cycles  d5fec2fe a8937844 33da9645 cbff3484
+
+Skein192 implementations:
+ 0:  28894544 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 1:  25963843 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 2:  26394942 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 3:  22960214 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 4:  22458045 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 5:  21020691 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+
+Shabal implementations:
+ 0: 107339671 cycles  6c192c71 ed0912f7 ec4513bb c8f03710 8e4e71b2 5200adff f4f40b0c 81ab7e54
+ 1:  52250187 cycles  51e5dab0 ed0912f7 ec4513bb c8f03710 8e4e71b2 5200adff f4f40b0c 81ab7e54
+
+
+2.67 GHz i7 (Xeon W3520), cool cache:
+MD5 (& half MD4) implementations:
+ 0:  38680693 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 1:  37812504 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 2:  35577261 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 3:  60584516 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 4:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 5:  96525869 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 6:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 7:  98360974 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 8:         0 cycles  16d174cf 10a7082f e1a2b897 3faddc63
+ 9:  13622987 cycles  b4b721c6 5635b583 b06c6474 c9871bee
+10:  20895171 cycles  336f8820 5565aa9b 0133a23a 0b62780f
+
+ChaCha implementations:
+ 0:  34210571 cycles  751ddf6a 6977b031 60730a4f c1e2d89e
+ 1:  29135985 cycles  d5fec2fe a8937844 33da9645 cbff3484
+
+Skein192 implementations:
+ 0:  29621108 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 1:  27885244 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 2:  26022084 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 3:  22360719 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 4:  24639107 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+ 5:  21072150 cycles  646ce01c 7f2228dd 229a336d 033748b5 0de3a665 c79cf4f7
+
+Shabal implementations:
+ 0: 105186652 cycles  6c192c71 ed0912f7 ec4513bb c8f03710 8e4e71b2 5200adff f4f40b0c 81ab7e54
+ 1:  57009351 cycles  51e5dab0 ed0912f7 ec4513bb c8f03710 8e4e71b2 5200adff f4f40b0c 81ab7e54
