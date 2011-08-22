@@ -1,45 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/2] pktgen: Clone skb to avoid corruption of skbs in
- ndo_start_xmit methods (v3)
-Date: Mon, 22 Aug 2011 18:33:34 +0100
-Message-ID: <1314034414.2803.18.camel@bwh-desktop>
-References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
-	 <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
-	 <1313593637.2776.9.camel@bwh-desktop>
-	 <20110822002641.GA2550@neilslaptop.think-freely.org>
-	 <1314029857.2803.6.camel@bwh-desktop>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: Miscalculated TCP ACK ?
+Date: Mon, 22 Aug 2011 19:58:43 +0200
+Message-ID: <20110822175843.GC3294@nuttenaction>
+References: <CAPbw_hwQSXtmFSxK49jDDgF2LuG8=cu5t=ZjQ_aO7=M9fm9xeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+To: Gabriel Beddingfield <gabrbedd@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:16689 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752618Ab1HVRdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 13:33:37 -0400
-In-Reply-To: <1314029857.2803.6.camel@bwh-desktop>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:40585 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751174Ab1HVR6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 13:58:46 -0400
+Content-Disposition: inline
+In-Reply-To: <CAPbw_hwQSXtmFSxK49jDDgF2LuG8=cu5t=ZjQ_aO7=M9fm9xeA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-08-22 at 17:17 +0100, Ben Hutchings wrote:
-[...]
-> b. The flag means 'safe to send shared skbs in the way ptkgen does', and
-> the restrictions this places on the user and driver should be specified.
+* Gabriel Beddingfield | 2011-08-22 10:34:14 [-0500]:
 
-We could specify something like:
+>I'm having trouble with a particular server via HTTPS.  It appears
+>that my local linux machines are sending incorrect ACK.  However, I
+>don't have enough expertise to know for sure.
+>
+>Using wireshark, the server sends:
+>
+>    Transmission Control Protocol, Src Port: https (443), Dst Port:
+>36015 (36015), Seq: 27658, Ack: 827, Len: 18
+>
+>Local machine replies:
+>
+>    Transmission Control Protocol, Src Port: 36015 (36015), Dst Port:
+>https (443), Seq: 827, Ack: 27677, Len: 0
+>
+>It appears to me that the ACK is off-by-one (should have been 27676).
 
-        The ndo_start_xmit operation for this interface either does not
-        modify the given skb or modifies it idempotently. A single skb
-        may be transmitted repeatedly on a single queue of this
-        interface, but not on multiple queues or on multiple interfaces.
+No, it is absolutely correct: ACK -> last seen Seq plus one (27658 + 18 + 1):
 
-Does that look correct?
+RFC 793:
 
-Ben.
+    If the ACK control bit is set this field contains the value of the
+		next sequence number the sender of the segment is expecting to
+		receive.  Once a connection is established this is always sent.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
+Cheers, Hagen
