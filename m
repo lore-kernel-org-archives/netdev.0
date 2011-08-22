@@ -1,47 +1,43 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Gabriel Beddingfield <gabrbedd@gmail.com>
 Subject: Re: Miscalculated TCP ACK ?
-Date: Mon, 22 Aug 2011 19:58:43 +0200
-Message-ID: <20110822175843.GC3294@nuttenaction>
+Date: Mon, 22 Aug 2011 13:05:16 -0500
+Message-ID: <CAPbw_hy7xjhWSsiHnB9HN+ROCEUNzOS8aPsFwjvdY4FY+pRVjw@mail.gmail.com>
 References: <CAPbw_hwQSXtmFSxK49jDDgF2LuG8=cu5t=ZjQ_aO7=M9fm9xeA@mail.gmail.com>
+	<1314031128.2307.110.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CAEnQRZAB=tKwr0wX2OrpG8iq5VaJPmssHEfC3U62bz1XL_2FHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Gabriel Beddingfield <gabrbedd@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:40585 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751174Ab1HVR6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 13:58:46 -0400
-Content-Disposition: inline
-In-Reply-To: <CAPbw_hwQSXtmFSxK49jDDgF2LuG8=cu5t=ZjQ_aO7=M9fm9xeA@mail.gmail.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:63093 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752435Ab1HVSFR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 14:05:17 -0400
+Received: by ywf7 with SMTP id 7so3695352ywf.19
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 11:05:17 -0700 (PDT)
+In-Reply-To: <CAEnQRZAB=tKwr0wX2OrpG8iq5VaJPmssHEfC3U62bz1XL_2FHw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Gabriel Beddingfield | 2011-08-22 10:34:14 [-0500]:
-
->I'm having trouble with a particular server via HTTPS.  It appears
->that my local linux machines are sending incorrect ACK.  However, I
->don't have enough expertise to know for sure.
+On Mon, Aug 22, 2011 at 12:19 PM, Daniel Baluta <daniel.baluta@gmail.co=
+m> wrote:
+>>> It appears to me that the ACK is off-by-one (should have been 27676=
+).
+>>> The server replies again with retransmissions. =A0This is with seve=
+ral
+>>> kernel versions on local machines, ranging from 2.6.31 to 2.6.38.
 >
->Using wireshark, the server sends:
->
->    Transmission Control Protocol, Src Port: https (443), Dst Port:
->36015 (36015), Seq: 27658, Ack: 827, Len: 18
->
->Local machine replies:
->
->    Transmission Control Protocol, Src Port: 36015 (36015), Dst Port:
->https (443), Seq: 827, Ack: 27677, Len: 0
->
->It appears to me that the ACK is off-by-one (should have been 27676).
+>> Not a bug if frame carried a FIN
 
-No, it is absolutely correct: ACK -> last seen Seq plus one (27658 + 18 + 1):
+The server packet had the FIN bit set.
 
-RFC 793:
+> Well then, why do retransmissions occur?
+> Gabriel could you post the full capture file?
 
-    If the ACK control bit is set this field contains the value of the
-		next sequence number the sender of the segment is expecting to
-		receive.  Once a connection is established this is always sent.
+Sure: http://gabe.is-a-geek.org/tmp/20110822-skyward-conversation-segme=
+nt.tcpdump
 
+I clipped the conversation to the vicinity of the problem.
 
-Cheers, Hagen
+-gabriel
