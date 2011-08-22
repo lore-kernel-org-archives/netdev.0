@@ -1,90 +1,58 @@
-From: <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next 3/5] be2net: fix erx->rx_drops_no_frags wrap
- around
-Date: Mon, 22 Aug 2011 10:22:13 -0700
-Message-ID: <3367B80B08154D42A3B2BC708B5D41F642D8F500F6@EXMAIL.ad.emulex.com>
-References: <1314011613-4519-1-git-send-email-sathya.perla@emulex.com>
-	 <1314011613-4519-4-git-send-email-sathya.perla@emulex.com>
-	 <1314013414.2307.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1314013658.2307.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <3367B80B08154D42A3B2BC708B5D41F642D8EDB85A@EXMAIL.ad.emulex.com>,<1314017087.2307.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next 03/10] ixgbe: Drop the TX work limit and instead just
+ leave it to budget
+Date: Mon, 22 Aug 2011 10:29:51 -0700
+Message-ID: <4E52920F.7060603@intel.com>
+References: <1313911761-11709-1-git-send-email-jeffrey.t.kirsher@intel.com>	 <1313911761-11709-4-git-send-email-jeffrey.t.kirsher@intel.com>	 <1313935304.3142.22.camel@deadeye>  <4E528437.5060302@intel.com> <1314031612.2803.7.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:17646 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752254Ab1HVR0F convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 13:26:05 -0400
-In-Reply-To: <1314017087.2307.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Content-Language: en-US
+Received: from mga03.intel.com ([143.182.124.21]:8223 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751592Ab1HVRcp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 Aug 2011 13:32:45 -0400
+In-Reply-To: <1314031612.2803.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-OK, thanks Eric. I'll re-spin this patch series ...
-
--Sathya
-________________________________________
-=46rom: Eric Dumazet [eric.dumazet@gmail.com]
-Sent: Monday, August 22, 2011 6:14 PM
-To: Perla, Sathya
-Cc: netdev@vger.kernel.org
-Subject: RE: [PATCH net-next 3/5] be2net: fix erx->rx_drops_no_frags wr=
-ap around
-
-Le lundi 22 ao=FBt 2011 =E0 05:15 -0700, Sathya.Perla@Emulex.Com a =E9c=
-rit :
-> >-----Original Message-----
-> >From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> >Sent: Monday, August 22, 2011 5:18 PM
-> >
-> >Le lundi 22 ao=FBt 2011 =E0 13:43 +0200, Eric Dumazet a =E9crit :
-> >
-> >> This adds a race for lockless SNMP readers (in be_get_stats64())
-> >>
-> >> They can see the 32bit value going backward.
-> >>
-> >> You have to be very careful to read the *acc once, and write it on=
-ce.
-> >
-> >The "write once" is the only requirement.
-> >
-> >Something like :
-> >
-> >u32 newval =3D hi(*acc) + val;
-> >
-> >if (wrapped)
-> >     newval +=3D 65536;
-> >ACCESS_ONCE(*acc) =3D newval;
-> >
+On 08/22/2011 09:46 AM, Ben Hutchings wrote:
+> On Mon, 2011-08-22 at 09:30 -0700, Alexander Duyck wrote:
+>> On 08/21/2011 07:01 AM, Ben Hutchings wrote:
+>>> On Sun, 2011-08-21 at 00:29 -0700, Jeff Kirsher wrote:
+>>>> From: Alexander Duyck<alexander.h.duyck@intel.com>
+>>>>
+>>>> This change makes it so that the TX work limit is now obsolete.  Instead of
+>>>> using it we can instead rely on the NAPI budget for the number of packets
+>>>> we should clean per interrupt.  The advantage to this approach is that it
+>>>> results in a much more balanced work flow since the same number of RX and
+>>>> TX packets should be cleaned per interrupts.
+>>> [...]
+>>>
+>>> This seems kind of sensible, but it's not how Dave has been recommending
+>>> people to account for TX work in NAPI.
+>>>
+>>> Ben.
+>>>
+>> I wasn't aware there was a recommended approach.  Could you tell me more
+>> about it?
+> If a whole TX ring is cleaned then consider the budget spent; otherwise
+> don't count it.
 >
-> Eric,
->
-> I'm wondering why you'd need ACCESS_ONCE() here? Wouldn't using the t=
-emp variable (newval) as you suggested,
-> ensure that the reader doesn't see a half-baked value?
->
+> Ben.
 
-If you write :
+The only problem I was seeing with that was that in certain cases it 
+seemed like the TX cleanup could consume enough CPU time to cause pretty 
+significant delays in processing the RX cleanup.  This in turn was 
+causing single queue bi-directional routing tests to come out pretty 
+unbalanced since what seemed to happen is that one CPUs RX work would 
+overwhelm the other CPU with the TX processing resulting in an 
+unbalanced flow that was something like a 60/40 split between the 
+upstream and downstream throughput.
 
-u32 newval =3D hi(*acc) + val;
-if (wrapped)
-        newval +=3D 65536;
-*acc =3D newval;
+Thanks,
 
-
-C compiler (gcc) is free to eliminate the temp variable and to generate
-same code than :
-
-*acc =3D hi(*acc) + val;
-if (wrapped)
-        *acc +=3D 65536;
-
-ACCESS_ONCE() here is the clean way (and self explanatory/documented) t=
-o
-keep compiler to write to *acc twice.
-
-
-
+Alex
