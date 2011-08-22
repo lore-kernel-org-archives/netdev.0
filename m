@@ -1,78 +1,59 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [omega-g1:11072] Re: [PATCH] net: configurable sysctl parameter  =?UTF-8?Q?=22net=2Ecore=2Etcp=5Flowat=22=20for=20sk=5Fstream=5Fmin=5Fwspa?=  =?UTF-8?Q?ce=28=29?=
-Date: Mon, 22 Aug 2011 16:21:59 +0200
-Message-ID: <1ee3ee6e05ae30a229306a8863c83d44@localhost>
-References: <4E48B0C3.2010203@ctc-g.co.jp>
- <20110814.224714.2061635645365376268.davem@davemloft.net>
- <4E4E2CCD.6050809@ctc-g.co.jp>
- <20110819.024326.598275465899000817.davem@davemloft.net>
- <4E51A3F0.5010500@ctc-g.co.jp>
+From: hz hanks <hankshz@gmail.com>
+Subject: Re: [OT]Any open source community in wireless network?
+Date: Mon, 22 Aug 2011 22:25:53 +0800
+Message-ID: <CAPerbBw6YLwo4hsGAD8cZWuaG3hCwPrpLNpsrHd9HVftexuOFQ@mail.gmail.com>
+References: <CAPerbBwowb=5+rOwrf00ZqdmtrtR_39mhvs6jouseOBGz__4Ew@mail.gmail.com>
+	<alpine.DEB.2.02.1108211917440.26263@aurora>
+	<20110821114041.c9bae50d.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-	<omega-g1@ctc-g.co.jp>, <notsuki@redhat.com>,
-	<motokazu.kozaki@hp.com>, <htaira@redhat.com>,
-	<netdev@vger.kernel.org>, <tomohiko.takahashi@ctc-g.co.jp>,
-	<kotaro.sakai@ctc-g.co.jp>, <ken.sugawara@ctc-g.co.jp>
-To: <jun.kondo@ctc-g.co.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E51A3F0.5010500@ctc-g.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sven-Haegar Koch <haegar@sdinet.de>, netdev@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:37906 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053Ab1HVOZx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 10:25:53 -0400
+Received: by yxj19 with SMTP id 19so3536132yxj.19
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 07:25:53 -0700 (PDT)
+In-Reply-To: <20110821114041.c9bae50d.rdunlap@xenotime.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Thank you for your advices!
 
-On Mon, 22 Aug 2011 09:33:52 +0900, "Jun.Kondo" wrote:
+But these communities still concentrate on the network applications in
+linux. Is there any community mainly about the network itself, such as
+how mac layer organized and its protocols?
 
-> By using this patch, we want to prevent "timeout occured over the
+Thanks very much!
 
-network
-
-> that is low throughput but available".
-
-> 
-
-> But in the current implementation, both blocking and non-blocking,
-
-> user processes can't recognize the reason in detail
-
-> when failed to write to socket buffer, we think.
-
-
-
-For your application it should not matter WHY the data can be written to
-
-the peer. It can be happened that the peer close the window, some
-
-scheduling bottleneck or whatever else. A blocking socket means for you
-
-that some data is in the pipe, waiting for transmit. This is the knowledge
-
-that you require, and you should deal with it. A blocking socket does not
-
-mean FAILED, a failure is returned via ECONNRESET or otherwise. So
-
-everything is fine when your socket blocks. Probably you should adjust your
-
-Apache timeouts or other parts of the program logic.
-
-
-
-> As stated above, we think it is difficult for user processes to handle
-
-> timeout of writing socket buffer,
-
-> when wmem is configured large value.(to ensure high throughput over the
-
-> high ralency network, like 3G).
-
-
-
-No, you should adjust your code and account that the socket has data in
-
-the pipe. That's all.
-
-
-
-Changing tcp_lowat
+2011/8/22 Randy Dunlap <rdunlap@xenotime.net>:
+> On Sun, 21 Aug 2011 19:20:32 +0200 (CEST) Sven-Haegar Koch wrote:
+>
+>> On Sun, 21 Aug 2011, hz hanks wrote:
+>>
+>> > I am looking for some open source communities in wireless network.
+>> > This mailing list mainly concentrated on computer networks such as
+>> > TCP, but my =A0interests are mainly on embedded wireless system an=
+d
+>> > mobile phone system. So is there any kind person could provide me =
+with
+>> > some open source communities which mainly concentrate on those top=
+ics?
+>> > Thanks a lot.
+>>
+>> Like:
+>> linux-wireless@vger.kernel.org =A0(linux wireless driver development=
+)
+>> http://www.openwrt.org =A0(embedded linux distribution, for accesspo=
+ints
+>> and more)
+>> http://www.android.com =A0(smartphone foobar)
+>
+> http://wireless.kernel.org/ =A0(Linux Wireless wiki)
+>
+> ---
+> ~Randy
+>
