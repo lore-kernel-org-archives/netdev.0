@@ -1,58 +1,45 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next 03/10] ixgbe: Drop the TX work limit and instead just
- leave it to budget
-Date: Mon, 22 Aug 2011 10:29:51 -0700
-Message-ID: <4E52920F.7060603@intel.com>
-References: <1313911761-11709-1-git-send-email-jeffrey.t.kirsher@intel.com>	 <1313911761-11709-4-git-send-email-jeffrey.t.kirsher@intel.com>	 <1313935304.3142.22.camel@deadeye>  <4E528437.5060302@intel.com> <1314031612.2803.7.camel@bwh-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/2] pktgen: Clone skb to avoid corruption of skbs in
+ ndo_start_xmit methods (v3)
+Date: Mon, 22 Aug 2011 18:33:34 +0100
+Message-ID: <1314034414.2803.18.camel@bwh-desktop>
+References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
+	 <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
+	 <1313593637.2776.9.camel@bwh-desktop>
+	 <20110822002641.GA2550@neilslaptop.think-freely.org>
+	 <1314029857.2803.6.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:8223 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751592Ab1HVRcp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 Aug 2011 13:32:45 -0400
-In-Reply-To: <1314031612.2803.7.camel@bwh-desktop>
+Received: from mail.solarflare.com ([216.237.3.220]:16689 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752618Ab1HVRdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 13:33:37 -0400
+In-Reply-To: <1314029857.2803.6.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/22/2011 09:46 AM, Ben Hutchings wrote:
-> On Mon, 2011-08-22 at 09:30 -0700, Alexander Duyck wrote:
->> On 08/21/2011 07:01 AM, Ben Hutchings wrote:
->>> On Sun, 2011-08-21 at 00:29 -0700, Jeff Kirsher wrote:
->>>> From: Alexander Duyck<alexander.h.duyck@intel.com>
->>>>
->>>> This change makes it so that the TX work limit is now obsolete.  Instead of
->>>> using it we can instead rely on the NAPI budget for the number of packets
->>>> we should clean per interrupt.  The advantage to this approach is that it
->>>> results in a much more balanced work flow since the same number of RX and
->>>> TX packets should be cleaned per interrupts.
->>> [...]
->>>
->>> This seems kind of sensible, but it's not how Dave has been recommending
->>> people to account for TX work in NAPI.
->>>
->>> Ben.
->>>
->> I wasn't aware there was a recommended approach.  Could you tell me more
->> about it?
-> If a whole TX ring is cleaned then consider the budget spent; otherwise
-> don't count it.
->
-> Ben.
+On Mon, 2011-08-22 at 17:17 +0100, Ben Hutchings wrote:
+[...]
+> b. The flag means 'safe to send shared skbs in the way ptkgen does', and
+> the restrictions this places on the user and driver should be specified.
 
-The only problem I was seeing with that was that in certain cases it 
-seemed like the TX cleanup could consume enough CPU time to cause pretty 
-significant delays in processing the RX cleanup.  This in turn was 
-causing single queue bi-directional routing tests to come out pretty 
-unbalanced since what seemed to happen is that one CPUs RX work would 
-overwhelm the other CPU with the TX processing resulting in an 
-unbalanced flow that was something like a 60/40 split between the 
-upstream and downstream throughput.
+We could specify something like:
 
-Thanks,
+        The ndo_start_xmit operation for this interface either does not
+        modify the given skb or modifies it idempotently. A single skb
+        may be transmitted repeatedly on a single queue of this
+        interface, but not on multiple queues or on multiple interfaces.
 
-Alex
+Does that look correct?
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
