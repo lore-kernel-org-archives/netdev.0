@@ -1,39 +1,40 @@
-From: Gabriel Beddingfield <gabrbedd@gmail.com>
-Subject: Miscalculated TCP ACK ?
-Date: Mon, 22 Aug 2011 10:34:14 -0500
-Message-ID: <CAPbw_hwQSXtmFSxK49jDDgF2LuG8=cu5t=ZjQ_aO7=M9fm9xeA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Subject: [PATCH 0/2]  sctp: patches for HEARTBEAT bug fix and improvement
+Date: Tue, 23 Aug 2011 00:44:32 +0900
+Message-ID: <D42EEC2F-E0C8-4620-9841-98F7E68C88FA@sfc.wide.ad.jp>
+Mime-Version: 1.0 (Apple Message framework v1244.3)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Wei Yongjun <weiyj.lk@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:51831 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053Ab1HVPeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 11:34:15 -0400
-Received: by yie30 with SMTP id 30so3651407yie.19
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 08:34:14 -0700 (PDT)
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:41655 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751022Ab1HVPof convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 11:44:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm having trouble with a particular server via HTTPS.  It appears
-that my local linux machines are sending incorrect ACK.  However, I
-don't have enough expertise to know for sure.
+>From e7cbeb4d796fec8351ede4affbd4269346639db9 Mon Sep 17 00:00:00 2001
+From: Michio Honda <micchie@sfc.wide.ad.jp>
+Date: Tue, 23 Aug 2011 00:22:47 +0900
+Subject: [PATCH 0/2] sctp: patches for HEARTBEAT bug fix and improvement
 
-Using wireshark, the server sends:
+Series of 2 patches for bug fix and improvement around HEARTBEAT after the 
+ASCONF event
 
-    Transmission Control Protocol, Src Port: https (443), Dst Port:
-36015 (36015), Seq: 27658, Ack: 827, Len: 18
+Michio Honda (2):
+  sctp: HEARTBEAT negotiation after ASCONF
+  sctp: Bundle HEAERTBEAT into ASCONF_ACK
 
-Local machine replies:
+ include/net/sctp/structs.h |    1 +
+ net/sctp/associola.c       |    1 +
+ net/sctp/outqueue.c        |    4 ++++
+ net/sctp/sm_make_chunk.c   |    1 +
+ net/sctp/sm_statefuns.c    |    5 +++++
+ 5 files changed, 12 insertions(+), 0 deletions(-)
 
-    Transmission Control Protocol, Src Port: 36015 (36015), Dst Port:
-https (443), Seq: 827, Ack: 27677, Len: 0
+-- 
+1.7.3.2
 
-It appears to me that the ACK is off-by-one (should have been 27676).
-The server replies again with retransmissions.  This is with several
-kernel versions on local machines, ranging from 2.6.31 to 2.6.38.
 
-Can anyone shed insight into what's happening?  This looks like a bug to me.
-
-Thanks,
-Gabriel
