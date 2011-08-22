@@ -1,69 +1,251 @@
-From: "Jun.Kondo" <jun.kondo@ctc-g.co.jp>
-Subject: Re: [omega-g1:11072] Re: [PATCH] net: configurable sysctl parameter
- "net.core.tcp_lowat" for sk_stream_min_wspace()
-Date: Mon, 22 Aug 2011 09:33:52 +0900
-Message-ID: <4E51A3F0.5010500@ctc-g.co.jp>
-References: <4E48B0C3.2010203@ctc-g.co.jp>
- <20110814.224714.2061635645365376268.davem@davemloft.net>
- <4E4E2CCD.6050809@ctc-g.co.jp>
- <20110819.024326.598275465899000817.davem@davemloft.net>
-Reply-To: jun.kondo@ctc-g.co.jp
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: boot test failure (net tree)
+Date: Mon, 22 Aug 2011 11:30:32 +1000
+Message-ID: <20110822113032.15087c2e190e2b0c3ee7dfb8@canb.auug.org.au>
+References: <20110816.171525.639251389938336183.davem@davemloft.net>
+	<20110817105002.efebf85d08460ad99b14be8e@canb.auug.org.au>
+	<20110818152214.661858a61496993aaef2c704@canb.auug.org.au>
+	<20110817.225356.1790362313048139752.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, omega-g1@ctc-g.co.jp,
-	notsuki@redhat.com, motokazu.kozaki@hp.com, htaira@redhat.com,
-	netdev@vger.kernel.org, tomohiko.takahashi@ctc-g.co.jp,
-	kotaro.sakai@ctc-g.co.jp, ken.sugawara@ctc-g.co.jp
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	mikey@neuling.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, ppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <20110819.024326.598275465899000817.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110817.225356.1790362313048139752.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-By using this patch, we want to prevent "timeout occured over the netwo=
-rk that is low throughput but available".
+Hi Dave,
 
-But in the current implementation, both blocking and non-blocking,
-user processes can't recognize the reason in detail
-when failed to write to socket buffer, we think.
-
-is it (really) network problem ?
-or is wmem not enough free to write?
-
-As stated above, we think it is difficult for user processes to handle =
-timeout of writing socket buffer,
-when wmem is configured large value.(to ensure high throughput over the=
- high ralency network, like 3G).
-
-
-(2011/08/19 18:43), David Miller wrote:
-> From: "Jun.Kondo"<jun.kondo@ctc-g.co.jp>
-> Date: Fri, 19 Aug 2011 18:28:45 +0900
+On Wed, 17 Aug 2011 22:53:56 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 >
->> You suggested to use non-blocking writes, but we think
->> we have to rewrite the Apache code if doing so.
->> That is, we have to make a modification to Apache that
->> depends on the architecture.
->> By using this patch, it can be handled by changing the
->> configuration a little bit on the kernel side for such
->> applications that it is difficult to do so on application
->> side.
-> The kernel provides the facilities necessary to achieve your
-> goals.  It is a userspace problem.
->
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 18 Aug 2011 15:22:14 +1000
+> 
+> > Mikey asks:  Will Dave take these updates if we get Acks from the
+> > maintainers?  :-)
+> 
+> I'm more than happy to :-)
 
+Here's what I am applying as a merge fixup to the net tree today so that
+my ppc64_defconfig builds actually build more or less the same set of
+drivers as before this rearrangement.
 
---=20
-<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-=E8=BF=91=E8=97=A4=E3=80=80=E6=BD=A4
-v =E4=BC=8A=E8=97=A4=E5=BF=A0=E3=83=86=E3=82=AF=E3=83=8E=E3=82=BD=E3=83=
-=AA=E3=83=A5=E3=83=BC=E3=82=B7=E3=83=A7=E3=83=B3=E3=82=BA=E6=A0=AA=E5=BC=
-=8F=E4=BC=9A=E7=A4=BE(CTC)
-v =E3=82=B7=E3=82=B9=E3=83=86=E3=83=A0=E6=8A=80=E8=A1=93=E7=AC=AC1=E9=83=
-=A8=E3=80=80=E6=8A=80=E8=A1=93=E7=AC=AC4=E8=AA=B2
-v =E5=80=8B=E4=BA=BA:03-6757-2144
-v FAX:03-5800-2256
-v
-<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+This has no Acks yet, but produces a very similar .config to what we had
+previously.
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 22 Aug 2011 11:23:56 +1000
+Subject: [PATCH] powerpc: update ppc64_defconfig for net device movement
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ arch/powerpc/configs/ppc64_defconfig |   71 +++++++++++++--------------------
+ 1 files changed, 28 insertions(+), 43 deletions(-)
+
+diff --git a/arch/powerpc/configs/ppc64_defconfig b/arch/powerpc/configs/ppc64_defconfig
+index 84a685a5..9a424c4 100644
+--- a/arch/powerpc/configs/ppc64_defconfig
++++ b/arch/powerpc/configs/ppc64_defconfig
+@@ -49,7 +49,6 @@ CONFIG_NO_HZ=y
+ CONFIG_HIGH_RES_TIMERS=y
+ CONFIG_HZ_100=y
+ CONFIG_BINFMT_MISC=m
+-CONFIG_HOTPLUG_CPU=y
+ CONFIG_KEXEC=y
+ CONFIG_IRQ_ALL_CPUS=y
+ CONFIG_MEMORY_HOTREMOVE=y
+@@ -75,7 +74,6 @@ CONFIG_INET_ESP=m
+ CONFIG_INET_IPCOMP=m
+ # CONFIG_IPV6 is not set
+ CONFIG_NETFILTER=y
+-CONFIG_NETFILTER_NETLINK_QUEUE=m
+ CONFIG_NF_CONNTRACK=m
+ CONFIG_NF_CONNTRACK_EVENTS=y
+ CONFIG_NF_CT_PROTO_SCTP=m
+@@ -133,7 +131,6 @@ CONFIG_NETFILTER_XT_MATCH_U32=m
+ CONFIG_NF_CONNTRACK_IPV4=m
+ CONFIG_IP_NF_QUEUE=m
+ CONFIG_IP_NF_IPTABLES=m
+-CONFIG_IP_NF_MATCH_ADDRTYPE=m
+ CONFIG_IP_NF_MATCH_AH=m
+ CONFIG_IP_NF_MATCH_ECN=m
+ CONFIG_IP_NF_MATCH_TTL=m
+@@ -145,7 +142,6 @@ CONFIG_NF_NAT=m
+ CONFIG_IP_NF_TARGET_MASQUERADE=m
+ CONFIG_IP_NF_TARGET_NETMAP=m
+ CONFIG_IP_NF_TARGET_REDIRECT=m
+-CONFIG_NF_NAT_SNMP_BASIC=m
+ CONFIG_IP_NF_MANGLE=m
+ CONFIG_IP_NF_TARGET_CLUSTERIP=m
+ CONFIG_IP_NF_TARGET_ECN=m
+@@ -176,7 +172,6 @@ CONFIG_CHR_DEV_SG=y
+ CONFIG_SCSI_MULTI_LUN=y
+ CONFIG_SCSI_CONSTANTS=y
+ CONFIG_SCSI_FC_ATTRS=y
+-CONFIG_SCSI_SAS_ATTRS=m
+ CONFIG_SCSI_CXGB3_ISCSI=m
+ CONFIG_SCSI_CXGB4_ISCSI=m
+ CONFIG_SCSI_BNX2_ISCSI=m
+@@ -208,13 +203,6 @@ CONFIG_DM_SNAPSHOT=m
+ CONFIG_DM_MIRROR=m
+ CONFIG_DM_ZERO=m
+ CONFIG_DM_MULTIPATH=m
+-CONFIG_IEEE1394=y
+-CONFIG_IEEE1394_OHCI1394=y
+-CONFIG_IEEE1394_SBP2=m
+-CONFIG_IEEE1394_ETH1394=m
+-CONFIG_IEEE1394_RAWIO=y
+-CONFIG_IEEE1394_VIDEO1394=m
+-CONFIG_IEEE1394_DV1394=m
+ CONFIG_ADB_PMU=y
+ CONFIG_PMAC_SMU=y
+ CONFIG_THERM_PM72=y
+@@ -223,43 +211,49 @@ CONFIG_WINDFARM_PM81=y
+ CONFIG_WINDFARM_PM91=y
+ CONFIG_WINDFARM_PM112=y
+ CONFIG_WINDFARM_PM121=y
+-CONFIG_NETDEVICES=y
+ CONFIG_DUMMY=m
+ CONFIG_BONDING=m
+ CONFIG_TUN=m
+ CONFIG_MARVELL_PHY=y
+ CONFIG_BROADCOM_PHY=m
+-CONFIG_NET_ETHERNET=y
+-CONFIG_SUNGEM=y
+ CONFIG_NET_VENDOR_3COM=y
+ CONFIG_VORTEX=y
+-CONFIG_IBMVETH=m
+-CONFIG_NET_PCI=y
+-CONFIG_PCNET32=y
+-CONFIG_E100=y
++CONFIG_NET_VENDOR_ALTEON=y
+ CONFIG_ACENIC=m
+ CONFIG_ACENIC_OMIT_TIGON_I=y
+-CONFIG_E1000=y
+-CONFIG_E1000E=y
++CONFIG_NET_VENDOR_AMD=y
++CONFIG_PCNET32=y
+ CONFIG_TIGON3=y
+-CONFIG_BNX2=m
+-CONFIG_SPIDER_NET=m
+-CONFIG_GELIC_NET=m
+-CONFIG_GELIC_WIRELESS=y
+ CONFIG_CHELSIO_T1=m
+-CONFIG_CHELSIO_T3=m
+-CONFIG_CHELSIO_T4=m
++CONFIG_NET_VENDOR_EMULEX=y
++CONFIG_BE2NET=m
++CONFIG_NET_VENDOR_EXAR=y
++CONFIG_S2IO=m
++CONFIG_NET_VENDOR_IBM=y
++CONFIG_IBMVETH=m
++CONFIG_ISERIES_VETH=m
+ CONFIG_EHEA=m
+-CONFIG_IXGBE=m
++CONFIG_NET_VENDOR_INTEL=y
++CONFIG_E100=y
++CONFIG_E1000=y
++CONFIG_E1000E=y
+ CONFIG_IXGB=m
+-CONFIG_S2IO=m
++CONFIG_IXGBE=m
++CONFIG_MLX4_EN=m
++CONFIG_NET_VENDOR_MYRI=y
+ CONFIG_MYRI10GE=m
+-CONFIG_NETXEN_NIC=m
++CONFIG_NET_VENDOR_NVIDIA=y
++CONFIG_NET_VENDOR_PASEMI=y
+ CONFIG_PASEMI_MAC=y
+-CONFIG_MLX4_EN=m
++CONFIG_NET_VENDOR_QLOGIC=y
+ CONFIG_QLGE=m
+-CONFIG_BE2NET=m
+-CONFIG_ISERIES_VETH=m
++CONFIG_NETXEN_NIC=m
++CONFIG_NET_VENDOR_SUN=y
++CONFIG_SUNGEM=y
++CONFIG_NET_VENDOR_TOSHIBA=y
++CONFIG_GELIC_NET=m
++CONFIG_GELIC_WIRELESS=y
++CONFIG_SPIDER_NET=m
+ CONFIG_PPP=m
+ CONFIG_PPP_ASYNC=m
+ CONFIG_PPP_SYNC_TTY=m
+@@ -331,7 +325,6 @@ CONFIG_USB=y
+ CONFIG_USB_DEVICEFS=y
+ CONFIG_USB_MON=m
+ CONFIG_USB_EHCI_HCD=y
+-CONFIG_USB_EHCI_TT_NEWSCHED=y
+ # CONFIG_USB_EHCI_HCD_PPC_OF is not set
+ CONFIG_USB_OHCI_HCD=y
+ CONFIG_USB_STORAGE=m
+@@ -373,11 +366,9 @@ CONFIG_JFS_POSIX_ACL=y
+ CONFIG_JFS_SECURITY=y
+ CONFIG_XFS_FS=m
+ CONFIG_XFS_POSIX_ACL=y
+-CONFIG_OCFS2_FS=m
+ CONFIG_BTRFS_FS=m
+ CONFIG_BTRFS_FS_POSIX_ACL=y
+ CONFIG_NILFS2_FS=m
+-CONFIG_INOTIFY=y
+ CONFIG_AUTOFS4_FS=m
+ CONFIG_FUSE_FS=m
+ CONFIG_ISO9660_FS=y
+@@ -398,7 +389,6 @@ CONFIG_ROOT_NFS=y
+ CONFIG_NFSD=m
+ CONFIG_NFSD_V3_ACL=y
+ CONFIG_NFSD_V4=y
+-CONFIG_RPCSEC_GSS_SPKM3=m
+ CONFIG_CIFS=m
+ CONFIG_CIFS_XATTR=y
+ CONFIG_CIFS_POSIX=y
+@@ -444,15 +434,13 @@ CONFIG_CRC_T10DIF=y
+ CONFIG_MAGIC_SYSRQ=y
+ CONFIG_DEBUG_KERNEL=y
+ CONFIG_LOCKUP_DETECTOR=y
+-CONFIG_DETECT_HUNG_TASK=y
+ CONFIG_DEBUG_MUTEXES=y
+-# CONFIG_RCU_CPU_STALL_DETECTOR is not set
++CONFIG_DEBUG_STACK_USAGE=y
+ CONFIG_LATENCYTOP=y
+ CONFIG_SYSCTL_SYSCALL_CHECK=y
+ CONFIG_SCHED_TRACER=y
+ CONFIG_BLK_DEV_IO_TRACE=y
+ CONFIG_DEBUG_STACKOVERFLOW=y
+-CONFIG_DEBUG_STACK_USAGE=y
+ CONFIG_CODE_PATCHING_SELFTEST=y
+ CONFIG_FTR_FIXUP_SELFTEST=y
+ CONFIG_MSI_BITMAP_SELFTEST=y
+@@ -463,10 +451,8 @@ CONFIG_CRYPTO_NULL=m
+ CONFIG_CRYPTO_TEST=m
+ CONFIG_CRYPTO_CCM=m
+ CONFIG_CRYPTO_GCM=m
+-CONFIG_CRYPTO_ECB=m
+ CONFIG_CRYPTO_PCBC=m
+ CONFIG_CRYPTO_HMAC=y
+-CONFIG_CRYPTO_MD4=m
+ CONFIG_CRYPTO_MICHAEL_MIC=m
+ CONFIG_CRYPTO_SHA256=m
+ CONFIG_CRYPTO_SHA512=m
+@@ -474,7 +460,6 @@ CONFIG_CRYPTO_TGR192=m
+ CONFIG_CRYPTO_WP512=m
+ CONFIG_CRYPTO_AES=m
+ CONFIG_CRYPTO_ANUBIS=m
+-CONFIG_CRYPTO_ARC4=m
+ CONFIG_CRYPTO_BLOWFISH=m
+ CONFIG_CRYPTO_CAST6=m
+ CONFIG_CRYPTO_KHAZAD=m
+-- 
+1.7.5.4
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
