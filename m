@@ -1,59 +1,66 @@
-From: hz hanks <hankshz@gmail.com>
-Subject: Re: [OT]Any open source community in wireless network?
-Date: Mon, 22 Aug 2011 22:25:53 +0800
-Message-ID: <CAPerbBw6YLwo4hsGAD8cZWuaG3hCwPrpLNpsrHd9HVftexuOFQ@mail.gmail.com>
-References: <CAPerbBwowb=5+rOwrf00ZqdmtrtR_39mhvs6jouseOBGz__4Ew@mail.gmail.com>
-	<alpine.DEB.2.02.1108211917440.26263@aurora>
-	<20110821114041.c9bae50d.rdunlap@xenotime.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 4/4] drivers/net/wireless/mwifiex/scan.c: test the just-initialized
+ value
+Date: Mon, 22 Aug 2011 10:19:48 -0500
+Message-ID: <4E527394.4080900@lwfinger.net>
+References: <1314021636-11528-4-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sven-Haegar Koch <haegar@sdinet.de>, netdev@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:37906 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053Ab1HVOZx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2011 10:25:53 -0400
-Received: by yxj19 with SMTP id 19so3536132yxj.19
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 07:25:53 -0700 (PDT)
-In-Reply-To: <20110821114041.c9bae50d.rdunlap@xenotime.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bing Zhao <bzhao@marvell.com>, kernel-janitors@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1314021636-11528-4-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thank you for your advices!
-
-But these communities still concentrate on the network applications in
-linux. Is there any community mainly about the network itself, such as
-how mac layer organized and its protocols?
-
-Thanks very much!
-
-2011/8/22 Randy Dunlap <rdunlap@xenotime.net>:
-> On Sun, 21 Aug 2011 19:20:32 +0200 (CEST) Sven-Haegar Koch wrote:
+On 08/22/2011 09:00 AM, Julia Lawall wrote:
+> From: Julia Lawall<julia@diku.dk>
 >
->> On Sun, 21 Aug 2011, hz hanks wrote:
->>
->> > I am looking for some open source communities in wireless network.
->> > This mailing list mainly concentrated on computer networks such as
->> > TCP, but my =A0interests are mainly on embedded wireless system an=
-d
->> > mobile phone system. So is there any kind person could provide me =
-with
->> > some open source communities which mainly concentrate on those top=
-ics?
->> > Thanks a lot.
->>
->> Like:
->> linux-wireless@vger.kernel.org =A0(linux wireless driver development=
-)
->> http://www.openwrt.org =A0(embedded linux distribution, for accesspo=
-ints
->> and more)
->> http://www.android.com =A0(smartphone foobar)
+> Test the just-initialized value rather than some other one.
 >
-> http://wireless.kernel.org/ =A0(Linux Wireless wiki)
+> The semantic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+>
+> //<smpl>
+> @r@
+> identifier x,y,f!={PTR_ERR,ERR_PTR,ERR_CAST};
+> statement S;
+> @@
+>
+> x = f(...);
+> (
+> if (\(x == NULL\|IS_ERR(x)\)) S
+> |
+> *if (\(y == NULL\|IS_ERR(y)\))
+>   { ... when != x
+>     return ...; }
+> )
+> //</smpl>
+>
+> Signed-off-by: Julia Lawall<julia@diku.dk>
 >
 > ---
-> ~Randy
+>   drivers/net/wireless/mwifiex/scan.c |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
 >
+> diff --git a/drivers/net/wireless/mwifiex/scan.c b/drivers/net/wireless/mwifiex/scan.c
+> index b28241c..d3111c9 100644
+> --- a/drivers/net/wireless/mwifiex/scan.c
+> +++ b/drivers/net/wireless/mwifiex/scan.c
+> @@ -1480,7 +1480,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv,
+>   		return -ENOMEM;
+>   	}
+>   	beacon_ie = kzalloc(ie_len, GFP_KERNEL);
+> -	if (!bss_desc) {
+> +	if (!beacon_ie) {
+>   		dev_err(priv->adapter->dev, " failed to alloc bss_desc\n");
+>   		return -ENOMEM;
+>   	}
+
+The error message should also get the bss_desc => beacon_ie chang.
+
+Larry
