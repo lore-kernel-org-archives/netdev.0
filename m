@@ -1,68 +1,51 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: linux-next: manual merge of the net tree with the unicore32 tree
-Date: Tue, 23 Aug 2011 02:00:48 -0700
-Message-ID: <1314090049.2128.224.camel@jtkirshe-mobl>
-References: <20110823130210.766d466d689d60536f59340a@canb.auug.org.au>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH] net: sh_eth: fix the compile error
+Date: Tue, 23 Aug 2011 18:26:33 +0900
+Message-ID: <4E537249.8050806@renesas.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-W+XDVwSmhfwnh1HElvCB"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Guan Xuetao <gxt@mprc.pku.edu.cn>,
-	Zhang Shu <davidshuzhang@gmail.com>,
-	Chu Xiaowei <chuxiaowei@mprc.pku.edu.cn>,
-	Su Yonggang <tonyhook.su@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110823130210.766d466d689d60536f59340a@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: SH-Linux <linux-sh@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+=46ix the following build error:
 
---=-W+XDVwSmhfwnh1HElvCB
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+  CC      drivers/net/sh_eth.o
+drivers/net/sh_eth.c:1115: error: expected =91=3D=92, =91,=92, =91;=92,=
+ =91asm=92 or =91__attribute__=92 before =91sh_eth_interrupt=92
+drivers/net/sh_eth.c: In function =91sh_eth_open=92:
+drivers/net/sh_eth.c:1387: error: implicit declaration of function =91r=
+equest_irq=92
+drivers/net/sh_eth.c:1387: error: =91sh_eth_interrupt=92 undeclared (fi=
+rst use in this function)
+drivers/net/sh_eth.c:1387: error: (Each undeclared identifier is report=
+ed only once
+drivers/net/sh_eth.c:1387: error: for each function it appears in.)
+drivers/net/sh_eth.c:1391: error: =91IRQF_SHARED=92 undeclared (first u=
+se in this function)
+drivers/net/sh_eth.c:1424: error: implicit declaration of function =91f=
+ree_irq=92
+make[2]: *** [drivers/net/sh_eth.o] Error 1
 
-On Mon, 2011-08-22 at 20:02 -0700, Stephen Rothwell wrote:
-> Hi all,
->=20
-> Today's linux-next merge of the net tree got conflicts in
-> drivers/net/Kconfig and drivers/net/Makefile between commit
-> e8787de6fa83
-> ("unicore32: add pkunity-v3 mac/net driver (umal)") from the unicore32
-> tree and the network driver rearrangement from the net tree.
->=20
-> I just added the new driver from the unicore32 tree commit into each
-> file
-> (see below).
-> --=20
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au=20
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+---
+ drivers/net/sh_eth.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Hmm, well with the latest series of patches I sent out, I am pretty sure
-this patch would not apply.
-
-Is it best that this patch not be sent to netdev for driver
-inclusion? :)
-
---=-W+XDVwSmhfwnh1HElvCB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJOU2xAAAoJECTsCADr/EWU74kH/2f94oI8OdRxQM/90ykvE9cZ
-pPUZwBTCL9DvQ04TKNzASk153R6sNTvfa8glf5kp9UemHETP+xtCLwE9YQNX5eWJ
-jqGHtRm2BovqvUV52WiHFfNbrbtqUGoHVpBDp0JcFA7paoC6KXU8EwCatToy4Fel
-lEA0vzRSXUEYpLQyVMt9WiQIMCyTy/ORhNOc8mOMJ3sNUlAng/kx0u0VjSAhgn0W
-aKMbmT8FsDH9/9fyqmZXbHZp4pXydSCbhSxTPbXHr7M1vAJahvQn+7yHLLyuZNbu
-UVSUO6NzqRpLOM62+UsbX7jm1iRVpToMUd86Jqgma0TLbRh26X61JNXp/Ctg9Ec=
-=6Jf6
------END PGP SIGNATURE-----
-
---=-W+XDVwSmhfwnh1HElvCB--
+diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
+index ad35c21..f6de45b 100644
+--- a/drivers/net/sh_eth.c
++++ b/drivers/net/sh_eth.c
+@@ -30,6 +30,7 @@
+ #include <linux/phy.h>
+ #include <linux/cache.h>
+ #include <linux/io.h>
++#include <linux/interrupt.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/slab.h>
+ #include <linux/ethtool.h>
+--=20
+1.7.1
