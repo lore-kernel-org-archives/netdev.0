@@ -1,107 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP - RST flag
-Date: Tue, 23 Aug 2011 22:55:32 +0200
-Message-ID: <1314132932.4478.0.camel@edumazet-laptop>
-References: <CAEnQRZAchYf-3-t7RRogfb0WogzY9ZF8rzMdtOeS1Vdvx7N4og@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next 03/10] ixgbe: Drop the TX work limit and instead just
+ leave it to budget
+Date: Tue, 23 Aug 2011 13:52:18 -0700
+Message-ID: <4E541302.2050007@intel.com>
+References: <4E52920F.7060603@intel.com>	<20110822.135644.683110224886588181.davem@davemloft.net>	<4E52DEEF.40504@intel.com>	<20110822.164027.1830363266993513959.davem@davemloft.net> <CAKgT0UeUCyNRbfvkGKdyi17K6T-fSHukMGYwyJu2xOmAiBDZNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	kernelnewbies <kernelnewbies@kernelnewbies.org>
-To: Daniel Baluta <daniel.baluta@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48400 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534Ab1HWUzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 16:55:36 -0400
-Received: by wyg24 with SMTP id 24so386809wyg.19
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 13:55:35 -0700 (PDT)
-In-Reply-To: <CAEnQRZAchYf-3-t7RRogfb0WogzY9ZF8rzMdtOeS1Vdvx7N4og@mail.gmail.com>
+Received: from mga03.intel.com ([143.182.124.21]:47334 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751534Ab1HWUz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Aug 2011 16:55:28 -0400
+In-Reply-To: <CAKgT0UeUCyNRbfvkGKdyi17K6T-fSHukMGYwyJu2xOmAiBDZNA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 23 ao=C3=BBt 2011 =C3=A0 23:31 +0300, Daniel Baluta a =C3=A9cr=
-it :
-> Hello,
->=20
-> Please help me understanding the behavior of the following
-> TCP conversation.
->=20
-> You can find bellow a snippet of the (FTP) conversation captured both
-> on client (C) and server (S).
->=20
-> [client]$ tcpdump  -n  -r client-6-conv.cap
-> [P1] 49.045690 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
-> 197:220, ack 81, win 757, length 23
-> [P2] 49.046600 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220=
-,
-> win 738, length 0
-> [P3] 49.047462 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [P.], seq
-> 81:87, ack 220, win 738, length 6
-> [P5] 49.048757 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [F.], seq
-> 242, ack 87, win 757, length 0
-> [P6] 49.048794 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220=
-,
-> win 738, options [nop,nop,sack 1 {242:243}], length 0
-> [P4] 49.048801 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
-> 220:242, ack 87, win 757, length 22
-> [P7] 49.048833 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 243=
-,
-> win 715, length 0
-> [P8] 49.049566 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [F.], seq 87=
-,
-> ack 243, win 715, length 0
-> [P9] 49.050889 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [R], seq
-> 1672731590, win 0, length 0
->=20
-> [server]$ tcpdump  -n  -r server-6-conv.cap
-> [P1] 49.059740 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
-> 197:220, ack 81, win 757, length 23
-> [P2] 49.061394 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220=
-,
-> win 738, length 0
-> [P3] 49.061760 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [P.], seq
-> 81:87, ack 220, win 738, length 6
-> [P4] 49.062794 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
-> 220:242, ack 87, win 757, length 22
-> [P5] 49.062843 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [F.], seq
-> 242, ack 87, win 757, length 0
-> [P6] 49.063808 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220=
-,
-> win 738, options [nop,nop,sack 1 {242:243}], length 0
-> [P7] 49.063823 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 243=
-,
-> win 715, length 0
-> [P8] 49.064271 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [F.], seq 87=
-,
-> ack 243, win 715, length 0
-> [P9] 49.064481 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [R], seq
-> 1672731590, win 0, length 0
->=20
-> What happens is that servers sends packets P4 and P5, but client
-> receives P5 before P4.
-> Since SACK is enabled, client will send a SACK (P6) ack-ing P5.
->=20
-> Then client sees P4, and will send an ack (P7) for P4, then sends P8
-> with FIN flag set.
-> What I don't understand, is why server responds with RST (P9) instead=
- of ACK?
->=20
-> This is was obtained on 2.6.32.43. I have also attached full capture =
-files.
->=20
-> I am reading TCP's RFC and kernel code, but so far I haven't reached
-> a conclusion.
+On 08/22/2011 09:04 PM, Alexander Duyck wrote:
+> On Mon, Aug 22, 2011 at 4:40 PM, David Miller<davem@davemloft.net>  wrote:
+>> From: Alexander Duyck<alexander.h.duyck@intel.com>
+>> Date: Mon, 22 Aug 2011 15:57:51 -0700
+>>> The problem seemed to be present as long as I allowed the TX budget to
+>>> be a multiple of the RX budget.  The easiest way to keep things
+>>> balanced and avoid allowing the TX from one CPU to overwhelm the RX on
+>>> another was just to keep the budgets equal.
+>> You're executing 10 or 20 cpu cycles after every 64 TX reclaims,
+>> that's the only effect of these changes.  That's not even long enough
+>> for a cache line to transfer between two cpus.
+> It sounds like I may not have been seeing this due to the type of
+> workload I was focusing on.  I'll try generating some data with pktgen
+> and netperf tomorrow to see how this holds up under small packet
+> transmit only traffic since those are the cases most likely to get
+> into the state you mention.
+>
+> Also I would appreciate it if you had any suggestions on other
+> workloads I might need to focus on in order to determine the impact of
+> this change.
+>
+> Thanks,
+>
+> Alex
 
-TCP in RFC 1122 section 4.2.2.13:
+I found a reason to rewrite this.  Basically this modification has a 
+negative impact in the case of multiple ports on a single CPU all 
+routing to the same port on the same CPU.  It ends up making it so that 
+the transmit throughput is only (total CPU packets per second)/(number 
+of ports receiving on cpu).  So on a system that can receive at 1.4Mpps 
+on a single core we end up seeing only a little over 350Kpps of transmit 
+when 4 ports are all receiving packets on the system.
 
- "A host MAY implement a "half-duplex" TCP close sequence, so that an
- application that has called CLOSE cannot continue to read data from th=
-e
- connection. If such a host issues a CLOSE call while received data is
- still pending in TCP, or if new data is received after CLOSE is called=
-,
- its TCP SHOULD send a RST to show that data was lost."=20
+I'll look at rewriting this.  I'll probably leave the work limit 
+controlling things but lower it to a more reasonable value such as 1/2 
+to 1/4 of the ring size.
 
-This is why some apps first call shutdown(), then drain receive queue,
-then close()
+Thanks,
+
+Alex
