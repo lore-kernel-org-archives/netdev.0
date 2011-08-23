@@ -1,104 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/2] pktgen: Clone skb to avoid corruption of skbs in
- ndo_start_xmit methods (v3)
-Date: Tue, 23 Aug 2011 15:01:24 +0100
-Message-ID: <1314108084.2821.5.camel@bwh-desktop>
-References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
-	 <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
-	 <1313593637.2776.9.camel@bwh-desktop>
-	 <20110822002641.GA2550@neilslaptop.think-freely.org>
-	 <1314029857.2803.6.camel@bwh-desktop>
-	 <20110822181420.GD12337@hmsreliant.think-freely.org>
+From: Ang Way Chuang <wcang@sfc.wide.ad.jp>
+Subject: Re: IPv6 multicast snooping behaviour on 2.6.39-rc2 and later
+Date: Tue, 23 Aug 2011 23:04:16 +0900
+Message-ID: <4E53B360.8090107@sfc.wide.ad.jp>
+References: <4E5367CA.3090005@sfc.wide.ad.jp>  <1314093424.2219.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4E539DA8.1070504@sfc.wide.ad.jp> <1314105027.2219.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	=?UTF-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@web.de>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:28415 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346Ab1HWOB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 10:01:27 -0400
-In-Reply-To: <20110822181420.GD12337@hmsreliant.think-freely.org>
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:59924 "EHLO
+	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754879Ab1HWOET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 10:04:19 -0400
+In-Reply-To: <1314105027.2219.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-08-22 at 14:14 -0400, Neil Horman wrote:
-> On Mon, Aug 22, 2011 at 05:17:37PM +0100, Ben Hutchings wrote:
-> > On Sun, 2011-08-21 at 20:27 -0400, Neil Horman wrote:
-> > > On Wed, Aug 17, 2011 at 04:07:17PM +0100, Ben Hutchings wrote:
-> > > > On Tue, 2011-07-26 at 12:05 -0400, Neil Horman wrote:
-> > > > > Ok, after considering all your comments, Dave suggested this as an alternate
-> > > > > approach:
-> > > > > 
-> > > > > 1) We create a new priv_flag, IFF_SKB_TX_SHARED, to identify drivers capable of
-> > > > > handling shared skbs.  Default is to not set this flag
-> > > > > 
-> > > > > 2) Modify ether_setup to enable this flag, under the assumption that any driver
-> > > > > calling this  function is initalizing a real ethernet device and as such can
-> > > > > handle shared skbs since they don't tend to store state in the skb struct.
-> > > > > Pktgen can then query this flag when a user script attempts to issue the
-> > > > > clone_skb command and decide if it is to be alowed or not.
-> > > > [...]
-> > > > 
-> > > > A bunch of Ethernet drivers do skb_pad() or skb_padto() in their
-> > > > ndo_start_xmit implementations, either to avoid hardware bugs or because
-> > > > the MAC doesn't automatically pad to the minimum frame length.  This
-> > > > presumably means they can't generally handle shared skbs, though in the
-> > > > specific case of pktgen it should be safe as long as a single skb is not
-> > > > submitted by multiple threads at once.
-> > > > 
-> > > Agreed, given that pktgen is doing skb sharing in a serialized manner (i.e. one
-> > > thread of execution increasing skb->users rather than in multiple threads), the
-> > > skb_pad[to] cases are safe.  Are there cases in which shared skbs are
-> > > transmitted in parallel threads that we need to check for?
-> > 
-> > Not that I'm aware of.  However, you have defined the flag to mean 'safe
-> > to send shared skbs', and this is not generally true for those drivers.
-> > 
-> > So please decide whether:
-> > a. The flag means 'safe to send shared skbs' (i.e. the TX path does not
-> > modify the skb) and drivers which pad must clear it on their devices.
-> > b. The flag means 'safe to send shared skbs in the way ptkgen does', and
-> > the restrictions this places on the user and driver should be specified.
-> > 
-> 
-> The flag means safe to send shared skbs.
-> 
-> Actually looking closer at this, I don't think this is much of a problem at all.
-> The flag is cleared on devices for which it is unsafe to send shared skbs, not
-> because there are multiple users of the skb in parallel, but because the driver
-> expects to have continued exclusive access to the skb after the drivers
-> ndo_start_xmit method returns.
-> 
-> In the pktgen case, skbs have skb->users > 1, but all users exist in the same
-> execution context, making their transmission serialized.
-[...]
+Tough luck :( Got no love from bridge. It still doesn't work with your =
+latest patch. Please keep sending those patches.
 
-So it is not *generally* safe to send shared skbs to drivers that make
-idempotent changes to the skb.  There is a restriction and while pktgen
-operates within it today I don't want it to be an unwritten assumption.
-
-> So even though drivers that call skb_pad[to] modify the skb, its perfectly ok to
-> do so, as long as they don't assume that the struct skb will remain in that
-> state after the driver is done with it.
-> 
-> This works out perfectly well for skb_padto calls, since the function reduces to
-> a no-op after the minimal tail size has been reached.
-[...]
-
-Right, that's what I want to be specified.  Did you miss my own
-follow-up?  I proposed this description for the interface flag:
-
-        The ndo_start_xmit operation for this interface either does not
-        modify the given skb or modifies it idempotently. A single skb
-        may be transmitted repeatedly on a single queue of this
-        interface, but not on multiple queues or on multiple interfaces.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+On 23/08/11 22:10, Eric Dumazet wrote:
+> Le mardi 23 ao=C3=BBt 2011 =C3=A0 21:31 +0900, Ang Way Chuang a =C3=A9=
+crit :
+>> Sorry for the blurb. I hope I've configured thunderbird properly to
+>> send in plain text. Hope you received my reply. I tried your patch o=
+n
+>> 3.0.3 and it didn't fix the problem.
+>
+> Thanks for trying !
+>
+> Ok could you please try following patch then ?
+>
+> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> index 2d85ca7..e9b32a3 100644
+> --- a/net/bridge/br_multicast.c
+> +++ b/net/bridge/br_multicast.c
+> @@ -1497,7 +1497,7 @@ static int br_multicast_ipv6_rcv(struct net_bri=
+dge *br,
+>   	if (!pskb_may_pull(skb2, offset + sizeof(struct icmp6hdr)))
+>   		goto out;
+>
+> -	len -=3D offset - skb_network_offset(skb2);
+> +	len -=3D offset;
+>
+>   	__skb_pull(skb2, offset);
+>   	skb_reset_transport_header(skb2);
+> @@ -1520,6 +1520,7 @@ static int br_multicast_ipv6_rcv(struct net_bri=
+dge *br,
+>   		err =3D pskb_trim_rcsum(skb2, len);
+>   		if (err)
+>   			goto out;
+> +		icmp6h =3D icmp6_hdr(skb2);
+>   	}
+>
+>   	switch (skb2->ip_summed) {
+>
+>
+>
 
