@@ -1,93 +1,85 @@
-From: <Sathya.Perla@Emulex.Com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: RE: [PATCH net-next 3/5] be2net: fix erx->rx_drops_no_frags wrap
  around
-Date: Tue, 23 Aug 2011 00:06:48 -0700
-Message-ID: <3367B80B08154D42A3B2BC708B5D41F642D8EDB9C6@EXMAIL.ad.emulex.com>
+Date: Tue, 23 Aug 2011 09:29:37 +0200
+Message-ID: <1314084577.4791.30.camel@edumazet-laptop>
 References: <1314078115-8121-1-git-send-email-sathya.perla@emulex.com>
 	 <1314078115-8121-4-git-send-email-sathya.perla@emulex.com>
- <1314081677.4791.28.camel@edumazet-laptop>
+	 <1314081677.4791.28.camel@edumazet-laptop>
+	 <3367B80B08154D42A3B2BC708B5D41F642D8EDB9C6@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Sathya.Perla@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:28614 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750748Ab1HWHMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 03:12:34 -0400
-In-Reply-To: <1314081677.4791.28.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39538 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752068Ab1HWH3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 03:29:43 -0400
+Received: by wyg24 with SMTP id 24so3990490wyg.19
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 00:29:42 -0700 (PDT)
+In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F642D8EDB9C6@EXMAIL.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86
-ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj5TZW50OiBUdWVzZGF5LCBBdWd1c3QgMjMsIDIwMTEg
-MTI6MTEgUE0NCj4NCj5MZSBtYXJkaSAyMyBhb8O7dCAyMDExIMOgIDExOjExICswNTMwLCBTYXRo
-eWEgUGVybGEgYSDDqWNyaXQgOg0KPj4gVGhlIHJ4X2Ryb3BzX25vX2ZyYWdzIEhXIGNvdW50ZXIg
-Zm9yIFJTUyByaW5ncyBpcyAxNmJpdHMgaW4gSFcgYW5kIGNhbg0KPj4gd3JhcGFyb3VuZCBvZnRl
-bi4gTWFpbnRhaW4gYSAzMi1iaXQgYWNjdW11bGF0b3IgaW4gdGhlIGRyaXZlciB0byBwcmV2ZW50
-DQo+PiBmcmVxdWVudCB3cmFwYXJvdW5kLg0KPj4NCj4+IEFsc28sIGluY29ycG9yYXRlZCBFcmlj
-J3MgZmVlZGJhY2sgdG8gdXNlIEFDQ0VTU19PTkNFKCkgZm9yIHRoZQ0KPmFjY3VtdWxhdG9yDQo+
-PiB3cml0ZS4NCjwuLi4+DQo+Pg0KPj4gK3N0YXRpYyB2b2lkIGFjY3VtdWxhdGVfMTZiaXRfdmFs
-KHUzMiAqYWNjLCB1MTYgdmFsKQ0KPj4gK3sNCj4+ICsjZGVmaW5lIGxvKHgpCQkJKHggJiAweEZG
-RkYpDQo+PiArI2RlZmluZSBoaSh4KQkJCSh4ICYgMHhGRkZGMDAwMCkNCj4+ICsJYm9vbCB3cmFw
-cGVkID0gdmFsIDwgbG8oKmFjYyk7DQo+PiArCXUzMiBuZXdhY2MgPSBoaSgqYWNjKSArIHZhbDsN
-Cj4+ICsNCj4+ICsJaWYgKHdyYXBwZWQpDQo+PiArCQluZXdhY2MgKz0gNjU1MzY7DQo+PiArCUFD
-Q0VTU19PTkNFKCphY2MpID0gbmV3YWNjOw0KPj4gK30NCj4+ICsNCj4NCj5JIHN0aWxsIGZlZWwg
-c29tZXRoaW5nIGlzIHdyb25nIGhlcmUgOg0KPg0KPj4gIHZvaWQgYmVfcGFyc2Vfc3RhdHMoc3Ry
-dWN0IGJlX2FkYXB0ZXIgKmFkYXB0ZXIpDQo+PiAgew0KPj4gIAlzdHJ1Y3QgYmVfZXJ4X3N0YXRz
-X3YxICplcnggPSBiZV9lcnhfc3RhdHNfZnJvbV9jbWQoYWRhcHRlcik7DQo+PiBAQCAtMzk0LDkg
-KzQwNiwxMyBAQCB2b2lkIGJlX3BhcnNlX3N0YXRzKHN0cnVjdCBiZV9hZGFwdGVyICphZGFwdGVy
-KQ0KPj4gIAl9DQo+Pg0KPj4gIAkvKiBhcyBlcnhfdjEgaXMgbG9uZ2VyIHRoYW4gdjAsIG9rIHRv
-IHVzZSB2MSBkZWZuIGZvciB2MCBhY2Nlc3MgKi8NCj4+IC0JZm9yX2FsbF9yeF9xdWV1ZXMoYWRh
-cHRlciwgcnhvLCBpKQ0KPj4gLQkJcnhfc3RhdHMocnhvKS0+cnhfZHJvcHNfbm9fZnJhZ3MgPQ0K
-Pj4gLQkJCWVyeC0+cnhfZHJvcHNfbm9fZnJhZ21lbnRzW3J4by0+cS5pZF07DQo+DQo+cHJldmlv
-dXMgY29kZSB3YXMgbm90IGRvaW5nIGEgc3VtX29mX2FsbF9xdWV1ZXMuDQpZZXMsIHRoZSBuZXcg
-Y29kZSBzdGlsbCAqZG9lcyBub3QqIGRvIGEgc3VtIG9mIGFsbCBxdWV1ZXMuIFRoZSBjb2RlIGp1
-c3QgDQpwYXJzZXMgcGVyLXF1ZXVlIHN0YXRzLiBGb3IgZWFjaCBxdWV1ZSwgdGhlIDE2IGJpdA0K
-SFcgc3RhdHMgdmFsdWUgaXMgdGFrZW4gYW5kIHN0b3JlZCBpbiBhIDMyLWJpdCAqcGVyLXF1ZXVl
-KiB2YXJpYWJsZS4NClRoZSBjb21tZW50IHRoYXQgImRyaXZlciBhY2N1bXVsYXRlcyBhIDMyLWJp
-dCB2YWwiIG1heSBiZSBtaXNsZWFkaW5nLiBUaGUNCmNvZGUgaGVyZSBpcyBub3QgZG9pbmcgYSBz
-dW0gb2YgdGhlIHBlci1xdWV1ZSBzdGF0Lg0KDQorICAgICAgIGZvcl9hbGxfcnhfcXVldWVzKGFk
-YXB0ZXIsIHJ4bywgaSkgew0KKyAgICAgICAgICAgICAgIC8qIGJlbG93IGVyeCBIVyBjb3VudGVy
-IGNhbiBhY3R1YWxseSB3cmFwIGFyb3VuZCBhZnRlcg0KKyAgICAgICAgICAgICAgICAqIDY1NTM1
-LiBEcml2ZXIgYWNjdW11bGF0ZXMgYSAzMi1iaXQgdmFsdWUNCisgICAgICAgICAgICAgICAgKi8N
-CisgICAgICAgICAgICAgICBhY2N1bXVsYXRlXzE2Yml0X3ZhbCgmcnhfc3RhdHMocnhvKS0+cnhf
-ZHJvcHNfbm9fZnJhZ3MsDQorICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICh1MTYpZXJ4
-LT5yeF9kcm9wc19ub19mcmFnbWVudHNbcnhvLT5xLmlkXSk7DQorICAgICAgIH0NCg0KPg0KPkl0
-IG9ubHkgZ2F2ZSB0aGUgZmluYWwgZXJ4LT5yeF9kcm9wc19ub19mcmFnbWVudHNbcnhvLT5xLmlk
-XSwgbm90IHRha2luZw0KPmludG8gYWNjb3VudCBwcmV2aW91cyByeF9zdGF0cyhyeG8pLT5yeF9k
-cm9wc19ub19mcmFncyB2YWx1ZS4NCj4NCj5Zb3VyIGNoYW5nZWxvZyBpcyBhYm91dCB3cmFwIGFy
-b3VuZCwgd2hpbGUgdGhlIGJ1ZyBtaWdodCBoYXZlIGJlDQo+ZGlmZmVyZW50IChObyByZWFsIHN1
-bSkNCj4NCj5Ob3cgeW91IHNheSA6IHByZXZpb3VzIHZhbHVlIGlzIG1lYW5pbmdmdWxsLCBhbmQg
-d2UgYWRkIHRvIGl0IDE2Yml0cw0KPnZhbHVlcy4NCj4NCj4+ICsJZm9yX2FsbF9yeF9xdWV1ZXMo
-YWRhcHRlciwgcnhvLCBpKSB7DQo+PiArCQkvKiBiZWxvdyBlcnggSFcgY291bnRlciBjYW4gYWN0
-dWFsbHkgd3JhcCBhcm91bmQgYWZ0ZXINCj4+ICsJCSAqIDY1NTM1LiBEcml2ZXIgYWNjdW11bGF0
-ZXMgYSAzMi1iaXQgdmFsdWUNCj4+ICsJCSAqLw0KPj4gKwkJYWNjdW11bGF0ZV8xNmJpdF92YWwo
-JnJ4X3N0YXRzKHJ4byktPnJ4X2Ryb3BzX25vX2ZyYWdzLA0KPj4gKwkJCQkodTE2KWVyeC0+cnhf
-ZHJvcHNfbm9fZnJhZ21lbnRzW3J4by0+cS5pZF0pOw0KPj4gKwl9DQo+PiAgfQ0KPj4NCj4NCj5B
-cmVudCBtdWx0aXBsZSBjYWxscyB0byBiZV9wYXJzZV9zdGF0cygpIHdpbGwgaGF2ZSB3cm9uZyBm
-aW5hbA0KPnJ4X2Ryb3BzX25vX2ZyYWdzIHZhbHVlID8NCj4NCj5PciBhcmUgdGhlIHJ4X2Ryb3Bz
-X25vX2ZyYWdtZW50c1tyeG8tPnEuaWRdIGNsZWFyZWQgd2hlbiByZWFkID8NCg0KVGhlIGZvbGxv
-d2luZyBsb2dpYyBzaG91bGQgdGFrZSBjYXJlIG9mIHRoYXQ6DQoJdTMyIG5ld2FjYyA9IGhpKCph
-Y2MpICsgdmFsOw0KT25seSB0aGUgdXBwZXIgMTYgYml0cyBvZiB0aGUgYWNjdW11bGF0b3IgYXJl
-IHJldGFpbmVkIGFuZCB0aGUgbmV3LXZhbA0Kb2YgdGhlIDE2LWJpdCBzdGF0IGlzIHVzZWQgZm9y
-IHRoZSBsb3dlciAxNiBiaXRzLiBTbywgZXZlbiBpZiBJIGNhbGwgdGhpcw0Kcm91dGluZSAxMCB0
-aW1lcyB3aXRoIHRoZSBzYW1lIHZhbHVlIGZvciB2YWwsIHRoZSBhY2N1bXVsYXRvciB2YWx1ZSB3
-aWxsIG5vdCBjaGFuZ2UuDQoNClNheTogYWNjdW11bGF0b3IgaXMgMHgwMDAxMDAwMQ0KU2F5OiBu
-ZXcgMTYtYml0IGh3IGNvdW50ZXIgdmFsdWUgaXMgbm93IDIgKGl0IHdhcyBwcmV2aW91c2x5IDEg
-YW5kIGhhZCB3cmFwZWQtYXJvdWQgYmVmb3JlIHRoYXQpDQphY2N1bXVsYXRlKGFjYywgMikgPT0+
-IG5ld2FjYyA9IDB4MDAwMTAwMDAgKyAyID0gMHgwMDAxMDAwMg0KYW55IG51bWJlciBvZiBjYWxs
-cyB0byBhY2N1bXVsYXRlKGFjYywgMikgd2lsbCBzdGlsbCBwcm9kdWNlIGFjYyA9IDB4MDAwMTAw
-MDINCg0KPg0KPkkgYW0gYWZyYWlkIHRoYXQgaWYgSFcgbWFpbnRhaW5zIDE2Yml0IHZhbHVlcywg
-dGhlbiB0aGUgb25seSB3YXkgaXMgdG8NCj5hbHNvIGhhdmUgYSAxNmJpdCBhY2N1bXVsYXRvci4g
-WW91IGNhbm5vdCBkZXRlY3Qgd3JhcGFyb3VuZHMgd2l0aG91dA0KPmFsc28ga2VlcGluZyBhIGNv
-cHkgb2YgcHJldmlvdXMgMTZiaXQgc2FtcGxlcy4NCg0KSSBkb24ndCBhZ3JlZToNClNheTogYWNj
-dW11bGF0b3IgaXMgMHgwMDAwRkZGRg0KU2F5OiBuZXcgMTYtYml0IGh3IGNvdW50ZXIgdmFsdWUg
-aXMgbm93IDAgKGFmdGVyIGEgd3JhcC1hcm91ZCkNCmFjY3VtdWxhdGUoYWNjLCAwKSA9PT4gbmV3
-YWNjID0gMHgwMDAwMDAwMCArIDAgPSAweDAwMDAwMDAwDQpBZnRlciB0aGUgd3JhcGFyb3VuZCBj
-aGVjayBuZXdhY2MgPSAweDAwMDEwMDAwDQoNCj4NCj51MTYgYWNjdW0gPSAwOw0KPm9yX2FsbF9y
-eF9xdWV1ZXMoYWRhcHRlciwgcnhvLCBpKSB7DQo+CWFjY3VtICs9IGVyeC0+cnhfZHJvcHNfbm9f
-ZnJhZ21lbnRzW3J4by0+cS5pZF07DQo+fQ0KPnJ4X3N0YXRzKHJ4byktPnJ4X2Ryb3BzX25vX2Zy
-YWdzID0gYWNjdW07DQo+DQoNCg==
+Le mardi 23 ao=C3=BBt 2011 =C3=A0 00:06 -0700, Sathya.Perla@Emulex.Com =
+a =C3=A9crit :
+> >-----Original Message-----
+> >From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> >Sent: Tuesday, August 23, 2011 12:11 PM
+> >
+> >Le mardi 23 ao=C3=BBt 2011 =C3=A0 11:11 +0530, Sathya Perla a =C3=A9=
+crit :
+> >> The rx_drops_no_frags HW counter for RSS rings is 16bits in HW and=
+ can
+> >> wraparound often. Maintain a 32-bit accumulator in the driver to p=
+revent
+> >> frequent wraparound.
+> >>
+> >> Also, incorporated Eric's feedback to use ACCESS_ONCE() for the
+> >accumulator
+> >> write.
+> <...>
+> >>
+> >> +static void accumulate_16bit_val(u32 *acc, u16 val)
+> >> +{
+> >> +#define lo(x)			(x & 0xFFFF)
+> >> +#define hi(x)			(x & 0xFFFF0000)
+> >> +	bool wrapped =3D val < lo(*acc);
+> >> +	u32 newacc =3D hi(*acc) + val;
+> >> +
+> >> +	if (wrapped)
+> >> +		newacc +=3D 65536;
+> >> +	ACCESS_ONCE(*acc) =3D newacc;
+> >> +}
+> >> +
+> >
+> >I still feel something is wrong here :
+> >
+> >>  void be_parse_stats(struct be_adapter *adapter)
+> >>  {
+> >>  	struct be_erx_stats_v1 *erx =3D be_erx_stats_from_cmd(adapter);
+> >> @@ -394,9 +406,13 @@ void be_parse_stats(struct be_adapter *adapte=
+r)
+> >>  	}
+> >>
+> >>  	/* as erx_v1 is longer than v0, ok to use v1 defn for v0 access =
+*/
+> >> -	for_all_rx_queues(adapter, rxo, i)
+> >> -		rx_stats(rxo)->rx_drops_no_frags =3D
+> >> -			erx->rx_drops_no_fragments[rxo->q.id];
+> >
+> >previous code was not doing a sum_of_all_queues.
+> Yes, the new code still *does not* do a sum of all queues. The code j=
+ust=20
+> parses per-queue stats. For each queue, the 16 bit
+> HW stats value is taken and stored in a 32-bit *per-queue* variable.
+> The comment that "driver accumulates a 32-bit val" may be misleading.=
+ The
+> code here is not doing a sum of the per-queue stat.
+
+Ah ok, I now see the code intent, and everything seems fine now, thanks
+for explaining.
+
+
