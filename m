@@ -1,34 +1,68 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/4] net: convert core to skb paged frag APIs
-Date: Tue, 23 Aug 2011 20:34:53 +0200
-Message-ID: <CAHXqBFJSXB1z6sqEqLg_rc-GnYJBN7b7=mjwsGL8NTf6ga5qaQ@mail.gmail.com>
-References: <1314092683.10283.21.camel@zakaz.uk.xensource.com> <1314092701-4347-1-git-send-email-ian.campbell@citrix.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 2/3] drivers/staging/rtl8192e: Don't pass huge struct by
+ value
+Date: Tue, 23 Aug 2011 12:08:34 -0700
+Message-ID: <20110823190834.GC17796@kroah.com>
+References: <alpine.LNX.2.00.1108130058310.7387@swampdragon.chaosbits.net>
+ <4E45B684.6080300@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-To: Ian Campbell <ian.campbell@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Juhl <jj@chaosbits.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
+	Mike McCormack <mikem@ring3k.org>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
+	Stefan Weil <weil@mail.berlios.de>,
+	Andrea Merello <andreamrl@tiscali.it>, netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:49056 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752684Ab1HWSfO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 14:35:14 -0400
-Received: by qyk38 with SMTP id 38so2200596qyk.19
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 11:35:13 -0700 (PDT)
-In-Reply-To: <1314092701-4347-1-git-send-email-ian.campbell@citrix.com>
+Received: from out3.smtp.messagingengine.com ([66.111.4.27]:49154 "EHLO
+	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755304Ab1HWTLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 15:11:04 -0400
+Content-Disposition: inline
+In-Reply-To: <4E45B684.6080300@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/8/23 Ian Campbell <ian.campbell@citrix.com>:
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i < =
-skb_shinfo(skb)->nr_frags; i++) {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
+On Fri, Aug 12, 2011 at 06:25:56PM -0500, Larry Finger wrote:
+> On 08/12/2011 06:04 PM, Jesper Juhl wrote:
+> >From: Jesper Juhl<jj@chaosbits.net>
+> >Date: Sat, 13 Aug 2011 00:52:32 +0200
+> >
+> >struct ieee80211_network is fairly large (more than half a kilobyte),
+> >so let's pass a pointer instead of passing the entire structure by
+> >value when ieee80211_is_54g() and ieee80211_is_shortslot() need to
+> >look at a few members.
+> >Also remove parentheses around the values being returned from those
+> >two functions - 'return' is not a function.
+> >
+> >Signed-off-by: Jesper Juhl<jj@chaosbits.net>
+> >---
+> >  drivers/staging/rtl8192e/ieee80211/ieee80211.h     |    4 ++--
+> >  .../staging/rtl8192e/ieee80211/ieee80211_softmac.c |   14 +++++++-------
+> >  2 files changed, 9 insertions(+), 9 deletions(-)
+> 
+> This patch is a good one; however, in Greg's pile of unmerged
+> patches is a completely different driver for the RTL8192E. The new
+> driver has the advantage of being organized much more like the
+> drivers in rtlwifi. That will make it easier to convert to mac80211
+> and move to mainline.
+> 
+> I also have a lot of unsubmitted patches to clean up the code in the
+> new driver. At the moment, it is clear of 'checkpatch -f' errors,
+> and most warnings. In addition, many of the sparse warnings are
+> fixed. Once Greg merges the patches already submitted, I will send
+> the others.
 
-This is a rather common construct, so it might be worth it to
-introduce something like for_each_skb_frag().
+Ick, I give up.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Larry, can you resend me _all_ pending rtl8192e patches that you have
+sent me that I should apply, in the order they should be applied in, as
+I'm totally lost here and have now flushed all of the rtl8192e patches
+that were in my inboxes out so I can start with a clean slate.
+
+Sorry about this, the different versions of patches floating around
+didn't help anything :(
+
+greg k-h
