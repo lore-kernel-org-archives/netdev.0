@@ -1,61 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IPv6 multicast snooping behaviour on 2.6.39-rc2 and later
-Date: Tue, 23 Aug 2011 15:10:27 +0200
-Message-ID: <1314105027.2219.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4E5367CA.3090005@sfc.wide.ad.jp>
-	 <1314093424.2219.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4E539DA8.1070504@sfc.wide.ad.jp>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 hard-freezes the system on big network loads
+Date: Tue, 23 Aug 2011 15:17:26 +0200
+Message-ID: <20110823131726.GA21092@electric-eye.fr.zoreil.com>
+References: <201108141308.28140.kjun-chen@sambodha.org> <20110821123311.GA20605@electric-eye.fr.zoreil.com> <201108211520.50400.brade@informatik.uni-muenchen.de> <20110821221140.GA20696@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@web.de>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Ang Way Chuang <wcang@sfc.wide.ad.jp>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: Michael Brade <brade@informatik.uni-muenchen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:54757 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754890Ab1HWNK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 09:10:26 -0400
-Received: by wwf5 with SMTP id 5so92711wwf.1
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 06:10:25 -0700 (PDT)
-In-Reply-To: <4E539DA8.1070504@sfc.wide.ad.jp>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:33848 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754955Ab1HWNfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 09:35:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20110821221140.GA20696@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 23 ao=C3=BBt 2011 =C3=A0 21:31 +0900, Ang Way Chuang a =C3=A9c=
-rit :
-> Sorry for the blurb. I hope I've configured thunderbird properly to
-> send in plain text. Hope you received my reply. I tried your patch on
-> 3.0.3 and it didn't fix the problem.
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+> Yes. There is enough data for me to reproduce the bug with the
+> exact same chipset.
 
+I can not generate a single rx error and the driver refuses to crash :o/ 
 
-Thanks for trying !
+Can you apply the patch below on top of 3.1.0-rc3 and see if it makes
+a difference ?
 
-Ok could you please try following patch then ?
+Thanks.
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 2d85ca7..e9b32a3 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1497,7 +1497,7 @@ static int br_multicast_ipv6_rcv(struct net_bridg=
-e *br,
- 	if (!pskb_may_pull(skb2, offset + sizeof(struct icmp6hdr)))
- 		goto out;
-=20
--	len -=3D offset - skb_network_offset(skb2);
-+	len -=3D offset;
-=20
- 	__skb_pull(skb2, offset);
- 	skb_reset_transport_header(skb2);
-@@ -1520,6 +1520,7 @@ static int br_multicast_ipv6_rcv(struct net_bridg=
-e *br,
- 		err =3D pskb_trim_rcsum(skb2, len);
- 		if (err)
- 			goto out;
-+		icmp6h =3D icmp6_hdr(skb2);
- 	}
-=20
- 	switch (skb2->ip_summed) {
-
-
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 02339b3..c54ed17 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -5326,10 +5326,6 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 				dev->stats.rx_length_errors++;
+ 			if (status & RxCRC)
+ 				dev->stats.rx_crc_errors++;
+-			if (status & RxFOVF) {
+-				rtl8169_schedule_work(dev, rtl8169_reset_task);
+-				dev->stats.rx_fifo_errors++;
+-			}
+ 			rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 		} else {
+ 			struct sk_buff *skb;
