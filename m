@@ -1,60 +1,75 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the unicore32 tree
-Date: Tue, 23 Aug 2011 13:02:10 +1000
-Message-ID: <20110823130210.766d466d689d60536f59340a@canb.auug.org.au>
+From: Arnaud Lacombe <lacombar@gmail.com>
+Subject: Re: linux-next: boot test failure (net tree)
+Date: Mon, 22 Aug 2011 23:50:02 -0400
+Message-ID: <CACqU3MW4BnucRt3gxPrKPDvWEjaVuxRF1VOPWk5hTRfneyANkg@mail.gmail.com>
+References: <20110822113032.15087c2e190e2b0c3ee7dfb8@canb.auug.org.au>
+	<20110823114011.a059aea0138b75bfa7eed1ce@canb.auug.org.au>
+	<20110823114129.ceb18da164bf7df3c145941b@canb.auug.org.au>
+	<20110822.191348.2099822249437201579.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Guan Xuetao <gxt@mprc.pku.edu.cn>,
-	Zhang Shu <davidshuzhang@gmail.com>,
-	Chu Xiaowei <chuxiaowei@mprc.pku.edu.cn>,
-	Su Yonggang <tonyhook.su@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, mikey@neuling.org,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linuxppc-dev@lists.ozlabs.org, benh@kernel.crashing.org,
+	paulus@samba.org, linux-kbuild@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20110822.191348.2099822249437201579.davem@davemloft.net>
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Hi,
 
-Today's linux-next merge of the net tree got conflicts in
-drivers/net/Kconfig and drivers/net/Makefile between commit e8787de6fa83
-("unicore32: add pkunity-v3 mac/net driver (umal)") from the unicore32
-tree and the network driver rearrangement from the net tree.
+[Added linux-kbuild@ to the Cc: list.]
 
-I just added the new driver from the unicore32 tree commit into each file
-(see below).
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+On Mon, Aug 22, 2011 at 10:13 PM, David Miller <davem@davemloft.net> wr=
+ote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 23 Aug 2011 11:41:29 +1000
+>
+>> On Tue, 23 Aug 2011 11:40:11 +1000 Stephen Rothwell <sfr@canb.auug.o=
+rg.au> wrote:
+>>>
+>>> On Mon, 22 Aug 2011 11:30:32 +1000 Stephen Rothwell <sfr@canb.auug.=
+org.au> wrote:
+>>> >
+>>> > Here's what I am applying as a merge fixup to the net tree today =
+so that
+>>> > my ppc64_defconfig builds actually build more or less the same se=
+t of
+>>> > drivers as before this rearrangement.
+>>>
+>>> And this today:
+>>
+>> And this:
+>
+> I'm starting to get uncomfortable with this whole situation, and I
+> feel more and more that these new kconfig guards are not tenable.
+>
+> Changing defconfig files might fix the "automated test boot with
+> defconfig" case but it won't fix the case of someone trying to
+> automate a build and boot using a different, existing, config file.
+> It ought to work too, and I do know people really do this.
+>
+> And just the fact that we would have to merge all of these defconfig =
+changes
+> through the networking tree is evidence of how it's really not reason=
+able
+> to be doing things this way.
+>
+> Jeff, I think we need to revert the dependencies back to what they we=
+re
+> before the drivers/net moves. =A0Could you prepare a patch which does=
+ that?
+>
+Are you implying we need some kind of way to migrate config ?
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index ef6b6be..df5e990 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -215,6 +215,12 @@ source "drivers/s390/net/Kconfig"
- 
- source "drivers/net/caif/Kconfig"
- 
-+config MAC_PUV3
-+	tristate "PKUnity v3 UMAL Gigabit Network Adapter support"
-+	depends on UNICORE32 && ARCH_PUV3
-+	select MII
-+	select PHYLIB
-+
- config XEN_NETDEV_FRONTEND
- 	tristate "Xen network device frontend driver"
- 	depends on XEN
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index c33009b..9896ad1 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -23,6 +23,7 @@ obj-$(CONFIG_RIONET) += rionet.o
- 
- obj-$(CONFIG_NET) += Space.o loopback.o
- obj-$(CONFIG_NET_SB1000) += sb1000.o
-+obj-$(CONFIG_MAC_PUV3) += mac-puv3.o
- obj-$(CONFIG_PPP) += ppp_generic.o
- obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
- obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
+ - Arnaud
+--
+To unsubscribe from this list: send the line "unsubscribe linux-kbuild"=
+ in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
