@@ -1,241 +1,144 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/9][pull request] Complete drivers/net/ move
-Date: Tue, 23 Aug 2011 01:45:40 -0700
-Message-ID: <1314089149-27205-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/9] ixbmtr_cs: Move the IBM PCMCIA Token Ring driver
+Date: Tue, 23 Aug 2011 01:45:46 -0700
+Message-ID: <1314089149-27205-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1314089149-27205-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+	gospo@redhat.com, Mike Phillips <phillim@amtrak.com>,
+	Burt Silverman <burts@us.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:49873 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:44503 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754811Ab1HWIqK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Aug 2011 04:46:10 -0400
+	id S1754863Ab1HWIqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Aug 2011 04:46:25 -0400
+In-Reply-To: <1314089149-27205-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series moves the FDDI, PPP, HIPPI, PLIP, SLIP and the cleanup
-of the drivers/net/ Kconfig & Makefile's.  This series in addition moves
-the 2 remaining drivers in drivers/net/pcmcia/ into their respective
-directories (arcnet & tokenring).  The last remaining change is to
-make the all the "new" Kconfig options introduced by the Ethernet
-drivers move to yes, so that current defconfig's will compile the expected
-drivers.
+Move the IBM PCMCIA Token Ring driver into drivers/net/tokenring/ with
+the other Token Ring drivers.  Made the necessary Kconfig and Makefile
+changes as well.
 
-The following are changes since commit ca1ba7caa68520864e4b9227e67f3bbc6fed373b:
-  Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
-
-Jeff Kirsher (9):
-  fddi: Move the FDDI drivers
-  ppp: Move the PPP drivers
-  hippi: Move the HIPPI driver
-  plip: Move the PLIP driver
-  slip: Move the SLIP drivers
-  ixbmtr_cs: Move the IBM PCMCIA Token Ring driver
-  com20020_cs: Move the PCMCIA Arcnet driver
-  drivers/net: Kconfig & Makefile cleanup
-  drivers/net/ethernet/*: Enabled vendor Kconfig options
-
- MAINTAINERS                                  |   11 +-
- drivers/net/Kconfig                          |  640 ++++++--------------------
- drivers/net/Makefile                         |   84 ++--
- drivers/net/arcnet/Kconfig                   |   14 +-
- drivers/net/arcnet/Makefile                  |    1 +
- drivers/net/{pcmcia => arcnet}/com20020_cs.c |    0
- drivers/net/ethernet/3com/Kconfig            |    1 +
- drivers/net/ethernet/8390/Kconfig            |    1 +
- drivers/net/ethernet/adaptec/Kconfig         |    1 +
- drivers/net/ethernet/alteon/Kconfig          |    1 +
- drivers/net/ethernet/amd/Kconfig             |    1 +
- drivers/net/ethernet/apple/Kconfig           |    1 +
- drivers/net/ethernet/atheros/Kconfig         |    1 +
- drivers/net/ethernet/broadcom/Kconfig        |    1 +
- drivers/net/ethernet/brocade/Kconfig         |    1 +
- drivers/net/ethernet/chelsio/Kconfig         |    1 +
- drivers/net/ethernet/cirrus/Kconfig          |    1 +
- drivers/net/ethernet/cisco/Kconfig           |    1 +
- drivers/net/ethernet/dec/Kconfig             |    1 +
- drivers/net/ethernet/dlink/Kconfig           |    1 +
- drivers/net/ethernet/emulex/Kconfig          |    1 +
- drivers/net/ethernet/faraday/Kconfig         |    1 +
- drivers/net/ethernet/freescale/Kconfig       |    1 +
- drivers/net/ethernet/fujitsu/Kconfig         |    1 +
- drivers/net/ethernet/hp/Kconfig              |    1 +
- drivers/net/ethernet/i825xx/Kconfig          |    1 +
- drivers/net/ethernet/ibm/Kconfig             |    1 +
- drivers/net/ethernet/intel/Kconfig           |    1 +
- drivers/net/ethernet/marvell/Kconfig         |    1 +
- drivers/net/ethernet/mellanox/Kconfig        |    1 +
- drivers/net/ethernet/micrel/Kconfig          |    1 +
- drivers/net/ethernet/microchip/Kconfig       |    1 +
- drivers/net/ethernet/myricom/Kconfig         |    1 +
- drivers/net/ethernet/natsemi/Kconfig         |    1 +
- drivers/net/ethernet/neterion/Kconfig        |    1 +
- drivers/net/ethernet/nuvoton/Kconfig         |    1 +
- drivers/net/ethernet/nvidia/Kconfig          |    1 +
- drivers/net/ethernet/oki-semi/Kconfig        |    1 +
- drivers/net/ethernet/pasemi/Kconfig          |    1 +
- drivers/net/ethernet/qlogic/Kconfig          |    1 +
- drivers/net/ethernet/racal/Kconfig           |    1 +
- drivers/net/ethernet/rdc/Kconfig             |    1 +
- drivers/net/ethernet/realtek/Kconfig         |    1 +
- drivers/net/ethernet/seeq/Kconfig            |    1 +
- drivers/net/ethernet/sgi/Kconfig             |    1 +
- drivers/net/ethernet/sis/Kconfig             |    1 +
- drivers/net/ethernet/smsc/Kconfig            |    1 +
- drivers/net/ethernet/stmicro/Kconfig         |    1 +
- drivers/net/ethernet/sun/Kconfig             |    1 +
- drivers/net/ethernet/tehuti/Kconfig          |    1 +
- drivers/net/ethernet/ti/Kconfig              |    1 +
- drivers/net/ethernet/toshiba/Kconfig         |    1 +
- drivers/net/ethernet/tundra/Kconfig          |    1 +
- drivers/net/ethernet/via/Kconfig             |    1 +
- drivers/net/ethernet/xilinx/Kconfig          |    1 +
- drivers/net/ethernet/xircom/Kconfig          |    1 +
- drivers/net/ethernet/xscale/Kconfig          |    1 +
- drivers/net/fddi/Kconfig                     |   77 +++
- drivers/net/fddi/Makefile                    |    6 +
- drivers/net/{ => fddi}/defxx.c               |    0
- drivers/net/{ => fddi}/defxx.h               |    0
- drivers/net/{ => fddi}/skfp/Makefile         |    0
- drivers/net/{ => fddi}/skfp/cfm.c            |    0
- drivers/net/{ => fddi}/skfp/drvfbi.c         |    0
- drivers/net/{ => fddi}/skfp/ecm.c            |    0
- drivers/net/{ => fddi}/skfp/ess.c            |    0
- drivers/net/{ => fddi}/skfp/fplustm.c        |    0
- drivers/net/{ => fddi}/skfp/h/cmtdef.h       |    0
- drivers/net/{ => fddi}/skfp/h/fddi.h         |    0
- drivers/net/{ => fddi}/skfp/h/fddimib.h      |    0
- drivers/net/{ => fddi}/skfp/h/fplustm.h      |    0
- drivers/net/{ => fddi}/skfp/h/hwmtm.h        |    0
- drivers/net/{ => fddi}/skfp/h/mbuf.h         |    0
- drivers/net/{ => fddi}/skfp/h/osdef1st.h     |    0
- drivers/net/{ => fddi}/skfp/h/sba.h          |    0
- drivers/net/{ => fddi}/skfp/h/sba_def.h      |    0
- drivers/net/{ => fddi}/skfp/h/skfbi.h        |    0
- drivers/net/{ => fddi}/skfp/h/skfbiinc.h     |    0
- drivers/net/{ => fddi}/skfp/h/smc.h          |    0
- drivers/net/{ => fddi}/skfp/h/smt.h          |    0
- drivers/net/{ => fddi}/skfp/h/smt_p.h        |    0
- drivers/net/{ => fddi}/skfp/h/smtstate.h     |    0
- drivers/net/{ => fddi}/skfp/h/supern_2.h     |    0
- drivers/net/{ => fddi}/skfp/h/targethw.h     |    0
- drivers/net/{ => fddi}/skfp/h/targetos.h     |    0
- drivers/net/{ => fddi}/skfp/h/types.h        |    0
- drivers/net/{ => fddi}/skfp/hwmtm.c          |    0
- drivers/net/{ => fddi}/skfp/hwt.c            |    0
- drivers/net/{ => fddi}/skfp/pcmplc.c         |    0
- drivers/net/{ => fddi}/skfp/pmf.c            |    0
- drivers/net/{ => fddi}/skfp/queue.c          |    0
- drivers/net/{ => fddi}/skfp/rmt.c            |    0
- drivers/net/{ => fddi}/skfp/skfddi.c         |    0
- drivers/net/{ => fddi}/skfp/smt.c            |    0
- drivers/net/{ => fddi}/skfp/smtdef.c         |    0
- drivers/net/{ => fddi}/skfp/smtinit.c        |    0
- drivers/net/{ => fddi}/skfp/smttimer.c       |    0
- drivers/net/{ => fddi}/skfp/srf.c            |    0
- drivers/net/hippi/Kconfig                    |   39 ++
- drivers/net/hippi/Makefile                   |    5 +
- drivers/net/{ => hippi}/rrunner.c            |    0
- drivers/net/{ => hippi}/rrunner.h            |    0
- drivers/net/pcmcia/Kconfig                   |   45 --
- drivers/net/pcmcia/Makefile                  |    8 -
- drivers/net/phy/Kconfig                      |    2 +-
- drivers/net/plip/Kconfig                     |   38 ++
- drivers/net/plip/Makefile                    |    5 +
- drivers/net/{ => plip}/plip.c                |    0
- drivers/net/ppp/Kconfig                      |  176 +++++++
- drivers/net/ppp/Makefile                     |   13 +
- drivers/net/{ => ppp}/bsd_comp.c             |    0
- drivers/net/{ => ppp}/ppp_async.c            |    0
- drivers/net/{ => ppp}/ppp_deflate.c          |    0
- drivers/net/{ => ppp}/ppp_generic.c          |    0
- drivers/net/{ => ppp}/ppp_mppe.c             |    0
- drivers/net/{ => ppp}/ppp_mppe.h             |    0
- drivers/net/{ => ppp}/ppp_synctty.c          |    0
- drivers/net/{ => ppp}/pppoe.c                |    0
- drivers/net/{ => ppp}/pppox.c                |    0
- drivers/net/{ => ppp}/pptp.c                 |    0
- drivers/net/slip/Kconfig                     |   79 ++++
- drivers/net/slip/Makefile                    |    6 +
- drivers/net/{ => slip}/slhc.c                |    0
- drivers/net/{ => slip}/slip.c                |    0
- drivers/net/{ => slip}/slip.h                |    0
- drivers/net/tokenring/Kconfig                |   15 +-
- drivers/net/tokenring/Makefile               |   21 +-
+CC: Mike Phillips <phillim@amtrak.com>
+CC: Burt Silverman <burts@us.ibm.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/pcmcia/Kconfig                   |   11 -----------
+ drivers/net/pcmcia/Makefile                  |    2 --
+ drivers/net/tokenring/Kconfig                |   13 ++++++++++++-
+ drivers/net/tokenring/Makefile               |   21 +++++++++++----------
  drivers/net/{pcmcia => tokenring}/ibmtr_cs.c |    2 +-
- 128 files changed, 710 insertions(+), 628 deletions(-)
- rename drivers/net/{pcmcia => arcnet}/com20020_cs.c (100%)
- create mode 100644 drivers/net/fddi/Kconfig
- create mode 100644 drivers/net/fddi/Makefile
- rename drivers/net/{ => fddi}/defxx.c (100%)
- rename drivers/net/{ => fddi}/defxx.h (100%)
- rename drivers/net/{ => fddi}/skfp/Makefile (100%)
- rename drivers/net/{ => fddi}/skfp/cfm.c (100%)
- rename drivers/net/{ => fddi}/skfp/drvfbi.c (100%)
- rename drivers/net/{ => fddi}/skfp/ecm.c (100%)
- rename drivers/net/{ => fddi}/skfp/ess.c (100%)
- rename drivers/net/{ => fddi}/skfp/fplustm.c (100%)
- rename drivers/net/{ => fddi}/skfp/h/cmtdef.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/fddi.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/fddimib.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/fplustm.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/hwmtm.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/mbuf.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/osdef1st.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/sba.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/sba_def.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/skfbi.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/skfbiinc.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/smc.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/smt.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/smt_p.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/smtstate.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/supern_2.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/targethw.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/targetos.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/types.h (100%)
- rename drivers/net/{ => fddi}/skfp/hwmtm.c (100%)
- rename drivers/net/{ => fddi}/skfp/hwt.c (100%)
- rename drivers/net/{ => fddi}/skfp/pcmplc.c (100%)
- rename drivers/net/{ => fddi}/skfp/pmf.c (100%)
- rename drivers/net/{ => fddi}/skfp/queue.c (100%)
- rename drivers/net/{ => fddi}/skfp/rmt.c (100%)
- rename drivers/net/{ => fddi}/skfp/skfddi.c (100%)
- rename drivers/net/{ => fddi}/skfp/smt.c (100%)
- rename drivers/net/{ => fddi}/skfp/smtdef.c (100%)
- rename drivers/net/{ => fddi}/skfp/smtinit.c (100%)
- rename drivers/net/{ => fddi}/skfp/smttimer.c (100%)
- rename drivers/net/{ => fddi}/skfp/srf.c (100%)
- create mode 100644 drivers/net/hippi/Kconfig
- create mode 100644 drivers/net/hippi/Makefile
- rename drivers/net/{ => hippi}/rrunner.c (100%)
- rename drivers/net/{ => hippi}/rrunner.h (100%)
- delete mode 100644 drivers/net/pcmcia/Kconfig
- delete mode 100644 drivers/net/pcmcia/Makefile
- create mode 100644 drivers/net/plip/Kconfig
- create mode 100644 drivers/net/plip/Makefile
- rename drivers/net/{ => plip}/plip.c (100%)
- create mode 100644 drivers/net/ppp/Kconfig
- create mode 100644 drivers/net/ppp/Makefile
- rename drivers/net/{ => ppp}/bsd_comp.c (100%)
- rename drivers/net/{ => ppp}/ppp_async.c (100%)
- rename drivers/net/{ => ppp}/ppp_deflate.c (100%)
- rename drivers/net/{ => ppp}/ppp_generic.c (100%)
- rename drivers/net/{ => ppp}/ppp_mppe.c (100%)
- rename drivers/net/{ => ppp}/ppp_mppe.h (100%)
- rename drivers/net/{ => ppp}/ppp_synctty.c (100%)
- rename drivers/net/{ => ppp}/pppoe.c (100%)
- rename drivers/net/{ => ppp}/pppox.c (100%)
- rename drivers/net/{ => ppp}/pptp.c (100%)
- create mode 100644 drivers/net/slip/Kconfig
- create mode 100644 drivers/net/slip/Makefile
- rename drivers/net/{ => slip}/slhc.c (100%)
- rename drivers/net/{ => slip}/slip.c (100%)
- rename drivers/net/{ => slip}/slip.h (100%)
+ 5 files changed, 24 insertions(+), 25 deletions(-)
  rename drivers/net/{pcmcia => tokenring}/ibmtr_cs.c (99%)
 
+diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
+index 12e7ae4..ff4deb0 100644
+--- a/drivers/net/pcmcia/Kconfig
++++ b/drivers/net/pcmcia/Kconfig
+@@ -31,15 +31,4 @@ config ARCNET_COM20020_CS
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called com20020_cs.  If unsure, say N.
+ 
+-config PCMCIA_IBMTR
+-	tristate "IBM PCMCIA tokenring adapter support"
+-	depends on IBMTR!=y && TR
+-	help
+-	  Say Y here if you intend to attach this type of Token Ring PCMCIA
+-	  card to your computer. You then also need to say Y to "Token Ring
+-	  driver support".
+-
+-	  To compile this driver as a module, choose M here: the module will be
+-	  called ibmtr_cs.
+-
+ endif # NET_PCMCIA
+diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
+index 618e816..b98a0a4 100644
+--- a/drivers/net/pcmcia/Makefile
++++ b/drivers/net/pcmcia/Makefile
+@@ -4,5 +4,3 @@
+ 
+ # 16-bit client drivers
+ obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
+-
+-obj-$(CONFIG_PCMCIA_IBMTR)	+= ibmtr_cs.o
+diff --git a/drivers/net/tokenring/Kconfig b/drivers/net/tokenring/Kconfig
+index c4137b0..0f70158 100644
+--- a/drivers/net/tokenring/Kconfig
++++ b/drivers/net/tokenring/Kconfig
+@@ -6,7 +6,7 @@
+ menuconfig TR
+ 	tristate "Token Ring driver support"
+ 	depends on NETDEVICES && !UML
+-	depends on (PCI || ISA || MCA || CCW)
++	depends on (PCI || ISA || MCA || CCW || PCMCIA)
+ 	select LLC
+ 	help
+ 	  Token Ring is IBM's way of communication on a local network; the
+@@ -20,6 +20,17 @@ menuconfig TR
+ 
+ if TR
+ 
++config PCMCIA_IBMTR
++	tristate "IBM PCMCIA tokenring adapter support"
++	depends on IBMTR!=y && PCMCIA
++	---help---
++	  Say Y here if you intend to attach this type of Token Ring PCMCIA
++	  card to your computer. You then also need to say Y to "Token Ring
++	  driver support".
++
++	  To compile this driver as a module, choose M here: the module will be
++	  called ibmtr_cs.
++
+ config IBMTR
+ 	tristate "IBM Tropic chipset based adapter support"
+ 	depends on ISA || MCA
+diff --git a/drivers/net/tokenring/Makefile b/drivers/net/tokenring/Makefile
+index c88b0a5..f1be8d9 100644
+--- a/drivers/net/tokenring/Makefile
++++ b/drivers/net/tokenring/Makefile
+@@ -2,14 +2,15 @@
+ # Makefile for drivers/net/tokenring
+ #
+ 
+-obj-$(CONFIG_IBMTR) 	+= ibmtr.o
+-obj-$(CONFIG_IBMOL) 	+= olympic.o
+-obj-$(CONFIG_IBMLS) 	+= lanstreamer.o
+-obj-$(CONFIG_TMS380TR) 	+= tms380tr.o
+-obj-$(CONFIG_ABYSS) 	+= abyss.o
+-obj-$(CONFIG_MADGEMC) 	+= madgemc.o
+-obj-$(CONFIG_PROTEON) 	+= proteon.o
+-obj-$(CONFIG_TMSPCI) 	+= tmspci.o
+-obj-$(CONFIG_SKISA) 	+= skisa.o
+-obj-$(CONFIG_SMCTR) 	+= smctr.o
++obj-$(CONFIG_PCMCIA_IBMTR)	+= ibmtr_cs.o
++obj-$(CONFIG_IBMTR)	+= ibmtr.o
++obj-$(CONFIG_IBMOL)	+= olympic.o
++obj-$(CONFIG_IBMLS)	+= lanstreamer.o
++obj-$(CONFIG_TMS380TR)	+= tms380tr.o
++obj-$(CONFIG_ABYSS)	+= abyss.o
++obj-$(CONFIG_MADGEMC)	+= madgemc.o
++obj-$(CONFIG_PROTEON)	+= proteon.o
++obj-$(CONFIG_TMSPCI)	+= tmspci.o
++obj-$(CONFIG_SKISA)	+= skisa.o
++obj-$(CONFIG_SMCTR)	+= smctr.o
+ obj-$(CONFIG_3C359)	+= 3c359.o
+diff --git a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/tokenring/ibmtr_cs.c
+similarity index 99%
+rename from drivers/net/pcmcia/ibmtr_cs.c
+rename to drivers/net/tokenring/ibmtr_cs.c
+index 6006d54..91b6846 100644
+--- a/drivers/net/pcmcia/ibmtr_cs.c
++++ b/drivers/net/tokenring/ibmtr_cs.c
+@@ -66,7 +66,7 @@
+ #include <asm/system.h>
+ 
+ #define PCMCIA
+-#include "../tokenring/ibmtr.c"
++#include "ibmtr.c"
+ 
+ 
+ /*====================================================================*/
 -- 
 1.7.6
 
