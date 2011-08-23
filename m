@@ -1,85 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH net-next 3/5] be2net: fix erx->rx_drops_no_frags wrap
- around
-Date: Tue, 23 Aug 2011 09:29:37 +0200
-Message-ID: <1314084577.4791.30.camel@edumazet-laptop>
-References: <1314078115-8121-1-git-send-email-sathya.perla@emulex.com>
-	 <1314078115-8121-4-git-send-email-sathya.perla@emulex.com>
-	 <1314081677.4791.28.camel@edumazet-laptop>
-	 <3367B80B08154D42A3B2BC708B5D41F642D8EDB9C6@EXMAIL.ad.emulex.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: linux-next: boot test failure (net tree)
+Date: Tue, 23 Aug 2011 01:29:24 -0700
+Message-ID: <1314088165.2128.221.camel@jtkirshe-mobl>
+References: <20110823114129.ceb18da164bf7df3c145941b@canb.auug.org.au>
+	 <20110822.191348.2099822249437201579.davem@davemloft.net>
+	 <CACqU3MW4BnucRt3gxPrKPDvWEjaVuxRF1VOPWk5hTRfneyANkg@mail.gmail.com>
+	 <20110822.210255.1902105215409964106.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Sathya.Perla@Emulex.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39538 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068Ab1HWH3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 03:29:43 -0400
-Received: by wyg24 with SMTP id 24so3990490wyg.19
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 00:29:42 -0700 (PDT)
-In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F642D8EDB9C6@EXMAIL.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-HpqJtc2ZH35A+XCxB7MA"
+Cc: "lacombar@gmail.com" <lacombar@gmail.com>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mikey@neuling.org" <mikey@neuling.org>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
+	"paulus@samba.org" <paulus@samba.org>,
+	"linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20110822.210255.1902105215409964106.davem@davemloft.net>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 23 ao=C3=BBt 2011 =C3=A0 00:06 -0700, Sathya.Perla@Emulex.Com =
-a =C3=A9crit :
-> >-----Original Message-----
-> >From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> >Sent: Tuesday, August 23, 2011 12:11 PM
-> >
-> >Le mardi 23 ao=C3=BBt 2011 =C3=A0 11:11 +0530, Sathya Perla a =C3=A9=
-crit :
-> >> The rx_drops_no_frags HW counter for RSS rings is 16bits in HW and=
- can
-> >> wraparound often. Maintain a 32-bit accumulator in the driver to p=
-revent
-> >> frequent wraparound.
-> >>
-> >> Also, incorporated Eric's feedback to use ACCESS_ONCE() for the
-> >accumulator
-> >> write.
-> <...>
-> >>
-> >> +static void accumulate_16bit_val(u32 *acc, u16 val)
-> >> +{
-> >> +#define lo(x)			(x & 0xFFFF)
-> >> +#define hi(x)			(x & 0xFFFF0000)
-> >> +	bool wrapped =3D val < lo(*acc);
-> >> +	u32 newacc =3D hi(*acc) + val;
-> >> +
-> >> +	if (wrapped)
-> >> +		newacc +=3D 65536;
-> >> +	ACCESS_ONCE(*acc) =3D newacc;
-> >> +}
-> >> +
-> >
-> >I still feel something is wrong here :
-> >
-> >>  void be_parse_stats(struct be_adapter *adapter)
-> >>  {
-> >>  	struct be_erx_stats_v1 *erx =3D be_erx_stats_from_cmd(adapter);
-> >> @@ -394,9 +406,13 @@ void be_parse_stats(struct be_adapter *adapte=
-r)
-> >>  	}
-> >>
-> >>  	/* as erx_v1 is longer than v0, ok to use v1 defn for v0 access =
-*/
-> >> -	for_all_rx_queues(adapter, rxo, i)
-> >> -		rx_stats(rxo)->rx_drops_no_frags =3D
-> >> -			erx->rx_drops_no_fragments[rxo->q.id];
-> >
-> >previous code was not doing a sum_of_all_queues.
-> Yes, the new code still *does not* do a sum of all queues. The code j=
-ust=20
-> parses per-queue stats. For each queue, the 16 bit
-> HW stats value is taken and stored in a 32-bit *per-queue* variable.
-> The comment that "driver accumulates a 32-bit val" may be misleading.=
- The
-> code here is not doing a sum of the per-queue stat.
 
-Ah ok, I now see the code intent, and everything seems fine now, thanks
-for explaining.
+--=-HpqJtc2ZH35A+XCxB7MA
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+On Mon, 2011-08-22 at 21:02 -0700, David Miller wrote:
+> From: Arnaud Lacombe <lacombar@gmail.com>
+> Date: Mon, 22 Aug 2011 23:50:02 -0400
+>=20
+> > Are you implying we need some kind of way to migrate config ?
+>=20
+> The issue is that the dependencies for every single ethernet driver
+> have changed.  Some dependencies have been dropped (f.e. NETDEV_10000
+> and some have been added (f.e. ETHERNET, NET_VENDOR_****)
+>=20
+> So right now an automated (non-prompted, default to no on all new
+> options) run on an existing config results in all ethernet drivers
+> getting disabled because the new dependencies don't get enabled.
+>=20
+> This wouldn't be so bad if it was just one or two drivers, but in
+> this case it's every single ethernet driver which will have and hit
+> this problem.
+>=20
+
+Ok, I have patch which will resolve the issue.  It is the last patch in
+the series I am about to send out.  What this patch does is set the
+"new" Kconfig options to Y, so that current defconfig's can build
+driver's that are currently set to build.
+
+This will fix the issue, I have confirmed this with the x86_64
+defconfig.  It will be nice that eventually all configs get updated so
+that not all the NET_VENDOR_* tags have to be enabled, but
+understandably this is the best way to ensure that current defconfig's
+will compile all expected drivers.
+
+--=-HpqJtc2ZH35A+XCxB7MA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJOU2TkAAoJECTsCADr/EWUc3UH+wRmblkKCeeVZmfYQ8NrsFRX
+mUuupGthI7v0VDrc7wOvt6lOb44Of1PmDV1CcFikKA+eYOEbSIF+F2jCZ2P05qLc
+KWuOK9ZkcE1xVLvDOmbBUhHX/sOkdNfXfeprqzoYTjnXCnK14XcRkOGfZBGrotQw
+yCpSKJGQRYNGexl8ohgz9GvZUIWwmJmS4tglvRuxQ7BXTA/kiYjWw8n9miqjl+wU
+pHkd7+eFkS5axWTU0CLQGRdUkhhimhNBQ06i/FwCKgFIGlKB979RaMBBgg4wcCEM
+FOUDRdShaJP/zFsC6/QW7/5oLWcB+kfbTIHFgeUuzRACNn37IptNF8pfKblt4yk=
+=e3ED
+-----END PGP SIGNATURE-----
+
+--=-HpqJtc2ZH35A+XCxB7MA--
 
