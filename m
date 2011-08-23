@@ -1,83 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/2] pktgen: Clone skb to avoid corruption of skbs in
- ndo_start_xmit methods (v3)
-Date: Tue, 23 Aug 2011 16:53:05 +0100
-Message-ID: <1314114785.2821.17.camel@bwh-desktop>
-References: <1311105179-26408-1-git-send-email-nhorman@tuxdriver.com>
-	 <1311696338-4739-1-git-send-email-nhorman@tuxdriver.com>
-	 <1313593637.2776.9.camel@bwh-desktop>
-	 <20110822002641.GA2550@neilslaptop.think-freely.org>
-	 <1314029857.2803.6.camel@bwh-desktop>
-	 <20110822181420.GD12337@hmsreliant.think-freely.org>
-	 <1314108084.2821.5.camel@bwh-desktop>
-	 <20110823151354.GA21473@hmsreliant.think-freely.org>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH 1/2] bnx2x: resurrect RX hashing
+Date: Tue, 23 Aug 2011 18:15:32 +0200
+Message-ID: <20110823161530.24707.67923.stgit@dhcp-29-224.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michal Schmidt <mschmidt@redhat.com>,
+	Vladislav Zolotarov <vladz@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	=?utf-8?q?Micha=C5=82?= =?utf-8?b?TWlyb3PFgmF3?=
+	<mirq-linux@rere.qmqm.pl>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:37803 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752063Ab1HWPxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 11:53:08 -0400
-In-Reply-To: <20110823151354.GA21473@hmsreliant.think-freely.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55751 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751959Ab1HWQPk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Aug 2011 12:15:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-08-23 at 11:13 -0400, Neil Horman wrote:
-> On Tue, Aug 23, 2011 at 03:01:24PM +0100, Ben Hutchings wrote:
-[...]
-> > Right, that's what I want to be specified.  Did you miss my own
-> > follow-up?  I proposed this description for the interface flag:
-> > 
-> >         The ndo_start_xmit operation for this interface either does not
-> >         modify the given skb or modifies it idempotently. A single skb
-> >         may be transmitted repeatedly on a single queue of this
-> >         interface, but not on multiple queues or on multiple interfaces.
-> > 
-> No, I read it, I just don't agree with it. :).  Specifically I disagree with the
-> langauge indicating that you cannot transmit a shared skb on multiple queues or
-> on multiple interfaces.  You can in fact do that sanely with shared skbs,
-> because to do so you are required to serialize their transmission anyway.  By
-> definition they're shared, and you can't send them to multiple devices without
-> modifing data in the skb that may be read in parallel in an alternate execution
-> context.
->
-> In short, what I'm saying is that there is no way to safely send a shared skb in
-> parallel to multiple queues/interfaces without introducing other bugs orthogonal
-> to the one prevented by the flag I added.  The only thing the flag indicates is
-> that the driver can't handle non-idempotent changes to skbs (like being added to
-> an sk_buff_head list)
+bnx2x used to be able to set rxhash, but this was lost in the conversio=
+n
+to hw_features (commit 66371c441).
+Restore it and enable it by default.
 
-In fact the caller must commit to a particular queue by setting skb->dev
-and skb->queue_mapping.  So I really was talking nonsense.
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+CC: Vladislav Zolotarov <vladz@broadcom.com>
+CC: Eilon Greenstein <eilong@broadcom.com>
+CC: Dmitry Kravkov <dmitry@broadcom.com>
+CC: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
 
-> I think if you really want to clarify the meaning of the flag, I would add
-> language to it like:
-> 	The ndo_start_xmit operation either makes no changes to the skb data,
-> 	or makes only idempotent changes, and does not expect any changes to 
-> 	persist after the return from nod_start_xmit
->
-> Its really the expectation of persistence that we need to worry about here.  If
-> a driver adds an skb to a list for deferred transmission, for example, it
-> assumes that it owns the skb, and that its state will remain unchanged after the
-> return from ndo_start_xmit, but in the shared case thats not a safe assumption
-> to make because in the shared case teh network stack is once again free to
-> modify the skb.
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-The skb data (including padding) needs to persist until DMA is complete,
-even if the driver ignores the actual struct sk_buff from then on.  And
-pktgen certainly doesn't want to modify it.
-
-> If you're ok with my language, I'll put a patch together for that.
-
-I don't think we're quite there yet.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers=
+/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 7204789..85dd294 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -10285,8 +10285,8 @@ static int __devinit bnx2x_init_dev(struct pci_=
+dev *pdev,
+ 	dev->priv_flags |=3D IFF_UNICAST_FLT;
+=20
+ 	dev->hw_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM=
+ |
+-		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
+-		NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_HW_VLAN_TX;
++		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_LRO |
++		NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_HW_VLAN_TX;
+=20
+ 	dev->vlan_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CS=
+UM |
+ 		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
 
