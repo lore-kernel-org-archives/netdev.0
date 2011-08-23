@@ -1,46 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 hard-freezes the system on big network loads
-Date: Tue, 23 Aug 2011 15:17:26 +0200
-Message-ID: <20110823131726.GA21092@electric-eye.fr.zoreil.com>
-References: <201108141308.28140.kjun-chen@sambodha.org> <20110821123311.GA20605@electric-eye.fr.zoreil.com> <201108211520.50400.brade@informatik.uni-muenchen.de> <20110821221140.GA20696@electric-eye.fr.zoreil.com>
+From: Jason Baron <jbaron@redhat.com>
+Subject: Re: [PATCH 00/11] various fixes v3
+Date: Tue, 23 Aug 2011 09:54:53 -0400
+Message-ID: <20110823135452.GA2526@redhat.com>
+References: <cover.1313085588.git.jbaron@redhat.com>
+ <20110823013224.GA7190@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
-To: Michael Brade <brade@informatik.uni-muenchen.de>
+Cc: gregkh@suse.de, joe@perches.com, jim.cromie@gmail.com,
+	bvanassche@acm.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, aloisio.almeida@openbossa.org,
+	netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:33848 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754955Ab1HWNfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 09:35:21 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:19893 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751384Ab1HWNzC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Aug 2011 09:55:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20110821221140.GA20696@electric-eye.fr.zoreil.com>
+In-Reply-To: <20110823013224.GA7190@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu <romieu@fr.zoreil.com> :
-[...]
-> Yes. There is enough data for me to reproduce the bug with the
-> exact same chipset.
+On Mon, Aug 22, 2011 at 06:32:24PM -0700, Greg KH wrote:
+> On Thu, Aug 11, 2011 at 02:36:17PM -0400, Jason Baron wrote:
+> > Hi,
+> > 
+> > Dynamic debug fixes and cleanups. Only changes from v2 are a re-base against
+> > Linus's latest tree and the inclusion of the re-posted version for patch #11.
+> 
+> I applied the first 8, as it seemed like there was lots of discussion
+> about #9.
+> 
+> Care to send the rest when you all have those worked out?
+> 
 
-I can not generate a single rx error and the driver refuses to crash :o/ 
+Hi Greg,
 
-Can you apply the patch below on top of 3.1.0-rc3 and see if it makes
-a difference ?
+The comments on #9 were mostly around formatting. The 'take #2' version
+is fine: https://lkml.org/lkml/2011/8/15/395. Do you need me to re-post
+it? If not please also take 10, 11.
 
-Thanks.
+Thanks,
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 02339b3..c54ed17 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -5326,10 +5326,6 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
- 				dev->stats.rx_length_errors++;
- 			if (status & RxCRC)
- 				dev->stats.rx_crc_errors++;
--			if (status & RxFOVF) {
--				rtl8169_schedule_work(dev, rtl8169_reset_task);
--				dev->stats.rx_fifo_errors++;
--			}
- 			rtl8169_mark_to_asic(desc, rx_buf_sz);
- 		} else {
- 			struct sk_buff *skb;
+-Jason
+
