@@ -1,91 +1,115 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next] ipv4: one more case for non-local saddr in
- ICMP
-Date: Tue, 23 Aug 2011 09:34:45 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1108230845510.1565@ja.ssi.bg>
-References: <alpine.LFD.2.00.1108151857420.1481@ja.ssi.bg> <20110819.034354.219449243171613725.davem@davemloft.net> <20110820082048.GA15169@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/5] be2net: fix erx->rx_drops_no_frags wrap
+ around
+Date: Tue, 23 Aug 2011 08:41:17 +0200
+Message-ID: <1314081677.4791.28.camel@edumazet-laptop>
+References: <1314078115-8121-1-git-send-email-sathya.perla@emulex.com>
+	 <1314078115-8121-4-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Sathya Perla <sathya.perla@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:60069 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751595Ab1HWG3E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Aug 2011 02:29:04 -0400
-In-Reply-To: <20110820082048.GA15169@gondor.apana.org.au>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:33563 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751726Ab1HWGlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 02:41:23 -0400
+Received: by wwe5 with SMTP id 5so2768505wwe.1
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2011 23:41:22 -0700 (PDT)
+In-Reply-To: <1314078115-8121-4-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mardi 23 ao=C3=BBt 2011 =C3=A0 11:11 +0530, Sathya Perla a =C3=A9cri=
+t :
+> The rx_drops_no_frags HW counter for RSS rings is 16bits in HW and ca=
+n
+> wraparound often. Maintain a 32-bit accumulator in the driver to prev=
+ent
+> frequent wraparound.
+>=20
+> Also, incorporated Eric's feedback to use ACCESS_ONCE() for the accum=
+ulator
+> write.
+>=20
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> ---
+>  drivers/net/ethernet/emulex/benet/be_main.c |   22 +++++++++++++++++=
+++---
+>  1 files changed, 19 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/ne=
+t/ethernet/emulex/benet/be_main.c
+> index 2375c0c..fb2eda0 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -378,6 +378,18 @@ static void populate_lancer_stats(struct be_adap=
+ter *adapter)
+>  				pport_stats->rx_drops_too_many_frags_lo;
+>  }
+> =20
+> +static void accumulate_16bit_val(u32 *acc, u16 val)
+> +{
+> +#define lo(x)			(x & 0xFFFF)
+> +#define hi(x)			(x & 0xFFFF0000)
+> +	bool wrapped =3D val < lo(*acc);
+> +	u32 newacc =3D hi(*acc) + val;
+> +
+> +	if (wrapped)
+> +		newacc +=3D 65536;
+> +	ACCESS_ONCE(*acc) =3D newacc;
+> +}
+> +
 
-	Hello,
+I still feel something is wrong here :
 
-On Sat, 20 Aug 2011, Herbert Xu wrote:
+>  void be_parse_stats(struct be_adapter *adapter)
+>  {
+>  	struct be_erx_stats_v1 *erx =3D be_erx_stats_from_cmd(adapter);
+> @@ -394,9 +406,13 @@ void be_parse_stats(struct be_adapter *adapter)
+>  	}
+> =20
+>  	/* as erx_v1 is longer than v0, ok to use v1 defn for v0 access */
+> -	for_all_rx_queues(adapter, rxo, i)
+> -		rx_stats(rxo)->rx_drops_no_frags =3D
+> -			erx->rx_drops_no_fragments[rxo->q.id];
 
-> On Fri, Aug 19, 2011 at 03:43:54AM -0700, David Miller wrote:
-> > From: Julian Anastasov <ja@ssi.bg>
-> > Date: Mon, 15 Aug 2011 19:21:23 +0300 (EEST)
-> > 
-> > > 
-> > > 	May be there is one more case that we can avoid using
-> > > non-local source for ICMP errors: xfrm_lookup, num_xfrms = 0 when
-> > > reverse "Flow passes untransformed". Avoid using the input route
-> > > if xfrm_lookup returns same dst.
-> > > 
-> > > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > > ---
-> > > 
-> > > 	In fact, should we use local IP in all cases when
-> > > sending ICMP? I'm asking it for the following case:
-> > > 
-> > > 	Large packet is forwarded but is rejected with ICMP FRAG
-> > > NEEDED. We usually send ICMP with local saddr instead of the
-> > > original non-local destination. What is the role of
-> > > this reverse check? May be after xfrm_decode_session_reverse
-> > > we should use 'fl4_dec.saddr = fl4->saddr;' so that xfrm_lookup
-> > > works with ICMP from local IP? What is right thing to do here?
-> > > I don't see code that looks in the embedded header...
-> > 
-> > Well.. this relookup behavior is guided by a special transform state
-> > XFRM_STATE_ICMP that the user must explicitly create IPSEC rules for.
-> > 
-> > Presumably they are going to add real transforms to such special IPSEC
-> > rules, not create NOP ones with no transforms.  And if they do create
-> > such IPSEC state with no transforms, perhaps the intention is to trigger
-> > to use of the non-local source.
-> > 
-> > The whole thing revolves around how Herbert envisions people implementing
-> > RFC4301 support using this new XFRM_STATE_ICMP thing.
-> > 
-> > Right?
+previous code was not doing a sum_of_all_queues.
 
-	I see, RFC 4301 prescribes reverse check for ICMP errors
-to reuse SA as a fallback mechanism. Even if we send ICMP packet via
-some tunnel to the previous secure gateway, shouldn't the ICMP
-receiver prefer to see our local IP as ICMP sender?
+It only gave the final erx->rx_drops_no_fragments[rxo->q.id], not takin=
+g
+into account previous rx_stats(rxo)->rx_drops_no_frags value.
 
-> The intention of XFRM_STATE_ICMP is to automatically allow inbound
-> IPsec-protected ICMP packets (remember that IPsec tunnels are not
-> automatically allowed, as that opens room for address spoofing).
-> 
-> Imagine if you have a policy P that allows IPsec packets with inner
-> addresses going from S to D.  The purpose of this is to ensure that
-> ICMP packets from D to S are automatically allowed.
+Your changelog is about wrap around, while the bug might have be
+different (No real sum)
 
-	OK, thanks for the information! I don't have setup for
-further tests, I hope things still work somehow, even if we
-fallback to unprotected ICMP with non-local source which was
-the only concern for me. I think, using local IP for ICMP packets
-is preferred to help firewalling.
+Now you say : previous value is meaningfull, and we add to it 16bits
+values.
 
-	I just notice that if original packet (say TCP) hits
-"fwd" policy, for the locally generated ICMP error we call
-xfrm_lookup with sk = NULL and it always uses "out" dir
-for the flow_cache_lookup call to search for this reverse SA.
-So, we must be prepared with rules in "out" dir even for
-the forwarding case? icmp flag in "fwd" rules is not considered?
+> +	for_all_rx_queues(adapter, rxo, i) {
+> +		/* below erx HW counter can actually wrap around after
+> +		 * 65535. Driver accumulates a 32-bit value
+> +		 */
+> +		accumulate_16bit_val(&rx_stats(rxo)->rx_drops_no_frags,
+> +				(u16)erx->rx_drops_no_fragments[rxo->q.id]);
+> +	}
+>  }
+> =20
 
-Regards
+Arent multiple calls to be_parse_stats() will have wrong final
+rx_drops_no_frags value ?
 
---
-Julian Anastasov <ja@ssi.bg>
+Or are the rx_drops_no_fragments[rxo->q.id] cleared when read ?
+
+I am afraid that if HW maintains 16bit values, then the only way is to
+also have a 16bit accumulator. You cannot detect wraparounds without
+also keeping a copy of previous 16bit samples.
+
+u16 accum =3D 0;
+or_all_rx_queues(adapter, rxo, i) {
+	accum +=3D erx->rx_drops_no_fragments[rxo->q.id];
+}
+rx_stats(rxo)->rx_drops_no_frags =3D accum;
+
+
