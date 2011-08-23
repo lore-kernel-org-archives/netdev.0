@@ -1,176 +1,57 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: TCP - RST flag
-Date: Tue, 23 Aug 2011 23:31:31 +0300
-Message-ID: <CAEnQRZAchYf-3-t7RRogfb0WogzY9ZF8rzMdtOeS1Vdvx7N4og@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 40732] New: atl2 NIC claims NO CARRIER after
+ suspend/resume; rmmod + insmod fixes problem
+Date: Tue, 23 Aug 2011 13:43:06 -0700
+Message-ID: <20110823134306.827091ce.akpm@linux-foundation.org>
+References: <bug-40732-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0016364eec7ac16f2704ab3214be
-To: netdev@vger.kernel.org,
-	kernelnewbies <kernelnewbies@kernelnewbies.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, dkg@fifthhorseman.net
+To: netdev@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jie Yang <jie.yang@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:43660 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755797Ab1HWUbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 16:31:32 -0400
-Received: by qyk34 with SMTP id 34so390206qyk.19
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 13:31:31 -0700 (PDT)
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55450 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753418Ab1HWUnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 16:43:12 -0400
+In-Reply-To: <bug-40732-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0016364eec7ac16f2704ab3214be
-Content-Type: text/plain; charset=ISO-8859-1
 
-Hello,
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Please help me understanding the behavior of the following
-TCP conversation.
+On Mon, 8 Aug 2011 18:10:08 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-You can find bellow a snippet of the (FTP) conversation captured both
-on client (C) and server (S).
+> https://bugzilla.kernel.org/show_bug.cgi?id=40732
+> 
+>                URL: http://bugs.debian.org/614622
+>            Summary: atl2 NIC claims NO CARRIER after suspend/resume; rmmod
+>                     + insmod fixes problem
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 3.0
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: dkg@fifthhorseman.net
+>         Regression: No
+> 
+> 
+> As reported in more detail at http://bugs.debian.org/614622, i have an atl2 NIC
+> (03:00.0 Ethernet controller: Atheros Communications L2 Fast Ethernet (rev a0))
+> which sometimes reports NO CARRIER after i suspend/resume.
+> 
+> This has been the case since 2.6.37 and it persists with 3.0 as well.  I'm
+> using debian's 686 kernels.
+> 
 
-[client]$ tcpdump  -n  -r client-6-conv.cap
-[P1] 49.045690 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
-197:220, ack 81, win 757, length 23
-[P2] 49.046600 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220,
-win 738, length 0
-[P3] 49.047462 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [P.], seq
-81:87, ack 220, win 738, length 6
-[P5] 49.048757 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [F.], seq
-242, ack 87, win 757, length 0
-[P6] 49.048794 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220,
-win 738, options [nop,nop,sack 1 {242:243}], length 0
-[P4] 49.048801 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
-220:242, ack 87, win 757, length 22
-[P7] 49.048833 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 243,
-win 715, length 0
-[P8] 49.049566 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [F.], seq 87,
-ack 243, win 715, length 0
-[P9] 49.050889 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [R], seq
-1672731590, win 0, length 0
-
-[server]$ tcpdump  -n  -r server-6-conv.cap
-[P1] 49.059740 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
-197:220, ack 81, win 757, length 23
-[P2] 49.061394 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220,
-win 738, length 0
-[P3] 49.061760 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [P.], seq
-81:87, ack 220, win 738, length 6
-[P4] 49.062794 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
-220:242, ack 87, win 757, length 22
-[P5] 49.062843 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [F.], seq
-242, ack 87, win 757, length 0
-[P6] 49.063808 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220,
-win 738, options [nop,nop,sack 1 {242:243}], length 0
-[P7] 49.063823 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 243,
-win 715, length 0
-[P8] 49.064271 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [F.], seq 87,
-ack 243, win 715, length 0
-[P9] 49.064481 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [R], seq
-1672731590, win 0, length 0
-
-What happens is that servers sends packets P4 and P5, but client
-receives P5 before P4.
-Since SACK is enabled, client will send a SACK (P6) ack-ing P5.
-
-Then client sees P4, and will send an ack (P7) for P4, then sends P8
-with FIN flag set.
-What I don't understand, is why server responds with RST (P9) instead of ACK?
-
-This is was obtained on 2.6.32.43. I have also attached full capture files.
-
-I am reading TCP's RFC and kernel code, but so far I haven't reached
-a conclusion.
-
-thanks,
-Daniel.
-
---0016364eec7ac16f2704ab3214be
-Content-Type: application/octet-stream; name="server-6-conv.cap"
-Content-Disposition: attachment; filename="server-6-conv.cap"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_grpbv3of0
-
-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
---0016364eec7ac16f2704ab3214be
-Content-Type: application/octet-stream; name="client-6-conv.cap"
-Content-Disposition: attachment; filename="client-6-conv.cap"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_grpbvabf1
-
-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
---0016364eec7ac16f2704ab3214be--
