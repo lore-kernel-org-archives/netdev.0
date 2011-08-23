@@ -1,57 +1,107 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 40732] New: atl2 NIC claims NO CARRIER after
- suspend/resume; rmmod + insmod fixes problem
-Date: Tue, 23 Aug 2011 13:43:06 -0700
-Message-ID: <20110823134306.827091ce.akpm@linux-foundation.org>
-References: <bug-40732-10286@https.bugzilla.kernel.org/>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP - RST flag
+Date: Tue, 23 Aug 2011 22:55:32 +0200
+Message-ID: <1314132932.4478.0.camel@edumazet-laptop>
+References: <CAEnQRZAchYf-3-t7RRogfb0WogzY9ZF8rzMdtOeS1Vdvx7N4og@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, dkg@fifthhorseman.net
-To: netdev@vger.kernel.org, Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jie Yang <jie.yang@atheros.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	kernelnewbies <kernelnewbies@kernelnewbies.org>
+To: Daniel Baluta <daniel.baluta@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55450 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753418Ab1HWUnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 16:43:12 -0400
-In-Reply-To: <bug-40732-10286@https.bugzilla.kernel.org/>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:48400 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751534Ab1HWUzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 16:55:36 -0400
+Received: by wyg24 with SMTP id 24so386809wyg.19
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 13:55:35 -0700 (PDT)
+In-Reply-To: <CAEnQRZAchYf-3-t7RRogfb0WogzY9ZF8rzMdtOeS1Vdvx7N4og@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mardi 23 ao=C3=BBt 2011 =C3=A0 23:31 +0300, Daniel Baluta a =C3=A9cr=
+it :
+> Hello,
+>=20
+> Please help me understanding the behavior of the following
+> TCP conversation.
+>=20
+> You can find bellow a snippet of the (FTP) conversation captured both
+> on client (C) and server (S).
+>=20
+> [client]$ tcpdump  -n  -r client-6-conv.cap
+> [P1] 49.045690 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
+> 197:220, ack 81, win 757, length 23
+> [P2] 49.046600 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220=
+,
+> win 738, length 0
+> [P3] 49.047462 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [P.], seq
+> 81:87, ack 220, win 738, length 6
+> [P5] 49.048757 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [F.], seq
+> 242, ack 87, win 757, length 0
+> [P6] 49.048794 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220=
+,
+> win 738, options [nop,nop,sack 1 {242:243}], length 0
+> [P4] 49.048801 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
+> 220:242, ack 87, win 757, length 22
+> [P7] 49.048833 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 243=
+,
+> win 715, length 0
+> [P8] 49.049566 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [F.], seq 87=
+,
+> ack 243, win 715, length 0
+> [P9] 49.050889 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [R], seq
+> 1672731590, win 0, length 0
+>=20
+> [server]$ tcpdump  -n  -r server-6-conv.cap
+> [P1] 49.059740 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
+> 197:220, ack 81, win 757, length 23
+> [P2] 49.061394 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220=
+,
+> win 738, length 0
+> [P3] 49.061760 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [P.], seq
+> 81:87, ack 220, win 738, length 6
+> [P4] 49.062794 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [P.], seq
+> 220:242, ack 87, win 757, length 22
+> [P5] 49.062843 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [F.], seq
+> 242, ack 87, win 757, length 0
+> [P6] 49.063808 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 220=
+,
+> win 738, options [nop,nop,sack 1 {242:243}], length 0
+> [P7] 49.063823 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [.], ack 243=
+,
+> win 715, length 0
+> [P8] 49.064271 IP 10.10.0.20.58277 > 10.10.0.1.21: Flags [F.], seq 87=
+,
+> ack 243, win 715, length 0
+> [P9] 49.064481 IP 10.10.0.1.21 > 10.10.0.20.58277: Flags [R], seq
+> 1672731590, win 0, length 0
+>=20
+> What happens is that servers sends packets P4 and P5, but client
+> receives P5 before P4.
+> Since SACK is enabled, client will send a SACK (P6) ack-ing P5.
+>=20
+> Then client sees P4, and will send an ack (P7) for P4, then sends P8
+> with FIN flag set.
+> What I don't understand, is why server responds with RST (P9) instead=
+ of ACK?
+>=20
+> This is was obtained on 2.6.32.43. I have also attached full capture =
+files.
+>=20
+> I am reading TCP's RFC and kernel code, but so far I haven't reached
+> a conclusion.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+TCP in RFC 1122 section 4.2.2.13:
 
-On Mon, 8 Aug 2011 18:10:08 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+ "A host MAY implement a "half-duplex" TCP close sequence, so that an
+ application that has called CLOSE cannot continue to read data from th=
+e
+ connection. If such a host issues a CLOSE call while received data is
+ still pending in TCP, or if new data is received after CLOSE is called=
+,
+ its TCP SHOULD send a RST to show that data was lost."=20
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=40732
-> 
->                URL: http://bugs.debian.org/614622
->            Summary: atl2 NIC claims NO CARRIER after suspend/resume; rmmod
->                     + insmod fixes problem
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 3.0
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: dkg@fifthhorseman.net
->         Regression: No
-> 
-> 
-> As reported in more detail at http://bugs.debian.org/614622, i have an atl2 NIC
-> (03:00.0 Ethernet controller: Atheros Communications L2 Fast Ethernet (rev a0))
-> which sometimes reports NO CARRIER after i suspend/resume.
-> 
-> This has been the case since 2.6.37 and it persists with 3.0 as well.  I'm
-> using debian's 686 kernels.
-> 
-
+This is why some apps first call shutdown(), then drain receive queue,
+then close()
