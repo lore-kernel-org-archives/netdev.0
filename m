@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next,v4 06/12] bna: Initialization and Locking Fix
-Date: Tue, 23 Aug 2011 10:56:02 -0700
-Message-ID: <1314122168-14314-7-git-send-email-rmody@brocade.com>
+Subject: [net-next,v4 08/12] bna: Async Mode Tx Rx Init Fix
+Date: Tue, 23 Aug 2011 10:56:04 -0700
+Message-ID: <1314122168-14314-9-git-send-email-rmody@brocade.com>
 References: <1314122168-14314-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,105 +10,128 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:39339 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754081Ab1HWR4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 13:56:43 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:47473 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754193Ab1HWR4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 13:56:45 -0400
 In-Reply-To: <1314122168-14314-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Initialize rx_id to 0 for bnad_cleanup_rx
- - Return -ENOMEM in case if bna_rx_create fails
- - Count the Rx buffer allocation failures in bnad_alloc_n_post_rxbufs()
- - Remove unnecessary initialization of using_dac to false in bnad_pci_probe
- - Release lock if error while doing bna_num_txq_set in bnad_pci_probe
- - Release all the locks while doing free_netdev
+ - Async mode of Tx/Rx queue initialization in BNAD from a task queue context
+   runs into non-unique taskq allocation issues. Get rid of Tx/Rx
+   initialization from task q context
+ - In the attach function, wait for IOC enable, then do Tx/Rx queue
+   initialization. Default BNA attributes are used when IOC enable from attach
+   fails and values are set to:
+   1 TxQ, 1 RxQ, 1 Unicast MAC, 1 RIT entry
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    1 +
- drivers/net/ethernet/brocade/bna/bnad.c        |   15 ++++++++++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_enet.c    |   29 ++++++++++++++++++-----
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    4 +++
+ drivers/net/ethernet/brocade/bna/bna_types.h   |    1 +
+ 3 files changed, 27 insertions(+), 7 deletions(-)
 
+diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
+index 68a275d..26f5c5a 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_enet.c
++++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
+@@ -167,13 +167,14 @@ bna_bfi_attr_get_rsp(struct bna_ioceth *ioceth,
+ 	 * Store only if not set earlier, since BNAD can override the HW
+ 	 * attributes
+ 	 */
+-	if (!ioceth->attr.num_txq)
++	if (!ioceth->attr.fw_query_complete) {
+ 		ioceth->attr.num_txq = ntohl(rsp->max_cfg);
+-	if (!ioceth->attr.num_rxp)
+ 		ioceth->attr.num_rxp = ntohl(rsp->max_cfg);
+-	ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
+-	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
+-	ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
++		ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
++		ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
++		ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
++		ioceth->attr.fw_query_complete = true;
++	}
+ 
+ 	bfa_fsm_send_event(ioceth, IOCETH_E_ENET_ATTR_RESP);
+ }
+@@ -1693,6 +1694,16 @@ static struct bfa_ioc_cbfn bna_ioceth_cbfn = {
+ 	bna_cb_ioceth_reset
+ };
+ 
++static void bna_attr_init(struct bna_ioceth *ioceth)
++{
++	ioceth->attr.num_txq = BFI_ENET_DEF_TXQ;
++	ioceth->attr.num_rxp = BFI_ENET_DEF_RXP;
++	ioceth->attr.num_ucmac = BFI_ENET_DEF_UCAM;
++	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
++	ioceth->attr.max_rit_size = BFI_ENET_DEF_RITSZ;
++	ioceth->attr.fw_query_complete = false;
++}
++
+ static void
+ bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
+ 		struct bna_res_info *res_info)
+@@ -1738,6 +1749,8 @@ bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
+ 	ioceth->stop_cbfn = NULL;
+ 	ioceth->stop_cbarg = NULL;
+ 
++	bna_attr_init(ioceth);
++
+ 	bfa_fsm_set_state(ioceth, bna_ioceth_sm_stopped);
+ }
+ 
+@@ -2036,7 +2049,8 @@ bna_uninit(struct bna *bna)
+ int
+ bna_num_txq_set(struct bna *bna, int num_txq)
+ {
+-	if (num_txq > 0 && (num_txq <= bna->ioceth.attr.num_txq)) {
++	if (bna->ioceth.attr.fw_query_complete &&
++		(num_txq <= bna->ioceth.attr.num_txq)) {
+ 		bna->ioceth.attr.num_txq = num_txq;
+ 		return BNA_CB_SUCCESS;
+ 	}
+@@ -2047,7 +2061,8 @@ bna_num_txq_set(struct bna *bna, int num_txq)
+ int
+ bna_num_rxp_set(struct bna *bna, int num_rxp)
+ {
+-	if (num_rxp > 0 && (num_rxp <= bna->ioceth.attr.num_rxp)) {
++	if (bna->ioceth.attr.fw_query_complete &&
++		(num_rxp <= bna->ioceth.attr.num_rxp)) {
+ 		bna->ioceth.attr.num_rxp = num_rxp;
+ 		return BNA_CB_SUCCESS;
+ 	}
 diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-index 07bb792..7ecdca5 100644
+index 7ecdca5..dde8a46 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
 +++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-@@ -99,6 +99,7 @@
- 	(_bna)->bits.error_status_bits = (__HFN_INT_ERR_MASK);		\
- 	(_bna)->bits.error_mask_bits = (__HFN_INT_ERR_MASK);		\
- 	(_bna)->bits.halt_status_bits = __HFN_INT_LL_HALT;		\
-+	(_bna)->bits.halt_mask_bits = __HFN_INT_LL_HALT;		\
- }
+@@ -30,6 +30,10 @@
+  * SW imposed limits
+  *
+  */
++#define BFI_ENET_DEF_TXQ		1
++#define BFI_ENET_DEF_RXP		1
++#define BFI_ENET_DEF_UCAM		1
++#define BFI_ENET_DEF_RITSZ		1
  
- #define ct2_reg_addr_init(_bna, _pcidev)				\
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 0646407..dfbd23e 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -389,6 +389,7 @@ bnad_alloc_n_post_rxbufs(struct bnad *bnad, struct bna_rcb *rcb)
- 						rcb->rxq->buffer_size);
- 		if (unlikely(!skb)) {
- 			BNAD_UPDATE_CTR(bnad, rxbuf_alloc_failed);
-+			rcb->rxq->rxbuf_alloc_failed++;
- 			goto finishing;
- 		}
- 		unmap_array[unmap_prod].skb = skb;
-@@ -1880,6 +1881,7 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ #define BFI_ENET_MAX_MCAM		256
  
- 	rx_info->rx = NULL;
-+	rx_info->rx_id = 0;
+diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
+index 59417b1..242d799 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_types.h
++++ b/drivers/net/ethernet/brocade/bna/bna_types.h
+@@ -323,6 +323,7 @@ struct bna_qpt {
+ };
  
- 	bnad_rx_res_free(bnad, res_info);
- }
-@@ -1935,8 +1937,10 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 	rx = bna_rx_create(&bnad->bna, bnad, rx_config, &rx_cbfn, res_info,
- 			rx_info);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
--	if (!rx)
-+	if (!rx) {
-+		err = -ENOMEM;
- 		goto err_return;
-+	}
- 	rx_info->rx = rx;
- 
- 	/*
-@@ -3195,7 +3199,7 @@ static int __devinit
- bnad_pci_probe(struct pci_dev *pdev,
- 		const struct pci_device_id *pcidev_id)
- {
--	bool	using_dac = false;
-+	bool	using_dac;
- 	int	err;
- 	struct bnad *bnad;
- 	struct bna *bna;
-@@ -3318,6 +3322,11 @@ bnad_pci_probe(struct pci_dev *pdev,
- 			bna_num_rxp_set(bna, BNAD_NUM_RXP + 1))
- 			err = -EIO;
- 	}
-+	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+	if (err)
-+		goto disable_ioceth;
-+
-+	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_mod_res_req(&bnad->bna, &bnad->mod_res_info[0]);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 
-@@ -3371,9 +3380,9 @@ drv_uninit:
- 	bnad_uninit(bnad);
- pci_uninit:
- 	bnad_pci_uninit(pdev);
-+free_netdev:
- 	mutex_unlock(&bnad->conf_mutex);
- 	bnad_lock_uninit(bnad);
--free_netdev:
- 	free_netdev(netdev);
- 	return err;
- }
+ struct bna_attr {
++	bool			fw_query_complete;
+ 	int			num_txq;
+ 	int			num_rxp;
+ 	int			num_ucmac;
 -- 
 1.7.1
 
