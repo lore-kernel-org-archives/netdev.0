@@ -1,50 +1,80 @@
-From: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
-Subject: [PATCH] carl9170: Fix mismatch in carl9170_op_set_key mutex lock-unlock
-Date: Wed, 24 Aug 2011 00:44:32 +0400
-Message-ID: <1314132272-7357-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ldv-project-ufN2psIa012HXe+LvDLADg@public.gmane.org
-To: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 40572] New: Intel Gigabit
+ Ethernet 82576 50% packet loss after reboot
+Date: Tue, 23 Aug 2011 14:30:53 -0700
+Message-ID: <20110823143053.832c1aaa.akpm@linux-foundation.org>
+References: <bug-40572-10286@https.bugzilla.kernel.org/>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: vojcik@gmail.com, bugme-daemon@bugzilla.kernel.org
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <bug-40572-10286@https.bugzilla.kernel.org/>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-If is_main_vif(ar, vif) reports that we have to fall back
-to software encryption, we goto err_softw; before locking ar->mutex.
-As a result, we have unprotected call to carl9170_set_operating_mode
-and unmatched mutex_unlock.
 
-The patch fix the issue by adding mutex_lock before goto.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Found by Linux Driver Verification project (linuxtesting.org).
+On Fri, 5 Aug 2011 07:07:05 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
----
- drivers/net/wireless/ath/carl9170/main.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+> https://bugzilla.kernel.org/show_bug.cgi?id=40572
+> 
+>            Summary: Intel Gigabit Ethernet 82576 50% packet loss after
+>                     reboot
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 3.0
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: blocking
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: vojcik@gmail.com
+>         Regression: No
 
-diff --git a/drivers/net/wireless/ath/carl9170/main.c b/drivers/net/wireless/ath/carl9170/main.c
-index 0122930..0474e663 100644
---- a/drivers/net/wireless/ath/carl9170/main.c
-+++ b/drivers/net/wireless/ath/carl9170/main.c
-@@ -1066,8 +1066,10 @@ static int carl9170_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
- 	 * the high througput speed in 802.11n networks.
- 	 */
- 
--	if (!is_main_vif(ar, vif))
-+	if (!is_main_vif(ar, vif)) {
-+		mutex_lock(&ar->mutex);
- 		goto err_softw;
-+	}
- 
- 	/*
- 	 * While the hardware supports *catch-all* key, for offloading
--- 
-1.7.4.1
+I'll change this to "yes".
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Hi, 
+> 
+> I have strange problem with Intel dualport Gigabit ehternet card.
+> Problem appears after 3rd - 5th reboot.
+> 
+> If you ping or make any network traffic you get 50% packet loss. No error
+> messages in logs.
+> When you make reboot all is ok in next few reboots.
+> 
+> We have eliminated network problems like switches, cables etc. It's software
+> related.
+> 
+> It looks like in kernel 2.6.37 we have the same problem but in 2.6.28.6
+> everything looks fine.
+> 
+> I attach some files for additional information
+> 
+
+
+------------------------------------------------------------------------------
+EMC VNX: the world's simplest storage, starting under $10K
+The only unified storage solution that offers unified management 
+Up to 160% more powerful than alternatives and 25% more efficient. 
+Guaranteed. http://p.sf.net/sfu/emc-vnx-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
