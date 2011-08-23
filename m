@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next,v4 08/12] bna: Async Mode Tx Rx Init Fix
-Date: Tue, 23 Aug 2011 10:56:04 -0700
-Message-ID: <1314122168-14314-9-git-send-email-rmody@brocade.com>
+Subject: [net-next,v4 11/12] bna: SKB PCI UNMAP Fix
+Date: Tue, 23 Aug 2011 10:56:07 -0700
+Message-ID: <1314122168-14314-12-git-send-email-rmody@brocade.com>
 References: <1314122168-14314-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,128 +10,78 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:47473 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:47483 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754193Ab1HWR4p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 13:56:45 -0400
+	by vger.kernel.org with ESMTP id S1754392Ab1HWR4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 13:56:48 -0400
 In-Reply-To: <1314122168-14314-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Async mode of Tx/Rx queue initialization in BNAD from a task queue context
-   runs into non-unique taskq allocation issues. Get rid of Tx/Rx
-   initialization from task q context
- - In the attach function, wait for IOC enable, then do Tx/Rx queue
-   initialization. Default BNA attributes are used when IOC enable from attach
-   fails and values are set to:
-   1 TxQ, 1 RxQ, 1 Unicast MAC, 1 RIT entry
+ - Found a leak in sk_buff unmapping of PCI dma addresses where boundary
+   conditions are not properly handled in freeing all Tx buffers. Freeing
+   of all Tx buffers is done considering sk_buffs data and fragments can
+   be mapped at the boundary.
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bna_enet.c    |   29 ++++++++++++++++++-----
- drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    4 +++
- drivers/net/ethernet/brocade/bna/bna_types.h   |    1 +
- 3 files changed, 27 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c |   39 ++++++++-----------------------
+ 1 files changed, 10 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
-index 68a275d..26f5c5a 100644
---- a/drivers/net/ethernet/brocade/bna/bna_enet.c
-+++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
-@@ -167,13 +167,14 @@ bna_bfi_attr_get_rsp(struct bna_ioceth *ioceth,
- 	 * Store only if not set earlier, since BNAD can override the HW
- 	 * attributes
- 	 */
--	if (!ioceth->attr.num_txq)
-+	if (!ioceth->attr.fw_query_complete) {
- 		ioceth->attr.num_txq = ntohl(rsp->max_cfg);
--	if (!ioceth->attr.num_rxp)
- 		ioceth->attr.num_rxp = ntohl(rsp->max_cfg);
--	ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
--	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
--	ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
-+		ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
-+		ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
-+		ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
-+		ioceth->attr.fw_query_complete = true;
-+	}
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 16fa435..07570d3 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -133,39 +133,20 @@ bnad_free_all_txbufs(struct bnad *bnad,
+ 	struct bnad_unmap_q *unmap_q = tcb->unmap_q;
+ 	struct bnad_skb_unmap *unmap_array;
+ 	struct sk_buff		*skb = NULL;
+-	int			i;
++	int			q;
  
- 	bfa_fsm_send_event(ioceth, IOCETH_E_ENET_ATTR_RESP);
- }
-@@ -1693,6 +1694,16 @@ static struct bfa_ioc_cbfn bna_ioceth_cbfn = {
- 	bna_cb_ioceth_reset
- };
+ 	unmap_array = unmap_q->unmap_array;
  
-+static void bna_attr_init(struct bna_ioceth *ioceth)
-+{
-+	ioceth->attr.num_txq = BFI_ENET_DEF_TXQ;
-+	ioceth->attr.num_rxp = BFI_ENET_DEF_RXP;
-+	ioceth->attr.num_ucmac = BFI_ENET_DEF_UCAM;
-+	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
-+	ioceth->attr.max_rit_size = BFI_ENET_DEF_RITSZ;
-+	ioceth->attr.fw_query_complete = false;
-+}
-+
- static void
- bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
- 		struct bna_res_info *res_info)
-@@ -1738,6 +1749,8 @@ bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
- 	ioceth->stop_cbfn = NULL;
- 	ioceth->stop_cbarg = NULL;
+-	unmap_cons = 0;
+-	while (unmap_cons < unmap_q->q_depth) {
+-		skb = unmap_array[unmap_cons].skb;
+-		if (!skb) {
+-			unmap_cons++;
++	for (q = 0; q < unmap_q->q_depth; q++) {
++		skb = unmap_array[q].skb;
++		if (!skb)
+ 			continue;
+-		}
+-		unmap_array[unmap_cons].skb = NULL;
+-
+-		dma_unmap_single(&bnad->pcidev->dev,
+-				 dma_unmap_addr(&unmap_array[unmap_cons],
+-						dma_addr), skb_headlen(skb),
+-						DMA_TO_DEVICE);
  
-+	bna_attr_init(ioceth);
-+
- 	bfa_fsm_set_state(ioceth, bna_ioceth_sm_stopped);
- }
+-		dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr, 0);
+-		if (++unmap_cons >= unmap_q->q_depth)
+-			break;
++		unmap_cons = q;
++		BNAD_PCI_UNMAP_SKB(&bnad->pcidev->dev, unmap_array, unmap_cons,
++				   unmap_q->q_depth, skb,
++				   skb_shinfo(skb)->nr_frags);
  
-@@ -2036,7 +2049,8 @@ bna_uninit(struct bna *bna)
- int
- bna_num_txq_set(struct bna *bna, int num_txq)
- {
--	if (num_txq > 0 && (num_txq <= bna->ioceth.attr.num_txq)) {
-+	if (bna->ioceth.attr.fw_query_complete &&
-+		(num_txq <= bna->ioceth.attr.num_txq)) {
- 		bna->ioceth.attr.num_txq = num_txq;
- 		return BNA_CB_SUCCESS;
+-		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+-			dma_unmap_page(&bnad->pcidev->dev,
+-				       dma_unmap_addr(&unmap_array[unmap_cons],
+-						      dma_addr),
+-				       skb_shinfo(skb)->frags[i].size,
+-				       DMA_TO_DEVICE);
+-			dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr,
+-					   0);
+-			if (++unmap_cons >= unmap_q->q_depth)
+-				break;
+-		}
+ 		dev_kfree_skb_any(skb);
  	}
-@@ -2047,7 +2061,8 @@ bna_num_txq_set(struct bna *bna, int num_txq)
- int
- bna_num_rxp_set(struct bna *bna, int num_rxp)
- {
--	if (num_rxp > 0 && (num_rxp <= bna->ioceth.attr.num_rxp)) {
-+	if (bna->ioceth.attr.fw_query_complete &&
-+		(num_rxp <= bna->ioceth.attr.num_rxp)) {
- 		bna->ioceth.attr.num_rxp = num_rxp;
- 		return BNA_CB_SUCCESS;
- 	}
-diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-index 7ecdca5..dde8a46 100644
---- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-+++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-@@ -30,6 +30,10 @@
-  * SW imposed limits
-  *
-  */
-+#define BFI_ENET_DEF_TXQ		1
-+#define BFI_ENET_DEF_RXP		1
-+#define BFI_ENET_DEF_UCAM		1
-+#define BFI_ENET_DEF_RITSZ		1
- 
- #define BFI_ENET_MAX_MCAM		256
- 
-diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
-index 59417b1..242d799 100644
---- a/drivers/net/ethernet/brocade/bna/bna_types.h
-+++ b/drivers/net/ethernet/brocade/bna/bna_types.h
-@@ -323,6 +323,7 @@ struct bna_qpt {
- };
- 
- struct bna_attr {
-+	bool			fw_query_complete;
- 	int			num_txq;
- 	int			num_rxp;
- 	int			num_ucmac;
+ }
 -- 
 1.7.1
 
