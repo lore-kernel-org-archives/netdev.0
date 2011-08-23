@@ -1,39 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] ipv4: one more case for non-local saddr in
-	ICMP
-Date: Tue, 23 Aug 2011 14:46:40 +0800
-Message-ID: <20110823064640.GA6174@gondor.apana.org.au>
-References: <alpine.LFD.2.00.1108151857420.1481@ja.ssi.bg> <20110819.034354.219449243171613725.davem@davemloft.net> <20110820082048.GA15169@gondor.apana.org.au> <alpine.LFD.2.00.1108230845510.1565@ja.ssi.bg>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: =?UTF-8?q?=5BPATCH=5D=20net/phy=3A=20fix=20DP83865=20phy=20interrupt=20handler?=
+Date: Tue, 23 Aug 2011 09:07:14 +0200
+Message-ID: <1314083234-20361-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Thorsten Schubert <tshu@msc-ge.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:47528 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751749Ab1HWGqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 02:46:48 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1108230845510.1565@ja.ssi.bg>
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:41752 "EHLO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750748Ab1HWHH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 03:07:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 23, 2011 at 09:34:45AM +0300, Julian Anastasov wrote:
->
-> 	I just notice that if original packet (say TCP) hits
-> "fwd" policy, for the locally generated ICMP error we call
-> xfrm_lookup with sk = NULL and it always uses "out" dir
-> for the flow_cache_lookup call to search for this reverse SA.
-> So, we must be prepared with rules in "out" dir even for
-> the forwarding case? icmp flag in "fwd" rules is not considered?
+According to the DP83865 datasheet we need to clear
+the interrupt status bit by writing a 1 to the
+corresponding bit in INT_CLEAR (2:0 are reserved).
 
-This is a common question about our IPsec stack.  Both fwd
-and in are used for ingress, with the only difference being
-whether the packet is locally destined or not.  Only out is
-used for egress traffic.
+Proposed and tested by Thorsten.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Thorsten Schubert <tshu@msc-ge.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/phy/national.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/phy/national.c b/drivers/net/phy/national.c
+index 0620ba9..04bb8fc 100644
+--- a/drivers/net/phy/national.c
++++ b/drivers/net/phy/national.c
+@@ -25,8 +25,9 @@
+ /* DP83865 phy identifier values */
+ #define DP83865_PHY_ID	0x20005c7a
+=20
+-#define DP83865_INT_MASK_REG 0x15
+-#define DP83865_INT_MASK_STATUS 0x14
++#define DP83865_INT_STATUS	0x14
++#define DP83865_INT_MASK	0x15
++#define DP83865_INT_CLEAR	0x17
+=20
+ #define DP83865_INT_REMOTE_FAULT 0x0008
+ #define DP83865_INT_ANE_COMPLETED 0x0010
+@@ -68,21 +69,25 @@ static int ns_config_intr(struct phy_device *phydev=
+)
+ 	int err;
+=20
+ 	if (phydev->interrupts =3D=3D PHY_INTERRUPT_ENABLED)
+-		err =3D phy_write(phydev, DP83865_INT_MASK_REG,
++		err =3D phy_write(phydev, DP83865_INT_MASK,
+ 				DP83865_INT_MASK_DEFAULT);
+ 	else
+-		err =3D phy_write(phydev, DP83865_INT_MASK_REG, 0);
++		err =3D phy_write(phydev, DP83865_INT_MASK, 0);
+=20
+ 	return err;
+ }
+=20
+ static int ns_ack_interrupt(struct phy_device *phydev)
+ {
+-	int ret =3D phy_read(phydev, DP83865_INT_MASK_STATUS);
++	int ret =3D phy_read(phydev, DP83865_INT_STATUS);
+ 	if (ret < 0)
+ 		return ret;
+=20
+-	return 0;
++	/* Clear the interrupt status bit by writing a =E2=80=9C1=E2=80=9D
++	 * to the corresponding bit in INT_CLEAR (2:0 are reserved) */
++	ret =3D phy_write(phydev, DP83865_INT_CLEAR, ret & ~0x7);
++
++	return ret;
+ }
+=20
+ static void ns_giga_speed_fallback(struct phy_device *phydev, int mode=
+)
+--=20
+1.7.4.4
+
