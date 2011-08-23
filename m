@@ -1,511 +1,697 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 8/9] drivers/net: Kconfig & Makefile cleanup
-Date: Tue, 23 Aug 2011 01:45:48 -0700
-Message-ID: <1314089149-27205-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 9/9] drivers/net/ethernet/*: Enabled vendor Kconfig options
+Date: Tue, 23 Aug 2011 01:45:49 -0700
+Message-ID: <1314089149-27205-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1314089149-27205-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+	gospo@redhat.com, Stephen Rothwll <sfc@canb.auug.org.au>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:51843 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754678Ab1HWIqN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Aug 2011 04:46:13 -0400
+	id S1754837Ab1HWIq2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Aug 2011 04:46:28 -0400
 In-Reply-To: <1314089149-27205-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The is does a general cleanup of the drivers/net/ Kconfig and
-Makefile.  This patch create a "core" option and places all
-the networking core drivers into this option (default is yes
-for this option).  In addition, it alphabitizes the Kconfig
-driver options.
+Based on finds for Stephen Rothwell, where current defconfig's
+enable a ethernet driver and it is not compiled due to the newly
+added NET_VENDOR_* component of Kconfig.
 
-As a side cleanup, found that the arcnet, token ring, and PHY
-Kconfig options were a tri-state option and should have been
-a bool option.
+This patch enables all the "new" Kconfig options so that current
+defconfig's will continue to compile the expected drivers.  In
+addition, by enabling all the new Kconfig options does not add
+any un-expected options.
 
+CC: Stephen Rothwll <sfc@canb.auug.org.au>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig           |  267 +++++++++++++++++++++--------------------
- drivers/net/Makefile          |   63 ++++------
- drivers/net/arcnet/Kconfig    |    2 +-
- drivers/net/phy/Kconfig       |    2 +-
- drivers/net/tokenring/Kconfig |    2 +-
- 5 files changed, 167 insertions(+), 169 deletions(-)
+ drivers/net/ethernet/3com/Kconfig      |    1 +
+ drivers/net/ethernet/8390/Kconfig      |    1 +
+ drivers/net/ethernet/adaptec/Kconfig   |    1 +
+ drivers/net/ethernet/alteon/Kconfig    |    1 +
+ drivers/net/ethernet/amd/Kconfig       |    1 +
+ drivers/net/ethernet/apple/Kconfig     |    1 +
+ drivers/net/ethernet/atheros/Kconfig   |    1 +
+ drivers/net/ethernet/broadcom/Kconfig  |    1 +
+ drivers/net/ethernet/brocade/Kconfig   |    1 +
+ drivers/net/ethernet/chelsio/Kconfig   |    1 +
+ drivers/net/ethernet/cirrus/Kconfig    |    1 +
+ drivers/net/ethernet/cisco/Kconfig     |    1 +
+ drivers/net/ethernet/dec/Kconfig       |    1 +
+ drivers/net/ethernet/dlink/Kconfig     |    1 +
+ drivers/net/ethernet/emulex/Kconfig    |    1 +
+ drivers/net/ethernet/faraday/Kconfig   |    1 +
+ drivers/net/ethernet/freescale/Kconfig |    1 +
+ drivers/net/ethernet/fujitsu/Kconfig   |    1 +
+ drivers/net/ethernet/hp/Kconfig        |    1 +
+ drivers/net/ethernet/i825xx/Kconfig    |    1 +
+ drivers/net/ethernet/ibm/Kconfig       |    1 +
+ drivers/net/ethernet/intel/Kconfig     |    1 +
+ drivers/net/ethernet/marvell/Kconfig   |    1 +
+ drivers/net/ethernet/mellanox/Kconfig  |    1 +
+ drivers/net/ethernet/micrel/Kconfig    |    1 +
+ drivers/net/ethernet/microchip/Kconfig |    1 +
+ drivers/net/ethernet/myricom/Kconfig   |    1 +
+ drivers/net/ethernet/natsemi/Kconfig   |    1 +
+ drivers/net/ethernet/neterion/Kconfig  |    1 +
+ drivers/net/ethernet/nuvoton/Kconfig   |    1 +
+ drivers/net/ethernet/nvidia/Kconfig    |    1 +
+ drivers/net/ethernet/oki-semi/Kconfig  |    1 +
+ drivers/net/ethernet/pasemi/Kconfig    |    1 +
+ drivers/net/ethernet/qlogic/Kconfig    |    1 +
+ drivers/net/ethernet/racal/Kconfig     |    1 +
+ drivers/net/ethernet/rdc/Kconfig       |    1 +
+ drivers/net/ethernet/realtek/Kconfig   |    1 +
+ drivers/net/ethernet/seeq/Kconfig      |    1 +
+ drivers/net/ethernet/sgi/Kconfig       |    1 +
+ drivers/net/ethernet/sis/Kconfig       |    1 +
+ drivers/net/ethernet/smsc/Kconfig      |    1 +
+ drivers/net/ethernet/stmicro/Kconfig   |    1 +
+ drivers/net/ethernet/sun/Kconfig       |    1 +
+ drivers/net/ethernet/tehuti/Kconfig    |    1 +
+ drivers/net/ethernet/ti/Kconfig        |    1 +
+ drivers/net/ethernet/toshiba/Kconfig   |    1 +
+ drivers/net/ethernet/tundra/Kconfig    |    1 +
+ drivers/net/ethernet/via/Kconfig       |    1 +
+ drivers/net/ethernet/xilinx/Kconfig    |    1 +
+ drivers/net/ethernet/xircom/Kconfig    |    1 +
+ drivers/net/ethernet/xscale/Kconfig    |    1 +
+ 51 files changed, 51 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 5762370..583f66c 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -25,18 +25,32 @@ menuconfig NETDEVICES
- # that for each of the symbols.
- if NETDEVICES
+diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
+index 65cc129..a439cbd 100644
+--- a/drivers/net/ethernet/3com/Kconfig
++++ b/drivers/net/ethernet/3com/Kconfig
+@@ -4,6 +4,7 @@
  
--config IFB
--	tristate "Intermediate Functional Block support"
--	depends on NET_CLS_ACT
-+config NET_CORE
+ config NET_VENDOR_3COM
+ 	bool "3Com devices"
 +	default y
-+	bool "Network core driver support"
+ 	depends on ISA || EISA || MCA || PCI || PCMCIA
  	---help---
--	  This is an intermediate driver that allows sharing of
--	  resources.
-+	  You can say N here if you do not intend to use any of the
-+	  networking core drivers (i.e. VLAN, bridging, bonding, etc.)
-+
-+if NET_CORE
-+
-+config BONDING
-+	tristate "Bonding driver support"
-+	depends on INET
-+	depends on IPV6 || IPV6=n
-+	---help---
-+	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
-+	  Channels together. This is called 'Etherchannel' by Cisco,
-+	  'Trunking' by Sun, 802.3ad by the IEEE, and 'Bonding' in Linux.
-+
-+	  The driver supports multiple bonding modes to allow for both high
-+	  performance and high availability operation.
-+
-+	  Refer to <file:Documentation/networking/bonding.txt> for more
-+	  information.
-+
- 	  To compile this driver as a module, choose M here: the module
--	  will be called ifb.  If you want to use more than one ifb
--	  device at a time, you need to compile this driver as a module.
--	  Instead of 'ifb', the devices will then be called 'ifb0',
--	  'ifb1' etc.
--	  Look at the iproute2 documentation directory for usage etc
-+	  will be called bonding.
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
+index 5d21698..e04ade4 100644
+--- a/drivers/net/ethernet/8390/Kconfig
++++ b/drivers/net/ethernet/8390/Kconfig
+@@ -4,6 +4,7 @@
  
- config DUMMY
- 	tristate "Dummy net driver support"
-@@ -57,23 +71,59 @@ config DUMMY
- 	  Instead of 'dummy', the devices will then be called 'dummy0',
- 	  'dummy1' etc.
+ config NET_VENDOR_8390
+ 	bool "National Semi-conductor 8390 devices"
++	default y
+ 	depends on NET_VENDOR_NATSEMI && (AMIGA_PCMCIA || PCI || SUPERH || \
+ 		   ISA || MCA || EISA || MAC || M32R || MACH_TX49XX || \
+ 		   MCA_LEGACY || H8300 || ARM || MIPS || ZORRO || PCMCIA || \
+diff --git a/drivers/net/ethernet/adaptec/Kconfig b/drivers/net/ethernet/adaptec/Kconfig
+index 5e9dbe9..5c804bb 100644
+--- a/drivers/net/ethernet/adaptec/Kconfig
++++ b/drivers/net/ethernet/adaptec/Kconfig
+@@ -4,6 +4,7 @@
  
--config BONDING
--	tristate "Bonding driver support"
--	depends on INET
--	depends on IPV6 || IPV6=n
-+config EQUALIZER
-+	tristate "EQL (serial line load balancing) support"
+ config NET_VENDOR_ADAPTEC
+ 	bool "Adaptec devices"
++	default y
+ 	depends on PCI
  	---help---
--	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
--	  Channels together. This is called 'Etherchannel' by Cisco,
--	  'Trunking' by Sun, 802.3ad by the IEEE, and 'Bonding' in Linux.
-+	  If you have two serial connections to some other computer (this
-+	  usually requires two modems and two telephone lines) and you use
-+	  SLIP (the protocol for sending Internet traffic over telephone
-+	  lines) or PPP (a better SLIP) on them, you can make them behave like
-+	  one double speed connection using this driver.  Naturally, this has
-+	  to be supported at the other end as well, either with a similar EQL
-+	  Linux driver or with a Livingston Portmaster 2e.
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/alteon/Kconfig b/drivers/net/ethernet/alteon/Kconfig
+index 68862e4..799a852 100644
+--- a/drivers/net/ethernet/alteon/Kconfig
++++ b/drivers/net/ethernet/alteon/Kconfig
+@@ -4,6 +4,7 @@
  
--	  The driver supports multiple bonding modes to allow for both high
--	  performance and high availability operation.
-+	  Say Y if you want this and read
-+	  <file:Documentation/networking/eql.txt>.  You may also want to read
-+	  section 6.2 of the NET-3-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
- 
--	  Refer to <file:Documentation/networking/bonding.txt> for more
--	  information.
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called eql.  If unsure, say N.
-+
-+config NET_FC
-+	bool "Fibre Channel driver support"
-+	depends on SCSI && PCI
-+	help
-+	  Fibre Channel is a high speed serial protocol mainly used to connect
-+	  large storage devices to the computer; it is compatible with and
-+	  intended to replace SCSI.
-+
-+	  If you intend to use Fibre Channel, you need to have a Fibre channel
-+	  adaptor card in your computer; say Y here and to the driver for your
-+	  adaptor below. You also should have said Y to "SCSI support" and
-+	  "SCSI generic support".
- 
-+config MII
-+	tristate "Generic Media Independent Interface device support"
-+	help
-+	  Most ethernet controllers have MII transceiver either as an external
-+	  or internal device.  It is safe to say Y or M here even if your
-+	  ethernet card lacks MII.
-+
-+source "drivers/ieee802154/Kconfig"
-+
-+config IFB
-+	tristate "Intermediate Functional Block support"
-+	depends on NET_CLS_ACT
-+	---help---
-+	  This is an intermediate driver that allows sharing of
-+	  resources.
- 	  To compile this driver as a module, choose M here: the module
--	  will be called bonding.
-+	  will be called ifb.  If you want to use more than one ifb
-+	  device at a time, you need to compile this driver as a module.
-+	  Instead of 'ifb', the devices will then be called 'ifb0',
-+	  'ifb1' etc.
-+	  Look at the iproute2 documentation directory for usage etc
- 
- config MACVLAN
- 	tristate "MAC-VLAN support (EXPERIMENTAL)"
-@@ -102,24 +152,46 @@ config MACVTAP
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called macvtap.
- 
--config EQUALIZER
--	tristate "EQL (serial line load balancing) support"
-+config NETCONSOLE
-+	tristate "Network console logging support"
+ config NET_VENDOR_ALTEON
+ 	bool "Alteon devices"
++	default y
+ 	depends on PCI
  	---help---
--	  If you have two serial connections to some other computer (this
--	  usually requires two modems and two telephone lines) and you use
--	  SLIP (the protocol for sending Internet traffic over telephone
--	  lines) or PPP (a better SLIP) on them, you can make them behave like
--	  one double speed connection using this driver.  Naturally, this has
--	  to be supported at the other end as well, either with a similar EQL
--	  Linux driver or with a Livingston Portmaster 2e.
-+	If you want to log kernel messages over the network, enable this.
-+	See <file:Documentation/networking/netconsole.txt> for details.
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
+index 0513940..8af1c93 100644
+--- a/drivers/net/ethernet/amd/Kconfig
++++ b/drivers/net/ethernet/amd/Kconfig
+@@ -4,6 +4,7 @@
  
--	  Say Y if you want this and read
--	  <file:Documentation/networking/eql.txt>.  You may also want to read
--	  section 6.2 of the NET-3-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
-+config NETCONSOLE_DYNAMIC
-+	bool "Dynamic reconfiguration of logging targets"
-+	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
-+			!(NETCONSOLE=y && CONFIGFS_FS=m)
-+	help
-+	  This option enables the ability to dynamically reconfigure target
-+	  parameters (interface, IP addresses, port numbers, MAC addresses)
-+	  at runtime through a userspace interface exported using configfs.
-+	  See <file:Documentation/networking/netconsole.txt> for details.
+ config NET_VENDOR_AMD
+ 	bool "AMD devices"
++	default y
+ 	depends on DIO || MACH_DECSTATION || MVME147 || ATARI || SUN3 || \
+ 		   SUN3X || SBUS || PCI || ZORRO || (ISA && ISA_DMA_API) || \
+ 		   (ARM && ARCH_EBSA110) || ISA || EISA || MCA || PCMCIA
+diff --git a/drivers/net/ethernet/apple/Kconfig b/drivers/net/ethernet/apple/Kconfig
+index fc796bc..59d5c26 100644
+--- a/drivers/net/ethernet/apple/Kconfig
++++ b/drivers/net/ethernet/apple/Kconfig
+@@ -4,6 +4,7 @@
  
--	  To compile this driver as a module, choose M here: the module
--	  will be called eql.  If unsure, say N.
-+config NETPOLL
-+	def_bool NETCONSOLE
-+
-+config NETPOLL_TRAP
-+	bool "Netpoll traffic trapping"
-+	default n
-+	depends on NETPOLL
-+
-+config NET_POLL_CONTROLLER
-+	def_bool NETPOLL
-+
-+config RIONET
-+	tristate "RapidIO Ethernet over messaging driver support"
-+	depends on RAPIDIO
-+
-+config RIONET_TX_SIZE
-+	int "Number of outbound queue entries"
-+	depends on RIONET
-+	default "128"
-+
-+config RIONET_RX_SIZE
-+	int "Number of inbound queue entries"
-+	depends on RIONET
-+	default "128"
+ config NET_VENDOR_APPLE
+ 	bool "Apple devices"
++	default y
+ 	depends on (PPC_PMAC && PPC32) || MAC || ISA || EISA || MACH_IXDP2351 \
+ 		   || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
+ 	---help---
+diff --git a/drivers/net/ethernet/atheros/Kconfig b/drivers/net/ethernet/atheros/Kconfig
+index 966c6c7..26ab8ca 100644
+--- a/drivers/net/ethernet/atheros/Kconfig
++++ b/drivers/net/ethernet/atheros/Kconfig
+@@ -4,6 +4,7 @@
  
- config TUN
- 	tristate "Universal TUN/TAP device driver support"
-@@ -151,6 +223,28 @@ config VETH
- 	  When one end receives the packet it appears on its pair and vice
- 	  versa.
+ config NET_VENDOR_ATHEROS
+ 	bool "Atheros devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index 8986e57..d82ad22 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -4,6 +4,7 @@
  
-+config VIRTIO_NET
-+	tristate "Virtio network driver (EXPERIMENTAL)"
-+	depends on EXPERIMENTAL && VIRTIO
-+	---help---
-+	  This is the virtual network driver for virtio.  It can be used with
-+	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
-+
-+endif # NET_CORE
-+
-+config SUNGEM_PHY
-+	tristate
-+
-+source "drivers/net/arcnet/Kconfig"
-+
-+source "drivers/atm/Kconfig"
-+
-+source "drivers/net/caif/Kconfig"
-+
-+source "drivers/net/ethernet/Kconfig"
-+
-+source "drivers/net/fddi/Kconfig"
-+
- config NET_SB1000
- 	tristate "General Instruments Surfboard 1000"
- 	depends on PNP
-@@ -175,52 +269,26 @@ config NET_SB1000
+ config NET_VENDOR_BROADCOM
+ 	bool "Broadcom devices"
++	default y
+ 	depends on (SSB_POSSIBLE && HAS_DMA) || PCI || BCM63XX || \
+ 		   SIBYTE_SB1xxx_SOC
+ 	---help---
+diff --git a/drivers/net/ethernet/brocade/Kconfig b/drivers/net/ethernet/brocade/Kconfig
+index 03f0b17..2641557 100644
+--- a/drivers/net/ethernet/brocade/Kconfig
++++ b/drivers/net/ethernet/brocade/Kconfig
+@@ -4,6 +4,7 @@
  
- 	  If you don't have this card, of course say N.
+ config NET_VENDOR_BROCADE
+ 	bool "Brocade devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
+index 7b54574..2de50f9 100644
+--- a/drivers/net/ethernet/chelsio/Kconfig
++++ b/drivers/net/ethernet/chelsio/Kconfig
+@@ -4,6 +4,7 @@
  
--source "drivers/net/arcnet/Kconfig"
--
--config MII
--	tristate "Generic Media Independent Interface device support"
--	help
--	  Most ethernet controllers have MII transceiver either as an external
--	  or internal device.  It is safe to say Y or M here even if your
--	  ethernet card lacks MII.
--
- source "drivers/net/phy/Kconfig"
+ config NET_VENDOR_CHELSIO
+ 	bool "Chelsio devices"
++	default y
+ 	depends on PCI || INET
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/cirrus/Kconfig b/drivers/net/ethernet/cirrus/Kconfig
+index 53ebe78..e0cacf6 100644
+--- a/drivers/net/ethernet/cirrus/Kconfig
++++ b/drivers/net/ethernet/cirrus/Kconfig
+@@ -4,6 +4,7 @@
  
--config SUNGEM_PHY
--	tristate
--
--#
--#	Ethernet
--#
--
--source "drivers/net/ethernet/Kconfig"
--
--source "drivers/net/fddi/Kconfig"
--
- source "drivers/net/plip/Kconfig"
+ config NET_VENDOR_CIRRUS
+ 	bool "Cirrus devices"
++	default y
+ 	depends on ARM && ARCH_EP93XX
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/cisco/Kconfig b/drivers/net/ethernet/cisco/Kconfig
+index bbd5348..94606f7 100644
+--- a/drivers/net/ethernet/cisco/Kconfig
++++ b/drivers/net/ethernet/cisco/Kconfig
+@@ -4,6 +4,7 @@
  
-+source "drivers/net/ppp/Kconfig"
-+
- source "drivers/net/slip/Kconfig"
- 
-+source "drivers/s390/net/Kconfig"
-+
- source "drivers/net/tokenring/Kconfig"
- 
-+source "drivers/net/usb/Kconfig"
-+
- source "drivers/net/wireless/Kconfig"
- 
- source "drivers/net/wimax/Kconfig"
- 
--source "drivers/net/usb/Kconfig"
--
--source "drivers/net/ppp/Kconfig"
--
- source "drivers/net/wan/Kconfig"
- 
--source "drivers/atm/Kconfig"
--
--source "drivers/ieee802154/Kconfig"
--
--source "drivers/s390/net/Kconfig"
--
--source "drivers/net/caif/Kconfig"
--
- config XEN_NETDEV_FRONTEND
- 	tristate "Xen network device frontend driver"
- 	depends on XEN
-@@ -260,67 +328,6 @@ config XEN_NETDEV_BACKEND
- 	  compile this driver as a module, chose M here: the module
- 	  will be called xen-netback.
- 
--config RIONET
--	tristate "RapidIO Ethernet over messaging driver support"
--	depends on RAPIDIO
--
--config RIONET_TX_SIZE
--	int "Number of outbound queue entries"
--	depends on RIONET
--	default "128"
--
--config RIONET_RX_SIZE
--	int "Number of inbound queue entries"
--	depends on RIONET
--	default "128"
--
--config NET_FC
--	bool "Fibre Channel driver support"
--	depends on SCSI && PCI
--	help
--	  Fibre Channel is a high speed serial protocol mainly used to connect
--	  large storage devices to the computer; it is compatible with and
--	  intended to replace SCSI.
--
--	  If you intend to use Fibre Channel, you need to have a Fibre channel
--	  adaptor card in your computer; say Y here and to the driver for your
--	  adaptor below. You also should have said Y to "SCSI support" and
--	  "SCSI generic support".
--
--config NETCONSOLE
--	tristate "Network console logging support"
--	---help---
--	If you want to log kernel messages over the network, enable this.
--	See <file:Documentation/networking/netconsole.txt> for details.
--
--config NETCONSOLE_DYNAMIC
--	bool "Dynamic reconfiguration of logging targets"
--	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
--			!(NETCONSOLE=y && CONFIGFS_FS=m)
--	help
--	  This option enables the ability to dynamically reconfigure target
--	  parameters (interface, IP addresses, port numbers, MAC addresses)
--	  at runtime through a userspace interface exported using configfs.
--	  See <file:Documentation/networking/netconsole.txt> for details.
--
--config NETPOLL
--	def_bool NETCONSOLE
--
--config NETPOLL_TRAP
--	bool "Netpoll traffic trapping"
--	default n
--	depends on NETPOLL
--
--config NET_POLL_CONTROLLER
--	def_bool NETPOLL
--
--config VIRTIO_NET
--	tristate "Virtio network driver (EXPERIMENTAL)"
--	depends on EXPERIMENTAL && VIRTIO
--	---help---
--	  This is the virtual network driver for virtio.  It can be used with
--	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
--
- config VMXNET3
- 	tristate "VMware VMXNET3 ethernet driver"
+ config NET_VENDOR_CISCO
+ 	bool "Cisco devices"
++	default y
  	depends on PCI && INET
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index d04d0ce..33ff347 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -2,46 +2,51 @@
- # Makefile for the Linux network device drivers.
- #
- 
--obj-$(CONFIG_MII) += mii.o
--obj-$(CONFIG_MDIO) += mdio.o
--obj-$(CONFIG_PHYLIB) += phy/
--obj-$(CONFIG_CAN) += can/
--obj-$(CONFIG_BONDING) += bonding/
--obj-$(CONFIG_VMXNET3) += vmxnet3/
--
- #
--# link order important here
-+# Networking Core Drivers
- #
--obj-$(CONFIG_RIONET) += rionet.o
--
--#
--# end link order section
--#
--
--obj-$(CONFIG_NET) += Space.o loopback.o
--obj-$(CONFIG_NET_SB1000) += sb1000.o
--
--obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
--obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
--
-+obj-$(CONFIG_BONDING) += bonding/
- obj-$(CONFIG_DUMMY) += dummy.o
-+obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_IFB) += ifb.o
- obj-$(CONFIG_MACVLAN) += macvlan.o
- obj-$(CONFIG_MACVTAP) += macvtap.o
--obj-$(CONFIG_EQUALIZER) += eql.o
-+obj-$(CONFIG_MII) += mii.o
-+obj-$(CONFIG_MDIO) += mdio.o
-+obj-$(CONFIG_NET) += Space.o loopback.o
-+obj-$(CONFIG_NETCONSOLE) += netconsole.o
-+obj-$(CONFIG_PHYLIB) += phy/
-+obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
-+obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- 
-+#
-+# Networking Drivers
-+#
-+obj-$(CONFIG_ARCNET) += arcnet/
- obj-$(CONFIG_DEV_APPLETALK) += appletalk/
-+obj-$(CONFIG_CAIF) += caif/
-+obj-$(CONFIG_CAN) += can/
-+obj-$(CONFIG_ETRAX_ETHERNET) += cris/
- obj-$(CONFIG_ETHERNET) += ethernet/
- obj-$(CONFIG_FDDI) += fddi/
- obj-$(CONFIG_HIPPI) += hippi/
-+obj-$(CONFIG_HAMRADIO) += hamradio/
-+obj-$(CONFIG_IRDA) += irda/
- obj-$(CONFIG_PLIP) += plip/
- onj-$(CONFIG_PPP) += ppp/
-+obj-$(CONFIG_NET_SB1000) += sb1000.o
- onj-$(CONFIG_SLIP) += slip/
-+obj-$(CONFIG_SUNGEM_PHY) += sungem_phy.o
- obj-$(CONFIG_TR) += tokenring/
- obj-$(CONFIG_WAN) += wan/
--obj-$(CONFIG_ARCNET) += arcnet/
-+obj-$(CONFIG_WLAN) += wireless/
-+obj-$(CONFIG_WIMAX) += wimax/
-+
-+obj-$(CONFIG_VMXNET3) += vmxnet3/
-+obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
-+obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
- 
- obj-$(CONFIG_USB_CATC)          += usb/
- obj-$(CONFIG_USB_KAWETH)        += usb/
-@@ -52,17 +57,3 @@ obj-$(CONFIG_USB_USBNET)        += usb/
- obj-$(CONFIG_USB_ZD1201)        += usb/
- obj-$(CONFIG_USB_IPHETH)        += usb/
- obj-$(CONFIG_USB_CDC_PHONET)   += usb/
--
--obj-$(CONFIG_WLAN) += wireless/
--obj-$(CONFIG_HAMRADIO) += hamradio/
--obj-$(CONFIG_IRDA) += irda/
--obj-$(CONFIG_ETRAX_ETHERNET) += cris/
--
--obj-$(CONFIG_NETCONSOLE) += netconsole.o
--
--obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
--
--obj-$(CONFIG_WIMAX) += wimax/
--obj-$(CONFIG_CAIF) += caif/
--
--obj-$(CONFIG_SUNGEM_PHY) += sungem_phy.o
-diff --git a/drivers/net/arcnet/Kconfig b/drivers/net/arcnet/Kconfig
-index 84fb634..a73d9dc 100644
---- a/drivers/net/arcnet/Kconfig
-+++ b/drivers/net/arcnet/Kconfig
-@@ -4,7 +4,7 @@
- 
- menuconfig ARCNET
- 	depends on NETDEVICES && (ISA || PCI || PCMCIA)
--	tristate "ARCnet support"
-+	bool "ARCnet support"
  	---help---
- 	  If you have a network card of this type, say Y and check out the
- 	  (arguably) beautiful poetry in
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index a702443..bb88e12 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -3,7 +3,7 @@
- #
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/dec/Kconfig b/drivers/net/ethernet/dec/Kconfig
+index 40e8df9..3794027 100644
+--- a/drivers/net/ethernet/dec/Kconfig
++++ b/drivers/net/ethernet/dec/Kconfig
+@@ -4,6 +4,7 @@
  
- menuconfig PHYLIB
--	tristate "PHY Device support and infrastructure"
-+	bool "PHY Device support and infrastructure"
- 	depends on !S390
- 	depends on NETDEVICES
- 	help
-diff --git a/drivers/net/tokenring/Kconfig b/drivers/net/tokenring/Kconfig
-index 0f70158..c7e0149 100644
---- a/drivers/net/tokenring/Kconfig
-+++ b/drivers/net/tokenring/Kconfig
-@@ -4,7 +4,7 @@
+ config NET_VENDOR_DEC
+ 	bool "Digital Equipment devices"
++	default y
+ 	depends on PCI || EISA || CARDBUS
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/dlink/Kconfig b/drivers/net/ethernet/dlink/Kconfig
+index 9fdb66b..84a28a6 100644
+--- a/drivers/net/ethernet/dlink/Kconfig
++++ b/drivers/net/ethernet/dlink/Kconfig
+@@ -4,6 +4,7 @@
  
- # So far, we only have PCI, ISA, and MCA token ring devices
- menuconfig TR
--	tristate "Token Ring driver support"
-+	bool "Token Ring driver support"
- 	depends on NETDEVICES && !UML
- 	depends on (PCI || ISA || MCA || CCW || PCMCIA)
- 	select LLC
+ config NET_VENDOR_DLINK
+ 	bool "D-Link devices"
++	default y
+ 	depends on PCI || PARPORT
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/emulex/Kconfig b/drivers/net/ethernet/emulex/Kconfig
+index 018ac94..7a28a64 100644
+--- a/drivers/net/ethernet/emulex/Kconfig
++++ b/drivers/net/ethernet/emulex/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_EMULEX
+ 	bool "Emulex devices"
++	default y
+ 	depends on PCI && INET
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/faraday/Kconfig b/drivers/net/ethernet/faraday/Kconfig
+index b0d76f0..5918c68 100644
+--- a/drivers/net/ethernet/faraday/Kconfig
++++ b/drivers/net/ethernet/faraday/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_FARADAY
+ 	bool "Faraday devices"
++	default y
+ 	depends on ARM
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index 2fd2c61..4dbe41f 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_FREESCALE
+ 	bool "Freescale devices"
++	default y
+ 	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
+ 		   M523x || M527x || M5272 || M528x || M520x || M532x || \
+ 		   IMX_HAVE_PLATFORM_FEC || MXS_HAVE_PLATFORM_FEC || \
+diff --git a/drivers/net/ethernet/fujitsu/Kconfig b/drivers/net/ethernet/fujitsu/Kconfig
+index 2cd968e..dffee9d 100644
+--- a/drivers/net/ethernet/fujitsu/Kconfig
++++ b/drivers/net/ethernet/fujitsu/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_FUJITSU
+ 	bool "Fujitsu devices"
++	default y
+ 	depends on ISA || PCMCIA || ((ISA || MCA_LEGACY) && EXPERIMENTAL)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/hp/Kconfig b/drivers/net/ethernet/hp/Kconfig
+index 07b42e9..a0b8ece 100644
+--- a/drivers/net/ethernet/hp/Kconfig
++++ b/drivers/net/ethernet/hp/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_HP
+ 	bool "HP devices"
++	default y
+ 	depends on ISA || EISA || PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/i825xx/Kconfig b/drivers/net/ethernet/i825xx/Kconfig
+index 5c30a5b..2be4698 100644
+--- a/drivers/net/ethernet/i825xx/Kconfig
++++ b/drivers/net/ethernet/i825xx/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_I825XX
+ 	bool "Intel (82586/82593/82596) devices"
++	default y
+ 	depends on NET_VENDOR_INTEL && (ISA || ISA_DMA_API || ARM || \
+ 		   ARCH_ACORN || MCA || MCA_LEGACY || SNI_RM || SUN3 || \
+ 		   GSC || BVME6000 || MVME16x || EXPERIMENTAL)
+diff --git a/drivers/net/ethernet/ibm/Kconfig b/drivers/net/ethernet/ibm/Kconfig
+index 4c7ef98..9e16f3f 100644
+--- a/drivers/net/ethernet/ibm/Kconfig
++++ b/drivers/net/ethernet/ibm/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_IBM
+ 	bool "IBM devices"
++	default y
+ 	depends on MCA || PPC_PSERIES || PPC_PSERIES || PPC_DCR || \
+ 		   (IBMEBUS && INET && SPARSEMEM)
+ 	---help---
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 5fe185b..4a98e83 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_INTEL
+ 	bool "Intel devices"
++	default y
+ 	depends on PCI || PCI_MSI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
+index e525408..0029934 100644
+--- a/drivers/net/ethernet/marvell/Kconfig
++++ b/drivers/net/ethernet/marvell/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_MARVELL
+ 	bool "Marvell devices"
++	default y
+ 	depends on PCI || CPU_PXA168 || MV64X60 || PPC32 || PLAT_ORION || INET
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/mellanox/Kconfig b/drivers/net/ethernet/mellanox/Kconfig
+index e069491..d8099a7 100644
+--- a/drivers/net/ethernet/mellanox/Kconfig
++++ b/drivers/net/ethernet/mellanox/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_MELLANOX
+ 	bool "Mellanox devices"
++	default y
+ 	depends on PCI && INET
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/micrel/Kconfig b/drivers/net/ethernet/micrel/Kconfig
+index 4227de6..bd090db 100644
+--- a/drivers/net/ethernet/micrel/Kconfig
++++ b/drivers/net/ethernet/micrel/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_MICREL
+ 	bool "Micrel devices"
++	default y
+ 	depends on (HAS_IOMEM && DMA_ENGINE) || SPI || PCI || HAS_IOMEM || \
+ 		   (ARM && ARCH_KS8695)
+ 	---help---
+diff --git a/drivers/net/ethernet/microchip/Kconfig b/drivers/net/ethernet/microchip/Kconfig
+index 53b0b04..8163fd0 100644
+--- a/drivers/net/ethernet/microchip/Kconfig
++++ b/drivers/net/ethernet/microchip/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_MICROCHIP
+ 	bool "Microchip devices"
++	default y
+ 	depends on SPI && EXPERIMENTAL
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/myricom/Kconfig b/drivers/net/ethernet/myricom/Kconfig
+index 1816ae1..540f0c6 100644
+--- a/drivers/net/ethernet/myricom/Kconfig
++++ b/drivers/net/ethernet/myricom/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_MYRI
+ 	bool "Myricom devices"
++	default y
+ 	depends on PCI && INET
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say
+diff --git a/drivers/net/ethernet/natsemi/Kconfig b/drivers/net/ethernet/natsemi/Kconfig
+index 1e5c1e1..4a6b9fd 100644
+--- a/drivers/net/ethernet/natsemi/Kconfig
++++ b/drivers/net/ethernet/natsemi/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_NATSEMI
+ 	bool "National Semi-conductor devices"
++	default y
+ 	depends on MCA || MAC || MACH_JAZZ || PCI || XTENSA_PLATFORM_XT2000
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/neterion/Kconfig b/drivers/net/ethernet/neterion/Kconfig
+index 3d98e62..ff26b54 100644
+--- a/drivers/net/ethernet/neterion/Kconfig
++++ b/drivers/net/ethernet/neterion/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_EXAR
+ 	bool "Exar devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say
+diff --git a/drivers/net/ethernet/nuvoton/Kconfig b/drivers/net/ethernet/nuvoton/Kconfig
+index 3b91c3b..01182b5 100644
+--- a/drivers/net/ethernet/nuvoton/Kconfig
++++ b/drivers/net/ethernet/nuvoton/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_NUVOTON
+ 	bool "Nuvoton devices"
++	default y
+ 	depends on ARM && ARCH_W90X900
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/nvidia/Kconfig b/drivers/net/ethernet/nvidia/Kconfig
+index 0a18e73..ace19e7 100644
+--- a/drivers/net/ethernet/nvidia/Kconfig
++++ b/drivers/net/ethernet/nvidia/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_NVIDIA
+ 	bool "NVIDIA devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/oki-semi/Kconfig b/drivers/net/ethernet/oki-semi/Kconfig
+index 97f5e72..ecd45f9 100644
+--- a/drivers/net/ethernet/oki-semi/Kconfig
++++ b/drivers/net/ethernet/oki-semi/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_OKI
+ 	bool "OKI Semiconductor devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/pasemi/Kconfig b/drivers/net/ethernet/pasemi/Kconfig
+index ccb79b8..01e6c32 100644
+--- a/drivers/net/ethernet/pasemi/Kconfig
++++ b/drivers/net/ethernet/pasemi/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_PASEMI
+ 	bool "PA Semi devices"
++	default y
+ 	depends on PPC_PASEMI && PCI && INET
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
+index a7c4424..a8669ad 100644
+--- a/drivers/net/ethernet/qlogic/Kconfig
++++ b/drivers/net/ethernet/qlogic/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_QLOGIC
+ 	bool "QLogic devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/racal/Kconfig b/drivers/net/ethernet/racal/Kconfig
+index 45d4930..01969e0 100644
+--- a/drivers/net/ethernet/racal/Kconfig
++++ b/drivers/net/ethernet/racal/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_RACAL
+ 	bool "Racal-Interlan (Micom) NI devices"
++	default y
+ 	depends on ISA
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, such
+diff --git a/drivers/net/ethernet/rdc/Kconfig b/drivers/net/ethernet/rdc/Kconfig
+index b15ebac..2055f7e 100644
+--- a/drivers/net/ethernet/rdc/Kconfig
++++ b/drivers/net/ethernet/rdc/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_RDC
+ 	bool "RDC devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/realtek/Kconfig b/drivers/net/ethernet/realtek/Kconfig
+index a5f67a09..d8df67a 100644
+--- a/drivers/net/ethernet/realtek/Kconfig
++++ b/drivers/net/ethernet/realtek/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_REALTEK
+ 	bool "Realtek devices"
++	default y
+ 	depends on PCI || (PARPORT && X86)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/seeq/Kconfig b/drivers/net/ethernet/seeq/Kconfig
+index 0266791..49b6d5b 100644
+--- a/drivers/net/ethernet/seeq/Kconfig
++++ b/drivers/net/ethernet/seeq/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_SEEQ
+ 	bool "SEEQ devices"
++	default y
+ 	depends on (ARM && ARCH_ACORN) || SGI_HAS_SEEQ || EXPERIMENTAL
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/sgi/Kconfig b/drivers/net/ethernet/sgi/Kconfig
+index 3098594..e832f46 100644
+--- a/drivers/net/ethernet/sgi/Kconfig
++++ b/drivers/net/ethernet/sgi/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_SGI
+ 	bool "SGI devices"
++	default y
+ 	depends on (PCI && SGI_IP27) || SGI_IP32
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/sis/Kconfig b/drivers/net/ethernet/sis/Kconfig
+index 01d43e8..68d052b 100644
+--- a/drivers/net/ethernet/sis/Kconfig
++++ b/drivers/net/ethernet/sis/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_SIS
+ 	bool "Silicon Integrated Systems (SiS) devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
+index 702efe6..f961928 100644
+--- a/drivers/net/ethernet/smsc/Kconfig
++++ b/drivers/net/ethernet/smsc/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_SMSC
+ 	bool "SMC (SMSC)/Western Digital devices"
++	default y
+ 	depends on ARM || ISA || MAC || ARM || MIPS || M32R || SUPERH || \
+ 		BLACKFIN || MN10300 || COLDFIRE || PCI || PCMCIA
+ 	---help---
+diff --git a/drivers/net/ethernet/stmicro/Kconfig b/drivers/net/ethernet/stmicro/Kconfig
+index e40df64..f4a80da 100644
+--- a/drivers/net/ethernet/stmicro/Kconfig
++++ b/drivers/net/ethernet/stmicro/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_STMICRO
+ 	bool "STMicroelectronics devices"
++	default y
+ 	depends on HAS_IOMEM
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/sun/Kconfig b/drivers/net/ethernet/sun/Kconfig
+index 5132fa6..57bfd85 100644
+--- a/drivers/net/ethernet/sun/Kconfig
++++ b/drivers/net/ethernet/sun/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_SUN
+ 	bool "Sun devices"
++	default y
+ 	depends on SUN3 || SBUS || PCI || SUN_LDOMS
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say
+diff --git a/drivers/net/ethernet/tehuti/Kconfig b/drivers/net/ethernet/tehuti/Kconfig
+index 914ad4059..1fc027e 100644
+--- a/drivers/net/ethernet/tehuti/Kconfig
++++ b/drivers/net/ethernet/tehuti/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_TEHUTI
+ 	bool "Tehuti devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+index 1284319..de76c70 100644
+--- a/drivers/net/ethernet/ti/Kconfig
++++ b/drivers/net/ethernet/ti/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_TI
+ 	bool "Texas Instruments (TI) devices"
++	default y
+ 	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3))
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/toshiba/Kconfig b/drivers/net/ethernet/toshiba/Kconfig
+index 6ef2ce2..0517647 100644
+--- a/drivers/net/ethernet/toshiba/Kconfig
++++ b/drivers/net/ethernet/toshiba/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_TOSHIBA
+ 	bool "Toshiba devices"
++	default y
+ 	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB) || PPC_PS3
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/tundra/Kconfig b/drivers/net/ethernet/tundra/Kconfig
+index 03925d1..cf7d69b 100644
+--- a/drivers/net/ethernet/tundra/Kconfig
++++ b/drivers/net/ethernet/tundra/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_TUNDRA
+ 	bool "Tundra devices"
++	default y
+ 	depends on TSI108_BRIDGE
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/via/Kconfig b/drivers/net/ethernet/via/Kconfig
+index 7199194..e5d82a5 100644
+--- a/drivers/net/ethernet/via/Kconfig
++++ b/drivers/net/ethernet/via/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_VIA
+ 	bool "VIA devices"
++	default y
+ 	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/xilinx/Kconfig b/drivers/net/ethernet/xilinx/Kconfig
+index 4e3aad4..d5a8260 100644
+--- a/drivers/net/ethernet/xilinx/Kconfig
++++ b/drivers/net/ethernet/xilinx/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_XILINX
+ 	bool "Xilinx devices"
++	default y
+ 	depends on PPC || PPC32 || MICROBLAZE
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/xircom/Kconfig b/drivers/net/ethernet/xircom/Kconfig
+index 3d64e58..69f56a6 100644
+--- a/drivers/net/ethernet/xircom/Kconfig
++++ b/drivers/net/ethernet/xircom/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_XIRCOM
+ 	bool "Xircom devices"
++	default y
+ 	depends on PCMCIA
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/xscale/Kconfig b/drivers/net/ethernet/xscale/Kconfig
+index 6bbcc54..cf67352 100644
+--- a/drivers/net/ethernet/xscale/Kconfig
++++ b/drivers/net/ethernet/xscale/Kconfig
+@@ -4,6 +4,7 @@
+ 
+ config NET_VENDOR_XSCALE
+ 	bool "Intel XScale IXP devices"
++	default y
+ 	depends on NET_VENDOR_INTEL && ((ARM && ARCH_IXP4XX && \
+ 		   IXP4XX_NPE && IXP4XX_QMGR) || ARCH_ENP2611)
+ 	---help---
 -- 
 1.7.6
 
