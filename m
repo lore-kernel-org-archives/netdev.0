@@ -1,50 +1,52 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Interface without IP address can route??
-Date: Tue, 23 Aug 2011 17:20:29 -0700
-Message-ID: <4E5443CD.60502@candelatech.com>
+From: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Subject: Re: linux-next: manual merge of the net tree with the unicore32
+ tree
+Date: Wed, 24 Aug 2011 09:28:42 +0800
+Message-ID: <1314149322.29738.14.camel@epip-laptop>
+References: <20110823130210.766d466d689d60536f59340a@canb.auug.org.au>
+	 <1314090049.2128.224.camel@jtkirshe-mobl>
+Reply-To: gxt@mprc.pku.edu.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:47983 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752730Ab1HXAUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 20:20:30 -0400
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p7O0KTOa000792
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 17:20:29 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Zhang Shu <davidshuzhang@gmail.com>,
+	Chu Xiaowei <chuxiaowei@mprc.pku.edu.cn>,
+	Su Yonggang <tonyhook.su@gmail.com>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1314090049.2128.224.camel@jtkirshe-mobl>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I just noticed on a 3.0.1 kernel that the system is routing packets
-received on an interface without an IP address. (I was trying to use the
-interface in a user-space wifi_station-to-wired bridge application).
+On Tue, 2011-08-23 at 02:00 -0700, Jeff Kirsher wrote:
+> On Mon, 2011-08-22 at 20:02 -0700, Stephen Rothwell wrote:
+> > Hi all,
+> > 
+> > Today's linux-next merge of the net tree got conflicts in
+> > drivers/net/Kconfig and drivers/net/Makefile between commit
+> > e8787de6fa83
+> > ("unicore32: add pkunity-v3 mac/net driver (umal)") from the unicore32
+> > tree and the network driver rearrangement from the net tree.
+> > 
+> > I just added the new driver from the unicore32 tree commit into each
+> > file
+> > (see below).
+> > -- 
+> > Cheers,
+> > Stephen Rothwell                    sfr@canb.auug.org.au 
+> 
+> Hmm, well with the latest series of patches I sent out, I am pretty sure
+> this patch would not apply.
+Ok, I see.
+Thanks Jeff, and thanks Stephen.
 
-[root@lf0301-demo1 lanforge]# cat /proc/sys/net/ipv4/conf/sta1/forwarding
-1
-[root@lf0301-demo1 lanforge]# ifconfig sta1
-sta1      Link encap:Ethernet  HWaddr 00:03:2D:12:16:0D
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:85248 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:1419 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:67423391 (64.2 MiB)  TX bytes:1087581 (1.0 MiB)
+Guan Xuetao
 
-
-Seems that older stock kernels have forwarding set for interfaces without
-IP addresses too, so maybe it's always been this way...
-
-Anyway, I can add some logic to my config to explicitly disable
-routing for interfaces w/out IP address, but it seems to me that
-it should automatically not route packets received on an interface
-that had no IP address on it..
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> 
+> Is it best that this patch not be sent to netdev for driver
+> inclusion? :)
