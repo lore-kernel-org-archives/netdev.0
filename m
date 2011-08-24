@@ -1,179 +1,138 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/9] hippi: Move the HIPPI driver
-Date: Tue, 23 Aug 2011 21:39:28 -0700
-Message-ID: <1314160774-6980-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1314160774-6980-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jes Sorensen <jes@wildopensource.com>,
-	Jes Sorensen <jes@trained-monkey.org>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: [GIT]: Networking
+Date: Tue, 23 Aug 2011 21:46:33 -0700 (PDT)
+Message-ID: <20110823.214633.35980203609378871.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:8760 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752395Ab1HXEjm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 00:39:42 -0400
-In-Reply-To: <1314160774-6980-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41007 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751411Ab1HXEqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 00:46:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the HIPPI driver into drivers/net/hippi/ and make the
-necessary Kconfig and Makefile changes.
-
-CC: Jes Sorensen <jes@wildopensource.com>
-CC: Jes Sorensen <jes@trained-monkey.org>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- MAINTAINERS                       |    1 +
- drivers/net/Kconfig               |   32 ------------------------------
- drivers/net/Makefile              |    2 +-
- drivers/net/hippi/Kconfig         |   39 +++++++++++++++++++++++++++++++++++++
- drivers/net/hippi/Makefile        |    5 ++++
- drivers/net/{ => hippi}/rrunner.c |    0
- drivers/net/{ => hippi}/rrunner.h |    0
- 7 files changed, 46 insertions(+), 33 deletions(-)
- create mode 100644 drivers/net/hippi/Kconfig
- create mode 100644 drivers/net/hippi/Makefile
- rename drivers/net/{ => hippi}/rrunner.c (100%)
- rename drivers/net/{ => hippi}/rrunner.h (100%)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index c5ec925..194095a 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3049,6 +3049,7 @@ S:	Maintained
- F:	include/linux/hippidevice.h
- F:	include/linux/if_hippi.h
- F:	net/802/hippi.c
-+F:	drivers/net/hippi/
- 
- HOST AP DRIVER
- M:	Jouni Malinen <j@w1.fi>
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index c5e2a38..1d8fa95 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -272,38 +272,6 @@ config RIONET_RX_SIZE
- 	depends on RIONET
- 	default "128"
- 
--config HIPPI
--	bool "HIPPI driver support (EXPERIMENTAL)"
--	depends on EXPERIMENTAL && INET && PCI
--	help
--	  HIgh Performance Parallel Interface (HIPPI) is a 800Mbit/sec and
--	  1600Mbit/sec dual-simplex switched or point-to-point network. HIPPI
--	  can run over copper (25m) or fiber (300m on multi-mode or 10km on
--	  single-mode). HIPPI networks are commonly used for clusters and to
--	  connect to super computers. If you are connected to a HIPPI network
--	  and have a HIPPI network card in your computer that you want to use
--	  under Linux, say Y here (you must also remember to enable the driver
--	  for your HIPPI card below). Most people will say N here.
--
--config ROADRUNNER
--	tristate "Essential RoadRunner HIPPI PCI adapter support (EXPERIMENTAL)"
--	depends on HIPPI && PCI
--	help
--	  Say Y here if this is your PCI HIPPI network card.
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called rrunner.  If unsure, say N.
--
--config ROADRUNNER_LARGE_RINGS
--	bool "Use large TX/RX rings (EXPERIMENTAL)"
--	depends on ROADRUNNER
--	help
--	  If you say Y here, the RoadRunner driver will preallocate up to 2 MB
--	  of additional memory to allow for fastest operation, both for
--	  transmitting and receiving. This memory cannot be used by any other
--	  kernel code or by user space programs. Say Y here only if you have
--	  the memory.
--
- config PLIP
- 	tristate "PLIP (parallel port) support"
- 	depends on PARPORT
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 9ce7c70..aff07bd 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -13,7 +13,6 @@ obj-$(CONFIG_VMXNET3) += vmxnet3/
- # link order important here
- #
- obj-$(CONFIG_PLIP) += plip.o
--obj-$(CONFIG_ROADRUNNER) += rrunner.o
- obj-$(CONFIG_RIONET) += rionet.o
- 
- #
-@@ -39,6 +38,7 @@ obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_DEV_APPLETALK) += appletalk/
- obj-$(CONFIG_ETHERNET) += ethernet/
- obj-$(CONFIG_FDDI) += fddi/
-+obj-$(CONFIG_HIPPI) += hippi/
- onj-$(CONFIG_PPP) += ppp/
- obj-$(CONFIG_TR) += tokenring/
- obj-$(CONFIG_WAN) += wan/
-diff --git a/drivers/net/hippi/Kconfig b/drivers/net/hippi/Kconfig
-new file mode 100644
-index 0000000..7393eb7
---- /dev/null
-+++ b/drivers/net/hippi/Kconfig
-@@ -0,0 +1,39 @@
-+#
-+# HIPPI network device configuration
-+#
-+
-+config HIPPI
-+	bool "HIPPI driver support (EXPERIMENTAL)"
-+	depends on EXPERIMENTAL && INET && PCI
-+	---help---
-+	  HIgh Performance Parallel Interface (HIPPI) is a 800Mbit/sec and
-+	  1600Mbit/sec dual-simplex switched or point-to-point network. HIPPI
-+	  can run over copper (25m) or fiber (300m on multi-mode or 10km on
-+	  single-mode). HIPPI networks are commonly used for clusters and to
-+	  connect to super computers. If you are connected to a HIPPI network
-+	  and have a HIPPI network card in your computer that you want to use
-+	  under Linux, say Y here (you must also remember to enable the driver
-+	  for your HIPPI card below). Most people will say N here.
-+
-+if HIPPI
-+
-+config ROADRUNNER
-+	tristate "Essential RoadRunner HIPPI PCI adapter support (EXPERIMENTAL)"
-+	depends on PCI
-+	---help---
-+	  Say Y here if this is your PCI HIPPI network card.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called rrunner.  If unsure, say N.
-+
-+config ROADRUNNER_LARGE_RINGS
-+	bool "Use large TX/RX rings (EXPERIMENTAL)"
-+	depends on ROADRUNNER
-+	---help---
-+	  If you say Y here, the RoadRunner driver will preallocate up to 2 MB
-+	  of additional memory to allow for fastest operation, both for
-+	  transmitting and receiving. This memory cannot be used by any other
-+	  kernel code or by user space programs. Say Y here only if you have
-+	  the memory.
-+
-+endif /* HIPPI */
-diff --git a/drivers/net/hippi/Makefile b/drivers/net/hippi/Makefile
-new file mode 100644
-index 0000000..b95d629
---- /dev/null
-+++ b/drivers/net/hippi/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the HIPPI network device drivers.
-+#
-+
-+obj-$(CONFIG_ROADRUNNER) += rrunner.o
-diff --git a/drivers/net/rrunner.c b/drivers/net/hippi/rrunner.c
-similarity index 100%
-rename from drivers/net/rrunner.c
-rename to drivers/net/hippi/rrunner.c
-diff --git a/drivers/net/rrunner.h b/drivers/net/hippi/rrunner.h
-similarity index 100%
-rename from drivers/net/rrunner.h
-rename to drivers/net/hippi/rrunner.h
--- 
-1.7.6
+DQpBcyBpcyB1c3VhbGx5IHRoZSBjYXNlIGF0IHRoaXMgcG9pbnQsIHdlJ3JlIGZpeGluZyBkcml2
+ZXIgcHJvYmxlbXMNCmFuZCBzbWFsbCBtaW5vciByZWdyZXNzaW9ucyBlbHNld2hlcmU6DQoNCjEp
+IFNldmVyYWwgcnQyeDAwIGJ1ZyBmaXhlcyBmcm9tIFN0YW5pc2xhdyBHcnVzemthOg0KICAgYSkg
+Q3VyZSBvb3BzIGluIHJ0MjgwMHVzYl93cml0ZV90eF9kZXNjKCkuDQogICBiKSBGaXggZmxhZyBj
+aGVjayBvcmRlciBpbiBydDI4MDB1c2Jfd29ya190eGRvbmUgb3RoZXJ3aXNlIHdlIG1pZ2h0DQog
+ICAgICBza2lwIHJlYWR5IGVudHJpZXMuDQogICBjKSBGaXggb29wcyBpbiBydDI4MDB1c2JfZ2V0
+X3R4d2kuDQoNCjIpIHVzYm5ldCBjZGNfbmFjbSBkcml2ZXIgRE1BcyBzdGFjayB2YXJpYWJsZXMs
+IGZpeCBmcm9tIEpvc2ggQm95ZXIuDQoNCjMpIE9uIGdpYW5mYXIsIGV2ZW4gd2hlbiBWTEFOIEhX
+IG9mZmxvYWQgaXMgZGlzYWJsZWQsIGRlc2NyaXB0b3JzDQogICBzdGlsbCBzZXQgVkxBTiBiaXQs
+IG1ha2Ugc3VyZSB3ZSBpZ25vcmUgaXQgaW4gdGhhdCBzaXR1YXRpb24gYW5kDQogICBkb24ndCBh
+Y2NpZGVudGx5IHRoaW5rIHRoZSBjYXJkIG9mZmxvYWRlZCBWTEFOIGhlYWRlciBzdHJpcHBpbmcu
+DQogICBGaXggZnJvbSBKaXJpIFBpcmtvLg0KDQo0KSBJUFY2IFNJVCB0dW5uZWxzIGRvbid0IHBy
+b3BhZ2F0ZSB2NiB0cmFuc3BvcnQgY2xhc3MgdG8gdGhlIGlwdjQNCiAgIHR5cGUgb2Ygc2Vydmlj
+ZSB3aGVuIHRoZXkgc2hvdWxkLCBmaXggZnJvbSBMaW9uZWwgRWxpZSBNYW1hbmUuDQoNCjUpIFBv
+cnQgbWlycm9yL3JlZGlyZWN0IGRvZXNuJ3QgcHJvcGFnYXRlIHhtaXQgY29kZXMgdG8gY2FsbGVy
+LCBmaXgNCiAgIGZyb20gSmFtYWwgSGFkaSBTYWxpbS4NCg0KNikgRml4IGNoYW5naW5nIGJvbmRp
+bmcgbW9kZSBmcm9tIGJhY2t1cCB0byByb3VuZC1yb2JpbiwgZnJvbSBXZWlwaW5nIFBhbi4NCg0K
+NykgRml4IGVycm9uZW91cyBub24tdGFnZ2VkIHBhY2tldCBmaWx0ZXJpbmcgaW4gdmlhLXZlbG9j
+aXR5LCBmcm9tIEppcmkNCiAgIFBpcmtvLg0KDQo4KSBMaWtlIHdlIGRpZCBmb3IgaXB2NCdzIElQ
+X1BLVE9QVElPTlMsIHdlIGhhdmUgdG8gbWFrZSBpcHY2J3MNCiAgIElQVjZfMjI5MlBLVE9QVElP
+TlMgaGFuZGxlIGNvbXBhdCBtb2RlIHByb3Blcmx5IHRvby4gIEZyb20gRGFuaWVsIEJhbHV0YS4N
+Cg0KOSkgRml4IGFjY2lkZW50YWwgcmVpbnRyb2R1Y2Ugb2Ygc2tiLT5kZXY9PU5VTEwgb29wc2Vy
+IGluIEFUTSdzIGJyMjY4NC4NCiAgIEZyb20gRGFuaWVsIFNjaHdpZXJ6ZWNrLg0KDQoxMCkgRml4
+IGRldmljZSBsZWFrIGluIGJyaWRnaW5nLCBmcm9tIEVyaWMgRHVtYXpldC4NCg0KMTEpIE1lbW9y
+eSBsZWFrIGZpeCBpbiB3bDEyeHggd2lyZWxlc3MsIGZyb20gSnVsaWEgTGF3YWxsLg0KDQoxMikg
+RkNPRSBtZW1vcnkgbGVhayBmb3IgRERQIHBhY2tldHMgaW4gaXhnYmUgZnJvbSBBbGV4YW5kZXIg
+RHV5Y2suDQoNCjEzKSBGaXggaGFsZi1kdXBsZXggbW9kZSB3aXRoIHNvbWUgY2hpcHMgaW4gZTEw
+MDBlLCBmcm9tIEJydWNlIEFsbGFuLg0KDQoxNCkgODI1NzkgZTEwMDBlIGNoaXAgY2FuIGRyb3Ag
+cGFja2V0cyBhdCAxMDBNYnBzLCB3b3JrYXJvdW5kIGJ5IGluY3JlYXNpbmcNCiAgICBQTEwgY291
+bnRlciB0byB0cmljayB0aGUgUEhZLCBmcm9tIEJydWNlIEFsbGFuLg0KDQoxNSkgRml4IGUxMDAw
+ZSBjb25mbGljdHMgd2l0aCBNYW5hZ2VtZW50IEVuZ2luZSB0aGF0IGNhbiBjb3JydXB0IHRoZQ0K
+ICAgIFRYIGFuZCBSWCB0YWlsIHBvaW50ZXJzLiAgQWxzbyBmcm9tIEJydWNlIEFsbGFuLg0KDQox
+NikgUmV2ZXJ0IG9uZSBpd2xhZ24gY2hhbmdlLCBhbmQgcGFydCBvZiBhbm90aGVyLCB0byBmaXgg
+c3lzZnMgcHJpdmF0ZQ0KICAgIGhhbmRsaW5nIGFuZCBlbGltaW5hdGluZyBhIGJhZCBwb2ludGVy
+IG9vcHMgb24gdW5sb2FkLCBmcm9tDQogICAgRW1tYW51ZWwgR3J1bWJhY2guDQoNCjE3KSBJbiB2
+bXhuZXQzIGRvIG5vdCBlbmFibGUgdmxhbiBmaWx0ZXJzIGluIHByb21pc2MgbW9kZSwgZnJvbSBK
+ZXNzZSBHcm9zcy4NCg0KMTgpIEZpeCBkb3VibGUgZnJlZSBpbiBzamExMDAwIENBTiBkcml2ZXIs
+IGZyb20gSnVsaWEgTGF3YWxsLg0KDQoxOSkgRml4IGJ1aWxkIGR1ZSB0byBtaXNzaW5nIGluY2x1
+ZGUgaW4gc2hfZXRoLmMsIGZyb20gTm9idWhpcm8gSXdhbWF0c3UuDQoNCjIwKSBnZmFyX2V0aGZs
+b3dfdG9fZmlsdGVyX3RhYmxlKCkgdXNlcyBtb3JlIHRoYW4gMksgb2Ygc3RhY2sgc3BhY2UsIGZp
+eA0KICAgIGZyb20gV2FuZyBTaGFveWFuLg0KDQoyMSkgSG9wZWZ1bGx5IGZpeCBJbmdvJ3MgZm9y
+Y2VkZXRoIHZsYW4gcmVncmVzc2lvbiwgZnJvbSBKaXJpIFBpcmtvLg0KDQoyMikgdmxhbl91bnRh
+ZygpIG5lZWRzIHRvIHJlc2V0IFNLQiBoZWFkZXIgcG9pbnRlcnMsIGZyb20gSmlyaSBQaXJrby4N
+Cg0KUGxlYXNlIHB1bGwsIHRoYW5rcyBhIGxvdCENCg0KVGhlIGZvbGxvd2luZyBjaGFuZ2VzIHNp
+bmNlIGNvbW1pdCAxNGM2MmU3OGRjMTM3OTE4NTUxNWJlNDE5MDNjNGE2NjdlZmM2ZDU0Og0KDQog
+IE1lcmdlIGJyYW5jaCAneDg2LXVyZ2VudC1mb3ItbGludXMnIG9mIGdpdDovL2dpdC5rZXJuZWwu
+b3JnL3B1Yi9zY20vbGludXgva2VybmVsL2dpdC90aXAvbGludXgtMi42LXRpcCAoMjAxMS0wOC0y
+MyAxODowOTowOCAtMDcwMCkNCg0KYXJlIGF2YWlsYWJsZSBpbiB0aGUgZ2l0IHJlcG9zaXRvcnkg
+YXQ6DQoNCiAgbWFzdGVyLmtlcm5lbC5vcmc6L3B1Yi9zY20vbGludXgva2VybmVsL2dpdC9kYXZl
+bS9uZXQuZ2l0IG1hc3Rlcg0KDQpBbGV4YW5kZXIgRHV5Y2sgKDEpOg0KICAgICAgaXhnYmU6IEZp
+eCBGQ09FIG1lbW9yeSBsZWFrIGZvciBERFAgcGFja2V0cw0KDQpCcnVjZSBBbGxhbiAoMyk6DQog
+ICAgICBlMTAwMGU6IFNwdXJpb3VzIGludGVycnVwdHMgJiBkcm9wcGVkIHBhY2tldHMgd2l0aCA4
+MjU3Ny84LzkgaW4gaGFsZi1kdXBsZXgNCiAgICAgIGUxMDAwZTogd29ya2Fyb3VuZCBmb3IgcGFj
+a2V0IGRyb3Agb24gODI1NzkgYXQgMTAwTWJwcw0KICAgICAgZTEwMDBlOiB3b3JrYXJvdW5kIGlu
+dmFsaWQgVHgvUnggdGFpbCBkZXNjcmlwdG9yIHJlZ2lzdGVyIHdyaXRlDQoNCkRhbmllbCBCYWx1
+dGEgKDEpOg0KICAgICAgaXB2NjogRml4IGlwdjZfZ2V0c29ja29wdCBmb3IgSVBWNl8yMjkyUEtU
+T1BUSU9OUw0KDQpEYW5pZWwgU2Nod2llcnplY2sgKDEpOg0KICAgICAgYXRtOiBicjI2ODQ6IEZp
+eCBvb3BzIGR1ZSB0byBza2ItPmRldiBiZWluZyBOVUxMDQoNCkRhdmlkIFMuIE1pbGxlciAoMik6
+DQogICAgICBNZXJnZSBicmFuY2ggJ21hc3Rlcicgb2YgbWFzdGVyLmtlcm5lbC5vcmc6Ly4uLi9q
+a2lyc2hlci9uZXQNCiAgICAgIE1lcmdlIGJyYW5jaCAnZm9yLWRhdmVtJyBvZiBnaXQ6Ly9naXQu
+a2VybmVsLm9yZy8uLi4vbGludmlsbGUvd2lyZWxlc3MNCg0KRW1tYW51ZWwgR3J1bWJhY2ggKDIp
+Og0KICAgICAgUmV2ZXJ0ICJpd2xhZ246IHN5c2ZzIGNvdWxkbid0IGZpbmQgdGhlIHByaXYgcG9p
+bnRlciINCiAgICAgIGl3bGFnbjogc3lzZnMgY291bGRuJ3QgZmluZCB0aGUgcHJpdiBwb2ludGVy
+DQoNCkVyaWMgRHVtYXpldCAoMSk6DQogICAgICBicmlkZ2U6IGZpeCBhIHBvc3NpYmxlIG5ldF9k
+ZXZpY2UgbGVhaw0KDQpHZW9mZnJleSBUaG9tYXMgKDEpOg0KICAgICAgbmV0OiBEb2N1bWVudGF0
+aW9uOiBSRkMgMjU1M2JpcyBpcyBub3cgUkZDIDM0OTMNCg0KSmFtYWwgSGFkaSBTYWxpbSAoMSk6
+DQogICAgICBuZXRfc2NoZWQ6IGZpeCBwb3J0IG1pcnJvci9yZWRpcmVjdCBzdGF0cyByZXBvcnRp
+bmcNCg0KSmVzc2UgR3Jvc3MgKDEpOg0KICAgICAgdm14bmV0MzogRG9uJ3QgZW5hYmxlIHZsYW4g
+ZmlsdGVycyBpbiBwcm9taXNjdW91cyBtb2RlLg0KDQpKaXJpIFBpcmtvICg0KToNCiAgICAgIGdp
+YW5mYXI6IHByZXZlbnQgYnVnZ3kgaHcgcnggdmxhbiB0YWdnaW5nDQogICAgICB2aWEtdmVsb2Np
+dHk6IHJlbW92ZSBub24tdGFnZ2VkIHBhY2tldCBmaWx0ZXJpbmcNCiAgICAgIGZvcmNlZGV0aDog
+Y2FsbCB2bGFuX21vZGUgb25seSBpZiBodyBzdXBwb3J0cyB2bGFucw0KICAgICAgdmxhbjogcmVz
+ZXQgaGVhZGVycyBvbiBhY2NlbCBlbXVsYXRpb24gcGF0aA0KDQpKb2huIFcuIExpbnZpbGxlICgx
+KToNCiAgICAgIE1lcmdlIGJyYW5jaCAnbWFzdGVyJyBvZiBnaXQ6Ly9naXQua2VybmVsLm9yZy8u
+Li4vbGludmlsbGUvd2lyZWxlc3MgaW50byBmb3ItZGF2ZW0NCg0KSm9zaCBCb3llciAoMSk6DQog
+ICAgICB1c2JuZXQvY2RjX25jbTogRG9uJ3QgdXNlIHN0YWNrIHZhcmlhYmxlcyBmb3IgRE1BDQoN
+Ckp1bGlhIExhd2FsbCAoMik6DQogICAgICBkcml2ZXJzL25ldC93aXJlbGVzcy93bDEyeHg6IGFk
+ZCBtaXNzaW5nIGtmcmVlDQogICAgICBkcml2ZXJzL25ldC9jYW4vc2phMTAwMC9wbHhfcGNpLmM6
+IGVsaW1pbmF0ZSBkb3VibGUgZnJlZQ0KDQpMaW9uZWwgRWxpZSBNYW1hbmUgKDEpOg0KICAgICAg
+c2l0IHR1bm5lbHM6IHByb3BhZ2F0ZSBJUHY2IHRyYW5zcG9ydCBjbGFzcyB0byBJUHY0IFR5cGUg
+b2YgU2VydmljZQ0KDQpOb2J1aGlybyBJd2FtYXRzdSAoMSk6DQogICAgICBuZXQ6IHNoX2V0aDog
+Rml4IGJ1aWxkIGJ5IGZvcmdvdCBpbmNsdWRpbmcgbGludXgvaW50ZXJydXB0LmgNCg0KUGV0ZXIg
+UGFuKOa9mOWNq+W5sykgKDEpOg0KICAgICAgYm9uZGluZzpyZXNldCBiYWNrdXAgYW5kIGluYWN0
+aXZlIGZsYWcgb2Ygc2xhdmUNCg0KU3RhbmlzbGF3IEdydXN6a2EgKDMpOg0KICAgICAgcnQyeDAw
+OiBmaXggY3Jhc2ggaW4gcnQyODAwdXNiX3dyaXRlX3R4X2Rlc2MNCiAgICAgIHJ0MngwMDogZml4
+IG9yZGVyIG9mIGVudHJ5IGZsYWdzIG1vZGlmaWNhdGlvbg0KICAgICAgcnQyeDAwOiBmaXggY3Jh
+c2ggaW4gcnQyODAwdXNiX2dldF90eHdpDQoNCldhbmcgU2hhb3lhbiAoMSk6DQogICAgICBnaWFu
+ZmFyOiByZWR1Y2Ugc3RhY2sgdXNhZ2UgaW4gZ2lhbmZhcl9ldGh0b29sLmMNCg0KV2lsbGVtIGRl
+IEJydWlqbiAoMyk6DQogICAgICBuZXQ6IGFkZCBtaXNzaW5nIGVudHJpZXMgdG8gRG9jdW1lbnRh
+dGlvbi9uZXR3b3JraW5nLzAwLUlOREVYDQogICAgICBuZXQ6IG1pbm9yIHVwZGF0ZSB0byBEb2N1
+bWVudGF0aW9uL25ldHdvcmtpbmcvc2NhbGluZy50eHQNCiAgICAgIG5ldDogbmV0ZGV2LWZlYXR1
+cmVzLnR4dCB1cGRhdGUgdG8gRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nLzAwLUlOREVYDQoNCiBE
+b2N1bWVudGF0aW9uL25ldHdvcmtpbmcvMDAtSU5ERVggICAgICAgfCAgMTE2ICsrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysNCiBEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvaXAtc3lzY3Rs
+LnR4dCAgfCAgICAyICstDQogRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL3NjYWxpbmcudHh0ICAg
+IHwgICAyMyArKysrLS0NCiBkcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jICAgICAgICAg
+fCAgIDE4ICsrKysrDQogZHJpdmVycy9uZXQvY2FuL3NqYTEwMDAvcGx4X3BjaS5jICAgICAgIHwg
+ICAgNCArLQ0KIGRyaXZlcnMvbmV0L2UxMDAwZS9lMTAwMC5oICAgICAgICAgICAgICB8ICAgIDQg
+Kw0KIGRyaXZlcnMvbmV0L2UxMDAwZS9pY2g4bGFuLmMgICAgICAgICAgICB8ICAgNjUgKysrKysr
+KysrKysrKystLS0tDQogZHJpdmVycy9uZXQvZTEwMDBlL25ldGRldi5jICAgICAgICAgICAgIHwg
+ICA4MCArKysrKysrKysrKysrKysrKysrKy0NCiBkcml2ZXJzL25ldC9mb3JjZWRldGguYyAgICAg
+ICAgICAgICAgICAgfCAgICAzICstDQogZHJpdmVycy9uZXQvZ2lhbmZhci5jICAgICAgICAgICAg
+ICAgICAgIHwgICAgOSArKy0NCiBkcml2ZXJzL25ldC9naWFuZmFyX2V0aHRvb2wuYyAgICAgICAg
+ICAgfCAgIDI2ICsrKysrKy0tDQogZHJpdmVycy9uZXQvaXhnYmUvaXhnYmVfbWFpbi5jICAgICAg
+ICAgIHwgICAgNCArLQ0KIGRyaXZlcnMvbmV0L3NoX2V0aC5jICAgICAgICAgICAgICAgICAgICB8
+ICAgIDEgKw0KIGRyaXZlcnMvbmV0L3VzYi9jZGNfbmNtLmMgICAgICAgICAgICAgICB8ICAgNDcg
+KysrKysrKysrKy0tLQ0KIGRyaXZlcnMvbmV0L3ZpYS12ZWxvY2l0eS5jICAgICAgICAgICAgICB8
+ICAgIDQgLQ0KIGRyaXZlcnMvbmV0L3ZteG5ldDMvdm14bmV0M19kcnYuYyAgICAgICB8ICAgMzQg
+KysrKystLS0tDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9pd2wtcGNpLmMgIHwgICAy
+NSArKystLS0tDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvcnQyeDAwL3J0MjgwMHVzYi5jIHwgICAy
+MCArKysrLS0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy9ydDJ4MDAvcnQyeDAwdXNiLmMgfCAgIDE3
+ICsrLS0tDQogZHJpdmVycy9uZXQvd2lyZWxlc3Mvd2wxMnh4L2FjeC5jICAgICAgIHwgICAgNiAr
+LS0NCiBkcml2ZXJzL25ldC93aXJlbGVzcy93bDEyeHgvdGVzdG1vZGUuYyAgfCAgICA1ICstDQog
+bmV0LzgwMjFxL3ZsYW5fY29yZS5jICAgICAgICAgICAgICAgICAgIHwgICAgMiArDQogbmV0L2F0
+bS9icjI2ODQuYyAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNyArLQ0KIG5ldC9icmlkZ2Uv
+YnJfaWYuYyAgICAgICAgICAgICAgICAgICAgICB8ICAgIDYgKystDQogbmV0L2lwdjYvaXB2Nl9z
+b2NrZ2x1ZS5jICAgICAgICAgICAgICAgIHwgICAgOSArKy0NCiBuZXQvaXB2Ni9zaXQuYyAgICAg
+ICAgICAgICAgICAgICAgICAgICAgfCAgICAzICsNCiBuZXQvc2NoZWQvYWN0X21pcnJlZC5jICAg
+ICAgICAgICAgICAgICAgfCAgICAzICstDQogMjcgZmlsZXMgY2hhbmdlZCwgNDMzIGluc2VydGlv
+bnMoKyksIDExMCBkZWxldGlvbnMoLSkNCg==
