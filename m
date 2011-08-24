@@ -1,102 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [BUG] tcp : how many times a frame can possibly be retransmitted ?
-Date: Wed, 24 Aug 2011 18:21:58 +0200
-Message-ID: <1314202918.2296.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [patch -next] bna: unlock on error path in pnad_pci_probe()
+Date: Wed, 24 Aug 2011 10:25:45 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A9E4B8C4DE@HQ1-EXCH01.corp.brocade.com>
+References: <20110824112922.GC5975@shale.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
-	Damian Lukowski <damian@tvk.rwth-aachen.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Debashis Dutt <ddutt@brocade.com>,
+	"open list:BROCADE BNA 10 GI..." <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Jing Huang <huangj@Brocade.COM>
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45507 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305Ab1HXQWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 12:22:01 -0400
-Received: by wwf5 with SMTP id 5so1398337wwf.1
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2011 09:21:59 -0700 (PDT)
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:36348 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752488Ab1HXRZw convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Aug 2011 13:25:52 -0400
+In-Reply-To: <20110824112922.GC5975@shale.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On one dev machine running net-next, I just found strange tcp sessions
-that retransmit a frame forever (The other peer disappeared)
+>From: Dan Carpenter [mailto:error27@gmail.com]
+>Sent: Wednesday, August 24, 2011 4:29 AM
+>
+>We introduced a new lock here, so there was error path which needs
+>an unlock now.
+>
+>Signed-off-by: Dan Carpenter <error27@gmail.com>
+>
+>diff --git a/drivers/net/ethernet/brocade/bna/bnad.c
+>b/drivers/net/ethernet/brocade/bna/bnad.c
+>index bdfda07..6ad4b47 100644
+>--- a/drivers/net/ethernet/brocade/bna/bnad.c
+>+++ b/drivers/net/ethernet/brocade/bna/bnad.c
+>@@ -3167,7 +3167,7 @@ bnad_pci_probe(struct pci_dev *pdev,
+> 	 */
+> 	err = bnad_pci_init(bnad, pdev, &using_dac);
+> 	if (err)
+>-		goto free_netdev;
+>+		goto unlock_mutex;
+>
+> 	/*
+> 	 * Initialize bnad structure
+>@@ -3296,9 +3296,9 @@ drv_uninit:
+> 	bnad_uninit(bnad);
+> pci_uninit:
+> 	bnad_pci_uninit(pdev);
+>+unlock_mutex:
+> 	mutex_unlock(&bnad->conf_mutex);
+> 	bnad_lock_uninit(bnad);
+>-free_netdev:
+> 	free_netdev(netdev);
+> 	return err;
+> }
 
-# ss -emoi dst 10.2.1.1
-State      Recv-Q Send-Q      Local Address:Port          Peer Address:Port   
-ESTAB      0      816              10.2.1.2:37930             10.2.1.1:ssh      timer:(on,630ms,246) ino:60786 sk:ffff8801189aa400
-	 mem:(r0,w3776,f320,t0) ts sack ecn cubic wscale:8,6 rto:1680 rtt:16.25/7.5 ato:40 ssthresh:7 send 1.4Mbps rcv_rtt:10 rcv_space:16632
+Acked-by: Rasesh Mody <rmody@brocade.com>
 
-
-You can see the retransmit count : 246 
-
-What possibly can be going on ?
-
-What happened to backoff ?
-
-# grep . /proc/sys/net/ipv4/tcp_retries*
-/proc/sys/net/ipv4/tcp_retries1:3
-/proc/sys/net/ipv4/tcp_retries2:15
-
-
-
-extract of tcpdump :
-
-12:01:02.074244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128024 59389>
-12:01:03.754243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128192 59389>
-12:01:05.434245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128360 59389>
-12:01:07.114243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128528 59389>
-12:01:08.794248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128696 59389>
-12:01:10.474242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128864 59389>
-12:01:12.154243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129032 59389>
-12:01:13.834241 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129200 59389>
-12:01:15.514246 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129368 59389>
-12:01:17.194244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129536 59389>
-12:01:18.874248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129704 59389>
-12:01:20.554243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129872 59389>
-12:01:22.234244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130040 59389>
-12:01:23.914244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130208 59389>
-12:01:25.594247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130376 59389>
-12:01:27.274242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130544 59389>
-12:01:28.954242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130712 59389>
-12:01:30.634248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130880 59389>
-12:01:32.314245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131048 59389>
-12:01:33.994243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131216 59389>
-12:01:35.674250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131384 59389>
-12:01:37.354244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131552 59389>
-12:01:39.034245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131720 59389>
-12:01:40.714245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131888 59389>
-12:01:42.394245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132056 59389>
-12:01:44.074242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132224 59389>
-12:01:45.754249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132392 59389>
-12:01:47.434242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132560 59389>
-12:01:49.114247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132728 59389>
-12:01:50.794250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132896 59389>
-12:01:52.474247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133064 59389>
-12:01:54.154242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133232 59389>
-12:01:55.834246 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133400 59389>
-12:01:57.514243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133568 59389>
-12:01:59.194247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133736 59389>
-12:02:00.874250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133904 59389>
-12:02:02.554242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134072 59389>
-12:02:04.234243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134240 59389>
-12:02:05.914245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134408 59389>
-12:02:07.594244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134576 59389>
-12:02:09.274249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134744 59389>
-12:02:10.954241 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134912 59389>
-12:02:12.634249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16135080 59389>
-
-tcp_retransmit_timer() does the exponential backoff, but something
-resets icsk_rto to a low value ?
-
-Ah, it seems to be because of commit f1ecd5d9e7366609 
-(Revert Backoff [v3]: Revert RTO on ICMP destination unreachable)
-
-Since arp resolution (or routing, I dont know yet) fails, an
- internal/loopback ICMP host/network unreachable message is 
-generated and handled in tcp_v4_err() :
-
-icsk_backoff-- and icsk_rto is reset.
-
-I am afraid this can generate a storm (cpu time at very least),
-in case we have many tcp sessions in this state.
-
-I guess its time for me to read RFC 6069
+Thanks,
+Rasesh
