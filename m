@@ -1,65 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] bridge: fix a possible use after free
-Date: Wed, 24 Aug 2011 07:57:05 +0200
-Message-ID: <1314165425.4478.19.camel@edumazet-laptop>
+From: Ang Way Chuang <wcang79@gmail.com>
+Subject: [PATCH] bridge: Pseudo-header required for the checksum of ICMP6
+ header of MLD
+Date: Wed, 24 Aug 2011 15:10:50 +0900
+Message-ID: <4E5495EA.1080906@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44605 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753183Ab1HXF5J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 01:57:09 -0400
-Received: by wyg24 with SMTP id 24so580687wyg.19
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 22:57:08 -0700 (PDT)
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:46809 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795Ab1HXGKy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 02:10:54 -0400
+Received: by gya6 with SMTP id 6so645554gya.19
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 23:10:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-br_multicast_ipv6_rcv() can call pskb_trim_rcsum() and therefore skb
-head can be reallocated.
+Just saw Eric's patch for icmp6_type. Suspect this patch may have issue for reference
+of ip6h after pskb_trim_rcsum()?
 
-Cache icmp6_type field instead of dereferencing twice the struct
-icmp6hdr pointer.
+Checksum of ICMPv6 is not properly computed because the pseudo header is not used.
+Thus, the MLD packet gets dropped by the bridge. This patch fixes the problem for my
+testbed. This bug was made visible by commit ff9a57a62afbbe2d0f3a09af321f1fd7645f38a.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+This patch has been tested on 3.0.3. Due to lack of understanding on the checksum
+optimization and multicast snooping of the kernel stack, can someone please verify the
+correctness of this patch?
+
+Signed-off-by: Ang Way Chuang <wcang@sfc.wide.ad.jp>
 ---
- net/bridge/br_multicast.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 2d85ca7..5db95fd 100644
+index 2d85ca7..bbf361b 100644
 --- a/net/bridge/br_multicast.c
 +++ b/net/bridge/br_multicast.c
-@@ -1456,7 +1456,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
- {
- 	struct sk_buff *skb2;
- 	const struct ipv6hdr *ip6h;
--	struct icmp6hdr *icmp6h;
-+	u8 icmp6_type;
- 	u8 nexthdr;
- 	unsigned len;
- 	int offset;
-@@ -1502,9 +1502,9 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
- 	__skb_pull(skb2, offset);
- 	skb_reset_transport_header(skb2);
+@@ -1528,9 +1528,12 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 			break;
+ 		/*FALLTHROUGH*/
+ 	case CHECKSUM_NONE:
+-		skb2->csum = 0;
+-		if (skb_checksum_complete(skb2))
++		if (!skb_csum_unnecessary(skb2) && csum_ipv6_magic(&ip6h->saddr,
++			&ip6h->daddr, skb2->len, IPPROTO_ICMPV6,
++			skb_checksum(skb2, 0, skb2->len, 0))) {
++			err = -EINVAL;
+ 			goto out;
++		}
+ 	}
  
--	icmp6h = icmp6_hdr(skb2);
-+	icmp6_type = icmp6_hdr(skb2)->icmp6_type;
- 
--	switch (icmp6h->icmp6_type) {
-+	switch (icmp6_type) {
- 	case ICMPV6_MGM_QUERY:
- 	case ICMPV6_MGM_REPORT:
- 	case ICMPV6_MGM_REDUCTION:
-@@ -1537,7 +1537,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
- 
- 	BR_INPUT_SKB_CB(skb)->igmp = 1;
- 
--	switch (icmp6h->icmp6_type) {
-+	switch (icmp6_type) {
- 	case ICMPV6_MGM_REPORT:
- 	    {
- 		struct mld_msg *mld;
+ 	err = 0;
+---
