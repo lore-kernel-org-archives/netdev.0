@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 0/5] SUNRPC: make rpcbind clients allocated and destroyed on
-	dynamically
-Date: Wed, 24 Aug 2011 22:33:36 +0400
-Message-ID: <20110824183304.4924.94670.stgit@localhost6.localdomain6>
+Subject: [PATCH 2/5] SUNRPC: use reference count helpers
+Date: Wed, 24 Aug 2011 22:33:52 +0400
+Message-ID: <20110824183352.4924.51863.stgit@localhost6.localdomain6>
+References: <20110824183304.4924.94670.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,34 +11,56 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	bfields@fieldses.org, davem@davemloft.net
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110824183304.4924.94670.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch is required for further RPC layer virtualization, because rpcbind
-clients have to be per network namespace.
-To achive this, we have to untie network namespace from rpcbind clients sockets.
-The idea of this patch set is to make rpcbind clients non-static. I.e. rpcbind
-clients will be created during first RPC service creation, and destroyed when
-last RPC service is stopped.
-With this patch set rpcbind clients can be virtualized easely.
+All is simple: we just increase users conters if rpcbind clients are present
+already. Otherwise we create new rpcbind clients and set users counter to 1.
 
-The following series consists of:
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
+ net/sunrpc/rpcb_clnt.c |   12 ++++--------
+ 1 files changed, 4 insertions(+), 8 deletions(-)
 
-Stanislav Kinsbursky (5):
-      SUNRPC: introduce helpers for reference counted rpcbind clients
-      SUNRPC: use reference count helpers
-      SUNRPC: make RPC service dependable on rpcbind clients creation
-      SUNRPC: remove rpcbind clients creation during service registring
-      SUNRPC: remove rpcbind clients destruction on module cleanup
-
-
- include/linux/sunrpc/clnt.h |    2 +
- net/sunrpc/rpcb_clnt.c      |   86 ++++++++++++++++++++++++++++---------------
- net/sunrpc/sunrpc_syms.c    |    3 --
- net/sunrpc/svc.c            |    5 +++
- 4 files changed, 63 insertions(+), 33 deletions(-)
-
--- 
-Signature
+diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+index c84e6a3..b4cc0f1 100644
+--- a/net/sunrpc/rpcb_clnt.c
++++ b/net/sunrpc/rpcb_clnt.c
+@@ -256,9 +256,7 @@ static int rpcb_create_local_unix(void)
+ 		clnt4 = NULL;
+ 	}
+ 
+-	/* Protected by rpcb_create_local_mutex */
+-	rpcb_local_clnt = clnt;
+-	rpcb_local_clnt4 = clnt4;
++	rpcb_set_local(clnt, clnt4);
+ 
+ out:
+ 	return result;
+@@ -310,9 +308,7 @@ static int rpcb_create_local_net(void)
+ 		clnt4 = NULL;
+ 	}
+ 
+-	/* Protected by rpcb_create_local_mutex */
+-	rpcb_local_clnt = clnt;
+-	rpcb_local_clnt4 = clnt4;
++	rpcb_set_local(clnt, clnt4);
+ 
+ out:
+ 	return result;
+@@ -327,11 +323,11 @@ static int rpcb_create_local(void)
+ 	static DEFINE_MUTEX(rpcb_create_local_mutex);
+ 	int result = 0;
+ 
+-	if (rpcb_local_clnt)
++	if (rpcb_get_local())
+ 		return result;
+ 
+ 	mutex_lock(&rpcb_create_local_mutex);
+-	if (rpcb_local_clnt)
++	if (rpcb_get_local())
+ 		goto out;
+ 
+ 	if (rpcb_create_local_unix() != 0)
