@@ -1,58 +1,112 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 01/75] net: add APIs for manipulating skb page fragments.
-Date: Wed, 24 Aug 2011 17:15:19 -0400
-Message-ID: <20110824211519.GA28813@dumpdata.com>
-References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
- <1313760467-8598-1-git-send-email-ian.campbell@citrix.com>
- <20110824182113.GF15675@dumpdata.com>
- <1314220141.17978.693.camel@dagon.hellion.org.uk>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [BUG] tcp : how many times a frame can possibly be retransmitted
+ ?
+Date: Thu, 25 Aug 2011 01:44:11 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1108250142030.11551@melkinpaasi.cs.helsinki.fi>
+References: <1314202918.2296.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
-To: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
+	Damian Lukowski <damian@tvk.rwth-aachen.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:39355 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751826Ab1HXVPh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 17:15:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1314220141.17978.693.camel@dagon.hellion.org.uk>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:58550 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750989Ab1HXWoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 18:44:13 -0400
+In-Reply-To: <1314202918.2296.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 24, 2011 at 10:09:01PM +0100, Ian Campbell wrote:
-> On Wed, 2011-08-24 at 19:21 +0100, Konrad Rzeszutek Wilk wrote:
-> > On Fri, Aug 19, 2011 at 02:26:33PM +0100, Ian Campbell wrote:
-> > > The primary aim is to add skb_frag_(ref|unref) in order to remove=
- the use of
-> > > bare get/put_page on SKB pages fragments and to isolate users fro=
-m subsequent
-> > > changes to the skb_frag_t data structure.
-> > >=20
-> > > Also included are helper APIs for passing a paged fragment to kma=
-p and
-> > > dma_map_page since I was seeing the same pattern a lot. A helper =
-for
-> > > pci_map_page is ommitted due to Micha=C5=82 Miros=C5=82aw's recom=
-mendation that users
-> > > should transition to pci_map_page instead.
-> >=20
-> > You mean "transition to dma_map_page instead." ?
->=20
-> That's right, oops.
+On Wed, 24 Aug 2011, Eric Dumazet wrote:
 
-With a big pot of tea next to me to keep me sharp I took look at all
-75 patches and besides this comment and the 'XXX' (which I already emai=
-led
-you about it - it also shows up in "36/75] myri10ge: convert to SKB pag=
-ed frag API.")
-they all looked OK to me.
+> On one dev machine running net-next, I just found strange tcp sessions
+> that retransmit a frame forever (The other peer disappeared)
+> 
+> # ss -emoi dst 10.2.1.1
+> State      Recv-Q Send-Q      Local Address:Port          Peer Address:Port   
+> ESTAB      0      816              10.2.1.2:37930             10.2.1.1:ssh      timer:(on,630ms,246) ino:60786 sk:ffff8801189aa400
+> 	 mem:(r0,w3776,f320,t0) ts sack ecn cubic wscale:8,6 rto:1680 rtt:16.25/7.5 ato:40 ssthresh:7 send 1.4Mbps rcv_rtt:10 rcv_space:16632
+> 
+> 
+> You can see the retransmit count : 246 
+> 
+> What possibly can be going on ?
+> 
+> What happened to backoff ?
+> 
+> # grep . /proc/sys/net/ipv4/tcp_retries*
+> /proc/sys/net/ipv4/tcp_retries1:3
+> /proc/sys/net/ipv4/tcp_retries2:15
+> 
+> 
+> 
+> extract of tcpdump :
+> 
+> 12:01:02.074244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128024 59389>
+> 12:01:03.754243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128192 59389>
+> 12:01:05.434245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128360 59389>
+> 12:01:07.114243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128528 59389>
+> 12:01:08.794248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128696 59389>
+> 12:01:10.474242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128864 59389>
+> 12:01:12.154243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129032 59389>
+> 12:01:13.834241 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129200 59389>
+> 12:01:15.514246 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129368 59389>
+> 12:01:17.194244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129536 59389>
+> 12:01:18.874248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129704 59389>
+> 12:01:20.554243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129872 59389>
+> 12:01:22.234244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130040 59389>
+> 12:01:23.914244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130208 59389>
+> 12:01:25.594247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130376 59389>
+> 12:01:27.274242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130544 59389>
+> 12:01:28.954242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130712 59389>
+> 12:01:30.634248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130880 59389>
+> 12:01:32.314245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131048 59389>
+> 12:01:33.994243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131216 59389>
+> 12:01:35.674250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131384 59389>
+> 12:01:37.354244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131552 59389>
+> 12:01:39.034245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131720 59389>
+> 12:01:40.714245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131888 59389>
+> 12:01:42.394245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132056 59389>
+> 12:01:44.074242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132224 59389>
+> 12:01:45.754249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132392 59389>
+> 12:01:47.434242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132560 59389>
+> 12:01:49.114247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132728 59389>
+> 12:01:50.794250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132896 59389>
+> 12:01:52.474247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133064 59389>
+> 12:01:54.154242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133232 59389>
+> 12:01:55.834246 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133400 59389>
+> 12:01:57.514243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133568 59389>
+> 12:01:59.194247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133736 59389>
+> 12:02:00.874250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133904 59389>
+> 12:02:02.554242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134072 59389>
+> 12:02:04.234243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134240 59389>
+> 12:02:05.914245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134408 59389>
+> 12:02:07.594244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134576 59389>
+> 12:02:09.274249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134744 59389>
+> 12:02:10.954241 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134912 59389>
+> 12:02:12.634249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16135080 59389>
+> 
+> tcp_retransmit_timer() does the exponential backoff, but something
+> resets icsk_rto to a low value ?
+> 
+> Ah, it seems to be because of commit f1ecd5d9e7366609 
+> (Revert Backoff [v3]: Revert RTO on ICMP destination unreachable)
+> 
+> Since arp resolution (or routing, I dont know yet) fails, an
+>  internal/loopback ICMP host/network unreachable message is 
+> generated and handled in tcp_v4_err() :
+> 
+> icsk_backoff-- and icsk_rto is reset.
+> 
+> I am afraid this can generate a storm (cpu time at very least),
+> in case we have many tcp sessions in this state.
 
-So you can stick 'Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracl=
-e.com>'
-on all of them if you would like.
+But RTO (even without any backoffs) should be lower bounded to some not so 
+zeroish value?
+
+> I guess its time for me to read RFC 6069
+
+-- 
+ i.
