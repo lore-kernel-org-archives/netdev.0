@@ -1,72 +1,244 @@
-From: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-Subject: Re: [PATCH] iptables/man: IPv6 TOS mangling fix was backported to
- 2.6.35-longterm too
-Date: Wed, 24 Aug 2011 11:55:54 +0900
-Message-ID: <1314154554.1878.7.camel@nausicaa>
-References: <1307320871-31770-1-git-send-email-pablo@netfilter.org>
-	 <1307320871-31770-2-git-send-email-pablo@netfilter.org>
-	 <BANLkTikAs7fN2JQJTUwQHAYPPGMf8i9uEA@mail.gmail.com>
-	 <alpine.LNX.2.01.1106061618370.17430@frira.zrqbmnf.qr>
-	 <1308213411.4062.22.camel@nausicaa>
-	 <alpine.LNX.2.01.1106161705300.10015@frira.zrqbmnf.qr>
-	 <4DFA1DFC.3000804@trash.net> <1308273097.8612.1.camel@nexus.oss.ntt.co.jp>
-	 <1308273246.8612.3.camel@nexus.oss.ntt.co.jp>  <4DFACE41.5010906@trash.net>
-	 <1312246840.8407.2.camel@nexus.oss.ntt.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1312246840.8407.2.camel@nexus.oss.ntt.co.jp>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/9][pull request] Complete drivers/net/ move
+Date: Tue, 23 Aug 2011 21:39:25 -0700
+Message-ID: <1314160774-6980-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:8760 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750803Ab1HXEjg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Aug 2011 00:39:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46ernando Luis V=C3=A1zquez Cao wrote:
-> Update man page accordingly.
->=20
-> Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-> ---
->=20
-> diff -urNp iptables-orig/extensions/libxt_TOS.man iptables/extensions=
-/libxt_TOS.man
-> --- iptables-orig/extensions/libxt_TOS.man	2011-07-11 17:41:10.000000=
-000 +0900
-> +++ iptables/extensions/libxt_TOS.man	2011-08-02 09:59:27.356614494 +=
-0900
-> @@ -28,9 +28,9 @@ Binary XOR the TOS value with \fIbits\fP
->  \fIbits\fP\fB/0\fP. See NOTE below.)
->  .PP
->  NOTE: In Linux kernels up to and including 2.6.38, with the exceptio=
-n of
-> -longterm releases 2.6.32.42 (or later) and 2.6.33.15 (or later), the=
-re is a bug
-> -whereby IPv6 TOS mangling does not behave as documented and differs =
-from the
-> -IPv4 version. The TOS mask indicates the bits one wants to zero out,=
- so it needs
-> -to be inverted before applying it to the original TOS field. However=
-, the
-> +longterm releases 2.6.32 (>=3D.42), 2.6.33 (>=3D.15), and 2.6.35 (>=3D=
-=2E14), there is
-> +a bug whereby IPv6 TOS mangling does not behave as documented and di=
-ffers from
-> +the IPv4 version. The TOS mask indicates the bits one wants to zero =
-out, so it
-> +needs to be inverted before applying it to the original TOS field. H=
-owever, the
->  aformentioned kernels forgo the inversion which breaks --set-tos and=
- its
->  mnemonics.
+The following series moves the FDDI, PPP, HIPPI, PLIP, SLIP and the cleanup
+of the drivers/net/ Kconfig & Makefile's.  This series in addition moves
+the 2 remaining drivers in drivers/net/pcmcia/ into their respective
+directories (arcnet & tokenring).  The last remaining change is to
+make the all the "new" Kconfig options introduced by the Ethernet
+drivers move to yes, so that current defconfig's will compile the expected
+drivers.
 
-Ping?
+v2- remove the changes for FDDI, HIPPI, PPP, etc Kconfig from menuconfig back
+to config and used tristate instead of bool.  Apparently some configs load
+FDDI and others as a module.
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The following are changes since commit 131ea6675c761f655d43b808dd0fe83d15d5cdd3:
+  net: add APIs for manipulating skb page fragments.
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
+
+Jeff Kirsher (9):
+  fddi: Move the FDDI drivers
+  ppp: Move the PPP drivers
+  hippi: Move the HIPPI driver
+  plip: Move the PLIP driver
+  slip: Move the SLIP drivers
+  ixbmtr_cs: Move the IBM PCMCIA Token Ring driver
+  com20020_cs: Move the PCMCIA Arcnet driver
+  drivers/net: Kconfig & Makefile cleanup
+  drivers/net/ethernet/*: Enabled vendor Kconfig options
+
+ MAINTAINERS                                  |   11 +-
+ drivers/net/Kconfig                          |  640 ++++++--------------------
+ drivers/net/Makefile                         |   84 ++--
+ drivers/net/arcnet/Kconfig                   |   14 +-
+ drivers/net/arcnet/Makefile                  |    1 +
+ drivers/net/{pcmcia => arcnet}/com20020_cs.c |    0
+ drivers/net/ethernet/3com/Kconfig            |    1 +
+ drivers/net/ethernet/8390/Kconfig            |    1 +
+ drivers/net/ethernet/adaptec/Kconfig         |    1 +
+ drivers/net/ethernet/alteon/Kconfig          |    1 +
+ drivers/net/ethernet/amd/Kconfig             |    1 +
+ drivers/net/ethernet/apple/Kconfig           |    1 +
+ drivers/net/ethernet/atheros/Kconfig         |    1 +
+ drivers/net/ethernet/broadcom/Kconfig        |    1 +
+ drivers/net/ethernet/brocade/Kconfig         |    1 +
+ drivers/net/ethernet/chelsio/Kconfig         |    1 +
+ drivers/net/ethernet/cirrus/Kconfig          |    1 +
+ drivers/net/ethernet/cisco/Kconfig           |    1 +
+ drivers/net/ethernet/dec/Kconfig             |    1 +
+ drivers/net/ethernet/dlink/Kconfig           |    1 +
+ drivers/net/ethernet/emulex/Kconfig          |    1 +
+ drivers/net/ethernet/faraday/Kconfig         |    1 +
+ drivers/net/ethernet/freescale/Kconfig       |    1 +
+ drivers/net/ethernet/fujitsu/Kconfig         |    1 +
+ drivers/net/ethernet/hp/Kconfig              |    1 +
+ drivers/net/ethernet/i825xx/Kconfig          |    1 +
+ drivers/net/ethernet/ibm/Kconfig             |    1 +
+ drivers/net/ethernet/intel/Kconfig           |    1 +
+ drivers/net/ethernet/marvell/Kconfig         |    1 +
+ drivers/net/ethernet/mellanox/Kconfig        |    1 +
+ drivers/net/ethernet/micrel/Kconfig          |    1 +
+ drivers/net/ethernet/microchip/Kconfig       |    1 +
+ drivers/net/ethernet/myricom/Kconfig         |    1 +
+ drivers/net/ethernet/natsemi/Kconfig         |    1 +
+ drivers/net/ethernet/neterion/Kconfig        |    1 +
+ drivers/net/ethernet/nuvoton/Kconfig         |    1 +
+ drivers/net/ethernet/nvidia/Kconfig          |    1 +
+ drivers/net/ethernet/oki-semi/Kconfig        |    1 +
+ drivers/net/ethernet/pasemi/Kconfig          |    1 +
+ drivers/net/ethernet/qlogic/Kconfig          |    1 +
+ drivers/net/ethernet/racal/Kconfig           |    1 +
+ drivers/net/ethernet/rdc/Kconfig             |    1 +
+ drivers/net/ethernet/realtek/Kconfig         |    1 +
+ drivers/net/ethernet/seeq/Kconfig            |    1 +
+ drivers/net/ethernet/sgi/Kconfig             |    1 +
+ drivers/net/ethernet/sis/Kconfig             |    1 +
+ drivers/net/ethernet/smsc/Kconfig            |    1 +
+ drivers/net/ethernet/stmicro/Kconfig         |    1 +
+ drivers/net/ethernet/sun/Kconfig             |    1 +
+ drivers/net/ethernet/tehuti/Kconfig          |    1 +
+ drivers/net/ethernet/ti/Kconfig              |    1 +
+ drivers/net/ethernet/toshiba/Kconfig         |    1 +
+ drivers/net/ethernet/tundra/Kconfig          |    1 +
+ drivers/net/ethernet/via/Kconfig             |    1 +
+ drivers/net/ethernet/xilinx/Kconfig          |    1 +
+ drivers/net/ethernet/xircom/Kconfig          |    1 +
+ drivers/net/ethernet/xscale/Kconfig          |    1 +
+ drivers/net/fddi/Kconfig                     |   77 +++
+ drivers/net/fddi/Makefile                    |    6 +
+ drivers/net/{ => fddi}/defxx.c               |    0
+ drivers/net/{ => fddi}/defxx.h               |    0
+ drivers/net/{ => fddi}/skfp/Makefile         |    0
+ drivers/net/{ => fddi}/skfp/cfm.c            |    0
+ drivers/net/{ => fddi}/skfp/drvfbi.c         |    0
+ drivers/net/{ => fddi}/skfp/ecm.c            |    0
+ drivers/net/{ => fddi}/skfp/ess.c            |    0
+ drivers/net/{ => fddi}/skfp/fplustm.c        |    0
+ drivers/net/{ => fddi}/skfp/h/cmtdef.h       |    0
+ drivers/net/{ => fddi}/skfp/h/fddi.h         |    0
+ drivers/net/{ => fddi}/skfp/h/fddimib.h      |    0
+ drivers/net/{ => fddi}/skfp/h/fplustm.h      |    0
+ drivers/net/{ => fddi}/skfp/h/hwmtm.h        |    0
+ drivers/net/{ => fddi}/skfp/h/mbuf.h         |    0
+ drivers/net/{ => fddi}/skfp/h/osdef1st.h     |    0
+ drivers/net/{ => fddi}/skfp/h/sba.h          |    0
+ drivers/net/{ => fddi}/skfp/h/sba_def.h      |    0
+ drivers/net/{ => fddi}/skfp/h/skfbi.h        |    0
+ drivers/net/{ => fddi}/skfp/h/skfbiinc.h     |    0
+ drivers/net/{ => fddi}/skfp/h/smc.h          |    0
+ drivers/net/{ => fddi}/skfp/h/smt.h          |    0
+ drivers/net/{ => fddi}/skfp/h/smt_p.h        |    0
+ drivers/net/{ => fddi}/skfp/h/smtstate.h     |    0
+ drivers/net/{ => fddi}/skfp/h/supern_2.h     |    0
+ drivers/net/{ => fddi}/skfp/h/targethw.h     |    0
+ drivers/net/{ => fddi}/skfp/h/targetos.h     |    0
+ drivers/net/{ => fddi}/skfp/h/types.h        |    0
+ drivers/net/{ => fddi}/skfp/hwmtm.c          |    0
+ drivers/net/{ => fddi}/skfp/hwt.c            |    0
+ drivers/net/{ => fddi}/skfp/pcmplc.c         |    0
+ drivers/net/{ => fddi}/skfp/pmf.c            |    0
+ drivers/net/{ => fddi}/skfp/queue.c          |    0
+ drivers/net/{ => fddi}/skfp/rmt.c            |    0
+ drivers/net/{ => fddi}/skfp/skfddi.c         |    0
+ drivers/net/{ => fddi}/skfp/smt.c            |    0
+ drivers/net/{ => fddi}/skfp/smtdef.c         |    0
+ drivers/net/{ => fddi}/skfp/smtinit.c        |    0
+ drivers/net/{ => fddi}/skfp/smttimer.c       |    0
+ drivers/net/{ => fddi}/skfp/srf.c            |    0
+ drivers/net/hippi/Kconfig                    |   39 ++
+ drivers/net/hippi/Makefile                   |    5 +
+ drivers/net/{ => hippi}/rrunner.c            |    0
+ drivers/net/{ => hippi}/rrunner.h            |    0
+ drivers/net/pcmcia/Kconfig                   |   45 --
+ drivers/net/pcmcia/Makefile                  |    8 -
+ drivers/net/phy/Kconfig                      |    2 +-
+ drivers/net/plip/Kconfig                     |   38 ++
+ drivers/net/plip/Makefile                    |    5 +
+ drivers/net/{ => plip}/plip.c                |    0
+ drivers/net/ppp/Kconfig                      |  176 +++++++
+ drivers/net/ppp/Makefile                     |   13 +
+ drivers/net/{ => ppp}/bsd_comp.c             |    0
+ drivers/net/{ => ppp}/ppp_async.c            |    0
+ drivers/net/{ => ppp}/ppp_deflate.c          |    0
+ drivers/net/{ => ppp}/ppp_generic.c          |    0
+ drivers/net/{ => ppp}/ppp_mppe.c             |    0
+ drivers/net/{ => ppp}/ppp_mppe.h             |    0
+ drivers/net/{ => ppp}/ppp_synctty.c          |    0
+ drivers/net/{ => ppp}/pppoe.c                |    0
+ drivers/net/{ => ppp}/pppox.c                |    0
+ drivers/net/{ => ppp}/pptp.c                 |    0
+ drivers/net/slip/Kconfig                     |   79 ++++
+ drivers/net/slip/Makefile                    |    6 +
+ drivers/net/{ => slip}/slhc.c                |    0
+ drivers/net/{ => slip}/slip.c                |    0
+ drivers/net/{ => slip}/slip.h                |    0
+ drivers/net/tokenring/Kconfig                |   15 +-
+ drivers/net/tokenring/Makefile               |   21 +-
+ drivers/net/{pcmcia => tokenring}/ibmtr_cs.c |    2 +-
+ 128 files changed, 710 insertions(+), 628 deletions(-)
+ rename drivers/net/{pcmcia => arcnet}/com20020_cs.c (100%)
+ create mode 100644 drivers/net/fddi/Kconfig
+ create mode 100644 drivers/net/fddi/Makefile
+ rename drivers/net/{ => fddi}/defxx.c (100%)
+ rename drivers/net/{ => fddi}/defxx.h (100%)
+ rename drivers/net/{ => fddi}/skfp/Makefile (100%)
+ rename drivers/net/{ => fddi}/skfp/cfm.c (100%)
+ rename drivers/net/{ => fddi}/skfp/drvfbi.c (100%)
+ rename drivers/net/{ => fddi}/skfp/ecm.c (100%)
+ rename drivers/net/{ => fddi}/skfp/ess.c (100%)
+ rename drivers/net/{ => fddi}/skfp/fplustm.c (100%)
+ rename drivers/net/{ => fddi}/skfp/h/cmtdef.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/fddi.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/fddimib.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/fplustm.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/hwmtm.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/mbuf.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/osdef1st.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/sba.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/sba_def.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/skfbi.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/skfbiinc.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/smc.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/smt.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/smt_p.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/smtstate.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/supern_2.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/targethw.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/targetos.h (100%)
+ rename drivers/net/{ => fddi}/skfp/h/types.h (100%)
+ rename drivers/net/{ => fddi}/skfp/hwmtm.c (100%)
+ rename drivers/net/{ => fddi}/skfp/hwt.c (100%)
+ rename drivers/net/{ => fddi}/skfp/pcmplc.c (100%)
+ rename drivers/net/{ => fddi}/skfp/pmf.c (100%)
+ rename drivers/net/{ => fddi}/skfp/queue.c (100%)
+ rename drivers/net/{ => fddi}/skfp/rmt.c (100%)
+ rename drivers/net/{ => fddi}/skfp/skfddi.c (100%)
+ rename drivers/net/{ => fddi}/skfp/smt.c (100%)
+ rename drivers/net/{ => fddi}/skfp/smtdef.c (100%)
+ rename drivers/net/{ => fddi}/skfp/smtinit.c (100%)
+ rename drivers/net/{ => fddi}/skfp/smttimer.c (100%)
+ rename drivers/net/{ => fddi}/skfp/srf.c (100%)
+ create mode 100644 drivers/net/hippi/Kconfig
+ create mode 100644 drivers/net/hippi/Makefile
+ rename drivers/net/{ => hippi}/rrunner.c (100%)
+ rename drivers/net/{ => hippi}/rrunner.h (100%)
+ delete mode 100644 drivers/net/pcmcia/Kconfig
+ delete mode 100644 drivers/net/pcmcia/Makefile
+ create mode 100644 drivers/net/plip/Kconfig
+ create mode 100644 drivers/net/plip/Makefile
+ rename drivers/net/{ => plip}/plip.c (100%)
+ create mode 100644 drivers/net/ppp/Kconfig
+ create mode 100644 drivers/net/ppp/Makefile
+ rename drivers/net/{ => ppp}/bsd_comp.c (100%)
+ rename drivers/net/{ => ppp}/ppp_async.c (100%)
+ rename drivers/net/{ => ppp}/ppp_deflate.c (100%)
+ rename drivers/net/{ => ppp}/ppp_generic.c (100%)
+ rename drivers/net/{ => ppp}/ppp_mppe.c (100%)
+ rename drivers/net/{ => ppp}/ppp_mppe.h (100%)
+ rename drivers/net/{ => ppp}/ppp_synctty.c (100%)
+ rename drivers/net/{ => ppp}/pppoe.c (100%)
+ rename drivers/net/{ => ppp}/pppox.c (100%)
+ rename drivers/net/{ => ppp}/pptp.c (100%)
+ create mode 100644 drivers/net/slip/Kconfig
+ create mode 100644 drivers/net/slip/Makefile
+ rename drivers/net/{ => slip}/slhc.c (100%)
+ rename drivers/net/{ => slip}/slip.c (100%)
+ rename drivers/net/{ => slip}/slip.h (100%)
+ rename drivers/net/{pcmcia => tokenring}/ibmtr_cs.c (99%)
+
+-- 
+1.7.6
