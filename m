@@ -1,98 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 0/9][pull request] Complete drivers/net/ move
-Date: Tue, 23 Aug 2011 19:39:47 -0700
-Message-ID: <1314153587.2128.242.camel@jtkirshe-mobl>
-References: <1314089149-27205-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110823.154157.105644491350157006.davem@davemloft.net>
-	 <20110823.161209.503161978488308532.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+Subject: Re: [PATCH] iptables/man: IPv6 TOS mangling fix was backported to
+ 2.6.35-longterm too
+Date: Wed, 24 Aug 2011 11:55:54 +0900
+Message-ID: <1314154554.1878.7.camel@nausicaa>
+References: <1307320871-31770-1-git-send-email-pablo@netfilter.org>
+	 <1307320871-31770-2-git-send-email-pablo@netfilter.org>
+	 <BANLkTikAs7fN2JQJTUwQHAYPPGMf8i9uEA@mail.gmail.com>
+	 <alpine.LNX.2.01.1106061618370.17430@frira.zrqbmnf.qr>
+	 <1308213411.4062.22.camel@nausicaa>
+	 <alpine.LNX.2.01.1106161705300.10015@frira.zrqbmnf.qr>
+	 <4DFA1DFC.3000804@trash.net> <1308273097.8612.1.camel@nexus.oss.ntt.co.jp>
+	 <1308273246.8612.3.camel@nexus.oss.ntt.co.jp>  <4DFACE41.5010906@trash.net>
+	 <1312246840.8407.2.camel@nexus.oss.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-heVwpXF+7wfnxF0ab+/x"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:62522 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752028Ab1HXCjs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Aug 2011 22:39:48 -0400
-In-Reply-To: <20110823.161209.503161978488308532.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1312246840.8407.2.camel@nexus.oss.ntt.co.jp>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-heVwpXF+7wfnxF0ab+/x
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2011-08-23 at 16:12 -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 23 Aug 2011 15:41:57 -0700 (PDT)
+=46ernando Luis V=C3=A1zquez Cao wrote:
+> Update man page accordingly.
 >=20
-> > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Date: Tue, 23 Aug 2011 01:45:40 -0700
-> >=20
-> >> The following series moves the FDDI, PPP, HIPPI, PLIP, SLIP and the cl=
-eanup
-> >> of the drivers/net/ Kconfig & Makefile's.  This series in addition mov=
-es
-> >> the 2 remaining drivers in drivers/net/pcmcia/ into their respective
-> >> directories (arcnet & tokenring).  The last remaining change is to
-> >> make the all the "new" Kconfig options introduced by the Ethernet
-> >> drivers move to yes, so that current defconfig's will compile the expe=
-cted
-> >> drivers.
-> >>=20
-> >> The following are changes since commit ca1ba7caa68520864e4b9227e67f3bb=
-c6fed373b:
-> >>   Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git=
-/jkirsher/net-next
-> >> and are available in the git repository at:
-> >>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize m=
-aster
-> >=20
-> > I pulled this, but because you changed FDDI and these other newly
-> > moved subsystems from a "config FOO" into a "menuconfig FOO", it now
-> > prompts for those too during the first oldconfig.
+> Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
+> ---
 >=20
-> I had to unpull, this breaks the build, see the skfddi errors below.
->=20
-> Also, you can't change "config" into "menuconfig", it makes things
-> that were previously buildable modular no longer able to be.
->=20
-> include/config/auto.conf:2204:warning: symbol value 'm' invalid for FDDI
-> include/config/auto.conf:3764:warning: symbol value 'm' invalid for ARCNE=
-T
-> include/config/auto.conf:4044:warning: symbol value 'm' invalid for TR
-> include/config/auto.conf:4700:warning: symbol value 'm' invalid for PPP
+> diff -urNp iptables-orig/extensions/libxt_TOS.man iptables/extensions=
+/libxt_TOS.man
+> --- iptables-orig/extensions/libxt_TOS.man	2011-07-11 17:41:10.000000=
+000 +0900
+> +++ iptables/extensions/libxt_TOS.man	2011-08-02 09:59:27.356614494 +=
+0900
+> @@ -28,9 +28,9 @@ Binary XOR the TOS value with \fIbits\fP
+>  \fIbits\fP\fB/0\fP. See NOTE below.)
+>  .PP
+>  NOTE: In Linux kernels up to and including 2.6.38, with the exceptio=
+n of
+> -longterm releases 2.6.32.42 (or later) and 2.6.33.15 (or later), the=
+re is a bug
+> -whereby IPv6 TOS mangling does not behave as documented and differs =
+from the
+> -IPv4 version. The TOS mask indicates the bits one wants to zero out,=
+ so it needs
+> -to be inverted before applying it to the original TOS field. However=
+, the
+> +longterm releases 2.6.32 (>=3D.42), 2.6.33 (>=3D.15), and 2.6.35 (>=3D=
+=2E14), there is
+> +a bug whereby IPv6 TOS mangling does not behave as documented and di=
+ffers from
+> +the IPv4 version. The TOS mask indicates the bits one wants to zero =
+out, so it
+> +needs to be inverted before applying it to the original TOS field. H=
+owever, the
+>  aformentioned kernels forgo the inversion which breaks --set-tos and=
+ its
+>  mnemonics.
 
-Grrr, I did not see or find any reason for FDDI, ARCNET, Tokenring or
-PPP to loaded as a module.  That was the reason for the change, sorry.
+Ping?
 
-I was seeing the Group Heading for these technologies as just that,
-headers (like Ethernet).  I will revert that change.
-
-I will also fix up the new Kconfig options like I did for the new
-Ethernet Kconfig options.  (default y).
-
-
-
---=-heVwpXF+7wfnxF0ab+/x
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJOVGRzAAoJECTsCADr/EWUvgQIAInpthdgELSAlItxtHD+Vv17
-sXJQ2Aw/WTw7PEZczSWJLrSNOHEziNKmEmqlDknC9ywE84K+1UuUSUT2bcOPuQ0k
-xgJ3fbNNgKXwVdNLvQfmnuUyNJdQMIf7Jj/s0XomjEJ1XA98pW+DJmzESC2LzmEn
-BrFDBPRQseNQPJJ7ebR2dHgJaTNqDrM5rfyaQG14zmZDt9fLdJKF6zDrBiFXJia+
-IJ5gfOgMFFfYQCjb4tePsZke+ipqLT7Imbnf9qA0i8bSzNR9pnD22iPcwCfA32Rv
-FJPOnbtudGaXPCq0QuW+0eQHoGXo8x2+X4BFQlrYjgNpRUnblLd4P1zRwcPcRRc=
-=6l5q
------END PGP SIGNATURE-----
-
---=-heVwpXF+7wfnxF0ab+/x--
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
