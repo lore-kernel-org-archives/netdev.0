@@ -1,52 +1,30 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [patch -next] bna: off by one in bfa_msgq_rspq_pi_update()
-Date: Wed, 24 Aug 2011 10:33:11 -0700
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A9E4B8C4E8@HQ1-EXCH01.corp.brocade.com>
-References: <20110824113028.GD5975@shale.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: batman-adv 2011-08-24
+Date: Wed, 24 Aug 2011 10:35:55 -0700 (PDT)
+Message-ID: <20110824.103555.1110793920971243877.davem@davemloft.net>
+References: <1314190838-2273-1-git-send-email-lindner_marek@yahoo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Debashis Dutt <ddutt@brocade.com>,
-	"open list:BROCADE BNA 10 GI..." <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	Jing Huang <huangj@Brocade.COM>
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: lindner_marek@yahoo.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:36924 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752618Ab1HXRdU convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 13:33:20 -0400
-In-Reply-To: <20110824113028.GD5975@shale.localdomain>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:48540 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752618Ab1HXRg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 13:36:59 -0400
+In-Reply-To: <1314190838-2273-1-git-send-email-lindner_marek@yahoo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Dan Carpenter [mailto:error27@gmail.com]
->Sent: Wednesday, August 24, 2011 4:30 AM
->
->The rspq->rsphdlr[] array has BFI_MC_MAX elements, so this test was
->off by one.
->
->Signed-off-by: Dan Carpenter <error27@gmail.com>
->
->diff --git a/drivers/net/ethernet/brocade/bna/bfa_msgq.c
->b/drivers/net/ethernet/brocade/bna/bfa_msgq.c
->index ed52187..dd36427 100644
->--- a/drivers/net/ethernet/brocade/bna/bfa_msgq.c
->+++ b/drivers/net/ethernet/brocade/bna/bfa_msgq.c
->@@ -483,7 +483,7 @@ bfa_msgq_rspq_pi_update(struct bfa_msgq_rspq *rspq,
->struct bfi_mbmsg *mb)
-> 		mc = msghdr->msg_class;
-> 		num_entries = ntohs(msghdr->num_entries);
->
->-		if ((mc > BFI_MC_MAX) || (rspq->rsphdlr[mc].cbfn == NULL))
->+		if ((mc >= BFI_MC_MAX) || (rspq->rsphdlr[mc].cbfn == NULL))
-> 			break;
->
-> 		(rspq->rsphdlr[mc].cbfn)(rspq->rsphdlr[mc].cbarg, msghdr);
+From: Marek Lindner <lindner_marek@yahoo.de>
+Date: Wed, 24 Aug 2011 15:00:30 +0200
 
-Acked-by: Rasesh Mody <rmody@brocade.com>
+> the following 8 patches constitute the first batch I'd like to get the pulled
+> into net-next-2.6/3.2. They bring a new feature (AP isolation on the mesh
+> layer), some minor cleanups, spelling fixes and some additional debugfs 
+> output. 
+...
+>   git://git.open-mesh.org/linux-merge.git batman-adv/next
 
-Thanks,
-Rasesh
+Pulled, thanks.
