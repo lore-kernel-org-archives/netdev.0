@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 2/5] SUNRPC: use reference count helpers
-Date: Wed, 24 Aug 2011 22:33:52 +0400
-Message-ID: <20110824183352.4924.51863.stgit@localhost6.localdomain6>
+Subject: [PATCH 3/5] SUNRPC: make RPC service dependable on rpcbind clients
+	creation
+Date: Wed, 24 Aug 2011 22:33:59 +0400
+Message-ID: <20110824183359.4924.94364.stgit@localhost6.localdomain6>
 References: <20110824183304.4924.94670.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,52 +16,68 @@ In-Reply-To: <20110824183304.4924.94670.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All is simple: we just increase users conters if rpcbind clients are present
-already. Otherwise we create new rpcbind clients and set users counter to 1.
+We create or increase users counter of rcbind clients during RPC service
+creation and decrease this counter (and possibly destroy those clients) on RPC
+service destruction.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/rpcb_clnt.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
+ include/linux/sunrpc/clnt.h |    2 ++
+ net/sunrpc/rpcb_clnt.c      |    2 +-
+ net/sunrpc/svc.c            |    5 +++++
+ 3 files changed, 8 insertions(+), 1 deletions(-)
 
+diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
+index db7bcaf..65a8115 100644
+--- a/include/linux/sunrpc/clnt.h
++++ b/include/linux/sunrpc/clnt.h
+@@ -135,10 +135,12 @@ void		rpc_shutdown_client(struct rpc_clnt *);
+ void		rpc_release_client(struct rpc_clnt *);
+ void		rpc_task_release_client(struct rpc_task *);
+ 
++int		rpcb_create_local(void);
+ int		rpcb_register(u32, u32, int, unsigned short);
+ int		rpcb_v4_register(const u32 program, const u32 version,
+ 				 const struct sockaddr *address,
+ 				 const char *netid);
++void		rpcb_put_local(void);
+ void		rpcb_getport_async(struct rpc_task *);
+ 
+ void		rpc_call_start(struct rpc_task *);
 diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index c84e6a3..b4cc0f1 100644
+index b4cc0f1..437ec60 100644
 --- a/net/sunrpc/rpcb_clnt.c
 +++ b/net/sunrpc/rpcb_clnt.c
-@@ -256,9 +256,7 @@ static int rpcb_create_local_unix(void)
- 		clnt4 = NULL;
- 	}
- 
--	/* Protected by rpcb_create_local_mutex */
--	rpcb_local_clnt = clnt;
--	rpcb_local_clnt4 = clnt4;
-+	rpcb_set_local(clnt, clnt4);
- 
- out:
- 	return result;
-@@ -310,9 +308,7 @@ static int rpcb_create_local_net(void)
- 		clnt4 = NULL;
- 	}
- 
--	/* Protected by rpcb_create_local_mutex */
--	rpcb_local_clnt = clnt;
--	rpcb_local_clnt4 = clnt4;
-+	rpcb_set_local(clnt, clnt4);
- 
- out:
- 	return result;
-@@ -327,11 +323,11 @@ static int rpcb_create_local(void)
+@@ -318,7 +318,7 @@ out:
+  * Returns zero on success, otherwise a negative errno value
+  * is returned.
+  */
+-static int rpcb_create_local(void)
++int rpcb_create_local(void)
+ {
  	static DEFINE_MUTEX(rpcb_create_local_mutex);
  	int result = 0;
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index 6a69a11..0df8532 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -367,6 +367,9 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+ 	unsigned int xdrsize;
+ 	unsigned int i;
  
--	if (rpcb_local_clnt)
-+	if (rpcb_get_local())
- 		return result;
++	if (rpcb_create_local() < 0)
++		return NULL;
++
+ 	if (!(serv = kzalloc(sizeof(*serv), GFP_KERNEL)))
+ 		return NULL;
+ 	serv->sv_name      = prog->pg_name;
+@@ -491,6 +494,8 @@ svc_destroy(struct svc_serv *serv)
+ 	svc_unregister(serv);
+ 	kfree(serv->sv_pools);
+ 	kfree(serv);
++
++	rpcb_put_local();
+ }
+ EXPORT_SYMBOL_GPL(svc_destroy);
  
- 	mutex_lock(&rpcb_create_local_mutex);
--	if (rpcb_local_clnt)
-+	if (rpcb_get_local())
- 		goto out;
- 
- 	if (rpcb_create_local_unix() != 0)
