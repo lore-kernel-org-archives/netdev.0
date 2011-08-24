@@ -1,64 +1,48 @@
-From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: Re: [PATCH 1/2] bnx2x: resurrect RX hashing
-Date: Wed, 24 Aug 2011 14:18:32 +0300
-Message-ID: <201108241418.32356.vladz@broadcom.com>
-References: <20110823161530.24707.67923.stgit@dhcp-29-224.brq.redhat.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch -next] bna: unlock on error path in pnad_pci_probe()
+Date: Wed, 24 Aug 2011 14:29:22 +0300
+Message-ID: <20110824112922.GC5975@shale.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	=?utf-8?q?Micha=C5=82Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-To: "Michal Schmidt" <mschmidt@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Debashis Dutt <ddutt@brocade.com>,
+	"open list:BROCADE BNA 10 GI..." <netdev@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1957 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756441Ab1HXLSt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 07:18:49 -0400
-In-Reply-To: <20110823161530.24707.67923.stgit@dhcp-29-224.brq.redhat.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41217 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395Ab1HXLbk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 07:31:40 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 23 August 2011 19:15:32 Michal Schmidt wrote:
-> bnx2x used to be able to set rxhash, but this was lost in the convers=
-ion
-> to hw_features (commit 66371c441).
-> Restore it and enable it by default.
->=20
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> CC: Vladislav Zolotarov <vladz@broadcom.com>
-> CC: Eilon Greenstein <eilong@broadcom.com>
-> CC: Dmitry Kravkov <dmitry@broadcom.com>
-> CC: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
->=20
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c index 7204789..85d=
-d294
-> 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> @@ -10285,8 +10285,8 @@ static int __devinit bnx2x_init_dev(struct pc=
-i_dev
-> *pdev, dev->priv_flags |=3D IFF_UNICAST_FLT;
->=20
->  	dev->hw_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CS=
-UM |
-> -		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
-> -		NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_HW_VLAN_TX;
-> +		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_LRO |
-> +		NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_HW_VLAN_TX;
->=20
->  	dev->vlan_features =3D NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_=
-CSUM |
->  		NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 | NETIF_F_HIGHDMA;
+We introduced a new lock here, so there was error path which needs
+an unlock now.
 
-ACK
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Thanks, Michal.
-
-vlad
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index bdfda07..6ad4b47 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -3167,7 +3167,7 @@ bnad_pci_probe(struct pci_dev *pdev,
+ 	 */
+ 	err = bnad_pci_init(bnad, pdev, &using_dac);
+ 	if (err)
+-		goto free_netdev;
++		goto unlock_mutex;
+ 
+ 	/*
+ 	 * Initialize bnad structure
+@@ -3296,9 +3296,9 @@ drv_uninit:
+ 	bnad_uninit(bnad);
+ pci_uninit:
+ 	bnad_pci_uninit(pdev);
++unlock_mutex:
+ 	mutex_unlock(&bnad->conf_mutex);
+ 	bnad_lock_uninit(bnad);
+-free_netdev:
+ 	free_netdev(netdev);
+ 	return err;
+ }
