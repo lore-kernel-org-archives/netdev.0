@@ -1,50 +1,35 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: [PATCH] mcast: Fix source address selection for multicast listener
- report
-Date: Wed, 24 Aug 2011 16:54:37 +0800
-Message-ID: <4E54BC4D.8090008@intel.com>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: slow performance on disk/network i/o full speed after drop_caches
+Date: Wed, 24 Aug 2011 11:01:03 +0200
+Message-ID: <4E54BDCF.9020504@profihost.ag>
+References: <4E5494D4.1050605@profihost.ag> <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dlstevens@us.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23550 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756659Ab1HXIys (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 04:54:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-mm@kvack.org,
+ Andrew Morton <akpm@linux-foundation.org>,
+ Mel Gorman <mel@csn.ul.ie>, Jens Axboe <jaxboe@fusionio.com>,
+ Wu Fengguang <fengguang.wu@intel.com>,
+ Linux Netdev List <netdev@vger.kernel.org>
+To: Pekka Enberg <penberg@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Should check use count of include mode filter instead of total number
-of include mode filters.
 
-Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+>> sync&&  echo 3>/proc/sys/vm/drop_caches&&  sleep 2&&  echo 0
+>>> /proc/sys/vm/drop_caches
 
----
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 283c0a2..d577199 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -767,7 +767,7 @@ static int igmp_xmarksources(struct ip_mc_list *pmc, int nsrcs, __be32 *srcs)
- 			break;
- 		for (i=0; i<nsrcs; i++) {
- 			/* skip inactive filters */
--			if (pmc->sfcount[MCAST_INCLUDE] ||
-+			if (psf->sf_count[MCAST_INCLUDE] ||
- 			    pmc->sfcount[MCAST_EXCLUDE] !=
- 			    psf->sf_count[MCAST_EXCLUDE])
- 				continue;
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 3e6ebcd..ee7839f 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1059,7 +1059,7 @@ static int mld_xmarksources(struct ifmcaddr6 *pmc, int nsrcs,
- 			break;
- 		for (i=0; i<nsrcs; i++) {
- 			/* skip inactive filters */
--			if (pmc->mca_sfcount[MCAST_INCLUDE] ||
-+			if (psf->sf_count[MCAST_INCLUDE] ||
- 			    pmc->mca_sfcount[MCAST_EXCLUDE] !=
- 			    psf->sf_count[MCAST_EXCLUDE])
- 				continue;
+Another way to get it working again is to stop some processes. Could be 
+mysql or apache or php fcgi doesn't matter. Just free some memory. 
+Although there are already 5GB free.
+
+Stefan
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
