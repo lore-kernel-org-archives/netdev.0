@@ -1,57 +1,102 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Interface without IP address can route??
-Date: Wed, 24 Aug 2011 09:20:10 -0700
-Message-ID: <4E5524BA.3070303@candelatech.com>
-References: <4E5443CD.60502@candelatech.com> <1314190890.25967.114.camel@mojatatu> <4E54FBA6.6090905@candelatech.com> <20110824161557.GC611458@jupiter.n2.diac24.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [BUG] tcp : how many times a frame can possibly be retransmitted ?
+Date: Wed, 24 Aug 2011 18:21:58 +0200
+Message-ID: <1314202918.2296.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, jamal <hadi@cyberus.ca>,
-	netdev <netdev@vger.kernel.org>
-To: David Lamparter <equinox@diac24.net>
+To: netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
+	Damian Lukowski <damian@tvk.rwth-aachen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:60644 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655Ab1HXQU5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 12:20:57 -0400
-In-Reply-To: <20110824161557.GC611458@jupiter.n2.diac24.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:45507 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305Ab1HXQWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 12:22:01 -0400
+Received: by wwf5 with SMTP id 5so1398337wwf.1
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2011 09:21:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2011 09:15 AM, David Lamparter wrote:
-> On Wed, Aug 24, 2011 at 06:24:54AM -0700, Ben Greear wrote:
->> On 08/24/2011 06:01 AM, jamal wrote:
->>> It makes sense to behave this way.
->>> IPv4 addresses are owned by the system not interfaces.
->>> If you want to control the forwarding behavior, control ARP so it doesnt
->>> respond on the interfaces with no IP.
->
-> I agree.
->
->> I understand your argument about IPs being owned by system instead of
->> interface, but I think it's the wrong behaviour in this case.  Can
->> you think of any case where this behaviour actually helps?
->
-> It's used for oddball /32 setups at server hosting farms that look like:
->        /--- eth0, no ip ---- server 0.1.4.5/32, default via 0.1.2.3
-> router --- eth1, no ip ---- server 0.1.6.7/32, default via 0.1.2.3
->        \--- eth2, no ip ---- server 0.1.8.9/32, default via 0.1.2.3
->     \- eth3: 0.1.2.3/28 - to rest of internet
->
-> The general idea is to a) conserve IPs and b) not renumber servers even
-> when they move, so you end up with random scattered /32s on the servers
-> and the router has no sensible IP.
->
->> Either way, it appears I can work around this by explicitly disabling
->> forwarding for this particular interface.
->
-> I was about to suggest exactly this :)
+On one dev machine running net-next, I just found strange tcp sessions
+that retransmit a frame forever (The other peer disappeared)
 
-Ok..glad to know there are folks with even crazier setups than mine :)
+# ss -emoi dst 10.2.1.1
+State      Recv-Q Send-Q      Local Address:Port          Peer Address:Port   
+ESTAB      0      816              10.2.1.2:37930             10.2.1.1:ssh      timer:(on,630ms,246) ino:60786 sk:ffff8801189aa400
+	 mem:(r0,w3776,f320,t0) ts sack ecn cubic wscale:8,6 rto:1680 rtt:16.25/7.5 ato:40 ssthresh:7 send 1.4Mbps rcv_rtt:10 rcv_space:16632
 
-Thanks,
-Ben
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+You can see the retransmit count : 246 
+
+What possibly can be going on ?
+
+What happened to backoff ?
+
+# grep . /proc/sys/net/ipv4/tcp_retries*
+/proc/sys/net/ipv4/tcp_retries1:3
+/proc/sys/net/ipv4/tcp_retries2:15
+
+
+
+extract of tcpdump :
+
+12:01:02.074244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128024 59389>
+12:01:03.754243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128192 59389>
+12:01:05.434245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128360 59389>
+12:01:07.114243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128528 59389>
+12:01:08.794248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128696 59389>
+12:01:10.474242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16128864 59389>
+12:01:12.154243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129032 59389>
+12:01:13.834241 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129200 59389>
+12:01:15.514246 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129368 59389>
+12:01:17.194244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129536 59389>
+12:01:18.874248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129704 59389>
+12:01:20.554243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16129872 59389>
+12:01:22.234244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130040 59389>
+12:01:23.914244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130208 59389>
+12:01:25.594247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130376 59389>
+12:01:27.274242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130544 59389>
+12:01:28.954242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130712 59389>
+12:01:30.634248 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16130880 59389>
+12:01:32.314245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131048 59389>
+12:01:33.994243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131216 59389>
+12:01:35.674250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131384 59389>
+12:01:37.354244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131552 59389>
+12:01:39.034245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131720 59389>
+12:01:40.714245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16131888 59389>
+12:01:42.394245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132056 59389>
+12:01:44.074242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132224 59389>
+12:01:45.754249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132392 59389>
+12:01:47.434242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132560 59389>
+12:01:49.114247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132728 59389>
+12:01:50.794250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16132896 59389>
+12:01:52.474247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133064 59389>
+12:01:54.154242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133232 59389>
+12:01:55.834246 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133400 59389>
+12:01:57.514243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133568 59389>
+12:01:59.194247 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133736 59389>
+12:02:00.874250 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16133904 59389>
+12:02:02.554242 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134072 59389>
+12:02:04.234243 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134240 59389>
+12:02:05.914245 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134408 59389>
+12:02:07.594244 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134576 59389>
+12:02:09.274249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134744 59389>
+12:02:10.954241 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16134912 59389>
+12:02:12.634249 IP 10.2.1.2.37930 > 10.2.1.1.ssh: P 0:144(144) ack 1 win 1002 <nop,nop,timestamp 16135080 59389>
+
+tcp_retransmit_timer() does the exponential backoff, but something
+resets icsk_rto to a low value ?
+
+Ah, it seems to be because of commit f1ecd5d9e7366609 
+(Revert Backoff [v3]: Revert RTO on ICMP destination unreachable)
+
+Since arp resolution (or routing, I dont know yet) fails, an
+ internal/loopback ICMP host/network unreachable message is 
+generated and handled in tcp_v4_err() :
+
+icsk_backoff-- and icsk_rto is reset.
+
+I am afraid this can generate a storm (cpu time at very least),
+in case we have many tcp sessions in this state.
+
+I guess its time for me to read RFC 6069
