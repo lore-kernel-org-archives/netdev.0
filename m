@@ -1,84 +1,39 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH] ibmveth: Fix leak when recycling skb and hypervisor returns
- error
-Date: Thu, 25 Aug 2011 09:20:19 +1000
-Message-ID: <20110825092019.777aea6e@kryten>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: santil@linux.vnet.ibm.com
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH] tcp: bound RTO to minimum
+Date: Thu, 25 Aug 2011 01:41:50 +0200
+Message-ID: <1314229310-8074-1-git-send-email-hagen@jauu.net>
+References: <1314226834.6797.5.camel@edumazet-laptop>
+Cc: eric.dumazet@gmail.com, Hagen Paul Pfeifer <hagen@jauu.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:55429 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751054Ab1HXXUX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 19:20:23 -0400
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:54470 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751054Ab1HXXl5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 19:41:57 -0400
+In-Reply-To: <1314226834.6797.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Check if calculated RTO is less then TCP_RTO_MIN. If this is true we
+adjust the value to TCP_RTO_MIN.
 
-If h_add_logical_lan_buffer returns an error we need to free
-the skb.
-
-Signed-off-by: Anton Blanchard <anton@samba.org>
-Cc: stable <stable@kernel.org>
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
+ include/net/tcp.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Index: linux-net/drivers/net/ethernet/ibm/ibmveth.c
-===================================================================
---- linux-net.orig/drivers/net/ethernet/ibm/ibmveth.c	2011-08-24 17:06:56.894207820 +1000
-+++ linux-net/drivers/net/ethernet/ibm/ibmveth.c	2011-08-25 08:44:14.212105871 +1000
-@@ -395,7 +395,7 @@ static inline struct sk_buff *ibmveth_rx
- }
- 
- /* recycle the current buffer on the rx queue */
--static void ibmveth_rxq_recycle_buffer(struct ibmveth_adapter *adapter)
-+static int ibmveth_rxq_recycle_buffer(struct ibmveth_adapter *adapter)
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 149a415..9b5f4bf 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -520,6 +520,8 @@ static inline void tcp_bound_rto(const struct sock *sk)
  {
- 	u32 q_index = adapter->rx_queue.index;
- 	u64 correlator = adapter->rx_queue.queue_addr[q_index].correlator;
-@@ -403,6 +403,7 @@ static void ibmveth_rxq_recycle_buffer(s
- 	unsigned int index = correlator & 0xffffffffUL;
- 	union ibmveth_buf_desc desc;
- 	unsigned long lpar_rc;
-+	int ret = 1;
- 
- 	BUG_ON(pool >= IBMVETH_NUM_BUFF_POOLS);
- 	BUG_ON(index >= adapter->rx_buff_pool[pool].size);
-@@ -410,7 +411,7 @@ static void ibmveth_rxq_recycle_buffer(s
- 	if (!adapter->rx_buff_pool[pool].active) {
- 		ibmveth_rxq_harvest_buffer(adapter);
- 		ibmveth_free_buffer_pool(adapter, &adapter->rx_buff_pool[pool]);
--		return;
-+		goto out;
- 	}
- 
- 	desc.fields.flags_len = IBMVETH_BUF_VALID |
-@@ -423,12 +424,16 @@ static void ibmveth_rxq_recycle_buffer(s
- 		netdev_dbg(adapter->netdev, "h_add_logical_lan_buffer failed "
- 			   "during recycle rc=%ld", lpar_rc);
- 		ibmveth_remove_buffer_from_pool(adapter, adapter->rx_queue.queue_addr[adapter->rx_queue.index].correlator);
-+		ret = 0;
- 	}
- 
- 	if (++adapter->rx_queue.index == adapter->rx_queue.num_slots) {
- 		adapter->rx_queue.index = 0;
- 		adapter->rx_queue.toggle = !adapter->rx_queue.toggle;
- 	}
-+
-+out:
-+	return ret;
+ 	if (inet_csk(sk)->icsk_rto > TCP_RTO_MAX)
+ 		inet_csk(sk)->icsk_rto = TCP_RTO_MAX;
++	else if (inet_csk(sk)->icsk_rto < TCP_RTO_MIN)
++		inet_csk(sk)->icsk_rto = TCP_RTO_MIN;
  }
  
- static void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter)
-@@ -1084,8 +1089,9 @@ restart_poll:
- 				if (rx_flush)
- 					ibmveth_flush_buffer(skb->data,
- 						length + offset);
-+				if (!ibmveth_rxq_recycle_buffer(adapter))
-+					kfree_skb(skb);
- 				skb = new_skb;
--				ibmveth_rxq_recycle_buffer(adapter);
- 			} else {
- 				ibmveth_rxq_harvest_buffer(adapter);
- 				skb_reserve(skb, offset);
+ static inline u32 __tcp_set_rto(const struct tcp_sock *tp)
+-- 
+1.7.4.1.57.g0466.dirty
