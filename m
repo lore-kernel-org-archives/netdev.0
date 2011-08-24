@@ -1,160 +1,510 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/10] com20020_cs: Move the PCMCIA Arcnet driver
-Date: Wed, 24 Aug 2011 02:02:48 -0700
-Message-ID: <1314176570-20298-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/10] drivers/net: Kconfig & Makefile cleanup
+Date: Wed, 24 Aug 2011 02:02:49 -0700
+Message-ID: <1314176570-20298-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1314176570-20298-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+	gospo@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:28495 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:46584 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756819Ab1HXJDC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 05:03:02 -0400
+	id S1756845Ab1HXJDD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Aug 2011 05:03:03 -0400
 In-Reply-To: <1314176570-20298-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the COM20020 PCMICA Arcnet driver into drivers/net/arcnet/ with
-the other Arcnet drivers.  Made the necessary Kconfig and Makefile
-changes as well.
+The is does a general cleanup of the drivers/net/ Kconfig and
+Makefile.  This patch create a "core" option and places all
+the networking core drivers into this option (default is yes
+for this option).  In addition, it alphabitizes the Kconfig
+driver options.
 
-Since this was the "last" PCMCIA driver in drivers/net/pcmcia/, this patch
-also cleans up the references to drivers/net/pcmcia.
+As a side cleanup, found that the arcnet, token ring, and PHY
+Kconfig options were a tri-state option and should have been
+a bool option.
 
-CC: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig                          |    2 -
- drivers/net/Makefile                         |    1 -
- drivers/net/arcnet/Kconfig                   |   12 ++++++++-
- drivers/net/arcnet/Makefile                  |    1 +
- drivers/net/{pcmcia => arcnet}/com20020_cs.c |    0
- drivers/net/pcmcia/Kconfig                   |   34 --------------------------
- drivers/net/pcmcia/Makefile                  |    6 ----
- 7 files changed, 12 insertions(+), 44 deletions(-)
- rename drivers/net/{pcmcia => arcnet}/com20020_cs.c (100%)
- delete mode 100644 drivers/net/pcmcia/Kconfig
- delete mode 100644 drivers/net/pcmcia/Makefile
+ drivers/net/Kconfig           |  267 +++++++++++++++++++++--------------------
+ drivers/net/Makefile          |   63 ++++------
+ drivers/net/arcnet/Kconfig    |    2 +-
+ drivers/net/phy/Kconfig       |    2 +-
+ drivers/net/tokenring/Kconfig |    2 +-
+ 5 files changed, 167 insertions(+), 169 deletions(-)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index b3206c9..5762370 100644
+index 5762370..583f66c 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -209,8 +209,6 @@ source "drivers/net/wimax/Kconfig"
+@@ -25,18 +25,32 @@ menuconfig NETDEVICES
+ # that for each of the symbols.
+ if NETDEVICES
  
- source "drivers/net/usb/Kconfig"
+-config IFB
+-	tristate "Intermediate Functional Block support"
+-	depends on NET_CLS_ACT
++config NET_CORE
++	default y
++	bool "Network core driver support"
+ 	---help---
+-	  This is an intermediate driver that allows sharing of
+-	  resources.
++	  You can say N here if you do not intend to use any of the
++	  networking core drivers (i.e. VLAN, bridging, bonding, etc.)
++
++if NET_CORE
++
++config BONDING
++	tristate "Bonding driver support"
++	depends on INET
++	depends on IPV6 || IPV6=n
++	---help---
++	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
++	  Channels together. This is called 'Etherchannel' by Cisco,
++	  'Trunking' by Sun, 802.3ad by the IEEE, and 'Bonding' in Linux.
++
++	  The driver supports multiple bonding modes to allow for both high
++	  performance and high availability operation.
++
++	  Refer to <file:Documentation/networking/bonding.txt> for more
++	  information.
++
+ 	  To compile this driver as a module, choose M here: the module
+-	  will be called ifb.  If you want to use more than one ifb
+-	  device at a time, you need to compile this driver as a module.
+-	  Instead of 'ifb', the devices will then be called 'ifb0',
+-	  'ifb1' etc.
+-	  Look at the iproute2 documentation directory for usage etc
++	  will be called bonding.
  
--source "drivers/net/pcmcia/Kconfig"
+ config DUMMY
+ 	tristate "Dummy net driver support"
+@@ -57,23 +71,59 @@ config DUMMY
+ 	  Instead of 'dummy', the devices will then be called 'dummy0',
+ 	  'dummy1' etc.
+ 
+-config BONDING
+-	tristate "Bonding driver support"
+-	depends on INET
+-	depends on IPV6 || IPV6=n
++config EQUALIZER
++	tristate "EQL (serial line load balancing) support"
+ 	---help---
+-	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
+-	  Channels together. This is called 'Etherchannel' by Cisco,
+-	  'Trunking' by Sun, 802.3ad by the IEEE, and 'Bonding' in Linux.
++	  If you have two serial connections to some other computer (this
++	  usually requires two modems and two telephone lines) and you use
++	  SLIP (the protocol for sending Internet traffic over telephone
++	  lines) or PPP (a better SLIP) on them, you can make them behave like
++	  one double speed connection using this driver.  Naturally, this has
++	  to be supported at the other end as well, either with a similar EQL
++	  Linux driver or with a Livingston Portmaster 2e.
+ 
+-	  The driver supports multiple bonding modes to allow for both high
+-	  performance and high availability operation.
++	  Say Y if you want this and read
++	  <file:Documentation/networking/eql.txt>.  You may also want to read
++	  section 6.2 of the NET-3-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
+ 
+-	  Refer to <file:Documentation/networking/bonding.txt> for more
+-	  information.
++	  To compile this driver as a module, choose M here: the module
++	  will be called eql.  If unsure, say N.
++
++config NET_FC
++	bool "Fibre Channel driver support"
++	depends on SCSI && PCI
++	help
++	  Fibre Channel is a high speed serial protocol mainly used to connect
++	  large storage devices to the computer; it is compatible with and
++	  intended to replace SCSI.
++
++	  If you intend to use Fibre Channel, you need to have a Fibre channel
++	  adaptor card in your computer; say Y here and to the driver for your
++	  adaptor below. You also should have said Y to "SCSI support" and
++	  "SCSI generic support".
+ 
++config MII
++	tristate "Generic Media Independent Interface device support"
++	help
++	  Most ethernet controllers have MII transceiver either as an external
++	  or internal device.  It is safe to say Y or M here even if your
++	  ethernet card lacks MII.
++
++source "drivers/ieee802154/Kconfig"
++
++config IFB
++	tristate "Intermediate Functional Block support"
++	depends on NET_CLS_ACT
++	---help---
++	  This is an intermediate driver that allows sharing of
++	  resources.
+ 	  To compile this driver as a module, choose M here: the module
+-	  will be called bonding.
++	  will be called ifb.  If you want to use more than one ifb
++	  device at a time, you need to compile this driver as a module.
++	  Instead of 'ifb', the devices will then be called 'ifb0',
++	  'ifb1' etc.
++	  Look at the iproute2 documentation directory for usage etc
+ 
+ config MACVLAN
+ 	tristate "MAC-VLAN support (EXPERIMENTAL)"
+@@ -102,24 +152,46 @@ config MACVTAP
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called macvtap.
+ 
+-config EQUALIZER
+-	tristate "EQL (serial line load balancing) support"
++config NETCONSOLE
++	tristate "Network console logging support"
+ 	---help---
+-	  If you have two serial connections to some other computer (this
+-	  usually requires two modems and two telephone lines) and you use
+-	  SLIP (the protocol for sending Internet traffic over telephone
+-	  lines) or PPP (a better SLIP) on them, you can make them behave like
+-	  one double speed connection using this driver.  Naturally, this has
+-	  to be supported at the other end as well, either with a similar EQL
+-	  Linux driver or with a Livingston Portmaster 2e.
++	If you want to log kernel messages over the network, enable this.
++	See <file:Documentation/networking/netconsole.txt> for details.
+ 
+-	  Say Y if you want this and read
+-	  <file:Documentation/networking/eql.txt>.  You may also want to read
+-	  section 6.2 of the NET-3-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
++config NETCONSOLE_DYNAMIC
++	bool "Dynamic reconfiguration of logging targets"
++	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
++			!(NETCONSOLE=y && CONFIGFS_FS=m)
++	help
++	  This option enables the ability to dynamically reconfigure target
++	  parameters (interface, IP addresses, port numbers, MAC addresses)
++	  at runtime through a userspace interface exported using configfs.
++	  See <file:Documentation/networking/netconsole.txt> for details.
+ 
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called eql.  If unsure, say N.
++config NETPOLL
++	def_bool NETCONSOLE
++
++config NETPOLL_TRAP
++	bool "Netpoll traffic trapping"
++	default n
++	depends on NETPOLL
++
++config NET_POLL_CONTROLLER
++	def_bool NETPOLL
++
++config RIONET
++	tristate "RapidIO Ethernet over messaging driver support"
++	depends on RAPIDIO
++
++config RIONET_TX_SIZE
++	int "Number of outbound queue entries"
++	depends on RIONET
++	default "128"
++
++config RIONET_RX_SIZE
++	int "Number of inbound queue entries"
++	depends on RIONET
++	default "128"
+ 
+ config TUN
+ 	tristate "Universal TUN/TAP device driver support"
+@@ -151,6 +223,28 @@ config VETH
+ 	  When one end receives the packet it appears on its pair and vice
+ 	  versa.
+ 
++config VIRTIO_NET
++	tristate "Virtio network driver (EXPERIMENTAL)"
++	depends on EXPERIMENTAL && VIRTIO
++	---help---
++	  This is the virtual network driver for virtio.  It can be used with
++	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
++
++endif # NET_CORE
++
++config SUNGEM_PHY
++	tristate
++
++source "drivers/net/arcnet/Kconfig"
++
++source "drivers/atm/Kconfig"
++
++source "drivers/net/caif/Kconfig"
++
++source "drivers/net/ethernet/Kconfig"
++
++source "drivers/net/fddi/Kconfig"
++
+ config NET_SB1000
+ 	tristate "General Instruments Surfboard 1000"
+ 	depends on PNP
+@@ -175,52 +269,26 @@ config NET_SB1000
+ 
+ 	  If you don't have this card, of course say N.
+ 
+-source "drivers/net/arcnet/Kconfig"
 -
- source "drivers/net/ppp/Kconfig"
+-config MII
+-	tristate "Generic Media Independent Interface device support"
+-	help
+-	  Most ethernet controllers have MII transceiver either as an external
+-	  or internal device.  It is safe to say Y or M here even if your
+-	  ethernet card lacks MII.
+-
+ source "drivers/net/phy/Kconfig"
  
+-config SUNGEM_PHY
+-	tristate
+-
+-#
+-#	Ethernet
+-#
+-
+-source "drivers/net/ethernet/Kconfig"
+-
+-source "drivers/net/fddi/Kconfig"
+-
+ source "drivers/net/plip/Kconfig"
+ 
++source "drivers/net/ppp/Kconfig"
++
+ source "drivers/net/slip/Kconfig"
+ 
++source "drivers/s390/net/Kconfig"
++
+ source "drivers/net/tokenring/Kconfig"
+ 
++source "drivers/net/usb/Kconfig"
++
+ source "drivers/net/wireless/Kconfig"
+ 
+ source "drivers/net/wimax/Kconfig"
+ 
+-source "drivers/net/usb/Kconfig"
+-
+-source "drivers/net/ppp/Kconfig"
+-
  source "drivers/net/wan/Kconfig"
+ 
+-source "drivers/atm/Kconfig"
+-
+-source "drivers/ieee802154/Kconfig"
+-
+-source "drivers/s390/net/Kconfig"
+-
+-source "drivers/net/caif/Kconfig"
+-
+ config XEN_NETDEV_FRONTEND
+ 	tristate "Xen network device frontend driver"
+ 	depends on XEN
+@@ -260,67 +328,6 @@ config XEN_NETDEV_BACKEND
+ 	  compile this driver as a module, chose M here: the module
+ 	  will be called xen-netback.
+ 
+-config RIONET
+-	tristate "RapidIO Ethernet over messaging driver support"
+-	depends on RAPIDIO
+-
+-config RIONET_TX_SIZE
+-	int "Number of outbound queue entries"
+-	depends on RIONET
+-	default "128"
+-
+-config RIONET_RX_SIZE
+-	int "Number of inbound queue entries"
+-	depends on RIONET
+-	default "128"
+-
+-config NET_FC
+-	bool "Fibre Channel driver support"
+-	depends on SCSI && PCI
+-	help
+-	  Fibre Channel is a high speed serial protocol mainly used to connect
+-	  large storage devices to the computer; it is compatible with and
+-	  intended to replace SCSI.
+-
+-	  If you intend to use Fibre Channel, you need to have a Fibre channel
+-	  adaptor card in your computer; say Y here and to the driver for your
+-	  adaptor below. You also should have said Y to "SCSI support" and
+-	  "SCSI generic support".
+-
+-config NETCONSOLE
+-	tristate "Network console logging support"
+-	---help---
+-	If you want to log kernel messages over the network, enable this.
+-	See <file:Documentation/networking/netconsole.txt> for details.
+-
+-config NETCONSOLE_DYNAMIC
+-	bool "Dynamic reconfiguration of logging targets"
+-	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
+-			!(NETCONSOLE=y && CONFIGFS_FS=m)
+-	help
+-	  This option enables the ability to dynamically reconfigure target
+-	  parameters (interface, IP addresses, port numbers, MAC addresses)
+-	  at runtime through a userspace interface exported using configfs.
+-	  See <file:Documentation/networking/netconsole.txt> for details.
+-
+-config NETPOLL
+-	def_bool NETCONSOLE
+-
+-config NETPOLL_TRAP
+-	bool "Netpoll traffic trapping"
+-	default n
+-	depends on NETPOLL
+-
+-config NET_POLL_CONTROLLER
+-	def_bool NETPOLL
+-
+-config VIRTIO_NET
+-	tristate "Virtio network driver (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && VIRTIO
+-	---help---
+-	  This is the virtual network driver for virtio.  It can be used with
+-	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
+-
+ config VMXNET3
+ 	tristate "VMware VMXNET3 ethernet driver"
+ 	depends on PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 23ea83c..d04d0ce 100644
+index d04d0ce..33ff347 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -42,7 +42,6 @@ onj-$(CONFIG_SLIP) += slip/
+@@ -2,46 +2,51 @@
+ # Makefile for the Linux network device drivers.
+ #
+ 
+-obj-$(CONFIG_MII) += mii.o
+-obj-$(CONFIG_MDIO) += mdio.o
+-obj-$(CONFIG_PHYLIB) += phy/
+-obj-$(CONFIG_CAN) += can/
+-obj-$(CONFIG_BONDING) += bonding/
+-obj-$(CONFIG_VMXNET3) += vmxnet3/
+-
+ #
+-# link order important here
++# Networking Core Drivers
+ #
+-obj-$(CONFIG_RIONET) += rionet.o
+-
+-#
+-# end link order section
+-#
+-
+-obj-$(CONFIG_NET) += Space.o loopback.o
+-obj-$(CONFIG_NET_SB1000) += sb1000.o
+-
+-obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
+-obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
+-
++obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_DUMMY) += dummy.o
++obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_IFB) += ifb.o
+ obj-$(CONFIG_MACVLAN) += macvlan.o
+ obj-$(CONFIG_MACVTAP) += macvtap.o
+-obj-$(CONFIG_EQUALIZER) += eql.o
++obj-$(CONFIG_MII) += mii.o
++obj-$(CONFIG_MDIO) += mdio.o
++obj-$(CONFIG_NET) += Space.o loopback.o
++obj-$(CONFIG_NETCONSOLE) += netconsole.o
++obj-$(CONFIG_PHYLIB) += phy/
++obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
++obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ 
++#
++# Networking Drivers
++#
++obj-$(CONFIG_ARCNET) += arcnet/
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
++obj-$(CONFIG_CAIF) += caif/
++obj-$(CONFIG_CAN) += can/
++obj-$(CONFIG_ETRAX_ETHERNET) += cris/
+ obj-$(CONFIG_ETHERNET) += ethernet/
+ obj-$(CONFIG_FDDI) += fddi/
+ obj-$(CONFIG_HIPPI) += hippi/
++obj-$(CONFIG_HAMRADIO) += hamradio/
++obj-$(CONFIG_IRDA) += irda/
+ obj-$(CONFIG_PLIP) += plip/
+ onj-$(CONFIG_PPP) += ppp/
++obj-$(CONFIG_NET_SB1000) += sb1000.o
+ onj-$(CONFIG_SLIP) += slip/
++obj-$(CONFIG_SUNGEM_PHY) += sungem_phy.o
  obj-$(CONFIG_TR) += tokenring/
  obj-$(CONFIG_WAN) += wan/
- obj-$(CONFIG_ARCNET) += arcnet/
--obj-$(CONFIG_NET_PCMCIA) += pcmcia/
+-obj-$(CONFIG_ARCNET) += arcnet/
++obj-$(CONFIG_WLAN) += wireless/
++obj-$(CONFIG_WIMAX) += wimax/
++
++obj-$(CONFIG_VMXNET3) += vmxnet3/
++obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
++obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
  
  obj-$(CONFIG_USB_CATC)          += usb/
  obj-$(CONFIG_USB_KAWETH)        += usb/
+@@ -52,17 +57,3 @@ obj-$(CONFIG_USB_USBNET)        += usb/
+ obj-$(CONFIG_USB_ZD1201)        += usb/
+ obj-$(CONFIG_USB_IPHETH)        += usb/
+ obj-$(CONFIG_USB_CDC_PHONET)   += usb/
+-
+-obj-$(CONFIG_WLAN) += wireless/
+-obj-$(CONFIG_HAMRADIO) += hamradio/
+-obj-$(CONFIG_IRDA) += irda/
+-obj-$(CONFIG_ETRAX_ETHERNET) += cris/
+-
+-obj-$(CONFIG_NETCONSOLE) += netconsole.o
+-
+-obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+-
+-obj-$(CONFIG_WIMAX) += wimax/
+-obj-$(CONFIG_CAIF) += caif/
+-
+-obj-$(CONFIG_SUNGEM_PHY) += sungem_phy.o
 diff --git a/drivers/net/arcnet/Kconfig b/drivers/net/arcnet/Kconfig
-index 3b2f7f1..84fb634 100644
+index 84fb634..a73d9dc 100644
 --- a/drivers/net/arcnet/Kconfig
 +++ b/drivers/net/arcnet/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ menuconfig ARCNET
+ 	depends on NETDEVICES && (ISA || PCI || PCMCIA)
+-	tristate "ARCnet support"
++	bool "ARCnet support"
+ 	---help---
+ 	  If you have a network card of this type, say Y and check out the
+ 	  (arguably) beautiful poetry in
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index a702443..bb88e12 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
 @@ -3,7 +3,7 @@
  #
  
- menuconfig ARCNET
--	depends on NETDEVICES && (ISA || PCI)
-+	depends on NETDEVICES && (ISA || PCI || PCMCIA)
- 	tristate "ARCnet support"
- 	---help---
- 	  If you have a network card of this type, say Y and check out the
-@@ -123,4 +123,14 @@ config ARCNET_COM20020_PCI
- 	tristate "Support for COM20020 on PCI"
- 	depends on ARCNET_COM20020 && PCI
+ menuconfig PHYLIB
+-	tristate "PHY Device support and infrastructure"
++	bool "PHY Device support and infrastructure"
+ 	depends on !S390
+ 	depends on NETDEVICES
+ 	help
+diff --git a/drivers/net/tokenring/Kconfig b/drivers/net/tokenring/Kconfig
+index 0f70158..c7e0149 100644
+--- a/drivers/net/tokenring/Kconfig
++++ b/drivers/net/tokenring/Kconfig
+@@ -4,7 +4,7 @@
  
-+config ARCNET_COM20020_CS
-+	tristate "COM20020 ARCnet PCMCIA support"
-+	depends on ARCNET_COM20020 && PCMCIA
-+	help
-+	  Say Y here if you intend to attach this type of ARCnet PCMCIA card
-+	  to your computer.
-+
-+	  To compile this driver as a module, choose M here: the module will be
-+	  called com20020_cs.  If unsure, say N.
-+
- endif # ARCNET
-diff --git a/drivers/net/arcnet/Makefile b/drivers/net/arcnet/Makefile
-index 5861af5..5ce8ee6 100644
---- a/drivers/net/arcnet/Makefile
-+++ b/drivers/net/arcnet/Makefile
-@@ -12,3 +12,4 @@ obj-$(CONFIG_ARCNET_RIM_I) += arc-rimi.o
- obj-$(CONFIG_ARCNET_COM20020) += com20020.o
- obj-$(CONFIG_ARCNET_COM20020_ISA) += com20020-isa.o
- obj-$(CONFIG_ARCNET_COM20020_PCI) += com20020-pci.o
-+obj-$(CONFIG_ARCNET_COM20020_CS) += com20020_cs.o
-diff --git a/drivers/net/pcmcia/com20020_cs.c b/drivers/net/arcnet/com20020_cs.c
-similarity index 100%
-rename from drivers/net/pcmcia/com20020_cs.c
-rename to drivers/net/arcnet/com20020_cs.c
-diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
-deleted file mode 100644
-index ff4deb0..0000000
---- a/drivers/net/pcmcia/Kconfig
-+++ /dev/null
-@@ -1,34 +0,0 @@
--#
--# PCMCIA Network device configuration
--#
--
--menuconfig NET_PCMCIA
--	bool "PCMCIA network device support"
--	depends on PCMCIA
--	---help---
--	  Say Y if you would like to include support for any PCMCIA or CardBus
--	  network adapters, then say Y to the driver for your particular card
--	  below.  PCMCIA- or PC-cards are credit-card size devices often used
--	  with laptops computers; CardBus is the newer and faster version of
--	  PCMCIA.
--
--	  To use your PC-cards, you will need supporting software from David
--	  Hinds' pcmcia-cs package (see the file <file:Documentation/Changes>
--	  for location).  You also want to check out the PCMCIA-HOWTO,
--	  available from <http://www.tldp.org/docs.html#howto>.
--
--	  If unsure, say N.
--
--if NET_PCMCIA && PCMCIA
--
--config ARCNET_COM20020_CS
--	tristate "COM20020 ARCnet PCMCIA support"
--	depends on ARCNET_COM20020
--	help
--	  Say Y here if you intend to attach this type of ARCnet PCMCIA card
--	  to your computer.
--
--	  To compile this driver as a module, choose M here: the module will be
--	  called com20020_cs.  If unsure, say N.
--
--endif # NET_PCMCIA
-diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
-deleted file mode 100644
-index b98a0a4..0000000
---- a/drivers/net/pcmcia/Makefile
-+++ /dev/null
-@@ -1,6 +0,0 @@
--#
--# Makefile for the Linux PCMCIA network device drivers.
--#
--
--# 16-bit client drivers
--obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
+ # So far, we only have PCI, ISA, and MCA token ring devices
+ menuconfig TR
+-	tristate "Token Ring driver support"
++	bool "Token Ring driver support"
+ 	depends on NETDEVICES && !UML
+ 	depends on (PCI || ISA || MCA || CCW || PCMCIA)
+ 	select LLC
 -- 
 1.7.6
