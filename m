@@ -1,161 +1,98 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 68/75] hv: netvsc: convert to SKB paged frag API.
-Date: Wed, 24 Aug 2011 14:30:10 -0400
-Message-ID: <20110824183010.GG15675@dumpdata.com>
-References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
- <1313760467-8598-68-git-send-email-ian.campbell@citrix.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 1/5] SUNRPC: introduce helpers for reference counted rpcbind
+	clients
+Date: Wed, 24 Aug 2011 22:33:44 +0400
+Message-ID: <20110824183344.4924.33065.stgit@localhost6.localdomain6>
+References: <20110824183304.4924.94670.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hank Janssen <hjanssen@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"K. Y. Srinivasan" <kys@microsoft.com>,
-	Abhishek Kane <v-abkane@microsoft.com>,
-	devel@driverdev.osuosl.org
-To: Ian Campbell <ian.campbell@citrix.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bfields@fieldses.org, davem@davemloft.net
+To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1313760467-8598-68-git-send-email-ian.campbell@citrix.com>
+In-Reply-To: <20110824183304.4924.94670.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-What is with the 'XXX' ?
+This helpers will be used for dynamical creation and destruction of rpcbind
+clients.
+Variable rpcb_users is actually a counter of lauched RPC services. If rpcbind
+client has been created already, then we just increase rpcb_users.
 
-> diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
-> index f1813b5..3e7c4b3 100644
-> --- a/drivers/net/cxgb4/sge.c
-> +++ b/drivers/net/cxgb4/sge.c
-> @@ -1416,7 +1416,7 @@ static inline void copy_frags(struct sk_buff *skb,
->  	unsigned int n;
->  
->  	/* usually there's just one frag */
-> -	skb_frag_set_page(skb, 0, gl->frags[0].page);
-> +	skb_frag_set_page(skb, 0, gl->frags[0].page.p);	/* XXX */
->  	ssi->frags[0].page_offset = gl->frags[0].page_offset + offset;
->  	ssi->frags[0].size = gl->frags[0].size - offset;
->  	ssi->nr_frags = gl->nfrags;
-> @@ -1425,7 +1425,7 @@ static inline void copy_frags(struct sk_buff *skb,
->  		memcpy(&ssi->frags[1], &gl->frags[1], n * sizeof(skb_frag_t));
->  
->  	/* get a reference to the last page, we don't own it */
-> -	get_page(gl->frags[n].page);
-> +	get_page(gl->frags[n].page.p);	/* XXX */
->  }
->  
->  /**
-> @@ -1482,7 +1482,7 @@ static void t4_pktgl_free(const struct pkt_gl *gl)
->  	const skb_frag_t *p;
->  
->  	for (p = gl->frags, n = gl->nfrags - 1; n--; p++)
-> -		put_page(p->page);
-> +		put_page(p->page.p); /* XXX */
->  }
->  
->  /*
-> @@ -1635,7 +1635,7 @@ static void restore_rx_bufs(const struct pkt_gl *si, struct sge_fl *q,
->  		else
->  			q->cidx--;
->  		d = &q->sdesc[q->cidx];
-> -		d->page = si->frags[frags].page;
-> +		d->page = si->frags[frags].page.p; /* XXX */
->  		d->dma_addr |= RX_UNMAPPED_BUF;
->  		q->avail++;
->  	}
-> @@ -1717,7 +1717,7 @@ static int process_responses(struct sge_rspq *q, int budget)
->  			for (frags = 0, fp = si.frags; ; frags++, fp++) {
->  				rsd = &rxq->fl.sdesc[rxq->fl.cidx];
->  				bufsz = get_buf_size(rsd);
-> -				fp->page = rsd->page;
-> +				fp->page.p = rsd->page; /* XXX */
->  				fp->page_offset = q->offset;
->  				fp->size = min(bufsz, len);
->  				len -= fp->size;
-> @@ -1734,8 +1734,8 @@ static int process_responses(struct sge_rspq *q, int budget)
->  						get_buf_addr(rsd),
->  						fp->size, DMA_FROM_DEVICE);
->  
-> -			si.va = page_address(si.frags[0].page) +
-> -				si.frags[0].page_offset;
-> +			si.va = page_address(si.frags[0].page.p) +
-> +				si.frags[0].page_offset; /* XXX */
->  
->  			prefetch(si.va);
->  
-> diff --git a/drivers/net/cxgb4vf/sge.c b/drivers/net/cxgb4vf/sge.c
-> index 6d6060e..3688423 100644
-> --- a/drivers/net/cxgb4vf/sge.c
-> +++ b/drivers/net/cxgb4vf/sge.c
-> @@ -1397,7 +1397,7 @@ struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
->  		skb_copy_to_linear_data(skb, gl->va, pull_len);
->  
->  		ssi = skb_shinfo(skb);
-> -		skb_frag_set_page(skb, 0, gl->frags[0].page);
-> +		skb_frag_set_page(skb, 0, gl->frags[0].page.p); /* XXX */
->  		ssi->frags[0].page_offset = gl->frags[0].page_offset + pull_len;
->  		ssi->frags[0].size = gl->frags[0].size - pull_len;
->  		if (gl->nfrags > 1)
-> @@ -1410,7 +1410,7 @@ struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
->  		skb->truesize += skb->data_len;
->  
->  		/* Get a reference for the last page, we don't own it */
-> -		get_page(gl->frags[gl->nfrags - 1].page);
-> +		get_page(gl->frags[gl->nfrags - 1].page.p); /* XXX */
->  	}
->  
->  out:
-> @@ -1430,7 +1430,7 @@ void t4vf_pktgl_free(const struct pkt_gl *gl)
->  
->  	frag = gl->nfrags - 1;
->  	while (frag--)
-> -		put_page(gl->frags[frag].page);
-> +		put_page(gl->frags[frag].page.p); /* XXX */
->  }
->  
->  /**
-> @@ -1450,7 +1450,7 @@ static inline void copy_frags(struct sk_buff *skb,
->  	unsigned int n;
->  
->  	/* usually there's just one frag */
-> -	skb_frag_set_page(skb, 0, gl->frags[0].page);
-> +	skb_frag_set_page(skb, 0, gl->frags[0].page.p);	/* XXX */
->  	si->frags[0].page_offset = gl->frags[0].page_offset + offset;
->  	si->frags[0].size = gl->frags[0].size - offset;
->  	si->nr_frags = gl->nfrags;
-> @@ -1460,7 +1460,7 @@ static inline void copy_frags(struct sk_buff *skb,
->  		memcpy(&si->frags[1], &gl->frags[1], n * sizeof(skb_frag_t));
->  
->  	/* get a reference to the last page, we don't own it */
-> -	get_page(gl->frags[n].page);
-> +	get_page(gl->frags[n].page.p); /* XXX */
->  }
->  
->  /**
-> @@ -1613,7 +1613,7 @@ static void restore_rx_bufs(const struct pkt_gl *gl, struct sge_fl *fl,
->  		else
->  			fl->cidx--;
->  		sdesc = &fl->sdesc[fl->cidx];
-> -		sdesc->page = gl->frags[frags].page;
-> +		sdesc->page = gl->frags[frags].page.p; /* XXX */
->  		sdesc->dma_addr |= RX_UNMAPPED_BUF;
->  		fl->avail++;
->  	}
-> @@ -1701,7 +1701,7 @@ int process_responses(struct sge_rspq *rspq, int budget)
->  				BUG_ON(rxq->fl.avail == 0);
->  				sdesc = &rxq->fl.sdesc[rxq->fl.cidx];
->  				bufsz = get_buf_size(sdesc);
-> -				fp->page = sdesc->page;
-> +				fp->page.p = sdesc->page; /* XXX */
->  				fp->page_offset = rspq->offset;
->  				fp->size = min(bufsz, len);
->  				len -= fp->size;
-> @@ -1719,8 +1719,8 @@ int process_responses(struct sge_rspq *rspq, int budget)
->  			dma_sync_single_for_cpu(rspq->adapter->pdev_dev,
->  						get_buf_addr(sdesc),
->  						fp->size, DMA_FROM_DEVICE);
-> -			gl.va = (page_address(gl.frags[0].page) +
-> -				 gl.frags[0].page_offset);
-> +			gl.va = (page_address(gl.frags[0].page.p) +
-> +				 gl.frags[0].page_offset); /* XXX */
->  			prefetch(gl.va);
->  
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+
+---
+ net/sunrpc/rpcb_clnt.c |   51 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 51 insertions(+), 0 deletions(-)
+
+diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+index e45d2fb..c84e6a3 100644
+--- a/net/sunrpc/rpcb_clnt.c
++++ b/net/sunrpc/rpcb_clnt.c
+@@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
+ static struct rpc_clnt *	rpcb_local_clnt;
+ static struct rpc_clnt *	rpcb_local_clnt4;
+ 
++DEFINE_SPINLOCK(rpcb_clnt_lock);
++unsigned int			rpcb_users;
++
+ struct rpcbind_args {
+ 	struct rpc_xprt *	r_xprt;
+ 
+@@ -161,6 +164,54 @@ static void rpcb_map_release(void *data)
+ 	kfree(map);
+ }
+ 
++static int rpcb_get_local(void)
++{
++	spin_lock(&rpcb_clnt_lock);
++	if (rpcb_users)
++		rpcb_users++;
++	spin_unlock(&rpcb_clnt_lock);
++
++	return rpcb_users;
++}
++
++void rpcb_put_local(void)
++{
++	struct rpc_clnt *clnt = rpcb_local_clnt;
++	struct rpc_clnt *clnt4 = rpcb_local_clnt4;
++	int shutdown;
++
++	spin_lock(&rpcb_clnt_lock);
++	if (--rpcb_users == 0) {
++		rpcb_local_clnt = NULL;
++		rpcb_local_clnt4 = NULL;
++	}
++	shutdown = !rpcb_users;
++	spin_unlock(&rpcb_clnt_lock);
++
++	if (shutdown) {
++		/*
++		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
++		 */
++		if (clnt4)
++			rpc_shutdown_client(clnt4);
++		if (clnt)
++			rpc_shutdown_client(clnt);
++	}
++	return;
++}
++
++static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
++{
++	/* Protected by rpcb_create_local_mutex */
++	rpcb_local_clnt = clnt;
++	rpcb_local_clnt4 = clnt4;
++	rpcb_users++;
++	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
++			"0x%p, rpcb_local_clnt4: 0x%p)\n", rpcb_local_clnt,
++			rpcb_local_clnt4);
++
++}
++
+ /*
+  * Returns zero on success, otherwise a negative errno value
+  * is returned.
