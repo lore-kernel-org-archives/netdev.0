@@ -1,47 +1,44 @@
-From: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>
-Subject: [PATCH] MAINTAINERS: Update GIT trees for network development
-Date: Wed, 24 Aug 2011 11:31:42 +0200
-Message-ID: <1314178302-8137-1-git-send-email-nicolas.2p.debian@free.fr>
-References: <20110721.202643.1084293436022974836.davem@davemloft.net>
+From: Wu Fengguang <fengguang.wu@intel.com>
+Subject: Re: slow performance on disk/network i/o full speed after
+ drop_caches
+Date: Wed, 24 Aug 2011 17:33:36 +0800
+Message-ID: <20110824093336.GB5214@localhost>
+References: <4E5494D4.1050605@profihost.ag>
+ <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com>
+ <4E54BDCF.9020504@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Nicolas=20de=20Peslo=C3=BCan?=
-	<nicolas.2p.debian@free.fr>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:56085 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752104Ab1HXJc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 05:32:29 -0400
-In-Reply-To: <20110721.202643.1084293436022974836.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pekka Enberg <penberg@kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mel Gorman <mel@csn.ul.ie>, Jens Axboe <jaxboe@fusionio.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4E54BDCF.9020504@profihost.ag>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Remove -2.6 from net and net-next tree names.
+On Wed, Aug 24, 2011 at 05:01:03PM +0800, Stefan Priebe - Profihost AG wrote:
+> 
+> >> sync&&  echo 3>/proc/sys/vm/drop_caches&&  sleep 2&&  echo 0
+> >>> /proc/sys/vm/drop_caches
+> 
+> Another way to get it working again is to stop some processes. Could be 
+> mysql or apache or php fcgi doesn't matter. Just free some memory. 
+> Although there are already 5GB free.
 
-Signed-off-by: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
----
- MAINTAINERS |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Is it a NUMA machine and _every_ node has enough free pages?
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index d32e1ca..d899040 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4442,8 +4442,8 @@ M:	"David S. Miller" <davem@davemloft.net>
- L:	netdev@vger.kernel.org
- W:	http://www.linuxfoundation.org/en/Net
- W:	http://patchwork.ozlabs.org/project/netdev/list/
--T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
--T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.=
-6.git
-+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
-+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.gi=
-t
- S:	Maintained
- F:	net/
- F:	include/net/
---=20
-1.7.5.4
+        grep . /sys/devices/system/node/node*/vmstat
+
+Thanks,
+Fengguang
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
