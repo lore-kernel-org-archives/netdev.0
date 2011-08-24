@@ -1,44 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] rps: support IPIP encapsulation
-Date: Wed, 24 Aug 2011 22:41:19 +0200
-Message-ID: <1314218479.2506.15.camel@edumazet-laptop>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [PATCH 01/75] net: add APIs for manipulating skb page
+ fragments.
+Date: Wed, 24 Aug 2011 22:09:01 +0100
+Message-ID: <1314220141.17978.693.camel@dagon.hellion.org.uk>
+References: <1313760393.5010.356.camel@zakaz.uk.xensource.com>
+	 <1313760467-8598-1-git-send-email-ian.campbell@citrix.com>
+	 <20110824182113.GF15675@dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:36848 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752756Ab1HXUlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 16:41:24 -0400
-Received: by wyg24 with SMTP id 24so1148782wyg.19
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2011 13:41:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110824182113.GF15675@dumpdata.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Skip IPIP header to get proper layer-4 information.
+On Wed, 2011-08-24 at 19:21 +0100, Konrad Rzeszutek Wilk wrote:
+> On Fri, Aug 19, 2011 at 02:26:33PM +0100, Ian Campbell wrote:
+> > The primary aim is to add skb_frag_(ref|unref) in order to remove t=
+he use of
+> > bare get/put_page on SKB pages fragments and to isolate users from =
+subsequent
+> > changes to the skb_frag_t data structure.
+> >=20
+> > Also included are helper APIs for passing a paged fragment to kmap =
+and
+> > dma_map_page since I was seeing the same pattern a lot. A helper fo=
+r
+> > pci_map_page is ommitted due to Micha=C5=82 Miros=C5=82aw's recomme=
+ndation that users
+> > should transition to pci_map_page instead.
+>=20
+> You mean "transition to dma_map_page instead." ?
 
-Like GRE tunnels, this only works if rxhash is not already provided by
-the device itself (ethtool -K ethX rxhash off), to allow kernel compute
-a software rxhash.
+That's right, oops.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-A piece of cake ;)
-
- net/core/dev.c |    2 ++
- 1 file changed, 2 insertions(+)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a4306f7..b668a3d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2608,6 +2608,8 @@ again:
- 			}
- 		}
- 		break;
-+	case IPPROTO_IPIP:
-+		goto again;
- 	default:
- 		break;
- 	}
+Ian.
