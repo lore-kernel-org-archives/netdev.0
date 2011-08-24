@@ -1,46 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next,v4 04/12] bna: TX Path and RX Path Changes
-Date: Tue, 23 Aug 2011 16:24:37 -0700 (PDT)
-Message-ID: <20110823.162437.410987029144199561.davem@davemloft.net>
-References: <1314122168-14314-1-git-send-email-rmody@brocade.com>
-	<1314122168-14314-5-git-send-email-rmody@brocade.com>
-	<20110823.162220.1108826596231524649.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Interface without IP address can route??
+Date: Tue, 23 Aug 2011 17:20:29 -0700
+Message-ID: <4E5443CD.60502@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com,
-	gkaraje@brocade.com
-To: rmody@brocade.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52487 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754434Ab1HWXZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 19:25:39 -0400
-In-Reply-To: <20110823.162220.1108826596231524649.davem@davemloft.net>
+Received: from mail.candelatech.com ([208.74.158.172]:47983 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752730Ab1HXAUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2011 20:20:30 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p7O0KTOa000792
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 17:20:29 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 23 Aug 2011 16:22:20 -0700 (PDT)
+I just noticed on a 3.0.1 kernel that the system is routing packets
+received on an interface without an IP address. (I was trying to use the
+interface in a user-space wifi_station-to-wired bridge application).
 
-> From: Rasesh Mody <rmody@brocade.com>
-> Date: Tue, 23 Aug 2011 10:56:00 -0700
-> 
->> +	BNA_QE_INDX_ADD(_index, 1, _depth); \
->> +	for (j = 0; j < (_frag); j++) { \
->> +		prefetch(&(_array)[(_index) + 1]); \
->> +		dma_unmap_page(_pdev, dma_unmap_addr(&(_array)[_index], \
-> 
-> This prefetch is excessive and a waste of cpu cycles.
-> 
-> You're going to prefetch a full 64-byte (or even 128-byte) cache line
-> for every 16-byte blob (at best) you iterate over.  This means you'll
-> prefetch the same cache line, needlessly, over and over again.
+[root@lf0301-demo1 lanforge]# cat /proc/sys/net/ipv4/conf/sta1/forwarding
+1
+[root@lf0301-demo1 lanforge]# ifconfig sta1
+sta1      Link encap:Ethernet  HWaddr 00:03:2D:12:16:0D
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:85248 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:1419 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:67423391 (64.2 MiB)  TX bytes:1087581 (1.0 MiB)
 
-Also this whole idea to macroize this operation is bad.
 
-Use a real seperate C function if you want to avoid code duplicaiton.
-Don't mark it inline, let the compiler take care of that.
+Seems that older stock kernels have forwarding set for interfaces without
+IP addresses too, so maybe it's always been this way...
 
-Otherwise you're sacrificing type safety and risking the usual problems
-created by macros (multiple variable evaluation etc.).
+Anyway, I can add some logic to my config to explicitly disable
+routing for interfaces w/out IP address, but it seems to me that
+it should automatically not route packets received on an interface
+that had no IP address on it..
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
