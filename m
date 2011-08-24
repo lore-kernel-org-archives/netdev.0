@@ -1,62 +1,61 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [patch -next] bna: unlock on error path in pnad_pci_probe()
-Date: Wed, 24 Aug 2011 10:25:45 -0700
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A9E4B8C4DE@HQ1-EXCH01.corp.brocade.com>
-References: <20110824112922.GC5975@shale.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/10][pull request] Complete drivers/net/ move
+Date: Wed, 24 Aug 2011 10:31:41 -0700 (PDT)
+Message-ID: <20110824.103141.222234551992546689.davem@davemloft.net>
+References: <1314176570-20298-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Debashis Dutt <ddutt@brocade.com>,
-	"open list:BROCADE BNA 10 GI..." <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	Jing Huang <huangj@Brocade.COM>
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:36348 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752488Ab1HXRZw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 13:25:52 -0400
-In-Reply-To: <20110824112922.GC5975@shale.localdomain>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:32984 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752762Ab1HXRb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 13:31:57 -0400
+In-Reply-To: <1314176570-20298-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Dan Carpenter [mailto:error27@gmail.com]
->Sent: Wednesday, August 24, 2011 4:29 AM
->
->We introduced a new lock here, so there was error path which needs
->an unlock now.
->
->Signed-off-by: Dan Carpenter <error27@gmail.com>
->
->diff --git a/drivers/net/ethernet/brocade/bna/bnad.c
->b/drivers/net/ethernet/brocade/bna/bnad.c
->index bdfda07..6ad4b47 100644
->--- a/drivers/net/ethernet/brocade/bna/bnad.c
->+++ b/drivers/net/ethernet/brocade/bna/bnad.c
->@@ -3167,7 +3167,7 @@ bnad_pci_probe(struct pci_dev *pdev,
-> 	 */
-> 	err = bnad_pci_init(bnad, pdev, &using_dac);
-> 	if (err)
->-		goto free_netdev;
->+		goto unlock_mutex;
->
-> 	/*
-> 	 * Initialize bnad structure
->@@ -3296,9 +3296,9 @@ drv_uninit:
-> 	bnad_uninit(bnad);
-> pci_uninit:
-> 	bnad_pci_uninit(pdev);
->+unlock_mutex:
-> 	mutex_unlock(&bnad->conf_mutex);
-> 	bnad_lock_uninit(bnad);
->-free_netdev:
-> 	free_netdev(netdev);
-> 	return err;
-> }
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 24 Aug 2011 02:02:40 -0700
 
-Acked-by: Rasesh Mody <rmody@brocade.com>
+> The following are changes since commit 131ea6675c761f655d43b808dd0fe83d15d5cdd3:
+>   net: add APIs for manipulating skb page fragments.
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/next-organize master
 
-Thanks,
-Rasesh
+Try again:
+
+ERROR: "pppox_ioctl" [net/l2tp/l2tp_ppp.ko] undefined!
+ERROR: "unregister_pppox_proto" [net/l2tp/l2tp_ppp.ko] undefined!
+ERROR: "register_pppox_proto" [net/l2tp/l2tp_ppp.ko] undefined!
+ERROR: "ppp_input" [net/l2tp/l2tp_ppp.ko] undefined!
+ERROR: "pppox_unbind_sock" [net/l2tp/l2tp_ppp.ko] undefined!
+ERROR: "ppp_register_net_channel" [net/l2tp/l2tp_ppp.ko] undefined!
+ERROR: "ppp_dev_name" [net/l2tp/l2tp_ppp.ko] undefined!
+ERROR: "ppp_unit_number" [net/irda/irnet/irnet.ko] undefined!
+ERROR: "ppp_unregister_channel" [net/irda/irnet/irnet.ko] undefined!
+ERROR: "ppp_output_wakeup" [net/irda/irnet/irnet.ko] undefined!
+ERROR: "ppp_input_error" [net/irda/irnet/irnet.ko] undefined!
+ERROR: "ppp_input" [net/irda/irnet/irnet.ko] undefined!
+ERROR: "ppp_register_channel" [net/irda/irnet/irnet.ko] undefined!
+ERROR: "ppp_channel_index" [net/irda/irnet/irnet.ko] undefined!
+ERROR: "ppp_input_error" [net/atm/pppoatm.ko] undefined!
+ERROR: "ppp_input" [net/atm/pppoatm.ko] undefined!
+ERROR: "ppp_unregister_channel" [net/atm/pppoatm.ko] undefined!
+ERROR: "ppp_output_wakeup" [net/atm/pppoatm.ko] undefined!
+ERROR: "ppp_unit_number" [net/atm/pppoatm.ko] undefined!
+ERROR: "ppp_channel_index" [net/atm/pppoatm.ko] undefined!
+ERROR: "ppp_register_channel" [net/atm/pppoatm.ko] undefined!
+ERROR: "ppp_unit_number" [drivers/tty/ipwireless/ipwireless.ko] undefined!
+ERROR: "ppp_unregister_channel" [drivers/tty/ipwireless/ipwireless.ko] undefined!
+ERROR: "ppp_output_wakeup" [drivers/tty/ipwireless/ipwireless.ko] undefined!
+ERROR: "ppp_input" [drivers/tty/ipwireless/ipwireless.ko] undefined!
+ERROR: "ppp_register_channel" [drivers/tty/ipwireless/ipwireless.ko] undefined!
+ERROR: "ppp_channel_index" [drivers/tty/ipwireless/ipwireless.ko] undefined!
+ERROR: "slhc_init" [drivers/isdn/i4l/isdn.ko] undefined!
+ERROR: "slhc_remember" [drivers/isdn/i4l/isdn.ko] undefined!
+ERROR: "slhc_uncompress" [drivers/isdn/i4l/isdn.ko] undefined!
+ERROR: "slhc_free" [drivers/isdn/i4l/isdn.ko] undefined!
+ERROR: "slhc_compress" [drivers/isdn/i4l/isdn.ko] undefined!
