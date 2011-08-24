@@ -1,112 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IPv6 multicast snooping behaviour on 2.6.39-rc2 and later
-Date: Wed, 24 Aug 2011 09:22:34 +0200
-Message-ID: <1314170554.4478.30.camel@edumazet-laptop>
-References: <4E5367CA.3090005@sfc.wide.ad.jp>
-	 <1314093424.2219.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4E539DA8.1070504@sfc.wide.ad.jp>
-	 <1314105027.2219.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4E53B360.8090107@sfc.wide.ad.jp> <4E53E237.1060401@sfc.wide.ad.jp>
-	 <CAAM7YAmht5FFTTFHrDUXAXHD5h5gzn1GrtEbHkQfbaoCwccG0w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/9][pull request] Complete drivers/net/ move
+Date: Wed, 24 Aug 2011 00:25:13 -0700 (PDT)
+Message-ID: <20110824.002513.807528305559470333.davem@davemloft.net>
+References: <1314160774-6980-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ang Way Chuang <wcang@sfc.wide.ad.jp>, netdev@vger.kernel.org,
-	Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@web.de>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Yan, Zheng" <yanzheng@21cn.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45401 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753681Ab1HXHWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 03:22:39 -0400
-Received: by wyg24 with SMTP id 24so616832wyg.19
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2011 00:22:38 -0700 (PDT)
-In-Reply-To: <CAAM7YAmht5FFTTFHrDUXAXHD5h5gzn1GrtEbHkQfbaoCwccG0w@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59534 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795Ab1HXHZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 03:25:18 -0400
+In-Reply-To: <1314160774-6980-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 24 ao=C3=BBt 2011 =C3=A0 15:04 +0800, Yan, Zheng a =C3=A9cr=
-it :
-> On Wed, Aug 24, 2011 at 1:24 AM, Ang Way Chuang <wcang@sfc.wide.ad.jp=
-> wrote:
-> > This is what I found so far from debugging.
-> >
-> > The packet is not forwarded due to the failed checksum at
-> > br_multicast.c:1533
-> >
-> >        case CHECKSUM_NONE:
-> >                skb2->csum =3D 0;
-> >                if (skb_checksum_complete(skb2))
-> >                        goto out;
-> >        }
-> >
-> > Contrary to description of commit ff9a57a6, when the patch of commi=
-t
-> > ff9a57a6 is applied,
-> > pskb_trim_rcsum is never called at all on my testbed. When commit f=
-f9a57a6
-> > is reverted,
-> > pskb_trim_rcsum will be called. The difference is:
-> >
-> > with commit ff9a57a6,
-> >   pskb_trim_rcsum is never called, br_multicast_ipv6_rcv returns -E=
-INVAL
-> > which causes
-> >   br_handle_frame_finish to drop the packet
-> >
-> > without commit ff9a57a6,
-> >   pskb_trim_rcsum is called overwriting err with 0. br_multicast_ip=
-v6_rcv
-> > still fails on the
-> >   same line (skb_checksum_complete). But the difference is err is s=
-et to 0
-> > this time. Thereby,
-> >   allowing the packet to be forwarded.
-> >
-> > Anyway, I don't think the behaviour is correct with or without comm=
-it
-> > ff9a57a6
-> >
-> >
->=20
-> Looks like a checksum calculation bug. Please try below patch, Thanks=
-=2E
->=20
-> ---
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index 2d85ca7..22d2d1a 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -1520,16 +1520,23 @@ static int br_multicast_ipv6_rcv(struct net_b=
-ridge *br,
->  		err =3D pskb_trim_rcsum(skb2, len);
->  		if (err)
->  			goto out;
-> +		err =3D -EINVAL;
->  	}
->=20
-> +	ip6h =3D ipv6_hdr(skb2);
-> +
->  	switch (skb2->ip_summed) {
->  	case CHECKSUM_COMPLETE:
-> -		if (!csum_fold(skb2->csum))
-> +		if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr, skb2->len,
-> +					IPPROTO_ICMPV6, skb2->csum))
->  			break;
->  		/*FALLTHROUGH*/
->  	case CHECKSUM_NONE:
-> -		skb2->csum =3D 0;
-> -		if (skb_checksum_complete(skb2))
-> +		skb2->csum =3D ~csum_unfold(csum_ipv6_magic(&ip6h->saddr,
-> +							&ip6h->daddr,
-> +							skb2->len,
-> +							IPPROTO_ICMPV6, 0));
-> +		if (__skb_checksum_complete(skb2))
->  			goto out;
->  	}
->=20
-> ---
-
-
-We also could reuse/factorize code, say the one from icmpv6_rcv()
+RnJvbTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQpEYXRlOiBU
+dWUsIDIzIEF1ZyAyMDExIDIxOjM5OjI1IC0wNzAwDQoNCj4gVGhlIGZvbGxvd2luZyBzZXJpZXMg
+bW92ZXMgdGhlIEZEREksIFBQUCwgSElQUEksIFBMSVAsIFNMSVAgYW5kIHRoZSBjbGVhbnVwDQo+
+IG9mIHRoZSBkcml2ZXJzL25ldC8gS2NvbmZpZyAmIE1ha2VmaWxlJ3MuICBUaGlzIHNlcmllcyBp
+biBhZGRpdGlvbiBtb3Zlcw0KPiB0aGUgMiByZW1haW5pbmcgZHJpdmVycyBpbiBkcml2ZXJzL25l
+dC9wY21jaWEvIGludG8gdGhlaXIgcmVzcGVjdGl2ZQ0KPiBkaXJlY3RvcmllcyAoYXJjbmV0ICYg
+dG9rZW5yaW5nKS4gIFRoZSBsYXN0IHJlbWFpbmluZyBjaGFuZ2UgaXMgdG8NCj4gbWFrZSB0aGUg
+YWxsIHRoZSAibmV3IiBLY29uZmlnIG9wdGlvbnMgaW50cm9kdWNlZCBieSB0aGUgRXRoZXJuZXQN
+Cj4gZHJpdmVycyBtb3ZlIHRvIHllcywgc28gdGhhdCBjdXJyZW50IGRlZmNvbmZpZydzIHdpbGwg
+Y29tcGlsZSB0aGUgZXhwZWN0ZWQNCj4gZHJpdmVycy4NCj4gDQo+IHYyLSByZW1vdmUgdGhlIGNo
+YW5nZXMgZm9yIEZEREksIEhJUFBJLCBQUFAsIGV0YyBLY29uZmlnIGZyb20gbWVudWNvbmZpZyBi
+YWNrDQo+IHRvIGNvbmZpZyBhbmQgdXNlZCB0cmlzdGF0ZSBpbnN0ZWFkIG9mIGJvb2wuICBBcHBh
+cmVudGx5IHNvbWUgY29uZmlncyBsb2FkDQo+IEZEREkgYW5kIG90aGVycyBhcyBhIG1vZHVsZS4N
+Cg0KU3RpbGwgaGFzIGJ1aWxkIGZhaWx1cmVzOg0KDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gZHJp
+dmVycy9uZXQvZmRkaS9za2ZwL2h3bXRtLmM6Mjk6MDoNCmRyaXZlcnMvbmV0L2ZkZGkvc2tmcC9o
+L3NtYy5oOjQxOjI0OiBmYXRhbCBlcnJvcjogaC9vc2RlZjFzdC5oOiBObyBzdWNoIGZpbGUgb3Ig
+ZGlyZWN0b3J5DQpjb21waWxhdGlvbiB0ZXJtaW5hdGVkLg0KbWFrZVs0XTogKioqIFtkcml2ZXJz
+L25ldC9mZGRpL3NrZnAvaHdtdG0ub10gRXJyb3IgMQ0KbWFrZVs0XTogKioqIFdhaXRpbmcgZm9y
+IHVuZmluaXNoZWQgam9icy4uLi4NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC9m
+ZGRpL3NrZnAvc2tmZGRpLmM6OTc6MDoNCmRyaXZlcnMvbmV0L2ZkZGkvc2tmcC9oL3NtYy5oOjQx
+OjI0OiBmYXRhbCBlcnJvcjogaC9vc2RlZjFzdC5oOiBObyBzdWNoIGZpbGUgb3IgZGlyZWN0b3J5
+DQpjb21waWxhdGlvbiB0ZXJtaW5hdGVkLg0KbWFrZVs0XTogKioqIFtkcml2ZXJzL25ldC9mZGRp
+L3NrZnAvc2tmZGRpLm9dIEVycm9yIDENCm1ha2VbM106ICoqKiBbZHJpdmVycy9uZXQvZmRkaS9z
+a2ZwXSBFcnJvciAyDQptYWtlWzJdOiAqKiogW2RyaXZlcnMvbmV0L2ZkZGldIEVycm9yIDINCm1h
+a2VbMl06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQpkcml2ZXJzL25ldC90
+b2tlbnJpbmcvaWJtdHJfY3MuYzogSW4gZnVuY3Rpb24goWlibXRyX2NvbmZpZ6I6DQpkcml2ZXJz
+L25ldC90b2tlbnJpbmcvaWJtdHJfY3MuYzoxOTU6NTogd2FybmluZzogoXBjbWNpYV9yZXF1ZXN0
+X2V4Y2x1c2l2ZV9pcnGiIGlzIGRlcHJlY2F0ZWQgKGRlY2xhcmVkIGF0IGluY2x1ZGUvcGNtY2lh
+L2RzLmg6MjAxKSBbLVdkZXByZWNhdGVkLWRlY2xhcmF0aW9uc10NCm1ha2VbMV06ICoqKiBbZHJp
+dmVycy9uZXRdIEVycm9yIDINCm1ha2VbMV06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpv
+YnMuLi4uDQptYWtlOiAqKiogW2RyaXZlcnNdIEVycm9yIDINCg==
