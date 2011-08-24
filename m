@@ -1,43 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Pseudo-header required for the checksum of
- ICMP6 header of MLD
-Date: Tue, 23 Aug 2011 22:06:32 -0700 (PDT)
-Message-ID: <20110823.220632.1260999487287809298.davem@davemloft.net>
-References: <4E53B360.8090107@sfc.wide.ad.jp>
-	<4E53E237.1060401@sfc.wide.ad.jp>
-	<4E54846D.10906@sfc.wide.ad.jp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bridge: fix a possible use after free
+Date: Wed, 24 Aug 2011 07:57:05 +0200
+Message-ID: <1314165425.4478.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	linus.luessing@web.de, herbert@gondor.hengli.com.au,
-	yoshfuji@linux-ipv6.org, shemminger@linux-foundation.org
-To: wcang@sfc.wide.ad.jp
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44285 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925Ab1HXFHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 01:07:49 -0400
-In-Reply-To: <4E54846D.10906@sfc.wide.ad.jp>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44605 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753183Ab1HXF5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 01:57:09 -0400
+Received: by wyg24 with SMTP id 24so580687wyg.19
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2011 22:57:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ang Way Chuang <wcang@sfc.wide.ad.jp>
-Date: Wed, 24 Aug 2011 13:56:13 +0900
+br_multicast_ipv6_rcv() can call pskb_trim_rcsum() and therefore skb
+head can be reallocated.
 
-> @@ -1528,9 +1528,12 @@ static int br_multicast_ipv6_rcv(struct
-> net_bridge *br,
->              break;
->          /*FALLTHROUGH*/
->      case CHECKSUM_NONE:
-> -        skb2->csum = 0;
-> -        if (skb_checksum_complete(skb2))
-> + if (!skb_csum_unnecessary(skb2) && csum_ipv6_magic(&ip6h->saddr,
-> + &ip6h->daddr, skb2->len, IPPROTO_ICMPV6,
+Cache icmp6_type field instead of dereferencing twice the struct
+icmp6hdr pointer.
 
-Patch has been significantly corrupted by your email client, making
-it unusable for us.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/bridge/br_multicast.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Please read linux/Documentation/email-clients.txt, email a test patch
-to yourself, and only resend your patch to this list once you can
-successfully apply such a patch yourself.
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 2d85ca7..5db95fd 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1456,7 +1456,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ {
+ 	struct sk_buff *skb2;
+ 	const struct ipv6hdr *ip6h;
+-	struct icmp6hdr *icmp6h;
++	u8 icmp6_type;
+ 	u8 nexthdr;
+ 	unsigned len;
+ 	int offset;
+@@ -1502,9 +1502,9 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 	__skb_pull(skb2, offset);
+ 	skb_reset_transport_header(skb2);
+ 
+-	icmp6h = icmp6_hdr(skb2);
++	icmp6_type = icmp6_hdr(skb2)->icmp6_type;
+ 
+-	switch (icmp6h->icmp6_type) {
++	switch (icmp6_type) {
+ 	case ICMPV6_MGM_QUERY:
+ 	case ICMPV6_MGM_REPORT:
+ 	case ICMPV6_MGM_REDUCTION:
+@@ -1537,7 +1537,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 
+ 	BR_INPUT_SKB_CB(skb)->igmp = 1;
+ 
+-	switch (icmp6h->icmp6_type) {
++	switch (icmp6_type) {
+ 	case ICMPV6_MGM_REPORT:
+ 	    {
+ 		struct mld_msg *mld;
