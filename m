@@ -1,38 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: RFC: Remove unnecessary / duplicate OOM printks
-Date: Thu, 25 Aug 2011 13:47:23 -0700
-Message-ID: <1314305243.4637.10.camel@Joe-Laptop>
+From: Rick Jones <rick.jones2-VXdhtT5mjnY@public.gmane.org>
+Subject: is SO_PRIORITY still supposed to affect the TOS field?
+Date: Thu, 25 Aug 2011 14:52:05 -0700
+Message-ID: <4E56C405.3030407@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wondertoys-mx.wondertoys.net ([206.117.179.246]:32787 "EHLO
-	labridge.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754387Ab1HYUr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 16:47:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, amirv-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org,
+	mkt.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There are many thousands of printks for OOM conditions
-in kernel sources.
+Amir Vadai recently sent me some patches for netperf to implement 
+setting SO_PRIORITY.  I made changes to netperf based on those patches, 
+(now in top of trunk on netperf.org) and between some emails with me, 
+him and Dave Taht and some quick messing around while watching tcpdump, 
+I'm wondering if this:
 
-These are almost always a duplication of a generic
-OOM message from the mm subsystem.
+>       SO_PRIORITY
+>               Set the protocol-defined priority for all packets to be sent  on
+>               this  socket.   Linux  uses  this  value to order the networking
+>               queues: packets with a higher priority may  be  processed  first
+>               depending  on  the  selected  device  queueing  discipline.  For
+>               ip(7), this also sets the IP  type-of-service  (TOS)  field  for
+>               outgoing  packets.   Setting a priority outside the range 0 to 6
+>               requires the CAP_NET_ADMIN capability.
 
-The biggest difference between the generic OOM and
-the specific OOM uses is that most of the specific
-messages are emitted at KERN_ERR but the generic
-message is at KERN_WARNING.
+from the socket(7) manpage is still accurate because even setting a 
+number of different values for SO_PRIORITY I didn't see the TOS field as 
+anything other than 0 in tcpdump output (confirming something Dave Taht 
+saw).
 
-Many KB of code/text could be removed from the kernel.
+happy benchmarking,
 
-Removal can be gradual and done by subsystem.
-
-Some kmalloc's that are followed on failure by vmalloc
-may need to add GFP_NOWARN.
-
-Does anyone really believe the per site failure
-messages are useful or really want them to keep them?
+rick jones
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
