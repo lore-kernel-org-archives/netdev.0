@@ -1,88 +1,108 @@
-From: Arnd Hannemann <arnd@arndnet.de>
-Subject: Re: [PATCH] tcp: bound RTO to minimum
-Date: Thu, 25 Aug 2011 12:15:26 +0200
-Message-ID: <4E5620BE.3050102@arndnet.de>
-References: <1314226834.6797.5.camel@edumazet-laptop>  <1314229310-8074-1-git-send-email-hagen@jauu.net>  <CAK6E8=dXf=wsZOB+ZUNuUpLyV2vrcgf7pvwYPz1YTmF81WuGDA@mail.gmail.com>  <1314250134.6797.24.camel@edumazet-laptop>  <4033BFEE-C432-4D94-8372-BA166AF2AA26@comsys.rwth-aachen.de>  <1314260805.2387.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4E560BFD.5020301@arndnet.de>  <1314263389.2387.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4E5619DA.6070902@arndnet.de> <1314266562.2387.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH 3/5] SUNRPC: make RPC service dependable on rpcbind clients
+ creation
+Date: Thu, 25 Aug 2011 14:18:24 +0400
+Message-ID: <4E562170.1090000@parallels.com>
+References: <20110824183304.4924.94670.stgit@localhost6.localdomain6> <20110824183359.4924.94364.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>,
-	Yuchung Cheng <ycheng@google.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	netdev <netdev@vger.kernel.org>,
-	Lukowski Damian <damian@tvk.rwth-aachen.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.unitix.de ([176.9.2.175]:56279 "EHLO mail2.unitix.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751120Ab1HYKP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Aug 2011 06:15:29 -0400
-In-Reply-To: <1314266562.2387.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110824183359.4924.94364.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+This patch has a flaw: rpcbind clients have to be put in case of error =
+in __svc_create().
+So will be the second version.
 
-Am 25.08.2011 12:02, schrieb Eric Dumazet:
-> Le jeudi 25 ao=FBt 2011 =E0 11:46 +0200, Arnd Hannemann a =E9crit :
->> Hi Eric,
->>
->> Am 25.08.2011 11:09, schrieb Eric Dumazet:
->=20
->>> Maybe we should refine the thing a bit, to not reverse backoff unle=
-ss
->>> rto is > some_threshold.
->>>
->>> Say 10s being the value, that would give at most 92 tries.
->>
->> I personally think that 10s would be too large and eliminate the ben=
-efit of the
->> algorithm, so I would prefer a different solution.
->>
->> In case of one bulk data TCP session, which was transmitting hundred=
-s of packets/s
->> before the connectivity disruption those worst case rate of 5 packet=
-/s really
->> seems conservative enough.
->>
->> However in case of a lot of idle connections, which were transmittin=
-g only
->> a number of packets per minute. We might increase the rate drastical=
-ly for
->> a certain period until it throttles down. You say that we have a pro=
-blem here
->> correct?
->>
->> Do you think it would be possible without much hassle to use a kind =
-of "global"
->> rate limiting only for these probe packets of a TCP connection?
->>
->>> I mean, what is the gain to be able to restart a frozen TCP session=
- with
->>> a 1sec latency instead of 10s if it was blocked more than 60 second=
-s ?
->>
->> I'm afraid it does a lot, especially in highly dynamic environments.=
- You
->> don't have just the additional latency, you may actually miss the fu=
-ll
->> period where connectivity was there, and then just retransmit into t=
-he next
->> connectivity disrupted period.
->=20
-> Problem with this is that with short and synchronized timers, all
-> sessions will flood at the same time and you'll get congestion this
-> time.
+24.08.2011 22:33, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> We create or increase users counter of rcbind clients during RPC serv=
+ice
+> creation and decrease this counter (and possibly destroy those client=
+s) on RPC
+> service destruction.
+>
+> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+>
+> ---
+>   include/linux/sunrpc/clnt.h |    2 ++
+>   net/sunrpc/rpcb_clnt.c      |    2 +-
+>   net/sunrpc/svc.c            |    5 +++++
+>   3 files changed, 8 insertions(+), 1 deletions(-)
+>
+> diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.=
+h
+> index db7bcaf..65a8115 100644
+> --- a/include/linux/sunrpc/clnt.h
+> +++ b/include/linux/sunrpc/clnt.h
+> @@ -135,10 +135,12 @@ void		rpc_shutdown_client(struct rpc_clnt *);
+>   void		rpc_release_client(struct rpc_clnt *);
+>   void		rpc_task_release_client(struct rpc_task *);
+>
+> +int		rpcb_create_local(void);
+>   int		rpcb_register(u32, u32, int, unsigned short);
+>   int		rpcb_v4_register(const u32 program, const u32 version,
+>   				 const struct sockaddr *address,
+>   				 const char *netid);
+> +void		rpcb_put_local(void);
+>   void		rpcb_getport_async(struct rpc_task *);
+>
+>   void		rpc_call_start(struct rpc_task *);
+> diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+> index b4cc0f1..437ec60 100644
+> --- a/net/sunrpc/rpcb_clnt.c
+> +++ b/net/sunrpc/rpcb_clnt.c
+> @@ -318,7 +318,7 @@ out:
+>    * Returns zero on success, otherwise a negative errno value
+>    * is returned.
+>    */
+> -static int rpcb_create_local(void)
+> +int rpcb_create_local(void)
+>   {
+>   	static DEFINE_MUTEX(rpcb_create_local_mutex);
+>   	int result =3D 0;
+> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+> index 6a69a11..0df8532 100644
+> --- a/net/sunrpc/svc.c
+> +++ b/net/sunrpc/svc.c
+> @@ -367,6 +367,9 @@ __svc_create(struct svc_program *prog, unsigned i=
+nt bufsize, int npools,
+>   	unsigned int xdrsize;
+>   	unsigned int i;
+>
+> +	if (rpcb_create_local()<  0)
+> +		return NULL;
+> +
+>   	if (!(serv =3D kzalloc(sizeof(*serv), GFP_KERNEL)))
+>   		return NULL;
+>   	serv->sv_name      =3D prog->pg_name;
+> @@ -491,6 +494,8 @@ svc_destroy(struct svc_serv *serv)
+>   	svc_unregister(serv);
+>   	kfree(serv->sv_pools);
+>   	kfree(serv);
+> +
+> +	rpcb_put_local();
+>   }
+>   EXPORT_SYMBOL_GPL(svc_destroy);
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" =
+in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Why do you think the timers are "syncronized"? If you have congestion
-then you will do exponential backoff.
 
-> The reason for exponential backoff is also to smooth the restarts of
-> sessions, because timers are randomized.
-
-If the RTO of these sessions were "randomized" they keep this randomiza=
-tion,
-even if backoffs are reverted, at least they should.
-
-Best regards
-Arnd
+--=20
+Best regards,
+Stanislav Kinsbursky
