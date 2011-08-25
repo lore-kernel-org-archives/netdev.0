@@ -1,161 +1,96 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: slow performance on disk/network i/o full speed after drop_caches
-Date: Thu, 25 Aug 2011 11:00:26 +0200
-Message-ID: <4E560F2A.1030801@profihost.ag>
-References: <4E5494D4.1050605@profihost.ag> <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com> <4E54BDCF.9020504@profihost.ag> <20110824093336.GB5214@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: bound RTO to minimum
+Date: Thu, 25 Aug 2011 11:09:49 +0200
+Message-ID: <1314263389.2387.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1314226834.6797.5.camel@edumazet-laptop>
+	 <1314229310-8074-1-git-send-email-hagen@jauu.net>
+	 <CAK6E8=dXf=wsZOB+ZUNuUpLyV2vrcgf7pvwYPz1YTmF81WuGDA@mail.gmail.com>
+	 <1314250134.6797.24.camel@edumazet-laptop>
+	 <4033BFEE-C432-4D94-8372-BA166AF2AA26@comsys.rwth-aachen.de>
+	 <1314260805.2387.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <4E560BFD.5020301@arndnet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pekka Enberg <penberg@kernel.org>,
- LKML <linux-kernel@vger.kernel.org>,
- "linux-mm@kvack.org" <linux-mm@kvack.org>,
- Andrew Morton <akpm@linux-foundation.org>,
- Mel Gorman <mel@csn.ul.ie>, Jens Axboe <jaxboe@fusionio.com>,
- Linux Netdev List <netdev@vger.kernel.org>
-To: Wu Fengguang <fengguang.wu@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110824093336.GB5214@localhost>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>,
+	Yuchung Cheng <ycheng@google.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	netdev <netdev@vger.kernel.org>,
+	Lukowski Damian <damian@tvk.rwth-aachen.de>
+To: Arnd Hannemann <arnd@arndnet.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56066 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898Ab1HYJJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 05:09:48 -0400
+Received: by wyg24 with SMTP id 24so1488610wyg.19
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 02:09:47 -0700 (PDT)
+In-Reply-To: <4E560BFD.5020301@arndnet.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 24.08.2011 11:33, schrieb Wu Fengguang:
-> On Wed, Aug 24, 2011 at 05:01:03PM +0800, Stefan Priebe - Profihost AG wrote:
->>
->>>> sync&&   echo 3>/proc/sys/vm/drop_caches&&   sleep 2&&   echo 0
->>>>> /proc/sys/vm/drop_caches
->>
->> Another way to get it working again is to stop some processes. Could be
->> mysql or apache or php fcgi doesn't matter. Just free some memory.
->> Although there are already 5GB free.
->
-> Is it a NUMA machine and _every_ node has enough free pages?
->
->          grep . /sys/devices/system/node/node*/vmstat
->
-> Thanks,
-> Fengguang
-Hi Fengguang,
+Le jeudi 25 ao=C3=BBt 2011 =C3=A0 10:46 +0200, Arnd Hannemann a =C3=A9c=
+rit :
+> Hi,
+>=20
+> Am 25.08.2011 10:26, schrieb Eric Dumazet:
+> > Le jeudi 25 ao=C3=BBt 2011 =C3=A0 09:28 +0200, Alexander Zimmermann=
+ a =C3=A9crit :
+> >> Hi Eric,
+> >>
+> >> Am 25.08.2011 um 07:28 schrieb Eric Dumazet:
+> >=20
+> >>> Real question is : do we really want to process ~1000 timer inter=
+rupts
+> >>> per tcp session, ~2000 skb alloc/free/build/handling, possibly ~1=
+000 ARP
+> >>> requests, only to make tcp revover in ~1sec when connectivity ret=
+urns
+> >>> back. This just doesnt scale.
+> >>
+> >> maybe a stupid question, but 1000?. With an minRTO of 200ms and a =
+maximum
+> >> probing time of 120s, we 600 retransmits in a worst-case-senario
+> >> (assumed that we get for every rot retransmission an icmp). No?
+> >=20
+> > Where is asserted the "max probing time of 120s" ?=20
+> >=20
+> > It is not the case on my machine :
+> > I have way more retransmits than that, even if spaced by 1600 ms
+> >=20
+> > 07:16:13.389331 write(3, "\350F\235JC\357\376\363&\3\374\270R\21L\2=
+6\324{\37p\342\244i\304\356\241I:\301\332\222\26"..., 48) =3D 48
+> > 07:16:13.389417 select(7, [3 4], [], NULL, NULL) =3D 1 (in [3])
+> > 07:31:39.901311 read(3, 0xff8c4c90, 8192) =3D -1 EHOSTUNREACH (No r=
+oute to host)
+> >=20
+> > Old kernels where performing up to 15 retries, doing exponential ba=
+ckoff.
+> >=20
+> > Now its kind of unlimited, according to experimental results.
+>=20
+> That shouldn't be. It should stop after the same time a TCP connectio=
+n with an
+> RTO of Minimum RTO which is doing 15 retries (tcp_retries2=3D15) and =
+doing exponential backoff.
+> So it should be around 900s*. But it could be that because of the ics=
+k_retransmit wrapover
+> this doesn't work as expected.
+>=20
+> * 200ms + 400ms + 800ms ...
 
-thanks for your fast reply.
+It is 924 second with retries2=3D15 (default value)
 
-Here is the data you requested:
+I said ~1000 probes.
 
-root@server1015-han:~# grep . /sys/devices/system/node/node*/vmstat
-/sys/devices/system/node/node0/vmstat:nr_written 5546561
-/sys/devices/system/node/node0/vmstat:nr_dirtied 5572497
-/sys/devices/system/node/node1/vmstat:nr_written 3936
-/sys/devices/system/node/node1/vmstat:nr_dirtied 4190
+If ICMP are not rate limited, that could be about 924*5 probes, instead
+of 15 probes on old kernels.
 
-modified it a little bit:
-~# while [ true ]; do ps -eo 
-user,pid,tid,class,rtprio,ni,pri,psr,pcpu,vsz,rss,pmem,stat,wchan:28,cmd 
-| grep scp | grep -v grep; sleep 1; done
+Maybe we should refine the thing a bit, to not reverse backoff unless
+rto is > some_threshold.
 
-root     12409 12409 TS       -   0  19   0 59.8  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   0 64.0  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   0 67.7  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 70.6  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 73.5  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 76.0  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 78.2  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 80.0  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 80.9  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   2 76.7  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 75.6  42136  1724  0.0 Ds 
-pipe_read                    scp -t /tmp/
-root     12409 12409 TS       -   0  19   0 76.0  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 75.2  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 76.6  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 77.9  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 79.0  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 72.8  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   0 73.0  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   0 73.8  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 74.3  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 73.4  42136  1724  0.0 Ss 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 71.3  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 71.9  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   0 72.7  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   3 73.5  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   3 74.4  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   3 75.2  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   0 76.0  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 76.6  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 74.8  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 73.2  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   1 73.9  42136  1724  0.0 Rs 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   0 72.4  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 72.0  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 72.5  42136  1724  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 72.9  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12409 12409 TS       -   0  19   8 73.5  42136  1724  0.0 Rs 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   1  0.0  42136  1728  0.0 Rs 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   1 23.0  42136  1728  0.0 Rs 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   1 49.5  42136  1728  0.0 Rs 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   2 63.3  42136  1728  0.0 Rs 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   1 71.5  42136  1728  0.0 Rs 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   1 77.4  42136  1728  0.0 Rs 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   1 70.3  42136  1728  0.0 Rs 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   1 73.1  42136  1728  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12566 12566 TS       -   0  19   0 65.7  42136  1728  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
-root     12566 12566 TS       -   0  19   1 61.2  42136  1728  0.0 Ss 
--                            scp -t /tmp/
-root     12566 12566 TS       -   0  19   1 63.7  42136  1728  0.0 Rs 
--                            scp -t /tmp/
-root     12636 12636 TS       -   0  19   8  0.0  42136  1728  0.0 Ss 
-poll_schedule_timeout        scp -t /tmp/
+Say 10s being the value, that would give at most 92 tries.
 
-
-Stefan
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I mean, what is the gain to be able to restart a frozen TCP session wit=
+h
+a 1sec latency instead of 10s if it was blocked more than 60 seconds ?
