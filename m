@@ -1,60 +1,109 @@
-From: Jeff Chua <jeff.chua.linux@gmail.com>
-Subject: Re: pull request: wireless 2011-08-22
-Date: Thu, 25 Aug 2011 11:33:05 +0800
-Message-ID: <CAAJw_ZtFw5FxPy+boe_99mKQi7yt3yfGE6FqWrzmUD3T-y1v8w@mail.gmail.com>
-References: <20110822190136.GJ2534@tuxdriver.com>
-	<20110822.123326.1795268471389412471.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-next v2 00/10] Fix net header dependencies
+Date: Thu, 25 Aug 2011 05:38:44 +0100
+Message-ID: <1314247131.27179.116.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, IvDoorn@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110822.123326.1795268471389412471.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Vmr2LoyvZEe9ta86SeKQ"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49067 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751229Ab1HYEiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 00:38:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 23, 2011 at 3:33 AM, David Miller <davem@davemloft.net> wro=
-te:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Mon, 22 Aug 2011 15:01:37 -0400
->
->> This is a batch of fixes intended for 3.1. =A0Included is rewrite of=
- an
->> earlier iwlagn fix that was revealed to be flawed (bad pointer acces=
-s
->> during module unload), a fix for a memory leak, and a trio of rt2x00
->> fixes with detailed changelogs. =A0These have all been in linux-next
->> for the last week with no reported complaints.
->>
->> Please let me know if there are problems!
->
-> Pulled, thanks John.
 
-I'm using the rt2800usb module for the Buffalo WLI-UC-GNM using ad-hoc =
-mode.
+--=-Vmr2LoyvZEe9ta86SeKQ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-T:  Bus=3D01 Lev=3D02 Prnt=3D02 Port=3D01 Cnt=3D01 Dev#=3D  3 Spd=3D480=
-  MxCh=3D 0
-D:  Ver=3D 2.00 Cls=3D00(>ifc ) Sub=3D00 Prot=3D00 MxPS=3D64 #Cfgs=3D  =
-1
-P:  Vendor=3D0411 ProdID=3D01a2 Rev=3D 1.01
-S:  Manufacturer=3DRalink
-S:  Product=3D802.11 n WLAN
+Various networking headers depend on definitions from others which they
+don't include.  We can't fix all of these, because some definitions are
+duplicated between kernel headers and glibc headers and we cannot tell
+which is the right one to include.  We also have to be wary of
+introducing a dependency cycle.
 
-It works ok, but after idling for a while, it does not response, and
-module needs to unloaded and modprobe again to make it work.
+Since v1, I've dropped the patches to <linux/scc.h> and <linux/if_ppp.h>
+and added the acknowledgements I got last time.
 
-The same mac80211 and cfg80211 works for iwlagn and no problem with
-idling timeout.
+Ben.
 
-Is there any parameter to control the rt2800usb to make turn off power =
-saving?
+Ben Hutchings (10):
+  headers, pppox: Add missing #include to <linux/if_pppox.h>
+  headers, ax25: Add missing #include to <linux/netrom.h>,
+    <linux/rose.h>
+  headers, pppol2tp: Use __kernel_pid_t in <linux/pppol2tp.h>
+  headers, net: Use __kernel_sa_family_t in more definitions shared
+    with userland
+  headers, net: Define struct __kernel_sockaddr, replacing struct
+    sockaddr
+  headers, netfilter: Use kernel type names __u8, __u16, __u32
+  headers, tipc: Add missing #include to <linux/tipc_config.h> for
+    userland
+  headers, netfilter: Add missing #include <limits.h> for userland
+  headers, xtables: Add missing #include <linux/netfilter.h>
+  headers, can: Add missing #include to <linux/can/bcm.h>
 
-I've tried "iwconfig lwan0 power timeout 0 power off" but no effect.
+ include/linux/atalk.h                     |    3 ++-
+ include/linux/ax25.h                      |    2 +-
+ include/linux/caif/caif_socket.h          |    7 +------
+ include/linux/can.h                       |    2 +-
+ include/linux/can/bcm.h                   |    1 +
+ include/linux/if.h                        |   12 ++++++------
+ include/linux/if_pppol2tp.h               |    2 +-
+ include/linux/if_pppox.h                  |    9 +++++----
+ include/linux/in.h                        |    2 +-
+ include/linux/ipx.h                       |    2 +-
+ include/linux/irda.h                      |    9 +++------
+ include/linux/l2tp.h                      |    7 ++++---
+ include/linux/llc.h                       |   10 +++++++---
+ include/linux/netfilter/xt_connlimit.h    |    1 +
+ include/linux/netfilter/xt_conntrack.h    |    1 +
+ include/linux/netfilter/xt_iprange.h      |    1 +
+ include/linux/netfilter_arp/arp_tables.h  |   14 +++++++-------
+ include/linux/netfilter_decnet.h          |    3 +++
+ include/linux/netfilter_ipv4.h            |    3 +++
+ include/linux/netfilter_ipv4/ip_tables.h  |   20 ++++++++++----------
+ include/linux/netfilter_ipv6.h            |    3 +++
+ include/linux/netfilter_ipv6/ip6_tables.h |   22 +++++++++++-----------
+ include/linux/netlink.h                   |    2 +-
+ include/linux/netrom.h                    |    2 ++
+ include/linux/phonet.h                    |    6 ++++--
+ include/linux/rose.h                      |    7 +++++--
+ include/linux/socket.h                    |   17 +++++++++--------
+ include/linux/tipc_config.h               |    4 ++++
+ include/linux/un.h                        |    4 +++-
+ include/linux/x25.h                       |    3 ++-
+ 30 files changed, 104 insertions(+), 77 deletions(-)
 
-Linux 3.1.0-rc3 with commit caca9510ff4e5d842c0589110243d60927836222.
+--=20
+1.7.5.4
 
-Thanks,
-Jeff.
+
+
+--=-Vmr2LoyvZEe9ta86SeKQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUATlXR1Oe/yOyVhhEJAQp8gg/+IgokQGKBs5nlnSK9RaUm8ngPvFEdlEZr
+NmNmtShyxHra1Iq1pmzyUXviy2dcPNEUPV/uU3IRCdfdHhaDx48pm7UNkbLE5foE
+3HOLkru3w6X8Xnx6PLTU022yK6cNEKTHYlzGw2mUFU+RPiPCtiZdjtGhIR3MAY8r
+uMeHLbiJC5MF4NthdxPV/fdltL2YSn9tbeP1zlWjwShnDJEk7lDHzUvliORfwPcM
+aEcoAvb4DD7PzwqLPCzs52RdfkKkNHI27/toq7jZSF6ZUCIlb5TO3dCwwFvnLJ+I
+1GwJdMjPlqqCP4cARGAZXZz5w9pStFJJ4wS2Dnp6/IcyXGTlPMypvx9DGU0y0hRL
+ph4Ch9DIvqAzL3+OgLnU+u/sxBWHnNSWlJ1HYeFOqdnDeC6gyGs3/MFyKFUbY2N7
+8Z/HekMjVaTI4hgmiODZYQq3eCjOH9josopyReq/05V0jRKeTulj+7L0NJKBlerF
+UVK/MtQvPO7ic7eRqlaa9kfHAOn/f7WFr8UNEayp5cDLZdW9SOsN4PnAVa5ZbUZM
+PJoKw2isegoD3aMuoICzipluMllsY6lBzyZI+t82db31yLWuu9MwUkfSawdccY8b
+pS728kl5wuhv/CBgINECjNZ+0lNLgcq/b9XPjg9+zYcnzfjNDnJWGKpRdMosv4DP
+i3daMI1kCqQ=
+=Sucm
+-----END PGP SIGNATURE-----
+
+--=-Vmr2LoyvZEe9ta86SeKQ--
