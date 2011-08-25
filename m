@@ -1,75 +1,86 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next v2 01/10] headers, pppox: Add missing #include to
- <linux/if_pppox.h>
-Date: Thu, 25 Aug 2011 05:40:48 +0100
-Message-ID: <1314247249.27179.117.camel@deadeye>
+Subject: [PATCH net-next v2 02/10] headers, ax25: Add missing #include to
+ <linux/netrom.h>, <linux/rose.h>
+Date: Thu, 25 Aug 2011 05:43:18 +0100
+Message-ID: <1314247398.27179.119.camel@deadeye>
 References: <1314247131.27179.116.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-S+8qi45mLvsbkOwAugnQ"
-Cc: netdev@vger.kernel.org, Michal Ostrowski <mostrows@earthlink.net>
+	protocol="application/pgp-signature"; boundary="=-l18VGwDfcfkjRWtCEVMT"
+Cc: netdev@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>,
+	linux-hams@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37117 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751229Ab1HYEku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 00:40:50 -0400
+Return-path: <linux-hams-owner@vger.kernel.org>
 In-Reply-To: <1314247131.27179.116.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-S+8qi45mLvsbkOwAugnQ
+--=-l18VGwDfcfkjRWtCEVMT
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-<linux/if_ppox.h> uses ETH_ALEN, defined in <linux/if_ether.h>.
+These headers use the ax25_address type defined in <linux/ax25.h>.
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 ---
- include/linux/if_pppox.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/linux/netrom.h |    2 ++
+ include/linux/rose.h   |    2 ++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
-index 397921b..60e5558 100644
---- a/include/linux/if_pppox.h
-+++ b/include/linux/if_pppox.h
-@@ -20,8 +20,8 @@
- #include <linux/types.h>
- #include <asm/byteorder.h>
+diff --git a/include/linux/netrom.h b/include/linux/netrom.h
+index 6939b32..af7313c 100644
+--- a/include/linux/netrom.h
++++ b/include/linux/netrom.h
+@@ -7,6 +7,8 @@
+ #ifndef	NETROM_KERNEL_H
+ #define	NETROM_KERNEL_H
 =20
--#ifdef  __KERNEL__
- #include <linux/if_ether.h>
-+#ifdef  __KERNEL__
- #include <linux/if.h>
- #include <linux/netdevice.h>
- #include <linux/ppp_channel.h>
++#include <linux/ax25.h>
++
+ #define NETROM_MTU	236
+=20
+ #define NETROM_T1	1
+diff --git a/include/linux/rose.h b/include/linux/rose.h
+index c7b4b18..e8289cd 100644
+--- a/include/linux/rose.h
++++ b/include/linux/rose.h
+@@ -7,6 +7,8 @@
+ #ifndef	ROSE_KERNEL_H
+ #define	ROSE_KERNEL_H
+=20
++#include <linux/ax25.h>
++
+ #define ROSE_MTU	251
+=20
+ #define ROSE_MAX_DIGIS 6
 --=20
 1.7.5.4
 
 
 
 
---=-S+8qi45mLvsbkOwAugnQ
+--=-l18VGwDfcfkjRWtCEVMT
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATlXSUOe/yOyVhhEJAQpVaRAAxyRU1SgwpkImYBngWxNMS8IPpFic8nrf
-lJIQ1opHxO0H/9FrggWEWgfiTsUaNXi8Bs208v30TKjWvB3NHPHJ+uxEoKd/F5vy
-skqXQt5VGHp6C8+9yQg5Ml8UwvvGe4WS63mJYBm84/f7+P/oWS8FLzRhtRH7BuFT
-bSPG9vaiVEnEo8ZHZr7hiInNVPI7zYMkLT7OmESzDkDvwkKqHJ5LuVrC66VGnSKn
-t65W6Q7iNVXw97vnklYUdF1XwrIggpbZpnPF3wEJHZK2JNpf8YRxghJTCYZmsdeK
-4GS8C9gAEhtFcA4Rwv21jA1gaC1uy6srhaM40+7VrnWYHxse7G+9lBNDPGj0QnLh
-0PVG1efQ0qyPFYfvonxuBjEaicTs9PrKIHSdzBmaGdf3/Ui9tZZUB6ayqKlIWryz
-3kSWJBgIur+Zjt/OgrGp1ertImcMdhK8J3spKLvaGrDqZYTdsQLaEIu9c83DNR31
-3oTVuN6980852wYlQh3VrVCgpt45QIre+tod2pWJVxCHjb3zx/C6JjT0bLXklpuS
-IYbYDO+A2PASiZfPyTGESONv70LmT2R6KZoiQIOzKzpkJRo8wUQ9C1qALG3v0/Au
-VWqPYKrxJfN/rxhPmz0GU4vUjtvvAq8+DooHTQMcR3rxI0czr+zMHNfoaHPMlAV7
-ii8NssAX/NU=
-=BHSJ
+iQIVAwUATlXS5ue/yOyVhhEJAQqmHg//Zk/knt7UhqxJOFJDFx5IpXTfy+2kkeVQ
+3Djo0bKnoBCSIxly7FiuOeGt47C5SMktwwUKxPpA4qwMoW8g5EadkiF9tTPbEYSt
+mQQA7HQQEIFeFE/xosXckmX9ZeE9jf03TEXcIAq5OXb4ne+Lj+qU/FaqRk67KMXw
+1JfW+icKQDqUJ/jMialQ0tYa4ZYsmAOsccOl26+PVm6zVMMwwP/Az7PQbOZiP4eN
+6gcxps4X3jdBPXbW81ISixztcdzdMbXqK8dKk/WLjzrddqmq/582Rk2MiXrewSIV
++INkruJ+PhF2ynbZ8jixjztAzcqiy3BLlkd+Y63Cu6ldaoofg7VAfbL2vr9a0uhl
+oqhtL++BjwOUcIef4mlA1cAGoqJo4rn9++TS1leCT/pTS2hirzuwJTQU4y3hR/MX
+YM+BIIxoWKTkfxMXd1tGCEK6m8ni9ODs9tSvRgEDxckYSmRRvSuE+bcL1XXfe5bO
+TUAD47s5KrjXusgTv581QKPKCRg5uN24s8ObDfPfJCO28+53K2R7yS/aP31TJ7CW
+bNok3KRkEtpXmLJCBId7inUN6iQg55FtO4mElRRXbV4CUTKC+Ani3lYbMF/N/4I1
+KWBvsfhs3CMSafSwmfl9BkM0/Wd4dRAFhlpw/okvx24JxIa56U4eo1ESrZcpSWju
+D5D9wS9SYR8=
+=2gAa
 -----END PGP SIGNATURE-----
 
---=-S+8qi45mLvsbkOwAugnQ--
+--=-l18VGwDfcfkjRWtCEVMT--
