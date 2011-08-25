@@ -1,40 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [omega-g1:11110] Re: [PATCH] net: configurable sysctl
- parameter "net.core.tcp_lowat" for sk_stream_min_wspace()
-Date: Wed, 24 Aug 2011 22:00:16 -0700 (PDT)
-Message-ID: <20110824.220016.781758659534965980.davem@davemloft.net>
-References: <4E51A3F0.5010500@ctc-g.co.jp>
-	<20110822.113544.28950168095176936.davem@davemloft.net>
-	<4E55D3C2.40308@ctc-g.co.jp>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the staging tree
+Date: Thu, 25 Aug 2011 15:02:09 +1000
+Message-ID: <20110825150209.5d159c549777290de4644bcf@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, omega-g1@ctc-g.co.jp,
-	notsuki@redhat.com, motokazu.kozaki@hp.com, htaira@redhat.com,
-	netdev@vger.kernel.org, tomohiko.takahashi@ctc-g.co.jp,
-	kotaro.sakai@ctc-g.co.jp, ken.sugawara@ctc-g.co.jp
-To: jun.kondo@ctc-g.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34392 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750747Ab1HYFAd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 01:00:33 -0400
-In-Reply-To: <4E55D3C2.40308@ctc-g.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	wlanfae <wlanfae@realtek.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jun.Kondo" <jun.kondo@ctc-g.co.jp>
-Date: Thu, 25 Aug 2011 13:46:58 +0900
+Hi Greg,
 
-> Currently, once the transmission buffer becomes full, it is not
-> possible to write again unless there is one third of free space
-> in the transmission buffer.
+After merging the staging tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-Then use a non-blocking socket if you don't want to block.
+drivers/staging/rtl8192e/rtl_core.c:2917:2: error: unknown field 'ndo_set_multicast_list' specified in initializer
 
-We're talking in circles, and will walk down the same discussions
-again.  You have still not shown what real limitation is created
-by the way things work currently.
+Caused by commit 94a799425eee ("From: wlanfae <wlanfae@realtek.com>" -
+really "[PATCH 1/8] rtl8192e: Import new version of driver from realtek"
+Larry, that patch was badly imported ...) interacting with commit
+b81693d9149c ("net: remove ndo_set_multicast_list callback") from the net
+tree.
 
-I've said everything that I can, and I will thus recuse myself from
-the rest of this discussion since I really can't add anything more.
+I applied the following patch (which seems to be what was done to the
+other drivers in the net tree - there is probably more required):
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 25 Aug 2011 14:57:55 +1000
+Subject: [PATCH] rtl8192e: update for ndo_set_multicast_list removal.
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/staging/rtl8192e/rtl_core.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/staging/rtl8192e/rtl_core.c b/drivers/staging/rtl8192e/rtl_core.c
+index f8a13d9..b38f626 100644
+--- a/drivers/staging/rtl8192e/rtl_core.c
++++ b/drivers/staging/rtl8192e/rtl_core.c
+@@ -2914,7 +2914,7 @@ static const struct net_device_ops rtl8192_netdev_ops = {
+ 	.ndo_stop = rtl8192_close,
+ 	.ndo_tx_timeout = rtl8192_tx_timeout,
+ 	.ndo_do_ioctl = rtl8192_ioctl,
+-	.ndo_set_multicast_list = r8192_set_multicast,
++	.ndo_set_rx_mode = r8192_set_multicast,
+ 	.ndo_set_mac_address = r8192_set_mac_adr,
+ 	.ndo_validate_addr = eth_validate_addr,
+ 	.ndo_change_mtu = eth_change_mtu,
+-- 
+1.7.5.4
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
