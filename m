@@ -1,96 +1,40 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH] ibmveth: Fix leak when recycling skb and hypervisor returns
- error
-Date: Thu, 25 Aug 2011 10:55:20 +1000
-Message-ID: <20110825105520.5ba7ae90@kryten>
-References: <20110825092019.777aea6e@kryten>
-	<20110824.174353.1962229766905714384.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: (3.1.0-rc2-git7) include/linux/inetdevice.h:209 invoked
+ rcu_dereference_check() without protection!
+Date: Wed, 24 Aug 2011 17:55:36 -0700 (PDT)
+Message-ID: <20110824.175536.2182027080149098383.davem@davemloft.net>
+References: <20110823024423.GA23874@redhat.com>
+	<1314077562.4791.21.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: santil@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: davej@redhat.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:43518 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750915Ab1HYAzW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 20:55:22 -0400
-In-Reply-To: <20110824.174353.1962229766905714384.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:46020 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678Ab1HYAzm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 20:55:42 -0400
+In-Reply-To: <1314077562.4791.21.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 23 Aug 2011 07:32:42 +0200
 
-> Please generate this patch against Linus's tree, instead of -next
+> [PATCH] arp: fix rcu lockdep splat in arp_process()
+> 
+> Dave Jones reported a lockdep splat triggered by an arp_process() call
+> from parp_redo().
+> 
+> Commit faa9dcf793be (arp: RCU changes) is the origin of the bug, since
+> it assumed arp_process() was called under rcu_read_lock(), which is not
+> true in this particular path.
+> 
+> Instead of adding rcu_read_lock() in parp_redo(), I chose to add it in 
+> neigh_proxy_process() to take care of IPv6 side too.
+...
+> Reported-by: Dave Jones <davej@redhat.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Sure, here it is.
-
-Anton
-
---
-
-If h_add_logical_lan_buffer returns an error we need to free
-the skb.
-
-Signed-off-by: Anton Blanchard <anton@samba.org>
-Cc: stable <stable@kernel.org>
----
-
-Index: linux-2.6-work/drivers/net/ibmveth.c
-===================================================================
---- linux-2.6-work.orig/drivers/net/ibmveth.c	2011-07-31 20:45:29.729141545 +1000
-+++ linux-2.6-work/drivers/net/ibmveth.c	2011-08-25 10:49:04.200718870 +1000
-@@ -395,7 +395,7 @@ static inline struct sk_buff *ibmveth_rx
- }
- 
- /* recycle the current buffer on the rx queue */
--static void ibmveth_rxq_recycle_buffer(struct ibmveth_adapter *adapter)
-+static int ibmveth_rxq_recycle_buffer(struct ibmveth_adapter *adapter)
- {
- 	u32 q_index = adapter->rx_queue.index;
- 	u64 correlator = adapter->rx_queue.queue_addr[q_index].correlator;
-@@ -403,6 +403,7 @@ static void ibmveth_rxq_recycle_buffer(s
- 	unsigned int index = correlator & 0xffffffffUL;
- 	union ibmveth_buf_desc desc;
- 	unsigned long lpar_rc;
-+	int ret = 1;
- 
- 	BUG_ON(pool >= IBMVETH_NUM_BUFF_POOLS);
- 	BUG_ON(index >= adapter->rx_buff_pool[pool].size);
-@@ -410,7 +411,7 @@ static void ibmveth_rxq_recycle_buffer(s
- 	if (!adapter->rx_buff_pool[pool].active) {
- 		ibmveth_rxq_harvest_buffer(adapter);
- 		ibmveth_free_buffer_pool(adapter, &adapter->rx_buff_pool[pool]);
--		return;
-+		goto out;
- 	}
- 
- 	desc.fields.flags_len = IBMVETH_BUF_VALID |
-@@ -423,12 +424,16 @@ static void ibmveth_rxq_recycle_buffer(s
- 		netdev_dbg(adapter->netdev, "h_add_logical_lan_buffer failed "
- 			   "during recycle rc=%ld", lpar_rc);
- 		ibmveth_remove_buffer_from_pool(adapter, adapter->rx_queue.queue_addr[adapter->rx_queue.index].correlator);
-+		ret = 0;
- 	}
- 
- 	if (++adapter->rx_queue.index == adapter->rx_queue.num_slots) {
- 		adapter->rx_queue.index = 0;
- 		adapter->rx_queue.toggle = !adapter->rx_queue.toggle;
- 	}
-+
-+out:
-+	return ret;
- }
- 
- static void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter)
-@@ -1084,8 +1089,9 @@ restart_poll:
- 				if (rx_flush)
- 					ibmveth_flush_buffer(skb->data,
- 						length + offset);
-+				if (!ibmveth_rxq_recycle_buffer(adapter))
-+					kfree_skb(skb);
- 				skb = new_skb;
--				ibmveth_rxq_recycle_buffer(adapter);
- 			} else {
- 				ibmveth_rxq_harvest_buffer(adapter);
- 				skb_reserve(skb, offset);
+Applied and queued up for -stable, thanks!
