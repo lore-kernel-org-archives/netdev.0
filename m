@@ -1,47 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] Scm: Remove unnecessary pid & credential references in
- Unix socket's send and receive path
-Date: Wed, 24 Aug 2011 19:43:44 -0700 (PDT)
-Message-ID: <20110824.194344.423083561694337662.davem@davemloft.net>
-References: <1313772298.2576.2916.camel@schen9-DESK>
-	<20110822.174013.353730308624819543.davem@davemloft.net>
-	<1314061046.2576.2922.camel@schen9-DESK>
+From: Jeff Chua <jeff.chua.linux@gmail.com>
+Subject: Re: pull request: wireless 2011-08-22
+Date: Thu, 25 Aug 2011 11:33:05 +0800
+Message-ID: <CAAJw_ZtFw5FxPy+boe_99mKQi7yt3yfGE6FqWrzmUD3T-y1v8w@mail.gmail.com>
+References: <20110822190136.GJ2534@tuxdriver.com>
+	<20110822.123326.1795268471389412471.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, viro@zeniv.linux.org.uk,
-	ebiederm@xmission.com, ak@linux.intel.com,
-	matt.fleming@linux.intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: tim.c.chen@linux.intel.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, IvDoorn@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1314061046.2576.2922.camel@schen9-DESK>
+In-Reply-To: <20110822.123326.1795268471389412471.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tim Chen <tim.c.chen@linux.intel.com>
-Date: Mon, 22 Aug 2011 17:57:26 -0700
+On Tue, Aug 23, 2011 at 3:33 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Mon, 22 Aug 2011 15:01:37 -0400
+>
+>> This is a batch of fixes intended for 3.1. =A0Included is rewrite of=
+ an
+>> earlier iwlagn fix that was revealed to be flawed (bad pointer acces=
+s
+>> during module unload), a fix for a memory leak, and a trio of rt2x00
+>> fixes with detailed changelogs. =A0These have all been in linux-next
+>> for the last week with no reported complaints.
+>>
+>> Please let me know if there are problems!
+>
+> Pulled, thanks John.
 
-> On Mon, 2011-08-22 at 17:40 -0700, David Miller wrote:
->> From: Tim Chen <tim.c.chen@linux.intel.com>
->> Date: Fri, 19 Aug 2011 09:44:58 -0700
->> 
->> > -		/* Only send the fds in the first buffer */
->> > -		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent);
->> > +		/* Only send the fds and no ref to pid in the first buffer */
->> > +		if (fds_sent)
->> > +			err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, true);
->> > +		else
->> > +			err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, false);
->> 
->> Just set this final boolean the way the third argument is, there is no
->> reason to replicate the entire function call twice just to set the
->> final argument to what "fds_sent" evaluates to as a boolean.
->> 
->> 		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, fds_sent);
->> 
->> ought to suffice.
-> 
-> Good point.  Patch updated as suggested.
+I'm using the rt2800usb module for the Buffalo WLI-UC-GNM using ad-hoc =
+mode.
 
-Applied.
+T:  Bus=3D01 Lev=3D02 Prnt=3D02 Port=3D01 Cnt=3D01 Dev#=3D  3 Spd=3D480=
+  MxCh=3D 0
+D:  Ver=3D 2.00 Cls=3D00(>ifc ) Sub=3D00 Prot=3D00 MxPS=3D64 #Cfgs=3D  =
+1
+P:  Vendor=3D0411 ProdID=3D01a2 Rev=3D 1.01
+S:  Manufacturer=3DRalink
+S:  Product=3D802.11 n WLAN
+
+It works ok, but after idling for a while, it does not response, and
+module needs to unloaded and modprobe again to make it work.
+
+The same mac80211 and cfg80211 works for iwlagn and no problem with
+idling timeout.
+
+Is there any parameter to control the rt2800usb to make turn off power =
+saving?
+
+I've tried "iwconfig lwan0 power timeout 0 power off" but no effect.
+
+Linux 3.1.0-rc3 with commit caca9510ff4e5d842c0589110243d60927836222.
+
+Thanks,
+Jeff.
