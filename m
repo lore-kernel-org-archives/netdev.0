@@ -1,42 +1,54 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: [RFC] per-containers tcp buffer limitation
-Date: Thu, 25 Aug 2011 09:05:25 -0600
-Message-ID: <4E5664B5.6000806@genband.com>
-References: <4E558137.5020900@parallels.com> <m1k4a2qqew.fsf@fess.ebiederm.org> <4E55A55B.8090608@parallels.com> <20110825104956.41c4b60e.kamezawa.hiroyu@jp.fujitsu.com> <m14o16qlq1.fsf@fess.ebiederm.org> <4E56464B.4070304@monom.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC PATCH v2 0/9] bql: Byte Queue Limits
+Date: Thu, 25 Aug 2011 08:19:29 -0700
+Message-ID: <CA+mtBx8nyODqV155J0kUtfFQW3gy9O9pKKXZuwCN+nSqiijX6A@mail.gmail.com>
+References: <alpine.DEB.2.00.1108072129010.13386@pokey.mtv.corp.google.com>
+	<1312808784.17202.39.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Pavel Emelyanov <xemul@parallels.com>
-To: Daniel Wagner <wagi@monom.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og120.obsmtp.com ([64.18.2.18]:45197 "EHLO
-	exprod7og120.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752573Ab1HYPFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 11:05:54 -0400
-In-Reply-To: <4E56464B.4070304@monom.org>
+Received: from smtp-out.google.com ([216.239.44.51]:61734 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754008Ab1HYPTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 11:19:32 -0400
+Received: from wpaz21.hot.corp.google.com (wpaz21.hot.corp.google.com [172.24.198.85])
+	by smtp-out.google.com with ESMTP id p7PFJVqK018276
+	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 08:19:31 -0700
+Received: from ywb5 (ywb5.prod.google.com [10.192.2.5])
+	by wpaz21.hot.corp.google.com with ESMTP id p7PFJOGh002673
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 08:19:30 -0700
+Received: by ywb5 with SMTP id 5so2306682ywb.12
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 08:19:30 -0700 (PDT)
+In-Reply-To: <1312808784.17202.39.camel@mojatatu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2011 06:55 AM, Daniel Wagner wrote:
+> For wired connections I think the big deal is in improved
+> runtime memory saving (your perf numbers are kinda ok).
+> The challenge is going to be with wireless where the underlying
+> bandwidth changes (and therefore the optimal queue size varies
+> more frequently). The problem with active queue management is
+> getting the feedback loop to be more accurate and i think there
+> will be challenges with wired devices.
 
-> I'd like to solve a use case where it is necessary to count all bytes
-> transmitted and received by an application [1]. So far I have found two
-> unsatisfying solution for it. The first one is to hook into libc and
-> count the bytes there. I don't think I have to say I don't like this.
+The important characteristic (for us at least) will be reduced latency
+for high priority packets (for NICs that don't support qos multiQ.  I
+do have data showing those benefits, but it's a little old.  I will
+have something to present at LPC.
 
-Is there any particular reason you can't use LD_PRELOAD to interpose a 
-library to do the statistics monitoring?
+> I notice that you dont have any wireless devices;
+> but it would be nice for someone to check this out on wireless.
+> CCing Johannes - maybe he has some insight.
+>
+Yeah, these scare me ;-)
 
-Chris
-
--- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+> cheers,
+> jamal
+>
+>
+>
+>
