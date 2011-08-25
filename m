@@ -1,49 +1,35 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC PATCH v2 0/9] bql: Byte Queue Limits
-Date: Thu, 25 Aug 2011 16:23:07 -0400
-Message-ID: <1314303787.2329.1.camel@mojatatu>
-References: <alpine.DEB.2.00.1108072129010.13386@pokey.mtv.corp.google.com>
-	 <1312808784.17202.39.camel@mojatatu>
-	 <1312809524.4372.29.camel@jlt3.sipsolutions.net>
-	 <CA+mtBx8mb0pAqVH19WK=e9LuLeyvnNTybROOURD2Rg6UtYe+bw@mail.gmail.com>
+Subject: Re: Traffic shaping - class ID 16bit limit?
+Date: Thu, 25 Aug 2011 16:26:53 -0400
+Message-ID: <1314304013.2329.3.camel@mojatatu>
+References: <CAO0uZ+-fv89Z3-9+vh5kN93xe=Uw8b=PSfnAqosOjUBP6PcVNg@mail.gmail.com>
+	 <20110825093937.2a8a1457@nehalam.ftrdhcpuser.net>
 Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Cc: Miroslav Kratochvil <exa.exa@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:50085 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753704Ab1HYUXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 16:23:14 -0400
-Received: by vxi9 with SMTP id 9so2023939vxi.19
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 13:23:13 -0700 (PDT)
-In-Reply-To: <CA+mtBx8mb0pAqVH19WK=e9LuLeyvnNTybROOURD2Rg6UtYe+bw@mail.gmail.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:33726 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754089Ab1HYU1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 16:27:01 -0400
+Received: by vws1 with SMTP id 1so2333935vws.19
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 13:27:00 -0700 (PDT)
+In-Reply-To: <20110825093937.2a8a1457@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-08-25 at 08:29 -0700, Tom Herbert wrote:
+On Thu, 2011-08-25 at 09:39 -0700, Stephen Hemminger wrote:
 
-> BQL is dynamic, and will increase the queue limit more aggressively
-> than decrease it.  So for instance, we can track the largest queue
-> needed over 30 seconds which should be stable in the presence even in
-> the presence of fluctuating bandwidth.  The thing that worries me is
-> rather the HW queues conform to the queue characteristics described in
-> the patch.  If transmit completions are random and not regular, BQL
-> probably can't function well.
+> Granted it was a poor choice in the initial design.
+> It is wired into the API and changing it would be quite painful.
 > 
 
-I think thats the challenge ;-> I wouldnt say it is random, but if my
-understanding is correct the effect is a factor of number of stations
-etc.
-
-> If you'd like to bring this up on some wireless devices that would be
-> great, I don't have easy access to any right now, but I can try to
-> help otherwise.
-
-I am most curious as well...
+You should be able to have infinite queues if you use the 
+hierachies. i.e each hierachy should expose a new 16 bit
+namespace. 
 
 cheers,
 jamal
