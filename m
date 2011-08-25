@@ -1,64 +1,94 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: linux-next: build failure after merge of the staging tree
-Date: Thu, 25 Aug 2011 00:15:56 -0500
-Message-ID: <4E55DA8C.10102@lwfinger.net>
-References: <20110825150209.5d159c549777290de4644bcf@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: bound RTO to minimum
+Date: Thu, 25 Aug 2011 07:28:54 +0200
+Message-ID: <1314250134.6797.24.camel@edumazet-laptop>
+References: <1314226834.6797.5.camel@edumazet-laptop>
+	 <1314229310-8074-1-git-send-email-hagen@jauu.net>
+	 <CAK6E8=dXf=wsZOB+ZUNuUpLyV2vrcgf7pvwYPz1YTmF81WuGDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, wlanfae <wlanfae@realtek.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110825150209.5d159c549777290de4644bcf@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55375 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865Ab1HYF3B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 01:29:01 -0400
+Received: by wwf5 with SMTP id 5so1963908wwf.1
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2011 22:29:00 -0700 (PDT)
+In-Reply-To: <CAK6E8=dXf=wsZOB+ZUNuUpLyV2vrcgf7pvwYPz1YTmF81WuGDA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2011 12:02 AM, Stephen Rothwell wrote:
-> Hi Greg,
->
-> After merging the staging tree, today's linux-next build (x86_64
-> allmodconfig) failed like this:
->
-> drivers/staging/rtl8192e/rtl_core.c:2917:2: error: unknown field 'ndo_set_multicast_list' specified in initializer
->
-> Caused by commit 94a799425eee ("From: wlanfae<wlanfae@realtek.com>" -
-> really "[PATCH 1/8] rtl8192e: Import new version of driver from realtek"
-> Larry, that patch was badly imported ...) interacting with commit
-> b81693d9149c ("net: remove ndo_set_multicast_list callback") from the net
-> tree.
->
-> I applied the following patch (which seems to be what was done to the
-> other drivers in the net tree - there is probably more required):
->
-> From: Stephen Rothwell<sfr@canb.auug.org.au>
-> Date: Thu, 25 Aug 2011 14:57:55 +1000
-> Subject: [PATCH] rtl8192e: update for ndo_set_multicast_list removal.
->
-> Signed-off-by: Stephen Rothwell<sfr@canb.auug.org.au>
-> ---
->   drivers/staging/rtl8192e/rtl_core.c |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/staging/rtl8192e/rtl_core.c b/drivers/staging/rtl8192e/rtl_core.c
-> index f8a13d9..b38f626 100644
-> --- a/drivers/staging/rtl8192e/rtl_core.c
-> +++ b/drivers/staging/rtl8192e/rtl_core.c
-> @@ -2914,7 +2914,7 @@ static const struct net_device_ops rtl8192_netdev_ops = {
->   	.ndo_stop = rtl8192_close,
->   	.ndo_tx_timeout = rtl8192_tx_timeout,
->   	.ndo_do_ioctl = rtl8192_ioctl,
-> -	.ndo_set_multicast_list = r8192_set_multicast,
-> +	.ndo_set_rx_mode = r8192_set_multicast,
->   	.ndo_set_mac_address = r8192_set_mac_adr,
->   	.ndo_validate_addr = eth_validate_addr,
->   	.ndo_change_mtu = eth_change_mtu,
+Le mercredi 24 ao=C3=BBt 2011 =C3=A0 18:50 -0700, Yuchung Cheng a =C3=A9=
+crit :
+> On Wed, Aug 24, 2011 at 4:41 PM, Hagen Paul Pfeifer <hagen@jauu.net> =
+wrote:
+> > Check if calculated RTO is less then TCP_RTO_MIN. If this is true w=
+e
+> > adjust the value to TCP_RTO_MIN.
+> >
+> but tp->rttvar is already lower-bounded via tcp_rto_min()?
+>=20
+> static inline void tcp_set_rto(struct sock *sk)
+> {
+> ...
+>=20
+>   /* NOTE: clamping at TCP_RTO_MIN is not required, current algo
+>    * guarantees that rto is higher.
+>    */
+>   tcp_bound_rto(sk);
+> }
 
-Stephan,
+Yes, and furthermore, we also limit ICMP rate, so in in my tests, I
+reach in a few rounds icsk_rto > 1sec
 
-Thanks for the notice. It seems that commit b81693d9149c had not made it into my 
-copy of staging. I'll look into the issue.
+07:16:13.010633 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 3833540215:38335402=
+63(48) ack 2593537670 win 305
+07:16:13.221111 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:13.661151 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:14.541153 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:16.301152 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+<from this point, icsk_rto=3D1.76sec >
+07:16:18.061158 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:19.821158 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:21.581018 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:23.341156 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:25.101151 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:26.861155 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:28.621158 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:30.381152 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
+07:16:32.141157 IP 10.2.1.2.59352 > 10.2.1.1.ssh: P 0:48(48) ack 1 win =
+305=20
 
-Larry
+Real question is : do we really want to process ~1000 timer interrupts
+per tcp session, ~2000 skb alloc/free/build/handling, possibly ~1000 AR=
+P
+requests, only to make tcp revover in ~1sec when connectivity returns
+back. This just doesnt scale.
+
+On a server handling ~1.000.000 (long living) sessions, using
+application side keepalives (say one message sent every minute on each
+session), a temporary connectivity disruption _could_ makes it enter a
+critical zone, burning cpu and memory.
+
+It seems TCP-LCD (RFC6069) depends very much on ICMP being rate limited=
+=2E
+
+I'll have to check what happens on multiple sessions : We might have
+cpus fighting on a single inetpeer and throtle, thus allowing backoff t=
+o
+increase after all.=20
