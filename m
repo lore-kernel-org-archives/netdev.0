@@ -1,79 +1,107 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next v2 07/10] headers, tipc: Add missing #include to
- <linux/tipc_config.h> for userland
-Date: Thu, 25 Aug 2011 05:45:14 +0100
-Message-ID: <1314247515.27179.124.camel@deadeye>
+Subject: [PATCH net-next v2 08/10] headers, netfilter: Add missing #include
+ <limits.h> for userland
+Date: Thu, 25 Aug 2011 05:45:36 +0100
+Message-ID: <1314247537.27179.125.camel@deadeye>
 References: <1314247131.27179.116.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-SinB/wyfWDmcmTEBoNPr"
-Cc: netdev@vger.kernel.org, Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
+	protocol="application/pgp-signature"; boundary="=-hDG7cx7sua0UEkpO3D0n"
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37161 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750885Ab1HYEpR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 00:45:17 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1314247131.27179.116.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-SinB/wyfWDmcmTEBoNPr
+--=-hDG7cx7sua0UEkpO3D0n
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-<linux/tipc_config.h> defines inline functions using ntohs() etc.
-For userland these are defined in <arpa/inet.h>.
+Various headers use INT_MIN and INT_MAX, which are defined for
+userland in <limits.h>.
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Acked-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/tipc_config.h |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ include/linux/netfilter_decnet.h |    3 +++
+ include/linux/netfilter_ipv4.h   |    3 +++
+ include/linux/netfilter_ipv6.h   |    3 +++
+ 3 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/tipc_config.h b/include/linux/tipc_config.h
-index 0db2395..9730b0e 100644
---- a/include/linux/tipc_config.h
-+++ b/include/linux/tipc_config.h
-@@ -41,6 +41,10 @@
- #include <linux/string.h>
- #include <asm/byteorder.h>
+diff --git a/include/linux/netfilter_decnet.h b/include/linux/netfilter_dec=
+net.h
+index 6f42536..0b09732 100644
+--- a/include/linux/netfilter_decnet.h
++++ b/include/linux/netfilter_decnet.h
+@@ -11,6 +11,9 @@
 =20
-+#ifndef __KERNEL__
-+#include <arpa/inet.h> /* for ntohs etc. */
-+#endif
+ /* only for userspace compatibility */
+ #ifndef __KERNEL__
 +
- /*
-  * Configuration
-  *
++#include <limits.h> /* for INT_MIN, INT_MAX */
++
+ /* IP Cache bits. */
+ /* Src IP address. */
+ #define NFC_DN_SRC		0x0001
+diff --git a/include/linux/netfilter_ipv4.h b/include/linux/netfilter_ipv4.=
+h
+index 29c7727..fa0946c 100644
+--- a/include/linux/netfilter_ipv4.h
++++ b/include/linux/netfilter_ipv4.h
+@@ -9,6 +9,9 @@
+=20
+ /* only for userspace compatibility */
+ #ifndef __KERNEL__
++
++#include <limits.h> /* for INT_MIN, INT_MAX */
++
+ /* IP Cache bits. */
+ /* Src IP address. */
+ #define NFC_IP_SRC		0x0001
+diff --git a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.=
+h
+index 1f7e300..57c0251 100644
+--- a/include/linux/netfilter_ipv6.h
++++ b/include/linux/netfilter_ipv6.h
+@@ -12,6 +12,9 @@
+=20
+ /* only for userspace compatibility */
+ #ifndef __KERNEL__
++
++#include <limits.h> /* for INT_MIN, INT_MAX */
++
+ /* IP Cache bits. */
+ /* Src IP address. */
+ #define NFC_IP6_SRC              0x0001
 --=20
 1.7.5.4
 
 
 
 
---=-SinB/wyfWDmcmTEBoNPr
+--=-hDG7cx7sua0UEkpO3D0n
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATlXTWue/yOyVhhEJAQqq3Q/+MQnseeXC+fIa532eW7AKIJViEPQGm2O1
-kNtzhbWSYE8fHS7XMeZ0cCNU1x+DU+FXkKlRK6CfioAZfoubrY6DSeFJgUETpzrT
-G1cV9mCPnVTTQxXWW1jbI7chVciglb0SNxIYUlyYaoizVQs2VXurtu58ul6jujK2
-i+kneXc/sqtiLnv9kDYeqHs0sRjQ+xJLkKtti07oiQfK9JEt7aMzo1jv+uG/JpHL
-8buVbM7Ir6P67CvCba7D/R58kLMLsq5Qnob0fNkyTPhrQpDBa497UbV5xIl4Y8Zx
-doERfR8793BqP2kUnKz7InPhwYZs5VYwz/x/jOa5vZRTYeR7zO32qVrjr1H6r8jw
-PIIzCj0AAUjOXSkTP5QF9vlg8SJypacvLou7bpJbqXwaM9v/yNpHHGNoDJKubC4y
-TgrmTI+TmRHZVY27sjw4TY92RFD2zZCCLIyI+wwpQK2eRCcuzd2QpeSvsseHOGXq
-t1gImyJct9xYcibUsirdp2iwkzJjUa45SLFhVQVe00tgtE9dNX/EVpZnZcBaIaMm
-F1D/n8lBsQsJo2jmB16+TJU093GIEhR7YRoDOWFBd+FPS+SuS/PZjUX3pjHRcscv
-4EK1a1VwzCDaXMPqwECSELgWw3Rcg3bfJ0zudSzPkzu2G9aSN8lN75dOolJ9FNAR
-R9jUTFsdCzA=
-=66bT
+iQIVAwUATlXTcOe/yOyVhhEJAQp4cRAArQUlgQb7C9C9mWQZOMtpkvdxnZEmRAyj
++VddUZfp9qBi/K6T+TfHVLptkYDr1hghNSQkvJzldmvZUI2rmDZI8proVLwWtTni
+OBE+itDmamiMIf1seuCjzYcaXb4lx9+wshimq30WxYwzR3LSvc34OyFw1ptjc9va
+79UlUZhYGpad0XXMARrzFisrKXzTfI0UkK6rn6e4O4zosIJNmEujCyRQH+Zwyiar
+uP/mYR3m6kzODXL5CrPu0R7+M5cw4ZZ1w0R7u8Vdn7NNj6Jc+ezefWVRFr9rWRwG
+84Im/oNjjQ1C7IpLeX1hJJam7R9XbphMFtclIOBVCoMu98XfFt5QIxMl4mKMbaQc
+1X0a+/K6r34GfRtqIPIUNq5LX/5P+hv7RmBXtPNbpyidgEsD2MOinpGYXYhpm271
+lTQ0V8/pYw86DbJRgK9JwGsI/EtO9h9m8nwXqpYslafg9HYT0jPp1UOtVPIr/CzE
+sbeANAZ1VhI+ErUVeZMAKPQBRIIK5T9GtvbJ4aFTqCbCOAwrV+XD3yYeE8IMhQJU
+caD9cRuhrJt4Ej/KHYmo7Ts2kIrQGvHFyCi+Uv+PYOLGkqlSFvC7YEODm3fWpsTp
+0EQyw4jN9z71dYyMdL6N0ESJWMC3xcEnpOzRO04BCl70XQgi0IFFQg3Q2VRkrqfL
+HLK0Ur7vn3U=
+=bGQq
 -----END PGP SIGNATURE-----
 
---=-SinB/wyfWDmcmTEBoNPr--
+--=-hDG7cx7sua0UEkpO3D0n--
