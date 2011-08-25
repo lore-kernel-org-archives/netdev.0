@@ -1,77 +1,55 @@
-From: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 3/9] IB: nes: convert to SKB paged frag API.
-Date: Thu, 25 Aug 2011 09:28:09 +0100
-Message-ID: <1314260895-15936-3-git-send-email-ian.campbell@citrix.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH 6/9] bnx2: convert to SKB paged frag API.
+Date: Thu, 25 Aug 2011 09:28:12 +0100
+Message-ID: <1314260895-15936-6-git-send-email-ian.campbell@citrix.com>
 References: <1314260881.10283.48.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>,
-	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1314260881.10283.48.camel-o4Be2W7LfRlXesXXhkcM7miJhflN2719@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Michael Chan <mchan@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:38678 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752522Ab1HYI21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 04:28:27 -0400
+In-Reply-To: <1314260881.10283.48.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Michael Chan <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org
 ---
- drivers/infiniband/hw/nes/nes_nic.c |   21 +++++++++++----------
- 1 files changed, 11 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
-index 66e1229..96cb35a 100644
---- a/drivers/infiniband/hw/nes/nes_nic.c
-+++ b/drivers/infiniband/hw/nes/nes_nic.c
-@@ -441,11 +441,11 @@ static int nes_nic_send(struct sk_buff *skb, struct net_device *netdev)
- 		nesnic->tx_skb[nesnic->sq_head] = skb;
- 		for (skb_fragment_index = 0; skb_fragment_index < skb_shinfo(skb)->nr_frags;
- 				skb_fragment_index++) {
--			bus_address = pci_map_page( nesdev->pcidev,
--					skb_shinfo(skb)->frags[skb_fragment_index].page,
--					skb_shinfo(skb)->frags[skb_fragment_index].page_offset,
--					skb_shinfo(skb)->frags[skb_fragment_index].size,
--					PCI_DMA_TODEVICE);
-+			skb_frag_t *frag =
-+				&skb_shinfo(skb)->frags[skb_fragment_index];
-+			bus_address = skb_frag_dma_map(&nesdev->pcidev->dev,
-+						       frag, 0, frag->size,
-+						       PCI_DMA_TODEVICE);
- 			wqe_fragment_length[wqe_fragment_index] =
- 					cpu_to_le16(skb_shinfo(skb)->frags[skb_fragment_index].size);
- 			set_wqe_64bit_value(nic_sqe->wqe_words, NES_NIC_SQ_WQE_FRAG0_LOW_IDX+(2*wqe_fragment_index),
-@@ -561,11 +561,12 @@ tso_sq_no_longer_full:
- 			/* Map all the buffers */
- 			for (tso_frag_count=0; tso_frag_count < skb_shinfo(skb)->nr_frags;
- 					tso_frag_count++) {
--				tso_bus_address[tso_frag_count] = pci_map_page( nesdev->pcidev,
--						skb_shinfo(skb)->frags[tso_frag_count].page,
--						skb_shinfo(skb)->frags[tso_frag_count].page_offset,
--						skb_shinfo(skb)->frags[tso_frag_count].size,
--						PCI_DMA_TODEVICE);
-+				skb_frag_t *frag =
-+					&skb_shinfo(skb)->frags[tso_frag_count];
-+				tso_bus_address[tso_frag_count] =
-+					skb_frag_dma_map(&nesdev->pcidev->dev,
-+							 frag, 0, frag->size,
-+							 PCI_DMA_TODEVICE);
- 			}
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 4a9a8c81..9afb653 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -2930,8 +2930,8 @@ bnx2_reuse_rx_skb_pages(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr,
  
- 			tso_frag_index = 0;
+ 		shinfo = skb_shinfo(skb);
+ 		shinfo->nr_frags--;
+-		page = shinfo->frags[shinfo->nr_frags].page;
+-		shinfo->frags[shinfo->nr_frags].page = NULL;
++		page = skb_frag_page(&shinfo->frags[shinfo->nr_frags]);
++		__skb_frag_set_page(&shinfo->frags[shinfo->nr_frags], NULL);
+ 
+ 		cons_rx_pg->page = page;
+ 		dev_kfree_skb(skb);
+@@ -6511,8 +6511,8 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		txbd = &txr->tx_desc_ring[ring_prod];
+ 
+ 		len = frag->size;
+-		mapping = dma_map_page(&bp->pdev->dev, frag->page, frag->page_offset,
+-				       len, PCI_DMA_TODEVICE);
++		mapping = skb_frag_dma_map(&bp->pdev->dev, frag, 0, len,
++					   PCI_DMA_TODEVICE);
+ 		if (dma_mapping_error(&bp->pdev->dev, mapping))
+ 			goto dma_error;
+ 		dma_unmap_addr_set(&txr->tx_buf_ring[ring_prod], mapping,
 -- 
 1.7.2.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
