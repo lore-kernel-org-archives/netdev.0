@@ -1,109 +1,75 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next v2 00/10] Fix net header dependencies
-Date: Thu, 25 Aug 2011 05:38:44 +0100
-Message-ID: <1314247131.27179.116.camel@deadeye>
+Subject: [PATCH net-next v2 01/10] headers, pppox: Add missing #include to
+ <linux/if_pppox.h>
+Date: Thu, 25 Aug 2011 05:40:48 +0100
+Message-ID: <1314247249.27179.117.camel@deadeye>
+References: <1314247131.27179.116.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Vmr2LoyvZEe9ta86SeKQ"
-Cc: netdev@vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-S+8qi45mLvsbkOwAugnQ"
+Cc: netdev@vger.kernel.org, Michal Ostrowski <mostrows@earthlink.net>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49067 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37117 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751229Ab1HYEiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 00:38:52 -0400
+	by vger.kernel.org with ESMTP id S1751229Ab1HYEku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 00:40:50 -0400
+In-Reply-To: <1314247131.27179.116.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-Vmr2LoyvZEe9ta86SeKQ
+--=-S+8qi45mLvsbkOwAugnQ
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Various networking headers depend on definitions from others which they
-don't include.  We can't fix all of these, because some definitions are
-duplicated between kernel headers and glibc headers and we cannot tell
-which is the right one to include.  We also have to be wary of
-introducing a dependency cycle.
+<linux/if_ppox.h> uses ETH_ALEN, defined in <linux/if_ether.h>.
 
-Since v1, I've dropped the patches to <linux/scc.h> and <linux/if_ppp.h>
-and added the acknowledgements I got last time.
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ include/linux/if_pppox.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Ben.
-
-Ben Hutchings (10):
-  headers, pppox: Add missing #include to <linux/if_pppox.h>
-  headers, ax25: Add missing #include to <linux/netrom.h>,
-    <linux/rose.h>
-  headers, pppol2tp: Use __kernel_pid_t in <linux/pppol2tp.h>
-  headers, net: Use __kernel_sa_family_t in more definitions shared
-    with userland
-  headers, net: Define struct __kernel_sockaddr, replacing struct
-    sockaddr
-  headers, netfilter: Use kernel type names __u8, __u16, __u32
-  headers, tipc: Add missing #include to <linux/tipc_config.h> for
-    userland
-  headers, netfilter: Add missing #include <limits.h> for userland
-  headers, xtables: Add missing #include <linux/netfilter.h>
-  headers, can: Add missing #include to <linux/can/bcm.h>
-
- include/linux/atalk.h                     |    3 ++-
- include/linux/ax25.h                      |    2 +-
- include/linux/caif/caif_socket.h          |    7 +------
- include/linux/can.h                       |    2 +-
- include/linux/can/bcm.h                   |    1 +
- include/linux/if.h                        |   12 ++++++------
- include/linux/if_pppol2tp.h               |    2 +-
- include/linux/if_pppox.h                  |    9 +++++----
- include/linux/in.h                        |    2 +-
- include/linux/ipx.h                       |    2 +-
- include/linux/irda.h                      |    9 +++------
- include/linux/l2tp.h                      |    7 ++++---
- include/linux/llc.h                       |   10 +++++++---
- include/linux/netfilter/xt_connlimit.h    |    1 +
- include/linux/netfilter/xt_conntrack.h    |    1 +
- include/linux/netfilter/xt_iprange.h      |    1 +
- include/linux/netfilter_arp/arp_tables.h  |   14 +++++++-------
- include/linux/netfilter_decnet.h          |    3 +++
- include/linux/netfilter_ipv4.h            |    3 +++
- include/linux/netfilter_ipv4/ip_tables.h  |   20 ++++++++++----------
- include/linux/netfilter_ipv6.h            |    3 +++
- include/linux/netfilter_ipv6/ip6_tables.h |   22 +++++++++++-----------
- include/linux/netlink.h                   |    2 +-
- include/linux/netrom.h                    |    2 ++
- include/linux/phonet.h                    |    6 ++++--
- include/linux/rose.h                      |    7 +++++--
- include/linux/socket.h                    |   17 +++++++++--------
- include/linux/tipc_config.h               |    4 ++++
- include/linux/un.h                        |    4 +++-
- include/linux/x25.h                       |    3 ++-
- 30 files changed, 104 insertions(+), 77 deletions(-)
-
+diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
+index 397921b..60e5558 100644
+--- a/include/linux/if_pppox.h
++++ b/include/linux/if_pppox.h
+@@ -20,8 +20,8 @@
+ #include <linux/types.h>
+ #include <asm/byteorder.h>
+=20
+-#ifdef  __KERNEL__
+ #include <linux/if_ether.h>
++#ifdef  __KERNEL__
+ #include <linux/if.h>
+ #include <linux/netdevice.h>
+ #include <linux/ppp_channel.h>
 --=20
 1.7.5.4
 
 
 
---=-Vmr2LoyvZEe9ta86SeKQ
+
+--=-S+8qi45mLvsbkOwAugnQ
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATlXR1Oe/yOyVhhEJAQp8gg/+IgokQGKBs5nlnSK9RaUm8ngPvFEdlEZr
-NmNmtShyxHra1Iq1pmzyUXviy2dcPNEUPV/uU3IRCdfdHhaDx48pm7UNkbLE5foE
-3HOLkru3w6X8Xnx6PLTU022yK6cNEKTHYlzGw2mUFU+RPiPCtiZdjtGhIR3MAY8r
-uMeHLbiJC5MF4NthdxPV/fdltL2YSn9tbeP1zlWjwShnDJEk7lDHzUvliORfwPcM
-aEcoAvb4DD7PzwqLPCzs52RdfkKkNHI27/toq7jZSF6ZUCIlb5TO3dCwwFvnLJ+I
-1GwJdMjPlqqCP4cARGAZXZz5w9pStFJJ4wS2Dnp6/IcyXGTlPMypvx9DGU0y0hRL
-ph4Ch9DIvqAzL3+OgLnU+u/sxBWHnNSWlJ1HYeFOqdnDeC6gyGs3/MFyKFUbY2N7
-8Z/HekMjVaTI4hgmiODZYQq3eCjOH9josopyReq/05V0jRKeTulj+7L0NJKBlerF
-UVK/MtQvPO7ic7eRqlaa9kfHAOn/f7WFr8UNEayp5cDLZdW9SOsN4PnAVa5ZbUZM
-PJoKw2isegoD3aMuoICzipluMllsY6lBzyZI+t82db31yLWuu9MwUkfSawdccY8b
-pS728kl5wuhv/CBgINECjNZ+0lNLgcq/b9XPjg9+zYcnzfjNDnJWGKpRdMosv4DP
-i3daMI1kCqQ=
-=Sucm
+iQIVAwUATlXSUOe/yOyVhhEJAQpVaRAAxyRU1SgwpkImYBngWxNMS8IPpFic8nrf
+lJIQ1opHxO0H/9FrggWEWgfiTsUaNXi8Bs208v30TKjWvB3NHPHJ+uxEoKd/F5vy
+skqXQt5VGHp6C8+9yQg5Ml8UwvvGe4WS63mJYBm84/f7+P/oWS8FLzRhtRH7BuFT
+bSPG9vaiVEnEo8ZHZr7hiInNVPI7zYMkLT7OmESzDkDvwkKqHJ5LuVrC66VGnSKn
+t65W6Q7iNVXw97vnklYUdF1XwrIggpbZpnPF3wEJHZK2JNpf8YRxghJTCYZmsdeK
+4GS8C9gAEhtFcA4Rwv21jA1gaC1uy6srhaM40+7VrnWYHxse7G+9lBNDPGj0QnLh
+0PVG1efQ0qyPFYfvonxuBjEaicTs9PrKIHSdzBmaGdf3/Ui9tZZUB6ayqKlIWryz
+3kSWJBgIur+Zjt/OgrGp1ertImcMdhK8J3spKLvaGrDqZYTdsQLaEIu9c83DNR31
+3oTVuN6980852wYlQh3VrVCgpt45QIre+tod2pWJVxCHjb3zx/C6JjT0bLXklpuS
+IYbYDO+A2PASiZfPyTGESONv70LmT2R6KZoiQIOzKzpkJRo8wUQ9C1qALG3v0/Au
+VWqPYKrxJfN/rxhPmz0GU4vUjtvvAq8+DooHTQMcR3rxI0czr+zMHNfoaHPMlAV7
+ii8NssAX/NU=
+=BHSJ
 -----END PGP SIGNATURE-----
 
---=-Vmr2LoyvZEe9ta86SeKQ--
+--=-S+8qi45mLvsbkOwAugnQ--
