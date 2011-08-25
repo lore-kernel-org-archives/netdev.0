@@ -1,111 +1,158 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 2/9] stmmac: remove the mmc code
-Date: Thu, 25 Aug 2011 10:00:22 +0200
-Message-ID: <1314259229-13767-3-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 4/9] stmmac: export DMA TX/RX rings via debugfs.
+Date: Thu, 25 Aug 2011 10:00:24 +0200
+Message-ID: <1314259229-13767-5-git-send-email-peppe.cavallaro@st.com>
 References: <1314259229-13767-1-git-send-email-peppe.cavallaro@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:33008 "EHLO
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:32838 "EHLO
 	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751749Ab1HYIAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 04:00:51 -0400
+	by vger.kernel.org with ESMTP id S1751749Ab1HYIBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 04:01:09 -0400
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 31C1FDF
-	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 08:00:49 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5CB1FE6
+	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 08:01:07 +0000 (GMT)
 Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id F3F4916B2
-	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 08:00:48 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 22F9716B2
+	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 08:01:07 +0000 (GMT)
 In-Reply-To: <1314259229-13767-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DWMAC Management Counters (MMC) are not fully support.
-The minimal support added in the past allowed to
-only disable counters (if present) and mask their
-interrupts.
-This patch prepares the driver to support the MMC
-removing obsolete code.
+This patch adds the following debugFs entry to dump the
+RX/TX DMA rings:
+
+ /sys/kernel/debug/stmmaceth/descriptors_status
+
+This is an example:
+=======================
+ RX descriptor ring
+=======================
+[0] DES0=0x85ee0320 DES1=0x1fff1fff BUF1=0x5fae2022 BUF2=0x0
+[1] DES0=0x85ee0320 DES1=0x1fff1fff BUF1=0x5fae0022 BUF2=0x0
+[2] DES0=0x81460320 DES1=0x1fff1fff BUF1=0x5f9dd022 BUF2=0x0
+...
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/stmmac/common.h         |   11 -----------
- drivers/net/stmmac/dwmac1000_core.c |    2 --
- drivers/net/stmmac/dwmac100_core.c  |   11 -----------
- drivers/net/stmmac/stmmac_main.c    |    4 ----
- 4 files changed, 0 insertions(+), 28 deletions(-)
+ drivers/net/stmmac/Kconfig       |    3 +-
+ drivers/net/stmmac/stmmac_main.c |   68 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 70 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/stmmac/common.h b/drivers/net/stmmac/common.h
-index 375ea19..290b97a 100644
---- a/drivers/net/stmmac/common.h
-+++ b/drivers/net/stmmac/common.h
-@@ -130,17 +130,6 @@ enum tx_dma_irq_status {
- #define MAC_ENABLE_TX		0x00000008	/* Transmitter Enable */
- #define MAC_RNABLE_RX		0x00000004	/* Receiver Enable */
+diff --git a/drivers/net/stmmac/Kconfig b/drivers/net/stmmac/Kconfig
+index 0a1bd82..57ae3716 100644
+--- a/drivers/net/stmmac/Kconfig
++++ b/drivers/net/stmmac/Kconfig
+@@ -18,7 +18,8 @@ config STMMAC_MONITOR
+ 	-- help
+ 	  To Enable monitoring via debufs.
+ 	  The stmmac entry in /sys reports the state of the HW monitoring
+-	  counters (if supported).
++	  counters (if supported) and other useful debug information
++	  (e.g. DMA TX/RX rings).
  
--/* MAC Management Counters register */
--#define MMC_CONTROL		0x00000100	/* MMC Control */
--#define MMC_HIGH_INTR		0x00000104	/* MMC High Interrupt */
--#define MMC_LOW_INTR		0x00000108	/* MMC Low Interrupt */
--#define MMC_HIGH_INTR_MASK	0x0000010c	/* MMC High Interrupt Mask */
--#define MMC_LOW_INTR_MASK	0x00000110	/* MMC Low Interrupt Mask */
--
--#define MMC_CONTROL_MAX_FRM_MASK	0x0003ff8	/* Maximum Frame Size */
--#define MMC_CONTROL_MAX_FRM_SHIFT	3
--#define MMC_CONTROL_MAX_FRAME		0x7FF
--
- struct stmmac_desc_ops {
- 	/* DMA RX descriptor ring initialization */
- 	void (*init_rx_desc) (struct dma_desc *p, unsigned int ring_size,
-diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/stmmac/dwmac1000_core.c
-index eea184a..9ba9cae 100644
---- a/drivers/net/stmmac/dwmac1000_core.c
-+++ b/drivers/net/stmmac/dwmac1000_core.c
-@@ -37,8 +37,6 @@ static void dwmac1000_core_init(void __iomem *ioaddr)
- 	value |= GMAC_CORE_INIT;
- 	writel(value, ioaddr + GMAC_CONTROL);
- 
--	/* Freeze MMC counters */
--	writel(0x8, ioaddr + GMAC_MMC_CTRL);
- 	/* Mask GMAC interrupts */
- 	writel(0x207, ioaddr + GMAC_INT_MASK);
- 
-diff --git a/drivers/net/stmmac/dwmac100_core.c b/drivers/net/stmmac/dwmac100_core.c
-index 743a580..aacfc6e 100644
---- a/drivers/net/stmmac/dwmac100_core.c
-+++ b/drivers/net/stmmac/dwmac100_core.c
-@@ -70,17 +70,6 @@ static void dwmac100_dump_mac_regs(void __iomem *ioaddr)
- 		readl(ioaddr + MAC_VLAN1));
- 	pr_info("\tVLAN2 tag (offset 0x%x): 0x%08x\n", MAC_VLAN2,
- 		readl(ioaddr + MAC_VLAN2));
--	pr_info("\n\tMAC management counter registers\n");
--	pr_info("\t MMC crtl (offset 0x%x): 0x%08x\n",
--		MMC_CONTROL, readl(ioaddr + MMC_CONTROL));
--	pr_info("\t MMC High Interrupt (offset 0x%x): 0x%08x\n",
--		MMC_HIGH_INTR, readl(ioaddr + MMC_HIGH_INTR));
--	pr_info("\t MMC Low Interrupt (offset 0x%x): 0x%08x\n",
--		MMC_LOW_INTR, readl(ioaddr + MMC_LOW_INTR));
--	pr_info("\t MMC High Interrupt Mask (offset 0x%x): 0x%08x\n",
--		MMC_HIGH_INTR_MASK, readl(ioaddr + MMC_HIGH_INTR_MASK));
--	pr_info("\t MMC Low Interrupt Mask (offset 0x%x): 0x%08x\n",
--		MMC_LOW_INTR_MASK, readl(ioaddr + MMC_LOW_INTR_MASK));
- }
- 
- static void dwmac100_irq_status(void __iomem *ioaddr)
+ config STMMAC_DA
+ 	bool "STMMAC DMA arbitration scheme"
 diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index c6e567e..da11405 100644
+index 4655fab..50fe89f 100644
 --- a/drivers/net/stmmac/stmmac_main.c
 +++ b/drivers/net/stmmac/stmmac_main.c
-@@ -826,10 +826,6 @@ static int stmmac_open(struct net_device *dev)
- 		pr_info("\tTX Checksum insertion supported\n");
- 	netdev_update_features(dev);
+@@ -1430,8 +1430,61 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  
--	/* Initialise the MMC (if present) to disable all interrupts. */
--	writel(0xffffffff, priv->ioaddr + MMC_HIGH_INTR_MASK);
--	writel(0xffffffff, priv->ioaddr + MMC_LOW_INTR_MASK);
--
- 	/* Request the IRQ lines */
- 	ret = request_irq(dev->irq, stmmac_interrupt,
- 			 IRQF_SHARED, dev->name, dev);
+ #ifdef CONFIG_STMMAC_MONITOR
+ static struct dentry *stmmac_fs_dir;
++static struct dentry *stmmac_rings_status;
+ static struct dentry *stmmac_mmc;
+ 
++static int stmmac_sysfs_ring_read(struct seq_file *seq, void *v)
++{
++	struct tmp_s {
++		u64 a;
++		unsigned int b;
++		unsigned int c;
++	};
++	int i;
++	struct net_device *dev = seq->private;
++	struct stmmac_priv *priv = netdev_priv(dev);
++
++	seq_printf(seq, "=======================\n");
++	seq_printf(seq, " RX descriptor ring\n");
++	seq_printf(seq, "=======================\n");
++
++	for (i = 0; i < priv->dma_rx_size; i++) {
++		struct tmp_s *x = (struct tmp_s *)(priv->dma_rx + i);
++		seq_printf(seq, "[%d] DES0=0x%x DES1=0x%x BUF1=0x%x BUF2=0x%x",
++			   i, (unsigned int)(x->a),
++			   (unsigned int)((x->a) >> 32), x->b, x->c);
++		seq_printf(seq, "\n");
++	}
++
++	seq_printf(seq, "\n");
++	seq_printf(seq, "=======================\n");
++	seq_printf(seq, "  TX descriptor ring\n");
++	seq_printf(seq, "=======================\n");
++
++	for (i = 0; i < priv->dma_tx_size; i++) {
++		struct tmp_s *x = (struct tmp_s *)(priv->dma_tx + i);
++		seq_printf(seq, "[%d] DES0=0x%x DES1=0x%x BUF1=0x%x BUF2=0x%x",
++			   i, (unsigned int)(x->a),
++			   (unsigned int)((x->a) >> 32), x->b, x->c);
++		seq_printf(seq, "\n");
++	}
++
++	return 0;
++}
++
++static int stmmac_sysfs_ring_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, stmmac_sysfs_ring_read, inode->i_private);
++}
++
++static const struct file_operations stmmac_rings_status_fops = {
++	.owner = THIS_MODULE,
++	.open = stmmac_sysfs_ring_open,
++	.read = seq_read,
++	.llseek = seq_lseek,
++	.release = seq_release,
++};
++
+ /* To only dump counters > 0 */
+ static inline void seq_printf_mmc(struct seq_file *seq,
+ 				  const char *description,
+@@ -1656,11 +1709,25 @@ static int stmmac_init_fs(struct net_device *dev)
+ 		return -ENOMEM;
+ 	}
+ 
++	/* Entry to report DMA RX/TX rings */
++	stmmac_rings_status = debugfs_create_file("descriptors_status",
++					   S_IRUGO, stmmac_fs_dir, dev,
++					   &stmmac_rings_status_fops);
++
++	if (!stmmac_rings_status || IS_ERR(stmmac_rings_status)) {
++		pr_info("ERROR creating stmmac ring debugfs file\n");
++		debugfs_remove(stmmac_fs_dir);
++
++		return -ENOMEM;
++	}
++
++	/* Entry to report MAC Management counters */
+ 	stmmac_mmc = debugfs_create_file("mmc", S_IRUGO, stmmac_fs_dir, dev,
+ 					   &stmmac_mmc_fops);
+ 
+ 	if (!stmmac_mmc || IS_ERR(stmmac_mmc)) {
+ 		pr_info("ERROR creating stmmac MMC debugfs file\n");
++		debugfs_remove(stmmac_rings_status);
+ 		debugfs_remove(stmmac_fs_dir);
+ 
+ 		return -ENOMEM;
+@@ -1671,6 +1738,7 @@ static int stmmac_init_fs(struct net_device *dev)
+ 
+ static void stmmac_exit_fs(void)
+ {
++	debugfs_remove(stmmac_rings_status);
+ 	debugfs_remove(stmmac_mmc);
+ 	debugfs_remove(stmmac_fs_dir);
+ }
 -- 
 1.7.4.4
