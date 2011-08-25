@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mcast: Fix source address selection for multicast
- listener report
-Date: Wed, 24 Aug 2011 17:46:31 -0700 (PDT)
-Message-ID: <20110824.174631.44988400748251543.davem@davemloft.net>
-References: <4E54BC4D.8090008@intel.com>
+Subject: Re: [PATCH] bridge: fix a possible use after free
+Date: Wed, 24 Aug 2011 17:50:54 -0700 (PDT)
+Message-ID: <20110824.175054.2217340464184681338.davem@davemloft.net>
+References: <1314165425.4478.19.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com
-To: zheng.z.yan@intel.com
+Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au,
+	shemminger@vyatta.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60603 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:50126 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791Ab1HYAqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 20:46:34 -0400
-In-Reply-To: <4E54BC4D.8090008@intel.com>
+	with ESMTP id S1750915Ab1HYAvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 20:51:02 -0400
+In-Reply-To: <1314165425.4478.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Date: Wed, 24 Aug 2011 16:54:37 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 24 Aug 2011 07:57:05 +0200
 
-> Should check use count of include mode filter instead of total number
-> of include mode filters.
+> br_multicast_ipv6_rcv() can call pskb_trim_rcsum() and therefore skb
+> head can be reallocated.
 > 
-> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+> Cache icmp6_type field instead of dereferencing twice the struct
+> icmp6hdr pointer.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thank you.
+Applied.
