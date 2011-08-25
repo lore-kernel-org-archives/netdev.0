@@ -1,99 +1,51 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [RFC] per-containers tcp buffer limitation
-Date: Wed, 24 Aug 2011 22:28:59 -0300
-Message-ID: <4E55A55B.8090608@parallels.com>
-References: <4E558137.5020900@parallels.com> <m1k4a2qqew.fsf@fess.ebiederm.org>
+From: "con@telus.net" <con@win.nl>
+Subject: (unknown)
+Date: Thu, 25 Aug 2011 07:09:22 +0530
+Message-ID: <20110825013933.VEVA27705.viefep13-int.chello.at@edge01.upcmail.net>
+Reply-To: <claimsgroup222@qatar.io>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Linux Containers <containers@lists.osdl.org>,
-	Pavel Emelyanov <xemul@parallels.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_00A2_01C2A9A6.09E3BA88"
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.parallels.com ([64.131.90.16]:54124 "EHLO mx2.parallels.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752179Ab1HYB3X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Aug 2011 21:29:23 -0400
-In-Reply-To: <m1k4a2qqew.fsf@fess.ebiederm.org>
+Received: from fep22.mx.upcmail.net ([62.179.121.42]:42341 "EHLO
+	fep22.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751791Ab1HYBjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 21:39:39 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2011 09:35 PM, Eric W. Biederman wrote:
-> Glauber Costa<glommer@parallels.com>  writes:
->
->> Hello,
->>
->> This is a proof of concept of some code I have here to limit tcp send and
->> receive buffers per-container (in our case). At this phase, I am more concerned
->> in discussing my approach, so please curse my family no further than the 3rd
->> generation.
->>
->> The problem we're trying to attack here, is that buffers can grow and fill
->> non-reclaimable kernel memory. When doing containers, we can't afford having a
->> malicious container pinning kernel memory at will, therefore exhausting all the
->> others.
->>
->> So here a container will be seen in the host system as a group of tasks, grouped
->> in a cgroup. This cgroup will have files allowing us to specify global
->> per-cgroup limits on buffers. For that purpose, I created a new sockets cgroup -
->> didn't really think any other one of the existing would do here.
->>
->> As for the network code per-se, I tried to keep the same code that deals with
->> memory schedule as a basis and make it per-cgroup.
->> You will notice that struct proto now take function pointers to values
->> controlling memory pressure and will return per-cgroup data instead of global
->> ones. So the current behavior is maintained: after the first threshold is hit,
->> we enter memory pressure. After that, allocations are suppressed.
->>
->> Only tcp code was really touched here. udp had the pointers filled, but we're
->> not really controlling anything. But the fact that this lives in generic code,
->> makes it easier to do the same for other protocols in the future.
->>
->> For this patch specifically, I am not touching - just provisioning -
->> rmem and wmem specific knobs. I should also #ifdef a lot of this, but hey,
->> remember: rfc...
->>
->> One drawback of this approach I found, is that cgroups does not really work well
->> with modules. A lot of the network code is modularized, so this would have to be
->> fixed somehow.
->>
->> Let me know what you think.
->
-> Can you implement this by making the existing network sysctls per
-> network namespace?
->
-> At a quick skim it looks to me like you can make the existing sysctls
-> per network namespace and solve the issues you are aiming at solving and
-> that should make the code much simpler, than your proof of concept code.
->
-> Any implementation of this needs to answer the question how much
-> overhead does this extra accounting add.  I don't have a clue how much
-> overhead you are adding but you are making structures larger and I
-> suspect adding at least another cache line miss, so I suspect your
-> changes will impact real world socket performance.
+This is a multi-part message in MIME format.
 
-Hi Eric,
+------=_NextPart_000_00A2_01C2A9A6.09E3BA88
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 
-Thanks for your attention.
+KINDLY DOWNLOAD ATTACHMENT
 
-So, this that you propose was my first implementation. I ended up 
-throwing it away after playing with it for a while.
+------=_NextPart_000_00A2_01C2A9A6.09E3BA88
+Content-Type: application/octet-stream;
+	name="NOTIFICATION BOARD.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="NOTIFICATION BOARD.txt"
 
-One of the first problems that arise from that, is that the sysctls are
-a tunable visible from inside the container. Those limits, however, are 
-to be set from the outside world. The code is not much better than that 
-either, and instead of creating new cgroup structures and linking them 
-to the protocol, we end up doing it for net ns. We end up increasing 
-structures just the same...
+WW91IGhhdmUgYmVlbiBzZWxlY3RlZCBpbiB0aGUgb24tZ29pbmcgQ09DQSBD
+T0xBIGF3YXJkIGhlbGQgdGhpcyBBdWd1c3QNCjIwMTEuV2UgdGhlIFByb21v
+IEJvYXJkIGFyZSBwbGVhc2VkIHRvIGluZm9ybSB5b3UgdGhhdCB5b3UgYWxv
+bmdzaWRlIGZvdXIoNCkNCm90aGVybHVja3kgd2lubmVycyBoYXZlIGJlZW4g
+YXBwcm92ZWQgZm9yIGEgcGF5bWVudCBvZiAxLDAwMCAwMDBHQlAgKE9uZQ0K
+TWlsbGlvbiBQb3VuZHMgU3RlcmxpbmcpLg0KSWYgeW91IGRpZCByZWNlaXZl
+IHRoaXMgZW1haWwsIGl0IG1lYW5zIHlvdSBhcmUgb25lIG9mIHRoZSBmaXZl
+KDUpbHVja3kNCndpbm5lcnMuDQoNCipDTEFJTVMgUFJPQ0VTU0lORyBPRkZJ
+Q0VSOg0KKk5hbWU6TXIgVE9NTVkgUk9HRVINCkUubWFpbDogY2xhaW1zZ3Jv
+dXAyMjJAcWF0YXIuaW8NCg0KWW91IGFyZSBhbHNvIGFkdmlzZWQgdG8gcHJv
+dmlkZSBoaW0gd2l0aCB0aGUgdW5kZXIgbGlzdGVkIGluZm9ybWF0aW9uDQph
+cyBzb29uIGFzIHBvc3NpYmxlOg0KDQoqTkFNRSBJTiBGVUxMOg0KKkRFTElW
+RVJZIEFERFJFU1M6DQoqU0VYOg0KKkFHRToNCipDT1VOVFJZOg0KKk5BVElP
+TkFMSVRZOg0KKk9DQ1VQQVRJT046DQoqUEhPTkU6DQoNCldlIGFyZSBnbGFk
+IHRvIGhhdmUgeW91IGFzIG9uZSBvZiBvdXIgbHVja2x5IHdpbm5lcnMuDQo=
 
-Also, since we're doing resource control, it seems more natural to use 
-cgroups. Now, the fact that there are no correlation whatsoever between 
-cgroups and namespaces does bother me. But that's another story, much 
-more broader and general than this patch.
-
-About overhead, since this is the first RFC, I did not care about 
-measuring. However, it seems trivial to me to guarantee that at least 
-that it won't impose a significant performance penalty when it is 
-compiled out. If we're moving forward with this implementation, I will
-include data in the next release so we can discuss in this basis.
+------=_NextPart_000_00A2_01C2A9A6.09E3BA88--
