@@ -1,27 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] net: convert core to skb paged frag APIs
-Date: Wed, 24 Aug 2011 17:52:30 -0700 (PDT)
-Message-ID: <20110824.175230.1808799363749988231.davem@davemloft.net>
-References: <1314092683.10283.21.camel@zakaz.uk.xensource.com>
-	<1314092701-4347-1-git-send-email-ian.campbell@citrix.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: [PATCH] ibmveth: Fix leak when recycling skb and hypervisor returns
+ error
+Date: Thu, 25 Aug 2011 10:55:20 +1000
+Message-ID: <20110825105520.5ba7ae90@kryten>
+References: <20110825092019.777aea6e@kryten>
+	<20110824.174353.1962229766905714384.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	mirq-linux@rere.qmqm.pl
-To: ian.campbell@citrix.com
+Cc: santil@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50174 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750915Ab1HYAxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 20:53:39 -0400
-In-Reply-To: <1314092701-4347-1-git-send-email-ian.campbell@citrix.com>
+Received: from ozlabs.org ([203.10.76.45]:43518 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750915Ab1HYAzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Aug 2011 20:55:22 -0400
+In-Reply-To: <20110824.174353.1962229766905714384.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Tue, 23 Aug 2011 10:44:58 +0100
+Hi Dave,
 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Please generate this patch against Linus's tree, instead of -next
 
-Applied.
+Sure, here it is.
+
+Anton
+
+--
+
+If h_add_logical_lan_buffer returns an error we need to free
+the skb.
+
+Signed-off-by: Anton Blanchard <anton@samba.org>
+Cc: stable <stable@kernel.org>
+---
+
+Index: linux-2.6-work/drivers/net/ibmveth.c
+===================================================================
+--- linux-2.6-work.orig/drivers/net/ibmveth.c	2011-07-31 20:45:29.729141545 +1000
++++ linux-2.6-work/drivers/net/ibmveth.c	2011-08-25 10:49:04.200718870 +1000
+@@ -395,7 +395,7 @@ static inline struct sk_buff *ibmveth_rx
+ }
+ 
+ /* recycle the current buffer on the rx queue */
+-static void ibmveth_rxq_recycle_buffer(struct ibmveth_adapter *adapter)
++static int ibmveth_rxq_recycle_buffer(struct ibmveth_adapter *adapter)
+ {
+ 	u32 q_index = adapter->rx_queue.index;
+ 	u64 correlator = adapter->rx_queue.queue_addr[q_index].correlator;
+@@ -403,6 +403,7 @@ static void ibmveth_rxq_recycle_buffer(s
+ 	unsigned int index = correlator & 0xffffffffUL;
+ 	union ibmveth_buf_desc desc;
+ 	unsigned long lpar_rc;
++	int ret = 1;
+ 
+ 	BUG_ON(pool >= IBMVETH_NUM_BUFF_POOLS);
+ 	BUG_ON(index >= adapter->rx_buff_pool[pool].size);
+@@ -410,7 +411,7 @@ static void ibmveth_rxq_recycle_buffer(s
+ 	if (!adapter->rx_buff_pool[pool].active) {
+ 		ibmveth_rxq_harvest_buffer(adapter);
+ 		ibmveth_free_buffer_pool(adapter, &adapter->rx_buff_pool[pool]);
+-		return;
++		goto out;
+ 	}
+ 
+ 	desc.fields.flags_len = IBMVETH_BUF_VALID |
+@@ -423,12 +424,16 @@ static void ibmveth_rxq_recycle_buffer(s
+ 		netdev_dbg(adapter->netdev, "h_add_logical_lan_buffer failed "
+ 			   "during recycle rc=%ld", lpar_rc);
+ 		ibmveth_remove_buffer_from_pool(adapter, adapter->rx_queue.queue_addr[adapter->rx_queue.index].correlator);
++		ret = 0;
+ 	}
+ 
+ 	if (++adapter->rx_queue.index == adapter->rx_queue.num_slots) {
+ 		adapter->rx_queue.index = 0;
+ 		adapter->rx_queue.toggle = !adapter->rx_queue.toggle;
+ 	}
++
++out:
++	return ret;
+ }
+ 
+ static void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter)
+@@ -1084,8 +1089,9 @@ restart_poll:
+ 				if (rx_flush)
+ 					ibmveth_flush_buffer(skb->data,
+ 						length + offset);
++				if (!ibmveth_rxq_recycle_buffer(adapter))
++					kfree_skb(skb);
+ 				skb = new_skb;
+-				ibmveth_rxq_recycle_buffer(adapter);
+ 			} else {
+ 				ibmveth_rxq_harvest_buffer(adapter);
+ 				skb_reserve(skb, offset);
