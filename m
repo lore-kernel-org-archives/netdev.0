@@ -1,139 +1,91 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [RFC] per-containers tcp buffer limitation
-Date: Thu, 25 Aug 2011 10:49:56 +0900
-Message-ID: <20110825104956.41c4b60e.kamezawa.hiroyu@jp.fujitsu.com>
+Date: Wed, 24 Aug 2011 19:16:38 -0700
+Message-ID: <m14o16qlq1.fsf@fess.ebiederm.org>
 References: <4E558137.5020900@parallels.com>
-	<m1k4a2qqew.fsf@fess.ebiederm.org>
-	<4E55A55B.8090608@parallels.com>
+	<m1k4a2qqew.fsf@fess.ebiederm.org> <4E55A55B.8090608@parallels.com>
+	<20110825104956.41c4b60e.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Glauber Costa <glommer@parallels.com>,
 	Linux Containers <containers@lists.osdl.org>,
 	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Pavel Emelyanov <xemul@parallels.com>
-To: Glauber Costa <glommer@parallels.com>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:56198 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752936Ab1HYB5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 21:57:22 -0400
-Received: from m4.gw.fujitsu.co.jp (unknown [10.0.50.74])
-	by fgwmail5.fujitsu.co.jp (Postfix) with ESMTP id 576C53EE0C1
-	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 10:57:21 +0900 (JST)
-Received: from smail (m4 [127.0.0.1])
-	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 37E9D45DE52
-	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 10:57:21 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
-	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 0D2DF45DE4F
-	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 10:57:21 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id EB7911DB802F
-	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 10:57:20 +0900 (JST)
-Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.240.81.145])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 95E141DB8041
-	for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 10:57:20 +0900 (JST)
-In-Reply-To: <4E55A55B.8090608@parallels.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:41511 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752902Ab1HYCQq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 22:16:46 -0400
+In-Reply-To: <20110825104956.41c4b60e.kamezawa.hiroyu@jp.fujitsu.com>
+	(KAMEZAWA Hiroyuki's message of "Thu, 25 Aug 2011 10:49:56 +0900")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 24 Aug 2011 22:28:59 -0300
-Glauber Costa <glommer@parallels.com> wrote:
+KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> writes:
 
-> On 08/24/2011 09:35 PM, Eric W. Biederman wrote:
-> > Glauber Costa<glommer@parallels.com>  writes:
-> >
-> >> Hello,
-> >>
-> >> This is a proof of concept of some code I have here to limit tcp send and
-> >> receive buffers per-container (in our case). At this phase, I am more concerned
-> >> in discussing my approach, so please curse my family no further than the 3rd
-> >> generation.
-> >>
-> >> The problem we're trying to attack here, is that buffers can grow and fill
-> >> non-reclaimable kernel memory. When doing containers, we can't afford having a
-> >> malicious container pinning kernel memory at will, therefore exhausting all the
-> >> others.
-> >>
-> >> So here a container will be seen in the host system as a group of tasks, grouped
-> >> in a cgroup. This cgroup will have files allowing us to specify global
-> >> per-cgroup limits on buffers. For that purpose, I created a new sockets cgroup -
-> >> didn't really think any other one of the existing would do here.
-> >>
-> >> As for the network code per-se, I tried to keep the same code that deals with
-> >> memory schedule as a basis and make it per-cgroup.
-> >> You will notice that struct proto now take function pointers to values
-> >> controlling memory pressure and will return per-cgroup data instead of global
-> >> ones. So the current behavior is maintained: after the first threshold is hit,
-> >> we enter memory pressure. After that, allocations are suppressed.
-> >>
-> >> Only tcp code was really touched here. udp had the pointers filled, but we're
-> >> not really controlling anything. But the fact that this lives in generic code,
-> >> makes it easier to do the same for other protocols in the future.
-> >>
-> >> For this patch specifically, I am not touching - just provisioning -
-> >> rmem and wmem specific knobs. I should also #ifdef a lot of this, but hey,
-> >> remember: rfc...
-> >>
-> >> One drawback of this approach I found, is that cgroups does not really work well
-> >> with modules. A lot of the network code is modularized, so this would have to be
-> >> fixed somehow.
-> >>
-> >> Let me know what you think.
-> >
-> > Can you implement this by making the existing network sysctls per
-> > network namespace?
-> >
-> > At a quick skim it looks to me like you can make the existing sysctls
-> > per network namespace and solve the issues you are aiming at solving and
-> > that should make the code much simpler, than your proof of concept code.
-> >
-> > Any implementation of this needs to answer the question how much
-> > overhead does this extra accounting add.  I don't have a clue how much
-> > overhead you are adding but you are making structures larger and I
-> > suspect adding at least another cache line miss, so I suspect your
-> > changes will impact real world socket performance.
-> 
-> Hi Eric,
-> 
-> Thanks for your attention.
-> 
-> So, this that you propose was my first implementation. I ended up 
-> throwing it away after playing with it for a while.
-> 
-> One of the first problems that arise from that, is that the sysctls are
-> a tunable visible from inside the container. Those limits, however, are 
-> to be set from the outside world. The code is not much better than that 
-> either, and instead of creating new cgroup structures and linking them 
-> to the protocol, we end up doing it for net ns. We end up increasing 
-> structures just the same...
-> 
-> Also, since we're doing resource control, it seems more natural to use 
-> cgroups. Now, the fact that there are no correlation whatsoever between 
-> cgroups and namespaces does bother me. But that's another story, much 
-> more broader and general than this patch.
-> 
+> On Wed, 24 Aug 2011 22:28:59 -0300
+> Glauber Costa <glommer@parallels.com> wrote:
+>
+>> On 08/24/2011 09:35 PM, Eric W. Biederman wrote:
+>> > Glauber Costa<glommer@parallels.com>  writes:
+>> Hi Eric,
+>> 
+>> Thanks for your attention.
+>> 
+>> So, this that you propose was my first implementation. I ended up 
+>> throwing it away after playing with it for a while.
+>> 
+>> One of the first problems that arise from that, is that the sysctls are
+>> a tunable visible from inside the container. Those limits, however, are 
+>> to be set from the outside world. The code is not much better than that 
+>> either, and instead of creating new cgroup structures and linking them 
+>> to the protocol, we end up doing it for net ns. We end up increasing 
+>> structures just the same...
 
-I think using cgroup makes sense. A question in mind is whehter it is
-better to integrate this kind of 'memory usage' controls to memcg or not.
+You don't need to add a netns member to sockets.
 
-How do you think ? IMHO, having cgroup per class of object is messy.
-...
-How about adding 
-	memory.tcp_mem 
-to memcg ?
+But I do agree that there are odd permission issues with using the
+existing sysctls and making them per namespace.
 
-Or, adding kmem cgroup ?
+However almost everything I have seen with memory limits I have found
+very strange.  They all seem like a very bad version of disabling memory
+over commits.
 
-> About overhead, since this is the first RFC, I did not care about 
-> measuring. However, it seems trivial to me to guarantee that at least 
-> that it won't impose a significant performance penalty when it is 
-> compiled out. If we're moving forward with this implementation, I will
-> include data in the next release so we can discuss in this basis.
-> 
+>> Also, since we're doing resource control, it seems more natural to use 
+>> cgroups. Now, the fact that there are no correlation whatsoever between 
+>> cgroups and namespaces does bother me. But that's another story, much 
+>> more broader and general than this patch.
+>> 
+>
+> I think using cgroup makes sense. A question in mind is whehter it is
+> better to integrate this kind of 'memory usage' controls to memcg or
+> not.
 
-IMHO, you should show performance number even if RFC. Then, people will
-see patch with more interests.
+Maybe.  When sockets start getting a cgroup member I start wondering,
+how many cgroup members will sockets potentially belong to.
 
-Thanks,
--Kame
+> How do you think ? IMHO, having cgroup per class of object is messy.
+> ...
+> How about adding 
+> 	memory.tcp_mem 
+> to memcg ?
+>
+> Or, adding kmem cgroup ?
+>
+>> About overhead, since this is the first RFC, I did not care about 
+>> measuring. However, it seems trivial to me to guarantee that at least 
+>> that it won't impose a significant performance penalty when it is 
+>> compiled out. If we're moving forward with this implementation, I will
+>> include data in the next release so we can discuss in this basis.
+>> 
+>
+> IMHO, you should show performance number even if RFC. Then, people will
+> see patch with more interests.
+
+And also compiled out doesn't really count.  Cgroups are something you
+want people to compile into distributions for the common case, and you
+don't want to impose a noticeable performance penalty for the common
+case.
+
+Eric
