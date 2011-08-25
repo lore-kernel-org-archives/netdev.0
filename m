@@ -1,71 +1,40 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: build failure after merge of the staging tree
-Date: Thu, 25 Aug 2011 08:39:07 -0700
-Message-ID: <20110825153907.GA31018@kroah.com>
-References: <20110825150209.5d159c549777290de4644bcf@canb.auug.org.au>
- <4E55DA8C.10102@lwfinger.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] per-containers tcp buffer limitation
+Date: Thu, 25 Aug 2011 08:44:15 -0700
+Message-ID: <20110825084415.3c3094e8@nehalam.ftrdhcpuser.net>
+References: <4E558137.5020900@parallels.com>
+	<m1k4a2qqew.fsf@fess.ebiederm.org>
+	<4E55A55B.8090608@parallels.com>
+	<20110825104956.41c4b60e.kamezawa.hiroyu@jp.fujitsu.com>
+	<m14o16qlq1.fsf@fess.ebiederm.org>
+	<4E56464B.4070304@monom.org>
+	<4E5664B5.6000806@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	wlanfae <wlanfae@realtek.com>, Jiri Pirko <jpirko@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4E55DA8C.10102@lwfinger.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Wagner <wagi@monom.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+	Glauber Costa <glommer@parallels.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:46925 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750910Ab1HYPoI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Aug 2011 11:44:08 -0400
+In-Reply-To: <4E5664B5.6000806@genband.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 25, 2011 at 12:15:56AM -0500, Larry Finger wrote:
-> On 08/25/2011 12:02 AM, Stephen Rothwell wrote:
-> >Hi Greg,
-> >
-> >After merging the staging tree, today's linux-next build (x86_64
-> >allmodconfig) failed like this:
-> >
-> >drivers/staging/rtl8192e/rtl_core.c:2917:2: error: unknown field 'ndo_set_multicast_list' specified in initializer
-> >
-> >Caused by commit 94a799425eee ("From: wlanfae<wlanfae@realtek.com>" -
-> >really "[PATCH 1/8] rtl8192e: Import new version of driver from realtek"
-> >Larry, that patch was badly imported ...) interacting with commit
-> >b81693d9149c ("net: remove ndo_set_multicast_list callback") from the net
-> >tree.
-> >
-> >I applied the following patch (which seems to be what was done to the
-> >other drivers in the net tree - there is probably more required):
-> >
-> >From: Stephen Rothwell<sfr@canb.auug.org.au>
-> >Date: Thu, 25 Aug 2011 14:57:55 +1000
-> >Subject: [PATCH] rtl8192e: update for ndo_set_multicast_list removal.
-> >
-> >Signed-off-by: Stephen Rothwell<sfr@canb.auug.org.au>
-> >---
-> >  drivers/staging/rtl8192e/rtl_core.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> >
-> >diff --git a/drivers/staging/rtl8192e/rtl_core.c b/drivers/staging/rtl8192e/rtl_core.c
-> >index f8a13d9..b38f626 100644
-> >--- a/drivers/staging/rtl8192e/rtl_core.c
-> >+++ b/drivers/staging/rtl8192e/rtl_core.c
-> >@@ -2914,7 +2914,7 @@ static const struct net_device_ops rtl8192_netdev_ops = {
-> >  	.ndo_stop = rtl8192_close,
-> >  	.ndo_tx_timeout = rtl8192_tx_timeout,
-> >  	.ndo_do_ioctl = rtl8192_ioctl,
-> >-	.ndo_set_multicast_list = r8192_set_multicast,
-> >+	.ndo_set_rx_mode = r8192_set_multicast,
-> >  	.ndo_set_mac_address = r8192_set_mac_adr,
-> >  	.ndo_validate_addr = eth_validate_addr,
-> >  	.ndo_change_mtu = eth_change_mtu,
-> 
-> Stephan,
-> 
-> Thanks for the notice. It seems that commit b81693d9149c had not
-> made it into my copy of staging. I'll look into the issue.
+You seem to have forgotten the work of your forefathers. When appealing
+to history you must understand it first.
 
-It wouldn't ever make it there, as that's coming from the net-next tree,
-so this will have to wait until stuff merges together in Linus's tree.
+What about using netfilter (with extensions)? We already have iptables
+module to match on uid or gid. It wouldn't be hard to extend this to
+other bits of meta data like originating and target containers.
 
-thanks,
-
-greg k-h
+You could also use this to restrict access to ports and hosts on
+a per container basis.
