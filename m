@@ -1,49 +1,32 @@
-From: Miroslav Kratochvil <exa.exa@gmail.com>
-Subject: Traffic shaping - class ID 16bit limit?
-Date: Thu, 25 Aug 2011 18:28:01 +0200
-Message-ID: <CAO0uZ+-fv89Z3-9+vh5kN93xe=Uw8b=PSfnAqosOjUBP6PcVNg@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Traffic shaping - class ID 16bit limit?
+Date: Thu, 25 Aug 2011 09:39:37 -0700
+Message-ID: <20110825093937.2a8a1457@nehalam.ftrdhcpuser.net>
+References: <CAO0uZ+-fv89Z3-9+vh5kN93xe=Uw8b=PSfnAqosOjUBP6PcVNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Miroslav Kratochvil <exa.exa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:38656 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752188Ab1HYQ2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 12:28:02 -0400
-Received: by qwk3 with SMTP id 3so1419046qwk.19
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 09:28:01 -0700 (PDT)
+Received: from mail.vyatta.com ([76.74.103.46]:54765 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754471Ab1HYQj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Aug 2011 12:39:28 -0400
+In-Reply-To: <CAO0uZ+-fv89Z3-9+vh5kN93xe=Uw8b=PSfnAqosOjUBP6PcVNg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello everyone,
+On Thu, 25 Aug 2011 18:28:01 +0200
+Miroslav Kratochvil <exa.exa@gmail.com> wrote:
 
-the question is simple: What should I do if I need to have more than
-2^16 subclasses of a classful queuing discipline (in, say, hfsc or
-htb)?
+> Technically the ClassID seems to be "hardcoded" as a 16bit value, but
+> after some source searching, I haven't found any good reason for it to
+> be 16-bit only.
 
-I bumped into this problem while writing some kind of traffic shaping
-software and thinking about scalability. As there still are other ways
-to have more than 64k "classes" (like grouping some subclasses into
-separate qdiscs), those ways have significant drawbacks (require more
-tc-filter rules and decisions, generally more processing power, and
-the structure is quite hard to maintain).
+Granted it was a poor choice in the initial design.
+It is wired into the API and changing it would be quite painful.
 
-Technically the ClassID seems to be "hardcoded" as a 16bit value, but
-after some source searching, I haven't found any good reason for it to
-be 16-bit only.
-
-I understand that those ID's are usually handled together with another
-16bit Qdisc ID, which would add up to a quite big number (possibly
-unpleasant on some architectures) if those were both 32bit.
-
-I also completely understand that in most cases of common usage
-there's absolutely no need to have this big amount of subclasses, but
-on the other hand there's still no reason to have "64k classes enough
-for everyone". :D
-
-Of course if there's some obvious method to solve this, or a patch, or
-some kind of workaround that I haven't found, please let me know about
-it, I will happily use it.
-
-Thanks for any suggestions,
-Mirek Kratochvil
+You might be able to do the same thing by splitting traffic
+into multiple virtual devices (dummy or ifb) and then doing
+another layer.
