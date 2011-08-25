@@ -1,17 +1,17 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 1/2] dl2k: use standard #defines from mii.h.
-Date: Thu, 25 Aug 2011 11:21:58 +0200
-Message-ID: <20110825092158.GA21835@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH net-next 2/2] sunbmac: use standard #defines from mii.h.
+Date: Thu, 25 Aug 2011 11:22:36 +0200
+Message-ID: <20110825092236.GB21835@electric-eye.fr.zoreil.com>
 References: <20110825092019.GA21777@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:37323 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:37326 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753099Ab1HYJj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 05:39:56 -0400
+	with ESMTP id S1752320Ab1HYJkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 05:40:33 -0400
 Content-Disposition: inline
 In-Reply-To: <20110825092019.GA21777@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,393 +19,138 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/dlink/dl2k.c |  105 +++++++++++++++++------------------
- drivers/net/ethernet/dlink/dl2k.h |  110 +------------------------------------
- 2 files changed, 53 insertions(+), 162 deletions(-)
+ drivers/net/ethernet/sun/sunbmac.c |   31 ++++++++++++++++---------------
+ drivers/net/ethernet/sun/sunbmac.h |   17 -----------------
+ 2 files changed, 16 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index 3fa9140..b2dc2c8 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -1428,7 +1428,7 @@ mii_wait_link (struct net_device *dev, int wait)
- 
- 	do {
- 		bmsr = mii_read (dev, phy_addr, MII_BMSR);
--		if (bmsr & MII_BMSR_LINK_STATUS)
-+		if (bmsr & BMSR_LSTATUS)
- 			return 0;
- 		mdelay (1);
- 	} while (--wait > 0);
-@@ -1449,60 +1449,60 @@ mii_get_media (struct net_device *dev)
- 
- 	bmsr = mii_read (dev, phy_addr, MII_BMSR);
- 	if (np->an_enable) {
--		if (!(bmsr & MII_BMSR_AN_COMPLETE)) {
-+		if (!(bmsr & BMSR_ANEGCOMPLETE)) {
- 			/* Auto-Negotiation not completed */
- 			return -1;
- 		}
--		negotiate = mii_read (dev, phy_addr, MII_ANAR) &
--			mii_read (dev, phy_addr, MII_ANLPAR);
--		mscr = mii_read (dev, phy_addr, MII_MSCR);
--		mssr = mii_read (dev, phy_addr, MII_MSSR);
--		if (mscr & MII_MSCR_1000BT_FD && mssr & MII_MSSR_LP_1000BT_FD) {
-+		negotiate = mii_read (dev, phy_addr, MII_ADVERTISE) &
-+			mii_read (dev, phy_addr, MII_LPA);
-+		mscr = mii_read (dev, phy_addr, MII_CTRL1000);
-+		mssr = mii_read (dev, phy_addr, MII_STAT1000);
-+		if (mscr & ADVERTISE_1000FULL && mssr & LPA_1000FULL) {
- 			np->speed = 1000;
- 			np->full_duplex = 1;
- 			printk (KERN_INFO "Auto 1000 Mbps, Full duplex\n");
--		} else if (mscr & MII_MSCR_1000BT_HD && mssr & MII_MSSR_LP_1000BT_HD) {
-+		} else if (mscr & ADVERTISE_1000HALF && mssr & LPA_1000HALF) {
- 			np->speed = 1000;
- 			np->full_duplex = 0;
- 			printk (KERN_INFO "Auto 1000 Mbps, Half duplex\n");
--		} else if (negotiate & MII_ANAR_100BX_FD) {
-+		} else if (negotiate & ADVERTISE_100FULL) {
- 			np->speed = 100;
- 			np->full_duplex = 1;
- 			printk (KERN_INFO "Auto 100 Mbps, Full duplex\n");
--		} else if (negotiate & MII_ANAR_100BX_HD) {
-+		} else if (negotiate & ADVERTISE_100HALF) {
- 			np->speed = 100;
- 			np->full_duplex = 0;
- 			printk (KERN_INFO "Auto 100 Mbps, Half duplex\n");
--		} else if (negotiate & MII_ANAR_10BT_FD) {
-+		} else if (negotiate & ADVERTISE_10FULL) {
- 			np->speed = 10;
- 			np->full_duplex = 1;
- 			printk (KERN_INFO "Auto 10 Mbps, Full duplex\n");
--		} else if (negotiate & MII_ANAR_10BT_HD) {
-+		} else if (negotiate & ADVERTISE_10HALF) {
- 			np->speed = 10;
- 			np->full_duplex = 0;
- 			printk (KERN_INFO "Auto 10 Mbps, Half duplex\n");
- 		}
--		if (negotiate & MII_ANAR_PAUSE) {
-+		if (negotiate & ADVERTISE_PAUSE_CAP) {
- 			np->tx_flow &= 1;
- 			np->rx_flow &= 1;
--		} else if (negotiate & MII_ANAR_ASYMMETRIC) {
-+		} else if (negotiate & ADVERTISE_PAUSE_ASYM) {
- 			np->tx_flow = 0;
- 			np->rx_flow &= 1;
- 		}
- 		/* else tx_flow, rx_flow = user select  */
- 	} else {
- 		__u16 bmcr = mii_read (dev, phy_addr, MII_BMCR);
--		switch (bmcr & (MII_BMCR_SPEED_100 | MII_BMCR_SPEED_1000)) {
--		case MII_BMCR_SPEED_1000:
-+		switch (bmcr & (BMCR_SPEED100 | BMCR_SPEED1000)) {
-+		case BMCR_SPEED1000:
- 			printk (KERN_INFO "Operating at 1000 Mbps, ");
- 			break;
--		case MII_BMCR_SPEED_100:
-+		case BMCR_SPEED100:
- 			printk (KERN_INFO "Operating at 100 Mbps, ");
- 			break;
- 		case 0:
- 			printk (KERN_INFO "Operating at 10 Mbps, ");
- 		}
--		if (bmcr & MII_BMCR_DUPLEX_MODE) {
-+		if (bmcr & BMCR_FULLDPLX) {
- 			printk (KERN_CONT "Full duplex\n");
- 		} else {
- 			printk (KERN_CONT "Half duplex\n");
-@@ -1536,24 +1536,22 @@ mii_set_media (struct net_device *dev)
- 	if (np->an_enable) {
- 		/* Advertise capabilities */
- 		bmsr = mii_read (dev, phy_addr, MII_BMSR);
--		anar = mii_read (dev, phy_addr, MII_ANAR) &
--			     ~MII_ANAR_100BX_FD &
--			     ~MII_ANAR_100BX_HD &
--			     ~MII_ANAR_100BT4 &
--			     ~MII_ANAR_10BT_FD &
--			     ~MII_ANAR_10BT_HD;
--		if (bmsr & MII_BMSR_100BX_FD)
--			anar |= MII_ANAR_100BX_FD;
--		if (bmsr & MII_BMSR_100BX_HD)
--			anar |= MII_ANAR_100BX_HD;
--		if (bmsr & MII_BMSR_100BT4)
--			anar |= MII_ANAR_100BT4;
--		if (bmsr & MII_BMSR_10BT_FD)
--			anar |= MII_ANAR_10BT_FD;
--		if (bmsr & MII_BMSR_10BT_HD)
--			anar |= MII_ANAR_10BT_HD;
--		anar |= MII_ANAR_PAUSE | MII_ANAR_ASYMMETRIC;
--		mii_write (dev, phy_addr, MII_ANAR, anar);
-+		anar = mii_read (dev, phy_addr, MII_ADVERTISE) &
-+			~(ADVERTISE_100FULL | ADVERTISE_10FULL |
-+			  ADVERTISE_100HALF | ADVERTISE_10HALF |
-+			  ADVERTISE_100BASE4);
-+		if (bmsr & BMSR_100FULL)
-+			anar |= ADVERTISE_100FULL;
-+		if (bmsr & BMSR_100HALF)
-+			anar |= ADVERTISE_100HALF;
-+		if (bmsr & BMSR_100BASE4)
-+			anar |= ADVERTISE_100BASE4;
-+		if (bmsr & BMSR_10FULL)
-+			anar |= ADVERTISE_10FULL;
-+		if (bmsr & BMSR_10HALF)
-+			anar |= ADVERTISE_10HALF;
-+		anar |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
-+		mii_write (dev, phy_addr, MII_ADVERTISE, anar);
- 
- 		/* Enable Auto crossover */
- 		pscr = mii_read (dev, phy_addr, MII_PHY_SCR);
-@@ -1561,8 +1559,8 @@ mii_set_media (struct net_device *dev)
- 		mii_write (dev, phy_addr, MII_PHY_SCR, pscr);
- 
- 		/* Soft reset PHY */
--		mii_write (dev, phy_addr, MII_BMCR, MII_BMCR_RESET);
--		bmcr = MII_BMCR_AN_ENABLE | MII_BMCR_RESTART_AN | MII_BMCR_RESET;
-+		mii_write (dev, phy_addr, MII_BMCR, BMCR_RESET);
-+		bmcr = BMCR_ANENABLE | BMCR_ANRESTART | BMCR_RESET;
- 		mii_write (dev, phy_addr, MII_BMCR, bmcr);
- 		mdelay(1);
- 	} else {
-@@ -1574,7 +1572,7 @@ mii_set_media (struct net_device *dev)
- 
- 		/* 2) PHY Reset */
- 		bmcr = mii_read (dev, phy_addr, MII_BMCR);
--		bmcr |= MII_BMCR_RESET;
-+		bmcr |= BMCR_RESET;
- 		mii_write (dev, phy_addr, MII_BMCR, bmcr);
- 
- 		/* 3) Power Down */
-@@ -1583,25 +1581,25 @@ mii_set_media (struct net_device *dev)
- 		mdelay (100);	/* wait a certain time */
- 
- 		/* 4) Advertise nothing */
--		mii_write (dev, phy_addr, MII_ANAR, 0);
-+		mii_write (dev, phy_addr, MII_ADVERTISE, 0);
- 
- 		/* 5) Set media and Power Up */
--		bmcr = MII_BMCR_POWER_DOWN;
-+		bmcr = BMCR_PDOWN;
- 		if (np->speed == 100) {
--			bmcr |= MII_BMCR_SPEED_100;
-+			bmcr |= BMCR_SPEED100;
- 			printk (KERN_INFO "Manual 100 Mbps, ");
- 		} else if (np->speed == 10) {
- 			printk (KERN_INFO "Manual 10 Mbps, ");
- 		}
- 		if (np->full_duplex) {
--			bmcr |= MII_BMCR_DUPLEX_MODE;
-+			bmcr |= BMCR_FULLDPLX;
- 			printk (KERN_CONT "Full duplex\n");
- 		} else {
- 			printk (KERN_CONT "Half duplex\n");
- 		}
- #if 0
- 		/* Set 1000BaseT Master/Slave setting */
--		mscr = mii_read (dev, phy_addr, MII_MSCR);
-+		mscr = mii_read (dev, phy_addr, MII_CTRL1000);
- 		mscr |= MII_MSCR_CFG_ENABLE;
- 		mscr &= ~MII_MSCR_CFG_VALUE = 0;
- #endif
-@@ -1624,7 +1622,7 @@ mii_get_media_pcs (struct net_device *dev)
- 
- 	bmsr = mii_read (dev, phy_addr, PCS_BMSR);
- 	if (np->an_enable) {
--		if (!(bmsr & MII_BMSR_AN_COMPLETE)) {
-+		if (!(bmsr & BMSR_ANEGCOMPLETE)) {
- 			/* Auto-Negotiation not completed */
- 			return -1;
- 		}
-@@ -1649,7 +1647,7 @@ mii_get_media_pcs (struct net_device *dev)
- 	} else {
- 		__u16 bmcr = mii_read (dev, phy_addr, PCS_BMCR);
- 		printk (KERN_INFO "Operating at 1000 Mbps, ");
--		if (bmcr & MII_BMCR_DUPLEX_MODE) {
-+		if (bmcr & BMCR_FULLDPLX) {
- 			printk (KERN_CONT "Full duplex\n");
- 		} else {
- 			printk (KERN_CONT "Half duplex\n");
-@@ -1682,7 +1680,7 @@ mii_set_media_pcs (struct net_device *dev)
- 	if (np->an_enable) {
- 		/* Advertise capabilities */
- 		esr = mii_read (dev, phy_addr, PCS_ESR);
--		anar = mii_read (dev, phy_addr, MII_ANAR) &
-+		anar = mii_read (dev, phy_addr, MII_ADVERTISE) &
- 			~PCS_ANAR_HALF_DUPLEX &
- 			~PCS_ANAR_FULL_DUPLEX;
- 		if (esr & (MII_ESR_1000BT_HD | MII_ESR_1000BX_HD))
-@@ -1690,22 +1688,21 @@ mii_set_media_pcs (struct net_device *dev)
- 		if (esr & (MII_ESR_1000BT_FD | MII_ESR_1000BX_FD))
- 			anar |= PCS_ANAR_FULL_DUPLEX;
- 		anar |= PCS_ANAR_PAUSE | PCS_ANAR_ASYMMETRIC;
--		mii_write (dev, phy_addr, MII_ANAR, anar);
-+		mii_write (dev, phy_addr, MII_ADVERTISE, anar);
- 
- 		/* Soft reset PHY */
--		mii_write (dev, phy_addr, MII_BMCR, MII_BMCR_RESET);
--		bmcr = MII_BMCR_AN_ENABLE | MII_BMCR_RESTART_AN |
--		       MII_BMCR_RESET;
-+		mii_write (dev, phy_addr, MII_BMCR, BMCR_RESET);
-+		bmcr = BMCR_ANENABLE | BMCR_ANRESTART | BMCR_RESET;
- 		mii_write (dev, phy_addr, MII_BMCR, bmcr);
- 		mdelay(1);
- 	} else {
- 		/* Force speed setting */
- 		/* PHY Reset */
--		bmcr = MII_BMCR_RESET;
-+		bmcr = BMCR_RESET;
- 		mii_write (dev, phy_addr, MII_BMCR, bmcr);
- 		mdelay(10);
- 		if (np->full_duplex) {
--			bmcr = MII_BMCR_DUPLEX_MODE;
-+			bmcr = BMCR_FULLDPLX;
- 			printk (KERN_INFO "Manual full duplex\n");
- 		} else {
- 			bmcr = 0;
-@@ -1715,7 +1712,7 @@ mii_set_media_pcs (struct net_device *dev)
- 		mdelay(10);
- 
- 		/*  Advertise nothing */
--		mii_write (dev, phy_addr, MII_ANAR, 0);
-+		mii_write (dev, phy_addr, MII_ADVERTISE, 0);
- 	}
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/dlink/dl2k.h b/drivers/net/ethernet/dlink/dl2k.h
-index 7caab3d..ba0adca 100644
---- a/drivers/net/ethernet/dlink/dl2k.h
-+++ b/drivers/net/ethernet/dlink/dl2k.h
-@@ -28,6 +28,7 @@
- #include <linux/init.h>
+diff --git a/drivers/net/ethernet/sun/sunbmac.c b/drivers/net/ethernet/sun/sunbmac.c
+index c94f5ef..0d8cfd9 100644
+--- a/drivers/net/ethernet/sun/sunbmac.c
++++ b/drivers/net/ethernet/sun/sunbmac.c
+@@ -17,6 +17,7 @@
  #include <linux/crc32.h>
+ #include <linux/errno.h>
  #include <linux/ethtool.h>
 +#include <linux/mii.h>
- #include <linux/bitops.h>
- #include <asm/processor.h>	/* Processor type for cache alignment. */
- #include <asm/io.h>
-@@ -271,20 +272,9 @@ enum RFS_bits {
- #define MII_RESET_TIME_OUT		10000
- /* MII register */
- enum _mii_reg {
--	MII_BMCR = 0,
--	MII_BMSR = 1,
--	MII_PHY_ID1 = 2,
--	MII_PHY_ID2 = 3,
--	MII_ANAR = 4,
--	MII_ANLPAR = 5,
--	MII_ANER = 6,
--	MII_ANNPT = 7,
--	MII_ANLPRNP = 8,
--	MII_MSCR = 9,
--	MII_MSSR = 10,
--	MII_ESR = 15,
- 	MII_PHY_SCR = 16,
- };
-+
- /* PCS register */
- enum _pcs_reg {
- 	PCS_BMCR = 0,
-@@ -297,102 +287,6 @@ enum _pcs_reg {
- 	PCS_ESR = 15,
- };
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+@@ -500,13 +501,13 @@ static int try_next_permutation(struct bigmac *bp, void __iomem *tregs)
  
--/* Basic Mode Control Register */
--enum _mii_bmcr {
--	MII_BMCR_RESET = 0x8000,
--	MII_BMCR_LOOP_BACK = 0x4000,
--	MII_BMCR_SPEED_LSB = 0x2000,
--	MII_BMCR_AN_ENABLE = 0x1000,
--	MII_BMCR_POWER_DOWN = 0x0800,
--	MII_BMCR_ISOLATE = 0x0400,
--	MII_BMCR_RESTART_AN = 0x0200,
--	MII_BMCR_DUPLEX_MODE = 0x0100,
--	MII_BMCR_COL_TEST = 0x0080,
--	MII_BMCR_SPEED_MSB = 0x0040,
--	MII_BMCR_SPEED_RESERVED = 0x003f,
--	MII_BMCR_SPEED_10 = 0,
--	MII_BMCR_SPEED_100 = MII_BMCR_SPEED_LSB,
--	MII_BMCR_SPEED_1000 = MII_BMCR_SPEED_MSB,
--};
+ 		/* Reset the PHY. */
+ 		bp->sw_bmcr	= (BMCR_ISOLATE | BMCR_PDOWN | BMCR_LOOPBACK);
+-		bigmac_tcvr_write(bp, tregs, BIGMAC_BMCR, bp->sw_bmcr);
++		bigmac_tcvr_write(bp, tregs, MII_BMCR, bp->sw_bmcr);
+ 		bp->sw_bmcr	= (BMCR_RESET);
+-		bigmac_tcvr_write(bp, tregs, BIGMAC_BMCR, bp->sw_bmcr);
++		bigmac_tcvr_write(bp, tregs, MII_BMCR, bp->sw_bmcr);
+ 
+ 		timeout = 64;
+ 		while (--timeout) {
+-			bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, BIGMAC_BMCR);
++			bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, MII_BMCR);
+ 			if ((bp->sw_bmcr & BMCR_RESET) == 0)
+ 				break;
+ 			udelay(20);
+@@ -514,11 +515,11 @@ static int try_next_permutation(struct bigmac *bp, void __iomem *tregs)
+ 		if (timeout == 0)
+ 			printk(KERN_ERR "%s: PHY reset failed.\n", bp->dev->name);
+ 
+-		bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, BIGMAC_BMCR);
++		bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, MII_BMCR);
+ 
+ 		/* Now we try 10baseT. */
+ 		bp->sw_bmcr &= ~(BMCR_SPEED100);
+-		bigmac_tcvr_write(bp, tregs, BIGMAC_BMCR, bp->sw_bmcr);
++		bigmac_tcvr_write(bp, tregs, MII_BMCR, bp->sw_bmcr);
+ 		return 0;
+ 	}
+ 
+@@ -534,8 +535,8 @@ static void bigmac_timer(unsigned long data)
+ 
+ 	bp->timer_ticks++;
+ 	if (bp->timer_state == ltrywait) {
+-		bp->sw_bmsr = bigmac_tcvr_read(bp, tregs, BIGMAC_BMSR);
+-		bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, BIGMAC_BMCR);
++		bp->sw_bmsr = bigmac_tcvr_read(bp, tregs, MII_BMSR);
++		bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, MII_BMCR);
+ 		if (bp->sw_bmsr & BMSR_LSTATUS) {
+ 			printk(KERN_INFO "%s: Link is now up at %s.\n",
+ 			       bp->dev->name,
+@@ -588,18 +589,18 @@ static void bigmac_begin_auto_negotiation(struct bigmac *bp)
+ 	int timeout;
+ 
+ 	/* Grab new software copies of PHY registers. */
+-	bp->sw_bmsr	= bigmac_tcvr_read(bp, tregs, BIGMAC_BMSR);
+-	bp->sw_bmcr	= bigmac_tcvr_read(bp, tregs, BIGMAC_BMCR);
++	bp->sw_bmsr	= bigmac_tcvr_read(bp, tregs, MII_BMSR);
++	bp->sw_bmcr	= bigmac_tcvr_read(bp, tregs, MII_BMCR);
+ 
+ 	/* Reset the PHY. */
+ 	bp->sw_bmcr	= (BMCR_ISOLATE | BMCR_PDOWN | BMCR_LOOPBACK);
+-	bigmac_tcvr_write(bp, tregs, BIGMAC_BMCR, bp->sw_bmcr);
++	bigmac_tcvr_write(bp, tregs, MII_BMCR, bp->sw_bmcr);
+ 	bp->sw_bmcr	= (BMCR_RESET);
+-	bigmac_tcvr_write(bp, tregs, BIGMAC_BMCR, bp->sw_bmcr);
++	bigmac_tcvr_write(bp, tregs, MII_BMCR, bp->sw_bmcr);
+ 
+ 	timeout = 64;
+ 	while (--timeout) {
+-		bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, BIGMAC_BMCR);
++		bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, MII_BMCR);
+ 		if ((bp->sw_bmcr & BMCR_RESET) == 0)
+ 			break;
+ 		udelay(20);
+@@ -607,11 +608,11 @@ static void bigmac_begin_auto_negotiation(struct bigmac *bp)
+ 	if (timeout == 0)
+ 		printk(KERN_ERR "%s: PHY reset failed.\n", bp->dev->name);
+ 
+-	bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, BIGMAC_BMCR);
++	bp->sw_bmcr = bigmac_tcvr_read(bp, tregs, MII_BMCR);
+ 
+ 	/* First we try 100baseT. */
+ 	bp->sw_bmcr |= BMCR_SPEED100;
+-	bigmac_tcvr_write(bp, tregs, BIGMAC_BMCR, bp->sw_bmcr);
++	bigmac_tcvr_write(bp, tregs, MII_BMCR, bp->sw_bmcr);
+ 
+ 	bp->timer_state = ltrywait;
+ 	bp->timer_ticks = 0;
+@@ -1054,7 +1055,7 @@ static u32 bigmac_get_link(struct net_device *dev)
+ 	struct bigmac *bp = netdev_priv(dev);
+ 
+ 	spin_lock_irq(&bp->lock);
+-	bp->sw_bmsr = bigmac_tcvr_read(bp, bp->tregs, BIGMAC_BMSR);
++	bp->sw_bmsr = bigmac_tcvr_read(bp, bp->tregs, MII_BMSR);
+ 	spin_unlock_irq(&bp->lock);
+ 
+ 	return (bp->sw_bmsr & BMSR_LSTATUS);
+diff --git a/drivers/net/ethernet/sun/sunbmac.h b/drivers/net/ethernet/sun/sunbmac.h
+index 4943e97..06dd217 100644
+--- a/drivers/net/ethernet/sun/sunbmac.h
++++ b/drivers/net/ethernet/sun/sunbmac.h
+@@ -223,23 +223,6 @@
+ #define BIGMAC_PHY_EXTERNAL   0 /* External transceiver */
+ #define BIGMAC_PHY_INTERNAL   1 /* Internal transceiver */
+ 
+-/* PHY registers */
+-#define BIGMAC_BMCR           0x00 /* Basic mode control register	*/
+-#define BIGMAC_BMSR           0x01 /* Basic mode status register	*/
 -
--/* Basic Mode Status Register */
--enum _mii_bmsr {
--	MII_BMSR_100BT4 = 0x8000,
--	MII_BMSR_100BX_FD = 0x4000,
--	MII_BMSR_100BX_HD = 0x2000,
--	MII_BMSR_10BT_FD = 0x1000,
--	MII_BMSR_10BT_HD = 0x0800,
--	MII_BMSR_100BT2_FD = 0x0400,
--	MII_BMSR_100BT2_HD = 0x0200,
--	MII_BMSR_EXT_STATUS = 0x0100,
--	MII_BMSR_PREAMBLE_SUPP = 0x0040,
--	MII_BMSR_AN_COMPLETE = 0x0020,
--	MII_BMSR_REMOTE_FAULT = 0x0010,
--	MII_BMSR_AN_ABILITY = 0x0008,
--	MII_BMSR_LINK_STATUS = 0x0004,
--	MII_BMSR_JABBER_DETECT = 0x0002,
--	MII_BMSR_EXT_CAP = 0x0001,
--};
+-/* BMCR bits */
+-#define BMCR_ISOLATE            0x0400  /* Disconnect DP83840 from MII */
+-#define BMCR_PDOWN              0x0800  /* Powerdown the DP83840       */
+-#define BMCR_ANENABLE           0x1000  /* Enable auto negotiation     */
+-#define BMCR_SPEED100           0x2000  /* Select 100Mbps              */
+-#define BMCR_LOOPBACK           0x4000  /* TXD loopback bits           */
+-#define BMCR_RESET              0x8000  /* Reset the DP83840           */
 -
--/* ANAR */
--enum _mii_anar {
--	MII_ANAR_NEXT_PAGE = 0x8000,
--	MII_ANAR_REMOTE_FAULT = 0x4000,
--	MII_ANAR_ASYMMETRIC = 0x0800,
--	MII_ANAR_PAUSE = 0x0400,
--	MII_ANAR_100BT4 = 0x0200,
--	MII_ANAR_100BX_FD = 0x0100,
--	MII_ANAR_100BX_HD = 0x0080,
--	MII_ANAR_10BT_FD = 0x0020,
--	MII_ANAR_10BT_HD = 0x0010,
--	MII_ANAR_SELECTOR = 0x001f,
--	MII_IEEE8023_CSMACD = 0x0001,
--};
+-/* BMSR bits */
+-#define BMSR_ERCAP              0x0001  /* Ext-reg capability          */
+-#define BMSR_JCD                0x0002  /* Jabber detected             */
+-#define BMSR_LSTATUS            0x0004  /* Link status                 */
 -
--/* ANLPAR */
--enum _mii_anlpar {
--	MII_ANLPAR_NEXT_PAGE = MII_ANAR_NEXT_PAGE,
--	MII_ANLPAR_REMOTE_FAULT = MII_ANAR_REMOTE_FAULT,
--	MII_ANLPAR_ASYMMETRIC = MII_ANAR_ASYMMETRIC,
--	MII_ANLPAR_PAUSE = MII_ANAR_PAUSE,
--	MII_ANLPAR_100BT4 = MII_ANAR_100BT4,
--	MII_ANLPAR_100BX_FD = MII_ANAR_100BX_FD,
--	MII_ANLPAR_100BX_HD = MII_ANAR_100BX_HD,
--	MII_ANLPAR_10BT_FD = MII_ANAR_10BT_FD,
--	MII_ANLPAR_10BT_HD = MII_ANAR_10BT_HD,
--	MII_ANLPAR_SELECTOR = MII_ANAR_SELECTOR,
--};
--
--/* Auto-Negotiation Expansion Register */
--enum _mii_aner {
--	MII_ANER_PAR_DETECT_FAULT = 0x0010,
--	MII_ANER_LP_NEXTPAGABLE = 0x0008,
--	MII_ANER_NETXTPAGABLE = 0x0004,
--	MII_ANER_PAGE_RECEIVED = 0x0002,
--	MII_ANER_LP_NEGOTIABLE = 0x0001,
--};
--
--/* MASTER-SLAVE Control Register */
--enum _mii_mscr {
--	MII_MSCR_TEST_MODE = 0xe000,
--	MII_MSCR_CFG_ENABLE = 0x1000,
--	MII_MSCR_CFG_VALUE = 0x0800,
--	MII_MSCR_PORT_VALUE = 0x0400,
--	MII_MSCR_1000BT_FD = 0x0200,
--	MII_MSCR_1000BT_HD = 0X0100,
--};
--
--/* MASTER-SLAVE Status Register */
--enum _mii_mssr {
--	MII_MSSR_CFG_FAULT = 0x8000,
--	MII_MSSR_CFG_RES = 0x4000,
--	MII_MSSR_LOCAL_RCV_STATUS = 0x2000,
--	MII_MSSR_REMOTE_RCVR = 0x1000,
--	MII_MSSR_LP_1000BT_FD = 0x0800,
--	MII_MSSR_LP_1000BT_HD = 0x0400,
--	MII_MSSR_IDLE_ERR_COUNT = 0x00ff,
--};
--
- /* IEEE Extened Status Register */
- enum _mii_esr {
- 	MII_ESR_1000BX_FD = 0x8000,
+ /* Ring descriptors and such, same as Quad Ethernet. */
+ struct be_rxd {
+ 	u32 rx_flags;
 -- 
 1.7.4.4
