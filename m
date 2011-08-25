@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: one more case for non-local saddr in
- ICMP
-Date: Wed, 24 Aug 2011 19:37:25 -0700 (PDT)
-Message-ID: <20110824.193725.2023779878865246098.davem@davemloft.net>
-References: <alpine.LFD.2.00.1108151857420.1481@ja.ssi.bg>
+Subject: Re: [PATCH net-next v5 1/2] af-packet: Added TPACKET_V3 headers.
+Date: Wed, 24 Aug 2011 19:43:08 -0700 (PDT)
+Message-ID: <20110824.194308.2024908890526228700.davem@davemloft.net>
+References: <1313785096-911-1-git-send-email-loke.chetan@gmail.com>
+	<1313785096-911-2-git-send-email-loke.chetan@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au
-To: ja@ssi.bg
+Cc: netdev@vger.kernel.org
+To: loke.chetan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41465 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42530 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108Ab1HYChi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 22:37:38 -0400
-In-Reply-To: <alpine.LFD.2.00.1108151857420.1481@ja.ssi.bg>
+	with ESMTP id S1751405Ab1HYCnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 22:43:10 -0400
+In-Reply-To: <1313785096-911-2-git-send-email-loke.chetan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Mon, 15 Aug 2011 19:21:23 +0300 (EEST)
+From: Chetan Loke <loke.chetan@gmail.com>
+Date: Fri, 19 Aug 2011 16:18:15 -0400
 
-> 	May be there is one more case that we can avoid using
-> non-local source for ICMP errors: xfrm_lookup, num_xfrms = 0 when
-> reverse "Flow passes untransformed". Avoid using the input route
-> if xfrm_lookup returns same dst.
+> Added TPACKET_V3 definitions.
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Chetan Loke <loke.chetan@gmail.com>
 
-Julian I'm going to defer on this patch unless you think there is
-a real pressing reason to apply it.
+Applied.
 
-Thanks.
+I would suggest, as a follow-up patch, we add some appropriate
+prefixes to these new datastructures added to if_packet.h as
+these are exposed to userspace.
+
+For example "hdr_v1", "bd_ts", "bd_header_u", and "block_desc" are
+just asking for namespace conflicts with something other API in
+userspace or the user's own datastructures.
