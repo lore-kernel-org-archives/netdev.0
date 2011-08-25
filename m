@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: (3.1.0-rc2-git7) include/linux/inetdevice.h:209 invoked
- rcu_dereference_check() without protection!
-Date: Wed, 24 Aug 2011 17:55:36 -0700 (PDT)
-Message-ID: <20110824.175536.2182027080149098383.davem@davemloft.net>
-References: <20110823024423.GA23874@redhat.com>
-	<1314077562.4791.21.camel@edumazet-laptop>
+Subject: Re: [PATCH] ibmveth: Fix leak when recycling skb and hypervisor
+ returns error
+Date: Wed, 24 Aug 2011 17:56:32 -0700 (PDT)
+Message-ID: <20110824.175632.593843178865523416.davem@davemloft.net>
+References: <20110825092019.777aea6e@kryten>
+	<20110824.174353.1962229766905714384.davem@davemloft.net>
+	<20110825105520.5ba7ae90@kryten>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: santil@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: anton@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46020 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46045 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751678Ab1HYAzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 20:55:42 -0400
-In-Reply-To: <1314077562.4791.21.camel@edumazet-laptop>
+	with ESMTP id S1751197Ab1HYA4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 20:56:36 -0400
+In-Reply-To: <20110825105520.5ba7ae90@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 23 Aug 2011 07:32:42 +0200
+From: Anton Blanchard <anton@samba.org>
+Date: Thu, 25 Aug 2011 10:55:20 +1000
 
-> [PATCH] arp: fix rcu lockdep splat in arp_process()
+>> Please generate this patch against Linus's tree, instead of -next
 > 
-> Dave Jones reported a lockdep splat triggered by an arp_process() call
-> from parp_redo().
-> 
-> Commit faa9dcf793be (arp: RCU changes) is the origin of the bug, since
-> it assumed arp_process() was called under rcu_read_lock(), which is not
-> true in this particular path.
-> 
-> Instead of adding rcu_read_lock() in parp_redo(), I chose to add it in 
-> neigh_proxy_process() to take care of IPv6 side too.
-...
-> Reported-by: Dave Jones <davej@redhat.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Sure, here it is.
 
-Applied and queued up for -stable, thanks!
+Applied, thanks.
