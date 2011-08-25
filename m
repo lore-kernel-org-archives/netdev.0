@@ -1,55 +1,53 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 6/9] bnx2: convert to SKB paged frag API.
-Date: Thu, 25 Aug 2011 09:28:12 +0100
-Message-ID: <1314260895-15936-6-git-send-email-ian.campbell@citrix.com>
+From: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 5/9] tg3: convert to SKB paged frag API.
+Date: Thu, 25 Aug 2011 09:28:11 +0100
+Message-ID: <1314260895-15936-5-git-send-email-ian.campbell@citrix.com>
 References: <1314260881.10283.48.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Michael Chan <mchan@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:38678 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752522Ab1HYI21 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 04:28:27 -0400
-In-Reply-To: <1314260881.10283.48.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Matt Carlson <mcarlson-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1314260881.10283.48.camel-o4Be2W7LfRlXesXXhkcM7miJhflN2719@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Michael Chan <mchan@broadcom.com>
-Cc: netdev@vger.kernel.org
+Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Matt Carlson <mcarlson-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 ---
- drivers/net/ethernet/broadcom/bnx2.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 4a9a8c81..9afb653 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -2930,8 +2930,8 @@ bnx2_reuse_rx_skb_pages(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr,
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 0f81111..a7e28a2 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6311,10 +6311,8 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
  
- 		shinfo = skb_shinfo(skb);
- 		shinfo->nr_frags--;
--		page = shinfo->frags[shinfo->nr_frags].page;
--		shinfo->frags[shinfo->nr_frags].page = NULL;
-+		page = skb_frag_page(&shinfo->frags[shinfo->nr_frags]);
-+		__skb_frag_set_page(&shinfo->frags[shinfo->nr_frags], NULL);
+ 			len = frag->size;
+-			mapping = pci_map_page(tp->pdev,
+-					       frag->page,
+-					       frag->page_offset,
+-					       len, PCI_DMA_TODEVICE);
++			mapping = skb_frag_dma_map(&tp->pdev->dev, frag, 0,
++						   len, PCI_DMA_TODEVICE);
  
- 		cons_rx_pg->page = page;
- 		dev_kfree_skb(skb);
-@@ -6511,8 +6511,8 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		txbd = &txr->tx_desc_ring[ring_prod];
- 
- 		len = frag->size;
--		mapping = dma_map_page(&bp->pdev->dev, frag->page, frag->page_offset,
--				       len, PCI_DMA_TODEVICE);
-+		mapping = skb_frag_dma_map(&bp->pdev->dev, frag, 0, len,
-+					   PCI_DMA_TODEVICE);
- 		if (dma_mapping_error(&bp->pdev->dev, mapping))
- 			goto dma_error;
- 		dma_unmap_addr_set(&txr->tx_buf_ring[ring_prod], mapping,
+ 			tnapi->tx_buffers[entry].skb = NULL;
+ 			dma_unmap_addr_set(&tnapi->tx_buffers[entry], mapping,
 -- 
 1.7.2.5
