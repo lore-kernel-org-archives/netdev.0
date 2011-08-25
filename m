@@ -1,49 +1,33 @@
-From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
+From: Arnd Hannemann <arnd@arndnet.de>
 Subject: Re: [PATCH] tcp: bound RTO to minimum
-Date: Thu, 25 Aug 2011 10:44:30 +0200
-Message-ID: <8FCB5B33-20EA-470D-96CB-0565FABAD03A@comsys.rwth-aachen.de>
-References: <1314226834.6797.5.camel@edumazet-laptop>
- <1314229310-8074-1-git-send-email-hagen@jauu.net>
- <CAK6E8=dXf=wsZOB+ZUNuUpLyV2vrcgf7pvwYPz1YTmF81WuGDA@mail.gmail.com>
- <1314250134.6797.24.camel@edumazet-laptop>
- <4033BFEE-C432-4D94-8372-BA166AF2AA26@comsys.rwth-aachen.de>
- <1314260805.2387.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Date: Thu, 25 Aug 2011 10:46:53 +0200
+Message-ID: <4E560BFD.5020301@arndnet.de>
+References: <1314226834.6797.5.camel@edumazet-laptop>  <1314229310-8074-1-git-send-email-hagen@jauu.net>  <CAK6E8=dXf=wsZOB+ZUNuUpLyV2vrcgf7pvwYPz1YTmF81WuGDA@mail.gmail.com>  <1314250134.6797.24.camel@edumazet-laptop>  <4033BFEE-C432-4D94-8372-BA166AF2AA26@comsys.rwth-aachen.de> <1314260805.2387.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>,
+Cc: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>,
+	Yuchung Cheng <ycheng@google.com>,
 	Hagen Paul Pfeifer <hagen@jauu.net>,
 	netdev <netdev@vger.kernel.org>,
-	Hannemann Arnd <arnd@arndnet.de>,
 	Lukowski Damian <damian@tvk.rwth-aachen.de>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:59041 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752037Ab1HYIod convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Aug 2011 04:44:33 -0400
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0LQH00COL6Y8KUJ0@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Thu, 25 Aug 2011 10:44:32 +0200 (CEST)
-Received: from [192.168.4.12] ([unknown] [77.109.115.129])
- by relay-auth-1.ms.rz.rwth-aachen.de
- (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
- with ESMTPA id <0LQH00FOV6Y64L20@relay-auth-1.ms.rz.rwth-aachen.de> for
- netdev@vger.kernel.org; Thu, 25 Aug 2011 10:44:32 +0200 (CEST)
-In-reply-to: <1314260805.2387.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail2.unitix.de ([176.9.2.175]:43515 "EHLO mail2.unitix.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751837Ab1HYIzj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Aug 2011 04:55:39 -0400
+In-Reply-To: <1314260805.2387.11.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-Am 25.08.2011 um 10:26 schrieb Eric Dumazet:
-
-> Le jeudi 25 ao=FBt 2011 =E0 09:28 +0200, Alexander Zimmermann a =E9cr=
-it :
+Am 25.08.2011 10:26, schrieb Eric Dumazet:
+> Le jeudi 25 ao=C3=BBt 2011 =C3=A0 09:28 +0200, Alexander Zimmermann a=
+ =C3=A9crit :
 >> Hi Eric,
->>=20
+>>
 >> Am 25.08.2011 um 07:28 schrieb Eric Dumazet:
 >=20
 >>> Real question is : do we really want to process ~1000 timer interru=
@@ -53,7 +37,7 @@ pts
 >>> requests, only to make tcp revover in ~1sec when connectivity retur=
 ns
 >>> back. This just doesnt scale.
->>=20
+>>
 >> maybe a stupid question, but 1000?. With an minRTO of 200ms and a ma=
 ximum
 >> probing time of 120s, we 600 retransmits in a worst-case-senario
@@ -72,34 +56,18 @@ te to host)
 >=20
 > Old kernels where performing up to 15 retries, doing exponential back=
 off.
-
-Yes I know. And in combination with RFC6069 we have to convert this
-See Section 7.1
-
-and
-
-http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commit;h=3D6fa12c85031485dff38ce550c24f10da23b0adaa
-
-Is the transformation broken? Damian?
-
-
 >=20
 > Now its kind of unlimited, according to experimental results.
 
-Ok, unlimited is not what I expect...
+That shouldn't be. It should stop after the same time a TCP connection =
+with an
+RTO of Minimum RTO which is doing 15 retries (tcp_retries2=3D15) and do=
+ing exponential backoff.
+So it should be around 900s*. But it could be that because of the icsk_=
+retransmit wrapover
+this doesn't work as expected.
 
+* 200ms + 400ms + 800ms ...
 
->=20
->=20
->=20
-
-//
-// Dipl.-Inform. Alexander Zimmermann
-// Department of Computer Science, Informatik 4
-// RWTH Aachen University
-// Ahornstr. 55, 52056 Aachen, Germany
-// phone: (49-241) 80-21422, fax: (49-241) 80-22222
-// email: zimmermann@cs.rwth-aachen.de
-// web: http://www.umic-mesh.net
-//
+Best regards,
+Arnd
