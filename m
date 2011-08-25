@@ -1,53 +1,46 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: remove the STBus bridge setting from the GMAC
- code
-Date: Thu, 25 Aug 2011 10:01:46 +0200
-Message-ID: <4E56016A.8060709@st.com>
-References: <1314021507-26955-1-git-send-email-peppe.cavallaro@st.com>
+From: "J.Hwan Kim" <frog1120@gmail.com>
+Subject: how to distribute irqs of ixgbevf
+Date: Thu, 25 Aug 2011 17:07:50 +0900
+Message-ID: <4E5602D6.90807@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: ML netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:44451 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751164Ab1HYICG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 04:02:06 -0400
-In-Reply-To: <1314021507-26955-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:50226 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749Ab1HYIHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 04:07:54 -0400
+Received: by yxj19 with SMTP id 19so1528433yxj.19
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 01:07:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David
-you can discard this because I'm resending it in a bundle of patches to
-update the whole driver to the Aug_2011 version.
+Hi, everyone
 
-Peppe
+The interrupts of my ixgbevf driver occurs only Core 0
+although the user space "irqbalance" serivce is working.
 
-On 8/22/2011 3:58 PM, Giuseppe CAVALLARO wrote:
-> This patch removes a piece of code (actually commented)
-> only useful for some ST platforms in the past.
-> 
-> This kind of setting now can be done by using the platform
-> callbacks provided in linux/stmmac.h (see the stmmac.txt for
-> further details).
-> 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> ---
->  drivers/net/stmmac/dwmac1000_core.c |    3 ---
->  1 files changed, 0 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/stmmac/dwmac1000_core.c
-> index 0f63b3c..eea184a 100644
-> --- a/drivers/net/stmmac/dwmac1000_core.c
-> +++ b/drivers/net/stmmac/dwmac1000_core.c
-> @@ -37,9 +37,6 @@ static void dwmac1000_core_init(void __iomem *ioaddr)
->  	value |= GMAC_CORE_INIT;
->  	writel(value, ioaddr + GMAC_CONTROL);
->  
-> -	/* STBus Bridge Configuration */
-> -	/*writel(0xc5608, ioaddr + 0x00007000);*/
-> -
->  	/* Freeze MMC counters */
->  	writel(0x8, ioaddr + GMAC_MMC_CTRL);
->  	/* Mask GMAC interrupts */
+How can I distribute the interrupt of RX in ixgbevf to all cores?
+
+cat /proc/interrupts | grep "isv"
+   97:          8          0          0          0          0          
+0          0          0   PCI-MSI-edge      isv0-rx-0
+   99:          7          0          0          0          0          
+0          0          0   PCI-MSI-edge      isv0:lsc
+  103:       2059      0          0          0          0          
+0          0          0   PCI-MSI-edge      isv2-rx-0
+  104:         14        0          0          0          0          
+0          0          0   PCI-MSI-edge      isv2-tx-0
+  105:          1         0          0          0          0          
+0          0          0   PCI-MSI-edge      isv2:mbx
+
+"isv" is netdevice name of my ixgbevf.
+
+
+
+Thanks in advance.
+
+Best Regards,
+
+J.Hwan Kim
