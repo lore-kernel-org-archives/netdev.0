@@ -1,61 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net_sched: sfb: optimize enqueue on full queue
-Date: Thu, 25 Aug 2011 18:21:32 +0200
-Message-ID: <1314289292.2387.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Miroslav Kratochvil <exa.exa@gmail.com>
+Subject: Traffic shaping - class ID 16bit limit?
+Date: Thu, 25 Aug 2011 18:28:01 +0200
+Message-ID: <CAO0uZ+-fv89Z3-9+vh5kN93xe=Uw8b=PSfnAqosOjUBP6PcVNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52769 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752693Ab1HYQVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 12:21:31 -0400
-Received: by wwf5 with SMTP id 5so2567985wwf.1
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 09:21:30 -0700 (PDT)
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:38656 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752188Ab1HYQ2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 12:28:02 -0400
+Received: by qwk3 with SMTP id 3so1419046qwk.19
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 09:28:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case SFB queue is full (hard limit reached), there is no point
-spending time to compute hash and maximum qlen/p_mark.
+Hello everyone,
 
-We instead just early drop packet.
+the question is simple: What should I do if I need to have more than
+2^16 subclasses of a classful queuing discipline (in, say, hfsc or
+htb)?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/sched/sch_sfb.c |   13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+I bumped into this problem while writing some kind of traffic shaping
+software and thinking about scalability. As there still are other ways
+to have more than 64k "classes" (like grouping some subclasses into
+separate qdiscs), those ways have significant drawbacks (require more
+tc-filter rules and decisions, generally more processing power, and
+the structure is quite hard to maintain).
 
-diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
-index 0a833d0..e83c272 100644
---- a/net/sched/sch_sfb.c
-+++ b/net/sched/sch_sfb.c
-@@ -287,6 +287,12 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	u32 r, slot, salt, sfbhash;
- 	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 
-+	if (unlikely(sch->q.qlen >= q->limit)) {
-+		sch->qstats.overlimits++;
-+		q->stats.queuedrop++;
-+		goto drop;
-+	}
-+
- 	if (q->rehash_interval > 0) {
- 		unsigned long limit = q->rehash_time + q->rehash_interval;
- 
-@@ -332,12 +338,9 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	slot ^= 1;
- 	sfb_skb_cb(skb)->hashes[slot] = 0;
- 
--	if (unlikely(minqlen >= q->max || sch->q.qlen >= q->limit)) {
-+	if (unlikely(minqlen >= q->max)) {
- 		sch->qstats.overlimits++;
--		if (minqlen >= q->max)
--			q->stats.bucketdrop++;
--		else
--			q->stats.queuedrop++;
-+		q->stats.bucketdrop++;
- 		goto drop;
- 	}
- 
+Technically the ClassID seems to be "hardcoded" as a 16bit value, but
+after some source searching, I haven't found any good reason for it to
+be 16-bit only.
+
+I understand that those ID's are usually handled together with another
+16bit Qdisc ID, which would add up to a quite big number (possibly
+unpleasant on some architectures) if those were both 32bit.
+
+I also completely understand that in most cases of common usage
+there's absolutely no need to have this big amount of subclasses, but
+on the other hand there's still no reason to have "64k classes enough
+for everyone". :D
+
+Of course if there's some obvious method to solve this, or a patch, or
+some kind of workaround that I haven't found, please let me know about
+it, I will happily use it.
+
+Thanks for any suggestions,
+Mirek Kratochvil
