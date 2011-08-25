@@ -1,30 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] sctp: patches for HEARTBEAT bug fix and improvement
-Date: Wed, 24 Aug 2011 19:43:35 -0700 (PDT)
-Message-ID: <20110824.194335.375659289614332883.davem@davemloft.net>
-References: <D42EEC2F-E0C8-4620-9841-98F7E68C88FA@sfc.wide.ad.jp>
+Subject: Re: [Patch] Scm: Remove unnecessary pid & credential references in
+ Unix socket's send and receive path
+Date: Wed, 24 Aug 2011 19:43:44 -0700 (PDT)
+Message-ID: <20110824.194344.423083561694337662.davem@davemloft.net>
+References: <1313772298.2576.2916.camel@schen9-DESK>
+	<20110822.174013.353730308624819543.davem@davemloft.net>
+	<1314061046.2576.2922.camel@schen9-DESK>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, weiyj.lk@gmail.com
-To: micchie@sfc.wide.ad.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42549 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405Ab1HYCnk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 22:43:40 -0400
-In-Reply-To: <D42EEC2F-E0C8-4620-9841-98F7E68C88FA@sfc.wide.ad.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, viro@zeniv.linux.org.uk,
+	ebiederm@xmission.com, ak@linux.intel.com,
+	matt.fleming@linux.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: tim.c.chen@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1314061046.2576.2922.camel@schen9-DESK>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Tue, 23 Aug 2011 00:44:32 +0900
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Date: Mon, 22 Aug 2011 17:57:26 -0700
 
-> Series of 2 patches for bug fix and improvement around HEARTBEAT after the 
-> ASCONF event
+> On Mon, 2011-08-22 at 17:40 -0700, David Miller wrote:
+>> From: Tim Chen <tim.c.chen@linux.intel.com>
+>> Date: Fri, 19 Aug 2011 09:44:58 -0700
+>> 
+>> > -		/* Only send the fds in the first buffer */
+>> > -		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent);
+>> > +		/* Only send the fds and no ref to pid in the first buffer */
+>> > +		if (fds_sent)
+>> > +			err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, true);
+>> > +		else
+>> > +			err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, false);
+>> 
+>> Just set this final boolean the way the third argument is, there is no
+>> reason to replicate the entire function call twice just to set the
+>> final argument to what "fds_sent" evaluates to as a boolean.
+>> 
+>> 		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, fds_sent);
+>> 
+>> ought to suffice.
 > 
-> Michio Honda (2):
->   sctp: HEARTBEAT negotiation after ASCONF
->   sctp: Bundle HEAERTBEAT into ASCONF_ACK
+> Good point.  Patch updated as suggested.
 
-Both applied.
+Applied.
