@@ -1,151 +1,229 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next v2 05/10] headers, net: Define struct
- __kernel_sockaddr, replacing struct sockaddr
-Date: Thu, 25 Aug 2011 05:44:15 +0100
-Message-ID: <1314247456.27179.122.camel@deadeye>
+Subject: [PATCH net-next v2 06/10] headers, netfilter: Use kernel type names
+ __u8, __u16, __u32
+Date: Thu, 25 Aug 2011 05:44:57 +0100
+Message-ID: <1314247497.27179.123.camel@deadeye>
 References: <1314247131.27179.116.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-PJ6TVQtS27iz4YtbLFvv"
-Cc: netdev@vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-VdO05L2u4ehBeGid+yUt"
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37145 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751846Ab1HYEoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 00:44:16 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1314247131.27179.116.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-PJ6TVQtS27iz4YtbLFvv
+--=-VdO05L2u4ehBeGid+yUt
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Commit 9c501935a3cdcf6b1d35aaee3aa11c7a7051a305 ('net: Support
-inclusion of <linux/socket.h> before <sys/socket.h>') removed the
-definition of struct sockaddr for userland.
-
-But we still have several headers using struct sockaddr, and we
-shouldn't make them include <sys/socket.h> as that risks recursive
-inclusion in future.  Define and use an identical struct
-__kernel_sockaddr instead.
+These types are guaranteed to be defined by <linux/types.h> for
+both userland and kernel, unlike u_intN_t.
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Acked-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/if.h     |   12 ++++++------
- include/linux/phonet.h |    3 ++-
- include/linux/socket.h |   17 +++++++++--------
- 3 files changed, 17 insertions(+), 15 deletions(-)
+ include/linux/netfilter_arp/arp_tables.h  |   14 +++++++-------
+ include/linux/netfilter_ipv4/ip_tables.h  |   20 ++++++++++----------
+ include/linux/netfilter_ipv6/ip6_tables.h |   22 +++++++++++-----------
+ 3 files changed, 28 insertions(+), 28 deletions(-)
 
-diff --git a/include/linux/if.h b/include/linux/if.h
-index db20bd4..f9ce5fb 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -20,7 +20,7 @@
- #define _LINUX_IF_H
+diff --git a/include/linux/netfilter_arp/arp_tables.h b/include/linux/netfi=
+lter_arp/arp_tables.h
+index adbf4bf..e08565d 100644
+--- a/include/linux/netfilter_arp/arp_tables.h
++++ b/include/linux/netfilter_arp/arp_tables.h
+@@ -52,7 +52,7 @@ struct arpt_arp {
+ 	struct in_addr smsk, tmsk;
 =20
- #include <linux/types.h>		/* for "__kernel_caddr_t" et al	*/
--#include <linux/socket.h>		/* for "struct sockaddr" et al	*/
-+#include <linux/socket.h>		/* for "struct __kernel_sockaddr" et al	*/
- #include <linux/compiler.h>		/* for "__user" et al           */
+ 	/* Device hw address length, src+target device addresses */
+-	u_int8_t arhln, arhln_mask;
++	__u8 arhln, arhln_mask;
+ 	struct arpt_devaddr_info src_devaddr;
+ 	struct arpt_devaddr_info tgt_devaddr;
 =20
- #define	IFNAMSIZ	16
-@@ -176,11 +176,11 @@ struct ifreq {
- 	} ifr_ifrn;
- =09
- 	union {
--		struct	sockaddr ifru_addr;
--		struct	sockaddr ifru_dstaddr;
--		struct	sockaddr ifru_broadaddr;
--		struct	sockaddr ifru_netmask;
--		struct  sockaddr ifru_hwaddr;
-+		struct	__kernel_sockaddr ifru_addr;
-+		struct	__kernel_sockaddr ifru_dstaddr;
-+		struct	__kernel_sockaddr ifru_broadaddr;
-+		struct	__kernel_sockaddr ifru_netmask;
-+		struct  __kernel_sockaddr ifru_hwaddr;
- 		short	ifru_flags;
- 		int	ifru_ivalue;
- 		int	ifru_mtu;
-diff --git a/include/linux/phonet.h b/include/linux/phonet.h
-index f53a416..9aba9ce 100644
---- a/include/linux/phonet.h
-+++ b/include/linux/phonet.h
-@@ -101,7 +101,8 @@ struct sockaddr_pn {
- 	__u8 spn_obj;
- 	__u8 spn_dev;
- 	__u8 spn_resource;
--	__u8 spn_zero[sizeof(struct sockaddr) - sizeof(__kernel_sa_family_t) - 3]=
-;
-+	__u8 spn_zero[sizeof(struct __kernel_sockaddr) -
-+		      sizeof(__kernel_sa_family_t) - 3];
- } __attribute__((packed));
+@@ -71,9 +71,9 @@ struct arpt_arp {
+ 	unsigned char iniface_mask[IFNAMSIZ], outiface_mask[IFNAMSIZ];
 =20
- /* Well known address */
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index d0e77f6..f13ad7b 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -10,6 +10,14 @@
+ 	/* Flags word */
+-	u_int8_t flags;
++	__u8 flags;
+ 	/* Inverse flags */
+-	u_int16_t invflags;
++	__u16 invflags;
+ };
 =20
- typedef unsigned short __kernel_sa_family_t;
+ /* Values for "flag" field in struct arpt_ip (general arp structure).
+@@ -102,9 +102,9 @@ struct arpt_entry
+ 	struct arpt_arp arp;
 =20
-+/*
-+ *	1003.1g requires sa_family_t and that sa_data is char.
-+ */
-+struct __kernel_sockaddr {
-+	__kernel_sa_family_t sa_family;	/* address family, AF_xxx	*/
-+	char		sa_data[14];	/* 14 bytes of protocol address	*/
-+};
-+
- struct __kernel_sockaddr_storage {
- 	__kernel_sa_family_t	ss_family;		/* address family */
- 	/* Following field(s) are implementation specific */
-@@ -39,15 +47,8 @@ extern void socket_seq_show(struct seq_file *seq);
+ 	/* Size of arpt_entry + matches */
+-	u_int16_t target_offset;
++	__u16 target_offset;
+ 	/* Size of arpt_entry + matches + target */
+-	u_int16_t next_offset;
++	__u16 next_offset;
 =20
- typedef __kernel_sa_family_t	sa_family_t;
+ 	/* Back pointer */
+ 	unsigned int comefrom;
+@@ -260,8 +260,8 @@ extern unsigned int arpt_do_table(struct sk_buff *skb,
 =20
--/*
-- *	1003.1g requires sa_family_t and that sa_data is char.
-- */
-+#define sockaddr __kernel_sockaddr
- =20
--struct sockaddr {
--	sa_family_t	sa_family;	/* address family, AF_xxx	*/
--	char		sa_data[14];	/* 14 bytes of protocol address	*/
--};
--
- struct linger {
- 	int		l_onoff;	/* Linger active		*/
- 	int		l_linger;	/* How long to linger for	*/
+ struct compat_arpt_entry {
+ 	struct arpt_arp arp;
+-	u_int16_t target_offset;
+-	u_int16_t next_offset;
++	__u16 target_offset;
++	__u16 next_offset;
+ 	compat_uint_t comefrom;
+ 	struct compat_xt_counters counters;
+ 	unsigned char elems[0];
+diff --git a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfi=
+lter_ipv4/ip_tables.h
+index 64a5d95..db79231 100644
+--- a/include/linux/netfilter_ipv4/ip_tables.h
++++ b/include/linux/netfilter_ipv4/ip_tables.h
+@@ -81,12 +81,12 @@ struct ipt_ip {
+ 	unsigned char iniface_mask[IFNAMSIZ], outiface_mask[IFNAMSIZ];
+=20
+ 	/* Protocol, 0 =3D ANY */
+-	u_int16_t proto;
++	__u16 proto;
+=20
+ 	/* Flags word */
+-	u_int8_t flags;
++	__u8 flags;
+ 	/* Inverse flags */
+-	u_int8_t invflags;
++	__u8 invflags;
+ };
+=20
+ /* Values for "flag" field in struct ipt_ip (general ip structure). */
+@@ -114,9 +114,9 @@ struct ipt_entry {
+ 	unsigned int nfcache;
+=20
+ 	/* Size of ipt_entry + matches */
+-	u_int16_t target_offset;
++	__u16 target_offset;
+ 	/* Size of ipt_entry + matches + target */
+-	u_int16_t next_offset;
++	__u16 next_offset;
+=20
+ 	/* Back pointer */
+ 	unsigned int comefrom;
+@@ -149,9 +149,9 @@ struct ipt_entry {
+=20
+ /* ICMP matching stuff */
+ struct ipt_icmp {
+-	u_int8_t type;				/* type to match */
+-	u_int8_t code[2];			/* range of code */
+-	u_int8_t invflags;			/* Inverse flags */
++	__u8 type;				/* type to match */
++	__u8 code[2];				/* range of code */
++	__u8 invflags;				/* Inverse flags */
+ };
+=20
+ /* Values for "inv" field for struct ipt_icmp. */
+@@ -288,8 +288,8 @@ extern unsigned int ipt_do_table(struct sk_buff *skb,
+ struct compat_ipt_entry {
+ 	struct ipt_ip ip;
+ 	compat_uint_t nfcache;
+-	u_int16_t target_offset;
+-	u_int16_t next_offset;
++	__u16 target_offset;
++	__u16 next_offset;
+ 	compat_uint_t comefrom;
+ 	struct compat_xt_counters counters;
+ 	unsigned char elems[0];
+diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netf=
+ilter_ipv6/ip6_tables.h
+index c9784f7..f549adc 100644
+--- a/include/linux/netfilter_ipv6/ip6_tables.h
++++ b/include/linux/netfilter_ipv6/ip6_tables.h
+@@ -81,14 +81,14 @@ struct ip6t_ip6 {
+ 	 *   MH do not match any packets.
+ 	 * - You also need to set IP6T_FLAGS_PROTO to "flags" to check protocol.
+ 	 */
+-	u_int16_t proto;
++	__u16 proto;
+ 	/* TOS to match iff flags & IP6T_F_TOS */
+-	u_int8_t tos;
++	__u8 tos;
+=20
+ 	/* Flags word */
+-	u_int8_t flags;
++	__u8 flags;
+ 	/* Inverse flags */
+-	u_int8_t invflags;
++	__u8 invflags;
+ };
+=20
+ /* Values for "flag" field in struct ip6t_ip6 (general ip6 structure). */
+@@ -118,9 +118,9 @@ struct ip6t_entry {
+ 	unsigned int nfcache;
+=20
+ 	/* Size of ipt_entry + matches */
+-	u_int16_t target_offset;
++	__u16 target_offset;
+ 	/* Size of ipt_entry + matches + target */
+-	u_int16_t next_offset;
++	__u16 next_offset;
+=20
+ 	/* Back pointer */
+ 	unsigned int comefrom;
+@@ -186,9 +186,9 @@ struct ip6t_error {
+=20
+ /* ICMP matching stuff */
+ struct ip6t_icmp {
+-	u_int8_t type;				/* type to match */
+-	u_int8_t code[2];			/* range of code */
+-	u_int8_t invflags;			/* Inverse flags */
++	__u8 type;				/* type to match */
++	__u8 code[2];				/* range of code */
++	__u8 invflags;				/* Inverse flags */
+ };
+=20
+ /* Values for "inv" field for struct ipt_icmp. */
+@@ -298,8 +298,8 @@ extern int ipv6_find_hdr(const struct sk_buff *skb, uns=
+igned int *offset,
+ struct compat_ip6t_entry {
+ 	struct ip6t_ip6 ipv6;
+ 	compat_uint_t nfcache;
+-	u_int16_t target_offset;
+-	u_int16_t next_offset;
++	__u16 target_offset;
++	__u16 next_offset;
+ 	compat_uint_t comefrom;
+ 	struct compat_xt_counters counters;
+ 	unsigned char elems[0];
 --=20
 1.7.5.4
 
 
 
 
---=-PJ6TVQtS27iz4YtbLFvv
+--=-VdO05L2u4ehBeGid+yUt
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIVAwUATlXTH+e/yOyVhhEJAQpPuw/+PI8PVwK4e9sKbPoMS9ifCLHdeWScI/lo
-SeJO3ojRU9w6hAeJDYHeLfseP7viPwju0m/gfxUrHIdZWcfT2ia39FdkXtXaZxGS
-qH6VGoxhgQ5qLd8eXY9w43cjbL7tyzaX+33a1zIlDMlrpjIfPvCRa+rUBRrbRr9W
-XrlEi6cuYl4rlvxZVg0buEApZIIYkfkcKruOrVKV3WhTC8FK+9FcBEW/7eN2gqmC
-asSuDdbIWPKfhdE8HnDT9fqVCOEgQbobyi73emYzYofr0woXFD8SbwQelLCqh5e7
-9CGsfPM6opdQkyIsoxWevWuXuxf5EFibSUtFSyPJG5aNyCLJ/+1g4CpKWhTG8qdK
-AQRYrIdNW5dRavw0oc1BMkUErkWZkUOeiAQM7Ne+F9/OUFNAYso83S5JDoykurgp
-mElpYVoSo4lzqY4C96D69I8Wt6muyQnA+JWLE1V87UbGAJB04U0BhnUffGZkZjey
-6stKiJap87ffYkL3S3AM6FHfX+tE861drHJY45xmasT2THhc2nQULbaJPXZDAgd/
-/D/jr/72EOBihbbUG/XJ3y8hsEsaFUbgY73AH+XSh3sjaMgKWx85d5V8d/POb4UL
-gEKgnqXYg8VIgFxSHbxF5pQSS55QGf/E2jj2BldEa3aPFAFuC0jBBI2KSUBC5vr6
-/rwYD3eEnPE=
-=uKYs
+iQIVAwUATlXTSee/yOyVhhEJAQqZtBAAmxCd/yJgHYhcOEFVYKgg4ixnTtkrXxbv
+VD58tDM05s3wDwiM6Erb7/2nYoyt4kjEXy2QvgeV3pikDbWQeQdCi16xA1+Ulq69
+UsFUc9bCbvc1YEwf/yUUTgxc31Z8QjUU/pJSQGQf5smUrkKwifcbUhRW0nzU1/gi
+Rx5gFDxepQn9zy8FG3PcRXjsYoZ1AGE0WKehwvXVPxnb/5rFkeuxmWWPo/1Wc1YE
+uqyzpj5vWMpEO085xTjOms+aJtFgNMMguxVMtBW1619Dpz960EbsMXI7VEBD+KvQ
+Qf93gJGsmjkrNEeoKj9pVy8OBj2aBRa1AXyy4pPyzii4uKxG+nyH+09jG+vG1THe
+8VNZBBTxlibp/jqT1G+vsFX9Yx2KGM5LDNtLB3qk169yW0gAeqcA+L+5suq+5Gdm
+VfZgkE08yo3H58Hw039xy1fYBrDTECTRT0Ljj8jDSnV72PaB1CCeCX4GVZauQ0Dg
+SeZGogh+V695PXIxISPg2X+qyrUE+TlpKUpCNm7L6YR2AbzTclpvOLTMhq9w846n
+rkTP6X7P5DcyOGn9OAjccSJo68DZdRHgN2wmO4BaFtxA70PjZc3X4e5Wtwc3cXwz
+L3MF6xdpg6oNRJhX0im2NfqQYMgi8fE9gziFftmXe5jUFCXOgu8YcItsw1f2ykB4
+54l4krW7foM=
+=J0K4
 -----END PGP SIGNATURE-----
 
---=-PJ6TVQtS27iz4YtbLFvv--
+--=-VdO05L2u4ehBeGid+yUt--
