@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IEEE802.15.4] 6LoWPAN basic support
-Date: Wed, 24 Aug 2011 19:36:23 -0700 (PDT)
-Message-ID: <20110824.193623.1647095692637955686.davem@davemloft.net>
-References: <CAJmB2rDEyzaAb4zsuhbr_XY=4BFzHv9zwYtA5BHQzO4R8tuZ2Q@mail.gmail.com>
-	<1313519811-22352-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: one more case for non-local saddr in
+ ICMP
+Date: Wed, 24 Aug 2011 19:37:25 -0700 (PDT)
+Message-ID: <20110824.193725.2023779878865246098.davem@davemloft.net>
+References: <alpine.LFD.2.00.1108151857420.1481@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alex.bluesman.smirnov@gmail.com
+Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41451 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41465 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752935Ab1HYCg2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 22:36:28 -0400
-In-Reply-To: <1313519811-22352-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	with ESMTP id S1751108Ab1HYChi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2011 22:37:38 -0400
+In-Reply-To: <alpine.LFD.2.00.1108151857420.1481@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Date: Tue, 16 Aug 2011 22:36:51 +0400
+From: Julian Anastasov <ja@ssi.bg>
+Date: Mon, 15 Aug 2011 19:21:23 +0300 (EEST)
 
-> This patch provides base support for transmission of IPv6 packets as
-> well as the formation of IPv6 link-local addresses and statelessly
-> autoconfigured addresses on top of IEEE 802.15.4 networks.
+> 	May be there is one more case that we can avoid using
+> non-local source for ICMP errors: xfrm_lookup, num_xfrms = 0 when
+> reverse "Flow passes untransformed". Avoid using the input route
+> if xfrm_lookup returns same dst.
 > 
-> For more information please look at the RFC4944 "Compression Format
-> for IPv6 Datagrams in Low Power and Losst Networks (6LoWPAN).
-> 
-> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-Patch applied, thanks.
+Julian I'm going to defer on this patch unless you think there is
+a real pressing reason to apply it.
+
+Thanks.
