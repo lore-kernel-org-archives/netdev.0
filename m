@@ -1,40 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] per-containers tcp buffer limitation
-Date: Thu, 25 Aug 2011 08:44:15 -0700
-Message-ID: <20110825084415.3c3094e8@nehalam.ftrdhcpuser.net>
-References: <4E558137.5020900@parallels.com>
-	<m1k4a2qqew.fsf@fess.ebiederm.org>
-	<4E55A55B.8090608@parallels.com>
-	<20110825104956.41c4b60e.kamezawa.hiroyu@jp.fujitsu.com>
-	<m14o16qlq1.fsf@fess.ebiederm.org>
-	<4E56464B.4070304@monom.org>
-	<4E5664B5.6000806@genband.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net_sched: sfb: optimize enqueue on full queue
+Date: Thu, 25 Aug 2011 18:21:32 +0200
+Message-ID: <1314289292.2387.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Wagner <wagi@monom.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Pavel Emelyanov <xemul@parallels.com>
-To: Chris Friesen <chris.friesen@genband.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46925 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750910Ab1HYPoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Aug 2011 11:44:08 -0400
-In-Reply-To: <4E5664B5.6000806@genband.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:52769 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752693Ab1HYQVb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 12:21:31 -0400
+Received: by wwf5 with SMTP id 5so2567985wwf.1
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2011 09:21:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You seem to have forgotten the work of your forefathers. When appealing
-to history you must understand it first.
+In case SFB queue is full (hard limit reached), there is no point
+spending time to compute hash and maximum qlen/p_mark.
 
-What about using netfilter (with extensions)? We already have iptables
-module to match on uid or gid. It wouldn't be hard to extend this to
-other bits of meta data like originating and target containers.
+We instead just early drop packet.
 
-You could also use this to restrict access to ports and hosts on
-a per container basis.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_sfb.c |   13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 0a833d0..e83c272 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -287,6 +287,12 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	u32 r, slot, salt, sfbhash;
+ 	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+ 
++	if (unlikely(sch->q.qlen >= q->limit)) {
++		sch->qstats.overlimits++;
++		q->stats.queuedrop++;
++		goto drop;
++	}
++
+ 	if (q->rehash_interval > 0) {
+ 		unsigned long limit = q->rehash_time + q->rehash_interval;
+ 
+@@ -332,12 +338,9 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	slot ^= 1;
+ 	sfb_skb_cb(skb)->hashes[slot] = 0;
+ 
+-	if (unlikely(minqlen >= q->max || sch->q.qlen >= q->limit)) {
++	if (unlikely(minqlen >= q->max)) {
+ 		sch->qstats.overlimits++;
+-		if (minqlen >= q->max)
+-			q->stats.bucketdrop++;
+-		else
+-			q->stats.queuedrop++;
++		q->stats.bucketdrop++;
+ 		goto drop;
+ 	}
+ 
