@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] af_packet: Prefixed tpacket_v3 structs to
- avoid name space collision
-Date: Fri, 26 Aug 2011 12:39:47 -0400 (EDT)
-Message-ID: <20110826.123947.1236839282053031374.davem@davemloft.net>
-References: <1314305010-1154-1-git-send-email-loke.chetan@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: bridge: accept bridge own MAC address as local
+Date: Fri, 26 Aug 2011 09:42:40 -0700
+Message-ID: <20110826094240.088cb76d@nehalam.ftrdhcpuser.net>
+References: <20110812113024.GA8900@babylon>
+	<20110826.122917.294108473242938413.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: loke.chetan@gmail.com
+Cc: ulrich.weber@sophos.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:39328 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755311Ab1HZQjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:39:51 -0400
-In-Reply-To: <1314305010-1154-1-git-send-email-loke.chetan@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:36469 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753849Ab1HZQmc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Aug 2011 12:42:32 -0400
+In-Reply-To: <20110826.122917.294108473242938413.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chetan Loke <loke.chetan@gmail.com>
-Date: Thu, 25 Aug 2011 16:43:30 -0400
+On Fri, 26 Aug 2011 12:29:17 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-> structs introduced in tpacket_v3 implementation are prefixed with 'tpacket'
-> to avoid namespace collision.
+> From: Ulrich Weber <ulrich.weber@sophos.com>
+> Date: Fri, 12 Aug 2011 13:30:24 +0200
 > 
-> Compile tested.
+> > bridge: accept bridge own MAC address as local
+> > if MAC address of bridge is manually set (BR_SET_MAC_ADDR). Otherwise
+> > only MAC addresses of bridge members will work if manually set.
+> > 
+> > Signed-off-by: Ulrich Weber <ulrich.weber@sophos.com>
 > 
-> Signed-off-by: Chetan Loke <loke.chetan@gmail.com>
+> As Stephen mentioned, the real bug is that we don't create a local
+> FDB entry (and get rid of the old one) when the MAC address changes.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Applied, thanks.
+Another alternative is going back to restricting the mac address of
+the bridge to be the same as one of the existing ports. This was how
+it used to be, but some people wanted to set arbitrary addresses
+(probably to deal with start up ordering issues).
