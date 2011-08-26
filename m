@@ -1,32 +1,67 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/9] stmmac: add MMC supports exported via debugfs.
-Date: Fri, 26 Aug 2011 12:12:22 -0400 (EDT)
-Message-ID: <20110826.121222.1125604441814245954.davem@davemloft.net>
-References: <1314259229-13767-1-git-send-email-peppe.cavallaro@st.com>
-	<1314259229-13767-4-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next v2 05/10] headers, net: Define struct
+ __kernel_sockaddr, replacing struct sockaddr
+Date: Fri, 26 Aug 2011 12:20:24 -0400 (EDT)
+Message-ID: <20110826.122024.278846592642798982.davem@davemloft.net>
+References: <20110826.110820.2220935212459386472.davem@davemloft.net>
+	<20110826154248.GD24107@decadent.org.uk>
+	<20110826.120451.1765083060493659307.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38077 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35401 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754812Ab1HZQM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:12:28 -0400
-In-Reply-To: <1314259229-13767-4-git-send-email-peppe.cavallaro@st.com>
+	with ESMTP id S1754864Ab1HZQUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:20:34 -0400
+In-Reply-To: <20110826.120451.1765083060493659307.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Thu, 25 Aug 2011 10:00:23 +0200
-
-> This patch adds the MMC management counters support.
-> MMC module is an extension of the register address
-> space and all the hardware counters can be accessed
-> via debugfs.
-> Below an example of the output:
-
-This is not the appropriate way to expose internal chip counters.
-
-Please use ethtool statistics for this.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAyNiBB
+dWcgMjAxMSAxMjowNDo1MSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IEJlbiBIdXRjaGluZ3MgPGJl
+bkBkZWNhZGVudC5vcmcudWs+DQo+IERhdGU6IEZyaSwgMjYgQXVnIDIwMTEgMTY6NDI6NDggKzAx
+MDANCj4gDQo+PiBUaGlzICNkZWZpbmUgaXMgaW4gdGhlICNpZmRlZiBfX0tFUk5FTF9fIHNlY3Rp
+b24uICBJIGRvbid0IHdhbnQgdA0KPj4gY2hhbmdlIGFsbCB0aGUgaW4ta2VybmVsIHVzZXJzIHRv
+IHNheSBfX2tlcm5lbF9zb2NrYWRkci4gIFRoaXMgaXMNCj4+IGp1c3QgdGhlIHNhbWUgYXMgdGhl
+IHByZWNlZGluZyAndHlwZWRlZiBfX2tlcm5lbF9zYV9mYW1pbHlfdA0KPj4gc2FfZmFtaWx5X3Qn
+IGV4Y2VwdCB0aGF0IHlvdSBjYW4ndCBjcmVhdGUgc3RydWN0IGFsaWFzZXMgdGhhdCB3YXkuDQo+
+IA0KPiBBaGEsIEkgZGlkbid0IGNhdGNoIHRoYXQgcGFydC4gIFRoZW4gdGhpcyBpcyBmaW5lLCB0
+aGFua3MgZm9yDQo+IGV4cGxhaW5pbmcgQmVuLg0KDQpBY3R1YWxseSwgdGhpcyBwYXRjaCBicmVh
+a3MgdGhlIGJ1aWxkLCBzcGVjaWZpY2FsbHkgb2YgaWZlbnNsYXZlLmMNCg0KSSdsbCBsZWF2ZSB0
+aGUgb3RoZXIgcGF0Y2hlcyBpbiwgYnV0IHlvdSdsbCBuZWVkIHRvIHJlc3BpbiB0aGlzIG9uZS4N
+Cg0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lmZW5zbGF2ZS5jOiBJbiBmdW5jdGlvbiChaWZf
+Z2V0Y29uZmlnojoNCkRvY3VtZW50YXRpb24vbmV0d29ya2luZy9pZmVuc2xhdmUuYzo1NTM6MTE6
+IGVycm9yOiBpbmNvbXBhdGlibGUgdHlwZXMgd2hlbiBhc3NpZ25pbmcgdG8gdHlwZSChc3RydWN0
+IHNvY2thZGRyoiBmcm9tIHR5cGUgoXN0cnVjdCBfX2tlcm5lbF9zb2NrYWRkcqINCkRvY3VtZW50
+YXRpb24vbmV0d29ya2luZy9pZmVuc2xhdmUuYzo1NTk6MTM6IGVycm9yOiBpbmNvbXBhdGlibGUg
+dHlwZXMgd2hlbiBhc3NpZ25pbmcgdG8gdHlwZSChc3RydWN0IHNvY2thZGRyoiBmcm9tIHR5cGUg
+oXN0cnVjdCBfX2tlcm5lbF9zb2NrYWRkcqINCkRvY3VtZW50YXRpb24vbmV0d29ya2luZy9pZmVu
+c2xhdmUuYzo1NjU6MTE6IGVycm9yOiBpbmNvbXBhdGlibGUgdHlwZXMgd2hlbiBhc3NpZ25pbmcg
+dG8gdHlwZSChc3RydWN0IHNvY2thZGRyoiBmcm9tIHR5cGUgoXN0cnVjdCBfX2tlcm5lbF9zb2Nr
+YWRkcqINCkRvY3VtZW50YXRpb24vbmV0d29ya2luZy9pZmVuc2xhdmUuYzogSW4gZnVuY3Rpb24g
+oWVuc2xhdmWiOg0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lmZW5zbGF2ZS5jOjcyNzoxMzog
+d2FybmluZzogcGFzc2luZyBhcmd1bWVudCAyIG9mIKFzZXRfc2xhdmVfaHdhZGRyoiBmcm9tIGlu
+Y29tcGF0aWJsZSBwb2ludGVyIHR5cGUNCkRvY3VtZW50YXRpb24vbmV0d29ya2luZy9pZmVuc2xh
+dmUuYzoyMzA6MTI6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1Y3Qgc29ja2FkZHIgKqIgYnV0IGFyZ3Vt
+ZW50IGlzIG9mIHR5cGUgoXN0cnVjdCBfX2tlcm5lbF9zb2NrYWRkciAqog0KRG9jdW1lbnRhdGlv
+bi9uZXR3b3JraW5nL2lmZW5zbGF2ZS5jOjc3Mjo2OiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50
+IDIgb2YgoXNldF9tYXN0ZXJfaHdhZGRyoiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUN
+CkRvY3VtZW50YXRpb24vbmV0d29ya2luZy9pZmVuc2xhdmUuYzoyMjk6MTI6IG5vdGU6IGV4cGVj
+dGVkIKFzdHJ1Y3Qgc29ja2FkZHIgKqIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoXN0cnVjdCBf
+X2tlcm5lbF9zb2NrYWRkciAqog0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lmZW5zbGF2ZS5j
+OjgxNzoyOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoXNldF9tYXN0ZXJfaHdhZGRy
+oiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUNCkRvY3VtZW50YXRpb24vbmV0d29ya2lu
+Zy9pZmVuc2xhdmUuYzoyMjk6MTI6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1Y3Qgc29ja2FkZHIgKqIg
+YnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoXN0cnVjdCBfX2tlcm5lbF9zb2NrYWRkciAqog0KRG9j
+dW1lbnRhdGlvbi9uZXR3b3JraW5nL2lmZW5zbGF2ZS5jOjgyMToyOiB3YXJuaW5nOiBwYXNzaW5n
+IGFyZ3VtZW50IDIgb2YgoXNldF9zbGF2ZV9od2FkZHKiIGZyb20gaW5jb21wYXRpYmxlIHBvaW50
+ZXIgdHlwZQ0KRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lmZW5zbGF2ZS5jOjIzMDoxMjogbm90
+ZTogZXhwZWN0ZWQgoXN0cnVjdCBzb2NrYWRkciAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSCh
+c3RydWN0IF9fa2VybmVsX3NvY2thZGRyICqiDQptYWtlWzJdOiAqKiogW0RvY3VtZW50YXRpb24v
+bmV0d29ya2luZy9pZmVuc2xhdmVdIEVycm9yIDENCm1ha2VbMl06ICoqKiBXYWl0aW5nIGZvciB1
+bmZpbmlzaGVkIGpvYnMuLi4uDQptYWtlWzFdOiAqKiogW0RvY3VtZW50YXRpb24vbmV0d29ya2lu
+Z10gRXJyb3IgMg0KbWFrZVsxXTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4uLi4N
+Cm1ha2U6ICoqKiBbdm1saW51eF0gRXJyb3IgMg0K
