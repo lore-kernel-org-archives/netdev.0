@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sh_eth: fix the compile error
-Date: Fri, 26 Aug 2011 12:50:56 -0400 (EDT)
-Message-ID: <20110826.125056.466857806833058211.davem@davemloft.net>
-References: <4E537249.8050806@renesas.com>
+Subject: Re: [PATCH] net/phy: fix DP83865 phy interrupt handler
+Date: Fri, 26 Aug 2011 12:50:50 -0400 (EDT)
+Message-ID: <20110826.125050.2162441992717183883.davem@davemloft.net>
+References: <1314083234-20361-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: yoshihiro.shimoda.uh@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4E537249.8050806@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tshu@msc-ge.com
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58609 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753985Ab1HZQu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:50:59 -0400
+In-Reply-To: <1314083234-20361-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogWW9zaGloaXJvIFNoaW1vZGEgPHlvc2hpaGlyby5zaGltb2RhLnVoQHJlbmVzYXMuY29t
-Pg0KRGF0ZTogVHVlLCAyMyBBdWcgMjAxMSAxODoyNjozMyArMDkwMA0KDQo+IEZpeCB0aGUgZm9s
-bG93aW5nIGJ1aWxkIGVycm9yOg0KPiANCj4gICBDQyAgICAgIGRyaXZlcnMvbmV0L3NoX2V0aC5v
-DQo+IGRyaXZlcnMvbmV0L3NoX2V0aC5jOjExMTU6IGVycm9yOiBleHBlY3RlZCChPaIsIKEsoiwg
-oTuiLCChYXNtoiBvciChX19hdHRyaWJ1dGVfX6IgYmVmb3JlIKFzaF9ldGhfaW50ZXJydXB0og0K
-PiBkcml2ZXJzL25ldC9zaF9ldGguYzogSW4gZnVuY3Rpb24goXNoX2V0aF9vcGVuojoNCj4gZHJp
-dmVycy9uZXQvc2hfZXRoLmM6MTM4NzogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1
-bmN0aW9uIKFyZXF1ZXN0X2lycaINCj4gZHJpdmVycy9uZXQvc2hfZXRoLmM6MTM4NzogZXJyb3I6
-IKFzaF9ldGhfaW50ZXJydXB0oiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlv
-bikNCj4gZHJpdmVycy9uZXQvc2hfZXRoLmM6MTM4NzogZXJyb3I6IChFYWNoIHVuZGVjbGFyZWQg
-aWRlbnRpZmllciBpcyByZXBvcnRlZCBvbmx5IG9uY2UNCj4gZHJpdmVycy9uZXQvc2hfZXRoLmM6
-MTM4NzogZXJyb3I6IGZvciBlYWNoIGZ1bmN0aW9uIGl0IGFwcGVhcnMgaW4uKQ0KPiBkcml2ZXJz
-L25ldC9zaF9ldGguYzoxMzkxOiBlcnJvcjogoUlSUUZfU0hBUkVEoiB1bmRlY2xhcmVkIChmaXJz
-dCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCj4gZHJpdmVycy9uZXQvc2hfZXRoLmM6MTQyNDogZXJy
-b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFmcmVlX2lycaINCj4gbWFrZVsy
-XTogKioqIFtkcml2ZXJzL25ldC9zaF9ldGgub10gRXJyb3IgMQ0KPiANCj4gU2lnbmVkLW9mZi1i
-eTogWW9zaGloaXJvIFNoaW1vZGEgPHlvc2hpaGlyby5zaGltb2RhLnVoQHJlbmVzYXMuY29tPg0K
-DQpBcHBsaWVkLg0K
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Tue, 23 Aug 2011 09:07:14 +0200
+
+> According to the DP83865 datasheet we need to clear
+> the interrupt status bit by writing a 1 to the
+> corresponding bit in INT_CLEAR (2:0 are reserved).
+> 
+> Proposed and tested by Thorsten.
+> 
+> Signed-off-by: Thorsten Schubert <tshu@msc-ge.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+
+Applied.
