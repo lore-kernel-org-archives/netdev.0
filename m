@@ -1,52 +1,48 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the staging tree with the net tree
-Date: Fri, 26 Aug 2011 13:47:05 +1000
-Message-ID: <20110826134705.0d5b6767777f0af2f8667731@canb.auug.org.au>
+From: Corey Hickey <bugfood-ml@fatooh.org>
+Subject: Re: strange routing issue--packets stop getting forwarded for a live
+ connection
+Date: Thu, 25 Aug 2011 20:50:03 -0700
+Message-ID: <4E5717EB.6030304@fatooh.org>
+References: <4E506A46.6060407@fatooh.org> <alpine.LFD.2.00.1108210924010.1581@ja.ssi.bg> <4E50BDFB.7050502@fatooh.org> <alpine.LFD.2.00.1108211142180.1581@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__26_Aug_2011_13_47_05_+1000_sWr=sN7c3s+ffcaa"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from juniper.fatooh.org ([173.255.221.30]:49690 "EHLO
+	juniper.fatooh.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751243Ab1HZDuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2011 23:50:06 -0400
+In-Reply-To: <alpine.LFD.2.00.1108211142180.1581@ja.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__26_Aug_2011_13_47_05_+1000_sWr=sN7c3s+ffcaa
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 2011-08-21 02:02, Julian Anastasov wrote:
+>>>> 3. MTU size; 1500 on eth0 and 1406 on tun0. Bigger packets have been
+>>>> transferred fine.
+>>>
+>>> 	Lower MTU, it can be PMTUD problem. At 04:50:24.112658
+>>> I see 7801:9169 is 1420 bytes and no ICMP FRAG NEEDED is generated.
+>>> May be these two regressions explain it:
+>>>
+>>> http://marc.info/?l=linux-netdev&m=131342172722536&w=2
+>>>
+>>> 	There are 2 fixes you can try or more recent kernel
+>>> tree, for example 3.1-rc2 has the fixes.
+>>
+>> Many thanks for your reply--it looks like you're on to something. You
+>> didn't specify which interface to lower the MTU on, so I tried them each
+>> in turn, and found that lowering the MTU on the client machine to 1406
+>> (matching tun0 on the router) did indeed solve the problem. That makes
+>> sense in retrospect.
+> 
+> 	I just wanted to note the difference in MTUs
+> as a possible cause that triggers the problem. And after
+> your confirmation I think the new/patched kernel should work
+> without playing with MTUs.
 
-Hi Greg,
+I finally got a chance to test this, and the patched kernel works fine.
+Thank you!
 
-Today's linux-next merge of the staging tree got a conflict in
-drivers/staging/rtl8192e/r8192E_core.c between commit afc4b13df143 ("net:
-remove use of ndo_set_multicast_list in drivers") from the net tree and
-commit 09505184ec3d ("staging: rtl8192e: Remove files that are not used")
-from the staging tree.
-
-The latter removed the file, so I did that.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Fri__26_Aug_2011_13_47_05_+1000_sWr=sN7c3s+ffcaa
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJOVxc5AAoJEDMEi1NhKgbsAuwIAKLlOw9PbsFF+yT8i5EkmDGM
-fFuIsUUK24VcHtSL7s4tilFHS+W5I/S+hRM6IGo9PhABpsQUf0e3X6VBB5fO29rL
-p6H+0tLIremxIL5X8U7epBYnGr//1iFkiZzv/QNha+l/zgJ73U8LyLJYX+E2hLuq
-+JpSF+W3FINjlXqG13FBbDkaJXUibd4CxqVShgjp0gPb/zuSA/qcWMqlp1h2ht2M
-lH2ukc/MIoc8B/+a1ipMuzFYKyGrOJnnmQXHd+wAc1pKQZyJHNmporwsmy4hasdB
-SrDFU3o9oMi+jFB1apj7l9Ia6sqlgoPsUwgKUytYP9NTm/i7XxiNxErqjnKdwts=
-=XJ47
------END PGP SIGNATURE-----
-
---Signature=_Fri__26_Aug_2011_13_47_05_+1000_sWr=sN7c3s+ffcaa--
+-Corey
