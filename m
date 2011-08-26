@@ -1,45 +1,55 @@
-From: Axel Lin <axel.lin@gmail.com>
-Subject: [PATCH] p54spi: add "spi:" prefix for stlc45xx modalias
-Date: Fri, 26 Aug 2011 14:34:59 +0800
-Message-ID: <1314340499.25655.1.camel@phoenix>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next ] Fix time-lag of IFF_RUNNING flag consistency
+	between vlan and real devices
+Date: Fri, 26 Aug 2011 16:45:53 +1000
+Message-ID: <20110826064553.GA5874@gondor.apana.org.au>
+References: <20110826060257.5304.62723.stgit@ltc219.sdl.hitachi.co.jp> <20110825230859.11b2b132@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Christian Lamparter <chunkeey@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?utf-8?Q?Micha=C5=82Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	Tom Herbert <therbert@google.com>,
+	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:43528 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703Ab1HZGqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 02:46:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20110825230859.11b2b132@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since commit e0626e38 (spi: prefix modalias with "spi:"),
-the spi modalias is prefixed with "spi:".
+On Thu, Aug 25, 2011 at 11:08:59PM -0700, Stephen Hemminger wrote:
+>
+> Just doing this for ioctl is not enough, API's other than user space depend on this.
+> Also the user may have manually set different flags on vlan than on
+> the real device.
 
-This patch adds "spi:" prefix for modalias of stlc45xx.
-Also move it to be group with other modalias.
+Right, anything that tests netif_carrier_ok directly on the VLAN
+device will still be delayed.
 
-Signed-off-by: Axel Lin <axel.lin@gmail.com>
----
- drivers/net/wireless/p54/p54spi.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Now I remember discussing this issue in Japan.  However, I can't
+recall the exact scenario in which the delay occured.
 
-diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
-index 6d9204fe..f18df82 100644
---- a/drivers/net/wireless/p54/p54spi.c
-+++ b/drivers/net/wireless/p54/p54spi.c
-@@ -41,7 +41,6 @@
- #endif /* CONFIG_P54_SPI_DEFAULT_EEPROM */
- 
- MODULE_FIRMWARE("3826.arm");
--MODULE_ALIAS("stlc45xx");
- 
- /*
-  * gpios should be handled in board files and provided via platform data,
-@@ -738,3 +737,4 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Christian Lamparter <chunkeey@web.de>");
- MODULE_ALIAS("spi:cx3110x");
- MODULE_ALIAS("spi:p54spi");
-+MODULE_ALIAS("spi:stlc45xx");
+Is the issue with the link status going down on the real device,
+or the real device coming up?
+
+IIRC we already have mechanisms in place to ensure that down events
+are not delayed by linkwatch.  Of course it is possible that this
+isn't working for some reason, or some other part of the system is
+causing the delay.
+
+So please clarify the scenario for us Hayasaka-san.  Also please
+let us know how you measured the delay.
+
+Thanks,
 -- 
-1.7.4.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
