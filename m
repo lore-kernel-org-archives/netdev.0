@@ -1,48 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFT PATCH v3 00/12] Cleanup and extension of netdev features
-Date: Fri, 26 Aug 2011 12:47:57 -0400 (EDT)
-Message-ID: <20110826.124757.1122820419902181640.davem@davemloft.net>
-References: <4E569CC8.9040605@candelatech.com>
-	<20110826.124107.1302583595703798441.davem@davemloft.net>
-	<4E57CD27.8090500@candelatech.com>
+Subject: Re: [PATCH] netpoll: fix incorrect access to skb data in
+ __netpoll_rx
+Date: Fri, 26 Aug 2011 12:50:28 -0400 (EDT)
+Message-ID: <20110826.125028.2169093589404100341.davem@davemloft.net>
+References: <1314375975.2563.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: greearb@candelatech.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58583 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58597 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753985Ab1HZQtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:49:24 -0400
-In-Reply-To: <4E57CD27.8090500@candelatech.com>
+	with ESMTP id S1754154Ab1HZQuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:50:32 -0400
+In-Reply-To: <1314375975.2563.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ben Greear <greearb@candelatech.com>
-Date: Fri, 26 Aug 2011 09:43:19 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 26 Aug 2011 18:26:15 +0200
 
-> On 08/26/2011 09:41 AM, David Miller wrote:
->> From: Ben Greear<greearb@candelatech.com>
->> Date: Thu, 25 Aug 2011 12:04:40 -0700
->>=20
->>> On 06/22/2011 09:04 AM, Micha=A9=A9 Miros=A9=A9aw wrote:
->>>> v3 of a feature handling cleanup and extension series. For testing=
-,
->>>> you
->>>> might want user-space ethtool patched with:
->>>>
->>>> http://patchwork.ozlabs.org/patch/96374/
->>>
->>> It looks like this is not in net-next yet...any hope of this
->>> going in soon?
->>=20
->> Why would it go into net-next?  It's not a kernel patch, it's a patc=
-h
->> for the ethool userland utility.
->=20
-> I meant the kernel bits in that patch series, not the link.
+> __netpoll_rx() doesnt properly handle skbs with small header
+> 
+> pskb_may_pull() or pskb_trim_rcsum() can change skb->data, we must
+> reload it.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-It's possible that if you go look at the threads about those kernel
-patches you're find out the reason.
+Applied, thanks Eric.
