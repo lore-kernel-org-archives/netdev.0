@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/phy: fix DP83865 phy interrupt handler
-Date: Fri, 26 Aug 2011 12:50:50 -0400 (EDT)
-Message-ID: <20110826.125050.2162441992717183883.davem@davemloft.net>
-References: <1314083234-20361-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH] can: ti_hecc: Fix unintialized variable
+Date: Fri, 26 Aug 2011 12:51:07 -0400 (EDT)
+Message-ID: <20110826.125107.163718127055087168.davem@davemloft.net>
+References: <1314104748-16424-1-git-send-email-abhilash.kv@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tshu@msc-ge.com
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58609 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753985Ab1HZQu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:50:59 -0400
-In-Reply-To: <1314083234-20361-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, wg@grandegger.com,
+	linux-kernel@vger.kernel.org, =linux-omap@vger.kernel.org
+To: abhilash.kv@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1314104748-16424-1-git-send-email-abhilash.kv@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Tue, 23 Aug 2011 09:07:14 +0200
+From: Abhilash K V <abhilash.kv@ti.com>
+Date: Tue, 23 Aug 2011 18:35:48 +0530
 
-> According to the DP83865 datasheet we need to clear
-> the interrupt status bit by writing a 1 to the
-> corresponding bit in INT_CLEAR (2:0 are reserved).
+> In ti_hecc_xmit(), local variable "data" is not initialized before
+> being used.
+> This initialization got inadvertently removed in the following patch:
 > 
-> Proposed and tested by Thorsten.
+> 	can: Unify droping of invalid tx skbs and netdev stats
 > 
-> Signed-off-by: Thorsten Schubert <tshu@msc-ge.com>
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Acked-by: Anant Gole <anantgole@ti.com>
+> Signed-off-by: Abhilash K V <abhilash.kv@ti.com>
 
 Applied.
