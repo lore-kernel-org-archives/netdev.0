@@ -1,42 +1,44 @@
 From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [RFT PATCH v3 00/12] Cleanup and extension of netdev features
-Date: Fri, 26 Aug 2011 20:41:55 +0200
-Message-ID: <20110826184155.GA14744@rere.qmqm.pl>
-References: <cover.1308758435.git.mirq-linux@rere.qmqm.pl>
- <4E569CC8.9040605@candelatech.com>
+Subject: Re: [RFC PATCH] common receive API + r8169 use
+Date: Fri, 26 Aug 2011 20:44:13 +0200
+Message-ID: <20110826184413.GA15188@rere.qmqm.pl>
+References: <f85e6be597ae30fd4dab776b924c0cd0a66514c0.1312314817.git.mirq-linux@rere.qmqm.pl>
+ <20110802141500.3c99185b@nehalam.ftrdhcpuser.net>
+ <20110802214349.GA17411@rere.qmqm.pl>
+ <1312822029.2531.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Ben Greear <greearb@candelatech.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:56161 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:52320 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750710Ab1HZSl5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Aug 2011 14:41:57 -0400
+	id S1751086Ab1HZSoO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Aug 2011 14:44:14 -0400
 Content-Disposition: inline
-In-Reply-To: <4E569CC8.9040605@candelatech.com>
+In-Reply-To: <1312822029.2531.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 25, 2011 at 12:04:40PM -0700, Ben Greear wrote:
-> On 06/22/2011 09:04 AM, Micha=B3 Miros=B3aw wrote:
-> >v3 of a feature handling cleanup and extension series. For testing, =
-you
-> >might want user-space ethtool patched with:
-> >http://patchwork.ozlabs.org/patch/96374/
-> It looks like this is not in net-next yet...any hope of this
-> going in soon?
+On Mon, Aug 08, 2011 at 06:47:09PM +0200, Eric Dumazet wrote:
+> Le mardi 02 ao=C3=BBt 2011 =C3=A0 23:43 +0200, Micha=C5=82 Miros=C5=82=
+aw a =C3=A9crit :
+> > I don't have fast enough transmitter yet, so have no real data. Eri=
+c's
+> > testing showed dramatic reduction in CPU usage after changing igb t=
+o use
+> > build_skb().  Inlined version of this patch should give similar res=
+ults.
+> >=20
+> > Eric: can you share the igb changes? I have no hardware for it, but=
+ could
+> > merge our changes for you to test.
+> I am just coming back from one vacation period, I'll send patches bef=
+ore
+> another one, maybe tomorrow, stay tuned ;)
 
-It's because the series depends on finishing conversions of all drivers
-to ndo_fix/set_features. e1000e, igbvf, ixgb, ixgbevf are pending.
-
-BTW, Jeff, what is the status of those conversions? Last version of ixg=
-be
-patch from Donald Skidmore (sent about a month ago) was mostly ready II=
-UC.
+Still tuned in, but receiving no signal. ;-)
 
 Best Regards,
-Micha=B3 Miros=B3aw
+Micha=C5=82 Miros=C5=82aw
