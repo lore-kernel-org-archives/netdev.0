@@ -1,45 +1,92 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: linux-next: manual merge of the staging tree with the net tree
-Date: Fri, 26 Aug 2011 00:35:56 -0500
-Message-ID: <4E5730BC.6070604@lwfinger.net>
-References: <20110826134705.0d5b6767777f0af2f8667731@canb.auug.org.au> <20110826043357.GA17686@kroah.com>
+From: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Subject: [PATCH net-next ] Fix time-lag of IFF_RUNNING flag consistency
+ between vlan and real devices
+Date: Fri, 26 Aug 2011 15:02:57 +0900
+Message-ID: <20110826060257.5304.62723.stgit@ltc219.sdl.hitachi.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110826043357.GA17686@kroah.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yrl.pp-manager.tt@hitachi.com,
+	Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?utf-8?b?Ik1pY2hhxYI=?= =?utf-8?q?Miros=C5=82aw=22?=
+	<mirq-linux@rere.qmqm.pl>, Tom Herbert <therbert@google.com>,
+	Jesse Gross <jesse@nicira.com>
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?utf-8?q?Micha=C5=82?= =?utf-8?b?TWlyb3PFgmF3?=
+	<mirq-linux@rere.
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/25/2011 11:33 PM, Greg KH wrote:
-> On Fri, Aug 26, 2011 at 01:47:05PM +1000, Stephen Rothwell wrote:
->> Hi Greg,
->>
->> Today's linux-next merge of the staging tree got a conflict in
->> drivers/staging/rtl8192e/r8192E_core.c between commit afc4b13df143 ("net:
->> remove use of ndo_set_multicast_list in drivers") from the net tree and
->> commit 09505184ec3d ("staging: rtl8192e: Remove files that are not used")
->> from the staging tree.
->>
->> The latter removed the file, so I did that.
->
-> Thanks, that should be the correct thing :)
+There is a time-lag of IFF_RUNNING flag consistency between vlan and re=
+al
+devices when the real devices are in problem such as link or cable brok=
+en.
+This leads to a degradation of Availability such as a delay of failover=
+ in
+HA systems using vlan since the detection of the problem at real device=
+ is
+delayed.
 
-I'm a little confused. The files deleted in 09505184ec3d are not used at all in 
-the new rtl8192e. The only way it makes sense is you did not have the new 
-version when the the error with r8192E_core.c occurred.
+Why this happens:
+Network devices' flags can be checked using ioctl with SIOCGIFFLAGS. Wh=
+en
+vlan technique is used, it checks the flags of vlan device, not real
+device.
 
-The error that was reported to me was 
-"drivers/staging/rtl8192e/rtl_core.c:2917:2: error: unknown field 
-'ndo_set_multicast_list' specified in initializer". The file rtl_core.c is 
-needed with the new version. Yes, the names are quite confusing, which is part 
-of the reason it took so long to delete the unused ones.
+Patch:
+This patch adds vlan-device check into dev_get_flags(). So, it can chec=
+k
+flags of the real device even if the vlan is used.
 
-I have tested Stephan's patch and will send it to Greg with my SOB.
+Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Jesse Gross <jesse@nicira.com>
+---
 
-Larry
+ include/linux/if_vlan.h |    2 +-
+ net/core/dev.c          |    7 +++++++
+ 2 files changed, 8 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 44da482..4df4e6f 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -91,7 +91,7 @@ struct vlan_group {
+ 	struct rcu_head		rcu;
+ };
+=20
+-static inline int is_vlan_dev(struct net_device *dev)
++static inline int is_vlan_dev(const struct net_device *dev)
+ {
+         return dev->priv_flags & IFF_802_1Q_VLAN;
+ }
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a4306f7..527e21b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4603,6 +4603,13 @@ unsigned dev_get_flags(const struct net_device *=
+dev)
+ 		(dev->gflags & (IFF_PROMISC |
+ 				IFF_ALLMULTI));
+=20
++	/*
++	 * If we're trying to get flags on a vlan device
++	 * use the underlying physical device instead.
++	 */
++	if (is_vlan_dev(dev))
++		dev =3D vlan_dev_real_dev(dev);
++
+ 	if (netif_running(dev)) {
+ 		if (netif_oper_up(dev))
+ 			flags |=3D IFF_RUNNING;
