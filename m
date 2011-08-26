@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: fix incorrect access to skb data in
- __netpoll_rx
-Date: Fri, 26 Aug 2011 12:50:28 -0400 (EDT)
-Message-ID: <20110826.125028.2169093589404100341.davem@davemloft.net>
-References: <1314375975.2563.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH] net: sh_eth: fix the compile error
+Date: Fri, 26 Aug 2011 12:50:56 -0400 (EDT)
+Message-ID: <20110826.125056.466857806833058211.davem@davemloft.net>
+References: <4E537249.8050806@renesas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58597 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754154Ab1HZQuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:50:32 -0400
-In-Reply-To: <1314375975.2563.8.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: yoshihiro.shimoda.uh@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4E537249.8050806@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 26 Aug 2011 18:26:15 +0200
-
-> __netpoll_rx() doesnt properly handle skbs with small header
-> 
-> pskb_may_pull() or pskb_trim_rcsum() can change skb->data, we must
-> reload it.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Applied, thanks Eric.
+RnJvbTogWW9zaGloaXJvIFNoaW1vZGEgPHlvc2hpaGlyby5zaGltb2RhLnVoQHJlbmVzYXMuY29t
+Pg0KRGF0ZTogVHVlLCAyMyBBdWcgMjAxMSAxODoyNjozMyArMDkwMA0KDQo+IEZpeCB0aGUgZm9s
+bG93aW5nIGJ1aWxkIGVycm9yOg0KPiANCj4gICBDQyAgICAgIGRyaXZlcnMvbmV0L3NoX2V0aC5v
+DQo+IGRyaXZlcnMvbmV0L3NoX2V0aC5jOjExMTU6IGVycm9yOiBleHBlY3RlZCChPaIsIKEsoiwg
+oTuiLCChYXNtoiBvciChX19hdHRyaWJ1dGVfX6IgYmVmb3JlIKFzaF9ldGhfaW50ZXJydXB0og0K
+PiBkcml2ZXJzL25ldC9zaF9ldGguYzogSW4gZnVuY3Rpb24goXNoX2V0aF9vcGVuojoNCj4gZHJp
+dmVycy9uZXQvc2hfZXRoLmM6MTM4NzogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1
+bmN0aW9uIKFyZXF1ZXN0X2lycaINCj4gZHJpdmVycy9uZXQvc2hfZXRoLmM6MTM4NzogZXJyb3I6
+IKFzaF9ldGhfaW50ZXJydXB0oiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlv
+bikNCj4gZHJpdmVycy9uZXQvc2hfZXRoLmM6MTM4NzogZXJyb3I6IChFYWNoIHVuZGVjbGFyZWQg
+aWRlbnRpZmllciBpcyByZXBvcnRlZCBvbmx5IG9uY2UNCj4gZHJpdmVycy9uZXQvc2hfZXRoLmM6
+MTM4NzogZXJyb3I6IGZvciBlYWNoIGZ1bmN0aW9uIGl0IGFwcGVhcnMgaW4uKQ0KPiBkcml2ZXJz
+L25ldC9zaF9ldGguYzoxMzkxOiBlcnJvcjogoUlSUUZfU0hBUkVEoiB1bmRlY2xhcmVkIChmaXJz
+dCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCj4gZHJpdmVycy9uZXQvc2hfZXRoLmM6MTQyNDogZXJy
+b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFmcmVlX2lycaINCj4gbWFrZVsy
+XTogKioqIFtkcml2ZXJzL25ldC9zaF9ldGgub10gRXJyb3IgMQ0KPiANCj4gU2lnbmVkLW9mZi1i
+eTogWW9zaGloaXJvIFNoaW1vZGEgPHlvc2hpaGlyby5zaGltb2RhLnVoQHJlbmVzYXMuY29tPg0K
+DQpBcHBsaWVkLg0K
