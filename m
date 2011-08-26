@@ -1,68 +1,56 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next ] Fix time-lag of IFF_RUNNING flag consistency
- between vlan and real devices
-Date: Thu, 25 Aug 2011 23:08:59 -0700
-Message-ID: <20110825230859.11b2b132@nehalam.ftrdhcpuser.net>
-References: <20110826060257.5304.62723.stgit@ltc219.sdl.hitachi.co.jp>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: slow performance on disk/network i/o full speed after drop_caches
+Date: Fri, 26 Aug 2011 08:18:01 +0200
+Message-ID: <4E573A99.4060309@profihost.ag>
+References: <4E5494D4.1050605@profihost.ag> <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com> <4E54BDCF.9020504@profihost.ag> <20110824093336.GB5214@localhost> <4E560F2A.1030801@profihost.ag> <20110826021648.GA19529@localhost> <4E570AEB.1040703@profihost.ag> <20110826030313.GA24058@localhost> <D299D0AE-2F3C-42E2-9723-A3D7C0108C40@profihost.ag> <20110826032601.GA26282@localhost> <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?utf-8?B?TWljaGHFgk1pcm9zxYJhdw==?= <mirq-linux@rere.qmqm.pl>,
-	Tom Herbert <therbert@google.com>,
-	Jesse Gross <jesse@nicira.com>, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yrl.pp-manager.tt@hitachi.com
-To: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45666 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752692Ab1HZGIv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 02:08:51 -0400
-In-Reply-To: <20110826060257.5304.62723.stgit@ltc219.sdl.hitachi.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Wu Fengguang <fengguang.wu@intel.com>,
+ Pekka Enberg <penberg@kernel.org>,
+ LKML <linux-kernel@vger.kernel.org>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>,
+ Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mel@csn.ul.ie>,
+ Jens Axboe <jaxboe@fusionio.com>,
+ Linux Netdev List <netdev@vger.kernel.org>
+To: Zhu Yanhai <zhu.yanhai@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Aug 2011 15:02:57 +0900
-Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com> wrote:
+Yanhai,
 
-> There is a time-lag of IFF_RUNNING flag consistency between vlan and =
-real
-> devices when the real devices are in problem such as link or cable br=
-oken.
-> This leads to a degradation of Availability such as a delay of failov=
-er in
-> HA systems using vlan since the detection of the problem at real devi=
-ce is
-> delayed.
->=20
-> Why this happens:
-> Network devices' flags can be checked using ioctl with SIOCGIFFLAGS. =
-When
-> vlan technique is used, it checks the flags of vlan device, not real
-> device.
->=20
-> Patch:
-> This patch adds vlan-device check into dev_get_flags(). So, it can ch=
-eck
-> flags of the real device even if the vlan is used.
->=20
-> Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
-> Cc: Tom Herbert <therbert@google.com>
-> Cc: Jesse Gross <jesse@nicira.com>
+> Stefan, is your zone_reclaim_mode enabled? try 'cat
+> /proc/sys/vm/zone_reclaim_mode',
+> and echo 0 to it to disable.
 
-I don't think this is the right way to solve the problem.
+you're abssolutely corect zone_reclaim_mode is on - but why?
+There must be some linux software which switches it on.
 
-The flags are supposed to propagate back from real device to vlan
-via network notifications.
+~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
+~#
 
-Just doing this for ioctl is not enough, API's other than user space de=
-pend on this.
-Also the user may have manually set different flags on vlan than on
-the real device.
+also
+~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
+~#
+
+tells us nothing.
+
+I've then read this:
+
+"zone_reclaim_mode is set during bootup to 1 if it is determined that 
+pages from remote zones will cause a measurable performance reduction. 
+The page allocator will then reclaim easily reusable pages (those page 
+cache pages that are currently not used) before allocating off node pages."
+
+Why does the kernel do that here in our case on these machines.
+
+Stefan
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
