@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] bna: unlock on error path in pnad_pci_probe()
-Date: Fri, 26 Aug 2011 12:51:45 -0400 (EDT)
-Message-ID: <20110826.125145.246690891101270580.davem@davemloft.net>
-References: <20110824112922.GC5975@shale.localdomain>
+Subject: Re: [PATCH] cassini: init before use in cas_interruptN.
+Date: Fri, 26 Aug 2011 12:52:42 -0400 (EDT)
+Message-ID: <20110826.125242.1773171670646830462.davem@davemloft.net>
+References: <201108251558.45290.thomas.jarosch@intra2net.com>
+	<20110825150249.GA21897@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rmody@brocade.com, ddutt@brocade.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: error27@gmail.com
+Cc: thomas.jarosch@intra2net.com, netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58661 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58663 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754334Ab1HZQwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:52:49 -0400
-In-Reply-To: <20110824112922.GC5975@shale.localdomain>
+	with ESMTP id S1754120Ab1HZQww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:52:52 -0400
+In-Reply-To: <20110825150249.GA21897@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Wed, 24 Aug 2011 14:29:22 +0300
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 25 Aug 2011 17:02:49 +0200
 
-> We introduced a new lock here, so there was error path which needs
-> an unlock now.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Spotted-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
 
-Applied.
+Applied, thanks!
+
+>  David, any opinion regarding the removal of the USE_NAPI #ifdef
+>  in this driver ?
+
+No objections to removing it.
