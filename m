@@ -1,33 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Duplication of #define with mii.h.
-Date: Fri, 26 Aug 2011 13:13:40 -0400 (EDT)
-Message-ID: <20110826.131340.359166840254343380.davem@davemloft.net>
-References: <20110825092019.GA21777@electric-eye.fr.zoreil.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [RFT PATCH v3 00/12] Cleanup and extension of netdev features
+Date: Fri, 26 Aug 2011 20:41:55 +0200
+Message-ID: <20110826184155.GA14744@rere.qmqm.pl>
+References: <cover.1308758435.git.mirq-linux@rere.qmqm.pl>
+ <4E569CC8.9040605@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38587 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750934Ab1HZRNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 13:13:45 -0400
-In-Reply-To: <20110825092019.GA21777@electric-eye.fr.zoreil.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:56161 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750710Ab1HZSl5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Aug 2011 14:41:57 -0400
+Content-Disposition: inline
+In-Reply-To: <4E569CC8.9040605@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Thu, 25 Aug 2011 11:20:19 +0200
+On Thu, Aug 25, 2011 at 12:04:40PM -0700, Ben Greear wrote:
+> On 06/22/2011 09:04 AM, Micha=B3 Miros=B3aw wrote:
+> >v3 of a feature handling cleanup and extension series. For testing, =
+you
+> >might want user-space ethtool patched with:
+> >http://patchwork.ozlabs.org/patch/96374/
+> It looks like this is not in net-next yet...any hope of this
+> going in soon?
 
-> Please pull from branch 'davem-next.mii' in repository
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git davem-next.mii
-> 
-> to get the changes below.
-> 
-> The sunbmac changes are not compile tested. Sunbmac changeset is on top of the
-> stack so it can be instantly removed if untrusted. Building a packaged rpm for a
-> cross sparc-linux compiler quickly turned more interesting than expected.
+It's because the series depends on finishing conversions of all drivers
+to ndo_fix/set_features. e1000e, igbvf, ixgb, ixgbevf are pending.
 
-I'll pull this and sanity check the build on sparc, thanks!
+BTW, Jeff, what is the status of those conversions? Last version of ixg=
+be
+patch from Donald Skidmore (sent about a month ago) was mostly ready II=
+UC.
+
+Best Regards,
+Micha=B3 Miros=B3aw
