@@ -1,57 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] e1000: save skb counts in TX to avoid
- cache misses
-Date: Fri, 26 Aug 2011 12:55:29 -0400 (EDT)
-Message-ID: <20110826.125529.1284864994760116940.davem@davemloft.net>
-References: <20110826003923.4083.24862.email-sent-by-dnelson@localhost6.localdomain6>
-	<1314330760.2097.39.camel@jtkirshe-mobl>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch 1/2] 9p: move dereference after NULL check
+Date: Fri, 26 Aug 2011 19:55:59 +0300
+Message-ID: <20110826165559.GE3775@shale.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dnelson@redhat.com, netdev@vger.kernel.org, andy@greyhouse.net
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Venkateswararao Jujjuri <jvrao@linux.vnet.ibm.com>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	"M. Mohan Kumar" <mohan@in.ibm.com>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org
+To: Eric Van Hensbergen <ericvh@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48836 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750917Ab1HZQzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:55:35 -0400
-In-Reply-To: <1314330760.2097.39.camel@jtkirshe-mobl>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:51036 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032Ab1HZQ6T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:58:19 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 25 Aug 2011 20:52:39 -0700
+We dereferenced "req->tc" and "req->rc" before checking for NULL.
 
-> On Thu, 2011-08-25 at 17:39 -0700, Dean Nelson wrote:
->> Virtual Machines with emulated e1000 network adapter running on
->> Parallels'
->> server were seeing kernel panics due to the e1000 driver dereferencing
->> an
->> unexpected NULL pointer retrieved from buffer_info->skb.
->> 
->> The problem has been addressed for the e1000e driver, but not for the
->> e1000.
->> Since the two drivers share similar code in the affected area, a port
->> of the
->> following e1000e driver commit solves the issue for the e1000 driver:
->> 
->> commit 9ed318d546a29d7a591dbe648fd1a2efe3be1180
->> Author: Tom Herbert <therbert@google.com>
->> Date:   Wed May 5 14:02:27 2010 +0000
->> 
->>     e1000e: save skb counts in TX to avoid cache misses
->> 
->>     In e1000_tx_map, precompute number of segements and bytecounts
->> which
->>     are derived from fields in skb; these are stored in buffer_info.
->> When
->>     cleaning tx in e1000_clean_tx_irq use the values in the associated
->>     buffer_info for statistics counting, this eliminates cache misses
->>     on skb fields.
->> 
->> 
->> Signed-off-by: Dean Nelson <dnelson@redhat.com> 
-> 
-> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Applied, thanks.
+diff --git a/net/9p/client.c b/net/9p/client.c
+index 3f8c046..b0bcace 100644
+--- a/net/9p/client.c
++++ b/net/9p/client.c
+@@ -248,10 +248,8 @@ static struct p9_req_t *p9_tag_alloc(struct p9_client *c, u16 tag, int max_size)
+ 		init_waitqueue_head(req->wq);
+ 		req->tc = kmalloc(sizeof(struct p9_fcall) + alloc_msize,
+ 				  GFP_NOFS);
+-		req->tc->capacity = alloc_msize;
+ 		req->rc = kmalloc(sizeof(struct p9_fcall) + alloc_msize,
+ 				  GFP_NOFS);
+-		req->rc->capacity = alloc_msize;
+ 		if ((!req->tc) || (!req->rc)) {
+ 			printk(KERN_ERR "Couldn't grow tag array\n");
+ 			kfree(req->tc);
+@@ -261,6 +259,8 @@ static struct p9_req_t *p9_tag_alloc(struct p9_client *c, u16 tag, int max_size)
+ 			req->wq = NULL;
+ 			return ERR_PTR(-ENOMEM);
+ 		}
++		req->tc->capacity = alloc_msize;
++		req->rc->capacity = alloc_msize;
+ 		req->tc->sdata = (char *) req->tc + sizeof(struct p9_fcall);
+ 		req->rc->sdata = (char *) req->rc + sizeof(struct p9_fcall);
+ 	}
