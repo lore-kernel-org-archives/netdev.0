@@ -1,89 +1,75 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH 3/3 net-next] net: Define NETDEV_FCOE_WWNN,
- NETDEV_FCOE_WWPN only when CONFIG_LIBFCOE is enabled
-Date: Fri, 26 Aug 2011 15:17:50 -0700
-Message-ID: <20110826151750.fc23190e.rdunlap@xenotime.net>
-References: <1314387941-2126-1-git-send-email-mchan@broadcom.com>
-	<1314387941-2126-2-git-send-email-mchan@broadcom.com>
-	<1314387941-2126-3-git-send-email-mchan@broadcom.com>
-	<5A9BD224CEA58D4CB62235967D650C160A06D10A@orsmsx509.amr.corp.intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [RFT PATCH v3 00/12] Cleanup and extension of netdev features
+Date: Fri, 26 Aug 2011 16:17:06 -0700
+Message-ID: <1314400627.12377.12.camel@jtkirshe-mobl>
+References: <cover.1308758435.git.mirq-linux@rere.qmqm.pl>
+	 <4E569CC8.9040605@candelatech.com> <20110826184155.GA14744@rere.qmqm.pl>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-yFUe0Xm7jfAkKgWGNFYM"
+Cc: Ben Greear <greearb@candelatech.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bhanu Prakash Gollapudi <bprakash@broadcom.com>
-To: "Zou, Yi" <yi.zou@intel.com>
+	"David S. Miller" <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oproxy8-pub.bluehost.com ([69.89.22.20]:49307 "HELO
-	oproxy8-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750828Ab1HZWRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 18:17:52 -0400
-In-Reply-To: <5A9BD224CEA58D4CB62235967D650C160A06D10A@orsmsx509.amr.corp.intel.com>
+Received: from mga09.intel.com ([134.134.136.24]:46350 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752936Ab1HZXRH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Aug 2011 19:17:07 -0400
+In-Reply-To: <20110826184155.GA14744@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 26 Aug 2011 15:11:17 -0700 Zou, Yi wrote:
 
-> > From: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
-> > 
-> > bnx2fc driver calls netdev->netdev_ops->ndo_fcoe_get_wwn() and it may not
-> > be defined with the current Kconfig dependencies.  ndo_fcoe_get_wwn is
-> > dependent on CONFIG_FCOE, but bnx2fc does not select CONFIG_FCOE, as it
-> > does
-> > not depend on fcoe driver. Since both fcoe and bnx2fc drivers select
-> > CONFIG_LIBFCOE, define NETDEV_FCOE_WWNN and NETDEV_FCOE_WWPN when
-> > CONFIG_LIBFCOE is defined.
-> > 
-> > Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> > Reported-by: Randy Dunlap <rdunlap@xenotime.net>
-> > Cc: Yi Zou <yi.zou@intel.com>
-> > Signed-off-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
-> > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> > ---
-> >  include/linux/netdevice.h |    4 ++++
-> >  1 files changed, 4 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index 125f9fb..0a7f619 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -922,11 +922,15 @@ struct net_device_ops {
-> >  						       u16 xid,
-> >  						       struct scatterlist *sgl,
-> >  						       unsigned int sgc);
-> > +#endif
-> > +
-> > +#if defined(CONFIG_LIBFCOE) || defined(CONFIG_LIBFCOE_MODULE)
-> >  #define NETDEV_FCOE_WWNN 0
-> >  #define NETDEV_FCOE_WWPN 1
-> >  	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
-> >  						    u64 *wwn, int type);
-> >  #endif
-> > +
-> >  #ifdef CONFIG_RFS_ACCEL
-> >  	int			(*ndo_rx_flow_steer)(struct net_device *dev,
-> >  						     const struct sk_buff *skb,
-> > --
-> > 1.7.1
-> > 
-> Thanks,
-> 
-> Reviewed-by: Yi Zou <yi.zou@intel.com>
+--=-yFUe0Xm7jfAkKgWGNFYM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+On Fri, 2011-08-26 at 11:41 -0700, Micha=C5=82 Miros=C5=82aw wrote:
+> On Thu, Aug 25, 2011 at 12:04:40PM -0700, Ben Greear wrote:
+> > On 06/22/2011 09:04 AM, Micha=C5=82 Miros=C5=82aw wrote:
+> > >v3 of a feature handling cleanup and extension series. For testing, yo=
+u
+> > >might want user-space ethtool patched with:
+> > >http://patchwork.ozlabs.org/patch/96374/
+> > It looks like this is not in net-next yet...any hope of this
+> > going in soon?
+>=20
+> It's because the series depends on finishing conversions of all drivers
+> to ndo_fix/set_features. e1000e, igbvf, ixgb, ixgbevf are pending.
+>=20
+> BTW, Jeff, what is the status of those conversions? Last version of ixgbe
+> patch from Donald Skidmore (sent about a month ago) was mostly ready IIUC=
+.
+>=20
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
 
-This one fixes lots of build errors, like:
+e1000e patch just completed testing, I will be pushing that tonight.
+ixgbe got pushed back in June, but there some suggested changes you had
+made with Don and that patch has been in/out of testing due to issues
+found. =20
 
-drivers/scsi/fcoe/fcoe_transport.c:152: error: 'const struct net_device_ops' has no member named 'ndo_fcoe_get_wwn'
+It also appears that the ixgbevf patch has completed testing.  The only
+remaining patch which is left to complete is igbvf.
 
-drivers/scsi/bnx2fc/bnx2fc_fcoe.c:765: error: 'NETDEV_FCOE_WWNN' undeclared (first use in this function)
-drivers/scsi/bnx2fc/bnx2fc_fcoe.c:771: error: 'NETDEV_FCOE_WWPN' undeclared (first use in this function)
-drivers/scsi/fcoe/fcoe_transport.c:152: error: 'const struct net_device_ops' has no member named 'ndo_fcoe_get_wwn'
+--=-yFUe0Xm7jfAkKgWGNFYM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-thanks,
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+iQEcBAABAgAGBQJOWClyAAoJECTsCADr/EWUaCYIAKVnY2QRqAqZygqsMysy9vEi
+/n3dyxrI7B2/H0JreI6JegTurQAxL6M/njSzCKNzU/b6jbwvNs2Ymht3b3ma9Utg
+28BUEeSIjvZa9KhxRDsBK23ygjcQQKLP6HxqnhYcXMANZpeVWTR0e4sZR5Ce7lyQ
+K/sJhMnXrI6cgk97DxLg8IBx2G2ZtNYm5e1FWmWzjS8mlICl9a9/8Yl59orp5kuB
+dmcum+Qcbh+yq9bjbXYSPDNN5seFvZ5EpWynF4TbOjRfVyJGp07Teh/+HFVvV8Rn
+EQLblIqilw+/loo+bG3VAoS+eE/Rs6GHPXL8NcetKy0W3rWAVwiDDCoyjegu+2I=
+=ESEd
+-----END PGP SIGNATURE-----
+
+--=-yFUe0Xm7jfAkKgWGNFYM--
