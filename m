@@ -1,103 +1,165 @@
-From: Dean Nelson <dnelson@redhat.com>
-Subject: [PATCH net-next-2.6] e1000: save skb counts in TX to avoid cache misses
-Date: Thu, 25 Aug 2011 20:39:24 -0400
-Message-ID: <20110826003923.4083.24862.email-sent-by-dnelson@localhost6.localdomain6>
+From: Wu Fengguang <fengguang.wu@intel.com>
+Subject: Re: slow performance on disk/network i/o full speed after
+ drop_caches
+Date: Fri, 26 Aug 2011 10:16:48 +0800
+Message-ID: <20110826021648.GA19529@localhost>
+References: <4E5494D4.1050605@profihost.ag>
+ <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com>
+ <4E54BDCF.9020504@profihost.ag>
+ <20110824093336.GB5214@localhost>
+ <4E560F2A.1030801@profihost.ag>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org, Jeff Kirshier <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24672 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753292Ab1HZAj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Aug 2011 20:39:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pekka Enberg <penberg@kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mel Gorman <mel@csn.ul.ie>, Jens Axboe <jaxboe@fusionio.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4E560F2A.1030801@profihost.ag>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Virtual Machines with emulated e1000 network adapter running on Parallels'
-server were seeing kernel panics due to the e1000 driver dereferencing an
-unexpected NULL pointer retrieved from buffer_info->skb.
+Hi Stefan,
 
-The problem has been addressed for the e1000e driver, but not for the e1000.
-Since the two drivers share similar code in the affected area, a port of the
-following e1000e driver commit solves the issue for the e1000 driver:
+> Here is the data you requested:
+> 
+> root@server1015-han:~# grep . /sys/devices/system/node/node*/vmstat
+> /sys/devices/system/node/node0/vmstat:nr_written 5546561
+> /sys/devices/system/node/node0/vmstat:nr_dirtied 5572497
+> /sys/devices/system/node/node1/vmstat:nr_written 3936
+> /sys/devices/system/node/node1/vmstat:nr_dirtied 4190
 
-commit 9ed318d546a29d7a591dbe648fd1a2efe3be1180
-Author: Tom Herbert <therbert@google.com>
-Date:   Wed May 5 14:02:27 2010 +0000
+Ah you are running an older kernel that didn't show all the vmstat
+numbers. But still it's revealing that node 0 is used heavily and node
+1 is almost idle. So I won't be surprised to see most free pages lie
+in node 1.
 
-    e1000e: save skb counts in TX to avoid cache misses
+> modified it a little bit:
+> ~# while [ true ]; do ps -eo 
+> user,pid,tid,class,rtprio,ni,pri,psr,pcpu,vsz,rss,pmem,stat,wchan:28,cmd 
+> | grep scp | grep -v grep; sleep 1; done
+> 
+> root     12409 12409 TS       -   0  19   0 59.8  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
 
-    In e1000_tx_map, precompute number of segements and bytecounts which
-    are derived from fields in skb; these are stored in buffer_info.  When
-    cleaning tx in e1000_clean_tx_irq use the values in the associated
-    buffer_info for statistics counting, this eliminates cache misses
-    on skb fields.
+It's mostly doing poll() waits. There must be some dependency on
+something other to make progress. Would you post the full ps output
+for all tasks, and even better, run
+
+        echo t > /proc/sysrq-trigger
+
+To dump the kernel stacks?
+
+Thanks,
+Fengguang
 
 
-Signed-off-by: Dean Nelson <dnelson@redhat.com>
+> root     12409 12409 TS       -   0  19   0 64.0  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   0 67.7  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 70.6  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 73.5  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 76.0  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 78.2  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 80.0  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 80.9  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   2 76.7  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 75.6  42136  1724  0.0 Ds 
+> pipe_read                    scp -t /tmp/
+> root     12409 12409 TS       -   0  19   0 76.0  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 75.2  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 76.6  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 77.9  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 79.0  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 72.8  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   0 73.0  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   0 73.8  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 74.3  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 73.4  42136  1724  0.0 Ss 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 71.3  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 71.9  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   0 72.7  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   3 73.5  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   3 74.4  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   3 75.2  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   0 76.0  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 76.6  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 74.8  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 73.2  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   1 73.9  42136  1724  0.0 Rs 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   0 72.4  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 72.0  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 72.5  42136  1724  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 72.9  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12409 12409 TS       -   0  19   8 73.5  42136  1724  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1  0.0  42136  1728  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1 23.0  42136  1728  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1 49.5  42136  1728  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   2 63.3  42136  1728  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1 71.5  42136  1728  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1 77.4  42136  1728  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1 70.3  42136  1728  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1 73.1  42136  1728  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12566 12566 TS       -   0  19   0 65.7  42136  1728  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1 61.2  42136  1728  0.0 Ss 
+> -                            scp -t /tmp/
+> root     12566 12566 TS       -   0  19   1 63.7  42136  1728  0.0 Rs 
+> -                            scp -t /tmp/
+> root     12636 12636 TS       -   0  19   8  0.0  42136  1728  0.0 Ss 
+> poll_schedule_timeout        scp -t /tmp/
+> 
+> 
+> Stefan
 
----
-This patch (backported to RHEL6.2) was verified by Dmitry Skorodumov to solve
-Parallels' reported problem.
-
- drivers/net/ethernet/intel/e1000/e1000.h      |    2 ++
- drivers/net/ethernet/intel/e1000/e1000_main.c |   18 +++++++++---------
- 2 files changed, 11 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 24f41da..4ea87b1 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -150,6 +150,8 @@ struct e1000_buffer {
- 	unsigned long time_stamp;
- 	u16 length;
- 	u16 next_to_watch;
-+	unsigned int segs;
-+	unsigned int bytecount;
- 	u16 mapped_as_page;
- };
- 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 7c280e5..4a32c15 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -2848,7 +2848,7 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- 	struct e1000_buffer *buffer_info;
- 	unsigned int len = skb_headlen(skb);
- 	unsigned int offset = 0, size, count = 0, i;
--	unsigned int f;
-+	unsigned int f, bytecount, segs;
- 
- 	i = tx_ring->next_to_use;
- 
-@@ -2949,7 +2949,13 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- 		}
- 	}
- 
-+	segs = skb_shinfo(skb)->gso_segs ?: 1;
-+	/* multiply data chunks by size of headers */
-+	bytecount = ((segs - 1) * skb_headlen(skb)) + skb->len;
-+
- 	tx_ring->buffer_info[i].skb = skb;
-+	tx_ring->buffer_info[i].segs = segs;
-+	tx_ring->buffer_info[i].bytecount = bytecount;
- 	tx_ring->buffer_info[first].next_to_watch = i;
- 
- 	return count;
-@@ -3623,14 +3629,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 			cleaned = (i == eop);
- 
- 			if (cleaned) {
--				struct sk_buff *skb = buffer_info->skb;
--				unsigned int segs, bytecount;
--				segs = skb_shinfo(skb)->gso_segs ?: 1;
--				/* multiply data chunks by size of headers */
--				bytecount = ((segs - 1) * skb_headlen(skb)) +
--				            skb->len;
--				total_tx_packets += segs;
--				total_tx_bytes += bytecount;
-+				total_tx_packets += buffer_info->segs;
-+				total_tx_bytes += buffer_info->bytecount;
- 			}
- 			e1000_unmap_and_free_tx_resource(adapter, buffer_info);
- 			tx_desc->upper.data = 0;
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
