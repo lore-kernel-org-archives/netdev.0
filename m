@@ -1,143 +1,103 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH 1/2] igb: Allow extra 4 bytes on RX for vlan tags.
-Date: Thu, 25 Aug 2011 16:31:56 -0700
-Message-ID: <4E56DB6C.2020606@intel.com>
-References: <1297375149-18458-1-git-send-email-greearb@candelatech.com>	<AANLkTinsWRAJ2bepa1NjQ4f0Wz46DaxWO6f_nEbmBAB0@mail.gmail.com>	<4D5D5AD8.5000802@candelatech.com>	<CAEP_g=_o7nP2FCnPufyT44JZZ+Z+jkcVpSa8Qj3mjPn+MwRhXA@mail.gmail.com>	<4E277267.8090702@candelatech.com>	<1311211304.2401.9.camel@jtkirshe-mobl> <CAKgT0UfaEEvRTSpu-U+0_oj0KnEkyx5hRAwZDiCAAdtY4YhQUQ@mail.gmail.com> <4E569999.8050006@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	jeffrey.t.kirsher@intel.com, Jesse Gross <jesse@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+From: Dean Nelson <dnelson@redhat.com>
+Subject: [PATCH net-next-2.6] e1000: save skb counts in TX to avoid cache misses
+Date: Thu, 25 Aug 2011 20:39:24 -0400
+Message-ID: <20110826003923.4083.24862.email-sent-by-dnelson@localhost6.localdomain6>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org, Jeff Kirshier <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:57689 "EHLO mga03.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:24672 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751120Ab1HYXfh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Aug 2011 19:35:37 -0400
-In-Reply-To: <4E569999.8050006@candelatech.com>
+	id S1753292Ab1HZAj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Aug 2011 20:39:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2011 11:51 AM, Ben Greear wrote:
-> On 07/20/2011 11:35 PM, Alexander Duyck wrote:
->> On Wed, Jul 20, 2011 at 6:21 PM, Jeff Kirsher
->> <jeffrey.t.kirsher@intel.com>  wrote:
->>> On Wed, 2011-07-20 at 17:27 -0700, Ben Greear wrote:
->>>> On 07/20/2011 05:18 PM, Jesse Gross wrote:
->>>>> On Thu, Feb 17, 2011 at 9:28 AM, Ben 
->>>>> Greear<greearb@candelatech.com>    wrote:
->>>>>> On 02/17/2011 03:04 AM, Jeff Kirsher wrote:
->>>>>>>
->>>>>>> On Thu, Feb 10, 2011 at 13:59,<greearb@candelatech.com>      wrote:
->>>>>>>>
->>>>>>>> From: Ben Greear<greearb@candelatech.com>
->>>>>>>>
->>>>>>>> This allows the NIC to receive 1518 byte (not counting
->>>>>>>> FCS) packets when MTU is 1500, thus allowing 1500 MTU
->>>>>>>> VLAN frames to be received.  Please note that no VLANs
->>>>>>>> were actually configured on the NIC...it was just acting
->>>>>>>> as pass-through device.
->>>>>>>>
->>>>>>>> Signed-off-by: Ben Greear<greearb@candelatech.com>
->>>>>>>> ---
->>>>>>>> :100644 100644 58c665b... 30c9cc6... M  drivers/net/igb/igb_main.c
->>>>>>>>    drivers/net/igb/igb_main.c |    5 +++--
->>>>>>>>    1 files changed, 3 insertions(+), 2 deletions(-)
->>>>>>>>
->>>>>>>> diff --git a/drivers/net/igb/igb_main.c 
->>>>>>>> b/drivers/net/igb/igb_main.c
->>>>>>>> index 58c665b..30c9cc6 100644
->>>>>>>> --- a/drivers/net/igb/igb_main.c
->>>>>>>> +++ b/drivers/net/igb/igb_main.c
->>>>>>>> @@ -2281,7 +2281,8 @@ static int __devinit igb_sw_init(struct 
->>>>>>>> igb_adapter
->>>>>>>> *adapter)
->>>>>>>>          adapter->rx_itr_setting = IGB_DEFAULT_ITR;
->>>>>>>>          adapter->tx_itr_setting = IGB_DEFAULT_ITR;
->>>>>>>>
->>>>>>>> -       adapter->max_frame_size = netdev->mtu + ETH_HLEN + 
->>>>>>>> ETH_FCS_LEN;
->>>>>>>> +       adapter->max_frame_size = (netdev->mtu + ETH_HLEN + 
->>>>>>>> ETH_FCS_LEN
->>>>>>>> +                                  + VLAN_HLEN);
->>>>>>>>          adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
->>>>>>>>
->>>>>>>>          spin_lock_init(&adapter->stats64_lock);
->>>>>>>> @@ -4303,7 +4304,7 @@ static int igb_change_mtu(struct net_device
->>>>>>>> *netdev, int new_mtu)
->>>>>>>>    {
->>>>>>>>          struct igb_adapter *adapter = netdev_priv(netdev);
->>>>>>>>          struct pci_dev *pdev = adapter->pdev;
->>>>>>>> -       int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
->>>>>>>> +       int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + 
->>>>>>>> VLAN_HLEN;
->>>>>>>>          u32 rx_buffer_len, i;
->>>>>>>>
->>>>>>>>          if ((new_mtu<      68) || (max_frame>      
->>>>>>>> MAX_JUMBO_FRAME_SIZE)) {
->>>>>>>
->>>>>>> While testing this patch, validation found that the patch 
->>>>>>> reduces the
->>>>>>> maximum mtu size
->>>>>>> by 4 bytes (reduces it from 9216 to 9212).  This is not a 
->>>>>>> desired side
->>>>>>> effect of this patch.
->>>>>>
->>>>>> You could add handling for that case and have it act as it used 
->>>>>> to when
->>>>>> new_mtu is greater than 9212?
->>>>>>
->>>>>> I tested e1000e and it worked w/out hacking at 1500 MTU, so maybe
->>>>>> check how it does it?
->>>>>
->>>>> I just wanted to bring this up again to see if any progress had been
->>>>> made.  We were looking at this driver and trying to figure out the
->>>>> best way to convert it to use the new vlan model but I'm not familiar
->>>>
->>>> I've been watching :)
->>>>
->>>>> enough with the hardware to know.  It seems that all of the other
->>>>> Intel drivers unconditionally add space for the vlan tag to the
->>>>> receive buffer (and would therefore have similar effects as this
->>>>> patch), is there something different about this card?
->>>>>
->>>>> I believe that Alex was working on something in this area (in the
->>>>> context of one of my patches from a long time ago) but I'm not sure
->>>>> what came of that.
->>>>
->>>> Truth is, I don't really see why it's a problem to decrease the
->>>> maximum MTU slightly in order to make it work with VLANs.
->>>>
->>>> I'm not sure if there is some way to make it work with VLANs
->>>> and not decrease the maximum MTU.
->>>
->>> This was the reason this did not get accepted.  I was looking into what
->>> could be done so that we did not decease the maximum MTU, but I got
->>> side-tracked and have not done anything on it in several months.
->>>
->>
->> I can take a look at fixing this most likely tomorrow.  I have some
->> work planned for igb anyway over the next few days.
->>
->> Odds are it is just a matter of where the VLAN_HLEN is added.  As I
->> recall for our drivers the correct spot is in the setting of
->> rx_buffer_len since that is the area more concerned with maximum
->> receive frame size versus the mtu section which is more concerned with
->> the transmit side of things.
->
-> Did a patch for this ever get posted?  I'll be happy to test it
-> if so...
->
-> Thanks,
-> Ben
->
-We haven't posted one yet.  I have one written up but it is currently 
-mixed in with a set of 30 patches that I am testing/cleaning 
-up/formatting before submitting to our formal validation team.  I will 
-likely be submitting it to Jeff Kirsher sometime next week and the 
-patches will probably be available a few weeks after that.
+Virtual Machines with emulated e1000 network adapter running on Parallels'
+server were seeing kernel panics due to the e1000 driver dereferencing an
+unexpected NULL pointer retrieved from buffer_info->skb.
 
-Thanks,
+The problem has been addressed for the e1000e driver, but not for the e1000.
+Since the two drivers share similar code in the affected area, a port of the
+following e1000e driver commit solves the issue for the e1000 driver:
 
-Alex
+commit 9ed318d546a29d7a591dbe648fd1a2efe3be1180
+Author: Tom Herbert <therbert@google.com>
+Date:   Wed May 5 14:02:27 2010 +0000
+
+    e1000e: save skb counts in TX to avoid cache misses
+
+    In e1000_tx_map, precompute number of segements and bytecounts which
+    are derived from fields in skb; these are stored in buffer_info.  When
+    cleaning tx in e1000_clean_tx_irq use the values in the associated
+    buffer_info for statistics counting, this eliminates cache misses
+    on skb fields.
+
+
+Signed-off-by: Dean Nelson <dnelson@redhat.com>
+
+---
+This patch (backported to RHEL6.2) was verified by Dmitry Skorodumov to solve
+Parallels' reported problem.
+
+ drivers/net/ethernet/intel/e1000/e1000.h      |    2 ++
+ drivers/net/ethernet/intel/e1000/e1000_main.c |   18 +++++++++---------
+ 2 files changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
+index 24f41da..4ea87b1 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000.h
++++ b/drivers/net/ethernet/intel/e1000/e1000.h
+@@ -150,6 +150,8 @@ struct e1000_buffer {
+ 	unsigned long time_stamp;
+ 	u16 length;
+ 	u16 next_to_watch;
++	unsigned int segs;
++	unsigned int bytecount;
+ 	u16 mapped_as_page;
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 7c280e5..4a32c15 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -2848,7 +2848,7 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 	struct e1000_buffer *buffer_info;
+ 	unsigned int len = skb_headlen(skb);
+ 	unsigned int offset = 0, size, count = 0, i;
+-	unsigned int f;
++	unsigned int f, bytecount, segs;
+ 
+ 	i = tx_ring->next_to_use;
+ 
+@@ -2949,7 +2949,13 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 		}
+ 	}
+ 
++	segs = skb_shinfo(skb)->gso_segs ?: 1;
++	/* multiply data chunks by size of headers */
++	bytecount = ((segs - 1) * skb_headlen(skb)) + skb->len;
++
+ 	tx_ring->buffer_info[i].skb = skb;
++	tx_ring->buffer_info[i].segs = segs;
++	tx_ring->buffer_info[i].bytecount = bytecount;
+ 	tx_ring->buffer_info[first].next_to_watch = i;
+ 
+ 	return count;
+@@ -3623,14 +3629,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
+ 			cleaned = (i == eop);
+ 
+ 			if (cleaned) {
+-				struct sk_buff *skb = buffer_info->skb;
+-				unsigned int segs, bytecount;
+-				segs = skb_shinfo(skb)->gso_segs ?: 1;
+-				/* multiply data chunks by size of headers */
+-				bytecount = ((segs - 1) * skb_headlen(skb)) +
+-				            skb->len;
+-				total_tx_packets += segs;
+-				total_tx_bytes += bytecount;
++				total_tx_packets += buffer_info->segs;
++				total_tx_bytes += buffer_info->bytecount;
+ 			}
+ 			e1000_unmap_and_free_tx_resource(adapter, buffer_info);
+ 			tx_desc->upper.data = 0;
