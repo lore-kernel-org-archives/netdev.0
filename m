@@ -1,30 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net_sched: sfb: optimize enqueue on full queue
-Date: Fri, 26 Aug 2011 12:53:03 -0400 (EDT)
-Message-ID: <20110826.125303.417595055132273367.davem@davemloft.net>
-References: <1314289292.2387.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: Traffic shaping - class ID 16bit limit?
+Date: Fri, 26 Aug 2011 12:53:41 -0400 (EDT)
+Message-ID: <20110826.125341.1640427697242925942.davem@davemloft.net>
+References: <CAO0uZ+-fv89Z3-9+vh5kN93xe=Uw8b=PSfnAqosOjUBP6PcVNg@mail.gmail.com>
+	<20110825093937.2a8a1457@nehalam.ftrdhcpuser.net>
+	<CAO0uZ+_6xC0gymfbu28PRK4SaVgkGaSbbe-PgXvZ4h-cPp8k2A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: exa.exa@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58680 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:58694 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755367Ab1HZQxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:53:07 -0400
-In-Reply-To: <1314289292.2387.45.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	with ESMTP id S1752816Ab1HZQxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2011 12:53:44 -0400
+In-Reply-To: <CAO0uZ+_6xC0gymfbu28PRK4SaVgkGaSbbe-PgXvZ4h-cPp8k2A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 25 Aug 2011 18:21:32 +0200
+From: Miroslav Kratochvil <exa.exa@gmail.com>
+Date: Thu, 25 Aug 2011 19:06:58 +0200
 
-> In case SFB queue is full (hard limit reached), there is no point
-> spending time to compute hash and maximum qlen/p_mark.
+>>> Technically the ClassID seems to be "hardcoded" as a 16bit value, but
+>>> after some source searching, I haven't found any good reason for it to
+>>> be 16-bit only.
+>>
+>> Granted it was a poor choice in the initial design.
+>> It is wired into the API and changing it would be quite painful.
+>>
 > 
-> We instead just early drop packet.
+> I was feeling something like that would come.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> If I get it correctly, the API change would consist of:
+> 
+> - some netlink protocol change
+> - slight modification of qdisc_class_hash
+> - modifications in all (four?) hierarchical schedulers
+> - tiny expansion of userspace tc utility
 
-Applied.
+There is precedence as we had to make the routing table rule ID larger
+and were successfully able to do so using netlink attributes.
