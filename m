@@ -1,44 +1,102 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [RFC PATCH] common receive API + r8169 use
-Date: Fri, 26 Aug 2011 20:44:13 +0200
-Message-ID: <20110826184413.GA15188@rere.qmqm.pl>
-References: <f85e6be597ae30fd4dab776b924c0cd0a66514c0.1312314817.git.mirq-linux@rere.qmqm.pl>
- <20110802141500.3c99185b@nehalam.ftrdhcpuser.net>
- <20110802214349.GA17411@rere.qmqm.pl>
- <1312822029.2531.5.camel@edumazet-laptop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2/3 net-next] cnic: Add timeout for ramrod replies.
+Date: Fri, 26 Aug 2011 12:45:40 -0700
+Message-ID: <1314387941-2126-2-git-send-email-mchan@broadcom.com>
+References: <1314387941-2126-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:52320 "EHLO rere.qmqm.pl"
+Received: from mms3.broadcom.com ([216.31.210.19]:2131 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751086Ab1HZSoO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Aug 2011 14:44:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1312822029.2531.5.camel@edumazet-laptop>
+	id S1755031Ab1HZUgp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Aug 2011 16:36:45 -0400
+In-Reply-To: <1314387941-2126-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 08, 2011 at 06:47:09PM +0200, Eric Dumazet wrote:
-> Le mardi 02 ao=C3=BBt 2011 =C3=A0 23:43 +0200, Micha=C5=82 Miros=C5=82=
-aw a =C3=A9crit :
-> > I don't have fast enough transmitter yet, so have no real data. Eri=
-c's
-> > testing showed dramatic reduction in CPU usage after changing igb t=
-o use
-> > build_skb().  Inlined version of this patch should give similar res=
-ults.
-> >=20
-> > Eric: can you share the igb changes? I have no hardware for it, but=
- could
-> > merge our changes for you to test.
-> I am just coming back from one vacation period, I'll send patches bef=
-ore
-> another one, maybe tomorrow, stay tuned ;)
+If the bnx2x device has encountered parity errors, the chip will not DMA
+any replies.  Using wait_event_timeout() will allow us to make forward
+progress and let bnx2x reset the chip.
 
-Still tuned in, but receiving no signal. ;-)
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/cnic.c      |   17 ++++++++++-------
+ drivers/net/ethernet/broadcom/cnic.h      |    2 ++
+ drivers/net/ethernet/broadcom/cnic_defs.h |    1 +
+ 3 files changed, 13 insertions(+), 7 deletions(-)
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 73060f4..6f10c69 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -1875,12 +1875,12 @@ static int cnic_bnx2x_destroy_ramrod(struct cnic_dev *dev, u32 l5_cid)
+ 				  hw_cid, NONE_CONNECTION_TYPE, &l5_data);
+ 
+ 	if (ret == 0) {
+-		wait_event(ctx->waitq, ctx->wait_cond);
++		wait_event_timeout(ctx->waitq, ctx->wait_cond, CNIC_RAMROD_TMO);
+ 		if (unlikely(test_bit(CTX_FL_CID_ERROR, &ctx->ctx_flags)))
+ 			return -EBUSY;
+ 	}
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int cnic_bnx2x_iscsi_destroy(struct cnic_dev *dev, struct kwqe *kwqe)
+@@ -2428,17 +2428,20 @@ static int cnic_bnx2x_fcoe_destroy(struct cnic_dev *dev, struct kwqe *kwqe)
+ 	init_waitqueue_head(&ctx->waitq);
+ 	ctx->wait_cond = 0;
+ 
++	memset(&kcqe, 0, sizeof(kcqe));
++	kcqe.completion_status = FCOE_KCQE_COMPLETION_STATUS_ERROR;
+ 	memset(&l5_data, 0, sizeof(l5_data));
+ 	ret = cnic_submit_kwqe_16(dev, FCOE_RAMROD_CMD_ID_TERMINATE_CONN, cid,
+ 				  FCOE_CONNECTION_TYPE, &l5_data);
+ 	if (ret == 0) {
+-		wait_event(ctx->waitq, ctx->wait_cond);
+-		set_bit(CTX_FL_DELETE_WAIT, &ctx->ctx_flags);
+-		queue_delayed_work(cnic_wq, &cp->delete_task,
+-				   msecs_to_jiffies(2000));
++		wait_event_timeout(ctx->waitq, ctx->wait_cond, CNIC_RAMROD_TMO);
++		if (ctx->wait_cond)
++			kcqe.completion_status = 0;
+ 	}
+ 
+-	memset(&kcqe, 0, sizeof(kcqe));
++	set_bit(CTX_FL_DELETE_WAIT, &ctx->ctx_flags);
++	queue_delayed_work(cnic_wq, &cp->delete_task, msecs_to_jiffies(2000));
++
+ 	kcqe.op_code = FCOE_KCQE_OPCODE_DESTROY_CONN;
+ 	kcqe.fcoe_conn_id = req->conn_id;
+ 	kcqe.fcoe_conn_context_id = cid;
+diff --git a/drivers/net/ethernet/broadcom/cnic.h b/drivers/net/ethernet/broadcom/cnic.h
+index 15b1c09..3032809 100644
+--- a/drivers/net/ethernet/broadcom/cnic.h
++++ b/drivers/net/ethernet/broadcom/cnic.h
+@@ -474,5 +474,7 @@ struct bnx2x_bd_chain_next {
+ 	  MAX_STAT_COUNTER_ID_E1))
+ #endif
+ 
++#define CNIC_RAMROD_TMO			(HZ / 4)
++
+ #endif
+ 
+diff --git a/drivers/net/ethernet/broadcom/cnic_defs.h b/drivers/net/ethernet/broadcom/cnic_defs.h
+index e47d210..239de89 100644
+--- a/drivers/net/ethernet/broadcom/cnic_defs.h
++++ b/drivers/net/ethernet/broadcom/cnic_defs.h
+@@ -67,6 +67,7 @@
+ #define FCOE_KWQE_OPCODE_DESTROY		(10)
+ #define FCOE_KWQE_OPCODE_STAT			(11)
+ 
++#define FCOE_KCQE_COMPLETION_STATUS_ERROR	(0x1)
+ #define FCOE_KCQE_COMPLETION_STATUS_CTX_ALLOC_FAILURE	(0x3)
+ 
+ /* KCQ (kernel completion queue) response op codes */
+-- 
+1.7.1
