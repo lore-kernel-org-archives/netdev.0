@@ -1,56 +1,45 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: slow performance on disk/network i/o full speed after drop_caches
-Date: Fri, 26 Aug 2011 08:18:01 +0200
-Message-ID: <4E573A99.4060309@profihost.ag>
-References: <4E5494D4.1050605@profihost.ag> <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com> <4E54BDCF.9020504@profihost.ag> <20110824093336.GB5214@localhost> <4E560F2A.1030801@profihost.ag> <20110826021648.GA19529@localhost> <4E570AEB.1040703@profihost.ag> <20110826030313.GA24058@localhost> <D299D0AE-2F3C-42E2-9723-A3D7C0108C40@profihost.ag> <20110826032601.GA26282@localhost> <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com>
+From: Axel Lin <axel.lin@gmail.com>
+Subject: [PATCH] p54spi: add "spi:" prefix for stlc45xx modalias
+Date: Fri, 26 Aug 2011 14:34:59 +0800
+Message-ID: <1314340499.25655.1.camel@phoenix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wu Fengguang <fengguang.wu@intel.com>,
- Pekka Enberg <penberg@kernel.org>,
- LKML <linux-kernel@vger.kernel.org>,
- "linux-mm@kvack.org" <linux-mm@kvack.org>,
- Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mel@csn.ul.ie>,
- Jens Axboe <jaxboe@fusionio.com>,
- Linux Netdev List <netdev@vger.kernel.org>
-To: Zhu Yanhai <zhu.yanhai@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+Cc: Christian Lamparter <chunkeey@googlemail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yanhai,
+Since commit e0626e38 (spi: prefix modalias with "spi:"),
+the spi modalias is prefixed with "spi:".
 
-> Stefan, is your zone_reclaim_mode enabled? try 'cat
-> /proc/sys/vm/zone_reclaim_mode',
-> and echo 0 to it to disable.
+This patch adds "spi:" prefix for modalias of stlc45xx.
+Also move it to be group with other modalias.
 
-you're abssolutely corect zone_reclaim_mode is on - but why?
-There must be some linux software which switches it on.
+Signed-off-by: Axel Lin <axel.lin@gmail.com>
+---
+ drivers/net/wireless/p54/p54spi.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
-~#
-
-also
-~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
-~#
-
-tells us nothing.
-
-I've then read this:
-
-"zone_reclaim_mode is set during bootup to 1 if it is determined that 
-pages from remote zones will cause a measurable performance reduction. 
-The page allocator will then reclaim easily reusable pages (those page 
-cache pages that are currently not used) before allocating off node pages."
-
-Why does the kernel do that here in our case on these machines.
-
-Stefan
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
+index 6d9204fe..f18df82 100644
+--- a/drivers/net/wireless/p54/p54spi.c
++++ b/drivers/net/wireless/p54/p54spi.c
+@@ -41,7 +41,6 @@
+ #endif /* CONFIG_P54_SPI_DEFAULT_EEPROM */
+ 
+ MODULE_FIRMWARE("3826.arm");
+-MODULE_ALIAS("stlc45xx");
+ 
+ /*
+  * gpios should be handled in board files and provided via platform data,
+@@ -738,3 +737,4 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Christian Lamparter <chunkeey@web.de>");
+ MODULE_ALIAS("spi:cx3110x");
+ MODULE_ALIAS("spi:p54spi");
++MODULE_ALIAS("spi:stlc45xx");
+-- 
+1.7.4.1
