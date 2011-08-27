@@ -1,515 +1,559 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] drivers/net: Kconfig & Makefile cleanup
-Date: Sat, 27 Aug 2011 02:55:15 -0700
-Message-ID: <1314438916-2478-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/10] ppp: Move the PPP drivers
+Date: Sat, 27 Aug 2011 02:55:09 -0700
+Message-ID: <1314438916-2478-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1314438916-2478-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+	gospo@redhat.com, Paul Mackerras <paulus@samba.org>,
+	Frank Cusack <fcusack@fcusack.com>,
+	Michal Ostrowski <mostrows@speakeasy.net>,
+	Michal Ostrowski <mostrows@earthlink.net>,
+	Dmitry Kozlov <xeb@mail.ru>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:47980 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751021Ab1H0Jz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Aug 2011 05:55:28 -0400
+	id S1751021Ab1H0JzV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Aug 2011 05:55:21 -0400
 In-Reply-To: <1314438916-2478-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The is does a general cleanup of the drivers/net/ Kconfig and
-Makefile.  This patch create a "core" option and places all
-the networking core drivers into this option (default is yes
-for this option).  In addition, it alphabitizes the Kconfig
-driver options.
+Move the PPP drivers into drivers/net/ppp/ and make the
+necessary Kconfig and Makefile changes.
 
-As a side cleanup, found that the arcnet, token ring, and PHY
-Kconfig options were a tri-state option and should have been
-a bool option.
-
+CC: Paul Mackerras <paulus@samba.org>
+CC: Frank Cusack <fcusack@fcusack.com>
+CC: Michal Ostrowski <mostrows@speakeasy.net>
+CC: Michal Ostrowski <mostrows@earthlink.net>
+CC: Dmitry Kozlov <xeb@mail.ru>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/Kconfig           |  267 +++++++++++++++++++++--------------------
- drivers/net/Makefile          |   64 +++++------
- drivers/net/arcnet/Kconfig    |    2 +-
- drivers/net/phy/Kconfig       |    2 +-
- drivers/net/tokenring/Kconfig |    2 +-
- 5 files changed, 168 insertions(+), 169 deletions(-)
+ MAINTAINERS                         |    8 +-
+ drivers/net/Kconfig                 |  170 +---------------------------------
+ drivers/net/Makefile                |   18 ++--
+ drivers/net/ppp/Kconfig             |  175 +++++++++++++++++++++++++++++++++++
+ drivers/net/ppp/Makefile            |   13 +++
+ drivers/net/{ => ppp}/bsd_comp.c    |    0
+ drivers/net/{ => ppp}/ppp_async.c   |    0
+ drivers/net/{ => ppp}/ppp_deflate.c |    0
+ drivers/net/{ => ppp}/ppp_generic.c |    0
+ drivers/net/{ => ppp}/ppp_mppe.c    |    0
+ drivers/net/{ => ppp}/ppp_mppe.h    |    0
+ drivers/net/{ => ppp}/ppp_synctty.c |    0
+ drivers/net/{ => ppp}/pppoe.c       |    0
+ drivers/net/{ => ppp}/pppox.c       |    0
+ drivers/net/{ => ppp}/pptp.c        |    0
+ 15 files changed, 203 insertions(+), 181 deletions(-)
+ create mode 100644 drivers/net/ppp/Kconfig
+ create mode 100644 drivers/net/ppp/Makefile
+ rename drivers/net/{ => ppp}/bsd_comp.c (100%)
+ rename drivers/net/{ => ppp}/ppp_async.c (100%)
+ rename drivers/net/{ => ppp}/ppp_deflate.c (100%)
+ rename drivers/net/{ => ppp}/ppp_generic.c (100%)
+ rename drivers/net/{ => ppp}/ppp_mppe.c (100%)
+ rename drivers/net/{ => ppp}/ppp_mppe.h (100%)
+ rename drivers/net/{ => ppp}/ppp_synctty.c (100%)
+ rename drivers/net/{ => ppp}/pppoe.c (100%)
+ rename drivers/net/{ => ppp}/pppox.c (100%)
+ rename drivers/net/{ => ppp}/pptp.c (100%)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2777088..c5ec925 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5066,7 +5066,7 @@ PPP PROTOCOL DRIVERS AND COMPRESSORS
+ M:	Paul Mackerras <paulus@samba.org>
+ L:	linux-ppp@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/ppp_*
++F:	drivers/net/ppp/ppp_*
+ 
+ PPP OVER ATM (RFC 2364)
+ M:	Mitchell Blank Jr <mitch@sfgoth.com>
+@@ -5077,8 +5077,8 @@ F:	include/linux/atmppp.h
+ PPP OVER ETHERNET
+ M:	Michal Ostrowski <mostrows@earthlink.net>
+ S:	Maintained
+-F:	drivers/net/pppoe.c
+-F:	drivers/net/pppox.c
++F:	drivers/net/ppp/pppoe.c
++F:	drivers/net/ppp/pppox.c
+ 
+ PPP OVER L2TP
+ M:	James Chapman <jchapman@katalix.com>
+@@ -5099,7 +5099,7 @@ PPTP DRIVER
+ M:	Dmitry Kozlov <xeb@mail.ru>
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+-F:	drivers/net/pptp.c
++F:	drivers/net/ppp/pptp.c
+ W:	http://sourceforge.net/projects/accel-pptp
+ 
+ PREEMPTIBLE KERNEL
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 5762370..583f66c 100644
+index 7bdc22b..c5e2a38 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -25,18 +25,32 @@ menuconfig NETDEVICES
- # that for each of the symbols.
- if NETDEVICES
+@@ -207,6 +207,8 @@ source "drivers/net/usb/Kconfig"
  
--config IFB
--	tristate "Intermediate Functional Block support"
--	depends on NET_CLS_ACT
-+config NET_CORE
-+	default y
-+	bool "Network core driver support"
- 	---help---
--	  This is an intermediate driver that allows sharing of
--	  resources.
-+	  You can say N here if you do not intend to use any of the
-+	  networking core drivers (i.e. VLAN, bridging, bonding, etc.)
-+
-+if NET_CORE
-+
-+config BONDING
-+	tristate "Bonding driver support"
-+	depends on INET
-+	depends on IPV6 || IPV6=n
-+	---help---
-+	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
-+	  Channels together. This is called 'Etherchannel' by Cisco,
-+	  'Trunking' by Sun, 802.3ad by the IEEE, and 'Bonding' in Linux.
-+
-+	  The driver supports multiple bonding modes to allow for both high
-+	  performance and high availability operation.
-+
-+	  Refer to <file:Documentation/networking/bonding.txt> for more
-+	  information.
-+
- 	  To compile this driver as a module, choose M here: the module
--	  will be called ifb.  If you want to use more than one ifb
--	  device at a time, you need to compile this driver as a module.
--	  Instead of 'ifb', the devices will then be called 'ifb0',
--	  'ifb1' etc.
--	  Look at the iproute2 documentation directory for usage etc
-+	  will be called bonding.
- 
- config DUMMY
- 	tristate "Dummy net driver support"
-@@ -57,23 +71,59 @@ config DUMMY
- 	  Instead of 'dummy', the devices will then be called 'dummy0',
- 	  'dummy1' etc.
- 
--config BONDING
--	tristate "Bonding driver support"
--	depends on INET
--	depends on IPV6 || IPV6=n
-+config EQUALIZER
-+	tristate "EQL (serial line load balancing) support"
- 	---help---
--	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
--	  Channels together. This is called 'Etherchannel' by Cisco,
--	  'Trunking' by Sun, 802.3ad by the IEEE, and 'Bonding' in Linux.
-+	  If you have two serial connections to some other computer (this
-+	  usually requires two modems and two telephone lines) and you use
-+	  SLIP (the protocol for sending Internet traffic over telephone
-+	  lines) or PPP (a better SLIP) on them, you can make them behave like
-+	  one double speed connection using this driver.  Naturally, this has
-+	  to be supported at the other end as well, either with a similar EQL
-+	  Linux driver or with a Livingston Portmaster 2e.
- 
--	  The driver supports multiple bonding modes to allow for both high
--	  performance and high availability operation.
-+	  Say Y if you want this and read
-+	  <file:Documentation/networking/eql.txt>.  You may also want to read
-+	  section 6.2 of the NET-3-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
- 
--	  Refer to <file:Documentation/networking/bonding.txt> for more
--	  information.
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called eql.  If unsure, say N.
-+
-+config NET_FC
-+	bool "Fibre Channel driver support"
-+	depends on SCSI && PCI
-+	help
-+	  Fibre Channel is a high speed serial protocol mainly used to connect
-+	  large storage devices to the computer; it is compatible with and
-+	  intended to replace SCSI.
-+
-+	  If you intend to use Fibre Channel, you need to have a Fibre channel
-+	  adaptor card in your computer; say Y here and to the driver for your
-+	  adaptor below. You also should have said Y to "SCSI support" and
-+	  "SCSI generic support".
- 
-+config MII
-+	tristate "Generic Media Independent Interface device support"
-+	help
-+	  Most ethernet controllers have MII transceiver either as an external
-+	  or internal device.  It is safe to say Y or M here even if your
-+	  ethernet card lacks MII.
-+
-+source "drivers/ieee802154/Kconfig"
-+
-+config IFB
-+	tristate "Intermediate Functional Block support"
-+	depends on NET_CLS_ACT
-+	---help---
-+	  This is an intermediate driver that allows sharing of
-+	  resources.
- 	  To compile this driver as a module, choose M here: the module
--	  will be called bonding.
-+	  will be called ifb.  If you want to use more than one ifb
-+	  device at a time, you need to compile this driver as a module.
-+	  Instead of 'ifb', the devices will then be called 'ifb0',
-+	  'ifb1' etc.
-+	  Look at the iproute2 documentation directory for usage etc
- 
- config MACVLAN
- 	tristate "MAC-VLAN support (EXPERIMENTAL)"
-@@ -102,24 +152,46 @@ config MACVTAP
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called macvtap.
- 
--config EQUALIZER
--	tristate "EQL (serial line load balancing) support"
-+config NETCONSOLE
-+	tristate "Network console logging support"
- 	---help---
--	  If you have two serial connections to some other computer (this
--	  usually requires two modems and two telephone lines) and you use
--	  SLIP (the protocol for sending Internet traffic over telephone
--	  lines) or PPP (a better SLIP) on them, you can make them behave like
--	  one double speed connection using this driver.  Naturally, this has
--	  to be supported at the other end as well, either with a similar EQL
--	  Linux driver or with a Livingston Portmaster 2e.
-+	If you want to log kernel messages over the network, enable this.
-+	See <file:Documentation/networking/netconsole.txt> for details.
- 
--	  Say Y if you want this and read
--	  <file:Documentation/networking/eql.txt>.  You may also want to read
--	  section 6.2 of the NET-3-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
-+config NETCONSOLE_DYNAMIC
-+	bool "Dynamic reconfiguration of logging targets"
-+	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
-+			!(NETCONSOLE=y && CONFIGFS_FS=m)
-+	help
-+	  This option enables the ability to dynamically reconfigure target
-+	  parameters (interface, IP addresses, port numbers, MAC addresses)
-+	  at runtime through a userspace interface exported using configfs.
-+	  See <file:Documentation/networking/netconsole.txt> for details.
- 
--	  To compile this driver as a module, choose M here: the module
--	  will be called eql.  If unsure, say N.
-+config NETPOLL
-+	def_bool NETCONSOLE
-+
-+config NETPOLL_TRAP
-+	bool "Netpoll traffic trapping"
-+	default n
-+	depends on NETPOLL
-+
-+config NET_POLL_CONTROLLER
-+	def_bool NETPOLL
-+
-+config RIONET
-+	tristate "RapidIO Ethernet over messaging driver support"
-+	depends on RAPIDIO
-+
-+config RIONET_TX_SIZE
-+	int "Number of outbound queue entries"
-+	depends on RIONET
-+	default "128"
-+
-+config RIONET_RX_SIZE
-+	int "Number of inbound queue entries"
-+	depends on RIONET
-+	default "128"
- 
- config TUN
- 	tristate "Universal TUN/TAP device driver support"
-@@ -151,6 +223,28 @@ config VETH
- 	  When one end receives the packet it appears on its pair and vice
- 	  versa.
- 
-+config VIRTIO_NET
-+	tristate "Virtio network driver (EXPERIMENTAL)"
-+	depends on EXPERIMENTAL && VIRTIO
-+	---help---
-+	  This is the virtual network driver for virtio.  It can be used with
-+	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
-+
-+endif # NET_CORE
-+
-+config SUNGEM_PHY
-+	tristate
-+
-+source "drivers/net/arcnet/Kconfig"
-+
-+source "drivers/atm/Kconfig"
-+
-+source "drivers/net/caif/Kconfig"
-+
-+source "drivers/net/ethernet/Kconfig"
-+
-+source "drivers/net/fddi/Kconfig"
-+
- config NET_SB1000
- 	tristate "General Instruments Surfboard 1000"
- 	depends on PNP
-@@ -175,52 +269,26 @@ config NET_SB1000
- 
- 	  If you don't have this card, of course say N.
- 
--source "drivers/net/arcnet/Kconfig"
--
--config MII
--	tristate "Generic Media Independent Interface device support"
--	help
--	  Most ethernet controllers have MII transceiver either as an external
--	  or internal device.  It is safe to say Y or M here even if your
--	  ethernet card lacks MII.
--
- source "drivers/net/phy/Kconfig"
- 
--config SUNGEM_PHY
--	tristate
--
--#
--#	Ethernet
--#
--
--source "drivers/net/ethernet/Kconfig"
--
--source "drivers/net/fddi/Kconfig"
--
- source "drivers/net/plip/Kconfig"
+ source "drivers/net/pcmcia/Kconfig"
  
 +source "drivers/net/ppp/Kconfig"
 +
- source "drivers/net/slip/Kconfig"
- 
-+source "drivers/s390/net/Kconfig"
-+
- source "drivers/net/tokenring/Kconfig"
- 
-+source "drivers/net/usb/Kconfig"
-+
- source "drivers/net/wireless/Kconfig"
- 
- source "drivers/net/wimax/Kconfig"
- 
--source "drivers/net/usb/Kconfig"
--
--source "drivers/net/ppp/Kconfig"
--
  source "drivers/net/wan/Kconfig"
  
--source "drivers/atm/Kconfig"
--
--source "drivers/ieee802154/Kconfig"
--
--source "drivers/s390/net/Kconfig"
--
--source "drivers/net/caif/Kconfig"
--
- config XEN_NETDEV_FRONTEND
- 	tristate "Xen network device frontend driver"
- 	depends on XEN
-@@ -260,67 +328,6 @@ config XEN_NETDEV_BACKEND
- 	  compile this driver as a module, chose M here: the module
- 	  will be called xen-netback.
+ source "drivers/atm/Kconfig"
+@@ -337,174 +339,6 @@ config PLIP
+ 	  will be called plip. If unsure, say Y or M, in case you buy
+ 	  a laptop later.
  
--config RIONET
--	tristate "RapidIO Ethernet over messaging driver support"
--	depends on RAPIDIO
--
--config RIONET_TX_SIZE
--	int "Number of outbound queue entries"
--	depends on RIONET
--	default "128"
--
--config RIONET_RX_SIZE
--	int "Number of inbound queue entries"
--	depends on RIONET
--	default "128"
--
--config NET_FC
--	bool "Fibre Channel driver support"
--	depends on SCSI && PCI
--	help
--	  Fibre Channel is a high speed serial protocol mainly used to connect
--	  large storage devices to the computer; it is compatible with and
--	  intended to replace SCSI.
--
--	  If you intend to use Fibre Channel, you need to have a Fibre channel
--	  adaptor card in your computer; say Y here and to the driver for your
--	  adaptor below. You also should have said Y to "SCSI support" and
--	  "SCSI generic support".
--
--config NETCONSOLE
--	tristate "Network console logging support"
+-config PPP
+-	tristate "PPP (point-to-point protocol) support"
+-	select SLHC
 -	---help---
--	If you want to log kernel messages over the network, enable this.
--	See <file:Documentation/networking/netconsole.txt> for details.
+-	  PPP (Point to Point Protocol) is a newer and better SLIP.  It serves
+-	  the same purpose: sending Internet traffic over telephone (and other
+-	  serial) lines.  Ask your access provider if they support it, because
+-	  otherwise you can't use it; most Internet access providers these
+-	  days support PPP rather than SLIP.
 -
--config NETCONSOLE_DYNAMIC
--	bool "Dynamic reconfiguration of logging targets"
--	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
--			!(NETCONSOLE=y && CONFIGFS_FS=m)
+-	  To use PPP, you need an additional program called pppd as described
+-	  in the PPP-HOWTO, available at
+-	  <http://www.tldp.org/docs.html#howto>.  Make sure that you have
+-	  the version of pppd recommended in <file:Documentation/Changes>.
+-	  The PPP option enlarges your kernel by about 16 KB.
+-
+-	  There are actually two versions of PPP: the traditional PPP for
+-	  asynchronous lines, such as regular analog phone lines, and
+-	  synchronous PPP which can be used over digital ISDN lines for
+-	  example.  If you want to use PPP over phone lines or other
+-	  asynchronous serial lines, you need to say Y (or M) here and also to
+-	  the next option, "PPP support for async serial ports".  For PPP over
+-	  synchronous lines, you should say Y (or M) here and to "Support
+-	  synchronous PPP", below.
+-
+-	  If you said Y to "Version information on all symbols" above, then
+-	  you cannot compile the PPP driver into the kernel; you can then only
+-	  compile it as a module. To compile this driver as a module, choose M
+-	  here. The module will be called ppp_generic.
+-
+-config PPP_MULTILINK
+-	bool "PPP multilink support (EXPERIMENTAL)"
+-	depends on PPP && EXPERIMENTAL
 -	help
--	  This option enables the ability to dynamically reconfigure target
--	  parameters (interface, IP addresses, port numbers, MAC addresses)
--	  at runtime through a userspace interface exported using configfs.
--	  See <file:Documentation/networking/netconsole.txt> for details.
+-	  PPP multilink is a protocol (defined in RFC 1990) which allows you
+-	  to combine several (logical or physical) lines into one logical PPP
+-	  connection, so that you can utilize your full bandwidth.
 -
--config NETPOLL
--	def_bool NETCONSOLE
+-	  This has to be supported at the other end as well and you need a
+-	  version of the pppd daemon which understands the multilink protocol.
 -
--config NETPOLL_TRAP
--	bool "Netpoll traffic trapping"
--	default n
--	depends on NETPOLL
+-	  If unsure, say N.
 -
--config NET_POLL_CONTROLLER
--	def_bool NETPOLL
+-config PPP_FILTER
+-	bool "PPP filtering"
+-	depends on PPP
+-	help
+-	  Say Y here if you want to be able to filter the packets passing over
+-	  PPP interfaces.  This allows you to control which packets count as
+-	  activity (i.e. which packets will reset the idle timer or bring up
+-	  a demand-dialed link) and which packets are to be dropped entirely.
+-	  You need to say Y here if you wish to use the pass-filter and
+-	  active-filter options to pppd.
 -
--config VIRTIO_NET
--	tristate "Virtio network driver (EXPERIMENTAL)"
--	depends on EXPERIMENTAL && VIRTIO
+-	  If unsure, say N.
+-
+-config PPP_ASYNC
+-	tristate "PPP support for async serial ports"
+-	depends on PPP
+-	select CRC_CCITT
 -	---help---
--	  This is the virtual network driver for virtio.  It can be used with
--	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
+-	  Say Y (or M) here if you want to be able to use PPP over standard
+-	  asynchronous serial ports, such as COM1 or COM2 on a PC.  If you use
+-	  a modem (not a synchronous or ISDN modem) to contact your ISP, you
+-	  need this option.
 -
- config VMXNET3
- 	tristate "VMware VMXNET3 ethernet driver"
- 	depends on PCI && INET
+-	  To compile this driver as a module, choose M here.
+-
+-	  If unsure, say Y.
+-
+-config PPP_SYNC_TTY
+-	tristate "PPP support for sync tty ports"
+-	depends on PPP
+-	help
+-	  Say Y (or M) here if you want to be able to use PPP over synchronous
+-	  (HDLC) tty devices, such as the SyncLink adapter. These devices
+-	  are often used for high-speed leased lines like T1/E1.
+-
+-	  To compile this driver as a module, choose M here.
+-
+-config PPP_DEFLATE
+-	tristate "PPP Deflate compression"
+-	depends on PPP
+-	select ZLIB_INFLATE
+-	select ZLIB_DEFLATE
+-	---help---
+-	  Support for the Deflate compression method for PPP, which uses the
+-	  Deflate algorithm (the same algorithm that gzip uses) to compress
+-	  each PPP packet before it is sent over the wire.  The machine at the
+-	  other end of the PPP link (usually your ISP) has to support the
+-	  Deflate compression method as well for this to be useful.  Even if
+-	  they don't support it, it is safe to say Y here.
+-
+-	  To compile this driver as a module, choose M here.
+-
+-config PPP_BSDCOMP
+-	tristate "PPP BSD-Compress compression"
+-	depends on PPP
+-	---help---
+-	  Support for the BSD-Compress compression method for PPP, which uses
+-	  the LZW compression method to compress each PPP packet before it is
+-	  sent over the wire. The machine at the other end of the PPP link
+-	  (usually your ISP) has to support the BSD-Compress compression
+-	  method as well for this to be useful. Even if they don't support it,
+-	  it is safe to say Y here.
+-
+-	  The PPP Deflate compression method ("PPP Deflate compression",
+-	  above) is preferable to BSD-Compress, because it compresses better
+-	  and is patent-free.
+-
+-	  Note that the BSD compression code will always be compiled as a
+-	  module; it is called bsd_comp and will show up in the directory
+-	  modules once you have said "make modules". If unsure, say N.
+-
+-config PPP_MPPE
+-	tristate "PPP MPPE compression (encryption) (EXPERIMENTAL)"
+-	depends on PPP && EXPERIMENTAL
+-	select CRYPTO
+-	select CRYPTO_SHA1
+-	select CRYPTO_ARC4
+-	select CRYPTO_ECB
+-	---help---
+-	  Support for the MPPE Encryption protocol, as employed by the
+-	  Microsoft Point-to-Point Tunneling Protocol.
+-
+-	  See http://pptpclient.sourceforge.net/ for information on
+-	  configuring PPTP clients and servers to utilize this method.
+-
+-config PPPOE
+-	tristate "PPP over Ethernet (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && PPP
+-	help
+-	  Support for PPP over Ethernet.
+-
+-	  This driver requires the latest version of pppd from the CVS
+-	  repository at cvs.samba.org.  Alternatively, see the 
+-	  RoaringPenguin package (<http://www.roaringpenguin.com/pppoe>)
+-	  which contains instruction on how to use this driver (under 
+-	  the heading "Kernel mode PPPoE").
+-
+-config PPTP
+-	tristate "PPP over IPv4 (PPTP) (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && PPP && NET_IPGRE_DEMUX
+-	help
+-	  Support for PPP over IPv4.(Point-to-Point Tunneling Protocol)
+-
+-	  This driver requires pppd plugin to work in client mode or
+-	  modified pptpd (poptop) to work in server mode.
+-	  See http://accel-pptp.sourceforge.net/ for information how to
+-	  utilize this module.
+-
+-config PPPOATM
+-	tristate "PPP over ATM"
+-	depends on ATM && PPP
+-	help
+-	  Support PPP (Point to Point Protocol) encapsulated in ATM frames.
+-	  This implementation does not yet comply with section 8 of RFC2364,
+-	  which can lead to bad results if the ATM peer loses state and
+-	  changes its encapsulation unilaterally.
+-
+-config PPPOL2TP
+-	tristate "PPP over L2TP (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && L2TP && PPP
+-	help
+-	  Support for PPP-over-L2TP socket family. L2TP is a protocol
+-	  used by ISPs and enterprises to tunnel PPP traffic over UDP
+-	  tunnels. L2TP is replacing PPTP for VPN uses.
+-
+ config SLIP
+ 	tristate "SLIP (serial line) support"
+ 	---help---
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 99327a4..1f52e73 100644
+index 3087b27..a397f1e 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -2,40 +2,38 @@
- # Makefile for the Linux network device drivers.
- #
+@@ -22,15 +22,6 @@ obj-$(CONFIG_RIONET) += rionet.o
  
--obj-$(CONFIG_MII) += mii.o
--obj-$(CONFIG_MDIO) += mdio.o
--obj-$(CONFIG_PHYLIB) += phy/
--obj-$(CONFIG_CAN) += can/
--obj-$(CONFIG_BONDING) += bonding/
--obj-$(CONFIG_VMXNET3) += vmxnet3/
--
- #
--# link order important here
-+# Networking Core Drivers
- #
--obj-$(CONFIG_RIONET) += rionet.o
--
--#
--# end link order section
--#
--
--obj-$(CONFIG_NET) += Space.o loopback.o
--obj-$(CONFIG_NET_SB1000) += sb1000.o
--
--obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
--obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
--
-+obj-$(CONFIG_BONDING) += bonding/
- obj-$(CONFIG_DUMMY) += dummy.o
-+obj-$(CONFIG_EQUALIZER) += eql.o
- obj-$(CONFIG_IFB) += ifb.o
- obj-$(CONFIG_MACVLAN) += macvlan.o
- obj-$(CONFIG_MACVTAP) += macvtap.o
--obj-$(CONFIG_EQUALIZER) += eql.o
-+obj-$(CONFIG_MII) += mii.o
-+obj-$(CONFIG_MDIO) += mdio.o
-+obj-$(CONFIG_NET) += Space.o loopback.o
-+obj-$(CONFIG_NETCONSOLE) += netconsole.o
-+obj-$(CONFIG_PHYLIB) += phy/
-+obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
-+obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NET_SB1000) += sb1000.o
+-obj-$(CONFIG_PPP) += ppp_generic.o
+-obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
+-obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
+-obj-$(CONFIG_PPP_DEFLATE) += ppp_deflate.o
+-obj-$(CONFIG_PPP_BSDCOMP) += bsd_comp.o
+-obj-$(CONFIG_PPP_MPPE) += ppp_mppe.o
+-obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
+-obj-$(CONFIG_PPPOL2TP) += pppox.o
+-obj-$(CONFIG_PPTP) += pppox.o pptp.o
+ obj-$(CONFIG_SLIP) += slip.o
+ obj-$(CONFIG_SLHC) += slhc.o
  
-+#
-+# Networking Drivers
-+#
-+obj-$(CONFIG_ARCNET) += arcnet/
+@@ -48,6 +39,15 @@ obj-$(CONFIG_VETH) += veth.o
  obj-$(CONFIG_DEV_APPLETALK) += appletalk/
-+obj-$(CONFIG_CAIF) += caif/
-+obj-$(CONFIG_CAN) += can/
-+obj-$(CONFIG_ETRAX_ETHERNET) += cris/
  obj-$(CONFIG_ETHERNET) += ethernet/
  obj-$(CONFIG_FDDI) += fddi/
- obj-$(CONFIG_HIPPI) += hippi/
-+obj-$(CONFIG_HAMRADIO) += hamradio/
-+obj-$(CONFIG_IRDA) += irda/
- obj-$(CONFIG_PLIP) += plip/
- onj-$(CONFIG_PPP) += ppp/
- obj-$(CONFIG_PPP_ASYNC) += ppp/
-@@ -48,9 +46,17 @@ obj-$(CONFIG_PPPOL2TP) += ppp/
- obj-$(CONFIG_PPTP) += ppp/
- onj-$(CONFIG_SLIP) += slip/
- obj-$(CONFIG_SLHC) += slip/
-+obj-$(CONFIG_NET_SB1000) += sb1000.o
-+onj-$(CONFIG_SLIP) += slip/
-+obj-$(CONFIG_SUNGEM_PHY) += sungem_phy.o
++onj-$(CONFIG_PPP) += ppp/
++obj-$(CONFIG_PPP_ASYNC) += ppp/
++obj-$(CONFIG_PPP_BSDCOMP) += ppp/
++obj-$(CONFIG_PPP_DEFLATE) += ppp/
++obj-$(CONFIG_PPP_MPPE) += ppp/
++obj-$(CONFIG_PPP_SYNC_TTY) += ppp/
++obj-$(CONFIG_PPPOE) += ppp/
++obj-$(CONFIG_PPPOL2TP) += ppp/
++obj-$(CONFIG_PPTP) += ppp/
  obj-$(CONFIG_TR) += tokenring/
  obj-$(CONFIG_WAN) += wan/
--obj-$(CONFIG_ARCNET) += arcnet/
-+obj-$(CONFIG_WLAN) += wireless/
-+obj-$(CONFIG_WIMAX) += wimax/
+ obj-$(CONFIG_ARCNET) += arcnet/
+diff --git a/drivers/net/ppp/Kconfig b/drivers/net/ppp/Kconfig
+new file mode 100644
+index 0000000..872df3e
+--- /dev/null
++++ b/drivers/net/ppp/Kconfig
+@@ -0,0 +1,175 @@
++#
++# PPP network device configuration
++#
 +
-+obj-$(CONFIG_VMXNET3) += vmxnet3/
-+obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
-+obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
- 
- obj-$(CONFIG_USB_CATC)          += usb/
- obj-$(CONFIG_USB_KAWETH)        += usb/
-@@ -61,17 +67,3 @@ obj-$(CONFIG_USB_USBNET)        += usb/
- obj-$(CONFIG_USB_ZD1201)        += usb/
- obj-$(CONFIG_USB_IPHETH)        += usb/
- obj-$(CONFIG_USB_CDC_PHONET)   += usb/
--
--obj-$(CONFIG_WLAN) += wireless/
--obj-$(CONFIG_HAMRADIO) += hamradio/
--obj-$(CONFIG_IRDA) += irda/
--obj-$(CONFIG_ETRAX_ETHERNET) += cris/
--
--obj-$(CONFIG_NETCONSOLE) += netconsole.o
--
--obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
--
--obj-$(CONFIG_WIMAX) += wimax/
--obj-$(CONFIG_CAIF) += caif/
--
--obj-$(CONFIG_SUNGEM_PHY) += sungem_phy.o
-diff --git a/drivers/net/arcnet/Kconfig b/drivers/net/arcnet/Kconfig
-index 84fb634..a73d9dc 100644
---- a/drivers/net/arcnet/Kconfig
-+++ b/drivers/net/arcnet/Kconfig
-@@ -4,7 +4,7 @@
- 
- menuconfig ARCNET
- 	depends on NETDEVICES && (ISA || PCI || PCMCIA)
--	tristate "ARCnet support"
-+	bool "ARCnet support"
- 	---help---
- 	  If you have a network card of this type, say Y and check out the
- 	  (arguably) beautiful poetry in
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index a702443..bb88e12 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -3,7 +3,7 @@
- #
- 
- menuconfig PHYLIB
--	tristate "PHY Device support and infrastructure"
-+	bool "PHY Device support and infrastructure"
- 	depends on !S390
- 	depends on NETDEVICES
- 	help
-diff --git a/drivers/net/tokenring/Kconfig b/drivers/net/tokenring/Kconfig
-index 0f70158..c7e0149 100644
---- a/drivers/net/tokenring/Kconfig
-+++ b/drivers/net/tokenring/Kconfig
-@@ -4,7 +4,7 @@
- 
- # So far, we only have PCI, ISA, and MCA token ring devices
- menuconfig TR
--	tristate "Token Ring driver support"
-+	bool "Token Ring driver support"
- 	depends on NETDEVICES && !UML
- 	depends on (PCI || ISA || MCA || CCW || PCMCIA)
- 	select LLC
++config PPP
++	tristate "PPP (point-to-point protocol) support"
++	select SLHC
++	---help---
++	  PPP (Point to Point Protocol) is a newer and better SLIP.  It serves
++	  the same purpose: sending Internet traffic over telephone (and other
++	  serial) lines.  Ask your access provider if they support it, because
++	  otherwise you can't use it; most Internet access providers these
++	  days support PPP rather than SLIP.
++
++	  To use PPP, you need an additional program called pppd as described
++	  in the PPP-HOWTO, available at
++	  <http://www.tldp.org/docs.html#howto>.  Make sure that you have
++	  the version of pppd recommended in <file:Documentation/Changes>.
++	  The PPP option enlarges your kernel by about 16 KB.
++
++	  There are actually two versions of PPP: the traditional PPP for
++	  asynchronous lines, such as regular analog phone lines, and
++	  synchronous PPP which can be used over digital ISDN lines for
++	  example.  If you want to use PPP over phone lines or other
++	  asynchronous serial lines, you need to say Y (or M) here and also to
++	  the next option, "PPP support for async serial ports".  For PPP over
++	  synchronous lines, you should say Y (or M) here and to "Support
++	  synchronous PPP", below.
++
++	  If you said Y to "Version information on all symbols" above, then
++	  you cannot compile the PPP driver into the kernel; you can then only
++	  compile it as a module. To compile this driver as a module, choose M
++	  here. The module will be called ppp_generic.
++
++if PPP
++
++config PPP_BSDCOMP
++	tristate "PPP BSD-Compress compression"
++	depends on PPP
++	---help---
++	  Support for the BSD-Compress compression method for PPP, which uses
++	  the LZW compression method to compress each PPP packet before it is
++	  sent over the wire. The machine at the other end of the PPP link
++	  (usually your ISP) has to support the BSD-Compress compression
++	  method as well for this to be useful. Even if they don't support it,
++	  it is safe to say Y here.
++
++	  The PPP Deflate compression method ("PPP Deflate compression",
++	  above) is preferable to BSD-Compress, because it compresses better
++	  and is patent-free.
++
++	  Note that the BSD compression code will always be compiled as a
++	  module; it is called bsd_comp and will show up in the directory
++	  modules once you have said "make modules". If unsure, say N.
++
++config PPP_DEFLATE
++	tristate "PPP Deflate compression"
++	depends on PPP
++	select ZLIB_INFLATE
++	select ZLIB_DEFLATE
++	---help---
++	  Support for the Deflate compression method for PPP, which uses the
++	  Deflate algorithm (the same algorithm that gzip uses) to compress
++	  each PPP packet before it is sent over the wire.  The machine at the
++	  other end of the PPP link (usually your ISP) has to support the
++	  Deflate compression method as well for this to be useful.  Even if
++	  they don't support it, it is safe to say Y here.
++
++	  To compile this driver as a module, choose M here.
++
++config PPP_FILTER
++	bool "PPP filtering"
++	depends on PPP
++	---help---
++	  Say Y here if you want to be able to filter the packets passing over
++	  PPP interfaces.  This allows you to control which packets count as
++	  activity (i.e. which packets will reset the idle timer or bring up
++	  a demand-dialed link) and which packets are to be dropped entirely.
++	  You need to say Y here if you wish to use the pass-filter and
++	  active-filter options to pppd.
++
++	  If unsure, say N.
++
++config PPP_MPPE
++	tristate "PPP MPPE compression (encryption) (EXPERIMENTAL)"
++	depends on PPP && EXPERIMENTAL
++	select CRYPTO
++	select CRYPTO_SHA1
++	select CRYPTO_ARC4
++	select CRYPTO_ECB
++	---help---
++	  Support for the MPPE Encryption protocol, as employed by the
++	  Microsoft Point-to-Point Tunneling Protocol.
++
++	  See http://pptpclient.sourceforge.net/ for information on
++	  configuring PPTP clients and servers to utilize this method.
++
++config PPP_MULTILINK
++	bool "PPP multilink support (EXPERIMENTAL)"
++	depends on PPP && EXPERIMENTAL
++	---help---
++	  PPP multilink is a protocol (defined in RFC 1990) which allows you
++	  to combine several (logical or physical) lines into one logical PPP
++	  connection, so that you can utilize your full bandwidth.
++
++	  This has to be supported at the other end as well and you need a
++	  version of the pppd daemon which understands the multilink protocol.
++
++	  If unsure, say N.
++
++config PPPOATM
++	tristate "PPP over ATM"
++	depends on ATM && PPP
++	---help---
++	  Support PPP (Point to Point Protocol) encapsulated in ATM frames.
++	  This implementation does not yet comply with section 8 of RFC2364,
++	  which can lead to bad results if the ATM peer loses state and
++	  changes its encapsulation unilaterally.
++
++config PPPOE
++	tristate "PPP over Ethernet (EXPERIMENTAL)"
++	depends on EXPERIMENTAL && PPP
++	---help---
++	  Support for PPP over Ethernet.
++
++	  This driver requires the latest version of pppd from the CVS
++	  repository at cvs.samba.org.  Alternatively, see the
++	  RoaringPenguin package (<http://www.roaringpenguin.com/pppoe>)
++	  which contains instruction on how to use this driver (under
++	  the heading "Kernel mode PPPoE").
++
++config PPTP
++	tristate "PPP over IPv4 (PPTP) (EXPERIMENTAL)"
++	depends on EXPERIMENTAL && PPP && NET_IPGRE_DEMUX
++	---help---
++	  Support for PPP over IPv4.(Point-to-Point Tunneling Protocol)
++
++	  This driver requires pppd plugin to work in client mode or
++	  modified pptpd (poptop) to work in server mode.
++	  See http://accel-pptp.sourceforge.net/ for information how to
++	  utilize this module.
++
++config PPPOL2TP
++	tristate "PPP over L2TP (EXPERIMENTAL)"
++	depends on EXPERIMENTAL && L2TP && PPP
++	---help---
++	  Support for PPP-over-L2TP socket family. L2TP is a protocol
++	  used by ISPs and enterprises to tunnel PPP traffic over UDP
++	  tunnels. L2TP is replacing PPTP for VPN uses.
++
++config PPP_ASYNC
++	tristate "PPP support for async serial ports"
++	depends on PPP
++	select CRC_CCITT
++	---help---
++	  Say Y (or M) here if you want to be able to use PPP over standard
++	  asynchronous serial ports, such as COM1 or COM2 on a PC.  If you use
++	  a modem (not a synchronous or ISDN modem) to contact your ISP, you
++	  need this option.
++
++	  To compile this driver as a module, choose M here.
++
++	  If unsure, say Y.
++
++config PPP_SYNC_TTY
++	tristate "PPP support for sync tty ports"
++	depends on PPP
++	---help---
++	  Say Y (or M) here if you want to be able to use PPP over synchronous
++	  (HDLC) tty devices, such as the SyncLink adapter. These devices
++	  are often used for high-speed leased lines like T1/E1.
++
++	  To compile this driver as a module, choose M here.
++
++endif # PPP
+diff --git a/drivers/net/ppp/Makefile b/drivers/net/ppp/Makefile
+new file mode 100644
+index 0000000..a6b6297
+--- /dev/null
++++ b/drivers/net/ppp/Makefile
+@@ -0,0 +1,13 @@
++#
++# Makefile for the Linux PPP network device drivers.
++#
++
++obj-$(CONFIG_PPP) += ppp_generic.o
++obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
++obj-$(CONFIG_PPP_BSDCOMP) += bsd_comp.o
++obj-$(CONFIG_PPP_DEFLATE) += ppp_deflate.o
++obj-$(CONFIG_PPP_MPPE) += ppp_mppe.o
++obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
++obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
++obj-$(CONFIG_PPPOL2TP) += pppox.o
++obj-$(CONFIG_PPTP) += pppox.o pptp.o
+diff --git a/drivers/net/bsd_comp.c b/drivers/net/ppp/bsd_comp.c
+similarity index 100%
+rename from drivers/net/bsd_comp.c
+rename to drivers/net/ppp/bsd_comp.c
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp/ppp_async.c
+similarity index 100%
+rename from drivers/net/ppp_async.c
+rename to drivers/net/ppp/ppp_async.c
+diff --git a/drivers/net/ppp_deflate.c b/drivers/net/ppp/ppp_deflate.c
+similarity index 100%
+rename from drivers/net/ppp_deflate.c
+rename to drivers/net/ppp/ppp_deflate.c
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+similarity index 100%
+rename from drivers/net/ppp_generic.c
+rename to drivers/net/ppp/ppp_generic.c
+diff --git a/drivers/net/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
+similarity index 100%
+rename from drivers/net/ppp_mppe.c
+rename to drivers/net/ppp/ppp_mppe.c
+diff --git a/drivers/net/ppp_mppe.h b/drivers/net/ppp/ppp_mppe.h
+similarity index 100%
+rename from drivers/net/ppp_mppe.h
+rename to drivers/net/ppp/ppp_mppe.h
+diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp/ppp_synctty.c
+similarity index 100%
+rename from drivers/net/ppp_synctty.c
+rename to drivers/net/ppp/ppp_synctty.c
+diff --git a/drivers/net/pppoe.c b/drivers/net/ppp/pppoe.c
+similarity index 100%
+rename from drivers/net/pppoe.c
+rename to drivers/net/ppp/pppoe.c
+diff --git a/drivers/net/pppox.c b/drivers/net/ppp/pppox.c
+similarity index 100%
+rename from drivers/net/pppox.c
+rename to drivers/net/ppp/pppox.c
+diff --git a/drivers/net/pptp.c b/drivers/net/ppp/pptp.c
+similarity index 100%
+rename from drivers/net/pptp.c
+rename to drivers/net/ppp/pptp.c
 -- 
 1.7.6
