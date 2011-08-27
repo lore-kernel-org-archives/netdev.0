@@ -1,47 +1,53 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 40372] New: Driver pegasus freeze networking
- very often so one must reboot to get it to work again
-Date: Fri, 26 Aug 2011 21:15:01 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1108262113000.9188-100000@netrider.rowland.org>
-References: <20110826150013.197e390a.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org>,
-	Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	<csanyipal-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <jmm-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110826150013.197e390a.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/6] ixgbevf: Check if EOP has changed before using it
+Date: Sat, 27 Aug 2011 00:09:27 -0700
+Message-ID: <1314428971-7676-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1314428971-7676-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:65345 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750942Ab1H0HJf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Aug 2011 03:09:35 -0400
+In-Reply-To: <1314428971-7676-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 26 Aug 2011, Andrew Morton wrote:
+From: Greg Rose <gregory.v.rose@intel.com>
 
-> > https://bugzilla.kernel.org/show_bug.cgi?id=40372
-> > 
-> >            Summary: Driver pegasus freeze networking very often so one
-> >                     must reboot to get it to work again
+There is a chance that between the time EOP is read and the time it is
+used another transmit on a different CPU could have run and completed,
+thus leaving EOP in a bad state.
 
-> > Hi,
-> > 
-> > the driver pegasus freezes networking often so one must to reboot to get
-> > networking work again. 
-> > 
-> > At reboot the system hang.
-> > 
-> > At this point one must press the Reset button of the PC Box because 
-> > the system hangs forever. I can't see any messages on the console screen when I
-> > want to reboot at point when system freezes.
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-How do you know the pegasus driver is responsible for this problem?
-
-Do any error messages show up if you want a few minutes before 
-rebooting?  What does the dmesg log say?
-
-Alan Stern
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index b1e1c2d..936532f 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -203,6 +203,9 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_adapter *adapter,
+ 	       (count < tx_ring->work_limit)) {
+ 		bool cleaned = false;
+ 		rmb(); /* read buffer_info after eop_desc */
++		/* eop could change between read and DD-check */
++		if (unlikely(eop != tx_ring->tx_buffer_info[i].next_to_watch))
++			goto cont_loop;
+ 		for ( ; !cleaned; count++) {
+ 			struct sk_buff *skb;
+ 			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
+@@ -232,6 +235,7 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_adapter *adapter,
+ 				i = 0;
+ 		}
+ 
++cont_loop:
+ 		eop = tx_ring->tx_buffer_info[i].next_to_watch;
+ 		eop_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
+ 	}
+-- 
+1.7.6
