@@ -1,53 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/6] ixgbevf: Check if EOP has changed before using it
-Date: Sat, 27 Aug 2011 00:09:27 -0700
-Message-ID: <1314428971-7676-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1314428971-7676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Update
+Date: Sat, 27 Aug 2011 00:09:25 -0700
+Message-ID: <1314428971-7676-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:65345 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:2448 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750942Ab1H0HJf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Aug 2011 03:09:35 -0400
-In-Reply-To: <1314428971-7676-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750865Ab1H0HJd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Aug 2011 03:09:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+The following series contains updates to e1000e, ixgbe and ixgbevf.
 
-There is a chance that between the time EOP is read and the time it is
-used another transmit on a different CPU could have run and completed,
-thus leaving EOP in a bad state.
+The following are changes since commit 3cd0999d134235d64b175edd2eb1d46e=
+bc97b377:
+  Merge branch 'davem-next.mii' of git://git.kernel.org/pub/scm/linux/k=
+ernel/git/romieu/netdev-2.6
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Alexander Duyck (2):
+  ixgbe: Simplify transmit cleanup path
+  ixgbe: convert rings from q_vector bit indexed array to linked list
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index b1e1c2d..936532f 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -203,6 +203,9 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_adapter *adapter,
- 	       (count < tx_ring->work_limit)) {
- 		bool cleaned = false;
- 		rmb(); /* read buffer_info after eop_desc */
-+		/* eop could change between read and DD-check */
-+		if (unlikely(eop != tx_ring->tx_buffer_info[i].next_to_watch))
-+			goto cont_loop;
- 		for ( ; !cleaned; count++) {
- 			struct sk_buff *skb;
- 			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
-@@ -232,6 +235,7 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_adapter *adapter,
- 				i = 0;
- 		}
- 
-+cont_loop:
- 		eop = tx_ring->tx_buffer_info[i].next_to_watch;
- 		eop_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
- 	}
--- 
+Bruce Allan (1):
+  e1000e: convert to netdev features/hw_features API
+
+Eric Dumazet (1):
+  ixgbevf: provide 64 bit statistics
+
+Greg Rose (1):
+  ixgbevf: Check if EOP has changed before using it
+
+Micha=C5=82 Miros=C5=82aw (1):
+  ixgbevf: convert to ndo_fix_features
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c   |    1 -
+ drivers/net/ethernet/intel/e1000e/82571.c         |    5 -
+ drivers/net/ethernet/intel/e1000e/e1000.h         |    3 +-
+ drivers/net/ethernet/intel/e1000e/ethtool.c       |   88 ---------
+ drivers/net/ethernet/intel/e1000e/ich8lan.c       |    5 -
+ drivers/net/ethernet/intel/e1000e/netdev.c        |   49 ++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |    7 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  202 +++++++------=
+--------
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |   46 -----
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    8 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   81 +++++++--
+ 11 files changed, 175 insertions(+), 320 deletions(-)
+
+--=20
 1.7.6
