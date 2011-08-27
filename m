@@ -1,160 +1,179 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/10] skfp: Fix SysKonnect FDDI driver compile issues
-Date: Sat, 27 Aug 2011 02:55:08 -0700
-Message-ID: <1314438916-2478-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/10] hippi: Move the HIPPI driver
+Date: Sat, 27 Aug 2011 02:55:10 -0700
+Message-ID: <1314438916-2478-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1314438916-2478-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, "Maciej W. Rozycki" <macro@linux-mips.org>,
-	Christoph Goos <cgoos@syskonnect.de>, <linux@syskonnect.de>
+	gospo@redhat.com, Jes Sorensen <jes@wildopensource.com>,
+	Jes Sorensen <jes@trained-monkey.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:42842 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750883Ab1H0JzU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Aug 2011 05:55:20 -0400
+	id S1750838Ab1H0JzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Aug 2011 05:55:22 -0400
 In-Reply-To: <1314438916-2478-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After moving the skfp driver, issues with the #include pathing to
-their locel headers was somehow exposed.  Several headers had the
-incorrect path, so they were not able to be found during compile
-time.
+Move the HIPPI driver into drivers/net/hippi/ and make the
+necessary Kconfig and Makefile changes.
 
-This patch fixes up the path issues to the local headers that need
-to be included.
-
-CC: "Maciej W. Rozycki" <macro@linux-mips.org>
-CC: Christoph Goos <cgoos@syskonnect.de>
-CC: <linux@syskonnect.de>
+CC: Jes Sorensen <jes@wildopensource.com>
+CC: Jes Sorensen <jes@trained-monkey.org>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/fddi/skfp/h/cmtdef.h   |    4 ++--
- drivers/net/fddi/skfp/h/hwmtm.h    |    2 +-
- drivers/net/fddi/skfp/h/sba.h      |    4 ++--
- drivers/net/fddi/skfp/h/skfbiinc.h |    2 +-
- drivers/net/fddi/skfp/h/smc.h      |   14 +++++++-------
- drivers/net/fddi/skfp/h/targethw.h |    6 +++---
- drivers/net/fddi/skfp/h/targetos.h |    2 +-
- 7 files changed, 17 insertions(+), 17 deletions(-)
+ MAINTAINERS                       |    1 +
+ drivers/net/Kconfig               |   32 ------------------------------
+ drivers/net/Makefile              |    2 +-
+ drivers/net/hippi/Kconfig         |   39 +++++++++++++++++++++++++++++++++++++
+ drivers/net/hippi/Makefile        |    5 ++++
+ drivers/net/{ => hippi}/rrunner.c |    0
+ drivers/net/{ => hippi}/rrunner.h |    0
+ 7 files changed, 46 insertions(+), 33 deletions(-)
+ create mode 100644 drivers/net/hippi/Kconfig
+ create mode 100644 drivers/net/hippi/Makefile
+ rename drivers/net/{ => hippi}/rrunner.c (100%)
+ rename drivers/net/{ => hippi}/rrunner.h (100%)
 
-diff --git a/drivers/net/fddi/skfp/h/cmtdef.h b/drivers/net/fddi/skfp/h/cmtdef.h
-index 5a6c612..f5bc90f 100644
---- a/drivers/net/fddi/skfp/h/cmtdef.h
-+++ b/drivers/net/fddi/skfp/h/cmtdef.h
-@@ -477,8 +477,8 @@ struct s_plc {
- /*
-  * function prototypes
-  */
--#include "h/mbuf.h"	/* Type definitions for MBUFs */
--#include "h/smtstate.h"	/* struct smt_state */
-+#include "mbuf.h"	/* Type definitions for MBUFs */
-+#include "smtstate.h"	/* struct smt_state */
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c5ec925..194095a 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3049,6 +3049,7 @@ S:	Maintained
+ F:	include/linux/hippidevice.h
+ F:	include/linux/if_hippi.h
+ F:	net/802/hippi.c
++F:	drivers/net/hippi/
  
- void hwt_restart(struct s_smc *smc);	/* hwt.c */
- SMbuf *smt_build_frame(struct s_smc *smc, int class, int type,
-diff --git a/drivers/net/fddi/skfp/h/hwmtm.h b/drivers/net/fddi/skfp/h/hwmtm.h
-index e1a7e5f..5924d42 100644
---- a/drivers/net/fddi/skfp/h/hwmtm.h
-+++ b/drivers/net/fddi/skfp/h/hwmtm.h
-@@ -15,7 +15,7 @@
- #ifndef	_HWM_
- #define	_HWM_
+ HOST AP DRIVER
+ M:	Jouni Malinen <j@w1.fi>
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index c5e2a38..1d8fa95 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -272,38 +272,6 @@ config RIONET_RX_SIZE
+ 	depends on RIONET
+ 	default "128"
  
--#include "h/mbuf.h"
-+#include "mbuf.h"
+-config HIPPI
+-	bool "HIPPI driver support (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && INET && PCI
+-	help
+-	  HIgh Performance Parallel Interface (HIPPI) is a 800Mbit/sec and
+-	  1600Mbit/sec dual-simplex switched or point-to-point network. HIPPI
+-	  can run over copper (25m) or fiber (300m on multi-mode or 10km on
+-	  single-mode). HIPPI networks are commonly used for clusters and to
+-	  connect to super computers. If you are connected to a HIPPI network
+-	  and have a HIPPI network card in your computer that you want to use
+-	  under Linux, say Y here (you must also remember to enable the driver
+-	  for your HIPPI card below). Most people will say N here.
+-
+-config ROADRUNNER
+-	tristate "Essential RoadRunner HIPPI PCI adapter support (EXPERIMENTAL)"
+-	depends on HIPPI && PCI
+-	help
+-	  Say Y here if this is your PCI HIPPI network card.
+-
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called rrunner.  If unsure, say N.
+-
+-config ROADRUNNER_LARGE_RINGS
+-	bool "Use large TX/RX rings (EXPERIMENTAL)"
+-	depends on ROADRUNNER
+-	help
+-	  If you say Y here, the RoadRunner driver will preallocate up to 2 MB
+-	  of additional memory to allow for fastest operation, both for
+-	  transmitting and receiving. This memory cannot be used by any other
+-	  kernel code or by user space programs. Say Y here only if you have
+-	  the memory.
+-
+ config PLIP
+ 	tristate "PLIP (parallel port) support"
+ 	depends on PARPORT
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index a397f1e..f64d02c 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -13,7 +13,6 @@ obj-$(CONFIG_VMXNET3) += vmxnet3/
+ # link order important here
+ #
+ obj-$(CONFIG_PLIP) += plip.o
+-obj-$(CONFIG_ROADRUNNER) += rrunner.o
+ obj-$(CONFIG_RIONET) += rionet.o
  
- /*
-  * MACRO for DMA synchronization:
-diff --git a/drivers/net/fddi/skfp/h/sba.h b/drivers/net/fddi/skfp/h/sba.h
-index 638cf02..35ddb44 100644
---- a/drivers/net/fddi/skfp/h/sba.h
-+++ b/drivers/net/fddi/skfp/h/sba.h
-@@ -19,8 +19,8 @@
- #ifndef _SBA_
- #define _SBA_
- 
--#include "h/mbuf.h"
--#include "h/sba_def.h"
-+#include "mbuf.h"
-+#include "sba_def.h"
- 
- #ifdef	SBA
- 
-diff --git a/drivers/net/fddi/skfp/h/skfbiinc.h b/drivers/net/fddi/skfp/h/skfbiinc.h
-index ac2d719..ce72557 100644
---- a/drivers/net/fddi/skfp/h/skfbiinc.h
-+++ b/drivers/net/fddi/skfp/h/skfbiinc.h
-@@ -15,7 +15,7 @@
- #ifndef	_SKFBIINC_
- #define _SKFBIINC_
- 
--#include "h/supern_2.h"
-+#include "supern_2.h"
- 
- /*
-  * special defines for use into .asm files
-diff --git a/drivers/net/fddi/skfp/h/smc.h b/drivers/net/fddi/skfp/h/smc.h
-index c774a95..3ca308b 100644
---- a/drivers/net/fddi/skfp/h/smc.h
-+++ b/drivers/net/fddi/skfp/h/smc.h
-@@ -38,18 +38,18 @@
-  *	fddi.h
-  */
- #ifdef	OSDEF
--#include "h/osdef1st.h"
-+#include "osdef1st.h"
- #endif	/* OSDEF */
- #ifdef	OEM_CONCEPT
- #include "oemdef.h"
- #endif	/* OEM_CONCEPT */
--#include "h/smt.h"
--#include "h/cmtdef.h"
--#include "h/fddimib.h"
--#include "h/targethw.h"		/* all target hw dependencies */
--#include "h/targetos.h"		/* all target os dependencies */
-+#include "smt.h"
-+#include "cmtdef.h"
-+#include "fddimib.h"
-+#include "targethw.h"		/* all target hw dependencies */
-+#include "targetos.h"		/* all target os dependencies */
- #ifdef	ESS
--#include "h/sba.h"
-+#include "sba.h"
- #endif
- 
- /*
-diff --git a/drivers/net/fddi/skfp/h/targethw.h b/drivers/net/fddi/skfp/h/targethw.h
-index 626dc72..842a690 100644
---- a/drivers/net/fddi/skfp/h/targethw.h
-+++ b/drivers/net/fddi/skfp/h/targethw.h
-@@ -25,11 +25,11 @@
- #define SK_ML_ID_2	0x30
- #endif
- 
--#include	"h/skfbi.h"
-+#include	"skfbi.h"
- #ifndef TAG_MODE	
--#include	"h/fplus.h"
-+#include	"fplus.h"
- #else
--#include	"h/fplustm.h"
-+#include	"fplustm.h"
- #endif
- 
- #ifndef	HW_PTR
-diff --git a/drivers/net/fddi/skfp/h/targetos.h b/drivers/net/fddi/skfp/h/targetos.h
-index 5d940e7..53bacc1 100644
---- a/drivers/net/fddi/skfp/h/targetos.h
-+++ b/drivers/net/fddi/skfp/h/targetos.h
-@@ -58,7 +58,7 @@
- #define	ADDR(a) (((a)>>7) ? (outp(smc->hw.iop+B0_RAP,(a)>>7), (smc->hw.iop+( ((a)&0x7F) | ((a)>>7 ? 0x80:0)) )) : (smc->hw.iop+(((a)&0x7F)|((a)>>7 ? 0x80:0))))
- #endif
- 
--#include "h/hwmtm.h"
-+#include "hwmtm.h"
- 
- #define TRUE  1
- #define FALSE 0
+ #
+@@ -39,6 +38,7 @@ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_ETHERNET) += ethernet/
+ obj-$(CONFIG_FDDI) += fddi/
++obj-$(CONFIG_HIPPI) += hippi/
+ onj-$(CONFIG_PPP) += ppp/
+ obj-$(CONFIG_PPP_ASYNC) += ppp/
+ obj-$(CONFIG_PPP_BSDCOMP) += ppp/
+diff --git a/drivers/net/hippi/Kconfig b/drivers/net/hippi/Kconfig
+new file mode 100644
+index 0000000..7393eb7
+--- /dev/null
++++ b/drivers/net/hippi/Kconfig
+@@ -0,0 +1,39 @@
++#
++# HIPPI network device configuration
++#
++
++config HIPPI
++	bool "HIPPI driver support (EXPERIMENTAL)"
++	depends on EXPERIMENTAL && INET && PCI
++	---help---
++	  HIgh Performance Parallel Interface (HIPPI) is a 800Mbit/sec and
++	  1600Mbit/sec dual-simplex switched or point-to-point network. HIPPI
++	  can run over copper (25m) or fiber (300m on multi-mode or 10km on
++	  single-mode). HIPPI networks are commonly used for clusters and to
++	  connect to super computers. If you are connected to a HIPPI network
++	  and have a HIPPI network card in your computer that you want to use
++	  under Linux, say Y here (you must also remember to enable the driver
++	  for your HIPPI card below). Most people will say N here.
++
++if HIPPI
++
++config ROADRUNNER
++	tristate "Essential RoadRunner HIPPI PCI adapter support (EXPERIMENTAL)"
++	depends on PCI
++	---help---
++	  Say Y here if this is your PCI HIPPI network card.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called rrunner.  If unsure, say N.
++
++config ROADRUNNER_LARGE_RINGS
++	bool "Use large TX/RX rings (EXPERIMENTAL)"
++	depends on ROADRUNNER
++	---help---
++	  If you say Y here, the RoadRunner driver will preallocate up to 2 MB
++	  of additional memory to allow for fastest operation, both for
++	  transmitting and receiving. This memory cannot be used by any other
++	  kernel code or by user space programs. Say Y here only if you have
++	  the memory.
++
++endif /* HIPPI */
+diff --git a/drivers/net/hippi/Makefile b/drivers/net/hippi/Makefile
+new file mode 100644
+index 0000000..b95d629
+--- /dev/null
++++ b/drivers/net/hippi/Makefile
+@@ -0,0 +1,5 @@
++#
++# Makefile for the HIPPI network device drivers.
++#
++
++obj-$(CONFIG_ROADRUNNER) += rrunner.o
+diff --git a/drivers/net/rrunner.c b/drivers/net/hippi/rrunner.c
+similarity index 100%
+rename from drivers/net/rrunner.c
+rename to drivers/net/hippi/rrunner.c
+diff --git a/drivers/net/rrunner.h b/drivers/net/hippi/rrunner.h
+similarity index 100%
+rename from drivers/net/rrunner.h
+rename to drivers/net/hippi/rrunner.h
 -- 
 1.7.6
