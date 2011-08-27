@@ -1,496 +1,515 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/10] fddi: Move the FDDI drivers
-Date: Sat, 27 Aug 2011 02:55:07 -0700
-Message-ID: <1314438916-2478-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/10] drivers/net: Kconfig & Makefile cleanup
+Date: Sat, 27 Aug 2011 02:55:15 -0700
+Message-ID: <1314438916-2478-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1314438916-2478-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, "Maciej W. Rozycki" <macro@linux-mips.org>,
-	Christoph Goos <cgoos@syskonnect.de>, <linux@syskonnect.de>
+	gospo@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:17525 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:47980 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750871Ab1H0JzU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Aug 2011 05:55:20 -0400
+	id S1751021Ab1H0Jz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Aug 2011 05:55:28 -0400
 In-Reply-To: <1314438916-2478-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the FDDI drivers into drivers/net/fddi/ and make the
-necessary Kconfig and Makefile changes.
+The is does a general cleanup of the drivers/net/ Kconfig and
+Makefile.  This patch create a "core" option and places all
+the networking core drivers into this option (default is yes
+for this option).  In addition, it alphabitizes the Kconfig
+driver options.
 
-CC: "Maciej W. Rozycki" <macro@linux-mips.org>
-CC: Christoph Goos <cgoos@syskonnect.de>
-CC: <linux@syskonnect.de>
+As a side cleanup, found that the arcnet, token ring, and PHY
+Kconfig options were a tri-state option and should have been
+a bool option.
+
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- MAINTAINERS                              |    2 +-
- drivers/net/Kconfig                      |   72 +---------------------------
- drivers/net/Makefile                     |    3 +-
- drivers/net/fddi/Kconfig                 |   77 ++++++++++++++++++++++++++++++
- drivers/net/fddi/Makefile                |    6 ++
- drivers/net/{ => fddi}/defxx.c           |    0
- drivers/net/{ => fddi}/defxx.h           |    0
- drivers/net/{ => fddi}/skfp/Makefile     |    0
- drivers/net/{ => fddi}/skfp/cfm.c        |    0
- drivers/net/{ => fddi}/skfp/drvfbi.c     |    0
- drivers/net/{ => fddi}/skfp/ecm.c        |    0
- drivers/net/{ => fddi}/skfp/ess.c        |    0
- drivers/net/{ => fddi}/skfp/fplustm.c    |    0
- drivers/net/{ => fddi}/skfp/h/cmtdef.h   |    0
- drivers/net/{ => fddi}/skfp/h/fddi.h     |    0
- drivers/net/{ => fddi}/skfp/h/fddimib.h  |    0
- drivers/net/{ => fddi}/skfp/h/fplustm.h  |    0
- drivers/net/{ => fddi}/skfp/h/hwmtm.h    |    0
- drivers/net/{ => fddi}/skfp/h/mbuf.h     |    0
- drivers/net/{ => fddi}/skfp/h/osdef1st.h |    0
- drivers/net/{ => fddi}/skfp/h/sba.h      |    0
- drivers/net/{ => fddi}/skfp/h/sba_def.h  |    0
- drivers/net/{ => fddi}/skfp/h/skfbi.h    |    0
- drivers/net/{ => fddi}/skfp/h/skfbiinc.h |    0
- drivers/net/{ => fddi}/skfp/h/smc.h      |    0
- drivers/net/{ => fddi}/skfp/h/smt.h      |    0
- drivers/net/{ => fddi}/skfp/h/smt_p.h    |    0
- drivers/net/{ => fddi}/skfp/h/smtstate.h |    0
- drivers/net/{ => fddi}/skfp/h/supern_2.h |    0
- drivers/net/{ => fddi}/skfp/h/targethw.h |    0
- drivers/net/{ => fddi}/skfp/h/targetos.h |    0
- drivers/net/{ => fddi}/skfp/h/types.h    |    0
- drivers/net/{ => fddi}/skfp/hwmtm.c      |    0
- drivers/net/{ => fddi}/skfp/hwt.c        |    0
- drivers/net/{ => fddi}/skfp/pcmplc.c     |    0
- drivers/net/{ => fddi}/skfp/pmf.c        |    0
- drivers/net/{ => fddi}/skfp/queue.c      |    0
- drivers/net/{ => fddi}/skfp/rmt.c        |    0
- drivers/net/{ => fddi}/skfp/skfddi.c     |    0
- drivers/net/{ => fddi}/skfp/smt.c        |    0
- drivers/net/{ => fddi}/skfp/smtdef.c     |    0
- drivers/net/{ => fddi}/skfp/smtinit.c    |    0
- drivers/net/{ => fddi}/skfp/smttimer.c   |    0
- drivers/net/{ => fddi}/skfp/srf.c        |    0
- 44 files changed, 87 insertions(+), 73 deletions(-)
- create mode 100644 drivers/net/fddi/Kconfig
- create mode 100644 drivers/net/fddi/Makefile
- rename drivers/net/{ => fddi}/defxx.c (100%)
- rename drivers/net/{ => fddi}/defxx.h (100%)
- rename drivers/net/{ => fddi}/skfp/Makefile (100%)
- rename drivers/net/{ => fddi}/skfp/cfm.c (100%)
- rename drivers/net/{ => fddi}/skfp/drvfbi.c (100%)
- rename drivers/net/{ => fddi}/skfp/ecm.c (100%)
- rename drivers/net/{ => fddi}/skfp/ess.c (100%)
- rename drivers/net/{ => fddi}/skfp/fplustm.c (100%)
- rename drivers/net/{ => fddi}/skfp/h/cmtdef.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/fddi.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/fddimib.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/fplustm.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/hwmtm.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/mbuf.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/osdef1st.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/sba.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/sba_def.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/skfbi.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/skfbiinc.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/smc.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/smt.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/smt_p.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/smtstate.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/supern_2.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/targethw.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/targetos.h (100%)
- rename drivers/net/{ => fddi}/skfp/h/types.h (100%)
- rename drivers/net/{ => fddi}/skfp/hwmtm.c (100%)
- rename drivers/net/{ => fddi}/skfp/hwt.c (100%)
- rename drivers/net/{ => fddi}/skfp/pcmplc.c (100%)
- rename drivers/net/{ => fddi}/skfp/pmf.c (100%)
- rename drivers/net/{ => fddi}/skfp/queue.c (100%)
- rename drivers/net/{ => fddi}/skfp/rmt.c (100%)
- rename drivers/net/{ => fddi}/skfp/skfddi.c (100%)
- rename drivers/net/{ => fddi}/skfp/smt.c (100%)
- rename drivers/net/{ => fddi}/skfp/smtdef.c (100%)
- rename drivers/net/{ => fddi}/skfp/smtinit.c (100%)
- rename drivers/net/{ => fddi}/skfp/smttimer.c (100%)
- rename drivers/net/{ => fddi}/skfp/srf.c (100%)
+ drivers/net/Kconfig           |  267 +++++++++++++++++++++--------------------
+ drivers/net/Makefile          |   64 +++++------
+ drivers/net/arcnet/Kconfig    |    2 +-
+ drivers/net/phy/Kconfig       |    2 +-
+ drivers/net/tokenring/Kconfig |    2 +-
+ 5 files changed, 168 insertions(+), 169 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index d32e1ca..2777088 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2113,7 +2113,7 @@ F:	net/decnet/
- DEFXX FDDI NETWORK DRIVER
- M:	"Maciej W. Rozycki" <macro@linux-mips.org>
- S:	Maintained
--F:	drivers/net/defxx.*
-+F:	drivers/net/fddi/defxx.*
- 
- DELL LAPTOP DRIVER
- M:	Matthew Garrett <mjg59@srcf.ucam.org>
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index ef6b6be..7bdc22b 100644
+index 5762370..583f66c 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -195,6 +195,8 @@ config SUNGEM_PHY
+@@ -25,18 +25,32 @@ menuconfig NETDEVICES
+ # that for each of the symbols.
+ if NETDEVICES
  
- source "drivers/net/ethernet/Kconfig"
+-config IFB
+-	tristate "Intermediate Functional Block support"
+-	depends on NET_CLS_ACT
++config NET_CORE
++	default y
++	bool "Network core driver support"
+ 	---help---
+-	  This is an intermediate driver that allows sharing of
+-	  resources.
++	  You can say N here if you do not intend to use any of the
++	  networking core drivers (i.e. VLAN, bridging, bonding, etc.)
++
++if NET_CORE
++
++config BONDING
++	tristate "Bonding driver support"
++	depends on INET
++	depends on IPV6 || IPV6=n
++	---help---
++	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
++	  Channels together. This is called 'Etherchannel' by Cisco,
++	  'Trunking' by Sun, 802.3ad by the IEEE, and 'Bonding' in Linux.
++
++	  The driver supports multiple bonding modes to allow for both high
++	  performance and high availability operation.
++
++	  Refer to <file:Documentation/networking/bonding.txt> for more
++	  information.
++
+ 	  To compile this driver as a module, choose M here: the module
+-	  will be called ifb.  If you want to use more than one ifb
+-	  device at a time, you need to compile this driver as a module.
+-	  Instead of 'ifb', the devices will then be called 'ifb0',
+-	  'ifb1' etc.
+-	  Look at the iproute2 documentation directory for usage etc
++	  will be called bonding.
  
+ config DUMMY
+ 	tristate "Dummy net driver support"
+@@ -57,23 +71,59 @@ config DUMMY
+ 	  Instead of 'dummy', the devices will then be called 'dummy0',
+ 	  'dummy1' etc.
+ 
+-config BONDING
+-	tristate "Bonding driver support"
+-	depends on INET
+-	depends on IPV6 || IPV6=n
++config EQUALIZER
++	tristate "EQL (serial line load balancing) support"
+ 	---help---
+-	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
+-	  Channels together. This is called 'Etherchannel' by Cisco,
+-	  'Trunking' by Sun, 802.3ad by the IEEE, and 'Bonding' in Linux.
++	  If you have two serial connections to some other computer (this
++	  usually requires two modems and two telephone lines) and you use
++	  SLIP (the protocol for sending Internet traffic over telephone
++	  lines) or PPP (a better SLIP) on them, you can make them behave like
++	  one double speed connection using this driver.  Naturally, this has
++	  to be supported at the other end as well, either with a similar EQL
++	  Linux driver or with a Livingston Portmaster 2e.
+ 
+-	  The driver supports multiple bonding modes to allow for both high
+-	  performance and high availability operation.
++	  Say Y if you want this and read
++	  <file:Documentation/networking/eql.txt>.  You may also want to read
++	  section 6.2 of the NET-3-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto>.
+ 
+-	  Refer to <file:Documentation/networking/bonding.txt> for more
+-	  information.
++	  To compile this driver as a module, choose M here: the module
++	  will be called eql.  If unsure, say N.
++
++config NET_FC
++	bool "Fibre Channel driver support"
++	depends on SCSI && PCI
++	help
++	  Fibre Channel is a high speed serial protocol mainly used to connect
++	  large storage devices to the computer; it is compatible with and
++	  intended to replace SCSI.
++
++	  If you intend to use Fibre Channel, you need to have a Fibre channel
++	  adaptor card in your computer; say Y here and to the driver for your
++	  adaptor below. You also should have said Y to "SCSI support" and
++	  "SCSI generic support".
+ 
++config MII
++	tristate "Generic Media Independent Interface device support"
++	help
++	  Most ethernet controllers have MII transceiver either as an external
++	  or internal device.  It is safe to say Y or M here even if your
++	  ethernet card lacks MII.
++
++source "drivers/ieee802154/Kconfig"
++
++config IFB
++	tristate "Intermediate Functional Block support"
++	depends on NET_CLS_ACT
++	---help---
++	  This is an intermediate driver that allows sharing of
++	  resources.
+ 	  To compile this driver as a module, choose M here: the module
+-	  will be called bonding.
++	  will be called ifb.  If you want to use more than one ifb
++	  device at a time, you need to compile this driver as a module.
++	  Instead of 'ifb', the devices will then be called 'ifb0',
++	  'ifb1' etc.
++	  Look at the iproute2 documentation directory for usage etc
+ 
+ config MACVLAN
+ 	tristate "MAC-VLAN support (EXPERIMENTAL)"
+@@ -102,24 +152,46 @@ config MACVTAP
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called macvtap.
+ 
+-config EQUALIZER
+-	tristate "EQL (serial line load balancing) support"
++config NETCONSOLE
++	tristate "Network console logging support"
+ 	---help---
+-	  If you have two serial connections to some other computer (this
+-	  usually requires two modems and two telephone lines) and you use
+-	  SLIP (the protocol for sending Internet traffic over telephone
+-	  lines) or PPP (a better SLIP) on them, you can make them behave like
+-	  one double speed connection using this driver.  Naturally, this has
+-	  to be supported at the other end as well, either with a similar EQL
+-	  Linux driver or with a Livingston Portmaster 2e.
++	If you want to log kernel messages over the network, enable this.
++	See <file:Documentation/networking/netconsole.txt> for details.
+ 
+-	  Say Y if you want this and read
+-	  <file:Documentation/networking/eql.txt>.  You may also want to read
+-	  section 6.2 of the NET-3-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.
++config NETCONSOLE_DYNAMIC
++	bool "Dynamic reconfiguration of logging targets"
++	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
++			!(NETCONSOLE=y && CONFIGFS_FS=m)
++	help
++	  This option enables the ability to dynamically reconfigure target
++	  parameters (interface, IP addresses, port numbers, MAC addresses)
++	  at runtime through a userspace interface exported using configfs.
++	  See <file:Documentation/networking/netconsole.txt> for details.
+ 
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called eql.  If unsure, say N.
++config NETPOLL
++	def_bool NETCONSOLE
++
++config NETPOLL_TRAP
++	bool "Netpoll traffic trapping"
++	default n
++	depends on NETPOLL
++
++config NET_POLL_CONTROLLER
++	def_bool NETPOLL
++
++config RIONET
++	tristate "RapidIO Ethernet over messaging driver support"
++	depends on RAPIDIO
++
++config RIONET_TX_SIZE
++	int "Number of outbound queue entries"
++	depends on RIONET
++	default "128"
++
++config RIONET_RX_SIZE
++	int "Number of inbound queue entries"
++	depends on RIONET
++	default "128"
+ 
+ config TUN
+ 	tristate "Universal TUN/TAP device driver support"
+@@ -151,6 +223,28 @@ config VETH
+ 	  When one end receives the packet it appears on its pair and vice
+ 	  versa.
+ 
++config VIRTIO_NET
++	tristate "Virtio network driver (EXPERIMENTAL)"
++	depends on EXPERIMENTAL && VIRTIO
++	---help---
++	  This is the virtual network driver for virtio.  It can be used with
++	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
++
++endif # NET_CORE
++
++config SUNGEM_PHY
++	tristate
++
++source "drivers/net/arcnet/Kconfig"
++
++source "drivers/atm/Kconfig"
++
++source "drivers/net/caif/Kconfig"
++
++source "drivers/net/ethernet/Kconfig"
++
 +source "drivers/net/fddi/Kconfig"
++
+ config NET_SB1000
+ 	tristate "General Instruments Surfboard 1000"
+ 	depends on PNP
+@@ -175,52 +269,26 @@ config NET_SB1000
+ 
+ 	  If you don't have this card, of course say N.
+ 
+-source "drivers/net/arcnet/Kconfig"
+-
+-config MII
+-	tristate "Generic Media Independent Interface device support"
+-	help
+-	  Most ethernet controllers have MII transceiver either as an external
+-	  or internal device.  It is safe to say Y or M here even if your
+-	  ethernet card lacks MII.
+-
+ source "drivers/net/phy/Kconfig"
+ 
+-config SUNGEM_PHY
+-	tristate
+-
+-#
+-#	Ethernet
+-#
+-
+-source "drivers/net/ethernet/Kconfig"
+-
+-source "drivers/net/fddi/Kconfig"
+-
+ source "drivers/net/plip/Kconfig"
+ 
++source "drivers/net/ppp/Kconfig"
++
+ source "drivers/net/slip/Kconfig"
+ 
++source "drivers/s390/net/Kconfig"
 +
  source "drivers/net/tokenring/Kconfig"
  
++source "drivers/net/usb/Kconfig"
++
  source "drivers/net/wireless/Kconfig"
-@@ -268,76 +270,6 @@ config RIONET_RX_SIZE
- 	depends on RIONET
- 	default "128"
  
--config FDDI
--	tristate "FDDI driver support"
--	depends on (PCI || EISA || TC)
+ source "drivers/net/wimax/Kconfig"
+ 
+-source "drivers/net/usb/Kconfig"
+-
+-source "drivers/net/ppp/Kconfig"
+-
+ source "drivers/net/wan/Kconfig"
+ 
+-source "drivers/atm/Kconfig"
+-
+-source "drivers/ieee802154/Kconfig"
+-
+-source "drivers/s390/net/Kconfig"
+-
+-source "drivers/net/caif/Kconfig"
+-
+ config XEN_NETDEV_FRONTEND
+ 	tristate "Xen network device frontend driver"
+ 	depends on XEN
+@@ -260,67 +328,6 @@ config XEN_NETDEV_BACKEND
+ 	  compile this driver as a module, chose M here: the module
+ 	  will be called xen-netback.
+ 
+-config RIONET
+-	tristate "RapidIO Ethernet over messaging driver support"
+-	depends on RAPIDIO
+-
+-config RIONET_TX_SIZE
+-	int "Number of outbound queue entries"
+-	depends on RIONET
+-	default "128"
+-
+-config RIONET_RX_SIZE
+-	int "Number of inbound queue entries"
+-	depends on RIONET
+-	default "128"
+-
+-config NET_FC
+-	bool "Fibre Channel driver support"
+-	depends on SCSI && PCI
 -	help
--	  Fiber Distributed Data Interface is a high speed local area network
--	  design; essentially a replacement for high speed Ethernet. FDDI can
--	  run over copper or fiber. If you are connected to such a network and
--	  want a driver for the FDDI card in your computer, say Y here (and
--	  then also Y to the driver for your FDDI card, below). Most people
--	  will say N.
+-	  Fibre Channel is a high speed serial protocol mainly used to connect
+-	  large storage devices to the computer; it is compatible with and
+-	  intended to replace SCSI.
 -
--config DEFXX
--	tristate "Digital DEFTA/DEFEA/DEFPA adapter support"
--	depends on FDDI && (PCI || EISA || TC)
+-	  If you intend to use Fibre Channel, you need to have a Fibre channel
+-	  adaptor card in your computer; say Y here and to the driver for your
+-	  adaptor below. You also should have said Y to "SCSI support" and
+-	  "SCSI generic support".
+-
+-config NETCONSOLE
+-	tristate "Network console logging support"
 -	---help---
--	  This is support for the DIGITAL series of TURBOchannel (DEFTA),
--	  EISA (DEFEA) and PCI (DEFPA) controllers which can connect you
--	  to a local FDDI network.
+-	If you want to log kernel messages over the network, enable this.
+-	See <file:Documentation/networking/netconsole.txt> for details.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called defxx.  If unsure, say N.
+-config NETCONSOLE_DYNAMIC
+-	bool "Dynamic reconfiguration of logging targets"
+-	depends on NETCONSOLE && SYSFS && CONFIGFS_FS && \
+-			!(NETCONSOLE=y && CONFIGFS_FS=m)
+-	help
+-	  This option enables the ability to dynamically reconfigure target
+-	  parameters (interface, IP addresses, port numbers, MAC addresses)
+-	  at runtime through a userspace interface exported using configfs.
+-	  See <file:Documentation/networking/netconsole.txt> for details.
 -
--config DEFXX_MMIO
--	bool
--	prompt "Use MMIO instead of PIO" if PCI || EISA
--	depends on DEFXX
--	default n if PCI || EISA
--	default y
+-config NETPOLL
+-	def_bool NETCONSOLE
+-
+-config NETPOLL_TRAP
+-	bool "Netpoll traffic trapping"
+-	default n
+-	depends on NETPOLL
+-
+-config NET_POLL_CONTROLLER
+-	def_bool NETPOLL
+-
+-config VIRTIO_NET
+-	tristate "Virtio network driver (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && VIRTIO
 -	---help---
--	  This instructs the driver to use EISA or PCI memory-mapped I/O
--	  (MMIO) as appropriate instead of programmed I/O ports (PIO).
--	  Enabling this gives an improvement in processing time in parts
--	  of the driver, but it may cause problems with EISA (DEFEA)
--	  adapters.  TURBOchannel does not have the concept of I/O ports,
--	  so MMIO is always used for these (DEFTA) adapters.
+-	  This is the virtual network driver for virtio.  It can be used with
+-	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
 -
--	  If unsure, say N.
--
--config SKFP
--	tristate "SysKonnect FDDI PCI support"
--	depends on FDDI && PCI
--	select BITREVERSE
--	---help---
--	  Say Y here if you have a SysKonnect FDDI PCI adapter.
--	  The following adapters are supported by this driver:
--	  - SK-5521 (SK-NET FDDI-UP)
--	  - SK-5522 (SK-NET FDDI-UP DAS)
--	  - SK-5541 (SK-NET FDDI-FP)
--	  - SK-5543 (SK-NET FDDI-LP)
--	  - SK-5544 (SK-NET FDDI-LP DAS)
--	  - SK-5821 (SK-NET FDDI-UP64)
--	  - SK-5822 (SK-NET FDDI-UP64 DAS)
--	  - SK-5841 (SK-NET FDDI-FP64)
--	  - SK-5843 (SK-NET FDDI-LP64)
--	  - SK-5844 (SK-NET FDDI-LP64 DAS)
--	  - Netelligent 100 FDDI DAS Fibre SC
--	  - Netelligent 100 FDDI SAS Fibre SC
--	  - Netelligent 100 FDDI DAS UTP
--	  - Netelligent 100 FDDI SAS UTP
--	  - Netelligent 100 FDDI SAS Fibre MIC
--
--	  Read <file:Documentation/networking/skfp.txt> for information about
--	  the driver.
--
--	  Questions concerning this driver can be addressed to:
--	  <linux@syskonnect.de>
--
--	  To compile this driver as a module, choose M here: the module
--	  will be called skfp.  This is recommended.
--
- config HIPPI
- 	bool "HIPPI driver support (EXPERIMENTAL)"
- 	depends on EXPERIMENTAL && INET && PCI
+ config VMXNET3
+ 	tristate "VMware VMXNET3 ethernet driver"
+ 	depends on PCI && INET
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index c33009b..3087b27 100644
+index 99327a4..1f52e73 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -14,7 +14,6 @@ obj-$(CONFIG_VMXNET3) += vmxnet3/
+@@ -2,40 +2,38 @@
+ # Makefile for the Linux network device drivers.
  #
- obj-$(CONFIG_PLIP) += plip.o
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
--obj-$(CONFIG_SKFP) += skfp/
- obj-$(CONFIG_RIONET) += rionet.o
  
+-obj-$(CONFIG_MII) += mii.o
+-obj-$(CONFIG_MDIO) += mdio.o
+-obj-$(CONFIG_PHYLIB) += phy/
+-obj-$(CONFIG_CAN) += can/
+-obj-$(CONFIG_BONDING) += bonding/
+-obj-$(CONFIG_VMXNET3) += vmxnet3/
+-
  #
-@@ -42,13 +41,13 @@ obj-$(CONFIG_DUMMY) += dummy.o
+-# link order important here
++# Networking Core Drivers
+ #
+-obj-$(CONFIG_RIONET) += rionet.o
+-
+-#
+-# end link order section
+-#
+-
+-obj-$(CONFIG_NET) += Space.o loopback.o
+-obj-$(CONFIG_NET_SB1000) += sb1000.o
+-
+-obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
+-obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
+-
++obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_DUMMY) += dummy.o
++obj-$(CONFIG_EQUALIZER) += eql.o
  obj-$(CONFIG_IFB) += ifb.o
  obj-$(CONFIG_MACVLAN) += macvlan.o
  obj-$(CONFIG_MACVTAP) += macvtap.o
--obj-$(CONFIG_DEFXX) += defxx.o
- obj-$(CONFIG_EQUALIZER) += eql.o
+-obj-$(CONFIG_EQUALIZER) += eql.o
++obj-$(CONFIG_MII) += mii.o
++obj-$(CONFIG_MDIO) += mdio.o
++obj-$(CONFIG_NET) += Space.o loopback.o
++obj-$(CONFIG_NETCONSOLE) += netconsole.o
++obj-$(CONFIG_PHYLIB) += phy/
++obj-$(CONFIG_RIONET) += rionet.o
  obj-$(CONFIG_TUN) += tun.o
  obj-$(CONFIG_VETH) += veth.o
++obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
  
++#
++# Networking Drivers
++#
++obj-$(CONFIG_ARCNET) += arcnet/
  obj-$(CONFIG_DEV_APPLETALK) += appletalk/
++obj-$(CONFIG_CAIF) += caif/
++obj-$(CONFIG_CAN) += can/
++obj-$(CONFIG_ETRAX_ETHERNET) += cris/
  obj-$(CONFIG_ETHERNET) += ethernet/
-+obj-$(CONFIG_FDDI) += fddi/
+ obj-$(CONFIG_FDDI) += fddi/
+ obj-$(CONFIG_HIPPI) += hippi/
++obj-$(CONFIG_HAMRADIO) += hamradio/
++obj-$(CONFIG_IRDA) += irda/
+ obj-$(CONFIG_PLIP) += plip/
+ onj-$(CONFIG_PPP) += ppp/
+ obj-$(CONFIG_PPP_ASYNC) += ppp/
+@@ -48,9 +46,17 @@ obj-$(CONFIG_PPPOL2TP) += ppp/
+ obj-$(CONFIG_PPTP) += ppp/
+ onj-$(CONFIG_SLIP) += slip/
+ obj-$(CONFIG_SLHC) += slip/
++obj-$(CONFIG_NET_SB1000) += sb1000.o
++onj-$(CONFIG_SLIP) += slip/
++obj-$(CONFIG_SUNGEM_PHY) += sungem_phy.o
  obj-$(CONFIG_TR) += tokenring/
  obj-$(CONFIG_WAN) += wan/
- obj-$(CONFIG_ARCNET) += arcnet/
-diff --git a/drivers/net/fddi/Kconfig b/drivers/net/fddi/Kconfig
-new file mode 100644
-index 0000000..3a424c8
---- /dev/null
-+++ b/drivers/net/fddi/Kconfig
-@@ -0,0 +1,77 @@
-+#
-+# FDDI network device configuration
-+#
+-obj-$(CONFIG_ARCNET) += arcnet/
++obj-$(CONFIG_WLAN) += wireless/
++obj-$(CONFIG_WIMAX) += wimax/
 +
-+config FDDI
-+	tristate "FDDI driver support"
-+	depends on PCI || EISA || TC
-+	---help---
-+	  Fiber Distributed Data Interface is a high speed local area network
-+	  design; essentially a replacement for high speed Ethernet. FDDI can
-+	  run over copper or fiber. If you are connected to such a network and
-+	  want a driver for the FDDI card in your computer, say Y here (and
-+	  then also Y to the driver for your FDDI card, below). Most people
-+	  will say N.
-+
-+if FDDI
-+
-+config DEFXX
-+	tristate "Digital DEFTA/DEFEA/DEFPA adapter support"
-+	depends on FDDI && (PCI || EISA || TC)
-+	---help---
-+	  This is support for the DIGITAL series of TURBOchannel (DEFTA),
-+	  EISA (DEFEA) and PCI (DEFPA) controllers which can connect you
-+	  to a local FDDI network.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called defxx.  If unsure, say N.
-+
-+config DEFXX_MMIO
-+	bool
-+	prompt "Use MMIO instead of PIO" if PCI || EISA
-+	depends on DEFXX
-+	default n if PCI || EISA
-+	default y
-+	---help---
-+	  This instructs the driver to use EISA or PCI memory-mapped I/O
-+	  (MMIO) as appropriate instead of programmed I/O ports (PIO).
-+	  Enabling this gives an improvement in processing time in parts
-+	  of the driver, but it may cause problems with EISA (DEFEA)
-+	  adapters.  TURBOchannel does not have the concept of I/O ports,
-+	  so MMIO is always used for these (DEFTA) adapters.
-+
-+	  If unsure, say N.
-+
-+config SKFP
-+	tristate "SysKonnect FDDI PCI support"
-+	depends on FDDI && PCI
-+	select BITREVERSE
-+	---help---
-+	  Say Y here if you have a SysKonnect FDDI PCI adapter.
-+	  The following adapters are supported by this driver:
-+	  - SK-5521 (SK-NET FDDI-UP)
-+	  - SK-5522 (SK-NET FDDI-UP DAS)
-+	  - SK-5541 (SK-NET FDDI-FP)
-+	  - SK-5543 (SK-NET FDDI-LP)
-+	  - SK-5544 (SK-NET FDDI-LP DAS)
-+	  - SK-5821 (SK-NET FDDI-UP64)
-+	  - SK-5822 (SK-NET FDDI-UP64 DAS)
-+	  - SK-5841 (SK-NET FDDI-FP64)
-+	  - SK-5843 (SK-NET FDDI-LP64)
-+	  - SK-5844 (SK-NET FDDI-LP64 DAS)
-+	  - Netelligent 100 FDDI DAS Fibre SC
-+	  - Netelligent 100 FDDI SAS Fibre SC
-+	  - Netelligent 100 FDDI DAS UTP
-+	  - Netelligent 100 FDDI SAS UTP
-+	  - Netelligent 100 FDDI SAS Fibre MIC
-+
-+	  Read <file:Documentation/networking/skfp.txt> for information about
-+	  the driver.
-+
-+	  Questions concerning this driver can be addressed to:
-+	  <linux@syskonnect.de>
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called skfp.  This is recommended.
-+
-+endif # FDDI
-diff --git a/drivers/net/fddi/Makefile b/drivers/net/fddi/Makefile
-new file mode 100644
-index 0000000..36da19c
---- /dev/null
-+++ b/drivers/net/fddi/Makefile
-@@ -0,0 +1,6 @@
-+#
-+# Makefile for the Linux FDDI network device drivers.
-+#
-+
-+obj-$(CONFIG_DEFXX) += defxx.o
-+obj-$(CONFIG_SKFP) += skfp/
-diff --git a/drivers/net/defxx.c b/drivers/net/fddi/defxx.c
-similarity index 100%
-rename from drivers/net/defxx.c
-rename to drivers/net/fddi/defxx.c
-diff --git a/drivers/net/defxx.h b/drivers/net/fddi/defxx.h
-similarity index 100%
-rename from drivers/net/defxx.h
-rename to drivers/net/fddi/defxx.h
-diff --git a/drivers/net/skfp/Makefile b/drivers/net/fddi/skfp/Makefile
-similarity index 100%
-rename from drivers/net/skfp/Makefile
-rename to drivers/net/fddi/skfp/Makefile
-diff --git a/drivers/net/skfp/cfm.c b/drivers/net/fddi/skfp/cfm.c
-similarity index 100%
-rename from drivers/net/skfp/cfm.c
-rename to drivers/net/fddi/skfp/cfm.c
-diff --git a/drivers/net/skfp/drvfbi.c b/drivers/net/fddi/skfp/drvfbi.c
-similarity index 100%
-rename from drivers/net/skfp/drvfbi.c
-rename to drivers/net/fddi/skfp/drvfbi.c
-diff --git a/drivers/net/skfp/ecm.c b/drivers/net/fddi/skfp/ecm.c
-similarity index 100%
-rename from drivers/net/skfp/ecm.c
-rename to drivers/net/fddi/skfp/ecm.c
-diff --git a/drivers/net/skfp/ess.c b/drivers/net/fddi/skfp/ess.c
-similarity index 100%
-rename from drivers/net/skfp/ess.c
-rename to drivers/net/fddi/skfp/ess.c
-diff --git a/drivers/net/skfp/fplustm.c b/drivers/net/fddi/skfp/fplustm.c
-similarity index 100%
-rename from drivers/net/skfp/fplustm.c
-rename to drivers/net/fddi/skfp/fplustm.c
-diff --git a/drivers/net/skfp/h/cmtdef.h b/drivers/net/fddi/skfp/h/cmtdef.h
-similarity index 100%
-rename from drivers/net/skfp/h/cmtdef.h
-rename to drivers/net/fddi/skfp/h/cmtdef.h
-diff --git a/drivers/net/skfp/h/fddi.h b/drivers/net/fddi/skfp/h/fddi.h
-similarity index 100%
-rename from drivers/net/skfp/h/fddi.h
-rename to drivers/net/fddi/skfp/h/fddi.h
-diff --git a/drivers/net/skfp/h/fddimib.h b/drivers/net/fddi/skfp/h/fddimib.h
-similarity index 100%
-rename from drivers/net/skfp/h/fddimib.h
-rename to drivers/net/fddi/skfp/h/fddimib.h
-diff --git a/drivers/net/skfp/h/fplustm.h b/drivers/net/fddi/skfp/h/fplustm.h
-similarity index 100%
-rename from drivers/net/skfp/h/fplustm.h
-rename to drivers/net/fddi/skfp/h/fplustm.h
-diff --git a/drivers/net/skfp/h/hwmtm.h b/drivers/net/fddi/skfp/h/hwmtm.h
-similarity index 100%
-rename from drivers/net/skfp/h/hwmtm.h
-rename to drivers/net/fddi/skfp/h/hwmtm.h
-diff --git a/drivers/net/skfp/h/mbuf.h b/drivers/net/fddi/skfp/h/mbuf.h
-similarity index 100%
-rename from drivers/net/skfp/h/mbuf.h
-rename to drivers/net/fddi/skfp/h/mbuf.h
-diff --git a/drivers/net/skfp/h/osdef1st.h b/drivers/net/fddi/skfp/h/osdef1st.h
-similarity index 100%
-rename from drivers/net/skfp/h/osdef1st.h
-rename to drivers/net/fddi/skfp/h/osdef1st.h
-diff --git a/drivers/net/skfp/h/sba.h b/drivers/net/fddi/skfp/h/sba.h
-similarity index 100%
-rename from drivers/net/skfp/h/sba.h
-rename to drivers/net/fddi/skfp/h/sba.h
-diff --git a/drivers/net/skfp/h/sba_def.h b/drivers/net/fddi/skfp/h/sba_def.h
-similarity index 100%
-rename from drivers/net/skfp/h/sba_def.h
-rename to drivers/net/fddi/skfp/h/sba_def.h
-diff --git a/drivers/net/skfp/h/skfbi.h b/drivers/net/fddi/skfp/h/skfbi.h
-similarity index 100%
-rename from drivers/net/skfp/h/skfbi.h
-rename to drivers/net/fddi/skfp/h/skfbi.h
-diff --git a/drivers/net/skfp/h/skfbiinc.h b/drivers/net/fddi/skfp/h/skfbiinc.h
-similarity index 100%
-rename from drivers/net/skfp/h/skfbiinc.h
-rename to drivers/net/fddi/skfp/h/skfbiinc.h
-diff --git a/drivers/net/skfp/h/smc.h b/drivers/net/fddi/skfp/h/smc.h
-similarity index 100%
-rename from drivers/net/skfp/h/smc.h
-rename to drivers/net/fddi/skfp/h/smc.h
-diff --git a/drivers/net/skfp/h/smt.h b/drivers/net/fddi/skfp/h/smt.h
-similarity index 100%
-rename from drivers/net/skfp/h/smt.h
-rename to drivers/net/fddi/skfp/h/smt.h
-diff --git a/drivers/net/skfp/h/smt_p.h b/drivers/net/fddi/skfp/h/smt_p.h
-similarity index 100%
-rename from drivers/net/skfp/h/smt_p.h
-rename to drivers/net/fddi/skfp/h/smt_p.h
-diff --git a/drivers/net/skfp/h/smtstate.h b/drivers/net/fddi/skfp/h/smtstate.h
-similarity index 100%
-rename from drivers/net/skfp/h/smtstate.h
-rename to drivers/net/fddi/skfp/h/smtstate.h
-diff --git a/drivers/net/skfp/h/supern_2.h b/drivers/net/fddi/skfp/h/supern_2.h
-similarity index 100%
-rename from drivers/net/skfp/h/supern_2.h
-rename to drivers/net/fddi/skfp/h/supern_2.h
-diff --git a/drivers/net/skfp/h/targethw.h b/drivers/net/fddi/skfp/h/targethw.h
-similarity index 100%
-rename from drivers/net/skfp/h/targethw.h
-rename to drivers/net/fddi/skfp/h/targethw.h
-diff --git a/drivers/net/skfp/h/targetos.h b/drivers/net/fddi/skfp/h/targetos.h
-similarity index 100%
-rename from drivers/net/skfp/h/targetos.h
-rename to drivers/net/fddi/skfp/h/targetos.h
-diff --git a/drivers/net/skfp/h/types.h b/drivers/net/fddi/skfp/h/types.h
-similarity index 100%
-rename from drivers/net/skfp/h/types.h
-rename to drivers/net/fddi/skfp/h/types.h
-diff --git a/drivers/net/skfp/hwmtm.c b/drivers/net/fddi/skfp/hwmtm.c
-similarity index 100%
-rename from drivers/net/skfp/hwmtm.c
-rename to drivers/net/fddi/skfp/hwmtm.c
-diff --git a/drivers/net/skfp/hwt.c b/drivers/net/fddi/skfp/hwt.c
-similarity index 100%
-rename from drivers/net/skfp/hwt.c
-rename to drivers/net/fddi/skfp/hwt.c
-diff --git a/drivers/net/skfp/pcmplc.c b/drivers/net/fddi/skfp/pcmplc.c
-similarity index 100%
-rename from drivers/net/skfp/pcmplc.c
-rename to drivers/net/fddi/skfp/pcmplc.c
-diff --git a/drivers/net/skfp/pmf.c b/drivers/net/fddi/skfp/pmf.c
-similarity index 100%
-rename from drivers/net/skfp/pmf.c
-rename to drivers/net/fddi/skfp/pmf.c
-diff --git a/drivers/net/skfp/queue.c b/drivers/net/fddi/skfp/queue.c
-similarity index 100%
-rename from drivers/net/skfp/queue.c
-rename to drivers/net/fddi/skfp/queue.c
-diff --git a/drivers/net/skfp/rmt.c b/drivers/net/fddi/skfp/rmt.c
-similarity index 100%
-rename from drivers/net/skfp/rmt.c
-rename to drivers/net/fddi/skfp/rmt.c
-diff --git a/drivers/net/skfp/skfddi.c b/drivers/net/fddi/skfp/skfddi.c
-similarity index 100%
-rename from drivers/net/skfp/skfddi.c
-rename to drivers/net/fddi/skfp/skfddi.c
-diff --git a/drivers/net/skfp/smt.c b/drivers/net/fddi/skfp/smt.c
-similarity index 100%
-rename from drivers/net/skfp/smt.c
-rename to drivers/net/fddi/skfp/smt.c
-diff --git a/drivers/net/skfp/smtdef.c b/drivers/net/fddi/skfp/smtdef.c
-similarity index 100%
-rename from drivers/net/skfp/smtdef.c
-rename to drivers/net/fddi/skfp/smtdef.c
-diff --git a/drivers/net/skfp/smtinit.c b/drivers/net/fddi/skfp/smtinit.c
-similarity index 100%
-rename from drivers/net/skfp/smtinit.c
-rename to drivers/net/fddi/skfp/smtinit.c
-diff --git a/drivers/net/skfp/smttimer.c b/drivers/net/fddi/skfp/smttimer.c
-similarity index 100%
-rename from drivers/net/skfp/smttimer.c
-rename to drivers/net/fddi/skfp/smttimer.c
-diff --git a/drivers/net/skfp/srf.c b/drivers/net/fddi/skfp/srf.c
-similarity index 100%
-rename from drivers/net/skfp/srf.c
-rename to drivers/net/fddi/skfp/srf.c
++obj-$(CONFIG_VMXNET3) += vmxnet3/
++obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
++obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
+ 
+ obj-$(CONFIG_USB_CATC)          += usb/
+ obj-$(CONFIG_USB_KAWETH)        += usb/
+@@ -61,17 +67,3 @@ obj-$(CONFIG_USB_USBNET)        += usb/
+ obj-$(CONFIG_USB_ZD1201)        += usb/
+ obj-$(CONFIG_USB_IPHETH)        += usb/
+ obj-$(CONFIG_USB_CDC_PHONET)   += usb/
+-
+-obj-$(CONFIG_WLAN) += wireless/
+-obj-$(CONFIG_HAMRADIO) += hamradio/
+-obj-$(CONFIG_IRDA) += irda/
+-obj-$(CONFIG_ETRAX_ETHERNET) += cris/
+-
+-obj-$(CONFIG_NETCONSOLE) += netconsole.o
+-
+-obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+-
+-obj-$(CONFIG_WIMAX) += wimax/
+-obj-$(CONFIG_CAIF) += caif/
+-
+-obj-$(CONFIG_SUNGEM_PHY) += sungem_phy.o
+diff --git a/drivers/net/arcnet/Kconfig b/drivers/net/arcnet/Kconfig
+index 84fb634..a73d9dc 100644
+--- a/drivers/net/arcnet/Kconfig
++++ b/drivers/net/arcnet/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ menuconfig ARCNET
+ 	depends on NETDEVICES && (ISA || PCI || PCMCIA)
+-	tristate "ARCnet support"
++	bool "ARCnet support"
+ 	---help---
+ 	  If you have a network card of this type, say Y and check out the
+ 	  (arguably) beautiful poetry in
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index a702443..bb88e12 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -3,7 +3,7 @@
+ #
+ 
+ menuconfig PHYLIB
+-	tristate "PHY Device support and infrastructure"
++	bool "PHY Device support and infrastructure"
+ 	depends on !S390
+ 	depends on NETDEVICES
+ 	help
+diff --git a/drivers/net/tokenring/Kconfig b/drivers/net/tokenring/Kconfig
+index 0f70158..c7e0149 100644
+--- a/drivers/net/tokenring/Kconfig
++++ b/drivers/net/tokenring/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ # So far, we only have PCI, ISA, and MCA token ring devices
+ menuconfig TR
+-	tristate "Token Ring driver support"
++	bool "Token Ring driver support"
+ 	depends on NETDEVICES && !UML
+ 	depends on (PCI || ISA || MCA || CCW || PCMCIA)
+ 	select LLC
 -- 
 1.7.6
