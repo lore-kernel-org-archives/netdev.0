@@ -1,263 +1,143 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/10] slip: Move the SLIP drivers
-Date: Sat, 27 Aug 2011 02:55:12 -0700
-Message-ID: <1314438916-2478-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/10] ixbmtr_cs: Move the IBM PCMCIA Token Ring driver
+Date: Sat, 27 Aug 2011 02:55:13 -0700
+Message-ID: <1314438916-2478-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1314438916-2478-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+	gospo@redhat.com, Mike Phillips <phillim@amtrak.com>,
+	Burt Silverman <burts@us.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:47980 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:42842 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751071Ab1H0JzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Aug 2011 05:55:25 -0400
+	id S1751146Ab1H0Jz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Aug 2011 05:55:26 -0400
 In-Reply-To: <1314438916-2478-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the Serial Line Internet Protocol (SLIP) drivers into
-drivers/net/slip/ and make the necessary Kconfig and Makefile
-changes.
+Move the IBM PCMCIA Token Ring driver into drivers/net/tokenring/ with
+the other Token Ring drivers.  Made the necessary Kconfig and Makefile
+changes as well.
 
+CC: Mike Phillips <phillim@amtrak.com>
+CC: Burt Silverman <burts@us.ibm.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Alan Cox <alan@linux.intel.com>
 ---
- drivers/net/Kconfig           |   74 +-------------------------------------
- drivers/net/Makefile          |    4 +-
- drivers/net/slip/Kconfig      |   79 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/slip/Makefile     |    6 +++
- drivers/net/{ => slip}/slhc.c |    0
- drivers/net/{ => slip}/slip.c |    0
- drivers/net/{ => slip}/slip.h |    0
- 7 files changed, 89 insertions(+), 74 deletions(-)
- create mode 100644 drivers/net/slip/Kconfig
- create mode 100644 drivers/net/slip/Makefile
- rename drivers/net/{ => slip}/slhc.c (100%)
- rename drivers/net/{ => slip}/slip.c (100%)
- rename drivers/net/{ => slip}/slip.h (100%)
+ drivers/net/pcmcia/Kconfig                   |   11 -----------
+ drivers/net/pcmcia/Makefile                  |    2 --
+ drivers/net/tokenring/Kconfig                |   13 ++++++++++++-
+ drivers/net/tokenring/Makefile               |   21 +++++++++++----------
+ drivers/net/{pcmcia => tokenring}/ibmtr_cs.c |    2 +-
+ 5 files changed, 24 insertions(+), 25 deletions(-)
+ rename drivers/net/{pcmcia => tokenring}/ibmtr_cs.c (99%)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 3f72686..b3206c9 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -199,6 +199,8 @@ source "drivers/net/fddi/Kconfig"
+diff --git a/drivers/net/pcmcia/Kconfig b/drivers/net/pcmcia/Kconfig
+index 12e7ae4..ff4deb0 100644
+--- a/drivers/net/pcmcia/Kconfig
++++ b/drivers/net/pcmcia/Kconfig
+@@ -31,15 +31,4 @@ config ARCNET_COM20020_CS
+ 	  To compile this driver as a module, choose M here: the module will be
+ 	  called com20020_cs.  If unsure, say N.
  
- source "drivers/net/plip/Kconfig"
- 
-+source "drivers/net/slip/Kconfig"
-+
- source "drivers/net/tokenring/Kconfig"
- 
- source "drivers/net/wireless/Kconfig"
-@@ -274,78 +276,6 @@ config RIONET_RX_SIZE
- 	depends on RIONET
- 	default "128"
- 
--config SLIP
--	tristate "SLIP (serial line) support"
--	---help---
--	  Say Y if you intend to use SLIP or CSLIP (compressed SLIP) to
--	  connect to your Internet service provider or to connect to some
--	  other local Unix box or if you want to configure your Linux box as a
--	  Slip/CSlip server for other people to dial in. SLIP (Serial Line
--	  Internet Protocol) is a protocol used to send Internet traffic over
--	  serial connections such as telephone lines or null modem cables;
--	  nowadays, the protocol PPP is more commonly used for this same
--	  purpose.
--
--	  Normally, your access provider has to support SLIP in order for you
--	  to be able to use it, but there is now a SLIP emulator called SLiRP
--	  around (available from
--	  <ftp://ibiblio.org/pub/Linux/system/network/serial/>) which
--	  allows you to use SLIP over a regular dial up shell connection. If
--	  you plan to use SLiRP, make sure to say Y to CSLIP, below. The
--	  NET-3-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>, explains how to
--	  configure SLIP. Note that you don't need this option if you just
--	  want to run term (term is a program which gives you almost full
--	  Internet connectivity if you have a regular dial up shell account on
--	  some Internet connected Unix computer. Read
--	  <http://www.bart.nl/~patrickr/term-howto/Term-HOWTO.html>). SLIP
--	  support will enlarge your kernel by about 4 KB. If unsure, say N.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called slip.
--
--config SLIP_COMPRESSED
--	bool "CSLIP compressed headers"
--	depends on SLIP
--	select SLHC
--	---help---
--	  This protocol is faster than SLIP because it uses compression on the
--	  TCP/IP headers (not on the data itself), but it has to be supported
--	  on both ends. Ask your access provider if you are not sure and
--	  answer Y, just in case. You will still be able to use plain SLIP. If
--	  you plan to use SLiRP, the SLIP emulator (available from
--	  <ftp://ibiblio.org/pub/Linux/system/network/serial/>) which
--	  allows you to use SLIP over a regular dial up shell connection, you
--	  definitely want to say Y here. The NET-3-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>, explains how to configure
--	  CSLIP. This won't enlarge your kernel.
--
--config SLHC
--	tristate
+-config PCMCIA_IBMTR
+-	tristate "IBM PCMCIA tokenring adapter support"
+-	depends on IBMTR!=y && TR
 -	help
--	  This option enables Van Jacobsen serial line header compression
--	  routines.
+-	  Say Y here if you intend to attach this type of Token Ring PCMCIA
+-	  card to your computer. You then also need to say Y to "Token Ring
+-	  driver support".
 -
--config SLIP_SMART
--	bool "Keepalive and linefill"
--	depends on SLIP
--	help
--	  Adds additional capabilities to the SLIP driver to support the
--	  RELCOM line fill and keepalive monitoring. Ideal on poor quality
--	  analogue lines.
+-	  To compile this driver as a module, choose M here: the module will be
+-	  called ibmtr_cs.
 -
--config SLIP_MODE_SLIP6
--	bool "Six bit SLIP encapsulation"
--	depends on SLIP
--	help
--	  Just occasionally you may need to run IP over hostile serial
--	  networks that don't pass all control characters or are only seven
--	  bit. Saying Y here adds an extra mode you can use with SLIP:
--	  "slip6". In this mode, SLIP will only send normal ASCII symbols over
--	  the serial device. Naturally, this has to be supported at the other
--	  end of the link as well. It's good enough, for example, to run IP
--	  over the async ports of a Camtec JNT Pad. If unsure, say N.
--
- config NET_FC
- 	bool "Fibre Channel driver support"
- 	depends on SCSI && PCI
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 52dae95..e6a183e 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -20,8 +20,6 @@ obj-$(CONFIG_RIONET) += rionet.o
+ endif # NET_PCMCIA
+diff --git a/drivers/net/pcmcia/Makefile b/drivers/net/pcmcia/Makefile
+index 618e816..b98a0a4 100644
+--- a/drivers/net/pcmcia/Makefile
++++ b/drivers/net/pcmcia/Makefile
+@@ -4,5 +4,3 @@
  
- obj-$(CONFIG_NET) += Space.o loopback.o
- obj-$(CONFIG_NET_SB1000) += sb1000.o
--obj-$(CONFIG_SLIP) += slip.o
--obj-$(CONFIG_SLHC) += slhc.o
+ # 16-bit client drivers
+ obj-$(CONFIG_ARCNET_COM20020_CS)+= com20020_cs.o
+-
+-obj-$(CONFIG_PCMCIA_IBMTR)	+= ibmtr_cs.o
+diff --git a/drivers/net/tokenring/Kconfig b/drivers/net/tokenring/Kconfig
+index c4137b0..0f70158 100644
+--- a/drivers/net/tokenring/Kconfig
++++ b/drivers/net/tokenring/Kconfig
+@@ -6,7 +6,7 @@
+ menuconfig TR
+ 	tristate "Token Ring driver support"
+ 	depends on NETDEVICES && !UML
+-	depends on (PCI || ISA || MCA || CCW)
++	depends on (PCI || ISA || MCA || CCW || PCMCIA)
+ 	select LLC
+ 	help
+ 	  Token Ring is IBM's way of communication on a local network; the
+@@ -20,6 +20,17 @@ menuconfig TR
  
- obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
- obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
-@@ -48,6 +46,8 @@ obj-$(CONFIG_PPP_SYNC_TTY) += ppp/
- obj-$(CONFIG_PPPOE) += ppp/
- obj-$(CONFIG_PPPOL2TP) += ppp/
- obj-$(CONFIG_PPTP) += ppp/
-+onj-$(CONFIG_SLIP) += slip/
-+obj-$(CONFIG_SLHC) += slip/
- obj-$(CONFIG_TR) += tokenring/
- obj-$(CONFIG_WAN) += wan/
- obj-$(CONFIG_ARCNET) += arcnet/
-diff --git a/drivers/net/slip/Kconfig b/drivers/net/slip/Kconfig
-new file mode 100644
-index 0000000..211b160
---- /dev/null
-+++ b/drivers/net/slip/Kconfig
-@@ -0,0 +1,79 @@
-+#
-+# SLIP network device configuration
-+#
-+
-+config SLIP
-+	tristate "SLIP (serial line) support"
+ if TR
+ 
++config PCMCIA_IBMTR
++	tristate "IBM PCMCIA tokenring adapter support"
++	depends on IBMTR!=y && PCMCIA
 +	---help---
-+	  Say Y if you intend to use SLIP or CSLIP (compressed SLIP) to
-+	  connect to your Internet service provider or to connect to some
-+	  other local Unix box or if you want to configure your Linux box as a
-+	  Slip/CSlip server for other people to dial in. SLIP (Serial Line
-+	  Internet Protocol) is a protocol used to send Internet traffic over
-+	  serial connections such as telephone lines or null modem cables;
-+	  nowadays, the protocol PPP is more commonly used for this same
-+	  purpose.
++	  Say Y here if you intend to attach this type of Token Ring PCMCIA
++	  card to your computer. You then also need to say Y to "Token Ring
++	  driver support".
 +
-+	  Normally, your access provider has to support SLIP in order for you
-+	  to be able to use it, but there is now a SLIP emulator called SLiRP
-+	  around (available from
-+	  <ftp://ibiblio.org/pub/Linux/system/network/serial/>) which
-+	  allows you to use SLIP over a regular dial up shell connection. If
-+	  you plan to use SLiRP, make sure to say Y to CSLIP, below. The
-+	  NET-3-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>, explains how to
-+	  configure SLIP. Note that you don't need this option if you just
-+	  want to run term (term is a program which gives you almost full
-+	  Internet connectivity if you have a regular dial up shell account on
-+	  some Internet connected Unix computer. Read
-+	  <http://www.bart.nl/~patrickr/term-howto/Term-HOWTO.html>). SLIP
-+	  support will enlarge your kernel by about 4 KB. If unsure, say N.
++	  To compile this driver as a module, choose M here: the module will be
++	  called ibmtr_cs.
 +
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called slip.
-+
-+config SLHC
-+	tristate
-+	---help---
-+	  This option enables Van Jacobsen serial line header compression
-+	  routines.
-+
-+if SLIP
-+
-+config SLIP_COMPRESSED
-+	bool "CSLIP compressed headers"
-+	depends on SLIP
-+	select SLHC
-+	---help---
-+	  This protocol is faster than SLIP because it uses compression on the
-+	  TCP/IP headers (not on the data itself), but it has to be supported
-+	  on both ends. Ask your access provider if you are not sure and
-+	  answer Y, just in case. You will still be able to use plain SLIP. If
-+	  you plan to use SLiRP, the SLIP emulator (available from
-+	  <ftp://ibiblio.org/pub/Linux/system/network/serial/>) which
-+	  allows you to use SLIP over a regular dial up shell connection, you
-+	  definitely want to say Y here. The NET-3-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>, explains how to configure
-+	  CSLIP. This won't enlarge your kernel.
-+
-+config SLIP_SMART
-+	bool "Keepalive and linefill"
-+	depends on SLIP
-+	---help---
-+	  Adds additional capabilities to the SLIP driver to support the
-+	  RELCOM line fill and keepalive monitoring. Ideal on poor quality
-+	  analogue lines.
-+
-+config SLIP_MODE_SLIP6
-+	bool "Six bit SLIP encapsulation"
-+	depends on SLIP
-+	---help---
-+	  Just occasionally you may need to run IP over hostile serial
-+	  networks that don't pass all control characters or are only seven
-+	  bit. Saying Y here adds an extra mode you can use with SLIP:
-+	  "slip6". In this mode, SLIP will only send normal ASCII symbols over
-+	  the serial device. Naturally, this has to be supported at the other
-+	  end of the link as well. It's good enough, for example, to run IP
-+	  over the async ports of a Camtec JNT Pad. If unsure, say N.
-+
-+endif # SLIP
-diff --git a/drivers/net/slip/Makefile b/drivers/net/slip/Makefile
-new file mode 100644
-index 0000000..e3ebc59
---- /dev/null
-+++ b/drivers/net/slip/Makefile
-@@ -0,0 +1,6 @@
-+#
-+# Makefile for the SLIP network device drivers.
-+#
-+
-+obj-$(CONFIG_SLIP) += slip.o
-+obj-$(CONFIG_SLHC) += slhc.o
-diff --git a/drivers/net/slhc.c b/drivers/net/slip/slhc.c
-similarity index 100%
-rename from drivers/net/slhc.c
-rename to drivers/net/slip/slhc.c
-diff --git a/drivers/net/slip.c b/drivers/net/slip/slip.c
-similarity index 100%
-rename from drivers/net/slip.c
-rename to drivers/net/slip/slip.c
-diff --git a/drivers/net/slip.h b/drivers/net/slip/slip.h
-similarity index 100%
-rename from drivers/net/slip.h
-rename to drivers/net/slip/slip.h
+ config IBMTR
+ 	tristate "IBM Tropic chipset based adapter support"
+ 	depends on ISA || MCA
+diff --git a/drivers/net/tokenring/Makefile b/drivers/net/tokenring/Makefile
+index c88b0a5..f1be8d9 100644
+--- a/drivers/net/tokenring/Makefile
++++ b/drivers/net/tokenring/Makefile
+@@ -2,14 +2,15 @@
+ # Makefile for drivers/net/tokenring
+ #
+ 
+-obj-$(CONFIG_IBMTR) 	+= ibmtr.o
+-obj-$(CONFIG_IBMOL) 	+= olympic.o
+-obj-$(CONFIG_IBMLS) 	+= lanstreamer.o
+-obj-$(CONFIG_TMS380TR) 	+= tms380tr.o
+-obj-$(CONFIG_ABYSS) 	+= abyss.o
+-obj-$(CONFIG_MADGEMC) 	+= madgemc.o
+-obj-$(CONFIG_PROTEON) 	+= proteon.o
+-obj-$(CONFIG_TMSPCI) 	+= tmspci.o
+-obj-$(CONFIG_SKISA) 	+= skisa.o
+-obj-$(CONFIG_SMCTR) 	+= smctr.o
++obj-$(CONFIG_PCMCIA_IBMTR)	+= ibmtr_cs.o
++obj-$(CONFIG_IBMTR)	+= ibmtr.o
++obj-$(CONFIG_IBMOL)	+= olympic.o
++obj-$(CONFIG_IBMLS)	+= lanstreamer.o
++obj-$(CONFIG_TMS380TR)	+= tms380tr.o
++obj-$(CONFIG_ABYSS)	+= abyss.o
++obj-$(CONFIG_MADGEMC)	+= madgemc.o
++obj-$(CONFIG_PROTEON)	+= proteon.o
++obj-$(CONFIG_TMSPCI)	+= tmspci.o
++obj-$(CONFIG_SKISA)	+= skisa.o
++obj-$(CONFIG_SMCTR)	+= smctr.o
+ obj-$(CONFIG_3C359)	+= 3c359.o
+diff --git a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/tokenring/ibmtr_cs.c
+similarity index 99%
+rename from drivers/net/pcmcia/ibmtr_cs.c
+rename to drivers/net/tokenring/ibmtr_cs.c
+index 6006d54..91b6846 100644
+--- a/drivers/net/pcmcia/ibmtr_cs.c
++++ b/drivers/net/tokenring/ibmtr_cs.c
+@@ -66,7 +66,7 @@
+ #include <asm/system.h>
+ 
+ #define PCMCIA
+-#include "../tokenring/ibmtr.c"
++#include "ibmtr.c"
+ 
+ 
+ /*====================================================================*/
 -- 
 1.7.6
