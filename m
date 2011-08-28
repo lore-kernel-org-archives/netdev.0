@@ -1,109 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next ] Fix time-lag of IFF_RUNNING flag consistency
- between vlan and real devices
-Date: Sun, 28 Aug 2011 16:09:49 +0200
-Message-ID: <1314540589.3036.12.camel@edumazet-laptop>
-References: <20110826060257.5304.62723.stgit@ltc219.sdl.hitachi.co.jp>
-	 <20110825230859.11b2b132@nehalam.ftrdhcpuser.net>
-	 <20110826064553.GA5874@gondor.apana.org.au>  <4E5A40A9.2000404@hitachi.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v2 05/10] headers, net: Define struct
+ __kernel_sockaddr, replacing struct sockaddr
+Date: Sun, 28 Aug 2011 17:22:39 +0100
+Message-ID: <1314548559.9176.5.camel@deadeye>
+References: <20110826.110820.2220935212459386472.davem@davemloft.net>
+	 <20110826154248.GD24107@decadent.org.uk>
+	 <20110826.120451.1765083060493659307.davem@davemloft.net>
+	 <20110826.122024.278846592642798982.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?Q?Micha=C5=82Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Tom Herbert <therbert@google.com>,
-	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
-To: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E5A40A9.2000404@hitachi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-mQsVwe8vftJcwkIQ9wjp"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:38777 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751420Ab1H1QWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2011 12:22:46 -0400
+In-Reply-To: <20110826.122024.278846592642798982.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 28 ao=C3=BBt 2011 =C3=A0 22:20 +0900, HAYASAKA Mitsuo a =C3=
-=A9crit :
-> Hi Stephen and Herbert
->=20
-> Thank you for your comments.
->=20
-> (2011/08/26 15:08), Stephen Hemminger wrote:
-> > I don't think this is the right way to solve the problem.
-> >
-> > The flags are supposed to propagate back from real device to vlan
-> > via network notifications.
-> >
-> > Just doing this for ioctl is not enough, API's other than user spac=
-e depend on this.
-> > Also the user may have manually set different flags on vlan than on
-> > the real device.
->=20
-> I agreed.
-> I will try another way to solve this problem, as you said.
->=20
->=20
-> (2011/08/26 15:45), Herbert Xu wrote:
-> > On Thu, Aug 25, 2011 at 11:08:59PM -0700, Stephen Hemminger wrote:
-> >> Just doing this for ioctl is not enough, API's other than user spa=
-ce depend on this.
-> >> Also the user may have manually set different flags on vlan than o=
-n
-> >> the real device.
-> > Right, anything that tests netif_carrier_ok directly on the VLAN
-> > device will still be delayed.
-> >
-> > Now I remember discussing this issue in Japan.  However, I can't
-> > recall the exact scenario in which the delay occured.
-> >
-> > Is the issue with the link status going down on the real device,
-> > or the real device coming up?
-> >
-> > IIRC we already have mechanisms in place to ensure that down events
-> > are not delayed by linkwatch.  Of course it is possible that this
-> > isn't working for some reason, or some other part of the system is
-> > causing the delay.
-> >
-> > So please clarify the scenario for us Hayasaka-san.  Also please
-> > let us know how you measured the delay.
-> >
-> > Thanks,
->=20
-> This issue happens when the link status is going down on the real=20
-> device.
->=20
-> ex) A cable is broken, or is unplugged from a NIC.
->=20
-> I measured the delay using ioctl with SIOCGIFFLAGS from userspace=20
-> in order to check if there is a time-lag of the flag between vlan=20
-> and real devices.
->=20
-> Also, you can check it using a script below.
->=20
-> -------------------------
-> #!/bin/sh
-> t=3D0
-> while :
-> do
-> 	echo $t; t=3D$((t+1))
-> 	echo -n real; ifconfig RealDev | grep UP
-> 	echo -n vlan; ifconfig VlanDev | grep UP
-> 	sleep 0.2
-> done
-> -------------------------
->=20
-> The result is shown as follows.
-> It is observed that there is a time-lag of RUNNING status between=20
-> real and vlan devices.
->=20
->=20
 
-Hi !
+--=-mQsVwe8vftJcwkIQ9wjp
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-This reminds me some work done in linkwatch
+On Fri, 2011-08-26 at 12:20 -0400, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Fri, 26 Aug 2011 12:04:51 -0400 (EDT)
+>=20
+> > From: Ben Hutchings <ben@decadent.org.uk>
+> > Date: Fri, 26 Aug 2011 16:42:48 +0100
+> >=20
+> >> This #define is in the #ifdef __KERNEL__ section.  I don't want t
+> >> change all the in-kernel users to say __kernel_sockaddr.  This is
+> >> just the same as the preceding 'typedef __kernel_sa_family_t
+> >> sa_family_t' except that you can't create struct aliases that way.
+> >=20
+> > Aha, I didn't catch that part.  Then this is fine, thanks for
+> > explaining Ben.
+>=20
+> Actually, this patch breaks the build, specifically of ifenslave.c
+>=20
+> I'll leave the other patches in, but you'll need to respin this one.
+[...]
 
-Please take a look at commit e014debecd3ee3832e647 (linkwatch:
-linkwatch_forget_dev() to speedup device dismantle)
+Right, it looks like this will have to wait for a proper resolution of
+the conflicts between kernel and libc types.
 
-And more generally, code in net/core/link_watch.c
+Ben.
+
+
+--=-mQsVwe8vftJcwkIQ9wjp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIVAwUATlprT+e/yOyVhhEJAQobYxAAs+ReCqZ4gqL30QujL7PZ98a9qWOHUPSQ
+o8jvu0bwpSkTiYwHw2yM3ULXu4dRoD4w+SsnXYYa2jSHqdV0NukVwy5eddZvvX2T
+merJ7XnE+ZpVu5haCUIXjvsjN67fL/aANBl0fyTm5/F8Tfl6yHJlvOedtDVyl+W7
+sTbn2ezcLBbvcAr1k362bPuFOwuNR3Ik6DShSLwwf6UDxLZC7sK/X/pU7m0JQIRQ
+KIc4wvxQG8QkojdQ98Ge+e13tlI1qH0Apla/zWCFeVNIzAwPJjFER2o6EE/D6WUn
+UV7np2QCvbjoTaOOYs+oBU5ab/t0MSJa6YV8eMHhSRmz9ivc36da+tCka2R8JDUB
+6HGVIn1p/iz4ZCUsSx8um42sTBy6pV5vjdW7OXhggTYUW+Vh1Q9syfNWoWeF/bH5
+x+8XLGqfgTAHbhymDuXJhWQ10oq/pGCSkNL2TzxNTCO+JxpZoalM/uogTnU/RyAn
+Hgsv0lELs3jAs1fn6PfidLcXFNnhChA64TqlJWaBTA8agKb43o9Hj1JYNUMEgC+z
+ev7w2iCUkFnaTemvPZjnKjM/kv8A9r8DXTsMdEB6bJwK19i6C9HjKqsIUOpZR2Uj
+Cr67qPeuiPW+llMw4etUZJaqaV/RTGCXqvJBjIlw4sIfs5XNbuGZxMZxvlo5+XCe
+MlN0SIyccMM=
+=6REy
+-----END PGP SIGNATURE-----
+
+--=-mQsVwe8vftJcwkIQ9wjp--
