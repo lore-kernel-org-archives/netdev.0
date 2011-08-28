@@ -1,43 +1,40 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 3.1-rc3-git6: Reported regressions from 3.0
-Date: Sun, 28 Aug 2011 12:49:26 -0700
-Message-ID: <CA+55aFxuTmfE3iFL7ko=9ZWDuxenssw69hyEG3bgQxy_QDqgZA__11303.5979833969$1314561047$gmane$org@mail.gmail.com>
-References: <lx6sezwGldO.A.IhF.UBpWOB@chimera> <20110828193519.GA14132@redhat.com>
+From: Peter =?iso-8859-15?q?H=FCwe?= <PeterHuewe@gmx.de>
+Subject: Re: [PATCH] net/mac80211/debugfs: Convert to kstrou8_from_user
+Date: Sun, 28 Aug 2011 21:52:31 +0200
+Message-ID: <201108282152.32180.PeterHuewe@gmx.de>
+References: <1307478974-32727-1-git-send-email-peterhuewe@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Dave Jones <davej@redhat.com>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39230 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752144Ab1H1TuR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Aug 2011 15:50:17 -0400
-In-Reply-To: <20110828193519.GA14132@redhat.com>
+Received: from mailout-de.gmx.net ([213.165.64.22]:49754 "HELO
+	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752366Ab1H1Twg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2011 15:52:36 -0400
+In-Reply-To: <1307478974-32727-1-git-send-email-peterhuewe@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 28, 2011 at 12:35 PM, Dave Jones <davej@redhat.com> wrote:
-> On Sun, Aug 28, 2011 at 08:22:05PM +0200, Rafael J. Wysocki wrote:
->
-> =A0> Bug-Entry =A0 =A0: http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-41742
-> =A0> Subject =A0 =A0 =A0 =A0 =A0 =A0 =A0: duplicate filename =A0for i=
-ntel_backlight with the i915 driver
-> =A0> Submitter =A0 =A0: Fran=E7ois Valenduc <francois.valenduc@tvcabl=
-enet.be>
-> =A0> Date =A0 =A0 =A0 =A0 : 2011-08-25 18:51 (4 days old)
-> =A0> First-Bad-Commit: http://git.kernel.org/linus/aaa6fd2a004147bf32=
-fce05720938236de3361d9
->
-> this should be fixed by b727d20269e8ef1de002bfea8099f5e9db9e9f23
+Am Dienstag 07 Juni 2011, 22:36:14 schrieb Peter Huewe:
+> This patch replaces the code for getting an number from a
+> userspace buffer by a simple call to kstrou8_from_user.
+> This makes it easier to read and less error prone.
+> 
+> Since the old buffer was only 10 bytes long and the value is masked by a
+> nibble-mask anyway, we don't need to use kstrtoul but rather kstrtou8.
+> 
+> Kernel Version: v3.0-rc2
+> 
+> Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 
-Actually, by a2cc797d2d1a ("i915: do not setup intel_backlight ").
+Any updates on this one?
+Still applies to the latest linus' tree
 
-That b727d20269e is just my merge commit that brings in the fix (and
-the bogus initialization of 'locked') into mainline.
-
-                   Linus
+Thanks,
+Peter
