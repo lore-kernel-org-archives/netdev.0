@@ -1,61 +1,93 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCHv3 0/9] macb: add support for Cadence GEM
-Date: Sun, 28 Aug 2011 08:08:20 +0200
-Message-ID: <20110828060820.GB20128@game.jcrosoft.org>
-References: <1312881411-2376-1-git-send-email-jamie@jamieiles.com>
-	<20110809145940.GP22213@game.jcrosoft.org>
-	<20110823093453.GJ2796@pulham.picochip.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: use better NUMA affinities
+Date: Sun, 28 Aug 2011 12:02:24 +0200
+Message-ID: <1314525744.3036.10.camel@edumazet-laptop>
+References: <F67B6E82-9FA8-464E-B3FB-DC0D4EC18BB0@fastmail.fm>
+	 <20110729164836.GL23194@fieldses.org> <20110729165345.GM23194@fieldses.org>
+	 <F562C6F4-3FC2-4952-A903-8E87E9EF2D9D@fastmail.fm>
+	 <20110730093025.716f3f50@notabene.brown>
+	 <20110729234857.GA30941@fieldses.org>
+	 <1311998914.2873.27.camel@edumazet-laptop>
+	 <20110730160610.0b751ffd@notabene.brown>
+	 <1312006990.2873.75.camel@edumazet-laptop>
+	 <1312095534.2873.108.camel@edumazet-laptop>
+	 <20110827000219.GF18699@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Jamie Iles <jamie@jamieiles.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20110823093453.GJ2796@pulham.picochip.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>, Greg Banks <gnb-97jfqw80gc6171pxa8y+qA@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110827000219.GF18699-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 10:34 Tue 23 Aug     , Jamie Iles wrote:
-> Hi Jean-Christoph,
-> 
-> On Tue, Aug 09, 2011 at 04:59:40PM +0200, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> > On 10:16 Tue 09 Aug     , Jamie Iles wrote:
-> > > This is largely a repost of the series I posted back in March.  The only changes
-> > > since then are rebasing onto 3.1-rc1 and changing the gem conditionals from a
-> > > boolean in the macb structure to an inline helper as requested by
-> > > Jean-Christophe.
-> > > 
-> > > This has been run-tested on picoxcell and compile tested for all AT91 platforms
-> > > but I couldn't get a working cross compiler for avr32.
-> > > 
-> > > All patches are available in a git branch at
-> > > 
-> > > 	git://github.com/jamieiles/linux-2.6-ji.git macb-gem
-> > > 
-> > looks good except few comments
-> > 
-> > I'll test it later this week
-> 
-> Have you had chance to test this series?  I'd like to get it into Arnd's 
-> tree and into next for a bit so we can get it into the next release if 
-> possible.
+Le vendredi 26 ao=C3=BBt 2011 =C3=A0 20:02 -0400, J. Bruce Fields a =C3=
+=A9crit :
+> On Sun, Jul 31, 2011 at 08:58:54AM +0200, Eric Dumazet wrote:
+> > Le samedi 30 juillet 2011 =C3=A0 08:23 +0200, Eric Dumazet a =C3=A9=
+crit :
+> > > Le samedi 30 juillet 2011 =C3=A0 16:06 +1000, NeilBrown a =C3=A9c=
+rit :
+> > > > umount /proc/fs/nfsd
+> > > >=20
+> > > >=20
+> > >=20
+> > > Thans  a lot, this was the thing I missed !
+> > >=20
+> > >=20
+> >=20
+> > Hmm, after this, I left things as the were (nfsd module loaded, but=
+ a 0
+> > use count )
+> >=20
+> > I got a BUG while updatedb was running,
+> > (I tried this on a debian machine/kernel)
+> >=20
+> > Same bug on :
+> >=20
+> > cat /proc/self/mounts=20
+>=20
+> Any luck figuring this out?
+>=20
+> I tried reproducing, by stopping everything to get nfsd refcount to
+> zero:
+>=20
+> 	# lsmod | grep '^nfsd'
+> 	nfsd                  300025  0=20
+>=20
+> then running 'cat /proc/self/mounts'.
+>=20
+> But I don't see any crash.
+>=20
+> This is only 3.1.0-rc1 plus some nfsd patches.
+>=20
+> --b.
+>=20
+> >=20
+> > I'll take a look at this issue later, after my vacations, unless so=
+meone
+> > wants to take a look before me ;)
 
-I'm back from travelling
+Unfortunately, latest linux tree doesnt even boot on my machine, so I
+cannot reproduce the problem right now.
 
-I've test it on usb-a9g20 with boot over nfs
+Last message displayed being "Switching to clocksource tsc"
 
-work
+Previous kernels were continuing with :
 
-Tested-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+[    4.448417] 00:09: ttyS1 at I/O 0x2f8 (irq =3D 3) is a 16550A
+[    4.597727] Real Time Clock Driver v1.12b
 
-Best Regards,
-J.
+Might be a problem with latest tty changes=20
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
