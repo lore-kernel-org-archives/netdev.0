@@ -1,77 +1,109 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next v2 05/10] headers, net: Define struct
- __kernel_sockaddr, replacing struct sockaddr
-Date: Sun, 28 Aug 2011 17:22:39 +0100
-Message-ID: <1314548559.9176.5.camel@deadeye>
-References: <20110826.110820.2220935212459386472.davem@davemloft.net>
-	 <20110826154248.GD24107@decadent.org.uk>
-	 <20110826.120451.1765083060493659307.davem@davemloft.net>
-	 <20110826.122024.278846592642798982.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: 3.1-rc3-git6: Reported regressions from 3.0
+Date: Sun, 28 Aug 2011 20:22:05 +0200 (CEST)
+Message-ID: <lx6sezwGldO.A.IhF.UBpWOB@chimera>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-mQsVwe8vftJcwkIQ9wjp"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:38777 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751420Ab1H1QWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Aug 2011 12:22:46 -0400
-In-Reply-To: <20110826.122024.278846592642798982.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This message contains a list of some regressions from 3.0,
+for which there are no fixes in the mainline known to the tracking team=
+=2E
+If any of them have been fixed already, please let us know.
+
+If you know of any other unresolved regressions from 3.0, please let us
+know either and we'll add them to the list.  Also, please let us know
+if any of the entries below are invalid.
+
+Each entry from the list will be sent additionally in an automatic repl=
+y
+to this message with CCs to the people involved in reporting and handli=
+ng
+the issue.
 
 
---=-mQsVwe8vftJcwkIQ9wjp
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Listed regressions statistics:
 
-On Fri, 2011-08-26 at 12:20 -0400, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 26 Aug 2011 12:04:51 -0400 (EDT)
->=20
-> > From: Ben Hutchings <ben@decadent.org.uk>
-> > Date: Fri, 26 Aug 2011 16:42:48 +0100
-> >=20
-> >> This #define is in the #ifdef __KERNEL__ section.  I don't want t
-> >> change all the in-kernel users to say __kernel_sockaddr.  This is
-> >> just the same as the preceding 'typedef __kernel_sa_family_t
-> >> sa_family_t' except that you can't create struct aliases that way.
-> >=20
-> > Aha, I didn't catch that part.  Then this is fine, thanks for
-> > explaining Ben.
->=20
-> Actually, this patch breaks the build, specifically of ifenslave.c
->=20
-> I'll leave the other patches in, but you'll need to respin this one.
-[...]
-
-Right, it looks like this will have to wait for a proper resolution of
-the conflicts between kernel and libc types.
-
-Ben.
+  Date          Total  Pending  Unresolved
+  ----------------------------------------
+  2011-08-28        8        4           4
 
 
---=-mQsVwe8vftJcwkIQ9wjp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Unresolved regressions
+----------------------
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D41742
+Subject		: duplicate filename  for intel_backlight with the i915 driver
+Submitter	: Fran=C3=A7ois Valenduc <francois.valenduc-bmtTS95sd5BUM80lpFwj4w@public.gmane.org>
+Date		: 2011-08-25 18:51 (4 days old)
+=46irst-Bad-Commit: http://git.kernel.org/linus/aaa6fd2a004147bf32fce05=
+720938236de3361d9
 
-iQIVAwUATlprT+e/yOyVhhEJAQobYxAAs+ReCqZ4gqL30QujL7PZ98a9qWOHUPSQ
-o8jvu0bwpSkTiYwHw2yM3ULXu4dRoD4w+SsnXYYa2jSHqdV0NukVwy5eddZvvX2T
-merJ7XnE+ZpVu5haCUIXjvsjN67fL/aANBl0fyTm5/F8Tfl6yHJlvOedtDVyl+W7
-sTbn2ezcLBbvcAr1k362bPuFOwuNR3Ik6DShSLwwf6UDxLZC7sK/X/pU7m0JQIRQ
-KIc4wvxQG8QkojdQ98Ge+e13tlI1qH0Apla/zWCFeVNIzAwPJjFER2o6EE/D6WUn
-UV7np2QCvbjoTaOOYs+oBU5ab/t0MSJa6YV8eMHhSRmz9ivc36da+tCka2R8JDUB
-6HGVIn1p/iz4ZCUsSx8um42sTBy6pV5vjdW7OXhggTYUW+Vh1Q9syfNWoWeF/bH5
-x+8XLGqfgTAHbhymDuXJhWQ10oq/pGCSkNL2TzxNTCO+JxpZoalM/uogTnU/RyAn
-Hgsv0lELs3jAs1fn6PfidLcXFNnhChA64TqlJWaBTA8agKb43o9Hj1JYNUMEgC+z
-ev7w2iCUkFnaTemvPZjnKjM/kv8A9r8DXTsMdEB6bJwK19i6C9HjKqsIUOpZR2Uj
-Cr67qPeuiPW+llMw4etUZJaqaV/RTGCXqvJBjIlw4sIfs5XNbuGZxMZxvlo5+XCe
-MlN0SIyccMM=
-=6REy
------END PGP SIGNATURE-----
 
---=-mQsVwe8vftJcwkIQ9wjp--
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D41512
+Subject		: 3.1-rc2 failed s2ram: Freezing of tasks failed after 20.00 s=
+econds
+Submitter	: Carlos R. Mafra <crmafra2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date		: 2011-08-16 9:42 (13 days old)
+Message-ID	: <20110816094245.GA2042-VVqtEBlnRoHN0uC3ymp8PA@public.gmane.org>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D131348782017435&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D41502
+Subject		: cfq-iosched: a regression
+Submitter	: Shaohua Li <shaohua.li-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Date		: 2011-08-16 2:47 (13 days old)
+Message-ID	: <1313462826.27321.22.camel@sli10-conroe>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D131346279329911&w=3D=
+2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D41442
+Subject		: rcu_sched_state detected stall on CPU 0, when booting on Xen
+Submitter	: Witold Baryluk <baryluk-W6Hso+/wx31C2Nf1M/Lcnw@public.gmane.org>
+Date		: 2011-08-21 04:06 (8 days old)
+
+
+Regressions with patches
+------------------------
+
+=46or details, please visit the bug entries and follow the links given =
+in
+references.
+
+As you can see, there is a Bugzilla entry for each of the listed regres=
+sions.
+There also is a Bugzilla entry used for tracking the regressions from 3=
+=2E0,
+unresolved as well as resolved, at:
+
+http://bugzilla.kernel.org/show_bug.cgi?id=3D40982
+
+Please let the tracking team know if there are any Bugzilla entries tha=
+t
+should be added to the list in there.
+
+Thanks!
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
