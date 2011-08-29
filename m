@@ -1,75 +1,95 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: [PATCH net-next 3/5] qlcnic: Add FLT entry for CO cards FW image region
-Date: Mon, 29 Aug 2011 15:50:28 -0700
-Message-ID: <1314658231-30735-3-git-send-email-sony.chacko@qlogic.com>
-References: <1314658231-30735-1-git-send-email-sony.chacko@qlogic.com>
+From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: BQL crap and wireless
+Date: Mon, 29 Aug 2011 16:10:47 -0700
+Message-ID: <CAA93jw6Ude=x=5v2cq86UjnORXDhAQASp51zLvDDBYHB28T_Jw@mail.gmail.com>
+References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com>
+	<CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com>
+	<CAB=NE6XrkdiZcGEDGuYe=SwLBhTm=Mt4NaPzjV9j_W-8sVosOA@mail.gmail.com>
+	<CAA93jw5pTHpUOX=iUnck8Eun2iNqkuKwG-Jd0X1oNxD_s9_prA@mail.gmail.com>
+	<CAB=NE6V7jFgtK4HmkUnfY5MuWCJoTyo83p9KMVTvmXTsrGoTew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sritej Velaga <sritej.velaga@qlogic.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:20779
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754103Ab1H2XDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 19:03:32 -0400
-In-Reply-To: <1314658231-30735-1-git-send-email-sony.chacko@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew McGregor <andrewmcgr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Matt Smith <smithm-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Kevin Hayes <hayes-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Derek Smithies <derek-Rd3uoDiDeHXJKwlM9GxbOw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAB=NE6V7jFgtK4HmkUnfY5MuWCJoTyo83p9KMVTvmXTsrGoTew-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
+My goal in collecting these recordings is to get TRANSCRIPTS of what
+is important and what is not, so that ultimately better documentation
+can be written from those than exist today.
 
-The FLT entry for FW image region has changed for C0 cards.
-Updated the driver to look at the right region in the FLT.
+Since the byte queuing issue is hot this week, I decided to make more
+people aware that these recordings existed in the hope that more
+available background information on how wireless works could be
+internalized by more people.
 
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    4 +++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c |    8 +++++++-
- 2 files changed, 10 insertions(+), 2 deletions(-)
+I did note that the talk with felix was an attempt at capturing and
+summarizing some bufferbloat history and only towards the end did we
+start moving forward to things we planned to try, while the talk with
+andrew was an attempt at doing a more technical overview of quite a
+few issues.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 53c6e5d..4118502 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -73,6 +73,7 @@
- 	(sizeof(struct cmd_desc_type0) * tx_ring->num_desc)
- 
- #define QLCNIC_P3P_A0		0x50
-+#define QLCNIC_P3P_C0		0x58
- 
- #define QLCNIC_IS_REVISION_P3P(REVISION)     (REVISION >= QLCNIC_P3P_A0)
- 
-@@ -291,7 +292,8 @@ struct uni_data_desc{
- 
- /* Flash Defines and Structures */
- #define QLCNIC_FLT_LOCATION	0x3F1000
--#define QLCNIC_FW_IMAGE_REGION	0x74
-+#define QLCNIC_B0_FW_IMAGE_REGION 0x74
-+#define QLCNIC_C0_FW_IMAGE_REGION 0x97
- #define QLCNIC_BOOTLD_REGION    0X72
- struct qlcnic_flt_header {
- 	u16 version;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-index b02859c..7f4b8e6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
-@@ -686,7 +686,13 @@ qlcnic_check_flash_fw_ver(struct qlcnic_adapter *adapter)
- 	u32 ver = -1, min_ver;
- 	int ret;
- 
--	ret = qlcnic_get_flt_entry(adapter, QLCNIC_FW_IMAGE_REGION, &fw_entry);
-+	if (adapter->ahw->revision_id == QLCNIC_P3P_C0)
-+		ret = qlcnic_get_flt_entry(adapter, QLCNIC_C0_FW_IMAGE_REGION,
-+						 &fw_entry);
-+	else
-+		ret = qlcnic_get_flt_entry(adapter, QLCNIC_B0_FW_IMAGE_REGION,
-+						 &fw_entry);
-+
- 	if (!ret)
- 		/* 0-4:-signature,  4-8:-fw version */
- 		qlcnic_rom_fast_read(adapter, fw_entry.start_addr + 4,
--- 
-1.6.0.2
+Multiple people have found these conversations useful. Certainly I
+find them useful, often reviewing them a few weeks after the fact to
+find subtleties that I missed originally, or needed further reading to
+really understand or write code for. The earliest conversation I had
+with felix (march?) still has some useful nuggets in it about how
+aggregation actually works that I hope to mine one day for better
+documentation. It also had some glaring errors in it...
+(mostly MINE!)
+
+http://mirrors.bufferbloat.net/podcasts/
+
+I would certainly like to have a (recorded!) conversation with you to
+have a constructive
+discussion of the issues you find important, correct, and essential,
+towards making wireless networking better.
+
+Many people are capable of doing otherwise useful work while having a
+podcast running in the background that might have a few percentage
+points of useful information.
+
+By all means, don't listen if you can't split the brain cells, as I
+wrote I will have transcript of that latest available and will try to
+summarize and extract the best of what was discussed, after we get
+some code written and some tests performed.
+
+ There are many other folk I would like to interview in this way, as we=
+ll.
+
+On Mon, Aug 29, 2011 at 3:54 PM, Luis R. Rodriguez <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> w=
+rote:
+> On Mon, Aug 29, 2011 at 3:45 PM, Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
+e:
+>> http://huchra.bufferbloat.net/~d/talks/felix/
+>> http://huchra.bufferbloat.net/~d/talks/andrew/
+>
+> I had already listened to Andrew's audio, and got up to 1 hour with
+> your session with Felix but seriously considered that entire 1 hour a
+> waste of my life. I think you digressed completely and rambled on
+> about random crap instead of focusing on the core of the matter, I
+> gave up after 1 hour.
+>
+> =A0Luis
+>
+
+
+
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+http://the-edge.blogspot.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
