@@ -1,60 +1,53 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: [PATCH] Always initialize fw_entry with NULL
-Date: Mon, 29 Aug 2011 09:39:32 +0200
-Message-ID: <201108290939.32243.thomas.jarosch@intra2net.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/10][pull request] Intel Wired LAN Driver Update
+Date: Mon, 29 Aug 2011 01:40:58 -0700
+Message-ID: <1314607268-26958-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from re04.intra2net.com ([82.165.46.26]:52441 "EHLO
-	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753014Ab1H2IAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 04:00:35 -0400
-Received: from intranator.m.i2n (unknown [172.16.1.99])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by re04.intra2net.com (Postfix) with ESMTP id C87EC300D3
-	for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 09:39:33 +0200 (CEST)
-Received: from localhost (intranator.m.i2n [127.0.0.1])
-	by localhost (Postfix) with ESMTP id 90F672AC54
-	for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 09:39:33 +0200 (CEST)
-Received: from storm.localnet (storm.m.i2n [172.16.1.2])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: smtp-auth-user)
-	by intranator.m.i2n (Postfix) with ESMTPSA id A25342AC52
-	for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 09:39:32 +0200 (CEST)
+Received: from mga02.intel.com ([134.134.136.20]:36890 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753230Ab1H2IlN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Aug 2011 04:41:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise the exit code path might try to release
-a non-existing firmware object on an error condition.
+The following series contains updates to ixgbe only.  Many are cleanup's
+and fixes.
 
-Issue detected by cppcheck.
+The following are changes since commit 7ac2ed0ceeafa130f85aa947b271b571c68b9e75:
+  caif: Remove OOM messages, use kzalloc
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Resending to netdev as orionco-devel seems to be sleeping.
+Alexander Duyck (2):
+  ixgbe: Add support for setting CC bit when SR-IOV is enabled
+  ixgbe: Always tag VLAN tagged packets
 
-Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
----
- drivers/net/wireless/orinoco/orinoco_usb.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Don Skidmore (2):
+  ixgbe: cleanup feature flags in ixgbe_probe
+  ixgbe: fix ixgbe_fc_autoneg_fiber bug
 
-diff --git a/drivers/net/wireless/orinoco/orinoco_usb.c 
-b/drivers/net/wireless/orinoco/orinoco_usb.c
-index 811e87f..973a55f 100644
---- a/drivers/net/wireless/orinoco/orinoco_usb.c
-+++ b/drivers/net/wireless/orinoco/orinoco_usb.c
-@@ -1579,7 +1579,7 @@ static int ezusb_probe(struct usb_interface 
-*interface,
- 	struct ezusb_priv *upriv = NULL;
- 	struct usb_interface_descriptor *iface_desc;
- 	struct usb_endpoint_descriptor *ep;
--	const struct firmware *fw_entry;
-+	const struct firmware *fw_entry = NULL;
- 	int retval = 0;
- 	int i;
- 
+Emil Tantilov (2):
+  ixgbe: add check for supported modes
+  ixgbe: clear RNBC only for 82598
+
+John Fastabend (4):
+  ixgbe: fixup remaining call sites for arbitrary TCs
+  ixgbe: remove unneeded fdir pb alloc case
+  ixgbe: consolidate, setup for multiple traffic classes
+  ixgbe: PFC not cleared on X540 devices
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     |   87 --------------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |    9 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |    4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   46 +----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |   10 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   53 +++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |    1 +
+ 8 files changed, 63 insertions(+), 150 deletions(-)
+
 -- 
-1.7.4.4
+1.7.6
