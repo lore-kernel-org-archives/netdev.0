@@ -1,32 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next ] Fix time-lag of IFF_RUNNING flag consistency
- between vlan and real devices
-Date: Mon, 29 Aug 2011 02:34:08 -0400 (EDT)
-Message-ID: <20110829.023408.440980195220010292.davem@davemloft.net>
-References: <1314540589.3036.12.camel@edumazet-laptop>
-	<f6ded72b-346d-43af-af47-4edae5060406@tahiti.vyatta.com>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: [PATCH] Always initialize fw_entry with NULL
+Date: Mon, 29 Aug 2011 09:39:32 +0200
+Message-ID: <201108290939.32243.thomas.jarosch@intra2net.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, herbert@gondor.hengli.com.au,
-	kaber@trash.net, mirq-linux@rere.qmqm.pl, therbert@google.com,
-	jesse@nicira.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com,
-	mitsuo.hayasaka.hu@hitachi.com
-To: stephen.hemminger@vyatta.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54226 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751039Ab1H2Gfb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 02:35:31 -0400
-In-Reply-To: <f6ded72b-346d-43af-af47-4edae5060406@tahiti.vyatta.com>
+Received: from re04.intra2net.com ([82.165.46.26]:52441 "EHLO
+	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753014Ab1H2IAf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 04:00:35 -0400
+Received: from intranator.m.i2n (unknown [172.16.1.99])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by re04.intra2net.com (Postfix) with ESMTP id C87EC300D3
+	for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 09:39:33 +0200 (CEST)
+Received: from localhost (intranator.m.i2n [127.0.0.1])
+	by localhost (Postfix) with ESMTP id 90F672AC54
+	for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 09:39:33 +0200 (CEST)
+Received: from storm.localnet (storm.m.i2n [172.16.1.2])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: smtp-auth-user)
+	by intranator.m.i2n (Postfix) with ESMTPSA id A25342AC52
+	for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 09:39:32 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date: Sun, 28 Aug 2011 23:06:28 -0700 (PDT)
+Otherwise the exit code path might try to release
+a non-existing firmware object on an error condition.
 
-> This was mostly typical of older hardware that did not have a PHY
-> interrupt.
+Issue detected by cppcheck.
 
-Many have to poll because the PHY interrupt is simply unreliable.
+Resending to netdev as orionco-devel seems to be sleeping.
+
+Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
+---
+ drivers/net/wireless/orinoco/orinoco_usb.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/orinoco/orinoco_usb.c 
+b/drivers/net/wireless/orinoco/orinoco_usb.c
+index 811e87f..973a55f 100644
+--- a/drivers/net/wireless/orinoco/orinoco_usb.c
++++ b/drivers/net/wireless/orinoco/orinoco_usb.c
+@@ -1579,7 +1579,7 @@ static int ezusb_probe(struct usb_interface 
+*interface,
+ 	struct ezusb_priv *upriv = NULL;
+ 	struct usb_interface_descriptor *iface_desc;
+ 	struct usb_endpoint_descriptor *ep;
+-	const struct firmware *fw_entry;
++	const struct firmware *fw_entry = NULL;
+ 	int retval = 0;
+ 	int i;
+ 
+-- 
+1.7.4.4
