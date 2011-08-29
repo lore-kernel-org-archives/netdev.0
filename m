@@ -1,36 +1,71 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: BQL crap and wireless
-Date: Mon, 29 Aug 2011 15:54:53 -0700
-Message-ID: <CAB=NE6V7jFgtK4HmkUnfY5MuWCJoTyo83p9KMVTvmXTsrGoTew@mail.gmail.com>
-References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com>
- <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com>
- <CAB=NE6XrkdiZcGEDGuYe=SwLBhTm=Mt4NaPzjV9j_W-8sVosOA@mail.gmail.com> <CAA93jw5pTHpUOX=iUnck8Eun2iNqkuKwG-Jd0X1oNxD_s9_prA@mail.gmail.com>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: linux-next: Tree for Aug 29 (bnx2x)
+Date: Mon, 29 Aug 2011 15:56:18 -0700
+Message-ID: <20110829155618.01a73cce.rdunlap@xenotime.net>
+References: <20110829161907.19232776e65389dea1caa7e8@canb.auug.org.au>
+	<20110829132800.f7174f2e.rdunlap@xenotime.net>
+	<1314653744.3085.2.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew McGregor <andrewmcgr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Matt Smith <smithm-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Kevin Hayes <hayes-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Derek Smithies <derek-Rd3uoDiDeHXJKwlM9GxbOw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAA93jw5pTHpUOX=iUnck8Eun2iNqkuKwG-Jd0X1oNxD_s9_prA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Stephen Rothwell" <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: dmitry@broadcom.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1314653744.3085.2.camel@lb-tlvb-dmitry>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 29, 2011 at 3:45 PM, Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> http://huchra.bufferbloat.net/~d/talks/felix/
-> http://huchra.bufferbloat.net/~d/talks/andrew/
+On Tue, 30 Aug 2011 00:35:44 +0300 Dmitry Kravkov wrote:
 
-I had already listened to Andrew's audio, and got up to 1 hour with
-your session with Felix but seriously considered that entire 1 hour a
-waste of my life. I think you digressed completely and rambled on
-about random crap instead of focusing on the core of the matter, I
-gave up after 1 hour.
+> On Mon, 2011-08-29 at 13:28 -0700, Randy Dunlap wrote:
+> > On Mon, 29 Aug 2011 16:19:07 +1000 Stephen Rothwell wrote:
+> > 
+> > > Hi all,
+> > 
+> > (on i386 or x86_64)
+> > 
+> > drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:10148: error: 'bnx2x_fcoe_get_wwn' undeclared here (not in a function)
+> > 
+> > 
+> > Full randconfig file is attached.
+> > 
+> > ---
+> > ~Randy
+> > *** Remember to use Documentation/SubmitChecklist when testing your code ***
+> This should sync #define structures between definition and declaration
+> ---
+> 
+> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+
+Thanks.
+
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+> index f290b23..5b1f9b5 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+> @@ -522,7 +522,7 @@ void bnx2x_free_mem_bp(struct bnx2x *bp);
+>   */
+>  int bnx2x_change_mtu(struct net_device *dev, int new_mtu);
+>  
+> -#if defined(BCM_CNIC) && (defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE))
+> +#if defined(NETDEV_FCOE_WWNN) && defined(BCM_CNIC)
+>  /**
+>   * bnx2x_fcoe_get_wwn - return the requested WWN value for this port
+>   *
+> -- 
+
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
