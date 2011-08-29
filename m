@@ -1,87 +1,78 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 2/2] ath: Make ath_printk void not int and remove unused
- struct ath_common *
-Date: Mon, 29 Aug 2011 14:12:38 -0400
-Message-ID: <20110829181237.GB1406@tuxdriver.com>
-References: <cover.1314347556.git.joe@perches.com>
- <78869fcd8172cd02266b66a71aadbd0c0efbdebc.1314347556.git.joe@perches.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: Re: Unicast hash for IXGBEVF driver
+Date: Mon, 29 Aug 2011 11:24:55 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019454265E@orsmsx508.amr.corp.intel.com>
+References: <4E589B69.7020305@gmail.com>
+	<CAL3LdT6UBxEgjEX0MMCRmnXw2243nq5GyvYtQ9JOdGRtnsHS6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <78869fcd8172cd02266b66a71aadbd0c0efbdebc.1314347556.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>, J.Hwan Kim
+	<frog1120@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <CAL3LdT6UBxEgjEX0MMCRmnXw2243nq5GyvYtQ9JOdGRtnsHS6g@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 26, 2011 at 01:56:39AM -0700, Joe Perches wrote:
-> Changing the return type and removing the unused argument from
-> ath_printk reduces code size.
-> 
-> Add an __always_unused struct ath_common * to the macros
-> that call ath_printk to avoid unused variable warnings.
-> 
-> $ size drivers/net/wireless/ath/built-in.o*
->    text	   data	    bss	    dec	    hex	filename
-> 1159859	  16235	 212000	1388094	 152e3e	drivers/net/wireless/ath/built-in.o.new
-> 1164175	  16235	 212032	1392442	 153f3a	drivers/net/wireless/ath/built-in.o.old
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/wireless/ath/ath.h  |   27 ++++++++++++++++-----------
->  drivers/net/wireless/ath/main.c |    8 ++------
->  2 files changed, 18 insertions(+), 17 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/ath/ath.h b/drivers/net/wireless/ath/ath.h
-> index a3f8505..9891fb6 100644
-> --- a/drivers/net/wireless/ath/ath.h
-> +++ b/drivers/net/wireless/ath/ath.h
-> @@ -178,24 +178,29 @@ bool ath_hw_keyreset(struct ath_common *common, u16 entry);
->  void ath_hw_cycle_counters_update(struct ath_common *common);
->  int32_t ath_hw_get_listen_time(struct ath_common *common);
->  
-> -extern __attribute__((format (printf, 3, 4)))
-> -int ath_printk(const char *level, struct ath_common *common,
-> -	       const char *fmt, ...);
-> +extern __attribute__((format (printf, 2, 3)))
-> +void ath_printk(const char *level, const char *fmt, ...);
-> +
-> +#define _ath_printk(level, common, fmt, ...)			\
-> +do {								\
-> +	__always_unused struct ath_common *unused = common;	\
-> +	ath_printk(level, fmt, ##__VA_ARGS__);			\
-> +} while (0)
->  
->  #define ath_emerg(common, fmt, ...)				\
-> -	ath_printk(KERN_EMERG, common, fmt, ##__VA_ARGS__)
-> +	_ath_printk(KERN_EMERG, common, fmt, ##__VA_ARGS__)
->  #define ath_alert(common, fmt, ...)				\
-> -	ath_printk(KERN_ALERT, common, fmt, ##__VA_ARGS__)
-> +	_ath_printk(KERN_ALERT, common, fmt, ##__VA_ARGS__)
->  #define ath_crit(common, fmt, ...)				\
-> -	ath_printk(KERN_CRIT, common, fmt, ##__VA_ARGS__)
-> +	_ath_printk(KERN_CRIT, common, fmt, ##__VA_ARGS__)
->  #define ath_err(common, fmt, ...)				\
-> -	ath_printk(KERN_ERR, common, fmt, ##__VA_ARGS__)
-> +	_ath_printk(KERN_ERR, common, fmt, ##__VA_ARGS__)
->  #define ath_warn(common, fmt, ...)				\
-> -	ath_printk(KERN_WARNING, common, fmt, ##__VA_ARGS__)
-> +	_ath_printk(KERN_WARNING, common, fmt, ##__VA_ARGS__)
->  #define ath_notice(common, fmt, ...)				\
-> -	ath_printk(KERN_NOTICE, common, fmt, ##__VA_ARGS__)
-> +	_ath_printk(KERN_NOTICE, common, fmt, ##__VA_ARGS__)
->  #define ath_info(common, fmt, ...)				\
-> -	ath_printk(KERN_INFO, common, fmt, ##__VA_ARGS__)
-> +	_ath_printk(KERN_INFO, common, fmt, ##__VA_ARGS__)
->  
->  /**
->   * enum ath_debug_level - atheros wireless debug level
+The ROPE bits should not be set for any of the VFs and only on the PF when it is in promiscuous mode.
 
-Any reason to preserve all these "common" args?
+The PFUTA bits are imperfect MAC address hash filters.  By setting them all to ones and then turning on the ROPE bit for each of the VFs you're essentially putting the VF into a sort of fake promiscuous mode.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+This is not recommended.  Older drivers that did this had a bug in them.
+
+- Greg
+
+> -----Original Message-----
+> From: tarbal@gmail.com [mailto:tarbal@gmail.com] On Behalf Of Jeff Kirsher
+> Sent: Saturday, August 27, 2011 12:35 AM
+> To: J.Hwan Kim; Rose, Gregory V
+> Cc: netdev; e1000-devel@lists.sourceforge.net
+> Subject: Re: Unicast hash for IXGBEVF driver
+> 
+> On Sat, Aug 27, 2011 at 00:23, J.Hwan Kim <frog1120@gmail.com> wrote:
+> > Hi, everyone
+> >
+> > How can I distribute the packets according to destination MAC address
+> > into multi-virtual fucntion queue?
+> > Now, my setting is that all bit of PFUTA are '1' and ROPE bit is 1,
+> > so all mac packet is duplicated to all VF queue.
+> > I cannot understand the meaning of bits of PFUTA and the relation
+> > with mac address.
+> > I want to distribute the received packets to RX queues respectively,
+> > not duplicated.
+> >
+> >
+> > Thanks in advance.
+> >
+> > Best Regards,
+> > J.Hwan Kim
+> >
+> 
+> Adding Greg Rose, since he is the ixgbevf driver maintainer.  He
+> should be able to answer your questions early next week, unless he is
+> checking his email over the weekend.
+> 
+> --
+> Cheers,
+> Jeff
+------------------------------------------------------------------------------
+Special Offer -- Download ArcSight Logger for FREE!
+Finally, a world-class log management solution at an even better 
+price-free! And you'll get a free "Love Thy Logs" t-shirt when you
+download Logger. Secure your free ArcSight Logger TODAY!
+http://p.sf.net/sfu/arcsight-sdnews
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
