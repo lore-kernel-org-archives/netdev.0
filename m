@@ -1,10 +1,12 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 03/24] atm: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 14:17:22 -0700
-Message-ID: <af6564f9301e7a3db39491238154fdd7172fea8a.1314650069.git.joe@perches.com>
+Subject: [PATCH 04/24] ax25: Remove unnecessary OOM logging messages
+Date: Mon, 29 Aug 2011 14:17:23 -0700
+Message-ID: <a426e678426cf2be1552edfbbb0de7ce08e9a7ef.1314650069.git.joe@perches.com>
 References: <cover.1314650069.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joerg Reuter <jreuter@yaina.de>, Ralf Baechle <ralf@linux-mips.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1314650069.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -18,107 +20,71 @@ delete them.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/atm/lec.c         |    4 +---
- net/atm/mpc.c         |   17 +++++------------
- net/atm/mpoa_caches.c |    8 ++------
- 3 files changed, 8 insertions(+), 21 deletions(-)
+ net/ax25/ax25_dev.c   |    5 ++---
+ net/ax25/ax25_out.c   |    8 ++++----
+ net/ax25/ax25_route.c |    5 ++---
+ 3 files changed, 8 insertions(+), 10 deletions(-)
 
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index f1964ca..6dc635c 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -1674,10 +1674,8 @@ static struct lec_arp_table *make_entry(struct lec_priv *priv,
- 	struct lec_arp_table *to_return;
+diff --git a/net/ax25/ax25_dev.c b/net/ax25/ax25_dev.c
+index c1cb982..986908a 100644
+--- a/net/ax25/ax25_dev.c
++++ b/net/ax25/ax25_dev.c
+@@ -55,10 +55,9 @@ void ax25_dev_device_up(struct net_device *dev)
+ {
+ 	ax25_dev *ax25_dev;
  
- 	to_return = kzalloc(sizeof(struct lec_arp_table), GFP_ATOMIC);
--	if (!to_return) {
--		pr_info("LEC: Arp entry kmalloc failed\n");
-+	if (!to_return)
- 		return NULL;
--	}
- 	memcpy(to_return->mac_addr, mac_addr, ETH_ALEN);
- 	INIT_HLIST_NODE(&to_return->next);
- 	setup_timer(&to_return->timer, lec_arp_expire_arp,
-diff --git a/net/atm/mpc.c b/net/atm/mpc.c
-index aa97240..fc85df0 100644
---- a/net/atm/mpc.c
-+++ b/net/atm/mpc.c
-@@ -184,10 +184,8 @@ struct atm_mpoa_qos *atm_mpoa_add_qos(__be32 dst_ip, struct atm_qos *qos)
- 	}
- 
- 	entry = kmalloc(sizeof(struct atm_mpoa_qos), GFP_KERNEL);
--	if (entry == NULL) {
--		pr_info("mpoa: out of memory\n");
-+	if (entry == NULL)
- 		return entry;
+-	if ((ax25_dev = kzalloc(sizeof(*ax25_dev), GFP_ATOMIC)) == NULL) {
+-		printk(KERN_ERR "AX.25: ax25_dev_device_up - out of memory\n");
++	ax25_dev = kzalloc(sizeof(*ax25_dev), GFP_ATOMIC);
++	if (ax25_dev == NULL)
+ 		return;
 -	}
  
- 	entry->ipaddr = dst_ip;
- 	entry->qos = *qos;
-@@ -473,10 +471,8 @@ static const uint8_t *copy_macs(struct mpoa_client *mpc,
- 			kfree(mpc->mps_macs);
- 		mpc->number_of_mps_macs = 0;
- 		mpc->mps_macs = kmalloc(num_macs * ETH_ALEN, GFP_KERNEL);
--		if (mpc->mps_macs == NULL) {
--			pr_info("(%s) out of mem\n", mpc->dev->name);
-+		if (mpc->mps_macs == NULL)
+ 	ax25_unregister_sysctl();
+ 
+diff --git a/net/ax25/ax25_out.c b/net/ax25/ax25_out.c
+index 37507d8..a27046d 100644
+--- a/net/ax25/ax25_out.c
++++ b/net/ax25/ax25_out.c
+@@ -146,9 +146,9 @@ void ax25_output(ax25_cb *ax25, int paclen, struct sk_buff *skb)
+ 
+ 		while (skb->len > 0) {
+ 			spin_lock_bh(&ax25_frag_lock);
+-			if ((skbn = alloc_skb(paclen + 2 + frontlen, GFP_ATOMIC)) == NULL) {
++			skbn = alloc_skb(paclen + 2 + frontlen, GFP_ATOMIC);
++			if (skbn == NULL) {
+ 				spin_unlock_bh(&ax25_frag_lock);
+-				printk(KERN_CRIT "AX.25: ax25_output - out of memory\n");
+ 				return;
+ 			}
+ 
+@@ -342,8 +342,8 @@ void ax25_transmit_buffer(ax25_cb *ax25, struct sk_buff *skb, int type)
+ 	headroom = ax25_addr_size(ax25->digipeat);
+ 
+ 	if (skb_headroom(skb) < headroom) {
+-		if ((skbn = skb_realloc_headroom(skb, headroom)) == NULL) {
+-			printk(KERN_CRIT "AX.25: ax25_transmit_buffer - out of memory\n");
++		skbn = skb_realloc_headroom(skb, headroom);
++		if (skbn == NULL) {
+ 			kfree_skb(skb);
+ 			return;
+ 		}
+diff --git a/net/ax25/ax25_route.c b/net/ax25/ax25_route.c
+index a169084..75e67c0 100644
+--- a/net/ax25/ax25_route.c
++++ b/net/ax25/ax25_route.c
+@@ -466,10 +466,9 @@ struct sk_buff *ax25_rt_build_path(struct sk_buff *skb, ax25_address *src,
+ 	len = digi->ndigi * AX25_ADDR_LEN;
+ 
+ 	if (skb_headroom(skb) < len) {
+-		if ((skbn = skb_realloc_headroom(skb, len)) == NULL) {
+-			printk(KERN_CRIT "AX.25: ax25_dg_build_path - out of memory\n");
++		skbn = skb_realloc_headroom(skb, len);
++		if (skbn == NULL)
  			return NULL;
 -		}
- 	}
- 	memcpy(mpc->mps_macs, router_mac, ETH_ALEN);
- 	tlvs += 20; if (device_type == MPS_AND_MPC) tlvs += 20;
-@@ -1260,10 +1256,8 @@ static void purge_egress_shortcut(struct atm_vcc *vcc, eg_cache_entry *entry)
- 	}
  
- 	skb = alloc_skb(sizeof(struct k_message), GFP_ATOMIC);
--	if (skb == NULL) {
--		pr_info("out of memory\n");
-+	if (skb == NULL)
- 		return;
--	}
- 
- 	skb_put(skb, sizeof(struct k_message));
- 	memset(skb->data, 0, sizeof(struct k_message));
-@@ -1379,10 +1373,9 @@ static void set_mps_mac_addr_rcvd(struct k_message *msg,
- 		kfree(client->mps_macs);
- 	client->number_of_mps_macs = 0;
- 	client->mps_macs = kmemdup(msg->MPS_ctrl, ETH_ALEN, GFP_KERNEL);
--	if (client->mps_macs == NULL) {
--		pr_info("out of memory\n");
-+	if (client->mps_macs == NULL)
- 		return;
--	}
-+
- 	client->number_of_mps_macs = 1;
- }
- 
-diff --git a/net/atm/mpoa_caches.c b/net/atm/mpoa_caches.c
-index d1b2d9a..cc5f46d 100644
---- a/net/atm/mpoa_caches.c
-+++ b/net/atm/mpoa_caches.c
-@@ -98,10 +98,8 @@ static in_cache_entry *in_cache_add_entry(__be32 dst_ip,
- {
- 	in_cache_entry *entry = kzalloc(sizeof(in_cache_entry), GFP_KERNEL);
- 
--	if (entry == NULL) {
--		pr_info("mpoa: mpoa_caches.c: new_in_cache_entry: out of memory\n");
-+	if (entry == NULL)
- 		return NULL;
--	}
- 
- 	dprintk("adding an ingress entry, ip = %pI4\n", &dst_ip);
- 
-@@ -460,10 +458,8 @@ static eg_cache_entry *eg_cache_add_entry(struct k_message *msg,
- {
- 	eg_cache_entry *entry = kzalloc(sizeof(eg_cache_entry), GFP_KERNEL);
- 
--	if (entry == NULL) {
--		pr_info("out of memory\n");
-+	if (entry == NULL)
- 		return NULL;
--	}
- 
- 	dprintk("adding an egress entry, ip = %pI4, this should be our IP\n",
- 		&msg->content.eg_info.eg_dst_ip);
+ 		if (skb->sk != NULL)
+ 			skb_set_owner_w(skbn, skb->sk);
 -- 
 1.7.6.405.gc1be0
