@@ -1,9 +1,10 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 10/24] econet: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 14:17:29 -0700
-Message-ID: <05e147e61f40f97fadd63ce51ae1fcf3138fc109.1314650069.git.joe@perches.com>
+Subject: [PATCH 09/24] decnet: Remove unnecessary OOM logging messages
+Date: Mon, 29 Aug 2011 14:17:28 -0700
+Message-ID: <d8d25441690f07e551ebf886a6990312918c9e95.1314650069.git.joe@perches.com>
 References: <cover.1314650069.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1314650069.git.joe@perches.com>
@@ -18,25 +19,39 @@ delete them.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/econet/af_econet.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ net/decnet/dn_neigh.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
-diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
-index 1c1f26c..6ab525d 100644
---- a/net/econet/af_econet.c
-+++ b/net/econet/af_econet.c
-@@ -865,11 +865,9 @@ static void aun_incoming(struct sk_buff *skb, struct aunhdr *ah, size_t len)
- 
- 	newskb = alloc_skb((len - sizeof(struct aunhdr) + 15) & ~15,
- 			   GFP_ATOMIC);
--	if (newskb == NULL) {
--		pr_debug("AUN: memory squeeze, dropping packet\n");
-+	if (newskb == NULL)
- 		/* Send nack and hope sender tries again */
- 		goto bad;
--	}
- 
- 	memcpy(skb_put(newskb, len - sizeof(struct aunhdr)), (void *)(ah + 1),
- 	       len - sizeof(struct aunhdr));
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index 7f0eb08..0889870 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -230,8 +230,6 @@ static int dn_long_output(struct neighbour *neigh, struct sk_buff *skb)
+ 	if (skb_headroom(skb) < headroom) {
+ 		struct sk_buff *skb2 = skb_realloc_headroom(skb, headroom);
+ 		if (skb2 == NULL) {
+-			if (net_ratelimit())
+-				printk(KERN_CRIT "dn_long_output: no memory\n");
+ 			kfree_skb(skb);
+ 			return -ENOBUFS;
+ 		}
+@@ -275,8 +273,6 @@ static int dn_short_output(struct neighbour *neigh, struct sk_buff *skb)
+ 	if (skb_headroom(skb) < headroom) {
+ 		struct sk_buff *skb2 = skb_realloc_headroom(skb, headroom);
+ 		if (skb2 == NULL) {
+-			if (net_ratelimit())
+-				printk(KERN_CRIT "dn_short_output: no memory\n");
+ 			kfree_skb(skb);
+ 			return -ENOBUFS;
+ 		}
+@@ -316,8 +312,6 @@ static int dn_phase3_output(struct neighbour *neigh, struct sk_buff *skb)
+ 	if (skb_headroom(skb) < headroom) {
+ 		struct sk_buff *skb2 = skb_realloc_headroom(skb, headroom);
+ 		if (skb2 == NULL) {
+-			if (net_ratelimit())
+-				printk(KERN_CRIT "dn_phase3_output: no memory\n");
+ 			kfree_skb(skb);
+ 			return -ENOBUFS;
+ 		}
 -- 
 1.7.6.405.gc1be0
