@@ -1,60 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 23/24] x25: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 14:17:42 -0700
-Message-ID: <a4253b35f596dbe4b1079ff90412d4b51334c010.1314650069.git.joe@perches.com>
-References: <cover.1314650069.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Hendry <andrew.hendry@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:43959 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755249Ab1H2VWV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Aug 2011 17:22:21 -0400
-In-Reply-To: <cover.1314650069.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: linux-next: Tree for Aug 29 (bnx2x)
+Date: Tue, 30 Aug 2011 00:35:44 +0300
+Message-ID: <1314653744.3085.2.camel@lb-tlvb-dmitry>
+References: <20110829161907.19232776e65389dea1caa7e8@canb.auug.org.au>
+ <20110829132800.f7174f2e.rdunlap@xenotime.net>
+Reply-To: dmitry@broadcom.com
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Stephen Rothwell" <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Randy Dunlap" <rdunlap@xenotime.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110829132800.f7174f2e.rdunlap@xenotime.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Removing unnecessary messages saves code and text.
-
-Site specific OOM messages are duplications of a generic MM
-out of memory message and aren't really useful, so just
-delete them.
-
-Signed-off-by: Joe Perches <joe@perches.com>
+On Mon, 2011-08-29 at 13:28 -0700, Randy Dunlap wrote:
+> On Mon, 29 Aug 2011 16:19:07 +1000 Stephen Rothwell wrote:
+> 
+> > Hi all,
+> 
+> (on i386 or x86_64)
+> 
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:10148: error: 'bnx2x_fcoe_get_wwn' undeclared here (not in a function)
+> 
+> 
+> Full randconfig file is attached.
+> 
+> ---
+> ~Randy
+> *** Remember to use Documentation/SubmitChecklist when testing your code ***
+This should sync #define structures between definition and declaration
 ---
- net/x25/x25_dev.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/net/x25/x25_dev.c b/net/x25/x25_dev.c
-index e547ca1..b77852f 100644
---- a/net/x25/x25_dev.c
-+++ b/net/x25/x25_dev.c
-@@ -147,10 +147,10 @@ void x25_establish_link(struct x25_neigh *nb)
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index f290b23..5b1f9b5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -522,7 +522,7 @@ void bnx2x_free_mem_bp(struct bnx2x *bp);
+  */
+ int bnx2x_change_mtu(struct net_device *dev, int new_mtu);
  
- 	switch (nb->dev->type) {
- 	case ARPHRD_X25:
--		if ((skb = alloc_skb(1, GFP_ATOMIC)) == NULL) {
--			printk(KERN_ERR "x25_dev: out of memory\n");
-+		skb = alloc_skb(1, GFP_ATOMIC);
-+		if (skb == NULL)
- 			return;
--		}
-+
- 		ptr  = skb_put(skb, 1);
- 		*ptr = X25_IFACE_CONNECT;
- 		break;
-@@ -182,10 +182,8 @@ void x25_terminate_link(struct x25_neigh *nb)
- 		return;
- 
- 	skb = alloc_skb(1, GFP_ATOMIC);
--	if (!skb) {
--		printk(KERN_ERR "x25_dev: out of memory\n");
-+	if (!skb)
- 		return;
--	}
- 
- 	ptr  = skb_put(skb, 1);
- 	*ptr = X25_IFACE_DISCONNECT;
+-#if defined(BCM_CNIC) && (defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE))
++#if defined(NETDEV_FCOE_WWNN) && defined(BCM_CNIC)
+ /**
+  * bnx2x_fcoe_get_wwn - return the requested WWN value for this port
+  *
 -- 
-1.7.6.405.gc1be0
+1.7.2.2
