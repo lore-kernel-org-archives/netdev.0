@@ -1,12 +1,12 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 11/24] iucv: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 14:17:30 -0700
-Message-ID: <a2e55a415105a8a68dfd2eb8ffe9db20a82edd52.1314650069.git.joe@perches.com>
+Subject: [PATCH 13/24] netrom: Remove unnecessary OOM logging messages
+Date: Mon, 29 Aug 2011 14:17:32 -0700
+Message-ID: <cb2e0e97b3600c4d4ca3332e6b036766985ee389.1314650069.git.joe@perches.com>
 References: <cover.1314650069.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Ursula Braun <ursula.braun@de.ibm.com>, linux390@de.ibm.com
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1314650069.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -20,25 +20,36 @@ delete them.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/iucv/iucv.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ net/netrom/af_netrom.c |    8 ++------
+ 1 files changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/net/iucv/iucv.c b/net/iucv/iucv.c
-index 403be43..5cf493d 100644
---- a/net/iucv/iucv.c
-+++ b/net/iucv/iucv.c
-@@ -1815,10 +1815,9 @@ static void iucv_external_interrupt(unsigned int ext_int_code,
+diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+index 732152f..72801b28 100644
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -1405,10 +1405,8 @@ static int __init nr_proto_init(void)
  	}
- 	BUG_ON(p->iptype  < 0x01 || p->iptype > 0x09);
- 	work = kmalloc(sizeof(struct iucv_irq_list), GFP_ATOMIC);
--	if (!work) {
--		pr_warning("iucv_external_interrupt: out of memory\n");
-+	if (!work)
- 		return;
+ 
+ 	dev_nr = kzalloc(nr_ndevs * sizeof(struct net_device *), GFP_KERNEL);
+-	if (dev_nr == NULL) {
+-		printk(KERN_ERR "NET/ROM: nr_proto_init - unable to allocate device array\n");
++	if (dev_nr == NULL)
+ 		return -1;
 -	}
-+
- 	memcpy(&work->data, p, sizeof(work->data));
- 	spin_lock(&iucv_queue_lock);
- 	if (p->iptype == 0x01) {
+ 
+ 	for (i = 0; i < nr_ndevs; i++) {
+ 		char name[IFNAMSIZ];
+@@ -1416,10 +1414,8 @@ static int __init nr_proto_init(void)
+ 
+ 		sprintf(name, "nr%d", i);
+ 		dev = alloc_netdev(0, name, nr_setup);
+-		if (!dev) {
+-			printk(KERN_ERR "NET/ROM: nr_proto_init - unable to allocate device structure\n");
++		if (!dev)
+ 			goto fail;
+-		}
+ 
+ 		dev->base_addr = i;
+ 		if (register_netdev(dev)) {
 -- 
 1.7.6.405.gc1be0
