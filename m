@@ -1,51 +1,48 @@
-From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH 19/24] sunrpc: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 15:08:41 -0700
-Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430AEB4F23@SACMVEXC2-PRD.hq.netapp.com>
-References: <cover.1314650069.git.joe@perches.com> <8a6378b3fef105983db001fb720c84b669491439.1314650069.git.joe@perches.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430AEB4EE9@SACMVEXC2-PRD.hq.netapp.com> <20110829.143751.1153162956919885670.davem@davemloft.net> <4E5C0AB3.90401@panasas.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 18/24] sctp: Remove unnecessary OOM logging messages
+Date: Mon, 29 Aug 2011 18:15:20 -0400 (EDT)
+Message-ID: <20110829.181520.933815499847625814.davem@davemloft.net>
+References: <21b4d996c8861373ac77d427914ec7882fe0c83e.1314650069.git.joe@perches.com>
+	<1314654209.2563.7.camel@edumazet-laptop>
+	<1314654681.2563.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, <neilb-l3A5Bk7waGM@public.gmane.org>,
-	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Boaz Harrosh" <bharrosh-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>,
-	"David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <4E5C0AB3.90401-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: joe@perches.com, vladislav.yasevich@hp.com, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60674 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754546Ab1H2WPg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 18:15:36 -0400
+In-Reply-To: <1314654681.2563.10.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCb2F6IEhhcnJvc2ggW21haWx0
-bzpiaGFycm9zaEBwYW5hc2FzLmNvbV0NCj4gU2VudDogTW9uZGF5LCBBdWd1c3QgMjksIDIwMTEg
-NTo1NSBQTQ0KPiBUbzogRGF2aWQgTWlsbGVyDQo+IENjOiBNeWtsZWJ1c3QsIFRyb25kOyBqb2VA
-cGVyY2hlcy5jb207IGJmaWVsZHNAZmllbGRzZXMub3JnOw0KPiBuZWlsYkBzdXNlLmRlOyBsaW51
-eC1uZnNAdmdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBsaW51eC1r
-ZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMTkvMjRdIHN1bnJw
-YzogUmVtb3ZlIHVubmVjZXNzYXJ5IE9PTSBsb2dnaW5nDQo+IG1lc3NhZ2VzDQo+IA0KPiBPbiAw
-OC8yOS8yMDExIDAyOjM3IFBNLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+ID4gRnJvbTogIk15a2xl
-YnVzdCwgVHJvbmQiIDxUcm9uZC5NeWtsZWJ1c3RAbmV0YXBwLmNvbT4NCj4gPiBEYXRlOiBNb24s
-IDI5IEF1ZyAyMDExIDE0OjM2OjE3IC0wNzAwDQo+ID4NCj4gPj4gQmlnIE5BQ0suLi4NCj4gPj4N
-Cj4gPj4gQnkgd2hvc2Ugc3RhbmRhcmQgYXJlIHRob3NlICJub3QgdXNlZnVsIj8NCj4gPg0KPiA+
-IEJ5IG1pbmUsIHRoYXQncyBmb3Igc3VyZS4gIEl0J3MgZHVwbGljYXRpbmcgc29tZXRoaW5nIHRo
-YXQgdGhlDQo+IGFsbG9jYXRpb24NCj4gPiBsYXllcnMgYXJlIGFscmVhZHkgZ29pbmcgdG8gcHJp
-bnQuDQo+IA0KPiBJIGhhdmUgYSBxdWVzdGlvbiBhYm91dCB0aGF0LiBBcmUgdGhlIGRwcmludHMg
-Z29pbmcgdG8gc2hvdyB0aGUgc3RhY2sNCj4gYmFja3RyYWNlPw0KPiBPdGhlcndpc2UgaG93IGNh
-biBJIHNlZSB3aGljaCBleGFjdCBhbGxvY2F0aW9uIGZhaWxlZCBhbmQgd2FzIG5vdA0KPiBwcm9w
-ZXJseSBoYW5kbGVkPw0KPiANCj4gSWYgeWVzIGFib3ZlPyB0aGVuIEknbSBub3Qgc3VyZSBJIGxp
-a2UgaXQgZWl0aGVyLCBiZWNhdXNlIGFtIEknbGwgYmUNCj4gZ2V0dGluZyBhIGZ1bGwNCj4gc3Rh
-Y2sgYmFja3RyYWNlIGZvciBldmVyeSBmYWlsZWQgYWxsb2NhdGlvbj8NCj4gDQo+IEJ1dCBJIG1p
-Z2h0IGxpa2UgaXQgaWYgSSB0cnkuIEhvdyBkbyBJIHR1cm4gb24gYWxsb2NhdGlvbiBmYWlsdXJl
-cw0KPiBwcmludHM/DQo+IENhbiBJIGZpbHRlciBvdXQgdG8gcHJpbnQgb25seSBHRlBfS0VSTkVM
-IGZhaWx1cmVzIGFuZCBvciBvdGhlciBHRlANCj4gY29tYmluYXRpb25zPw0KDQpSaWdodC4gSWYg
-ZXZlcnkgR0ZQX0FUT01JQyBvciBHRlBfTk9XQUlUIGlzIGdvaW5nIHRvIHByaW50IG91dCBzdGFj
-ayB0cmFjZXMsIHRoZW4gd2UncmUgaGVhZGluZyBmb3IgYWJzb2x1dGUgaW5zYW5pdHkuIElmIG5v
-dCwgdGhlbiB0aGUgZXhpc3RpbmcgZHByaW50aygpcyBtYWtlIGEgbG90IG1vcmUgc2Vuc2UsICdj
-b3MgdGhleSBhcmUgdHVybmVkIG9uIG9ubHkgd2hlbiB0aGUgYWRtaW5pc3RyYXRvciBub3RpY2Vz
-IGEgcHJvYmxlbSwgYW5kIGlzIHRyeWluZyB0byBkZWJ1ZyBpdC4NCg0KVHJvbmQNCg0K
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 29 Aug 2011 23:51:21 +0200
+
+> Le lundi 29 ao=FBt 2011 =E0 23:43 +0200, Eric Dumazet a =E9crit :
+>=20
+>> Furthermore, a failed vmalloc() is not guaranteed to emit an OOM
+>> message, is it ?
+>=20
+> It currently displays a message without context :
+>=20
+> vmap allocation for size XXXXXX failed: use vmalloc=3D<size> to incre=
+ase
+> size.
+>=20
+> So we dont know which part of the kernel asked this allocation.
+>=20
+> Please dont remove existing error messages after failed vmalloc() cal=
+ls.
+
+Indeed.
+
+Joe, these vmalloc() and also the __GFP_NOWARN cases will need to be
+attended to and this series resubmitted as such.
+
+Thanks.
