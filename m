@@ -1,10 +1,12 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 21/24] wanrouter: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 14:17:40 -0700
-Message-ID: <164670c700d9d0a5f863c7c6c6947e8718cc605e.1314650069.git.joe@perches.com>
+Subject: [PATCH 20/24] tipc: Remove unnecessary OOM logging messages
+Date: Mon, 29 Aug 2011 14:17:39 -0700
+Message-ID: <22c8098d9704a07ce8ccb5b13c6ac531dbb9dd1e.1314650069.git.joe@perches.com>
 References: <cover.1314650069.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1314650069.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -18,35 +20,24 @@ delete them.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/wanrouter/wanmain.c |    8 +-------
- 1 files changed, 1 insertions(+), 7 deletions(-)
+ net/tipc/link.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/net/wanrouter/wanmain.c b/net/wanrouter/wanmain.c
-index 788a12c..01d0be4 100644
---- a/net/wanrouter/wanmain.c
-+++ b/net/wanrouter/wanmain.c
-@@ -437,11 +437,8 @@ static int wanrouter_device_setup(struct wan_device *wandev,
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index f89570c..5c96289 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -325,10 +325,8 @@ struct link *tipc_link_create(struct tipc_node *n_ptr,
  	}
  
- 	conf = kmalloc(sizeof(wandev_conf_t), GFP_KERNEL);
--	if (conf == NULL){
--		printk(KERN_INFO "%s: ERROR, Failed to allocate kernel memory !\n",
--				wandev->name);
-+	if (conf == NULL)
- 		return -ENOBUFS;
+ 	l_ptr = kzalloc(sizeof(*l_ptr), GFP_ATOMIC);
+-	if (!l_ptr) {
+-		warn("Link creation failed, no memory\n");
++	if (!l_ptr)
+ 		return NULL;
 -	}
  
- 	if (copy_from_user(conf, u_conf, sizeof(wandev_conf_t))) {
- 		printk(KERN_INFO "%s: Failed to copy user config data to kernel space!\n",
-@@ -468,9 +465,6 @@ static int wanrouter_device_setup(struct wan_device *wandev,
- 
- 		data = vmalloc(conf->data_size);
- 		if (!data) {
--			printk(KERN_INFO
--				"%s: ERROR, Failed allocate kernel memory !\n",
--				wandev->name);
- 			kfree(conf);
- 			return -ENOBUFS;
- 		}
+ 	l_ptr->addr = peer;
+ 	if_name = strchr(b_ptr->name, ':') + 1;
 -- 
 1.7.6.405.gc1be0
