@@ -1,19 +1,17 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 17/24] sched: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 14:17:36 -0700
-Message-ID: <2c57e8e336c6059dc550ba88e96dcaa27056382f.1314650069.git.joe@perches.com>
+Subject: [PATCH 18/24] sctp: Remove unnecessary OOM logging messages
+Date: Mon, 29 Aug 2011 14:17:37 -0700
+Message-ID: <21b4d996c8861373ac77d427914ec7882fe0c83e.1314650069.git.joe@perches.com>
 References: <cover.1314650069.git.joe@perches.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:40352 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755187Ab1H2VVU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Aug 2011 17:21:20 -0400
+To: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1314650069.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Removing unnecessary messages saves code and text.
 
@@ -23,46 +21,36 @@ delete them.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/sched/act_api.c |    6 ++----
- net/sched/sch_atm.c |    1 -
- 2 files changed, 2 insertions(+), 5 deletions(-)
+ net/sctp/protocol.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index f2fb67e..fb98a30 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -749,10 +749,9 @@ static struct tc_action *create_a(int i)
- 	struct tc_action *act;
- 
- 	act = kzalloc(sizeof(*act), GFP_KERNEL);
--	if (act == NULL) {
--		pr_debug("create_a: failed to alloc!\n");
-+	if (act == NULL)
- 		return NULL;
--	}
-+
- 	act->order = i;
- 	return act;
- }
-@@ -778,7 +777,6 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 
- 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
- 	if (!skb) {
--		pr_debug("tca_action_flush: failed skb alloc\n");
- 		kfree(a);
- 		return err;
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 91784f4..0801444 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1326,7 +1326,6 @@ SCTP_STATIC __init int sctp_init(void)
+ 			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
+ 	} while (!sctp_assoc_hashtable && --order > 0);
+ 	if (!sctp_assoc_hashtable) {
+-		pr_err("Failed association hash alloc\n");
+ 		status = -ENOMEM;
+ 		goto err_ahash_alloc;
  	}
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index e25e490..cba66c4 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -270,7 +270,6 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
+@@ -1340,7 +1339,6 @@ SCTP_STATIC __init int sctp_init(void)
+ 	sctp_ep_hashtable = (struct sctp_hashbucket *)
+ 		kmalloc(64 * sizeof(struct sctp_hashbucket), GFP_KERNEL);
+ 	if (!sctp_ep_hashtable) {
+-		pr_err("Failed endpoint_hash alloc\n");
+ 		status = -ENOMEM;
+ 		goto err_ehash_alloc;
  	}
- 	pr_debug("atm_tc_change: new id %x\n", classid);
- 	flow = kzalloc(sizeof(struct atm_flow_data) + hdr_len, GFP_KERNEL);
--	pr_debug("atm_tc_change: flow %p\n", flow);
- 	if (!flow) {
- 		error = -ENOBUFS;
- 		goto err_out;
+@@ -1359,7 +1357,6 @@ SCTP_STATIC __init int sctp_init(void)
+ 			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
+ 	} while (!sctp_port_hashtable && --order > 0);
+ 	if (!sctp_port_hashtable) {
+-		pr_err("Failed bind hash alloc\n");
+ 		status = -ENOMEM;
+ 		goto err_bhash_alloc;
+ 	}
 -- 
 1.7.6.405.gc1be0
