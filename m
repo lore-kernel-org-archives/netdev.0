@@ -1,31 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 19/24] sunrpc: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 22:35:28 -0400 (EDT)
-Message-ID: <20110829.223528.1015352328965337938.davem@davemloft.net>
-References: <4E5C0AB3.90401@panasas.com>
-	<20110829.180348.1774953636752413432.davem@davemloft.net>
-	<2E1EB2CF9ED1CB4AA966F0EB76EAB4430AEB4FAF@SACMVEXC2-PRD.hq.netapp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] qlcnic: Bug fixes
+Date: Mon, 29 Aug 2011 22:53:49 -0400 (EDT)
+Message-ID: <20110829.225349.1923128877827649214.davem@davemloft.net>
+References: <1314658231-30735-1-git-send-email-sony.chacko@qlogic.com>
+	<1314658231-30735-6-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bharrosh-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	neilb-l3A5Bk7waGM@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430AEB4FAF-hX7t0kiaRRrlMGe9HJ1VYQK/GNPrWCqfQQ4Iyu8u01E@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: sony.chacko@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33703 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769Ab1H3Cxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 22:53:54 -0400
+In-Reply-To: <1314658231-30735-6-git-send-email-sony.chacko@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Date: Mon, 29 Aug 2011 16:25:08 -0700
+From: Sony Chacko <sony.chacko@qlogic.com>
+Date: Mon, 29 Aug 2011 15:50:31 -0700
 
-> I can see that slub.c has the slab_out_of_memory() function that
-> (although ratelimited) warns you if the allocation failed. However I
-> can't find any equivalent for slab.c or slob.c.
+> Please apply to net-next.
 
-See the page allocator.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
+
+I would like to suggest that you move away from driver internal
+debug logging macros and either use existing generic kernel
+facilities that exist or extend what exists so that it fits
+your needs and others can enjoy the improvements too.
+
+Thanks.
