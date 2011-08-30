@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/24] netfilter: Remove unnecessary OOM logging
- messages
-Date: Tue, 30 Aug 2011 13:55:02 -0400 (EDT)
-Message-ID: <20110830.135502.179848097213434762.davem@davemloft.net>
-References: <cover.1314650069.git.joe@perches.com>
-	<13c1c12486cae409dfa5254b1435e660f2b17e05.1314650069.git.joe@perches.com>
-	<4E5CDBAA.6040001@trash.net>
+Subject: Re: [Bug 42012] New: regression on 2.6.39.3 with socket/bind;
+ still there in 3.0.4
+Date: Tue, 30 Aug 2011 14:07:33 -0400 (EDT)
+Message-ID: <20110830.140733.146208373221522199.davem@davemloft.net>
+References: <20110830084742.26c72c20@nehalam.ftrdhcpuser.net>
+	<1314720708.2935.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, bart.de.schuymer@pandora.be, wensong@linux-vs.org,
-	horms@verge.net.au, ja@ssi.bg, shemminger@linux-foundation.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: kaber@trash.net
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <4E5CDBAA.6040001@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51079 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755848Ab1H3SIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 14:08:11 -0400
+In-Reply-To: <1314720708.2935.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 30 Aug 2011 14:46:34 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 30 Aug 2011 18:11:48 +0200
 
-> On 29.08.2011 23:17, Joe Perches wrote:
->> Removing unnecessary messages saves code and text.
->> 
->> Site specific OOM messages are duplications of a generic MM
->> out of memory message and aren't really useful, so just
->> delete them.
-> 
-> Looks good to me. Do you want me to apply this patch or are you
-> intending to have the entire series go through Dave?
+> Yep, we should relax the check and accept AF_UNSPEC.
 
-I'm happy with subsystem folks taking things in if they want, the
-B.A.T.M.A.N. guys did this earlier today for example.
+I guess we'll have to do this, but I just can't bring myself to accept
+that we can just do zero validation of what the user is passing us,
+see an AF_UNSPEC, and say "yeah it's fine to assume there's an ipv4
+address in there."
