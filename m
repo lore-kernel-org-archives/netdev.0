@@ -1,88 +1,199 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 18/24] sctp: Remove unnecessary OOM logging messages
-Date: Mon, 29 Aug 2011 18:21:21 -0700
-Message-ID: <1314667281.6852.47.camel@Joe-Laptop>
-References: <cover.1314650069.git.joe@perches.com>
-	 <21b4d996c8861373ac77d427914ec7882fe0c83e.1314650069.git.joe@perches.com>
-	 <1314654209.2563.7.camel@edumazet-laptop>
+From: Jim Gettys <jg-CC+yJ3UmIYqDUpFQwHEjaQ@public.gmane.org>
+Subject: Re: BQL crap and wireless
+Date: Mon, 29 Aug 2011 21:22:15 -0400
+Message-ID: <4E5C3B47.1050809@freedesktop.org>
+References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com> <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com> <CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:46379 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751775Ab1H3BVX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Aug 2011 21:21:23 -0400
-In-Reply-To: <1314654209.2563.7.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andrew McGregor <andrewmcgr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Matt Smith <smithm-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Kevin Hayes <hayes-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	Derek Smithies <derek-Rd3uoDiDeHXJKwlM9GxbOw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-08-29 at 23:43 +0200, Eric Dumazet wrote:
-> Le lundi 29 ao=C3=BBt 2011 =C3=A0 14:17 -0700, Joe Perches a =C3=A9cr=
-it :
-> > Removing unnecessary messages saves code and text.
-> > Site specific OOM messages are duplications of a generic MM
-> > out of memory message and aren't really useful, so just
-> > delete them.
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> > ---
-> >  net/sctp/protocol.c |    3 ---
-> >  1 files changed, 0 insertions(+), 3 deletions(-)
-> > diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-[]
-> > @@ -1326,7 +1326,6 @@ SCTP_STATIC __init int sctp_init(void)
-> >  			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
-> >  	} while (!sctp_assoc_hashtable && --order > 0);
-> >  	if (!sctp_assoc_hashtable) {
-> > -		pr_err("Failed association hash alloc\n");
-> >  		status =3D -ENOMEM;
-> >  		goto err_ahash_alloc;
-> >  	}
-[]
-> > @@ -1359,7 +1357,6 @@ SCTP_STATIC __init int sctp_init(void)
-> >  			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
-> >  	} while (!sctp_port_hashtable && --order > 0);
-> >  	if (!sctp_port_hashtable) {
-> > -		pr_err("Failed bind hash alloc\n");
-> >  		status =3D -ENOMEM;
-> >  		goto err_bhash_alloc;
-> >  	}
-> It would be nice if you could avoid all these patches, that you dont
-> even read.
+On 08/29/2011 08:24 PM, Dave Taht wrote:
+> On Mon, Aug 29, 2011 at 2:02 PM, Luis R. Rodriguez <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> On Fri, Aug 26, 2011 at 4:27 PM, Luis R. Rodriguez <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> Let me elaborate on 802.11 and bufferbloat as so far I see only crap
+>> documentation on this and also random crap adhoc patches.
+> I agree that the research into bufferbloat has been an evolving topic, and
+> the existing documentation and solutions throughout the web is inaccurate
+>  or just plan wrong in many respects. While I've been accumulating better
+> and more interesting results as research continues, we're not there yet...
+>
+>> Given that I
+>> see effort on netdev to try to help with latency issues its important
+>> for netdev developers to be aware of what issues we do face today and
+>> what stuff is being mucked with.
+> Hear, Hear!
+>
+>> As far as I see it I break down the issues into two categories:
+>>
+>>  * 1. High latencies on ping
+>>  * 2. Constant small drops in throughput
+> I'll take on 2, in a separate email.
+>
+>>  1. High latencies on ping
+>> ===================
+> For starters, no, "high - and wildly varying - latencies on all sorts
+> of packets".
+>
+> Ping is merely a diagnostic tool in this case.
+>
+> If you would like several gb of packet captures of all sorts of streams
+> from various places and circumstances, ask. JG published a long
+> series about 7 months back, more are coming.
+>
+> Regrettably most of the most recent traces come from irreproducible
+> circumstances, a flaw we are trying to fix after 'CeroWrt' is finished.
+>
+>> It seems the bufferbloat folks are blaming the high latencies on our
+>> obsession on modern hardware to create huge queues and also with
+>> software retries. They assert that reducing the queue length
+>> (ATH_MAX_QDEPTH on ath9k) and software retries (ATH_MAX_SW_RETRIES on
+>> ath9k) helps with latencies. They have at least empirically tested
+>> this with ath9k with
+>> a simple patch:
 
-Didn't read is not the same thing as didn't notice.
+The retries in wireless interact here only because they have encouraged
+buffering for the retries.  This is not unique to 802.11, but also
+present in 3g networks (there, they fragment packets and put in lots of
+buffering hoping to get the packet fragment transmitted at some future
+time; they really hate dropping a packet if only a piece got damaged.
 
-> As I already told you in the past, __GFP_NOWARN dont print generic OO=
-M
-> messages.
 
-I didn't notice those had GFP_NOWARN.
+>> https://www.bufferbloat.net/attachments/43/580-ath9k_lowlatency.patch
+>>
+>> The obvious issue with this approach is it assumes STA mode of
+>> operation, with an AP you do not want to reduce the queue size like
+>> that. In fact because of the dynamic nature of 802.11 and the
+> If there is any one assumption about the bufferbloat issue that people
+> keep assuming we have, it's this one.
+>
+> In article after article, in blog post after blog post, people keep
+> 'fixing' bufferbloat by setting their queues to very low values,
+> and almost miraculously start seeing their  QoS start working
+> (which it does), and then they gleefully publish their results
+>  as recommendations, and then someone from the bufferbloat
+> effort has to go and comment on that piece, whenever we
+> notice, to straighten them out.
+>
+> In no presentation, no documentation, anywhere I know of,
+> have we expressed  that queuing as it works today
+> is the right thing.
+>
+> More recently, JG got fed up and wrote these...
+>
+> http://gettys.wordpress.com/2011/07/06/rant-warning-there-is-no-single-right-answer-for-buffering-ever/
+>
+> http://gettys.wordpress.com/2011/07/09/rant-warning-there-is-no-single-right-answer-for-buffering-ever-part-2/
 
-> Its not because I told Wang Shaoyan not adding a useless "pr_err("Out=
- of
-> memory\n");" in last gianfar patch, that you have to remove all
-> messages, with one hundred or more patches.
+Yes, I got really frustrated....
 
-> If I remember well, you even disagreed at that time.
+>
+> There has been no time, since the inception of the bufferbloat
+> concept, have we had a fixed buffer size in any layer of the
+> stack as even a potential solution.
 
-No, what I said was that it'd be better to get agreement
-to delete them before deleting them.
+Right now, we have typically 2 (large) buffers: the transmit queue and
+the driver rings.  Some hardware/software hides buffers in additional
+places (e.g. on the OLPC X0-1, there are 4 packets in the wireless
+module and 1 hidden in the driver itself. YMWV.
+>
+> And you just did applied that preconception to us again.
+>
+> My take on matters is that *unmanaged* buffer sizes > 1 is a
+> problem. Others set the number higher.
+>
+> Of late, given what tools we have, we HAVE been trying to establish
+> what *good baseline* queue sizes (txqueues, driver queues, etc)
+> actually are for wireless under ANY circumstance that was
+> duplicate-able.
+>
+> For the drivers JG was using last year, that answer was: 0.
+>
+> Actually, less than 0  would have been good, but that
+> would have involved having tachyon emitters in the
+> architecture.
 
-https://lkml.org/lkml/2011/8/9/379
+Zero is what I set the transmit queue in my *experiments*  ***only***
+because I knew by that point the drivers underneath the transmit queue
+had another 250 or so packets of buffering on the hardware I (and most
+of you) have; I went and looked at quite a few Linux drivers, and
+confirmed similar ring buffer sizes on Mac and Windows both empirically
+and when possible from driver control panel information.  At the
+bandwidth delay product of my experiments, 250 packets is way more than
+TCP will ever need.   See:
+http://gettys.wordpress.com/2010/11/29/home-router-puzzle-piece-one-fun-with-your-switch/
 
-So I submitted an RFC and cc'd you.
-You did not reply.
+Most current ethernet and wireless drivers have that much in the
+transmit rings today, on all operating systems that I've played with.
+The hardware will typically support up to 4096 packet rings, but the
+defaults in the drivers seem to be typically in the 200-300 packet range
+(sometimes per queue).
 
-https://lkml.org/lkml/2011/8/25/580
+Remember that any long lived TCP session (an "elephant" flow), will fill
+any size buffer just before the bottleneck link in a path, given time. 
+It will fill the buffer at the rate at one packet/ack; in the traces I
+took over cable modems you can watch the delay go up  and up cleanly,
+and up (in my case, to 1.2 seconds when they filled after of order 10
+seconds.  The same thing happens on 802.11 wireless, but its noisier in
+my traces as I don't have a handy faraday cage ;-).  An additional
+problem, which was a huge surprise to everyone who studied the traces is
+that congestion avoidance is getting terminally confused.    And by
+delaying packet drop (or ECN marking), TCP never slows down; it actually
+continues to speed up (since current TCP algorithms typically do not
+take notice of the RTT). The delay is so long that TCP's servo system is
+no longer stable and it oscillates with a constant period.  I have no
+clue if this is at all related to the other periodic behaviour people
+have noticed.  If you think about it, the fact that the delay is several
+orders of magnitude larger than the actual delay of the path makes it
+less surprising than it might be.
 
-> Furthermore, a failed vmalloc() is not guaranteed to emit an OOM
-> message, is it ?
+Indeed there is no simple single right answer for buffering; it needs to
+be dynamic, and ultimately we need to have AQM
+even in hosts to control buffering (think about the case of two
+different long lived TCP sessions over vastly different bandwidth/delay
+paths).  The gotcha is we don't have a AQM algorithm known to work in
+the face of the highly dynamic bandwidth variation that is wireless;
+classic RED does not
+have the output bandwidth as a parameter in its algorithm.  This was/is
+the great surprise to me as I had always thought of AQM as a property of
+internet routers, not hosts.
 
-Doesn't seem to be, perhaps it should be
-when __GFP_NOWARN is not set...
+That buffering between the transmit queue is completely divorced from
+driver buffering, when it needs to be treated together in some fashion. 
+What the "right" way to do that is, I don't know, though Andrew's
+interview gave me some hope.  And it needs to be dynamic, over (in the
+802.11 case) at least 3 orders of magnitude.
+
+This is a non-trivial, hard problem we have on our hands.
+
+Computing the buffering in bytes is better than in packets; but since on
+wireless multicast/broadcast is transmitted at a radically different
+rate than other packets, I expect something based on time is really the
+long term solution; and only the driver has any idea how long a packet
+of a given flavour will likely take to transmit.
+                    - Jim
+
+
+
+
+
+
+
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
