@@ -1,43 +1,31 @@
-From: Jim Gettys <jg@freedesktop.org>
-Subject: Re: BQL crap and wireless
-Date: Mon, 29 Aug 2011 22:12:17 -0400
-Message-ID: <4E5C4701.4060509@freedesktop.org>
-References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com> <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com> <CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ@mail.gmail.com> <4E5C3B47.1050809@freedesktop.org> <903AA8A8-9ACD-44FB-9BA8-50137359EC2B@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 19/24] sunrpc: Remove unnecessary OOM logging messages
+Date: Mon, 29 Aug 2011 22:35:28 -0400 (EDT)
+Message-ID: <20110829.223528.1015352328965337938.davem@davemloft.net>
+References: <4E5C0AB3.90401@panasas.com>
+	<20110829.180348.1774953636752413432.davem@davemloft.net>
+	<2E1EB2CF9ED1CB4AA966F0EB76EAB4430AEB4FAF@SACMVEXC2-PRD.hq.netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Matt Smith <smithm@qca.qualcomm.com>,
-	Kevin Hayes <hayes@qca.qualcomm.com>,
-	Derek Smithies <derek@indranet.co.nz>, netdev@vger.kernel.org
-To: Andrew McGregor <andrewmcgr@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:55388 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161Ab1H3CMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 22:12:21 -0400
-In-Reply-To: <903AA8A8-9ACD-44FB-9BA8-50137359EC2B@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bharrosh-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	neilb-l3A5Bk7waGM@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430AEB4FAF-hX7t0kiaRRrlMGe9HJ1VYQK/GNPrWCqfQQ4Iyu8u01E@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/29/2011 09:59 PM, Andrew McGregor wrote:
-> On 30/08/2011, at 1:22 PM, Jim Gettys wrote:
->
->> The gotcha is we don't have a AQM algorithm known to work in
->> the face of the highly dynamic bandwidth variation that is wireless
-> It's worse than highly dynamic... the bandwidth may be completely undefined moment to moment, as it is dependent on both the wireless environment, which varies on timescales that can be about equal to a packet transmit time, and on the traffic mix.  There's about 30 ms of correlation time at best.
-Yup.  It makes ethernet look trivial. If we can handle buffers there,
-everywhere else is easy by comparison.
->>  This was/is
->> the great surprise to me as I had always thought of AQM as a property of
->> internet routers, not hosts.
-> There's no distinction in the forwarding plane, every router is a host, every host is a router.
-Exactly; but I hadn't thought this through to hosts, nor, I think had
-many other people.  Naive me, having been scarred by '90's congestion,
-was aware of RED, and roughly how it worked, but always thought of AQM
-as something you did in routers.  Realising that in principle I needed
-it turned on in my laptop was not something I expected.
-                        - Jim
+From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 29 Aug 2011 16:25:08 -0700
+
+> I can see that slub.c has the slab_out_of_memory() function that
+> (although ratelimited) warns you if the allocation failed. However I
+> can't find any equivalent for slab.c or slob.c.
+
+See the page allocator.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
