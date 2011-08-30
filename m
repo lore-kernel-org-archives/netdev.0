@@ -1,129 +1,88 @@
-From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: BQL crap and wireless
-Date: Mon, 29 Aug 2011 18:08:51 -0700
-Message-ID: <CAA93jw4Dg--nz6F6fA0BACebXVdS9iY2As+__9ww1cu1Vy265Q@mail.gmail.com>
-References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com>
-	<CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 18/24] sctp: Remove unnecessary OOM logging messages
+Date: Mon, 29 Aug 2011 18:21:21 -0700
+Message-ID: <1314667281.6852.47.camel@Joe-Laptop>
+References: <cover.1314650069.git.joe@perches.com>
+	 <21b4d996c8861373ac77d427914ec7882fe0c83e.1314650069.git.joe@perches.com>
+	 <1314654209.2563.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew McGregor <andrewmcgr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Matt Smith <smithm-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Kevin Hayes <hayes-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Derek Smithies <derek-Rd3uoDiDeHXJKwlM9GxbOw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:46379 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751775Ab1H3BVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Aug 2011 21:21:23 -0400
+In-Reply-To: <1314654209.2563.7.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 2. Constant small drops in throughput
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D
+On Mon, 2011-08-29 at 23:43 +0200, Eric Dumazet wrote:
+> Le lundi 29 ao=C3=BBt 2011 =C3=A0 14:17 -0700, Joe Perches a =C3=A9cr=
+it :
+> > Removing unnecessary messages saves code and text.
+> > Site specific OOM messages are duplications of a generic MM
+> > out of memory message and aren't really useful, so just
+> > delete them.
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> > ---
+> >  net/sctp/protocol.c |    3 ---
+> >  1 files changed, 0 insertions(+), 3 deletions(-)
+> > diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+[]
+> > @@ -1326,7 +1326,6 @@ SCTP_STATIC __init int sctp_init(void)
+> >  			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
+> >  	} while (!sctp_assoc_hashtable && --order > 0);
+> >  	if (!sctp_assoc_hashtable) {
+> > -		pr_err("Failed association hash alloc\n");
+> >  		status =3D -ENOMEM;
+> >  		goto err_ahash_alloc;
+> >  	}
+[]
+> > @@ -1359,7 +1357,6 @@ SCTP_STATIC __init int sctp_init(void)
+> >  			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
+> >  	} while (!sctp_port_hashtable && --order > 0);
+> >  	if (!sctp_port_hashtable) {
+> > -		pr_err("Failed bind hash alloc\n");
+> >  		status =3D -ENOMEM;
+> >  		goto err_bhash_alloc;
+> >  	}
+> It would be nice if you could avoid all these patches, that you dont
+> even read.
 
-Huge drops in throughput, actually.
+Didn't read is not the same thing as didn't notice.
 
-> How to explain this? I have no clue. Two current theories:
->
-> a. Dynamic Power save
-> b. Offchannel operations on bgscans
-> c. Bufferbloat: large hw queue size and sw retries
->
-> One can rule out (a) and (b) by disabling Dynamic Power Save (iw dev
-> wlan0 power_save off) and also bg scans. If its (c) then we can work
-> our way up to proving a solution with the same fixes for the first
-> latency issue. But there are more subtle issues here.
+> As I already told you in the past, __GFP_NOWARN dont print generic OO=
+M
+> messages.
 
-(in part, your) recent analysis of the periodicity of bandwidth drops
-does point
-strongly to points a and b being mis-implemented by many vendors and OS=
--makers,
-and shows a clear path toward further testing by several labs.
+I didn't notice those had GFP_NOWARN.
 
-> Bufferbloat
-> folks talk about "ants" and "elephants". They call "Elephants" as
-> frames that are just data, but "ants" are small frames that build mak=
-e
-> the networks work --
+> Its not because I told Wang Shaoyan not adding a useless "pr_err("Out=
+ of
+> memory\n");" in last gianfar patch, that you have to remove all
+> messages, with one hundred or more patches.
 
-This is an over-simplification of a complex issue, and wrong.
+> If I remember well, you even disagreed at that time.
 
-Elephants are very large *streams* of tcp data, the kind you get after
-a few seconds of operation, and mice are short ones, the kind you
-commonly get with non-pipelined http protocols and normal websites.
+No, what I said was that it'd be better to get agreement
+to delete them before deleting them.
 
-As noted elsewhere, with tons of reference material on google and cites=
-eer,
-"tcp mice and elephants" are a well researched and understood topic -
-or at least were, back when network research still happened, which
-was prior to the explosion and predominance of wireless.
+https://lkml.org/lkml/2011/8/9/379
 
-The need for AQMs such as RED, Blue, etc, to manage elephants was
-well demonstrated back in  the early 90s. Being able to shoot/slow down
-the elephants on a sane basis is also required to have sane shared
-network behavior.
+So I submitted an RFC and cc'd you.
+You did not reply.
 
-There has been a huge shift in TCP flows with first the advent of the
-web for all things, and more recently, back again, with the rise of vid=
-eo.
+https://lkml.org/lkml/2011/8/25/580
 
-> so consider 802.11 management frames, and TCP
-> ACKs, and so forth.
+> Furthermore, a failed vmalloc() is not guaranteed to emit an OOM
+> message, is it ?
 
-Um, actually, if TCP acks are 'ANT's, it's news to me, and I co-coined =
-the term.
-
-There is one special case, commonly implemented in cable modems, of
-Syn and Syn/Ack optimization, that might pay off to some extent in wire=
-less.
-
-Upstream ACK prioritization does seem to help when it comes to
-managing interactive
-flows on asymmetric (e.g. home) networks as (for example) demonstrated =
-by
-wondershaper and other QoS mechanism.
-
-But anything involving TCP fits into the well defined mice and
-elephant categories
-already, not ANTs.
-
-I'm told that most management frames are in a separately managed queue =
-already.
-
-> They argue we should prioritize these more and
-> ensure we use whatever techniques we can to ensure we reduce latency
-> for them.
-
-ARP, DHCP, ND, RA, and various forms of ipv6's ping based protocols,
-most routing protocols
-in many aspects, numerous other non-tcp protocols, all count as ANTs.
-
-> At least on ath9k we only aggregate data frames, but that
-> doesn't mean we are not aggregating other "ant" frames.
-
-The approach that we are experimenting with now, is putting
-ANT-like packets into the VO and VI queues as appropriate and out
-of the BE or BK queues.
-
-Too early to publish preliminary results, but I am encouraged by what
-I've seen so far.
-
-It's interesting to note that a lot of web traffic is actually marked
-as bulk traffic (tos of bulk)
-which ends up in the wireless BK queue, rather than BE.
-
-
-
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-http://the-edge.blogspot.com
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Doesn't seem to be, perhaps it should be
+when __GFP_NOWARN is not set...
