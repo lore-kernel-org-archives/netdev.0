@@ -1,7 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 1/8] bnx2x: fix BRB thresholds for dropless_fc mode
-Date: Tue, 30 Aug 2011 13:08:39 +0300
-Message-ID: <1314698926-24525-2-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH 7/8] bnx2x: don't access removed registers on 57712 and
+ above
+Date: Tue, 30 Aug 2011 13:08:45 +0300
+Message-ID: <1314698926-24525-8-git-send-email-dmitry@broadcom.com>
 References: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,274 +11,50 @@ Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1533 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4435 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751905Ab1H3KIq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 06:08:46 -0400
+	id S1752880Ab1H3KIv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 06:08:51 -0400
 In-Reply-To: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the thresholds according to 5778x HW and increase rx_ring size
-to suit new thresholds in dropless_fc mode.
-
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x.h      |   84 +++++++++++++++++++++++++++++++++++----
- drivers/net/bnx2x/bnx2x_cmn.c  |   10 +---
- drivers/net/bnx2x/bnx2x_main.c |   33 +++++++++++----
- 3 files changed, 102 insertions(+), 25 deletions(-)
+ drivers/net/bnx2x/bnx2x_main.c |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index c423504..8529732 100644
---- a/drivers/net/bnx2x/bnx2x.h
-+++ b/drivers/net/bnx2x/bnx2x.h
-@@ -315,6 +315,14 @@ union db_prod {
- 	u32		raw;
- };
- 
-+/* dropless fc FW/HW related params */
-+#define BRB_SIZE(bp)		(CHIP_IS_E3(bp) ? 1024 : 512)
-+#define MAX_AGG_QS(bp)		(CHIP_IS_E1(bp) ? \
-+					ETH_MAX_AGGREGATION_QUEUES_E1 :\
-+					ETH_MAX_AGGREGATION_QUEUES_E1H_E2)
-+#define FW_DROP_LEVEL(bp)	(3 + MAX_SPQ_PENDING + MAX_AGG_QS(bp))
-+#define FW_PREFETCH_CNT		16
-+#define DROPLESS_FC_HEADROOM	100
- 
- /* MC hsi */
- #define BCM_PAGE_SHIFT		12
-@@ -331,15 +339,35 @@ union db_prod {
- /* SGE ring related macros */
- #define NUM_RX_SGE_PAGES	2
- #define RX_SGE_CNT		(BCM_PAGE_SIZE / sizeof(struct eth_rx_sge))
--#define MAX_RX_SGE_CNT		(RX_SGE_CNT - 2)
-+#define NEXT_PAGE_SGE_DESC_CNT	2
-+#define MAX_RX_SGE_CNT		(RX_SGE_CNT - NEXT_PAGE_SGE_DESC_CNT)
- /* RX_SGE_CNT is promised to be a power of 2 */
- #define RX_SGE_MASK		(RX_SGE_CNT - 1)
- #define NUM_RX_SGE		(RX_SGE_CNT * NUM_RX_SGE_PAGES)
- #define MAX_RX_SGE		(NUM_RX_SGE - 1)
- #define NEXT_SGE_IDX(x)		((((x) & RX_SGE_MASK) == \
--				  (MAX_RX_SGE_CNT - 1)) ? (x) + 3 : (x) + 1)
-+				  (MAX_RX_SGE_CNT - 1)) ? \
-+					(x) + 1 + NEXT_PAGE_SGE_DESC_CNT : \
-+					(x) + 1)
- #define RX_SGE(x)		((x) & MAX_RX_SGE)
- 
-+/*
-+ * Number of required  SGEs is the sum of two:
-+ * 1. Number of possible opened aggregations (next packet for
-+ *    these aggregations will probably consume SGE immidiatelly)
-+ * 2. Rest of BRB blocks divided by 2 (block will consume new SGE only
-+ *    after placement on BD for new TPA aggregation)
-+ *
-+ * Takes into account NEXT_PAGE_SGE_DESC_CNT "next" elements on each page
-+ */
-+#define NUM_SGE_REQ		(MAX_AGG_QS(bp) + \
-+					(BRB_SIZE(bp) - MAX_AGG_QS(bp)) / 2)
-+#define NUM_SGE_PG_REQ		((NUM_SGE_REQ + MAX_RX_SGE_CNT - 1) / \
-+						MAX_RX_SGE_CNT)
-+#define SGE_TH_LO(bp)		(NUM_SGE_REQ + \
-+				 NUM_SGE_PG_REQ * NEXT_PAGE_SGE_DESC_CNT)
-+#define SGE_TH_HI(bp)		(SGE_TH_LO(bp) + DROPLESS_FC_HEADROOM)
-+
- /* Manipulate a bit vector defined as an array of u64 */
- 
- /* Number of bits in one sge_mask array element */
-@@ -551,24 +579,43 @@ struct bnx2x_fastpath {
- 
- #define NUM_TX_RINGS		16
- #define TX_DESC_CNT		(BCM_PAGE_SIZE / sizeof(union eth_tx_bd_types))
--#define MAX_TX_DESC_CNT		(TX_DESC_CNT - 1)
-+#define NEXT_PAGE_TX_DESC_CNT	1
-+#define MAX_TX_DESC_CNT		(TX_DESC_CNT - NEXT_PAGE_TX_DESC_CNT)
- #define NUM_TX_BD		(TX_DESC_CNT * NUM_TX_RINGS)
- #define MAX_TX_BD		(NUM_TX_BD - 1)
- #define MAX_TX_AVAIL		(MAX_TX_DESC_CNT * NUM_TX_RINGS - 2)
- #define NEXT_TX_IDX(x)		((((x) & MAX_TX_DESC_CNT) == \
--				  (MAX_TX_DESC_CNT - 1)) ? (x) + 2 : (x) + 1)
-+				  (MAX_TX_DESC_CNT - 1)) ? \
-+					(x) + 1 + NEXT_PAGE_TX_DESC_CNT : \
-+					(x) + 1)
- #define TX_BD(x)		((x) & MAX_TX_BD)
- #define TX_BD_POFF(x)		((x) & MAX_TX_DESC_CNT)
- 
- /* The RX BD ring is special, each bd is 8 bytes but the last one is 16 */
- #define NUM_RX_RINGS		8
- #define RX_DESC_CNT		(BCM_PAGE_SIZE / sizeof(struct eth_rx_bd))
--#define MAX_RX_DESC_CNT		(RX_DESC_CNT - 2)
-+#define NEXT_PAGE_RX_DESC_CNT	2
-+#define MAX_RX_DESC_CNT		(RX_DESC_CNT - NEXT_PAGE_RX_DESC_CNT)
- #define RX_DESC_MASK		(RX_DESC_CNT - 1)
- #define NUM_RX_BD		(RX_DESC_CNT * NUM_RX_RINGS)
- #define MAX_RX_BD		(NUM_RX_BD - 1)
- #define MAX_RX_AVAIL		(MAX_RX_DESC_CNT * NUM_RX_RINGS - 2)
--#define MIN_RX_AVAIL		128
-+
-+/* dropless fc calculations for BDs
-+ *
-+ * Number of BDs should as number of buffers in BRB:
-+ * Low threshold takes into account NEXT_PAGE_RX_DESC_CNT
-+ * "next" elements on each page
-+ */
-+#define NUM_BD_REQ		BRB_SIZE(bp)
-+#define NUM_BD_PG_REQ		((NUM_BD_REQ + MAX_RX_DESC_CNT - 1) / \
-+					      MAX_RX_DESC_CNT)
-+#define BD_TH_LO(bp)		(NUM_BD_REQ + \
-+				 NUM_BD_PG_REQ * NEXT_PAGE_RX_DESC_CNT + \
-+				 FW_DROP_LEVEL(bp))
-+#define BD_TH_HI(bp)		(BD_TH_LO(bp) + DROPLESS_FC_HEADROOM)
-+
-+#define MIN_RX_AVAIL		((bp)->dropless_fc ? BD_TH_HI(bp) + 128 : 128)
- 
- #define MIN_RX_SIZE_TPA_HW	(CHIP_IS_E1(bp) ? \
- 					ETH_MIN_RX_CQES_WITH_TPA_E1 : \
-@@ -579,7 +626,9 @@ struct bnx2x_fastpath {
- 								MIN_RX_AVAIL))
- 
- #define NEXT_RX_IDX(x)		((((x) & RX_DESC_MASK) == \
--				  (MAX_RX_DESC_CNT - 1)) ? (x) + 3 : (x) + 1)
-+				  (MAX_RX_DESC_CNT - 1)) ? \
-+					(x) + 1 + NEXT_PAGE_RX_DESC_CNT : \
-+					(x) + 1)
- #define RX_BD(x)		((x) & MAX_RX_BD)
- 
- /*
-@@ -589,14 +638,31 @@ struct bnx2x_fastpath {
- #define CQE_BD_REL	(sizeof(union eth_rx_cqe) / sizeof(struct eth_rx_bd))
- #define NUM_RCQ_RINGS		(NUM_RX_RINGS * CQE_BD_REL)
- #define RCQ_DESC_CNT		(BCM_PAGE_SIZE / sizeof(union eth_rx_cqe))
--#define MAX_RCQ_DESC_CNT	(RCQ_DESC_CNT - 1)
-+#define NEXT_PAGE_RCQ_DESC_CNT	1
-+#define MAX_RCQ_DESC_CNT	(RCQ_DESC_CNT - NEXT_PAGE_RCQ_DESC_CNT)
- #define NUM_RCQ_BD		(RCQ_DESC_CNT * NUM_RCQ_RINGS)
- #define MAX_RCQ_BD		(NUM_RCQ_BD - 1)
- #define MAX_RCQ_AVAIL		(MAX_RCQ_DESC_CNT * NUM_RCQ_RINGS - 2)
- #define NEXT_RCQ_IDX(x)		((((x) & MAX_RCQ_DESC_CNT) == \
--				  (MAX_RCQ_DESC_CNT - 1)) ? (x) + 2 : (x) + 1)
-+				  (MAX_RCQ_DESC_CNT - 1)) ? \
-+					(x) + 1 + NEXT_PAGE_RCQ_DESC_CNT : \
-+					(x) + 1)
- #define RCQ_BD(x)		((x) & MAX_RCQ_BD)
- 
-+/* dropless fc calculations for RCQs
-+ *
-+ * Number of RCQs should be as number of buffers in BRB:
-+ * Low threshold takes into account NEXT_PAGE_RCQ_DESC_CNT
-+ * "next" elements on each page
-+ */
-+#define NUM_RCQ_REQ		BRB_SIZE(bp)
-+#define NUM_RCQ_PG_REQ		((NUM_BD_REQ + MAX_RCQ_DESC_CNT - 1) / \
-+					      MAX_RCQ_DESC_CNT)
-+#define RCQ_TH_LO(bp)		(NUM_RCQ_REQ + \
-+				 NUM_RCQ_PG_REQ * NEXT_PAGE_RCQ_DESC_CNT + \
-+				 FW_DROP_LEVEL(bp))
-+#define RCQ_TH_HI(bp)		(RCQ_TH_LO(bp) + DROPLESS_FC_HEADROOM)
-+
- 
- /* This is needed for determining of last_max */
- #define SUB_S16(a, b)		(s16)((s16)(a) - (s16)(b))
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index 37e5790..2a33d24 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -987,8 +987,6 @@ void __bnx2x_link_report(struct bnx2x *bp)
- void bnx2x_init_rx_rings(struct bnx2x *bp)
- {
- 	int func = BP_FUNC(bp);
--	int max_agg_queues = CHIP_IS_E1(bp) ? ETH_MAX_AGGREGATION_QUEUES_E1 :
--					      ETH_MAX_AGGREGATION_QUEUES_E1H_E2;
- 	u16 ring_prod;
- 	int i, j;
- 
-@@ -1001,7 +999,7 @@ void bnx2x_init_rx_rings(struct bnx2x *bp)
- 
- 		if (!fp->disable_tpa) {
- 			/* Fill the per-aggregtion pool */
--			for (i = 0; i < max_agg_queues; i++) {
-+			for (i = 0; i < MAX_AGG_QS(bp); i++) {
- 				struct bnx2x_agg_info *tpa_info =
- 					&fp->tpa_info[i];
- 				struct sw_rx_bd *first_buf =
-@@ -1041,7 +1039,7 @@ void bnx2x_init_rx_rings(struct bnx2x *bp)
- 					bnx2x_free_rx_sge_range(bp, fp,
- 								ring_prod);
- 					bnx2x_free_tpa_pool(bp, fp,
--							    max_agg_queues);
-+							    MAX_AGG_QS(bp));
- 					fp->disable_tpa = 1;
- 					ring_prod = 0;
- 					break;
-@@ -1137,9 +1135,7 @@ static void bnx2x_free_rx_skbs(struct bnx2x *bp)
- 		bnx2x_free_rx_bds(fp);
- 
- 		if (!fp->disable_tpa)
--			bnx2x_free_tpa_pool(bp, fp, CHIP_IS_E1(bp) ?
--					    ETH_MAX_AGGREGATION_QUEUES_E1 :
--					    ETH_MAX_AGGREGATION_QUEUES_E1H_E2);
-+			bnx2x_free_tpa_pool(bp, fp, MAX_AGG_QS(bp));
- 	}
- }
- 
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index f74582a..3f93e86 100644
+index 94382a7..0b68d02 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -2756,8 +2756,14 @@ static void bnx2x_pf_rx_q_prep(struct bnx2x *bp,
- 	u16 tpa_agg_size = 0;
- 
- 	if (!fp->disable_tpa) {
--		pause->sge_th_hi = 250;
--		pause->sge_th_lo = 150;
-+		pause->sge_th_lo = SGE_TH_LO(bp);
-+		pause->sge_th_hi = SGE_TH_HI(bp);
-+
-+		/* validate SGE ring has enough to cross high threshold */
-+		WARN_ON(bp->dropless_fc &&
-+				pause->sge_th_hi + FW_PREFETCH_CNT >
-+				MAX_RX_SGE_CNT * NUM_RX_SGE_PAGES);
-+
- 		tpa_agg_size = min_t(u32,
- 			(min_t(u32, 8, MAX_SKB_FRAGS) *
- 			SGE_PAGE_SIZE * PAGES_PER_SGE), 0xffff);
-@@ -2771,10 +2777,21 @@ static void bnx2x_pf_rx_q_prep(struct bnx2x *bp,
- 
- 	/* pause - not for e1 */
- 	if (!CHIP_IS_E1(bp)) {
--		pause->bd_th_hi = 350;
--		pause->bd_th_lo = 250;
--		pause->rcq_th_hi = 350;
--		pause->rcq_th_lo = 250;
-+		pause->bd_th_lo = BD_TH_LO(bp);
-+		pause->bd_th_hi = BD_TH_HI(bp);
-+
-+		pause->rcq_th_lo = RCQ_TH_LO(bp);
-+		pause->rcq_th_hi = RCQ_TH_HI(bp);
-+		/*
-+		 * validate that rings have enough entries to cross
-+		 * high thresholds
-+		 */
-+		WARN_ON(bp->dropless_fc &&
-+				pause->bd_th_hi + FW_PREFETCH_CNT >
-+				bp->rx_ring_size);
-+		WARN_ON(bp->dropless_fc &&
-+				pause->rcq_th_hi + FW_PREFETCH_CNT >
-+				NUM_RCQ_RINGS * MAX_RCQ_DESC_CNT);
- 
- 		pause->pri_map = 1;
- 	}
-@@ -2802,9 +2819,7 @@ static void bnx2x_pf_rx_q_prep(struct bnx2x *bp,
- 	 * For PF Clients it should be the maximum avaliable number.
- 	 * VF driver(s) may want to define it to a smaller value.
+@@ -10290,17 +10290,21 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
+ 	/* clean indirect addresses */
+ 	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS,
+ 			       PCICFG_VENDOR_ID_OFFSET);
+-	/* Clean the following indirect addresses for all functions since it
++	/*
++	 * Clean the following indirect addresses for all functions since it
+ 	 * is not used by the driver.
  	 */
--	rxq_init->max_tpa_queues =
--		(CHIP_IS_E1(bp) ? ETH_MAX_AGGREGATION_QUEUES_E1 :
--		ETH_MAX_AGGREGATION_QUEUES_E1H_E2);
-+	rxq_init->max_tpa_queues = MAX_AGG_QS(bp);
+ 	REG_WR(bp, PXP2_REG_PGL_ADDR_88_F0, 0);
+ 	REG_WR(bp, PXP2_REG_PGL_ADDR_8C_F0, 0);
+ 	REG_WR(bp, PXP2_REG_PGL_ADDR_90_F0, 0);
+ 	REG_WR(bp, PXP2_REG_PGL_ADDR_94_F0, 0);
+-	REG_WR(bp, PXP2_REG_PGL_ADDR_88_F1, 0);
+-	REG_WR(bp, PXP2_REG_PGL_ADDR_8C_F1, 0);
+-	REG_WR(bp, PXP2_REG_PGL_ADDR_90_F1, 0);
+-	REG_WR(bp, PXP2_REG_PGL_ADDR_94_F1, 0);
++
++	if (CHIP_IS_E1x(bp)) {
++		REG_WR(bp, PXP2_REG_PGL_ADDR_88_F1, 0);
++		REG_WR(bp, PXP2_REG_PGL_ADDR_8C_F1, 0);
++		REG_WR(bp, PXP2_REG_PGL_ADDR_90_F1, 0);
++		REG_WR(bp, PXP2_REG_PGL_ADDR_94_F1, 0);
++	}
  
- 	rxq_init->cache_line_log = BNX2X_RX_ALIGN_SHIFT;
- 	rxq_init->fw_sb_id = fp->fw_sb_id;
+ 	/*
+ 	 * Enable internal target-read (in case we are probed after PF FLR).
 -- 
 1.7.2.2
