@@ -1,36 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 06/24] netfilter: Remove unnecessary OOM logging messages
-Date: Tue, 30 Aug 2011 14:46:34 +0200
-Message-ID: <4E5CDBAA.6040001@trash.net>
-References: <cover.1314650069.git.joe@perches.com> <13c1c12486cae409dfa5254b1435e660f2b17e05.1314650069.git.joe@perches.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] bridge: netfilter: work around shared nfct struct
+Date: Tue, 30 Aug 2011 14:54:53 +0200
+Message-ID: <20110830125453.GC7548@Chamillionaire.breakpoint.cc>
+References: <1314701827-21702-1-git-send-email-fw@strlen.de>
+ <4E5CDADC.7000902@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Bart De Schuymer <bart.de.schuymer@pandora.be>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <13c1c12486cae409dfa5254b1435e660f2b17e05.1314650069.git.joe@perches.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4E5CDADC.7000902@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29.08.2011 23:17, Joe Perches wrote:
-> Removing unnecessary messages saves code and text.
+Patrick McHardy <kaber@trash.net> wrote:
+> On 30.08.2011 12:57, Florian Westphal wrote:
+> > When incoking iptables hooks from bridge netfilter, the assumption
+> > that non-confirmed skb->nfct is never shared does no longer hold,
+> > as bridge code clones skbs when e.g. forwarding packets to multiple
+> > bridge ports.
+> > 
+> > When NFQUEUE is used, we can BUG because nf_nat_setup_info can be
+> > invoked simultaneously for the same conntrack:
 > 
-> Site specific OOM messages are duplications of a generic MM
-> out of memory message and aren't really useful, so just
-> delete them.
+> I'm wondering how this can happen, when flooding packets to multiple
+> ports, they are still processed by the same CPU one after another,
+> so for the second and further packets, nf_nat should notice that
+> the mappings are already set up.
 
-Looks good to me. Do you want me to apply this patch or are you
-intending to have the entire series go through Dave?
+Main problem is that we end up with same ->nfct in both
+INPUT and POSTROUTING (br_pass_frame_up vs. br_forward).
+
+its extremely unlikely but reproduceable with something like
+hping2 -i u1200 -2 -p 138 -d 128 192.168.0.255
+
+(assuming bridge interface has an address within that network).
+
+Also, with recent change nf_reinject can be run in parallel.
+(the original problem was observed on 2.6.32.24, but i can
+ reproduce it with nf-next, too).
