@@ -1,132 +1,18 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 8/8] bnx2x: Fix for a host coalescing bug which impared
- latency.
-Date: Tue, 30 Aug 2011 13:08:46 +0300
-Message-ID: <1314698926-24525-9-git-send-email-dmitry@broadcom.com>
-References: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
+From: POWERBALL@OBL.COM
+Subject: Your Winning Coupon No.PBL2348974321
+Date: Tue, 30 Aug 2011 11:49:26 +0200
+Message-ID: <20110830114926.2836d6ea@posta.sosmgp.cz>
+Reply-To: drcharles.walker@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4487 "EHLO mms2.broadcom.com"
+Received: from smtp-out4.iol.cz ([194.228.2.92]:41013 "EHLO smtp-out4.iol.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752942Ab1H3KIv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 06:08:51 -0400
-In-Reply-To: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
+	id S1752160Ab1H3KUa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 06:20:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
-
-Seperated Rx and Tx coalescing to different state machines.
-
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
----
- drivers/net/bnx2x/bnx2x.h      |   25 +++++++++----------------
- drivers/net/bnx2x/bnx2x_main.c |   33 +++++++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index 2621a1c..e46df53 100644
---- a/drivers/net/bnx2x/bnx2x.h
-+++ b/drivers/net/bnx2x/bnx2x.h
-@@ -751,24 +751,17 @@ struct bnx2x_fastpath {
- #define FP_CSB_FUNC_OFF	\
- 			offsetof(struct cstorm_status_block_c, func)
- 
--#define HC_INDEX_TOE_RX_CQ_CONS		0 /* Formerly Ustorm TOE CQ index */
--					  /* (HC_INDEX_U_TOE_RX_CQ_CONS)  */
--#define HC_INDEX_ETH_RX_CQ_CONS		1 /* Formerly Ustorm ETH CQ index */
--					  /* (HC_INDEX_U_ETH_RX_CQ_CONS)  */
--#define HC_INDEX_ETH_RX_BD_CONS		2 /* Formerly Ustorm ETH BD index */
--					  /* (HC_INDEX_U_ETH_RX_BD_CONS)  */
--
--#define HC_INDEX_TOE_TX_CQ_CONS		4 /* Formerly Cstorm TOE CQ index   */
--					  /* (HC_INDEX_C_TOE_TX_CQ_CONS)    */
--#define HC_INDEX_ETH_TX_CQ_CONS_COS0	5 /* Formerly Cstorm ETH CQ index   */
--					  /* (HC_INDEX_C_ETH_TX_CQ_CONS)    */
--#define HC_INDEX_ETH_TX_CQ_CONS_COS1	6 /* Formerly Cstorm ETH CQ index   */
--					  /* (HC_INDEX_C_ETH_TX_CQ_CONS)    */
--#define HC_INDEX_ETH_TX_CQ_CONS_COS2	7 /* Formerly Cstorm ETH CQ index   */
--					  /* (HC_INDEX_C_ETH_TX_CQ_CONS)    */
-+#define HC_INDEX_ETH_RX_CQ_CONS		1
- 
--#define HC_INDEX_ETH_FIRST_TX_CQ_CONS	HC_INDEX_ETH_TX_CQ_CONS_COS0
-+#define HC_INDEX_OOO_TX_CQ_CONS		4
-+
-+#define HC_INDEX_ETH_TX_CQ_CONS_COS0	5
-+
-+#define HC_INDEX_ETH_TX_CQ_CONS_COS1	6
- 
-+#define HC_INDEX_ETH_TX_CQ_CONS_COS2	7
-+
-+#define HC_INDEX_ETH_FIRST_TX_CQ_CONS	HC_INDEX_ETH_TX_CQ_CONS_COS0
- 
- #define BNX2X_RX_SB_INDEX \
- 	(&fp->sb_index_values[HC_INDEX_ETH_RX_CQ_CONS])
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 0b68d02..c027e93 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -4828,6 +4828,37 @@ void bnx2x_setup_ndsb_state_machine(struct hc_status_block_sm *hc_sm,
- 	hc_sm->time_to_expire = 0xFFFFFFFF;
- }
- 
-+
-+/* allocates state machine ids. */
-+static inline
-+void bnx2x_map_sb_state_machines(struct hc_index_data *index_data)
-+{
-+	/* zero out state machine indices */
-+	/* rx indices */
-+	index_data[HC_INDEX_ETH_RX_CQ_CONS].flags &= ~HC_INDEX_DATA_SM_ID;
-+
-+	/* tx indices */
-+	index_data[HC_INDEX_OOO_TX_CQ_CONS].flags &= ~HC_INDEX_DATA_SM_ID;
-+	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS0].flags &= ~HC_INDEX_DATA_SM_ID;
-+	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS1].flags &= ~HC_INDEX_DATA_SM_ID;
-+	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS2].flags &= ~HC_INDEX_DATA_SM_ID;
-+
-+	/* map indices */
-+	/* rx indices */
-+	index_data[HC_INDEX_ETH_RX_CQ_CONS].flags |=
-+		SM_RX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
-+
-+	/* tx indices */
-+	index_data[HC_INDEX_OOO_TX_CQ_CONS].flags |=
-+		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
-+	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS0].flags |=
-+		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
-+	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS1].flags |=
-+		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
-+	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS2].flags |=
-+		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
-+}
-+
- static void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
- 			  u8 vf_valid, int fw_sb_id, int igu_sb_id)
- {
-@@ -4859,6 +4890,7 @@ static void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
- 		hc_sm_p = sb_data_e2.common.state_machine;
- 		sb_data_p = (u32 *)&sb_data_e2;
- 		data_size = sizeof(struct hc_status_block_data_e2)/sizeof(u32);
-+		bnx2x_map_sb_state_machines(sb_data_e2.index_data);
- 	} else {
- 		memset(&sb_data_e1x, 0,
- 		       sizeof(struct hc_status_block_data_e1x));
-@@ -4873,6 +4905,7 @@ static void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
- 		hc_sm_p = sb_data_e1x.common.state_machine;
- 		sb_data_p = (u32 *)&sb_data_e1x;
- 		data_size = sizeof(struct hc_status_block_data_e1x)/sizeof(u32);
-+		bnx2x_map_sb_state_machines(sb_data_e1x.index_data);
- 	}
- 
- 	bnx2x_setup_ndsb_state_machine(&hc_sm_p[SM_RX_ID],
--- 
-1.7.2.2
+for more infomation regarding the sum of =C2=A3980,000:00 Pound
