@@ -1,34 +1,51 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH 5/7] bnx2x: do not set TPA flags and features in bnx2x_init_bp
-Date: Tue, 30 Aug 2011 19:15:21 +0200
-Message-ID: <4E5D1AA9.2010702@redhat.com>
-References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com> <1314714646-3642-6-git-send-email-mschmidt@redhat.com> <201108301921.22838.vladz@broadcom.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] net/mac80211/debugfs: Convert to kstrou8_from_user
+Date: Tue, 30 Aug 2011 13:50:55 -0400
+Message-ID: <20110830175054.GB2660@tuxdriver.com>
+References: <1307478974-32727-1-git-send-email-peterhuewe@gmx.de>
+ <201108282152.32180.PeterHuewe@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Vlad Zolotarov <vladz@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32688 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754698Ab1H3RPY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 13:15:24 -0400
-In-Reply-To: <201108301921.22838.vladz@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Peter =?iso-8859-1?Q?H=FCwe?= <PeterHuewe-Mmb7MZpHnFY@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <201108282152.32180.PeterHuewe-Mmb7MZpHnFY@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/30/2011 06:21 PM, Vlad Zolotarov wrote:
-> NACK
->
-> This patch will cause the bnx2x to initialize HW with LRO disabled on the
-> first ifup because our code considers the TPA_ENABLE_FLAG when desiding on
-> whether LRO is enabled or not. ethtool would still report the LRO on though!
+On Sun, Aug 28, 2011 at 09:52:31PM +0200, Peter H=FCwe wrote:
+> Am Dienstag 07 Juni 2011, 22:36:14 schrieb Peter Huewe:
+> > This patch replaces the code for getting an number from a
+> > userspace buffer by a simple call to kstrou8_from_user.
+> > This makes it easier to read and less error prone.
+> >=20
+> > Since the old buffer was only 10 bytes long and the value is masked=
+ by a
+> > nibble-mask anyway, we don't need to use kstrtoul but rather kstrto=
+u8.
+> >=20
+> > Kernel Version: v3.0-rc2
+> >=20
+> > Signed-off-by: Peter Huewe <peterhuewe-Mmb7MZpHnFY@public.gmane.org>
+>=20
+> Any updates on this one?
+> Still applies to the latest linus' tree
 
-I see. I thought register_netdevice() would always call 
-bnx2x_set_features(), but this is not the case.
+I merged it to wireless-next yesterday.
 
-Patch 7/7 has a similar problem with RX_VLAN_STRIP_FLAG then.
+Thanks for the reminder!
 
-Michal
+John
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
