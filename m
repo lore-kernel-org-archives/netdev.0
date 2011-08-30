@@ -1,42 +1,104 @@
-From: "Ruslan N. Marchenko" <me@ruff.mobi>
-Subject: Re: 802.1Q VLAN random tag injected when vlan configured on
- forcedeth interface
-Date: Tue, 30 Aug 2011 16:23:10 +0200
-Message-ID: <20110830142310.GC28341@ruff.mobi>
-References: <20110830125111.GA28341@ruff.mobi>
- <1314710628.2935.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20110830134624.GB28341@ruff.mobi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH 1/7] bnx2x: remove unused fields in struct bnx2x_func_init_params
+Date: Tue, 30 Aug 2011 16:30:40 +0200
+Message-ID: <1314714646-3642-2-git-send-email-mschmidt@redhat.com>
+References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
+Cc: vladz@broadcom.com, dmitry@broadcom.com, eilong@broadcom.com,
+	Michal Schmidt <mschmidt@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-89-176-12-106.net.upcbroadband.cz ([89.176.12.106]:60258
-	"EHLO ruff.mobi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754454Ab1H3OXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:23:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20110830134624.GB28341@ruff.mobi>
+Received: from mx1.redhat.com ([209.132.183.28]:29737 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754020Ab1H3ObH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 10:31:07 -0400
+In-Reply-To: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 30, 2011 at 03:46:24PM +0200, Ruslan N. Marchenko wrote:
-> On Tue, Aug 30, 2011 at 03:23:48PM +0200, Eric Dumazet wrote:
-> > 
-> > What kernel version are you using ?
-> > 
-> Oh, sorry for missing it, it runs on 
-> Linux ruff.mobi 2.6.38-11-generic #48-Ubuntu SMP Fri Jul 29 19:05:14 UTC 2011 i686 i686 i386 GNU/Linux
-> 
-> Just fyi - the openwrt box to which it is connected is 
-> Linux OpenWrt 2.6.39.2 #2 Fri Aug 12 09:36:23 EEST 2011 mips GNU/Linux
-> although packet drop happens even if there're no vlans configured on remote side.
-> 
-Here is double-tag sample:
-16:20:31.151268 e0:46:9a:4e:88:1d > 00:26:18:40:21:62, ethertype 802.1Q (0x8100), length 106: vlan 2112, p 7, ethertype 802.1Q, vlan 6, p 0, ethertype IPv4, [|ip]
-        0x0000:  0026 1840 2162 e046 9a4e 881d 8100 e840
-        0x0010:  8100 0006 0800 4500 0054 abec 0000
+func_flgs is not used for anything. The only flag that's ever checked
+(FUNC_FLG_SPQ) is always set. The other flags are never read.
 
+fw_stat_map is not used at all.
 
-Regards,
-Ruslan
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   15 ++-------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   18 +++---------------
+ 2 files changed, 5 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index f127768..735e491 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1490,24 +1490,13 @@ extern int num_queues;
+ #define RSS_IPV6_TCP_CAP_MASK						\
+ 	TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_TCP_CAPABILITY
+ 
+-/* func init flags */
+-#define FUNC_FLG_RSS		0x0001
+-#define FUNC_FLG_STATS		0x0002
+-/* removed  FUNC_FLG_UNMATCHED	0x0004 */
+-#define FUNC_FLG_TPA		0x0008
+-#define FUNC_FLG_SPQ		0x0010
+-#define FUNC_FLG_LEADING	0x0020	/* PF only */
+-
+-
+ struct bnx2x_func_init_params {
+ 	/* dma */
+-	dma_addr_t	fw_stat_map;	/* valid iff FUNC_FLG_STATS */
+-	dma_addr_t	spq_map;	/* valid iff FUNC_FLG_SPQ */
++	dma_addr_t	spq_map;
+ 
+-	u16		func_flgs;
+ 	u16		func_id;	/* abs fid */
+ 	u16		pf_id;
+-	u16		spq_prod;	/* valid iff FUNC_FLG_SPQ */
++	u16		spq_prod;
+ };
+ 
+ #define for_each_eth_queue(bp, var) \
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 85dd294..e7b584b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2661,11 +2661,9 @@ void bnx2x_func_init(struct bnx2x *bp, struct bnx2x_func_init_params *p)
+ 	storm_memset_func_en(bp, p->func_id, 1);
+ 
+ 	/* spq */
+-	if (p->func_flgs & FUNC_FLG_SPQ) {
+-		storm_memset_spq_addr(bp, p->spq_map, p->func_id);
+-		REG_WR(bp, XSEM_REG_FAST_MEMORY +
+-		       XSTORM_SPQ_PROD_OFFSET(p->func_id), p->spq_prod);
+-	}
++	storm_memset_spq_addr(bp, p->spq_map, p->func_id);
++	REG_WR(bp, XSEM_REG_FAST_MEMORY +
++	       XSTORM_SPQ_PROD_OFFSET(p->func_id), p->spq_prod);
+ }
+ 
+ /**
+@@ -2838,7 +2836,6 @@ static void bnx2x_pf_init(struct bnx2x *bp)
+ {
+ 	struct bnx2x_func_init_params func_init = {0};
+ 	struct event_ring_data eq_data = { {0} };
+-	u16 flags;
+ 
+ 	if (!CHIP_IS_E1x(bp)) {
+ 		/* reset IGU PF statistics: MSIX + ATTN */
+@@ -2855,15 +2852,6 @@ static void bnx2x_pf_init(struct bnx2x *bp)
+ 				BP_FUNC(bp) : BP_VN(bp))*4, 0);
+ 	}
+ 
+-	/* function setup flags */
+-	flags = (FUNC_FLG_STATS | FUNC_FLG_LEADING | FUNC_FLG_SPQ);
+-
+-	/* This flag is relevant for E1x only.
+-	 * E2 doesn't have a TPA configuration in a function level.
+-	 */
+-	flags |= (bp->flags & TPA_ENABLE_FLAG) ? FUNC_FLG_TPA : 0;
+-
+-	func_init.func_flgs = flags;
+ 	func_init.pf_id = BP_FUNC(bp);
+ 	func_init.func_id = BP_FUNC(bp);
+ 	func_init.spq_map = bp->spq_mapping;
+-- 
+1.7.6
