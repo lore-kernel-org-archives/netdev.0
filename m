@@ -1,63 +1,73 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 7/7] bnx2x: expose HW RX VLAN stripping toggle
-Date: Tue, 30 Aug 2011 22:08:41 +0200
-Message-ID: <CAHXqBFJH1v614r3GLxn7wDsZgTCK6H=GNu9S15sBtZ-FsmJAwg@mail.gmail.com>
-References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
- <1314714646-3642-8-git-send-email-mschmidt@redhat.com> <CAHXqBFLgTHvxL34eR1qX7nEmntyOBXYrg-7LQvW=d8dnDpbhWg@mail.gmail.com>
- <4E5D3A43.1060202@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 42012] New: regression on 2.6.39.3 with socket/bind;
+ still there in 3.0.4
+Date: Tue, 30 Aug 2011 22:19:22 +0200
+Message-ID: <1314735562.2556.20.camel@edumazet-laptop>
+References: <20110830.140733.146208373221522199.davem@davemloft.net>
+	 <1314731803.2556.4.camel@edumazet-laptop>
+	 <1314733459.2556.10.camel@edumazet-laptop>
+	 <20110830.155219.431579142669857208.davem@davemloft.net>
+	 <1314734452.2556.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, vladz@broadcom.com, dmitry@broadcom.com,
-	eilong@broadcom.com
-To: Michal Schmidt <mschmidt@redhat.com>
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	Marcus Meissner <meissner@suse.de>, r_meier@freenet.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:49596 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756234Ab1H3UJC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 16:09:02 -0400
-Received: by gwaa12 with SMTP id a12so5908095gwa.19
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 13:09:01 -0700 (PDT)
-In-Reply-To: <4E5D3A43.1060202@redhat.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:65287 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756567Ab1H3UT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 16:19:27 -0400
+Received: by wwf5 with SMTP id 5so22475wwf.1
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 13:19:25 -0700 (PDT)
+In-Reply-To: <1314734452.2556.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 30 sierpnia 2011 21:30 u=BFytkownik Michal Schmidt
-<mschmidt@redhat.com> napisa=B3:
-> On 08/30/2011 08:27 PM, Micha=B3 Miros=B3aw wrote:
->> It seems rather convoluted and unnecessary that you mirror
->> NETIF_F_HW_VLAN_RX in bp->flags
-> This mirroring is for the benefit of functions called indirectly from
-> bnx2x_set_features(). They cannot look at dev->features for
-> NETIF_F_HW_VLAN_RX because it's not set before ->ndo_set_features() r=
-eturns.
+Le mardi 30 ao=C3=BBt 2011 =C3=A0 22:00 +0200, Eric Dumazet a =C3=A9cri=
+t :
 
-You can cheat in ndo_set_features in this case. Just set/clear
-NETIF_F_HW_VLAN_RX bit in dev->features before you call those
-functions (but please leave a comment there explaining why!). This is
-allowed because if ndo_set_features fails it needs to fix
-dev->features itself, and if it succeeds dev->features will be
-replaced with exactly what was passed to ndo_set_features. So, unless
-you need to check whether the VLAN stripping state changed in those
-functions, then you can get rid of this copy.
+> Sure, I will send a patch in a couple of minutes.
+>=20
+>=20
 
->> and then also in fp->flags. =A0Are the
->> fp->flags strictly mirroring hardware state (as in: there is no way
->> the states can differ in any point in time where the flags are
->> tested)?
-> Yes. This is the purpose of the second mirroring of the flag.
->> For this to be true, the two functions above need to be
->> called only without releasing a lock between them that is also taken
->> by receive handler.
-> The flag propagates from bp->flags to fp->flags between unloading and
-> reloading the NIC. The receive handler cannot run at the time.
->> Isn't there a flag in the rx descriptor of a
->> packet that says if VLAN was stripped? (All that flag keeping would =
-be
->> unnecessary then.)
-> There is no such flag, AFAIK.
+[PATCH] net: ipv4: relax AF_INET check in bind()
 
-Thanks for explanation!
+commit d0733d2e29b65 (Check for mistakenly passed in non-IPv4 address)
+added regression on legacy apps that use bind() with AF_UNSPEC family.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+Relax the check, but make sure the bind() is done on INADDR_ANY
+addresses, as AF_UNSPEC has probably no sane meaning for other
+addresses.
+
+Bugzilla reference : https://bugzilla.kernel.org/show_bug.cgi?id=3D4201=
+2
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Reported-and-bisected-by: Rene Meier <r_meier@freenet.de>
+CC: Marcus Meissner <meissner@suse.de>
+---
+ net/ipv4/af_inet.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 1b745d4..dd2b947 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -466,8 +466,13 @@ int inet_bind(struct socket *sock, struct sockaddr=
+ *uaddr, int addr_len)
+ 		goto out;
+=20
+ 	if (addr->sin_family !=3D AF_INET) {
++		/* Compatibility games : accept AF_UNSPEC (mapped to AF_INET)
++		 * only if s_addr is INADDR_ANY.
++		 */
+ 		err =3D -EAFNOSUPPORT;
+-		goto out;
++		if (addr->sin_family !=3D AF_UNSPEC ||
++		    addr->sin_addr.s_addr !=3D htonl(INADDR_ANY))
++			goto out;
+ 	}
+=20
+ 	chk_addr_ret =3D inet_addr_type(sock_net(sk), addr->sin_addr.s_addr);
