@@ -1,198 +1,123 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 5/9] stmmac: export DMA TX/RX rings via debugfs (v2)
-Date: Tue, 30 Aug 2011 16:21:00 +0200
-Message-ID: <1314714064-29101-6-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH 6/9] stmmac: rework the code to get the Synopsys ID (v2)
+Date: Tue, 30 Aug 2011 16:21:01 +0200
+Message-ID: <1314714064-29101-7-git-send-email-peppe.cavallaro@st.com>
 References: <1314714064-29101-1-git-send-email-peppe.cavallaro@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:38398 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754394Ab1H3OVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:21:40 -0400
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:51851 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754404Ab1H3OVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:21:44 -0400
 Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C103AD0
-	for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 14:21:38 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id F3898DB
+	for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 14:21:42 +0000 (GMT)
 Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 86BB02261
-	for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 14:21:38 +0000 (GMT)
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id BE3902271
+	for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 14:21:42 +0000 (GMT)
 In-Reply-To: <1314714064-29101-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the following debugFs entry to dump the
-RX/TX DMA rings:
-
-/sys/kernel/debug/stmmaceth/descriptors_status
-
-This is an example:
-=======================
-  RX descriptor ring
-=======================
-[0] DES0=0x85ee0320 DES1=0x1fff1fff BUF1=0x5fae2022 BUF2=0x0
-[1] DES0=0x85ee0320 DES1=0x1fff1fff BUF1=0x5fae0022 BUF2=0x0
-[2] DES0=0x81460320 DES1=0x1fff1fff BUF1=0x5f9dd022 BUF2=0x0
+The Synopsys ID is now passed from the MAC core
+to the main. This info will be used for managing
+the HW cap register (supported in the new GMAC
+generations).
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/stmmac/Kconfig       |    7 +++
- drivers/net/stmmac/stmmac_main.c |  105 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 112 insertions(+), 0 deletions(-)
+ drivers/net/stmmac/common.h         |    1 +
+ drivers/net/stmmac/dwmac1000_core.c |    6 ++----
+ drivers/net/stmmac/dwmac100_core.c  |    1 +
+ drivers/net/stmmac/stmmac_main.c    |   20 +++++++++++++++++++-
+ 4 files changed, 23 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/stmmac/Kconfig b/drivers/net/stmmac/Kconfig
-index 7df7df4..c253012 100644
---- a/drivers/net/stmmac/Kconfig
-+++ b/drivers/net/stmmac/Kconfig
-@@ -11,6 +11,13 @@ config STMMAC_ETH
+diff --git a/drivers/net/stmmac/common.h b/drivers/net/stmmac/common.h
+index e08fee8..65b1e56 100644
+--- a/drivers/net/stmmac/common.h
++++ b/drivers/net/stmmac/common.h
+@@ -230,6 +230,7 @@ struct mac_device_info {
+ 	const struct stmmac_dma_ops	*dma;
+ 	struct mii_regs mii;	/* MII register Addresses */
+ 	struct mac_link link;
++	unsigned int synopsys_uid;
+ };
  
- if STMMAC_ETH
+ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr);
+diff --git a/drivers/net/stmmac/dwmac1000_core.c b/drivers/net/stmmac/dwmac1000_core.c
+index 9ba9cae..b1c48b9 100644
+--- a/drivers/net/stmmac/dwmac1000_core.c
++++ b/drivers/net/stmmac/dwmac1000_core.c
+@@ -224,10 +224,7 @@ static const struct stmmac_ops dwmac1000_ops = {
+ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
+ {
+ 	struct mac_device_info *mac;
+-	u32 uid = readl(ioaddr + GMAC_VERSION);
+-
+-	pr_info("\tDWMAC1000 - user ID: 0x%x, Synopsys ID: 0x%x\n",
+-		((uid & 0x0000ff00) >> 8), (uid & 0x000000ff));
++	u32 hwid = readl(ioaddr + GMAC_VERSION);
  
-+config STMMAC_DEBUG_FS
-+	bool "Enable monitoring via sysFS "
-+	default n
-+	depends on STMMAC_ETH && DEBUG_FS
-+	-- help
-+	  The stmmac entry in /sys reports DMA TX/RX rings.
-+
- config STMMAC_DA
- 	bool "STMMAC DMA arbitration scheme"
- 	default n
+ 	mac = kzalloc(sizeof(const struct mac_device_info), GFP_KERNEL);
+ 	if (!mac)
+@@ -241,6 +238,7 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
+ 	mac->link.speed = GMAC_CONTROL_FES;
+ 	mac->mii.addr = GMAC_MII_ADDR;
+ 	mac->mii.data = GMAC_MII_DATA;
++	mac->synopsys_uid = hwid;
+ 
+ 	return mac;
+ }
+diff --git a/drivers/net/stmmac/dwmac100_core.c b/drivers/net/stmmac/dwmac100_core.c
+index aacfc6e..138fb8d 100644
+--- a/drivers/net/stmmac/dwmac100_core.c
++++ b/drivers/net/stmmac/dwmac100_core.c
+@@ -188,6 +188,7 @@ struct mac_device_info *dwmac100_setup(void __iomem *ioaddr)
+ 	mac->link.speed = 0;
+ 	mac->mii.addr = MAC_MII_ADDR;
+ 	mac->mii.data = MAC_MII_DATA;
++	mac->synopsys_uid = 0;
+ 
+ 	return mac;
+ }
 diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index 88b2973..1319b4c 100644
+index 1319b4c..f9ba0f7 100644
 --- a/drivers/net/stmmac/stmmac_main.c
 +++ b/drivers/net/stmmac/stmmac_main.c
-@@ -47,6 +47,10 @@
- #include <linux/slab.h>
- #include <linux/prefetch.h>
- #include "stmmac.h"
-+#ifdef CONFIG_STMMAC_DEBUG_FS
-+#include <linux/debugfs.h>
-+#include <linux/seq_file.h>
-+#endif
- 
- #define STMMAC_RESOURCE_NAME	"stmmaceth"
- 
-@@ -1424,6 +1428,96 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	return ret;
+@@ -762,6 +762,23 @@ static void stmmac_mmc_setup(struct stmmac_priv *priv)
+ 	memset(&priv->mmc, 0, sizeof(struct stmmac_counters));
  }
  
-+#ifdef CONFIG_STMMAC_DEBUG_FS
-+static struct dentry *stmmac_fs_dir;
-+static struct dentry *stmmac_rings_status;
-+
-+static int stmmac_sysfs_ring_read(struct seq_file *seq, void *v)
++static u32 stmmac_get_synopsys_id(struct stmmac_priv *priv)
 +{
-+	struct tmp_s {
-+		u64 a;
-+		unsigned int b;
-+		unsigned int c;
-+	};
-+	int i;
-+	struct net_device *dev = seq->private;
-+	struct stmmac_priv *priv = netdev_priv(dev);
++	u32 hwid = priv->hw->synopsys_uid;
 +
-+	seq_printf(seq, "=======================\n");
-+	seq_printf(seq, " RX descriptor ring\n");
-+	seq_printf(seq, "=======================\n");
++	/* Only check valid Synopsys Id because old MAC chips
++	 * have no HW registers where get the ID */
++	if (likely(hwid)) {
++		u32 uid = ((hwid & 0x0000ff00) >> 8);
++		u32 synid = (hwid & 0x000000ff);
 +
-+	for (i = 0; i < priv->dma_rx_size; i++) {
-+		struct tmp_s *x = (struct tmp_s *)(priv->dma_rx + i);
-+		seq_printf(seq, "[%d] DES0=0x%x DES1=0x%x BUF1=0x%x BUF2=0x%x",
-+			   i, (unsigned int)(x->a),
-+			   (unsigned int)((x->a) >> 32), x->b, x->c);
-+		seq_printf(seq, "\n");
++		pr_info("STMMAC - user ID: 0x%x, Synopsys ID: 0x%x\n",
++			uid, synid);
++
++		return synid;
 +	}
-+
-+	seq_printf(seq, "\n");
-+	seq_printf(seq, "=======================\n");
-+	seq_printf(seq, "  TX descriptor ring\n");
-+	seq_printf(seq, "=======================\n");
-+
-+	for (i = 0; i < priv->dma_tx_size; i++) {
-+		struct tmp_s *x = (struct tmp_s *)(priv->dma_tx + i);
-+		seq_printf(seq, "[%d] DES0=0x%x DES1=0x%x BUF1=0x%x BUF2=0x%x",
-+			   i, (unsigned int)(x->a),
-+			   (unsigned int)((x->a) >> 32), x->b, x->c);
-+		seq_printf(seq, "\n");
-+	}
-+
 +	return 0;
 +}
-+
-+static int stmmac_sysfs_ring_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, stmmac_sysfs_ring_read, inode->i_private);
-+}
-+
-+static const struct file_operations stmmac_rings_status_fops = {
-+	.owner = THIS_MODULE,
-+	.open = stmmac_sysfs_ring_open,
-+	.read = seq_read,
-+	.llseek = seq_lseek,
-+	.release = seq_release,
-+};
-+
-+static int stmmac_init_fs(struct net_device *dev)
-+{
-+	/* Create debugfs entries */
-+	stmmac_fs_dir = debugfs_create_dir(STMMAC_RESOURCE_NAME, NULL);
-+
-+	if (!stmmac_fs_dir || IS_ERR(stmmac_fs_dir)) {
-+		pr_err("ERROR %s, debugfs create directory failed\n",
-+		       STMMAC_RESOURCE_NAME);
-+
-+		return -ENOMEM;
-+	}
-+
-+	/* Entry to report DMA RX/TX rings */
-+	stmmac_rings_status = debugfs_create_file("descriptors_status",
-+					   S_IRUGO, stmmac_fs_dir, dev,
-+					   &stmmac_rings_status_fops);
-+
-+	if (!stmmac_rings_status || IS_ERR(stmmac_rings_status)) {
-+		pr_info("ERROR creating stmmac ring debugfs file\n");
-+		debugfs_remove(stmmac_fs_dir);
-+
-+		return -ENOMEM;
-+	}
-+
-+	return 0;
-+}
-+
-+static void stmmac_exit_fs(void)
-+{
-+	debugfs_remove(stmmac_rings_status);
-+	debugfs_remove(stmmac_fs_dir);
-+}
-+#endif /* CONFIG_STMMAC_DEBUG_FS */
-+
- static const struct net_device_ops stmmac_netdev_ops = {
- 	.ndo_open = stmmac_open,
- 	.ndo_start_xmit = stmmac_xmit,
-@@ -1648,6 +1742,13 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
- 	if (ret < 0)
- 		goto out_unregister;
- 	pr_debug("registered!\n");
-+
-+#ifdef CONFIG_STMMAC_DEBUG_FS
-+	ret = stmmac_init_fs(ndev);
-+	if (ret < 0)
-+		pr_warning("\tFailed debugFS registration");
-+#endif
-+
- 	return 0;
+ /**
+  *  stmmac_open - open entry point of the driver
+  *  @dev : pointer to the device structure.
+@@ -834,7 +851,8 @@ static int stmmac_open(struct net_device *dev)
+ 	/* Initialize the MAC Core */
+ 	priv->hw->mac->core_init(priv->ioaddr);
  
- out_unregister:
-@@ -1700,6 +1801,10 @@ static int stmmac_dvr_remove(struct platform_device *pdev)
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	release_mem_region(res->start, resource_size(res));
- 
-+#ifdef CONFIG_STMMAC_DEBUG_FS
-+	stmmac_exit_fs();
-+#endif
+-	priv->rx_coe = priv->hw->mac->rx_coe(priv->ioaddr);
++	stmmac_get_synopsys_id(priv);
 +
- 	free_netdev(ndev);
- 
- 	return 0;
+ 	if (priv->rx_coe)
+ 		pr_info("stmmac: Rx Checksum Offload Engine supported\n");
+ 	if (priv->plat->tx_coe)
 -- 
 1.7.4.4
