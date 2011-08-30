@@ -1,38 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/14] skb fragment API: convert network drivers (part I)
-Date: Tue, 30 Aug 2011 18:05:39 -0400 (EDT)
-Message-ID: <20110830.180539.1736757387915487119.davem@davemloft.net>
-References: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 17/24] sched: Remove unnecessary OOM logging messages
+Date: Tue, 30 Aug 2011 18:27:45 -0400
+Message-ID: <1314743265.3150.0.camel@mojatatu>
+References: <cover.1314650069.git.joe@perches.com>
+	 <2c57e8e336c6059dc550ba88e96dcaa27056382f.1314650069.git.joe@perches.com>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ian.Campbell@citrix.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43463 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751854Ab1H3WFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 18:05:44 -0400
-In-Reply-To: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:50185 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752168Ab1H3W1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 18:27:50 -0400
+In-Reply-To: <2c57e8e336c6059dc550ba88e96dcaa27056382f.1314650069.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Tue, 30 Aug 2011 10:17:27 +0100
+On Mon, 2011-08-29 at 14:17 -0700, Joe Perches wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-> The following series converts the first batch of network drivers to the
-> SKB pages fragment API introduced in 131ea6675c76. I expect there will
-> be ~4 similarly sized batches to convert all the drivers over.
-> 
-> This is part of my series to enable visibility into SKB paged fragment's
-> lifecycles, [0] contains some more background and rationale but
-> basically the completed series will allow entities which inject pages
-> into the networking stack to receive a notification when the stack has
-> really finished with those pages (i.e. including retransmissions,
-> clones, pull-ups etc) and not just when the original skb is finished
-> with, which is beneficial to many subsystems which wish to inject pages
-> into the network stack without giving up full ownership of those page's
-> lifecycle. It implements something broadly along the lines of what was
-> described in [1].
+Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-All applied, thanks Ian.
+cheers,
+jamal
