@@ -1,81 +1,39 @@
 From: kaber@trash.net
-Subject: [PATCH 2/8] netfilter: ip_queue: Fix small leak in ipq_build_packet_message()
-Date: Tue, 30 Aug 2011 16:41:15 +0200
-Message-ID: <1314715281-26233-3-git-send-email-kaber@trash.net>
+Subject: [PATCH 8/8] netfilter: update netfilter git URL
+Date: Tue, 30 Aug 2011 16:41:21 +0200
+Message-ID: <1314715281-26233-9-git-send-email-kaber@trash.net>
 References: <1314715281-26233-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56977 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754533Ab1H3Ol1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:41:27 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1314715281-26233-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jj@chaosbits.net>
+From: Patrick McHardy <kaber@trash.net>
 
-ipq_build_packet_message() in net/ipv4/netfilter/ip_queue.c and
-net/ipv6/netfilter/ip6_queue.c contain a small potential mem leak as
-far as I can tell.
+Netfilter git trees are moving to a directory shared by Pablo and
+myself, update git URLs.
 
-We allocate memory for 'skb' with alloc_skb() annd then call
- nlh = NLMSG_PUT(skb, 0, 0, IPQM_PACKET, size - sizeof(*nlh));
-
-NLMSG_PUT is a macro
- NLMSG_PUT(skb, pid, seq, type, len) \
-  		NLMSG_NEW(skb, pid, seq, type, len, 0)
-
-that expands to NLMSG_NEW, which is also a macro which expands to:
- NLMSG_NEW(skb, pid, seq, type, len, flags) \
-  	({	if (unlikely(skb_tailroom(skb) < (int)NLMSG_SPACE(len))) \
-  			goto nlmsg_failure; \
-  		__nlmsg_put(skb, pid, seq, type, len, flags); })
-
-If we take the true branch of the 'if' statement and 'goto
-nlmsg_failure', then we'll, at that point, return from
-ipq_build_packet_message() without having assigned 'skb' to anything
-and we'll leak the memory we allocated for it when it goes out of
-scope.
-
-Fix this by placing a 'kfree(skb)' at 'nlmsg_failure'.
-
-I admit that I do not know how likely this to actually happen or even
-if there's something that guarantees that it will never happen - I'm
-not that familiar with this code, but if that is so, I've not been
-able to spot it.
-
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/ip_queue.c  |    1 +
- net/ipv6/netfilter/ip6_queue.c |    1 +
- 2 files changed, 2 insertions(+), 0 deletions(-)
+ MAINTAINERS |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index 5c9b9d9..48f7d5b 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -218,6 +218,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
- 	return skb;
- 
- nlmsg_failure:
-+	kfree_skb(skb);
- 	*errp = -EINVAL;
- 	printk(KERN_ERR "ip_queue: error creating packet message\n");
- 	return NULL;
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 2493948..87b243a 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -218,6 +218,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
- 	return skb;
- 
- nlmsg_failure:
-+	kfree_skb(skb);
- 	*errp = -EINVAL;
- 	printk(KERN_ERR "ip6_queue: error creating packet message\n");
- 	return NULL;
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 1d2e79d..a6669b2 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4386,7 +4386,8 @@ L:	netfilter@vger.kernel.org
+ L:	coreteam@netfilter.org
+ W:	http://www.netfilter.org/
+ W:	http://www.iptables.org/
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/netfilter/nf-2.6.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/netfilter/nf-next-2.6.git
+ S:	Supported
+ F:	include/linux/netfilter*
+ F:	include/linux/netfilter/
 -- 
 1.7.2.3
+
