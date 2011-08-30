@@ -1,46 +1,23 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH] MAINTAINERS: Update BNA 10G Maintainer
-Date: Tue, 30 Aug 2011 10:42:58 +0100
-Message-ID: <1314697378-22635-1-git-send-email-ian.campbell@citrix.com>
-References: <1314695910-22344-8-git-send-email-ian.campbell@citrix.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH 0/8] bnx2x: fixes
+Date: Tue, 30 Aug 2011 13:08:38 +0300
+Message-ID: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Rasesh Mody <rmody@brocade.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Joe Perches <joe@perches.com>
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:16630 "EHLO SMTP.CITRIX.COM"
+Received: from mms2.broadcom.com ([216.31.210.18]:4435 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751105Ab1H3JnC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 05:43:02 -0400
-In-Reply-To: <1314695910-22344-8-git-send-email-ian.campbell@citrix.com>
+	id S1751905Ab1H3KIo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 06:08:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ddutt@brocade.com bounces with 550 "RESOLVER.ADR.RecipNotFound"
+Hello Dave,
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Rasesh Mody <rmody@brocade.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Joe Perches <joe@perches.com>
-Cc: netdev@vger.kernel.org
----
- MAINTAINERS |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+Please consider appling the series of bnx2x fixes to 'net'
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index a5e0b11..8516f1d 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1573,7 +1573,6 @@ F:	drivers/scsi/bfa/
- 
- BROCADE BNA 10 GIGABIT ETHERNET DRIVER
- M:	Rasesh Mody <rmody@brocade.com>
--M:	Debashis Dutt <ddutt@brocade.com>
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/brocade/bna/
--- 
-1.7.2.5
+Thanks
+Dmitry
