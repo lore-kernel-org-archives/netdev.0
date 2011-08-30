@@ -1,52 +1,71 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH 7/7] bnx2x: expose HW RX VLAN stripping toggle
-Date: Tue, 30 Aug 2011 21:30:11 +0200
-Message-ID: <4E5D3A43.1060202@redhat.com>
-References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com> <1314714646-3642-8-git-send-email-mschmidt@redhat.com> <CAHXqBFLgTHvxL34eR1qX7nEmntyOBXYrg-7LQvW=d8dnDpbhWg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug 42012] New: regression on 2.6.39.3 with socket/bind;
+ still there in 3.0.4
+Date: Tue, 30 Aug 2011 21:44:19 +0200
+Message-ID: <1314733459.2556.10.camel@edumazet-laptop>
+References: <20110830084742.26c72c20@nehalam.ftrdhcpuser.net>
+	 <1314720708.2935.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20110830.140733.146208373221522199.davem@davemloft.net>
+	 <1314731803.2556.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, vladz@broadcom.com, dmitry@broadcom.com,
-	eilong@broadcom.com
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6152 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754183Ab1H3TaP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 15:30:15 -0400
-In-Reply-To: <CAHXqBFLgTHvxL34eR1qX7nEmntyOBXYrg-7LQvW=d8dnDpbhWg@mail.gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:64037 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756233Ab1H3ToX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 15:44:23 -0400
+Received: by wwf5 with SMTP id 5so7198762wwf.1
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 12:44:22 -0700 (PDT)
+In-Reply-To: <1314731803.2556.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/30/2011 08:27 PM, Micha=C5=82 Miros=C5=82aw wrote:
-> It seems rather convoluted and unnecessary that you mirror
-> NETIF_F_HW_VLAN_RX in bp->flags
+Le mardi 30 ao=C3=BBt 2011 =C3=A0 21:16 +0200, Eric Dumazet a =C3=A9cri=
+t :
+> Le mardi 30 ao=C3=BBt 2011 =C3=A0 14:07 -0400, David Miller a =C3=A9c=
+rit :
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Tue, 30 Aug 2011 18:11:48 +0200
+> >=20
+> > > Yep, we should relax the check and accept AF_UNSPEC.
+> >=20
+> > I guess we'll have to do this, but I just can't bring myself to acc=
+ept
+> > that we can just do zero validation of what the user is passing us,
+> > see an AF_UNSPEC, and say "yeah it's fine to assume there's an ipv4
+> > address in there."
+>=20
+> I couldnt accept it either ;)
+>=20
+> By the way, if we accept it, strace() will probably still print binar=
+y
+> blob instead of the IP address (not necessarily ANY address ?)
+>=20
+> connect ( AF_UNSPEC ) has special semantic, but AFAIK, bind (AF_UNSPE=
+C)
+> only brings some mixed results : FreeBSD was accepting it in old
+> versions it seems. I guess I should try current FreeBSD versions.
+>=20
 
-This mirroring is for the benefit of functions called indirectly from=20
-bnx2x_set_features(). They cannot look at dev->features for=20
-NETIF_F_HW_VLAN_RX because it's not set before ->ndo_set_features() ret=
-urns.
+Status on FreeBSD 8.1-RELEASE
 
-> and then also in fp->flags.  Are the
-> fp->flags strictly mirroring hardware state (as in: there is no way
-> the states can differ in any point in time where the flags are
-> tested)?
+bind(AF_UNSPEC) is accepted (converted to AF_INET), only with a 0.0.0.0
+address.
 
-Yes. This is the purpose of the second mirroring of the flag.
+=46ollowing code works :
 
-> For this to be true, the two functions above need to be
-> called only without releasing a lock between them that is also taken
-> by receive handler.
+struct sockaddr_in addr;
+fd =3D socket(PF_INET, SOCK_STREAM, 0);
+memset(&addr, 0, sizeof(addr))
+bind(fd, (struct sockaddr *)&addr, sizeof(addr)); -> 0
 
-The flag propagates from bp->flags to fp->flags between unloading and=20
-reloading the NIC. The receive handler cannot run at the time.
+If tried on ipv6 sockets, it doesnt work : bind() returns -1, errno=3D4=
+7
 
-> Isn't there a flag in the rx descriptor of a
-> packet that says if VLAN was stripped? (All that flag keeping would b=
-e
-> unnecessary then.)
-
-There is no such flag, AFAIK.
-
-Michal
+struct sockaddr_in6 addr;
+fd =3D socket(PF_INET6, SOCK_STREAM, 0);
+memset(&addr, 0, sizeof(addr))
+bind(fd, (struct sockaddr *)&addr, sizeof(addr)); -> -1 errno=3D47
