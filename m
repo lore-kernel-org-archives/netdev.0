@@ -1,256 +1,152 @@
 From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH 3/7] bnx2x: decrease indentation in bnx2x_rx_int()
-Date: Tue, 30 Aug 2011 16:30:42 +0200
-Message-ID: <1314714646-3642-4-git-send-email-mschmidt@redhat.com>
+Subject: [PATCH 2/7] bnx2x: remove the 'leading' arguments
+Date: Tue, 30 Aug 2011 16:30:41 +0200
+Message-ID: <1314714646-3642-3-git-send-email-mschmidt@redhat.com>
 References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
 Cc: vladz@broadcom.com, dmitry@broadcom.com, eilong@broadcom.com,
 	Michal Schmidt <mschmidt@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6667 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31636 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754534Ab1H3ObM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 10:31:12 -0400
+	id S1754421Ab1H3ObJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 10:31:09 -0400
 In-Reply-To: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For better readability decrease the indentation in bnx2x_rx_int().
-'else' is unnecessary when the positive branch ends with a 'goto'.
+Whether a queue is leading can be deduced from its index.
 
 Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |  194 +++++++++++------------
- 1 files changed, 92 insertions(+), 102 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |    4 +---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   21 +++++++++------------
+ 4 files changed, 12 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 735e491..c0d2d9c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -531,6 +531,7 @@ struct bnx2x_fastpath {
+ 
+ #define IS_ETH_FP(fp)			(fp->index < \
+ 					 BNX2X_NUM_ETH_QUEUES(fp->bp))
++#define IS_LEADING_FP(fp)		((fp)->index == 0)
+ #ifdef BCM_CNIC
+ #define IS_FCOE_FP(fp)			(fp->index == FCOE_IDX)
+ #define IS_FCOE_IDX(idx)		((idx) == FCOE_IDX)
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 448e301..f1fea58 100644
+index 5c3eb17..448e301 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -624,135 +624,125 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 		if (unlikely(CQE_TYPE_SLOW(cqe_fp_type))) {
- 			bnx2x_sp_event(fp, cqe);
- 			goto next_cqe;
-+		}
- 
- 		/* this is an rx packet */
--		} else {
--			rx_buf = &fp->rx_buf_ring[bd_cons];
--			skb = rx_buf->skb;
--			prefetch(skb);
-+		rx_buf = &fp->rx_buf_ring[bd_cons];
-+		skb = rx_buf->skb;
-+		prefetch(skb);
- 
--			if (!CQE_TYPE_FAST(cqe_fp_type)) {
-+		if (!CQE_TYPE_FAST(cqe_fp_type)) {
- #ifdef BNX2X_STOP_ON_ERROR
--				/* sanity check */
--				if (fp->disable_tpa &&
--				    (CQE_TYPE_START(cqe_fp_type) ||
--				     CQE_TYPE_STOP(cqe_fp_type)))
--					BNX2X_ERR("START/STOP packet while "
--						  "disable_tpa type %x\n",
--						  CQE_TYPE(cqe_fp_type));
-+			/* sanity check */
-+			if (fp->disable_tpa &&
-+			    (CQE_TYPE_START(cqe_fp_type) ||
-+			     CQE_TYPE_STOP(cqe_fp_type)))
-+				BNX2X_ERR("START/STOP packet while "
-+					  "disable_tpa type %x\n",
-+					  CQE_TYPE(cqe_fp_type));
+@@ -1881,7 +1881,7 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
  #endif
  
--				if (CQE_TYPE_START(cqe_fp_type)) {
--					u16 queue = cqe_fp->queue_index;
--					DP(NETIF_MSG_RX_STATUS,
--					   "calling tpa_start on queue %d\n",
--					   queue);
-+			if (CQE_TYPE_START(cqe_fp_type)) {
-+				u16 queue = cqe_fp->queue_index;
-+				DP(NETIF_MSG_RX_STATUS,
-+				   "calling tpa_start on queue %d\n", queue);
+ 	for_each_nondefault_queue(bp, i) {
+-		rc = bnx2x_setup_queue(bp, &bp->fp[i], 0);
++		rc = bnx2x_setup_queue(bp, &bp->fp[i]);
+ 		if (rc)
+ 			LOAD_ERROR_EXIT(bp, load_error4);
+ 	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 5b1f9b5..54d50b7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -109,11 +109,9 @@ void bnx2x__init_func_obj(struct bnx2x *bp);
+  *
+  * @bp:		driver handle
+  * @fp:		pointer to the fastpath structure
+- * @leading:	boolean
+  *
+  */
+-int bnx2x_setup_queue(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+-		       bool leading);
++int bnx2x_setup_queue(struct bnx2x *bp, struct bnx2x_fastpath *fp);
  
--					bnx2x_tpa_start(fp, queue, skb,
--							bd_cons, bd_prod,
--							cqe_fp);
-+				bnx2x_tpa_start(fp, queue, skb,
-+						bd_cons, bd_prod, cqe_fp);
+ /**
+  * bnx2x_setup_leading - bring up a leading eth queue.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index e7b584b..64314f7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -2697,9 +2697,8 @@ static inline unsigned long bnx2x_get_common_flags(struct bnx2x *bp,
+ 	return flags;
+ }
  
--					/* Set Toeplitz hash for LRO skb */
--					bnx2x_set_skb_rxhash(bp, cqe, skb);
-+				/* Set Toeplitz hash for LRO skb */
-+				bnx2x_set_skb_rxhash(bp, cqe, skb);
+-static inline unsigned long bnx2x_get_q_flags(struct bnx2x *bp,
+-					      struct bnx2x_fastpath *fp,
+-					      bool leading)
++static unsigned long bnx2x_get_q_flags(struct bnx2x *bp,
++				       struct bnx2x_fastpath *fp)
+ {
+ 	unsigned long flags = 0;
  
--					goto next_rx;
-+				goto next_rx;
+@@ -2715,7 +2714,7 @@ static inline unsigned long bnx2x_get_q_flags(struct bnx2x *bp,
+ 		__set_bit(BNX2X_Q_FLG_TPA_IPV6, &flags);
+ 	}
  
--				} else {
--					u16 queue =
--						cqe->end_agg_cqe.queue_index;
--					DP(NETIF_MSG_RX_STATUS,
--					   "calling tpa_stop on queue %d\n",
--					   queue);
-+			} else {
-+				u16 queue =
-+					cqe->end_agg_cqe.queue_index;
-+				DP(NETIF_MSG_RX_STATUS,
-+				   "calling tpa_stop on queue %d\n", queue);
+-	if (leading) {
++	if (IS_LEADING_FP(fp)) {
+ 		__set_bit(BNX2X_Q_FLG_LEADING_RSS, &flags);
+ 		__set_bit(BNX2X_Q_FLG_MCAST, &flags);
+ 	}
+@@ -6966,7 +6965,7 @@ int bnx2x_set_eth_mac(struct bnx2x *bp, bool set)
  
--					bnx2x_tpa_stop(bp, fp, queue,
--						       &cqe->end_agg_cqe,
--						       comp_ring_cons);
-+				bnx2x_tpa_stop(bp, fp, queue, &cqe->end_agg_cqe,
-+					       comp_ring_cons);
- #ifdef BNX2X_STOP_ON_ERROR
--					if (bp->panic)
--						return 0;
-+				if (bp->panic)
-+					return 0;
- #endif
+ int bnx2x_setup_leading(struct bnx2x *bp)
+ {
+-	return bnx2x_setup_queue(bp, &bp->fp[0], 1);
++	return bnx2x_setup_queue(bp, &bp->fp[0]);
+ }
  
--					bnx2x_update_sge_prod(fp, cqe_fp);
--					goto next_cqe;
--				}
-+				bnx2x_update_sge_prod(fp, cqe_fp);
-+				goto next_cqe;
- 			}
--			/* non TPA */
--			len = le16_to_cpu(cqe_fp->pkt_len);
--			pad = cqe_fp->placement_offset;
--			dma_sync_single_for_cpu(&bp->pdev->dev,
-+		}
-+		/* non TPA */
-+		len = le16_to_cpu(cqe_fp->pkt_len);
-+		pad = cqe_fp->placement_offset;
-+		dma_sync_single_for_cpu(&bp->pdev->dev,
- 					dma_unmap_addr(rx_buf, mapping),
--						       pad + RX_COPY_THRESH,
--						       DMA_FROM_DEVICE);
--			prefetch(((char *)(skb)) + L1_CACHE_BYTES);
-+					pad + RX_COPY_THRESH, DMA_FROM_DEVICE);
-+		prefetch(((char *)(skb)) + L1_CACHE_BYTES);
+ /**
+@@ -7177,10 +7176,10 @@ static inline void bnx2x_pf_q_prep_init(struct bnx2x *bp,
+ 			&bp->context.vcxt[fp->txdata[cos].cid].eth;
+ }
  
--			/* is this an error packet? */
--			if (unlikely(cqe_fp_flags & ETH_RX_ERROR_FALGS)) {
-+		/* is this an error packet? */
-+		if (unlikely(cqe_fp_flags & ETH_RX_ERROR_FALGS)) {
-+			DP(NETIF_MSG_RX_ERR, "ERROR  flags %x  rx packet %u\n",
-+			   cqe_fp_flags, sw_comp_cons);
-+			fp->eth_q_stats.rx_err_discard_pkt++;
-+			goto reuse_rx;
-+		}
-+
-+		/*
-+		 * Since we don't have a jumbo ring,
-+		 * copy small packets if mtu > 1500
-+		 */
-+		if ((bp->dev->mtu > ETH_MAX_PACKET_SIZE) &&
-+		    (len <= RX_COPY_THRESH)) {
-+			struct sk_buff *new_skb;
-+
-+			new_skb = netdev_alloc_skb(bp->dev, len + pad);
-+			if (new_skb == NULL) {
- 				DP(NETIF_MSG_RX_ERR,
--				   "ERROR  flags %x  rx packet %u\n",
--				   cqe_fp_flags, sw_comp_cons);
--				fp->eth_q_stats.rx_err_discard_pkt++;
-+				   "ERROR  packet dropped "
-+				   "because of alloc failure\n");
-+				fp->eth_q_stats.rx_skb_alloc_failed++;
- 				goto reuse_rx;
- 			}
+-int bnx2x_setup_tx_only(struct bnx2x *bp, struct bnx2x_fastpath *fp,
++static int bnx2x_setup_tx_only(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 			struct bnx2x_queue_state_params *q_params,
+ 			struct bnx2x_queue_setup_tx_only_params *tx_only_params,
+-			int tx_index, bool leading)
++			int tx_index)
+ {
+ 	memset(tx_only_params, 0, sizeof(*tx_only_params));
  
--			/* Since we don't have a jumbo ring
--			 * copy small packets if mtu > 1500
--			 */
--			if ((bp->dev->mtu > ETH_MAX_PACKET_SIZE) &&
--			    (len <= RX_COPY_THRESH)) {
--				struct sk_buff *new_skb;
--
--				new_skb = netdev_alloc_skb(bp->dev, len + pad);
--				if (new_skb == NULL) {
--					DP(NETIF_MSG_RX_ERR,
--					   "ERROR  packet dropped "
--					   "because of alloc failure\n");
--					fp->eth_q_stats.rx_skb_alloc_failed++;
--					goto reuse_rx;
--				}
--
--				/* aligned copy */
--				skb_copy_from_linear_data_offset(skb, pad,
--						    new_skb->data + pad, len);
--				skb_reserve(new_skb, pad);
--				skb_put(new_skb, len);
-+			/* aligned copy */
-+			skb_copy_from_linear_data_offset(skb, pad,
-+						new_skb->data + pad, len);
-+			skb_reserve(new_skb, pad);
-+			skb_put(new_skb, len);
+@@ -7216,14 +7215,12 @@ int bnx2x_setup_tx_only(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+  *
+  * @bp:		driver handle
+  * @fp:		pointer to fastpath
+- * @leading:	is leading
+  *
+  * This function performs 2 steps in a Queue state machine
+  *      actually: 1) RESET->INIT 2) INIT->SETUP
+  */
  
--				bnx2x_reuse_rx_skb(fp, bd_cons, bd_prod);
-+			bnx2x_reuse_rx_skb(fp, bd_cons, bd_prod);
+-int bnx2x_setup_queue(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+-		       bool leading)
++int bnx2x_setup_queue(struct bnx2x *bp, struct bnx2x_fastpath *fp)
+ {
+ 	struct bnx2x_queue_state_params q_params = {0};
+ 	struct bnx2x_queue_setup_params *setup_params =
+@@ -7264,7 +7261,7 @@ int bnx2x_setup_queue(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 	memset(setup_params, 0, sizeof(*setup_params));
  
--				skb = new_skb;
-+			skb = new_skb;
+ 	/* Set QUEUE flags */
+-	setup_params->flags = bnx2x_get_q_flags(bp, fp, leading);
++	setup_params->flags = bnx2x_get_q_flags(bp, fp);
  
--			} else
--			if (likely(bnx2x_alloc_rx_skb(bp, fp, bd_prod) == 0)) {
--				dma_unmap_single(&bp->pdev->dev,
--					dma_unmap_addr(rx_buf, mapping),
--						 fp->rx_buf_size,
--						 DMA_FROM_DEVICE);
--				skb_reserve(skb, pad);
--				skb_put(skb, len);
-+		} else if (likely(bnx2x_alloc_rx_skb(bp, fp, bd_prod) == 0)) {
-+			dma_unmap_single(&bp->pdev->dev,
-+					 dma_unmap_addr(rx_buf, mapping),
-+					 fp->rx_buf_size, DMA_FROM_DEVICE);
-+			skb_reserve(skb, pad);
-+			skb_put(skb, len);
+ 	/* Set general SETUP parameters */
+ 	bnx2x_pf_q_prep_general(bp, fp, &setup_params->gen_params,
+@@ -7293,7 +7290,7 @@ int bnx2x_setup_queue(struct bnx2x *bp, struct bnx2x_fastpath *fp,
  
--			} else {
--				DP(NETIF_MSG_RX_ERR,
--				   "ERROR  packet dropped because "
--				   "of alloc failure\n");
--				fp->eth_q_stats.rx_skb_alloc_failed++;
-+		} else {
-+			DP(NETIF_MSG_RX_ERR,
-+			   "ERROR  packet dropped because of alloc failure\n");
-+			fp->eth_q_stats.rx_skb_alloc_failed++;
- reuse_rx:
--				bnx2x_reuse_rx_skb(fp, bd_cons, bd_prod);
--				goto next_rx;
--			}
--
--			skb->protocol = eth_type_trans(skb, bp->dev);
-+			bnx2x_reuse_rx_skb(fp, bd_cons, bd_prod);
-+			goto next_rx;
-+		}
- 
--			/* Set Toeplitz hash for a none-LRO skb */
--			bnx2x_set_skb_rxhash(bp, cqe, skb);
-+		skb->protocol = eth_type_trans(skb, bp->dev);
- 
--			skb_checksum_none_assert(skb);
-+		/* Set Toeplitz hash for a none-LRO skb */
-+		bnx2x_set_skb_rxhash(bp, cqe, skb);
- 
--			if (bp->dev->features & NETIF_F_RXCSUM) {
-+		skb_checksum_none_assert(skb);
- 
--				if (likely(BNX2X_RX_CSUM_OK(cqe)))
--					skb->ip_summed = CHECKSUM_UNNECESSARY;
--				else
--					fp->eth_q_stats.hw_csum_err++;
--			}
-+		if (bp->dev->features & NETIF_F_RXCSUM) {
-+			if (likely(BNX2X_RX_CSUM_OK(cqe)))
-+				skb->ip_summed = CHECKSUM_UNNECESSARY;
-+			else
-+				fp->eth_q_stats.hw_csum_err++;
- 		}
- 
- 		skb_record_rx_queue(skb, fp->index);
+ 		/* prepare and send tx-only ramrod*/
+ 		rc = bnx2x_setup_tx_only(bp, fp, &q_params,
+-					  tx_only_params, tx_index, leading);
++					  tx_only_params, tx_index);
+ 		if (rc) {
+ 			BNX2X_ERR("Queue(%d.%d) TX_ONLY_SETUP failed\n",
+ 				  fp->index, tx_index);
 -- 
 1.7.6
