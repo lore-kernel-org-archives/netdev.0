@@ -1,43 +1,67 @@
 From: kaber@trash.net
-Subject: [PATCH 0/8] netfilter: netfilter fixes
-Date: Tue, 30 Aug 2011 16:41:13 +0200
-Message-ID: <1314715281-26233-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 1/8] netfilter: xt_rateest: fix xt_rateest_mt_checkentry()
+Date: Tue, 30 Aug 2011 16:41:14 +0200
+Message-ID: <1314715281-26233-2-git-send-email-kaber@trash.net>
+References: <1314715281-26233-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56967 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754153Ab1H3Ol0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:41:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1314715281-26233-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-following are a couple of netfilter fixes:
+commit 4a5a5c73b7cfee (slightly better error reporting) added some
+useless code in xt_rateest_mt_checkentry().
 
-- invalid return values in xt_rateest_mt_checkentry(), from Eric
+Fix this so that different error codes can really be returned.
 
-- a possible memory leak in ip_queue and ip6_queue, from Jesper Juhl
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Jan Engelhardt <jengelh@medozas.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/netfilter/xt_rateest.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-- an incorrect Kconfig dependency for ebtables, from Bart
+diff --git a/net/netfilter/xt_rateest.c b/net/netfilter/xt_rateest.c
+index 76a0831..ed0db15 100644
+--- a/net/netfilter/xt_rateest.c
++++ b/net/netfilter/xt_rateest.c
+@@ -78,7 +78,7 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
+ {
+ 	struct xt_rateest_match_info *info = par->matchinfo;
+ 	struct xt_rateest *est1, *est2;
+-	int ret = false;
++	int ret = -EINVAL;
+ 
+ 	if (hweight32(info->flags & (XT_RATEEST_MATCH_ABS |
+ 				     XT_RATEEST_MATCH_REL)) != 1)
+@@ -101,13 +101,12 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
+ 	if (!est1)
+ 		goto err1;
+ 
++	est2 = NULL;
+ 	if (info->flags & XT_RATEEST_MATCH_REL) {
+ 		est2 = xt_rateest_lookup(info->name2);
+ 		if (!est2)
+ 			goto err2;
+-	} else
+-		est2 = NULL;
+-
++	}
+ 
+ 	info->est1 = est1;
+ 	info->est2 = est2;
+@@ -116,7 +115,7 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
+ err2:
+ 	xt_rateest_put(est1);
+ err1:
+-	return -EINVAL;
++	return ret;
+ }
+ 
+ static void xt_rateest_mt_destroy(const struct xt_mtdtor_param *par)
+-- 
+1.7.2.3
 
-- handling of (bogus) NF_STOLEN verdicts in userspace queueing, from Florian
-
-- a fix for missing address translation in certain cases for NATed PPTP
-  connections, from Sanket Shah
-
-- possible out-of-bounds memory access in TCP connection tracking in case
-  of partial TCP options, from Jozsef
-
-- an incorrect multiplication of TCPOLEN_TSTAMP_ALIGNED in the fast-path
-  check of TCP connection tracking, from Jozsef
-
-- update of the netfilter git tree URLs to a directory shared by Pablo and
-  myself (trees will move after patch is applied)
-
-Please apply or pull from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
-
-Thanks!
