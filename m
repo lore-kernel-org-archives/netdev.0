@@ -1,45 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] bridge: netfilter: work around shared nfct struct
-Date: Tue, 30 Aug 2011 15:08:13 +0200
-Message-ID: <4E5CE0BD.7040103@trash.net>
-References: <1314701827-21702-1-git-send-email-fw@strlen.de> <4E5CDADC.7000902@trash.net> <20110830125453.GC7548@Chamillionaire.breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110830125453.GC7548@Chamillionaire.breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Huang Weiyi <weiyi.huang@gmail.com>
+Subject: [PATCH] net: sh_eth: remove duplicated #include
+Date: Tue, 30 Aug 2011 21:09:12 +0800
+Message-ID: <1314709752-5012-1-git-send-email-weiyi.huang@gmail.com>
+Cc: netdev@vger.kernel.org, Huang Weiyi <weiyi.huang@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:39886 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751531Ab1H3NJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:09:33 -0400
+Received: by pzk37 with SMTP id 37so10287002pzk.1
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 06:09:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30.08.2011 14:54, Florian Westphal wrote:
-> Patrick McHardy <kaber@trash.net> wrote:
->> On 30.08.2011 12:57, Florian Westphal wrote:
->>> When incoking iptables hooks from bridge netfilter, the assumption
->>> that non-confirmed skb->nfct is never shared does no longer hold,
->>> as bridge code clones skbs when e.g. forwarding packets to multiple
->>> bridge ports.
->>>
->>> When NFQUEUE is used, we can BUG because nf_nat_setup_info can be
->>> invoked simultaneously for the same conntrack:
->>
->> I'm wondering how this can happen, when flooding packets to multiple
->> ports, they are still processed by the same CPU one after another,
->> so for the second and further packets, nf_nat should notice that
->> the mappings are already set up.
-> 
-> Main problem is that we end up with same ->nfct in both
-> INPUT and POSTROUTING (br_pass_frame_up vs. br_forward).
-> 
-> its extremely unlikely but reproduceable with something like
-> hping2 -i u1200 -2 -p 138 -d 128 192.168.0.255
-> 
-> (assuming bridge interface has an address within that network).
-> 
-> Also, with recent change nf_reinject can be run in parallel.
-> (the original problem was observed on 2.6.32.24, but i can
->  reproduce it with nf-next, too).
+Remove duplicated #include('s) in
+  drivers/net/sh_eth.c
 
-I see. We still need to avoid the module dependency on nf_conntrack
-though, so I think this will have to be fixed in nf_nat_fn().
+Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+---
+ drivers/net/sh_eth.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
+index 1c1666e..190f619 100644
+--- a/drivers/net/sh_eth.c
++++ b/drivers/net/sh_eth.c
+@@ -31,7 +31,6 @@
+ #include <linux/phy.h>
+ #include <linux/cache.h>
+ #include <linux/io.h>
+-#include <linux/interrupt.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/slab.h>
+ #include <linux/ethtool.h>
+-- 
+1.6.1.3
