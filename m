@@ -1,82 +1,122 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 3/8] bnx2x: fix rx ring size report
-Date: Tue, 30 Aug 2011 13:08:41 +0300
-Message-ID: <1314698926-24525-4-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH 5/8] bnx2x: don't reset device while reading its
+ configuration.
+Date: Tue, 30 Aug 2011 13:08:43 +0300
+Message-ID: <1314698926-24525-6-git-send-email-dmitry@broadcom.com>
 References: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3491 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3516 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752884Ab1H3KIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 06:08:47 -0400
+	id S1753000Ab1H3KIw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 06:08:52 -0400
 In-Reply-To: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Zolotarov <vladz@broadcom.com>
-
-Store the size in bp, read from bp when queried.
-
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_cmn.c     |   17 +++++++++++------
- drivers/net/bnx2x/bnx2x_ethtool.c |    5 +----
- 2 files changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/bnx2x/bnx2x_main.c |   24 +++++++++++++++---------
+ drivers/net/bnx2x/bnx2x_reg.h  |    2 +-
+ 2 files changed, 16 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index 2a33d24..c4cbf97 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -3091,15 +3091,20 @@ static int bnx2x_alloc_fp_mem_at(struct bnx2x *bp, int index)
- 	struct bnx2x_fastpath *fp = &bp->fp[index];
- 	int ring_size = 0;
- 	u8 cos;
-+	int rx_ring_size = 0;
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index 9633e9b..00dc8f0 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -5822,7 +5822,7 @@ static int bnx2x_init_hw_common(struct bnx2x *bp)
+ 	 * take the UNDI lock to protect undi_unload flow from accessing
+ 	 * registers while we're resetting the chip
+ 	 */
+-	bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
++	bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
  
- 	/* if rx_ring_size specified - use it */
--	int rx_ring_size = bp->rx_ring_size ? bp->rx_ring_size :
--			   MAX_RX_AVAIL/BNX2X_NUM_RX_QUEUES(bp);
-+	if (!bp->rx_ring_size) {
+ 	bnx2x_reset_common(bp);
+ 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET, 0xffffffff);
+@@ -5834,7 +5834,7 @@ static int bnx2x_init_hw_common(struct bnx2x *bp)
+ 	}
+ 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET, val);
  
--	/* allocate at least number of buffers required by FW */
--	rx_ring_size = max_t(int, bp->disable_tpa ? MIN_RX_SIZE_NONTPA :
--						    MIN_RX_SIZE_TPA,
--				  rx_ring_size);
-+		rx_ring_size = MAX_RX_AVAIL/BNX2X_NUM_RX_QUEUES(bp);
+-	bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
++	bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
+ 
+ 	bnx2x_init_block(bp, BLOCK_MISC, PHASE_COMMON);
+ 
+@@ -8570,10 +8570,12 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ 	/* Check if there is any driver already loaded */
+ 	val = REG_RD(bp, MISC_REG_UNPREPARED);
+ 	if (val == 0x1) {
+-		/* Check if it is the UNDI driver
 +
-+		/* allocate at least number of buffers required by FW */
-+		rx_ring_size = max_t(int, bp->disable_tpa ? MIN_RX_SIZE_NONTPA :
-+				     MIN_RX_SIZE_TPA, rx_ring_size);
++		bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
++		/*
++		 * Check if it is the UNDI driver
+ 		 * UNDI driver initializes CID offset for normal bell to 0x7
+ 		 */
+-		bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
+ 		val = REG_RD(bp, DORQ_REG_NORM_CID_OFST);
+ 		if (val == 0x7) {
+ 			u32 reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
+@@ -8611,9 +8613,6 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ 				bnx2x_fw_command(bp, reset_code, 0);
+ 			}
+ 
+-			/* now it's safe to release the lock */
+-			bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
+-
+ 			bnx2x_undi_int_disable(bp);
+ 			port = BP_PORT(bp);
+ 
+@@ -8663,8 +8662,10 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
+ 			bp->fw_seq =
+ 			      (SHMEM_RD(bp, func_mb[bp->pf_num].drv_mb_header) &
+ 				DRV_MSG_SEQ_NUMBER_MASK);
+-		} else
+-			bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
++		}
 +
-+		bp->rx_ring_size = rx_ring_size;
-+	} else
-+		rx_ring_size = bp->rx_ring_size;
++		/* now it's safe to release the lock */
++		bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
+ 	}
+ }
  
- 	/* Common */
- 	sb = &bnx2x_fp(bp, index, status_blk);
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 2218630..0ceb6c7 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -1310,10 +1310,7 @@ static void bnx2x_get_ringparam(struct net_device *dev,
- 	if (bp->rx_ring_size)
- 		ering->rx_pending = bp->rx_ring_size;
- 	else
--		if (bp->state == BNX2X_STATE_OPEN && bp->num_queues)
--			ering->rx_pending = MAX_RX_AVAIL/bp->num_queues;
--		else
--			ering->rx_pending = MAX_RX_AVAIL;
-+		ering->rx_pending = MAX_RX_AVAIL;
+@@ -9440,6 +9441,10 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
+ 		bp->igu_base_sb = 0;
+ 	} else {
+ 		bp->common.int_block = INT_BLOCK_IGU;
++
++		/* do not allow device reset during IGU info preocessing */
++		bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
++
+ 		val = REG_RD(bp, IGU_REG_BLOCK_CONFIGURATION);
  
- 	ering->rx_mini_pending = 0;
- 	ering->rx_jumbo_pending = 0;
+ 		if (val & IGU_BLOCK_CONFIGURATION_REG_BACKWARD_COMP_EN) {
+@@ -9471,6 +9476,7 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
+ 
+ 		bnx2x_get_igu_cam_info(bp);
+ 
++		bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
+ 	}
+ 
+ 	/*
+diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
+index 40266c1..dac217d 100644
+--- a/drivers/net/bnx2x/bnx2x_reg.h
++++ b/drivers/net/bnx2x/bnx2x_reg.h
+@@ -5766,7 +5766,7 @@
+ #define HW_LOCK_RESOURCE_RECOVERY_LEADER_0			 8
+ #define HW_LOCK_RESOURCE_RECOVERY_LEADER_1			 9
+ #define HW_LOCK_RESOURCE_SPIO					 2
+-#define HW_LOCK_RESOURCE_UNDI					 5
++#define HW_LOCK_RESOURCE_RESET					 5
+ #define AEU_INPUTS_ATTN_BITS_ATC_HW_INTERRUPT			 (0x1<<4)
+ #define AEU_INPUTS_ATTN_BITS_ATC_PARITY_ERROR			 (0x1<<5)
+ #define AEU_INPUTS_ATTN_BITS_BRB_PARITY_ERROR			 (0x1<<18)
 -- 
 1.7.2.2
