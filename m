@@ -1,39 +1,62 @@
-From: Andrew McGregor <andrewmcgr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: BQL crap and wireless
-Date: Tue, 30 Aug 2011 13:59:05 +1200
-Message-ID: <903AA8A8-9ACD-44FB-9BA8-50137359EC2B@gmail.com>
-References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com> <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com> <CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ@mail.gmail.com> <4E5C3B47.1050809@freedesktop.org>
-Mime-Version: 1.0 (Apple Message framework v1244.3)
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Matt Smith <smithm-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Kevin Hayes <hayes-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Derek Smithies <derek-Rd3uoDiDeHXJKwlM9GxbOw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jim Gettys <jg-CC+yJ3UmIYqDUpFQwHEjaQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4E5C3B47.1050809-CC+yJ3UmIYqDUpFQwHEjaQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH -next] net: fix Makefile typos & build errors
+Date: Tue, 30 Aug 2011 11:59:25 +1000
+Message-ID: <20110830115925.45984bb8eeb73401dd5d289f@canb.auug.org.au>
+References: <20110829161907.19232776e65389dea1caa7e8@canb.auug.org.au>
+	<20110829114940.4d29febc.rdunlap@xenotime.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__30_Aug_2011_11_59_25_+1000_Nyg/YomqZxbT3nSF"
+Cc: netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110829114940.4d29febc.rdunlap@xenotime.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--Signature=_Tue__30_Aug_2011_11_59_25_+1000_Nyg/YomqZxbT3nSF
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On 30/08/2011, at 1:22 PM, Jim Gettys wrote:
+Hi all,
 
-> The gotcha is we don't have a AQM algorithm known to work in
-> the face of the highly dynamic bandwidth variation that is wireless
+On Mon, 29 Aug 2011 11:49:40 -0700 Randy Dunlap <rdunlap@xenotime.net> wrot=
+e:
+>
+> @@ -44,10 +44,10 @@ obj-$(CONFIG_PPP_SYNC_TTY) +=3D ppp/
+>  obj-$(CONFIG_PPPOE) +=3D ppp/
+>  obj-$(CONFIG_PPPOL2TP) +=3D ppp/
+>  obj-$(CONFIG_PPTP) +=3D ppp/
+> -onj-$(CONFIG_SLIP) +=3D slip/
+> +obj-$(CONFIG_SLIP) +=3D slip/
+>  obj-$(CONFIG_SLHC) +=3D slip/
+>  obj-$(CONFIG_NET_SB1000) +=3D sb1000.o
+> -onj-$(CONFIG_SLIP) +=3D slip/
+> +obj-$(CONFIG_SLIP) +=3D slip/
 
-It's worse than highly dynamic... the bandwidth may be completely undefined moment to moment, as it is dependent on both the wireless environment, which varies on timescales that can be about equal to a packet transmit time, and on the traffic mix.  There's about 30 ms of correlation time at best.
+It may be my old(er) eyes, but isn't that CONFIG_SLIP line repeated?
 
->  This was/is
-> the great surprise to me as I had always thought of AQM as a property of
-> internet routers, not hosts.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-There's no distinction in the forwarding plane, every router is a host, every host is a router.
+--Signature=_Tue__30_Aug_2011_11_59_25_+1000_Nyg/YomqZxbT3nSF
+Content-Type: application/pgp-signature
 
-Andrew--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJOXEP9AAoJEDMEi1NhKgbsi0IH/ApkE+VVuc7zKPWNrotpX1ov
+o91AJ24Vr/PTY+z475vKYlr5JpMIroUjnmd8rvnAI4d0upSSxp+ODXOpqQC+1UcX
+uszINsYeIOt9mAAvaLKgkdHR24vDMdJNnhqWp0dWGejGxEtF19txcpeaeg6jGwFp
+J43Kv/h7uKXbq0M4Nc6scDkGoz9EGm9NzWJj0+4/KtxxN7hIJEQfw0Xh5GcMWb1N
++SoGS+1pQOiiH7clUI+Nhv2uINMUyssI2KovHEnnjwiQ0mp6sYrhGhCW7aCQvtK4
+OloLn7Co/VIdbXxRRSUJ/jc1BdcAKdF3b5XIVRz76U679PtBPUE+NKQRAYf8R7g=
+=EKgZ
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__30_Aug_2011_11_59_25_+1000_Nyg/YomqZxbT3nSF--
