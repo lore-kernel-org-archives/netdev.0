@@ -1,74 +1,61 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 07/14] benet: convert to SKB paged frag API.
-Date: Tue, 30 Aug 2011 10:18:23 +0100
-Message-ID: <1314695910-22344-7-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 14/14] greth: convert to SKB paged frag API.
+Date: Tue, 30 Aug 2011 10:18:30 +0100
+Message-ID: <1314695910-22344-14-git-send-email-ian.campbell@citrix.com>
 References: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:34590 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751311Ab1H3JSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 05:18:43 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:22544 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752972Ab1H3JSw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 05:18:52 -0400
 In-Reply-To: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In order to avoid long lines also use phys_to_virt(page_to_phys(page)) =>
+page_address(page) (since the are effectively the same thing for lowmem pages).
+
+Also dump the frag's size instead of the headlen when dumping a frag.
+
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Sathya Perla <sathya.perla@emulex.com>
-Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/aeroflex/greth.c |   12 ++++--------
+ 1 files changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index fb2eda0..59d54d1 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -638,8 +638,8 @@ static int make_tx_wrbs(struct be_adapter *adapter, struct be_queue_info *txq,
+diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
+index a5f6b07..bc3bd34 100644
+--- a/drivers/net/ethernet/aeroflex/greth.c
++++ b/drivers/net/ethernet/aeroflex/greth.c
+@@ -113,9 +113,8 @@ static void greth_print_tx_packet(struct sk_buff *skb)
  	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		struct skb_frag_struct *frag =
- 			&skb_shinfo(skb)->frags[i];
--		busaddr = dma_map_page(dev, frag->page, frag->page_offset,
--				       frag->size, DMA_TO_DEVICE);
-+		busaddr = skb_frag_dma_map(dev, frag, 0,
-+					   frag->size, DMA_TO_DEVICE);
- 		if (dma_mapping_error(dev, busaddr))
- 			goto dma_err;
- 		wrb = queue_head_node(txq);
-@@ -1066,7 +1066,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter, struct be_rx_obj *rxo,
- 		skb->tail += curr_frag_len;
- 	} else {
- 		skb_shinfo(skb)->nr_frags = 1;
--		skb_shinfo(skb)->frags[0].page = page_info->page;
-+		skb_frag_set_page(skb, 0, page_info->page);
- 		skb_shinfo(skb)->frags[0].page_offset =
- 					page_info->page_offset + hdr_len;
- 		skb_shinfo(skb)->frags[0].size = curr_frag_len - hdr_len;
-@@ -1091,7 +1091,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter, struct be_rx_obj *rxo,
- 		if (page_info->page_offset == 0) {
- 			/* Fresh page */
- 			j++;
--			skb_shinfo(skb)->frags[j].page = page_info->page;
-+			skb_frag_set_page(skb, j, page_info->page);
- 			skb_shinfo(skb)->frags[j].page_offset =
- 							page_info->page_offset;
- 			skb_shinfo(skb)->frags[j].size = 0;
-@@ -1173,7 +1173,7 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
- 		if (i == 0 || page_info->page_offset == 0) {
- 			/* First frag or Fresh page */
- 			j++;
--			skb_shinfo(skb)->frags[j].page = page_info->page;
-+			skb_frag_set_page(skb, j, page_info->page);
- 			skb_shinfo(skb)->frags[j].page_offset =
- 							page_info->page_offset;
- 			skb_shinfo(skb)->frags[j].size = 0;
+ 
+ 		print_hex_dump(KERN_DEBUG, "TX: ", DUMP_PREFIX_OFFSET, 16, 1,
+-			       phys_to_virt(page_to_phys(skb_shinfo(skb)->frags[i].page)) +
+-			       skb_shinfo(skb)->frags[i].page_offset,
+-			       length, true);
++			       skb_frag_address(&skb_shinfo(skb)->frags[i]),
++			       skb_shinfo(skb)->frags[i].size, true);
+ 	}
+ }
+ 
+@@ -528,11 +527,8 @@ greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		greth_write_bd(&bdp->stat, status);
+ 
+-		dma_addr = dma_map_page(greth->dev,
+-					frag->page,
+-					frag->page_offset,
+-					frag->size,
+-					DMA_TO_DEVICE);
++		dma_addr = skb_frag_dma_map(greth->dev, frag, 0, frag->size,
++					    DMA_TO_DEVICE);
+ 
+ 		if (unlikely(dma_mapping_error(greth->dev, dma_addr)))
+ 			goto frag_map_error;
 -- 
 1.7.2.5
