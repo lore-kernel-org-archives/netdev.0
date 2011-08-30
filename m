@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 5/8] netfilter: nf_ct_pptp: fix DNATed PPTP connection address translation
-Date: Tue, 30 Aug 2011 16:41:18 +0200
-Message-ID: <1314715281-26233-6-git-send-email-kaber@trash.net>
+Subject: [PATCH 7/8] netfilter: nf_ct_tcp: wrong multiplication of TCPOLEN_TSTAMP_ALIGNED in tcp_sack skips fastpath
+Date: Tue, 30 Aug 2011 16:41:20 +0200
+Message-ID: <1314715281-26233-8-git-send-email-kaber@trash.net>
 References: <1314715281-26233-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,33 +10,31 @@ In-Reply-To: <1314715281-26233-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sanket Shah <sanket.shah@elitecore.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-When both the server and the client are NATed, the set-link-info control
-packet containing the peer's call-id field is not properly translated.
+The wrong multiplication of TCPOLEN_TSTAMP_ALIGNED by 4 skips the fast path
+for the timestamp-only option. Bug reported by Michael M. Builov (netfilter
+bugzilla #738).
 
-I have verified that it was working in 2.6.16.13 kernel previously but
-due to rewrite, this scenario stopped working (Not knowing exact version
-when it stopped working).
-
-Signed-off-by: Sanket Shah <sanket.shah@elitecore.com>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nf_conntrack_pptp.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
-index 2fd4565..31d56b2 100644
---- a/net/netfilter/nf_conntrack_pptp.c
-+++ b/net/netfilter/nf_conntrack_pptp.c
-@@ -364,6 +364,7 @@ pptp_inbound_pkt(struct sk_buff *skb,
- 		break;
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index afc4ab7..8235b86 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -447,7 +447,7 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,
+ 	BUG_ON(ptr == NULL);
  
- 	case PPTP_WAN_ERROR_NOTIFY:
-+	case PPTP_SET_LINK_INFO:
- 	case PPTP_ECHO_REQUEST:
- 	case PPTP_ECHO_REPLY:
- 		/* I don't have to explain these ;) */
+ 	/* Fast path for timestamp-only option */
+-	if (length == TCPOLEN_TSTAMP_ALIGNED*4
++	if (length == TCPOLEN_TSTAMP_ALIGNED
+ 	    && *(__be32 *)ptr == htonl((TCPOPT_NOP << 24)
+ 				       | (TCPOPT_NOP << 16)
+ 				       | (TCPOPT_TIMESTAMP << 8)
 -- 
 1.7.2.3
 
