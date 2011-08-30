@@ -1,109 +1,54 @@
-From: =?utf-8?B?Iklnb3IgTWFyYXZpxIci?= <igorm@etf.rs>
-Subject: [PATCH] cls_rsvp.h was outdated
-Date: Tue, 30 Aug 2011 15:12:55 +0200
-Message-ID: <59e0c7c0ba5282f35b101e7058fb27fa.squirrel@kondor.etf.bg.ac.rs>
-Reply-To: igorm@etf.rs
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] bridge: netfilter: work around shared nfct struct
+Date: Tue, 30 Aug 2011 15:19:05 +0200
+Message-ID: <20110830131905.GE7548@Chamillionaire.breakpoint.cc>
+References: <1314701827-21702-1-git-send-email-fw@strlen.de>
+ <4E5CDADC.7000902@trash.net>
+ <20110830125453.GC7548@Chamillionaire.breakpoint.cc>
+ <4E5CE0BD.7040103@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.etf.rs ([147.91.14.169]:38363 "EHLO mx1.etf.bg.ac.rs"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752045Ab1H3NM6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:12:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4E5CE0BD.7040103@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46ile cls_rsvp.h in /net/sched was outdated. I'm sending you patch for=
- this
-file.
+Patrick McHardy <kaber@trash.net> wrote:
+> On 30.08.2011 14:54, Florian Westphal wrote:
+> > Patrick McHardy <kaber@trash.net> wrote:
+> >> On 30.08.2011 12:57, Florian Westphal wrote:
+> >>> When incoking iptables hooks from bridge netfilter, the assumption
+> >>> that non-confirmed skb->nfct is never shared does no longer hold,
+> >>> as bridge code clones skbs when e.g. forwarding packets to multiple
+> >>> bridge ports.
+> >>>
+> >>> When NFQUEUE is used, we can BUG because nf_nat_setup_info can be
+> >>> invoked simultaneously for the same conntrack:
+> >>
+> >> I'm wondering how this can happen, when flooding packets to multiple
+> >> ports, they are still processed by the same CPU one after another,
+> >> so for the second and further packets, nf_nat should notice that
+> >> the mappings are already set up.
+> > 
+> > Main problem is that we end up with same ->nfct in both
+> > INPUT and POSTROUTING (br_pass_frame_up vs. br_forward).
+> > 
+> > its extremely unlikely but reproduceable with something like
+> > hping2 -i u1200 -2 -p 138 -d 128 192.168.0.255
+> > 
+> > (assuming bridge interface has an address within that network).
+> > 
+> > Also, with recent change nf_reinject can be run in parallel.
+> > (the original problem was observed on 2.6.32.24, but i can
+> >  reproduce it with nf-next, too).
+> 
+> I see. We still need to avoid the module dependency on nf_conntrack
+> though, so I think this will have to be fixed in nf_nat_fn().
 
-Sorry for the word-wrap in previous messages
+Right, I failed to spot the call to the destroy hook 8-/
 
-Signed-off-by: Igor Maravi=C4=87 <igorm@etf.rs>
-
----
-
---- linux-2.6.38.8/net/sched/cls_rsvp.h.orig	2011-08-30 12:46:42.663443=
-918 +0200
-+++ linux-2.6.38.8/net/sched/cls_rsvp.h	2011-08-30 13:45:02.135445119 +=
-0200
-@@ -425,7 +425,7 @@ static int rsvp_change(struct tcf_proto
- 	struct rsvp_filter *f, **fp;
- 	struct rsvp_session *s, **sp;
- 	struct tc_rsvp_pinfo *pinfo =3D NULL;
--	struct nlattr *opt =3D tca[TCA_OPTIONS-1];
-+	struct nlattr *opt =3D tca[TCA_OPTIONS];
- 	struct nlattr *tb[TCA_RSVP_MAX + 1];
- 	struct tcf_exts e;
- 	unsigned h1, h2;
-@@ -439,7 +439,7 @@ static int rsvp_change(struct tcf_proto
- 	if (err < 0)
- 		return err;
-
--	err =3D tcf_exts_validate(tp, tb, tca[TCA_RATE-1], &e, &rsvp_ext_map)=
-;
-+	err =3D tcf_exts_validate(tp, tb, tca[TCA_RATE], &e, &rsvp_ext_map);
- 	if (err < 0)
- 		return err;
-
-@@ -448,8 +448,8 @@ static int rsvp_change(struct tcf_proto
-
- 		if (f->handle !=3D handle && handle)
- 			goto errout2;
--		if (tb[TCA_RSVP_CLASSID-1]) {
--			f->res.classid =3D nla_get_u32(tb[TCA_RSVP_CLASSID-1]);
-+		if (tb[TCA_RSVP_CLASSID]) {
-+			f->res.classid =3D nla_get_u32(tb[TCA_RSVP_CLASSID]);
- 			tcf_bind_filter(tp, &f->res, base);
- 		}
-
-@@ -461,7 +461,7 @@ static int rsvp_change(struct tcf_proto
- 	err =3D -EINVAL;
- 	if (handle)
- 		goto errout2;
--	if (tb[TCA_RSVP_DST-1] =3D=3D NULL)
-+	if (tb[TCA_RSVP_DST] =3D=3D NULL)
- 		goto errout2;
-
- 	err =3D -ENOBUFS;
-@@ -470,19 +470,19 @@ static int rsvp_change(struct tcf_proto
- 		goto errout2;
-
- 	h2 =3D 16;
--	if (tb[TCA_RSVP_SRC-1]) {
--		memcpy(f->src, nla_data(tb[TCA_RSVP_SRC-1]), sizeof(f->src));
-+	if (tb[TCA_RSVP_SRC]) {
-+		memcpy(f->src, nla_data(tb[TCA_RSVP_SRC]), sizeof(f->src));
- 		h2 =3D hash_src(f->src);
- 	}
--	if (tb[TCA_RSVP_PINFO-1]) {
--		pinfo =3D nla_data(tb[TCA_RSVP_PINFO-1]);
-+	if (tb[TCA_RSVP_PINFO]) {
-+		pinfo =3D nla_data(tb[TCA_RSVP_PINFO]);
- 		f->spi =3D pinfo->spi;
- 		f->tunnelhdr =3D pinfo->tunnelhdr;
- 	}
--	if (tb[TCA_RSVP_CLASSID-1])
--		f->res.classid =3D nla_get_u32(tb[TCA_RSVP_CLASSID-1]);
-+	if (tb[TCA_RSVP_CLASSID])
-+		f->res.classid =3D nla_get_u32(tb[TCA_RSVP_CLASSID]);
-
--	dst =3D nla_data(tb[TCA_RSVP_DST-1]);
-+	dst =3D nla_data(tb[TCA_RSVP_DST]);
- 	h1 =3D hash_dst(dst, pinfo ? pinfo->protocol : 0, pinfo ? pinfo->tunn=
-elid : 0);
-
- 	err =3D -ENOMEM;
-@@ -641,8 +641,7 @@ nla_put_failure:
- 	return -1;
- }
-
--static struct tcf_proto_ops RSVP_OPS =3D {
--	.next		=3D	NULL,
-+static struct tcf_proto_ops RSVP_OPS __read_mostly =3D {
- 	.kind		=3D	RSVP_ID,
- 	.classify	=3D	rsvp_classify,
- 	.init		=3D	rsvp_init,
+I'll submit an alternate patch shortly.
