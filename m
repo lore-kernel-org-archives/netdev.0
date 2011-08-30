@@ -1,65 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4/9] stmmac: add MMC support exported via ethtool (v2)
-Date: Tue, 30 Aug 2011 16:26:44 +0100
-Message-ID: <1314718004.2752.15.camel@bwh-desktop>
-References: <1314714064-29101-1-git-send-email-peppe.cavallaro@st.com>
-	 <1314714064-29101-5-git-send-email-peppe.cavallaro@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Marcos Paulo de Souza <marcos.mage@gmail.com>
+Subject: [PATCH] Documentation: networking: dmfe.txt: Remove the maintainer of orphan filesystem
+Date: Tue, 30 Aug 2011 12:33:57 -0300
+Message-ID: <1314718437-5794-1-git-send-email-marcos.mage@gmail.com>
+Cc: netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	Marcos Paulo de Souza <marcos.mage@gmail.com>
+To: rdunlap@xenotime.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:40650 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755033Ab1H3P0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 11:26:47 -0400
-In-Reply-To: <1314714064-29101-5-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:54131 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755275Ab1H3PeK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 11:34:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-08-30 at 16:20 +0200, Giuseppe CAVALLARO wrote:
-> This patch adds the MMC management counters support.
-> MMC module is an extension of the register address
-> space and all the hardware counters can be accessed
-> via ethtoo -S ethX.
-> 
-> Note that, the MMC interrupts remain masked and the logic
-> to handle this kind of interrupt will be added later (if
-> actually useful).
-[...]
->  static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
->  				      struct ethtool_drvinfo *info)
->  {
->  	struct stmmac_priv *priv = netdev_priv(dev);
->  
-> -	if (!priv->plat->has_gmac)
-> -		strcpy(info->driver, MAC100_ETHTOOL_NAME);
-> -	else
-> +	info->n_stats = STMMAC_STATS_LEN;
-> +
-> +	if (likely(priv->plat->has_gmac)) {
+The dmfe module is a orphan driver, and with this was removed the maintainer
+of the documentation.
 
-Using likely() and unlikely() in ethtool operations seems like a
-pointless optimisation.
+Signed-off-by: Marcos Paulo de Souza <marcos.mage@gmail.com>
+---
+ Documentation/networking/dmfe.txt |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
->  		strcpy(info->driver, GMAC_ETHTOOL_NAME);
-> +		info->n_stats += STMMAC_MMC_STATS_LEN;
-> +	} else
-> +		strcpy(info->driver, MAC100_ETHTOOL_NAME);
->  
->  	strcpy(info->version, DRV_MODULE_VERSION);
->  	info->fw_version[0] = '\0';
-> -	info->n_stats = STMMAC_STATS_LEN;
->  }
-[...]
-
-Don't bother initialising ethtool_drvinfo::n_stats.  The ethtool core
-will do it by calling your get_sset_count implementation.
-
-Ben.
-
+diff --git a/Documentation/networking/dmfe.txt b/Documentation/networking/dmfe.txt
+index 8006c22..25320bf 100644
+--- a/Documentation/networking/dmfe.txt
++++ b/Documentation/networking/dmfe.txt
+@@ -1,3 +1,5 @@
++Note: This driver doesn't have a maintainer.
++
+ Davicom DM9102(A)/DM9132/DM9801 fast ethernet driver for Linux.
+ 
+ This program is free software; you can redistribute it and/or
+@@ -55,7 +57,6 @@ Test and make sure PCI latency is now correct for all cases.
+ Authors:
+ 
+ Sten Wang <sten_wang@davicom.com.tw >   : Original Author
+-Tobias Ringstrom <tori@unhappy.mine.nu> : Current Maintainer
+ 
+ Contributors:
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.4.1
