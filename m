@@ -1,254 +1,132 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 4/8] bnx2x: fix MF for 4-port devices
-Date: Tue, 30 Aug 2011 13:08:42 +0300
-Message-ID: <1314698926-24525-5-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH 8/8] bnx2x: Fix for a host coalescing bug which impared
+ latency.
+Date: Tue, 30 Aug 2011 13:08:46 +0300
+Message-ID: <1314698926-24525-9-git-send-email-dmitry@broadcom.com>
 References: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
+Cc: "Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3491 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4487 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752986Ab1H3KIw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 06:08:52 -0400
+	id S1752942Ab1H3KIv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 06:08:51 -0400
 In-Reply-To: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Number of VNs for 4-port devices is 2 instead of 4
+From: Ariel Elior <ariele@broadcom.com>
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Seperated Rx and Tx coalescing to different state machines.
+
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x.h       |   15 +++++++------
- drivers/net/bnx2x/bnx2x_main.c  |   43 +++++++++++++++++++++++---------------
- drivers/net/bnx2x/bnx2x_stats.c |    4 +-
- 3 files changed, 36 insertions(+), 26 deletions(-)
+ drivers/net/bnx2x/bnx2x.h      |   25 +++++++++----------------
+ drivers/net/bnx2x/bnx2x_main.c |   33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index 8529732..2621a1c 100644
+index 2621a1c..e46df53 100644
 --- a/drivers/net/bnx2x/bnx2x.h
 +++ b/drivers/net/bnx2x/bnx2x.h
-@@ -1166,11 +1166,12 @@ struct bnx2x {
- #define BP_PORT(bp)			(bp->pfid & 1)
- #define BP_FUNC(bp)			(bp->pfid)
- #define BP_ABS_FUNC(bp)			(bp->pf_num)
--#define BP_E1HVN(bp)			(bp->pfid >> 1)
--#define BP_VN(bp)			(BP_E1HVN(bp)) /*remove when approved*/
--#define BP_L_ID(bp)			(BP_E1HVN(bp) << 2)
--#define BP_FW_MB_IDX(bp)		(BP_PORT(bp) +\
--	  BP_VN(bp) * ((CHIP_IS_E1x(bp) || (CHIP_MODE_IS_4_PORT(bp))) ? 2  : 1))
-+#define BP_VN(bp)			((bp)->pfid >> 1)
-+#define BP_MAX_VN_NUM(bp)		(CHIP_MODE_IS_4_PORT(bp) ? 2 : 4)
-+#define BP_L_ID(bp)			(BP_VN(bp) << 2)
-+#define BP_FW_MB_IDX_VN(bp, vn)		(BP_PORT(bp) +\
-+	  (vn) * ((CHIP_IS_E1x(bp) || (CHIP_MODE_IS_4_PORT(bp))) ? 2  : 1))
-+#define BP_FW_MB_IDX(bp)		BP_FW_MB_IDX_VN(bp, BP_VN(bp))
+@@ -751,24 +751,17 @@ struct bnx2x_fastpath {
+ #define FP_CSB_FUNC_OFF	\
+ 			offsetof(struct cstorm_status_block_c, func)
  
- 	struct net_device	*dev;
- 	struct pci_dev		*pdev;
-@@ -1833,7 +1834,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+-#define HC_INDEX_TOE_RX_CQ_CONS		0 /* Formerly Ustorm TOE CQ index */
+-					  /* (HC_INDEX_U_TOE_RX_CQ_CONS)  */
+-#define HC_INDEX_ETH_RX_CQ_CONS		1 /* Formerly Ustorm ETH CQ index */
+-					  /* (HC_INDEX_U_ETH_RX_CQ_CONS)  */
+-#define HC_INDEX_ETH_RX_BD_CONS		2 /* Formerly Ustorm ETH BD index */
+-					  /* (HC_INDEX_U_ETH_RX_BD_CONS)  */
+-
+-#define HC_INDEX_TOE_TX_CQ_CONS		4 /* Formerly Cstorm TOE CQ index   */
+-					  /* (HC_INDEX_C_TOE_TX_CQ_CONS)    */
+-#define HC_INDEX_ETH_TX_CQ_CONS_COS0	5 /* Formerly Cstorm ETH CQ index   */
+-					  /* (HC_INDEX_C_ETH_TX_CQ_CONS)    */
+-#define HC_INDEX_ETH_TX_CQ_CONS_COS1	6 /* Formerly Cstorm ETH CQ index   */
+-					  /* (HC_INDEX_C_ETH_TX_CQ_CONS)    */
+-#define HC_INDEX_ETH_TX_CQ_CONS_COS2	7 /* Formerly Cstorm ETH CQ index   */
+-					  /* (HC_INDEX_C_ETH_TX_CQ_CONS)    */
++#define HC_INDEX_ETH_RX_CQ_CONS		1
  
- #define MAX_DMAE_C_PER_PORT		8
- #define INIT_DMAE_C(bp)			(BP_PORT(bp) * MAX_DMAE_C_PER_PORT + \
--					 BP_E1HVN(bp))
-+					 BP_VN(bp))
- #define PMF_DMAE_C(bp)			(BP_PORT(bp) * MAX_DMAE_C_PER_PORT + \
- 					 E1HVN_MAX)
+-#define HC_INDEX_ETH_FIRST_TX_CQ_CONS	HC_INDEX_ETH_TX_CQ_CONS_COS0
++#define HC_INDEX_OOO_TX_CQ_CONS		4
++
++#define HC_INDEX_ETH_TX_CQ_CONS_COS0	5
++
++#define HC_INDEX_ETH_TX_CQ_CONS_COS1	6
  
-@@ -1859,7 +1860,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
++#define HC_INDEX_ETH_TX_CQ_CONS_COS2	7
++
++#define HC_INDEX_ETH_FIRST_TX_CQ_CONS	HC_INDEX_ETH_TX_CQ_CONS_COS0
  
- /* must be used on a CID before placing it on a HW ring */
- #define HW_CID(bp, x)			((BP_PORT(bp) << 23) | \
--					 (BP_E1HVN(bp) << BNX2X_SWCID_SHIFT) | \
-+					 (BP_VN(bp) << BNX2X_SWCID_SHIFT) | \
- 					 (x))
- 
- #define SP_DESC_CNT		(BCM_PAGE_SIZE / sizeof(struct eth_spe))
+ #define BNX2X_RX_SB_INDEX \
+ 	(&fp->sb_index_values[HC_INDEX_ETH_RX_CQ_CONS])
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 3f93e86..9633e9b 100644
+index 0b68d02..c027e93 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -407,8 +407,8 @@ u32 bnx2x_dmae_opcode(struct bnx2x *bp, u8 src_type, u8 dst_type,
- 	opcode |= (DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET);
- 
- 	opcode |= (BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0);
--	opcode |= ((BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT) |
--		   (BP_E1HVN(bp) << DMAE_COMMAND_DST_VN_SHIFT));
-+	opcode |= ((BP_VN(bp) << DMAE_CMD_E1HVN_SHIFT) |
-+		   (BP_VN(bp) << DMAE_COMMAND_DST_VN_SHIFT));
- 	opcode |= (DMAE_COM_SET_ERR << DMAE_COMMAND_ERR_POLICY_SHIFT);
- 
- #ifdef __BIG_ENDIAN
-@@ -1419,7 +1419,7 @@ static void bnx2x_hc_int_enable(struct bnx2x *bp)
- 	if (!CHIP_IS_E1(bp)) {
- 		/* init leading/trailing edge */
- 		if (IS_MF(bp)) {
--			val = (0xee0f | (1 << (BP_E1HVN(bp) + 4)));
-+			val = (0xee0f | (1 << (BP_VN(bp) + 4)));
- 			if (bp->port.pmf)
- 				/* enable nig and gpio3 attention */
- 				val |= 0x1100;
-@@ -1471,7 +1471,7 @@ static void bnx2x_igu_int_enable(struct bnx2x *bp)
- 
- 	/* init leading/trailing edge */
- 	if (IS_MF(bp)) {
--		val = (0xee0f | (1 << (BP_E1HVN(bp) + 4)));
-+		val = (0xee0f | (1 << (BP_VN(bp) + 4)));
- 		if (bp->port.pmf)
- 			/* enable nig and gpio3 attention */
- 			val |= 0x1100;
-@@ -2287,7 +2287,7 @@ static void bnx2x_calc_vn_weight_sum(struct bnx2x *bp)
- 	int vn;
- 
- 	bp->vn_weight_sum = 0;
--	for (vn = VN_0; vn < E1HVN_MAX; vn++) {
-+	for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++) {
- 		u32 vn_cfg = bp->mf_config[vn];
- 		u32 vn_min_rate = ((vn_cfg & FUNC_MF_CFG_MIN_BW_MASK) >>
- 				   FUNC_MF_CFG_MIN_BW_SHIFT) * 100;
-@@ -2320,12 +2320,18 @@ static void bnx2x_calc_vn_weight_sum(struct bnx2x *bp)
- 					CMNG_FLAGS_PER_PORT_FAIRNESS_VN;
+@@ -4828,6 +4828,37 @@ void bnx2x_setup_ndsb_state_machine(struct hc_status_block_sm *hc_sm,
+ 	hc_sm->time_to_expire = 0xFFFFFFFF;
  }
  
-+/* returns func by VN for current port */
-+static inline int func_by_vn(struct bnx2x *bp, int vn)
++
++/* allocates state machine ids. */
++static inline
++void bnx2x_map_sb_state_machines(struct hc_index_data *index_data)
 +{
-+	return 2 * vn + BP_PORT(bp);
++	/* zero out state machine indices */
++	/* rx indices */
++	index_data[HC_INDEX_ETH_RX_CQ_CONS].flags &= ~HC_INDEX_DATA_SM_ID;
++
++	/* tx indices */
++	index_data[HC_INDEX_OOO_TX_CQ_CONS].flags &= ~HC_INDEX_DATA_SM_ID;
++	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS0].flags &= ~HC_INDEX_DATA_SM_ID;
++	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS1].flags &= ~HC_INDEX_DATA_SM_ID;
++	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS2].flags &= ~HC_INDEX_DATA_SM_ID;
++
++	/* map indices */
++	/* rx indices */
++	index_data[HC_INDEX_ETH_RX_CQ_CONS].flags |=
++		SM_RX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
++
++	/* tx indices */
++	index_data[HC_INDEX_OOO_TX_CQ_CONS].flags |=
++		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
++	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS0].flags |=
++		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
++	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS1].flags |=
++		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
++	index_data[HC_INDEX_ETH_TX_CQ_CONS_COS2].flags |=
++		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
 +}
 +
- static void bnx2x_init_vn_minmax(struct bnx2x *bp, int vn)
+ static void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
+ 			  u8 vf_valid, int fw_sb_id, int igu_sb_id)
  {
- 	struct rate_shaping_vars_per_vn m_rs_vn;
- 	struct fairness_vars_per_vn m_fair_vn;
- 	u32 vn_cfg = bp->mf_config[vn];
--	int func = 2*vn + BP_PORT(bp);
-+	int func = func_by_vn(bp, vn);
- 	u16 vn_min_rate, vn_max_rate;
- 	int i;
- 
-@@ -2422,7 +2428,7 @@ void bnx2x_read_mf_cfg(struct bnx2x *bp)
- 	 *
- 	 *      and there are 2 functions per port
- 	 */
--	for (vn = VN_0; vn < E1HVN_MAX; vn++) {
-+	for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++) {
- 		int /*abs*/func = n * (2 * vn + BP_PORT(bp)) + BP_PATH(bp);
- 
- 		if (func >= E1H_FUNC_MAX)
-@@ -2454,7 +2460,7 @@ static void bnx2x_cmng_fns_init(struct bnx2x *bp, u8 read_cfg, u8 cmng_type)
- 
- 		/* calculate and set min-max rate for each vn */
- 		if (bp->port.pmf)
--			for (vn = VN_0; vn < E1HVN_MAX; vn++)
-+			for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++)
- 				bnx2x_init_vn_minmax(bp, vn);
- 
- 		/* always enable rate shaping and fairness */
-@@ -2473,16 +2479,15 @@ static void bnx2x_cmng_fns_init(struct bnx2x *bp, u8 read_cfg, u8 cmng_type)
- 
- static inline void bnx2x_link_sync_notify(struct bnx2x *bp)
- {
--	int port = BP_PORT(bp);
- 	int func;
- 	int vn;
- 
- 	/* Set the attention towards other drivers on the same port */
--	for (vn = VN_0; vn < E1HVN_MAX; vn++) {
--		if (vn == BP_E1HVN(bp))
-+	for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++) {
-+		if (vn == BP_VN(bp))
- 			continue;
- 
--		func = ((vn << 1) | port);
-+		func = func_by_vn(bp, vn);
- 		REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_0 +
- 		       (LINK_SYNC_ATTENTION_BIT_FUNC_0 + func)*4, 1);
+@@ -4859,6 +4890,7 @@ static void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
+ 		hc_sm_p = sb_data_e2.common.state_machine;
+ 		sb_data_p = (u32 *)&sb_data_e2;
+ 		data_size = sizeof(struct hc_status_block_data_e2)/sizeof(u32);
++		bnx2x_map_sb_state_machines(sb_data_e2.index_data);
+ 	} else {
+ 		memset(&sb_data_e1x, 0,
+ 		       sizeof(struct hc_status_block_data_e1x));
+@@ -4873,6 +4905,7 @@ static void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
+ 		hc_sm_p = sb_data_e1x.common.state_machine;
+ 		sb_data_p = (u32 *)&sb_data_e1x;
+ 		data_size = sizeof(struct hc_status_block_data_e1x)/sizeof(u32);
++		bnx2x_map_sb_state_machines(sb_data_e1x.index_data);
  	}
-@@ -2577,7 +2582,7 @@ static void bnx2x_pmf_update(struct bnx2x *bp)
- 	bnx2x_dcbx_pmf_update(bp);
  
- 	/* enable nig attention */
--	val = (0xff0f | (1 << (BP_E1HVN(bp) + 4)));
-+	val = (0xff0f | (1 << (BP_VN(bp) + 4)));
- 	if (bp->common.int_block == INT_BLOCK_HC) {
- 		REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, val);
- 		REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, val);
-@@ -6686,12 +6691,16 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
- 			if (CHIP_MODE_IS_4_PORT(bp))
- 				dsb_idx = BP_FUNC(bp);
- 			else
--				dsb_idx = BP_E1HVN(bp);
-+				dsb_idx = BP_VN(bp);
- 
- 			prod_offset = (CHIP_INT_MODE_IS_BC(bp) ?
- 				       IGU_BC_BASE_DSB_PROD + dsb_idx :
- 				       IGU_NORM_BASE_DSB_PROD + dsb_idx);
- 
-+			/*
-+			 * igu prods come in chunks of E1HVN_MAX (4) -
-+			 * does not matters what is the current chip mode
-+			 */
- 			for (i = 0; i < (num_segs * E1HVN_MAX);
- 			     i += E1HVN_MAX) {
- 				addr = IGU_REG_PROD_CONS_MEMORY +
-@@ -7585,7 +7594,7 @@ u32 bnx2x_send_unload_req(struct bnx2x *bp, int unload_mode)
- 		u32 val;
- 		/* The mac address is written to entries 1-4 to
- 		   preserve entry 0 which is used by the PMF */
--		u8 entry = (BP_E1HVN(bp) + 1)*8;
-+		u8 entry = (BP_VN(bp) + 1)*8;
- 
- 		val = (mac_addr[0] << 8) | mac_addr[1];
- 		EMAC_WR(bp, EMAC_REG_EMAC_MAC_MATCH + entry, val);
-@@ -8792,13 +8801,13 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
- static void __devinit bnx2x_get_igu_cam_info(struct bnx2x *bp)
- {
- 	int pfid = BP_FUNC(bp);
--	int vn = BP_E1HVN(bp);
- 	int igu_sb_id;
- 	u32 val;
- 	u8 fid, igu_sb_cnt = 0;
- 
- 	bp->igu_base_sb = 0xff;
- 	if (CHIP_INT_MODE_IS_BC(bp)) {
-+		int vn = BP_VN(bp);
- 		igu_sb_cnt = bp->igu_sb_cnt;
- 		bp->igu_base_sb = (CHIP_MODE_IS_4_PORT(bp) ? pfid : vn) *
- 			FP_SB_MAX_E1x;
-@@ -9488,7 +9497,7 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
- 
- 	bp->mf_ov = 0;
- 	bp->mf_mode = 0;
--	vn = BP_E1HVN(bp);
-+	vn = BP_VN(bp);
- 
- 	if (!CHIP_IS_E1(bp) && !BP_NOMCP(bp)) {
- 		BNX2X_DEV_INFO("shmem2base 0x%x, size %d, mfcfg offset %d\n",
-diff --git a/drivers/net/bnx2x/bnx2x_stats.c b/drivers/net/bnx2x/bnx2x_stats.c
-index f5d9b42..9908f2b 100644
---- a/drivers/net/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/bnx2x/bnx2x_stats.c
-@@ -1392,7 +1392,7 @@ static void bnx2x_port_stats_base_init(struct bnx2x *bp)
- 
- static void bnx2x_func_stats_base_init(struct bnx2x *bp)
- {
--	int vn, vn_max = IS_MF(bp) ? E1HVN_MAX : E1VN_MAX;
-+	int vn, vn_max = IS_MF(bp) ? BP_MAX_VN_NUM(bp) : E1VN_MAX;
- 	u32 func_stx;
- 
- 	/* sanity */
-@@ -1405,7 +1405,7 @@ static void bnx2x_func_stats_base_init(struct bnx2x *bp)
- 	func_stx = bp->func_stx;
- 
- 	for (vn = VN_0; vn < vn_max; vn++) {
--		int mb_idx = CHIP_IS_E1x(bp) ? 2*vn + BP_PORT(bp) : vn;
-+		int mb_idx = BP_FW_MB_IDX_VN(bp, vn);
- 
- 		bp->func_stx = SHMEM_RD(bp, func_mb[mb_idx].fw_mb_param);
- 		bnx2x_func_stats_init(bp);
+ 	bnx2x_setup_ndsb_state_machine(&hc_sm_p[SM_RX_ID],
 -- 
 1.7.2.2
