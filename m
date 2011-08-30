@@ -1,62 +1,43 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH -next] net: fix Makefile typos & build errors
-Date: Tue, 30 Aug 2011 11:59:25 +1000
-Message-ID: <20110830115925.45984bb8eeb73401dd5d289f@canb.auug.org.au>
-References: <20110829161907.19232776e65389dea1caa7e8@canb.auug.org.au>
-	<20110829114940.4d29febc.rdunlap@xenotime.net>
+From: Jim Gettys <jg@freedesktop.org>
+Subject: Re: BQL crap and wireless
+Date: Mon, 29 Aug 2011 22:12:17 -0400
+Message-ID: <4E5C4701.4060509@freedesktop.org>
+References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com> <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com> <CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ@mail.gmail.com> <4E5C3B47.1050809@freedesktop.org> <903AA8A8-9ACD-44FB-9BA8-50137359EC2B@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__30_Aug_2011_11_59_25_+1000_Nyg/YomqZxbT3nSF"
-Cc: netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110829114940.4d29febc.rdunlap@xenotime.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Matt Smith <smithm@qca.qualcomm.com>,
+	Kevin Hayes <hayes@qca.qualcomm.com>,
+	Derek Smithies <derek@indranet.co.nz>, netdev@vger.kernel.org
+To: Andrew McGregor <andrewmcgr@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:55388 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751161Ab1H3CMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 22:12:21 -0400
+In-Reply-To: <903AA8A8-9ACD-44FB-9BA8-50137359EC2B@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__30_Aug_2011_11_59_25_+1000_Nyg/YomqZxbT3nSF
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi all,
-
-On Mon, 29 Aug 2011 11:49:40 -0700 Randy Dunlap <rdunlap@xenotime.net> wrot=
-e:
+On 08/29/2011 09:59 PM, Andrew McGregor wrote:
+> On 30/08/2011, at 1:22 PM, Jim Gettys wrote:
 >
-> @@ -44,10 +44,10 @@ obj-$(CONFIG_PPP_SYNC_TTY) +=3D ppp/
->  obj-$(CONFIG_PPPOE) +=3D ppp/
->  obj-$(CONFIG_PPPOL2TP) +=3D ppp/
->  obj-$(CONFIG_PPTP) +=3D ppp/
-> -onj-$(CONFIG_SLIP) +=3D slip/
-> +obj-$(CONFIG_SLIP) +=3D slip/
->  obj-$(CONFIG_SLHC) +=3D slip/
->  obj-$(CONFIG_NET_SB1000) +=3D sb1000.o
-> -onj-$(CONFIG_SLIP) +=3D slip/
-> +obj-$(CONFIG_SLIP) +=3D slip/
-
-It may be my old(er) eyes, but isn't that CONFIG_SLIP line repeated?
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Tue__30_Aug_2011_11_59_25_+1000_Nyg/YomqZxbT3nSF
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJOXEP9AAoJEDMEi1NhKgbsi0IH/ApkE+VVuc7zKPWNrotpX1ov
-o91AJ24Vr/PTY+z475vKYlr5JpMIroUjnmd8rvnAI4d0upSSxp+ODXOpqQC+1UcX
-uszINsYeIOt9mAAvaLKgkdHR24vDMdJNnhqWp0dWGejGxEtF19txcpeaeg6jGwFp
-J43Kv/h7uKXbq0M4Nc6scDkGoz9EGm9NzWJj0+4/KtxxN7hIJEQfw0Xh5GcMWb1N
-+SoGS+1pQOiiH7clUI+Nhv2uINMUyssI2KovHEnnjwiQ0mp6sYrhGhCW7aCQvtK4
-OloLn7Co/VIdbXxRRSUJ/jc1BdcAKdF3b5XIVRz76U679PtBPUE+NKQRAYf8R7g=
-=EKgZ
------END PGP SIGNATURE-----
-
---Signature=_Tue__30_Aug_2011_11_59_25_+1000_Nyg/YomqZxbT3nSF--
+>> The gotcha is we don't have a AQM algorithm known to work in
+>> the face of the highly dynamic bandwidth variation that is wireless
+> It's worse than highly dynamic... the bandwidth may be completely undefined moment to moment, as it is dependent on both the wireless environment, which varies on timescales that can be about equal to a packet transmit time, and on the traffic mix.  There's about 30 ms of correlation time at best.
+Yup.  It makes ethernet look trivial. If we can handle buffers there,
+everywhere else is easy by comparison.
+>>  This was/is
+>> the great surprise to me as I had always thought of AQM as a property of
+>> internet routers, not hosts.
+> There's no distinction in the forwarding plane, every router is a host, every host is a router.
+Exactly; but I hadn't thought this through to hosts, nor, I think had
+many other people.  Naive me, having been scarred by '90's congestion,
+was aware of RED, and roughly how it worked, but always thought of AQM
+as something you did in routers.  Realising that in principle I needed
+it turned on in my laptop was not something I expected.
+                        - Jim
