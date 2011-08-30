@@ -1,33 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] qlcnic: Bug fixes
-Date: Mon, 29 Aug 2011 22:53:49 -0400 (EDT)
-Message-ID: <20110829.225349.1923128877827649214.davem@davemloft.net>
-References: <1314658231-30735-1-git-send-email-sony.chacko@qlogic.com>
-	<1314658231-30735-6-git-send-email-sony.chacko@qlogic.com>
+Subject: Re: [PATCH -next] net: fix Makefile typos & build errors
+Date: Mon, 29 Aug 2011 22:55:10 -0400 (EDT)
+Message-ID: <20110829.225510.1534815133945067081.davem@davemloft.net>
+References: <20110829161907.19232776e65389dea1caa7e8@canb.auug.org.au>
+	<20110829114940.4d29febc.rdunlap@xenotime.net>
+	<20110830115925.45984bb8eeb73401dd5d289f@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: sony.chacko@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33703 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750769Ab1H3Cxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 22:53:54 -0400
-In-Reply-To: <1314658231-30735-6-git-send-email-sony.chacko@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rdunlap@xenotime.net, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110830115925.45984bb8eeb73401dd5d289f@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sony Chacko <sony.chacko@qlogic.com>
-Date: Mon, 29 Aug 2011 15:50:31 -0700
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 30 Aug 2011 11:59:25 +1000
 
-> Please apply to net-next.
+> It may be my old(er) eyes, but isn't that CONFIG_SLIP line repeated?
 
-Applied, thanks.
-
-I would like to suggest that you move away from driver internal
-debug logging macros and either use existing generic kernel
-facilities that exist or extend what exists so that it fits
-your needs and others can enjoy the improvements too.
-
-Thanks.
+My old eyes can confirm this, so I'll fix it up, thanks! :-)
