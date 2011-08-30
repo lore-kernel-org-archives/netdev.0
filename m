@@ -1,61 +1,82 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 6/8] bnx2x: init fw_seq after undi_unload is done
-Date: Tue, 30 Aug 2011 13:08:44 +0300
-Message-ID: <1314698926-24525-7-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH 3/8] bnx2x: fix rx ring size report
+Date: Tue, 30 Aug 2011 13:08:41 +0300
+Message-ID: <1314698926-24525-4-git-send-email-dmitry@broadcom.com>
 References: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1533 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3491 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752879Ab1H3KIu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 06:08:50 -0400
+	id S1752884Ab1H3KIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 06:08:47 -0400
 In-Reply-To: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Vladislav Zolotarov <vladz@broadcom.com>
+
+Store the size in bp, read from bp when queried.
+
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_main.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/bnx2x/bnx2x_cmn.c     |   17 +++++++++++------
+ drivers/net/bnx2x/bnx2x_ethtool.c |    5 +----
+ 2 files changed, 12 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 00dc8f0..94382a7 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -9623,13 +9623,6 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
- 	/* port info */
- 	bnx2x_get_port_hwinfo(bp);
+diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
+index 2a33d24..c4cbf97 100644
+--- a/drivers/net/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/bnx2x/bnx2x_cmn.c
+@@ -3091,15 +3091,20 @@ static int bnx2x_alloc_fp_mem_at(struct bnx2x *bp, int index)
+ 	struct bnx2x_fastpath *fp = &bp->fp[index];
+ 	int ring_size = 0;
+ 	u8 cos;
++	int rx_ring_size = 0;
  
--	if (!BP_NOMCP(bp)) {
--		bp->fw_seq =
--			(SHMEM_RD(bp, func_mb[BP_FW_MB_IDX(bp)].drv_mb_header) &
--			 DRV_MSG_SEQ_NUMBER_MASK);
--		BNX2X_DEV_INFO("fw_seq 0x%08x\n", bp->fw_seq);
--	}
--
- 	/* Get MAC addresses */
- 	bnx2x_get_mac_hwinfo(bp);
+ 	/* if rx_ring_size specified - use it */
+-	int rx_ring_size = bp->rx_ring_size ? bp->rx_ring_size :
+-			   MAX_RX_AVAIL/BNX2X_NUM_RX_QUEUES(bp);
++	if (!bp->rx_ring_size) {
  
-@@ -9795,6 +9788,14 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
- 	if (!BP_NOMCP(bp))
- 		bnx2x_undi_unload(bp);
- 
-+	/* init fw_seq after undi_unload! */
-+	if (!BP_NOMCP(bp)) {
-+		bp->fw_seq =
-+			(SHMEM_RD(bp, func_mb[BP_FW_MB_IDX(bp)].drv_mb_header) &
-+			 DRV_MSG_SEQ_NUMBER_MASK);
-+		BNX2X_DEV_INFO("fw_seq 0x%08x\n", bp->fw_seq);
-+	}
+-	/* allocate at least number of buffers required by FW */
+-	rx_ring_size = max_t(int, bp->disable_tpa ? MIN_RX_SIZE_NONTPA :
+-						    MIN_RX_SIZE_TPA,
+-				  rx_ring_size);
++		rx_ring_size = MAX_RX_AVAIL/BNX2X_NUM_RX_QUEUES(bp);
 +
- 	if (CHIP_REV_IS_FPGA(bp))
- 		dev_err(&bp->pdev->dev, "FPGA detected\n");
++		/* allocate at least number of buffers required by FW */
++		rx_ring_size = max_t(int, bp->disable_tpa ? MIN_RX_SIZE_NONTPA :
++				     MIN_RX_SIZE_TPA, rx_ring_size);
++
++		bp->rx_ring_size = rx_ring_size;
++	} else
++		rx_ring_size = bp->rx_ring_size;
  
+ 	/* Common */
+ 	sb = &bnx2x_fp(bp, index, status_blk);
+diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
+index 2218630..0ceb6c7 100644
+--- a/drivers/net/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/bnx2x/bnx2x_ethtool.c
+@@ -1310,10 +1310,7 @@ static void bnx2x_get_ringparam(struct net_device *dev,
+ 	if (bp->rx_ring_size)
+ 		ering->rx_pending = bp->rx_ring_size;
+ 	else
+-		if (bp->state == BNX2X_STATE_OPEN && bp->num_queues)
+-			ering->rx_pending = MAX_RX_AVAIL/bp->num_queues;
+-		else
+-			ering->rx_pending = MAX_RX_AVAIL;
++		ering->rx_pending = MAX_RX_AVAIL;
+ 
+ 	ering->rx_mini_pending = 0;
+ 	ering->rx_jumbo_pending = 0;
 -- 
 1.7.2.2
