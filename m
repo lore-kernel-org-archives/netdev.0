@@ -1,83 +1,65 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 1/2] net: allow to change carrier via sysfs
-Date: Tue, 30 Aug 2011 17:19:26 +0200
-Message-ID: <20110830151926.GC1972@minipsycho.brq.redhat.com>
-References: <1314715608-978-1-git-send-email-jpirko@redhat.com>
- <1314715608-978-2-git-send-email-jpirko@redhat.com>
- <1314717262.2752.11.camel@bwh-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 4/9] stmmac: add MMC support exported via ethtool (v2)
+Date: Tue, 30 Aug 2011 16:26:44 +0100
+Message-ID: <1314718004.2752.15.camel@bwh-desktop>
+References: <1314714064-29101-1-git-send-email-peppe.cavallaro@st.com>
+	 <1314714064-29101-5-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, shemminger@vyatta.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6459 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755072Ab1H3PTb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 11:19:31 -0400
-Content-Disposition: inline
-In-Reply-To: <1314717262.2752.11.camel@bwh-desktop>
+Received: from exchange.solarflare.com ([216.237.3.220]:40650 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755033Ab1H3P0r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 11:26:47 -0400
+In-Reply-To: <1314714064-29101-5-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Aug 30, 2011 at 05:14:22PM CEST, bhutchings@solarflare.com wrote:
->On Tue, 2011-08-30 at 16:46 +0200, Jiri Pirko wrote:
->> Allow to write to "carrier" attribute. Devices may implement ndo_change_carrier
->> callback to allow changing carrier from userspace.
->[...]
->> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
->> index 56e42ab..c8f2ca4 100644
->> --- a/net/core/net-sysfs.c
->> +++ b/net/core/net-sysfs.c
->> @@ -126,6 +126,30 @@ static ssize_t show_broadcast(struct device *dev,
->>  	return -EINVAL;
->>  }
->>  
->> +static ssize_t store_carrier(struct device *dev, struct device_attribute *attr,
->> +			     const char *buf, size_t len)
->> +{
->> +	struct net_device *netdev = to_net_dev(dev);
->> +	ssize_t ret;
->> +	int new_value;
->> +
->> +	if (!capable(CAP_NET_ADMIN))
->> +		return -EPERM;
->> +
->> +	if (!netif_running(netdev))
->> +		return -EINVAL;
->
->Not sure that's the right error code.
+On Tue, 2011-08-30 at 16:20 +0200, Giuseppe CAVALLARO wrote:
+> This patch adds the MMC management counters support.
+> MMC module is an extension of the register address
+> space and all the hardware counters can be accessed
+> via ethtoo -S ethX.
+> 
+> Note that, the MMC interrupts remain masked and the logic
+> to handle this kind of interrupt will be added later (if
+> actually useful).
+[...]
+>  static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
+>  				      struct ethtool_drvinfo *info)
+>  {
+>  	struct stmmac_priv *priv = netdev_priv(dev);
+>  
+> -	if (!priv->plat->has_gmac)
+> -		strcpy(info->driver, MAC100_ETHTOOL_NAME);
+> -	else
+> +	info->n_stats = STMMAC_STATS_LEN;
+> +
+> +	if (likely(priv->plat->has_gmac)) {
 
-I stayed consistent with show_carrier in this.
+Using likely() and unlikely() in ethtool operations seems like a
+pointless optimisation.
 
->
->> +	if (sscanf(buf, "%d", &new_value) != 1)
->> +		return -EINVAL;
->
->kstrtoint()
+>  		strcpy(info->driver, GMAC_ETHTOOL_NAME);
+> +		info->n_stats += STMMAC_MMC_STATS_LEN;
+> +	} else
+> +		strcpy(info->driver, MAC100_ETHTOOL_NAME);
+>  
+>  	strcpy(info->version, DRV_MODULE_VERSION);
+>  	info->fw_version[0] = '\0';
+> -	info->n_stats = STMMAC_STATS_LEN;
+>  }
+[...]
 
-Okay.
+Don't bother initialising ethtool_drvinfo::n_stats.  The ethtool core
+will do it by calling your get_sset_count implementation.
 
->
->(Or maybe we should have kstrobool().)
->
->> +	if (!rtnl_trylock())
->> +		return restart_syscall();
->[...]
->
->This is consistent with other attributes, but it seems like a really bad
->practice as it will generally result in the process busy-waiting on the
->RTNL lock!  I think it would be better to add and use an
->rtnl_lock_interruptible().
+Ben.
 
-Right. But as you said, this is the same as with others. I would replace
-this in another patch.
-
->
->Ben.
->
->-- 
->Ben Hutchings, Staff Engineer, Solarflare
->Not speaking for my employer; that's the marketing department's job.
->They asked us to note that Solarflare product names are trademarked.
->
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
