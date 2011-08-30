@@ -1,16 +1,20 @@
 From: =?utf-8?B?Iklnb3IgTWFyYXZpxIci?= <igorm@etf.rs>
 Subject: [PATCH] cls_rsvp.h was outdated
-Date: Tue, 30 Aug 2011 15:10:06 +0200
-Message-ID: <7a3117784cec420877750014a6cf20e2.squirrel@kondor.etf.bg.ac.rs>
+Date: Tue, 30 Aug 2011 15:12:55 +0200
+Message-ID: <59e0c7c0ba5282f35b101e7058fb27fa.squirrel@kondor.etf.bg.ac.rs>
 Reply-To: igorm@etf.rs
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.etf.rs ([147.91.14.169]:38363 "EHLO mx1.etf.bg.ac.rs"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752045Ab1H3NM6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:12:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 =46ile cls_rsvp.h in /net/sched was outdated. I'm sending you patch for=
  this
@@ -23,8 +27,7 @@ Signed-off-by: Igor Maravi=C4=87 <igorm@etf.rs>
 ---
 
 --- linux-2.6.38.8/net/sched/cls_rsvp.h.orig	2011-08-30 12:46:42.663443=
-918
-+0200
+918 +0200
 +++ linux-2.6.38.8/net/sched/cls_rsvp.h	2011-08-30 13:45:02.135445119 +=
 0200
 @@ -425,7 +425,7 @@ static int rsvp_change(struct tcf_proto
@@ -91,8 +94,7 @@ Signed-off-by: Igor Maravi=C4=87 <igorm@etf.rs>
 -	dst =3D nla_data(tb[TCA_RSVP_DST-1]);
 +	dst =3D nla_data(tb[TCA_RSVP_DST]);
  	h1 =3D hash_dst(dst, pinfo ? pinfo->protocol : 0, pinfo ? pinfo->tunn=
-elid
-: 0);
+elid : 0);
 
  	err =3D -ENOMEM;
 @@ -641,8 +641,7 @@ nla_put_failure:
