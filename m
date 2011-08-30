@@ -1,49 +1,27 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch 3/3 -next] 6LoWPAN: call dev_put() on error in
- lowpan_newlink()
-Date: Tue, 30 Aug 2011 16:51:09 +0300
-Message-ID: <20110830135109.GJ3705@shale.localdomain>
+From: KimJr <vogler.ma@pvw.tu-darmstadt.de>
+Subject: PROTECTED PROJECT!!
+Date: Tue, 30 Aug 2011 08:25:23 +0200
+Message-ID: <20110830082523.21243c9w8lch3ygw__26926.0787092664$1314712479$gmane$org@webmail.tu-darmstadt.de>
+Reply-To: ikimyu@9.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Sergey Lapin <slapin@ossfans.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"open list:IEEE 802.15.4 SUB..."
-	<linux-zigbee-devel@lists.sourceforge.net>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57023 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753069Ab1H3Nxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:53:31 -0400
+Received: from lnx503.hrz.tu-darmstadt.de ([130.83.156.232]:39882 "EHLO
+	lnx503.hrz.tu-darmstadt.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754182Ab1H3NyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:54:18 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We should release the dev_hold() on error before returning here.
+I want to discuss an important issue with you .
+I write to know if this is your valid email.
+Please, let me know if your email is still valid.
+My valid Email:  ikimyu@9.cn
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
----
-All three of these patches were compile tested only, but this is the
-one I'm not very certain of.  I've obviously tried to get it right,
-but please review it carefully.
-
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 5dc0489..f0d1536 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -793,8 +793,11 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
- 	mutex_init(&lowpan_dev_info(dev)->dev_list_mtx);
- 
- 	entry = kzalloc(sizeof(struct lowpan_dev_record), GFP_KERNEL);
--	if (!entry)
-+	if (!entry) {
-+		dev_put(real_dev);
-+		lowpan_dev_info(dev)->real_dev = NULL;
- 		return -ENOMEM;
-+	}
- 
- 	entry->ldev = dev;
- 
+KimJr
