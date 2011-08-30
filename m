@@ -1,60 +1,113 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch 1/3 -next] 6LoWPAN: use kfree_skb() instead of kfree()
-Date: Tue, 30 Aug 2011 16:40:48 +0200
-Message-ID: <1314715248.2935.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20110830134552.GH3705@shale.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Sergey Lapin <slapin@ossfans.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"open list:IEEE 802.15.4 SUB..."
-	<linux-zigbee-devel@lists.sourceforge.net>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:65482 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753221Ab1H3Okr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:40:47 -0400
-In-Reply-To: <20110830134552.GH3705@shale.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: kaber@trash.net
+Subject: [PATCH 4/8] netfilter: nf_queue: reject NF_STOLEN verdicts from userspace
+Date: Tue, 30 Aug 2011 16:41:17 +0200
+Message-ID: <1314715281-26233-5-git-send-email-kaber@trash.net>
+References: <1314715281-26233-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1314715281-26233-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 30 ao=C3=BBt 2011 =C3=A0 16:45 +0300, Dan Carpenter a =C3=A9cr=
-it :
-> Use kfree_skb() to free sbk_buffs.
->=20
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
->=20
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index cf304cc..8a9dbaa 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -674,7 +674,7 @@ lowpan_process_data(struct sk_buff *skb)
->  							sizeof(hdr));
->  	return lowpan_skb_deliver(skb, &hdr);
->  drop:
-> -	kfree(skb);
-> +	kfree_skb(skb);
->  	return -EINVAL;
->  }
-> =20
+From: Florian Westphal <fw@strlen.de>
 
-Another bug is the skb_copy() done in lowpan_skb_deliver()
+A userspace listener may send (bogus) NF_STOLEN verdict, which causes skb leak.
 
-1) No check of skb_copy() return=20
+This problem was previously fixed via
+64507fdbc29c3a622180378210ecea8659b14e40 (netfilter:
+nf_queue: fix NF_STOLEN skb leak) but this had to be reverted because
+NF_STOLEN can also be returned by a netfilter hook when iterating the
+rules in nf_reinject.
 
-2.1) Use of GFP_KERNEL : Is it safe at this point ? Aren=E2=80=99t we i=
-n
-softirq ?
+Reject userspace NF_STOLEN verdict, as suggested by Michal Miroslaw.
 
-2.2) If GFP_KERNEL is safe, why do we later do :
+This is complementary to commit fad54440438a7c231a6ae347738423cbabc936d9
+(netfilter: avoid double free in nf_reinject).
 
-	if (in_interrupt())
-		stat =3D netif_rx(skb);
-	else
-		stat =3D netif_rx_ni(skb);
+Cc: Julian Anastasov <ja@ssi.bg>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv4/netfilter/ip_queue.c   |   11 ++++-------
+ net/ipv6/netfilter/ip6_queue.c  |   11 ++++-------
+ net/netfilter/nfnetlink_queue.c |    4 ++--
+ 3 files changed, 10 insertions(+), 16 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index 48f7d5b..e59aabd 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -314,7 +314,7 @@ ipq_set_verdict(struct ipq_verdict_msg *vmsg, unsigned int len)
+ {
+ 	struct nf_queue_entry *entry;
+ 
+-	if (vmsg->value > NF_MAX_VERDICT)
++	if (vmsg->value > NF_MAX_VERDICT || vmsg->value == NF_STOLEN)
+ 		return -EINVAL;
+ 
+ 	entry = ipq_find_dequeue_entry(vmsg->id);
+@@ -359,12 +359,9 @@ ipq_receive_peer(struct ipq_peer_msg *pmsg,
+ 		break;
+ 
+ 	case IPQM_VERDICT:
+-		if (pmsg->msg.verdict.value > NF_MAX_VERDICT)
+-			status = -EINVAL;
+-		else
+-			status = ipq_set_verdict(&pmsg->msg.verdict,
+-						 len - sizeof(*pmsg));
+-			break;
++		status = ipq_set_verdict(&pmsg->msg.verdict,
++					 len - sizeof(*pmsg));
++		break;
+ 	default:
+ 		status = -EINVAL;
+ 	}
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 87b243a..e63c397 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -314,7 +314,7 @@ ipq_set_verdict(struct ipq_verdict_msg *vmsg, unsigned int len)
+ {
+ 	struct nf_queue_entry *entry;
+ 
+-	if (vmsg->value > NF_MAX_VERDICT)
++	if (vmsg->value > NF_MAX_VERDICT || vmsg->value == NF_STOLEN)
+ 		return -EINVAL;
+ 
+ 	entry = ipq_find_dequeue_entry(vmsg->id);
+@@ -359,12 +359,9 @@ ipq_receive_peer(struct ipq_peer_msg *pmsg,
+ 		break;
+ 
+ 	case IPQM_VERDICT:
+-		if (pmsg->msg.verdict.value > NF_MAX_VERDICT)
+-			status = -EINVAL;
+-		else
+-			status = ipq_set_verdict(&pmsg->msg.verdict,
+-						 len - sizeof(*pmsg));
+-			break;
++		status = ipq_set_verdict(&pmsg->msg.verdict,
++					 len - sizeof(*pmsg));
++		break;
+ 	default:
+ 		status = -EINVAL;
+ 	}
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 00bd475..a80b0cb 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -646,8 +646,8 @@ verdicthdr_get(const struct nlattr * const nfqa[])
+ 		return NULL;
+ 
+ 	vhdr = nla_data(nfqa[NFQA_VERDICT_HDR]);
+-	verdict = ntohl(vhdr->verdict);
+-	if ((verdict & NF_VERDICT_MASK) > NF_MAX_VERDICT)
++	verdict = ntohl(vhdr->verdict) & NF_VERDICT_MASK;
++	if (verdict > NF_MAX_VERDICT || verdict == NF_STOLEN)
+ 		return NULL;
+ 	return vhdr;
+ }
+-- 
+1.7.2.3
+
