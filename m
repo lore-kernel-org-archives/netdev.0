@@ -1,7 +1,8 @@
 From: Dan Carpenter <error27@gmail.com>
-Subject: [patch 2/3 -next] 6LoWPAN: use the _safe version of list_for_each
-Date: Tue, 30 Aug 2011 16:46:40 +0300
-Message-ID: <20110830134640.GI3705@shale.localdomain>
+Subject: [patch 3/3 -next] 6LoWPAN: call dev_put() on error in
+ lowpan_newlink()
+Date: Tue, 30 Aug 2011 16:51:09 +0300
+Message-ID: <20110830135109.GJ3705@shale.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
@@ -13,42 +14,36 @@ Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
 	kernel-janitors@vger.kernel.org
 To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:46529 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754109Ab1H3NtC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:49:02 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57023 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753069Ab1H3Nxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:53:31 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we kfree(entry) that causes a use-after-free bug so we have to
-use list_for_each_entry_safe() safe here.
+We should release the dev_hold() on error before returning here.
 
 Signed-off-by: Dan Carpenter <error27@gmail.com>
 ---
-Curly parens are not needed here, but kernel style is to use them for
-multi-line indent blocks.
+All three of these patches were compile tested only, but this is the
+one I'm not very certain of.  I've obviously tried to get it right,
+but please review it carefully.
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index cf304cc..5dc0489 100644
+index 5dc0489..f0d1536 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -813,15 +813,17 @@ static void lowpan_dellink(struct net_device *dev, struct list_head *head)
- 	struct lowpan_dev_info *lowpan_dev = lowpan_dev_info(dev);
- 	struct net_device *real_dev = lowpan_dev->real_dev;
- 	struct lowpan_dev_record *entry;
-+	struct lowpan_dev_record *tmp;
+@@ -793,8 +793,11 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
+ 	mutex_init(&lowpan_dev_info(dev)->dev_list_mtx);
  
- 	ASSERT_RTNL();
- 
- 	mutex_lock(&lowpan_dev_info(dev)->dev_list_mtx);
--	list_for_each_entry(entry, &lowpan_devices, list)
-+	list_for_each_entry_safe(entry, tmp, &lowpan_devices, list) {
- 		if (entry->ldev == dev) {
- 			list_del(&entry->list);
- 			kfree(entry);
- 		}
+ 	entry = kzalloc(sizeof(struct lowpan_dev_record), GFP_KERNEL);
+-	if (!entry)
++	if (!entry) {
++		dev_put(real_dev);
++		lowpan_dev_info(dev)->real_dev = NULL;
+ 		return -ENOMEM;
 +	}
- 	mutex_unlock(&lowpan_dev_info(dev)->dev_list_mtx);
  
- 	mutex_destroy(&lowpan_dev_info(dev)->dev_list_mtx);
+ 	entry->ldev = dev;
+ 
