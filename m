@@ -1,73 +1,42 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH 8/9] stmmac: update the doc with new info about the driver's debug (v2)
-Date: Tue, 30 Aug 2011 16:21:03 +0200
-Message-ID: <1314714064-29101-9-git-send-email-peppe.cavallaro@st.com>
-References: <1314714064-29101-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: "Ruslan N. Marchenko" <me@ruff.mobi>
+Subject: Re: 802.1Q VLAN random tag injected when vlan configured on
+ forcedeth interface
+Date: Tue, 30 Aug 2011 16:23:10 +0200
+Message-ID: <20110830142310.GC28341@ruff.mobi>
+References: <20110830125111.GA28341@ruff.mobi>
+ <1314710628.2935.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20110830134624.GB28341@ruff.mobi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:32939 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754487Ab1H3OVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:21:54 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C51ACDB
-	for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 14:21:51 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 85781226C
-	for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 14:21:51 +0000 (GMT)
-In-Reply-To: <1314714064-29101-1-git-send-email-peppe.cavallaro@st.com>
+Received: from ip-89-176-12-106.net.upcbroadband.cz ([89.176.12.106]:60258
+	"EHLO ruff.mobi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754454Ab1H3OXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:23:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20110830134624.GB28341@ruff.mobi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- Documentation/networking/stmmac.txt |   33 ++++++++++++++++++++++++++++++++-
- 1 files changed, 32 insertions(+), 1 deletions(-)
+On Tue, Aug 30, 2011 at 03:46:24PM +0200, Ruslan N. Marchenko wrote:
+> On Tue, Aug 30, 2011 at 03:23:48PM +0200, Eric Dumazet wrote:
+> > 
+> > What kernel version are you using ?
+> > 
+> Oh, sorry for missing it, it runs on 
+> Linux ruff.mobi 2.6.38-11-generic #48-Ubuntu SMP Fri Jul 29 19:05:14 UTC 2011 i686 i686 i386 GNU/Linux
+> 
+> Just fyi - the openwrt box to which it is connected is 
+> Linux OpenWrt 2.6.39.2 #2 Fri Aug 12 09:36:23 EEST 2011 mips GNU/Linux
+> although packet drop happens even if there're no vlans configured on remote side.
+> 
+Here is double-tag sample:
+16:20:31.151268 e0:46:9a:4e:88:1d > 00:26:18:40:21:62, ethertype 802.1Q (0x8100), length 106: vlan 2112, p 7, ethertype 802.1Q, vlan 6, p 0, ethertype IPv4, [|ip]
+        0x0000:  0026 1840 2162 e046 9a4e 881d 8100 e840
+        0x0010:  8100 0006 0800 4500 0054 abec 0000
 
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index 57a2410..40ec92c 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -235,7 +235,38 @@ reset procedure etc).
-  o enh_desc.c: functions for handling enhanced descriptors
-  o norm_desc.c: functions for handling normal descriptors
- 
--5) TODO:
-+5) Debug Information
-+
-+The driver exports many information i.e. internal statistics,
-+debug information, MAC and DMA registers etc.
-+
-+These can be read in several ways depending on the
-+type of the information actually needed.
-+
-+For example a user can be use the ethtool support
-+to get statistics: e.g. using: ethtool -S ethX
-+(that shows the Management counters (MMC) if supported)
-+or sees the MAC/DMA registers: e.g. using: ethtool -d ethX
-+
-+Compiling the Kernel with CONFIG_DEBUG_FS and enabling the
-+STMMAC_DEBUG_FS option the driver will export the following
-+debugfs entries:
-+
-+/sys/kernel/debug/stmmaceth/descriptors_status
-+  To show the DMA TX/RX descriptor rings
-+
-+Developer can also use the "debug" module parameter to get
-+further debug information.
-+
-+In the end, there are other macros (that cannot be enabled
-+via menuconfig) to turn-on the RX/TX DMA debugging,
-+specific MAC core debug printk etc. Others to enable the
-+debug in the TX and RX processes.
-+All these are only useful during the developing stage
-+and should never enabled inside the code for general usage.
-+In fact, these can generate an huge amount of debug messages.
-+
-+6) TODO:
-  o XGMAC is not supported.
-  o Review the timer optimisation code to use an embedded device that will be
-   available in new chip generations.
--- 
-1.7.4.4
+
+Regards,
+Ruslan
