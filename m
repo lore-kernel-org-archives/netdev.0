@@ -1,254 +1,101 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] tcp: Change possible SYN flooding messages
-Date: Tue, 30 Aug 2011 15:21:44 +0200
-Message-ID: <1314710504.2935.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <alpine.DEB.2.00.1108102229130.5341@pokey.mtv.corp.google.com>
+Subject: Re: 802.1Q VLAN random tag injected when vlan configured on
+ forcedeth interface
+Date: Tue, 30 Aug 2011 15:23:48 +0200
+Message-ID: <1314710628.2935.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20110830125111.GA28341@ruff.mobi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "Ruslan N. Marchenko" <me@ruff.mobi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39243 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658Ab1H3NVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:21:44 -0400
-Received: by wyg24 with SMTP id 24so4899028wyg.19
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 06:21:43 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1108102229130.5341@pokey.mtv.corp.google.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56416 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752637Ab1H3NXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 09:23:46 -0400
+Received: by wwf5 with SMTP id 5so6802648wwf.1
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 06:23:45 -0700 (PDT)
+In-Reply-To: <20110830125111.GA28341@ruff.mobi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Possible SYN flooding on port xxxx " messages can fill logs on servers.
+Le mardi 30 ao=C3=BBt 2011 =C3=A0 14:51 +0200, Ruslan N. Marchenko a =C3=
+=A9crit :
+> Hi guys,
+> I've faced with strange behaviour of 8021q driver: when enabling vlan=
+ subinterface on eth interface I'm getting ~50% packetloss due to packe=
+ts are marked with incorrect tags (and eventually dropped by kernel sin=
+ce no vlans configured for such IDs).
+> Scenario:
+> [    0.476950] cpufreq-nforce2: No nForce2 chipset.
+> [    1.519133] forcedeth: Reverse Engineered nForce ethernet driver. =
+Version 0.64.
+> [    1.519991] forcedeth 0000:00:0a.0: PCI INT A -> Link[LMAC] -> GSI=
+ 22 (level, low) -> IRQ 22
+> [    1.520037] forcedeth 0000:00:0a.0: setting latency timer to 64
+> [    1.586526] forcedeth 0000:00:0a.0: ifname eth0, PHY OUI 0x732 @ 3=
+, addr 00:26:18:40:21:61
+> [    1.586542] forcedeth 0000:00:0a.0: highdma csum pwrctl gbit lnkti=
+m msi desc-v3
+>=20
+> modprobe 8021q
+>=20
+> - network still works properly, packets are comming not marked at all=
+=2E
+>=20
+> ip li add link eth0 name vl6 type vlan id 6
+>=20
+> - from this moment massive packetdrop starting to happen, almost half=
+ of the *incoming* packets are shown in tcpdump as=20
+> 14:15:52.859296 00:13:f7:1e:fe:e4 > 00:26:18:40:21:61, ethertype 802.=
+1Q (0x8100), length 102: vlan 64, p 3, ethertype IPv4, [|ip]
+> 14:15:56.869572 00:13:f7:1e:fe:e4 > 00:26:18:40:21:61, ethertype 802.=
+1Q (0x8100), length 102: vlan 2112, p 7, ethertype IPv4, [|ip]
+>=20
+> mostly only these two tags appears (64 & 2112). Moreover this happens=
+ as on native vlan level (pure ethernet) so on tagged subinterface (as =
+if qinq double tagging) for properly tagged with ID 6 incomming packets=
+=2E
+>=20
+> I've tried disabling all offloads:
+>=20
+> Offload parameters for eth0:
+> rx-checksumming: off
+> tx-checksumming: off
+> scatter-gather: off
+> tcp-segmentation-offload: off
+> udp-fragmentation-offload: off
+> generic-segmentation-offload: off
+> generic-receive-offload: off
+> large-receive-offload: off
+> rx-vlan-offload: off
+> tx-vlan-offload: off
+> ntuple-filters: off
+> receive-hashing: off
+>=20
+> - doesn't have any effect.
+> Once executing=20
+> ip li del vl6 type vlan
+> misterious tags disappear and everything works smoothly. Don't know w=
+ho injects that garbage into frames - 8021q or forcedeth driver :(
+> Any ideas or suggestions to narrow the problem down?
+>=20
+> Additional data.
+> Link level data dump example for broken frame:
+> 12:35:32.175523 00:13:f7:1e:fe:e4 > 00:26:18:40:21:61, ethertype 802.=
+1Q (0x8100), length 102: vlan 2112, p 2, ethertype IPv4, [|ip]
+>         0x0000:  0026 1840 2161 0013 f71e fee4 8100 4840
+>         0x0010:  0800 4500 0054 7a12 0000 4001 eb0f
+> 0x0C-0D - TPID: ethertype 802.1Q (0x8100)=20
+> 0x0E-0F - TCI (0100100001000000) PCP 010, CFI 0, VID 100001000000/0x8=
+40/2112
+> 0x10-11 - ethertype IPv4
+> normal ping reply follows, which appears untagged in 50% cases with v=
+lan configured and 100% cases without.
+>=20
+> Interface is plugged into openwrt box into non-switched (wan) gigabit=
+ port with vid 6 subinterface configured.
+>=20
 
-Change logic to log the message only once per listener, and add two new
-SNMP counters to track :
-
-TCPReqQFullDoCookies : number of times a SYNCOOKIE was replied to client
-
-TCPReqQFullDrop : number of times a SYN request was dropped because
-syncookies were not enabled.
-
-Based on a prior patch from Tom Herbert, and suggestions from David.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Tom Herbert <therbert@google.com>
----
- include/linux/snmp.h       |    2 +
- include/net/request_sock.h |    3 +-
- include/net/tcp.h          |    3 ++
- net/ipv4/proc.c            |    2 +
- net/ipv4/tcp_ipv4.c        |   49 ++++++++++++++++++++---------------
- net/ipv6/tcp_ipv6.c        |   31 ++--------------------
- 6 files changed, 40 insertions(+), 50 deletions(-)
-
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index 12b2b18..e16557a 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -231,6 +231,8 @@ enum
- 	LINUX_MIB_TCPDEFERACCEPTDROP,
- 	LINUX_MIB_IPRPFILTER, /* IP Reverse Path Filter (rp_filter) */
- 	LINUX_MIB_TCPTIMEWAITOVERFLOW,		/* TCPTimeWaitOverflow */
-+	LINUX_MIB_TCPREQQFULLDOCOOKIES,		/* TCPReqQFullDoCookies */
-+	LINUX_MIB_TCPREQQFULLDROP,		/* TCPReqQFullDrop */
- 	__LINUX_MIB_MAX
- };
- 
-diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-index 99e6e19..4c0766e 100644
---- a/include/net/request_sock.h
-+++ b/include/net/request_sock.h
-@@ -96,7 +96,8 @@ extern int sysctl_max_syn_backlog;
-  */
- struct listen_sock {
- 	u8			max_qlen_log;
--	/* 3 bytes hole, try to use */
-+	u8			synflood_warned;
-+	/* 2 bytes hole, try to use */
- 	int			qlen;
- 	int			qlen_young;
- 	int			clock_hand;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 149a415..e9b48b0 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -460,6 +460,9 @@ extern int tcp_write_wakeup(struct sock *);
- extern void tcp_send_fin(struct sock *sk);
- extern void tcp_send_active_reset(struct sock *sk, gfp_t priority);
- extern int tcp_send_synack(struct sock *);
-+extern int tcp_syn_flood_action(struct sock *sk,
-+				const struct sk_buff *skb,
-+				const char *proto);
- extern void tcp_push_one(struct sock *, unsigned int mss_now);
- extern void tcp_send_ack(struct sock *sk);
- extern void tcp_send_delayed_ack(struct sock *sk);
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index b14ec7d..4bfad5d 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -254,6 +254,8 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPDeferAcceptDrop", LINUX_MIB_TCPDEFERACCEPTDROP),
- 	SNMP_MIB_ITEM("IPReversePathFilter", LINUX_MIB_IPRPFILTER),
- 	SNMP_MIB_ITEM("TCPTimeWaitOverflow", LINUX_MIB_TCPTIMEWAITOVERFLOW),
-+	SNMP_MIB_ITEM("TCPReqQFullDoCookies", LINUX_MIB_TCPREQQFULLDOCOOKIES),
-+	SNMP_MIB_ITEM("TCPReqQFullDrop", LINUX_MIB_TCPREQQFULLDROP),
- 	SNMP_MIB_SENTINEL
- };
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index b3f2611..c29912c 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -808,20 +808,38 @@ static void tcp_v4_reqsk_destructor(struct request_sock *req)
- 	kfree(inet_rsk(req)->opt);
- }
- 
--static void syn_flood_warning(const struct sk_buff *skb)
-+/*
-+ * Return 1 if a syncookie should be sent
-+ */
-+int tcp_syn_flood_action(struct sock *sk,
-+			 const struct sk_buff *skb,
-+			 const char *proto)
- {
--	const char *msg;
-+	const char *msg = "Dropping request";
-+	int want_cookie = 0;
-+	struct listen_sock *lopt;
-+
-+
- 
- #ifdef CONFIG_SYN_COOKIES
--	if (sysctl_tcp_syncookies)
-+	if (sysctl_tcp_syncookies) {
- 		msg = "Sending cookies";
--	else
-+		want_cookie = 1;
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPREQQFULLDOCOOKIES);
-+	} else
- #endif
--		msg = "Dropping request";
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPREQQFULLDROP);
- 
--	pr_info("TCP: Possible SYN flooding on port %d. %s.\n",
--				ntohs(tcp_hdr(skb)->dest), msg);
-+	lopt = inet_csk(sk)->icsk_accept_queue.listen_opt;
-+	if (!lopt->synflood_warned) {
-+		lopt->synflood_warned = 1;
-+		pr_info("%s: Possible SYN flooding on port %d. %s. "
-+			" Check SNMP counters.\n",
-+			proto, ntohs(tcp_hdr(skb)->dest), msg);
-+	}
-+	return want_cookie;
- }
-+EXPORT_SYMBOL(tcp_syn_flood_action);
- 
- /*
-  * Save and compile IPv4 options into the request_sock if needed.
-@@ -1235,11 +1253,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	__be32 saddr = ip_hdr(skb)->saddr;
- 	__be32 daddr = ip_hdr(skb)->daddr;
- 	__u32 isn = TCP_SKB_CB(skb)->when;
--#ifdef CONFIG_SYN_COOKIES
- 	int want_cookie = 0;
--#else
--#define want_cookie 0 /* Argh, why doesn't gcc optimize this :( */
--#endif
- 
- 	/* Never answer to SYNs send to broadcast or multicast */
- 	if (skb_rtable(skb)->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST))
-@@ -1250,14 +1264,9 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	 * evidently real one.
- 	 */
- 	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
--		if (net_ratelimit())
--			syn_flood_warning(skb);
--#ifdef CONFIG_SYN_COOKIES
--		if (sysctl_tcp_syncookies) {
--			want_cookie = 1;
--		} else
--#endif
--		goto drop;
-+		want_cookie = tcp_syn_flood_action(sk, skb, "TCP");
-+		if (!want_cookie)
-+			goto drop;
- 	}
- 
- 	/* Accept backlog is full. If we have already queued enough
-@@ -1303,9 +1312,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 		while (l-- > 0)
- 			*c++ ^= *hash_location++;
- 
--#ifdef CONFIG_SYN_COOKIES
- 		want_cookie = 0;	/* not our kind of cookie */
--#endif
- 		tmp_ext.cookie_out_never = 0; /* false */
- 		tmp_ext.cookie_plus = tmp_opt.cookie_plus;
- 	} else if (!tp->rx_opt.cookie_in_always) {
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 44a5859..12bdb9a 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -531,20 +531,6 @@ static int tcp_v6_rtx_synack(struct sock *sk, struct request_sock *req,
- 	return tcp_v6_send_synack(sk, req, rvp);
- }
- 
--static inline void syn_flood_warning(struct sk_buff *skb)
--{
--#ifdef CONFIG_SYN_COOKIES
--	if (sysctl_tcp_syncookies)
--		printk(KERN_INFO
--		       "TCPv6: Possible SYN flooding on port %d. "
--		       "Sending cookies.\n", ntohs(tcp_hdr(skb)->dest));
--	else
--#endif
--		printk(KERN_INFO
--		       "TCPv6: Possible SYN flooding on port %d. "
--		       "Dropping request.\n", ntohs(tcp_hdr(skb)->dest));
--}
--
- static void tcp_v6_reqsk_destructor(struct request_sock *req)
- {
- 	kfree_skb(inet6_rsk(req)->pktopts);
-@@ -1179,11 +1165,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	__u32 isn = TCP_SKB_CB(skb)->when;
- 	struct dst_entry *dst = NULL;
--#ifdef CONFIG_SYN_COOKIES
- 	int want_cookie = 0;
--#else
--#define want_cookie 0
--#endif
- 
- 	if (skb->protocol == htons(ETH_P_IP))
- 		return tcp_v4_conn_request(sk, skb);
-@@ -1192,14 +1174,9 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 		goto drop;
- 
- 	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
--		if (net_ratelimit())
--			syn_flood_warning(skb);
--#ifdef CONFIG_SYN_COOKIES
--		if (sysctl_tcp_syncookies)
--			want_cookie = 1;
--		else
--#endif
--		goto drop;
-+		want_cookie = tcp_syn_flood_action(sk, skb, "TCPv6");
-+		if (!want_cookie)
-+			goto drop;
- 	}
- 
- 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
-@@ -1249,9 +1226,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 		while (l-- > 0)
- 			*c++ ^= *hash_location++;
- 
--#ifdef CONFIG_SYN_COOKIES
- 		want_cookie = 0;	/* not our kind of cookie */
--#endif
- 		tmp_ext.cookie_out_never = 0; /* false */
- 		tmp_ext.cookie_plus = tmp_opt.cookie_plus;
- 	} else if (!tp->rx_opt.cookie_in_always) {
+What kernel version are you using ?
