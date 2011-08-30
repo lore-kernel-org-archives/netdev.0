@@ -1,7 +1,7 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 14/14] greth: convert to SKB paged frag API.
-Date: Tue, 30 Aug 2011 10:18:30 +0100
-Message-ID: <1314695910-22344-14-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 12/14] forcedeth: convert to SKB paged frag API.
+Date: Tue, 30 Aug 2011 10:18:28 +0100
+Message-ID: <1314695910-22344-12-git-send-email-ian.campbell@citrix.com>
 References: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,52 +10,49 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.citrix.com ([66.165.176.89]:22544 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752972Ab1H3JSw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 05:18:52 -0400
+	id S1751311Ab1H3JSu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 05:18:50 -0400
 In-Reply-To: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to avoid long lines also use phys_to_virt(page_to_phys(page)) =>
-page_address(page) (since the are effectively the same thing for lowmem pages).
-
-Also dump the frag's size instead of the headlen when dumping a frag.
-
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/aeroflex/greth.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |   14 ++++++++++----
+ 1 files changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
-index a5f6b07..bc3bd34 100644
---- a/drivers/net/ethernet/aeroflex/greth.c
-+++ b/drivers/net/ethernet/aeroflex/greth.c
-@@ -113,9 +113,8 @@ static void greth_print_tx_packet(struct sk_buff *skb)
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 
- 		print_hex_dump(KERN_DEBUG, "TX: ", DUMP_PREFIX_OFFSET, 16, 1,
--			       phys_to_virt(page_to_phys(skb_shinfo(skb)->frags[i].page)) +
--			       skb_shinfo(skb)->frags[i].page_offset,
--			       length, true);
-+			       skb_frag_address(&skb_shinfo(skb)->frags[i]),
-+			       skb_shinfo(skb)->frags[i].size, true);
- 	}
- }
- 
-@@ -528,11 +527,8 @@ greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
- 
- 		greth_write_bd(&bdp->stat, status);
- 
--		dma_addr = dma_map_page(greth->dev,
--					frag->page,
--					frag->page_offset,
--					frag->size,
--					DMA_TO_DEVICE);
-+		dma_addr = skb_frag_dma_map(greth->dev, frag, 0, frag->size,
-+					    DMA_TO_DEVICE);
- 
- 		if (unlikely(dma_mapping_error(greth->dev, dma_addr)))
- 			goto frag_map_error;
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 98bb64b..4e39b8c 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -2146,8 +2146,11 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			prev_tx = put_tx;
+ 			prev_tx_ctx = np->put_tx_ctx;
+ 			bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+-			np->put_tx_ctx->dma = pci_map_page(np->pci_dev, frag->page, frag->page_offset+offset, bcnt,
+-							   PCI_DMA_TODEVICE);
++			np->put_tx_ctx->dma = skb_frag_dma_map(
++							&np->pci_dev->dev,
++							frag, offset,
++							bcnt,
++							PCI_DMA_TODEVICE);
+ 			np->put_tx_ctx->dma_len = bcnt;
+ 			np->put_tx_ctx->dma_single = 0;
+ 			put_tx->buf = cpu_to_le32(np->put_tx_ctx->dma);
+@@ -2257,8 +2260,11 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 			prev_tx = put_tx;
+ 			prev_tx_ctx = np->put_tx_ctx;
+ 			bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+-			np->put_tx_ctx->dma = pci_map_page(np->pci_dev, frag->page, frag->page_offset+offset, bcnt,
+-							   PCI_DMA_TODEVICE);
++			np->put_tx_ctx->dma = skb_frag_dma_map(
++							&np->pci_dev->dev,
++							frag, offset,
++							bcnt,
++							PCI_DMA_TODEVICE);
+ 			np->put_tx_ctx->dma_len = bcnt;
+ 			np->put_tx_ctx->dma_single = 0;
+ 			put_tx->bufhigh = cpu_to_le32(dma_high(np->put_tx_ctx->dma));
 -- 
 1.7.2.5
