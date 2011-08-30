@@ -1,52 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 2/5] qlcnic: Change debug messages in loopback
- path
-Date: Mon, 29 Aug 2011 20:00:37 -0700
-Message-ID: <1314673237.6852.53.camel@Joe-Laptop>
-References: <1314658231-30735-1-git-send-email-sony.chacko@qlogic.com>
-	 <1314658231-30735-2-git-send-email-sony.chacko@qlogic.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: BQL crap and wireless
+Date: Mon, 29 Aug 2011 20:34:20 -0700
+Message-ID: <CA+mtBx-j_+mrNpntR7CfYOromDnM-ZGzvebpUCjC8Qf14X6u9g@mail.gmail.com>
+References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com>
+	<CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com>
+	<CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ@mail.gmail.com>
+	<4E5C3B47.1050809@freedesktop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish chopra <Manish.Chopra@qlogic.com>
-To: Sony Chacko <sony.chacko@qlogic.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Andrew McGregor <andrewmcgr@gmail.com>,
+	Matt Smith <smithm@qca.qualcomm.com>,
+	Kevin Hayes <hayes@qca.qualcomm.com>,
+	Derek Smithies <derek@indranet.co.nz>, netdev@vger.kernel.org
+To: Jim Gettys <jg@freedesktop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:56956 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751127Ab1H3DAj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Aug 2011 23:00:39 -0400
-In-Reply-To: <1314658231-30735-2-git-send-email-sony.chacko@qlogic.com>
+Received: from smtp-out.google.com ([74.125.121.67]:18830 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075Ab1H3DeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Aug 2011 23:34:25 -0400
+Received: from hpaq5.eem.corp.google.com (hpaq5.eem.corp.google.com [172.25.149.5])
+	by smtp-out.google.com with ESMTP id p7U3YNqT032051
+	for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 20:34:23 -0700
+Received: from iadx2 (iadx2.prod.google.com [10.12.150.2])
+	by hpaq5.eem.corp.google.com with ESMTP id p7U3YLRg028720
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 20:34:22 -0700
+Received: by iadx2 with SMTP id x2so1380824iad.41
+        for <netdev@vger.kernel.org>; Mon, 29 Aug 2011 20:34:21 -0700 (PDT)
+In-Reply-To: <4E5C3B47.1050809@freedesktop.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-08-29 at 15:50 -0700, Sony Chacko wrote:
-> From: Manish chopra <Manish.Chopra@qlogic.com>
-> Added more debug messages while loopback test in progress
-[]
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-[]
-> @@ -736,13 +736,18 @@ static int qlcnic_do_lb_test(struct qlcnic_adapter *adapter)
-[]
-> +		if (mode != QLCNIC_ILB_MODE) {
-> +			dev_warn(&adapter->pdev->dev,
-> +				"WARNING: Please make sure external"
-> +				"loopback connector is plugged in\n");
+> Computing the buffering in bytes is better than in packets; but since on
+> wireless multicast/broadcast is transmitted at a radically different
+> rate than other packets, I expect something based on time is really the
+> long term solution; and only the driver has any idea how long a packet
+> of a given flavour will likely take to transmit.
 
-It's better to avoid splitting format strings.
-This emits "externalloopback" instead of "external loopback".
+The generalization of BQL would be to set the queue limit in terms of
+a cost function implemented by the driver.  The cost function would
+most likely be an estimate of time to transmit a packet.  So C(P)
+could represent cost of a packet, sum(C(P) for P queued) is aggregate
+cost of queue packets, and queue limit is the maximum cost sum.  For
+wired Ethernet, number of bytes in packet might be a reasonable
+function (although framing cost could be included, but I'm not sure
+that would make a material difference).  For wireless, maybe the
+function could be more complex possibly taking multicast, previous
+history of transmission times, or other arbitrary characteristics of
+the packet into account...
 
-> -static void dump_skb(struct sk_buff *skb)
-> +static void dump_skb(struct sk_buff *skb, struct qlcnic_adapter *adapter)
->  {
->  	int i;
->  	unsigned char *data = skb->data;
->  
->  	printk(KERN_INFO "\n");
->  	for (i = 0; i < skb->len; i++) {
-> -		printk(KERN_INFO "%02x ", data[i]);
-> +		QLCDB(adapter, DRV, "%02x ", data[i]);
+I can post a new patch with this generalization if this is interesting.
 
-print_hex_dump
+Tom
