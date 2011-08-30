@@ -1,30 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 42012] New: regression on 2.6.39.3 with socket/bind;
- still there in 3.0.4
-Date: Tue, 30 Aug 2011 14:07:33 -0400 (EDT)
-Message-ID: <20110830.140733.146208373221522199.davem@davemloft.net>
-References: <20110830084742.26c72c20@nehalam.ftrdhcpuser.net>
-	<1314720708.2935.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [patch net-next-2.6 1/2] net: allow to change carrier via sysfs
+Date: Tue, 30 Aug 2011 20:11:37 +0200
+Message-ID: <CAHXqBFJh0xjRYv_-2AzwAvpHOUfQ+pD_153qVtNA3Ybo9r3b=w@mail.gmail.com>
+References: <1314715608-978-1-git-send-email-jpirko@redhat.com> <1314715608-978-2-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51079 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755848Ab1H3SIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 14:08:11 -0400
-In-Reply-To: <1314720708.2935.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:35491 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752643Ab1H3SL6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 14:11:58 -0400
+Received: by gwaa12 with SMTP id a12so5812383gwa.19
+        for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 11:11:57 -0700 (PDT)
+In-Reply-To: <1314715608-978-2-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 30 Aug 2011 18:11:48 +0200
+2011/8/30 Jiri Pirko <jpirko@redhat.com>:
+> Allow to write to "carrier" attribute. Devices may implement ndo_chan=
+ge_carrier
+> callback to allow changing carrier from userspace.
 
-> Yep, we should relax the check and accept AF_UNSPEC.
+Do you expect drivers using implementation different than just calling
+netif_carrier_on/off? Or is it supposed to also e.g. power down PHYs?
 
-I guess we'll have to do this, but I just can't bring myself to accept
-that we can just do zero validation of what the user is passing us,
-see an AF_UNSPEC, and say "yeah it's fine to assume there's an ipv4
-address in there."
+BTW, I like this feature!
+
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
