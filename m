@@ -1,36 +1,46 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: [PATCH 0/14] skb fragment API: convert network drivers (part I)
-Date: Tue, 30 Aug 2011 10:17:27 +0100
-Message-ID: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH 01/14] 3c59x: convert to SKB paged frag API.
+Date: Tue, 30 Aug 2011 10:18:17 +0100
+Message-ID: <1314695910-22344-1-git-send-email-ian.campbell@citrix.com>
+References: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:12147 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752689Ab1H3JR3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 05:17:29 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:34590 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751531Ab1H3JSe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 05:18:34 -0400
+In-Reply-To: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series converts the first batch of network drivers to the
-SKB pages fragment API introduced in 131ea6675c76. I expect there will
-be ~4 similarly sized batches to convert all the drivers over.
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/3com/3c59x.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-This is part of my series to enable visibility into SKB paged fragment's
-lifecycles, [0] contains some more background and rationale but
-basically the completed series will allow entities which inject pages
-into the networking stack to receive a notification when the stack has
-really finished with those pages (i.e. including retransmissions,
-clones, pull-ups etc) and not just when the original skb is finished
-with, which is beneficial to many subsystems which wish to inject pages
-into the network stack without giving up full ownership of those page's
-lifecycle. It implements something broadly along the lines of what was
-described in [1].
-
-Cheers,
-Ian.
-
-[0] http://marc.info/?l=linux-netdev&m=131072801125521&w=2
-[1] http://marc.info/?l=linux-netdev&m=130925719513084&w=2
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index 6e1f595..9ca45dc 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -2179,9 +2179,10 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 
+ 			vp->tx_ring[entry].frag[i+1].addr =
+-					cpu_to_le32(pci_map_single(VORTEX_PCI(vp),
+-											   (void*)page_address(frag->page) + frag->page_offset,
+-											   frag->size, PCI_DMA_TODEVICE));
++					cpu_to_le32(pci_map_single(
++						VORTEX_PCI(vp),
++						(void *)skb_frag_address(frag),
++						frag->size, PCI_DMA_TODEVICE));
+ 
+ 			if (i == skb_shinfo(skb)->nr_frags-1)
+ 					vp->tx_ring[entry].frag[i+1].length = cpu_to_le32(frag->size|LAST_FRAG);
+-- 
+1.7.2.5
