@@ -1,73 +1,70 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 09/14] cassini: convert to SKB paged frag API.
-Date: Tue, 30 Aug 2011 10:18:25 +0100
-Message-ID: <1314695910-22344-9-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 11/14] enic: convert to SKB paged frag API.
+Date: Tue, 30 Aug 2011 10:18:27 +0100
+Message-ID: <1314695910-22344-11-git-send-email-ian.campbell@citrix.com>
 References: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Christian Benvenuti <benve@cisco.com>,
+	Vasanthy Kolluri <vkolluri@cisco.com>,
+	Roopa Prabhu <roprabhu@cisco.com>,
+	David Wang <dwang2@cisco.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:34590 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829Ab1H3JSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 05:18:45 -0400
+	with ESMTP id S1752909Ab1H3JSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 05:18:50 -0400
 In-Reply-To: <1314695847.10283.102.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Christian Benvenuti <benve@cisco.com>
+Cc: Vasanthy Kolluri <vkolluri@cisco.com>
+Cc: Roopa Prabhu <roprabhu@cisco.com>
+Cc: David Wang <dwang2@cisco.com>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/sun/cassini.c |   15 +++++++--------
- 1 files changed, 7 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_main.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/cassini.c b/drivers/net/ethernet/sun/cassini.c
-index 1776a37..f07a721 100644
---- a/drivers/net/ethernet/sun/cassini.c
-+++ b/drivers/net/ethernet/sun/cassini.c
-@@ -2048,8 +2048,8 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
- 		skb->truesize += hlen - swivel;
- 		skb->len      += hlen - swivel;
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index c751c25..19c9272 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -591,9 +591,9 @@ static inline void enic_queue_wq_skb_cont(struct enic *enic,
+ 	for (frag = skb_shinfo(skb)->frags; len_left; frag++) {
+ 		len_left -= frag->size;
+ 		enic_queue_wq_desc_cont(wq, skb,
+-			pci_map_page(enic->pdev, frag->page,
+-				frag->page_offset, frag->size,
+-				PCI_DMA_TODEVICE),
++			skb_frag_dma_map(&enic->pdev->dev,
++					 frag, 0, frag->size,
++					 PCI_DMA_TODEVICE),
+ 			frag->size,
+ 			(len_left == 0),	/* EOP? */
+ 			loopback);
+@@ -705,14 +705,14 @@ static inline void enic_queue_wq_skb_tso(struct enic *enic,
+ 	for (frag = skb_shinfo(skb)->frags; len_left; frag++) {
+ 		len_left -= frag->size;
+ 		frag_len_left = frag->size;
+-		offset = frag->page_offset;
++		offset = 0;
  
--		get_page(page->buffer);
--		frag->page = page->buffer;
-+		__skb_frag_set_page(frag, page->buffer);
-+		__skb_frag_ref(frag);
- 		frag->page_offset = off;
- 		frag->size = hlen - swivel;
- 
-@@ -2072,8 +2072,8 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
- 			skb->len      += hlen;
- 			frag++;
- 
--			get_page(page->buffer);
--			frag->page = page->buffer;
-+			__skb_frag_set_page(frag, page->buffer);
-+			__skb_frag_ref(frag);
- 			frag->page_offset = 0;
- 			frag->size = hlen;
- 			RX_USED_ADD(page, hlen + cp->crc_size);
-@@ -2830,9 +2830,8 @@ static inline int cas_xmit_tx_ringN(struct cas *cp, int ring,
- 		skb_frag_t *fragp = &skb_shinfo(skb)->frags[frag];
- 
- 		len = fragp->size;
--		mapping = pci_map_page(cp->pdev, fragp->page,
--				       fragp->page_offset, len,
--				       PCI_DMA_TODEVICE);
-+		mapping = skb_frag_dma_map(&cp->pdev->dev, fragp, 0, len,
-+					   PCI_DMA_TODEVICE);
- 
- 		tabort = cas_calc_tabort(cp, fragp->page_offset, len);
- 		if (unlikely(tabort)) {
-@@ -2843,7 +2842,7 @@ static inline int cas_xmit_tx_ringN(struct cas *cp, int ring,
- 				      ctrl, 0);
- 			entry = TX_DESC_NEXT(ring, entry);
- 
--			addr = cas_page_map(fragp->page);
-+			addr = cas_page_map(skb_frag_page(fragp));
- 			memcpy(tx_tiny_buf(cp, ring, entry),
- 			       addr + fragp->page_offset + len - tabort,
- 			       tabort);
+ 		while (frag_len_left) {
+ 			len = min(frag_len_left,
+ 				(unsigned int)WQ_ENET_MAX_DESC_LEN);
+-			dma_addr = pci_map_page(enic->pdev, frag->page,
+-				offset, len,
+-				PCI_DMA_TODEVICE);
++			dma_addr = skb_frag_dma_map(&enic->pdev->dev, frag,
++						    offset, len,
++						    PCI_DMA_TODEVICE);
+ 			enic_queue_wq_desc_cont(wq, skb,
+ 				dma_addr,
+ 				len,
 -- 
 1.7.2.5
