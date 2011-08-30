@@ -1,8 +1,7 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH 5/8] bnx2x: don't reset device while reading its
- configuration.
-Date: Tue, 30 Aug 2011 13:08:43 +0300
-Message-ID: <1314698926-24525-6-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH 4/8] bnx2x: fix MF for 4-port devices
+Date: Tue, 30 Aug 2011 13:08:42 +0300
+Message-ID: <1314698926-24525-5-git-send-email-dmitry@broadcom.com>
 References: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,112 +10,245 @@ Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3516 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3491 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753000Ab1H3KIw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752986Ab1H3KIw (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 30 Aug 2011 06:08:52 -0400
 In-Reply-To: <1314698926-24525-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Number of VNs for 4-port devices is 2 instead of 4
+
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_main.c |   24 +++++++++++++++---------
- drivers/net/bnx2x/bnx2x_reg.h  |    2 +-
- 2 files changed, 16 insertions(+), 10 deletions(-)
+ drivers/net/bnx2x/bnx2x.h       |   15 +++++++------
+ drivers/net/bnx2x/bnx2x_main.c  |   43 +++++++++++++++++++++++---------------
+ drivers/net/bnx2x/bnx2x_stats.c |    4 +-
+ 3 files changed, 36 insertions(+), 26 deletions(-)
 
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 8529732..2621a1c 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -1166,11 +1166,12 @@ struct bnx2x {
+ #define BP_PORT(bp)			(bp->pfid & 1)
+ #define BP_FUNC(bp)			(bp->pfid)
+ #define BP_ABS_FUNC(bp)			(bp->pf_num)
+-#define BP_E1HVN(bp)			(bp->pfid >> 1)
+-#define BP_VN(bp)			(BP_E1HVN(bp)) /*remove when approved*/
+-#define BP_L_ID(bp)			(BP_E1HVN(bp) << 2)
+-#define BP_FW_MB_IDX(bp)		(BP_PORT(bp) +\
+-	  BP_VN(bp) * ((CHIP_IS_E1x(bp) || (CHIP_MODE_IS_4_PORT(bp))) ? 2  : 1))
++#define BP_VN(bp)			((bp)->pfid >> 1)
++#define BP_MAX_VN_NUM(bp)		(CHIP_MODE_IS_4_PORT(bp) ? 2 : 4)
++#define BP_L_ID(bp)			(BP_VN(bp) << 2)
++#define BP_FW_MB_IDX_VN(bp, vn)		(BP_PORT(bp) +\
++	  (vn) * ((CHIP_IS_E1x(bp) || (CHIP_MODE_IS_4_PORT(bp))) ? 2  : 1))
++#define BP_FW_MB_IDX(bp)		BP_FW_MB_IDX_VN(bp, BP_VN(bp))
+ 
+ 	struct net_device	*dev;
+ 	struct pci_dev		*pdev;
+@@ -1833,7 +1834,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ 
+ #define MAX_DMAE_C_PER_PORT		8
+ #define INIT_DMAE_C(bp)			(BP_PORT(bp) * MAX_DMAE_C_PER_PORT + \
+-					 BP_E1HVN(bp))
++					 BP_VN(bp))
+ #define PMF_DMAE_C(bp)			(BP_PORT(bp) * MAX_DMAE_C_PER_PORT + \
+ 					 E1HVN_MAX)
+ 
+@@ -1859,7 +1860,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ 
+ /* must be used on a CID before placing it on a HW ring */
+ #define HW_CID(bp, x)			((BP_PORT(bp) << 23) | \
+-					 (BP_E1HVN(bp) << BNX2X_SWCID_SHIFT) | \
++					 (BP_VN(bp) << BNX2X_SWCID_SHIFT) | \
+ 					 (x))
+ 
+ #define SP_DESC_CNT		(BCM_PAGE_SIZE / sizeof(struct eth_spe))
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 9633e9b..00dc8f0 100644
+index 3f93e86..9633e9b 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -5822,7 +5822,7 @@ static int bnx2x_init_hw_common(struct bnx2x *bp)
- 	 * take the UNDI lock to protect undi_unload flow from accessing
- 	 * registers while we're resetting the chip
- 	 */
--	bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
-+	bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
+@@ -407,8 +407,8 @@ u32 bnx2x_dmae_opcode(struct bnx2x *bp, u8 src_type, u8 dst_type,
+ 	opcode |= (DMAE_CMD_SRC_RESET | DMAE_CMD_DST_RESET);
  
- 	bnx2x_reset_common(bp);
- 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_1_SET, 0xffffffff);
-@@ -5834,7 +5834,7 @@ static int bnx2x_init_hw_common(struct bnx2x *bp)
- 	}
- 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_SET, val);
+ 	opcode |= (BP_PORT(bp) ? DMAE_CMD_PORT_1 : DMAE_CMD_PORT_0);
+-	opcode |= ((BP_E1HVN(bp) << DMAE_CMD_E1HVN_SHIFT) |
+-		   (BP_E1HVN(bp) << DMAE_COMMAND_DST_VN_SHIFT));
++	opcode |= ((BP_VN(bp) << DMAE_CMD_E1HVN_SHIFT) |
++		   (BP_VN(bp) << DMAE_COMMAND_DST_VN_SHIFT));
+ 	opcode |= (DMAE_COM_SET_ERR << DMAE_COMMAND_ERR_POLICY_SHIFT);
  
--	bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
-+	bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
+ #ifdef __BIG_ENDIAN
+@@ -1419,7 +1419,7 @@ static void bnx2x_hc_int_enable(struct bnx2x *bp)
+ 	if (!CHIP_IS_E1(bp)) {
+ 		/* init leading/trailing edge */
+ 		if (IS_MF(bp)) {
+-			val = (0xee0f | (1 << (BP_E1HVN(bp) + 4)));
++			val = (0xee0f | (1 << (BP_VN(bp) + 4)));
+ 			if (bp->port.pmf)
+ 				/* enable nig and gpio3 attention */
+ 				val |= 0x1100;
+@@ -1471,7 +1471,7 @@ static void bnx2x_igu_int_enable(struct bnx2x *bp)
  
- 	bnx2x_init_block(bp, BLOCK_MISC, PHASE_COMMON);
+ 	/* init leading/trailing edge */
+ 	if (IS_MF(bp)) {
+-		val = (0xee0f | (1 << (BP_E1HVN(bp) + 4)));
++		val = (0xee0f | (1 << (BP_VN(bp) + 4)));
+ 		if (bp->port.pmf)
+ 			/* enable nig and gpio3 attention */
+ 			val |= 0x1100;
+@@ -2287,7 +2287,7 @@ static void bnx2x_calc_vn_weight_sum(struct bnx2x *bp)
+ 	int vn;
  
-@@ -8570,10 +8570,12 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
- 	/* Check if there is any driver already loaded */
- 	val = REG_RD(bp, MISC_REG_UNPREPARED);
- 	if (val == 0x1) {
--		/* Check if it is the UNDI driver
-+
-+		bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
-+		/*
-+		 * Check if it is the UNDI driver
- 		 * UNDI driver initializes CID offset for normal bell to 0x7
- 		 */
--		bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
- 		val = REG_RD(bp, DORQ_REG_NORM_CID_OFST);
- 		if (val == 0x7) {
- 			u32 reset_code = DRV_MSG_CODE_UNLOAD_REQ_WOL_DIS;
-@@ -8611,9 +8613,6 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
- 				bnx2x_fw_command(bp, reset_code, 0);
- 			}
- 
--			/* now it's safe to release the lock */
--			bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
--
- 			bnx2x_undi_int_disable(bp);
- 			port = BP_PORT(bp);
- 
-@@ -8663,8 +8662,10 @@ static void __devinit bnx2x_undi_unload(struct bnx2x *bp)
- 			bp->fw_seq =
- 			      (SHMEM_RD(bp, func_mb[bp->pf_num].drv_mb_header) &
- 				DRV_MSG_SEQ_NUMBER_MASK);
--		} else
--			bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_UNDI);
-+		}
-+
-+		/* now it's safe to release the lock */
-+		bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
- 	}
+ 	bp->vn_weight_sum = 0;
+-	for (vn = VN_0; vn < E1HVN_MAX; vn++) {
++	for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++) {
+ 		u32 vn_cfg = bp->mf_config[vn];
+ 		u32 vn_min_rate = ((vn_cfg & FUNC_MF_CFG_MIN_BW_MASK) >>
+ 				   FUNC_MF_CFG_MIN_BW_SHIFT) * 100;
+@@ -2320,12 +2320,18 @@ static void bnx2x_calc_vn_weight_sum(struct bnx2x *bp)
+ 					CMNG_FLAGS_PER_PORT_FAIRNESS_VN;
  }
  
-@@ -9440,6 +9441,10 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
- 		bp->igu_base_sb = 0;
- 	} else {
- 		bp->common.int_block = INT_BLOCK_IGU;
++/* returns func by VN for current port */
++static inline int func_by_vn(struct bnx2x *bp, int vn)
++{
++	return 2 * vn + BP_PORT(bp);
++}
 +
-+		/* do not allow device reset during IGU info preocessing */
-+		bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
-+
- 		val = REG_RD(bp, IGU_REG_BLOCK_CONFIGURATION);
+ static void bnx2x_init_vn_minmax(struct bnx2x *bp, int vn)
+ {
+ 	struct rate_shaping_vars_per_vn m_rs_vn;
+ 	struct fairness_vars_per_vn m_fair_vn;
+ 	u32 vn_cfg = bp->mf_config[vn];
+-	int func = 2*vn + BP_PORT(bp);
++	int func = func_by_vn(bp, vn);
+ 	u16 vn_min_rate, vn_max_rate;
+ 	int i;
  
- 		if (val & IGU_BLOCK_CONFIGURATION_REG_BACKWARD_COMP_EN) {
-@@ -9471,6 +9476,7 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
+@@ -2422,7 +2428,7 @@ void bnx2x_read_mf_cfg(struct bnx2x *bp)
+ 	 *
+ 	 *      and there are 2 functions per port
+ 	 */
+-	for (vn = VN_0; vn < E1HVN_MAX; vn++) {
++	for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++) {
+ 		int /*abs*/func = n * (2 * vn + BP_PORT(bp)) + BP_PATH(bp);
  
- 		bnx2x_get_igu_cam_info(bp);
+ 		if (func >= E1H_FUNC_MAX)
+@@ -2454,7 +2460,7 @@ static void bnx2x_cmng_fns_init(struct bnx2x *bp, u8 read_cfg, u8 cmng_type)
  
-+		bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_RESET);
+ 		/* calculate and set min-max rate for each vn */
+ 		if (bp->port.pmf)
+-			for (vn = VN_0; vn < E1HVN_MAX; vn++)
++			for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++)
+ 				bnx2x_init_vn_minmax(bp, vn);
+ 
+ 		/* always enable rate shaping and fairness */
+@@ -2473,16 +2479,15 @@ static void bnx2x_cmng_fns_init(struct bnx2x *bp, u8 read_cfg, u8 cmng_type)
+ 
+ static inline void bnx2x_link_sync_notify(struct bnx2x *bp)
+ {
+-	int port = BP_PORT(bp);
+ 	int func;
+ 	int vn;
+ 
+ 	/* Set the attention towards other drivers on the same port */
+-	for (vn = VN_0; vn < E1HVN_MAX; vn++) {
+-		if (vn == BP_E1HVN(bp))
++	for (vn = VN_0; vn < BP_MAX_VN_NUM(bp); vn++) {
++		if (vn == BP_VN(bp))
+ 			continue;
+ 
+-		func = ((vn << 1) | port);
++		func = func_by_vn(bp, vn);
+ 		REG_WR(bp, MISC_REG_AEU_GENERAL_ATTN_0 +
+ 		       (LINK_SYNC_ATTENTION_BIT_FUNC_0 + func)*4, 1);
  	}
+@@ -2577,7 +2582,7 @@ static void bnx2x_pmf_update(struct bnx2x *bp)
+ 	bnx2x_dcbx_pmf_update(bp);
  
- 	/*
-diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
-index 40266c1..dac217d 100644
---- a/drivers/net/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/bnx2x/bnx2x_reg.h
-@@ -5766,7 +5766,7 @@
- #define HW_LOCK_RESOURCE_RECOVERY_LEADER_0			 8
- #define HW_LOCK_RESOURCE_RECOVERY_LEADER_1			 9
- #define HW_LOCK_RESOURCE_SPIO					 2
--#define HW_LOCK_RESOURCE_UNDI					 5
-+#define HW_LOCK_RESOURCE_RESET					 5
- #define AEU_INPUTS_ATTN_BITS_ATC_HW_INTERRUPT			 (0x1<<4)
- #define AEU_INPUTS_ATTN_BITS_ATC_PARITY_ERROR			 (0x1<<5)
- #define AEU_INPUTS_ATTN_BITS_BRB_PARITY_ERROR			 (0x1<<18)
+ 	/* enable nig attention */
+-	val = (0xff0f | (1 << (BP_E1HVN(bp) + 4)));
++	val = (0xff0f | (1 << (BP_VN(bp) + 4)));
+ 	if (bp->common.int_block == INT_BLOCK_HC) {
+ 		REG_WR(bp, HC_REG_TRAILING_EDGE_0 + port*8, val);
+ 		REG_WR(bp, HC_REG_LEADING_EDGE_0 + port*8, val);
+@@ -6686,12 +6691,16 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
+ 			if (CHIP_MODE_IS_4_PORT(bp))
+ 				dsb_idx = BP_FUNC(bp);
+ 			else
+-				dsb_idx = BP_E1HVN(bp);
++				dsb_idx = BP_VN(bp);
+ 
+ 			prod_offset = (CHIP_INT_MODE_IS_BC(bp) ?
+ 				       IGU_BC_BASE_DSB_PROD + dsb_idx :
+ 				       IGU_NORM_BASE_DSB_PROD + dsb_idx);
+ 
++			/*
++			 * igu prods come in chunks of E1HVN_MAX (4) -
++			 * does not matters what is the current chip mode
++			 */
+ 			for (i = 0; i < (num_segs * E1HVN_MAX);
+ 			     i += E1HVN_MAX) {
+ 				addr = IGU_REG_PROD_CONS_MEMORY +
+@@ -7585,7 +7594,7 @@ u32 bnx2x_send_unload_req(struct bnx2x *bp, int unload_mode)
+ 		u32 val;
+ 		/* The mac address is written to entries 1-4 to
+ 		   preserve entry 0 which is used by the PMF */
+-		u8 entry = (BP_E1HVN(bp) + 1)*8;
++		u8 entry = (BP_VN(bp) + 1)*8;
+ 
+ 		val = (mac_addr[0] << 8) | mac_addr[1];
+ 		EMAC_WR(bp, EMAC_REG_EMAC_MAC_MATCH + entry, val);
+@@ -8792,13 +8801,13 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
+ static void __devinit bnx2x_get_igu_cam_info(struct bnx2x *bp)
+ {
+ 	int pfid = BP_FUNC(bp);
+-	int vn = BP_E1HVN(bp);
+ 	int igu_sb_id;
+ 	u32 val;
+ 	u8 fid, igu_sb_cnt = 0;
+ 
+ 	bp->igu_base_sb = 0xff;
+ 	if (CHIP_INT_MODE_IS_BC(bp)) {
++		int vn = BP_VN(bp);
+ 		igu_sb_cnt = bp->igu_sb_cnt;
+ 		bp->igu_base_sb = (CHIP_MODE_IS_4_PORT(bp) ? pfid : vn) *
+ 			FP_SB_MAX_E1x;
+@@ -9488,7 +9497,7 @@ static int __devinit bnx2x_get_hwinfo(struct bnx2x *bp)
+ 
+ 	bp->mf_ov = 0;
+ 	bp->mf_mode = 0;
+-	vn = BP_E1HVN(bp);
++	vn = BP_VN(bp);
+ 
+ 	if (!CHIP_IS_E1(bp) && !BP_NOMCP(bp)) {
+ 		BNX2X_DEV_INFO("shmem2base 0x%x, size %d, mfcfg offset %d\n",
+diff --git a/drivers/net/bnx2x/bnx2x_stats.c b/drivers/net/bnx2x/bnx2x_stats.c
+index f5d9b42..9908f2b 100644
+--- a/drivers/net/bnx2x/bnx2x_stats.c
++++ b/drivers/net/bnx2x/bnx2x_stats.c
+@@ -1392,7 +1392,7 @@ static void bnx2x_port_stats_base_init(struct bnx2x *bp)
+ 
+ static void bnx2x_func_stats_base_init(struct bnx2x *bp)
+ {
+-	int vn, vn_max = IS_MF(bp) ? E1HVN_MAX : E1VN_MAX;
++	int vn, vn_max = IS_MF(bp) ? BP_MAX_VN_NUM(bp) : E1VN_MAX;
+ 	u32 func_stx;
+ 
+ 	/* sanity */
+@@ -1405,7 +1405,7 @@ static void bnx2x_func_stats_base_init(struct bnx2x *bp)
+ 	func_stx = bp->func_stx;
+ 
+ 	for (vn = VN_0; vn < vn_max; vn++) {
+-		int mb_idx = CHIP_IS_E1x(bp) ? 2*vn + BP_PORT(bp) : vn;
++		int mb_idx = BP_FW_MB_IDX_VN(bp, vn);
+ 
+ 		bp->func_stx = SHMEM_RD(bp, func_mb[mb_idx].fw_mb_param);
+ 		bnx2x_func_stats_init(bp);
 -- 
 1.7.2.2
