@@ -1,53 +1,77 @@
-From: =?utf-8?B?5q+P5aSp6YO95pyJ5paw5Lmw5a62?= <admin@bcis.net.cn>
-Subject: =?utf-8?B?5pyA5paw5bm/5Lqk5Lya5Lmw5a625bqTKzUwMOS4h+a1t+WkluS5sOWutui1hOa6kCs=?=
-	=?utf-8?B?6YKu5Lu25Y+R6YCB5pa55qGIPeavj+WkqemDveacieaWsOS5sOWutuWbnuWkje+8gQ==?=
-Date: Tue, 30 Aug 2011 05:44:18 +0000 (UTC)
-Message-ID: <20111002125723776034@bcis.net.cn>
-Reply-To: <1339625218@qq.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
+From: Max Matveev <makc@redhat.com>
+Subject: [PATCH] sctp: deal with multiple COOKIE_ECHO chunks
+Date: Tue, 30 Aug 2011 17:02:24 +1000
+Message-ID: <20110830072010.94AE98132707@regina.usersys.redhat.com>
+Cc: netdev@vger.kernel.org, vladislav.yasevich@hp.com
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [183.62.138.135] ([183.62.138.135]:41903 "HELO bcis.net.cn"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1750977Ab1H3FoM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Aug 2011 01:44:12 -0400
-Date: Sun, 2 Oct 2011 12:57:12 +0800
+Received: from mx1.redhat.com ([209.132.183.28]:5212 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750742Ab1H3HUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 03:20:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NTAw5LiH5rW35aSW5Lmw5a626LWE5rqQK+mCruS7tuWPkemAgeaWueahiCvmtbflpJbkubDlrrZF
-bWFpbOaQnOe0ouacuj3mr4/lpKnpg73mnInlrqLmiLflm57lpI3vvIENCjUwMOS4h+a1t+WkluS5
-sOWutui1hOa6kCvpgq7ku7blj5HpgIHmlrnmoYgr5rW35aSW5Lmw5a62RW1haWzmkJzntKLmnLo9
-5q+P5aSp6YO95pyJ5a6i5oi35Zue5aSN77yBDQoNCjHjgIE1MDDkuIfkubDlrrbotYTmupDvvJog
-6LWg6YCB55qENTAw5LiH5Lmw5a626LWE5rqQ5bqT77yM5pu05pawICjlj6/ku6XmjInnhafmgqjn
-moTkuqflk4Hmj5Dlj5blh7rmnaXvvIzmm7Tnsr7lh4blvIDlj5Ep44CCIA0KMuOAgei2hee6p+a1
-t+WkluS5sOWutkVtYWls5pCc57Si5py677yaIOWGhee9ruS6hjYwMOS4h+ihjOS4muWFs+mUruiv
-je+8jOagueaNrumVv+WwvuivjeaQnOe0ou+8jOe7k+aenOabtOeyvuehruWMuemFje+8m+avj+Wk
-qeiDveaQnOe0ojEtMuS4h+S7peS4iuS5sOWutuecn+WunkVNQUlM77yM5oiQ5Y2V546H6auY44CC
-IA0KM+OAgee+pOWPkei9r+S7tu+8miDmk43kvZznroDljZXvvIzlip/og73lvLrlpKfvvIzmqKHk
-u7/kurrlt6Xmk43kvZzmqKHlvI/vvIzliLDovr7njofpq5jvvIzml6Xlj5HpgIE15LiH5bCB5Lul
-5LiK44CCIA0KIA0K5pSv5oyB5pSv5LuY5a6d5ouF5L+d5Lqk5piTICjlhYjlj5HotKflubblrono
-o4Xorr7nva7nvqTlj5Hova/ku7bvvIznhLblkI7ku5jmrL4pIOW9u+W6leaJk+a2iOaCqOeahCDp
-ob7omZHjgIINCg0K6K+36IGU57O777yaDQpRUToxMzM5NjI1MjE4ICAgZW1haWw6IDEzMzk2MjUy
-MThAcXEuY29tDQpRUToxMzM5NjI1MjE4ICAgZW1haWw6IDEzMzk2MjUyMThAcXEuY29tDQpRUTox
-MzM5NjI1MjE4ICAgZW1haWw6IDEzMzk2MjUyMThAcXEuY29tDQpRUToxMzM5NjI1MjE4ICAgZW1h
-aWw6IDEzMzk2MjUyMThAcXEuY29tDQpRUToxMzM5NjI1MjE4ICAgZW1haWw6IDEzMzk2MjUyMThA
-cXEuY29tDQpRUToxMzM5NjI1MjE4ICAgZW1haWw6IDEzMzk2MjUyMThAcXEuY29tDQoNCuWFjei0
-uei1oOmAgToNCjHjgIHotoXnuqfmtbflpJbkubDlrrbmkJzntKLmnLos5Y+v5Lul6L275p2+5omr
-5o+P5Ye6IDUwMC0xMDAw5LiH5Lmw5a62RW1haWzvvIzlu7rnq4voh6rlt7HnmoTokKXplIDmlbDm
-ja7lupPjgIINCjLjgIEyMDA55bm05rW35YWz5o+Q5Y2V5pWw5o2ucGllcnPniYjmlbDmja4gMeWN
-g+S4h+OAgg0KM+OAgTIwMTHmmKXlraMxMDnlsYrlub/kuqTkvJrkubDlrrbnjrDlnLror6Lnm5jm
-lbDmja7lupPmlrDpspzlh7rngonvvIzotoXnuqfmlrDpspzkubDlrrbvvIzmlrDpspzmlbDmja7v
-vIzlrrnmmJPmiJDljZXvvIEgDQo044CBMjAwOOW5tOiHszIwMTDlubQg5pil5a2jK+eni+Wto+W5
-v+S6pOS8muS5sOWutuWQjeW9le+8jDEwMyAxMDQgMTA1IDEwNiAxMDcgMTA4IOWFseWFreWxiu+8
-jOWFsTEyMC425LiH5pWw5o2u44CCIA0KNeOAgeacgOaWsOWFqOeQg+S5sOWutuW6kyzlhbE0NTE2
-NjDmnaHmlbDmja7vvIzmr4/kuKrlnYfmnIlFbWFpbOOAgg0KNuOAgTIwMTDlubTlm73pmYXkv4Pp
-lIDljY/kvJrvvIhQUEFJ77yJ5oiQ5ZGY5ZCN5Y2VIFBQQUkgTWVtYmVycyBEaXJlY3RvcnnvvIzp
-nZ7luLjph43opoHnmoTlpKfkubDlrrbjgIINCjfjgIEyMDEw5bm05Yiw6aaZ5riv6YeH6LSt55qE
-5Zu95aSW5a6i5Lq65ZCN5b2VKOmmmea4r+i0uOWPkeWxgOaPkOS+mynvvIzlhbE3LjLkuIfmlbDm
-ja7vvIzotoXnuqfph43opoHnmoTkubDlrrbjgIINCjjjgIExMDDkuIfmnaHlm73lpJbotLjmmJPo
-r6Lnm5jvvIzmr4/kuKrlnYfmnIlFbWFpbOOAgg0KOeOAgeS5sOWutui1hOa6kOabtOaWsOS4reOA
-guOAguOAgg0K5YWo6YOo6YO95pyJ44CCDQogDQo=
+Attempt to reduce the number of IP packets emitted in response to single
+SCTP packet (2e3216cd) introduced a complication - if a packet contains
+two COOKIE_ECHO chunks and nothing else then SCTP state machine corks the
+socket while processing first COOKIE_ECHO and then loses the association
+and forgets to uncork the socket. To deal with the issue add new SCTP
+command which can be used to set association explictly. Use this new
+command when processing second COOKIE_ECHO chunk to restore the context
+for SCTP state machine.
+
+Signed-off-by: Max Matveev <makc@redhat.com>
+---
+ include/net/sctp/command.h |    1 +
+ net/sctp/sm_sideeffect.c   |    5 +++++
+ net/sctp/sm_statefuns.c    |    6 ++++++
+ 3 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+index 6506458..712b3be 100644
+--- a/include/net/sctp/command.h
++++ b/include/net/sctp/command.h
+@@ -109,6 +109,7 @@ typedef enum {
+ 	SCTP_CMD_SEND_MSG,	 /* Send the whole use message */
+ 	SCTP_CMD_SEND_NEXT_ASCONF, /* Send the next ASCONF after ACK */
+ 	SCTP_CMD_PURGE_ASCONF_QUEUE, /* Purge all asconf queues.*/
++	SCTP_CMD_SET_ASOC,	 /* Restore association context */
+ 	SCTP_CMD_LAST
+ } sctp_verb_t;
+ 
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 167c880..76388b0 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -1689,6 +1689,11 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+ 		case SCTP_CMD_PURGE_ASCONF_QUEUE:
+ 			sctp_asconf_queue_teardown(asoc);
+ 			break;
++
++		case SCTP_CMD_SET_ASOC:
++			asoc = cmd->obj.asoc;
++			break;
++
+ 		default:
+ 			pr_warn("Impossible command: %u, %p\n",
+ 				cmd->verb, cmd->obj.ptr);
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 49b847b..1949703 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -2047,6 +2047,12 @@ sctp_disposition_t sctp_sf_do_5_2_4_dupcook(const struct sctp_endpoint *ep,
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
+ 
++	/* Restore association pointer to provide SCTP command interpeter 
++ 	 * with a valid context in case it needs to manipulate 
++ 	 * the queues */
++	sctp_add_cmd_sf(commands, SCTP_CMD_SET_ASOC,
++			 SCTP_ASOC((struct sctp_association *)asoc));
++
+ 	return retval;
+ 
+ nomem:
+-- 
+1.7.4.4
