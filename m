@@ -1,67 +1,81 @@
 From: kaber@trash.net
-Subject: [PATCH 1/8] netfilter: xt_rateest: fix xt_rateest_mt_checkentry()
-Date: Tue, 30 Aug 2011 16:41:14 +0200
-Message-ID: <1314715281-26233-2-git-send-email-kaber@trash.net>
+Subject: [PATCH 2/8] netfilter: ip_queue: Fix small leak in ipq_build_packet_message()
+Date: Tue, 30 Aug 2011 16:41:15 +0200
+Message-ID: <1314715281-26233-3-git-send-email-kaber@trash.net>
 References: <1314715281-26233-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56977 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754533Ab1H3Ol1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 10:41:27 -0400
 In-Reply-To: <1314715281-26233-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jesper Juhl <jj@chaosbits.net>
 
-commit 4a5a5c73b7cfee (slightly better error reporting) added some
-useless code in xt_rateest_mt_checkentry().
+ipq_build_packet_message() in net/ipv4/netfilter/ip_queue.c and
+net/ipv6/netfilter/ip6_queue.c contain a small potential mem leak as
+far as I can tell.
 
-Fix this so that different error codes can really be returned.
+We allocate memory for 'skb' with alloc_skb() annd then call
+ nlh = NLMSG_PUT(skb, 0, 0, IPQM_PACKET, size - sizeof(*nlh));
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Jan Engelhardt <jengelh@medozas.de>
+NLMSG_PUT is a macro
+ NLMSG_PUT(skb, pid, seq, type, len) \
+  		NLMSG_NEW(skb, pid, seq, type, len, 0)
+
+that expands to NLMSG_NEW, which is also a macro which expands to:
+ NLMSG_NEW(skb, pid, seq, type, len, flags) \
+  	({	if (unlikely(skb_tailroom(skb) < (int)NLMSG_SPACE(len))) \
+  			goto nlmsg_failure; \
+  		__nlmsg_put(skb, pid, seq, type, len, flags); })
+
+If we take the true branch of the 'if' statement and 'goto
+nlmsg_failure', then we'll, at that point, return from
+ipq_build_packet_message() without having assigned 'skb' to anything
+and we'll leak the memory we allocated for it when it goes out of
+scope.
+
+Fix this by placing a 'kfree(skb)' at 'nlmsg_failure'.
+
+I admit that I do not know how likely this to actually happen or even
+if there's something that guarantees that it will never happen - I'm
+not that familiar with this code, but if that is so, I've not been
+able to spot it.
+
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/xt_rateest.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+ net/ipv4/netfilter/ip_queue.c  |    1 +
+ net/ipv6/netfilter/ip6_queue.c |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/xt_rateest.c b/net/netfilter/xt_rateest.c
-index 76a0831..ed0db15 100644
---- a/net/netfilter/xt_rateest.c
-+++ b/net/netfilter/xt_rateest.c
-@@ -78,7 +78,7 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
- {
- 	struct xt_rateest_match_info *info = par->matchinfo;
- 	struct xt_rateest *est1, *est2;
--	int ret = false;
-+	int ret = -EINVAL;
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index 5c9b9d9..48f7d5b 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -218,6 +218,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
+ 	return skb;
  
- 	if (hweight32(info->flags & (XT_RATEEST_MATCH_ABS |
- 				     XT_RATEEST_MATCH_REL)) != 1)
-@@ -101,13 +101,12 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
- 	if (!est1)
- 		goto err1;
+ nlmsg_failure:
++	kfree_skb(skb);
+ 	*errp = -EINVAL;
+ 	printk(KERN_ERR "ip_queue: error creating packet message\n");
+ 	return NULL;
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 2493948..87b243a 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -218,6 +218,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
+ 	return skb;
  
-+	est2 = NULL;
- 	if (info->flags & XT_RATEEST_MATCH_REL) {
- 		est2 = xt_rateest_lookup(info->name2);
- 		if (!est2)
- 			goto err2;
--	} else
--		est2 = NULL;
--
-+	}
- 
- 	info->est1 = est1;
- 	info->est2 = est2;
-@@ -116,7 +115,7 @@ static int xt_rateest_mt_checkentry(const struct xt_mtchk_param *par)
- err2:
- 	xt_rateest_put(est1);
- err1:
--	return -EINVAL;
-+	return ret;
- }
- 
- static void xt_rateest_mt_destroy(const struct xt_mtdtor_param *par)
+ nlmsg_failure:
++	kfree_skb(skb);
+ 	*errp = -EINVAL;
+ 	printk(KERN_ERR "ip6_queue: error creating packet message\n");
+ 	return NULL;
 -- 
 1.7.2.3
-
