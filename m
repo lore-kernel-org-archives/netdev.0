@@ -1,47 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 06/24] netfilter: Remove unnecessary OOM logging
- messages
-Date: Tue, 30 Aug 2011 09:13:38 -0700
-Message-ID: <1314720818.14422.1.camel@Joe-Laptop>
-References: <cover.1314650069.git.joe@perches.com>
-	 <13c1c12486cae409dfa5254b1435e660f2b17e05.1314650069.git.joe@perches.com>
-	 <4E5CDBAA.6040001@trash.net>
+From: "Vlad Zolotarov" <vladz@broadcom.com>
+Subject: Re: [PATCH 5/7] bnx2x: do not set TPA flags and features in
+ bnx2x_init_bp
+Date: Tue, 30 Aug 2011 19:21:22 +0300
+Message-ID: <201108301921.22838.vladz@broadcom.com>
+References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
+ <1314714646-3642-6-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Bart De Schuymer <bart.de.schuymer@pandora.be>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <4E5CDBAA.6040001@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Michal Schmidt" <mschmidt@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2105 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755758Ab1H3QV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Aug 2011 12:21:56 -0400
+In-Reply-To: <1314714646-3642-6-git-send-email-mschmidt@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-08-30 at 14:46 +0200, Patrick McHardy wrote:
-> On 29.08.2011 23:17, Joe Perches wrote:
-> > Removing unnecessary messages saves code and text.
-> > Site specific OOM messages are duplications of a generic MM
-> > out of memory message and aren't really useful, so just
-> > delete them.
-> Looks good to me. Do you want me to apply this patch or are you
-> intending to have the entire series go through Dave?
+On Tuesday 30 August 2011 17:30:44 Michal Schmidt wrote:
+> The .ndo_{set,fix}_features callbacks are sufficient.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    9 ---------
+>  1 files changed, 0 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c index 64314f7..617a072
+> 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> @@ -9752,15 +9752,6 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+>  					"must load devices in order!\n");
+> 
+>  	bp->multi_mode = multi_mode;
+> -
+> -	/* Set TPA flags */
+> -	if (disable_tpa) {
+> -		bp->flags &= ~TPA_ENABLE_FLAG;
+> -		bp->dev->features &= ~NETIF_F_LRO;
+> -	} else {
+> -		bp->flags |= TPA_ENABLE_FLAG;
+> -		bp->dev->features |= NETIF_F_LRO;
+> -	}
+>  	bp->disable_tpa = disable_tpa;
+> 
+>  	if (CHIP_IS_E1(bp))
 
-It doesn't matter to me one way or another.
+NACK
 
-If you pick this one up, when I redo these
-to separate vmalloc from the the other alloc
-cases, I'll won't send netfilter again.
+This patch will cause the bnx2x to initialize HW with LRO disabled on the 
+first ifup because our code considers the TPA_ENABLE_FLAG when desiding on 
+whether LRO is enabled or not. ethtool would still report the LRO on though!
 
-cheers, Joe
-
+thanks,
+vlad
