@@ -1,42 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 06/24] netfilter: Remove unnecessary OOM logging messages
-Date: Wed, 31 Aug 2011 12:13:02 +0200
-Message-ID: <4E5E092E.80507@trash.net>
-References: <cover.1314650069.git.joe@perches.com>	<13c1c12486cae409dfa5254b1435e660f2b17e05.1314650069.git.joe@perches.com>	<4E5CDBAA.6040001@trash.net> <20110830.135502.179848097213434762.davem@davemloft.net>
+From: "Vlad Zolotarov" <vladz@broadcom.com>
+Subject: Re: [PATCH 4/7] bnx2x: simplify TPA sanity check
+Date: Wed, 31 Aug 2011 13:22:14 +0300
+Message-ID: <201108311322.15160.vladz@broadcom.com>
+References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
+ <1314714646-3642-5-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, bart.de.schuymer@pandora.be, wensong@linux-vs.org,
-	horms@verge.net.au, ja@ssi.bg, shemminger@linux-foundation.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20110830.135502.179848097213434762.davem@davemloft.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Michal Schmidt" <mschmidt@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2651 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754537Ab1HaKWz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Aug 2011 06:22:55 -0400
+In-Reply-To: <1314714646-3642-5-git-send-email-mschmidt@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30.08.2011 19:55, David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Tue, 30 Aug 2011 14:46:34 +0200
+On Tuesday 30 August 2011 17:30:43 Michal Schmidt wrote:
+> In the TPA branch we already know the CQE type is either START or STOP.
+> No need to test for that. Even if the type were to differ, we wouldn't
+> want to suppress the error message.
 > 
->> On 29.08.2011 23:17, Joe Perches wrote:
->>> Removing unnecessary messages saves code and text.
->>>
->>> Site specific OOM messages are duplications of a generic MM
->>> out of memory message and aren't really useful, so just
->>> delete them.
->>
->> Looks good to me. Do you want me to apply this patch or are you
->> intending to have the entire series go through Dave?
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    4 +---
+>  1 files changed, 1 insertions(+), 3 deletions(-)
 > 
-> I'm happy with subsystem folks taking things in if they want, the
-> B.A.T.M.A.N. guys did this earlier today for example.
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c index f1fea58..fe5be0c
+> 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> @@ -634,9 +634,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+>  		if (!CQE_TYPE_FAST(cqe_fp_type)) {
+>  #ifdef BNX2X_STOP_ON_ERROR
+>  			/* sanity check */
+> -			if (fp->disable_tpa &&
+> -			    (CQE_TYPE_START(cqe_fp_type) ||
+> -			     CQE_TYPE_STOP(cqe_fp_type)))
+> +			if (fp->disable_tpa)
+>  				BNX2X_ERR("START/STOP packet while "
+>  					  "disable_tpa type %x\n",
+>  					  CQE_TYPE(cqe_fp_type));
 
-OK, thanks.
-
-Applied after fixing up some minor rejects in nf_nat_snmp_basic.c,
-thanks Joe.
+Acked-by: Vladislav Zolotarov <vladz@broadcom.com>
