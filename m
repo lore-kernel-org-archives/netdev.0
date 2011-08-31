@@ -1,71 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: linkwatch: allow vlans to get carrier
- changes faster
-Date: Wed, 31 Aug 2011 11:31:58 +0200
-Message-ID: <1314783118.2801.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20110826060257.5304.62723.stgit@ltc219.sdl.hitachi.co.jp>
-	 <20110825230859.11b2b132@nehalam.ftrdhcpuser.net>
-	 <20110826064553.GA5874@gondor.apana.org.au>  <4E5A40A9.2000404@hitachi.com>
-	 <1314540589.3036.12.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?Q?Micha=C5=82Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	Tom Herbert <therbert@google.com>,
-	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
-To: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1314540589.3036.12.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ripduman Sohan <ripduman.sohan@cl.cam.ac.uk>
+Subject: [PATCH 1/2] Remove requirement to set tx-usecs-irq for shared channels when modifying coalescing parameters
+Date: Wed, 31 Aug 2011 10:38:00 +0100
+Message-ID: <1314783480-29910-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
+Cc: netdev@vger.kernel.org,
+	Ripduman Sohan <ripduman.sohan@cl.cam.ac.uk>
+To: linux-net-drivers@solarflare.com, shodgson@solarflare.com,
+	bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta0.cl.cam.ac.uk ([128.232.25.20]:54816 "EHLO
+	mta0.cl.cam.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755103Ab1HaJpg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 05:45:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is a time-lag of IFF_RUNNING flag consistency between vlan and
-real devices when the real devices are in problem such as link or cable
-broken.
+Shared TX/RX channels possess a single channel timer controlled by the
+rx-usecs-irq parameter.  Changing coalescing parameters required
+explicitly setting the tx-usecs-irq parameter to 0.  Ethtool (to HEAD
+of tree) does not do this and instead retrieves and re-submits the
+current tx-usecs-irq value resulting in an unsupported operation
+error.  I found this behaviour counter-intuitive and was only able to
+work out correct moderation parameters by studying the driver code.
 
-This leads to a degradation of Availability such as a delay of failover
-in HA systems using vlan since the detection of the problem at real
-device is delayed.
-
-We can avoid the linkwatch delay (~1 sec) for devices linked to another
-ones, since delay is already done for the realdev.
-
-Based on a previous patch from Mitsuo Hayasaka
-
-Reported-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
-Cc: Tom Herbert <therbert@google.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Jesse Gross <jesse@nicira.com>
+This patch relaxes the requirement to set tx-usecs-irq to 0 by only
+erring if the presented tx-usecs-irq value differs from the current
+value.  I acknowledge, however, that there may be existing scripts
+relying on the old behaviour and so this condition is only triggered
+if a value for tx-usecs-irq is actually presented.
 ---
- net/core/link_watch.c |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/sfc/efx.c     |    6 +++---
+ drivers/net/sfc/efx.h     |    1 +
+ drivers/net/sfc/ethtool.c |    4 +++-
+ 3 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/link_watch.c b/net/core/link_watch.c
-index 357bd4e..c3519c6 100644
---- a/net/core/link_watch.c
-+++ b/net/core/link_watch.c
-@@ -78,8 +78,13 @@ static void rfc2863_policy(struct net_device *dev)
-=20
- static bool linkwatch_urgent_event(struct net_device *dev)
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index faca764..9a313cd 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1556,7 +1556,7 @@ static void efx_remove_all(struct efx_nic *efx)
+  *
+  **************************************************************************/
+ 
+-static unsigned irq_mod_ticks(int usecs, int resolution)
++unsigned efx_irq_mod_ticks(int usecs, int resolution)
  {
--	return netif_running(dev) && netif_carrier_ok(dev) &&
--		qdisc_tx_changing(dev);
-+	if (!netif_running(dev))
-+		return false;
-+
-+	if (dev->ifindex !=3D dev->iflink)
-+		return true;
-+
-+	return netif_carrier_ok(dev) &&	qdisc_tx_changing(dev);
- }
-=20
-=20
+ 	if (usecs <= 0)
+ 		return 0; /* cannot receive interrupts ahead of time :-) */
+@@ -1570,8 +1570,8 @@ void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs, int rx_usecs,
+ 			     bool rx_adaptive)
+ {
+ 	struct efx_channel *channel;
+-	unsigned tx_ticks = irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION);
+-	unsigned rx_ticks = irq_mod_ticks(rx_usecs, EFX_IRQ_MOD_RESOLUTION);
++	unsigned tx_ticks = efx_irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION);
++	unsigned rx_ticks = efx_irq_mod_ticks(rx_usecs, EFX_IRQ_MOD_RESOLUTION);
+ 
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+ 
+diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
+index b0d1209..ddfcc7e 100644
+--- a/drivers/net/sfc/efx.h
++++ b/drivers/net/sfc/efx.h
+@@ -113,6 +113,7 @@ extern int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok);
+ extern void efx_schedule_reset(struct efx_nic *efx, enum reset_type type);
+ extern void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs,
+ 				    int rx_usecs, bool rx_adaptive);
++extern unsigned efx_irq_mod_ticks(int usecs, int resolution);
+ 
+ /* Dummy PHY ops for PHY drivers */
+ extern int efx_port_dummy_op_int(struct efx_nic *efx);
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index bc4643a..0a52447 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -644,7 +644,9 @@ static int efx_ethtool_set_coalesce(struct net_device *net_dev,
+ 	efx_for_each_channel(channel, efx) {
+ 		if (efx_channel_has_rx_queue(channel) &&
+ 		    efx_channel_has_tx_queues(channel) &&
+-		    tx_usecs) {
++		    tx_usecs &&
++		    efx_irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION) !=
++		    channel->irq_moderation) {
+ 			netif_err(efx, drv, efx->net_dev, "Channel is shared. "
+ 				  "Only RX coalescing may be set\n");
+ 			return -EOPNOTSUPP;
+-- 
+1.7.1
