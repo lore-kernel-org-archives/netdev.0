@@ -1,86 +1,55 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 4/9] stmmac: add MMC support exported via ethtool (v2)
-Date: Wed, 31 Aug 2011 07:52:40 +0200
-Message-ID: <4E5DCC28.90201@st.com>
-References: <1314714064-29101-1-git-send-email-peppe.cavallaro@st.com>  <1314714064-29101-5-git-send-email-peppe.cavallaro@st.com> <1314718004.2752.15.camel@bwh-desktop>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: slow performance on disk/network i/o full speed after drop_caches
+Date: Wed, 31 Aug 2011 09:11:02 +0200
+Message-ID: <4E5DDE86.3040202@profihost.ag>
+References: <4E5494D4.1050605@profihost.ag> <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com> <4E54BDCF.9020504@profihost.ag> <20110824093336.GB5214@localhost> <4E560F2A.1030801@profihost.ag> <20110826021648.GA19529@localhost> <4E570AEB.1040703@profihost.ag> <20110826030313.GA24058@localhost> <D299D0AE-2F3C-42E2-9723-A3D7C0108C40@profihost.ag> <20110826032601.GA26282@localhost> <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com> <4E573A99.4060309@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:47145 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753221Ab1HaFwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 01:52:54 -0400
-In-Reply-To: <1314718004.2752.15.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Wu Fengguang <fengguang.wu@intel.com>,
+ Pekka Enberg <penberg@kernel.org>,
+ LKML <linux-kernel@vger.kernel.org>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>,
+ Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mel@csn.ul.ie>,
+ Jens Axboe <jaxboe@fusionio.com>,
+ Linux Netdev List <netdev@vger.kernel.org>
+To: Zhu Yanhai <zhu.yanhai@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4E573A99.4060309@profihost.ag>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hello Ben
+Hi Fengguang,
+Hi Yanhai,
 
-On 8/30/2011 5:26 PM, Ben Hutchings wrote:
-> On Tue, 2011-08-30 at 16:20 +0200, Giuseppe CAVALLARO wrote:
->> This patch adds the MMC management counters support.
->> MMC module is an extension of the register address
->> space and all the hardware counters can be accessed
->> via ethtoo -S ethX.
->>
->> Note that, the MMC interrupts remain masked and the logic
->> to handle this kind of interrupt will be added later (if
->> actually useful).
-> [...]
->>  static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
->>  				      struct ethtool_drvinfo *info)
->>  {
->>  	struct stmmac_priv *priv = netdev_priv(dev);
->>  
->> -	if (!priv->plat->has_gmac)
->> -		strcpy(info->driver, MAC100_ETHTOOL_NAME);
->> -	else
->> +	info->n_stats = STMMAC_STATS_LEN;
->> +
->> +	if (likely(priv->plat->has_gmac)) {
-> 
-> Using likely() and unlikely() in ethtool operations seems like a
-> pointless optimisation.
+> you're abssolutely corect zone_reclaim_mode is on - but why?
+> There must be some linux software which switches it on.
+>
+> ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
+> ~#
+>
+> also
+> ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
+> ~#
+>
+> tells us nothing.
+>
+> I've then read this:
+>
+> "zone_reclaim_mode is set during bootup to 1 if it is determined that
+> pages from remote zones will cause a measurable performance reduction.
+> The page allocator will then reclaim easily reusable pages (those page
+> cache pages that are currently not used) before allocating off node pages."
+>
+> Why does the kernel do that here in our case on these machines.
 
-I agree with you that ethtool part is not critical and likely/unlikely
-could be not used at all.
+Can nobody help why the kernel in this case set it to 1?
 
-I had added them because today, AFAIK, the driver works on several
-platforms with the GMAC and continues to support MAC10/100 (that I test
-in my lab). I had thought that the likely/unlikely in ethtool can help
-to emit instructions that causes optimize branch prediction to favor the
-"likely" GMAC side.
+Stefan
 
-At any rate, no problem to rework the patch deleting them or create a
-new one on top of these.
-
-> 
->>  		strcpy(info->driver, GMAC_ETHTOOL_NAME);
->> +		info->n_stats += STMMAC_MMC_STATS_LEN;
->> +	} else
->> +		strcpy(info->driver, MAC100_ETHTOOL_NAME);
->>  
->>  	strcpy(info->version, DRV_MODULE_VERSION);
->>  	info->fw_version[0] = '\0';
->> -	info->n_stats = STMMAC_STATS_LEN;
->>  }
-> [...]
-> 
-> Don't bother initialising ethtool_drvinfo::n_stats.  The ethtool core
-> will do it by calling your get_sset_count implementation.
-
-Ok! thanks I missed this.
-
-As above, let me know if I have to resent the patches or create a new
-patch for this fix too.
-
-In the end, any other advice?
-
-Regards
-Peppe
-> 
-> Ben.
-> 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
