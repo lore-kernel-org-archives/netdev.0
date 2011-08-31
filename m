@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 08/12] bna: Async Mode Tx Rx Init Fix
-Date: Tue, 30 Aug 2011 18:27:44 -0700
-Message-ID: <1314754068-31978-9-git-send-email-rmody@brocade.com>
+Subject: [net-next 12/12] bna: Driver Version changed to 3.0.2.1
+Date: Tue, 30 Aug 2011 18:27:48 -0700
+Message-ID: <1314754068-31978-13-git-send-email-rmody@brocade.com>
 References: <1314754068-31978-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,127 +10,32 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:35103 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:35109 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754709Ab1HaB2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 21:28:20 -0400
+	by vger.kernel.org with ESMTP id S1754728Ab1HaB21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 21:28:27 -0400
 In-Reply-To: <1314754068-31978-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - Async mode of Tx/Rx queue initialization in BNAD from a task queue context
-   runs into non-unique taskq allocation issues. Get rid of Tx/Rx
-   initialization from task q context
- - In the attach function, wait for IOC enable, then do Tx/Rx queue
-   initialization. Default BNA attributes are used when IOC enable from attach
-   fails and values are set to:
-   1 TxQ, 1 RxQ, 1 Unicast MAC, 1 RIT entry
-
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bna_enet.c    |   29 ++++++++++++++++++-----
- drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    4 +++
- drivers/net/ethernet/brocade/bna/bna_types.h   |    1 +
- 3 files changed, 27 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
-index 68a275d..26f5c5a 100644
---- a/drivers/net/ethernet/brocade/bna/bna_enet.c
-+++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
-@@ -167,13 +167,14 @@ bna_bfi_attr_get_rsp(struct bna_ioceth *ioceth,
- 	 * Store only if not set earlier, since BNAD can override the HW
- 	 * attributes
- 	 */
--	if (!ioceth->attr.num_txq)
-+	if (!ioceth->attr.fw_query_complete) {
- 		ioceth->attr.num_txq = ntohl(rsp->max_cfg);
--	if (!ioceth->attr.num_rxp)
- 		ioceth->attr.num_rxp = ntohl(rsp->max_cfg);
--	ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
--	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
--	ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
-+		ioceth->attr.num_ucmac = ntohl(rsp->max_ucmac);
-+		ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
-+		ioceth->attr.max_rit_size = ntohl(rsp->rit_size);
-+		ioceth->attr.fw_query_complete = true;
-+	}
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index 6c42c14..1c9328d 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -71,7 +71,7 @@ struct bnad_rx_ctrl {
+ #define BNAD_NAME			"bna"
+ #define BNAD_NAME_LEN			64
  
- 	bfa_fsm_send_event(ioceth, IOCETH_E_ENET_ATTR_RESP);
- }
-@@ -1693,6 +1694,16 @@ static struct bfa_ioc_cbfn bna_ioceth_cbfn = {
- 	bna_cb_ioceth_reset
- };
+-#define BNAD_VERSION			"3.0.2.0"
++#define BNAD_VERSION			"3.0.2.1"
  
-+static void bna_attr_init(struct bna_ioceth *ioceth)
-+{
-+	ioceth->attr.num_txq = BFI_ENET_DEF_TXQ;
-+	ioceth->attr.num_rxp = BFI_ENET_DEF_RXP;
-+	ioceth->attr.num_ucmac = BFI_ENET_DEF_UCAM;
-+	ioceth->attr.num_mcmac = BFI_ENET_MAX_MCAM;
-+	ioceth->attr.max_rit_size = BFI_ENET_DEF_RITSZ;
-+	ioceth->attr.fw_query_complete = false;
-+}
-+
- static void
- bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
- 		struct bna_res_info *res_info)
-@@ -1738,6 +1749,8 @@ bna_ioceth_init(struct bna_ioceth *ioceth, struct bna *bna,
- 	ioceth->stop_cbfn = NULL;
- 	ioceth->stop_cbarg = NULL;
- 
-+	bna_attr_init(ioceth);
-+
- 	bfa_fsm_set_state(ioceth, bna_ioceth_sm_stopped);
- }
- 
-@@ -2036,7 +2049,8 @@ bna_uninit(struct bna *bna)
- int
- bna_num_txq_set(struct bna *bna, int num_txq)
- {
--	if (num_txq > 0 && (num_txq <= bna->ioceth.attr.num_txq)) {
-+	if (bna->ioceth.attr.fw_query_complete &&
-+		(num_txq <= bna->ioceth.attr.num_txq)) {
- 		bna->ioceth.attr.num_txq = num_txq;
- 		return BNA_CB_SUCCESS;
- 	}
-@@ -2047,7 +2061,8 @@ bna_num_txq_set(struct bna *bna, int num_txq)
- int
- bna_num_rxp_set(struct bna *bna, int num_rxp)
- {
--	if (num_rxp > 0 && (num_rxp <= bna->ioceth.attr.num_rxp)) {
-+	if (bna->ioceth.attr.fw_query_complete &&
-+		(num_rxp <= bna->ioceth.attr.num_rxp)) {
- 		bna->ioceth.attr.num_rxp = num_rxp;
- 		return BNA_CB_SUCCESS;
- 	}
-diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-index 7ecdca5..dde8a46 100644
---- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-+++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-@@ -30,6 +30,10 @@
-  * SW imposed limits
-  *
-  */
-+#define BFI_ENET_DEF_TXQ		1
-+#define BFI_ENET_DEF_RXP		1
-+#define BFI_ENET_DEF_UCAM		1
-+#define BFI_ENET_DEF_RITSZ		1
- 
- #define BFI_ENET_MAX_MCAM		256
- 
-diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
-index 59417b1..242d799 100644
---- a/drivers/net/ethernet/brocade/bna/bna_types.h
-+++ b/drivers/net/ethernet/brocade/bna/bna_types.h
-@@ -323,6 +323,7 @@ struct bna_qpt {
- };
- 
- struct bna_attr {
-+	bool			fw_query_complete;
- 	int			num_txq;
- 	int			num_rxp;
- 	int			num_ucmac;
+ #define BNAD_MAILBOX_MSIX_INDEX		0
+ #define BNAD_MAILBOX_MSIX_VECTORS	1
 -- 
 1.7.1
