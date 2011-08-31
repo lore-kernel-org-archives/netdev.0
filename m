@@ -1,49 +1,135 @@
-From: Kavan Smith <kavansmith82-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] iPhone 4 Verizon CDMA USB Product ID add
-Date: Wed, 31 Aug 2011 08:12:05 -0700
-Message-ID: <1314803525-3451-1-git-send-email-kavansmith82@gmail.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kavan Smith <kavansmith82-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6] net: allow notifier subscribers to forbid device from closing
+Date: Wed, 31 Aug 2011 17:15:31 +0200
+Message-ID: <1314803731-1222-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46335 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755849Ab1HaPPh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Aug 2011 11:15:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add USB product ID for iPhone 4 CDMA Verizon
-Tested on at least 2 devices
+In some situations, like when the device is used as slave device in
+bond/br/etc it is not nice if someone closes the device. This allows
+it's masters to forbid this closure.
 
-Signed-off-by: Kavan Smith <kavansmith82-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/usb/ipheth.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |    1 +
+ net/core/dev.c            |   34 ++++++++++++++++++++++++++++------
+ net/core/rtnetlink.c      |    1 +
+ 3 files changed, 30 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index 15772b1..13c1f04 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -59,6 +59,7 @@
- #define USB_PRODUCT_IPHONE_3G   0x1292
- #define USB_PRODUCT_IPHONE_3GS  0x1294
- #define USB_PRODUCT_IPHONE_4	0x1297
-+#define USB_PRODUCT_IPHONE_4_VZW 0x129c
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index dad7e4d..b8047d3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1559,6 +1559,7 @@ struct packet_type {
+ #define NETDEV_RELEASE		0x0012
+ #define NETDEV_NOTIFY_PEERS	0x0013
+ #define NETDEV_JOIN		0x0014
++#define NETDEV_PRE_DOWN		0x0015
  
- #define IPHETH_USBINTF_CLASS    255
- #define IPHETH_USBINTF_SUBCLASS 253
-@@ -98,6 +99,10 @@ static struct usb_device_id ipheth_table[] = {
- 		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_4,
- 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
- 		IPHETH_USBINTF_PROTO) },
-+	{ USB_DEVICE_AND_INTERFACE_INFO(
-+		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_4_VZW,
-+		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
-+		IPHETH_USBINTF_PROTO) },
- 	{ }
- };
- MODULE_DEVICE_TABLE(usb, ipheth_table);
+ extern int register_netdevice_notifier(struct notifier_block *nb);
+ extern int unregister_netdevice_notifier(struct notifier_block *nb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 11b0fc7..d252a7e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1253,11 +1253,24 @@ static int __dev_close_many(struct list_head *head)
+ 	return 0;
+ }
+ 
++static int __dev_pre_close(struct net_device *dev)
++{
++	int err;
++
++	err = call_netdevice_notifiers(NETDEV_PRE_DOWN, dev);
++	if (err)
++		return notifier_to_errno(err);
++	return 0;
++}
++
+ static int __dev_close(struct net_device *dev)
+ {
+ 	int retval;
+ 	LIST_HEAD(single);
+ 
++	retval = __dev_pre_close(dev);
++	if (retval)
++		return retval;
+ 	list_add(&dev->unreg_list, &single);
+ 	retval = __dev_close_many(&single);
+ 	list_del(&single);
+@@ -1269,9 +1282,12 @@ static int dev_close_many(struct list_head *head)
+ 	struct net_device *dev, *tmp;
+ 	LIST_HEAD(tmp_list);
+ 
+-	list_for_each_entry_safe(dev, tmp, head, unreg_list)
++	list_for_each_entry_safe(dev, tmp, head, unreg_list) {
+ 		if (!(dev->flags & IFF_UP))
+ 			list_move(&dev->unreg_list, &tmp_list);
++		else
++			__dev_pre_close(dev);
++	}
+ 
+ 	__dev_close_many(head);
+ 
+@@ -1289,21 +1305,26 @@ static int dev_close_many(struct list_head *head)
+  *	dev_close - shutdown an interface.
+  *	@dev: device to shutdown
+  *
+- *	This function moves an active device into down state. A
+- *	%NETDEV_GOING_DOWN is sent to the netdev notifier chain. The device
+- *	is then deactivated and finally a %NETDEV_DOWN is sent to the notifier
+- *	chain.
++ *	This function moves an active device into down state.
++ *	A %NETDEV_PRE_DOWN and %NETDEV_GOING_DOWN is sent to the netdev
++ *	notifier chain. The device is then deactivated and finally
++ *	a %NETDEV_DOWN is sent to the notifier chain.
+  */
+ int dev_close(struct net_device *dev)
+ {
++	int retval = 0;
++
+ 	if (dev->flags & IFF_UP) {
+ 		LIST_HEAD(single);
+ 
++		retval = __dev_pre_close(dev);
++		if (retval)
++			return retval;
+ 		list_add(&dev->unreg_list, &single);
+ 		dev_close_many(&single);
+ 		list_del(&single);
+ 	}
+-	return 0;
++	return retval;
+ }
+ EXPORT_SYMBOL(dev_close);
+ 
+@@ -1397,6 +1418,7 @@ rollback:
+ 				break;
+ 
+ 			if (dev->flags & IFF_UP) {
++				nb->notifier_call(nb, NETDEV_PRE_DOWN, dev);
+ 				nb->notifier_call(nb, NETDEV_GOING_DOWN, dev);
+ 				nb->notifier_call(nb, NETDEV_DOWN, dev);
+ 			}
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 39f8dd6..34f5b32 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1997,6 +1997,7 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+ 	case NETDEV_UP:
+ 	case NETDEV_DOWN:
+ 	case NETDEV_PRE_UP:
++	case NETDEV_PRE_DOWN:
+ 	case NETDEV_POST_INIT:
+ 	case NETDEV_REGISTER:
+ 	case NETDEV_CHANGE:
 -- 
-1.7.0.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.6
