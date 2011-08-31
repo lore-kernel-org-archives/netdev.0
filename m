@@ -1,185 +1,86 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH RFT v3] bnx2: don't request firmware when there's no userspace.
-Date: Wed, 31 Aug 2011 06:59:43 +0200
-Message-ID: <20110831045943.GB24254@electric-eye.fr.zoreil.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 4/9] stmmac: add MMC support exported via ethtool (v2)
+Date: Wed, 31 Aug 2011 07:52:40 +0200
+Message-ID: <4E5DCC28.90201@st.com>
+References: <1314714064-29101-1-git-send-email-peppe.cavallaro@st.com>  <1314714064-29101-5-git-send-email-peppe.cavallaro@st.com> <1314718004.2752.15.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:37105 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752758Ab1HaFSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 01:18:10 -0400
-Content-Disposition: inline
+Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:47145 "EHLO
+	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753221Ab1HaFwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 01:52:54 -0400
+In-Reply-To: <1314718004.2752.15.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The firmware is cached during the first successful call to open() and
-released once the network device is unregistered. The driver uses the
-cached firmware between open() and unregister_netdev().
+Hello Ben
 
-It's similar to 953a12cc2889d1be92e80a2d0bab5ffef4942300 but the
-firmware is mandatory.
+On 8/30/2011 5:26 PM, Ben Hutchings wrote:
+> On Tue, 2011-08-30 at 16:20 +0200, Giuseppe CAVALLARO wrote:
+>> This patch adds the MMC management counters support.
+>> MMC module is an extension of the register address
+>> space and all the hardware counters can be accessed
+>> via ethtoo -S ethX.
+>>
+>> Note that, the MMC interrupts remain masked and the logic
+>> to handle this kind of interrupt will be added later (if
+>> actually useful).
+> [...]
+>>  static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
+>>  				      struct ethtool_drvinfo *info)
+>>  {
+>>  	struct stmmac_priv *priv = netdev_priv(dev);
+>>  
+>> -	if (!priv->plat->has_gmac)
+>> -		strcpy(info->driver, MAC100_ETHTOOL_NAME);
+>> -	else
+>> +	info->n_stats = STMMAC_STATS_LEN;
+>> +
+>> +	if (likely(priv->plat->has_gmac)) {
+> 
+> Using likely() and unlikely() in ethtool operations seems like a
+> pointless optimisation.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
----
- Since v2: remove erroneous __devinit.
- Since v1: conditional release in bnx2_release_firmware.
+I agree with you that ethtool part is not critical and likely/unlikely
+could be not used at all.
 
- drivers/net/bnx2.c |   64 ++++++++++++++++++++++++++++++++-------------------
- 1 files changed, 40 insertions(+), 24 deletions(-)
+I had added them because today, AFAIK, the driver works on several
+platforms with the GMAC and continues to support MAC10/100 (that I test
+in my lab). I had thought that the likely/unlikely in ethtool can help
+to emit instructions that causes optimize branch prediction to favor the
+"likely" GMAC side.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 4b2b570..87a21c1 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -3649,8 +3649,17 @@ check_mips_fw_entry(const struct firmware *fw,
- 	return 0;
- }
- 
--static int __devinit
--bnx2_request_firmware(struct bnx2 *bp)
-+static void bnx2_release_firmware(struct bnx2 *bp)
-+{
-+	if (bp->rv2p_firmware) {
-+		release_firmware(bp->mips_firmware);
-+		release_firmware(bp->rv2p_firmware);
-+		bp->rv2p_firmware = NULL;
-+	}
-+}
-+
-+static int
-+bnx2_request_uncached_firmware(struct bnx2 *bp)
- {
- 	const char *mips_fw_file, *rv2p_fw_file;
- 	const struct bnx2_mips_fw_file *mips_fw;
-@@ -3672,13 +3681,13 @@ bnx2_request_firmware(struct bnx2 *bp)
- 	rc = request_firmware(&bp->mips_firmware, mips_fw_file, &bp->pdev->dev);
- 	if (rc) {
- 		pr_err("Can't load firmware file \"%s\"\n", mips_fw_file);
--		return rc;
-+		goto out;
- 	}
- 
- 	rc = request_firmware(&bp->rv2p_firmware, rv2p_fw_file, &bp->pdev->dev);
- 	if (rc) {
- 		pr_err("Can't load firmware file \"%s\"\n", rv2p_fw_file);
--		return rc;
-+		goto err_release_mips_firmware;
- 	}
- 	mips_fw = (const struct bnx2_mips_fw_file *) bp->mips_firmware->data;
- 	rv2p_fw = (const struct bnx2_rv2p_fw_file *) bp->rv2p_firmware->data;
-@@ -3689,16 +3698,30 @@ bnx2_request_firmware(struct bnx2 *bp)
- 	    check_mips_fw_entry(bp->mips_firmware, &mips_fw->tpat) ||
- 	    check_mips_fw_entry(bp->mips_firmware, &mips_fw->txp)) {
- 		pr_err("Firmware file \"%s\" is invalid\n", mips_fw_file);
--		return -EINVAL;
-+		rc = -EINVAL;
-+		goto err_release_firmware;
- 	}
- 	if (bp->rv2p_firmware->size < sizeof(*rv2p_fw) ||
- 	    check_fw_section(bp->rv2p_firmware, &rv2p_fw->proc1.rv2p, 8, true) ||
- 	    check_fw_section(bp->rv2p_firmware, &rv2p_fw->proc2.rv2p, 8, true)) {
- 		pr_err("Firmware file \"%s\" is invalid\n", rv2p_fw_file);
--		return -EINVAL;
-+		rc = -EINVAL;
-+		goto err_release_firmware;
- 	}
-+out:
-+	return rc;
- 
--	return 0;
-+err_release_firmware:
-+	release_firmware(bp->rv2p_firmware);
-+	bp->rv2p_firmware = NULL;
-+err_release_mips_firmware:
-+	release_firmware(bp->mips_firmware);
-+	goto out;
-+}
-+
-+static int bnx2_request_firmware(struct bnx2 *bp)
-+{
-+	return bp->rv2p_firmware ? 0 : bnx2_request_uncached_firmware(bp);
- }
- 
- static u32
-@@ -6266,6 +6289,10 @@ bnx2_open(struct net_device *dev)
- 	struct bnx2 *bp = netdev_priv(dev);
- 	int rc;
- 
-+	rc = bnx2_request_firmware(bp);
-+	if (rc < 0)
-+		goto out;
-+
- 	netif_carrier_off(dev);
- 
- 	bnx2_set_power_state(bp, PCI_D0);
-@@ -6326,8 +6353,8 @@ bnx2_open(struct net_device *dev)
- 		netdev_info(dev, "using MSIX\n");
- 
- 	netif_tx_start_all_queues(dev);
--
--	return 0;
-+out:
-+	return rc;
- 
- open_err:
- 	bnx2_napi_disable(bp);
-@@ -6335,7 +6362,8 @@ open_err:
- 	bnx2_free_irq(bp);
- 	bnx2_free_mem(bp);
- 	bnx2_del_napi(bp);
--	return rc;
-+	bnx2_release_firmware(bp);
-+	goto out;
- }
- 
- static void
-@@ -8353,10 +8381,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	pci_set_drvdata(pdev, dev);
- 
--	rc = bnx2_request_firmware(bp);
--	if (rc)
--		goto error;
--
- 	memcpy(dev->dev_addr, bp->mac_addr, 6);
- 	memcpy(dev->perm_addr, bp->mac_addr, 6);
- 
-@@ -8387,11 +8411,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	return 0;
- 
- error:
--	if (bp->mips_firmware)
--		release_firmware(bp->mips_firmware);
--	if (bp->rv2p_firmware)
--		release_firmware(bp->rv2p_firmware);
--
- 	if (bp->regview)
- 		iounmap(bp->regview);
- 	pci_release_regions(pdev);
-@@ -8412,11 +8431,6 @@ bnx2_remove_one(struct pci_dev *pdev)
- 	del_timer_sync(&bp->timer);
- 	cancel_work_sync(&bp->reset_task);
- 
--	if (bp->mips_firmware)
--		release_firmware(bp->mips_firmware);
--	if (bp->rv2p_firmware)
--		release_firmware(bp->rv2p_firmware);
--
- 	if (bp->regview)
- 		iounmap(bp->regview);
- 
-@@ -8427,6 +8441,8 @@ bnx2_remove_one(struct pci_dev *pdev)
- 		bp->flags &= ~BNX2_FLAG_AER_ENABLED;
- 	}
- 
-+	bnx2_release_firmware(bp);
-+
- 	free_netdev(dev);
- 
- 	pci_release_regions(pdev);
--- 
-1.7.4.4
+At any rate, no problem to rework the patch deleting them or create a
+new one on top of these.
+
+> 
+>>  		strcpy(info->driver, GMAC_ETHTOOL_NAME);
+>> +		info->n_stats += STMMAC_MMC_STATS_LEN;
+>> +	} else
+>> +		strcpy(info->driver, MAC100_ETHTOOL_NAME);
+>>  
+>>  	strcpy(info->version, DRV_MODULE_VERSION);
+>>  	info->fw_version[0] = '\0';
+>> -	info->n_stats = STMMAC_STATS_LEN;
+>>  }
+> [...]
+> 
+> Don't bother initialising ethtool_drvinfo::n_stats.  The ethtool core
+> will do it by calling your get_sset_count implementation.
+
+Ok! thanks I missed this.
+
+As above, let me know if I have to resent the patches or create a new
+patch for this fix too.
+
+In the end, any other advice?
+
+Regards
+Peppe
+> 
+> Ben.
+> 
