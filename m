@@ -1,54 +1,72 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 3/3] r8169: support new chips of RTL8111F
-Date: Wed, 31 Aug 2011 21:13:58 +0200
-Message-ID: <20110831191358.GB24634@electric-eye.fr.zoreil.com>
-References: <1314807479-1552-1-git-send-email-hayeswang@realtek.com> <1314807479-1552-3-git-send-email-hayeswang@realtek.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: BQL crap and wireless
+Date: Wed, 31 Aug 2011 15:48:10 -0400
+Message-ID: <20110831194810.GD2474@tuxdriver.com>
+References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
+Cc: Tom Herbert <therbert@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Andrew McGregor <andrewmcgr@gmail.com>,
+	Matt Smith <smithm@qca.qualcomm.com>,
+	Kevin Hayes <hayes@qca.qualcomm.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Derek Smithies <derek@indranet.co.nz>, netdev@vger.kernel.org,
+	bloat@bufferbloat.net
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41917 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373Ab1HaTc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 15:32:26 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51342 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754041Ab1HaUAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 16:00:30 -0400
 Content-Disposition: inline
-In-Reply-To: <1314807479-1552-3-git-send-email-hayeswang@realtek.com>
+In-Reply-To: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hayes Wang <hayeswang@realtek.com> :
-[...]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 68f1e2f..c04fbc0 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-[...]
-> @@ -4476,6 +4602,49 @@ static void rtl_hw_start_8168e_2(void __iomem *ioaddr, struct pci_dev *pdev)
->  	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
->  }
->  
-> +static void rtl_hw_start_8168f_1(void __iomem *ioaddr, struct pci_dev *pdev)
-[...]
-> +	RTL_W8(MaxTxPacketSize, 0x27);
+On Fri, Aug 26, 2011 at 04:27:22PM -0700, Luis R. Rodriguez wrote:
+> I've just read this thread:
+> 
+> http://marc.info/?t=131277868500001&r=1&w=2
+> 
+> Since its not linux-wireless I'll chime in here. It seems that you are
+> trying to write an algorithm that will work for all networking and
+> 802.11 devices. For networking is seems tough given driver
+> architecture and structure and the hope that all drivers will report
+> things in a fairly similar way. For 802.11 it was pointed out how we
+> have varying bandwidths and depending on the technology used for
+> connection (AP, 802.11s, IBSS) a different number of possible peers
+> need to be considered. 802.11 faced similar algorithmic complexities
+> with rate control and the way Andrew and Derek resolved this was to
+> not assume you could solve this problem and simply test out the water
+> by trial and error, that gave birth to the minstrel rate control
+> algorithm which Felix later rewrote for mac80211 with 802.11n support
+> [1]. Can the BQL algorithm make use of the same trial and error
+> mechanism and simply try different values and and use EWMA [2] to pick
+> the best size for the queue ?
+> 
+> [1] http://wireless.kernel.org/en/developers/Documentation/mac80211/RateControl/minstrel
+> [2] http://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average
+> 
+>   Luis
 
-Hmmm...
+Since Luis has stirred things up, I took the liberty of adding Tom's
+BQL series to the debloat-testing tree:
 
-$ grep MaxTxPacketSize drivers/net/r8169.c
-	MaxTxPacketSize	= 0xec,	/* 8101/8168. Unit of 128 bytes. */
-	RTL_W8(MaxTxPacketSize, TxPacketMax);
-	RTL_W8(MaxTxPacketSize, TxPacketMax);
-	RTL_W8(MaxTxPacketSize, TxPacketMax);
-	RTL_W8(MaxTxPacketSize, TxPacketMax);
-	RTL_W8(MaxTxPacketSize, TxPacketMax);
-	RTL_W8(MaxTxPacketSize, TxPacketMax);
-	RTL_W8(MaxTxPacketSize, 0x27);
-	RTL_W8(MaxTxPacketSize, TxPacketMax);
-	RTL_W8(MaxTxPacketSize, TxPacketMax);
+	git://git.infradead.org/debloat-testing.git
 
-Is the 0x27 value still in units of 128 bytes ?
+I'm not sure how well BQL will interact with my eBDP-inspired hack,
+debloat-testing commit d2566a176589775cb3a1de4fade972aa62d551ff
+("mac80211: implement eBDP algorithm to fight bufferbloat").  So if
+anyone wants to try enabling a wireless driver for BQL, you might
+consider reverting that patch or at least testing without it.
 
-Could it be TxPacketMax as everywhere else in the driver instead of 0x27 ?
+<shameless plug>
+And, of course, don't forget to come to the Bufferbloat and Networking
+track at Linux Plumbers Conference next week in Santa Rosa, CA! :-)
+</shameless plug>
 
+John
 -- 
-Ueimor
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
