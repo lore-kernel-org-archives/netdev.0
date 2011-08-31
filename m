@@ -1,48 +1,45 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 7/7] bnx2x: expose HW RX VLAN stripping toggle
-Date: Wed, 31 Aug 2011 20:11:32 +0200
-Message-ID: <CAHXqBFKA0uHn7-KPSKmktXxKDbm9249+49NK42Pnmmg+N60eAw@mail.gmail.com>
-References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
- <201108311501.39936.vladz@broadcom.com> <20110831155324.7554d035@alice>
- <201108311807.53767.vladz@broadcom.com> <20110831173749.60649b50@alice> <20110831175120.739bd5c2@alice>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [PATCH 1/2] Define security_sk_getsecctx
+Date: Wed, 31 Aug 2011 14:46:01 -0400
+Message-ID: <1314816361.6850.51.camel@moss-pluto>
+References: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com>
+	 <1314779777-12669-2-git-send-email-rongqing.li@windriver.com>
+	 <4E5E568A.4050407@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vlad Zolotarov <vladz@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Michal Schmidt <mschmidt@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:48928 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756967Ab1HaSLw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 14:11:52 -0400
-Received: by iabu26 with SMTP id u26so991307iab.19
-        for <netdev@vger.kernel.org>; Wed, 31 Aug 2011 11:11:52 -0700 (PDT)
-In-Reply-To: <20110831175120.739bd5c2@alice>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: rongqing.li@windriver.com, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <4E5E568A.4050407@schaufler-ca.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2011/8/31 Michal Schmidt <mschmidt@redhat.com>:
-> On Wed, 31 Aug 2011 17:37:49 +0200 Michal Schmidt wrote:
->> I could restore dev->features before
->> returning if bnx2x_reload_if_running() fails.
->
-> Or even safer - restore them always:
-> =A0 =A0 =A0 =A0...
-> =A0 =A0 =A0 =A0u32 orig_features =3D dev->features;
-> =A0 =A0 =A0 =A0dev->features =3D features;
-> =A0 =A0 =A0 =A0ret =3D bnx2x_reload_if_running(dev);
-> =A0 =A0 =A0 =A0dev->features =3D orig_features;
-> =A0 =A0 =A0 =A0return ret;
-> =A0 =A0 =A0 =A0...
-> This way we don't have to assume anything about
-> __netdev_update_features().
+On Wed, 2011-08-31 at 08:43 -0700, Casey Schaufler wrote:
+> On 8/31/2011 1:36 AM, rongqing.li@windriver.com wrote:
+> > From: Roy.Li <rongqing.li@windriver.com>
+> >
+> > Define security_sk_getsecctx to return the security
+> > context of a sock.
+> 
+> So, what is the intended use of the information
+> coming from this hook? If I wanted to write the
+> Smack hook, which of the "contexts" would I want
+> to return? There are potentially three. If I know
+> what the caller is looking for, I can (hopefully)
+> select the correct information.
 
-The assignment in __netdev_update_features() is just to save copying
-that assignment all over the drivers' code. This won't change unless
-someone wants to break^Wchange the design.
+The initial use case is for netstat -Z so that it can reliably show the
+security context of the socket rather than inferring it from the owning
+process, which can be inaccurate for security-aware applications.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+In your situation, when in != out, which would you rather see in netstat
+-Z output?  Alternatively, if you want them both, perhaps you could
+combine in and out into a single string that is returned, similar to
+what you proposed for handling multiple xattrs with inode_getsecctx()?
+
+-- 
+Stephen Smalley
+National Security Agency
+
