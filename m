@@ -1,16 +1,16 @@
 From: Ripduman Sohan <ripduman.sohan@cl.cam.ac.uk>
-Subject: [PATCH 1/2] Remove requirement to set tx-usecs-irq for shared channels when modifying coalescing parameters
-Date: Wed, 31 Aug 2011 10:38:00 +0100
-Message-ID: <1314783480-29910-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
+Subject: [PATCH 1/2] sfc: Remove requirement to set tx-usecs-irq for shared channels when modifying coalescing parameters
+Date: Wed, 31 Aug 2011 10:52:36 +0100
+Message-ID: <1314784356-30619-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
 Cc: netdev@vger.kernel.org,
 	Ripduman Sohan <ripduman.sohan@cl.cam.ac.uk>
 To: linux-net-drivers@solarflare.com, shodgson@solarflare.com,
 	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta0.cl.cam.ac.uk ([128.232.25.20]:54816 "EHLO
+Received: from mta0.cl.cam.ac.uk ([128.232.25.20]:43539 "EHLO
 	mta0.cl.cam.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755103Ab1HaJpg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 05:45:36 -0400
+	with ESMTP id S1752674Ab1HaJwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 05:52:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
