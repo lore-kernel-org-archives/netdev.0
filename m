@@ -1,44 +1,184 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 10/12] bna: TX Queue Depth Fix
-Date: Wed, 31 Aug 2011 06:46:00 +0200
-Message-ID: <1314765960.11043.3.camel@edumazet-laptop>
-References: <1314754068-31978-1-git-send-email-rmody@brocade.com>
-	 <1314754068-31978-11-git-send-email-rmody@brocade.com>
-	 <1314764670.2556.23.camel@edumazet-laptop>
-	 <CAA93jw7OrqruzEu4EzEubqFdKpLrkPN9ksh5SSqU5pVcSCjgcw@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH RFT v2] bnx2: don't request firmware when there's no userspace.
+Date: Wed, 31 Aug 2011 06:48:24 +0200
+Message-ID: <20110831044824.GA24254@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rasesh Mody <rmody@brocade.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com,
-	Gurunatha Karaje <gkaraje@brocade.com>
-To: Dave Taht <dave.taht@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63412 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931Ab1HaEqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 00:46:08 -0400
-Received: by wyg24 with SMTP id 24so222924wyg.19
-        for <netdev@vger.kernel.org>; Tue, 30 Aug 2011 21:46:06 -0700 (PDT)
-In-Reply-To: <CAA93jw7OrqruzEu4EzEubqFdKpLrkPN9ksh5SSqU5pVcSCjgcw@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54502 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752560Ab1HaFG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 01:06:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 30 ao=C3=BBt 2011 =C3=A0 21:34 -0700, Dave Taht a =C3=A9crit :
-> On Tue, Aug 30, 2011 at 9:24 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
+The firmware is cached during the first successful call to open() and
+released once the network device is unregistered. The driver uses the
+cached firmware between open() and unregister_netdev().
 
-> > BNAD_MAX_Q_DEPTH is now defined but not used.
-> >
-> > BTW, 32768 slots in a RX queue is insane.
->=20
-> As that is many lunar distances worth of buffering... Are they
-> expecting transmissions from mars?
->=20
+It's similar to 953a12cc2889d1be92e80a2d0bab5ffef4942300 but the
+firmware is mandatory.
 
-At 10GB rate, this can be filled in ~2msec with small frames.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Michael Chan <mchan@broadcom.com>
+---
 
-Apparently some people business depend on not losing frames.
+ Since v1: conditional release in bnx2_release_firmware.
 
-But they should be warned of extra memory needs, and latency increases
-(because of a larger working set)
+ drivers/net/bnx2.c |   62 ++++++++++++++++++++++++++++++++-------------------
+ 1 files changed, 39 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 4b2b570..5764333 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -3649,8 +3649,17 @@ check_mips_fw_entry(const struct firmware *fw,
+ 	return 0;
+ }
+ 
++static void bnx2_release_firmware(struct bnx2 *bp)
++{
++	if (bp->rv2p_firmware) {
++		release_firmware(bp->mips_firmware);
++		release_firmware(bp->rv2p_firmware);
++		bp->rv2p_firmware = NULL;
++	}
++}
++
+ static int __devinit
+-bnx2_request_firmware(struct bnx2 *bp)
++bnx2_request_uncached_firmware(struct bnx2 *bp)
+ {
+ 	const char *mips_fw_file, *rv2p_fw_file;
+ 	const struct bnx2_mips_fw_file *mips_fw;
+@@ -3672,13 +3681,13 @@ bnx2_request_firmware(struct bnx2 *bp)
+ 	rc = request_firmware(&bp->mips_firmware, mips_fw_file, &bp->pdev->dev);
+ 	if (rc) {
+ 		pr_err("Can't load firmware file \"%s\"\n", mips_fw_file);
+-		return rc;
++		goto out;
+ 	}
+ 
+ 	rc = request_firmware(&bp->rv2p_firmware, rv2p_fw_file, &bp->pdev->dev);
+ 	if (rc) {
+ 		pr_err("Can't load firmware file \"%s\"\n", rv2p_fw_file);
+-		return rc;
++		goto err_release_mips_firmware;
+ 	}
+ 	mips_fw = (const struct bnx2_mips_fw_file *) bp->mips_firmware->data;
+ 	rv2p_fw = (const struct bnx2_rv2p_fw_file *) bp->rv2p_firmware->data;
+@@ -3689,16 +3698,30 @@ bnx2_request_firmware(struct bnx2 *bp)
+ 	    check_mips_fw_entry(bp->mips_firmware, &mips_fw->tpat) ||
+ 	    check_mips_fw_entry(bp->mips_firmware, &mips_fw->txp)) {
+ 		pr_err("Firmware file \"%s\" is invalid\n", mips_fw_file);
+-		return -EINVAL;
++		rc = -EINVAL;
++		goto err_release_firmware;
+ 	}
+ 	if (bp->rv2p_firmware->size < sizeof(*rv2p_fw) ||
+ 	    check_fw_section(bp->rv2p_firmware, &rv2p_fw->proc1.rv2p, 8, true) ||
+ 	    check_fw_section(bp->rv2p_firmware, &rv2p_fw->proc2.rv2p, 8, true)) {
+ 		pr_err("Firmware file \"%s\" is invalid\n", rv2p_fw_file);
+-		return -EINVAL;
++		rc = -EINVAL;
++		goto err_release_firmware;
+ 	}
++out:
++	return rc;
+ 
+-	return 0;
++err_release_firmware:
++	release_firmware(bp->rv2p_firmware);
++	bp->rv2p_firmware = NULL;
++err_release_mips_firmware:
++	release_firmware(bp->mips_firmware);
++	goto out;
++}
++
++static int bnx2_request_firmware(struct bnx2 *bp)
++{
++	return bp->rv2p_firmware ? 0 : bnx2_request_uncached_firmware(bp);
+ }
+ 
+ static u32
+@@ -6266,6 +6289,10 @@ bnx2_open(struct net_device *dev)
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 	int rc;
+ 
++	rc = bnx2_request_firmware(bp);
++	if (rc < 0)
++		goto out;
++
+ 	netif_carrier_off(dev);
+ 
+ 	bnx2_set_power_state(bp, PCI_D0);
+@@ -6326,8 +6353,8 @@ bnx2_open(struct net_device *dev)
+ 		netdev_info(dev, "using MSIX\n");
+ 
+ 	netif_tx_start_all_queues(dev);
+-
+-	return 0;
++out:
++	return rc;
+ 
+ open_err:
+ 	bnx2_napi_disable(bp);
+@@ -6335,7 +6362,8 @@ open_err:
+ 	bnx2_free_irq(bp);
+ 	bnx2_free_mem(bp);
+ 	bnx2_del_napi(bp);
+-	return rc;
++	bnx2_release_firmware(bp);
++	goto out;
+ }
+ 
+ static void
+@@ -8353,10 +8381,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
+-	rc = bnx2_request_firmware(bp);
+-	if (rc)
+-		goto error;
+-
+ 	memcpy(dev->dev_addr, bp->mac_addr, 6);
+ 	memcpy(dev->perm_addr, bp->mac_addr, 6);
+ 
+@@ -8387,11 +8411,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	return 0;
+ 
+ error:
+-	if (bp->mips_firmware)
+-		release_firmware(bp->mips_firmware);
+-	if (bp->rv2p_firmware)
+-		release_firmware(bp->rv2p_firmware);
+-
+ 	if (bp->regview)
+ 		iounmap(bp->regview);
+ 	pci_release_regions(pdev);
+@@ -8412,11 +8431,6 @@ bnx2_remove_one(struct pci_dev *pdev)
+ 	del_timer_sync(&bp->timer);
+ 	cancel_work_sync(&bp->reset_task);
+ 
+-	if (bp->mips_firmware)
+-		release_firmware(bp->mips_firmware);
+-	if (bp->rv2p_firmware)
+-		release_firmware(bp->rv2p_firmware);
+-
+ 	if (bp->regview)
+ 		iounmap(bp->regview);
+ 
+@@ -8427,6 +8441,8 @@ bnx2_remove_one(struct pci_dev *pdev)
+ 		bp->flags &= ~BNX2_FLAG_AER_ENABLED;
+ 	}
+ 
++	bnx2_release_firmware(bp);
++
+ 	free_netdev(dev);
+ 
+ 	pci_release_regions(pdev);
+-- 
+1.7.4.4
