@@ -1,36 +1,44 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: [PATCH 0/14] skb fragment API: convert network drivers (part II)
-Date: Wed, 31 Aug 2011 11:46:48 +0100
-Message-ID: <1314787608.28989.41.camel@zakaz.uk.xensource.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH 01/14] ibmveth: convert to SKB paged frag API.
+Date: Wed, 31 Aug 2011 11:46:53 +0100
+Message-ID: <1314787626-12273-1-git-send-email-ian.campbell@citrix.com>
+References: <1314787608.28989.41.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Santiago Leon <santil@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:33082 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207Ab1HaKqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 06:46:50 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:10632 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753319Ab1HaKrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 06:47:10 -0400
+In-Reply-To: <1314787608.28989.41.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series converts the second batch of network drivers to the
-SKB pages fragment API introduced in 131ea6675c76. I expect there will
-be ~4 similarly sized batches to convert all the drivers over.
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Santiago Leon <santil@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/ibm/ibmveth.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-This is part of my series to enable visibility into SKB paged fragment's
-lifecycles, [0] contains some more background and rationale but
-basically the completed series will allow entities which inject pages
-into the networking stack to receive a notification when the stack has
-really finished with those pages (i.e. including retransmissions,
-clones, pull-ups etc) and not just when the original skb is finished
-with, which is beneficial to many subsystems which wish to inject pages
-into the network stack without giving up full ownership of those page's
-lifecycle. It implements something broadly along the lines of what was
-described in [1].
-
-Cheers,
-Ian.
-
-[0] http://marc.info/?l=linux-netdev&m=131072801125521&w=2
-[1] http://marc.info/?l=linux-netdev&m=130925719513084&w=2
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index bba1ffc..8cca4a6 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -1002,9 +1002,8 @@ retry_bounce:
+ 		unsigned long dma_addr;
+ 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 
+-		dma_addr = dma_map_page(&adapter->vdev->dev, frag->page,
+-					frag->page_offset, frag->size,
+-					DMA_TO_DEVICE);
++		dma_addr = skb_frag_dma_map(&adapter->vdev->dev, frag, 0,
++					    frag->size, DMA_TO_DEVICE);
+ 
+ 		if (dma_mapping_error(&adapter->vdev->dev, dma_addr))
+ 			goto map_failed_frags;
+-- 
+1.7.2.5
