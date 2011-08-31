@@ -1,128 +1,44 @@
 From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH 1/3] bnx2x: remove TPA_ENABLE_FLAG
-Date: Wed, 31 Aug 2011 17:00:34 +0200
-Message-ID: <1314802836-9862-2-git-send-email-mschmidt@redhat.com>
+Subject: [PATCH 2/3] bnx2x: do not set NETIF_F_LRO in bnx2x_init_bp
+Date: Wed, 31 Aug 2011 17:00:35 +0200
+Message-ID: <1314802836-9862-3-git-send-email-mschmidt@redhat.com>
 References: <1314802836-9862-1-git-send-email-mschmidt@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: vladz@broadcom.com, dmitry@broadcom.com, eilong@broadcom.com,
 	mirqus@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59613 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:10436 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755745Ab1HaPAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Aug 2011 11:00:45 -0400
+	id S1756191Ab1HaPAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Aug 2011 11:00:47 -0400
 In-Reply-To: <1314802836-9862-1-git-send-email-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TPA_ENABLE_FLAG is unnecessary, because it mirrors NETIF_F_LRO.
-
-The "cheat" in bnx2x_set_features() was suggested by Micha=C5=82 Miros=C5=
-=82aw.
+bnx2x_fix_features() will take care of clearing NETIF_F_LRO if
+'disable_tpa' is used.
 
 Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |   24 +++++++++++---=
---------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    7 +----
- 3 files changed, 15 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/=
-ethernet/broadcom/bnx2x/bnx2x.h
-index 735e491..5d5f323 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1174,7 +1174,7 @@ struct bnx2x {
- #define USING_MSIX_FLAG			(1 << 5)
- #define USING_MSI_FLAG			(1 << 6)
- #define DISABLE_MSI_FLAG		(1 << 7)
--#define TPA_ENABLE_FLAG			(1 << 8)
-+
- #define NO_MCP_FLAG			(1 << 9)
-=20
- #define BP_NOMCP(bp)			(bp->flags & NO_MCP_FLAG)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/=
-net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index a08b101..c660317 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -62,7 +62,7 @@ static inline void bnx2x_bz_fp(struct bnx2x *bp, int =
-index)
- 	 * set the tpa flag for each queue. The tpa flag determines the queue
- 	 * minimal size so it must be set prior to queue memory allocation
- 	 */
--	fp->disable_tpa =3D ((bp->flags & TPA_ENABLE_FLAG) =3D=3D 0);
-+	fp->disable_tpa =3D !(bp->dev->features & NETIF_F_LRO);
-=20
- #ifdef BCM_CNIC
- 	/* We don't want TPA on an FCoE L2 ring */
-@@ -3410,13 +3410,10 @@ u32 bnx2x_fix_features(struct net_device *dev, =
-u32 features)
- int bnx2x_set_features(struct net_device *dev, u32 features)
- {
- 	struct bnx2x *bp =3D netdev_priv(dev);
--	u32 flags =3D bp->flags;
- 	bool bnx2x_reload =3D false;
-=20
--	if (features & NETIF_F_LRO)
--		flags |=3D TPA_ENABLE_FLAG;
--	else
--		flags &=3D ~TPA_ENABLE_FLAG;
-+	if ((features ^ dev->features) & NETIF_F_LRO)
-+		bnx2x_reload =3D true;
-=20
- 	if (features & NETIF_F_LOOPBACK) {
- 		if (bp->link_params.loopback_mode !=3D LOOPBACK_BMAC) {
-@@ -3430,14 +3427,17 @@ int bnx2x_set_features(struct net_device *dev, =
-u32 features)
- 		}
- 	}
-=20
--	if (flags ^ bp->flags) {
--		bp->flags =3D flags;
--		bnx2x_reload =3D true;
--	}
--
- 	if (bnx2x_reload) {
--		if (bp->recovery_state =3D=3D BNX2X_RECOVERY_DONE)
-+		if (bp->recovery_state =3D=3D BNX2X_RECOVERY_DONE) {
-+			/*
-+			 * Cheat! Normally dev->features will be set after we
-+			 * return, but that's too late. We need to know how to
-+			 * configure the NIC when reloading it, so update
-+			 * the features early.
-+			 */
-+			dev->features =3D features;
- 			return bnx2x_reload_if_running(dev);
-+		}
- 		/* else: bnx2x_nic_load() will be called at end of recovery */
- 	}
-=20
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers=
-/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index e7b584b..fd32c04 100644
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index fd32c04..c1285db 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9757,13 +9757,10 @@ static int __devinit bnx2x_init_bp(struct bnx2x=
- *bp)
- 	bp->multi_mode =3D multi_mode;
-=20
- 	/* Set TPA flags */
--	if (disable_tpa) {
--		bp->flags &=3D ~TPA_ENABLE_FLAG;
-+	if (disable_tpa)
- 		bp->dev->features &=3D ~NETIF_F_LRO;
--	} else {
--		bp->flags |=3D TPA_ENABLE_FLAG;
-+	else
- 		bp->dev->features |=3D NETIF_F_LRO;
--	}
- 	bp->disable_tpa =3D disable_tpa;
-=20
+@@ -9755,12 +9755,6 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ 					"must load devices in order!\n");
+ 
+ 	bp->multi_mode = multi_mode;
+-
+-	/* Set TPA flags */
+-	if (disable_tpa)
+-		bp->dev->features &= ~NETIF_F_LRO;
+-	else
+-		bp->dev->features |= NETIF_F_LRO;
+ 	bp->disable_tpa = disable_tpa;
+ 
  	if (CHIP_IS_E1(bp))
---=20
+-- 
 1.7.6
