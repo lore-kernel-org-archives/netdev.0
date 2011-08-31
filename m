@@ -1,51 +1,71 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 1/2] net: allow to change carrier via sysfs
-Date: Wed, 31 Aug 2011 10:45:12 +0200
-Message-ID: <20110831084511.GD2010@minipsycho.brq.redhat.com>
-References: <1314715608-978-1-git-send-email-jpirko@redhat.com>
- <1314715608-978-2-git-send-email-jpirko@redhat.com>
- <CAHXqBFJh0xjRYv_-2AzwAvpHOUfQ+pD_153qVtNA3Ybo9r3b=w@mail.gmail.com>
- <20110831082655.GB2010@minipsycho.brq.redhat.com>
- <CAHXqBFJpSZNhkur7QNYbjG-=Bkq2HtHKEHsn+H3TnEJ5NezJoA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: linkwatch: allow vlans to get carrier
+ changes faster
+Date: Wed, 31 Aug 2011 11:31:58 +0200
+Message-ID: <1314783118.2801.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20110826060257.5304.62723.stgit@ltc219.sdl.hitachi.co.jp>
+	 <20110825230859.11b2b132@nehalam.ftrdhcpuser.net>
+	 <20110826064553.GA5874@gondor.apana.org.au>  <4E5A40A9.2000404@hitachi.com>
+	 <1314540589.3036.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15965 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750779Ab1HaIpR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Aug 2011 04:45:17 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHXqBFJpSZNhkur7QNYbjG-=Bkq2HtHKEHsn+H3TnEJ5NezJoA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?Q?Micha=C5=82Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	Tom Herbert <therbert@google.com>,
+	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1314540589.3036.12.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Aug 31, 2011 at 10:33:50AM CEST, mirqus@gmail.com wrote:
->W dniu 31 sierpnia 2011 10:26 u=C5=BCytkownik Jiri Pirko <jpirko@redha=
-t.com> napisa=C5=82:
->> Tue, Aug 30, 2011 at 08:11:37PM CEST, mirqus@gmail.com wrote:
->>>2011/8/30 Jiri Pirko <jpirko@redhat.com>:
->>>> Allow to write to "carrier" attribute. Devices may implement ndo_c=
-hange_carrier
->>>> callback to allow changing carrier from userspace.
->>>Do you expect drivers using implementation different than just calli=
-ng
->>>netif_carrier_on/off? Or is it supposed to also e.g. power down PHYs=
-?
->> Yes, generally it can be used also for en/disable phy, for testing
->> purposes if hw and driver would support it.
->
->I'd like to see this working for GRE tunnel devices (for keepalive
->daemon to be able to indicate to routing daemons whether tunnel is
->really working) - implementation would be identical to dummy's case.
->Should I prepare a patch or can I leave it to you?
+There is a time-lag of IFF_RUNNING flag consistency between vlan and
+real devices when the real devices are in problem such as link or cable
+broken.
 
-Ok, I can include it to this patchset (I'm going to repost first patch
-anyway)
->
->Best Regards,
->Micha=C5=82 Miros=C5=82aw
+This leads to a degradation of Availability such as a delay of failover
+in HA systems using vlan since the detection of the problem at real
+device is delayed.
+
+We can avoid the linkwatch delay (~1 sec) for devices linked to another
+ones, since delay is already done for the realdev.
+
+Based on a previous patch from Mitsuo Hayasaka
+
+Reported-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Jesse Gross <jesse@nicira.com>
+---
+ net/core/link_watch.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/link_watch.c b/net/core/link_watch.c
+index 357bd4e..c3519c6 100644
+--- a/net/core/link_watch.c
++++ b/net/core/link_watch.c
+@@ -78,8 +78,13 @@ static void rfc2863_policy(struct net_device *dev)
+=20
+ static bool linkwatch_urgent_event(struct net_device *dev)
+ {
+-	return netif_running(dev) && netif_carrier_ok(dev) &&
+-		qdisc_tx_changing(dev);
++	if (!netif_running(dev))
++		return false;
++
++	if (dev->ifindex !=3D dev->iflink)
++		return true;
++
++	return netif_carrier_ok(dev) &&	qdisc_tx_changing(dev);
+ }
+=20
+=20
