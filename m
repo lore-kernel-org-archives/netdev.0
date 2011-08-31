@@ -1,111 +1,72 @@
-From: "Ruslan N. Marchenko" <me@ruff.mobi>
-Subject: Re: 802.1Q VLAN random tag injected when vlan configured on
- forcedeth interface
-Date: Wed, 31 Aug 2011 15:10:34 +0200
-Message-ID: <20110831131034.GA26972@ruff.mobi>
-References: <20110830125111.GA28341@ruff.mobi>
- <1314710628.2935.22.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20110830134624.GB28341@ruff.mobi>
- <20110830142310.GC28341@ruff.mobi>
- <1314715362.2935.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Jim Gettys <jg@freedesktop.org>
+Subject: Re: BQL crap and wireless
+Date: Wed, 31 Aug 2011 09:28:14 -0400
+Message-ID: <4E5E36EE.8080501@freedesktop.org>
+References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com> <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com> <CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ@mail.gmail.com> <4E5C3B47.1050809@freedesktop.org> <CA+mtBx-j_+mrNpntR7CfYOromDnM-ZGzvebpUCjC8Qf14X6u9g@mail.gmail.com> <CAJ-Vmonwur-SXddNwjPEidCMqes+PwbRWFBddfdwTp2jOMu64g@mail.gmail.com> <4E5CEC79.3090802@freedesktop.org> <9BB251C1-A211-486D-A717-59149AC3A709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Chadd <adrian@freebsd.org>,
+	Tom Herbert <therbert@google.com>,
+	"Luis R. Rodriguez" <mcgrof@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Matt Smith <smithm@qca.qualcomm.com>,
+	Kevin Hayes <hayes@qca.qualcomm.com>,
+	Derek Smithies <derek@indranet.co.nz>, netdev@vger.kernel.org
+To: Andrew McGregor <andrewmcgr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-89-176-12-106.net.upcbroadband.cz ([89.176.12.106]:40858
-	"EHLO ruff.mobi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755349Ab1HaNKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 09:10:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1314715362.2935.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:55494 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755436Ab1HaN2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 09:28:18 -0400
+In-Reply-To: <9BB251C1-A211-486D-A717-59149AC3A709@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 30, 2011 at 04:42:42PM +0200, Eric Dumazet wrote:
-> Le mardi 30 ao=FBt 2011 =E0 16:23 +0200, Ruslan N. Marchenko a =E9cri=
-t :
-> > On Tue, Aug 30, 2011 at 03:46:24PM +0200, Ruslan N. Marchenko wrote=
-:
-> > > On Tue, Aug 30, 2011 at 03:23:48PM +0200, Eric Dumazet wrote:
-> > > >=20
-> > > > What kernel version are you using ?
-> > > >=20
-> > > Oh, sorry for missing it, it runs on=20
-> > > Linux ruff.mobi 2.6.38-11-generic #48-Ubuntu SMP Fri Jul 29 19:05=
-:14 UTC 2011 i686 i686 i386 GNU/Linux
-> > >=20
-> > > Just fyi - the openwrt box to which it is connected is=20
-> > > Linux OpenWrt 2.6.39.2 #2 Fri Aug 12 09:36:23 EEST 2011 mips GNU/=
-Linux
-> > > although packet drop happens even if there're no vlans configured=
- on remote side.
-> > >=20
-> > Here is double-tag sample:
-> > 16:20:31.151268 e0:46:9a:4e:88:1d > 00:26:18:40:21:62, ethertype 80=
-2.1Q (0x8100), length 106: vlan 2112, p 7, ethertype 802.1Q, vlan 6, p =
-0, ethertype IPv4, [|ip]
-> >         0x0000:  0026 1840 2162 e046 9a4e 881d 8100 e840
-> >         0x0010:  8100 0006 0800 4500 0054 abec 0000
-> >=20
-> >=20
->=20
-> Latest kernel should be fine. Some patches need to be backported by
-> Ubuntu team, if you can test them.
->=20
-> commit 9331db4f00cfee8a79d2147ac83723ef436b9759
-> Author: Jiri Pirko <jpirko@redhat.com>
-> Date:   Wed Aug 17 23:50:37 2011 -0700
->=20
->     forcedeth: call vlan_mode only if hw supports vlans
->    =20
->     If hw does not support vlans, dont call nv_vlan_mode because it h=
-as no point.
->     I believe that this should fix issues on older non-vlan supportiv=
-e
->     chips (like Ingo has).
->    =20
->     Reported-ty: Ingo Molnar <mingo@elte.hu>
->     Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> commit 0891b0e08937aaec2c4734acb94c5ff8042313bb
-> Author: Jiri Pirko <jpirko@redhat.com>
-> Date:   Tue Jul 26 10:19:28 2011 +0000
->=20
->     forcedeth: fix vlans
->    =20
->     For some reason, when rxaccel is disabled, NV_RX3_VLAN_TAG_PRESEN=
-T is
->     still set and some pseudorandom vids appear. So check for
->     NETIF_F_HW_VLAN_RX as well. Also set correctly hw_features and se=
-t vlan
->     mode on probe.
->    =20
->     Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> commit 3326c784c9f492e988617d93f647ae0cfd4c8d09
-> Author: Jiri Pirko <jpirko@redhat.com>
-> Date:   Wed Jul 20 04:54:38 2011 +0000
->=20
->     forcedeth: do vlan cleanup
->    =20
->     - unify vlan and nonvlan rx path
->     - kill np->vlangrp and nv_vlan_rx_register
->     - allow to turn on/off rx vlan accel via ethtool (set_features)
->    =20
->     Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
->=20
+On 08/30/2011 05:47 PM, Andrew McGregor wrote:
+> On 31/08/2011, at 1:58 AM, Jim Gettys wrote:
+>
+>> On 08/29/2011 11:42 PM, Adrian Chadd wrote:
+>>> On 30 August 2011 11:34, Tom Herbert <therbert@google.com> wrote:
+>>>
+>>> C(P) is going to be quite variable - a full frame retransmit of a 4ms
+>>> long aggregate frame is SUM(exponential backoff, grab the air,
+>>> preamble, header, 4ms, etc. for each pass.)
+>>>
+>> It's not clear to me that doing heroic measures to compute the cost is
+>> going to be worthwhile due to the rate at which the costs can change on
+>> wireless; just getting into the rough ballpark may be enough. But
+>> buffering algorithms and AQM algorithms are going to need an estimate of
+>> the *time* it will take to transmit data, more than # of bytes or packets.
+> That's not heroic measures; mac80211 needs all the code to calculate these times anyway, it's just a matter of collecting together some things we already know and calling the right function.
+>
+>
 
-Thanks Eric for quick hint, atom n270 however is not as fast in compili=
-ng kernel :D
-I'm trying to backport the patch (and dependencies) and compile kernel =
-with it, takes lot of time though. Will report back and raise a report/=
-request to ubuntu kernel team. Anyway it seems exactly what I have.
+Fine; if it's easy, accurate is better (presuming the costs get
+recalculated when circumstances change). We also will need the amount of
+data being transmitted; it is the rate of transmission (the rate at
+which the buffers are draining) that we'll likely need.
 
-Cheers,
-Ruslan
+Here's what I've gleaned from reading "RED in a different light",  Van
+Jacobson's Mitre talk and several conversations with Kathleen Nichols
+and Van: AQM algorithms that can handle variable bandwidth environments
+will need to be able to know the rate at which buffers empty.  It's the
+direction they are going with their experiments on a "RED light" algorithm.
+
+The fundamental insight as to why classic RED can't work in the wireless
+environment is that the instantaneous queue length has little actual
+information in it. Classic RED is tuned using the queue length as its
+basic parameter.  Their belief as to algorithms that will work is that
+the need to keep track of the running queue length *minimum over time*;
+you want to keep the buffers small on a longer term basis (so they both
+can absorb transients, which is their reason for existence, while
+keeping the latency typically low).  The additional major challenge we
+face that core routers do not is the highly variable traffic of mixed
+mice and elephants.  What actually works only time will tell.
+
+So in an environment in which the rate of transmission is highly
+variable, such as wireless, or even possibly modern broadband with
+PowerBoost, classic RED or similar algorithms that do not take the
+buffer drain rate cannot possibly hack it properly.
+                        - Jim
