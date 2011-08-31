@@ -1,51 +1,35 @@
-From: Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org
-Subject: linux-next-20110831 build failure in iwlwifi when IWLWIFI_DEBUGFS not set
-Date: Wed, 31 Aug 2011 15:16:41 -0400
-Message-ID: <41822.1314818201@turing-police.cc.vt.edu>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: fix several warnings emitted by clang
+ scan-build
+Date: Wed, 31 Aug 2011 12:20:06 -0700
+Message-ID: <20110831122006.52c958dd@nehalam.ftrdhcpuser.net>
+References: <1310759966-10465-1-git-send-email-dan@archlinux.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1314818201_5176P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Dan McGee <dan@archlinux.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43925 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750847Ab1HaTT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Aug 2011 15:19:57 -0400
+In-Reply-To: <1310759966-10465-1-git-send-email-dan@archlinux.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1314818201_5176P
-Content-Type: text/plain; charset=us-ascii
+On Fri, 15 Jul 2011 14:59:26 -0500
+Dan McGee <dan@archlinux.org> wrote:
 
-Build error in linux-next 20110831:
+> * genl/genl.c: remove unused basename logic, avoid dereference of
+>   possibly NULL variable
+> * ip/iptuntap.c: avoid double open and leak of file handle
+> * misc/arpd.c: zero out socklen structure
+> * misc/{ifstat,nstat,rtacct}.c: ensure uptime is initialized if
+>   /proc/uptime cannot be opened
+> * tc/m_xt.c: only unset fields if m is non-NULL
+> 
+> Signed-off-by: Dan McGee <dan@archlinux.org>
 
-drivers/built-in.o: In function `iwl_irq_handle_error':
-iwl-trans-rx-pcie.c:(.text+0x100ee9): undefined reference to `iwl_dump_csr'
-iwl-trans-rx-pcie.c:(.text+0x100ef5): undefined reference to `iwl_dump_fh'
-
-Calling site is iwl-trans-rx-pcie.c, function iwl_irq_handle_error.
-
-The functions are in iwl-trans.c, but hidden behind #ifdef
-CONFIG_IWLWIFI_DEBUGFS so if that isn't defined, they don't get built.  The
-call site already has an IWLWIFI_DEBUG ifdef, looks like iwl_irq_handle_error()
-needs some tender loving restructuring.
-
-
---==_Exmh_1314818201_5176P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFOXoiZcC3lWbTT17ARApwVAJ9zv+QZVHIkw5ChphnjXSsXkJrDzACg400b
-YXuCfDOw4/DK2ibvUSUvWXc=
-=G3Dw
------END PGP SIGNATURE-----
-
---==_Exmh_1314818201_5176P--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+All but arpd applied. The arpd change is unnecessary since the
+socket structure is in recvfrom() call it will be set by kernel.
