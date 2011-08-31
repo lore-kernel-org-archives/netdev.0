@@ -1,146 +1,128 @@
 From: <rongqing.li@windriver.com>
-Subject: [PATCH 1/2] Define security_sk_getsecctx
-Date: Wed, 31 Aug 2011 16:36:16 +0800
-Message-ID: <1314779777-12669-2-git-send-email-rongqing.li@windriver.com>
+Subject: [PATCH 2/2] Add a netlink attribute INET_DIAG_SECCTX
+Date: Wed, 31 Aug 2011 16:36:17 +0800
+Message-ID: <1314779777-12669-3-git-send-email-rongqing.li@windriver.com>
 References: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
 	<linux-security-module@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:37918 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:37922 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752733Ab1HaIgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 04:36:25 -0400
+	with ESMTP id S1753068Ab1HaIg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 04:36:27 -0400
 In-Reply-To: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roy.Li <rongqing.li@windriver.com>
 
-Define security_sk_getsecctx to return the security
-context of a sock.
+Add a new netlink attribute INET_DIAG_SECCTX to dump the security
+context of TCP sockets.
+
+The element sk_security of struct sock represents the socket
+security context ID, which is inherited from the parent process
+when the socket is created.
+
+but when SELinux type_transition rule is applied to socket, or
+application sets /proc/xxx/attr/createsock, the socket security
+context would be different from the creating process. For these
+conditions, the "netstat -Z" will return wrong value, since
+"netstat -Z" only returns the process security context as socket
+process security.
 
 Signed-off-by: Roy.Li <rongqing.li@windriver.com>
 ---
- include/linux/security.h |   13 +++++++++++++
- security/capability.c    |    6 ++++++
- security/security.c      |    6 ++++++
- security/selinux/hooks.c |    9 +++++++++
- 4 files changed, 34 insertions(+), 0 deletions(-)
+ include/linux/inet_diag.h |    3 ++-
+ net/ipv4/inet_diag.c      |   38 +++++++++++++++++++++++++++++++++-----
+ 2 files changed, 35 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/security.h b/include/linux/security.h
-index ebd2a53..6bb8e0c 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -959,6 +959,12 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
-  * @sk_getsecid:
-  *	Retrieve the LSM-specific secid for the sock to enable caching of network
-  *	authorizations.
-+ * @sk_getsecctx:
-+ *	Returns a string containing sock security context information
-+ *	@sk whom we wish to get the security context.
-+ *	@ctx is the address of the pointer to where to place the allocated
-+ *	security context.
-+ *	@ctxlen points to the value of the length of the security context.
-  * @sock_graft:
-  *	Sets the socket's isec sid to the sock's sid.
-  * @inet_conn_request:
-@@ -1600,6 +1606,7 @@ struct security_operations {
- 	void (*sk_free_security) (struct sock *sk);
- 	void (*sk_clone_security) (const struct sock *sk, struct sock *newsk);
- 	void (*sk_getsecid) (struct sock *sk, u32 *secid);
-+	int (*sk_getsecctx) (struct sock *sk, void **ctx, u32 *ctxlen);
- 	void (*sock_graft) (struct sock *sk, struct socket *parent);
- 	int (*inet_conn_request) (struct sock *sk, struct sk_buff *skb,
- 				  struct request_sock *req);
-@@ -2574,6 +2581,7 @@ void security_secmark_refcount_dec(void);
- int security_tun_dev_create(void);
- void security_tun_dev_post_create(struct sock *sk);
- int security_tun_dev_attach(struct sock *sk);
-+int security_sk_getsecctx(struct sock *sk, void **ctx, u32 *ctxlen);
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index bc8c490..00382b4 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -97,9 +97,10 @@ enum {
+ 	INET_DIAG_INFO,
+ 	INET_DIAG_VEGASINFO,
+ 	INET_DIAG_CONG,
++	INET_DIAG_SECCTX,
+ };
  
- #else	/* CONFIG_SECURITY_NETWORK */
- static inline int security_unix_stream_connect(struct sock *sock,
-@@ -2751,6 +2759,11 @@ static inline int security_tun_dev_attach(struct sock *sk)
- {
- 	return 0;
- }
+-#define INET_DIAG_MAX INET_DIAG_CONG
++#define INET_DIAG_MAX INET_DIAG_SECCTX
+ 
+ 
+ /* INET_DIAG_MEM */
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 389a2e6..1faf752 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -34,6 +34,8 @@
+ 
+ #include <linux/inet_diag.h>
+ 
++#define MAX_SECCTX_LEN 128
 +
-+static int security_sk_getsecctx(struct sock *sk, void **ctx, u32 *ctxlen)
-+{
-+	return -EOPNOTSUPP;
-+}
- #endif	/* CONFIG_SECURITY_NETWORK */
+ static const struct inet_diag_handler **inet_diag_table;
  
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-diff --git a/security/capability.c b/security/capability.c
-index 2984ea4..89256a6 100644
---- a/security/capability.c
-+++ b/security/capability.c
-@@ -664,6 +664,11 @@ static void cap_sk_getsecid(struct sock *sk, u32 *secid)
- {
- }
- 
-+static int cap_sk_getsecctx(struct sock *sk, void **ctx, u32 *ctxlen)
-+{
-+	return 0;
-+}
-+
- static void cap_sock_graft(struct sock *sk, struct socket *parent)
- {
- }
-@@ -1032,6 +1037,7 @@ void __init security_fixup_ops(struct security_operations *ops)
- 	set_to_cap_if_null(ops, sk_free_security);
- 	set_to_cap_if_null(ops, sk_clone_security);
- 	set_to_cap_if_null(ops, sk_getsecid);
-+	set_to_cap_if_null(ops, sk_getsecctx);
- 	set_to_cap_if_null(ops, sock_graft);
- 	set_to_cap_if_null(ops, inet_conn_request);
- 	set_to_cap_if_null(ops, inet_csk_clone);
-diff --git a/security/security.c b/security/security.c
-index 0e4fccf..a939f5c 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -757,6 +757,12 @@ void security_task_getsecid(struct task_struct *p, u32 *secid)
- }
- EXPORT_SYMBOL(security_task_getsecid);
- 
-+int security_sk_getsecctx(struct sock *sk, void **ctx, u32 *ctxlen)
-+{
-+	return security_ops->sk_getsecctx(sk, ctx, ctxlen);
-+}
-+EXPORT_SYMBOL(security_sk_getsecctx);
-+
- int security_task_setnice(struct task_struct *p, int nice)
- {
- 	return security_ops->task_setnice(p, nice);
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 266a229..6e96f01 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4284,6 +4284,14 @@ static void selinux_sk_getsecid(struct sock *sk, u32 *secid)
+ struct inet_diag_entry {
+@@ -108,6 +110,25 @@ static int inet_csk_diag_fill(struct sock *sk,
+ 		       icsk->icsk_ca_ops->name);
  	}
- }
  
-+static int selinux_sk_getsecctx(struct sock *sk, void **ctx, u32 *ctxlen)
-+{
-+	u32 secid;
++	if (ext & (1 << (INET_DIAG_SECCTX - 1))) {
++		u32 ctxlen = 0;
++		void *secctx;
++		int error;
 +
-+	selinux_sk_getsecid(sk, &secid);
-+	return security_sid_to_context(secid, ctx, ctxlen);
-+}
++		error = security_sk_getsecctx(sk, &secctx, &ctxlen);
 +
- static void selinux_sock_graft(struct sock *sk, struct socket *parent)
++		if (!error && ctxlen) {
++			if (ctxlen < MAX_SECCTX_LEN) {
++				strcpy(INET_DIAG_PUT(skb, INET_DIAG_SECCTX,
++					ctxlen + 1), secctx);
++			} else {
++				strcpy(INET_DIAG_PUT(skb, INET_DIAG_SECCTX,
++					2), "-");
++			}
++			security_release_secctx(secctx, ctxlen);
++		}
++	}
++
+ 	r->idiag_family = sk->sk_family;
+ 	r->idiag_state = sk->sk_state;
+ 	r->idiag_timer = 0;
+@@ -246,7 +267,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ static int inet_diag_get_exact(struct sk_buff *in_skb,
+ 			       const struct nlmsghdr *nlh)
  {
- 	struct inode_security_struct *isec = SOCK_INODE(parent)->i_security;
-@@ -5613,6 +5621,7 @@ static struct security_operations selinux_ops = {
- 	.sk_free_security =		selinux_sk_free_security,
- 	.sk_clone_security =		selinux_sk_clone_security,
- 	.sk_getsecid =			selinux_sk_getsecid,
-+	.sk_getsecctx =                 selinux_sk_getsecctx,
- 	.sock_graft =			selinux_sock_graft,
- 	.inet_conn_request =		selinux_inet_conn_request,
- 	.inet_csk_clone =		selinux_inet_csk_clone,
+-	int err;
++	int err, len;
+ 	struct sock *sk;
+ 	struct inet_diag_req *req = NLMSG_DATA(nlh);
+ 	struct sk_buff *rep;
+@@ -293,10 +314,17 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
+ 		goto out;
+ 
+ 	err = -ENOMEM;
+-	rep = alloc_skb(NLMSG_SPACE((sizeof(struct inet_diag_msg) +
+-				     sizeof(struct inet_diag_meminfo) +
+-				     handler->idiag_info_size + 64)),
+-			GFP_KERNEL);
++	len = sizeof(struct inet_diag_msg) + 64;
++
++	len += (req->idiag_ext & (1 << (INET_DIAG_MEMINFO - 1))) ?
++		sizeof(struct inet_diag_meminfo) : 0;
++	len += (req->idiag_ext & (1 << (INET_DIAG_INFO - 1))) ?
++		handler->idiag_info_size : 0;
++	len += (req->idiag_ext & (1 << (INET_DIAG_SECCTX - 1))) ?
++		MAX_SECCTX_LEN : 0;
++
++	rep = alloc_skb(NLMSG_SPACE(len), GFP_KERNEL);
++
+ 	if (!rep)
+ 		goto out;
+ 
 -- 
 1.7.1
