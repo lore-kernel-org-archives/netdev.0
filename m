@@ -1,63 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: RFC - should network devices trim frames > soft mtu
-Date: Wed, 31 Aug 2011 23:45:28 +0100
-Message-ID: <1314830728.3274.52.camel@bwh-desktop>
-References: <20110831151823.23cfb7bc@nehalam.ftrdhcpuser.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 8/8] tg3: Code movement
+Date: Wed, 31 Aug 2011 16:59:50 -0700
+Message-ID: <1314835190.27632.22.camel@Joe-Laptop>
+References: <1314827094-29714-9-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:14062 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756993Ab1HaWpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 18:45:31 -0400
-In-Reply-To: <20110831151823.23cfb7bc@nehalam.ftrdhcpuser.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:42179 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755871Ab1HaX7w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Aug 2011 19:59:52 -0400
+In-Reply-To: <1314827094-29714-9-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-08-31 at 15:18 -0700, Stephen Hemminger wrote:
-> I noticed the following in the bnx2 driver.
-> 
-> 
-> static int
-> bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
-> {
-> ...
-> 		skb->protocol = eth_type_trans(skb, bp->dev);
-> 
-> 		if ((len > (bp->dev->mtu + ETH_HLEN)) &&
-> 			(ntohs(skb->protocol) != 0x8100)) {
-> 
-> 			dev_kfree_skb(skb);
-> 			goto next_rx;
-> 
-> 		}
-> 
-> This means that for non-VLAN tagged frames, the device drops received
-> packets if the length is greater than the MTU.  I don't see that in
-> other devices. What is the correct method? IMHO the bnx2 driver is
-> wrong here and if the policy is desired it should be enforced at
-> the next level (netif_receive_skb).  Hardcoding a protocol value is
-> kind of a giveaway that something is fishy.
+On Wed, 2011-08-31 at 14:44 -0700, Matt Carlson wrote:
+> This patch just moves some code around for better organization.
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+[]
+> @@ -15541,7 +15542,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+>  		tnapi->tx_pending = TG3_DEF_TX_RING_PENDING;
+>  
+>  		tnapi->int_mbox = intmbx;
+> -		if (i < 4)
+> +		if (i <= 4)
+>  			intmbx += 0x8;
+>  		else
+>  			intmbx += 0x4;
 
-According to netdevices.txt:
-
-"MTU is symmetrical and applies both to receive and transmit.  ...
-The device may either: drop, truncate, or pass up oversize packets, but
-dropping oversize packets is preferred."
-
-I believe UNH interop tests expect that MRU = MTU and oversize packets
-are dropped.  However, I seem to recall that David has said more
-recently that it's preferable to always use the maximum possible MRU if
-DMA scatter is supported (so that this doesn't require page allocations
-of order > 0).
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Not just code movement.
