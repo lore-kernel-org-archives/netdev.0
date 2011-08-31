@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 09/12] bna: MBOX IRQ Flag Check after Locking
-Date: Tue, 30 Aug 2011 18:27:45 -0700
-Message-ID: <1314754068-31978-10-git-send-email-rmody@brocade.com>
+Subject: [net-next 10/12] bna: TX Queue Depth Fix
+Date: Tue, 30 Aug 2011 18:27:46 -0700
+Message-ID: <1314754068-31978-11-git-send-email-rmody@brocade.com>
 References: <1314754068-31978-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,68 +10,72 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:53385 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:53390 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754657Ab1HaB2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 21:28:20 -0400
+	by vger.kernel.org with ESMTP id S1754641Ab1HaB2W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 21:28:22 -0400
 In-Reply-To: <1314754068-31978-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - Check the BNAD_RF_MBOX_IRQ_DISABLED flag after acquiring the bna_lock,
-   since checking the flag and executing bna_mbox_handler needs to be atomic.
-   If not, it opens up window where flag is reset when it was checked, but got
-   set while spinning on the lock by the other thread which is actually
-   holding the lock
+sk_buff unmap_array grows greater than 65536 (x2) with Tx ring of 65536.
+Reducing TXQ depth and safe(max) acking of Tx events to 32768 (same as Rx).
+Add defines for TX and RX queue depths.
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.h         |    4 ++++
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    8 ++++----
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 0202b98..c6313e8 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -586,10 +586,11 @@ bnad_msix_mbox_handler(int irq, void *data)
- 	unsigned long flags;
- 	struct bnad *bnad = (struct bnad *)data;
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index 0c9d736..6c42c14 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -86,6 +86,10 @@ struct bnad_rx_ctrl {
+ #define BNAD_MAX_Q_DEPTH		0x10000
+ #define BNAD_MIN_Q_DEPTH		0x200
  
--	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags)))
--		return IRQ_HANDLED;
--
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags))) {
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+		return IRQ_HANDLED;
-+	}
++#define BNAD_MAX_RXQ_DEPTH		(BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq)
++/* keeping MAX TX and RX Q depth equal */
++#define BNAD_MAX_TXQ_DEPTH		BNAD_MAX_RXQ_DEPTH
++
+ #define BNAD_JUMBO_MTU			9000
  
- 	bna_intr_status_get(&bnad->bna, intr_status);
+ #define BNAD_NETIF_WAKE_THRESHOLD	8
+diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+index 96ff700..4842224 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
++++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+@@ -418,10 +418,10 @@ bnad_get_ringparam(struct net_device *netdev,
+ {
+ 	struct bnad *bnad = netdev_priv(netdev);
  
-@@ -612,15 +613,18 @@ bnad_isr(int irq, void *data)
- 	struct bnad_rx_ctrl *rx_ctrl;
- 	struct bna_tcb *tcb = NULL;
+-	ringparam->rx_max_pending = BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq;
++	ringparam->rx_max_pending = BNAD_MAX_RXQ_DEPTH;
+ 	ringparam->rx_mini_max_pending = 0;
+ 	ringparam->rx_jumbo_max_pending = 0;
+-	ringparam->tx_max_pending = BNAD_MAX_Q_DEPTH;
++	ringparam->tx_max_pending = BNAD_MAX_TXQ_DEPTH;
  
--	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags)))
-+	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	if (unlikely(test_bit(BNAD_RF_MBOX_IRQ_DISABLED, &bnad->run_flags))) {
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 		return IRQ_NONE;
-+	}
+ 	ringparam->rx_pending = bnad->rxq_depth;
+ 	ringparam->rx_mini_max_pending = 0;
+@@ -445,13 +445,13 @@ bnad_set_ringparam(struct net_device *netdev,
+ 	}
  
- 	bna_intr_status_get(&bnad->bna, intr_status);
- 
--	if (unlikely(!intr_status))
-+	if (unlikely(!intr_status)) {
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 		return IRQ_NONE;
--
--	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	}
- 
- 	if (BNA_IS_MBOX_ERR_INTR(&bnad->bna, intr_status))
- 		bna_mbox_handler(&bnad->bna, intr_status);
+ 	if (ringparam->rx_pending < BNAD_MIN_Q_DEPTH ||
+-	    ringparam->rx_pending > BNAD_MAX_Q_DEPTH / bnad_rxqs_per_cq ||
++	    ringparam->rx_pending > BNAD_MAX_RXQ_DEPTH ||
+ 	    !BNA_POWER_OF_2(ringparam->rx_pending)) {
+ 		mutex_unlock(&bnad->conf_mutex);
+ 		return -EINVAL;
+ 	}
+ 	if (ringparam->tx_pending < BNAD_MIN_Q_DEPTH ||
+-	    ringparam->tx_pending > BNAD_MAX_Q_DEPTH ||
++	    ringparam->tx_pending > BNAD_MAX_TXQ_DEPTH ||
+ 	    !BNA_POWER_OF_2(ringparam->tx_pending)) {
+ 		mutex_unlock(&bnad->conf_mutex);
+ 		return -EINVAL;
 -- 
 1.7.1
