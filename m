@@ -1,16 +1,16 @@
 From: Ripduman Sohan <ripduman.sohan@cl.cam.ac.uk>
-Subject: [PATCH 2/2] sfc: Report correct tx-usecs-irq value when driver is loaded with separate_tx_channels set
-Date: Wed, 31 Aug 2011 10:53:00 +0100
-Message-ID: <1314784380-30656-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
+Subject: [PATCH 2/2] Report correct tx-usecs-irq value when driver is loaded with separate_tx_channels set
+Date: Wed, 31 Aug 2011 10:38:09 +0100
+Message-ID: <1314783489-29944-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
 Cc: netdev@vger.kernel.org,
 	Ripduman Sohan <ripduman.sohan@cl.cam.ac.uk>
 To: linux-net-drivers@solarflare.com, shodgson@solarflare.com,
 	bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta1.cl.cam.ac.uk ([128.232.25.21]:52229 "EHLO
+Received: from mta1.cl.cam.ac.uk ([128.232.25.21]:58694 "EHLO
 	mta1.cl.cam.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752489Ab1HaJxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 05:53:10 -0400
+	with ESMTP id S1754862Ab1HaJx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 05:53:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
