@@ -1,55 +1,41 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: slow performance on disk/network i/o full speed after drop_caches
-Date: Wed, 31 Aug 2011 09:11:02 +0200
-Message-ID: <4E5DDE86.3040202@profihost.ag>
-References: <4E5494D4.1050605@profihost.ag> <CAOJsxLEFYW0eDbXQ0Uixf-FjsxHZ_1nmnovNx1CWj=m-c-_vJw@mail.gmail.com> <4E54BDCF.9020504@profihost.ag> <20110824093336.GB5214@localhost> <4E560F2A.1030801@profihost.ag> <20110826021648.GA19529@localhost> <4E570AEB.1040703@profihost.ag> <20110826030313.GA24058@localhost> <D299D0AE-2F3C-42E2-9723-A3D7C0108C40@profihost.ag> <20110826032601.GA26282@localhost> <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com> <4E573A99.4060309@profihost.ag>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 1/2] net: allow to change carrier via sysfs
+Date: Wed, 31 Aug 2011 10:26:56 +0200
+Message-ID: <20110831082655.GB2010@minipsycho.brq.redhat.com>
+References: <1314715608-978-1-git-send-email-jpirko@redhat.com>
+ <1314715608-978-2-git-send-email-jpirko@redhat.com>
+ <CAHXqBFJh0xjRYv_-2AzwAvpHOUfQ+pD_153qVtNA3Ybo9r3b=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wu Fengguang <fengguang.wu@intel.com>,
- Pekka Enberg <penberg@kernel.org>,
- LKML <linux-kernel@vger.kernel.org>,
- "linux-mm@kvack.org" <linux-mm@kvack.org>,
- Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mel@csn.ul.ie>,
- Jens Axboe <jaxboe@fusionio.com>,
- Linux Netdev List <netdev@vger.kernel.org>
-To: Zhu Yanhai <zhu.yanhai@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4E573A99.4060309@profihost.ag>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com
+To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9211 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751550Ab1HaI1B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Aug 2011 04:27:01 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHXqBFJh0xjRYv_-2AzwAvpHOUfQ+pD_153qVtNA3Ybo9r3b=w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Fengguang,
-Hi Yanhai,
+Tue, Aug 30, 2011 at 08:11:37PM CEST, mirqus@gmail.com wrote:
+>2011/8/30 Jiri Pirko <jpirko@redhat.com>:
+>> Allow to write to "carrier" attribute. Devices may implement ndo_cha=
+nge_carrier
+>> callback to allow changing carrier from userspace.
+>
+>Do you expect drivers using implementation different than just calling
+>netif_carrier_on/off? Or is it supposed to also e.g. power down PHYs?
 
-> you're abssolutely corect zone_reclaim_mode is on - but why?
-> There must be some linux software which switches it on.
->
-> ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
-> ~#
->
-> also
-> ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
-> ~#
->
-> tells us nothing.
->
-> I've then read this:
->
-> "zone_reclaim_mode is set during bootup to 1 if it is determined that
-> pages from remote zones will cause a measurable performance reduction.
-> The page allocator will then reclaim easily reusable pages (those page
-> cache pages that are currently not used) before allocating off node pages."
->
-> Why does the kernel do that here in our case on these machines.
+Yes, generally it can be used also for en/disable phy, for testing
+purposes if hw and driver would support it.
 
-Can nobody help why the kernel in this case set it to 1?
-
-Stefan
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>
+>BTW, I like this feature!
+>
+>Best Regards,
+>Micha=C5=82 Miros=C5=82aw
