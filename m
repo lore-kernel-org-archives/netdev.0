@@ -1,23 +1,22 @@
-From: "Michael Chan" <mchan@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: RFC - should network devices trim frames > soft mtu
-Date: Wed, 31 Aug 2011 15:27:31 -0700
-Message-ID: <1314829651.9556.37.camel@HP1>
+Date: Wed, 31 Aug 2011 23:45:28 +0100
+Message-ID: <1314830728.3274.52.camel@bwh-desktop>
 References: <20110831151823.23cfb7bc@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>,
+	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4990 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756836Ab1HaWfU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Aug 2011 18:35:20 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:14062 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756993Ab1HaWpb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 18:45:31 -0400
 In-Reply-To: <20110831151823.23cfb7bc@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
 
 On Wed, 2011-08-31 at 15:18 -0700, Stephen Hemminger wrote:
 > I noticed the following in the bnx2 driver.
@@ -43,13 +42,22 @@ On Wed, 2011-08-31 at 15:18 -0700, Stephen Hemminger wrote:
 > wrong here and if the policy is desired it should be enforced at
 > the next level (netif_receive_skb).  Hardcoding a protocol value is
 > kind of a giveaway that something is fishy.
-> 
 
-I guess the reasoning is that we program the RX MTU in our chip to
-automatically discard packets bigger than the RX MTU and count them as
-over-size packets.  We add 4 bytes to the RX MTU to account for the VLAN
-tag which may be stripped or not stripped by the chip depending on
-settings.  The extra 4 bytes in the RX MTU setting will allow over-size
-packets by up to 4 bytes to get through.
+According to netdevices.txt:
 
-I agree we should move this to the next level.
+"MTU is symmetrical and applies both to receive and transmit.  ...
+The device may either: drop, truncate, or pass up oversize packets, but
+dropping oversize packets is preferred."
+
+I believe UNH interop tests expect that MRU = MTU and oversize packets
+are dropped.  However, I seem to recall that David has said more
+recently that it's preferable to always use the maximum possible MRU if
+DMA scatter is supported (so that this doesn't require page allocations
+of order > 0).
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
