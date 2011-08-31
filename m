@@ -1,72 +1,67 @@
-From: Jim Gettys <jg@freedesktop.org>
-Subject: Re: BQL crap and wireless
-Date: Wed, 31 Aug 2011 09:28:14 -0400
-Message-ID: <4E5E36EE.8080501@freedesktop.org>
-References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com> <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com> <CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ@mail.gmail.com> <4E5C3B47.1050809@freedesktop.org> <CA+mtBx-j_+mrNpntR7CfYOromDnM-ZGzvebpUCjC8Qf14X6u9g@mail.gmail.com> <CAJ-Vmonwur-SXddNwjPEidCMqes+PwbRWFBddfdwTp2jOMu64g@mail.gmail.com> <4E5CEC79.3090802@freedesktop.org> <9BB251C1-A211-486D-A717-59149AC3A709@gmail.com>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: Re: [PATCH 7/7] bnx2x: expose HW RX VLAN stripping toggle
+Date: Wed, 31 Aug 2011 15:53:24 +0200
+Message-ID: <20110831155324.7554d035@alice>
+References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
+	<CAHXqBFLgTHvxL34eR1qX7nEmntyOBXYrg-7LQvW=d8dnDpbhWg@mail.gmail.com>
+	<4E5D3A43.1060202@redhat.com>
+	<201108311501.39936.vladz@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Chadd <adrian@freebsd.org>,
-	Tom Herbert <therbert@google.com>,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Matt Smith <smithm@qca.qualcomm.com>,
-	Kevin Hayes <hayes@qca.qualcomm.com>,
-	Derek Smithies <derek@indranet.co.nz>, netdev@vger.kernel.org
-To: Andrew McGregor <andrewmcgr@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Vlad Zolotarov" <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:55494 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755436Ab1HaN2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 09:28:18 -0400
-In-Reply-To: <9BB251C1-A211-486D-A717-59149AC3A709@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:9466 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750779Ab1HaNx2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 09:53:28 -0400
+In-Reply-To: <201108311501.39936.vladz@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/30/2011 05:47 PM, Andrew McGregor wrote:
-> On 31/08/2011, at 1:58 AM, Jim Gettys wrote:
->
->> On 08/29/2011 11:42 PM, Adrian Chadd wrote:
->>> On 30 August 2011 11:34, Tom Herbert <therbert@google.com> wrote:
->>>
->>> C(P) is going to be quite variable - a full frame retransmit of a 4ms
->>> long aggregate frame is SUM(exponential backoff, grab the air,
->>> preamble, header, 4ms, etc. for each pass.)
->>>
->> It's not clear to me that doing heroic measures to compute the cost is
->> going to be worthwhile due to the rate at which the costs can change on
->> wireless; just getting into the rough ballpark may be enough. But
->> buffering algorithms and AQM algorithms are going to need an estimate of
->> the *time* it will take to transmit data, more than # of bytes or packets.
-> That's not heroic measures; mac80211 needs all the code to calculate these times anyway, it's just a matter of collecting together some things we already know and calling the right function.
->
->
+On Wed, 31 Aug 2011 15:01:39 +0300 Vlad Zolotarov wrote:
+> On Tuesday 30 August 2011 22:30:11 Michal Schmidt wrote:
+>=20
+> > > and then also in fp->flags.  Are the
+> > > fp->flags strictly mirroring hardware state (as in: there is no
+> > > way the states can differ in any point in time where the flags ar=
+e
+> > > tested)?
+> >=20
+> > Yes. This is the purpose of the second mirroring of the flag.
+>=20
+> Michal,
+> although the above is true i'd say it's a bit of an overkill:
+> RX VLAN stripping is configured in a function level, so keeping it in
+> a per queue level is not needed.=20
+>=20
+> The problem u were trying to resolve (and u resolved it) was to
+> separate the RX_VLAN_ENABLED flag semantics into two: requested
+> feature and HW configured feature in order to further check the
+> second in the fast path, while setting the first one in the
+> set_features(). Then the second lag is updated according to the first
+> one during the loading of the function (bnx2x_nic_load()).
+>=20
+> Therefore it would be enough to just add those two flags in the
+> function (bp) level keeping the rest of your patch as it is. This
+> would also cancel the need for a patch 6.
 
-Fine; if it's easy, accurate is better (presuming the costs get
-recalculated when circumstances change). We also will need the amount of
-data being transmitted; it is the rate of transmission (the rate at
-which the buffers are draining) that we'll likely need.
+Alright, I will remove the per-fp flag and move it to bp.
 
-Here's what I've gleaned from reading "RED in a different light",  Van
-Jacobson's Mitre talk and several conversations with Kathleen Nichols
-and Van: AQM algorithms that can handle variable bandwidth environments
-will need to be able to know the rate at which buffers empty.  It's the
-direction they are going with their experiments on a "RED light" algorithm.
+I will also apply the cheat suggested by Micha=C5=82, so that:
+ - dev->features & NETIF_F_HW_VLAN_RX is the requested state
+ - bp->flags & RX_VLAN_STRIP_FLAG is the HW configured state
+=3D> Only one new bp flag needed, not two.
 
-The fundamental insight as to why classic RED can't work in the wireless
-environment is that the instantaneous queue length has little actual
-information in it. Classic RED is tuned using the queue length as its
-basic parameter.  Their belief as to algorithms that will work is that
-the need to keep track of the running queue length *minimum over time*;
-you want to keep the buffers small on a longer term basis (so they both
-can absorb transients, which is their reason for existence, while
-keeping the latency typically low).  The additional major challenge we
-face that core routers do not is the highly variable traffic of mixed
-mice and elephants.  What actually works only time will tell.
+BTW, Micha=C5=82's cheat should apply to TPA_ENABLE_FLAG as well - it o=
+nly
+mirrors NETIF_F_LRO. But for TPA the HW configured state is really
+per-queue (fp->disable_tpa). I will remove TPA_ENABLE_FLAG unless you
+object to Micha=C5=82's "cheat".
 
-So in an environment in which the rate of transmission is highly
-variable, such as wireless, or even possibly modern broadband with
-PowerBoost, classic RED or similar algorithms that do not take the
-buffer drain rate cannot possibly hack it properly.
-                        - Jim
+Thanks,
+Michal
