@@ -1,283 +1,79 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 3/3] r8169: support new chips of RTL8111F
-Date: Thu, 1 Sep 2011 00:17:59 +0800
-Message-ID: <1314807479-1552-3-git-send-email-hayeswang@realtek.com>
-References: <1314807479-1552-1-git-send-email-hayeswang@realtek.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6] net: allow notifier subscribers to forbid
+ device from closing
+Date: Wed, 31 Aug 2011 18:21:48 +0200
+Message-ID: <20110831162147.GA2051@minipsycho.redhat.com>
+References: <1314803731-1222-1-git-send-email-jpirko@redhat.com>
+ <1314804352.2741.4.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1314807479-1552-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, shemminger@vyatta.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48525 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932070Ab1HaQVy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Aug 2011 12:21:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1314804352.2741.4.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Support new chips of RTL8111F.
+Wed, Aug 31, 2011 at 05:25:51PM CEST, bhutchings@solarflare.com wrote:
+>On Wed, 2011-08-31 at 17:15 +0200, Jiri Pirko wrote:
+>> In some situations, like when the device is used as slave device in
+>> bond/br/etc it is not nice if someone closes the device. This allows
+>> it's masters to forbid this closure.
+>
+>No it doesn't.
+It does
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c |  178 +++++++++++++++++++++++++++++++++-
- 1 files changed, 176 insertions(+), 2 deletions(-)
+>
+>[...]
+>> @@ -1269,9 +1282,12 @@ static int dev_close_many(struct list_head *head)
+>>  	struct net_device *dev, *tmp;
+>>  	LIST_HEAD(tmp_list);
+>>  
+>> -	list_for_each_entry_safe(dev, tmp, head, unreg_list)
+>> +	list_for_each_entry_safe(dev, tmp, head, unreg_list) {
+>>  		if (!(dev->flags & IFF_UP))
+>>  			list_move(&dev->unreg_list, &tmp_list);
+>> +		else
+>> +			__dev_pre_close(dev);
+>> +	}
+>>  
+>>  	__dev_close_many(head);
+>
+>The return value is ignored here.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 68f1e2f..c04fbc0 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -42,6 +42,8 @@
- #define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-1.fw"
- #define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-2.fw"
- #define FIRMWARE_8168E_3	"rtl_nic/rtl8168e-3.fw"
-+#define FIRMWARE_8168F_1	"rtl_nic/rtl8168f-1.fw"
-+#define FIRMWARE_8168F_2	"rtl_nic/rtl8168f-2.fw"
- #define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
- 
- #ifdef RTL8169_DEBUG
-@@ -133,6 +135,8 @@ enum mac_version {
- 	RTL_GIGA_MAC_VER_32,
- 	RTL_GIGA_MAC_VER_33,
- 	RTL_GIGA_MAC_VER_34,
-+	RTL_GIGA_MAC_VER_35,
-+	RTL_GIGA_MAC_VER_36,
- 	RTL_GIGA_MAC_NONE   = 0xff,
- };
- 
-@@ -218,7 +222,11 @@ static const struct {
- 	[RTL_GIGA_MAC_VER_33] =
- 		_R("RTL8168e/8111e",	RTL_TD_1, FIRMWARE_8168E_2),
- 	[RTL_GIGA_MAC_VER_34] =
--		_R("RTL8168evl/8111evl",RTL_TD_1, FIRMWARE_8168E_3)
-+		_R("RTL8168evl/8111evl",RTL_TD_1, FIRMWARE_8168E_3),
-+	[RTL_GIGA_MAC_VER_35] =
-+		_R("RTL8168f/8111f",	RTL_TD_1, FIRMWARE_8168F_1),
-+	[RTL_GIGA_MAC_VER_36] =
-+		_R("RTL8168f/8111f",	RTL_TD_1, FIRMWARE_8168F_2)
- };
- #undef _R
- 
-@@ -1199,6 +1207,19 @@ static void rtl_link_chg_patch(struct rtl8169_private *tp)
- 			     ERIAR_EXGMAC);
- 		rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x01, 0x00,
- 			     ERIAR_EXGMAC);
-+	} else if (tp->mac_version == RTL_GIGA_MAC_VER_35 ||
-+		   tp->mac_version == RTL_GIGA_MAC_VER_36) {
-+		if (RTL_R8(PHYstatus) & _1000bpsF) {
-+			rtl_eri_write(ioaddr, 0x1bc, ERIAR_MASK_1111,
-+				      0x00000011, ERIAR_EXGMAC);
-+			rtl_eri_write(ioaddr, 0x1dc, ERIAR_MASK_1111,
-+				      0x00000005, ERIAR_EXGMAC);
-+		} else {
-+			rtl_eri_write(ioaddr, 0x1bc, ERIAR_MASK_1111,
-+				      0x0000001f, ERIAR_EXGMAC);
-+			rtl_eri_write(ioaddr, 0x1dc, ERIAR_MASK_1111,
-+				      0x0000003f, ERIAR_EXGMAC);
-+		}
- 	}
- }
- 
-@@ -1738,6 +1759,10 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		u32 val;
- 		int mac_version;
- 	} mac_info[] = {
-+		/* 8168F family. */
-+		{ 0x7cf00000, 0x48100000,	RTL_GIGA_MAC_VER_36 },
-+		{ 0x7cf00000, 0x48000000,	RTL_GIGA_MAC_VER_35 },
-+
- 		/* 8168E family. */
- 		{ 0x7c800000, 0x2c800000,	RTL_GIGA_MAC_VER_34 },
- 		{ 0x7cf00000, 0x2c200000,	RTL_GIGA_MAC_VER_33 },
-@@ -2872,6 +2897,97 @@ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x1f, 0x0000);
- }
- 
-+static void rtl8168f_1_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	static const struct phy_reg phy_reg_init[] = {
-+		/* Channel estimation fine tune */
-+		{ 0x1f, 0x0003 },
-+		{ 0x09, 0xa20f },
-+		{ 0x1f, 0x0000 },
-+
-+		/* Modify green table for giga & fnet */
-+		{ 0x1f, 0x0005 },
-+		{ 0x05, 0x8b55 },
-+		{ 0x06, 0x0000 },
-+		{ 0x05, 0x8b5e },
-+		{ 0x06, 0x0000 },
-+		{ 0x05, 0x8b67 },
-+		{ 0x06, 0x0000 },
-+		{ 0x05, 0x8b70 },
-+		{ 0x06, 0x0000 },
-+		{ 0x1f, 0x0000 },
-+		{ 0x1f, 0x0007 },
-+		{ 0x1e, 0x0078 },
-+		{ 0x17, 0x0000 },
-+		{ 0x19, 0x00fb },
-+		{ 0x1f, 0x0000 },
-+
-+		/* Modify green table for 10M */
-+		{ 0x1f, 0x0005 },
-+		{ 0x05, 0x8b79 },
-+		{ 0x06, 0xaa00 },
-+		{ 0x1f, 0x0000 },
-+
-+		/* Disable hiimpedance detection (RTCT) */
-+		{ 0x1f, 0x0003 },
-+		{ 0x01, 0x328a },
-+		{ 0x1f, 0x0000 }
-+	};
-+
-+	rtl_apply_firmware(tp);
-+
-+	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-+
-+	/* For 4-corner performance improve */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b80);
-+	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
-+	/* PHY auto speed down */
-+	rtl_writephy(tp, 0x1f, 0x0007);
-+	rtl_writephy(tp, 0x1e, 0x002d);
-+	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
-+
-+	/* improve 10M EEE waveform */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b86);
-+	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
-+	/* Improve 2-pair detection performance */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b85);
-+	rtl_w1w0_phy(tp, 0x06, 0x4000, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+}
-+
-+static void rtl8168f_2_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	rtl_apply_firmware(tp);
-+
-+	/* For 4-corner performance improve */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b80);
-+	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
-+	/* PHY auto speed down */
-+	rtl_writephy(tp, 0x1f, 0x0007);
-+	rtl_writephy(tp, 0x1e, 0x002d);
-+	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
-+
-+	/* improve 10M EEE waveform */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b86);
-+	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+}
-+
- static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
- {
- 	static const struct phy_reg phy_reg_init[] = {
-@@ -2996,6 +3112,12 @@ static void rtl_hw_phy_config(struct net_device *dev)
- 	case RTL_GIGA_MAC_VER_34:
- 		rtl8168e_2_hw_phy_config(tp);
- 		break;
-+	case RTL_GIGA_MAC_VER_35:
-+		rtl8168f_1_hw_phy_config(tp);
-+		break;
-+	case RTL_GIGA_MAC_VER_36:
-+		rtl8168f_2_hw_phy_config(tp);
-+		break;
- 
- 	default:
- 		break;
-@@ -3518,6 +3640,8 @@ static void __devinit rtl_init_pll_power_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_32:
- 	case RTL_GIGA_MAC_VER_33:
- 	case RTL_GIGA_MAC_VER_34:
-+	case RTL_GIGA_MAC_VER_35:
-+	case RTL_GIGA_MAC_VER_36:
- 		ops->down	= r8168_pll_power_down;
- 		ops->up		= r8168_pll_power_up;
- 		break;
-@@ -3990,7 +4114,9 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
- 	    tp->mac_version == RTL_GIGA_MAC_VER_31) {
- 		while (RTL_R8(TxPoll) & NPQ)
- 			udelay(20);
--	} else if (tp->mac_version == RTL_GIGA_MAC_VER_34) {
-+	} else if (tp->mac_version == RTL_GIGA_MAC_VER_34 ||
-+		   tp->mac_version == RTL_GIGA_MAC_VER_35 ||
-+		   tp->mac_version == RTL_GIGA_MAC_VER_36) {
- 		RTL_W8(ChipCmd, RTL_R8(ChipCmd) | StopReq);
- 		while (!(RTL_R32(TxConfig) & TXCFG_EMPTY))
- 			udelay(100);
-@@ -4476,6 +4602,49 @@ static void rtl_hw_start_8168e_2(void __iomem *ioaddr, struct pci_dev *pdev)
- 	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
- }
- 
-+static void rtl_hw_start_8168f_1(void __iomem *ioaddr, struct pci_dev *pdev)
-+{
-+	static const struct ephy_info e_info_8168f_1[] = {
-+		{ 0x06, 0x00c0,	0x0020 },
-+		{ 0x08, 0x0001,	0x0002 },
-+		{ 0x09, 0x0000,	0x0080 },
-+		{ 0x19, 0x0000,	0x0224 }
-+	};
-+
-+	rtl_csi_access_enable_1(ioaddr);
-+
-+	rtl_ephy_init(ioaddr, e_info_8168f_1, ARRAY_SIZE(e_info_8168f_1));
-+
-+	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+
-+	rtl_eri_write(ioaddr, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xc8, ERIAR_MASK_1111, 0x00100002, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xe8, ERIAR_MASK_1111, 0x00100006, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x00, 0x01, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0x1b0, ERIAR_MASK_0001, 0x10, 0x00, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0x1d0, ERIAR_MASK_0001, 0x10, 0x00, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xcc, ERIAR_MASK_1111, 0x00000050, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xd0, ERIAR_MASK_1111, 0x00000060, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0x0d4, ERIAR_MASK_0011, 0x0c00, 0xff00,
-+		     ERIAR_EXGMAC);
-+
-+	RTL_W8(MaxTxPacketSize, 0x27);
-+
-+	rtl_disable_clock_request(pdev);
-+
-+	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
-+	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
-+
-+	/* Adjust EEE LED frequency */
-+	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
-+
-+	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
-+	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
-+	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
-+}
-+
- static void rtl_hw_start_8168(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -4570,6 +4739,11 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 		rtl_hw_start_8168e_2(ioaddr, pdev);
- 		break;
- 
-+	case RTL_GIGA_MAC_VER_35:
-+	case RTL_GIGA_MAC_VER_36:
-+		rtl_hw_start_8168f_1(ioaddr, pdev);
-+		break;
-+
- 	default:
- 		printk(KERN_ERR PFX "%s: unknown chipset (mac_version = %d).\n",
- 			dev->name, tp->mac_version);
--- 
-1.7.6
+That's intended. The reason is this is called from
+rollback_registered_many - refuse should be ignored in that case
+>
+>And this is called from dev_close(), where you are adding the
+>notification as well.  So the notifier will usually be called twice.
+>
+Indeed. Anyway I thought about it and we probably do not need this patch
+as Stephen said.
+
+>[...]
+>> @@ -1397,6 +1418,7 @@ rollback:
+>>  				break;
+>>  
+>>  			if (dev->flags & IFF_UP) {
+>> +				nb->notifier_call(nb, NETDEV_PRE_DOWN, dev);
+>>  				nb->notifier_call(nb, NETDEV_GOING_DOWN, dev);
+>>  				nb->notifier_call(nb, NETDEV_DOWN, dev);
+>>  			}
+>[...]
+>
+>The return value has to be ignored here.  Not sure it makes any sense to
+>call the notifier at all.
+>
+>Ben.
+>
+>-- 
+>Ben Hutchings, Staff Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
+>
