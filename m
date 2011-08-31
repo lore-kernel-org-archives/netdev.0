@@ -1,115 +1,102 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH 2/2] Add a netlink attribute INET_DIAG_SECCTX
-Date: Wed, 31 Aug 2011 17:18:47 -0400
-Message-ID: <2593215.lUI7et83Qv@sifl>
-References: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com> <1314779777-12669-3-git-send-email-rongqing.li@windriver.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch net-next-2.6 1/2] net: allow to change carrier via sysfs
+Date: Wed, 31 Aug 2011 22:36:45 +0100
+Message-ID: <1314826605.3274.34.camel@bwh-desktop>
+References: <1314715608-978-1-git-send-email-jpirko@redhat.com>
+	 <1314715608-978-2-git-send-email-jpirko@redhat.com>
+	 <CAHXqBFJh0xjRYv_-2AzwAvpHOUfQ+pD_153qVtNA3Ybo9r3b=w@mail.gmail.com>
+	 <20110831082655.GB2010@minipsycho.brq.redhat.com>
+	 <CAHXqBFJpSZNhkur7QNYbjG-=Bkq2HtHKEHsn+H3TnEJ5NezJoA@mail.gmail.com>
+	 <20110831084511.GD2010@minipsycho.brq.redhat.com>
+	 <4E5E939C.5000009@gmail.com> <1314821537.3274.24.camel@bwh-desktop>
+	 <4E5E9A30.1040105@gmail.com>  <4E5E9E16.6060502@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org
-To: rongqing.li@windriver.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas de =?ISO-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>, Jiri Pirko <jpirko@redhat.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, shemminger@vyatta.com
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62837 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752604Ab1HaVSx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 17:18:53 -0400
-In-Reply-To: <1314779777-12669-3-git-send-email-rongqing.li@windriver.com>
+Received: from mail.solarflare.com ([216.237.3.220]:8410 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755815Ab1HaVgx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 17:36:53 -0400
+In-Reply-To: <4E5E9E16.6060502@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, August 31, 2011 04:36:17 PM rongqing.li@windriver.com wrote:
-> From: Roy.Li <rongqing.li@windriver.com>
-> 
-> Add a new netlink attribute INET_DIAG_SECCTX to dump the security
-> context of TCP sockets.
+On Wed, 2011-08-31 at 13:48 -0700, Ben Greear wrote:
+> On 08/31/2011 01:31 PM, Nicolas de Peslo=C3=BCan wrote:
+> > Le 31/08/2011 22:12, Ben Hutchings a =C3=A9crit :
+> >> On Wed, 2011-08-31 at 22:03 +0200, Nicolas de Peslo=C3=BCan wrote:
+> >>> Le 31/08/2011 10:45, Jiri Pirko a =C3=A9crit :
+> >>>
+> >>>>>>> Do you expect drivers using implementation different than jus=
+t calling
+> >>>>>>> netif_carrier_on/off? Or is it supposed to also e.g. power do=
+wn PHYs?
+> >>>>>> Yes, generally it can be used also for en/disable phy, for tes=
+ting
+> >>>>>> purposes if hw and driver would support it.
+> >>>>>
+> >>>>> I'd like to see this working for GRE tunnel devices (for keepal=
+ive
+> >>>>> daemon to be able to indicate to routing daemons whether tunnel=
+ is
+> >>>>> really working) - implementation would be identical to dummy's =
+case.
+> >>>>> Should I prepare a patch or can I leave it to you?
+> >>>>
+> >>>> Ok, I can include it to this patchset (I'm going to repost first=
+ patch
+> >>>> anyway)
+> >>>
+> >>> Can't we assume that the dummy's case is the default behavior and
+> >>> register this default
+> >>> ndo_change_carrier callback for every device ?
+> >>
+> >> You have got to be joking. No device driver that has real link
+> >> monitoring should use this implementation.
+> >
+> > Well, why not? Arguably, this is probably not the feature one would=
+ use every day, but...
+> >
+> > Testing a cluster reaction to a link down event would be easier if =
+one doesn't need to unplug the cable for the test. I understand that on=
+e can turn off the
+> > switch port (physical or virtual), but echo 0 > /sys/class/net/eth0=
+/carrier would be nice too.
+>=20
+> There is special hardware out there that can do bypass, and often it =
+also has a mode
+> that will programatically cut link by throwing some relays.  We use t=
+his for our
+> testing equipment...
+>=20
+> If there is some way to twiddle standard-ish hardware to actually dro=
+p link, that
+> would be neat.  I'd think it should be an ethtool type of thing, howe=
+ver.
 
-You'll have to forgive me, I'm not familiar with the netlink code used by 
-netstat and friends, but is there anyway to report back the security context 
-of UDP sockets?  Or does the code below handle that already?
+We need to be able to control this as part of our driver test suite (on
+the peer, not the device under test).  There are various MDIO bits that
+look like they should do this but unfortunately they don't have
+consistent effects.  Besides that, many PHYs are not MDIO-manageable.
+So this would have to be a device-specific operation, whether it's
+exposed through ethtool or sysfs.
 
-In general, AF_INET and AF_INET6 sockets, regardless of any upper level 
-protocols, have security contexts associated with them and it would be nice to 
-see them in netstat.
+> Actually dropping link, and letting that naturally propagate up the s=
+tack seems
+> more reasonable than lying about the status half way up the stack.
 
-> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-> index 389a2e6..1faf752 100644
-> --- a/net/ipv4/inet_diag.c
-> +++ b/net/ipv4/inet_diag.c
-> @@ -34,6 +34,8 @@
-> 
->  #include <linux/inet_diag.h>
-> 
-> +#define MAX_SECCTX_LEN 128
+Right.
 
-I'll echo Stephen's concerns that this is too small.  A MCS/MLS system with a 
-moderate number of categories could bump into this limit without too much 
-difficulty.
+Ben.
 
->  struct inet_diag_entry {
-> @@ -108,6 +110,25 @@ static int inet_csk_diag_fill(struct sock *sk,
->  		       icsk->icsk_ca_ops->name);
->  	}
-> 
-> +	if (ext & (1 << (INET_DIAG_SECCTX - 1))) {
-> +		u32 ctxlen = 0;
-> +		void *secctx;
-> +		int error;
-> +
-> +		error = security_sk_getsecctx(sk, &secctx, &ctxlen);
-> +
-> +		if (!error && ctxlen) {
-> +			if (ctxlen < MAX_SECCTX_LEN) {
-> +				strcpy(INET_DIAG_PUT(skb, INET_DIAG_SECCTX,
-> +					ctxlen + 1), secctx);
-> +			} else {
-> +				strcpy(INET_DIAG_PUT(skb, INET_DIAG_SECCTX,
-> +					2), "-");
-
-Is the "-" string a special value already interpreted by the userspace tools?  
-If not, you might consider using a string that would indicate an out-of-space 
-condition occurred; at first glance I thought the "-" string indicated no 
-context.
-
-> +			}
-> +			security_release_secctx(secctx, ctxlen);
-> +		}
-> +	}
-> +
->  	r->idiag_family = sk->sk_family;
->  	r->idiag_state = sk->sk_state;
->  	r->idiag_timer = 0;
-> @@ -246,7 +267,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff
-> *skb, static int inet_diag_get_exact(struct sk_buff *in_skb,
->  			       const struct nlmsghdr *nlh)
->  {
-> -	int err;
-> +	int err, len;
->  	struct sock *sk;
->  	struct inet_diag_req *req = NLMSG_DATA(nlh);
->  	struct sk_buff *rep;
-> @@ -293,10 +314,17 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
-> goto out;
-> 
->  	err = -ENOMEM;
-> -	rep = alloc_skb(NLMSG_SPACE((sizeof(struct inet_diag_msg) +
-> -				     sizeof(struct inet_diag_meminfo) +
-> -				     handler->idiag_info_size + 64)),
-> -			GFP_KERNEL);
-> +	len = sizeof(struct inet_diag_msg) + 64;
-> +
-> +	len += (req->idiag_ext & (1 << (INET_DIAG_MEMINFO - 1))) ?
-> +		sizeof(struct inet_diag_meminfo) : 0;
-> +	len += (req->idiag_ext & (1 << (INET_DIAG_INFO - 1))) ?
-> +		handler->idiag_info_size : 0;
-> +	len += (req->idiag_ext & (1 << (INET_DIAG_SECCTX - 1))) ?
-> +		MAX_SECCTX_LEN : 0;
-> +
-> +	rep = alloc_skb(NLMSG_SPACE(len), GFP_KERNEL);
-
-How much of a problem would it be if you just allocated an entire page (or 4k 
-in the case of huge pages) and used that?  Is memory usage a concern here?
-
--- 
-paul moore
-www.paul-moore.com
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
