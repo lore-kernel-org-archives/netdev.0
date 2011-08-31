@@ -1,58 +1,51 @@
 From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 07/24] can: Remove unnecessary OOM logging messages
-Date: Wed, 31 Aug 2011 19:11:14 +0200
-Message-ID: <4E5E6B32.8040902@hartkopp.net>
-References: <cover.1314650069.git.joe@perches.com> <d2773db0709a09bfe6d43a28ba1323c5d3f9a76b.1314650069.git.joe@perches.com>
+Subject: Re: [PATCH 1/1] net/can/af_can.c: Change del_timer to del_timer_sync
+Date: Wed, 31 Aug 2011 19:28:02 +0200
+Message-ID: <4E5E6F22.4060206@hartkopp.net>
+References: <1314784658-23938-1-git-send-email-rajan.aggarwal85@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Rajan Aggarwal <rajan.aggarwal85@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:32115 "EHLO
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:10999 "EHLO
 	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753736Ab1HaRLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 13:11:21 -0400
-In-Reply-To: <d2773db0709a09bfe6d43a28ba1323c5d3f9a76b.1314650069.git.joe@perches.com>
+	with ESMTP id S1753736Ab1HaR2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 13:28:00 -0400
+In-Reply-To: <1314784658-23938-1-git-send-email-rajan.aggarwal85@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29.08.2011 23:17, Joe Perches wrote:
+On 31.08.2011 11:57, Rajan Aggarwal wrote:
 
-> Removing unnecessary messages saves code and text.
+> From: Rajan Aggarwal <Rajan Aggarwal rajan.aggarwal85@gmail.com>
 > 
-> Site specific OOM messages are duplications of a generic MM
-> out of memory message and aren't really useful, so just
-> delete them.
+> This is important for SMP platform to check if timer function is
+> executing on other CPU with deleting the timer.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Rajan Aggarwal <Rajan Aggarwal rajan.aggarwal85@gmail.com>
+> ---
 
 
 Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-Tnx Joe.
+Tnx Rajan.
 
-> ---
->  net/can/af_can.c |    6 ++----
->  1 files changed, 2 insertions(+), 4 deletions(-)
+>  net/can/af_can.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
 > diff --git a/net/can/af_can.c b/net/can/af_can.c
-> index b9efa94..11300be 100644
+> index 8ce926d..9b0c32a 100644
 > --- a/net/can/af_can.c
 > +++ b/net/can/af_can.c
-> @@ -770,11 +770,9 @@ static int can_notifier(struct notifier_block *nb, unsigned long msg,
+> @@ -857,7 +857,7 @@ static __exit void can_exit(void)
+>  	struct net_device *dev;
 >  
->  		/* create new dev_rcv_lists for this device */
->  		d = kzalloc(sizeof(*d), GFP_KERNEL);
-> -		if (!d) {
-> -			printk(KERN_ERR
-> -			       "can: allocation of receive list failed\n");
-> +		if (!d)
->  			return NOTIFY_DONE;
-> -		}
-> +
->  		BUG_ON(dev->ml_priv);
->  		dev->ml_priv = d;
+>  	if (stats_timer)
+> -		del_timer(&can_stattimer);
+> +		del_timer_sync(&can_stattimer);
+>  
+>  	can_remove_proc();
 >  
