@@ -1,45 +1,74 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [patch net-next-2.6 1/2] net: allow to change carrier via sysfs
-Date: Wed, 31 Aug 2011 10:33:50 +0200
-Message-ID: <CAHXqBFJpSZNhkur7QNYbjG-=Bkq2HtHKEHsn+H3TnEJ5NezJoA@mail.gmail.com>
-References: <1314715608-978-1-git-send-email-jpirko@redhat.com>
- <1314715608-978-2-git-send-email-jpirko@redhat.com> <CAHXqBFJh0xjRYv_-2AzwAvpHOUfQ+pD_153qVtNA3Ybo9r3b=w@mail.gmail.com>
- <20110831082655.GB2010@minipsycho.brq.redhat.com>
+From: <rongqing.li@windriver.com>
+Subject: [PATCH 0/2] Dump the sock's security context
+Date: Wed, 31 Aug 2011 16:36:15 +0800
+Message-ID: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:41346 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753263Ab1HaIeL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 04:34:11 -0400
-Received: by iabu26 with SMTP id u26so535673iab.19
-        for <netdev@vger.kernel.org>; Wed, 31 Aug 2011 01:34:11 -0700 (PDT)
-In-Reply-To: <20110831082655.GB2010@minipsycho.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+	<linux-security-module@vger.kernel.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 31 sierpnia 2011 10:26 u=BFytkownik Jiri Pirko <jpirko@redhat.co=
-m> napisa=B3:
-> Tue, Aug 30, 2011 at 08:11:37PM CEST, mirqus@gmail.com wrote:
->>2011/8/30 Jiri Pirko <jpirko@redhat.com>:
->>> Allow to write to "carrier" attribute. Devices may implement ndo_ch=
-ange_carrier
->>> callback to allow changing carrier from userspace.
->>Do you expect drivers using implementation different than just callin=
-g
->>netif_carrier_on/off? Or is it supposed to also e.g. power down PHYs?
-> Yes, generally it can be used also for en/disable phy, for testing
-> purposes if hw and driver would support it.
+-------
+    Any review would be much appreciated.
+ 
+Comments:
+--------
+    Add a netlink attribute INET_DIAG_SECCTX
+    
+    Add a new netlink attribute INET_DIAG_SECCTX to dump the security
+    context of TCP sockets.
+    
+    The element sk_security of struct sock represents the socket
+    security context ID, which is inherited from the parent process
+    when the socket is created.
+    
+    but when SELinux type_transition rule is applied to socket, or
+    application sets /proc/xxx/attr/createsock, the socket security
+    context would be different from the creating process. For these
+    conditions, the "netstat -Z" would return wrong value, since
+    "netstat -Z" only returns the process security context as socket
+    process security.
 
-I'd like to see this working for GRE tunnel devices (for keepalive
-daemon to be able to indicate to routing daemons whether tunnel is
-really working) - implementation would be identical to dummy's case.
-Should I prepare a patch or can I leave it to you?
 
-Best Regards,
-Micha=B3 Miros=B3aw
+The application to verify the netlink new attribute.
+------
+See attached file
+
+test:
+--------
+1. Enable SELinux when compile and startup .
+	root@qemu-host:/root> ./printsocketsec
+	 inode:7141 system_u:system_r:rpcbind_t:s0 
+	 inode:7136 system_u:system_r:rpcbind_t:s0 
+	 inode:7604 system_u:system_r:initrc_t:s0 
+	 inode:7227 system_u:system_r:rpcd_t:s0 
+	 inode:7471 system_u:system_r:sshd_t:s0-s0:c0.c1023 
+	 inode:7469 system_u:system_r:sshd_t:s0-s0:c0.c1023 
+	 inode:7552 system_u:system_r:sendmail_t:s0 
+	 inode:7348 system_u:system_r:initrc_t:s0 
+	 inode:7553 system_u:system_r:sendmail_t:s0 
+	root@qemu-host:/root> 
+
+2. Disable SELinux when startup.
+	root@qemu-host:/root> ./printsocketsec 
+	inode:3221 
+	inode:2942 
+	inode:2861 
+	inode:3256 
+	inode:3156 
+	inode:3220 
+	inode:3060
+	root@qemu-host:/root>
+
+3. Disable SELinux when compile and startup
+	root@qemu-host:/root> ./printsocketsec 
+	inode:3221 
+	inode:2942 
+	inode:2861 
+	inode:3256 
+	inode:3156 
+	inode:3220 
+	inode:3060
+	root@qemu-host:/root>
