@@ -1,89 +1,79 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next-2.6 1/2] net: allow to change carrier via sysfs
-Date: Wed, 31 Aug 2011 21:44:40 +0100
-Message-ID: <1314823481.3274.26.camel@bwh-desktop>
-References: <1314715608-978-1-git-send-email-jpirko@redhat.com>
-	 <1314715608-978-2-git-send-email-jpirko@redhat.com>
-	 <CAHXqBFJh0xjRYv_-2AzwAvpHOUfQ+pD_153qVtNA3Ybo9r3b=w@mail.gmail.com>
-	 <20110831082655.GB2010@minipsycho.brq.redhat.com>
-	 <CAHXqBFJpSZNhkur7QNYbjG-=Bkq2HtHKEHsn+H3TnEJ5NezJoA@mail.gmail.com>
-	 <20110831084511.GD2010@minipsycho.brq.redhat.com>
-	 <4E5E939C.5000009@gmail.com> <1314821537.3274.24.camel@bwh-desktop>
-	 <4E5E9A30.1040105@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] net: Initialize entire flowi struct
+Date: Wed, 31 Aug 2011 23:51:32 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1108312321400.1826@ja.ssi.bg>
+References: <1314806703-5275-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, shemminger@vyatta.com
-To: Nicolas de =?ISO-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Ward <david.ward@ll.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:3926 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752077Ab1HaUoo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 16:44:44 -0400
-In-Reply-To: <4E5E9A30.1040105@gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:33105 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754673Ab1HaUpd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Aug 2011 16:45:33 -0400
+In-Reply-To: <1314806703-5275-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-08-31 at 22:31 +0200, Nicolas de Peslo=C3=BCan wrote:
-> Le 31/08/2011 22:12, Ben Hutchings a =C3=A9crit :
-> > On Wed, 2011-08-31 at 22:03 +0200, Nicolas de Peslo=C3=BCan wrote:
-> >> Le 31/08/2011 10:45, Jiri Pirko a =C3=A9crit :
-> >>
-> >>>>>> Do you expect drivers using implementation different than just=
- calling
-> >>>>>> netif_carrier_on/off? Or is it supposed to also e.g. power dow=
-n PHYs?
-> >>>>> Yes, generally it can be used also for en/disable phy, for test=
-ing
-> >>>>> purposes if hw and driver would support it.
-> >>>>
-> >>>> I'd like to see this working for GRE tunnel devices (for keepali=
-ve
-> >>>> daemon to be able to indicate to routing daemons whether tunnel =
-is
-> >>>> really working) - implementation would be identical to dummy's c=
-ase.
-> >>>> Should I prepare a patch or can I leave it to you?
-> >>>
-> >>> Ok, I can include it to this patchset (I'm going to repost first =
-patch
-> >>> anyway)
-> >>
-> >> Can't we assume that the dummy's case is the default behavior and
-> >> register this default
-> >> ndo_change_carrier callback for every device ?
-> >
-> > You have got to be joking.  No device driver that has real link
-> > monitoring should use this implementation.
->=20
-> Well, why not? Arguably, this is probably not the feature one would
-> use every day, but...
->=20
-> Testing a cluster reaction to a link down event would be easier if on=
-e
-> doesn't need to unplug the=20
-> cable for the test. I understand that one can turn off the switch por=
-t
-> (physical or virtual), but=20
-> echo 0 > /sys/class/net/eth0/carrier would be nice too.
->=20
-> Of course, I assume that netif_carrier_on and netif_carrier_off are
-> only called on real link status=20
-> change. So the value written into /sys/class/net/eth0/carrier would
-> stay until the link revert it,=20
-> due to a double status change (up-down-up or down-up-down). But I may
-> miss totally this point.
 
-Think what happens if the user sets carrier on, when the link is
-actually down.
+	Hello,
 
-Ben.
+On Wed, 31 Aug 2011, David Ward wrote:
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> The entire flowi struct needs to be initialized by afinfo->decode_session,
+> because flow_hash_code operates over the entire struct and may otherwise
+> return different hash values for what is intended to be the same key.
+
+	Such change will cause problems for callers that
+use flowi4 in stack. Examples:
+
+ip_route_me_harder
+icmp_route_lookup
+
+	Not sure if adding size as parameter to flow_hash_code
+is better approach. May be flow_cache_lookup needs to
+determine size from family that can be used for flow_hash_code,
+flow_key_compare and the memcpy(&fle->key, key, sizeof(*key))
+after fle = kmem_cache_alloc(flow_cachep, GFP_ATOMIC). The
+question is how to get size by family.
+
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> ---
+>  net/ipv4/xfrm4_policy.c |    2 +-
+>  net/ipv6/xfrm6_policy.c |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+> index fc5368a..afce24d 100644
+> --- a/net/ipv4/xfrm4_policy.c
+> +++ b/net/ipv4/xfrm4_policy.c
+> @@ -114,7 +114,7 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+>  	u8 *xprth = skb_network_header(skb) + iph->ihl * 4;
+>  	struct flowi4 *fl4 = &fl->u.ip4;
+>  
+> -	memset(fl4, 0, sizeof(struct flowi4));
+> +	memset(fl, 0, sizeof(struct flowi));
+>  	fl4->flowi4_mark = skb->mark;
+>  
+>  	if (!ip_is_fragment(iph)) {
+> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+> index d879f7e..9088d38 100644
+> --- a/net/ipv6/xfrm6_policy.c
+> +++ b/net/ipv6/xfrm6_policy.c
+> @@ -129,7 +129,7 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+>  	const unsigned char *nh = skb_network_header(skb);
+>  	u8 nexthdr = nh[IP6CB(skb)->nhoff];
+>  
+> -	memset(fl6, 0, sizeof(struct flowi6));
+> +	memset(fl, 0, sizeof(struct flowi));
+>  	fl6->flowi6_mark = skb->mark;
+>  
+>  	ipv6_addr_copy(&fl6->daddr, reverse ? &hdr->saddr : &hdr->daddr);
+> -- 
+> 1.7.4.1
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
