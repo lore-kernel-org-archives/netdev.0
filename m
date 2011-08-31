@@ -1,16 +1,16 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH RFT v2] bnx2: don't request firmware when there's no userspace.
-Date: Wed, 31 Aug 2011 06:48:24 +0200
-Message-ID: <20110831044824.GA24254@electric-eye.fr.zoreil.com>
+Subject: [PATCH RFT v3] bnx2: don't request firmware when there's no userspace.
+Date: Wed, 31 Aug 2011 06:59:43 +0200
+Message-ID: <20110831045943.GB24254@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:54502 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:37105 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752560Ab1HaFG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 01:06:57 -0400
+	with ESMTP id S1752758Ab1HaFSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 01:18:10 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,22 +23,24 @@ It's similar to 953a12cc2889d1be92e80a2d0bab5ffef4942300 but the
 firmware is mandatory.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Michael Chan <mchan@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
-
+ Since v2: remove erroneous __devinit.
  Since v1: conditional release in bnx2_release_firmware.
 
- drivers/net/bnx2.c |   62 ++++++++++++++++++++++++++++++++-------------------
- 1 files changed, 39 insertions(+), 23 deletions(-)
+ drivers/net/bnx2.c |   64 ++++++++++++++++++++++++++++++++-------------------
+ 1 files changed, 40 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 4b2b570..5764333 100644
+index 4b2b570..87a21c1 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
 @@ -3649,8 +3649,17 @@ check_mips_fw_entry(const struct firmware *fw,
  	return 0;
  }
  
+-static int __devinit
+-bnx2_request_firmware(struct bnx2 *bp)
 +static void bnx2_release_firmware(struct bnx2 *bp)
 +{
 +	if (bp->rv2p_firmware) {
@@ -48,8 +50,7 @@ index 4b2b570..5764333 100644
 +	}
 +}
 +
- static int __devinit
--bnx2_request_firmware(struct bnx2 *bp)
++static int
 +bnx2_request_uncached_firmware(struct bnx2 *bp)
  {
  	const char *mips_fw_file, *rv2p_fw_file;
