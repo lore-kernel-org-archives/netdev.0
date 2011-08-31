@@ -1,128 +1,251 @@
-From: <rongqing.li@windriver.com>
-Subject: [PATCH 2/2] Add a netlink attribute INET_DIAG_SECCTX
-Date: Wed, 31 Aug 2011 16:36:17 +0800
-Message-ID: <1314779777-12669-3-git-send-email-rongqing.li@windriver.com>
+From: Rongqing Li <rongqing.li@windriver.com>
+Subject: Re: [PATCH 0/2] Dump the sock's security context
+Date: Wed, 31 Aug 2011 16:38:23 +0800
+Message-ID: <4E5DF2FF.7000803@windriver.com>
 References: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+Content-Type: multipart/mixed;
+	boundary="------------030801010906080102050302"
+Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
 	<linux-security-module@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:37922 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753068Ab1HaIg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 04:36:27 -0400
+To: <rongqing.li@windriver.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 In-Reply-To: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roy.Li <rongqing.li@windriver.com>
+--------------030801010906080102050302
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Add a new netlink attribute INET_DIAG_SECCTX to dump the security
-context of TCP sockets.
+On 08/31/2011 04:36 PM, rongqing.li@windriver.com wrote:
+> -------
+>      Any review would be much appreciated.
+>
+> Comments:
+> --------
+>      Add a netlink attribute INET_DIAG_SECCTX
+>
+>      Add a new netlink attribute INET_DIAG_SECCTX to dump the security
+>      context of TCP sockets.
+>
+>      The element sk_security of struct sock represents the socket
+>      security context ID, which is inherited from the parent process
+>      when the socket is created.
+>
+>      but when SELinux type_transition rule is applied to socket, or
+>      application sets /proc/xxx/attr/createsock, the socket security
+>      context would be different from the creating process. For these
+>      conditions, the "netstat -Z" would return wrong value, since
+>      "netstat -Z" only returns the process security context as socket
+>      process security.
+>
+>
+> The application to verify the netlink new attribute.
+> ------
+> See attached file
+>
+> test:
+> --------
+> 1. Enable SELinux when compile and startup .
+> 	root@qemu-host:/root>  ./printsocketsec
+> 	 inode:7141 system_u:system_r:rpcbind_t:s0
+> 	 inode:7136 system_u:system_r:rpcbind_t:s0
+> 	 inode:7604 system_u:system_r:initrc_t:s0
+> 	 inode:7227 system_u:system_r:rpcd_t:s0
+> 	 inode:7471 system_u:system_r:sshd_t:s0-s0:c0.c1023
+> 	 inode:7469 system_u:system_r:sshd_t:s0-s0:c0.c1023
+> 	 inode:7552 system_u:system_r:sendmail_t:s0
+> 	 inode:7348 system_u:system_r:initrc_t:s0
+> 	 inode:7553 system_u:system_r:sendmail_t:s0
+> 	root@qemu-host:/root>
+>
+> 2. Disable SELinux when startup.
+> 	root@qemu-host:/root>  ./printsocketsec
+> 	inode:3221
+> 	inode:2942
+> 	inode:2861
+> 	inode:3256
+> 	inode:3156
+> 	inode:3220
+> 	inode:3060
+> 	root@qemu-host:/root>
+>
+> 3. Disable SELinux when compile and startup
+> 	root@qemu-host:/root>  ./printsocketsec
+> 	inode:3221
+> 	inode:2942
+> 	inode:2861
+> 	inode:3256
+> 	inode:3156
+> 	inode:3220
+> 	inode:3060
+> 	root@qemu-host:/root>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
-The element sk_security of struct sock represents the socket
-security context ID, which is inherited from the parent process
-when the socket is created.
-
-but when SELinux type_transition rule is applied to socket, or
-application sets /proc/xxx/attr/createsock, the socket security
-context would be different from the creating process. For these
-conditions, the "netstat -Z" will return wrong value, since
-"netstat -Z" only returns the process security context as socket
-process security.
-
-Signed-off-by: Roy.Li <rongqing.li@windriver.com>
----
- include/linux/inet_diag.h |    3 ++-
- net/ipv4/inet_diag.c      |   38 +++++++++++++++++++++++++++++++++-----
- 2 files changed, 35 insertions(+), 6 deletions(-)
-
-diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
-index bc8c490..00382b4 100644
---- a/include/linux/inet_diag.h
-+++ b/include/linux/inet_diag.h
-@@ -97,9 +97,10 @@ enum {
- 	INET_DIAG_INFO,
- 	INET_DIAG_VEGASINFO,
- 	INET_DIAG_CONG,
-+	INET_DIAG_SECCTX,
- };
- 
--#define INET_DIAG_MAX INET_DIAG_CONG
-+#define INET_DIAG_MAX INET_DIAG_SECCTX
- 
- 
- /* INET_DIAG_MEM */
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 389a2e6..1faf752 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -34,6 +34,8 @@
- 
- #include <linux/inet_diag.h>
- 
-+#define MAX_SECCTX_LEN 128
-+
- static const struct inet_diag_handler **inet_diag_table;
- 
- struct inet_diag_entry {
-@@ -108,6 +110,25 @@ static int inet_csk_diag_fill(struct sock *sk,
- 		       icsk->icsk_ca_ops->name);
- 	}
- 
-+	if (ext & (1 << (INET_DIAG_SECCTX - 1))) {
-+		u32 ctxlen = 0;
-+		void *secctx;
-+		int error;
-+
-+		error = security_sk_getsecctx(sk, &secctx, &ctxlen);
-+
-+		if (!error && ctxlen) {
-+			if (ctxlen < MAX_SECCTX_LEN) {
-+				strcpy(INET_DIAG_PUT(skb, INET_DIAG_SECCTX,
-+					ctxlen + 1), secctx);
-+			} else {
-+				strcpy(INET_DIAG_PUT(skb, INET_DIAG_SECCTX,
-+					2), "-");
-+			}
-+			security_release_secctx(secctx, ctxlen);
-+		}
-+	}
-+
- 	r->idiag_family = sk->sk_family;
- 	r->idiag_state = sk->sk_state;
- 	r->idiag_timer = 0;
-@@ -246,7 +267,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- static int inet_diag_get_exact(struct sk_buff *in_skb,
- 			       const struct nlmsghdr *nlh)
- {
--	int err;
-+	int err, len;
- 	struct sock *sk;
- 	struct inet_diag_req *req = NLMSG_DATA(nlh);
- 	struct sk_buff *rep;
-@@ -293,10 +314,17 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
- 		goto out;
- 
- 	err = -ENOMEM;
--	rep = alloc_skb(NLMSG_SPACE((sizeof(struct inet_diag_msg) +
--				     sizeof(struct inet_diag_meminfo) +
--				     handler->idiag_info_size + 64)),
--			GFP_KERNEL);
-+	len = sizeof(struct inet_diag_msg) + 64;
-+
-+	len += (req->idiag_ext & (1 << (INET_DIAG_MEMINFO - 1))) ?
-+		sizeof(struct inet_diag_meminfo) : 0;
-+	len += (req->idiag_ext & (1 << (INET_DIAG_INFO - 1))) ?
-+		handler->idiag_info_size : 0;
-+	len += (req->idiag_ext & (1 << (INET_DIAG_SECCTX - 1))) ?
-+		MAX_SECCTX_LEN : 0;
-+
-+	rep = alloc_skb(NLMSG_SPACE(len), GFP_KERNEL);
-+
- 	if (!rep)
- 		goto out;
- 
 -- 
-1.7.1
+Best Reagrds,
+Roy | RongQing Li
+
+--------------030801010906080102050302
+Content-Type: text/x-csrc; name="printsocketsec.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="printsocketsec.c"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <errno.h>
+
+#include "libnetlink.h"
+
+#include <netinet/tcp.h>
+#include <linux/inet_diag.h>
+
+enum {
+        SS_UNKNOWN,
+        SS_ESTABLISHED,
+        SS_SYN_SENT,
+        SS_SYN_RECV,
+        SS_FIN_WAIT1,
+        SS_FIN_WAIT2,
+        SS_TIME_WAIT,
+        SS_CLOSE,
+        SS_CLOSE_WAIT,
+        SS_LAST_ACK,
+        SS_LISTEN,
+        SS_CLOSING,
+        SS_MAX
+};
+
+#define SS_ALL ((1<<SS_MAX)-1)
+
+/*The INET_DIAG_SECCTX should be defined in inet_diag.h at last,
+To simply the test, I define it locally*/
+#define INET_DIAG_SECCTX (INET_DIAG_CONG+1)
+#define LOCAL_MAX INET_DIAG_SECCTX+1
+
+
+void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
+{
+
+	struct rtattr * tb[ LOCAL_MAX + 1];
+
+	printf(" inode:%u", r->idiag_inode);
+
+	parse_rtattr(tb, LOCAL_MAX, (struct rtattr*)(r+1),
+		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+
+
+	if (tb[INET_DIAG_SECCTX])
+		printf(" %s", (char *) RTA_DATA(tb[INET_DIAG_SECCTX]));
+	printf("\n");
+}
+
+static int tcp_show_netlink( int socktype)
+{
+	int fd;
+	struct sockaddr_nl nladdr;
+	struct {
+		struct nlmsghdr nlh;
+		struct inet_diag_req r;
+	} req;
+
+	struct msghdr msg;
+	struct rtattr rta;
+	char	buf[8192];
+	struct iovec iov[3];
+
+	if ((fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_INET_DIAG)) < 0)
+		return -1;
+
+	memset(&nladdr, 0, sizeof(nladdr));
+	nladdr.nl_family = AF_NETLINK;
+
+	req.nlh.nlmsg_len = sizeof(req);
+	req.nlh.nlmsg_type = socktype;
+	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+	req.nlh.nlmsg_pid = 0;
+	req.nlh.nlmsg_seq = 123456;
+	memset(&req.r, 0, sizeof(req.r));
+	req.r.idiag_family = AF_INET;
+	req.r.idiag_states = SS_ALL;
+
+	req.r.idiag_ext |= (1<<(INET_DIAG_SECCTX-1));
+
+	iov[0] = (struct iovec){
+		.iov_base = &req,
+		.iov_len = sizeof(req)
+	};
+
+	msg = (struct msghdr) {
+		.msg_name = (void*)&nladdr,
+		.msg_namelen = sizeof(nladdr),
+		.msg_iov = iov,
+		.msg_iovlen = 1,
+	};
+
+	if (sendmsg(fd, &msg, 0) < 0)
+		return -1;
+
+	iov[0] = (struct iovec){
+		.iov_base = buf,
+		.iov_len = sizeof(buf)
+	};
+
+	while (1) {
+		int status;
+		struct nlmsghdr *h;
+
+		msg = (struct msghdr) {
+			(void*)&nladdr, sizeof(nladdr),
+			iov,	1,
+			NULL,	0,
+			0
+		};
+
+		status = recvmsg(fd, &msg, 0);
+
+		if (status < 0) {
+			if (errno == EINTR)
+				continue;
+			perror("OVERRUN");
+			continue;
+		}
+		if (status == 0) {
+			fprintf(stderr, "EOF on netlink\n");
+			return 0;
+		}
+
+		h = (struct nlmsghdr*)buf;
+		while (NLMSG_OK(h, status)) {
+			struct inet_diag_msg *r = NLMSG_DATA(h);
+
+			if (/*h->nlmsg_pid != rth->local.nl_pid ||*/
+			    h->nlmsg_seq != 123456)
+				goto skip_it;
+
+			if (h->nlmsg_type == NLMSG_DONE)
+				return 0;
+
+			if (h->nlmsg_type == NLMSG_ERROR) 
+				return 0;
+
+			tcp_show_info(h, r);
+skip_it:
+			h = NLMSG_NEXT(h, status);
+		}
+	}
+	return 0;
+}
+void main()
+{
+	tcp_show_netlink( TCPDIAG_GETSOCK);
+}
+
+--------------030801010906080102050302--
