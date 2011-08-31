@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 02/12] bna: PCI Probe Fix
-Date: Tue, 30 Aug 2011 18:27:38 -0700
-Message-ID: <1314754068-31978-3-git-send-email-rmody@brocade.com>
+Subject: [net-next 06/12] bna: Initialization and Locking Fix
+Date: Tue, 30 Aug 2011 18:27:42 -0700
+Message-ID: <1314754068-31978-7-git-send-email-rmody@brocade.com>
 References: <1314754068-31978-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,57 +10,92 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:35096 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752557Ab1HaB2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 21:28:09 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:53380 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754641Ab1HaB2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Aug 2011 21:28:15 -0400
 In-Reply-To: <1314754068-31978-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- - Return error as -EIO if bnad_res_alloc fails
- - Release the configuration lock before registering with net_device layer.
+ - Initialize rx_id to 0 for bnad_cleanup_rx
+ - Return -ENOMEM in case if bna_rx_create fails
+ - Count the Rx buffer allocation failures in bnad_alloc_n_post_rxbufs()
+ - Remove unnecessary initialization of using_dac to false in bnad_pci_probe
+ - Release lock if error while doing bna_num_txq_set in bnad_pci_probe
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    1 +
+ drivers/net/ethernet/brocade/bna/bnad.c        |   13 +++++++++++--
+ 2 files changed, 12 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+index 07bb792..7ecdca5 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+@@ -99,6 +99,7 @@
+ 	(_bna)->bits.error_status_bits = (__HFN_INT_ERR_MASK);		\
+ 	(_bna)->bits.error_mask_bits = (__HFN_INT_ERR_MASK);		\
+ 	(_bna)->bits.halt_status_bits = __HFN_INT_LL_HALT;		\
++	(_bna)->bits.halt_mask_bits = __HFN_INT_LL_HALT;		\
+ }
+ 
+ #define ct2_reg_addr_init(_bna, _pcidev)				\
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 218768f..5784f99 100644
+index 8ee405a..4449e1d 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -3253,8 +3253,10 @@ bnad_pci_probe(struct pci_dev *pdev,
+@@ -393,6 +393,7 @@ bnad_alloc_n_post_rxbufs(struct bnad *bnad, struct bna_rcb *rcb)
+ 						rcb->rxq->buffer_size);
+ 		if (unlikely(!skb)) {
+ 			BNAD_UPDATE_CTR(bnad, rxbuf_alloc_failed);
++			rcb->rxq->rxbuf_alloc_failed++;
+ 			goto finishing;
+ 		}
+ 		unmap_array[unmap_prod].skb = skb;
+@@ -1892,6 +1893,7 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
  	spin_unlock_irqrestore(&bnad->bna_lock, flags);
  
- 	err = bnad_res_alloc(bnad, &bnad->mod_res_info[0], BNA_MOD_RES_T_MAX);
--	if (err)
-+	if (err) {
-+		err = -EIO;
- 		goto disable_ioceth;
+ 	rx_info->rx = NULL;
++	rx_info->rx_id = 0;
+ 
+ 	bnad_rx_res_free(bnad, res_info);
+ }
+@@ -1947,8 +1949,10 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
+ 	rx = bna_rx_create(&bnad->bna, bnad, rx_config, &rx_cbfn, res_info,
+ 			rx_info);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-	if (!rx)
++	if (!rx) {
++		err = -ENOMEM;
+ 		goto err_return;
 +	}
+ 	rx_info->rx = rx;
  
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_mod_init(&bnad->bna, &bnad->mod_res_info[0]);
-@@ -3266,6 +3268,8 @@ bnad_pci_probe(struct pci_dev *pdev,
- 	bnad_set_netdev_perm_addr(bnad);
+ 	/*
+@@ -3206,7 +3210,7 @@ static int __devinit
+ bnad_pci_probe(struct pci_dev *pdev,
+ 		const struct pci_device_id *pcidev_id)
+ {
+-	bool	using_dac = false;
++	bool	using_dac;
+ 	int	err;
+ 	struct bnad *bnad;
+ 	struct bna *bna;
+@@ -3329,6 +3333,11 @@ bnad_pci_probe(struct pci_dev *pdev,
+ 			bna_num_rxp_set(bna, BNAD_NUM_RXP + 1))
+ 			err = -EIO;
+ 	}
++	spin_unlock_irqrestore(&bnad->bna_lock, flags);
++	if (err)
++		goto disable_ioceth;
++
++	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	bna_mod_res_req(&bnad->bna, &bnad->mod_res_info[0]);
  	spin_unlock_irqrestore(&bnad->bna_lock, flags);
  
-+	mutex_unlock(&bnad->conf_mutex);
-+
- 	/* Finally, reguister with net_device layer */
- 	err = register_netdev(netdev);
- 	if (err) {
-@@ -3274,6 +3278,8 @@ bnad_pci_probe(struct pci_dev *pdev,
- 	}
- 	set_bit(BNAD_RF_NETDEV_REGISTERED, &bnad->run_flags);
- 
-+	return 0;
-+
- probe_success:
- 	mutex_unlock(&bnad->conf_mutex);
- 	return 0;
 -- 
 1.7.1
