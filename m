@@ -1,68 +1,46 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH 7/7] bnx2x: expose HW RX VLAN stripping toggle
-Date: Wed, 31 Aug 2011 17:37:49 +0200
-Message-ID: <20110831173749.60649b50@alice>
-References: <1314714646-3642-1-git-send-email-mschmidt@redhat.com>
-	<201108311501.39936.vladz@broadcom.com>
-	<20110831155324.7554d035@alice>
-	<201108311807.53767.vladz@broadcom.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [net] e1000: Fix driver to be used on PA RISC C8000
+ workstations
+Date: Wed, 31 Aug 2011 08:37:04 -0700
+Message-ID: <20110831153704.GB8618@kroah.com>
+References: <1314749966-9960-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Vlad Zolotarov" <vladz@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Guy Martin <gmsoft@tuxicoman.be>,
+	Matt Turner <mattst88@gmail.com>, gospo@redhat.com,
+	Rolf Eike Beer <eike-kernel@sf-tec.de>, stable@kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38420 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756264Ab1HaPhx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Aug 2011 11:37:53 -0400
-In-Reply-To: <201108311807.53767.vladz@broadcom.com>
+Received: from out3.smtp.messagingengine.com ([66.111.4.27]:52756 "EHLO
+	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756542Ab1HaPkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Aug 2011 11:40:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1314749966-9960-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Aug 2011 18:07:53 +0300 Vlad Zolotarov wrote:
-> If u want to change the implementation the way we rely on the
-> dev->features in the ndo_set_features() flow, which is a semantics
-> change, u'd rather change the __netdev_update_features() so that it
-> sets the dev->features before ndo_set_features() call and restores it
-> in case of a failure. Something like this:
+On Tue, Aug 30, 2011 at 05:19:26PM -0700, Jeff Kirsher wrote:
+> The checksum field in the EEPROM on HPPA is really not a
+> checksum but a signature (0x16d6).  So allow 0x16d6 as the
+> matching checksum on HPPA systems.
+> 
+> This issue is present on longterm/stable kernels, I have
+> verified that this patch is applicable back to at least
+> 2.6.32.y kernels.
+> 
+> CC: Guy Martin <gmsoft@tuxicoman.be>
+> CC: Rolf Eike Beer <eike-kernel@sf-tec.de>
+> CC: Matt Turner <mattst88@gmail.com>
+> Reported-by: Mikulas Patocka <mikulas@artax.kerlin.mff.cuni.cz>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-...
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index b2e262e..474e539 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5321,7 +5321,7 @@ static u32 netdev_fix_features(struct
-> net_device *dev, u32 features) 
->  int __netdev_update_features(struct net_device *dev)
->  {
-> -       u32 features;
-> +       u32 features, old_features;
->         int err = 0;
->  
->         ASSERT_RTNL();
-> @@ -5340,19 +5340,23 @@ int __netdev_update_features(struct
-> net_device *dev) netdev_dbg(dev, "Features changed: 0x%08x ->
-> 0x%08x\n", dev->features, features);
->  
-> +       /* Remember the original features and set the new ones */
-> +       old_features = dev->features;
-> +       dev->features = features;
-> +
->         if (dev->netdev_ops->ndo_set_features)
-> -               err = dev->netdev_ops->ndo_set_features(dev,
-> features);
-> +               err = dev->netdev_ops->ndo_set_features(dev);
+<formletter>
 
-Drivers want to know which features changed. They compare
-the features argument with dev->features.
-Perhaps we could pass old_features as the argument. Then we'd better
-change the name of the callback to avoid confusion.
+This is not the correct way to submit patches for inclusion in the
+stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
+for how to do this properly.
 
-I think it's not worth changing. I could restore dev->features before
-returning if bnx2x_reload_if_running() fails.
-
-Michal
+</formletter>
