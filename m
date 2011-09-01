@@ -1,40 +1,59 @@
-From: Wang Sheng-Hui <shhuiw@gmail.com>
-Subject: [PATCH] dev_ioctl should return -EINVAL for unknown ioctl instead
- of -ENOTTY
-Date: Thu, 01 Sep 2011 22:52:04 +0800
-Message-ID: <4E5F9C14.1040108@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH ] dynamic_debug: call __netdev_printk only for CONFIG_NET
+Date: Thu, 1 Sep 2011 16:57:02 +0200
+Message-ID: <201109011657.02407.arnd@arndb.de>
+References: <cover.1313085588.git.jbaron@redhat.com> <5514795fe63ccfd4b3a80283ed04a526abe3c59d.1313085588.git.jbaron@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: gregkh@suse.de, joe@perches.com, jim.cromie@gmail.com,
+	bvanassche@acm.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, aloisio.almeida@openbossa.org,
+	netdev@vger.kernel.org
+To: Jason Baron <jbaron@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:42810 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757628Ab1IAOwP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 10:52:15 -0400
+Received: from moutng.kundenserver.de ([212.227.126.171]:60977 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757808Ab1IAO5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 10:57:18 -0400
+In-Reply-To: <5514795fe63ccfd4b3a80283ed04a526abe3c59d.1313085588.git.jbaron@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch is against 3.1-rc3.
+__netdev_printk is only defined when CONFIG_NET is set. Since we only need
+__dynamic_netdev_dbg for network drivers, we can make it conditional on the
+same Kconfig symbol.
 
-Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On Thursday 11 August 2011, Jason Baron wrote:
+> 
+> From: Jason Baron <jbaron@redhat.com>
+> 
+> Previously, if dynamic debug was enabled netdev_dbg() was using
+> dynamic_dev_dbg() to print out the underlying msg. Fix this by making
+> sure netdev_dbg() uses __netdev_printk().
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Jason Baron <jbaron@redhat.com>
+> ---
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 17d67b5..de6033c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5092,7 +5092,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 		/* Take care of Wireless Extensions */
- 		if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
- 			return wext_handle_ioctl(net, &ifr, cmd, arg);
--		return -ENOTTY;
-+		return -EINVAL;
- 	}
+--- a/lib/dynamic_debug.c
++++ b/lib/dynamic_debug.c
+@@ -504,6 +504,7 @@ int __dynamic_dev_dbg(struct _ddebug *descriptor,
  }
+ EXPORT_SYMBOL(__dynamic_dev_dbg);
  
--- 
-1.7.1
++#ifdef CONFIG_NET
+ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
+ 		      const struct net_device *dev, const char *fmt, ...)
+ {
+@@ -527,6 +528,7 @@ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
+ 	return res;
+ }
+ EXPORT_SYMBOL(__dynamic_netdev_dbg);
++#endif
+ 
+ static __initdata char ddebug_setup_string[1024];
+ static __init int ddebug_setup_query(char *str)
