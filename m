@@ -1,112 +1,66 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] net: Prefer non link-local source addresses
-Date: Fri, 2 Sep 2011 01:14:59 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1109020041140.1799@ja.ssi.bg>
-References: <1314908454-14359-1-git-send-email-jeff_harris@kentrox.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net 2/2] sfc: Use 64-bit writes for TX push where possible
+Date: Thu, 01 Sep 2011 23:09:59 +0100
+Message-ID: <1314915000.2733.16.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Harris <jeff_harris@kentrox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:47000 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932190Ab1IAWJp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Sep 2011 18:09:45 -0400
-In-Reply-To: <1314908454-14359-1-git-send-email-jeff_harris@kentrox.com>
+Received: from mail.solarflare.com ([216.237.3.220]:54772 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932190Ab1IAWKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 18:10:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This was originally done as part of commit
+65f0b417dee94f779ce9b77102b7d73c93723b39 ("sfc: Use write-combining to
+reduce TX latency"), but that had to be reverted.
 
-	Hello,
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/io.h |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-On Thu, 1 Sep 2011, Jeff Harris wrote:
+diff --git a/drivers/net/sfc/io.h b/drivers/net/sfc/io.h
+index dc45110..751d1ec 100644
+--- a/drivers/net/sfc/io.h
++++ b/drivers/net/sfc/io.h
+@@ -48,9 +48,9 @@
+  *   replacing the low 96 bits with zero does not affect functionality.
+  * - If the host writes to the last dword address of such a register
+  *   (i.e. the high 32 bits) the underlying register will always be
+- *   written.  If the collector does not hold values for the low 96
+- *   bits of the register, they will be written as zero.  Writing to
+- *   the last qword does not have this effect and must not be done.
++ *   written.  If the collector and the current write together do not
++ *   provide values for all 128 bits of the register, the low 96 bits
++ *   will be written as zero.
+  * - If the host writes to the address of any other part of such a
+  *   register while the collector already holds values for some other
+  *   register, the write is discarded and the collector maintains its
+@@ -237,12 +237,13 @@ static inline void _efx_writeo_page(struct efx_nic *efx, efx_oword_t *value,
+ 
+ #ifdef EFX_USE_QWORD_IO
+ 	_efx_writeq(efx, value->u64[0], reg + 0);
++	_efx_writeq(efx, value->u64[1], reg + 8);
+ #else
+ 	_efx_writed(efx, value->u32[0], reg + 0);
+ 	_efx_writed(efx, value->u32[1], reg + 4);
+-#endif
+ 	_efx_writed(efx, value->u32[2], reg + 8);
+ 	_efx_writed(efx, value->u32[3], reg + 12);
++#endif
+ }
+ #define efx_writeo_page(efx, value, reg, page)				\
+ 	_efx_writeo_page(efx, value,					\
+-- 
+1.7.4.4
 
-> Section 2.6.1 of RFC 3927 specifies that if link-local and routable addresses
-> are available on an interface, a routable address is preferred.  Update the
-> IPv4 source address selection algorithm to use a 169.254.x.x address only if
-> another matching address is not found.
-> 
-> Tested combinations of configured IP addresses with and without link-local to
-> verify a link-local address was chosen only if no routable address was
-> present.
 
-	As David Lamparter already said, isn't the scope value
-suitable for this purpose? Eg.
-ip addr add 169.254.5.5/16 brd + dev eth0 scope link
-
-	iproute2 already has function default_scope() in
-ip/ipaddress.c that assigns scope if it is not specified
-while adding address. May be we can add RT_SCOPE_LINK for
-169.254 there?
-
-	Another such place is inet_set_ifa() in
-net/ipv4/devinet.c where we can assign scope, so that
-ifconfig works too.
-
-	I see also that net/ipv6/addrconf.c (sit_add_v4_addrs)
-avoids link-local addresses. What I mean is that the scope
-can be checked at many places and it is a mechanism that
-already works.
-
-	As result, we will not complicate inet_select_addr.
-
-> Signed-off-by: Jeff Harris <jeff_harris@kentrox.com>
-> ---
->  net/ipv4/devinet.c |   18 ++++++++++++++++--
->  1 files changed, 16 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index bc19bd0..70ddf37 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -965,6 +965,8 @@ out:
->  __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
->  {
->  	__be32 addr = 0;
-> +	__be32 lladdr = 0;
-> +	__be32 firstaddr = 0;
->  	struct in_device *in_dev;
->  	struct net *net = dev_net(dev);
->  
-> @@ -977,15 +979,27 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
->  		if (ifa->ifa_scope > scope)
->  			continue;
->  		if (!dst || inet_ifa_match(dst, ifa)) {
-> +			if (ipv4_is_linklocal_169(ifa->ifa_address)) {
-> +				lladdr = ifa->ifa_local;
-> +				continue;
-> +			}
->  			addr = ifa->ifa_local;
->  			break;
->  		}
-> -		if (!addr)
-> -			addr = ifa->ifa_local;
-> +		if (!firstaddr)
-> +			firstaddr = ifa->ifa_local;
->  	} endfor_ifa(in_dev);
->  
->  	if (addr)
->  		goto out_unlock;
-> +	if (lladdr) {
-> +		addr = lladdr;
-> +		goto out_unlock;
-> +	}
-> +	if (firstaddr) {
-> +		addr = firstaddr;
-> +		goto out_unlock;
-> +	}
->  no_in_dev:
->  
->  	/* Not loopback addresses on loopback should be preferred
-> -- 
-> 1.7.0.5
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
