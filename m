@@ -1,294 +1,358 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v4 4/4] r8169: support new chips of RTL8111F
-Date: Fri, 2 Sep 2011 17:49:13 +0800
-Message-ID: <1314956953-1568-4-git-send-email-hayeswang@realtek.com>
-References: <1314956953-1568-1-git-send-email-hayeswang@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1314956953-1568-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6] net: consolidate and fix ethtool_ops->get_settings calling
+Date: Thu,  1 Sep 2011 21:28:24 +0200
+Message-ID: <1314905304-16485-1-git-send-email-jpirko@redhat.com>
+Cc: ralf@linux-mips.org, fubar@us.ibm.com, andy@greyhouse.net,
+        kaber@trash.net, bprakash@broadcom.com, JBottomley@parallels.com,
+        robert.w.love@intel.com, davem@davemloft.net,
+        shemminger@linux-foundation.org, decot@google.com,
+        bhutchings@solarflare.com, mirq-linux@rere.qmqm.pl,
+        alexander.h.duyck@intel.com, amit.salecha@qlogic.com,
+        eric.dumazet@gmail.com, therbert@google.com,
+        paulmck@linux.vnet.ibm.com, laijs@cn.fujitsu.com,
+        xiaosuo@gmail.com, greearb@candelatech.com, loke.chetan@gmail.com,
+        linux-mips@linux-mips.org, linux-scsi@vger.kernel.org,
+        devel@open-fcoe.org, bridge@lists.linux-foundation.org
+To: netdev@vger.kernel.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Support new chips of RTL8111F.
+This patch does several things:
+- introduces __ethtool_get_settings which is called from ethtool code and
+  from dev_ethtool_get_settings() as well.
+- dev_ethtool_get_settings() becomes rtnl wrapper for
+  __ethtool_get_settings()
+- changes calling in drivers so rtnl locking is respected. In
+  iboe_get_rate was previously ->get_settings() called unlocked. This
+  fixes it
+- introduces rtnl_lock in bnx2fc_vport_create() and fcoe_vport_create()
+  so bnx2fc_if_create() and fcoe_if_create() are called locked as they
+  are from other places.
+- prb_calc_retire_blk_tmo() in af_packet.c was not calling get_settings
+  with rtnl_lock. So use dev_ethtool_get_settings here.
+- use __ethtool_get_settings() in bonding code
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |  181 +++++++++++++++++++++++++++++++++-
- 1 files changed, 179 insertions(+), 2 deletions(-)
+ arch/mips/txx9/generic/setup_tx4939.c |    2 +-
+ drivers/net/bonding/bond_main.c       |   13 ++++------
+ drivers/net/macvlan.c                 |    3 +-
+ drivers/scsi/bnx2fc/bnx2fc_fcoe.c     |    4 ++-
+ drivers/scsi/fcoe/fcoe.c              |    4 ++-
+ include/linux/ethtool.h               |    3 ++
+ net/8021q/vlan_dev.c                  |    3 +-
+ net/bridge/br_if.c                    |    2 +-
+ net/core/dev.c                        |   17 +++++---------
+ net/core/ethtool.c                    |   17 +++++++++----
+ net/core/net-sysfs.c                  |    4 +-
+ net/packet/af_packet.c                |   41 +++++++++++++++-----------------
+ 12 files changed, 59 insertions(+), 54 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 175c769..8e6a200 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -42,6 +42,8 @@
- #define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-1.fw"
- #define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-2.fw"
- #define FIRMWARE_8168E_3	"rtl_nic/rtl8168e-3.fw"
-+#define FIRMWARE_8168F_1	"rtl_nic/rtl8168f-1.fw"
-+#define FIRMWARE_8168F_2	"rtl_nic/rtl8168f-2.fw"
- #define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
+diff --git a/arch/mips/txx9/generic/setup_tx4939.c b/arch/mips/txx9/generic/setup_tx4939.c
+index e9f95dc..ba3cec3 100644
+--- a/arch/mips/txx9/generic/setup_tx4939.c
++++ b/arch/mips/txx9/generic/setup_tx4939.c
+@@ -321,7 +321,7 @@ void __init tx4939_sio_init(unsigned int sclk, unsigned int cts_mask)
+ static u32 tx4939_get_eth_speed(struct net_device *dev)
+ {
+ 	struct ethtool_cmd cmd;
+-	if (dev_ethtool_get_settings(dev, &cmd))
++	if (__ethtool_get_settings(dev, &cmd))
+ 		return 100;	/* default 100Mbps */
  
- #ifdef RTL8169_DEBUG
-@@ -133,6 +135,8 @@ enum mac_version {
- 	RTL_GIGA_MAC_VER_32,
- 	RTL_GIGA_MAC_VER_33,
- 	RTL_GIGA_MAC_VER_34,
-+	RTL_GIGA_MAC_VER_35,
-+	RTL_GIGA_MAC_VER_36,
- 	RTL_GIGA_MAC_NONE   = 0xff,
- };
+ 	return ethtool_cmd_speed(&cmd);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8cb75a6..1dcb07c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -557,7 +557,7 @@ down:
+ static int bond_update_speed_duplex(struct slave *slave)
+ {
+ 	struct net_device *slave_dev = slave->dev;
+-	struct ethtool_cmd etool = { .cmd = ETHTOOL_GSET };
++	struct ethtool_cmd ecmd;
+ 	u32 slave_speed;
+ 	int res;
  
-@@ -218,7 +222,11 @@ static const struct {
- 	[RTL_GIGA_MAC_VER_33] =
- 		_R("RTL8168e/8111e",	RTL_TD_1, FIRMWARE_8168E_2),
- 	[RTL_GIGA_MAC_VER_34] =
--		_R("RTL8168evl/8111evl",RTL_TD_1, FIRMWARE_8168E_3)
-+		_R("RTL8168evl/8111evl",RTL_TD_1, FIRMWARE_8168E_3),
-+	[RTL_GIGA_MAC_VER_35] =
-+		_R("RTL8168f/8111f",	RTL_TD_1, FIRMWARE_8168F_1),
-+	[RTL_GIGA_MAC_VER_36] =
-+		_R("RTL8168f/8111f",	RTL_TD_1, FIRMWARE_8168F_2)
- };
- #undef _R
+@@ -565,18 +565,15 @@ static int bond_update_speed_duplex(struct slave *slave)
+ 	slave->speed = SPEED_100;
+ 	slave->duplex = DUPLEX_FULL;
  
-@@ -711,7 +719,10 @@ MODULE_FIRMWARE(FIRMWARE_8168D_1);
- MODULE_FIRMWARE(FIRMWARE_8168D_2);
- MODULE_FIRMWARE(FIRMWARE_8168E_1);
- MODULE_FIRMWARE(FIRMWARE_8168E_2);
-+MODULE_FIRMWARE(FIRMWARE_8168E_3);
- MODULE_FIRMWARE(FIRMWARE_8105E_1);
-+MODULE_FIRMWARE(FIRMWARE_8168F_1);
-+MODULE_FIRMWARE(FIRMWARE_8168F_2);
+-	if (!slave_dev->ethtool_ops || !slave_dev->ethtool_ops->get_settings)
+-		return -1;
+-
+-	res = slave_dev->ethtool_ops->get_settings(slave_dev, &etool);
++	res = __ethtool_get_settings(slave_dev, &ecmd);
+ 	if (res < 0)
+ 		return -1;
  
- static int rtl8169_open(struct net_device *dev);
- static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
-@@ -1200,6 +1211,19 @@ static void rtl_link_chg_patch(struct rtl8169_private *tp)
- 			     ERIAR_EXGMAC);
- 		rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x01, 0x00,
- 			     ERIAR_EXGMAC);
-+	} else if (tp->mac_version == RTL_GIGA_MAC_VER_35 ||
-+		   tp->mac_version == RTL_GIGA_MAC_VER_36) {
-+		if (RTL_R8(PHYstatus) & _1000bpsF) {
-+			rtl_eri_write(ioaddr, 0x1bc, ERIAR_MASK_1111,
-+				      0x00000011, ERIAR_EXGMAC);
-+			rtl_eri_write(ioaddr, 0x1dc, ERIAR_MASK_1111,
-+				      0x00000005, ERIAR_EXGMAC);
-+		} else {
-+			rtl_eri_write(ioaddr, 0x1bc, ERIAR_MASK_1111,
-+				      0x0000001f, ERIAR_EXGMAC);
-+			rtl_eri_write(ioaddr, 0x1dc, ERIAR_MASK_1111,
-+				      0x0000003f, ERIAR_EXGMAC);
-+		}
+-	slave_speed = ethtool_cmd_speed(&etool);
++	slave_speed = ethtool_cmd_speed(&ecmd);
+ 	if (slave_speed == 0 || slave_speed == ((__u32) -1))
+ 		return -1;
+ 
+-	switch (etool.duplex) {
++	switch (ecmd.duplex) {
+ 	case DUPLEX_FULL:
+ 	case DUPLEX_HALF:
+ 		break;
+@@ -585,7 +582,7 @@ static int bond_update_speed_duplex(struct slave *slave)
  	}
- }
  
-@@ -1739,6 +1763,10 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		u32 val;
- 		int mac_version;
- 	} mac_info[] = {
-+		/* 8168F family. */
-+		{ 0x7cf00000, 0x48100000,	RTL_GIGA_MAC_VER_36 },
-+		{ 0x7cf00000, 0x48000000,	RTL_GIGA_MAC_VER_35 },
-+
- 		/* 8168E family. */
- 		{ 0x7c800000, 0x2c800000,	RTL_GIGA_MAC_VER_34 },
- 		{ 0x7cf00000, 0x2c200000,	RTL_GIGA_MAC_VER_33 },
-@@ -2873,6 +2901,97 @@ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x1f, 0x0000);
- }
+ 	slave->speed = slave_speed;
+-	slave->duplex = etool.duplex;
++	slave->duplex = ecmd.duplex;
  
-+static void rtl8168f_1_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	static const struct phy_reg phy_reg_init[] = {
-+		/* Channel estimation fine tune */
-+		{ 0x1f, 0x0003 },
-+		{ 0x09, 0xa20f },
-+		{ 0x1f, 0x0000 },
-+
-+		/* Modify green table for giga & fnet */
-+		{ 0x1f, 0x0005 },
-+		{ 0x05, 0x8b55 },
-+		{ 0x06, 0x0000 },
-+		{ 0x05, 0x8b5e },
-+		{ 0x06, 0x0000 },
-+		{ 0x05, 0x8b67 },
-+		{ 0x06, 0x0000 },
-+		{ 0x05, 0x8b70 },
-+		{ 0x06, 0x0000 },
-+		{ 0x1f, 0x0000 },
-+		{ 0x1f, 0x0007 },
-+		{ 0x1e, 0x0078 },
-+		{ 0x17, 0x0000 },
-+		{ 0x19, 0x00fb },
-+		{ 0x1f, 0x0000 },
-+
-+		/* Modify green table for 10M */
-+		{ 0x1f, 0x0005 },
-+		{ 0x05, 0x8b79 },
-+		{ 0x06, 0xaa00 },
-+		{ 0x1f, 0x0000 },
-+
-+		/* Disable hiimpedance detection (RTCT) */
-+		{ 0x1f, 0x0003 },
-+		{ 0x01, 0x328a },
-+		{ 0x1f, 0x0000 }
-+	};
-+
-+	rtl_apply_firmware(tp);
-+
-+	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-+
-+	/* For 4-corner performance improve */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b80);
-+	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
-+	/* PHY auto speed down */
-+	rtl_writephy(tp, 0x1f, 0x0007);
-+	rtl_writephy(tp, 0x1e, 0x002d);
-+	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
-+
-+	/* improve 10M EEE waveform */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b86);
-+	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
-+	/* Improve 2-pair detection performance */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b85);
-+	rtl_w1w0_phy(tp, 0x06, 0x4000, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+}
-+
-+static void rtl8168f_2_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	rtl_apply_firmware(tp);
-+
-+	/* For 4-corner performance improve */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b80);
-+	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
-+	/* PHY auto speed down */
-+	rtl_writephy(tp, 0x1f, 0x0007);
-+	rtl_writephy(tp, 0x1e, 0x002d);
-+	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
-+
-+	/* improve 10M EEE waveform */
-+	rtl_writephy(tp, 0x1f, 0x0005);
-+	rtl_writephy(tp, 0x05, 0x8b86);
-+	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+}
-+
- static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
+ 	return 0;
+ }
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 836e13f..b100c90 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -543,7 +543,8 @@ static int macvlan_ethtool_get_settings(struct net_device *dev,
+ 					struct ethtool_cmd *cmd)
  {
- 	static const struct phy_reg phy_reg_init[] = {
-@@ -2997,6 +3116,12 @@ static void rtl_hw_phy_config(struct net_device *dev)
- 	case RTL_GIGA_MAC_VER_34:
- 		rtl8168e_2_hw_phy_config(tp);
- 		break;
-+	case RTL_GIGA_MAC_VER_35:
-+		rtl8168f_1_hw_phy_config(tp);
-+		break;
-+	case RTL_GIGA_MAC_VER_36:
-+		rtl8168f_2_hw_phy_config(tp);
-+		break;
- 
- 	default:
- 		break;
-@@ -3524,6 +3649,8 @@ static void __devinit rtl_init_pll_power_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_32:
- 	case RTL_GIGA_MAC_VER_33:
- 	case RTL_GIGA_MAC_VER_34:
-+	case RTL_GIGA_MAC_VER_35:
-+	case RTL_GIGA_MAC_VER_36:
- 		ops->down	= r8168_pll_power_down;
- 		ops->up		= r8168_pll_power_up;
- 		break;
-@@ -3996,7 +4123,9 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
- 	    tp->mac_version == RTL_GIGA_MAC_VER_31) {
- 		while (RTL_R8(TxPoll) & NPQ)
- 			udelay(20);
--	} else if (tp->mac_version == RTL_GIGA_MAC_VER_34) {
-+	} else if (tp->mac_version == RTL_GIGA_MAC_VER_34 ||
-+		   tp->mac_version == RTL_GIGA_MAC_VER_35 ||
-+		   tp->mac_version == RTL_GIGA_MAC_VER_36) {
- 		RTL_W8(ChipCmd, RTL_R8(ChipCmd) | StopReq);
- 		while (!(RTL_R32(TxConfig) & TXCFG_EMPTY))
- 			udelay(100);
-@@ -4482,6 +4611,49 @@ static void rtl_hw_start_8168e_2(void __iomem *ioaddr, struct pci_dev *pdev)
- 	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
+-	return dev_ethtool_get_settings(vlan->lowerdev, cmd);
++
++	return __ethtool_get_settings(vlan->lowerdev, cmd);
  }
  
-+static void rtl_hw_start_8168f_1(void __iomem *ioaddr, struct pci_dev *pdev)
+ static const struct ethtool_ops macvlan_ethtool_ops = {
+diff --git a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
+index 2c780a7..820a184 100644
+--- a/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
++++ b/drivers/scsi/bnx2fc/bnx2fc_fcoe.c
+@@ -673,7 +673,7 @@ static void bnx2fc_link_speed_update(struct fc_lport *lport)
+ 	struct net_device *netdev = interface->netdev;
+ 	struct ethtool_cmd ecmd;
+ 
+-	if (!dev_ethtool_get_settings(netdev, &ecmd)) {
++	if (!__ethtool_get_settings(netdev, &ecmd)) {
+ 		lport->link_supported_speeds &=
+ 			~(FC_PORTSPEED_1GBIT | FC_PORTSPEED_10GBIT);
+ 		if (ecmd.supported & (SUPPORTED_1000baseT_Half |
+@@ -1001,9 +1001,11 @@ static int bnx2fc_vport_create(struct fc_vport *vport, bool disabled)
+ 			"this interface\n");
+ 		return -EIO;
+ 	}
++	rtnl_lock();
+ 	mutex_lock(&bnx2fc_dev_lock);
+ 	vn_port = bnx2fc_if_create(interface, &vport->dev, 1);
+ 	mutex_unlock(&bnx2fc_dev_lock);
++	rtnl_unlock();
+ 
+ 	if (IS_ERR(vn_port)) {
+ 		printk(KERN_ERR PFX "bnx2fc_vport_create (%s) failed\n",
+diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+index 3416ab6..83aa3ac 100644
+--- a/drivers/scsi/fcoe/fcoe.c
++++ b/drivers/scsi/fcoe/fcoe.c
+@@ -2043,7 +2043,7 @@ int fcoe_link_speed_update(struct fc_lport *lport)
+ 	struct net_device *netdev = fcoe_netdev(lport);
+ 	struct ethtool_cmd ecmd;
+ 
+-	if (!dev_ethtool_get_settings(netdev, &ecmd)) {
++	if (!__ethtool_get_settings(netdev, &ecmd)) {
+ 		lport->link_supported_speeds &=
+ 			~(FC_PORTSPEED_1GBIT | FC_PORTSPEED_10GBIT);
+ 		if (ecmd.supported & (SUPPORTED_1000baseT_Half |
+@@ -2452,7 +2452,9 @@ static int fcoe_vport_create(struct fc_vport *vport, bool disabled)
+ 	}
+ 
+ 	mutex_lock(&fcoe_config_mutex);
++	rtnl_lock();
+ 	vn_port = fcoe_if_create(fcoe, &vport->dev, 1);
++	rtnl_unlock();
+ 	mutex_unlock(&fcoe_config_mutex);
+ 
+ 	if (IS_ERR(vn_port)) {
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 3829712..8571f18 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -728,6 +728,9 @@ enum ethtool_sfeatures_retval_bits {
+ /* needed by dev_disable_lro() */
+ extern int __ethtool_set_flags(struct net_device *dev, u32 flags);
+ 
++extern int __ethtool_get_settings(struct net_device *dev,
++				  struct ethtool_cmd *cmd);
++
+ /**
+  * enum ethtool_phys_id_state - indicator state for physical identification
+  * @ETHTOOL_ID_INACTIVE: Physical ID indicator should be deactivated
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index eba705b..c8cf939 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -610,7 +610,8 @@ static int vlan_ethtool_get_settings(struct net_device *dev,
+ 				     struct ethtool_cmd *cmd)
+ {
+ 	const struct vlan_dev_info *vlan = vlan_dev_info(dev);
+-	return dev_ethtool_get_settings(vlan->real_dev, cmd);
++
++	return __ethtool_get_settings(vlan->real_dev, cmd);
+ }
+ 
+ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index b365bba..043a5eb 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -35,7 +35,7 @@ static int port_cost(struct net_device *dev)
+ {
+ 	struct ethtool_cmd ecmd;
+ 
+-	if (!dev_ethtool_get_settings(dev, &ecmd)) {
++	if (!__ethtool_get_settings(dev, &ecmd)) {
+ 		switch (ethtool_cmd_speed(&ecmd)) {
+ 		case SPEED_10000:
+ 			return 2;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 11b0fc7..abdc0e3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4570,22 +4570,17 @@ void dev_set_rx_mode(struct net_device *dev)
+  *	@dev: device
+  *	@cmd: memory area for ethtool_ops::get_settings() result
+  *
+- *      The cmd arg is initialized properly (cleared and
+- *      ethtool_cmd::cmd field set to ETHTOOL_GSET).
+- *
+- *	Return device's ethtool_ops::get_settings() result value or
+- *	-EOPNOTSUPP when device doesn't expose
+- *	ethtool_ops::get_settings() operation.
++ *	This is wrapper taking rtnl lock for __ethtool_get_settings()
+  */
+ int dev_ethtool_get_settings(struct net_device *dev,
+ 			     struct ethtool_cmd *cmd)
+ {
+-	if (!dev->ethtool_ops || !dev->ethtool_ops->get_settings)
+-		return -EOPNOTSUPP;
++	int ret;
+ 
+-	memset(cmd, 0, sizeof(struct ethtool_cmd));
+-	cmd->cmd = ETHTOOL_GSET;
+-	return dev->ethtool_ops->get_settings(dev, cmd);
++	rtnl_lock();
++	ret = __ethtool_get_settings(dev, cmd);
++	rtnl_unlock();
++	return ret;
+ }
+ EXPORT_SYMBOL(dev_ethtool_get_settings);
+ 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 6cdba5f..94326d4 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -569,15 +569,22 @@ int __ethtool_set_flags(struct net_device *dev, u32 data)
+ 	return 0;
+ }
+ 
++int __ethtool_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 +{
-+	static const struct ephy_info e_info_8168f_1[] = {
-+		{ 0x06, 0x00c0,	0x0020 },
-+		{ 0x08, 0x0001,	0x0002 },
-+		{ 0x09, 0x0000,	0x0080 },
-+		{ 0x19, 0x0000,	0x0224 }
-+	};
++	if (!dev->ethtool_ops || !dev->ethtool_ops->get_settings)
++		return -EOPNOTSUPP;
 +
-+	rtl_csi_access_enable_1(ioaddr);
-+
-+	rtl_ephy_init(ioaddr, e_info_8168f_1, ARRAY_SIZE(e_info_8168f_1));
-+
-+	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+
-+	rtl_eri_write(ioaddr, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xc8, ERIAR_MASK_1111, 0x00100002, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xe8, ERIAR_MASK_1111, 0x00100006, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x00, 0x01, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0x1b0, ERIAR_MASK_0001, 0x10, 0x00, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0x1d0, ERIAR_MASK_0001, 0x10, 0x00, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xcc, ERIAR_MASK_1111, 0x00000050, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xd0, ERIAR_MASK_1111, 0x00000060, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0x0d4, ERIAR_MASK_0011, 0x0c00, 0xff00,
-+		     ERIAR_EXGMAC);
-+
-+	RTL_W8(MaxTxPacketSize, EarlySize);
-+
-+	rtl_disable_clock_request(pdev);
-+
-+	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
-+	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
-+
-+	/* Adjust EEE LED frequency */
-+	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
-+
-+	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
-+	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
-+	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
++	memset(cmd, 0, sizeof(struct ethtool_cmd));
++	cmd->cmd = ETHTOOL_GSET;
++	return dev->ethtool_ops->get_settings(dev, cmd);
 +}
 +
- static void rtl_hw_start_8168(struct net_device *dev)
+ static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -4576,6 +4748,11 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 		rtl_hw_start_8168e_2(ioaddr, pdev);
- 		break;
+-	struct ethtool_cmd cmd = { .cmd = ETHTOOL_GSET };
+ 	int err;
++	struct ethtool_cmd cmd;
  
-+	case RTL_GIGA_MAC_VER_35:
-+	case RTL_GIGA_MAC_VER_36:
-+		rtl_hw_start_8168f_1(ioaddr, pdev);
-+		break;
-+
- 	default:
- 		printk(KERN_ERR PFX "%s: unknown chipset (mac_version = %d).\n",
- 			dev->name, tp->mac_version);
+-	if (!dev->ethtool_ops->get_settings)
+-		return -EOPNOTSUPP;
+-
+-	err = dev->ethtool_ops->get_settings(dev, &cmd);
++	err = __ethtool_get_settings(dev, &cmd);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 90fdb46..48e6279 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -172,7 +172,7 @@ static ssize_t show_speed(struct device *dev,
+ 
+ 	if (netif_running(netdev)) {
+ 		struct ethtool_cmd cmd;
+-		if (!dev_ethtool_get_settings(netdev, &cmd))
++		if (!__ethtool_get_settings(netdev, &cmd))
+ 			ret = sprintf(buf, fmt_udec, ethtool_cmd_speed(&cmd));
+ 	}
+ 	rtnl_unlock();
+@@ -190,7 +190,7 @@ static ssize_t show_duplex(struct device *dev,
+ 
+ 	if (netif_running(netdev)) {
+ 		struct ethtool_cmd cmd;
+-		if (!dev_ethtool_get_settings(netdev, &cmd))
++		if (!__ethtool_get_settings(netdev, &cmd))
+ 			ret = sprintf(buf, "%s\n",
+ 				      cmd.duplex ? "full" : "half");
+ 	}
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 2ea3d63..1bcc794 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -530,33 +530,30 @@ static int prb_calc_retire_blk_tmo(struct packet_sock *po,
+ {
+ 	struct net_device *dev;
+ 	unsigned int mbits = 0, msec = 0, div = 0, tmo = 0;
++	struct ethtool_cmd ecmd;
+ 
+ 	dev = dev_get_by_index(sock_net(&po->sk), po->ifindex);
+ 	if (unlikely(dev == NULL))
+ 		return DEFAULT_PRB_RETIRE_TOV;
+ 
+-	if (dev->ethtool_ops && dev->ethtool_ops->get_settings) {
+-		struct ethtool_cmd ecmd = { .cmd = ETHTOOL_GSET, };
+-
+-		if (!dev->ethtool_ops->get_settings(dev, &ecmd)) {
+-			switch (ecmd.speed) {
+-			case SPEED_10000:
+-				msec = 1;
+-				div = 10000/1000;
+-				break;
+-			case SPEED_1000:
+-				msec = 1;
+-				div = 1000/1000;
+-				break;
+-			/*
+-			 * If the link speed is so slow you don't really
+-			 * need to worry about perf anyways
+-			 */
+-			case SPEED_100:
+-			case SPEED_10:
+-			default:
+-				return DEFAULT_PRB_RETIRE_TOV;
+-			}
++	if (!dev_ethtool_get_settings(dev, &ecmd)) {
++		switch (ecmd.speed) {
++		case SPEED_10000:
++			msec = 1;
++			div = 10000/1000;
++			break;
++		case SPEED_1000:
++			msec = 1;
++			div = 1000/1000;
++			break;
++		/*
++		 * If the link speed is so slow you don't really
++		 * need to worry about perf anyways
++		 */
++		case SPEED_100:
++		case SPEED_10:
++		default:
++			return DEFAULT_PRB_RETIRE_TOV;
+ 		}
+ 	}
+ 
 -- 
 1.7.6
