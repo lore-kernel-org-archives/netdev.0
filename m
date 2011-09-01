@@ -1,96 +1,65 @@
-From: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
-Subject: Re: [PATCH net-next] net: linkwatch: allow vlans to get carrier changes
- faster
-Date: Thu, 01 Sep 2011 20:53:45 +0900
-Message-ID: <4E5F7249.8020408@hitachi.com>
-References: <20110826060257.5304.62723.stgit@ltc219.sdl.hitachi.co.jp>  <20110825230859.11b2b132@nehalam.ftrdhcpuser.net>  <20110826064553.GA5874@gondor.apana.org.au>  <4E5A40A9.2000404@hitachi.com>  <1314540589.3036.12.camel@edumazet-laptop> <1314783118.2801.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 -next] 6LoWPAN: fix skb_copy call
+Date: Thu, 01 Sep 2011 14:00:43 +0200
+Message-ID: <1314878443.2823.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1314879675-31989-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	 <1314881653-1104-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?TWljaGHFgk1pcm9zxYJhdw==?= <mirq-linux@rere.qmqm.pl>,
-	Tom Herbert <therbert@google.com>,
-	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, dbaryshkov@gmail.com, slapin@ossfans.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.hitachi.co.jp ([133.145.228.42]:56561 "EHLO
-	mail7.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753055Ab1IALxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 07:53:51 -0400
-In-Reply-To: <1314783118.2801.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:53352 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753055Ab1IAMAo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 08:00:44 -0400
+In-Reply-To: <1314881653-1104-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
-
-I checked this patch solves the time-lag of IFF_RUNNING flag consistenc=
-y
-between vlan and real devices.=20
-
-Cheers.
-
-Tested-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-
-
-(2011/08/31 18:31), Eric Dumazet wrote:
-> There is a time-lag of IFF_RUNNING flag consistency between vlan and
-> real devices when the real devices are in problem such as link or cab=
-le
-> broken.
+Le jeudi 01 septembre 2011 =C3=A0 16:54 +0400, Alexander Smirnov a =C3=A9=
+crit :
+> This patch fixes 2 issues in lowpan_skb_deliver function:
+> 1. Check for return status of skb_copy call;
+> 2. Use skb_copy with proper GFP flag depending on context.
 >=20
-> This leads to a degradation of Availability such as a delay of failov=
-er
-> in HA systems using vlan since the detection of the problem at real
-> device is delayed.
->=20
-> We can avoid the linkwatch delay (~1 sec) for devices linked to anoth=
-er
-> ones, since delay is already done for the realdev.
->=20
-> Based on a previous patch from Mitsuo Hayasaka
->=20
-> Reported-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux@rere.qmqm.pl>
-> Cc: Tom Herbert <therbert@google.com>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Cc: Jesse Gross <jesse@nicira.com>
+> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 > ---
->  net/core/link_watch.c |    9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
+>  net/ieee802154/6lowpan.c |   18 +++++++++++++++---
+>  1 files changed, 15 insertions(+), 3 deletions(-)
 >=20
-> diff --git a/net/core/link_watch.c b/net/core/link_watch.c
-> index 357bd4e..c3519c6 100644
-> --- a/net/core/link_watch.c
-> +++ b/net/core/link_watch.c
-> @@ -78,8 +78,13 @@ static void rfc2863_policy(struct net_device *dev)
+> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+> index cf304cc..16100be 100644
+> --- a/net/ieee802154/6lowpan.c
+> +++ b/net/ieee802154/6lowpan.c
+> @@ -477,9 +477,15 @@ static int lowpan_skb_deliver(struct sk_buff *sk=
+b, struct ipv6hdr *hdr)
+>  	struct sk_buff *new;
+>  	struct lowpan_dev_record *entry;
+>  	int stat =3D NET_RX_SUCCESS;
+> +	gfp_t mask;
 > =20
->  static bool linkwatch_urgent_event(struct net_device *dev)
->  {
-> -	return netif_running(dev) && netif_carrier_ok(dev) &&
-> -		qdisc_tx_changing(dev);
-> +	if (!netif_running(dev))
-> +		return false;
+> -	new =3D skb_copy_expand(skb, sizeof(struct ipv6hdr), skb_tailroom(s=
+kb),
+> -								GFP_KERNEL);
+> +	if (in_interrupt())
+> +		mask =3D GFP_ATOMIC;
+> +	else
+> +		mask =3D GFP_KERNEL;
+
+I am not sure to understand if lowpan_skb_deliver() can be called in
+pure process context. I feel we are in softirq handler or we have
+disabled BH, so GFP_ATOMIC is the only choice.
+
+If you are unsure, you could use following helper :
+
+	mask =3D gfp_any();
+
 > +
-> +	if (dev->ifindex !=3D dev->iflink)
-> +		return true;
-> +
-> +	return netif_carrier_ok(dev) &&	qdisc_tx_changing(dev);
->  }
+> +	new =3D skb_copy_expand(skb, sizeof(struct ipv6hdr),
+> +					skb_tailroom(skb), mask);
+>  	kfree_skb(skb);
 > =20
-> =20
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->=20
