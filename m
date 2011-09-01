@@ -1,93 +1,62 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: slow performance on disk/network i/o full speed after drop_caches
-Date: Thu, 1 Sep 2011 13:57:20 +0100
-Message-ID: <20110901125720.GC24629@csn.ul.ie>
-References: <4E560F2A.1030801@profihost.ag>
- <20110826021648.GA19529@localhost>
- <4E570AEB.1040703@profihost.ag>
- <20110826030313.GA24058@localhost>
- <D299D0AE-2F3C-42E2-9723-A3D7C0108C40@profihost.ag>
- <20110826032601.GA26282@localhost>
- <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com>
- <4E573A99.4060309@profihost.ag>
- <4E5DDE86.3040202@profihost.ag>
- <20110901041458.GA30123@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
-	Zhu Yanhai <zhu.yanhai@gmail.com>,
-	Pekka Enberg <penberg@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jens Axboe <jaxboe@fusionio.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-To: Wu Fengguang <fengguang.wu@intel.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6] br: remove redundant check and init
+Date: Thu,  1 Sep 2011 15:29:38 +0200
+Message-ID: <1314883778-2706-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gir.skynet.ie ([193.1.99.77]:35790 "EHLO gir.skynet.ie"
+Received: from mx1.redhat.com ([209.132.183.28]:16855 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932107Ab1IAM5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Sep 2011 08:57:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20110901041458.GA30123@localhost>
+	id S1757313Ab1IANaS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Sep 2011 09:30:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 01, 2011 at 12:14:58PM +0800, Wu Fengguang wrote:
-> Hi Stefan,
-> 
-> On Wed, Aug 31, 2011 at 03:11:02PM +0800, Stefan Priebe - Profihost AG wrote:
-> > Hi Fengguang,
-> > Hi Yanhai,
-> > 
-> > > you're abssolutely corect zone_reclaim_mode is on - but why?
-> > > There must be some linux software which switches it on.
-> > >
-> > > ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
-> > > ~#
-> > >
-> > > also
-> > > ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
-> > > ~#
-> > >
-> > > tells us nothing.
-> > >
-> > > I've then read this:
-> > >
-> > > "zone_reclaim_mode is set during bootup to 1 if it is determined that
-> > > pages from remote zones will cause a measurable performance reduction.
-> > > The page allocator will then reclaim easily reusable pages (those page
-> > > cache pages that are currently not used) before allocating off node pages."
-> > >
-> > > Why does the kernel do that here in our case on these machines.
-> > 
-> > Can nobody help why the kernel in this case set it to 1?
-> 
-> It's determined by RECLAIM_DISTANCE.
-> 
-> build_zonelists():
-> 
->                 /*
->                  * If another node is sufficiently far away then it is better
->                  * to reclaim pages in a zone before going off node.
->                  */
->                 if (distance > RECLAIM_DISTANCE)
->                         zone_reclaim_mode = 1;
-> 
-> Since Linux v3.0 RECLAIM_DISTANCE is increased from 20 to 30 by this commit.
-> It may well help your case, too.
-> 
+Since these checks and initialization are done in
+dev_ethtool_get_settings called later on, remove this redundancy.
 
-Even with that, it's known that zone_reclaim() can be a disaster when
-it runs into problems. This should be fixed in 3.1 by the following
-commits;
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ net/bridge/br_if.c |   24 +++++++++++-------------
+ 1 files changed, 11 insertions(+), 13 deletions(-)
 
-[cd38b115 mm: page allocator: initialise ZLC for first zone eligible for zone_reclaim]
-[76d3fbf8 mm: page allocator: reconsider zones for allocation after direct reclaim]
-
-The description in cd38b115 has the interesting details.
-
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 2cdf007..b365bba 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -33,20 +33,18 @@
+  */
+ static int port_cost(struct net_device *dev)
+ {
+-	if (dev->ethtool_ops && dev->ethtool_ops->get_settings) {
+-		struct ethtool_cmd ecmd = { .cmd = ETHTOOL_GSET, };
+-
+-		if (!dev_ethtool_get_settings(dev, &ecmd)) {
+-			switch (ethtool_cmd_speed(&ecmd)) {
+-			case SPEED_10000:
+-				return 2;
+-			case SPEED_1000:
+-				return 4;
+-			case SPEED_100:
+-				return 19;
+-			case SPEED_10:
+-				return 100;
+-			}
++	struct ethtool_cmd ecmd;
++
++	if (!dev_ethtool_get_settings(dev, &ecmd)) {
++		switch (ethtool_cmd_speed(&ecmd)) {
++		case SPEED_10000:
++			return 2;
++		case SPEED_1000:
++			return 4;
++		case SPEED_100:
++			return 19;
++		case SPEED_10:
++			return 100;
+ 		}
+ 	}
+ 
 -- 
-Mel Gorman
-SUSE Labs
+1.7.6
