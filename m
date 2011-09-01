@@ -1,56 +1,50 @@
 From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [PATCH] mii: Remove references to DP83840 PHY in mii.h
-Date: Thu, 1 Sep 2011 10:22:47 +0100
-Message-ID: <CANK3SE1PMRsYh+2ZEdh+dW9UiGthhkHjattscNgZuf8U9kUb3Q@mail.gmail.com>
+Subject: [PATCH 2/2] mii: Remove references to DP83840 PHY in mii.h
+Date: Thu,  1 Sep 2011 10:22:17 +0100
+Message-ID: <1314868937-2536-2-git-send-email-mark.einon@gmail.com>
 References: <1314804928-7353-1-git-send-email-mark.einon@gmail.com>
-	<1314812070.3274.19.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+ <1314868937-2536-1-git-send-email-mark.einon@gmail.com>
+Cc: bhutchings@solarflare.com, davem@davemloft.net,
+	Mark Einon <mark.einon@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:46639 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750794Ab1IAJWs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 05:22:48 -0400
-Received: by ywf7 with SMTP id 7so1239165ywf.19
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2011 02:22:47 -0700 (PDT)
-In-Reply-To: <1314812070.3274.19.camel@bwh-desktop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:52401 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794Ab1IAJXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 05:23:34 -0400
+Received: by wwf5 with SMTP id 5so1689773wwf.1
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2011 02:23:33 -0700 (PDT)
+In-Reply-To: <1314868937-2536-1-git-send-email-mark.einon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31 August 2011 18:34, Ben Hutchings <bhutchings@solarflare.com> wrot=
-e:
->
-> Since you're trying to improve these comments, I think this could do
-> with further improvement. =A0When this bit is set, the PHY's data pat=
-hs
-> are isolated from the MII (or other interface to the MAC). =A0The con=
-trol
-> path is still connected to the management interface (MDIO), which is
-> important when we want to clear this bit! =A0So it would be better to=
- say
-> something like 'Isolate data paths fromn MII'.
+There are references to this PHY chip in the generic mii.h header, so removing them.
+Re-jiggle the changed comments, in response to points raised by Ben Hutchings.
 
->
-> This selects a low-power state (if implemented). =A0It doesn't entire=
-ly
-> turn the PHY off, and at least the management interface must stil be
-> functional. =A0So it would be better to say 'Request low-power state'=
-=2E
+Signed-off-by: Mark Einon <mark.einon@gmail.com>
+---
+ include/linux/mii.h |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Hi Ben,
-
-=46air points, hope I've addressed these in the revised patch.
-
-> This formatting change is unrelated. =A0If you're going to fix format=
-ting
-> then please convert spaces to tabs after each name and value.
->
-
-Done, and broken out into a separate patch.
-
-Cheers,
-
-Mark
+diff --git a/include/linux/mii.h b/include/linux/mii.h
+index d9f7750..2774823 100644
+--- a/include/linux/mii.h
++++ b/include/linux/mii.h
+@@ -39,12 +39,12 @@
+ #define BMCR_CTST		0x0080	/* Collision test              */
+ #define BMCR_FULLDPLX		0x0100	/* Full duplex                 */
+ #define BMCR_ANRESTART		0x0200	/* Auto negotiation restart    */
+-#define BMCR_ISOLATE		0x0400	/* Disconnect DP83840 from MII */
+-#define BMCR_PDOWN		0x0800	/* Powerdown the DP83840       */
++#define BMCR_ISOLATE		0x0400	/* Isolate data paths from MII */
++#define BMCR_PDOWN		0x0800	/* Enable low power state      */
+ #define BMCR_ANENABLE		0x1000	/* Enable auto negotiation     */
+ #define BMCR_SPEED100		0x2000	/* Select 100Mbps              */
+ #define BMCR_LOOPBACK		0x4000	/* TXD loopback bits           */
+-#define BMCR_RESET		0x8000	/* Reset the DP83840           */
++#define BMCR_RESET		0x8000	/* Reset to default state      */
+ 
+ /* Basic mode status register. */
+ #define BMSR_ERCAP		0x0001	/* Ext-reg capability          */
+-- 
+1.7.6
