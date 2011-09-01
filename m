@@ -1,61 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] dev_ioctl should return -EINVAL for unknown ioctl
- instead of -ENOTTY
-Date: Thu, 01 Sep 2011 16:41:10 +0100
-Message-ID: <1314891670.2733.12.camel@bwh-desktop>
-References: <4E5F9C14.1040108@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: commit 1faa4356 breaks IPv6 assignment on libvirtd
+Date: Thu, 1 Sep 2011 08:51:26 -0700
+Message-ID: <20110901085126.76cdda54@nehalam.ftrdhcpuser.net>
+References: <4E5F99E2.50301@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Wang Sheng-Hui <shhuiw@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Ang Way Chuang <wcang@sfc.wide.ad.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:19543 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932439Ab1IAPlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 11:41:14 -0400
-In-Reply-To: <4E5F9C14.1040108@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:59512 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932439Ab1IAPvR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Sep 2011 11:51:17 -0400
+In-Reply-To: <4E5F99E2.50301@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-09-01 at 22:52 +0800, Wang Sheng-Hui wrote:
-> The patch is against 3.1-rc3.
+On Thu, 01 Sep 2011 23:42:42 +0900
+Ang Way Chuang <wcang@sfc.wide.ad.jp> wrote:
+
+> Hi all,
 > 
-> Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
-> ---
->  net/core/dev.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+>    Commit 1faa4356 break IPv6 assignment on libvirtd. The configuration for my VM bridge network is as such:
 > 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 17d67b5..de6033c 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5092,7 +5092,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
->  		/* Take care of Wireless Extensions */
->  		if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
->  			return wext_handle_ioctl(net, &ifr, cmd, arg);
-> -		return -ENOTTY;
-> +		return -EINVAL;
->  	}
->  }
->  
+> <network>
+>   <name>default</name>
+>   <forward mode='nat'/>
+>   <bridge name='virbr0' stp='on' delay='0' />
+>   <ip address='192.168.122.1' netmask='255.255.255.0'>
+>     <dhcp>
+>       <range start='192.168.122.2' end='192.168.122.254' />
+>     </dhcp>
+>   </ip>
+>   <ip family='ipv6' address='2001:d30:113:504::1' prefix='64'>
+>   </ip>
+> </network>
+> 
+>     This configuration worked fine on kernel 2.6.38. Updating my distro kernel broke the setup. My colleague 
+> and I traced the problem and found that libvirtd failed because there wasn't any carrier on virbr0 interface 
+> due to the change introduced by that commit. How can this be fixed? Thanks in advance.
+> 
+> Regards,
+> Ang Way Chuang
 
-Whereas, Linus Torvalds wrote in
-<BANLkTin=PTbTwBR2s+owMLy+GmKigeoYvg@mail.gmail.com>:
-[...]
-> The correct error code for "I don't understand this ioctl" is ENOTTY.
-> The naming may be odd, but you should think of that error value as a
-> "unrecognized ioctl number, you're feeding me random numbers that I
-> don't understand and I assume for historical reasons that you tried to
-> do some tty operation on me".
-[...]
+The issue is that address is assigned to a bridge device with no ports.
+IPv6 needs carrier to do duplicate address detection. Without any ports
+the DAD will always succeed, and there is a possibility that when ports
+are later added to the bridge the address actually is a duplicate.
 
-(Not that we are consistent about using ENOTTY in networking now.)
+A couple of possible options are:
+1. Default to carrier on in bridge when there are no ports.
+   The downside with this is that IPv6 DAD is being fooled.
 
-Ben.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+2. Change libvirt to allow turning off DAD. This is controlled
+   in kernel by writing 0 to /proc/sys/net/ipv6/conf/virbr0/accept_dad
