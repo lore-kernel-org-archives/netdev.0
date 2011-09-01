@@ -1,78 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 -next] 6LoWPAN: fix skb_copy call
-Date: Thu, 01 Sep 2011 17:31:03 +0200
-Message-ID: <1314891063.2823.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1314879675-31989-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	 <1314885315-4033-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] dev_ioctl should return -EINVAL for unknown ioctl
+ instead of -ENOTTY
+Date: Thu, 01 Sep 2011 16:41:10 +0100
+Message-ID: <1314891670.2733.12.camel@bwh-desktop>
+References: <4E5F9C14.1040108@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, dbaryshkov@gmail.com, slapin@ossfans.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Wang Sheng-Hui <shhuiw@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45975 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932397Ab1IAPbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 11:31:06 -0400
-In-Reply-To: <1314885315-4033-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:19543 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932439Ab1IAPlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 11:41:14 -0400
+In-Reply-To: <4E5F9C14.1040108@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 01 septembre 2011 =C3=A0 17:55 +0400, Alexander Smirnov a =C3=A9=
-crit :
-> This patch fixes 2 issues in lowpan_skb_deliver function:
-> 1. Check for return status of skb_copy call;
-> 2. Use skb_copy with proper GFP flag, drop check for non-interrupt
-> context.
->=20
-> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
+On Thu, 2011-09-01 at 22:52 +0800, Wang Sheng-Hui wrote:
+> The patch is against 3.1-rc3.
+> 
+> Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
 > ---
->  net/ieee802154/6lowpan.c |   17 +++++++++--------
->  1 files changed, 9 insertions(+), 8 deletions(-)
->=20
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index cf304cc..deb2adf 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -479,10 +479,10 @@ static int lowpan_skb_deliver(struct sk_buff *s=
-kb, struct ipv6hdr *hdr)
->  	int stat =3D NET_RX_SUCCESS;
-> =20
->  	new =3D skb_copy_expand(skb, sizeof(struct ipv6hdr), skb_tailroom(s=
-kb),
-> -								GFP_KERNEL);
-> +								GFP_ATOMIC);
->  	kfree_skb(skb);
-> =20
-> -	if (NULL =3D=3D new)
-> +	if (!new)
->  		return -ENOMEM;
-> =20
->  	skb_push(new, sizeof(struct ipv6hdr));
-> @@ -495,13 +495,14 @@ static int lowpan_skb_deliver(struct sk_buff *s=
-kb, struct ipv6hdr *hdr)
->  	rcu_read_lock();
->  	list_for_each_entry_rcu(entry, &lowpan_devices, list)
->  		if (lowpan_dev_info(entry->ldev)->real_dev =3D=3D new->dev) {
-> -			skb =3D skb_copy(new, GFP_KERNEL);
-> -			skb->dev =3D entry->ldev;
-> +			skb =3D skb_copy(new, GFP_ATOMIC);
-> +			if (!skb) {
-> +				stat =3D -ENOMEM;
-> +				break;
-> +			}
-> =20
-> -			if (in_interrupt())
-> -				stat =3D netif_rx(skb);
-> -			else
-> -				stat =3D netif_rx_ni(skb);
-> +			skb->dev =3D entry->ldev;
-> +			stat =3D netif_rx(skb);
->  		}
->  	rcu_read_unlock();
-> =20
+>  net/core/dev.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 17d67b5..de6033c 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5092,7 +5092,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+>  		/* Take care of Wireless Extensions */
+>  		if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
+>  			return wext_handle_ioctl(net, &ifr, cmd, arg);
+> -		return -ENOTTY;
+> +		return -EINVAL;
+>  	}
+>  }
+>  
+
+Whereas, Linus Torvalds wrote in
+<BANLkTin=PTbTwBR2s+owMLy+GmKigeoYvg@mail.gmail.com>:
+[...]
+> The correct error code for "I don't understand this ioctl" is ENOTTY.
+> The naming may be odd, but you should think of that error value as a
+> "unrecognized ioctl number, you're feeding me random numbers that I
+> don't understand and I assume for historical reasons that you tried to
+> do some tty operation on me".
+[...]
+
+(Not that we are consistent about using ENOTTY in networking now.)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
