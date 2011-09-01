@@ -1,55 +1,112 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] Check net->nfnl for NULL in ctnetlink_conntrack_event
- to, avoid Oops on container destroy
-Date: Mon, 12 Sep 2011 23:40:42 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1109122256450.1592@ja.ssi.bg>
-References: <4E6E4961.9070802@canonical.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kaber@trash.net, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org
-To: Tim Gardner <tim.gardner@canonical.com>
+From: Paul Stewart <pstew@chromium.org>
+Subject: [PATCHv2] ipv6: Create module parameter for use_tempaddr
+Date: Wed, 31 Aug 2011 23:03:54 -0700
+Message-ID: <20110912212011.7C65B2041D@glenhelen.mtv.corp.google.com>
+References: <4E6E62D1.8010108@hp.com>
+Cc: davem@davemloft.net, brian.haley@hp.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:56339 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752699Ab1ILUkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Sep 2011 16:40:40 -0400
-In-Reply-To: <4E6E4961.9070802@canonical.com>
+Received: from smtp-out.google.com ([216.239.44.51]:31815 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754442Ab1ILVUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 17:20:22 -0400
+In-Reply-To: <4E6E62D1.8010108@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+When ipv6 is used as a module, there is no good place to set
+the default value for use_tempaddr.  Using sysctl.conf will
+set this parameter too early -- before the module is loaded.
+To solve this, create a module parameter that will set the
+default value of use_tempaddr for all devices.
 
-	Hello,
-
-On Mon, 12 Sep 2011, Tim Gardner wrote:
-
-> Patrick,
-> 
-> I received this patch from a developer that uses lxc and network name spaces.
-> I don't know the locking semantics well enough for CT to judge whether this
-> fix is sufficient. Bug info can be found at
-> http://bugs.launchpad.net/bugs/843892 . See comment #7 for his analysis.
-
-	We found same problems triggered by IPVS during
-subsys cleanup:
-
-http://marc.info/?l=netfilter-devel&m=130765388528399&w=2
-
-	It is a general problem for modules that register
-callbacks to the netfilter core. nfnetlink is such example
-with a mix of global (ctnl_notifier) and per-net (nfnetlink_net_ops) 
-registrations. During net cleanup the module must be prepared
-to be called by core because the core cleanup happens later.
-
-	So, may be rcu_dereference under rcu lock is needed for
-some functions (nfnetlink_has_listeners, nfnetlink_send) but
-such changes should be audited by nfnetlink developers.
-Using rcu_assign_pointer for net->nfnl without corresponding 
-rcu_dereference looks like a problem.
-
-Regards
-
+Signed-off-by: Paul Stewart <pstew@chromium.org>
+Cc: davem@davemloft.net
+Cc: brian.haley@hp.com
 --
-Julian Anastasov <ja@ssi.bg>
+v2: Add documentation; move module parameter out of ifdef
+---
+ Documentation/networking/ipv6.txt |   20 ++++++++++++++++++++
+ include/linux/ipv6.h              |    1 +
+ net/ipv6/addrconf.c               |    3 +++
+ net/ipv6/af_inet6.c               |    4 ++++
+ 4 files changed, 28 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/networking/ipv6.txt b/Documentation/networking/ipv6.txt
+index 9fd7e21..d7f71e1 100644
+--- a/Documentation/networking/ipv6.txt
++++ b/Documentation/networking/ipv6.txt
+@@ -70,3 +70,23 @@ disable_ipv6
+ 
+ 		No IPv6 addresses will be added to interfaces.
+ 
++use_tempaddr
++
++	Specifies whether to enable Privacy Extensions for Stateless
++	Address Autoconfiguration (RFC3041) on all interfaces by default.
++
++	The possible values and their effects are:
++
++	0
++		Privacy addresses are not enabled by default.
++
++		This is the default value.
++
++	1
++		Privacy addresses are enabled by default on all interfaces
++		but do not prefer them over normal addresses.
++
++	2
++		Privacy addresses are enabled by default on all interfaces
++		and will be preferred over normal addresses.
++
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 0c99776..0d45a7c 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -178,6 +178,7 @@ struct ipv6_devconf {
+ struct ipv6_params {
+ 	__s32 disable_ipv6;
+ 	__s32 autoconf;
++	__s32 use_tempaddr;
+ };
+ extern struct ipv6_params ipv6_defaults;
+ #endif
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f012ebd..27314a2 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4609,6 +4609,9 @@ static int __net_init addrconf_init_net(struct net *net)
+ 		/* these will be inherited by all namespaces */
+ 		dflt->autoconf = ipv6_defaults.autoconf;
+ 		dflt->disable_ipv6 = ipv6_defaults.disable_ipv6;
++#ifdef CONFIG_IPV6_PRIVACY
++		dflt->use_tempaddr = ipv6_defaults.use_tempaddr;
++#endif
+ 	}
+ 
+ 	net->ipv6.devconf_all = all;
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 3b5669a..36ee4a5 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -76,6 +76,7 @@ static DEFINE_SPINLOCK(inetsw6_lock);
+ struct ipv6_params ipv6_defaults = {
+ 	.disable_ipv6 = 0,
+ 	.autoconf = 1,
++	.use_tempaddr = 0,
+ };
+ 
+ static int disable_ipv6_mod = 0;
+@@ -89,6 +90,9 @@ MODULE_PARM_DESC(disable_ipv6, "Disable IPv6 on all interfaces");
+ module_param_named(autoconf, ipv6_defaults.autoconf, int, 0444);
+ MODULE_PARM_DESC(autoconf, "Enable IPv6 address autoconfiguration on all interfaces");
+ 
++module_param_named(use_tempaddr, ipv6_defaults.use_tempaddr, int, 0444);
++MODULE_PARM_DESC(use_tempaddr, "Enable IPv6 address privacy for autoconfiguration by default");
++
+ static __inline__ struct ipv6_pinfo *inet6_sk_generic(struct sock *sk)
+ {
+ 	const int offset = sk->sk_prot->obj_size - sizeof(struct ipv6_pinfo);
+-- 
+1.7.3.1
