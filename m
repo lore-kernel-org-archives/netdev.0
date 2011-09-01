@@ -1,44 +1,36 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [patch 1/3 -next] 6LoWPAN: use kfree_skb() instead of kfree()
-Date: Thu, 1 Sep 2011 18:06:17 +0300
-Message-ID: <20110901150617.GL3705@shale.localdomain>
-References: <20110830134552.GH3705@shale.localdomain>
- <1314715248.2935.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <CAJmB2rBid27YYT4f6vMtBf9EMFWZQgT=xO85z4OBz326pUT+4A@mail.gmail.com>
- <20110901150425.GK3705@shale.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: comparison of the AF_ALG interface with the /dev/crypto
+Date: Thu, 1 Sep 2011 23:08:38 +0800
+Message-ID: <20110901150838.GA31988@gondor.apana.org.au>
+References: <20110901133952.GB14522@orbit.nwl.cc> <20110901141445.GA31447@gondor.apana.org.au> <CAJU7za+OAusW-n9F4CLJNSAXVQTE2gxkdgpDFZb2tfys3EZspw@mail.gmail.com> <20110901145902.GA31834@gondor.apana.org.au> <CAJU7zaKnKYYLx6W_9WsZCcwhNd0KMM9R8fs2D0=Xd_6T_AE4=A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Sergey Lapin <slapin@ossfans.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"open list:IEEE 802.15.4 SUB..."
-	<linux-zigbee-devel@lists.sourceforge.net>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:36426 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932193Ab1IAPIl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 11:08:41 -0400
+Cc: Phil Sutter <phil@nwl.cc>, cryptodev-linux-devel@gna.org,
+	linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Nikos Mavrogiannopoulos <nmav@gnutls.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110901150425.GK3705@shale.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAJU7zaKnKYYLx6W_9WsZCcwhNd0KMM9R8fs2D0=Xd_6T_AE4=A@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 01, 2011 at 06:04:25PM +0300, Dan Carpenter wrote:
-> On Thu, Sep 01, 2011 at 01:26:02PM +0400, Alexander Smirnov wrote:
-> > Hi Dan, Eric,
-> > 
-> > thank you a lot for the finds, that were my faults.
-> > 
-> 
-> So uh...  You're going to send a patch to fix the things Eric
-> mentioned, right?
-> 
+On Thu, Sep 01, 2011 at 05:06:06PM +0200, Nikos Mavrogiannopoulos wrote:
+>
+> Indeed but today that's what we have in some systems. User-space TLS
+> implementations (GnuTLS and OpenSSL) and kernel-space crypto
+> offloading. The purpose of the /dev/crypto and AF_ALG interfaces is to
+> connect those together. It would be interesting to have a partial
+> kernel-space TLS implementation but I don't know whether such a thing
+> could ever make it to kernel.
 
-Ah.  You did already.  I see that now.  Sorry for the noise.
+Well we've talked about a kernel implementation of the data path
+previously and I don't think there is any opposition to the idea.
 
-regards,
-dan carpenter
+The only thing missing is an implementation.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
