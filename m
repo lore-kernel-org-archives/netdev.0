@@ -1,55 +1,77 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH 1/3] bnx2x: remove TPA_ENABLE_FLAG
-Date: Thu, 1 Sep 2011 03:52:34 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AAD01067097B04C@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1314802836-9862-1-git-send-email-mschmidt@redhat.com>
- <1314802836-9862-2-git-send-email-mschmidt@redhat.com>
- <201108311816.30468.vladz@broadcom.com> <20110831175849.328192b8@alice>
- <8628FE4E7912BF47A96AE7DD7BAC0AAD01067097ADE0@SJEXCHCCR02.corp.ad.broadcom.com>
- <CAHXqBF+f=3yM88CJ+FpNELBb+Sof5q1=pTXm303-QN7y6M9Dsg@mail.gmail.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AAD01067097B03C@SJEXCHCCR02.corp.ad.broadcom.com>
- <CAHXqBFJR=5zTZeq+HnfRp2rb9yX3L=Kjwi_1AyWU2EDqZ=gCWQ@mail.gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/1 -next] 6LoWPAN: fix skb_copy call
+Date: Thu,  1 Sep 2011 16:21:15 +0400
+Message-ID: <1314879675-31989-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michal Schmidt" <mschmidt@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3694 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752832Ab1IAKws convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 06:52:48 -0400
-In-Reply-To: <CAHXqBFJR=5zTZeq+HnfRp2rb9yX3L=Kjwi_1AyWU2EDqZ=gCWQ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> If I understand correctly, bnx2x_reload_if_running() failure does not
-> mean exactly that features change failed. It means that device failed
-> to initialize, possibly because of other (transient?) conditions. So
-> unless reverting features change and retrying the initialization is
-> known to allow the device to be brought back,=20
+This patch fixes 2 issues in lowpan_skb_deliver function:
+1. Check for return status of skb_copy call;
+2. Use skb_copy with proper GFP flag depending on context.
 
-In a general case u can't be sure which (if at all) features change cau=
-sed
-the failure. So, u should return the configuration to the last known "g=
-ood" one.
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/ieee802154/6lowpan.c |   18 +++++++++++++++---
+ 1 files changed, 15 insertions(+), 3 deletions(-)
 
-> there's no difference
-> whether old or new dev->features value is kept and which set is
-> reported by ethtool.
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index cf304cc..cac1361 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -477,9 +477,15 @@ static int lowpan_skb_deliver(struct sk_buff *skb, struct ipv6hdr *hdr)
+ 	struct sk_buff *new;
+ 	struct lowpan_dev_record *entry;
+ 	int stat = NET_RX_SUCCESS;
++	gfp_t mask;
+ 
+-	new = skb_copy_expand(skb, sizeof(struct ipv6hdr), skb_tailroom(skb),
+-								GFP_KERNEL);
++	if (in_interrupt())
++		mask = GFP_ATOMIC;
++	else
++		mask = GFP_KERNEL;
++
++	new = skb_copy_expand(skb, sizeof(struct ipv6hdr),
++					skb_tailroom(skb), mask);
+ 	kfree_skb(skb);
+ 
+ 	if (NULL == new)
+@@ -495,7 +501,13 @@ static int lowpan_skb_deliver(struct sk_buff *skb, struct ipv6hdr *hdr)
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(entry, &lowpan_devices, list)
+ 		if (lowpan_dev_info(entry->ldev)->real_dev == new->dev) {
+-			skb = skb_copy(new, GFP_KERNEL);
++			skb = skb_copy(new, mask);
++
++			if (NULL == skb) {
++				kfree_skb(new);
++				return -ENOMEM;
++			}
++
+ 			skb->dev = entry->ldev;
+ 
+ 			if (in_interrupt())
+-- 
+1.7.2.5
 
-Well, I disagree with u on this one - I think that if the state change =
-operation
-(of any object, in our case it's a netdev) fails, the current state sho=
-uld remain unchanged.
 
-Thanks,
-vlad
-
->=20
-> Best Regards,
-> Micha=B3 Miros=B3aw
+------------------------------------------------------------------------------
+Special Offer -- Download ArcSight Logger for FREE!
+Finally, a world-class log management solution at an even better 
+price-free! And you'll get a free "Love Thy Logs" t-shirt when you
+download Logger. Secure your free ArcSight Logger TODAY!
+http://p.sf.net/sfu/arcsisghtdev2dev
