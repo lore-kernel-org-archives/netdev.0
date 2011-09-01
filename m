@@ -1,39 +1,40 @@
-From: Ang Way Chuang <wcang@sfc.wide.ad.jp>
-Subject: commit 1faa4356 breaks IPv6 assignment on libvirtd
-Date: Thu, 01 Sep 2011 23:42:42 +0900
-Message-ID: <4E5F99E2.50301@sfc.wide.ad.jp>
+From: Wang Sheng-Hui <shhuiw@gmail.com>
+Subject: [PATCH] dev_ioctl should return -EINVAL for unknown ioctl instead
+ of -ENOTTY
+Date: Thu, 01 Sep 2011 22:52:04 +0800
+Message-ID: <4E5F9C14.1040108@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:47754 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757624Ab1IAOmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 10:42:46 -0400
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:42810 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757628Ab1IAOwP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 10:52:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+The patch is against 3.1-rc3.
 
-   Commit 1faa4356 break IPv6 assignment on libvirtd. The configuration for my VM bridge network is as such:
+Signed-off-by: Wang Sheng-Hui <shhuiw@gmail.com>
+---
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-<network>
-  <name>default</name>
-  <forward mode='nat'/>
-  <bridge name='virbr0' stp='on' delay='0' />
-  <ip address='192.168.122.1' netmask='255.255.255.0'>
-    <dhcp>
-      <range start='192.168.122.2' end='192.168.122.254' />
-    </dhcp>
-  </ip>
-  <ip family='ipv6' address='2001:d30:113:504::1' prefix='64'>
-  </ip>
-</network>
-
-    This configuration worked fine on kernel 2.6.38. Updating my distro kernel broke the setup. My colleague 
-and I traced the problem and found that libvirtd failed because there wasn't any carrier on virbr0 interface 
-due to the change introduced by that commit. How can this be fixed? Thanks in advance.
-
-Regards,
-Ang Way Chuang
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 17d67b5..de6033c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5092,7 +5092,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 		/* Take care of Wireless Extensions */
+ 		if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
+ 			return wext_handle_ioctl(net, &ifr, cmd, arg);
+-		return -ENOTTY;
++		return -EINVAL;
+ 	}
+ }
+ 
+-- 
+1.7.1
