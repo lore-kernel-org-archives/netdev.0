@@ -1,152 +1,103 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: slow performance on disk/network i/o full speed after drop_caches
-Date: Thu, 01 Sep 2011 07:41:57 +0200
-Message-ID: <4E5F1B25.8040800@profihost.ag>
-References: <20110824093336.GB5214@localhost> <4E560F2A.1030801@profihost.ag> <20110826021648.GA19529@localhost> <4E570AEB.1040703@profihost.ag> <20110826030313.GA24058@localhost> <D299D0AE-2F3C-42E2-9723-A3D7C0108C40@profihost.ag> <20110826032601.GA26282@localhost> <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com> <4E573A99.4060309@profihost.ag> <4E5DDE86.3040202@profihost.ag> <20110901041458.GA30123@localhost>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 1/2] net: allow to change carrier via sysfs
+Date: Thu, 1 Sep 2011 07:44:22 +0200
+Message-ID: <20110901054420.GA1969@minipsycho>
+References: <1314715608-978-1-git-send-email-jpirko@redhat.com>
+ <1314715608-978-2-git-send-email-jpirko@redhat.com>
+ <CAHXqBFJh0xjRYv_-2AzwAvpHOUfQ+pD_153qVtNA3Ybo9r3b=w@mail.gmail.com>
+ <20110831082655.GB2010@minipsycho.brq.redhat.com>
+ <CAHXqBFJpSZNhkur7QNYbjG-=Bkq2HtHKEHsn+H3TnEJ5NezJoA@mail.gmail.com>
+ <20110831084511.GD2010@minipsycho.brq.redhat.com>
+ <4E5E939C.5000009@gmail.com>
+ <1314821537.3274.24.camel@bwh-desktop>
+ <4E5E9A30.1040105@gmail.com>
+ <4E5E9E16.6060502@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Zhu Yanhai <zhu.yanhai@gmail.com>, Pekka Enberg <penberg@kernel.org>,
- LKML <linux-kernel@vger.kernel.org>,
- "linux-mm@kvack.org" <linux-mm@kvack.org>,
- Andrew Morton <akpm@linux-foundation.org>,
- Mel Gorman <mel@csn.ul.ie>, Jens Axboe <jaxboe@fusionio.com>,
- Linux Netdev List <netdev@vger.kernel.org>,
- KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-To: Wu Fengguang <fengguang.wu@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110901041458.GA30123@localhost>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, shemminger@vyatta.com
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53663 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751286Ab1IAFo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Sep 2011 01:44:29 -0400
+Content-Disposition: inline
+In-Reply-To: <4E5E9E16.6060502@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks!
-
-Am 01.09.2011 06:14, schrieb Wu Fengguang:
-> Hi Stefan,
->
-> On Wed, Aug 31, 2011 at 03:11:02PM +0800, Stefan Priebe - Profihost AG wrote:
->> Hi Fengguang,
->> Hi Yanhai,
+Wed, Aug 31, 2011 at 10:48:22PM CEST, greearb@candelatech.com wrote:
+>On 08/31/2011 01:31 PM, Nicolas de Peslo=FCan wrote:
+>>Le 31/08/2011 22:12, Ben Hutchings a =E9crit :
+>>>On Wed, 2011-08-31 at 22:03 +0200, Nicolas de Peslo=FCan wrote:
+>>>>Le 31/08/2011 10:45, Jiri Pirko a =E9crit :
+>>>>
+>>>>>>>>Do you expect drivers using implementation different than just =
+calling
+>>>>>>>>netif_carrier_on/off? Or is it supposed to also e.g. power down=
+ PHYs?
+>>>>>>>Yes, generally it can be used also for en/disable phy, for testi=
+ng
+>>>>>>>purposes if hw and driver would support it.
+>>>>>>
+>>>>>>I'd like to see this working for GRE tunnel devices (for keepaliv=
+e
+>>>>>>daemon to be able to indicate to routing daemons whether tunnel i=
+s
+>>>>>>really working) - implementation would be identical to dummy's ca=
+se.
+>>>>>>Should I prepare a patch or can I leave it to you?
+>>>>>
+>>>>>Ok, I can include it to this patchset (I'm going to repost first p=
+atch
+>>>>>anyway)
+>>>>
+>>>>Can't we assume that the dummy's case is the default behavior and
+>>>>register this default
+>>>>ndo_change_carrier callback for every device ?
+>>>
+>>>You have got to be joking. No device driver that has real link
+>>>monitoring should use this implementation.
 >>
->>> you're abssolutely corect zone_reclaim_mode is on - but why?
->>> There must be some linux software which switches it on.
->>>
->>> ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
->>> ~#
->>>
->>> also
->>> ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
->>> ~#
->>>
->>> tells us nothing.
->>>
->>> I've then read this:
->>>
->>> "zone_reclaim_mode is set during bootup to 1 if it is determined that
->>> pages from remote zones will cause a measurable performance reduction.
->>> The page allocator will then reclaim easily reusable pages (those page
->>> cache pages that are currently not used) before allocating off node pages."
->>>
->>> Why does the kernel do that here in our case on these machines.
+>>Well, why not? Arguably, this is probably not the feature one would u=
+se every day, but...
 >>
->> Can nobody help why the kernel in this case set it to 1?
+>>Testing a cluster reaction to a link down event would be easier if on=
+e doesn't need to unplug the cable for the test. I understand that one =
+can turn off the
+>>switch port (physical or virtual), but echo 0 > /sys/class/net/eth0/c=
+arrier would be nice too.
 >
-> It's determined by RECLAIM_DISTANCE.
+>There is special hardware out there that can do bypass, and often it a=
+lso has a mode
+>that will programatically cut link by throwing some relays.  We use th=
+is for our
+>testing equipment...
 >
-> build_zonelists():
->
->                  /*
->                   * If another node is sufficiently far away then it is better
->                   * to reclaim pages in a zone before going off node.
->                   */
->                  if (distance>  RECLAIM_DISTANCE)
->                          zone_reclaim_mode = 1;
->
-> Since Linux v3.0 RECLAIM_DISTANCE is increased from 20 to 30 by this commit.
-> It may well help your case, too.
->
-> commit 32e45ff43eaf5c17f5a82c9ad358d515622c2562
-> Author: KOSAKI Motohiro<kosaki.motohiro@jp.fujitsu.com>
-> Date:   Wed Jun 15 15:08:20 2011 -0700
->
->      mm: increase RECLAIM_DISTANCE to 30
->
->      Recently, Robert Mueller reported (http://lkml.org/lkml/2010/9/12/236)
->      that zone_reclaim_mode doesn't work properly on his new NUMA server (Dual
->      Xeon E5520 + Intel S5520UR MB).  He is using Cyrus IMAPd and it's built on
->      a very traditional single-process model.
->
->        * a master process which reads config files and manages the other
->          process
->        * multiple imapd processes, one per connection
->        * multiple pop3d processes, one per connection
->        * multiple lmtpd processes, one per connection
->        * periodical "cleanup" processes.
->
->      There are thousands of independent processes.  The problem is, recent
->      Intel motherboard turn on zone_reclaim_mode by default and traditional
->      prefork model software don't work well on it.  Unfortunatelly, such models
->      are still typical even in the 21st century.  We can't ignore them.
->
->      This patch raises the zone_reclaim_mode threshold to 30.  30 doesn't have
->      any specific meaning.  but 20 means that one-hop QPI/Hypertransport and
->      such relatively cheap 2-4 socket machine are often used for traditional
->      servers as above.  The intention is that these machines don't use
->      zone_reclaim_mode.
->
->      Note: ia64 and Power have arch specific RECLAIM_DISTANCE definitions.
->      This patch doesn't change such high-end NUMA machine behavior.
->
->      Dave Hansen said:
->
->      : I know specifically of pieces of x86 hardware that set the information
->      : in the BIOS to '21' *specifically* so they'll get the zone_reclaim_mode
->      : behavior which that implies.
->      :
->      : They've done performance testing and run very large and scary benchmarks
->      : to make sure that they _want_ this turned on.  What this means for them
->      : is that they'll probably be de-optimized, at least on newer versions of
->      : the kernel.
->      :
->      : If you want to do this for particular systems, maybe _that_'s what we
->      : should do.  Have a list of specific configurations that need the
->      : defaults overridden either because they're buggy, or they have an
->      : unusual hardware configuration not really reflected in the distance
->      : table.
->
->      And later said:
->
->      : The original change in the hardware tables was for the benefit of a
->      : benchmark.  Said benchmark isn't going to get run on mainline until the
->      : next batch of enterprise distros drops, at which point the hardware where
->      : this was done will be irrelevant for the benchmark.  I'm sure any new
->      : hardware will just set this distance to another yet arbitrary value to
->      : make the kernel do what it wants.  :)
->      :
->      : Also, when the hardware got _set_ to this initially, I complained.  So, I
->      : guess I'm getting my way now, with this patch.  I'm cool with it.
->
-> diff --git a/include/linux/topology.h b/include/linux/topology.h
-> index b91a40e..fc839bf 100644
-> --- a/include/linux/topology.h
-> +++ b/include/linux/topology.h
-> @@ -60,7 +60,7 @@ int arch_update_cpu_topology(void);
->    * (in whatever arch specific measurement units returned by node_distance())
->    * then switch on zone reclaim on boot.
->    */
-> -#define RECLAIM_DISTANCE 20
-> +#define RECLAIM_DISTANCE 30
->   #endif
->   #ifndef PENALTY_FOR_NODE_WITH_CPUS
->   #define PENALTY_FOR_NODE_WITH_CPUS     (1)
->
-> Thanks,
-> Fengguang
->
+>If there is some way to twiddle standard-ish hardware to actually drop=
+ link, that
+>would be neat.  I'd think it should be an ethtool type of thing, howev=
+er.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Ethtool can implement this eventually by calling the same ndo.
+
+>
+>Actually dropping link, and letting that naturally propagate up the st=
+ack seems
+>more reasonable than lying about the status half way up the stack.
+
+Yes, that is really the intension of the proposed ndo. Real hw driver
+should implement that as you say, not directly setting carrier_on/off
+>
+>Thanks,
+>Ben
+>
+>--=20
+>Ben Greear <greearb@candelatech.com>
+>Candela Technologies Inc  http://www.candelatech.com
