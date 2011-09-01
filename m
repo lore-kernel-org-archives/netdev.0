@@ -1,80 +1,56 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH 1/3] bnx2x: remove TPA_ENABLE_FLAG
-Date: Thu, 1 Sep 2011 01:37:56 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AAD01067097B03C@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1314802836-9862-1-git-send-email-mschmidt@redhat.com>
- <1314802836-9862-2-git-send-email-mschmidt@redhat.com>
- <201108311816.30468.vladz@broadcom.com> <20110831175849.328192b8@alice>
- <8628FE4E7912BF47A96AE7DD7BAC0AAD01067097ADE0@SJEXCHCCR02.corp.ad.broadcom.com>
- <CAHXqBF+f=3yM88CJ+FpNELBb+Sof5q1=pTXm303-QN7y6M9Dsg@mail.gmail.com>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: Re: [PATCH] mii: Remove references to DP83840 PHY in mii.h
+Date: Thu, 1 Sep 2011 10:22:47 +0100
+Message-ID: <CANK3SE1PMRsYh+2ZEdh+dW9UiGthhkHjattscNgZuf8U9kUb3Q@mail.gmail.com>
+References: <1314804928-7353-1-git-send-email-mark.einon@gmail.com>
+	<1314812070.3274.19.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "Michal Schmidt" <mschmidt@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4821 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755929Ab1IAIiM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Sep 2011 04:38:12 -0400
-In-Reply-To: <CAHXqBF+f=3yM88CJ+FpNELBb+Sof5q1=pTXm303-QN7y6M9Dsg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:46639 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794Ab1IAJWs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 05:22:48 -0400
+Received: by ywf7 with SMTP id 7so1239165ywf.19
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2011 02:22:47 -0700 (PDT)
+In-Reply-To: <1314812070.3274.19.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
-biBCZWhhbGYgT2YgTWljaGFsIE1pcm9zbGF3DQo+IFNlbnQ6IFdlZG5lc2RheSwgQXVndXN0IDMx
-LCAyMDExIDk6MDUgUE0NCj4gVG86IFZsYWRpc2xhdiBab2xvdGFyb3YNCj4gQ2M6IE1pY2hhbCBT
-Y2htaWR0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBEbWl0cnkgS3JhdmtvdjsgRWlsb24NCj4g
-R3JlZW5zdGVpbg0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDEvM10gYm54Mng6IHJlbW92ZSBUUEFf
-RU5BQkxFX0ZMQUcNCj4gDQo+IDIwMTEvOC8zMSBWbGFkaXNsYXYgWm9sb3Rhcm92IDx2bGFkekBi
-cm9hZGNvbS5jb20+Og0KPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9t
-OiBNaWNoYWwgU2NobWlkdCBbbWFpbHRvOm1zY2htaWR0QHJlZGhhdC5jb21dDQo+ID4+IFNlbnQ6
-IFdlZG5lc2RheSwgQXVndXN0IDMxLCAyMDExIDY6NTkgUE0NCj4gPj4gVG86IFZsYWRpc2xhdiBa
-b2xvdGFyb3YNCj4gPj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERtaXRyeSBLcmF2a292
-OyBFaWxvbiBHcmVlbnN0ZWluOw0KPiA+PiBtaXJxdXNAZ21haWwuY29tDQo+ID4+IFN1YmplY3Q6
-IFJlOiBbUEFUQ0ggMS8zXSBibngyeDogcmVtb3ZlIFRQQV9FTkFCTEVfRkxBRw0KPiA+Pg0KPiA+
-PiBPbiBXZWQsIDMxIEF1ZyAyMDExIDE4OjE2OjMwICswMzAwIFZsYWQgWm9sb3Rhcm92IHdyb3Rl
-Og0KPiA+PiA+IE9uIFdlZG5lc2RheSAzMSBBdWd1c3QgMjAxMSAxODowMDozNCBNaWNoYWwgU2No
-bWlkdCB3cm90ZToNCj4gPj4gPiA+IMKgIGlmIChibngyeF9yZWxvYWQpIHsNCj4gPj4gPiA+IC0g
-wqAgwqAgwqAgwqAgaWYgKGJwLT5yZWNvdmVyeV9zdGF0ZSA9PSBCTlgyWF9SRUNPVkVSWV9ET05F
-KQ0KPiA+PiA+ID4gKyDCoCDCoCDCoCDCoCBpZiAoYnAtPnJlY292ZXJ5X3N0YXRlID09IEJOWDJY
-X1JFQ09WRVJZX0RPTkUpIHsNCj4gPj4gPiA+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgLyoN
-Cj4gPj4gPiA+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqIENoZWF0ISBOb3JtYWxseSBk
-ZXYtPmZlYXR1cmVzIHdpbGwgYmUNCj4gPj4gPiA+IHNldCBhZnRlciB3ZQ0KPiA+PiA+ID4gKyDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCogcmV0dXJuLCBidXQgdGhhdCdzIHRvbyBsYXRlLiBX
-ZSBuZWVkIHRvDQo+ID4+ID4gPiBrbm93IGhvdyB0bw0KPiA+PiA+ID4gKyDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCogY29uZmlndXJlIHRoZSBOSUMgd2hlbiByZWxvYWRpbmcgaXQsIHNvDQo+
-ID4+ID4gPiB1cGRhdGUNCj4gPj4gPiA+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAqIHRo
-ZSBmZWF0dXJlcyBlYXJseS4NCj4gPj4gPiA+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAq
-Lw0KPiA+PiA+ID4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBkZXYtPmZlYXR1cmVzID0gZmVh
-dHVyZXM7DQo+ID4+ID4gPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCByZXR1cm4gYm54Mnhf
-cmVsb2FkX2lmX3J1bm5pbmcoZGV2KTsNCj4gPj4gPg0KPiA+PiA+IE5BQ0sNCj4gPj4gPg0KPiA+
-PiA+IFRoaXMgaXMgYm9ndXMgLSB3aGF0IGlmIGJueDJ4X3JlbG9hZF9pZl9ydW5uaW5nKGRldikN
-Cj4gPj4gPiAoYm54MnhfbmljX2xvYWQoKSkgZmFpbGVzPyBUaGUgb3JpZ2luYWwgZGV2LT5mZWF0
-dXJlcyB3b3VsZCBiZQ0KPiA+PiA+IGxvc3QuLi4NCj4gPj4NCj4gPj4gV2VsbCwgeWVzLCBidXQg
-c2luY2UgdGhlIE5JQyB3b3VsZCBiZSBub3cgbm90IHdvcmtpbmcsIGRvIHdlIHJlYWxseQ0KPiA+
-PiBjYXJlIGFib3V0IGl0cyBmZWF0dXJlcz8gOi0pDQo+ID4NCj4gPiBVIHIga2lkZGluZywgcmln
-aHQ/IDspDQo+ID4gV2UgY2FyZSBhYm91dCB0aGUgY29uc2lzdGVuY3kgaW4gdGhlIG5ldGRldiBm
-ZWF0dXJlcyBzdGF0ZSAtIGlmIHdlDQo+IGZhaWxlZA0KPiA+IHRvIGNvbmZpZ3VyZSB0aGUgcmVx
-dWVzdGVkIGZlYXR1cmUgYW5kIHJldHVybmVkIGFuIGVycm9yIG9uIGUuZy4NCj4gImV0aHRvb2wg
-LUsgZXRoWCBscm8gb24iDQo+ID4gY2FsbCwgaXQncyBleHBlY3RlZCB0aGF0IGEgc3Vic2VxdWVu
-dCBldGh0b29sIC1rIGV0aFggY2FsbCB3b24ndA0KPiByZXBvcnQgdGhlIHJlcXVlc3RlZA0KPiA+
-IGZlYXR1cmUgKExSTykgYXMgc2V0Lg0KPiANCj4gSWYgYm54MnhfcmVsb2FkX2lmX3J1bm5pbmco
-KSBmYWlsdXJlIG1lYW5zIHRoYXQgTklDIGlzIGRpc2FibGVkLCB0aGVuDQo+IE1pY2hhbCBpcyBy
-aWdodCB0aGF0IHRoZXJlJ3Mgbm8gcG9pbnQgaW4gY2FyaW5nIGFib3V0IGRldi0+ZmVhdHVyZXMs
-DQo+IHNpY2UgJ2xvYWQnIG9wZXJhdGlvbiAoTklDIGNvbmZpZ3VyYXRpb24pIG5lZWRzIHRvIGJl
-IGRvbmUgYWdhaW4NCj4gYW55d2F5Lg0KDQpNaWNoYWwsIGl0J3MgYSBtYXR0ZXIgb2YgYSBjb25z
-aXN0ZW50IHNlbWFudGljcy9iZWhhdmlvciBvZiB0aGUgZXRodG9vbCBjYWxsYmFja3MganVzdCBh
-cyBJIGRlc2NyaWJlZCBhYm92ZS4NCkFzIGxvbmcgYXMgZGV2LT5mZWF0dXJlcyBtYXkgYmUgcXVl
-cmllZCBib3RoIHdoZW4gZGV2aWNlIGlzIGRvd24gSSdtIGFmcmFpZCBJIGNhbid0IGFncmVlIHdp
-dGggdS4NCg0KVGhhbmtzLA0KdmxhZA0KDQo+IA0KPiBCZXN0IFJlZ2FyZHMsDQo+IE1pY2hhxYIg
-TWlyb3PFgmF3DQo+IC0tDQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRo
-ZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0
-byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0
-dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KDQo=
+On 31 August 2011 18:34, Ben Hutchings <bhutchings@solarflare.com> wrot=
+e:
+>
+> Since you're trying to improve these comments, I think this could do
+> with further improvement. =A0When this bit is set, the PHY's data pat=
+hs
+> are isolated from the MII (or other interface to the MAC). =A0The con=
+trol
+> path is still connected to the management interface (MDIO), which is
+> important when we want to clear this bit! =A0So it would be better to=
+ say
+> something like 'Isolate data paths fromn MII'.
+
+>
+> This selects a low-power state (if implemented). =A0It doesn't entire=
+ly
+> turn the PHY off, and at least the management interface must stil be
+> functional. =A0So it would be better to say 'Request low-power state'=
+=2E
+
+Hi Ben,
+
+=46air points, hope I've addressed these in the revised patch.
+
+> This formatting change is unrelated. =A0If you're going to fix format=
+ting
+> then please convert spaces to tabs after each name and value.
+>
+
+Done, and broken out into a separate patch.
+
+Cheers,
+
+Mark
