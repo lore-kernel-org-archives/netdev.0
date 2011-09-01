@@ -1,56 +1,77 @@
-From: Viral Mehta <viral.vkm@gmail.com>
-Subject: Re: interface information for recvd packet
-Date: Thu, 1 Sep 2011 15:40:12 -0400
-Message-ID: <CANX6Dan5bdA-3wSiyAaQmOV6DHArxjknUFpR-s8coA9Yjx2N8A@mail.gmail.com>
-References: <CANX6Dan9szv1w8QTFTob53jt7Bq6jgTtbaHVirvBDJOjH7Uy+w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+From: Jeff Harris <jeff_harris@kentrox.com>
+Subject: [PATCH] net: Prefer non link-local source addresses
+Date: Thu,  1 Sep 2011 16:20:54 -0400
+Message-ID: <1314908454-14359-1-git-send-email-jeff_harris@kentrox.com>
+Cc: Jeff Harris <jeff_harris@kentrox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kabe
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:58665 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757651Ab1IATkN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 15:40:13 -0400
-Received: by pzk37 with SMTP id 37so3434672pzk.1
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2011 12:40:12 -0700 (PDT)
-In-Reply-To: <CANX6Dan9szv1w8QTFTob53jt7Bq6jgTtbaHVirvBDJOjH7Uy+w@mail.gmail.com>
+Received: from dubexchange.corp.kentrox.com ([192.228.36.11]:44579 "EHLO
+	dubexchange.corp.kentrox.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756861Ab1IAU1U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 16:27:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 30, 2011 at 11:55 AM, Viral Mehta <viral.vkm@gmail.com> wro=
-te:
->
-> Hi,
->
-> I was trying to implement following thing,
->
-> 1. I wanted to know whenever packet received for particular socket, I
-> want to know which network interface actually received it ?
+Section 2.6.1 of RFC 3927 specifies that if link-local and routable addresses
+are available on an interface, a routable address is preferred.  Update the
+IPv4 source address selection algorithm to use a 169.254.x.x address only if
+another matching address is not found.
 
-My objective is still the same..
+Tested combinations of configured IP addresses with and without link-local to
+verify a link-local address was chosen only if no routable address was
+present.
 
-> 2. I was looking at net/ipv4/tcp.c and in function tcp_recvmsg(); I a=
-m
-> trying to get interface name by accessing sk_buff->dev->name
+Signed-off-by: Jeff Harris <jeff_harris@kentrox.com>
+---
+ net/ipv4/devinet.c |   18 ++++++++++++++++--
+ 1 files changed, 16 insertions(+), 2 deletions(-)
 
-I tried printing address of SKBs, but it gives different address in
-NIC driver and tcp.c
-My understanding is, struct sk_buff* remains same through out all
-layers i.e., NIC driver allocates it after receving frame
-and same is passed till TCP layer. But, apparently looks I am wrong
-from the prints that I have put.
-
-Can someone shed some light ?
-
-> =A0 =A0However, it gives me (null). I have made sure that in my ether=
-net
-> (NIC) driver, I filled up that information before doing netif_rx().
->
-> So, the question is,
-> Is this information Trimmed out at some upper layer ??
->
-
---
-Thanks,
-Viral Mehta
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index bc19bd0..70ddf37 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -965,6 +965,8 @@ out:
+ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ {
+ 	__be32 addr = 0;
++	__be32 lladdr = 0;
++	__be32 firstaddr = 0;
+ 	struct in_device *in_dev;
+ 	struct net *net = dev_net(dev);
+ 
+@@ -977,15 +979,27 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 		if (ifa->ifa_scope > scope)
+ 			continue;
+ 		if (!dst || inet_ifa_match(dst, ifa)) {
++			if (ipv4_is_linklocal_169(ifa->ifa_address)) {
++				lladdr = ifa->ifa_local;
++				continue;
++			}
+ 			addr = ifa->ifa_local;
+ 			break;
+ 		}
+-		if (!addr)
+-			addr = ifa->ifa_local;
++		if (!firstaddr)
++			firstaddr = ifa->ifa_local;
+ 	} endfor_ifa(in_dev);
+ 
+ 	if (addr)
+ 		goto out_unlock;
++	if (lladdr) {
++		addr = lladdr;
++		goto out_unlock;
++	}
++	if (firstaddr) {
++		addr = firstaddr;
++		goto out_unlock;
++	}
+ no_in_dev:
+ 
+ 	/* Not loopback addresses on loopback should be preferred
+-- 
+1.7.0.5
