@@ -1,89 +1,113 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [RFMC] per-container tcp buffer limitation
-Date: Thu, 1 Sep 2011 15:48:10 +0900
-Message-ID: <20110901154810.cdda1d94.kamezawa.hiroyu@jp.fujitsu.com>
-References: <4E5EF14F.3040300@parallels.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: =?UTF-8?q?=5Blinux-firmware=20v4=202/2=5D=20rtl=5Fnic=3A=20add=20new=20firmware=20for=20RTL8111F?=
+Date: Thu, 1 Sep 2011 15:07:13 +0800
+Message-ID: <1314860833-4000-2-git-send-email-hayeswang@realtek.com>
+References: <1314860833-4000-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Linux Containers <containers@lists.osdl.org>,
- <linux-mm@kvack.org>, Pavel Emelyanov <xemul@parallels.com>,
- "Eric W. Biederman" <ebiederm@xmission.com>, David Miller
- <davem@davemloft.net>, Stephen Hemminger <shemminger@vyatta.com>,
- <penberg@kernel.org>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4E5EF14F.3040300@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:41323 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752429Ab1IAHHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 03:07:39 -0400
+In-Reply-To: <1314860833-4000-1-git-send-email-hayeswang@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Aug 2011 23:43:27 -0300
-Glauber Costa <glommer@parallels.com> wrote:
+Add new firmware:
+1. rtl_nic/rtl8168f-1.fw
+   version: 0.0.2
+2. rtl_nic/rtl8168f-2.fw
+   version: 0.0.2
 
-> Hello People,
-> 
-> [ For the ones in linux-mm that are receiving this for the first time,
->    this is a follow up of
->    http://thread.gmane.org/gmane.linux.kernel.containers/21295 ]
-> 
-> Here is a new, a bit more mature version of my previous RFC. Now I 
-> Request For More Comments from you guys in this new version of the patch.
-> 
-> Highlights:
-> 
-> * Although I do intend to experiment with more scenarios (suggestions 
-> welcome), there does not seem to be a (huge) performance hit with this 
-> patch applied, at least in a basic latency benchmark. That indicates 
-> that even if we can demonstrate a performance hit, it won't be too hard 
-> to optimize it away (famous last words?)
-> 
-> Since the patch touches both rcv and snd sides, I benchmarked it with 
-> netperf against localhost. Command line: netperf -t TCP_RR -H localhost.
-> 
-> Without the patch
-> =================
-> 
-> Socket Size   Request  Resp.   Elapsed  Trans.
-> Send   Recv   Size     Size    Time     Rate
-> bytes  Bytes  bytes    bytes   secs.    per sec
-> 
-> 16384  87380  1        1       10.00    26996.35
-> 16384  87380
-> 
-> With the patch
-> ===============
-> 
-> Local /Remote
-> Socket Size   Request  Resp.   Elapsed  Trans.
-> Send   Recv   Size     Size    Time     Rate
-> bytes  Bytes  bytes    bytes   secs.    per sec
-> 
-> 16384  87380  1        1       10.00    27291.86
-> 16384  87380
-> 
-> 
-> As you can see, rate is a bit higher, but still under an one percent 
-> range, meaning it is basically unchanged. I will benchmark it with 
-> various levels of cgroup nesting on my next submission so we can have a 
-> better idea of the impact of it when enabled.
-> 
-seems nice.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ WHENCE                |    6 ++++++
+ rtl_nic/rtl8168f-1.fw |  Bin 0 -> 3024 bytes
+ rtl_nic/rtl8168f-2.fw |  Bin 0 -> 336 bytes
+ 3 files changed, 6 insertions(+), 0 deletions(-)
+ create mode 100644 rtl_nic/rtl8168f-1.fw
+ create mode 100644 rtl_nic/rtl8168f-2.fw
 
-> * As nicely pointed out by Kamezawa, I dropped the sockets cgroup, and 
-> introduced a kmem cgroup. After careful consideration, I decided not to 
-> reuse the memcg. Basically, my impression is that memcg is concerned 
-> with user objects, with page granularity and its swap attributes. 
-> Because kernel objects are entirely different, I prefer to group them here.
-> 
+diff --git a/WHENCE b/WHENCE
+index 3803906..ea3918c 100644
+--- a/WHENCE
++++ b/WHENCE
+@@ -1661,6 +1661,12 @@ File: rtl_nic/rtl8168e-2.fw
+ File: rtl_nic/rtl8168e-3.fw
+ Version: 0.0.2
+=20
++File: rtl_nic/rtl8168f-1.fw
++Version: 0.0.2
++
++File: rtl_nic/rtl8168f-2.fw
++Version: 0.0.2
++
+ Licence:
+  * Copyright =C2=A9 2011, Realtek Semiconductor Corporation
+  *
+diff --git a/rtl_nic/rtl8168f-1.fw b/rtl_nic/rtl8168f-1.fw
+new file mode 100644
+index 0000000000000000000000000000000000000000..ffb1dd137eebeb2394acbfc=
+f14c96a6091e73a06
+GIT binary patch
+literal 3024
+zcmbuBdx+Fk6vyw*I>+72d~Q0quCou{ubCBXwSQKlFtQRMB9jc#KoE>FQqefNiaMJj
+zT9yQ|83c*Dgb0O!yNX!)NB9a9U%%1yLCP$Ft-9^*^f_~XqigtI1DA8|d4A8i=3Dic8q
+z=3DiEojm)0bw)qF59xiB#)F{wJ9sF^$^IXRg`XTQ0u%Ms_Q+`Ku{s;d(-7tWjc+QJu?
+zEn2)VnM~AFPl;DgnUS12V@i$N=3DG+K%L!CNT;<9Zn4sCI>o%TjP*_9!89~L+lI9F;$
+zadnY~Mb7-9iM+4bRz7As)Zr6%*bWYDqu8`(qpD7FvCUozpVi*1FA7R@O>IoSb|u<p
+zbxd~|T^iHdA-!*OSxmd3{h$}1#n6k;uBMn?3iX$b9*gM}Xorhw08J-iz%I$<a^y11
+zJ+U|iQ$+OMY{4Fy71ajOCS;Lz(V+#R1;&pQ-KHTwOLPHp^NTc!o<Lq7h^9A*Zm!3s
+zjD1?PEQJia`ku1Sy=3D+TQ*;dg8?0$8kzch)iKP%cgO>{dp_18r+J4AmYR;G|#M&A=3D{
+zF^c`+kRCGHTeR8e$D&_Co58n<819bf4>9n=3DXC4UW;C-#uQ{C7R=3DgNA~8thN4VGow8
+z;l3C9;J#=3DI-#E2q275k&&#Q582Glc3baX3xMzj*X70jKZMeq0WeQDexIvCq}^bS6S
+z&x-k?yQwEqEP5*{y4HI6hUn62(O#WC=3DhiT1`*337Z~Mt+htH4WL?;;kjOan)^fLY%
+z(Z42&))^1(PxAS<iuNfNE$2Mz!5LwHvQD%VyI_}(TS0B@MdYdQ`>CdT-}9AuU8UbA
+zP4|}Pt4s&})+)cZIcOw)bfoCWFkislu#d{ep+~l#XmLtCKRO?WzL~BNU8njU2AtVi
+z^WTU4bDl3Zp0n71JZ}6mp06~XIyNG&g10%&(9=3D@t&d`tH(5ukZ;0&&@=3Du?gHX>d;$
+z9X3gHI#^Ei^>eVQ!q0{E^ZT{*v59>cHzK0fkgX#}*BF0pX=3DddvvzO}wx(Kz7x%X%v
+zEf=3Dl8{vJIE#)kOG7omqgQ_r}(?FM>CzXzJ_U2MmPHHEgHt>gT$O<ku?=3DpW7+IUPCk
+z`HRVC^R^G0!nn_EHRt+9tbkcEyw=3DZ1p=3Dc2pa=3Dzp*CjUd<3eiDe3Akgq-uCddo||t=
+S
+zm~3{R*aMpda5RGNDKOQ+x8LF3bKX|_*u0*+Mc}l&jknNYJFce=3DOctjB8_PL9uiJ=3DU
+zmG^5n;&l_yS%1Ez_991LPEmg|x>cfUYCP6d208W*`$wFz9&w`h+4(l@CFkFqNkO<j
+z$i5GIbUFP|_TX_W>p=3D%|u%ylFG8aUT(Bn3IyLWnh2K{kl_Kpmw^D=3Dv9?43)cMMoUx
+zeZYPIGiEh3vA6lPIGxB1ZwL3nay0)VdKCFecz2q0mKrLMgRLsz=3DeL<N&kpi@-?^f1
+zzXYBUqL;p+H)lk5aIXel65TUI^fIyAcpD9CXV>GoGUPH0e^94=3D%Tn~SjoRB*l8=3D~A
+z%GXG~2<Mz#;cFXqLUb=3DRv~kzYli%Sxem7Xw^7h;LaPD?K1)Nuenx5{@dpAI|FMVx>
+zUSIF)$i3BI$nP`MXxQw|52A+p??lfWpf2@wH9ny(dt2--jI?>4ExHqb>;G!QMeM2I
+z%FPJ9$Wi1ro9RPfG25%W0WJPJ^gMYRmy<8<Z3{!6pUlVR47(gX%(*s+-YD_kvD8g4
+zBg+&${$1;GkIzyZAH(#2RuF)l7zI#!a|7PSTI!GAqhGDmR4bZ5X5T_PxAHOAm`@xY
+zYTv+MXz0`KeKPpGK#YKyNrnAuW$&;LnBAUp|9~0)y#pDmV+lBz)dO#mm+x>H-vZ0K
+zkGy@zTWYf~Omr@@Fvi~8SFl^e8{Nb19qimm=3DEnSvav#gN<7Ugg`E~9E7&dTLr@?xT
+z^FJTs{}(HEk;S}k?hTgBqVEzn3%|H8^S%HqPW0l-%p|t^S!b_;6<HpW&F65=3DBd|Fj
+zZ~F$$in|v($2yNMvCP+U-Q5pH>a_nEdF<WH>P}|+7<G5CqMdw~9*F)4Ui&W1zs=3Dke
+zql|lYBOc0cqC?(kHq2-jchgZ*EqwY@(RsDZkm<<p=3D7`QpM{QQ@zi5AGOYML5`Tv40
+z{EwT>I)_8t{^REVw?6uBJH$nDafY;*Um>gCo?^^BpQ<i+$U7Hv-C6tp8^gAL$oGfm
+MzqYOImd5}71$?3tJpcdz
 
-I myself has no objection to this direction. Other guys ?
+literal 0
+HcmV?d00001
 
-Thanks,
--Kame
+diff --git a/rtl_nic/rtl8168f-2.fw b/rtl_nic/rtl8168f-2.fw
+new file mode 100644
+index 0000000000000000000000000000000000000000..880a223f35ab98b5367d2d1=
+ee788ac0c9b05d762
+GIT binary patch
+literal 336
+zcmXw!y-EX75QUEk8YD%wS#>~kA+_0i?~<^j5w%s2yud<;R)L6ETFfJeRqT8MpCOem
+z;a{vRY(+5f%(A&~_=3DYnxoI3z;eKXE|FTXqph3mLZNL-#~KJ}hGd*{?4HN@bw7lJ!3
+z21jSb$z*g<c<=3DI%B_ZqkZolhs2ka|$pg@e}HxhD&DYQX9#U6cJtpRgj*M<^B?QsO#
+zTX(Bnn{9J;qrRmLYKmB!x1tZmvFKODALB%HLAJ;ja+7=3D||DHtOs{Xt2S@eVah3K68
+pbi(+!%m6bidzA}pqXtCe%=3D|h92o_7bN9aXW9hLp^-}iP7@DF!bO921?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+literal 0
+HcmV?d00001
+
+--=20
+1.7.6
