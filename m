@@ -1,96 +1,82 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: IP_TRANSPARENT requires CAP_NET_ADMIN - why?
-Date: Thu, 1 Sep 2011 14:25:58 -0700
-Message-ID: <CAHo-OozTNa8gtCuhSZm+aBqK-J0-eGMyr5rJBfTV6SmPZNhQVw@mail.gmail.com>
-References: <CAHo-Ooz-0wt4-3oXZBeEmLTSom5qUxhXhP4MDUrSz322OTGa9A@mail.gmail.com>
+From: David Madore <david+ml@madore.org>
+Subject: possible routing table cache bug for mtu/advmss attributes in
+ Linux 3.0.4
+Date: Thu, 1 Sep 2011 23:46:43 +0200
+Message-ID: <20110901214643.GA16989@aldebaran.gro-tsen.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Balazs Scheidler <bazsi@balabit.hu>,
-	Patrick McHardy <kaber@trash.net>,
-	KOVACS Krisztian <hidden@balabit.hu>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Linux NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Linux Netdev Mailing-List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:49643 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758017Ab1IAVZ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 17:25:59 -0400
-Received: by yie30 with SMTP id 30so1744235yie.19
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2011 14:25:59 -0700 (PDT)
-In-Reply-To: <CAHo-Ooz-0wt4-3oXZBeEmLTSom5qUxhXhP4MDUrSz322OTGa9A@mail.gmail.com>
+Received: from aldebaran.gro-tsen.net ([88.191.60.176]:51765 "EHLO
+	aldebaran.gro-tsen.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757961Ab1IAV43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 17:56:29 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I'm curious why transparent sockets [setsockopt(IP{,V6}_TRANSPARENT),
-> ie. inet_sk(sk)->transparent bit] require CAP_NET_ADMIN privileges.
->
-> Wouldn't CAP_NET_RAW be more appropriate?
->
-> Looks to me like CAP_NET_RAW is all about raw sockets.
-> Transparent sockets are dangerous because they effectively allow spoofing.
-> But this seems to be the same sort of thing that CAP_NET_RAW protects
-> against.
->
-> Is there something I'm missing?
-> Is there any reason why having CAP_NET_RAW privs shouldn't allow one
-> to set the transparent bit on a socket?
->
-> Would people be opposed to relaxing the check on setting sk->transparent
-> to be either CAP_NET_ADMIN or CAP_NET_RAW?
+Hi,
 
-Why am I even interested?  I have a couple of apps (dns servers, web
-servers, load balancers, web crawlers) that
-don't require any special permissions except the ability to use any ip
-as the source ip for a listening tcp, outgoing tcp, and/or udp socket.
-For example machines may receive arbitrary traffic over a tunnel (with
-absolutely any ip as the destination ip within the tunneled payload)
-and need to respond to it, hence they need to be able to respond with
-any ip as the source ip.  This can be achieved with combinations of
-routing tricks and/or ip non local bind and/or ip_transparent.
+I believe I've found a bug in the routing cache (perhaps only for
+IPv6) in Linux 3.0.4.  Since I'm uncertain about the diagnosis, I'm
+posting here for guidance as to how to proceed.
 
-The way I see it there are a couple possibilities.
+In a nutshell, the problem is this: my (manually entered) routing
+tables specify an explicit MTU/MSS for certain IPv6 routes, and after
+upgrading from 2.6.38.7 to 3.0.4, I found that this MTU/MSS setting is
+sometimes ignored.  More precisely, it seems that connecting to a host
+through the route in question causes a routing cache entry to be
+created, and it is when this cache entry expires that the route
+forgets the MTU/MSS setting.  (It may also be relevant that in my case
+the route belongs to a routing table other than "main".)
 
-a) Leave as is: IP{,V6}_TRANSPARENT requires CAP_NET_ADMIN
+In more details: my routing tables contains the following:
 
-   This seems like the least desirable solution, we end up requiring a
-much more powerful privilege then necessary.
+vega david ~ $ sudo ip -6 rule show 
+0:      from all lookup local 
+32766:  from all lookup main 
+40000:  from 2002::/16 lookup 2002 
+40100:  from all lookup 2001 
+vega david ~ $ sudo ip -6 route show table 2001
+2002::/16 via ::192.88.99.1 dev tun6to4  metric 512  mtu 1466 advmss 1406
+2000::/3 dev ppp0  metric 64  mtu 1466 advmss 1406
 
-b) Backward compatible: Make it require one of CAP_NET_ADMIN or CAP_NET_RAW
+Initially, trying to get the route to 2001:41d0:1:a431::1 correctly
+returns route with the mtu and advmss values I entered:
 
-   Better, but kind of ugly in there being two permissions that allow this.
+vega david ~ $ sudo ip route get 2001:41d0:1:a431::1
+2001:41d0:1:a431::1 from :: via 2001:41d0:1:a431::1 dev ppp0  src 2001:7a8:78ae::1  metric 0 
+    cache  mtu 1466 advmss 1406
 
-c) Not-backward compatible: Make it require CAP_NET_RAW instead of CAP_NET_ADMIN
+Now I start an ssh connection to 2001:41d0:1:a431::1, close it
+immediately, and fetch the route again:
 
-   Better, in that a less powerful privilege is required, but *does*
-break non-root software which uses CAP_NET_ADMIN to get TRANSPARENT
-sockets.
-   Also the gain isn't that great, in that we are still using a
-privilege which is a little too powerful.
+vega david ~ $ sudo ip route get 2001:41d0:1:a431::1
+2001:41d0:1:a431::1 from :: via 2001:41d0:1:a431::1 dev ppp0  src 2001:7a8:78ae::1  metric 0 
+    cache  mtu 1466 rtt 37ms rttvar 37ms cwnd 10 advmss 1406
 
-d) Add a new capability: Make it require CAP_NET_ADMIN or CAP_NET_TRANSPARENT
+This is still correct.  But if I wait a few seconds (doing nothing)
+for these data to expire, they seems to take the mtu and advmss values
+away with them:
 
-  Again backward compatible - ugly.
+vega david ~ $ sudo ip route get 2001:41d0:1:a431::1
+2001:41d0:1:a431::1 from :: via 2001:41d0:1:a431::1 dev ppp0  src 2001:7a8:78ae::1  metric 0 
+    cache 
 
-e) Add a new capability: Make it require CAP_NET_ADMIN or CAP_NET_RAW
-or CAP_NET_TRANSPARENT
+(note the empty "cache" line and the absence of mtu/advmss settings).
 
-  Again backward compatible - ugly.  The reason for allowing
-CAP_NET_RAW is that it effectively already allows this to be done with
-raw sockets in a less useful way.  ie. AFAICT CAP_NET_TRANSPARENT is a
-subset of CAP_NET_RAW
+This is not just wrongly reported: the route really is wrong, and
+opening a TCP connection at this stage will use a wrong MSS (and
+freeze on large packets, because my Internet provider is worthless,
+but that's another story).  At some point the route seems to return to
+normal, but I couldn't figure out what causes this exactly.
 
-f) Add a new capability: Make it require CAP_NET_TRANSPARENT instead
-of CAP_NET_ADMIN
+In case it's uesful, my kernel config is on <URL:
+http://www.madore.org/~david/.tmp/config-3.0.4-vega
+ >.
 
-  Not backward compatible, introduces a new capability, however, long
-term this is probably the cleanest.
+Any thoughts?
 
-My personal vote is for (f).  I figure the number of non-root-apps
-that have CAP_NET_ADMIN in order to get IP{,V6}_TRANSPARENT support is
-very low, and they should be easy to fix to request
-CAP_NET_TRANSPARENT instead.
-
-Any opinions?
-
-Maciej
+-- 
+     David A. Madore
+   ( http://www.madore.org/~david/ )
