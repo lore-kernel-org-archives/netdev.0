@@ -1,81 +1,93 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v3 -next] 6LoWPAN: fix skb_copy call
-Date: Thu,  1 Sep 2011 17:55:15 +0400
-Message-ID: <1314885315-4033-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-References: <1314879675-31989-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Mel Gorman <mel@csn.ul.ie>
+Subject: Re: slow performance on disk/network i/o full speed after drop_caches
+Date: Thu, 1 Sep 2011 13:57:20 +0100
+Message-ID: <20110901125720.GC24629@csn.ul.ie>
+References: <4E560F2A.1030801@profihost.ag>
+ <20110826021648.GA19529@localhost>
+ <4E570AEB.1040703@profihost.ag>
+ <20110826030313.GA24058@localhost>
+ <D299D0AE-2F3C-42E2-9723-A3D7C0108C40@profihost.ag>
+ <20110826032601.GA26282@localhost>
+ <CAC8teKXqZktBK7+GbLgHn-2k+zjjf8uieRM_q_V7JK7ePAk9Lg@mail.gmail.com>
+ <4E573A99.4060309@profihost.ag>
+ <4E5DDE86.3040202@profihost.ag>
+ <20110901041458.GA30123@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1314879675-31989-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
+	Zhu Yanhai <zhu.yanhai@gmail.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jens Axboe <jaxboe@fusionio.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+To: Wu Fengguang <fengguang.wu@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gir.skynet.ie ([193.1.99.77]:35790 "EHLO gir.skynet.ie"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932107Ab1IAM5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Sep 2011 08:57:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20110901041458.GA30123@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes 2 issues in lowpan_skb_deliver function:
-1. Check for return status of skb_copy call;
-2. Use skb_copy with proper GFP flag, drop check for non-interrupt
-context.
+On Thu, Sep 01, 2011 at 12:14:58PM +0800, Wu Fengguang wrote:
+> Hi Stefan,
+> 
+> On Wed, Aug 31, 2011 at 03:11:02PM +0800, Stefan Priebe - Profihost AG wrote:
+> > Hi Fengguang,
+> > Hi Yanhai,
+> > 
+> > > you're abssolutely corect zone_reclaim_mode is on - but why?
+> > > There must be some linux software which switches it on.
+> > >
+> > > ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
+> > > ~#
+> > >
+> > > also
+> > > ~# grep 'zone_reclaim_mode' /etc/sysctl.* -r -i
+> > > ~#
+> > >
+> > > tells us nothing.
+> > >
+> > > I've then read this:
+> > >
+> > > "zone_reclaim_mode is set during bootup to 1 if it is determined that
+> > > pages from remote zones will cause a measurable performance reduction.
+> > > The page allocator will then reclaim easily reusable pages (those page
+> > > cache pages that are currently not used) before allocating off node pages."
+> > >
+> > > Why does the kernel do that here in our case on these machines.
+> > 
+> > Can nobody help why the kernel in this case set it to 1?
+> 
+> It's determined by RECLAIM_DISTANCE.
+> 
+> build_zonelists():
+> 
+>                 /*
+>                  * If another node is sufficiently far away then it is better
+>                  * to reclaim pages in a zone before going off node.
+>                  */
+>                 if (distance > RECLAIM_DISTANCE)
+>                         zone_reclaim_mode = 1;
+> 
+> Since Linux v3.0 RECLAIM_DISTANCE is increased from 20 to 30 by this commit.
+> It may well help your case, too.
+> 
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/ieee802154/6lowpan.c |   17 +++++++++--------
- 1 files changed, 9 insertions(+), 8 deletions(-)
+Even with that, it's known that zone_reclaim() can be a disaster when
+it runs into problems. This should be fixed in 3.1 by the following
+commits;
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index cf304cc..deb2adf 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -479,10 +479,10 @@ static int lowpan_skb_deliver(struct sk_buff *skb, struct ipv6hdr *hdr)
- 	int stat = NET_RX_SUCCESS;
- 
- 	new = skb_copy_expand(skb, sizeof(struct ipv6hdr), skb_tailroom(skb),
--								GFP_KERNEL);
-+								GFP_ATOMIC);
- 	kfree_skb(skb);
- 
--	if (NULL == new)
-+	if (!new)
- 		return -ENOMEM;
- 
- 	skb_push(new, sizeof(struct ipv6hdr));
-@@ -495,13 +495,14 @@ static int lowpan_skb_deliver(struct sk_buff *skb, struct ipv6hdr *hdr)
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(entry, &lowpan_devices, list)
- 		if (lowpan_dev_info(entry->ldev)->real_dev == new->dev) {
--			skb = skb_copy(new, GFP_KERNEL);
--			skb->dev = entry->ldev;
-+			skb = skb_copy(new, GFP_ATOMIC);
-+			if (!skb) {
-+				stat = -ENOMEM;
-+				break;
-+			}
- 
--			if (in_interrupt())
--				stat = netif_rx(skb);
--			else
--				stat = netif_rx_ni(skb);
-+			skb->dev = entry->ldev;
-+			stat = netif_rx(skb);
- 		}
- 	rcu_read_unlock();
- 
+[cd38b115 mm: page allocator: initialise ZLC for first zone eligible for zone_reclaim]
+[76d3fbf8 mm: page allocator: reconsider zones for allocation after direct reclaim]
+
+The description in cd38b115 has the interesting details.
+
 -- 
-1.7.2.5
-
-
-------------------------------------------------------------------------------
-Special Offer -- Download ArcSight Logger for FREE!
-Finally, a world-class log management solution at an even better 
-price-free! And you'll get a free "Love Thy Logs" t-shirt when you
-download Logger. Secure your free ArcSight Logger TODAY!
-http://p.sf.net/sfu/arcsisghtdev2dev
+Mel Gorman
+SUSE Labs
