@@ -1,135 +1,109 @@
-From: Rongqing Li <rongqing.li@windriver.com>
-Subject: Re: [PATCH 2/2] Add a netlink attribute INET_DIAG_SECCTX
-Date: Thu, 1 Sep 2011 17:33:07 +0800
-Message-ID: <4E5F5153.6070708@windriver.com>
-References: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com> <1314779777-12669-3-git-send-email-rongqing.li@windriver.com> <2593215.lUI7et83Qv@sifl>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 1/3] bnx2x: remove TPA_ENABLE_FLAG
+Date: Thu, 1 Sep 2011 11:37:15 +0200
+Message-ID: <CAHXqBFJR=5zTZeq+HnfRp2rb9yX3L=Kjwi_1AyWU2EDqZ=gCWQ@mail.gmail.com>
+References: <1314802836-9862-1-git-send-email-mschmidt@redhat.com>
+ <1314802836-9862-2-git-send-email-mschmidt@redhat.com> <201108311816.30468.vladz@broadcom.com>
+ <20110831175849.328192b8@alice> <8628FE4E7912BF47A96AE7DD7BAC0AAD01067097ADE0@SJEXCHCCR02.corp.ad.broadcom.com>
+ <CAHXqBF+f=3yM88CJ+FpNELBb+Sof5q1=pTXm303-QN7y6M9Dsg@mail.gmail.com> <8628FE4E7912BF47A96AE7DD7BAC0AAD01067097B03C@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
-	<linux-security-module@vger.kernel.org>
-To: Paul Moore <paul@paul-moore.com>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michal Schmidt <mschmidt@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Vladislav Zolotarov <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:52739 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753627Ab1IAJdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 05:33:21 -0400
-In-Reply-To: <2593215.lUI7et83Qv@sifl>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:40041 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879Ab1IAJhf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 05:37:35 -0400
+Received: by iabu26 with SMTP id u26so1699314iab.19
+        for <netdev@vger.kernel.org>; Thu, 01 Sep 2011 02:37:35 -0700 (PDT)
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AAD01067097B03C@SJEXCHCCR02.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2011 05:18 AM, Paul Moore wrote:
-> On Wednesday, August 31, 2011 04:36:17 PM rongqing.li@windriver.com wrote:
->> From: Roy.Li<rongqing.li@windriver.com>
+W dniu 1 wrze=B6nia 2011 10:37 u=BFytkownik Vladislav Zolotarov
+<vladz@broadcom.com> napisa=B3:
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>> owner@vger.kernel.org] On Behalf Of Michal Miroslaw
+>> Sent: Wednesday, August 31, 2011 9:05 PM
+>> To: Vladislav Zolotarov
+>> Cc: Michal Schmidt; netdev@vger.kernel.org; Dmitry Kravkov; Eilon
+>> Greenstein
+>> Subject: Re: [PATCH 1/3] bnx2x: remove TPA_ENABLE_FLAG
 >>
->> Add a new netlink attribute INET_DIAG_SECCTX to dump the security
->> context of TCP sockets.
->
-> You'll have to forgive me, I'm not familiar with the netlink code used by
-> netstat and friends, but is there anyway to report back the security context
-> of UDP sockets?  Or does the code below handle that already?
->
-> In general, AF_INET and AF_INET6 sockets, regardless of any upper level
-> protocols, have security contexts associated with them and it would be nice to
-> see them in netstat.
->
-
-Yes, this is real concern, If the dumping tcp security context can be 
-accepted
-by netdev, I am planning to implement it for ipv4 udp socket, unix socket.
-then ipv6..
-
->> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
->> index 389a2e6..1faf752 100644
->> --- a/net/ipv4/inet_diag.c
->> +++ b/net/ipv4/inet_diag.c
->> @@ -34,6 +34,8 @@
+>> 2011/8/31 Vladislav Zolotarov <vladz@broadcom.com>:
+>> >> -----Original Message-----
+>> >> From: Michal Schmidt [mailto:mschmidt@redhat.com]
+>> >> Sent: Wednesday, August 31, 2011 6:59 PM
+>> >> To: Vladislav Zolotarov
+>> >> Cc: netdev@vger.kernel.org; Dmitry Kravkov; Eilon Greenstein;
+>> >> mirqus@gmail.com
+>> >> Subject: Re: [PATCH 1/3] bnx2x: remove TPA_ENABLE_FLAG
+>> >>
+>> >> On Wed, 31 Aug 2011 18:16:30 +0300 Vlad Zolotarov wrote:
+>> >> > On Wednesday 31 August 2011 18:00:34 Michal Schmidt wrote:
+>> >> > > =A0 if (bnx2x_reload) {
+>> >> > > - =A0 =A0 =A0 =A0 if (bp->recovery_state =3D=3D BNX2X_RECOVER=
+Y_DONE)
+>> >> > > + =A0 =A0 =A0 =A0 if (bp->recovery_state =3D=3D BNX2X_RECOVER=
+Y_DONE) {
+>> >> > > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+>> >> > > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Cheat! Normally dev->f=
+eatures will be
+>> >> > > set after we
+>> >> > > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* return, but that's too=
+ late. We need to
+>> >> > > know how to
+>> >> > > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* configure the NIC when=
+ reloading it, so
+>> >> > > update
+>> >> > > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* the features early.
+>> >> > > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+>> >> > > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->features =3D features;
+>> >> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return bnx2x_reload_if_ru=
+nning(dev);
+>> >> >
+>> >> > NACK
+>> >> >
+>> >> > This is bogus - what if bnx2x_reload_if_running(dev)
+>> >> > (bnx2x_nic_load()) failes? The original dev->features would be
+>> >> > lost...
+>> >>
+>> >> Well, yes, but since the NIC would be now not working, do we real=
+ly
+>> >> care about its features? :-)
+>> >
+>> > U r kidding, right? ;)
+>> > We care about the consistency in the netdev features state - if we
+>> failed
+>> > to configure the requested feature and returned an error on e.g.
+>> "ethtool -K ethX lro on"
+>> > call, it's expected that a subsequent ethtool -k ethX call won't
+>> report the requested
+>> > feature (LRO) as set.
 >>
->>   #include<linux/inet_diag.h>
->>
->> +#define MAX_SECCTX_LEN 128
->
-> I'll echo Stephen's concerns that this is too small.  A MCS/MLS system with a
-> moderate number of categories could bump into this limit without too much
-> difficulty.
->
+>> If bnx2x_reload_if_running() failure means that NIC is disabled, the=
+n
+>> Michal is right that there's no point in caring about dev->features,
+>> sice 'load' operation (NIC configuration) needs to be done again
+>> anyway.
+> Michal, it's a matter of a consistent semantics/behavior of the ethto=
+ol callbacks just as I described above.
+> As long as dev->features may be queried both when device is down I'm =
+afraid I can't agree with u.
 
-I will reconsider this as Stephen's suggestion, just size the buffer 
-appropriately
-for the actual secctx length, so that, your next question will be fixed 
-since we
-have enough memory to place the security context.
+If I understand correctly, bnx2x_reload_if_running() failure does not
+mean exactly that features change failed. It means that device failed
+to initialize, possibly because of other (transient?) conditions. So
+unless reverting features change and retrying the initialization is
+known to allow the device to be brought back, there's no difference
+whether old or new dev->features value is kept and which set is
+reported by ethtool.
 
->>   struct inet_diag_entry {
->> @@ -108,6 +110,25 @@ static int inet_csk_diag_fill(struct sock *sk,
->>   		       icsk->icsk_ca_ops->name);
->>   	}
->>
->> +	if (ext&  (1<<  (INET_DIAG_SECCTX - 1))) {
->> +		u32 ctxlen = 0;
->> +		void *secctx;
->> +		int error;
->> +
->> +		error = security_sk_getsecctx(sk,&secctx,&ctxlen);
->> +
->> +		if (!error&&  ctxlen) {
->> +			if (ctxlen<  MAX_SECCTX_LEN) {
->> +				strcpy(INET_DIAG_PUT(skb, INET_DIAG_SECCTX,
->> +					ctxlen + 1), secctx);
->> +			} else {
->> +				strcpy(INET_DIAG_PUT(skb, INET_DIAG_SECCTX,
->> +					2), "-");
->
-> Is the "-" string a special value already interpreted by the userspace tools?
-> If not, you might consider using a string that would indicate an out-of-space
-> condition occurred; at first glance I thought the "-" string indicated no
-> context.
->
->> +			}
->> +			security_release_secctx(secctx, ctxlen);
->> +		}
->> +	}
->> +
->>   	r->idiag_family = sk->sk_family;
->>   	r->idiag_state = sk->sk_state;
->>   	r->idiag_timer = 0;
->> @@ -246,7 +267,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff
->> *skb, static int inet_diag_get_exact(struct sk_buff *in_skb,
->>   			       const struct nlmsghdr *nlh)
->>   {
->> -	int err;
->> +	int err, len;
->>   	struct sock *sk;
->>   	struct inet_diag_req *req = NLMSG_DATA(nlh);
->>   	struct sk_buff *rep;
->> @@ -293,10 +314,17 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
->> goto out;
->>
->>   	err = -ENOMEM;
->> -	rep = alloc_skb(NLMSG_SPACE((sizeof(struct inet_diag_msg) +
->> -				     sizeof(struct inet_diag_meminfo) +
->> -				     handler->idiag_info_size + 64)),
->> -			GFP_KERNEL);
->> +	len = sizeof(struct inet_diag_msg) + 64;
->> +
->> +	len += (req->idiag_ext&  (1<<  (INET_DIAG_MEMINFO - 1))) ?
->> +		sizeof(struct inet_diag_meminfo) : 0;
->> +	len += (req->idiag_ext&  (1<<  (INET_DIAG_INFO - 1))) ?
->> +		handler->idiag_info_size : 0;
->> +	len += (req->idiag_ext&  (1<<  (INET_DIAG_SECCTX - 1))) ?
->> +		MAX_SECCTX_LEN : 0;
->> +
->> +	rep = alloc_skb(NLMSG_SPACE(len), GFP_KERNEL);
->
-> How much of a problem would it be if you just allocated an entire page (or 4k
-> in the case of huge pages) and used that?  Is memory usage a concern here?
->
-
-The memory usage is main concern, or else the 4k page is good idea.
-Other side is that this function is few called, so the 4k maybe acceptable.
-
-
-
--- 
-Best Reagrds,
-Roy | RongQing Li
+Best Regards,
+Micha=B3 Miros=B3aw
