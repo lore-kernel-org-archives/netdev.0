@@ -1,85 +1,64 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: Re: [PATCH v2 -next] 6LoWPAN: fix skb_copy call
-Date: Thu, 1 Sep 2011 16:34:54 +0400
-Message-ID: <CAJmB2rDnzhxZ+++uFJeqzKGjt4q8k7iyn-XMxUKigfD2MEh6rQ@mail.gmail.com>
-References: <1314879675-31989-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	<1314881653-1104-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	<1314878443.2823.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: e1000e - BUG: sleeping function called from invalid context
+Date: Thu, 1 Sep 2011 14:20:00 +0200
+Message-ID: <20110901122000.GA24946@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, dbaryshkov@gmail.com, slapin@ossfans.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:40830 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757191Ab1IAMfW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 08:35:22 -0400
-In-Reply-To: <1314878443.2823.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:42323 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757191Ab1IAMie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 08:38:34 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+I got this one while running plain 'ip link show' with linus's post
+3.1.0-rc3 (CONFIG_DEBUG_ATOMIC_SLEEP=y, 82544 LOM with Intel DP55KG
+motherboard):
 
-hmm, I think you are right.
+[18628.524980] BUG: sleeping function called from invalid context at /home/romieu/git/linux-2.6-ref/kernel/mutex.c:85
+[18628.524987] in_atomic(): 1, irqs_disabled(): 0, pid: 1204, name: irqbalance
+[18628.524993] Pid: 1204, comm: irqbalance Not tainted 3.1.0-rc3+ #4
+[18628.524996] Call Trace:
+[18628.525007]  [<ffffffff810421a1>] __might_sleep+0xeb/0xf0
+[18628.525032]  [<ffffffff814a9dd8>] mutex_lock+0x24/0x4a
+[18628.525040]  [<ffffffff8124dc82>] ? vsnprintf+0x83/0x44c
+[18628.525057]  [<ffffffffa01e1697>] e1000_acquire_swflag_ich8lan+0x27/0x138 [e1000e]
+[18628.525078]  [<ffffffffa01f0bae>] e1000e_update_stats+0x158/0x750 [e1000e]
+[18628.525098]  [<ffffffffa01f11e8>] e1000e_get_stats64+0x42/0x143 [e1000e]
+[18628.525105]  [<ffffffff813f4986>] dev_get_stats+0x38/0x7a
+[18628.525110]  [<ffffffff813f49f0>] dev_seq_printf_stats+0x28/0xf8
+[18628.525118]  [<ffffffff813f33e2>] ? dev_seq_start+0x1f/0x70
+[18628.525123]  [<ffffffff813f4ae2>] dev_seq_show+0x22/0x26
 
-=46irst 6LoWPAN implementation was developed as a part of MAC layer and
-code was based on this layer approach. But now 6lowpan is
-MAC-independent, it's just a netif_rx hook and looks like I missed
-this moment during migration.
+The path looks the same in linus's (9e79e3e9dd9672b37ac9412e9a926714306551fe)
+and in davem's net-next (3857e3ee2209b7289c434103e366f765ec82a22d) branches:
 
-sorry for confusion.
+e1000e_get_stats64
+-> spin_lock(&adapter->stats64_lock);
+   e1000e_update_stats
+   -> e1000e_update_phy_stats
+      -> e1000_acquire_swflag_ich8lan (through hw->phy.ops.acquire)
+         -> mutex_lock(&swflag_mutex);
 
-With best regards,
-Alexander
+Can you fix it ?
 
-2011/9/1 Eric Dumazet <eric.dumazet@gmail.com>:
-> Le jeudi 01 septembre 2011 =E0 16:54 +0400, Alexander Smirnov a =E9cr=
-it :
->> This patch fixes 2 issues in lowpan_skb_deliver function:
->> 1. Check for return status of skb_copy call;
->> 2. Use skb_copy with proper GFP flag depending on context.
->>
->> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
->> ---
->> =A0net/ieee802154/6lowpan.c | =A0 18 +++++++++++++++---
->> =A01 files changed, 15 insertions(+), 3 deletions(-)
->>
->> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
->> index cf304cc..16100be 100644
->> --- a/net/ieee802154/6lowpan.c
->> +++ b/net/ieee802154/6lowpan.c
->> @@ -477,9 +477,15 @@ static int lowpan_skb_deliver(struct sk_buff *s=
-kb, struct ipv6hdr *hdr)
->> =A0 =A0 =A0 struct sk_buff *new;
->> =A0 =A0 =A0 struct lowpan_dev_record *entry;
->> =A0 =A0 =A0 int stat =3D NET_RX_SUCCESS;
->> + =A0 =A0 gfp_t mask;
->>
->> - =A0 =A0 new =3D skb_copy_expand(skb, sizeof(struct ipv6hdr), skb_t=
-ailroom(skb),
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 GFP_KERNEL);
->> + =A0 =A0 if (in_interrupt())
->> + =A0 =A0 =A0 =A0 =A0 =A0 mask =3D GFP_ATOMIC;
->> + =A0 =A0 else
->> + =A0 =A0 =A0 =A0 =A0 =A0 mask =3D GFP_KERNEL;
->
-> I am not sure to understand if lowpan_skb_deliver() can be called in
-> pure process context. I feel we are in softirq handler or we have
-> disabled BH, so GFP_ATOMIC is the only choice.
->
-> If you are unsure, you could use following helper :
->
-> =A0 =A0 =A0 =A0mask =3D gfp_any();
->
->> +
->> + =A0 =A0 new =3D skb_copy_expand(skb, sizeof(struct ipv6hdr),
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 skb_tailroom(skb), mask);
->> =A0 =A0 =A0 kfree_skb(skb);
->>
->
->
+(either turn stats64_lock into a mutex or remove it - and swflag_mutex as
+well ? - and use the rtnl sem in your work tasks from a quick glance at
+the code)
+
+Thanks.
+
+-- 
+Ueimor
