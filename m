@@ -1,89 +1,287 @@
-From: Ang Way Chuang <wcang@sfc.wide.ad.jp>
-Subject: Re: commit 1faa4356 breaks IPv6 assignment on libvirtd
-Date: Fri, 02 Sep 2011 14:57:36 +0900
-Message-ID: <4E607050.5030401@sfc.wide.ad.jp>
-References: <4E5F99E2.50301@sfc.wide.ad.jp> <20110901085126.76cdda54@nehalam.ftrdhcpuser.net>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next v3 4/4] r8169: support new chips of RTL8111F
+Date: Fri, 2 Sep 2011 14:23:51 +0800
+Message-ID: <1314944631-5005-4-git-send-email-hayeswang@realtek.com>
+References: <1314944631-5005-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Achmad Basuki <abazh@sfc.wide.ad.jp>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:43630 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753327Ab1IBF5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 01:57:39 -0400
-In-Reply-To: <20110901085126.76cdda54@nehalam.ftrdhcpuser.net>
+Received: from rtits2.realtek.com ([60.250.210.242]:55400 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751900Ab1IBGYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 02:24:11 -0400
+In-Reply-To: <1314944631-5005-1-git-send-email-hayeswang@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/09/11 00:51, Stephen Hemminger wrote:
-> On Thu, 01 Sep 2011 23:42:42 +0900
-> Ang Way Chuang <wcang@sfc.wide.ad.jp> wrote:
->
->> Hi all,
->>
->>    Commit 1faa4356 break IPv6 assignment on libvirtd. The configuration for my VM bridge network is as such:
->>
->> <network>
->>   <name>default</name>
->>   <forward mode='nat'/>
->>   <bridge name='virbr0' stp='on' delay='0' />
->>   <ip address='192.168.122.1' netmask='255.255.255.0'>
->>     <dhcp>
->>       <range start='192.168.122.2' end='192.168.122.254' />
->>     </dhcp>
->>   </ip>
->>   <ip family='ipv6' address='2001:d30:113:504::1' prefix='64'>
->>   </ip>
->> </network>
->>
->>     This configuration worked fine on kernel 2.6.38. Updating my distro kernel broke the setup. My colleague 
->> and I traced the problem and found that libvirtd failed because there wasn't any carrier on virbr0 interface 
->> due to the change introduced by that commit. How can this be fixed? Thanks in advance.
->>
->> Regards,
->> Ang Way Chuang
-> The issue is that address is assigned to a bridge device with no ports.
-> IPv6 needs carrier to do duplicate address detection. Without any ports
-> the DAD will always succeed, and there is a possibility that when ports
-> are later added to the bridge the address actually is a duplicate.
->
-> A couple of possible options are:
-> 1. Default to carrier on in bridge when there are no ports.
->    The downside with this is that IPv6 DAD is being fooled.
-I understand the point you raised. I think the same address duplication issue
-is possible with IPv4. But any fix shouldn't break user space application.
->
-> 2. Change libvirt to allow turning off DAD. This is controlled
->    in kernel by writing 0 to /proc/sys/net/ipv6/conf/virbr0/accept_dad
-This won't fix the problem.
+Support new chips of RTL8111F.
 
-Here is the full analysis of the event from my observation, but please take it with
-a grain of salt because I don't understand the internal of libvirtd.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c |  178 +++++++++++++++++++++++++++++++++-
+ 1 files changed, 176 insertions(+), 2 deletions(-)
 
-# virsh net-start default
-would create virbr0 with IPv6 address assigned, but with no carrier. dnsmasq would be called
-with the following arguments.
-
-/usr/sbin/dnsmasq --strict-order --bind-interfaces --pid-file=/var/run/libvirt/network/default.pid --conf-file=  --except-interface lo --listen-address 192.168.122.1 --listen-address 2001:d30:113:504::1 --dhcp-range 192.168.122.2,192.168.122.254 --dhcp-lease-max=253 --dhcp-no-override
-
-Attempts from dnsmasq to bind to IPv6 failed. Here is the abridged version of strace output
-from dnsmasq:
-
-socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 7
-setsockopt(7, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-fcntl(7, F_GETFL)                       = 0x2 (flags O_RDWR)
-fcntl(7, F_SETFL, O_RDWR|O_NONBLOCK)    = 0
-setsockopt(7, SOL_IPV6, IPV6_V6ONLY, [1], 4) = 0
-bind(7, {sa_family=AF_INET6, sin6_port=htons(53), inet_pton(AF_INET6, "2001:d30:113:555::1", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=11}, 28) = -1 EADDRNOTAVAIL (Cannot assign requested address)
-
-I am not sure why bind failed in this case. When dnsmasq failed to bind, virsh took down virbr0 and exit.
-
-1. Is that the correct behaviour? Maybe modifying the code that deals with bind can resolve this problem, but
-     will it cause any other problem?
-2. If option 1 is too troublesome, maybe carrier should be turn on for bridge vif by default.
-
-
-Regards,
-Ang Way Chuang
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 175c769..6376f92 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -42,6 +42,8 @@
+ #define FIRMWARE_8168E_1	"rtl_nic/rtl8168e-1.fw"
+ #define FIRMWARE_8168E_2	"rtl_nic/rtl8168e-2.fw"
+ #define FIRMWARE_8168E_3	"rtl_nic/rtl8168e-3.fw"
++#define FIRMWARE_8168F_1	"rtl_nic/rtl8168f-1.fw"
++#define FIRMWARE_8168F_2	"rtl_nic/rtl8168f-2.fw"
+ #define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
+ 
+ #ifdef RTL8169_DEBUG
+@@ -133,6 +135,8 @@ enum mac_version {
+ 	RTL_GIGA_MAC_VER_32,
+ 	RTL_GIGA_MAC_VER_33,
+ 	RTL_GIGA_MAC_VER_34,
++	RTL_GIGA_MAC_VER_35,
++	RTL_GIGA_MAC_VER_36,
+ 	RTL_GIGA_MAC_NONE   = 0xff,
+ };
+ 
+@@ -218,7 +222,11 @@ static const struct {
+ 	[RTL_GIGA_MAC_VER_33] =
+ 		_R("RTL8168e/8111e",	RTL_TD_1, FIRMWARE_8168E_2),
+ 	[RTL_GIGA_MAC_VER_34] =
+-		_R("RTL8168evl/8111evl",RTL_TD_1, FIRMWARE_8168E_3)
++		_R("RTL8168evl/8111evl",RTL_TD_1, FIRMWARE_8168E_3),
++	[RTL_GIGA_MAC_VER_35] =
++		_R("RTL8168f/8111f",	RTL_TD_1, FIRMWARE_8168F_1),
++	[RTL_GIGA_MAC_VER_36] =
++		_R("RTL8168f/8111f",	RTL_TD_1, FIRMWARE_8168F_2)
+ };
+ #undef _R
+ 
+@@ -1200,6 +1208,19 @@ static void rtl_link_chg_patch(struct rtl8169_private *tp)
+ 			     ERIAR_EXGMAC);
+ 		rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x01, 0x00,
+ 			     ERIAR_EXGMAC);
++	} else if (tp->mac_version == RTL_GIGA_MAC_VER_35 ||
++		   tp->mac_version == RTL_GIGA_MAC_VER_36) {
++		if (RTL_R8(PHYstatus) & _1000bpsF) {
++			rtl_eri_write(ioaddr, 0x1bc, ERIAR_MASK_1111,
++				      0x00000011, ERIAR_EXGMAC);
++			rtl_eri_write(ioaddr, 0x1dc, ERIAR_MASK_1111,
++				      0x00000005, ERIAR_EXGMAC);
++		} else {
++			rtl_eri_write(ioaddr, 0x1bc, ERIAR_MASK_1111,
++				      0x0000001f, ERIAR_EXGMAC);
++			rtl_eri_write(ioaddr, 0x1dc, ERIAR_MASK_1111,
++				      0x0000003f, ERIAR_EXGMAC);
++		}
+ 	}
+ }
+ 
+@@ -1739,6 +1760,10 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 		u32 val;
+ 		int mac_version;
+ 	} mac_info[] = {
++		/* 8168F family. */
++		{ 0x7cf00000, 0x48100000,	RTL_GIGA_MAC_VER_36 },
++		{ 0x7cf00000, 0x48000000,	RTL_GIGA_MAC_VER_35 },
++
+ 		/* 8168E family. */
+ 		{ 0x7c800000, 0x2c800000,	RTL_GIGA_MAC_VER_34 },
+ 		{ 0x7cf00000, 0x2c200000,	RTL_GIGA_MAC_VER_33 },
+@@ -2873,6 +2898,97 @@ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
+ 	rtl_writephy(tp, 0x1f, 0x0000);
+ }
+ 
++static void rtl8168f_1_hw_phy_config(struct rtl8169_private *tp)
++{
++	static const struct phy_reg phy_reg_init[] = {
++		/* Channel estimation fine tune */
++		{ 0x1f, 0x0003 },
++		{ 0x09, 0xa20f },
++		{ 0x1f, 0x0000 },
++
++		/* Modify green table for giga & fnet */
++		{ 0x1f, 0x0005 },
++		{ 0x05, 0x8b55 },
++		{ 0x06, 0x0000 },
++		{ 0x05, 0x8b5e },
++		{ 0x06, 0x0000 },
++		{ 0x05, 0x8b67 },
++		{ 0x06, 0x0000 },
++		{ 0x05, 0x8b70 },
++		{ 0x06, 0x0000 },
++		{ 0x1f, 0x0000 },
++		{ 0x1f, 0x0007 },
++		{ 0x1e, 0x0078 },
++		{ 0x17, 0x0000 },
++		{ 0x19, 0x00fb },
++		{ 0x1f, 0x0000 },
++
++		/* Modify green table for 10M */
++		{ 0x1f, 0x0005 },
++		{ 0x05, 0x8b79 },
++		{ 0x06, 0xaa00 },
++		{ 0x1f, 0x0000 },
++
++		/* Disable hiimpedance detection (RTCT) */
++		{ 0x1f, 0x0003 },
++		{ 0x01, 0x328a },
++		{ 0x1f, 0x0000 }
++	};
++
++	rtl_apply_firmware(tp);
++
++	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++
++	/* For 4-corner performance improve */
++	rtl_writephy(tp, 0x1f, 0x0005);
++	rtl_writephy(tp, 0x05, 0x8b80);
++	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0000);
++
++	/* PHY auto speed down */
++	rtl_writephy(tp, 0x1f, 0x0007);
++	rtl_writephy(tp, 0x1e, 0x002d);
++	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0000);
++	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
++
++	/* improve 10M EEE waveform */
++	rtl_writephy(tp, 0x1f, 0x0005);
++	rtl_writephy(tp, 0x05, 0x8b86);
++	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0000);
++
++	/* Improve 2-pair detection performance */
++	rtl_writephy(tp, 0x1f, 0x0005);
++	rtl_writephy(tp, 0x05, 0x8b85);
++	rtl_w1w0_phy(tp, 0x06, 0x4000, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0000);
++}
++
++static void rtl8168f_2_hw_phy_config(struct rtl8169_private *tp)
++{
++	rtl_apply_firmware(tp);
++
++	/* For 4-corner performance improve */
++	rtl_writephy(tp, 0x1f, 0x0005);
++	rtl_writephy(tp, 0x05, 0x8b80);
++	rtl_w1w0_phy(tp, 0x06, 0x0006, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0000);
++
++	/* PHY auto speed down */
++	rtl_writephy(tp, 0x1f, 0x0007);
++	rtl_writephy(tp, 0x1e, 0x002d);
++	rtl_w1w0_phy(tp, 0x18, 0x0010, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0000);
++	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
++
++	/* improve 10M EEE waveform */
++	rtl_writephy(tp, 0x1f, 0x0005);
++	rtl_writephy(tp, 0x05, 0x8b86);
++	rtl_w1w0_phy(tp, 0x06, 0x0001, 0x0000);
++	rtl_writephy(tp, 0x1f, 0x0000);
++}
++
+ static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
+ {
+ 	static const struct phy_reg phy_reg_init[] = {
+@@ -2997,6 +3113,12 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ 	case RTL_GIGA_MAC_VER_34:
+ 		rtl8168e_2_hw_phy_config(tp);
+ 		break;
++	case RTL_GIGA_MAC_VER_35:
++		rtl8168f_1_hw_phy_config(tp);
++		break;
++	case RTL_GIGA_MAC_VER_36:
++		rtl8168f_2_hw_phy_config(tp);
++		break;
+ 
+ 	default:
+ 		break;
+@@ -3524,6 +3646,8 @@ static void __devinit rtl_init_pll_power_ops(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_32:
+ 	case RTL_GIGA_MAC_VER_33:
+ 	case RTL_GIGA_MAC_VER_34:
++	case RTL_GIGA_MAC_VER_35:
++	case RTL_GIGA_MAC_VER_36:
+ 		ops->down	= r8168_pll_power_down;
+ 		ops->up		= r8168_pll_power_up;
+ 		break;
+@@ -3996,7 +4120,9 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
+ 	    tp->mac_version == RTL_GIGA_MAC_VER_31) {
+ 		while (RTL_R8(TxPoll) & NPQ)
+ 			udelay(20);
+-	} else if (tp->mac_version == RTL_GIGA_MAC_VER_34) {
++	} else if (tp->mac_version == RTL_GIGA_MAC_VER_34 ||
++		   tp->mac_version == RTL_GIGA_MAC_VER_35 ||
++		   tp->mac_version == RTL_GIGA_MAC_VER_36) {
+ 		RTL_W8(ChipCmd, RTL_R8(ChipCmd) | StopReq);
+ 		while (!(RTL_R32(TxConfig) & TXCFG_EMPTY))
+ 			udelay(100);
+@@ -4482,6 +4608,49 @@ static void rtl_hw_start_8168e_2(void __iomem *ioaddr, struct pci_dev *pdev)
+ 	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
+ }
+ 
++static void rtl_hw_start_8168f_1(void __iomem *ioaddr, struct pci_dev *pdev)
++{
++	static const struct ephy_info e_info_8168f_1[] = {
++		{ 0x06, 0x00c0,	0x0020 },
++		{ 0x08, 0x0001,	0x0002 },
++		{ 0x09, 0x0000,	0x0080 },
++		{ 0x19, 0x0000,	0x0224 }
++	};
++
++	rtl_csi_access_enable_1(ioaddr);
++
++	rtl_ephy_init(ioaddr, e_info_8168f_1, ARRAY_SIZE(e_info_8168f_1));
++
++	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++
++	rtl_eri_write(ioaddr, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
++	rtl_eri_write(ioaddr, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
++	rtl_eri_write(ioaddr, 0xc8, ERIAR_MASK_1111, 0x00100002, ERIAR_EXGMAC);
++	rtl_eri_write(ioaddr, 0xe8, ERIAR_MASK_1111, 0x00100006, ERIAR_EXGMAC);
++	rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x00, 0x01, ERIAR_EXGMAC);
++	rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
++	rtl_w1w0_eri(ioaddr, 0x1b0, ERIAR_MASK_0001, 0x10, 0x00, ERIAR_EXGMAC);
++	rtl_w1w0_eri(ioaddr, 0x1d0, ERIAR_MASK_0001, 0x10, 0x00, ERIAR_EXGMAC);
++	rtl_eri_write(ioaddr, 0xcc, ERIAR_MASK_1111, 0x00000050, ERIAR_EXGMAC);
++	rtl_eri_write(ioaddr, 0xd0, ERIAR_MASK_1111, 0x00000060, ERIAR_EXGMAC);
++	rtl_w1w0_eri(ioaddr, 0x0d4, ERIAR_MASK_0011, 0x0c00, 0xff00,
++		     ERIAR_EXGMAC);
++
++	RTL_W8(MaxTxPacketSize, EarlySize);
++
++	rtl_disable_clock_request(pdev);
++
++	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
++	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
++
++	/* Adjust EEE LED frequency */
++	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
++
++	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
++	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
++	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
++}
++
+ static void rtl_hw_start_8168(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -4576,6 +4745,11 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 		rtl_hw_start_8168e_2(ioaddr, pdev);
+ 		break;
+ 
++	case RTL_GIGA_MAC_VER_35:
++	case RTL_GIGA_MAC_VER_36:
++		rtl_hw_start_8168f_1(ioaddr, pdev);
++		break;
++
+ 	default:
+ 		printk(KERN_ERR PFX "%s: unknown chipset (mac_version = %d).\n",
+ 			dev->name, tp->mac_version);
+-- 
+1.7.6
