@@ -1,7 +1,7 @@
 From: Serge Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 05/15] userns: clamp down users of cap_raised
-Date: Fri,  2 Sep 2011 19:56:30 +0000
-Message-ID: <1314993400-6910-8-git-send-email-serge@hallyn.com>
+Subject: [PATCH 11/15] userns: make some net-sysfs capable calls targeted
+Date: Fri,  2 Sep 2011 19:56:36 +0000
+Message-ID: <1314993400-6910-14-git-send-email-serge@hallyn.com>
 References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,76 +24,35 @@ List-Id: netdev.vger.kernel.org
 
 From: "Serge E. Hallyn" <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-A few modules are using cap_raised(current_cap(), cap) to authorize
-actions, but the privilege should be applicable against the initial
-user namespace.  Refuse privilege if the caller is not in init_user_ns.
+Changelog: jul 1: fix compilation errors (net_device != net)
 
 Signed-off-by: Serge E. Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Cc: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/block/drbd/drbd_nl.c           |    5 +++++
- drivers/md/dm-log-userspace-transfer.c |    3 +++
- drivers/staging/pohmelfs/config.c      |    3 +++
- drivers/video/uvesafb.c                |    3 +++
- 4 files changed, 14 insertions(+), 0 deletions(-)
+ net/core/net-sysfs.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/block/drbd/drbd_nl.c b/drivers/block/drbd/drbd_nl.c
-index 0feab26..9a87a14 100644
---- a/drivers/block/drbd/drbd_nl.c
-+++ b/drivers/block/drbd/drbd_nl.c
-@@ -2297,6 +2297,11 @@ static void drbd_connector_callback(struct cn_msg *req, struct netlink_skb_parms
- 		return;
- 	}
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 1683e5d..876915b 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -76,7 +76,7 @@ static ssize_t netdev_store(struct device *dev, struct device_attribute *attr,
+ 	unsigned long new;
+ 	int ret = -EINVAL;
  
-+	if (current_user_ns() != &init_user_ns) {
-+		retcode = ERR_PERM;
-+		goto fail;
-+	}
-+
- 	if (!cap_raised(current_cap(), CAP_SYS_ADMIN)) {
- 		retcode = ERR_PERM;
- 		goto fail;
-diff --git a/drivers/md/dm-log-userspace-transfer.c b/drivers/md/dm-log-userspace-transfer.c
-index 1f23e04..140ca81 100644
---- a/drivers/md/dm-log-userspace-transfer.c
-+++ b/drivers/md/dm-log-userspace-transfer.c
-@@ -134,6 +134,9 @@ static void cn_ulog_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
- {
- 	struct dm_ulog_request *tfr = (struct dm_ulog_request *)(msg + 1);
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(dev_net(net)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
  
-+	if (current_user_ns() != &init_user_ns)
-+		return;
-+
- 	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
- 		return;
+ 	new = simple_strtoul(buf, &endp, 0);
+@@ -261,7 +261,7 @@ static ssize_t store_ifalias(struct device *dev, struct device_attribute *attr,
+ 	size_t count = len;
+ 	ssize_t ret;
  
-diff --git a/drivers/staging/pohmelfs/config.c b/drivers/staging/pohmelfs/config.c
-index b6c42cb..cd259d0 100644
---- a/drivers/staging/pohmelfs/config.c
-+++ b/drivers/staging/pohmelfs/config.c
-@@ -525,6 +525,9 @@ static void pohmelfs_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *n
- {
- 	int err;
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(dev_net(netdev)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
  
-+	if (current_user_ns() != &init_user_ns)
-+		return;
-+
- 	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
- 		return;
- 
-diff --git a/drivers/video/uvesafb.c b/drivers/video/uvesafb.c
-index 7f8472c..71dab8e 100644
---- a/drivers/video/uvesafb.c
-+++ b/drivers/video/uvesafb.c
-@@ -73,6 +73,9 @@ static void uvesafb_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *ns
- 	struct uvesafb_task *utask;
- 	struct uvesafb_ktask *task;
- 
-+	if (current_user_ns() != &init_user_ns)
-+		return;
-+
- 	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
- 		return;
- 
+ 	/* ignore trailing newline */
 -- 
 1.7.5.4
