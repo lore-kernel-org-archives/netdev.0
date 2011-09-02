@@ -1,54 +1,50 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v4 1/4] r8169: fix WOL setting for 8105 and 8111EVL
-Date: Fri, 2 Sep 2011 17:49:10 +0800
-Message-ID: <1314956953-1568-1-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH net-next v4 2/4] r8169: define the early size for 8111evl
+Date: Fri, 2 Sep 2011 17:49:11 +0800
+Message-ID: <1314956953-1568-2-git-send-email-hayeswang@realtek.com>
+References: <1314956953-1568-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	Hayes Wang <hayeswang@realtek.com>
 To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:57145 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933135Ab1IBJtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 05:49:36 -0400
+In-Reply-To: <1314956953-1568-1-git-send-email-hayeswang@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-rtl8105, rtl8111E, and rtl8111evl need enable RxConfig bit 1 ~ 3
-for supporting wake on lan.
+For RTL8111EVL, the register of MaxTxPacketSize doesn't acctually
+limit the tx size. It influnces the feature of early tx.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 1cf8c3c..aaae43e 100644
+index aaae43e..db5ab2c 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3319,9 +3319,16 @@ static void r810x_phy_power_up(struct rtl8169_private *tp)
+@@ -311,6 +311,7 @@ enum rtl_registers {
+ 	MaxTxPacketSize	= 0xec,	/* 8101/8168. Unit of 128 bytes. */
  
- static void r810x_pll_power_down(struct rtl8169_private *tp)
- {
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
- 	if (__rtl8169_get_wol(tp) & WAKE_ANY) {
- 		rtl_writephy(tp, 0x1f, 0x0000);
- 		rtl_writephy(tp, MII_BMCR, 0x0000);
-+
-+		if (tp->mac_version == RTL_GIGA_MAC_VER_29 ||
-+		    tp->mac_version == RTL_GIGA_MAC_VER_30)
-+			RTL_W32(RxConfig, RTL_R32(RxConfig) | AcceptBroadcast |
-+				AcceptMulticast | AcceptMyPhys);
- 		return;
- 	}
+ #define TxPacketMax	(8064 >> 7)
++#define EarlySize	0x27
  
-@@ -3417,7 +3424,8 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
- 		rtl_writephy(tp, MII_BMCR, 0x0000);
+ 	FuncEvent	= 0xf0,
+ 	FuncEventMask	= 0xf4,
+@@ -4465,7 +4466,7 @@ static void rtl_hw_start_8168e_2(void __iomem *ioaddr, struct pci_dev *pdev)
+ 	rtl_w1w0_eri(ioaddr, 0x0d4, ERIAR_MASK_0011, 0x0c00, 0xff00,
+ 		     ERIAR_EXGMAC);
  
- 		if (tp->mac_version == RTL_GIGA_MAC_VER_32 ||
--		    tp->mac_version == RTL_GIGA_MAC_VER_33)
-+		    tp->mac_version == RTL_GIGA_MAC_VER_33 ||
-+		    tp->mac_version == RTL_GIGA_MAC_VER_34)
- 			RTL_W32(RxConfig, RTL_R32(RxConfig) | AcceptBroadcast |
- 				AcceptMulticast | AcceptMyPhys);
- 		return;
+-	RTL_W8(MaxTxPacketSize, 0x27);
++	RTL_W8(MaxTxPacketSize, EarlySize);
+ 
+ 	rtl_disable_clock_request(pdev);
+ 
 -- 
 1.7.6
