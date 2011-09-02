@@ -1,34 +1,40 @@
-From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
-Subject: Re: [PATCH] caif: fix a potential NULL dereference
-Date: Fri, 2 Sep 2011 15:13:22 +0200
-Message-ID: <CAJK669bsA5Gx+9erJpQ1y-YX=F+XY9TJvg9U1ekCRkR0P2UsLQ@mail.gmail.com>
-References: <20110902080716.GF2430@shale.localdomain>
-	<CAJK669Yb6V=xr9ZvQGOKGEvmzO1JGhrHD+sR69b04EQxUjOOrQ@mail.gmail.com>
-	<1314965963.2573.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] af_packet: flush complete kernel cache in packet_sendmsg
+Date: Fri, 02 Sep 2011 14:46:17 +0100
+Message-ID: <1314971179.3092.159.camel@deadeye>
+References: <20110505141107.GC30443@orbit.nwl.cc>
+	 <1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	Russell King <linux@arm.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>
+To: Phil Sutter <phil.sutter@viprinet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:38980 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752084Ab1IBNTZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 09:19:25 -0400
-Received: by qyk15 with SMTP id 15so673400qyk.19
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2011 06:19:24 -0700 (PDT)
-In-Reply-To: <1314965963.2573.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from exchange.solarflare.com ([216.237.3.220]:47176 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116Ab1IBNqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 09:46:22 -0400
+In-Reply-To: <1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Commit bd30ce4bc0b7 (caif: Use RCU instead of spin-lock in caif_dev.c=
-)
-> added a potential NULL dereference in case alloc_percpu() fails.
->
-> caif_device_alloc() can also use GFP_KERNEL instead of GFP_ATOMIC.
->
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+On Fri, 2011-09-02 at 13:08 +0200, Phil Sutter wrote:
+> This flushes the cache before and after accessing the mmapped packet
+> buffer. It seems like the call to flush_dcache_page from inside
+> __packet_get_status is not enough on Kirkwood (or ARM in general).
+> ---
+> I know this is far from an optimal solution, but it's in fact the only working
+> one I found.
+[...]
 
-Looks good thanks,
-Acked-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+This is ridiculous.  If flush_dcache_page() isn't doing everything it
+should, you need to fix that.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
