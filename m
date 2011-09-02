@@ -1,59 +1,60 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [RFC, 1/2] ethtool: Implement private flags interface for
- ethtool application.
-Date: Fri, 2 Sep 2011 14:11:20 -0700
-Message-ID: <EDC0E76513226749BFBC9C3FB031318F0173FF8607@orsmsx508.amr.corp.intel.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [RFC, 1/2] ethtool: Implement private flags interface for ethtool application.
+Date: Fri, 2 Sep 2011 23:17:17 +0200
+Message-ID: <CAHXqBFKU2m6s1fQzZpJRvvR2HatJpXjWXv84=ZYD5E6OPFfUmQ@mail.gmail.com>
 References: <1314996631-4773-1-git-send-email-carolyn.wyborny@intel.com>
- <20110902.165524.1076389492712310664.davem@davemloft.net>
+ <20110902.165524.1076389492712310664.davem@davemloft.net> <EDC0E76513226749BFBC9C3FB031318F0173FF8607@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:5117 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755822Ab1IBVLV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 17:11:21 -0400
-In-Reply-To: <20110902.165524.1076389492712310664.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:58637 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755927Ab1IBVRh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 17:17:37 -0400
+Received: by iabu26 with SMTP id u26so3406212iab.19
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2011 14:17:37 -0700 (PDT)
+In-Reply-To: <EDC0E76513226749BFBC9C3FB031318F0173FF8607@orsmsx508.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Friday, September 02, 2011 1:55 PM
->To: Wyborny, Carolyn
->Cc: bhutchings@solarflare.com; netdev@vger.kernel.org
->Subject: Re: [RFC, 1/2] ethtool: Implement private flags interface for
->ethtool application.
->
->From: Carolyn Wyborny <carolyn.wyborny@intel.com>
->Date: Fri,  2 Sep 2011 13:50:30 -0700
->
->> This patch completes the user space implementation of the private
->> flags inteface in ethtool. Using -b/-B options.
+2011/9/2 Wyborny, Carolyn <carolyn.wyborny@intel.com>:
+>>-----Original Message-----
+>>From: David Miller [mailto:davem@davemloft.net]
+>>Sent: Friday, September 02, 2011 1:55 PM
+>>To: Wyborny, Carolyn
+>>Cc: bhutchings@solarflare.com; netdev@vger.kernel.org
+>>Subject: Re: [RFC, 1/2] ethtool: Implement private flags interface fo=
+r
+>>ethtool application.
 >>
->> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+>>From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+>>Date: Fri, =A02 Sep 2011 13:50:30 -0700
+>>
+>>> This patch completes the user space implementation of the private
+>>> flags inteface in ethtool. Using -b/-B options.
+>>>
+>>> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+>>
+>>The only use case you show here is something generic which other
+>>chips have, Energy Efficient Ethernet.
+>>
+>>Making an attribute private which is present widely amonst various
+>>networking chips makes no sense at all.
+>>
+>>It deserved a generic ethtool flag.
 >
->The only use case you show here is something generic which other
->chips have, Energy Efficient Ethernet.
->
->Making an attribute private which is present widely amonst various
->networking chips makes no sense at all.
->
->It deserved a generic ethtool flag.
+> Fair enough on this particular feature, but does that negate the impl=
+ementation suggestion altogether? =A0I can send an updated feature impl=
+ementation for the use case using DMA Coalescing if that will help.
 
-Fair enough on this particular feature, but does that negate the implementation suggestion altogether?  I can send an updated feature implementation for the use case using DMA Coalescing if that will help.
+I would rather see this as an extension to ETHTOOL_[GS]FEATURES. Its
+semantics allow easy expanding to handle device-private flags without
+changing anything on userspace side.
 
-Thanks,
-
-Carolyn
-
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
+Best Regards,
+Micha=B3 Miros=B3aw
