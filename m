@@ -1,7 +1,8 @@
 From: Serge Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 04/15] user_ns: convert fs/attr.c to targeted capabilities
-Date: Fri,  2 Sep 2011 19:56:29 +0000
-Message-ID: <1314993400-6910-7-git-send-email-serge@hallyn.com>
+Subject: [PATCH 02/15] user ns: setns: move capable checks into per-ns attach
+	helper
+Date: Fri,  2 Sep 2011 19:56:27 +0000
+Message-ID: <1314993400-6910-5-git-send-email-serge@hallyn.com>
 References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,74 +23,127 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "Serge E. Hallyn" <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+From: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
 
 Signed-off-by: Serge E. Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Cc: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- fs/attr.c |   20 +++++++++++++-------
- 1 files changed, 13 insertions(+), 7 deletions(-)
+ ipc/namespace.c          |    7 +++++++
+ kernel/fork.c            |    5 +++++
+ kernel/nsproxy.c         |   11 ++++++++---
+ kernel/utsname.c         |    7 +++++++
+ net/core/net_namespace.c |    7 +++++++
+ 5 files changed, 34 insertions(+), 3 deletions(-)
 
-diff --git a/fs/attr.c b/fs/attr.c
-index 538e279..e0cf46a 100644
---- a/fs/attr.c
-+++ b/fs/attr.c
-@@ -29,6 +29,7 @@
- int inode_change_ok(const struct inode *inode, struct iattr *attr)
- {
- 	unsigned int ia_valid = attr->ia_valid;
-+	struct user_namespace *ns;
+diff --git a/ipc/namespace.c b/ipc/namespace.c
+index ce0a647..a0a7609 100644
+--- a/ipc/namespace.c
++++ b/ipc/namespace.c
+@@ -163,6 +163,13 @@ static void ipcns_put(void *ns)
  
- 	/*
- 	 * First check size constraints.  These can't be overriden using
-@@ -44,26 +45,28 @@ int inode_change_ok(const struct inode *inode, struct iattr *attr)
- 	if (ia_valid & ATTR_FORCE)
+ static int ipcns_install(struct nsproxy *nsproxy, void *ns)
+ {
++#if 0
++	struct ipc_namespace *newns = ns;
++	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
++#else
++	if (!capable(CAP_SYS_ADMIN))
++#endif
++		return -1;
+ 	/* Ditch state from the old ipc namespace */
+ 	exit_sem(current);
+ 	put_ipc_ns(nsproxy->ipc_ns);
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 8e6b6f4..ca712f5 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1489,8 +1489,13 @@ long do_fork(unsigned long clone_flags,
+ 		/* hopefully this check will go away when userns support is
+ 		 * complete
+ 		 */
++#if 0
++		if (!nsown_capable(CAP_SYS_ADMIN) || !nsown_capable(CAP_SETUID) ||
++				!nsown_capable(CAP_SETGID))
++#else
+ 		if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SETUID) ||
+ 				!capable(CAP_SETGID))
++#endif
+ 			return -EPERM;
+ 	}
+ 
+diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
+index 9aeab4b..e274577 100644
+--- a/kernel/nsproxy.c
++++ b/kernel/nsproxy.c
+@@ -134,7 +134,11 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
+ 				CLONE_NEWPID | CLONE_NEWNET)))
  		return 0;
  
-+	ns = inode_userns(inode);
- 	/* Make sure a caller can chown. */
- 	if ((ia_valid & ATTR_UID) &&
--	    (current_fsuid() != inode->i_uid ||
--	     attr->ia_uid != inode->i_uid) && !capable(CAP_CHOWN))
-+	    (ns != current_user_ns() || current_fsuid() != inode->i_uid ||
-+	     attr->ia_uid != inode->i_uid) && !ns_capable(ns, CAP_CHOWN))
++#if 0
++	if (!nsown_capable(CAP_SYS_ADMIN)) {
++#else
+ 	if (!capable(CAP_SYS_ADMIN)) {
++#endif
+ 		err = -EPERM;
+ 		goto out;
+ 	}
+@@ -191,7 +195,11 @@ int unshare_nsproxy_namespaces(unsigned long unshare_flags,
+ 			       CLONE_NEWNET)))
+ 		return 0;
+ 
++#if 0
++	if (!nsown_capable(CAP_SYS_ADMIN))
++#else
+ 	if (!capable(CAP_SYS_ADMIN))
++#endif
  		return -EPERM;
  
- 	/* Make sure caller can chgrp. */
- 	if ((ia_valid & ATTR_GID) &&
--	    (current_fsuid() != inode->i_uid ||
-+	    (ns != current_user_ns() || current_fsuid() != inode->i_uid ||
- 	    (!in_group_p(attr->ia_gid) && attr->ia_gid != inode->i_gid)) &&
--	    !capable(CAP_CHOWN))
-+	    !ns_capable(ns, CAP_CHOWN))
- 		return -EPERM;
+ 	*new_nsp = create_new_namespaces(unshare_flags, current,
+@@ -241,9 +249,6 @@ SYSCALL_DEFINE2(setns, int, fd, int, nstype)
+ 	struct file *file;
+ 	int err;
  
- 	/* Make sure a caller can chmod. */
- 	if (ia_valid & ATTR_MODE) {
-+		gid_t gid = (ia_valid & ATTR_GID) ? attr->ia_gid : inode->i_gid;
- 		if (!inode_owner_or_capable(inode))
- 			return -EPERM;
- 		/* Also check the setgid bit! */
--		if (!in_group_p((ia_valid & ATTR_GID) ? attr->ia_gid :
--				inode->i_gid) && !capable(CAP_FSETID))
-+		if ((ns != current_user_ns() || !in_group_p(gid)) &&
-+		    !ns_capable(ns, CAP_FSETID))
- 			attr->ia_mode &= ~S_ISGID;
- 	}
+-	if (!capable(CAP_SYS_ADMIN))
+-		return -EPERM;
+-
+ 	file = proc_ns_fget(fd);
+ 	if (IS_ERR(file))
+ 		return PTR_ERR(file);
+diff --git a/kernel/utsname.c b/kernel/utsname.c
+index bff131b..4638a54 100644
+--- a/kernel/utsname.c
++++ b/kernel/utsname.c
+@@ -104,6 +104,13 @@ static void utsns_put(void *ns)
  
-@@ -154,9 +157,12 @@ void setattr_copy(struct inode *inode, const struct iattr *attr)
- 						inode->i_sb->s_time_gran);
- 	if (ia_valid & ATTR_MODE) {
- 		umode_t mode = attr->ia_mode;
-+		struct user_namespace *ns = inode_userns(inode);
+ static int utsns_install(struct nsproxy *nsproxy, void *ns)
+ {
++#if 0
++	struct uts_namespace *newns = ns;
++	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
++#else
++	if (!capable(CAP_SYS_ADMIN))
++#endif
++		return -1;
+ 	get_uts_ns(ns);
+ 	put_uts_ns(nsproxy->uts_ns);
+ 	nsproxy->uts_ns = ns;
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 5bbdbf0..6f6698d 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -620,6 +620,13 @@ static void netns_put(void *ns)
  
--		if (!in_group_p(inode->i_gid) && !capable(CAP_FSETID))
-+		if ((ns != current_user_ns() || !in_group_p(inode->i_gid)) &&
-+		    !ns_capable(ns, CAP_FSETID))
- 			mode &= ~S_ISGID;
-+
- 		inode->i_mode = mode;
- 	}
- }
+ static int netns_install(struct nsproxy *nsproxy, void *ns)
+ {
++#if 0
++	struct net *net = ns;
++	if (!ns_capable(net->user_ns, CAP_SYS_ADMIN))
++#else
++	if (capable(CAP_SYS_ADMIN))
++#endif
++		return -1;
+ 	put_net(nsproxy->net_ns);
+ 	nsproxy->net_ns = get_net(ns);
+ 	return 0;
 -- 
 1.7.5.4
