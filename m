@@ -1,97 +1,96 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [RFC, 1/2] ethtool: Implement private flags interface for
- ethtool application.
-Date: Fri, 2 Sep 2011 14:29:22 -0700
-Message-ID: <EDC0E76513226749BFBC9C3FB031318F0173FF8648@orsmsx508.amr.corp.intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC, 2/2] igb:  Implementation of ethtool priv_flags for igb
+ driver.
+Date: Fri, 02 Sep 2011 22:31:36 +0100
+Message-ID: <1314999096.3419.16.camel@bwh-desktop>
 References: <1314996631-4773-1-git-send-email-carolyn.wyborny@intel.com>
- <20110902.165524.1076389492712310664.davem@davemloft.net>
- <EDC0E76513226749BFBC9C3FB031318F0173FF8607@orsmsx508.amr.corp.intel.com>
- <CAHXqBFKU2m6s1fQzZpJRvvR2HatJpXjWXv84=ZYD5E6OPFfUmQ@mail.gmail.com>
- <CAHXqBF+9iP6tOmtiaXopGvLyBZvpXmLz05aHj1MrQ2RnAiGGLA@mail.gmail.com>
+	 <1314996631-4773-2-git-send-email-carolyn.wyborny@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45513 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756044Ab1IBV3Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 17:29:24 -0400
-In-Reply-To: <CAHXqBF+9iP6tOmtiaXopGvLyBZvpXmLz05aHj1MrQ2RnAiGGLA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:29316 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755986Ab1IBVbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 17:31:39 -0400
+In-Reply-To: <1314996631-4773-2-git-send-email-carolyn.wyborny@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2011-09-02 at 13:50 -0700, Carolyn Wyborny wrote:
+> This patch adds igb driver support for the ethtool private flags
+> interface. Two features are initially configured for private flags
+> support as an example for use with the implementation in ethtoool
+> application.
+> 
+> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> ---
+>  drivers/net/ethernet/intel/igb/igb.h         |    2 +
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c |   28 ++++++++++++++++++++++++++
+>  drivers/net/ethernet/intel/igb/igb_main.c    |    1 +
+>  3 files changed, 31 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+> index bb47ed1..a8be3eb 100644
+> --- a/drivers/net/ethernet/intel/igb/igb.h
+> +++ b/drivers/net/ethernet/intel/igb/igb.h
+> @@ -360,6 +360,7 @@ struct igb_adapter {
+>  	u32 rss_queues;
+>  	u32 wvbr;
+>  	int node;
+> +	u32 pflags;
+>  };
+>  
+>  #define IGB_FLAG_HAS_MSI           (1 << 0)
+> @@ -367,6 +368,7 @@ struct igb_adapter {
+>  #define IGB_FLAG_QUAD_PORT_A       (1 << 2)
+>  #define IGB_FLAG_QUEUE_PAIRS       (1 << 3)
+>  #define IGB_FLAG_DMAC              (1 << 4)
+> +#define IGB_FLAG_EEE               (1 << 5)
+>  
+>  /* DMA Coalescing defines */
+>  #define IGB_MIN_TXPBSIZE           20408
+> diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> index 64fb4ef..3a251c7 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> @@ -696,6 +696,9 @@ static void igb_get_drvinfo(struct net_device *netdev,
+>  	drvinfo->testinfo_len = IGB_TEST_LEN;
+>  	drvinfo->regdump_len = igb_get_regs_len(netdev);
+>  	drvinfo->eedump_len = igb_get_eeprom_len(netdev);
+> +#ifdef ETHTOOL_GPFLAGS
 
+That macro is always defined,
 
->-----Original Message-----
->From: Micha=B3 Miros=B3aw [mailto:mirqus@gmail.com]
->Sent: Friday, September 02, 2011 2:22 PM
->To: Wyborny, Carolyn
->Cc: David Miller; bhutchings@solarflare.com; netdev@vger.kernel.org
->Subject: Re: [RFC, 1/2] ethtool: Implement private flags interface for
->ethtool application.
->
->W dniu 2 wrze=B6nia 2011 23:17 u=BFytkownik Micha=B3 Miros=B3aw
-><mirqus@gmail.com> napisa=B3:
->> 2011/9/2 Wyborny, Carolyn <carolyn.wyborny@intel.com>:
->>>>-----Original Message-----
->>>>From: David Miller [mailto:davem@davemloft.net]
->>>>Sent: Friday, September 02, 2011 1:55 PM
->>>>To: Wyborny, Carolyn
->>>>Cc: bhutchings@solarflare.com; netdev@vger.kernel.org
->>>>Subject: Re: [RFC, 1/2] ethtool: Implement private flags interface
->for
->>>>ethtool application.
->>>>
->>>>From: Carolyn Wyborny <carolyn.wyborny@intel.com>
->>>>Date: Fri, =A02 Sep 2011 13:50:30 -0700
->>>>
->>>>> This patch completes the user space implementation of the private
->>>>> flags inteface in ethtool. Using -b/-B options.
->>>>>
->>>>> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
->>>>
->>>>The only use case you show here is something generic which other
->>>>chips have, Energy Efficient Ethernet.
->>>>
->>>>Making an attribute private which is present widely amonst various
->>>>networking chips makes no sense at all.
->>>>
->>>>It deserved a generic ethtool flag.
->>>
->>> Fair enough on this particular feature, but does that negate the
->implementation suggestion altogether? =A0I can send an updated feature
->implementation for the use case using DMA Coalescing if that will help=
-=2E
->> I would rather see this as an extension to ETHTOOL_[GS]FEATURES. Its
->> semantics allow easy expanding to handle device-private flags withou=
-t
->> changing anything on userspace side.
->
->BTW, After pending Intel drivers get converted to ndo_set_features and
->netdev->features get extended to 64 bits, it would also be possible to
->use some of the unused bits there for device/driver-private flags
->almost "for free".
->
->Best Regards,
->Micha=B3 Miros=B3aw
+> +	drvinfo->n_priv_flags = 2;
 
-That seems reasonable as then there would be room for them, but is it g=
-oing to be OK to use those unused bits or are they going to be intended=
- for generic features and not device specific ones? =20
+This is not enough.  You need to support ETH_SS_PRIV_FLAGS in the
+get_sset_count and get_strings operations.
 
-Is the intent then to not ever use the priv_flags partial implementatio=
-n? =20
+> +#endif
+>  }
+>  
+>  static void igb_get_ringparam(struct net_device *netdev,
+> @@ -2171,6 +2174,29 @@ static void igb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+>  	}
+>  }
+>  
+> +static int igb_set_pflags(struct net_device *netdev, u32 data)
+> +{
+> +	u32 supported_flags = IGB_FLAG_EEE;
+> +	struct igb_adapter *adapter = netdev_priv(netdev);
+> +
+> +	if (data & supported_flags) {
+[...]
 
-Thanks,
+If the number of flags is 2, then the supported flags must be numbered
+(1 << 0) and (1 << 1).
 
-Carolyn
+Ben.
 
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
