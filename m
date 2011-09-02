@@ -1,124 +1,43 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] ixgbe: drop zero length frame segments during a packet
- split rx
-Date: Fri, 2 Sep 2011 12:43:20 -0400
-Message-ID: <20110902164320.GA27571@hmsreliant.think-freely.org>
-References: <1314972197-31557-1-git-send-email-nhorman@tuxdriver.com>
- <1314979493.3532.4.camel@jtkirshe-linux>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next v4 4/4] r8169: support new chips of RTL8111F
+Date: Fri, 2 Sep 2011 18:28:31 +0200
+Message-ID: <20110902162831.GA25544@electric-eye.fr.zoreil.com>
+References: <1314956953-1568-1-git-send-email-hayeswang@realtek.com> <1314956953-1568-4-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42980 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753399Ab1IBQnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 12:43:31 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38657 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753476Ab1IBQrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 12:47:13 -0400
 Content-Disposition: inline
-In-Reply-To: <1314979493.3532.4.camel@jtkirshe-linux>
+In-Reply-To: <1314956953-1568-4-git-send-email-hayeswang@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 02, 2011 at 09:04:53AM -0700, Jeff Kirsher wrote:
-> On Fri, 2011-09-02 at 07:03 -0700, Neil Horman wrote:
-> > This oops was reported recently no ppc64 hardware:
-> > Unable to handle kernel paging request for data at address 0x00000000
-> > Faulting instruction address: 0xc0000000004dda0c
-> > Oops: Kernel access of bad area, sig: 11 [#1]
-> > SMP NR_CPUS=1024 NUMA pSeries
-> > Modules linked in: sunrpc ipt_REJECT nf_conntrack_ipv4 nf_defrag_ipv4
-> > iptable_fi
-> > lter ip_tables ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 xt_state
-> > nf_conntrack ip6table_filter ip6_tables ipv6 jsm ses enclosure sg
-> > ixgbe
-> > mdio e1000 ehea ext4 jbd2 mbcache sd_mod crc_t10dif ipr dm_mod
-> > NIP: c0000000004dda0c LR: c0000000004e3e50 CTR: c0000000004e3e20
-> > REGS: c0000001bffeb8d0 TRAP: 0300   Not tainted
-> > (3.1.0-rc2-10121-gab7e2db)
-> > MSR: 8000000000009032 <EE,ME,IR,DR>  CR: 28002042  XER: 20000000
-> > CFAR: c000000000004d70
-> > DAR: 0000000000000000, DSISR: 40000000
-> > TASK = c000000000d548e0[0] 'swapper' THREAD: c000000000dfc000 CPU: 0
-> > GPR04: c0000000010f4d80 c0000001bffebd80 0000000000000000
-> > c0000001b18a8200
-> > GPR08: 0000000000000280 c0000001bcc517a8 c0000001b18a7f80
-> > 0000000000000000
-> > GPR12: d0000000047e5bb0 c000000001f10000 c0000001b19c8700
-> > 0000000000000000
-> > GPR16: c0000001bffebd80 0000000000000083 c00000018f2447a0
-> > 0000000000000002
-> > GPR20: 0000000000000000 c0000001ba860010 c0000001ba860000
-> > d000000003d40000
-> > GPR24: 0000000000000000 0000000000000083 d000000003d40000
-> > 0000000000000001
-> > GPR28: c00000018f244780 c0000001b2b94310 c000000000da95f0
-> > c0000001bcc51780
-> > NIP [c0000000004dda0c] .skb_gro_reset_offset+0x5c/0xe0
-> > LR [c0000000004e3e50] .napi_gro_receive+0x30/0x120
-> > Call Trace:
-> > [c0000001bffebb50] [c000000000da95f0] perf_callchain_user+0x0/0x10
-> > (unreliable)
-> > [c0000001bffebbf0] [d0000000047bd118] .ixgbe_clean_rx_irq+0x7a8/0x8a0
-> > [ixgbe]
-> > [c0000001bffebd10] [d0000000047bd414] .ixgbe_poll+0x64/0x160 [ixgbe]
-> > [c0000001bffebdd0] [c0000000004e3358] .net_rx_action+0x108/0x2a0
-> > [c0000001bffebea0] [c00000000009b220] .__do_softirq+0x110/0x2a0
-> > [c0000001bffebf90] [c000000000023798] .call_do_softirq+0x14/0x24
-> > [c000000000dff830] [c000000000011148] .do_softirq+0xf8/0x130
-> > [c000000000dff8d0] [c00000000009aeb4] .irq_exit+0xb4/0xc0
-> > [c000000000dff950] [c000000000011254] .do_IRQ+0xd4/0x300
-> > [c000000000dffa10] [c000000000005024] hardware_interrupt_entry
-> > +0x18/0x74
-> > --- Exception: 501 at .pseries_dedicated_idle_sleep+0xe4/0x210
-> > LR = .pseries_dedicated_idle_sleep+0x8c/0x210
-> > [c000000000dffd00] [c00000000005b194] .pseries_dedicated_idle_sleep
-> > +0x194/0x210
-> > (unreliable)
-> > [c000000000dffdc0] [c000000000018c84] .cpu_idle+0x164/0x210
-> > [c000000000dffe70] [c00000000000b0d0] .rest_init+0x90/0xb0
-> > [c000000000dffef0] [c000000000830bc0] .start_kernel+0x54c/0x56c
-> > [c000000000dfff90] [c00000000000953c] .start_here_common+0x1c/0x60
-> > 
-> > Its caused when skb_gro_reset_offset attempts to call PageHighMem on
-> > skb_shinfo(skb)->frags[0].page, when the frags array was left
-> > uninitalized.
-> > This can happen in the ixgbe driver if the hardware reports a zero
-> > length rx
-> > descriptor ni the middle of a packet split receive transaction.  I've
-> > consulted
-> > with Jesse Brandeburg on this, who is attempting to root cause the
-> > issue at
-> > Intel, but it seems prudent to add this check to the driver to discard
-> > frames of
-> > that encounter this error to avoid the opps
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > Signed-off-by: Thadeu Lima de Souza Cascardo
-> > <cascardo@linux.vnet.ibm.com>
-> > CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> > CC: Alexander Duyck <alexander.h.duyck@intel.com>
-> > CC: John Fastabend <john.r.fastabend@intel.com>
-> > CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > CC: David S. Miller <davem@davemloft.net>
-> > ---
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   17
-> > +++++++++++------
-> >  1 files changed, 11 insertions(+), 6 deletions(-) 
-> 
-> Thanks Neil, I have added the patch to my queue of ixgbe patches.
-> 
-> This patch was made against net-next, was this issue only seen on the
-> net-next kernel?
-You can see all the details here:
-https://bugzilla.redhat.com/buglist.cgi?quicksearch=683611
+Hayes Wang <hayeswang@realtek.com> :
+> Support new chips of RTL8111F.
 
-My understanding was that it was seen in RHEL, net-next, and with the
-sourceforge driver.
+Amongst other things :o)
 
-Regards
-Neil
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 175c769..8e6a200 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+[...]
+> @@ -711,7 +719,10 @@ MODULE_FIRMWARE(FIRMWARE_8168D_1);
+>  MODULE_FIRMWARE(FIRMWARE_8168D_2);
+>  MODULE_FIRMWARE(FIRMWARE_8168E_1);
+>  MODULE_FIRMWARE(FIRMWARE_8168E_2);
+> +MODULE_FIRMWARE(FIRMWARE_8168E_3);
+
+This one is relevant for Linus's tree.
+
+Don't worry about submitting again, I'll send it separately.
+
+No opinion regarding the jumbo fixes patches I sent on 2011/07/17 ?
+
+-- 
+Ueimor
