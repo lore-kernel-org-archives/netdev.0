@@ -1,49 +1,65 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] bridge: leave carrier on for empty bridge
-Date: Fri, 02 Sep 2011 10:22:21 -0700
-Message-ID: <20110902172247.396753508@vyatta.com>
+Subject: [PATCH 2/2] bridge: set flags in RTM_NEWNEIGH message correctly
+Date: Fri, 02 Sep 2011 10:22:22 -0700
+Message-ID: <20110902172247.481785452@vyatta.com>
 References: <20110902172220.830228928@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sfca-50.vyatta.com ([76.74.103.50]:48254 "EHLO fiji.vyatta.com"
+Received: from sfca-50.vyatta.com ([76.74.103.50]:48253 "EHLO fiji.vyatta.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753906Ab1IBRe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753867Ab1IBRe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 2 Sep 2011 13:34:28 -0400
-Content-Disposition: inline; filename=br-carrier-default.patch
+Content-Disposition: inline; filename=bridge-newneigh-state.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This resolves a regression seen by some users of bridging.
-Some users use the bridge like a dummy device. 
-They expect to be able to put an IPv6 address on the device
-with no ports attached during boot.
-
-Note: the bridge still will reflect the state of ports in the
-bridge if there are any added.
+The functionality for notification was added with 3.0. kernel
+but bridge would always send new neighbour message with state == 0.
+The problem is that the notify needs to be done after
+the flags on ther forwarding engry are set.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
 ---
-This fix needs to go to stable for 3.0 and 2.6.39
 
-
---- a/net/bridge/br_device.c	2011-09-01 08:52:27.596631192 -0700
-+++ b/net/bridge/br_device.c	2011-09-01 09:01:03.256611801 -0700
-@@ -91,7 +91,6 @@ static int br_dev_open(struct net_device
- {
- 	struct net_bridge *br = netdev_priv(dev);
+--- a/net/bridge/br_fdb.c	2011-08-26 09:41:25.966304883 -0700
++++ b/net/bridge/br_fdb.c	2011-09-01 17:21:43.755481630 -0700
+@@ -347,7 +347,6 @@ static struct net_bridge_fdb_entry *fdb_
+ 		fdb->is_static = 0;
+ 		fdb->updated = fdb->used = jiffies;
+ 		hlist_add_head_rcu(&fdb->hlist, head);
+-		fdb_notify(fdb, RTM_NEWNEIGH);
+ 	}
+ 	return fdb;
+ }
+@@ -379,6 +378,7 @@ static int fdb_insert(struct net_bridge
+ 		return -ENOMEM;
  
--	netif_carrier_off(dev);
- 	netdev_update_features(dev);
- 	netif_start_queue(dev);
- 	br_stp_enable_bridge(br);
-@@ -108,8 +107,6 @@ static int br_dev_stop(struct net_device
- {
- 	struct net_bridge *br = netdev_priv(dev);
+ 	fdb->is_local = fdb->is_static = 1;
++	fdb_notify(fdb, RTM_NEWNEIGH);
+ 	return 0;
+ }
  
--	netif_carrier_off(dev);
--
- 	br_stp_disable_bridge(br);
- 	br_multicast_stop(br);
+@@ -424,8 +424,11 @@ void br_fdb_update(struct net_bridge *br
+ 		}
+ 	} else {
+ 		spin_lock(&br->hash_lock);
+-		if (likely(!fdb_find(head, addr)))
+-			fdb_create(head, source, addr);
++		if (!fdb_find(head, addr)) {
++			fdb = fdb_create(head, source, addr);
++			if (fdb)
++				fdb_notify(fdb, RTM_NEWNEIGH);
++		}
+ 
+ 		/* else  we lose race and someone else inserts
+ 		 * it first, don't bother updating
+@@ -576,6 +579,8 @@ static int fdb_add_entry(struct net_brid
+ 		fdb->is_local = fdb->is_static = 1;
+ 	else if (state & NUD_NOARP)
+ 		fdb->is_static = 1;
++
++	fdb_notify(fdb, RTM_NEWNEIGH);
+ 	return 0;
+ }
  
