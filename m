@@ -1,83 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC, 1/2] ethtool: Implement private flags interface for
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [RFC, 1/2] ethtool: Implement private flags interface for
  ethtool application.
-Date: Fri, 02 Sep 2011 22:34:32 +0100
-Message-ID: <1314999272.3419.19.camel@bwh-desktop>
+Date: Fri, 2 Sep 2011 14:35:26 -0700
+Message-ID: <EDC0E76513226749BFBC9C3FB031318F0173FF8657@orsmsx508.amr.corp.intel.com>
 References: <1314996631-4773-1-git-send-email-carolyn.wyborny@intel.com>
 	 <20110902.165524.1076389492712310664.davem@davemloft.net>
 	 <EDC0E76513226749BFBC9C3FB031318F0173FF8607@orsmsx508.amr.corp.intel.com>
 	 <CAHXqBFKU2m6s1fQzZpJRvvR2HatJpXjWXv84=ZYD5E6OPFfUmQ@mail.gmail.com>
 	 <CAHXqBF+9iP6tOmtiaXopGvLyBZvpXmLz05aHj1MrQ2RnAiGGLA@mail.gmail.com>
+ <1314999272.3419.19.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:29650 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756024Ab1IBVef convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 17:34:35 -0400
-In-Reply-To: <CAHXqBF+9iP6tOmtiaXopGvLyBZvpXmLz05aHj1MrQ2RnAiGGLA@mail.gmail.com>
+Received: from mga03.intel.com ([143.182.124.21]:19846 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756024Ab1IBVf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Sep 2011 17:35:28 -0400
+In-Reply-To: <1314999272.3419.19.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-09-02 at 23:22 +0200, Micha=C5=82 Miros=C5=82aw wrote:
-> W dniu 2 wrze=C5=9Bnia 2011 23:17 u=C5=BCytkownik Micha=C5=82 Miros=C5=
-=82aw
-> <mirqus@gmail.com> napisa=C5=82:
-> > 2011/9/2 Wyborny, Carolyn <carolyn.wyborny@intel.com>:
-> >>>-----Original Message-----
-> >>>From: David Miller [mailto:davem@davemloft.net]
-> >>>Sent: Friday, September 02, 2011 1:55 PM
-> >>>To: Wyborny, Carolyn
-> >>>Cc: bhutchings@solarflare.com; netdev@vger.kernel.org
-> >>>Subject: Re: [RFC, 1/2] ethtool: Implement private flags interface=
- for
-> >>>ethtool application.
-> >>>
-> >>>From: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> >>>Date: Fri,  2 Sep 2011 13:50:30 -0700
-> >>>
-> >>>> This patch completes the user space implementation of the privat=
-e
-> >>>> flags inteface in ethtool. Using -b/-B options.
-> >>>>
-> >>>> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> >>>
-> >>>The only use case you show here is something generic which other
-> >>>chips have, Energy Efficient Ethernet.
-> >>>
-> >>>Making an attribute private which is present widely amonst various
-> >>>networking chips makes no sense at all.
-> >>>
-> >>>It deserved a generic ethtool flag.
-> >>
-> >> Fair enough on this particular feature, but does that negate the i=
-mplementation suggestion altogether?  I can send an updated feature imp=
-lementation for the use case using DMA Coalescing if that will help.
-> > I would rather see this as an extension to ETHTOOL_[GS]FEATURES. It=
-s
-> > semantics allow easy expanding to handle device-private flags witho=
-ut
-> > changing anything on userspace side.
->=20
-> BTW, After pending Intel drivers get converted to ndo_set_features an=
-d
-> netdev->features get extended to 64 bits, it would also be possible t=
-o
-> use some of the unused bits there for device/driver-private flags
-> almost "for free".
-
-I don't really like the idea of mixing common feature flags with
-driver-specific flags.  It's likely to lead to confusion if you mix
-devices with different drivers in a bridge or a bond.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEJlbiBIdXRjaGluZ3MgW21h
+aWx0bzpiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tXQ0KPlNlbnQ6IEZyaWRheSwgU2VwdGVtYmVy
+IDAyLCAyMDExIDI6MzUgUE0NCj5UbzogTWljaGHFgiBNaXJvc8WCYXcNCj5DYzogV3lib3JueSwg
+Q2Fyb2x5bjsgRGF2aWQgTWlsbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+U3ViamVjdDog
+UmU6IFtSRkMsIDEvMl0gZXRodG9vbDogSW1wbGVtZW50IHByaXZhdGUgZmxhZ3MgaW50ZXJmYWNl
+IGZvcg0KPmV0aHRvb2wgYXBwbGljYXRpb24uDQo+DQo+T24gRnJpLCAyMDExLTA5LTAyIGF0IDIz
+OjIyICswMjAwLCBNaWNoYcWCIE1pcm9zxYJhdyB3cm90ZToNCj4+IFcgZG5pdSAyIHdyemXFm25p
+YSAyMDExIDIzOjE3IHXFvHl0a293bmlrIE1pY2hhxYIgTWlyb3PFgmF3DQo+PiA8bWlycXVzQGdt
+YWlsLmNvbT4gbmFwaXNhxYI6DQo+PiA+IDIwMTEvOS8yIFd5Ym9ybnksIENhcm9seW4gPGNhcm9s
+eW4ud3lib3JueUBpbnRlbC5jb20+Og0KPj4gPj4+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
+Cj4+ID4+PkZyb206IERhdmlkIE1pbGxlciBbbWFpbHRvOmRhdmVtQGRhdmVtbG9mdC5uZXRdDQo+
+PiA+Pj5TZW50OiBGcmlkYXksIFNlcHRlbWJlciAwMiwgMjAxMSAxOjU1IFBNDQo+PiA+Pj5Ubzog
+V3lib3JueSwgQ2Fyb2x5bg0KPj4gPj4+Q2M6IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4+ID4+PlN1YmplY3Q6IFJlOiBbUkZDLCAxLzJdIGV0aHRv
+b2w6IEltcGxlbWVudCBwcml2YXRlIGZsYWdzIGludGVyZmFjZQ0KPmZvcg0KPj4gPj4+ZXRodG9v
+bCBhcHBsaWNhdGlvbi4NCj4+ID4+Pg0KPj4gPj4+RnJvbTogQ2Fyb2x5biBXeWJvcm55IDxjYXJv
+bHluLnd5Ym9ybnlAaW50ZWwuY29tPg0KPj4gPj4+RGF0ZTogRnJpLCAgMiBTZXAgMjAxMSAxMzo1
+MDozMCAtMDcwMA0KPj4gPj4+DQo+PiA+Pj4+IFRoaXMgcGF0Y2ggY29tcGxldGVzIHRoZSB1c2Vy
+IHNwYWNlIGltcGxlbWVudGF0aW9uIG9mIHRoZSBwcml2YXRlDQo+PiA+Pj4+IGZsYWdzIGludGVm
+YWNlIGluIGV0aHRvb2wuIFVzaW5nIC1iLy1CIG9wdGlvbnMuDQo+PiA+Pj4+DQo+PiA+Pj4+IFNp
+Z25lZC1vZmYtYnk6IENhcm9seW4gV3lib3JueSA8Y2Fyb2x5bi53eWJvcm55QGludGVsLmNvbT4N
+Cj4+ID4+Pg0KPj4gPj4+VGhlIG9ubHkgdXNlIGNhc2UgeW91IHNob3cgaGVyZSBpcyBzb21ldGhp
+bmcgZ2VuZXJpYyB3aGljaCBvdGhlcg0KPj4gPj4+Y2hpcHMgaGF2ZSwgRW5lcmd5IEVmZmljaWVu
+dCBFdGhlcm5ldC4NCj4+ID4+Pg0KPj4gPj4+TWFraW5nIGFuIGF0dHJpYnV0ZSBwcml2YXRlIHdo
+aWNoIGlzIHByZXNlbnQgd2lkZWx5IGFtb25zdCB2YXJpb3VzDQo+PiA+Pj5uZXR3b3JraW5nIGNo
+aXBzIG1ha2VzIG5vIHNlbnNlIGF0IGFsbC4NCj4+ID4+Pg0KPj4gPj4+SXQgZGVzZXJ2ZWQgYSBn
+ZW5lcmljIGV0aHRvb2wgZmxhZy4NCj4+ID4+DQo+PiA+PiBGYWlyIGVub3VnaCBvbiB0aGlzIHBh
+cnRpY3VsYXIgZmVhdHVyZSwgYnV0IGRvZXMgdGhhdCBuZWdhdGUgdGhlDQo+aW1wbGVtZW50YXRp
+b24gc3VnZ2VzdGlvbiBhbHRvZ2V0aGVyPyAgSSBjYW4gc2VuZCBhbiB1cGRhdGVkIGZlYXR1cmUN
+Cj5pbXBsZW1lbnRhdGlvbiBmb3IgdGhlIHVzZSBjYXNlIHVzaW5nIERNQSBDb2FsZXNjaW5nIGlm
+IHRoYXQgd2lsbCBoZWxwLg0KPj4gPiBJIHdvdWxkIHJhdGhlciBzZWUgdGhpcyBhcyBhbiBleHRl
+bnNpb24gdG8gRVRIVE9PTF9bR1NdRkVBVFVSRVMuIEl0cw0KPj4gPiBzZW1hbnRpY3MgYWxsb3cg
+ZWFzeSBleHBhbmRpbmcgdG8gaGFuZGxlIGRldmljZS1wcml2YXRlIGZsYWdzDQo+d2l0aG91dA0K
+Pj4gPiBjaGFuZ2luZyBhbnl0aGluZyBvbiB1c2Vyc3BhY2Ugc2lkZS4NCj4+DQo+PiBCVFcsIEFm
+dGVyIHBlbmRpbmcgSW50ZWwgZHJpdmVycyBnZXQgY29udmVydGVkIHRvIG5kb19zZXRfZmVhdHVy
+ZXMgYW5kDQo+PiBuZXRkZXYtPmZlYXR1cmVzIGdldCBleHRlbmRlZCB0byA2NCBiaXRzLCBpdCB3
+b3VsZCBhbHNvIGJlIHBvc3NpYmxlIHRvDQo+PiB1c2Ugc29tZSBvZiB0aGUgdW51c2VkIGJpdHMg
+dGhlcmUgZm9yIGRldmljZS9kcml2ZXItcHJpdmF0ZSBmbGFncw0KPj4gYWxtb3N0ICJmb3IgZnJl
+ZSIuDQo+DQo+SSBkb24ndCByZWFsbHkgbGlrZSB0aGUgaWRlYSBvZiBtaXhpbmcgY29tbW9uIGZl
+YXR1cmUgZmxhZ3Mgd2l0aA0KPmRyaXZlci1zcGVjaWZpYyBmbGFncy4gIEl0J3MgbGlrZWx5IHRv
+IGxlYWQgdG8gY29uZnVzaW9uIGlmIHlvdSBtaXgNCj5kZXZpY2VzIHdpdGggZGlmZmVyZW50IGRy
+aXZlcnMgaW4gYSBicmlkZ2Ugb3IgYSBib25kLg0KPg0KPkJlbi4NCj4NCj4tLQ0KPkJlbiBIdXRj
+aGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBTb2xhcmZsYXJlDQo+Tm90IHNwZWFraW5nIGZvciBteSBl
+bXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj5UaGV5IGFz
+a2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFy
+a2VkLg0KDQpPaywgSSdsbCBrZWVwIHdvcmtpbmcgb24gaXQgcGVyIHlvdXIgcHJldmlvdXMgZmVl
+ZGJhY2suDQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0KDQo=
