@@ -1,49 +1,189 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next-2.6 v2] net: consolidate and fix
- ethtool_ops->get_settings calling
-Date: Fri, 02 Sep 2011 19:46:01 +0100
-Message-ID: <1314989161.3419.5.camel@bwh-desktop>
-References: <1314905304-16485-1-git-send-email-jpirko@redhat.com>
-	 <20110902122630.GC1991@minipsycho>
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: [PATCH] net: change capability used by socket options IP{,V6}_TRANSPARENT
+Date: Fri,  2 Sep 2011 12:10:54 -0700
+Message-ID: <1314990654-32252-1-git-send-email-zenczykowski@gmail.com>
+References: <1314953022.26692.182.camel@bzorp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org, fubar@us.ibm.com,
-	andy@greyhouse.net, kaber@trash.net, bprakash@broadcom.com,
-	JBottomley@parallels.com, robert.w.love@intel.com,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	decot@google.com, mirq-linux@rere.qmqm.pl,
-	alexander.h.duyck@intel.com, amit.salecha@qlogic.com,
-	eric.dumazet@gmail.com, therbert@google.com,
-	paulmck@linux.vnet.ibm.com, laijs@cn.fujitsu.com,
-	xiaosuo@gmail.com, greearb@candelatech.com, loke.chetan@gmail.com,
-	linux-mips@linux-mips.org, linux-scsi@vger.kernel.org,
-	devel@open-fcoe.org, bridge@lists.linux-foundation.org
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20110902122630.GC1991@minipsycho>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Balazs Scheidler <bazsi@balabit.hu>
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:52097 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754342Ab1IBTLP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 15:11:15 -0400
+Received: by pzk37 with SMTP id 37so4905926pzk.1
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2011 12:11:14 -0700 (PDT)
+In-Reply-To: <1314953022.26692.182.camel@bzorp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-09-02 at 14:26 +0200, Jiri Pirko wrote:
-> This patch does several things:
-> - introduces __ethtool_get_settings which is called from ethtool code and
->   from dev_ethtool_get_settings() as well.
-> - dev_ethtool_get_settings() becomes rtnl wrapper for
->   __ethtool_get_settings()
-[...]
+=46rom: Maciej =C5=BBenczykowski <maze@google.com>
 
-I don't like this locking change.  Most other dev_*() functions require
-the caller to hold RTNL, and it will break any OOT module calling
-dev_ethtool_get_settings() without producing any warning at compile
-time.  Why not put an ASSERT_RTNL() in it instead?
+Up till now the IP{,V6}_TRANSPARENT socket options (which actually set
+the same bit in the socket struct) have required CAP_NET_ADMIN
+privileges to set or clear the option.
 
-The rest of this looks fine.
+- we make clearing the bit not require any privileges.
+- we deprecate using CAP_NET_ADMIN for this purpose.
+- we introduce a new capability CAP_NET_TRANSPARENT,
+  which is tailored to allow setting just this bit.
+- we allow either one of CAP_NET_TRANSPARENT or CAP_NET_RAW
+  to set this bit, because raw sockets already effectively
+  allow you to emulate socket transparency, and make the
+  transition easier for apps not desiring to use a brand
+  new capability (because of header file or glibc support)
+- we print a warning (but allow it) if you try to set
+  the socket option with CAP_NET_ADMIN privs, but without
+  either one of CAP_NET_TRANSPARENT or CAP_NET_RAW.
 
-Ben. 
+The reason for introducing a new capability is that while
+transparent sockets are potentially dangerous (and can let you
+spoof your source IP on traffic), they don't normally give you
+the full 'freedom' of eavesdropping and/or spoofing that raw sockets
+give you.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
+CC: Balazs Scheidler <bazsi@balabit.hu>
+---
+ include/linux/capability.h |   13 +++++++++----
+ net/ipv4/ip_sockglue.c     |   26 ++++++++++++++++++++++----
+ net/ipv6/ipv6_sockglue.c   |   29 ++++++++++++++++++++++++-----
+ 3 files changed, 55 insertions(+), 13 deletions(-)
 
+diff --git a/include/linux/capability.h b/include/linux/capability.h
+index c421123..a115ed4 100644
+--- a/include/linux/capability.h
++++ b/include/linux/capability.h
+@@ -198,7 +198,7 @@ struct cpu_vfs_cap_data {
+ /* Allow modification of routing tables */
+ /* Allow setting arbitrary process / process group ownership on
+    sockets */
+-/* Allow binding to any address for transparent proxying */
++/* Allow binding to any address for transparent proxying (deprecated) =
+*/
+ /* Allow setting TOS (type of service) */
+ /* Allow setting promiscuous mode */
+ /* Allow clearing driver statistics */
+@@ -210,6 +210,7 @@ struct cpu_vfs_cap_data {
+=20
+ /* Allow use of RAW sockets */
+ /* Allow use of PACKET sockets */
++/* Allow binding to any address for transparent proxying */
+=20
+ #define CAP_NET_RAW          13
+=20
+@@ -332,7 +333,7 @@ struct cpu_vfs_cap_data {
+=20
+ #define CAP_AUDIT_CONTROL    30
+=20
+-#define CAP_SETFCAP	     31
++#define CAP_SETFCAP          31
+=20
+ /* Override MAC access.
+    The base kernel enforces no MAC policy.
+@@ -357,10 +358,14 @@ struct cpu_vfs_cap_data {
+=20
+ /* Allow triggering something that will wake the system */
+=20
+-#define CAP_WAKE_ALARM            35
++#define CAP_WAKE_ALARM       35
++
++/* Allow binding to any address for transparent proxying */
++
++#define CAP_NET_TRANSPARENT  36
+=20
+=20
+-#define CAP_LAST_CAP         CAP_WAKE_ALARM
++#define CAP_LAST_CAP         CAP_NET_TRANSPARENT
+=20
+ #define cap_valid(x) ((x) >=3D 0 && (x) <=3D CAP_LAST_CAP)
+=20
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 8905e92..44efa39 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -961,12 +961,30 @@ mc_msf_out:
+ 		break;
+=20
+ 	case IP_TRANSPARENT:
+-		if (!capable(CAP_NET_ADMIN)) {
+-			err =3D -EPERM;
+-			break;
+-		}
+ 		if (optlen < 1)
+ 			goto e_inval;
++		/* Always allow clearing the transparent proxy socket option.
++		 * The pre-3.2 permission for setting this was CAP_NET_ADMIN,
++		 * and this is still supported - but deprecated.  As of Linux
++		 * 3.2 the proper permission is one of CAP_NET_TRANSPARENT
++		 * (preferred, a new capability) or CAP_NET_RAW.  The latter
++		 * is supported to make the transition easier (and because
++		 * raw sockets already effectively allow one to emulate
++		 * socket transparency).
++		 */
++		if (!!val && !capable(CAP_NET_TRANSPARENT)
++		          && !capable(CAP_NET_RAW)) {
++			if (!capable(CAP_NET_ADMIN)) {
++				err =3D -EPERM;
++				break;
++			}
++			printk_once(KERN_WARNING "%s (%d): "
++				 "deprecated: attempt to set socket option "
++				 "IP_TRANSPARENT with CAP_NET_ADMIN but "
++				 "without either one of CAP_NET_TRANSPARENT "
++				 "or CAP_NET_RAW.\n",
++				 current->comm, task_pid_nr(current));
++		}
+ 		inet->transparent =3D !!val;
+ 		break;
+=20
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 147ede38..c840098 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -343,13 +343,32 @@ static int do_ipv6_setsockopt(struct sock *sk, in=
+t level, int optname,
+ 		break;
+=20
+ 	case IPV6_TRANSPARENT:
+-		if (!capable(CAP_NET_ADMIN)) {
+-			retv =3D -EPERM;
+-			break;
+-		}
+ 		if (optlen < sizeof(int))
+ 			goto e_inval;
+-		/* we don't have a separate transparent bit for IPV6 we use the one =
+in the IPv4 socket */
++		/* Always allow clearing the transparent proxy socket option.
++		 * The pre-3.2 permission for setting this was CAP_NET_ADMIN,
++		 * and this is still supported - but deprecated.  As of Linux
++		 * 3.2 the proper permission is one of CAP_NET_TRANSPARENT
++		 * (preferred, a new capability) or CAP_NET_RAW.  The latter
++		 * is supported to make the transition easier (and because
++		 * raw sockets already effectively allow one to emulate
++		 * socket transparency).
++		 */
++		if (valbool && !capable(CAP_NET_TRANSPARENT)
++		            && !capable(CAP_NET_RAW)) {
++			if (!capable(CAP_NET_ADMIN)) {
++				retv =3D -EPERM;
++				break;
++			}
++			printk_once(KERN_WARNING "%s (%d): "
++				 "deprecated: attempt to set socket option "
++				 "IPV6_TRANSPARENT with CAP_NET_ADMIN but "
++				 "without either one of CAP_NET_TRANSPARENT "
++				 "or CAP_NET_RAW.\n",
++				 current->comm, task_pid_nr(current));
++		}
++		/* we don't have a separate transparent bit for IPV6 we use the
++		 * one in the IPv4 socket */
+ 		inet_sk(sk)->transparent =3D valbool;
+ 		retv =3D 0;
+ 		break;
+--=20
+1.7.3.1
