@@ -1,86 +1,48 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: BQL crap and wireless
-Date: Fri, 2 Sep 2011 15:03:02 -0700
-Message-ID: <CAB=NE6VvEX87on9QL7=3OrZtopoASzyLBTweEmzO0ZxU8NNJCA@mail.gmail.com>
-References: <CAB=NE6VuP=AvYiJsYn_Noc1u0Q=jvQPutHRANdSiLP2v48ogfg@mail.gmail.com>
- <CAB=NE6VwWu5+Hk7=3ghkgiXss9kCqGyS-RWPYtyHRhDsx5r2rA@mail.gmail.com>
- <CAA93jw7c+Nxc6ZbWZWsQ+F78AoPWU=quSRaOUpT0yRcwJOXsGQ@mail.gmail.com>
- <4E5C3B47.1050809@freedesktop.org> <CA+mtBx-j_+mrNpntR7CfYOromDnM-ZGzvebpUCjC8Qf14X6u9g@mail.gmail.com>
- <CAJ-Vmonwur-SXddNwjPEidCMqes+PwbRWFBddfdwTp2jOMu64g@mail.gmail.com>
- <4E5CEC79.3090802@freedesktop.org> <9BB251C1-A211-486D-A717-59149AC3A709@gmail.com>
- <4E5E36EE.8080501@freedesktop.org> <CAB=NE6Wj4BxSjZmTOg9EFMcJ+H0RBZE4q8+6DB3x8qP=r42yNQ@mail.gmail.com>
- <20110901141304.GA2580@tuxdriver.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] bridge: leave carrier on for empty bridge
+Date: Fri, 2 Sep 2011 15:11:00 -0700
+Message-ID: <20110902151100.327af0bf@nehalam.ftrdhcpuser.net>
+References: <20110902172220.830228928@vyatta.com>
+	<20110902172247.396753508@vyatta.com>
+	<4E614CF7.7030700@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jim Gettys <jg-CC+yJ3UmIYqDUpFQwHEjaQ@public.gmane.org>,
-	Andrew McGregor <andrewmcgr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Adrian Chadd <adrian-h+KGxgPPiopAfugRpC6u6w@public.gmane.org>,
-	Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Matt Smith <smithm-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Kevin Hayes <hayes-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	Derek Smithies <derek-Rd3uoDiDeHXJKwlM9GxbOw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110901141304.GA2580-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Nicolas de =?ISO-8859-1?B?UGVzbG/8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36232 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756101Ab1IBWKt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 18:10:49 -0400
+In-Reply-To: <4E614CF7.7030700@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 1, 2011 at 7:13 AM, John W. Linville <linville-2XuSBdqkA4SvXiR4WA35Jg@public.gmane.org=
-m> wrote:
-> On Wed, Aug 31, 2011 at 01:50:48PM -0700, Luis R. Rodriguez wrote:
->> On Wed, Aug 31, 2011 at 6:28 AM, Jim Gettys <jg-CC+yJ3UmIYqDUpFQwHEjaQ@public.gmane.org> wro=
-te:
->
->> > such as wireless, or even possibly modern broadband with
->> > PowerBoost, classic RED or similar algorithms that do not take the
->> > buffer drain rate cannot possibly hack it properly.
->>
->> Understood, just curious if anyone has tried a Minstrel approach.
->
-> FWIW, eBDP and the related algorithms from Tianji Li's paper are
-> philosophically similar to minstrel.
+On Fri, 02 Sep 2011 23:39:03 +0200
+Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com> wrote:
 
-Oh look at that, awesome!!!
+> Le 02/09/2011 19:22, Stephen Hemminger a =E9crit :
+> > This resolves a regression seen by some users of bridging.
+> > Some users use the bridge like a dummy device.
+> > They expect to be able to put an IPv6 address on the device
+> > with no ports attached during boot.
+> >
+> > Note: the bridge still will reflect the state of ports in the
+> > bridge if there are any added.
+>=20
+> Doesn't this jeopardize the behavior introduced in 1faa4356a3bd89ea11=
+fb92752d897cff3a20ec0e
+> "bridge: control carrier based on ports online"?
+>=20
+> If the user starts the DHCP client before adding the first port to th=
+e bridge, the DHCP client will=20
+> have a carrier and start the autoconfiguration process. This was the =
+old behavior, but you fixed it.
+>=20
+> 	Nicolas.
+>=20
 
-> =C2=A0They depend on measuring recent
-> conditions and modifying the current queue length accordingly.
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0http://www.hamilton.ie/tianji_li/buffersiz=
-ing.pdf
->
-> The hack I added in debloat-testing is based on my understanding
-> of eBDP. =C2=A0It timestamps the SKBs when they are handed to the dri=
-ver
-> for Tx and then checks the timestamp when the SKB is orphaned. =C2=A0=
-It is
-> a bit crude and is an abuse of the skb_orphan API.
-
-Neat!
-
-> =C2=A0Also while it
-> accounts for the 802.11e queues separately, it doesn't account for
-> 802.11n aggregation.
-
-I see..
-
-> =C2=A0Still, it seems to improve latency w/o hugely
-> impacting throughput in at least some environments -- YMMV!
-
-Sweet dude. For aggregation it seems the way to go is to get some
-helpers as Andrew has suggested. Andrew, can you elaborate a little on
-that? If feasible, then maybe then we can add it to the TODO list
-page:
-
-http://wireless.kernel.org/en/developers/todo-list
-
-and when one of us gets to it, we get cranking on it.
-
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+There is no perfect solution.
+If DHCP works then IPv6 breaks?
