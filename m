@@ -1,42 +1,71 @@
-From: Viral Mehta <viral.vkm@gmail.com>
-Subject: Re: interface information for recvd packet
-Date: Thu, 1 Sep 2011 20:07:20 -0400
-Message-ID: <CANX6DanmMVkANBNatJtusGLJcFCtp97oED6x=kJLXaLXFQZ42A@mail.gmail.com>
-References: <CANX6Dan9szv1w8QTFTob53jt7Bq6jgTtbaHVirvBDJOjH7Uy+w@mail.gmail.com>
-	<CANX6Dan5bdA-3wSiyAaQmOV6DHArxjknUFpR-s8coA9Yjx2N8A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:46017 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932714Ab1IBAHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 20:07:20 -0400
-Received: by pzk37 with SMTP id 37so3726833pzk.1
-        for <netdev@vger.kernel.org>; Thu, 01 Sep 2011 17:07:20 -0700 (PDT)
-In-Reply-To: <CANX6Dan5bdA-3wSiyAaQmOV6DHArxjknUFpR-s8coA9Yjx2N8A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+Subject: [PATCH 1/3] pch_gbe: fixed the issue which receives an unnecessary packet.
+Date: Fri,  2 Sep 2011 09:20:07 +0900
+Message-ID: <1314922809-4041-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
+Cc: qi.wang@intel.com, yong.y.wang@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com, tomoya-linux@dsn.okisemi.com,
+	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch fixed the issue which receives an unnecessary packet before link
 
-On Thu, Sep 1, 2011 at 3:40 PM, Viral Mehta <viral.vkm@gmail.com> wrote:
-> On Tue, Aug 30, 2011 at 11:55 AM, Viral Mehta <viral.vkm@gmail.com> wrote:
->> 2. I was looking at net/ipv4/tcp.c and in function tcp_recvmsg(); I am
->> trying to get interface name by accessing sk_buff->dev->name
->
-> I tried printing address of SKBs, but it gives different address in
-> NIC driver and tcp.c
-> My understanding is, struct sk_buff* remains same through out all
-> layers i.e., NIC driver allocates it after receving frame
-> and same is passed till TCP layer. But, apparently looks I am wrong
-> from the prints that I have put.
->
-> Can someone shed some light ?
->
+When using PHY of GMII, an unnecessary packet is received,
+And it becomes impossible to receive a packet after link up.
 
-Sorry for the noise. Also I got why nobody replied to my question :-)
-Anyway, I was doing silly mistake while debugging the things; my
-printks were at wrong place.
+Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+---
+ drivers/net/pch_gbe/pch_gbe_main.c |   21 ++++++++++++++-------
+ 1 files changed, 14 insertions(+), 7 deletions(-)
 
-And everything works as expected and as per my understanding....
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
+index eac3c5c..48ff87c 100644
+--- a/drivers/net/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/pch_gbe/pch_gbe_main.c
+@@ -717,13 +717,6 @@ static void pch_gbe_configure_rx(struct pch_gbe_adapter *adapter)
+ 	iowrite32(rdba, &hw->reg->RX_DSC_BASE);
+ 	iowrite32(rdlen, &hw->reg->RX_DSC_SIZE);
+ 	iowrite32((rdba + rdlen), &hw->reg->RX_DSC_SW_P);
+-
+-	/* Enables Receive DMA */
+-	rxdma = ioread32(&hw->reg->DMA_CTRL);
+-	rxdma |= PCH_GBE_RX_DMA_EN;
+-	iowrite32(rxdma, &hw->reg->DMA_CTRL);
+-	/* Enables Receive */
+-	iowrite32(PCH_GBE_MRE_MAC_RX_EN, &hw->reg->MAC_RX_EN);
+ }
+ 
+ /**
+@@ -1097,6 +1090,19 @@ void pch_gbe_update_stats(struct pch_gbe_adapter *adapter)
+ 	spin_unlock_irqrestore(&adapter->stats_lock, flags);
+ }
+ 
++static void pch_gbe_start_receive(struct pch_gbe_hw *hw)
++{
++	u32 rxdma;
++
++	/* Enables Receive DMA */
++	rxdma = ioread32(&hw->reg->DMA_CTRL);
++	rxdma |= PCH_GBE_RX_DMA_EN;
++	iowrite32(rxdma, &hw->reg->DMA_CTRL);
++	/* Enables Receive */
++	iowrite32(PCH_GBE_MRE_MAC_RX_EN, &hw->reg->MAC_RX_EN);
++	return;
++}
++
+ /**
+  * pch_gbe_intr - Interrupt Handler
+  * @irq:   Interrupt number
+@@ -1717,6 +1723,7 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
+ 	pch_gbe_alloc_tx_buffers(adapter, tx_ring);
+ 	pch_gbe_alloc_rx_buffers(adapter, rx_ring, rx_ring->count);
+ 	adapter->tx_queue_len = netdev->tx_queue_len;
++	pch_gbe_start_receive(&adapter->hw);
+ 
+ 	mod_timer(&adapter->watchdog_timer, jiffies);
+ 
+-- 
+1.7.4.4
