@@ -1,87 +1,55 @@
-From: Phil Sutter <phil.sutter@viprinet.com>
-Subject: [PATCH] af_packet: flush complete kernel cache in packet_sendmsg
-Date: Fri,  2 Sep 2011 13:08:06 +0200
-Message-ID: <1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
-References: <20110505141107.GC30443@orbit.nwl.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH]  caif: fix a potential NULL dereference
+Date: Fri, 02 Sep 2011 14:19:23 +0200
+Message-ID: <1314965963.2573.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20110902080716.GF2430@shale.localdomain>
+	 <CAJK669Yb6V=xr9ZvQGOKGEvmzO1JGhrHD+sR69b04EQxUjOOrQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Russell King <linux@arm.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20110505141107.GC30443@orbit.nwl.cc>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Sjur =?ISO-8859-1?Q?Br=E6ndeland?= <sjurbren@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:46888 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860Ab1IBMTW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 08:19:22 -0400
+Received: by wwf5 with SMTP id 5so2863225wwf.1
+        for <netdev@vger.kernel.org>; Fri, 02 Sep 2011 05:19:21 -0700 (PDT)
+In-Reply-To: <CAJK669Yb6V=xr9ZvQGOKGEvmzO1JGhrHD+sR69b04EQxUjOOrQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This flushes the cache before and after accessing the mmapped packet
-buffer. It seems like the call to flush_dcache_page from inside
-__packet_get_status is not enough on Kirkwood (or ARM in general).
----
-I know this is far from an optimal solution, but it's in fact the only working
-one I found. And it shouldn't interfere with unaffected target systems. So
-anyone relying on a working TX_RING on Kirkwood may refer to this patch. Any
-ARM/cache/Marvell/Kirkwood experts out there feel free to improve this.
----
- net/packet/af_packet.c |   24 ++++++++++++++++++++----
- 1 files changed, 20 insertions(+), 4 deletions(-)
+Commit bd30ce4bc0b7 (caif: Use RCU instead of spin-lock in caif_dev.c)
+added a potential NULL dereference in case alloc_percpu() fails.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 243946d..d7b5c2e 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -87,6 +87,14 @@
- #include <net/inet_common.h>
- #endif
- 
-+/* whether we need additional cacheflushing between user- and kernel-space */
-+#ifdef CONFIG_ARCH_KIRKWOOD
-+#  define ENABLE_CACHEPROB_WORKAROUND
-+#  define kw_extra_cache_flush()	flush_cache_all()
-+#else
-+#  define kw_extra_cache_flush()	/* nothing */
-+#endif
-+
- /*
-    Assumptions:
-    - if device has no dev->hard_header routine, it adds and removes ll header
-@@ -1239,10 +1247,13 @@ static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
- {
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po = pkt_sk(sk);
--	if (po->tx_ring.pg_vec)
--		return tpacket_snd(po, msg);
--	else
--		return packet_snd(sock, msg, len);
-+	int rc;
-+
-+	kw_extra_cache_flush();
-+	rc = po->tx_ring.pg_vec ? tpacket_snd(po, msg) :
-+			packet_snd(sock, msg, len);
-+	kw_extra_cache_flush();
-+	return rc;
- }
- 
- /*
-@@ -2622,6 +2633,11 @@ static int __init packet_init(void)
- 	sock_register(&packet_family_ops);
- 	register_pernet_subsys(&packet_net_ops);
- 	register_netdevice_notifier(&packet_netdev_notifier);
-+
-+#ifdef ENABLE_CACHEPROB_WORKAROUND
-+	printk(KERN_INFO "af_packet: cache coherency workaround for kirkwood is active!\n");
-+#endif
-+
- out:
- 	return rc;
- }
--- 
-1.7.3.4
+caif_device_alloc() can also use GFP_KERNEL instead of GFP_ATOMIC.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+ net/caif/caif_dev.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/caif/caif_dev.c b/net/caif/caif_dev.c
+index 7c2fa0a..7f9ac07 100644
+--- a/net/caif/caif_dev.c
++++ b/net/caif/caif_dev.c
+@@ -93,10 +93,14 @@ static struct caif_device_entry *caif_device_alloc(=
+struct net_device *dev)
+ 	caifdevs =3D caif_device_list(dev_net(dev));
+ 	BUG_ON(!caifdevs);
+=20
+-	caifd =3D kzalloc(sizeof(*caifd), GFP_ATOMIC);
++	caifd =3D kzalloc(sizeof(*caifd), GFP_KERNEL);
+ 	if (!caifd)
+ 		return NULL;
+ 	caifd->pcpu_refcnt =3D alloc_percpu(int);
++	if (!caifd->pcpu_refcnt) {
++		kfree(caifd);
++		return NULL;
++	}
+ 	caifd->netdev =3D dev;
+ 	dev_hold(dev);
+ 	return caifd;
