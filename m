@@ -1,121 +1,58 @@
-From: Serge Hallyn <serge@hallyn.com>
-Subject: [PATCH 07/15] user namespace: use net->user_ns for some capable calls under net/
-Date: Fri,  2 Sep 2011 19:56:32 +0000
-Message-ID: <1314993400-6910-10-git-send-email-serge@hallyn.com>
-References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
-Cc: Serge Hallyn <serge.hallyn@ubuntu.com>
-To: akpm@osdl.org, segooon@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	dhowells@redhat.com, ebiederm@xmission.com, rdunlap@xenotime.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1314993400-6910-1-git-send-email-serge@hallyn.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 v2] net: consolidate and fix
+ ethtool_ops->get_settings calling
+Date: Fri, 2 Sep 2011 22:42:41 +0200
+Message-ID: <20110902204239.GA14802@minipsycho>
+References: <1314905304-16485-1-git-send-email-jpirko@redhat.com>
+ <20110902122630.GC1991@minipsycho>
+ <1314989161.3419.5.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org, fubar@us.ibm.com,
+        andy@greyhouse.net, kaber@trash.net, bprakash@broadcom.com,
+        JBottomley@parallels.com, robert.w.love@intel.com,
+        davem@davemloft.net, shemminger@linux-foundation.org,
+        decot@google.com, mirq-linux@rere.qmqm.pl,
+        alexander.h.duyck@intel.com, amit.salecha@qlogic.com,
+        eric.dumazet@gmail.com, therbert@google.com,
+        paulmck@linux.vnet.ibm.com, laijs@cn.fujitsu.com,
+        xiaosuo@gmail.com, greearb@candelatech.com, loke.chetan@gmail.com,
+        linux-mips@linux-mips.org, linux-scsi@vger.kernel.org,
+        devel@open-fcoe.org, bridge@lists.linux-foundation.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <1314989161.3419.5.camel@bwh-desktop>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Fri, Sep 02, 2011 at 08:46:01PM CEST, bhutchings@solarflare.com wrote:
+>On Fri, 2011-09-02 at 14:26 +0200, Jiri Pirko wrote:
+>> This patch does several things:
+>> - introduces __ethtool_get_settings which is called from ethtool code and
+>>   from dev_ethtool_get_settings() as well.
+>> - dev_ethtool_get_settings() becomes rtnl wrapper for
+>>   __ethtool_get_settings()
+>[...]
+>
+>I don't like this locking change.  Most other dev_*() functions require
+>the caller to hold RTNL, and it will break any OOT module calling
+>dev_ethtool_get_settings() without producing any warning at compile
+>time.  Why not put an ASSERT_RTNL() in it instead?
 
-Just a partial conversion to show how the previous patch is expected to
-be used.
+Hmm. Okay, then I would remove dev_ethtool_get_settings() from
+net/core/dev.c and only put __ethtool_get_settings() to
+net/core/ethtool.c. Makes more sense to me to have it there...
+ASSERT_RTNL woudl be good there as well.
 
-Changelog:
-  6/28/11: fix typo in net/core/sock.c
-  7/08/11: don't target capability which authorizes module loading
-
-Signed-off-by: Serge Hallyn <serge.hallyn@ubuntu.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
----
- net/core/dev.c  |    4 ++--
- net/core/sock.c |   14 ++++++++------
- 2 files changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 17d67b5..6ae955f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5014,7 +5014,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 	case SIOCGMIIPHY:
- 	case SIOCGMIIREG:
- 	case SIOCSIFNAME:
--		if (!capable(CAP_NET_ADMIN))
-+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 		dev_load(net, ifr.ifr_name);
- 		rtnl_lock();
-@@ -5053,7 +5053,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 	case SIOCBRADDIF:
- 	case SIOCBRDELIF:
- 	case SIOCSHWTSTAMP:
--		if (!capable(CAP_NET_ADMIN))
-+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
- 			return -EPERM;
- 		/* fall through */
- 	case SIOCBONDSLAVEINFOQUERY:
-diff --git a/net/core/sock.c b/net/core/sock.c
-index bc745d0..0f31675 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -420,7 +420,7 @@ static int sock_bindtodevice(struct sock *sk, char __user *optval, int optlen)
- 
- 	/* Sorry... */
- 	ret = -EPERM;
--	if (!capable(CAP_NET_RAW))
-+	if (!ns_capable(net->user_ns, CAP_NET_RAW))
- 		goto out;
- 
- 	ret = -EINVAL;
-@@ -488,6 +488,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 	int valbool;
- 	struct linger ling;
- 	int ret = 0;
-+	struct net *net = sock_net(sk);
- 
- 	/*
- 	 *	Options without arguments
-@@ -508,7 +509,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 
- 	switch (optname) {
- 	case SO_DEBUG:
--		if (val && !capable(CAP_NET_ADMIN))
-+		if (val && !ns_capable(net->user_ns, CAP_NET_ADMIN))
- 			ret = -EACCES;
- 		else
- 			sock_valbool_flag(sk, SOCK_DBG, valbool);
-@@ -551,7 +552,7 @@ set_sndbuf:
- 		break;
- 
- 	case SO_SNDBUFFORCE:
--		if (!capable(CAP_NET_ADMIN)) {
-+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN)) {
- 			ret = -EPERM;
- 			break;
- 		}
-@@ -589,7 +590,7 @@ set_rcvbuf:
- 		break;
- 
- 	case SO_RCVBUFFORCE:
--		if (!capable(CAP_NET_ADMIN)) {
-+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN)) {
- 			ret = -EPERM;
- 			break;
- 		}
-@@ -612,7 +613,8 @@ set_rcvbuf:
- 		break;
- 
- 	case SO_PRIORITY:
--		if ((val >= 0 && val <= 6) || capable(CAP_NET_ADMIN))
-+		if ((val >= 0 && val <= 6) ||
-+		     ns_capable(net->user_ns, CAP_NET_ADMIN))
- 			sk->sk_priority = val;
- 		else
- 			ret = -EPERM;
-@@ -729,7 +731,7 @@ set_rcvbuf:
- 			clear_bit(SOCK_PASSSEC, &sock->flags);
- 		break;
- 	case SO_MARK:
--		if (!capable(CAP_NET_ADMIN))
-+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
- 			ret = -EPERM;
- 		else
- 			sk->sk_mark = val;
--- 
-1.7.5.4
+>
+>The rest of this looks fine.
+>
+>Ben. 
+>
+>-- 
+>Ben Hutchings, Staff Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
+>
