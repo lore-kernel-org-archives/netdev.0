@@ -1,45 +1,70 @@
-From: Tim Chen <tim.c.chen@linux.intel.com>
-Subject: Re: [next] unix stream crashes
-Date: Thu, 01 Sep 2011 18:40:45 -0700
-Message-ID: <1314927645.2576.2939.camel@schen9-DESK>
-References: <4E5FEF28.60406@gmail.com>
-	 <3179.1314924559@turing-police.cc.vt.edu>
+From: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Subject: [PATCH net-next-2.6 ] Fix overflow of socket buffer in sunrpc
+Date: Fri, 02 Sep 2011 12:41:38 +0900
+Message-ID: <20110902034138.22595.9759.stgit@ltc219.sdl.hitachi.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	ML netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3179.1314924559@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com,
+	Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Neil Brown <neilb@suse.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Neil Brown <neilb@suse.de>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail7.hitachi.co.jp ([133.145.228.42]:57872 "EHLO
+	mail7.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753507Ab1IBDgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Sep 2011 23:36:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-09-01 at 20:49 -0400, Valdis.Kletnieks@vt.edu wrote:
-> On Thu, 01 Sep 2011 22:46:32 +0200, Jiri Slaby said:
-> > Hi,
-> > 
-> > my box 100% crashes when booting. It's both in unix socket recv and send 
-> > paths. I've reverted 0856a30409 (Scm: Remove unnecessary pid & 
-> > credential references in Unix socket's send and receive path) and it 
-> > seems to help.
-> > 
-> > The oops:
-> > http://www.fi.muni.cz/~xslaby/sklad/panics/af_unix_crash.png
-> 
-> I was seeing a 100% repeatable crash with the X server starting as well, but
-> wasn't able to get a traceback because my X server was doing the modeset before
-> it crashed (so all I got was a black screen) and netconsole is busticated for
-> me.  I can confirm that reverting that one commit allows my box to boot and get
-> X up and running as well.
-> 
+The sk_sndbuf and sk_rcvbuf fields of struct sock are sizes of send and
+receive socket buffers respectively, and are defined as integer.
+The sunrpc which is used in NFSD and any other applications can change them
+via svc_sock_setbufsize(). It, however, sets them as unsigned integer and
+may cause overflow of integer. This leads to a degradation of networking
+capability.
 
-Yes, Jiri's log does indicate that something went wrong when releasing
-the skb, most likely due to changes in the pid and credentials ref
-count.  Unfortunately, I cannot duplicate the problem on my system.  Any
-info on your system to help me debug will be appreciated.  I'll try to
-take another look at the patch tomorrow.
+This patch adds integer-overflow check into svc_sock_setbufsize() before
+both fields are set, and limits their maximum sizes to INT_MAX.
 
-Tim
+Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>
+Cc: Neil Brown <neilb@suse.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+---
+
+ net/sunrpc/svcsock.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index 767d494..bd66775 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -54,6 +54,7 @@
+ #include "sunrpc.h"
+ 
+ #define RPCDBG_FACILITY	RPCDBG_SVCXPRT
++#define MAX_SKBUFSIZ	INT_MAX
+ 
+ 
+ static struct svc_sock *svc_setup_socket(struct svc_serv *, struct socket *,
+@@ -435,6 +436,11 @@ static void svc_sock_setbufsize(struct socket *sock, unsigned int snd,
+ 	 * on not having CAP_SYS_RESOURCE or similar, we go direct...
+ 	 * DaveM said I could!
+ 	 */
++	if (snd > MAX_SKBUFSIZ/2)
++		snd = MAX_SKBUFSIZ/2;
++	if (rcv > MAX_SKBUFSIZ/2)
++		rcv = MAX_SKBUFSIZ/2;
++
+ 	lock_sock(sock->sk);
+ 	sock->sk->sk_sndbuf = snd * 2;
+ 	sock->sk->sk_rcvbuf = rcv * 2;
