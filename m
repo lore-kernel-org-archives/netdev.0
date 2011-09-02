@@ -1,77 +1,55 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] ixgbe: drop zero length frame segments during a packet
- split rx
-Date: Fri, 2 Sep 2011 12:55:23 -0400
-Message-ID: <20110902165523.GB27571@hmsreliant.think-freely.org>
-References: <1314972197-31557-1-git-send-email-nhorman@tuxdriver.com>
- <4E6101A4.4060802@intel.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH] af_packet: flush complete kernel cache in packet_sendmsg
+Date: Fri, 2 Sep 2011 18:28:50 +0100
+Message-ID: <20110902172850.GB6619@n2100.arm.linux.org.uk>
+References: <20110505141107.GC30443@orbit.nwl.cc>
+	<1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
+	<1314971179.3092.159.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50378 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753424Ab1IBQzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 12:55:31 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Phil Sutter <phil.sutter@viprinet.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <4E6101A4.4060802@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1314971179.3092.159.camel@deadeye>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 02, 2011 at 09:17:40AM -0700, Alexander Duyck wrote:
-> This kind of fix just opens up a whole can of security related
-> worms.  If you are going to discard a packet you should do it after
-> we have reached the EOP in the series.  My advice would be to
-> determine what traits identify this packet and add those to the
-> check for the IXGBE_RXDADV_ERR_FRAME_ERR_MASK check further down in
-> the code.  Likely what you are seeing is skb_headlen(skb) will be
-> equal to 0.
+On Fri, Sep 02, 2011 at 02:46:17PM +0100, Ben Hutchings wrote:
+> On Fri, 2011-09-02 at 13:08 +0200, Phil Sutter wrote:
+> > This flushes the cache before and after accessing the mmapped packet
+> > buffer. It seems like the call to flush_dcache_page from inside
+> > __packet_get_status is not enough on Kirkwood (or ARM in general).
+> > ---
+> > I know this is far from an optimal solution, but it's in fact the only working
+> > one I found.
+> [...]
 > 
-Well, the traits of the bogus descriptor are almost exactly as you describe
-them, i.e. rx_buffer_info->dma is zero, which the driver takes to mean packet
-split is enabled, and this is a buffer in the middle of that operation
-(according to the comments in ixgbe_clean_rx_irq), and the upper_len value we
-read from the rx_descriptior rx_dex->wb.upper.length is zero.  This implies we
-have a frame which is in the middle of a packet split receive, and one of the
-page long buffers has a length value of zero, which is non-sensical.  I suppose
-we could wait until the next frame with EOP set to discard the whole thing, but
-I'm not sure how that amounts to anything different than just skipping to the
-next descriptor.
+> This is ridiculous.  If flush_dcache_page() isn't doing everything it
+> should, you need to fix that.
 
-> I'm suspecting this is some sort of read corruption.  It looks like
-> in order to trigger it you have to either be reading
-> rx_buffer_info->dma as 0, or the header length is being read as 0.
-Correct, which drops us into the else clause of the if(rx_buffer_info->dma)
-conditional in ixgbe_clean_rx_irq.
+It does do everything it should - which is to perform maintanence on
+page cache pages.  It flushes the kernel mapping of the page.  It
+also flushes the userspace mappings of the page which it finds by
+walking the mmap list via the associated struct page.  It does not
+touch vmalloc mappings because it has no way to know whether they
+exist or not.
 
-> Do you know if you actually have header split enabled when this is
-> occuring?  Are you running with jumbo frames enabled to see the
-Yes, packet split is enabled. and no, Jumbo frames are not in use.
+It doesn't do so much for anonymous pages - to do so would only
+duplicate what flush_anon_page() does at the very same callsites.
+Plus the mmap list isn't available for such pages so there's no
+way to find out what userspace addresses to flush.
 
-> issue?  If not then packet split wouldn't be enabled.
-> 
-> Is this occurring on net-next or on an older kernel?  I just want to
-> be sure since we added a read memory barrier in 2.6.34 to address
-> the fact that the length and descriptor DD bits were being read in
-> the wrong order resulting in the length being corrupted on PowerPC
-> systems.  The fact that we are now seeing another length error on
-> PowerPC seems very odd.
-> 
-According to the bz:
-https://bugzilla.redhat.com/show_bug.cgi?id=683611
-This appears to be happening on RHEL, and on upstream kernels, as well as the
-sourceforge driver.  Don't quote me on the SF driver though, because I never got
-a clear answer on that.  Although, fwiw, the RHEL version of the driver in which
-we were definately seeing this problem has a read memory barrrier at the top of
-the loop in ixgbe_clean_rx_irq, pulled in from commit
-3c945e5b3719bcc18c6ddd31bbcae8ef94f3d19a, so I think thats handled.
-
-
-Regards
-Neil
+If the AF_PACKET buffers are created from anonymous pages and it's
+using flush_dcache_page(), it's using the wrong interface.
