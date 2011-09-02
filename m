@@ -1,107 +1,77 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: FW: [PATCH] af_packet: flush complete kernel cache in packet_sendmsg
-Date: Fri, 2 Sep 2011 12:49:47 -0400
-Message-ID: <CAAsGZS6Qiyc6nhgyVLrphSLW6vf16=hbGVWJ+CFw6rfZQsdiFQ@mail.gmail.com>
-References: <20110505141107.GC30443@orbit.nwl.cc>
-	<1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
-	<D3F292ADF945FB49B35E96C94C2061B90A239361@nsmail.netscout.com>
-	<CAAsGZS6Tt9FLXfanH1+DgKt_9gR_YPJ8kX_pryhnzWTQVkNkNw@mail.gmail.com>
-	<20110902153147.GB29025@philter>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] ixgbe: drop zero length frame segments during a packet
+ split rx
+Date: Fri, 2 Sep 2011 12:55:23 -0400
+Message-ID: <20110902165523.GB27571@hmsreliant.think-freely.org>
+References: <1314972197-31557-1-git-send-email-nhorman@tuxdriver.com>
+ <4E6101A4.4060802@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux@arm.linux.org.uk, davem@davemloft.net
-To: Phil Sutter <phil.sutter@viprinet.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:56752 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753424Ab1IBQts (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 12:49:48 -0400
-Received: by ywf7 with SMTP id 7so2316869ywf.19
-        for <netdev@vger.kernel.org>; Fri, 02 Sep 2011 09:49:48 -0700 (PDT)
-In-Reply-To: <20110902153147.GB29025@philter>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50378 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753424Ab1IBQzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 12:55:31 -0400
+Content-Disposition: inline
+In-Reply-To: <4E6101A4.4060802@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 2, 2011 at 11:31 AM, Phil Sutter <phil.sutter@viprinet.com> wrote:
+On Fri, Sep 02, 2011 at 09:17:40AM -0700, Alexander Duyck wrote:
+> This kind of fix just opens up a whole can of security related
+> worms.  If you are going to discard a packet you should do it after
+> we have reached the EOP in the series.  My advice would be to
+> determine what traits identify this packet and add those to the
+> check for the IXGBE_RXDADV_ERR_FRAME_ERR_MASK check further down in
+> the code.  Likely what you are seeing is skb_headlen(skb) will be
+> equal to 0.
+> 
+Well, the traits of the bogus descriptor are almost exactly as you describe
+them, i.e. rx_buffer_info->dma is zero, which the driver takes to mean packet
+split is enabled, and this is a buffer in the middle of that operation
+(according to the comments in ixgbe_clean_rx_irq), and the upper_len value we
+read from the rx_descriptior rx_dex->wb.upper.length is zero.  This implies we
+have a frame which is in the middle of a packet split receive, and one of the
+page long buffers has a length value of zero, which is non-sensical.  I suppose
+we could wait until the next frame with EOP set to discard the whole thing, but
+I'm not sure how that amounts to anything different than just skipping to the
+next descriptor.
 
-> So far we haven't noticed problems in that direction. I just tried some
-> explicit test: having tcpdump print local timestamps (not the pcap-ones)
-> on every received packet, activating icmp_echo_ignore_all and pinging
-> the host on a dedicated line. I expected to sometimes see a second
-> difference between the two timestamps, as like with sending from time to
-> time a packet should get "lost" in the cache, and then occur to
-> userspace after the next one arrived. Maybe my test is broken, or RX is
-> indeed unaffected.
->
+> I'm suspecting this is some sort of read corruption.  It looks like
+> in order to trigger it you have to either be reading
+> rx_buffer_info->dma as 0, or the header length is being read as 0.
+Correct, which drops us into the else clause of the if(rx_buffer_info->dma)
+conditional in ixgbe_clean_rx_irq.
 
-You will need high traffic rate. If interested, you could try
-pktgen(with varying packet-load). Keep the packet-payload under 1500
-bytes (don't send jumbo frames) unless you have the following fix:
-commit cc9f01b246ca8e4fa245991840b8076394f86707
+> Do you know if you actually have header split enabled when this is
+> occuring?  Are you running with jumbo frames enabled to see the
+Yes, packet split is enabled. and no, Jumbo frames are not in use.
 
-Your Tx path is working because flush_cache_call gets triggered before
-flush_dcache_page. On the Rx path, since you don't have that
-workaround, you will eventually(it's just a matter of time) see this
-problem.
-
-Or, delete your patch and try this workaround (in
-__packet_get/set_status) and you may be able to cover both Tx and Rx
-paths.
-
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2ea3d63..35d71dc 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -412,11 +412,19 @@ static void __packet_set_status(struct
-packet_sock *po, void *frame, int status)
-        switch (po->tp_version) {
-        case TPACKET_V1:
-                h.h1->tp_status = status;
--               flush_dcache_page(pgv_to_page(&h.h1->tp_status));
-+               #ifndef ENABLE_CACHEPROB_WORKAROUND
-+                       flush_dcache_page(pgv_to_page(&h.h1->tp_status));
-+               #else
-+                       kw_extra_cache_flush();
-+               endif
-                break;
-        case TPACKET_V2:
-                h.h2->tp_status = status;
--               flush_dcache_page(pgv_to_page(&h.h2->tp_status));
-+               #ifndef ENABLE_CACHEPROB_WORKAROUND
-+                       flush_dcache_page(pgv_to_page(&h.h2->tp_status));
-+               #else
-+                       kw_extra_cache_flush();
-+               #endif
-                break;
-        case TPACKET_V3:
-        default:
-@@ -437,13 +445,19 @@ static int __packet_get_status(struct
-packet_sock *po, void *frame)
-
-        smp_rmb();
-
-+       kw_extra_cache_flush();
-+
-        h.raw = frame;
-        switch (po->tp_version) {
-        case TPACKET_V1:
--               flush_dcache_page(pgv_to_page(&h.h1->tp_status));
-+               #ifndef ENABLE_CACHEPROB_WORKAROUND
-+                       flush_dcache_page(pgv_to_page(&h.h1->tp_status));
-+               #endif
-                return h.h1->tp_status;
-        case TPACKET_V2:
--               flush_dcache_page(pgv_to_page(&h.h2->tp_status));
-+               #ifndef ENABLE_CACHEPROB_WORKAROUND
-+                       flush_dcache_page(pgv_to_page(&h.h2->tp_status));
-+               #endif
-                return h.h2->tp_status;
-        case TPACKET_V3:
-        default:
+> issue?  If not then packet split wouldn't be enabled.
+> 
+> Is this occurring on net-next or on an older kernel?  I just want to
+> be sure since we added a read memory barrier in 2.6.34 to address
+> the fact that the length and descriptor DD bits were being read in
+> the wrong order resulting in the length being corrupted on PowerPC
+> systems.  The fact that we are now seeing another length error on
+> PowerPC seems very odd.
+> 
+According to the bz:
+https://bugzilla.redhat.com/show_bug.cgi?id=683611
+This appears to be happening on RHEL, and on upstream kernels, as well as the
+sourceforge driver.  Don't quote me on the SF driver though, because I never got
+a clear answer on that.  Although, fwiw, the RHEL version of the driver in which
+we were definately seeing this problem has a read memory barrrier at the top of
+the loop in ixgbe_clean_rx_irq, pulled in from commit
+3c945e5b3719bcc18c6ddd31bbcae8ef94f3d19a, so I think thats handled.
 
 
-> Greetings and thanks for the hints, Phil
-
-Chetan Loke
+Regards
+Neil
