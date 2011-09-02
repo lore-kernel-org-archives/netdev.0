@@ -1,7 +1,7 @@
 From: Serge Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 03/15] keyctl: check capabilities against key's user_ns
-Date: Fri,  2 Sep 2011 19:56:28 +0000
-Message-ID: <1314993400-6910-6-git-send-email-serge@hallyn.com>
+Subject: [PATCH 04/15] user_ns: convert fs/attr.c to targeted capabilities
+Date: Fri,  2 Sep 2011 19:56:29 +0000
+Message-ID: <1314993400-6910-7-git-send-email-serge@hallyn.com>
 References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,42 +24,72 @@ List-Id: netdev.vger.kernel.org
 
 From: "Serge E. Hallyn" <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-ATM, task should only be able to get his own user_ns's keys
-anyway, so nsown_capable should also work, but there is no
-advantage to doing that, while using key's user_ns is clearer.
-
-changelog: jun 6:
-	compile fix: keyctl.c (key_user, not key has user_ns)
-
 Signed-off-by: Serge E. Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Acked-by: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Cc: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- security/keys/keyctl.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ fs/attr.c |   20 +++++++++++++-------
+ 1 files changed, 13 insertions(+), 7 deletions(-)
 
-diff --git a/security/keys/keyctl.c b/security/keys/keyctl.c
-index eca5191..fa7d420 100644
---- a/security/keys/keyctl.c
-+++ b/security/keys/keyctl.c
-@@ -745,7 +745,7 @@ long keyctl_chown_key(key_serial_t id, uid_t uid, gid_t gid)
- 	ret = -EACCES;
- 	down_write(&key->sem);
+diff --git a/fs/attr.c b/fs/attr.c
+index 538e279..e0cf46a 100644
+--- a/fs/attr.c
++++ b/fs/attr.c
+@@ -29,6 +29,7 @@
+ int inode_change_ok(const struct inode *inode, struct iattr *attr)
+ {
+ 	unsigned int ia_valid = attr->ia_valid;
++	struct user_namespace *ns;
  
--	if (!capable(CAP_SYS_ADMIN)) {
-+	if (!ns_capable(key->user->user_ns, CAP_SYS_ADMIN)) {
- 		/* only the sysadmin can chown a key to some other UID */
- 		if (uid != (uid_t) -1 && key->uid != uid)
- 			goto error_put;
-@@ -852,7 +852,8 @@ long keyctl_setperm_key(key_serial_t id, key_perm_t perm)
- 	down_write(&key->sem);
+ 	/*
+ 	 * First check size constraints.  These can't be overriden using
+@@ -44,26 +45,28 @@ int inode_change_ok(const struct inode *inode, struct iattr *attr)
+ 	if (ia_valid & ATTR_FORCE)
+ 		return 0;
  
- 	/* if we're not the sysadmin, we can only change a key that we own */
--	if (capable(CAP_SYS_ADMIN) || key->uid == current_fsuid()) {
-+	if (ns_capable(key->user->user_ns, CAP_SYS_ADMIN) ||
-+	    key->uid == current_fsuid()) {
- 		key->perm = perm;
- 		ret = 0;
++	ns = inode_userns(inode);
+ 	/* Make sure a caller can chown. */
+ 	if ((ia_valid & ATTR_UID) &&
+-	    (current_fsuid() != inode->i_uid ||
+-	     attr->ia_uid != inode->i_uid) && !capable(CAP_CHOWN))
++	    (ns != current_user_ns() || current_fsuid() != inode->i_uid ||
++	     attr->ia_uid != inode->i_uid) && !ns_capable(ns, CAP_CHOWN))
+ 		return -EPERM;
+ 
+ 	/* Make sure caller can chgrp. */
+ 	if ((ia_valid & ATTR_GID) &&
+-	    (current_fsuid() != inode->i_uid ||
++	    (ns != current_user_ns() || current_fsuid() != inode->i_uid ||
+ 	    (!in_group_p(attr->ia_gid) && attr->ia_gid != inode->i_gid)) &&
+-	    !capable(CAP_CHOWN))
++	    !ns_capable(ns, CAP_CHOWN))
+ 		return -EPERM;
+ 
+ 	/* Make sure a caller can chmod. */
+ 	if (ia_valid & ATTR_MODE) {
++		gid_t gid = (ia_valid & ATTR_GID) ? attr->ia_gid : inode->i_gid;
+ 		if (!inode_owner_or_capable(inode))
+ 			return -EPERM;
+ 		/* Also check the setgid bit! */
+-		if (!in_group_p((ia_valid & ATTR_GID) ? attr->ia_gid :
+-				inode->i_gid) && !capable(CAP_FSETID))
++		if ((ns != current_user_ns() || !in_group_p(gid)) &&
++		    !ns_capable(ns, CAP_FSETID))
+ 			attr->ia_mode &= ~S_ISGID;
  	}
+ 
+@@ -154,9 +157,12 @@ void setattr_copy(struct inode *inode, const struct iattr *attr)
+ 						inode->i_sb->s_time_gran);
+ 	if (ia_valid & ATTR_MODE) {
+ 		umode_t mode = attr->ia_mode;
++		struct user_namespace *ns = inode_userns(inode);
+ 
+-		if (!in_group_p(inode->i_gid) && !capable(CAP_FSETID))
++		if ((ns != current_user_ns() || !in_group_p(inode->i_gid)) &&
++		    !ns_capable(ns, CAP_FSETID))
+ 			mode &= ~S_ISGID;
++
+ 		inode->i_mode = mode;
+ 	}
+ }
 -- 
 1.7.5.4
