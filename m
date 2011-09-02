@@ -1,55 +1,49 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] af_packet: flush complete kernel cache in packet_sendmsg
-Date: Fri, 2 Sep 2011 18:28:50 +0100
-Message-ID: <20110902172850.GB6619@n2100.arm.linux.org.uk>
-References: <20110505141107.GC30443@orbit.nwl.cc>
-	<1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
-	<1314971179.3092.159.camel@deadeye>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil.sutter@viprinet.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1314971179.3092.159.camel@deadeye>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 1/2] bridge: leave carrier on for empty bridge
+Date: Fri, 02 Sep 2011 10:22:21 -0700
+Message-ID: <20110902172247.396753508@vyatta.com>
+References: <20110902172220.830228928@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sfca-50.vyatta.com ([76.74.103.50]:48254 "EHLO fiji.vyatta.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753906Ab1IBRe2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Sep 2011 13:34:28 -0400
+Content-Disposition: inline; filename=br-carrier-default.patch
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 02, 2011 at 02:46:17PM +0100, Ben Hutchings wrote:
-> On Fri, 2011-09-02 at 13:08 +0200, Phil Sutter wrote:
-> > This flushes the cache before and after accessing the mmapped packet
-> > buffer. It seems like the call to flush_dcache_page from inside
-> > __packet_get_status is not enough on Kirkwood (or ARM in general).
-> > ---
-> > I know this is far from an optimal solution, but it's in fact the only working
-> > one I found.
-> [...]
-> 
-> This is ridiculous.  If flush_dcache_page() isn't doing everything it
-> should, you need to fix that.
+This resolves a regression seen by some users of bridging.
+Some users use the bridge like a dummy device. 
+They expect to be able to put an IPv6 address on the device
+with no ports attached during boot.
 
-It does do everything it should - which is to perform maintanence on
-page cache pages.  It flushes the kernel mapping of the page.  It
-also flushes the userspace mappings of the page which it finds by
-walking the mmap list via the associated struct page.  It does not
-touch vmalloc mappings because it has no way to know whether they
-exist or not.
+Note: the bridge still will reflect the state of ports in the
+bridge if there are any added.
 
-It doesn't do so much for anonymous pages - to do so would only
-duplicate what flush_anon_page() does at the very same callsites.
-Plus the mmap list isn't available for such pages so there's no
-way to find out what userspace addresses to flush.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-If the AF_PACKET buffers are created from anonymous pages and it's
-using flush_dcache_page(), it's using the wrong interface.
+---
+This fix needs to go to stable for 3.0 and 2.6.39
+
+
+--- a/net/bridge/br_device.c	2011-09-01 08:52:27.596631192 -0700
++++ b/net/bridge/br_device.c	2011-09-01 09:01:03.256611801 -0700
+@@ -91,7 +91,6 @@ static int br_dev_open(struct net_device
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+ 
+-	netif_carrier_off(dev);
+ 	netdev_update_features(dev);
+ 	netif_start_queue(dev);
+ 	br_stp_enable_bridge(br);
+@@ -108,8 +107,6 @@ static int br_dev_stop(struct net_device
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+ 
+-	netif_carrier_off(dev);
+-
+ 	br_stp_disable_bridge(br);
+ 	br_multicast_stop(br);
+ 
