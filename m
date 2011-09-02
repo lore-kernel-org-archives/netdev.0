@@ -1,7 +1,7 @@
 From: Serge Hallyn <serge@hallyn.com>
-Subject: [PATCH 10/15] net/core/scm.c: target capable() calls to user_ns owning the net_ns
-Date: Fri,  2 Sep 2011 19:56:35 +0000
-Message-ID: <1314993400-6910-13-git-send-email-serge@hallyn.com>
+Subject: [PATCH 09/15] user ns: convert ipv6 to targeted capabilities
+Date: Fri,  2 Sep 2011 19:56:34 +0000
+Message-ID: <1314993400-6910-12-git-send-email-serge@hallyn.com>
 References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
 Cc: "Serge E. Hallyn" <serge.hallyn@canonical.com>
 To: akpm@osdl.org, segooon@gmail.com, linux-kernel@vger.kernel.org,
@@ -14,81 +14,340 @@ List-Id: netdev.vger.kernel.org
 
 From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
 
-The uid/gid comparisons don't have to be pulled out.  This just seemed
-more easily proved correct.
-
-Changelog:
-   mark struct cred arg const
-
 Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
 Cc: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/core/scm.c |   41 ++++++++++++++++++++++++++++++++++-------
- 1 files changed, 34 insertions(+), 7 deletions(-)
+ net/ipv6/addrconf.c             |    4 ++--
+ net/ipv6/af_inet6.c             |    6 ++++--
+ net/ipv6/datagram.c             |    6 +++---
+ net/ipv6/ip6_flowlabel.c        |   24 ++++++++++++++----------
+ net/ipv6/ip6_tunnel.c           |    4 ++--
+ net/ipv6/ip6mr.c                |    2 +-
+ net/ipv6/ipv6_sockglue.c        |    7 ++++---
+ net/ipv6/netfilter/ip6_tables.c |    8 ++++----
+ net/ipv6/route.c                |    2 +-
+ net/ipv6/sit.c                  |   10 +++++-----
+ 10 files changed, 40 insertions(+), 33 deletions(-)
 
-diff --git a/net/core/scm.c b/net/core/scm.c
-index 811b53f..4f376bf 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -43,17 +43,44 @@
-  *	setu(g)id.
-  */
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f012ebd..871e5cf 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2230,7 +2230,7 @@ int addrconf_add_ifaddr(struct net *net, void __user *arg)
+ 	struct in6_ifreq ireq;
+ 	int err;
  
--static __inline__ int scm_check_creds(struct ucred *creds)
-+static __inline__ bool uidequiv(const struct cred *src, struct ucred *tgt,
-+			       struct user_namespace *ns)
-+{
-+	if (src->user_ns != ns)
-+		goto check_capable;
-+	if (src->uid == tgt->uid || src->euid == tgt->uid ||
-+	    src->suid == tgt->uid)
-+		return true;
-+check_capable:
-+	if (ns_capable(ns, CAP_SETUID))
-+		return true;
-+	return false;
-+}
-+
-+static __inline__ bool gidequiv(const struct cred *src, struct ucred *tgt,
-+			       struct user_namespace *ns)
-+{
-+	if (src->user_ns != ns)
-+		goto check_capable;
-+	if (src->gid == tgt->gid || src->egid == tgt->gid ||
-+	    src->sgid == tgt->gid)
-+		return true;
-+check_capable:
-+	if (ns_capable(ns, CAP_SETGID))
-+		return true;
-+	return false;
-+}
-+
-+static __inline__ int scm_check_creds(struct ucred *creds, struct socket *sock)
- {
- 	const struct cred *cred = current_cred();
-+	struct user_namespace *ns = sock_net(sock->sk)->user_ns;
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
  
--	if ((creds->pid == task_tgid_vnr(current) || capable(CAP_SYS_ADMIN)) &&
--	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
--	      creds->uid == cred->suid) || capable(CAP_SETUID)) &&
--	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
--	      creds->gid == cred->sgid) || capable(CAP_SETGID))) {
-+	if ((creds->pid == task_tgid_vnr(current) || ns_capable(ns, CAP_SYS_ADMIN)) &&
-+	     uidequiv(cred, creds, ns) && gidequiv(cred, creds, ns)) {
- 	       return 0;
+ 	if (copy_from_user(&ireq, arg, sizeof(struct in6_ifreq)))
+@@ -2249,7 +2249,7 @@ int addrconf_del_ifaddr(struct net *net, void __user *arg)
+ 	struct in6_ifreq ireq;
+ 	int err;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if (copy_from_user(&ireq, arg, sizeof(struct in6_ifreq)))
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 3b5669a..1854ffe 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -160,7 +160,8 @@ lookup_protocol:
  	}
-+
- 	return -EPERM;
+ 
+ 	err = -EPERM;
+-	if (sock->type == SOCK_RAW && !kern && !capable(CAP_NET_RAW))
++	if (sock->type == SOCK_RAW && !kern &&
++	    !ns_capable(net->user_ns, CAP_NET_RAW))
+ 		goto out_rcu_unlock;
+ 
+ 	sock->ops = answer->ops;
+@@ -281,7 +282,8 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 		return -EINVAL;
+ 
+ 	snum = ntohs(addr->sin6_port);
+-	if (snum && snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
++	if (snum && snum < PROT_SOCK &&
++	    !ns_capable(sock_net(sk)->user_ns, CAP_NET_BIND_SERVICE))
+ 		return -EACCES;
+ 
+ 	lock_sock(sk);
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 9ef1831..33b1b0f 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -701,7 +701,7 @@ int datagram_send_ctl(struct net *net,
+ 				err = -EINVAL;
+ 				goto exit_f;
+ 			}
+-			if (!capable(CAP_NET_RAW)) {
++			if (!ns_capable(net->user_ns, CAP_NET_RAW)) {
+ 				err = -EPERM;
+ 				goto exit_f;
+ 			}
+@@ -721,7 +721,7 @@ int datagram_send_ctl(struct net *net,
+ 				err = -EINVAL;
+ 				goto exit_f;
+ 			}
+-			if (!capable(CAP_NET_RAW)) {
++			if (!ns_capable(net->user_ns, CAP_NET_RAW)) {
+ 				err = -EPERM;
+ 				goto exit_f;
+ 			}
+@@ -746,7 +746,7 @@ int datagram_send_ctl(struct net *net,
+ 				err = -EINVAL;
+ 				goto exit_f;
+ 			}
+-			if (!capable(CAP_NET_RAW)) {
++			if (!ns_capable(net->user_ns, CAP_NET_RAW)) {
+ 				err = -EPERM;
+ 				goto exit_f;
+ 			}
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index f3caf1b..4726c02 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -294,21 +294,22 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions * opt_space,
+ 	return opt_space;
  }
  
-@@ -169,7 +196,7 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
- 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct ucred)))
- 				goto error;
- 			memcpy(&p->creds, CMSG_DATA(cmsg), sizeof(struct ucred));
--			err = scm_check_creds(&p->creds);
-+			err = scm_check_creds(&p->creds, sock);
- 			if (err)
- 				goto error;
+-static unsigned long check_linger(unsigned long ttl)
++static unsigned long check_linger(unsigned long ttl, struct user_namespace *ns)
+ {
+ 	if (ttl < FL_MIN_LINGER)
+ 		return FL_MIN_LINGER*HZ;
+-	if (ttl > FL_MAX_LINGER && !capable(CAP_NET_ADMIN))
++	if (ttl > FL_MAX_LINGER && !ns_capable(ns, CAP_NET_ADMIN))
+ 		return 0;
+ 	return ttl*HZ;
+ }
  
+-static int fl6_renew(struct ip6_flowlabel *fl, unsigned long linger, unsigned long expires)
++static int fl6_renew(struct ip6_flowlabel *fl, unsigned long linger,
++		     unsigned long expires, struct user_namespace *ns)
+ {
+-	linger = check_linger(linger);
++	linger = check_linger(linger, ns);
+ 	if (!linger)
+ 		return -EPERM;
+-	expires = check_linger(expires);
++	expires = check_linger(expires, ns);
+ 	if (!expires)
+ 		return -EPERM;
+ 	fl->lastuse = jiffies;
+@@ -375,7 +376,7 @@ fl_create(struct net *net, struct in6_flowlabel_req *freq, char __user *optval,
+ 
+ 	fl->fl_net = hold_net(net);
+ 	fl->expires = jiffies;
+-	err = fl6_renew(fl, freq->flr_linger, freq->flr_expires);
++	err = fl6_renew(fl, freq->flr_linger, freq->flr_expires, net->user_ns);
+ 	if (err)
+ 		goto done;
+ 	fl->share = freq->flr_share;
+@@ -425,7 +426,7 @@ static int mem_check(struct sock *sk)
+ 	if (room <= 0 ||
+ 	    ((count >= FL_MAX_PER_SOCK ||
+ 	      (count > 0 && room < FL_MAX_SIZE/2) || room < FL_MAX_SIZE/4) &&
+-	     !capable(CAP_NET_ADMIN)))
++	     !ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)))
+ 		return -ENOBUFS;
+ 
+ 	return 0;
+@@ -507,17 +508,20 @@ int ipv6_flowlabel_opt(struct sock *sk, char __user *optval, int optlen)
+ 		read_lock_bh(&ip6_sk_fl_lock);
+ 		for (sfl = np->ipv6_fl_list; sfl; sfl = sfl->next) {
+ 			if (sfl->fl->label == freq.flr_label) {
+-				err = fl6_renew(sfl->fl, freq.flr_linger, freq.flr_expires);
++				err = fl6_renew(sfl->fl, freq.flr_linger, freq.flr_expires,
++						net->user_ns);
+ 				read_unlock_bh(&ip6_sk_fl_lock);
+ 				return err;
+ 			}
+ 		}
+ 		read_unlock_bh(&ip6_sk_fl_lock);
+ 
+-		if (freq.flr_share == IPV6_FL_S_NONE && capable(CAP_NET_ADMIN)) {
++		if (freq.flr_share == IPV6_FL_S_NONE &&
++		    ns_capable(net->user_ns, CAP_NET_ADMIN)) {
+ 			fl = fl_lookup(net, freq.flr_label);
+ 			if (fl) {
+-				err = fl6_renew(fl, freq.flr_linger, freq.flr_expires);
++				err = fl6_renew(fl, freq.flr_linger, freq.flr_expires,
++						net->user_ns);
+ 				fl_release(fl);
+ 				return err;
+ 			}
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 0bc9888..c430d69 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1269,7 +1269,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCADDTUNNEL:
+ 	case SIOCCHGTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			break;
+ 		err = -EFAULT;
+ 		if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof (p)))
+@@ -1304,7 +1304,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		break;
+ 	case SIOCDELTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			break;
+ 
+ 		if (dev == ip6n->fb_tnl_dev) {
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 705c828..1649ccd 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -1582,7 +1582,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
+ 		return -ENOENT;
+ 
+ 	if (optname != MRT6_INIT) {
+-		if (sk != mrt->mroute6_sk && !capable(CAP_NET_ADMIN))
++		if (sk != mrt->mroute6_sk && !ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			return -EACCES;
+ 	}
+ 
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 147ede38..485e181 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -343,7 +343,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		break;
+ 
+ 	case IPV6_TRANSPARENT:
+-		if (!capable(CAP_NET_ADMIN)) {
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN)) {
+ 			retv = -EPERM;
+ 			break;
+ 		}
+@@ -381,7 +381,8 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 
+ 		/* hop-by-hop / destination options are privileged option */
+ 		retv = -EPERM;
+-		if (optname != IPV6_RTHDR && !capable(CAP_NET_RAW))
++		if (optname != IPV6_RTHDR &&
++		    !ns_capable(net->user_ns, CAP_NET_RAW))
+ 			break;
+ 
+ 		opt = ipv6_renew_options(sk, np->opt, optname,
+@@ -725,7 +726,7 @@ done:
+ 	case IPV6_IPSEC_POLICY:
+ 	case IPV6_XFRM_POLICY:
+ 		retv = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			break;
+ 		retv = xfrm_user_policy(sk, optname, optval, optlen);
+ 		break;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 94874b0..7fce7d8 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1869,7 +1869,7 @@ compat_do_ip6t_set_ctl(struct sock *sk, int cmd, void __user *user,
+ {
+ 	int ret;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	switch (cmd) {
+@@ -1984,7 +1984,7 @@ compat_do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ {
+ 	int ret;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	switch (cmd) {
+@@ -2006,7 +2006,7 @@ do_ip6t_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ {
+ 	int ret;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	switch (cmd) {
+@@ -2031,7 +2031,7 @@ do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ {
+ 	int ret;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	switch (cmd) {
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 9e69eb0..f00c18d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1938,7 +1938,7 @@ int ipv6_route_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 	switch(cmd) {
+ 	case SIOCADDRT:		/* Add a route */
+ 	case SIOCDELRT:		/* Delete a route */
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 		err = copy_from_user(&rtmsg, arg,
+ 				     sizeof(struct in6_rtmsg));
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 00b15ac..7438711 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -308,7 +308,7 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
+ 	/* For simple GET or for root users,
+ 	 * we try harder to allocate.
+ 	 */
+-	kp = (cmax <= 1 || capable(CAP_NET_ADMIN)) ?
++	kp = (cmax <= 1 || ns_capable(dev_net(t->dev)->user_ns, CAP_NET_ADMIN)) ?
+ 		kcalloc(cmax, sizeof(*kp), GFP_KERNEL) :
+ 		NULL;
+ 
+@@ -929,7 +929,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCADDTUNNEL:
+ 	case SIOCCHGTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 
+ 		err = -EFAULT;
+@@ -988,7 +988,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 
+ 	case SIOCDELTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 
+ 		if (dev == sitn->fb_tunnel_dev) {
+@@ -1021,7 +1021,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCDELPRL:
+ 	case SIOCCHGPRL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 		err = -EINVAL;
+ 		if (dev == sitn->fb_tunnel_dev)
+@@ -1050,7 +1050,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCCHG6RD:
+ 	case SIOCDEL6RD:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 
+ 		err = -EFAULT;
 -- 
 1.7.5.4
