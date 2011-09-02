@@ -1,128 +1,81 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] ixgbe: drop zero length frame segments during a packet split rx
-Date: Fri,  2 Sep 2011 10:03:17 -0400
-Message-ID: <1314972197-31557-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Phil Sutter <phil.sutter@viprinet.com>
+Subject: Re: FW: [PATCH] af_packet: flush complete kernel cache in
+ packet_sendmsg
+Date: Fri, 2 Sep 2011 17:31:47 +0200
+Message-ID: <20110902153147.GB29025@philter>
+References: <20110505141107.GC30443@orbit.nwl.cc>
+ <1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
+ <D3F292ADF945FB49B35E96C94C2061B90A239361@nsmail.netscout.com>
+ <CAAsGZS6Tt9FLXfanH1+DgKt_9gR_YPJ8kX_pryhnzWTQVkNkNw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux@arm.linux.org.uk, davem@davemloft.net
+To: chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54619 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752254Ab1IBODb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Sep 2011 10:03:31 -0400
+Received: from mail.vipri.net ([89.207.250.2]:44189 "EHLO mail.vipri.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752900Ab1IBPcH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Sep 2011 11:32:07 -0400
+Content-Disposition: inline
+In-Reply-To: <CAAsGZS6Tt9FLXfanH1+DgKt_9gR_YPJ8kX_pryhnzWTQVkNkNw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This oops was reported recently no ppc64 hardware:
-Unable to handle kernel paging request for data at address 0x00000000
-Faulting instruction address: 0xc0000000004dda0c
-Oops: Kernel access of bad area, sig: 11 [#1]
-SMP NR_CPUS=1024 NUMA pSeries
-Modules linked in: sunrpc ipt_REJECT nf_conntrack_ipv4 nf_defrag_ipv4
-iptable_fi
-lter ip_tables ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 xt_state
-nf_conntrack ip6table_filter ip6_tables ipv6 jsm ses enclosure sg ixgbe
-mdio e1000 ehea ext4 jbd2 mbcache sd_mod crc_t10dif ipr dm_mod
-NIP: c0000000004dda0c LR: c0000000004e3e50 CTR: c0000000004e3e20
-REGS: c0000001bffeb8d0 TRAP: 0300   Not tainted  (3.1.0-rc2-10121-gab7e2db)
-MSR: 8000000000009032 <EE,ME,IR,DR>  CR: 28002042  XER: 20000000
-CFAR: c000000000004d70
-DAR: 0000000000000000, DSISR: 40000000
-TASK = c000000000d548e0[0] 'swapper' THREAD: c000000000dfc000 CPU: 0
-GPR04: c0000000010f4d80 c0000001bffebd80 0000000000000000 c0000001b18a8200
-GPR08: 0000000000000280 c0000001bcc517a8 c0000001b18a7f80 0000000000000000
-GPR12: d0000000047e5bb0 c000000001f10000 c0000001b19c8700 0000000000000000
-GPR16: c0000001bffebd80 0000000000000083 c00000018f2447a0 0000000000000002
-GPR20: 0000000000000000 c0000001ba860010 c0000001ba860000 d000000003d40000
-GPR24: 0000000000000000 0000000000000083 d000000003d40000 0000000000000001
-GPR28: c00000018f244780 c0000001b2b94310 c000000000da95f0 c0000001bcc51780
-NIP [c0000000004dda0c] .skb_gro_reset_offset+0x5c/0xe0
-LR [c0000000004e3e50] .napi_gro_receive+0x30/0x120
-Call Trace:
-[c0000001bffebb50] [c000000000da95f0] perf_callchain_user+0x0/0x10 (unreliable)
-[c0000001bffebbf0] [d0000000047bd118] .ixgbe_clean_rx_irq+0x7a8/0x8a0 [ixgbe]
-[c0000001bffebd10] [d0000000047bd414] .ixgbe_poll+0x64/0x160 [ixgbe]
-[c0000001bffebdd0] [c0000000004e3358] .net_rx_action+0x108/0x2a0
-[c0000001bffebea0] [c00000000009b220] .__do_softirq+0x110/0x2a0
-[c0000001bffebf90] [c000000000023798] .call_do_softirq+0x14/0x24
-[c000000000dff830] [c000000000011148] .do_softirq+0xf8/0x130
-[c000000000dff8d0] [c00000000009aeb4] .irq_exit+0xb4/0xc0
-[c000000000dff950] [c000000000011254] .do_IRQ+0xd4/0x300
-[c000000000dffa10] [c000000000005024] hardware_interrupt_entry+0x18/0x74
---- Exception: 501 at .pseries_dedicated_idle_sleep+0xe4/0x210
-LR = .pseries_dedicated_idle_sleep+0x8c/0x210
-[c000000000dffd00] [c00000000005b194] .pseries_dedicated_idle_sleep+0x194/0x210
-(unreliable)
-[c000000000dffdc0] [c000000000018c84] .cpu_idle+0x164/0x210
-[c000000000dffe70] [c00000000000b0d0] .rest_init+0x90/0xb0
-[c000000000dffef0] [c000000000830bc0] .start_kernel+0x54c/0x56c
-[c000000000dfff90] [c00000000000953c] .start_here_common+0x1c/0x60
+On Fri, Sep 02, 2011 at 10:00:16AM -0400, chetan loke wrote:
+> >
+> > This flushes the cache before and after accessing the mmapped packe=
+t
+> > buffer. It seems like the call to flush_dcache_page from inside
+> > __packet_get_status is not enough on Kirkwood (or ARM in general).
+>=20
+>=20
+>=20
+> > + =C2=A0 =C2=A0 =C2=A0 kw_extra_cache_flush();
+> > + =C2=A0 =C2=A0 =C2=A0 rc =3D po->tx_ring.pg_vec ? tpacket_snd(po, =
+msg) :
+> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 packet_snd(sock, msg, len);
+> > + =C2=A0 =C2=A0 =C2=A0 kw_extra_cache_flush();
+> > + =C2=A0 =C2=A0 =C2=A0 return rc;
+> > =C2=A0}
+>=20
+> If a workaround is needed for mmap, then why not change tpacket_snd?
 
-Its caused when skb_gro_reset_offset attempts to call PageHighMem on
-skb_shinfo(skb)->frags[0].page, when the frags array was left uninitalized.
-This can happen in the ixgbe driver if the hardware reports a zero length rx
-descriptor ni the middle of a packet split receive transaction.  I've consulted
-with Jesse Brandeburg on this, who is attempting to root cause the issue at
-Intel, but it seems prudent to add this check to the driver to discard frames of
-that encounter this error to avoid the opps
+I did not verify that packet_snd() is not affected. OTOH, adding it
+there was quite "intuitive".
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-CC: John Fastabend <john.r.fastabend@intel.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   17 +++++++++++------
- 1 files changed, 11 insertions(+), 6 deletions(-)
+> Also, is this workaround actually working for all the cases? Because
+> packet_get_status is not being touched in your patch.
+>=20
+> Also, I don't see any changes for the Rx-path. Is that working ok?
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d20e804..6d59185 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1326,6 +1326,13 @@ static void ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 
- 		rx_buffer_info = &rx_ring->rx_buffer_info[i];
- 
-+		i++;
-+		if (i == rx_ring->count)
-+			i = 0;
-+
-+		next_rxd = IXGBE_RX_DESC_ADV(rx_ring, i);
-+		prefetch(next_rxd);
-+
- 		skb = rx_buffer_info->skb;
- 		rx_buffer_info->skb = NULL;
- 		prefetch(skb->data);
-@@ -1367,6 +1374,10 @@ static void ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 		} else {
- 			/* assume packet split since header is unmapped */
- 			upper_len = le16_to_cpu(rx_desc->wb.upper.length);
-+			if (!upper_len) {
-+				rx_buffer_info->skb = skb;
-+				goto next_desc;
-+			}
- 		}
- 
- 		if (upper_len) {
-@@ -1391,12 +1402,6 @@ static void ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 			skb->truesize += upper_len;
- 		}
- 
--		i++;
--		if (i == rx_ring->count)
--			i = 0;
--
--		next_rxd = IXGBE_RX_DESC_ADV(rx_ring, i);
--		prefetch(next_rxd);
- 		cleaned_count++;
- 
- 		if (pkt_is_rsc) {
--- 
-1.7.6
+So far we haven't noticed problems in that direction. I just tried some
+explicit test: having tcpdump print local timestamps (not the pcap-ones=
+)
+on every received packet, activating icmp_echo_ignore_all and pinging
+the host on a dedicated line. I expected to sometimes see a second
+difference between the two timestamps, as like with sending from time t=
+o
+time a packet should get "lost" in the cache, and then occur to
+userspace after the next one arrived. Maybe my test is broken, or RX is
+indeed unaffected.
+
+Greetings and thanks for the hints, Phil
+--=20
+Viprinet GmbH
+Mainzer Str. 43
+55411 Bingen am Rhein
+Germany
+
+Zentrale:     +49-6721-49030-0
+Durchwahl:    +49-6721-49030-134
+=46ax:          +49-6721-49030-209
+
+phil.sutter@viprinet.com
+http://www.viprinet.com
+
+Sitz der Gesellschaft: Bingen am Rhein
+Handelsregister: Amtsgericht Mainz HRB40380
+Gesch=C3=A4ftsf=C3=BChrer: Simon Kissel
