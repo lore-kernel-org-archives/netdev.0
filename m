@@ -1,62 +1,56 @@
-From: "Yan, Zheng" <zheng.z.yan@linux.intel.com>
-Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
-Date: Sun, 4 Sep 2011 16:23:02 +0800
-Message-ID: <CAAM7YAk0csJLLVFF6KYA8vMG_BN6QDvmYvtnY0Sq7P=cBsuKfg@mail.gmail.com>
-References: <4E631032.6050606@intel.com>
-	<CA+icZUU25QMMCVT1VfF9XB0wrkppNmKQbHwoHDAQ-qV9bi+HqQ@mail.gmail.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH] usbnet: ignore get interface retval of -EINPROGRESS
+Date: Sun, 4 Sep 2011 12:16:12 +0200
+Message-ID: <201109041216.12127.oliver@neukum.org>
+References: <CAPopfEUUaEChuh1mdZnHHT_9uRfsQmwMu7=gjnYr=AmFWik2HA@mail.gmail.com> <201109031837.48444.oliver@neukum.org> <CAPopfEWi0v9VXeDYcBfEgnWYxg7WcTTj3GBc6USzwcN+aGrKOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
-	"jirislaby@gmail.com" <jirislaby@gmail.com>
-To: sedat.dilek@gmail.com
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jim Wylder <jwylder1@motorola.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:41856 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752610Ab1IDIXF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2011 04:23:05 -0400
-Received: by vxi9 with SMTP id 9so3136028vxi.19
-        for <netdev@vger.kernel.org>; Sun, 04 Sep 2011 01:23:03 -0700 (PDT)
-In-Reply-To: <CA+icZUU25QMMCVT1VfF9XB0wrkppNmKQbHwoHDAQ-qV9bi+HqQ@mail.gmail.com>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:37739 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753564Ab1IDKMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2011 06:12:51 -0400
+In-Reply-To: <CAPopfEWi0v9VXeDYcBfEgnWYxg7WcTTj3GBc6USzwcN+aGrKOQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 4, 2011 at 3:12 PM, Sedat Dilek <sedat.dilek@googlemail.com=
-> wrote:
-> On Sun, Sep 4, 2011 at 7:44 AM, Yan, Zheng <zheng.z.yan@intel.com> wr=
-ote:
->> Commit 0856a30409 (Scm: Remove unnecessary pid & credential referenc=
-es
->> in Unix socket's send and receive path) introduced a use-after-free =
-bug.
->> It passes the scm reference to the first skb. Skb(s) afterwards may
->> reference freed data structure because the first skb can be destruct=
-ed
->> by the receiver at anytime. The fix is by passing the scm reference =
-to
->> the very last skb.
->>
->
-> s/by passing/bypassing ?
+Am Samstag, 3. September 2011, 19:32:44 schrieb Jim Wylder:
 
-No
+Hi,
 
->
->> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
->> Reported-by: Jiri Slaby <jirislaby@gmail.com>
->> ---
->
-> Tested on i386 against linux-next (next-20110831).
->
+> Thanks for the quick feedback.  True usbnet_start_xmit() could be
+> running at anytime, but the usb_autopm_get_interface_async() will only
+> return -EINPROGRESS when rpm_resume detects that
+> dev->power.runtime_status == RPM_RESUMING.  My understanding is that
+> for an asynchronous request, the promise that the device is resuming
+> would be equivalent to cases where usb_autopm_get_interface_async()
+> returns success.
 
-Thank you.
+If CONFIG_PM is set.
 
-> - Sedat -
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+> In all other cases, when we are not attempting to resume an already
+> resuming interface, this change should have no impact.
+> 
+> Are you recommending that I add an additional check for DEV_ASLEEP,
+
+The check is already there but depending on CONFIG_PM.
+
+> possibly to decide whether to drop the or continue on?  Or am I
+> missing your point?  I had not done anything similar because my
+> understanding was that knowing that the device is in fact resuming
+> would be sufficient.
+
+At that point it is sufficient. Upon further thought it looks like your check
+is correct.
+We just need to make very sure that for the decision to queue or
+to submit EVENT_DEV_ASLEEP is relevant.
+Would you consider defining a macro with a nice name for the
+==0 || == -EINPROGRESS check, so that any reader knows what
+this is about? This is because I doubt only usbnet is affected.
+
+	Regards
+		Oliver
