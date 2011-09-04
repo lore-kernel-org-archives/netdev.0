@@ -1,37 +1,66 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH 1/1] drivers/net/usb/usbnet.c: No need for usb_free_urb
- in rx_complete
-Date: Sat, 3 Sep 2011 16:02:26 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1109031559300.29295-100000@netrider.rowland.org>
-References: <1315071353-14978-1-git-send-email-consul.kautuk@gmail.com>
+From: Matt Helsley <matthltc@us.ibm.com>
+Subject: Re: [PATCH 02/15] user ns: setns: move capable checks into per-ns
+ attach helper
+Date: Sat, 3 Sep 2011 18:51:40 -0700
+Message-ID: <20110904015140.GB32295@count0.beaverton.ibm.com>
+References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
+ <1314993400-6910-5-git-send-email-serge@hallyn.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Oliver Neukum <oneukum@suse.de>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: Kautuk Consul <consul.kautuk@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, segooon@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	dhowells@redhat.com, ebiederm@xmission.com, rdunlap@xenotime.net
+To: Serge Hallyn <serge@hallyn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netrider.rowland.org ([192.131.102.5]:46259 "HELO
-	netrider.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751846Ab1ICUC1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Sep 2011 16:02:27 -0400
-In-Reply-To: <1315071353-14978-1-git-send-email-consul.kautuk@gmail.com>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:42193 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752474Ab1IDBvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Sep 2011 21:51:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1314993400-6910-5-git-send-email-serge@hallyn.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 3 Sep 2011, Kautuk Consul wrote:
+On Fri, Sep 02, 2011 at 07:56:27PM +0000, Serge Hallyn wrote:
+> From: "Serge E. Hallyn" <serge@hallyn.com>
 
-> usb_hcd_giveback_urb frees the urb irrespective of any return
-> value from the urb->complete function. It calls usb_put_urb which 
-> is #defined to usb_free_urb, so maybe we shouldn't be freeing this 
-> from rx_complete.
+I was confused about this patch until I realized that you're not
+simply "moving" the capability checks but "distributing" them. Then
+you're showing that you'll soon change some to nsown_capable() or
+ns_capable() using the strange cpp pattern in the snippet below.
 
-usb_free_urb() doesn't free its argument unless the refcount drops to 
-0.  The refcount is incremented during usb_hcd_submit_urb(), and the 
-decrement during usb_hcd_giveback_urb() merely undoes this increment.
+At least I think that's what you intended. A commit message would
+help :).
 
-> But I can't get around the fact that this has not been detected as a problem 
-> till now, so I could be quite wrong about this. :)
+Cheers,
+	-Matt Helsley
 
-Quite probably.  :-)
-
-Alan Stern
+> 
+> Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
+> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  ipc/namespace.c          |    7 +++++++
+>  kernel/fork.c            |    5 +++++
+>  kernel/nsproxy.c         |   11 ++++++++---
+>  kernel/utsname.c         |    7 +++++++
+>  net/core/net_namespace.c |    7 +++++++
+>  5 files changed, 34 insertions(+), 3 deletions(-)
+> 
+> diff --git a/ipc/namespace.c b/ipc/namespace.c
+> index ce0a647..a0a7609 100644
+> --- a/ipc/namespace.c
+> +++ b/ipc/namespace.c
+> @@ -163,6 +163,13 @@ static void ipcns_put(void *ns)
+> 
+>  static int ipcns_install(struct nsproxy *nsproxy, void *ns)
+>  {
+> +#if 0
+> +	struct ipc_namespace *newns = ns;
+> +	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
+> +#else
+> +	if (!capable(CAP_SYS_ADMIN))
+> +#endif
+> +		return -1;
+>  	/* Ditch state from the old ipc namespace */
+>  	exit_sem(current);
+>  	put_ipc_ns(nsproxy->ipc_ns);
