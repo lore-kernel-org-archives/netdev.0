@@ -1,66 +1,72 @@
-From: Matt Helsley <matthltc@us.ibm.com>
-Subject: Re: [PATCH 02/15] user ns: setns: move capable checks into per-ns
- attach helper
-Date: Sat, 3 Sep 2011 18:51:40 -0700
-Message-ID: <20110904015140.GB32295@count0.beaverton.ibm.com>
-References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
- <1314993400-6910-5-git-send-email-serge@hallyn.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] bridge: leave carrier on for empty bridge
+Date: Sat, 3 Sep 2011 21:14:38 -0700
+Message-ID: <20110903211438.2a43d2f2@nehalam.ftrdhcpuser.net>
+References: <20110902172220.830228928@vyatta.com>
+	<20110902172247.396753508@vyatta.com>
+	<4E614CF7.7030700@gmail.com>
+	<20110902151100.327af0bf@nehalam.ftrdhcpuser.net>
+	<4E6272BC.4020707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, segooon@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	dhowells@redhat.com, ebiederm@xmission.com, rdunlap@xenotime.net
-To: Serge Hallyn <serge@hallyn.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Nicolas de =?ISO-8859-1?B?UGVzbG/8YW4=?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:42193 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752474Ab1IDBvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Sep 2011 21:51:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1314993400-6910-5-git-send-email-serge@hallyn.com>
+Received: from mail.vyatta.com ([76.74.103.46]:41762 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750793Ab1IDEO2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2011 00:14:28 -0400
+In-Reply-To: <4E6272BC.4020707@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 02, 2011 at 07:56:27PM +0000, Serge Hallyn wrote:
-> From: "Serge E. Hallyn" <serge@hallyn.com>
+On Sat, 03 Sep 2011 20:32:28 +0200
+Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com> wrote:
 
-I was confused about this patch until I realized that you're not
-simply "moving" the capability checks but "distributing" them. Then
-you're showing that you'll soon change some to nsown_capable() or
-ns_capable() using the strange cpp pattern in the snippet below.
+> Le 03/09/2011 00:11, Stephen Hemminger a =E9crit :
+> > On Fri, 02 Sep 2011 23:39:03 +0200
+> > Nicolas de Peslo=FCan<nicolas.2p.debian@gmail.com>  wrote:
+> >
+> >> Le 02/09/2011 19:22, Stephen Hemminger a =E9crit :
+> >>> This resolves a regression seen by some users of bridging.
+> >>> Some users use the bridge like a dummy device.
+> >>> They expect to be able to put an IPv6 address on the device
+> >>> with no ports attached during boot.
+> >>>
+> >>> Note: the bridge still will reflect the state of ports in the
+> >>> bridge if there are any added.
+> >>
+> >> Doesn't this jeopardize the behavior introduced in 1faa4356a3bd89e=
+a11fb92752d897cff3a20ec0e
+> >> "bridge: control carrier based on ports online"?
+> >>
+> >> If the user starts the DHCP client before adding the first port to=
+ the bridge, the DHCP client will
+> >> have a carrier and start the autoconfiguration process. This was t=
+he old behavior, but you fixed it.
+> >>
+> >> 	Nicolas.
+> >>
+> >
+> > There is no perfect solution.
+> > If DHCP works then IPv6 breaks?
+>=20
+> Instead of asserting carrier when the bridge have no port, can't we a=
+ssert carrier when the three=20
+> following condition are true at the same time :
+>=20
+> - The bridge have no port.
+> - At least one IP address is setup on the bridge.
+> - The two above conditions are true for more than a configurable amou=
+nt of seconds, with a default=20
+> of 10, for example.
+>=20
+> This would only delay carrier on for a few seconds for the regression=
+ and keep the current behavior=20
+> (carrier off until at least 1 port is on) for DHCP.
 
-At least I think that's what you intended. A commit message would
-help :).
-
-Cheers,
-	-Matt Helsley
-
-> 
-> Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  ipc/namespace.c          |    7 +++++++
->  kernel/fork.c            |    5 +++++
->  kernel/nsproxy.c         |   11 ++++++++---
->  kernel/utsname.c         |    7 +++++++
->  net/core/net_namespace.c |    7 +++++++
->  5 files changed, 34 insertions(+), 3 deletions(-)
-> 
-> diff --git a/ipc/namespace.c b/ipc/namespace.c
-> index ce0a647..a0a7609 100644
-> --- a/ipc/namespace.c
-> +++ b/ipc/namespace.c
-> @@ -163,6 +163,13 @@ static void ipcns_put(void *ns)
-> 
->  static int ipcns_install(struct nsproxy *nsproxy, void *ns)
->  {
-> +#if 0
-> +	struct ipc_namespace *newns = ns;
-> +	if (!ns_capable(newns->user_ns, CAP_SYS_ADMIN))
-> +#else
-> +	if (!capable(CAP_SYS_ADMIN))
-> +#endif
-> +		return -1;
->  	/* Ditch state from the old ipc namespace */
->  	exit_sem(current);
->  	put_ipc_ns(nsproxy->ipc_ns);
+This fails on two counts:
+1. Bridge's often run without IP addresses!
+2. DHCP won't try and send out request until carrier is true.
