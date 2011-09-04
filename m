@@ -1,58 +1,41 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 2/2] net: Handle different key sizes between address
- families in flow cache
-Date: Sun, 4 Sep 2011 17:34:19 +0200
-Message-ID: <CAHXqBF+eF_zYAFPZv0hWUvDHv5YMHuFAR3-iB8MEZz2G7vCUyA@mail.gmail.com>
-References: <alpine.LFD.2.00.1109031004500.1492@ja.ssi.bg> <1315141641-3120-3-git-send-email-david.ward@ll.mit.edu>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
+Date: Sun, 04 Sep 2011 08:50:10 -0700
+Message-ID: <1315151411.10088.2.camel@Joe-Laptop>
+References: <4E631032.6050606@intel.com>
+	 <CA+icZUU25QMMCVT1VfF9XB0wrkppNmKQbHwoHDAQ-qV9bi+HqQ@mail.gmail.com>
+	 <CAAM7YAk0csJLLVFF6KYA8vMG_BN6QDvmYvtnY0Sq7P=cBsuKfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Julian Anastasov <ja@ssi.bg>
-To: David Ward <david.ward@ll.mit.edu>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sedat.dilek@gmail.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
+	"jirislaby@gmail.com" <jirislaby@gmail.com>
+To: "Yan, Zheng" <zheng.z.yan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:58453 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754457Ab1IDPej convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2011 11:34:39 -0400
-Received: by iabu26 with SMTP id u26so5283189iab.19
-        for <netdev@vger.kernel.org>; Sun, 04 Sep 2011 08:34:39 -0700 (PDT)
-In-Reply-To: <1315141641-3120-3-git-send-email-david.ward@ll.mit.edu>
+Received: from perches-mx.perches.com ([206.117.179.246]:50871 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751026Ab1IDPuM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Sep 2011 11:50:12 -0400
+In-Reply-To: <CAAM7YAk0csJLLVFF6KYA8vMG_BN6QDvmYvtnY0Sq7P=cBsuKfg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/9/4 David Ward <david.ward@ll.mit.edu>:
-> With the conversion of struct flowi to a union of AF-specific structs=
-, some
-> operations on the flow cache need to account for the exact size of th=
-e key.
-[...]
-> --- a/include/net/flow.h
-> +++ b/include/net/flow.h
-[...]
-> +typedef unsigned long flow_compare_t;
-> +
-> +static inline size_t flowi_size(u16 family)
-> +{
-> + =A0 =A0 =A0 switch (family) {
-> + =A0 =A0 =A0 case AF_INET:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 BUILD_BUG_ON(sizeof(struct flowi4) % si=
-zeof(flow_compare_t));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return sizeof(struct flowi4);
-> + =A0 =A0 =A0 case AF_INET6:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 BUILD_BUG_ON(sizeof(struct flowi6) % si=
-zeof(flow_compare_t));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return sizeof(struct flowi6);
-> + =A0 =A0 =A0 case AF_DECnet:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 BUILD_BUG_ON(sizeof(struct flowidn) % s=
-izeof(flow_compare_t));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return sizeof(struct flowidn);
-> + =A0 =A0 =A0 }
-> + =A0 =A0 =A0 return 0;
-> +}
+On Sun, 2011-09-04 at 16:23 +0800, Yan, Zheng wrote:
+> On Sun, Sep 4, 2011 at 3:12 PM, Sedat Dilek <sedat.dilek@googlemail.com> wrote:
+> > On Sun, Sep 4, 2011 at 7:44 AM, Yan, Zheng <zheng.z.yan@intel.com> wrote:
+> >> It passes the scm reference to the first skb. Skb(s) afterwards may
+> >> reference freed data structure because the first skb can be destructed
+> >> by the receiver at anytime. The fix is by passing the scm reference to
+> >> the very last skb.
+> > s/by passing/bypassing ?
+> No
 
-Since most called user (flow_key_compare) uses returned value didided
-by sizeof(flow_compare_t), you could just return divided value here
-and save some shift operations by it.
+(putting on my Randy Dunlap hat)
 
-Best Regards,
-Micha=B3 Miros=B3aw
+The issue was fixed by passing...
+or maybe
+The fix is to pass...
