@@ -1,120 +1,136 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] sfc: Remove requirement to set tx-usecs-irq for
- shared channels when modifying coalescing parameters
-Date: Mon, 05 Sep 2011 15:12:01 +0100
-Message-ID: <1315231921.3028.11.camel@bwh-desktop>
-References: <1314784356-30619-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
+From: Jim Wylder <jwylder1@motorola.com>
+Subject: Re: [PATCH] usbnet: ignore get interface retval of -EINPROGRESS
+Date: Mon, 5 Sep 2011 11:29:05 -0500
+Message-ID: <CAPopfEXz+HPdwWh_GQ2WzMnHh5DuXTse78NAU=-iN15wv-0C5g@mail.gmail.com>
+References: <CAPopfEUUaEChuh1mdZnHHT_9uRfsQmwMu7=gjnYr=AmFWik2HA@mail.gmail.com>
+	<201109031837.48444.oliver@neukum.org>
+	<CAPopfEWi0v9VXeDYcBfEgnWYxg7WcTTj3GBc6USzwcN+aGrKOQ@mail.gmail.com>
+	<201109041216.12127.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, shodgson@solarflare.com,
-	netdev@vger.kernel.org
-To: Ripduman Sohan <ripduman.sohan@cl.cam.ac.uk>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:40088 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752287Ab1IEOMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2011 10:12:05 -0400
-In-Reply-To: <1314784356-30619-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
+Received: from exprod5og111.obsmtp.com ([64.18.0.22]:42167 "EHLO
+	exprod5og111.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794Ab1IEQ3J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2011 12:29:09 -0400
+Received: from il93mgrg01.am.mot-mobility.com ([10.176.129.42])
+	by il93mgrg01.am.mot-mobility.com (8.14.3/8.14.3) with ESMTP id p85GPF4i015540
+	for <netdev@vger.kernel.org>; Mon, 5 Sep 2011 12:25:16 -0400 (EDT)
+Received: from mail-ww0-f46.google.com (mail-ww0-f46.google.com [74.125.82.46])
+	by il93mgrg01.am.mot-mobility.com (8.14.3/8.14.3) with ESMTP id p85GPEbr015532
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 5 Sep 2011 12:25:15 -0400 (EDT)
+Received: by wwg7 with SMTP id 7so4926612wwg.3
+        for <netdev@vger.kernel.org>; Mon, 05 Sep 2011 09:29:06 -0700 (PDT)
+In-Reply-To: <201109041216.12127.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-08-31 at 10:52 +0100, Ripduman Sohan wrote:
-> Shared TX/RX channels possess a single channel timer controlled by the
-> rx-usecs-irq parameter.  Changing coalescing parameters required
-> explicitly setting the tx-usecs-irq parameter to 0.  Ethtool (to HEAD
-> of tree) does not do this and instead retrieves and re-submits the
-> current tx-usecs-irq value resulting in an unsupported operation
-> error.  I found this behaviour counter-intuitive and was only able to
-> work out correct moderation parameters by studying the driver code.
-> 
-> This patch relaxes the requirement to set tx-usecs-irq to 0 by only
-> erring if the presented tx-usecs-irq value differs from the current
-> value.  I acknowledge, however, that there may be existing scripts
-> relying on the old behaviour and so this condition is only triggered
-> if a value for tx-usecs-irq is actually presented.
+When calling pm_runtime_get, usb_autopm_get_interface_async
+treats a return value of -EINPROGRESS as a success and
+increments the usage count.  Since the interface is resuming,
+it is safe for usbnet_start_xmit to submit the urb.  If instead,
+usbnet_start_xmit treats this as an error the packet will be
+dropped.  Additionally, a corresponding tx_complete will not
+run to offset the earlier increment of the usage count from the
+call to usb_autopm_get_interface_async.
 
-After you first reminded me about this in email, I had a good look at
-our ethtool coalescing control functions and tried to fix them
-thoroughly.
+Signed-off-by: James Wylder <james.wylder@motorola.com>
+---
+ drivers/net/usb/usbnet.c |   16 +++++++++++++++-
+ 1 files changed, 15 insertions(+), 1 deletions(-)
 
-Eli Cohen also recently queried about the semantics of the fields in
-struct ethtool_coalesce
-<http://thread.gmane.org/gmane.linux.network/202368>, so I updated the
-kernel-doc comments for it (19e2f6f..a27fc96).
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index ce395fe..7dcef05 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -81,6 +81,19 @@
 
-So I have some changes of my own in preparation, which I'll send as
-follow-ups.
+ /*--------------------------------------------------------------------=
+-----*/
 
-> ---
->  drivers/net/sfc/efx.c     |    6 +++---
->  drivers/net/sfc/efx.h     |    1 +
->  drivers/net/sfc/ethtool.c |    4 +++-
->  3 files changed, 7 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-> index faca764..9a313cd 100644
-> --- a/drivers/net/sfc/efx.c
-> +++ b/drivers/net/sfc/efx.c
-> @@ -1556,7 +1556,7 @@ static void efx_remove_all(struct efx_nic *efx)
->   *
->   **************************************************************************/
->  
-> -static unsigned irq_mod_ticks(int usecs, int resolution)
-> +unsigned efx_irq_mod_ticks(int usecs, int resolution)
->  {
->  	if (usecs <= 0)
->  		return 0; /* cannot receive interrupts ahead of time :-) */
-> @@ -1570,8 +1570,8 @@ void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs, int rx_usecs,
->  			     bool rx_adaptive)
->  {
->  	struct efx_channel *channel;
-> -	unsigned tx_ticks = irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION);
-> -	unsigned rx_ticks = irq_mod_ticks(rx_usecs, EFX_IRQ_MOD_RESOLUTION);
-> +	unsigned tx_ticks = efx_irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION);
-> +	unsigned rx_ticks = efx_irq_mod_ticks(rx_usecs, EFX_IRQ_MOD_RESOLUTION);
->  
->  	EFX_ASSERT_RESET_SERIALISED(efx);
->  
++/* When power management is configured, usb_autopm_get_interface_async=
+()
++ * will return -EINPROGRESS to signify that the interface was already
++ * resuming at the time that the function was called.  In our case
++ * (all cases?) this not an error condition.
++ * */
++#ifdef CONFIG_PM
++#define USBNET_PM_INTF_ALREADY_RESUMING(x) (x =3D=3D -EINPROGRESS)
++#else
++#define USBNET_PM_INTF_ALREADY_RESUMING(x) 0
++#endif
++
++/*--------------------------------------------------------------------=
+-----*/
++
+ // randomly generated ethernet address
+ static u8	node_id [ETH_ALEN];
 
-I would rather add a efx_get_irq_moderation() function for use in
-ethtool.c.
+@@ -1042,6 +1055,7 @@ EXPORT_SYMBOL_GPL(usbnet_tx_timeout);
 
-> diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
-> index b0d1209..ddfcc7e 100644
-> --- a/drivers/net/sfc/efx.h
-> +++ b/drivers/net/sfc/efx.h
-> @@ -113,6 +113,7 @@ extern int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok);
->  extern void efx_schedule_reset(struct efx_nic *efx, enum reset_type type);
->  extern void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs,
->  				    int rx_usecs, bool rx_adaptive);
-> +extern unsigned efx_irq_mod_ticks(int usecs, int resolution);
->  
->  /* Dummy PHY ops for PHY drivers */
->  extern int efx_port_dummy_op_int(struct efx_nic *efx);
-> diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
-> index bc4643a..0a52447 100644
-> --- a/drivers/net/sfc/ethtool.c
-> +++ b/drivers/net/sfc/ethtool.c
-> @@ -644,7 +644,9 @@ static int efx_ethtool_set_coalesce(struct net_device *net_dev,
->  	efx_for_each_channel(channel, efx) {
->  		if (efx_channel_has_rx_queue(channel) &&
->  		    efx_channel_has_tx_queues(channel) &&
-> -		    tx_usecs) {
-> +		    tx_usecs &&
-> +		    efx_irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION) !=
-> +		    channel->irq_moderation) {
->  			netif_err(efx, drv, efx->net_dev, "Channel is shared. "
->  				  "Only RX coalescing may be set\n");
->  			return -EOPNOTSUPP;
+ /*--------------------------------------------------------------------=
+-----*/
 
-channel->irq_moderation will be the value selected by the adaptive
-moderation algorithm.  efx->rx_irq_moderation is the appropriate value
-to use here.
++
+ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 				     struct net_device *net)
+ {
+@@ -1105,7 +1119,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *sk=
+b,
 
-Ben.
+ 	spin_lock_irqsave(&dev->txq.lock, flags);
+ 	retval =3D usb_autopm_get_interface_async(dev->intf);
+-	if (retval < 0) {
++	if (retval < 0 && !USBNET_PM_INTF_ALREADY_RESUMING(retval)) {
+ 		spin_unlock_irqrestore(&dev->txq.lock, flags);
+ 		goto drop;
+ 	}
+--=20
+1.7.6
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+On Sun, Sep 4, 2011 at 5:16 AM, Oliver Neukum <oliver@neukum.org> wrote=
+:
+> Am Samstag, 3. September 2011, 19:32:44 schrieb Jim Wylder:
+>
+> Hi,
+>
+>> Thanks for the quick feedback. =A0True usbnet_start_xmit() could be
+>> running at anytime, but the usb_autopm_get_interface_async() will on=
+ly
+>> return -EINPROGRESS when rpm_resume detects that
+>> dev->power.runtime_status =3D=3D RPM_RESUMING. =A0My understanding i=
+s that
+>> for an asynchronous request, the promise that the device is resuming
+>> would be equivalent to cases where usb_autopm_get_interface_async()
+>> returns success.
+>
+> If CONFIG_PM is set.
+>
+>> In all other cases, when we are not attempting to resume an already
+>> resuming interface, this change should have no impact.
+>>
+>> Are you recommending that I add an additional check for DEV_ASLEEP,
+>
+> The check is already there but depending on CONFIG_PM.
+>
+>> possibly to decide whether to drop the or continue on? =A0Or am I
+>> missing your point? =A0I had not done anything similar because my
+>> understanding was that knowing that the device is in fact resuming
+>> would be sufficient.
+>
+> At that point it is sufficient. Upon further thought it looks like yo=
+ur check
+> is correct.
+> We just need to make very sure that for the decision to queue or
+> to submit EVENT_DEV_ASLEEP is relevant.
+> Would you consider defining a macro with a nice name for the
+> =3D=3D0 || =3D=3D -EINPROGRESS check, so that any reader knows what
+> this is about? This is because I doubt only usbnet is affected.
+>
+> =A0 =A0 =A0 =A0Regards
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Oliver
+>
