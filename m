@@ -1,100 +1,53 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: [PATCH 1/2] bridge: leave carrier on for empty bridge
-Date: Sun, 04 Sep 2011 19:12:21 +0200
-Message-ID: <4E63B175.6020106@ans.pl>
-References: <20110902172220.830228928@vyatta.com> <20110902172247.396753508@vyatta.com> <4E614CF7.7030700@gmail.com> <20110902151100.327af0bf@nehalam.ftrdhcpuser.net> <4E6272BC.4020707@gmail.com> <20110903211438.2a43d2f2@nehalam.ftrdhcpuser.net> <4E632A2E.5040805@gmail.com> <20110904093634.685d7c56@nehalam.ftrdhcpuser.net>
+From: Rongqing Li <rongqing.li@windriver.com>
+Subject: Re: [PATCH 2/2] Add a netlink attribute INET_DIAG_SECCTX
+Date: Mon, 5 Sep 2011 08:32:33 +0800
+Message-ID: <4E6418A1.9000002@windriver.com>
+References: <1314779777-12669-1-git-send-email-rongqing.li@windriver.com> <2593215.lUI7et83Qv@sifl> <4E5F5153.6070708@windriver.com> <1971656.b979ahlREa@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:34978 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752334Ab1IDRpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Sep 2011 13:45:24 -0400
-In-Reply-To: <20110904093634.685d7c56@nehalam.ftrdhcpuser.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>,
+	<linux-security-module@vger.kernel.org>
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1971656.b979ahlREa@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2011-09-04 18:36, Stephen Hemminger wrote:
-> On Sun, 04 Sep 2011 09:35:10 +0200
-> Nicolas de Peslo=C3=BCan<nicolas.2p.debian@gmail.com>  wrote:
->
->> Le 04/09/2011 06:14, Stephen Hemminger a =C3=A9crit :
->>
->>>> Instead of asserting carrier when the bridge have no port, can't w=
-e assert carrier when the three
->>>> following condition are true at the same time :
+On 09/01/2011 08:28 PM, Paul Moore wrote:
+> On Thursday, September 01, 2011 05:33:07 PM Rongqing Li wrote:
+>> On 09/01/2011 05:18 AM, Paul Moore wrote:
+>>> On Wednesday, August 31, 2011 04:36:17 PM rongqing.li@windriver.com wrote:
+>>>> From: Roy.Li<rongqing.li@windriver.com>
 >>>>
->>>> - The bridge have no port.
->>>> - At least one IP address is setup on the bridge.
->>>> - The two above conditions are true for more than a configurable a=
-mount of seconds, with a default
->>>> of 10, for example.
->>>>
->>>> This would only delay carrier on for a few seconds for the regress=
-ion and keep the current behavior
->>>> (carrier off until at least 1 port is on) for DHCP.
+>>>> Add a new netlink attribute INET_DIAG_SECCTX to dump the security
+>>>> context of TCP sockets.
 >>>
->>> This fails on two counts:
->>> 1. Bridge's often run without IP addresses!
->>> 2. DHCP won't try and send out request until carrier is true.
+>>> You'll have to forgive me, I'm not familiar with the netlink code used
+>>> by
+>>> netstat and friends, but is there anyway to report back the security
+>>> context of UDP sockets?  Or does the code below handle that already?
+>>>
+>>> In general, AF_INET and AF_INET6 sockets, regardless of any upper level
+>>> protocols, have security contexts associated with them and it would be
+>>> nice to see them in netstat.
 >>
->> Sorry, I missed to say that we should of course also assert carrier =
-on if one port has carrier on.
->>
->> And rethinking about it, the delay is probably useless :
->>
->> bridge_carrier_on =3D at_least_one_port_has_carrier_on | (bridge_has=
-_no_port&  bridge_has_at_least_one_ip)
->>
->> That way :
->> - for those using bridge without any port, manually setting the IP w=
-ill assert carrier on. (By the
->> way, why don't they use a dummy device instead?)
->>
->> - for those using bridge with ports:
->> -- Using any kind of autoconfig will work as expected. Carrier will =
-only be asserted at the time
->> first port get carrier.
->> -- Using static IP confifiguration, carrier will possibly be erroneo=
-usly reported as on during the
->> small time gap between IP address configuration and first port is ad=
-ded to the bridge. This time gap
->> may be removed by simply configuring the IP after the first port is =
-added. This is probably already
->> true for most distribs. And anyway, this time gap is probably not a =
-problem.
->> -- Carrier will also be erroneously reported as on after removing th=
-e last port, if the bridge still
->> has an IP. (But we can arrange for this not to happen).
->>
->> And in order to ensure user really understand why carrier is on of o=
-ff, we can simply issue an INFO
->> message for the non-natural case (bridge_has_no_port&  bridga_has_at=
-_least_one_ip).
->>
->> I consider all this reasonable.
->>
->> 	Nicolas.
+>> Yes, this is real concern, If the dumping tcp security context can be
+>> accepted by netdev, I am planning to implement it for ipv4 udp socket, unix
+>> socket. then ipv6..
 >
-> Any bridge behaviour based on IP address configuration is a
-> layering violation and won't work.  The problem is related to dynamic=
- issues
-> with IPv6 and DHCP and needs to be addressed at that level.
+> Great, I'm glad to hear you're planning on implementing this for more than
+> just TCP.
+>
+> I understand your desire to have the basic idea accepted with only TCP
+> implemented - and that is fine with me - but I would like to see support for
+> all of the protocols merged at the same time.  In other words, seeking the
+> basic ACKs for TCP from the davem, et al is okay but I'd like to defer merging
+> TCP support until you have everything implemented and ready to be merged.
+>
 
-Maybe we can simply add a switch controlling if a bridge with no=20
-attached ports has carrier off (default) or on.
+Ok, I will try
 
-=46or example:
-  echo {0|1} > /sys/devices/virtual/net/brX/bridge/orphaned_carrier
-
-  brctl orphaned_carrier brX {on|off}
-
-Best regards,
-
-				Krzysztof Ol=C4=99dzki
+-- 
+Best Reagrds,
+Roy | RongQing Li
