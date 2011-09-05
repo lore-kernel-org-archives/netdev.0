@@ -1,39 +1,120 @@
-From: Justin Piszcz <jpiszcz@lucidpixels.com>
-Subject: 3.1-rc2: (on a second machine): WARNING: at net/sched/sch_generic.c:255
- dev_watchdog+0x23f/0x250()
-Date: Mon, 5 Sep 2011 08:36:11 -0400 (EDT)
-Message-ID: <alpine.DEB.2.02.1109050834430.23828@p34.internal.lan>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/2] sfc: Remove requirement to set tx-usecs-irq for
+ shared channels when modifying coalescing parameters
+Date: Mon, 05 Sep 2011 15:12:01 +0100
+Message-ID: <1315231921.3028.11.camel@bwh-desktop>
+References: <1314784356-30619-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Alan Piszcz <ap@solarrain.com>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, shodgson@solarflare.com,
+	netdev@vger.kernel.org
+To: Ripduman Sohan <ripduman.sohan@cl.cam.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lucidpixels.com ([72.73.18.11]:53775 "EHLO lucidpixels.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751912Ab1IEMgM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Sep 2011 08:36:12 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:40088 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752287Ab1IEOMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2011 10:12:05 -0400
+In-Reply-To: <1314784356-30619-1-git-send-email-ripduman.sohan@cl.cam.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Wed, 2011-08-31 at 10:52 +0100, Ripduman Sohan wrote:
+> Shared TX/RX channels possess a single channel timer controlled by the
+> rx-usecs-irq parameter.  Changing coalescing parameters required
+> explicitly setting the tx-usecs-irq parameter to 0.  Ethtool (to HEAD
+> of tree) does not do this and instead retrieves and re-submits the
+> current tx-usecs-irq value resulting in an unsupported operation
+> error.  I found this behaviour counter-intuitive and was only able to
+> work out correct moderation parameters by studying the driver code.
+> 
+> This patch relaxes the requirement to set tx-usecs-irq to 0 by only
+> erring if the presented tx-usecs-irq value differs from the current
+> value.  I acknowledge, however, that there may be existing scripts
+> relying on the old behaviour and so this condition is only triggered
+> if a value for tx-usecs-irq is actually presented.
 
-Kernel crash: 3.1-rc2:
+After you first reminded me about this in email, I had a good look at
+our ethtool coalescing control functions and tried to fix them
+thoroughly.
 
-Sep  5 08:28:36 l1 kernel: [1194854.704017] ------------[ cut here ]------------
-Sep  5 08:28:36 l1 kernel: [1194854.704030] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x23f/0x250()
-Sep  5 08:28:36 l1 kernel: [1194854.704033] Hardware name: P35-DS4
-Sep  5 08:28:36 l1 kernel: [1194854.704036] NETDEV WATCHDOG: eth0 (e1000e): transmit queue 0 timed out
-Sep  5 08:28:36 l1 kernel: [1194854.704039] Modules linked in: tcp_diag ub ppdev lp inet_diag w83795 ipmi_msghandler dm_mod nouveau ttm snd_hda_codec_realtek snd_hda_intel snd_hda_codec drm_kms_helper snd_pcm_oss snd_mixer_oss drm snd_pcm i2c_algo_bit mxm_wmi wmi intel_agp intel_gtt agpgart floppy snd_timer firewire_ohci firewire_core video snd soundcore snd_page_alloc parport_pc parport
-Sep  5 08:28:36 l1 kernel: [1194854.704077] Pid: 19, comm: ksoftirqd/3 Not tainted 3.1.0-rc2 #1
-Sep  5 08:28:36 l1 kernel: [1194854.704080] Call Trace:
-Sep  5 08:28:36 l1 kernel: [1194854.704088]  [<ffffffff810372da>] warn_slowpath_common+0x7a/0xb0
-Sep  5 08:28:36 l1 kernel: [1194854.704093]  [<ffffffff810373b1>] warn_slowpath_fmt+0x41/0x50
-Sep  5 08:28:36 l1 kernel: [1194854.704099]  [<ffffffff815ee154>] ? schedule+0x2e4/0x950
-Sep  5 08:28:36 l1 kernel: [1194854.704103]  [<ffffffff814fbc7f>] dev_watchdog+0x23f/0x250
-Sep  5 08:28:36 l1 kernel: [1194854.704109]  [<ffffffff81043162>] run_timer_softirq+0xf2/0x220
-Sep  5 08:28:36 l1 kernel: [1194854.704113]  [<ffffffff814fba40>] ? qdisc_reset+0x50/0x50
-Sep  5 08:28:36 l1 kernel: Sep  5 08:31:47 l1 syslogd 1.5.0#6.1: restart (remote reception).
+Eli Cohen also recently queried about the semantics of the fields in
+struct ethtool_coalesce
+<http://thread.gmane.org/gmane.linux.network/202368>, so I updated the
+kernel-doc comments for it (19e2f6f..a27fc96).
 
-Thoughts?
+So I have some changes of my own in preparation, which I'll send as
+follow-ups.
 
-Justin.
+> ---
+>  drivers/net/sfc/efx.c     |    6 +++---
+>  drivers/net/sfc/efx.h     |    1 +
+>  drivers/net/sfc/ethtool.c |    4 +++-
+>  3 files changed, 7 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+> index faca764..9a313cd 100644
+> --- a/drivers/net/sfc/efx.c
+> +++ b/drivers/net/sfc/efx.c
+> @@ -1556,7 +1556,7 @@ static void efx_remove_all(struct efx_nic *efx)
+>   *
+>   **************************************************************************/
+>  
+> -static unsigned irq_mod_ticks(int usecs, int resolution)
+> +unsigned efx_irq_mod_ticks(int usecs, int resolution)
+>  {
+>  	if (usecs <= 0)
+>  		return 0; /* cannot receive interrupts ahead of time :-) */
+> @@ -1570,8 +1570,8 @@ void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs, int rx_usecs,
+>  			     bool rx_adaptive)
+>  {
+>  	struct efx_channel *channel;
+> -	unsigned tx_ticks = irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION);
+> -	unsigned rx_ticks = irq_mod_ticks(rx_usecs, EFX_IRQ_MOD_RESOLUTION);
+> +	unsigned tx_ticks = efx_irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION);
+> +	unsigned rx_ticks = efx_irq_mod_ticks(rx_usecs, EFX_IRQ_MOD_RESOLUTION);
+>  
+>  	EFX_ASSERT_RESET_SERIALISED(efx);
+>  
+
+I would rather add a efx_get_irq_moderation() function for use in
+ethtool.c.
+
+> diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
+> index b0d1209..ddfcc7e 100644
+> --- a/drivers/net/sfc/efx.h
+> +++ b/drivers/net/sfc/efx.h
+> @@ -113,6 +113,7 @@ extern int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok);
+>  extern void efx_schedule_reset(struct efx_nic *efx, enum reset_type type);
+>  extern void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs,
+>  				    int rx_usecs, bool rx_adaptive);
+> +extern unsigned efx_irq_mod_ticks(int usecs, int resolution);
+>  
+>  /* Dummy PHY ops for PHY drivers */
+>  extern int efx_port_dummy_op_int(struct efx_nic *efx);
+> diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+> index bc4643a..0a52447 100644
+> --- a/drivers/net/sfc/ethtool.c
+> +++ b/drivers/net/sfc/ethtool.c
+> @@ -644,7 +644,9 @@ static int efx_ethtool_set_coalesce(struct net_device *net_dev,
+>  	efx_for_each_channel(channel, efx) {
+>  		if (efx_channel_has_rx_queue(channel) &&
+>  		    efx_channel_has_tx_queues(channel) &&
+> -		    tx_usecs) {
+> +		    tx_usecs &&
+> +		    efx_irq_mod_ticks(tx_usecs, EFX_IRQ_MOD_RESOLUTION) !=
+> +		    channel->irq_moderation) {
+>  			netif_err(efx, drv, efx->net_dev, "Channel is shared. "
+>  				  "Only RX coalescing may be set\n");
+>  			return -EOPNOTSUPP;
+
+channel->irq_moderation will be the value selected by the adaptive
+moderation algorithm.  efx->rx_irq_moderation is the appropriate value
+to use here.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
