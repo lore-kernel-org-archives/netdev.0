@@ -1,65 +1,46 @@
 From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next v4 4/4] r8169: support new chips of RTL8111F
-Date: Mon, 5 Sep 2011 20:13:07 +0800
-Message-ID: <954269F52E114A0ABE17F326C1E2D74B@realtek.com.tw>
-References: <1314956953-1568-1-git-send-email-hayeswang@realtek.com> <1314956953-1568-4-git-send-email-hayeswang@realtek.com <20110902162831.GA25544@electric-eye.fr.zoreil.com>
+Subject: RE: [linux-firmware v4 2/2] rtl_nic: add new firmware for RTL8111F
+Date: Mon, 5 Sep 2011 20:33:22 +0800
+Message-ID: <5DD6A39659C147FDACAB2C316A4F3908@realtek.com.tw>
+References: <1314860833-4000-1-git-send-email-hayeswang@realtek.com> <1314860833-4000-2-git-send-email-hayeswang@realtek.com> <1314969392.3092.157.camel@deadeye>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Cc: <dwmw2@infradead.org>, <romieu@fr.zoreil.com>,
+	<netdev@vger.kernel.org>
+To: 'Ben Hutchings' <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:39805 "EHLO
+Received: from rtits2.realtek.com ([60.250.210.242]:56555 "EHLO
 	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611Ab1IEMNR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2011 08:13:17 -0400
-In-Reply-To: <20110902162831.GA25544@electric-eye.fr.zoreil.com>
+	with ESMTP id S1752489Ab1IEMd4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2011 08:33:56 -0400
+In-Reply-To: <1314969392.3092.157.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
  
 
 > -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Saturday, September 03, 2011 12:29 AM
+> From: Ben Hutchings [mailto:ben@decadent.org.uk] 
+> Sent: Friday, September 02, 2011 9:17 PM
 > To: Hayeswang
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next v4 4/4] r8169: support new chips 
-> of RTL8111F
+> Cc: dwmw2@infradead.org; romieu@fr.zoreil.com; netdev@vger.kernel.org
+> Subject: Re: [linux-firmware v4 2/2] rtl_nic: add new 
+> firmware for RTL8111F
 > 
-> Hayes Wang <hayeswang@realtek.com> :
-> > Support new chips of RTL8111F.
-> 
-> Amongst other things :o)
-> 
-> > diff --git a/drivers/net/ethernet/realtek/r8169.c 
-> > b/drivers/net/ethernet/realtek/r8169.c
-> > index 175c769..8e6a200 100644
-> > --- a/drivers/net/ethernet/realtek/r8169.c
-> > +++ b/drivers/net/ethernet/realtek/r8169.c
+> On Thu, 2011-09-01 at 15:07 +0800, Hayes Wang wrote:
+> > Add new firmware:
+> > 1. rtl_nic/rtl8168f-1.fw
+> >    version: 0.0.2
+> > 2. rtl_nic/rtl8168f-2.fw
+> >    version: 0.0.2
 > [...]
-> > @@ -711,7 +719,10 @@ MODULE_FIRMWARE(FIRMWARE_8168D_1);
-> >  MODULE_FIRMWARE(FIRMWARE_8168D_2);
-> >  MODULE_FIRMWARE(FIRMWARE_8168E_1);
-> >  MODULE_FIRMWARE(FIRMWARE_8168E_2);
-> > +MODULE_FIRMWARE(FIRMWARE_8168E_3);
 > 
-> This one is relevant for Linus's tree.
-> 
-> Don't worry about submitting again, I'll send it separately.
+> Applied.  (And please do send firmware files to me as well as 
+> David; we can both commit to linux-firmware.git.)
 > 
 
-OK. I would adjust it again.
-
-> No opinion regarding the jumbo fixes patches I sent on 2011/07/17 ?
-> 
-
-It seems fine except that you don't need to disable rx checksum when using jumbo
-frame. The chips don't support tx checksum when using jumbo frame because of the
-feature of early tx. The early tx means that the hw would start to send the
-packet without loading the all data into fifo, so the software checksum is
-necessary. However, there is no influence for rx, so you could still enable rx
-checksum.
+Fine. Thanks.
  
 Best Regards,
 Hayes
