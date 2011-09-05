@@ -1,89 +1,87 @@
-From: Phil Sutter <phil.sutter@viprinet.com>
-Subject: Re: [PATCH] af_packet: flush complete kernel cache in packet_sendmsg
-Date: Mon, 5 Sep 2011 21:57:14 +0200
-Message-ID: <20110905195714.GC29025@philter>
-References: <20110505141107.GC30443@orbit.nwl.cc>
- <1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
- <1314971179.3092.159.camel@deadeye>
- <20110902172850.GB6619@n2100.arm.linux.org.uk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] bridge: leave carrier on for empty bridge
+Date: Mon, 5 Sep 2011 15:45:12 -0700
+Message-ID: <20110905154512.4cce78d6@nehalam.ftrdhcpuser.net>
+References: <20110902172220.830228928@vyatta.com>
+	<20110902172247.396753508@vyatta.com>
+	<4E614CF7.7030700@gmail.com>
+	<20110902151100.327af0bf@nehalam.ftrdhcpuser.net>
+	<4E6272BC.4020707@gmail.com>
+	<20110903211438.2a43d2f2@nehalam.ftrdhcpuser.net>
+	<4E632A2E.5040805@gmail.com>
+	<20110904093634.685d7c56@nehalam.ftrdhcpuser.net>
+	<4E65046E.1020005@gmail.com>
+	<20110905105735.1b912715@nehalam.ftrdhcpuser.net>
+	<4E651CB4.3070707@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas de =?ISO-8859-1?B?UGVzbG/8YW4=?=
+	<nicolas.2p.debian@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ang Way Chuang <wcang@sfc.wide.ad.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vipri.net ([89.207.250.2]:43390 "EHLO mail.vipri.net"
+Received: from mail.vyatta.com ([76.74.103.46]:36827 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753600Ab1IET5g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Sep 2011 15:57:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20110902172850.GB6619@n2100.arm.linux.org.uk>
+	id S1751200Ab1IEWpC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Sep 2011 18:45:02 -0400
+In-Reply-To: <4E651CB4.3070707@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, 06 Sep 2011 04:02:12 +0900
+Ang Way Chuang <wcang@sfc.wide.ad.jp> wrote:
 
-On Fri, Sep 02, 2011 at 06:28:50PM +0100, Russell King - ARM Linux wrot=
-e:
-> On Fri, Sep 02, 2011 at 02:46:17PM +0100, Ben Hutchings wrote:
-> > On Fri, 2011-09-02 at 13:08 +0200, Phil Sutter wrote:
-> > > This flushes the cache before and after accessing the mmapped pac=
-ket
-> > > buffer. It seems like the call to flush_dcache_page from inside
-> > > __packet_get_status is not enough on Kirkwood (or ARM in general)=
-=2E
-> > > ---
-> > > I know this is far from an optimal solution, but it's in fact the=
- only working
-> > > one I found.
-> > [...]
-> >=20
-> > This is ridiculous.  If flush_dcache_page() isn't doing everything =
-it
-> > should, you need to fix that.
->=20
-> It does do everything it should - which is to perform maintanence on
-> page cache pages.  It flushes the kernel mapping of the page.  It
-> also flushes the userspace mappings of the page which it finds by
-> walking the mmap list via the associated struct page.  It does not
-> touch vmalloc mappings because it has no way to know whether they
-> exist or not.
->=20
-> It doesn't do so much for anonymous pages - to do so would only
-> duplicate what flush_anon_page() does at the very same callsites.
-> Plus the mmap list isn't available for such pages so there's no
-> way to find out what userspace addresses to flush.
+> On 06/09/11 02:57, Stephen Hemminger wrote:
+> > The root cause of the problem is applications that don't deal with unresolved
+> > IPv6 addresses. I already had to solve this in our distribution for NTP in a
+> > not bridge related problem. It is better to fix the applications to understand
+> > IPv6 address semantics than to try and force bridge to behave in a way that
+> > is friendly to these applications.
+> Care to share the patch that you did for NTP? Perhaps, I may apply the same trick and tried it out on dnsmasq and radvd if I have time.
 
-Indeed very interesting information, thanks a lot!
+It has been submitted upstream, but probably an eternity until
+it ever gets merged through the NTP project...
 
-The code in question uses __get_free_pages(), and if that fails uses
-vmalloc() (see alloc_one_pg_vec_page() for reference). Both code paths
-show result in the same faulty behaviour.
+The problem happens on our system because NTP runs before interfaces
+brought up.
 
-> If the AF_PACKET buffers are created from anonymous pages and it's
-> using flush_dcache_page(), it's using the wrong interface.
 
-So, in order to fix this, which alternative would you suggest? Quite a
-lot of work has been done regarding memory allocation, so I guess
-changing that side is a no-go.
 
-Greetings, Phil
+commit 0997ebe40b2835a58ba2ea1e504e38d6d29c95ed
+Author: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date:   Tue Oct 26 17:55:04 2010 -0700
 
---=20
-Viprinet GmbH
-Mainzer Str. 43
-55411 Bingen am Rhein
-Germany
+    Ignore IPV6 Dynamic addresses
+    
+    During boot link-local addresses are generated dynamically.
+    These addresses are in a tentative state until after resolution occurs.
+    While in the tentative state, the address can not be bound to.
+    NTP daemon will see the address become available later when it rescans.
+    
+    (revised patch for 4.2.4p6)
 
-Zentrale:     +49-6721-49030-0
-Durchwahl:    +49-6721-49030-134
-=46ax:          +49-6721-49030-209
-
-phil.sutter@viprinet.com
-http://www.viprinet.com
-
-Sitz der Gesellschaft: Bingen am Rhein
-Handelsregister: Amtsgericht Mainz HRB40380
-Gesch=C3=A4ftsf=C3=BChrer: Simon Kissel
+diff --git a/lib/isc/unix/interfaceiter.c b/lib/isc/unix/interfaceiter.c
+index 87af69e..64a9f4f 100644
+--- a/lib/isc/unix/interfaceiter.c
++++ b/lib/isc/unix/interfaceiter.c
+@@ -151,6 +151,7 @@ get_addr(unsigned int family, isc_netaddr_t *dst, struct sockaddr *src,
+ static isc_result_t linux_if_inet6_next(isc_interfaceiter_t *);
+ static isc_result_t linux_if_inet6_current(isc_interfaceiter_t *);
+ static void linux_if_inet6_first(isc_interfaceiter_t *iter);
++#include <linux/if_addr.h>
+ #endif
+ 
+ #if HAVE_GETIFADDRS
+@@ -216,6 +217,11 @@ linux_if_inet6_current(isc_interfaceiter_t *iter) {
+ 			      "/proc/net/if_inet6:strlen(%s) != 32", address);
+ 		return (ISC_R_FAILURE);
+ 	}
++#ifdef __linux
++	/* Ignore DAD addresses -- can't bind to them till resolved */
++	if (flags & IFA_F_TENTATIVE)
++		return (ISC_R_IGNORE);
++#endif
+ 	for (i = 0; i < 16; i++) {
+ 		unsigned char byte;
+ 		static const char hex[] = "0123456789abcdef";
