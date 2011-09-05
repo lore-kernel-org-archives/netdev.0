@@ -1,44 +1,104 @@
-From: Jim Wylder <jwylder1@motorola.com>
-Subject: Re: [PATCH] usbnet: ignore get interface retval of -EINPROGRESS
-Date: Mon, 5 Sep 2011 11:36:54 -0500
-Message-ID: <CAPopfEXgR68y=Hsmx4q4Up7NqhLmbZ03N1=50eKKaB8EJ0aHfQ@mail.gmail.com>
-References: <CAPopfEUUaEChuh1mdZnHHT_9uRfsQmwMu7=gjnYr=AmFWik2HA@mail.gmail.com>
-	<201109031837.48444.oliver@neukum.org>
-	<CAPopfEWi0v9VXeDYcBfEgnWYxg7WcTTj3GBc6USzwcN+aGrKOQ@mail.gmail.com>
-	<201109041216.12127.oliver@neukum.org>
-	<CAPopfEXz+HPdwWh_GQ2WzMnHh5DuXTse78NAU=-iN15wv-0C5g@mail.gmail.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH 1/2] bridge: leave carrier on for empty bridge
+Date: Mon, 05 Sep 2011 19:18:38 +0200
+Message-ID: <4E65046E.1020005@gmail.com>
+References: <20110902172220.830228928@vyatta.com>	<20110902172247.396753508@vyatta.com>	<4E614CF7.7030700@gmail.com>	<20110902151100.327af0bf@nehalam.ftrdhcpuser.net>	<4E6272BC.4020707@gmail.com>	<20110903211438.2a43d2f2@nehalam.ftrdhcpuser.net>	<4E632A2E.5040805@gmail.com> <20110904093634.685d7c56@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og105.obsmtp.com ([64.18.0.180]:60523 "EHLO
-	exprod5og105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387Ab1IEQg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2011 12:36:58 -0400
-Received: from DE01MGRG01.AM.MOT-MOBILITY.COM ([10.22.94.168])
-	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p85Gbn4S014305
-	for <netdev@vger.kernel.org>; Mon, 5 Sep 2011 12:37:49 -0400 (EDT)
-Received: from mail-ww0-f46.google.com (mail-ww0-f46.google.com [74.125.82.46])
-	by DE01MGRG01.AM.MOT-MOBILITY.COM (8.14.3/8.14.3) with ESMTP id p85Gbm4x014299
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 5 Sep 2011 12:37:49 -0400 (EDT)
-Received: by wwg7 with SMTP id 7so4933391wwg.3
-        for <netdev@vger.kernel.org>; Mon, 05 Sep 2011 09:36:54 -0700 (PDT)
-In-Reply-To: <CAPopfEXz+HPdwWh_GQ2WzMnHh5DuXTse78NAU=-iN15wv-0C5g@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33011 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387Ab1IERSf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Sep 2011 13:18:35 -0400
+Received: by wyh22 with SMTP id 22so3788846wyh.19
+        for <netdev@vger.kernel.org>; Mon, 05 Sep 2011 10:18:34 -0700 (PDT)
+In-Reply-To: <20110904093634.685d7c56@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver,
+Le 04/09/2011 18:36, Stephen Hemminger a =E9crit :
+> On Sun, 04 Sep 2011 09:35:10 +0200
+> Nicolas de Peslo=FCan<nicolas.2p.debian@gmail.com>  wrote:
+>
+>> Le 04/09/2011 06:14, Stephen Hemminger a =E9crit :
+>>
+>>>> Instead of asserting carrier when the bridge have no port, can't w=
+e assert carrier when the three
+>>>> following condition are true at the same time :
+>>>>
+>>>> - The bridge have no port.
+>>>> - At least one IP address is setup on the bridge.
+>>>> - The two above conditions are true for more than a configurable a=
+mount of seconds, with a default
+>>>> of 10, for example.
+>>>>
+>>>> This would only delay carrier on for a few seconds for the regress=
+ion and keep the current behavior
+>>>> (carrier off until at least 1 port is on) for DHCP.
+>>>
+>>> This fails on two counts:
+>>> 1. Bridge's often run without IP addresses!
+>>> 2. DHCP won't try and send out request until carrier is true.
+>>
+>> Sorry, I missed to say that we should of course also assert carrier =
+on if one port has carrier on.
+>>
+>> And rethinking about it, the delay is probably useless :
+>>
+>> bridge_carrier_on =3D at_least_one_port_has_carrier_on | (bridge_has=
+_no_port&  bridge_has_at_least_one_ip)
+>>
+>> That way :
+>> - for those using bridge without any port, manually setting the IP w=
+ill assert carrier on. (By the
+>> way, why don't they use a dummy device instead?)
+>>
+>> - for those using bridge with ports:
+>> -- Using any kind of autoconfig will work as expected. Carrier will =
+only be asserted at the time
+>> first port get carrier.
+>> -- Using static IP confifiguration, carrier will possibly be erroneo=
+usly reported as on during the
+>> small time gap between IP address configuration and first port is ad=
+ded to the bridge. This time gap
+>> may be removed by simply configuring the IP after the first port is =
+added. This is probably already
+>> true for most distribs. And anyway, this time gap is probably not a =
+problem.
+>> -- Carrier will also be erroneously reported as on after removing th=
+e last port, if the bridge still
+>> has an IP. (But we can arrange for this not to happen).
+>>
+>> And in order to ensure user really understand why carrier is on of o=
+ff, we can simply issue an INFO
+>> message for the non-natural case (bridge_has_no_port&  bridga_has_at=
+_least_one_ip).
+>>
+>> I consider all this reasonable.
+>>
+>> 	Nicolas.
+>
+> Any bridge behaviour based on IP address configuration is a
+> layering violation and won't work.  The problem is related to dynamic=
+ issues
+> with IPv6 and DHCP and needs to be addressed at that level.
 
-I have a couple of questions about this:
+Well, this is not a bridge behavior, this is a behavior of the local (n=
+on physical) interface of the=20
+bridge. If this interface were physical, it would have been external to=
+ the bridge (on one of the=20
+hosts connected to the bridge).  As such, this behavior is not related =
+to the layering of the=20
+bridge, so I don't consider it a layering violation.
 
-- Does the macro as implemented properly communicate the intent as you
-requested?
+My proposed change doesn't impact the way the bridge works (forwards pa=
+ckets) in any way.
 
-- You made a comment about this being useful outside of usbnet.  The
-only appropriate place that I could identify for this would be all the
-way up in usb.h.  Do you think something at that level is more
-appropriate?
+And it really solves both issues.
 
-Jim
+	Nicolas.
