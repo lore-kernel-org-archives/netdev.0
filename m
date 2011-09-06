@@ -1,125 +1,145 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ip_rt_bug route.c:1677 in 3.0
-Date: Tue, 06 Sep 2011 23:01:11 +0200
-Message-ID: <1315342871.3400.32.camel@edumazet-laptop>
-References: <20110906204545.GA29628@tassilo.jf.intel.com>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
+Date: Tue, 06 Sep 2011 15:08:40 -0700
+Message-ID: <1315346920.2576.3089.camel@schen9-DESK>
+References: <4E631032.6050606@intel.com>
+	 <1315326326.2576.2980.camel@schen9-DESK>
+	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1315335019.2576.3048.camel@schen9-DESK>
+	 <1315335660.3400.7.camel@edumazet-laptop>
+	 <1315337580.2576.3066.camel@schen9-DESK>
+	 <1315338186.3400.20.camel@edumazet-laptop>
+	 <1315339157.2576.3079.camel@schen9-DESK>
+	 <1315340388.3400.28.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Yan, Zheng" <zheng.z.yan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"jirislaby@gmail.com" <jirislaby@gmail.com>,
+	"sedat.dilek@gmail.com" <sedat.dilek@gmail.com>, alex.shi@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:54100 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436Ab1IFVBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 17:01:24 -0400
-Received: by wwf5 with SMTP id 5so6706788wwf.1
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2011 14:01:23 -0700 (PDT)
-In-Reply-To: <20110906204545.GA29628@tassilo.jf.intel.com>
+Received: from mga09.intel.com ([134.134.136.24]:6911 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751507Ab1IFWGX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Sep 2011 18:06:23 -0400
+In-Reply-To: <1315340388.3400.28.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 06 septembre 2011 =C3=A0 13:45 -0700, Andi Kleen a =C3=A9crit =
-:
-> FYI,
->=20
-> My 3.0 workstation just spew:
->=20
-> I wonder if a application could have caused this?
->=20
-> ip_rt_bug: 10.7.201.108 -> 255.255.255.255, ?
-> ------------[ cut here ]------------
-> WARNING: at /home/ak/lsrc/git/linux-2.6/net/ipv4/route.c:1677 ip_rt_b=
-ug+0x5f/0x70()
-> Hardware name: ...
-> Modules linked in: vfat fat nls_utf8 udf ses enclosure nfs lockd fsca=
-che auth_rpcgss nfs_acl fuse sunrpc cpufreq_ondemand acpi_cpufreq freq_=
-table mperf ipv6 kvm_intel kvm uinput snd_hda_codec_hdmi snd_hda_codec_=
-realtek snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device sn=
-d_pcm iTCO_wdt microcode e1000 snd_timer snd soundcore broadcom iTCO_ve=
-ndor_support tg3 i7core_edac edac_core snd_page_alloc i2c_i801 dcdbas s=
-erio_raw joydev pcspkr firewire_ohci firewire_core crc_itu_t usb_storag=
-e radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded: s=
-csi_wait_scan]
-> Pid: 28530, comm: xsane Not tainted 3.0.0+ #15
-> Call Trace:
->  [<ffffffff810510ef>] warn_slowpath_common+0x7f/0xc0
->  [<ffffffff8105114a>] warn_slowpath_null+0x1a/0x20
->  [<ffffffff814946cf>] ip_rt_bug+0x5f/0x70
->  [<ffffffff8149f149>] ip_local_out+0x29/0x30
->  [<ffffffff814a047b>] ip_send_skb+0x1b/0x70
->  [<ffffffff814c25fa>] udp_send_skb+0x11a/0x3b0
->  [<ffffffff8149d3d0>] ? ip_setup_cork+0x170/0x170
->  [<ffffffff814c475c>] udp_sendmsg+0x37c/0x9b0
->  [<ffffffff814c31b9>] ? udp_lib_get_port+0x2a9/0x3e0
->  [<ffffffff81528d25>] ? _raw_spin_unlock_bh+0x15/0x20
->  [<ffffffff81448ca3>] ? release_sock+0xe3/0x110
->  [<ffffffff814ce214>] inet_sendmsg+0x64/0xb0
->  [<ffffffff81443e19>] sock_sendmsg+0xe9/0x120
->  [<ffffffff8111bb74>] ? handle_pte_fault+0x84/0x980
->  [<ffffffff8112be91>] ? free_pages_and_swap_cache+0xb1/0xe0
->  [<ffffffff812750cd>] ? cpumask_any_but+0x2d/0x40
->  [<ffffffff814464d1>] ? move_addr_to_kernel+0x71/0x80
->  [<ffffffff81446f39>] sys_sendto+0x139/0x190
->  [<ffffffff8144b20e>] ? sock_setsockopt+0x1ae/0x790
->  [<ffffffff811511ed>] ? fd_install+0x3d/0x70
->  [<ffffffff814471f3>] ? sys_setsockopt+0xb3/0xc0
->  [<ffffffff8153092b>] system_call_fastpath+0x16/0x1b
-> ---[ end trace ada1d01fefb0d73c ]---
-> ip_rt_bug: 10.7.201.108 -> 255.255.255.255, ?
-> ------------[ cut here ]------------
-> WARNING: at /home/ak/lsrc/git/linux-2.6/net/ipv4/route.c:1677 ip_rt_b=
-ug+0x5f/0x70()
-> Hardware name: ...
-> Modules linked in: vfat fat nls_utf8 udf ses enclosure nfs lockd fsca=
-che auth_rpcgss nfs_acl fuse sunrpc cpufreq_ondemand acpi_cpufreq freq_=
-table mperf ipv6 kvm_intel kvm uinput snd_hda_codec_hdmi snd_hda_codec_=
-realtek snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device sn=
-d_pcm iTCO_wdt microcode e1000 snd_timer snd soundcore broadcom iTCO_ve=
-ndor_support tg3 i7core_edac edac_core snd_page_alloc i2c_i801 dcdbas s=
-erio_raw joydev pcspkr firewire_ohci firewire_core crc_itu_t usb_storag=
-e radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded: s=
-csi_wait_scan]
-> Pid: 28530, comm: xsane Tainted: G        W   3.0.0+ #15
-> Call Trace:
->  [<ffffffff810510ef>] warn_slowpath_common+0x7f/0xc0
->  [<ffffffff8105114a>] warn_slowpath_null+0x1a/0x20
->  [<ffffffff814946cf>] ip_rt_bug+0x5f/0x70
->  [<ffffffff8149f149>] ip_local_out+0x29/0x30
->  [<ffffffff814a047b>] ip_send_skb+0x1b/0x70
->  [<ffffffff814c25fa>] udp_send_skb+0x11a/0x3b0
->  [<ffffffff8149d3d0>] ? ip_setup_cork+0x170/0x170
->  [<ffffffff814c475c>] udp_sendmsg+0x37c/0x9b0
->  [<ffffffff814c31b9>] ? udp_lib_get_port+0x2a9/0x3e0
->  [<ffffffff81528d25>] ? _raw_spin_unlock_bh+0x15/0x20
->  [<ffffffff81448ca3>] ? release_sock+0xe3/0x110
->  [<ffffffff814ce214>] inet_sendmsg+0x64/0xb0
->  [<ffffffff81443e19>] sock_sendmsg+0xe9/0x120
-> ...
->=20
->=20
+On Tue, 2011-09-06 at 22:19 +0200, Eric Dumazet wrote:
+
+> 
+> unless scm_ref really means scm_noref ?
+> 
+> I really hate this patch. I mean it. 
+> 
+> I read it 10 times, spent 2 hours and still dont understand it.
+> 
+
+Eric,
+
+I've tried another patch to fix my original one.  I've used a boolean
+ref_avail to indicate if there is an outstanding ref to scm not yet
+encoded into the skb.  Hopefully the logic is clearer in this new patch.
+
+> 
+> As I said, we should revert the buggy patch, and rewrite a performance
+> fix from scratch, with not a single get_pid()/put_pid() in fast path.
+> 
+> read()/write() on AF_UNIX sockets should not use a single
+> get_pid()/put_pid().
+> 
+> This is a serious regression we should fix at 100%, not 50% or even 75%,
+> adding serious bugs.
+
+That will be ideal if there is another way to fix it 100%, other than reverting
+commit 7361c36c.  Probably if there is some way we know beforehand that 
+both sender and receiver share the same pid, which is quite common, a
+lot of these pid code can be bypassed. 
+
+Tim
 
 
-Make sure you have this commit=20
+Signed-off-by: Tim Chen <tim.c.chen@linux.intel.com>
+---
 
-commit d547f727df86059104af2234804fdd538e112015
-Author: Julian Anastasov <ja@ssi.bg>
-Date:   Sun Aug 7 22:20:20 2011 -0700
-
-    ipv4: fix the reusing of routing cache entries
-   =20
-        compare_keys and ip_route_input_common rely on
-    rt_oif for distinguishing of input and output routes
-    with same keys values. But sometimes the input route has
-    also same hash chain (keyed by iif !=3D 0) with the output
-    routes (keyed by orig_oif=3D0). Problem visible if running
-    with small number of rhash_entries.
-   =20
-        Fix them to use rt_route_iif instead. By this way
-    input route can not be returned to users that request
-    output route.
-   =20
-        The patch fixes the ip_rt_bug errors that were
-    reported in ip_local_out context, mostly for 255.255.255.255
-    destinations.
-   =20
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 136298c..78be921 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1582,11 +1582,13 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	struct scm_cookie tmp_scm;
+ 	bool fds_sent = false;
+ 	int max_level;
++	bool ref_avail; /* scm ref not yet used in skb */
+ 
+ 	if (NULL == siocb->scm)
+ 		siocb->scm = &tmp_scm;
+ 	wait_for_unix_gc();
+ 	err = scm_send(sock, msg, siocb->scm);
++	ref_avail = true;
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -1642,11 +1644,18 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		size = min_t(int, size, skb_tailroom(skb));
+ 
+ 
+-		/* Only send the fds and no ref to pid in the first buffer */
+-		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, fds_sent);
++		/* encode scm in skb and use the scm ref */
++		ref_avail = false;
++		if (sent + size < len) { 
++			/* Only send the fds in the first buffer */
++			/* get additional ref if more skbs will be created */
++			err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, true);
++			ref_avail = true;
++		} else
++			err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, false);
+ 		if (err < 0) {
+ 			kfree_skb(skb);
+-			goto out;
++			goto out_err;
+ 		}
+ 		max_level = err + 1;
+ 		fds_sent = true;
+@@ -1654,7 +1663,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
+ 		if (err) {
+ 			kfree_skb(skb);
+-			goto out;
++			goto out_err;
+ 		}
+ 
+ 		unix_state_lock(other);
+@@ -1671,10 +1680,10 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		sent += size;
+ 	}
+ 
+-	if (skb)
+-		scm_release(siocb->scm);
+-	else
++	if (ref_avail)
+ 		scm_destroy(siocb->scm);
++	else
++		scm_release(siocb->scm);
+ 	siocb->scm = NULL;
+ 
+ 	return sent;
+@@ -1687,9 +1696,10 @@ pipe_err:
+ 		send_sig(SIGPIPE, current, 0);
+ 	err = -EPIPE;
+ out_err:
+-	if (skb == NULL)
++	if (ref_avail)
+ 		scm_destroy(siocb->scm);
+-out:
++	else
++		scm_release(siocb->scm);
+ 	siocb->scm = NULL;
+ 	return sent ? : err;
+ }
