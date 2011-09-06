@@ -1,51 +1,83 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH 1/2] bridge: leave carrier on for empty bridge
-Date: Tue, 06 Sep 2011 08:52:15 +0200
-Message-ID: <4E65C31F.1010809@gmail.com>
-References: <20110902172220.830228928@vyatta.com>	<20110902172247.396753508@vyatta.com>	<4E614CF7.7030700@gmail.com>	<20110902151100.327af0bf@nehalam.ftrdhcpuser.net>	<4E6272BC.4020707@gmail.com>	<20110903211438.2a43d2f2@nehalam.ftrdhcpuser.net>	<4E632A2E.5040805@gmail.com>	<20110904093634.685d7c56@nehalam.ftrdhcpuser.net>	<4E65046E.1020005@gmail.com> <20110905105735.1b912715@nehalam.ftrdhcpuser.net>
+From: "Bhanu Prakash Gollapudi" <bprakash-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [patch net-next-2.6 v3] net: consolidate and fix
+ ethtool_ops->get_settings calling
+Date: Mon, 5 Sep 2011 23:52:22 -0700
+Message-ID: <4E65C326.3010506@broadcom.com>
+References: <1314905304-16485-1-git-send-email-jpirko@redhat.com>
+	<20110902122630.GC1991@minipsycho>
+	<1314989161.3419.5.camel@bwh-desktop>
+	<20110903133428.GA2821@minipsycho> <1315057614.3092.160.camel@deadeye>
+	<5A9BD224CEA58D4CB62235967D650C160A1B7D1C@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:48202 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752743Ab1IFGwN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 02:52:13 -0400
-Received: by wwf5 with SMTP id 5so5859532wwf.1
-        for <netdev@vger.kernel.org>; Mon, 05 Sep 2011 23:52:12 -0700 (PDT)
-In-Reply-To: <20110905105735.1b912715@nehalam.ftrdhcpuser.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: "amit.salecha-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <amit.salecha-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+	"bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org" <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+	"JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"decot-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org" <decot-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org" <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
+	"therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org" <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org" <fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	"xiaosuo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <xiaosuo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	"Duyck, Alexander H" <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org" <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	"greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org" <greearb-my8/4N5VtI6/mCGcgd5LIw@public.gmane.org
+To: "Zou, Yi" <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+In-Reply-To: <5A9BD224CEA58D4CB62235967D650C160A1B7D1C-osO9UTpF0UQd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+List-Unsubscribe: <https://lists.open-fcoe.org/mailman/options/devel>,
+	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.open-fcoe.org/pipermail/devel>
+List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-fcoe.org/mailman/listinfo/devel>,
+	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
+Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 05/09/2011 19:57, Stephen Hemminger a =E9crit :
-> The root cause of the problem is applications that don't deal with un=
-resolved
-> IPv6 addresses. I already had to solve this in our distribution for N=
-TP in a
-> not bridge related problem. It is better to fix the applications to u=
-nderstand
-> IPv6 address semantics than to try and force bridge to behave in a wa=
-y that
-> is friendly to these applications.
-
-Thanks for clarifying.
-
-> The earlier mail said it is a problem with dnsmasq and radvd. Let's w=
-ork on understanding
-> if they need to be updated before jumping in with hacks to the bridge=
- code.
+On 9/5/2011 8:25 PM, Zou, Yi wrote:
+>>
+>> On Sat, 2011-09-03 at 15:34 +0200, Jiri Pirko wrote:
+>>> This patch does several things:
+>>> - introduces __ethtool_get_settings which is called from ethtool code
+>> and
+>>>    from drivers as well. Put ASSERT_RTNL there.
+>>> - dev_ethtool_get_settings() is replaced by __ethtool_get_settings()
+>>> - changes calling in drivers so rtnl locking is respected. In
+>>>    iboe_get_rate was previously ->get_settings() called unlocked. This
+>>>    fixes it. Also prb_calc_retire_blk_tmo() in af_packet.c had the same
+>>>    problem. Also fixed by calling __dev_get_by_index() instead of
+>>>    dev_get_by_index() and holding rtnl_lock for both calls.
+>>> - introduces rtnl_lock in bnx2fc_vport_create() and fcoe_vport_create()
+>>>    so bnx2fc_if_create() and fcoe_if_create() are called locked as they
+>>>    are from other places.
+>>> - use __ethtool_get_settings() in bonding code
+>>>
+>>> Signed-off-by: Jiri Pirko<jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> Reviewed-by: Ben Hutchings<bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>  [except FCoE bits]
+>>
+>> Ben.
+> FCoE bits look ok to me. Thanks,
 >
+> Reviewed-by: Yi Zou<yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-I really support the idea to keep the current behavior (assert carrier =
-on br0 when at least one port=20
-have carrier) and to fix the applications to wait for the IPv6 address =
-to be checked (DAD) instead=20
-of dying on bind() failure.
-
-Thanks.
-
-	Nicolas.
+bnx2fc changes looks OK to me.
+Reviewed-by: Bhanu Prakash Gollapudi <bprakash-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>
+>>
+>> --
+>> Ben Hutchings, Staff Engineer, Solarflare
+>> Not speaking for my employer; that's the marketing department's job.
+>> They asked us to note that Solarflare product names are trademarked.
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
