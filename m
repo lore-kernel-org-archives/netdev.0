@@ -1,61 +1,84 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net] gianfar: Fix overflow check and return value for
- gfar_get_cls_all()
-Date: Tue, 06 Sep 2011 23:44:25 +0100
-Message-ID: <1315349065.2788.18.camel@bwh-desktop>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering support
+	for passthru mode
+Date: Tue, 06 Sep 2011 15:35:40 -0700
+Message-ID: <20110906223536.6552.2062.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Sebastian Poehn <sebastian.poehn@belden.com>
+Cc: dragos.tatulea@gmail.com, arnd@arndb.de, mst@redhat.com,
+	dwang2@cisco.com, benve@cisco.com, kaber@trash.net, sri@us.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:38785 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753378Ab1IFWo2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 18:44:28 -0400
+Received: from mtv-iport-2.cisco.com ([173.36.130.13]:3505 "EHLO
+	mtv-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753378Ab1IFWpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 18:45:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function may currently fill one entry beyond the end of the
-array it is given.  It also doesn't return an error code in case
-it does detect overflow.
+This patch is an attempt at providing address filtering support for macvtap 
+devices in PASSTHRU mode. Its still a work in progress.
+Briefly tested for basic functionality. Wanted to get some feedback on the 
+direction before proceeding.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-This code is new for 3.1, so no stable update required.
+I have hopefully CC'ed all concerned people.
 
-Not tested in any way, as this driver depends on FSL_SOC.
+PASSTHRU mode today sets the lowerdev in promiscous mode. In PASSTHRU mode
+there is a 1-1 mapping between macvtap device and physical nic or VF. And all
+filtering is done in lowerdev hw. The lowerdev does not need to be in 
+promiscous mode as long as the guest filters are passed down to the lowerdev. 
+This patch tries to remove the need for putting the lowerdev in promiscous mode. 
+I have also referred to the thread below where TUNSETTXFILTER was mentioned in 
+this context: 
+ http://patchwork.ozlabs.org/patch/69297/
 
-Ben.
+This patch basically passes the addresses got by TUNSETTXFILTER to macvlan 
+lowerdev.
 
- drivers/net/gianfar_ethtool.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+I have looked at previous work and discussions on this for qemu-kvm 
+by Michael Tsirkin, Alex Williamson and Dragos Tatulea
+http://patchwork.ozlabs.org/patch/78595/
+http://patchwork.ozlabs.org/patch/47160/
+https://patchwork.kernel.org/patch/474481/
 
-diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
-index 25a8c2a..0caf3c3 100644
---- a/drivers/net/gianfar_ethtool.c
-+++ b/drivers/net/gianfar_ethtool.c
-@@ -1669,10 +1669,10 @@ static int gfar_get_cls_all(struct gfar_private *priv,
- 	u32 i = 0;
- 
- 	list_for_each_entry(comp, &priv->rx_list.list, list) {
--		if (i <= cmd->rule_cnt) {
--			rule_locs[i] = comp->fs.location;
--			i++;
--		}
-+		if (i == cmd->rule_cnt)
-+			return -EMSGSIZE;
-+		rule_locs[i] = comp->fs.location;
-+		i++;
- 	}
- 
- 	cmd->data = MAX_FILER_IDX;
--- 
-1.7.4.4
+Redhat bugzilla by Michael Tsirkin:
+https://bugzilla.redhat.com/show_bug.cgi?id=655013
 
+I used Michael's qemu-kvm patch for testing the changes with KVM 
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I would like to cover both MAC and vlan filtering in this work.
+
+Open Questions/Issues:
+- There is a need for vlan filtering to complete the patch. It will require 
+  a new tap ioctl cmd for vlans. 
+  Some ideas on this are: 
+
+  a) TUNSETVLANFILTER: This will entail we send the whole vlan bitmap filter 
+	(similar to tun_filter for addresses). Passing the vlan id's to lower
+	device will mean going thru the whole list of vlans every time.
+
+  OR
+
+  b) TUNSETVLAN with vlan id and flag to set/unset
+
+  Does option 'b' sound ok ?
+
+- In this implementation we make the macvlan address list same as the address 
+  list that came in the filter with TUNSETTXFILTER. This will not cover cases 
+  where the macvlan device needs to have other addresses that are not 
+  necessarily in the filter. Is this a problem ?
+
+- The patch currently only supports passing of IFF_PROMISC and IFF_MULTICAST 
+filter flags to lowerdev
+
+This patch series implements the following 
+01/3 - macvlan: Add support for unicast filtering in macvlan 
+02/3 - macvlan: Add function to set addr filter on lower device in passthru mode
+03/3 - macvtap: Add support for TUNSETTXFILTER
+
+Please comment. Thanks.
+
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
