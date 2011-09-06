@@ -1,8 +1,9 @@
 From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering support
-	for passthru mode
-Date: Tue, 06 Sep 2011 15:35:40 -0700
-Message-ID: <20110906223536.6552.2062.stgit@savbu-pc100.cisco.com>
+Subject: [net-next-2.6 PATCH 1/3 RFC] macvlan: Add support for unicast
+	filtering in macvlan
+Date: Tue, 06 Sep 2011 15:35:45 -0700
+Message-ID: <20110906223545.6552.15879.stgit@savbu-pc100.cisco.com>
+References: <20110906223536.6552.2062.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,75 +11,97 @@ Cc: dragos.tatulea@gmail.com, arnd@arndb.de, mst@redhat.com,
 	dwang2@cisco.com, benve@cisco.com, kaber@trash.net, sri@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-2.cisco.com ([173.36.130.13]:3505 "EHLO
-	mtv-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753378Ab1IFWpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 18:45:07 -0400
+Received: from mtv-iport-1.cisco.com ([173.36.130.12]:58644 "EHLO
+	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754868Ab1IFWpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 18:45:08 -0400
+In-Reply-To: <20110906223536.6552.2062.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is an attempt at providing address filtering support for macvtap 
-devices in PASSTHRU mode. Its still a work in progress.
-Briefly tested for basic functionality. Wanted to get some feedback on the 
-direction before proceeding.
+From: Roopa Prabhu <roprabhu@cisco.com>
 
-I have hopefully CC'ed all concerned people.
-
-PASSTHRU mode today sets the lowerdev in promiscous mode. In PASSTHRU mode
-there is a 1-1 mapping between macvtap device and physical nic or VF. And all
-filtering is done in lowerdev hw. The lowerdev does not need to be in 
-promiscous mode as long as the guest filters are passed down to the lowerdev. 
-This patch tries to remove the need for putting the lowerdev in promiscous mode. 
-I have also referred to the thread below where TUNSETTXFILTER was mentioned in 
-this context: 
- http://patchwork.ozlabs.org/patch/69297/
-
-This patch basically passes the addresses got by TUNSETTXFILTER to macvlan 
-lowerdev.
-
-I have looked at previous work and discussions on this for qemu-kvm 
-by Michael Tsirkin, Alex Williamson and Dragos Tatulea
-http://patchwork.ozlabs.org/patch/78595/
-http://patchwork.ozlabs.org/patch/47160/
-https://patchwork.kernel.org/patch/474481/
-
-Redhat bugzilla by Michael Tsirkin:
-https://bugzilla.redhat.com/show_bug.cgi?id=655013
-
-I used Michael's qemu-kvm patch for testing the changes with KVM 
-
-I would like to cover both MAC and vlan filtering in this work.
-
-Open Questions/Issues:
-- There is a need for vlan filtering to complete the patch. It will require 
-  a new tap ioctl cmd for vlans. 
-  Some ideas on this are: 
-
-  a) TUNSETVLANFILTER: This will entail we send the whole vlan bitmap filter 
-	(similar to tun_filter for addresses). Passing the vlan id's to lower
-	device will mean going thru the whole list of vlans every time.
-
-  OR
-
-  b) TUNSETVLAN with vlan id and flag to set/unset
-
-  Does option 'b' sound ok ?
-
-- In this implementation we make the macvlan address list same as the address 
-  list that came in the filter with TUNSETTXFILTER. This will not cover cases 
-  where the macvlan device needs to have other addresses that are not 
-  necessarily in the filter. Is this a problem ?
-
-- The patch currently only supports passing of IFF_PROMISC and IFF_MULTICAST 
-filter flags to lowerdev
-
-This patch series implements the following 
-01/3 - macvlan: Add support for unicast filtering in macvlan 
-02/3 - macvlan: Add function to set addr filter on lower device in passthru mode
-03/3 - macvtap: Add support for TUNSETTXFILTER
-
-Please comment. Thanks.
+This patch adds support for ndo_set_rx_mode and sets IFF_UNICAST_FLT to enable
+unicast filtering in macvlan. This is to support unicast and multicast
+address filtering when this device is used in PASSTHRU mode
 
 Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
 Signed-off-by: Christian Benvenuti <benve@cisco.com>
 Signed-off-by: David Wang <dwang2@cisco.com>
+---
+ drivers/net/macvlan.c |   20 ++++++++++++++++++--
+ 1 files changed, 18 insertions(+), 2 deletions(-)
+
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 836e13f..528924f 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -316,11 +316,19 @@ static int macvlan_open(struct net_device *dev)
+ 		if (err < 0)
+ 			goto del_unicast;
+ 	}
++	if (dev->flags & IFF_PROMISC) {
++		err = dev_set_promiscuity(lowerdev, 1);
++		if (err < 0)
++			goto unset_allmulti;
++	}
+ 
+ hash_add:
+ 	macvlan_hash_add(vlan);
+ 	return 0;
+ 
++unset_allmulti:
++	dev_set_allmulti(lowerdev, -1);
++
+ del_unicast:
+ 	dev_uc_del(lowerdev, dev->dev_addr);
+ out:
+@@ -337,9 +345,12 @@ static int macvlan_stop(struct net_device *dev)
+ 		goto hash_del;
+ 	}
+ 
++	dev_uc_unsync(lowerdev, dev);
+ 	dev_mc_unsync(lowerdev, dev);
+ 	if (dev->flags & IFF_ALLMULTI)
+ 		dev_set_allmulti(lowerdev, -1);
++	if (dev->flags & IFF_PROMISC)
++		dev_set_promiscuity(lowerdev, -1);
+ 
+ 	dev_uc_del(lowerdev, dev->dev_addr);
+ 
+@@ -384,12 +395,16 @@ static void macvlan_change_rx_flags(struct net_device *dev, int change)
+ 
+ 	if (change & IFF_ALLMULTI)
+ 		dev_set_allmulti(lowerdev, dev->flags & IFF_ALLMULTI ? 1 : -1);
++	if (change & IFF_PROMISC)
++		dev_set_promiscuity(lowerdev,
++			dev->flags & IFF_PROMISC ? 1 : -1);
+ }
+ 
+-static void macvlan_set_multicast_list(struct net_device *dev)
++static void macvlan_set_rx_mode(struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 
++	dev_uc_sync(vlan->lowerdev, dev);
+ 	dev_mc_sync(vlan->lowerdev, dev);
+ }
+ 
+@@ -561,7 +576,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
+ 	.ndo_change_mtu		= macvlan_change_mtu,
+ 	.ndo_change_rx_flags	= macvlan_change_rx_flags,
+ 	.ndo_set_mac_address	= macvlan_set_mac_address,
+-	.ndo_set_rx_mode	= macvlan_set_multicast_list,
++	.ndo_set_rx_mode	= macvlan_set_rx_mode,
+ 	.ndo_get_stats64	= macvlan_dev_get_stats64,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_vlan_rx_add_vid	= macvlan_vlan_rx_add_vid,
+@@ -573,6 +588,7 @@ void macvlan_common_setup(struct net_device *dev)
+ 	ether_setup(dev);
+ 
+ 	dev->priv_flags	       &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
++	dev->priv_flags	       |= IFF_UNICAST_FLT;
+ 	dev->netdev_ops		= &macvlan_netdev_ops;
+ 	dev->destructor		= free_netdev;
+ 	dev->header_ops		= &macvlan_hard_header_ops,
