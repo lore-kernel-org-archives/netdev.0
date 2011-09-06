@@ -1,66 +1,40 @@
-From: Phil Sutter <phil.sutter@viprinet.com>
-Subject: Re: [PATCH] af_packet: flush complete kernel cache in packet_sendmsg
-Date: Tue, 6 Sep 2011 13:05:03 +0200
-Message-ID: <20110906110503.GE29025@philter>
-References: <20110505141107.GC30443@orbit.nwl.cc>
-	<1314961686-30870-1-git-send-email-phil.sutter@viprinet.com>
-	<1314971179.3092.159.camel@deadeye>
-	<20110902172850.GB6619@n2100.arm.linux.org.uk>
-	<20110905195714.GC29025@philter>
-	<20110906095722.GK6619@n2100.arm.linux.org.uk>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [patch net-next-2.6 v3] net: consolidate and fix
+ ethtool_ops->get_settings calling
+Date: Tue, 6 Sep 2011 14:20:40 +0200
+Message-ID: <20110906122040.GA25774@linux-mips.org>
+References: <1314905304-16485-1-git-send-email-jpirko@redhat.com>
+ <20110902122630.GC1991@minipsycho>
+ <1314989161.3419.5.camel@bwh-desktop>
+ <20110903133428.GA2821@minipsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=us-ascii
 Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+        fubar@us.ibm.com, andy@greyhouse.net, kaber@trash.net,
+        bprakash@broadcom.com, JBottomley@parallels.com,
+        robert.w.love@intel.com, davem@davemloft.net,
+        shemminger@linux-foundation.org, decot@google.com,
+        mirq-linux@rere.qmqm.pl, alexander.h.duyck@intel.com,
+        amit.salecha@qlogic.com, eric.dumazet@gmail.com,
+        therbert@google.com, paulmck@linux.vnet.ibm.com,
+        laijs@cn.fujitsu.com, xiaosuo@gmail.com, greearb@candelatech.com,
+        loke.chetan@gmail.com, linux-mips@linux-mips.org,
+        linux-scsi@vger.kernel.org, devel@open-fcoe.org,
+        bridge@lists.linux-foundation.org
+To: Jiri Pirko <jpirko@redhat.com>, tg@linux-mips.org
+Return-path: <linux-mips-bounce@linux-mips.org>
 Content-Disposition: inline
-In-Reply-To: <20110906095722.GK6619@n2100.arm.linux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+In-Reply-To: <20110903133428.GA2821@minipsycho>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCBTZXAgMDYsIDIwMTEgYXQgMTA6NTc6MjJBTSArMDEwMCwgUnVzc2VsbCBLaW5nIC0g
-QVJNIExpbnV4IHdyb3RlOgo+ID4gVGhlIGNvZGUgaW4gcXVlc3Rpb24gdXNlcyBfX2dldF9mcmVl
-X3BhZ2VzKCksIGFuZCBpZiB0aGF0IGZhaWxzIHVzZXMKPiA+IHZtYWxsb2MoKSAoc2VlIGFsbG9j
-X29uZV9wZ192ZWNfcGFnZSgpIGZvciByZWZlcmVuY2UpLiBCb3RoIGNvZGUgcGF0aHMKPiA+IHNo
-b3cgcmVzdWx0IGluIHRoZSBzYW1lIGZhdWx0eSBiZWhhdmlvdXIuCj4gCj4gU28sIHdoYXQgeW91
-J3JlIHdhbnRpbmcgaXMgY2FjaGUgY29oZXJlbmN5IGJldHdlZW4gdm1hbGxvYygpIGFuZAo+IHVz
-ZXJzcGFjZS4gIFRoZXJlIGlzIG5vIEFQSSBpbiB0aGUga2VybmVsIHRvIGRvIHRoYXQsIGFuZCB5
-b3UnbGwgc2VlCj4gdGhlIHNhbWUgZmFpbHVyZXMgb2YgdGhpcyBpbnRlcmZhY2Ugbm90IG9ubHkg
-b24gQVJNIGJ1dCBhbHNvIG90aGVyCj4gYXJjaGl0ZWN0dXJlcyB3aXRoIHZpcnR1YWwgY2FjaGVz
-Lgo+IAo+IEl0IHNvdW5kcyBsaWtlIHdlIG5lZWQgYW4gQVBJIHRvIGZsdXNoIHRoZSBjYWNoZSB1
-c2luZyBib3RoIHRoZQo+IHVzZXJzcGFjZSBhZGRyZXNzLCBwbHVzIHRoZSBrZXJuZWwgc2lkZSBh
-ZGRyZXNzIGJlIHRoYXQgaW4gdGhlIGRpcmVjdAo+IG1hcCBvciB0aGUgdm1hbGxvYyBtYXAgYXJl
-YXMuCj4gCj4gT3IgbWF5YmUgdGhlIHJpZ2h0IHNvbHV0aW9uIGlzIHRvIHNpbXBseSBkaXNhYmxl
-IEFGX1BBQ0tFVCBNTUFQIHN1cHBvcnQKPiBmb3IgdmlydHVhbCBjYWNoZWQgYXJjaGl0ZWN0dXJl
-cyAtIGl0IG1heSBiZSB0aGF0IGFkZGluZyBjYWNoZSBmbHVzaGluZwo+IGNhbGxzIG1ha2VzIHRo
-ZSB0aGluZyB0b28gZXhwZW5zaXZlIGFuZCB0aGUgYmVuZWZpdHMgb2YgbW1hcCBvdmVyIG5vcm1h
-bAo+IHJlYWQvd3JpdGUgYXJlIGxvc3QuCgpPSywgdGhhdCdzIGhvcnJpYmxlLiBPZiBjb3Vyc2Ug
-d2UgZGVwZW5kIG9uIGp1c3QgdGhpcyBjb21iaW5hdGlvbiB0bwp3b3JrIGZsYXdsZXNzbHksIGku
-ZS4gUEFDS0VUX01NQVAgJiYgVklWVC4gOigKCkFub3RoZXIgdXNlcnNwYWNlLWludGVyZmFjZSBJ
-J20gd29ya2luZyBvbiB1c2VzIGEgZGlmZmVyZW50IHNvbHV0aW9uOgptZW1vcnkgaXMgYWxsb2Nh
-dGVkIGluIHVzZXJzcGFjZSBhbmQgYWNjZXNzZWQgZnJvbSBrZXJuZWxzcGFjZSB1c2luZwpnZXRf
-dXNlcl9wYWdlcygpLiBJIGRpZCBub3QgZXhwbGljaXRseSBzZWFyY2ggZm9yIHRoZSBlYXJsaWVy
-IGRlc2NyaWJlZApmYXVsdCBwYXR0ZXJuLCBidXQgd2UgZGlkbid0IG5vdGljZSBhbnkgcHJvYmxl
-bSB3aXRoIHRoaXMgYXBwcm9hY2ggb24KdGhlIHZlcnkgc2FtZSBoYXJkd2FyZSBlaXRoZXIuIEkg
-YWxyZWFkeSBzZWUgbXlzZWxmIHdyaXRpbmcgVFBBQ0tFVF9WMy4KOykKCldoYXQgZG8geW91IHRo
-aW5rPwoKR3JlZXRpbmdzLCBQaGlsCgotLSAKVmlwcmluZXQgR21iSApNYWluemVyIFN0ci4gNDMK
-NTU0MTEgQmluZ2VuIGFtIFJoZWluCkdlcm1hbnkKClplbnRyYWxlOiAgICAgKzQ5LTY3MjEtNDkw
-MzAtMApEdXJjaHdhaGw6ICAgICs0OS02NzIxLTQ5MDMwLTEzNApGYXg6ICAgICAgICAgICs0OS02
-NzIxLTQ5MDMwLTIwOQoKcGhpbC5zdXR0ZXJAdmlwcmluZXQuY29tCmh0dHA6Ly93d3cudmlwcmlu
-ZXQuY29tCgpTaXR6IGRlciBHZXNlbGxzY2hhZnQ6IEJpbmdlbiBhbSBSaGVpbgpIYW5kZWxzcmVn
-aXN0ZXI6IEFtdHNnZXJpY2h0IE1haW56IEhSQjQwMzgwCkdlc2Now6RmdHNmw7xocmVyOiBTaW1v
-biBLaXNzZWwKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmlu
-ZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9s
-aW51eC1hcm0ta2VybmVsCg==
+On Sat, Sep 03, 2011 at 03:34:30PM +0200, Jiri Pirko wrote:
+
+>  arch/mips/txx9/generic/setup_tx4939.c |    2 +-
+
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
+
+Feel free to merge this through the net tree.
+
+  Ralf
