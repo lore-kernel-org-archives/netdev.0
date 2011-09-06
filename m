@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net 1/6] bnx2x: Fix ETS bandwidth
-Date: Tue, 6 Sep 2011 09:46:31 +0300
-Message-ID: <1315291591.28564.14.camel@lb-tlvb-dmitry>
+Subject: [PATCH net 2/6] bnx2x: Enable FEC for 57810-KR
+Date: Tue, 6 Sep 2011 09:47:07 +0300
+Message-ID: <1315291627.28564.16.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -11,57 +11,50 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:1478 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752546Ab1IFGqs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Sep 2011 02:46:48 -0400
+	id S1752546Ab1IFGrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Sep 2011 02:47:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ETS bandwidth of 0% is not allowed by driver, so provide alternative HW configuration for this case. 
+Enable FEC(Forward Error Correction) for 57810-KR to reduce link errors.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_link.c |   18 ++++++------------
- 1 files changed, 6 insertions(+), 12 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |    6 ++++++
+ drivers/net/bnx2x/bnx2x_reg.h  |    3 +++
+ 2 files changed, 9 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index d45b155..9d381db 100644
+index 9d381db..f7a7ac3 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -778,9 +778,9 @@ static int bnx2x_ets_e3b0_set_cos_bw(struct bnx2x *bp,
- {
- 	u32 nig_reg_adress_crd_weight = 0;
- 	u32 pbf_reg_adress_crd_weight = 0;
--	/* Calculate and set BW for this COS*/
--	const u32 cos_bw_nig = (bw * min_w_val_nig) / total_bw;
--	const u32 cos_bw_pbf = (bw * min_w_val_pbf) / total_bw;
-+	/* Calculate and set BW for this COS - use 1 instead of 0 for BW */
-+	const u32 cos_bw_nig = ((bw ? bw : 1) * min_w_val_nig) / total_bw;
-+	const u32 cos_bw_pbf = ((bw ? bw : 1) * min_w_val_pbf) / total_bw;
+@@ -3624,6 +3624,12 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
+ 			 MDIO_WC_REG_AN_IEEE1BLK_AN_ADVERTISEMENT1, val16);
  
- 	switch (cos_entry) {
- 	case 0:
-@@ -852,18 +852,12 @@ static int bnx2x_ets_e3b0_get_total_bw(
- 	/* Calculate total BW requested */
- 	for (cos_idx = 0; cos_idx < ets_params->num_of_cos; cos_idx++) {
- 		if (bnx2x_cos_state_bw == ets_params->cos[cos_idx].state) {
--
--			if (0 == ets_params->cos[cos_idx].params.bw_params.bw) {
--				DP(NETIF_MSG_LINK, "bnx2x_ets_E3B0_config BW"
--						   "was set to 0\n");
--			return -EINVAL;
-+			*total_bw +=
-+				ets_params->cos[cos_idx].params.bw_params.bw;
- 		}
--		*total_bw +=
--		    ets_params->cos[cos_idx].params.bw_params.bw;
--	    }
- 	}
- 
--	/*Check taotl BW is valid */
-+	/* Check total BW is valid */
- 	if ((100 != *total_bw) || (0 == *total_bw)) {
- 		if (0 == *total_bw) {
- 			DP(NETIF_MSG_LINK, "bnx2x_ets_E3B0_config toatl BW"
++	/* Advertised and set FEC (Forward Error Correction) */
++	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
++			 MDIO_WC_REG_AN_IEEE1BLK_AN_ADVERTISEMENT2,
++			 (MDIO_WC_REG_AN_IEEE1BLK_AN_ADV2_FEC_ABILITY |
++			  MDIO_WC_REG_AN_IEEE1BLK_AN_ADV2_FEC_REQ));
++
+ 	/* Enable CL37 BAM */
+ 	if (REG_RD(bp, params->shmem_base +
+ 		   offsetof(struct shmem_region, dev_info.
+diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
+index 40266c1..2bfedde 100644
+--- a/drivers/net/bnx2x/bnx2x_reg.h
++++ b/drivers/net/bnx2x/bnx2x_reg.h
+@@ -6853,6 +6853,9 @@ Theotherbitsarereservedandshouldbezero*/
+ #define MDIO_WC_REG_IEEE0BLK_AUTONEGNP			0x7
+ #define MDIO_WC_REG_AN_IEEE1BLK_AN_ADVERTISEMENT0	0x10
+ #define MDIO_WC_REG_AN_IEEE1BLK_AN_ADVERTISEMENT1	0x11
++#define MDIO_WC_REG_AN_IEEE1BLK_AN_ADVERTISEMENT2	0x12
++#define MDIO_WC_REG_AN_IEEE1BLK_AN_ADV2_FEC_ABILITY	0x4000
++#define MDIO_WC_REG_AN_IEEE1BLK_AN_ADV2_FEC_REQ		0x8000
+ #define MDIO_WC_REG_PMD_IEEE9BLK_TENGBASE_KR_PMD_CONTROL_REGISTER_150  0x96
+ #define MDIO_WC_REG_XGXSBLK0_XGXSCONTROL		0x8000
+ #define MDIO_WC_REG_XGXSBLK0_MISCCONTROL1		0x800e
 -- 
 1.7.1
