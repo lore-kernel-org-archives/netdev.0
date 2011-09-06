@@ -1,141 +1,75 @@
-From: Tore Anderson <tore@fud.no>
-Subject: [PATCH] ipv6: Send ICMPv6 RSes only when RAs are accepted
-Date: Mon, 29 Aug 2011 11:47:33 +0200
-Message-ID: <201109061705.p86H50Hx003533@wrath.fud.no>
-References: <201108291209.p7TC9KkD002967@wrath.fud.no>
-Cc: Thomas Graf <tgraf@infradead.org>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kabe
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
+Date: Tue, 06 Sep 2011 19:40:05 +0200
+Message-ID: <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4E631032.6050606@intel.com>
+	 <1315326326.2576.2980.camel@schen9-DESK>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Yan, Zheng" <zheng.z.yan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"jirislaby@gmail.com" <jirislaby@gmail.com>,
+	"sedat.dilek@gmail.com" <sedat.dilek@gmail.com>, alex.shi@intel.com
+To: Tim Chen <tim.c.chen@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 77-40-195-232.dsl.no.powertech.net ([77.40.195.232]:57313 "EHLO
-	wrath.fud.no" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752495Ab1IFRRQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Sep 2011 13:17:16 -0400
-In-Reply-To: <201108291209.p7TC9KkD002967@wrath.fud.no>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45812 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753295Ab1IFRkG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 13:40:06 -0400
+Received: by wyh22 with SMTP id 22so4629815wyh.19
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2011 10:40:04 -0700 (PDT)
+In-Reply-To: <1315326326.2576.2980.camel@schen9-DESK>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch improves the logic determining when to send ICMPv6 Router
-Solicitations, so that they are 1) always sent when the kernel is
-accepting Router Advertisements, and 2) never sent when the kernel is
-not accepting RAs. In other words, the operational setting of the
-"accept_ra" sysctl is used.
+Le mardi 06 septembre 2011 =C3=A0 09:25 -0700, Tim Chen a =C3=A9crit :
+> On Sun, 2011-09-04 at 13:44 +0800, Yan, Zheng wrote:
+> > Commit 0856a30409 (Scm: Remove unnecessary pid & credential referen=
+ces
+> > in Unix socket's send and receive path) introduced a use-after-free=
+ bug.
+> > It passes the scm reference to the first skb. Skb(s) afterwards may
+> > reference freed data structure because the first skb can be destruc=
+ted
+> > by the receiver at anytime. The fix is by passing the scm reference=
+ to
+> > the very last skb.
+> >=20
+> > Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+> > Reported-by: Jiri Slaby <jirislaby@gmail.com>
+> > ---
+>=20
+> Thanks for finding this bug in my original patch.  I've missed the ca=
+se
+> where receiving side could have released the all the references to th=
+e
+> credential before the send side is using the credential again for
+> subsequent skbs in the stream, thus causing the problem we saw.  Gett=
+ing
+> an extra reference for pid/credentials at the beginning of the stream
+> and not getting reference for the last skb is the right approach.
+>=20
+> Thanks also to Sedat, Valdis and Jiri for their extensive testing to
+> discover the bug and testing the subsequent fixes.=20
+>=20
+> Acked-by: Tim Chen <tim.c.chen@linux.intel.com>
 
-The change also makes the special "Hybrid Router" forwarding mode
-("forwarding" sysctl set to 2) operate exactly the same as the standard
-Router mode (forwarding=1). The only difference between the two was
-that RSes was being sent in the Hybrid Router mode only. The sysctl
-documentation describing the special Hybrid Router mode has therefore
-been removed.
+What happens if message must be split in two skb,
+first skb is built, queued (without scm reference)
 
-Rationale for the change:
+Second skb allocation fails.
 
-Currently, the value of forwarding sysctl is the only thing determining
-whether or not to send RSes. If it has the value 0 or 2, they are sent,
-otherwise they are not. This leads to inconsistent behaviour in the
-following cases:
+Rule about refs/norefs games is : As soon as you put skb into a list, i=
+t
+should have all appropriate references if this skb has pointer(s) to
+objects(s)
 
-* accept_ra=0, forwarding=0
-* accept_ra=0, forwarding=2
-* accept_ra=1, forwarding=2
-* accept_ra=2, forwarding=1
+We should revert 0856a304091b33a and code the thing differently.
 
-In the first three cases, the kernel will send RSes, even though it will
-not accept any RAs received in reply. In the last case, it will not send
-any RSes, even though it will accept and process any RAs received. (Most
-routers will send unsolicited RAs periodically, so suppressing RSes in
-the last case will merely delay auto-configuration, not prevent it.)
+Instead of storing pointer to pid and cred in UNIXSKB(), why dont we
+copy all needed information ? No ref counts at all.
 
-Also, it is my opinion that having the forwarding sysctl control RS
-sending behaviour (completely independent of whether RAs are being
-accepted or not) is simply not what most users would intuitively expect
-to be the case.
-
-Signed-off-by: Tore Anderson <tore@fud.no>
----
-Note: This is a resend of a patch I inappropriately sent to the netdev
-list only. This time the net/ipv6/ maintainers are on the recipient list,
-in addition to Thomas Graf, the author of the Hybrid Router forwarding
-mode (see commit c3bccac2fa76f1619dfe4fb7b9bee69de7f066d8).
-
- Documentation/networking/ip-sysctl.txt |   17 ++++++++---------
- net/ipv6/addrconf.c                    |    8 ++++----
- 2 files changed, 12 insertions(+), 13 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 8154699..98c8d42 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1045,6 +1045,11 @@ conf/interface/*:
- accept_ra - BOOLEAN
- 	Accept Router Advertisements; autoconfigure using them.
- 
-+	It also determines whether or not to transmit Router
-+	Solicitations. If and only if the functional setting is to
-+	accept Router Advertisements, Router Solicitations will be
-+	transmitted.
-+
- 	Possible values are:
- 		0 Do not accept Router Advertisements.
- 		1 Accept Router Advertisements if forwarding is disabled.
-@@ -1115,14 +1120,14 @@ forwarding - BOOLEAN
- 	Possible values are:
- 		0 Forwarding disabled
- 		1 Forwarding enabled
--		2 Forwarding enabled (Hybrid Mode)
- 
- 	FALSE (0):
- 
- 	By default, Host behaviour is assumed.  This means:
- 
- 	1. IsRouter flag is not set in Neighbour Advertisements.
--	2. Router Solicitations are being sent when necessary.
-+	2. If accept_ra is TRUE (default), transmit Router
-+	   Solicitations.
- 	3. If accept_ra is TRUE (default), accept Router
- 	   Advertisements (and do autoconfiguration).
- 	4. If accept_redirects is TRUE (default), accept Redirects.
-@@ -1133,16 +1138,10 @@ forwarding - BOOLEAN
- 	This means exactly the reverse from the above:
- 
- 	1. IsRouter flag is set in Neighbour Advertisements.
--	2. Router Solicitations are not sent.
-+	2. Router Solicitations are not sent unless accept_ra is 2.
- 	3. Router Advertisements are ignored unless accept_ra is 2.
- 	4. Redirects are ignored.
- 
--	TRUE (2):
--
--	Hybrid mode. Same behaviour as TRUE, except for:
--
--	2. Router Solicitations are being sent when necessary.
--
- 	Default: 0 (disabled) if global forwarding is disabled (default),
- 		 otherwise 1 (enabled).
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f012ebd..d3e51cb 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2969,12 +2969,12 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
- 
- 	ipv6_ifa_notify(RTM_NEWADDR, ifp);
- 
--	/* If added prefix is link local and forwarding is off,
--	   start sending router solicitations.
-+	/* If added prefix is link local and we are prepared to process
-+	   router advertisements, start sending router solicitations.
- 	 */
- 
--	if ((ifp->idev->cnf.forwarding == 0 ||
--	     ifp->idev->cnf.forwarding == 2) &&
-+	if (((ifp->idev->cnf.accept_ra == 1 && !ifp->idev->cnf.forwarding) ||
-+	     ifp->idev->cnf.accept_ra == 2) &&
- 	    ifp->idev->cnf.rtr_solicits > 0 &&
- 	    (dev->flags&IFF_LOOPBACK) == 0 &&
- 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
--- 
-1.7.6
+skb->cb[] is large enough.
