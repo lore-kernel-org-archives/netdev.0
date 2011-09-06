@@ -1,137 +1,61 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH] per-cgroup tcp buffer limitation
-Date: Tue, 6 Sep 2011 19:37:29 -0300
-Message-ID: <4E66A0A9.3060403@parallels.com>
-References: <1315276556-10970-1-git-send-email-glommer@parallels.com> <CAHH2K0aJxjinSu0Ek6jzsZ5dBmm5mEU-typuwYWYWEudF2F3Qg@mail.gmail.com> <4E664766.40200@parallels.com> <CAHH2K0YJA7vZZ3QNAf63TZOnWhsRUwfuZYfntBL4muZ0G_Vt2w@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net] gianfar: Fix overflow check and return value for
+ gfar_get_cls_all()
+Date: Tue, 06 Sep 2011 23:44:25 +0100
+Message-ID: <1315349065.2788.18.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <linux-mm@kvack.org>,
-	<containers@lists.osdl.org>, <netdev@vger.kernel.org>, <xemul@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>, Hiroyouki Kamezawa
-	<kamezawa.hiroyu@jp.fujitsu.com>, "Eric W. Biederman" <ebiederm@xmission.com>
-To: Greg Thelen <gthelen@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAHH2K0YJA7vZZ3QNAf63TZOnWhsRUwfuZYfntBL4muZ0G_Vt2w@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Sebastian Poehn <sebastian.poehn@belden.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:38785 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753378Ab1IFWo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 18:44:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/06/2011 07:12 PM, Greg Thelen wrote:
-> On Tue, Sep 6, 2011 at 9:16 AM, Glauber Costa<glommer@parallels.com>  wrote:
->> On 09/06/2011 01:08 PM, Greg Thelen wrote:
->>>
->>> On Mon, Sep 5, 2011 at 7:35 PM, Glauber Costa<glommer@parallels.com>
->>>   wrote:
->>>>
->>>> This patch introduces per-cgroup tcp buffers limitation. This allows
->>>> sysadmins to specify a maximum amount of kernel memory that
->>>> tcp connections can use at any point in time. TCP is the main interest
->>>> in this work, but extending it to other protocols would be easy.
->>
->> Hello Greg,
->>
->>> With this approach we would be giving admins the ability to
->>> independently limit user memory with memcg and kernel memory with this
->>> new kmem cgroup.
->>>
->>> At least in some situations admins prefer to give a particular
->>> container X bytes without thinking about the kernel vs user split.
->>> Sometimes the admin would prefer the kernel to keep the total
->>> user+kernel memory below a certain threshold.  To achieve this with
->>> this approach would we need a user space agent to monitor both kernel
->>> and user usage for a container and grow/shrink memcg/kmem limits?
->>
->> Yes, I believe so. And this is not only valid for containers: the
->> information we expose in proc, sys, cgroups, etc, is always much more fine
->> grained than a considerable part of the users want. Tools come to fill this
->> gap.
->
-> In your use cases do jobs separately specify independent kmem usage
-> limits and user memory usage limits?
+This function may currently fill one entry beyond the end of the
+array it is given.  It also doesn't return an error code in case
+it does detect overflow.
 
-Yes, because they are different in nature: user memory can be 
-overcommited, kernel memory is pinned by its objects, and can't go to swap.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+This code is new for 3.1, so no stable update required.
 
-> I presume for people who want to simply dedicate X bytes of memory to
-> container C that a user-space agent would need to poll both
-> memcg/X/memory.usage_in_bytes and kmem/X/kmem.usage_in_bytes (or some
-> other file) to determine if memory limits should be adjusted (i.e. if
-> kernel memory is growing, then user memory would need to shrink).
-Ok.
+Not tested in any way, as this driver depends on FSL_SOC.
 
-I think memcg's usage is really all you need here. In the end of the 
-day, it tells you how many pages your container has available. The whole
-point of kmem cgroup is not any kind of reservation or accounting.
+Ben.
 
-Once a container (or cgroup) reaches a number of objects *pinned* in 
-memory (therefore, non-reclaimable), you won't be able to grab anything 
-from it.
-> So
-> far my use cases involve a single memory limit which includes both
-> kernel and user memory.  So I would need a user space agent to poll
-> {memcg,kmem}.usage_in_bytes to apply pressure to memcg if kmem grows
-> and visa versa.
+ drivers/net/gianfar_ethtool.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-Maybe not.
-If userspace memory works for you today (supposing it does), why change?
-Right now you assign X bytes of user memory to a container, and the 
-kernel memory is shared among all of them. If this works for you, 
-kmem_cgroup won't change that. It just will impose limits over which
-your kernel objects can't grow.
-
-So you don't *need* a userspace agent doing this calculation, because 
-fundamentally, nothing changed: I am not unbilling memory in memcg to 
-bill it back in kmem_cg. Of course, once it is in, you will be able to 
-do it in such a fine grained fashion if you decide to do so.
-
-> Do you foresee instantiation of multiple kmem cgroups, so that a
-> process could be added into kmem/K1 or kmem/K2?  If so do you plan on
-> supporting migration between cgroups and/or migration of kmem charge
-> between K1 to K2?
-Yes, each container should have its own cgroup, so at least in the use
-cases I am concerned, we will have a lot of them. But the usual 
-lifecycle, is create, execute and die. Mobility between them
-is not something I am overly concerned right now.
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
+index 25a8c2a..0caf3c3 100644
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -1669,10 +1669,10 @@ static int gfar_get_cls_all(struct gfar_private *priv,
+ 	u32 i = 0;
+ 
+ 	list_for_each_entry(comp, &priv->rx_list.list, list) {
+-		if (i <= cmd->rule_cnt) {
+-			rule_locs[i] = comp->fs.location;
+-			i++;
+-		}
++		if (i == cmd->rule_cnt)
++			return -EMSGSIZE;
++		rule_locs[i] = comp->fs.location;
++		i++;
+ 	}
+ 
+ 	cmd->data = MAX_FILER_IDX;
+-- 
+1.7.4.4
 
 
->>> Do you foresee the kmem cgroup growing to include reclaimable slab,
->>> where freeing one type of memory allows for reclaim of the other?
->>
->> Yes, absolutely.
->
-> Small comments below.
->
-
->>>>   };
->>>>
->>>> +#define sk_memory_pressure(sk)                                         \
->>>> +({                                                                     \
->>>> +       int *__ret = NULL;                                              \
->>>> +       if ((sk)->sk_prot->memory_pressure)                             \
->>>> +               __ret = (sk)->sk_prot->memory_pressure(sk->sk_cgrp);    \
->>>> +       __ret;                                                          \
->>>> +})
->>>> +
->>>> +#define sk_sockets_allocated(sk)                               \
->>>> +({                                                             \
->>>> +       struct percpu_counter *__p;                             \
->>>> +       __p = (sk)->sk_prot->sockets_allocated(sk->sk_cgrp);    \
->>>> +       __p;                                                    \
->>>> +})
->
-> Could this be simplified as (same applies to following few macros):
->
-> static inline struct percpu_counter *sk_sockets_allocated(struct sock *sk)
-> {
->          return sk->sk_prot->sockets_allocated(sk->sk_cgrp);
-> }
-Yes and no. Right now, I need them to be valid lvalues. But in the 
-upcoming version of the patch, I will drop this requirement. Then
-I will move to inline functions.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
