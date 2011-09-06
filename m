@@ -1,153 +1,79 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH 2/2] net: Handle different key sizes between address families in flow cache
-Date: Mon, 5 Sep 2011 22:47:24 -0400
-Message-ID: <1315277244-19335-3-git-send-email-david.ward@ll.mit.edu>
-References: <CAHXqBF+eF_zYAFPZv0hWUvDHv5YMHuFAR3-iB8MEZz2G7vCUyA@mail.gmail.com>
+From: "Zou, Yi" <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [patch net-next-2.6 v3] net: consolidate and fix
+ ethtool_ops->get_settings calling
+Date: Mon, 5 Sep 2011 20:25:39 -0700
+Message-ID: <5A9BD224CEA58D4CB62235967D650C160A1B7D1C@orsmsx509.amr.corp.intel.com>
+References: <1314905304-16485-1-git-send-email-jpirko@redhat.com>
+	<20110902122630.GC1991@minipsycho>
+	<1314989161.3419.5.camel@bwh-desktop>
+	<20110903133428.GA2821@minipsycho> <1315057614.3092.160.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Julian Anastasov <ja@ssi.bg>,
-	=?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirqus@gmail.com>,
-	David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:60750 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751644Ab1IFDNY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Sep 2011 23:13:24 -0400
-In-Reply-To: <CAHXqBF+eF_zYAFPZv0hWUvDHv5YMHuFAR3-iB8MEZz2G7vCUyA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "amit.salecha-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <amit.salecha-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+	"bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org" <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+	"JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"decot-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org" <decot-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org" <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
+	"therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org" <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org" <fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	"xiaosuo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <xiaosuo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	"Duyck, Alexander H" <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org" <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>,
+	"greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org" <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
+	"laijs-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org" <laijs-BthXqXjhjHX1P9xLtpHBDw@public.gmane.org
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+In-Reply-To: <1315057614.3092.160.camel@deadeye>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.open-fcoe.org/mailman/options/devel>,
+	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.open-fcoe.org/pipermail/devel>
+List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-fcoe.org/mailman/listinfo/devel>,
+	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
+Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-With the conversion of struct flowi to a union of AF-specific structs, some
-operations on the flow cache need to account for the exact size of the key.
+> 
+> On Sat, 2011-09-03 at 15:34 +0200, Jiri Pirko wrote:
+> > This patch does several things:
+> > - introduces __ethtool_get_settings which is called from ethtool code
+> and
+> >   from drivers as well. Put ASSERT_RTNL there.
+> > - dev_ethtool_get_settings() is replaced by __ethtool_get_settings()
+> > - changes calling in drivers so rtnl locking is respected. In
+> >   iboe_get_rate was previously ->get_settings() called unlocked. This
+> >   fixes it. Also prb_calc_retire_blk_tmo() in af_packet.c had the same
+> >   problem. Also fixed by calling __dev_get_by_index() instead of
+> >   dev_get_by_index() and holding rtnl_lock for both calls.
+> > - introduces rtnl_lock in bnx2fc_vport_create() and fcoe_vport_create()
+> >   so bnx2fc_if_create() and fcoe_if_create() are called locked as they
+> >   are from other places.
+> > - use __ethtool_get_settings() in bonding code
+> >
+> > Signed-off-by: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Reviewed-by: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org> [except FCoE bits]
+> 
+> Ben.
+FCoE bits look ok to me. Thanks,
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- include/net/flow.h |   19 +++++++++++++++++++
- net/core/flow.c    |   31 +++++++++++++++++--------------
- 2 files changed, 36 insertions(+), 14 deletions(-)
+Reviewed-by: Yi Zou <yi.zou-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 2ec377d..a094477 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -7,6 +7,7 @@
- #ifndef _NET_FLOW_H
- #define _NET_FLOW_H
- 
-+#include <linux/socket.h>
- #include <linux/in6.h>
- #include <linux/atomic.h>
- 
-@@ -161,6 +162,24 @@ static inline struct flowi *flowidn_to_flowi(struct flowidn *fldn)
- 	return container_of(fldn, struct flowi, u.dn);
- }
- 
-+typedef unsigned long flow_compare_t;
-+
-+static inline size_t flow_key_size(u16 family)
-+{
-+	switch (family) {
-+	case AF_INET:
-+		BUILD_BUG_ON(sizeof(struct flowi4) % sizeof(flow_compare_t));
-+		return sizeof(struct flowi4) / sizeof(flow_compare_t);
-+	case AF_INET6:
-+		BUILD_BUG_ON(sizeof(struct flowi6) % sizeof(flow_compare_t));
-+		return sizeof(struct flowi6) / sizeof(flow_compare_t);
-+	case AF_DECnet:
-+		BUILD_BUG_ON(sizeof(struct flowidn) % sizeof(flow_compare_t));
-+		return sizeof(struct flowidn) / sizeof(flow_compare_t);
-+	}
-+	return 0;
-+}
-+
- #define FLOW_DIR_IN	0
- #define FLOW_DIR_OUT	1
- #define FLOW_DIR_FWD	2
-diff --git a/net/core/flow.c b/net/core/flow.c
-index bf32c33..2d93a37 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -172,29 +172,26 @@ static void flow_new_hash_rnd(struct flow_cache *fc,
- 
- static u32 flow_hash_code(struct flow_cache *fc,
- 			  struct flow_cache_percpu *fcp,
--			  const struct flowi *key)
-+			  const struct flowi *key,
-+			  size_t keysize)
- {
- 	const u32 *k = (const u32 *) key;
-+	const u32 length = keysize * sizeof(flow_compare_t) / sizeof(u32); 
- 
--	return jhash2(k, (sizeof(*key) / sizeof(u32)), fcp->hash_rnd)
-+	return jhash2(k, length, fcp->hash_rnd)
- 		& (flow_cache_hash_size(fc) - 1);
- }
- 
--typedef unsigned long flow_compare_t;
--
- /* I hear what you're saying, use memcmp.  But memcmp cannot make
-- * important assumptions that we can here, such as alignment and
-- * constant size.
-+ * important assumptions that we can here, such as alignment.
-  */
--static int flow_key_compare(const struct flowi *key1, const struct flowi *key2)
-+static int flow_key_compare(const struct flowi *key1, const struct flowi *key2,
-+			    size_t keysize)
- {
- 	const flow_compare_t *k1, *k1_lim, *k2;
--	const int n_elem = sizeof(struct flowi) / sizeof(flow_compare_t);
--
--	BUILD_BUG_ON(sizeof(struct flowi) % sizeof(flow_compare_t));
- 
- 	k1 = (const flow_compare_t *) key1;
--	k1_lim = k1 + n_elem;
-+	k1_lim = k1 + keysize;
- 
- 	k2 = (const flow_compare_t *) key2;
- 
-@@ -215,6 +212,7 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
- 	struct flow_cache_entry *fle, *tfle;
- 	struct hlist_node *entry;
- 	struct flow_cache_object *flo;
-+	size_t keysize;
- 	unsigned int hash;
- 
- 	local_bh_disable();
-@@ -222,6 +220,11 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
- 
- 	fle = NULL;
- 	flo = NULL;
-+
-+	keysize = flow_key_size(family);
-+	if (!keysize)
-+		goto nocache;
-+
- 	/* Packet really early in init?  Making flow_cache_init a
- 	 * pre-smp initcall would solve this.  --RR */
- 	if (!fcp->hash_table)
-@@ -230,11 +233,11 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
- 	if (fcp->hash_rnd_recalc)
- 		flow_new_hash_rnd(fc, fcp);
- 
--	hash = flow_hash_code(fc, fcp, key);
-+	hash = flow_hash_code(fc, fcp, key, keysize);
- 	hlist_for_each_entry(tfle, entry, &fcp->hash_table[hash], u.hlist) {
- 		if (tfle->family == family &&
- 		    tfle->dir == dir &&
--		    flow_key_compare(key, &tfle->key) == 0) {
-+		    flow_key_compare(key, &tfle->key, keysize) == 0) {
- 			fle = tfle;
- 			break;
- 		}
-@@ -248,7 +251,7 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
- 		if (fle) {
- 			fle->family = family;
- 			fle->dir = dir;
--			memcpy(&fle->key, key, sizeof(*key));
-+			memcpy(&fle->key, key, keysize * sizeof(flow_compare_t));
- 			fle->object = NULL;
- 			hlist_add_head(&fle->u.hlist, &fcp->hash_table[hash]);
- 			fcp->hash_count++;
--- 
-1.7.1
+> 
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-scsi" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
