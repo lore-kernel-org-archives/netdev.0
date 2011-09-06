@@ -1,155 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
-Date: Tue, 06 Sep 2011 22:19:48 +0200
-Message-ID: <1315340388.3400.28.camel@edumazet-laptop>
-References: <4E631032.6050606@intel.com>
-	 <1315326326.2576.2980.camel@schen9-DESK>
-	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1315335019.2576.3048.camel@schen9-DESK>
-	 <1315335660.3400.7.camel@edumazet-laptop>
-	 <1315337580.2576.3066.camel@schen9-DESK>
-	 <1315338186.3400.20.camel@edumazet-laptop>
-	 <1315339157.2576.3079.camel@schen9-DESK>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: ip_rt_bug route.c:1677 in 3.0
+Date: Tue, 6 Sep 2011 13:45:45 -0700
+Message-ID: <20110906204545.GA29628@tassilo.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Yan, Zheng" <zheng.z.yan@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"jirislaby@gmail.com" <jirislaby@gmail.com>,
-	"sedat.dilek@gmail.com" <sedat.dilek@gmail.com>, alex.shi@intel.com
-To: Tim Chen <tim.c.chen@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40918 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754903Ab1IFUUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 16:20:00 -0400
-Received: by wwf5 with SMTP id 5so6667356wwf.1
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2011 13:19:59 -0700 (PDT)
-In-Reply-To: <1315339157.2576.3079.camel@schen9-DESK>
+Received: from mga09.intel.com ([134.134.136.24]:31654 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755150Ab1IFUpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Sep 2011 16:45:46 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 06 septembre 2011 =C3=A0 12:59 -0700, Tim Chen a =C3=A9crit :
-> On Tue, 2011-09-06 at 21:43 +0200, Eric Dumazet wrote:
-> > Le mardi 06 septembre 2011 =C3=A0 12:33 -0700, Tim Chen a =C3=A9cri=
-t :
-> >=20
-> > > Yes, I think locking the sendmsg for the entire duration of
-> > > unix_stream_sendmsg makes a lot of sense.  It simplifies the logi=
-c a lot
-> > > more.  I'll try to cook something up in the next couple of days.
-> >=20
-> > Thats not really possible, we cant hold a spinlock and call
-> > sock_alloc_send_skb() and/or memcpy_fromiovec(), wich might sleep.
-> >=20
-> > You would need to prepare the full skb list, then :
-> > - stick the ref on the last skb of the list.
-> >=20
-> > Transfert the whole skb list in other->sk_receive_queue in one go,
-> > instead of one after another.
-> >=20
-> > Unfortunately, this would break streaming (big send(), and another
-> > thread doing the receive)
-> >=20
-> > Listen, I am wondering why hackbench even triggers SCM code. This i=
-s
-> > really odd. We should not have a _single_ pid/cred ref/unref at all=
-=2E
-> >=20
->=20
-> Hackbench triggers the code because it has a bunch of threads sending
-> msgs on UNIX socket.
-> >=20
->=20
-> Well, if the lock socket approach doesn't work, then my original patc=
-h
-> plus Yan Zheng's fix should still work.  I'll try to answer your
-> objections below:
->=20
->=20
-> > I was discussing of things after proposed patch, not current net-ne=
-xt.
-> >=20
-> > This reads :
-> >=20
-> > err =3D unix_scm_to_skb(siocb->scm, skb, !fds_sent, scm_ref);
-> >=20
-> > So first skb is sent without ref taken, as mentioned in Changelog ?
-> >=20
->=20
-> No. the first skb is sent *with* ref taken, as scm_ref is set to true=
- for
-> first skb.
->=20
-> >=20
-> > If second skb cannot be built, we exit this system call with an alr=
-eady
-> > queued skb. Receiver can then access to freed memory.
-> >=20
->=20
-> No, we do have reference set.  For first skb, in unix_scm_to_skb.  Fo=
-r the=20
-> second skb (which is the last skb), in scm_sent.  Should the second s=
-kb alloc failed,
-> we'll release the ref in scm_destroy.  Otherwise, the receiver will r=
-elease
-> the references will consuming the skb.
->=20
+FYI,
 
-This is crap. This is not the intent of the code I read from the patch.
+My 3.0 workstation just spew:
 
-unless scm_ref really means scm_noref ?
+I wonder if a application could have caused this?
 
-I really hate this patch. I mean it.=20
-
-I read it 10 times, spent 2 hours and still dont understand it.
+ip_rt_bug: 10.7.201.108 -> 255.255.255.255, ?
+------------[ cut here ]------------
+WARNING: at /home/ak/lsrc/git/linux-2.6/net/ipv4/route.c:1677 ip_rt_bug+0x5f/0x70()
+Hardware name: ...
+Modules linked in: vfat fat nls_utf8 udf ses enclosure nfs lockd fscache auth_rpcgss nfs_acl fuse sunrpc cpufreq_ondemand acpi_cpufreq freq_table mperf ipv6 kvm_intel kvm uinput snd_hda_codec_hdmi snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm iTCO_wdt microcode e1000 snd_timer snd soundcore broadcom iTCO_vendor_support tg3 i7core_edac edac_core snd_page_alloc i2c_i801 dcdbas serio_raw joydev pcspkr firewire_ohci firewire_core crc_itu_t usb_storage radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded: scsi_wait_scan]
+Pid: 28530, comm: xsane Not tainted 3.0.0+ #15
+Call Trace:
+ [<ffffffff810510ef>] warn_slowpath_common+0x7f/0xc0
+ [<ffffffff8105114a>] warn_slowpath_null+0x1a/0x20
+ [<ffffffff814946cf>] ip_rt_bug+0x5f/0x70
+ [<ffffffff8149f149>] ip_local_out+0x29/0x30
+ [<ffffffff814a047b>] ip_send_skb+0x1b/0x70
+ [<ffffffff814c25fa>] udp_send_skb+0x11a/0x3b0
+ [<ffffffff8149d3d0>] ? ip_setup_cork+0x170/0x170
+ [<ffffffff814c475c>] udp_sendmsg+0x37c/0x9b0
+ [<ffffffff814c31b9>] ? udp_lib_get_port+0x2a9/0x3e0
+ [<ffffffff81528d25>] ? _raw_spin_unlock_bh+0x15/0x20
+ [<ffffffff81448ca3>] ? release_sock+0xe3/0x110
+ [<ffffffff814ce214>] inet_sendmsg+0x64/0xb0
+ [<ffffffff81443e19>] sock_sendmsg+0xe9/0x120
+ [<ffffffff8111bb74>] ? handle_pte_fault+0x84/0x980
+ [<ffffffff8112be91>] ? free_pages_and_swap_cache+0xb1/0xe0
+ [<ffffffff812750cd>] ? cpumask_any_but+0x2d/0x40
+ [<ffffffff814464d1>] ? move_addr_to_kernel+0x71/0x80
+ [<ffffffff81446f39>] sys_sendto+0x139/0x190
+ [<ffffffff8144b20e>] ? sock_setsockopt+0x1ae/0x790
+ [<ffffffff811511ed>] ? fd_install+0x3d/0x70
+ [<ffffffff814471f3>] ? sys_setsockopt+0xb3/0xc0
+ [<ffffffff8153092b>] system_call_fastpath+0x16/0x1b
+---[ end trace ada1d01fefb0d73c ]---
+ip_rt_bug: 10.7.201.108 -> 255.255.255.255, ?
+------------[ cut here ]------------
+WARNING: at /home/ak/lsrc/git/linux-2.6/net/ipv4/route.c:1677 ip_rt_bug+0x5f/0x70()
+Hardware name: ...
+Modules linked in: vfat fat nls_utf8 udf ses enclosure nfs lockd fscache auth_rpcgss nfs_acl fuse sunrpc cpufreq_ondemand acpi_cpufreq freq_table mperf ipv6 kvm_intel kvm uinput snd_hda_codec_hdmi snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm iTCO_wdt microcode e1000 snd_timer snd soundcore broadcom iTCO_vendor_support tg3 i7core_edac edac_core snd_page_alloc i2c_i801 dcdbas serio_raw joydev pcspkr firewire_ohci firewire_core crc_itu_t usb_storage radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded: scsi_wait_scan]
+Pid: 28530, comm: xsane Tainted: G        W   3.0.0+ #15
+Call Trace:
+ [<ffffffff810510ef>] warn_slowpath_common+0x7f/0xc0
+ [<ffffffff8105114a>] warn_slowpath_null+0x1a/0x20
+ [<ffffffff814946cf>] ip_rt_bug+0x5f/0x70
+ [<ffffffff8149f149>] ip_local_out+0x29/0x30
+ [<ffffffff814a047b>] ip_send_skb+0x1b/0x70
+ [<ffffffff814c25fa>] udp_send_skb+0x11a/0x3b0
+ [<ffffffff8149d3d0>] ? ip_setup_cork+0x170/0x170
+ [<ffffffff814c475c>] udp_sendmsg+0x37c/0x9b0
+ [<ffffffff814c31b9>] ? udp_lib_get_port+0x2a9/0x3e0
+ [<ffffffff81528d25>] ? _raw_spin_unlock_bh+0x15/0x20
+ [<ffffffff81448ca3>] ? release_sock+0xe3/0x110
+ [<ffffffff814ce214>] inet_sendmsg+0x64/0xb0
+ [<ffffffff81443e19>] sock_sendmsg+0xe9/0x120
+...
 
 
-@@ -1577,6 +1577,7 @@ static int unix_stream_sendmsg(struct kiocb *kioc=
-b, struct socket *sock,
-        int sent =3D 0;
-        struct scm_cookie tmp_scm;
-        bool fds_sent =3D false;
-+       bool scm_ref =3D true;
-        int max_level;
-=20
-        if (NULL =3D=3D siocb->scm)
-@@ -1637,12 +1638,15 @@ static int unix_stream_sendmsg(struct kiocb *ki=
-ocb, struct socket *sock,
-                 */
-                size =3D min_t(int, size, skb_tailroom(skb));
-=20
-+               /* pass the scm reference to the very last skb */
-
-HERE: I understand : on the last skb, set scm_ref to false.
-So comment is wrong.
-
-+               if (sent + size >=3D len)
-+                       scm_ref =3D false;
-=20
--               /* Only send the fds and no ref to pid in the first buf=
-fer */
--               err =3D unix_scm_to_skb(siocb->scm, skb, !fds_sent, fds=
-_sent);
-+               /* Only send the fds in the first buffer */
-+               err =3D unix_scm_to_skb(siocb->scm, skb, !fds_sent, scm=
-_ref);
-                if (err < 0) {
-                        kfree_skb(skb);
--                       goto out;
-+                       goto out_err;
-                }
-
-
-
-As I said, we should revert the buggy patch, and rewrite a performance
-fix from scratch, with not a single get_pid()/put_pid() in fast path.
-
-read()/write() on AF_UNIX sockets should not use a single
-get_pid()/put_pid().
-
-This is a serious regression we should fix at 100%, not 50% or even 75%=
-,
-adding serious bugs.
+-- 
+ak@linux.intel.com -- Speaking for myself only
