@@ -1,104 +1,51 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net 6/6] bnx2x: Fix ethtool advertisement
-Date: Tue, 6 Sep 2011 09:47:25 +0300
-Message-ID: <1315291645.28564.20.camel@lb-tlvb-dmitry>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH 1/2] bridge: leave carrier on for empty bridge
+Date: Tue, 06 Sep 2011 08:52:15 +0200
+Message-ID: <4E65C31F.1010809@gmail.com>
+References: <20110902172220.830228928@vyatta.com>	<20110902172247.396753508@vyatta.com>	<4E614CF7.7030700@gmail.com>	<20110902151100.327af0bf@nehalam.ftrdhcpuser.net>	<4E6272BC.4020707@gmail.com>	<20110903211438.2a43d2f2@nehalam.ftrdhcpuser.net>	<4E632A2E.5040805@gmail.com>	<20110904093634.685d7c56@nehalam.ftrdhcpuser.net>	<4E65046E.1020005@gmail.com> <20110905105735.1b912715@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3538 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752961Ab1IFGrh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Sep 2011 02:47:37 -0400
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48202 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752743Ab1IFGwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 02:52:13 -0400
+Received: by wwf5 with SMTP id 5so5859532wwf.1
+        for <netdev@vger.kernel.org>; Mon, 05 Sep 2011 23:52:12 -0700 (PDT)
+In-Reply-To: <20110905105735.1b912715@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable changing advertisement settings via ethtool and fix flow-control advertisement when autoneg flow-control is disabled.
+Le 05/09/2011 19:57, Stephen Hemminger a =E9crit :
+> The root cause of the problem is applications that don't deal with un=
+resolved
+> IPv6 addresses. I already had to solve this in our distribution for N=
+TP in a
+> not bridge related problem. It is better to fix the applications to u=
+nderstand
+> IPv6 address semantics than to try and force bridge to behave in a wa=
+y that
+> is friendly to these applications.
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_ethtool.c |   45 +++++++++++++++++++++++++++++++++---
- drivers/net/bnx2x/bnx2x_main.c    |    6 +++++
- 2 files changed, 47 insertions(+), 4 deletions(-)
+Thanks for clarifying.
 
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 2218630..6aa94d3 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -363,13 +363,50 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		}
- 
- 		/* advertise the requested speed and duplex if supported */
--		cmd->advertising &= bp->port.supported[cfg_idx];
-+		if (cmd->advertising & ~(bp->port.supported[cfg_idx])) {
-+			DP(NETIF_MSG_LINK, "Advertisement parameters "
-+					   "are not supported\n");
-+			return -EINVAL;
-+		}
- 
- 		bp->link_params.req_line_speed[cfg_idx] = SPEED_AUTO_NEG;
--		bp->link_params.req_duplex[cfg_idx] = DUPLEX_FULL;
--		bp->port.advertising[cfg_idx] |= (ADVERTISED_Autoneg |
-+		bp->link_params.req_duplex[cfg_idx] = cmd->duplex;
-+		bp->port.advertising[cfg_idx] = (ADVERTISED_Autoneg |
- 					 cmd->advertising);
-+		if (cmd->advertising) {
-+
-+			bp->link_params.speed_cap_mask[cfg_idx] = 0;
-+			if (cmd->advertising & ADVERTISED_10baseT_Half) {
-+				bp->link_params.speed_cap_mask[cfg_idx] |=
-+				PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_HALF;
-+			}
-+			if (cmd->advertising & ADVERTISED_10baseT_Full)
-+				bp->link_params.speed_cap_mask[cfg_idx] |=
-+				PORT_HW_CFG_SPEED_CAPABILITY_D0_10M_FULL;
- 
-+			if (cmd->advertising & ADVERTISED_100baseT_Full)
-+				bp->link_params.speed_cap_mask[cfg_idx] |=
-+				PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_FULL;
-+
-+			if (cmd->advertising & ADVERTISED_100baseT_Half) {
-+				bp->link_params.speed_cap_mask[cfg_idx] |=
-+				     PORT_HW_CFG_SPEED_CAPABILITY_D0_100M_HALF;
-+			}
-+			if (cmd->advertising & ADVERTISED_1000baseT_Half) {
-+				bp->link_params.speed_cap_mask[cfg_idx] |=
-+					PORT_HW_CFG_SPEED_CAPABILITY_D0_1G;
-+			}
-+			if (cmd->advertising & (ADVERTISED_1000baseT_Full |
-+						ADVERTISED_1000baseKX_Full))
-+				bp->link_params.speed_cap_mask[cfg_idx] |=
-+					PORT_HW_CFG_SPEED_CAPABILITY_D0_1G;
-+
-+			if (cmd->advertising & (ADVERTISED_10000baseT_Full |
-+						ADVERTISED_10000baseKX4_Full |
-+						ADVERTISED_10000baseKR_Full))
-+				bp->link_params.speed_cap_mask[cfg_idx] |=
-+					PORT_HW_CFG_SPEED_CAPABILITY_D0_10G;
-+		}
- 	} else { /* forced speed */
- 		/* advertise the requested speed and duplex if supported */
- 		switch (speed) {
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index f74582a..42c7be1 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -2125,6 +2125,12 @@ static int bnx2x_set_spio(struct bnx2x *bp, int spio_num, u32 mode)
- void bnx2x_calc_fc_adv(struct bnx2x *bp)
- {
- 	u8 cfg_idx = bnx2x_get_link_cfg_idx(bp);
-+	if (bp->link_params.req_flow_ctrl[cfg_idx] != BNX2X_FLOW_CTRL_AUTO) {
-+		bp->port.advertising[cfg_idx] &= ~(ADVERTISED_Asym_Pause |
-+						   ADVERTISED_Pause);
-+		return;
-+	}
-+
- 	switch (bp->link_vars.ieee_fc &
- 		MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_MASK) {
- 	case MDIO_COMBO_IEEE0_AUTO_NEG_ADV_PAUSE_NONE:
--- 
-1.7.1
+> The earlier mail said it is a problem with dnsmasq and radvd. Let's w=
+ork on understanding
+> if they need to be updated before jumping in with hacks to the bridge=
+ code.
+>
+
+I really support the idea to keep the current behavior (assert carrier =
+on br0 when at least one port=20
+have carrier) and to fix the applications to wait for the IPv6 address =
+to be checked (DAD) instead=20
+of dying on bind() failure.
+
+Thanks.
+
+	Nicolas.
