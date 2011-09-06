@@ -1,54 +1,40 @@
-From: Lin Ming <ming.m.lin@intel.com>
-Subject: [PATCH -next] drivers/net: Makefile, fix netconsole link order
-Date: Tue, 06 Sep 2011 16:35:29 +0800
-Message-ID: <1315298129.16061.24.camel@snb>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next v5 4/5] r8169: add MODULE_FIRMWARE for the firmware of 8111evl
+Date: Tue, 6 Sep 2011 16:55:17 +0800
+Message-ID: <1315299318-1547-4-git-send-email-hayeswang@realtek.com>
+References: <1315299318-1547-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:46745 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753296Ab1IFIfb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Sep 2011 04:35:31 -0400
+Received: from rtits2.realtek.com ([60.250.210.242]:39279 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753810Ab1IFIzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 04:55:35 -0400
+In-Reply-To: <1315299318-1547-1-git-send-email-hayeswang@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 88491d8(drivers/net: Kconfig & Makefile cleanup) causes a
-regression that netconsole does not work if netconsole and network
-device driver are build into kernel, because netconsole is linked before
-network device driver.
+Add MODULE_FIRMWARE for the firmware of RTL8111E-VL
 
-Fixes it by moving netconsole.o after network device driver.
-
-Signed-off-by: Lin Ming <ming.m.lin@intel.com>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/Makefile |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index fa877cd..ec15311 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -14,7 +14,6 @@ obj-$(CONFIG_MACVTAP) += macvtap.o
- obj-$(CONFIG_MII) += mii.o
- obj-$(CONFIG_MDIO) += mdio.o
- obj-$(CONFIG_NET) += Space.o loopback.o
--obj-$(CONFIG_NETCONSOLE) += netconsole.o
- obj-$(CONFIG_PHYLIB) += phy/
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_TUN) += tun.o
-@@ -66,3 +65,9 @@ obj-$(CONFIG_USB_USBNET)        += usb/
- obj-$(CONFIG_USB_ZD1201)        += usb/
- obj-$(CONFIG_USB_IPHETH)        += usb/
- obj-$(CONFIG_USB_CDC_PHONET)   += usb/
-+
-+#
-+# If netconsole and network device driver are build-in,
-+# netconsole must be linked after network device driver
-+#
-+obj-$(CONFIG_NETCONSOLE) += netconsole.o
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 175c769..8cd305f 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -711,6 +711,7 @@ MODULE_FIRMWARE(FIRMWARE_8168D_1);
+ MODULE_FIRMWARE(FIRMWARE_8168D_2);
+ MODULE_FIRMWARE(FIRMWARE_8168E_1);
+ MODULE_FIRMWARE(FIRMWARE_8168E_2);
++MODULE_FIRMWARE(FIRMWARE_8168E_3);
+ MODULE_FIRMWARE(FIRMWARE_8105E_1);
+ 
+ static int rtl8169_open(struct net_device *dev);
 -- 
-1.7.2.5
+1.7.6
