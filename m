@@ -1,79 +1,36 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [PATCH 1/2] iwlegacy: change IWL_WARN to IWL_DEBUG_HT in
- iwl4965_tx_agg_start
-Date: Tue, 6 Sep 2011 17:01:31 +0200
-Message-ID: <20110906150131.GA7322@redhat.com>
-References: <1314537977-20097-1-git-send-email-Gregory.Dietsche@cuw.edu>
- <20110829122013.GA3597@redhat.com>
- <4E5B9533.6000109@cuw.edu>
- <20110829140032.GA1573@redhat.com>
+From: Florian Mickler <florian@mickler.org>
+Subject: re add support for bcm5750
+Date: Tue, 6 Sep 2011 17:03:43 +0200
+Message-ID: <20110906170343.09252578@schatten.dmk.lab>
+References: <1280784368-4226-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Greg Dietsche <gregory.dietsche@cuw.edu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	benli@broadcom.com, mchan@broadcom.com, davem@davemloft.net,
+	Francesco Piccinno <stack.box@gmail.com>
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49449 "EHLO mx1.redhat.com"
+Received: from ist.d-labs.de ([213.239.218.44]:56072 "EHLO mx01.d-labs.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754257Ab1IFPBL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Sep 2011 11:01:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20110829140032.GA1573@redhat.com>
+	id S1754780Ab1IFPER (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Sep 2011 11:04:17 -0400
+In-Reply-To: <1280784368-4226-8-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+Hi,
 
-On Mon, Aug 29, 2011 at 04:00:33PM +0200, Stanislaw Gruszka wrote:
-> On Mon, Aug 29, 2011 at 08:33:39AM -0500, Greg Dietsche wrote:
-> > On 08/29/2011 07:20 AM, Stanislaw Gruszka wrote:
-> > >On Sun, Aug 28, 2011 at 08:26:16AM -0500, Greg Dietsche wrote:
-> > >>This message should be a debug message and not a warning. So
-> > >>change it from IWL_WARN to IWL_DEBUG_HT.
-> > >I'm currently doing massive iwlegacy driver cleanup. Would be easier
-> > >for me to apply these patches on top of my changes instead of rebase
-> > >my patches. I will queue these two patches and post them together with
-> > >my pending patches.
-> > >
-> > That sounds good to me. I have the 4065 card in my laptop and want
-> > to learn how it works. If you want someone to test your changes, I'm
-> > willing.
-> > 
-> > I have six other patches that are trivial in nature for the iwlegacy
-> > driver. One of those also applies to the iwlagn driver, so seven
-> > patches in total. They remove some null checks that aren't necessary
-> > and also cleanup a few unused variables. There are two patches in
-> > the set that I'm not 100% sure about. They remove null checks and I
-> > haven't been able to prove to myself that they are correct. However,
-> > if they aren't correct, then there are some null checks in other
-> > places that need to be added....
-> > 
-> > Anyway, I can hold off on these until you've done your cleanup and
-> > see what still applies,
+in https://bugzilla.kernel.org/show_bug.cgi?id=42132 Francesco wrote: 
+
+> I have a notebook (HP TC4400) which has a BCM5750 ethernet card inside. The
+> ouput of lspci is:
 > 
-> That would be great.
+> 08:00.0 Ethernet controller [0200]: Broadcom Corporation NetXtreme BCM5750M
+> Gigabit Ethernet [14e4:167c]
 > 
-> > or if you have a tree someplace, I'd be
-> > happy to rebase them for you.
-> 
-> I do not have publicly available tree. I'll probably try to get
-> one on git.kernel.org. I will let you know.
+> Commit 67b284d476bcb3d100e946da23d6cf9acfd0465c removed the support for this
+> device. I wish to have the support for this network card back again. Thanks!
 
-I requested for kernel.org account but admins there have much more
-troubles currently than adding new account :-/ 
-
-I put patches here:
-http://people.redhat.com/sgruszka/iwlegacy_cleanup.tar.bz2
-
-They are on top of wireless-testing tree. You can apply them 
-by something like that:
-
-cd wireless-testing
-for i in `ls -X ~/iwlegacy_cleanup/*.patch` ; do git am $i ; done
-
-Series include your 2 patches. You can test this cleanup and
-apply your new changes on top. I'll not do any further cleanup
-for some time now, perhaps continue when I got public git tree.
-
-Thanks
-Stanislaw
+Regards,
+Flo
