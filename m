@@ -1,54 +1,99 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: [PATCH 1/1] ibmveth: Fix DMA unmap error
-Date: Wed, 07 Sep 2011 16:37:34 -0500
-Message-ID: <201109072137.p87LbV51024857@d01av04.pok.ibm.com>
-Cc: santil@linux.vnet.ibm.com, anton@samba.org,
-	brking@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:48696 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757175Ab1IGVjM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Sep 2011 17:39:12 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e3.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p87LENs7008130
-	for <netdev@vger.kernel.org>; Wed, 7 Sep 2011 17:14:23 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p87LbWn2349330
-	for <netdev@vger.kernel.org>; Wed, 7 Sep 2011 17:37:34 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p87LbVWV024887
-	for <netdev@vger.kernel.org>; Wed, 7 Sep 2011 17:37:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Subject: Re: [PATCH v2 3/9] socket: initial cgroup code.
+Date: Thu, 8 Sep 2011 01:17:10 +0300
+Message-ID: <20110907221710.GA7845@shutemov.name>
+References: <1315369399-3073-1-git-send-email-glommer@parallels.com>
+ <1315369399-3073-4-git-send-email-glommer@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, xemul@parallels.com,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	containers@lists.osdl.org, "David S. Miller" <davem@davemloft.net>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1315369399-3073-4-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Sep 07, 2011 at 01:23:13AM -0300, Glauber Costa wrote:
+> We aim to control the amount of kernel memory pinned at any
+> time by tcp sockets. To lay the foundations for this work,
+> this patch adds a pointer to the kmem_cgroup to the socket
+> structure.
+> 
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+> CC: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  include/linux/kmem_cgroup.h |   29 +++++++++++++++++++++++++++++
+>  include/net/sock.h          |    2 ++
+>  net/core/sock.c             |    5 ++---
+>  3 files changed, 33 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/linux/kmem_cgroup.h b/include/linux/kmem_cgroup.h
+> index 0e4a74b..77076d8 100644
+> --- a/include/linux/kmem_cgroup.h
+> +++ b/include/linux/kmem_cgroup.h
+> @@ -49,5 +49,34 @@ static inline struct kmem_cgroup *kcg_from_task(struct task_struct *tsk)
+>  	return NULL;
+>  }
+>  #endif /* CONFIG_CGROUP_KMEM */
+> +
+> +#ifdef CONFIG_INET
 
-Commit 6e8ab30ec677925e8999a9f5bdb028736d22d48c introduced a DMA mapping
-API inconsistency resulting in dma_unmap_page getting called on memory
-mapped via dma_map_single. This was seen when CONFIG_DMA_API_DEBUG was
-enabled. Fix up this API usage inconsistency.
+Will it break something if you define the helpers even if CONFIG_INET
+is not defined?
+It will be much cleaner. You can reuse ifdef CONFIG_CGROUP_KMEM in this
+case.
 
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
----
+> +#include <net/sock.h>
+> +static inline void sock_update_kmem_cgrp(struct sock *sk)
+> +{
+> +#ifdef CONFIG_CGROUP_KMEM
+> +	sk->sk_cgrp = kcg_from_task(current);
+> +
+> +	/*
+> +	 * We don't need to protect against anything task-related, because
+> +	 * we are basically stuck with the sock pointer that won't change,
+> +	 * even if the task that originated the socket changes cgroups.
+> +	 *
+> +	 * What we do have to guarantee, is that the chain leading us to
+> +	 * the top level won't change under our noses. Incrementing the
+> +	 * reference count via cgroup_exclude_rmdir guarantees that.
+> +	 */
+> +	cgroup_exclude_rmdir(&sk->sk_cgrp->css);
+> +#endif
+> +}
+> +
+> +static inline void sock_release_kmem_cgrp(struct sock *sk)
+> +{
+> +#ifdef CONFIG_CGROUP_KMEM
+> +	cgroup_release_and_wakeup_rmdir(&sk->sk_cgrp->css);
+> +#endif
+> +}
+> +
+> +#endif /* CONFIG_INET */
+>  #endif /* _LINUX_KMEM_CGROUP_H */
 
- drivers/net/ibmveth.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+> @@ -2252,9 +2254,6 @@ void sk_common_release(struct sock *sk)
+>  }
+>  EXPORT_SYMBOL(sk_common_release);
+>  
+> -static DEFINE_RWLOCK(proto_list_lock);
+> -static LIST_HEAD(proto_list);
+> -
 
-diff -puN drivers/net/ibmveth.c~ibmveth_fix_mapping_issue drivers/net/ibmveth.c
---- linux-2.6/drivers/net/ibmveth.c~ibmveth_fix_mapping_issue	2011-09-07 16:28:19.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.c	2011-09-07 16:28:19.000000000 -0500
-@@ -1026,7 +1026,12 @@ retry_bounce:
- 		netdev->stats.tx_bytes += skb->len;
- 	}
- 
--	for (i = 0; i < skb_shinfo(skb)->nr_frags + 1; i++)
-+	dma_unmap_single(&adapter->vdev->dev,
-+			 descs[0].fields.address,
-+			 descs[0].fields.flags_len & IBMVETH_BUF_LEN_MASK,
-+			 DMA_TO_DEVICE);
-+
-+	for (i = 1; i < skb_shinfo(skb)->nr_frags + 1; i++)
- 		dma_unmap_page(&adapter->vdev->dev, descs[i].fields.address,
- 			       descs[i].fields.flags_len & IBMVETH_BUF_LEN_MASK,
- 			       DMA_TO_DEVICE);
-_
+Wrong patch?
+
+-- 
+ Kirill A. Shutemov
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
