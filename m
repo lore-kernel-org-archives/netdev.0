@@ -1,28 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/12] bna: Update bna driver version to 3.0.2.1
-Date: Wed, 07 Sep 2011 15:47:49 -0400 (EDT)
-Message-ID: <20110907.154749.1076518494348987591.davem@davemloft.net>
-References: <1314754068-31978-1-git-send-email-rmody@brocade.com>
-	<E5313AF6F2BFD14293E5FD0F94750F86A9E817C100@HQ1-EXCH01.corp.brocade.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq@rere.qmqm.pl>
+Subject: Re: [PATCH 08/11] netlink: implement memory mapped sendmsg()
+Date: Wed, 7 Sep 2011 22:03:19 +0200
+Message-ID: <20110907200319.GA29545@rere.qmqm.pl>
+References: <1315070771-18576-1-git-send-email-kaber@trash.net>
+ <1315070771-18576-9-git-send-email-kaber@trash.net>
+ <20110904161822.GA8176@rere.qmqm.pl>
+ <4E678C18.1010306@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rmody@Brocade.COM, netdev@vger.kernel.org,
-	adapter_linux_open_src_team@Brocade.COM, ivecera@redhat.com
-To: huangj@Brocade.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40663 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754650Ab1IGTs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2011 15:48:56 -0400
-In-Reply-To: <E5313AF6F2BFD14293E5FD0F94750F86A9E817C100@HQ1-EXCH01.corp.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4E678C18.1010306@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jing Huang <huangj@Brocade.COM>
-Date: Wed, 7 Sep 2011 12:24:03 -0700
+On Wed, Sep 07, 2011 at 05:22:00PM +0200, Patrick McHardy wrote:
+> On 04.09.2011 18:18, Micha=B3 Miros=B3aw wrote:
+> > On Sat, Sep 03, 2011 at 07:26:08PM +0200, kaber@trash.net wrote:
+> >> From: Patrick McHardy <kaber@trash.net>
+> >>
+> >> Add support for memory mapped sendmsg() to netlink. Userspace queu=
+ed to
+> >> be processed frames into the TX ring and invokes sendmsg with
+> >> msg.iov.iov_base =3D NULL to trigger processing of all pending mes=
+sages.
+> >>
+> >> Since the kernel usually performs full message validation before b=
+eginning
+> >> processing, userspace must be prevented from modifying the message
+> >> contents while the kernel is processing them. In order to do so, t=
+he
+> >> frames contents are copied to an allocated skb in case the the rin=
+g is
+> >> mapped more than once or the file descriptor is shared (f.i. throu=
+gh
+> >> AF_UNIX file descriptor passing).
+> >>
+> >> Otherwise an skb without a data area is allocated, the data pointe=
+r set
+> >> to point to the data area of the ring frame and the skb is process=
+ed.
+> >> Once the skb is freed, the destructor releases the frame back to u=
+serspace
+> >> by setting the status to NL_MMAP_STATUS_UNUSED.
+> >=20
+> > Is this protected from threads? Like: one thread waits on sendmsg()=
+ and
+> > another (same process) changes the buffer.
+> Yes, if the ring is mapped multiple times (or the file descriptor
+> is changed), the contents are copied to an allocated skb.
 
-> Are you going to approve this patch set? Patchwork shows that It is still
-> in under review and I am wondering if this is due to network git freeze.
+I mean:
 
-No patches will be applied until master.kernel.org comes back up.
+[1] mmap()
+[1] fill buffers
+[1] pthread_create() [creates: 2]
+[1] sendmsg() starts
+[2] modify buffers
+[1] sendmsg() returns
+
+So: no multiple mmaps, and no touching of the fd. I haven't dug into
+filesystem layer to see if threads affect file->f_count, but there
+sure are no multiple mappings here.
+
+Best Regards,
+Micha=B3 Miros=B3aw
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
