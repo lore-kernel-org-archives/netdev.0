@@ -1,141 +1,116 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
-Date: Wed, 07 Sep 2011 04:55:26 +0200
-Message-ID: <1315364126.3400.64.camel@edumazet-laptop>
-References: <4E631032.6050606@intel.com>
-	 <1315326326.2576.2980.camel@schen9-DESK>
-	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1315335019.2576.3048.camel@schen9-DESK>
-	 <1315335660.3400.7.camel@edumazet-laptop>
-	 <1315337580.2576.3066.camel@schen9-DESK>
-	 <1315338186.3400.20.camel@edumazet-laptop>
-	 <1315339157.2576.3079.camel@schen9-DESK>
-	 <1315340388.3400.28.camel@edumazet-laptop>
-	 <CAAM7YAnqLyK6JWPW_Y8wD=ykqWMn4fPdJ3_7yUUB+TQZWfDJzQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tim Chen <tim.c.chen@linux.intel.com>,
-	"Yan, Zheng" <zheng.z.yan@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"jirislaby@gmail.com" <jirislaby@gmail.com>,
-	"sedat.dilek@gmail.com" <sedat.dilek@gmail.com>, alex.shi@intel.com
-To: "Yan, Zheng" <zheng.z.yan@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62985 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753297Ab1IGCzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Sep 2011 22:55:39 -0400
-Received: by wwf5 with SMTP id 5so6956430wwf.1
-        for <netdev@vger.kernel.org>; Tue, 06 Sep 2011 19:55:38 -0700 (PDT)
-In-Reply-To: <CAAM7YAnqLyK6JWPW_Y8wD=ykqWMn4fPdJ3_7yUUB+TQZWfDJzQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH v2 0/9] per-cgroup tcp buffers limitation
+Date: Wed,  7 Sep 2011 01:23:10 -0300
+Message-ID: <1315369399-3073-1-git-send-email-glommer@parallels.com>
+Cc: linux-mm@kvack.org, containers@lists.osdl.org, netdev@vger.kernel.org,
+        xemul@parallels.com, Glauber Costa <glommer@parallels.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 07 septembre 2011 =C3=A0 07:09 +0800, Yan, Zheng a =C3=A9cr=
-it :
-> On Wed, Sep 7, 2011 at 4:19 AM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> > Le mardi 06 septembre 2011 =C3=A0 12:59 -0700, Tim Chen a =C3=A9cri=
-t :
-> >> On Tue, 2011-09-06 at 21:43 +0200, Eric Dumazet wrote:
-> >> > Le mardi 06 septembre 2011 =C3=A0 12:33 -0700, Tim Chen a =C3=A9=
-crit :
-> >> >
-> >> > > Yes, I think locking the sendmsg for the entire duration of
-> >> > > unix_stream_sendmsg makes a lot of sense.  It simplifies the l=
-ogic a lot
-> >> > > more.  I'll try to cook something up in the next couple of day=
-s.
-> >> >
-> >> > Thats not really possible, we cant hold a spinlock and call
-> >> > sock_alloc_send_skb() and/or memcpy_fromiovec(), wich might slee=
-p.
-> >> >
-> >> > You would need to prepare the full skb list, then :
-> >> > - stick the ref on the last skb of the list.
-> >> >
-> >> > Transfert the whole skb list in other->sk_receive_queue in one g=
-o,
-> >> > instead of one after another.
-> >> >
-> >> > Unfortunately, this would break streaming (big send(), and anoth=
-er
-> >> > thread doing the receive)
-> >> >
-> >> > Listen, I am wondering why hackbench even triggers SCM code. Thi=
-s is
-> >> > really odd. We should not have a _single_ pid/cred ref/unref at =
-all.
-> >> >
-> >>
-> >> Hackbench triggers the code because it has a bunch of threads send=
-ing
-> >> msgs on UNIX socket.
-> >> >
-> >>
-> >> Well, if the lock socket approach doesn't work, then my original p=
-atch
-> >> plus Yan Zheng's fix should still work.  I'll try to answer your
-> >> objections below:
-> >>
-> >>
-> >> > I was discussing of things after proposed patch, not current net=
--next.
-> >> >
-> >> > This reads :
-> >> >
-> >> > err =3D unix_scm_to_skb(siocb->scm, skb, !fds_sent, scm_ref);
-> >> >
-> >> > So first skb is sent without ref taken, as mentioned in Changelo=
-g ?
-> >> >
-> >>
-> >> No. the first skb is sent *with* ref taken, as scm_ref is set to t=
-rue for
-> >> first skb.
-> >>
-> >> >
-> >> > If second skb cannot be built, we exit this system call with an =
-already
-> >> > queued skb. Receiver can then access to freed memory.
-> >> >
-> >>
-> >> No, we do have reference set.  For first skb, in unix_scm_to_skb. =
- For the
-> >> second skb (which is the last skb), in scm_sent.  Should the secon=
-d skb alloc failed,
-> >> we'll release the ref in scm_destroy.  Otherwise, the receiver wil=
-l release
-> >> the references will consuming the skb.
-> >>
-> >
-> > This is crap. This is not the intent of the code I read from the pa=
-tch.
-> >
-> > unless scm_ref really means scm_noref ?
-> >
-> > I really hate this patch. I mean it.
-> >
-> > I read it 10 times, spent 2 hours and still dont understand it.
-> >
->=20
-> Sorry, scm_ref means "sender hold a scm reference". I should add comm=
-ent for it.
+This patch introduces per-cgroup tcp buffers limitation. This allows
+sysadmins to specify a maximum amount of kernel memory that
+tcp connections can use at any point in time. TCP is the main interest
+in this work, but extending it to other protocols would be easy.
 
-There is no "sender holds a scm reference" requirement.
+For this to work, I am introducing kmem_cgroup, a cgroup targetted
+at tracking and controlling objects in kernel memory. Since they
+are usually not found in page granularity, and are fundamentally
+different from userspace memory (not swappable, can't overcommit),
+I am proposing those objects live in its own cgroup rather than
+in the memory controller.
 
-The process is running, so holds a pid and cred by itself.
+It piggybacks in the memory control mechanism already present in
+/proc/sys/net/ipv4/tcp_mem. There is a soft limit, and a hard limit,
+that will suppress allocation when reached. For each cgroup, however,
+the file kmem.tcp_maxmem will be used to cap those values.
 
-If pid/cred pointers are stuffed into skb->cb[], then each last skb mus=
-t
-holds its own reference to pid and cred.
+The usage I have in mind here is containers. Each container will
+define its own values for soft and hard limits, but none of them will
+be possibly bigger than the value the box' sysadmin specified from
+the outside.
 
-Problem is : we dont know wich skb _is_ the last one, because we can
-fail skb allocation or user->kernel copy any time.
+To test for any performance impacts of this patch, I used netperf's
+TCP_RR benchmark on localhost, so we can have both recv and snd in action.
 
-Please David just revert 0856a304091b33a8e
+Command line used was ./src/netperf -t TCP_RR -H localhost, and the
+results:
 
-I'll work today on a fix to performance regression added in 7361c36c
+Without the patch
+=================
+
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00    26996.35
+16384  87380
+
+With the patch
+===============
+
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00    27291.86
+16384  87380
+
+The difference is within a one-percent range.
+
+Nesting cgroups doesn't seem to be the dominating factor as well,
+with nestings up to 10 levels not showing a significant performance
+difference.
+
+Glauber Costa (9):
+  per-netns ipv4 sysctl_tcp_mem
+  Kernel Memory cgroup
+  socket: initial cgroup code.
+  function wrappers for upcoming socket
+  foundations of per-cgroup memory pressure controlling.
+  per-cgroup tcp buffers control
+  tcp buffer limitation: per-cgroup limit
+  Display current tcp memory allocation in kmem cgroup
+  Add documentation about kmem_cgroup
+
+ Documentation/cgroups/kmem_cgroups.txt |   27 +++++
+ crypto/af_alg.c                        |    7 +-
+ include/linux/cgroup_subsys.h          |    4 +
+ include/linux/kmem_cgroup.h            |  194 ++++++++++++++++++++++++++++++++
+ include/net/netns/ipv4.h               |    1 +
+ include/net/sock.h                     |   37 +++++-
+ include/net/tcp.h                      |   13 ++-
+ include/net/udp.h                      |    3 +-
+ include/trace/events/sock.h            |   10 +-
+ init/Kconfig                           |   11 ++
+ mm/Makefile                            |    1 +
+ mm/kmem_cgroup.c                       |   61 ++++++++++
+ net/core/sock.c                        |   88 ++++++++++-----
+ net/decnet/af_decnet.c                 |   21 +++-
+ net/ipv4/proc.c                        |    7 +-
+ net/ipv4/sysctl_net_ipv4.c             |   59 +++++++++-
+ net/ipv4/tcp.c                         |  181 ++++++++++++++++++++++++++----
+ net/ipv4/tcp_input.c                   |   12 +-
+ net/ipv4/tcp_ipv4.c                    |   15 ++-
+ net/ipv4/tcp_output.c                  |    2 +-
+ net/ipv4/tcp_timer.c                   |    2 +-
+ net/ipv4/udp.c                         |   20 +++-
+ net/ipv6/tcp_ipv6.c                    |   10 +-
+ net/ipv6/udp.c                         |    4 +-
+ net/sctp/socket.c                      |   35 +++++--
+ 25 files changed, 710 insertions(+), 115 deletions(-)
+ create mode 100644 Documentation/cgroups/kmem_cgroups.txt
+ create mode 100644 include/linux/kmem_cgroup.h
+ create mode 100644 mm/kmem_cgroup.c
+
+-- 
+1.7.6
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
