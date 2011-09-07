@@ -1,99 +1,37 @@
-From: "Kirill A. Shutemov" <kirill@shutemov.name>
-Subject: Re: [PATCH v2 3/9] socket: initial cgroup code.
-Date: Thu, 8 Sep 2011 01:17:10 +0300
-Message-ID: <20110907221710.GA7845@shutemov.name>
-References: <1315369399-3073-1-git-send-email-glommer@parallels.com>
- <1315369399-3073-4-git-send-email-glommer@parallels.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 01/15] add Documentation/namespaces/user_namespace.txt
+ (v3)
+Date: Wed, 7 Sep 2011 15:50:24 -0700
+Message-ID: <20110907155024.42e3fe27.akpm@linux-foundation.org>
+References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
+	<1314993400-6910-4-git-send-email-serge@hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, xemul@parallels.com,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	containers@lists.osdl.org, "David S. Miller" <davem@davemloft.net>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1315369399-3073-4-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: segooon@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	dhowells@redhat.com, ebiederm@xmission.com, rdunlap@xenotime.net,
+	"Serge E. Hallyn" <serge.hallyn@canonical.com>
+To: Serge Hallyn <serge@hallyn.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1314993400-6910-4-git-send-email-serge@hallyn.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 07, 2011 at 01:23:13AM -0300, Glauber Costa wrote:
-> We aim to control the amount of kernel memory pinned at any
-> time by tcp sockets. To lay the foundations for this work,
-> this patch adds a pointer to the kmem_cgroup to the socket
-> structure.
-> 
-> Signed-off-by: Glauber Costa <glommer@parallels.com>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
-> CC: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  include/linux/kmem_cgroup.h |   29 +++++++++++++++++++++++++++++
->  include/net/sock.h          |    2 ++
->  net/core/sock.c             |    5 ++---
->  3 files changed, 33 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/kmem_cgroup.h b/include/linux/kmem_cgroup.h
-> index 0e4a74b..77076d8 100644
-> --- a/include/linux/kmem_cgroup.h
-> +++ b/include/linux/kmem_cgroup.h
-> @@ -49,5 +49,34 @@ static inline struct kmem_cgroup *kcg_from_task(struct task_struct *tsk)
->  	return NULL;
->  }
->  #endif /* CONFIG_CGROUP_KMEM */
-> +
-> +#ifdef CONFIG_INET
+On Fri,  2 Sep 2011 19:56:26 +0000
+Serge Hallyn <serge@hallyn.com> wrote:
 
-Will it break something if you define the helpers even if CONFIG_INET
-is not defined?
-It will be much cleaner. You can reuse ifdef CONFIG_CGROUP_KMEM in this
-case.
+> +Note that this userid mapping for the VFS is not yet implemented, though the
+> +lkml and containers mailing list archives will show several previous
+> +prototypes.  In the end, those got hung up waiting on the concept of targeted
+> +capabilities to be developed, which, thanks to the insight of Eric Biederman,
+> +they finally did.
 
-> +#include <net/sock.h>
-> +static inline void sock_update_kmem_cgrp(struct sock *sk)
-> +{
-> +#ifdef CONFIG_CGROUP_KMEM
-> +	sk->sk_cgrp = kcg_from_task(current);
-> +
-> +	/*
-> +	 * We don't need to protect against anything task-related, because
-> +	 * we are basically stuck with the sock pointer that won't change,
-> +	 * even if the task that originated the socket changes cgroups.
-> +	 *
-> +	 * What we do have to guarantee, is that the chain leading us to
-> +	 * the top level won't change under our noses. Incrementing the
-> +	 * reference count via cgroup_exclude_rmdir guarantees that.
-> +	 */
-> +	cgroup_exclude_rmdir(&sk->sk_cgrp->css);
-> +#endif
-> +}
-> +
-> +static inline void sock_release_kmem_cgrp(struct sock *sk)
-> +{
-> +#ifdef CONFIG_CGROUP_KMEM
-> +	cgroup_release_and_wakeup_rmdir(&sk->sk_cgrp->css);
-> +#endif
-> +}
-> +
-> +#endif /* CONFIG_INET */
->  #endif /* _LINUX_KMEM_CGROUP_H */
+not-yet-implemented things worry me.  When can we expect this to
+happen, and how big and ugly will it be?
 
-> @@ -2252,9 +2254,6 @@ void sk_common_release(struct sock *sk)
->  }
->  EXPORT_SYMBOL(sk_common_release);
->  
-> -static DEFINE_RWLOCK(proto_list_lock);
-> -static LIST_HEAD(proto_list);
-> -
-
-Wrong patch?
-
--- 
- Kirill A. Shutemov
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I'm not seeing many (any) reviewed-by's on these patches.  I could get
+down and stare at them myself, but that wouldn't be very useful.  This
+work goes pretty deep and is quite security-affecting.  And network-afecting.
+Can you round up some suitable people and get the reviewing and testing happening
+please?
