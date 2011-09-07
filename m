@@ -1,24 +1,40 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net v2 0/6] bnx2x: Few link fixes
-Date: Wed, 7 Sep 2011 13:47:44 +0300
-Message-ID: <1315392464.27750.21.camel@lb-tlvb-dmitry>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 02/11] net: add function to allocate skbuff head without
+ data area
+Date: Wed, 07 Sep 2011 17:20:42 +0200
+Message-ID: <4E678BCA.6070102@trash.net>
+References: <1315070771-18576-1-git-send-email-kaber@trash.net>	 <1315070771-18576-3-git-send-email-kaber@trash.net> <1315123938.2635.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1760 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752944Ab1IGQPI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Sep 2011 12:15:08 -0400
+Received: from stinky.trash.net ([213.144.137.162]:61794 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754662Ab1IGQQ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2011 12:16:28 -0400
+In-Reply-To: <1315123938.2635.1.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-Following Ben's suggestion, I'm resending the following patch series describing some link fixes.
-Please consider applying it to net.
+On 04.09.2011 10:12, Eric Dumazet wrote:
+> Le samedi 03 septembre 2011 =E0 19:26 +0200, kaber@trash.net a =E9cri=
+t :
+>=20
+>> +struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
+>> +{
+>> +	struct sk_buff *skb;
+>> +
+>> +	/* Get the HEAD */
+>> +	skb =3D kmem_cache_alloc_node(skbuff_head_cache,
+>> +				    gfp_mask & ~__GFP_DMA, node);
+>> +	if (!skb)
+>> +		goto out;
+>> +	prefetchw(skb);
+>=20
+> Please remove this prefetchw(), since we have no delay between it and
+> actual memset(skb).
 
-Thanks,
-Yaniv
+Done, thanks.
