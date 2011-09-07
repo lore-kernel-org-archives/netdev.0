@@ -1,69 +1,186 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: [PATCH v2 9/9] Add documentation about kmem_cgroup
-Date: Wed,  7 Sep 2011 01:23:19 -0300
-Message-ID: <1315369399-3073-10-git-send-email-glommer@parallels.com>
-References: <1315369399-3073-1-git-send-email-glommer@parallels.com>
-Cc: linux-mm@kvack.org, containers@lists.osdl.org, netdev@vger.kernel.org,
-        xemul@parallels.com, Glauber Costa <glommer@parallels.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        Randy Dunlap <rdunlap@xenotime.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1315369399-3073-1-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: "Yan, Zheng " <yanzheng@21cn.com>
+Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
+Date: Wed, 7 Sep 2011 12:36:05 +0800
+Message-ID: <CAAM7YAn0c0SpAD42PcT+-HDXjT9HMajhmfZD6D68_0E21i2tSQ@mail.gmail.com>
+References: <4E631032.6050606@intel.com>
+	<1315326326.2576.2980.camel@schen9-DESK>
+	<1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1315335019.2576.3048.camel@schen9-DESK>
+	<1315335660.3400.7.camel@edumazet-laptop>
+	<1315337580.2576.3066.camel@schen9-DESK>
+	<1315338186.3400.20.camel@edumazet-laptop>
+	<1315339157.2576.3079.camel@schen9-DESK>
+	<1315340388.3400.28.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tim Chen <tim.c.chen@linux.intel.com>,
+	"Yan, Zheng" <zheng.z.yan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"jirislaby@gmail.com" <jirislaby@gmail.com>,
+	"sedat.dilek@gmail.com" <sedat.dilek@gmail.com>, alex.shi@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:35472 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028Ab1IGEgG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2011 00:36:06 -0400
+Received: by pzk37 with SMTP id 37so11286616pzk.1
+        for <netdev@vger.kernel.org>; Tue, 06 Sep 2011 21:36:05 -0700 (PDT)
+In-Reply-To: <1315340388.3400.28.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Glauber Costa <glommer@parallels.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
-CC: Eric W. Biederman <ebiederm@xmission.com>
-CC: Randy Dunlap <rdunlap@xenotime.net>
----
- Documentation/cgroups/kmem_cgroups.txt |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/cgroups/kmem_cgroups.txt
+On Wed, Sep 7, 2011 at 4:19 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Le mardi 06 septembre 2011 =E0 12:59 -0700, Tim Chen a =E9crit :
+>> On Tue, 2011-09-06 at 21:43 +0200, Eric Dumazet wrote:
+>> > Le mardi 06 septembre 2011 =E0 12:33 -0700, Tim Chen a =E9crit :
+>> >
+>> > > Yes, I think locking the sendmsg for the entire duration of
+>> > > unix_stream_sendmsg makes a lot of sense. =A0It simplifies the l=
+ogic a lot
+>> > > more. =A0I'll try to cook something up in the next couple of day=
+s.
+>> >
+>> > Thats not really possible, we cant hold a spinlock and call
+>> > sock_alloc_send_skb() and/or memcpy_fromiovec(), wich might sleep.
+>> >
+>> > You would need to prepare the full skb list, then :
+>> > - stick the ref on the last skb of the list.
+>> >
+>> > Transfert the whole skb list in other->sk_receive_queue in one go,
+>> > instead of one after another.
+>> >
+>> > Unfortunately, this would break streaming (big send(), and another
+>> > thread doing the receive)
+>> >
+>> > Listen, I am wondering why hackbench even triggers SCM code. This =
+is
+>> > really odd. We should not have a _single_ pid/cred ref/unref at al=
+l.
+>> >
+>>
+>> Hackbench triggers the code because it has a bunch of threads sendin=
+g
+>> msgs on UNIX socket.
+>> >
+>>
+>> Well, if the lock socket approach doesn't work, then my original pat=
+ch
+>> plus Yan Zheng's fix should still work. =A0I'll try to answer your
+>> objections below:
+>>
+>>
+>> > I was discussing of things after proposed patch, not current net-n=
+ext.
+>> >
+>> > This reads :
+>> >
+>> > err =3D unix_scm_to_skb(siocb->scm, skb, !fds_sent, scm_ref);
+>> >
+>> > So first skb is sent without ref taken, as mentioned in Changelog =
+?
+>> >
+>>
+>> No. the first skb is sent *with* ref taken, as scm_ref is set to tru=
+e for
+>> first skb.
+>>
+>> >
+>> > If second skb cannot be built, we exit this system call with an al=
+ready
+>> > queued skb. Receiver can then access to freed memory.
+>> >
+>>
+>> No, we do have reference set. =A0For first skb, in unix_scm_to_skb. =
+=A0For the
+>> second skb (which is the last skb), in scm_sent. =A0Should the secon=
+d skb alloc failed,
+>> we'll release the ref in scm_destroy. =A0Otherwise, the receiver wil=
+l release
+>> the references will consuming the skb.
+>>
+>
+> This is crap. This is not the intent of the code I read from the patc=
+h.
+>
+> unless scm_ref really means scm_noref ?
+>
+> I really hate this patch. I mean it.
+>
+> I read it 10 times, spent 2 hours and still dont understand it.
+>
+>
+> @@ -1577,6 +1577,7 @@ static int unix_stream_sendmsg(struct kiocb *ki=
+ocb, struct socket *sock,
+> =A0 =A0 =A0 =A0int sent =3D 0;
+> =A0 =A0 =A0 =A0struct scm_cookie tmp_scm;
+> =A0 =A0 =A0 =A0bool fds_sent =3D false;
+> + =A0 =A0 =A0 bool scm_ref =3D true;
+> =A0 =A0 =A0 =A0int max_level;
+>
+> =A0 =A0 =A0 =A0if (NULL =3D=3D siocb->scm)
+> @@ -1637,12 +1638,15 @@ static int unix_stream_sendmsg(struct kiocb *=
+kiocb, struct socket *sock,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 */
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0size =3D min_t(int, size, skb_tailroom=
+(skb));
+>
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* pass the scm reference to the very l=
+ast skb */
+>
+> HERE: I understand : on the last skb, set scm_ref to false.
+> So comment is wrong.
 
-diff --git a/Documentation/cgroups/kmem_cgroups.txt b/Documentation/cgroups/kmem_cgroups.txt
-new file mode 100644
-index 0000000..930e069
---- /dev/null
-+++ b/Documentation/cgroups/kmem_cgroups.txt
-@@ -0,0 +1,27 @@
-+Kernel Memory Cgroup
-+====================
-+
-+This document briefly describes the kernel memory cgroup, or "kmem cgroup".
-+Unlike user memory, kernel memory cannot be swapped. This effectively means
-+that rogue processes can start operations that pin kernel objects permanently
-+into memory, exhausting resources of all other processes in the system.
-+
-+kmem_cgroup main goal is to control the amount of memory a group of processes
-+can pin at any given point in time. Other uses of this infrastructure are
-+expected to come up with time. Right now, the only resource effectively limited
-+are tcp send and receive buffers.
-+
-+TCP network buffers
-+===================
-+
-+TCP network buffers, both on the send and receive sides, can be controlled
-+by the kmem cgroup. Once a socket is created, it is attached to the cgroup of
-+the controller process, where it stays until the end of its lifetime.
-+
-+Files
-+=====
-+	kmem.tcp_maxmem: control the maximum amount in bytes that can be used by
-+	tcp sockets inside the cgroup. 
-+
-+	kmem.tcp_current_memory: current amount in bytes used by all sockets in
-+	this cgroup
--- 
-1.7.6
+I guess you misunderstood this code. Set scm_ref to false means skb wil=
+l inherit
+sender's reference. Then we call unix_scm_to_skb() with parameter
+'ref' =3D=3D false.
+So it doesn't get additional reference. I admit my patch is confusing,
+but I think
+Tim's new patch is OK. (even in the case of fail skb allocation or
+user->kernel copy)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards
+
+>
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (sent + size >=3D len)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 scm_ref =3D false;
+>
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Only send the fds and no ref to pid =
+in the first buffer */
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D unix_scm_to_skb(siocb->scm, skb=
+, !fds_sent, fds_sent);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Only send the fds in the first buffe=
+r */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D unix_scm_to_skb(siocb->scm, skb=
+, !fds_sent, scm_ref);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (err < 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0kfree_skb(skb);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out_err;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+>
+>
+>
+> As I said, we should revert the buggy patch, and rewrite a performanc=
+e
+> fix from scratch, with not a single get_pid()/put_pid() in fast path.
+>
+> read()/write() on AF_UNIX sockets should not use a single
+> get_pid()/put_pid().
+>
+> This is a serious regression we should fix at 100%, not 50% or even 7=
+5%,
+> adding serious bugs.
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
