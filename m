@@ -1,45 +1,37 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: re add support for bcm5750
-Date: Tue, 6 Sep 2011 18:25:15 -0700
-Message-ID: <20110907012515.GA9038@mcarlson.broadcom.com>
-References: <1280784368-4226-8-git-send-email-mcarlson@broadcom.com>
- <20110906170343.09252578@schatten.dmk.lab>
+From: Paul Menage <paul@paulmenage.org>
+Subject: Re: [PATCH] per-cgroup tcp buffer limitation
+Date: Tue, 6 Sep 2011 18:29:55 -0700
+Message-ID: <CALdu-PDZC3FTuR31d5+P+=U=0UFVUZD_KDEgPHBeD-MyQ4PuSQ@mail.gmail.com>
+References: <1315276556-10970-1-git-send-email-glommer@parallels.com>
+ <CALdu-PDoPPdcX0bAkVpaP9R-z1yKin=JOjjT3rMuoSHJaywSCg@mail.gmail.com> <4E66C45A.8060706@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Benjamin Li" <benli@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Francesco Piccinno" <stack.box@gmail.com>
-To: "Florian Mickler" <florian@mickler.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110906170343.09252578@schatten.dmk.lab>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	containers@lists.osdl.org, netdev@vger.kernel.org, xemul@parallels.com,
+	"David S. Miller" <davem@davemloft.net>, Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4E66C45A.8060706@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 06, 2011 at 08:03:43AM -0700, Florian Mickler wrote:
-> Hi,
-> 
-> in https://bugzilla.kernel.org/show_bug.cgi?id=42132 Francesco wrote: 
-> 
-> > I have a notebook (HP TC4400) which has a BCM5750 ethernet card inside. The
-> > ouput of lspci is:
-> > 
-> > 08:00.0 Ethernet controller [0200]: Broadcom Corporation NetXtreme BCM5750M
-> > Gigabit Ethernet [14e4:167c]
-> > 
-> > Commit 67b284d476bcb3d100e946da23d6cf9acfd0465c removed the support for this
-> > device. I wish to have the support for this network card back again. Thanks!
+On Tue, Sep 6, 2011 at 6:09 PM, Glauber Costa <glommer@parallels.com> wrote:
+>
+> Can you be more specific?
 
-Hi Florian.  Are you experiencing the same problem?  We found that
-Francesco's problem was that the firmware of his device was missing.  Do
-you see :
+Maybe if you include the source to kmem_cgroup.c :-)
 
-eth0: No firmware running
+Things like the reporting of stats to user space, configuring limits,
+etc, ought to be common with the other kernel memory tracking. (Sadly,
+I've lost track of the status of the other kernel memory effort -
+Kamezawa or the OpenVZ folks probably have a better handle on that).
 
-messages?
+Paul
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
