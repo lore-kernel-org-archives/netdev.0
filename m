@@ -1,162 +1,115 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] net/phy: add IC+ IP101A and support APS.
-Date: Wed,  7 Sep 2011 08:14:50 +0200
-Message-ID: <1315376090-17081-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:50713 "EHLO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754318Ab1IGGPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2011 02:15:04 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C74132A8
-	for <netdev@vger.kernel.org>; Wed,  7 Sep 2011 06:14:58 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 5C0E31738
-	for <netdev@vger.kernel.org>; Wed,  7 Sep 2011 06:14:58 +0000 (GMT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: Re: [PATCH v2 6/9] per-cgroup tcp buffers control
+Date: Wed, 07 Sep 2011 15:32:47 +0800
+Message-ID: <4E671E1F.4040804@cn.fujitsu.com>
+References: <1315369399-3073-1-git-send-email-glommer@parallels.com> <1315369399-3073-7-git-send-email-glommer@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, xemul@parallels.com, netdev@vger.kernel.org,
+        linux-mm@kvack.org, "Eric W. Biederman" <ebiederm@xmission.com>,
+        containers@lists.osdl.org, "David S. Miller" <davem@davemloft.net>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1315369399-3073-7-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the IC+ IP101A Single port 10/100 PHY
-and supports the APS (i.e. power saving mode while link is down)
-for both IP1001 and IP101A (where this mode is supported).
+> +#ifdef CONFIG_INET
+> +#include <net/sock.h>
+> +static inline void sock_update_kmem_cgrp(struct sock *sk)
+> +{
+> +#ifdef CONFIG_CGROUP_KMEM
+> +	sk->sk_cgrp = kcg_from_task(current);
+> +
+> +	/*
+> +	 * We don't need to protect against anything task-related, because
+> +	 * we are basically stuck with the sock pointer that won't change,
+> +	 * even if the task that originated the socket changes cgroups.
+> +	 *
+> +	 * What we do have to guarantee, is that the chain leading us to
+> +	 * the top level won't change under our noses. Incrementing the
+> +	 * reference count via cgroup_exclude_rmdir guarantees that.
+> +	 */
+> +	cgroup_exclude_rmdir(&sk->sk_cgrp->css);
+> +#endif
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/phy/icplus.c |   79 +++++++++++++++++++++++++++++++++++++++------
- 1 files changed, 68 insertions(+), 11 deletions(-)
+must be protected by rcu_read_lock.
 
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-index d4cbc29..6e344e5 100644
---- a/drivers/net/phy/icplus.c
-+++ b/drivers/net/phy/icplus.c
-@@ -30,10 +30,17 @@
- #include <asm/irq.h>
- #include <asm/uaccess.h>
- 
--MODULE_DESCRIPTION("ICPlus IP175C/IC1001 PHY drivers");
-+MODULE_DESCRIPTION("ICPlus IP175C/IP101A/IC1001 PHY drivers");
- MODULE_AUTHOR("Michael Barkowski");
- MODULE_LICENSE("GPL");
- 
-+/* IP101A/IP1001 */
-+#define IP10XX_SPEC_CTRL_STATUS		16  /* Spec. Control Register */
-+#define IP1001_SPEC_CTRL_STATUS_2	20  /* IP1001 Spec. Control Reg 2 */
-+#define IP1001_PHASE_SEL_MASK		3 /* IP1001 RX/TXPHASE_SEL */
-+#define IP1001_APS_ON			11  /* IP1001 APS Mode  bit */
-+#define IP101A_APS_ON			2   /* IP101A APS Mode bit */
-+
- static int ip175c_config_init(struct phy_device *phydev)
- {
- 	int err, i;
-@@ -89,27 +96,58 @@ static int ip175c_config_init(struct phy_device *phydev)
- 	return 0;
- }
- 
--static int ip1001_config_init(struct phy_device *phydev)
-+static int ip1xx_reset(struct phy_device *phydev)
- {
--	int err, value;
-+	int err, bmcr;
- 
- 	/* Software Reset PHY */
--	value = phy_read(phydev, MII_BMCR);
--	value |= BMCR_RESET;
--	err = phy_write(phydev, MII_BMCR, value);
-+	bmcr = phy_read(phydev, MII_BMCR);
-+	bmcr |= BMCR_RESET;
-+	err = phy_write(phydev, MII_BMCR, bmcr);
- 	if (err < 0)
- 		return err;
- 
- 	do {
--		value = phy_read(phydev, MII_BMCR);
--	} while (value & BMCR_RESET);
-+		bmcr = phy_read(phydev, MII_BMCR);
-+	} while (bmcr & BMCR_RESET);
-+
-+	return err;
-+}
-+
-+static int ip1001_config_init(struct phy_device *phydev)
-+{
-+	int c;
-+
-+	c = ip1xx_reset(phydev);
-+	if (c < 0)
-+		return c;
-+
-+	/* Enable Auto Power Saving mode */
-+	c = phy_read(phydev, IP1001_SPEC_CTRL_STATUS_2);
-+	c |= IP1001_APS_ON;
-+	if (c < 0)
-+		return c;
- 
- 	/* Additional delay (2ns) used to adjust RX clock phase
- 	 * at GMII/ RGMII interface */
--	value = phy_read(phydev, 16);
--	value |= 0x3;
-+	c = phy_read(phydev, IP10XX_SPEC_CTRL_STATUS);
-+	c |= IP1001_PHASE_SEL_MASK;
-+
-+	return phy_write(phydev, IP10XX_SPEC_CTRL_STATUS, c);
-+}
-+
-+static int ip101a_config_init(struct phy_device *phydev)
-+{
-+	int c;
- 
--	return phy_write(phydev, 16, value);
-+	c = ip1xx_reset(phydev);
-+	if (c < 0)
-+		return c;
-+
-+	/* Enable Auto Power Saving mode */
-+	c = phy_read(phydev, IP10XX_SPEC_CTRL_STATUS);
-+	c |= IP101A_APS_ON;
-+	return c;
- }
- 
- static int ip175c_read_status(struct phy_device *phydev)
-@@ -158,6 +196,20 @@ static struct phy_driver ip1001_driver = {
- 	.driver		= { .owner = THIS_MODULE,},
- };
- 
-+static struct phy_driver ip101a_driver = {
-+	.phy_id		= 0x02430c54,
-+	.name		= "ICPlus IP101A",
-+	.phy_id_mask	= 0x0ffffff0,
-+	.features	= PHY_BASIC_FEATURES | SUPPORTED_Pause |
-+			  SUPPORTED_Asym_Pause,
-+	.config_init	= &ip101a_config_init,
-+	.config_aneg	= &genphy_config_aneg,
-+	.read_status	= &genphy_read_status,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
-+	.driver		= { .owner = THIS_MODULE,},
-+};
-+
- static int __init icplus_init(void)
- {
- 	int ret = 0;
-@@ -166,12 +218,17 @@ static int __init icplus_init(void)
- 	if (ret < 0)
- 		return -ENODEV;
- 
-+	ret = phy_driver_register(&ip101a_driver);
-+	if (ret < 0)
-+		return -ENODEV;
-+
- 	return phy_driver_register(&ip175c_driver);
- }
- 
- static void __exit icplus_exit(void)
- {
- 	phy_driver_unregister(&ip1001_driver);
-+	phy_driver_unregister(&ip101a_driver);
- 	phy_driver_unregister(&ip175c_driver);
- }
- 
--- 
-1.7.4.4
+> +}
+> +
+> +static inline void sock_release_kmem_cgrp(struct sock *sk)
+> +{
+> +#ifdef CONFIG_CGROUP_KMEM
+> +	cgroup_release_and_wakeup_rmdir(&sk->sk_cgrp->css);
+> +#endif
+> +}
+
+Ugly. Just use the way you define kcg_from_task().
+
+> +
+> +#endif /* CONFIG_INET */
+>  #endif /* _LINUX_KMEM_CGROUP_H */
+>  
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 8e4062f..709382f 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -228,6 +228,7 @@ struct sock_common {
+>    *	@sk_security: used by security modules
+>    *	@sk_mark: generic packet mark
+>    *	@sk_classid: this socket's cgroup classid
+> +  *	@sk_cgrp: this socket's kernel memory (kmem) cgroup 
+>    *	@sk_write_pending: a write to stream socket waits to start
+>    *	@sk_state_change: callback to indicate change in the state of the sock
+>    *	@sk_data_ready: callback to indicate there is data to be processed
+> @@ -339,6 +340,7 @@ struct sock {
+>  #endif
+>  	__u32			sk_mark;
+>  	u32			sk_classid;
+> +	struct kmem_cgroup	*sk_cgrp;
+>  	void			(*sk_state_change)(struct sock *sk);
+>  	void			(*sk_data_ready)(struct sock *sk, int bytes);
+>  	void			(*sk_write_space)(struct sock *sk);
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 3449df8..7109864 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1139,6 +1139,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+>  		atomic_set(&sk->sk_wmem_alloc, 1);
+>  
+>  		sock_update_classid(sk);
+> +		sock_update_kmem_cgrp(sk);
+>  	}
+>  
+>  	return sk;
+> @@ -1170,6 +1171,7 @@ static void __sk_free(struct sock *sk)
+>  		put_cred(sk->sk_peer_cred);
+>  	put_pid(sk->sk_peer_pid);
+>  	put_net(sock_net(sk));
+> +	sock_release_kmem_cgrp(sk);
+>  	sk_prot_free(sk->sk_prot_creator, sk);
+>  }
+>  
+> @@ -2252,9 +2254,6 @@ void sk_common_release(struct sock *sk)
+>  }
+>  EXPORT_SYMBOL(sk_common_release);
+>  
+> -static DEFINE_RWLOCK(proto_list_lock);
+> -static LIST_HEAD(proto_list);
+> -
+
+compile error.
+
+you should do compile test after each single patch.
+
+>  #ifdef CONFIG_PROC_FS
+>  #define PROTO_INUSE_NR	64	/* should be enough for the first time */
+>  struct prot_inuse {
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
