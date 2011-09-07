@@ -1,124 +1,171 @@
-From: Greg Thelen <gthelen@google.com>
-Subject: Re: [PATCH] per-cgroup tcp buffer limitation
-Date: Wed, 7 Sep 2011 14:35:17 -0700
-Message-ID: <CAHH2K0aq4s1_H-yY0kA3LhM00CCNNbJZyvyBoDD6rHC+qo_gNg@mail.gmail.com>
-References: <1315276556-10970-1-git-send-email-glommer@parallels.com>
- <CAHH2K0aJxjinSu0Ek6jzsZ5dBmm5mEU-typuwYWYWEudF2F3Qg@mail.gmail.com>
- <4E664766.40200@parallels.com> <CAHH2K0YJA7vZZ3QNAf63TZOnWhsRUwfuZYfntBL4muZ0G_Vt2w@mail.gmail.com>
- <4E66A0A9.3060403@parallels.com>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
+Date: Wed, 07 Sep 2011 07:37:36 -0700
+Message-ID: <1315406256.6287.7.camel@schen9-mobl>
+References: <4E631032.6050606@intel.com>
+	 <1315326326.2576.2980.camel@schen9-DESK>
+	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1315335019.2576.3048.camel@schen9-DESK>
+	 <1315335660.3400.7.camel@edumazet-laptop>
+	 <1315337580.2576.3066.camel@schen9-DESK>
+	 <1315338186.3400.20.camel@edumazet-laptop>
+	 <1315339157.2576.3079.camel@schen9-DESK>
+	 <1315340388.3400.28.camel@edumazet-laptop>
+	 <CAAM7YAn0c0SpAD42PcT+-HDXjT9HMajhmfZD6D68_0E21i2tSQ@mail.gmail.com>
+	 <1315372100.3400.76.camel@edumazet-laptop> <4E66FF38.9000107@intel.com>
+	 <1315381503.3400.85.camel@edumazet-laptop>
+	 <1315396903.2364.23.camel@schen9-mobl>
+	 <CA+icZUVqJVn4ONuSDV5YdgpEcmetVMM9X=Sxt2EqM8qdegMnjQ@mail.gmail.com>
+	 <CA+icZUW5Biu8cMhaJcz=MwtMOVn-NFD92PTpT0-DfEDKrRmaUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-        containers@lists.osdl.org, netdev@vger.kernel.org, xemul@parallels.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        Suleiman Souhlal <suleiman@google.com>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4E66A0A9.3060403@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Yan, Zheng" <zheng.z.yan@intel.com>,
+	"Yan, Zheng" <yanzheng@21cn.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"jirislaby@gmail.com" <jirislaby@gmail.com>,
+	"Shi, Alex" <alex.shi@intel.com>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+To: sedat.dilek@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:26546 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757138Ab1IGVhi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Sep 2011 17:37:38 -0400
+In-Reply-To: <CA+icZUW5Biu8cMhaJcz=MwtMOVn-NFD92PTpT0-DfEDKrRmaUQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 6, 2011 at 3:37 PM, Glauber Costa <glommer@parallels.com> wrote=
-:
-> I think memcg's usage is really all you need here. In the end of the day,=
- it
-> tells you how many pages your container has available. The whole
-> point of kmem cgroup is not any kind of reservation or accounting.
+On Wed, 2011-09-07 at 22:30 +0200, Sedat Dilek wrote:
 
-The memcg does not reserve memory.  It provides upper bound limits on
-memory usage.  A careful admin can configure soft_limit_in_bytes as an
-approximation of a memory reservation.  But the soft limit is really
-more like a reclaim target when there is global memory pressure.
+> >
+> > Replaced v2 with this patch (against next-20110831), I see now some
+> > different call-traces which I did not see with v1 or v2.
+> > Can't say if it's related to the new patch or not.
+> > ( dmesg attached. )
+> >
+> > - Sedat -
+> >
+> 
+> Call-traces seem to go away when adding "irqpoll" to Kernel command line.
+> ( See dmesg_irqpoll.txt )
+> 
+> - Sedat -
 
-> Once a container (or cgroup) reaches a number of objects *pinned* in memo=
-ry
-> (therefore, non-reclaimable), you won't be able to grab anything from it.
->
->> So
->> far my use cases involve a single memory limit which includes both
->> kernel and user memory. =A0So I would need a user space agent to poll
->> {memcg,kmem}.usage_in_bytes to apply pressure to memcg if kmem grows
->> and visa versa.
->
-> Maybe not.
-> If userspace memory works for you today (supposing it does), why change?
+Sedat,
+ 
+The previous patch should use the new steal_refs to check for the
+release of scm references in the error handling at the end.  I've
+updated the patch to take care of it.  Hopefully the traces you see will
+go away. Can you verify?
 
-Good question.  Current upstream memcg user space memory limit does
-not work for me today.  I should have made that more obvious (sorry).
-See below for details.
+Thanks.
 
-> Right now you assign X bytes of user memory to a container, and the kerne=
-l
-> memory is shared among all of them. If this works for you, kmem_cgroup wo=
-n't
-> change that. It just will impose limits over which
-> your kernel objects can't grow.
->
-> So you don't *need* a userspace agent doing this calculation, because
-> fundamentally, nothing changed: I am not unbilling memory in memcg to bil=
-l
-> it back in kmem_cg. Of course, once it is in, you will be able to do it i=
-n
-> such a fine grained fashion if you decide to do so.
->
->> Do you foresee instantiation of multiple kmem cgroups, so that a
->> process could be added into kmem/K1 or kmem/K2? =A0If so do you plan on
->> supporting migration between cgroups and/or migration of kmem charge
->> between K1 to K2?
->
-> Yes, each container should have its own cgroup, so at least in the use
-> cases I am concerned, we will have a lot of them. But the usual lifecycle=
-,
-> is create, execute and die. Mobility between them
-> is not something I am overly concerned right now.
->
->
->>>> Do you foresee the kmem cgroup growing to include reclaimable slab,
->>>> where freeing one type of memory allows for reclaim of the other?
->>>
->>> Yes, absolutely.
+Tim
 
-Now I see that you're using kmem to limit the amount of unreclaimable
-kernel memory.
+----
+Commit 0856a30409 (Scm: Remove unnecessary pid & credential references
+in Unix socket's send and receive path) introduced a use-after-free bug.
+The sent skbs from unix_stream_sendmsg could be consumed and destructed 
+by the receive side, removing all referentials to the credentials, 
+before the send side has finished sending out all 
+packets. However, send side could continue to consturct new packets in the 
+stream, using credentials that have lost its last reference and been
+freed.  
 
-We have a work-in-progress patch series that adds kernel memory accounting =
-to
-memcg.  These patches allow an admin to specify a single memory limit
-for a cgroup which encompasses both user memory (as upstream memcg
-does) and also includes many kernel memory allocations (especially
-slab, page-tables).  When kernel memory grows it puts pressure on user
-memory; when user memory grows it puts pressure on reclaimable kernel
-memory using registered shrinkers.  We are in the process of cleaning
-up these memcg slab accounting patches.
+In this fix, we don't steal the reference to credentials we have obtained 
+in scm_send at beginning of unix_stream_sendmsg, till we've reached
+the last packet.  This fixes the problem in commit 0856a30409.
 
-In my uses cases there is a single memory limit that applies to both
-kernel and user memory.  If a separate kmem cgroup is introduced to
-manage kernel memory outside of memcg with a distinct limit, then I
-would need a user space daemon which balances memory between the kmem
-and memcg subsystems.  As kmem grows, this daemon would apply pressure
-to memcg, and as memcg grows pressure would be applied to kmem.  As
-you stated kernel memory is not necessarily reclaimable.  So such
-reclaim may fail.  My resistance to this approach is that with a
-single memory cgroup admins can do a better job packing a machine.  If
-balancing daemons are employed then more memory would need to be
-reserved and more user space cpu time would be needed to apply VM
-pressure between the types of memory.
+Signed-off-by: Tim Chen <tim.c.chen@linux.intel.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Reported-by: Jiri Slaby <jirislaby@gmail.com>
+Tested-by: Sedat Dilek <sedat.dilek@googlemail.com>
+Tested-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+---
 
-While there are people (like me) who want a combined memory usage
-limit there are also people (like you) who want separate user and
-kernel limiting.  I have toyed with the idea of having a per cgroup
-flag that determines if kernel and user memory should be combined
-charged against a single limit or if they should have separate limits.
- I have also wondered if there was a way to wire the usage of two
-subsystems together, then it would also meet meet my needs.  But I am
-not sure how to do that.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 136298c..be712ae 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1383,10 +1383,11 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+ }
+ 
+ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb,
+-			   bool send_fds, bool ref)
++			   bool send_fds, bool steal_refs)
+ {
+ 	int err = 0;
+-	if (ref) {
++
++	if (!steal_refs) {
+ 		UNIXCB(skb).pid  = get_pid(scm->pid);
+ 		UNIXCB(skb).cred = get_cred(scm->cred);
+ 	} else {
+@@ -1458,7 +1459,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (skb == NULL)
+ 		goto out;
+ 
+-	err = unix_scm_to_skb(siocb->scm, skb, true, false);
++	err = unix_scm_to_skb(siocb->scm, skb, true, true);
+ 	if (err < 0)
+ 		goto out_free;
+ 	max_level = err + 1;
+@@ -1581,6 +1582,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	int sent = 0;
+ 	struct scm_cookie tmp_scm;
+ 	bool fds_sent = false;
++	bool steal_refs = false;
+ 	int max_level;
+ 
+ 	if (NULL == siocb->scm)
+@@ -1642,11 +1644,14 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		size = min_t(int, size, skb_tailroom(skb));
+ 
+ 
+-		/* Only send the fds and no ref to pid in the first buffer */
+-		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, fds_sent);
++		/* Only send the fds in first buffer
++		 * Last buffer can steal our references to pid/cred
++		 */
++		steal_refs = (sent + size >= len);
++		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent, steal_refs);
+ 		if (err < 0) {
+ 			kfree_skb(skb);
+-			goto out;
++			goto out_err;
+ 		}
+ 		max_level = err + 1;
+ 		fds_sent = true;
+@@ -1654,7 +1659,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
+ 		if (err) {
+ 			kfree_skb(skb);
+-			goto out;
++			goto out_err;
+ 		}
+ 
+ 		unix_state_lock(other);
+@@ -1671,7 +1676,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		sent += size;
+ 	}
+ 
+-	if (skb)
++	if (steal_refs)
+ 		scm_release(siocb->scm);
+ 	else
+ 		scm_destroy(siocb->scm);
+@@ -1687,9 +1692,8 @@ pipe_err:
+ 		send_sig(SIGPIPE, current, 0);
+ 	err = -EPIPE;
+ out_err:
+-	if (skb == NULL)
++	if (!steal_refs)
+ 		scm_destroy(siocb->scm);
+-out:
+ 	siocb->scm = NULL;
+ 	return sent ? : err;
+ }
