@@ -1,40 +1,53 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 02/11] net: add function to allocate skbuff head without
- data area
-Date: Wed, 07 Sep 2011 17:20:42 +0200
-Message-ID: <4E678BCA.6070102@trash.net>
-References: <1315070771-18576-1-git-send-email-kaber@trash.net>	 <1315070771-18576-3-git-send-email-kaber@trash.net> <1315123938.2635.1.camel@edumazet-laptop>
+Subject: Re: [PATCH 08/11] netlink: implement memory mapped sendmsg()
+Date: Wed, 07 Sep 2011 17:22:00 +0200
+Message-ID: <4E678C18.1010306@trash.net>
+References: <1315070771-18576-1-git-send-email-kaber@trash.net> <1315070771-18576-9-git-send-email-kaber@trash.net> <20110904161822.GA8176@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61794 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:61795 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754662Ab1IGQQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2011 12:16:28 -0400
-In-Reply-To: <1315123938.2635.1.camel@edumazet-laptop>
+	with ESMTP id S1756127Ab1IGQQi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2011 12:16:38 -0400
+In-Reply-To: <20110904161822.GA8176@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04.09.2011 10:12, Eric Dumazet wrote:
-> Le samedi 03 septembre 2011 =E0 19:26 +0200, kaber@trash.net a =E9cri=
-t :
+On 04.09.2011 18:18, Micha=C5=82 Miros=C5=82aw wrote:
+> On Sat, Sep 03, 2011 at 07:26:08PM +0200, kaber@trash.net wrote:
+>> From: Patrick McHardy <kaber@trash.net>
+>>
+>> Add support for memory mapped sendmsg() to netlink. Userspace queued=
+ to
+>> be processed frames into the TX ring and invokes sendmsg with
+>> msg.iov.iov_base =3D NULL to trigger processing of all pending messa=
+ges.
+>>
+>> Since the kernel usually performs full message validation before beg=
+inning
+>> processing, userspace must be prevented from modifying the message
+>> contents while the kernel is processing them. In order to do so, the
+>> frames contents are copied to an allocated skb in case the the ring =
+is
+>> mapped more than once or the file descriptor is shared (f.i. through
+>> AF_UNIX file descriptor passing).
+>>
+>> Otherwise an skb without a data area is allocated, the data pointer =
+set
+>> to point to the data area of the ring frame and the skb is processed=
+=2E
+>> Once the skb is freed, the destructor releases the frame back to use=
+rspace
+>> by setting the status to NL_MMAP_STATUS_UNUSED.
 >=20
->> +struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
->> +{
->> +	struct sk_buff *skb;
->> +
->> +	/* Get the HEAD */
->> +	skb =3D kmem_cache_alloc_node(skbuff_head_cache,
->> +				    gfp_mask & ~__GFP_DMA, node);
->> +	if (!skb)
->> +		goto out;
->> +	prefetchw(skb);
->=20
-> Please remove this prefetchw(), since we have no delay between it and
-> actual memset(skb).
+> Is this protected from threads? Like: one thread waits on sendmsg() a=
+nd
+> another (same process) changes the buffer.
 
-Done, thanks.
+Yes, if the ring is mapped multiple times (or the file descriptor
+is changed), the contents are copied to an allocated skb.
