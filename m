@@ -1,82 +1,61 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 45/62] net: irq: Remove IRQF_DISABLED
-Date: Wed, 7 Sep 2011 20:03:14 +0200 (CEST)
-Message-ID: <alpine.LFD.2.02.1109072000290.2723@ionos>
-References: <1315383059-3673-46-git-send-email-yong.zhang0@gmail.com>
-	<20110907.131325.897937687962213943.davem@davemloft.net>
-	<alpine.LFD.2.02.1109071932100.2723@ionos>
-	<20110907.135234.17759197083710999.davem@davemloft.net>
+From: Florian Mickler <florian@mickler.org>
+Subject: Re: re add support for bcm5750
+Date: Wed, 7 Sep 2011 20:36:46 +0200
+Message-ID: <20110907203646.2a7b7833@schatten.dmk.lab>
+References: <1280784368-4226-8-git-send-email-mcarlson@broadcom.com>
+	<20110906170343.09252578@schatten.dmk.lab>
+	<20110907012515.GA9038@mcarlson.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: perex@perex.cz, dhowells@redhat.com, prakity@marvell.com,
-	netdev@vger.kernel.org, chunkeey@googlemail.com,
-	sonic.zhang@analog.com, klaus.kudielka@ieee.org,
-	t.sailer@alumni.ethz.ch, khilman@ti.com, eric.dumazet@gmail.com,
-	jhovold@gmail.com, cyril@ti.com, rmk+kernel@arm.linux.org.uk,
-	mingo@elte.hu, jpr@f6fbb.org, adobriyan@gmail.com,
-	jreuter@yaina.de, cbe-oss-dev@lists.ozlabs.org,
-	martinez.javier@gmail.com, samuel@sortiz.org, vapier@gentoo.org,
-	grundler@parisc-linux.org, yong.zhang0@gmail.com,
-	tklauser@distanz.ch, lucas.demarchi@profusion.mobi,
-	u.kleine-koenig@pengutronix.de, olof@lixom.net,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	linux-hams@vger.kernel.org, leitao@linux.vnet.ibm.com,
-	blogic@openwrt.org, shawn.guo@linaro.org, nico@fluxnic.net,
-	geoff@infradead.org, jkosina@suse.cz,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ralf@linux-mips.org, ralph.
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20110907.135234.17759197083710999.davem@davemloft.net>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Benjamin Li" <benli@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Francesco Piccinno" <stack.box@gmail.com>
+To: "Matt Carlson" <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ist.d-labs.de ([213.239.218.44]:46284 "EHLO mx01.d-labs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751829Ab1IGShS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Sep 2011 14:37:18 -0400
+In-Reply-To: <20110907012515.GA9038@mcarlson.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 7 Sep 2011, David Miller wrote:
+On Tue, 6 Sep 2011 18:25:15 -0700
+"Matt Carlson" <mcarlson@broadcom.com> wrote:
 
-> From: Thomas Gleixner <tglx@linutronix.de>
-> Date: Wed, 7 Sep 2011 19:32:39 +0200 (CEST)
-> 
-> > On Wed, 7 Sep 2011, David Miller wrote:
+> On Tue, Sep 06, 2011 at 08:03:43AM -0700, Florian Mickler wrote:
+> > Hi,
 > > 
-> >> From: Yong Zhang <yong.zhang0@gmail.com>
-> >> Date: Wed,  7 Sep 2011 16:10:42 +0800
-> >> 
-> >> > This flag is a NOOP and can be removed now.
-> >> > 
-> >> > Signed-off-by: Yong Zhang <yong.zhang0@gmail.com>
-> >> 
-> >> I have the same concerns here as I had for the sparc case.
-> >> 
-> >> Some of these drivers might be using IRQF_DISABLED to make sure the
-> >> IRQ cannot be delivered until it is explicitly enabled via an
-> >> enable_irq() call.
-> >> 
-> >> How is that being accomodated now?
+> > in https://bugzilla.kernel.org/show_bug.cgi?id=42132 Francesco wrote: 
 > > 
-> > Again IRQF_DISABLED never ever had that functionality. 
+> > > I have a notebook (HP TC4400) which has a BCM5750 ethernet card inside. The
+> > > ouput of lspci is:
+> > > 
+> > > 08:00.0 Ethernet controller [0200]: Broadcom Corporation NetXtreme BCM5750M
+> > > Gigabit Ethernet [14e4:167c]
+> > > 
+> > > Commit 67b284d476bcb3d100e946da23d6cf9acfd0465c removed the support for this
+> > > device. I wish to have the support for this network card back again. Thanks!
 > 
-> My bad.
+> Hi Florian.  Are you experiencing the same problem?  We found that
+> Francesco's problem was that the firmware of his device was missing.  Do
+> you see :
 > 
-> But what if these interrupts want interrupts disabled during their
-> interrupt handler, for other reasons?
+> eth0: No firmware running
+> 
+> messages?
+> 
 
-We run ALL interrupt handlers with irqs disabled always.
- 
-> This has the potential to break tons of stuff, especially on the
-> really old chips which almost no developers have any more but some
-> user might try to use.
+Hi Matt!
+No, I was just browsing the regression list and found this entry but
+couldn't associate any action with it. 
 
-It won't. We removed IRQF_DISABLED from kernel/irq/* long ago
+This clears that up, thanks for the information and I will close this
+bug. 
 
-Thanks,
-
-	tglx
+Regards,
+Flo
