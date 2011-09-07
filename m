@@ -1,46 +1,45 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH] per-cgroup tcp buffer limitation
-Date: Tue, 6 Sep 2011 22:09:46 -0300
-Message-ID: <4E66C45A.8060706@parallels.com>
-References: <1315276556-10970-1-git-send-email-glommer@parallels.com> <CALdu-PDoPPdcX0bAkVpaP9R-z1yKin=JOjjT3rMuoSHJaywSCg@mail.gmail.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: re add support for bcm5750
+Date: Tue, 6 Sep 2011 18:25:15 -0700
+Message-ID: <20110907012515.GA9038@mcarlson.broadcom.com>
+References: <1280784368-4226-8-git-send-email-mcarlson@broadcom.com>
+ <20110906170343.09252578@schatten.dmk.lab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <linux-mm@kvack.org>,
-	<containers@lists.osdl.org>, <netdev@vger.kernel.org>,
-	<xemul@parallels.com>, "David S. Miller" <davem@davemloft.net>,
-	Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Paul Menage <paul@paulmenage.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.parallels.com ([64.131.90.16]:39467 "EHLO mx2.parallels.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751399Ab1IGBKa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Sep 2011 21:10:30 -0400
-In-Reply-To: <CALdu-PDoPPdcX0bAkVpaP9R-z1yKin=JOjjT3rMuoSHJaywSCg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Benjamin Li" <benli@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Francesco Piccinno" <stack.box@gmail.com>
+To: "Florian Mickler" <florian@mickler.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110906170343.09252578@schatten.dmk.lab>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/06/2011 10:08 PM, Paul Menage wrote:
-> On Mon, Sep 5, 2011 at 7:35 PM, Glauber Costa<glommer@parallels.com>  wrote:
->> This patch introduces per-cgroup tcp buffers limitation. This allows
->> sysadmins to specify a maximum amount of kernel memory that
->> tcp connections can use at any point in time. TCP is the main interest
->> in this work, but extending it to other protocols would be easy.
+On Tue, Sep 06, 2011 at 08:03:43AM -0700, Florian Mickler wrote:
+> Hi,
+> 
+> in https://bugzilla.kernel.org/show_bug.cgi?id=42132 Francesco wrote: 
+> 
+> > I have a notebook (HP TC4400) which has a BCM5750 ethernet card inside. The
+> > ouput of lspci is:
+> > 
+> > 08:00.0 Ethernet controller [0200]: Broadcom Corporation NetXtreme BCM5750M
+> > Gigabit Ethernet [14e4:167c]
+> > 
+> > Commit 67b284d476bcb3d100e946da23d6cf9acfd0465c removed the support for this
+> > device. I wish to have the support for this network card back again. Thanks!
 
-Hi Paul,
+Hi Florian.  Are you experiencing the same problem?  We found that
+Francesco's problem was that the firmware of his device was missing.  Do
+you see :
 
+eth0: No firmware running
 
-> The general idea of limiting total socket buffer memory consumed by a
-> cgroup is a fine idea, but I think it needs to be integrated more
-> closely with the existing kernel memory cgroup tracking efforts,
-> especially if you're trying to use as generic a name as "kmem" for it.
-Can you be more specific?
-
-The generic part of kmem cgroup in this patch is quite simple. I think 
-any other patchset would have a very easy time merging things into it.
-90 % is sockets.
-
->
-> I agree with Kamezawa's comments that you need a lot more documentation.
-Working on it right now.
+messages?
