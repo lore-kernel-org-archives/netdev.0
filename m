@@ -1,87 +1,124 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 42372] New: routing table cache entries lose
- mtu/advmss attributes
-Date: Wed, 7 Sep 2011 14:32:59 -0700
-Message-ID: <20110907143259.cd19969c.akpm@linux-foundation.org>
-References: <bug-42372-10286@https.bugzilla.kernel.org/>
+From: Greg Thelen <gthelen@google.com>
+Subject: Re: [PATCH] per-cgroup tcp buffer limitation
+Date: Wed, 7 Sep 2011 14:35:17 -0700
+Message-ID: <CAHH2K0aq4s1_H-yY0kA3LhM00CCNNbJZyvyBoDD6rHC+qo_gNg@mail.gmail.com>
+References: <1315276556-10970-1-git-send-email-glommer@parallels.com>
+ <CAHH2K0aJxjinSu0Ek6jzsZ5dBmm5mEU-typuwYWYWEudF2F3Qg@mail.gmail.com>
+ <4E664766.40200@parallels.com> <CAHH2K0YJA7vZZ3QNAf63TZOnWhsRUwfuZYfntBL4muZ0G_Vt2w@mail.gmail.com>
+ <4E66A0A9.3060403@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, david+bugs@madore.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51288 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757188Ab1IGVdv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Sep 2011 17:33:51 -0400
-In-Reply-To: <bug-42372-10286@https.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        containers@lists.osdl.org, netdev@vger.kernel.org, xemul@parallels.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        Suleiman Souhlal <suleiman@google.com>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4E66A0A9.3060403@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Sep 6, 2011 at 3:37 PM, Glauber Costa <glommer@parallels.com> wrote=
+:
+> I think memcg's usage is really all you need here. In the end of the day,=
+ it
+> tells you how many pages your container has available. The whole
+> point of kmem cgroup is not any kind of reservation or accounting.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+The memcg does not reserve memory.  It provides upper bound limits on
+memory usage.  A careful admin can configure soft_limit_in_bytes as an
+approximation of a memory reservation.  But the soft limit is really
+more like a reclaim target when there is global memory pressure.
 
-On Sun, 4 Sep 2011 18:45:16 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+> Once a container (or cgroup) reaches a number of objects *pinned* in memo=
+ry
+> (therefore, non-reclaimable), you won't be able to grab anything from it.
+>
+>> So
+>> far my use cases involve a single memory limit which includes both
+>> kernel and user memory. =A0So I would need a user space agent to poll
+>> {memcg,kmem}.usage_in_bytes to apply pressure to memcg if kmem grows
+>> and visa versa.
+>
+> Maybe not.
+> If userspace memory works for you today (supposing it does), why change?
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=42372
-> 
->            Summary: routing table cache entries lose mtu/advmss attributes
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.0.4
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV6
->         AssignedTo: yoshfuji@linux-ipv6.org
->         ReportedBy: david+bugs@madore.org
->         Regression: Yes
-> 
-> 
-> To reproduce: create a static IPv6 route with a specific mtu/advmss attribute,
-> then open a TCP connection to a host (never contacted before) within this
-> route: this creates a cache entry with additional information (such as rtt);
-> when these data expire, the route mtu/advmss are also forgotten, even though
-> they are specified in the (static) routing table.
-> 
-> E.g. (using www.kame.net = 2001:200:dff:fff1:216:3eff:feb1:44d7 as example):
-> 
-> david@terre:~$ sudo ip route get 2001:200:dff:fff1:216:3eff:feb1:44d7
-> 2001:200:dff:fff1:216:3eff:feb1:44d7 from :: via fe80::20e:a6ff:fef1:db7f dev
-> eth0  src 2001:7a8:78ae:37:21f:c6ff:fec1:c877  metric 0 
->     cache 
-> david@terre:~$ sudo ip route add 2001:200:dff:fff1::/64 from :: via
-> fe80::20e:a6ff:fef1:db7f dev eth0  src 2001:7a8:78ae:37:21f:c6ff:fec1:c877 mtu
-> 1460 advmss 1400
-> david@terre:~$ sudo ip route get 2001:200:dff:fff1:216:3eff:feb1:44d7
-> 2001:200:dff:fff1:216:3eff:feb1:44d7 from :: via fe80::20e:a6ff:fef1:db7f dev
-> eth0  src 2001:7a8:78ae:37:21f:c6ff:fec1:c877  metric 0 
->     cache  mtu 1460 advmss 1400
-> david@terre:~$ wget -O /dev/null
-> 'http://[2001:200:dff:fff1:216:3eff:feb1:44d7]/'
-> (...)
-> david@terre:~$ sudo ip route get 2001:200:dff:fff1:216:3eff:feb1:44d7
-> 2001:200:dff:fff1:216:3eff:feb1:44d7 from :: via fe80::20e:a6ff:fef1:db7f dev
-> eth0  src 2001:7a8:78ae:37:21f:c6ff:fec1:c877  metric 0 
->     cache  mtu 1460 rtt 324ms rttvar 324ms cwnd 10 advmss 1400 hoplimit 255
-> david@terre:~$ sleep 30
-> david@terre:~$ sudo ip route get 2001:200:dff:fff1:216:3eff:feb1:44d7
-> 2001:200:dff:fff1:216:3eff:feb1:44d7 from :: via fe80::20e:a6ff:fef1:db7f dev
-> eth0  src 2001:7a8:78ae:37:21f:c6ff:fec1:c877  metric 0 
->     cache  hoplimit 64
-> 
-> In the last output, the mtu and advmss for the route have been forgotten, even
-> though the route is still supposed to be active.  This is not just the output
-> of "ip" which is bad: actually opening a TCP connection at this point will use
-> a wrong MSS.
-> 
-> A similar bug might be present in IPv4 routes, but I found it trickier to
-> reproduce, so I'm not entirely sure whether this is really an IPv6-related
-> problem.
-> 
+Good question.  Current upstream memcg user space memory limit does
+not work for me today.  I should have made that more obvious (sorry).
+See below for details.
+
+> Right now you assign X bytes of user memory to a container, and the kerne=
+l
+> memory is shared among all of them. If this works for you, kmem_cgroup wo=
+n't
+> change that. It just will impose limits over which
+> your kernel objects can't grow.
+>
+> So you don't *need* a userspace agent doing this calculation, because
+> fundamentally, nothing changed: I am not unbilling memory in memcg to bil=
+l
+> it back in kmem_cg. Of course, once it is in, you will be able to do it i=
+n
+> such a fine grained fashion if you decide to do so.
+>
+>> Do you foresee instantiation of multiple kmem cgroups, so that a
+>> process could be added into kmem/K1 or kmem/K2? =A0If so do you plan on
+>> supporting migration between cgroups and/or migration of kmem charge
+>> between K1 to K2?
+>
+> Yes, each container should have its own cgroup, so at least in the use
+> cases I am concerned, we will have a lot of them. But the usual lifecycle=
+,
+> is create, execute and die. Mobility between them
+> is not something I am overly concerned right now.
+>
+>
+>>>> Do you foresee the kmem cgroup growing to include reclaimable slab,
+>>>> where freeing one type of memory allows for reclaim of the other?
+>>>
+>>> Yes, absolutely.
+
+Now I see that you're using kmem to limit the amount of unreclaimable
+kernel memory.
+
+We have a work-in-progress patch series that adds kernel memory accounting =
+to
+memcg.  These patches allow an admin to specify a single memory limit
+for a cgroup which encompasses both user memory (as upstream memcg
+does) and also includes many kernel memory allocations (especially
+slab, page-tables).  When kernel memory grows it puts pressure on user
+memory; when user memory grows it puts pressure on reclaimable kernel
+memory using registered shrinkers.  We are in the process of cleaning
+up these memcg slab accounting patches.
+
+In my uses cases there is a single memory limit that applies to both
+kernel and user memory.  If a separate kmem cgroup is introduced to
+manage kernel memory outside of memcg with a distinct limit, then I
+would need a user space daemon which balances memory between the kmem
+and memcg subsystems.  As kmem grows, this daemon would apply pressure
+to memcg, and as memcg grows pressure would be applied to kmem.  As
+you stated kernel memory is not necessarily reclaimable.  So such
+reclaim may fail.  My resistance to this approach is that with a
+single memory cgroup admins can do a better job packing a machine.  If
+balancing daemons are employed then more memory would need to be
+reserved and more user space cpu time would be needed to apply VM
+pressure between the types of memory.
+
+While there are people (like me) who want a combined memory usage
+limit there are also people (like you) who want separate user and
+kernel limiting.  I have toyed with the idea of having a per cgroup
+flag that determines if kernel and user memory should be combined
+charged against a single limit or if they should have separate limits.
+ I have also wondered if there was a way to wire the usage of two
+subsystems together, then it would also meet meet my needs.  But I am
+not sure how to do that.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
