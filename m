@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net v2 3/6] bnx2x: Remove fiber remote fault detection
-Date: Wed, 7 Sep 2011 13:47:58 +0300
-Message-ID: <1315392478.27750.24.camel@lb-tlvb-dmitry>
+Subject: [PATCH net v2 4/6] bnx2x: Fix XMAC loopback test
+Date: Wed, 7 Sep 2011 13:48:03 +0300
+Message-ID: <1315392483.27750.25.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -9,65 +9,47 @@ Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1376 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1377 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756235Ab1IGQNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Sep 2011 12:13:46 -0400
+	id S1756236Ab1IGQNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Sep 2011 12:13:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove remote fault detection as a tactic retreat due to link issues involved with it.
-Once issue is resolved, this feature will be restored again.
+Change XMAC loopback type from CORE LOCAL to LINE LOCAL for the BCM578xx due to intermittent problem with the loopback with this configuration.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_link.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |    2 +-
+ drivers/net/bnx2x/bnx2x_reg.h  |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index f7a7ac3..db5913d 100644
+index db5913d..3428075 100644
 --- a/drivers/net/bnx2x/bnx2x_link.c
 +++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -10638,8 +10638,7 @@ static struct bnx2x_phy phy_warpcore = {
- 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT,
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
--	.flags		= (FLAGS_HW_LOCK_REQUIRED |
--			   FLAGS_TX_ERROR_CHECK),
-+	.flags		= FLAGS_HW_LOCK_REQUIRED,
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -10765,8 +10764,7 @@ static struct bnx2x_phy phy_8706 = {
- 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8706,
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
--	.flags		= (FLAGS_INIT_XGXS_FIRST |
--			   FLAGS_TX_ERROR_CHECK),
-+	.flags		= FLAGS_INIT_XGXS_FIRST,
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -10797,8 +10795,7 @@ static struct bnx2x_phy phy_8726 = {
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
- 	.flags		= (FLAGS_HW_LOCK_REQUIRED |
--			   FLAGS_INIT_XGXS_FIRST |
--			   FLAGS_TX_ERROR_CHECK),
-+			   FLAGS_INIT_XGXS_FIRST),
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
-@@ -10829,8 +10826,7 @@ static struct bnx2x_phy phy_8727 = {
- 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727,
- 	.addr		= 0xff,
- 	.def_md_devad	= 0,
--	.flags		= (FLAGS_FAN_FAILURE_DET_REQ |
--			   FLAGS_TX_ERROR_CHECK),
-+	.flags		= FLAGS_FAN_FAILURE_DET_REQ,
- 	.rx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.tx_preemphasis	= {0xffff, 0xffff, 0xffff, 0xffff},
- 	.mdio_ctrl	= 0,
+@@ -1720,7 +1720,7 @@ static int bnx2x_xmac_enable(struct link_params *params,
+ 
+ 	/* Check loopback mode */
+ 	if (lb)
+-		val |= XMAC_CTRL_REG_CORE_LOCAL_LPBK;
++		val |= XMAC_CTRL_REG_LINE_LOCAL_LPBK;
+ 	REG_WR(bp, xmac_base + XMAC_REG_CTRL, val);
+ 	bnx2x_set_xumac_nig(params,
+ 			    ((vars->flow_ctrl & BNX2X_FLOW_CTRL_TX) != 0), 1);
+diff --git a/drivers/net/bnx2x/bnx2x_reg.h b/drivers/net/bnx2x/bnx2x_reg.h
+index 2bfedde..687ee12 100644
+--- a/drivers/net/bnx2x/bnx2x_reg.h
++++ b/drivers/net/bnx2x/bnx2x_reg.h
+@@ -5320,7 +5320,7 @@
+ #define XCM_REG_XX_OVFL_EVNT_ID 				 0x20058
+ #define XMAC_CLEAR_RX_LSS_STATUS_REG_CLEAR_LOCAL_FAULT_STATUS	 (0x1<<0)
+ #define XMAC_CLEAR_RX_LSS_STATUS_REG_CLEAR_REMOTE_FAULT_STATUS	 (0x1<<1)
+-#define XMAC_CTRL_REG_CORE_LOCAL_LPBK				 (0x1<<3)
++#define XMAC_CTRL_REG_LINE_LOCAL_LPBK				 (0x1<<2)
+ #define XMAC_CTRL_REG_RX_EN					 (0x1<<1)
+ #define XMAC_CTRL_REG_SOFT_RESET				 (0x1<<6)
+ #define XMAC_CTRL_REG_TX_EN					 (0x1<<0)
 -- 
 1.7.1
