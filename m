@@ -1,48 +1,93 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-09-08
-Date: Thu, 8 Sep 2011 19:31:40 +0200
-Message-ID: <201109081931.40309.lindner_marek@yahoo.de>
-References: <1315500051-1122-1-git-send-email-lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: [PATCH v2 9/9] Add documentation about kmem_cgroup
+Date: Thu, 08 Sep 2011 10:46:24 -0700
+Message-ID: <4E68FF70.1010709@xenotime.net>
+References: <1315369399-3073-1-git-send-email-glommer@parallels.com> <1315369399-3073-10-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1315500051-1122-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+ containers@lists.osdl.org, netdev@vger.kernel.org, xemul@parallels.com,
+ "David S. Miller" <davem@davemloft.net>,
+ Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
+ "Eric W. Biederman" <ebiederm@xmission.com>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1315369399-3073-10-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, September 08, 2011 18:40:44 Marek Lindner wrote:
-> here comes the next batch batch I'd like to get the pulled into 
-> net-next-2.6/3.2. These patches mainly focus restructering the 
-> routing code in order to allow the kernel module the handling
-> of the current routing algorithm and the upcoming one. 
+On 09/06/11 21:23, Glauber Costa wrote:
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+> CC: Eric W. Biederman <ebiederm@xmission.com>
+> CC: Randy Dunlap <rdunlap@xenotime.net>
+> ---
+>  Documentation/cgroups/kmem_cgroups.txt |   27 +++++++++++++++++++++++++++
+>  1 files changed, 27 insertions(+), 0 deletions(-)
+>  create mode 100644 Documentation/cgroups/kmem_cgroups.txt
 > 
-> To ensure a smooth transition and efficient testing later, we 
-> decided to offer a choice of routing algorithm but have not     
-> come to a final decision on how to design this choice yet. It
-> either will be a compile time option, a module parameter or a
-> runtime switch. Any suggestions / best practice tips ?
-> 
-> Note: The new algorithm has been designed with backward 
-> compatibility in mind (using TLVs). We are trying to address
-> the incompatibility issue you and others have pointed out.
+> diff --git a/Documentation/cgroups/kmem_cgroups.txt b/Documentation/cgroups/kmem_cgroups.txt
+> new file mode 100644
+> index 0000000..930e069
+> --- /dev/null
+> +++ b/Documentation/cgroups/kmem_cgroups.txt
+> @@ -0,0 +1,27 @@
+> +Kernel Memory Cgroup
+> +====================
+> +
+> +This document briefly describes the kernel memory cgroup, or "kmem cgroup".
+> +Unlike user memory, kernel memory cannot be swapped. This effectively means
+> +that rogue processes can start operations that pin kernel objects permanently
+> +into memory, exhausting resources of all other processes in the system.
+> +
+> +kmem_cgroup main goal is to control the amount of memory a group of processes
 
-Forgot to mention: We are well aware of the difficulties after 
-the kernel.org intrusion. If you can't pull our patches right
-now, feel free to do it whenever kernel.org is back online.
+   kmem_cgroup's main goal
 
-Regards,
-Marek
+> +can pin at any given point in time. Other uses of this infrastructure are
+> +expected to come up with time. Right now, the only resource effectively limited
+
+                                                      resources
+
+> +are tcp send and receive buffers.
+
+or:
+                                             the only resource effectively limited
+  is TCP network buffers.
+
+> +
+> +TCP network buffers
+> +===================
+> +
+> +TCP network buffers, both on the send and receive sides, can be controlled
+> +by the kmem cgroup. Once a socket is created, it is attached to the cgroup of
+> +the controller process, where it stays until the end of its lifetime.
+> +
+> +Files
+> +=====
+> +	kmem.tcp_maxmem: control the maximum amount in bytes that can be used by
+
+	                 controls the maximum amount of memory in bytes ...
+
+
+> +	tcp sockets inside the cgroup. 
+> +
+> +	kmem.tcp_current_memory: current amount in bytes used by all sockets in
+
+	                         current amount of memory in bytes ...
+
+> +	this cgroup
+
+
+-- 
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
