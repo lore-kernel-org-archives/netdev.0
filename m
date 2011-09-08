@@ -1,148 +1,52 @@
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
-Date: Thu, 8 Sep 2011 11:59:27 +0200
-Message-ID: <CA+icZUWH8953m4qs74JLhNwrzJM0eMfE8aizJ1XtuVFFTtLKqg@mail.gmail.com>
-References: <4E631032.6050606@intel.com>
-	<1315326326.2576.2980.camel@schen9-DESK>
-	<1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1315335019.2576.3048.camel@schen9-DESK>
-	<1315335660.3400.7.camel@edumazet-laptop>
-	<1315337580.2576.3066.camel@schen9-DESK>
-	<1315338186.3400.20.camel@edumazet-laptop>
-	<1315339157.2576.3079.camel@schen9-DESK>
-	<1315340388.3400.28.camel@edumazet-laptop>
-	<CAAM7YAn0c0SpAD42PcT+-HDXjT9HMajhmfZD6D68_0E21i2tSQ@mail.gmail.com>
-	<1315372100.3400.76.camel@edumazet-laptop>
-	<4E66FF38.9000107@intel.com>
-	<1315381503.3400.85.camel@edumazet-laptop>
-	<1315396903.2364.23.camel@schen9-mobl>
-	<CA+icZUVqJVn4ONuSDV5YdgpEcmetVMM9X=Sxt2EqM8qdegMnjQ@mail.gmail.com>
-	<CA+icZUW5Biu8cMhaJcz=MwtMOVn-NFD92PTpT0-DfEDKrRmaUQ@mail.gmail.com>
-	<1315406256.6287.7.camel@schen9-mobl>
-	<4E680BF1.8000901@intel.com>
-	<1315429583.2361.3.camel@schen9-mobl>
-	<1315461572.2532.7.camel@edumazet-laptop>
-	<4E685F19.6030407@intel.com>
-	<1315465919.2532.19.camel@edumazet-laptop>
-	<4E686D71.30603@intel.com>
-	<1315467184.2532.22.camel@edumazet-laptop>
-Reply-To: sedat.dilek@gmail.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: phy: Add config option to specify external switch port to be used if switch is used as PHY
+Date: Thu, 8 Sep 2011 12:13:15 +0200
+Message-ID: <20110908101315.GA27909@electric-eye.fr.zoreil.com>
+References: <4E68668F.9060008@televic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: "Yan, Zheng" <zheng.z.yan@intel.com>,
-	Tim Chen <tim.c.chen@linux.intel.com>,
-	"Yan, Zheng" <yanzheng@21cn.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"jirislaby@gmail.com" <jirislaby@gmail.com>,
-	"Shi, Alex" <alex.shi@intel.com>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-embedded@vger.kernel.org" <linux-embedded@vger.kernel.org>
+To: Lambrecht =?utf-8?Q?J=C3=BCrgen?= <J.Lambrecht@TELEVIC.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:42628 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756461Ab1IHKFm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 06:05:42 -0400
-Received: by qyk34 with SMTP id 34so328801qyk.19
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2011 03:05:41 -0700 (PDT)
-In-Reply-To: <1315467184.2532.22.camel@edumazet-laptop>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:37945 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754769Ab1IHKcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 06:32:17 -0400
+Content-Disposition: inline
+In-Reply-To: <4E68668F.9060008@televic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBTZXAgOCwgMjAxMSBhdCA5OjMzIEFNLCBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpl
-dEBnbWFpbC5jb20+IHdyb3RlOgo+IExlIGpldWRpIDA4IHNlcHRlbWJyZSAyMDExIMOgIDE1OjIz
-ICswODAwLCBZYW4sIFpoZW5nIGEgw6ljcml0IDoKPgo+PiBUaGlzIGNvZGUgbG9va3MgZ3JlYXQs
-IGV4Y2VwdCAiZ290byBvdXQ7IiBpcyBzdGlsbCB0aGVyZS4gSSB0aGluayB3ZSBzaG91bGQgcmVw
-bGFjZSBpdCB3aXRoICJnb3RvIG91dF9lcnI7IiA6KQo+Pgo+Cj4gSW5kZWVkLCB5b3UncmUgcmln
-aHQsIHRoYW5rcwo+Cj4gwqBpbmNsdWRlL25ldC9zY20uaCDCoHwgwqAgwqA5IC0tLS0tLS0tLQo+
-IMKgbmV0L3VuaXgvYWZfdW5peC5jIHwgwqAgMzIgKysrKysrKysrKysrKysrKystLS0tLS0tLS0t
-LS0tLS0KPiDCoDIgZmlsZXMgY2hhbmdlZCwgMTcgaW5zZXJ0aW9ucygrKSwgMjQgZGVsZXRpb25z
-KC0pCj4KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvc2NtLmggYi9pbmNsdWRlL25ldC9zY20u
-aAo+IGluZGV4IDY4ZTFlNDguLjJhNWI0MmYgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVkZS9uZXQvc2Nt
-LmgKPiArKysgYi9pbmNsdWRlL25ldC9zY20uaAo+IEBAIC03OCwxNSArNzgsNiBAQCBzdGF0aWMg
-X19pbmxpbmVfXyB2b2lkIHNjbV9kZXN0cm95KHN0cnVjdCBzY21fY29va2llICpzY20pCj4gwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqBfX3NjbV9kZXN0cm95KHNjbSk7Cj4gwqB9Cj4KPiAtc3RhdGlj
-IF9faW5saW5lX18gdm9pZCBzY21fcmVsZWFzZShzdHJ1Y3Qgc2NtX2Nvb2tpZSAqc2NtKQo+IC17
-Cj4gLSDCoCDCoCDCoCAvKiBrZWVwIHJlZiBvbiBwaWQgYW5kIGNyZWQgKi8KPiAtIMKgIMKgIMKg
-IHNjbS0+cGlkID0gTlVMTDsKPiAtIMKgIMKgIMKgIHNjbS0+Y3JlZCA9IE5VTEw7Cj4gLSDCoCDC
-oCDCoCBpZiAoc2NtLT5mcCkKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIF9fc2NtX2Rlc3Ryb3ko
-c2NtKTsKPiAtfQo+IC0KPiDCoHN0YXRpYyBfX2lubGluZV9fIGludCBzY21fc2VuZChzdHJ1Y3Qg
-c29ja2V0ICpzb2NrLCBzdHJ1Y3QgbXNnaGRyICptc2csCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc3RydWN0IHNjbV9jb29raWUgKnNjbSkKPiDCoHsKPiBk
-aWZmIC0tZ2l0IGEvbmV0L3VuaXgvYWZfdW5peC5jIGIvbmV0L3VuaXgvYWZfdW5peC5jCj4gaW5k
-ZXggZTZkOWQxMC4uYzhhMDhiYSAxMDA2NDQKPiAtLS0gYS9uZXQvdW5peC9hZl91bml4LmMKPiAr
-KysgYi9uZXQvdW5peC9hZl91bml4LmMKPiBAQCAtMTM3OSwxNSArMTM3OSwxOCBAQCBzdGF0aWMg
-aW50IHVuaXhfYXR0YWNoX2ZkcyhzdHJ1Y3Qgc2NtX2Nvb2tpZSAqc2NtLCBzdHJ1Y3Qgc2tfYnVm
-ZiAqc2tiKQo+IMKgfQo+Cj4gwqBzdGF0aWMgaW50IHVuaXhfc2NtX3RvX3NrYihzdHJ1Y3Qgc2Nt
-X2Nvb2tpZSAqc2NtLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqBib29sIHNlbmRfZmRzLCBib29sIHJlZikKPiArIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYm9vbCBzZW5kX2ZkcywgYm9vbCBzdGVhbF9y
-ZWZzKQo+IMKgewo+IMKgIMKgIMKgIMKgaW50IGVyciA9IDA7Cj4gLSDCoCDCoCDCoCBpZiAocmVm
-KSB7Cj4gKwo+ICsgwqAgwqAgwqAgaWYgKCFzdGVhbF9yZWZzKSB7Cj4gwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqBVTklYQ0Ioc2tiKS5waWQgwqA9IGdldF9waWQoc2NtLT5waWQpOwo+IMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgVU5JWENCKHNrYikuY3JlZCA9IGdldF9jcmVkKHNjbS0+Y3JlZCk7Cj4g
-wqAgwqAgwqAgwqB9IGVsc2Ugewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgVU5JWENCKHNrYiku
-cGlkIMKgPSBzY20tPnBpZDsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoFVOSVhDQihza2IpLmNy
-ZWQgPSBzY20tPmNyZWQ7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzY20tPnBpZCA9IE5VTEw7
-Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzY20tPmNyZWQgPSBOVUxMOwo+IMKgIMKgIMKgIMKg
-fQo+IMKgIMKgIMKgIMKgVU5JWENCKHNrYikuZnAgPSBOVUxMOwo+IMKgIMKgIMKgIMKgaWYgKHNj
-bS0+ZnAgJiYgc2VuZF9mZHMpCj4gQEAgLTE0NTQsNyArMTQ1Nyw3IEBAIHN0YXRpYyBpbnQgdW5p
-eF9kZ3JhbV9zZW5kbXNnKHN0cnVjdCBraW9jYiAqa2lvY2IsIHN0cnVjdCBzb2NrZXQgKnNvY2ss
-Cj4gwqAgwqAgwqAgwqBpZiAoc2tiID09IE5VTEwpCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBn
-b3RvIG91dDsKPgo+IC0gwqAgwqAgwqAgZXJyID0gdW5peF9zY21fdG9fc2tiKHNpb2NiLT5zY20s
-IHNrYiwgdHJ1ZSwgZmFsc2UpOwo+ICsgwqAgwqAgwqAgZXJyID0gdW5peF9zY21fdG9fc2tiKHNp
-b2NiLT5zY20sIHNrYiwgdHJ1ZSwgdHJ1ZSk7Cj4gwqAgwqAgwqAgwqBpZiAoZXJyIDwgMCkKPiDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoGdvdG8gb3V0X2ZyZWU7Cj4gwqAgwqAgwqAgwqBtYXhfbGV2
-ZWwgPSBlcnIgKyAxOwo+IEBAIC0xNTUwLDcgKzE1NTMsNyBAQCByZXN0YXJ0Ogo+IMKgIMKgIMKg
-IMKgdW5peF9zdGF0ZV91bmxvY2sob3RoZXIpOwo+IMKgIMKgIMKgIMKgb3RoZXItPnNrX2RhdGFf
-cmVhZHkob3RoZXIsIGxlbik7Cj4gwqAgwqAgwqAgwqBzb2NrX3B1dChvdGhlcik7Cj4gLSDCoCDC
-oCDCoCBzY21fcmVsZWFzZShzaW9jYi0+c2NtKTsKPiArIMKgIMKgIMKgIHNjbV9kZXN0cm95KHNp
-b2NiLT5zY20pOwo+IMKgIMKgIMKgIMKgcmV0dXJuIGxlbjsKPgo+IMKgb3V0X3VubG9jazoKPiBA
-QCAtMTU3Nyw2ICsxNTgwLDcgQEAgc3RhdGljIGludCB1bml4X3N0cmVhbV9zZW5kbXNnKHN0cnVj
-dCBraW9jYiAqa2lvY2IsIHN0cnVjdCBzb2NrZXQgKnNvY2ssCj4gwqAgwqAgwqAgwqBpbnQgc2Vu
-dCA9IDA7Cj4gwqAgwqAgwqAgwqBzdHJ1Y3Qgc2NtX2Nvb2tpZSB0bXBfc2NtOwo+IMKgIMKgIMKg
-IMKgYm9vbCBmZHNfc2VudCA9IGZhbHNlOwo+ICsgwqAgwqAgwqAgYm9vbCBzdGVhbF9yZWZzID0g
-ZmFsc2U7Cj4gwqAgwqAgwqAgwqBpbnQgbWF4X2xldmVsOwo+Cj4gwqAgwqAgwqAgwqBpZiAoTlVM
-TCA9PSBzaW9jYi0+c2NtKQo+IEBAIC0xNjM4LDExICsxNjQyLDE0IEBAIHN0YXRpYyBpbnQgdW5p
-eF9zdHJlYW1fc2VuZG1zZyhzdHJ1Y3Qga2lvY2IgKmtpb2NiLCBzdHJ1Y3Qgc29ja2V0ICpzb2Nr
-LAo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgc2l6ZSA9IG1pbl90KGludCwgc2l6ZSwgc2tiX3Rh
-aWxyb29tKHNrYikpOwo+Cj4KPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIC8qIE9ubHkgc2VuZCB0
-aGUgZmRzIGFuZCBubyByZWYgdG8gcGlkIGluIHRoZSBmaXJzdCBidWZmZXIgKi8KPiAtIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIGVyciA9IHVuaXhfc2NtX3RvX3NrYihzaW9jYi0+c2NtLCBza2IsICFm
-ZHNfc2VudCwgZmRzX3NlbnQpOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgLyogT25seSBzZW5k
-IHRoZSBmZHMgaW4gZmlyc3QgYnVmZmVyCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCogTGFz
-dCBidWZmZXIgY2FuIHN0ZWFsIG91ciByZWZlcmVuY2VzIHRvIHBpZC9jcmVkCj4gKyDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCovCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzdGVhbF9yZWZzID0g
-KHNlbnQgKyBzaXplID49IGxlbik7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBlcnIgPSB1bml4
-X3NjbV90b19za2Ioc2lvY2ItPnNjbSwgc2tiLCAhZmRzX3NlbnQsIHN0ZWFsX3JlZnMpOwo+IMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgaWYgKGVyciA8IDApIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoGtmcmVlX3NrYihza2IpOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgZ290byBvdXQ7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBnb3RvIG91dF9lcnI7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB9Cj4gwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqBtYXhfbGV2ZWwgPSBlcnIgKyAxOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-ZmRzX3NlbnQgPSB0cnVlOwo+IEBAIC0xNjUwLDcgKzE2NTcsNyBAQCBzdGF0aWMgaW50IHVuaXhf
-c3RyZWFtX3NlbmRtc2coc3RydWN0IGtpb2NiICpraW9jYiwgc3RydWN0IHNvY2tldCAqc29jaywK
-PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGVyciA9IG1lbWNweV9mcm9taW92ZWMoc2tiX3B1dChz
-a2IsIHNpemUpLCBtc2ctPm1zZ19pb3YsIHNpemUpOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-aWYgKGVycikgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKga2ZyZWVfc2ti
-KHNrYik7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBnb3RvIG91dDsKPiAr
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGdvdG8gb3V0X2VycjsKPiDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoH0KPgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgdW5peF9zdGF0ZV9s
-b2NrKG90aGVyKTsKPiBAQCAtMTY2NywxMCArMTY3NCw3IEBAIHN0YXRpYyBpbnQgdW5peF9zdHJl
-YW1fc2VuZG1zZyhzdHJ1Y3Qga2lvY2IgKmtpb2NiLCBzdHJ1Y3Qgc29ja2V0ICpzb2NrLAo+IMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgc2VudCArPSBzaXplOwo+IMKgIMKgIMKgIMKgfQo+Cj4gLSDC
-oCDCoCDCoCBpZiAoc2tiKQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2NtX3JlbGVhc2Uoc2lv
-Y2ItPnNjbSk7Cj4gLSDCoCDCoCDCoCBlbHNlCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzY21f
-ZGVzdHJveShzaW9jYi0+c2NtKTsKPiArIMKgIMKgIMKgIHNjbV9kZXN0cm95KHNpb2NiLT5zY20p
-Owo+IMKgIMKgIMKgIMKgc2lvY2ItPnNjbSA9IE5VTEw7Cj4KPiDCoCDCoCDCoCDCoHJldHVybiBz
-ZW50Owo+IEBAIC0xNjgzLDkgKzE2ODcsNyBAQCBwaXBlX2VycjoKPiDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoHNlbmRfc2lnKFNJR1BJUEUsIGN1cnJlbnQsIDApOwo+IMKgIMKgIMKgIMKgZXJyID0g
-LUVQSVBFOwo+IMKgb3V0X2VycjoKPiAtIMKgIMKgIMKgIGlmIChza2IgPT0gTlVMTCkKPiAtIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIHNjbV9kZXN0cm95KHNpb2NiLT5zY20pOwo+IC1vdXQ6Cj4gKyDC
-oCDCoCDCoCBzY21fZGVzdHJveShzaW9jYi0+c2NtKTsKPiDCoCDCoCDCoCDCoHNpb2NiLT5zY20g
-PSBOVUxMOwo+IMKgIMKgIMKgIMKgcmV0dXJuIHNlbnQgPyA6IGVycjsKPiDCoH0KPgoKSSBoYXZl
-IHRlc3RlZCB0aGlzIGZpeHVwIHBhdGNoIG9uIGkzODYuCkNhbiB3ZSBoYXZlIGEgc2VwYXJhdGUg
-cGF0Y2ggd2l0aCBjb3JyZWN0ZWQgZGVzY3JpcHRpdmUgdGV4dD8KClRoYW5rcyB0byBhbGwgaW52
-b2x2ZWQgcGVvcGxlLgoKLSBTZWRhdCAtCg==
+Lambrecht J=C3=BCrgen <J.Lambrecht@TELEVIC.com> :
+[...]
+> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> index 6c58da2..016437a 100644
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -112,7 +112,14 @@ int mdiobus_register(struct mii_bus *bus)
+>          if (bus->reset)
+>                  bus->reset(bus);
+>=20
+> +       /* The config below is always availble with CONFIG_PHYLIB. If=
+ 0, the
+> +          behavior is as before without this patch (or P0 of the swi=
+tch is
+> +          taken because it is the first one found). */
+> +#if CONFIG_SWITCH_PHY
+> +       i =3D CONFIG_SWITCH_PHY;
+> +#else
+>          for (i =3D 0; i < PHY_MAX_ADDR; i++) {
+> +#endif
+>                  if ((bus->phy_mask & (1 << i)) =3D=3D 0) {
+>                          struct phy_device *phydev;
+
+This config option may help your platform but it is nowhere reusable on=
+ a
+slightly different one (each mii_bus behavior is changed).
+
+Which driver(s) do you use that you can not set phy_mask directly ?
+
+--=20
+Ueimor
