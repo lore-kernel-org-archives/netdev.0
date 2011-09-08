@@ -1,67 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
-Date: Thu, 08 Sep 2011 15:28:17 +0200
-Message-ID: <1315488497.2456.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4E631032.6050606@intel.com>
-	 <1315326326.2576.2980.camel@schen9-DESK>
-	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1315335019.2576.3048.camel@schen9-DESK>
-	 <1315335660.3400.7.camel@edumazet-laptop>
-	 <1315337580.2576.3066.camel@schen9-DESK>
-	 <1315338186.3400.20.camel@edumazet-laptop>
-	 <1315339157.2576.3079.camel@schen9-DESK>
-	 <1315340388.3400.28.camel@edumazet-laptop>
-	 <CAAM7YAn0c0SpAD42PcT+-HDXjT9HMajhmfZD6D68_0E21i2tSQ@mail.gmail.com>
-	 <1315372100.3400.76.camel@edumazet-laptop>  <4E66FF38.9000107@intel.com>
-	 <1315381503.3400.85.camel@edumazet-laptop>
-	 <1315396903.2364.23.camel@schen9-mobl>
-	 <1315430766.2532.1.camel@edumazet-laptop>
+From: Yong Zhang <yong.zhang0@gmail.com>
+Subject: Re: [PATCH 45/62] net: irq: Remove IRQF_DISABLED
+Date: Thu, 8 Sep 2011 21:41:09 +0800
+Message-ID: <20110908134108.GC2310@zhy>
+References: <1315383059-3673-46-git-send-email-yong.zhang0@gmail.com>
+	<20110907.131325.897937687962213943.davem@davemloft.net>
+	<alpine.LFD.2.02.1109071932100.2723@ionos>
+	<20110907.135234.17759197083710999.davem@davemloft.net>
+	<alpine.LFD.2.02.1109072000290.2723@ionos>
+Reply-To: Yong Zhang <yong.zhang0@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Yan, Zheng" <zheng.z.yan@intel.com>,
-	"Yan, Zheng" <yanzheng@21cn.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"jirislaby@gmail.com" <jirislaby@gmail.com>,
-	"sedat.dilek@gmail.com" <sedat.dilek@gmail.com>,
-	"Shi, Alex" <alex.shi@intel.com>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-To: Tim Chen <tim.c.chen@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59240 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932777Ab1IHN2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 09:28:15 -0400
-Received: by wyh22 with SMTP id 22so635936wyh.19
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2011 06:28:14 -0700 (PDT)
-In-Reply-To: <1315430766.2532.1.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: perex@perex.cz, dhowells@redhat.com, prakity@marvell.com,
+	netdev@vger.kernel.org, chunkeey@googlemail.com,
+	sonic.zhang@analog.com, klaus.kudielka@ieee.org,
+	t.sailer@alumni.ethz.ch, khilman@ti.com, eric.dumazet@gmail.com,
+	jhovold@gmail.com, cyril@ti.com, rmk+kernel@arm.linux.org.uk,
+	mingo@elte.hu, jpr@f6fbb.org, adobriyan@gmail.com,
+	jreuter@yaina.de, cbe-oss-dev@lists.ozlabs.org,
+	martinez.javier@gmail.com, samuel@sortiz.org, vapier@gentoo.org,
+	grundler@parisc-linux.org, tklauser@distanz.ch,
+	lucas.demarchi@profusion.mobi, u.kleine-koenig@pengutronix.de,
+	olof@lixom.net, uclinux-dist-devel@blackfin.uclinux.org,
+	linux-hams@vger.kernel.org, leitao@linux.vnet.ibm.com,
+	blogic@openwrt.org, shawn.guo@linaro.org, nico@fluxnic.net,
+	geoff@infradead.org, jkosina@suse.cz,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ralf@linux-mips.org, ralph.hempel@lantiq.com, jdmas
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.02.1109072000290.2723@ionos>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 07 septembre 2011 =C3=A0 23:26 +0200, Eric Dumazet a =C3=A9=
-crit :
-> Le mercredi 07 septembre 2011 =C3=A0 05:01 -0700, Tim Chen a =C3=A9cr=
-it :
+On Wed, Sep 07, 2011 at 08:03:14PM +0200, Thomas Gleixner wrote:
+> On Wed, 7 Sep 2011, David Miller wrote:
+> 
+> > From: Thomas Gleixner <tglx@linutronix.de>
+> > Date: Wed, 7 Sep 2011 19:32:39 +0200 (CEST)
+> > 
+> > > On Wed, 7 Sep 2011, David Miller wrote:
+> > > 
+> > >> From: Yong Zhang <yong.zhang0@gmail.com>
+> > >> Date: Wed,  7 Sep 2011 16:10:42 +0800
+> > >> 
+> > >> > This flag is a NOOP and can be removed now.
+> > >> > 
+> > >> > Signed-off-by: Yong Zhang <yong.zhang0@gmail.com>
+> > >> 
+> > >> I have the same concerns here as I had for the sparc case.
+> > >> 
+> > >> Some of these drivers might be using IRQF_DISABLED to make sure the
+> > >> IRQ cannot be delivered until it is explicitly enabled via an
+> > >> enable_irq() call.
+> > >> 
+> > >> How is that being accomodated now?
+> > > 
+> > > Again IRQF_DISABLED never ever had that functionality. 
+> > 
+> > My bad.
+> > 
+> > But what if these interrupts want interrupts disabled during their
+> > interrupt handler, for other reasons?
+> 
+> We run ALL interrupt handlers with irqs disabled always.
+>  
+> > This has the potential to break tons of stuff, especially on the
+> > really old chips which almost no developers have any more but some
+> > user might try to use.
+> 
+> It won't. We removed IRQF_DISABLED from kernel/irq/* long ago
 
-> > Eric, are you planning to do a fast path patch that doesn't do pid =
-ref
-> > for the case where CONFIG_PID_NS is not set?
-> >=20
->=20
-> Yes, I'll try to cook a patch.
+Yeah, and this is why we say it's a NOOP now :)
 
-Thinking a bit more on this issue, I really believe we should not stick
-pid/cred in skbs sent from a write() system call.
-
-That would break following use case :
-
-An application uses a write(fd) and expects a receiver using recvmsg()
-to get process credentials (SCM_CREDENTIALS)
-
-This is currently working, but not documented (man unix says ancillary
-data are sent with sendmsg())
-
-If everybody agrees, I can send a patch for this : This would speedup
-write()/read() af_unix by an order of magnitude.
+Thanks,
+Yong
