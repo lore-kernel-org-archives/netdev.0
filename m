@@ -1,47 +1,48 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH 1/4] ibmveth: Fix DMA unmap error
-Date: Thu, 08 Sep 2011 10:41:03 +1000
-Message-ID: <20110908004121.570234962@samba.org>
-References: <20110908004102.355674129@samba.org>
-Cc: netdev@vger.kernel.org
-To: Santiago Leon <santil@linux.vnet.ibm.com>,
-	brking@linux.vnet.ibm.com, rcj@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:42999 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757658Ab1IHAp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Sep 2011 20:45:27 -0400
-Content-Disposition: inline; filename=ibmveth_1.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Dietsche <gregory.dietsche@cuw.edu>
+Subject: Re: [PATCH 1/2] iwlegacy: change IWL_WARN to IWL_DEBUG_HT in iwl4965_tx_agg_start
+Date: Wed, 07 Sep 2011 22:51:26 -0500
+Message-ID: <4E683BBE.3060105@cuw.edu>
+References: <1314537977-20097-1-git-send-email-Gregory.Dietsche@cuw.edu> <20110829122013.GA3597@redhat.com> <4E5B9533.6000109@cuw.edu> <20110829140032.GA1573@redhat.com> <20110906150131.GA7322@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110906150131.GA7322@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Brian King <brking@linux.vnet.ibm.com>
+Hi Stanislaw,
+On 09/06/2011 10:01 AM, Stanislaw Gruszka wrote:
+> I put patches here:
+> http://people.redhat.com/sgruszka/iwlegacy_cleanup.tar.bz2
+>
+> They are on top of wireless-testing tree.
+>    
+<snip>
+> Series include your 2 patches. You can test this cleanup and
+> apply your new changes on top. I'll not do any further cleanup
+> for some time now, perhaps continue when I got public git tree.
+>
+>    
+Thanks! I've re-worked my patches and you can find them here:
+http://www.gregd.org/stuff/linux/iwlegacy_cleanup_greg.tar.bz2
 
-Commit 6e8ab30ec677 (ibmveth: Add scatter-gather support) introduced a
-DMA mapping API inconsistency resulting in dma_unmap_page getting
-called on memory mapped via dma_map_single. This was seen when
-CONFIG_DMA_API_DEBUG was enabled. Fix up this API usage inconsistency.
+I also decided to play with github a little bit: 
+git://github.com/dietsche/linux.git and pushed two branches:
+   1) wireless-next-iwlegacy-stanislaw - your patch set
+   2) wireless-next-iwlegacy-stanislaw-greg - a branch that has my 
+additional patches.
+`git format-patch 
+wireless-next-iwlegacy-stanislaw..wireless-next-iwlegacy-stanislaw-greg` 
+will generate the patches that are in the link i posted above.
 
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
-Acked-by: Anton Blanchard <anton@samba.org>
-Cc: <stable@kernel.org> # v2.6.37+
----
+The first two patches in my series are the ones that I think folks 
+should take a closer look at. The rest are pretty safe.
 
-Index: linux-build/drivers/net/ibmveth.c
-===================================================================
---- linux-build.orig/drivers/net/ibmveth.c	2011-09-08 08:00:16.842856634 +1000
-+++ linux-build/drivers/net/ibmveth.c	2011-09-08 09:45:43.163851274 +1000
-@@ -1026,7 +1026,12 @@ retry_bounce:
- 		netdev->stats.tx_bytes += skb->len;
- 	}
- 
--	for (i = 0; i < skb_shinfo(skb)->nr_frags + 1; i++)
-+	dma_unmap_single(&adapter->vdev->dev,
-+			 descs[0].fields.address,
-+			 descs[0].fields.flags_len & IBMVETH_BUF_LEN_MASK,
-+			 DMA_TO_DEVICE);
-+
-+	for (i = 1; i < skb_shinfo(skb)->nr_frags + 1; i++)
- 		dma_unmap_page(&adapter->vdev->dev, descs[i].fields.address,
- 			       descs[i].fields.flags_len & IBMVETH_BUF_LEN_MASK,
- 			       DMA_TO_DEVICE);
+I'm running both patch sets right now on my laptop. So far it is running 
+perfectly.
+
+Greg
