@@ -1,108 +1,89 @@
-From: "Yan, Zheng " <yanzheng@21cn.com>
-Subject: Re: possible routing table cache bug for mtu/advmss attributes in
- Linux 3.0.4
-Date: Thu, 8 Sep 2011 22:42:20 +0800
-Message-ID: <CAAM7YA=t=s5EEVFte84oqWaKfqyoNhX_NsE5xWUKJ53u-+Es=g@mail.gmail.com>
-References: <20110901214643.GA16989@aldebaran.gro-tsen.net>
+From: Dave Martin <dave.martin@linaro.org>
+Subject: Re: [PATCH v3] net/smsc911x: add device tree probe support
+Date: Thu, 8 Sep 2011 15:59:46 +0100
+Message-ID: <20110908145946.GE2070@arm.com>
+References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
+ <1312050360-15767-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev Mailing-List <netdev@vger.kernel.org>
-To: David Madore <david+ml@madore.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, patches@linaro.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:59287 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751458Ab1IHOmW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 10:42:22 -0400
-Received: by eyx24 with SMTP id 24so559047eyx.19
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2011 07:42:21 -0700 (PDT)
-In-Reply-To: <20110901214643.GA16989@aldebaran.gro-tsen.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48765 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795Ab1IHO74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 10:59:56 -0400
+Received: by wwf5 with SMTP id 5so47525wwf.1
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2011 07:59:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1312050360-15767-1-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 2, 2011 at 5:46 AM, David Madore <david+ml@madore.org> wrot=
-e:
-> Hi,
->
-> I believe I've found a bug in the routing cache (perhaps only for
-> IPv6) in Linux 3.0.4. =A0Since I'm uncertain about the diagnosis, I'm
-> posting here for guidance as to how to proceed.
->
-> In a nutshell, the problem is this: my (manually entered) routing
-> tables specify an explicit MTU/MSS for certain IPv6 routes, and after
-> upgrading from 2.6.38.7 to 3.0.4, I found that this MTU/MSS setting i=
-s
-> sometimes ignored. =A0More precisely, it seems that connecting to a h=
-ost
-> through the route in question causes a routing cache entry to be
-> created, and it is when this cache entry expires that the route
-> forgets the MTU/MSS setting. =A0(It may also be relevant that in my c=
-ase
-> the route belongs to a routing table other than "main".)
->
-> In more details: my routing tables contains the following:
->
-> vega david ~ $ sudo ip -6 rule show
-> 0: =A0 =A0 =A0from all lookup local
-> 32766: =A0from all lookup main
-> 40000: =A0from 2002::/16 lookup 2002
-> 40100: =A0from all lookup 2001
-> vega david ~ $ sudo ip -6 route show table 2001
-> 2002::/16 via ::192.88.99.1 dev tun6to4 =A0metric 512 =A0mtu 1466 adv=
-mss 1406
-> 2000::/3 dev ppp0 =A0metric 64 =A0mtu 1466 advmss 1406
->
-> Initially, trying to get the route to 2001:41d0:1:a431::1 correctly
-> returns route with the mtu and advmss values I entered:
->
-> vega david ~ $ sudo ip route get 2001:41d0:1:a431::1
-> 2001:41d0:1:a431::1 from :: via 2001:41d0:1:a431::1 dev ppp0 =A0src 2=
-001:7a8:78ae::1 =A0metric 0
-> =A0 =A0cache =A0mtu 1466 advmss 1406
->
-> Now I start an ssh connection to 2001:41d0:1:a431::1, close it
-> immediately, and fetch the route again:
->
-> vega david ~ $ sudo ip route get 2001:41d0:1:a431::1
-> 2001:41d0:1:a431::1 from :: via 2001:41d0:1:a431::1 dev ppp0 =A0src 2=
-001:7a8:78ae::1 =A0metric 0
-> =A0 =A0cache =A0mtu 1466 rtt 37ms rttvar 37ms cwnd 10 advmss 1406
->
-> This is still correct. =A0But if I wait a few seconds (doing nothing)
-> for these data to expire, they seems to take the mtu and advmss value=
-s
-> away with them:
->
-> vega david ~ $ sudo ip route get 2001:41d0:1:a431::1
-> 2001:41d0:1:a431::1 from :: via 2001:41d0:1:a431::1 dev ppp0 =A0src 2=
-001:7a8:78ae::1 =A0metric 0
-> =A0 =A0cache
->
-> (note the empty "cache" line and the absence of mtu/advmss settings).
->
-> This is not just wrongly reported: the route really is wrong, and
-> opening a TCP connection at this stage will use a wrong MSS (and
-> freeze on large packets, because my Internet provider is worthless,
-> but that's another story). =A0At some point the route seems to return=
- to
-> normal, but I couldn't figure out what causes this exactly.
->
-> In case it's uesful, my kernel config is on <URL:
-> http://www.madore.org/~david/.tmp/config-3.0.4-vega
-> =A0>.
->
+Hi Shawn,
 
-Would you please try patch http://marc.info/?l=3Dlinux-netdev&m=3D13152=
-9445904858
+On Sun, Jul 31, 2011 at 02:26:00AM +0800, Shawn Guo wrote:
+> It adds device tree probe support for smsc911x driver.
+> 
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> Cc: Steve Glendinning <steve.glendinning@smsc.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Reviewed-by: Grant Likely <grant.likely@secretlab.ca>
+> ---
+> Changes since v2:
+>  * Fix a typo in smsc911x.txt
+> 
+> Changes since v1:
+>  * Instead of getting irq line from gpio number, it use irq domain
+>    to keep platform_get_resource(IORESOURCE_IRQ) works for dt too.
+>  * Use 'lan9115' the first model that smsc911x supports in the match
+>    table
+>  * Use reg-shift and reg-io-width which already used in of_serial for
+>    shift and access size binding
 
-Thanks
+When using this patch with vexpress, I found that 16-bit register access
+mode doesn't seem to be getting set correctly.
 
-> Any thoughts?
->
-> --
-> =A0 =A0 David A. Madore
-> =A0 ( http://www.madore.org/~david/ )
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.
+Can you take a look at this additional patch and let me know if it looks
+correct?
+
+Cheers
+---Dave
+
+From: Dave Martin <dave.martin@linaro.org>
+Date: Wed, 7 Sep 2011 17:26:31 +0100
+Subject: [PATCH] net/smsc911x: Correctly configure 16-bit register access from DT
+
+The SMSC911X_USE_16BIT needs to be set when using 16-bit register
+access.  However, currently no flag is set if the DT doesn't specify
+32-bit access.
+
+This patch should set the SMSC911X_USE_16BIT flag in a manner consistent
+with the documented DT bindings.
+
+Signed-off-by: Dave Martin <dave.martin@linaro.org>
+---
+ drivers/net/smsc911x.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index 75c08a5..1a35c25 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -2121,6 +2121,8 @@ static int __devinit smsc911x_probe_config_dt(
+ 	of_property_read_u32(np, "reg-io-width", &width);
+ 	if (width == 4)
+ 		config->flags |= SMSC911X_USE_32BIT;
++	else
++		config->flags |= SMSC911X_USE_16BIT;
+ 
+ 	if (of_get_property(np, "smsc,irq-active-high", NULL))
+ 		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+-- 
+1.7.4.1
