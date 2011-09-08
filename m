@@ -1,69 +1,81 @@
-From: =?utf-8?B?TGFtYnJlY2h0IErDvHJnZW4=?= <J.Lambrecht@TELEVIC.com>
-Subject: Re: [PATCH] net: phy: Add config option to specify external switch
- port to be used if switch is used as PHY
-Date: Thu, 8 Sep 2011 12:00:13 +0200
-Message-ID: <4E68922D.8020805@televic.com>
-References: <4E68668F.9060008@televic.com>
- <201109081039.35272.florian@openwrt.org>
+From: Sedat Dilek <sedat.dilek@googlemail.com>
+Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
+Date: Thu, 8 Sep 2011 12:05:38 +0200
+Message-ID: <CA+icZUUFm0injjqR16=xz06bjm4+pCLNhtizxofE_hTxE+e==w@mail.gmail.com>
+References: <4E631032.6050606@intel.com>
+	<1315326326.2576.2980.camel@schen9-DESK>
+	<1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1315335019.2576.3048.camel@schen9-DESK>
+	<1315335660.3400.7.camel@edumazet-laptop>
+	<1315337580.2576.3066.camel@schen9-DESK>
+	<1315338186.3400.20.camel@edumazet-laptop>
+	<1315339157.2576.3079.camel@schen9-DESK>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-embedded@vger.kernel.org" <linux-embedded@vger.kernel.org>
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Yan, Zheng" <zheng.z.yan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"jirislaby@gmail.com" <jirislaby@gmail.com>, alex.shi@intel.com
+To: Tim Chen <tim.c.chen@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip2.televic.com ([81.82.194.222]:24905 "EHLO ip2.televic.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751498Ab1IHKAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Sep 2011 06:00:16 -0400
-In-Reply-To: <201109081039.35272.florian@openwrt.org>
+Received: from mail-qw0-f45.google.com ([209.85.216.45]:40737 "EHLO
+	mail-qw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756461Ab1IHKFj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 06:05:39 -0400
+Received: by qwj8 with SMTP id 8so471850qwj.4
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2011 03:05:39 -0700 (PDT)
+In-Reply-To: <1315339157.2576.3079.camel@schen9-DESK>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gMDkvMDgvMjAxMSAxMDozOSBBTSwgRmxvcmlhbiBGYWluZWxsaSB3cm90ZToNCj4NCj4gSGVs
-bG8gSnVyZ2VuLA0KPg0KPiBPbiBUaHVyc2RheSAwOCBTZXB0ZW1iZXIgMjAxMSAwODo1NDowNyBM
-YW1icmVjaHQgSsO8cmdlbiB3cm90ZToNCj4gPiBIZWxsbywNCj4gPg0KPiA+IEluIG91ciBlbWJl
-ZGRlZCBkZXNpZ25zLCB0aGlzIGlzIGEgdXNlZnVsIHBhdGNoLiBNYXliZSBpdCBjYW4gYmUgdXNl
-ZnVsDQo+ID4gZm9yIHNvbWVib2R5IGVsc2UgdG9vLg0KPiA+IE9yIG1heWJlIHRoZXJlIGFyZSBh
-bHJlYWR5IGJldHRlciBzb2x1dGlvbnM/DQo+ID4gSSBrbm93IEkgY291bGQgYWxzbyB3cml0ZSBh
-IGRyaXZlciBmb3Igb3VyIHN3aXRjaCwgYnV0IHRoYXQgaXMgdG9vIG11Y2gNCj4gPiBlZmZvcnQg
-anVzdCB0byBzZWxlY3QgdGhlIGFjdGl2ZSBwb3J0Lg0KPg0KPiBUaGlzIGlzIG5vdCBnb2luZyB0
-byB3b3JrIHdlbGwgd2l0aCBhbGwgc3dpdGNoZXMgb3V0IHRoZXJlLiBZb3UgY291bGQgDQo+IHVz
-ZSB0aGUNCj4NCkRvIG5vdCBhbGwgc3dpdGNoZXMgZm9sbG93IHRoZSBiYXNpYyBNSUkgcmVnaXN0
-ZXIgbWFwIHdpdGggcm9vbSBmb3IgMzEgDQpwaHkncz8NCj4NCj4gZml4ZWQtUEhZIGRyaXZlciB0
-byBtYWtlIHlvdXIgZXRoZXJuZXQgZHJpdmVyIHNlZSB0aGUgbGluayBhcyBhbHdheXMgDQo+IHVw
-IGJldHdlZW4NCj4gdGhlIE1BQyBhbmQgc3dpdGNoIENQVSBwb3J0Lg0KPg0KSW5kZWVkLCBJIHRy
-aWVkIHRvLCBidXQgaXQgZGlkbid0IHdvcmsuICh3b3VsZCBiZSBteSBwcmVmZXJyZWQgc29sdXRp
-b24pDQpJIGp1aXN0IGVuYWJsZWQgRklYRURfUEhZIGluIG1lbnVjb25maWcgKGFuZCBrZXB0IE1J
-SSwgTkVUX0VUSEVSTkVUIGFuZCANCkZFQyAoZm9yIG15IGlNWCBjcHUpOyBhbHNvIFBIWUxJQiBp
-cyBvbiB0aGF0IG1ha2VzIG1kaW9fYnVzLmMgY29tcGlsZSkuIA0KSSBjaGVja2VkIHRoZSBhcmNo
-aXRlY3R1cmUgZmlsZSBmb3IgbXBjODY2YWRzIGFuZCBkaWRuJ3QgZmluZCBhbnkgaW5pdCANCmZv
-ciBpdCwgYnV0IG1heWJlIEkgbmVlZCB0byBpbml0aWFsaXplIGZpeGVkLVBIWSBzb21ld2hlcmU/
-DQoNCkhvd2V2ZXIsIGl0IGNvdWxkIGJlIGludGVyZXN0aW5nIHNvbWV0aW1lcyBmcm9tIGFwcGxp
-Y2F0aW9uIHNpZGUgdG8ga25vdyANCmlmIHRoZSByZWFsIGV4dGVybmFsIGxpbmsgaXMgdXAsIHRo
-ZW4gZml4ZWQtUEhZIGlzIG5vdCBvay4NCj4NCj4NCj4gQSBiZXR0ZXIgc29sdXRpb24gd291bGQg
-YmUgdG8gaGF2ZSBwcm9wZXIgc3dpdGNoIGRyaXZlcnMgYW5kIA0KPiB1c2VyLXNwYWNlLCB3aGlj
-aA0KPiByZW1pbmRzIG1lIHRoYXQgd2UgKE9wZW5XcnQpIHNob3VsZCBhdCBzb21lIHBvaW50IHBy
-b3Bvc2Ugb3VyIHN3aXRjaCANCj4gZHJpdmVycw0KPiBbMV0gZm9yIHJldmlldy4NCj4NCj4gWzFd
-Og0KPiBodHRwczovL2Rldi5vcGVud3J0Lm9yZy9icm93c2VyL3RydW5rL3RhcmdldC9saW51eC9n
-ZW5lcmljL2ZpbGVzL2RyaXZlcnMvbmV0L3BoeS8NCj4NCkp1c3QgaGFkIGEgZmFzdCBsb29rIHRv
-IHRoZSBNYXJ2ZWxsIHN3aXRjaCBkcml2ZXIuIE5pY2UgdG8ga25vdyBpdCBpcyB0aGVyZS4NCj4N
-Cj4NCj4gPg0KPiA+IEtpbmQgcmVnYXJkcywNCj4gPiBKw7xyZ2VuDQo+ID4NCj4gPiAgICBJbiBl
-bWJlZGRlZCBkZXNpZ24sIGluc3RlYWQgb2YgYSBQSFksIHNvbWV0aW1lcyBhIHN3aXRjaCBpcyB1
-c2VkIHRoYXQNCj4gPiAgICAgICAgICAgIGJlaGF2ZXMgYXMgYSBQSFkgdGhyb3VnaCBpdHMgTUlJ
-IHBvcnQuIEZvciBleGFtcGxlIHRvIHVzZSBhDQo+ID4gZGFpc3kgY2hhaW4gbmV0d29yayBjb25m
-aWd1cmF0aW9uIGluc3RlYWQgb2YgYW4gZXhwZW5zaXZlIHN0YXIgDQo+IGNvbmZpZy4gSW4NCj4g
-PiB0aGF0IGNhc2UsIG1hbnkgcGh5IHBvcnRzIGFyZSBhdmFpbGFibGUsIGJ1dCBvbmx5IDEgc2hv
-dWxkIGJlIHVzZWQNCj4gPiAgICAgICAgICAgIHRvIGNoZWNrIGxpbmsgc3RhdHVzLCBhbmQgbm90
-IHRoZSBmaXJzdCBvbmUgYXZhaWxhYmxlIGFzIGlzDQo+ID4gdGhlIGNhc2UNCj4gPiAgICAgICAg
-ICAgIHdpdGhvdXQgdGhpcyBjb25maWd1cmF0aW9uICh0aGF0IGlzLCBzZXQgdG8gaXRzIGRlZmF1
-bHQgdmFsdWUNCj4gPiAwKS4gU28gdGhpcyBvcHRpb25zIHNwZWNpZmllcyB0aGUgc3dpdGNoIHBv
-cnQgbnVtYmVyIHRvIGJlIHVzZWQgdG8gY2hlY2sNCj4gPiAgICAgICAgICAgIGxpbmsgc3RhdHVz
-LCBiZWNhdXNlIGlmIHRoZSBsaW5rIGlzIGRvd24sIG5vIGRhdGEgaXMgc2VudCANCj4gYnkgdGhl
-DQo+ID4gICAgICAgICAgICBUQ1AvSVAgc3RhY2suDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBK
-w7xyZ2VuIExhbWJyZWNodCA8Si5MYW1icmVjaHRAdGVsZXZpYy5jb20+DQo+ID4gLS0tDQo+DQpb
-c25pcF0NCj4NCj4gLS0NCj4gRmxvcmlhbg0KPg0KDQoNCi0tIA0KSsO8cmdlbiBMYW1icmVjaHQN
-ClImRCBBc3NvY2lhdGUNClRlbDogKzMyICgwKTUxIDMwMzA0NSAgICBGYXg6ICszMiAoMCk1MSAz
-MTA2NzANCmh0dHA6Ly93d3cudGVsZXZpYy1yYWlsLmNvbQ0KVGVsZXZpYyBSYWlsIE5WIC0gTGVv
-IEJla2FlcnRsYWFuIDEgLSA4ODcwIEl6ZWdlbSAtIEJlbGdpdW0NCkNvbXBhbnkgbnVtYmVyIDA4
-MjUuNTM5LjU4MSAtIFJQUiBLb3J0cmlqaw0K
+On Tue, Sep 6, 2011 at 9:59 PM, Tim Chen <tim.c.chen@linux.intel.com> w=
+rote:
+> On Tue, 2011-09-06 at 21:43 +0200, Eric Dumazet wrote:
+>> Le mardi 06 septembre 2011 =C3=A0 12:33 -0700, Tim Chen a =C3=A9crit=
+ :
+>>
+>> > Yes, I think locking the sendmsg for the entire duration of
+>> > unix_stream_sendmsg makes a lot of sense. =C2=A0It simplifies the =
+logic a lot
+>> > more. =C2=A0I'll try to cook something up in the next couple of da=
+ys.
+>>
+>> Thats not really possible, we cant hold a spinlock and call
+>> sock_alloc_send_skb() and/or memcpy_fromiovec(), wich might sleep.
+>>
+>> You would need to prepare the full skb list, then :
+>> - stick the ref on the last skb of the list.
+>>
+>> Transfert the whole skb list in other->sk_receive_queue in one go,
+>> instead of one after another.
+>>
+>> Unfortunately, this would break streaming (big send(), and another
+>> thread doing the receive)
+>>
+>> Listen, I am wondering why hackbench even triggers SCM code. This is
+>> really odd. We should not have a _single_ pid/cred ref/unref at all.
+>>
+>
+> Hackbench triggers the code because it has a bunch of threads sending
+> msgs on UNIX socket.
+>>
+>
+
+# lsof | grep socket | wc -l
+198
+
+Aprrox 200 sockets in usage here, can you post your hackbench line, ple=
+ase?
+I would compare hackbench results with and without new improvements in =
+SCM code.
+
+- Sedat -
+
+[...]
+>
+> Tim
+>
