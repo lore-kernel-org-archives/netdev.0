@@ -1,76 +1,214 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v2 3/9] socket: initial cgroup code.
-Date: Thu, 8 Sep 2011 09:41:37 -0300
-Message-ID: <4E68B801.8000207@parallels.com>
-References: <1315369399-3073-1-git-send-email-glommer@parallels.com> <1315369399-3073-4-git-send-email-glommer@parallels.com> <20110907221710.GA7845@shutemov.name> <4E684A6B.6030205@parallels.com> <20110908053558.GA9464@shutemov.name>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next v3] af_unix: Fix use-after-free crashes
+Date: Thu, 08 Sep 2011 15:21:43 +0200
+Message-ID: <1315488103.2456.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4E631032.6050606@intel.com>
+	 <1315326326.2576.2980.camel@schen9-DESK>
+	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1315335019.2576.3048.camel@schen9-DESK>
+	 <1315335660.3400.7.camel@edumazet-laptop>
+	 <1315337580.2576.3066.camel@schen9-DESK>
+	 <1315338186.3400.20.camel@edumazet-laptop>
+	 <1315339157.2576.3079.camel@schen9-DESK>
+	 <1315340388.3400.28.camel@edumazet-laptop>
+	 <CAAM7YAn0c0SpAD42PcT+-HDXjT9HMajhmfZD6D68_0E21i2tSQ@mail.gmail.com>
+	 <1315372100.3400.76.camel@edumazet-laptop> <4E66FF38.9000107@intel.com>
+	 <1315381503.3400.85.camel@edumazet-laptop>
+	 <1315396903.2364.23.camel@schen9-mobl>
+	 <CA+icZUVqJVn4ONuSDV5YdgpEcmetVMM9X=Sxt2EqM8qdegMnjQ@mail.gmail.com>
+	 <CA+icZUW5Biu8cMhaJcz=MwtMOVn-NFD92PTpT0-DfEDKrRmaUQ@mail.gmail.com>
+	 <1315406256.6287.7.camel@schen9-mobl> <4E680BF1.8000901@intel.com>
+	 <1315429583.2361.3.camel@schen9-mobl>
+	 <1315461572.2532.7.camel@edumazet-laptop> <4E685F19.6030407@intel.com>
+	 <1315465919.2532.19.camel@edumazet-laptop> <4E686D71.30603@intel.com>
+	 <1315467184.2532.22.camel@edumazet-laptop>
+	 <CA+icZUWH8953m4qs74JLhNwrzJM0eMfE8aizJ1XtuVFFTtLKqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <xemul@parallels.com>,
-	<netdev@vger.kernel.org>, <linux-mm@kvack.org>, "Eric W. Biederman"
-	<ebiederm@xmission.com>, <containers@lists.osdl.org>, "David S. Miller"
-	<davem@davemloft.net>
-To: "Kirill A. Shutemov" <kirill@shutemov.name>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110908053558.GA9464@shutemov.name>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Yan, Zheng" <zheng.z.yan@intel.com>,
+	Tim Chen <tim.c.chen@linux.intel.com>,
+	"Yan, Zheng" <yanzheng@21cn.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"jirislaby@gmail.com" <jirislaby@gmail.com>,
+	"Shi, Alex" <alex.shi@intel.com>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+To: sedat.dilek@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:64317 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932673Ab1IHNVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 09:21:39 -0400
+Received: by bke5 with SMTP id 5so646024bke.19
+        for <netdev@vger.kernel.org>; Thu, 08 Sep 2011 06:21:38 -0700 (PDT)
+In-Reply-To: <CA+icZUWH8953m4qs74JLhNwrzJM0eMfE8aizJ1XtuVFFTtLKqg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/08/2011 02:35 AM, Kirill A. Shutemov wrote:
-> On Thu, Sep 08, 2011 at 01:54:03AM -0300, Glauber Costa wrote:
->> On 09/07/2011 07:17 PM, Kirill A. Shutemov wrote:
->>> On Wed, Sep 07, 2011 at 01:23:13AM -0300, Glauber Costa wrote:
->>>> We aim to control the amount of kernel memory pinned at any
->>>> time by tcp sockets. To lay the foundations for this work,
->>>> this patch adds a pointer to the kmem_cgroup to the socket
->>>> structure.
->>>>
->>>> Signed-off-by: Glauber Costa<glommer@parallels.com>
->>>> CC: David S. Miller<davem@davemloft.net>
->>>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
->>>> CC: Eric W. Biederman<ebiederm@xmission.com>
->>>> ---
->>>>    include/linux/kmem_cgroup.h |   29 +++++++++++++++++++++++++++++
->>>>    include/net/sock.h          |    2 ++
->>>>    net/core/sock.c             |    5 ++---
->>>>    3 files changed, 33 insertions(+), 3 deletions(-)
->>>>
->>>> diff --git a/include/linux/kmem_cgroup.h b/include/linux/kmem_cgroup.h
->>>> index 0e4a74b..77076d8 100644
->>>> --- a/include/linux/kmem_cgroup.h
->>>> +++ b/include/linux/kmem_cgroup.h
->>>> @@ -49,5 +49,34 @@ static inline struct kmem_cgroup *kcg_from_task(struct task_struct *tsk)
->>>>    	return NULL;
->>>>    }
->>>>    #endif /* CONFIG_CGROUP_KMEM */
->>>> +
->>>> +#ifdef CONFIG_INET
->>>
->>> Will it break something if you define the helpers even if CONFIG_INET
->>> is not defined?
->>> It will be much cleaner. You can reuse ifdef CONFIG_CGROUP_KMEM in this
->>> case.
->>
->> The helpers inside CONFIG_INET are needed for the network code,
->> regardless of kmem cgroup is defined or not, not the other way around.
->>
->> So I could remove CONFIG_INET, but I can't possibly move it inside
->> CONFIG_CGROUP_KMEM. So this buy us nothing.
->
-> You can define empty under CONFIG_CGROUP_KMEM's #else, can't you?
-> Like with kcg_from_cgroup()/kcg_from_task().
->
-Do you really think it is cleaner?
+Le jeudi 08 septembre 2011 =C3=A0 11:59 +0200, Sedat Dilek a =C3=A9crit=
+ :
 
-Why would I define empty something that is not empty at all?
-Look again. Most of those helpers would be the exact same with or 
-without CONFIG_CGROUP_KMEM . The others, very few differences. If 
-CONFIG_INET bothers you, I can remove it altogether, making it 
-unconditional. But moving it inside CONFIG_CGROUP_KMEM makes no sense.
+> I have tested this fixup patch on i386.
+> Can we have a separate patch with corrected descriptive text?
+>=20
+> Thanks to all involved people.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Here it is :
+
+[PATCH net-next v3] af_unix: Fix use-after-free crashes
+
+Commit 0856a30409 (Scm: Remove unnecessary pid & credential references
+in Unix socket's send and receive path) introduced an use-after-free
+bug.
+
+We are allowed to steal the references to pid/cred only in the last skb
+sent from unix_stream_sendmsg(), because first skbs might be consumed b=
+y
+the receiver before we finish our sendmsg() call.
+
+Remove scm_release() helper, since its cleaner to clear pid/cred fields
+in unix_scm_to_skb() when we steal them.
+
+Based on prior patches from Yan Zheng and Tim Chen
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Reported-by: Jiri Slaby <jirislaby@gmail.com>
+Tested-by: Sedat Dilek <sedat.dilek@googlemail.com>
+Tested-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+---
+ include/net/scm.h  |    9 ---------
+ net/unix/af_unix.c |   32 +++++++++++++++++---------------
+ 2 files changed, 17 insertions(+), 24 deletions(-)
+
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 68e1e48..2a5b42f 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -78,15 +78,6 @@ static __inline__ void scm_destroy(struct scm_cookie=
+ *scm)
+ 		__scm_destroy(scm);
+ }
+=20
+-static __inline__ void scm_release(struct scm_cookie *scm)
+-{
+-	/* keep ref on pid and cred */
+-	scm->pid =3D NULL;
+-	scm->cred =3D NULL;
+-	if (scm->fp)
+-		__scm_destroy(scm);
+-}
+-
+ static __inline__ int scm_send(struct socket *sock, struct msghdr *msg=
+,
+ 			       struct scm_cookie *scm)
+ {
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index e6d9d10..c8a08ba 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1379,15 +1379,18 @@ static int unix_attach_fds(struct scm_cookie *s=
+cm, struct sk_buff *skb)
+ }
+=20
+ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb=
+,
+-			   bool send_fds, bool ref)
++			   bool send_fds, bool steal_refs)
+ {
+ 	int err =3D 0;
+-	if (ref) {
++
++	if (!steal_refs) {
+ 		UNIXCB(skb).pid  =3D get_pid(scm->pid);
+ 		UNIXCB(skb).cred =3D get_cred(scm->cred);
+ 	} else {
+ 		UNIXCB(skb).pid  =3D scm->pid;
+ 		UNIXCB(skb).cred =3D scm->cred;
++		scm->pid =3D NULL;
++		scm->cred =3D NULL;
+ 	}
+ 	UNIXCB(skb).fp =3D NULL;
+ 	if (scm->fp && send_fds)
+@@ -1454,7 +1457,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb=
+, struct socket *sock,
+ 	if (skb =3D=3D NULL)
+ 		goto out;
+=20
+-	err =3D unix_scm_to_skb(siocb->scm, skb, true, false);
++	err =3D unix_scm_to_skb(siocb->scm, skb, true, true);
+ 	if (err < 0)
+ 		goto out_free;
+ 	max_level =3D err + 1;
+@@ -1550,7 +1553,7 @@ restart:
+ 	unix_state_unlock(other);
+ 	other->sk_data_ready(other, len);
+ 	sock_put(other);
+-	scm_release(siocb->scm);
++	scm_destroy(siocb->scm);
+ 	return len;
+=20
+ out_unlock:
+@@ -1577,6 +1580,7 @@ static int unix_stream_sendmsg(struct kiocb *kioc=
+b, struct socket *sock,
+ 	int sent =3D 0;
+ 	struct scm_cookie tmp_scm;
+ 	bool fds_sent =3D false;
++	bool steal_refs =3D false;
+ 	int max_level;
+=20
+ 	if (NULL =3D=3D siocb->scm)
+@@ -1638,11 +1642,14 @@ static int unix_stream_sendmsg(struct kiocb *ki=
+ocb, struct socket *sock,
+ 		size =3D min_t(int, size, skb_tailroom(skb));
+=20
+=20
+-		/* Only send the fds and no ref to pid in the first buffer */
+-		err =3D unix_scm_to_skb(siocb->scm, skb, !fds_sent, fds_sent);
++		/* Only send the fds in first buffer
++		 * Last buffer can steal our references to pid/cred
++		 */
++		steal_refs =3D (sent + size >=3D len);
++		err =3D unix_scm_to_skb(siocb->scm, skb, !fds_sent, steal_refs);
+ 		if (err < 0) {
+ 			kfree_skb(skb);
+-			goto out;
++			goto out_err;
+ 		}
+ 		max_level =3D err + 1;
+ 		fds_sent =3D true;
+@@ -1650,7 +1657,7 @@ static int unix_stream_sendmsg(struct kiocb *kioc=
+b, struct socket *sock,
+ 		err =3D memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
+ 		if (err) {
+ 			kfree_skb(skb);
+-			goto out;
++			goto out_err;
+ 		}
+=20
+ 		unix_state_lock(other);
+@@ -1667,10 +1674,7 @@ static int unix_stream_sendmsg(struct kiocb *kio=
+cb, struct socket *sock,
+ 		sent +=3D size;
+ 	}
+=20
+-	if (skb)
+-		scm_release(siocb->scm);
+-	else
+-		scm_destroy(siocb->scm);
++	scm_destroy(siocb->scm);
+ 	siocb->scm =3D NULL;
+=20
+ 	return sent;
+@@ -1683,9 +1687,7 @@ pipe_err:
+ 		send_sig(SIGPIPE, current, 0);
+ 	err =3D -EPIPE;
+ out_err:
+-	if (skb =3D=3D NULL)
+-		scm_destroy(siocb->scm);
+-out:
++	scm_destroy(siocb->scm);
+ 	siocb->scm =3D NULL;
+ 	return sent ? : err;
+ }
