@@ -1,49 +1,76 @@
-From: =?utf-8?B?TGFtYnJlY2h0IErDvHJnZW4=?= <J.Lambrecht@TELEVIC.com>
-Subject: Re: [PATCH] net: phy: Add config option to specify external switch
- port to be used if switch is used as PHY
-Date: Thu, 8 Sep 2011 13:59:34 +0200
-Message-ID: <4E68AE26.5020707@televic.com>
-References: <4E68668F.9060008@televic.com>
- <20110908101315.GA27909@electric-eye.fr.zoreil.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v2 3/9] socket: initial cgroup code.
+Date: Thu, 8 Sep 2011 09:41:37 -0300
+Message-ID: <4E68B801.8000207@parallels.com>
+References: <1315369399-3073-1-git-send-email-glommer@parallels.com> <1315369399-3073-4-git-send-email-glommer@parallels.com> <20110907221710.GA7845@shutemov.name> <4E684A6B.6030205@parallels.com> <20110908053558.GA9464@shutemov.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-embedded@vger.kernel.org" <linux-embedded@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-embedded-owner@vger.kernel.org>
-In-Reply-To: <20110908101315.GA27909@electric-eye.fr.zoreil.com>
-Sender: linux-embedded-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <xemul@parallels.com>,
+	<netdev@vger.kernel.org>, <linux-mm@kvack.org>, "Eric W. Biederman"
+	<ebiederm@xmission.com>, <containers@lists.osdl.org>, "David S. Miller"
+	<davem@davemloft.net>
+To: "Kirill A. Shutemov" <kirill@shutemov.name>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110908053558.GA9464@shutemov.name>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDkvMDgvMjAxMSAxMjoxMyBQTSwgRnJhbmNvaXMgUm9taWV1IHdyb3RlOg0KPg0KPiBMYW1i
-cmVjaHQgSsO8cmdlbiA8Si5MYW1icmVjaHRAVEVMRVZJQy5jb20+IDoNCj4gWy4uLl0NCj4gPiBk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvcGh5L21kaW9fYnVzLmMgYi9kcml2ZXJzL25ldC9waHkv
-bWRpb19idXMuYw0KPiA+IGluZGV4IDZjNThkYTIuLjAxNjQzN2EgMTAwNjQ0DQo+ID4gLS0tIGEv
-ZHJpdmVycy9uZXQvcGh5L21kaW9fYnVzLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9waHkvbWRp
-b19idXMuYw0KPiA+IEBAIC0xMTIsNyArMTEyLDE0IEBAIGludCBtZGlvYnVzX3JlZ2lzdGVyKHN0
-cnVjdCBtaWlfYnVzICpidXMpDQo+ID4gICAgICAgICAgaWYgKGJ1cy0+cmVzZXQpDQo+ID4gICAg
-ICAgICAgICAgICAgICBidXMtPnJlc2V0KGJ1cyk7DQo+ID4NCj4gPiArICAgICAgIC8qIFRoZSBj
-b25maWcgYmVsb3cgaXMgYWx3YXlzIGF2YWlsYmxlIHdpdGggQ09ORklHX1BIWUxJQi4gDQo+IElm
-IDAsIHRoZQ0KPiA+ICsgICAgICAgICAgYmVoYXZpb3IgaXMgYXMgYmVmb3JlIHdpdGhvdXQgdGhp
-cyBwYXRjaCAob3IgUDAgb2YgdGhlIA0KPiBzd2l0Y2ggaXMNCj4gPiArICAgICAgICAgIHRha2Vu
-IGJlY2F1c2UgaXQgaXMgdGhlIGZpcnN0IG9uZSBmb3VuZCkuICovDQo+ID4gKyNpZiBDT05GSUdf
-U1dJVENIX1BIWQ0KPiA+ICsgICAgICAgaSA9IENPTkZJR19TV0lUQ0hfUEhZOw0KPiA+ICsjZWxz
-ZQ0KPiA+ICAgICAgICAgIGZvciAoaSA9IDA7IGkgPCBQSFlfTUFYX0FERFI7IGkrKykgew0KPiA+
-ICsjZW5kaWYNCj4gPiAgICAgICAgICAgICAgICAgIGlmICgoYnVzLT5waHlfbWFzayAmICgxIDw8
-IGkpKSA9PSAwKSB7DQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgIHN0cnVjdCBwaHlfZGV2
-aWNlICpwaHlkZXY7DQo+DQo+IFRoaXMgY29uZmlnIG9wdGlvbiBtYXkgaGVscCB5b3VyIHBsYXRm
-b3JtIGJ1dCBpdCBpcyBub3doZXJlIHJldXNhYmxlIG9uIGENCj4gc2xpZ2h0bHkgZGlmZmVyZW50
-IG9uZSAoZWFjaCBtaWlfYnVzIGJlaGF2aW9yIGlzIGNoYW5nZWQpLg0KPg0KPiBXaGljaCBkcml2
-ZXIocykgZG8geW91IHVzZSB0aGF0IHlvdSBjYW4gbm90IHNldCBwaHlfbWFzayBkaXJlY3RseSA/
-DQo+DQpUaGUgSFcgZHJpdmVyIGlzICdGRUMnIGZvciBpTVggRXRoZXJuZXQuIEZvciB0aGUgUEhZ
-LCBqdXN0IE1JSSBhbmQgUEhZTElCLg0KSSBhbSByYXRoZXIgbmV3IHRvIGxpbnV4LCBkaWRuJ3Qg
-a25ldyBwaHlfbWFzay4gQ2hlY2tlZCBpdCBub3csIGFuZCBpcyANCm5vdCBzZXQgaW4gZmVjLmMu
-DQpZb3UgbWVhbiB0aGVuIHRvIHBhdGNoIGRyaXZlcnMvbmV0L2ZlYy5jIGluIHRoZSBzYW1lIHdh
-eSAoYXMgbXkgY3VycmVudCANCnBhdGNoKSB0byBzZXQgdGhlIHBoeV9tYXNrIGluc3RlYWQgKHZp
-YSBtZW51Y29uZmlnLCBvciBpbiB0aGUgcGxhdGZvcm0gDQppbml0KT8NCg0KVGhhbmtzIGZvciB5
-b3VyIHJlcGx5LA0KSsO8cmdlbg0KPg0KPg0KPiAtLQ0KPiBVZWltb3INCj4NCg0KDQotLSANCkrD
-vHJnZW4gTGFtYnJlY2h0DQpSJkQgQXNzb2NpYXRlDQpUZWw6ICszMiAoMCk1MSAzMDMwNDUgICAg
-RmF4OiArMzIgKDApNTEgMzEwNjcwDQpodHRwOi8vd3d3LnRlbGV2aWMtcmFpbC5jb20NClRlbGV2
-aWMgUmFpbCBOViAtIExlbyBCZWthZXJ0bGFhbiAxIC0gODg3MCBJemVnZW0gLSBCZWxnaXVtDQpD
-b21wYW55IG51bWJlciAwODI1LjUzOS41ODEgLSBSUFIgS29ydHJpamsNCg==
+On 09/08/2011 02:35 AM, Kirill A. Shutemov wrote:
+> On Thu, Sep 08, 2011 at 01:54:03AM -0300, Glauber Costa wrote:
+>> On 09/07/2011 07:17 PM, Kirill A. Shutemov wrote:
+>>> On Wed, Sep 07, 2011 at 01:23:13AM -0300, Glauber Costa wrote:
+>>>> We aim to control the amount of kernel memory pinned at any
+>>>> time by tcp sockets. To lay the foundations for this work,
+>>>> this patch adds a pointer to the kmem_cgroup to the socket
+>>>> structure.
+>>>>
+>>>> Signed-off-by: Glauber Costa<glommer@parallels.com>
+>>>> CC: David S. Miller<davem@davemloft.net>
+>>>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+>>>> CC: Eric W. Biederman<ebiederm@xmission.com>
+>>>> ---
+>>>>    include/linux/kmem_cgroup.h |   29 +++++++++++++++++++++++++++++
+>>>>    include/net/sock.h          |    2 ++
+>>>>    net/core/sock.c             |    5 ++---
+>>>>    3 files changed, 33 insertions(+), 3 deletions(-)
+>>>>
+>>>> diff --git a/include/linux/kmem_cgroup.h b/include/linux/kmem_cgroup.h
+>>>> index 0e4a74b..77076d8 100644
+>>>> --- a/include/linux/kmem_cgroup.h
+>>>> +++ b/include/linux/kmem_cgroup.h
+>>>> @@ -49,5 +49,34 @@ static inline struct kmem_cgroup *kcg_from_task(struct task_struct *tsk)
+>>>>    	return NULL;
+>>>>    }
+>>>>    #endif /* CONFIG_CGROUP_KMEM */
+>>>> +
+>>>> +#ifdef CONFIG_INET
+>>>
+>>> Will it break something if you define the helpers even if CONFIG_INET
+>>> is not defined?
+>>> It will be much cleaner. You can reuse ifdef CONFIG_CGROUP_KMEM in this
+>>> case.
+>>
+>> The helpers inside CONFIG_INET are needed for the network code,
+>> regardless of kmem cgroup is defined or not, not the other way around.
+>>
+>> So I could remove CONFIG_INET, but I can't possibly move it inside
+>> CONFIG_CGROUP_KMEM. So this buy us nothing.
+>
+> You can define empty under CONFIG_CGROUP_KMEM's #else, can't you?
+> Like with kcg_from_cgroup()/kcg_from_task().
+>
+Do you really think it is cleaner?
+
+Why would I define empty something that is not empty at all?
+Look again. Most of those helpers would be the exact same with or 
+without CONFIG_CGROUP_KMEM . The others, very few differences. If 
+CONFIG_INET bothers you, I can remove it altogether, making it 
+unconditional. But moving it inside CONFIG_CGROUP_KMEM makes no sense.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
