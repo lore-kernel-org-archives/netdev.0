@@ -1,81 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 08/11] netlink: implement memory mapped sendmsg()
-Date: Thu, 08 Sep 2011 11:33:09 +0200
-Message-ID: <4E688BD5.5030909@trash.net>
-References: <1315070771-18576-1-git-send-email-kaber@trash.net> <1315070771-18576-9-git-send-email-kaber@trash.net> <20110904161822.GA8176@rere.qmqm.pl> <4E678C18.1010306@trash.net> <20110907200319.GA29545@rere.qmqm.pl>
+From: =?utf-8?B?TGFtYnJlY2h0IErDvHJnZW4=?= <J.Lambrecht@TELEVIC.com>
+Subject: Re: [PATCH] net: phy: Add config option to specify external switch
+ port to be used if switch is used as PHY
+Date: Thu, 8 Sep 2011 12:00:13 +0200
+Message-ID: <4E68922D.8020805@televic.com>
+References: <4E68668F.9060008@televic.com>
+ <201109081039.35272.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq@rere.qmqm.pl>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110907200319.GA29545@rere.qmqm.pl>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-embedded@vger.kernel.org" <linux-embedded@vger.kernel.org>
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ip2.televic.com ([81.82.194.222]:24905 "EHLO ip2.televic.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751498Ab1IHKAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Sep 2011 06:00:16 -0400
+In-Reply-To: <201109081039.35272.florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 07.09.2011 22:03, schrieb Micha=B3 Miros=B3aw:
-> On Wed, Sep 07, 2011 at 05:22:00PM +0200, Patrick McHardy wrote:
->> On 04.09.2011 18:18, Micha=B3 Miros=B3aw wrote:
->>> On Sat, Sep 03, 2011 at 07:26:08PM +0200, kaber@trash.net wrote:
->>>> From: Patrick McHardy <kaber@trash.net>
->>>>
->>>> Add support for memory mapped sendmsg() to netlink. Userspace queu=
-ed to
->>>> be processed frames into the TX ring and invokes sendmsg with
->>>> msg.iov.iov_base =3D NULL to trigger processing of all pending mes=
-sages.
->>>>
->>>> Since the kernel usually performs full message validation before b=
-eginning
->>>> processing, userspace must be prevented from modifying the message
->>>> contents while the kernel is processing them. In order to do so, t=
-he
->>>> frames contents are copied to an allocated skb in case the the rin=
-g is
->>>> mapped more than once or the file descriptor is shared (f.i. throu=
-gh
->>>> AF_UNIX file descriptor passing).
->>>>
->>>> Otherwise an skb without a data area is allocated, the data pointe=
-r set
->>>> to point to the data area of the ring frame and the skb is process=
-ed.
->>>> Once the skb is freed, the destructor releases the frame back to u=
-serspace
->>>> by setting the status to NL_MMAP_STATUS_UNUSED.
->>>
->>> Is this protected from threads? Like: one thread waits on sendmsg()=
- and
->>> another (same process) changes the buffer.
->> Yes, if the ring is mapped multiple times (or the file descriptor
->> is changed), the contents are copied to an allocated skb.
->=20
-> I mean:
->=20
-> [1] mmap()
-> [1] fill buffers
-> [1] pthread_create() [creates: 2]
-> [1] sendmsg() starts
-> [2] modify buffers
-> [1] sendmsg() returns
->=20
-> So: no multiple mmaps, and no touching of the fd. I haven't dug into
-> filesystem layer to see if threads affect file->f_count, but there
-> sure are no multiple mappings here.
-
-If CLONE_VM is given to clone(), the mapping is visible in both
-threads and thus we have multiple mappings (vma_ops->open() is
-invoked through clone()). Without CLONE_VM, the second thread
-can't access the ring unless it mmap()s it itself, in case we'd
-also have multiple mappings.
-
-The file descriptor check is only meant for the case that
-the fd is passed to a second process through AF_UNIX, the
-first process invokes sendmsg(), sendmsg() checks for multiple
-mappings and the second process invokes mmap() after that.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gMDkvMDgvMjAxMSAxMDozOSBBTSwgRmxvcmlhbiBGYWluZWxsaSB3cm90ZToNCj4NCj4gSGVs
+bG8gSnVyZ2VuLA0KPg0KPiBPbiBUaHVyc2RheSAwOCBTZXB0ZW1iZXIgMjAxMSAwODo1NDowNyBM
+YW1icmVjaHQgSsO8cmdlbiB3cm90ZToNCj4gPiBIZWxsbywNCj4gPg0KPiA+IEluIG91ciBlbWJl
+ZGRlZCBkZXNpZ25zLCB0aGlzIGlzIGEgdXNlZnVsIHBhdGNoLiBNYXliZSBpdCBjYW4gYmUgdXNl
+ZnVsDQo+ID4gZm9yIHNvbWVib2R5IGVsc2UgdG9vLg0KPiA+IE9yIG1heWJlIHRoZXJlIGFyZSBh
+bHJlYWR5IGJldHRlciBzb2x1dGlvbnM/DQo+ID4gSSBrbm93IEkgY291bGQgYWxzbyB3cml0ZSBh
+IGRyaXZlciBmb3Igb3VyIHN3aXRjaCwgYnV0IHRoYXQgaXMgdG9vIG11Y2gNCj4gPiBlZmZvcnQg
+anVzdCB0byBzZWxlY3QgdGhlIGFjdGl2ZSBwb3J0Lg0KPg0KPiBUaGlzIGlzIG5vdCBnb2luZyB0
+byB3b3JrIHdlbGwgd2l0aCBhbGwgc3dpdGNoZXMgb3V0IHRoZXJlLiBZb3UgY291bGQgDQo+IHVz
+ZSB0aGUNCj4NCkRvIG5vdCBhbGwgc3dpdGNoZXMgZm9sbG93IHRoZSBiYXNpYyBNSUkgcmVnaXN0
+ZXIgbWFwIHdpdGggcm9vbSBmb3IgMzEgDQpwaHkncz8NCj4NCj4gZml4ZWQtUEhZIGRyaXZlciB0
+byBtYWtlIHlvdXIgZXRoZXJuZXQgZHJpdmVyIHNlZSB0aGUgbGluayBhcyBhbHdheXMgDQo+IHVw
+IGJldHdlZW4NCj4gdGhlIE1BQyBhbmQgc3dpdGNoIENQVSBwb3J0Lg0KPg0KSW5kZWVkLCBJIHRy
+aWVkIHRvLCBidXQgaXQgZGlkbid0IHdvcmsuICh3b3VsZCBiZSBteSBwcmVmZXJyZWQgc29sdXRp
+b24pDQpJIGp1aXN0IGVuYWJsZWQgRklYRURfUEhZIGluIG1lbnVjb25maWcgKGFuZCBrZXB0IE1J
+SSwgTkVUX0VUSEVSTkVUIGFuZCANCkZFQyAoZm9yIG15IGlNWCBjcHUpOyBhbHNvIFBIWUxJQiBp
+cyBvbiB0aGF0IG1ha2VzIG1kaW9fYnVzLmMgY29tcGlsZSkuIA0KSSBjaGVja2VkIHRoZSBhcmNo
+aXRlY3R1cmUgZmlsZSBmb3IgbXBjODY2YWRzIGFuZCBkaWRuJ3QgZmluZCBhbnkgaW5pdCANCmZv
+ciBpdCwgYnV0IG1heWJlIEkgbmVlZCB0byBpbml0aWFsaXplIGZpeGVkLVBIWSBzb21ld2hlcmU/
+DQoNCkhvd2V2ZXIsIGl0IGNvdWxkIGJlIGludGVyZXN0aW5nIHNvbWV0aW1lcyBmcm9tIGFwcGxp
+Y2F0aW9uIHNpZGUgdG8ga25vdyANCmlmIHRoZSByZWFsIGV4dGVybmFsIGxpbmsgaXMgdXAsIHRo
+ZW4gZml4ZWQtUEhZIGlzIG5vdCBvay4NCj4NCj4NCj4gQSBiZXR0ZXIgc29sdXRpb24gd291bGQg
+YmUgdG8gaGF2ZSBwcm9wZXIgc3dpdGNoIGRyaXZlcnMgYW5kIA0KPiB1c2VyLXNwYWNlLCB3aGlj
+aA0KPiByZW1pbmRzIG1lIHRoYXQgd2UgKE9wZW5XcnQpIHNob3VsZCBhdCBzb21lIHBvaW50IHBy
+b3Bvc2Ugb3VyIHN3aXRjaCANCj4gZHJpdmVycw0KPiBbMV0gZm9yIHJldmlldy4NCj4NCj4gWzFd
+Og0KPiBodHRwczovL2Rldi5vcGVud3J0Lm9yZy9icm93c2VyL3RydW5rL3RhcmdldC9saW51eC9n
+ZW5lcmljL2ZpbGVzL2RyaXZlcnMvbmV0L3BoeS8NCj4NCkp1c3QgaGFkIGEgZmFzdCBsb29rIHRv
+IHRoZSBNYXJ2ZWxsIHN3aXRjaCBkcml2ZXIuIE5pY2UgdG8ga25vdyBpdCBpcyB0aGVyZS4NCj4N
+Cj4NCj4gPg0KPiA+IEtpbmQgcmVnYXJkcywNCj4gPiBKw7xyZ2VuDQo+ID4NCj4gPiAgICBJbiBl
+bWJlZGRlZCBkZXNpZ24sIGluc3RlYWQgb2YgYSBQSFksIHNvbWV0aW1lcyBhIHN3aXRjaCBpcyB1
+c2VkIHRoYXQNCj4gPiAgICAgICAgICAgIGJlaGF2ZXMgYXMgYSBQSFkgdGhyb3VnaCBpdHMgTUlJ
+IHBvcnQuIEZvciBleGFtcGxlIHRvIHVzZSBhDQo+ID4gZGFpc3kgY2hhaW4gbmV0d29yayBjb25m
+aWd1cmF0aW9uIGluc3RlYWQgb2YgYW4gZXhwZW5zaXZlIHN0YXIgDQo+IGNvbmZpZy4gSW4NCj4g
+PiB0aGF0IGNhc2UsIG1hbnkgcGh5IHBvcnRzIGFyZSBhdmFpbGFibGUsIGJ1dCBvbmx5IDEgc2hv
+dWxkIGJlIHVzZWQNCj4gPiAgICAgICAgICAgIHRvIGNoZWNrIGxpbmsgc3RhdHVzLCBhbmQgbm90
+IHRoZSBmaXJzdCBvbmUgYXZhaWxhYmxlIGFzIGlzDQo+ID4gdGhlIGNhc2UNCj4gPiAgICAgICAg
+ICAgIHdpdGhvdXQgdGhpcyBjb25maWd1cmF0aW9uICh0aGF0IGlzLCBzZXQgdG8gaXRzIGRlZmF1
+bHQgdmFsdWUNCj4gPiAwKS4gU28gdGhpcyBvcHRpb25zIHNwZWNpZmllcyB0aGUgc3dpdGNoIHBv
+cnQgbnVtYmVyIHRvIGJlIHVzZWQgdG8gY2hlY2sNCj4gPiAgICAgICAgICAgIGxpbmsgc3RhdHVz
+LCBiZWNhdXNlIGlmIHRoZSBsaW5rIGlzIGRvd24sIG5vIGRhdGEgaXMgc2VudCANCj4gYnkgdGhl
+DQo+ID4gICAgICAgICAgICBUQ1AvSVAgc3RhY2suDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBK
+w7xyZ2VuIExhbWJyZWNodCA8Si5MYW1icmVjaHRAdGVsZXZpYy5jb20+DQo+ID4gLS0tDQo+DQpb
+c25pcF0NCj4NCj4gLS0NCj4gRmxvcmlhbg0KPg0KDQoNCi0tIA0KSsO8cmdlbiBMYW1icmVjaHQN
+ClImRCBBc3NvY2lhdGUNClRlbDogKzMyICgwKTUxIDMwMzA0NSAgICBGYXg6ICszMiAoMCk1MSAz
+MTA2NzANCmh0dHA6Ly93d3cudGVsZXZpYy1yYWlsLmNvbQ0KVGVsZXZpYyBSYWlsIE5WIC0gTGVv
+IEJla2FlcnRsYWFuIDEgLSA4ODcwIEl6ZWdlbSAtIEJlbGdpdW0NCkNvbXBhbnkgbnVtYmVyIDA4
+MjUuNTM5LjU4MSAtIFJQUiBLb3J0cmlqaw0K
