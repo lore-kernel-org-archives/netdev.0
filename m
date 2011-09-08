@@ -1,78 +1,92 @@
-From: Daniel Hellstrom <daniel@gaisler.com>
-Subject: [PATCH 1/2] GRETH: RX/TX bytes were never increased
-Date: Thu,  8 Sep 2011 15:14:35 +0200
-Message-ID: <1315487676-16733-1-git-send-email-daniel@gaisler.com>
-Cc: netdev@vger.kernel.org, kristoffer@gaisler.com
-To: davem@davemloft.net
+From: Jonathan Lallinger <jonathan@ogc.us>
+Subject: [PATCH] RDSRDMA: Fix cleanup of rds_iw_mr_pool
+Date: Thu, 08 Sep 2011 13:09:26 -0500
+Message-ID: <20110908180925.12943.50905.stgit@build.ogc.int>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com
+To: venkat.x.venkatsubra@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail201c2.megamailservers.com ([69.49.111.102]:48623 "EHLO
-	mail201c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754359Ab1IHXCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 19:02:36 -0400
+Received: from smtp.opengridcomputing.com ([209.198.142.2]:60786 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751495Ab1IHXGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 19:06:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
----
- drivers/net/greth.c |    5 +++++
- drivers/net/greth.h |    1 +
- 2 files changed, 6 insertions(+), 0 deletions(-)
+In the rds_iw_mr_pool struct the free_pinned field keeps track of memory pinned
+by free MRs. While this field is incremented properly upon allocation, it is never
+decremented upon unmapping. This would cause the rds_rdma module to crash the
+kernel upon unloading, by triggering the BUG_ON in the rds_iw_destroy_mr_pool
+function.
 
-diff --git a/drivers/net/greth.c b/drivers/net/greth.c
-index 672f096..9d39fb9 100644
---- a/drivers/net/greth.c
-+++ b/drivers/net/greth.c
-@@ -426,6 +426,7 @@ greth_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	dma_sync_single_for_device(greth->dev, dma_addr, skb->len, DMA_TO_DEVICE);
+This change keeps track of the MRs that become unpinned, so that free_pinned
+can be decremented appropriately.
+
+Signed-off-by: Jonathan Lallinger <jonathan@ogc.us>
+Signed-off-by: Steve Wise <swise@ogc.us>
+---
+
+ net/rds/iw_rdma.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
+index 8b77edb..5f18928 100644
+--- a/net/rds/iw_rdma.c
++++ b/net/rds/iw_rdma.c
+@@ -84,7 +84,8 @@ static int rds_iw_map_fastreg(struct rds_iw_mr_pool *pool,
+ static void rds_iw_free_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+ 			struct list_head *unmap_list,
+-			struct list_head *kill_list);
++			struct list_head *kill_list,
++			int *unpinned);
+ static void rds_iw_destroy_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
  
- 	status = GRETH_BD_EN | GRETH_BD_IE | (skb->len & GRETH_BD_LEN);
-+	greth->tx_bufs_length[greth->tx_next] = skb->len & GRETH_BD_LEN;
+ static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwdev, struct rdma_cm_id **cm_id)
+@@ -499,7 +500,7 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ 	LIST_HEAD(unmap_list);
+ 	LIST_HEAD(kill_list);
+ 	unsigned long flags;
+-	unsigned int nfreed = 0, ncleaned = 0, free_goal;
++	unsigned int nfreed = 0, ncleaned = 0, unpinned = 0, free_goal;
+ 	int ret = 0;
  
- 	/* Wrap around descriptor ring */
- 	if (greth->tx_next == GRETH_TXBD_NUM_MASK) {
-@@ -639,6 +640,7 @@ static void greth_clean_tx(struct net_device *dev)
- 				dev->stats.tx_fifo_errors++;
- 		}
- 		dev->stats.tx_packets++;
-+		dev->stats.tx_bytes += greth->tx_bufs_length[greth->tx_last];
- 		greth->tx_last = NEXT_TX(greth->tx_last);
- 		greth->tx_free++;
+ 	rds_iw_stats_inc(s_iw_rdma_mr_pool_flush);
+@@ -524,7 +525,8 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ 	 * will be destroyed by the unmap function.
+ 	 */
+ 	if (!list_empty(&unmap_list)) {
+-		ncleaned = rds_iw_unmap_fastreg_list(pool, &unmap_list, &kill_list);
++		ncleaned = rds_iw_unmap_fastreg_list(pool, &unmap_list,
++						&kill_list, &unpinned);
+ 		/* If we've been asked to destroy all MRs, move those
+ 		 * that were simply cleaned to the kill list */
+ 		if (free_all)
+@@ -548,6 +550,7 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ 		spin_unlock_irqrestore(&pool->list_lock, flags);
  	}
-@@ -693,6 +695,7 @@ static void greth_clean_tx_gbit(struct net_device *dev)
- 		greth->tx_skbuff[greth->tx_last] = NULL;
  
- 		greth_update_tx_stats(dev, stat);
-+		dev->stats.tx_bytes += skb->len;
++	atomic_sub(unpinned, &pool->free_pinned);
+ 	atomic_sub(ncleaned, &pool->dirty_count);
+ 	atomic_sub(nfreed, &pool->item_count);
  
- 		bdp = greth->tx_bd_base + greth->tx_last;
+@@ -828,7 +831,8 @@ static void rds_iw_free_fastreg(struct rds_iw_mr_pool *pool,
  
-@@ -794,6 +797,7 @@ static int greth_rx(struct net_device *dev, int limit)
- 				memcpy(skb_put(skb, pkt_len), phys_to_virt(dma_addr), pkt_len);
+ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+ 				struct list_head *unmap_list,
+-				struct list_head *kill_list)
++				struct list_head *kill_list
++				int *unpinned)
+ {
+ 	struct rds_iw_mapping *mapping, *next;
+ 	unsigned int ncleaned = 0;
+@@ -855,6 +859,7 @@ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
  
- 				skb->protocol = eth_type_trans(skb, dev);
-+				dev->stats.rx_bytes += pkt_len;
- 				dev->stats.rx_packets++;
- 				netif_receive_skb(skb);
- 			}
-@@ -908,6 +912,7 @@ static int greth_rx_gbit(struct net_device *dev, int limit)
- 
- 				skb->protocol = eth_type_trans(skb, dev);
- 				dev->stats.rx_packets++;
-+				dev->stats.rx_bytes += pkt_len;
- 				netif_receive_skb(skb);
- 
- 				greth->rx_skbuff[greth->rx_cur] = newskb;
-diff --git a/drivers/net/greth.h b/drivers/net/greth.h
-index 9a0040d..232a622 100644
---- a/drivers/net/greth.h
-+++ b/drivers/net/greth.h
-@@ -103,6 +103,7 @@ struct greth_private {
- 
- 	unsigned char *tx_bufs[GRETH_TXBD_NUM];
- 	unsigned char *rx_bufs[GRETH_RXBD_NUM];
-+	u16 tx_bufs_length[GRETH_TXBD_NUM];
- 
- 	u16 tx_next;
- 	u16 tx_last;
--- 
-1.5.4
+ 		spin_lock_irqsave(&pool->list_lock, flags);
+ 		list_for_each_entry_safe(mapping, next, unmap_list, m_list) {
++			*unpinned += mapping->m_sg.len;
+ 			list_move(&mapping->m_list, &laundered);
+ 			ncleaned++;
+ 		}
