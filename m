@@ -1,79 +1,63 @@
-From: Tim Chen <tim.c.chen@linux.intel.com>
-Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
-Date: Thu, 08 Sep 2011 02:24:48 -0700
-Message-ID: <1315473888.2301.21.camel@schen9-mobl>
-References: <4E631032.6050606@intel.com>
-	 <1315326326.2576.2980.camel@schen9-DESK>
-	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1315335019.2576.3048.camel@schen9-DESK>
-	 <1315335660.3400.7.camel@edumazet-laptop>
-	 <1315337580.2576.3066.camel@schen9-DESK>
-	 <1315338186.3400.20.camel@edumazet-laptop>
-	 <1315339157.2576.3079.camel@schen9-DESK>
-	 <1315340388.3400.28.camel@edumazet-laptop>
-	 <CAAM7YAn0c0SpAD42PcT+-HDXjT9HMajhmfZD6D68_0E21i2tSQ@mail.gmail.com>
-	 <1315372100.3400.76.camel@edumazet-laptop>  <4E66FF38.9000107@intel.com>
-	 <1315381503.3400.85.camel@edumazet-laptop>
-	 <1315396903.2364.23.camel@schen9-mobl>
-	 <1315430766.2532.1.camel@edumazet-laptop>
-	 <1315488497.2456.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH 1/2] iwlegacy: change IWL_WARN to IWL_DEBUG_HT in
+ iwl4965_tx_agg_start
+Date: Thu, 8 Sep 2011 18:11:30 +0200
+Message-ID: <20110908161129.GC2195@redhat.com>
+References: <1314537977-20097-1-git-send-email-Gregory.Dietsche@cuw.edu>
+ <20110829122013.GA3597@redhat.com>
+ <4E5B9533.6000109@cuw.edu>
+ <20110829140032.GA1573@redhat.com>
+ <20110906150131.GA7322@redhat.com>
+ <4E683BBE.3060105@cuw.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Yan, Zheng" <zheng.z.yan@intel.com>,
-	"Yan, Zheng" <yanzheng@21cn.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"jirislaby@gmail.com" <jirislaby@gmail.com>,
-	"sedat.dilek@gmail.com" <sedat.dilek@gmail.com>,
-	"Shi, Alex" <alex.shi@intel.com>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Greg Dietsche <gregory.dietsche@cuw.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:51744 "EHLO mga03.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36213 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753147Ab1IHXYS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Sep 2011 19:24:18 -0400
-In-Reply-To: <1315488497.2456.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	id S1755158Ab1IHX3k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Sep 2011 19:29:40 -0400
+Content-Disposition: inline
+In-Reply-To: <4E683BBE.3060105@cuw.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-09-08 at 15:28 +0200, Eric Dumazet wrote:
-> Le mercredi 07 septembre 2011 =C3=A0 23:26 +0200, Eric Dumazet a =C3=A9=
-crit :
-> > Le mercredi 07 septembre 2011 =C3=A0 05:01 -0700, Tim Chen a =C3=A9=
-crit :
->=20
-> > > Eric, are you planning to do a fast path patch that doesn't do pi=
-d ref
-> > > for the case where CONFIG_PID_NS is not set?
-> > >=20
-> >=20
-> > Yes, I'll try to cook a patch.
->=20
-> Thinking a bit more on this issue, I really believe we should not sti=
-ck
-> pid/cred in skbs sent from a write() system call.
+Hi Greg
 
-I prefer this approach too.
+On Wed, Sep 07, 2011 at 10:51:26PM -0500, Greg Dietsche wrote:
+> On 09/06/2011 10:01 AM, Stanislaw Gruszka wrote:
+> >I put patches here:
+> >http://people.redhat.com/sgruszka/iwlegacy_cleanup.tar.bz2
+> >
+> >They are on top of wireless-testing tree.
+> <snip>
+> >Series include your 2 patches. You can test this cleanup and
+> >apply your new changes on top. I'll not do any further cleanup
+> >for some time now, perhaps continue when I got public git tree.
+> >
+> Thanks! I've re-worked my patches and you can find them here:
+> http://www.gregd.org/stuff/linux/iwlegacy_cleanup_greg.tar.bz2
+> 
+> I also decided to play with github a little bit:
+> git://github.com/dietsche/linux.git and pushed two branches:
+>   1) wireless-next-iwlegacy-stanislaw - your patch set
+>   2) wireless-next-iwlegacy-stanislaw-greg - a branch that has my
+> additional patches.
+> `git format-patch wireless-next-iwlegacy-stanislaw..wireless-next-iwlegacy-stanislaw-greg`
+> will generate the patches that are in the link i posted above.
 
->=20
-> That would break following use case :
->=20
-> An application uses a write(fd) and expects a receiver using recvmsg(=
-)
-> to get process credentials (SCM_CREDENTIALS)
->=20
-> This is currently working, but not documented (man unix says ancillar=
-y
-> data are sent with sendmsg())
->=20
-> If everybody agrees, I can send a patch for this : This would speedup
-> write()/read() af_unix by an order of magnitude.
->=20
+Cool!
 
-Looking forward to the patch.  This should improve the scalability of
-af_unix.
+> The first two patches in my series are the ones that I think folks
+> should take a closer look at. The rest are pretty safe.
 
-Tim
+The second patch is ok. I'm not sure about first one, but we can get
+rid of "ctx = il_rxon_ctx_from_vif(vif)" at all, because we have
+only one context. Removing il_rxon_context structure from
+iwlegacy driver is my long term plan, you can look at that
+if you wish.
+
+Thanks
+Stanislaw
