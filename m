@@ -1,373 +1,163 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: [PATCH net-next-2.6] can/sja1000: driver for PEAK PCAN PCI/PCIe cards
-Date: Thu, 08 Sep 2011 22:07:28 +0200
-Message-ID: <4E692080.9020801@grandegger.com>
+From: Greg Thelen <gthelen@google.com>
+Subject: Re: [PATCH] per-cgroup tcp buffer limitation
+Date: Thu, 8 Sep 2011 14:53:22 -0700
+Message-ID: <CAHH2K0YcXMUfd1Zr=f5a4=X9cPPp8NZiuichFXaOo=kVp5rRJA@mail.gmail.com>
+References: <1315276556-10970-1-git-send-email-glommer@parallels.com>
+ <CAHH2K0aJxjinSu0Ek6jzsZ5dBmm5mEU-typuwYWYWEudF2F3Qg@mail.gmail.com>
+ <4E664766.40200@parallels.com> <CAHH2K0YJA7vZZ3QNAf63TZOnWhsRUwfuZYfntBL4muZ0G_Vt2w@mail.gmail.com>
+ <4E66A0A9.3060403@parallels.com> <CAHH2K0aq4s1_H-yY0kA3LhM00CCNNbJZyvyBoDD6rHC+qo_gNg@mail.gmail.com>
+ <4E68484A.4000201@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	linux-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org, Thomas Wiedemann <Thomas.Wiedemann-8kCRUXUQ4vU@public.gmane.org>
-To: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        containers@lists.osdl.org, netdev@vger.kernel.org, xemul@parallels.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        Suleiman Souhlal <suleiman@google.com>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <4E68484A.4000201@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the "peak_pci" driver for the PCAN PCI/PCIe cards (1, 2, 3
-or 4 channels) from PEAK Systems (http://www.peak-system.com).
+On Wed, Sep 7, 2011 at 9:44 PM, Glauber Costa <glommer@parallels.com> wrote=
+:
 
-Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
----
+Thanks for your ideas and patience.
 
-I have tested this patch on my 2 channel PEAK PCI card. Thomas, or somebody
-else with a PEAK PCAN PCI/PCIe card at hand, it would be nice if you could
-test it on your 4 channel card and add your "Tested-by".
+> Well, it is a way to see this. The other way to see this, is that you're
+> proposing to move to the kernel, something that really belongs in userspa=
+ce.
+> That's because:
+>
+> With the information you provided me, I have no reason to believe that th=
+e
+> kernel has more condition to do this work. Do the kernel have access to a=
+ny
+> information that userspace do not, and can't be exported? If not, userspa=
+ce
+> is traditionally where this sort of stuff has been done.
 
-Thanks,
+I think direct reclaim is a pain if user space is required to participate i=
+n
+memory balancing decisions.  One thing a single memory limit solution has i=
+s the
+ability to reclaim user memory to satisfy growing kernel memory needs (and =
+vise
+versa).  If a container must fit within 100M, then a single limit solution
+would set the limit to 100M and never change it.  In a split limit solution=
+ a
+user daemon (e.g. uswapd) would need to monitor the usage and the amount of
+active memory vs inactive user memory and unreferenced kernel memory to
+determine where to apply pressure.  With some more knobs such a uswapd coul=
+d
+attempt to keep ahead of demand.  But eventually direct reclaim would
+be needed to satisfy rapid growth spikes.  Example: If the 100M container
+starts with limits of 20M kmem and 80M user memory but later its kernel
+memory needs grow to 70M.  With separate user and kernel memory
+limits the kernel memory allocation could fail despite there being
+reclaimable user pages available.  The job should have a way to
+transition to memory limits to 70M+ kernel and 30M- of user.
 
-Wolfgang. 
+I suppose a GFP_WAIT slab kernel page allocation could wakeup user space to
+perform user-assisted direct reclaim.  User space would then lower the user
+limit thereby causing the kernel to direct reclaim user pages, then
+the user daemon would raise the kernel limit allowing the slab allocation t=
+o
+succeed.  My hunch is that this would be prone to deadlocks (what prevents
+uswapd from needing more even more kmem?)  I'll defer to more
+experienced minds to know if user assisted direct memory reclaim has
+other pitfalls.  It scares me.
 
- drivers/net/can/sja1000/Kconfig    |    7 +
- drivers/net/can/sja1000/Makefile   |    1 +
- drivers/net/can/sja1000/peak_pci.c |  293 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 301 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/can/sja1000/peak_pci.c
+Fundamentally I have no problem putting an upper bound on a cgroup's resour=
+ce
+usage.  This serves to contain the damage a job can do to the system and ot=
+her
+jobs.  My concern is about limiting the kernel's ability to trade one type =
+of
+memory for another by using different cgroups for different types of memory=
+.
 
-diff --git a/drivers/net/can/sja1000/Kconfig b/drivers/net/can/sja1000/Kconfig
-index 6fdc031..72b637d 100644
---- a/drivers/net/can/sja1000/Kconfig
-+++ b/drivers/net/can/sja1000/Kconfig
-@@ -37,6 +37,13 @@ config CAN_EMS_PCI
- 	  CPC-PCIe and CPC-104P cards from EMS Dr. Thomas Wuensche
- 	  (http://www.ems-wuensche.de).
- 
-+config CAN_PEAK_PCI
-+	tristate "PEAK PCAN PCI/PCIe Cards"
-+	depends on PCI
-+	---help---
-+	  This driver is for the PCAN PCI/PCIe cards (1, 2, 3 or 4 channels)
-+	  from PEAK Systems (http://www.peak-system.com).
-+
- config CAN_KVASER_PCI
- 	tristate "Kvaser PCIcanx and Kvaser PCIcan PCI Cards"
- 	depends on PCI
-diff --git a/drivers/net/can/sja1000/Makefile b/drivers/net/can/sja1000/Makefile
-index 2c591eb..428f5cf 100644
---- a/drivers/net/can/sja1000/Makefile
-+++ b/drivers/net/can/sja1000/Makefile
-@@ -8,6 +8,7 @@ obj-$(CONFIG_CAN_SJA1000_PLATFORM) += sja1000_platform.o
- obj-$(CONFIG_CAN_SJA1000_OF_PLATFORM) += sja1000_of_platform.o
- obj-$(CONFIG_CAN_EMS_PCI) += ems_pci.o
- obj-$(CONFIG_CAN_KVASER_PCI) += kvaser_pci.o
-+obj-$(CONFIG_CAN_PEAK_PCI) += peak_pci.o
- obj-$(CONFIG_CAN_PLX_PCI) += plx_pci.o
- obj-$(CONFIG_CAN_TSCAN1) += tscan1.o
- 
-diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
-new file mode 100644
-index 0000000..23d865d
---- /dev/null
-+++ b/drivers/net/can/sja1000/peak_pci.c
-@@ -0,0 +1,293 @@
-+/*
-+ * Copyright (C) 2007, 2011 Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-+ *
-+ * Derived from the PCAN project file driver/src/pcan_pci.c:
-+ *
-+ * Copyright (C) 2001-2006  PEAK System-Technik GmbH
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software Foundation,
-+ * Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/version.h>
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
-+#include <linux/netdevice.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+#include <linux/io.h>
-+#include <linux/can.h>
-+#include <linux/can/dev.h>
-+
-+#include "sja1000.h"
-+
-+MODULE_AUTHOR("Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>");
-+MODULE_DESCRIPTION("Socket-CAN driver for PEAK PCAN PCI/PCIe cards");
-+MODULE_SUPPORTED_DEVICE("PEAK PCAN PCI/PCIe CAN card");
-+MODULE_LICENSE("GPL v2");
-+
-+#define DRV_NAME  "peak_pci"
-+
-+struct peak_pci_chan {
-+	void __iomem *cfg_base;	     /* Common for all channels */
-+	struct net_device *next_dev; /* Chain of network devices */
-+	u16 icr_mask;		     /* Interrupt mask for fast ack */
-+};
-+
-+#define PEAK_PCI_CAN_CLOCK	(16000000 / 2)
-+
-+#define PEAK_PCI_CDR		(CDR_CBP | CDR_CLKOUT_MASK)
-+#define PEAK_PCI_OCR		OCR_TX0_PUSHPULL
-+
-+/*
-+ * Important PITA registers
-+ */
-+#define PITA_ICR		0x00	/* Interrupt control register */
-+#define PITA_GPIOICR		0x18	/* GPIO interface control register */
-+#define PITA_MISC		0x1C	/* Miscellaneous register */
-+
-+#define PEAK_PCI_CFG_SIZE	0x1000	/* Size of the config PCI bar */
-+#define PEAK_PCI_CHAN_SIZE	0x0400	/* Size used by the channel */
-+
-+#define PEAK_PCI_VENDOR_ID	0x001C	/* The PCI device and vendor IDs */
-+#define PEAK_PCI_DEVICE_ID	0x0001	/* for PCI / PCIe slot cards */
-+#define PEAK_PCIE_DEVICE_ID	0x0002	/* for PCIExpress cards */
-+
-+static const u16 peak_pci_icr_masks[] = {0x02, 0x01, 0x40, 0x80};
-+
-+static DEFINE_PCI_DEVICE_TABLE(peak_pci_tbl) = {
-+	{PEAK_PCI_VENDOR_ID, PEAK_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-+	{PEAK_PCI_VENDOR_ID, PEAK_PCIE_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
-+	{0,}
-+};
-+
-+MODULE_DEVICE_TABLE(pci, peak_pci_tbl);
-+
-+static u8 peak_pci_read_reg(const struct sja1000_priv *priv, int port)
-+{
-+	return readb(priv->reg_base + (port << 2));
-+}
-+
-+static void peak_pci_write_reg(const struct sja1000_priv *priv,
-+			       int port, u8 val)
-+{
-+	writeb(val, priv->reg_base + (port << 2));
-+}
-+
-+static void peak_pci_post_irq(const struct sja1000_priv *priv)
-+{
-+	struct peak_pci_chan *chan = priv->priv;
-+	u16 icr;
-+
-+	/* Select and clear in PITA stored interrupt */
-+	icr = readw(chan->cfg_base + PITA_ICR);
-+	if (icr & chan->icr_mask)
-+		writew(chan->icr_mask, chan->cfg_base + PITA_ICR);
-+}
-+
-+static int __devinit peak_pci_probe(struct pci_dev *pdev,
-+				    const struct pci_device_id *ent)
-+{
-+	struct sja1000_priv *priv;
-+	struct peak_pci_chan *chan;
-+	struct net_device *dev, *dev0 = NULL;
-+	void __iomem *cfg_base, *reg_base;
-+	u16 sub_sys_id, icr;
-+	int i, err, channels;
-+
-+	err = pci_enable_device(pdev);
-+	if (err)
-+		return err;
-+
-+	err = pci_request_regions(pdev, DRV_NAME);
-+	if (err)
-+		goto failure_disable_pci;
-+
-+	err = pci_read_config_word(pdev, 0x2e, &sub_sys_id);
-+	if (err)
-+		goto failure_release_regions;
-+
-+	dev_dbg(&pdev->dev, "probing device %04x:%04x:%04x\n",
-+		pdev->vendor, pdev->device, sub_sys_id);
-+
-+	err = pci_write_config_word(pdev, 0x44, 0);
-+	if (err)
-+		goto failure_release_regions;
-+
-+	if (sub_sys_id >= 12)
-+		channels = 4;
-+	else if (sub_sys_id >= 10)
-+		channels = 3;
-+	else if (sub_sys_id >= 4)
-+		channels = 2;
-+	else
-+		channels = 1;
-+
-+	cfg_base = pci_iomap(pdev, 0, PEAK_PCI_CFG_SIZE);
-+	if (!cfg_base) {
-+		dev_err(&pdev->dev, "failed to map PCI resource #0\n");
-+		goto failure_release_regions;
-+	}
-+
-+	reg_base = pci_iomap(pdev, 1, PEAK_PCI_CHAN_SIZE * channels);
-+	if (!reg_base) {
-+		dev_err(&pdev->dev, "failed to map PCI resource #1\n");
-+		goto failure_unmap_cfg_base;
-+	}
-+
-+	/* Set GPIO control register */
-+	writew(0x0005, cfg_base + PITA_GPIOICR + 2);
-+	/* Enable all channels of this card */
-+	writeb(0x00, cfg_base + PITA_GPIOICR);
-+	/* Toggle reset */
-+	writeb(0x05, cfg_base + PITA_MISC + 3);
-+	mdelay(5);
-+	/* Leave parport mux mode */
-+	writeb(0x04, cfg_base + PITA_MISC + 3);
-+
-+	icr = readw(cfg_base + PITA_ICR + 2);
-+
-+	for (i = 0; i < channels; i++) {
-+		dev = alloc_sja1000dev(sizeof(struct peak_pci_chan));
-+		if (!dev) {
-+			err = -ENOMEM;
-+			goto failure_remove_channels;
-+		}
-+
-+		priv = netdev_priv(dev);
-+		chan = priv->priv;
-+
-+		chan->cfg_base = cfg_base;
-+		priv->reg_base = reg_base + i * PEAK_PCI_CHAN_SIZE;
-+
-+		priv->read_reg = peak_pci_read_reg;
-+		priv->write_reg = peak_pci_write_reg;
-+		priv->post_irq = peak_pci_post_irq;
-+
-+		priv->can.clock.freq = PEAK_PCI_CAN_CLOCK;
-+		priv->ocr = PEAK_PCI_OCR;
-+		priv->cdr = PEAK_PCI_CDR;
-+		/* Neither a slave nor a single device distributes the clock */
-+		if (channels == 1 || i > 0)
-+			priv->cdr |= CDR_CLK_OFF;
-+
-+		/* Setup interrupt handling */
-+		priv->irq_flags = IRQF_SHARED;
-+		dev->irq = pdev->irq;
-+
-+		chan->icr_mask = peak_pci_icr_masks[i];
-+		icr |= chan->icr_mask;
-+
-+		SET_NETDEV_DEV(dev, &pdev->dev);
-+
-+		err = register_sja1000dev(dev);
-+		if (err) {
-+			dev_err(&pdev->dev, "failed to register device\n");
-+			free_sja1000dev(dev);
-+			goto failure_remove_channels;
-+		}
-+
-+		/* Create chain of SJA1000 devices */
-+		if (i == 0)
-+			dev0 = dev;
-+		else
-+			chan->next_dev = dev;
-+
-+		dev_info(&pdev->dev,
-+			 "%s at reg_base=0x%p cfg_base=0x%p irq=%d\n",
-+			 dev->name, priv->reg_base, chan->cfg_base, dev->irq);
-+	}
-+
-+	pci_set_drvdata(pdev, dev0);
-+
-+	/* Enable interrupts */
-+	writew(icr, cfg_base + PITA_ICR + 2);
-+
-+	return 0;
-+
-+failure_remove_channels:
-+	/* Disable interrupts */
-+	writew(0x0, cfg_base + PITA_ICR + 2);
-+
-+	for (dev = dev0; dev; dev = chan->next_dev) {
-+		unregister_sja1000dev(dev);
-+		free_sja1000dev(dev);
-+		priv = netdev_priv(dev);
-+		chan = priv->priv;
-+		dev = chan->next_dev;
-+	}
-+
-+	pci_iounmap(pdev, reg_base);
-+
-+failure_unmap_cfg_base:
-+	pci_iounmap(pdev, cfg_base);
-+
-+failure_release_regions:
-+	pci_release_regions(pdev);
-+
-+failure_disable_pci:
-+	pci_disable_device(pdev);
-+
-+	return err;
-+}
-+
-+static void __devexit peak_pci_remove(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev); /* First device */
-+	struct sja1000_priv *priv = netdev_priv(dev);
-+	struct peak_pci_chan *chan = priv->priv;
-+	void __iomem *cfg_base = chan->cfg_base;
-+	void __iomem *reg_base = priv->reg_base;
-+
-+	/* Disable interrupts */
-+	writew(0x0, cfg_base + PITA_ICR + 2);
-+
-+	/* Loop over all registered devices */
-+	while (1) {
-+		dev_info(&pdev->dev, "removing device %s\n", dev->name);
-+		unregister_sja1000dev(dev);
-+		free_sja1000dev(dev);
-+		dev = chan->next_dev;
-+		if (!dev)
-+			break;
-+		priv = netdev_priv(dev);
-+		chan = priv->priv;
-+	}
-+
-+	pci_iounmap(pdev, reg_base);
-+	pci_iounmap(pdev, cfg_base);
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
-+
-+	pci_set_drvdata(pdev, NULL);
-+}
-+
-+static struct pci_driver peak_pci_driver = {
-+	.name = DRV_NAME,
-+	.id_table = peak_pci_tbl,
-+	.probe = peak_pci_probe,
-+	.remove = __devexit_p(peak_pci_remove),
-+};
-+
-+static int __init peak_pci_init(void)
-+{
-+	return pci_register_driver(&peak_pci_driver);
-+}
-+module_init(peak_pci_init);
-+
-+static void __exit peak_pci_exit(void)
-+{
-+	pci_unregister_driver(&peak_pci_driver);
-+}
-+module_exit(peak_pci_exit);
--- 
-1.7.4.1
+If kmem expands to include reclaimable kernel memory (e.g. dentry) then I
+presume the kernel would have no way to exchange unused user pages for dent=
+ry
+pages even if the user memory in the container is well below its limit.  Th=
+is is
+motivation for the above user assisted direct reclaim.
+
+Do you feel the need to segregate user and kernel memory into different cgr=
+oups
+with independent limits?  Or is this this just a way to create a new clean
+cgroup with a simple purpose?
+
+In some resource sharing shops customers purchase a certain amount of memor=
+y,
+cpu, network, etc.  Such customers don't define how the memory is used and =
+the
+user/kernel mixture may change over time.  Can a user space reclaim daemon =
+stay
+ahead of the workloads needs?
+
+> Using userspace CPU is no different from using kernel cpu in this particu=
+lar
+> case. It is all overhead, regardless where it comes from. Moreover, you e=
+nd
+> up setting up a policy, instead of a mechanism. What should be this
+> proportion? =A0Do we reclaim everything with the same frequency? Should w=
+e be
+> more tolerant with a specific container?
+
+I assume that this implies that a generic kmem cgroup usage is inferior to
+separate limits for each kernel memory type to allow user space the flexibi=
+lity
+to choose between kernel types (udp vs tcp vs ext4 vs page_tables vs ...)? =
+ Do
+you foresee a way to provide a limit on the total amount of kmem usage by a=
+ll
+such types?  If a container wants to dedicate 4M for all network protocol
+buffers (tcp, udp, etc.) would that require a user space daemon to balance
+memory limits b/w the protocols?
+
+> Also, If you want to allow any flexibility in this scheme, like: "Should
+> this network container be able to stress the network more, pinning more
+> memory, but not other subsystems?", you end up having to touch all
+> individual files anyway - probably with a userspace daemon.
+>
+> Also, as you noticed yourself, kernel memory is fundamentally different f=
+rom
+> userspace memory. You can't just set reclaim limits, since you have no
+> guarantees it will work. User memory is not a scarce resource.
+> Kernel memory is.
+
+I agree that kernel memory is somewhat different.  In some (I argue most)
+situations containers want the ability to exchange job kmem and job umem.
+Either split or combined accounting protects the system and isolates other
+containers from kmem allocations of a bad job.  To me it seems natural to
+indicate that job X gets Y MB of memory.  I have more trouble dividing the
+Y MB of memory into dedicated slices for different types of memory.
+
+>> While there are people (like me) who want a combined memory usage
+>> limit there are also people (like you) who want separate user and
+>> kernel limiting.
+>
+> Combined excludes separate. Separate does not exclude combined.
+
+I agree.  I have no problem with separate accounting and separate
+user-accessible pressure knobs to allow for complex policies.  My concern i=
+s
+about limiting the kernel's ability to reclaim one type of memory to
+fulfill the needs of another memory type (e.g. I think reclaiming clean fil=
+e
+pages should be possible to make room for user slab needs).  I think
+memcg aware slab accounting does a good job of limiting a job's
+memory allocations.
+Would such slab accounting meet your needs?
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
