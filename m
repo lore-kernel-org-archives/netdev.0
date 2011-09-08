@@ -1,93 +1,94 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH v2 9/9] Add documentation about kmem_cgroup
-Date: Thu, 08 Sep 2011 10:46:24 -0700
-Message-ID: <4E68FF70.1010709@xenotime.net>
-References: <1315369399-3073-1-git-send-email-glommer@parallels.com> <1315369399-3073-10-git-send-email-glommer@parallels.com>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH v3] net/smsc911x: add device tree probe support
+Date: Thu, 8 Sep 2011 11:29:20 -0700
+Message-ID: <20110908182920.GL2967@ponder.secretlab.ca>
+References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
+	<1312050360-15767-1-git-send-email-shawn.guo@linaro.org>
+	<20110908145946.GE2070@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
- containers@lists.osdl.org, netdev@vger.kernel.org, xemul@parallels.com,
- "David S. Miller" <davem@davemloft.net>,
- Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
- "Eric W. Biederman" <ebiederm@xmission.com>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1315369399-3073-10-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Dave Martin <dave.martin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110908145946.GE2070-5wv7dgnIgG8@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09/06/11 21:23, Glauber Costa wrote:
-> Signed-off-by: Glauber Costa <glommer@parallels.com>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
-> CC: Eric W. Biederman <ebiederm@xmission.com>
-> CC: Randy Dunlap <rdunlap@xenotime.net>
-> ---
->  Documentation/cgroups/kmem_cgroups.txt |   27 +++++++++++++++++++++++++++
->  1 files changed, 27 insertions(+), 0 deletions(-)
->  create mode 100644 Documentation/cgroups/kmem_cgroups.txt
+On Thu, Sep 08, 2011 at 03:59:46PM +0100, Dave Martin wrote:
+> Hi Shawn,
 > 
-> diff --git a/Documentation/cgroups/kmem_cgroups.txt b/Documentation/cgroups/kmem_cgroups.txt
-> new file mode 100644
-> index 0000000..930e069
-> --- /dev/null
-> +++ b/Documentation/cgroups/kmem_cgroups.txt
-> @@ -0,0 +1,27 @@
-> +Kernel Memory Cgroup
-> +====================
-> +
-> +This document briefly describes the kernel memory cgroup, or "kmem cgroup".
-> +Unlike user memory, kernel memory cannot be swapped. This effectively means
-> +that rogue processes can start operations that pin kernel objects permanently
-> +into memory, exhausting resources of all other processes in the system.
-> +
-> +kmem_cgroup main goal is to control the amount of memory a group of processes
+> On Sun, Jul 31, 2011 at 02:26:00AM +0800, Shawn Guo wrote:
+> > It adds device tree probe support for smsc911x driver.
+> > 
+> > Signed-off-by: Shawn Guo <shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> > Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+> > Cc: Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
+> > Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> > Reviewed-by: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+> > ---
+> > Changes since v2:
+> >  * Fix a typo in smsc911x.txt
+> > 
+> > Changes since v1:
+> >  * Instead of getting irq line from gpio number, it use irq domain
+> >    to keep platform_get_resource(IORESOURCE_IRQ) works for dt too.
+> >  * Use 'lan9115' the first model that smsc911x supports in the match
+> >    table
+> >  * Use reg-shift and reg-io-width which already used in of_serial for
+> >    shift and access size binding
+> 
+> When using this patch with vexpress, I found that 16-bit register access
+> mode doesn't seem to be getting set correctly.
+> 
+> Can you take a look at this additional patch and let me know if it looks
+> correct?
+> 
+> Cheers
+> ---Dave
+> 
+> From: Dave Martin <dave.martin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Date: Wed, 7 Sep 2011 17:26:31 +0100
+> Subject: [PATCH] net/smsc911x: Correctly configure 16-bit register access from DT
+> 
+> The SMSC911X_USE_16BIT needs to be set when using 16-bit register
+> access.  However, currently no flag is set if the DT doesn't specify
+> 32-bit access.
+> 
+> This patch should set the SMSC911X_USE_16BIT flag in a manner consistent
+> with the documented DT bindings.
+> 
+> Signed-off-by: Dave Martin <dave.martin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> ---
+>  drivers/net/smsc911x.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+> index 75c08a5..1a35c25 100644
+> --- a/drivers/net/smsc911x.c
+> +++ b/drivers/net/smsc911x.c
+> @@ -2121,6 +2121,8 @@ static int __devinit smsc911x_probe_config_dt(
+>  	of_property_read_u32(np, "reg-io-width", &width);
+>  	if (width == 4)
+>  		config->flags |= SMSC911X_USE_32BIT;
+> +	else
+> +		config->flags |= SMSC911X_USE_16BIT;
 
-   kmem_cgroup's main goal
+Would it be better to do "else if (width == 2)"?  (completely
+uninformed comment.  I've not looked at what the non-DT probe path
+does on this driver.)
 
-> +can pin at any given point in time. Other uses of this infrastructure are
-> +expected to come up with time. Right now, the only resource effectively limited
-
-                                                      resources
-
-> +are tcp send and receive buffers.
-
-or:
-                                             the only resource effectively limited
-  is TCP network buffers.
-
-> +
-> +TCP network buffers
-> +===================
-> +
-> +TCP network buffers, both on the send and receive sides, can be controlled
-> +by the kmem cgroup. Once a socket is created, it is attached to the cgroup of
-> +the controller process, where it stays until the end of its lifetime.
-> +
-> +Files
-> +=====
-> +	kmem.tcp_maxmem: control the maximum amount in bytes that can be used by
-
-	                 controls the maximum amount of memory in bytes ...
-
-
-> +	tcp sockets inside the cgroup. 
-> +
-> +	kmem.tcp_current_memory: current amount in bytes used by all sockets in
-
-	                         current amount of memory in bytes ...
-
-> +	this cgroup
-
-
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+g.
