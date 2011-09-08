@@ -1,110 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC PATCH 12/11] netlink: improve flow control and speed up dumps
- with memory mapped I/O
-Date: Thu, 08 Sep 2011 18:36:41 +0200
-Message-ID: <4E68EF19.8070305@trash.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: phy: Add config option to specify external switch port to be used if switch is used as PHY
+Date: Thu, 8 Sep 2011 23:24:30 +0200
+Message-ID: <20110908212430.GA27980@electric-eye.fr.zoreil.com>
+References: <4E68668F.9060008@televic.com> <20110908101315.GA27909@electric-eye.fr.zoreil.com> <4E68AE26.5020707@televic.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080602030607010109080807"
-Cc: NetDev <netdev@vger.kernel.org>
-To: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-embedded@vger.kernel.org" <linux-embedded@vger.kernel.org>
+To: Lambrecht =?utf-8?Q?J=C3=BCrgen?= <J.Lambrecht@TELEVIC.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36365 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752355Ab1IHXRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 19:17:31 -0400
+Content-Disposition: inline
+In-Reply-To: <4E68AE26.5020707@televic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080602030607010109080807
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Lambrecht J=C3=BCrgen <J.Lambrecht@TELEVIC.com> :
+> On 09/08/2011 12:13 PM, Francois Romieu wrote:
+[...]
+> > Which driver(s) do you use that you can not set phy_mask directly ?
+> >
+> The HW driver is 'FEC' for iMX Ethernet. For the PHY, just MII and PH=
+YLIB.
+> I am rather new to linux, didn't knew phy_mask. Checked it now, and i=
+s=20
+> not set in fec.c.
+> You mean then to patch drivers/net/fec.c in the same way (as my curre=
+nt=20
+> patch) to set the phy_mask instead (via menuconfig, or in the platfor=
+m=20
+> init)?
 
-This patch on top of the memory mapped netlink I/O series is
-meant to speed up dumps by dumping messages more aggressively.
+It is not my area but I would have drivers/net/fec.c::fec_devtype.drive=
+r_data
+point to a real struct where the relevant phy_mask and the current quir=
+ks
+are stored, then add a new entry in fec_devtype and a reference to it
+(Kconfig + platform init) somewhere below arch/arm/plat-mxc.
 
-Messages are dumped until half the ring is used, this is similar
-to flow-control used with regular I/O with the difference that
-all messages are constructed during a single poll call instead
-of multiple recvmsg() calls.
+=46reescale's application note suggests that the MX25 fec allows some f=
+reedom
+for the implementation of the media interface. So it may not be overkil=
+l.
 
-The result is not as good as I expected, dumping 196611
-routes using rtnl-route-dump from libmnl show the following
-results (averaged over 10 runs):
-
-user-time: -7.9%
-system-time: -10.4%
-real-time: +0.09%
-CPU: -7.45%
-
-Strangely the real time stays almost the same and CPU usage
-decreases by a few percent - I would have expected a reduction
-of real-time with identical CPU usage (99%). Not sure what
-the reason is, will try to investigate further.
-
-
---------------080602030607010109080807
-Content-Type: text/plain;
- name="nldump.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="nldump.diff"
-
-commit 1eadec60573240c2b6ee3ce942471b3e0656e4dc
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Sep 8 16:26:27 2011 +0200
-
-    netlink: improve flow control and speed up dumps with memory mapped I/O
-    
-    Improve dump flow control with memory mapped I/O: dumps are only continued
-    if at least half the ring is free, similar to regular I/O. This minimizes
-    the risk of receiving socket errors when the socket is also used for receiving
-    regular unicast messages.
-    
-    Additionally speed up dumps by dumping multiple messages at once until
-    the dump is either complete or less than half the ring is free.
-    
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 2f4745d..fadf216 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -530,6 +530,24 @@ static void netlink_forward_ring(struct netlink_ring *ring)
- 	} while (ring->head != head);
- }
- 
-+static bool netlink_dump_space(struct netlink_sock *nlk)
-+{
-+	struct netlink_ring *ring = &nlk->rx_ring;
-+	struct nl_mmap_hdr *hdr;
-+	unsigned int n;
-+
-+	hdr = netlink_current_frame(ring, NL_MMAP_STATUS_UNUSED);
-+	if (hdr == NULL)
-+		return false;
-+
-+	n = ring->head + ring->frame_max / 2;
-+	if (n > ring->frame_max)
-+		n -= ring->frame_max;
-+	hdr = __netlink_lookup_frame(ring, n);
-+
-+	return hdr->nm_status == NL_MMAP_STATUS_UNUSED;
-+}
-+
- static unsigned int netlink_poll(struct file *file, struct socket *sock,
- 				 poll_table *wait)
- {
-@@ -543,11 +561,12 @@ static unsigned int netlink_poll(struct file *file, struct socket *sock,
- 		 * is performed here under the assumption that the entire ring
- 		 * has been processed before invoking poll().
- 		 */
--		if (nlk->cb != NULL) {
-+		while (nlk->cb != NULL && netlink_dump_space(nlk)) {
- 			err = netlink_dump(sk);
- 			if (err < 0) {
- 				sk->sk_err = err;
- 				sk->sk_error_report(sk);
-+				break;
- 			}
- 		}
- 		netlink_rcv_wake(sk);
-
---------------080602030607010109080807--
+--=20
+Ueimor
