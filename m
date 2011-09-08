@@ -1,94 +1,52 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq@rere.qmqm.pl>
-Subject: Re: [PATCH 08/11] netlink: implement memory mapped sendmsg()
-Date: Thu, 8 Sep 2011 20:08:23 +0200
-Message-ID: <20110908180823.GA12536@rere.qmqm.pl>
-References: <1315070771-18576-1-git-send-email-kaber@trash.net>
- <1315070771-18576-9-git-send-email-kaber@trash.net>
- <20110904161822.GA8176@rere.qmqm.pl>
- <4E678C18.1010306@trash.net>
- <20110907200319.GA29545@rere.qmqm.pl>
- <4E688BD5.5030909@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4E688BD5.5030909@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Hellstrom <daniel@gaisler.com>
+Subject: [PATCH 2/2] GRETH: avoid overwrite IP-stack's IP-frags checksum
+Date: Thu,  8 Sep 2011 15:14:36 +0200
+Message-ID: <1315487676-16733-2-git-send-email-daniel@gaisler.com>
+References: <1315487676-16733-1-git-send-email-daniel@gaisler.com>
+Cc: netdev@vger.kernel.org, kristoffer@gaisler.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail201c2.megamailservers.com ([69.49.111.102]:48623 "EHLO
+	mail201c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754285Ab1IHXCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 19:02:33 -0400
+In-Reply-To: <1315487676-16733-1-git-send-email-daniel@gaisler.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 08, 2011 at 11:33:09AM +0200, Patrick McHardy wrote:
-> Am 07.09.2011 22:03, schrieb Micha=B3 Miros=B3aw:
-> > On Wed, Sep 07, 2011 at 05:22:00PM +0200, Patrick McHardy wrote:
-> >> On 04.09.2011 18:18, Micha=B3 Miros=B3aw wrote:
-> >>> On Sat, Sep 03, 2011 at 07:26:08PM +0200, kaber@trash.net wrote:
-> >>>> From: Patrick McHardy <kaber@trash.net>
-> >>>>
-> >>>> Add support for memory mapped sendmsg() to netlink. Userspace qu=
-eued to
-> >>>> be processed frames into the TX ring and invokes sendmsg with
-> >>>> msg.iov.iov_base =3D NULL to trigger processing of all pending m=
-essages.
-> >>>>
-> >>>> Since the kernel usually performs full message validation before=
- beginning
-> >>>> processing, userspace must be prevented from modifying the messa=
-ge
-> >>>> contents while the kernel is processing them. In order to do so,=
- the
-> >>>> frames contents are copied to an allocated skb in case the the r=
-ing is
-> >>>> mapped more than once or the file descriptor is shared (f.i. thr=
-ough
-> >>>> AF_UNIX file descriptor passing).
-> >>>>
-> >>>> Otherwise an skb without a data area is allocated, the data poin=
-ter set
-> >>>> to point to the data area of the ring frame and the skb is proce=
-ssed.
-> >>>> Once the skb is freed, the destructor releases the frame back to=
- userspace
-> >>>> by setting the status to NL_MMAP_STATUS_UNUSED.
-> >>>
-> >>> Is this protected from threads? Like: one thread waits on sendmsg=
-() and
-> >>> another (same process) changes the buffer.
-> >> Yes, if the ring is mapped multiple times (or the file descriptor
-> >> is changed), the contents are copied to an allocated skb.
-> >=20
-> > I mean:
-> >=20
-> > [1] mmap()
-> > [1] fill buffers
-> > [1] pthread_create() [creates: 2]
-> > [1] sendmsg() starts
-> > [2] modify buffers
-> > [1] sendmsg() returns
-> >=20
-> > So: no multiple mmaps, and no touching of the fd. I haven't dug int=
-o
-> > filesystem layer to see if threads affect file->f_count, but there
-> > sure are no multiple mappings here.
-> If CLONE_VM is given to clone(), the mapping is visible in both
-> threads and thus we have multiple mappings (vma_ops->open() is
-> invoked through clone()). Without CLONE_VM, the second thread
-> can't access the ring unless it mmap()s it itself, in case we'd
-> also have multiple mappings.
+The GRETH GBIT core does not do checksum offloading for IP
+segmentation. This patch adds a check in the xmit function to
+determine if the stack has calculated the checksum for us.
 
-I made a quick look into kernel/fork.c, and it looks to me that if CLON=
-E_VM
-is set, then vma->open() is actually avoided --- it's called via dup_mm=
-()
-and dup_mmap() only if CLONE_VM is not there and the VMA needs to be co=
-pied.
+Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
+---
+ drivers/net/greth.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-Best Regards,
-Micha=B3 Miros=B3aw
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+index 9d39fb9..27ba855 100644
+--- a/drivers/net/greth.c
++++ b/drivers/net/greth.c
+@@ -489,7 +489,8 @@ greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
+ 	if (nr_frags != 0)
+ 		status = GRETH_TXBD_MORE;
+ 
+-	status |= GRETH_TXBD_CSALL;
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		status |= GRETH_TXBD_CSALL;
+ 	status |= skb_headlen(skb) & GRETH_BD_LEN;
+ 	if (greth->tx_next == GRETH_TXBD_NUM_MASK)
+ 		status |= GRETH_BD_WR;
+@@ -512,7 +513,9 @@ greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
+ 		greth->tx_skbuff[curr_tx] = NULL;
+ 		bdp = greth->tx_bd_base + curr_tx;
+ 
+-		status = GRETH_TXBD_CSALL | GRETH_BD_EN;
++		status = GRETH_BD_EN;
++		if (skb->ip_summed == CHECKSUM_PARTIAL)
++			status | GRETH_TXBD_CSALL;
+ 		status |= frag->size & GRETH_BD_LEN;
+ 
+ 		/* Wrap around descriptor ring */
+-- 
+1.5.4
