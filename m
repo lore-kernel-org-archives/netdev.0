@@ -1,48 +1,66 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH v2 3/5] SUNRPC: make RPC service dependable on rpcbind
- clients creation
-Date: Sat, 10 Sep 2011 00:58:10 +0400
-Message-ID: <4E6A7DE2.7000808@parallels.com>
-References: <20110909115146.13697.71682.stgit@localhost6.localdomain6>	 <20110909120844.13697.48102.stgit@localhost6.localdomain6>	 <20110909100745.7e2e8bf9@corrin.poochiereds.net>	 <4E6A41D4.6090001@parallels.com>	 <1315593874.17611.19.camel@lade.trondhjem.org>	 <20110909150104.5a83c60d@tlielax.poochiereds.net> <1315596308.17611.46.camel@lade.trondhjem.org>
+From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Backporting the Linux kernel, for good - was: Re: semantic patch inference
+Date: Fri, 9 Sep 2011 14:13:59 -0700
+Message-ID: <CAB=NE6VVaAgyaEX0iTuuj=r1-Vsi5TgAyCj4+3J=QerrJTWs_Q@mail.gmail.com>
+References: <CAB=NE6U0ks9CobukO04=bZpnkm3Yw+Pf7keVPsP-hv1NyJZ_Xw@mail.gmail.com>
+ <Pine.LNX.4.64.1109092245170.9242@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Layton <jlayton@redhat.com>,
-	Stanislav Kinsbursky <skinsbursky@parallels.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1315596308.17611.46.camel@lade.trondhjem.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesper Andersen <jespera-dAYI7NvHqcQ@public.gmane.org>,
+	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.64.1109092245170.9242-QfmoRoYWmW9knbxzx/v8hQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Isn't the problem that Stanislav is trying to solve that we need to be
-> able to register and unregister RPC services to the correct rpcbind
-> server, depending on which net namespace we are in?
-> 
-> My understanding is that the current code will register everything to
-> whatever rpcbind server is running in the init net namespace because
-> that's what rpcb_create_local() uses.
-> 
-> My suggestion is to use a struct pernet_operations to detect when a net
-> namespace is being created or destroyed, so that the rpcbind client code
-> knows when to create or destroy a connection to the server that is
-> running in that namespace.
+On Fri, Sep 9, 2011 at 1:48 PM, Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org> wrote:
+> Thanks for your email. =C2=A0It made me realize that there was one th=
+ing that I
+> didn't understand at all.  If the patches are only intended to apply =
+to
+> linux-next, that makes the problem quite a bit simpler.
 
-The problem is that the client has a reference on transport, the transport gets
-a socket and the socket holds the net namesace and thus we will not receive the
-net->exit event with this approach.
+Awesome, and yes the patches/ are only targeted at applying onto
+linux-next.git. When Linus decides to merge and out 3.x-rc1 I simply
+then set $GIT_TREE to $HOME/linux-2.6-allstable/ and run the script to
+suck code from there and apply patches from there.Turns out that
+because the effort was done on linux-next and because linux-next will
+look very much like what Linus ends up merging the patches/ will still
+apply. So what I do then is simply create a branch for that target
+stable kernel and keep refreshing the patches for that stable kernel
+on that branch -- while the master branch keeps chugging along with
+linux-next.
 
-Another option is to break the client's socket reference and kill the rpcb client
-on netns stop (i.e. as you propose), but in that case we have another problem - 
-how to destroy _other_ clients (not rpc bind ones) when the net namespace stops.
+> I guess that the patch that spdiff will receive will already contain =
+the
+> appropriate #ifs, so we don't have to be concerned about them.
 
-If you prefer either way just let us know, we'll fix the patches.
+That is correct.
 
-> Cheers
->   Trond
+>=C2=A0We just add them in as is.
+
+I do not follow, add what?
+
+> There was also the question about one or multiple types of changes. =C2=
+=A0I
+> think this is not a problem, but Jesper should confirm. =C2=A0If a pa=
+tch contains
+> two changes and one can be generalized and the other one cannot for s=
+ome
+> reason, does spdiff give up on the whole thing, or does it do what it=
+ can?
+>
+> Overall, the whole thing seems to be doable :)
+
+Wow. I'm thrilled, so say the least.
+
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
