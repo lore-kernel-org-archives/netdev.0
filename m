@@ -1,79 +1,61 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH v3] libertas: prioritize usb8388_olpc.bin firmware on
- OLPC machines
-Date: Thu, 08 Sep 2011 20:00:15 -0500
-Message-ID: <1315530016.2327.1.camel@dcbw.foobar.com>
-References: <20110908173517.5b8c90be@queued.net>
+From: "Jun.Kondo" <jun.kondo@ctc-g.co.jp>
+Subject: Re: [omega-g1:11110] Re: [PATCH] net: configurable sysctl parameter
+ "net.core.tcp_lowat" for sk_stream_min_wspace()
+Date: Fri, 09 Sep 2011 10:33:58 +0900
+Message-ID: <4E696D06.3000003@ctc-g.co.jp>
+References: <4E51A3F0.5010500@ctc-g.co.jp>
+ <20110822.113544.28950168095176936.davem@davemloft.net>
+ <4E55D3C2.40308@ctc-g.co.jp>
+ <20110824.220016.781758659534965980.davem@davemloft.net>
+Reply-To: jun.kondo@ctc-g.co.jp
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, libertas-dev@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dsd@laptop.org, cjb@laptop.org
-To: Andres Salomon <dilinger@queued.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110908173517.5b8c90be@queued.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, omega-g1@ctc-g.co.jp,
+	notsuki@redhat.com, motokazu.kozaki@hp.com, htaira@redhat.com,
+	netdev@vger.kernel.org, tomohiko.takahashi@ctc-g.co.jp,
+	kotaro.sakai@ctc-g.co.jp, ken.sugawara@ctc-g.co.jp
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx01.ctc-g.co.jp ([131.248.58.1]:63632 "EHLO mx.ctc.ctc-g.co.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757637Ab1IIBeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Sep 2011 21:34:13 -0400
+In-reply-to: <20110824.220016.781758659534965980.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-09-08 at 17:35 -0700, Andres Salomon wrote:
-> Normally, the v9 firmware will be loaded if it's available.  However, on
-> OLPC XO-1 machines, the olpc-specific firmware supports extra functionality.
-> This makes the libertas driver attempt to load the custom firmware first
-> if the machine is an OLPC machine; if that fails (or it's not an OLPC
-> machine), fall back to attempting to load the other firmwares.
-> 
-> usb8388_olpc.bin is currently found in the linux-firmware repository.
-> 
-> Signed-off-by: Andres Salomon <dilinger@queued.net>
+The client of this system is cellular phone, and the
+status of the communication line with a client varies
+widely according to its place or congestion situation.
 
-Acked-by: Dan Williams <dcbw@redhat.com>
+In terms of the line speed, it can be around 9Mbps
+when it is fast, but 8kbps when it is slow.
 
-> ---
-> v3: changed firmware path to include libertas/ subdirectory.
-> 
-> Since the last submission (v2), usb8388_olpc.bin has found its way into
-> wireless-firmware.  It'd be nice to get this into the next merge window.
-> 
->  drivers/net/wireless/libertas/if_usb.c |   21 +++++++++++++++++++++
->  1 files changed, 21 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
-> index b5acc39..94f8f3e 100644
-> --- a/drivers/net/wireless/libertas/if_usb.c
-> +++ b/drivers/net/wireless/libertas/if_usb.c
-> @@ -973,6 +973,23 @@ static const struct {
->  	{ MODEL_8682, "libertas/usb8682.bin" }
->  };
->  
-> +#ifdef CONFIG_OLPC
-> +
-> +static int try_olpc_fw(struct if_usb_card *cardp)
-> +{
-> +	int retval = -ENOENT;
-> +
-> +	/* try the OLPC firmware first; fall back to fw_table list */
-> +	if (machine_is_olpc() && cardp->model == MODEL_8388)
-> +		retval = request_firmware(&cardp->fw,
-> +				"libertas/usb8388_olpc.bin", &cardp->udev->dev);
-> +	return retval;
-> +}
-> +
-> +#else
-> +static int try_olpc_fw(struct if_usb_card *cardp) { return -ENOENT; }
-> +#endif /* !CONFIG_OLPC */
-> +
->  static int get_fw(struct if_usb_card *cardp, const char *fwname)
->  {
->  	int i;
-> @@ -981,6 +998,10 @@ static int get_fw(struct if_usb_card *cardp, const char *fwname)
->  	if (fwname)
->  		return request_firmware(&cardp->fw, fwname, &cardp->udev->dev);
->  
-> +	/* Handle OLPC firmware */
-> +	if (try_olpc_fw(cardp) == 0)
-> +		return 0;
-> +
->  	/* Otherwise search for firmware to use */
->  	for (i = 0; i < ARRAY_SIZE(fw_table); i++) {
->  		if (fw_table[i].model != cardp->model)
+Requirement from customer is to provide stable service
+in both situation.
+
+- In normal situation, acquire large default transmission
+   buffer value, and ensure high throughput from the
+   beginning of tcp connection
+
+- On the other hand, even when the connection has low
+   throughput, such as low rate streaming, transmit data
+   without timeout
+
+However, when the throughput is low, it takes much time
+for the transmission buffer to be freed, and timeout
+will occur during that period.
+
+Of course, the connection will not be disconnected when
+the timeout of application is extended, but end user
+would not wait patiently as long as 1 minute.
+Therefore, we do not want to extend the timeout value.
+
+By making the threshold, which makes write possible after
+the buffer is blocked once, configurable, and set it to a
+small value, it will be possible to return data to client
+without making timeout occur.
+
+So, we think the issue can be solved with this
+modification.
