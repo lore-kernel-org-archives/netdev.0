@@ -1,77 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] af_unix: use fragments in unix_dgram_sendmsg()
-Date: Fri, 09 Sep 2011 16:38:29 +0200
-Message-ID: <1315579109.2294.43.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Daniel Hellstrom <daniel@gaisler.com>
+Subject: Re: [PATCH 2/2] GRETH: avoid overwrite IP-stack's IP-frags checksum
+Date: Fri, 09 Sep 2011 16:41:05 +0200
+Message-ID: <4E6A2581.9000709@gaisler.com>
+References: <1315487676-16733-1-git-send-email-daniel@gaisler.com>	 <1315487676-16733-2-git-send-email-daniel@gaisler.com> <1315574967.2294.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Andi Kleen <ak@linux.intel.com>,
-	Tim Chen <tim.c.chen@linux.intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kristoffer@gaisler.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:65152 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758950Ab1IIOiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 10:38:24 -0400
-Received: by wyh22 with SMTP id 22so1630670wyh.19
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2011 07:38:23 -0700 (PDT)
+Received: from mail202c2.megamailservers.com ([69.49.111.103]:39152 "EHLO
+	mail202c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758408Ab1IIOkV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 10:40:21 -0400
+In-Reply-To: <1315574967.2294.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-unix_dgram_sendmsg() currently builds basic skbs, with a possible huge
-head.
+On 09/09/2011 03:29 PM, Eric Dumazet wrote:
+> Le jeudi 08 septembre 2011 =C3=A0 15:14 +0200, Daniel Hellstrom a =C3=
+=A9crit :
+>> The GRETH GBIT core does not do checksum offloading for IP
+>> segmentation. This patch adds a check in the xmit function to
+>> determine if the stack has calculated the checksum for us.
+>>
+>> Signed-off-by: Daniel Hellstrom<daniel@gaisler.com>
+>> ---
+>>   drivers/net/greth.c |    7 +++++--
+>>   1 files changed, 5 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+>> index 9d39fb9..27ba855 100644
+>> --- a/drivers/net/greth.c
+>> +++ b/drivers/net/greth.c
+>> @@ -489,7 +489,8 @@ greth_start_xmit_gbit(struct sk_buff *skb, struc=
+t net_device *dev)
+>>   	if (nr_frags !=3D 0)
+>>   		status =3D GRETH_TXBD_MORE;
+>>
+>> -	status |=3D GRETH_TXBD_CSALL;
+>> +	if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL)
+>> +		status |=3D GRETH_TXBD_CSALL;
+>>   	status |=3D skb_headlen(skb)&  GRETH_BD_LEN;
+>>   	if (greth->tx_next =3D=3D GRETH_TXBD_NUM_MASK)
+>>   		status |=3D GRETH_BD_WR;
+>> @@ -512,7 +513,9 @@ greth_start_xmit_gbit(struct sk_buff *skb, struc=
+t net_device *dev)
+>>   		greth->tx_skbuff[curr_tx] =3D NULL;
+>>   		bdp =3D greth->tx_bd_base + curr_tx;
+>>
+>> -		status =3D GRETH_TXBD_CSALL | GRETH_BD_EN;
+>> +		status =3D GRETH_BD_EN;
+>> +		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL)
+>> +			status | GRETH_TXBD_CSALL;
+> 		typo here ?
+Hi,
 
-This patch uses up to MAX_SKB_FRAGS fragments to reduce the head size.
+You're right, I had a missed space there so the code-style check failed=
+ at that line, then I fixed that by adding a space... but must have scr=
+ewed it up. Will repost patch.
 
-This lowers memory pressure on high order LOWMEM pages
-(frags pages can be allocated from HIGHMEM).
+Thanks,
+Daniel
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/unix/af_unix.c |   17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 1bd4ecf..58570f5 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1420,6 +1420,7 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	long timeo;
- 	struct scm_cookie tmp_scm;
- 	int max_level;
-+	int fragslen = 0;
- 
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
-@@ -1453,18 +1454,28 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (len > sk->sk_sndbuf - 32)
- 		goto out;
- 
--	skb = sock_alloc_send_skb(sk, len, msg->msg_flags&MSG_DONTWAIT, &err);
-+	/* try to use fragments to get order-0 header allocation */
-+	if (len > SKB_MAX_ORDER(0, 0))
-+		fragslen = min_t(size_t,
-+				 len - SKB_MAX_ORDER(0, 0),
-+				 MAX_SKB_FRAGS * PAGE_SIZE);
-+
-+	skb = sock_alloc_send_pskb(sk, len - fragslen, fragslen,
-+				   msg->msg_flags & MSG_DONTWAIT, &err);
- 	if (skb == NULL)
- 		goto out;
- 
-+	skb_put(skb, len - fragslen);
-+	skb->data_len = fragslen;
-+	skb->len = len;
-+
- 	err = unix_scm_to_skb(siocb->scm, skb, true, true);
- 	if (err < 0)
- 		goto out_free;
- 	max_level = err + 1;
- 	unix_get_secdata(siocb->scm, skb);
- 
--	skb_reset_transport_header(skb);
--	err = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
-+	err = skb_copy_datagram_from_iovec(skb, 0, msg->msg_iov, 0, len);
- 	if (err)
- 		goto out_free;
- 
+
+>
+>>   		status |=3D frag->size&  GRETH_BD_LEN;
+>>
+>>   		/* Wrap around descriptor ring */
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
