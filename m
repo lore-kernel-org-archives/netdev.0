@@ -1,58 +1,51 @@
-From: "Serge E. Hallyn" <serge@hallyn.com>
-Subject: Re: [PATCH 02/15] user ns: setns: move capable checks into per-ns
- attach helper
-Date: Fri, 9 Sep 2011 14:56:36 +0000
-Message-ID: <20110909145636.GA24954@hallyn.com>
-References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
- <1314993400-6910-5-git-send-email-serge@hallyn.com>
- <20110904015140.GB32295@count0.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, segooon@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	dhowells@redhat.com, ebiederm@xmission.com, rdunlap@xenotime.net
-To: Matt Helsley <matthltc@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110904015140.GB32295@count0.beaverton.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Hellstrom <daniel@gaisler.com>
+Subject: [PATCH 2/2 v2] GRETH: avoid overwrite IP-stack's IP-frags checksum
+Date: Fri,  9 Sep 2011 17:17:54 +0200
+Message-ID: <1315581474-4430-1-git-send-email-daniel@gaisler.com>
+Cc: netdev@vger.kernel.org, kristoffer@gaisler.com,
+	eric.dumazet@gmail.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail176c2.megamailservers.com ([69.49.111.76]:45809 "EHLO
+	mail176c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750958Ab1IIPSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 11:18:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Matt Helsley (matthltc@us.ibm.com):
-> On Fri, Sep 02, 2011 at 07:56:27PM +0000, Serge Hallyn wrote:
-> > From: "Serge E. Hallyn" <serge@hallyn.com>
-> 
-> I was confused about this patch until I realized that you're not
-> simply "moving" the capability checks but "distributing" them. Then
-> you're showing that you'll soon change some to nsown_capable() or
-> ns_capable() using the strange cpp pattern in the snippet below.
-> 
-> At least I think that's what you intended. A commit message would
-> help :).
+The GRETH GBIT core does not do checksum offloading for IP
+segmentation. This patch adds a check in the xmit function to
+determine if the stack has calculated the checksum for us.
 
-Yes, sorry - Eric convinced me several times to be more conservative in
-the patch, and I failed to fix the commit msg when squashing the
-resulting patches.  How about the following:
+Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
+---
+ drivers/net/greth.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-======
-
-user ns: update capable calls when cloning and attaching namespaces
-
-Distribute the capable() checks at ns attach into the namespace-specific
-attach handler.
-
-Note the fact that the capable() checks will be changed to targeted
-checks at both namespace clone and attach methods, but don't actually
-make that change yet.  Until that trigger is pulled, you must have
-the capabilities targeted toward the initial user namespace in order to
-do any of these actions, meaning that a task in a child user namespace
-cannot do them.  Once we pull the trigger, a task in a child user
-namespace will be able to clone new namespaces if it is privileged in
-its own user namespace, and attach to existing namespaces to which it
-has privilege.
-
-======
-
-Thanks for taking a look, Matt!
-
--serge
+diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+index 22e24a3..6775c24 100644
+--- a/drivers/net/greth.c
++++ b/drivers/net/greth.c
+@@ -489,7 +489,8 @@ greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
+ 	if (nr_frags != 0)
+ 		status = GRETH_TXBD_MORE;
+ 
+-	status |= GRETH_TXBD_CSALL;
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		status |= GRETH_TXBD_CSALL;
+ 	status |= skb_headlen(skb) & GRETH_BD_LEN;
+ 	if (greth->tx_next == GRETH_TXBD_NUM_MASK)
+ 		status |= GRETH_BD_WR;
+@@ -512,7 +513,9 @@ greth_start_xmit_gbit(struct sk_buff *skb, struct net_device *dev)
+ 		greth->tx_skbuff[curr_tx] = NULL;
+ 		bdp = greth->tx_bd_base + curr_tx;
+ 
+-		status = GRETH_TXBD_CSALL | GRETH_BD_EN;
++		status = GRETH_BD_EN;
++		if (skb->ip_summed == CHECKSUM_PARTIAL)
++			status |= GRETH_TXBD_CSALL;
+ 		status |= frag->size & GRETH_BD_LEN;
+ 
+ 		/* Wrap around descriptor ring */
+-- 
+1.5.4
