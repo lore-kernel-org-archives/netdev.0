@@ -1,58 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Memory leak in ip_dst_cache
-Date: Fri, 09 Sep 2011 07:30:23 +0200
-Message-ID: <1315546223.5410.23.camel@edumazet-laptop>
-References: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Fri, 9 Sep 2011 08:55:30 +0300
+Message-ID: <20110909055530.GA4647@redhat.com>
+References: <20110908182509.GB469@redhat.com>
+ <CA8ECDA7.33BFA%roprabhu@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kumar S <ps2kumar@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38983 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754542Ab1IIFaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 01:30:30 -0400
-Received: by wwf5 with SMTP id 5so723380wwf.1
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2011 22:30:29 -0700 (PDT)
-In-Reply-To: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dragos.tatulea@gmail.com, arnd@arndb.de,
+	dwang2@cisco.com, benve@cisco.com, kaber@trash.net, sri@us.ibm.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, mchan@broadcom.com,
+	kvm@vger.kernel.org
+To: Roopa Prabhu <roprabhu@cisco.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA8ECDA7.33BFA%roprabhu@cisco.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 08 septembre 2011 =C3=A0 22:04 -0700, Kumar S a =C3=A9crit :
-> Hi,
-> We are running Linux-2.6.24 kernel on MPC8360. Though forwarding is
-> disabled, when connected to public network we see the system running
-> out of memory and rebooting frequently. After doing some study we
-> found out slowly "ip_dst-cache" is growing, and doesn't release
-> entries. Interestingly route entries displayed with command "ip route
-> ls cache" show fewer than the active objects listed under
-> "cat /proc/slabinfo | grep ip_dst_cache". After doing some study, we
-> could reproduce it in the lab by injecting packets withdifferent
-> source IP addresses. Ideally ageing should happen, and old entries ar=
-e
-> supposed to be cleared out, but that doesn't happen. We do see one or
-> two entries getting agedout but not all.=20
-> After some time we did see that "rt_run_flush" kicks in and flushes
-> out the ip_dst_cache. That's why the "ip route ls cache" fewer
-> entries. But looks like __chache_free() doesn't get called, that's wh=
-y
-> these entries are not really released. This results in the leak.
-> =20
-> Any idea what is going wrong here. Is it a known bug?
+On Thu, Sep 08, 2011 at 07:53:11PM -0700, Roopa Prabhu wrote:
+> >> Phase 1: Goal: Enable hardware filtering for all macvlan modes
+> >>     - In macvlan passthru mode the single guest virtio-nic connected will
+> >>       receive traffic that he requested for
+> >>     - In macvlan non-passthru mode all guest virtio-nics sharing the
+> >>       physical nic will see all other guest traffic
+> >>       but the filtering at guest virtio-nic
+> > 
+> > I don't think guests currently filter anything.
+> > 
+> I was referring to Qemu-kvm virtio-net in
+> virtion_net_receive->receive_filter. I think It only passes pkts that the
+> guest OS is interested. It uses the filter table that I am passing to
+> macvtap in this patch.
 
-Please send :
+This happens after userspace thread gets woken up and data
+is copied there. So relying on filtering at that level is
+going to be very inefficient on a system with
+multiple active guests. Further, and for that reason, vhost-net
+doesn't do filtering at all, relying on the backends
+to pass it correct packets.
 
-grep . /proc/sys/net/ipv4/route/*
-rtstat -c10 -i1
-
-This a very well known problem. You need to upgrade your kernel in orde=
-r
-to avoid very complex tuning of your IP route cache.
-
-Recent ones have smooth garbage collection.
-
-In the meantime, you can tune a bit :
-
-echo 1 >/proc/sys/net/ipv4/route/gc_interval
-echo 4 >/proc/sys/net/ipv4/route/gc_elasticity
+-- 
+MST
