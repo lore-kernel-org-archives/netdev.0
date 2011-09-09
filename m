@@ -1,76 +1,69 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6] can/sja1000: driver for PEAK PCAN PCI/PCIe
-	cards
-Date: Fri, 09 Sep 2011 17:20:18 +0200
-Message-ID: <4E6A2EB2.5070601@grandegger.com>
-References: <4E692080.9020801@grandegger.com> <4E6A25EE.3000501@hartkopp.net>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Fri, 09 Sep 2011 09:21:51 -0700
+Message-ID: <CA8F8B2F.33CF2%roprabhu@cisco.com>
+References: <4E699556.6050809@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org,
-	Thomas Wiedemann <Thomas.Wiedemann-8kCRUXUQ4vU@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4E6A25EE.3000501-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, <netdev@vger.kernel.org>,
+	<dragos.tatulea@gmail.com>, <arnd@arndb.de>, <dwang2@cisco.com>,
+	<benve@cisco.com>, <kaber@trash.net>, <davem@davemloft.net>,
+	<eric.dumazet@gmail.com>, <mchan@broadcom.com>,
+	<kvm@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4E699556.6050809@us.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Oliver,
 
-On 09/09/2011 04:42 PM, Oliver Hartkopp wrote:
-> Hello Wolfgang,
-> 
-> many thanks for providing this patch!
-> 
-> On 09/08/11 22:07, Wolfgang Grandegger wrote:
-> 
->> This patch adds the "peak_pci" driver for the PCAN PCI/PCIe cards (1, 2, 3
->> or 4 channels) from PEAK Systems (http://www.peak-system.com).
-> 
-> 
-> Yes - that fits, but ...
-> 
-> 
->> +#define PEAK_PCI_VENDOR_ID	0x001C	/* The PCI device and vendor IDs */
->> +#define PEAK_PCI_DEVICE_ID	0x0001	/* for PCI / PCIe slot cards */
->> +#define PEAK_PCIE_DEVICE_ID	0x0002	/* for PCIExpress cards */
->> +
->> +static const u16 peak_pci_icr_masks[] = {0x02, 0x01, 0x40, 0x80};
->> +
->> +static DEFINE_PCI_DEVICE_TABLE(peak_pci_tbl) = {
->> +	{PEAK_PCI_VENDOR_ID, PEAK_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
->> +	{PEAK_PCI_VENDOR_ID, PEAK_PCIE_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
->> +	{0,}
->> +};
-> 
-> 
-> The problem is the support of the PCAN ExpressCard (device ID 0x0002) here.
-> 
-> This commit
-> 
->    https://lists.berlios.de/pipermail/socketcan-commit/2010-June/000814.html
-> 
-> should be reverted, as you can use the PCAN-ExpressCard (IPEH-00300[12]) only
-> with a hardware patch, as we need some I2C initialisations to enable the CAN
-> transceiver (and the funky status LEDs). See at:
-> 
-> http://anonscm.debian.org/gitweb/?p=collab-maint/peak-linux-driver.git;a=blob;f=driver/src/pcan_pciec.c;h=87ce0bda41aa0a6dda8284d48237b1ef7c678e11;hb=HEAD#l36
 
-OK, I see, I will revert then. I already realized the I2C stuff for the
-PCAN-ExpressCard. Obviously Thomas does not use that card but a PCIe
-slot cards
 
-> I'll also test your driver on Monday.
+On 9/8/11 9:25 PM, "Sridhar Samudrala" <sri@us.ibm.com> wrote:
+
+> On 9/8/2011 8:00 PM, Roopa Prabhu wrote:
+>> 
+>> 
+>> On 9/8/11 12:33 PM, "Michael S. Tsirkin"<mst@redhat.com>  wrote:
+>> 
+>>> On Thu, Sep 08, 2011 at 12:23:56PM -0700, Roopa Prabhu wrote:
+>>>>> I think the main usecase for passthru mode is to assign a SR-IOV VF to
+>>>>> a single guest.
+>>>>> 
+>>>> Yes and for the passthru usecase this patch should be enough to enable
+>>>> filtering in hw (eventually like I indicated before I need to fix vlan
+>>>> filtering too).
+>>> So with filtering in hw, and in sriov VF case, VFs
+>>> actually share a filtering table. How will that
+>>> be partitioned?
+>> AFAIK, though it might maintain a single filter table space in hw, hw does
+>> know which filter belongs to which VF. And the OS driver does not need to do
+>> anything special. The VF driver exposes a VF netdev. And any uc/mc addresses
+>> registered with a VF netdev are registered with the hw by the driver. And hw
+>> will filter and send only pkts that the VF has expressed interest in.
+> Does your NIC & driver support adding multiple mac addresses to a VF?
+> I have tried a few other SR-IOV NICs sometime back and they didn't
+> support this feature.
+
+Yes our nic does. I thought Intel's also does (see ixgbevf_set_rx_mode).
+Though I have not really tried using it on an Intel card. I think most cards
+should at the least support multicast filters.
+
+If the lower dev does not support unicast filtering, dev_uc_add(lowerdev,..)
+puts the lower dev in promiscous mode. Though..i think I can chcek this
+before hand in macvlan_open and put the lowerdev in promiscuous mode if it
+does not support filtering.
+
+> 
+> Currently, we don't have an interface to add multiple mac addresses to a
+> netdev other than an
+> indirect way of creating a macvlan /if on top of it.
+
+Yes I think so. I have been using only macvlan to test.
 
 Thanks,
+Roopa
 
-Wolfgang.
