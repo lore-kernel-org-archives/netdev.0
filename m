@@ -1,46 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Memory leak in ip_dst_cache
-Date: Fri, 09 Sep 2011 23:47:00 +0200
-Message-ID: <1315604820.2606.13.camel@edumazet-laptop>
-References: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>
-	 <1315546223.5410.23.camel@edumazet-laptop>
-	 <1315593553.98279.YahooMailNeo@web113904.mail.gq1.yahoo.com>
-	 <1315596786.2606.3.camel@edumazet-laptop>
-	 <1315601283.91185.YahooMailNeo@web113908.mail.gq1.yahoo.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: Backporting the Linux kernel, for good - was: Re: semantic patch
+ inference
+Date: Fri, 9 Sep 2011 23:53:27 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1109092352230.13368@ask.diku.dk>
+References: <CAB=NE6U0ks9CobukO04=bZpnkm3Yw+Pf7keVPsP-hv1NyJZ_Xw@mail.gmail.com>
+ <Pine.LNX.4.64.1109092245170.9242@ask.diku.dk>
+ <CAB=NE6VVaAgyaEX0iTuuj=r1-Vsi5TgAyCj4+3J=QerrJTWs_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kumar S <ps2kumar@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34535 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751795Ab1IIVrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 17:47:05 -0400
-Received: by wwf5 with SMTP id 5so1636325wwf.1
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2011 14:47:04 -0700 (PDT)
-In-Reply-To: <1315601283.91185.YahooMailNeo@web113908.mail.gq1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-1627508629-1315605207=:13368"
+Cc: Jesper Andersen <jespera@diku.dk>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAB=NE6VVaAgyaEX0iTuuj=r1-Vsi5TgAyCj4+3J=QerrJTWs_Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 09 septembre 2011 =C3=A0 13:48 -0700, Kumar S a =C3=A9crit =
-:
-> Hi Eric,
-> I did not flush those routes explicitly. They are flushed out
-> automatically by calling "rt_run_flush". It inturn calls rt_free(),
-> but __cache_free() never gets called after that. Basically, I have 51=
-2
-> MBytes of memory on board. I want to restrict the cache to around 64k=
-,
-> with max_size. But if I do that due to this leak, TCP/IP communicatio=
-n
-> stops working when it reaches 64k.
-> =20
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Your dsts use about 3Mb of memory out of 512Mb. Its certainly not the
-reason of the failures you have.
+---511516320-1627508629-1315605207=:13368
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Its not a leak.
+On Fri, 9 Sep 2011, Luis R. Rodriguez wrote:
 
-All "in use" dst are queued in dst_gc, check net/core/dst.c for details=
-=2E
+> On Fri, Sep 9, 2011 at 1:48 PM, Julia Lawall <julia@diku.dk> wrote:
+> > Thanks for your email.  It made me realize that there was one thing that I
+> > didn't understand at all.  If the patches are only intended to apply to
+> > linux-next, that makes the problem quite a bit simpler.
+> 
+> Awesome, and yes the patches/ are only targeted at applying onto
+> linux-next.git. When Linus decides to merge and out 3.x-rc1 I simply
+> then set $GIT_TREE to $HOME/linux-2.6-allstable/ and run the script to
+> suck code from there and apply patches from there.Turns out that
+> because the effort was done on linux-next and because linux-next will
+> look very much like what Linus ends up merging the patches/ will still
+> apply. So what I do then is simply create a branch for that target
+> stable kernel and keep refreshing the patches for that stable kernel
+> on that branch -- while the master branch keeps chugging along with
+> linux-next.
+> 
+> > I guess that the patch that spdiff will receive will already contain the
+> > appropriate #ifs, so we don't have to be concerned about them.
+> 
+> That is correct.
+> 
+> > We just add them in as is.
+> 
+> I do not follow, add what?
+
+Sorry.  The + code. The #ifdefs ad the compatibility code.  We don't have 
+to interpret it, so we don't care whether it is only related to kernel 
+version numbers or something more complex.
+
+julia
+
+> > There was also the question about one or multiple types of changes.  I
+> > think this is not a problem, but Jesper should confirm.  If a patch contains
+> > two changes and one can be generalized and the other one cannot for some
+> > reason, does spdiff give up on the whole thing, or does it do what it can?
+> >
+> > Overall, the whole thing seems to be doable :)
+> 
+> Wow. I'm thrilled, so say the least.
+> 
+>   Luis
+> 
+---511516320-1627508629-1315605207=:13368--
