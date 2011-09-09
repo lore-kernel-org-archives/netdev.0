@@ -1,107 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3] af_unix: Fix use-after-free crashes
-Date: Fri, 09 Sep 2011 08:51:40 +0200
-Message-ID: <1315551100.5410.30.camel@edumazet-laptop>
-References: <4E631032.6050606@intel.com>
-	 <1315326326.2576.2980.camel@schen9-DESK>
-	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1315335019.2576.3048.camel@schen9-DESK>
-	 <1315335660.3400.7.camel@edumazet-laptop>
-	 <1315337580.2576.3066.camel@schen9-DESK>
-	 <1315338186.3400.20.camel@edumazet-laptop>
-	 <1315339157.2576.3079.camel@schen9-DESK>
-	 <1315340388.3400.28.camel@edumazet-laptop>
-	 <CAAM7YAn0c0SpAD42PcT+-HDXjT9HMajhmfZD6D68_0E21i2tSQ@mail.gmail.com>
-	 <1315372100.3400.76.camel@edumazet-laptop> <4E66FF38.9000107@intel.com>
-	 <1315381503.3400.85.camel@edumazet-laptop>
-	 <1315396903.2364.23.camel@schen9-mobl>
-	 <CA+icZUVqJVn4ONuSDV5YdgpEcmetVMM9X=Sxt2EqM8qdegMnjQ@mail.gmail.com>
-	 <CA+icZUW5Biu8cMhaJcz=MwtMOVn-NFD92PTpT0-DfEDKrRmaUQ@mail.gmail.com>
-	 <1315406256.6287.7.camel@schen9-mobl> <4E680BF1.8000901@intel.com>
-	 <1315429583.2361.3.camel@schen9-mobl>
-	 <1315461572.2532.7.camel@edumazet-laptop> <4E685F19.6030407@intel.com>
-	 <1315465919.2532.19.camel@edumazet-laptop> <4E686D71.30603@intel.com>
-	 <1315467184.2532.22.camel@edumazet-laptop>
-	 <CA+icZUWH8953m4qs74JLhNwrzJM0eMfE8aizJ1XtuVFFTtLKqg@mail.gmail.com>
-	 <1315488103.2456.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1315471065.2301.1.camel@schen9-mobl>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [BUG?] tcp: potential bug in tcp_is_sackblock_valid()
+Date: Fri, 9 Sep 2011 11:03:58 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1109091050550.11963@melkinpaasi.cs.helsinki.fi>
+References: <4E696FD0.7060702@intel.com> <20110909015429.GA9156@gondor.apana.org.au> <4E6975B2.8000603@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sedat.dilek@gmail.com, "Yan, Zheng" <zheng.z.yan@intel.com>,
-	"Yan, Zheng" <yanzheng@21cn.com>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"jirislaby@gmail.com" <jirislaby@gmail.com>,
-	"Shi, Alex" <alex.shi@intel.com>,
-	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-To: Tim Chen <tim.c.chen@linux.intel.com>
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>
+To: "Yan, Zheng" <zheng.z.yan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35954 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756565Ab1IIGvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 02:51:48 -0400
-Received: by wyh22 with SMTP id 22so1296599wyh.19
-        for <netdev@vger.kernel.org>; Thu, 08 Sep 2011 23:51:47 -0700 (PDT)
-In-Reply-To: <1315471065.2301.1.camel@schen9-mobl>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:38900 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758118Ab1IIIEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 04:04:00 -0400
+In-Reply-To: <4E6975B2.8000603@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 08 septembre 2011 =C3=A0 01:37 -0700, Tim Chen a =C3=A9crit :
-> On Thu, 2011-09-08 at 15:21 +0200, Eric Dumazet wrote:
-> > Le jeudi 08 septembre 2011 =C3=A0 11:59 +0200, Sedat Dilek a =C3=A9=
-crit :
-> >=20
-> > > I have tested this fixup patch on i386.
-> > > Can we have a separate patch with corrected descriptive text?
-> > >=20
-> > > Thanks to all involved people.
-> >=20
-> > Here it is :
-> >=20
-> > [PATCH net-next v3] af_unix: Fix use-after-free crashes
-> >=20
-> > Commit 0856a30409 (Scm: Remove unnecessary pid & credential referen=
-ces
-> > in Unix socket's send and receive path) introduced an use-after-fre=
-e
-> > bug.
-> >=20
-> > We are allowed to steal the references to pid/cred only in the last=
- skb
-> > sent from unix_stream_sendmsg(), because first skbs might be consum=
-ed by
-> > the receiver before we finish our sendmsg() call.
-> >=20
-> > Remove scm_release() helper, since its cleaner to clear pid/cred fi=
-elds
-> > in unix_scm_to_skb() when we steal them.
-> >=20
-> > Based on prior patches from Yan Zheng and Tim Chen
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > Reported-by: Jiri Slaby <jirislaby@gmail.com>
-> > Tested-by: Sedat Dilek <sedat.dilek@googlemail.com>
-> > Tested-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-> > ---
->=20
-> Thanks.
->=20
-> Acked-by: Tim Chen <tim.c.chen@linux.intel.com>
->=20
+On Fri, 9 Sep 2011, Yan, Zheng wrote:
 
-Now we have to fix a bug in unix_stream_recvmsg() as well.
+> On 09/09/2011 09:54 AM, Herbert Xu wrote:
+> > On Fri, Sep 09, 2011 at 09:45:52AM +0800, Yan, Zheng wrote:
+> >> I found a check in tcp_is_sackblock_valid() is suspicious. It against
+> >> its comment and RFC. I think the correct check should be:
+> >> ---
+> >> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> >> index 385c470..a5d01b1 100644
+> >> --- a/net/ipv4/tcp_input.c
+> >> +++ b/net/ipv4/tcp_input.c
+> >> @@ -1124,7 +1124,7 @@ static int tcp_is_sackblock_valid(struct tcp_sock *tp, int is_dsack,
+> >>                 return 0;
+> >>  
+> >>         /* ...Then it's D-SACK, and must reside below snd_una completely */
+> >> -       if (!after(end_seq, tp->snd_una))
+> >> +       if (after(end_seq, tp->snd_una))
+> >>                 return 0;
+> >>  
+> >>         if (!before(start_seq, tp->undo_marker))
+> >> ---
+> >>
+> >> I also checked /proc/net/netstat of my laptop, found TCPDSACKIgnoredOld
+> >> field is not zero. Maybe it's caused by the bug.
 
-consume_skb() call actually releases pid/cred references, and we can us=
-e
-them after their eventual freeing.
+Hmm, some Ignored I was expecting to see even when nothing was wrong but I 
+think it might have been the other counter... too long time already passed 
+to remember all the details I've been thinking.
 
-Keep also in mind that receiver can provides a too short user buffer,
-and skb can be put back to head of sk_receive_queue
+> > Yes this looks like a typo.  Please resend your patch with a
+> > description and signed-off-by line.
+> 
+> I think the bug has a big influence on tcp DSACKs. It's better to
+> leave it to people who fully understand tcp code.
 
-Tim, your 0856a304091b33 commit introduced a lot of bugs, I was right
-asking a revert.
+Indeed, it looks like a double negative error.
 
-If we revert your patch, my litle patch (af_unix: dont send
-SCM_CREDENTIALS by default) is enough to solve performance problems.
+-- 
+ i.
