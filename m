@@ -1,107 +1,76 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] per-cgroup tcp buffer limitation
-Date: Thu, 08 Sep 2011 17:18:05 -0700
-Message-ID: <4E695B3D.7060804@hp.com>
-References: <1315276556-10970-1-git-send-email-glommer@parallels.com>
+From: Andres Salomon <dilinger@queued.net>
+Subject: [PATCH v3] libertas: prioritize usb8388_olpc.bin firmware on OLPC
+ machines
+Date: Thu, 8 Sep 2011 17:35:17 -0700
+Message-ID: <20110908173517.5b8c90be@queued.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
- containers@lists.osdl.org, netdev@vger.kernel.org, xemul@parallels.com,
- "David S. Miller" <davem@davemloft.net>,
- Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
- "Eric W. Biederman" <ebiederm@xmission.com>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1315276556-10970-1-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Cc: linville@tuxdriver.com, libertas-dev@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dsd@laptop.org, cjb@laptop.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/05/2011 07:35 PM, Glauber Costa wrote:
-> To test for any performance impacts of this patch, I used netperf's
-> TCP_RR benchmark on localhost, so we can have both recv and snd in action.
->
-> Command line used was ./src/netperf -t TCP_RR -H localhost, and the
-> results:
->
-> Without the patch
-> =================
->
-> Socket Size   Request  Resp.   Elapsed  Trans.
-> Send   Recv   Size     Size    Time     Rate
-> bytes  Bytes  bytes    bytes   secs.    per sec
->
-> 16384  87380  1        1       10.00    26996.35
-> 16384  87380
->
-> With the patch
-> ===============
->
-> Local /Remote
-> Socket Size   Request  Resp.   Elapsed  Trans.
-> Send   Recv   Size     Size    Time     Rate
-> bytes  Bytes  bytes    bytes   secs.    per sec
->
-> 16384  87380  1        1       10.00    27291.86
-> 16384  87380
 
-Comment about netperf TCP_RR - it can often have > 1% variability, so it 
-would be a Good Idea (tm) to either run it multiple times in a row, or 
-rely on the confidence intervals functionality.  Here, for example, is 
-an invoking of netperf using confidence intervals and the recently 
-added, related output selectors.  The options request that netperf be 
-99% confident that the width of the confidence interval is 1%, and it 
-should run at least 3 but no more than 30 (those are both the high and 
-low limits respectively) iterations of the test.
+Normally, the v9 firmware will be loaded if it's available.  However, on
+OLPC XO-1 machines, the olpc-specific firmware supports extra functionality.
+This makes the libertas driver attempt to load the custom firmware first
+if the machine is an OLPC machine; if that fails (or it's not an OLPC
+machine), fall back to attempting to load the other firmwares.
 
+usb8388_olpc.bin is currently found in the linux-firmware repository.
 
-raj@tardy:~/netperf2_trunk$ src/netperf -t TCP_RR -i 30,3 -I 99,1 -- -k 
-throughput,confidence_level,confidence_interval,confidence_iteration,throughput_confid
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET 
-to localhost.localdomain (127.0.0.1) port 0 AF_INET : +/-0.500% @ 99% 
-conf.  : histogram : first burst 0
-THROUGHPUT=55555.94
-CONFIDENCE_LEVEL=99
-CONFIDENCE_INTERVAL=1.000000
-CONFIDENCE_ITERATION=26
-THROUGHPUT_CONFID=0.984
+Signed-off-by: Andres Salomon <dilinger@queued.net>
+---
+v3: changed firmware path to include libertas/ subdirectory.
 
-it took 26 iterations for netperf to be 99% confident the interval width 
-was < 1% .  Here is a "several times in a row" for the sake of completeness:
+Since the last submission (v2), usb8388_olpc.bin has found its way into
+wireless-firmware.  It'd be nice to get this into the next merge window.
 
-raj@tardy:~/netperf2_trunk$ HDR="-P 1";for i in `seq 1 10`; do netperf 
--t TCP_RR $HDR -B "iteration $i" -- -o result_brand,throughput; HDR="-P 
-0"; done
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET 
-to localhost.localdomain (127.0.0.1) port 0 AF_INET : first burst 0
-Result Tag,Throughput
-"iteration 1",55768.37
-"iteration 2",55949.97
-"iteration 3",55653.36
-"iteration 4",55994.65
-"iteration 5",54712.42
-"iteration 6",55285.27
-"iteration 7",55638.65
-"iteration 8",55135.56
-"iteration 9",56275.87
-"iteration 10",55607.66
+ drivers/net/wireless/libertas/if_usb.c |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
 
-That way one can have greater confidence that one isn't accidentally 
-comparing the trough of one configuration with the peak of another.
-
-happy benchmarking,
-
-rick jones
-
-PS - while it may not really matter for loopback testing, where 
-presumably 99 times out of 10 a single core will run at saturation, when 
-running TCP_RR over a "real" network, including CPU utilization to get 
-the differences in service demand is another Good Idea (tm) - 
-particularly in the face of interrupt coalescing.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
+index b5acc39..94f8f3e 100644
+--- a/drivers/net/wireless/libertas/if_usb.c
++++ b/drivers/net/wireless/libertas/if_usb.c
+@@ -973,6 +973,23 @@ static const struct {
+ 	{ MODEL_8682, "libertas/usb8682.bin" }
+ };
+ 
++#ifdef CONFIG_OLPC
++
++static int try_olpc_fw(struct if_usb_card *cardp)
++{
++	int retval = -ENOENT;
++
++	/* try the OLPC firmware first; fall back to fw_table list */
++	if (machine_is_olpc() && cardp->model == MODEL_8388)
++		retval = request_firmware(&cardp->fw,
++				"libertas/usb8388_olpc.bin", &cardp->udev->dev);
++	return retval;
++}
++
++#else
++static int try_olpc_fw(struct if_usb_card *cardp) { return -ENOENT; }
++#endif /* !CONFIG_OLPC */
++
+ static int get_fw(struct if_usb_card *cardp, const char *fwname)
+ {
+ 	int i;
+@@ -981,6 +998,10 @@ static int get_fw(struct if_usb_card *cardp, const char *fwname)
+ 	if (fwname)
+ 		return request_firmware(&cardp->fw, fwname, &cardp->udev->dev);
+ 
++	/* Handle OLPC firmware */
++	if (try_olpc_fw(cardp) == 0)
++		return 0;
++
+ 	/* Otherwise search for firmware to use */
+ 	for (i = 0; i < ARRAY_SIZE(fw_table); i++) {
+ 		if (fw_table[i].model != cardp->model)
+-- 
+1.7.2.5
