@@ -1,214 +1,244 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
- support for passthru mode
-Date: Thu, 08 Sep 2011 10:42:45 -0700
-Message-ID: <1315503765.11074.33.camel@w-sridhar.beaverton.ibm.com>
-References: <CA8E3924.33B60%roprabhu@cisco.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v2 1/9] per-netns ipv4 sysctl_tcp_mem
+Date: Fri, 9 Sep 2011 11:47:20 +0900
+Message-ID: <20110909114720.f050c520.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1315369399-3073-1-git-send-email-glommer@parallels.com>
+	<1315369399-3073-2-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	dragos.tatulea@gmail.com, arnd@arndb.de, dwang2@cisco.com,
-	benve@cisco.com, kaber@trash.net, davem@davemloft.net,
-	eric.dumazet@gmail.com, mchan@broadcom.com, kvm@vger.kernel.org
-To: Roopa Prabhu <roprabhu@cisco.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <CA8E3924.33B60%roprabhu@cisco.com>
-Sender: kvm-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+ containers@lists.osdl.org, netdev@vger.kernel.org, xemul@parallels.com,
+ "David S. Miller" <davem@davemloft.net>, "Eric W. Biederman"
+ <ebiederm@xmission.com>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1315369399-3073-2-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-09-08 at 09:19 -0700, Roopa Prabhu wrote:
-> 
-> 
-> On 9/8/11 4:08 AM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> 
-> > On Wed, Sep 07, 2011 at 10:20:28PM -0700, Roopa Prabhu wrote:
-> >> On 9/7/11 5:34 AM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> >> 
-> >>> On Tue, Sep 06, 2011 at 03:35:40PM -0700, Roopa Prabhu wrote:
-> >>>> This patch is an attempt at providing address filtering support for macvtap
-> >>>> devices in PASSTHRU mode. Its still a work in progress.
-> >>>> Briefly tested for basic functionality. Wanted to get some feedback on the
-> >>>> direction before proceeding.
-> >>>> 
-> >>> 
-> >>> Good work, thanks.
-> >>> 
-> >> 
-> >> Thanks.
-> >> 
-> >>>> I have hopefully CC'ed all concerned people.
-> >>> 
-> >>> kvm crowd might also be interested.
-> >>> Try using ./scripts/get_maintainer.pl as well.
-> >>> 
-> >> Thanks for the tip. Expanded CC list a bit more.
-> >> 
-> >>>> PASSTHRU mode today sets the lowerdev in promiscous mode. In PASSTHRU mode
-> >>>> there is a 1-1 mapping between macvtap device and physical nic or VF. And
-> >>>> all
-> >>>> filtering is done in lowerdev hw. The lowerdev does not need to be in
-> >>>> promiscous mode as long as the guest filters are passed down to the
-> >>>> lowerdev.
-> >>>> This patch tries to remove the need for putting the lowerdev in promiscous
-> >>>> mode. 
-> >>>> I have also referred to the thread below where TUNSETTXFILTER was mentioned
-> >>>> in 
-> >>>> this context: 
-> >>>>  http://patchwork.ozlabs.org/patch/69297/
-> >>>> 
-> >>>> This patch basically passes the addresses got by TUNSETTXFILTER to macvlan
-> >>>> lowerdev.
-> >>>> 
-> >>>> I have looked at previous work and discussions on this for qemu-kvm
-> >>>> by Michael Tsirkin, Alex Williamson and Dragos Tatulea
-> >>>> http://patchwork.ozlabs.org/patch/78595/
-> >>>> http://patchwork.ozlabs.org/patch/47160/
-> >>>> https://patchwork.kernel.org/patch/474481/
-> >>>> 
-> >>>> Redhat bugzilla by Michael Tsirkin:
-> >>>> https://bugzilla.redhat.com/show_bug.cgi?id=655013
-> >>>> 
-> >>>> I used Michael's qemu-kvm patch for testing the changes with KVM
-> >>>> 
-> >>>> I would like to cover both MAC and vlan filtering in this work.
-> >>>> 
-> >>>> Open Questions/Issues:
-> >>>> - There is a need for vlan filtering to complete the patch. It will require
-> >>>>   a new tap ioctl cmd for vlans.
-> >>>>   Some ideas on this are:
-> >>>> 
-> >>>>   a) TUNSETVLANFILTER: This will entail we send the whole vlan bitmap
-> >>>> filter
-> >>>> (similar to tun_filter for addresses). Passing the vlan id's to lower
-> >>>> device will mean going thru the whole list of vlans every time.
-> >>>> 
-> >>>>   OR
-> >>>> 
-> >>>>   b) TUNSETVLAN with vlan id and flag to set/unset
-> >>>> 
-> >>>>   Does option 'b' sound ok ?
-> >>>> 
-> >>>> - In this implementation we make the macvlan address list same as the
-> >>>> address
-> >>>>   list that came in the filter with TUNSETTXFILTER. This will not cover
-> >>>> cases
-> >>>>   where the macvlan device needs to have other addresses that are not
-> >>>>   necessarily in the filter. Is this a problem ?
-> >>> 
-> >>> What cases do you have in mind?
-> >>> 
-> >> This patch targets only macvlan PASSTHRU mode and for PASSTHRU mode I don't
-> >> see a problem with uc/mc address list being the same in all the stacked
-> >> netdevs in the path. I called that out above to make sure I was not missing
-> >> any case in PASSTHRU mode where this might be invalid. Otherwise I don't see
-> >> a problem in the simple PASSTHRU use case this patch supports.
-> >> 
-> >>>> - The patch currently only supports passing of IFF_PROMISC and
-> >>>> IFF_MULTICAST
-> >>>> filter flags to lowerdev
-> >>>> 
-> >>>> This patch series implements the following
-> >>>> 01/3 - macvlan: Add support for unicast filtering in macvlan
-> >>>> 02/3 - macvlan: Add function to set addr filter on lower device in passthru
-> >>>> mode
-> >>>> 03/3 - macvtap: Add support for TUNSETTXFILTER
-> >>>> 
-> >>>> Please comment. Thanks.
-> >>>> 
-> >>>> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> >>>> Signed-off-by: Christian Benvenuti <benve@cisco.com>
-> >>>> Signed-off-by: David Wang <dwang2@cisco.com>
-> >>> 
-> >>> The security isn't lower than with promisc, so I don't see
-> >>> a problem with this as such.
-> >>> 
-> >>> There are more features we'll want down the road though,
-> >>> so let's see whether the interface will be able to
-> >>> satisfy them in a backwards compatible way before we
-> >>> set it in stone. Here's what I came up with:
-> >>> 
-> >>> How will the filtering table be partitioned within guests?
-> >> 
-> >> Since this patch supports macvlan PASSTHRU mode only, in which the lower
-> >> device has 1-1 mapping to the guest nic, it does not require any
-> >> partitioning of filtering table within guests. Unless I missed understanding
-> >> something. 
-> >> If the lower device were being shared by multiple guest network interfaces
-> >> (non PASSTHRU mode), only then we will need to maintain separate filter
-> >> tables for each guest network interface in macvlan and forward the pkt to
-> >> respective guest interface after a filter lookup. This could affect
-> >> performance too I think.
-> > 
-> > Not with hardware filtering support. Which is where we'd need to
-> > partition the host nic mac table between guests.
-> > 
-> I need to understand this more. In non passthru case when a VF or physical
-> nic is shared between guests, the nic does not really know about the guests,
-> so I was thinking we do the same thing as we do for the passthru case (ie
-> send all the address filters from macvlan to the physical nic). So at the
-> hardware, filtering is done for all guests sharing the nic. But if we want
-> each virtio-net nic or guest to get exactly what it asked for
-> macvlan/macvtap needs to maintain a copy of each guest filter and do a
-> lookup and send only the requested traffic to the guest. Here is the
-> performance hit that I was seeing. Please see my next comment for further
-> details. 
-> 
-> 
-> >> I chose to support PASSTHRU Mode only at first because its simpler and all
-> >> code additions are in control path only.
-> > 
-> > I agree. It would be a bit silly to have a dedicated interface
-> > for passthough and a completely separate one for
-> > non passthrough.
-> >
-> Agree. The reason I did not focus on non-passthru case in the initial
-> version was because I was thinking things to do in the non-passthru case
-> will be just add-ons to the passthru case. But true Better to flush out the
-> non-pasthru case details.
-> 
-> After dwelling on this a bit more how about the below:
-> 
-> Phase 1: Goal: Enable hardware filtering for all macvlan modes
->     - In macvlan passthru mode the single guest virtio-nic connected will
-> receive traffic that he requested for
-Currently the guest receives all the packets seen on the interface as it
-is put in promiscuous mode. With your patch it only sees the packets
-that he requested for. Have you tried creating a macvlan interface on
-top of the guest virtio-net interface? Is the new mac address propagated
-all the way to the host nic?
+On Wed,  7 Sep 2011 01:23:11 -0300
+Glauber Costa <glommer@parallels.com> wrote:
 
-I think the main usecase for passthru mode is to assign a SR-IOV VF to
-a single guest.
-
->     - In macvlan non-passthru mode all guest virtio-nics sharing the
->       physical nic will see all other guest traffic
->       but the filtering at guest virtio-nic will make sure each guest
->       eventually sees traffic he asked for. This is still better than
-> putting the physical nic in promiscuous mode.
-
-With the default macvlan mode (vepa), i think each guest will only see
-its own traffic. But currently adding a secondary mac address on a guest
-will not work as it is not propagated all the way down to the host.
+> This patch allows each namespace to independently set up
+> its levels for tcp memory pressure thresholds. This patch
+> alone does not buy much: we need to make this values
+> per group of process somehow. This is achieved in the
+> patches that follows in this patchset.
+> 
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+> CC: Eric W. Biederman <ebiederm@xmission.com>
 
 
-> (This is mainly what my patch does...but will need to remove the passthru
-> check and see if there are any thing else needed for non-passthru case)
-> 
-> 
-> Phase 2: Goal: Enable filtering at macvlan so that each guest virtio-nic
-> receives only what he requested for.
->     - In this case, in addition to pushing the filters down to the physical
-> nic we will have to maintain the same filter in macvlan and do a filter
-> lookup before forwarding the traffic to a virtio-nic.
-> 
-> But I am thinking phase 2 might be redundant given virtio-nic already does
-> filtering for the guest. In which case we might not need phase 2 at all. I
-> might have been over complicating things.
+Hmm, it may be better to post this patch as independent one.
 
-I think filtering at macvlan will be more efficient than replicating all
-the packets to all the guest virtio-nics.
+I'm not familiar with this area...but try review ;)
 
-Thanks
-Sridhar
+> ---
+>  include/net/netns/ipv4.h   |    1 +
+>  include/net/tcp.h          |    1 -
+>  net/ipv4/sysctl_net_ipv4.c |   51 +++++++++++++++++++++++++++++++++++++------
+>  net/ipv4/tcp.c             |   13 +++-------
+>  4 files changed, 49 insertions(+), 17 deletions(-)
+> 
+> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+> index d786b4f..bbd023a 100644
+> --- a/include/net/netns/ipv4.h
+> +++ b/include/net/netns/ipv4.h
+> @@ -55,6 +55,7 @@ struct netns_ipv4 {
+>  	int current_rt_cache_rebuild_count;
+>  
+>  	unsigned int sysctl_ping_group_range[2];
+> +	long sysctl_tcp_mem[3];
+>  
+>  	atomic_t rt_genid;
+>  	atomic_t dev_addr_genid;
 
+Hmm, in original placement, sysctl_tcp_mem[] was on __read_mostly
+area. Doesn't this placement cause many cache invalidations ?
+
+
+
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 149a415..6bfdd9b 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -230,7 +230,6 @@ extern int sysctl_tcp_fack;
+>  extern int sysctl_tcp_reordering;
+>  extern int sysctl_tcp_ecn;
+>  extern int sysctl_tcp_dsack;
+> -extern long sysctl_tcp_mem[3];
+>  extern int sysctl_tcp_wmem[3];
+>  extern int sysctl_tcp_rmem[3];
+>  extern int sysctl_tcp_app_win;
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 69fd720..0d74b9d 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -14,6 +14,7 @@
+>  #include <linux/init.h>
+>  #include <linux/slab.h>
+>  #include <linux/nsproxy.h>
+> +#include <linux/swap.h>
+>  #include <net/snmp.h>
+>  #include <net/icmp.h>
+>  #include <net/ip.h>
+> @@ -174,6 +175,36 @@ static int proc_allowed_congestion_control(ctl_table *ctl,
+>  	return ret;
+>  }
+>  
+> +static int ipv4_tcp_mem(ctl_table *ctl, int write,
+> +			   void __user *buffer, size_t *lenp,
+> +			   loff_t *ppos)
+> +{
+> +	int ret;
+> +	unsigned long vec[3];
+> +	struct net *net = current->nsproxy->net_ns;
+> +	int i;
+> +
+> +	ctl_table tmp = {
+> +		.data = &vec,
+> +		.maxlen = sizeof(vec),
+> +		.mode = ctl->mode,
+> +	};
+> +
+> +	if (!write) {
+> +		ctl->data = &net->ipv4.sysctl_tcp_mem;
+> +		return proc_doulongvec_minmax(ctl, write, buffer, lenp, ppos);
+> +	}
+> +
+> +	ret = proc_doulongvec_minmax(&tmp, write, buffer, lenp, ppos);
+> +	if (ret)
+> +		return ret;
+> +
+> +	for (i = 0; i < 3; i++)
+> +		net->ipv4.sysctl_tcp_mem[i] = vec[i];
+> +
+> +	return 0;
+> +}
+> +
+>  static struct ctl_table ipv4_table[] = {
+>  	{
+>  		.procname	= "tcp_timestamps",
+> @@ -433,13 +464,6 @@ static struct ctl_table ipv4_table[] = {
+>  		.proc_handler	= proc_dointvec
+>  	},
+>  	{
+> -		.procname	= "tcp_mem",
+> -		.data		= &sysctl_tcp_mem,
+> -		.maxlen		= sizeof(sysctl_tcp_mem),
+> -		.mode		= 0644,
+> -		.proc_handler	= proc_doulongvec_minmax
+> -	},
+> -	{
+>  		.procname	= "tcp_wmem",
+>  		.data		= &sysctl_tcp_wmem,
+>  		.maxlen		= sizeof(sysctl_tcp_wmem),
+> @@ -721,6 +745,12 @@ static struct ctl_table ipv4_net_table[] = {
+>  		.mode		= 0644,
+>  		.proc_handler	= ipv4_ping_group_range,
+>  	},
+> +	{
+> +		.procname	= "tcp_mem",
+> +		.maxlen		= sizeof(init_net.ipv4.sysctl_tcp_mem),
+> +		.mode		= 0644,
+> +		.proc_handler	= ipv4_tcp_mem,
+> +	},
+>  	{ }
+>  };
+>  
+
+
+
+
+> @@ -734,6 +764,7 @@ EXPORT_SYMBOL_GPL(net_ipv4_ctl_path);
+>  static __net_init int ipv4_sysctl_init_net(struct net *net)
+>  {
+>  	struct ctl_table *table;
+> +	unsigned long limit;
+>  
+>  	table = ipv4_net_table;
+>  	if (!net_eq(net, &init_net)) {
+> @@ -769,6 +800,12 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
+>  
+>  	net->ipv4.sysctl_rt_cache_rebuild_count = 4;
+>  
+> +	limit = nr_free_buffer_pages() / 8;
+> +	limit = max(limit, 128UL);
+> +	net->ipv4.sysctl_tcp_mem[0] = limit / 4 * 3;
+> +	net->ipv4.sysctl_tcp_mem[1] = limit;
+> +	net->ipv4.sysctl_tcp_mem[2] = net->ipv4.sysctl_tcp_mem[0] * 2;
+> +
+>  	net->ipv4.ipv4_hdr = register_net_sysctl_table(net,
+>  			net_ipv4_ctl_path, table);
+>  	if (net->ipv4.ipv4_hdr == NULL)
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 46febca..f06df24 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -266,6 +266,7 @@
+>  #include <linux/crypto.h>
+>  #include <linux/time.h>
+>  #include <linux/slab.h>
+> +#include <linux/nsproxy.h>
+>  
+>  #include <net/icmp.h>
+>  #include <net/tcp.h>
+> @@ -282,11 +283,9 @@ int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
+>  struct percpu_counter tcp_orphan_count;
+>  EXPORT_SYMBOL_GPL(tcp_orphan_count);
+>  
+> -long sysctl_tcp_mem[3] __read_mostly;
+>  int sysctl_tcp_wmem[3] __read_mostly;
+>  int sysctl_tcp_rmem[3] __read_mostly;
+>  
+> -EXPORT_SYMBOL(sysctl_tcp_mem);
+>  EXPORT_SYMBOL(sysctl_tcp_rmem);
+>  EXPORT_SYMBOL(sysctl_tcp_wmem);
+>  
+> @@ -3277,14 +3276,10 @@ void __init tcp_init(void)
+>  	sysctl_tcp_max_orphans = cnt / 2;
+>  	sysctl_max_syn_backlog = max(128, cnt / 256);
+>  
+> -	limit = nr_free_buffer_pages() / 8;
+> -	limit = max(limit, 128UL);
+> -	sysctl_tcp_mem[0] = limit / 4 * 3;
+> -	sysctl_tcp_mem[1] = limit;
+> -	sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;
+> -
+>  	/* Set per-socket limits to no more than 1/128 the pressure threshold */
+> -	limit = ((unsigned long)sysctl_tcp_mem[1]) << (PAGE_SHIFT - 7);
+> +	limit = (unsigned long)init_net.ipv4.sysctl_tcp_mem[1];
+> +	limit <<= (PAGE_SHIFT - 7);
+> +
+
+I'm not sure but...why defined as 'long'  ?
+
+
+
+BTW, when I grep,
+
+tcp_input.c:        atomic_long_read(&tcp_memory_allocated) < sysctl_tcp_mem[0])
+tcp_input.c:    if (atomic_long_read(&tcp_memory_allocated) >= sysctl_tcp_mem[0])
+
+Don't you need to change this ?
+
+
+
+Thanks,
+-Kame
+
+
+
+
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
