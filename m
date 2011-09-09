@@ -1,48 +1,132 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 03/10] mm: Add support for a filesystem to control swap
- files
-Date: Fri, 9 Sep 2011 09:36:12 -0400
-Message-ID: <20110909133611.GB8155@infradead.org>
-References: <1315566054-17209-1-git-send-email-mgorman@suse.de>
- <1315566054-17209-4-git-send-email-mgorman@suse.de>
- <20110909130007.GA11810@infradead.org>
- <20110909131550.GV14369@suse.de>
+From: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 3/5] SUNRPC: make RPC service dependable on rpcbind
+ clients creation
+Date: Fri, 9 Sep 2011 10:07:45 -0400
+Message-ID: <20110909100745.7e2e8bf9@corrin.poochiereds.net>
+References: <20110909115146.13697.71682.stgit@localhost6.localdomain6>
+	<20110909120844.13697.48102.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>, Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	Linux-NFS <linux-nfs@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Neil Brown <neilb@suse.de>, Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20110909131550.GV14369@suse.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110909120844.13697.48102.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 09, 2011 at 02:15:50PM +0100, Mel Gorman wrote:
+On Fri, 09 Sep 2011 16:08:44 +0400
+Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
+
+> Create rcbind clients or increase rpcbind users counter during RPC service
+> creation and decrease this counter (and possibly destroy those clients) on RPC
+> service destruction.
 > 
-> I confess I haven't investigated this direction at
-> all yet.  Is it correct that your previous objection was
-> http://linux.derkeiler.com/Mailing-Lists/Kernel/2009-10/msg00455.html
-> and the direct-IO patchset you were thinking of was
-> http://copilotco.com/mail-archives/linux-kernel.2009/msg87176.html ?
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> 
+> ---
+>  include/linux/sunrpc/clnt.h |    2 ++
+>  net/sunrpc/rpcb_clnt.c      |    2 +-
+>  net/sunrpc/svc.c            |   13 +++++++++++--
+>  3 files changed, 14 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
+> index db7bcaf..65a8115 100644
+> --- a/include/linux/sunrpc/clnt.h
+> +++ b/include/linux/sunrpc/clnt.h
+> @@ -135,10 +135,12 @@ void		rpc_shutdown_client(struct rpc_clnt *);
+>  void		rpc_release_client(struct rpc_clnt *);
+>  void		rpc_task_release_client(struct rpc_task *);
+>  
+> +int		rpcb_create_local(void);
+>  int		rpcb_register(u32, u32, int, unsigned short);
+>  int		rpcb_v4_register(const u32 program, const u32 version,
+>  				 const struct sockaddr *address,
+>  				 const char *netid);
+> +void		rpcb_put_local(void);
+>  void		rpcb_getport_async(struct rpc_task *);
+>  
+>  void		rpc_call_start(struct rpc_task *);
+> diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+> index b4cc0f1..437ec60 100644
+> --- a/net/sunrpc/rpcb_clnt.c
+> +++ b/net/sunrpc/rpcb_clnt.c
+> @@ -318,7 +318,7 @@ out:
+>   * Returns zero on success, otherwise a negative errno value
+>   * is returned.
+>   */
+> -static int rpcb_create_local(void)
+> +int rpcb_create_local(void)
+>  {
+>  	static DEFINE_MUTEX(rpcb_create_local_mutex);
+>  	int result = 0;
+> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+> index 6a69a11..9095c0e 100644
+> --- a/net/sunrpc/svc.c
+> +++ b/net/sunrpc/svc.c
+> @@ -367,8 +367,11 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+>  	unsigned int xdrsize;
+>  	unsigned int i;
+>  
+> -	if (!(serv = kzalloc(sizeof(*serv), GFP_KERNEL)))
+> +	if (rpcb_create_local() < 0)
+>  		return NULL;
+> +
+> +	if (!(serv = kzalloc(sizeof(*serv), GFP_KERNEL)))
+> +		goto out_err;
+>  	serv->sv_name      = prog->pg_name;
+>  	serv->sv_program   = prog;
+>  	serv->sv_nrthreads = 1;
+> @@ -403,7 +406,7 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+>  			GFP_KERNEL);
+>  	if (!serv->sv_pools) {
+>  		kfree(serv);
+> -		return NULL;
+> +		goto out_err;
+>  	}
+>  
+>  	for (i = 0; i < serv->sv_nrpools; i++) {
+> @@ -423,6 +426,10 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+>  	svc_unregister(serv);
+>  
+>  	return serv;
+> +
+> +out_err:
+> +	rpcb_put_local(); 
+> +	return NULL;
+>  }
+>  
+>  struct svc_serv *
+> @@ -491,6 +498,8 @@ svc_destroy(struct svc_serv *serv)
+>  	svc_unregister(serv);
+>  	kfree(serv->sv_pools);
+>  	kfree(serv);
+> +
+> +	rpcb_put_local();
+>  }
+>  EXPORT_SYMBOL_GPL(svc_destroy);
+>  
+> 
 
-Yes.
+I don't get it -- what's the advantage of creating rpcbind clients in
+__svc_create vs. the old way of creating them just before we plan to
+use them?
 
-> If so, are you suggesting that instead of swap_readpage and
-> swap_writepage I look into what is required for swap to use ->readpage
-> method and ->direct_IO aops?
+With this scheme, won't we end up creating rpcbind sockets even when we
+don't need them? For instance, if I create a callback socket for NFSv4
+then I don't really need to talk to rpcbind. With this patch I'll still
+get the rpcbind clients created though.
 
-The equivalent of ->direct_IO should be used for both reads and writes.
+It would seem to me to make more sense to create the rpcbind clients
+somewhere closer to svc_setup_socket, and only if SVC_SOCK_ANONYMOUS is
+not set.
 
+-- 
+Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
