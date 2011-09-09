@@ -1,144 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] af_unix: allow bigger skbs in unix_stream_sendmsg
-Date: Fri, 09 Sep 2011 13:32:28 +0200
-Message-ID: <1315567948.2294.27.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH v3] net/smsc911x: add device tree probe support
+Date: Fri, 9 Sep 2011 19:48:57 +0800
+Message-ID: <20110909114856.GA32138@S2100-06.ap.freescale.net>
+References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
+ <1312050360-15767-1-git-send-email-shawn.guo@linaro.org>
+ <20110908145946.GE2070@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Tim Chen <tim.c.chen@linux.intel.com>,
-	Andi Kleen <ak@linux.intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Shawn Guo <shawn.guo@linaro.org>, <netdev@vger.kernel.org>,
+	<patches@linaro.org>, <devicetree-discuss@lists.ozlabs.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Dave Martin <dave.martin@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56200 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933364Ab1IILcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 07:32:24 -0400
-Received: by wyh22 with SMTP id 22so1481311wyh.19
-        for <netdev@vger.kernel.org>; Fri, 09 Sep 2011 04:32:22 -0700 (PDT)
+Received: from db3ehsobe004.messaging.microsoft.com ([213.199.154.142]:43624
+	"EHLO DB3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933274Ab1IILjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 07:39:53 -0400
+Content-Disposition: inline
+In-Reply-To: <20110908145946.GE2070@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-unix_stream_sendmsg() currently builds basic skbs, of up to 16192 bytes
-(order-2 allocations) per skb.
+On Thu, Sep 08, 2011 at 03:59:46PM +0100, Dave Martin wrote:
+> Hi Shawn,
+> 
+> On Sun, Jul 31, 2011 at 02:26:00AM +0800, Shawn Guo wrote:
+> > It adds device tree probe support for smsc911x driver.
+> > 
+> > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> > Cc: Grant Likely <grant.likely@secretlab.ca>
+> > Cc: Steve Glendinning <steve.glendinning@smsc.com>
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Reviewed-by: Grant Likely <grant.likely@secretlab.ca>
+> > ---
+> > Changes since v2:
+> >  * Fix a typo in smsc911x.txt
+> > 
+> > Changes since v1:
+> >  * Instead of getting irq line from gpio number, it use irq domain
+> >    to keep platform_get_resource(IORESOURCE_IRQ) works for dt too.
+> >  * Use 'lan9115' the first model that smsc911x supports in the match
+> >    table
+> >  * Use reg-shift and reg-io-width which already used in of_serial for
+> >    shift and access size binding
+> 
+> When using this patch with vexpress, I found that 16-bit register access
+> mode doesn't seem to be getting set correctly.
+> 
+> Can you take a look at this additional patch and let me know if it looks
+> correct?
+> 
+> Cheers
+> ---Dave
+> 
+> From: Dave Martin <dave.martin@linaro.org>
+> Date: Wed, 7 Sep 2011 17:26:31 +0100
+> Subject: [PATCH] net/smsc911x: Correctly configure 16-bit register access from DT
+> 
+> The SMSC911X_USE_16BIT needs to be set when using 16-bit register
+> access.  However, currently no flag is set if the DT doesn't specify
+> 32-bit access.
+> 
+> This patch should set the SMSC911X_USE_16BIT flag in a manner consistent
+> with the documented DT bindings.
+> 
+> Signed-off-by: Dave Martin <dave.martin@linaro.org>
+> ---
 
-We switch to pure order-0 allocations, with up to 16 fragments per skbs,
-to lower number of context switches and lower memory pressure on high
-order pages and LOWMEM (frags pages can be allocated from HIGHMEM).
-We can send 64Kb in one round.
+Acked-by: Shawn Guo <shawn.guo@linaro.org>
 
-I get a 50% speedup on a AF_UNIX benchmark using 16Kb buffers.
-
-No impact on small writes.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-benchmark is hackbench, slightly modified.
-
- include/net/af_unix.h |    1 +
- net/unix/af_unix.c    |   40 ++++++++++++++++------------------------
- 2 files changed, 17 insertions(+), 24 deletions(-)
-
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 91ab5b0..9a57b4b 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -30,6 +30,7 @@ struct unix_skb_parms {
- #ifdef CONFIG_SECURITY_NETWORK
- 	u32			secid;		/* Security ID		*/
- #endif
-+	int			offset;
- };
- 
- #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 1bd4ecf..4736af4 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1575,7 +1575,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	struct sock_iocb *siocb = kiocb_to_siocb(kiocb);
- 	struct sock *sk = sock->sk;
- 	struct sock *other = NULL;
--	int err, size;
-+	int err, size, header_len;
- 	struct sk_buff *skb = NULL;
- 	int sent = 0;
- 	struct scm_cookie tmp_scm;
-@@ -1616,31 +1616,22 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		size = len-sent;
- 
- 		/* Keep two messages in the pipe so it schedules better */
--		if (size > ((sk->sk_sndbuf >> 1) - 64))
--			size = (sk->sk_sndbuf >> 1) - 64;
-+		size = min_t(int, size, (sk->sk_sndbuf >> 1) - 64);
- 
--		if (size > SKB_MAX_ALLOC)
--			size = SKB_MAX_ALLOC;
-+		/* size of a full skb, using order-0 allocations */
-+		size = min_t(int, size, SKB_MAX_ORDER(0,0) + MAX_SKB_FRAGS * PAGE_SIZE);
- 
--		/*
--		 *	Grab a buffer
--		 */
-+		header_len = min_t(int, size, SKB_MAX_ORDER(0,0));
- 
--		skb = sock_alloc_send_skb(sk, size, msg->msg_flags&MSG_DONTWAIT,
--					  &err);
-+		skb = sock_alloc_send_pskb(sk, header_len, size - header_len,
-+					   msg->msg_flags & MSG_DONTWAIT, &err);
- 
- 		if (skb == NULL)
- 			goto out_err;
- 
--		/*
--		 *	If you pass two values to the sock_alloc_send_skb
--		 *	it tries to grab the large buffer with GFP_NOFS
--		 *	(which can fail easily), and if it fails grab the
--		 *	fallback size buffer which is under a page and will
--		 *	succeed. [Alan]
--		 */
--		size = min_t(int, size, skb_tailroom(skb));
--
-+		skb_put(skb, header_len);
-+		skb->data_len = size - header_len;
-+		skb->len = size;
- 
- 		/* Only send the fds in first buffer
- 		 * Last buffer can steal our references to pid/cred
-@@ -1654,7 +1645,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		max_level = err + 1;
- 		fds_sent = true;
- 
--		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
-+		err = skb_copy_datagram_from_iovec(skb, 0, msg->msg_iov, 0, size);
- 		if (err) {
- 			kfree_skb(skb);
- 			goto out_err;
-@@ -1965,8 +1956,9 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			sunaddr = NULL;
- 		}
- 
--		chunk = min_t(unsigned int, skb->len, size);
--		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
-+		chunk = min_t(unsigned int, skb->len - UNIXCB(skb).offset, size);
-+		if (skb_copy_datagram_iovec(skb, UNIXCB(skb).offset,
-+					    msg->msg_iov, chunk)) {
- 			skb_queue_head(&sk->sk_receive_queue, skb);
- 			skb = NULL;
- 			if (copied == 0)
-@@ -1978,13 +1970,13 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 		/* Mark read part of skb as used */
- 		if (!(flags & MSG_PEEK)) {
--			skb_pull(skb, chunk);
-+			UNIXCB(skb).offset += chunk;
- 
- 			if (UNIXCB(skb).fp)
- 				unix_detach_fds(siocb->scm, skb);
- 
- 			/* put the skb back if we didn't use it up.. */
--			if (skb->len) {
-+			if (UNIXCB(skb).offset < skb->len) {
- 				skb_queue_head(&sk->sk_receive_queue, skb);
- 				skb = NULL;
- 				break;
+>  drivers/net/smsc911x.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+> index 75c08a5..1a35c25 100644
+> --- a/drivers/net/smsc911x.c
+> +++ b/drivers/net/smsc911x.c
+> @@ -2121,6 +2121,8 @@ static int __devinit smsc911x_probe_config_dt(
+>  	of_property_read_u32(np, "reg-io-width", &width);
+>  	if (width == 4)
+>  		config->flags |= SMSC911X_USE_32BIT;
+> +	else
+> +		config->flags |= SMSC911X_USE_16BIT;
+>  
+>  	if (of_get_property(np, "smsc,irq-active-high", NULL))
+>  		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+> -- 
+> 1.7.4.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
