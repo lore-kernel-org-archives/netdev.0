@@ -1,132 +1,35 @@
-From: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 3/5] SUNRPC: make RPC service dependable on rpcbind
- clients creation
-Date: Fri, 9 Sep 2011 10:07:45 -0400
-Message-ID: <20110909100745.7e2e8bf9@corrin.poochiereds.net>
-References: <20110909115146.13697.71682.stgit@localhost6.localdomain6>
-	<20110909120844.13697.48102.stgit@localhost6.localdomain6>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: [PATCH] RDSRDMA: Fix to PAGE_MASK interpretation
+Date: Fri, 9 Sep 2011 07:35:42 -0700 (PDT)
+Message-ID: <ab7cd84c-ad8b-46a3-bdc5-05ce34363260@default>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110909120844.13697.48102.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Davem <davem@davemloft.net>
+To: Netdev <netdev@vger.kernel.org>,
+	Rds-Devel <rds-devel@oss.oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:34602 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752425Ab1IIOfw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 10:35:52 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 09 Sep 2011 16:08:44 +0400
-Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
 
-> Create rcbind clients or increase rpcbind users counter during RPC service
-> creation and decrease this counter (and possibly destroy those clients) on RPC
-> service destruction.
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> 
-> ---
->  include/linux/sunrpc/clnt.h |    2 ++
->  net/sunrpc/rpcb_clnt.c      |    2 +-
->  net/sunrpc/svc.c            |   13 +++++++++++--
->  3 files changed, 14 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
-> index db7bcaf..65a8115 100644
-> --- a/include/linux/sunrpc/clnt.h
-> +++ b/include/linux/sunrpc/clnt.h
-> @@ -135,10 +135,12 @@ void		rpc_shutdown_client(struct rpc_clnt *);
->  void		rpc_release_client(struct rpc_clnt *);
->  void		rpc_task_release_client(struct rpc_task *);
->  
-> +int		rpcb_create_local(void);
->  int		rpcb_register(u32, u32, int, unsigned short);
->  int		rpcb_v4_register(const u32 program, const u32 version,
->  				 const struct sockaddr *address,
->  				 const char *netid);
-> +void		rpcb_put_local(void);
->  void		rpcb_getport_async(struct rpc_task *);
->  
->  void		rpc_call_start(struct rpc_task *);
-> diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-> index b4cc0f1..437ec60 100644
-> --- a/net/sunrpc/rpcb_clnt.c
-> +++ b/net/sunrpc/rpcb_clnt.c
-> @@ -318,7 +318,7 @@ out:
->   * Returns zero on success, otherwise a negative errno value
->   * is returned.
->   */
-> -static int rpcb_create_local(void)
-> +int rpcb_create_local(void)
->  {
->  	static DEFINE_MUTEX(rpcb_create_local_mutex);
->  	int result = 0;
-> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-> index 6a69a11..9095c0e 100644
-> --- a/net/sunrpc/svc.c
-> +++ b/net/sunrpc/svc.c
-> @@ -367,8 +367,11 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
->  	unsigned int xdrsize;
->  	unsigned int i;
->  
-> -	if (!(serv = kzalloc(sizeof(*serv), GFP_KERNEL)))
-> +	if (rpcb_create_local() < 0)
->  		return NULL;
-> +
-> +	if (!(serv = kzalloc(sizeof(*serv), GFP_KERNEL)))
-> +		goto out_err;
->  	serv->sv_name      = prog->pg_name;
->  	serv->sv_program   = prog;
->  	serv->sv_nrthreads = 1;
-> @@ -403,7 +406,7 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
->  			GFP_KERNEL);
->  	if (!serv->sv_pools) {
->  		kfree(serv);
-> -		return NULL;
-> +		goto out_err;
->  	}
->  
->  	for (i = 0; i < serv->sv_nrpools; i++) {
-> @@ -423,6 +426,10 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
->  	svc_unregister(serv);
->  
->  	return serv;
-> +
-> +out_err:
-> +	rpcb_put_local(); 
-> +	return NULL;
->  }
->  
->  struct svc_serv *
-> @@ -491,6 +498,8 @@ svc_destroy(struct svc_serv *serv)
->  	svc_unregister(serv);
->  	kfree(serv->sv_pools);
->  	kfree(serv);
-> +
-> +	rpcb_put_local();
->  }
->  EXPORT_SYMBOL_GPL(svc_destroy);
->  
-> 
+On 08/29/2011 02:28 PM, Jonathan Lallinger wrote:
+> The RDS_RDMA rds_iw_map_scatterlist function assumed PAGE_MASK was the bitwise
+> compliment of what it actually is. This problem was introduced in commit
+> 404bb72a56e553febe1055f98347a7a3e3145759 when the variable dma_mask was replaced
+> by PAGE_MASK, however dma_mask represented the compliment of what PAGE_MASK
+> represents.
+>
+> This fix corrects the logic by flipping the compliments on all uses of PAGE_MASK
+> int rds_iw_map_scatterlist.
+>
+> Signed-off by: Jonathan Lallinger<jonathan@ogc.us>
 
-I don't get it -- what's the advantage of creating rpcbind clients in
-__svc_create vs. the old way of creating them just before we plan to
-use them?
+Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 
-With this scheme, won't we end up creating rpcbind sockets even when we
-don't need them? For instance, if I create a callback socket for NFSv4
-then I don't really need to talk to rpcbind. With this patch I'll still
-get the rpcbind clients created though.
-
-It would seem to me to make more sense to create the rpcbind clients
-somewhere closer to svc_setup_socket, and only if SVC_SOCK_ANONYMOUS is
-not set.
-
--- 
-Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Venkat
