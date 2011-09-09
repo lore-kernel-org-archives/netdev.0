@@ -1,161 +1,56 @@
-From: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 3/5] SUNRPC: make RPC service dependable on rpcbind
- clients creation
-Date: Fri, 9 Sep 2011 15:01:04 -0400
-Message-ID: <20110909150104.5a83c60d@tlielax.poochiereds.net>
-References: <20110909115146.13697.71682.stgit@localhost6.localdomain6>
-	<20110909120844.13697.48102.stgit@localhost6.localdomain6>
-	<20110909100745.7e2e8bf9@corrin.poochiereds.net>
-	<4E6A41D4.6090001@parallels.com>
-	<1315593874.17611.19.camel@lade.trondhjem.org>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH] RDSRDMA: Fix cleanup of rds_iw_mr_pool
+Date: Fri, 09 Sep 2011 14:01:53 -0500
+Message-ID: <4E6A62A1.1010702@opengridcomputing.com>
+References: <67e08fa0-c2e1-44f8-ab8b-45e4bfdc9264@default>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1315593874.17611.19.camel-SyLVLa/KEI9HwK5hSS5vWB2eb7JE58TQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Rds-Devel <rds-devel@oss.oracle.com>,
+	Jonathan Lallinger <jonathan@ogc.us>
+To: Davem <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.opengridcomputing.com ([209.198.142.2]:36015 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759762Ab1IITCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 15:02:18 -0400
+In-Reply-To: <67e08fa0-c2e1-44f8-ab8b-45e4bfdc9264@default>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 09 Sep 2011 14:44:34 -0400
-Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org> wrote:
+On 09/09/2011 09:37 AM, Venkat Venkatsubra wrote:
+> On 09/08/2011 01:04 PM, Jonathan Lallinger wrote:
+>> In the rds_iw_mr_pool struct the free_pinned field keeps track of memory pinned
+>> by free MRs. While this field is incremented properly upon allocation, it is never
+>> decremented upon unmapping. This would cause the rds_rdma module to crash the
+>> kernel upon unloading, by triggering the BUG_ON in the rds_iw_destroy_mr_pool
+>> function.
+>>
+>> This change keeps track of the MRs that become unpinned, so that free_pinned
+>> can be decremented appropriately.
+>>
+>> Signed-off-by: Jonathan Lallinger<jonathan@ogc.us>
+>> Signed-off-by: Steve Wise<swise@ogc.us>
+> Signed-off-by: Venkat Venkatsubra<venkat.x.venkatsubra@oracle.com>
+>
+> Venkat
+>
 
-> On Fri, 2011-09-09 at 20:41 +0400, Stanislav Kinsbursky wrote:=20
-> > 09.09.2011 18:07, Jeff Layton =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> > > On Fri, 09 Sep 2011 16:08:44 +0400
-> > > Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>  wrote:
-> > >
-> > >> Create rcbind clients or increase rpcbind users counter during R=
-PC service
-> > >> creation and decrease this counter (and possibly destroy those c=
-lients) on RPC
-> > >> service destruction.
-> > >>
-> > >> Signed-off-by: Stanislav Kinsbursky<skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> > >>
-> > >> ---
-> > >>   include/linux/sunrpc/clnt.h |    2 ++
-> > >>   net/sunrpc/rpcb_clnt.c      |    2 +-
-> > >>   net/sunrpc/svc.c            |   13 +++++++++++--
-> > >>   3 files changed, 14 insertions(+), 3 deletions(-)
-> > >>
-> > >> diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/=
-clnt.h
-> > >> index db7bcaf..65a8115 100644
-> > >> --- a/include/linux/sunrpc/clnt.h
-> > >> +++ b/include/linux/sunrpc/clnt.h
-> > >> @@ -135,10 +135,12 @@ void		rpc_shutdown_client(struct rpc_clnt =
-*);
-> > >>   void		rpc_release_client(struct rpc_clnt *);
-> > >>   void		rpc_task_release_client(struct rpc_task *);
-> > >>
-> > >> +int		rpcb_create_local(void);
-> > >>   int		rpcb_register(u32, u32, int, unsigned short);
-> > >>   int		rpcb_v4_register(const u32 program, const u32 version,
-> > >>   				 const struct sockaddr *address,
-> > >>   				 const char *netid);
-> > >> +void		rpcb_put_local(void);
-> > >>   void		rpcb_getport_async(struct rpc_task *);
-> > >>
-> > >>   void		rpc_call_start(struct rpc_task *);
-> > >> diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-> > >> index b4cc0f1..437ec60 100644
-> > >> --- a/net/sunrpc/rpcb_clnt.c
-> > >> +++ b/net/sunrpc/rpcb_clnt.c
-> > >> @@ -318,7 +318,7 @@ out:
-> > >>    * Returns zero on success, otherwise a negative errno value
-> > >>    * is returned.
-> > >>    */
-> > >> -static int rpcb_create_local(void)
-> > >> +int rpcb_create_local(void)
-> > >>   {
-> > >>   	static DEFINE_MUTEX(rpcb_create_local_mutex);
-> > >>   	int result =3D 0;
-> > >> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-> > >> index 6a69a11..9095c0e 100644
-> > >> --- a/net/sunrpc/svc.c
-> > >> +++ b/net/sunrpc/svc.c
-> > >> @@ -367,8 +367,11 @@ __svc_create(struct svc_program *prog, unsi=
-gned int bufsize, int npools,
-> > >>   	unsigned int xdrsize;
-> > >>   	unsigned int i;
-> > >>
-> > >> -	if (!(serv =3D kzalloc(sizeof(*serv), GFP_KERNEL)))
-> > >> +	if (rpcb_create_local()<  0)
-> > >>   		return NULL;
-> > >> +
-> > >> +	if (!(serv =3D kzalloc(sizeof(*serv), GFP_KERNEL)))
-> > >> +		goto out_err;
-> > >>   	serv->sv_name      =3D prog->pg_name;
-> > >>   	serv->sv_program   =3D prog;
-> > >>   	serv->sv_nrthreads =3D 1;
-> > >> @@ -403,7 +406,7 @@ __svc_create(struct svc_program *prog, unsig=
-ned int bufsize, int npools,
-> > >>   			GFP_KERNEL);
-> > >>   	if (!serv->sv_pools) {
-> > >>   		kfree(serv);
-> > >> -		return NULL;
-> > >> +		goto out_err;
-> > >>   	}
-> > >>
-> > >>   	for (i =3D 0; i<  serv->sv_nrpools; i++) {
-> > >> @@ -423,6 +426,10 @@ __svc_create(struct svc_program *prog, unsi=
-gned int bufsize, int npools,
-> > >>   	svc_unregister(serv);
-> > >>
-> > >>   	return serv;
-> > >> +
-> > >> +out_err:
-> > >> +	rpcb_put_local();
-> > >> +	return NULL;
-> > >>   }
-> > >>
-> > >>   struct svc_serv *
-> > >> @@ -491,6 +498,8 @@ svc_destroy(struct svc_serv *serv)
-> > >>   	svc_unregister(serv);
-> > >>   	kfree(serv->sv_pools);
-> > >>   	kfree(serv);
-> > >> +
-> > >> +	rpcb_put_local();
-> > >>   }
-> > >>   EXPORT_SYMBOL_GPL(svc_destroy);
-> > >>
-> > >>
-> > >
-> > > I don't get it -- what's the advantage of creating rpcbind client=
-s in
-> > > __svc_create vs. the old way of creating them just before we plan=
- to
-> > > use them?
-> > >
-> >=20
-> > The main problem here is not in creation, but in destroying those c=
-lients.
-> > Now rpcbind clients are created during rpcb_register(). I.e. once p=
-er every family, program version and so on.
-> > But can be unregistered for all protocol families by one call. So i=
-t's impossible to put reference counting for those clients in the place=
-, where they are created now.
->=20
-> Could we perhaps set up a 'struct pernet_operations' to create a
-> destructor for them?
->=20
+Hey Dave,
 
-An even easier idea might be to just not take a reference to the
-rpcbind client for svc_programs that have vs_hidden set on every
-version.
+Is this sufficient for you to pull/merge the patch upstream?  Or should Venkat, the new RDS maintainer, do something 
+else?  Like maybe coalesce patches into a git repos and ask you to pull them in?  I'm not sure what process you had with 
+the old RDS maintainer.
 
---=20
-Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+There's another patch too from Jonathan Lallinger that fixes an RDS crash titled:
+
+[PATCH] RDSRDMA: Fix to PAGE_MASK interpretation
+
+Both have been signed off by Venkat and reviewed by me.
+
+
+Thanks,
+
+Steve.
