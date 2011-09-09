@@ -1,8 +1,7 @@
 From: Tim Chen <tim.c.chen@linux.intel.com>
-Subject: Re: [PATCH net-next] af_unix: fix use after free in
- unix_stream_recvmsg()
-Date: Fri, 09 Sep 2011 03:39:58 -0700
-Message-ID: <1315564798.2363.37.camel@schen9-mobl>
+Subject: Re: [PATCH net-next v3] af_unix: Fix use-after-free crashes
+Date: Fri, 09 Sep 2011 03:41:29 -0700
+Message-ID: <1315564889.2363.39.camel@schen9-mobl>
 References: <4E631032.6050606@intel.com>
 	 <1315326326.2576.2980.camel@schen9-DESK>
 	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
@@ -27,7 +26,6 @@ References: <4E631032.6050606@intel.com>
 	 <1315488103.2456.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 	 <1315471065.2301.1.camel@schen9-mobl>
 	 <1315551100.5410.30.camel@edumazet-laptop>
-	 <1315555109.2294.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -41,126 +39,80 @@ Cc: sedat.dilek@gmail.com, "Yan, Zheng" <zheng.z.yan@intel.com>,
 	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:65306 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:53051 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753566Ab1IIRkA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Sep 2011 13:40:00 -0400
-In-Reply-To: <1315555109.2294.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	id S1753566Ab1IIRlb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Sep 2011 13:41:31 -0400
+In-Reply-To: <1315551100.5410.30.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-09-09 at 09:58 +0200, Eric Dumazet wrote:
-> Le vendredi 09 septembre 2011 =C3=A0 08:51 +0200, Eric Dumazet a =C3=A9=
+On Fri, 2011-09-09 at 08:51 +0200, Eric Dumazet wrote:
+> Le jeudi 08 septembre 2011 =C3=A0 01:37 -0700, Tim Chen a =C3=A9crit =
+:
+> > On Thu, 2011-09-08 at 15:21 +0200, Eric Dumazet wrote:
+> > > Le jeudi 08 septembre 2011 =C3=A0 11:59 +0200, Sedat Dilek a =C3=A9=
 crit :
->=20
-> > Now we have to fix a bug in unix_stream_recvmsg() as well.
+> > >=20
+> > > > I have tested this fixup patch on i386.
+> > > > Can we have a separate patch with corrected descriptive text?
+> > > >=20
+> > > > Thanks to all involved people.
+> > >=20
+> > > Here it is :
+> > >=20
+> > > [PATCH net-next v3] af_unix: Fix use-after-free crashes
+> > >=20
+> > > Commit 0856a30409 (Scm: Remove unnecessary pid & credential refer=
+ences
+> > > in Unix socket's send and receive path) introduced an use-after-f=
+ree
+> > > bug.
+> > >=20
+> > > We are allowed to steal the references to pid/cred only in the la=
+st skb
+> > > sent from unix_stream_sendmsg(), because first skbs might be cons=
+umed by
+> > > the receiver before we finish our sendmsg() call.
+> > >=20
+> > > Remove scm_release() helper, since its cleaner to clear pid/cred =
+fields
+> > > in unix_scm_to_skb() when we steal them.
+> > >=20
+> > > Based on prior patches from Yan Zheng and Tim Chen
+> > >=20
+> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > > Reported-by: Jiri Slaby <jirislaby@gmail.com>
+> > > Tested-by: Sedat Dilek <sedat.dilek@googlemail.com>
+> > > Tested-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+> > > ---
 > >=20
-> > consume_skb() call actually releases pid/cred references, and we ca=
-n use
-> > them after their eventual freeing.
+> > Thanks.
 > >=20
-> > Keep also in mind that receiver can provides a too short user buffe=
-r,
-> > and skb can be put back to head of sk_receive_queue
+> > Acked-by: Tim Chen <tim.c.chen@linux.intel.com>
 > >=20
 >=20
-> Here is the patch to address this point.
->=20
-> Apply it after (af_unix: Fix use-after-free crashes)
->=20
-> I can make a combo patch once everybody agrees.
->=20
-> [PATCH net-next] af_unix: fix use after free in unix_stream_recvmsg()
->=20
-> Commit 0856a30409 (Scm: Remove unnecessary pid & credential reference=
-s
-> in Unix socket's send and receive path) introduced an use-after-free
-> bug in unix_stream_recvmsg().
->=20
-> We should call consume_skb(skb) only after our possible use of pid/cr=
-ed.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/unix/af_unix.c |   13 +++++++++----
->  1 file changed, 9 insertions(+), 4 deletions(-)
->=20
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index c8a08ba..1bd4ecf 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -1873,6 +1873,7 @@ static int unix_stream_recvmsg(struct kiocb *io=
-cb, struct socket *sock,
->  	int target;
->  	int err =3D 0;
->  	long timeo;
-> +	struct sk_buff *skb;
-> =20
->  	err =3D -EINVAL;
->  	if (sk->sk_state !=3D TCP_ESTABLISHED)
-> @@ -1904,7 +1905,6 @@ static int unix_stream_recvmsg(struct kiocb *io=
-cb, struct socket *sock,
-> =20
->  	do {
->  		int chunk;
-> -		struct sk_buff *skb;
-> =20
->  		unix_state_lock(sk);
->  		skb =3D skb_dequeue(&sk->sk_receive_queue);
-> @@ -1949,6 +1949,7 @@ static int unix_stream_recvmsg(struct kiocb *io=
-cb, struct socket *sock,
->  			if ((UNIXCB(skb).pid  !=3D siocb->scm->pid) ||
->  			    (UNIXCB(skb).cred !=3D siocb->scm->cred)) {
->  				skb_queue_head(&sk->sk_receive_queue, skb);
-> +				skb =3D NULL;
->  				break;
->  			}
->  		} else {
-> @@ -1967,6 +1968,7 @@ static int unix_stream_recvmsg(struct kiocb *io=
-cb, struct socket *sock,
->  		chunk =3D min_t(unsigned int, skb->len, size);
->  		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
->  			skb_queue_head(&sk->sk_receive_queue, skb);
-> +			skb =3D NULL;
->  			if (copied =3D=3D 0)
->  				copied =3D -EFAULT;
->  			break;
-> @@ -1984,13 +1986,14 @@ static int unix_stream_recvmsg(struct kiocb *=
-iocb, struct socket *sock,
->  			/* put the skb back if we didn't use it up.. */
->  			if (skb->len) {
->  				skb_queue_head(&sk->sk_receive_queue, skb);
-> +				skb =3D NULL;
->  				break;
->  			}
-> =20
-> -			consume_skb(skb);
-> -
-> -			if (siocb->scm->fp)
-> +			if (UNIXCB(skb).pid || siocb->scm->fp)
->  				break;
-> +			consume_skb(skb);
-> +			skb =3D NULL;
->  		} else {
->  			/* It is questionable, see note in unix_dgram_recvmsg.
->  			 */
-> @@ -1999,12 +2002,14 @@ static int unix_stream_recvmsg(struct kiocb *=
-iocb, struct socket *sock,
-> =20
->  			/* put message back and return */
->  			skb_queue_head(&sk->sk_receive_queue, skb);
-> +			skb =3D NULL;
->  			break;
->  		}
->  	} while (size);
-> =20
->  	mutex_unlock(&u->readlock);
->  	scm_recv(sock, msg, siocb->scm, flags);
-> +	consume_skb(skb);
->  out:
->  	return copied ? : err;
->  }
->=20
+> Now we have to fix a bug in unix_stream_recvmsg() as well.
 >=20
 
-Acked-by: Tim Chen <tim.c.chen@linux.intel.com>
+Thanks for your careful review to catch the bugs.  Wish I had thought
+about the stream msg case more in my original patch.
+
+> consume_skb() call actually releases pid/cred references, and we can =
+use
+> them after their eventual freeing.
+>=20
+> Keep also in mind that receiver can provides a too short user buffer,
+> and skb can be put back to head of sk_receive_queue
+>=20
+> Tim, your 0856a304091b33 commit introduced a lot of bugs, I was right
+> asking a revert.
+>=20
+> If we revert your patch, my litle patch (af_unix: dont send
+> SCM_CREDENTIALS by default) is enough to solve performance problems.
+>=20
+
+But the regression where we do send SCM_CREDENTIALS is not addressed,
+right?  I don't mind reverting my patch if there's a better solution.
+
+Tim
