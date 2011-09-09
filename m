@@ -1,41 +1,67 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 10/10] Avoid dereferencing bd_disk during swap_entry_free
- for network storage
-Date: Fri, 9 Sep 2011 09:02:57 -0400
-Message-ID: <20110909130257.GA15212@infradead.org>
-References: <1315566054-17209-1-git-send-email-mgorman@suse.de>
- <1315566054-17209-11-git-send-email-mgorman@suse.de>
+From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
+Subject: Re: [PATCH 01/15] add Documentation/namespaces/user_namespace.txt
+ (v3)
+Date: Fri, 9 Sep 2011 08:10:45 -0500
+Message-ID: <20110909131045.GB3476@sergelap>
+References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
+ <1314993400-6910-4-git-send-email-serge@hallyn.com>
+ <20110907155024.42e3fe27.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
-	Linux-NFS <linux-nfs@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Neil Brown <neilb@suse.de>, Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: Serge Hallyn <serge@hallyn.com>, segooon@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org, dhowells@redhat.com,
+	ebiederm@xmission.com, rdunlap@xenotime.net
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1315566054-17209-11-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <20110907155024.42e3fe27.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 09, 2011 at 12:00:54PM +0100, Mel Gorman wrote:
-> Commit [b3a27d: swap: Add swap slot free callback to
-> block_device_operations] dereferences p->bdev->bd_disk but this is a
-> NULL dereference if using swap-over-NFS. This patch checks SWP_BLKDEV
-> on the swap_info_struct before dereferencing.
+Quoting Andrew Morton (akpm@linux-foundation.org):
+> On Fri,  2 Sep 2011 19:56:26 +0000
+> Serge Hallyn <serge@hallyn.com> wrote:
+> 
+> > +Note that this userid mapping for the VFS is not yet implemented, though the
+> > +lkml and containers mailing list archives will show several previous
+> > +prototypes.  In the end, those got hung up waiting on the concept of targeted
+> > +capabilities to be developed, which, thanks to the insight of Eric Biederman,
+> > +they finally did.
+> 
+> not-yet-implemented things worry me.  When can we expect this to
+> happen, and how big and ugly will it be?
 
-Please just remove the callback entirely.  It has no user outside the
-staging tree and was added clearly against the rules for that staging
-tree.
+Hi Andrew,
 
-(and it's butt ugly)
+We did a proof of concept of the simplest version of this in early August
+(see git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/linux-userns-devel.git)
+which actually was very un-scary.  So technically we could push it at the
+same time as this set, but I thought that might just be too much for
+review in one cycle.  That set (Eric's) is the very simplest approach
+which tags an entire filesystem with a user namespace.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+We would also want to pursue the more baroque approach, where filesystems
+themselves are user-namespace aware.  I did an approach like that in
+2008, see
+https://lists.linux-foundation.org/pipermail/containers/2008-August/012679.html
+It again is very do-able without being ugly, but, importantly, user
+namespaces are usable for containers without that.  For starters, we only
+need /proc and /sys to be user namespace aware (since they must allow
+access from multiple namespaces), and that is simple as they are not
+persistent.
+
+So I believe that this is the last scary patchset, and that user
+namespaces could actually be usable by the end of the year!
+
+> I'm not seeing many (any) reviewed-by's on these patches.  I could get
+> down and stare at them myself, but that wouldn't be very useful.  This
+> work goes pretty deep and is quite security-affecting.  And network-afecting.
+> Can you round up some suitable people and get the reviewing and testing happening
+> please?
+
+Will try.  Unfortunately I missed my chance to beg and bribe people in
+person at plumbers :(
+
+thanks,
+-serge
