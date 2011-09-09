@@ -1,56 +1,42 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: Re: [BUG?] tcp: potential bug in tcp_is_sackblock_valid()
-Date: Fri, 09 Sep 2011 10:10:58 +0800
-Message-ID: <4E6975B2.8000603@intel.com>
-References: <4E696FD0.7060702@intel.com> <20110909015429.GA9156@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [omega-g1:11110] Re: [PATCH] net: configurable sysctl
+ parameter "net.core.tcp_lowat" for sk_stream_min_wspace()
+Date: Thu, 08 Sep 2011 22:17:46 -0400 (EDT)
+Message-ID: <20110908.221746.534664053184784881.davem@davemloft.net>
+References: <4E55D3C2.40308@ctc-g.co.jp>
+	<20110824.220016.781758659534965980.davem@davemloft.net>
+	<4E696D06.3000003@ctc-g.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: linux-kernel@vger.kernel.org, omega-g1@ctc-g.co.jp,
+	notsuki@redhat.com, motokazu.kozaki@hp.com, htaira@redhat.com,
+	netdev@vger.kernel.org, tomohiko.takahashi@ctc-g.co.jp,
+	kotaro.sakai@ctc-g.co.jp, ken.sugawara@ctc-g.co.jp
+To: jun.kondo@ctc-g.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:20705 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932543Ab1IICLA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Sep 2011 22:11:00 -0400
-In-Reply-To: <20110909015429.GA9156@gondor.apana.org.au>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33960 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932548Ab1IICSG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Sep 2011 22:18:06 -0400
+In-Reply-To: <4E696D06.3000003@ctc-g.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/2011 09:54 AM, Herbert Xu wrote:
-> On Fri, Sep 09, 2011 at 09:45:52AM +0800, Yan, Zheng wrote:
->> Hi all,
->>
->> I found a check in tcp_is_sackblock_valid() is suspicious. It against
->> its comment and RFC. I think the correct check should be:
->>
->> ---
->> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->> index 385c470..a5d01b1 100644
->> --- a/net/ipv4/tcp_input.c
->> +++ b/net/ipv4/tcp_input.c
->> @@ -1124,7 +1124,7 @@ static int tcp_is_sackblock_valid(struct tcp_sock *tp, int is_dsack,
->>                 return 0;
->>  
->>         /* ...Then it's D-SACK, and must reside below snd_una completely */
->> -       if (!after(end_seq, tp->snd_una))
->> +       if (after(end_seq, tp->snd_una))
->>                 return 0;
->>  
->>         if (!before(start_seq, tp->undo_marker))
->> ---
->>
->> I also checked /proc/net/netstat of my laptop, found TCPDSACKIgnoredOld
->> field is not zero. Maybe it's caused by the bug.
-> 
-> Yes this looks like a typo.  Please resend your patch with a
-> description and signed-off-by line.
-> 
+From: "Jun.Kondo" <jun.kondo@ctc-g.co.jp>
+Date: Fri, 09 Sep 2011 10:33:58 +0900
 
-I think the bug has a big influence on tcp DSACKs. It's better to
-leave it to people who fully understand tcp code.
+> - In normal situation, acquire large default transmission
+>   buffer value, and ensure high throughput from the
+>   beginning of tcp connection
 
-Thanks.
+You should never do this.  You should use the default buffer sizes and
+as a result the kernel's TCP stack automatically adjusts the send and
+receive buffers in response to the link characteristics.
+
+When you set explicit buffer sizes, this turns off the TCP stack's
+auto-tuning mechanism.
+
+Every argument made in support of your proposed feature is based upon
+a false premise of one kind of another, and this is yet another example
+of this.
