@@ -1,79 +1,88 @@
-From: David Daney <david.daney@cavium.com>
-Subject: Re: Octeon crash in virt_to_page(&core0_stack_variable)
-Date: Fri, 09 Sep 2011 09:59:05 -0700
-Message-ID: <4E6A45D9.6090706@cavium.com>
-References: <201109091623.29000.cratiu@ixiacom.com>
+From: John H <uothrawn@yahoo.com>
+Subject: Using gretap to tunnel layer 2 traffic
+Date: Fri, 9 Sep 2011 10:25:04 -0700 (PDT)
+Message-ID: <1315589104.22676.YahooMailNeo@web45104.mail.sp1.yahoo.com>
+Reply-To: John H <uothrawn@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: Cosmin Ratiu <cratiu@ixiacom.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.caviumnetworks.com ([12.108.191.235]:9563 "EHLO
-	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758642Ab1IIQ7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 12:59:12 -0400
-In-Reply-To: <201109091623.29000.cratiu@ixiacom.com>
+Received: from nm7-vm0.bullet.mail.sp2.yahoo.com ([98.139.91.192]:35228 "HELO
+	nm7-vm0.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758672Ab1IIR0G convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Sep 2011 13:26:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/2011 06:23 AM, Cosmin Ratiu wrote:
-> Hello,
->
-> I've been investigating a strange crash and I wanted to ask for your help.
-> The crash happens when virt_to_page is called with an address from the softirq
-> stack of core 0 on Cavium Octeon. It may happen on other MIPS processors as
-> well, but I'm not sure.
->
-> I've attached a simple kernel module to demonstrate the problem and the output
-> of dmesg + the crash. Two seconds after inserting the module, the kernel
-> should crash.
->
->  From what I've dug up in the kernel sources, it seems the stack for the first
-> idle task resides in the data segment (mapped in kseg2) while the rest are
-> allocated with kmalloc in __cpu_up() and reside in a different area (CAC_BASE
-> upwards).
-> It seems virt_to_phys produces bogus results for kseg2 and after that,
-> virt_to_page crashes trying to access invalid memory.
->
-> This problem was discovered when doing BGP traffic with the TCP MD5 option
-> activated, where the following call chain caused a crash:
->
->   * tcp_v4_rcv
->   *  tcp_v4_timewait_ack
->   *   tcp_v4_send_ack ->  follow stack variable rep.th
->   *    tcp_v4_md5_hash_hdr
->   *     tcp_md5_hash_header
->   *      sg_init_one
->   *       sg_set_buf
->   *        virt_to_page
->
-> I noticed that tcp_v4_send_reset uses a similar stack variable and also calls
-> tcp_v4_md5_hash_hdr, so it has the same problem.
->
-> I don't fully understand octeon mm details, so I wanted to bring up this issue
-> in order to find a proper fix.
-> To avoid the problem, I've implemented a quick hack to declare those variables
-> percpu instead of on the stack, so they would also reside in CAC_BASE upwards.
-> I've attached a patch against 2.6.32 for reference.
->
-> Cosmin.
->
->
-[...]
-> [ 2040.300/0] Call Trace:
-> [ 2040.300/0] [<ffffffffc123a054>] vcrash+0x54/0x80 [vcrash]
-> [ 2040.300/0] [<ffffffffc0065f28>] run_timer_softirq+0x198/0x23c
-> [ 2040.300/0] [<ffffffffc00609e0>] __do_softirq+0xd8/0x188
+I am attempting to tunnel Layer 2 traffic through a gretap device,=20
+while encrypting the GRE tunnel with IPsec. My test environment is as f=
+ollows:
 
-                   ^^^^^^^^^ CKSEG2 addresses detected!
+10.0.1.1=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 10.0.1.2
+client_a <--> server_left <=3D=3D> server_right <---> client_b
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 gretap/=
+IPsec
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =A0
 
-You are using the out-of-tree mapped kernel patch which mucks about with 
-the implementation of virt_to_phys().
+On the servers, I have two VLANs per server, corresponding to the unenc=
+rypted
+and encrypted interfaces.=A0 On each server, the unencrypted VLAN is=20
+bridged with the gretap device.=A0 All VLANs and physical devices have =
+MTUs of=20
+1500.=A0 The gretap device has a resultant MTU of 1462, thereby causing=
+ the=20
+bridge device to have an MTU of 1462.
 
-Can you reproduce the TCP related crash in an unpatched kernel?
+Traffic for the most part works as it is expected to behave. However,=20
+packets are dropped when client_a sends an ICMP packet to client_b whic=
+h=20
+has an MTU less than client_a's device MTU but larger than server_left'=
+s=20
+MTU. I suspect other protocols would behave similarly (silently droppin=
+g
+packets).=A0 I an running "ping -c 1 -s 1450 10.0.1.2" on client_a, thi=
+s results
+in an ICMP packet being sent with an MTU of 1478.
 
-If not, then it would point to problems in the out-of-tree patches you 
-have applied.
+An MTU of 1478 is larger than the bridge device's MTU of 1462, causing =
+the=20
+packet to be silently discarded per net/bridge/br_forward.c=20
+in function br_dev_queue_push_xmit:
 
-David Daney
+int br_dev_queue_push_xmit(struct sk_buff *skb)
+{
+=A0=A0=A0 /* drop mtu oversized packets except gso */
+=A0=A0=A0 if (packet_length(skb) > skb->dev->mtu && !skb_is_gso(skb))
+=A0=A0=A0=A0=A0=A0=A0 kfree_skb(skb);
+=A0=A0=A0 else {
+=A0=A0=A0 ....
+=A0=A0 =A0
+If the gretap device supported GSO, I suspect that this would not be a
+problem. (ethtool -k gretapLeftRight states that GSO/GRO/LRO is not=20
+supported)
+
+=46unction br_dev_queue_push_xmit eventually calls ipgre_tunnel_xmit, i=
+f the=20
+packet is not dropped.
+
+I would think that br_dev_queue_push_xmit should call ipgre_tunnel_xmit
+regardless of the device MTU and ipgre_tunnel_xmit would handle packet
+fragmentation internally, but it never has the chance.
+
+I have tried allowing all packets through br_dev_queue_push_xmit
+and explicitly setting the Don't Frament field to 0 in ipgre_tunnel_xmi=
+t,
+but this didn't solve problem.
+
+Given that this would be tunneling Layer 2 traffic, it wouldn't make se=
+nse
+to send an ICMP_FRAG_NEEDED response from the bridge.
+
+The real question is, however, why is any client able to send a single =
+ICMP
+packet with size 1478 bytes when one of the hops along the way only=20
+supports 1462 bytes per its MTU? Shouldn't this have been negotiated=20
+beforehand?
