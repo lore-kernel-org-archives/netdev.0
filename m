@@ -1,98 +1,46 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH v3] net/smsc911x: add device tree probe support
-Date: Fri, 9 Sep 2011 19:48:57 +0800
-Message-ID: <20110909114856.GA32138@S2100-06.ap.freescale.net>
-References: <1311587040-8988-1-git-send-email-shawn.guo@linaro.org>
- <1312050360-15767-1-git-send-email-shawn.guo@linaro.org>
- <20110908145946.GE2070@arm.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v2 6/9] per-cgroup tcp buffers control
+Date: Fri, 9 Sep 2011 09:01:32 -0300
+Message-ID: <4E6A001C.2040600@parallels.com>
+References: <1315369399-3073-1-git-send-email-glommer@parallels.com> <1315369399-3073-7-git-send-email-glommer@parallels.com> <20110909121206.e1d628d1.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Shawn Guo <shawn.guo@linaro.org>, <netdev@vger.kernel.org>,
-	<patches@linaro.org>, <devicetree-discuss@lists.ozlabs.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Dave Martin <dave.martin@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe004.messaging.microsoft.com ([213.199.154.142]:43624
-	"EHLO DB3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933274Ab1IILjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 07:39:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20110908145946.GE2070@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <linux-mm@kvack.org>,
+	<containers@lists.osdl.org>, <netdev@vger.kernel.org>, <xemul@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>, "Eric W. Biederman"
+	<ebiederm@xmission.com>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110909121206.e1d628d1.kamezawa.hiroyu@jp.fujitsu.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 08, 2011 at 03:59:46PM +0100, Dave Martin wrote:
-> Hi Shawn,
-> 
-> On Sun, Jul 31, 2011 at 02:26:00AM +0800, Shawn Guo wrote:
-> > It adds device tree probe support for smsc911x driver.
-> > 
-> > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-> > Cc: Grant Likely <grant.likely@secretlab.ca>
-> > Cc: Steve Glendinning <steve.glendinning@smsc.com>
-> > Cc: David S. Miller <davem@davemloft.net>
-> > Reviewed-by: Grant Likely <grant.likely@secretlab.ca>
-> > ---
-> > Changes since v2:
-> >  * Fix a typo in smsc911x.txt
-> > 
-> > Changes since v1:
-> >  * Instead of getting irq line from gpio number, it use irq domain
-> >    to keep platform_get_resource(IORESOURCE_IRQ) works for dt too.
-> >  * Use 'lan9115' the first model that smsc911x supports in the match
-> >    table
-> >  * Use reg-shift and reg-io-width which already used in of_serial for
-> >    shift and access size binding
-> 
-> When using this patch with vexpress, I found that 16-bit register access
-> mode doesn't seem to be getting set correctly.
-> 
-> Can you take a look at this additional patch and let me know if it looks
-> correct?
-> 
-> Cheers
-> ---Dave
-> 
-> From: Dave Martin <dave.martin@linaro.org>
-> Date: Wed, 7 Sep 2011 17:26:31 +0100
-> Subject: [PATCH] net/smsc911x: Correctly configure 16-bit register access from DT
-> 
-> The SMSC911X_USE_16BIT needs to be set when using 16-bit register
-> access.  However, currently no flag is set if the DT doesn't specify
-> 32-bit access.
-> 
-> This patch should set the SMSC911X_USE_16BIT flag in a manner consistent
-> with the documented DT bindings.
-> 
-> Signed-off-by: Dave Martin <dave.martin@linaro.org>
-> ---
+On 09/09/2011 12:12 AM, KAMEZAWA Hiroyuki wrote:
+> On Wed,  7 Sep 2011 01:23:16 -0300
+> Glauber Costa<glommer@parallels.com>  wrote:
+>
+>> With all the infrastructure in place, this patch implements
+>> per-cgroup control for tcp memory pressure handling.
+>>
+>> Signed-off-by: Glauber Costa<glommer@parallels.com>
+>> CC: David S. Miller<davem@davemloft.net>
+>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+>> CC: Eric W. Biederman<ebiederm@xmission.com>
+>
+> Hmm, then, kmem_cgroup.c is just a caller of plugins implemented
+> by other components ?
 
-Acked-by: Shawn Guo <shawn.guo@linaro.org>
+Kame,
 
->  drivers/net/smsc911x.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-> index 75c08a5..1a35c25 100644
-> --- a/drivers/net/smsc911x.c
-> +++ b/drivers/net/smsc911x.c
-> @@ -2121,6 +2121,8 @@ static int __devinit smsc911x_probe_config_dt(
->  	of_property_read_u32(np, "reg-io-width", &width);
->  	if (width == 4)
->  		config->flags |= SMSC911X_USE_32BIT;
-> +	else
-> +		config->flags |= SMSC911X_USE_16BIT;
->  
->  	if (of_get_property(np, "smsc,irq-active-high", NULL))
->  		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
-> -- 
-> 1.7.4.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Refer to my discussion with Greg. How would you feel about it being 
+accounted to a single "kernel memory" limit in memcg?
+
+Thanks!
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
