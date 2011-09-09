@@ -1,58 +1,40 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering support
- for passthru mode
-Date: Thu, 08 Sep 2011 21:25:58 -0700
-Message-ID: <4E699556.6050809@us.ibm.com>
-References: <CA8ECF75.33BFF%roprabhu@cisco.com>
+From: Kumar S <ps2kumar@yahoo.com>
+Subject: Memory leak in ip_dst_cache
+Date: Thu, 8 Sep 2011 22:04:34 -0700 (PDT)
+Message-ID: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>
+Reply-To: Kumar S <ps2kumar@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	dragos.tatulea@gmail.com, arnd@arndb.de, dwang2@cisco.com,
-	benve@cisco.com, kaber@trash.net, davem@davemloft.net,
-	eric.dumazet@gmail.com, mchan@broadcom.com, kvm@vger.kernel.org
-To: Roopa Prabhu <roprabhu@cisco.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <CA8ECF75.33BFF%roprabhu@cisco.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm3.bullet.mail.sp2.yahoo.com ([98.139.91.73]:27141 "HELO
+	nm3.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753148Ab1IIFEf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Sep 2011 01:04:35 -0400
+References: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9/8/2011 8:00 PM, Roopa Prabhu wrote:
->
->
-> On 9/8/11 12:33 PM, "Michael S. Tsirkin"<mst@redhat.com>  wrote:
->
->> On Thu, Sep 08, 2011 at 12:23:56PM -0700, Roopa Prabhu wrote:
->>>> I think the main usecase for passthru mode is to assign a SR-IOV VF to
->>>> a single guest.
->>>>
->>> Yes and for the passthru usecase this patch should be enough to enable
->>> filtering in hw (eventually like I indicated before I need to fix vlan
->>> filtering too).
->> So with filtering in hw, and in sriov VF case, VFs
->> actually share a filtering table. How will that
->> be partitioned?
-> AFAIK, though it might maintain a single filter table space in hw, hw does
-> know which filter belongs to which VF. And the OS driver does not need to do
-> anything special. The VF driver exposes a VF netdev. And any uc/mc addresses
-> registered with a VF netdev are registered with the hw by the driver. And hw
-> will filter and send only pkts that the VF has expressed interest in.
-Does your NIC & driver support adding multiple mac addresses to a VF?
-I have tried a few other SR-IOV NICs sometime back and they didn't 
-support this feature.
-
-Currently, we don't have an interface to add multiple mac addresses to a 
-netdev other than an
-indirect way of creating a macvlan /if on top of it.
-
-Thanks
-Sridhar
-
->
-> No special filter partitioning in hw is required.
->
-> Thanks,
-> Roopa
->
-
-
+Hi,
+We are=A0running Linux-2.6.24 kernel on MPC8360. Though forwarding is d=
+isabled, when connected to public network we see the system running out=
+ of memory and rebooting frequently. After doing some study we found ou=
+t slowly "ip_dst-cache" is growing, and doesn't release entries. Intere=
+stingly route entries displayed with command "ip route ls cache" show f=
+ewer than the active objects listed under "cat /proc/slabinfo | grep ip=
+_dst_cache". After doing some study, we could reproduce it in the lab b=
+y injecting packets withdifferent source IP addresses. Ideally ageing s=
+hould happen, and old entries are supposed to be cleared out, but that =
+doesn't happen. We do see one or two entries getting agedout but not al=
+l.=20
+After some time we did see that "rt_run_flush" kicks in and flushes out=
+ the ip_dst_cache. That's why the "ip route ls cache" fewer entries. Bu=
+t looks like __chache_free() doesn't get called, that's why these entri=
+es are not really released. This results in the leak.
+=A0
+Any idea what is going wrong here. Is it a known bug?
+=A0
+Regards
+psk
