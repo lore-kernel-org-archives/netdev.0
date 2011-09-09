@@ -1,79 +1,68 @@
-From: Daniel Hellstrom <daniel@gaisler.com>
-Subject: Re: [PATCH 2/2] GRETH: avoid overwrite IP-stack's IP-frags checksum
-Date: Fri, 09 Sep 2011 16:41:05 +0200
-Message-ID: <4E6A2581.9000709@gaisler.com>
-References: <1315487676-16733-1-git-send-email-daniel@gaisler.com>	 <1315487676-16733-2-git-send-email-daniel@gaisler.com> <1315574967.2294.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6] can/sja1000: driver for PEAK PCAN PCI/PCIe
+	cards
+Date: Fri, 09 Sep 2011 16:42:54 +0200
+Message-ID: <4E6A25EE.3000501@hartkopp.net>
+References: <4E692080.9020801@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kristoffer@gaisler.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail202c2.megamailservers.com ([69.49.111.103]:39152 "EHLO
-	mail202c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758408Ab1IIOkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Sep 2011 10:40:21 -0400
-In-Reply-To: <1315574967.2294.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org,
+	Thomas Wiedemann <Thomas.Wiedemann-8kCRUXUQ4vU@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4E692080.9020801-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/09/2011 03:29 PM, Eric Dumazet wrote:
-> Le jeudi 08 septembre 2011 =C3=A0 15:14 +0200, Daniel Hellstrom a =C3=
-=A9crit :
->> The GRETH GBIT core does not do checksum offloading for IP
->> segmentation. This patch adds a check in the xmit function to
->> determine if the stack has calculated the checksum for us.
->>
->> Signed-off-by: Daniel Hellstrom<daniel@gaisler.com>
->> ---
->>   drivers/net/greth.c |    7 +++++--
->>   1 files changed, 5 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/greth.c b/drivers/net/greth.c
->> index 9d39fb9..27ba855 100644
->> --- a/drivers/net/greth.c
->> +++ b/drivers/net/greth.c
->> @@ -489,7 +489,8 @@ greth_start_xmit_gbit(struct sk_buff *skb, struc=
-t net_device *dev)
->>   	if (nr_frags !=3D 0)
->>   		status =3D GRETH_TXBD_MORE;
->>
->> -	status |=3D GRETH_TXBD_CSALL;
->> +	if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL)
->> +		status |=3D GRETH_TXBD_CSALL;
->>   	status |=3D skb_headlen(skb)&  GRETH_BD_LEN;
->>   	if (greth->tx_next =3D=3D GRETH_TXBD_NUM_MASK)
->>   		status |=3D GRETH_BD_WR;
->> @@ -512,7 +513,9 @@ greth_start_xmit_gbit(struct sk_buff *skb, struc=
-t net_device *dev)
->>   		greth->tx_skbuff[curr_tx] =3D NULL;
->>   		bdp =3D greth->tx_bd_base + curr_tx;
->>
->> -		status =3D GRETH_TXBD_CSALL | GRETH_BD_EN;
->> +		status =3D GRETH_BD_EN;
->> +		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL)
->> +			status | GRETH_TXBD_CSALL;
-> 		typo here ?
-Hi,
+Hello Wolfgang,
 
-You're right, I had a missed space there so the code-style check failed=
- at that line, then I fixed that by adding a space... but must have scr=
-ewed it up. Will repost patch.
+many thanks for providing this patch!
 
-Thanks,
-Daniel
+On 09/08/11 22:07, Wolfgang Grandegger wrote:
+
+> This patch adds the "peak_pci" driver for the PCAN PCI/PCIe cards (1, 2, 3
+> or 4 channels) from PEAK Systems (http://www.peak-system.com).
 
 
+Yes - that fits, but ...
 
->
->>   		status |=3D frag->size&  GRETH_BD_LEN;
->>
->>   		/* Wrap around descriptor ring */
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+
+> +#define PEAK_PCI_VENDOR_ID	0x001C	/* The PCI device and vendor IDs */
+> +#define PEAK_PCI_DEVICE_ID	0x0001	/* for PCI / PCIe slot cards */
+> +#define PEAK_PCIE_DEVICE_ID	0x0002	/* for PCIExpress cards */
+> +
+> +static const u16 peak_pci_icr_masks[] = {0x02, 0x01, 0x40, 0x80};
+> +
+> +static DEFINE_PCI_DEVICE_TABLE(peak_pci_tbl) = {
+> +	{PEAK_PCI_VENDOR_ID, PEAK_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
+> +	{PEAK_PCI_VENDOR_ID, PEAK_PCIE_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID,},
+> +	{0,}
+> +};
+
+
+The problem is the support of the PCAN ExpressCard (device ID 0x0002) here.
+
+This commit
+
+   https://lists.berlios.de/pipermail/socketcan-commit/2010-June/000814.html
+
+should be reverted, as you can use the PCAN-ExpressCard (IPEH-00300[12]) only
+with a hardware patch, as we need some I2C initialisations to enable the CAN
+transceiver (and the funky status LEDs). See at:
+
+http://anonscm.debian.org/gitweb/?p=collab-maint/peak-linux-driver.git;a=blob;f=driver/src/pcan_pciec.c;h=87ce0bda41aa0a6dda8284d48237b1ef7c678e11;hb=HEAD#l36
+
+I'll also test your driver on Monday.
+
+Tnx & best regards,
+Oliver
