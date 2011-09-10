@@ -1,44 +1,68 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Memory leak in ip_dst_cache
-Date: Sat, 10 Sep 2011 09:04:16 -0400
-Message-ID: <20110910130416.GA2005@neilslaptop.think-freely.org>
-References: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>
- <1315546223.5410.23.camel@edumazet-laptop>
- <1315593553.98279.YahooMailNeo@web113904.mail.gq1.yahoo.com>
- <1315596786.2606.3.camel@edumazet-laptop>
- <1315601283.91185.YahooMailNeo@web113908.mail.gq1.yahoo.com>
- <1315604820.2606.13.camel@edumazet-laptop>
- <1315605497.25052.YahooMailNeo@web113916.mail.gq1.yahoo.com>
- <1315606125.2606.19.camel@edumazet-laptop>
- <1315608825.98066.YahooMailNeo@web113914.mail.gq1.yahoo.com>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: [PATCH] mac_esp: remove redundant mutual exclusion
+Date: Sun, 11 Sep 2011 01:01:34 +1000 (EST)
+Message-ID: <alpine.LNX.2.00.1109110038500.5327@nippy.intranet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Kumar S <ps2kumar@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:45939 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759273Ab1IJNE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2011 09:04:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1315608825.98066.YahooMailNeo@web113914.mail.gq1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-m68k@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 09, 2011 at 03:53:45PM -0700, Kumar S wrote:
-> Yes Eric, this command doesn't work on 2.6.24. Which timer are you suspecting?
-> 
-He means that the timer that starts the the workqueue which calls dst_gc_task is
-either delayed indefinately, or otherwise not run, which means that the route
-cache will never be scanned for old entries.  The implication being that, while
-the dst entries aren't leaked per-se, but never expired, so they just sit
-around.  You can check this by instrumenting gc_dst_task with a printk or two
-and watch to see if it ever pops up.
+Mutual exclusion is redundant here because all the paths in the call graph 
+leading to esp_driver_ops.send_dma_cmd() happen under spin_lock_irqsave/ 
+spin_lock_irqrestore. Remove it.
 
-If you only have 512Mb of ram and want to really restrict you're cache size, you
-should definately consider backporting the route cache rebuild patch to disable
-the route cache usage entirely.  It shouldn't be too hard to do.
-Neil
+Tested on a Mac Quadra 660av and a Mac LC 630.
 
-> 
+Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
+
+---
+
+Part of this patch relates to Geert's m68k generic hard irq conversion 
+work. Under genirq, the disable_irq() in mac_esp leads to deadlock. It 
+wasn't a problem before because the m68k disable_irq() implementation is 
+equivalent to genirq's disable_irq_nosync().
+
+Index: linux-m68k/drivers/scsi/mac_esp.c
+===================================================================
+--- linux-m68k.orig/drivers/scsi/mac_esp.c	2011-08-28 00:33:13.000000000 +1000
++++ linux-m68k/drivers/scsi/mac_esp.c	2011-08-28 00:35:48.000000000 +1000
+@@ -230,9 +230,6 @@ static void mac_esp_send_pdma_cmd(struct
+ 				  u32 dma_count, int write, u8 cmd)
+ {
+ 	struct mac_esp_priv *mep = MAC_ESP_GET_PRIV(esp);
+-	unsigned long flags;
+-
+-	local_irq_save(flags);
+ 
+ 	mep->error = 0;
+ 
+@@ -270,8 +267,6 @@ static void mac_esp_send_pdma_cmd(struct
+ 			esp_count = n;
+ 		}
+ 	} while (esp_count);
+-
+-	local_irq_restore(flags);
+ }
+ 
+ /*
+@@ -353,8 +348,6 @@ static void mac_esp_send_pio_cmd(struct
+ 	struct mac_esp_priv *mep = MAC_ESP_GET_PRIV(esp);
+ 	u8 *fifo = esp->regs + ESP_FDATA * 16;
+ 
+-	disable_irq(esp->host->irq);
+-
+ 	cmd &= ~ESP_CMD_DMA;
+ 	mep->error = 0;
+ 
+@@ -431,8 +424,6 @@ static void mac_esp_send_pio_cmd(struct
+ 			scsi_esp_cmd(esp, ESP_CMD_TI);
+ 		}
+ 	}
+-
+-	enable_irq(esp->host->irq);
+ }
+ 
+ static int mac_esp_irq_pending(struct esp *esp)
