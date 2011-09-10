@@ -1,93 +1,78 @@
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Subject: Re: Backporting the Linux kernel, for good - was: Re: semantic patch
- inference
-Date: Sat, 10 Sep 2011 05:12:51 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1109100512190.14019@ask.diku.dk>
-References: <CAB=NE6U0ks9CobukO04=bZpnkm3Yw+Pf7keVPsP-hv1NyJZ_Xw@mail.gmail.com>
- <Pine.LNX.4.64.1109092245170.9242@ask.diku.dk>
- <CA+RMdsmEJRv8i81o_GD6o7Bn0MpQJMidghTnt3f-QEeU6V6eNQ@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH -next] drivers/net: Makefile, fix netconsole link order
+Date: Fri, 9 Sep 2011 21:10:29 -0700
+Message-ID: <20110909211029.69dfd68d.akpm@linux-foundation.org>
+References: <1315298129.16061.24.camel@snb>
+	<20110909170027.c4bf6151.akpm@linux-foundation.org>
+	<1315622612.2425.16.camel@hp6530s>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jesper Andersen <jespera-dAYI7NvHqcQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+RMdsmEJRv8i81o_GD6o7Bn0MpQJMidghTnt3f-QEeU6V6eNQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Lin Ming <ming.m.lin@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1315622612.2425.16.camel@hp6530s>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 10 Sep 2011, Jesper Andersen wrote:
+On Sat, 10 Sep 2011 10:43:32 +0800 Lin Ming <ming.m.lin@intel.com> wrote:
 
-> I'm in Singapore now and will head for Denmark tomorrow so I can't promise
-> very instant reponses.
+> On Sat, 2011-09-10 at 08:00 +0800, Andrew Morton wrote:
+>
+> > > +obj-$(CONFIG_NETCONSOLE) += netconsole.o
+> > 
+> > It would be preferable to fix this with initcall ordering.  Perhaps by
+> > switching init_netconsole() to subsys_initcall.
 > 
-> I haven't read the full thread just yet, but I just wanted to clarify one
-> thing:
-> 
-> On Saturday, September 10, 2011, Julia Lawall wrote:
-> >
-> > There was also the question about one or multiple types of changes.  I
-> > think this is not a problem, but Jesper should confirm.  If a patch
-> > contains
-> > two changes and one can be generalized and the other one cannot for some
-> > reason, does spdiff give up on the whole thing, or does it do what it can?
-> >
-> >
-> It's a little difficult to answer this precisely, so let me instead give an
-> example and then you can say in what way my example falls short of what you
-> thought of.
-> 
-> Suppose we have two functions that changed:
-> 
-> f1=
-> void foo() {
->   bar(x->dev);
->   foz(117);
-> }
-> 
-> f2=
-> void goo() {
->   if(b) bar(y->dev);
-> }
-> 
-> 
-> And the new versions are:
-> 
-> f1'=
-> void foo() {
->   bar(x);
->   foz(117, 42);
-> }
-> 
-> f2'=
-> void goo() {
->   if(b) bar(y);
-> }
-> 
-> In this example there are basically three changes:
-> 
-> x->dev becomes x
-> y->dev becomes y
-> foz(117) becomes foz(117', 42)
-> 
-> In this case spdiff will find: (I just ran it to be sure)
-> @@
-> expression X0;
-> @@
-> - bar(X0->dev);
-> + bar(X0);
-> 
-> So the one ungeneralizable change was simply not included. Does this cover
-> your question Julia?
+> subsys_initcall is defined as __define_initcall("4",fn,4).
+> In !MODULE case, device driver module_int() is defined as
+> __define_initcall("6",fn,6)
 
-That seems good.  But perhaps the user would like to know about the 
-elements that were not generalizable as well.
+oop, yes, I am chronologically challenged.
 
-julia
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> If we use subsys_initcall for init_netconsole, it will still be called
+> before network device driver is initialized.
+> 
+> How about late_initcall?
+> 
+> (Not tested yet)
+> 
+> >From 11f4f035e96ff430192d0a75552dd715acb5f3b8 Mon Sep 17 00:00:00 2001
+> From: Lin Ming <ming.m.lin@intel.com>
+> Date: Sat, 10 Sep 2011 10:36:10 +0800
+> Subject: [PATCH] drivers/net: Makefile, fix netconsole link order
+> 
+> Commit 88491d8(drivers/net: Kconfig & Makefile cleanup) causes a
+> regression that netconsole does not work if netconsole and network
+> device driver are build into kernel, because netconsole is linked before
+> network device driver.
+> 
+> Fixes it by switching init_netconsole() to late_initcall if it's
+> build-in.
+> 
+> Signed-off-by: Lin Ming <ming.m.lin@intel.com>
+> ---
+>  drivers/net/netconsole.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+> index dfc8272..914be29 100644
+> --- a/drivers/net/netconsole.c
+> +++ b/drivers/net/netconsole.c
+> @@ -799,5 +799,9 @@ static void __exit cleanup_netconsole(void)
+>  	}
+>  }
+>  
+> +#ifdef MODULE
+>  module_init(init_netconsole);
+>  module_exit(cleanup_netconsole);
+> +#else
+> +late_initcall(init_netconsole);
+> +#endif /* !MODULE */
+
+That should work, unless any net driver is weirdly also using
+late_initcall.  But if there are such drivers, they would have failed
+with the old Makefile ordering.
