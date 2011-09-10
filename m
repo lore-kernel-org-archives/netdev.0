@@ -1,70 +1,72 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: [PATCH] macmace: disable only the dma interrupt
-Date: Sun, 11 Sep 2011 01:02:16 +1000 (EST)
-Message-ID: <alpine.LNX.2.00.1109110042210.5327@nippy.intranet>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-Sender: linux-m68k-owner@vger.kernel.org
+From: Wanlong Gao <wanlong.gao@gmail.com>
+Subject: [PATCH] fib:fix BUG_ON in fib_nl_newrule when add new fib rule
+Date: Sun, 11 Sep 2011 01:19:10 +0800
+Message-ID: <1315675150-3012-1-git-send-email-wanlong.gao@gmail.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	omarapazanadi@gmail.com, Gao feng <gaofeng@cn.fujitsu.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don't disable all interrupts, just disable the relevant one.
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-Also move a couple of printk calls outside of local_irq_save/restore.
+add new fib rule can cause BUG_ON
+the reproduce shell is
 
-Tested on a Quadra 660av.
+#ip rule add pref 38
+#ip rule add pref 38
+#ip rule add to 192.168.3.0/24 goto 38
+#ip rule del pref 38
+#ip rule add to 192.168.3.0/24 goto 38
+#ip rule add pref 38
 
-Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
+then the BUG_ON will happen
+add a var unresolved in struct fib_rule
+and use it to identify whether this rule is unresolved
 
-Index: linux-m68k/drivers/net/macmace.c
-===================================================================
---- linux-m68k.orig/drivers/net/macmace.c	2011-08-28 00:33:33.000000000 +1000
-+++ linux-m68k/drivers/net/macmace.c	2011-08-28 00:36:10.000000000 +1000
-@@ -458,8 +458,9 @@ static int mace_xmit_start(struct sk_buf
- 	local_irq_save(flags);
- 	netif_stop_queue(dev);
- 	if (!mp->tx_count) {
--		printk(KERN_ERR "macmace: tx queue running but no free buffers.\n");
- 		local_irq_restore(flags);
-+		printk(KERN_ERR
-+		       "macmace: tx queue running but no free buffers.\n");
- 		return NETDEV_TX_BUSY;
- 	}
- 	mp->tx_count--;
-@@ -563,10 +564,8 @@ static irqreturn_t mace_interrupt(int ir
- 	struct mace_data *mp = netdev_priv(dev);
- 	volatile struct mace *mb = mp->mace;
- 	int intr, fs;
--	unsigned long flags;
- 
--	/* don't want the dma interrupt handler to fire */
--	local_irq_save(flags);
-+	disable_irq(mp->dma_intr);
- 
- 	intr = mb->ir; /* read interrupt register */
- 	mace_handle_misc_intrs(dev, intr);
-@@ -604,7 +603,7 @@ static irqreturn_t mace_interrupt(int ir
- 	if (mp->tx_count)
- 		netif_wake_queue(dev);
- 
--	local_irq_restore(flags);
-+	enable_irq(mp->dma_intr);
- 
- 	return IRQ_HANDLED;
- }
-@@ -615,11 +614,12 @@ static void mace_tx_timeout(struct net_d
- 	volatile struct mace *mb = mp->mace;
- 	unsigned long flags;
- 
-+	printk(KERN_ERR "macmace: transmit timeout - resetting\n");
-+
- 	local_irq_save(flags);
- 
- 	/* turn off both tx and rx and reset the chip */
- 	mb->maccc = 0;
--	printk(KERN_ERR "macmace: transmit timeout - resetting\n");
- 	mace_txdma_reset(dev);
- 	mace_reset(dev);
- 
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ include/net/fib_rules.h |    1 +
+ net/core/fib_rules.c    |    5 ++++-
+ 2 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 075f1e3..e4bae01 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -19,6 +19,7 @@ struct fib_rule {
+ 	u32			flags;
+ 	u32			table;
+ 	u8			action;
++	u8			unresolved;
+ 	u32			target;
+ 	struct fib_rule __rcu	*ctarget;
+ 	char			iifname[IFNAMSIZ];
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index e7ab0c0..aa20560 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -384,9 +384,11 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		 */
+ 		list_for_each_entry(r, &ops->rules_list, list) {
+ 			if (r->action == FR_ACT_GOTO &&
+-			    r->target == rule->pref) {
++			    r->target == rule->pref &&
++			    r->unresolved) {
+ 				BUG_ON(rtnl_dereference(r->ctarget) != NULL);
+ 				rcu_assign_pointer(r->ctarget, rule);
++				r->unresolved = 0;
+ 				if (--ops->unresolved_rules == 0)
+ 					break;
+ 			}
+@@ -488,6 +490,7 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 			list_for_each_entry(tmp, &ops->rules_list, list) {
+ 				if (rtnl_dereference(tmp->ctarget) == rule) {
+ 					rcu_assign_pointer(tmp->ctarget, NULL);
++					tmp->unresolved = 1;
+ 					ops->unresolved_rules++;
+ 				}
+ 			}
+-- 
+1.7.6
