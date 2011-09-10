@@ -1,86 +1,58 @@
-From: Lin Ming <ming.m.lin@intel.com>
-Subject: Re: [PATCH -next] drivers/net: Makefile, fix netconsole link order
-Date: Sat, 10 Sep 2011 12:26:17 +0800
-Message-ID: <1315628777.3854.7.camel@hp6530s>
-References: <1315298129.16061.24.camel@snb>
-	 <20110909170027.c4bf6151.akpm@linux-foundation.org>
-	 <1315622612.2425.16.camel@hp6530s>
-	 <20110909211029.69dfd68d.akpm@linux-foundation.org>
+From: Bart Van Assche <bvanassche@acm.org>
+Subject: skge: transmit queue 0 timed out
+Date: Sat, 10 Sep 2011 11:27:43 +0200
+Message-ID: <CAO+b5-ppHOa72H4D8zoaLTA_tWNdeL5SXo0=aO-4dbbtzgiw5w@mail.gmail.com>
+References: <CAO+b5-qVoOOCyUXThinNvGwGudXg0FK-C+aiZ1YMYzKu+Ew0hw@mail.gmail.com>
+ <CAO+b5-p=9NXJrT1h6KQG9BpP=mDp8XjMZsCxsk=WkuBZ_KhtKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110909211029.69dfd68d.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f43.google.com ([209.85.212.43]:54200 "EHLO
+	mail-vw0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751982Ab1IJJ2E convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2011 05:28:04 -0400
+Received: by vws10 with SMTP id 10so2488885vws.2
+        for <netdev@vger.kernel.org>; Sat, 10 Sep 2011 02:28:03 -0700 (PDT)
+In-Reply-To: <CAO+b5-p=9NXJrT1h6KQG9BpP=mDp8XjMZsCxsk=WkuBZ_KhtKA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-09-10 at 12:10 +0800, Andrew Morton wrote:
-> On Sat, 10 Sep 2011 10:43:32 +0800 Lin Ming <ming.m.lin@intel.com> wrote:
-> 
-> > On Sat, 2011-09-10 at 08:00 +0800, Andrew Morton wrote:
-> >
-> > > > +obj-$(CONFIG_NETCONSOLE) += netconsole.o
-> > > 
-> > > It would be preferable to fix this with initcall ordering.  Perhaps by
-> > > switching init_netconsole() to subsys_initcall.
-> > 
-> > subsys_initcall is defined as __define_initcall("4",fn,4).
-> > In !MODULE case, device driver module_int() is defined as
-> > __define_initcall("6",fn,6)
-> 
-> oop, yes, I am chronologically challenged.
-> 
-> > If we use subsys_initcall for init_netconsole, it will still be called
-> > before network device driver is initialized.
-> > 
-> > How about late_initcall?
-> > 
-> > (Not tested yet)
-> > 
-> > >From 11f4f035e96ff430192d0a75552dd715acb5f3b8 Mon Sep 17 00:00:00 2001
-> > From: Lin Ming <ming.m.lin@intel.com>
-> > Date: Sat, 10 Sep 2011 10:36:10 +0800
-> > Subject: [PATCH] drivers/net: Makefile, fix netconsole link order
-> > 
-> > Commit 88491d8(drivers/net: Kconfig & Makefile cleanup) causes a
-> > regression that netconsole does not work if netconsole and network
-> > device driver are build into kernel, because netconsole is linked before
-> > network device driver.
-> > 
-> > Fixes it by switching init_netconsole() to late_initcall if it's
-> > build-in.
-> > 
-> > Signed-off-by: Lin Ming <ming.m.lin@intel.com>
-> > ---
-> >  drivers/net/netconsole.c |    4 ++++
-> >  1 files changed, 4 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-> > index dfc8272..914be29 100644
-> > --- a/drivers/net/netconsole.c
-> > +++ b/drivers/net/netconsole.c
-> > @@ -799,5 +799,9 @@ static void __exit cleanup_netconsole(void)
-> >  	}
-> >  }
-> >  
-> > +#ifdef MODULE
-> >  module_init(init_netconsole);
-> >  module_exit(cleanup_netconsole);
-> > +#else
-> > +late_initcall(init_netconsole);
-> > +#endif /* !MODULE */
-> 
-> That should work, unless any net driver is weirdly also using
-> late_initcall.  But if there are such drivers, they would have failed
-> with the old Makefile ordering.
+Hello,
 
-Yes.
+Anyone who can tell me whether I should worry about the kernel warning
+shown below ? I've observed that warning for the first time with
+3.1-rc5 and hadn't seen it yet with 3.1-rc4 or any older kernel.
 
-BTW, may I get your ACK after testing this patch?
+------------[ cut here ]------------
+WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x24f/0x260()
+Hardware name: P5Q DELUXE
+NETDEV WATCHDOG: eth0 (skge): transmit queue 0 timed out
+Modules linked in: snd_pcm_oss snd_mixer_oss snd_seq snd_seq_device
+af_packet rdma_ucm rdma_cm iw_cm ib_addr ib_ipoib ib_cm ib_sa
+ib_uverbs ib_umad mlx4_ib ib_mad ib_core microcode
+cpufreq_conservative cpufreq_userspaceq mperf dm_mod
+snd_hda_codec_hdmi snd_hda_codec_analog snd_hda_intel snd_hda_codec
+snd_hwdep snd_pcm snd_timer snd sr_mod mlx4_core sg cdrom soundcore
+i2c_i801 snd_page_alloc i2c_core pcspkr button uhci_hcd ehci_hcd sxt3
+mbcache jbd fan ata_generic ata_piix pata_marvell ahci libahci libata
+scsi_mod thermal processor thermal_sys hwmon
+Pid: 6260, comm: wish Not tainted 3.1.0-rc4-scst-debug+ #2
+Call Trace:
+=A0<IRQ>=A0 [<ffffffff8104564f>] warn_slowpath_common+0x7f/0xc0
+=A0[<ffffffff81045746>] warn_slowpath_fmt+0x46/0x50
+=A0[<ffffffff813268df>] dev_watchdog+0x24f/0x260
+=A0[<ffffffff8105602a>] run_timer_softirq+0x19a/0x3f0
+=A0[<ffffffff81055f97>] ? run_timer_softirq+0x107/0x3f0
+=A0[<ffffffff81326690>] ? pfifo_fast_init+0xa0/0xa0
+=A0[<ffffffff8104cecd>] __do_softirq+0xcd/0x250
+=A0[<ffffffff813e5cec>] call_softirq+0x1c/0x30
+=A0[<ffffffff810043bd>] do_softirq+0x8d/0xc0
+=A0[<ffffffff8104d36e>] irq_exit+0xae/0xe0
+=A0[<ffffffff813e637e>] smp_apic_timer_interrupt+0x6e/0x99
+=A0[<ffffffff813e4570>] apic_timer_interrupt+0x70/0x80
+=A0<EOI>=A0 [<ffffffff813dbe0a>] ? retint_swapgs+0xe/0x13
+---[ end trace fbbed52d2a66b808 ]---
 
-Thanks.
+Bart.
