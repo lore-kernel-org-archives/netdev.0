@@ -1,58 +1,44 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: skge: transmit queue 0 timed out
-Date: Sat, 10 Sep 2011 11:27:43 +0200
-Message-ID: <CAO+b5-ppHOa72H4D8zoaLTA_tWNdeL5SXo0=aO-4dbbtzgiw5w@mail.gmail.com>
-References: <CAO+b5-qVoOOCyUXThinNvGwGudXg0FK-C+aiZ1YMYzKu+Ew0hw@mail.gmail.com>
- <CAO+b5-p=9NXJrT1h6KQG9BpP=mDp8XjMZsCxsk=WkuBZ_KhtKA@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Memory leak in ip_dst_cache
+Date: Sat, 10 Sep 2011 09:04:16 -0400
+Message-ID: <20110910130416.GA2005@neilslaptop.think-freely.org>
+References: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>
+ <1315546223.5410.23.camel@edumazet-laptop>
+ <1315593553.98279.YahooMailNeo@web113904.mail.gq1.yahoo.com>
+ <1315596786.2606.3.camel@edumazet-laptop>
+ <1315601283.91185.YahooMailNeo@web113908.mail.gq1.yahoo.com>
+ <1315604820.2606.13.camel@edumazet-laptop>
+ <1315605497.25052.YahooMailNeo@web113916.mail.gq1.yahoo.com>
+ <1315606125.2606.19.camel@edumazet-laptop>
+ <1315608825.98066.YahooMailNeo@web113914.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Kumar S <ps2kumar@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f43.google.com ([209.85.212.43]:54200 "EHLO
-	mail-vw0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751982Ab1IJJ2E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2011 05:28:04 -0400
-Received: by vws10 with SMTP id 10so2488885vws.2
-        for <netdev@vger.kernel.org>; Sat, 10 Sep 2011 02:28:03 -0700 (PDT)
-In-Reply-To: <CAO+b5-p=9NXJrT1h6KQG9BpP=mDp8XjMZsCxsk=WkuBZ_KhtKA@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45939 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759273Ab1IJNE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Sep 2011 09:04:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1315608825.98066.YahooMailNeo@web113914.mail.gq1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, Sep 09, 2011 at 03:53:45PM -0700, Kumar S wrote:
+> Yes Eric, this command doesn't work on 2.6.24. Which timer are you suspecting?
+> 
+He means that the timer that starts the the workqueue which calls dst_gc_task is
+either delayed indefinately, or otherwise not run, which means that the route
+cache will never be scanned for old entries.  The implication being that, while
+the dst entries aren't leaked per-se, but never expired, so they just sit
+around.  You can check this by instrumenting gc_dst_task with a printk or two
+and watch to see if it ever pops up.
 
-Anyone who can tell me whether I should worry about the kernel warning
-shown below ? I've observed that warning for the first time with
-3.1-rc5 and hadn't seen it yet with 3.1-rc4 or any older kernel.
+If you only have 512Mb of ram and want to really restrict you're cache size, you
+should definately consider backporting the route cache rebuild patch to disable
+the route cache usage entirely.  It shouldn't be too hard to do.
+Neil
 
-------------[ cut here ]------------
-WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x24f/0x260()
-Hardware name: P5Q DELUXE
-NETDEV WATCHDOG: eth0 (skge): transmit queue 0 timed out
-Modules linked in: snd_pcm_oss snd_mixer_oss snd_seq snd_seq_device
-af_packet rdma_ucm rdma_cm iw_cm ib_addr ib_ipoib ib_cm ib_sa
-ib_uverbs ib_umad mlx4_ib ib_mad ib_core microcode
-cpufreq_conservative cpufreq_userspaceq mperf dm_mod
-snd_hda_codec_hdmi snd_hda_codec_analog snd_hda_intel snd_hda_codec
-snd_hwdep snd_pcm snd_timer snd sr_mod mlx4_core sg cdrom soundcore
-i2c_i801 snd_page_alloc i2c_core pcspkr button uhci_hcd ehci_hcd sxt3
-mbcache jbd fan ata_generic ata_piix pata_marvell ahci libahci libata
-scsi_mod thermal processor thermal_sys hwmon
-Pid: 6260, comm: wish Not tainted 3.1.0-rc4-scst-debug+ #2
-Call Trace:
-=A0<IRQ>=A0 [<ffffffff8104564f>] warn_slowpath_common+0x7f/0xc0
-=A0[<ffffffff81045746>] warn_slowpath_fmt+0x46/0x50
-=A0[<ffffffff813268df>] dev_watchdog+0x24f/0x260
-=A0[<ffffffff8105602a>] run_timer_softirq+0x19a/0x3f0
-=A0[<ffffffff81055f97>] ? run_timer_softirq+0x107/0x3f0
-=A0[<ffffffff81326690>] ? pfifo_fast_init+0xa0/0xa0
-=A0[<ffffffff8104cecd>] __do_softirq+0xcd/0x250
-=A0[<ffffffff813e5cec>] call_softirq+0x1c/0x30
-=A0[<ffffffff810043bd>] do_softirq+0x8d/0xc0
-=A0[<ffffffff8104d36e>] irq_exit+0xae/0xe0
-=A0[<ffffffff813e637e>] smp_apic_timer_interrupt+0x6e/0x99
-=A0[<ffffffff813e4570>] apic_timer_interrupt+0x70/0x80
-=A0<EOI>=A0 [<ffffffff813dbe0a>] ? retint_swapgs+0xe/0x13
----[ end trace fbbed52d2a66b808 ]---
-
-Bart.
+> 
