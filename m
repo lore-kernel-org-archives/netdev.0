@@ -1,7 +1,7 @@
 From: Finn Thain <fthain@telegraphics.com.au>
-Subject: [PATCH] mac_esp: remove redundant mutual exclusion
-Date: Sun, 11 Sep 2011 01:01:34 +1000 (EST)
-Message-ID: <alpine.LNX.2.00.1109110038500.5327@nippy.intranet>
+Subject: [PATCH] macmace: disable only the dma interrupt
+Date: Sun, 11 Sep 2011 01:02:16 +1000 (EST)
+Message-ID: <alpine.LNX.2.00.1109110042210.5327@nippy.intranet>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: linux-m68k@vger.kernel.org, netdev@vger.kernel.org
@@ -10,59 +10,61 @@ Return-path: <linux-m68k-owner@vger.kernel.org>
 Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mutual exclusion is redundant here because all the paths in the call graph 
-leading to esp_driver_ops.send_dma_cmd() happen under spin_lock_irqsave/ 
-spin_lock_irqrestore. Remove it.
+Don't disable all interrupts, just disable the relevant one.
 
-Tested on a Mac Quadra 660av and a Mac LC 630.
+Also move a couple of printk calls outside of local_irq_save/restore.
+
+Tested on a Quadra 660av.
 
 Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 
----
-
-Part of this patch relates to Geert's m68k generic hard irq conversion 
-work. Under genirq, the disable_irq() in mac_esp leads to deadlock. It 
-wasn't a problem before because the m68k disable_irq() implementation is 
-equivalent to genirq's disable_irq_nosync().
-
-Index: linux-m68k/drivers/scsi/mac_esp.c
+Index: linux-m68k/drivers/net/macmace.c
 ===================================================================
---- linux-m68k.orig/drivers/scsi/mac_esp.c	2011-08-28 00:33:13.000000000 +1000
-+++ linux-m68k/drivers/scsi/mac_esp.c	2011-08-28 00:35:48.000000000 +1000
-@@ -230,9 +230,6 @@ static void mac_esp_send_pdma_cmd(struct
- 				  u32 dma_count, int write, u8 cmd)
- {
- 	struct mac_esp_priv *mep = MAC_ESP_GET_PRIV(esp);
--	unsigned long flags;
--
--	local_irq_save(flags);
- 
- 	mep->error = 0;
- 
-@@ -270,8 +267,6 @@ static void mac_esp_send_pdma_cmd(struct
- 			esp_count = n;
- 		}
- 	} while (esp_count);
--
--	local_irq_restore(flags);
- }
- 
- /*
-@@ -353,8 +348,6 @@ static void mac_esp_send_pio_cmd(struct
- 	struct mac_esp_priv *mep = MAC_ESP_GET_PRIV(esp);
- 	u8 *fifo = esp->regs + ESP_FDATA * 16;
- 
--	disable_irq(esp->host->irq);
--
- 	cmd &= ~ESP_CMD_DMA;
- 	mep->error = 0;
- 
-@@ -431,8 +424,6 @@ static void mac_esp_send_pio_cmd(struct
- 			scsi_esp_cmd(esp, ESP_CMD_TI);
- 		}
+--- linux-m68k.orig/drivers/net/macmace.c	2011-08-28 00:33:33.000000000 +1000
++++ linux-m68k/drivers/net/macmace.c	2011-08-28 00:36:10.000000000 +1000
+@@ -458,8 +458,9 @@ static int mace_xmit_start(struct sk_buf
+ 	local_irq_save(flags);
+ 	netif_stop_queue(dev);
+ 	if (!mp->tx_count) {
+-		printk(KERN_ERR "macmace: tx queue running but no free buffers.\n");
+ 		local_irq_restore(flags);
++		printk(KERN_ERR
++		       "macmace: tx queue running but no free buffers.\n");
+ 		return NETDEV_TX_BUSY;
  	}
--
--	enable_irq(esp->host->irq);
- }
+ 	mp->tx_count--;
+@@ -563,10 +564,8 @@ static irqreturn_t mace_interrupt(int ir
+ 	struct mace_data *mp = netdev_priv(dev);
+ 	volatile struct mace *mb = mp->mace;
+ 	int intr, fs;
+-	unsigned long flags;
  
- static int mac_esp_irq_pending(struct esp *esp)
+-	/* don't want the dma interrupt handler to fire */
+-	local_irq_save(flags);
++	disable_irq(mp->dma_intr);
+ 
+ 	intr = mb->ir; /* read interrupt register */
+ 	mace_handle_misc_intrs(dev, intr);
+@@ -604,7 +603,7 @@ static irqreturn_t mace_interrupt(int ir
+ 	if (mp->tx_count)
+ 		netif_wake_queue(dev);
+ 
+-	local_irq_restore(flags);
++	enable_irq(mp->dma_intr);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -615,11 +614,12 @@ static void mace_tx_timeout(struct net_d
+ 	volatile struct mace *mb = mp->mace;
+ 	unsigned long flags;
+ 
++	printk(KERN_ERR "macmace: transmit timeout - resetting\n");
++
+ 	local_irq_save(flags);
+ 
+ 	/* turn off both tx and rx and reset the chip */
+ 	mb->maccc = 0;
+-	printk(KERN_ERR "macmace: transmit timeout - resetting\n");
+ 	mace_txdma_reset(dev);
+ 	mace_reset(dev);
+ 
