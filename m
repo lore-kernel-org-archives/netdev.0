@@ -1,49 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel.org extended outage - wait or use alternatives?
-Date: Sun, 11 Sep 2011 10:24:44 +0200
-Message-ID: <1315729484.3174.7.camel@edumazet-laptop>
-References: <4E6C6BAA.3020701@computer.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Sun, 11 Sep 2011 12:38:32 +0300
+Message-ID: <20110911093832.GD27096@redhat.com>
+References: <20110909055530.GA4647@redhat.com>
+ <CA8F8DED.33CF5%roprabhu@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jan Ceuleers <jan.ceuleers@computer.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:33958 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752802Ab1IKIYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Sep 2011 04:24:49 -0400
-Received: by wwf22 with SMTP id 22so181793wwf.1
-        for <netdev@vger.kernel.org>; Sun, 11 Sep 2011 01:24:48 -0700 (PDT)
-In-Reply-To: <4E6C6BAA.3020701@computer.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dragos.tatulea@gmail.com, arnd@arndb.de,
+	dwang2@cisco.com, benve@cisco.com, kaber@trash.net, sri@us.ibm.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, mchan@broadcom.com,
+	kvm@vger.kernel.org
+To: Roopa Prabhu <roprabhu@cisco.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA8F8DED.33CF5%roprabhu@cisco.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 11 septembre 2011 =C3=A0 10:04 +0200, Jan Ceuleers a =C3=A9=
-crit :
-> David,
->=20
-> I'm a mere observer of kernel development rather than an active=20
-> participant in it. My observation is that networking development has =
-all=20
-> but come to a standstill while we wait for master.kernel.org to come =
-back.
->=20
-> Linus is now using a github.com account; any reason why the same coul=
-d=20
-> not apply to net and net-next, so that development can proceed?
->=20
+On Fri, Sep 09, 2011 at 09:33:33AM -0700, Roopa Prabhu wrote:
+> 
+> 
+> 
+> On 9/8/11 10:55 PM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> > On Thu, Sep 08, 2011 at 07:53:11PM -0700, Roopa Prabhu wrote:
+> >>>> Phase 1: Goal: Enable hardware filtering for all macvlan modes
+> >>>>     - In macvlan passthru mode the single guest virtio-nic connected will
+> >>>>       receive traffic that he requested for
+> >>>>     - In macvlan non-passthru mode all guest virtio-nics sharing the
+> >>>>       physical nic will see all other guest traffic
+> >>>>       but the filtering at guest virtio-nic
+> >>> 
+> >>> I don't think guests currently filter anything.
+> >>> 
+> >> I was referring to Qemu-kvm virtio-net in
+> >> virtion_net_receive->receive_filter. I think It only passes pkts that the
+> >> guest OS is interested. It uses the filter table that I am passing to
+> >> macvtap in this patch.
+> > 
+> > This happens after userspace thread gets woken up and data
+> > is copied there. So relying on filtering at that level is
+> > going to be very inefficient on a system with
+> > multiple active guests. Further, and for that reason, vhost-net
+> > doesn't do filtering at all, relying on the backends
+> > to pass it correct packets.
+> 
+> Ok thanks for the info. So in which case, phase 1 is best for PASSTHRU mode
+> and for non-PASSTHRU when there is a single guest connected to a VF.
+> For non-PASSTHRU multi guest sharing the same VF, Phase 1 is definitely
+> better than putting the VF in promiscuous mode.
+> But to address the concern you mention above, in phase 2 when we have more
+> than one guest sharing the VF,
 
-As an active kernel developer, I would vote for being thankful for this
-pause. Its always a good thing to relax and enjoy your time ;)
+It's probably more interesting for a card without SRIOV support.
 
-I actually lost my main development trees because of nasty disk
-corruptions in 3.1-rc4, and wrong habit of not doing any backups... Oh
-well...
+> we will have to add filter lookup in macvlan
+> to filter pkts for each guest.
 
-More than a repository for net and net-next, we really want a working
-netdev mailing list.
+Any chance to enable hardware filters for that?
 
-Anyway, everything is queued and you dont have to worry.
-
-http://patchwork.ozlabs.org/project/netdev/list/
+> This will need some performance tests too.
+> 
+> Will start investigating the netlink interface comments for phase 1 first.
+> 
+> Thanks!
+> -Roopa
