@@ -1,61 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
- support for passthru mode
-Date: Sun, 11 Sep 2011 12:44:49 +0300
-Message-ID: <20110911094449.GF27096@redhat.com>
-References: <20110908193332.GA2476@redhat.com>
- <CA8ECF75.33BFF%roprabhu@cisco.com>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: Re: [PATCH] macmace: disable only the dma interrupt
+Date: Sun, 11 Sep 2011 20:02:17 +1000 (EST)
+Message-ID: <alpine.LNX.2.00.1109111958310.2745@nippy.intranet>
+References: <alpine.LNX.2.00.1109110042210.5327@nippy.intranet> <20110910.143046.520109083086760748.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	dragos.tatulea@gmail.com, arnd@arndb.de, dwang2@cisco.com,
-	benve@cisco.com, kaber@trash.net, davem@davemloft.net,
-	eric.dumazet@gmail.com, mchan@broadcom.com, kvm@vger.kernel.org
-To: Roopa Prabhu <roprabhu@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13226 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753656Ab1IKJnz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Sep 2011 05:43:55 -0400
-Content-Disposition: inline
-In-Reply-To: <CA8ECF75.33BFF%roprabhu@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-m68k@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <20110910.143046.520109083086760748.davem@davemloft.net>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 08, 2011 at 08:00:53PM -0700, Roopa Prabhu wrote:
+
+On Sat, 10 Sep 2011, David Miller wrote:
+
+> From: Finn Thain <fthain@telegraphics.com.au>
+> Date: Sun, 11 Sep 2011 01:02:16 +1000 (EST)
 > 
-> 
-> 
-> On 9/8/11 12:33 PM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> 
-> > On Thu, Sep 08, 2011 at 12:23:56PM -0700, Roopa Prabhu wrote:
-> >>> 
-> >>> I think the main usecase for passthru mode is to assign a SR-IOV VF to
-> >>> a single guest.
-> >>> 
-> >> Yes and for the passthru usecase this patch should be enough to enable
-> >> filtering in hw (eventually like I indicated before I need to fix vlan
-> >> filtering too).
+> > Don't disable all interrupts, just disable the relevant one.
 > > 
-> > So with filtering in hw, and in sriov VF case, VFs
-> > actually share a filtering table. How will that
-> > be partitioned?
+> > Also move a couple of printk calls outside of local_irq_save/restore.
+> > 
+> > Tested on a Quadra 660av.
+> > 
+> > Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 > 
-> AFAIK, though it might maintain a single filter table space in hw, hw does
-> know which filter belongs to which VF. And the OS driver does not need to do
-> anything special. The VF driver exposes a VF netdev. And any uc/mc addresses
-> registered with a VF netdev are registered with the hw by the driver. And hw
-> will filter and send only pkts that the VF has expressed interest in.
+> Using disable_irq() is very expensive, and when done from an interrupt 
+> handler can deadlock especially on SMP (which I understand might not be 
+> relevant here).
 > 
-> No special filter partitioning in hw is required.
-> 
-> Thanks,
-> Roopa
+> I really can't see why you'd do things this way, especially since 
+> interrupt handlers under Linux now unconditionally always run with cpu 
+> interrupts disabled.
 
-Yes, but what I mean is, if the size of the single filter table
-is limited, we need to decide how many addresses is
-each guest allowed. If we let one guest ask for
-as many as it wants, it can lock others out.
+I wasn't aware of this (I was under the impression that a higher priority 
+interrupt could be serviced). Please disregard this patch.
 
--- 
-MST
+Finn
