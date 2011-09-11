@@ -1,40 +1,53 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: Re: [PATCH] macmace: disable only the dma interrupt
-Date: Sun, 11 Sep 2011 20:02:17 +1000 (EST)
-Message-ID: <alpine.LNX.2.00.1109111958310.2745@nippy.intranet>
-References: <alpine.LNX.2.00.1109110042210.5327@nippy.intranet> <20110910.143046.520109083086760748.davem@davemloft.net>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Sun, 11 Sep 2011 06:18:01 -0700
+Message-ID: <CA920319.33DE1%roprabhu@cisco.com>
+References: <20110911094449.GF27096@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-m68k@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <20110910.143046.520109083086760748.davem@davemloft.net>
-Sender: linux-m68k-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>, <netdev@vger.kernel.org>,
+	<dragos.tatulea@gmail.com>, <arnd@arndb.de>, <dwang2@cisco.com>,
+	<benve@cisco.com>, <kaber@trash.net>, <davem@davemloft.net>,
+	<eric.dumazet@gmail.com>, <mchan@broadcom.com>,
+	<kvm@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110911094449.GF27096@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On Sat, 10 Sep 2011, David Miller wrote:
 
-> From: Finn Thain <fthain@telegraphics.com.au>
-> Date: Sun, 11 Sep 2011 01:02:16 +1000 (EST)
-> 
-> > Don't disable all interrupts, just disable the relevant one.
-> > 
-> > Also move a couple of printk calls outside of local_irq_save/restore.
-> > 
-> > Tested on a Quadra 660av.
-> > 
-> > Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
-> 
-> Using disable_irq() is very expensive, and when done from an interrupt 
-> handler can deadlock especially on SMP (which I understand might not be 
-> relevant here).
-> 
-> I really can't see why you'd do things this way, especially since 
-> interrupt handlers under Linux now unconditionally always run with cpu 
-> interrupts disabled.
 
-I wasn't aware of this (I was under the impression that a higher priority 
-interrupt could be serviced). Please disregard this patch.
+On 9/11/11 2:44 AM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-Finn
+>> 
+>> AFAIK, though it might maintain a single filter table space in hw, hw does
+>> know which filter belongs to which VF. And the OS driver does not need to do
+>> anything special. The VF driver exposes a VF netdev. And any uc/mc addresses
+>> registered with a VF netdev are registered with the hw by the driver. And hw
+>> will filter and send only pkts that the VF has expressed interest in.
+>> 
+>> No special filter partitioning in hw is required.
+>> 
+>> Thanks,
+>> Roopa
+> 
+> Yes, but what I mean is, if the size of the single filter table
+> is limited, we need to decide how many addresses is
+> each guest allowed. If we let one guest ask for
+> as many as it wants, it can lock others out.
+
+Yes true. In these cases ie when the number of unicast addresses being
+registered is more than it can handle, The VF driver will put the VF  in
+promiscuous mode (Or at least its supposed to do. I think all drivers do
+that).
+
+
+Thanks,
+Roopa
+
+
