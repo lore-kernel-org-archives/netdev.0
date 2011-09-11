@@ -1,68 +1,61 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
  support for passthru mode
-Date: Sun, 11 Sep 2011 12:38:32 +0300
-Message-ID: <20110911093832.GD27096@redhat.com>
-References: <20110909055530.GA4647@redhat.com>
- <CA8F8DED.33CF5%roprabhu@cisco.com>
+Date: Sun, 11 Sep 2011 12:44:49 +0300
+Message-ID: <20110911094449.GF27096@redhat.com>
+References: <20110908193332.GA2476@redhat.com>
+ <CA8ECF75.33BFF%roprabhu@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dragos.tatulea@gmail.com, arnd@arndb.de,
-	dwang2@cisco.com, benve@cisco.com, kaber@trash.net, sri@us.ibm.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, mchan@broadcom.com,
-	kvm@vger.kernel.org
+Cc: Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	dragos.tatulea@gmail.com, arnd@arndb.de, dwang2@cisco.com,
+	benve@cisco.com, kaber@trash.net, davem@davemloft.net,
+	eric.dumazet@gmail.com, mchan@broadcom.com, kvm@vger.kernel.org
 To: Roopa Prabhu <roprabhu@cisco.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:13226 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753656Ab1IKJnz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Sep 2011 05:43:55 -0400
 Content-Disposition: inline
-In-Reply-To: <CA8F8DED.33CF5%roprabhu@cisco.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CA8ECF75.33BFF%roprabhu@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 09, 2011 at 09:33:33AM -0700, Roopa Prabhu wrote:
+On Thu, Sep 08, 2011 at 08:00:53PM -0700, Roopa Prabhu wrote:
 > 
 > 
 > 
-> On 9/8/11 10:55 PM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> On 9/8/11 12:33 PM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
 > 
-> > On Thu, Sep 08, 2011 at 07:53:11PM -0700, Roopa Prabhu wrote:
-> >>>> Phase 1: Goal: Enable hardware filtering for all macvlan modes
-> >>>>     - In macvlan passthru mode the single guest virtio-nic connected will
-> >>>>       receive traffic that he requested for
-> >>>>     - In macvlan non-passthru mode all guest virtio-nics sharing the
-> >>>>       physical nic will see all other guest traffic
-> >>>>       but the filtering at guest virtio-nic
+> > On Thu, Sep 08, 2011 at 12:23:56PM -0700, Roopa Prabhu wrote:
 > >>> 
-> >>> I don't think guests currently filter anything.
+> >>> I think the main usecase for passthru mode is to assign a SR-IOV VF to
+> >>> a single guest.
 > >>> 
-> >> I was referring to Qemu-kvm virtio-net in
-> >> virtion_net_receive->receive_filter. I think It only passes pkts that the
-> >> guest OS is interested. It uses the filter table that I am passing to
-> >> macvtap in this patch.
+> >> Yes and for the passthru usecase this patch should be enough to enable
+> >> filtering in hw (eventually like I indicated before I need to fix vlan
+> >> filtering too).
 > > 
-> > This happens after userspace thread gets woken up and data
-> > is copied there. So relying on filtering at that level is
-> > going to be very inefficient on a system with
-> > multiple active guests. Further, and for that reason, vhost-net
-> > doesn't do filtering at all, relying on the backends
-> > to pass it correct packets.
+> > So with filtering in hw, and in sriov VF case, VFs
+> > actually share a filtering table. How will that
+> > be partitioned?
 > 
-> Ok thanks for the info. So in which case, phase 1 is best for PASSTHRU mode
-> and for non-PASSTHRU when there is a single guest connected to a VF.
-> For non-PASSTHRU multi guest sharing the same VF, Phase 1 is definitely
-> better than putting the VF in promiscuous mode.
-> But to address the concern you mention above, in phase 2 when we have more
-> than one guest sharing the VF,
-
-It's probably more interesting for a card without SRIOV support.
-
-> we will have to add filter lookup in macvlan
-> to filter pkts for each guest.
-
-Any chance to enable hardware filters for that?
-
-> This will need some performance tests too.
+> AFAIK, though it might maintain a single filter table space in hw, hw does
+> know which filter belongs to which VF. And the OS driver does not need to do
+> anything special. The VF driver exposes a VF netdev. And any uc/mc addresses
+> registered with a VF netdev are registered with the hw by the driver. And hw
+> will filter and send only pkts that the VF has expressed interest in.
 > 
-> Will start investigating the netlink interface comments for phase 1 first.
+> No special filter partitioning in hw is required.
 > 
-> Thanks!
-> -Roopa
+> Thanks,
+> Roopa
+
+Yes, but what I mean is, if the size of the single filter table
+is limited, we need to decide how many addresses is
+each guest allowed. If we let one guest ask for
+as many as it wants, it can lock others out.
+
+-- 
+MST
