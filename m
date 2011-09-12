@@ -1,38 +1,51 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 03/10] mm: Add support for a filesystem to control swap
- files
-Date: Mon, 12 Sep 2011 11:04:45 +0200
-Message-ID: <1315818285.26517.18.camel@twins>
-References: <1315566054-17209-1-git-send-email-mgorman@suse.de>
-	 <1315566054-17209-4-git-send-email-mgorman@suse.de>
-	 <20110909130007.GA11810@infradead.org> <20110909131550.GV14369@suse.de>
-	 <20110909133611.GB8155@infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mel Gorman <mgorman@suse.de>, Linux-MM <linux-mm@kvack.org>,
- Linux-Netdev <netdev@vger.kernel.org>, Linux-NFS
- <linux-nfs@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, Andrew
- Morton <akpm@linux-foundation.org>,  David Miller <davem@davemloft.net>,
- Trond Myklebust <Trond.Myklebust@netapp.com>, Neil Brown <neilb@suse.de>
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110909133611.GB8155@infradead.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+Subject: [PATCH] ipvs: Expose ip_vs_ftp module parameters via sysfs.
+Date: Mon, 12 Sep 2011 10:15:15 +0100
+Message-ID: <1315818915-26288-1-git-send-email-krzysztof.wilczynski@linux.com>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41894 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754541Ab1ILJP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 05:15:26 -0400
+Received: by wyh22 with SMTP id 22so3276377wyh.19
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2011 02:15:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-09-09 at 09:36 -0400, Christoph Hellwig wrote:
-> The equivalent of ->direct_IO should be used for both reads and writes.
+This is to expose "ports" parameter via sysfs so it can be read
+at any time in order to determine what port or ports were passed
+to the module at the point when it was loaded.
 
-So the difference between DIO and swapIO is that swapIO needs the block
-map pinned in memory.. So at the very least you'll need those
-swap_{activate,deactivate} aops. The read/write-page thingies could
-indeed be shared with DIO.
+Signed-off-by: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+---
+ net/netfilter/ipvs/ip_vs_ftp.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 4490a32..538d74e 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -52,8 +52,9 @@
+  * List of ports (up to IP_VS_APP_MAX_PORTS) to be handled by helper
+  * First port is set to the default port.
+  */
++static unsigned int ports_count = 1;
+ static unsigned short ports[IP_VS_APP_MAX_PORTS] = {21, 0};
+-module_param_array(ports, ushort, NULL, 0);
++module_param_array(ports, ushort, &ports_count, 0444);
+ MODULE_PARM_DESC(ports, "Ports to monitor for FTP control commands");
+ 
+ 
+@@ -449,7 +450,7 @@ static int __net_init __ip_vs_ftp_init(struct net *net)
+ 	if (ret)
+ 		goto err_exit;
+ 
+-	for (i=0; i<IP_VS_APP_MAX_PORTS; i++) {
++	for (i = 0; i < ports_count; i++) {
+ 		if (!ports[i])
+ 			continue;
+ 		ret = register_ip_vs_app_inc(net, app, app->protocol, ports[i]);
+-- 
+1.7.0.4
