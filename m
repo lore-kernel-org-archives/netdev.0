@@ -1,111 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Incorrect routing to lo in spite of correct record in routing
- table
-Date: Mon, 12 Sep 2011 20:47:51 +0200
-Message-ID: <1315853271.2556.9.camel@edumazet-laptop>
-References: <CAEmTpZGKnU4z4J43XGa-1YZ0WW6rnKdpTRJDFEeUTfVmZQH84g@mail.gmail.com>
+From: Tim Chen <tim.c.chen@linux.intel.com>
+Subject: Re: [PATCH net-next] af_unix: dont send SCM_CREDENTIALS by default
+Date: Mon, 12 Sep 2011 12:15:46 -0700
+Message-ID: <1315854946.2576.3122.camel@schen9-DESK>
+References: <4E631032.6050606@intel.com>
+	 <1315326326.2576.2980.camel@schen9-DESK>
+	 <1315330805.2899.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1315335019.2576.3048.camel@schen9-DESK>
+	 <1315335660.3400.7.camel@edumazet-laptop>
+	 <1315337580.2576.3066.camel@schen9-DESK>
+	 <1315338186.3400.20.camel@edumazet-laptop>
+	 <1315339157.2576.3079.camel@schen9-DESK>
+	 <1315340388.3400.28.camel@edumazet-laptop>
+	 <CAAM7YAn0c0SpAD42PcT+-HDXjT9HMajhmfZD6D68_0E21i2tSQ@mail.gmail.com>
+	 <1315372100.3400.76.camel@edumazet-laptop>  <4E66FF38.9000107@intel.com>
+	 <1315381503.3400.85.camel@edumazet-laptop>
+	 <1315396903.2364.23.camel@schen9-mobl>
+	 <1315430766.2532.1.camel@edumazet-laptop>
+	 <1315488497.2456.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1315473888.2301.21.camel@schen9-mobl>
+	 <1315544777.5410.19.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?=D0=9C=D0=B0=D1=80=D0=BA_?=
-	 =?UTF-8?Q?=D0=9A=D0=BE=D1=80=D0=B5=D0=BD=D0=B1=D0=B5=D1=80=D0=B3?=
-	<socketpair@gmail.com>
+Cc: "Yan, Zheng" <zheng.z.yan@intel.com>,
+	"Yan, Zheng" <yanzheng@21cn.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"jirislaby@gmail.com" <jirislaby@gmail.com>,
+	"sedat.dilek@gmail.com" <sedat.dilek@gmail.com>,
+	"Shi, Alex" <alex.shi@intel.com>,
+	Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:41872 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752093Ab1ILSr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 14:47:56 -0400
-Received: by wwf22 with SMTP id 22so1782311wwf.1
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2011 11:47:55 -0700 (PDT)
-In-Reply-To: <CAEmTpZGKnU4z4J43XGa-1YZ0WW6rnKdpTRJDFEeUTfVmZQH84g@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:10321 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753689Ab1ILTMb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Sep 2011 15:12:31 -0400
+In-Reply-To: <1315544777.5410.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 12 septembre 2011 =C3=A0 23:14 +0600, =D0=9C=D0=B0=D1=80=D0=BA=
- =D0=9A=D0=BE=D1=80=D0=B5=D0=BD=D0=B1=D0=B5=D1=80=D0=B3 a =C3=A9crit :
-> Suppose this (note netowrk masks):
+On Fri, 2011-09-09 at 07:06 +0200, Eric Dumazet wrote:
+> Le jeudi 08 septembre 2011 =C3=A0 02:24 -0700, Tim Chen a =C3=A9crit =
+:
 >=20
-> [mmarkk@mmarkk-devel ~]# uname -a
-> Linux mmarkk-devel 2.6.32-71.el6.x86_64 #1 SMP Wed Sep 1 01:33:01 EDT
-> 2010 x86_64 x86_64 x86_64 GNU/Linux
+> > Looking forward to the patch.  This should improve the scalability =
+of
+> > af_unix.
 >=20
-> [mmarkk@mmarkk-devel ~]# ip addr
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
->     inet 127.0.0.1/32 scope host lo
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-> state UP qlen 1000
->     inet 10.80.20.21/16 brd 10.80.255.255 scope global eth0
-> 3: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN
->     inet 127.0.0.2/32 scope host dummy0
+> Here it is, based on top on previous one [af_unix: Fix use-after-free
+> crashes]
 >=20
-> [mmarkk@mmarkk-devel ~]# ip route show
-> 10.80.0.0/16 dev eth0  proto kernel  scope link  src 10.80.20.21
-> unreachable 127.0.0.0/8 <---------------------- has been added by han=
-d
-> default via 10.80.90.40 dev eth0
+> Thanks
 >=20
-> [mmarkk@mmarkk-devel ~]# ip route show table local
-> broadcast 10.80.0.0 dev eth0  proto kernel  scope link  src 10.80.20.=
-21
-> local 10.80.20.21 dev eth0  proto kernel  scope host  src 10.80.20.21
-> local 127.0.0.2 dev dummy0  proto kernel  scope host  src 127.0.0.2
-> broadcast 10.80.255.255 dev eth0  proto kernel  scope link  src 10.80=
-=2E20.21
-> local 127.0.0.1 dev lo  proto kernel  scope host  src 127.0.0.1
+> [PATCH net-next] af_unix: dont send SCM_CREDENTIALS by default
 >=20
-> [mmarkk@mmarkk-devel ~]# ip route flush cache
+> Since commit 7361c36c5224 (af_unix: Allow credentials to work across
+> user and pid namespaces) af_unix performance dropped a lot.
 >=20
-> [mmarkk@mmarkk-devel ~]# ip route get 127.0.0.3
-> RTNETLINK answers: Network is unreachable <------------ good, that is=
- OK
+> This is because we now take a reference on pid and cred in each write=
+(),
+> and release them in read(), usually done from another process,
+> eventually from another cpu. This triggers false sharing.
 >=20
-> [mmarkk@mmarkk-devel ~]# ip route get 127.0.0.1
-> local 127.0.0.1 dev lo  src 127.0.0.1  <--------- Good, that's OK too
->     cache <local>  mtu 16436 advmss 16396 hoplimit 64
+> # Events: 154K cycles
+> #
+> # Overhead  Command       Shared Object                              =
+ Symbol
+> # ........  .......  ..................  ............................=
+=2E......
+> #
+>     10.40%  hackbench  [kernel.kallsyms]   [k] put_pid
+>      8.60%  hackbench  [kernel.kallsyms]   [k] unix_stream_recvmsg
+>      7.87%  hackbench  [kernel.kallsyms]   [k] unix_stream_sendmsg
+>      6.11%  hackbench  [kernel.kallsyms]   [k] do_raw_spin_lock
+>      4.95%  hackbench  [kernel.kallsyms]   [k] unix_scm_to_skb
+>      4.87%  hackbench  [kernel.kallsyms]   [k] pid_nr_ns
+>      4.34%  hackbench  [kernel.kallsyms]   [k] cred_to_ucred
+>      2.39%  hackbench  [kernel.kallsyms]   [k] unix_destruct_scm
+>      2.24%  hackbench  [kernel.kallsyms]   [k] sub_preempt_count
+>      1.75%  hackbench  [kernel.kallsyms]   [k] fget_light
+>      1.51%  hackbench  [kernel.kallsyms]   [k] __mutex_lock_interrupt=
+ible_slowpath
+>      1.42%  hackbench  [kernel.kallsyms]   [k] sock_alloc_send_pskb
 >=20
-> [mmarkk@mmarkk-devel ~]# ip route get 127.0.0.2
-> local 127.0.0.2 dev lo  src 127.0.0.2 <------------ HAY! this is not =
-I
-> want. Why device is "lo" (instead of dummy0) ?!
->     cache <local>  mtu 16436 advmss 16396 hoplimit 64
 >=20
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D
-> The problem is that I want to do DNAT to localhost. I know, why DNAT
-> to 127.0.0.1 (to interface "lo") does not work. I decide to do that
-> using interface dummy0. It works as expected if I choose any address
-> not in 127.0.0.0/8.
+> This patch includes SCM_CREDENTIALS information in a af_unix message/=
+skb
+> only if requested by the sender, [man 7 unix for details how to inclu=
+de
+> ancillary data using sendmsg() system call]
 >=20
-> RFC 3330 said:
-> -------------
-> A datagram sent by a higher level protocol to an  address anywhere
-> within this block should loop back inside the host. This is ordinaril=
-y
-> implemented using only 127.0.0.1/32 for loopback, but no addresses
-> within this block should ever appear on any network anywhere
-> -------------
-> So, my question: Why the kernel routes 127.0.0.2 to lo (instead of du=
-mmy0) ?
+> Note: This might break buggy applications that expected SCM_CREDENTIA=
+L
+> from an unaware write() system call.
 >=20
-> Well, If kernel is so smart to route any 127.0.0.0/8 to "lo", why it
-> routes 127.0.0.3 to default gateway if I remove "unreachable
-> 127.0.0.0/8" ?!
+> Performance boost in hackbench : more than 50% gain on a 16 thread
+> machine (2 quad-core cpus, 2 threads per core)
 >=20
+> hackbench 20 thread 2000
+>=20
+> 4.224 sec instead of 9.102 sec
+>=20
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Because you have 127.0.0.1/32 on lo, not 127.0.0.1/8
+This speeds up the case where we're not passing SCM_CREDENTIALS nicely.
 
-> I think there is some bug in kernel. What are you thinking about?
->=20
-
-I have no idea why you think there is a bug.
-
-127.0.0.2 (dummy0) is a local address like 10.80.20.21 (eth0)
-
-When you ping 10.80.20.21, the frame goes through loopback, not eth0.
-
-# ip ro get 10.80.20.21
-local 10.80.20.21 dev lo  src 10.80.20.21=20
-    cache <local>=20
-
-BTW, if you 'ifconfig lo down', ping to 10.80.20.21 doesnt work.
+Acked-by: Tim Chen <tim.c.chen@linux.intel.com>
