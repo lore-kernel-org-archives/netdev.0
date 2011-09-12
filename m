@@ -1,124 +1,44 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 2/2] SUNRPC: RPC pipefs virtualization
-Date: Mon, 12 Sep 2011 18:19:50 +0400
-Message-ID: <20110912141950.6261.9291.stgit@localhost6.localdomain6>
-References: <20110912141633.6261.72180.stgit@localhost6.localdomain6>
+From: Bucur Madalin-Cristian-B32716 <B32716@freescale.com>
+Subject: RE: [RFC/PATCH] net: add deferred flow cache flush function to be
+ used in xfrm
+Date: Mon, 12 Sep 2011 14:37:36 +0000
+Message-ID: <C857018E177D5F468E08AA85BEA49FA71644B2@039-SN1MPN1-003.039d.mgd.msft.net>
+References: <1315829846-15016-1-git-send-email-madalin.bucur@freescale.com>
+ <1315835887.2318.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net
-To: Trond.Myklebust@netapp.com
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"timo.teras@iki.fi" <timo.teras@iki.fi>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:39482 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755025Ab1ILOUM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Sep 2011 10:20:12 -0400
-In-Reply-To: <20110912141633.6261.72180.stgit@localhost6.localdomain6>
+Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:11739
+	"EHLO AM1EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757558Ab1ILOhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 10:37:47 -0400
+In-Reply-To: <1315835887.2318.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Parametrize rpc_mount_get() and rpc_mount_put() with network namespace pointer.
-Currently init_net is used, but later proper network context will be used
-instead.
-It actually means, that in future NFS cache have to be virtualied as well.
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
----
- fs/nfs/blocklayout/blocklayout.c |    2 +-
- fs/nfs/cache_lib.c               |    7 ++++---
- net/sunrpc/clnt.c                |    8 ++++----
- 3 files changed, 9 insertions(+), 8 deletions(-)
-
-diff --git a/fs/nfs/blocklayout/blocklayout.c b/fs/nfs/blocklayout/blocklayout.c
-index 9561c8f..9904e70 100644
---- a/fs/nfs/blocklayout/blocklayout.c
-+++ b/fs/nfs/blocklayout/blocklayout.c
-@@ -979,7 +979,7 @@ static int __init nfs4blocklayout_init(void)
- 
- 	init_waitqueue_head(&bl_wq);
- 
--	mnt = rpc_get_mount();
-+	mnt = rpc_get_mount(&init_net);
- 	if (IS_ERR(mnt)) {
- 		ret = PTR_ERR(mnt);
- 		goto out_remove;
-diff --git a/fs/nfs/cache_lib.c b/fs/nfs/cache_lib.c
-index c98b439..777514b 100644
---- a/fs/nfs/cache_lib.c
-+++ b/fs/nfs/cache_lib.c
-@@ -11,6 +11,7 @@
- #include <linux/mount.h>
- #include <linux/namei.h>
- #include <linux/slab.h>
-+#include <net/net_namespace.h>
- #include <linux/sunrpc/cache.h>
- #include <linux/sunrpc/rpc_pipe_fs.h>
- 
-@@ -117,7 +118,7 @@ int nfs_cache_register(struct cache_detail *cd)
- 	struct path path;
- 	int ret;
- 
--	mnt = rpc_get_mount();
-+	mnt = rpc_get_mount(&init_net);
- 	if (IS_ERR(mnt))
- 		return PTR_ERR(mnt);
- 	ret = vfs_path_lookup(mnt->mnt_root, mnt, "/cache", 0, &path);
-@@ -128,13 +129,13 @@ int nfs_cache_register(struct cache_detail *cd)
- 	if (!ret)
- 		return ret;
- err:
--	rpc_put_mount();
-+	rpc_put_mount(&init_net);
- 	return ret;
- }
- 
- void nfs_cache_unregister(struct cache_detail *cd)
- {
- 	sunrpc_cache_unregister_pipefs(cd);
--	rpc_put_mount();
-+	rpc_put_mount(&init_net);
- }
- 
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index c5347d2..4bebcc0 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -109,7 +109,7 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
- 	if (dir_name == NULL)
- 		return 0;
- 
--	path.mnt = rpc_get_mount();
-+	path.mnt = rpc_get_mount(clnt->cl_xprt->xprt_net);
- 	if (IS_ERR(path.mnt))
- 		return PTR_ERR(path.mnt);
- 	error = vfs_path_lookup(path.mnt->mnt_root, path.mnt, dir_name, 0, &dir);
-@@ -137,7 +137,7 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
- err_path_put:
- 	path_put(&dir);
- err:
--	rpc_put_mount();
-+	rpc_put_mount(clnt->cl_xprt->xprt_net);
- 	return error;
- }
- 
-@@ -248,7 +248,7 @@ static struct rpc_clnt * rpc_new_client(const struct rpc_create_args *args, stru
- out_no_auth:
- 	if (!IS_ERR(clnt->cl_path.dentry)) {
- 		rpc_remove_client_dir(clnt->cl_path.dentry);
--		rpc_put_mount();
-+		rpc_put_mount(clnt->cl_xprt->xprt_net);
- 	}
- out_no_path:
- 	kfree(clnt->cl_principal);
-@@ -476,7 +476,7 @@ rpc_free_client(struct rpc_clnt *clnt)
- 			clnt->cl_protname, clnt->cl_server);
- 	if (!IS_ERR(clnt->cl_path.dentry)) {
- 		rpc_remove_client_dir(clnt->cl_path.dentry);
--		rpc_put_mount();
-+		rpc_put_mount(clnt->cl_xprt->xprt_net);
- 	}
- 	if (clnt->cl_parent != clnt) {
- 		rpc_release_client(clnt->cl_parent);
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj4gQmVo
+YWxmIE9mIEVyaWMgRHVtYXpldA0KPiBTZW50OiBNb25kYXksIFNlcHRlbWJlciAxMiwgMjAxMSA0
+OjU4IFBNDQo+IA0KPiBMZSBsdW5kaSAxMiBzZXB0ZW1icmUgMjAxMSDDoCAxNToxNyArMDMwMCwg
+TWFkYWxpbiBCdWN1ciBhIMOpY3JpdCA6DQo+ID4gVGhlIHhmcm0gZ2FyYmFnZSBjb2xsZWN0b3Ig
+Y2FsbHMgZmxvd19jYWNoZV9mbHVzaCgpIHRoYXQgbWlnaHQgc2xlZXAuDQo+ID4gVGhlIHhmcm0g
+Z2FyYmFnZSBjb2xsZWN0b3IgY2FuIGJlIGNhbGxlZCBmcm9tIHNvZnRpcnEgY29udGV4dCwgc3Vj
+aCBhcyBmcm9tDQo+ID4gbmV0X3J4X2FjdGlvbigpIHRocm91Z2ggaXBfZm9yd2FyZCgpLiBBZGRl
+ZCBmbG93X2NhY2hlX2ZsdXNoX2RlZmVycmVkKCkNCj4gPiBmdW5jdGlvbiB0aGF0IHVzZXMgdGhl
+IGtlcm5lbC1nbG9iYWwgd29yayBxdWV1ZSB0byBsZWF2ZSB0aGUgYWN0dWFsDQo+ID4gY2FjaGUg
+Zmx1c2ggcHJvY2Vzc2luZyBvdXRzaWRlIHRoZSBzb2Z0aXJxIGNvbnRleHQuDQo+ID4NCj4gDQo+
+IFByb2JsZW0gaXMgc29tZXRpbWUgd2UgZG9udCB3YW50IHRvIGRlZmVyIGFuZCBhcmUgaW4gcHJv
+Y2VzcyBjb250ZXh0Lg0KPiANCj4geGZybV9kZXZfZXZlbnQoICBldmVudCA9PSBORVRERVZfRE9X
+TikgaXMgcHJvYmFibHkgYSBwbGFjZSB3ZSBkb250IHdhbnQNCj4gdG8gZGVmZXIgdGhlIGdhcmJh
+Z2UgY29sbGVjdGlvbi4NCj4gDQoNCkluZGVlZCwgY3VycmVudGx5IF9feGZybV9nYXJiYWdlX2Nv
+bGxlY3QoKSBpcyBjYWxsZWQgdGhyb3VnaCB0aGUgZ2FyYmFnZV9jb2xsZWN0DQpjYWxsYmFjayBi
+dXQgYWxzbyB3aGVuIGFuIGV2ZW50IE5FVERFVl9ET1dOIGlzIHJlY2VpdmVkLiBNYXliZSB3ZSBz
+aG91bGQgaGF2ZQ0KZGlmZmVyZW50IGZ1bmN0aW9ucyBmb3IgdGhlIHR3byBjYXNlcywgb25lIGNh
+bGxpbmcgZmxvd19jYWNoZV9mbHVzaF9kZWZlcnJlZCgpDQphbmQgdGhlIG90aGVyIGZsb3dfY2Fj
+aGVfZmx1c2goKS4NCg0K
