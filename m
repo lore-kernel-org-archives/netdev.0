@@ -1,74 +1,49 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
- support for passthru mode
-Date: Mon, 12 Sep 2011 10:23:24 -0700
-Message-ID: <CA938E1C.33F00%roprabhu@cisco.com>
-References: <4E6D8AF3.7080406@us.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Memory leak in ip_dst_cache
+Date: Mon, 12 Sep 2011 19:57:52 +0200
+Message-ID: <1315850272.2556.0.camel@edumazet-laptop>
+References: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>
+	 <1315546223.5410.23.camel@edumazet-laptop>
+	 <1315593553.98279.YahooMailNeo@web113904.mail.gq1.yahoo.com>
+	 <1315596786.2606.3.camel@edumazet-laptop>
+	 <1315601283.91185.YahooMailNeo@web113908.mail.gq1.yahoo.com>
+	 <1315604820.2606.13.camel@edumazet-laptop>
+	 <1315605497.25052.YahooMailNeo@web113916.mail.gq1.yahoo.com>
+	 <1315606125.2606.19.camel@edumazet-laptop>
+	 <1315608825.98066.YahooMailNeo@web113914.mail.gq1.yahoo.com>
+	 <20110910130416.GA2005@neilslaptop.think-freely.org>
+	 <1315798710.96027.YahooMailNeo@web113913.mail.gq1.yahoo.com>
+	 <1315806031.3174.16.camel@edumazet-laptop>
+	 <1315807643.92529.YahooMailNeo@web113911.mail.gq1.yahoo.com>
+	 <1315808931.3174.17.camel@edumazet-laptop>
+	 <1315847801.41447.YahooMailNeo@web113916.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, <netdev@vger.kernel.org>,
-	<dragos.tatulea@gmail.com>, <arnd@arndb.de>, <dwang2@cisco.com>,
-	<benve@cisco.com>, <kaber@trash.net>, <davem@davemloft.net>,
-	<eric.dumazet@gmail.com>, <mchan@broadcom.com>,
-	<kvm@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>
+To: Kumar S <ps2kumar@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-3.cisco.com ([173.36.130.14]:15339 "EHLO
-	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951Ab1ILRX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 13:23:26 -0400
-In-Reply-To: <4E6D8AF3.7080406@us.ibm.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55274 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752400Ab1ILR55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 13:57:57 -0400
+Received: by wwf22 with SMTP id 22so1726882wwf.1
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2011 10:57:56 -0700 (PDT)
+In-Reply-To: <1315847801.41447.YahooMailNeo@web113916.mail.gq1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le lundi 12 septembre 2011 =C3=A0 10:16 -0700, Kumar S a =C3=A9crit :
+> ----- Original Message -----
+> From: Eric Dumazet <eric.dumazet@gmail.com>
 
+> >What do you mean ? Your box is a router only ?
+>=20
+> >Those SMB messages are going through it ?
+> =20
+> Our box is a stand-alone system with L2 Quick Engine. This QE forward=
+s
+> all broadcast to the other ports and also a copy to the CPU port.=20
 
-
-On 9/11/11 9:30 PM, "Sridhar Samudrala" <sri@us.ibm.com> wrote:
-
-> On 9/11/2011 6:18 AM, Roopa Prabhu wrote:
->> 
->> 
->> On 9/11/11 2:44 AM, "Michael S. Tsirkin"<mst@redhat.com>  wrote:
->> 
->>>> AFAIK, though it might maintain a single filter table space in hw, hw does
->>>> know which filter belongs to which VF. And the OS driver does not need to
->>>> do
->>>> anything special. The VF driver exposes a VF netdev. And any uc/mc
->>>> addresses
->>>> registered with a VF netdev are registered with the hw by the driver. And
->>>> hw
->>>> will filter and send only pkts that the VF has expressed interest in.
->>>> 
->>>> No special filter partitioning in hw is required.
->>>> 
->>>> Thanks,
->>>> Roopa
->>> Yes, but what I mean is, if the size of the single filter table
->>> is limited, we need to decide how many addresses is
->>> each guest allowed. If we let one guest ask for
->>> as many as it wants, it can lock others out.
->> Yes true. In these cases ie when the number of unicast addresses being
->> registered is more than it can handle, The VF driver will put the VF  in
->> promiscuous mode (Or at least its supposed to do. I think all drivers do
->> that).
->> 
-> What does putting VF in promiscuous mode mean?  How can the NIC decide
-> which set
-> of mac addresses are passed to the VF? Does it mean VF sees all the
-> packets received
-> by the NIC including packets destined for other VFs/PF?
-> 
-Yes I think so. After your question I looked at 2 other  VF drivers and
-looks like they return error if num unicast addresses exceeds the number
-supported by hw and don't put the VF in promiscuous mode. But one could put
-the VF in promiscuous mode by changing IFF_FLAGS I think.
-
-The original in-kernel passthru mode code puts the VF in promiscuous mode by
-default. Am assuming that works well with other sriov cards you got a chance
-to try out with.
-
-Thanks,
-Roopa
+It sounds like a modified kernel, maybe you added a bug in the code...
