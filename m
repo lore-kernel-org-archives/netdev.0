@@ -1,48 +1,55 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] ipv6: Create module parameter for use_tempaddr
-Date: Mon, 12 Sep 2011 15:51:45 -0400
-Message-ID: <4E6E62D1.8010108@hp.com>
-References: <20110901062754.5D1642043D@glenhelen.mtv.corp.google.com>	<CAMcMvsgZ8t=dh5G=QuFKODCyrBX56nveztq=0QBwaUfO46KL9Q@mail.gmail.com> <CAMcMvsja6hmHj3-+vCYLnXXBbGznK9EJbx+mkBgT8gR6iwRoWg@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] Check net->nfnl for NULL in ctnetlink_conntrack_event
+ to, avoid Oops on container destroy
+Date: Mon, 12 Sep 2011 23:40:42 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1109122256450.1592@ja.ssi.bg>
+References: <4E6E4961.9070802@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Paul Stewart <pstew@chromium.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kaber@trash.net, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org
+To: Tim Gardner <tim.gardner@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:7681 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611Ab1ILTvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 15:51:48 -0400
-In-Reply-To: <CAMcMvsja6hmHj3-+vCYLnXXBbGznK9EJbx+mkBgT8gR6iwRoWg@mail.gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:56339 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752699Ab1ILUkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Sep 2011 16:40:40 -0400
+In-Reply-To: <4E6E4961.9070802@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/12/2011 12:37 PM, Paul Stewart wrote:
-> Hello, folks.  I've been trying to upstream (or open a discussion on)
-> adding a module parameter to enable IPv6 address privacy as a module
-> parameter.  The author listed for if_inet6.c is not a bouncing email
-> address.  Does anyone else have a suggestion for where to get this
-> change vetted?  I'm now CC'ing the author and reviewer of the last
-> module parameter change for ipv6.
 
-I think David would just tell you to be patient, your patch is listed in
-patchwork, http://patchwork.ozlabs.org/project/netdev/list/ , and git.kernel.org
-is still down...
+	Hello,
 
->>>  static int disable_ipv6_mod = 0;
->>> @@ -89,6 +92,11 @@ MODULE_PARM_DESC(disable_ipv6, "Disable IPv6 on all interfaces");
->>>  module_param_named(autoconf, ipv6_defaults.autoconf, int, 0444);
->>>  MODULE_PARM_DESC(autoconf, "Enable IPv6 address autoconfiguration on all interfaces");
->>>
->>> +#ifdef CONFIG_IPV6_PRIVACY
->>> +module_param_named(use_tempaddr, ipv6_defaults.use_tempaddr, int, 0444);
->>> +MODULE_PARM_DESC(use_tempaddr, "Enable IPv6 address privacy for autoconfiguration by default");
->>> +#endif
+On Mon, 12 Sep 2011, Tim Gardner wrote:
 
-I don't know if you want this under an #ifdef, since that could fail a module
-load on certain kernel builds - people might want to put the same entry in a
-conf file whether the kernel supports it or not (if it's accepted).
+> Patrick,
+> 
+> I received this patch from a developer that uses lxc and network name spaces.
+> I don't know the locking semantics well enough for CT to judge whether this
+> fix is sufficient. Bug info can be found at
+> http://bugs.launchpad.net/bugs/843892 . See comment #7 for his analysis.
 
-And you failed to update Documentation/networking/ipv6.txt
+	We found same problems triggered by IPVS during
+subsys cleanup:
 
--Brian
+http://marc.info/?l=netfilter-devel&m=130765388528399&w=2
+
+	It is a general problem for modules that register
+callbacks to the netfilter core. nfnetlink is such example
+with a mix of global (ctnl_notifier) and per-net (nfnetlink_net_ops) 
+registrations. During net cleanup the module must be prepared
+to be called by core because the core cleanup happens later.
+
+	So, may be rcu_dereference under rcu lock is needed for
+some functions (nfnetlink_has_listeners, nfnetlink_send) but
+such changes should be audited by nfnetlink developers.
+Using rcu_assign_pointer for net->nfnl without corresponding 
+rcu_dereference looks like a problem.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
