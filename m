@@ -1,96 +1,74 @@
-From: Kumar S <ps2kumar@yahoo.com>
-Subject: Re: Memory leak in ip_dst_cache
-Date: Mon, 12 Sep 2011 10:16:41 -0700 (PDT)
-Message-ID: <1315847801.41447.YahooMailNeo@web113916.mail.gq1.yahoo.com>
-References: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>  <1315546223.5410.23.camel@edumazet-laptop>  <1315593553.98279.YahooMailNeo@web113904.mail.gq1.yahoo.com>  <1315596786.2606.3.camel@edumazet-laptop>  <1315601283.91185.YahooMailNeo@web113908.mail.gq1.yahoo.com>  <1315604820.2606.13.camel@edumazet-laptop>  <1315605497.25052.YahooMailNeo@web113916.mail.gq1.yahoo.com>  <1315606125.2606.19.camel@edumazet-laptop>  <1315608825.98066.YahooMailNeo@web113914.mail.gq1.yahoo.com>  <20110910130416.GA2005@neilslaptop.think-freely.org>  <1315798710.96027.YahooMailNeo@web113913.mail.gq1.yahoo.com>  <1315806031.3174.16.camel@edumazet-laptop>  <1315807643.92529.YahooMailNeo@web113911.mail.gq1.yahoo.com> <1315808931.3174.17.camel@edumazet-laptop>
-Reply-To: Kumar S <ps2kumar@yahoo.com>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Mon, 12 Sep 2011 10:23:24 -0700
+Message-ID: <CA938E1C.33F00%roprabhu@cisco.com>
+References: <4E6D8AF3.7080406@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, <netdev@vger.kernel.org>,
+	<dragos.tatulea@gmail.com>, <arnd@arndb.de>, <dwang2@cisco.com>,
+	<benve@cisco.com>, <kaber@trash.net>, <davem@davemloft.net>,
+	<eric.dumazet@gmail.com>, <mchan@broadcom.com>,
+	<kvm@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm6-vm4.bullet.mail.ne1.yahoo.com ([98.138.91.166]:29343 "HELO
-	nm6-vm4.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752761Ab1ILRWO convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Sep 2011 13:22:14 -0400
-In-Reply-To: <1315808931.3174.17.camel@edumazet-laptop>
+Received: from mtv-iport-3.cisco.com ([173.36.130.14]:15339 "EHLO
+	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951Ab1ILRX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 13:23:26 -0400
+In-Reply-To: <4E6D8AF3.7080406@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------ Original Message -----
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-To: Kumar S <ps2kumar@yahoo.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>; netdev <netdev@vger.kernel.org=
->
-Sent: Sunday, September 11, 2011 11:28 PM
-Subject: Re: Memory leak in ip_dst_cache
 
-Le dimanche 11 septembre 2011 =E0 23:07 -0700, Kumar S a =E9crit :
->> ----- Original Message -----
->> From: Eric Dumazet <eric.dumazet@gmail.com>
-> >To: Kumar S <ps2kumar@yahoo.com>
-> >Cc: Neil Horman <nhorman@tuxdriver.com>; netdev <netdev@vger.kernel.=
-org>
-> >Sent: Sunday, September 11, 2011 10:40 PM
-> Subject: Re: Memory leak in ip_dst_cache
-> >
->> Le dimanche 11 septembre 2011 =E0 20:38 -0700, Kumar S a =E9crit :
->>=20
->> Please dont top post.
->>=20
-> >>> Thanks Neil. I did try with prink(). I do see entries getting age=
-d
-> >>> out, but they are not getting deallocated. This seems to be happe=
-ning
-> >>>because of "ref_cnt". When the route entries are added the ref_cnt=
- is
-> >>> set to 1. Looks this is causing trouble clearing the entries
-> >>> completely. If I set the ref_cnt to 0, I can see it working. Now =
-I'm
-> >>> trying to understand whether this is right. Please let me know if=
- you
-> >>> have any thoughts on it.
->>=20
-> >>I believe I already explained what was happening.
->>=20
-> >>A tcp socket has a pointer to a dst, so it holds a reference on it,=
- to
-> >>make sure no freeing of dst can happen while at least some socket s=
-till
-> >>can reference dst. (It could reference freed memory and crash)
->>=20
-> >>As soon as the tcp socket will try to transmit some data, the dst w=
-ill
-> >>be checked and we notice its obsolete : We then release the refcoun=
-t and
-> >>dst pointer.
-> >
-> >>Later, the garbage collector can notice dst refcount is zero and ca=
-n
-> >>free dst.
-> >
-> >>If you have dormant tcp sockets (no trafic at all), they hold their=
- dst.
-> >>A dormant tcp socket has a pretty more expensive memory cost than i=
-ts
-> >>dst. (Socket structure, dentry, inode, and probably in user land a
-> >>thread or process, and data)
->=A0>=20
->> Thanks Eric for detailed explanation. You did mention this before.
->> What I see is the cache entries related to the TCP sockets are getti=
-ng
-> >cleared, whenever they age out. But the issue we see here is with th=
-e
-> >broadcast messages such as SMB messages and network neighbor hood
->> messages. They never get freed. There is no traffic to those
-> >destinations from our board.=20
 
->What do you mean ? Your box is a router only ?
 
->Those SMB messages are going through it ?
-=A0
-Our box is a stand-alone system with L2 Quick Engine. This QE forwards =
-all broadcast to the other ports and also a copy to the CPU port.=20
+On 9/11/11 9:30 PM, "Sridhar Samudrala" <sri@us.ibm.com> wrote:
+
+> On 9/11/2011 6:18 AM, Roopa Prabhu wrote:
+>> 
+>> 
+>> On 9/11/11 2:44 AM, "Michael S. Tsirkin"<mst@redhat.com>  wrote:
+>> 
+>>>> AFAIK, though it might maintain a single filter table space in hw, hw does
+>>>> know which filter belongs to which VF. And the OS driver does not need to
+>>>> do
+>>>> anything special. The VF driver exposes a VF netdev. And any uc/mc
+>>>> addresses
+>>>> registered with a VF netdev are registered with the hw by the driver. And
+>>>> hw
+>>>> will filter and send only pkts that the VF has expressed interest in.
+>>>> 
+>>>> No special filter partitioning in hw is required.
+>>>> 
+>>>> Thanks,
+>>>> Roopa
+>>> Yes, but what I mean is, if the size of the single filter table
+>>> is limited, we need to decide how many addresses is
+>>> each guest allowed. If we let one guest ask for
+>>> as many as it wants, it can lock others out.
+>> Yes true. In these cases ie when the number of unicast addresses being
+>> registered is more than it can handle, The VF driver will put the VF  in
+>> promiscuous mode (Or at least its supposed to do. I think all drivers do
+>> that).
+>> 
+> What does putting VF in promiscuous mode mean?  How can the NIC decide
+> which set
+> of mac addresses are passed to the VF? Does it mean VF sees all the
+> packets received
+> by the NIC including packets destined for other VFs/PF?
+> 
+Yes I think so. After your question I looked at 2 other  VF drivers and
+looks like they return error if num unicast addresses exceeds the number
+supported by hw and don't put the VF in promiscuous mode. But one could put
+the VF in promiscuous mode by changing IFF_FLAGS I think.
+
+The original in-kernel passthru mode code puts the VF in promiscuous mode by
+default. Am assuming that works well with other sriov cards you got a chance
+to try out with.
+
+Thanks,
+Roopa
