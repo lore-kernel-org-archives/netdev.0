@@ -1,49 +1,60 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 03/10] mm: Add support for a filesystem to control swap
- files
-Date: Mon, 12 Sep 2011 11:56:09 +0200
-Message-ID: <1315821369.26517.21.camel@twins>
-References: <1315566054-17209-1-git-send-email-mgorman@suse.de>
-	 <1315566054-17209-4-git-send-email-mgorman@suse.de>
-	 <20110909130007.GA11810@infradead.org> <20110909131550.GV14369@suse.de>
-	 <20110909133611.GB8155@infradead.org> <1315818285.26517.18.camel@twins>
-	 <20110912093058.GA3207@suse.de>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v2 6/9] per-cgroup tcp buffers control
+Date: Mon, 12 Sep 2011 19:31:17 +0900
+Message-ID: <20110912193117.d8f360f9.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1315369399-3073-1-git-send-email-glommer@parallels.com>
+	<1315369399-3073-7-git-send-email-glommer@parallels.com>
+	<20110909121206.e1d628d1.kamezawa.hiroyu@jp.fujitsu.com>
+	<4E6A001C.2040600@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Christoph Hellwig <hch@infradead.org>, Linux-MM <linux-mm@kvack.org>,
- Linux-Netdev <netdev@vger.kernel.org>, Linux-NFS
- <linux-nfs@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, Andrew
- Morton <akpm@linux-foundation.org>,  David Miller <davem@davemloft.net>,
- Trond Myklebust <Trond.Myklebust@netapp.com>, Neil Brown <neilb@suse.de>
-To: Mel Gorman <mgorman@suse.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <linux-mm@kvack.org>,
+ <containers@lists.osdl.org>, <netdev@vger.kernel.org>,
+ <xemul@parallels.com>, "David S. Miller" <davem@davemloft.net>,
+ "Eric W. Biederman" <ebiederm@xmission.com>
+To: Glauber Costa <glommer@parallels.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110912093058.GA3207@suse.de>
+In-Reply-To: <4E6A001C.2040600@parallels.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-09-12 at 10:34 +0100, Mel Gorman wrote:
-> On Mon, Sep 12, 2011 at 11:04:45AM +0200, Peter Zijlstra wrote:
-> > On Fri, 2011-09-09 at 09:36 -0400, Christoph Hellwig wrote:
-> > > The equivalent of ->direct_IO should be used for both reads and write=
-s.
-> >=20
-> > So the difference between DIO and swapIO is that swapIO needs the block
-> > map pinned in memory.. So at the very least you'll need those
-> > swap_{activate,deactivate} aops. The read/write-page thingies could
-> > indeed be shared with DIO.
-> >=20
->=20
-> I'm travelling at the moment so it'll be later in the week when I investi=
-gate
-> properly but I agree swap_[de|a]ctivate are still necessary. NFS does not
-> need to pin a block map but it's still necessary for calling xs_set_memal=
-loc.
+On Fri, 9 Sep 2011 09:01:32 -0300
+Glauber Costa <glommer@parallels.com> wrote:
 
-Right.. but I think the hope was that we could replace the current swap
-bmap hackery with this and simplify the normal swap bits. But yeah,
-networked filesystems don't really bother with block maps on the client
-side ;-)
+> On 09/09/2011 12:12 AM, KAMEZAWA Hiroyuki wrote:
+> > On Wed,  7 Sep 2011 01:23:16 -0300
+> > Glauber Costa<glommer@parallels.com>  wrote:
+> >
+> >> With all the infrastructure in place, this patch implements
+> >> per-cgroup control for tcp memory pressure handling.
+> >>
+> >> Signed-off-by: Glauber Costa<glommer@parallels.com>
+> >> CC: David S. Miller<davem@davemloft.net>
+> >> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+> >> CC: Eric W. Biederman<ebiederm@xmission.com>
+> >
+> > Hmm, then, kmem_cgroup.c is just a caller of plugins implemented
+> > by other components ?
+> 
+> Kame,
+> 
+> Refer to my discussion with Greg. How would you feel about it being 
+> accounted to a single "kernel memory" limit in memcg?
+> 
+
+Hmm, it's argued that 'cgroup is hard to use, it's difficult!!!'.
+
+Then, if implementation is clean, I think it may be good to add
+kmem limit to memcg.
+
+Your and Greg's idea is to have
+
+	memory.kmem_limit_in_bytes 
+?
+
+Thanks,
+-Kame
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
