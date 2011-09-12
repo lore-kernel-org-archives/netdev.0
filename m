@@ -1,207 +1,75 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH] per-cgroup tcp buffer limitation
-Date: Mon, 12 Sep 2011 13:57:01 -0300
-Message-ID: <4E6E39DD.2040102@parallels.com>
-References: <1315276556-10970-1-git-send-email-glommer@parallels.com> <CAHH2K0aJxjinSu0Ek6jzsZ5dBmm5mEU-typuwYWYWEudF2F3Qg@mail.gmail.com> <4E664766.40200@parallels.com> <CAHH2K0YJA7vZZ3QNAf63TZOnWhsRUwfuZYfntBL4muZ0G_Vt2w@mail.gmail.com> <4E66A0A9.3060403@parallels.com> <CAHH2K0aq4s1_H-yY0kA3LhM00CCNNbJZyvyBoDD6rHC+qo_gNg@mail.gmail.com> <4E68484A.4000201@parallels.com> <CAHH2K0YcXMUfd1Zr=f5a4=X9cPPp8NZiuichFXaOo=kVp5rRJA@mail.gmail.com> <4E699341.9010606@parallels.com> <CALdu-PCrYPZx38o44ZyFrbQ6H39-vNPKey_Tpm4HRUNHNFMpyA@mail.gmail.com>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 0/3 RFC] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Mon, 12 Sep 2011 10:02:53 -0700
+Message-ID: <CA93894D.33EF8%roprabhu@cisco.com>
+References: <20110911190325.GC4740@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Thelen <gthelen@google.com>, <linux-kernel@vger.kernel.org>,
-	<linux-mm@kvack.org>, <containers@lists.osdl.org>,
-	<netdev@vger.kernel.org>, <xemul@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Suleiman Souhlal <suleiman@google.com>,
-	Lennart Poettering <lennart@poettering.net>
-To: Paul Menage <paul@paulmenage.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALdu-PCrYPZx38o44ZyFrbQ6H39-vNPKey_Tpm4HRUNHNFMpyA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Sridhar Samudrala <sri@us.ibm.com>, <netdev@vger.kernel.org>,
+	<dragos.tatulea@gmail.com>, <arnd@arndb.de>, <dwang2@cisco.com>,
+	<benve@cisco.com>, <kaber@trash.net>, <davem@davemloft.net>,
+	<eric.dumazet@gmail.com>, <mchan@broadcom.com>,
+	<kvm@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110911190325.GC4740@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/12/2011 02:03 AM, Paul Menage wrote:
-> On Thu, Sep 8, 2011 at 9:17 PM, Glauber Costa<glommer@parallels.com>  wrote:
->> On 09/08/2011 06:53 PM, Greg Thelen wrote:
->>>
->>> On Wed, Sep 7, 2011 at 9:44 PM, Glauber Costa<glommer@parallels.com>
->>>   wrote:
->>>
->>> Thanks for your ideas and patience.
->>
->> Likewise. It is turning out to be a very fruitful
->> discussion.
->>
->
-> This also got a fair bit of attention at LPC on Thursday - shame you
-> couldn't make it, but I hope you had no problems getting your visa!
-
-Apart from the trip to the nearest consulate and 4 hours in a line, no 
-problems =) I can now legally enter the United States - so wait for me 
-next time!
-
->
-> I definitely think that there was no consensus reached on unified
-> versus split charging - but I think that we can work around that and
-> keep everyone happy, see below.
-
-I think at this point there is at least consensus that this could very 
-well live in memcg, right ?
->
->>
->> Risking being a bit polemic here, I think that when we do
->> containers, we have to view the kernel a little bit like a shared resource
->> that is not accounted to anybody. It is easy to account things like tcp
->> buffer, but who do you account page tables for shared pages to? Or pinned
->> dentries for shared filesystems ?
->
-> I'd say that if filesystems (or page tables) are shared between
-> containers / cgroups, then it's fair to do first-touch accounting. But
-> if a filesystem is shared between multiple processes in just one
-> container / cgroup then it should definitely be charged to that cgroup
-> (which you get automatically with first-touch accounting).
->
-> It might be reasonable to also allow the sysadmin to request a more
-> expensive form of accounting (probably either charge-all or
-> equal-share), if the code to support that didn't interfere with the
-> performance of the normal first-touch charging mechanism, or
-> complicate the code too much.
-
-I personally think equal share is a nightmare. But charge-all for shared 
-resources is quite acceptable even as a default if people are not 
-heavily concerned about precise accounting, in the sense that all 
-containers should sum up to one (well, I am not)
-
-> On the subject of filesystems specifically, see Greg Thelen's proposal
-> for using bind mounts to account on a bind mount to a given cgroup -
-> that could apply to dentries, page tables and other kernel memory as
-> well as page cache.
-
-Care to point me to it ?
-
->> Good that it scares you, it should. OTOH, userspace being
->> able to set parameters to it, has nothing scary at all. A daemon in
->> userspace can detect that you need more kernel space memory , and
->> then - according to a policy you abide to - write to a file allowing
->> it more, or maybe not - according to that same policy. It is very
->> far away from "userspace driven reclaim".
->
-> It can do that, but it's a bit messy when all userspace really wants
-> to do is say "limit the total to X GB".
->
->
->> No, I don't necessarily feel that need. I just thought it was
->> cleaner to have entities with different purposes in different
->> cgroups. If moving it to the memory controller would help you in any
->> way, I can just do it. 80 % of this work is independent of where a
->> cgroup file lives.
->
-> My feeling is also that it's more appropriate for this to live in
-> memcg. While the ability to mount subsystems separately gives nice
-> flexibility, in the case of userspace versus kernel memory, I'm having
-> trouble envisaging a realistic situation where you'd want them mounted
-> on different hierarchies.
-
-Right.
->>   - kernel_memory_hard_limit.
->>   - kernel_memory_soft_limit.
->>
->> tcp memory would be the one defined in /proc, except if it is
->> greater than any of the limits. Instead of testing for memory
->> allocation against kmem.tcp_allocated_memory, we'd test it against
->> memcg.kmem_pinned_memory.
->>
->
-> This is definitely an improvement, but I'd say it's not enough. I
-> think we should consider something like:
-One step at a time =)
-
->
-> - a root cgroup file (memory.unified?) that controls whether memory
-> limits are unified or split.
-> - this file can only be modified when there are no memory cgroups
-> created (other than the root, which we shouldn't be charging, I think)
-
-Okay.
-
-> - the 'active' control determines whether (all) child cgroups will
-> have  memory.{limit,usage}_in_bytes files, or
-> memory.{kernel,user}_{limit,usage}_in_bytes files
-> - kernel memory will be charged either against 'kernel' or 'total'
-> depending on the value of unified
-
-You mean for display/pressure purposes, right? Internally, I think once 
-we have kernel memory, we always charge it to kernel memory, regardless 
-of anything else. The value in unified field will only take place when 
-we need to grab this value.
-
-I don't personally see a reason for not having all files present at all 
-times.
-
-> - userspace memory will be charged either against 'user' or 'total'
->
-> That way the kernel doesn't force a unified or split decision on
-> anyone, with I think zero performance hit and not much extra code.
-
-Yes, I think not forcing it is not only an interesting way of settling 
-this, but also an interesting feature.
-
-> You could even take this a step further. The following is probably
-> straying into the realm of overly-flexible, but I'll throw it into the
-> discussion anyway:
->
-> - define counters for various types of memory (e.g. total, user,
-> kernel, network, tcp, pagetables, dentries, etc)
-
-Hummm, I like it, but I also fear that in the future we'll hit some 
-resource whose origin is hard to track... /me trying to think of such
-potential monster...
-
-It is overly flexible if we're exposing these counters and expecting the 
-user to do anything with them. It is perfectly fine if a single file, 
-when read, displays this information as statistics.
 
 
-> - document what kind of memory is potentially charged against each
-> counter. (e.g. TCP buffers would be potentially charged against 'tcp',
-> 'network', 'kernel' and 'total')
 
-That, I think, is overly flexible. I think what I said above makes sense 
-for very well defined entities such the slab. If we have something that 
-can be accounted to more to one general (kernel/user) and one specific 
-(slab) entity, we're getting too complex.
+On 9/11/11 12:03 PM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-> - have a memory.counters root cgroup file that allows the user to
-> specify which of the available counters are active. (only writeable
-> when no child cgroups, to avoid inconsistencies caused by changes
-> while memory is charged)
->
-> - default memory.counters to 'total'
->
-> - when memory.counters is updated, the memcg code builds the set of
-> targets for each chargeable entity. (e.g. if you enabled 'network' and
-> 'total', then we'd update the charge_tcp array to contain something
-> like {&network_counter,&total_counter, NULL })
->
-> - charging for an object (TCP allocation, pagecache page, pagetable,
-> dentry, etc) just involves (trying to) charge all the counters set up
-> in that object's array. Since these arrays will be immutable once
-> child cgroups are being charged, they should be fairly well predicted.
->
-> This would give complete flexibility to userspace on the policy for
-> charging and reporting without incurring performance overhead for
-> systems that didn't care about some particular counter. (And without
-> complicating the code too much, I think).
+> On Sun, Sep 11, 2011 at 06:18:01AM -0700, Roopa Prabhu wrote:
+>> 
+>> 
+>> 
+>> On 9/11/11 2:44 AM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+>> 
+>>> 
+>>> Yes, but what I mean is, if the size of the single filter table
+>>> is limited, we need to decide how many addresses is
+>>> each guest allowed. If we let one guest ask for
+>>> as many as it wants, it can lock others out.
+>> 
+>> Yes true. In these cases ie when the number of unicast addresses being
+>> registered is more than it can handle, The VF driver will put the VF  in
+>> promiscuous mode (Or at least its supposed to do. I think all drivers do
+>> that).
+>> 
+>> 
+>> Thanks,
+>> Roopa
+> 
+> Right, so that works at least but likely performs worse
+> than a hardware filter. So we better allocate it in
+> some fair way, as a minimum. Maybe a way for
+> the admin to control that allocation is useful.
 
-While I do think it is overly complicated, I think that a sound use case 
-for this would bring it to the "complicated" realm only. It sounds like 
-a nice feature if there are users for it.
+Yes I think we will have to do something like that. There is a maximum that
+hw can support. Might need to consider that too. But there is no interface
+to get that today. I think the virtualization case gets a little trickier.
+Virtio-net allows upto 64 unicast addresses. But the lowerdev may allow only
+upto say 10 unicast addresses (I think intel supports 10 unicast addresses
+on the VF). Am not sure if there is a good way to notify the guest of
+blocked addresses. Maybe putting the lower dev in promiscuous mode could be
+a policy decision too in this case.
 
-Not only for containers - that tend to be generic in most cases - but 
-maybe people enclosing services in isolated cgroups can come up with 
-profiles that will, for instance, disallow or allow very little disk 
-activity on a network-profiled cgroup and vice versa.
+One other thing, I had indicated that I will look up details on opening my
+patch for non-passthru to enable hw filtering (without adding filtering
+support in macvlan right away. Ie phase1). Turns out in current code in
+macvlan_handle_frame, for non-passthru case, it does not fwd unicast pkts
+destined to macs other than the ones in macvlan hash. So a filter or hash
+lookup there for additional unicast addresses needs to be definitely added
+for non-passthru.
 
-I am adding Lennart to this discussion, since if there is anyone crazy 
-enough to come up with an interesting use case for something strange, 
-it'll be systemd.
+Thanks,
+Roopa
+
+
+ 
+
