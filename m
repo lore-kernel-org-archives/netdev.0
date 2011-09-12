@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 1/2] SUNRPC: make rpc pipefs mount per network namespace
-Date: Mon, 12 Sep 2011 18:19:42 +0400
-Message-ID: <20110912141942.6261.87058.stgit@localhost6.localdomain6>
+Subject: [PATCH 2/2] SUNRPC: RPC pipefs virtualization
+Date: Mon, 12 Sep 2011 18:19:50 +0400
+Message-ID: <20110912141950.6261.9291.stgit@localhost6.localdomain6>
 References: <20110912141633.6261.72180.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,100 +10,115 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	bfields@fieldses.org, davem@davemloft.net
 To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:39482 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755025Ab1ILOUM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Sep 2011 10:20:12 -0400
 In-Reply-To: <20110912141633.6261.72180.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is another part of RPC layer virtualization.
-RPC pipefs inner data was attached to per-net sunrpc_net instance.
-Network namespace counter is increased and decreased with every RPC mount
-reference. This is not hardly requred from my pow, but it looks safer since we
-relay on network namespace presence.
+Parametrize rpc_mount_get() and rpc_mount_put() with network namespace pointer.
+Currently init_net is used, but later proper network context will be used
+instead.
+It actually means, that in future NFS cache have to be virtualied as well.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- include/linux/sunrpc/rpc_pipe_fs.h |    4 ++--
- net/sunrpc/netns.h                 |    3 +++
- net/sunrpc/rpc_pipe.c              |   23 +++++++++++++++--------
- 3 files changed, 20 insertions(+), 10 deletions(-)
+ fs/nfs/blocklayout/blocklayout.c |    2 +-
+ fs/nfs/cache_lib.c               |    7 ++++---
+ net/sunrpc/clnt.c                |    8 ++++----
+ 3 files changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index cf14db9..0bdf178 100644
---- a/include/linux/sunrpc/rpc_pipe_fs.h
-+++ b/include/linux/sunrpc/rpc_pipe_fs.h
-@@ -60,8 +60,8 @@ extern void rpc_remove_cache_dir(struct dentry *);
- extern struct dentry *rpc_mkpipe(struct dentry *, const char *, void *,
- 				 const struct rpc_pipe_ops *, int flags);
- extern int rpc_unlink(struct dentry *);
--extern struct vfsmount *rpc_get_mount(void);
--extern void rpc_put_mount(void);
-+extern struct vfsmount *rpc_get_mount(struct net *net);
-+extern void rpc_put_mount(struct net *net);
- extern int register_rpc_pipefs(void);
- extern void unregister_rpc_pipefs(void);
+diff --git a/fs/nfs/blocklayout/blocklayout.c b/fs/nfs/blocklayout/blocklayout.c
+index 9561c8f..9904e70 100644
+--- a/fs/nfs/blocklayout/blocklayout.c
++++ b/fs/nfs/blocklayout/blocklayout.c
+@@ -979,7 +979,7 @@ static int __init nfs4blocklayout_init(void)
  
-diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
-index d013bf2..e45fdf0 100644
---- a/net/sunrpc/netns.h
-+++ b/net/sunrpc/netns.h
-@@ -9,6 +9,9 @@ struct cache_detail;
- struct sunrpc_net {
- 	struct proc_dir_entry *proc_net_rpc;
- 	struct cache_detail *ip_map_cache;
-+
-+	struct vfsmount *rpc_mnt;
-+	int rpc_mount_count;
- };
+ 	init_waitqueue_head(&bl_wq);
  
- extern int sunrpc_net_id;
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index b181e34..ebc5e1c 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -28,8 +28,7 @@
- #include <linux/sunrpc/rpc_pipe_fs.h>
+-	mnt = rpc_get_mount();
++	mnt = rpc_get_mount(&init_net);
+ 	if (IS_ERR(mnt)) {
+ 		ret = PTR_ERR(mnt);
+ 		goto out_remove;
+diff --git a/fs/nfs/cache_lib.c b/fs/nfs/cache_lib.c
+index c98b439..777514b 100644
+--- a/fs/nfs/cache_lib.c
++++ b/fs/nfs/cache_lib.c
+@@ -11,6 +11,7 @@
+ #include <linux/mount.h>
+ #include <linux/namei.h>
+ #include <linux/slab.h>
++#include <net/net_namespace.h>
  #include <linux/sunrpc/cache.h>
+ #include <linux/sunrpc/rpc_pipe_fs.h>
  
--static struct vfsmount *rpc_mnt __read_mostly;
--static int rpc_mount_count;
-+#include "netns.h"
+@@ -117,7 +118,7 @@ int nfs_cache_register(struct cache_detail *cd)
+ 	struct path path;
+ 	int ret;
  
- static struct file_system_type rpc_pipe_fs_type;
- 
-@@ -421,20 +420,28 @@ struct rpc_filelist {
- 	umode_t mode;
- };
- 
--struct vfsmount *rpc_get_mount(void)
-+struct vfsmount *rpc_get_mount(struct net *net)
- {
- 	int err;
-+	struct sunrpc_net *sn;
- 
--	err = simple_pin_fs(&rpc_pipe_fs_type, &rpc_mnt, &rpc_mount_count);
--	if (err != 0)
-+	sn = net_generic(get_net(net), sunrpc_net_id);
-+	err = simple_pin_fs(&rpc_pipe_fs_type, &sn->rpc_mnt, &sn->rpc_mount_count);
-+	if (err != 0) {
-+		put_net(net);
- 		return ERR_PTR(err);
--	return rpc_mnt;
-+	}
-+	return sn->rpc_mnt;
+-	mnt = rpc_get_mount();
++	mnt = rpc_get_mount(&init_net);
+ 	if (IS_ERR(mnt))
+ 		return PTR_ERR(mnt);
+ 	ret = vfs_path_lookup(mnt->mnt_root, mnt, "/cache", 0, &path);
+@@ -128,13 +129,13 @@ int nfs_cache_register(struct cache_detail *cd)
+ 	if (!ret)
+ 		return ret;
+ err:
+-	rpc_put_mount();
++	rpc_put_mount(&init_net);
+ 	return ret;
  }
- EXPORT_SYMBOL_GPL(rpc_get_mount);
  
--void rpc_put_mount(void)
-+void rpc_put_mount(struct net *net)
+ void nfs_cache_unregister(struct cache_detail *cd)
  {
--	simple_release_fs(&rpc_mnt, &rpc_mount_count);
-+	struct sunrpc_net *sn;
-+
-+	sn = net_generic(net, sunrpc_net_id);
-+	simple_release_fs(&sn->rpc_mnt, &sn->rpc_mount_count);
-+	put_net(net);
+ 	sunrpc_cache_unregister_pipefs(cd);
+-	rpc_put_mount();
++	rpc_put_mount(&init_net);
  }
- EXPORT_SYMBOL_GPL(rpc_put_mount);
  
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index c5347d2..4bebcc0 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -109,7 +109,7 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
+ 	if (dir_name == NULL)
+ 		return 0;
+ 
+-	path.mnt = rpc_get_mount();
++	path.mnt = rpc_get_mount(clnt->cl_xprt->xprt_net);
+ 	if (IS_ERR(path.mnt))
+ 		return PTR_ERR(path.mnt);
+ 	error = vfs_path_lookup(path.mnt->mnt_root, path.mnt, dir_name, 0, &dir);
+@@ -137,7 +137,7 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
+ err_path_put:
+ 	path_put(&dir);
+ err:
+-	rpc_put_mount();
++	rpc_put_mount(clnt->cl_xprt->xprt_net);
+ 	return error;
+ }
+ 
+@@ -248,7 +248,7 @@ static struct rpc_clnt * rpc_new_client(const struct rpc_create_args *args, stru
+ out_no_auth:
+ 	if (!IS_ERR(clnt->cl_path.dentry)) {
+ 		rpc_remove_client_dir(clnt->cl_path.dentry);
+-		rpc_put_mount();
++		rpc_put_mount(clnt->cl_xprt->xprt_net);
+ 	}
+ out_no_path:
+ 	kfree(clnt->cl_principal);
+@@ -476,7 +476,7 @@ rpc_free_client(struct rpc_clnt *clnt)
+ 			clnt->cl_protname, clnt->cl_server);
+ 	if (!IS_ERR(clnt->cl_path.dentry)) {
+ 		rpc_remove_client_dir(clnt->cl_path.dentry);
+-		rpc_put_mount();
++		rpc_put_mount(clnt->cl_xprt->xprt_net);
+ 	}
+ 	if (clnt->cl_parent != clnt) {
+ 		rpc_release_client(clnt->cl_parent);
