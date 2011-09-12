@@ -1,49 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Memory leak in ip_dst_cache
-Date: Mon, 12 Sep 2011 19:57:52 +0200
-Message-ID: <1315850272.2556.0.camel@edumazet-laptop>
-References: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>
-	 <1315546223.5410.23.camel@edumazet-laptop>
-	 <1315593553.98279.YahooMailNeo@web113904.mail.gq1.yahoo.com>
-	 <1315596786.2606.3.camel@edumazet-laptop>
-	 <1315601283.91185.YahooMailNeo@web113908.mail.gq1.yahoo.com>
-	 <1315604820.2606.13.camel@edumazet-laptop>
-	 <1315605497.25052.YahooMailNeo@web113916.mail.gq1.yahoo.com>
-	 <1315606125.2606.19.camel@edumazet-laptop>
-	 <1315608825.98066.YahooMailNeo@web113914.mail.gq1.yahoo.com>
-	 <20110910130416.GA2005@neilslaptop.think-freely.org>
-	 <1315798710.96027.YahooMailNeo@web113913.mail.gq1.yahoo.com>
-	 <1315806031.3174.16.camel@edumazet-laptop>
-	 <1315807643.92529.YahooMailNeo@web113911.mail.gq1.yahoo.com>
-	 <1315808931.3174.17.camel@edumazet-laptop>
-	 <1315847801.41447.YahooMailNeo@web113916.mail.gq1.yahoo.com>
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: [PATCH] Check net->nfnl for NULL in ctnetlink_conntrack_event to,
+ avoid Oops on container destroy
+Date: Mon, 12 Sep 2011 12:03:13 -0600
+Message-ID: <4E6E4961.9070802@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
-To: Kumar S <ps2kumar@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55274 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752400Ab1ILR55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Sep 2011 13:57:57 -0400
-Received: by wwf22 with SMTP id 22so1726882wwf.1
-        for <netdev@vger.kernel.org>; Mon, 12 Sep 2011 10:57:56 -0700 (PDT)
-In-Reply-To: <1315847801.41447.YahooMailNeo@web113916.mail.gq1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------060909040203070706070500"
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org
+To: kaber@trash.net, linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 12 septembre 2011 =C3=A0 10:16 -0700, Kumar S a =C3=A9crit :
-> ----- Original Message -----
-> From: Eric Dumazet <eric.dumazet@gmail.com>
+This is a multi-part message in MIME format.
+--------------060909040203070706070500
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> >What do you mean ? Your box is a router only ?
->=20
-> >Those SMB messages are going through it ?
-> =20
-> Our box is a stand-alone system with L2 Quick Engine. This QE forward=
-s
-> all broadcast to the other ports and also a copy to the CPU port.=20
+Patrick,
 
-It sounds like a modified kernel, maybe you added a bug in the code...
+I received this patch from a developer that uses lxc and network name 
+spaces. I don't know the locking semantics well enough for CT to judge 
+whether this fix is sufficient. Bug info can be found at 
+http://bugs.launchpad.net/bugs/843892 . See comment #7 for his analysis.
+
+rtg
+-- 
+Tim Gardner tim.gardner@canonical.com
+
+--------------060909040203070706070500
+Content-Type: text/x-patch;
+ name="0001-Check-net-nfnl-for-NULL-in-ctnetlink_conntrack_event.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-Check-net-nfnl-for-NULL-in-ctnetlink_conntrack_event.pa";
+ filename*1="tch"
+
+>From dcb64e27c7daaf4affe5b1a617b45a9a0364b4ad Mon Sep 17 00:00:00 2001
+From: Alex Bligh <alex@alex.org.uk>
+Date: Sat, 10 Sep 2011 13:29:12 +0100
+Subject: [PATCH] Check net->nfnl for NULL in ctnetlink_conntrack_event to
+ avoid Oops on container destroy
+
+
+Signed-off-by: Alex Bligh <alex@alex.org.uk>
+---
+ net/netfilter/nf_conntrack_netlink.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 482e90c..0790d0a 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -570,6 +570,11 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
+ 		return 0;
+ 
+ 	net = nf_ct_net(ct);
++
++	/* container deinit, netlink may have died before death_by_timeout */
++	if (!net->nfnl)
++		return 0;
++
+ 	if (!item->report && !nfnetlink_has_listeners(net, group))
+ 		return 0;
+ 
+-- 
+1.7.5.4
+
+
+--------------060909040203070706070500--
