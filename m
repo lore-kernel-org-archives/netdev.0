@@ -1,49 +1,66 @@
-From: Kumar S <ps2kumar@yahoo.com>
-Subject: Re: Memory leak in ip_dst_cache
-Date: Mon, 12 Sep 2011 15:20:34 -0700 (PDT)
-Message-ID: <1315866034.38403.YahooMailNeo@web113918.mail.gq1.yahoo.com>
-References: <1315544674.20226.YahooMailNeo@web113902.mail.gq1.yahoo.com>  <1315546223.5410.23.camel@edumazet-laptop>  <1315593553.98279.YahooMailNeo@web113904.mail.gq1.yahoo.com>  <1315596786.2606.3.camel@edumazet-laptop>  <1315601283.91185.YahooMailNeo@web113908.mail.gq1.yahoo.com>  <1315604820.2606.13.camel@edumazet-laptop>  <1315605497.25052.YahooMailNeo@web113916.mail.gq1.yahoo.com>  <1315606125.2606.19.camel@edumazet-laptop>  <1315608825.98066.YahooMailNeo@web113914.mail.gq1.yahoo.com>  <20110910130416.GA2005@neilslaptop.think-freely.org>  <1315798710.96027.YahooMailNeo@web113913.mail.gq1.yahoo.com>  <1315806031.3174.16.camel@edumazet-laptop>  <1315807643.92529.YahooMailNeo@web113911.mail.gq1.yahoo.com>  <1315808931.3174.17.camel@edumazet-laptop>  <1315847801.41447.YahooMailNeo@web113
- 916.mail.gq1.yahoo.com> <1315850272.2556.0.camel@edumazet-laptop>
-Reply-To: Kumar S <ps2kumar@yahoo.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: Temporary(?) relocation of wireless git trees...
+Date: Tue, 13 Sep 2011 10:58:58 +1000
+Message-ID: <20110913105858.eedd5ac594679aa36111c9d4@canb.auug.org.au>
+References: <20110912181351.GD2689@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm24.bullet.mail.sp2.yahoo.com ([98.139.91.94]:47998 "HELO
-	nm24.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755182Ab1ILWUf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Sep 2011 18:20:35 -0400
-In-Reply-To: <1315850272.2556.0.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__13_Sep_2011_10_58_58_+1000_0U2ldkyiAt.41egq"
+Cc: linux-wireless@vger.kernel.org,
+	David Woodhouse <dwmw2@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110912181351.GD2689@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+--Signature=_Tue__13_Sep_2011_10_58_58_+1000_0U2ldkyiAt.41egq
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+Hi John,
 
------ Original Message -----
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-To: Kumar S <ps2kumar@yahoo.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>; netdev <netdev@vger.kernel.org=
+On Mon, 12 Sep 2011 14:13:52 -0400 "John W. Linville" <linville@tuxdriver.c=
+om> wrote:
 >
-Sent: Monday, September 12, 2011 10:57 AM
-Subject: Re: Memory leak in ip_dst_cache
+> With no news on when the kernel.org trees will be accessible again
+> (which could be 10 minutes from now for all I know), I have pushed
+> my local copies to Infradead.  This should be equivalent to what was
+> last pushed to kernel.org almost two weeks ago.
+>=20
+> The "current" wireless tree is here:
+>=20
+> 	git://git.infradead.org/users/linville/wireless.git
+>=20
+> The "next" wireless tree is here:
+>=20
+> 	git://git.infradead.org/users/linville/wireless-next.git
 
-Le lundi 12 septembre 2011 =E0 10:16 -0700, Kumar S a =E9crit :
->> ----- Original Message -----
->> From: Eric Dumazet <eric.dumazet@gmail.com>
+OK, I have switched to these using their "master" branches.  There is
+nothing new in them, correct?
 
->>What do you mean ? Your box is a router only ?
->>=20
-> >>Those SMB messages are going through it ?
->=A0>=20
->> Our box is a stand-alone system with L2 Quick Engine. This QE forwar=
-ds
->> all broadcast to the other ports and also a copy to the CPU port.=20
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
->It sounds like a modified kernel, maybe you added a bug in the code...
+--Signature=_Tue__13_Sep_2011_10_58_58_+1000_0U2ldkyiAt.41egq
+Content-Type: application/pgp-signature
 
-It is possible. I'm trying to isolate the same. Your input=A0is helping=
- a lot in understanding the flow related to ip_dst_cache.=20
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJObqrSAAoJEDMEi1NhKgbsZXUH/1mA4y7T5EZEACpn+0ST5xK5
+hc16XHpILQ4Mq48ZQg2zkj0RMnlCCIgSplKupRMG9DlHw/YJ5bViEJ20yu01vXVb
+ld6tQ2JEfNtjG/SPMhOZU6/wCk9gXspqvXEK3kMoX8ZDv1fuGH2G4t7kHIXStYPI
+GgEHt5APdnaEEMybmnsZSd1AeUqr+qIzhFmNir9PFuvDlTMoDMt9YLqz7BlzqHRG
+CyX+5v4g7qm4aiR1QC4b8Rwgk0a4oJ674Kl1cofsND+pjzQOm6keOz27jWo+9vdK
+mk5++PXFK8hEhwpaYnPTBPkDW8VUPuwhc1MLrWR/K8PCeaKKqIFkAkz3MFJakkc=
+=c3Of
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__13_Sep_2011_10_58_58_+1000_0U2ldkyiAt.41egq--
