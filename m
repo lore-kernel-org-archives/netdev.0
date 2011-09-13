@@ -1,48 +1,81 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH] per-cgroup tcp buffer limitation
-Date: Tue, 13 Sep 2011 16:08:11 -0300
-Message-ID: <4E6FAA1B.5020102@parallels.com>
-References: <1315276556-10970-1-git-send-email-glommer@parallels.com> <CAHH2K0aJxjinSu0Ek6jzsZ5dBmm5mEU-typuwYWYWEudF2F3Qg@mail.gmail.com> <4E664766.40200@parallels.com> <CAHH2K0YJA7vZZ3QNAf63TZOnWhsRUwfuZYfntBL4muZ0G_Vt2w@mail.gmail.com> <4E66A0A9.3060403@parallels.com> <CAHH2K0aq4s1_H-yY0kA3LhM00CCNNbJZyvyBoDD6rHC+qo_gNg@mail.gmail.com> <4E68484A.4000201@parallels.com> <CAHH2K0YcXMUfd1Zr=f5a4=X9cPPp8NZiuichFXaOo=kVp5rRJA@mail.gmail.com> <4E699341.9010606@parallels.com> <CALdu-PCrYPZx38o44ZyFrbQ6H39-vNPKey_Tpm4HRUNHNFMpyA@mail.gmail.com> <4E6E39DD.2040102@parallels.com> <CALdu-PC7ESSUHuF4vfVoRFFfkaBt1V28rGW3-O5pT3WtegAh4g@mail.gmail.com> <4E6F9CC4.2000601@parallels.com> <CALdu-PDGpBnVHW7E5NobAwtXop5c03NTmijkk8oB7u-a5LEXww@mail.gmail.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
+ groups
+Date: Tue, 13 Sep 2011 15:29:51 -0400
+Message-ID: <20110913192951.GA24341@synalogic.ca>
+References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
+ <CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
+ <20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
+ <20110712113643.GC616804@jupiter.n2.diac24.net>
+ <CAEJpZP1Da=G3--jThbaj5H4+H+836quXXEfGXtBwdPewr-Pjrg@mail.gmail.com>
+ <20110715160357.GC1407585@jupiter.n2.diac24.net>
+ <20110715163345.GD1407585@jupiter.n2.diac24.net>
+ <20110727111714.GA2027462@jupiter.n2.diac24.net>
+ <20110728084106.22166324@nehalam.ftrdhcpuser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg Thelen <gthelen@google.com>, <linux-kernel@vger.kernel.org>,
-	<linux-mm@kvack.org>, <containers@lists.osdl.org>, <netdev@vger.kernel.org>,
-	<xemul@parallels.com>, "David S. Miller" <davem@davemloft.net>, Hiroyouki
- Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>, "Eric W. Biederman"
-	<ebiederm@xmission.com>, Suleiman Souhlal <suleiman@google.com>, Lennart
- Poettering <lennart@poettering.net>
-To: Paul Menage <paul@paulmenage.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CALdu-PDGpBnVHW7E5NobAwtXop5c03NTmijkk8oB7u-a5LEXww@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+	Nick Carter <ncarter100@gmail.com>, netdev@vger.kernel.org,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	davem@davemloft.net, Ed Swierk <eswierk@bigswitch.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f52.google.com ([209.85.215.52]:38395 "EHLO
+	mail-ew0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932079Ab1IMTaB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 15:30:01 -0400
+Received: by ewy28 with SMTP id 28so625726ewy.11
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 12:29:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110728084106.22166324@nehalam.ftrdhcpuser.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/13/2011 03:46 PM, Paul Menage wrote:
-> On Tue, Sep 13, 2011 at 11:11 AM, Glauber Costa<glommer@parallels.com>  wrote:
->>
->> What if they are all updated under the same lock ?
->
-> Right, that would be the kind of optimization that would remove the
-> need for worrying about whether or not to account it. It would
-> probably mean creating some memcg-specific structures like
-> res-counters that could handle multiple values, since you'd need to
-> update both the kernel charge and the total charge, in this cgroup
-> *and* its ancestors.
->
-> Paul
-If we do that, we may have to commit to an intermediary user interface - 
-with controls to to determine if kernel memory is billed to kernel or 
-total, a enable/disable file, just to later render it pointless by a new 
-optimization - that we seem to agree that seems possible.
+On 11-07-28 08:41, Stephen Hemminger wrote:
+> On Wed, 27 Jul 2011 13:17:15 +0200
+> David Lamparter <equinox@diac24.net> wrote:
+> 
+> > On Fri, Jul 15, 2011 at 06:33:45PM +0200, David Lamparter wrote:
+> > > On Fri, Jul 15, 2011 at 06:03:57PM +0200, David Lamparter wrote:
+> > > > On Fri, Jul 15, 2011 at 04:44:50PM +0100, Nick Carter wrote:
+> > > > > On 12 July 2011 12:36, David Lamparter <equinox@diac24.net> wrote:
+> > > > > > On Mon, Jul 11, 2011 at 08:27:55AM -0700, Stephen Hemminger wrote:
+> > > > > >> I am still undecided on this. Understand the need, but don't like idea
+> > > > > >> of bridge behaving in non-conforming manner. Will see if IEEE 802 committee
+> > > > > >> has any input.
+> > > > > >
+> > > > > > The patch doesn't make the bridge behave nonconformant. The default mask
+> > > > > > is 0, which just keeps the old behaviour.
+> > > 
+> > > P.S.: I'd like to once more stress this. In my opinion the patch should
+> > > be merged because it provides desireable functionality at a small cost
+> > > (one test, one knob) and __does not change any default behaviour__.
+> > 
+> > Stephen, anything new on this?
+> 
+> No.
+> Don't like adding yet another hack user visible API which will have
+> to be maintained for too long. But on the other hand I don't have
+> a better solution at my finger tips. If better idea doesn't come
+> along, then we can go with yours.
 
-I think it is preferred to always assume kernel memory is accounted to 
-the kernel, and when we optimize it, no changes are made to what's 
-exposed to userspace.
+For virtualization-related problems, how about using macvtap? No need to
+change the bridging code.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I had also previously submitted a patch to forward reserved group
+addresses through the bridge. This was towards the goal of forwarding
+EAPOL frames for virtual machines. I have since come to the realization
+that one can use macvtap to achieve that instead. This forgoes the
+bridge and offers better performance too.
+
+I have tested macvtap + kvm to authenticate/authorize a virtual machine
+connected to a 802.1X enabled switch. I used the instructions here for
+macvtap:
+http://virt.kernelnewbies.org/MacVTap
+and tested with an HP switch and wpa_supplicant on the guest.
+
+-Ben
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
