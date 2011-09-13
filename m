@@ -1,81 +1,92 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: [PATCH] bridge: mask forwarding of IEEE 802 local multicast
- groups
-Date: Tue, 13 Sep 2011 15:29:51 -0400
-Message-ID: <20110913192951.GA24341@synalogic.ca>
-References: <BANLkTi=jnxBu6WzAOTxHD+e_O1qYKE2m=g@mail.gmail.com>
- <CAEJpZP1cr4B9qX6gH9O4iXwWvEdxs2aebL21FnX1BE0dJPHrEw@mail.gmail.com>
- <20110711082755.0b38a15a@nehalam.ftrdhcpuser.net>
- <20110712113643.GC616804@jupiter.n2.diac24.net>
- <CAEJpZP1Da=G3--jThbaj5H4+H+836quXXEfGXtBwdPewr-Pjrg@mail.gmail.com>
- <20110715160357.GC1407585@jupiter.n2.diac24.net>
- <20110715163345.GD1407585@jupiter.n2.diac24.net>
- <20110727111714.GA2027462@jupiter.n2.diac24.net>
- <20110728084106.22166324@nehalam.ftrdhcpuser.net>
+From: Jonathan Lallinger <jonathan@ogc.us>
+Subject: [PATCH] RDSRDMA: Fix cleanup of rds_iw_mr_pool
+Date: Tue, 13 Sep 2011 14:41:01 -0500
+Message-ID: <20110913194101.7497.65515.stgit@build.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>,
-	Nick Carter <ncarter100@gmail.com>, netdev@vger.kernel.org,
-	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
-	davem@davemloft.net, Ed Swierk <eswierk@bigswitch.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, venkat.x.venkatsubra@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f52.google.com ([209.85.215.52]:38395 "EHLO
-	mail-ew0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932079Ab1IMTaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 15:30:01 -0400
-Received: by ewy28 with SMTP id 28so625726ewy.11
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 12:29:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20110728084106.22166324@nehalam.ftrdhcpuser.net>
+Received: from smtp.opengridcomputing.com ([209.198.142.2]:59705 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932166Ab1IMTlC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 15:41:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-07-28 08:41, Stephen Hemminger wrote:
-> On Wed, 27 Jul 2011 13:17:15 +0200
-> David Lamparter <equinox@diac24.net> wrote:
-> 
-> > On Fri, Jul 15, 2011 at 06:33:45PM +0200, David Lamparter wrote:
-> > > On Fri, Jul 15, 2011 at 06:03:57PM +0200, David Lamparter wrote:
-> > > > On Fri, Jul 15, 2011 at 04:44:50PM +0100, Nick Carter wrote:
-> > > > > On 12 July 2011 12:36, David Lamparter <equinox@diac24.net> wrote:
-> > > > > > On Mon, Jul 11, 2011 at 08:27:55AM -0700, Stephen Hemminger wrote:
-> > > > > >> I am still undecided on this. Understand the need, but don't like idea
-> > > > > >> of bridge behaving in non-conforming manner. Will see if IEEE 802 committee
-> > > > > >> has any input.
-> > > > > >
-> > > > > > The patch doesn't make the bridge behave nonconformant. The default mask
-> > > > > > is 0, which just keeps the old behaviour.
-> > > 
-> > > P.S.: I'd like to once more stress this. In my opinion the patch should
-> > > be merged because it provides desireable functionality at a small cost
-> > > (one test, one knob) and __does not change any default behaviour__.
-> > 
-> > Stephen, anything new on this?
-> 
-> No.
-> Don't like adding yet another hack user visible API which will have
-> to be maintained for too long. But on the other hand I don't have
-> a better solution at my finger tips. If better idea doesn't come
-> along, then we can go with yours.
+In the rds_iw_mr_pool struct the free_pinned field keeps track of
+memory pinned by free MRs. While this field is incremented properly
+upon allocation, it is never decremented upon unmapping. This would
+cause the rds_rdma module to crash the kernel upon unloading, by
+triggering the BUG_ON in the rds_iw_destroy_mr_pool function.
 
-For virtualization-related problems, how about using macvtap? No need to
-change the bridging code.
+This change keeps track of the MRs that become unpinned, so that
+free_pinned can be decremented appropriately.
 
-I had also previously submitted a patch to forward reserved group
-addresses through the bridge. This was towards the goal of forwarding
-EAPOL frames for virtual machines. I have since come to the realization
-that one can use macvtap to achieve that instead. This forgoes the
-bridge and offers better performance too.
+Signed-off-by: Jonathan Lallinger <jonathan@ogc.us>
+Signed-off-by: Steve Wise <swise@ogc.us>
+---
 
-I have tested macvtap + kvm to authenticate/authorize a virtual machine
-connected to a 802.1X enabled switch. I used the instructions here for
-macvtap:
-http://virt.kernelnewbies.org/MacVTap
-and tested with an HP switch and wpa_supplicant on the guest.
+ net/rds/iw_rdma.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
--Ben
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
+index 7c1c873..050256d 100644
+--- a/net/rds/iw_rdma.c
++++ b/net/rds/iw_rdma.c
+@@ -84,7 +84,8 @@ static int rds_iw_map_fastreg(struct rds_iw_mr_pool *pool,
+ static void rds_iw_free_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+ 			struct list_head *unmap_list,
+-			struct list_head *kill_list);
++			struct list_head *kill_list,
++			int *unpinned);
+ static void rds_iw_destroy_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
+ 
+ static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwdev, struct rdma_cm_id **cm_id)
+@@ -499,7 +500,7 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ 	LIST_HEAD(unmap_list);
+ 	LIST_HEAD(kill_list);
+ 	unsigned long flags;
+-	unsigned int nfreed = 0, ncleaned = 0, free_goal;
++	unsigned int nfreed = 0, ncleaned = 0, unpinned = 0, free_goal;
+ 	int ret = 0;
+ 
+ 	rds_iw_stats_inc(s_iw_rdma_mr_pool_flush);
+@@ -524,7 +525,8 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ 	 * will be destroyed by the unmap function.
+ 	 */
+ 	if (!list_empty(&unmap_list)) {
+-		ncleaned = rds_iw_unmap_fastreg_list(pool, &unmap_list, &kill_list);
++		ncleaned = rds_iw_unmap_fastreg_list(pool, &unmap_list,
++						     &kill_list, &unpinned);
+ 		/* If we've been asked to destroy all MRs, move those
+ 		 * that were simply cleaned to the kill list */
+ 		if (free_all)
+@@ -548,6 +550,7 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
+ 		spin_unlock_irqrestore(&pool->list_lock, flags);
+ 	}
+ 
++	atomic_sub(unpinned, &poll->free_pinned);
+ 	atomic_sub(ncleaned, &pool->dirty_count);
+ 	atomic_sub(nfreed, &pool->item_count);
+ 
+@@ -828,7 +831,8 @@ static void rds_iw_free_fastreg(struct rds_iw_mr_pool *pool,
+ 
+ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+ 				struct list_head *unmap_list,
+-				struct list_head *kill_list)
++				struct list_head *kill_list,
++				int *unpinned)
+ {
+ 	struct rds_iw_mapping *mapping, *next;
+ 	unsigned int ncleaned = 0;
+@@ -855,6 +859,7 @@ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
+ 
+ 		spin_lock_irqsave(&pool->list_lock, flags);
+ 		list_for_each_entry_safe(mapping, next, unmap_list, m_list) {
++			*unpinned += mapping->m_sg.len;
+ 			list_move(&mapping->m_list, &laundered);
+ 			ncleaned++;
+ 		}
