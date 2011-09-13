@@ -1,50 +1,22 @@
-From: "De beheerder van het systeem. " <isaac.merin@ehu.es>
-Subject: Uw mailbox is bijna vol.
-Date: Tue, 13 Sep 2011 02:22:51 -0300
-Message-ID: <20110913022251.16107pa9q63sn3cb@webmail.fc.unesp.br>
-Reply-To: m_gr03@ozledim.net
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] net: change capability used by socket options IP{,V6}_TRANSPARENT
+Date: Mon, 12 Sep 2011 22:55:36 -0700
+Message-ID: <CAHo-OoyR991q_FM0tMBMF1R6o6b6deZEBz-bprdd6xs5dG0Txw@mail.gmail.com>
+References: <1314953022.26692.182.camel@bzorp>
+	<1314990654-32252-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Balazs Scheidler <bazsi@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fc.unesp.br ([200.145.159.3]:48516 "EHLO mail.fc.unesp.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752181Ab1IMF34 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Sep 2011 01:29:56 -0400
-Content-Disposition: inline
+Received: from mail-gw0-f52.google.com ([74.125.83.52]:53002 "EHLO
+	mail-gw0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754528Ab1IMGYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 02:24:21 -0400
+Received: by gwj15 with SMTP id 15so256610gwj.11
+        for <netdev@vger.kernel.org>; Mon, 12 Sep 2011 23:24:21 -0700 (PDT)
+In-Reply-To: <1314990654-32252-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-System Administrator
-
-Uw mailbox is bijna vol.
-23 GB 20 GB
-
-Uw mailbox heeft overschreden de opslag limiet van 20 GB
-wordt bepaald door de beheerder, het werk 20.9GB, die
-misschien niet in staat zijn om berichten verzenden of ontvangen  
-totdat u een upgrade
-mailbox. Te valideren uw mailbox, vul dan onderstaand klik op de link  
-en bevestig
-hun gegevens voor de upgrade:
-
-http://buzurl.com/bi01
-
-Vul uw gegevens in de bovenstaande link en klik op SUBMIT
--Send File
-
-bedankt
-De beheerder van het systeem.
-
-
-
-
-
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+Comments?
