@@ -1,114 +1,47 @@
-From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
-Date: Tue, 13 Sep 2011 16:23:37 -0700
-Message-ID: <4E6FE5F9.2060604@cavium.com>
-References: <1314820906-14004-1-git-send-email-david.daney@cavium.com>
-	<1314820906-14004-3-git-send-email-david.daney@cavium.com>
-	<129FAAB3-C9AD-43F6-A8CB-96548A47C4DC@kernel.crashing.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Query on a lockdep issue in neigh_lookup
+Date: Wed, 14 Sep 2011 01:59:08 +0200
+Message-ID: <1315958348.2565.22.camel@edumazet-laptop>
+References: <CAByGWUHkt=6AjW_GFsGd1EnbMC=pjhtxRu8ez0sw6rZNvA_nxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <129FAAB3-C9AD-43F6-A8CB-96548A47C4DC-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Murali raja Muniraju <murali.rajam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33576 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877Ab1IMX7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 19:59:21 -0400
+Received: by wyh22 with SMTP id 22so1101991wyh.19
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 16:59:20 -0700 (PDT)
+In-Reply-To: <CAByGWUHkt=6AjW_GFsGd1EnbMC=pjhtxRu8ez0sw6rZNvA_nxg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/13/2011 04:07 PM, Kumar Gala wrote:
->
->> diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt
->> new file mode 100644
->> index 0000000..a908312
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
->> @@ -0,0 +1,132 @@
->> +Common MDIO bus multiplexer/switch properties.
->> +
->> +An MDIO bus multiplexer/switch will have several child busses that are
->> +numbered uniquely in a device dependent manner.  The nodes for an MDIO
->> +bus multiplexer/switch will have one child node for each child bus.
->> +
->> +Required properties:
->> +- parent-bus : phandle to the parent MDIO bus.
->
-> Should probably be mdio-parent-bus
+Le mardi 13 septembre 2011 =C3=A0 16:11 -0700, Murali raja Muniraju a =C3=
+=A9crit :
+> Hi,
+>    I see a potential deadlock situation on the kernel 2.6.34. Has thi=
+s
+> been fixed in the later version of the kernel.
+>=20
+> I see that one after holding the neigh_lookup, one can acquire the
+> lock for rt_hash_locks
+>=20
+> But there is a situation while freed skb's in dst_release while
+> holding the rt_hash_locks, neigh_lookup can be called which tries to
+> acquire its lock.
+>=20
+> This seems to be a deadlock candidate.
+>=20
+> Thanks,
+> Murali
+>=20
+> Below if the scenario found by lockdep on a debug kernel during the
+> kernel bootup.
+>=20
 
-Why?  We know it is MDIO.
-
-Serial bus multiplexing is not a concept limited to MDIO.  We would want 
-to use "parent-bus" for some I2C multiplexers as well.
-
->
->> +
->> +Optional properties:
->> +- Other properties specific to the multiplexer/switch hardware.
->> +
->> +Required properties for child nodes:
->> +- #address-cells =<1>;
->> +- #size-cells =<0>;
->> +- cell-index : The sub-bus number.
->
-> What does sub-bus number mean?
-
-There are N child buses (or sub-buses) coming out of the multiplexer. 
-The cell-index is used as a handle or identifier for each of these.
-
-The concrete example in Patch 3/3 is a multiplexer with four child 
-buses.  The happen to have cell-indexes of 0, 1, 2 and 3.
-
-In the GPIO case of patch 3/3, these directly correspond the the state 
-of the two GPIO pins controlling the multiplexer.  The driver then uses 
-the cell-index property to determine the state of the GPIO to connect 
-any given child.
-
-It is possible that the documentation part of the patch could be made 
-more clear about this.
-
->
->> +
->> +
->> +Example :
->
-[...]
->> +
->> +int mdio_mux_probe(struct platform_device *pdev,
->> +		   int (*switch_fn)(int cur, int desired, void *data),
->> +		   void *data)
->> +{
->> +	struct device_node *parent_bus_node;
->> +	struct device_node *child_bus_node;
->> +	int r, n, ret_val;
->> +	struct mii_bus *parent_bus;
->> +	struct mdio_mux_parent_bus *pb;
->> +	struct mdio_mux_child_bus *cb;
->> +
->> +	if (!pdev->dev.of_node)
->> +		return -ENODEV;
->> +
->> +	parent_bus_node = of_parse_phandle(pdev->dev.of_node, "parent-bus", 0);
->> +
->> +	if (!parent_bus_node)
->> +		return -ENODEV;
->> +
->> +	parent_bus = of_mdio_find_bus(parent_bus_node);
->
->
-> So what happens if the parent bus probe happens after the mux probe?
->
-
-The whole house of cards collapses.
-
-Grant Likely has a patch to deal with this by retrying the probing,  but 
-as far as I know, it has not been merged yet.
+All this code changed in 2.6.37 with commit
+d6bf781712a1d25cc8987036b3a48535b331eb91
+(net neigh: RCU conversion of neigh hash table)
