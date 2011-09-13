@@ -1,58 +1,36 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: pskb_copy() in tcp_transmit_skb()
-Date: Tue, 13 Sep 2011 13:55:55 +0300
-Message-ID: <201109131355.55588.christoph.paasch@uclouvain.be>
-References: <201109131221.37561.christoph.paasch@uclouvain.be> <4E6F2275.2050902@cn.fujitsu.com>
-Reply-To: christoph.paasch@uclouvain.be
+From: "Beldorin Duke" <beldo_minu1985@yahoo.com>
+Subject: HELLO FROM BELDORIN..
+Date: Tue, 13 Sep 2011 13:00:21 +0300 (EAT)
+Message-ID: <50417.41.82.151.210.1315908021.squirrel@196.216.66.126>
+Reply-To: beldorinminu@yahoo.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Gaofeng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:52569 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752749Ab1IMK4A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 06:56:00 -0400
-In-Reply-To: <4E6F2275.2050902@cn.fujitsu.com>
+Received: from mail.innscorkenya.co.ke ([196.216.66.126]:57607 "EHLO
+	mail.innscorkenya.co.ke" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752826Ab1IMLCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 07:02:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Tuesday 13 September 2011 wrote Gaofeng:
-> > I'm trying to understand the reason for the possible call to pskb_c=
-opy()
-> > in tcp_transmit_skb().
-> > I don't find, where we may have a cloned skb entering tcp_transmit_=
-skb().
-> >=20
-> > The original pskb_copy() came from tcp_retransmit_skb() (commit
-> > dfb4b9dceb35c567a595ae5e9d035cfda044a103).
-> > But from that point, the git-history does not show where the pskb_c=
-opy()
-> > is coming from.
-> >=20
-> >=20
-> > Does somebody has an idea, how a cloned skb can be passed to
-> > tcp_transmit_skb() and thus trigger this call to pskb_copy().
->
-> maybe nat,nat can change the tcp packet header
 
-although NAT may change the TCP header, it is not doing an skb_clone() =
-- (at=20
-least I don't find it).
-Thus, we will not call pskb_copy() in tcp_transmit_skb() due to NAT.
 
-Christoph
+Hello,it is my pleasure and desire to contact you and make a formal
+introduction of myself to you.how are you doing today,i hope that you are
+fine and my little note finds you in good health and proper state of
+mind.my name is Beldorin Duke i am 24years old single and i have no kid,i
+am in search of true love,friendship and a real trustworthy business
+partner that i think we can be of benefit to each other,upon the reciept
+of your email i will explain myself more clearly and better to you,feel
+free to contact me at (beldorinminu@yahoo.com) for further discussion with
+me.
 
---
-Christoph Paasch
-PhD Student
 
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
-Universit=C3=A9 Catholique de Louvain
+I wish you a pleasant and favourable day there as i hope to read from you
+soon,i will send you my details togather with pictures of me in my next
+email to you,be assured of my warm regards and best of wishes.
 
-www.rollerbulls.be
---
+Beldorin Duke
