@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 11/11] SUNRPC: remove rpcbind clients destruction on module
-	cleanup
-Date: Tue, 13 Sep 2011 22:14:45 +0400
-Message-ID: <20110913181444.3961.84427.stgit@localhost6.localdomain6>
+Subject: [PATCH v3 10/11] SUNRPC: remove rpcbind clients creation during
+	service registering
+Date: Tue, 13 Sep 2011 22:14:37 +0400
+Message-ID: <20110913181437.3961.40606.stgit@localhost6.localdomain6>
 References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,63 +11,45 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	bfields@fieldses.org, davem@davemloft.net
 To: Trond.Myklebust@netapp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:49137 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932149Ab1IMSPG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Sep 2011 14:15:06 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rpcbind clients destruction during SUNRPC module removing is obsolete since now
-those clients are destroying during last RPC service shutdown.
+We don't need this code since rpcbind clients are creating during RPC service
+creation.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/rpcb_clnt.c   |   12 ------------
- net/sunrpc/sunrpc_syms.c |    3 ---
- 2 files changed, 0 insertions(+), 15 deletions(-)
+ net/sunrpc/rpcb_clnt.c |    9 ---------
+ 1 files changed, 0 insertions(+), 9 deletions(-)
 
 diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index e5c936d..fc6c59b 100644
+index d42b642..e5c936d 100644
 --- a/net/sunrpc/rpcb_clnt.c
 +++ b/net/sunrpc/rpcb_clnt.c
-@@ -1097,15 +1097,3 @@ static struct rpc_program rpcb_program = {
- 	.version	= rpcb_version,
- 	.stats		= &rpcb_stats,
- };
+@@ -428,11 +428,6 @@ int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
+ 	struct rpc_message msg = {
+ 		.rpc_argp	= &map,
+ 	};
+-	int error;
 -
--/**
-- * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
-- *
-- */
--void cleanup_rpcb_clnt(void)
--{
--	if (rpcb_local_clnt4)
--		rpc_shutdown_client(rpcb_local_clnt4);
--	if (rpcb_local_clnt)
--		rpc_shutdown_client(rpcb_local_clnt);
--}
-diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
-index 9d08091..8ec9778 100644
---- a/net/sunrpc/sunrpc_syms.c
-+++ b/net/sunrpc/sunrpc_syms.c
-@@ -61,8 +61,6 @@ static struct pernet_operations sunrpc_net_ops = {
+-	error = rpcb_create_local();
+-	if (error)
+-		return error;
  
- extern struct cache_detail unix_gid_cache;
+ 	dprintk("RPC:       %sregistering (%u, %u, %d, %u) with local "
+ 			"rpcbind\n", (port ? "" : "un"),
+@@ -568,11 +563,7 @@ int rpcb_v4_register(const u32 program, const u32 version,
+ 	struct rpc_message msg = {
+ 		.rpc_argp	= &map,
+ 	};
+-	int error;
  
--extern void cleanup_rpcb_clnt(void);
--
- static int __init
- init_sunrpc(void)
- {
-@@ -102,7 +100,6 @@ out:
- static void __exit
- cleanup_sunrpc(void)
- {
--	cleanup_rpcb_clnt();
- 	rpcauth_remove_module();
- 	cleanup_socket_xprt();
- 	svc_cleanup_xprt_sock();
+-	error = rpcb_create_local();
+-	if (error)
+-		return error;
+ 	if (rpcb_local_clnt4 == NULL)
+ 		return -EPROTONOSUPPORT;
+ 
