@@ -1,66 +1,111 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 02/11] SUNRPC: use rpcbind reference counting helpers
-Date: Tue, 13 Sep 2011 22:13:36 +0400
-Message-ID: <20110913181336.3961.83229.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [PATCH v3 04/11] SUNRPC: parametrize svc creation calls with
+	portmapper flag
+Date: Tue, 13 Sep 2011 22:13:51 +0400
+Message-ID: <20110913181351.3961.70207.stgit@localhost6.localdomain6>
 References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110913180953.3961.69217.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-All is simple: we just increase users counter if rpcbind clients has been
-created already. Otherwise we create them and set users counter to 1.
+This new flag ("setup_rpcbind) will be used to detect, that new service will
+send portmapper register calls. For such services we will create rpcbind
+clients and remove all stale portmap registrations.
+Also, svc_rpcb_cleanup() will be set as sv_shutdown callback for such services
+in case of this field wasn't initialized earlier. This will allow to destroy
+rpcbind clients when no other users of them left.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 
 ---
- net/sunrpc/rpcb_clnt.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
+ include/linux/sunrpc/svc.h |    2 ++
+ net/sunrpc/svc.c           |   21 ++++++++++++++-------
+ 2 files changed, 16 insertions(+), 7 deletions(-)
 
-diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 3f2bb8a..b3ac194 100644
---- a/net/sunrpc/rpcb_clnt.c
-+++ b/net/sunrpc/rpcb_clnt.c
-@@ -255,9 +255,7 @@ static int rpcb_create_local_unix(void)
- 		clnt4 = NULL;
+diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
+index 223588a..528952a 100644
+--- a/include/linux/sunrpc/svc.h
++++ b/include/linux/sunrpc/svc.h
+@@ -402,11 +402,13 @@ struct svc_procedure {
+  * Function prototypes.
+  */
+ struct svc_serv *svc_create(struct svc_program *, unsigned int,
++			    int setup_rpcbind,
+ 			    void (*shutdown)(struct svc_serv *));
+ struct svc_rqst *svc_prepare_thread(struct svc_serv *serv,
+ 					struct svc_pool *pool);
+ void		   svc_exit_thread(struct svc_rqst *);
+ struct svc_serv *  svc_create_pooled(struct svc_program *, unsigned int,
++			int setup_rpcbind,
+ 			void (*shutdown)(struct svc_serv *),
+ 			svc_thread_fn, struct module *);
+ int		   svc_set_num_threads(struct svc_serv *, struct svc_pool *, int);
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index f31e5cc..03231d5 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -378,7 +378,7 @@ static void svc_rpcb_cleanup(struct svc_serv *serv)
+  */
+ static struct svc_serv *
+ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+-	     void (*shutdown)(struct svc_serv *serv))
++	     int setup_rpcbind, void (*shutdown)(struct svc_serv *serv))
+ {
+ 	struct svc_serv	*serv;
+ 	unsigned int vers;
+@@ -437,29 +437,36 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+ 		spin_lock_init(&pool->sp_lock);
  	}
  
--	/* Protected by rpcb_create_local_mutex */
--	rpcb_local_clnt = clnt;
--	rpcb_local_clnt4 = clnt4;
-+	rpcb_set_local(clnt, clnt4);
+-	/* Remove any stale portmap registrations */
+-	svc_unregister(serv);
++	if (setup_rpcbind) {
++	       	if (svc_rpcb_setup(serv) < 0) {
++			kfree(serv->sv_pools);
++			kfree(serv);
++			return NULL;
++		}
++		if (!serv->sv_shutdown)
++			serv->sv_shutdown = svc_rpcb_cleanup;
++	}
  
- out:
- 	return result;
-@@ -309,9 +307,7 @@ static int rpcb_create_local_net(void)
- 		clnt4 = NULL;
- 	}
+ 	return serv;
+ }
  
--	/* Protected by rpcb_create_local_mutex */
--	rpcb_local_clnt = clnt;
--	rpcb_local_clnt4 = clnt4;
-+	rpcb_set_local(clnt, clnt4);
+ struct svc_serv *
+ svc_create(struct svc_program *prog, unsigned int bufsize,
+-	   void (*shutdown)(struct svc_serv *serv))
++	   int setup_rpcbind, void (*shutdown)(struct svc_serv *serv))
+ {
+-	return __svc_create(prog, bufsize, /*npools*/1, shutdown);
++	return __svc_create(prog, bufsize, /*npools*/1, setup_rpcbind, shutdown);
+ }
+ EXPORT_SYMBOL_GPL(svc_create);
  
- out:
- 	return result;
-@@ -326,11 +322,11 @@ static int rpcb_create_local(void)
- 	static DEFINE_MUTEX(rpcb_create_local_mutex);
- 	int result = 0;
+ struct svc_serv *
+ svc_create_pooled(struct svc_program *prog, unsigned int bufsize,
+-		  void (*shutdown)(struct svc_serv *serv),
++		  int setup_rpcbind, void (*shutdown)(struct svc_serv *serv),
+ 		  svc_thread_fn func, struct module *mod)
+ {
+ 	struct svc_serv *serv;
+ 	unsigned int npools = svc_pool_map_get();
  
--	if (rpcb_local_clnt)
-+	if (rpcb_get_local())
- 		return result;
+-	serv = __svc_create(prog, bufsize, npools, shutdown);
++	serv = __svc_create(prog, bufsize, npools, setup_rpcbind, shutdown);
  
- 	mutex_lock(&rpcb_create_local_mutex);
--	if (rpcb_local_clnt)
-+	if (rpcb_get_local())
- 		goto out;
- 
- 	if (rpcb_create_local_unix() != 0)
+ 	if (serv != NULL) {
+ 		serv->sv_function = func;
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
