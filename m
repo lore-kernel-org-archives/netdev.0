@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 06/11] Lockd: force creation of rpcbind clients during
+Subject: [PATCH v3 08/11] NFSd: force creation of rpcbind clients during
 	service creation
-Date: Tue, 13 Sep 2011 22:14:06 +0400
-Message-ID: <20110913181406.3961.94003.stgit@localhost6.localdomain6>
+Date: Tue, 13 Sep 2011 22:14:22 +0400
+Message-ID: <20110913181421.3961.81050.stgit@localhost6.localdomain6>
 References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,24 +16,24 @@ In-Reply-To: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lockd sends requests to portmapper and thus requires rpcbind clients.
+NFSd sends requests to portmapper and thus requires rpcbind clients.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/lockd/svc.c |    2 +-
+ fs/nfsd/nfssvc.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
-index abfff9d..bdf79dc 100644
---- a/fs/lockd/svc.c
-+++ b/fs/lockd/svc.c
-@@ -269,7 +269,7 @@ int lockd_up(void)
- 			"lockd_up: no pid, %d users??\n", nlmsvc_users);
+diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
+index dc5a1bf..88faab8 100644
+--- a/fs/nfsd/nfssvc.c
++++ b/fs/nfsd/nfssvc.c
+@@ -332,7 +332,7 @@ int nfsd_create_serv(void)
+ 	nfsd_reset_versions();
  
- 	error = -ENOMEM;
--	serv = svc_create(&nlmsvc_program, LOCKD_BUFSIZE, NULL);
-+	serv = svc_create(&nlmsvc_program, LOCKD_BUFSIZE, 1, NULL);
- 	if (!serv) {
- 		printk(KERN_WARNING "lockd_up: create service failed\n");
- 		goto out;
+ 	nfsd_serv = svc_create_pooled(&nfsd_program, nfsd_max_blksize,
+-				      nfsd_last_thread, nfsd, THIS_MODULE);
++				      1, nfsd_last_thread, nfsd, THIS_MODULE);
+ 	if (nfsd_serv == NULL)
+ 		return -ENOMEM;
+ 
