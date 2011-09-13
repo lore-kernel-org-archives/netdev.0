@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 09/11] NFSd: call svc rpcbind cleanup explicitly
-Date: Tue, 13 Sep 2011 22:14:29 +0400
-Message-ID: <20110913181429.3961.38089.stgit@localhost6.localdomain6>
+Subject: [PATCH v3 11/11] SUNRPC: remove rpcbind clients destruction on module
+	cleanup
+Date: Tue, 13 Sep 2011 22:14:45 +0400
+Message-ID: <20110913181444.3961.84427.stgit@localhost6.localdomain6>
 References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,63 +11,63 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	bfields@fieldses.org, davem@davemloft.net
 To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:49137 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932149Ab1IMSPG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Sep 2011 14:15:06 -0400
 In-Reply-To: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We have to call svc_rpcb_cleanup() explicitly from nfsd_last_thread() since
-this function is registered as service shutdown callback and thus nobody else
-will done it for us.
+Rpcbind clients destruction during SUNRPC module removing is obsolete since now
+those clients are destroying during last RPC service shutdown.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/nfsd/nfssvc.c           |    2 ++
- include/linux/sunrpc/svc.h |    1 +
- net/sunrpc/svc.c           |    3 ++-
- 3 files changed, 5 insertions(+), 1 deletions(-)
+ net/sunrpc/rpcb_clnt.c   |   12 ------------
+ net/sunrpc/sunrpc_syms.c |    3 ---
+ 2 files changed, 0 insertions(+), 15 deletions(-)
 
-diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
-index 88faab8..fe14cd2 100644
---- a/fs/nfsd/nfssvc.c
-+++ b/fs/nfsd/nfssvc.c
-@@ -256,6 +256,8 @@ static void nfsd_last_thread(struct svc_serv *serv)
- 	nfsd_serv = NULL;
- 	nfsd_shutdown();
+diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+index e5c936d..fc6c59b 100644
+--- a/net/sunrpc/rpcb_clnt.c
++++ b/net/sunrpc/rpcb_clnt.c
+@@ -1097,15 +1097,3 @@ static struct rpc_program rpcb_program = {
+ 	.version	= rpcb_version,
+ 	.stats		= &rpcb_stats,
+ };
+-
+-/**
+- * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
+- *
+- */
+-void cleanup_rpcb_clnt(void)
+-{
+-	if (rpcb_local_clnt4)
+-		rpc_shutdown_client(rpcb_local_clnt4);
+-	if (rpcb_local_clnt)
+-		rpc_shutdown_client(rpcb_local_clnt);
+-}
+diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
+index 9d08091..8ec9778 100644
+--- a/net/sunrpc/sunrpc_syms.c
++++ b/net/sunrpc/sunrpc_syms.c
+@@ -61,8 +61,6 @@ static struct pernet_operations sunrpc_net_ops = {
  
-+	svc_rpcb_cleanup(serv);
-+
- 	printk(KERN_WARNING "nfsd: last server has exited, flushing export "
- 			    "cache\n");
- 	nfsd_export_flush();
-diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
-index 528952a..35fa9ca 100644
---- a/include/linux/sunrpc/svc.h
-+++ b/include/linux/sunrpc/svc.h
-@@ -401,6 +401,7 @@ struct svc_procedure {
- /*
-  * Function prototypes.
-  */
-+void svc_rpcb_cleanup(struct svc_serv *serv);
- struct svc_serv *svc_create(struct svc_program *, unsigned int,
- 			    int setup_rpcbind,
- 			    void (*shutdown)(struct svc_serv *));
-diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 1bf1b1a..71dd439 100644
---- a/net/sunrpc/svc.c
-+++ b/net/sunrpc/svc.c
-@@ -367,11 +367,12 @@ static int svc_rpcb_setup(struct svc_serv *serv)
- 	return 0;
- }
+ extern struct cache_detail unix_gid_cache;
  
--static void svc_rpcb_cleanup(struct svc_serv *serv)
-+void svc_rpcb_cleanup(struct svc_serv *serv)
+-extern void cleanup_rpcb_clnt(void);
+-
+ static int __init
+ init_sunrpc(void)
  {
- 	svc_unregister(serv);
- 	rpcb_put_local();
- }
-+EXPORT_SYMBOL_GPL(svc_rpcb_cleanup);
- 
- /*
-  * Create an RPC service
+@@ -102,7 +100,6 @@ out:
+ static void __exit
+ cleanup_sunrpc(void)
+ {
+-	cleanup_rpcb_clnt();
+ 	rpcauth_remove_module();
+ 	cleanup_socket_xprt();
+ 	svc_cleanup_xprt_sock();
