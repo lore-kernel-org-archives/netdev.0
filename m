@@ -1,37 +1,19 @@
-From: "Mail Administrator" <support@info.com>
-Subject: Your Mail Quota Has Exceeded
-Date: Wed, 14 Sep 2011 00:27:19 +0300
-Message-ID: <dc4e59226a0f74aa09af641aa43f4863.squirrel__21046.2819006809$1315949436$gmane$org@giant.suanet.ac.tz>
-Reply-To: noreply@web.com
+From: "Mr. Song Lile Transfer Offer 2011" <embajador@sasamail.co.tz>
+Subject: (unknown)
+Date: Wed, 14 Sep 2011 00:54:56 +0300 (EAT)
+Message-ID: <2027375269.46721315950896956.JavaMail.root@cer-mailstore01.sasatel.local>
+Reply-To: "mrsonglile2013@w.cn" <mrsonglile2013@w.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suanet.ac.tz ([41.73.196.222]:33986 "EHLO
-	giant.suanet.ac.tz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932592Ab1IMVaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 17:30:05 -0400
+Received: from mail.sasatel.co.tz ([41.191.93.149]:32453 "EHLO
+	cer-proxysrv01.sasatel.local" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932834Ab1IMWEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 18:04:30 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your Mail Quota Has Exceeded The Set Quota/Limit. You Are Currently
-Running On 23GB Due To Hidden Files And Folders On Your Mailbox,
-you may not be able to receive or send new mails until you re-validate.
-
-Please Click  Any of the Link Below To Validate Your Mailbox And Increase
-Your Quota.
-
-http://buzurl.com/bi51
-
-Failure to do so may result cancellation of your web mail account.
-Thanks, and sorry for the inconvenience
-
-Mail Administrator
-
-
-
--- 
-This message has been scanned for viruses and
-dangerous content by MailScanner, and is
-believed to be clean.
+I am Song Lile. Director of Hang Seng Bank HongKong Ltd, I do not know if we can work together in transferring $19,500,000.USD from my bank to your bank account. Finally if you are interested I shall provide you with more details. Please contact me with this Email: mrsonglile2011@yahoo.cn
