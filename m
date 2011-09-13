@@ -1,61 +1,48 @@
-From: Gaofeng <gaofeng@cn.fujitsu.com>
-Subject: Re: pskb_copy() in tcp_transmit_skb()
-Date: Tue, 13 Sep 2011 17:29:25 +0800
-Message-ID: <4E6F2275.2050902@cn.fujitsu.com>
-References: <201109131221.37561.christoph.paasch@uclouvain.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: christoph.paasch@uclouvain.be
+From: Dave Martin <dave.martin@linaro.org>
+Subject: [PATCH] net/smsc911x: Correctly configure 16-bit register access from DT
+Date: Tue, 13 Sep 2011 11:49:29 +0100
+Message-ID: <1315910969-4018-1-git-send-email-dave.martin@linaro.org>
+Cc: patches@linaro.org, Steve Glendinning <steve.glendinning@smsc.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	devicetree-discuss@lists.ozlabs.org,
+	Dave Martin <dave.martin@linaro.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56457 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750777Ab1IMJ3E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 05:29:04 -0400
-In-Reply-To: <201109131221.37561.christoph.paasch@uclouvain.be>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:58976 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752356Ab1IMKtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 06:49:51 -0400
+Received: by wwf22 with SMTP id 22so577738wwf.1
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 03:49:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  =E4=BA=8E 2011=E5=B9=B409=E6=9C=8813=E6=97=A5 17:21, Christoph Paasch=
- =E5=86=99=E9=81=93:
-> Hi,
->
-> I'm trying to understand the reason for the possible call to pskb_cop=
-y() in
-> tcp_transmit_skb().
-> I don't find, where we may have a cloned skb entering tcp_transmit_sk=
-b().
->
-> The original pskb_copy() came from tcp_retransmit_skb() (commit
-> dfb4b9dceb35c567a595ae5e9d035cfda044a103).
-> But from that point, the git-history does not show where the pskb_cop=
-y() is
-> coming from.
->
->
-> Does somebody has an idea, how a cloned skb can be passed to
-> tcp_transmit_skb() and thus trigger this call to pskb_copy().
->
->
-> Thanks for your help,
-> Christoph
->
->
-> --
-> Christoph Paasch
-> PhD Student
->
-> IP Networking Lab --- http://inl.info.ucl.ac.be
-> MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
-> Universit=C3=A9 Catholique de Louvain
->
-> www.rollerbulls.be
-> --
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-maybe nat,nat can change the tcp packet header
+The SMSC911X_USE_16BIT needs to be set when using 16-bit register
+access.  However, currently no flag is set if the device tree
+doesn't specify 32-bit access, resulting in a BUG() and a non-
+working driver when 16-bit register access is configured for
+smsc911x in the DT.
+
+This patch should set the SMSC911X_USE_16BIT flag in a manner
+consistent with the documented DT bindings.
+
+Signed-off-by: Dave Martin <dave.martin@linaro.org>
+---
+ drivers/net/ethernet/smsc/smsc911x.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 788c4fd..a3aa4c0 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -2121,6 +2121,8 @@ static int __devinit smsc911x_probe_config_dt(
+ 	of_property_read_u32(np, "reg-io-width", &width);
+ 	if (width == 4)
+ 		config->flags |= SMSC911X_USE_32BIT;
++	else
++		config->flags |= SMSC911X_USE_16BIT;
+ 
+ 	if (of_get_property(np, "smsc,irq-active-high", NULL))
+ 		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+-- 
+1.7.4.1
