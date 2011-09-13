@@ -1,109 +1,59 @@
-From: Chuck Anderson <cra@WPI.EDU>
-Subject: bridge should flood non-IPv4-multicast ethernet frames
-Date: Tue, 13 Sep 2011 16:00:27 -0400
-Message-ID: <20110913200027.GQ28007@angus.ind.WPI.EDU>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/2] qlcnic: Change CDRP function
+Date: Tue, 13 Sep 2011 13:56:24 -0700
+Message-ID: <1315947384.25776.30.camel@Joe-Laptop>
+References: <1315937179-22383-1-git-send-email-anirban.chakraborty@qlogic.com>
+	 <1315937179-22383-2-git-send-email-anirban.chakraborty@qlogic.com>
+	 <1315938171.25776.11.camel@Joe-Laptop>
+	 <33055D09-742C-4751-9A4B-1AF11ED34E31@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL1.WPI.EDU ([130.215.36.91]:49629 "EHLO MAIL1.WPI.EDU"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932506Ab1IMUbQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Sep 2011 16:31:16 -0400
-Received: from MAIL1.WPI.EDU (MAIL1.WPI.EDU [130.215.36.91])
-	by MAIL1.WPI.EDU (8.14.5/8.14.5) with ESMTP id p8DK0U3a009555
-	for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 16:00:30 -0400
-Received: from SMTP.WPI.EDU (SMTP.WPI.EDU [130.215.36.186])
-	by MAIL1.WPI.EDU (8.14.5/8.14.5) with ESMTP id p8DK0UXT009552
-	for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 16:00:30 -0400
-Received: from angus.ind.WPI.EDU (ANGUS.IND.WPI.EDU [130.215.130.21])
-	by SMTP.WPI.EDU (8.14.4/8.14.4) with ESMTP id p8DK0RYM002677
-	for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 16:00:28 -0400
-	(envelope-from cra@WPI.EDU)
-Received: from angus.ind.WPI.EDU (angus.ind.WPI.EDU [127.0.0.1])
-	by angus.ind.WPI.EDU (8.14.2/8.14.2) with ESMTP id p8DK0R9P016864
-	for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 16:00:27 -0400
-Received: (from cra@localhost)
-	by angus.ind.WPI.EDU (8.14.2/8.14.2/Submit) id p8DK0RW9016863
-	for netdev@vger.kernel.org; Tue, 13 Sep 2011 16:00:27 -0400
-Content-Disposition: inline
+Received: from perches-mx.perches.com ([206.117.179.246]:54533 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932556Ab1IMU4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Sep 2011 16:56:24 -0400
+In-Reply-To: <33055D09-742C-4751-9A4B-1AF11ED34E31@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the bridge code grew multicast snooping capability (currently
-IPv4/IGMPv2-only as I understand it), it stopped flooding non-IPv4
-multicast ethernet frames.  This breaks the capability to bridge any
-non-IPv4 protocols that also use multicast ethernet frames, such as
-IPv6 and IS-IS, while the bridge snooping capability remains enabled
-(it appears to be default enabled at least in the RHEL 6 vendor
-kernel).  I noticed this when IPv6 neighbor discovery (ND) and router
-advertisement (RA) packets weren't making it to a KVM guest via br0 on
-the host, breaking IPv6 connectivity to the guest.  This type of thing
-is a common bug with vendor's multicast snooping implementations, but
-I was surprised to discover that Linux has this same bug.  See RFC
-4541, section 1, last paragraph, and section 2.1.2, paragraph 4:
+     On Tue, 2011-09-13 at 13:28 -0700, Anirban Chakraborty wrote:
+> On Sep 13, 2011, at 11:22 AM, Joe Perches wrote:
+> > On Tue, 2011-09-13 at 11:06 -0700, Anirban Chakraborty wrote:
+> >> Argument list to CDRP function has become unmanageably long. Fix it by properly
+> >> declaring a struct that encompasses all the input and output parameters.
+> > I don't think this is better.
+> > I think you've overloaded the issue_cmd function and should
+> > use separate issue_cmd_<type> functions instead.
+> I did not overload issue_cmd(), instead I changed the function signature. 
+> -u32
+> -qlcnic_issue_cmd(struct qlcnic_adapter *adapter,
+> -       u32 pci_fn, u32 version, u32 arg1, u32 arg2, u32 arg3, u32 cmd,
+> -               u32 *rd_args[3])
+> +void
+> +qlcnic_issue_cmd(struct qlcnic_adapter *adapter, struct qlcnic_cmd_args *cmd)
+> Instead of having a long list of arguments, I put them into a struct and passed it around.
 
-http://tools.ietf.org/html/rfc4541.html
+Yes, I saw that.
 
-I believe the relevent code is in br_device.c:
+I think that if restructuring is done, perhaps there are
+better alternatives to bundling all the arguments into a
+single struct.
 
-	if (is_broadcast_ether_addr(dest))
-		br_flood_deliver(br, skb);
-	else if (is_multicast_ether_addr(dest)) {
-		if (unlikely(netpoll_tx_running(dev))) {
-			br_flood_deliver(br, skb);
-			goto out;
-		}
-		if (br_multicast_rcv(br, NULL, skb)) {
-			kfree_skb(skb);
-			goto out;
-		}
+I think it might be more sensible to have multiple
+issue_cmd_<cmd>(adapter, [appropriate_args]) functions
+instead so that the arguments and returns are appropriate
+for the cmd performed.
 
-		mdst = br_mdb_get(br, skb);
-		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
-			br_multicast_deliver(mdst, skb);
-		else
-			br_flood_deliver(br, skb);
-	} else if ((dst = __br_fdb_get(br, dest)) != NULL)
-		br_deliver(dst->dst, skb);
-	else
-		br_flood_deliver(br, skb);
+or maybe use
 
-is_multicast_ether_addr() only checks to see if the lowest bit is
-1--i.e. any multicast ethernet address.  That check alone isn't
-sufficient.  There also needs to be a check that the ethernet frame is
-in one of the well-known formats for the particular protocol for which
-snooping is supported, IPv4 being the only one supported by Linux
-bridging so far.
+issue_cmd(adapter, cmd, struct)
 
-I see a few ways to fix this:
-
-1.  IPv4 Multicast always uses multicast ethernet addresses in the
-format 01:00:5E:xx:xx:xx.  Insert a check that the dest address
-matches 01:00:5E:xx:xx:xx, otherwise always flood the frame so we
-don't break non-IPv4-multicast frames from being bridged.  Something
-like this pseudocode:
-
-	if (is_broadcast_ether_addr(dest))
-		br_flood_deliver(br, skb);
-	else if (is_ipv4_multicast_ether_addr(dest)) {
-
-...
-
-static inline int is_ipv4_multicast_ether_addr(const u8 *addr)
-{
-	return (addr[0] == 0x01 && addr[1] == 0x00 && addr[2] == 0x5e);
-}
-
-
-2. Check that the Ethertype is 0x800 (IPv4), and if it is not, always
-flood the frame so we don't break non-IPv6-multicast frames being
-bridged.
-
-3. Do both of the above, the key point being that IPv6 multicast
-frames (33:33:xx:xx:xx:xx), along with any other ethernet multicast
-frames that aren't supported by the current bridge snooping code,
-should always be flooded unconditionally.  IS-IS for example uses
-01:80:C2:00:00:14 and 01:80:C2:00:00:15.
-
-Thoughts?
+so you make cmd explicit and it's a bit easier to read
+if you really must use some struct where cmd doesn't
+use all the elements of struct.
