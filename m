@@ -1,51 +1,30 @@
-From: Justin Piszcz <jpiszcz@lucidpixels.com>
-Subject: Re: 3.1-rc4: spectacular kernel errors / filesystem crash
-Date: Tue, 13 Sep 2011 12:32:20 -0400 (EDT)
-Message-ID: <alpine.DEB.2.02.1109131156050.7113@p34.internal.lan>
-References: <alpine.DEB.2.02.1109110511250.8626@p34.internal.lan> <CAEuXFEzs1f7n5taYzupux3AtKmRcY4P0m7yjkUQA8aLyS8eujw@mail.gmail.com> <1315886706.2556.11.camel@edumazet-laptop> <alpine.DEB.2.02.1109130722210.21380@p34.internal.lan>
- <CAMaF-rN-qeXBDoc9=7kwu40Wj8=G8YuPKWXPRhOuhdYX_VO34w@mail.gmail.com> <alpine.DEB.2.02.1109131142010.7113@p34.internal.lan> <CAMaF-rMxTWRAO7WRdYoEM57k66MC6Vuwk1mcfgCgMO6Z+KBvzQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pskb_copy() in tcp_transmit_skb()
+Date: Tue, 13 Sep 2011 12:34:28 -0400 (EDT)
+Message-ID: <20110913.123428.544295943856661409.davem@davemloft.net>
+References: <4E6F2275.2050902@cn.fujitsu.com>
+	<201109131355.55588.christoph.paasch@uclouvain.be>
+	<CAL4Wiio=2MO2u53dvU1fqjeKqgQuVBmgDpZeVROMaZYcPPDpzA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Alan Piszcz <ap@solarrain.com>,
-	NetDEV list <netdev@vger.kernel.org>, xfs@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-To: Jon Mason <mason@myri.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMaF-rMxTWRAO7WRdYoEM57k66MC6Vuwk1mcfgCgMO6Z+KBvzQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: christoph.paasch@uclouvain.be, gaofeng@cn.fujitsu.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33074 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753662Ab1IMQfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 12:35:51 -0400
+In-Reply-To: <CAL4Wiio=2MO2u53dvU1fqjeKqgQuVBmgDpZeVROMaZYcPPDpzA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 13 Sep 2011 14:02:17 +0200
 
+> I suggest you read dev_queue_xmit_nit() : Every xmit packet can be
+> cloned right here.
 
-On Tue, 13 Sep 2011, Jon Mason wrote:
-
-> On Tue, Sep 13, 2011 at 10:42 AM, Justin Piszcz <jpiszcz@lucidpixels.com> wrote:
->>
->>
->> On Tue, 13 Sep 2011, Jon Mason wrote:
->>
->>> On Tue, Sep 13, 2011 at 9:54 AM, Justin Piszcz <jpiszcz@lucidpixels.com>
->>> wrote:
->>>>
->>>>
->>>> On Tue, 13 Sep 2011, Eric Dumazet wrote:
->>>>
-
-Thanks,
-
-# patch -p1 < ../0001-Fix-pointer-dereference-before-call-to-pcie_bus_conf.patch
-patching file arch/x86/pci/acpi.c
-patching file drivers/pci/hotplug/pcihp_slot.c
-patching file drivers/pci/probe.c
-# patch -p1 < ../0002-PCI-Remove-MRRS-modification-from-MPS-setting-code.patch
-patching file drivers/pci/pci.c
-patching file drivers/pci/probe.c
-#
-
-Rebooted & running with new patches for 3.1-rc4.
-Will let you know if any further issues, I wonder if this will fix
-the RCU/SLAB issues too, thanks.
-
-Justin.
+Right, any packet that has been sent in the past might now be
+cloned.
