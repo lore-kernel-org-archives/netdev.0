@@ -1,92 +1,75 @@
-From: Jonathan Lallinger <jonathan@ogc.us>
-Subject: [PATCH] RDSRDMA: Fix cleanup of rds_iw_mr_pool
-Date: Tue, 13 Sep 2011 14:41:01 -0500
-Message-ID: <20110913194101.7497.65515.stgit@build.ogc.int>
+From: Paul Stewart <pstew@chromium.org>
+Subject: Re: [PATCHv2] ipv6: Create module parameter for use_tempaddr
+Date: Tue, 13 Sep 2011 12:56:28 -0700
+Message-ID: <CAMcMvshXgKCpwLFPzUWvmacTuqmSEjDfPgvZU2BHeC+WcXRH0A@mail.gmail.com>
+References: <4E6E62D1.8010108@hp.com>
+	<20110912212011.7C65B2041D@glenhelen.mtv.corp.google.com>
+	<87r53ks2w3.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, venkat.x.venkatsubra@oracle.com
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([209.198.142.2]:59705 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932166Ab1IMTlC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 15:41:02 -0400
+Received: from smtp-out.google.com ([74.125.121.67]:15290 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932421Ab1IMT4c convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 15:56:32 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id p8DJuUbq022781
+	for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 12:56:31 -0700
+Received: from gyg13 (gyg13.prod.google.com [10.243.50.141])
+	by wpaz33.hot.corp.google.com with ESMTP id p8DJswk2025067
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 12:56:29 -0700
+Received: by gyg13 with SMTP id 13so1130484gyg.22
+        for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 12:56:29 -0700 (PDT)
+In-Reply-To: <87r53ks2w3.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the rds_iw_mr_pool struct the free_pinned field keeps track of
-memory pinned by free MRs. While this field is incremented properly
-upon allocation, it is never decremented upon unmapping. This would
-cause the rds_rdma module to crash the kernel upon unloading, by
-triggering the BUG_ON in the rds_iw_destroy_mr_pool function.
+On Tue, Sep 13, 2011 at 11:39 AM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+> Paul Stewart <pstew@chromium.org> writes:
+>
+>> When ipv6 is used as a module, there is no good place to set
+>> the default value for use_tempaddr. =A0Using sysctl.conf will
+>> set this parameter too early -- before the module is loaded.
+>> To solve this, create a module parameter that will set the
+>> default value of use_tempaddr for all devices.
+>
+> How is use_tempaddr any different from the other /proc/sys/net/ipv6/*
+> variables? =A0Do you want to add a module parameter for all of them?
 
-This change keeps track of the MRs that become unpinned, so that
-free_pinned can be decremented appropriately.
+With use_tempaddr and ipv6 loaded as a module, there is a gap of time
+between addrconf starting up and whatever configuration one would use
+to set use_tempaddr (you can't use sysctl.conf since module-load time
+might be much later).  By the time boot scripts (or whatever you'd
+use) are able to tweak use_tempaddr, it might be too late and the
+global-trackable address (related to the MAC address) might end up in
+use.  This negates the entire point of use_tempaddr.  If any of the
+other flags suffer this badly at module-load time, I'd be happy to add
+module parameters for them, but this is the only one that I've come to
+be aware of.
 
-Signed-off-by: Jonathan Lallinger <jonathan@ogc.us>
-Signed-off-by: Steve Wise <swise@ogc.us>
----
+> Why can't you run sysctl with an ipv6-specific sysctl.conf at a time
+> fitting your boot sequence? =A0Or load the ipv6 module before sysctl =
+is
+> loads the default sysctl.conf if that is what you want? =A0Or just se=
+t the
+> variables in your network configuration scripts, prior to bringing th=
+e
+> interfaces up?
+>
+> Or do as most people do nowadays: =A0Forget that ipv6 can be built as=
+ a
+> module, and just use it builtin. =A0It's not like it can be unloaded
+> anyway, so building it as a module does not give you anything.
 
- net/rds/iw_rdma.c |   13 +++++++++----
- 1 files changed, 9 insertions(+), 4 deletions(-)
+All helpful suggestions.  However, I'm not yet willing to accept the
+claim that ipv6 cannot be used as a module unless the rest of the
+system is painstakingly crafted to close any races between addrconf,
+sysctl and other IPv6-using processes.  That strikes me as far too
+brittle.
 
-diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
-index 7c1c873..050256d 100644
---- a/net/rds/iw_rdma.c
-+++ b/net/rds/iw_rdma.c
-@@ -84,7 +84,8 @@ static int rds_iw_map_fastreg(struct rds_iw_mr_pool *pool,
- static void rds_iw_free_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
- static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
- 			struct list_head *unmap_list,
--			struct list_head *kill_list);
-+			struct list_head *kill_list,
-+			int *unpinned);
- static void rds_iw_destroy_fastreg(struct rds_iw_mr_pool *pool, struct rds_iw_mr *ibmr);
- 
- static int rds_iw_get_device(struct rds_sock *rs, struct rds_iw_device **rds_iwdev, struct rdma_cm_id **cm_id)
-@@ -499,7 +500,7 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
- 	LIST_HEAD(unmap_list);
- 	LIST_HEAD(kill_list);
- 	unsigned long flags;
--	unsigned int nfreed = 0, ncleaned = 0, free_goal;
-+	unsigned int nfreed = 0, ncleaned = 0, unpinned = 0, free_goal;
- 	int ret = 0;
- 
- 	rds_iw_stats_inc(s_iw_rdma_mr_pool_flush);
-@@ -524,7 +525,8 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
- 	 * will be destroyed by the unmap function.
- 	 */
- 	if (!list_empty(&unmap_list)) {
--		ncleaned = rds_iw_unmap_fastreg_list(pool, &unmap_list, &kill_list);
-+		ncleaned = rds_iw_unmap_fastreg_list(pool, &unmap_list,
-+						     &kill_list, &unpinned);
- 		/* If we've been asked to destroy all MRs, move those
- 		 * that were simply cleaned to the kill list */
- 		if (free_all)
-@@ -548,6 +550,7 @@ static int rds_iw_flush_mr_pool(struct rds_iw_mr_pool *pool, int free_all)
- 		spin_unlock_irqrestore(&pool->list_lock, flags);
- 	}
- 
-+	atomic_sub(unpinned, &poll->free_pinned);
- 	atomic_sub(ncleaned, &pool->dirty_count);
- 	atomic_sub(nfreed, &pool->item_count);
- 
-@@ -828,7 +831,8 @@ static void rds_iw_free_fastreg(struct rds_iw_mr_pool *pool,
- 
- static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
- 				struct list_head *unmap_list,
--				struct list_head *kill_list)
-+				struct list_head *kill_list,
-+				int *unpinned)
- {
- 	struct rds_iw_mapping *mapping, *next;
- 	unsigned int ncleaned = 0;
-@@ -855,6 +859,7 @@ static unsigned int rds_iw_unmap_fastreg_list(struct rds_iw_mr_pool *pool,
- 
- 		spin_lock_irqsave(&pool->list_lock, flags);
- 		list_for_each_entry_safe(mapping, next, unmap_list, m_list) {
-+			*unpinned += mapping->m_sg.len;
- 			list_move(&mapping->m_list, &laundered);
- 			ncleaned++;
- 		}
+--
+Paul
