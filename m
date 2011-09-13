@@ -1,40 +1,61 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH] per-cgroup tcp buffer limitation
-Date: Tue, 13 Sep 2011 15:11:16 -0300
-Message-ID: <4E6F9CC4.2000601@parallels.com>
-References: <1315276556-10970-1-git-send-email-glommer@parallels.com> <CAHH2K0aJxjinSu0Ek6jzsZ5dBmm5mEU-typuwYWYWEudF2F3Qg@mail.gmail.com> <4E664766.40200@parallels.com> <CAHH2K0YJA7vZZ3QNAf63TZOnWhsRUwfuZYfntBL4muZ0G_Vt2w@mail.gmail.com> <4E66A0A9.3060403@parallels.com> <CAHH2K0aq4s1_H-yY0kA3LhM00CCNNbJZyvyBoDD6rHC+qo_gNg@mail.gmail.com> <4E68484A.4000201@parallels.com> <CAHH2K0YcXMUfd1Zr=f5a4=X9cPPp8NZiuichFXaOo=kVp5rRJA@mail.gmail.com> <4E699341.9010606@parallels.com> <CALdu-PCrYPZx38o44ZyFrbQ6H39-vNPKey_Tpm4HRUNHNFMpyA@mail.gmail.com> <4E6E39DD.2040102@parallels.com> <CALdu-PC7ESSUHuF4vfVoRFFfkaBt1V28rGW3-O5pT3WtegAh4g@mail.gmail.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v3 00/11] SUNRPC: make rpcbind clients allocated and destroyed
+	dynamically
+Date: Tue, 13 Sep 2011 22:13:20 +0400
+Message-ID: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Thelen <gthelen@google.com>, <linux-kernel@vger.kernel.org>,
-	<linux-mm@kvack.org>, <containers@lists.osdl.org>, <netdev@vger.kernel.org>,
-	<xemul@parallels.com>, "David S. Miller" <davem@davemloft.net>, Hiroyouki
- Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>, "Eric W. Biederman"
-	<ebiederm@xmission.com>, Suleiman Souhlal <suleiman@google.com>, Lennart
- Poettering <lennart@poettering.net>
-To: Paul Menage <paul@paulmenage.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CALdu-PC7ESSUHuF4vfVoRFFfkaBt1V28rGW3-O5pT3WtegAh4g@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bfields@fieldses.org, davem@davemloft.net
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/13/2011 03:09 PM, Paul Menage wrote:
-> Each set of counters (user, kernel, total) will have its own locks,
-> contention and other overheads to keep up to date. If userspace
-> doesn't care about one or two of the three, then that's mostly wasted.
->
-> Now it might be that the accounting of all three can be done with
-> little more overhead than that required to update just a split view or
-> just a unified view, in which case there's much less argument against
-> simplifying and tracking/charging/limiting all three.
-What if they are all updated under the same lock ?
-The lock argument is very well valid for accounting vs not accounting 
-kernel memory. But once it is accounted, which counter we account to, I 
-think, is less of a problem.
+v3:
+1) rebased to v3.1-rc6 (against branch
+git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git)
+2) creation and destruction on rpcbind clients now depends on service type
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This patch is required for further RPC layer virtualization, because rpcbind
+clients have to be per network namespace.
+To achive this, we have to untie network namespace from rpcbind clients sockets.
+The idea of this patch set is to make rpcbind clients non-static. I.e. rpcbind
+clients will be created during first RPC service creation, and destroyed when
+last RPC service is stopped.
+With this patch set rpcbind clients can be virtualized easely.
+
+
+
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (11):
+      SUNRPC: introduce helpers for reference counted rpcbind clients
+      SUNRPC: use rpcbind reference counting helpers
+      SUNRPC: introduce svc helpers for prepairing rpcbind infrastructure
+      SUNRPC: parametrize svc creation calls with portmapper flag
+      SUNRPC: cleanup service destruction
+      Lockd: force creation of rpcbind clients during service creation
+      NFS: avoid rpcbind clients creation during service creation
+      NFSd: force creation of rpcbind clients during service creation
+      NFSd: call svc rpcbind cleanup explicitly
+      SUNRPC: remove rpcbind clients creation during service registering
+      SUNRPC: remove rpcbind clients destruction on module cleanup
+
+
+ fs/lockd/svc.c              |    2 +
+ fs/nfs/callback.c           |    2 +
+ fs/nfsd/nfssvc.c            |    4 ++
+ include/linux/sunrpc/clnt.h |    2 +
+ include/linux/sunrpc/svc.h  |    3 ++
+ net/sunrpc/rpcb_clnt.c      |   85 ++++++++++++++++++++++++++++---------------
+ net/sunrpc/sunrpc_syms.c    |    3 --
+ net/sunrpc/svc.c            |   41 +++++++++++++++++----
+ 8 files changed, 98 insertions(+), 44 deletions(-)
+
+-- 
+Signature
