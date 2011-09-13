@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 08/11] NFSd: force creation of rpcbind clients during
-	service creation
-Date: Tue, 13 Sep 2011 22:14:22 +0400
-Message-ID: <20110913181421.3961.81050.stgit@localhost6.localdomain6>
+Subject: [PATCH v3 07/11] NFS: avoid rpcbind clients creation during service
+	creation
+Date: Tue, 13 Sep 2011 22:14:14 +0400
+Message-ID: <20110913181414.3961.88915.stgit@localhost6.localdomain6>
 References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,29 +11,34 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	bfields@fieldses.org, davem@davemloft.net
 To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:23580 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756199Ab1IMSOf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Sep 2011 14:14:35 -0400
 In-Reply-To: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-NFSd sends requests to portmapper and thus requires rpcbind clients.
+NFS callbacks doesn't communicate portmapper and thus doesn't need rpcbind
+clients.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- fs/nfsd/nfssvc.c |    2 +-
+ fs/nfs/callback.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
-index dc5a1bf..88faab8 100644
---- a/fs/nfsd/nfssvc.c
-+++ b/fs/nfsd/nfssvc.c
-@@ -332,7 +332,7 @@ int nfsd_create_serv(void)
- 	nfsd_reset_versions();
- 
- 	nfsd_serv = svc_create_pooled(&nfsd_program, nfsd_max_blksize,
--				      nfsd_last_thread, nfsd, THIS_MODULE);
-+				      1, nfsd_last_thread, nfsd, THIS_MODULE);
- 	if (nfsd_serv == NULL)
- 		return -ENOMEM;
- 
+diff --git a/fs/nfs/callback.c b/fs/nfs/callback.c
+index e3d2942..2715c02 100644
+--- a/fs/nfs/callback.c
++++ b/fs/nfs/callback.c
+@@ -259,7 +259,7 @@ int nfs_callback_up(u32 minorversion, struct rpc_xprt *xprt)
+ 		nfs_callback_bc_serv(minorversion, xprt, cb_info);
+ 		goto out;
+ 	}
+-	serv = svc_create(&nfs4_callback_program, NFS4_CALLBACK_BUFSIZE, NULL);
++	serv = svc_create(&nfs4_callback_program, NFS4_CALLBACK_BUFSIZE, 0, NULL);
+ 	if (!serv) {
+ 		ret = -ENOMEM;
+ 		goto out_err;
