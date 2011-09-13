@@ -1,132 +1,254 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: drop zero length frame segments during a packet
- split rx
-Date: Tue, 13 Sep 2011 15:52:02 -0700
-Message-ID: <1315954323.3661.9.camel@jtkirshe-mobl>
-References: <1314972197-31557-1-git-send-email-nhorman@tuxdriver.com>
-	 <20110913105003.GA16222@hmsreliant.think-freely.org>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-68cV1QJy/RJCL7xibmq8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36945 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932984Ab1IMWwE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Sep 2011 18:52:04 -0400
-In-Reply-To: <20110913105003.GA16222@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-68cV1QJy/RJCL7xibmq8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2011-09-13 at 03:50 -0700, Neil Horman wrote:
-> On Fri, Sep 02, 2011 at 10:03:17AM -0400, Neil Horman wrote:
-> > This oops was reported recently no ppc64 hardware:
-> > Unable to handle kernel paging request for data at address 0x00000000
-> > Faulting instruction address: 0xc0000000004dda0c
-> > Oops: Kernel access of bad area, sig: 11 [#1]
-> > SMP NR_CPUS=3D1024 NUMA pSeries
-> > Modules linked in: sunrpc ipt_REJECT nf_conntrack_ipv4 nf_defrag_ipv4
-> > iptable_fi
-> > lter ip_tables ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 xt_state
-> > nf_conntrack ip6table_filter ip6_tables ipv6 jsm ses enclosure sg ixgbe
-> > mdio e1000 ehea ext4 jbd2 mbcache sd_mod crc_t10dif ipr dm_mod
-> > NIP: c0000000004dda0c LR: c0000000004e3e50 CTR: c0000000004e3e20
-> > REGS: c0000001bffeb8d0 TRAP: 0300   Not tainted  (3.1.0-rc2-10121-gab7e=
-2db)
-> > MSR: 8000000000009032 <EE,ME,IR,DR>  CR: 28002042  XER: 20000000
-> > CFAR: c000000000004d70
-> > DAR: 0000000000000000, DSISR: 40000000
-> > TASK =3D c000000000d548e0[0] 'swapper' THREAD: c000000000dfc000 CPU: 0
-> > GPR04: c0000000010f4d80 c0000001bffebd80 0000000000000000 c0000001b18a8=
-200
-> > GPR08: 0000000000000280 c0000001bcc517a8 c0000001b18a7f80 0000000000000=
-000
-> > GPR12: d0000000047e5bb0 c000000001f10000 c0000001b19c8700 0000000000000=
-000
-> > GPR16: c0000001bffebd80 0000000000000083 c00000018f2447a0 0000000000000=
-002
-> > GPR20: 0000000000000000 c0000001ba860010 c0000001ba860000 d000000003d40=
-000
-> > GPR24: 0000000000000000 0000000000000083 d000000003d40000 0000000000000=
-001
-> > GPR28: c00000018f244780 c0000001b2b94310 c000000000da95f0 c0000001bcc51=
-780
-> > NIP [c0000000004dda0c] .skb_gro_reset_offset+0x5c/0xe0
-> > LR [c0000000004e3e50] .napi_gro_receive+0x30/0x120
-> > Call Trace:
-> > [c0000001bffebb50] [c000000000da95f0] perf_callchain_user+0x0/0x10 (unr=
-eliable)
-> > [c0000001bffebbf0] [d0000000047bd118] .ixgbe_clean_rx_irq+0x7a8/0x8a0 [=
-ixgbe]
-> > [c0000001bffebd10] [d0000000047bd414] .ixgbe_poll+0x64/0x160 [ixgbe]
-> > [c0000001bffebdd0] [c0000000004e3358] .net_rx_action+0x108/0x2a0
-> > [c0000001bffebea0] [c00000000009b220] .__do_softirq+0x110/0x2a0
-> > [c0000001bffebf90] [c000000000023798] .call_do_softirq+0x14/0x24
-> > [c000000000dff830] [c000000000011148] .do_softirq+0xf8/0x130
-> > [c000000000dff8d0] [c00000000009aeb4] .irq_exit+0xb4/0xc0
-> > [c000000000dff950] [c000000000011254] .do_IRQ+0xd4/0x300
-> > [c000000000dffa10] [c000000000005024] hardware_interrupt_entry+0x18/0x7=
-4
-> > --- Exception: 501 at .pseries_dedicated_idle_sleep+0xe4/0x210
-> > LR =3D .pseries_dedicated_idle_sleep+0x8c/0x210
-> > [c000000000dffd00] [c00000000005b194] .pseries_dedicated_idle_sleep+0x1=
-94/0x210
-> > (unreliable)
-> > [c000000000dffdc0] [c000000000018c84] .cpu_idle+0x164/0x210
-> > [c000000000dffe70] [c00000000000b0d0] .rest_init+0x90/0xb0
-> > [c000000000dffef0] [c000000000830bc0] .start_kernel+0x54c/0x56c
-> > [c000000000dfff90] [c00000000000953c] .start_here_common+0x1c/0x60
-> >=20
-> > Its caused when skb_gro_reset_offset attempts to call PageHighMem on
-> > skb_shinfo(skb)->frags[0].page, when the frags array was left uninitali=
-zed.
-> > This can happen in the ixgbe driver if the hardware reports a zero leng=
-th rx
-> > descriptor ni the middle of a packet split receive transaction.  I've c=
-onsulted
-> > with Jesse Brandeburg on this, who is attempting to root cause the issu=
-e at
-> > Intel, but it seems prudent to add this check to the driver to discard =
-frames of
-> > that encounter this error to avoid the opps
-> >=20
-> Sorry, I need to rescind this patch.  Looks like this is turning out to b=
-e an
-> issue with an ideosyncracy in the dma hardware on this platform.
->=20
-> Thanks
-> Neil
->=20
-
-Thanks for the update Neil.  I have dropped the patch from my queue.
-
---=-68cV1QJy/RJCL7xibmq8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+From: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Tue, 13 Sep 2011 18:07:09 -0500
+Message-ID: <129FAAB3-C9AD-43F6-A8CB-96548A47C4DC@kernel.crashing.org>
+References: <1314820906-14004-1-git-send-email-david.daney@cavium.com>
+	<1314820906-14004-3-git-send-email-david.daney@cavium.com>
+Mime-Version: 1.0 (Apple Message framework v1244.3)
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1314820906-14004-3-git-send-email-david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQEcBAABAgAGBQJOb96SAAoJECTsCADr/EWUQecH/1ebSJXqPwtH4mo5IuYb/gWZ
-FDz86Mcma0PNAio8uvyr7jp1sx6RzFJcBVmv/cR65tD/76qpASrkMP8gxpBiZzd5
-yVgloeUoIHlIVsdi9BpOMcKFtw9Q0MFKm9V3CYLpX3zdDsBik/C6Bg5KkRYb5yXQ
-SdSqfiTOAspeF6YgCVfiufLkpd3Kt3k8QpupW9LYCbni0kFaipM4S/CiYZbtC2gL
-kwvFR0IQLPobOovvCWzko5XS9PgpNbSj9yNC1RxGdvzo2LIVu7O7lOv7K76xhBEO
-1FGsS0wOqFQku7bdN3bS3+TH+wWHlQwbIsmCN/YKyoSTCW9yem9dwDpUMH88XbA=
-=d0zs
------END PGP SIGNATURE-----
+> diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt
+> new file mode 100644
+> index 0000000..a908312
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
+> @@ -0,0 +1,132 @@
+> +Common MDIO bus multiplexer/switch properties.
+> +
+> +An MDIO bus multiplexer/switch will have several child busses that are
+> +numbered uniquely in a device dependent manner.  The nodes for an MDIO
+> +bus multiplexer/switch will have one child node for each child bus.
+> +
+> +Required properties:
+> +- parent-bus : phandle to the parent MDIO bus.
 
---=-68cV1QJy/RJCL7xibmq8--
+Should probably be mdio-parent-bus
+
+> +
+> +Optional properties:
+> +- Other properties specific to the multiplexer/switch hardware.
+> +
+> +Required properties for child nodes:
+> +- #address-cells = <1>;
+> +- #size-cells = <0>;
+> +- cell-index : The sub-bus number.
+
+What does sub-bus number mean?
+
+> +
+> +
+> +Example :
+
+[snip]
+
+> diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+> new file mode 100644
+> index 0000000..f9c5826
+> --- /dev/null
+> +++ b/drivers/net/phy/mdio-mux.c
+> @@ -0,0 +1,182 @@
+> +/*
+> + * This file is subject to the terms and conditions of the GNU General Public
+> + * License.  See the file "COPYING" in the main directory of this archive
+> + * for more details.
+> + *
+> + * Copyright (C) 2011 Cavium Networks
+> + */
+> +
+> +#include <linux/platform_device.h>
+> +#include <linux/of_mdio.h>
+> +#include <linux/module.h>
+> +#include <linux/init.h>
+> +#include <linux/gfp.h>
+> +#include <linux/phy.h>
+> +#include <linux/mdio-mux.h>
+> +
+> +#define DRV_VERSION "1.0"
+> +#define DRV_DESCRIPTION "MDIO bus multiplexer driver"
+> +
+> +struct mdio_mux_parent_bus {
+> +	struct mii_bus *mii_bus;
+> +	int current_child;
+> +	int parent_id;
+> +	void *switch_data;
+> +	int (*switch_fn)(int current_child, int desired_child, void *data);
+> +};
+> +
+> +struct mdio_mux_child_bus {
+> +	struct mii_bus *mii_bus;
+> +	struct mdio_mux_parent_bus *parent;
+> +	int bus_number;
+> +	int phy_irq[PHY_MAX_ADDR];
+> +};
+> +
+> +/*
+> + * The parent bus' lock is used to order access to the switch_fn.
+> + */
+> +static int mdio_mux_read(struct mii_bus *bus, int phy_id, int regnum)
+> +{
+> +	struct mdio_mux_child_bus *cb = bus->priv;
+> +	struct mdio_mux_parent_bus *pb = cb->parent;
+> +	int r;
+> +
+> +	mutex_lock(&pb->mii_bus->mdio_lock);
+> +	r = pb->switch_fn(pb->current_child, cb->bus_number, pb->switch_data);
+> +	if (r)
+> +		goto out;
+> +
+> +	pb->current_child = cb->bus_number;
+> +
+> +	r = pb->mii_bus->read(pb->mii_bus, phy_id, regnum);
+> +out:
+> +	mutex_unlock(&pb->mii_bus->mdio_lock);
+> +
+> +	return r;
+> +}
+> +
+> +/*
+> + * The parent bus' lock is used to order access to the switch_fn.
+> + */
+> +static int mdio_mux_write(struct mii_bus *bus, int phy_id,
+> +			  int regnum, u16 val)
+> +{
+> +	struct mdio_mux_child_bus *cb = bus->priv;
+> +	struct mdio_mux_parent_bus *pb = cb->parent;
+> +
+> +	int r;
+> +
+> +	mutex_lock(&pb->mii_bus->mdio_lock);
+> +	r = pb->switch_fn(pb->current_child, cb->bus_number, pb->switch_data);
+> +	if (r)
+> +		goto out;
+> +
+> +	pb->current_child = cb->bus_number;
+> +
+> +	r = pb->mii_bus->write(pb->mii_bus, phy_id, regnum, val);
+> +out:
+> +	mutex_unlock(&pb->mii_bus->mdio_lock);
+> +
+> +	return r;
+> +}
+> +
+> +static int parent_count;
+> +
+> +int mdio_mux_probe(struct platform_device *pdev,
+> +		   int (*switch_fn)(int cur, int desired, void *data),
+> +		   void *data)
+> +{
+> +	struct device_node *parent_bus_node;
+> +	struct device_node *child_bus_node;
+> +	int r, n, ret_val;
+> +	struct mii_bus *parent_bus;
+> +	struct mdio_mux_parent_bus *pb;
+> +	struct mdio_mux_child_bus *cb;
+> +
+> +	if (!pdev->dev.of_node)
+> +		return -ENODEV;
+> +
+> +	parent_bus_node = of_parse_phandle(pdev->dev.of_node, "parent-bus", 0);
+> +
+> +	if (!parent_bus_node)
+> +		return -ENODEV;
+> +
+> +	parent_bus = of_mdio_find_bus(parent_bus_node);
+
+
+So what happens if the parent bus probe happens after the mux probe?
+
+> +
+> +	pb = devm_kzalloc(&pdev->dev, sizeof(*pb), GFP_KERNEL);
+> +	if (pb == NULL) {
+> +		ret_val = -ENOMEM;
+> +		goto err_parent_bus;
+> +	}
+> +
+> +	pb->switch_data = data;
+> +	pb->switch_fn = switch_fn;
+> +	pb->current_child = -1;
+> +	pb->parent_id = parent_count++;
+> +	pb->mii_bus = parent_bus;
+> +
+> +	n = 0;
+> +	for_each_child_of_node(pdev->dev.of_node, child_bus_node) {
+> +		u32 v;
+> +
+> +		r = of_property_read_u32(child_bus_node, "cell-index", &v);
+> +		if (r == 0) {
+> +			cb = devm_kzalloc(&pdev->dev, sizeof(*cb), GFP_KERNEL);
+> +			if (cb == NULL)
+> +				break;
+> +			cb->bus_number = v;
+> +			cb->parent = pb;
+> +			cb->mii_bus = mdiobus_alloc();
+> +			cb->mii_bus->priv = cb;
+> +
+> +			cb->mii_bus->irq = cb->phy_irq;
+> +			cb->mii_bus->name = "mdio_mux";
+> +			snprintf(cb->mii_bus->id, MII_BUS_ID_SIZE, "%x.%x",
+> +				 pb->parent_id, v);
+> +			cb->mii_bus->parent = &pdev->dev;
+> +			cb->mii_bus->read = mdio_mux_read;
+> +			cb->mii_bus->write = mdio_mux_write;
+> +			r = of_mdiobus_register(cb->mii_bus, child_bus_node);
+> +			if (r) {
+> +				of_node_put(child_bus_node);
+> +				devm_kfree(&pdev->dev, cb);
+> +			} else {
+> +				n++;
+> +			}
+> +
+> +		} else {
+> +			of_node_put(child_bus_node);
+> +		}
+> +	}
+> +	if (n) {
+> +		dev_info(&pdev->dev, "Version " DRV_VERSION "\n");
+> +		return 0;
+> +	}
+> +	ret_val = -ENOMEM;
+> +	devm_kfree(&pdev->dev, pb);
+> +err_parent_bus:
+> +	of_node_put(parent_bus_node);
+> +	return ret_val;
+> +}
+> +EXPORT_SYMBOL(mdio_mux_probe);
+> +
+> +static int __devexit mdio_mux_remove(struct platform_device *pdev)
+> +{
+> +	return 0;
+> +}
+> +
+> +static int __init mdio_mux_mod_init(void)
+> +{
+> +	return 0;
+> +}
+> +module_init(mdio_mux_mod_init);
+> +
+> +static void __exit mdio_mux_mod_exit(void)
+> +{
+> +}
+> +module_exit(mdio_mux_mod_exit);
+> +
+> +MODULE_DESCRIPTION(DRV_DESCRIPTION);
+> +MODULE_VERSION(DRV_VERSION);
+> +MODULE_AUTHOR("David Daney");
+> +MODULE_LICENSE("GPL");
