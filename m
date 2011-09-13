@@ -1,49 +1,67 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: Temporary(?) relocation of wireless git trees...
-Date: Tue, 13 Sep 2011 09:29:46 -0400
-Message-ID: <20110913132946.GC11772@tuxdriver.com>
-References: <20110912181351.GD2689@tuxdriver.com>
- <20110913105858.eedd5ac594679aa36111c9d4@canb.auug.org.au>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH v2 3/5] SUNRPC: make RPC service dependable on rpcbind
+ clients creation
+Date: Tue, 13 Sep 2011 17:39:59 +0400
+Message-ID: <4E6F5D2F.4050100@parallels.com>
+References: <20110909115146.13697.71682.stgit@localhost6.localdomain6>	<20110909120844.13697.48102.stgit@localhost6.localdomain6>	<20110909100745.7e2e8bf9@corrin.poochiereds.net>	<4E6A41D4.6090001@parallels.com>	<1315593874.17611.19.camel@lade.trondhjem.org>	<20110909150104.5a83c60d@tlielax.poochiereds.net>	<1315596308.17611.46.camel@lade.trondhjem.org> <20110913085139.00f112e2@corrin.poochiereds.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110913105858.eedd5ac594679aa36111c9d4-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Jeff Layton <jlayton@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110913085139.00f112e2@corrin.poochiereds.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 13, 2011 at 10:58:58AM +1000, Stephen Rothwell wrote:
-> Hi John,
-> 
-> On Mon, 12 Sep 2011 14:13:52 -0400 "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
-> >
-> > With no news on when the kernel.org trees will be accessible again
-> > (which could be 10 minutes from now for all I know), I have pushed
-> > my local copies to Infradead.  This should be equivalent to what was
-> > last pushed to kernel.org almost two weeks ago.
-> > 
-> > The "current" wireless tree is here:
-> > 
-> > 	git://git.infradead.org/users/linville/wireless.git
-> > 
-> > The "next" wireless tree is here:
-> > 
-> > 	git://git.infradead.org/users/linville/wireless-next.git
-> 
-> OK, I have switched to these using their "master" branches.  There is
-> nothing new in them, correct?
+13.09.2011 16:51, Jeff Layton =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> My assumption in reading this set (maybe wrong) was that this was a
+> preliminary set for now that just plops in function calls in the plac=
+es
+> that do this sort of thing now. I figured that eventually he'd conver=
+t
+> rpcb_create_local, et. al. to do the same thing but within the correc=
+t
+> namespace for the calling task.
+>
 
-Yes, correct.  Hopefully more new stuff today...
+You have a right assumption. This is exactly what I'm going to do next.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> I think the simplest solution would be to basically call these
+> functions closer to where the rpcbind calls happen today, and just
+> don't do them when the svc_program has vs_hidden set or if the xprt i=
+s
+> being created with SVC_SOCK_ANONYMOUS set.
+>
+
+This solution is not the simplest one since we call svc_register() for =
+every svc=20
+socket if it's not anonymous. But svc_unregister() is called only once =
+for all=20
+inet families and protocols.
+
+Also I've noticed, that we call svc_unregister in __svc_create(). I.e. =
+we call=20
+it for nfs callbacks as well (in spite of that we don't need this). Thu=
+s, for=20
+now, nfs callbacks service creation depends on rpcbind clients presence=
+=2E
+
+So, for my pow, we need something like startup() callback, passed to=20
+svc_create(_pooled)() to clean up this mess.
+This callback will be defined only for lockd and nfsd and will create r=
+pcbind=20
+clients and remove any stale portmap registrations.
+
+--=20
+Best regards,
+Stanislav Kinsbursky
