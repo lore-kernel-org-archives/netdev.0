@@ -1,30 +1,31 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 2/2] qlcnic: Change CDRP function
-Date: Tue, 13 Sep 2011 11:22:50 -0700
-Message-ID: <1315938171.25776.11.camel@Joe-Laptop>
-References: <1315937179-22383-1-git-send-email-anirban.chakraborty@qlogic.com>
-	 <1315937179-22383-2-git-send-email-anirban.chakraborty@qlogic.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Recall: [PATCH] RDSRDMA: Fix cleanup of rds_iw_mr_pool
+Date: Tue, 13 Sep 2011 14:37:51 -0400 (EDT)
+Message-ID: <20110913.143751.1219261372468007946.davem@davemloft.net>
+References: <4E6A62A1.1010702@opengridcomputing.com>
+	<20110909.150503.2234605586949498761.davem@davemloft.net>
+	<4E6F9831.8000203@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Cc: swise@opengridcomputing.com, netdev@vger.kernel.org
+To: jonathan@opengridcomputing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:60195 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755856Ab1IMSWv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Sep 2011 14:22:51 -0400
-In-Reply-To: <1315937179-22383-2-git-send-email-anirban.chakraborty@qlogic.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53537 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932101Ab1IMSh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 14:37:56 -0400
+In-Reply-To: <4E6F9831.8000203@opengridcomputing.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-09-13 at 11:06 -0700, Anirban Chakraborty wrote:
-> Argument list to CDRP function has become unmanageably long. Fix it by properly
-> declaring a struct that encompasses all the input and output parameters.
+From: Jonathan Lallinger <jonathan@opengridcomputing.com>
+Date: Tue, 13 Sep 2011 12:51:45 -0500
 
-I don't think this is better.
+> I screwed up and submitted the wrong patch, if you could please remove
+> this patch from the queue and I will resubmit the correct patch.
 
-I think you've overloaded the issue_cmd function and should
-use separate issue_cmd_<type> functions instead.
+Ok, done.
+
+In the future, please always CC: netdev when you are communicating
+with me about networking patches.
