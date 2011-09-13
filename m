@@ -1,8 +1,9 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 00/11] SUNRPC: make rpcbind clients allocated and destroyed
-	dynamically
-Date: Tue, 13 Sep 2011 22:13:20 +0400
-Message-ID: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
+Subject: [PATCH v3 01/11] SUNRPC: introduce helpers for reference counted
+	rpcbind clients
+Date: Tue, 13 Sep 2011 22:13:28 +0400
+Message-ID: <20110913181328.3961.50093.stgit@localhost6.localdomain6>
+References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,51 +12,86 @@ Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
 	bfields@fieldses.org, davem@davemloft.net
 To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v3:
-1) rebased to v3.1-rc6 (against branch
-git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git)
-2) creation and destruction on rpcbind clients now depends on service type
+This helpers will be used for dynamical creation and destruction of rpcbind
+clients.
+Variable rpcb_users is actually a counter of lauched RPC services. If rpcbind
+clients has been created already, then we just increase rpcb_users.
 
-This patch is required for further RPC layer virtualization, because rpcbind
-clients have to be per network namespace.
-To achive this, we have to untie network namespace from rpcbind clients sockets.
-The idea of this patch set is to make rpcbind clients non-static. I.e. rpcbind
-clients will be created during first RPC service creation, and destroyed when
-last RPC service is stopped.
-With this patch set rpcbind clients can be virtualized easely.
-
-
-
-The following series consists of:
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
+ net/sunrpc/rpcb_clnt.c |   50 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 50 insertions(+), 0 deletions(-)
 
-Stanislav Kinsbursky (11):
-      SUNRPC: introduce helpers for reference counted rpcbind clients
-      SUNRPC: use rpcbind reference counting helpers
-      SUNRPC: introduce svc helpers for prepairing rpcbind infrastructure
-      SUNRPC: parametrize svc creation calls with portmapper flag
-      SUNRPC: cleanup service destruction
-      Lockd: force creation of rpcbind clients during service creation
-      NFS: avoid rpcbind clients creation during service creation
-      NFSd: force creation of rpcbind clients during service creation
-      NFSd: call svc rpcbind cleanup explicitly
-      SUNRPC: remove rpcbind clients creation during service registering
-      SUNRPC: remove rpcbind clients destruction on module cleanup
-
-
- fs/lockd/svc.c              |    2 +
- fs/nfs/callback.c           |    2 +
- fs/nfsd/nfssvc.c            |    4 ++
- include/linux/sunrpc/clnt.h |    2 +
- include/linux/sunrpc/svc.h  |    3 ++
- net/sunrpc/rpcb_clnt.c      |   85 ++++++++++++++++++++++++++++---------------
- net/sunrpc/sunrpc_syms.c    |    3 --
- net/sunrpc/svc.c            |   41 +++++++++++++++++----
- 8 files changed, 98 insertions(+), 44 deletions(-)
-
--- 
-Signature
+diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+index e45d2fb..3f2bb8a 100644
+--- a/net/sunrpc/rpcb_clnt.c
++++ b/net/sunrpc/rpcb_clnt.c
+@@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
+ static struct rpc_clnt *	rpcb_local_clnt;
+ static struct rpc_clnt *	rpcb_local_clnt4;
+ 
++DEFINE_SPINLOCK(rpcb_clnt_lock);
++unsigned int			rpcb_users;
++
+ struct rpcbind_args {
+ 	struct rpc_xprt *	r_xprt;
+ 
+@@ -161,6 +164,53 @@ static void rpcb_map_release(void *data)
+ 	kfree(map);
+ }
+ 
++static int rpcb_get_local(void)
++{
++	spin_lock(&rpcb_clnt_lock);
++	if (rpcb_users)
++		rpcb_users++;
++	spin_unlock(&rpcb_clnt_lock);
++
++	return rpcb_users;
++}
++
++void rpcb_put_local(void)
++{
++	struct rpc_clnt *clnt = rpcb_local_clnt;
++	struct rpc_clnt *clnt4 = rpcb_local_clnt4;
++	int shutdown;
++
++	spin_lock(&rpcb_clnt_lock);
++	if (--rpcb_users == 0) {
++		rpcb_local_clnt = NULL;
++		rpcb_local_clnt4 = NULL;
++	}
++	shutdown = !rpcb_users;
++	spin_unlock(&rpcb_clnt_lock);
++
++	if (shutdown) {
++		/*
++		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
++		 */
++		if (clnt4)
++			rpc_shutdown_client(clnt4);
++		if (clnt)
++			rpc_shutdown_client(clnt);
++	}
++	return;
++}
++
++static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
++{
++	/* Protected by rpcb_create_local_mutex */
++	rpcb_local_clnt = clnt;
++	rpcb_local_clnt4 = clnt4;
++	rpcb_users++;
++	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
++			"0x%p, rpcb_local_clnt4: 0x%p)\n", rpcb_local_clnt,
++			rpcb_local_clnt4);
++}
++
+ /*
+  * Returns zero on success, otherwise a negative errno value
+  * is returned.
