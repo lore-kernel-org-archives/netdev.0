@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 03/11] SUNRPC: introduce svc helpers for prepairing rpcbind
-	infrastructure
-Date: Tue, 13 Sep 2011 22:13:43 +0400
-Message-ID: <20110913181343.3961.53143.stgit@localhost6.localdomain6>
+Subject: [PATCH v3 02/11] SUNRPC: use rpcbind reference counting helpers
+Date: Tue, 13 Sep 2011 22:13:36 +0400
+Message-ID: <20110913181336.3961.83229.stgit@localhost6.localdomain6>
 References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,69 +15,52 @@ In-Reply-To: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This helpers will be used only for those services, that will send portmapper
-registration calls.
+All is simple: we just increase users counter if rpcbind clients has been
+created already. Otherwise we create them and set users counter to 1.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- include/linux/sunrpc/clnt.h |    2 ++
- net/sunrpc/rpcb_clnt.c      |    2 +-
- net/sunrpc/svc.c            |   18 ++++++++++++++++++
- 3 files changed, 21 insertions(+), 1 deletions(-)
+ net/sunrpc/rpcb_clnt.c |   12 ++++--------
+ 1 files changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
-index db7bcaf..1eb437d 100644
---- a/include/linux/sunrpc/clnt.h
-+++ b/include/linux/sunrpc/clnt.h
-@@ -135,6 +135,8 @@ void		rpc_shutdown_client(struct rpc_clnt *);
- void		rpc_release_client(struct rpc_clnt *);
- void		rpc_task_release_client(struct rpc_task *);
- 
-+int		rpcb_create_local(void);
-+void		rpcb_put_local(void);
- int		rpcb_register(u32, u32, int, unsigned short);
- int		rpcb_v4_register(const u32 program, const u32 version,
- 				 const struct sockaddr *address,
 diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index b3ac194..d42b642 100644
+index 3f2bb8a..b3ac194 100644
 --- a/net/sunrpc/rpcb_clnt.c
 +++ b/net/sunrpc/rpcb_clnt.c
-@@ -317,7 +317,7 @@ out:
-  * Returns zero on success, otherwise a negative errno value
-  * is returned.
-  */
--static int rpcb_create_local(void)
-+int rpcb_create_local(void)
- {
+@@ -255,9 +255,7 @@ static int rpcb_create_local_unix(void)
+ 		clnt4 = NULL;
+ 	}
+ 
+-	/* Protected by rpcb_create_local_mutex */
+-	rpcb_local_clnt = clnt;
+-	rpcb_local_clnt4 = clnt4;
++	rpcb_set_local(clnt, clnt4);
+ 
+ out:
+ 	return result;
+@@ -309,9 +307,7 @@ static int rpcb_create_local_net(void)
+ 		clnt4 = NULL;
+ 	}
+ 
+-	/* Protected by rpcb_create_local_mutex */
+-	rpcb_local_clnt = clnt;
+-	rpcb_local_clnt4 = clnt4;
++	rpcb_set_local(clnt, clnt4);
+ 
+ out:
+ 	return result;
+@@ -326,11 +322,11 @@ static int rpcb_create_local(void)
  	static DEFINE_MUTEX(rpcb_create_local_mutex);
  	int result = 0;
-diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 6a69a11..f31e5cc 100644
---- a/net/sunrpc/svc.c
-+++ b/net/sunrpc/svc.c
-@@ -354,6 +354,24 @@ svc_pool_for_cpu(struct svc_serv *serv, int cpu)
- 	return &serv->sv_pools[pidx % serv->sv_nrpools];
- }
  
-+static int svc_rpcb_setup(struct svc_serv *serv)
-+{
-+	int err;
-+
-+	err = rpcb_create_local();
-+	if (err)
-+		return err;
-+
-+	/* Remove any stale portmap registrations */
-+	svc_unregister(serv);
-+	return 0;
-+}
-+
-+static void svc_rpcb_cleanup(struct svc_serv *serv)
-+{
-+	svc_unregister(serv);
-+	rpcb_put_local();
-+}
+-	if (rpcb_local_clnt)
++	if (rpcb_get_local())
+ 		return result;
  
- /*
-  * Create an RPC service
+ 	mutex_lock(&rpcb_create_local_mutex);
+-	if (rpcb_local_clnt)
++	if (rpcb_get_local())
+ 		goto out;
+ 
+ 	if (rpcb_create_local_unix() != 0)
