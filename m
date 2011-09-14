@@ -1,47 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Query on a lockdep issue in neigh_lookup
-Date: Wed, 14 Sep 2011 01:59:08 +0200
-Message-ID: <1315958348.2565.22.camel@edumazet-laptop>
-References: <CAByGWUHkt=6AjW_GFsGd1EnbMC=pjhtxRu8ez0sw6rZNvA_nxg@mail.gmail.com>
+From: =?utf-8?B?5LuFMTDlhYPmr4/lpKk=?= <test@amidress.com>
+Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrY=?=
+	=?utf-8?B?44CB5rW35YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
+Date: Wed, 14 Sep 2011 00:20:25 +0000 (UTC)
+Message-ID: <20111213100340641512@amidress.com>
+Reply-To: <1339625218@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Murali raja Muniraju <murali.rajam@gmail.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33576 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877Ab1IMX7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 19:59:21 -0400
-Received: by wyh22 with SMTP id 22so1101991wyh.19
-        for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 16:59:20 -0700 (PDT)
-In-Reply-To: <CAByGWUHkt=6AjW_GFsGd1EnbMC=pjhtxRu8ez0sw6rZNvA_nxg@mail.gmail.com>
+Received: from 184.172.211.66-static.reverse.softlayer.com ([184.172.211.66]:3813
+	"HELO amidress.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751389Ab1INAUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 20:20:20 -0400
+Date: Tue, 13 Dec 2011 10:03:34 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 13 septembre 2011 =C3=A0 16:11 -0700, Murali raja Muniraju a =C3=
-=A9crit :
-> Hi,
->    I see a potential deadlock situation on the kernel 2.6.34. Has thi=
-s
-> been fixed in the later version of the kernel.
->=20
-> I see that one after holding the neigh_lookup, one can acquire the
-> lock for rt_hash_locks
->=20
-> But there is a situation while freed skb's in dst_release while
-> holding the rt_hash_locks, neigh_lookup can be called which tries to
-> acquire its lock.
->=20
-> This seems to be a deadlock candidate.
->=20
-> Thanks,
-> Murali
->=20
-> Below if the scenario found by lockdep on a debug kernel during the
-> kernel bootup.
->=20
-
-All this code changed in 2.6.37 with commit
-d6bf781712a1d25cc8987036b3a48535b331eb91
-(net neigh: RCU conversion of neigh hash table)
+576k5Y+R6L2v5Lu2KzEwOeWxiuW5v+S6pOS8muS5sOWutuOAgea1t+WFs+aVsOaNruOAgeaQnOe0
+ouW8leaTjuS5sOWutixCMkLor6Lnm5jkubDlrrblhbE1MDDkuIcs5LuFMTDlhYPmr4/lpKnjgIIg
+DQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCuS/neivgeavj+WkqemDveacieS5
+sOWutuWbnuWkjeOAgg0KDQoNCjHjgIHnvqTlj5Hova/ku7bvvJog5pON5L2c566A5Y2V77yM5Yqf
+6IO95by65aSn77yM5qih5Lu/5Lq65bel5pON5L2c5qih5byP77yM5Yiw6L6+546H6auY77yM5pel
+5Y+R6YCBNeS4h+WwgeS7peS4iuOAgiANCjLjgIE1MDDkuIfkubDlrrbotYTmupDvvJog6LWg6YCB
+55qENTAw5LiH5Lmw5a626LWE5rqQ5bqT77yM5q+P5pyI5pu05pawIOOAgiANCjPjgIHotoXnuqfm
+tbflpJbkubDlrrZFbWFpbOaQnOe0ouacuu+8miDmr4/lpKnog73mkJzntKIxLTLkuIfku6XkuIrk
+ubDlrrbnnJ/lrp5FTUFJTO+8jOaIkOWNleeOh+mrmOOAgiANCiANCg0K6KaB55qE5oqT57Sn6IGU
+57O7UVE6IDEzMzk2MjUyMTggICDmiJbogIXnq4vljbPlm57lpI3pgq7nrrE6IDEzMzk2MjUyMThA
+cXEuY29tDQropoHnmoTmipPntKfogZTns7tRUTogMTMzOTYyNTIxOCAgIOaIluiAheeri+WNs+Wb
+nuWkjemCrueusTogMTMzOTYyNTIxOEBxcS5jb20NCuimgeeahOaKk+e0p+iBlOezu1FROiAxMzM5
+NjI1MjE4ICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0KDQrl
+hY3otLnotaDpgIE6DQrkuIDlhbE45Liq5YyFKOaVsOaNruaYr+WFqOihjOS4mueahO+8jOaMieeF
+p+ihjOS4muWIhuWlveexu++8jOW5tuS4lOWPr+S7peaMieeFp+WFs+mUruivjeafpeivoueahCnv
+vJogDQox77yMMjAxMeaYpeWtozEwOeWxiuW5v+S6pOS8muS5sOWutueOsOWcuuivouebmOaVsOaN
+ruW6k+aWsOmynOWHuueCie+8jOi2hee6p+aWsOmynOS5sOWutu+8jOaWsOmynOaVsOaNru+8jOWu
+ueaYk+aIkOWNle+8gSANCjLvvIzotK3kubDlkI7lj6/ku6XlhY3otLnmm7TmlrAyMDEx56eL5a2j
+5bm/5Lqk5LyaKzIwMTLmmKXlraPlub/kuqTkvJrkubDlrrbmlbDmja7jgILlpKrotoXlgLzkuobj
+gIINCjPvvIzmnIDmlrDlhajnkIPkubDlrrblupMs5YWxNDUxNjYw5p2h5pWw5o2u44CCICjmnIDm
+lrDmm7TmlrDml6XmnJ8gMjAxMS0wNS0xNuaXpSkNCjTvvIwyMDA45bm0LDIwMDnlubQsMjAxMOW5
+tCDmmKXlraMr56eL5a2j5bm/5Lqk5Lya5Lmw5a625ZCN5b2V77yMMTAzIDEwNCAxMDUgMTA2IDEw
+NyAxMDgg5YWx5YWt5bGKIOWFsTEyMC425LiH5pWw5o2u44CCDQo177yMMjAxMOW5tOWbvemZheS/
+g+mUgOWNj+S8mu+8iFBQQUnvvInmiJDlkZjlkI3ljZUgUFBBSSBNZW1iZXJzIERpcmVjdG9yee+8
+jOmdnuW4uOmHjeimgeeahOWkp+S5sOWutuOAgg0KNu+8jDIwMTDlubTliLDpppnmuK/ph4fotK3n
+moTlm73lpJblrqLkurrlkI3lvZUo6aaZ5riv6LS45Y+R5bGA5o+Q5L6bKe+8jOWFsTcuMuS4h+aV
+sOaNru+8jOi2hee6p+mHjeimgeeahOS5sOWutuOAgg0KN++8jDQ4LjY45LiH5p2h5pyA5paw5Lmw
+5a626K+i55uY77yM6LSt5Lmw5ZCO5q+P5pyI5pu05pawIDEtMuS4h+adoe+8jOWMheaLrDLpg6jl
+iIbvvIwx77yM5pyA5paw55qE6K+i55uYIDLvvIzmnIDmlrDnmoTlsZXkvJrkubDlrrbjgILlhY3o
+tLnmm7TmlrAzNuS4quaciOOAgg0KOO+8jDIwMDnlubTmtbflhbPmj5DljZXmlbDmja5waWVyc+eJ
+iOaVsOaNriAx5Y2D5LiH44CCDQoNCg0K6K+a5L+h5Li65pys77yM5pSv5oyB5pSv5LuY5a6d5ouF
+5L+d5Lqk5piTICjlhYjlj5HotKflubblronoo4Xorr7nva7nvqTlj5Hova/ku7bvvIznhLblkI7k
+u5jmrL4pIOW9u+W6leaJk+a2iOaCqOeahCDpob7omZHjgIINCg0KIA0KDQoNCiANCg0K57K+5YeG
+5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+
+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K
+57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K
