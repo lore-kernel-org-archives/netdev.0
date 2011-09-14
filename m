@@ -1,43 +1,31 @@
-From: WEBMAIL UPDATE <beacon_bgl@youbroadband.in>
-Subject: Dear Email Account...........update your account
-Date: Wed, 14 Sep 2011 16:46:25 +0530
-Message-ID: <20110914164625.xubpe74cg4g0kccc@webmail.youbroadband.in>
-Reply-To: wbsupport@admin.in.th
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IFF_TX_SKB_SHARING
+Date: Wed, 14 Sep 2011 13:46:15 +0200
+Message-ID: <1316000775.2361.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <Pine.NEB.4.64.1109141227580.19629@otaku.Xtrmntr.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com
+To: Pekka Riikonen <priikone@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sendmail1.youbroadband.in ([203.187.192.25]:62150 "HELO
-	sendmail1.youbroadband.in" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1756502Ab1INLZI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2011 07:25:08 -0400
-Content-Disposition: inline
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:49931 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932289Ab1INLqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2011 07:46:09 -0400
+Received: by bkbzt4 with SMTP id zt4so1457610bkb.19
+        for <netdev@vger.kernel.org>; Wed, 14 Sep 2011 04:46:08 -0700 (PDT)
+In-Reply-To: <Pine.NEB.4.64.1109141227580.19629@otaku.Xtrmntr.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mercredi 14 septembre 2011 =C3=A0 12:38 +0200, Pekka Riikonen a =C3=A9=
+crit :
+> The IFF_TX_SKB_SHARING flag was introduced in d88733150.  Was it inte=
+nded=20
+> that it clears IFF_XMIT_DST_RELEASE flag?  It's set in alloc_netdev_m=
+qs=20
+> but gets cleared by ether_setup (via alloc_etherdev_mqs).
+>=20
 
-Dear Email Account,
-
-We are currently carrying-out a Maintenance Process on our email account to
-complete this process you must respond to this email immediately, and enter
-your User Name here (                   ) And Password here
-(                      ) if you are the rightful owner of this account.
-
-This process we help us to fight against Spam Emails.Failure to summit your
-password, we will render your email address in-active from our database.
-
-NOTE: You will be sent a password reset message in next two (2) working days
-after undergoing this process for security reasons.
-
-Thank you for using Webmail Service
-***********************************
-The information contained in this email message and any attached files may be
-confidential information and may also be the subject of legal professional
-privilege. If you are not the intended recipient, any use, disclosure or
-copying of this email is unauthorized. If you have received this email in
-error, please notify the sender immediately by reply email and delete all
-copies of the transmission together with anyattachments.
-
-Thank you No virus found in this incoming message.
+Good catch, thanks Pekka
