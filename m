@@ -1,73 +1,124 @@
-From: Michael Brade <brade@informatik.uni-muenchen.de>
-Subject: Re: r8169 hard-freezes the system on big network loads
-Date: Wed, 14 Sep 2011 23:36:16 +0200
-Message-ID: <201109142336.17291.brade@informatik.uni-muenchen.de>
-References: <201108141308.28140.kjun-chen@sambodha.org> <201109112216.33579.brade@informatik.uni-muenchen.de> <20110913081126.GA20022@electric-eye.fr.zoreil.com>
+From: David Daney <david.daney@cavium.com>
+Subject: Device tree property names for MDIO bus multiplexer.  Was: Re: [PATCH
+ 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Wed, 14 Sep 2011 14:40:41 -0700
+Message-ID: <4E711F59.6000801@cavium.com>
+References: <1314820906-14004-1-git-send-email-david.daney@cavium.com> <1314820906-14004-3-git-send-email-david.daney@cavium.com> <129FAAB3-C9AD-43F6-A8CB-96548A47C4DC@kernel.crashing.org> <4E6FE5F9.2060604@cavium.com> <678076BE-4CF8-4AC9-BE9B-9AF1A17B7AF8@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	Hayes <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acheron.ifi.lmu.de ([129.187.214.135]:40256 "EHLO
-	acheron.ifi.lmu.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933341Ab1INVgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2011 17:36:20 -0400
-In-Reply-To: <20110913081126.GA20022@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
+	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Kumar Gala <galak@kernel.crashing.org>, grant.likely@secretlab.ca,
+	rob.herring@calxeda.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <678076BE-4CF8-4AC9-BE9B-9AF1A17B7AF8@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 September 2011 10:11:26 you wrote:
-> Michael Brade <brade@informatik.uni-muenchen.de> :
-> [...]
-> 
-> > Does it have to be 3.1.0-rc3 or is 3.0.1 ok as well ?
-> :
-> :o(
-> 
-> Almost any release may exhibit the bug. The attached patch (#0003)
-> should be a better candidate as an official fix though.
+Well, I would really like to get an official maintainer's take on the 
+name of the parent MDIO bus property.  Prehaps Grant or Rob could opine 
+on the matter.
 
-ok, good news: I did not experience any freeze anymore even though I 
-transfered 60 GB. And I applied both of your patches and 
+Sooner would be better than later as I am about to start shipping boards 
+with this burnt into the bootloader.  If it needs changing, I could do 
+it in the next couple of days, but after that it escapes into the wild.
 
--                   if (status & RxFOVF) {
--                           rtl8169_schedule_work(dev, rtl8169_reset_task);
--                           dev->stats.rx_fifo_errors++;
--                   }
+Thanks in advance,
+David Daney
 
- 
-> > If so, I have another bad news: 3.0.1 still crashes with this patch.
-> > It took me a lot longer to crash it but eventually it did happen.
-> > Not sure why it took longer, I guess I didn't generate enough throughput.
-> 
-> It sure sucks from a user experience viewpoint but it is not _that_ bad.
 
-I disagree - I actually lose data because I mount my data and backups with 
-iSCSI and exactly then it crashes.
-
-> Are the symptoms in any way different or do you still notice more-or-less
-> periodic link-up messages and no real network traffic ?
-
-dmesg looks like this:
-
-[ 1611.380420] r8169 0000:13:00.0: eth0: link up
-[ 1611.995417] r8169 0000:13:00.0: eth0: link up
-[ 1612.323050] r8169 0000:13:00.0: eth0: link up
-[ 1612.574016] r8169 0000:13:00.0: eth0: link up
-[ 1613.450630] r8169 0000:13:00.0: eth0: link up
-[ 1613.929383] r8169 0000:13:00.0: eth0: link up
-[ 1614.950939] r8169 0000:13:00.0: eth0: link up
-[ 1615.699660] r8169 0000:13:00.0: eth0: link up
-[ 1616.005507] r8169 0000:13:00.0: eth0: link up
-[ 1616.746199] r8169 0000:13:00.0: eth0: link up
-[ 1617.879670] r8169 0000:13:00.0: eth0: link up
-[ 1618.461433] r8169 0000:13:00.0: eth0: link up
-
-so yes but what do you mean with "no real network traffic"? I still get
-100 MB/s.
-
-cheers,
-  Michael
+On 09/14/2011 01:42 PM, Kumar Gala wrote:
+>
+> On Sep 13, 2011, at 6:23 PM, David Daney wrote:
+>
+>> On 09/13/2011 04:07 PM, Kumar Gala wrote:
+>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt
+>>>> new file mode 100644
+>>>> index 0000000..a908312
+>>>> --- /dev/null
+>>>> +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
+>>>> @@ -0,0 +1,132 @@
+>>>> +Common MDIO bus multiplexer/switch properties.
+>>>> +
+>>>> +An MDIO bus multiplexer/switch will have several child busses that are
+>>>> +numbered uniquely in a device dependent manner.  The nodes for an MDIO
+>>>> +bus multiplexer/switch will have one child node for each child bus.
+>>>> +
+>>>> +Required properties:
+>>>> +- parent-bus : phandle to the parent MDIO bus.
+>>>
+>>> Should probably be mdio-parent-bus
+>>
+>> Why?  We know it is MDIO.
+>>
+>> Serial bus multiplexing is not a concept limited to MDIO.  We would want to use "parent-bus" for some I2C multiplexers as well.
+>
+>> From many years of dealing with device trees.  We typically don't name things overlay generically unless they will be used over and over again as a common idiom (like reg, interrupt, etc.).
+>
+> We don't really use 'bus' generically today.
+>
+>>
+>>>
+>>>> +
+>>>> +Optional properties:
+>>>> +- Other properties specific to the multiplexer/switch hardware.
+>>>> +
+>>>> +Required properties for child nodes:
+>>>> +- #address-cells =<1>;
+>>>> +- #size-cells =<0>;
+>>>> +- cell-index : The sub-bus number.
+>>>
+>>> What does sub-bus number mean?
+>>
+>> There are N child buses (or sub-buses) coming out of the multiplexer. The cell-index is used as a handle or identifier for each of these.
+>>
+>> The concrete example in Patch 3/3 is a multiplexer with four child buses.  The happen to have cell-indexes of 0, 1, 2 and 3.
+>>
+>> In the GPIO case of patch 3/3, these directly correspond the the state of the two GPIO pins controlling the multiplexer.  The driver then uses the cell-index property to determine the state of the GPIO to connect any given child.
+>>
+>> It is possible that the documentation part of the patch could be made more clear about this.
+>>
+>>>
+>>>> +
+>>>> +
+>>>> +Example :
+>>>
+>> [...]
+>>>> +
+>>>> +int mdio_mux_probe(struct platform_device *pdev,
+>>>> +		   int (*switch_fn)(int cur, int desired, void *data),
+>>>> +		   void *data)
+>>>> +{
+>>>> +	struct device_node *parent_bus_node;
+>>>> +	struct device_node *child_bus_node;
+>>>> +	int r, n, ret_val;
+>>>> +	struct mii_bus *parent_bus;
+>>>> +	struct mdio_mux_parent_bus *pb;
+>>>> +	struct mdio_mux_child_bus *cb;
+>>>> +
+>>>> +	if (!pdev->dev.of_node)
+>>>> +		return -ENODEV;
+>>>> +
+>>>> +	parent_bus_node = of_parse_phandle(pdev->dev.of_node, "parent-bus", 0);
+>>>> +
+>>>> +	if (!parent_bus_node)
+>>>> +		return -ENODEV;
+>>>> +
+>>>> +	parent_bus = of_mdio_find_bus(parent_bus_node);
+>>>
+>>>
+>>> So what happens if the parent bus probe happens after the mux probe?
+>>>
+>>
+>> The whole house of cards collapses.
+>>
+>> Grant Likely has a patch to deal with this by retrying the probing,  but as far as I know, it has not been merged yet.
+>
+> - k--
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
