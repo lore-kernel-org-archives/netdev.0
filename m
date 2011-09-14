@@ -1,35 +1,34 @@
-From: "Awards Team" <claims@sblglobal.net>
-Subject: FINAL NOTE.
-Date: Wed, 14 Sep 2011 16:33:09 +0530
-Message-ID: <20110914110314.ULEK1911.viefep17-int.chello.at@edge05.upcmail.net>
-Reply-To: <organisers.mica@rediffmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: IFF_TX_SKB_SHARING
+Date: Wed, 14 Sep 2011 07:09:42 -0400
+Message-ID: <20110914110942.GA3866@hmsreliant.think-freely.org>
+References: <Pine.NEB.4.64.1109141227580.19629@otaku.Xtrmntr.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Pekka Riikonen <priikone@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fep17.mx.upcmail.net ([62.179.121.37]:40096 "EHLO
-	fep17.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756477Ab1INLDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2011 07:03:18 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51431 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756457Ab1INLJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2011 07:09:49 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.NEB.4.64.1109141227580.19629@otaku.Xtrmntr.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-our Email Id has won 1,000,000.00 GBP in the Microsoft Online Promotion 2011. send your
+On Wed, Sep 14, 2011 at 12:38:42PM +0200, Pekka Riikonen wrote:
+> 
+> The IFF_TX_SKB_SHARING flag was introduced in d88733150.  Was it
+> intended that it clears IFF_XMIT_DST_RELEASE flag?  It's set in
+> alloc_netdev_mqs but gets cleared by ether_setup (via
+> alloc_etherdev_mqs).
+> 
+> Thanks,
+> 
+> 	Pekka
+> 
 
-Names:
-Age:
-Address:
-Occupation:
-Contact No:
-Country:
-Email Address:
-
-for processing to our claims department : 
-organisers.mica@rediffmail.com
-
-
-Microsoft Online Award Team.
-
-(T H I S  I S  N O T  A N  A U T O M A T I C A L L Y   G E N E R A T E D   M E S S A G E )
+No, thats in error, the sharing flag was meant to be or-ed in.  I'll fix that
+immediately, thanks!
+Neil
