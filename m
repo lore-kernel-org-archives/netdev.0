@@ -1,24 +1,35 @@
-From: Pekka Riikonen <priikone@iki.fi>
-Subject: IFF_TX_SKB_SHARING
-Date: Wed, 14 Sep 2011 12:38:42 +0200 (CEST)
-Message-ID: <Pine.NEB.4.64.1109141227580.19629@otaku.Xtrmntr.org>
+From: "Awards Team" <claims@sblglobal.net>
+Subject: FINAL NOTE.
+Date: Wed, 14 Sep 2011 16:33:09 +0530
+Message-ID: <20110914110314.ULEK1911.viefep17-int.chello.at@edge05.upcmail.net>
+Reply-To: <organisers.mica@rediffmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sauna.silcnet.org ([147.175.66.205]:64745 "EHLO
-	otaku.Xtrmntr.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756385Ab1INKvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2011 06:51:54 -0400
+Received: from fep17.mx.upcmail.net ([62.179.121.37]:40096 "EHLO
+	fep17.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756477Ab1INLDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2011 07:03:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+our Email Id has won 1,000,000.00 GBP in the Microsoft Online Promotion 2011. send your
 
-The IFF_TX_SKB_SHARING flag was introduced in d88733150.  Was it intended 
-that it clears IFF_XMIT_DST_RELEASE flag?  It's set in alloc_netdev_mqs 
-but gets cleared by ether_setup (via alloc_etherdev_mqs).
+Names:
+Age:
+Address:
+Occupation:
+Contact No:
+Country:
+Email Address:
 
-Thanks,
+for processing to our claims department : 
+organisers.mica@rediffmail.com
 
- 	Pekka
+
+Microsoft Online Award Team.
+
+(T H I S  I S  N O T  A N  A U T O M A T I C A L L Y   G E N E R A T E D   M E S S A G E )
