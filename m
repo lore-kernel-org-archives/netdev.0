@@ -1,56 +1,63 @@
-From: =?utf-8?B?5LuFMTDlhYPmr4/lpKk=?= <test@amidress.com>
-Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrY=?=
-	=?utf-8?B?44CB5rW35YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
-Date: Wed, 14 Sep 2011 00:20:25 +0000 (UTC)
-Message-ID: <20111213100340641512@amidress.com>
-Reply-To: <1339625218@qq.com>
+From: "Dan Pereira" <danp_48@yahoo.com>
+Subject: Build-a-home-based-business-on-Auto-Pilot-
+Date: Tue, 13 Sep 2011 19:39:30 -0700 (PDT)
+Message-ID: <201109140239.p8E2dUQc038206@mail3.spagack2.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 184.172.211.66-static.reverse.softlayer.com ([184.172.211.66]:3813
-	"HELO amidress.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751389Ab1INAUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 20:20:20 -0400
-Date: Tue, 13 Dec 2011 10:03:34 +0800
+Received: from mail3.spagack2.com ([74.122.159.222]:64575 "EHLO
+	mail3.spagack2.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754035Ab1INCkg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 22:40:36 -0400
+Received: from mail3.spagack2.com (localhost.mail3.spagack2.com [127.0.0.1])
+	by mail3.spagack2.com (8.13.8/8.12.7) with ESMTP id p8E2dUYM038216
+	for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 19:39:30 -0700 (PDT)
+	(envelope-from u789mobs@reliablecontact.com)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-576k5Y+R6L2v5Lu2KzEwOeWxiuW5v+S6pOS8muS5sOWutuOAgea1t+WFs+aVsOaNruOAgeaQnOe0
-ouW8leaTjuS5sOWutixCMkLor6Lnm5jkubDlrrblhbE1MDDkuIcs5LuFMTDlhYPmr4/lpKnjgIIg
-DQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCuS/neivgeavj+WkqemDveacieS5
-sOWutuWbnuWkjeOAgg0KDQoNCjHjgIHnvqTlj5Hova/ku7bvvJog5pON5L2c566A5Y2V77yM5Yqf
-6IO95by65aSn77yM5qih5Lu/5Lq65bel5pON5L2c5qih5byP77yM5Yiw6L6+546H6auY77yM5pel
-5Y+R6YCBNeS4h+WwgeS7peS4iuOAgiANCjLjgIE1MDDkuIfkubDlrrbotYTmupDvvJog6LWg6YCB
-55qENTAw5LiH5Lmw5a626LWE5rqQ5bqT77yM5q+P5pyI5pu05pawIOOAgiANCjPjgIHotoXnuqfm
-tbflpJbkubDlrrZFbWFpbOaQnOe0ouacuu+8miDmr4/lpKnog73mkJzntKIxLTLkuIfku6XkuIrk
-ubDlrrbnnJ/lrp5FTUFJTO+8jOaIkOWNleeOh+mrmOOAgiANCiANCg0K6KaB55qE5oqT57Sn6IGU
-57O7UVE6IDEzMzk2MjUyMTggICDmiJbogIXnq4vljbPlm57lpI3pgq7nrrE6IDEzMzk2MjUyMThA
-cXEuY29tDQropoHnmoTmipPntKfogZTns7tRUTogMTMzOTYyNTIxOCAgIOaIluiAheeri+WNs+Wb
-nuWkjemCrueusTogMTMzOTYyNTIxOEBxcS5jb20NCuimgeeahOaKk+e0p+iBlOezu1FROiAxMzM5
-NjI1MjE4ICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0KDQrl
-hY3otLnotaDpgIE6DQrkuIDlhbE45Liq5YyFKOaVsOaNruaYr+WFqOihjOS4mueahO+8jOaMieeF
-p+ihjOS4muWIhuWlveexu++8jOW5tuS4lOWPr+S7peaMieeFp+WFs+mUruivjeafpeivoueahCnv
-vJogDQox77yMMjAxMeaYpeWtozEwOeWxiuW5v+S6pOS8muS5sOWutueOsOWcuuivouebmOaVsOaN
-ruW6k+aWsOmynOWHuueCie+8jOi2hee6p+aWsOmynOS5sOWutu+8jOaWsOmynOaVsOaNru+8jOWu
-ueaYk+aIkOWNle+8gSANCjLvvIzotK3kubDlkI7lj6/ku6XlhY3otLnmm7TmlrAyMDEx56eL5a2j
-5bm/5Lqk5LyaKzIwMTLmmKXlraPlub/kuqTkvJrkubDlrrbmlbDmja7jgILlpKrotoXlgLzkuobj
-gIINCjPvvIzmnIDmlrDlhajnkIPkubDlrrblupMs5YWxNDUxNjYw5p2h5pWw5o2u44CCICjmnIDm
-lrDmm7TmlrDml6XmnJ8gMjAxMS0wNS0xNuaXpSkNCjTvvIwyMDA45bm0LDIwMDnlubQsMjAxMOW5
-tCDmmKXlraMr56eL5a2j5bm/5Lqk5Lya5Lmw5a625ZCN5b2V77yMMTAzIDEwNCAxMDUgMTA2IDEw
-NyAxMDgg5YWx5YWt5bGKIOWFsTEyMC425LiH5pWw5o2u44CCDQo177yMMjAxMOW5tOWbvemZheS/
-g+mUgOWNj+S8mu+8iFBQQUnvvInmiJDlkZjlkI3ljZUgUFBBSSBNZW1iZXJzIERpcmVjdG9yee+8
-jOmdnuW4uOmHjeimgeeahOWkp+S5sOWutuOAgg0KNu+8jDIwMTDlubTliLDpppnmuK/ph4fotK3n
-moTlm73lpJblrqLkurrlkI3lvZUo6aaZ5riv6LS45Y+R5bGA5o+Q5L6bKe+8jOWFsTcuMuS4h+aV
-sOaNru+8jOi2hee6p+mHjeimgeeahOS5sOWutuOAgg0KN++8jDQ4LjY45LiH5p2h5pyA5paw5Lmw
-5a626K+i55uY77yM6LSt5Lmw5ZCO5q+P5pyI5pu05pawIDEtMuS4h+adoe+8jOWMheaLrDLpg6jl
-iIbvvIwx77yM5pyA5paw55qE6K+i55uYIDLvvIzmnIDmlrDnmoTlsZXkvJrkubDlrrbjgILlhY3o
-tLnmm7TmlrAzNuS4quaciOOAgg0KOO+8jDIwMDnlubTmtbflhbPmj5DljZXmlbDmja5waWVyc+eJ
-iOaVsOaNriAx5Y2D5LiH44CCDQoNCg0K6K+a5L+h5Li65pys77yM5pSv5oyB5pSv5LuY5a6d5ouF
-5L+d5Lqk5piTICjlhYjlj5HotKflubblronoo4Xorr7nva7nvqTlj5Hova/ku7bvvIznhLblkI7k
-u5jmrL4pIOW9u+W6leaJk+a2iOaCqOeahCDpob7omZHjgIINCg0KIA0KDQoNCiANCg0K57K+5YeG
-5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+
-5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K
-57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K
+
+
+Hello Everyone,
+
+Discover how average people who have never made a cent in the past
+Are now making $1,000+ every month,=20
+With the Potential of making $50,000 a month
+Just "Plug In"... to Your
+Own Fully Automated=20
+  Turn Key...Global Marketing $ystem
+Receive $500-$3,500 Monthly or MORE
+Not MLM...and
+No Selling...
+No Cold Phone Calling.=20
+Complete plug-in-system!
+
+Check-it-Out!
+
+http://trckrs.com/48184/rc7
+
+It=92s surprisingly cool!
+
+Dan and Noel
+
+
+His was a Com.Merical adv.Sent to you by:Dan Pereira, 11383 Golf Road, =
+Turlock, CA 95380
+In compliance with Federal law, should you choose to Un.Subscribe from =
+our network, you may do so using theUn.Subscribe instruction found belo=
+w.  We are fully compliant with CAN-SPAM Act of 2005-Please use the Un.=
+Subscribe link provided:
+
+
+
+
+
+
+
+
+To remove this email address from further mailings click on  the link b=
+elow  while connected to the internet.
+http://www.reliablecontact.com/cgi-bin/maxsponder/maxuseradmin.cgi?func=
+tion=3Dmanualdelete3&email=3Dnetdev*vger.kernel.org&un=3Drichardpereira
