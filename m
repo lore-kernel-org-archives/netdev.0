@@ -1,73 +1,64 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: don't clear IFF_XMIT_DST_RELEASE in ether_setup
-Date: Wed, 14 Sep 2011 10:57:19 -0400
-Message-ID: <20110914145719.GB3866@hmsreliant.think-freely.org>
-References: <1316005502-7341-1-git-send-email-nhorman@tuxdriver.com>
- <1316006922.2361.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH] net/smsc911x: Correctly configure 16-bit register access
+	from DT
+Date: Wed, 14 Sep 2011 10:12:08 -0600
+Message-ID: <20110914161208.GG3134@ponder.secretlab.ca>
+References: <1315910969-4018-1-git-send-email-dave.martin@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Pekka Riikonen <priikone@iki.fi>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:58340 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755513Ab1INO5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Sep 2011 10:57:31 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
+To: Dave Martin <dave.martin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1316006922.2361.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1315910969-4018-1-git-send-email-dave.martin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2011 at 03:28:41PM +0200, Eric Dumazet wrote:
-> Le mercredi 14 septembre 2011 =E0 09:05 -0400, Neil Horman a =E9crit =
-:
-> > d88733150 introduced the IFF_SKB_TX_SHARING flag, which I unilatera=
-lly set in
-> > ether_setup.  In doing this I didn't realize that other flags (such=
- as
-> > IFF_XMIT_DST_RELEASE) might be set prior to calling the ether_setup=
- routine.
-> > This patch changes ether_setup to or in SKB_TX_SHARING so as not to
-> > inadvertently clear other existing flags.  Thanks to Pekka Riikonen=
- for pointing
-> > out my error
-> >=20
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > Reported-by: Pekka Riikonen <priikone@iki.fi>
-> > CC: "David S. Miller" <davem@davemloft.net>
-> > ---
-> >  net/ethernet/eth.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> >=20
-> > diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-> > index 27997d3..a246836 100644
-> > --- a/net/ethernet/eth.c
-> > +++ b/net/ethernet/eth.c
-> > @@ -340,7 +340,7 @@ void ether_setup(struct net_device *dev)
-> >  	dev->addr_len		=3D ETH_ALEN;
-> >  	dev->tx_queue_len	=3D 1000;	/* Ethernet wants good queues */
-> >  	dev->flags		=3D IFF_BROADCAST|IFF_MULTICAST;
-> > -	dev->priv_flags		=3D IFF_TX_SKB_SHARING;
-> > +	dev->priv_flags		|=3D IFF_TX_SKB_SHARING;
-> > =20
-> >  	memset(dev->broadcast, 0xFF, ETH_ALEN);
-> > =20
->=20
-> I CC Pekka Riikonen <priikone@iki.fi>, not sure if he is netdev
-> subscribded.
->=20
-Thank you Eric, I didn't check and assumed my config CC'ed Reported-by:=
- emails
-Neil
+On Tue, Sep 13, 2011 at 11:49:29AM +0100, Dave Martin wrote:
+> The SMSC911X_USE_16BIT needs to be set when using 16-bit register
+> access.  However, currently no flag is set if the device tree
+> doesn't specify 32-bit access, resulting in a BUG() and a non-
+> working driver when 16-bit register access is configured for
+> smsc911x in the DT.
+> 
+> This patch should set the SMSC911X_USE_16BIT flag in a manner
+> consistent with the documented DT bindings.
+> 
+> Signed-off-by: Dave Martin <dave.martin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+Acked-by: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+
+> ---
+>  drivers/net/ethernet/smsc/smsc911x.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 788c4fd..a3aa4c0 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -2121,6 +2121,8 @@ static int __devinit smsc911x_probe_config_dt(
+>  	of_property_read_u32(np, "reg-io-width", &width);
+>  	if (width == 4)
+>  		config->flags |= SMSC911X_USE_32BIT;
+> +	else
+> +		config->flags |= SMSC911X_USE_16BIT;
+>  
+>  	if (of_get_property(np, "smsc,irq-active-high", NULL))
+>  		config->irq_polarity = SMSC911X_IRQ_POLARITY_ACTIVE_HIGH;
+> -- 
+> 1.7.4.1
+> 
+> _______________________________________________
+> devicetree-discuss mailing list
+> devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> https://lists.ozlabs.org/listinfo/devicetree-discuss
