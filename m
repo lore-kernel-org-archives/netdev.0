@@ -1,63 +1,46 @@
-From: "Dan Pereira" <danp_48@yahoo.com>
-Subject: Build-a-home-based-business-on-Auto-Pilot-
-Date: Tue, 13 Sep 2011 19:39:30 -0700 (PDT)
-Message-ID: <201109140239.p8E2dUQc038206@mail3.spagack2.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the s390 tree
+Date: Wed, 14 Sep 2011 12:50:08 +1000
+Message-ID: <20110914125008.6c7e2bd132ad8f473e7524ce@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.spagack2.com ([74.122.159.222]:64575 "EHLO
-	mail3.spagack2.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754035Ab1INCkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Sep 2011 22:40:36 -0400
-Received: from mail3.spagack2.com (localhost.mail3.spagack2.com [127.0.0.1])
-	by mail3.spagack2.com (8.13.8/8.12.7) with ESMTP id p8E2dUYM038216
-	for <netdev@vger.kernel.org>; Tue, 13 Sep 2011 19:39:30 -0700 (PDT)
-	(envelope-from u789mobs@reliablecontact.com)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Oberparleiter <peter.oberparleiter@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Frank Blaschka <frank.blaschka@de.ibm.com>,
+	Einar Lueck <elelueck@de.ibm.com>,
+	Jan Glauber <jang@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi all,
 
+Today's linux-next merge of the net tree got a conflict in
+drivers/s390/cio/qdio_main.c between commit 003184781fea ("[S390] s390:
+fix mismatch in summation of I/O IRQ statistics") from the s390 tree and
+commit 104ea556ee7f ("qdio: support asynchronous delivery of storage
+blocks") from the net tree.
 
-Hello Everyone,
+Just context changes.  I fixed it up (see below) and can carry the fix as
+necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Discover how average people who have never made a cent in the past
-Are now making $1,000+ every month,=20
-With the Potential of making $50,000 a month
-Just "Plug In"... to Your
-Own Fully Automated=20
-  Turn Key...Global Marketing $ystem
-Receive $500-$3,500 Monthly or MORE
-Not MLM...and
-No Selling...
-No Cold Phone Calling.=20
-Complete plug-in-system!
-
-Check-it-Out!
-
-http://trckrs.com/48184/rc7
-
-It=92s surprisingly cool!
-
-Dan and Noel
-
-
-His was a Com.Merical adv.Sent to you by:Dan Pereira, 11383 Golf Road, =
-Turlock, CA 95380
-In compliance with Federal law, should you choose to Un.Subscribe from =
-our network, you may do so using theUn.Subscribe instruction found belo=
-w.  We are fully compliant with CAN-SPAM Act of 2005-Please use the Un.=
-Subscribe link provided:
-
-
-
-
-
-
-
-
-To remove this email address from further mailings click on  the link b=
-elow  while connected to the internet.
-http://www.reliablecontact.com/cgi-bin/maxsponder/maxuseradmin.cgi?func=
-tion=3Dmanualdelete3&email=3Dnetdev*vger.kernel.org&un=3Drichardpereira
+diff --cc drivers/s390/cio/qdio_main.c
+index a122c1c,9a12228..0000000
+--- a/drivers/s390/cio/qdio_main.c
++++ b/drivers/s390/cio/qdio_main.c
+@@@ -14,6 -14,8 +14,7 @@@
+  #include <linux/timer.h>
+  #include <linux/delay.h>
+  #include <linux/gfp.h>
++ #include <linux/io.h>
+ -#include <linux/kernel_stat.h>
+  #include <linux/atomic.h>
+  #include <asm/debug.h>
+  #include <asm/qdio.h>
