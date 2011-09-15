@@ -1,28 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] [TRIVIAL] mii: Convert spaces to tabs in mii.h
-Date: Thu, 15 Sep 2011 15:45:11 -0400 (EDT)
-Message-ID: <20110915.154511.1867407163214248175.davem@davemloft.net>
-References: <1314804928-7353-1-git-send-email-mark.einon@gmail.com>
-	<1314868937-2536-1-git-send-email-mark.einon@gmail.com>
+Subject: Re: [PATCH net-next] net: linkwatch: allow vlans to get carrier
+ changes faster
+Date: Thu, 15 Sep 2011 15:44:10 -0400 (EDT)
+Message-ID: <20110915.154410.26623232105923613.davem@davemloft.net>
+References: <4E5A40A9.2000404@hitachi.com>
+	<1314540589.3036.12.camel@edumazet-laptop>
+	<1314783118.2801.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: mark.einon@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42607 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934532Ab1IOTpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2011 15:45:16 -0400
-In-Reply-To: <1314868937-2536-1-git-send-email-mark.einon@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mitsuo.hayasaka.hu@hitachi.com, herbert@gondor.hengli.com.au,
+	shemminger@vyatta.com, kaber@trash.net, mirq-linux@rere.qmqm.pl,
+	therbert@google.com, jesse@nicira.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1314783118.2801.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mark Einon <mark.einon@gmail.com>
-Date: Thu,  1 Sep 2011 10:22:16 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 31 Aug 2011 11:31:58 +0200
 
-> Whitespace changes - spaces converted to tabs after each define name and value
+> There is a time-lag of IFF_RUNNING flag consistency between vlan and
+> real devices when the real devices are in problem such as link or cable
+> broken.
 > 
-> Signed-off-by: Mark Einon <mark.einon@gmail.com>
+> This leads to a degradation of Availability such as a delay of failover
+> in HA systems using vlan since the detection of the problem at real
+> device is delayed.
+> 
+> We can avoid the linkwatch delay (~1 sec) for devices linked to another
+> ones, since delay is already done for the realdev.
+> 
+> Based on a previous patch from Mitsuo Hayasaka
+> 
+> Reported-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
