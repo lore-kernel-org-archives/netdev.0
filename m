@@ -1,43 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 -next] 6LoWPAN: fix skb_copy call
-Date: Thu, 15 Sep 2011 15:43:22 -0400 (EDT)
-Message-ID: <20110915.154322.1562864275867324429.davem@davemloft.net>
-References: <1314879675-31989-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	<1314885315-4033-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -mm RESEND] net, rds, Replace xlist in net/rds/xlist.h
+ with llist
+Date: Thu, 15 Sep 2011 15:43:57 -0400 (EDT)
+Message-ID: <20110915.154357.1768237553617962596.davem@davemloft.net>
+References: <1314753690-31250-1-git-send-email-ying.huang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1314885315-4033-1-git-send-email-alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	chris.mason@oracle.com, andy.grover@oracle.com
+To: ying.huang@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1314753690-31250-1-git-send-email-ying.huang@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Thu,  1 Sep 2011 17:55:15 +0400
+From: Huang Ying <ying.huang@intel.com>
+Date: Wed, 31 Aug 2011 09:21:30 +0800
 
-> This patch fixes 2 issues in lowpan_skb_deliver function:
-> 1. Check for return status of skb_copy call;
-> 2. Use skb_copy with proper GFP flag, drop check for non-interrupt
-> context.
+> The functionality of xlist and llist is almost same.  This patch
+> replace xlist with llist to avoid code duplication.
 > 
-> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Known issues: don't know how to test this, need special hardware?
+> 
+> Signed-off-by: Huang Ying <ying.huang@intel.com>
 
-Just to make it clear, I applied -v3 of this patch not -v2. :-)
-
-
-------------------------------------------------------------------------------
-Doing More with Less: The Next Generation Virtual Desktop 
-What are the key obstacles that have prevented many mid-market businesses
-from deploying virtual desktops?   How do next-generation virtual desktops
-provide companies an easier-to-deploy, easier-to-manage and more affordable
-virtual desktop model.http://www.accelacomm.com/jaw/sfnl/114/51426474/
+Applied.
