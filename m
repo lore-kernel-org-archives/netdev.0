@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] update the stmmac to the version Aug_2011 (v3)
-Date: Thu, 15 Sep 2011 15:45:40 -0400 (EDT)
-Message-ID: <20110915.154540.1279124820188866407.davem@davemloft.net>
-References: <1314949903-26137-1-git-send-email-peppe.cavallaro@st.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [net-next] MII: fix Kconfig dependencies for MII
+Date: Thu, 15 Sep 2011 15:49:20 -0400 (EDT)
+Message-ID: <20110915.154920.2090436027565433425.davem@redhat.com>
+References: <1316071394-18195-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: peppe.cavallaro@st.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42632 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934532Ab1IOTps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2011 15:45:48 -0400
-In-Reply-To: <1314949903-26137-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1686 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934532Ab1IOTtW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Sep 2011 15:49:22 -0400
+In-Reply-To: <1316071394-18195-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Fri,  2 Sep 2011 09:51:34 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 15 Sep 2011 00:23:14 -0700
 
-> These patches update the driver adding new supports:
-> MMC (HW management counters), HW feature register and
-> debugfs support.
+> MII Kconfig option is apart of the core networking drivers and
+> by default NET_CORE is enabled so drivers selecting MII will
+> have MII enabled as well.  It was found using the randconfig
+> option during testing, MII would be selected but NET_CORE
+> could be disabled.  This caused a dependency error.
 > 
-> MMC counters are exposed via ethtool.
+> Resolved the dependency by selecting NET_CORE when MII is
+> selected.
 > 
-> These also update the documentation adding a new section
-> for the debugging.
+> Reported-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 
-Series applied.
+Applied, thanks Jeff.
