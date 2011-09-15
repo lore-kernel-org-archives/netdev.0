@@ -1,23 +1,19 @@
 From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: Device tree property names for MDIO bus multiplexer. Was: Re:
-	[PATCH 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
-Date: Wed, 14 Sep 2011 18:41:21 -0600
-Message-ID: <CACxGe6ubxrd=UL7WVgO2ZcgyLfyKdpHG=+MMgGT5G_TKvaaGUg@mail.gmail.com>
+Subject: Re: [PATCH 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Wed, 14 Sep 2011 18:51:02 -0600
+Message-ID: <CACxGe6tA6D9JVf0_K-JAGnKcQmDmD=1ytqqYb6or-KjP9uZNxg@mail.gmail.com>
 References: <1314820906-14004-1-git-send-email-david.daney@cavium.com>
 	<1314820906-14004-3-git-send-email-david.daney@cavium.com>
-	<129FAAB3-C9AD-43F6-A8CB-96548A47C4DC@kernel.crashing.org>
-	<4E6FE5F9.2060604@cavium.com>
-	<678076BE-4CF8-4AC9-BE9B-9AF1A17B7AF8@kernel.crashing.org>
-	<4E711F59.6000801@cavium.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7977552771947630206=="
+Content-Type: multipart/mixed; boundary="===============8717603141351019337=="
 Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+	David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
 Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <4E711F59.6000801-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <1314820906-14004-3-git-send-email-david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
 	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
@@ -29,327 +25,219 @@ Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06c
 Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---===============7977552771947630206==
-Content-Type: multipart/alternative; boundary=20cf307d0050b1886104acf022bc
+--===============8717603141351019337==
+Content-Type: multipart/alternative; boundary=bcaec5016323679bef04acf045b4
 
---20cf307d0050b1886104acf022bc
+--bcaec5016323679bef04acf045b4
 Content-Type: text/plain; charset=ISO-8859-1
 
-On Sep 14, 2011 3:40 PM, "David Daney" <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org> wrote:
+On Aug 31, 2011 2:01 PM, "David Daney" <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org> wrote:
 >
-> Well, I would really like to get an official maintainer's take on the name
-of the parent MDIO bus property.  Prehaps Grant or Rob could opine on the
-matter.
+> This patch adds a somewhat generic framework for MDIO bus
+> multiplexers.  It is modeled on the I2C multiplexer.
 >
-> Sooner would be better than later as I am about to start shipping boards
-with this burnt into the bootloader.  If it needs changing, I could do it in
-the next couple of days, but after that it escapes into the wild.
+> The multiplexer is needed if there are multiple PHYs with the same
+> address connected to the same MDIO bus adepter, or if there is
+> insufficient electrical drive capability for all the connected PHY
+> devices.
+>
+> Conceptually it could look something like this:
+>
+>                   ------------------
+>                   | Control Signal |
+>                   --------+---------
+>                           |
+>  ---------------   --------+------
+>  | MDIO MASTER |---| Multiplexer |
+>  ---------------   --+-------+----
+>                     |       |
+>                     C       C
+>                     h       h
+>                     i       i
+>                     l       l
+>                     d       d
+>                     |       |
+>     ---------       A       B   ---------
+>     |       |       |       |   |       |
+>     | PHY@1 +-------+       +---+ PHY@1 |
+>     |       |       |       |   |       |
+>     ---------       |       |   ---------
+>     ---------       |       |   ---------
+>     |       |       |       |   |       |
+>     | PHY@2 +-------+       +---+ PHY@2 |
+>     |       |                   |       |
+>     ---------                   ---------
+>
+> This framework configures the bus topology from device tree data.  The
+> mechanics of switching the multiplexer is left to device specific
+> drivers.
+>
+> The follow-on patch contains a multiplexer driven by GPIO lines.
+>
+> Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/mdio-mux.txt |  132 ++++++++++++++
+>  drivers/net/phy/Kconfig                            |    8 +
+>  drivers/net/phy/Makefile                           |    1 +
+>  drivers/net/phy/mdio-mux.c                         |  182
+++++++++++++++++++++
+>  include/linux/mdio-mux.h                           |   18 ++
+>  5 files changed, 341 insertions(+), 0 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/mdio-mux.txt
+>  create mode 100644 drivers/net/phy/mdio-mux.c
+>  create mode 100644 include/linux/mdio-mux.h
+>
+> diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt
+b/Documentation/devicetree/bindings/net/mdio-mux.txt
+> new file mode 100644
+> index 0000000..a908312
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
+> @@ -0,0 +1,132 @@
+> +Common MDIO bus multiplexer/switch properties.
+> +
+> +An MDIO bus multiplexer/switch will have several child busses that are
+> +numbered uniquely in a device dependent manner.  The nodes for an MDIO
+> +bus multiplexer/switch will have one child node for each child bus.
+> +
+> +Required properties:
+> +- parent-bus : phandle to the parent MDIO bus.
 
-Considering that the parent bus should be either implicit in the node
-topology, or if not then part of something like an i2c controlled bus
-multiplexer, I don't think this is even remotely a big deal. Each bus
-multiplexer will still likely have it's own binding, and therefore her to
-make its own decision.
+As discussed, I like mdio-parent-bus.
 
-That said, in the interest of commonality, I think mdio-parent-bus would be
-just fine.  parent-bus is probably too generic.
+> +
+> +Optional properties:
+> +- Other properties specific to the multiplexer/switch hardware.
+> +
+> +Required properties for child nodes:
+> +- #address-cells = <1>;
+> +- #size-cells = <0>;
+> +- cell-index : The sub-bus number.
+
+Use reg, not cell-index. That is what it is there for. And add the
+appropriate #address/size-cells in the parent.
+
+I've not reviewed the implementation, but with the changes. I'm okay with
+the binding.
 
 g.
 
->
-> Thanks in advance,
-> David Daney
->
->
-> On 09/14/2011 01:42 PM, Kumar Gala wrote:
->>
->>
->> On Sep 13, 2011, at 6:23 PM, David Daney wrote:
->>
->>> On 09/13/2011 04:07 PM, Kumar Gala wrote:
->>>>
->>>>
->>>>> diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt
-b/Documentation/devicetree/bindings/net/mdio-mux.txt
->>>>> new file mode 100644
->>>>> index 0000000..a908312
->>>>> --- /dev/null
->>>>> +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
->>>>> @@ -0,0 +1,132 @@
->>>>> +Common MDIO bus multiplexer/switch properties.
->>>>> +
->>>>> +An MDIO bus multiplexer/switch will have several child busses that
-are
->>>>> +numbered uniquely in a device dependent manner.  The nodes for an
-MDIO
->>>>> +bus multiplexer/switch will have one child node for each child bus.
->>>>> +
->>>>> +Required properties:
->>>>> +- parent-bus : phandle to the parent MDIO bus.
->>>>
->>>>
->>>> Should probably be mdio-parent-bus
->>>
->>>
->>> Why?  We know it is MDIO.
->>>
->>> Serial bus multiplexing is not a concept limited to MDIO.  We would want
-to use "parent-bus" for some I2C multiplexers as well.
->>
->>
->>> From many years of dealing with device trees.  We typically don't name
-things overlay generically unless they will be used over and over again as a
-common idiom (like reg, interrupt, etc.).
->>
->>
->> We don't really use 'bus' generically today.
->>
->>>
->>>>
->>>>> +
->>>>> +Optional properties:
->>>>> +- Other properties specific to the multiplexer/switch hardware.
->>>>> +
->>>>> +Required properties for child nodes:
->>>>> +- #address-cells =<1>;
->>>>> +- #size-cells =<0>;
->>>>> +- cell-index : The sub-bus number.
->>>>
->>>>
->>>> What does sub-bus number mean?
->>>
->>>
->>> There are N child buses (or sub-buses) coming out of the multiplexer.
-The cell-index is used as a handle or identifier for each of these.
->>>
->>> The concrete example in Patch 3/3 is a multiplexer with four child
-buses.  The happen to have cell-indexes of 0, 1, 2 and 3.
->>>
->>> In the GPIO case of patch 3/3, these directly correspond the the state
-of the two GPIO pins controlling the multiplexer.  The driver then uses the
-cell-index property to determine the state of the GPIO to connect any given
-child.
->>>
->>> It is possible that the documentation part of the patch could be made
-more clear about this.
->>>
->>>>
->>>>> +
->>>>> +
->>>>> +Example :
->>>>
->>>>
->>> [...]
->>>>>
->>>>> +
->>>>> +int mdio_mux_probe(struct platform_device *pdev,
->>>>> +                  int (*switch_fn)(int cur, int desired, void *data),
->>>>> +                  void *data)
->>>>> +{
->>>>> +       struct device_node *parent_bus_node;
->>>>> +       struct device_node *child_bus_node;
->>>>> +       int r, n, ret_val;
->>>>> +       struct mii_bus *parent_bus;
->>>>> +       struct mdio_mux_parent_bus *pb;
->>>>> +       struct mdio_mux_child_bus *cb;
->>>>> +
->>>>> +       if (!pdev->dev.of_node)
->>>>> +               return -ENODEV;
->>>>> +
->>>>> +       parent_bus_node = of_parse_phandle(pdev->dev.of_node,
-"parent-bus", 0);
->>>>> +
->>>>> +       if (!parent_bus_node)
->>>>> +               return -ENODEV;
->>>>> +
->>>>> +       parent_bus = of_mdio_find_bus(parent_bus_node);
->>>>
->>>>
->>>>
->>>> So what happens if the parent bus probe happens after the mux probe?
->>>>
->>>
->>> The whole house of cards collapses.
->>>
->>> Grant Likely has a patch to deal with this by retrying the probing,  but
-as far as I know, it has not been merged yet.
->>
->>
->> - k--
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
-
---20cf307d0050b1886104acf022bc
+--bcaec5016323679bef04acf045b4
 Content-Type: text/html; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
 <p><br>
-On Sep 14, 2011 3:40 PM, &quot;David Daney&quot; &lt;<a href=3D"mailto:davi=
+On Aug 31, 2011 2:01 PM, &quot;David Daney&quot; &lt;<a href=3D"mailto:davi=
 d.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org">david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org</a>&gt; wrote:<br>
 &gt;<br>
-&gt; Well, I would really like to get an official maintainer&#39;s take on =
-the name of the parent MDIO bus property. =A0Prehaps Grant or Rob could opi=
-ne on the matter.<br>
+&gt; This patch adds a somewhat generic framework for MDIO bus<br>
+&gt; multiplexers. =A0It is modeled on the I2C multiplexer.<br>
 &gt;<br>
-&gt; Sooner would be better than later as I am about to start shipping boar=
-ds with this burnt into the bootloader. =A0If it needs changing, I could do=
- it in the next couple of days, but after that it escapes into the wild.</p=
->
-
-<p>Considering that the parent bus should be either implicit in the node to=
-pology, or if not then part of something like an i2c controlled bus multipl=
-exer, I don&#39;t think this is even remotely a big deal. Each bus multiple=
-xer will still likely have it&#39;s own binding, and therefore her to make =
-its own decision.</p>
-
-<p>That said, in the interest of commonality, I think mdio-parent-bus would=
- be just fine.=A0 parent-bus is probably too generic.</p>
-<p>g.</p>
-<p>&gt;<br>
-&gt; Thanks in advance,<br>
-&gt; David Daney<br>
+&gt; The multiplexer is needed if there are multiple PHYs with the same<br>
+&gt; address connected to the same MDIO bus adepter, or if there is<br>
+&gt; insufficient electrical drive capability for all the connected PHY<br>
+&gt; devices.<br>
 &gt;<br>
+&gt; Conceptually it could look something like this:<br>
 &gt;<br>
-&gt; On 09/14/2011 01:42 PM, Kumar Gala wrote:<br>
-&gt;&gt;<br>
-&gt;&gt;<br>
-&gt;&gt; On Sep 13, 2011, at 6:23 PM, David Daney wrote:<br>
-&gt;&gt;<br>
-&gt;&gt;&gt; On 09/13/2011 04:07 PM, Kumar Gala wrote:<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;&gt; diff --git a/Documentation/devicetree/bindings/net/mdi=
-o-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt<br>
-&gt;&gt;&gt;&gt;&gt; new file mode 100644<br>
-&gt;&gt;&gt;&gt;&gt; index 0000000..a908312<br>
-&gt;&gt;&gt;&gt;&gt; --- /dev/null<br>
-&gt;&gt;&gt;&gt;&gt; +++ b/Documentation/devicetree/bindings/net/mdio-mux.t=
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ------------------<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | Control Signal |<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 --------+---------<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 |<br>
+&gt; =A0--------------- =A0 --------+------<br>
+&gt; =A0| MDIO MASTER |---| Multiplexer |<br>
+&gt; =A0--------------- =A0 --+-------+----<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 |<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 C =A0 =A0 =A0 C<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 h =A0 =A0 =A0 h<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 i =A0 =A0 =A0 i<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 l =A0 =A0 =A0 l<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 d =A0 =A0 =A0 d<br>
+&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 |<br>
+&gt; =A0 =A0 --------- =A0 =A0 =A0 A =A0 =A0 =A0 B =A0 ---------<br>
+&gt; =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 | =A0 =A0 =A0 =
+|<br>
+&gt; =A0 =A0 | PHY@1 +-------+ =A0 =A0 =A0 +---+ PHY@1 |<br>
+&gt; =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 | =A0 =A0 =A0 =
+|<br>
+&gt; =A0 =A0 --------- =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 ---------<br>
+&gt; =A0 =A0 --------- =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 ---------<br>
+&gt; =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 | =A0 =A0 =A0 =
+|<br>
+&gt; =A0 =A0 | PHY@2 +-------+ =A0 =A0 =A0 +---+ PHY@2 |<br>
+&gt; =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =
+=A0 |<br>
+&gt; =A0 =A0 --------- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ---------<br>
+&gt;<br>
+&gt; This framework configures the bus topology from device tree data. =A0T=
+he<br>
+&gt; mechanics of switching the multiplexer is left to device specific<br>
+&gt; drivers.<br>
+&gt;<br>
+&gt; The follow-on patch contains a multiplexer driven by GPIO lines.<br>
+&gt;<br>
+&gt; Signed-off-by: David Daney &lt;<a href=3D"mailto:david.daney-YGCgFSpz5w9hl2p70BpVqQ@public.gmane.org=
+m">david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org</a>&gt;<br>
+&gt; Cc: Grant Likely &lt;<a href=3D"mailto:grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org">gran=
+t.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org</a>&gt;<br>
+&gt; Cc: &quot;David S. Miller&quot; &lt;<a href=3D"mailto:davem@davemloft.=
+net">davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org</a>&gt;<br>
+&gt; ---<br>
+&gt; =A0Documentation/devicetree/bindings/net/mdio-mux.txt | =A0132 +++++++=
++++++++<br>
+&gt; =A0drivers/net/phy/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0| =A0 =A08 +<br>
+&gt; =A0drivers/net/phy/Makefile =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 | =A0 =A01 +<br>
+&gt; =A0drivers/net/phy/mdio-mux.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 | =A0182 ++++++++++++++++++++<br>
+&gt; =A0include/linux/mdio-mux.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 | =A0 18 ++<br>
+&gt; =A05 files changed, 341 insertions(+), 0 deletions(-)<br>
+&gt; =A0create mode 100644 Documentation/devicetree/bindings/net/mdio-mux.t=
 xt<br>
-&gt;&gt;&gt;&gt;&gt; @@ -0,0 +1,132 @@<br>
-&gt;&gt;&gt;&gt;&gt; +Common MDIO bus multiplexer/switch properties.<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; +An MDIO bus multiplexer/switch will have several chil=
-d busses that are<br>
-&gt;&gt;&gt;&gt;&gt; +numbered uniquely in a device dependent manner. =A0Th=
-e nodes for an MDIO<br>
-&gt;&gt;&gt;&gt;&gt; +bus multiplexer/switch will have one child node for e=
-ach child bus.<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; +Required properties:<br>
-&gt;&gt;&gt;&gt;&gt; +- parent-bus : phandle to the parent MDIO bus.<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt; Should probably be mdio-parent-bus<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt; Why? =A0We know it is MDIO.<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt; Serial bus multiplexing is not a concept limited to MDIO. =A0W=
-e would want to use &quot;parent-bus&quot; for some I2C multiplexers as wel=
-l.<br>
-&gt;&gt;<br>
-&gt;&gt;<br>
-&gt;&gt;&gt; From many years of dealing with device trees. =A0We typically =
-don&#39;t name things overlay generically unless they will be used over and=
- over again as a common idiom (like reg, interrupt, etc.).<br>
-&gt;&gt;<br>
-&gt;&gt;<br>
-&gt;&gt; We don&#39;t really use &#39;bus&#39; generically today.<br>
-&gt;&gt;<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; +Optional properties:<br>
-&gt;&gt;&gt;&gt;&gt; +- Other properties specific to the multiplexer/switch=
- hardware.<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; +Required properties for child nodes:<br>
-&gt;&gt;&gt;&gt;&gt; +- #address-cells =3D&lt;1&gt;;<br>
-&gt;&gt;&gt;&gt;&gt; +- #size-cells =3D&lt;0&gt;;<br>
-&gt;&gt;&gt;&gt;&gt; +- cell-index : The sub-bus number.<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt; What does sub-bus number mean?<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt; There are N child buses (or sub-buses) coming out of the multi=
-plexer. The cell-index is used as a handle or identifier for each of these.=
-<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt; The concrete example in Patch 3/3 is a multiplexer with four c=
-hild buses. =A0The happen to have cell-indexes of 0, 1, 2 and 3.<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt; In the GPIO case of patch 3/3, these directly correspond the t=
-he state of the two GPIO pins controlling the multiplexer. =A0The driver th=
-en uses the cell-index property to determine the state of the GPIO to conne=
-ct any given child.<br>
-
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt; It is possible that the documentation part of the patch could =
-be made more clear about this.<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; +Example :<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt; [...]<br>
-&gt;&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; +int mdio_mux_probe(struct platform_device *pdev,<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int (*switch_fn)(=
-int cur, int desired, void *data),<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0void *data)<br>
-&gt;&gt;&gt;&gt;&gt; +{<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 struct device_node *parent_bus_node;<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 struct device_node *child_bus_node;<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 int r, n, ret_val;<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 struct mii_bus *parent_bus;<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 struct mdio_mux_parent_bus *pb;<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 struct mdio_mux_child_bus *cb;<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 if (!pdev-&gt;dev.of_node)<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 parent_bus_node =3D of_parse_phandle(pde=
-v-&gt;dev.of_node, &quot;parent-bus&quot;, 0);<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 if (!parent_bus_node)<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;<br>
-&gt;&gt;&gt;&gt;&gt; +<br>
-&gt;&gt;&gt;&gt;&gt; + =A0 =A0 =A0 parent_bus =3D of_mdio_find_bus(parent_b=
-us_node);<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;&gt; So what happens if the parent bus probe happens after the =
-mux probe?<br>
-&gt;&gt;&gt;&gt;<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt; The whole house of cards collapses.<br>
-&gt;&gt;&gt;<br>
-&gt;&gt;&gt; Grant Likely has a patch to deal with this by retrying the pro=
-bing, =A0but as far as I know, it has not been merged yet.<br>
-&gt;&gt;<br>
-&gt;&gt;<br>
-&gt;&gt; - k--<br>
-&gt;&gt; To unsubscribe from this list: send the line &quot;unsubscribe net=
-dev&quot; in<br>
-&gt;&gt; the body of a message to <a href=3D"mailto:majordomo-u79uwXL29TbrhsbdSgBK9A@public.gmane.org=
-rg">majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org</a><br>
-&gt;&gt; More majordomo info at =A0<a href=3D"http://vger.kernel.org/majord=
-omo-info.html">http://vger.kernel.org/majordomo-info.html</a><br>
-&gt;&gt;<br>
+&gt; =A0create mode 100644 drivers/net/phy/mdio-mux.c<br>
+&gt; =A0create mode 100644 include/linux/mdio-mux.h<br>
 &gt;<br>
+&gt; diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Docu=
+mentation/devicetree/bindings/net/mdio-mux.txt<br>
+&gt; new file mode 100644<br>
+&gt; index 0000000..a908312<br>
+&gt; --- /dev/null<br>
+&gt; +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt<br>
+&gt; @@ -0,0 +1,132 @@<br>
+&gt; +Common MDIO bus multiplexer/switch properties.<br>
+&gt; +<br>
+&gt; +An MDIO bus multiplexer/switch will have several child busses that ar=
+e<br>
+&gt; +numbered uniquely in a device dependent manner. =A0The nodes for an M=
+DIO<br>
+&gt; +bus multiplexer/switch will have one child node for each child bus.<b=
+r>
+&gt; +<br>
+&gt; +Required properties:<br>
+&gt; +- parent-bus : phandle to the parent MDIO bus.</p>
+<p>As discussed, I like mdio-parent-bus.</p>
+<p>&gt; +<br>
+&gt; +Optional properties:<br>
+&gt; +- Other properties specific to the multiplexer/switch hardware.<br>
+&gt; +<br>
+&gt; +Required properties for child nodes:<br>
+&gt; +- #address-cells =3D &lt;1&gt;;<br>
+&gt; +- #size-cells =3D &lt;0&gt;;<br>
+&gt; +- cell-index : The sub-bus number.</p>
+<p>Use reg, not cell-index. That is what it is there for. And add the appro=
+priate #address/size-cells in the parent.</p>
+<p>I&#39;ve not reviewed the implementation, but with the changes. I&#39;m =
+okay with the binding.</p>
+<p>g.<br>
 </p>
 
---20cf307d0050b1886104acf022bc--
+--bcaec5016323679bef04acf045b4--
 
---===============7977552771947630206==
+--===============8717603141351019337==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -360,4 +248,4 @@ devicetree-discuss mailing list
 devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 https://lists.ozlabs.org/listinfo/devicetree-discuss
 
---===============7977552771947630206==--
+--===============8717603141351019337==--
