@@ -1,83 +1,66 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: [PATCH v2 7/7] Display current tcp memory allocation in kmem cgroup
-Date: Wed, 14 Sep 2011 22:46:15 -0300
-Message-ID: <1316051175-17780-8-git-send-email-glommer@parallels.com>
-References: <1316051175-17780-1-git-send-email-glommer@parallels.com>
-Cc: paul@paulmenage.org, lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
-        ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
-        netdev@vger.kernel.org, linux-mm@kvack.org,
-        Glauber Costa <glommer@parallels.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1316051175-17780-1-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+From: David Daney <david.s.daney@gmail.com>
+Subject: Re: [PATCH 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Wed, 14 Sep 2011 21:16:10 -0700
+Message-ID: <4E717C0A.5050905@gmail.com>
+References: <1314820906-14004-1-git-send-email-david.daney@cavium.com>        <1314820906-14004-3-git-send-email-david.daney@cavium.com> <CACxGe6tA6D9JVf0_K-JAGnKcQmDmD=1ytqqYb6or-KjP9uZNxg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Daney <david.daney@cavium.com>,
+	David Daney <ddaney@caviumnetworks.com>,
+	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, ralf@linux-mips.org
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACxGe6tA6D9JVf0_K-JAGnKcQmDmD=1ytqqYb6or-KjP9uZNxg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces kmem.tcp_current_memory file, living in the
-kmem_cgroup filesystem. It is a simple read-only file that displays the
-amount of kernel memory currently consumed by the cgroup.
+On 09/14/2011 05:51 PM, Grant Likely wrote:
+>
+>
+> On Aug 31, 2011 2:01 PM, "David Daney" <david.daney@cavium.com 
+> <mailto:david.daney@cavium.com>> wrote:
+> >
+> > This patch adds a somewhat generic framework for MDIO bus
+> > multiplexers.  It is modeled on the I2C multiplexer.
+> >
+>
+[...]
+>
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
+> > @@ -0,0 +1,132 @@
+> > +Common MDIO bus multiplexer/switch properties.
+> > +
+> > +An MDIO bus multiplexer/switch will have several child busses that are
+> > +numbered uniquely in a device dependent manner.  The nodes for an MDIO
+> > +bus multiplexer/switch will have one child node for each child bus.
+> > +
+> > +Required properties:
+> > +- parent-bus : phandle to the parent MDIO bus.
+>
+> As discussed, I like mdio-parent-bus.
+>
+> > +
+> > +Optional properties:
+> > +- Other properties specific to the multiplexer/switch hardware.
+> > +
+> > +Required properties for child nodes:
+> > +- #address-cells = <1>;
+> > +- #size-cells = <0>;
+> > +- cell-index : The sub-bus number.
+>
+> Use reg, not cell-index. That is what it is there for. And add the 
+> appropriate #address/size-cells in the parent.
+>
+> I've not reviewed the implementation, but with the changes. I'm okay 
+> with the binding.
+>
 
-Signed-off-by: Glauber Costa <glommer@parallels.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
-CC: Eric W. Biederman <ebiederm@xmission.com>
----
- Documentation/cgroups/memory.txt |    1 +
- mm/memcontrol.c                  |   17 +++++++++++++++++
- 2 files changed, 18 insertions(+), 0 deletions(-)
+Thanks for the prompt reply Grant.
 
-diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
-index ce825ee..59d9416 100644
---- a/Documentation/cgroups/memory.txt
-+++ b/Documentation/cgroups/memory.txt
-@@ -79,6 +79,7 @@ Brief summary of control files.
-  memory.independent_kmem_limit	 # select whether or not kernel memory limits are
- 				   independent of user limits
-  memory.kmem.tcp.max_memory      # set/show hard limit for tcp buf memory
-+ memory.kmem.tcp.current_memory  # show current tcp buf memory allocation
- 
- 1. History
- 
-diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index b48e517..dd0121f 100644
---- a/mm/memcontrol.c
-+++ b/mm/memcontrol.c
-@@ -482,12 +482,29 @@ static u64 tcp_read_maxmem(struct cgroup *cgrp, struct cftype *cft)
- 	return ret;
- }
- 
-+static u64 tcp_read_curmem(struct cgroup *cgrp, struct cftype *cft)
-+{
-+	struct mem_cgroup *sg = mem_cgroup_from_cont(cgrp);
-+	u64 ret;
-+
-+	if (!cgroup_lock_live_group(cgrp))
-+		return -ENODEV;
-+	ret = atomic_long_read(&sg->tcp_memory_allocated);
-+
-+	cgroup_unlock();
-+	return ret;
-+}
-+
- static struct cftype tcp_files[] = {
- 	{
- 		.name = "kmem.tcp.max_memory",
- 		.write_u64 = tcp_write_maxmem,
- 		.read_u64 = tcp_read_maxmem,
- 	},
-+	{
-+		.name = "kmem.tcp.current_memory",
-+		.read_u64 = tcp_read_curmem,
-+	},
- };
- 
- /*
--- 
-1.7.6
+I will rework this with the binding changes and send a new version soon.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+David Daney
