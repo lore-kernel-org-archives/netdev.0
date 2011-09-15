@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -mm RESEND] net, rds, Replace xlist in net/rds/xlist.h
- with llist
-Date: Thu, 15 Sep 2011 15:43:57 -0400 (EDT)
-Message-ID: <20110915.154357.1768237553617962596.davem@davemloft.net>
-References: <1314753690-31250-1-git-send-email-ying.huang@intel.com>
+Subject: Re: [PATCH] mii: Remove references to DP83840 PHY in mii.h
+Date: Thu, 15 Sep 2011 15:44:24 -0400 (EDT)
+Message-ID: <20110915.154424.143549802650493420.davem@davemloft.net>
+References: <1314804928-7353-1-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	chris.mason@oracle.com, andy.grover@oracle.com
-To: ying.huang@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1314753690-31250-1-git-send-email-ying.huang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mark.einon@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:41395 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934532Ab1IOTo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2011 15:44:28 -0400
+In-Reply-To: <1314804928-7353-1-git-send-email-mark.einon@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Huang Ying <ying.huang@intel.com>
-Date: Wed, 31 Aug 2011 09:21:30 +0800
+From: Mark Einon <mark.einon@gmail.com>
+Date: Wed, 31 Aug 2011 16:35:28 +0100
 
-> The functionality of xlist and llist is almost same.  This patch
-> replace xlist with llist to avoid code duplication.
+> There are references to this PHY chip in the generic mii.h header, so removing them.
 > 
-> Known issues: don't know how to test this, need special hardware?
-> 
-> Signed-off-by: Huang Ying <ying.huang@intel.com>
+> Signed-off-by: Mark Einon <mark.einon@gmail.com>
 
 Applied.
