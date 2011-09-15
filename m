@@ -1,30 +1,30 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net 2/2] sfc: Use 64-bit writes for TX push where
- possible
-Date: Thu, 15 Sep 2011 17:25:46 -0400 (EDT)
-Message-ID: <20110915.172546.198689956365568711.davem@redhat.com>
-References: <1314915000.2733.16.camel@bwh-desktop>
+Subject: Re: [PATCH 1/3] pch_gbe: fixed the issue which receives an
+ unnecessary packet.
+Date: Thu, 15 Sep 2011 17:25:58 -0400 (EDT)
+Message-ID: <20110915.172558.450897137285997811.davem@redhat.com>
+References: <1314922809-4041-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28089 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934922Ab1IOVZs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Sep 2011 17:25:48 -0400
-In-Reply-To: <1314915000.2733.16.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, qi.wang@intel.com, yong.y.wang@intel.com,
+	joel.clark@intel.com, kok.howg.ewe@intel.com,
+	tomoya-linux@dsn.okisemi.com
+To: toshiharu-linux@dsn.okisemi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1314922809-4041-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 01 Sep 2011 23:09:59 +0100
+From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+Date: Fri,  2 Sep 2011 09:20:07 +0900
 
-> This was originally done as part of commit
-> 65f0b417dee94f779ce9b77102b7d73c93723b39 ("sfc: Use write-combining to
-> reduce TX latency"), but that had to be reverted.
+> This patch fixed the issue which receives an unnecessary packet before link
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> When using PHY of GMII, an unnecessary packet is received,
+> And it becomes impossible to receive a packet after link up.
+> 
+> Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
 
 Applied.
