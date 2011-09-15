@@ -1,251 +1,117 @@
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: [PATCH 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
-Date: Wed, 14 Sep 2011 18:51:02 -0600
-Message-ID: <CACxGe6tA6D9JVf0_K-JAGnKcQmDmD=1ytqqYb6or-KjP9uZNxg@mail.gmail.com>
-References: <1314820906-14004-1-git-send-email-david.daney@cavium.com>
-	<1314820906-14004-3-git-send-email-david.daney@cavium.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8717603141351019337=="
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1314820906-14004-3-git-send-email-david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH v2 0/7] per-cgroup tcp buffer pressure settings
+Date: Wed, 14 Sep 2011 22:46:08 -0300
+Message-ID: <1316051175-17780-1-git-send-email-glommer@parallels.com>
+Cc: paul@paulmenage.org, lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
+        ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
+        netdev@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
---===============8717603141351019337==
-Content-Type: multipart/alternative; boundary=bcaec5016323679bef04acf045b4
+This patch introduces per-cgroup tcp buffers limitation. This allows
+sysadmins to specify a maximum amount of kernel memory that
+tcp connections can use at any point in time. TCP is the main interest
+in this work, but extending it to other protocols would be easy.
 
---bcaec5016323679bef04acf045b4
-Content-Type: text/plain; charset=ISO-8859-1
+For this to work, I am hooking it into memcg, after the introdution of
+an extension for tracking and controlling objects in kernel memory.
+Since they are usually not found in page granularity, and are fundamentally
+different from userspace memory (not swappable, can't overcommit), they
+need their special place inside the Memory Controller.
 
-On Aug 31, 2011 2:01 PM, "David Daney" <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org> wrote:
->
-> This patch adds a somewhat generic framework for MDIO bus
-> multiplexers.  It is modeled on the I2C multiplexer.
->
-> The multiplexer is needed if there are multiple PHYs with the same
-> address connected to the same MDIO bus adepter, or if there is
-> insufficient electrical drive capability for all the connected PHY
-> devices.
->
-> Conceptually it could look something like this:
->
->                   ------------------
->                   | Control Signal |
->                   --------+---------
->                           |
->  ---------------   --------+------
->  | MDIO MASTER |---| Multiplexer |
->  ---------------   --+-------+----
->                     |       |
->                     C       C
->                     h       h
->                     i       i
->                     l       l
->                     d       d
->                     |       |
->     ---------       A       B   ---------
->     |       |       |       |   |       |
->     | PHY@1 +-------+       +---+ PHY@1 |
->     |       |       |       |   |       |
->     ---------       |       |   ---------
->     ---------       |       |   ---------
->     |       |       |       |   |       |
->     | PHY@2 +-------+       +---+ PHY@2 |
->     |       |                   |       |
->     ---------                   ---------
->
-> This framework configures the bus topology from device tree data.  The
-> mechanics of switching the multiplexer is left to device specific
-> drivers.
->
-> The follow-on patch contains a multiplexer driven by GPIO lines.
->
-> Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> ---
->  Documentation/devicetree/bindings/net/mdio-mux.txt |  132 ++++++++++++++
->  drivers/net/phy/Kconfig                            |    8 +
->  drivers/net/phy/Makefile                           |    1 +
->  drivers/net/phy/mdio-mux.c                         |  182
-++++++++++++++++++++
->  include/linux/mdio-mux.h                           |   18 ++
->  5 files changed, 341 insertions(+), 0 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/mdio-mux.txt
->  create mode 100644 drivers/net/phy/mdio-mux.c
->  create mode 100644 include/linux/mdio-mux.h
->
-> diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt
-b/Documentation/devicetree/bindings/net/mdio-mux.txt
-> new file mode 100644
-> index 0000000..a908312
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
-> @@ -0,0 +1,132 @@
-> +Common MDIO bus multiplexer/switch properties.
-> +
-> +An MDIO bus multiplexer/switch will have several child busses that are
-> +numbered uniquely in a device dependent manner.  The nodes for an MDIO
-> +bus multiplexer/switch will have one child node for each child bus.
-> +
-> +Required properties:
-> +- parent-bus : phandle to the parent MDIO bus.
+Right now, the kmem extension is quite basic, and just lays down the
+basic infrastucture for the ongoing work. 
 
-As discussed, I like mdio-parent-bus.
+Although it does not account kernel memory allocated - I preferred to
+keep this series simple and leave accounting to the slab allocations when
+they arrive.
 
-> +
-> +Optional properties:
-> +- Other properties specific to the multiplexer/switch hardware.
-> +
-> +Required properties for child nodes:
-> +- #address-cells = <1>;
-> +- #size-cells = <0>;
-> +- cell-index : The sub-bus number.
+What it does is to piggyback in the memory control mechanism already present in
+/proc/sys/net/ipv4/tcp_mem. There is a soft limit, and a hard limit,
+that will suppress allocation when reached. For each cgroup, however,
+the file kmem.tcp_maxmem will be used to cap those values. 
 
-Use reg, not cell-index. That is what it is there for. And add the
-appropriate #address/size-cells in the parent.
+The usage I have in mind here is containers. Each container will
+define its own values for soft and hard limits, but none of them will
+be possibly bigger than the value the box' sysadmin specified from
+the outside.
 
-I've not reviewed the implementation, but with the changes. I'm okay with
-the binding.
+To test for any performance impacts of this patch, I used netperf's
+TCP_RR benchmark on localhost, so we can have both recv and snd in action.
 
-g.
+Command line used was ./src/netperf -t TCP_RR -H localhost, and the
+results:
 
---bcaec5016323679bef04acf045b4
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Without the patch
+=================
 
-<p><br>
-On Aug 31, 2011 2:01 PM, &quot;David Daney&quot; &lt;<a href=3D"mailto:davi=
-d.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org">david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org</a>&gt; wrote:<br>
-&gt;<br>
-&gt; This patch adds a somewhat generic framework for MDIO bus<br>
-&gt; multiplexers. =A0It is modeled on the I2C multiplexer.<br>
-&gt;<br>
-&gt; The multiplexer is needed if there are multiple PHYs with the same<br>
-&gt; address connected to the same MDIO bus adepter, or if there is<br>
-&gt; insufficient electrical drive capability for all the connected PHY<br>
-&gt; devices.<br>
-&gt;<br>
-&gt; Conceptually it could look something like this:<br>
-&gt;<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ------------------<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | Control Signal |<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 --------+---------<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 |<br>
-&gt; =A0--------------- =A0 --------+------<br>
-&gt; =A0| MDIO MASTER |---| Multiplexer |<br>
-&gt; =A0--------------- =A0 --+-------+----<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 |<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 C =A0 =A0 =A0 C<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 h =A0 =A0 =A0 h<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 i =A0 =A0 =A0 i<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 l =A0 =A0 =A0 l<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 d =A0 =A0 =A0 d<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =A0 |<br>
-&gt; =A0 =A0 --------- =A0 =A0 =A0 A =A0 =A0 =A0 B =A0 ---------<br>
-&gt; =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 | =A0 =A0 =A0 =
-|<br>
-&gt; =A0 =A0 | PHY@1 +-------+ =A0 =A0 =A0 +---+ PHY@1 |<br>
-&gt; =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 | =A0 =A0 =A0 =
-|<br>
-&gt; =A0 =A0 --------- =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 ---------<br>
-&gt; =A0 =A0 --------- =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 ---------<br>
-&gt; =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 | =A0 | =A0 =A0 =A0 =
-|<br>
-&gt; =A0 =A0 | PHY@2 +-------+ =A0 =A0 =A0 +---+ PHY@2 |<br>
-&gt; =A0 =A0 | =A0 =A0 =A0 | =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A0 =
-=A0 |<br>
-&gt; =A0 =A0 --------- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ---------<br>
-&gt;<br>
-&gt; This framework configures the bus topology from device tree data. =A0T=
-he<br>
-&gt; mechanics of switching the multiplexer is left to device specific<br>
-&gt; drivers.<br>
-&gt;<br>
-&gt; The follow-on patch contains a multiplexer driven by GPIO lines.<br>
-&gt;<br>
-&gt; Signed-off-by: David Daney &lt;<a href=3D"mailto:david.daney-YGCgFSpz5w9hl2p70BpVqQ@public.gmane.org=
-m">david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org</a>&gt;<br>
-&gt; Cc: Grant Likely &lt;<a href=3D"mailto:grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org">gran=
-t.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org</a>&gt;<br>
-&gt; Cc: &quot;David S. Miller&quot; &lt;<a href=3D"mailto:davem@davemloft.=
-net">davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org</a>&gt;<br>
-&gt; ---<br>
-&gt; =A0Documentation/devicetree/bindings/net/mdio-mux.txt | =A0132 +++++++=
-+++++++<br>
-&gt; =A0drivers/net/phy/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0| =A0 =A08 +<br>
-&gt; =A0drivers/net/phy/Makefile =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 | =A0 =A01 +<br>
-&gt; =A0drivers/net/phy/mdio-mux.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 | =A0182 ++++++++++++++++++++<br>
-&gt; =A0include/linux/mdio-mux.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 | =A0 18 ++<br>
-&gt; =A05 files changed, 341 insertions(+), 0 deletions(-)<br>
-&gt; =A0create mode 100644 Documentation/devicetree/bindings/net/mdio-mux.t=
-xt<br>
-&gt; =A0create mode 100644 drivers/net/phy/mdio-mux.c<br>
-&gt; =A0create mode 100644 include/linux/mdio-mux.h<br>
-&gt;<br>
-&gt; diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Docu=
-mentation/devicetree/bindings/net/mdio-mux.txt<br>
-&gt; new file mode 100644<br>
-&gt; index 0000000..a908312<br>
-&gt; --- /dev/null<br>
-&gt; +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt<br>
-&gt; @@ -0,0 +1,132 @@<br>
-&gt; +Common MDIO bus multiplexer/switch properties.<br>
-&gt; +<br>
-&gt; +An MDIO bus multiplexer/switch will have several child busses that ar=
-e<br>
-&gt; +numbered uniquely in a device dependent manner. =A0The nodes for an M=
-DIO<br>
-&gt; +bus multiplexer/switch will have one child node for each child bus.<b=
-r>
-&gt; +<br>
-&gt; +Required properties:<br>
-&gt; +- parent-bus : phandle to the parent MDIO bus.</p>
-<p>As discussed, I like mdio-parent-bus.</p>
-<p>&gt; +<br>
-&gt; +Optional properties:<br>
-&gt; +- Other properties specific to the multiplexer/switch hardware.<br>
-&gt; +<br>
-&gt; +Required properties for child nodes:<br>
-&gt; +- #address-cells =3D &lt;1&gt;;<br>
-&gt; +- #size-cells =3D &lt;0&gt;;<br>
-&gt; +- cell-index : The sub-bus number.</p>
-<p>Use reg, not cell-index. That is what it is there for. And add the appro=
-priate #address/size-cells in the parent.</p>
-<p>I&#39;ve not reviewed the implementation, but with the changes. I&#39;m =
-okay with the binding.</p>
-<p>g.<br>
-</p>
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
 
---bcaec5016323679bef04acf045b4--
+16384  87380  1        1       10.00    26996.35
+16384  87380
 
---===============8717603141351019337==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+With the patch
+===============
 
-_______________________________________________
-devicetree-discuss mailing list
-devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-https://lists.ozlabs.org/listinfo/devicetree-discuss
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
 
---===============8717603141351019337==--
+16384  87380  1        1       10.00    27291.86
+16384  87380
+
+The difference is within a one-percent range.
+
+Nesting cgroups doesn't seem to be the dominating factor as well,
+with nestings up to 10 levels not showing a significant performance
+difference.
+
+
+Glauber Costa (7):
+  Basic kernel memory functionality for the Memory Controller
+  socket: initial cgroup code.
+  foundations of per-cgroup memory pressure controlling.
+  per-cgroup tcp buffers control
+  per-netns ipv4 sysctl_tcp_mem
+  tcp buffer limitation: per-cgroup limit
+  Display current tcp memory allocation in kmem cgroup
+
+ Documentation/cgroups/memory.txt |   31 +++-
+ crypto/af_alg.c                  |    7 +-
+ include/linux/memcontrol.h       |   84 +++++++++
+ include/net/netns/ipv4.h         |    1 +
+ include/net/sock.h               |  126 +++++++++++++-
+ include/net/tcp.h                |   14 +-
+ include/net/udp.h                |    3 +-
+ include/trace/events/sock.h      |   10 +-
+ init/Kconfig                     |   11 ++
+ mm/memcontrol.c                  |  354 +++++++++++++++++++++++++++++++++++++-
+ net/core/sock.c                  |   93 +++++++---
+ net/decnet/af_decnet.c           |   21 ++-
+ net/ipv4/proc.c                  |    7 +-
+ net/ipv4/sysctl_net_ipv4.c       |   71 +++++++-
+ net/ipv4/tcp.c                   |   58 ++++---
+ net/ipv4/tcp_input.c             |   12 +-
+ net/ipv4/tcp_ipv4.c              |   18 ++-
+ net/ipv4/tcp_output.c            |    2 +-
+ net/ipv4/tcp_timer.c             |    2 +-
+ net/ipv4/udp.c                   |   20 ++-
+ net/ipv6/tcp_ipv6.c              |   16 +-
+ net/ipv6/udp.c                   |    4 +-
+ net/sctp/socket.c                |   35 +++-
+ 23 files changed, 876 insertions(+), 124 deletions(-)
+
+-- 
+1.7.6
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
