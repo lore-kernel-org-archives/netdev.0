@@ -1,36 +1,28 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [net-next] MII: fix Kconfig dependencies for MII
-Date: Thu, 15 Sep 2011 15:49:20 -0400 (EDT)
-Message-ID: <20110915.154920.2090436027565433425.davem@redhat.com>
-References: <1316071394-18195-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net v2 0/6] bnx2x: Few link fixes
+Date: Thu, 15 Sep 2011 15:53:39 -0400 (EDT)
+Message-ID: <20110915.155339.1094984673378189524.davem@redhat.com>
+References: <1315392464.27750.21.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: eilong@broadcom.com, netdev@vger.kernel.org
+To: yanivr@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1686 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9628 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934532Ab1IOTtW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Sep 2011 15:49:22 -0400
-In-Reply-To: <1316071394-18195-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S934532Ab1IOTxl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Sep 2011 15:53:41 -0400
+In-Reply-To: <1315392464.27750.21.camel@lb-tlvb-dmitry>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 15 Sep 2011 00:23:14 -0700
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Date: Wed, 7 Sep 2011 13:47:44 +0300
 
-> MII Kconfig option is apart of the core networking drivers and
-> by default NET_CORE is enabled so drivers selecting MII will
-> have MII enabled as well.  It was found using the randconfig
-> option during testing, MII would be selected but NET_CORE
-> could be disabled.  This caused a dependency error.
-> 
-> Resolved the dependency by selecting NET_CORE when MII is
-> selected.
-> 
-> Reported-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Following Ben's suggestion, I'm resending the following patch series
+> describing some link fixes.  Please consider applying it to net.
 
-Applied, thanks Jeff.
+I originally said that I'd want these targetted for net-next instead,
+but I've changed my mind and decided to indeed apply these changes to
+the net GIT tree, thanks.
