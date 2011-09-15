@@ -1,39 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/12] bna: Update bna driver version to 3.0.2.1
-Date: Thu, 15 Sep 2011 15:41:22 -0400 (EDT)
-Message-ID: <20110915.154122.1981588096043602290.davem@davemloft.net>
-References: <1314754068-31978-1-git-send-email-rmody@brocade.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch 2/3 -next] 6LoWPAN: use the _safe
+ version of list_for_each
+Date: Thu, 15 Sep 2011 15:42:22 -0400 (EDT)
+Message-ID: <20110915.154222.368086020476226429.davem@davemloft.net>
+References: <20110830134640.GI3705@shale.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
-To: rmody@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41311 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934532Ab1IOTm3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2011 15:42:29 -0400
-In-Reply-To: <1314754068-31978-1-git-send-email-rmody@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20110830134640.GI3705-z0WHZYlhLlzP0Z7Jsv878P8+0UxHXcjY@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Rasesh Mody <rmody@brocade.com>
-Date: Tue, 30 Aug 2011 18:27:36 -0700
+From: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Tue, 30 Aug 2011 16:46:40 +0300
 
->    This series is re-submitted with the comments addressed:
->    BNAD_PCI_UNMAP_SKB and BNAD_DIM_TIMER_STOP macros have been dropped
->    and added bnad_pci_unmap_skb API.
->    We are not adding new prefetch which we might selectively add later
->    for performance improvement.
->    This also addresses earlier comments.
+> When we kfree(entry) that causes a use-after-free bug so we have to
+> use list_for_each_entry_safe() safe here.
 > 
->    The following patch set contains TX and RX path changes and Ethtool
->    enhancements. This also fixes bugs found with v3.0.2.0 code. It cleans
->    up unused code, naming changes, formatting changes and comments
->    addition/deletion.
-> 
->    This updates the Brocade BNA driver to v3.0.2.1.
-> 
->    The driver has been compiled & tested against net-next-2.6(3.0.0-rc7)
+> Signed-off-by: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Series applied, thanks.
+Applied.
+
+------------------------------------------------------------------------------
+Doing More with Less: The Next Generation Virtual Desktop 
+What are the key obstacles that have prevented many mid-market businesses
+from deploying virtual desktops?   How do next-generation virtual desktops
+provide companies an easier-to-deploy, easier-to-manage and more affordable
+virtual desktop model.http://www.accelacomm.com/jaw/sfnl/114/51426474/
