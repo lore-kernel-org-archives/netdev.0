@@ -1,33 +1,30 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: pull request: wireless 2011-09-15
-Date: Thu, 15 Sep 2011 17:13:20 -0400 (EDT)
-Message-ID: <20110915.171320.2277087899608297535.davem@redhat.com>
-References: <20110915194814.GC24589@tuxdriver.com>
+Subject: Re: [PATCH 0/3] net/irda: sh_irda: add PM support
+Date: Thu, 15 Sep 2011 17:19:42 -0400 (EDT)
+Message-ID: <20110915.171942.2243038601343546648.davem@redhat.com>
+References: <8739ggdcie.wl%kuninori.morimoto.gx@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: magnus.damm@gmail.com, netdev@vger.kernel.org
+To: kuninori.morimoto.gx@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20649 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13880 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934775Ab1IOVN3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Sep 2011 17:13:29 -0400
-In-Reply-To: <20110915194814.GC24589@tuxdriver.com>
+	id S934943Ab1IOVTp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Sep 2011 17:19:45 -0400
+In-Reply-To: <8739ggdcie.wl%kuninori.morimoto.gx@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 15 Sep 2011 15:48:15 -0400
+From: Kuninori Morimoto <kuninori.morimoto.gx@gmail.com>
+Date: Wed, 31 Aug 2011 23:04:29 -0700 (PDT)
 
-> Here is a batch of fixes intended for 3.1.  Included is a calibration
-> fix for ath9k that avoids a hang, a couple of rtlwifi fixes for
-> connection failures, a mac80211 locking fix, a couple of iwlagn fixes
-> (including a corruption fix), an ath9k oops fix, an initialization
-> fix for AR9330 hardware in ath9k, and a patch to avoid a needless
-> BUG_ON in iwlegacy.
+> These are tidyup and PM supoort patches for sh_irda
 > 
-> Please let me know if there are problems!
+> Kuninori Morimoto (3):
+>       net/irda: sh_irda: add sh_irda_ index to all functions
+>       net/irda: sh_irda: update author's email address
+>       net/irda: sh_irda: add PM support
 
-Pulled, thanks John.
+Applied to net-next, thank you.
