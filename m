@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] net: copy userspace buffers on device
- forwarding
-Date: Thu, 15 Sep 2011 15:08:22 -0400 (EDT)
-Message-ID: <20110915.150822.1432876015378023873.davem@davemloft.net>
-References: <20110831180328.GA22016@redhat.com>
+Subject: Re: [PATCH] net: don't clear IFF_XMIT_DST_RELEASE in ether_setup
+Date: Thu, 15 Sep 2011 15:08:36 -0400 (EDT)
+Message-ID: <20110915.150836.36536915642949050.davem@davemloft.net>
+References: <1316005502-7341-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, eric.dumazet@gmail.com,
-	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
-	jesse@nicira.com, xma@us.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110831180328.GA22016@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42528 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934458Ab1IOTJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Sep 2011 15:09:43 -0400
+In-Reply-To: <1316005502-7341-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 31 Aug 2011 21:03:29 +0300
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 14 Sep 2011 09:05:02 -0400
 
-> dev_forward_skb loops an skb back into host networking
-> stack which might hang on the memory indefinitely.
-> In particular, this can happen in macvtap in bridged mode.
-> Copy the userspace fragments to avoid blocking the
-> sender in that case.
+> d88733150 introduced the IFF_SKB_TX_SHARING flag, which I unilaterally set in
+> ether_setup.  In doing this I didn't realize that other flags (such as
+> IFF_XMIT_DST_RELEASE) might be set prior to calling the ether_setup routine.
+> This patch changes ether_setup to or in SKB_TX_SHARING so as not to
+> inadvertently clear other existing flags.  Thanks to Pekka Riikonen for pointing
+> out my error
 > 
-> As this patch makes skb_copy_ubufs extern now,
-> I also added some documentation and made it clear
-> the SKBTX_DEV_ZEROCOPY flag automatically instead
-> of doing it in all callers. This can be made into a separate
-> patch if people feel it's worth it.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Reported-by: Pekka Riikonen <priikone@iki.fi>
 
-Applied.
+Applied, thanks Neil.
