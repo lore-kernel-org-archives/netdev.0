@@ -1,303 +1,206 @@
 From: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Draft manpage for recvmmsg
-Date: Thu, 15 Sep 2011 06:15:59 +0200
-Message-ID: <CAKgNAkiUQpp9hr0q=mX8-p2aF5TT6p+ncdxahAWgdoOCLhWR2Q@mail.gmail.com>
-References: <20101123101551.GA20431@basil.fritz.box>
+Subject: sendmmsg(2) draft man pages
+Date: Thu, 15 Sep 2011 06:16:22 +0200
+Message-ID: <CAKgNAkhQu7LdGDh5=CMpTwsnmS03QRqojBpwSpAcFO55WdYWqw@mail.gmail.com>
 Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+Cc: linux-man <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>,
 	Stephan Mueller <stephan.mueller-fwYZOkdEjagAvxtiuMwx3w@public.gmane.org>,
-	Anton Blanchard <anton-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Michael Kerrisk <mtk.manpages-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To: Anton Blanchard <anton-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20101123101551.GA20431-u0/ZJuX+froe6aEkudXLsA@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[CC list expanded]
+Hello Anton,
 
-Hi Andi, (and Arnaldo)
+Stephan Mueller made an initial shot at a manual page for the
+sendmmsg() syscall that you recently added to the kernel. This
+inspired me to come up with a more complete version, which I'd like to
+get reviewed before including in man-pages. Could you take a look
+("man -l <file>") at the version below and let me know any errors or
+omissions.
 
-As noted in an earlier mail, I still need to know what copyright and
-license to attach to the page before I can release it.
+Thanks
 
-See below for further comments.
+Michael Kerrisk
 
-On Tue, Nov 23, 2010 at 11:15 AM, Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org> wrot=
-e:
->
-> Here's a draft manpage for recvmmsg(2), which is one
-> of the last undocumented syscalls currently.
-> Please review and comment.
->
-> -Andi
->
->
-> .TH RECVMMSG 2 2010-11-23 "Linux" "Linux Programmer's Manual"
-> .SH NAME
-> recvmmsg \- receive multiple messages on a socket
-> .SH SYNOPSIS
-> .BI "#include <sys/socket.h>"
-> .br
-> .BI "int recvmmsg(int " fd ", struct mmsghdr *" mmsghdr \
-> ", unsigned int " vlen ","
-> .br
-> .BI " =A0 =A0 =A0 =A0 =A0 =A0 unsigned int " flags ", struct timespec=
- *" timeout ");"
-> .SH DESCRIPTION
-> The
-> .B recvmmsg
-> system call receives multiple messages in a socket.
-> It acts similar to
-> .B recvmsg(2),
-> but allows to batch multiple receive operations into a single syscall=
-=2E
-> In addition it support an explicit timeout.
->
-> .B fd
-> is the file descriptor of the socket to receive data from.
-> .B mmsghdr
-> is a pointer to an array with length
-> .B vlen
-> of
-> .I mmsghdr
-> structures.
-> .I struct mmsg
-> is defined in
-> .I sys/socket.h
-> as:
-> .in +4n
-> .nf
-> struct mmsghdr {
-> =A0 =A0struct msghdr msg_hdr; =A0/* Message header */
-> =A0 =A0unsigned int =A0msg_len; =A0/* Number of received bytes for he=
-ader */
-> };
-> .fi
-> .in
-> .PP
-> .B msg_hdr
-> is a struct
-> .I msghdr
-> as described in
-> .I recvmsg(2).
-> .B msg_len
-> is the number of bytes returned for the message in the entry.
-> This field has the same value as the return value of a single
-> .I recvmsg(2)
-> on the header.
->
-> .B flags
-> contains flags ored together. The flags are the same
-> as documented for
-> .I recvmsg(2).
-> The additional
-> .B MSG_WAITFORONE
-> turns one
-> .I MSG_DONTWAIT
-> after the first message has been received.
->
-> .B timeout
-> points to a
-> .I struct timespec
-> (see
-> .I clock_gettime(2)
-> )
-> defining a timeout for receiving, or
-> .I NULL
-> for no timeout. When the timeout expires
-> .I recvmmsg
-> returns.
-> .SH RETURN VALUE
-> .I recvmmsg
-> returns the number of messages received in
-> .I mmsghdr
-> or
-> -1
-> when an error occurs. The
-> .I msg_len
-> members of
-> .I mmsghdr
-> are updated for each received message,
-> in addition to other fields in the msg_hdr for each message,
-> as described in
-> .I recvmsg(2).
-> .SH SEE ALSO
-> .B recvmsg(2),
-> .B sendmsg(2),
-> .B socket(7),
-> .B socket(2),
-> .B clock_gettime(2)
-> .SH VERSIONS
-> The
-> .I recvmmsg
-> syscall was added with kernel 2.6.32.
-> Support in glibc was added with 2.6.12.
-> On earlier glibcs the function can be called
-> manually using
-> .I syscall(2).
+.\" Copyright (c) 2011 by Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+.\" with some material from a draft by
+.\" Stephan Mueller <stephan.mueller-fwYZOkdEjagAvxtiuMwx3w@public.gmane.org>
+.\" in turn based on Andi Kleen's recvmmsg.2 page.
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one.
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.TH SENDMMSG 2 2011-09-09 "Linux" "Linux Programmer's Manual"
+.SH NAME
+sendmmsg \- send multiple messages on a socket
+.SH SYNOPSIS
+.nf
+.B "#define _GNU_SOURCE"
+.BI "#include <sys/socket.h>"
 
-I reworked a number of pieces of text, and added several other pieces.
-Could you please take a look (for others interested: "man -l <file>")
-at the version below and let me know of inaccuracies
-
-Thanks,
-
-Michael
-
-=2ETH RECVMMSG 2 2011-09-09 "Linux" "Linux Programmer's Manual"
-=2ESH NAME
-recvmmsg \- receive multiple messages on a socket
-=2ESH SYNOPSIS
-=2Enf
-=2EB "#define _GNU_SOURCE"
-=2EBI "#include <sys/socket.h>"
-
-=2EBI "int recvmmsg(int " sockfd ", struct mmsghdr *" msgvec \
+.BI "int sendmmsg(int " sockfd ", struct mmsghdr *" msgvec \
 ", unsigned int " vlen ","
-=2Ebr
-=2EBI "             unsigned int " flags ", struct timespec *" timeout =
-");"
-=2Efi
-=2ESH DESCRIPTION
+.BI "             unsigned int " flags ");"
+.fi
+.SH DESCRIPTION
 The
-=2EBR recvmmsg ()
+.BR sendmmsg ()
 system call is an extension of
-=2EBR recvmsg (2)
-that allows the caller to receive multiple messages from a socket
+.BR sendmsg (2)
+that allows the caller to transmit multiple messages on a socket
 using a single system call.
 (This has performance benefits for some applications.)
-A further extension over
-=2EBR recvmsg (2)
-is support for a timeout on the receive operation.
+.\" See commit 228e548e602061b08ee8e8966f567c12aa079682
 
 The
-=2EI sockfd
-argument is the file descriptor of the socket to receive data from.
+.I sockfd
+argument is the file descriptor of the socket
+on which data is to be transmitted.
 
 The
-=2EI msgvec
+.I msgvec
 argument is a pointer to an array of
-=2EI mmsghdr
+.I mmsghdr
 structures.
 The size of this array is specified in
-=2EIR vlen .
+.IR vlen .
 
 The
-=2EI mmsghdr
+.I mmsghdr
 structure is defined in
-=2EI <sys/socket.h>
+.I <sys/socket.h>
 as:
 
-=2Ein +4n
-=2Enf
+.in +4n
+.nf
 struct mmsghdr {
     struct msghdr msg_hdr;  /* Message header */
-    unsigned int  msg_len;  /* Number of received bytes for header */
+    unsigned int  msg_len;  /* Number of bytes transmitted */
 };
-=2Efi
-=2Ein
-=2EPP
+.fi
+.in
+.PP
 The
-=2EI msg_hdr
+.I msg_hdr
 field is a
-=2EI msghdr
+.I msghdr
 structure, as described in
-=2EBR recvmsg (2).
+.BR sendmsg (2).
 The
-=2EI msg_len
-field is the number of bytes returned for the message in the entry.
-This field has the same value as the return value of a single
-=2EBR recvmsg (2)
-on the header.
+.I msg_len
+field is used to return the number of bytes sent from the message in
+.IR msg_hdr
+(i.e., the same as the return value from a single
+.BR sendmsg (2)
+call).
 
 The
-=2EI flags
+.I flags
 argument contains flags ORed together.
-The flags are the same as documented for
-=2EBR recvmsg (2),
-with the following addition:
-=2ETP
-=2EB MSG_WAITFORONE
-Turns on
-=2EB MSG_DONTWAIT
-after the first message has been received.
-=2EPP
-The
-=2EI timeout
-argument points to a
-=2EI struct timespec
-(see
-=2EBR clock_gettime (2))
-defining a timeout (seconds plus nanoseconds) for the receive operation=
-=2E
-If
-=2EI timeout
-is
-=2EI NULL
-then the operation blocks indefinitely.
+The flags are the same as for
+.BR sendmsg (2).
 
 A blocking
-=2EBR recvmmsg ()
+.BR sendmmsg ()
 call blocks until
-=2EI vlen
-messages have been received
-or until the timeout expires.
-A nonblocking call reads as many messages as are available
+.I vlen
+messages have been sent.
+A nonblocking call sends as many messages as possible
 (up to the limit specified by
-=2EIR vlen )
+.IR vlen )
 and returns immediately.
 
 On return from
-=2EBR recvmmsg (),
-successive elements of
-=2EIR msgvec
-are updated to contain information about each received message:
-=2EI msg_len
-contains the size of the received message;
-the subfields of
-=2EI msg_hdr
-are updated as described in
-=2EBR recvmsg (2).
+.BR sendmmsg (),
+the
+.I msg_len
+fields of successive elements of
+.IR msgvec
+are updated to contain the number of bytes transmitted from the corresponding
+.IR msg_hdr .
 The return value of the call indicates the number of elements of
-=2EI msgvec
+.I msgvec
 that have been updated.
-=2ESH RETURN VALUE
+.SH RETURN VALUE
 On success,
-=2EBR recvmmsg ()
-returns the number of messages received in
-=2EIR msgvec ;
-on error, \-1 is returned, and
-=2EI errno
-is set to indicate the error.
-=2ESH ERRORS
-Errors are as for
-=2EBR recvmsg (2).
-In addition, the following error can occur:
-=2ETP
-=2EB EINVAL
-=2EI timeout
-is invalid.
-=2ESH VERSIONS
-The
-=2EBR recvmmsg ()
-system call was added in Linux 2.6.32.
-Support in glibc was added in version 2.12.
-=2ESH CONFORMING TO
-=2EBR recvmmsg ()
-is Linux-specific.
-=2ESH SEE ALSO
-=2EBR clock_gettime (2),
-=2EBR recvmsg (2),
-=2EBR sendmmsg (2),
-=2EBR sendmsg (2),
-=2EBR socket (2),
-=2EBR socket (7)
+.BR sendmmsg ()
+returns the number of messages sent from
+.IR msgvec ;
+if this is less than
+.IR vlen ,
+the caller can retry with a further
+.BR sendmmsg ()
+call to send the remaining messages.
 
---=20
+On error, \-1 is returned, and
+.I errno
+is set to indicate the error.
+.SH ERRORS
+Errors are as for
+.BR sendmsg (2).
+An error is returned only if no datagrams could be sent.
+.\" commit 728ffb86f10873aaf4abd26dde691ee40ae731fe
+.\"     ... only return an error if no datagrams could be sent.
+.\"     If less than the requested number of messages were sent, the application
+.\"     must retry starting at the first failed one and if the problem is
+.\"     persistent the error will be returned.
+.\"
+.\"     This matches the behaviour of other syscalls like read/write - it
+.\"     is not an error if less than the requested number of elements are sent.
+.SH VERSIONS
+The
+.BR sendmmsg ()
+system call was added in Linux 3.0.
+Support in glibc was added in version 2.14.
+.SH CONFORMING TO
+.BR sendmmsg ()
+is Linux-specific.
+.SH NOTES
+The value specified in
+.I vlen
+is capped to
+.B UIO_MAXIOV
+(1024).
+.\" commit 98382f419f32d2c12d021943b87dea555677144b
+.\"     net: Cap number of elements for sendmmsg
+.\"
+.\"     To limit the amount of time we can spend in sendmmsg, cap the
+.\"     number of elements to UIO_MAXIOV (currently 1024).
+.\"
+.\"     For error handling an application using sendmmsg needs to retry at
+.\"     the first unsent message, so capping is simpler and requires less
+.\"     application logic than returning EINVAL.
+.SH SEE ALSO
+.BR recvmmsg (2),
+.BR sendmsg (2),
+.BR socket (2),
+.BR socket (7)
+
+-- 
 Michael Kerrisk
 Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
 Author of "The Linux Programming Interface"; http://man7.org/tlpi/
