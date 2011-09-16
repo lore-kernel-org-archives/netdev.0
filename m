@@ -1,44 +1,34 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: IRDA: Fix global type conflicts in net/irda/irsysctl.c
-Date: Fri, 16 Sep 2011 10:32:51 -0700
-Message-ID: <20110916173251.GA25560@tassilo.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: samuel@sortiz.org, davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15761 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754331Ab1IPRcw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Sep 2011 13:32:52 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH] can: ti_hecc: include linux/io.h
+Date: Fri, 16 Sep 2011 19:57:43 +0200
+Message-ID: <1316195863-18695-1-git-send-email-zonque@gmail.com>
+Cc: Daniel Mack <zonque@gmail.com>,
+	Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This fixes a build breakage for OMAP3 boards.
 
-The externs here didn't agree with the declarations in qos.c.
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+Cc: Wolfgang Grandegger <wg@grandegger.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/can/ti_hecc.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Better would be probably to move this into a header, but since it's
-common practice to have naked externs with sysctls I left it for now.
-
-Cc: samuel@sortiz.org
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
-
-diff --git a/net/irda/irsysctl.c b/net/irda/irsysctl.c
-index d0b70da..be22ad2 100644
---- a/net/irda/irsysctl.c
-+++ b/net/irda/irsysctl.c
-@@ -40,9 +40,9 @@ extern int  sysctl_slot_timeout;
- extern int  sysctl_fast_poll_increase;
- extern char sysctl_devname[];
- extern int  sysctl_max_baud_rate;
--extern int  sysctl_min_tx_turn_time;
--extern int  sysctl_max_tx_data_size;
--extern int  sysctl_max_tx_window;
-+extern unsigned  sysctl_min_tx_turn_time;
-+extern unsigned  sysctl_max_tx_data_size;
-+extern unsigned  sysctl_max_tx_window;
- extern int  sysctl_max_noreply_time;
- extern int  sysctl_warn_noreply_time;
- extern int  sysctl_lap_keepalive_time;
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index a812492..2adc294 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -46,6 +46,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/platform_device.h>
+ #include <linux/clk.h>
++#include <linux/io.h>
+ 
+ #include <linux/can/dev.h>
+ #include <linux/can/error.h>
 -- 
-ak@linux.intel.com -- Speaking for myself only
+1.7.6
