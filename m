@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/11] ixgbe: Drop unnecessary adapter->hw dereference in loopback test setup
-Date: Thu, 15 Sep 2011 21:42:48 -0700
-Message-ID: <1316148173-11209-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/11] ixgbe: combine PCI_VDEVICE and board declaration to same line
+Date: Thu, 15 Sep 2011 21:42:49 -0700
+Message-ID: <1316148173-11209-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
@@ -10,7 +10,7 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:15976 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752033Ab1IPEm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752034Ab1IPEm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Sep 2011 00:42:59 -0400
 In-Reply-To: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,55 +18,107 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch drops a set of unnecessary dereferences to the hardware structure
-since we already have a local copy of the hardware pointer.
+This patch is a minor whitespace cleanup to compress the device ID
+declaration and board type declaration onto the same line.  It seems to
+make sense since all of the combinations of the two are less than 80
+characters and it makes the overall layout a bit more readable.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   79 ++++++++-----------------
+ 1 files changed, 26 insertions(+), 53 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 9c12b35..11e1d5c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1570,26 +1570,26 @@ static int ixgbe_setup_loopback_test(struct ixgbe_adapter *adapter)
- 
- 	/* X540 needs to set the MACC.FLU bit to force link up */
- 	if (adapter->hw.mac.type == ixgbe_mac_X540) {
--		reg_data = IXGBE_READ_REG(&adapter->hw, IXGBE_MACC);
-+		reg_data = IXGBE_READ_REG(hw, IXGBE_MACC);
- 		reg_data |= IXGBE_MACC_FLU;
--		IXGBE_WRITE_REG(&adapter->hw, IXGBE_MACC, reg_data);
-+		IXGBE_WRITE_REG(hw, IXGBE_MACC, reg_data);
- 	}
- 
- 	/* right now we only support MAC loopback in the driver */
--	reg_data = IXGBE_READ_REG(&adapter->hw, IXGBE_HLREG0);
-+	reg_data = IXGBE_READ_REG(hw, IXGBE_HLREG0);
- 	/* Setup MAC loopback */
- 	reg_data |= IXGBE_HLREG0_LPBK;
--	IXGBE_WRITE_REG(&adapter->hw, IXGBE_HLREG0, reg_data);
-+	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, reg_data);
- 
--	reg_data = IXGBE_READ_REG(&adapter->hw, IXGBE_FCTRL);
-+	reg_data = IXGBE_READ_REG(hw, IXGBE_FCTRL);
- 	reg_data |= IXGBE_FCTRL_BAM | IXGBE_FCTRL_SBP | IXGBE_FCTRL_MPE;
--	IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCTRL, reg_data);
-+	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, reg_data);
- 
--	reg_data = IXGBE_READ_REG(&adapter->hw, IXGBE_AUTOC);
-+	reg_data = IXGBE_READ_REG(hw, IXGBE_AUTOC);
- 	reg_data &= ~IXGBE_AUTOC_LMS_MASK;
- 	reg_data |= IXGBE_AUTOC_LMS_10G_LINK_NO_AN | IXGBE_AUTOC_FLU;
--	IXGBE_WRITE_REG(&adapter->hw, IXGBE_AUTOC, reg_data);
--	IXGBE_WRITE_FLUSH(&adapter->hw);
-+	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, reg_data);
-+	IXGBE_WRITE_FLUSH(hw);
- 	usleep_range(10000, 20000);
- 
- 	/* Disable Atlas Tx lanes; re-enabled in reset path */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index dd1b57b..fee5630 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -79,59 +79,32 @@ static const struct ixgbe_info *ixgbe_info_tbl[] = {
+  *   Class, Class Mask, private data (not used) }
+  */
+ static DEFINE_PCI_DEVICE_TABLE(ixgbe_pci_tbl) = {
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AF_DUAL_PORT),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AF_SINGLE_PORT),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AT),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AT2),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_CX4),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_CX4_DUAL_PORT),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_DA_DUAL_PORT),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_XF_LR),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_SFP_LOM),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_BX),
+-	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_KX4),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_XAUI_LOM),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_KR),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_EM),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_KX4_MEZZ),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_CX4),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_BACKPLANE_FCOE),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_FCOE),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_T3_LOM),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_COMBO_BACKPLANE),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X540T),
+-	 board_X540 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_SF2),
+-	 board_82599 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_LS),
+-	 board_82599 },
+-
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AF_DUAL_PORT), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AF_SINGLE_PORT), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AT), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AT2), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_CX4), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_CX4_DUAL_PORT), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_DA_DUAL_PORT), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_SR_DUAL_PORT_EM), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_XF_LR), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_SFP_LOM), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598_BX), board_82598 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_KX4), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_XAUI_LOM), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_KR), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_EM), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_KX4_MEZZ), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_CX4), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_BACKPLANE_FCOE), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_FCOE), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_T3_LOM), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_COMBO_BACKPLANE), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X540T), board_X540 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_SF2), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_LS), board_82599 },
+ 	/* required last entry */
+ 	{0, }
+ };
 -- 
 1.7.6
