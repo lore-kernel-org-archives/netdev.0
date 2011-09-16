@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] can: ti_hecc: include linux/io.h
-Date: Fri, 16 Sep 2011 19:21:49 -0400 (EDT)
-Message-ID: <20110916.192149.1065047590139083586.davem@davemloft.net>
-References: <1316195863-18695-1-git-send-email-zonque@gmail.com>
-	<4E73A123.1040801@grandegger.com>
+Subject: Re: [PATCH net-next 0/4] ethtool: Fixes for RX NFC API
+Date: Fri, 16 Sep 2011 19:25:26 -0400 (EDT)
+Message-ID: <20110916.192526.1478908520583593736.davem@davemloft.net>
+References: <1315352693.2788.20.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zonque@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: wg@grandegger.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E73A123.1040801@grandegger.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com,
+	sebastian.poehn@belden.com, santwona.behera@sun.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:57660 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755764Ab1IPXZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 19:25:35 -0400
+In-Reply-To: <1315352693.2788.20.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Fri, 16 Sep 2011 21:18:59 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 07 Sep 2011 00:44:53 +0100
 
-> On 09/16/2011 07:57 PM, Daniel Mack wrote:
->> This fixes a build breakage for OMAP3 boards.
->> 
->> Signed-off-by: Daniel Mack <zonque@gmail.com>
->> Cc: Wolfgang Grandegger <wg@grandegger.com>
->> Cc: netdev@vger.kernel.org
-> 
-> Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+> This series fixes some minor flaws in the documentation and the API itself.
 
-Applied.
+All applied, thanks Ben.
