@@ -1,34 +1,34 @@
-From: Tore Anderson <tore@fud.no>
-Subject: Re: [PATCH] ipv6: Send ICMPv6 RSes only when RAs are accepted
-Date: Sat, 17 Sep 2011 00:07:45 +0200
-Message-ID: <4E73C8B1.70404@fud.no>
-References: <201108291209.p7TC9KkD002967@wrath.fud.no> <20110916.171503.42153974977438913.davem@davemloft.net> <4E73C2E5.2050901@fud.no> <20110916.174900.961553137813655280.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] caif: fix a potential NULL dereference
+Date: Fri, 16 Sep 2011 18:56:14 -0400 (EDT)
+Message-ID: <20110916.185614.1208167848704741368.davem@davemloft.net>
+References: <20110902080716.GF2430@shale.localdomain>
+	<CAJK669Yb6V=xr9ZvQGOKGEvmzO1JGhrHD+sR69b04EQxUjOOrQ@mail.gmail.com>
+	<1314965963.2573.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sjurbren@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from greed.fud.no ([87.238.35.20]:60574 "EHLO greed.fud.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932091Ab1IPWHq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Sep 2011 18:07:46 -0400
-In-Reply-To: <20110916.174900.961553137813655280.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44390 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755837Ab1IPW4S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 18:56:18 -0400
+In-Reply-To: <1314965963.2573.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Miller
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 02 Sep 2011 14:19:23 +0200
 
->> I'm not removing accept_ra==2, no, only forwarding==2. Or, more
->> precisely, I'm only removing the *documentation* for forwarding==2;
->> forwarding==2 will still work, but there's no difference from
->> forwarding==1 any longer.
-> 
-> Ok, please make this more clear in your commit message.
+> Commit bd30ce4bc0b7 (caif: Use RCU instead of spin-lock in caif_dev.c=
+)
+> added a potential NULL dereference in case alloc_percpu() fails.
+>=20
+> caif_device_alloc() can also use GFP_KERNEL instead of GFP_ATOMIC.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
 
-I actually did improve the commit message in this regard when I re-sent
-the patch, see <http://patchwork.ozlabs.org/patch/113625/>. Is that one
-good enough?
-
--- 
-Tore Anderson
+Applied.
