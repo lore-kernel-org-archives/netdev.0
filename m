@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/11] ixgbe: commonize ixgbe_map_rings_to_vectors to work for all interrupt types
-Date: Thu, 15 Sep 2011 21:42:47 -0700
-Message-ID: <1316148173-11209-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/11] ixgbe: cleanup allocation and freeing of IRQ affinity hint
+Date: Thu, 15 Sep 2011 21:42:45 -0700
+Message-ID: <1316148173-11209-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:15976 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:9739 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751930Ab1IPEm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751109Ab1IPEm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Sep 2011 00:42:58 -0400
 In-Reply-To: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,167 +18,192 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch makes it so that the map_rings_to_vectors call will work with
-all interrupt types.  The advantage to this is that there will now be a
-predictable mapping for all given interrupt types.
+The allocation and freeing of the IRQ affinity hint needs some updates
+since there are a number of spots where we run into possible issues with
+the hint not being correctly updated.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   90 ++++++++++---------------
- 1 files changed, 35 insertions(+), 55 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   76 ++++++++++++-------------
+ 1 files changed, 36 insertions(+), 40 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 0564c65..dd1b57b 100644
+index 3ce0277..73a669d 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2014,59 +2014,41 @@ static inline void map_vector_to_txq(struct ixgbe_adapter *a, int v_idx,
-  * group the rings as "efficiently" as possible.  You would add new
-  * mapping configurations in here.
-  **/
--static int ixgbe_map_rings_to_vectors(struct ixgbe_adapter *adapter)
-+static void ixgbe_map_rings_to_vectors(struct ixgbe_adapter *adapter)
+@@ -1565,20 +1565,6 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
+ 			q_vector->eitr = adapter->rx_eitr_param;
+ 
+ 		ixgbe_write_eitr(q_vector);
+-		/* If ATR is enabled, set interrupt affinity */
+-		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
+-			/*
+-			 * Allocate the affinity_hint cpumask, assign the mask
+-			 * for this vector, and set our affinity_hint for
+-			 * this irq.
+-			 */
+-			if (!alloc_cpumask_var(&q_vector->affinity_mask,
+-			                       GFP_KERNEL))
+-				return;
+-			cpumask_set_cpu(v_idx, q_vector->affinity_mask);
+-			irq_set_affinity_hint(adapter->msix_entries[v_idx].vector,
+-			                      q_vector->affinity_mask);
+-		}
+ 	}
+ 
+ 	switch (adapter->hw.mac.type) {
+@@ -2093,18 +2079,17 @@ out:
+ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
  {
--	int q_vectors;
+ 	struct net_device *netdev = adapter->netdev;
+-	int i, vector, q_vectors, err;
 +	int q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
-+	int rxr_remaining = adapter->num_rx_queues, rxr_idx = 0;
-+	int txr_remaining = adapter->num_tx_queues, txr_idx = 0;
- 	int v_start = 0;
--	int rxr_idx = 0, txr_idx = 0;
--	int rxr_remaining = adapter->num_rx_queues;
--	int txr_remaining = adapter->num_tx_queues;
--	int i, j;
--	int rqpv, tqpv;
--	int err = 0;
++	int vector, err;
+ 	int ri = 0, ti = 0;
  
--	/* No mapping required if MSI-X is disabled. */
-+	/* only one q_vector if MSI-X is disabled. */
- 	if (!(adapter->flags & IXGBE_FLAG_MSIX_ENABLED))
--		goto out;
--
+-	/* Decrement for Other and TCP Timer vectors */
 -	q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
-+		q_vectors = 1;
+-
+ 	err = ixgbe_map_rings_to_vectors(adapter);
+ 	if (err)
+ 		return err;
  
- 	/*
--	 * The ideal configuration...
--	 * We have enough vectors to map one per queue.
-+	 * If we don't have enough vectors for a 1-to-1 mapping, we'll have to
-+	 * group them so there are multiple queues per vector.
-+	 *
-+	 * Re-adjusting *qpv takes care of the remainder.
- 	 */
--	if (q_vectors == adapter->num_rx_queues + adapter->num_tx_queues) {
--		for (; rxr_idx < rxr_remaining; v_start++, rxr_idx++)
-+	for (; v_start < q_vectors && rxr_remaining; v_start++) {
-+		int rqpv = DIV_ROUND_UP(rxr_remaining, q_vectors - v_start);
-+		for (; rqpv; rqpv--, rxr_idx++, rxr_remaining--)
- 			map_vector_to_rxq(adapter, v_start, rxr_idx);
--
--		for (; txr_idx < txr_remaining; v_start++, txr_idx++)
--			map_vector_to_txq(adapter, v_start, txr_idx);
--
--		goto out;
+ 	for (vector = 0; vector < q_vectors; vector++) {
+ 		struct ixgbe_q_vector *q_vector = adapter->q_vector[vector];
++		struct msix_entry *entry = &adapter->msix_entries[vector];
+ 
+ 		if (q_vector->tx.ring && q_vector->rx.ring) {
+ 			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
+@@ -2120,14 +2105,19 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
+ 			/* skip this unused q_vector */
+ 			continue;
+ 		}
+-		err = request_irq(adapter->msix_entries[vector].vector,
+-				  &ixgbe_msix_clean_rings, 0, q_vector->name,
+-				  q_vector);
++		err = request_irq(entry->vector, &ixgbe_msix_clean_rings, 0,
++				  q_vector->name, q_vector);
+ 		if (err) {
+ 			e_err(probe, "request_irq failed for MSIX interrupt "
+ 			      "Error: %d\n", err);
+ 			goto free_queue_irqs;
+ 		}
++		/* If Flow Director is enabled, set interrupt affinity */
++		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
++			/* assign the mask for this irq */
++			irq_set_affinity_hint(entry->vector,
++					      q_vector->affinity_mask);
++		}
  	}
  
- 	/*
--	 * If we don't have enough vectors for a 1-to-1
--	 * mapping, we'll have to group them so there are
--	 * multiple queues per vector.
-+	 * If there are not enough q_vectors for each ring to have it's own
-+	 * vector then we must pair up Rx/Tx on a each vector
- 	 */
--	/* Re-adjusting *qpv takes care of the remainder. */
--	for (i = v_start; i < q_vectors; i++) {
--		rqpv = DIV_ROUND_UP(rxr_remaining, q_vectors - i);
--		for (j = 0; j < rqpv; j++) {
--			map_vector_to_rxq(adapter, i, rxr_idx);
--			rxr_idx++;
--			rxr_remaining--;
--		}
--		tqpv = DIV_ROUND_UP(txr_remaining, q_vectors - i);
--		for (j = 0; j < tqpv; j++) {
--			map_vector_to_txq(adapter, i, txr_idx);
--			txr_idx++;
--			txr_remaining--;
--		}
-+	if ((v_start + txr_remaining) > q_vectors)
-+		v_start = 0;
+ 	sprintf(adapter->lsc_int_name, "%s:lsc", netdev->name);
+@@ -2141,9 +2131,13 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
+ 	return 0;
+ 
+ free_queue_irqs:
+-	for (i = vector - 1; i >= 0; i--)
+-		free_irq(adapter->msix_entries[--vector].vector,
+-			 adapter->q_vector[i]);
++	while (vector) {
++		vector--;
++		irq_set_affinity_hint(adapter->msix_entries[vector].vector,
++				      NULL);
++		free_irq(adapter->msix_entries[vector].vector,
++			 adapter->q_vector[vector]);
++	}
+ 	adapter->flags &= ~IXGBE_FLAG_MSIX_ENABLED;
+ 	pci_disable_msix(adapter->pdev);
+ 	kfree(adapter->msix_entries);
+@@ -2333,14 +2327,19 @@ static void ixgbe_free_irq(struct ixgbe_adapter *adapter)
+ 			    !adapter->q_vector[i]->tx.ring)
+ 				continue;
+ 
++			/* clear the affinity_mask in the IRQ descriptor */
++			irq_set_affinity_hint(adapter->msix_entries[i].vector,
++					      NULL);
 +
-+	for (; v_start < q_vectors && txr_remaining; v_start++) {
-+		int tqpv = DIV_ROUND_UP(txr_remaining, q_vectors - v_start);
-+		for (; tqpv; tqpv--, txr_idx++, txr_remaining--)
-+			map_vector_to_txq(adapter, v_start, txr_idx);
+ 			free_irq(adapter->msix_entries[i].vector,
+ 				 adapter->q_vector[i]);
+ 		}
+-
+-		ixgbe_reset_q_vectors(adapter);
+ 	} else {
+ 		free_irq(adapter->pdev->irq, adapter);
  	}
--out:
--	return err;
++
++	/* clear q_vector state information */
++	ixgbe_reset_q_vectors(adapter);
  }
  
  /**
-@@ -2083,10 +2065,6 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
- 	int vector, err;
- 	int ri = 0, ti = 0;
+@@ -3879,7 +3878,6 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 rxctrl;
+ 	int i;
+-	int num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
  
--	err = ixgbe_map_rings_to_vectors(adapter);
--	if (err)
--		return err;
--
- 	for (vector = 0; vector < q_vectors; vector++) {
- 		struct ixgbe_q_vector *q_vector = adapter->q_vector[vector];
- 		struct msix_entry *entry = &adapter->msix_entries[vector];
-@@ -2294,19 +2272,25 @@ static int ixgbe_request_irq(struct ixgbe_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 	int err;
+ 	/* signal that we are down to the interrupt handler */
+ 	set_bit(__IXGBE_DOWN, &adapter->state);
+@@ -3924,15 +3922,6 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 			adapter->vfinfo[i].clear_to_send = 0;
+ 	}
  
--	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
-+	/* map all of the rings to the q_vectors */
-+	ixgbe_map_rings_to_vectors(adapter);
-+
-+	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED)
- 		err = ixgbe_request_msix_irqs(adapter);
--	} else if (adapter->flags & IXGBE_FLAG_MSI_ENABLED) {
-+	else if (adapter->flags & IXGBE_FLAG_MSI_ENABLED)
- 		err = request_irq(adapter->pdev->irq, ixgbe_intr, 0,
- 				  netdev->name, adapter);
--	} else {
-+	else
- 		err = request_irq(adapter->pdev->irq, ixgbe_intr, IRQF_SHARED,
- 				  netdev->name, adapter);
+-	/* Cleanup the affinity_hint CPU mask memory and callback */
+-	for (i = 0; i < num_q_vectors; i++) {
+-		struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
+-		/* clear the affinity_mask in the IRQ descriptor */
+-		irq_set_affinity_hint(adapter->msix_entries[i]. vector, NULL);
+-		/* release the CPU mask memory */
+-		free_cpumask_var(q_vector->affinity_mask);
 -	}
+-
+ 	/* disable transmits in the hardware now that interrupts are off */
+ 	for (i = 0; i < adapter->num_tx_queues; i++) {
+ 		u8 reg_idx = adapter->tx_ring[i]->reg_idx;
+@@ -4677,6 +4666,11 @@ static int ixgbe_alloc_q_vectors(struct ixgbe_adapter *adapter)
+ 		q_vector->adapter = adapter;
+ 		q_vector->v_idx = v_idx;
  
--	if (err)
-+	if (err) {
- 		e_err(probe, "request_irq failed, Error %d\n", err);
- 
-+		/* place q_vectors and rings back into a known good state */
-+		ixgbe_reset_q_vectors(adapter);
-+	}
++		/* Allocate the affinity_hint cpumask, configure the mask */
++		if (!alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL))
++			goto err_out;
++		cpumask_set_cpu(v_idx, q_vector->affinity_mask);
 +
- 	return err;
+ 		if (q_vector->tx.count && !q_vector->rx.count)
+ 			q_vector->eitr = adapter->tx_eitr_param;
+ 		else
+@@ -4694,6 +4688,7 @@ err_out:
+ 		v_idx--;
+ 		q_vector = adapter->q_vector[v_idx];
+ 		netif_napi_del(&q_vector->napi);
++		free_cpumask_var(q_vector->affinity_mask);
+ 		kfree(q_vector);
+ 		adapter->q_vector[v_idx] = NULL;
+ 	}
+@@ -4710,17 +4705,18 @@ err_out:
+  **/
+ static void ixgbe_free_q_vectors(struct ixgbe_adapter *adapter)
+ {
+-	int q_idx, num_q_vectors;
++	int v_idx, num_q_vectors;
+ 
+ 	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED)
+ 		num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
+ 	else
+ 		num_q_vectors = 1;
+ 
+-	for (q_idx = 0; q_idx < num_q_vectors; q_idx++) {
+-		struct ixgbe_q_vector *q_vector = adapter->q_vector[q_idx];
+-		adapter->q_vector[q_idx] = NULL;
++	for (v_idx = 0; v_idx < num_q_vectors; v_idx++) {
++		struct ixgbe_q_vector *q_vector = adapter->q_vector[v_idx];
++		adapter->q_vector[v_idx] = NULL;
+ 		netif_napi_del(&q_vector->napi);
++		free_cpumask_var(q_vector->affinity_mask);
+ 		kfree(q_vector);
+ 	}
  }
- 
-@@ -2316,11 +2300,10 @@ static void ixgbe_free_irq(struct ixgbe_adapter *adapter)
- 		int i, q_vectors;
- 
- 		q_vectors = adapter->num_msix_vectors;
--
- 		i = q_vectors - 1;
- 		free_irq(adapter->msix_entries[i].vector, adapter);
--
- 		i--;
-+
- 		for (; i >= 0; i--) {
- 			/* free only the irqs that were actually requested */
- 			if (!adapter->q_vector[i]->rx.ring &&
-@@ -2387,9 +2370,6 @@ static void ixgbe_configure_msi_and_legacy(struct ixgbe_adapter *adapter)
- 	ixgbe_set_ivar(adapter, 0, 0, 0);
- 	ixgbe_set_ivar(adapter, 1, 0, 0);
- 
--	map_vector_to_rxq(adapter, 0, 0);
--	map_vector_to_txq(adapter, 0, 0);
--
- 	e_info(hw, "Legacy interrupt IVAR setup done\n");
- }
- 
 -- 
 1.7.6
