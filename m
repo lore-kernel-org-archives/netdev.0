@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] caif: fix a potential NULL dereference
-Date: Fri, 16 Sep 2011 18:56:14 -0400 (EDT)
-Message-ID: <20110916.185614.1208167848704741368.davem@davemloft.net>
-References: <20110902080716.GF2430@shale.localdomain>
-	<CAJK669Yb6V=xr9ZvQGOKGEvmzO1JGhrHD+sR69b04EQxUjOOrQ@mail.gmail.com>
-	<1314965963.2573.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH 1/2] net: Align AF-specific flowi structs to long
+Date: Fri, 16 Sep 2011 18:57:31 -0400 (EDT)
+Message-ID: <20110916.185731.1683344574880024034.davem@davemloft.net>
+References: <alpine.LFD.2.00.1109031004500.1492@ja.ssi.bg>
+	<1315141641-3120-2-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sjurbren@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ja@ssi.bg
+To: david.ward@ll.mit.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44390 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:44428 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755837Ab1IPW4S convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 18:56:18 -0400
-In-Reply-To: <1314965963.2573.23.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	with ESMTP id S932454Ab1IPW5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 18:57:45 -0400
+In-Reply-To: <1315141641-3120-2-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 02 Sep 2011 14:19:23 +0200
+From: David Ward <david.ward@ll.mit.edu>
+Date: Sun, 4 Sep 2011 09:07:20 -0400
 
-> Commit bd30ce4bc0b7 (caif: Use RCU instead of spin-lock in caif_dev.c=
-)
-> added a potential NULL dereference in case alloc_percpu() fails.
->=20
-> caif_device_alloc() can also use GFP_KERNEL instead of GFP_ATOMIC.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+> AF-specific flowi structs are now passed to flow_key_compare, which must
+> also be aligned to a long.
+> 
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
 Applied.
