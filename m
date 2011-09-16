@@ -1,209 +1,296 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/11] ixgbe: cleanup allocation and freeing of IRQ affinity hint
-Date: Thu, 15 Sep 2011 21:42:45 -0700
-Message-ID: <1316148173-11209-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/11] ixgbe: Correctly name and handle MSI-X other interrupt
+Date: Thu, 15 Sep 2011 21:42:53 -0700
+Message-ID: <1316148173-11209-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9739 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:15976 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751109Ab1IPEm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Sep 2011 00:42:58 -0400
+	id S1752052Ab1IPEnB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Sep 2011 00:43:01 -0400
 In-Reply-To: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The allocation and freeing of the IRQ affinity hint needs some updates
-since there are a number of spots where we run into possible issues with
-the hint not being correctly updated.
+It was possible to inadvertently add additional interrupt causes to the
+MSI-X other interrupt.  This occurred when things such as RX buffer overrun
+events were being triggered at the same time as an event such as a Flow
+Director table reinit request.  In order to avoid this we should be
+explicitly programming only the interrupts that we want enabled.  In
+addition I am renaming the ixgbe_msix_lsc function and interrupt to drop
+any implied meaning of this being a link status only interrupt.
+
+Unfortunately the patch is a bit ugly due to the fact that ixgbe_irq_enable
+needed to be moved up before ixgbe_msix_other in order to have things
+defined in the correct order.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   76 ++++++++++++-------------
- 1 files changed, 36 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  191 +++++++++++++------------
+ 2 files changed, 97 insertions(+), 95 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 3f5a744..bfdd42b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -491,7 +491,6 @@ struct ixgbe_adapter {
+ 	int node;
+ 	u32 led_reg;
+ 	u32 interrupt_event;
+-	char lsc_int_name[IFNAMSIZ + 9];
+ 
+ 	/* SR-IOV */
+ 	DECLARE_BITMAP(active_vfs, IXGBE_MAX_VF_FUNCTIONS);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3ce0277..73a669d 100644
+index 0ee7d09..6026ab0 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1565,20 +1565,6 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 			q_vector->eitr = adapter->rx_eitr_param;
- 
- 		ixgbe_write_eitr(q_vector);
--		/* If ATR is enabled, set interrupt affinity */
--		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
--			/*
--			 * Allocate the affinity_hint cpumask, assign the mask
--			 * for this vector, and set our affinity_hint for
--			 * this irq.
--			 */
--			if (!alloc_cpumask_var(&q_vector->affinity_mask,
--			                       GFP_KERNEL))
--				return;
--			cpumask_set_cpu(v_idx, q_vector->affinity_mask);
--			irq_set_affinity_hint(adapter->msix_entries[v_idx].vector,
--			                      q_vector->affinity_mask);
--		}
+@@ -1828,7 +1828,98 @@ static void ixgbe_check_lsc(struct ixgbe_adapter *adapter)
  	}
+ }
  
- 	switch (adapter->hw.mac.type) {
-@@ -2093,18 +2079,17 @@ out:
- static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
--	int i, vector, q_vectors, err;
-+	int q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
-+	int vector, err;
- 	int ri = 0, ti = 0;
- 
--	/* Decrement for Other and TCP Timer vectors */
--	q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
--
- 	err = ixgbe_map_rings_to_vectors(adapter);
- 	if (err)
- 		return err;
- 
- 	for (vector = 0; vector < q_vectors; vector++) {
- 		struct ixgbe_q_vector *q_vector = adapter->q_vector[vector];
-+		struct msix_entry *entry = &adapter->msix_entries[vector];
- 
- 		if (q_vector->tx.ring && q_vector->rx.ring) {
- 			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-@@ -2120,14 +2105,19 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
- 			/* skip this unused q_vector */
- 			continue;
- 		}
--		err = request_irq(adapter->msix_entries[vector].vector,
--				  &ixgbe_msix_clean_rings, 0, q_vector->name,
--				  q_vector);
-+		err = request_irq(entry->vector, &ixgbe_msix_clean_rings, 0,
-+				  q_vector->name, q_vector);
- 		if (err) {
- 			e_err(probe, "request_irq failed for MSIX interrupt "
- 			      "Error: %d\n", err);
- 			goto free_queue_irqs;
- 		}
-+		/* If Flow Director is enabled, set interrupt affinity */
-+		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
-+			/* assign the mask for this irq */
-+			irq_set_affinity_hint(entry->vector,
-+					      q_vector->affinity_mask);
-+		}
- 	}
- 
- 	sprintf(adapter->lsc_int_name, "%s:lsc", netdev->name);
-@@ -2141,9 +2131,13 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
- 	return 0;
- 
- free_queue_irqs:
--	for (i = vector - 1; i >= 0; i--)
--		free_irq(adapter->msix_entries[--vector].vector,
--			 adapter->q_vector[i]);
-+	while (vector) {
-+		vector--;
-+		irq_set_affinity_hint(adapter->msix_entries[vector].vector,
-+				      NULL);
-+		free_irq(adapter->msix_entries[vector].vector,
-+			 adapter->q_vector[vector]);
+-static irqreturn_t ixgbe_msix_lsc(int irq, void *data)
++static inline void ixgbe_irq_enable_queues(struct ixgbe_adapter *adapter,
++					   u64 qmask)
++{
++	u32 mask;
++	struct ixgbe_hw *hw = &adapter->hw;
++
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
++		IXGBE_WRITE_REG(hw, IXGBE_EIMS, mask);
++		break;
++	case ixgbe_mac_82599EB:
++	case ixgbe_mac_X540:
++		mask = (qmask & 0xFFFFFFFF);
++		if (mask)
++			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(0), mask);
++		mask = (qmask >> 32);
++		if (mask)
++			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(1), mask);
++		break;
++	default:
++		break;
 +	}
- 	adapter->flags &= ~IXGBE_FLAG_MSIX_ENABLED;
- 	pci_disable_msix(adapter->pdev);
- 	kfree(adapter->msix_entries);
-@@ -2333,14 +2327,19 @@ static void ixgbe_free_irq(struct ixgbe_adapter *adapter)
- 			    !adapter->q_vector[i]->tx.ring)
- 				continue;
++	/* skip the flush */
++}
++
++static inline void ixgbe_irq_disable_queues(struct ixgbe_adapter *adapter,
++					    u64 qmask)
++{
++	u32 mask;
++	struct ixgbe_hw *hw = &adapter->hw;
++
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
++		IXGBE_WRITE_REG(hw, IXGBE_EIMC, mask);
++		break;
++	case ixgbe_mac_82599EB:
++	case ixgbe_mac_X540:
++		mask = (qmask & 0xFFFFFFFF);
++		if (mask)
++			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(0), mask);
++		mask = (qmask >> 32);
++		if (mask)
++			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(1), mask);
++		break;
++	default:
++		break;
++	}
++	/* skip the flush */
++}
++
++/**
++ * ixgbe_irq_enable - Enable default interrupt generation settings
++ * @adapter: board private structure
++ **/
++static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
++				    bool flush)
++{
++	u32 mask = (IXGBE_EIMS_ENABLE_MASK & ~IXGBE_EIMS_RTX_QUEUE);
++
++	/* don't reenable LSC while waiting for link */
++	if (adapter->flags & IXGBE_FLAG_NEED_LINK_UPDATE)
++		mask &= ~IXGBE_EIMS_LSC;
++
++	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE)
++		mask |= IXGBE_EIMS_GPI_SDP0;
++	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE)
++		mask |= IXGBE_EIMS_GPI_SDP1;
++	switch (adapter->hw.mac.type) {
++	case ixgbe_mac_82599EB:
++	case ixgbe_mac_X540:
++		mask |= IXGBE_EIMS_ECC;
++		mask |= IXGBE_EIMS_GPI_SDP1;
++		mask |= IXGBE_EIMS_GPI_SDP2;
++		mask |= IXGBE_EIMS_MAILBOX;
++		break;
++	default:
++		break;
++	}
++	if ((adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) &&
++	    !(adapter->flags2 & IXGBE_FLAG2_FDIR_REQUIRES_REINIT))
++		mask |= IXGBE_EIMS_FLOW_DIR;
++
++	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
++	if (queues)
++		ixgbe_irq_enable_queues(adapter, ~0);
++	if (flush)
++		IXGBE_WRITE_FLUSH(&adapter->hw);
++}
++
++static irqreturn_t ixgbe_msix_other(int irq, void *data)
+ {
+ 	struct ixgbe_adapter *adapter = data;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -1852,6 +1943,9 @@ static irqreturn_t ixgbe_msix_lsc(int irq, void *data)
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82599EB:
+ 	case ixgbe_mac_X540:
++		if (eicr & IXGBE_EICR_ECC)
++			e_info(link, "Received unrecoverable ECC Err, please "
++			       "reboot\n");
+ 		/* Handle Flow Director Full threshold interrupt */
+ 		if (eicr & IXGBE_EICR_FLOW_DIR) {
+ 			int reinit_count = 0;
+@@ -1865,7 +1959,6 @@ static irqreturn_t ixgbe_msix_lsc(int irq, void *data)
+ 			if (reinit_count) {
+ 				/* no more flow director interrupts until after init */
+ 				IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_EIMC_FLOW_DIR);
+-				eicr &= ~IXGBE_EICR_FLOW_DIR;
+ 				adapter->flags2 |= IXGBE_FLAG2_FDIR_REQUIRES_REINIT;
+ 				ixgbe_service_event_schedule(adapter);
+ 			}
+@@ -1888,64 +1981,11 @@ static irqreturn_t ixgbe_msix_lsc(int irq, void *data)
  
-+			/* clear the affinity_mask in the IRQ descriptor */
-+			irq_set_affinity_hint(adapter->msix_entries[i].vector,
-+					      NULL);
-+
- 			free_irq(adapter->msix_entries[i].vector,
- 				 adapter->q_vector[i]);
- 		}
+ 	/* re-enable the original interrupt state, no lsc, no queues */
+ 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+-		IXGBE_WRITE_REG(hw, IXGBE_EIMS, eicr &
+-		                ~(IXGBE_EIMS_LSC | IXGBE_EIMS_RTX_QUEUE));
++		ixgbe_irq_enable(adapter, false, false);
+ 
+ 	return IRQ_HANDLED;
+ }
+ 
+-static inline void ixgbe_irq_enable_queues(struct ixgbe_adapter *adapter,
+-					   u64 qmask)
+-{
+-	u32 mask;
+-	struct ixgbe_hw *hw = &adapter->hw;
 -
--		ixgbe_reset_q_vectors(adapter);
- 	} else {
- 		free_irq(adapter->pdev->irq, adapter);
+-	switch (hw->mac.type) {
+-	case ixgbe_mac_82598EB:
+-		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
+-		IXGBE_WRITE_REG(hw, IXGBE_EIMS, mask);
+-		break;
+-	case ixgbe_mac_82599EB:
+-	case ixgbe_mac_X540:
+-		mask = (qmask & 0xFFFFFFFF);
+-		if (mask)
+-			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(0), mask);
+-		mask = (qmask >> 32);
+-		if (mask)
+-			IXGBE_WRITE_REG(hw, IXGBE_EIMS_EX(1), mask);
+-		break;
+-	default:
+-		break;
+-	}
+-	/* skip the flush */
+-}
+-
+-static inline void ixgbe_irq_disable_queues(struct ixgbe_adapter *adapter,
+-					    u64 qmask)
+-{
+-	u32 mask;
+-	struct ixgbe_hw *hw = &adapter->hw;
+-
+-	switch (hw->mac.type) {
+-	case ixgbe_mac_82598EB:
+-		mask = (IXGBE_EIMS_RTX_QUEUE & qmask);
+-		IXGBE_WRITE_REG(hw, IXGBE_EIMC, mask);
+-		break;
+-	case ixgbe_mac_82599EB:
+-	case ixgbe_mac_X540:
+-		mask = (qmask & 0xFFFFFFFF);
+-		if (mask)
+-			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(0), mask);
+-		mask = (qmask >> 32);
+-		if (mask)
+-			IXGBE_WRITE_REG(hw, IXGBE_EIMC_EX(1), mask);
+-		break;
+-	default:
+-		break;
+-	}
+-	/* skip the flush */
+-}
+-
+ static irqreturn_t ixgbe_msix_clean_rings(int irq, void *data)
+ {
+ 	struct ixgbe_q_vector *q_vector = data;
+@@ -2077,9 +2117,8 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
+ 		}
  	}
-+
-+	/* clear q_vector state information */
-+	ixgbe_reset_q_vectors(adapter);
+ 
+-	sprintf(adapter->lsc_int_name, "%s:lsc", netdev->name);
+ 	err = request_irq(adapter->msix_entries[vector].vector,
+-			  ixgbe_msix_lsc, 0, adapter->lsc_int_name, adapter);
++			  ixgbe_msix_other, 0, netdev->name, adapter);
+ 	if (err) {
+ 		e_err(probe, "request_irq for msix_lsc failed: %d\n", err);
+ 		goto free_queue_irqs;
+@@ -2103,42 +2142,6 @@ free_queue_irqs:
  }
  
  /**
-@@ -3879,7 +3878,6 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 rxctrl;
- 	int i;
--	int num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
- 
- 	/* signal that we are down to the interrupt handler */
- 	set_bit(__IXGBE_DOWN, &adapter->state);
-@@ -3924,15 +3922,6 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 			adapter->vfinfo[i].clear_to_send = 0;
- 	}
- 
--	/* Cleanup the affinity_hint CPU mask memory and callback */
--	for (i = 0; i < num_q_vectors; i++) {
--		struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
--		/* clear the affinity_mask in the IRQ descriptor */
--		irq_set_affinity_hint(adapter->msix_entries[i]. vector, NULL);
--		/* release the CPU mask memory */
--		free_cpumask_var(q_vector->affinity_mask);
--	}
+- * ixgbe_irq_enable - Enable default interrupt generation settings
+- * @adapter: board private structure
+- **/
+-static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
+-				    bool flush)
+-{
+-	u32 mask;
 -
- 	/* disable transmits in the hardware now that interrupts are off */
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
- 		u8 reg_idx = adapter->tx_ring[i]->reg_idx;
-@@ -4677,6 +4666,11 @@ static int ixgbe_alloc_q_vectors(struct ixgbe_adapter *adapter)
- 		q_vector->adapter = adapter;
- 		q_vector->v_idx = v_idx;
- 
-+		/* Allocate the affinity_hint cpumask, configure the mask */
-+		if (!alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL))
-+			goto err_out;
-+		cpumask_set_cpu(v_idx, q_vector->affinity_mask);
-+
- 		if (q_vector->tx.count && !q_vector->rx.count)
- 			q_vector->eitr = adapter->tx_eitr_param;
- 		else
-@@ -4694,6 +4688,7 @@ err_out:
- 		v_idx--;
- 		q_vector = adapter->q_vector[v_idx];
- 		netif_napi_del(&q_vector->napi);
-+		free_cpumask_var(q_vector->affinity_mask);
- 		kfree(q_vector);
- 		adapter->q_vector[v_idx] = NULL;
- 	}
-@@ -4710,17 +4705,18 @@ err_out:
-  **/
- static void ixgbe_free_q_vectors(struct ixgbe_adapter *adapter)
- {
--	int q_idx, num_q_vectors;
-+	int v_idx, num_q_vectors;
- 
- 	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED)
- 		num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
- 	else
- 		num_q_vectors = 1;
- 
--	for (q_idx = 0; q_idx < num_q_vectors; q_idx++) {
--		struct ixgbe_q_vector *q_vector = adapter->q_vector[q_idx];
--		adapter->q_vector[q_idx] = NULL;
-+	for (v_idx = 0; v_idx < num_q_vectors; v_idx++) {
-+		struct ixgbe_q_vector *q_vector = adapter->q_vector[v_idx];
-+		adapter->q_vector[v_idx] = NULL;
- 		netif_napi_del(&q_vector->napi);
-+		free_cpumask_var(q_vector->affinity_mask);
- 		kfree(q_vector);
- 	}
- }
+-	mask = (IXGBE_EIMS_ENABLE_MASK & ~IXGBE_EIMS_RTX_QUEUE);
+-	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE)
+-		mask |= IXGBE_EIMS_GPI_SDP0;
+-	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE)
+-		mask |= IXGBE_EIMS_GPI_SDP1;
+-	switch (adapter->hw.mac.type) {
+-	case ixgbe_mac_82599EB:
+-	case ixgbe_mac_X540:
+-		mask |= IXGBE_EIMS_ECC;
+-		mask |= IXGBE_EIMS_GPI_SDP1;
+-		mask |= IXGBE_EIMS_GPI_SDP2;
+-		if (adapter->num_vfs)
+-			mask |= IXGBE_EIMS_MAILBOX;
+-		break;
+-	default:
+-		break;
+-	}
+-	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
+-		mask |= IXGBE_EIMS_FLOW_DIR;
+-
+-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMS, mask);
+-	if (queues)
+-		ixgbe_irq_enable_queues(adapter, ~0);
+-	if (flush)
+-		IXGBE_WRITE_FLUSH(&adapter->hw);
+-}
+-
+-/**
+  * ixgbe_intr - legacy mode Interrupt Handler
+  * @irq: interrupt number
+  * @data: pointer to a network interface device structure
 -- 
 1.7.6
