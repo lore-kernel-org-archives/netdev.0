@@ -1,90 +1,66 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/11] ixgbe: Change default Tx work limit size to 256 buffers
-Date: Thu, 15 Sep 2011 21:42:43 -0700
-Message-ID: <1316148173-11209-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: John Crosbie <john@excelfore.com>
+Subject: LAN9514 eeprom problems
+Date: Thu, 15 Sep 2011 22:20:31 -0700
+Message-ID: <CACDsFyuW6dTJv1zxC8CrmgUJ+t9pdAUZZS=++1meqcuOxXj3DA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: steve.glendinning@smsc.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:25391 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751228Ab1IPEm5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Sep 2011 00:42:57 -0400
-In-Reply-To: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:41971 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752100Ab1IPFUc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 01:20:32 -0400
+Received: by gxk6 with SMTP id 6so2004768gxk.5
+        for <netdev@vger.kernel.org>; Thu, 15 Sep 2011 22:20:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+Steve,
 
-This change makes it so that the default Tx work limit is 256 buffers or
-1/2 of an entire ring instead of a full ring size so that it is much more
-likely that we will be able to actually reach the work limit value.
-Previously with the value set to an entire ring it would not have been
-possible for us to trigger an event due to the fact that the Tx work is
-stopped at the point where we cannot place one more buffer on the ring and
-it is not restarted until cleanup is complete.
+I am working on an ARM7 board that contains a LAN9514 with 93LC66A
+eeprom. The Linux kernel version is 2.6.32.=A0 I am seeing problems
+programming the eeprom with ethtool.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    8 ++++----
- 2 files changed, 5 insertions(+), 4 deletions(-)
+If I read then it works as expected:
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 58482fc..3f5a744 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -53,6 +53,7 @@
- 
- /* TX/RX descriptor defines */
- #define IXGBE_DEFAULT_TXD		    512
-+#define IXGBE_DEFAULT_TX_WORK		    256
- #define IXGBE_MAX_TXD			   4096
- #define IXGBE_MIN_TXD			     64
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index a30f826..0f633ad 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -804,7 +804,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 	struct ixgbe_tx_buffer *tx_buffer;
- 	union ixgbe_adv_tx_desc *tx_desc;
- 	unsigned int total_bytes = 0, total_packets = 0;
--	u16 budget = q_vector->tx.work_limit;
-+	unsigned int budget = q_vector->tx.work_limit;
- 	u16 i = tx_ring->next_to_clean;
- 
- 	tx_buffer = &tx_ring->tx_buffer_info[i];
-@@ -891,7 +891,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 		ixgbe_tx_timeout_reset(adapter);
- 
- 		/* the adapter is about to reset, no point in enabling stuff */
--		return budget;
-+		return true;
- 	}
- 
- #define TX_WAKE_THRESHOLD (DESC_NEEDED * 2)
-@@ -908,7 +908,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 		}
- 	}
- 
--	return budget;
-+	return !!budget;
- }
- 
- #ifdef CONFIG_IXGBE_DCA
-@@ -5091,7 +5091,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	adapter->rx_ring_count = IXGBE_DEFAULT_RXD;
- 
- 	/* set default work limits */
--	adapter->tx_work_limit = adapter->tx_ring_count;
-+	adapter->tx_work_limit = IXGBE_DEFAULT_TX_WORK;
- 
- 	/* initialize eeprom parameters */
- 	if (ixgbe_init_eeprom_params_generic(hw)) {
--- 
-1.7.6
+ethtool -e usb0
+will give 512 ff's
+
+Then I issue the command:
+
+ethtool -E usb0 magic 0x9500 offset 0 length 1 value 0xdd
+
+and get:
+[=A0=A0 72.779431] usb0: eeprom: EWEN a0000000
+[=A0=A0 72.784211] usb0: eeprom ready
+[=A0=A0 72.818265] usb0: EEPROM read operation timeout val=3D30000400
+Cannot set EEPROM data: Input/output error
+
+The 1st two kernel messages have been added by me along with printing t=
+he value.
+I can see with a o'scope that the signalling at the chip looks good
+but it appears that the 9514 returns timeout before the 93LC66 has
+finished its writing busy cycle.
+After doing this, if I read again then I get a timeout again:
+
+root@2065:~# ethtool -e usb0
+[   95.889447] usb0: EEPROM read operation timeout val=3D00000400
+Cannot get EEPROM data: Input/output error
+
+I have to reboot to get read to work again.
+
+My problem is that I cannot find any register level specs for the
+9514.  I have the data sheet and the software manual.  The datasheet
+describes the hardware pins and the software manual describes the
+device drivers but there is a big document missing inbetween these
+two.
+I have seen that the driver provided on the SMSC website performs many
+retries that the kernel.org driver does not when reading and writing
+registers.  Are these really required.  Any suggestions/pointer would
+be appreciated.
+
+Regards,
+
+John Crosbie
+Excelfore
