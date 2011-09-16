@@ -1,36 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: deal with multiple COOKIE_ECHO chunks
-Date: Fri, 16 Sep 2011 17:17:47 -0400 (EDT)
-Message-ID: <20110916.171747.406895441960738806.davem@davemloft.net>
-References: <20110830072010.94AE98132707@regina.usersys.redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	vladislav.yasevich@hp.com
-To: makc@redhat.com
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH net-next] ixgb: relax stack usage of 768 Byte
+Date: Fri, 16 Sep 2011 23:34:57 +0200
+Message-ID: <1316208897-4557-1-git-send-email-hagen@jauu.net>
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58761 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932294Ab1IPVSD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 17:18:03 -0400
-In-Reply-To: <20110830072010.94AE98132707@regina.usersys.redhat.com>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:40523 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755201Ab1IPVfQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 17:35:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Max Matveev <makc@redhat.com>
-Date: Tue, 30 Aug 2011 17:02:24 +1000
+ixgb_set_multi() will push (128 * 6) byte on the stack to set the
+multicast filter. Fix this by allocate the scratch buffer on the heap.
 
-> Attempt to reduce the number of IP packets emitted in response to single
-> SCTP packet (2e3216cd) introduced a complication - if a packet contains
-> two COOKIE_ECHO chunks and nothing else then SCTP state machine corks the
-> socket while processing first COOKIE_ECHO and then loses the association
-> and forgets to uncork the socket. To deal with the issue add new SCTP
-> command which can be used to set association explictly. Use this new
-> command when processing second COOKIE_ECHO chunk to restore the context
-> for SCTP state machine.
-> 
-> Signed-off-by: Max Matveev <makc@redhat.com>
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-Applied, but there were a ton of whitespace errors that GIT complained
-about and I had to fix up.
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index c8b9c90..4d23007 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -1095,8 +1095,10 @@ ixgb_set_multi(struct net_device *netdev)
+ 		rctl |= IXGB_RCTL_MPE;
+ 		IXGB_WRITE_REG(hw, RCTL, rctl);
+ 	} else {
+-		u8 mta[IXGB_MAX_NUM_MULTICAST_ADDRESSES *
+-			    IXGB_ETH_LENGTH_OF_ADDRESS];
++		u8 *mta = kmalloc(IXGB_MAX_NUM_MULTICAST_ADDRESSES *
++				IXGB_ETH_LENGTH_OF_ADDRESS, GFP_ATOMIC);
++		if (!mta)
++			return;
+ 
+ 		IXGB_WRITE_REG(hw, RCTL, rctl);
+ 
+@@ -1106,6 +1108,8 @@ ixgb_set_multi(struct net_device *netdev)
+ 			       ha->addr, IXGB_ETH_LENGTH_OF_ADDRESS);
+ 
+ 		ixgb_mc_addr_list_update(hw, mta, netdev_mc_count(netdev), 0);
++
++		kfree(mta);
+ 	}
+ 
+ 	if (netdev->features & NETIF_F_HW_VLAN_RX)
+-- 
+1.7.5.4
