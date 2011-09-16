@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 16 Sep 2011 15:20:35 -0400 (EDT)
-Message-ID: <20110916.152035.734918963189057900.davem@davemloft.net>
-References: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: pull request: wireless-next 2011-09-16
+Date: Fri, 16 Sep 2011 15:20:50 -0400 (EDT)
+Message-ID: <20110916.152050.74502091191784524.davem@davemloft.net>
+References: <20110916183118.GB22612@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54639 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54674 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755207Ab1IPTUj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 15:20:39 -0400
-In-Reply-To: <1316148173-11209-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1755207Ab1IPTV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 15:21:58 -0400
+In-Reply-To: <20110916183118.GB22612@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 15 Sep 2011 21:42:42 -0700
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 16 Sep 2011 14:31:19 -0400
 
-> The following series contains updates to ixgbe only.  These are primarily
-> cleanups of the ixgbe driver.  The first two patches of the series:
+> This is a batch of updates intended for 3.2.  They have been simmering
+> for a while, since I merged them just before the big kernel.org
+> shutdown.  That includes time in wireless-testing and linux-next
+> (albeit the latter is diminished by the kernel.org outage).  For now,
+> I am just trying to clear the backlog... :-)
 > 
->   ixgbe: Change default Tx work limit size to 256 buffers
->   ixgbe: consolidate all MSI-X ring interrupts and poll routines into one
+> This includes a sizable wl12xx pull and a bunch of iwlagn updates.
+> There are also a number of ath9k updates, some b43 updates, and a
+> handful of other bits.
 > 
-> are re-worked based on previous community feedback (Dave and Ben).
-> 
-> The following are changes since commit 4bc71cb983fd2844e603bf633df2bb53385182d2:
->   net: consolidate and fix ethtool_ops->get_settings calling
-> and are available in the git repository at:
->   git://github.com/Jkirsher/net-next.git
+> Please let me know if there are problems!
 
-Pulled, thanks Jeff.
+Pulled, thanks John.
