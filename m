@@ -1,198 +1,156 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next] bna: make function tables cont
-Date: Fri, 16 Sep 2011 14:09:51 -0700
-Message-ID: <20110916140951.6318785d@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] vxge: make function table const
+Date: Fri, 16 Sep 2011 14:10:01 -0700
+Message-ID: <20110916141001.2d4ca61d@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Rasesh Mody <rmody@brocade.com>, David Miller <davem@davemloft.net>
+To: Jon Mason <jdmason@kudzu.us>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42660 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:42707 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932215Ab1IPVJv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Sep 2011 17:09:51 -0400
+	id S1755475Ab1IPVK5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Sep 2011 17:10:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To prevent malicious usage, all tables of pointers must be const.
 
+All tables of function pointers should be const.
+The pre-existing code has lots of needless indirection...
+
+Inspired by similar change in PAX.
 Compile tested only.
-Gleaned for PAX.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
- drivers/net/ethernet/brocade/bna/bfa_ioc.h    |    2 -
- drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c |   36 ++++++++++----------------
- drivers/net/ethernet/brocade/bna/bna.h        |    4 +-
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c  |    4 +-
- drivers/net/ethernet/brocade/bna/bnad.c       |   33 +++++++++++------------
- 5 files changed, 36 insertions(+), 43 deletions(-)
 
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc.h	2011-09-16 13:35:52.245432520 -0700
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.h	2011-09-16 13:35:54.593432627 -0700
-@@ -199,7 +199,7 @@ struct bfa_ioc {
- 	struct bfi_ioc_attr	*attr;
- 	struct bfa_ioc_cbfn	*cbfn;
- 	struct bfa_ioc_mbox_mod	mbox_mod;
--	struct bfa_ioc_hwif	*ioc_hwif;
-+	const struct bfa_ioc_hwif *ioc_hwif;
- 	struct bfa_iocpf	iocpf;
- 	enum bfi_asic_gen	asic_gen;
- 	enum bfi_asic_mode	asic_mode;
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c	2011-09-16 13:35:52.273432521 -0700
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c	2011-09-16 13:40:28.501445140 -0700
-@@ -49,21 +49,21 @@ static bool bfa_ioc_ct_sync_complete(str
- static enum bfa_status bfa_ioc_ct_pll_init(void __iomem *rb,
- 				enum bfi_asic_mode asic_mode);
+---
+ drivers/net/ethernet/neterion/vxge/vxge-config.c  |   11 +++++------
+ drivers/net/ethernet/neterion/vxge/vxge-config.h  |    4 ++--
+ drivers/net/ethernet/neterion/vxge/vxge-main.c    |   10 +++++++---
+ drivers/net/ethernet/neterion/vxge/vxge-traffic.c |   12 ++++++------
+ 4 files changed, 20 insertions(+), 17 deletions(-)
+
+--- a/drivers/net/ethernet/neterion/vxge/vxge-config.c	2011-09-16 13:12:56.529369674 -0700
++++ b/drivers/net/ethernet/neterion/vxge/vxge-config.c	2011-09-16 13:21:30.925393238 -0700
+@@ -1342,9 +1342,7 @@ vxge_hw_device_initialize(
+ 	hldev->bar0 = attr->bar0;
+ 	hldev->pdev = attr->pdev;
  
--static struct bfa_ioc_hwif nw_hwif_ct;
--
--static void
--bfa_ioc_set_ctx_hwif(struct bfa_ioc *ioc, struct bfa_ioc_hwif *hwif)
--{
--	hwif->ioc_firmware_lock = bfa_ioc_ct_firmware_lock;
--	hwif->ioc_firmware_unlock = bfa_ioc_ct_firmware_unlock;
--	hwif->ioc_notify_fail = bfa_ioc_ct_notify_fail;
--	hwif->ioc_ownership_reset = bfa_ioc_ct_ownership_reset;
--	hwif->ioc_sync_start = bfa_ioc_ct_sync_start;
--	hwif->ioc_sync_join = bfa_ioc_ct_sync_join;
--	hwif->ioc_sync_leave = bfa_ioc_ct_sync_leave;
--	hwif->ioc_sync_ack = bfa_ioc_ct_sync_ack;
--	hwif->ioc_sync_complete = bfa_ioc_ct_sync_complete;
--}
-+static const struct bfa_ioc_hwif nw_hwif_ct = {
-+	.ioc_pll_init	     = bfa_ioc_ct_pll_init,
-+	.ioc_firmware_lock   = bfa_ioc_ct_firmware_lock,
-+	.ioc_firmware_unlock = bfa_ioc_ct_firmware_unlock,
-+	.ioc_reg_init	     = bfa_ioc_ct_reg_init,
-+	.ioc_map_port	     = bfa_ioc_ct_map_port,
-+	.ioc_isr_mode_set    = bfa_ioc_ct_isr_mode_set,
-+	.ioc_notify_fail     = bfa_ioc_ct_notify_fail,
-+	.ioc_ownership_reset = bfa_ioc_ct_ownership_reset,
-+	.ioc_sync_start      = bfa_ioc_ct_sync_start,
-+	.ioc_sync_join       = bfa_ioc_ct_sync_join,
-+	.ioc_sync_leave	     = bfa_ioc_ct_sync_leave,
-+	.ioc_sync_ack	     = bfa_ioc_ct_sync_ack,
-+	.ioc_sync_complete   = bfa_ioc_ct_sync_complete,
-+};
+-	hldev->uld_callbacks.link_up = attr->uld_callbacks.link_up;
+-	hldev->uld_callbacks.link_down = attr->uld_callbacks.link_down;
+-	hldev->uld_callbacks.crit_err = attr->uld_callbacks.crit_err;
++	hldev->uld_callbacks = attr->uld_callbacks;
  
- /**
-  * Called from bfa_ioc_attach() to map asic specific calls.
-@@ -71,12 +71,6 @@ bfa_ioc_set_ctx_hwif(struct bfa_ioc *ioc
- void
- bfa_nw_ioc_set_ct_hwif(struct bfa_ioc *ioc)
+ 	__vxge_hw_device_pci_e_init(hldev);
+ 
+@@ -2633,7 +2631,7 @@ __vxge_hw_mempool_create(struct __vxge_h
+ 			 u32 items_priv_size,
+ 			 u32 items_initial,
+ 			 u32 items_max,
+-			 struct vxge_hw_mempool_cbs *mp_callback,
++			 const struct vxge_hw_mempool_cbs *mp_callback,
+ 			 void *userdata)
  {
--	bfa_ioc_set_ctx_hwif(ioc, &nw_hwif_ct);
--
--	nw_hwif_ct.ioc_pll_init = bfa_ioc_ct_pll_init;
--	nw_hwif_ct.ioc_reg_init = bfa_ioc_ct_reg_init;
--	nw_hwif_ct.ioc_map_port = bfa_ioc_ct_map_port;
--	nw_hwif_ct.ioc_isr_mode_set = bfa_ioc_ct_isr_mode_set;
- 	ioc->ioc_hwif = &nw_hwif_ct;
+ 	enum vxge_hw_status status = VXGE_HW_OK;
+@@ -2817,7 +2815,9 @@ __vxge_hw_ring_create(struct __vxge_hw_v
+ 	struct vxge_hw_ring_config *config;
+ 	struct __vxge_hw_device *hldev;
+ 	u32 vp_id;
+-	struct vxge_hw_mempool_cbs ring_mp_callback;
++	static const struct vxge_hw_mempool_cbs ring_mp_callback = {
++		.item_func_alloc = __vxge_hw_ring_mempool_item_alloc,
++	};
+ 
+ 	if ((vp == NULL) || (attr == NULL)) {
+ 		status = VXGE_HW_FAIL;
+@@ -2872,7 +2872,6 @@ __vxge_hw_ring_create(struct __vxge_hw_v
+ 
+ 	/* calculate actual RxD block private size */
+ 	ring->rxdblock_priv_size = ring->rxd_priv_size * ring->rxds_per_block;
+-	ring_mp_callback.item_func_alloc = __vxge_hw_ring_mempool_item_alloc;
+ 	ring->mempool = __vxge_hw_mempool_create(hldev,
+ 				VXGE_HW_BLOCK_SIZE,
+ 				VXGE_HW_BLOCK_SIZE,
+--- a/drivers/net/ethernet/neterion/vxge/vxge-config.h	2011-09-16 13:12:56.529369674 -0700
++++ b/drivers/net/ethernet/neterion/vxge/vxge-config.h	2011-09-16 13:21:30.925393238 -0700
+@@ -740,7 +740,7 @@ struct __vxge_hw_device {
+ 	struct vxge_hw_device_config	config;
+ 	enum vxge_hw_device_link_state	link_state;
+ 
+-	struct vxge_hw_uld_cbs		uld_callbacks;
++	const struct vxge_hw_uld_cbs	*uld_callbacks;
+ 
+ 	u32				host_type;
+ 	u32				func_id;
+@@ -840,7 +840,7 @@ struct vxge_hw_device_hw_info {
+ struct vxge_hw_device_attr {
+ 	void __iomem		*bar0;
+ 	struct pci_dev 		*pdev;
+-	struct vxge_hw_uld_cbs	uld_callbacks;
++	const struct vxge_hw_uld_cbs *uld_callbacks;
+ };
+ 
+ #define VXGE_HW_DEVICE_LINK_STATE_SET(hldev, ls)	(hldev->link_state = ls)
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c	2011-09-16 13:12:56.529369674 -0700
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c	2011-09-16 13:21:30.925393238 -0700
+@@ -4284,6 +4284,12 @@ static int __devinit is_sriov_initialize
+ 	return 0;
  }
  
---- a/drivers/net/ethernet/brocade/bna/bna.h	2011-09-16 13:35:52.257432521 -0700
-+++ b/drivers/net/ethernet/brocade/bna/bna.h	2011-09-16 13:35:54.593432627 -0700
-@@ -453,7 +453,7 @@ void bna_tx_res_req(int num_txq, int txq
- 		    struct bna_res_info *res_info);
- struct bna_tx *bna_tx_create(struct bna *bna, struct bnad *bnad,
- 			       struct bna_tx_config *tx_cfg,
--			       struct bna_tx_event_cbfn *tx_cbfn,
-+			       const struct bna_tx_event_cbfn *tx_cbfn,
- 			       struct bna_res_info *res_info, void *priv);
- void bna_tx_destroy(struct bna_tx *tx);
- void bna_tx_enable(struct bna_tx *tx);
-@@ -490,7 +490,7 @@ void bna_rx_res_req(struct bna_rx_config
- 		    struct bna_res_info *res_info);
- struct bna_rx *bna_rx_create(struct bna *bna, struct bnad *bnad,
- 			       struct bna_rx_config *rx_cfg,
--			       struct bna_rx_event_cbfn *rx_cbfn,
-+			       const struct bna_rx_event_cbfn *rx_cbfn,
- 			       struct bna_res_info *res_info, void *priv);
- void bna_rx_destroy(struct bna_rx *rx);
- void bna_rx_enable(struct bna_rx *rx);
---- a/drivers/net/ethernet/brocade/bna/bnad.c	2011-09-16 13:35:52.237432520 -0700
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c	2011-09-16 13:35:54.597432628 -0700
-@@ -1730,7 +1730,14 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_
- 	struct bna_intr_info *intr_info =
- 			&res_info[BNA_TX_RES_INTR_T_TXCMPL].res_u.intr_info;
- 	struct bna_tx_config *tx_config = &bnad->tx_config[tx_id];
--	struct bna_tx_event_cbfn tx_cbfn;
-+	static const struct bna_tx_event_cbfn tx_cbfn = {
-+		.tcb_setup_cbfn = bnad_cb_tcb_setup,
-+		.tcb_destroy_cbfn = bnad_cb_tcb_destroy,
-+		.tx_stall_cbfn = bnad_cb_tx_stall,
-+		.tx_resume_cbfn = bnad_cb_tx_resume,
-+		.tx_cleanup_cbfn = bnad_cb_tx_cleanup,
-+	};
++static const struct vxge_hw_uld_cbs vxge_callbacks = {
++	.link_up = vxge_callback_link_up,
++	.link_down = vxge_callback_link_down,
++	.crit_err = vxge_callback_crit_err,
++};
 +
- 	struct bna_tx *tx;
- 	unsigned long flags;
+ /**
+  * vxge_probe
+  * @pdev : structure containing the PCI related information of the device.
+@@ -4494,9 +4500,7 @@ vxge_probe(struct pci_dev *pdev, const s
+ 	}
  
-@@ -1742,13 +1749,6 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_
- 	tx_config->tx_type = BNA_TX_T_REGULAR;
- 	tx_config->coalescing_timeo = bnad->tx_coalescing_timeo;
+ 	/* Setting driver callbacks */
+-	attr.uld_callbacks.link_up = vxge_callback_link_up;
+-	attr.uld_callbacks.link_down = vxge_callback_link_down;
+-	attr.uld_callbacks.crit_err = vxge_callback_crit_err;
++	attr.uld_callbacks = &vxge_callbacks;
  
--	/* Initialize the tx event handlers */
--	tx_cbfn.tcb_setup_cbfn = bnad_cb_tcb_setup;
--	tx_cbfn.tcb_destroy_cbfn = bnad_cb_tcb_destroy;
--	tx_cbfn.tx_stall_cbfn = bnad_cb_tx_stall;
--	tx_cbfn.tx_resume_cbfn = bnad_cb_tx_resume;
--	tx_cbfn.tx_cleanup_cbfn = bnad_cb_tx_cleanup;
--
- 	/* Get BNA's resource requirement for one tx object */
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_tx_res_req(bnad->num_txq_per_tx,
-@@ -1893,7 +1893,14 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_
- 	struct bna_intr_info *intr_info =
- 			&res_info[BNA_RX_RES_T_INTR].res_u.intr_info;
- 	struct bna_rx_config *rx_config = &bnad->rx_config[rx_id];
--	struct bna_rx_event_cbfn rx_cbfn;
-+	static const struct bna_rx_event_cbfn rx_cbfn = {
-+		.rcb_setup_cbfn = bnad_cb_rcb_setup,
-+		.rcb_destroy_cbfn = bnad_cb_rcb_destroy,
-+		.ccb_setup_cbfn = bnad_cb_ccb_setup,
-+		.ccb_destroy_cbfn = bnad_cb_ccb_destroy,
-+		.rx_cleanup_cbfn = bnad_cb_rx_cleanup,
-+		.rx_post_cbfn = bnad_cb_rx_post,
-+	};
- 	struct bna_rx *rx;
- 	unsigned long flags;
+ 	status = vxge_hw_device_initialize(&hldev, &attr, device_config);
+ 	if (status != VXGE_HW_OK) {
+--- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c	2011-09-16 13:12:56.533369674 -0700
++++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c	2011-09-16 13:21:30.925393238 -0700
+@@ -532,8 +532,8 @@ __vxge_hw_device_handle_error(struct __v
+ 	}
  
-@@ -1902,14 +1909,6 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_
- 	/* Initialize the Rx object configuration */
- 	bnad_init_rx_config(bnad, rx_config);
+ 	/* notify driver */
+-	if (hldev->uld_callbacks.crit_err)
+-		hldev->uld_callbacks.crit_err(
++	if (hldev->uld_callbacks->crit_err)
++		hldev->uld_callbacks->crit_err(
+ 			(struct __vxge_hw_device *)hldev,
+ 			type, vp_id);
+ out:
+@@ -560,8 +560,8 @@ __vxge_hw_device_handle_link_down_ind(st
+ 	hldev->link_state = VXGE_HW_LINK_DOWN;
  
--	/* Initialize the Rx event handlers */
--	rx_cbfn.rcb_setup_cbfn = bnad_cb_rcb_setup;
--	rx_cbfn.rcb_destroy_cbfn = bnad_cb_rcb_destroy;
--	rx_cbfn.ccb_setup_cbfn = bnad_cb_ccb_setup;
--	rx_cbfn.ccb_destroy_cbfn = bnad_cb_ccb_destroy;
--	rx_cbfn.rx_cleanup_cbfn = bnad_cb_rx_cleanup;
--	rx_cbfn.rx_post_cbfn = bnad_cb_rx_post;
--
- 	/* Get BNA's resource requirement for one Rx object */
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_rx_res_req(rx_config, res_info);
---- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c	2011-09-16 13:36:57.733435512 -0700
-+++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c	2011-09-16 13:37:07.885435977 -0700
-@@ -2305,7 +2305,7 @@ bna_rx_res_req(struct bna_rx_config *q_c
- struct bna_rx *
- bna_rx_create(struct bna *bna, struct bnad *bnad,
- 		struct bna_rx_config *rx_cfg,
--		struct bna_rx_event_cbfn *rx_cbfn,
-+		const struct bna_rx_event_cbfn *rx_cbfn,
- 		struct bna_res_info *res_info,
- 		void *priv)
- {
-@@ -3444,7 +3444,7 @@ bna_tx_res_req(int num_txq, int txq_dept
- struct bna_tx *
- bna_tx_create(struct bna *bna, struct bnad *bnad,
- 		struct bna_tx_config *tx_cfg,
--		struct bna_tx_event_cbfn *tx_cbfn,
-+		const struct bna_tx_event_cbfn *tx_cbfn,
- 		struct bna_res_info *res_info, void *priv)
- {
- 	struct bna_intr_info *intr_info;
+ 	/* notify driver */
+-	if (hldev->uld_callbacks.link_down)
+-		hldev->uld_callbacks.link_down(hldev);
++	if (hldev->uld_callbacks->link_down)
++		hldev->uld_callbacks->link_down(hldev);
+ exit:
+ 	return VXGE_HW_OK;
+ }
+@@ -585,8 +585,8 @@ __vxge_hw_device_handle_link_up_ind(stru
+ 	hldev->link_state = VXGE_HW_LINK_UP;
+ 
+ 	/* notify driver */
+-	if (hldev->uld_callbacks.link_up)
+-		hldev->uld_callbacks.link_up(hldev);
++	if (hldev->uld_callbacks->link_up)
++		hldev->uld_callbacks->link_up(hldev);
+ exit:
+ 	return VXGE_HW_OK;
+ }
