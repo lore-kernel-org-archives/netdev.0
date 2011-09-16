@@ -1,52 +1,54 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH net-next] ixgb: relax stack usage of 768 Byte
-Date: Fri, 16 Sep 2011 23:34:57 +0200
-Message-ID: <1316208897-4557-1-git-send-email-hagen@jauu.net>
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: Send ICMPv6 RSes only when RAs are accepted
+Date: Fri, 16 Sep 2011 17:49:00 -0400 (EDT)
+Message-ID: <20110916.174900.961553137813655280.davem@davemloft.net>
+References: <201108291209.p7TC9KkD002967@wrath.fud.no>
+	<20110916.171503.42153974977438913.davem@davemloft.net>
+	<4E73C2E5.2050901@fud.no>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: tore@fud.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:40523 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755201Ab1IPVfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 17:35:16 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:55476 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755250Ab1IPVuI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 17:50:08 -0400
+In-Reply-To: <4E73C2E5.2050901@fud.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ixgb_set_multi() will push (128 * 6) byte on the stack to set the
-multicast filter. Fix this by allocate the scratch buffer on the heap.
+From: Tore Anderson <tore@fud.no>
+Date: Fri, 16 Sep 2011 23:43:01 +0200
 
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgb/ixgb_main.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+> * David Miller
+> 
+>> From: Tore Anderson <tore@fud.no>
+>> Date: Mon, 29 Aug 2011 14:08:33 +0200
+>> 
+>>> The change also makes "Hybrid Router" forwarding mode ("forwarding"
+>>> sysctl set to 2) redundant, as the only thing that distinguished it from
+>>> the standard Router mode (forwarding=1) was that RSes was being sent. It
+>>> has therefore been removed.
+>> 
+>> You're not removing "accept_ra==2", it's still there in the test:
+>> 
+>>> -	if ((ifp->idev->cnf.forwarding == 0 ||
+>>> -	     ifp->idev->cnf.forwarding == 2) &&
+>>> +	if (((ifp->idev->cnf.accept_ra == 1 && !ifp->idev->cnf.forwarding) ||
+>>> +	     ifp->idev->cnf.accept_ra == 2) &&
+>> 
+>> And it does provide it's own unique behavior compared to
+>> "accept_ra==1".
+> 
+> Hi David,
+> 
+> I'm not removing accept_ra==2, no, only forwarding==2. Or, more
+> precisely, I'm only removing the *documentation* for forwarding==2;
+> forwarding==2 will still work, but there's no difference from
+> forwarding==1 any longer.
 
-diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-index c8b9c90..4d23007 100644
---- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-+++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-@@ -1095,8 +1095,10 @@ ixgb_set_multi(struct net_device *netdev)
- 		rctl |= IXGB_RCTL_MPE;
- 		IXGB_WRITE_REG(hw, RCTL, rctl);
- 	} else {
--		u8 mta[IXGB_MAX_NUM_MULTICAST_ADDRESSES *
--			    IXGB_ETH_LENGTH_OF_ADDRESS];
-+		u8 *mta = kmalloc(IXGB_MAX_NUM_MULTICAST_ADDRESSES *
-+				IXGB_ETH_LENGTH_OF_ADDRESS, GFP_ATOMIC);
-+		if (!mta)
-+			return;
- 
- 		IXGB_WRITE_REG(hw, RCTL, rctl);
- 
-@@ -1106,6 +1108,8 @@ ixgb_set_multi(struct net_device *netdev)
- 			       ha->addr, IXGB_ETH_LENGTH_OF_ADDRESS);
- 
- 		ixgb_mc_addr_list_update(hw, mta, netdev_mc_count(netdev), 0);
-+
-+		kfree(mta);
- 	}
- 
- 	if (netdev->features & NETIF_F_HW_VLAN_RX)
--- 
-1.7.5.4
+Ok, please make this more clear in your commit message.
+
+Thank you.
