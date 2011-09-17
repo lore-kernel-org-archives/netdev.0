@@ -1,46 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/11] ixgbe: Add SFP support for missed 82598 PHY
-Date: Fri, 16 Sep 2011 19:15:47 -0700
-Message-ID: <1316225752-1709-7-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 01/11] ixgb: convert to ndo_fix_features
+Date: Fri, 16 Sep 2011 19:50:28 -0700
+Message-ID: <1316227829.27917.19.camel@Joe-Laptop>
 References: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+	 <1316225752-1709-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:42810 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755326Ab1IQCP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Sep 2011 22:15:59 -0400
-In-Reply-To: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:37985 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753805Ab1IQCu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Sep 2011 22:50:29 -0400
+In-Reply-To: <1316225752-1709-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Fri, 2011-09-16 at 19:15 -0700, Jeff Kirsher wrote:
+> Private rx_csum flags are now duplicate of netdev->features & NETIF_F_RXCSUM.
+> Removing this needs deeper surgery.
+> diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+[]
+> @@ -439,12 +462,14 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	if (err)
+>  		goto err_sw_init;
+>  
+> -	netdev->features = NETIF_F_SG |
+> -			   NETIF_F_HW_CSUM |
+> +	netdev->hw_features = NETIF_F_SG |
+> +			   NETIF_F_TSO |
+> +			   NETIF_F_HW_CSUM;
+> +	netdev->features = netdev->hw_features |
+>  			   NETIF_F_HW_VLAN_TX |
+>  			   NETIF_F_HW_VLAN_RX |
+>  			   NETIF_F_HW_VLAN_FILTER;
+> -	netdev->features |= NETIF_F_TSO;
+> +	netdev->hw_features |= NETIF_F_RXCSUM;
 
-One of the 82598 phys was not being correctly identified as being SFP.
-This change corrects that.
+Is there any real reason to do this?
+It looks overly complicated for no benefit.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+Why not just use something like:
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 0533bc4..ce59dc6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3451,6 +3451,9 @@ static inline bool ixgbe_is_sfp(struct ixgbe_hw *hw)
- 	case ixgbe_phy_sfp_active_unknown:
- 	case ixgbe_phy_sfp_ftl_active:
- 		return true;
-+	case ixgbe_phy_nl:
-+		if (hw->mac.type == ixgbe_mac_82598EB)
-+			return true;
- 	default:
- 		return false;
- 	}
--- 
-1.7.6
+	netdev->hw_features = foo;
+	netdev->features = bar;
+
+or maybe use #defines like:
+
+#define FEATURES_DEFAULT (NETIF_F_NETIF_F_SG | NETIF_F_TSO | NETIF_F_HW_CSUM)
+#define FEATURES_HW_VLAN (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER)
+
+and
+	netdev->features = FEATURES_DEFAULT | FEATURES_HW_VLAN;
+	netdev->hw_features = FEATURES_DEFAULT | NETIF_F_RXCSUM;
