@@ -1,59 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 01/11] ixgb: convert to ndo_fix_features
-Date: Fri, 16 Sep 2011 19:50:28 -0700
-Message-ID: <1316227829.27917.19.camel@Joe-Laptop>
-References: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1316225752-1709-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Max Matveev <makc@redhat.com>
+Subject: Re: [PATCH] sctp: deal with multiple COOKIE_ECHO chunks
+Date: Sat, 17 Sep 2011 14:38:27 +1000
+Message-ID: <20084.9283.714998.398630@regina.usersys.redhat.com>
+References: <20110830072010.94AE98132707@regina.usersys.redhat.com>
+	<20110916.171747.406895441960738806.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
-	netdev@vger.kernel.org, gospo@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	vladislav.yasevich@hp.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:37985 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753805Ab1IQCu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Sep 2011 22:50:29 -0400
-In-Reply-To: <1316225752-1709-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:36932 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750772Ab1IQEin (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Sep 2011 00:38:43 -0400
+In-Reply-To: <20110916.171747.406895441960738806.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-09-16 at 19:15 -0700, Jeff Kirsher wrote:
-> Private rx_csum flags are now duplicate of netdev->features & NETIF_F_RXCSUM.
-> Removing this needs deeper surgery.
-> diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-[]
-> @@ -439,12 +462,14 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	if (err)
->  		goto err_sw_init;
->  
-> -	netdev->features = NETIF_F_SG |
-> -			   NETIF_F_HW_CSUM |
-> +	netdev->hw_features = NETIF_F_SG |
-> +			   NETIF_F_TSO |
-> +			   NETIF_F_HW_CSUM;
-> +	netdev->features = netdev->hw_features |
->  			   NETIF_F_HW_VLAN_TX |
->  			   NETIF_F_HW_VLAN_RX |
->  			   NETIF_F_HW_VLAN_FILTER;
-> -	netdev->features |= NETIF_F_TSO;
-> +	netdev->hw_features |= NETIF_F_RXCSUM;
+On Fri, 16 Sep 2011 17:17:47 -0400 (EDT), David Miller wrote:
 
-Is there any real reason to do this?
-It looks overly complicated for no benefit.
+ davem> From: Max Matveev <makc@redhat.com>
+ davem> Date: Tue, 30 Aug 2011 17:02:24 +1000
 
-Why not just use something like:
+ >> Attempt to reduce the number of IP packets emitted in response to single
+ >> SCTP packet (2e3216cd) introduced a complication - if a packet contains
+ >> two COOKIE_ECHO chunks and nothing else then SCTP state machine corks the
+ >> socket while processing first COOKIE_ECHO and then loses the association
+ >> and forgets to uncork the socket. To deal with the issue add new SCTP
+ >> command which can be used to set association explictly. Use this new
+ >> command when processing second COOKIE_ECHO chunk to restore the context
+ >> for SCTP state machine.
+ >> 
+ >> Signed-off-by: Max Matveev <makc@redhat.com>
 
-	netdev->hw_features = foo;
-	netdev->features = bar;
+ davem> Applied, but there were a ton of whitespace errors that GIT complained
+ davem> about and I had to fix up.
 
-or maybe use #defines like:
+Sorry about it - I did check it with checkpatch.pl and it was happy:
+must've been the mailer.
 
-#define FEATURES_DEFAULT (NETIF_F_NETIF_F_SG | NETIF_F_TSO | NETIF_F_HW_CSUM)
-#define FEATURES_HW_VLAN (NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER)
-
-and
-	netdev->features = FEATURES_DEFAULT | FEATURES_HW_VLAN;
-	netdev->hw_features = FEATURES_DEFAULT | NETIF_F_RXCSUM;
+max
