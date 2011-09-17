@@ -1,68 +1,64 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 3/3] bna: Eliminate Small Race Condition Window in RX Path
-Date: Fri, 16 Sep 2011 18:06:48 -0700
-Message-ID: <1316221608-21392-3-git-send-email-rmody@brocade.com>
-References: <1316221608-21392-1-git-send-email-rmody@brocade.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 16 Sep 2011 19:15:41 -0700
+Message-ID: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adapter_linux_open_src_team@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>,
-	Gurunatha Karaje <gkaraje@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:57138 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932145Ab1IQBH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Sep 2011 21:07:59 -0400
-In-Reply-To: <1316221608-21392-1-git-send-email-rmody@brocade.com>
+Received: from mga03.intel.com ([143.182.124.21]:30296 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753218Ab1IQCP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Sep 2011 22:15:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - In a continuous sequence of ifconfig up/down operations, there is a small
-   window of race between bnad_set_rx_mode() and bnad_cleanup_rx() while the
-   former tries to access rx_info->rx & the latter sets it to NULL. This race
-   could lead to bna_rx_mode_set() being called with a NULL (rx_info->rx)
-   pointer and a crash.
- - Hold bnad->bna_lock while setting / unsetting rx_info->rx in bnad_setup_rx()
-   & bnad_cleanup_rx(), thereby eliminating the race described above.
+The following series contains updates to ixgb and ixgbe. The ixgb patch
+does the conversion to ndo_fix_features.  The remaining patches are for
+ixgbe to do the following:=20
 
-Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/ethernet/brocade/bna/bnad.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+  - cleanup register reads, comments, memory allocations
+  - add SFP support for 82598 PHY and overheat sensor code
+  - fix register dump for X50
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 33ab1f8..abca139 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -1875,10 +1875,10 @@ bnad_cleanup_rx(struct bnad *bnad, u32 rx_id)
- 
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	bna_rx_destroy(rx_info->rx);
--	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 
- 	rx_info->rx = NULL;
- 	rx_info->rx_id = 0;
-+	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 
- 	bnad_rx_res_free(bnad, res_info);
- }
-@@ -1932,12 +1932,13 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	rx = bna_rx_create(&bnad->bna, bnad, rx_config, &rx_cbfn, res_info,
- 			rx_info);
--	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 	if (!rx) {
- 		err = -ENOMEM;
-+		spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 		goto err_return;
- 	}
- 	rx_info->rx = rx;
-+	spin_unlock_irqrestore(&bnad->bna_lock, flags);
- 
- 	/*
- 	 * Init NAPI, so that state is set to NAPI_STATE_SCHED,
--- 
-1.7.1
+The following are changes since commit f78a5fda9116525809d088917638be91=
+2b85f838:
+  Revert "Scm: Remove unnecessary pid & credential references in Unix s=
+ocket's send and receive path"
+and are available in the git repository at:
+  git://github.com/Jkirsher/net-next.git
+
+Alexander Duyck (7):
+  ixgbe: remove redundant configuration of tx_sample_rate
+  v2 ixgbe: Update packet buffer reservation to correct fdir headroom
+    size
+  ixgbe: make ixgbe_up and ixgbe_up_complete void functions
+  ixgbe: Add missing code for enabling overheat sensor interrupt
+  ixgbe: Add SFP support for missed 82598 PHY
+  ixgbe: drop adapter from ixgbe_fso call documentation
+  ixgbe: Make better use of memory allocations in one-buffer mode w/
+    RSC
+
+Emil Tantilov (3):
+  ixgbe: cleanup some register reads
+  ixgbe: fix FCRTL/H register dump for X540
+  ixgbe: remove duplicate netif_tx_start_all_queues
+
+Micha=C5=82 Miros=C5=82aw (1):
+  ixgb: convert to ndo_fix_features
+
+ drivers/net/ethernet/intel/ixgb/ixgb.h           |    2 +
+ drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c   |   59 +----------
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c      |   31 +++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   13 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c    |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  126 ++++++++++++--=
+--------
+ 7 files changed, 112 insertions(+), 123 deletions(-)
+
+--=20
+1.7.6
