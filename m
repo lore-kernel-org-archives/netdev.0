@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: deal with multiple COOKIE_ECHO chunks
-Date: Sat, 17 Sep 2011 01:02:08 -0400 (EDT)
-Message-ID: <20110917.010208.1774449645459771823.davem@davemloft.net>
-References: <20110830072010.94AE98132707@regina.usersys.redhat.com>
-	<20110916.171747.406895441960738806.davem@davemloft.net>
-	<20084.9283.714998.398630@regina.usersys.redhat.com>
+Subject: Re: [PATCH net-next] tcp: md5: remove one indirection level in
+ tcp_md5sig_pool
+Date: Sat, 17 Sep 2011 01:15:58 -0400 (EDT)
+Message-ID: <20110917.011558.942032708010034196.davem@davemloft.net>
+References: <1315895317.2556.28.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	vladislav.yasevich@hp.com
-To: makc@redhat.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42249 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:54524 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742Ab1IQFC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 01:02:28 -0400
-In-Reply-To: <20084.9283.714998.398630@regina.usersys.redhat.com>
+	with ESMTP id S1750886Ab1IQFQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 01:16:01 -0400
+In-Reply-To: <1315895317.2556.28.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Max Matveev <makc@redhat.com>
-Date: Sat, 17 Sep 2011 14:38:27 +1000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 13 Sep 2011 08:28:37 +0200
 
-> Sorry about it - I did check it with checkpatch.pl and it was happy:
+> tcp_md5sig_pool is currently an 'array' (a percpu object) of pointers to
+> struct tcp_md5sig_pool. Only the pointers are NUMA aware, but objects
+> themselves are all allocated on a single node.
+> 
+> Remove this extra indirection to get proper percpu memory (NUMA aware)
+> and make code simpler.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-checkpatch doesn't look thoroughly for these things, use
-something like "git apply --check --whitespace=error-all"
-for validation instead.
+Applied, thanks.
