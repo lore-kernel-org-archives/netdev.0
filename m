@@ -1,214 +1,129 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/13] igb: update ring and adapter structure to improve performance
-Date: Sat, 17 Sep 2011 01:04:30 -0700
-Message-ID: <1316246677-8830-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/13] igb: Remove multi_tx_table and simplify igb_xmit_frame
+Date: Sat, 17 Sep 2011 01:04:34 -0700
+Message-ID: <1316246677-8830-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316246677-8830-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:59863 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:26662 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751817Ab1IQIEp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Sep 2011 04:04:45 -0400
+	id S1753289Ab1IQIEu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Sep 2011 04:04:50 -0400
 In-Reply-To: <1316246677-8830-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change is meant to improve performance by splitting the Tx and Rx
-rings into 3 sections.  The first is primarily a read only section
-containing basic things like the indexes, a pointer to the dev and netdev
-structures, and basic information.  The second section contains the stats
-and next_to_use and next_to_clean values.  The third section is primarily
-unused values that can just be placed at the end of the ring and are not
-used in the hot path.
-
-The adapter structure has several sections that are read in the hot path.
-In order to improve performance there I am combining the frequent read
-hot path items into a single cache line.
+Instead of using the multi_tx_table to map possible Tx queues to Tx rings
+we can just do simple subtraction for the unlikely event that the Tx queue
+provided exceeds the number of Tx rings.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |   83 ++++++++++++++++-------------
- drivers/net/ethernet/intel/igb/igb_main.c |    4 +-
- 2 files changed, 46 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    4 +--
+ drivers/net/ethernet/intel/igb/igb_main.c |   36 +++++++++++++++++-----------
+ 2 files changed, 23 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index b2f2a8c..7036fd5 100644
+index 8607a1d..b725937 100644
 --- a/drivers/net/ethernet/intel/igb/igb.h
 +++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -187,26 +187,26 @@ struct igb_q_vector {
- };
+@@ -63,8 +63,7 @@ struct igb_adapter;
+ /* Transmit and receive queues */
+ #define IGB_MAX_RX_QUEUES                  (adapter->vfs_allocated_count ? 2 : \
+                                            (hw->mac.type > e1000_82575 ? 8 : 4))
+-#define IGB_ABS_MAX_TX_QUEUES              8
+-#define IGB_MAX_TX_QUEUES                  IGB_MAX_RX_QUEUES
++#define IGB_MAX_TX_QUEUES                  16
  
- struct igb_ring {
--	struct igb_q_vector *q_vector; /* backlink to q_vector */
--	struct net_device *netdev;     /* back pointer to net_device */
--	struct device *dev;            /* device pointer for dma mapping */
--	dma_addr_t dma;                /* phys address of the ring */
--	void *desc;                    /* descriptor ring memory */
--	unsigned int size;             /* length of desc. ring in bytes */
--	u16 count;                     /* number of desc. in the ring */
-+	struct igb_q_vector *q_vector;	/* backlink to q_vector */
-+	struct net_device *netdev;	/* back pointer to net_device */
-+	struct device *dev;		/* device pointer for dma mapping */
-+	struct igb_buffer *buffer_info;	/* array of buffer info structs */
-+	void *desc;			/* descriptor ring memory */
-+	unsigned long flags;		/* ring specific flags */
-+	void __iomem *tail;		/* pointer to ring tail register */
-+
-+	u16 count;			/* number of desc. in the ring */
-+	u8 queue_index;			/* logical index of the ring*/
-+	u8 reg_idx;			/* physical index of the ring */
-+	u32 size;			/* length of desc. ring in bytes */
-+
-+	/* everything past this point are written often */
-+	u16 next_to_clean ____cacheline_aligned_in_smp;
- 	u16 next_to_use;
--	u16 next_to_clean;
--	u8 queue_index;
--	u8 reg_idx;
--	void __iomem *head;
--	void __iomem *tail;
--	struct igb_buffer *buffer_info; /* array of buffer info structs */
- 
- 	unsigned int total_bytes;
- 	unsigned int total_packets;
- 
--	u32 flags;
--
- 	union {
- 		/* TX */
- 		struct {
-@@ -221,6 +221,8 @@ struct igb_ring {
- 			struct u64_stats_sync rx_syncp;
- 		};
- 	};
-+	/* Items past this point are only used during ring alloc / free */
-+	dma_addr_t dma;                /* phys address of the ring */
- };
- 
- #define IGB_RING_FLAG_RX_CSUM        0x00000001 /* RX CSUM enabled */
-@@ -248,15 +250,15 @@ static inline int igb_desc_unused(struct igb_ring *ring)
- 
- /* board specific private data structure */
- struct igb_adapter {
--	struct timer_list watchdog_timer;
--	struct timer_list phy_info_timer;
- 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
--	u16 mng_vlan_id;
--	u32 bd_number;
--	u32 wol;
--	u32 en_mng_pt;
--	u16 link_speed;
--	u16 link_duplex;
-+
-+	struct net_device *netdev;
-+
-+	unsigned long state;
-+	unsigned int flags;
-+
-+	unsigned int num_q_vectors;
-+	struct msix_entry *msix_entries;
- 
- 	/* Interrupt Throttle Rate */
- 	u32 rx_itr_setting;
-@@ -264,27 +266,36 @@ struct igb_adapter {
- 	u16 tx_itr;
- 	u16 rx_itr;
- 
--	struct work_struct reset_task;
--	struct work_struct watchdog_task;
--	bool fc_autoneg;
--	u8  tx_timeout_factor;
--	struct timer_list blink_timer;
--	unsigned long led_status;
--
- 	/* TX */
--	struct igb_ring *tx_ring[16];
- 	u32 tx_timeout_count;
-+	int num_tx_queues;
-+	struct igb_ring *tx_ring[16];
- 
- 	/* RX */
--	struct igb_ring *rx_ring[16];
--	int num_tx_queues;
- 	int num_rx_queues;
-+	struct igb_ring *rx_ring[16];
- 
- 	u32 max_frame_size;
- 	u32 min_frame_size;
- 
-+	struct timer_list watchdog_timer;
-+	struct timer_list phy_info_timer;
-+
-+	u16 mng_vlan_id;
-+	u32 bd_number;
-+	u32 wol;
-+	u32 en_mng_pt;
-+	u16 link_speed;
-+	u16 link_duplex;
-+
-+	struct work_struct reset_task;
-+	struct work_struct watchdog_task;
-+	bool fc_autoneg;
-+	u8  tx_timeout_factor;
-+	struct timer_list blink_timer;
-+	unsigned long led_status;
-+
- 	/* OS defined structs */
--	struct net_device *netdev;
- 	struct pci_dev *pdev;
- 	struct cyclecounter cycles;
- 	struct timecounter clock;
-@@ -306,15 +317,11 @@ struct igb_adapter {
- 
- 	int msg_enable;
- 
--	unsigned int num_q_vectors;
- 	struct igb_q_vector *q_vector[MAX_Q_VECTORS];
--	struct msix_entry *msix_entries;
- 	u32 eims_enable_mask;
- 	u32 eims_other;
- 
+ #define IGB_MAX_VF_MC_ENTRIES              30
+ #define IGB_MAX_VF_FUNCTIONS               8
+@@ -324,7 +323,6 @@ struct igb_adapter {
  	/* to not mess up cache alignment, always add to the bottom */
--	unsigned long state;
--	unsigned int flags;
  	u32 eeprom_wol;
  
- 	struct igb_ring *multi_tx_table[IGB_ABS_MAX_TX_QUEUES];
+-	struct igb_ring *multi_tx_table[IGB_ABS_MAX_TX_QUEUES];
+ 	u16 tx_ring_count;
+ 	u16 rx_ring_count;
+ 	unsigned int vfs_allocated_count;
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index af8c2f7..9fa2ad0 100644
+index 55d6431..7ad25e8 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2679,7 +2679,6 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
- 	                tdba & 0x00000000ffffffffULL);
- 	wr32(E1000_TDBAH(reg_idx), tdba >> 32);
+@@ -1875,7 +1875,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
  
--	ring->head = hw->hw_addr + E1000_TDH(reg_idx);
- 	ring->tail = hw->hw_addr + E1000_TDT(reg_idx);
- 	wr32(E1000_TDH(reg_idx), 0);
- 	writel(0, ring->tail);
-@@ -3040,7 +3039,6 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	               ring->count * sizeof(union e1000_adv_rx_desc));
+ 	err = -ENOMEM;
+ 	netdev = alloc_etherdev_mq(sizeof(struct igb_adapter),
+-	                           IGB_ABS_MAX_TX_QUEUES);
++				   IGB_MAX_TX_QUEUES);
+ 	if (!netdev)
+ 		goto err_alloc_etherdev;
  
- 	/* initialize head and tail */
--	ring->head = hw->hw_addr + E1000_RDH(reg_idx);
- 	ring->tail = hw->hw_addr + E1000_RDT(reg_idx);
- 	wr32(E1000_RDH(reg_idx), 0);
- 	writel(0, ring->tail);
-@@ -5653,7 +5651,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 				"  jiffies              <%lx>\n"
- 				"  desc.status          <%x>\n",
- 				tx_ring->queue_index,
--				readl(tx_ring->head),
-+				rd32(E1000_TDH(tx_ring->reg_idx)),
- 				readl(tx_ring->tail),
- 				tx_ring->next_to_use,
- 				tx_ring->next_to_clean,
+@@ -2620,10 +2620,6 @@ static int igb_setup_all_tx_resources(struct igb_adapter *adapter)
+ 		}
+ 	}
+ 
+-	for (i = 0; i < IGB_ABS_MAX_TX_QUEUES; i++) {
+-		int r_idx = i % adapter->num_tx_queues;
+-		adapter->multi_tx_table[i] = adapter->tx_ring[r_idx];
+-	}
+ 	return err;
+ }
+ 
+@@ -4363,12 +4359,21 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ }
+ 
++static inline struct igb_ring *igb_tx_queue_mapping(struct igb_adapter *adapter,
++						    struct sk_buff *skb)
++{
++	unsigned int r_idx = skb->queue_mapping;
++
++	if (r_idx >= adapter->num_tx_queues)
++		r_idx = r_idx % adapter->num_tx_queues;
++
++	return adapter->tx_ring[r_idx];
++}
++
+ static netdev_tx_t igb_xmit_frame(struct sk_buff *skb,
+ 				  struct net_device *netdev)
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+-	struct igb_ring *tx_ring;
+-	int r_idx = 0;
+ 
+ 	if (test_bit(__IGB_DOWN, &adapter->state)) {
+ 		dev_kfree_skb_any(skb);
+@@ -4380,14 +4385,17 @@ static netdev_tx_t igb_xmit_frame(struct sk_buff *skb,
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+-	r_idx = skb->queue_mapping & (IGB_ABS_MAX_TX_QUEUES - 1);
+-	tx_ring = adapter->multi_tx_table[r_idx];
++	/*
++	 * The minimum packet size with TCTL.PSP set is 17 so pad the skb
++	 * in order to meet this minimum size requirement.
++	 */
++	if (skb->len < 17) {
++		if (skb_padto(skb, 17))
++			return NETDEV_TX_OK;
++		skb->len = 17;
++	}
+ 
+-	/* This goes back to the question of how to logically map a tx queue
+-	 * to a flow.  Right now, performance is impacted slightly negatively
+-	 * if using multiple tx queues.  If the stack breaks away from a
+-	 * single qdisc implementation, we can look at this again. */
+-	return igb_xmit_frame_ring(skb, tx_ring);
++	return igb_xmit_frame_ring(skb, igb_tx_queue_mapping(adapter, skb));
+ }
+ 
+ /**
 -- 
 1.7.6
