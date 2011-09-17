@@ -1,43 +1,37 @@
-From: "J.Hwan.Kim" <j.hwan.kim99@gmail.com>
-Subject: unicast hash in ixgbe and ixgbevf
-Date: Sat, 17 Sep 2011 20:02:51 +0900
-Message-ID: <4E747E5B.4050207@gmail.com>
-Reply-To: frog1120@gmail.com
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v2 6/7] tcp buffer limitation: per-cgroup limit
+Date: Sat, 17 Sep 2011 09:12:57 -0300
+Message-ID: <4E748EC9.2030303@parallels.com>
+References: <1316051175-17780-1-git-send-email-glommer@parallels.com> <1316051175-17780-7-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:33827 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977Ab1IQLDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 07:03:02 -0400
-Received: by iaqq3 with SMTP id q3so3178449iaq.19
-        for <netdev@vger.kernel.org>; Sat, 17 Sep 2011 04:03:01 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <kamezawa.hiroyu@jp.fujitsu.com>,
+	<ebiederm@xmission.com>, <davem@davemloft.net>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>,
+	<linux-mm@kvack.org>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1316051175-17780-7-git-send-email-glommer@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, everyone
+On 09/14/2011 10:46 PM, Glauber Costa wrote:
+> This patch uses the "tcp_max_mem" field of the kmem_cgroup to
+> effectively control the amount of kernel memory pinned by a cgroup.
+>
+> We have to make sure that none of the memory pressure thresholds
+> specified in the namespace are bigger than the current cgroup.
+>
+> Signed-off-by: Glauber Costa<glommer@parallels.com>
+> CC: David S. Miller<davem@davemloft.net>
+> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+> CC: Eric W. Biederman<ebiederm@xmission.com>
+> ---
 
-I'm using intel ixgbe and ixgbevf driver and SR-IOV option.
+heads up: I found a small problem in a corner case here yesterday.
+So I will resubmit this series.
 
-Is there any method for distributing the random IP packet stream
-into several VF queues evenly?
-
-For example, for each 4 VF queues,
-can each a quarter of the IP stream be distributed to each 4 VF queues?
-
-I checked the PFUTA register and tested it, but as far as I know,
-with the 4K bit hash table, the stream is directed to queues
-of which ROPE bit is set.
-So, the stream is duplicated to the queues of which ROPE bit is set.
-That is not what I want to do.
-
-How can I distribute the random IP packets to several VF queues
-without duplicating?
-
-Thanks in advance.
-
-Best Regards,
-
-J.Hwan Kim
+It you guys have any other comments let me know, so I can address them 
+as well.
