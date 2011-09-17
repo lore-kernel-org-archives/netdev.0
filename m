@@ -1,48 +1,40 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [PATCH v2 4/7] per-cgroup tcp buffers control
-Date: Sat, 17 Sep 2011 22:33:58 +0400
-Message-ID: <20110917183358.GB2783@moon>
-References: <1316051175-17780-1-git-send-email-glommer@parallels.com>
- <1316051175-17780-5-git-send-email-glommer@parallels.com>
- <20110917181132.GC1658@shutemov.name>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next RFC V2 PATCH 0/5] Multiqueue support in
+	tun/tap
+Date: Sat, 17 Sep 2011 22:17:09 +0300
+Message-ID: <20110917191709.GA6127@redhat.com>
+References: <20110917055639.32666.89940.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Glauber Costa <glommer@parallels.com>, linux-kernel@vger.kernel.org,
-	paul@paulmenage.org, lizf@cn.fujitsu.com,
-	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
-	davem@davemloft.net, gthelen@google.com, netdev@vger.kernel.org,
-	linux-mm@kvack.org
-To: "Kirill A. Shutemov" <kirill@shutemov.name>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, eric.dumazet@gmail.com,
+	qemu-devel@nongnu.org, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, joe@perches.com,
+	shemminger@vyatta.com, mirq-linux@rere.qmqm.pl, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
 Content-Disposition: inline
-In-Reply-To: <20110917181132.GC1658@shutemov.name>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <20110917055639.32666.89940.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: </archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 17, 2011 at 09:11:32PM +0300, Kirill A. Shutemov wrote:
-> On Wed, Sep 14, 2011 at 10:46:12PM -0300, Glauber Costa wrote:
-> > +int tcp_init_cgroup_fill(struct proto *prot, struct cgroup *cgrp,
-> > +			 struct cgroup_subsys *ss)
-> > +{
-> > +	prot->enter_memory_pressure	= tcp_enter_memory_pressure;
-> > +	prot->memory_allocated		= memory_allocated_tcp;
-> > +	prot->prot_mem			= tcp_sysctl_mem;
-> > +	prot->sockets_allocated		= sockets_allocated_tcp;
-> > +	prot->memory_pressure		= memory_pressure_tcp;
-> 
-> No fancy formatting, please.
-> 
+On Sat, Sep 17, 2011 at 02:02:04PM +0800, Jason Wang wrote:
+> A wiki-page was created to narrate the detail design of all parts
+> involved in the multi queue implementation:
+> http://www.linux-kvm.org/page/Multiqueue and some basic tests result
+> could be seen in this page
+> http://www.linux-kvm.org/page/Multiqueue-performance-Sep-13. I would
+> post the detail numbers in attachment as the reply of this thread.
 
-What's wrong with having fancy formatting? It's indeed easier to read
-when members are assigned this way. It's always up to maintainer to
-choose what he prefers, but I see nothing wrong in such style (if only it
-doesn't break the style of the whole file).
+Does it make sense to test both with and without RPS in guest?
 
-	Cyrill
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+MST
