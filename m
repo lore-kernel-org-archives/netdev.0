@@ -1,72 +1,90 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 5/5] r8169: do not enable the TBI for anything but the original 8169.
-Date: Sat, 17 Sep 2011 11:59:11 +0200
-Message-ID: <20110917095911.GF21630@electric-eye.fr.zoreil.com>
-References: <20110917095617.GA21630@electric-eye.fr.zoreil.com>
+From: Ferenc Wagner <wferi@niif.hu>
+Subject: mac80211 regression (deadlock) with built-in ipw2200
+Date: Sat, 17 Sep 2011 12:23:18 +0200
+Message-ID: <877h57jwmh.fsf@tac.ki.iif.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:54306 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753721Ab1IQJ7s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 05:59:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20110917095617.GA21630@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The TBI bit in PHYStatus is reserved on anything but the oldest 8169.
+Hi,
 
-Nobody complained after I disabled it for the 8168 and the 810x (see
-66ec5d4fb1ce6f0bd9df4bc4b758f0916d9f37ab).
+As pointed out by git-bisect, commit ecb44335 (mac80211: fix
+suspend/resume races with unregister hw) broke booting on my ThinkPad
+R50e. Looks like the rtnl_lock() around rdev->wiphy.registered = true
+leads to a deadlock, possibly because ipw2200 is built-in in my
+config.  Testing with the additional debug patch
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/r8169.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -616,9 +616,8 @@ int wiphy_register(struct wiphy *wiphy)
+        if (res)
+                goto out_rm_dev;
+ 
+-       rtnl_lock();
++       WARN_ON(rtnl_is_locked());
+        rdev->wiphy.registered = true;
+-       rtnl_unlock();
+        return 0;
+ 
+on top of c455ea4f (rc6+) leads to a working system with
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index dff0bf0..c236670 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -3080,6 +3080,14 @@ static void rtl8169_phy_reset(struct net_device *dev,
- 	netif_err(tp, link, dev, "PHY reset failed\n");
- }
- 
-+static bool rtl_tbi_enabled(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	return (tp->mac_version == RTL_GIGA_MAC_VER_01) &&
-+	    (RTL_R8(PHYstatus) & TBI_Enable);
-+}
-+
- static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -3112,7 +3120,7 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
- 			   ADVERTISED_1000baseT_Half |
- 			   ADVERTISED_1000baseT_Full : 0));
- 
--	if (RTL_R8(PHYstatus) & TBI_Enable)
-+	if (rtl_tbi_enabled(tp))
- 		netif_info(tp, link, dev, "TBI auto-negotiating\n");
- }
- 
-@@ -3738,8 +3746,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	tp->features |= rtl_try_msi(pdev, ioaddr, cfg);
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
- 
--	if ((tp->mac_version <= RTL_GIGA_MAC_VER_06) &&
--	    (RTL_R8(PHYstatus) & TBI_Enable)) {
-+	if (rtl_tbi_enabled(tp)) {
- 		tp->set_speed = rtl8169_set_speed_tbi;
- 		tp->get_settings = rtl8169_gset_tbi;
- 		tp->phy_reset_enable = rtl8169_tbi_reset_enable;
+[    1.020738] ipw2200: Intel(R) PRO/Wireless 2200/2915 Network Driver, 1.2.2kmpr
+[    1.020812] ipw2200: Copyright(c) 2003-2006 Intel Corporation
+[    1.023406] ACPI: PCI Interrupt Link [LNKF] enabled at IRQ 11
+[    1.025717] ipw2200 0000:02:02.0: PCI INT A -> Link[LNKF] -> GSI 11 (level, low
+) -> IRQ 11
+[    1.028048] ipw2200: Detected Intel PRO/Wireless 2200BG Network Connection
+[    1.148058] ------------[ cut here ]------------
+[    1.150393] WARNING: at net/wireless/core.c:619 wiphy_register+0x4c1/0x58c()
+[    1.152781] Hardware name: 1834S5G
+[    1.155126] Pid: 1, comm: swapper Not tainted 3.1.0-rc6+ #86
+[    1.157520] Call Trace:
+[    1.159871]  [<c1028b98>] warn_slowpath_common+0x69/0x90
+[    1.162241]  [<c13ee7a8>] ? wiphy_register+0x4c1/0x58c
+[    1.164617]  [<c13ee7a8>] ? wiphy_register+0x4c1/0x58c
+[    1.166924]  [<c1028be1>] warn_slowpath_null+0x22/0x24
+[    1.169230]  [<c13ee7a8>] wiphy_register+0x4c1/0x58c
+[    1.171564]  [<c12daad0>] ? ipw_net_init+0x1e6/0x2d0
+[    1.173890]  [<c12da995>] ipw_net_init+0xab/0x2d0
+[    1.176173]  [<c1375032>] register_netdevice+0x70/0x271
+[    1.178446]  [<c137524e>] register_netdev+0x1b/0x28
+[    1.180688]  [<c142f5b8>] ipw_pci_probe+0x7c3/0x891
+[    1.182892]  [<c11a6f93>] local_pci_probe+0x40/0x9a
+[    1.185086]  [<c11a7c98>] pci_device_probe+0x56/0x71
+[    1.187259]  [<c128c902>] driver_probe_device+0x6c/0x177
+[    1.189453]  [<c11a6ed9>] ? pci_match_device+0x80/0x85
+[    1.191615]  [<c128ca79>] __driver_attach+0x6c/0x6e
+[    1.193794]  [<c128c257>] bus_for_each_dev+0x4a/0x68
+[    1.195936]  [<c128c7b4>] driver_attach+0x1e/0x20
+[    1.198043]  [<c128ca0d>] ? driver_probe_device+0x177/0x177
+[    1.200151]  [<c128bce5>] bus_add_driver+0x186/0x231
+[    1.202247]  [<c11a7b3c>] ? pci_dev_put+0x16/0x16
+[    1.204320]  [<c128cfac>] driver_register+0x6a/0x118
+[    1.206386]  [<c120665f>] ? misc_register+0xc2/0x133
+[    1.208425]  [<c15ee31e>] ? parse_early_options+0x25/0x25
+[    1.210423]  [<c11a7e66>] __pci_register_driver+0x33/0x8c
+[    1.212393]  [<c15ee31e>] ? parse_early_options+0x25/0x25
+[    1.214384]  [<c160e0e8>] ipw_init+0x30/0x75
+[    1.216356]  [<c15ee24c>] do_one_initcall+0x86/0x133
+[    1.218340]  [<c160e0b8>] ? tun_init+0x8b/0x8b
+[    1.220315]  [<c15ee31e>] ? parse_early_options+0x25/0x25
+[    1.222270]  [<c15ee393>] kernel_init+0x75/0x10c
+[    1.224214]  [<c14349b6>] kernel_thread_helper+0x6/0x10
+[    1.226124] ---[ end trace 4ef665623022622c ]---
+[    1.228121] ipw2200: Detected geography ZZR (14 802.11bg channels, 0 802.11a channels)
+
+in dmesg.  It's a shoot in the dark, but register_netdev() issues
+rtnl_lock() before calling register_netdevice(), so wiphy_register()
+can't possibly acquire the rtnl mutex in the same call chain, or can
+it?
 -- 
-1.7.6
+Thanks,
+Feri.
