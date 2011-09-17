@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 2/3] bna: Set Ring Param Fix
-Date: Sat, 17 Sep 2011 00:48:14 -0400 (EDT)
-Message-ID: <20110917.004814.2209713364192737974.davem@davemloft.net>
-References: <1316221608-21392-1-git-send-email-rmody@brocade.com>
-	<1316221608-21392-2-git-send-email-rmody@brocade.com>
+Subject: Re: [PATCH] ipv6: don't use inetpeer to store metrics for routes.
+Date: Sat, 17 Sep 2011 00:57:46 -0400 (EDT)
+Message-ID: <20110917.005746.1228785589532886752.davem@davemloft.net>
+References: <4E65CD06.2080903@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com,
-	gkaraje@brocade.com
-To: rmody@brocade.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: zheng.z.yan@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45152 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51773 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742Ab1IQEtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 00:49:17 -0400
-In-Reply-To: <1316221608-21392-2-git-send-email-rmody@brocade.com>
+	with ESMTP id S1750742Ab1IQE5v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 00:57:51 -0400
+In-Reply-To: <4E65CD06.2080903@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rasesh Mody <rmody@brocade.com>
-Date: Fri, 16 Sep 2011 18:06:47 -0700
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Date: Tue, 06 Sep 2011 15:34:30 +0800
 
-> When Rx queue size is changed, queues are torn down and setup with the new queue
-> size. During this operation, clear promiscuous mode and restore the original
-> VLAN filter.
+> Current IPv6 implementation uses inetpeer to store metrics for
+> routes. The problem of inetpeer is that it doesn't take subnet
+> prefix length in to consideration. If two routes have the same
+> address but different prefix length, they share same inetpeer.
+> So changing metrics of one route also affects the other. The
+> fix is to allocate separate metrics storage for each route.
 > 
-> Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
-> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
 
-Applied.
+Applied, thanks for fixing this bug.
