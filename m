@@ -1,64 +1,28 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Re: Bridge stays down until a port is added
-Date: Sat, 17 Sep 2011 22:42:57 +0200
-Message-ID: <20110917204257.GA2636@torres.zugschlus.de>
-References: <20110811070659.GA21307@torres.zugschlus.de>
- <20110811081706.7307e8b2@nehalam.ftrdhcpuser.net>
+From: PEPSI BOTTLING COMPANY PLC <francessdaveadmin@skymail.mn>
+Subject: Congratulations!!! You Are a Certified Winner of Our 2011 Promo?
+Date: Sat, 17 Sep 2011 13:50:35 -0700
+Message-ID: <20110917135035.95346yeclobjm9ds@mail.coppervalley.bc.ca>
+Reply-To: marketingmanager2011@hotmail.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:50498 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752900Ab1IQUm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 16:42:58 -0400
-Received: from mh by torres.zugschlus.de with local (Exim 4.72)
-	(envelope-from <mh+netdev@zugschlus.de>)
-	id 1R51iz-0000jb-60
-	for netdev@vger.kernel.org; Sat, 17 Sep 2011 22:42:57 +0200
+Received: from mail.coppervalley.bc.ca ([209.52.62.8]:37401 "EHLO
+	mail.coppervalley.bc.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754809Ab1IQWH2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 18:07:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20110811081706.7307e8b2@nehalam.ftrdhcpuser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 11, 2011 at 08:17:06AM -0700, Stephen Hemminger wrote:
-> On Thu, 11 Aug 2011 09:06:59 +0200
-> Marc Haber <mh+netdev@zugschlus.de> wrote:
-> > New new behavior is somewhat unhandy when one uses the bridge address
-> > for services that the host offers, to save on IP addresses and
-> > networks (for example, when one has only a single IP address and a
-> > single additional network), since one has to take extra measures to
-> > have the addresses on the bridge interface reachable.
-> > 
-> > Or am I doing things wrong?
-> 
-> The goal is to make the bridge behave the same as a vlan or
-> a physical device.  Could you explain better what the application(s)
-> would expect.
+Your email has won =A3500,000.00 POUNDS (Five Hundred Thousand Pounds) =
+=20
+from Pepsi online promotions2011,send your Full names, Age, =20
+Sex,Occupation,Phone and Address to the Promotion Manager via email at =
+=20
+: marketingmanager2011@hotmail.co.uk   for claims. Tel: +447011150911
 
-The situation of a bridge is quite different from a physical ethernet
-interface. The physical interface is usually connected to a switch and
-is thus immediately up, even if no systems other than the switch are
-online.
-
-In the case of a bridge on a virtualization host used to connect
-virtual machines, the bridge only goes up after the first VM was
-started.
-
-In the IPv6 SLAAC case, the host tries start its radvd on the bridge
-well before the first VM comes up, the radvd barfs since the interface
-is not up, does not come up, and the VMs are without network. In this
-case, it is needed to force the bridge into an UP state earlier so
-that radvd can start.
-
-If people are supposed to add a dummy interface to the bridge if they
-want to use ipv6, this should be documented. And it's ugly.
-
-Greetings
-Marc
-
--- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
