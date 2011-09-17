@@ -1,64 +1,72 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 16 Sep 2011 19:15:41 -0700
-Message-ID: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+Subject: [net-next 02/11] ixgbe: remove redundant configuration of tx_sample_rate
+Date: Fri, 16 Sep 2011 19:15:43 -0700
+Message-ID: <1316225752-1709-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:30296 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:31405 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753218Ab1IQCP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Sep 2011 22:15:56 -0400
+	id S1753663Ab1IQCP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Sep 2011 22:15:57 -0400
+In-Reply-To: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to ixgb and ixgbe. The ixgb patch
-does the conversion to ndo_fix_features.  The remaining patches are for
-ixgbe to do the following:=20
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-  - cleanup register reads, comments, memory allocations
-  - add SFP support for 82598 PHY and overheat sensor code
-  - fix register dump for X50
+This change fixes a minor redundancy in that tx_sample_rate was set twice.
 
-The following are changes since commit f78a5fda9116525809d088917638be91=
-2b85f838:
-  Revert "Scm: Remove unnecessary pid & credential references in Unix s=
-ocket's send and receive path"
-and are available in the git repository at:
-  git://github.com/Jkirsher/net-next.git
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   13 ++++---------
+ 1 files changed, 4 insertions(+), 9 deletions(-)
 
-Alexander Duyck (7):
-  ixgbe: remove redundant configuration of tx_sample_rate
-  v2 ixgbe: Update packet buffer reservation to correct fdir headroom
-    size
-  ixgbe: make ixgbe_up and ixgbe_up_complete void functions
-  ixgbe: Add missing code for enabling overheat sensor interrupt
-  ixgbe: Add SFP support for missed 82598 PHY
-  ixgbe: drop adapter from ixgbe_fso call documentation
-  ixgbe: Make better use of memory allocations in one-buffer mode w/
-    RSC
-
-Emil Tantilov (3):
-  ixgbe: cleanup some register reads
-  ixgbe: fix FCRTL/H register dump for X540
-  ixgbe: remove duplicate netif_tx_start_all_queues
-
-Micha=C5=82 Miros=C5=82aw (1):
-  ixgb: convert to ndo_fix_features
-
- drivers/net/ethernet/intel/ixgb/ixgb.h           |    2 +
- drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c   |   59 +----------
- drivers/net/ethernet/intel/ixgb/ixgb_main.c      |   31 +++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   13 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c    |    1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  126 ++++++++++++--=
---------
- 7 files changed, 112 insertions(+), 123 deletions(-)
-
---=20
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index bb069bc..fec49e6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3409,16 +3409,12 @@ static void ixgbe_fdir_filter_restore(struct ixgbe_adapter *adapter)
+ 
+ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ {
+-	struct net_device *netdev = adapter->netdev;
+-	struct ixgbe_hw *hw = &adapter->hw;
+-	int i;
+-
+ 	ixgbe_configure_pb(adapter);
+ #ifdef CONFIG_IXGBE_DCB
+ 	ixgbe_configure_dcb(adapter);
+ #endif
+ 
+-	ixgbe_set_rx_mode(netdev);
++	ixgbe_set_rx_mode(adapter->netdev);
+ 	ixgbe_restore_vlan(adapter);
+ 
+ #ifdef IXGBE_FCOE
+@@ -3427,15 +3423,14 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ 
+ #endif /* IXGBE_FCOE */
+ 	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
+-		for (i = 0; i < adapter->num_tx_queues; i++)
+-			adapter->tx_ring[i]->atr_sample_rate =
+-						       adapter->atr_sample_rate;
+-		ixgbe_init_fdir_signature_82599(hw, adapter->fdir_pballoc);
++		ixgbe_init_fdir_signature_82599(&adapter->hw,
++						adapter->fdir_pballoc);
+ 	} else if (adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE) {
+ 		ixgbe_init_fdir_perfect_82599(&adapter->hw,
+ 					      adapter->fdir_pballoc);
+ 		ixgbe_fdir_filter_restore(adapter);
+ 	}
++
+ 	ixgbe_configure_virtualization(adapter);
+ 
+ 	ixgbe_configure_tx(adapter);
+-- 
 1.7.6
