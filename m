@@ -1,43 +1,75 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH] macvlan/macvtap: Fix unicast between macvtap interfaces in bridge mode
-Date: Sun, 18 Sep 2011 18:53:20 -0400
-Message-ID: <1316386400-3470-1-git-send-email-david.ward@ll.mit.edu>
+From: Henry Wong <v4l@stuffedcow.net>
+Subject: ppp_generic: fix multilink fragment MTU calculation (again)
+Date: Sun, 18 Sep 2011 19:41:49 -0400
+Message-ID: <4E7681BD.2040902@stuffedcow.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shlomo Pongratz <shlomop@mellanox.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------000803000805090903030806"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:39443 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932770Ab1IRXWg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Sep 2011 19:22:36 -0400
+Received: from mail.stuffedcow.net ([206.248.137.124]:41555 "EHLO
+	mail.stuffedcow.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932620Ab1IRXwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 19:52:02 -0400
+Received: from [192.168.0.112] (henry2.stuffedcow.lan [192.168.0.112])
+	by mail.stuffedcow.net (Postfix) with ESMTP id 8F1A6723
+	for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 19:42:07 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Packets should always be forwarded to the lowerdev using dev_forward_skb.
-vlan->forward is for packets being forwarded directly to another macvlan/
-macvtap device (used for multicast in bridge mode).
+This is a multi-part message in MIME format.
+--------------000803000805090903030806
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Reported-and-tested-by: Shlomo Pongratz <shlomop@mellanox.com>
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- drivers/net/macvlan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+When using MLPPP, the maximum size of a fragment is incorrectly 
+calculated with an offset of -2.
+This patch reverses the changes in the patch found here: 
+http://marc.info/?l=linux-netdev&m=123541324010539&w=2
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 05172c3..376e3e9 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -239,7 +239,7 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
- 		dest = macvlan_hash_lookup(port, eth->h_dest);
- 		if (dest && dest->mode == MACVLAN_MODE_BRIDGE) {
- 			/* send to lowerdev first for its network taps */
--			vlan->forward(vlan->lowerdev, skb);
-+			dev_forward_skb(vlan->lowerdev, skb);
- 
- 			return NET_XMIT_SUCCESS;
+The value of hdrlen includes the size of both the 2-byte PPP protocol 
+field and the 2- or 4-byte multilink header (2+4=6 for long sequence 
+numbers, 2+2=4 for short sequence numbers). Section 2 of RFC1661 says 
+that the MRU that is negotiated (i.e., the MTU of the sending system) 
+includes only the PPP payload but not the protocol field, thus the 
+correct MTU should be the link's MTU minus the multilink header (mtu - 
+(hdrlen-2)).
+
+The incorrect calculation causes Linux to fragment packets to a size two 
+bytes smaller than the allowed MTU. While not technically illegal, this 
+behaviour confounds MRU-tuning to avoid PPP-layer fragmentation.
+
+Signed-off-by: Henry Wong <henry@stuffedcow.net>
+
+
+
+
+--------------000803000805090903030806
+Content-Type: text/x-patch;
+ name="mlppp-frag-mtu.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="mlppp-frag-mtu.patch"
+
+diff -urp linux-orig/drivers/net/ppp_generic.c linux-new/drivers/net/ppp_generic.c
+--- linux-orig/drivers/net/ppp_generic.c	2011-09-18 17:59:18.000000000 -0400
++++ linux-new/drivers/net/ppp_generic.c	2011-09-18 18:05:29.000000000 -0400
+@@ -1464,8 +1464,13 @@ static int ppp_mp_explode(struct ppp *pp
+ 			spin_unlock_bh(&pch->downl);
+ 			continue;
  		}
--- 
-1.7.4.1
+-
+-		mtu = pch->chan->mtu - hdrlen;
++		
++		/* 
++		 * hdrlen includes the 2-byte PPP protocol field, but the
++		 * MTU counts only the payload excluding the protocol field.
++		 * (RFC1661 Section 2)
++		 */
++		mtu = pch->chan->mtu - (hdrlen - 2);
+ 		if (mtu < 4)
+ 			mtu = 4;
+ 		if (flen > mtu)
+
+
+--------------000803000805090903030806--
