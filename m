@@ -1,42 +1,32 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH ] dynamic_debug: call __netdev_printk only for CONFIG_NET
-Date: Sun, 18 Sep 2011 01:27:36 -0700
-Message-ID: <20110918082736.GB19444@kroah.com>
-References: <cover.1313085588.git.jbaron@redhat.com>
- <5514795fe63ccfd4b3a80283ed04a526abe3c59d.1313085588.git.jbaron@redhat.com>
- <201109011657.02407.arnd@arndb.de>
- <20110901151817.GA14324@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, gregkh@suse.de, joe@perches.com,
-	jim.cromie@gmail.com, bvanassche@acm.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	aloisio.almeida@openbossa.org, netdev@vger.kernel.org
-To: Jason Baron <jbaron@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110901151817.GA14324@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: [PATCH 0/4] add fec support for imx6q
+Date: Sun, 18 Sep 2011 19:54:08 +0800
+Message-ID: <1316346852-17090-1-git-send-email-shawn.guo@linaro.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org, patches@linaro.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:48130 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751573Ab1IRLwN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 07:52:13 -0400
+Received: by pzk1 with SMTP id 1so7732480pzk.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 04:52:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 01, 2011 at 11:18:18AM -0400, Jason Baron wrote:
-> On Thu, Sep 01, 2011 at 04:57:02PM +0200, Arnd Bergmann wrote:
-> > __netdev_printk is only defined when CONFIG_NET is set. Since we only need
-> > __dynamic_netdev_dbg for network drivers, we can make it conditional on the
-> > same Kconfig symbol.
-> >
-> 
-> Hi,
-> 
-> Yes, I've posted a fix for this:
-> 
-> https://lkml.org/lkml/2011/8/30/297
-> 
-> Hopefully, it will be pulled in soon.
+This series adds imx6q enet support.  The imx6q enet is a derivative of
+imx28 enet controller.  It fixed the frame endian issue found on imx28,
+and added 1 Gbps support.
 
-As that thread again spun off into confusion, can you please resend the
-end result?
+It's based on v3.1-rc6.
 
-thanks,
+Shawn Guo (4):
+      net/fec: change phy-reset-gpio request warning to debug message
+      net/fec: fix fec1 check in fec_enet_mii_init()
+      net/fec: set phy_speed to the optimal frequency 2.5 MHz
+      net/fec: add imx6q enet support
 
-greg k-h
+ drivers/net/Kconfig |    3 +-
+ drivers/net/fec.c   |   65 ++++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 52 insertions(+), 16 deletions(-)
