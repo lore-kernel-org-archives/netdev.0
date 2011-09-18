@@ -1,59 +1,65 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 4/4] net/fec: add imx6q enet support
-Date: Sun, 18 Sep 2011 20:09:12 +0200
-Message-ID: <20110918180912.GA3734@electric-eye.fr.zoreil.com>
-References: <1316346852-17090-1-git-send-email-shawn.guo@linaro.org> <1316346852-17090-5-git-send-email-shawn.guo@linaro.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH ] dynamic_debug: call __netdev_printk only for CONFIG_NET
+Date: Sun, 18 Sep 2011 11:27:14 -0700
+Message-ID: <20110918182714.GA32615@kroah.com>
+References: <cover.1313085588.git.jbaron@redhat.com>
+ <5514795fe63ccfd4b3a80283ed04a526abe3c59d.1313085588.git.jbaron@redhat.com>
+ <201109011657.02407.arnd@arndb.de>
+ <20110901151817.GA14324@redhat.com>
+ <20110918082736.GB19444@kroah.com>
+ <4E76288A.4020801@xenotime.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org, patches@linaro.org
-To: Shawn Guo <shawn.guo@linaro.org>
+Cc: Jason Baron <jbaron@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	gregkh@suse.de, joe@perches.com, jim.cromie@gmail.com,
+	bvanassche@acm.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, aloisio.almeida@openbossa.org,
+	netdev@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51205 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755923Ab1IRSKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 14:10:04 -0400
+Received: from out3.smtp.messagingengine.com ([66.111.4.27]:60040 "EHLO
+	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755740Ab1IRS21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 14:28:27 -0400
 Content-Disposition: inline
-In-Reply-To: <1316346852-17090-5-git-send-email-shawn.guo@linaro.org>
+In-Reply-To: <4E76288A.4020801@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shawn Guo <shawn.guo@linaro.org> :
-[...]
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 04206e4..849cb0b 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -442,18 +453,23 @@ fec_restart(struct net_device *ndev, int duplex)
->  		/* Enable flow control and length check */
->  		rcntl |= 0x40000000 | 0x00000020;
->  
-> -		/* MII or RMII */
-> +		/* RGMII, RMII or MII */
-> +		if (fep->phy_interface == PHY_INTERFACE_MODE_RGMII)
-> +			rcntl |= (1 << 6);
->  		if (fep->phy_interface == PHY_INTERFACE_MODE_RMII)
-           ^^^^ missing "else"
+On Sun, Sep 18, 2011 at 10:21:14AM -0700, Randy Dunlap wrote:
+> On 09/18/2011 01:27 AM, Greg KH wrote:
+> > On Thu, Sep 01, 2011 at 11:18:18AM -0400, Jason Baron wrote:
+> >> On Thu, Sep 01, 2011 at 04:57:02PM +0200, Arnd Bergmann wrote:
+> >>> __netdev_printk is only defined when CONFIG_NET is set. Since we only need
+> >>> __dynamic_netdev_dbg for network drivers, we can make it conditional on the
+> >>> same Kconfig symbol.
+> >>>
+> >>
+> >> Hi,
+> >>
+> >> Yes, I've posted a fix for this:
+> >>
+> >> https://lkml.org/lkml/2011/8/30/297
+> >>
+> >> Hopefully, it will be pulled in soon.
+> > 
+> > As that thread again spun off into confusion, can you please resend the
+> > end result?
+> 
+> That spinning confusion had nothing to do with the posted & correct patch
+> which could have been applied several weeks ago.
+> 
+> I'm curious:  Do you delete most of your email on a routine basis?
 
-[...]
-> +		/* 1G, 100M or 10M */
-> +		if (fep->phy_dev) {
-> +			if (fep->phy_dev->speed == SPEED_1000)
-> +				ecntl |= (1 << 8);
-> +			else if (fep->phy_dev->speed == SPEED_100)
-> +				rcntl &= ~(1 << 9);
-> +			else
-> +				rcntl |= (1 << 9);
-> +		}
-[...]
-> +	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
-> +		/* enable ENET endian swap */
-> +		ecntl |= (1 << 8);
+No, only after going through pending patches do I purge them.  And when
+a series of patches generates a thread like this one, where people are
+arguing over the way the macros are named, and no one seems to agree, I
+will take it as the fact that this series was contentious and needs to
+be resent after taking into consideration the original complaints.
 
-I do not understand why the endian swap bit of ecntl needs to be
-set the same in these two different paths, especially as the latter
-handles the old faulty imx28 and the former the newly fixed imx6q.
-Typo ?
+For me to keep all email threads, based on the amount of email I get[1],
+would be ludicrous.
 
--- 
-Ueimor
+greg k-h
+
+[1]: http://www.kroah.com/log/linux/get_lots_of_email.html
