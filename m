@@ -1,52 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG?] tcp: potential bug in tcp_is_sackblock_valid()
-Date: Sun, 18 Sep 2011 21:35:44 +0200
-Message-ID: <1316374544.31335.16.camel@edumazet-laptop>
-References: <4E696FD0.7060702@intel.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v2 4/7] per-cgroup tcp buffers control
+Date: Sun, 18 Sep 2011 16:42:34 -0300
+Message-ID: <4E7649AA.40305@parallels.com>
+References: <1316051175-17780-1-git-send-email-glommer@parallels.com> <1316051175-17780-5-git-send-email-glommer@parallels.com> <20110917181132.GC1658@shutemov.name> <20110917183358.GB2783@moon> <20110918185806.GA28057@shutemov.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	herbert@gondor.apana.org.au,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>
-To: "Yan, Zheng" <zheng.z.yan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f170.google.com ([74.125.82.170]:47835 "EHLO
-	mail-wy0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756184Ab1IRTfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 15:35:52 -0400
-Received: by wyg8 with SMTP id 8so8239322wyg.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 12:35:51 -0700 (PDT)
-In-Reply-To: <4E696FD0.7060702@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cyrill Gorcunov <gorcunov@gmail.com>, <linux-kernel@vger.kernel.org>,
+	<paul@paulmenage.org>, <lizf@cn.fujitsu.com>,
+	<kamezawa.hiroyu@jp.fujitsu.com>, <ebiederm@xmission.com>,
+	<davem@davemloft.net>, <gthelen@google.com>, <netdev@vger.kernel.org>,
+	<linux-mm@kvack.org>
+To: "Kirill A. Shutemov" <kirill@shutemov.name>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110918185806.GA28057@shutemov.name>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 09 septembre 2011 =C3=A0 09:45 +0800, Yan, Zheng a =C3=A9cr=
-it :
-> Hi all,
->=20
-> I found a check in tcp_is_sackblock_valid() is suspicious. It against
-> its comment and RFC. I think the correct check should be:
->=20
-> ---
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 385c470..a5d01b1 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -1124,7 +1124,7 @@ static int tcp_is_sackblock_valid(struct tcp_so=
-ck *tp, int is_dsack,
->                 return 0;
-> =20
->         /* ...Then it's D-SACK, and must reside below snd_una complet=
-ely */
-> -       if (!after(end_seq, tp->snd_una))
-> +       if (after(end_seq, tp->snd_una))
->                 return 0;
-> =20
->         if (!before(start_seq, tp->undo_marker))
-> ---
+On 09/18/2011 03:58 PM, Kirill A. Shutemov wrote:
+> On Sat, Sep 17, 2011 at 10:33:58PM +0400, Cyrill Gorcunov wrote:
+>> On Sat, Sep 17, 2011 at 09:11:32PM +0300, Kirill A. Shutemov wrote:
+>>> On Wed, Sep 14, 2011 at 10:46:12PM -0300, Glauber Costa wrote:
+>>>> +int tcp_init_cgroup_fill(struct proto *prot, struct cgroup *cgrp,
+>>>> +			 struct cgroup_subsys *ss)
+>>>> +{
+>>>> +	prot->enter_memory_pressure	= tcp_enter_memory_pressure;
+>>>> +	prot->memory_allocated		= memory_allocated_tcp;
+>>>> +	prot->prot_mem			= tcp_sysctl_mem;
+>>>> +	prot->sockets_allocated		= sockets_allocated_tcp;
+>>>> +	prot->memory_pressure		= memory_pressure_tcp;
+>>>
+>>> No fancy formatting, please.
+>>>
+>>
+>> What's wrong with having fancy formatting? It's indeed easier to read
+>> when members are assigned this way. It's always up to maintainer to
+>> choose what he prefers, but I see nothing wrong in such style (if only it
+>> doesn't break the style of the whole file).
+>
+> You have to remove this indenting if you'll reorganize code (e.g. move
+> part under if(...)).
+> IMO, it reduces code maintainability.
+>
+As I said, I don't care, so I'll change. But I have to say I disagree 
+with your statement.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+It is a pack of assignments, so if you reorganize this code, two things 
+can happen:
+1) It is not moved to a new ident level -> It keeps being a pack of 
+assignments, and you don't really need to change it.
+2) It is moved to a new ident level -> You have to touch it anyway...
 
-This bug was introduced in 2.6.24 by commit 5b3c9882
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
