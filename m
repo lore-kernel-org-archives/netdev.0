@@ -1,59 +1,73 @@
-From: "Kirill A. Shutemov" <kirill@shutemov.name>
-Subject: Re: [PATCH v2 1/7] Basic kernel memory functionality for the Memory
- Controller
-Date: Sun, 18 Sep 2011 23:43:35 +0300
-Message-ID: <20110918204335.GB28611@shutemov.name>
-References: <1316051175-17780-1-git-send-email-glommer@parallels.com>
- <1316051175-17780-2-git-send-email-glommer@parallels.com>
- <20110917174535.GA1658@shutemov.name>
- <4E7567E0.9010401@parallels.com>
- <20110918190509.GC28057@shutemov.name>
- <4E764259.5070209@parallels.com>
- <20110918203931.GA28611@shutemov.name>
- <4E76572B.2000904@parallels.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: [BUG?] tcp: potential bug in tcp_is_sackblock_valid()
+Date: Sun, 18 Sep 2011 14:04:44 -0700
+Message-ID: <CAA93jw4sQJ63t6tH=SfUPahgprk1Yz4-E3yoMc6yvw=NeN1YBA@mail.gmail.com>
+References: <4E696FD0.7060702@intel.com>
+	<20110909015429.GA9156@gondor.apana.org.au>
+	<4E6975B2.8000603@intel.com>
+	<alpine.DEB.2.00.1109091050550.11963@melkinpaasi.cs.helsinki.fi>
+	<CAA93jw7L9KyXVevZ8dqE+ExLYP9=CLMmj1gPD88ihBuC6ZovOQ@mail.gmail.com>
+	<1316378349.31335.34.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
-	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
-	davem@davemloft.net, gthelen@google.com, netdev@vger.kernel.org,
-	linux-mm@kvack.org
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <4E76572B.2000904@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	"Yan, Zheng" <zheng.z.yan@intel.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:61372 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932366Ab1IRVEp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 17:04:45 -0400
+Received: by iaqq3 with SMTP id q3so4557886iaq.19
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 14:04:44 -0700 (PDT)
+In-Reply-To: <1316378349.31335.34.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 18, 2011 at 05:40:11PM -0300, Glauber Costa wrote:
-> On 09/18/2011 05:39 PM, Kirill A. Shutemov wrote:
-> > On Sun, Sep 18, 2011 at 04:11:21PM -0300, Glauber Costa wrote:
-> >> On 09/18/2011 04:05 PM, Kirill A. Shutemov wrote:
-> >>> On Sun, Sep 18, 2011 at 12:39:12AM -0300, Glauber Costa wrote:
-> >>>>> Always zero in root cgroup?
-> >>>>
-> >>>> Yes, if we're not accounting, it should be zero. WARN_ON, maybe?
-> >>>
-> >>> -ENOSYS?
-> >>>
-> >> I'd personally prefer WARN_ON. It is good symmetry from userspace PoV to
-> >> always be able to get a value out of it. Also, it something goes wrong
-> >> and it is not zero for some reason, this will help us find it.
-> >
-> > What's the point to get non-relevant value?
-> > What about -ENOSYS + WARN_ON?
-> >
-> Well,
-> 
-> what about not even registering kernel memory files for !root cgroup?
+On Sun, Sep 18, 2011 at 1:39 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le samedi 17 septembre 2011 =E0 11:30 -0700, Dave Taht a =E9crit :
+>
+>>
+>> As cerowrt is one of the few projects enabling sack/dsack/ecn by
+>> default, it would be good to know either
+>>
+>
+> dsack is enabled by default on linux, not only cerowt project.
+>
+>> A) how to test to see if this problem is really a problem
+>> B) should we apply the obvious fix
+>
+> Isnt Cerowrt a router, most of frames are forwarded anyway ?
 
-ENOENT works for me ;)
+A very large suite of network test tools runs on the router itself -
+netperf, nuttcp, iperf, httping, etc.
 
--- 
- Kirill A. Shutemov
+netperf, for example, ships, enabled.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+This is a means of being able to analyze performance of both the LFN
+and wireless from a central point,
+from a well defined platform,
+without having a random desktop involved.
+
+> This bug is relevant to linux hosts, receiving Duplicate Sacks (RFC
+> 2883).
+>
+>
+>
+>
+>
+>
+
+
+
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+http://the-edge.blogspot.com
