@@ -1,52 +1,54 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 12/28] tipc: Remove deferred queue head caching during broadcast message reception
-Date: Sat, 17 Sep 2011 23:32:08 -0400
-Message-ID: <1316316744-29514-13-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 14/28] tipc: Remove obsolete congestion handling when sending a broadcast NACK
+Date: Sat, 17 Sep 2011 23:32:10 -0400
+Message-ID: <1316316744-29514-15-git-send-email-paul.gortmaker@windriver.com>
 References: <1316316744-29514-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:49979 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:49984 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756292Ab1IRDcu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 23:32:50 -0400
+	with ESMTP id S1756304Ab1IRDcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 23:32:52 -0400
 In-Reply-To: <1316316744-29514-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Modifies TIPC's incoming broadcast packet handler so that it no longer
-pre-reads information about the deferred packet queue, since the cached
-value is unreliable once the associated node lock has been released.
+Eliminates obsolete code that handles broadcast bearer congestion when
+the broadast link sends a NACK message, since the broadcast pseudo-bearer
+never becomes blocked.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/tipc/bcast.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index bc01ca6..8d29852 100644
+index bead28b..28908f5 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -467,7 +467,6 @@ void tipc_bclink_recv_pkt(struct sk_buff *buf)
- 	/* Handle in-sequence broadcast message */
+@@ -299,14 +299,9 @@ static void bclink_send_nack(struct tipc_node *n_ptr)
+ 		msg_set_bcgap_to(msg, n_ptr->bclink.gap_to);
+ 		msg_set_bcast_tag(msg, tipc_own_tag);
  
- receive:
--	deferred = node->bclink.deferred_head;
- 	next_in = mod(node->bclink.last_in + 1);
- 	seqno = msg_seqno(msg);
+-		if (tipc_bearer_send(&bcbearer->bearer, buf, NULL)) {
+-			bcl->stats.sent_nacks++;
+-			buf_discard(buf);
+-		} else {
+-			tipc_bearer_schedule(bcl->b_ptr, bcl);
+-			bcl->proto_msg_queue = buf;
+-			bcl->stats.bearer_congs++;
+-		}
++		tipc_bearer_send(&bcbearer->bearer, buf, NULL);
++		bcl->stats.sent_nacks++;
++		buf_discard(buf);
  
-@@ -500,6 +499,7 @@ receive:
- 		}
- 		buf = NULL;
- 		tipc_node_lock(node);
-+		deferred = node->bclink.deferred_head;
- 		if (deferred && (buf_seqno(deferred) == mod(next_in + 1))) {
- 			buf = deferred;
- 			msg = buf_msg(buf);
+ 		/*
+ 		 * Ensure we doesn't send another NACK msg to the node
 -- 
 1.7.4.4
