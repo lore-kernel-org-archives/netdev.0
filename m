@@ -1,62 +1,87 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 23/28] tipc: relocate/coalesce node cast in tipc_named_node_up
-Date: Sat, 17 Sep 2011 23:32:19 -0400
-Message-ID: <1316316744-29514-24-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 07/28] tipc: Cosmetic changes to broadcast bearer send routine
+Date: Sat, 17 Sep 2011 23:32:03 -0400
+Message-ID: <1316316744-29514-8-git-send-email-paul.gortmaker@windriver.com>
 References: <1316316744-29514-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50001 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:49969 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756393Ab1IRDdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 23:33:00 -0400
+	with ESMTP id S1753478Ab1IRDcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 23:32:45 -0400
 In-Reply-To: <1316316744-29514-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Functions like this are called using unsigned longs from
-function pointers.  In this case, the function is passed in
-a node which is normally internally treated as a u32 by TIPC.
+From: Allan Stephens <allan.stephens@windriver.com>
 
-Rather than add more casts into this function in the future
-for each added use of node within, move the cast to a single
-place on a local.
+Updates the comments in the broadcast bearer send routine to more
+accurately describe the processing done by the routine. Also replaces
+the improper use of a TIPC payload message error status symbol (in a place
+that has nothing to do with such errors) with its numeric equivalent.
 
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/name_distr.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ net/tipc/bcast.c |   24 ++++++++++++------------
+ 1 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 21bc028..97546f0 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -173,13 +173,14 @@ void tipc_named_withdraw(struct publication *publ)
-  * tipc_named_node_up - tell specified node about all publications by this node
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 411c54b..7abdca0 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -535,10 +535,11 @@ u32 tipc_bclink_acks_missing(struct tipc_node *n_ptr)
+ /**
+  * tipc_bcbearer_send - send a packet through the broadcast pseudo-bearer
+  *
+- * Send through as many bearers as necessary to reach all nodes
+- * that support TIPC multicasting.
++ * Send packet over as many bearers as necessary to reach all nodes
++ * that have joined the broadcast link.
+  *
+- * Returns 0 if packet sent successfully, non-zero if not
++ * Returns 0 (packet sent successfully) under all circumstances,
++ * since the broadcast link's pseudo-bearer never blocks
   */
  
--void tipc_named_node_up(unsigned long node)
-+void tipc_named_node_up(unsigned long nodearg)
+ static int tipc_bcbearer_send(struct sk_buff *buf,
+@@ -547,7 +548,12 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
  {
- 	struct tipc_node *n_ptr;
- 	struct link *l_ptr;
- 	struct publication *publ;
- 	struct distr_item *item = NULL;
- 	struct sk_buff *buf = NULL;
-+	u32 node = (u32)nodearg;
- 	u32 left = 0;
- 	u32 rest;
- 	u32 max_item_buf = 0;
-@@ -187,7 +188,7 @@ void tipc_named_node_up(unsigned long node)
- 	/* compute maximum amount of publication data to send per message */
+ 	int bp_index;
  
- 	read_lock_bh(&tipc_net_lock);
--	n_ptr = tipc_node_find((u32)node);
-+	n_ptr = tipc_node_find(node);
- 	if (n_ptr) {
- 		tipc_node_lock(n_ptr);
- 		l_ptr = n_ptr->active_links[0];
+-	/* Prepare buffer for broadcasting (if first time trying to send it) */
++	/*
++	 * Prepare broadcast link message for reliable transmission,
++	 * if first time trying to send it;
++	 * preparation is skipped for broadcast link protocol messages
++	 * since they are sent in an unreliable manner and don't need it
++	 */
+ 
+ 	if (likely(!msg_non_seq(buf_msg(buf)))) {
+ 		struct tipc_msg *msg;
+@@ -596,18 +602,12 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+ 		}
+ 
+ 		if (bcbearer->remains_new.count == 0)
+-			return 0;
++			break;	/* all targets reached */
+ 
+ 		bcbearer->remains = bcbearer->remains_new;
+ 	}
+ 
+-	/*
+-	 * Unable to reach all targets (indicate success, since currently
+-	 * there isn't code in place to properly block & unblock the
+-	 * pseudo-bearer used by the broadcast link)
+-	 */
+-
+-	return TIPC_OK;
++	return 0;
+ }
+ 
+ /**
 -- 
 1.7.4.4
