@@ -1,50 +1,42 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH ] dynamic_debug: call __netdev_printk only for CONFIG_NET
-Date: Sun, 18 Sep 2011 10:21:14 -0700
-Message-ID: <4E76288A.4020801@xenotime.net>
-References: <cover.1313085588.git.jbaron@redhat.com> <5514795fe63ccfd4b3a80283ed04a526abe3c59d.1313085588.git.jbaron@redhat.com> <201109011657.02407.arnd@arndb.de> <20110901151817.GA14324@redhat.com> <20110918082736.GB19444@kroah.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Sun, 18 Sep 2011 11:06:08 -0700
+Message-ID: <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
+References: <20110918.022125.1554085675403900813.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jason Baron <jbaron@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	gregkh@suse.de, joe@perches.com, jim.cromie@gmail.com,
-	bvanassche@acm.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, aloisio.almeida@openbossa.org,
-	netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oproxy4-pub.bluehost.com ([69.89.21.11]:34724 "HELO
-	oproxy4-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1756192Ab1IRRVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 13:21:16 -0400
-In-Reply-To: <20110918082736.GB19444@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110918.022125.1554085675403900813.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/18/2011 01:27 AM, Greg KH wrote:
-> On Thu, Sep 01, 2011 at 11:18:18AM -0400, Jason Baron wrote:
->> On Thu, Sep 01, 2011 at 04:57:02PM +0200, Arnd Bergmann wrote:
->>> __netdev_printk is only defined when CONFIG_NET is set. Since we only need
->>> __dynamic_netdev_dbg for network drivers, we can make it conditional on the
->>> same Kconfig symbol.
->>>
->>
->> Hi,
->>
->> Yes, I've posted a fix for this:
->>
->> https://lkml.org/lkml/2011/8/30/297
->>
->> Hopefully, it will be pulled in soon.
-> 
-> As that thread again spun off into confusion, can you please resend the
-> end result?
+2011/9/17 David Miller <davem@davemloft.net>:
+>
+> dpward (2):
+> =A0 =A0 =A0net: Make flow cache namespace-aware
+> =A0 =A0 =A0net: Handle different key sizes between address families i=
+n flow cache
+>
+> nhorman (1):
+> =A0 =A0 =A0net: don't clear IFF_XMIT_DST_RELEASE in ether_setup
+>
+> rajan.aggarwal85@gmail.com (1):
+> =A0 =A0 =A0net/can/af_can.c: Change del_timer to del_timer_sync
 
-That spinning confusion had nothing to do with the posted & correct patch
-which could have been applied several weeks ago.
+Guys, if somebody has such a broken email setup that they don't even
+show their own name, don't take patches from them.
 
-I'm curious:  Do you delete most of your email on a routine basis?
+If you cannot even set up email sanely, there is zero reason to
+believe that the patch should be good. And if the patch is trivial and
+you want to take it despite the source of the patch being crap, please
+spend the five seconds to fix it up.
 
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+Proper names are part of the commit message. Don't make it look like
+crap. I get ugly flashbacks to SVN or CVS when I see stuff like this.
+Don't do it.
+
+                          Linus
