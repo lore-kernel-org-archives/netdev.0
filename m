@@ -1,50 +1,46 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v2 4/7] per-cgroup tcp buffers control
-Date: Sun, 18 Sep 2011 00:32:54 -0300
-Message-ID: <4E756666.9000009@parallels.com>
-References: <1316051175-17780-1-git-send-email-glommer@parallels.com> <1316051175-17780-5-git-send-email-glommer@parallels.com> <20110917181132.GC1658@shutemov.name> <20110917183358.GB2783@moon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kirill A. Shutemov" <kirill@shutemov.name>,
-	<linux-kernel@vger.kernel.org>, <paul@paulmenage.org>, <lizf@cn.fujitsu.com>,
-	<kamezawa.hiroyu@jp.fujitsu.com>, <ebiederm@xmission.com>,
-	<davem@davemloft.net>, <gthelen@google.com>, <netdev@vger.kernel.org>,
-	<linux-mm@kvack.org>
-To: Cyrill Gorcunov <gorcunov@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110917183358.GB2783@moon>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 15/28] tipc: Eliminate redundant check when sending messages
+Date: Sat, 17 Sep 2011 23:32:11 -0400
+Message-ID: <1316316744-29514-16-git-send-email-paul.gortmaker@windriver.com>
+References: <1316316744-29514-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
+	ying.xue@windriver.com,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:49985 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756311Ab1IRDcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 23:32:52 -0400
+In-Reply-To: <1316316744-29514-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/17/2011 03:33 PM, Cyrill Gorcunov wrote:
-> On Sat, Sep 17, 2011 at 09:11:32PM +0300, Kirill A. Shutemov wrote:
->> On Wed, Sep 14, 2011 at 10:46:12PM -0300, Glauber Costa wrote:
->>> +int tcp_init_cgroup_fill(struct proto *prot, struct cgroup *cgrp,
->>> +			 struct cgroup_subsys *ss)
->>> +{
->>> +	prot->enter_memory_pressure	= tcp_enter_memory_pressure;
->>> +	prot->memory_allocated		= memory_allocated_tcp;
->>> +	prot->prot_mem			= tcp_sysctl_mem;
->>> +	prot->sockets_allocated		= sockets_allocated_tcp;
->>> +	prot->memory_pressure		= memory_pressure_tcp;
->>
->> No fancy formatting, please.
->>
->
-> What's wrong with having fancy formatting? It's indeed easier to read
-> when members are assigned this way. It's always up to maintainer to
-> choose what he prefers, but I see nothing wrong in such style (if only it
-> doesn't break the style of the whole file).
->
-> 	Cyrill
+From: Allan Stephens <allan.stephens@windriver.com>
 
+Eliminates code in tipc_send_buf_fast() that handles messages
+sent to a destination on the current node, since the only caller
+of the routine only passes in messages destined for other nodes.
 
-I am in agreement with Cyrill, but I really, really don't care...
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/link.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index b43beea..bc655f4 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1032,9 +1032,6 @@ int tipc_send_buf_fast(struct sk_buff *buf, u32 destnode)
+ 	u32 selector = msg_origport(buf_msg(buf)) & 1;
+ 	u32 dummy;
+ 
+-	if (destnode == tipc_own_addr)
+-		return tipc_port_recv_msg(buf);
+-
+ 	read_lock_bh(&tipc_net_lock);
+ 	n_ptr = tipc_node_find(destnode);
+ 	if (likely(n_ptr)) {
+-- 
+1.7.4.4
