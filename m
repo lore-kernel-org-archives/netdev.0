@@ -1,59 +1,87 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v2 4/7] per-cgroup tcp buffers control
-Date: Sun, 18 Sep 2011 16:42:34 -0300
-Message-ID: <4E7649AA.40305@parallels.com>
-References: <1316051175-17780-1-git-send-email-glommer@parallels.com> <1316051175-17780-5-git-send-email-glommer@parallels.com> <20110917181132.GC1658@shutemov.name> <20110917183358.GB2783@moon> <20110918185806.GA28057@shutemov.name>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [GIT] Networking
+Date: Sun, 18 Sep 2011 21:46:04 +0200
+Message-ID: <1316375164.31335.18.camel@edumazet-laptop>
+References: <20110918.022125.1554085675403900813.davem@davemloft.net>
+	 <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
+	 <20110918192333.GA1641@x4.trippels.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cyrill Gorcunov <gorcunov@gmail.com>, <linux-kernel@vger.kernel.org>,
-	<paul@paulmenage.org>, <lizf@cn.fujitsu.com>,
-	<kamezawa.hiroyu@jp.fujitsu.com>, <ebiederm@xmission.com>,
-	<davem@davemloft.net>, <gthelen@google.com>, <netdev@vger.kernel.org>,
-	<linux-mm@kvack.org>
-To: "Kirill A. Shutemov" <kirill@shutemov.name>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110918185806.GA28057@shutemov.name>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110918192333.GA1641@x4.trippels.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/18/2011 03:58 PM, Kirill A. Shutemov wrote:
-> On Sat, Sep 17, 2011 at 10:33:58PM +0400, Cyrill Gorcunov wrote:
->> On Sat, Sep 17, 2011 at 09:11:32PM +0300, Kirill A. Shutemov wrote:
->>> On Wed, Sep 14, 2011 at 10:46:12PM -0300, Glauber Costa wrote:
->>>> +int tcp_init_cgroup_fill(struct proto *prot, struct cgroup *cgrp,
->>>> +			 struct cgroup_subsys *ss)
->>>> +{
->>>> +	prot->enter_memory_pressure	= tcp_enter_memory_pressure;
->>>> +	prot->memory_allocated		= memory_allocated_tcp;
->>>> +	prot->prot_mem			= tcp_sysctl_mem;
->>>> +	prot->sockets_allocated		= sockets_allocated_tcp;
->>>> +	prot->memory_pressure		= memory_pressure_tcp;
->>>
->>> No fancy formatting, please.
->>>
->>
->> What's wrong with having fancy formatting? It's indeed easier to read
->> when members are assigned this way. It's always up to maintainer to
->> choose what he prefers, but I see nothing wrong in such style (if only it
->> doesn't break the style of the whole file).
->
-> You have to remove this indenting if you'll reorganize code (e.g. move
-> part under if(...)).
-> IMO, it reduces code maintainability.
->
-As I said, I don't care, so I'll change. But I have to say I disagree 
-with your statement.
+Le dimanche 18 septembre 2011 =C3=A0 21:23 +0200, Markus Trippelsdorf a
+=C3=A9crit :
+> On 2011.09.18 at 11:06 -0700, Linus Torvalds wrote:
+> > 2011/9/17 David Miller <davem@davemloft.net>:
+> > >
+> > > dpward (2):
+> > >      net: Make flow cache namespace-aware
+> > >      net: Handle different key sizes between address families in =
+flow cache
+> > >
+> > > nhorman (1):
+> > >      net: don't clear IFF_XMIT_DST_RELEASE in ether_setup
+> > >
+> > > rajan.aggarwal85@gmail.com (1):
+> > >      net/can/af_can.c: Change del_timer to del_timer_sync
+> >=20
+> > Guys, if somebody has such a broken email setup that they don't eve=
+n
+> > show their own name, don't take patches from them.
+> >=20
+> > If you cannot even set up email sanely, there is zero reason to
+> > believe that the patch should be good. And if the patch is trivial =
+and
+> > you want to take it despite the source of the patch being crap, ple=
+ase
+> > spend the five seconds to fix it up.
+> >=20
+> > Proper names are part of the commit message. Don't make it look lik=
+e
+> > crap. I get ugly flashbacks to SVN or CVS when I see stuff like thi=
+s.
+> > Don't do it.
+>=20
+> Plus commit 946cedccbd73874 breaks the build:
+>=20
+>   LD      init/built-in.o
+>   LD      .tmp_vmlinux1
+> net/built-in.o:sysctl_net.c:function tcp_v4_conn_request: error: unde=
+fined reference to 'cookie_v4_init_sequence'
+> make: *** [.tmp_vmlinux1] Error 1
+>=20
+> commit 946cedccbd7387488d2cee5da92cdfeb28d2e670
+> Author: Eric Dumazet <eric.dumazet@gmail.com>
+> Date:   Tue Aug 30 03:21:44 2011 +0000
+>=20
+>     tcp: Change possible SYN flooding messages
+>=20
+>     "Possible SYN flooding on port xxxx " messages can fill logs on s=
+ervers.
+>=20
+>     Change logic to log the message only once per listener, and add t=
+wo new
+>     SNMP counters to track :
+>=20
+>     TCPReqQFullDoCookies : number of times a SYNCOOKIE was replied to=
+ client
+>=20
+>     TCPReqQFullDrop : number of times a SYN request was dropped becau=
+se
+>     syncookies were not enabled.
+>=20
+>     Based on a prior patch from Tom Herbert, and suggestions from Dav=
+id.
+>=20
+>=20
 
-It is a pack of assignments, so if you reorganize this code, two things 
-can happen:
-1) It is not moved to a new ident level -> It keeps being a pack of 
-assignments, and you don't really need to change it.
-2) It is moved to a new ident level -> You have to touch it anyway...
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Oh well, trying to remove those ugly #ifdef was not so easy.
+I'll cook a patch, thanks for the report
