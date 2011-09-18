@@ -1,42 +1,59 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Sun, 18 Sep 2011 11:06:08 -0700
-Message-ID: <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
-References: <20110918.022125.1554085675403900813.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 4/4] net/fec: add imx6q enet support
+Date: Sun, 18 Sep 2011 20:09:12 +0200
+Message-ID: <20110918180912.GA3734@electric-eye.fr.zoreil.com>
+References: <1316346852-17090-1-git-send-email-shawn.guo@linaro.org> <1316346852-17090-5-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110918.022125.1554085675403900813.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org, patches@linaro.org
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51205 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755923Ab1IRSKE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 14:10:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1316346852-17090-5-git-send-email-shawn.guo@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2011/9/17 David Miller <davem@davemloft.net>:
->
-> dpward (2):
-> =A0 =A0 =A0net: Make flow cache namespace-aware
-> =A0 =A0 =A0net: Handle different key sizes between address families i=
-n flow cache
->
-> nhorman (1):
-> =A0 =A0 =A0net: don't clear IFF_XMIT_DST_RELEASE in ether_setup
->
-> rajan.aggarwal85@gmail.com (1):
-> =A0 =A0 =A0net/can/af_can.c: Change del_timer to del_timer_sync
+Shawn Guo <shawn.guo@linaro.org> :
+[...]
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 04206e4..849cb0b 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -442,18 +453,23 @@ fec_restart(struct net_device *ndev, int duplex)
+>  		/* Enable flow control and length check */
+>  		rcntl |= 0x40000000 | 0x00000020;
+>  
+> -		/* MII or RMII */
+> +		/* RGMII, RMII or MII */
+> +		if (fep->phy_interface == PHY_INTERFACE_MODE_RGMII)
+> +			rcntl |= (1 << 6);
+>  		if (fep->phy_interface == PHY_INTERFACE_MODE_RMII)
+           ^^^^ missing "else"
 
-Guys, if somebody has such a broken email setup that they don't even
-show their own name, don't take patches from them.
+[...]
+> +		/* 1G, 100M or 10M */
+> +		if (fep->phy_dev) {
+> +			if (fep->phy_dev->speed == SPEED_1000)
+> +				ecntl |= (1 << 8);
+> +			else if (fep->phy_dev->speed == SPEED_100)
+> +				rcntl &= ~(1 << 9);
+> +			else
+> +				rcntl |= (1 << 9);
+> +		}
+[...]
+> +	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
+> +		/* enable ENET endian swap */
+> +		ecntl |= (1 << 8);
 
-If you cannot even set up email sanely, there is zero reason to
-believe that the patch should be good. And if the patch is trivial and
-you want to take it despite the source of the patch being crap, please
-spend the five seconds to fix it up.
+I do not understand why the endian swap bit of ecntl needs to be
+set the same in these two different paths, especially as the latter
+handles the old faulty imx28 and the former the newly fixed imx6q.
+Typo ?
 
-Proper names are part of the commit message. Don't make it look like
-crap. I get ugly flashbacks to SVN or CVS when I see stuff like this.
-Don't do it.
-
-                          Linus
+-- 
+Ueimor
