@@ -1,46 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG?] tcp: potential bug in tcp_is_sackblock_valid()
-Date: Sun, 18 Sep 2011 22:39:09 +0200
-Message-ID: <1316378349.31335.34.camel@edumazet-laptop>
-References: <4E696FD0.7060702@intel.com>
-	 <20110909015429.GA9156@gondor.apana.org.au> <4E6975B2.8000603@intel.com>
-	 <alpine.DEB.2.00.1109091050550.11963@melkinpaasi.cs.helsinki.fi>
-	 <CAA93jw7L9KyXVevZ8dqE+ExLYP9=CLMmj1gPD88ihBuC6ZovOQ@mail.gmail.com>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Subject: Re: [PATCH v2 1/7] Basic kernel memory functionality for the Memory
+ Controller
+Date: Sun, 18 Sep 2011 23:39:31 +0300
+Message-ID: <20110918203931.GA28611@shutemov.name>
+References: <1316051175-17780-1-git-send-email-glommer@parallels.com>
+ <1316051175-17780-2-git-send-email-glommer@parallels.com>
+ <20110917174535.GA1658@shutemov.name>
+ <4E7567E0.9010401@parallels.com>
+ <20110918190509.GC28057@shutemov.name>
+ <4E764259.5070209@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	"Yan, Zheng" <zheng.z.yan@intel.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:35528 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756677Ab1IRUjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 16:39:17 -0400
-Received: by wwf22 with SMTP id 22so7139222wwf.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 13:39:16 -0700 (PDT)
-In-Reply-To: <CAA93jw7L9KyXVevZ8dqE+ExLYP9=CLMmj1gPD88ihBuC6ZovOQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+	davem@davemloft.net, gthelen@google.com, netdev@vger.kernel.org,
+	linux-mm@kvack.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4E764259.5070209@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 17 septembre 2011 =C3=A0 11:30 -0700, Dave Taht a =C3=A9crit =
-:
+On Sun, Sep 18, 2011 at 04:11:21PM -0300, Glauber Costa wrote:
+> On 09/18/2011 04:05 PM, Kirill A. Shutemov wrote:
+> > On Sun, Sep 18, 2011 at 12:39:12AM -0300, Glauber Costa wrote:
+> >>> Always zero in root cgroup?
+> >>
+> >> Yes, if we're not accounting, it should be zero. WARN_ON, maybe?
+> >
+> > -ENOSYS?
+> >
+> I'd personally prefer WARN_ON. It is good symmetry from userspace PoV to 
+> always be able to get a value out of it. Also, it something goes wrong 
+> and it is not zero for some reason, this will help us find it.
 
->=20
-> As cerowrt is one of the few projects enabling sack/dsack/ecn by
-> default, it would be good to know either
->=20
+What's the point to get non-relevant value?
+What about -ENOSYS + WARN_ON?
 
-dsack is enabled by default on linux, not only cerowt project.
+-- 
+ Kirill A. Shutemov
 
-> A) how to test to see if this problem is really a problem
-> B) should we apply the obvious fix
-
-Isnt Cerowrt a router, most of frames are forwarded anyway ?
-
-This bug is relevant to linux hosts, receiving Duplicate Sacks (RFC
-2883).
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
