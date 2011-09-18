@@ -1,56 +1,53 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 05/28] tipc: Enhance filtering of out-dated link reset messages
-Date: Sat, 17 Sep 2011 23:32:01 -0400
-Message-ID: <1316316744-29514-6-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 17/28] tipc: Ensure congested links receive bearer status updates
+Date: Sat, 17 Sep 2011 23:32:13 -0400
+Message-ID: <1316316744-29514-18-git-send-email-paul.gortmaker@windriver.com>
 References: <1316316744-29514-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	ying.xue@windriver.com,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:49964 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:49989 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753271Ab1IRDcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 23:32:43 -0400
+	with ESMTP id S1756323Ab1IRDcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Sep 2011 23:32:54 -0400
 In-Reply-To: <1316316744-29514-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Ensure TIPC ignores an out-dated link reset message whose session
-number predates the current session number. (Previously, TIPC only
-ignored an out-date reset message whose session number was equal
-to the current link session number.)
-
-Out-dated link reset messages should not occur under normal circumstances;
-however, they can be generated if a link endpoint is unable to send a
-link reset message right away and queues it for later delivery, but the
-queued message is not sent until after the link is established.
-
-Thanks to Laser [gotolaser@gmail.com] for diagnosing the problem and
-contributing a prototype patch.
+Modifies code that disables a bearer to ensure that all of its links
+are deleted, not just its uncongested links. Similarly, modifies code
+that blocks a bearer to ensure that all of its links are reset, not
+just its uncongested links.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/link.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/tipc/bearer.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index e0bf6d5..b43beea 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2045,8 +2045,8 @@ static void link_recv_proto_msg(struct link *l_ptr, struct sk_buff *buf)
- 	case RESET_MSG:
- 		if (!link_working_unknown(l_ptr) &&
- 		    (l_ptr->peer_session != INVALID_SESSION)) {
--			if (msg_session(msg) == l_ptr->peer_session)
--				break; /* duplicate: ignore */
-+			if (less_eq(msg_session(msg), l_ptr->peer_session))
-+				break; /* duplicate or old reset: ignore */
- 		}
- 		/* fall thru' */
- 	case ACTIVATE_MSG:
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index e465a92..e2202de 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -604,6 +604,7 @@ int tipc_block_bearer(const char *name)
+ 	info("Blocking bearer <%s>\n", name);
+ 	spin_lock_bh(&b_ptr->lock);
+ 	b_ptr->blocked = 1;
++	list_splice_init(&b_ptr->cong_links, &b_ptr->links);
+ 	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
+ 		struct tipc_node *n_ptr = l_ptr->owner;
+ 
+@@ -631,6 +632,7 @@ static void bearer_disable(struct tipc_bearer *b_ptr)
+ 	spin_lock_bh(&b_ptr->lock);
+ 	b_ptr->blocked = 1;
+ 	b_ptr->media->disable_bearer(b_ptr);
++	list_splice_init(&b_ptr->cong_links, &b_ptr->links);
+ 	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
+ 		tipc_link_delete(l_ptr);
+ 	}
 -- 
 1.7.4.4
