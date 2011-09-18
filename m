@@ -1,27 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: wireless build errors on latest net-next
-Date: Mon, 19 Sep 2011 06:22:29 +0200
-Message-ID: <1316406149.2521.9.camel@edumazet-laptop>
+From: Hassan <ricardo.telles@click21.com.br>
+Subject: GET BACK TO ME ASAP
+Date: Sun, 18 Sep 2011 19:07:16 -0300
+Message-ID: <1316383636.4e766b944ab6e__34165.3779535138$1316406214$gmane$org@email.cnpq.br>
+Reply-To: musa.h@mail.mn
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:63094 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736Ab1ISEWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 00:22:36 -0400
-Received: by wwf22 with SMTP id 22so7420257wwf.1
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 21:22:35 -0700 (PDT)
+Received: from antivirus1.cnpq.br ([200.130.34.107]:29429 "EHLO
+	Antivirus1.cnpq.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928Ab1ISEXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 00:23:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kernel: arch/x86/boot/bzImage is ready  (#299)
-  Building modules, stage 2.
-  MODPOST 1778 modules
-ERROR: "iwl_dump_fh" [drivers/net/wireless/iwlwifi/iwlagn.ko] undefined!
-ERROR: "iwl_dump_csr" [drivers/net/wireless/iwlwifi/iwlagn.ko]
-undefined!
-make[1]: *** [__modpost] Erreur 1
-make: *** [modules] Erreur 2
+
+
+Hello,
+
+How are you today?
+I contacted you to assist in distributing the money left behind
+by my late client,whom you share the same last name with.
+Get back to me for more details.
+
+Regards,
+Barr Musa Kumar Hassan.
+Attorney At Law.
