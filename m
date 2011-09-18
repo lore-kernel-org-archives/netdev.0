@@ -1,110 +1,46 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [GIT] Networking
-Date: Sun, 18 Sep 2011 22:35:30 +0200
-Message-ID: <1316378130.31335.32.camel@edumazet-laptop>
-References: <20110918.022125.1554085675403900813.davem@davemloft.net>
-	 <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
-	 <20110918192333.GA1641@x4.trippels.de>
-	 <1316375164.31335.18.camel@edumazet-laptop>
-	 <20110918194818.GB1641@x4.trippels.de>
-	 <CA+55aFwmwYXzC_4q+XuEAx3ta6U-jf=NvMcAc-J+4DBxLm8Efg@mail.gmail.com>
+Subject: Re: [BUG?] tcp: potential bug in tcp_is_sackblock_valid()
+Date: Sun, 18 Sep 2011 22:39:09 +0200
+Message-ID: <1316378349.31335.34.camel@edumazet-laptop>
+References: <4E696FD0.7060702@intel.com>
+	 <20110909015429.GA9156@gondor.apana.org.au> <4E6975B2.8000603@intel.com>
+	 <alpine.DEB.2.00.1109091050550.11963@melkinpaasi.cs.helsinki.fi>
+	 <CAA93jw7L9KyXVevZ8dqE+ExLYP9=CLMmj1gPD88ihBuC6ZovOQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	"Yan, Zheng" <zheng.z.yan@intel.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"sfr@canb.auug.org.au" <sfr@canb.auug.org.au>
+To: Dave Taht <dave.taht@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:48197 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756536Ab1IRUfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 16:35:36 -0400
-In-Reply-To: <CA+55aFwmwYXzC_4q+XuEAx3ta6U-jf=NvMcAc-J+4DBxLm8Efg@mail.gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35528 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756677Ab1IRUjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 16:39:17 -0400
+Received: by wwf22 with SMTP id 22so7139222wwf.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 13:39:16 -0700 (PDT)
+In-Reply-To: <CAA93jw7L9KyXVevZ8dqE+ExLYP9=CLMmj1gPD88ihBuC6ZovOQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 18 septembre 2011 =C3=A0 12:55 -0700, Linus Torvalds a =C3=A9=
-crit :
-> On Sun, Sep 18, 2011 at 12:48 PM, Markus Trippelsdorf
-> <markus@trippelsdorf.de> wrote:
-> >
-> > The following works for me:
+Le samedi 17 septembre 2011 =C3=A0 11:30 -0700, Dave Taht a =C3=A9crit =
+:
+
 >=20
-> No it doesn't. It may *compile* for you, but it doesn't work for you.
-> It avoids all the other stuff that tcp_syn_flood_action() also does
-> (notably the printout).
->=20
-> The real fix looks to be either:
->=20
->  - make an empty (inline/macro) cookie_v4_init_sequence() for the
-> non-syncookie config case
+> As cerowrt is one of the few projects enabling sack/dsack/ecn by
+> default, it would be good to know either
 >=20
 
-Yes, this one seems the less ugly.
+dsack is enabled by default on linux, not only cerowt project.
 
-=46rankly, we should remove CONFIG_SYN_COOKIE option...
+> A) how to test to see if this problem is really a problem
+> B) should we apply the obvious fix
 
-Sorry for the mess, dont blame David on this, since netdev guys
-probably always use CONFIG_SYN_COOKIE.
+Isnt Cerowrt a router, most of frames are forwarded anyway ?
 
-Thanks
-
-[PATCH] tcp: fix build error if !CONFIG_SYN_COOKIE
-
-commit 946cedccbd7387 (tcp: Change possible SYN flooding messages)
-added a build error if CONFIG_SYN_COOKIE=3Dn
-
-Reported-by: Markus Trippelsdorf <markus@trippelsdorf.de>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/tcp.h |   19 ++++++++++++++++++-
- 1 file changed, 18 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index e9b48b0..f860d64 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -431,17 +431,34 @@ extern int tcp_disconnect(struct sock *sk, int fl=
-ags);
- extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- extern struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *s=
-kb,=20
- 				    struct ip_options *opt);
-+#ifdef CONFIG_SYN_COOKIE
- extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *=
-skb,=20
- 				     __u16 *mss);
-+#else
-+static inline __u32 cookie_v4_init_sequence(struct sock *sk,
-+					    struct sk_buff *skb,
-+					    __u16 *mss)
-+{
-+	return 0;
-+}
-+#endif
-=20
- extern __u32 cookie_init_timestamp(struct request_sock *req);
- extern bool cookie_check_timestamp(struct tcp_options_received *opt, b=
-ool *);
-=20
- /* From net/ipv6/syncookies.c */
- extern struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *s=
-kb);
-+#ifdef CONFIG_SYN_COOKIE
- extern __u32 cookie_v6_init_sequence(struct sock *sk, struct sk_buff *=
-skb,
- 				     __u16 *mss);
--
-+#else
-+static inline __u32 cookie_v6_init_sequence(struct sock *sk,
-+					    struct sk_buff *skb,
-+					    __u16 *mss)
-+{
-+	return 0;
-+}
-+#endif
- /* tcp_output.c */
-=20
- extern void __tcp_push_pending_frames(struct sock *sk, unsigned int cu=
-r_mss,
+This bug is relevant to linux hosts, receiving Duplicate Sacks (RFC
+2883).
