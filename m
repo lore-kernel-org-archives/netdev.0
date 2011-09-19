@@ -1,186 +1,396 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] net: fix lockdep issue in __neigh_event_send
-Date: Mon, 19 Sep 2011 13:39:32 -0700
-Message-ID: <CANP3RGdxYg0Utfyrqfwoj+ojfCD+ZYJTa91nzPSdWBznZWKHaA@mail.gmail.com>
-References: <1316459578-23413-1-git-send-email-zenczykowski@gmail.com>
-	<1316461375.2455.4.camel@edumazet-laptop>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-next 2011-09-19
+Date: Mon, 19 Sep 2011 16:36:39 -0400
+Message-ID: <20110919203639.GF2608@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	MuraliRaja Muniraju <muralira@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kerenl.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:12221 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755146Ab1ISUjf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 16:39:35 -0400
-Received: from hpaq13.eem.corp.google.com (hpaq13.eem.corp.google.com [172.25.149.13])
-	by smtp-out.google.com with ESMTP id p8JKdYLc000639
-	for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 13:39:34 -0700
-Received: from gwj20 (gwj20.prod.google.com [10.200.10.20])
-	by hpaq13.eem.corp.google.com with ESMTP id p8JKdEnl003912
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 13:39:33 -0700
-Received: by gwj20 with SMTP id 20so5964921gwj.12
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 13:39:32 -0700 (PDT)
-In-Reply-To: <1316461375.2455.4.camel@edumazet-laptop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58375 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751049Ab1ISUpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 16:45:34 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first hunk was for consistency - to always free in exit path.  The
-second hunk is where the lockdep bug is.
+David,
 
-LOCKDEP gives the following (it's pretty rare):
+Here is another big batch of updates intended for 3.2 -- still
+clearing-out the backlog...
 
-[   90.543085] =======================================================
-[   90.544012] [ INFO: possible circular locking dependency detected ]
-[   90.544012] 2.6.34-smp-DEV #70
-[   90.544012] -------------------------------------------------------
-[   90.544012] swapper/0 is trying to acquire lock:
-[   90.544012]  (&tbl->lock){++--..}, at: [<ffffffff813c106d>]
-neigh_lookup+0x42/0xbf
-[   90.544012]
-[   90.544012] but task is already holding lock:
-[   90.544012]  (&(&rt_hash_locks[i])->rlock){+.-...}, at:
-[<ffffffff813db663>] rt_intern_hash+0xf2/0x3ad
-[   90.544012]
-[   90.544012] which lock already depends on the new lock.
-[   90.544012]
-[   90.544012]
-[   90.544012] the existing dependency chain (in reverse order) is:
-[   90.544012]
-[   90.544012] -> #2 (&(&rt_hash_locks[i])->rlock){+.-...}:
-[   90.544012]        [<ffffffff810a4910>] __lock_acquire+0xb3b/0xcda
-[   90.544012]        [<ffffffff810a4b72>] lock_acquire+0xc3/0xe9
-[   90.544012]        [<ffffffff81430d66>] _raw_spin_lock_bh+0x36/0x45
-[   90.544012]        [<ffffffff813d9659>] rt_dst_release+0x4a/0x8d
-[   90.544012]        [<ffffffff813bee34>] dst_release+0x5d/0x66
-[   90.544012]        [<ffffffff813af24e>] skb_release_head_state+0x1f/0xa5
-[   90.544012]        [<ffffffff813aefec>] __kfree_skb+0x16/0x87
-[   90.544012]        [<ffffffff813af101>] kfree_skb+0x72/0x7a
-[   90.544012]        [<ffffffff813c06f9>] __neigh_event_send+0x126/0x176
-[   90.544012]        [<ffffffff813c2c1b>] neigh_resolve_output+0x7f/0x267
-[   90.544012]        [<ffffffff813e3057>] ip_finish_output2+0x1f2/0x221
-[   90.544012]        [<ffffffff813e30ea>] ip_finish_output+0x64/0x66
-[   90.544012]        [<ffffffff813e3200>] NF_HOOK_COND.clone.1+0x41/0x45
-[   90.544012]        [<ffffffff813e3277>] ip_output+0x73/0x75
-[   90.544012]        [<ffffffff813e1524>] dst_output+0x10/0x12
-[   90.544012]        [<ffffffff813e349f>] ip_local_out+0x23/0x27
-[   90.544012]        [<ffffffff813e378a>] ip_push_pending_frames+0x2e7/0x348
-[   90.544012]        [<ffffffff81401a13>] udp_push_pending_frames+0x2dc/0x35c
-[   90.544012]        [<ffffffff8140314e>] udp_sendmsg+0x628/0x763
-[   90.544012]        [<ffffffff81409933>] inet_sendmsg+0x58/0x61
-[   90.544012]        [<ffffffff813a726f>] __sock_sendmsg+0x5e/0x69
-[   90.544012]        [<ffffffff813a7737>] sock_sendmsg+0xa8/0xc1
-[   90.544012]        [<ffffffff813a79d9>] sys_sendmsg+0x1da/0x241
-[   90.544012]        [<ffffffff813cb482>] compat_sys_sendmsg+0x14/0x16
-[   90.544012]        [<ffffffff813cc081>] compat_sys_socketcall+0x13b/0x16c
-[   90.544012]        [<ffffffff81059687>] sysenter_dispatch+0x7/0x2c
-[   90.544012]
-[   90.544012] -> #1 (&n->lock){++--..}:
-[   90.544012]        [<ffffffff810a4910>] __lock_acquire+0xb3b/0xcda
-[   90.544012]        [<ffffffff810a4b72>] lock_acquire+0xc3/0xe9
-[   90.544012]        [<ffffffff81430e81>] _raw_write_lock+0x31/0x40
-[   90.544012]        [<ffffffff813c16fb>] neigh_periodic_work+0xae/0x196
-[   90.544012]        [<ffffffff8108a8ca>] worker_thread+0x1fb/0x2f1
-[   90.544012]        [<ffffffff8108e099>] kthread+0x7f/0x87
-[   90.544012]        [<ffffffff81032a94>] kernel_thread_helper+0x4/0x10
-[   90.544012]
-[   90.544012] -> #0 (&tbl->lock){++--..}:
-[   90.544012]        [<ffffffff810a47ba>] __lock_acquire+0x9e5/0xcda
-[   90.544012]        [<ffffffff810a4b72>] lock_acquire+0xc3/0xe9
-[   90.544012]        [<ffffffff81430ffa>] _raw_read_lock_bh+0x39/0x48
-[   90.544012]        [<ffffffff813c106d>] neigh_lookup+0x42/0xbf
-[   90.544012]        [<ffffffff81405067>]
-__neigh_lookup_errno.clone.0+0x24/0x40
-[   90.544012]        [<ffffffff814054b2>] arp_bind_neighbour+0x4c/0x65
-[   90.544012]        [<ffffffff813db815>] rt_intern_hash+0x2a4/0x3ad
-[   90.544012]        [<ffffffff813dc054>] ip_route_output_slow+0x6ec/0x739
-[   90.544012]        [<ffffffff813dc574>] __ip_route_output_key+0x1bd/0x1c9
-[   90.544012]        [<ffffffff81406f45>] icmp_send+0x2bf/0x3ca
-[   90.544012]        [<ffffffff813d9739>] ipv4_link_failure+0x22/0x5c
-[   90.544012]        [<ffffffff81404acd>] arp_error_report+0x31/0x3d
-[   90.544012]        [<ffffffff813c1172>] neigh_invalidate+0x88/0xa3
-[   90.544012]        [<ffffffff813c2a1b>] neigh_timer_handler+0x1a8/0x27f
-[   90.544012]        [<ffffffff8108087a>] run_timer_softirq+0x219/0x2e3
-[   90.544012]        [<ffffffff8107910e>] __do_softirq+0xf7/0x1cb
-[   90.544012]        [<ffffffff81032b8c>] call_softirq+0x1c/0x3e
-[   90.544012]        [<ffffffff81034615>] do_softirq+0x3d/0x85
-[   90.544012]        [<ffffffff81078d49>] irq_exit+0x4a/0x8c
-[   90.544012]        [<ffffffff8143708c>] smp_apic_timer_interrupt+0x99/0xa7
-[   90.544012]        [<ffffffff81032653>] apic_timer_interrupt+0x13/0x20
-[   90.544012]        [<ffffffff81030d92>] cpu_idle+0x5c/0x79
-[   90.544012]        [<ffffffff8142213f>] rest_init+0xc3/0xca
-[   90.544012]        [<ffffffff81b47d77>] start_kernel+0x3e2/0x3ed
-[   90.544012]        [<ffffffff81b4729f>] x86_64_start_reservations+0xaf/0xb3
-[   90.544012]        [<ffffffff81b47393>] x86_64_start_kernel+0xf0/0xf7
-[   90.544012]
-[   90.544012] other info that might help us debug this:
-[   90.544012]
-[   90.544012] 3 locks held by swapper/0:
-[   90.544012]  #0:  (&n->timer){+.-...}, at: [<ffffffff810807e8>]
-run_timer_softirq+0x187/0x2e3
-[   90.544012]  #1:  (slock-AF_INET){+.-...}, at: [<ffffffff814063d3>]
-icmp_xmit_lock+0x35/0x47
-[   90.544012]  #2:  (&(&rt_hash_locks[i])->rlock){+.-...}, at:
-[<ffffffff813db663>] rt_intern_hash+0xf2/0x3ad
-[   90.544012]
-[   90.544012] stack backtrace:
-[   90.544012] Pid: 0, comm: swapper Not tainted 2.6.34-smp-DEV #70
-[   90.544012] Call Trace:
-[   90.544012]  <IRQ>  [<ffffffff810a39c0>] print_circular_bug+0xa8/0xb7
-[   90.544012]  [<ffffffff810a47ba>] __lock_acquire+0x9e5/0xcda
-[   90.544012]  [<ffffffff813c106d>] ? neigh_lookup+0x42/0xbf
-[   90.544012]  [<ffffffff810a4b72>] lock_acquire+0xc3/0xe9
-[   90.544012]  [<ffffffff813c106d>] ? neigh_lookup+0x42/0xbf
-[   90.544012]  [<ffffffff81430ffa>] _raw_read_lock_bh+0x39/0x48
-[   90.544012]  [<ffffffff813c106d>] ? neigh_lookup+0x42/0xbf
-[   90.544012]  [<ffffffff813c106d>] neigh_lookup+0x42/0xbf
-[   90.544012]  [<ffffffff81405067>] __neigh_lookup_errno.clone.0+0x24/0x40
-[   90.544012]  [<ffffffff814054b2>] arp_bind_neighbour+0x4c/0x65
-[   90.544012]  [<ffffffff813db663>] ? rt_intern_hash+0xf2/0x3ad
-[   90.544012]  [<ffffffff813db815>] rt_intern_hash+0x2a4/0x3ad
-[   90.544012]  [<ffffffff813dc054>] ip_route_output_slow+0x6ec/0x739
-[   90.544012]  [<ffffffff81078f49>] ? _local_bh_enable_ip+0xc1/0xc7
-[   90.544012]  [<ffffffff813dc574>] __ip_route_output_key+0x1bd/0x1c9
-[   90.544012]  [<ffffffff81406f45>] icmp_send+0x2bf/0x3ca
-[   90.544012]  [<ffffffff813c2800>] ? neigh_event_ns+0x2f/0xa2
-[   90.544012]  [<ffffffff813d9739>] ipv4_link_failure+0x22/0x5c
-[   90.544012]  [<ffffffff81404acd>] arp_error_report+0x31/0x3d
-[   90.544012]  [<ffffffff813c1172>] neigh_invalidate+0x88/0xa3
-[   90.544012]  [<ffffffff813c2a1b>] neigh_timer_handler+0x1a8/0x27f
-[   90.544012]  [<ffffffff8108087a>] run_timer_softirq+0x219/0x2e3
-[   90.544012]  [<ffffffff810807e8>] ? run_timer_softirq+0x187/0x2e3
-[   90.544012]  [<ffffffff8109158d>] ? __run_hrtimer+0xf4/0x132
-[   90.544012]  [<ffffffff813c2873>] ? neigh_timer_handler+0x0/0x27f
-[   90.544012]  [<ffffffff8107908d>] ? __do_softirq+0x76/0x1cb
-[   90.544012]  [<ffffffff8107910e>] __do_softirq+0xf7/0x1cb
-[   90.544012]  [<ffffffff8109f74a>] ? tick_program_event+0x2a/0x2c
-[   90.544012]  [<ffffffff81032b8c>] call_softirq+0x1c/0x3e
-[   90.544012]  [<ffffffff81034615>] do_softirq+0x3d/0x85
-[   90.544012]  [<ffffffff81078d49>] irq_exit+0x4a/0x8c
-[   90.544012]  [<ffffffff8143708c>] smp_apic_timer_interrupt+0x99/0xa7
-[   90.544012]  [<ffffffff81032653>] apic_timer_interrupt+0x13/0x20
-[   90.544012]  <EOI>  [<ffffffff81039700>] ? mwait_idle+0x85/0x92
-[   90.544012]  [<ffffffff810396f7>] ? mwait_idle+0x7c/0x92
-[   90.544012]  [<ffffffff81030d92>] cpu_idle+0x5c/0x79
-[   90.544012]  [<ffffffff8142213f>] rest_init+0xc3/0xca
-[   90.544012]  [<ffffffff8142207c>] ? rest_init+0x0/0xca
-[   90.544012]  [<ffffffff81b47d77>] start_kernel+0x3e2/0x3ed
-[   90.544012]  [<ffffffff81b4729f>] x86_64_start_reservations+0xaf/0xb3
-[   90.544012]  [<ffffffff81b47393>] x86_64_start_kernel+0xf0/0xf7
+This round includes lots of updates to ath9k, b43, iwlagn, and rt2x00.
+Some cleanups go to mac80211, along with a number of mesh-mode fixes
+from Javier.
 
-At some point in the past of the lifetime of this kernel we grabbed
-exactly the following 3 locks in the following order (where the first
-2 were still held while we grabbed the 3rd):
-  (&tbl->lock){++--..}   =>   (&n->lock){++--..}  =>
-(&(&rt_hash_locks[i])->rlock){+.-...}
+Please let me know if there are problems!
 
-Now, we have grabbed the first three (are still holding them and are
-trying to grab the fourth) of these locks in this order:
-  (&n->timer){+.-...}   =>   (slock-AF_INET){+.-...}   =>
-(&(&rt_hash_locks[i])->rlock){+.-...}  =>   (&tbl->lock){++--..}
+Thanks,
 
-We're complaining that this 4th lock is being grabbed after the 3rd,
-when previously it was the 1st before the 3rd - we've apparently
-reversed lock ordering...
+John
+
+---
+
+The following changes since commit 765cf9976e937f1cfe9159bf4534967c8bf8=
+eb6d:
+
+  tcp: md5: remove one indirection level in tcp_md5sig_pool (2011-09-17=
+ 01:15:46 -0400)
+
+are available in the git repository at:
+  ssh://infradead/~/public_git/wireless-next.git for-davem
+
+Andres Salomon (1):
+      libertas: prioritize usb8388_olpc.bin firmware on OLPC machines
+
+Arik Nemtsov (3):
+      wl12xx: allow 11a AP-mode for wl127x devices
+      mac80211: add flag to indicate HW only Tx-agg setup support
+      mac80211: add ssid config to bss information in AP-mode
+
+Bill Jordan (1):
+      ath9k: ath9k_hw_set_txpowerlimit sets previous txpower
+
+Christian Lamparter (1):
+      minstrel_ht: fix Open BA session request floods
+
+Dan Carpenter (3):
+      mac80211: handle allocation failures in mesh_pathtbl_init()
+      iwlwifi: fix double assign in iwl_start_tx_ba_trans_ready()
+      iwlwifi: signedness bug in iwl_trans_pcie_tx_agg_alloc()
+
+Eliad Peller (5):
+      wl12xx: initialize rate_set on band rates initialization
+      wl12xx: increase psm_entry_retries
+      wl12xx: enter psm only after station role was started
+      nl80211/cfg80211: add WIPHY_FLAG_AP_UAPSD flag
+      nl80211/cfg80211/mac80211: fix wme docs
+
+Emmanuel Grumbach (6):
+      iwlagn: merge iwl_pci_down and iwl_pci_remove
+      iwlagn: remove priv dereferences from the transport layer
+      iwlagn: clean up of transport layer
+      iwlagn: move traffic_log back to upper layer
+      iwlagn: iwl-trans.c can't dereference iwl_priv any more
+      iwlagn: fix compilation when debug flags is unset
+
+=46elix Fietkau (27):
+      ath9k_hw: do not apply the 2.4 ghz ack timeout workaround to cts
+      mac80211: retry sending failed BAR frames later instead of tearin=
+g down aggr
+      ath9k_hw: drop an unused column in AR5008-AR9002 initvals
+      ath9k_hw: fix the last register write for ar5416 addac
+      ath9k: fix checks for first subframe delimiter padding
+      mac80211: make ieee80211_send_bar available for drivers
+      ath9k: eliminate common->{rx,tx}_chainmask
+      ath9k: move a few functions around
+      ath9k: always call ath_reset from workqueue context
+      ath9k: merge reset related functions
+      ath9k: implement .get_antenna and .set_antenna
+      ath9k: fix enabling interrupts after a hardware error interrupt
+      ath9k: make beacon timer initialization more reliable
+      ath9k: ensure that rx is not enabled during a reset
+      ath9k: remove ATH_TX_XRETRY and BUF_XRETRY flags
+      ath9k: reduce the number of functions that access the tx descript=
+or
+      ath9k: move ath_buf_set_rate to remove a forward declaration
+      ath9k: call ath9k_hw_set_desc_link for beacon descriptors
+      ath9k_hw: do not recalculate the descriptor checksum in ar9003_hw=
+_fill_txdesc
+      ath9k_hw: add a new API for setting tx descriptors
+      ath9k: use the new API for setting tx descriptors
+      ath9k_hw: remove the old tx descriptor API
+      ath9k: optimize ath9k_ps_restore
+      ath9k: remove a redundant check in ath_tx_form_aggr
+      ath9k: optimize ath_tx_rc_status usage
+      ath9k: do not insert padding into tx buffers on AR9380+
+      mac80211: fix endian issues and comments for BAR failure handling
+
+Guy Eilam (1):
+      wl12xx: use 2 spare TX blocks for GEM cipher
+
+Helmut Schaa (12):
+      rt2x00: Minor optimizazion in txdone path
+      rt2x00: Add LED_CFG register description
+      rt2x00: Remove incorrect led blink
+      rt2x00: Update some TX descriptor
+      rt2x00: Avoid unnecessary uncached
+      rt2x00: Move bssidx calculation into its own function
+      rt2x00: Introduce sta_add/remove callbacks
+      rt2x00: Add WCID to crypto struct
+      rt2x00: Add WCID to HT TX descriptor
+      rt2x00: Make use of sta_add/remove callbacks in rt2800
+      rt2x00: Forbid aggregation for STAs not programmed into the hw
+      rt2x00: Use the available helper functions to initialize the WCID=
+ table
+
+Javier Cardona (12):
+      mac80211: Defer tranmission of mesh path errors
+      mac80211: Fix RCU pointer dereference in mesh_path_discard_frame(=
+)
+      mac80211: Remove mesh paths when an interface is removed
+      mac80211: Improve mpath state locking
+      mac80211: Remove redundant mesh path expiration checks
+      mac80211: Don't iterate twice over all mpaths when once in suffic=
+ient
+      mac80211: Consolidate {mesh,mpp}_path_flush into one function
+      mac80211: Consolidate mesh path duplicated functions
+      mac80211: Stop forwarding mesh traffic when tx queues are full
+      mac80211: Start implementing QoS support for mesh interfaces
+      mac80211: Mesh data frames must have the QoS header
+      mac80211: Mark all mesh stations as QoS capable
+
+Joe Perches (3):
+      mac80211: Remove unnecessary OOM logging messages
+      rfkill: Remove unnecessary OOM logging messages
+      wireless: Remove unnecessary OOM logging messages
+
+Johannes Berg (2):
+      mac80211: further optimise buffer expiry timer
+      cfg80211: verify format of uAPSD information
+
+John W. Linville (2):
+      Merge branch 'for-linville' of git://github.com/lucacoelho/wl12xx
+      Merge branch 'master' of ssh://infradead/~/public_git/wireless-ne=
+xt into for-davem
+
+Kalle Valo (1):
+      MAINTAINERS: update ath6kl
+
+Luciano Coelho (4):
+      wl12xx: add support for multiple SSIDs in sched_scan
+      wl12xx: use SCAN_SSID_TYPE_PUBLIC when using the wildcard in sche=
+d_scan
+      nl80211/cfg80211: add match filtering for sched_scan
+      Merge branch 'wl12xx-next' into for-linville
+
+Mohammed Shafi Shajakhan (2):
+      ath9k: enable LED pin for AR946/8x chipsets
+      ath9k: Fix PS wrappers and enabling LED
+
+Pavel Roskin (1):
+      cfg80211: print bandwidth in chan_reg_rule_print_dbg()
+
+Rafa=C5=82 Mi=C5=82ecki (20):
+      b43: LCN-PHY: add R/W ops for PHY and radio
+      b43: LCN-PHY: implement more PHY ops before radio init
+      b43: LCN-PHY: prepare functions for channel switching
+      ssb: use u16 for storing board rev
+      bcma: extract some basic info about board from SPROM
+      b43: LCN-PHY: implement saving and restoring PHY & radio configur=
+ation
+      b43: LCN-PHY: minor fixes
+      b43: LCN-PHY: put tables functions in correct file
+      b43: LCN-PHY: rewrite 0x7 table at the end of init
+      b43: LCN-PHY: upload additional 0x7 table
+      b43: LCN-PHY: rename functions, get rid of magic names
+      b43: LCN-PHY: add conditions for few operations
+      b43: N-PHY: implement enabling TX power control
+      b43: drop Copyright for not really copyrightable info
+      b43: add my copyrights and myself as the module author
+      b43: LCN-PHY: load TX gain table on init
+      b43: N-PHY: use helper for checking IPA
+      b43: N-PHY: replace some hacks with nice tables ops
+      b43: N-PHY: split workarounds into per-PHY-ver functions
+      b43: N-PHY: implement few random missing ops
+
+Rajkumar Manoharan (6):
+      ath9k_hw: Fix rx latency of 11a mode
+      mac80211: stop tx before doing hw config and rate update
+      ath9k: Take the samples in unassociated state
+      ath9k: Move cycle conters under cc_lock
+      ath9k_hw: Fix magnitude/phase average in TxIQ Calibration
+      ath9k_hw: Do full chip reset on 11A channels for AR9003
+
+Randy Dunlap (1):
+      wireless: fix kernel-doc warning in net/cfg80211.h
+
+Senthil Balasubramanian (4):
+      ath9k_hw: Add initvals and register definitions for AR946/8x chip=
+sets.
+      ath9k_hw: Split tx/rx gain table initval handling
+      ath9k_hw: Add support for AR946/8x chipsets.
+      ath9k_hw: move register definitions to header files
+
+Shahar Levi (1):
+      mac80211: Update device channel in case of HW channel switch supp=
+orted
+
+Sven Neumann (2):
+      cfg80211: hold reg_mutex when updating regulatory
+      cfg80211: reorder code to obsolete forward declaration
+
+Thomas Pedersen (1):
+      mac80211: check if mesh frame is in RMC after decrypt
+
+Vivek Natarajan (1):
+      cfg80211/nl80211: Indicate roaming feature capability to userspac=
+e.
+
+Wey-Yi Guy (4):
+      iwlagn: only perform necessary calibration at init time
+      iwlagn: disply queue read/write pointer when stuck
+      iwlagn: enable 11n support for "_d" sku
+      iwlagn: remove lines from the wrong place
+
+Yogesh Ashok Powar (2):
+      mwl8k: Set hardware flag IEEE80211_HW_AP_LINK_PS
+      mwifiex: replace kmalloc & memcpy sequence with kmemdup
+
+zero.lin (1):
+      rt2x00: Add new chipset support
+
+ MAINTAINERS                                        |   14 +-
+ drivers/bcma/sprom.c                               |    9 +
+ drivers/net/wireless/ath/ath.h                     |    3 -
+ drivers/net/wireless/ath/ath9k/ar5008_initvals.h   |  131 +-
+ drivers/net/wireless/ath/ath9k/ar9001_initvals.h   |  266 +-
+ drivers/net/wireless/ath/ath9k/ar9002_hw.c         |   48 +-
+ drivers/net/wireless/ath/ath9k/ar9002_initvals.h   | 3403 ++++++++++--=
+--------
+ drivers/net/wireless/ath/ath9k/ar9002_mac.c        |  257 +-
+ drivers/net/wireless/ath/ath9k/ar9003_calib.c      |   17 +-
+ drivers/net/wireless/ath/ath9k/ar9003_eeprom.c     |  117 +-
+ drivers/net/wireless/ath/ath9k/ar9003_eeprom.h     |    3 +-
+ drivers/net/wireless/ath/ath9k/ar9003_hw.c         |  581 +++-
+ drivers/net/wireless/ath/ath9k/ar9003_mac.c        |  331 +--
+ drivers/net/wireless/ath/ath9k/ar9003_paprd.c      |   15 +-
+ drivers/net/wireless/ath/ath9k/ar9003_phy.c        |   10 +
+ drivers/net/wireless/ath/ath9k/ar9003_phy.h        |  100 +-
+ .../net/wireless/ath/ath9k/ar9480_1p0_initvals.h   | 1833 +++++++++++
+ .../net/wireless/ath/ath9k/ar9480_2p0_initvals.h   | 1928 +++++++++++
+ drivers/net/wireless/ath/ath9k/ath9k.h             |   14 +-
+ drivers/net/wireless/ath/ath9k/beacon.c            |   56 +-
+ drivers/net/wireless/ath/ath9k/debug.c             |   41 +-
+ drivers/net/wireless/ath/ath9k/debug.h             |    6 +-
+ drivers/net/wireless/ath/ath9k/gpio.c              |    2 +
+ drivers/net/wireless/ath/ath9k/htc_drv_init.c      |    7 +-
+ drivers/net/wireless/ath/ath9k/htc_drv_main.c      |    3 +-
+ drivers/net/wireless/ath/ath9k/hw-ops.h            |   58 +-
+ drivers/net/wireless/ath/ath9k/hw.c                |  102 +-
+ drivers/net/wireless/ath/ath9k/hw.h                |   28 +-
+ drivers/net/wireless/ath/ath9k/init.c              |   42 +-
+ drivers/net/wireless/ath/ath9k/mac.c               |   12 -
+ drivers/net/wireless/ath/ath9k/mac.h               |   42 +-
+ drivers/net/wireless/ath/ath9k/main.c              |  535 ++--
+ drivers/net/wireless/ath/ath9k/pci.c               |    5 +-
+ drivers/net/wireless/ath/ath9k/recv.c              |    7 +-
+ drivers/net/wireless/ath/ath9k/reg.h               |   62 +-
+ drivers/net/wireless/ath/ath9k/xmit.c              |  607 ++--
+ drivers/net/wireless/b43/b43.h                     |    2 +
+ drivers/net/wireless/b43/bus.c                     |    2 +
+ drivers/net/wireless/b43/main.c                    |    3 +
+ drivers/net/wireless/b43/phy_ht.c                  |    2 +
+ drivers/net/wireless/b43/phy_lcn.c                 |  288 ++-
+ drivers/net/wireless/b43/phy_n.c                   |  543 ++--
+ drivers/net/wireless/b43/phy_n.h                   |    4 +
+ drivers/net/wireless/b43/radio_2055.c              |    1 +
+ drivers/net/wireless/b43/radio_2056.c              |    2 +
+ drivers/net/wireless/b43/radio_2056.h              |   26 -
+ drivers/net/wireless/b43/radio_2059.c              |    2 +
+ drivers/net/wireless/b43/tables_nphy.c             |    1 +
+ drivers/net/wireless/b43/tables_phy_ht.c           |    2 +
+ drivers/net/wireless/b43/tables_phy_lcn.c          |  255 ++-
+ drivers/net/wireless/b43/tables_phy_lcn.h          |    2 +
+ drivers/net/wireless/iwlwifi/iwl-2000.c            |    1 +
+ drivers/net/wireless/iwlwifi/iwl-agn-lib.c         |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-rxon.c        |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-tt.h          |    1 -
+ drivers/net/wireless/iwlwifi/iwl-agn-tx.c          |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-ucode.c       |    5 +-
+ drivers/net/wireless/iwlwifi/iwl-agn.c             |   10 +-
+ drivers/net/wireless/iwlwifi/iwl-agn.h             |    2 -
+ drivers/net/wireless/iwlwifi/iwl-commands.h        |    7 +-
+ drivers/net/wireless/iwlwifi/iwl-core.c            |   19 +-
+ drivers/net/wireless/iwlwifi/iwl-core.h            |   22 -
+ drivers/net/wireless/iwlwifi/iwl-csr.h             |   18 +
+ drivers/net/wireless/iwlwifi/iwl-debugfs.c         |   85 +
+ drivers/net/wireless/iwlwifi/iwl-dev.h             |  202 +--
+ drivers/net/wireless/iwlwifi/iwl-helpers.h         |   23 -
+ drivers/net/wireless/iwlwifi/iwl-pci.c             |   18 +-
+ drivers/net/wireless/iwlwifi/iwl-rx.c              |   83 +-
+ drivers/net/wireless/iwlwifi/iwl-shared.h          |   52 +
+ drivers/net/wireless/iwlwifi/iwl-sta.c             |    4 +-
+ drivers/net/wireless/iwlwifi/iwl-sv-open.c         |    1 +
+ drivers/net/wireless/iwlwifi/iwl-trans-int-pcie.h  |  110 +-
+ drivers/net/wireless/iwlwifi/iwl-trans-rx-pcie.c   |   45 +-
+ drivers/net/wireless/iwlwifi/iwl-trans-tx-pcie.c   |  130 +-
+ drivers/net/wireless/iwlwifi/iwl-trans.c           |  402 +--
+ drivers/net/wireless/iwlwifi/iwl-trans.h           |   66 +-
+ drivers/net/wireless/libertas/if_usb.c             |   21 +
+ drivers/net/wireless/mwifiex/join.c                |    3 +-
+ drivers/net/wireless/mwifiex/scan.c                |    6 +-
+ drivers/net/wireless/mwifiex/sta_ioctl.c           |    9 +-
+ drivers/net/wireless/mwl8k.c                       |    8 +
+ drivers/net/wireless/rt2x00/rt2800.h               |    3 +
+ drivers/net/wireless/rt2x00/rt2800lib.c            |  191 +-
+ drivers/net/wireless/rt2x00/rt2800lib.h            |    5 +-
+ drivers/net/wireless/rt2x00/rt2800pci.c            |   15 +-
+ drivers/net/wireless/rt2x00/rt2800usb.c            |    7 +-
+ drivers/net/wireless/rt2x00/rt2x00.h               |   30 +
+ drivers/net/wireless/rt2x00/rt2x00dev.c            |   21 +
+ drivers/net/wireless/rt2x00/rt2x00mac.c            |   50 +-
+ drivers/net/wireless/rt2x00/rt2x00queue.c          |    7 +-
+ drivers/net/wireless/rt2x00/rt2x00queue.h          |    5 +-
+ drivers/net/wireless/wl12xx/boot.c                 |    4 +-
+ drivers/net/wireless/wl12xx/main.c                 |   50 +-
+ drivers/net/wireless/wl12xx/scan.c                 |   66 +-
+ drivers/net/wireless/wl12xx/tx.c                   |    8 +-
+ drivers/net/wireless/wl12xx/tx.h                   |    1 +
+ drivers/net/wireless/wl12xx/wl12xx.h               |    3 +
+ include/linux/ieee80211.h                          |    2 +
+ include/linux/nl80211.h                            |   57 +-
+ include/linux/ssb/ssb.h                            |    2 +-
+ include/net/cfg80211.h                             |   31 +
+ include/net/mac80211.h                             |   29 +
+ net/mac80211/agg-rx.c                              |   19 +-
+ net/mac80211/agg-tx.c                              |   42 +-
+ net/mac80211/cfg.c                                 |   21 +-
+ net/mac80211/debugfs.c                             |    5 +
+ net/mac80211/debugfs_netdev.c                      |    3 +
+ net/mac80211/ht.c                                  |    6 +-
+ net/mac80211/ieee80211_i.h                         |    3 +-
+ net/mac80211/iface.c                               |    6 +
+ net/mac80211/mesh.c                                |    8 +-
+ net/mac80211/mesh.h                                |    6 +-
+ net/mac80211/mesh_hwmp.c                           |   31 +-
+ net/mac80211/mesh_pathtbl.c                        |  192 +-
+ net/mac80211/mesh_plink.c                          |    2 +-
+ net/mac80211/mlme.c                                |   36 +-
+ net/mac80211/rc80211_minstrel_ht.c                 |    3 +-
+ net/mac80211/rx.c                                  |   35 +-
+ net/mac80211/spectmgmt.c                           |    6 +-
+ net/mac80211/sta_info.c                            |   10 +-
+ net/mac80211/sta_info.h                            |    5 +
+ net/mac80211/status.c                              |   53 +-
+ net/mac80211/tx.c                                  |   26 +-
+ net/mac80211/util.c                                |   13 +-
+ net/mac80211/wme.c                                 |   16 +-
+ net/mac80211/wme.h                                 |    3 +-
+ net/mac80211/work.c                                |    6 +-
+ net/rfkill/rfkill-regulator.c                      |    1 -
+ net/wireless/core.c                                |    2 +-
+ net/wireless/core.h                                |    2 -
+ net/wireless/lib80211_crypt_ccmp.c                 |    2 -
+ net/wireless/lib80211_crypt_tkip.c                 |    4 -
+ net/wireless/lib80211_crypt_wep.c                  |    4 -
+ net/wireless/nl80211.c                             |   73 +-
+ net/wireless/reg.c                                 |   33 +-
+ net/wireless/reg.h                                 |    2 +
+ net/wireless/util.c                                |    5 +-
+ 137 files changed, 9864 insertions(+), 4598 deletions(-)
+ create mode 100644 drivers/net/wireless/ath/ath9k/ar9480_1p0_initvals.=
+h
+ create mode 100644 drivers/net/wireless/ath/ath9k/ar9480_2p0_initvals.=
+h
+
+Omnibus patch is available here:
+
+	http://bombadil.infradead.org/~linville/wireless-next-2011-09-19.patch=
+=2Egz
+
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
