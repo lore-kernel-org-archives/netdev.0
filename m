@@ -1,41 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG net-next] lost bnx2x
-Date: Mon, 19 Sep 2011 14:05:20 +0200
-Message-ID: <1316433920.2539.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1316406760.2521.18.camel@edumazet-laptop>
-	 <1316433250.4154.3.camel@lb-tlvb-dmitry>
+From: Benjamin Poirier <benjamin.poirier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: discrepancy in ip(7) wrt. IP DF flag for UDP sockets
+Date: Mon, 19 Sep 2011 08:19:40 -0400
+Message-ID: <20110919121940.GA19942@synalogic.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:54042 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755622Ab1ISMKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 08:10:37 -0400
-Received: by eya28 with SMTP id 28so1505093eya.19
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 05:10:36 -0700 (PDT)
-In-Reply-To: <1316433250.4154.3.camel@lb-tlvb-dmitry>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 19 septembre 2011 =C3=A0 14:54 +0300, Dmitry Kravkov a =C3=A9c=
-rit :
-> On Sun, 2011-09-18 at 21:32 -0700, Eric Dumazet wrote:
-> > With latest net-next, my bnx2x doesnt start
-> >=20
-> > bnx2x: Can't load firmware file bnx2x/bnx2x-e1h-7.0.23.0.fw
-> >=20
-> > But I do have the file in /lib/firmware/bnx2x/bnx2x-e1h-7.0.23.0.fw
-> >=20
->=20
-> Just pulled net-next - bnx2x device can load and pass traffic(on x86-=
-64)
-> Can you provide more details about your setup?
+Hi,
 
-Please hold on, it might be because of my af_unix patches.
+I noticed what appears to be a discrepancy between the ip(7) man page
+and the kernel code with regards to the IP DF flag for UDP sockets.
 
-I am investigating right now.
+The man page says that "The don't-fragment flag is set on all outgoing
+datagrams" and that the ip_no_pmtu_disc sysctl affects only SOCK_STREAM
+sockets. This is quickly disproved by doing:
+echo 1 > /proc/sys/net/ipv4/ip_no_pmtu_disc
+firing up netcat and looking at a few outgoing udp packets in wireshark
+(they don't have the DF flag set).
+
+1) in the words of `man 7 ip`:
+IP_MTU_DISCOVER (since Linux 2.2)
+      Set or receive the Path MTU Discovery  setting  for  a  socket.
+      When  enabled, Linux will perform Path MTU Discovery as defined
+      in RFC 1191 on this socket.  The don't-fragment flag is set  on
+      all  outgoing datagrams.  The system-wide default is controlled
+      by the /proc/sys/net/ipv4/ip_no_pmtu_disc file for  SOCK_STREAM
+      sockets, and disabled on all others.
+
+This is the text present in the latest version of the online manpages,
+http://webcache.googleusercontent.com/search?q=cache:http://www.kernel.org/doc/man-pages/reporting_bugs.html&ie=UTF-8
+
+2) in net/ipv4/af_inet.c:inet_create():
+	if (ipv4_config.no_pmtu_disc)
+		inet->pmtudisc = IP_PMTUDISC_DONT;
+	else
+		inet->pmtudisc = IP_PMTUDISC_WANT;
+
+and pmtudisc is left alone from there on for UDP sockets.
+
+What should be adjusted, the man page or the code?
+
+Thanks,
+-Ben
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
