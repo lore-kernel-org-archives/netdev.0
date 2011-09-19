@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Sun, 18 Sep 2011 23:13:58 -0400 (EDT)
-Message-ID: <20110918.231358.1701611368789467684.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [GIT] Networking
+Date: Mon, 19 Sep 2011 05:17:56 +0200
+Message-ID: <1316402276.2521.3.camel@edumazet-laptop>
+References: <CA+55aFwmwYXzC_4q+XuEAx3ta6U-jf=NvMcAc-J+4DBxLm8Efg@mail.gmail.com>
+	 <1316378130.31335.32.camel@edumazet-laptop>
+	 <CA+55aFzHOUaub9WJ7L_LGEGGkKdW-h3eV0MaUsCjdmUBKDGe_w@mail.gmail.com>
+	 <20110918.214540.33131923686632079.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: torvalds@linux-foundation.org, markus@trippelsdorf.de,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:62481 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756708Ab1ISDSD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 23:18:03 -0400
+In-Reply-To: <20110918.214540.33131923686632079.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Le dimanche 18 septembre 2011 =C3=A0 21:45 -0400, David Miller a =C3=A9=
+crit :
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Sun, 18 Sep 2011 18:26:33 -0700
+>=20
+> > Stop with the "this might just work" crap. Because -rc7 is just too
+> > late to dick around like that.
+>=20
+> I'll sort this out.
 
-I fixed up Eric's build fix and also there is a fix for a
-reversed test in TCP's DSACK validation from Zheng Yan.
+Oh well, I did compile the thing on my slow netbook, not on my usual 16
+core dev machine, and I had to catch a very small window of Internet
+access (my ADSL box collapsed when a thunderstrike hit the church in my
+neighbourhood)
 
-Please pull, thanks a lot!
-
-The following changes since commit b0e7031ac08fa0aa242531c8d9a0cf9ae8ee276d:
-
-  Merge git://github.com/davem330/net (2011-09-18 11:02:26 -0700)
-
-are available in the git repository at:
-
-  git://github.com/davem330/net.git master
-
-Eric Dumazet (1):
-      tcp: fix build error if !CONFIG_SYN_COOKIES
-
-Zheng Yan (1):
-      tcp: fix validation of D-SACK
-
- include/net/tcp.h    |   19 ++++++++++++++++++-
- net/ipv4/tcp_input.c |    2 +-
- 2 files changed, 19 insertions(+), 2 deletions(-)
+Thanks guys.
