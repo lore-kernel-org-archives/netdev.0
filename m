@@ -1,64 +1,47 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [GIT] Networking
-Date: Sun, 18 Sep 2011 18:14:53 -0700
-Message-ID: <CA+55aFyENEpGJmTq55=n0_gDiF6RQmdKw-ts4AdQAFQJ1TkF-Q@mail.gmail.com>
+Date: Sun, 18 Sep 2011 18:26:33 -0700
+Message-ID: <CA+55aFzHOUaub9WJ7L_LGEGGkKdW-h3eV0MaUsCjdmUBKDGe_w@mail.gmail.com>
 References: <20110918.022125.1554085675403900813.davem@davemloft.net>
  <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
- <4E76864D.4080907@ll.mit.edu> <20110918.210344.570661374586887894.davem@davemloft.net>
+ <20110918192333.GA1641@x4.trippels.de> <1316375164.31335.18.camel@edumazet-laptop>
+ <20110918194818.GB1641@x4.trippels.de> <CA+55aFwmwYXzC_4q+XuEAx3ta6U-jf=NvMcAc-J+4DBxLm8Efg@mail.gmail.com>
+ <1316378130.31335.32.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: david.ward@ll.mit.edu, akpm@linux-foundation.org,
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Jeremy Kerr <jk@ozlabs.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:48626 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431Ab1ISBPR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 21:15:17 -0400
-In-Reply-To: <20110918.210344.570661374586887894.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1316378130.31335.32.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hmm. I *think* the right person for patchwork issues is Jeremy Kerr,
-but I migth be wrong..
-
-Jeremy, the fact that apparently patchworks loses proper names is a
-killer feature - but very much in the wrong meaning of "killer". Any
-way to make sure that doesn't happen?
-
-                    Linus
-
-On Sun, Sep 18, 2011 at 6:03 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: David Ward <david.ward@ll.mit.edu>
-> Date: Sun, 18 Sep 2011 20:01:17 -0400
+On Sun, Sep 18, 2011 at 1:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
->> On 09/18/2011 02:06 PM, Linus Torvalds wrote:
->>> 2011/9/17 David Miller<davem@davemloft.net>:
->>>> dpward (2):
->>>> =A0 =A0 =A0 net: Make flow cache namespace-aware
->>>> =A0 =A0 =A0 net: Handle different key sizes between address famili=
-es in flow cache
->>>>
->>>> nhorman (1):
->>>> =A0 =A0 =A0 net: don't clear IFF_XMIT_DST_RELEASE in ether_setup
->>>>
->>>> rajan.aggarwal85@gmail.com (1):
->>>> =A0 =A0 =A0 net/can/af_can.c: Change del_timer to del_timer_sync
->>> Guys, if somebody has such a broken email setup that they don't eve=
-n
->>> show their own name, don't take patches from them.
->>
->> At least in my case, that is Patchwork's fault. =A0My name only star=
-ted
->> showing up like that in commits after I registered for an account
->> (http://patchwork.ozlabs.org/register/), and I don't see any way to
->> change the way my name appears in the Patchwork profile options.
->>
->> The emails I sent to the netdev list showed my full name; see:
->> http://marc.info/?l=3Dlinux-netdev&m=3D131527867326729&w=3D2
->> http://marc.info/?l=3Dlinux-netdev&m=3D131527879226819&w=3D2
+> [PATCH] tcp: fix build error if !CONFIG_SYN_COOKIE
 >
-> I hope some mechanism can be created to undo this behavior.
->
+> commit 946cedccbd7387 (tcp: Change possible SYN flooding messages)
+> added a build error if CONFIG_SYN_COOKIE=n
+
+Christ Eric, you clearly didn't even compile-test this one either.
+
+Which is pretty bad, considering that the whole and only *point* of
+the patch is to make it compile.
+
+The config option is CONFIG_SYN_COOKIES (with an 'S' at the end), but
+your patch has 'CONFIG_SYN_COOKIE' (without the S).
+
+Which means that now it doesn't compile when syncookies are *enabled*.
+
+I really wanted to release -rc7 today. But no way am I applying these
+kinds of totally untested patches. Can you guys please get your act
+together?
+
+PLEASE?
+
+Stop with the "this might just work" crap. Because -rc7 is just too
+late to dick around like that.
+
+                       Linus
