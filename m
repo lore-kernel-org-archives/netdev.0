@@ -1,163 +1,132 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: Re: [GIT] Networking
-Date: Sun, 18 Sep 2011 20:01:17 -0400
-Message-ID: <4E76864D.4080907@ll.mit.edu>
-References: <20110918.022125.1554085675403900813.davem@davemloft.net> <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms060206040108000007030005"
-Cc: David Miller <davem@davemloft.net>, <akpm@linux-foundation.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:43468 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755489Ab1ISAB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Sep 2011 20:01:26 -0400
-In-Reply-To: <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH v3 0/7]  per-cgroup tcp buffer pressure settings
+Date: Sun, 18 Sep 2011 21:56:38 -0300
+Message-ID: <1316393805-3005-1-git-send-email-glommer@parallels.com>
+Cc: paul@paulmenage.org, lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
+        ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
+        netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
---------------ms060206040108000007030005
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+[[ v3: merge Kirill's suggestions, + a destroy-related bugfix ]]
 
-On 09/18/2011 02:06 PM, Linus Torvalds wrote:
-> 2011/9/17 David Miller<davem@davemloft.net>:
->> dpward (2):
->>       net: Make flow cache namespace-aware
->>       net: Handle different key sizes between address families in flow=
- cache
->>
->> nhorman (1):
->>       net: don't clear IFF_XMIT_DST_RELEASE in ether_setup
->>
->> rajan.aggarwal85@gmail.com (1):
->>       net/can/af_can.c: Change del_timer to del_timer_sync
-> Guys, if somebody has such a broken email setup that they don't even
-> show their own name, don't take patches from them.
+This patch introduces per-cgroup tcp buffers limitation. This allows
+sysadmins to specify a maximum amount of kernel memory that
+tcp connections can use at any point in time. TCP is the main interest
+in this work, but extending it to other protocols would be easy.
 
-At least in my case, that is Patchwork's fault.  My name only started=20
-showing up like that in commits after I registered for an account=20
-(http://patchwork.ozlabs.org/register/), and I don't see any way to=20
-change the way my name appears in the Patchwork profile options.
+For this to work, I am hooking it into memcg, after the introdution of
+an extension for tracking and controlling objects in kernel memory.
+Since they are usually not found in page granularity, and are fundamentally
+different from userspace memory (not swappable, can't overcommit), they
+need their special place inside the Memory Controller.
 
-The emails I sent to the netdev list showed my full name; see:
-http://marc.info/?l=3Dlinux-netdev&m=3D131527867326729&w=3D2
-http://marc.info/?l=3Dlinux-netdev&m=3D131527879226819&w=3D2
+Right now, the kmem extension is quite basic, and just lays down the
+basic infrastucture for the ongoing work. 
 
-David
+Although it does not account kernel memory allocated - I preferred to
+keep this series simple and leave accounting to the slab allocations when
+they arrive.
+
+What it does is to piggyback in the memory control mechanism already present in
+/proc/sys/net/ipv4/tcp_mem. There is a soft limit, and a hard limit,
+that will suppress allocation when reached. For each non-root cgroup, however,
+the file kmem.tcp_maxmem will be used to cap those values. 
+
+The usage I have in mind here is containers. Each container will
+define its own values for soft and hard limits, but none of them will
+be possibly bigger than the value the box' sysadmin specified from
+the outside.
+
+To test for any performance impacts of this patch, I used netperf's
+TCP_RR benchmark on localhost, so we can have both recv and snd in action.
+For this iteration, I am using the 1% confidence interval as suggested by Rick.
+
+Command line used was ./src/netperf -t TCP_RR -H localhost -i 30,3 -I 99,1 and the
+results:
+
+Without the patch
+=================
+
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00    35367.21
+16384  87380
 
 
---------------ms060206040108000007030005
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
+With the patch
+==============
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISqjCC
-BEAwggMooAMCAQICBD7EX1YwDQYJKoZIhvcNAQEFBQAwPTELMAkGA1UEBhMCVVMxHzAdBgNV
-BAoTFk1JVCBMaW5jb2xuIExhYm9yYXRvcnkxDTALBgNVBAsTBGxsY2EwHhcNMDgxMDA5MTg0
-NzQ1WhcNMTExMTAzMDQwMDAwWjBUMQswCQYDVQQGEwJVUzEfMB0GA1UEChMWTUlUIExpbmNv
-bG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRYwFAYDVQQDEw1NSVRMTCBSb290IENBMIIB
-IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxU4pF1iyJrL5rYq/XBAKg93kCTATG7Bw
-0NGFpEJ1A3Xsr6UIIq9/1VJBOgCwDqrVsAK1lRwy/lkrHzPkobiMr1wzjQ28SR/9sg5kAcmr
-MqBYbc302qtwCGKZxdNdhAh2nUOCO10AMpUsCNdpikPY9ukT8lsA+eorM4Q1rc/L0J6AHRpt
-OU7IuDBdZj+tdNb7gv+GKknr6wj9m2sVGawoaG7AAqhsWvQUM/q4h/H5FpYlwnVAEh2Azhqi
-G9bwl6uJJIzJ/8uUWldNkVwz1I5fR/vCaxiLXIW4oUydBuRKTG+ekEoxHGuD73yx5JtsSciS
-8HQL2oEM8tv+VAC+albqgwIDAQABo4IBLzCCASswDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8B
-Af8EBAMCAYYwPAYIKwYBBQUHAQEEMDAuMCwGCCsGAQUFBzAChiBodHRwOi8vY3JsLmxsLm1p
-dC5lZHUvZ2V0dG8/TExDQTCBiQYDVR0fBIGBMH8wVKBSoFCkTjBMMQswCQYDVQQGEwJVUzEf
-MB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTENMAsGA1UECxMEbGxjYTENMAsGA1UE
-AxMEQ1JMMTAnoCWgI4YhaHR0cDovL2NybC5sbC5taXQuZWR1L2NybC9jcmwuY3JsMB8GA1Ud
-IwQYMBaAFEKI6bpqndJjJWs5qgroAo9nDQNxMB0GA1UdDgQWBBRnqnrP9AqmuXK1iqDSnfIQ
-w0PtKTANBgkqhkiG9w0BAQUFAAOCAQEAOgT03LbrGV+inErWA67wFZo45fkJYLGVkienCHcB
-UTPMQEDESUgxXzL7l1jXbvuzPTJLH3mvhgbPxO41qIbI+RmryUHjBcnbJww/rODdGgeTD5x6
-z3G5puB4jNW0B4VCTff/ovckEVDflWqXSqV6s4++8jNQfMRuEy+dptsIGr0OiLfYEgFVVag5
-LnGcq83dcfe7nqsS0Heyj0w/m75VYVGpycbq5FEPkLJKkms1tMt7ydNRXbDcRBaMTg/wDIo2
-F6ASEnf2OYcoj1Str1eOtwkRdW+PsMrST9Ctwr93zUq5KeQ2V1zBQQYeuFmlPQm3nWVzl842
-XF1dEcE6et60bzCCBLcwggOfoAMCAQICARQwDQYJKoZIhvcNAQELBQAwVDELMAkGA1UEBhMC
-VVMxHzAdBgNVBAoTFk1JVCBMaW5jb2xuIExhYm9yYXRvcnkxDDAKBgNVBAsTA1BLSTEWMBQG
-A1UEAxMNTUlUTEwgUm9vdCBDQTAeFw0wOTEyMTQxMjAwMDBaFw0xNTEyMzEyMzU5NTlaMFEx
-CzAJBgNVBAYTAlVTMR8wHQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQL
-EwNQS0kxEzARBgNVBAMTCk1JVExMIENBLTIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-AoIBAQCnBMsjYUiH7DegMwcFYWZM6OknYzRgEO5gNgPE9JJnQgfDB+o1o1VTMBWcJYPXII4C
-yhLhDvSjfCvTPI4HmRDKIp5UX5N2BCzwu7BJJMwUJHFaS4RMAC7nvYh6MIEixpl2aWCpkYX7
-4b2CeDDQriGlqXCvxmg2QhPlNmk4ONpL/80Kx9wKKhV/NThe54sFzZ2pz9YUEX5DE0a52hFv
-A19EzGhv7fUcucUjKy0zXPQ70LYwOWXLlpxAolKcgwRVsS6/cse8YH9fy8IAsXKAXikgQaFs
-5EJigLIDKPTKtRaf55yKsORSpoDrO1cvuntA5PnIH/qAFfACvGRTEK1RNLh9AgMBAAGjggGV
-MIIBkTASBgNVHRMBAf8ECDAGAQH/AgEAMB0GA1UdDgQWBBSOSn2JoWMXHIGINFc3JkVeGYp+
-JDAfBgNVHSMEGDAWgBRnqnrP9AqmuXK1iqDSnfIQw0PtKTAOBgNVHQ8BAf8EBAMCAYYwYQYI
-KwYBBQUHAQEEVTBTMC0GCCsGAQUFBzAChiFodHRwOi8vY3JsLmxsLm1pdC5lZHUvZ2V0dG8/
-TExSQ0EwIgYIKwYBBQUHMAGGFmh0dHA6Ly9vY3NwLmxsLm1pdC5lZHUwMwYDVR0fBCwwKjAo
-oCagJIYiaHR0cDovL2NybC5sbC5taXQuZWR1L2dldGNybD9MTFJDQTCBkgYDVR0gBIGKMIGH
-MA0GCyqGSIb3EgIBAwEGMA0GCyqGSIb3EgIBAwEIMA0GCyqGSIb3EgIBAwEHMA0GCyqGSIb3
-EgIBAwEJMA0GCyqGSIb3EgIBAwEKMA0GCyqGSIb3EgIBAwELMA0GCyqGSIb3EgIBAwEOMA0G
-CyqGSIb3EgIBAwEPMA0GCyqGSIb3EgIBAwEQMA0GCSqGSIb3DQEBCwUAA4IBAQCIdwah0P1x
-/Augwi/nhBq6Ds8QXAqkzSLZrL+DADWjk6HYFNo64x3Bo15c6oaW/GcTpZACt3StPa3OvsgA
-nKCtk81bQ0WV2MaL/0qmUYyN3bn1NiWrQD8aLAssv9aLY5dUylGOO1r37d9b3X+YtFytg0FR
-Cfl5arYAYhU1SDCHwScD2o67Is/qYBRGMIYcCcb7PH5UotBSwhO+1WCxIqD+YcRusyD3kEcc
-4dW6IG36YVhx7aIkw5AUmeFH7xl0E1X+0I4Q+cmMNdMiArYx5rYG34AZB+f770fdjWPUUpTT
-82aphiiImutWyQpmoEWBsnsX3nVTRdHCVi+Cf3Cx4YDWMIIE0DCCA7igAwIBAgIKHZq/iQAA
-AAAmizANBgkqhkiG9w0BAQsFADBRMQswCQYDVQQGEwJVUzEfMB0GA1UEChMWTUlUIExpbmNv
-bG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0yMB4XDTEx
-MDkwMjEzMjMyN1oXDTEyMDkwMTEzMjMyN1owXzELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1J
-VCBMaW5jb2xuIExhYm9yYXRvcnkxDzANBgNVBAsTBlBlb3BsZTEeMBwGA1UEAxMVV2FyZC5E
-YXZpZC5QLjUwMDExNDU5MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs/kc4nm0
-iXua+QkuOu84IL7WwUO0SE5E9kNN1jkGyUHFAlGZM6MCrX+WCjriUhZ81kvHdDrwc1T4dM2u
-Vomh9PtllfVTtDClme0gyl8MytZFyGY3T9lvvXGo10spznb2NfW0mwz3o6KgcB1r+CAZg+i3
-eImv+KYcDPRRs1HXh9A0wpEZnTRFK9IbL0bOQRimfYCtmiT0cU+lkKDNxdtFOvDeqBvItnlA
-lSqRc+dgU8wO3so1KGAIPTH6DyNOA6c6zGy0W7DA4enSXjRv1zj4WqziFaaonbqB6bot9BL6
-iNkxRQNw46Ggz7AvC3YUq97bcEtIo6/yK+h2lvvfdOeIzQIDAQABo4IBmjCCAZYwHQYDVR0O
-BBYEFM45m7umEDp10q5/GycF/INvcYO6MA4GA1UdDwEB/wQEAwIGwDAfBgNVHSMEGDAWgBSO
-Sn2JoWMXHIGINFc3JkVeGYp+JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1p
-dC5lZHUvZ2V0Y3JsL0xMQ0EyMGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDov
-L2NybC5sbC5taXQuZWR1L2dldHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5s
-bC5taXQuZWR1LzAMBgNVHRMBAf8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD
-5R2H7Kdmhq2HFYPq8EWFtqEfHYXL3jKH/4pzAgFkAgEFMCIGA1UdJQEB/wQYMBYGCCsGAQUF
-BwMEBgorBgEEAYI3CgMMMBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwIAYDVR0RBBkwF4EV
-ZGF2aWQud2FyZEBsbC5taXQuZWR1MA0GCSqGSIb3DQEBCwUAA4IBAQBJFv9wS0zxBhRjFpjI
-lz2d6SYQnnjrWSATfBQ4kgBh4eU12s/fWXx6Do//TkxYy11vWxFH8J+388F1i016ttcDTmCT
-JJTaEyregC4sok835zd0B2MsQ1T78jfwwDyY1YdGfRfeAjFaTZiXoz9x2dFR8EdCoxs922/2
-hph9a4LnN+OiMa2APHEuJFQpz5MPgnKCo4VkzADK5+xwl0kpyf3XaitHbyEyiFwNOuJLmjXw
-PSr6cXArpdaI3qPqx4vHta3nny5vZft8gnVg/zyRsKgJR/ELxjmrN+lmvdJnmLS0rfFFcZ2i
-njNeP5r9oFYC99p9co1Z9PTfKSqs2+Jb+369MIIE0zCCA7ugAwIBAgIKHZoVFwAAAAAmijAN
-BgkqhkiG9w0BAQsFADBRMQswCQYDVQQGEwJVUzEfMB0GA1UEChMWTUlUIExpbmNvbG4gTGFi
-b3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0yMB4XDTExMDkwMjEz
-MjI0M1oXDTEyMDkwMTEzMjI0M1owXzELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1JVCBMaW5j
-b2xuIExhYm9yYXRvcnkxDzANBgNVBAsTBlBlb3BsZTEeMBwGA1UEAxMVV2FyZC5EYXZpZC5Q
-LjUwMDExNDU5MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsuroCmsIXD3x6D20
-VEA7j995rdTiXDpzcrJOm23Y91lHvgR1slI2kcwcKe5ERFn17G9wN/rQn6ASYcKL1+LjjcnY
-GtHBIOkKcIJSVMObDG+Fblg2osuJf6iRd3nvIUHqezt4mrH9VWpRZTCYzJcl/S8VBMqgsY7o
-No9IfEL3c7IKqER4yAvjD/iPg81VaWR2QOcubms42J5O48qWt0p9sr0/Z2CYC2iGy+QfAkeq
-OXSGvhcDckiYEOpEsegN0S6y4mvY+KpvTR6QUh2YfRf69r6/v/xp/KxmsgtbZzf4KWnUsBYq
-2h9d1gIxtRkxiNSU1qCKLhrHB4sTYMEaxzI75QIDAQABo4IBnTCCAZkwHQYDVR0OBBYEFA8t
-Ovez46Vf83C/sZVnvVWVzGSMMA4GA1UdDwEB/wQEAwIFIDAfBgNVHSMEGDAWgBSOSn2JoWMX
-HIGINFc3JkVeGYp+JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1pdC5lZHUv
-Z2V0Y3JsL0xMQ0EyMGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDovL2NybC5s
-bC5taXQuZWR1L2dldHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5sbC5taXQu
-ZWR1LzAMBgNVHRMBAf8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD5R2H7Kdm
-hq2HFYPq8EWFtqEfHYXr0HCD6+0gAgFkAgEEMCUGA1UdJQQeMBwGBFUdJQAGCCsGAQUFBwME
-BgorBgEEAYI3CgMEMBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwIAYDVR0RBBkwF4EVZGF2
-aWQud2FyZEBsbC5taXQuZWR1MA0GCSqGSIb3DQEBCwUAA4IBAQAzAVu7kVRNe2jceIj9uOxv
-gvJuvrK0dZ0BM/PQpB0VJq5QDpe00fQSJmVurv4+/QZOC6Pbe81Rsott3eXgHdpTBnghWaYQ
-KqMhNEAH0QQ2nvcYvMn46DRU29u+v7F1XkhYG9GTR9F88EeAO3r/Fio6M+0NNPxSab6p/pke
-cWI0GQbBEHVtTSNfbymwljp15nbE8/jThG1MES/mbLq+jue7BCDUw6jLp10fg2uXDd+DmZOI
-2K2G4kpZ0s2T1dtXh4HfOoHsBGFUMYQGMnL48b9p9mXwrJXo/WKFGe8l9+dLoOWMdZ+dvKQv
-a9kEAAOnbIZ2xXSi7EAz0AD/QPSwUnf8MYIDKjCCAyYCAQEwXzBRMQswCQYDVQQGEwJVUzEf
-MB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQD
-EwpNSVRMTCBDQS0yAgodmr+JAAAAACaLMAkGBSsOAwIaBQCgggGgMBgGCSqGSIb3DQEJAzEL
-BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTExMDkxOTAwMDExN1owIwYJKoZIhvcNAQkE
-MRYEFEqyNZ2Vt+6p//w0WCdh+Mtx9twwMF8GCSqGSIb3DQEJDzFSMFAwCwYJYIZIAWUDBAEC
-MAoGCCqGSIb3DQMHMA4GCCqGSIb3DQMCAgIAgDANBggqhkiG9w0DAgIBQDAHBgUrDgMCBzAN
-BggqhkiG9w0DAgIBKDBuBgkrBgEEAYI3EAQxYTBfMFExCzAJBgNVBAYTAlVTMR8wHQYDVQQK
-ExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMTCk1JVExM
-IENBLTICCh2aFRcAAAAAJoowcAYLKoZIhvcNAQkQAgsxYaBfMFExCzAJBgNVBAYTAlVTMR8w
-HQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMT
-Ck1JVExMIENBLTICCh2aFRcAAAAAJoowDQYJKoZIhvcNAQEBBQAEggEAI/AQ08fLp7WhZipD
-vF6riEO9T6EAd2wTEbpgBClzT97coyyUi9QbKJkEzBRJBySWu8uapBu1sBSOdt2LweB/jZJU
-oavKV6E1mbkse0m3ecXkFfkhBV/+f1ZboD0a0+b7JIntNGTXjE9qn+pU3SSdYZ9Dy0PdYe8x
-wLbrLyBNPX+fu0IbXtPYE8H9c/nF+IwLQuvlJolMcsTeEcPmEjNqgzC/SKT/HYc2E8wU5iJk
-20yb6uyKf0NcG3GLPSkMtsGnfQBHMX71hXMMEwUKod81td4kn19DIb7aWpZRmLQcszhe0GfY
-L94Kyntvh54ikHL1r9Jmu53Bgn2QJ2fCDTq2jwAAAAAAAA==
---------------ms060206040108000007030005--
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00   	35477.10 
+16384  87380
+
+The difference is less than 0.5 %
+
+A simple test with a 1000 level nesting yields more or less the same
+difference:
+
+1000 level nesting
+==================
+
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate         
+bytes  Bytes  bytes    bytes   secs.    per sec   
+
+16384  87380  1        1       10.00    35305.21   
+16384  87380 
+
+
+Glauber Costa (7):
+  Basic kernel memory functionality for the Memory Controller
+  socket: initial cgroup code.
+  foundations of per-cgroup memory pressure controlling.
+  per-cgroup tcp buffers control
+  per-netns ipv4 sysctl_tcp_mem
+  tcp buffer limitation: per-cgroup limit
+  Display current tcp memory allocation in kmem cgroup
+
+ Documentation/cgroups/memory.txt |   32 +++-
+ crypto/af_alg.c                  |    7 +-
+ include/linux/memcontrol.h       |   58 ++++++
+ include/net/netns/ipv4.h         |    1 +
+ include/net/sock.h               |  127 ++++++++++++-
+ include/net/tcp.h                |   14 +-
+ include/net/udp.h                |    3 +-
+ include/trace/events/sock.h      |   10 +-
+ init/Kconfig                     |   11 +
+ mm/memcontrol.c                  |  406 ++++++++++++++++++++++++++++++++++++--
+ net/core/sock.c                  |  103 +++++++---
+ net/decnet/af_decnet.c           |   21 ++-
+ net/ipv4/proc.c                  |    7 +-
+ net/ipv4/sysctl_net_ipv4.c       |   71 ++++++-
+ net/ipv4/tcp.c                   |   58 ++++---
+ net/ipv4/tcp_input.c             |   12 +-
+ net/ipv4/tcp_ipv4.c              |   18 +-
+ net/ipv4/tcp_output.c            |    2 +-
+ net/ipv4/tcp_timer.c             |    2 +-
+ net/ipv4/udp.c                   |   20 ++-
+ net/ipv6/tcp_ipv6.c              |   15 +-
+ net/ipv6/udp.c                   |    4 +-
+ net/sctp/socket.c                |   35 +++-
+ 23 files changed, 904 insertions(+), 133 deletions(-)
+
+-- 
+1.7.6
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
