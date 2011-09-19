@@ -1,102 +1,67 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: Re: linux-next: manual merge of the net tree with Linus' tree
-Date: Mon, 19 Sep 2011 19:04:38 +0300
-Message-ID: <1316448278.12042.3.camel@lb-tlvb-dmitry>
-References: <20110919145103.6c3e73edf51599eaa703294a@canb.auug.org.au>
- <1316415318.26848.4.camel@lb-tlvb-dmitry>
- <1316447682.6276.5.camel@Joe-Laptop>
-Reply-To: dmitry@broadcom.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 11/13] igb: Make Tx budget for NAPI user adjustable
+Date: Mon, 19 Sep 2011 17:05:52 +0100
+Message-ID: <1316448352.2764.27.camel@bwh-desktop>
+References: <1316246677-8830-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1316246677-8830-12-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1316279044.14749.179.camel@deadeye>  <4E776441.9090602@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Stephen Rothwell" <sfr@canb.auug.org.au>,
-	"David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Joe Perches" <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1316447682.6276.5.camel@Joe-Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:13107 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756408Ab1ISQFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 12:05:55 -0400
+In-Reply-To: <4E776441.9090602@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-09-19 at 08:54 -0700, Joe Perches wrote:
-> On Mon, 2011-09-19 at 09:55 +0300, Dmitry Kravkov wrote:
-> > On Sun, 2011-09-18 at 21:51 -0700, Stephen Rothwell wrote:
-> > > Today's linux-next merge of the net tree got a conflict in
-> > > drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c between commit
-> > > c482e6c06461 ("bnx2x: Fix ETS bandwidth") from Linus' tree and commit
-> > > 94f05b0f60de ("bnx2x: Coalesce pr_cont uses and fix DP typos") from the
-> > > net tree.
-> []
-> > Can you use this one instead?
-> > Contains spell fixes and some formatting.
+On Mon, 2011-09-19 at 08:48 -0700, Alexander Duyck wrote:
+> On 09/17/2011 10:04 AM, Ben Hutchings wrote:
+> > On Sat, 2011-09-17 at 01:04 -0700, Jeff Kirsher wrote:
+> >> From: Alexander Duyck<alexander.h.duyck@intel.com>
+> >>
+> >> This change is meant to make the NAPI budget limits for transmit
+> >> adjustable.  By doing this it is possible to tune the value for optimal
+> >> performance with applications such as routing.
+> > [...]
+> >> --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> >> +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> >> @@ -1989,6 +1989,9 @@ static int igb_set_coalesce(struct net_device *netdev,
+> >>   	if ((adapter->flags&  IGB_FLAG_QUEUE_PAIRS)&&  ec->tx_coalesce_usecs)
+> >>   		return -EINVAL;
+> >>
+> >> +	if (ec->tx_max_coalesced_frames_irq)
+> >> +		adapter->tx_work_limit = ec->tx_max_coalesced_frames_irq;
+> >> +
+> > [...]
+> >
+> > I don't think it really makes sense to conflate NAPI and interrupt
+> > moderation parameters.  This really ought to be added to NAPI itself.
+> >
+> > (NAPI contexts really ought to be exposed through sysfs somehow.  I
+> > think we've discussed this before, and it's tricky due to the lack of a
+> > consistent mapping between those contexts and net devices.)
+> >
+> > Ben.
 > 
-> Multiple line format strings lines are bad style and error prone.
-> You introduce broken spacing after string coalescing.
-> 
+> All NAPI does is move things from a hard interrupt to a soft interrupt 
+> in the case of TX cleanup.  If it wasn't for NAPI we would be calling 
+> ixgbe_clean_tx_irq directly from the interrupt handler and would still 
+> be using the same limiting value.  This is why placing it here makes sense.
 
-Contains spell fixes and some formatting
+But tx_max_coalesced_frames_irq is not supposed to be a work limit (and
+such a work limit doesn't seem useful in the absence of NAPI).  As I
+understand it, it is supposed to be an alternate moderation value for
+the hardware to use if a frame is sent while the IRQ handler is running.
 
-v2: fix broken spacing
+Ben.
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
----
-Joe, Thanks for noticing that
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   30 ++++++++--------------
- 1 files changed, 11 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 8e9b87b..5a9444a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -850,32 +850,24 @@ static int bnx2x_ets_e3b0_get_total_bw(
- 
- 	*total_bw = 0 ;
- 	/* Calculate total BW requested */
--	for (cos_idx = 0; cos_idx < ets_params->num_of_cos; cos_idx++) {
--		if (bnx2x_cos_state_bw == ets_params->cos[cos_idx].state) {
-+	for (cos_idx = 0; cos_idx < ets_params->num_of_cos; cos_idx++)
-+		if (bnx2x_cos_state_bw == ets_params->cos[cos_idx].state)
-+			*total_bw +=
-+				ets_params->cos[cos_idx].params.bw_params.bw;
- 
--			if (0 == ets_params->cos[cos_idx].params.bw_params.bw) {
--				DP(NETIF_MSG_LINK,
--				   "bnx2x_ets_E3B0_config BW was set to 0\n");
--			return -EINVAL;
--		}
--		*total_bw +=
--		    ets_params->cos[cos_idx].params.bw_params.bw;
--	    }
--	}
--
--	/*Check taotl BW is valid */
-+	/* Check total BW is valid */
- 	if ((100 != *total_bw) || (0 == *total_bw)) {
- 		if (0 == *total_bw) {
- 			DP(NETIF_MSG_LINK,
--			   "bnx2x_ets_E3B0_config toatl BW shouldn't be 0\n");
-+			  "bnx2x_ets_E3B0_config total BW shouldn't be 0\n");
- 			return -EINVAL;
- 		}
- 		DP(NETIF_MSG_LINK,
--		   "bnx2x_ets_E3B0_config toatl BW should be 100\n");
--		/**
--		*   We can handle a case whre the BW isn't 100 this can happen
--		*   if the TC are joined.
--		*/
-+		   "bnx2x_ets_E3B0_config total BW should be 100\n");
-+		/*
-+		 * We can handle a case where the BW isn't 100 this can happen
-+		 * if the TC are joined.
-+		 */
- 	}
- 	return 0;
- }
 -- 
-1.7.2.2
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
