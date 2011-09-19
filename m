@@ -1,52 +1,49 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH 3/4] net/fec: set phy_speed to the optimal frequency 2.5
- MHz
-Date: Mon, 19 Sep 2011 15:39:30 -0700
-Message-ID: <4E77C4A2.1060802@boundarydevices.com>
-References: <1316346852-17090-1-git-send-email-shawn.guo@linaro.org> <1316346852-17090-4-git-send-email-shawn.guo@linaro.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
+Date: Mon, 19 Sep 2011 17:19:49 +0930
+Message-ID: <874o09x97m.fsf@rustcorp.com.au>
+References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com> <20110819152335.GA19489@redhat.com> <1313771587.12243.16.camel@lappy> <20110820200043.GB5276@redhat.com> <871uvdryq2.fsf@rustcorp.com.au> <20110919060150.GB1569@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org, patches@linaro.org
-To: Shawn Guo <shawn.guo@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oproxy8-pub.bluehost.com ([69.89.22.20]:42987 "HELO
-	oproxy8-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750714Ab1ISWje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 18:39:34 -0400
-In-Reply-To: <1316346852-17090-4-git-send-email-shawn.guo@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sasha Levin <levinsasha928@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110919060150.GB1569@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/18/2011 4:54 AM, Shawn Guo wrote:
-> With the unnecessary 1 bit left-shift on fep->phy_speed during the
-> calculation, the phy_speed always runs at the half frequency of the
-> optimal one 2.5 MHz.
->
-> The patch removes that 1 bit left-shift to get the optimal phy_speed.
->
-> Signed-off-by: Shawn Guo<shawn.guo@linaro.org>
-> ---
->   drivers/net/fec.c |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 5ef0e34..04206e4 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -1007,7 +1007,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
->   	/*
->   	 * Set MII speed to 2.5 MHz (= clk_get_rate() / 2 * phy_speed)
->   	 */
-> -	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk), 5000000)<<  1;
-> +	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk), 5000000);
->   	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
->
->   	fep->mii_bus = mdiobus_alloc();
-Do you need to round up to an even value? Is the hardware documentation 
-wrong?
-Does this need a quirk? What boards has this been verified to fix?
+On Mon, 19 Sep 2011 09:01:50 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> On Mon, Sep 19, 2011 at 01:05:17PM +0930, Rusty Russell wrote:
+> > On Sat, 20 Aug 2011 23:00:44 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > > On Fri, Aug 19, 2011 at 07:33:07PM +0300, Sasha Levin wrote:
+> > > > Maybe this is better solved by copying the way it was done in PCI itself
+> > > > with capability linked list?
+> > > 
+> > > There are any number of ways to lay out the structure.  I went for what
+> > > seemed a simplest one.  For MSI-X the train has left the station.  We
+> > > can probably still tweak where the high 32 bit features
+> > > for 64 bit features are.  No idea if it's worth it.
+> > 
+> > Sorry, this has been in the back of my mind.  I think it's a good idea;
+> > can we use the capability linked list for pre-device specific stuff from
+> > now on?
+> > 
+> > Thanks,
+> > Rusty.
+> 
+> Do we even want capability bits then?
+> We can give each capability an ack flag ...
 
-Thanks
-Troy
+We could have, and if I'd known PCI when I designed virtio I might have.
+
+But it's not easy now to map structure offsets to that scheme, and we
+can't really force such a change on the non-PCI users.  So I'd say we
+should only do it for the non-device-specific options.  ie. we'll still
+have the MSI-X case move the device-specific config, but we'll use a
+linked list from now on, eg. for the next 32 features bits...
+
+Thoughts?
+Rusty.
