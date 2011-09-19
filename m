@@ -1,40 +1,54 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC V2 PATCH 0/5] Multiqueue support in
-	tun/tap
-Date: Mon, 19 Sep 2011 17:44:21 +0800
-Message-ID: <4E770EF5.90705@redhat.com>
-References: <20110917055639.32666.89940.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-	<20110917191709.GA6127@redhat.com>
+Subject: [PATCH] macvtap: fix the uninitialized var using in
+	macvtap_alloc_skb()
+Date: Mon, 19 Sep 2011 17:48:31 +0800
+Message-ID: <20110919094830.6272.40503.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, eric.dumazet@gmail.com,
-	qemu-devel@nongnu.org, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, joe@perches.com,
-	shemminger@vyatta.com, mirq-linux@rere.qmqm.pl, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <20110917191709.GA6127@redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: </archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+To: netdev@vger.kernel.org, mst@redhat.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/18/2011 03:17 AM, Michael S. Tsirkin wrote:
-> On Sat, Sep 17, 2011 at 02:02:04PM +0800, Jason Wang wrote:
->> A wiki-page was created to narrate the detail design of all parts
->> involved in the multi queue implementation:
->> http://www.linux-kvm.org/page/Multiqueue and some basic tests result
->> could be seen in this page
->> http://www.linux-kvm.org/page/Multiqueue-performance-Sep-13. I would
->> post the detail numbers in attachment as the reply of this thread.
-> Does it make sense to test both with and without RPS in guest?
->
-I've tested with RPS in guest, but didn't see improvements.
+Commit d1b08284 use new frag API but would leave f to be used
+uninitialized, this patch fix it.
+
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/macvtap.c |   12 +++++-------
+ 1 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 7c3f84a..3da5578 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -453,7 +453,6 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 	int copy = skb_headlen(skb);
+ 	int size, offset1 = 0;
+ 	int i = 0;
+-	skb_frag_t *f;
+ 
+ 	/* Skip over from offset */
+ 	while (count && (offset >= from->iov_len)) {
+@@ -503,14 +502,13 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 		skb->truesize += len;
+ 		atomic_add(len, &skb->sk->sk_wmem_alloc);
+ 		while (len) {
+-			__skb_fill_page_desc(
+-				skb, i, page[i],
+-				base & ~PAGE_MASK,
+-				min_t(int, len, PAGE_SIZE - f->page_offset));
++			int off = base & ~PAGE_MASK;
++			int size = min_t(int, len, PAGE_SIZE - off);
++			__skb_fill_page_desc(skb, i, page[i], off, size);
+ 			skb_shinfo(skb)->nr_frags++;
+ 			/* increase sk_wmem_alloc */
+-			base += f->size;
+-			len -= f->size;
++			base += size;
++			len -= size;
+ 			i++;
+ 		}
+ 		offset1 = 0;
