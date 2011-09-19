@@ -1,46 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PATCH Question, Firewall mark inherit for ip6_tunnel
-Date: Mon, 19 Sep 2011 11:25:24 +0200
-Message-ID: <1316424324.2539.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903109@ESESSCMS0356.eemea.ericsson.se>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC V2 PATCH 0/5] Multiqueue support in
+	tun/tap
+Date: Mon, 19 Sep 2011 17:44:21 +0800
+Message-ID: <4E770EF5.90705@redhat.com>
+References: <20110917055639.32666.89940.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+	<20110917191709.GA6127@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans =?ISO-8859-1?Q?Schillstr=F6m?=
-	<hans.schillstrom@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:37368 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751702Ab1ISJZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 05:25:15 -0400
-Received: by bkbzt4 with SMTP id zt4so5139210bkb.19
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 02:25:14 -0700 (PDT)
-In-Reply-To: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903109@ESESSCMS0356.eemea.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, eric.dumazet@gmail.com,
+	qemu-devel@nongnu.org, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, joe@perches.com,
+	shemminger@vyatta.com, mirq-linux@rere.qmqm.pl, davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+In-Reply-To: <20110917191709.GA6127@redhat.com>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: </archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 19 septembre 2011 =C3=A0 10:47 +0200, Hans Schillstr=C3=B6m a =
-=C3=A9crit :
-> Hello Eric,
-> For a year ago you send an untested patch to Anders Franzen=20
-> I think the subject was "not possible to do policy routing for next h=
-op on tunnels."
->=20
-> The patch have been used since that and it works perfectly,
-> I made some minor changes to reflect the flowi changes.
->=20
-> Would it be possible for you to submit that patch, since (I guess) yo=
-u are the author=20
-> I can prepare it if you want.
-> The included patch is for  linux-3.0.4
->=20
-> Regards
-> Hans Schillstrom
-
-Hello Hans
-
-Yes, I'll respin this patch on top on net-next, with your "Tested-by"
-signature ;)
-
-Thanks
+On 09/18/2011 03:17 AM, Michael S. Tsirkin wrote:
+> On Sat, Sep 17, 2011 at 02:02:04PM +0800, Jason Wang wrote:
+>> A wiki-page was created to narrate the detail design of all parts
+>> involved in the multi queue implementation:
+>> http://www.linux-kvm.org/page/Multiqueue and some basic tests result
+>> could be seen in this page
+>> http://www.linux-kvm.org/page/Multiqueue-performance-Sep-13. I would
+>> post the detail numbers in attachment as the reply of this thread.
+> Does it make sense to test both with and without RPS in guest?
+>
+I've tested with RPS in guest, but didn't see improvements.
