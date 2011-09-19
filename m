@@ -1,142 +1,47 @@
-From: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v3 04/11] SUNRPC: parametrize svc creation calls with
- portmapper flag
-Date: Mon, 19 Sep 2011 10:08:11 -0400
-Message-ID: <20110919100811.0eaa39fe@tlielax.poochiereds.net>
-References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
-	<20110913181351.3961.70207.stgit@localhost6.localdomain6>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next RFC V2 PATCH 0/5] Multiqueue support in tun/tap
+Date: Mon, 19 Sep 2011 15:45:51 +0100
+Message-ID: <1316443551.2764.9.camel@bwh-desktop>
+References: <20110917055639.32666.89940.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110913181351.3961.70207.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: krkumar2@in.ibm.com, eric.dumazet@gmail.com, mst@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net,
+	kvm@vger.kernel.org, rusty@rustcorp.com.au, qemu-devel@nongnu.org,
+	mirq-linux@rere.qmqm.pl, joe@perches.com, shemminger@vyatta.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110917055639.32666.89940.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Sep 2011 22:13:51 +0400
-Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
-
-> This new flag ("setup_rpcbind) will be used to detect, that new service will
-> send portmapper register calls. For such services we will create rpcbind
-> clients and remove all stale portmap registrations.
-> Also, svc_rpcb_cleanup() will be set as sv_shutdown callback for such services
-> in case of this field wasn't initialized earlier. This will allow to destroy
-> rpcbind clients when no other users of them left.
+On Sat, 2011-09-17 at 14:02 +0800, Jason Wang wrote:
+[...]
+> 2 Current implementation may also get regression for single session
+> packet transmission.
 > 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> The reason is packets from each flow were not handled by the same
+> queue/vhost thread.
 > 
-> ---
->  include/linux/sunrpc/svc.h |    2 ++
->  net/sunrpc/svc.c           |   21 ++++++++++++++-------
->  2 files changed, 16 insertions(+), 7 deletions(-)
+> Various method could be done to handle this:
 > 
-> diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
-> index 223588a..528952a 100644
-> --- a/include/linux/sunrpc/svc.h
-> +++ b/include/linux/sunrpc/svc.h
-> @@ -402,11 +402,13 @@ struct svc_procedure {
->   * Function prototypes.
->   */
->  struct svc_serv *svc_create(struct svc_program *, unsigned int,
-> +			    int setup_rpcbind,
-				^^^
-			Instead of adding this parameter, why not
-			base this on the vs_hidden flag in the
-			svc_version? IOW, have a function that looks at
-			all the svc_versions for a particular
-			svc_program, and returns "true" if any of them
-			have vs_hidden unset? The mechanism you're
-			proposing here has the potential to be out of
-			sync with the vs_hidden flag.
+> 2.1 hack the guest driver, and store the queue index into the rxhash and
+> use it when choosing tx in guest. This need some hack to store the
+> rxhash into sk and pass it in to skb again in
+> skb_orphan_try(). sk_rxhash is only used by RPS now, so some more
+> clean method is needed.
+[...]
 
-			Also, if you're adding an argument to a
-			function like this, you you really ought to
-			change the callers in the same patch. Otherwise
-			you'll cause a build break if someone tries to
-			bisect and ends up between the patch that
-			changes the function and the one that changes
-			the callers.
+I have previously suggested doing this as a general rule.  However, I
+now think we can do much better with accelerated RFS and automatic XPS
+(but the latter is not yet implemented).  For virtio_net, accelerated
+RFS would effectively push the guest's RFS socket map out to the host.
 
->  			    void (*shutdown)(struct svc_serv *));
->  struct svc_rqst *svc_prepare_thread(struct svc_serv *serv,
->  					struct svc_pool *pool);
->  void		   svc_exit_thread(struct svc_rqst *);
->  struct svc_serv *  svc_create_pooled(struct svc_program *, unsigned int,
-> +			int setup_rpcbind,
->  			void (*shutdown)(struct svc_serv *),
->  			svc_thread_fn, struct module *);
->  int		   svc_set_num_threads(struct svc_serv *, struct svc_pool *, int);
-> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-> index f31e5cc..03231d5 100644
-> --- a/net/sunrpc/svc.c
-> +++ b/net/sunrpc/svc.c
-> @@ -378,7 +378,7 @@ static void svc_rpcb_cleanup(struct svc_serv *serv)
->   */
->  static struct svc_serv *
->  __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
-> -	     void (*shutdown)(struct svc_serv *serv))
-> +	     int setup_rpcbind, void (*shutdown)(struct svc_serv *serv))
->  {
->  	struct svc_serv	*serv;
->  	unsigned int vers;
-> @@ -437,29 +437,36 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
->  		spin_lock_init(&pool->sp_lock);
->  	}
->  
-> -	/* Remove any stale portmap registrations */
-> -	svc_unregister(serv);
-> +	if (setup_rpcbind) {
-> +	       	if (svc_rpcb_setup(serv) < 0) {
-> +			kfree(serv->sv_pools);
-> +			kfree(serv);
-> +			return NULL;
-> +		}
-> +		if (!serv->sv_shutdown)
-> +			serv->sv_shutdown = svc_rpcb_cleanup;
-> +	}
->  
->  	return serv;
->  }
->  
->  struct svc_serv *
->  svc_create(struct svc_program *prog, unsigned int bufsize,
-> -	   void (*shutdown)(struct svc_serv *serv))
-> +	   int setup_rpcbind, void (*shutdown)(struct svc_serv *serv))
->  {
-> -	return __svc_create(prog, bufsize, /*npools*/1, shutdown);
-> +	return __svc_create(prog, bufsize, /*npools*/1, setup_rpcbind, shutdown);
->  }
->  EXPORT_SYMBOL_GPL(svc_create);
->  
->  struct svc_serv *
->  svc_create_pooled(struct svc_program *prog, unsigned int bufsize,
-> -		  void (*shutdown)(struct svc_serv *serv),
-> +		  int setup_rpcbind, void (*shutdown)(struct svc_serv *serv),
->  		  svc_thread_fn func, struct module *mod)
->  {
->  	struct svc_serv *serv;
->  	unsigned int npools = svc_pool_map_get();
->  
-> -	serv = __svc_create(prog, bufsize, npools, shutdown);
-> +	serv = __svc_create(prog, bufsize, npools, setup_rpcbind, shutdown);
->  
->  	if (serv != NULL) {
->  		serv->sv_function = func;
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+Ben.
 
 -- 
-Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
