@@ -1,33 +1,27 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
-Date: Mon, 19 Sep 2011 13:05:17 +0930
-Message-ID: <871uvdryq2.fsf@rustcorp.com.au>
-References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com> <20110819152335.GA19489@redhat.com> <1313771587.12243.16.camel@lappy> <20110820200043.GB5276@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: wireless build errors on latest net-next
+Date: Mon, 19 Sep 2011 06:22:29 +0200
+Message-ID: <1316406149.2521.9.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Sasha Levin <levinsasha928@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110820200043.GB5276@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63094 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736Ab1ISEWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 00:22:36 -0400
+Received: by wwf22 with SMTP id 22so7420257wwf.1
+        for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 21:22:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 20 Aug 2011 23:00:44 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> On Fri, Aug 19, 2011 at 07:33:07PM +0300, Sasha Levin wrote:
-> > Maybe this is better solved by copying the way it was done in PCI itself
-> > with capability linked list?
-> 
-> There are any number of ways to lay out the structure.  I went for what
-> seemed a simplest one.  For MSI-X the train has left the station.  We
-> can probably still tweak where the high 32 bit features
-> for 64 bit features are.  No idea if it's worth it.
-
-Sorry, this has been in the back of my mind.  I think it's a good idea;
-can we use the capability linked list for pre-device specific stuff from
-now on?
-
-Thanks,
-Rusty.
+Kernel: arch/x86/boot/bzImage is ready  (#299)
+  Building modules, stage 2.
+  MODPOST 1778 modules
+ERROR: "iwl_dump_fh" [drivers/net/wireless/iwlwifi/iwlagn.ko] undefined!
+ERROR: "iwl_dump_csr" [drivers/net/wireless/iwlwifi/iwlagn.ko]
+undefined!
+make[1]: *** [__modpost] Erreur 1
+make: *** [modules] Erreur 2
