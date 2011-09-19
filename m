@@ -1,53 +1,71 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree
- (origin/net-current tree related)
-Date: Mon, 19 Sep 2011 18:35:49 +1000
-Message-ID: <20110919183549.765331241abb61e22418c69a@canb.auug.org.au>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH 4/4] net/fec: add imx6q enet support
+Date: Mon, 19 Sep 2011 17:08:29 +0800
+Message-ID: <20110919090828.GA28084@S2100-06.ap.freescale.net>
+References: <1316346852-17090-1-git-send-email-shawn.guo@linaro.org>
+ <1316346852-17090-5-git-send-email-shawn.guo@linaro.org>
+ <20110918180912.GA3734@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__19_Sep_2011_18_35_49_+1000_2QaP+yoH_MpDWJdP"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Mon__19_Sep_2011_18_35_49_+1000_2QaP+yoH_MpDWJdP
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
+Cc: Shawn Guo <shawn.guo@linaro.org>, <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>, <patches@linaro.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:55463
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750910Ab1ISI7A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 04:59:00 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20110918180912.GA3734@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Sun, Sep 18, 2011 at 08:09:12PM +0200, Francois Romieu wrote:
+> Shawn Guo <shawn.guo@linaro.org> :
+> [...]
+> > diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> > index 04206e4..849cb0b 100644
+> > --- a/drivers/net/fec.c
+> > +++ b/drivers/net/fec.c
+> > @@ -442,18 +453,23 @@ fec_restart(struct net_device *ndev, int duplex)
+> >  		/* Enable flow control and length check */
+> >  		rcntl |= 0x40000000 | 0x00000020;
+> >  
+> > -		/* MII or RMII */
+> > +		/* RGMII, RMII or MII */
+> > +		if (fep->phy_interface == PHY_INTERFACE_MODE_RGMII)
+> > +			rcntl |= (1 << 6);
+> >  		if (fep->phy_interface == PHY_INTERFACE_MODE_RMII)
+>            ^^^^ missing "else"
+> 
+Yes, my bad.
 
-After merging the final tree, today's linux-next build (powerpc
-ppc44x_defconfig) failed like this:
+> [...]
+> > +		/* 1G, 100M or 10M */
+> > +		if (fep->phy_dev) {
+> > +			if (fep->phy_dev->speed == SPEED_1000)
+> > +				ecntl |= (1 << 8);
 
-net/built-in.o: In function `tcp_v4_conn_request':
-(.text+0x5b700): undefined reference to `cookie_v4_init_sequence'
+Right, this is a typo.  It should be (1 << 5);
 
-This error has already been noted elsewhere and a fix queued, so I have
-merged a newer version of the net-current tree that contains the fix for
-today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+> > +			else if (fep->phy_dev->speed == SPEED_100)
+> > +				rcntl &= ~(1 << 9);
+> > +			else
+> > +				rcntl |= (1 << 9);
+> > +		}
+> [...]
+> > +	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
+> > +		/* enable ENET endian swap */
+> > +		ecntl |= (1 << 8);
+> 
+> I do not understand why the endian swap bit of ecntl needs to be
+> set the same in these two different paths, especially as the latter
+> handles the old faulty imx28 and the former the newly fixed imx6q.
+> Typo ?
+> 
+Nice catches.  Thanks a lot, Ueimor.
 
-
---Signature=_Mon__19_Sep_2011_18_35_49_+1000_2QaP+yoH_MpDWJdP
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJOdv7lAAoJEDMEi1NhKgbs3uMH/jiyx+cofZaeUngnozLvDZ5R
-MURSeHqgCsEsl6s2GTqd1xlcm2FVvXCdG3jJkrKTGoMc7fiEqEEc19sD3fLsEl33
-aU0MHhhHbGDjNhdprevx3Xh2Hm8LPapFvNd6M7MmmJZzrYYQ9LFtgWAx/OKJy6QN
-NWLnJJeEoe0kHa3rwC7t6hvqv2cG/rXeE9J49mFGBAXRbn5K5MzL7BO/gJRPJbdB
-YBDcn0Pfonn7jtqFFktMyO5D+n7xzSURoY7SF46klZFcPnn8qwguHUnTRKRj19cE
-iC6XNtS/2F9d5fEuWDD4q9QkdXB/e3fSMzjyCmV9i6LzzNxpqnqXHQo2emLFO98=
-=0ugA
------END PGP SIGNATURE-----
-
---Signature=_Mon__19_Sep_2011_18_35_49_+1000_2QaP+yoH_MpDWJdP--
+-- 
+Regards,
+Shawn
