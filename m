@@ -1,54 +1,142 @@
-From: Jason Baron <jbaron@redhat.com>
-Subject: Re: [PATCH ] dynamic_debug: call __netdev_printk only for CONFIG_NET
-Date: Mon, 19 Sep 2011 09:48:15 -0400
-Message-ID: <20110919134814.GA2658@redhat.com>
-References: <cover.1313085588.git.jbaron@redhat.com>
- <5514795fe63ccfd4b3a80283ed04a526abe3c59d.1313085588.git.jbaron@redhat.com>
- <201109011657.02407.arnd@arndb.de>
- <20110901151817.GA14324@redhat.com>
- <20110918082736.GB19444@kroah.com>
+From: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v3 04/11] SUNRPC: parametrize svc creation calls with
+ portmapper flag
+Date: Mon, 19 Sep 2011 10:08:11 -0400
+Message-ID: <20110919100811.0eaa39fe@tlielax.poochiereds.net>
+References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>
+	<20110913181351.3961.70207.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, gregkh@suse.de, joe@perches.com,
-	jim.cromie@gmail.com, bvanassche@acm.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	aloisio.almeida@openbossa.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, rdunlap@xenotime.net
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110918082736.GB19444@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110913181351.3961.70207.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 18, 2011 at 01:27:36AM -0700, Greg KH wrote:
-> On Thu, Sep 01, 2011 at 11:18:18AM -0400, Jason Baron wrote:
-> > On Thu, Sep 01, 2011 at 04:57:02PM +0200, Arnd Bergmann wrote:
-> > > __netdev_printk is only defined when CONFIG_NET is set. Since we only need
-> > > __dynamic_netdev_dbg for network drivers, we can make it conditional on the
-> > > same Kconfig symbol.
-> > >
-> > 
-> > Hi,
-> > 
-> > Yes, I've posted a fix for this:
-> > 
-> > https://lkml.org/lkml/2011/8/30/297
-> > 
-> > Hopefully, it will be pulled in soon.
+On Tue, 13 Sep 2011 22:13:51 +0400
+Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> wrote:
+
+> This new flag ("setup_rpcbind) will be used to detect, that new service will
+> send portmapper register calls. For such services we will create rpcbind
+> clients and remove all stale portmap registrations.
+> Also, svc_rpcb_cleanup() will be set as sv_shutdown callback for such services
+> in case of this field wasn't initialized earlier. This will allow to destroy
+> rpcbind clients when no other users of them left.
 > 
-> As that thread again spun off into confusion, can you please resend the
-> end result?
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 > 
-> thanks,
+> ---
+>  include/linux/sunrpc/svc.h |    2 ++
+>  net/sunrpc/svc.c           |   21 ++++++++++++++-------
+>  2 files changed, 16 insertions(+), 7 deletions(-)
 > 
-> greg k-h
+> diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
+> index 223588a..528952a 100644
+> --- a/include/linux/sunrpc/svc.h
+> +++ b/include/linux/sunrpc/svc.h
+> @@ -402,11 +402,13 @@ struct svc_procedure {
+>   * Function prototypes.
+>   */
+>  struct svc_serv *svc_create(struct svc_program *, unsigned int,
+> +			    int setup_rpcbind,
+				^^^
+			Instead of adding this parameter, why not
+			base this on the vs_hidden flag in the
+			svc_version? IOW, have a function that looks at
+			all the svc_versions for a particular
+			svc_program, and returns "true" if any of them
+			have vs_hidden unset? The mechanism you're
+			proposing here has the potential to be out of
+			sync with the vs_hidden flag.
 
-Hi,
+			Also, if you're adding an argument to a
+			function like this, you you really ought to
+			change the callers in the same patch. Otherwise
+			you'll cause a build break if someone tries to
+			bisect and ends up between the patch that
+			changes the function and the one that changes
+			the callers.
 
-Andrew Morton has pulled these into his -mm tree...so I think the series
-should be all set.
+>  			    void (*shutdown)(struct svc_serv *));
+>  struct svc_rqst *svc_prepare_thread(struct svc_serv *serv,
+>  					struct svc_pool *pool);
+>  void		   svc_exit_thread(struct svc_rqst *);
+>  struct svc_serv *  svc_create_pooled(struct svc_program *, unsigned int,
+> +			int setup_rpcbind,
+>  			void (*shutdown)(struct svc_serv *),
+>  			svc_thread_fn, struct module *);
+>  int		   svc_set_num_threads(struct svc_serv *, struct svc_pool *, int);
+> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+> index f31e5cc..03231d5 100644
+> --- a/net/sunrpc/svc.c
+> +++ b/net/sunrpc/svc.c
+> @@ -378,7 +378,7 @@ static void svc_rpcb_cleanup(struct svc_serv *serv)
+>   */
+>  static struct svc_serv *
+>  __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+> -	     void (*shutdown)(struct svc_serv *serv))
+> +	     int setup_rpcbind, void (*shutdown)(struct svc_serv *serv))
+>  {
+>  	struct svc_serv	*serv;
+>  	unsigned int vers;
+> @@ -437,29 +437,36 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+>  		spin_lock_init(&pool->sp_lock);
+>  	}
+>  
+> -	/* Remove any stale portmap registrations */
+> -	svc_unregister(serv);
+> +	if (setup_rpcbind) {
+> +	       	if (svc_rpcb_setup(serv) < 0) {
+> +			kfree(serv->sv_pools);
+> +			kfree(serv);
+> +			return NULL;
+> +		}
+> +		if (!serv->sv_shutdown)
+> +			serv->sv_shutdown = svc_rpcb_cleanup;
+> +	}
+>  
+>  	return serv;
+>  }
+>  
+>  struct svc_serv *
+>  svc_create(struct svc_program *prog, unsigned int bufsize,
+> -	   void (*shutdown)(struct svc_serv *serv))
+> +	   int setup_rpcbind, void (*shutdown)(struct svc_serv *serv))
+>  {
+> -	return __svc_create(prog, bufsize, /*npools*/1, shutdown);
+> +	return __svc_create(prog, bufsize, /*npools*/1, setup_rpcbind, shutdown);
+>  }
+>  EXPORT_SYMBOL_GPL(svc_create);
+>  
+>  struct svc_serv *
+>  svc_create_pooled(struct svc_program *prog, unsigned int bufsize,
+> -		  void (*shutdown)(struct svc_serv *serv),
+> +		  int setup_rpcbind, void (*shutdown)(struct svc_serv *serv),
+>  		  svc_thread_fn func, struct module *mod)
+>  {
+>  	struct svc_serv *serv;
+>  	unsigned int npools = svc_pool_map_get();
+>  
+> -	serv = __svc_create(prog, bufsize, npools, shutdown);
+> +	serv = __svc_create(prog, bufsize, npools, setup_rpcbind, shutdown);
+>  
+>  	if (serv != NULL) {
+>  		serv->sv_function = func;
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Thanks,
 
--Jason
+-- 
+Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
