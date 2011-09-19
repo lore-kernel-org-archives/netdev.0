@@ -1,52 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG net-next] lost bnx2x
-Date: Mon, 19 Sep 2011 14:38:49 +0200
-Message-ID: <1316435929.2539.20.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1316406760.2521.18.camel@edumazet-laptop>
-	 <1316433250.4154.3.camel@lb-tlvb-dmitry>
-	 <1316433920.2539.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: "Bmw Group " <bmwgroupdept@w.cn>
+Subject: Winning Notification Result*( You have won
+	=?iso-8859-1?b?ozc1MCwwMDAuMDA=?= )
+Date: Tue, 20 Sep 2011 00:22:21 +1200
+Message-ID: <20110920002221.12835b1r04agxou8@webmail.netsmart.co.nz>
+Reply-To: bmwgroupdept101@pwdh.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	DelSp=Yes	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: dmitry@broadcom.com
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f45.google.com ([209.85.215.45]:50115 "EHLO
-	mail-ew0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755756Ab1ISMil (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 08:38:41 -0400
-Received: by ewy28 with SMTP id 28so596489ewy.4
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 05:38:40 -0700 (PDT)
-In-Reply-To: <1316433920.2539.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from webmail.netsmart.net.nz ([202.27.83.84]:39102 "EHLO
+	webmail.netsmart.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755728Ab1ISMjc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 08:39:32 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 19 septembre 2011 =C3=A0 14:05 +0200, Eric Dumazet a =C3=A9cri=
-t :
-> Le lundi 19 septembre 2011 =C3=A0 14:54 +0300, Dmitry Kravkov a =C3=A9=
-crit :
-> > On Sun, 2011-09-18 at 21:32 -0700, Eric Dumazet wrote:
-> > > With latest net-next, my bnx2x doesnt start
-> > >=20
-> > > bnx2x: Can't load firmware file bnx2x/bnx2x-e1h-7.0.23.0.fw
-> > >=20
-> > > But I do have the file in /lib/firmware/bnx2x/bnx2x-e1h-7.0.23.0.=
-fw
-> > >=20
-> >=20
-> > Just pulled net-next - bnx2x device can load and pass traffic(on x8=
-6-64)
-> > Can you provide more details about your setup?
->=20
-> Please hold on, it might be because of my af_unix patches.
->=20
-> I am investigating right now.
->=20
->=20
 
-Yes, it appears that udevd relies on receiving CREDENTIAL in af_unix
-messages.
 
-Sorry for the false alarm, bnx2x works well once udevd is functional.
+Congratulation!!! your E-mail have won you the sum of Seven Hundred
+Thousand Pounds British Pounds{=A3750,000.00} and bmw car to claim your
+prize. Contact your Agent Mr Peter Wales via E-mail:
+bmwgroupdept101@pwdh.net with the following informations.
+
+Your Full Name:
+Country:
+Occupation:
+Phone Number:
+Address:
+
+Best Regards,
+Dr James Osho
+DIRECTOR OF PROMOTIONS.
