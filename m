@@ -1,59 +1,33 @@
-From: =?utf-8?B?5LuFMTDlhYPmr4/lpKk=?= <test@amidress.com>
-Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrY=?=
-	=?utf-8?B?44CB5rW35YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
-Date: Mon, 19 Sep 2011 11:15:13 +0000 (UTC)
-Message-ID: <20120918111356800107@amidress.com>
-Reply-To: <1339625218@qq.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: [BUG net-next] lost bnx2x
+Date: Mon, 19 Sep 2011 14:54:10 +0300
+Message-ID: <1316433250.4154.3.camel@lb-tlvb-dmitry>
+References: <1316406760.2521.18.camel@edumazet-laptop>
+Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <net.inox@hotmail.com>, <net@goldcraft.cn>, <net@yahoo.com>,
-	<net6688yes@yahoo.com.cn>, <netavemshink@yahoo.com>,
-	<netc75@hotmail.com>, <netdev@vger.kernel.org>,
-	<netflagking@msn.com>
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 184.172.211.66-static.reverse.softlayer.com ([184.172.211.66]:3897
-	"HELO amidress.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752747Ab1ISLPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 07:15:04 -0400
-Date: Tue, 18 Sep 2012 11:13:45 +0800
+Received: from mms2.broadcom.com ([216.31.210.18]:2755 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754519Ab1ISLyY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Sep 2011 07:54:24 -0400
+In-Reply-To: <1316406760.2521.18.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-576k5Y+R6L2v5Lu2KzEwOeWxiuW5v+S6pOS8muS5sOWutuOAgea1t+WFs+aVsOaNruOAgeaQnOe0
-ouW8leaTjuS5sOWutixCMkLor6Lnm5jkubDlrrblhbE1MDDkuIcs5LuFMTDlhYPmr4/lpKnjgIIg
-DQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCuS/neivgeavj+WkqemDveacieS5
-sOWutuWbnuWkjeOAgg0KDQoNCjHjgIHnvqTlj5Hova/ku7bvvJog5pON5L2c566A5Y2V77yM5Yqf
-6IO95by65aSn77yM5qih5Lu/5Lq65bel5pON5L2c5qih5byP77yM5Yiw6L6+546H6auY77yM5pel
-5Y+R6YCBNeS4h+WwgeS7peS4iuOAgiANCjLjgIE1MDDkuIflub/kuqTkvJrkubDlrrbotYTmupDv
-vJog6LWg6YCB55qENTAw5LiH5Lmw5a626LWE5rqQ5bqT77yM5q+P5pyI5pu05pawIOOAgiANCjPj
-gIHotoXnuqfmtbflpJbkubDlrrZFbWFpbOaQnOe0ouacuu+8miDmr4/lpKnog73mkJzntKIxLTLk
-uIfku6XkuIrkubDlrrbnnJ/lrp5FTUFJTO+8jOaIkOWNleeOh+mrmOOAgiANCiANCg0K6KaB55qE
-5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUyMTggICDmiJbogIXnq4vljbPlm57lpI3pgq7nrrE6IDEz
-Mzk2MjUyMThAcXEuY29tDQropoHnmoTmipPntKfogZTns7tRUTogMTMzOTYyNTIxOCAgIOaIluiA
-heeri+WNs+WbnuWkjemCrueusTogMTMzOTYyNTIxOEBxcS5jb20NCuimgeeahOaKk+e0p+iBlOez
-u1FROiAxMzM5NjI1MjE4ICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFx
-LmNvbQ0KDQrlhY3otLnotaDpgIE6DQrkuIDlhbE45Liq5YyFKOaVsOaNruaYr+WFqOihjOS4muea
-hO+8jOaMieeFp+ihjOS4muWIhuWlveexu++8jOW5tuS4lOWPr+S7peaMieeFp+WFs+mUruivjeaf
-peivoueahCnvvJogDQox77yMMjAxMeaYpeWtozEwOeWxiuW5v+S6pOS8muS5sOWutueOsOWcuuiv
-ouebmOaVsOaNruW6k+aWsOmynOWHuueCie+8jOi2hee6p+aWsOmynOS5sOWutu+8jOaWsOmynOaV
-sOaNru+8jOWuueaYk+aIkOWNle+8gSANCjLvvIzotK3kubDlkI7lj6/ku6XlhY3otLnmm7TmlrAy
-MDEx56eL5a2j5bm/5Lqk5LyaKzIwMTLmmKXlraPlub/kuqTkvJrkubDlrrbmlbDmja7jgILlpKro
-toXlgLzkuobjgIINCjPvvIzmnIDmlrDlhajnkIPkubDlrrblupMs5YWxNDUxNjYw5p2h5pWw5o2u
-44CCICjmnIDmlrDmm7TmlrDml6XmnJ8gMjAxMS0wNS0xNuaXpSkNCjTvvIwyMDA45bm0LDIwMDnl
-ubQsMjAxMOW5tCDmmKXlraMr56eL5a2j5bm/5Lqk5Lya5Lmw5a625ZCN5b2V77yMMTAzIDEwNCAx
-MDUgMTA2IDEwNyAxMDgg5YWx5YWt5bGKIOWFsTEyMC425LiH5pWw5o2u44CCDQo177yMMjAxMOW5
-tOWbvemZheS/g+mUgOWNj+S8mu+8iFBQQUnvvInmiJDlkZjlkI3ljZUgUFBBSSBNZW1iZXJzIERp
-cmVjdG9yee+8jOmdnuW4uOmHjeimgeeahOWkp+S5sOWutuOAgg0KNu+8jDIwMTDlubTliLDpppnm
-uK/ph4fotK3nmoTlm73lpJblrqLkurrlkI3lvZUo6aaZ5riv6LS45Y+R5bGA5o+Q5L6bKe+8jOWF
-sTcuMuS4h+aVsOaNru+8jOi2hee6p+mHjeimgeeahOS5sOWutuOAgg0KN++8jDQ4LjY45LiH5p2h
-5pyA5paw5Lmw5a626K+i55uY77yM6LSt5Lmw5ZCO5q+P5pyI5pu05pawIDEtMuS4h+adoe+8jOWM
-heaLrDLpg6jliIbvvIwx77yM5pyA5paw55qE6K+i55uYIDLvvIzmnIDmlrDnmoTlsZXkvJrkubDl
-rrbjgILlhY3otLnmm7TmlrAzNuS4quaciOOAgg0KOO+8jDIwMDnlubTmtbflhbPmj5DljZXmlbDm
-ja5waWVyc+eJiOaVsOaNriAx5Y2D5LiH44CCDQoNCg0K6K+a5L+h5Li65pys77yM5pSv5oyB5pSv
-5LuY5a6d5ouF5L+d5Lqk5piTICjlhYjlj5HotKflubblronoo4Xorr7nva7nvqTlj5Hova/ku7bv
-vIznhLblkI7ku5jmrL4pIOW9u+W6leaJk+a2iOaCqOeahCDpob7omZHjgIINCg0KIA0KDQoNCiAN
-Cg0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+ae
-gemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeO
-h+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K
+On Sun, 2011-09-18 at 21:32 -0700, Eric Dumazet wrote:
+> With latest net-next, my bnx2x doesnt start
+> 
+> bnx2x: Can't load firmware file bnx2x/bnx2x-e1h-7.0.23.0.fw
+> 
+> But I do have the file in /lib/firmware/bnx2x/bnx2x-e1h-7.0.23.0.fw
+> 
+
+Just pulled net-next - bnx2x device can load and pass traffic(on x86-64)
+Can you provide more details about your setup?
