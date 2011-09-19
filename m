@@ -1,31 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix validation of D-SACK
-Date: Sun, 18 Sep 2011 22:37:44 -0400 (EDT)
-Message-ID: <20110918.223744.2195272571175354579.davem@davemloft.net>
-References: <1316374544.31335.16.camel@edumazet-laptop>
-	<20110918.210725.2061666096968958448.davem@davemloft.net>
-	<4E76A36B.4060109@intel.com>
+From: Jeremy Kerr <jk@ozlabs.org>
+Subject: Re: [GIT] Networking
+Date: Mon, 19 Sep 2011 10:57:23 +0800
+Message-ID: <1316401043.2768.52.camel@pororo>
+References: <20110918.022125.1554085675403900813.davem@davemloft.net>
+	 <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
+	 <4E76864D.4080907@ll.mit.edu>
+	 <20110918.210344.570661374586887894.davem@davemloft.net>
+	 <CA+55aFyENEpGJmTq55=n0_gDiF6RQmdKw-ts4AdQAFQJ1TkF-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: zheng.z.yan@intel.com
+Cc: David Miller <davem@davemloft.net>, david.ward@ll.mit.edu,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59388 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757Ab1ISChu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Sep 2011 22:37:50 -0400
-In-Reply-To: <4E76A36B.4060109@intel.com>
+Received: from ozlabs.org ([203.10.76.45]:38799 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752805Ab1ISC52 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Sep 2011 22:57:28 -0400
+In-Reply-To: <CA+55aFyENEpGJmTq55=n0_gDiF6RQmdKw-ts4AdQAFQJ1TkF-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Date: Mon, 19 Sep 2011 10:05:31 +0800
+Hi all,
 
-> D-SACK is allowed to reside below snd_una. But the corresponding check
-> in tcp_is_sackblock_valid() is the exact opposite. It looks like a typo.
-> 
-> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Hmm. I *think* the right person for patchwork issues is Jeremy Kerr,
+> but I migth be wrong..
 
-Applied, thanks.
+Yes, that's correct.
+
+> Jeremy, the fact that apparently patchworks loses proper names is a
+> killer feature - but very much in the wrong meaning of "killer". Any
+> way to make sure that doesn't happen?
+
+Yeah, probably not the killer feature we're after.
+
+I've found the problem, and committed a fix & testcase:
+
+ http://git.ozlabs.org/?p=patchwork;a=commitdiff;h=4bc2c34d
+
+That fix has been applied to the patchwork.ozlabs.org instance, and I've
+manually updated the incorrect (ie, username-only) entries in the
+patchwork database.
+
+Cheers,
+
+
+Jeremy
