@@ -1,31 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: PATCH Question, Firewall mark inherit for ip6_tunnel
-Date: Mon, 19 Sep 2011 12:32:04 +0200
-Message-ID: <1316428324.2539.16.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903109@ESESSCMS0356.eemea.ericsson.se>
-	 ,<1316424324.2539.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <C8A6796DE7C66C4ABCBC18106CB6C1CC106D90310A@ESESSCMS0356.eemea.ericsson.se>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [GIT] Networking
+Date: Mon, 19 Sep 2011 07:02:50 -0400
+Message-ID: <20110919110250.GA24550@hmsreliant.think-freely.org>
+References: <20110918.022125.1554085675403900813.davem@davemloft.net>
+ <CA+55aFxc1tMCXKBV33PVD5BybTLBpfJAEcObvoQwbwqbKOsp7g@mail.gmail.com>
+ <4E76864D.4080907@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hans =?ISO-8859-1?Q?Schillstr=F6m?=
-	<hans.schillstrom@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:51730 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755118Ab1ISKby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 06:31:54 -0400
-Received: by eya28 with SMTP id 28so1466235eya.19
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 03:31:53 -0700 (PDT)
-In-Reply-To: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D90310A@ESESSCMS0356.eemea.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Ward <david.ward@ll.mit.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4E76864D.4080907@ll.mit.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 19 septembre 2011 =C3=A0 11:52 +0200, Hans Schillstr=C3=B6m a =
-=C3=A9crit :
+On Sun, Sep 18, 2011 at 08:01:17PM -0400, David Ward wrote:
+> On 09/18/2011 02:06 PM, Linus Torvalds wrote:
+> >2011/9/17 David Miller<davem@davemloft.net>:
+> >>dpward (2):
+> >>      net: Make flow cache namespace-aware
+> >>      net: Handle different key sizes between address families in flow cache
+> >>
+> >>nhorman (1):
+> >>      net: don't clear IFF_XMIT_DST_RELEASE in ether_setup
+> >>
+> >>rajan.aggarwal85@gmail.com (1):
+> >>      net/can/af_can.c: Change del_timer to del_timer_sync
+> >Guys, if somebody has such a broken email setup that they don't even
+> >show their own name, don't take patches from them.
+> 
+> At least in my case, that is Patchwork's fault.  My name only
+> started showing up like that in commits after I registered for an
+> account (http://patchwork.ozlabs.org/register/), and I don't see any
+> way to change the way my name appears in the Patchwork profile
+> options.
+> 
+> The emails I sent to the netdev list showed my full name; see:
+> http://marc.info/?l=linux-netdev&m=131527867326729&w=2
+> http://marc.info/?l=linux-netdev&m=131527879226819&w=2
+> 
+I noticed this the other day when I registered as well.  Not sure what patchwork
+is doing.
+Neil
 
-> Thanks Eric,
-> Do you take care of the user mode  part as well (i.ie ip commad)
-
-Yes, I'll send the iproute2 part as well.
+> David
+> 
