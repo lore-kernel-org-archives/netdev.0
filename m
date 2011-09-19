@@ -1,47 +1,95 @@
-From: Amir Vadai <amirv@dev.mellanox.co.il>
-Subject: Re: RFS issue: no HW filter for paused stream
-Date: Mon, 19 Sep 2011 09:05:08 +0300
-Message-ID: <CAP7N4Kes9=VdRV8NHvk03SBg5GbohgdbGqKPABCfYbVyzZ+1ng@mail.gmail.com>
-References: <CAP7N4Kfd9TOPr_V6+R9yVtK80eGWbkAvPE8BStG0+WhvJHaLGg@mail.gmail.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: linux-next: manual merge of the net tree with Linus' tree
+Date: Mon, 19 Sep 2011 09:55:18 +0300
+Message-ID: <1316415318.26848.4.camel@lb-tlvb-dmitry>
+References: <20110919145103.6c3e73edf51599eaa703294a@canb.auug.org.au>
+Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: oren@mellanox.co.il, liranl@mellanox.co.il, netdev@vger.kernel.org,
-	amirv@mellanox.co.il
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:52745 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750939Ab1ISGFJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 02:05:09 -0400
-Received: by iaqq3 with SMTP id q3so4957988iaq.19
-        for <netdev@vger.kernel.org>; Sun, 18 Sep 2011 23:05:08 -0700 (PDT)
-In-Reply-To: <CAP7N4Kfd9TOPr_V6+R9yVtK80eGWbkAvPE8BStG0+WhvJHaLGg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Joe Perches" <joe@perches.com>
+To: "Stephen Rothwell" <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110919145103.6c3e73edf51599eaa703294a@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(Resending in plain text)
+On Sun, 2011-09-18 at 21:51 -0700, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net tree got a conflict in
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c between commit
+> c482e6c06461 ("bnx2x: Fix ETS bandwidth") from Linus' tree and commit
+> 94f05b0f60de ("bnx2x: Coalesce pr_cont uses and fix DP typos") from the
+> net tree.
+> 
+> The former removes the code cleaned up by the latter, so I used the
+> former (see below).
 
-Tom Hi,
-When a stream is paused, and its rule is expired while it is paused,
-no new rule will be configured to the HW when traffic resume.
+Can you use this one instead?
+Contains spell fixes and some formatting.
 
-Scenario:
-1. Start iperf.
-2. Pause it using Ctrl-Z
-3. Start another iperf (to make sure first stream rule is expired)
-4. Stop the second stream.
-5. Resume first stream. Traffic is not steered to the right rx-queue.
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   34 ++++++++-------------
+ 1 files changed, 13 insertions(+), 21 deletions(-)
 
-=46rom looking at the code:
-- When first stream started, RSS steered traffic to rx-queue 'x'.
-Because iperf server was running on a different CPU, a new rule was
-added and current-cpu was set to desired-cpu.
-- After paused, rule was expired and removed from HW by net driver.
-But current-cpu wasn't cleared and still is equal to desired-cpu.
-- When stream was resumed, traffic was steered again by RSS, and
-because current-cpu was equal to desired-cpu, =A0ndo_rx_flow_steer
-wasn't called and no rule was configured to the HW.
-
-Why isn't current-cpu cleared when expiring a rule?
-- Amir
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index 8e9b87b..733ace0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -850,32 +850,24 @@ static int bnx2x_ets_e3b0_get_total_bw(
+ 
+ 	*total_bw = 0 ;
+ 	/* Calculate total BW requested */
+-	for (cos_idx = 0; cos_idx < ets_params->num_of_cos; cos_idx++) {
+-		if (bnx2x_cos_state_bw == ets_params->cos[cos_idx].state) {
++	for (cos_idx = 0; cos_idx < ets_params->num_of_cos; cos_idx++)
++		if (bnx2x_cos_state_bw == ets_params->cos[cos_idx].state)
++			*total_bw +=
++				ets_params->cos[cos_idx].params.bw_params.bw;
+ 
+-			if (0 == ets_params->cos[cos_idx].params.bw_params.bw) {
+-				DP(NETIF_MSG_LINK,
+-				   "bnx2x_ets_E3B0_config BW was set to 0\n");
+-			return -EINVAL;
+-		}
+-		*total_bw +=
+-		    ets_params->cos[cos_idx].params.bw_params.bw;
+-	    }
+-	}
+-
+-	/*Check taotl BW is valid */
++	/* Check total BW is valid */
+ 	if ((100 != *total_bw) || (0 == *total_bw)) {
+ 		if (0 == *total_bw) {
+-			DP(NETIF_MSG_LINK,
+-			   "bnx2x_ets_E3B0_config toatl BW shouldn't be 0\n");
++			DP(NETIF_MSG_LINK, "bnx2x_ets_E3B0_config total BW"
++					   "shouldn't be 0\n");
+ 			return -EINVAL;
+ 		}
+-		DP(NETIF_MSG_LINK,
+-		   "bnx2x_ets_E3B0_config toatl BW should be 100\n");
+-		/**
+-		*   We can handle a case whre the BW isn't 100 this can happen
+-		*   if the TC are joined.
+-		*/
++		DP(NETIF_MSG_LINK, "bnx2x_ets_E3B0_config total BW should be"
++				   "100\n");
++		/*
++		 * We can handle a case where the BW isn't 100 this can happen
++		 * if the TC are joined.
++		 */
+ 	}
+ 	return 0;
+ }
+-- 
+1.7.2.2
