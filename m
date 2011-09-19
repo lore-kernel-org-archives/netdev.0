@@ -1,28 +1,104 @@
-From: "Coca'Cola Inc" <info@promo.co.uk>
-Subject: Your Email Id has won
-Date: Mon, 19 Sep 2011 22:17:23 +0530
-Message-ID: <20110919164742.SQWV1564.viefep18-int.chello.at@edge03.upcmail.net>
-Reply-To: <ccpdept_2011@msn.com>
+From: "DR. ABEL GREG" <inboxmailer11@w71482j2k.homepage.t-online.de>
+Subject: RE: URGENT WITH DETAILS
+Date: Mon, 19 Sep 2011 09:06:29 -0700
+Message-ID: <1R5gMH-16NP0K0@fwd18.t-online.de>
+Reply-To: <dr.abelgreg@live.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0031_01C2A9A6.039115F2"
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fep23.mx.upcmail.net ([62.179.121.43]:42092 "EHLO
-	fep23.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750981Ab1ISQwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 12:52:54 -0400
+Received: from mailout10.t-online.de ([194.25.134.21]:40494 "EHLO
+	mailout10.t-online.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751049Ab1ISRIG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 13:08:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your Email Id has won 1,000,000.00GBP in the COCA'COLA PROMO 2011 send your
-Names.
-Address.
-Sex.
-Age.
-Tel.
-*City/State:
-Country.
+This is a multi-part message in MIME format.
 
-Email: ccpdept_2011@msn.com
+------=_NextPart_000_0031_01C2A9A6.039115F2
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+
+READ CAREFULLY THE ATTACHED FILE....
+
+------=_NextPart_000_0031_01C2A9A6.039115F2
+Content-Type: application/octet-stream;
+	name="UNITED NATION.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="UNITED NATION.txt"
+
+VW5pdGVkIE5hdGlvbiBGcmF1ZCBhbmQgTW9uZXkgTGF1bmRlcmluZyBPdmVy
+c2lnaHQgRGVwdCANCkludmVzdGlnYXRpb24vIE1vbml0b3JpbmcvIFJlc29s
+dmUgYW5kIENvbnN1bHQgVW5pdCANCiAgDQpBdHRuOiBCZW5lZmljaWFyeSwg
+DQoNCkkgYW0gQWJlbCBHcmVnIChGc2MsIE1uaSkgVW5pdGVkIE5hdGlvbiBy
+ZXByZXNlbnRhdGl2ZSBmb3IgQWZyaWNhbiBFY29ub21pYyBDcmltZXMsIFNj
+YW0gYW5kIE1vbmV5IExhdW5kZXJpbmcuIA0KICANCkkgd3JpdGUgdG8gYWRk
+cmVzcyB5b3Ugb24gdGhlIGFjY291bnQgb2YgcGV0aXRpb25zIGFkZHJlc3Nl
+ZCB0byB0aGUgVW5pdGVkIE5hdGlvbiBTZWN1cml0eSBDb3VuY2lsIGJ5IGJv
+dGggdGhlIGdvdmVybm1lbnQgb2YgVW5pdGVkIFN0YXRlIG9mIEFtZXJpY2Es
+IEZyYW5jZSwgQnJpdGFpbiByZS1lbmFjdGluZyBhbiBleHBvc2UgdG8gdGhl
+IGNvbG9zc2FsIG1hZ25pdHVkZSBvZiBzY2FtLCBkZWNlaXQgYW5kIG1vbmV5
+IGxhdW5kZXJpbmcgY2FydGVsIHJpbmcgcHJldmFsZW50IHdpdGggY291bnRy
+aWVzIHN1Y2ggYXMgR2FtYmlhLCBOaWdlcmlhLCBHaGFuYSwgQmVuaW4gUmVw
+dWJsaWMsIEVuZ2xhbmQsIFNwYWluIGFuZCBVbml0ZWQgU3RhdGUgb2YgQW1l
+cmljYS4gSXQgd2FzIG9uIGFjY291bnQgb2YgdGhpcyB0aGF0IFVuaXRlZCBO
+YXRpb24gZGVwbG95ZWQgaXRzIEFmcmljYW4gQ29tbWlzc2lvbiBvbiBFY29u
+b21pYyBDcmltZXMgdG8gd2FkZSBpbnRvIHRoaXMgdWdseSB0cmVuZC4gDQog
+IA0KT3VyIEludmVzdGlnYXRpb24gcmV2ZWFsZWQgdGhhdCB0aGlzIHNjYW0g
+aGFzIGJlZW4gZm9yIGEgdmVyeSBsb25nIHRpbWUgYnV0IGFzc3VtZWQgZ2xv
+YmFsIGRpbWVuc2lvbiBpbiB0aGUgbGFzdCBmaWZ0ZWVuIHllYXJzLiBJbiBy
+ZXNwb25zZSB0byB0aGVzZSBwZXRpdGlvbnMgdG8gdGhlIFVOLCB3ZSBoYXZl
+IGJlZW4gZW5nYWdlZCB3aXRoIHRoZSBOaWdlcmlhIGdvdmVybm1lbnQgaW4g
+dGhlIGxhc3QgZml2ZSBtb250aHMsIGRpc2N1c3NpbmcgdGhlIGltcGxpY2F0
+aW9uIG9mIHRoaXMgdWdseSBwYXltZW50IHNjYW0gaW4gTmlnZXJpYS4gVGhl
+IGhpZ2ggcG93ZXJlZCBkZWxlZ2F0aW9uIGZyb20gdGhlIFVOIGhhcyBhY2hp
+ZXZlZCByZW1hcmthYmxlIHByb2dyZXNzIGluIG91ciBkaXNjdXNzaW9uIHdp
+dGggdGhlIEZlZGVyYWwgZ292ZXJubWVudCBvZiBOaWdlcmlhLiANCiAgDQpX
+ZSBhcmUgZmlyc3QgaW4gTmlnZXJpYSBiZWNhdXNlIG91ciBpbnZlc3RpZ2F0
+aW9uIHJldmVhbGVkIHRoYXQgdGhpcyBwYXltZW50IHNjYW0gZnJhdWQgb3Jp
+Z2luYXRlZCBmcm9tIE5pZ2VyaWEuIE5lZWQgbm90IGJlIHJlbWluZGVkIHRo
+YXQgdGhpcyBzYW1lIHNjYW0gaXNzdWUgZm9ybWVkIHRoZSBmdWxjb24gb2Yg
+dGhlIGRpc2N1c3Npb24gYmV0d2VlbiBQcmVzaWRlbnQgR29vZGx1Y2sgSm9u
+YXRoYW4gb2YgTmlnZXJpYSBhbmQgaGlzIFVuaXRlZCBTdGF0ZSBjb3VudGVy
+cGFydCBCYXJyYWNrIE9iYW1hIGR1cmluZyB0aGUgdmlzaXQgb2YgdGhlIGZv
+cm1lciBiZXR3ZWVuIEFwcmlsIGFuZCBKdW5lIDIwMTAgYXMgUHJlc2lkZW50
+IEpvbmF0aGFuIHZpc2l0ZWQgdHdpY2UuIEhlIG9wZW5seSBhc2tlZCB0aGUg
+QW1lcmljYW4gZ292ZXJubWVudCB0byBhc3Npc3QgTmlnZXJpYSBpbiBjYWxt
+aW5nIHRoaXMgdWdseSB2aWNlLiANCiAgDQpJbiB0aGUgbGFzdCBmaXZlIG1v
+bnRocyBvdXIgdGVhbSBoYXZlIHdvcmtlZCBhc3NpZHVvdXNseSB3aXRoIHRo
+ZSBjb29wZXJhdGlvbiBvZiB0aGUgTmlnZXJpYSBnb3Zlcm5tZW50IHRvIHJl
+YWNoIGEgY29tcHJvbWlzZSBjb25zaWRlcmluZyB0aGF0IHRoaXMgd2VsbCBk
+b2N1bWVudGVkIHBheW1lbnQgY2xhaW0gc2NhbSBpcyBhIHN5c3RlbWljIG1l
+dGhvZCB0aHJvdWdoIHdoaWNoIHRoZSBoaWdobHkgcGxhY2VkIE5pZ2VyaWEg
+b2ZmaWNpYWxzIHVzZSBpbiBmbGVlaW5nIG1vbmV5IHVzaW5nIHRoZWlyIHBy
+b3hpZXMgdG8gbWFrZSBjb250YWN0IHRvIHlvdS4gIEluIG91ciBjYW5kaWQg
+cmVzb2x1dGlvbiB3aXRoIHRoZSBnb3Zlcm5tZW50IG9mIHRoZSBGZWRlcmFs
+IFJlcHVibGljIG9mIE5pZ2VyaWEsIGl0IHdhcyB3ZWxsIG5vdGVkIHRoYXQg
+bW9zdCBvZiB0aGUgdmljdGltcyBzcGVudCBlbm9ybW91cyBhbW91bnQgb2Yg
+bW9uZXkgaW4gdGhpcyBzY2FtLCB0aGVyZWZvcmUgc2hvdWxkIGJlIGFkZXF1
+YXRlbHkgY29tcGVuc2F0ZWQuIFByZXNlbnRseSB3ZSBoYXZlIHN0YXJ0ZWQg
+dGhlIHBheW1lbnQgb2YgdGhlIGNvbXBlbnNhdGlvbiBmb3IgdmljdGltcyBh
+cyBhZ3JlZWQgYmV0d2VlbiB0aGUgVU4gYW5kIHRoZSBnb3Zlcm5tZW50IG9m
+IE5pZ2VyaWEuIFRoaXMgY29tbWlzc2lvbiBpcyBwYXlpbmcgb3V0IHRoZSBz
+dW0gb2YgJDUuMk0gdG8gYWxsIHRoZSB2aWN0aW1pemVkIGJlbmVmaWNpYXJp
+ZXMuDQogIA0KQnV0IHRoaXMgcGF5bWVudCB3aWxsIGJlIHJlbGVhc2UgdG8g
+eW91IHZpYSBhbiBBVE0gVmlzYSBDYXJkIHdoaWNoIGhhcyB0byBnbyB0aHJv
+dWdoIEFtZXJpY2FuIEJhbmtlcnMgQXNzb2NpYXRpb24gQmFua2luZyBOZXR3
+b3JrIHJlZ2lzdHJhdGlvbiB0aGF0IHdpbGwgZW5hYmxlIHlvdSBhY2Nlc3Mg
+dGhlIFZpc2EgQ2FyZCBpbiB5b3VyIGNvdW50cnkuIFRoaXMgcmVnaXN0cmF0
+aW9uIGhhcyB0byBiZSBkb25lIGJlZm9yZSB0aGUgVmlzYSBDYXJkIHdpbGwg
+YmUgZGlzcGF0Y2ggdG8geW91ciBhZGRyZXNzLiBDb250YWN0IHRoaXMgb2Zm
+aWNlIHdpdGggdGhlIGJlbGxvdyBwYXJ0aWN1bGFycyB1cmdlbnRseS4NCg0K
+MSkuIFlvdXIgTmFtZXMuLi4uLi4uIA0KMikuIFlvdXIgQWRkcmVzcy4uLi4u
+DQozKS4gWW91ciBEaXJlY3QgUGhvbmUgTnVtYmVyIGZvciBhY2N1cmF0ZSB2
+ZXR0aW5nLiANCjQpLiBZb3VyIElEIENhcmQgLyBPY2N1cGF0aW9uDQoNCg0K
+Q29udGFjdCB1cyBpbW1lZGlhdGVseS4gDQoNCkRyLiBBYmVsIEdyZWcgKEZz
+YywgTW5pKSANClVuaXRlZCBOYXRpb24gcmVwcmVzZW50YXRpdmUgDQpBZnJp
+Y2FuIEVjb25vbWljIENyaW1lcywgU2NhbSBhbmQgTW9uZXkgTGF1bmRlcmlu
+ZyANCkVtYWlsOiB1bml0ZWRuYXRpb25zcmVwQGxpdmUuY29tICANCg==
+
+------=_NextPart_000_0031_01C2A9A6.039115F2--
