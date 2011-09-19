@@ -1,76 +1,53 @@
-From: Rongqing Li <rongqing.li@windriver.com>
-Subject: Re: [PATCH 1/1] snmp6 relevant data structures are freed twice.
-Date: Mon, 19 Sep 2011 16:32:48 +0800
-Message-ID: <4E76FE30.4000204@windriver.com>
-References: <1316415793-2711-1-git-send-email-rongqing.li@windriver.com> <1316420989.2539.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree
+ (origin/net-current tree related)
+Date: Mon, 19 Sep 2011 18:35:49 +1000
+Message-ID: <20110919183549.765331241abb61e22418c69a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:51682 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752838Ab1ISIcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 04:32:53 -0400
-In-Reply-To: <1316420989.2539.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__19_Sep_2011_18_35_49_+1000_2QaP+yoH_MpDWJdP"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/19/2011 04:29 PM, Eric Dumazet wrote:
-> Le lundi 19 septembre 2011 =C3=A0 15:03 +0800, rongqing.li@windriver.=
-com a
-> =C3=A9crit :
->> From: Roy.Li<rongqing.li@windriver.com>
->>
->> When calling snmp6_alloc_dev fails, the snmp6 relevant memory
->> are freed by snmp6_alloc_dev. Calling in6_dev_finish_destroy
->> will free these memory twice.
->>
->> Double free will lead that undefined behavior occurs.
->>
->> Signed-off-by: Roy.Li<rongqing.li@windriver.com>
->> ---
->>   net/ipv6/addrconf.c |    4 ++--
->>   1 files changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index 8f1e5be..ba01f72 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -374,8 +374,8 @@ static struct inet6_dev * ipv6_add_dev(struct ne=
-t_device *dev)
->>   			"%s(): cannot allocate memory for statistics; dev=3D%s.\n",
->>   			__func__, dev->name));
->>   		neigh_parms_release(&nd_tbl, ndev->nd_parms);
->> -		ndev->dead =3D 1;
->> -		in6_dev_finish_destroy(ndev);
->> +		dev_put(dev);
->> +		kfree(ndev);
->>   		return NULL;
->>   	}
->>
->
-> This seems a very old bug, and your fix applicable to old kernels as
-> well, thanks.
->
-> Could your patch title could be refined to the following ?
->
-> 0) No need for the 1/1 suffix
-> 1) include ipv6: prefix
-> 2) change the message a bit, since normal operations are OK, only
-> failure and error recovery is buggy.
->
-> [PATCH] ipv6: fix a possible double free
->
-> Acked-by: Eric Dumazet<eric.dumazet@gmail.com>
->
->
->
+--Signature=_Mon__19_Sep_2011_18_35_49_+1000_2QaP+yoH_MpDWJdP
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Ok, I will resend it.
+Hi all,
 
+After merging the final tree, today's linux-next build (powerpc
+ppc44x_defconfig) failed like this:
+
+net/built-in.o: In function `tcp_v4_conn_request':
+(.text+0x5b700): undefined reference to `cookie_v4_init_sequence'
+
+This error has already been noted elsewhere and a fix queued, so I have
+merged a newer version of the net-current tree that contains the fix for
+today.
 --=20
-Best Reagrds,
-Roy | RongQing Li
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+
+--Signature=_Mon__19_Sep_2011_18_35_49_+1000_2QaP+yoH_MpDWJdP
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJOdv7lAAoJEDMEi1NhKgbs3uMH/jiyx+cofZaeUngnozLvDZ5R
+MURSeHqgCsEsl6s2GTqd1xlcm2FVvXCdG3jJkrKTGoMc7fiEqEEc19sD3fLsEl33
+aU0MHhhHbGDjNhdprevx3Xh2Hm8LPapFvNd6M7MmmJZzrYYQ9LFtgWAx/OKJy6QN
+NWLnJJeEoe0kHa3rwC7t6hvqv2cG/rXeE9J49mFGBAXRbn5K5MzL7BO/gJRPJbdB
+YBDcn0Pfonn7jtqFFktMyO5D+n7xzSURoY7SF46klZFcPnn8qwguHUnTRKRj19cE
+iC6XNtS/2F9d5fEuWDD4q9QkdXB/e3fSMzjyCmV9i6LzzNxpqnqXHQo2emLFO98=
+=0ugA
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__19_Sep_2011_18_35_49_+1000_2QaP+yoH_MpDWJdP--
