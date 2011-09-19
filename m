@@ -1,185 +1,63 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v3 04/11] SUNRPC: parametrize svc creation calls with
- portmapper flag
-Date: Mon, 19 Sep 2011 18:51:31 +0400
-Message-ID: <4E7756F3.4080601@parallels.com>
-References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>	<20110913181351.3961.70207.stgit@localhost6.localdomain6> <20110919100811.0eaa39fe@tlielax.poochiereds.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] af_unix: dont send SCM_CREDENTIALS by default
+Date: Mon, 19 Sep 2011 17:02:04 +0200
+Message-ID: <1316444524.2539.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1315488497.2456.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1315473888.2301.21.camel@schen9-mobl>
+	 <1315544777.5410.19.camel@edumazet-laptop>
+	 <20110918.210758.2207266633127640132.davem@davemloft.net>
+	 <1316406528.2521.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Jeff Layton <jlayton@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110919100811.0eaa39fe@tlielax.poochiereds.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tim.c.chen@linux.intel.com, zheng.z.yan@intel.com,
+	yanzheng@21cn.com, netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	jirislaby@gmail.com, sedat.dilek@gmail.com, alex.shi@intel.com,
+	Valdis.Kletnieks@vt.edu
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:42568 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753134Ab1ISPB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 11:01:59 -0400
+Received: by eya28 with SMTP id 28so1620972eya.19
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 08:01:58 -0700 (PDT)
+In-Reply-To: <1316406528.2521.15.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-19.09.2011 18:08, Jeff Layton =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Tue, 13 Sep 2011 22:13:51 +0400
-> Stanislav Kinsbursky<skinsbursky@parallels.com>  wrote:
->
->> This new flag ("setup_rpcbind) will be used to detect, that new serv=
-ice will
->> send portmapper register calls. For such services we will create rpc=
-bind
->> clients and remove all stale portmap registrations.
->> Also, svc_rpcb_cleanup() will be set as sv_shutdown callback for suc=
-h services
->> in case of this field wasn't initialized earlier. This will allow to=
- destroy
->> rpcbind clients when no other users of them left.
->>
->> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->>
->> ---
->>   include/linux/sunrpc/svc.h |    2 ++
->>   net/sunrpc/svc.c           |   21 ++++++++++++++-------
->>   2 files changed, 16 insertions(+), 7 deletions(-)
->>
->> diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
->> index 223588a..528952a 100644
->> --- a/include/linux/sunrpc/svc.h
->> +++ b/include/linux/sunrpc/svc.h
->> @@ -402,11 +402,13 @@ struct svc_procedure {
->>    * Function prototypes.
->>    */
->>   struct svc_serv *svc_create(struct svc_program *, unsigned int,
->> +			    int setup_rpcbind,
-> 				^^^
-> 			Instead of adding this parameter, why not
-> 			base this on the vs_hidden flag in the
-> 			svc_version? IOW, have a function that looks at
-> 			all the svc_versions for a particular
-> 			svc_program, and returns "true" if any of them
-> 			have vs_hidden unset? The mechanism you're
-> 			proposing here has the potential to be out of
-> 			sync with the vs_hidden flag.
->
+Le lundi 19 septembre 2011 =C3=A0 06:28 +0200, Eric Dumazet a =C3=A9cri=
+t :
+> Le dimanche 18 septembre 2011 =C3=A0 21:07 -0400, David Miller a =C3=A9=
+crit :
+> > Eric, please respin your patches against current net-next, thanks!
+>=20
+> Sure, here it is :
+>=20
+> Its a bit different, so I didnt add Tim 'Acked-by'
+>=20
+> [PATCH net-next] af_unix: dont send SCM_CREDENTIALS by default
+>=20
+> Since commit 7361c36c5224 (af_unix: Allow credentials to work across
+> user and pid namespaces) af_unix performance dropped a lot.
+>=20
+> This is because we now take a reference on pid and cred in each write=
+(),
+> and release them in read(), usually done from another process,
+> eventually from another cpu. This triggers false sharing.
 
-Could you, please, clarify me this vs_hidden flag?
-I understand, that it's used to avoid portmap registration.
-But as I see, it's set only for nfs_callback_version1. But this svc_ver=
-sion is a=20
-part of nfs4_callback_program with nfs_callback_version4, which is not =
-hidden.
-Does this flag is missed here? If not, how we can return "true" from yo=
-ur=20
-proposed function if any of them have vs_hidden unset?
-
-Also sockets for this program are created with SVC_SOCK_ANONYMOUS flag =
-and we=20
-will not register any of this program versions with portmapper.
-Thus, from my pow, this vs_hidden flag affects only svc_unregister. And=
- only=20
-nfs_callback_version1. This looks really strange.
-
-I.e. if we use this flag only for passing through this versions during=20
-svc_(un)register, and we actually also want to pass through=20
-nfs_callback_version4 as well (but just missed this vs_hidden flag for =
-it), then=20
-with current patch-set we can move this flag from (vs_hidden) svc_versi=
-on to=20
-svc_program and check it during svc_create instead of my home-brew=20
-"setup_rpcbind" variable.
-
-> 			Also, if you're adding an argument to a
-> 			function like this, you you really ought to
-> 			change the callers in the same patch. Otherwise
-> 			you'll cause a build break if someone tries to
-> 			bisect and ends up between the patch that
-> 			changes the function and the one that changes
-> 			the callers.
->
->>   			void (*shutdown)(struct svc_serv *));
->>   struct svc_rqst *svc_prepare_thread(struct svc_serv *serv,
->>   					struct svc_pool *pool);
->>   void		   svc_exit_thread(struct svc_rqst *);
->>   struct svc_serv *  svc_create_pooled(struct svc_program *, unsigne=
-d int,
->> +			int setup_rpcbind,
->>   			void (*shutdown)(struct svc_serv *),
->>   			svc_thread_fn, struct module *);
->>   int		   svc_set_num_threads(struct svc_serv *, struct svc_pool *, =
-int);
->> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
->> index f31e5cc..03231d5 100644
->> --- a/net/sunrpc/svc.c
->> +++ b/net/sunrpc/svc.c
->> @@ -378,7 +378,7 @@ static void svc_rpcb_cleanup(struct svc_serv *se=
-rv)
->>    */
->>   static struct svc_serv *
->>   __svc_create(struct svc_program *prog, unsigned int bufsize, int n=
-pools,
->> -	     void (*shutdown)(struct svc_serv *serv))
->> +	     int setup_rpcbind, void (*shutdown)(struct svc_serv *serv))
->>   {
->>   	struct svc_serv	*serv;
->>   	unsigned int vers;
->> @@ -437,29 +437,36 @@ __svc_create(struct svc_program *prog, unsigne=
-d int bufsize, int npools,
->>   		spin_lock_init(&pool->sp_lock);
->>   	}
->>
->> -	/* Remove any stale portmap registrations */
->> -	svc_unregister(serv);
->> +	if (setup_rpcbind) {
->> +	       	if (svc_rpcb_setup(serv)<  0) {
->> +			kfree(serv->sv_pools);
->> +			kfree(serv);
->> +			return NULL;
->> +		}
->> +		if (!serv->sv_shutdown)
->> +			serv->sv_shutdown =3D svc_rpcb_cleanup;
->> +	}
->>
->>   	return serv;
->>   }
->>
->>   struct svc_serv *
->>   svc_create(struct svc_program *prog, unsigned int bufsize,
->> -	   void (*shutdown)(struct svc_serv *serv))
->> +	   int setup_rpcbind, void (*shutdown)(struct svc_serv *serv))
->>   {
->> -	return __svc_create(prog, bufsize, /*npools*/1, shutdown);
->> +	return __svc_create(prog, bufsize, /*npools*/1, setup_rpcbind, shu=
-tdown);
->>   }
->>   EXPORT_SYMBOL_GPL(svc_create);
->>
->>   struct svc_serv *
->>   svc_create_pooled(struct svc_program *prog, unsigned int bufsize,
->> -		  void (*shutdown)(struct svc_serv *serv),
->> +		  int setup_rpcbind, void (*shutdown)(struct svc_serv *serv),
->>   		  svc_thread_fn func, struct module *mod)
->>   {
->>   	struct svc_serv *serv;
->>   	unsigned int npools =3D svc_pool_map_get();
->>
->> -	serv =3D __svc_create(prog, bufsize, npools, shutdown);
->> +	serv =3D __svc_create(prog, bufsize, npools, setup_rpcbind, shutdo=
-wn);
->>
->>   	if (serv !=3D NULL) {
->>   		serv->sv_function =3D func;
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-nfs"=
- in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+> This patch includes SCM_CREDENTIALS information in a af_unix message/=
+skb
+> only if requested by the sender, [man 7 unix for details how to inclu=
+de
+> ancillary data using sendmsg() system call]
+>=20
+> Note: This might break buggy applications that expected SCM_CREDENTIA=
+L
+> from an unaware write() system call.
 
 
---=20
-Best regards,
-Stanislav Kinsbursky
+I appears udevd is such an application.
+
+I am trying testing SOCK_PASSCRED flag and include SCM_CREDENTIALS if
+set.
