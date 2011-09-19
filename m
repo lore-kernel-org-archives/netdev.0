@@ -1,83 +1,59 @@
-From: Tim Chen <tim.c.chen@linux.intel.com>
-Subject: Re: [PATCH v2 net-next] af_unix: dont send SCM_CREDENTIALS by
- default
-Date: Mon, 19 Sep 2011 14:39:58 -0700
-Message-ID: <1316468398.4680.6.camel@schen9-DESK>
-References: <1315488497.2456.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1315473888.2301.21.camel@schen9-mobl>
-	 <1315544777.5410.19.camel@edumazet-laptop>
-	 <20110918.210758.2207266633127640132.davem@davemloft.net>
-	 <1316406528.2521.15.camel@edumazet-laptop>
-	 <1316444524.2539.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1316447547.2539.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next 11/13] igb: Make Tx budget for NAPI user adjustable
+Date: Mon, 19 Sep 2011 15:27:32 -0700
+Message-ID: <4E77C1D4.503@intel.com>
+References: <4E776441.9090602@intel.com>	<1316448352.2764.27.camel@bwh-desktop>	<4E776E92.6090303@intel.com> <20110919.170033.344802441047363137.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, zheng.z.yan@intel.com,
-	yanzheng@21cn.com, netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	jirislaby@gmail.com, sedat.dilek@gmail.com, alex.shi@intel.com,
-	Valdis.Kletnieks@vt.edu
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: bhutchings@solarflare.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27341 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:48597 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753770Ab1ISVkD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Sep 2011 17:40:03 -0400
-In-Reply-To: <1316447547.2539.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	id S932429Ab1ISW0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Sep 2011 18:26:50 -0400
+In-Reply-To: <20110919.170033.344802441047363137.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-09-19 at 17:52 +0200, Eric Dumazet wrote:
-> Since commit 7361c36c5224 (af_unix: Allow credentials to work across
-> user and pid namespaces) af_unix performance dropped a lot.
-> 
-> This is because we now take a reference on pid and cred in each write(),
-> and release them in read(), usually done from another process,
-> eventually from another cpu. This triggers false sharing.
-> 
-> # Events: 154K cycles
-> #
-> # Overhead  Command       Shared Object        Symbol
-> # ........  .......  ..................  .........................
-> #
->     10.40%  hackbench  [kernel.kallsyms]   [k] put_pid
->      8.60%  hackbench  [kernel.kallsyms]   [k] unix_stream_recvmsg
->      7.87%  hackbench  [kernel.kallsyms]   [k] unix_stream_sendmsg
->      6.11%  hackbench  [kernel.kallsyms]   [k] do_raw_spin_lock
->      4.95%  hackbench  [kernel.kallsyms]   [k] unix_scm_to_skb
->      4.87%  hackbench  [kernel.kallsyms]   [k] pid_nr_ns
->      4.34%  hackbench  [kernel.kallsyms]   [k] cred_to_ucred
->      2.39%  hackbench  [kernel.kallsyms]   [k] unix_destruct_scm
->      2.24%  hackbench  [kernel.kallsyms]   [k] sub_preempt_count
->      1.75%  hackbench  [kernel.kallsyms]   [k] fget_light
->      1.51%  hackbench  [kernel.kallsyms]   [k]
-> __mutex_lock_interruptible_slowpath
->      1.42%  hackbench  [kernel.kallsyms]   [k] sock_alloc_send_pskb
-> 
-> 
-> This patch includes SCM_CREDENTIALS information in a af_unix message/skb
-> only if requested by the sender, [man 7 unix for details how to include
-> ancillary data using sendmsg() system call]
-> 
-> Note: This might break buggy applications that expected SCM_CREDENTIAL
-> from an unaware write() system call, and receiver not using SO_PASSCRED
-> socket option.
-> 
-> If SOCK_PASSCRED is set on source or destination socket, we still
-> include credentials for mere write() syscalls.
-> 
-> Performance boost in hackbench : more than 50% gain on a 16 thread
-> machine (2 quad-core cpus, 2 threads per core)
-> 
-> hackbench 20 thread 2000
-> 
-> 4.228 sec instead of 9.102 sec
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
+On 09/19/2011 02:00 PM, David Miller wrote:
+> From: Alexander Duyck<alexander.h.duyck@intel.com>
+> Date: Mon, 19 Sep 2011 09:32:18 -0700
+>> The fact is ixgbe has been using this parameter this way for over 2
+>> years now and the main goal of this patch was just to synchronize how
+>> things work on igb and ixgbe.
+>>
+>> Our hardware doesn't have a mechanism for firing an interrupt after X
+>> number of frames so instead we simply have modified things so that we
+>> will only process X number of frames and then fire another
+>> interrupt/poll if needed.  As such we aren't that far out of
+>> compliance with the meaning of how this parameter is supposed to be
+>> used.
+> All I can say is this was a huge mistake you therefore need to revert
+> the IXGBE change, these ethtool settings are not for changing NAPI or
+> software interrupt behavior.
+>
+> And if you guys plan to be difficult on this and refuse to remove the
+> IXGBE bits, I'm letting you guys know ahead of time that I'll do it
+> for you.
+>
+> If the hardware can't support this facility, neither should these
+> ethtool hooks, because the whole point is to avoid hardware interrupts
+> from firing using these parameters.
+>
+> Propose new mechanisms to control NAPI behavior if you want.
+I'll remove the ixgbe code if that is what you want.  It may be a month 
+or so before I can get to it though since I am slammed with work so if 
+you are in a hurry for it you might want to work with Jeff Kirsher to 
+have the code removed.
 
-Do we have to worry about the case where peer socket changes its flag
-to SOCK_PASSCRED while packets are in flight?  If there isn't such
-pathological use case, the patch looks fine to me.
+As far as this current patch goes I honestly don't have the time to add 
+or rewrite yet another ethtool interface so I will probably just see 
+about dropping the ethtool portion of this patch and update the 
+description in order to make it acceptable.
 
-Acked-by: Tim Chen <tim.c.chen@linux.intel.com>
+Thanks,
+
+Alex
