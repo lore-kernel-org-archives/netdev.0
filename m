@@ -1,49 +1,52 @@
-From: <rongqing.li@windriver.com>
-Subject: [PATCH 1/1] snmp6 relevant data structures are freed twice.
-Date: Mon, 19 Sep 2011 15:03:13 +0800
-Message-ID: <1316415793-2711-1-git-send-email-rongqing.li@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next v2] unix stream: Fix use-after-free crashes
+Date: Mon, 19 Sep 2011 09:57:31 +0200
+Message-ID: <1316419052.2539.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1315340388.3400.28.camel@edumazet-laptop>
+	 <CAAM7YAnqLyK6JWPW_Y8wD=ykqWMn4fPdJ3_7yUUB+TQZWfDJzQ@mail.gmail.com>
+	 <1315364126.3400.64.camel@edumazet-laptop>
+	 <20110916.193529.1252147879675316417.davem@davemloft.net>
+	 <1316191845.2201.5.camel@schen9-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, zheng.z.yan@linux.intel.com,
+	zheng.z.yan@intel.com, netdev@vger.kernel.org,
+	sfr@canb.auug.org.au, jirislaby@gmail.com, sedat.dilek@gmail.com,
+	alex.shi@intel.com
+To: Tim Chen <tim.c.chen@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:37300 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502Ab1ISHDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 03:03:16 -0400
-Received: from ALA-HCA.corp.ad.wrs.com (ala-hca [147.11.189.40])
-	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id p8J73F5u005635
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 00:03:15 -0700 (PDT)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:46912 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751977Ab1ISH5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 03:57:24 -0400
+Received: by bkbzt4 with SMTP id zt4so5089550bkb.19
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 00:57:23 -0700 (PDT)
+In-Reply-To: <1316191845.2201.5.camel@schen9-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roy.Li <rongqing.li@windriver.com>
+Le vendredi 16 septembre 2011 =C3=A0 09:50 -0700, Tim Chen a =C3=A9crit=
+ :
+> On Fri, 2011-09-16 at 19:35 -0400, David Miller wrote:
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Wed, 07 Sep 2011 04:55:26 +0200
+> >=20
+> > > Please David just revert 0856a304091b33a8e
+> >=20
+> > Done.
+>=20
+> Eric,
+>=20
+> Can you re-spin a patch that incorporates your idea that we don't
+> add pid/credential references when we are not requesting credentials
+> in the socket. And probably another one that remove unnecessary
+> pid/credentials references in send/receive when we do use credentials=
+?
 
-When calling snmp6_alloc_dev fails, the snmp6 relevant memory
-are freed by snmp6_alloc_dev. Calling in6_dev_finish_destroy
-will free these memory twice.
+Sure, I did it this morning, please review it if you have some time.
 
-Double free will lead that undefined behavior occurs.
-
-Signed-off-by: Roy.Li <rongqing.li@windriver.com>
----
- net/ipv6/addrconf.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8f1e5be..ba01f72 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -374,8 +374,8 @@ static struct inet6_dev * ipv6_add_dev(struct net_device *dev)
- 			"%s(): cannot allocate memory for statistics; dev=%s.\n",
- 			__func__, dev->name));
- 		neigh_parms_release(&nd_tbl, ndev->nd_parms);
--		ndev->dead = 1;
--		in6_dev_finish_destroy(ndev);
-+		dev_put(dev);
-+		kfree(ndev);
- 		return NULL;
- 	}
- 
--- 
-1.7.1
+If we find a regression (some popular app doing write() and expecting
+credential to be sent to receiver), we could test the SOCK_PASSCRED fla=
+g
+on receiver socket.
