@@ -1,49 +1,66 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
-Date: Mon, 19 Sep 2011 17:19:49 +0930
-Message-ID: <874o09x97m.fsf@rustcorp.com.au>
-References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com> <20110819152335.GA19489@redhat.com> <1313771587.12243.16.camel@lappy> <20110820200043.GB5276@redhat.com> <871uvdryq2.fsf@rustcorp.com.au> <20110919060150.GB1569@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] intel: Convert <FOO>_LENGTH_OF_ADDRESS to ETH_ALEN
+Date: Mon, 19 Sep 2011 16:33:15 -0700
+Message-ID: <1316475196.2184.7.camel@jtkirshe-mobl>
+References: <1316246677-8830-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1316246677-8830-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1316249007.1610.13.camel@Joe-Laptop> <20110919143629.00007675@unknown>
+	 <1316471288.22881.3.camel@Joe-Laptop>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sasha Levin <levinsasha928@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110919060150.GB1569@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-eJ4KSj6XSAtfmhmIakzY"
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:21436 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751147Ab1ISXd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Sep 2011 19:33:27 -0400
+In-Reply-To: <1316471288.22881.3.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Sep 2011 09:01:50 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> On Mon, Sep 19, 2011 at 01:05:17PM +0930, Rusty Russell wrote:
-> > On Sat, 20 Aug 2011 23:00:44 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
-> > > On Fri, Aug 19, 2011 at 07:33:07PM +0300, Sasha Levin wrote:
-> > > > Maybe this is better solved by copying the way it was done in PCI itself
-> > > > with capability linked list?
-> > > 
-> > > There are any number of ways to lay out the structure.  I went for what
-> > > seemed a simplest one.  For MSI-X the train has left the station.  We
-> > > can probably still tweak where the high 32 bit features
-> > > for 64 bit features are.  No idea if it's worth it.
-> > 
-> > Sorry, this has been in the back of my mind.  I think it's a good idea;
-> > can we use the capability linked list for pre-device specific stuff from
-> > now on?
-> > 
-> > Thanks,
-> > Rusty.
-> 
-> Do we even want capability bits then?
-> We can give each capability an ack flag ...
 
-We could have, and if I'd known PCI when I designed virtio I might have.
+--=-eJ4KSj6XSAtfmhmIakzY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-But it's not easy now to map structure offsets to that scheme, and we
-can't really force such a change on the non-PCI users.  So I'd say we
-should only do it for the non-device-specific options.  ie. we'll still
-have the MSI-X case move the device-specific config, but we'll use a
-linked list from now on, eg. for the next 32 features bits...
+On Mon, 2011-09-19 at 15:28 -0700, Joe Perches wrote:
+> Use the normal #defines not module specific ones.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+> Here are the other, not ixgb uses of LENGTH_OF_ADDRESS
+> converted to ETH_ALEN.  Compile tested allyesconfig only.
+>=20
+>  drivers/net/ethernet/intel/e1000/e1000_hw.h    |    1 -
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    2 +-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    8 +++-----
+>  drivers/net/ethernet/intel/ixgbevf/defines.h   |    1 -
+>  drivers/net/ethernet/intel/ixgbevf/vf.c        |    4 ++--
+>  5 files changed, 6 insertions(+), 10 deletions(-)=20
 
-Thoughts?
-Rusty.
+Thanks Joe.  I have added the patch to my queue.
+
+--=-eJ4KSj6XSAtfmhmIakzY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJOd9E7AAoJECTsCADr/EWUEn4IAITHhduL9hK6tmR9Fygjoa5r
+STo2slQ04AK0TVL0BtYRe9axYglKOLhdvupmu23KubvbFOLzqucaHEG5x6xJ5hUl
+nhxvY8skBqazka1cSMaEkYvLOywII9JARRwAdZJ6bYcUnEVmQvpUGjGYW2tdOLWb
+oisG0rhHsud/7mBSxOsZc/hbY8VZhpUb0QqKRsVUU+4bnaff08shyHecIbfB8wcu
+R8RvxtFnqt7NyT/cCUpxDzAfCNCiiymF5r9qaIaco42mOPFL/yEcRtQsN5/JiQzB
+751lgxS8nLyuz2wTXrBDcJ79WmivanhhGmFPOKK25b21w9/wKoyd5yYRmJJis9U=
+=ZWdl
+-----END PGP SIGNATURE-----
+
+--=-eJ4KSj6XSAtfmhmIakzY--
