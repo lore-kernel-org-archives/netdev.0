@@ -1,63 +1,89 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: RFS issue: no HW filter for paused stream
-Date: Mon, 19 Sep 2011 08:13:33 -0700
-Message-ID: <CA+mtBx9K8MY+WcFZpQp_85rcf316jrPpNgzqSzgMLzy7TC6eXQ@mail.gmail.com>
-References: <CAP7N4Kfd9TOPr_V6+R9yVtK80eGWbkAvPE8BStG0+WhvJHaLGg@mail.gmail.com>
-	<CAP7N4Kes9=VdRV8NHvk03SBg5GbohgdbGqKPABCfYbVyzZ+1ng@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH] iproute2: fix changing of ip6ip6 tunnel parameters
+Date: Mon, 19 Sep 2011 17:14:10 +0200
+Message-ID: <20110919171410.1b2bf005@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: oren@mellanox.co.il, liranl@mellanox.co.il, netdev@vger.kernel.org,
-	amirv@mellanox.co.il, Ben Hutchings <bhutchings@solarflare.com>
-To: Amir Vadai <amirv@dev.mellanox.co.il>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:51280 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752218Ab1ISPNh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 11:13:37 -0400
-Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
-	by smtp-out.google.com with ESMTP id p8JFDatg026778
-	for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 08:13:37 -0700
-Received: from iabz7 (iabz7.prod.google.com [10.12.102.7])
-	by wpaz37.hot.corp.google.com with ESMTP id p8JFD45r031046
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 08:13:35 -0700
-Received: by iabz7 with SMTP id z7so6419681iab.7
-        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 08:13:33 -0700 (PDT)
-In-Reply-To: <CAP7N4Kes9=VdRV8NHvk03SBg5GbohgdbGqKPABCfYbVyzZ+1ng@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42904 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753134Ab1ISPOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Sep 2011 11:14:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben:  Once a accel RFS flow expires (because flow is idle?), how
-should it get re-instantiated if thread's CPU doesn't change?
+When changing ip6ip6 parameters (ip -6 tun change), ip passes zeroed
+struct ip6_tnl_parm to the kernel. The kernel then tries to change all of
+the tunnel parameters to the passed values, including zeroing of local and
+remote address. This fails (-EEXIST in net/ipv6/ip6_tunnel.c:ip6_tnl_ioctl).
 
-Tom
+For other tunnel types, ip fetches the current parameters first and applies
+the required changes on top of them. This patch applies the same code as in
+ip/iptunnel.c to ip/ip6tunnel.c.
 
-On Sun, Sep 18, 2011 at 11:05 PM, Amir Vadai <amirv@dev.mellanox.co.il>=
- wrote:
-> (Resending in plain text)
->
-> Tom Hi,
-> When a stream is paused, and its rule is expired while it is paused,
-> no new rule will be configured to the HW when traffic resume.
->
-> Scenario:
-> 1. Start iperf.
-> 2. Pause it using Ctrl-Z
-> 3. Start another iperf (to make sure first stream rule is expired)
-> 4. Stop the second stream.
-> 5. Resume first stream. Traffic is not steered to the right rx-queue.
->
-> From looking at the code:
-> - When first stream started, RSS steered traffic to rx-queue 'x'.
-> Because iperf server was running on a different CPU, a new rule was
-> added and current-cpu was set to desired-cpu.
-> - After paused, rule was expired and removed from HW by net driver.
-> But current-cpu wasn't cleared and still is equal to desired-cpu.
-> - When stream was resumed, traffic was steered again by RSS, and
-> because current-cpu was equal to desired-cpu, =A0ndo_rx_flow_steer
-> wasn't called and no rule was configured to the HW.
->
-> Why isn't current-cpu cleared when expiring a rule?
-> - Amir
->
+See http://bugzilla.redhat.com/730627 for the original bug report.
+
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -106,8 +106,9 @@ static void print_tunnel(struct ip6_tnl_
+ 		printf(" dscp inherit");
+ }
+ 
+-static int parse_args(int argc, char **argv, struct ip6_tnl_parm *p)
++static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm *p)
+ {
++	int count = 0;
+ 	char medium[IFNAMSIZ];
+ 
+ 	memset(medium, 0, sizeof(medium));
+@@ -207,7 +208,15 @@ static int parse_args(int argc, char **a
+ 			if (p->name[0])
+ 				duparg2("name", *argv);
+ 			strncpy(p->name, *argv, IFNAMSIZ - 1);
++			if (cmd == SIOCCHGTUNNEL && count == 0) {
++				struct ip6_tnl_parm old_p;
++				memset(&old_p, 0, sizeof(old_p));
++				if (tnl_get_ioctl(*argv, &old_p))
++					return -1;
++				*p = old_p;
++			}
+ 		}
++		count++;
+ 		argc--; argv++;
+ 	}
+ 	if (medium[0]) {
+@@ -340,7 +349,7 @@ static int do_show(int argc, char **argv
+ 	ip6_tnl_parm_init(&p, 0);
+ 	p.proto = 0;  /* default to any */
+ 
+-        if (parse_args(argc, argv, &p) < 0)
++        if (parse_args(argc, argv, SIOCGETTUNNEL, &p) < 0)
+                 return -1;
+ 
+ 	if (!p.name[0] || show_stats)
+@@ -361,7 +370,7 @@ static int do_add(int cmd, int argc, cha
+ 
+ 	ip6_tnl_parm_init(&p, 1);
+ 
+-	if (parse_args(argc, argv, &p) < 0)
++	if (parse_args(argc, argv, cmd, &p) < 0)
+ 		return -1;
+ 
+ 	return tnl_add_ioctl(cmd,
+@@ -375,7 +384,7 @@ static int do_del(int argc, char **argv)
+ 
+ 	ip6_tnl_parm_init(&p, 1);
+ 
+-	if (parse_args(argc, argv, &p) < 0)
++	if (parse_args(argc, argv, SIOCDELTUNNEL, &p) < 0)
+ 		return -1;
+ 
+ 	return tnl_del_ioctl(p.name[0] ? p.name : "ip6tnl0", p.name, &p);
+
+-- 
+Jiri Benc
