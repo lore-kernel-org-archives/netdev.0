@@ -1,86 +1,54 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v4 1/8] SUNRPC: introduce helpers for reference counted
- rpcbind clients
-Date: Tue, 20 Sep 2011 20:20:43 +0400
-Message-ID: <4E78BD5B.8090507@parallels.com>
-References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E788F8C.20103@netapp.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD10@SACMVEXC2-PRD.hq.netapp.com> <4E789679.1060601@parallels.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD22@SACMVEXC2-PRD.hq.netapp.com> <4E78A4AF.1020303@parallels.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD2B@SACMVEXC2-PRD.hq.netapp.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: unicast hash in ixgbe and ixgbevf
+Date: Tue, 20 Sep 2011 09:51:08 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C22B12F@orsmsx508.amr.corp.intel.com>
+References: <4E747E5B.4050207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Schumaker, Bryan" <Bryan.Schumaker@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD2B@SACMVEXC2-PRD.hq.netapp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "frog1120@gmail.com" <frog1120@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:8555 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751790Ab1ITQvS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 12:51:18 -0400
+In-Reply-To: <4E747E5B.4050207@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-20.09.2011 18:38, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> -----Original Message-----
->> From: Stanislav Kinsbursky [mailto:skinsbursky@parallels.com]
->> Sent: Tuesday, September 20, 2011 10:35 AM
->> To: Myklebust, Trond
->> Cc: Schumaker, Bryan; linux-nfs@vger.kernel.org; Pavel Emelianov;
->> neilb@suse.de; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
->> bfields@fieldses.org; davem@davemloft.net
->> Subject: Re: [PATCH v4 1/8] SUNRPC: introduce helpers for reference
->> counted rpcbind clients
->>
->> 20.09.2011 18:14, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>
->>>>>
->>>>> Doesn't it  need to be protected by rpcb_clnt_lock too?
->>>>>
->>>>
->>>> Nope from my pow. It's protected by rpcb_create_local_mutex. I.e. =
-no
->>>> one will change rpcb_users since it's zero. If it's non zero - we
->>>> willn't get to rpcb_set_local().
->>>
->>> OK, so you are saying that the rpcb_users++ below could be replaced=
- by
->> rpcb_users=3D1?
->>>
->>
->> Yes, you right.
->>
->>> In that case, don't you need a smp_wmb() between the setting of
->> rpcb_local_clnt/4 and the setting of rpcb_users? Otherwise, how do y=
-ou
->> guarantee that rpcb_users !=3D 0 implies rpbc_local_clnt/4 !=3D NULL=
-?
->>>
->>
->> We check rpcb_users under spinlock. Gain spinlock forces memory barr=
-ier,
->> doesn't it?
->
-> Yes, and so you don't need an smp_rmb() on the reader side. However, =
-you still need to ensure that the processor which _sets_ the rpcb_users=
- and rpcb_local_clnt/4 actually writes them in the correct order.
->
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of J.Hwan.Kim
+> Sent: Saturday, September 17, 2011 4:03 AM
+> To: netdev@vger.kernel.org
+> Subject: unicast hash in ixgbe and ixgbevf
+> 
+> Hi, everyone
+> 
+> I'm using intel ixgbe and ixgbevf driver and SR-IOV option.
+> 
+> Is there any method for distributing the random IP packet stream
+> into several VF queues evenly?
+> 
+> For example, for each 4 VF queues,
+> can each a quarter of the IP stream be distributed to each 4 VF queues?
+> 
+> I checked the PFUTA register and tested it, but as far as I know,
+> with the 4K bit hash table, the stream is directed to queues
+> of which ROPE bit is set.
+> So, the stream is duplicated to the queues of which ROPE bit is set.
+> That is not what I want to do.
+> 
+> How can I distribute the random IP packets to several VF queues
+> without duplicating?
+[Greg Rose] 
 
-Trond, I've thought again and realized, that even if these writes (rpcb=
-_users=20
-and rpbc_local_clnt/4) will be done in reversed order, then no barrier =
-required=20
-here.
-Because if we have another process trying to create those clients (it c=
-an't use=20
-them since it's not started yet) on other CPU, than it's waiting on cre=
-ation=20
-mutex. When it will gain the mutex, we will have required memory barrie=
-r for us.
+Distribution of packets to different queues based upon IP address requires RSS which is not supported in our SR-IOV functions at this time.
 
-Or I missed something in your explanation?
+Also, on the Intel 82599 and X540 adapters the VFs only support single queue operation.  There are plans for multiple queue operation based upon RSS in future products, but there is not support for it now.
 
---=20
-Best regards,
-Stanislav Kinsbursky
+- Greg Rose
+LAN Access Division
+Intel Corp.
