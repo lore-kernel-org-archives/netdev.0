@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] net/fec: set phy_speed to the optimal frequency
- 2.5 MHz
-Date: Tue, 20 Sep 2011 15:11:11 -0400 (EDT)
-Message-ID: <20110920.151111.456825259983009921.davem@davemloft.net>
-References: <1316346852-17090-4-git-send-email-shawn.guo@linaro.org>
-	<20088.17849.987651.196256@ipc1.ka-ro>
-	<20110920081438.GB28389@S2100-06.ap.freescale.net>
+Subject: Re: [PATCH net-next] ipv6: fix a possible double free
+Date: Tue, 20 Sep 2011 15:10:30 -0400 (EDT)
+Message-ID: <20110920.151030.1978268649603302576.davem@davemloft.net>
+References: <1316497936-16901-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: LW@KARO-electronics.de, shawn.guo@linaro.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	patches@linaro.org
-To: shawn.guo@freescale.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, stable@kernel.org
+To: rongqing.li@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44905 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:44903 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095Ab1ITTMg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 15:12:36 -0400
-In-Reply-To: <20110920081438.GB28389@S2100-06.ap.freescale.net>
+	with ESMTP id S1751095Ab1ITTMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 15:12:35 -0400
+In-Reply-To: <1316497936-16901-1-git-send-email-rongqing.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Guo <shawn.guo@freescale.com>
-Date: Tue, 20 Sep 2011 16:14:39 +0800
+From: <rongqing.li@windriver.com>
+Date: Tue, 20 Sep 2011 13:52:16 +0800
 
-> I should have done that before sending this patch.  I'm working home
-> these days and have not got the chance get into the lab.  Yes, I
-> should have sent this patch as an RFC at least.  Sorry about this,
-> and thank you for pointing this out.
+> From: Roy.Li <rongqing.li@windriver.com>
 > 
-> Will drop this patch from the v2 of the series.
+> When calling snmp6_alloc_dev fails, the snmp6 relevant memory
+> are freed by snmp6_alloc_dev. Calling in6_dev_finish_destroy
+> will free these memory twice.
+> 
+> Double free will lead that undefined behavior occurs.
+> 
+> Signed-off-by: Roy.Li <rongqing.li@windriver.com>
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-As mentioned you need to respin this anyways against net-next
+Applied and queued up for -stable, thanks.
