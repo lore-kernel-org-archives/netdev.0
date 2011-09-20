@@ -1,104 +1,130 @@
-From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH v4 1/8] SUNRPC: introduce helpers for reference counted rpcbind clients
-Date: Tue, 20 Sep 2011 07:14:15 -0700
-Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD22@SACMVEXC2-PRD.hq.netapp.com>
-References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E788F8C.20103@netapp.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD10@SACMVEXC2-PRD.hq.netapp.com> <4E789679.1060601@parallels.com>
+From: Jeff Layton <jlayton@redhat.com>
+Subject: Re: [PATCH v5 1/8] SUNRPC: introduce helpers for reference counted
+ rpcbind clients
+Date: Tue, 20 Sep 2011 10:24:31 -0400
+Message-ID: <20110920102431.58ca1d96@tlielax.poochiereds.net>
+References: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
+	<20110920101341.9861.51453.stgit@localhost6.localdomain6>
+	<4E7899E7.9090809@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Schumaker, Bryan" <Bryan.Schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Pavel Emelianov" <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <neilb-l3A5Bk7waGM@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Stanislav Kinsbursky" <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-class: urn:content-classes:message
-In-reply-to: <4E789679.1060601-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44734 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750784Ab1ITOYn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Sep 2011 10:24:43 -0400
+In-Reply-To: <4E7899E7.9090809@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFuaXNsYXYgS2luc2J1cnNr
-eSBbbWFpbHRvOnNraW5zYnVyc2t5QHBhcmFsbGVscy5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIFNl
-cHRlbWJlciAyMCwgMjAxMSA5OjM1IEFNDQo+IFRvOiBNeWtsZWJ1c3QsIFRyb25kDQo+IENjOiBT
-Y2h1bWFrZXIsIEJyeWFuOyBsaW51eC1uZnNAdmdlci5rZXJuZWwub3JnOyBQYXZlbCBFbWVsaWFu
-b3Y7DQo+IG5laWxiQHN1c2UuZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5l
-bEB2Z2VyLmtlcm5lbC5vcmc7DQo+IGJmaWVsZHNAZmllbGRzZXMub3JnOyBkYXZlbUBkYXZlbWxv
-ZnQubmV0DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjQgMS84XSBTVU5SUEM6IGludHJvZHVjZSBo
-ZWxwZXJzIGZvciByZWZlcmVuY2UNCj4gY291bnRlZCBycGNiaW5kIGNsaWVudHMNCj4gDQo+IDIw
-LjA5LjIwMTEgMTc6MTUsIE15a2xlYnVzdCwgVHJvbmQg0L/QuNGI0LXRgjoNCj4gPj4gLS0tLS1P
-cmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gRnJvbTogU2NodW1ha2VyLCBCcnlhbg0KPiA+PiBT
-ZW50OiBUdWVzZGF5LCBTZXB0ZW1iZXIgMjAsIDIwMTEgOTowNSBBTQ0KPiA+PiBUbzogU3Rhbmlz
-bGF2IEtpbnNidXJza3kNCj4gPj4gQ2M6IE15a2xlYnVzdCwgVHJvbmQ7IGxpbnV4LW5mc0B2Z2Vy
-Lmtlcm5lbC5vcmc7IHhlbXVsQHBhcmFsbGVscy5jb207DQo+ID4+IG5laWxiQHN1c2UuZGU7IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4+
-IGJmaWVsZHNAZmllbGRzZXMub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+ID4+IFN1YmplY3Q6
-IFJlOiBbUEFUQ0ggdjQgMS84XSBTVU5SUEM6IGludHJvZHVjZSBoZWxwZXJzIGZvciByZWZlcmVu
-Y2UNCj4gPj4gY291bnRlZCBycGNiaW5kIGNsaWVudHMNCj4gPj4NCj4gPj4gT24gMDkvMjAvMjAx
-MSAwNjoxMyBBTSwgU3RhbmlzbGF2IEtpbnNidXJza3kgd3JvdGU6DQo+ID4+PiBUaGlzIGhlbHBl
-cnMgd2lsbCBiZSB1c2VkIGZvciBkeW5hbWljYWwgY3JlYXRpb24gYW5kIGRlc3RydWN0aW9uIG9m
-DQo+ID4+PiBycGNiaW5kIGNsaWVudHMuDQo+ID4+PiBWYXJpYWJsZSBycGNiX3VzZXJzIGlzIGFj
-dHVhbGx5IGEgY291bnRlciBvZiBsYXVjaGVkIFJQQyBzZXJ2aWNlcy4NCj4gPj4+IElmIHJwY2Jp
-bmQgY2xpZW50cyBoYXMgYmVlbiBjcmVhdGVkIGFscmVhZHksIHRoZW4gd2UganVzdCBpbmNyZWFz
-ZQ0KPiBycGNiX3VzZXJzLg0KPiA+Pj4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IFN0YW5pc2xhdiBL
-aW5zYnVyc2t5PHNraW5zYnVyc2t5QHBhcmFsbGVscy5jb20+DQo+ID4+Pg0KPiA+Pj4gLS0tDQo+
-ID4+PiAgIG5ldC9zdW5ycGMvcnBjYl9jbG50LmMgfCAgIDUwDQo+ID4+ICsrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw0KPiA+Pj4gICAxIGZpbGVzIGNoYW5n
-ZWQsIDUwIGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pDQo+ID4+Pg0KPiA+Pj4gZGlmZiAt
-LWdpdCBhL25ldC9zdW5ycGMvcnBjYl9jbG50LmMgYi9uZXQvc3VucnBjL3JwY2JfY2xudC5jIGlu
-ZGV4DQo+ID4+PiBlNDVkMmZiLi44NzI0NzgwIDEwMDY0NA0KPiA+Pj4gLS0tIGEvbmV0L3N1bnJw
-Yy9ycGNiX2NsbnQuYw0KPiA+Pj4gKysrIGIvbmV0L3N1bnJwYy9ycGNiX2NsbnQuYw0KPiA+Pj4g
-QEAgLTExNCw2ICsxMTQsOSBAQCBzdGF0aWMgc3RydWN0IHJwY19wcm9ncmFtCXJwY2JfcHJvZ3Jh
-bTsNCj4gPj4+ICAgc3RhdGljIHN0cnVjdCBycGNfY2xudCAqCXJwY2JfbG9jYWxfY2xudDsNCj4g
-Pj4+ICAgc3RhdGljIHN0cnVjdCBycGNfY2xudCAqCXJwY2JfbG9jYWxfY2xudDQ7DQo+ID4+Pg0K
-PiA+Pj4gK0RFRklORV9TUElOTE9DSyhycGNiX2NsbnRfbG9jayk7DQo+ID4+PiArdW5zaWduZWQg
-aW50CQkJcnBjYl91c2VyczsNCj4gPj4+ICsNCj4gPj4+ICAgc3RydWN0IHJwY2JpbmRfYXJncyB7
-DQo+ID4+PiAgIAlzdHJ1Y3QgcnBjX3hwcnQgKglyX3hwcnQ7DQo+ID4+Pg0KPiA+Pj4gQEAgLTE2
-MSw2ICsxNjQsNTMgQEAgc3RhdGljIHZvaWQgcnBjYl9tYXBfcmVsZWFzZSh2b2lkICpkYXRhKQ0K
-PiA+Pj4gICAJa2ZyZWUobWFwKTsNCj4gPj4+ICAgfQ0KPiA+Pj4NCj4gPj4+ICtzdGF0aWMgaW50
-IHJwY2JfZ2V0X2xvY2FsKHZvaWQpDQo+ID4+PiArew0KPiA+Pj4gKwlzcGluX2xvY2soJnJwY2Jf
-Y2xudF9sb2NrKTsNCj4gPj4+ICsJaWYgKHJwY2JfdXNlcnMpDQo+ID4+PiArCQlycGNiX3VzZXJz
-Kys7DQo+ID4+PiArCXNwaW5fdW5sb2NrKCZycGNiX2NsbnRfbG9jayk7DQo+ID4+PiArDQo+ID4+
-PiArCXJldHVybiBycGNiX3VzZXJzOw0KPiA+PiAgICAgICAgICBeXl5eXl5eXl5eXl5eXl5eXl4N
-Cj4gPj4gSXMgaXQgc2FmZSB0byB1c2UgdGhpcyB2YXJpYWJsZSBvdXRzaWRlIG9mIHRoZSBycGNi
-X2NsbnRfbG9jaz8NCj4gPj4NCj4gPiBOb3BlLiBJZiBycGNiX3VzZXJzIHdhcyB6ZXJvIGluIHRo
-ZSBwcm90ZWN0ZWQgc2VjdGlvbiBhYm92ZSwgbm90aGluZw0KPiBndWFyYW50ZWVzIHRoYXQgaXQg
-d2lsbCBzdGlsbCBiZSB6ZXJvIGhlcmUsIGFuZCBzbyB0aGUgY2FsbGVyIG1heSBnZXQgdGhlICh3
-cm9uZykNCj4gaW1wcmVzc2lvbiB0aGF0IHRoZSBjb3VudGVyIHdhcyBpbmNyZW1lbnRlZC4NCj4g
-Pg0KPiANCj4gWWVwLCB5b3UgcmlnaHQuIFdpbGwgZml4IHRoaXMgcmFjZXMuDQo+IA0KPiA+Pj4g
-K30NCj4gPj4+ICsNCj4gPj4+ICt2b2lkIHJwY2JfcHV0X2xvY2FsKHZvaWQpDQo+ID4+PiArew0K
-PiA+Pj4gKwlzdHJ1Y3QgcnBjX2NsbnQgKmNsbnQgPSBycGNiX2xvY2FsX2NsbnQ7DQo+ID4+PiAr
-CXN0cnVjdCBycGNfY2xudCAqY2xudDQgPSBycGNiX2xvY2FsX2NsbnQ0Ow0KPiA+Pj4gKwlpbnQg
-c2h1dGRvd247DQo+ID4+PiArDQo+ID4+PiArCXNwaW5fbG9jaygmcnBjYl9jbG50X2xvY2spOw0K
-PiA+Pj4gKwlpZiAoLS1ycGNiX3VzZXJzID09IDApIHsNCj4gPj4+ICsJCXJwY2JfbG9jYWxfY2xu
-dCA9IE5VTEw7DQo+ID4+PiArCQlycGNiX2xvY2FsX2NsbnQ0ID0gTlVMTDsNCj4gPj4+ICsJfQ0K
-PiA+Pj4gKwlzaHV0ZG93biA9ICFycGNiX3VzZXJzOw0KPiA+Pj4gKwlzcGluX3VubG9jaygmcnBj
-Yl9jbG50X2xvY2spOw0KPiA+Pj4gKw0KPiA+Pj4gKwlpZiAoc2h1dGRvd24pIHsNCj4gPj4+ICsJ
-CS8qDQo+ID4+PiArCQkgKiBjbGVhbnVwX3JwY2JfY2xudCAtIHJlbW92ZSB4cHJ0c29jaydzIHN5
-c2N0bHMsIHVucmVnaXN0ZXINCj4gPj4+ICsJCSAqLw0KPiA+Pj4gKwkJaWYgKGNsbnQ0KQ0KPiA+
-Pj4gKwkJCXJwY19zaHV0ZG93bl9jbGllbnQoY2xudDQpOw0KPiA+Pj4gKwkJaWYgKGNsbnQpDQo+
-ID4+PiArCQkJcnBjX3NodXRkb3duX2NsaWVudChjbG50KTsNCj4gPj4+ICsJfQ0KPiA+Pj4gKwly
-ZXR1cm47DQo+ID4+PiArfQ0KPiA+Pj4gKw0KPiA+Pj4gK3N0YXRpYyB2b2lkIHJwY2Jfc2V0X2xv
-Y2FsKHN0cnVjdCBycGNfY2xudCAqY2xudCwgc3RydWN0IHJwY19jbG50DQo+ID4+PiArKmNsbnQ0
-KSB7DQo+ID4+PiArCS8qIFByb3RlY3RlZCBieSBycGNiX2NyZWF0ZV9sb2NhbF9tdXRleCAqLw0K
-PiA+DQo+ID4gRG9lc24ndCBpdCAgbmVlZCB0byBiZSBwcm90ZWN0ZWQgYnkgcnBjYl9jbG50X2xv
-Y2sgdG9vPw0KPiA+DQo+IA0KPiBOb3BlIGZyb20gbXkgcG93LiBJdCdzIHByb3RlY3RlZCBieSBy
-cGNiX2NyZWF0ZV9sb2NhbF9tdXRleC4gSS5lLiBubyBvbmUNCj4gd2lsbCBjaGFuZ2UgcnBjYl91
-c2VycyBzaW5jZSBpdCdzIHplcm8uIElmIGl0J3Mgbm9uIHplcm8gLSB3ZSB3aWxsbid0IGdldCB0
-bw0KPiBycGNiX3NldF9sb2NhbCgpLg0KDQpPSywgc28geW91IGFyZSBzYXlpbmcgdGhhdCB0aGUg
-cnBjYl91c2VycysrIGJlbG93IGNvdWxkIGJlIHJlcGxhY2VkIGJ5IHJwY2JfdXNlcnM9MT8NCg0K
-SW4gdGhhdCBjYXNlLCBkb24ndCB5b3UgbmVlZCBhIHNtcF93bWIoKSBiZXR3ZWVuIHRoZSBzZXR0
-aW5nIG9mIHJwY2JfbG9jYWxfY2xudC80IGFuZCB0aGUgc2V0dGluZyBvZiBycGNiX3VzZXJzPyBP
-dGhlcndpc2UsIGhvdyBkbyB5b3UgZ3VhcmFudGVlIHRoYXQgcnBjYl91c2VycyAhPSAwIGltcGxp
-ZXMgcnBiY19sb2NhbF9jbG50LzQgIT0gTlVMTD8NCg0KPiA+Pj4gKwlycGNiX2xvY2FsX2NsbnQg
-PSBjbG50Ow0KPiA+Pj4gKwlycGNiX2xvY2FsX2NsbnQ0ID0gY2xudDQ7DQo+ID4+PiArCXJwY2Jf
-dXNlcnMrKzsNCj4gPiBeXl5eXl5eXl5eXl5eXl5eXl5eDQo+ID4NCj4gPj4+ICsJZHByaW50aygi
-UlBDOiAgICAgICBjcmVhdGVkIG5ldyBycGNiIGxvY2FsIGNsaWVudHMgKHJwY2JfbG9jYWxfY2xu
-dDogIg0KPiA+Pj4gKwkJCSIlcCwgcnBjYl9sb2NhbF9jbG50NDogJXApXG4iLCBycGNiX2xvY2Fs
-X2NsbnQsDQo+ID4+PiArCQkJcnBjYl9sb2NhbF9jbG50NCk7DQo+ID4+PiArfQ0KPiA+Pj4gKw0K
-DQo=
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Tue, 20 Sep 2011 17:49:27 +0400
+Stanislav Kinsbursky <skinsbursky@parallels.com> wrote:
+
+> v5: fixed races with rpcb_users in rpcb_get_local()
+> 
+> This helpers will be used for dynamical creation and destruction of rpcbind
+> clients.
+> Variable rpcb_users is actually a counter of lauched RPC services. If rpcbind
+> clients has been created already, then we just increase rpcb_users.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> 
+> ---
+>   net/sunrpc/rpcb_clnt.c |   53 ++++++++++++++++++++++++++++++++++++++++++++++++
+>   1 files changed, 53 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+> index e45d2fb..5f4a406 100644
+> --- a/net/sunrpc/rpcb_clnt.c
+> +++ b/net/sunrpc/rpcb_clnt.c
+> @@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
+>   static struct rpc_clnt *	rpcb_local_clnt;
+>   static struct rpc_clnt *	rpcb_local_clnt4;
+>   +DEFINE_SPINLOCK(rpcb_clnt_lock);
+> +unsigned int			rpcb_users;
+> +
+>   struct rpcbind_args {
+>   	struct rpc_xprt *	r_xprt;
+>   @@ -161,6 +164,56 @@ static void rpcb_map_release(void *data)
+>   	kfree(map);
+>   }
+>   +static int rpcb_get_local(void)
+> +{
+> +	int cnt;
+> +
+> +	spin_lock(&rpcb_clnt_lock);
+> +	if (rpcb_users)
+> +		rpcb_users++;
+> +	cnt = rpcb_users;
+> +	spin_unlock(&rpcb_clnt_lock);
+> +
+> +	return cnt;
+> +}
+> +
+> +void rpcb_put_local(void)
+> +{
+> +	struct rpc_clnt *clnt = rpcb_local_clnt;
+> +	struct rpc_clnt *clnt4 = rpcb_local_clnt4;
+> +	int shutdown;
+> +
+> +	spin_lock(&rpcb_clnt_lock);
+> +	if (--rpcb_users == 0) {
+> +		rpcb_local_clnt = NULL;
+> +		rpcb_local_clnt4 = NULL;
+> +	}
+
+In the function below, you mention that the above pointers are
+protected by rpcb_create_local_mutex, but it looks like they get reset
+here without that being held?
+
+Might it be simpler to just protect rpcb_users with the
+rpcb_create_local_mutex and ensure that it's held whenever you call one
+of these routines? None of these are codepaths are particularly hot.
+
+> +	shutdown = !rpcb_users;
+> +	spin_unlock(&rpcb_clnt_lock);
+> +
+> +	if (shutdown) {
+> +		/*
+> +		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
+> +		 */
+> +		if (clnt4)
+> +			rpc_shutdown_client(clnt4);
+> +		if (clnt)
+> +			rpc_shutdown_client(clnt);
+> +	}
+> +	return;
+> +}
+> +
+> +static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
+> +{
+> +	/* Protected by rpcb_create_local_mutex */
+> +	rpcb_local_clnt = clnt;
+> +	rpcb_local_clnt4 = clnt4;
+> +	rpcb_users++;
+> +	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
+> +			"%p, rpcb_local_clnt4: %p)\n", rpcb_local_clnt,
+> +			rpcb_local_clnt4);
+> +}
+> +
+>   /*
+>    * Returns zero on success, otherwise a negative errno value
+>    * is returned.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+-- 
+Jeff Layton <jlayton@redhat.com>
