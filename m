@@ -1,308 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/9] igb: streamline Rx buffer allocation and cleanup
-Date: Tue, 20 Sep 2011 00:11:25 -0700
-Message-ID: <1316502690-25488-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/9] igb: Update max_frame_size to account for an optional VLAN tag if present
+Date: Tue, 20 Sep 2011 00:11:23 -0700
+Message-ID: <1316502690-25488-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:19158 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10470 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753238Ab1ITHLf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Sep 2011 03:11:35 -0400
+	id S1752054Ab1ITHLd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Sep 2011 03:11:33 -0400
 In-Reply-To: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change is meant to streamline the Rx buffer allocation and cleanup.
-This is accomplished by reducing the number of writes by only having the Rx
-descriptor ring written by software during allocation, and it will only be
-read during cleanup.
+This patch modifies the max_frame_size in order account for an optional
+VLAN tag.  In order to support this we must also increase the
+MAX_STD_JUMBO_FRAME_SIZE to account for the 4 extra bytes.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |    2 +-
- drivers/net/ethernet/intel/igb/igb_main.c |  190 ++++++++++++++++-------------
- 2 files changed, 104 insertions(+), 88 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    2 --
+ drivers/net/ethernet/intel/igb/igb_main.c |   19 ++++++++++++-------
+ 2 files changed, 12 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 50632b1..b2f2a8c 100644
+index 577fd3e..8e90b85 100644
 --- a/drivers/net/ethernet/intel/igb/igb.h
 +++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -370,7 +370,7 @@ extern void igb_setup_rctl(struct igb_adapter *);
- extern netdev_tx_t igb_xmit_frame_ring_adv(struct sk_buff *, struct igb_ring *);
- extern void igb_unmap_and_free_tx_resource(struct igb_ring *,
- 					   struct igb_buffer *);
--extern void igb_alloc_rx_buffers_adv(struct igb_ring *, int);
-+extern void igb_alloc_rx_buffers_adv(struct igb_ring *, u16);
- extern void igb_update_stats(struct igb_adapter *, struct rtnl_link_stats64 *);
- extern bool igb_has_link(struct igb_adapter *adapter);
- extern void igb_set_ethtool_ops(struct net_device *);
+@@ -117,8 +117,6 @@ struct vf_data_storage {
+ #define IGB_RXBUFFER_2048  2048
+ #define IGB_RXBUFFER_16384 16384
+ 
+-#define MAX_STD_JUMBO_FRAME_SIZE 9234
+-
+ /* How many Tx Descriptors do we need to call netif_wake_queue ? */
+ #define IGB_TX_QUEUE_WAKE	16
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 022c442..af8c2f7 100644
+index aa78c10..6156275 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3243,16 +3243,15 @@ static void igb_free_all_rx_resources(struct igb_adapter *adapter)
+@@ -2396,7 +2396,8 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
+ 	adapter->rx_itr_setting = IGB_DEFAULT_ITR;
+ 	adapter->tx_itr_setting = IGB_DEFAULT_ITR;
+ 
+-	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
++	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN +
++				  VLAN_HLEN;
+ 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
+ 
+ 	spin_lock_init(&adapter->stats64_lock);
+@@ -2962,16 +2963,19 @@ static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
   **/
- static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ static void igb_rlpml_set(struct igb_adapter *adapter)
  {
--	struct igb_buffer *buffer_info;
- 	unsigned long size;
--	unsigned int i;
-+	u16 i;
+-	u32 max_frame_size;
++	u32 max_frame_size = adapter->max_frame_size;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u16 pf_id = adapter->vfs_allocated_count;
  
- 	if (!rx_ring->buffer_info)
- 		return;
- 
- 	/* Free all the Rx ring sk_buffs */
- 	for (i = 0; i < rx_ring->count; i++) {
--		buffer_info = &rx_ring->buffer_info[i];
-+		struct igb_buffer *buffer_info = &rx_ring->buffer_info[i];
- 		if (buffer_info->dma) {
- 			dma_unmap_single(rx_ring->dev,
- 			                 buffer_info->dma,
-@@ -5764,7 +5763,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 	struct igb_buffer *buffer_info , *next_buffer;
- 	struct sk_buff *skb;
- 	bool cleaned = false;
--	int cleaned_count = 0;
-+	u16 cleaned_count = igb_desc_unused(rx_ring);
- 	int current_node = numa_node_id();
- 	unsigned int total_bytes = 0, total_packets = 0;
- 	unsigned int i;
-@@ -5848,7 +5847,6 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 		igb_rx_checksum_adv(rx_ring, staterr, skb);
- 
- 		skb->protocol = eth_type_trans(skb, netdev);
--		skb_record_rx_queue(skb, rx_ring->queue_index);
- 
- 		if (staterr & E1000_RXD_STAT_VP) {
- 			u16 vid = le16_to_cpu(rx_desc->wb.upper.vlan);
-@@ -5858,8 +5856,6 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 		napi_gro_receive(&q_vector->napi, skb);
- 
- next_desc:
--		rx_desc->wb.upper.status_error = 0;
+-	max_frame_size = adapter->max_frame_size + VLAN_TAG_SIZE;
 -
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (cleaned_count >= IGB_RX_BUFFER_WRITE) {
- 			igb_alloc_rx_buffers_adv(rx_ring, cleaned_count);
-@@ -5873,110 +5869,130 @@ next_desc:
+-	/* if vfs are enabled we set RLPML to the largest possible request
+-	 * size and set the VMOLR RLPML to the size we need */
+ 	if (pf_id) {
+ 		igb_set_vf_rlpml(adapter, max_frame_size, pf_id);
++		/*
++		 * If we're in VMDQ or SR-IOV mode, then set global RLPML
++		 * to our max jumbo frame size, in case we need to enable
++		 * jumbo frames on one of the rings later.
++		 * This will not pass over-length frames into the default
++		 * queue because it's gated by the VMOLR.RLPML.
++		 */
+ 		max_frame_size = MAX_JUMBO_FRAME_SIZE;
  	}
  
- 	rx_ring->next_to_clean = i;
--	cleaned_count = igb_desc_unused(rx_ring);
--
--	if (cleaned_count)
--		igb_alloc_rx_buffers_adv(rx_ring, cleaned_count);
--
--	rx_ring->total_packets += total_packets;
--	rx_ring->total_bytes += total_bytes;
- 	u64_stats_update_begin(&rx_ring->rx_syncp);
- 	rx_ring->rx_stats.packets += total_packets;
- 	rx_ring->rx_stats.bytes += total_bytes;
- 	u64_stats_update_end(&rx_ring->rx_syncp);
-+	rx_ring->total_packets += total_packets;
-+	rx_ring->total_bytes += total_bytes;
-+
-+	if (cleaned_count)
-+		igb_alloc_rx_buffers_adv(rx_ring, cleaned_count);
-+
- 	return cleaned;
- }
- 
-+static bool igb_alloc_mapped_skb(struct igb_ring *rx_ring,
-+				 struct igb_buffer *bi)
-+{
-+	struct sk_buff *skb = bi->skb;
-+	dma_addr_t dma = bi->dma;
-+
-+	if (dma)
-+		return true;
-+
-+	if (likely(!skb)) {
-+		skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
-+						IGB_RX_HDR_LEN);
-+		bi->skb = skb;
-+		if (!skb) {
-+			rx_ring->rx_stats.alloc_failed++;
-+			return false;
-+		}
-+
-+		/* initialize skb for ring */
-+		skb_record_rx_queue(skb, rx_ring->queue_index);
-+	}
-+
-+	dma = dma_map_single(rx_ring->dev, skb->data,
-+			     IGB_RX_HDR_LEN, DMA_FROM_DEVICE);
-+
-+	if (dma_mapping_error(rx_ring->dev, dma)) {
-+		rx_ring->rx_stats.alloc_failed++;
-+		return false;
-+	}
-+
-+	bi->dma = dma;
-+	return true;
-+}
-+
-+static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
-+				  struct igb_buffer *bi)
-+{
-+	struct page *page = bi->page;
-+	dma_addr_t page_dma = bi->page_dma;
-+	unsigned int page_offset = bi->page_offset ^ (PAGE_SIZE / 2);
-+
-+	if (page_dma)
-+		return true;
-+
-+	if (!page) {
-+		page = netdev_alloc_page(rx_ring->netdev);
-+		bi->page = page;
-+		if (unlikely(!page)) {
-+			rx_ring->rx_stats.alloc_failed++;
-+			return false;
-+		}
-+	}
-+
-+	page_dma = dma_map_page(rx_ring->dev, page,
-+				page_offset, PAGE_SIZE / 2,
-+				DMA_FROM_DEVICE);
-+
-+	if (dma_mapping_error(rx_ring->dev, page_dma)) {
-+		rx_ring->rx_stats.alloc_failed++;
-+		return false;
-+	}
-+
-+	bi->page_dma = page_dma;
-+	bi->page_offset = page_offset;
-+	return true;
-+}
-+
- /**
-  * igb_alloc_rx_buffers_adv - Replace used receive buffers; packet split
-  * @adapter: address of board private structure
-  **/
--void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
-+void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, u16 cleaned_count)
+@@ -4461,7 +4465,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
  {
--	struct net_device *netdev = rx_ring->netdev;
- 	union e1000_adv_rx_desc *rx_desc;
--	struct igb_buffer *buffer_info;
--	struct sk_buff *skb;
--	unsigned int i;
-+	struct igb_buffer *bi;
-+	u16 i = rx_ring->next_to_use;
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	struct pci_dev *pdev = adapter->pdev;
+-	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
++	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+ 	u32 rx_buffer_len, i;
  
--	i = rx_ring->next_to_use;
--	buffer_info = &rx_ring->buffer_info[i];
-+	rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
-+	bi = &rx_ring->buffer_info[i];
-+	i -= rx_ring->count;
- 
- 	while (cleaned_count--) {
--		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
--
--		if (!buffer_info->page_dma) {
--			if (!buffer_info->page) {
--				buffer_info->page = netdev_alloc_page(netdev);
--				if (unlikely(!buffer_info->page)) {
--					u64_stats_update_begin(&rx_ring->rx_syncp);
--					rx_ring->rx_stats.alloc_failed++;
--					u64_stats_update_end(&rx_ring->rx_syncp);
--					goto no_buffers;
--				}
--				buffer_info->page_offset = 0;
--			} else {
--				buffer_info->page_offset ^= PAGE_SIZE / 2;
--			}
--			buffer_info->page_dma =
--				dma_map_page(rx_ring->dev, buffer_info->page,
--					     buffer_info->page_offset,
--					     PAGE_SIZE / 2,
--					     DMA_FROM_DEVICE);
--			if (dma_mapping_error(rx_ring->dev,
--					      buffer_info->page_dma)) {
--				buffer_info->page_dma = 0;
--				u64_stats_update_begin(&rx_ring->rx_syncp);
--				rx_ring->rx_stats.alloc_failed++;
--				u64_stats_update_end(&rx_ring->rx_syncp);
--				goto no_buffers;
--			}
--		}
-+		if (!igb_alloc_mapped_skb(rx_ring, bi))
-+			break;
- 
--		skb = buffer_info->skb;
--		if (!skb) {
--			skb = netdev_alloc_skb_ip_align(netdev, IGB_RX_HDR_LEN);
--			if (unlikely(!skb)) {
--				u64_stats_update_begin(&rx_ring->rx_syncp);
--				rx_ring->rx_stats.alloc_failed++;
--				u64_stats_update_end(&rx_ring->rx_syncp);
--				goto no_buffers;
--			}
-+		/* Refresh the desc even if buffer_addrs didn't change
-+		 * because each write-back erases this info. */
-+		rx_desc->read.hdr_addr = cpu_to_le64(bi->dma);
- 
--			buffer_info->skb = skb;
--		}
--		if (!buffer_info->dma) {
--			buffer_info->dma = dma_map_single(rx_ring->dev,
--			                                  skb->data,
--							  IGB_RX_HDR_LEN,
--							  DMA_FROM_DEVICE);
--			if (dma_mapping_error(rx_ring->dev,
--					      buffer_info->dma)) {
--				buffer_info->dma = 0;
--				u64_stats_update_begin(&rx_ring->rx_syncp);
--				rx_ring->rx_stats.alloc_failed++;
--				u64_stats_update_end(&rx_ring->rx_syncp);
--				goto no_buffers;
--			}
--		}
--		/* Refresh the desc even if buffer_addrs didn't change because
--		 * each write-back erases this info. */
--		rx_desc->read.pkt_addr = cpu_to_le64(buffer_info->page_dma);
--		rx_desc->read.hdr_addr = cpu_to_le64(buffer_info->dma);
-+		if (!igb_alloc_mapped_page(rx_ring, bi))
-+			break;
-+
-+		rx_desc->read.pkt_addr = cpu_to_le64(bi->page_dma);
- 
-+		rx_desc++;
-+		bi++;
- 		i++;
--		if (i == rx_ring->count)
--			i = 0;
--		buffer_info = &rx_ring->buffer_info[i];
-+		if (unlikely(!i)) {
-+			rx_desc = E1000_RX_DESC_ADV(*rx_ring, 0);
-+			bi = rx_ring->buffer_info;
-+			i -= rx_ring->count;
-+		}
-+
-+		/* clear the hdr_addr for the next_to_use descriptor */
-+		rx_desc->read.hdr_addr = 0;
+ 	if ((new_mtu < 68) || (max_frame > MAX_JUMBO_FRAME_SIZE)) {
+@@ -4469,6 +4473,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 		return -EINVAL;
  	}
  
--no_buffers:
-+	i += rx_ring->count;
-+
- 	if (rx_ring->next_to_use != i) {
- 		rx_ring->next_to_use = i;
--		if (i == 0)
--			i = (rx_ring->count - 1);
--		else
--			i--;
- 
- 		/* Force memory writes to complete before letting h/w
- 		 * know there are new descriptors to fetch.  (Only
++#define MAX_STD_JUMBO_FRAME_SIZE 9238
+ 	if (max_frame > MAX_STD_JUMBO_FRAME_SIZE) {
+ 		dev_err(&pdev->dev, "MTU > 9216 not supported.\n");
+ 		return -EINVAL;
 -- 
 1.7.6.2
