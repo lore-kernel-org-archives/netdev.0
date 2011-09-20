@@ -1,103 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/9] igb: Update max_frame_size to account for an optional VLAN tag if present
-Date: Tue, 20 Sep 2011 00:11:23 -0700
-Message-ID: <1316502690-25488-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10470 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752054Ab1ITHLd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Sep 2011 03:11:33 -0400
-In-Reply-To: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH 3/4] net/fec: set phy_speed to the optimal frequency 2.5
+	MHz
+Date: Tue, 20 Sep 2011 09:50:17 +0200
+Message-ID: <20088.17849.987651.196256@ipc1.ka-ro>
+References: <1316346852-17090-1-git-send-email-shawn.guo@linaro.org>
+	<1316346852-17090-4-git-send-email-shawn.guo@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org, patches@linaro.org
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1316346852-17090-4-git-send-email-shawn.guo@linaro.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-
-This patch modifies the max_frame_size in order account for an optional
-VLAN tag.  In order to support this we must also increase the
-MAX_STD_JUMBO_FRAME_SIZE to account for the 4 extra bytes.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb.h      |    2 --
- drivers/net/ethernet/intel/igb/igb_main.c |   19 ++++++++++++-------
- 2 files changed, 12 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 577fd3e..8e90b85 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -117,8 +117,6 @@ struct vf_data_storage {
- #define IGB_RXBUFFER_2048  2048
- #define IGB_RXBUFFER_16384 16384
- 
--#define MAX_STD_JUMBO_FRAME_SIZE 9234
--
- /* How many Tx Descriptors do we need to call netif_wake_queue ? */
- #define IGB_TX_QUEUE_WAKE	16
- /* How many Rx Buffers do we bundle into one write to the hardware ? */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index aa78c10..6156275 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2396,7 +2396,8 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 	adapter->rx_itr_setting = IGB_DEFAULT_ITR;
- 	adapter->tx_itr_setting = IGB_DEFAULT_ITR;
- 
--	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
-+	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN +
-+				  VLAN_HLEN;
- 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
- 
- 	spin_lock_init(&adapter->stats64_lock);
-@@ -2962,16 +2963,19 @@ static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
-  **/
- static void igb_rlpml_set(struct igb_adapter *adapter)
- {
--	u32 max_frame_size;
-+	u32 max_frame_size = adapter->max_frame_size;
- 	struct e1000_hw *hw = &adapter->hw;
- 	u16 pf_id = adapter->vfs_allocated_count;
- 
--	max_frame_size = adapter->max_frame_size + VLAN_TAG_SIZE;
--
--	/* if vfs are enabled we set RLPML to the largest possible request
--	 * size and set the VMOLR RLPML to the size we need */
- 	if (pf_id) {
- 		igb_set_vf_rlpml(adapter, max_frame_size, pf_id);
-+		/*
-+		 * If we're in VMDQ or SR-IOV mode, then set global RLPML
-+		 * to our max jumbo frame size, in case we need to enable
-+		 * jumbo frames on one of the rings later.
-+		 * This will not pass over-length frames into the default
-+		 * queue because it's gated by the VMOLR.RLPML.
-+		 */
- 		max_frame_size = MAX_JUMBO_FRAME_SIZE;
- 	}
- 
-@@ -4461,7 +4465,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct pci_dev *pdev = adapter->pdev;
--	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
-+	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
- 	u32 rx_buffer_len, i;
- 
- 	if ((new_mtu < 68) || (max_frame > MAX_JUMBO_FRAME_SIZE)) {
-@@ -4469,6 +4473,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 		return -EINVAL;
- 	}
- 
-+#define MAX_STD_JUMBO_FRAME_SIZE 9238
- 	if (max_frame > MAX_STD_JUMBO_FRAME_SIZE) {
- 		dev_err(&pdev->dev, "MTU > 9216 not supported.\n");
- 		return -EINVAL;
--- 
-1.7.6.2
+SGksCgpTaGF3biBHdW8gd3JpdGVzOgo+IFdpdGggdGhlIHVubmVjZXNzYXJ5IDEgYml0IGxlZnQt
+c2hpZnQgb24gZmVwLT5waHlfc3BlZWQgZHVyaW5nIHRoZQo+IGNhbGN1bGF0aW9uLCB0aGUgcGh5
+X3NwZWVkIGFsd2F5cyBydW5zIGF0IHRoZSBoYWxmIGZyZXF1ZW5jeSBvZiB0aGUKPiBvcHRpbWFs
+IG9uZSAyLjUgTUh6Lgo+IAo+IFRoZSBwYXRjaCByZW1vdmVzIHRoYXQgMSBiaXQgbGVmdC1zaGlm
+dCB0byBnZXQgdGhlIG9wdGltYWwgcGh5X3NwZWVkLgo+IAo+IFNpZ25lZC1vZmYtYnk6IFNoYXdu
+IEd1byA8c2hhd24uZ3VvQGxpbmFyby5vcmc+Cj4gLS0tCj4gIGRyaXZlcnMvbmV0L2ZlYy5jIHwg
+ICAgMiArLQo+ICAxIGZpbGVzIGNoYW5nZWQsIDEgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbnMo
+LSkKPiAKPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZmVjLmMgYi9kcml2ZXJzL25ldC9mZWMu
+Ywo+IGluZGV4IDVlZjBlMzQuLjA0MjA2ZTQgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZmVj
+LmMKPiArKysgYi9kcml2ZXJzL25ldC9mZWMuYwo+IEBAIC0xMDA3LDcgKzEwMDcsNyBAQCBzdGF0
+aWMgaW50IGZlY19lbmV0X21paV9pbml0KHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpCj4g
+IAkvKgo+ICAJICogU2V0IE1JSSBzcGVlZCB0byAyLjUgTUh6ICg9IGNsa19nZXRfcmF0ZSgpIC8g
+MiAqIHBoeV9zcGVlZCkKPiAgCSAqLwo+IC0JZmVwLT5waHlfc3BlZWQgPSBESVZfUk9VTkRfVVAo
+Y2xrX2dldF9yYXRlKGZlcC0+Y2xrKSwgNTAwMDAwMCkgPDwgMTsKPiArCWZlcC0+cGh5X3NwZWVk
+ID0gRElWX1JPVU5EX1VQKGNsa19nZXRfcmF0ZShmZXAtPmNsayksIDUwMDAwMDApOwo+ICAJd3Jp
+dGVsKGZlcC0+cGh5X3NwZWVkLCBmZXAtPmh3cCArIEZFQ19NSUlfU1BFRUQpOwo+ICAKPiAgCWZl
+cC0+bWlpX2J1cyA9IG1kaW9idXNfYWxsb2MoKTsKPgpUaGUgbGVmdCBzaGlmdCBhY2NvdW50cyBm
+b3IgdGhlIGZhY3QsIHRoYXQgdGhlIE1JSV9TUEVFRCBiaXRmaWVsZApzdGFydHMgYXQgcG9zIDEg
+aW4gdGhlIHJlZ2lzdGVyLiBUaHVzIHRoZSBkaXZpZGVyIHZhbHVlIGhhcyB0byBiZQpzaGlmdGVk
+IGxlZnQgdG8gb2NjdXB5IHRoZSBjb3JyZWN0IGJpdCBwb3NpdGlvbnMgaW4gdGhlIHJlZ2lzdGVy
+LgoKQWNjb3JkaW5nIHRvIG15IG1lYXN1cmVtZW50cyBvbiB0aGUgVFgyOCB0aGUgb3JpZ2luYWwg
+Y29kZSB3b3Jrcwpjb3JyZWN0bHkhCkRpZCB5b3UgbWVhc3VyZSB0aGUgYWN0dWFsIGZyZXF1ZW5j
+eSBvbiB0aGUgTURDIHBpbiBhZnRlciB5b3UgY2hhbmdlPwoKCkxvdGhhciBXYcOfbWFubgotLSAK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KCkthLVJvIGVsZWN0cm9uaWNzIEdtYkggfCBQYXNjYWxzdHJhw59lIDIyIHwgRCAtIDUyMDc2
+IEFhY2hlbgpQaG9uZTogKzQ5IDI0MDggMTQwMi0wIHwgRmF4OiArNDkgMjQwOCAxNDAyLTEwCkdl
+c2Now6RmdHNmw7xocmVyOiBNYXR0aGlhcyBLYXVzc2VuCkhhbmRlbHNyZWdpc3RlcmVpbnRyYWc6
+IEFtdHNnZXJpY2h0IEFhY2hlbiwgSFJCIDQ5OTYKCnd3dy5rYXJvLWVsZWN0cm9uaWNzLmRlIHwg
+aW5mb0BrYXJvLWVsZWN0cm9uaWNzLmRlCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1h
+cm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcv
+bWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
