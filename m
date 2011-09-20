@@ -1,57 +1,53 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH] tg3: fix VLAN tagging regression
-Date: Tue, 20 Sep 2011 14:09:29 -0700
-Message-ID: <20110920210929.GA9652@mcarlson.broadcom.com>
-References: <4E78FC38.7040903@kasperkp.dk>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: bridge carrier issue
+Date: Tue, 20 Sep 2011 16:12:39 -0500
+Message-ID: <1316553160.1783.112.camel@dcbw.foobar.com>
+References: <20110920.152953.448244771460257273.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Kasper Pedersen" <kernel@kasperkp.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E78FC38.7040903@kasperkp.dk>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: David Miller <davem@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4118 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751168Ab1ITVMi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Sep 2011 17:12:38 -0400
+In-Reply-To: <20110920.152953.448244771460257273.davem@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2011 at 01:48:56PM -0700, Kasper Pedersen wrote:
-> commit 92cd3a17ce9c719abb4c28dee3438e0c641f8de4
->     tg3: Simplify tx bd assignments
+On Tue, 2011-09-20 at 15:29 -0400, David Miller wrote:
+> I'm marking the patches in patchwork on this as "deferred".
 > 
-> broke VLAN tagging on outbound packets.
-> It ifdef'ed BCM_KERNEL_SUPPORTS_8021Q, but this
-> is not set anywhere. So vlan never gets set, and
-> all packets are sent with vlan=0.
+> It is my opinion that we need to push back on the virtualization stuff
+> because otherwise it is impossible for network manager and friends to
+> operate properly.
 > 
-> Change to use the CONFIG_VLAN_xxx defines instead.
-> Tested on BCM5721 rev 11.
-> 
-> Signed-off-by: Kasper Pedersen <kernel@kasperkp.dk>
+> Without the carrier going on only when a device is actually attached
+> and operating, NM has no "signal" to know when it actually should do
+> DHCP and whatnot.
 
-Yes.  This is correct.
+There's stuff we're planning for NM that'll make it much more friendly
+to these use-cases, but that's mostly *after* the interface is
+configured and running.  What the semantics of the bring-up behavior
+should be need more discussion.  ie, in the case we're talking about
+here, NM wouldn't even apply a static IP configuration to the bridge
+until the bridge said it was up.  That's something we can change with a
+flag in the bridge's config.
 
-Acked-by: Matt Carlson <mcarlson@broadcom.com>
+Dan
 
-> ---
->  drivers/net/tg3.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+> On the other hand, the virtualization tools and libraries can operate
+> properly within the constraints added by the carrier behavior we have
+> now.
 > 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index dc3fbf6..a00d21b 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -6234,7 +6234,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  		}
->  	}
->  
-> -#ifdef BCM_KERNEL_SUPPORTS_8021Q
-> +#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
->  	if (vlan_tx_tag_present(skb)) {
->  		base_flags |= TXD_FLAG_VLAN;
->  		vlan = vlan_tx_tag_get(skb);
+> And I also believe they can do so in a way that allows them to work
+> on kernels before the carrier change.
 > 
-> 
+> Therefore, the only way to move forward and get everything working is
+> to change the virtualization tools.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
