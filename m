@@ -1,53 +1,51 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v4 1/8] SUNRPC: introduce helpers for reference counted
- rpcbind clients
-Date: Tue, 20 Sep 2011 18:35:27 +0400
-Message-ID: <4E78A4AF.1020303@parallels.com>
-References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E788F8C.20103@netapp.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD10@SACMVEXC2-PRD.hq.netapp.com> <4E789679.1060601@parallels.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD22@SACMVEXC2-PRD.hq.netapp.com>
+From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
+Subject: RE: [PATCH v4 1/8] SUNRPC: introduce helpers for reference counted rpcbind clients
+Date: Tue, 20 Sep 2011 07:38:53 -0700
+Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD2B@SACMVEXC2-PRD.hq.netapp.com>
+References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E788F8C.20103@netapp.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD10@SACMVEXC2-PRD.hq.netapp.com> <4E789679.1060601@parallels.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD22@SACMVEXC2-PRD.hq.netapp.com> <4E78A4AF.1020303@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "Schumaker, Bryan" <Bryan.Schumaker@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD22@SACMVEXC2-PRD.hq.netapp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	<linux-nfs@vger.kernel.org>,
+	"Pavel Emelianov" <xemul@parallels.com>, <neilb@suse.de>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<bfields@fieldses.org>, <davem@davemloft.net>
+To: "Stanislav Kinsbursky" <skinsbursky@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.netapp.com ([216.240.18.37]:29053 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751643Ab1ITOiw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Sep 2011 10:38:52 -0400
+Content-class: urn:content-classes:message
+In-reply-to: <4E78A4AF.1020303@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-20.09.2011 18:14, Myklebust, Trond =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-
->>>
->>> Doesn't it  need to be protected by rpcb_clnt_lock too?
->>>
->>
->> Nope from my pow. It's protected by rpcb_create_local_mutex. I.e. no=
- one
->> will change rpcb_users since it's zero. If it's non zero - we willn'=
-t get to
->> rpcb_set_local().
->
-> OK, so you are saying that the rpcb_users++ below could be replaced b=
-y rpcb_users=3D1?
->
-
-Yes, you right.
-
-> In that case, don't you need a smp_wmb() between the setting of rpcb_=
-local_clnt/4 and the setting of rpcb_users? Otherwise, how do you guara=
-ntee that rpcb_users !=3D 0 implies rpbc_local_clnt/4 !=3D NULL?
->
-
-We check rpcb_users under spinlock. Gain spinlock forces memory barrier=
-, doesn't it?
-
---=20
-Best regards,
-Stanislav Kinsbursky
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFuaXNsYXYgS2luc2J1cnNr
+eSBbbWFpbHRvOnNraW5zYnVyc2t5QHBhcmFsbGVscy5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIFNl
+cHRlbWJlciAyMCwgMjAxMSAxMDozNSBBTQ0KPiBUbzogTXlrbGVidXN0LCBUcm9uZA0KPiBDYzog
+U2NodW1ha2VyLCBCcnlhbjsgbGludXgtbmZzQHZnZXIua2VybmVsLm9yZzsgUGF2ZWwgRW1lbGlh
+bm92Ow0KPiBuZWlsYkBzdXNlLmRlOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJu
+ZWxAdmdlci5rZXJuZWwub3JnOw0KPiBiZmllbGRzQGZpZWxkc2VzLm9yZzsgZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIHY0IDEvOF0gU1VOUlBDOiBpbnRyb2R1Y2Ug
+aGVscGVycyBmb3IgcmVmZXJlbmNlDQo+IGNvdW50ZWQgcnBjYmluZCBjbGllbnRzDQo+IA0KPiAy
+MC4wOS4yMDExIDE4OjE0LCBNeWtsZWJ1c3QsIFRyb25kINC/0LjRiNC10YI6DQo+IA0KPiA+Pj4N
+Cj4gPj4+IERvZXNuJ3QgaXQgIG5lZWQgdG8gYmUgcHJvdGVjdGVkIGJ5IHJwY2JfY2xudF9sb2Nr
+IHRvbz8NCj4gPj4+DQo+ID4+DQo+ID4+IE5vcGUgZnJvbSBteSBwb3cuIEl0J3MgcHJvdGVjdGVk
+IGJ5IHJwY2JfY3JlYXRlX2xvY2FsX211dGV4LiBJLmUuIG5vDQo+ID4+IG9uZSB3aWxsIGNoYW5n
+ZSBycGNiX3VzZXJzIHNpbmNlIGl0J3MgemVyby4gSWYgaXQncyBub24gemVybyAtIHdlDQo+ID4+
+IHdpbGxuJ3QgZ2V0IHRvIHJwY2Jfc2V0X2xvY2FsKCkuDQo+ID4NCj4gPiBPSywgc28geW91IGFy
+ZSBzYXlpbmcgdGhhdCB0aGUgcnBjYl91c2VycysrIGJlbG93IGNvdWxkIGJlIHJlcGxhY2VkIGJ5
+DQo+IHJwY2JfdXNlcnM9MT8NCj4gPg0KPiANCj4gWWVzLCB5b3UgcmlnaHQuDQo+IA0KPiA+IElu
+IHRoYXQgY2FzZSwgZG9uJ3QgeW91IG5lZWQgYSBzbXBfd21iKCkgYmV0d2VlbiB0aGUgc2V0dGlu
+ZyBvZg0KPiBycGNiX2xvY2FsX2NsbnQvNCBhbmQgdGhlIHNldHRpbmcgb2YgcnBjYl91c2Vycz8g
+T3RoZXJ3aXNlLCBob3cgZG8geW91DQo+IGd1YXJhbnRlZSB0aGF0IHJwY2JfdXNlcnMgIT0gMCBp
+bXBsaWVzIHJwYmNfbG9jYWxfY2xudC80ICE9IE5VTEw/DQo+ID4NCj4gDQo+IFdlIGNoZWNrIHJw
+Y2JfdXNlcnMgdW5kZXIgc3BpbmxvY2suIEdhaW4gc3BpbmxvY2sgZm9yY2VzIG1lbW9yeSBiYXJy
+aWVyLA0KPiBkb2Vzbid0IGl0Pw0KDQpZZXMsIGFuZCBzbyB5b3UgZG9uJ3QgbmVlZCBhbiBzbXBf
+cm1iKCkgb24gdGhlIHJlYWRlciBzaWRlLiBIb3dldmVyLCB5b3Ugc3RpbGwgbmVlZCB0byBlbnN1
+cmUgdGhhdCB0aGUgcHJvY2Vzc29yIHdoaWNoIF9zZXRzXyB0aGUgcnBjYl91c2VycyBhbmQgcnBj
+Yl9sb2NhbF9jbG50LzQgYWN0dWFsbHkgd3JpdGVzIHRoZW0gaW4gdGhlIGNvcnJlY3Qgb3JkZXIu
+DQoNCkNoZWVycw0KICBUcm9uZA0KDQo=
