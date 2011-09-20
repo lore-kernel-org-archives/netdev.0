@@ -1,108 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: MSI-X vector count on 82754L
-Date: Mon, 19 Sep 2011 16:56:09 -0700
-Message-ID: <1316476569.2184.13.camel@jtkirshe-mobl>
-References: <CACqU3MVZ6GT7hNKsnWq-otxsX4TDtTi8qYPG=4gYn=cBF7-tJg@mail.gmail.com>
-	 <CACqU3MUfQn_r2oJ+ptuzYhkkUoucfL_NTMnHoCa0+TouP0s0kA@mail.gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] net: fix lockdep issue in __neigh_event_send
+Date: Mon, 19 Sep 2011 17:01:54 -0700
+Message-ID: <CAHo-Oow0JfWyKmkB+rmY9D3GJvaAwVNuZzrdNA0vuQZ4=i+EGA@mail.gmail.com>
+References: <1316459578-23413-1-git-send-email-zenczykowski@gmail.com>
+	<1316461375.2455.4.camel@edumazet-laptop>
+	<CANP3RGdxYg0Utfyrqfwoj+ojfCD+ZYJTa91nzPSdWBznZWKHaA@mail.gmail.com>
+	<1316465182.2455.10.camel@edumazet-laptop>
+	<1316466207.2455.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-/ytanNBBbU3UzhpDoAN5"
-Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Vogel, Jack" <jack.vogel@intel.com>
-To: Arnaud Lacombe <lacombar@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	MuraliRaja Muniraju <muralira@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:49355 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751681Ab1ISX4K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Sep 2011 19:56:10 -0400
-In-Reply-To: <CACqU3MUfQn_r2oJ+ptuzYhkkUoucfL_NTMnHoCa0+TouP0s0kA@mail.gmail.com>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:54635 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751478Ab1ITABz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 20:01:55 -0400
+Received: by gwb15 with SMTP id 15so6095895gwb.19
+        for <netdev@vger.kernel.org>; Mon, 19 Sep 2011 17:01:54 -0700 (PDT)
+In-Reply-To: <1316466207.2455.15.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> To my knowledge, no linux pristine linux kernel has this bug.
+>
+> dst_release() is lockless.
 
---=-/ytanNBBbU3UzhpDoAN5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+You are probably right there, I missed that this was caused by some
+other old crappy code we've been trying to get rid of.
 
-On Sun, 2011-09-18 at 22:34 -0700, Arnaud Lacombe wrote:
-> [fixing address of the netdev@ list, sorry - A.]
->=20
-> On Mon, Sep 19, 2011 at 1:31 AM, Arnaud Lacombe <lacombar@gmail.com> wrot=
-e:
-> > Hi folks,
-> >
-> > In:
-> >
-> > commit 4662e82b2cb41c60826e50474dd86dd5c6372b0c
-> > Author: Bruce Allan <bruce.w.allan@intel.com>
-> > Date:   Tue Aug 26 18:37:06 2008 -0700
-> >
-> >    e1000e: add support for new 82574L part
-> >
-> >    This new part has the same feature set as previous parts with the ad=
-dition
-> >    of MSI-X support.
-> >
-> >    Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> >    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >    Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
-> >
-> > MSI-X support was added to the e1000e driver, later on slightly reworke=
-d by:
-> >
-> > commit 8e86acd7d5968e08b3e1604e685a8c45f6fd7f40
-> > Author: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Date:   Mon Aug 2 14:27:23 2010 +0000
-> >
-> >    e1000e: Fix irq_synchronize in MSI-X case
-> >
-> >    Based on original patch/work from Jean Delvare <jdelvare@suse.de>
-> >    Synchronize all IRQs when in MSI-X IRQ mode.
-> >
-> >    Jean's original patch hard coded the sync with the 3 possible vector=
-s,
-> >    this patch incorporates more flexibility for the future and aligns
-> >    with how igb stores the number of vectors into the adapter structure=
-.
-> >
-> >    CC: Jean Delvare <jdelvare@suse.de>
-> >    Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> >    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >    Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> >    Acked-by: Bruce Allan <bruce.w.allan@intel.com>
-> >    Signed-off-by: David S. Miller <davem@davemloft.net>
-> >
-> > [It is unclear to what "Jean" does this commit log refers to, as the
-> > support MSI-X was added Bruce, anyway...]
-> >
-> > Why only 3 vectors are used when both the product brief and the
-> > datasheet advertise up to 5 MSI-X vector usable by the chip ? That is
-> > 2*RX + 2*TX.
-> >
-> > Thanks in advance,
-> >  - Arnaud
-> >
+> So could you explain why its so important we add this 'bugfix' if it
+> only applies to a Google kernel ?
 
-The e1000e driver is only a single queue driver so it does not need more
-than 3 vectors, that is the reason we only use the 3 vectors.
+Freeing the skb later seemed to be pretty painless...
 
---=-/ytanNBBbU3UzhpDoAN5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+> Anything I missed from my previous analysis ?
+>
+> Thanks !
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Probably not.
+Now that the dst cache is going away this probably doesn't really
+matter either way.
 
-iQEcBAABAgAGBQJOd9aZAAoJECTsCADr/EWUdHkIAIoHeUE131nrv2xUcXOl3ssO
-W3mN3laUDO2sR/FvVqm8IJH4qBB4IUHjcaqa4KVUwDS38lZDUJX3qJwicL2bMDja
-1hS7EBI+zgDW3oX1SF6LfDxJ/SBh1RLTW218dv+pjMRtaKwHj25i7XXnzhERxGLI
-l5nrdXW+/teKeb91QWIUU/RbKSmfhMyVdwijS6TTIQyvOEKdpsu0XjU2e6lrX0ZB
-iS8qJmB0/2A8/vKQPQFYrizTvFSLIHar93iJ1sWgHuAuH3f6cx74gis2OsqZHq1O
-8Y8V5KFaOvC1SBijsjvw3Q/CQshcIwu5svVWDAo3+vbLLr9RtfDXIdghPyr9PXU=
-=NVJJ
------END PGP SIGNATURE-----
-
---=-/ytanNBBbU3UzhpDoAN5--
+Maciej
