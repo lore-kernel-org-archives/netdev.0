@@ -1,80 +1,104 @@
-From: Benjamin Poirier <benjamin.poirier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: discrepancy in ip(7) wrt. IP DF flag for UDP sockets
-Date: Tue, 20 Sep 2011 10:12:34 -0400
-Message-ID: <20110920141234.GA23164@synalogic.ca>
-References: <20110919121940.GA19942@synalogic.ca>
- <20110919130313.GA27819@hmsreliant.think-freely.org>
- <CAKgNAkgWRdkxgTXNnMi4PVGGsOd-8EHF1siBrk-Bj=rnYenVmQ@mail.gmail.com>
- <20110920132954.GA23041@synalogic.ca>
- <20110920133837.GA16323@hmsreliant.think-freely.org>
+From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH v4 1/8] SUNRPC: introduce helpers for reference counted rpcbind clients
+Date: Tue, 20 Sep 2011 07:14:15 -0700
+Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD22@SACMVEXC2-PRD.hq.netapp.com>
+References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E788F8C.20103@netapp.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD10@SACMVEXC2-PRD.hq.netapp.com> <4E789679.1060601@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110920133837.GA16323-B26myB8xz7F8NnZeBjwnZQMhkBWG/bsMQH7oEaQurus@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Schumaker, Bryan" <Bryan.Schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Pavel Emelianov" <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <neilb-l3A5Bk7waGM@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: "Stanislav Kinsbursky" <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-reply-to: <4E789679.1060601-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11-09-20 09:38, Neil Horman wrote:
-> On Tue, Sep 20, 2011 at 09:29:54AM -0400, Benjamin Poirier wrote:
-> > On 11-09-20 08:14, Michael Kerrisk wrote:
-> > > Hello Benjamin, Neil,
-> > > 
-[snip]
-> > > 
-> > > Could you describe the required change in terms of how the man page
-> > > text should look--i.e., rewrite the passage as you think it should
-> > > look?
-> > 
-> > How about changing it to:
-> > 	IP_MTU_DISCOVER (since Linux 2.2)
-> > 	Set or receive the Path MTU Discovery setting for a socket. When
-> > 	enabled, the don't-fragment flag is set on all outgoing packets.
-> > 	Linux will perform Path MTU Discovery as defined in RFC 1191 on
-> > 	SOCK_STREAM sockets. For non-SOCK_STREAM sockets, it is the
-> > 	user's responsibility to packetize the data in MTU sized chunks
-> > 	and to do the retransmits if necessary. The kernel will reject
-> > 	(with EMSGSIZE) datagrams that are bigger than the known path
-> > 	MTU. The system-wide default is controlled by the
-> > 	/proc/sys/net/ipv4/ip_no_pmtu_disc file. 
-> > 
-> > 	Path MTU discovery flags   Meaning
-> > 	[...]
-> > 
-> > There are some differences between _DO and _WANT that are glossed over
-> > in this description, but I suppose there's only so much detail you can
-> > put in...
-> > 
-> > Thanks,
-> > -Ben
-> > 
-> Yeah, I think thats close, but its only the users responsibility to package
-> datagrams in mtu sized chunks if they force the dont fragment bit on.  If they
-> go wtih the default, the stack will fragment a datagram is it sees fit according
-> to the mtu of the path it traverses
-
-Exactly. To get into this level of detail, I think we have to mention
-the option value, not just enabled/disabled. Let's try like this:
-
- 	IP_MTU_DISCOVER (since Linux 2.2)
-	Set or receive the Path MTU Discovery setting for a socket. When
-	enabled, Linux will perform Path MTU Discovery as defined in RFC
-	1191 on SOCK_STREAM sockets.  For non-SOCK_STREAM sockets,
-	IP_PMTUDISC_DO forces the don't-fragment flag to be set on all
-	outgoing packets.  It is the user's responsibility to packetize
-	the data in MTU sized chunks and to do the retransmits if
-	necessary.  The kernel will reject (with EMSGSIZE) datagrams
-	that are bigger than the known path MTU.  IP_PMTUDISC_WANT will
-	fragment a datagram if needed according to the path MTU or will
-	set the don't-fragment flag otherwise.
-
-	The system-wide default can be toggled between IP_PMTUDISC_WANT
-	and IP_PMTUDISC_DONT by writting to the
-	/proc/sys/net/ipv4/ip_no_pmtu_disc file.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFuaXNsYXYgS2luc2J1cnNr
+eSBbbWFpbHRvOnNraW5zYnVyc2t5QHBhcmFsbGVscy5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIFNl
+cHRlbWJlciAyMCwgMjAxMSA5OjM1IEFNDQo+IFRvOiBNeWtsZWJ1c3QsIFRyb25kDQo+IENjOiBT
+Y2h1bWFrZXIsIEJyeWFuOyBsaW51eC1uZnNAdmdlci5rZXJuZWwub3JnOyBQYXZlbCBFbWVsaWFu
+b3Y7DQo+IG5laWxiQHN1c2UuZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5l
+bEB2Z2VyLmtlcm5lbC5vcmc7DQo+IGJmaWVsZHNAZmllbGRzZXMub3JnOyBkYXZlbUBkYXZlbWxv
+ZnQubmV0DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjQgMS84XSBTVU5SUEM6IGludHJvZHVjZSBo
+ZWxwZXJzIGZvciByZWZlcmVuY2UNCj4gY291bnRlZCBycGNiaW5kIGNsaWVudHMNCj4gDQo+IDIw
+LjA5LjIwMTEgMTc6MTUsIE15a2xlYnVzdCwgVHJvbmQg0L/QuNGI0LXRgjoNCj4gPj4gLS0tLS1P
+cmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gRnJvbTogU2NodW1ha2VyLCBCcnlhbg0KPiA+PiBT
+ZW50OiBUdWVzZGF5LCBTZXB0ZW1iZXIgMjAsIDIwMTEgOTowNSBBTQ0KPiA+PiBUbzogU3Rhbmlz
+bGF2IEtpbnNidXJza3kNCj4gPj4gQ2M6IE15a2xlYnVzdCwgVHJvbmQ7IGxpbnV4LW5mc0B2Z2Vy
+Lmtlcm5lbC5vcmc7IHhlbXVsQHBhcmFsbGVscy5jb207DQo+ID4+IG5laWxiQHN1c2UuZGU7IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4+
+IGJmaWVsZHNAZmllbGRzZXMub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+ID4+IFN1YmplY3Q6
+IFJlOiBbUEFUQ0ggdjQgMS84XSBTVU5SUEM6IGludHJvZHVjZSBoZWxwZXJzIGZvciByZWZlcmVu
+Y2UNCj4gPj4gY291bnRlZCBycGNiaW5kIGNsaWVudHMNCj4gPj4NCj4gPj4gT24gMDkvMjAvMjAx
+MSAwNjoxMyBBTSwgU3RhbmlzbGF2IEtpbnNidXJza3kgd3JvdGU6DQo+ID4+PiBUaGlzIGhlbHBl
+cnMgd2lsbCBiZSB1c2VkIGZvciBkeW5hbWljYWwgY3JlYXRpb24gYW5kIGRlc3RydWN0aW9uIG9m
+DQo+ID4+PiBycGNiaW5kIGNsaWVudHMuDQo+ID4+PiBWYXJpYWJsZSBycGNiX3VzZXJzIGlzIGFj
+dHVhbGx5IGEgY291bnRlciBvZiBsYXVjaGVkIFJQQyBzZXJ2aWNlcy4NCj4gPj4+IElmIHJwY2Jp
+bmQgY2xpZW50cyBoYXMgYmVlbiBjcmVhdGVkIGFscmVhZHksIHRoZW4gd2UganVzdCBpbmNyZWFz
+ZQ0KPiBycGNiX3VzZXJzLg0KPiA+Pj4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IFN0YW5pc2xhdiBL
+aW5zYnVyc2t5PHNraW5zYnVyc2t5QHBhcmFsbGVscy5jb20+DQo+ID4+Pg0KPiA+Pj4gLS0tDQo+
+ID4+PiAgIG5ldC9zdW5ycGMvcnBjYl9jbG50LmMgfCAgIDUwDQo+ID4+ICsrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw0KPiA+Pj4gICAxIGZpbGVzIGNoYW5n
+ZWQsIDUwIGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pDQo+ID4+Pg0KPiA+Pj4gZGlmZiAt
+LWdpdCBhL25ldC9zdW5ycGMvcnBjYl9jbG50LmMgYi9uZXQvc3VucnBjL3JwY2JfY2xudC5jIGlu
+ZGV4DQo+ID4+PiBlNDVkMmZiLi44NzI0NzgwIDEwMDY0NA0KPiA+Pj4gLS0tIGEvbmV0L3N1bnJw
+Yy9ycGNiX2NsbnQuYw0KPiA+Pj4gKysrIGIvbmV0L3N1bnJwYy9ycGNiX2NsbnQuYw0KPiA+Pj4g
+QEAgLTExNCw2ICsxMTQsOSBAQCBzdGF0aWMgc3RydWN0IHJwY19wcm9ncmFtCXJwY2JfcHJvZ3Jh
+bTsNCj4gPj4+ICAgc3RhdGljIHN0cnVjdCBycGNfY2xudCAqCXJwY2JfbG9jYWxfY2xudDsNCj4g
+Pj4+ICAgc3RhdGljIHN0cnVjdCBycGNfY2xudCAqCXJwY2JfbG9jYWxfY2xudDQ7DQo+ID4+Pg0K
+PiA+Pj4gK0RFRklORV9TUElOTE9DSyhycGNiX2NsbnRfbG9jayk7DQo+ID4+PiArdW5zaWduZWQg
+aW50CQkJcnBjYl91c2VyczsNCj4gPj4+ICsNCj4gPj4+ICAgc3RydWN0IHJwY2JpbmRfYXJncyB7
+DQo+ID4+PiAgIAlzdHJ1Y3QgcnBjX3hwcnQgKglyX3hwcnQ7DQo+ID4+Pg0KPiA+Pj4gQEAgLTE2
+MSw2ICsxNjQsNTMgQEAgc3RhdGljIHZvaWQgcnBjYl9tYXBfcmVsZWFzZSh2b2lkICpkYXRhKQ0K
+PiA+Pj4gICAJa2ZyZWUobWFwKTsNCj4gPj4+ICAgfQ0KPiA+Pj4NCj4gPj4+ICtzdGF0aWMgaW50
+IHJwY2JfZ2V0X2xvY2FsKHZvaWQpDQo+ID4+PiArew0KPiA+Pj4gKwlzcGluX2xvY2soJnJwY2Jf
+Y2xudF9sb2NrKTsNCj4gPj4+ICsJaWYgKHJwY2JfdXNlcnMpDQo+ID4+PiArCQlycGNiX3VzZXJz
+Kys7DQo+ID4+PiArCXNwaW5fdW5sb2NrKCZycGNiX2NsbnRfbG9jayk7DQo+ID4+PiArDQo+ID4+
+PiArCXJldHVybiBycGNiX3VzZXJzOw0KPiA+PiAgICAgICAgICBeXl5eXl5eXl5eXl5eXl5eXl4N
+Cj4gPj4gSXMgaXQgc2FmZSB0byB1c2UgdGhpcyB2YXJpYWJsZSBvdXRzaWRlIG9mIHRoZSBycGNi
+X2NsbnRfbG9jaz8NCj4gPj4NCj4gPiBOb3BlLiBJZiBycGNiX3VzZXJzIHdhcyB6ZXJvIGluIHRo
+ZSBwcm90ZWN0ZWQgc2VjdGlvbiBhYm92ZSwgbm90aGluZw0KPiBndWFyYW50ZWVzIHRoYXQgaXQg
+d2lsbCBzdGlsbCBiZSB6ZXJvIGhlcmUsIGFuZCBzbyB0aGUgY2FsbGVyIG1heSBnZXQgdGhlICh3
+cm9uZykNCj4gaW1wcmVzc2lvbiB0aGF0IHRoZSBjb3VudGVyIHdhcyBpbmNyZW1lbnRlZC4NCj4g
+Pg0KPiANCj4gWWVwLCB5b3UgcmlnaHQuIFdpbGwgZml4IHRoaXMgcmFjZXMuDQo+IA0KPiA+Pj4g
+K30NCj4gPj4+ICsNCj4gPj4+ICt2b2lkIHJwY2JfcHV0X2xvY2FsKHZvaWQpDQo+ID4+PiArew0K
+PiA+Pj4gKwlzdHJ1Y3QgcnBjX2NsbnQgKmNsbnQgPSBycGNiX2xvY2FsX2NsbnQ7DQo+ID4+PiAr
+CXN0cnVjdCBycGNfY2xudCAqY2xudDQgPSBycGNiX2xvY2FsX2NsbnQ0Ow0KPiA+Pj4gKwlpbnQg
+c2h1dGRvd247DQo+ID4+PiArDQo+ID4+PiArCXNwaW5fbG9jaygmcnBjYl9jbG50X2xvY2spOw0K
+PiA+Pj4gKwlpZiAoLS1ycGNiX3VzZXJzID09IDApIHsNCj4gPj4+ICsJCXJwY2JfbG9jYWxfY2xu
+dCA9IE5VTEw7DQo+ID4+PiArCQlycGNiX2xvY2FsX2NsbnQ0ID0gTlVMTDsNCj4gPj4+ICsJfQ0K
+PiA+Pj4gKwlzaHV0ZG93biA9ICFycGNiX3VzZXJzOw0KPiA+Pj4gKwlzcGluX3VubG9jaygmcnBj
+Yl9jbG50X2xvY2spOw0KPiA+Pj4gKw0KPiA+Pj4gKwlpZiAoc2h1dGRvd24pIHsNCj4gPj4+ICsJ
+CS8qDQo+ID4+PiArCQkgKiBjbGVhbnVwX3JwY2JfY2xudCAtIHJlbW92ZSB4cHJ0c29jaydzIHN5
+c2N0bHMsIHVucmVnaXN0ZXINCj4gPj4+ICsJCSAqLw0KPiA+Pj4gKwkJaWYgKGNsbnQ0KQ0KPiA+
+Pj4gKwkJCXJwY19zaHV0ZG93bl9jbGllbnQoY2xudDQpOw0KPiA+Pj4gKwkJaWYgKGNsbnQpDQo+
+ID4+PiArCQkJcnBjX3NodXRkb3duX2NsaWVudChjbG50KTsNCj4gPj4+ICsJfQ0KPiA+Pj4gKwly
+ZXR1cm47DQo+ID4+PiArfQ0KPiA+Pj4gKw0KPiA+Pj4gK3N0YXRpYyB2b2lkIHJwY2Jfc2V0X2xv
+Y2FsKHN0cnVjdCBycGNfY2xudCAqY2xudCwgc3RydWN0IHJwY19jbG50DQo+ID4+PiArKmNsbnQ0
+KSB7DQo+ID4+PiArCS8qIFByb3RlY3RlZCBieSBycGNiX2NyZWF0ZV9sb2NhbF9tdXRleCAqLw0K
+PiA+DQo+ID4gRG9lc24ndCBpdCAgbmVlZCB0byBiZSBwcm90ZWN0ZWQgYnkgcnBjYl9jbG50X2xv
+Y2sgdG9vPw0KPiA+DQo+IA0KPiBOb3BlIGZyb20gbXkgcG93LiBJdCdzIHByb3RlY3RlZCBieSBy
+cGNiX2NyZWF0ZV9sb2NhbF9tdXRleC4gSS5lLiBubyBvbmUNCj4gd2lsbCBjaGFuZ2UgcnBjYl91
+c2VycyBzaW5jZSBpdCdzIHplcm8uIElmIGl0J3Mgbm9uIHplcm8gLSB3ZSB3aWxsbid0IGdldCB0
+bw0KPiBycGNiX3NldF9sb2NhbCgpLg0KDQpPSywgc28geW91IGFyZSBzYXlpbmcgdGhhdCB0aGUg
+cnBjYl91c2VycysrIGJlbG93IGNvdWxkIGJlIHJlcGxhY2VkIGJ5IHJwY2JfdXNlcnM9MT8NCg0K
+SW4gdGhhdCBjYXNlLCBkb24ndCB5b3UgbmVlZCBhIHNtcF93bWIoKSBiZXR3ZWVuIHRoZSBzZXR0
+aW5nIG9mIHJwY2JfbG9jYWxfY2xudC80IGFuZCB0aGUgc2V0dGluZyBvZiBycGNiX3VzZXJzPyBP
+dGhlcndpc2UsIGhvdyBkbyB5b3UgZ3VhcmFudGVlIHRoYXQgcnBjYl91c2VycyAhPSAwIGltcGxp
+ZXMgcnBiY19sb2NhbF9jbG50LzQgIT0gTlVMTD8NCg0KPiA+Pj4gKwlycGNiX2xvY2FsX2NsbnQg
+PSBjbG50Ow0KPiA+Pj4gKwlycGNiX2xvY2FsX2NsbnQ0ID0gY2xudDQ7DQo+ID4+PiArCXJwY2Jf
+dXNlcnMrKzsNCj4gPiBeXl5eXl5eXl5eXl5eXl5eXl5eDQo+ID4NCj4gPj4+ICsJZHByaW50aygi
+UlBDOiAgICAgICBjcmVhdGVkIG5ldyBycGNiIGxvY2FsIGNsaWVudHMgKHJwY2JfbG9jYWxfY2xu
+dDogIg0KPiA+Pj4gKwkJCSIlcCwgcnBjYl9sb2NhbF9jbG50NDogJXApXG4iLCBycGNiX2xvY2Fs
+X2NsbnQsDQo+ID4+PiArCQkJcnBjYl9sb2NhbF9jbG50NCk7DQo+ID4+PiArfQ0KPiA+Pj4gKw0K
+DQo=
 --
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
