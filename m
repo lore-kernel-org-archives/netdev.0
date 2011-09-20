@@ -1,33 +1,92 @@
-From: Mr Ahmed Hassan <beacon_bgl@youbroadband.in>
-Subject: I Need Your Assistance
-Date: Tue, 20 Sep 2011 17:23:36 +0530
-Message-ID: <20110920172336.ts5b5nqz8gks4kk0@webmail.youbroadband.in>
-Reply-To: mr_ahmedhassan83@live.com
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH 0/2] SUNRPC: pipefs virtualization
+Date: Tue, 20 Sep 2011 16:13:13 +0400
+Message-ID: <4E788359.4040303@parallels.com>
+References: <20110912141633.6261.72180.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sendmail1.youbroadband.in ([203.187.192.25]:53537 "HELO
-	sendmail1.youbroadband.in" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753351Ab1ITLyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 07:54:04 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110912141633.6261.72180.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Probably, holding mount point of network namespace is not a good soluti=
+on.
+There is another one. But I really hope for discussion of it.
+
+RPC pipefs can be virtualized in the way like sysfs done.
+But the main problem here is that currently we have only one RPC pipefs=
+ mount=20
+point (superblock, root) for all.
+New mount point can be created per every pipefs mount call. We can even=
+ have=20
+some shared privates on dentries with the same name, like sysfs does (b=
+ut I=20
+don't see any good reason for this).
+But with many mount points we have a problem with RPC pipes creation. I=
+=2Ee. we=20
+have to find proper mount point for current network namespace, which is=
+ required=20
+for vfs_path_lookup(), which is done prior to pipe creation.
+And thus we have to store this per-netns mount points somewhere. It cou=
+ld be=20
+some static variable. But we have to implement search function for them=
+=2E
+This approach can hide all pipefs virtualization from it's users. But i=
+t's still=20
+look ugly from my pow.
+
+Maybe, somebody have suggest better solution for this problem?
+
+12.09.2011 18:19, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> This patch set is a part of further RPC layer virtualization and it's=
+ aim is to
+> make RPC pipefs mount creation and destruction per network namespace =
+context.
+> It moves RPC pipefs internal data to sunrpc_net instance of network n=
+amespace
+> context.
+> With this patch set all calls to pipefs infrastructure are performed =
+with
+> "&init_net" except rpc_new_client() and rpc_setup_pipedir() functions=
+ (but they
+> still passes pointer to "init_net" by current design).
+> This "init_net" pointer will be replaced later with NFS virtualizatio=
+n.
+>
+> The following series consists of:
+>
+> ---
+>
+> Stanislav Kinsbursky (2):
+>        SUNRPC: make rpc pipefs mount per network namespace
+>        SUNRPC: RPC pipefs virtualization
+>
+>
+>   fs/nfs/blocklayout/blocklayout.c   |    2 +-
+>   fs/nfs/cache_lib.c                 |    7 ++++---
+>   include/linux/sunrpc/rpc_pipe_fs.h |    4 ++--
+>   net/sunrpc/clnt.c                  |    8 ++++----
+>   net/sunrpc/netns.h                 |    3 +++
+>   net/sunrpc/rpc_pipe.c              |   23 +++++++++++++++--------
+>   6 files changed, 29 insertions(+), 18 deletions(-)
+>
 
 
-
-
-Dear Beloved,
-
-I Mr Ahmed Hassan,a Business merchant who is diagnosed with  
-"Esophageal Cancer"
-which
-defiled all forms of medical treatment and i have cash deposit of Twenty One
-million dollars ($21,000,000,00) that I have with a finance Company abroad,i
-need someone to stand as a benefactor,if you are interested indicate your
-interest.and i will give you the full details
+--=20
+Best regards,
+Stanislav Kinsbursky
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
