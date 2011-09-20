@@ -1,47 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 11/13] igb: Make Tx budget for NAPI user adjustable
-Date: Tue, 20 Sep 2011 01:10:01 +0100
-Message-ID: <1316477404.14749.256.camel@deadeye>
-References: <19fca01e-5827-4e28-b12c-2b65cca96878@tahiti.vyatta.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH v2 net-next] af_unix: dont send SCM_CREDENTIALS by default
+Date: Mon, 19 Sep 2011 22:10:37 -0400
+Message-ID: <6030.1316484637@turing-police.cc.vt.edu>
+References: <1315488497.2456.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1315473888.2301.21.camel@schen9-mobl> <1315544777.5410.19.camel@edumazet-laptop> <20110918.210758.2207266633127640132.davem@davemloft.net> <1316406528.2521.15.camel@edumazet-laptop> <1316444524.2539.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1316447547.2539.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+            <1316468398.4680.6.camel@schen9-DESK>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/signed; boundary="==_Exmh_1316484636_2734P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey t kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gospo@redhat.com, Alexander H Duyck <alexander.h.duyck@intel.com>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, zheng.z.yan@intel.com,
+	yanzheng@21cn.com, netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	jirislaby@gmail.com, sedat.dilek@gmail.com, alex.shi@intel.com
+To: Tim Chen <tim.c.chen@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:5310 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751974Ab1ITAKM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 20:10:12 -0400
-In-Reply-To: <19fca01e-5827-4e28-b12c-2b65cca96878@tahiti.vyatta.com>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:50183 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750784Ab1ITCMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 22:12:40 -0400
+In-Reply-To: Your message of "Mon, 19 Sep 2011 14:39:58 PDT."
+             <1316468398.4680.6.camel@schen9-DESK>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-09-19 at 16:42 -0700, Stephen Hemminger wrote:
-> I would like to see a general solution to allow configuring
-> napi weight. The Rx weight isn't easily configurable either.
+--==_Exmh_1316484636_2734P
+Content-Type: text/plain; charset=us-ascii
 
-Indeed.
+On Mon, 19 Sep 2011 14:39:58 PDT, Tim Chen said:
+> Do we have to worry about the case where peer socket changes its flag
+> to SOCK_PASSCRED while packets are in flight?  If there isn't such
+> pathological use case, the patch looks fine to me.
 
-> Probably needs to be through ethtool callback since actual value range
-> and dev -> napi relationship is device specific.
+I wouldn't think so - if you're sending a packet, and retroactively trying to
+change the flag and expect it to work, your program is too ugly to live.  After
+all, if the scheduler had cut off your timeslice and scheduledthe receiving
+process before you set the flag, that packet would be delivered and done with
+anyhow, and no amount of wishing will set that flag on an already-delivered
+packet.
 
-The maximum meaningful value is device specific but I'm not sure that
-really matters.
+What *is* worth checking is that we DTRT if a process/thread is doing a send on
+one CPU, and another process/thread with a shared file descriptor for that
+socket is diddling the flag.  But if we just define it as "atomic op to change
+the flag and other observers get whatever value their CPU sees at that
+instant", I'm OK with that too.. ;)
 
-And as David said it's really a many-to-one mapping of queue -> NAPI.
-At netconf we talked about having 'irq' as an attribute of each queue
-but maybe we should expose NAPI contexts through sysfs and make queues
-refer to them instead.  NAPI contexts would be named (in the same way as
-the corresponding IRQ handlers) and have irq, weight, etc.
 
-(Still short of time to work on this myself, alas.)
+--==_Exmh_1316484636_2734P
+Content-Type: application/pgp-signature
 
-Ben.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+iD8DBQFOd/YccC3lWbTT17ARAvhqAKC6mVSnoS5KIhwkG0nHbxt6F+quygCdHgUh
+OZd+0BADbLk+YucVnICXvlA=
+=zD4F
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1316484636_2734P--
