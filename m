@@ -1,34 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: fix a possible double free
-Date: Tue, 20 Sep 2011 15:10:30 -0400 (EDT)
-Message-ID: <20110920.151030.1978268649603302576.davem@davemloft.net>
-References: <1316497936-16901-1-git-send-email-rongqing.li@windriver.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH 1/2] GRETH: RX/TX bytes were never increased
+Date: Tue, 20 Sep 2011 15:16:28 -0400 (EDT)
+Message-ID: <20110920.151628.13577404133412883.davem@redhat.com>
+References: <1315487676-16733-1-git-send-email-daniel@gaisler.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, stable@kernel.org
-To: rongqing.li@windriver.com
+Cc: netdev@vger.kernel.org, kristoffer@gaisler.com
+To: daniel@gaisler.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44903 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095Ab1ITTMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 15:12:35 -0400
-In-Reply-To: <1316497936-16901-1-git-send-email-rongqing.li@windriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30687 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750772Ab1ITTQe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Sep 2011 15:16:34 -0400
+In-Reply-To: <1315487676-16733-1-git-send-email-daniel@gaisler.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <rongqing.li@windriver.com>
-Date: Tue, 20 Sep 2011 13:52:16 +0800
+From: Daniel Hellstrom <daniel@gaisler.com>
+Date: Thu,  8 Sep 2011 15:14:35 +0200
 
-> From: Roy.Li <rongqing.li@windriver.com>
-> 
-> When calling snmp6_alloc_dev fails, the snmp6 relevant memory
-> are freed by snmp6_alloc_dev. Calling in6_dev_finish_destroy
-> will free these memory twice.
-> 
-> Double free will lead that undefined behavior occurs.
-> 
-> Signed-off-by: Roy.Li <rongqing.li@windriver.com>
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
