@@ -1,52 +1,88 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless-next 2011-09-19
-Date: Tue, 20 Sep 2011 10:18:50 -0400
-Message-ID: <20110920141849.GD7800@tuxdriver.com>
-References: <20110919203639.GF2608@tuxdriver.com>
+From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: discrepancy in ip(7) wrt. IP DF flag for UDP sockets
+Date: Tue, 20 Sep 2011 10:31:09 -0400
+Message-ID: <20110920143109.GB16323@hmsreliant.think-freely.org>
+References: <20110919121940.GA19942@synalogic.ca>
+ <20110919130313.GA27819@hmsreliant.think-freely.org>
+ <CAKgNAkgWRdkxgTXNnMi4PVGGsOd-8EHF1siBrk-Bj=rnYenVmQ@mail.gmail.com>
+ <20110920132954.GA23041@synalogic.ca>
+ <20110920133837.GA16323@hmsreliant.think-freely.org>
+ <20110920141234.GA23164@synalogic.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39445 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751795Ab1ITOaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 10:30:35 -0400
+Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Benjamin Poirier <benjamin.poirier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20110919203639.GF2608@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20110920141234.GA23164-k/PPzeaMb74v2OKnPYDugg@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 19, 2011 at 04:36:39PM -0400, John W. Linville wrote:
-> David,
+On Tue, Sep 20, 2011 at 10:12:34AM -0400, Benjamin Poirier wrote:
+> On 11-09-20 09:38, Neil Horman wrote:
+> > On Tue, Sep 20, 2011 at 09:29:54AM -0400, Benjamin Poirier wrote:
+> > > On 11-09-20 08:14, Michael Kerrisk wrote:
+> > > > Hello Benjamin, Neil,
+> > > > 
+> [snip]
+> > > > 
+> > > > Could you describe the required change in terms of how the man page
+> > > > text should look--i.e., rewrite the passage as you think it should
+> > > > look?
+> > > 
+> > > How about changing it to:
+> > > 	IP_MTU_DISCOVER (since Linux 2.2)
+> > > 	Set or receive the Path MTU Discovery setting for a socket. When
+> > > 	enabled, the don't-fragment flag is set on all outgoing packets.
+> > > 	Linux will perform Path MTU Discovery as defined in RFC 1191 on
+> > > 	SOCK_STREAM sockets. For non-SOCK_STREAM sockets, it is the
+> > > 	user's responsibility to packetize the data in MTU sized chunks
+> > > 	and to do the retransmits if necessary. The kernel will reject
+> > > 	(with EMSGSIZE) datagrams that are bigger than the known path
+> > > 	MTU. The system-wide default is controlled by the
+> > > 	/proc/sys/net/ipv4/ip_no_pmtu_disc file. 
+> > > 
+> > > 	Path MTU discovery flags   Meaning
+> > > 	[...]
+> > > 
+> > > There are some differences between _DO and _WANT that are glossed over
+> > > in this description, but I suppose there's only so much detail you can
+> > > put in...
+> > > 
+> > > Thanks,
+> > > -Ben
+> > > 
+> > Yeah, I think thats close, but its only the users responsibility to package
+> > datagrams in mtu sized chunks if they force the dont fragment bit on.  If they
+> > go wtih the default, the stack will fragment a datagram is it sees fit according
+> > to the mtu of the path it traverses
 > 
-> Here is another big batch of updates intended for 3.2 -- still
-> clearing-out the backlog...
+> Exactly. To get into this level of detail, I think we have to mention
+> the option value, not just enabled/disabled. Let's try like this:
 > 
-> This round includes lots of updates to ath9k, b43, iwlagn, and rt2x00.
-> Some cleanups go to mac80211, along with a number of mesh-mode fixes
-> from Javier.
+>  	IP_MTU_DISCOVER (since Linux 2.2)
+> 	Set or receive the Path MTU Discovery setting for a socket. When
+> 	enabled, Linux will perform Path MTU Discovery as defined in RFC
+> 	1191 on SOCK_STREAM sockets.  For non-SOCK_STREAM sockets,
+> 	IP_PMTUDISC_DO forces the don't-fragment flag to be set on all
+> 	outgoing packets.  It is the user's responsibility to packetize
+> 	the data in MTU sized chunks and to do the retransmits if
+> 	necessary.  The kernel will reject (with EMSGSIZE) datagrams
+> 	that are bigger than the known path MTU.  IP_PMTUDISC_WANT will
+> 	fragment a datagram if needed according to the path MTU or will
+> 	set the don't-fragment flag otherwise.
 > 
-> Please let me know if there are problems!
+> 	The system-wide default can be toggled between IP_PMTUDISC_WANT
+> 	and IP_PMTUDISC_DONT by writting to the
+> 	/proc/sys/net/ipv4/ip_no_pmtu_disc file.
 > 
-> Thanks,
-> 
-> John
-> 
-> ---
-> 
-> The following changes since commit 765cf9976e937f1cfe9159bf4534967c8bf8eb6d:
-> 
->   tcp: md5: remove one indirection level in tcp_md5sig_pool (2011-09-17 01:15:46 -0400)
-> 
-> are available in the git repository at:
->   ssh://infradead/~/public_git/wireless-next.git for-davem
+Yes, that sounds good to me.  Thanks for doing this!
+Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
-This is also available at this URL -- sorry about the ssh URL (with
-an alias at that)!
+Neil
 
-	git://git.infradead.org/users/linville/wireless-next.git for-davem
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
