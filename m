@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v4 2/8] SUNRPC: use rpcbind reference counting helpers
-Date: Tue, 20 Sep 2011 14:13:49 +0400
-Message-ID: <20110920101349.9861.42381.stgit@localhost6.localdomain6>
+Subject: [PATCH v4 1/8] SUNRPC: introduce helpers for reference counted
+	rpcbind clients
+Date: Tue, 20 Sep 2011 14:13:41 +0400
+Message-ID: <20110920101341.9861.51453.stgit@localhost6.localdomain6>
 References: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,52 +16,82 @@ In-Reply-To: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All is simple: we just increase users counter if rpcbind clients has been
-created already. Otherwise we create them and set users counter to 1.
+This helpers will be used for dynamical creation and destruction of rpcbind
+clients.
+Variable rpcb_users is actually a counter of lauched RPC services. If rpcbind
+clients has been created already, then we just increase rpcb_users.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/rpcb_clnt.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
+ net/sunrpc/rpcb_clnt.c |   50 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 50 insertions(+), 0 deletions(-)
 
 diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 8724780..83634e0 100644
+index e45d2fb..8724780 100644
 --- a/net/sunrpc/rpcb_clnt.c
 +++ b/net/sunrpc/rpcb_clnt.c
-@@ -255,9 +255,7 @@ static int rpcb_create_local_unix(void)
- 		clnt4 = NULL;
- 	}
+@@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
+ static struct rpc_clnt *	rpcb_local_clnt;
+ static struct rpc_clnt *	rpcb_local_clnt4;
  
--	/* Protected by rpcb_create_local_mutex */
--	rpcb_local_clnt = clnt;
--	rpcb_local_clnt4 = clnt4;
-+	rpcb_set_local(clnt, clnt4);
++DEFINE_SPINLOCK(rpcb_clnt_lock);
++unsigned int			rpcb_users;
++
+ struct rpcbind_args {
+ 	struct rpc_xprt *	r_xprt;
  
- out:
- 	return result;
-@@ -309,9 +307,7 @@ static int rpcb_create_local_net(void)
- 		clnt4 = NULL;
- 	}
+@@ -161,6 +164,53 @@ static void rpcb_map_release(void *data)
+ 	kfree(map);
+ }
  
--	/* Protected by rpcb_create_local_mutex */
--	rpcb_local_clnt = clnt;
--	rpcb_local_clnt4 = clnt4;
-+	rpcb_set_local(clnt, clnt4);
- 
- out:
- 	return result;
-@@ -326,11 +322,11 @@ static int rpcb_create_local(void)
- 	static DEFINE_MUTEX(rpcb_create_local_mutex);
- 	int result = 0;
- 
--	if (rpcb_local_clnt)
-+	if (rpcb_get_local())
- 		return result;
- 
- 	mutex_lock(&rpcb_create_local_mutex);
--	if (rpcb_local_clnt)
-+	if (rpcb_get_local())
- 		goto out;
- 
- 	if (rpcb_create_local_unix() != 0)
++static int rpcb_get_local(void)
++{
++	spin_lock(&rpcb_clnt_lock);
++	if (rpcb_users)
++		rpcb_users++;
++	spin_unlock(&rpcb_clnt_lock);
++
++	return rpcb_users;
++}
++
++void rpcb_put_local(void)
++{
++	struct rpc_clnt *clnt = rpcb_local_clnt;
++	struct rpc_clnt *clnt4 = rpcb_local_clnt4;
++	int shutdown;
++
++	spin_lock(&rpcb_clnt_lock);
++	if (--rpcb_users == 0) {
++		rpcb_local_clnt = NULL;
++		rpcb_local_clnt4 = NULL;
++	}
++	shutdown = !rpcb_users;
++	spin_unlock(&rpcb_clnt_lock);
++
++	if (shutdown) {
++		/*
++		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
++		 */
++		if (clnt4)
++			rpc_shutdown_client(clnt4);
++		if (clnt)
++			rpc_shutdown_client(clnt);
++	}
++	return;
++}
++
++static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
++{
++	/* Protected by rpcb_create_local_mutex */
++	rpcb_local_clnt = clnt;
++	rpcb_local_clnt4 = clnt4;
++	rpcb_users++;
++	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
++			"%p, rpcb_local_clnt4: %p)\n", rpcb_local_clnt,
++			rpcb_local_clnt4);
++}
++
+ /*
+  * Returns zero on success, otherwise a negative errno value
+  * is returned.
