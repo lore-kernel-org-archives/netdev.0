@@ -1,176 +1,72 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v3 04/11] SUNRPC: parametrize svc creation calls with
- portmapper flag
-Date: Tue, 20 Sep 2011 14:14:08 +0400
-Message-ID: <4E786770.3030909@parallels.com>
-References: <20110913180953.3961.69217.stgit@localhost6.localdomain6>	<20110913181351.3961.70207.stgit@localhost6.localdomain6>	<20110919100811.0eaa39fe@tlielax.poochiereds.net>	<4E7756F3.4080601@parallels.com>	<20110919110729.33a876ca@tlielax.poochiereds.net>	<4E7762D4.7090404@parallels.com> <20110919141101.46303e53@tlielax.poochiereds.net>
+Subject: [PATCH v4 6/8] NFSd: call svc rpcbind cleanup explicitly
+Date: Tue, 20 Sep 2011 14:14:19 +0400
+Message-ID: <20110920101419.9861.47122.stgit@localhost6.localdomain6>
+References: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Jeff Layton <jlayton@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bfields@fieldses.org, davem@davemloft.net
+To: Trond.Myklebust@netapp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110919141101.46303e53@tlielax.poochiereds.net>
+In-Reply-To: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-19.09.2011 22:11, Jeff Layton =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Mon, 19 Sep 2011 19:42:12 +0400
-> Stanislav Kinsbursky<skinsbursky@parallels.com>  wrote:
->
->> 19.09.2011 19:07, Jeff Layton =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>> On Mon, 19 Sep 2011 18:51:31 +0400
->>> Stanislav Kinsbursky<skinsbursky@parallels.com>   wrote:
->>>
->>>> 19.09.2011 18:08, Jeff Layton =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->>>>> On Tue, 13 Sep 2011 22:13:51 +0400
->>>>> Stanislav Kinsbursky<skinsbursky@parallels.com>    wrote:
->>>>>
->>>>>> This new flag ("setup_rpcbind) will be used to detect, that new =
-service will
->>>>>> send portmapper register calls. For such services we will create=
- rpcbind
->>>>>> clients and remove all stale portmap registrations.
->>>>>> Also, svc_rpcb_cleanup() will be set as sv_shutdown callback for=
- such services
->>>>>> in case of this field wasn't initialized earlier. This will allo=
-w to destroy
->>>>>> rpcbind clients when no other users of them left.
->>>>>>
->>>>>> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->>>>>>
->>>>>> ---
->>>>>>     include/linux/sunrpc/svc.h |    2 ++
->>>>>>     net/sunrpc/svc.c           |   21 ++++++++++++++-------
->>>>>>     2 files changed, 16 insertions(+), 7 deletions(-)
->>>>>>
->>>>>> diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/s=
-vc.h
->>>>>> index 223588a..528952a 100644
->>>>>> --- a/include/linux/sunrpc/svc.h
->>>>>> +++ b/include/linux/sunrpc/svc.h
->>>>>> @@ -402,11 +402,13 @@ struct svc_procedure {
->>>>>>      * Function prototypes.
->>>>>>      */
->>>>>>     struct svc_serv *svc_create(struct svc_program *, unsigned i=
-nt,
->>>>>> +			    int setup_rpcbind,
->>>>> 				^^^
->>>>> 			Instead of adding this parameter, why not
->>>>> 			base this on the vs_hidden flag in the
->>>>> 			svc_version? IOW, have a function that looks at
->>>>> 			all the svc_versions for a particular
->>>>> 			svc_program, and returns "true" if any of them
->>>>> 			have vs_hidden unset? The mechanism you're
->>>>> 			proposing here has the potential to be out of
->>>>> 			sync with the vs_hidden flag.
->>>>>
->>>>
->>>> Could you, please, clarify me this vs_hidden flag?
->>>> I understand, that it's used to avoid portmap registration.
->>>> But as I see, it's set only for nfs_callback_version1. But this sv=
-c_version is a
->>>> part of nfs4_callback_program with nfs_callback_version4, which is=
- not hidden.
->>>> Does this flag is missed here? If not, how we can return "true" fr=
-om your
->>>> proposed function if any of them have vs_hidden unset?
->>>>
->>>> Also sockets for this program are created with SVC_SOCK_ANONYMOUS =
-flag and we
->>>> will not register any of this program versions with portmapper.
->>>> Thus, from my pow, this vs_hidden flag affects only svc_unregister=
-=2E And only
->>>> nfs_callback_version1. This looks really strange.
->>>>
->>>> I.e. if we use this flag only for passing through this versions du=
-ring
->>>> svc_(un)register, and we actually also want to pass through
->>>> nfs_callback_version4 as well (but just missed this vs_hidden flag=
- for it), then
->>>> with current patch-set we can move this flag from (vs_hidden) svc_=
-version to
->>>> svc_program and check it during svc_create instead of my home-brew
->>>> "setup_rpcbind" variable.
->>>>
->>>
->>> Agreed. The current situation is a mess, which is why I suggested a
->>> cleanup and overhaul before you do this...
->>>
->>> The vs_hidden flag is intended to show that a particular program
->>> version should not be registered with (or unregistered from) the
->>> portmapper. Unfortunately, nothing looks at vs_hidden during
->>> registration time, only when unregistering (as you mention).
->>>
->>> It's quite possible that several svc_versions declared in the kerne=
-l do
->>> not have this set correctly. One thing that would be good is to aud=
-it
->>> each of those.
->>>
->>> We currently rely on SVC_SOCK_ANONYMOUS for registration, but that
->>> wasn't its original intent. It's was just convenient to use it ther=
-e
->>> too.
->>>
->>> SVC_SOCK_ANONYMOUS was (as best I can tell) originally intended for=
- use
->>> on temporary sockets that we establish on receive. So for
->>> instance...when a client connects to nfsd, we need to create a new
->>> socket for nfsd, but obviously we don't want to register that socke=
-t
->>> with the portmapper (since nfsd should already be registered there)=
-=2E
->>> SVC_SOCK_ANONYMOUS ensures that that socket is not registered.
->>>
->>> The whole scheme could probably use a fundamental re-think. I'm not
->>> sure I have a great idea to propose in lieu of it, but I think addi=
-ng
->>> yet another flag here is probably not the best way to go.
->>>
->>
->> Ok, thank you, Jeff.
->> It looks like no mentions about portmapper are present in RFC's for =
-NFS versions
->> 4.* after a brief look.
->> This SVC_SOCK_ANONYMOUS is understandable and can't be removed with =
-this
->> patch-set from my pow.
->> But now I strongly believe, that we can move this vs_hidden flag fro=
-m
->> svc_version to svc_program structure and set it for both NFSv4.* pro=
-grams.
->> Hope, someone else will confirm of refute this statement.
->>
->
-> The problem is nfsd. In principle, there's no real reason we have to
-> register NFSv4 with the portmapper at all. One could envision a
-> setup where a v4-only server doesn't need to run rpcbind at all. Maki=
-ng
-> it per-program may hamstring you from doing that later.
->
-> It think it would be a good thing to keep it per-version, and it's
-> trivial to write a routine to do what I've described. svc_creates onl=
-y
-> happen rarely.
->
-> Just walk the pg_vers array for the program and look at each vs_hidde=
-n
-> value. Return true when you hit one that has vs_hidden unset. Return
-> false if none do. Then use that return value to replace your new flag
-> in this patch.
->
+We have to call svc_rpcb_cleanup() explicitly from nfsd_last_thread() since
+this function is registered as service shutdown callback and thus nobody else
+will done it for us.
 
-Done. I've sent v4 patch-set.
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
---=20
-Best regards,
-Stanislav Kinsbursky
+---
+ fs/nfsd/nfssvc.c           |    2 ++
+ include/linux/sunrpc/svc.h |    1 +
+ net/sunrpc/svc.c           |    3 ++-
+ 3 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
+index dc5a1bf..52cd976 100644
+--- a/fs/nfsd/nfssvc.c
++++ b/fs/nfsd/nfssvc.c
+@@ -256,6 +256,8 @@ static void nfsd_last_thread(struct svc_serv *serv)
+ 	nfsd_serv = NULL;
+ 	nfsd_shutdown();
+ 
++	svc_rpcb_cleanup(serv);
++
+ 	printk(KERN_WARNING "nfsd: last server has exited, flushing export "
+ 			    "cache\n");
+ 	nfsd_export_flush();
+diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
+index 223588a..5e71a30 100644
+--- a/include/linux/sunrpc/svc.h
++++ b/include/linux/sunrpc/svc.h
+@@ -401,6 +401,7 @@ struct svc_procedure {
+ /*
+  * Function prototypes.
+  */
++void svc_rpcb_cleanup(struct svc_serv *serv);
+ struct svc_serv *svc_create(struct svc_program *, unsigned int,
+ 			    void (*shutdown)(struct svc_serv *));
+ struct svc_rqst *svc_prepare_thread(struct svc_serv *serv,
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index 407462f..252552a 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -367,11 +367,12 @@ static int svc_rpcb_setup(struct svc_serv *serv)
+ 	return 0;
+ }
+ 
+-static void svc_rpcb_cleanup(struct svc_serv *serv)
++void svc_rpcb_cleanup(struct svc_serv *serv)
+ {
+ 	svc_unregister(serv);
+ 	rpcb_put_local();
+ }
++EXPORT_SYMBOL_GPL(svc_rpcb_cleanup);
+ 
+ static int svc_uses_rpcbind(struct svc_serv *serv)
+ {
