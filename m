@@ -1,38 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvtap: fix the uninitialized var using in
- macvtap_alloc_skb()
-Date: Tue, 20 Sep 2011 14:48:12 -0400 (EDT)
-Message-ID: <20110920.144812.2183953543808463400.davem@davemloft.net>
-References: <20110919094830.6272.40503.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-	<20110919095415.GD4501@redhat.com>
-	<1316516283.3891.27.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH net-next] ip6_tunnel: add optional fwmark inherit
+Date: Tue, 20 Sep 2011 14:50:14 -0400 (EDT)
+Message-ID: <20110920.145014.886551420797359784.davem@davemloft.net>
+References: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903109@ESESSCMS0356.eemea.ericsson.se>
+	<1316449646.2539.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, jasowang@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dan.carpenter@oracle.com
-To: Ian.Campbell@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1316516283.3891.27.camel@zakaz.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hans.schillstrom@ericsson.com, netdev@vger.kernel.org,
+	Anders.Franzen@ericsson.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60674 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752399Ab1ITSuX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 14:50:23 -0400
+In-Reply-To: <1316449646.2539.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Tue, 20 Sep 2011 11:58:03 +0100
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 19 Sep 2011 18:27:26 +0200
 
-> On Mon, 2011-09-19 at 12:54 +0300, Michael S. Tsirkin wrote:
->> On Mon, Sep 19, 2011 at 05:48:31PM +0800, Jason Wang wrote:
->> > Commit d1b08284 use new frag API but would leave f to be used
->> > uninitialized, this patch fix it.
->> > 
->> > Signed-off-by: Jason Wang <jasowang@redhat.com>
->> 
->> Good catch. Makes absolute sense.
->> 
->> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Agreed. I like this one better than the one I just sent out so:
-> 
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> [PATCH net-next] ip6_tunnel: add optional fwmark inherit
+>=20
+> Add IP6_TNL_F_USE_ORIG_FWMARK to ip6_tunnel, so that ip6_tnl_xmit2()
+> makes a route lookup taking into account skb->fwmark and doesnt cache
+> lookup result.
+>=20
+> This permits more flexibility in policies and firewall setups.
+>=20
+> To setup such a tunnel, "fwmark inherit" option should be added to "i=
+p
+> -f inet6 tunnel" command.
+>=20
+> Reported-by: Anders Franzen <Anders.Franzen@ericsson.com>
+> CC: Hans Schillstr=F6m <hans.schillstrom@ericsson.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
