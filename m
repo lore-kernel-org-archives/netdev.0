@@ -1,49 +1,316 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Update
-Date: Tue, 20 Sep 2011 00:11:21 -0700
-Message-ID: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+Subject: [net-next 3/9] igb: drop support for single buffer mode
+Date: Tue, 20 Sep 2011 00:11:24 -0700
+Message-ID: <1316502690-25488-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10470 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:19158 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752054Ab1ITHLc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Sep 2011 03:11:32 -0400
+	id S1753148Ab1ITHLe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Sep 2011 03:11:34 -0400
+In-Reply-To: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to igb only.  This is a smaller
-subset of an earlier push request I sent, minus the problem/dependent
-patches.  The missing patches are:
-  ixgb: eliminate checkstack warnings (Jesse has a v2 in test now)
-  igb: Make Tx budget for NAPI user adjustable (I am reworking)
-these patches were not included as well since they were somewhat dependent
-on the patch I am currently re-working.
-  igb: split buffer_info into tx_buffer_info and rx_buffer_info
-  igb: Consolidate creation of Tx context descriptors into a single
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The following are changes since commit 765cf9976e937f1cfe9159bf4534967c8bf8eb6d:
-  tcp: md5: remove one indirection level in tcp_md5sig_pool
-and are available in the git repository at:
-  git://github.com/Jkirsher/net-next.git
+This change removes support for single buffer mode from igb and makes the
+driver function in packet split always.  The advantage to doing this is
+that we can reduce total memory allocation overhead significantly as we
+will only need to allocate one 1K slab per packet and then make use of a
+reusable half page instead of allocating a 2K slab per packet.
 
-Alexander Duyck (9):
-  igb: Update RXDCTL/TXDCTL configurations
-  igb: Update max_frame_size to account for an optional VLAN tag if
-    present
-  igb: drop support for single buffer mode
-  igb: streamline Rx buffer allocation and cleanup
-  igb: update ring and adapter structure to improve performance
-  igb: Refactor clean_rx_irq to reduce overhead and improve performance
-  igb: drop the "adv" off function names relating to descriptors
-  igb: Replace E1000_XX_DESC_ADV with IGB_XX_DESC
-  igb: Remove multi_tx_table and simplify igb_xmit_frame
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb.h         |    7 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |    5 +-
+ drivers/net/ethernet/intel/igb/igb_main.c    |  102 ++++++--------------------
+ 3 files changed, 28 insertions(+), 86 deletions(-)
 
- drivers/net/ethernet/intel/igb/igb.h         |  117 +++---
- drivers/net/ethernet/intel/igb/igb_ethtool.c |   15 +-
- drivers/net/ethernet/intel/igb/igb_main.c    |  524 ++++++++++++--------------
- 3 files changed, 311 insertions(+), 345 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 8e90b85..50632b1 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -111,11 +111,9 @@ struct vf_data_storage {
+ #define MAXIMUM_ETHERNET_VLAN_SIZE 1522
+ 
+ /* Supported Rx Buffer Sizes */
+-#define IGB_RXBUFFER_64    64     /* Used for packet split */
+-#define IGB_RXBUFFER_128   128    /* Used for packet split */
+-#define IGB_RXBUFFER_1024  1024
+-#define IGB_RXBUFFER_2048  2048
++#define IGB_RXBUFFER_512   512
+ #define IGB_RXBUFFER_16384 16384
++#define IGB_RX_HDR_LEN     IGB_RXBUFFER_512
+ 
+ /* How many Tx Descriptors do we need to call netif_wake_queue ? */
+ #define IGB_TX_QUEUE_WAKE	16
+@@ -221,7 +219,6 @@ struct igb_ring {
+ 		struct {
+ 			struct igb_rx_queue_stats rx_stats;
+ 			struct u64_stats_sync rx_syncp;
+-			u32 rx_buffer_len;
+ 		};
+ 	};
+ };
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 414b022..04bc7a5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -1368,7 +1368,6 @@ static int igb_setup_desc_rings(struct igb_adapter *adapter)
+ 	rx_ring->count = IGB_DEFAULT_RXD;
+ 	rx_ring->dev = &adapter->pdev->dev;
+ 	rx_ring->netdev = adapter->netdev;
+-	rx_ring->rx_buffer_len = IGB_RXBUFFER_2048;
+ 	rx_ring->reg_idx = adapter->vfs_allocated_count;
+ 
+ 	if (igb_setup_rx_resources(rx_ring)) {
+@@ -1597,7 +1596,7 @@ static int igb_clean_test_rings(struct igb_ring *rx_ring,
+ 		/* unmap rx buffer, will be remapped by alloc_rx_buffers */
+ 		dma_unmap_single(rx_ring->dev,
+ 		                 buffer_info->dma,
+-				 rx_ring->rx_buffer_len,
++				 IGB_RX_HDR_LEN,
+ 				 DMA_FROM_DEVICE);
+ 		buffer_info->dma = 0;
+ 
+@@ -1635,7 +1634,7 @@ static int igb_run_loopback_test(struct igb_adapter *adapter)
+ 	struct igb_ring *tx_ring = &adapter->test_tx_ring;
+ 	struct igb_ring *rx_ring = &adapter->test_rx_ring;
+ 	int i, j, lc, good_cnt, ret_val = 0;
+-	unsigned int size = 1024;
++	unsigned int size = IGB_RX_HDR_LEN;
+ 	netdev_tx_t tx_ret_val;
+ 	struct sk_buff *skb;
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 6156275..022c442 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -517,16 +517,14 @@ rx_ring_summary:
+ 						DUMP_PREFIX_ADDRESS,
+ 						16, 1,
+ 						phys_to_virt(buffer_info->dma),
+-						rx_ring->rx_buffer_len, true);
+-					if (rx_ring->rx_buffer_len
+-						< IGB_RXBUFFER_1024)
+-						print_hex_dump(KERN_INFO, "",
+-						  DUMP_PREFIX_ADDRESS,
+-						  16, 1,
+-						  phys_to_virt(
+-						    buffer_info->page_dma +
+-						    buffer_info->page_offset),
+-						  PAGE_SIZE/2, true);
++						IGB_RX_HDR_LEN, true);
++					print_hex_dump(KERN_INFO, "",
++					  DUMP_PREFIX_ADDRESS,
++					  16, 1,
++					  phys_to_virt(
++					    buffer_info->page_dma +
++					    buffer_info->page_offset),
++					  PAGE_SIZE/2, true);
+ 				}
+ 			}
+ 
+@@ -707,7 +705,6 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
+ 		ring->queue_index = i;
+ 		ring->dev = &adapter->pdev->dev;
+ 		ring->netdev = adapter->netdev;
+-		ring->rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+ 		ring->flags = IGB_RING_FLAG_RX_CSUM; /* enable rx checksum */
+ 		/* set flag indicating ring supports SCTP checksum offload */
+ 		if (adapter->hw.mac.type >= e1000_82576)
+@@ -3049,22 +3046,13 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	writel(0, ring->tail);
+ 
+ 	/* set descriptor configuration */
+-	if (ring->rx_buffer_len < IGB_RXBUFFER_1024) {
+-		srrctl = ALIGN(ring->rx_buffer_len, 64) <<
+-		         E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
++	srrctl = IGB_RX_HDR_LEN << E1000_SRRCTL_BSIZEHDRSIZE_SHIFT;
+ #if (PAGE_SIZE / 2) > IGB_RXBUFFER_16384
+-		srrctl |= IGB_RXBUFFER_16384 >>
+-		          E1000_SRRCTL_BSIZEPKT_SHIFT;
++	srrctl |= IGB_RXBUFFER_16384 >> E1000_SRRCTL_BSIZEPKT_SHIFT;
+ #else
+-		srrctl |= (PAGE_SIZE / 2) >>
+-		          E1000_SRRCTL_BSIZEPKT_SHIFT;
++	srrctl |= (PAGE_SIZE / 2) >> E1000_SRRCTL_BSIZEPKT_SHIFT;
+ #endif
+-		srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
+-	} else {
+-		srrctl = ALIGN(ring->rx_buffer_len, 1024) >>
+-		         E1000_SRRCTL_BSIZEPKT_SHIFT;
+-		srrctl |= E1000_SRRCTL_DESCTYPE_ADV_ONEBUF;
+-	}
++	srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
+ 	if (hw->mac.type == e1000_82580)
+ 		srrctl |= E1000_SRRCTL_TIMESTAMP;
+ 	/* Only set Drop Enable if we are supporting multiple queues */
+@@ -3268,7 +3256,7 @@ static void igb_clean_rx_ring(struct igb_ring *rx_ring)
+ 		if (buffer_info->dma) {
+ 			dma_unmap_single(rx_ring->dev,
+ 			                 buffer_info->dma,
+-					 rx_ring->rx_buffer_len,
++					 IGB_RX_HDR_LEN,
+ 					 DMA_FROM_DEVICE);
+ 			buffer_info->dma = 0;
+ 		}
+@@ -4466,7 +4454,6 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+-	u32 rx_buffer_len, i;
+ 
+ 	if ((new_mtu < 68) || (max_frame > MAX_JUMBO_FRAME_SIZE)) {
+ 		dev_err(&pdev->dev, "Invalid MTU setting\n");
+@@ -4485,30 +4472,6 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 	/* igb_down has a dependency on max_frame_size */
+ 	adapter->max_frame_size = max_frame;
+ 
+-	/* NOTE: netdev_alloc_skb reserves 16 bytes, and typically NET_IP_ALIGN
+-	 * means we reserve 2 more, this pushes us to allocate from the next
+-	 * larger slab size.
+-	 * i.e. RXBUFFER_2048 --> size-4096 slab
+-	 */
+-
+-	if (adapter->hw.mac.type == e1000_82580)
+-		max_frame += IGB_TS_HDR_LEN;
+-
+-	if (max_frame <= IGB_RXBUFFER_1024)
+-		rx_buffer_len = IGB_RXBUFFER_1024;
+-	else if (max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE)
+-		rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+-	else
+-		rx_buffer_len = IGB_RXBUFFER_128;
+-
+-	if ((max_frame == ETH_FRAME_LEN + ETH_FCS_LEN + IGB_TS_HDR_LEN) ||
+-	     (max_frame == MAXIMUM_ETHERNET_VLAN_SIZE + IGB_TS_HDR_LEN))
+-		rx_buffer_len = MAXIMUM_ETHERNET_VLAN_SIZE + IGB_TS_HDR_LEN;
+-
+-	if ((adapter->hw.mac.type == e1000_82580) &&
+-	    (rx_buffer_len == IGB_RXBUFFER_128))
+-		rx_buffer_len += IGB_RXBUFFER_64;
+-
+ 	if (netif_running(netdev))
+ 		igb_down(adapter);
+ 
+@@ -4516,9 +4479,6 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 		 netdev->mtu, new_mtu);
+ 	netdev->mtu = new_mtu;
+ 
+-	for (i = 0; i < adapter->num_rx_queues; i++)
+-		adapter->rx_ring[i]->rx_buffer_len = rx_buffer_len;
+-
+ 	if (netif_running(netdev))
+ 		igb_up(adapter);
+ 	else
+@@ -5781,8 +5741,7 @@ static void igb_rx_hwtstamp(struct igb_q_vector *q_vector, u32 staterr,
+ 
+ 	igb_systim_to_hwtstamp(adapter, skb_hwtstamps(skb), regval);
+ }
+-static inline u16 igb_get_hlen(struct igb_ring *rx_ring,
+-                               union e1000_adv_rx_desc *rx_desc)
++static inline u16 igb_get_hlen(union e1000_adv_rx_desc *rx_desc)
+ {
+ 	/* HW will not DMA in data larger than the given buffer, even if it
+ 	 * parses the (NFS, of course) header to be larger.  In that case, it
+@@ -5790,8 +5749,8 @@ static inline u16 igb_get_hlen(struct igb_ring *rx_ring,
+ 	 */
+ 	u16 hlen = (le16_to_cpu(rx_desc->wb.lower.lo_dword.hdr_info) &
+ 	           E1000_RXDADV_HDRBUFLEN_MASK) >> E1000_RXDADV_HDRBUFLEN_SHIFT;
+-	if (hlen > rx_ring->rx_buffer_len)
+-		hlen = rx_ring->rx_buffer_len;
++	if (hlen > IGB_RX_HDR_LEN)
++		hlen = IGB_RX_HDR_LEN;
+ 	return hlen;
+ }
+ 
+@@ -5841,14 +5800,10 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
+ 
+ 		if (buffer_info->dma) {
+ 			dma_unmap_single(dev, buffer_info->dma,
+-					 rx_ring->rx_buffer_len,
++					 IGB_RX_HDR_LEN,
+ 					 DMA_FROM_DEVICE);
+ 			buffer_info->dma = 0;
+-			if (rx_ring->rx_buffer_len >= IGB_RXBUFFER_1024) {
+-				skb_put(skb, length);
+-				goto send_up;
+-			}
+-			skb_put(skb, igb_get_hlen(rx_ring, rx_desc));
++			skb_put(skb, igb_get_hlen(rx_desc));
+ 		}
+ 
+ 		if (length) {
+@@ -5879,7 +5834,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
+ 			next_buffer->dma = 0;
+ 			goto next_desc;
+ 		}
+-send_up:
++
+ 		if (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
+ 			dev_kfree_skb_irq(skb);
+ 			goto next_desc;
+@@ -5943,17 +5898,14 @@ void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
+ 	struct igb_buffer *buffer_info;
+ 	struct sk_buff *skb;
+ 	unsigned int i;
+-	int bufsz;
+ 
+ 	i = rx_ring->next_to_use;
+ 	buffer_info = &rx_ring->buffer_info[i];
+ 
+-	bufsz = rx_ring->rx_buffer_len;
+-
+ 	while (cleaned_count--) {
+ 		rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
+ 
+-		if ((bufsz < IGB_RXBUFFER_1024) && !buffer_info->page_dma) {
++		if (!buffer_info->page_dma) {
+ 			if (!buffer_info->page) {
+ 				buffer_info->page = netdev_alloc_page(netdev);
+ 				if (unlikely(!buffer_info->page)) {
+@@ -5983,7 +5935,7 @@ void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
+ 
+ 		skb = buffer_info->skb;
+ 		if (!skb) {
+-			skb = netdev_alloc_skb_ip_align(netdev, bufsz);
++			skb = netdev_alloc_skb_ip_align(netdev, IGB_RX_HDR_LEN);
+ 			if (unlikely(!skb)) {
+ 				u64_stats_update_begin(&rx_ring->rx_syncp);
+ 				rx_ring->rx_stats.alloc_failed++;
+@@ -5996,7 +5948,7 @@ void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
+ 		if (!buffer_info->dma) {
+ 			buffer_info->dma = dma_map_single(rx_ring->dev,
+ 			                                  skb->data,
+-							  bufsz,
++							  IGB_RX_HDR_LEN,
+ 							  DMA_FROM_DEVICE);
+ 			if (dma_mapping_error(rx_ring->dev,
+ 					      buffer_info->dma)) {
+@@ -6009,14 +5961,8 @@ void igb_alloc_rx_buffers_adv(struct igb_ring *rx_ring, int cleaned_count)
+ 		}
+ 		/* Refresh the desc even if buffer_addrs didn't change because
+ 		 * each write-back erases this info. */
+-		if (bufsz < IGB_RXBUFFER_1024) {
+-			rx_desc->read.pkt_addr =
+-			     cpu_to_le64(buffer_info->page_dma);
+-			rx_desc->read.hdr_addr = cpu_to_le64(buffer_info->dma);
+-		} else {
+-			rx_desc->read.pkt_addr = cpu_to_le64(buffer_info->dma);
+-			rx_desc->read.hdr_addr = 0;
+-		}
++		rx_desc->read.pkt_addr = cpu_to_le64(buffer_info->page_dma);
++		rx_desc->read.hdr_addr = cpu_to_le64(buffer_info->dma);
+ 
+ 		i++;
+ 		if (i == rx_ring->count)
 -- 
 1.7.6.2
