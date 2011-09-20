@@ -1,74 +1,47 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 01/11] ixgb: convert to ndo_fix_features
-Date: Mon, 19 Sep 2011 17:02:47 -0700
-Message-ID: <1316476968.2184.14.camel@jtkirshe-mobl>
-References: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1316225752-1709-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110917132153.GA32572@rere.qmqm.pl>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 11/13] igb: Make Tx budget for NAPI user adjustable
+Date: Tue, 20 Sep 2011 01:10:01 +0100
+Message-ID: <1316477404.14749.256.camel@deadeye>
+References: <19fca01e-5827-4e28-b12c-2b65cca96878@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-QZGW+hTT5yR1g3yLQnPy"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey t kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	gospo@redhat.com, Alexander H Duyck <alexander.h.duyck@intel.com>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:6286 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751974Ab1ITACt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Sep 2011 20:02:49 -0400
-In-Reply-To: <20110917132153.GA32572@rere.qmqm.pl>
+Received: from exchange.solarflare.com ([216.237.3.220]:5310 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751974Ab1ITAKM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Sep 2011 20:10:12 -0400
+In-Reply-To: <19fca01e-5827-4e28-b12c-2b65cca96878@tahiti.vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2011-09-19 at 16:42 -0700, Stephen Hemminger wrote:
+> I would like to see a general solution to allow configuring
+> napi weight. The Rx weight isn't easily configurable either.
 
---=-QZGW+hTT5yR1g3yLQnPy
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Indeed.
 
-On Sat, 2011-09-17 at 06:21 -0700, Micha=C5=82 Miros=C5=82aw wrote:
-> On Fri, Sep 16, 2011 at 07:15:42PM -0700, Jeff Kirsher wrote:
-> > From: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> > Private rx_csum flags are now duplicate of netdev->features &
-> NETIF_F_RXCSUM.
-> > Removing this needs deeper surgery.
-> [...]
->=20
-> Hmm. Looks like this patch is not complete: part removing
-> get/set_flags
-> from ethtool_ops is missing. I don't remember if this was included or
-> not
-> in the patch I sent originally. I'm attaching it now, rebased on
-> current
-> net-next (not tested).
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw=20
->=20
-> ---
->=20
-> Finish conversion to unified ethtool ops: convert get_flags.
->=20
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>=20
+> Probably needs to be through ethtool callback since actual value range
+> and dev -> napi relationship is device specific.
 
-Thanks Michal, I have added the patch to my queue.
+The maximum meaningful value is device specific but I'm not sure that
+really matters.
 
---=-QZGW+hTT5yR1g3yLQnPy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+And as David said it's really a many-to-one mapping of queue -> NAPI.
+At netconf we talked about having 'irq' as an attribute of each queue
+but maybe we should expose NAPI contexts through sysfs and make queues
+refer to them instead.  NAPI contexts would be named (in the same way as
+the corresponding IRQ handlers) and have irq, weight, etc.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+(Still short of time to work on this myself, alas.)
 
-iQEcBAABAgAGBQJOd9gnAAoJECTsCADr/EWUw2oIAKto4atgzI9dhkfuPkMMrSEW
-0dqdBaxpro3LOs3OvILvd6e8g/jI9jVb/2BCXwh8LkPPJTGvlsnFKhf3rOdCSd1Q
-q5z7NNjzxtlXkZ6JBzbVLy7tMu3utRUjBnsUNKYiB0R883iJpEggnFg9Dw1amQ/0
-n4dbEsGj+BtWYLMDFDXAs0HLoSMXz7qEYP94waL6OQjW5UAHhyCwTQpxw1XrtPPv
-1rD7jJzT12VpuAqA+uscMtxGVhQJ4qimzlc6oVSCnCkU/PPfLyEw02dh4fU4+svi
-G+LFQ+KPt7U+xkGe06o+dTUA+UA6Ds+FErcrsBq+jMJ2bT8CtKJlJUplDgNuKmo=
-=Bwxr
------END PGP SIGNATURE-----
+Ben.
 
---=-QZGW+hTT5yR1g3yLQnPy--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
