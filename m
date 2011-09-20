@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Pull request for 'davem.r8169.fixes' branch
-Date: Tue, 20 Sep 2011 14:43:32 -0400 (EDT)
-Message-ID: <20110920.144332.1224481388933648747.davem@davemloft.net>
-References: <20110917095617.GA21630@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] macvtap: fix the uninitialized var using in
+ macvtap_alloc_skb()
+Date: Tue, 20 Sep 2011 14:48:12 -0400 (EDT)
+Message-ID: <20110920.144812.2183953543808463400.davem@davemloft.net>
+References: <20110919094830.6272.40503.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+	<20110919095415.GD4501@redhat.com>
+	<1316516283.3891.27.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com, hayeswang@realtek.com
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54592 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411Ab1ITSom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 14:44:42 -0400
-In-Reply-To: <20110917095617.GA21630@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, jasowang@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dan.carpenter@oracle.com
+To: Ian.Campbell@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1316516283.3891.27.camel@zakaz.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 17 Sep 2011 11:56:17 +0200
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Date: Tue, 20 Sep 2011 11:58:03 +0100
 
-> Please pull from branch 'davem.r8169.fixes' in repository
+> On Mon, 2011-09-19 at 12:54 +0300, Michael S. Tsirkin wrote:
+>> On Mon, Sep 19, 2011 at 05:48:31PM +0800, Jason Wang wrote:
+>> > Commit d1b08284 use new frag API but would leave f to be used
+>> > uninitialized, this patch fix it.
+>> > 
+>> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> 
+>> Good catch. Makes absolute sense.
+>> 
+>> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 > 
-> git://violet.fr.zoreil.com/romieu/linux davem.r8169.fixes
+> Agreed. I like this one better than the one I just sent out so:
 > 
-> to get the changes below.
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-Pulled, thanks a lot!
+Applied.
