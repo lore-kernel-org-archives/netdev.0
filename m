@@ -1,43 +1,55 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH v4 5/8] SUNRPC: cleanup service destruction
-Date: Tue, 20 Sep 2011 14:14:11 +0400
-Message-ID: <20110920101411.9861.22514.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v4 7/8] SUNRPC: remove rpcbind clients creation during service
+	registering
+Date: Tue, 20 Sep 2011 14:14:27 +0400
+Message-ID: <20110920101427.9861.24667.stgit@localhost6.localdomain6>
 References: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110920101031.9861.18444.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bfields@fieldses.org, davem@davemloft.net
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-svc_unregister() call have to be removed from svc_destroy() since it will be
-called in sv_shutdown callback.
+We don't need this code since rpcbind clients are creating during RPC service
+creation.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/svc.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ net/sunrpc/rpcb_clnt.c |    9 ---------
+ 1 files changed, 0 insertions(+), 9 deletions(-)
 
-diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 918edc3..407462f 100644
---- a/net/sunrpc/svc.c
-+++ b/net/sunrpc/svc.c
-@@ -530,7 +530,6 @@ svc_destroy(struct svc_serv *serv)
- 	if (svc_serv_is_pooled(serv))
- 		svc_pool_map_put();
+diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+index 64e15d1..9327305 100644
+--- a/net/sunrpc/rpcb_clnt.c
++++ b/net/sunrpc/rpcb_clnt.c
+@@ -428,11 +428,6 @@ int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
+ 	struct rpc_message msg = {
+ 		.rpc_argp	= &map,
+ 	};
+-	int error;
+-
+-	error = rpcb_create_local();
+-	if (error)
+-		return error;
  
--	svc_unregister(serv);
- 	kfree(serv->sv_pools);
- 	kfree(serv);
- }
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	dprintk("RPC:       %sregistering (%u, %u, %d, %u) with local "
+ 			"rpcbind\n", (port ? "" : "un"),
+@@ -568,11 +563,7 @@ int rpcb_v4_register(const u32 program, const u32 version,
+ 	struct rpc_message msg = {
+ 		.rpc_argp	= &map,
+ 	};
+-	int error;
+ 
+-	error = rpcb_create_local();
+-	if (error)
+-		return error;
+ 	if (rpcb_local_clnt4 == NULL)
+ 		return -EPROTONOSUPPORT;
+ 
