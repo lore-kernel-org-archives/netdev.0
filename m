@@ -1,246 +1,123 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/9] igb: Refactor clean_rx_irq to reduce overhead and improve performance
-Date: Tue, 20 Sep 2011 00:11:27 -0700
-Message-ID: <1316502690-25488-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/9] igb: Update RXDCTL/TXDCTL configurations
+Date: Tue, 20 Sep 2011 00:11:22 -0700
+Message-ID: <1316502690-25488-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:17828 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10470 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753269Ab1ITHLg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Sep 2011 03:11:36 -0400
+	id S1752393Ab1ITHLd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Sep 2011 03:11:33 -0400
 In-Reply-To: <1316502690-25488-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change is meant to be a general cleanup and performance improvement
-for clean_rx_irq.  The previous patch should have updated the allocation so
-that the rings can be treated as read-only within the clean_rx_irq
-function.  In addition I am re-ordering the operations such that several
-goals are accomplished including reducing the overhead for packet
-accounting, reducing the number of items on the stack, and improving
-overall performance.
+This change cleans up the RXDCTL and TXDCTL configurations and optimizes RX
+performance by allowing back write-backs on all hardware other than 82576.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c |   96 ++++++++++++++---------------
- 1 files changed, 47 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    5 +++--
+ drivers/net/ethernet/intel/igb/igb_main.c |   23 +++++++++--------------
+ 2 files changed, 12 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 265e151..577fd3e 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -100,11 +100,12 @@ struct vf_data_storage {
+  */
+ #define IGB_RX_PTHRESH                     8
+ #define IGB_RX_HTHRESH                     8
+-#define IGB_RX_WTHRESH                     1
+ #define IGB_TX_PTHRESH                     8
+ #define IGB_TX_HTHRESH                     1
++#define IGB_RX_WTHRESH                     ((hw->mac.type == e1000_82576 && \
++					     adapter->msix_entries) ? 1 : 4)
+ #define IGB_TX_WTHRESH                     ((hw->mac.type == e1000_82576 && \
+-                                             adapter->msix_entries) ? 1 : 16)
++					     adapter->msix_entries) ? 1 : 16)
+ 
+ /* this is the size past which hardware will drop packets when setting LPE=0 */
+ #define MAXIMUM_ETHERNET_VLAN_SIZE 1522
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 9fa2ad0..dd85df0 100644
+index 3cb1bc9..aa78c10 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -138,7 +138,7 @@ static void igb_setup_dca(struct igb_adapter *);
- #endif /* CONFIG_IGB_DCA */
- static bool igb_clean_tx_irq(struct igb_q_vector *);
- static int igb_poll(struct napi_struct *, int);
--static bool igb_clean_rx_irq_adv(struct igb_q_vector *, int *, int);
-+static bool igb_clean_rx_irq_adv(struct igb_q_vector *, int);
- static int igb_ioctl(struct net_device *, struct ifreq *, int cmd);
- static void igb_tx_timeout(struct net_device *);
- static void igb_reset_task(struct work_struct *);
-@@ -5481,28 +5481,27 @@ static int igb_poll(struct napi_struct *napi, int budget)
- 	struct igb_q_vector *q_vector = container_of(napi,
- 	                                             struct igb_q_vector,
- 	                                             napi);
--	int tx_clean_complete = 1, work_done = 0;
-+	bool clean_complete = true;
- 
- #ifdef CONFIG_IGB_DCA
- 	if (q_vector->adapter->flags & IGB_FLAG_DCA_ENABLED)
- 		igb_update_dca(q_vector);
- #endif
- 	if (q_vector->tx_ring)
--		tx_clean_complete = igb_clean_tx_irq(q_vector);
-+		clean_complete = !!igb_clean_tx_irq(q_vector);
- 
- 	if (q_vector->rx_ring)
--		igb_clean_rx_irq_adv(q_vector, &work_done, budget);
-+		clean_complete &= igb_clean_rx_irq_adv(q_vector, budget);
- 
--	if (!tx_clean_complete)
--		work_done = budget;
-+	/* If all work not completed, return budget and keep polling */
-+	if (!clean_complete)
-+		return budget;
- 
- 	/* If not enough Rx work done, exit the polling mode */
--	if (work_done < budget) {
--		napi_complete(napi);
--		igb_ring_irq_enable(q_vector);
--	}
-+	napi_complete(napi);
-+	igb_ring_irq_enable(q_vector);
- 
--	return work_done;
-+	return 0;
- }
- 
- /**
-@@ -5751,37 +5750,26 @@ static inline u16 igb_get_hlen(union e1000_adv_rx_desc *rx_desc)
- 	return hlen;
- }
- 
--static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
--                                 int *work_done, int budget)
-+static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector, int budget)
+@@ -2666,14 +2666,12 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
+                            struct igb_ring *ring)
  {
- 	struct igb_ring *rx_ring = q_vector->rx_ring;
--	struct net_device *netdev = rx_ring->netdev;
--	struct device *dev = rx_ring->dev;
--	union e1000_adv_rx_desc *rx_desc , *next_rxd;
--	struct igb_buffer *buffer_info , *next_buffer;
--	struct sk_buff *skb;
--	bool cleaned = false;
--	u16 cleaned_count = igb_desc_unused(rx_ring);
--	int current_node = numa_node_id();
-+	union e1000_adv_rx_desc *rx_desc;
-+	const int current_node = numa_node_id();
- 	unsigned int total_bytes = 0, total_packets = 0;
--	unsigned int i;
- 	u32 staterr;
--	u16 length;
-+	u16 cleaned_count = igb_desc_unused(rx_ring);
-+	u16 i = rx_ring->next_to_clean;
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 txdctl;
++	u32 txdctl = 0;
+ 	u64 tdba = ring->dma;
+ 	int reg_idx = ring->reg_idx;
  
--	i = rx_ring->next_to_clean;
--	buffer_info = &rx_ring->buffer_info[i];
- 	rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
- 	staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ 	/* disable the queue */
+-	txdctl = rd32(E1000_TXDCTL(reg_idx));
+-	wr32(E1000_TXDCTL(reg_idx),
+-	                txdctl & ~E1000_TXDCTL_QUEUE_ENABLE);
++	wr32(E1000_TXDCTL(reg_idx), 0);
+ 	wrfl();
+ 	mdelay(10);
  
- 	while (staterr & E1000_RXD_STAT_DD) {
--		if (*work_done >= budget)
--			break;
--		(*work_done)++;
--		rmb(); /* read descriptor and rx_buffer_info after status DD */
-+		struct igb_buffer *buffer_info = &rx_ring->buffer_info[i];
-+		struct sk_buff *skb = buffer_info->skb;
-+		union e1000_adv_rx_desc *next_rxd;
+@@ -2685,7 +2683,7 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
  
--		skb = buffer_info->skb;
--		prefetch(skb->data - NET_IP_ALIGN);
- 		buffer_info->skb = NULL;
-+		prefetch(skb->data);
+ 	ring->head = hw->hw_addr + E1000_TDH(reg_idx);
+ 	ring->tail = hw->hw_addr + E1000_TDT(reg_idx);
+-	writel(0, ring->head);
++	wr32(E1000_TDH(reg_idx), 0);
+ 	writel(0, ring->tail);
  
- 		i++;
- 		if (i == rx_ring->count)
-@@ -5789,42 +5777,48 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
+ 	txdctl |= IGB_TX_PTHRESH;
+@@ -3028,12 +3026,10 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u64 rdba = ring->dma;
+ 	int reg_idx = ring->reg_idx;
+-	u32 srrctl, rxdctl;
++	u32 srrctl = 0, rxdctl = 0;
  
- 		next_rxd = E1000_RX_DESC_ADV(*rx_ring, i);
- 		prefetch(next_rxd);
--		next_buffer = &rx_ring->buffer_info[i];
+ 	/* disable the queue */
+-	rxdctl = rd32(E1000_RXDCTL(reg_idx));
+-	wr32(E1000_RXDCTL(reg_idx),
+-	                rxdctl & ~E1000_RXDCTL_QUEUE_ENABLE);
++	wr32(E1000_RXDCTL(reg_idx), 0);
  
--		length = le16_to_cpu(rx_desc->wb.upper.length);
--		cleaned = true;
--		cleaned_count++;
-+		/*
-+		 * This memory barrier is needed to keep us from reading
-+		 * any other fields out of the rx_desc until we know the
-+		 * RXD_STAT_DD bit is set
-+		 */
-+		rmb();
+ 	/* Set DMA base address registers */
+ 	wr32(E1000_RDBAL(reg_idx),
+@@ -3045,7 +3041,7 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	/* initialize head and tail */
+ 	ring->head = hw->hw_addr + E1000_RDH(reg_idx);
+ 	ring->tail = hw->hw_addr + E1000_RDT(reg_idx);
+-	writel(0, ring->head);
++	wr32(E1000_RDH(reg_idx), 0);
+ 	writel(0, ring->tail);
  
--		if (buffer_info->dma) {
--			dma_unmap_single(dev, buffer_info->dma,
-+		if (!skb_is_nonlinear(skb)) {
-+			__skb_put(skb, igb_get_hlen(rx_desc));
-+			dma_unmap_single(rx_ring->dev, buffer_info->dma,
- 					 IGB_RX_HDR_LEN,
- 					 DMA_FROM_DEVICE);
- 			buffer_info->dma = 0;
--			skb_put(skb, igb_get_hlen(rx_desc));
- 		}
+ 	/* set descriptor configuration */
+@@ -3076,13 +3072,12 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	/* set filtering for VMDQ pools */
+ 	igb_set_vmolr(adapter, reg_idx & 0x7, true);
  
--		if (length) {
--			dma_unmap_page(dev, buffer_info->page_dma,
--				       PAGE_SIZE / 2, DMA_FROM_DEVICE);
--			buffer_info->page_dma = 0;
-+		if (rx_desc->wb.upper.length) {
-+			u16 length = le16_to_cpu(rx_desc->wb.upper.length);
- 
- 			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
- 						buffer_info->page,
- 						buffer_info->page_offset,
- 						length);
- 
-+			skb->len += length;
-+			skb->data_len += length;
-+			skb->truesize += length;
+-	/* enable receive descriptor fetching */
+-	rxdctl = rd32(E1000_RXDCTL(reg_idx));
+-	rxdctl |= E1000_RXDCTL_QUEUE_ENABLE;
+-	rxdctl &= 0xFFF00000;
+ 	rxdctl |= IGB_RX_PTHRESH;
+ 	rxdctl |= IGB_RX_HTHRESH << 8;
+ 	rxdctl |= IGB_RX_WTHRESH << 16;
 +
- 			if ((page_count(buffer_info->page) != 1) ||
- 			    (page_to_nid(buffer_info->page) != current_node))
- 				buffer_info->page = NULL;
- 			else
- 				get_page(buffer_info->page);
- 
--			skb->len += length;
--			skb->data_len += length;
--			skb->truesize += length;
-+			dma_unmap_page(rx_ring->dev, buffer_info->page_dma,
-+				       PAGE_SIZE / 2, DMA_FROM_DEVICE);
-+			buffer_info->page_dma = 0;
- 		}
- 
- 		if (!(staterr & E1000_RXD_STAT_EOP)) {
-+			struct igb_buffer *next_buffer;
-+			next_buffer = &rx_ring->buffer_info[i];
- 			buffer_info->skb = next_buffer->skb;
- 			buffer_info->dma = next_buffer->dma;
- 			next_buffer->skb = skb;
-@@ -5833,7 +5827,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 		}
- 
- 		if (staterr & E1000_RXDEXT_ERR_FRAME_ERR_MASK) {
--			dev_kfree_skb_irq(skb);
-+			dev_kfree_skb_any(skb);
- 			goto next_desc;
- 		}
- 
-@@ -5844,7 +5838,7 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 
- 		igb_rx_checksum_adv(rx_ring, staterr, skb);
- 
--		skb->protocol = eth_type_trans(skb, netdev);
-+		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
- 
- 		if (staterr & E1000_RXD_STAT_VP) {
- 			u16 vid = le16_to_cpu(rx_desc->wb.upper.vlan);
-@@ -5853,7 +5847,12 @@ static bool igb_clean_rx_irq_adv(struct igb_q_vector *q_vector,
- 		}
- 		napi_gro_receive(&q_vector->napi, skb);
- 
-+		budget--;
- next_desc:
-+		if (!budget)
-+			break;
-+
-+		cleaned_count++;
- 		/* return some buffers to hardware, one at a time is too slow */
- 		if (cleaned_count >= IGB_RX_BUFFER_WRITE) {
- 			igb_alloc_rx_buffers_adv(rx_ring, cleaned_count);
-@@ -5862,7 +5861,6 @@ next_desc:
- 
- 		/* use prefetched values */
- 		rx_desc = next_rxd;
--		buffer_info = next_buffer;
- 		staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
- 	}
- 
-@@ -5877,7 +5875,7 @@ next_desc:
- 	if (cleaned_count)
- 		igb_alloc_rx_buffers_adv(rx_ring, cleaned_count);
- 
--	return cleaned;
-+	return !!budget;
++	/* enable receive descriptor fetching */
++	rxdctl |= E1000_RXDCTL_QUEUE_ENABLE;
+ 	wr32(E1000_RXDCTL(reg_idx), rxdctl);
  }
  
- static bool igb_alloc_mapped_skb(struct igb_ring *rx_ring,
 -- 
 1.7.6.2
