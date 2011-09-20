@@ -1,29 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix validation of D-SACK
-Date: Tue, 20 Sep 2011 14:50:31 -0400 (EDT)
-Message-ID: <20110920.145031.204355907434723091.davem@davemloft.net>
-References: <4E76A36B.4060109@intel.com>
-	<20110918.223744.2195272571175354579.davem@davemloft.net>
-	<4E777BEC.7050600@computer.org>
+Subject: Re: [PATCH 0/2] netxen: Fixes
+Date: Tue, 20 Sep 2011 14:57:26 -0400 (EDT)
+Message-ID: <20110920.145726.1994547997379264608.davem@davemloft.net>
+References: <1316458192-8691-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zheng.z.yan@intel.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: jan.ceuleers@computer.org
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	sony.chacko@qlogic.com
+To: rajesh.borundia@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60684 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:45163 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752399Ab1ITSuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 14:50:40 -0400
-In-Reply-To: <4E777BEC.7050600@computer.org>
+	with ESMTP id S1751429Ab1ITS5e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 14:57:34 -0400
+In-Reply-To: <1316458192-8691-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Date: Mon, 19 Sep 2011 19:29:16 +0200
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Date: Mon, 19 Sep 2011 11:49:50 -0700
 
-> Have you also queued it up for stable as per Eric's remark that this
-> was introduced in 2.6.24?
+> Please Apply it to net-next tree.
 
-Yes, I have.
+Both patches applied, thanks.
