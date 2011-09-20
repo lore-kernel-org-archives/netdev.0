@@ -1,83 +1,137 @@
-From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Subject: RE: [PATCH v4 1/8] SUNRPC: introduce helpers for reference counted rpcbind clients
-Date: Tue, 20 Sep 2011 06:15:24 -0700
-Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD10@SACMVEXC2-PRD.hq.netapp.com>
-References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E788F8C.20103@netapp.com>
+From: Benjamin Poirier <benjamin.poirier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: discrepancy in ip(7) wrt. IP DF flag for UDP sockets
+Date: Tue, 20 Sep 2011 09:29:54 -0400
+Message-ID: <20110920132954.GA23041@synalogic.ca>
+References: <20110919121940.GA19942@synalogic.ca>
+ <20110919130313.GA27819@hmsreliant.think-freely.org>
+ <CAKgNAkgWRdkxgTXNnMi4PVGGsOd-8EHF1siBrk-Bj=rnYenVmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <linux-nfs@vger.kernel.org>, <xemul@parallels.com>,
-	<neilb@suse.de>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <bfields@fieldses.org>,
-	<davem@davemloft.net>
-To: "Schumaker, Bryan" <Bryan.Schumaker@netapp.com>,
-	"Stanislav Kinsbursky" <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-reply-to: <4E788F8C.20103@netapp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAKgNAkgWRdkxgTXNnMi4PVGGsOd-8EHF1siBrk-Bj=rnYenVmQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTY2h1bWFrZXIsIEJyeWFuDQo+
-IFNlbnQ6IFR1ZXNkYXksIFNlcHRlbWJlciAyMCwgMjAxMSA5OjA1IEFNDQo+IFRvOiBTdGFuaXNs
-YXYgS2luc2J1cnNreQ0KPiBDYzogTXlrbGVidXN0LCBUcm9uZDsgbGludXgtbmZzQHZnZXIua2Vy
-bmVsLm9yZzsgeGVtdWxAcGFyYWxsZWxzLmNvbTsNCj4gbmVpbGJAc3VzZS5kZTsgbmV0ZGV2QHZn
-ZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gYmZpZWxkc0Bm
-aWVsZHNlcy5vcmc7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gU3ViamVjdDogUmU6IFtQQVRDSCB2
-NCAxLzhdIFNVTlJQQzogaW50cm9kdWNlIGhlbHBlcnMgZm9yIHJlZmVyZW5jZQ0KPiBjb3VudGVk
-IHJwY2JpbmQgY2xpZW50cw0KPiANCj4gT24gMDkvMjAvMjAxMSAwNjoxMyBBTSwgU3RhbmlzbGF2
-IEtpbnNidXJza3kgd3JvdGU6DQo+ID4gVGhpcyBoZWxwZXJzIHdpbGwgYmUgdXNlZCBmb3IgZHlu
-YW1pY2FsIGNyZWF0aW9uIGFuZCBkZXN0cnVjdGlvbiBvZg0KPiA+IHJwY2JpbmQgY2xpZW50cy4N
-Cj4gPiBWYXJpYWJsZSBycGNiX3VzZXJzIGlzIGFjdHVhbGx5IGEgY291bnRlciBvZiBsYXVjaGVk
-IFJQQyBzZXJ2aWNlcy4gSWYNCj4gPiBycGNiaW5kIGNsaWVudHMgaGFzIGJlZW4gY3JlYXRlZCBh
-bHJlYWR5LCB0aGVuIHdlIGp1c3QgaW5jcmVhc2UgcnBjYl91c2Vycy4NCj4gPg0KPiA+IFNpZ25l
-ZC1vZmYtYnk6IFN0YW5pc2xhdiBLaW5zYnVyc2t5IDxza2luc2J1cnNreUBwYXJhbGxlbHMuY29t
-Pg0KPiA+DQo+ID4gLS0tDQo+ID4gIG5ldC9zdW5ycGMvcnBjYl9jbG50LmMgfCAgIDUwDQo+ICsr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw0KPiA+ICAxIGZp
-bGVzIGNoYW5nZWQsIDUwIGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBk
-aWZmIC0tZ2l0IGEvbmV0L3N1bnJwYy9ycGNiX2NsbnQuYyBiL25ldC9zdW5ycGMvcnBjYl9jbG50
-LmMgaW5kZXgNCj4gPiBlNDVkMmZiLi44NzI0NzgwIDEwMDY0NA0KPiA+IC0tLSBhL25ldC9zdW5y
-cGMvcnBjYl9jbG50LmMNCj4gPiArKysgYi9uZXQvc3VucnBjL3JwY2JfY2xudC5jDQo+ID4gQEAg
-LTExNCw2ICsxMTQsOSBAQCBzdGF0aWMgc3RydWN0IHJwY19wcm9ncmFtCXJwY2JfcHJvZ3JhbTsN
-Cj4gPiAgc3RhdGljIHN0cnVjdCBycGNfY2xudCAqCXJwY2JfbG9jYWxfY2xudDsNCj4gPiAgc3Rh
-dGljIHN0cnVjdCBycGNfY2xudCAqCXJwY2JfbG9jYWxfY2xudDQ7DQo+ID4NCj4gPiArREVGSU5F
-X1NQSU5MT0NLKHJwY2JfY2xudF9sb2NrKTsNCj4gPiArdW5zaWduZWQgaW50CQkJcnBjYl91c2Vy
-czsNCj4gPiArDQo+ID4gIHN0cnVjdCBycGNiaW5kX2FyZ3Mgew0KPiA+ICAJc3RydWN0IHJwY194
-cHJ0ICoJcl94cHJ0Ow0KPiA+DQo+ID4gQEAgLTE2MSw2ICsxNjQsNTMgQEAgc3RhdGljIHZvaWQg
-cnBjYl9tYXBfcmVsZWFzZSh2b2lkICpkYXRhKQ0KPiA+ICAJa2ZyZWUobWFwKTsNCj4gPiAgfQ0K
-PiA+DQo+ID4gK3N0YXRpYyBpbnQgcnBjYl9nZXRfbG9jYWwodm9pZCkNCj4gPiArew0KPiA+ICsJ
-c3Bpbl9sb2NrKCZycGNiX2NsbnRfbG9jayk7DQo+ID4gKwlpZiAocnBjYl91c2VycykNCj4gPiAr
-CQlycGNiX3VzZXJzKys7DQo+ID4gKwlzcGluX3VubG9jaygmcnBjYl9jbG50X2xvY2spOw0KPiA+
-ICsNCj4gPiArCXJldHVybiBycGNiX3VzZXJzOw0KPiAgICAgICAgIF5eXl5eXl5eXl5eXl5eXl5e
-Xg0KPiBJcyBpdCBzYWZlIHRvIHVzZSB0aGlzIHZhcmlhYmxlIG91dHNpZGUgb2YgdGhlIHJwY2Jf
-Y2xudF9sb2NrPw0KPg0KTm9wZS4gSWYgcnBjYl91c2VycyB3YXMgemVybyBpbiB0aGUgcHJvdGVj
-dGVkIHNlY3Rpb24gYWJvdmUsIG5vdGhpbmcgZ3VhcmFudGVlcyB0aGF0IGl0IHdpbGwgc3RpbGwg
-YmUgemVybyBoZXJlLCBhbmQgc28gdGhlIGNhbGxlciBtYXkgZ2V0IHRoZSAod3JvbmcpIGltcHJl
-c3Npb24gdGhhdCB0aGUgY291bnRlciB3YXMgaW5jcmVtZW50ZWQuDQoNCj4gPiArfQ0KPiA+ICsN
-Cj4gPiArdm9pZCBycGNiX3B1dF9sb2NhbCh2b2lkKQ0KPiA+ICt7DQo+ID4gKwlzdHJ1Y3QgcnBj
-X2NsbnQgKmNsbnQgPSBycGNiX2xvY2FsX2NsbnQ7DQo+ID4gKwlzdHJ1Y3QgcnBjX2NsbnQgKmNs
-bnQ0ID0gcnBjYl9sb2NhbF9jbG50NDsNCj4gPiArCWludCBzaHV0ZG93bjsNCj4gPiArDQo+ID4g
-KwlzcGluX2xvY2soJnJwY2JfY2xudF9sb2NrKTsNCj4gPiArCWlmICgtLXJwY2JfdXNlcnMgPT0g
-MCkgew0KPiA+ICsJCXJwY2JfbG9jYWxfY2xudCA9IE5VTEw7DQo+ID4gKwkJcnBjYl9sb2NhbF9j
-bG50NCA9IE5VTEw7DQo+ID4gKwl9DQo+ID4gKwlzaHV0ZG93biA9ICFycGNiX3VzZXJzOw0KPiA+
-ICsJc3Bpbl91bmxvY2soJnJwY2JfY2xudF9sb2NrKTsNCj4gPiArDQo+ID4gKwlpZiAoc2h1dGRv
-d24pIHsNCj4gPiArCQkvKg0KPiA+ICsJCSAqIGNsZWFudXBfcnBjYl9jbG50IC0gcmVtb3ZlIHhw
-cnRzb2NrJ3Mgc3lzY3RscywgdW5yZWdpc3Rlcg0KPiA+ICsJCSAqLw0KPiA+ICsJCWlmIChjbG50
-NCkNCj4gPiArCQkJcnBjX3NodXRkb3duX2NsaWVudChjbG50NCk7DQo+ID4gKwkJaWYgKGNsbnQp
-DQo+ID4gKwkJCXJwY19zaHV0ZG93bl9jbGllbnQoY2xudCk7DQo+ID4gKwl9DQo+ID4gKwlyZXR1
-cm47DQo+ID4gK30NCj4gPiArDQo+ID4gK3N0YXRpYyB2b2lkIHJwY2Jfc2V0X2xvY2FsKHN0cnVj
-dCBycGNfY2xudCAqY2xudCwgc3RydWN0IHJwY19jbG50DQo+ID4gKypjbG50NCkgew0KPiA+ICsJ
-LyogUHJvdGVjdGVkIGJ5IHJwY2JfY3JlYXRlX2xvY2FsX211dGV4ICovDQoNCkRvZXNuJ3QgaXQg
-IG5lZWQgdG8gYmUgcHJvdGVjdGVkIGJ5IHJwY2JfY2xudF9sb2NrIHRvbz8NCg0KPiA+ICsJcnBj
-Yl9sb2NhbF9jbG50ID0gY2xudDsNCj4gPiArCXJwY2JfbG9jYWxfY2xudDQgPSBjbG50NDsNCj4g
-PiArCXJwY2JfdXNlcnMrKzsNCl5eXl5eXl5eXl5eXl5eXl5eXl4NCg0KPiA+ICsJZHByaW50aygi
-UlBDOiAgICAgICBjcmVhdGVkIG5ldyBycGNiIGxvY2FsIGNsaWVudHMgKHJwY2JfbG9jYWxfY2xu
-dDogIg0KPiA+ICsJCQkiJXAsIHJwY2JfbG9jYWxfY2xudDQ6ICVwKVxuIiwgcnBjYl9sb2NhbF9j
-bG50LA0KPiA+ICsJCQlycGNiX2xvY2FsX2NsbnQ0KTsNCj4gPiArfQ0KPiA+ICsNCj4gPiAgLyoN
-Cj4gPiAgICogUmV0dXJucyB6ZXJvIG9uIHN1Y2Nlc3MsIG90aGVyd2lzZSBhIG5lZ2F0aXZlIGVy
-cm5vIHZhbHVlDQo+ID4gICAqIGlzIHJldHVybmVkLg0KPiA+DQo+ID4gLS0NCj4gPiBUbyB1bnN1
-YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgt
-bmZzIg0KPiA+IGluIHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJu
-ZWwub3JnIE1vcmUNCj4gbWFqb3Jkb21vDQo+ID4gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVs
-Lm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoNCg==
+On 11-09-20 08:14, Michael Kerrisk wrote:
+> Hello Benjamin, Neil,
+>=20
+> On Mon, Sep 19, 2011 at 3:03 PM, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> =
+wrote:
+> > On Mon, Sep 19, 2011 at 08:19:40AM -0400, Benjamin Poirier wrote:
+> >> Hi,
+> >>
+> >> I noticed what appears to be a discrepancy between the ip(7) man p=
+age
+> >> and the kernel code with regards to the IP DF flag for UDP sockets=
+=2E
+> >>
+> >> The man page says that "The don't-fragment flag is set on all outg=
+oing
+> >> datagrams" and that the ip_no_pmtu_disc sysctl affects only SOCK_S=
+TREAM
+> >> sockets. This is quickly disproved by doing:
+> >> echo 1 > /proc/sys/net/ipv4/ip_no_pmtu_disc
+> >> firing up netcat and looking at a few outgoing udp packets in wire=
+shark
+> >> (they don't have the DF flag set).
+>=20
+> Could you describe the required change in terms of how the man page
+> text should look--i.e., rewrite the passage as you think it should
+> look?
+
+How about changing it to:
+	IP_MTU_DISCOVER (since Linux 2.2)
+	Set or receive the Path MTU Discovery setting for a socket. When
+	enabled, the don't-fragment flag is set on all outgoing packets.
+	Linux will perform Path MTU Discovery as defined in RFC 1191 on
+	SOCK_STREAM sockets. For non-SOCK_STREAM sockets, it is the
+	user's responsibility to packetize the data in MTU sized chunks
+	and to do the retransmits if necessary. The kernel will reject
+	(with EMSGSIZE) datagrams that are bigger than the known path
+	MTU. The system-wide default is controlled by the
+	/proc/sys/net/ipv4/ip_no_pmtu_disc file.=20
+
+	Path MTU discovery flags   Meaning
+	[...]
+
+There are some differences between _DO and _WANT that are glossed over
+in this description, but I suppose there's only so much detail you can
+put in...
+
+Thanks,
+-Ben
+
+>=20
+> Thanks,
+>=20
+> Michael
+>=20
+>=20
+> >> 1) in the words of `man 7 ip`:
+> >> IP_MTU_DISCOVER (since Linux 2.2)
+> >> =A0 =A0 =A0 Set or receive the Path MTU Discovery =A0setting =A0fo=
+r =A0a =A0socket.
+> >> =A0 =A0 =A0 When =A0enabled, Linux will perform Path MTU Discovery=
+ as defined
+> >> =A0 =A0 =A0 in RFC 1191 on this socket. =A0The don't-fragment flag=
+ is set =A0on
+> >> =A0 =A0 =A0 all =A0outgoing datagrams. =A0The system-wide default =
+is controlled
+> >> =A0 =A0 =A0 by the /proc/sys/net/ipv4/ip_no_pmtu_disc file for =A0=
+SOCK_STREAM
+> >> =A0 =A0 =A0 sockets, and disabled on all others.
+> >>
+> >> This is the text present in the latest version of the online manpa=
+ges,
+> >> http://webcache.googleusercontent.com/search?q=3Dcache:http://www.=
+kernel.org/doc/man-pages/reporting_bugs.html&ie=3DUTF-8
+> >>
+> >> 2) in net/ipv4/af_inet.c:inet_create():
+> >> =A0 =A0 =A0 if (ipv4_config.no_pmtu_disc)
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 inet->pmtudisc =3D IP_PMTUDISC_DONT;
+> >> =A0 =A0 =A0 else
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 inet->pmtudisc =3D IP_PMTUDISC_WANT;
+> >>
+> >> and pmtudisc is left alone from there on for UDP sockets.
+> >>
+> >> What should be adjusted, the man page or the code?
+> >>
+> > The man page is wrong I think
+> >
+> > By my read, the code:
+> > 1) Affects UDP and TCP the same way (which makes sense to me)
+> >
+> > 2) Is doing exactly what you asked it to, since you set no_pmtu_dis=
+c, which
+> > means the stack should be free to fragment a frame as it sees fit a=
+ccording to
+> > the MTU metric of the route its traversing, hence the cleared DF bi=
+t in the
+> > fraem.
+> >
+> > RFC 1191 can apply equally well to udp, as tcp, and is evident in t=
+hat you can
+> > set the per-socket option IP_MTU_DISCOVER to any of the 4 acceptibl=
+e values
+> > offered (DONT/WANT/DO/PROBE), so theres no reason the sysctl govern=
+ing the
+> > default value at creation shouldn't apply as well.
+> > Neil
+> >
+> >
+>=20
+>=20
+>=20
+> --=20
+> Michael Kerrisk
+> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+> Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
