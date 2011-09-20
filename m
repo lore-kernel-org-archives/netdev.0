@@ -1,68 +1,113 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tg3: fix VLAN tagging regression
-Date: Wed, 21 Sep 2011 00:08:53 +0200
-Message-ID: <1316556533.5832.1.camel@edumazet-laptop>
-References: <4E78FC38.7040903@kasperkp.dk>
-	 <20110920210929.GA9652@mcarlson.broadcom.com>
-	 <CAEP_g=9V=5zHqwz710TSuRSqTdo1kqkKF2VEEV6K3Tv1zupegg@mail.gmail.com>
-	 <4E790C5E.5000000@kasperkp.dk>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: mlx4_en drops packets on multicast join
+Date: Tue, 20 Sep 2011 17:10:46 -0500
+Message-ID: <20110920221046.GC2119@BohrerMBP.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@nicira.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kasper Pedersen <kernel@kasperkp.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E790C5E.5000000@kasperkp.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>, jackm@mellanox.co.il
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:60438 "EHLO
+	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752099Ab1ITWKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 18:10:51 -0400
+Received: by gwb20 with SMTP id 20so1062668gwb.36
+        for <netdev@vger.kernel.org>; Tue, 20 Sep 2011 15:10:49 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 20 septembre 2011 =C3=A0 23:57 +0200, Kasper Pedersen a =C3=A9=
-crit :
-> On 09/20/2011 11:27 PM, Jesse Gross wrote:
->=20
-> > On Tue, Sep 20, 2011 at 2:09 PM, Matt Carlson <mcarlson@broadcom.co=
-m> wrote:
-> >> On Tue, Sep 20, 2011 at 01:48:56PM -0700, Kasper Pedersen wrote:
-> >>> commit 92cd3a17ce9c719abb4c28dee3438e0c641f8de4
-> >>>     tg3: Simplify tx bd assignments
-> >>>
-> >>> broke VLAN tagging on outbound packets.
-> >>> It ifdef'ed BCM_KERNEL_SUPPORTS_8021Q, but this
-> >>> is not set anywhere. So vlan never gets set, and
-> >>> all packets are sent with vlan=3D0.
-> >>>
-> >>> Change to use the CONFIG_VLAN_xxx defines instead.
-> >>> Tested on BCM5721 rev 11.
-> >>>
-> >>> Signed-off-by: Kasper Pedersen <kernel@kasperkp.dk>
-> >>
-> >> Yes.  This is correct.
-> >>
-> >> Acked-by: Matt Carlson <mcarlson@broadcom.com>
-> >=20
-> > Actually, please don't do this.  Those config #define's refer to th=
-e
-> > 802.1q module that creates vlan devices only.  The rest of the netw=
-ork
-> > stack has code for dealing with vlan packets that is not protected =
-by
-> > config guards, so there's no reason that drivers should be.  The
-> > correct thing to do here is just drop the test altogether and
-> > unconditionally include the code.
-> >=20
->=20
->=20
-> currently testing, and will post a just-remove-ifdef in a few hours,
-> assuming it behaves as expected on a no-802.1q-module config.
->=20
->=20
-> tg3 has one more place where this is done, and it looks as if the cod=
-e
-> in that location doesn't quite mesh with the comment.
+Hello,
 
-Thanks for finding this bug, this hit me last day on a BCM5755M but I
-had no time to investigate.
+I've found that using mlx4_en 1.5.4.1 available in the 3.0 kernel that
+my Mellanox Technologies MT26428 will drop packets on a multicast
+socket if another process does a bunch of multicast joins.  The same
+behavior also occurs in the OFED 1.5.3 driver but not in the OFED 1.5.2
+driver or older versions.
+
+I've found that this only happens on sockets receiving multicast data,
+and does not happen on a normal UDP socket.  When the packets are
+dropped I do not see any indication of the drops in the driver or
+kernel counters but only see the drops via the packet sequence
+numbers.  I've also found that if the device is put in promiscuous
+mode it will not drop packets.  As a secondary issue the device also
+drops packets when leaving promiscuous mode though that appears to be
+a different issue.
+
+You can reproduce the issue using the iperf multicast benchmark, and
+the sample program below.  For example:
+
+
+server $ iperf -s -u -B 239.0.0.0 -i 1
+
+client $ iperf -u -c 239.0.0.0 -l 16 -b 10M
+
+# While benchmark is running
+server $ ./multicast_join
+
+
+
+/* sample multicast_join program */
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <time.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+
+#define INTERFACE "10.8.16.21"
+#define PORT 12345
+
+main(int argc, char *argv[])
+{
+     struct sockaddr_in addr;
+     int fd, i;
+     struct ip_mreq mreq;
+     char group[64];
+
+     u_int yes=1;
+
+     if ((fd=socket(AF_INET,SOCK_DGRAM,0)) < 0) {
+	  perror("socket");
+	  exit(1);
+     }
+
+
+    if (setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(yes)) < 0) {
+       perror("Reusing ADDR failed");
+       exit(1);
+     }
+
+     memset(&addr,0,sizeof(addr));
+     addr.sin_family=AF_INET;
+     addr.sin_addr.s_addr=htonl(INADDR_ANY);
+     addr.sin_port=htons(PORT);
+
+     /* bind to receive address */
+     if (bind(fd,(struct sockaddr *) &addr,sizeof(addr)) < 0) {
+	  perror("bind");
+	  exit(1);
+     }
+
+     for (i = 1; i < 150; ++i) {
+	 sprintf(group, "239.0.0.%d", i);
+	 printf("%s\n", group);
+	 mreq.imr_multiaddr.s_addr=inet_addr(group);
+	 mreq.imr_interface.s_addr=inet_addr(INTERFACE);
+	 if (setsockopt(fd,IPPROTO_IP,IP_ADD_MEMBERSHIP,&mreq,sizeof(mreq)) < 0) {
+	      perror("setsockopt");
+	      exit(1);
+	 }
+     }
+}
+
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
