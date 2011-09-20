@@ -1,35 +1,54 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: re: macvtap: convert to SKB paged frag API.
-Date: Tue, 20 Sep 2011 11:05:28 +0100
-Message-ID: <1316513129.3891.8.camel@zakaz.uk.xensource.com>
-References: <20110920091724.GA11100@elgon.mountain>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v4 0/8] SUNRPC: make rpcbind clients allocated and destroyed
+	dynamically
+Date: Tue, 20 Sep 2011 14:13:32 +0400
+Message-ID: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:12654 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582Ab1ITKFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 06:05:32 -0400
-In-Reply-To: <20110920091724.GA11100@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bfields@fieldses.org, davem@davemloft.net
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-09-20 at 10:17 +0100, Dan Carpenter wrote:
-> Hi Ian,
->=20
-> There is a problem in d1b08284ade "macvtap: convert to SKB paged frag
-> API."  It removes the initialization of "f" in zerocopy_sg_from_iovec=
-()
-> which breaks it and causes a compile warning:
-> drivers/net/macvtap.c:509:5: warning: =E2=80=98f=E2=80=99 may be used=
- uninitialized
-> 	in this function [-Wuninitialized]
+v4:
+1) creation and destruction on rpcbind clients now depends on service program
+versions "vs_hidden" flag.
 
-Not just a warning but an actual bug -- I'll post a patch.
+This patch is required for further RPC layer virtualization, because rpcbind
+clients have to be per network namespace.
+To achive this, we have to untie network namespace from rpcbind clients sockets.
+The idea of this patch set is to make rpcbind clients non-static. I.e. rpcbind
+clients will be created during first RPC service creation, and destroyed when
+last RPC service is stopped.
+With this patch set rpcbind clients can be virtualized easely.
 
-Thanks for the heads up!
 
-Ian.
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (8):
+      SUNRPC: introduce helpers for reference counted rpcbind clients
+      SUNRPC: use rpcbind reference counting helpers
+      SUNRPC: introduce svc helpers for prepairing rpcbind infrastructure
+      SUNRPC: setup rpcbind clients if service requires it
+      SUNRPC: cleanup service destruction
+      NFSd: call svc rpcbind cleanup explicitly
+      SUNRPC: remove rpcbind clients creation during service registering
+      SUNRPC: remove rpcbind clients destruction on module cleanup
+
+
+ fs/nfsd/nfssvc.c            |    2 +
+ include/linux/sunrpc/clnt.h |    2 +
+ include/linux/sunrpc/svc.h  |    1 +
+ net/sunrpc/rpcb_clnt.c      |   85 ++++++++++++++++++++++++++++---------------
+ net/sunrpc/sunrpc_syms.c    |    3 --
+ net/sunrpc/svc.c            |   48 +++++++++++++++++++++++-
+ 6 files changed, 105 insertions(+), 36 deletions(-)
+
+-- 
+Signature
