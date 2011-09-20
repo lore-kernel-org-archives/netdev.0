@@ -1,130 +1,52 @@
-From: Jeff Layton <jlayton@redhat.com>
-Subject: Re: [PATCH v5 1/8] SUNRPC: introduce helpers for reference counted
- rpcbind clients
-Date: Tue, 20 Sep 2011 10:24:31 -0400
-Message-ID: <20110920102431.58ca1d96@tlielax.poochiereds.net>
-References: <20110920101031.9861.18444.stgit@localhost6.localdomain6>
-	<20110920101341.9861.51453.stgit@localhost6.localdomain6>
-	<4E7899E7.9090809@parallels.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-next 2011-09-19
+Date: Tue, 20 Sep 2011 10:18:50 -0400
+Message-ID: <20110920141849.GD7800@tuxdriver.com>
+References: <20110919203639.GF2608@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44734 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750784Ab1ITOYn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Sep 2011 10:24:43 -0400
-In-Reply-To: <4E7899E7.9090809@parallels.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39445 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795Ab1ITOaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 10:30:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20110919203639.GF2608@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Sep 2011 17:49:27 +0400
-Stanislav Kinsbursky <skinsbursky@parallels.com> wrote:
-
-> v5: fixed races with rpcb_users in rpcb_get_local()
+On Mon, Sep 19, 2011 at 04:36:39PM -0400, John W. Linville wrote:
+> David,
 > 
-> This helpers will be used for dynamical creation and destruction of rpcbind
-> clients.
-> Variable rpcb_users is actually a counter of lauched RPC services. If rpcbind
-> clients has been created already, then we just increase rpcb_users.
+> Here is another big batch of updates intended for 3.2 -- still
+> clearing-out the backlog...
 > 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> This round includes lots of updates to ath9k, b43, iwlagn, and rt2x00.
+> Some cleanups go to mac80211, along with a number of mesh-mode fixes
+> from Javier.
+> 
+> Please let me know if there are problems!
+> 
+> Thanks,
+> 
+> John
 > 
 > ---
->   net/sunrpc/rpcb_clnt.c |   53 ++++++++++++++++++++++++++++++++++++++++++++++++
->   1 files changed, 53 insertions(+), 0 deletions(-)
 > 
-> diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-> index e45d2fb..5f4a406 100644
-> --- a/net/sunrpc/rpcb_clnt.c
-> +++ b/net/sunrpc/rpcb_clnt.c
-> @@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
->   static struct rpc_clnt *	rpcb_local_clnt;
->   static struct rpc_clnt *	rpcb_local_clnt4;
->   +DEFINE_SPINLOCK(rpcb_clnt_lock);
-> +unsigned int			rpcb_users;
-> +
->   struct rpcbind_args {
->   	struct rpc_xprt *	r_xprt;
->   @@ -161,6 +164,56 @@ static void rpcb_map_release(void *data)
->   	kfree(map);
->   }
->   +static int rpcb_get_local(void)
-> +{
-> +	int cnt;
-> +
-> +	spin_lock(&rpcb_clnt_lock);
-> +	if (rpcb_users)
-> +		rpcb_users++;
-> +	cnt = rpcb_users;
-> +	spin_unlock(&rpcb_clnt_lock);
-> +
-> +	return cnt;
-> +}
-> +
-> +void rpcb_put_local(void)
-> +{
-> +	struct rpc_clnt *clnt = rpcb_local_clnt;
-> +	struct rpc_clnt *clnt4 = rpcb_local_clnt4;
-> +	int shutdown;
-> +
-> +	spin_lock(&rpcb_clnt_lock);
-> +	if (--rpcb_users == 0) {
-> +		rpcb_local_clnt = NULL;
-> +		rpcb_local_clnt4 = NULL;
-> +	}
+> The following changes since commit 765cf9976e937f1cfe9159bf4534967c8bf8eb6d:
+> 
+>   tcp: md5: remove one indirection level in tcp_md5sig_pool (2011-09-17 01:15:46 -0400)
+> 
+> are available in the git repository at:
+>   ssh://infradead/~/public_git/wireless-next.git for-davem
 
-In the function below, you mention that the above pointers are
-protected by rpcb_create_local_mutex, but it looks like they get reset
-here without that being held?
+This is also available at this URL -- sorry about the ssh URL (with
+an alias at that)!
 
-Might it be simpler to just protect rpcb_users with the
-rpcb_create_local_mutex and ensure that it's held whenever you call one
-of these routines? None of these are codepaths are particularly hot.
-
-> +	shutdown = !rpcb_users;
-> +	spin_unlock(&rpcb_clnt_lock);
-> +
-> +	if (shutdown) {
-> +		/*
-> +		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
-> +		 */
-> +		if (clnt4)
-> +			rpc_shutdown_client(clnt4);
-> +		if (clnt)
-> +			rpc_shutdown_client(clnt);
-> +	}
-> +	return;
-> +}
-> +
-> +static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
-> +{
-> +	/* Protected by rpcb_create_local_mutex */
-> +	rpcb_local_clnt = clnt;
-> +	rpcb_local_clnt4 = clnt4;
-> +	rpcb_users++;
-> +	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
-> +			"%p, rpcb_local_clnt4: %p)\n", rpcb_local_clnt,
-> +			rpcb_local_clnt4);
-> +}
-> +
->   /*
->    * Returns zero on success, otherwise a negative errno value
->    * is returned.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+	git://git.infradead.org/users/linville/wireless-next.git for-davem
 
 -- 
-Jeff Layton <jlayton@redhat.com>
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
