@@ -1,77 +1,58 @@
-From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
-Subject: RE: [PATCH v4 1/8] SUNRPC: introduce helpers for reference counted rpcbind clients
-Date: Tue, 20 Sep 2011 10:13:31 -0700
-Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FE1E@SACMVEXC2-PRD.hq.netapp.com>
-References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E788F8C.20103@netapp.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD10@SACMVEXC2-PRD.hq.netapp.com> <4E789679.1060601@parallels.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD22@SACMVEXC2-PRD.hq.netapp.com> <4E78A4AF.1020303@parallels.com> <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B47FD2B@SACMVEXC2-PRD.hq.netapp.com> <4E78BD5B.8090507@parallels.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-next 2011-09-19
+Date: Tue, 20 Sep 2011 13:09:14 -0400
+Message-ID: <20110920170914.GF7800@tuxdriver.com>
+References: <20110919203639.GF2608@tuxdriver.com>
+ <20110919.171124.1877822329573878893.davem@davemloft.net>
+ <20110920031929.GA2383@tuxdriver.com>
+ <20110920.125726.1767785586925021266.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Schumaker, Bryan" <Bryan.Schumaker@netapp.com>,
-	<linux-nfs@vger.kernel.org>,
-	"Pavel Emelianov" <xemul@parallels.com>, <neilb@suse.de>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<bfields@fieldses.org>, <davem@davemloft.net>
-To: "Stanislav Kinsbursky" <skinsbursky@parallels.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kerenl.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.netapp.com ([216.240.18.37]:12292 "EHLO mx2.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750994Ab1ITRNe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Sep 2011 13:13:34 -0400
-Content-class: urn:content-classes:message
-In-reply-to: <4E78BD5B.8090507@parallels.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47434 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751410Ab1ITRPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 13:15:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20110920.125726.1767785586925021266.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFuaXNsYXYgS2luc2J1cnNr
-eSBbbWFpbHRvOnNraW5zYnVyc2t5QHBhcmFsbGVscy5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIFNl
-cHRlbWJlciAyMCwgMjAxMSAxMjoyMSBQTQ0KPiBUbzogTXlrbGVidXN0LCBUcm9uZA0KPiBDYzog
-U2NodW1ha2VyLCBCcnlhbjsgbGludXgtbmZzQHZnZXIua2VybmVsLm9yZzsgUGF2ZWwgRW1lbGlh
-bm92Ow0KPiBuZWlsYkBzdXNlLmRlOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJu
-ZWxAdmdlci5rZXJuZWwub3JnOw0KPiBiZmllbGRzQGZpZWxkc2VzLm9yZzsgZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIHY0IDEvOF0gU1VOUlBDOiBpbnRyb2R1Y2Ug
-aGVscGVycyBmb3IgcmVmZXJlbmNlDQo+IGNvdW50ZWQgcnBjYmluZCBjbGllbnRzDQo+IA0KPiAy
-MC4wOS4yMDExIDE4OjM4LCBNeWtsZWJ1c3QsIFRyb25kINC/0LjRiNC10YI6DQo+ID4+IC0tLS0t
-T3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IFN0YW5pc2xhdiBLaW5zYnVyc2t5IFtt
-YWlsdG86c2tpbnNidXJza3lAcGFyYWxsZWxzLmNvbV0NCj4gPj4gU2VudDogVHVlc2RheSwgU2Vw
-dGVtYmVyIDIwLCAyMDExIDEwOjM1IEFNDQo+ID4+IFRvOiBNeWtsZWJ1c3QsIFRyb25kDQo+ID4+
-IENjOiBTY2h1bWFrZXIsIEJyeWFuOyBsaW51eC1uZnNAdmdlci5rZXJuZWwub3JnOyBQYXZlbCBF
-bWVsaWFub3Y7DQo+ID4+IG5laWxiQHN1c2UuZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxp
-bnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4+IGJmaWVsZHNAZmllbGRzZXMub3JnOyBk
-YXZlbUBkYXZlbWxvZnQubmV0DQo+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjQgMS84XSBTVU5S
-UEM6IGludHJvZHVjZSBoZWxwZXJzIGZvciByZWZlcmVuY2UNCj4gPj4gY291bnRlZCBycGNiaW5k
-IGNsaWVudHMNCj4gPj4NCj4gPj4gMjAuMDkuMjAxMSAxODoxNCwgTXlrbGVidXN0LCBUcm9uZCDQ
-v9C40YjQtdGCOg0KPiA+Pg0KPiA+Pj4+Pg0KPiA+Pj4+PiBEb2Vzbid0IGl0ICBuZWVkIHRvIGJl
-IHByb3RlY3RlZCBieSBycGNiX2NsbnRfbG9jayB0b28/DQo+ID4+Pj4+DQo+ID4+Pj4NCj4gPj4+
-PiBOb3BlIGZyb20gbXkgcG93LiBJdCdzIHByb3RlY3RlZCBieSBycGNiX2NyZWF0ZV9sb2NhbF9t
-dXRleC4gSS5lLg0KPiA+Pj4+IG5vIG9uZSB3aWxsIGNoYW5nZSBycGNiX3VzZXJzIHNpbmNlIGl0
-J3MgemVyby4gSWYgaXQncyBub24gemVybyAtDQo+ID4+Pj4gd2Ugd2lsbG4ndCBnZXQgdG8gcnBj
-Yl9zZXRfbG9jYWwoKS4NCj4gPj4+DQo+ID4+PiBPSywgc28geW91IGFyZSBzYXlpbmcgdGhhdCB0
-aGUgcnBjYl91c2VycysrIGJlbG93IGNvdWxkIGJlIHJlcGxhY2VkDQo+ID4+PiBieQ0KPiA+PiBy
-cGNiX3VzZXJzPTE/DQo+ID4+Pg0KPiA+Pg0KPiA+PiBZZXMsIHlvdSByaWdodC4NCj4gPj4NCj4g
-Pj4+IEluIHRoYXQgY2FzZSwgZG9uJ3QgeW91IG5lZWQgYSBzbXBfd21iKCkgYmV0d2VlbiB0aGUg
-c2V0dGluZyBvZg0KPiA+PiBycGNiX2xvY2FsX2NsbnQvNCBhbmQgdGhlIHNldHRpbmcgb2YgcnBj
-Yl91c2Vycz8gT3RoZXJ3aXNlLCBob3cgZG8NCj4gPj4geW91IGd1YXJhbnRlZSB0aGF0IHJwY2Jf
-dXNlcnMgIT0gMCBpbXBsaWVzIHJwYmNfbG9jYWxfY2xudC80ICE9IE5VTEw/DQo+ID4+Pg0KPiA+
-Pg0KPiA+PiBXZSBjaGVjayBycGNiX3VzZXJzIHVuZGVyIHNwaW5sb2NrLiBHYWluIHNwaW5sb2Nr
-IGZvcmNlcyBtZW1vcnkNCj4gPj4gYmFycmllciwgZG9lc24ndCBpdD8NCj4gPg0KPiA+IFllcywg
-YW5kIHNvIHlvdSBkb24ndCBuZWVkIGFuIHNtcF9ybWIoKSBvbiB0aGUgcmVhZGVyIHNpZGUuIEhv
-d2V2ZXIsDQo+IHlvdSBzdGlsbCBuZWVkIHRvIGVuc3VyZSB0aGF0IHRoZSBwcm9jZXNzb3Igd2hp
-Y2ggX3NldHNfIHRoZSBycGNiX3VzZXJzIGFuZA0KPiBycGNiX2xvY2FsX2NsbnQvNCBhY3R1YWxs
-eSB3cml0ZXMgdGhlbSBpbiB0aGUgY29ycmVjdCBvcmRlci4NCj4gPg0KPiANCj4gVHJvbmQsIEkn
-dmUgdGhvdWdodCBhZ2FpbiBhbmQgcmVhbGl6ZWQsIHRoYXQgZXZlbiBpZiB0aGVzZSB3cml0ZXMg
-KHJwY2JfdXNlcnMNCj4gYW5kIHJwYmNfbG9jYWxfY2xudC80KSB3aWxsIGJlIGRvbmUgaW4gcmV2
-ZXJzZWQgb3JkZXIsIHRoZW4gbm8gYmFycmllcg0KPiByZXF1aXJlZCBoZXJlLg0KPiBCZWNhdXNl
-IGlmIHdlIGhhdmUgYW5vdGhlciBwcm9jZXNzIHRyeWluZyB0byBjcmVhdGUgdGhvc2UgY2xpZW50
-cyAoaXQgY2FuJ3QgdXNlDQo+IHRoZW0gc2luY2UgaXQncyBub3Qgc3RhcnRlZCB5ZXQpIG9uIG90
-aGVyIENQVSwgdGhhbiBpdCdzIHdhaXRpbmcgb24gY3JlYXRpb24NCj4gbXV0ZXguIFdoZW4gaXQg
-d2lsbCBnYWluIHRoZSBtdXRleCwgd2Ugd2lsbCBoYXZlIHJlcXVpcmVkIG1lbW9yeSBiYXJyaWVy
-DQo+IGZvciB1cy4NCj4gDQo+IE9yIEkgbWlzc2VkIHNvbWV0aGluZyBpbiB5b3VyIGV4cGxhbmF0
-aW9uPw0KDQpZb3UgbmVlZCB0byBlbnN1cmUgdGhhdCBpZiBzb21lb25lIGNhbGxzIHJwY2JfZ2V0
-X2xvY2FsKCkgYW5kIGdldHMgYSBwb3NpdGl2ZSByZXN1bHQsIHRoZW4gdGhleSBjYW4gcmVseSBv
-biBycGNiX2xvY2FsX2NsbnQvNCBiZWluZyBub24temVyby4gV2l0aG91dCB0aGUgd3JpdGUgYmFy
-cmllciwgdGhhdCBpcyBub3QgdGhlIGNhc2UuDQoNCldpdGhvdXQgdGhhdCBndWFyYW50ZWUsIHlv
-dSBjYW4ndCByZWFsbHkgZW5zdXJlIHRoYXQgcnBjYl9wdXRfbG9jYWwoKSB3aWxsIHdvcmsgYXMg
-ZXhwZWN0ZWQgZWl0aGVyLCBzaW5jZSBpdCB3aWxsIGJlIHBvc3NpYmxlIHRvIHRyaWdnZXIgdGhl
-IC0tcnBjYl91c2VycyA9PSAwIGNhc2Ugd2l0aG91dCBzaHV0dGluZyBkb3duIHJwY2JfbG9jYWxf
-Y2xudC80IChiZWNhdXNlIGNsbnQvY2xudDQgPT0gMCkuDQoNCkNoZWVycw0KICBUcm9uZA0KDQo=
+On Tue, Sep 20, 2011 at 12:57:26PM -0400, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Mon, 19 Sep 2011 23:19:29 -0400
+> 
+> > On Mon, Sep 19, 2011 at 05:11:24PM -0400, David Miller wrote:
+> >> From: "John W. Linville" <linville@tuxdriver.com>
+> >> Date: Mon, 19 Sep 2011 16:36:39 -0400
+> >> 
+> >> > Here is another big batch of updates intended for 3.2 -- still
+> >> > clearing-out the backlog...
+> >> > 
+> >> > This round includes lots of updates to ath9k, b43, iwlagn, and rt2x00.
+> >> > Some cleanups go to mac80211, along with a number of mesh-mode fixes
+> >> > from Javier.
+> >> > 
+> >> > Please let me know if there are problems!
+> >> 
+> >> What about the iwl build failure reported by Eric Dumazet?
+> >> 
+> >> If that's not handled here, I want that fixed before we add even
+> >> more regressions :-)
+> > 
+> > It's there. :-)
+> 
+> Ok, now tell me how I can pull from that ssh://infradead/ URL? :-)
+
+Yeah, sorry about that -- I sent something earlier, but just in case...
+
+	git://git.infradead.org/users/linville/wireless-next.git for-davem
+
+Thanks!
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
