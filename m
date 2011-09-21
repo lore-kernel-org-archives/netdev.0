@@ -1,79 +1,96 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [RFC PATCH] net: Always fire at least one linkwatch event
-Date: Wed, 21 Sep 2011 15:51:29 -0400
-Message-ID: <1316634689-15083-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>, jfeeney@redhat.com
-To: netdev@vger.kernel.org
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 0/8][pull request] Intel Wired LAN Driver Update
+Date: Wed, 21 Sep 2011 12:58:18 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C22B9FE@orsmsx508.amr.corp.intel.com>
+References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20110921.151345.393155542435419672.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"ijc@hellion.org.uk" <ijc@hellion.org.uk>
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51287 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077Ab1IUTvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 15:51:53 -0400
+Received: from mga11.intel.com ([192.55.52.93]:25132 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751077Ab1IUT6V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Sep 2011 15:58:21 -0400
+In-Reply-To: <20110921.151345.393155542435419672.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It was recently noted that the tg3 driver had a problem in that after boot a
-kernel and if-upping the tg3 interface the sysfs operstate attribute continued
-to read 'unkown'.  This was happening because tg3 assumes the default carrier
-state (which is to say the __LINK_STATE_NOCARRIER bit is clear) is correct.
-That said, when the device is if-upped, and the open path, calls
-netif_carrier_on, the test_and_set_bit call in that function returns false
-(since the bit was previously zero from its initial state).  This means that
-netif_carrier_on call never generates a linkwatch event, and as a result
-dev->operstate never gets recomputed.  This could be fixed by unconditionally
-calling netif_carrier_off in the probe routine, to simply force a state change
-on that bit, but that seems like a sub-par solution, given that many drivers may
-have this error.  Instead it seems like it might be better to burn an extra bit
-in the state field to indicate that the CARRIER bit is still in the initial
-state and our first call to netif_carrier_[off|on] should always fire a
-linkwatch event.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: jfeeney@redhat.com
----
- include/linux/netdevice.h |    1 +
- net/sched/sch_generic.c   |    8 ++++++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 0a7f619..85d6f68 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -306,6 +306,7 @@ enum netdev_state_t {
- 	__LINK_STATE_NOCARRIER,
- 	__LINK_STATE_LINKWATCH_PENDING,
- 	__LINK_STATE_DORMANT,
-+	__LINK_STATE_CARRIER_INIT,
- };
- 
- 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 69fca27..6f8bfd1 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -298,7 +298,9 @@ static void dev_watchdog_down(struct net_device *dev)
-  */
- void netif_carrier_on(struct net_device *dev)
- {
--	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
-+	int force = !test_and_set_bit(__LINK_STATE_CARRIER_INIT, &dev->state);
-+
-+	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state) || force) {
- 		if (dev->reg_state == NETREG_UNINITIALIZED)
- 			return;
- 		linkwatch_fire_event(dev);
-@@ -316,7 +318,9 @@ EXPORT_SYMBOL(netif_carrier_on);
-  */
- void netif_carrier_off(struct net_device *dev)
- {
--	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
-+	int force = !test_and_set_bit(__LINK_STATE_CARRIER_INIT, &dev->state);
-+
-+	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state) || force) {
- 		if (dev->reg_state == NETREG_UNINITIALIZED)
- 			return;
- 		linkwatch_fire_event(dev);
--- 
-1.7.6.2
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIERhdmlkIE1pbGxlcg0KPiBTZW50OiBXZWRuZXNkYXksIFNlcHRlbWJlciAyMSwgMjAx
+MSAxMjoxNCBQTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnOyBnb3Nwb0ByZWRoYXQuY29tDQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMC84
+XVtwdWxsIHJlcXVlc3RdIEludGVsIFdpcmVkIExBTiBEcml2ZXIgVXBkYXRlDQo+IA0KPiBGcm9t
+OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gRGF0ZTogV2Vk
+LCAyMSBTZXAgMjAxMSAwMzoxMjo0NiAtMDcwMA0KPiANCj4gPiAgIC0gcmVjb25maWd1cmUgU1It
+SU9WIGluaXQgdG8gdGFrZSBhZHZhbnRhZ2Ugb2YgdGhlIG5ldyBwY2kgZmxhZw0KPiANCj4gSGFz
+IHRoaXMgZ290dGVuIGFueSByZXZpZXcgZnJvbSB0aGUgUENJIG1haW50YWluZXJzPw0KDQpZZXMs
+IHdoZW4gaXQgd2FzIHBvc3RlZCBhcyBhbiBSRkMgYmFjayBpbiBKdWx5LiAgSXQgd2FzIGRlZW1l
+ZCBhY2NlcHRhYmxlIGF0IHRoZSB0aW1lLg0KDQpTZWUgaW5saW5lIG1haWwgYmVsb3cuDQoNCldl
+IHByb2JhYmx5IHNob3VsZCBoYXZlIGNvcGllZCBJYW4gQ2FtcGJlbGwgb24gS29ucmFkIFdpbGsu
+ICBJIGhhdmUgYWRkZWQgdGhlbSB0byB0aGUgQ0MgbGluZSBpbiB0aGlzIHJlc3BvbnNlLg0KDQot
+IEdyZWcNCg0K77u/RnJvbToJbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBvbiBiZWhhbGYg
+b2YgUm9zZSwgR3JlZ29yeSBWIFtncmVnb3J5LnYucm9zZUBpbnRlbC5jb21dDQpTZW50OglGcmlk
+YXksIEp1bHkgMjksIDIwMTEgOTo1NSBBTQ0KVG86CUplc3NlIEJhcm5lczsgSWFuIENhbXBiZWxs
+DQpDYzoJS29ucmFkIFJ6ZXN6dXRlayBXaWxrOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBkYXZl
+bUBkYXZlbWxvZnQubmV0OyBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOyBLaXJzaGVyLCBKZWZm
+cmV5IFQ7IGxpbnV4LXBjaUB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6CVJFOiBbUkZDIG5ldC1u
+ZXh0IFBBVENIIDEvNF0gcGNpOiBBZGQgZmxhZyBpbmRpY2F0aW5nIGRldmljZSBoYXMgYmVlbiBh
+c3NpZ25lZCBieSBLVk0NCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBK
+ZXNzZSBCYXJuZXMgW21haWx0bzpqYmFybmVzQHZpcnR1b3VzZ2Vlay5vcmddDQo+IFNlbnQ6IEZy
+aWRheSwgSnVseSAyOSwgMjAxMSA5OjUyIEFNDQo+IFRvOiBJYW4gQ2FtcGJlbGwNCj4gQ2M6IFJv
+c2UsIEdyZWdvcnkgVjsgS29ucmFkIFJ6ZXN6dXRlayBXaWxrOyBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnOw0KPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOyBL
+aXJzaGVyLCBKZWZmcmV5IFQ7IGxpbnV4LQ0KPiBwY2lAdmdlci5rZXJuZWwub3JnDQo+IFN1Ympl
+Y3Q6IFJlOiBbUkZDIG5ldC1uZXh0IFBBVENIIDEvNF0gcGNpOiBBZGQgZmxhZyBpbmRpY2F0aW5n
+IGRldmljZSBoYXMNCj4gYmVlbiBhc3NpZ25lZCBieSBLVk0NCj4gDQo+IE9uIFRodSwgMjggSnVs
+IDIwMTEgMTY6MTE6MTcgKzAxMDANCj4gSWFuIENhbXBiZWxsIDxpamNAaGVsbGlvbi5vcmcudWs+
+IHdyb3RlOg0KPiANCj4gPiBPbiBXZWQsIDIwMTEtMDctMjcgYXQgMTU6MTcgLTA3MDAsIEdyZWcg
+Um9zZSB3cm90ZToNCj4gPiA+IERldmljZSBkcml2ZXJzIHRoYXQgY3JlYXRlIGFuZCBkZXN0cm95
+IFNSLUlPViB2aXJ0dWFsIGZ1bmN0aW9ucyB2aWENCj4gPiA+IGNhbGxzIHRvIHBjaV9lbmFibGVf
+c3Jpb3YoKSBhbmQgcGNpX2Rpc2FibGVfc3Jpb3YgY2FuIGNhdXNlDQo+IGNhdGFzdHJvcGhpYw0K
+PiA+ID4gZmFpbHVyZXMgaWYgdGhleSBhdHRlbXB0IHRvIGRlc3Ryb3kgVkZzIHdoaWxlIHRoZXkg
+YXJlIGFzc2lnbmVkIHRvDQo+ID4gPiBndWVzdCB2aXJ0dWFsIG1hY2hpbmVzLiAgQnkgYWRkaW5n
+IGEgZmxhZyBmb3IgdXNlIGJ5IHRoZSBLVk0gbW9kdWxlDQo+ID4gPiB0byBpbmRpY2F0ZSB0aGF0
+IGEgZGV2aWNlIGlzIGFzc2lnbmVkIGEgZGV2aWNlIGRyaXZlciBjYW4gY2hlY2sgdGhhdA0KPiA+
+ID4gZmxhZyBhbmQgYXZvaWQgZGVzdHJveWluZyBWRnMgd2hpbGUgdGhleSBhcmUgYXNzaWduZWQg
+YW5kIGF2b2lkIHN5c3RlbQ0KPiA+ID4gZmFpbHVyZXMuDQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9m
+Zi1ieTogR3JlZyBSb3NlIDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+DQo+ID4gPiAtLS0NCj4g
+PiA+DQo+ID4gPiAgaW5jbHVkZS9saW51eC9wY2kuaCAgICAgfCAgICAyICsrDQo+ID4NCj4gPiBJ
+IGFkZGVkIEplc3NlIGFuZCBsaW51eC1wY2kgdG8gQ0MuDQo+ID4NCj4gPiA+ICB2aXJ0L2t2bS9h
+c3NpZ25lZC1kZXYuYyB8ICAgIDIgKysNCj4gPiA+ICB2aXJ0L2t2bS9pb21tdS5jICAgICAgICB8
+ICAgIDQgKysrKw0KPiA+ID4gIDMgZmlsZXMgY2hhbmdlZCwgOCBpbnNlcnRpb25zKCspLCAwIGRl
+bGV0aW9ucygtKQ0KPiA+DQo+ID4gSSBzdXBwb3NlIHRoaXMgd291bGQgYWxzbyBiZSB1c2VmdWwg
+aW4gWGVuJ3MgcGNpYmFjayBvciBhbnkgb3RoZXIgc3lzdGVtDQo+ID4gd2hpY2ggZG9lcyBwYXNz
+dGhyb3VnaD8gKEtvbnJhZCBDQydkIGZvciBwY2liYWNrKQ0KPiA+DQo+ID4gSXMgdGhlcmUgc29t
+ZSBjb21tb24gbG93ZXIgbGF5ZXIgd2UgY291bGQgaG9vayB0aGlzIGluIHRvPyAoZG9lcw0KPiA+
+IGlvbW11X2F0dGFjaC9kZXRhY2hfZGV2aWNlIG1ha2Ugc2Vuc2U/KSBPciBzaGFsbCB3ZSBqdXN0
+IGFkZCB0aGUgZmxhZw0KPiA+IG1hbmlwdWxhdGlvbnMgdG8gcGNpYmFjayBhcyB3ZWxsPw0KPiA+
+DQo+ID4gSWFuLg0KPiA+DQo+ID4gPg0KPiA+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgv
+cGNpLmggYi9pbmNsdWRlL2xpbnV4L3BjaS5oDQo+ID4gPiBpbmRleCAyZDI5MjE4Li5hMjk3Y2Ey
+IDEwMDY0NA0KPiA+ID4gLS0tIGEvaW5jbHVkZS9saW51eC9wY2kuaA0KPiA+ID4gKysrIGIvaW5j
+bHVkZS9saW51eC9wY2kuaA0KPiA+ID4gQEAgLTE3NCw2ICsxNzQsOCBAQCBlbnVtIHBjaV9kZXZf
+ZmxhZ3Mgew0KPiA+ID4gIAlQQ0lfREVWX0ZMQUdTX01TSV9JTlRYX0RJU0FCTEVfQlVHID0gKF9f
+Zm9yY2UgcGNpX2Rldl9mbGFnc190KSAxLA0KPiA+ID4gIAkvKiBEZXZpY2UgY29uZmlndXJhdGlv
+biBpcyBpcnJldm9jYWJseSBsb3N0IGlmIGRpc2FibGVkIGludG8gRDMgKi8NCj4gPiA+ICAJUENJ
+X0RFVl9GTEFHU19OT19EMyA9IChfX2ZvcmNlIHBjaV9kZXZfZmxhZ3NfdCkgMiwNCj4gPiA+ICsJ
+LyogUHJvdmlkZSBpbmRpY2F0aW9uIGRldmljZSBpcyBhc3NpZ25lZCBieSBLVk0gKi8NCj4gPiA+
+ICsJUENJX0RFVl9GTEFHU19BU1NJR05FRCA9IChfX2ZvcmNlIHBjaV9kZXZfZmxhZ3NfdCkgNCwN
+Cj4gPiA+ICB9Ow0KPiANCj4gTG9va3MgZmluZSwgYnV0IEknZCBtYWtlIHRoZSBjb21tZW50IGxl
+c3MgcmVkdW5kYW50IHdpdGggdGhlIGNvZGUsIGUuZy4NCj4gInNldCB3aGVuIHRoZSBkZXZpY2Ug
+aXMgYXNzaWduZWQgdG8gYSBndWVzdCBpbnN0YW5jZSIgb3Igc29tZXN1Y2guDQoNClN1cmUsIHNv
+dW5kcyBnb29kIHRvIG1lLg0KDQpSZXYgMiBvZiB0aGUgUkZDIHBhdGNoZXMgd2lsbCBiZSBvdXQg
+aW4gYSBjb3VwbGUgb2Ygd2Vla3MsIEknbSBhd2F5IG5leHQgd2Vlay4NCg0KVGhhbmtzLA0KDQot
+IEdyZWcNCg0KPiANCj4gLS0NCj4gSmVzc2UgQmFybmVzLCBJbnRlbCBPcGVuIFNvdXJjZSBUZWNo
+bm9sb2d5IENlbnRlcg0KLS0NClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRo
+ZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8g
+bWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDov
+L3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoNCg==
