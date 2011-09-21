@@ -1,10 +1,11 @@
 From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH v2 3/3] net/fec: add imx6q enet support
-Date: Wed, 21 Sep 2011 19:58:22 +0800
-Message-ID: <20110921115821.GF28907@S2100-06.ap.freescale.net>
+Subject: Re: [PATCH v2 1/3] net/fec: change phy-reset-gpio request warning to
+ debug message
+Date: Wed, 21 Sep 2011 20:03:42 +0800
+Message-ID: <20110921120341.GG28907@S2100-06.ap.freescale.net>
 References: <1316603432-20032-1-git-send-email-shawn.guo@linaro.org>
- <1316603432-20032-4-git-send-email-shawn.guo@linaro.org>
- <20110921113239.GF1966@pengutronix.de>
+ <1316603432-20032-2-git-send-email-shawn.guo@linaro.org>
+ <20110921112555.GE1966@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: Shawn Guo <shawn.guo@linaro.org>,
@@ -16,44 +17,59 @@ Cc: Shawn Guo <shawn.guo@linaro.org>,
 	Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
 To: Wolfram Sang <w.sang@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:28897
-	"EHLO AM1EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752794Ab1IULsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 07:48:46 -0400
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:28794 "EHLO
+	TX2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752794Ab1IULyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 07:54:05 -0400
 Content-Disposition: inline
-In-Reply-To: <20110921113239.GF1966@pengutronix.de>
+In-Reply-To: <20110921112555.GE1966@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 21, 2011 at 01:32:39PM +0200, Wolfram Sang wrote:
+On Wed, Sep 21, 2011 at 01:25:55PM +0200, Wolfram Sang wrote:
+> Hi Shawn,
 > 
-> > +/* Controller has GBIT support */
-> > +#define FEC_QUIRK_HAS_GBIT		(1 << 3)
+> On Wed, Sep 21, 2011 at 07:10:30PM +0800, Shawn Guo wrote:
+> > FEC can work without a phy reset on some platforms, which means not
+> > very platform necessarily have a phy-reset gpio encoded in device tree.
+> > So it makes more sense to have the phy-reset-gpio request failure as
+> > a debug message rather than a warning.
 > 
-> Heh, this is not really a quirk, but a nice feature :) I think we can
-> drop QUIRK if we see driver_data more as "flags" instead of "quirks"?
-> Minor, though.
+> Or remove it entirely?
 > 
-As you have told, all these FEC_QUIRK_* are just flags actually.  The
-name was pick to keep the consistency, as they are all used for the
-same purpose.
+I would like to keep it.  When people want to debug at this point, they
+do not need to type the debug message.
 
-> >  MODULE_DEVICE_TABLE(of, fec_dt_ids);
-> > @@ -373,6 +383,7 @@ fec_restart(struct net_device *ndev, int duplex)
-> >  	int i;
-> >  	u32 temp_mac[2];
-> >  	u32 rcntl = OPT_FRAME_SIZE | 0x04;
-> > +	u32 ecntl = 0x2; /* ETHEREN */
+> > 
+> > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+> > ---
+> >  drivers/net/ethernet/freescale/fec.c |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+> > index 158b82e..a057abf 100644
+> > --- a/drivers/net/ethernet/freescale/fec.c
+> > +++ b/drivers/net/ethernet/freescale/fec.c
+> > @@ -1422,7 +1422,7 @@ static int __devinit fec_reset_phy(struct platform_device *pdev)
+> >  	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
+> >  	err = gpio_request_one(phy_reset, GPIOF_OUT_INIT_LOW, "phy-reset");
+> >  	if (err) {
+> > -		pr_warn("FEC: failed to get gpio phy-reset: %d\n", err);
+> > +		pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
+> >  		return err;
 > 
-> Also minor, but the patch looks like a good oportunity to start
-> replacing magic values with proper defines?
+> I also wanted to suggested to drop returning the error code, since it is
+> not an error anymore, strictly speaking. Then I noticed that the caller
+> does not check the error code. So, this could be added or turn the
+> function to void?
 > 
-There are already so many magic numbers.  It really deserves a separated
-patch.
+To me, keep the return value as integer is more scalable.  Someday,
+someone need to add more stuff in the function, or want to improve
+the caller to check return value, it plays.
 
-I heard that Uwe had a plan to do that some time ago.  He gives up
-now? :)
-
--- 
 Regards,
 Shawn
+
+> >  	}
+> >  	msleep(1);
+> > -- 
