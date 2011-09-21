@@ -1,41 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tg3: fix VLAN tagging regression
-Date: Wed, 21 Sep 2011 02:15:51 -0400 (EDT)
-Message-ID: <20110921.021551.1015460502805882165.davem@davemloft.net>
-References: <4E78FC38.7040903@kasperkp.dk>
-	<4E79168D.4080201@kasperkp.dk>
+Subject: Re: [net] ixgbe: fix possible null buffer error
+Date: Wed, 21 Sep 2011 02:16:09 -0400 (EDT)
+Message-ID: <20110921.021609.1547370353809586562.davem@davemloft.net>
+References: <1316567583-28673-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: kernel@kasperkp.dk
+Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, alexander.h.duyck@intel.com, stable@kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33913 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:33933 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331Ab1IUGRE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 02:17:04 -0400
-In-Reply-To: <4E79168D.4080201@kasperkp.dk>
+	with ESMTP id S1751878Ab1IUGSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 02:18:17 -0400
+In-Reply-To: <1316567583-28673-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kasper Pedersen <kernel@kasperkp.dk>
-Date: Wed, 21 Sep 2011 00:41:17 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 20 Sep 2011 18:13:03 -0700
 
-> commit 92cd3a17ce9c719abb4c28dee3438e0c641f8de4
->     tg3: Simplify tx bd assignments
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> broke VLAN tagging on outbound packets.
-> It ifdef'ed BCM_KERNEL_SUPPORTS_8021Q, but this
-> is not set anywhere. So vlan never gets set, and
-> all packets are sent with vlan=0.
+> It seems that at least one PPC machine would occasionally give a (valid) 0 as
+> the return value from dma_map, this caused the ixgbe code to not work
+> correctly.  A fix is pending in the PPC tree to not return 0 from dma map, but
+> we can also fix the driver to make sure we don't mess up in other arches as
+> well.
 > 
-> v2: We can just remove the test. vlan_tx_tag_present
-> is valid regardless of whether the 802.1q module
-> is built.
+> This patch is applicable to all current stable kernels.
 > 
-> Tested on BCM5721 rev 11.
+> Ref: https://bugzilla.redhat.com/show_bug.cgi?id=683611
 > 
-> Signed-off-by: Kasper Pedersen <kernel@kasperkp.dk>
+> Reported-by: Neil Horman <nhorman@redhat.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> CC: Alexander Duyck <alexander.h.duyck@intel.com>
+> CC: stable@kernel.org
+> Tested-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
