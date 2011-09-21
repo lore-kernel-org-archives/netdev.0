@@ -1,99 +1,32 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: RFS issue: no HW filter for paused stream
-Date: Wed, 21 Sep 2011 16:09:02 +0100
-Message-ID: <1316617742.2760.18.camel@bwh-desktop>
-References: <CAP7N4Kfd9TOPr_V6+R9yVtK80eGWbkAvPE8BStG0+WhvJHaLGg@mail.gmail.com>
-	 <CAP7N4Kes9=VdRV8NHvk03SBg5GbohgdbGqKPABCfYbVyzZ+1ng@mail.gmail.com>
-	 <CA+mtBx9K8MY+WcFZpQp_85rcf316jrPpNgzqSzgMLzy7TC6eXQ@mail.gmail.com>
-	 <1316447572.2764.21.camel@bwh-desktop>
-	 <4E783855.4020907@dev.mellanox.co.il>
+From: Daniel Baluta <daniel.baluta@gmail.com>
+Subject: Re: TCP_DELACK_MIN vs TCP_ATO_MIN
+Date: Wed, 21 Sep 2011 18:28:19 +0300
+Message-ID: <CAEnQRZBdoPBn1bidga5c89n-Oru2JzrQa9bTj_tBG4HxS33PyA@mail.gmail.com>
+References: <CAEnQRZAObcdhikY6GzG3mC1KZjgK8Xp5LzNetczmZP=BRPqN6w@mail.gmail.com>
+	<CALJfu6MnV0se8YCTWt65=_4PcOhKsbvUgRmaNxbjf7La+4ar4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, oren@mellanox.co.il,
-	liranl@mellanox.co.il, netdev@vger.kernel.org,
-	Diego Crupnicoff <Diego@Mellanox.com>
-To: amirv@mellanox.co.il
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	kernelnewbies <kernelnewbies@kernelnewbies.org>
+To: rohan puri <rohan.puri15@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:7673 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751925Ab1IUPJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 11:09:07 -0400
-In-Reply-To: <4E783855.4020907@dev.mellanox.co.il>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:34627 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750861Ab1IUP2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 11:28:21 -0400
+Received: by wyg34 with SMTP id 34so2019032wyg.19
+        for <netdev@vger.kernel.org>; Wed, 21 Sep 2011 08:28:20 -0700 (PDT)
+In-Reply-To: <CALJfu6MnV0se8YCTWt65=_4PcOhKsbvUgRmaNxbjf7La+4ar4g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-09-20 at 09:53 +0300, Amir Vadai wrote:
-> This will unset the current CPU of the rflow that belongs to the desired 
-> CPU.
-> The problem is when the stream resumes and it goes to the wrong RXQ - in 
-> our HW, it will be according to RSS, as long as there is no specific 
-> flow steering rule for the stream.
-
-Sorry, yes.  Told you I didn't test my patch!
-
-> We need to unset the current CPU of the rflow of the actual RXQ that the 
-> packet arrived at:
-[...]
-> Or even better, not set it in the first place - but I'm not sure I 
-> undersdtand the implications on RPS:
+> Now the default value is of both the macros is same.
 >
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 4b9981c..748acdb 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2654,7 +2654,7 @@ set_rps_cpu(struct net_device *dev, struct sk_buff 
-> *skb,
->   {
->          u16 tcpu;
-> 
-> -   tcpu = rflow->cpu = next_cpu;
-> + tcpu = next_cpu;
->          if (tcpu != RPS_NO_CPU) {
->   #ifdef CONFIG_RFS_ACCEL
->                  struct netdev_rx_queue *rxqueue;
-> 
-> 
+> But if you want to make delayed ack timeout configurable, then I think you
+> should give proc interface for TCP_DELACK_MIN.
 
-But that means we never move the flow to a new CPU in the non-
-accelerated case.  So maybe the proper change would be:
+Thanks Rohan. Then also I have to export TCP_DELACK_MAX since I think
+ato cannot grow over this value.
 
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2652,10 +2652,7 @@ static struct rps_dev_flow *
- set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 	    struct rps_dev_flow *rflow, u16 next_cpu)
- {
--	u16 tcpu;
--
--	tcpu = rflow->cpu = next_cpu;
--	if (tcpu != RPS_NO_CPU) {
-+	if (next_cpu != RPS_NO_CPU) {
- #ifdef CONFIG_RFS_ACCEL
- 		struct netdev_rx_queue *rxqueue;
- 		struct rps_dev_flow_table *flow_table;
-@@ -2683,16 +2680,16 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 			goto out;
- 		old_rflow = rflow;
- 		rflow = &flow_table->flows[flow_id];
--		rflow->cpu = next_cpu;
- 		rflow->filter = rc;
- 		if (old_rflow->filter == rflow->filter)
- 			old_rflow->filter = RPS_NO_FILTER;
- 	out:
- #endif
- 		rflow->last_qtail =
--			per_cpu(softnet_data, tcpu).input_queue_head;
-+			per_cpu(softnet_data, next_cpu).input_queue_head;
- 	}
- 
-+	rflow->cpu = next_cpu;
- 	return rflow;
- }
- 
---- END ---
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+thanks,
+Daniel.
