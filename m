@@ -1,38 +1,17 @@
-From: <Christele.Moussu@ac-orleans-tours.fr>
-Subject: FYI
-Date: Wed, 21 Sep 2011 09:51:05 -0300
-Message-ID: <a4be38b84a04c75f.4e79b389__31803.4466043629$1316611057$gmane$org@ac-orleans-tours.fr>
-Reply-To: ups-cs1@helixnet.cn
+From: jane ferguson <jane.ferguson2@rediffmail.com>
+Subject: Hello my love, My name is jane ferguson,i come across and read through your profile today and i became interested in you,i will also like to know you the more,and i want you to send an e-mail to my e-mail address so i can give you my picture for you to know whom i am and for the both of us to know each other very well and better in life,and we can achieve it in future because ture love and feeling means alot in future.Here is my private e-mail address you can contact me with it.(jane.ferguson@gala.net )I am waiting for your mail to my e-mail address above and aslo, Remember the distance or colour does not matter but love,feeling,e-motions and sympathetic love matters alot in life. Thanks,and i promise to be honest and to keep a very good relationship with you. jane.             ja
+ ne.ferguson@gala.net
+Date: Wed, 21 Sep 2011 07:08:30 -0700 (PDT)
+Message-ID: <1316614110.49028.YahooMailRC@web181211.mail.ne1.yahoo.com>
+Reply-To: jane ferguson <jane.ferguson@gala.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from datura.ac-orleans-tours.fr ([195.83.89.160]:57244 "EHLO
-	datura.ac-orleans-tours.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752233Ab1IUNQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 09:16:57 -0400
-Content-Language: en
-Content-Disposition: inline
+Received: from nm11-vm0.access.bullet.mail.sp2.yahoo.com ([98.139.44.124]:23189
+	"HELO nm11-vm0.access.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751109Ab1IUOIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 10:08:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-After much attempts to reach you on phone, I deemed it necessary and urgent to contact you via your e-mail address and to notify you finally about your outstanding compensation payment.
-
-During our last annual calculation of your banking activities we have realized that you are eligible to receive a compensation payment of $2,811,041.00 USD.
-
-This compensation is being made to all of you who have suffered loss as a result of fraud, accident or illness.
-
-For more info, contact the assigned UPS agent for the delivery of your cashier check.
-
-Name: Ford Hamilton
-Tel: +2348072178475
-E-mail:  ups-cs1@helixnet.cn
-
-Please take note that you will pay a shipping/handling fee of $95.00 USD to UPS.
-
-Thank you for your patience.
-Moussu Christele
-United Nation Human Settlement Programme
