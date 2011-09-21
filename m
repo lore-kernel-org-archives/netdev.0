@@ -1,32 +1,48 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: TCP_DELACK_MIN vs TCP_ATO_MIN
-Date: Wed, 21 Sep 2011 18:28:19 +0300
-Message-ID: <CAEnQRZBdoPBn1bidga5c89n-Oru2JzrQa9bTj_tBG4HxS33PyA@mail.gmail.com>
-References: <CAEnQRZAObcdhikY6GzG3mC1KZjgK8Xp5LzNetczmZP=BRPqN6w@mail.gmail.com>
-	<CALJfu6MnV0se8YCTWt65=_4PcOhKsbvUgRmaNxbjf7La+4ar4g@mail.gmail.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: [PATCH v3 2/3] net/fec: fix fec1 check in fec_enet_mii_init()
+Date: Thu, 22 Sep 2011 00:07:49 +0800
+Message-ID: <1316621270-27805-3-git-send-email-shawn.guo@linaro.org>
+References: <1316621270-27805-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	kernelnewbies <kernelnewbies@kernelnewbies.org>
-To: rohan puri <rohan.puri15@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<patches@linaro.org>, Shawn Guo <shawn.guo@linaro.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:34627 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861Ab1IUP2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 11:28:21 -0400
-Received: by wyg34 with SMTP id 34so2019032wyg.19
-        for <netdev@vger.kernel.org>; Wed, 21 Sep 2011 08:28:20 -0700 (PDT)
-In-Reply-To: <CALJfu6MnV0se8YCTWt65=_4PcOhKsbvUgRmaNxbjf7La+4ar4g@mail.gmail.com>
+Received: from db3ehsobe002.messaging.microsoft.com ([213.199.154.140]:53513
+	"EHLO DB3EHSOBE002.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752392Ab1IUP6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 11:58:51 -0400
+In-Reply-To: <1316621270-27805-1-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Now the default value is of both the macros is same.
->
-> But if you want to make delayed ack timeout configurable, then I think you
-> should give proc interface for TCP_DELACK_MIN.
+In function fec_enet_mii_init(), it uses non-zero pdev->id as part
+of the condition to check the second fec instance (fec1).  This works
+before the driver supports device tree probe.  But in case of device
+tree probe, pdev->id is -1 which is also non-zero, so the logic becomes
+broken when device tree probe gets supported.
 
-Thanks Rohan. Then also I have to export TCP_DELACK_MAX since I think
-ato cannot grow over this value.
+The patch change the logic to check "pdev->id > 0" as the part of the
+condition for identifying fec1.
 
-thanks,
-Daniel.
+Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+---
+ drivers/net/ethernet/freescale/fec.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 9c1d059..2bbe6a5 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -996,7 +996,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
+ 	 * mdio interface in board design, and need to be configured by
+ 	 * fec0 mii_bus.
+ 	 */
+-	if ((id_entry->driver_data & FEC_QUIRK_ENET_MAC) && pdev->id) {
++	if ((id_entry->driver_data & FEC_QUIRK_ENET_MAC) && pdev->id > 0) {
+ 		/* fec1 uses fec0 mii_bus */
+ 		fep->mii_bus = fec0_mii_bus;
+ 		return 0;
+-- 
+1.7.4.1
