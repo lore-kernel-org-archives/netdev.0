@@ -1,37 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/smsc911x: Correctly configure 16-bit register
- access from DT
-Date: Wed, 21 Sep 2011 15:18:59 -0400 (EDT)
-Message-ID: <20110921.151859.1493899537665203423.davem@davemloft.net>
-References: <1315910969-4018-1-git-send-email-dave.martin@linaro.org>
+Subject: Re: [PATCH] xfrm: Perform a replay check after return from async
+ codepaths
+Date: Wed, 21 Sep 2011 15:21:17 -0400 (EDT)
+Message-ID: <20110921.152117.752680402461232454.davem@davemloft.net>
+References: <20110921112158.GB18648@gondor.apana.org.au>
+	<20110921115727.GX1808@secunet.com>
+	<20110921122442.GA19162@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, patches@linaro.org,
-	steve.glendinning@smsc.com, shawn.guo@linaro.org,
-	devicetree-discuss@lists.ozlabs.org
-To: dave.martin@linaro.org
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: herbert@gondor.hengli.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35982 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:35990 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751476Ab1IUTVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 15:21:09 -0400
-In-Reply-To: <1315910969-4018-1-git-send-email-dave.martin@linaro.org>
+	with ESMTP id S1751567Ab1IUTVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 15:21:41 -0400
+In-Reply-To: <20110921122442.GA19162@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Martin <dave.martin@linaro.org>
-Date: Tue, 13 Sep 2011 11:49:29 +0100
+From: Herbert Xu <herbert@gondor.hengli.com.au>
+Date: Wed, 21 Sep 2011 22:24:42 +1000
 
-> The SMSC911X_USE_16BIT needs to be set when using 16-bit register
-> access.  However, currently no flag is set if the device tree
-> doesn't specify 32-bit access, resulting in a BUG() and a non-
-> working driver when 16-bit register access is configured for
-> smsc911x in the DT.
+> On Wed, Sep 21, 2011 at 01:57:27PM +0200, Steffen Klassert wrote:
+>>
+>> Well, I've got pretty reproduceable crashes when the sender of
+>> the IPsec packets introduces reorder, that's why I noticed this.
+>> 
+>> The problem is, that the replay check function is called before
+>> the asynchronous crypto processing and the replay advance function
+>> is called after resume from the asynchronous processing. So
+>> we can submit multiple packets to the crypto layer without
+>> updating the replay window. This means that the replay check
+>> function accepts packets that should have been dropped, because
+>> they are reordered and more than 'replay window size' packets
+>> to late. This leads to a crash as we try to update the replay
+>> window beyond the allocated bounds.
 > 
-> This patch should set the SMSC911X_USE_16BIT flag in a manner
-> consistent with the documented DT bindings.
+> OK I see what you mean now.
 > 
-> Signed-off-by: Dave Martin <dave.martin@linaro.org>
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied to net-next, thanks.
+Applied, thanks everyone.
