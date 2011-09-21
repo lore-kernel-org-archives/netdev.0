@@ -1,39 +1,41 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH v3 0/3] add fec support for imx6q
-Date: Thu, 22 Sep 2011 00:07:47 +0800
-Message-ID: <1316621270-27805-1-git-send-email-shawn.guo@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 39/57] net: irq: Remove IRQF_DISABLED
+Date: Wed, 21 Sep 2011 13:40:26 -0400 (EDT)
+Message-ID: <20110921.134026.121607758721728538.davem@davemloft.net>
+References: <1316597339-29861-1-git-send-email-yong.zhang0@gmail.com>
+	<1316597339-29861-40-git-send-email-yong.zhang0@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<patches@linaro.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:17045 "EHLO
-	TX2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752403Ab1IUQC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 12:02:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tglx@linutronix.de, perex@perex.cz, leitao@linux.vnet.ibm.com,
+	olof@lixom.net, nico@fluxnic.net, steve.glendinning@smsc.com,
+	geoff@infradead.org, t.sailer@alumni.ethz.ch, jreuter@yaina.de,
+	klaus.kudielka@ieee.org, jpr@f6fbb.org, samuel@sortiz.org,
+	chunkeey@googlemail.com, linville@tuxdriver.com,
+	jeffrey.t.kirsher@intel.com, jpirko@redhat.com, bob.liu@analog.com,
+	grundler@parisc-linux.org, ralf@linux-mips.org, blogic@openwrt.org,
+	marc@tensilica.com, lucas.demarchi@profusion.mobi, joe@perches.com,
+	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org,
+	cbe-oss-dev@lists.ozlabs.org, linux-hams@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: yong.zhang0@gmail.com
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1316597339-29861-40-git-send-email-yong.zhang0@gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series adds imx6q enet support.  The imx6q enet is a derivative of
-imx28 enet controller.  It fixed the frame endian issue found on imx28,
-and added 1 Gbps support.
+From: Yong Zhang <yong.zhang0@gmail.com>
+Date: Wed, 21 Sep 2011 17:28:40 +0800
 
-Changes since v2:
- * Refine patch #1 to get fec_reset_phy() return void
+> Since commit [c58543c8: genirq: Run irq handlers with interrupts disabled],
+> We run all interrupt handlers with interrupts disabled
+> and we even check and yell when an interrupt handler
+> returns with interrupts enabled (see commit [b738a50a:
+> genirq: Warn when handler enables interrupts]).
+> 
+> So now this flag is a NOOP and can be removed.
+> 
+> Signed-off-by: Yong Zhang <yong.zhang0@gmail.com>
 
-Changes since v1:
- * Fix typo pointed out by Francois Romieu
- * Drop patch #3 in the v1
- * Rebase on net-next tree
-
-Thanks.
-
-Shawn Guo (3):
-      net/fec: fec_reset_phy() does not need to always succeed
-      net/fec: fix fec1 check in fec_enet_mii_init()
-      net/fec: add imx6q enet support
-
- drivers/net/ethernet/freescale/Kconfig |    9 ++--
- drivers/net/ethernet/freescale/fec.c   |   76 +++++++++++++++++++++++---------
- 2 files changed, 59 insertions(+), 26 deletions(-)
+Acked-by: David S. Miller <davem@davemloft.net>
