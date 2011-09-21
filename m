@@ -1,44 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net] ixgbe: fix possible null buffer error
-Date: Wed, 21 Sep 2011 02:16:09 -0400 (EDT)
-Message-ID: <20110921.021609.1547370353809586562.davem@davemloft.net>
-References: <1316567583-28673-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2] can/sja1000: driver for PEAK PCAN
+	PCI/PCIe cards
+Date: Wed, 21 Sep 2011 02:29:24 -0400 (EDT)
+Message-ID: <20110921.022924.1141068220643792065.davem@davemloft.net>
+References: <4E6F0336.1030504@grandegger.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, alexander.h.duyck@intel.com, stable@kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33933 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751878Ab1IUGSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 02:18:17 -0400
-In-Reply-To: <1316567583-28673-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Thomas.Wiedemann-8kCRUXUQ4vU@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org
+To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4E6F0336.1030504-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 20 Sep 2011 18:13:03 -0700
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Date: Tue, 13 Sep 2011 09:16:06 +0200
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> This patch add the peak_pci driver for the PCAN PCI/PCIe cards (1, 2, 3
+> or 4 channels) from PEAK Systems (http://www.peak-system.com).
 > 
-> It seems that at least one PPC machine would occasionally give a (valid) 0 as
-> the return value from dma_map, this caused the ixgbe code to not work
-> correctly.  A fix is pending in the PPC tree to not return 0 from dma map, but
-> we can also fix the driver to make sure we don't mess up in other arches as
-> well.
-> 
-> This patch is applicable to all current stable kernels.
-> 
-> Ref: https://bugzilla.redhat.com/show_bug.cgi?id=683611
-> 
-> Reported-by: Neil Horman <nhorman@redhat.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> CC: Alexander Duyck <alexander.h.duyck@intel.com>
-> CC: stable@kernel.org
-> Tested-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Tested-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 
-Applied.
+Applied, thanks.
