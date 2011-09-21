@@ -1,61 +1,71 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: MTU and TCP transmit offload.
-Date: Wed, 21 Sep 2011 15:11:56 -0700
-Message-ID: <4E7A612C.9090508@hp.com>
-References: <4E7A51EE.8010403@candelatech.com>
+Date: Wed, 21 Sep 2011 15:16:05 -0700
+Message-ID: <4E7A6225.8040902@candelatech.com>
+References: <4E7A51EE.8010403@candelatech.com> <4E7A612C.9090508@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:19497 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751243Ab1IUWL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 18:11:58 -0400
-In-Reply-To: <4E7A51EE.8010403@candelatech.com>
+Received: from mail.candelatech.com ([208.74.158.172]:50207 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964Ab1IUWQS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 18:16:18 -0400
+In-Reply-To: <4E7A612C.9090508@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/21/2011 02:06 PM, Ben Greear wrote:
-> We saw something interesting while doing some testing
-> on 3.0.4.
+On 09/21/2011 03:11 PM, Rick Jones wrote:
+> On 09/21/2011 02:06 PM, Ben Greear wrote:
+>> We saw something interesting while doing some testing
+>> on 3.0.4.
+>>
+>> We configured 2 Ethernet NICs with standard 1500 MTU, and added
+>> a mac-vlan on each, with MTU of 300. The goal was to generate as
+>> many ~300 byte TCP packets as possible, for load testing purposes.
+>> We configured our tool to open sockets on the mac-vlans and send/receive
+>> TCP (IPv4) traffic.
 >
-> We configured 2 Ethernet NICs with standard 1500 MTU, and added
-> a mac-vlan on each, with MTU of 300. The goal was to generate as
-> many ~300 byte TCP packets as possible, for load testing purposes.
-> We configured our tool to open sockets on the mac-vlans and send/receive
-> TCP (IPv4) traffic.
+> Presumably one could instead set static PathMTU entries in the routing tables and accomplish the same thing as you did with the mac-vlans?
+>
+>> This actually seems to work quite nicely, allowing user-space to
+>> do large writes (24k in our case), and it appears have lots of
+>> small packets on the wire. We still need to sniff with external
+>> system to verify this..but packets-per-second counters look good.
+>>
+>> Evidently this all works because macvlans know that the NIC
+>> can do TSO, and the '300' MTU is passed in the big packet
+>> given to the NIC.
+>>
+>> This got me thinking...at least for my purposes, it would be
+>> nice to have a per-socket 'MTU' setting. The idea is that
+>> you could ask the NIC to do the TSO at whatever 'mtu' you
+>> wanted, without having to resort to mac-vlans with artificially
+>> small MTU.
+>>
+>> So, is there any interest in supporting such a socket option?
+>>
+>> I can't think of any use besides TCP traffic load testing, but
+>> perhaps someone else can think of one? Or, is load-testing
+>> enough?
+>
+> Isn't that covered by setsockopt() support for TCP_MAX_SEG? With TSO what gets passed to the NIC isn't the MTU, but the connection's MSS derived (in part at
+> least) from the MTU of the egress interface. If one had made a setsockopt(TCP_MAX_SEG) call prior to the connect() or listen() call, presumably that would have
+> influenced the MSS exchange at connection establishment.
 
-Presumably one could instead set static PathMTU entries in the routing 
-tables and accomplish the same thing as you did with the mac-vlans?
+Ohh, that looks promising!
 
-> This actually seems to work quite nicely, allowing user-space to
-> do large writes (24k in our case), and it appears have lots of
-> small packets on the wire. We still need to sniff with external
-> system to verify this..but packets-per-second counters look good.
->
-> Evidently this all works because macvlans know that the NIC
-> can do TSO, and the '300' MTU is passed in the big packet
-> given to the NIC.
->
-> This got me thinking...at least for my purposes, it would be
-> nice to have a per-socket 'MTU' setting. The idea is that
-> you could ask the NIC to do the TSO at whatever 'mtu' you
-> wanted, without having to resort to mac-vlans with artificially
-> small MTU.
->
-> So, is there any interest in supporting such a socket option?
->
-> I can't think of any use besides TCP traffic load testing, but
-> perhaps someone else can think of one? Or, is load-testing
-> enough?
+I'll give that a try.
 
-Isn't that covered by setsockopt() support for TCP_MAX_SEG?  With TSO 
-what gets passed to the NIC isn't the MTU, but the connection's MSS 
-derived (in part at least) from the MTU of the egress interface.  If one 
-had made a setsockopt(TCP_MAX_SEG) call prior to the connect() or 
-listen() call, presumably that would have influenced the MSS exchange at 
-connection establishment.
+Thanks,
+Ben
 
-rick jones
+>
+> rick jones
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
