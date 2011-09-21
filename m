@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/8] ixgbe: avoid HW lockup when adapter is reset with Tx work pending
-Date: Wed, 21 Sep 2011 03:12:52 -0700
-Message-ID: <1316599974-23205-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 8/8] ixgbe: remove global reset to the MAC
+Date: Wed, 21 Sep 2011 03:12:54 -0700
+Message-ID: <1316599974-23205-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -9,386 +9,69 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:4576 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752973Ab1IUKNA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Sep 2011 06:13:00 -0400
+	id S1752992Ab1IUKND (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Sep 2011 06:13:03 -0400
 In-Reply-To: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This change is meant to avoid a hardware lockup when Tx work is still
-pending and we request a reset.
+Reloading FW during resets can cause issues. Remove the full reset
+as it is not needed.
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |   15 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |   13 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  145 +++++++++++++----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |   12 +-
- 6 files changed, 104 insertions(+), 85 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c |   19 ++-----------------
+ 1 files changed, 2 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 22504f2..b816a62 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -759,7 +759,9 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
- 	u8  analog_val;
- 
- 	/* Call adapter stop to disable tx/rx and clear interrupts */
--	hw->mac.ops.stop_adapter(hw);
-+	status = hw->mac.ops.stop_adapter(hw);
-+	if (status != 0)
-+		goto reset_hw_out;
- 
- 	/*
- 	 * Power up the Atlas Tx lanes if they are currently powered down.
-@@ -802,19 +804,12 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
- 		phy_status = hw->phy.ops.init(hw);
- 		if (phy_status == IXGBE_ERR_SFP_NOT_SUPPORTED)
- 			goto reset_hw_out;
--		else if (phy_status == IXGBE_ERR_SFP_NOT_PRESENT)
--			goto no_phy_reset;
-+		if (phy_status == IXGBE_ERR_SFP_NOT_PRESENT)
-+			goto mac_reset_top;
- 
- 		hw->phy.ops.reset(hw);
- 	}
- 
--no_phy_reset:
--	/*
--	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
--	 * access and verify no pending requests before reset
--	 */
--	ixgbe_disable_pcie_master(hw);
--
- mac_reset_top:
- 	/*
- 	 * Issue global reset to the MAC.  This needs to be a SW reset.
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index a5ff435..5abd520 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -910,7 +910,12 @@ static s32 ixgbe_reset_hw_82599(struct ixgbe_hw *hw)
- 	bool link_up = false;
- 
- 	/* Call adapter stop to disable tx/rx and clear interrupts */
--	hw->mac.ops.stop_adapter(hw);
-+	status = hw->mac.ops.stop_adapter(hw);
-+	if (status != 0)
-+		goto reset_hw_out;
-+
-+	/* flush pending Tx transactions */
-+	ixgbe_clear_tx_pending(hw);
- 
- 	/* PHY ops must be identified and initialized prior to reset */
- 
-@@ -933,12 +938,6 @@ static s32 ixgbe_reset_hw_82599(struct ixgbe_hw *hw)
- 	if (hw->phy.reset_disable == false && hw->phy.ops.reset != NULL)
- 		hw->phy.ops.reset(hw);
- 
--	/*
--	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
--	 * access and verify no pending requests before reset
--	 */
--	ixgbe_disable_pcie_master(hw);
--
- mac_reset_top:
- 	/*
- 	 * Issue global reset to the MAC. Needs to be SW reset if link is up.
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 91986af..84ed9ef 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -61,6 +61,7 @@ static s32 ixgbe_write_eeprom_buffer_bit_bang(struct ixgbe_hw *hw, u16 offset,
- 					     u16 words, u16 *data);
- static s32 ixgbe_detect_eeprom_page_size_generic(struct ixgbe_hw *hw,
- 						 u16 offset);
-+static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
- 
- /**
-  *  ixgbe_start_hw_generic - Prepare hardware for Tx/Rx
-@@ -496,7 +497,6 @@ void ixgbe_set_lan_id_multi_port_pcie(struct ixgbe_hw *hw)
-  **/
- s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw)
- {
--	u32 number_of_queues;
- 	u32 reg_val;
- 	u16 i;
- 
-@@ -507,35 +507,35 @@ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw)
- 	hw->adapter_stopped = true;
- 
- 	/* Disable the receive unit */
--	reg_val = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
--	reg_val &= ~(IXGBE_RXCTRL_RXEN);
--	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, reg_val);
--	IXGBE_WRITE_FLUSH(hw);
--	usleep_range(2000, 4000);
-+	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, 0);
- 
--	/* Clear interrupt mask to stop from interrupts being generated */
-+	/* Clear interrupt mask to stop interrupts from being generated */
- 	IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_IRQ_CLEAR_MASK);
- 
--	/* Clear any pending interrupts */
-+	/* Clear any pending interrupts, flush previous writes */
- 	IXGBE_READ_REG(hw, IXGBE_EICR);
- 
- 	/* Disable the transmit unit.  Each queue must be disabled. */
--	number_of_queues = hw->mac.max_tx_queues;
--	for (i = 0; i < number_of_queues; i++) {
--		reg_val = IXGBE_READ_REG(hw, IXGBE_TXDCTL(i));
--		if (reg_val & IXGBE_TXDCTL_ENABLE) {
--			reg_val &= ~IXGBE_TXDCTL_ENABLE;
--			IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(i), reg_val);
--		}
-+	for (i = 0; i < hw->mac.max_tx_queues; i++)
-+		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(i), IXGBE_TXDCTL_SWFLSH);
-+
-+	/* Disable the receive unit by stopping each queue */
-+	for (i = 0; i < hw->mac.max_rx_queues; i++) {
-+		reg_val = IXGBE_READ_REG(hw, IXGBE_RXDCTL(i));
-+		reg_val &= ~IXGBE_RXDCTL_ENABLE;
-+		reg_val |= IXGBE_RXDCTL_SWFLSH;
-+		IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(i), reg_val);
- 	}
- 
-+	/* flush all queues disables */
-+	IXGBE_WRITE_FLUSH(hw);
-+	usleep_range(1000, 2000);
-+
- 	/*
- 	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
- 	 * access and verify no pending requests
- 	 */
--	ixgbe_disable_pcie_master(hw);
--
--	return 0;
-+	return ixgbe_disable_pcie_master(hw);
- }
- 
- /**
-@@ -2458,75 +2458,57 @@ out:
-  *  bit hasn't caused the master requests to be disabled, else 0
-  *  is returned signifying master requests disabled.
-  **/
--s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
-+static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
- {
- 	struct ixgbe_adapter *adapter = hw->back;
--	u32 i;
--	u32 reg_val;
--	u32 number_of_queues;
- 	s32 status = 0;
--	u16 dev_status = 0;
-+	u32 i;
-+	u16 value;
-+
-+	/* Always set this bit to ensure any future transactions are blocked */
-+	IXGBE_WRITE_REG(hw, IXGBE_CTRL, IXGBE_CTRL_GIO_DIS);
- 
--	/* Just jump out if bus mastering is already disabled */
-+	/* Exit if master requests are blocked */
- 	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
- 		goto out;
- 
--	/* Disable the receive unit by stopping each queue */
--	number_of_queues = hw->mac.max_rx_queues;
--	for (i = 0; i < number_of_queues; i++) {
--		reg_val = IXGBE_READ_REG(hw, IXGBE_RXDCTL(i));
--		if (reg_val & IXGBE_RXDCTL_ENABLE) {
--			reg_val &= ~IXGBE_RXDCTL_ENABLE;
--			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(i), reg_val);
--		}
--	}
--
--	reg_val = IXGBE_READ_REG(hw, IXGBE_CTRL);
--	reg_val |= IXGBE_CTRL_GIO_DIS;
--	IXGBE_WRITE_REG(hw, IXGBE_CTRL, reg_val);
--
-+	/* Poll for master request bit to clear */
- 	for (i = 0; i < IXGBE_PCI_MASTER_DISABLE_TIMEOUT; i++) {
--		if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
--			goto check_device_status;
- 		udelay(100);
-+		if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
-+			goto out;
- 	}
- 
-+	/*
-+	 * Two consecutive resets are required via CTRL.RST per datasheet
-+	 * 5.2.5.3.2 Master Disable.  We set a flag to inform the reset routine
-+	 * of this need.  The first reset prevents new master requests from
-+	 * being issued by our device.  We then must wait 1usec or more for any
-+	 * remaining completions from the PCIe bus to trickle in, and then reset
-+	 * again to clear out any effects they may have had on our device.
-+	 */
- 	hw_dbg(hw, "GIO Master Disable bit didn't clear - requesting resets\n");
--	status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
-+	hw->mac.flags |= IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
- 
- 	/*
- 	 * Before proceeding, make sure that the PCIe block does not have
- 	 * transactions pending.
- 	 */
--check_device_status:
- 	for (i = 0; i < IXGBE_PCI_MASTER_DISABLE_TIMEOUT; i++) {
--		pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_STATUS,
--							 &dev_status);
--		if (!(dev_status & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
--			break;
- 		udelay(100);
-+		pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_STATUS,
-+							 &value);
-+		if (!(value & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
-+			goto out;
- 	}
- 
--	if (i == IXGBE_PCI_MASTER_DISABLE_TIMEOUT)
--		hw_dbg(hw, "PCIe transaction pending bit also did not clear.\n");
--	else
--		goto out;
--
--	/*
--	 * Two consecutive resets are required via CTRL.RST per datasheet
--	 * 5.2.5.3.2 Master Disable.  We set a flag to inform the reset routine
--	 * of this need.  The first reset prevents new master requests from
--	 * being issued by our device.  We then must wait 1usec for any
--	 * remaining completions from the PCIe bus to trickle in, and then reset
--	 * again to clear out any effects they may have had on our device.
--	 */
--	 hw->mac.flags |= IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
-+	hw_dbg(hw, "PCIe transaction pending bit also did not clear.\n");
-+	status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
- 
- out:
- 	return status;
- }
- 
--
- /**
-  *  ixgbe_acquire_swfw_sync - Acquire SWFW semaphore
-  *  @hw: pointer to hardware structure
-@@ -3509,3 +3491,44 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
- out:
- 	return ret_val;
- }
-+
-+/**
-+ * ixgbe_clear_tx_pending - Clear pending TX work from the PCIe fifo
-+ * @hw: pointer to the hardware structure
-+ *
-+ * The 82599 and x540 MACs can experience issues if TX work is still pending
-+ * when a reset occurs.  This function prevents this by flushing the PCIe
-+ * buffers on the system.
-+ **/
-+void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
-+{
-+	u32 gcr_ext, hlreg0;
-+
-+	/*
-+	 * If double reset is not requested then all transactions should
-+	 * already be clear and as such there is no work to do
-+	 */
-+	if (!(hw->mac.flags & IXGBE_FLAGS_DOUBLE_RESET_REQUIRED))
-+		return;
-+
-+	/*
-+	 * Set loopback enable to prevent any transmits from being sent
-+	 * should the link come up.  This assumes that the RXCTRL.RXEN bit
-+	 * has already been cleared.
-+	 */
-+	hlreg0 = IXGBE_READ_REG(hw, IXGBE_HLREG0);
-+	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0 | IXGBE_HLREG0_LPBK);
-+
-+	/* initiate cleaning flow for buffers in the PCIe transaction layer */
-+	gcr_ext = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
-+	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT,
-+			gcr_ext | IXGBE_GCR_EXT_BUFFERS_CLEAR);
-+
-+	/* Flush all writes and allow 20usec for all transactions to clear */
-+	IXGBE_WRITE_FLUSH(hw);
-+	udelay(20);
-+
-+	/* restore previous register values */
-+	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr_ext);
-+	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
-+}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index f24fd64..863f9c1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -81,7 +81,6 @@ s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw);
- s32 ixgbe_validate_mac_addr(u8 *mac_addr);
- s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask);
- void ixgbe_release_swfw_sync(struct ixgbe_hw *hw, u16 mask);
--s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
- s32 ixgbe_get_san_mac_addr_generic(struct ixgbe_hw *hw, u8 *san_mac_addr);
- s32 ixgbe_set_vmdq_generic(struct ixgbe_hw *hw, u32 rar, u32 vmdq);
- s32 ixgbe_clear_vmdq_generic(struct ixgbe_hw *hw, u32 rar, u32 vmdq);
-@@ -101,6 +100,7 @@ void ixgbe_set_vlan_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf);
- s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
- s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
- 				 u8 build, u8 ver);
-+void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
- 
- void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
- 			     u32 headroom, int strategy);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 56a7adf..b119cd6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -770,6 +770,7 @@
- #define IXGBE_GCR_CAP_VER2              0x00040000
- 
- #define IXGBE_GCR_EXT_MSIX_EN           0x80000000
-+#define IXGBE_GCR_EXT_BUFFERS_CLEAR     0x40000000
- #define IXGBE_GCR_EXT_VT_MODE_16        0x00000001
- #define IXGBE_GCR_EXT_VT_MODE_32        0x00000002
- #define IXGBE_GCR_EXT_VT_MODE_64        0x00000003
-@@ -1822,6 +1823,7 @@ enum {
- #define IXGBE_RXCTRL_RXEN       0x00000001  /* Enable Receiver */
- #define IXGBE_RXCTRL_DMBYPS     0x00000002  /* Descriptor Monitor Bypass */
- #define IXGBE_RXDCTL_ENABLE     0x02000000  /* Enable specific Rx Queue */
-+#define IXGBE_RXDCTL_SWFLSH     0x04000000  /* Rx Desc. write-back flushing */
- #define IXGBE_RXDCTL_RLPMLMASK  0x00003FFF  /* Only supported on the X540 */
- #define IXGBE_RXDCTL_RLPML_EN   0x00008000
- #define IXGBE_RXDCTL_VME        0x40000000  /* VLAN mode enable */
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index bbfe8c4..84bb51d 100644
+index 84bb51d..96e0b20 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -99,13 +99,12 @@ static s32 ixgbe_reset_hw_X540(struct ixgbe_hw *hw)
- 	bool link_up = false;
+@@ -93,10 +93,8 @@ static s32 ixgbe_setup_mac_link_X540(struct ixgbe_hw *hw,
+  **/
+ static s32 ixgbe_reset_hw_X540(struct ixgbe_hw *hw)
+ {
+-	ixgbe_link_speed link_speed;
+ 	s32 status;
+ 	u32 ctrl, i;
+-	bool link_up = false;
  
  	/* Call adapter stop to disable tx/rx and clear interrupts */
--	hw->mac.ops.stop_adapter(hw);
-+	status = hw->mac.ops.stop_adapter(hw);
-+	if (status != 0)
-+		goto reset_hw_out;
- 
--	/*
--	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
--	 * access and verify no pending requests before reset
--	 */
--	ixgbe_disable_pcie_master(hw);
-+	/* flush pending Tx transactions */
-+	ixgbe_clear_tx_pending(hw);
+ 	status = hw->mac.ops.stop_adapter(hw);
+@@ -107,19 +105,7 @@ static s32 ixgbe_reset_hw_X540(struct ixgbe_hw *hw)
+ 	ixgbe_clear_tx_pending(hw);
  
  mac_reset_top:
+-	/*
+-	 * Issue global reset to the MAC.  Needs to be SW reset if link is up.
+-	 * If link reset is used when link is up, it might reset the PHY when
+-	 * mng is using it.  If link is down or the flag to force full link
+-	 * reset is set, then perform link reset.
+-	 */
+-	ctrl = IXGBE_CTRL_LNK_RST;
+-	if (!hw->force_full_reset) {
+-		hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
+-		if (link_up)
+-			ctrl = IXGBE_CTRL_RST;
+-	}
+-
++	ctrl = IXGBE_CTRL_RST;
+ 	ctrl |= IXGBE_READ_REG(hw, IXGBE_CTRL);
+ 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, ctrl);
+ 	IXGBE_WRITE_FLUSH(hw);
+@@ -136,8 +122,7 @@ mac_reset_top:
+ 		status = IXGBE_ERR_RESET_FAILED;
+ 		hw_dbg(hw, "Reset polling failed to complete.\n");
+ 	}
+-
+-	msleep(50);
++	msleep(100);
+ 
  	/*
-@@ -180,6 +179,7 @@ mac_reset_top:
- 	hw->mac.ops.get_wwn_prefix(hw, &hw->mac.wwnn_prefix,
- 	                           &hw->mac.wwpn_prefix);
- 
-+reset_hw_out:
- 	return status;
- }
- 
+ 	 * Double resets are required for recovery from certain error
 -- 
 1.7.6.2
