@@ -1,71 +1,44 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: MTU and TCP transmit offload.
-Date: Wed, 21 Sep 2011 15:16:05 -0700
-Message-ID: <4E7A6225.8040902@candelatech.com>
-References: <4E7A51EE.8010403@candelatech.com> <4E7A612C.9090508@hp.com>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-09-08
+Date: Thu, 22 Sep 2011 01:39:26 +0200
+Message-ID: <201109220139.26897.lindner_marek@yahoo.de>
+References: <1315500051-1122-1-git-send-email-lindner_marek@yahoo.de>
+	<20110921.152616.1053525623924985457.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:50207 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964Ab1IUWQS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 18:16:18 -0400
-In-Reply-To: <4E7A612C.9090508@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20110921.152616.1053525623924985457.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 09/21/2011 03:11 PM, Rick Jones wrote:
-> On 09/21/2011 02:06 PM, Ben Greear wrote:
->> We saw something interesting while doing some testing
->> on 3.0.4.
->>
->> We configured 2 Ethernet NICs with standard 1500 MTU, and added
->> a mac-vlan on each, with MTU of 300. The goal was to generate as
->> many ~300 byte TCP packets as possible, for load testing purposes.
->> We configured our tool to open sockets on the mac-vlans and send/receive
->> TCP (IPv4) traffic.
->
-> Presumably one could instead set static PathMTU entries in the routing tables and accomplish the same thing as you did with the mac-vlans?
->
->> This actually seems to work quite nicely, allowing user-space to
->> do large writes (24k in our case), and it appears have lots of
->> small packets on the wire. We still need to sniff with external
->> system to verify this..but packets-per-second counters look good.
->>
->> Evidently this all works because macvlans know that the NIC
->> can do TSO, and the '300' MTU is passed in the big packet
->> given to the NIC.
->>
->> This got me thinking...at least for my purposes, it would be
->> nice to have a per-socket 'MTU' setting. The idea is that
->> you could ask the NIC to do the TSO at whatever 'mtu' you
->> wanted, without having to resort to mac-vlans with artificially
->> small MTU.
->>
->> So, is there any interest in supporting such a socket option?
->>
->> I can't think of any use besides TCP traffic load testing, but
->> perhaps someone else can think of one? Or, is load-testing
->> enough?
->
-> Isn't that covered by setsockopt() support for TCP_MAX_SEG? With TSO what gets passed to the NIC isn't the MTU, but the connection's MSS derived (in part at
-> least) from the MTU of the egress interface. If one had made a setsockopt(TCP_MAX_SEG) call prior to the connect() or listen() call, presumably that would have
-> influenced the MSS exchange at connection establishment.
+On Wednesday, September 21, 2011 21:26:16 David Miller wrote:
+> > are available in the git repository at:
+> >   git://git.open-mesh.org/linux-merge.git batman-adv/next
+> 
+> Pulled, thanks Marek.
 
-Ohh, that looks promising!
+Pretty sure you are quite busy fighting with your backlog of patches but would 
+you mind giving some advice on this: 
 
-I'll give that a try.
+ To ensure a smooth transition and efficient testing later, we 
+ decided to offer a choice of routing algorithm but have not     
+ come to a final decision on how to design this choice yet. It
+ either will be a compile time option, a module parameter or a
+ runtime switch. Any suggestions / best practice tips ?
 
-Thanks,
-Ben
-
->
-> rick jones
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Regards,
+Marek
