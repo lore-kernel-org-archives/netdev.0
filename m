@@ -1,184 +1,99 @@
-From: rohan puri <rohan.puri15@gmail.com>
-Subject: Re: TCP_DELACK_MIN vs TCP_ATO_MIN
-Date: Wed, 21 Sep 2011 20:28:55 +0530
-Message-ID: <CALJfu6MnV0se8YCTWt65=_4PcOhKsbvUgRmaNxbjf7La+4ar4g@mail.gmail.com>
-References: <CAEnQRZAObcdhikY6GzG3mC1KZjgK8Xp5LzNetczmZP=BRPqN6w@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: RFS issue: no HW filter for paused stream
+Date: Wed, 21 Sep 2011 16:09:02 +0100
+Message-ID: <1316617742.2760.18.camel@bwh-desktop>
+References: <CAP7N4Kfd9TOPr_V6+R9yVtK80eGWbkAvPE8BStG0+WhvJHaLGg@mail.gmail.com>
+	 <CAP7N4Kes9=VdRV8NHvk03SBg5GbohgdbGqKPABCfYbVyzZ+1ng@mail.gmail.com>
+	 <CA+mtBx9K8MY+WcFZpQp_85rcf316jrPpNgzqSzgMLzy7TC6eXQ@mail.gmail.com>
+	 <1316447572.2764.21.camel@bwh-desktop>
+	 <4E783855.4020907@dev.mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7502224290504518790=="
-Cc: netdev@vger.kernel.org, kernelnewbies <kernelnewbies@kernelnewbies.org>
-To: Daniel Baluta <daniel.baluta@gmail.com>
-Return-path: <kernelnewbies-bounces@kernelnewbies.org>
-In-Reply-To: <CAEnQRZAObcdhikY6GzG3mC1KZjgK8Xp5LzNetczmZP=BRPqN6w@mail.gmail.com>
-List-Unsubscribe: <http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies>,
-	<mailto:kernelnewbies-request@kernelnewbies.org?subject=unsubscribe>
-List-Archive: <http://lists.kernelnewbies.org/pipermail/kernelnewbies>
-List-Post: <mailto:kernelnewbies@kernelnewbies.org>
-List-Help: <mailto:kernelnewbies-request@kernelnewbies.org?subject=help>
-List-Subscribe: <http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies>,
-	<mailto:kernelnewbies-request@kernelnewbies.org?subject=subscribe>
-Sender: kernelnewbies-bounces@kernelnewbies.org
-Errors-To: kernelnewbies-bounces@kernelnewbies.org
-List-Id: netdev.vger.kernel.org
-
---===============7502224290504518790==
-Content-Type: multipart/alternative; boundary=0016e6d27c76a6899104ad74d090
-
---0016e6d27c76a6899104ad74d090
-Content-Type: text/plain; charset=ISO-8859-1
-
-On Wed, Sep 21, 2011 at 6:29 PM, Daniel Baluta <daniel.baluta@gmail.com>wrote:
-
-> Hello,
->
-> RFC2582, Section 4.2 says:
->
-> "... an ACK SHOULD be generated for at least every second
-> full-sized segment, and MUST be generated within 500 ms
-> of the arrival of the first unacknowledged packet. ".
->
->
-> I guess that the delayed ACK timeout is computed in tcp_send_delayed_ack:
->
-> ===
-> void tcp_send_delayed_ack(struct sock *sk)
-> {
->        struct inet_connection_sock *icsk = inet_csk(sk);
->        int ato = icsk->icsk_ack.ato;
->        unsigned long timeout;
->
->       /* .... */
->        /* Stay within the limit we were given */
->        timeout = jiffies + ato;
-> ====
->
->
-> Can one explain what is the difference between TCP_DELACK_MIN and
-> TCP_ATO_MIN, specifically if the timeout (ato) is always in the interval
-> [TCP_DELACK_MIN, TCP_DELACK_MAX] ?
->
-> I want to make the delayed ack timeout configurable as some guys tried
-> here [1],
-> so for this reason I plan to make TCP_DELACK_MIN and TCP_DELACK_MAX
-> tunable via proc entries.
->
-> thanks,
-> Daniel.
->
-> [1] http://kerneltrap.org/mailarchive/linux-netdev/2008/9/9/3245554
->
-> _______________________________________________
-> Kernelnewbies mailing list
-> Kernelnewbies@kernelnewbies.org
-> http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies
->
-
-Hi Daniel,
-
-TCP in linux makes use of two modes for acking the data received.
-
-1. Quick Ack : - Used at the start of the TCP connection so that the
-congestion window can grow fastly.
-2. Delayed Ack : - It moves to delayed ack mode, in which ack is sent for
-multiple packets.
-
-TCP switches between the two modes depending on the congestion experienced.
-
-In Quick Ack, Ack timeout interval (ato) is set to minimum i.e. TCP_ATO_MIN
-
-while in Delayed Ack mode, TCP_DELACK_MIN is used for restarting/ resetting
-the timer.
-
-Now the default value is of both the macros is same.
-
-But if you want to make delayed ack timeout configurable, then I think you
-should give proc interface for TCP_DELACK_MIN.
-
-Regards,
-Rohan Puri
-
---0016e6d27c76a6899104ad74d090
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-<br><br><div class=3D"gmail_quote">On Wed, Sep 21, 2011 at 6:29 PM, Daniel =
-Baluta <span dir=3D"ltr">&lt;<a href=3D"mailto:daniel.baluta@gmail.com">dan=
-iel.baluta@gmail.com</a>&gt;</span> wrote:<br><blockquote class=3D"gmail_qu=
-ote" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex=
-;">
-Hello,<br>
-<br>
-RFC2582, Section 4.2 says:<br>
-<br>
-&quot;... an ACK SHOULD be generated for at least every second<br>
-full-sized segment, and MUST be generated within 500 ms<br>
-of the arrival of the first unacknowledged packet. &quot;.<br>
-<br>
-<br>
-I guess that the delayed ACK timeout is computed in tcp_send_delayed_ack:<b=
-r>
-<br>
-=3D=3D=3D<br>
-void tcp_send_delayed_ack(struct sock *sk)<br>
-{<br>
- =A0 =A0 =A0 =A0struct inet_connection_sock *icsk =3D inet_csk(sk);<br>
- =A0 =A0 =A0 =A0int ato =3D icsk-&gt;icsk_ack.ato;<br>
- =A0 =A0 =A0 =A0unsigned long timeout;<br>
-<br>
- =A0 =A0 =A0 /* .... */<br>
- =A0 =A0 =A0 =A0/* Stay within the limit we were given */<br>
- =A0 =A0 =A0 =A0timeout =3D jiffies + ato;<br>
-=3D=3D=3D=3D<br>
-<br>
-<br>
-Can one explain what is the difference between TCP_DELACK_MIN and<br>
-TCP_ATO_MIN, specifically if the timeout (ato) is always in the interval<br=
->
-[TCP_DELACK_MIN, TCP_DELACK_MAX] ?<br>
-<br>
-I want to make the delayed ack timeout configurable as some guys tried<br>
-here [1],<br>
-so for this reason I plan to make TCP_DELACK_MIN and TCP_DELACK_MAX<br>
-tunable via proc entries.<br>
-<br>
-thanks,<br>
-Daniel.<br>
-<br>
-[1] <a href=3D"http://kerneltrap.org/mailarchive/linux-netdev/2008/9/9/3245=
-554" target=3D"_blank">http://kerneltrap.org/mailarchive/linux-netdev/2008/=
-9/9/3245554</a><br>
-<br>
-_______________________________________________<br>
-Kernelnewbies mailing list<br>
-<a href=3D"mailto:Kernelnewbies@kernelnewbies.org">Kernelnewbies@kernelnewb=
-ies.org</a><br>
-<a href=3D"http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies" t=
-arget=3D"_blank">http://lists.kernelnewbies.org/mailman/listinfo/kernelnewb=
-ies</a><br>
-</blockquote></div><br>Hi Daniel,<br><br>TCP in linux makes use of two mode=
-s for acking the data received.<br><br>1. Quick Ack : - Used at the start o=
-f the TCP connection so that the congestion window can grow fastly.<br>
-2. Delayed Ack : - It moves to delayed ack mode, in which ack is sent for m=
-ultiple packets.<br><br>TCP switches between the two modes depending on the=
- congestion experienced.<br><br>In Quick Ack, Ack timeout interval (ato) is=
- set to minimum i.e. TCP_ATO_MIN<br>
-<br>while in Delayed Ack mode, TCP_DELACK_MIN is used for restarting/ reset=
-ting the timer.<br><br>Now the default value is of both the macros is same.=
-<br><br>But if you want to make delayed ack timeout configurable, then I th=
-ink you should give proc interface for TCP_DELACK_MIN.<br>
-<br>Regards,<br>Rohan Puri<br>
-
---0016e6d27c76a6899104ad74d090--
-
-
---===============7502224290504518790==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: Tom Herbert <therbert@google.com>, oren@mellanox.co.il,
+	liranl@mellanox.co.il, netdev@vger.kernel.org,
+	Diego Crupnicoff <Diego@Mellanox.com>
+To: amirv@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:7673 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751925Ab1IUPJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 11:09:07 -0400
+In-Reply-To: <4E783855.4020907@dev.mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Kernelnewbies mailing list
-Kernelnewbies@kernelnewbies.org
-http://lists.kernelnewbies.org/mailman/listinfo/kernelnewbies
+On Tue, 2011-09-20 at 09:53 +0300, Amir Vadai wrote:
+> This will unset the current CPU of the rflow that belongs to the desired 
+> CPU.
+> The problem is when the stream resumes and it goes to the wrong RXQ - in 
+> our HW, it will be according to RSS, as long as there is no specific 
+> flow steering rule for the stream.
 
---===============7502224290504518790==--
+Sorry, yes.  Told you I didn't test my patch!
+
+> We need to unset the current CPU of the rflow of the actual RXQ that the 
+> packet arrived at:
+[...]
+> Or even better, not set it in the first place - but I'm not sure I 
+> undersdtand the implications on RPS:
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 4b9981c..748acdb 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2654,7 +2654,7 @@ set_rps_cpu(struct net_device *dev, struct sk_buff 
+> *skb,
+>   {
+>          u16 tcpu;
+> 
+> -   tcpu = rflow->cpu = next_cpu;
+> + tcpu = next_cpu;
+>          if (tcpu != RPS_NO_CPU) {
+>   #ifdef CONFIG_RFS_ACCEL
+>                  struct netdev_rx_queue *rxqueue;
+> 
+> 
+
+But that means we never move the flow to a new CPU in the non-
+accelerated case.  So maybe the proper change would be:
+
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2652,10 +2652,7 @@ static struct rps_dev_flow *
+ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 	    struct rps_dev_flow *rflow, u16 next_cpu)
+ {
+-	u16 tcpu;
+-
+-	tcpu = rflow->cpu = next_cpu;
+-	if (tcpu != RPS_NO_CPU) {
++	if (next_cpu != RPS_NO_CPU) {
+ #ifdef CONFIG_RFS_ACCEL
+ 		struct netdev_rx_queue *rxqueue;
+ 		struct rps_dev_flow_table *flow_table;
+@@ -2683,16 +2680,16 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 			goto out;
+ 		old_rflow = rflow;
+ 		rflow = &flow_table->flows[flow_id];
+-		rflow->cpu = next_cpu;
+ 		rflow->filter = rc;
+ 		if (old_rflow->filter == rflow->filter)
+ 			old_rflow->filter = RPS_NO_FILTER;
+ 	out:
+ #endif
+ 		rflow->last_qtail =
+-			per_cpu(softnet_data, tcpu).input_queue_head;
++			per_cpu(softnet_data, next_cpu).input_queue_head;
+ 	}
+ 
++	rflow->cpu = next_cpu;
+ 	return rflow;
+ }
+ 
+--- END ---
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
