@@ -1,96 +1,186 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 0/8][pull request] Intel Wired LAN Driver Update
-Date: Wed, 21 Sep 2011 12:58:18 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C22B9FE@orsmsx508.amr.corp.intel.com>
-References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <20110921.151345.393155542435419672.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Wed, 21 Sep 2011 16:30:44 -0400 (EDT)
+Message-ID: <20110921.163044.182207467843169504.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"ijc@hellion.org.uk" <ijc@hellion.org.uk>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:25132 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751077Ab1IUT6V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Sep 2011 15:58:21 -0400
-In-Reply-To: <20110921.151345.393155542435419672.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIERhdmlkIE1pbGxlcg0KPiBTZW50OiBXZWRuZXNkYXksIFNlcHRlbWJlciAyMSwgMjAx
-MSAxMjoxNCBQTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnOyBnb3Nwb0ByZWRoYXQuY29tDQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMC84
-XVtwdWxsIHJlcXVlc3RdIEludGVsIFdpcmVkIExBTiBEcml2ZXIgVXBkYXRlDQo+IA0KPiBGcm9t
-OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gRGF0ZTogV2Vk
-LCAyMSBTZXAgMjAxMSAwMzoxMjo0NiAtMDcwMA0KPiANCj4gPiAgIC0gcmVjb25maWd1cmUgU1It
-SU9WIGluaXQgdG8gdGFrZSBhZHZhbnRhZ2Ugb2YgdGhlIG5ldyBwY2kgZmxhZw0KPiANCj4gSGFz
-IHRoaXMgZ290dGVuIGFueSByZXZpZXcgZnJvbSB0aGUgUENJIG1haW50YWluZXJzPw0KDQpZZXMs
-IHdoZW4gaXQgd2FzIHBvc3RlZCBhcyBhbiBSRkMgYmFjayBpbiBKdWx5LiAgSXQgd2FzIGRlZW1l
-ZCBhY2NlcHRhYmxlIGF0IHRoZSB0aW1lLg0KDQpTZWUgaW5saW5lIG1haWwgYmVsb3cuDQoNCldl
-IHByb2JhYmx5IHNob3VsZCBoYXZlIGNvcGllZCBJYW4gQ2FtcGJlbGwgb24gS29ucmFkIFdpbGsu
-ICBJIGhhdmUgYWRkZWQgdGhlbSB0byB0aGUgQ0MgbGluZSBpbiB0aGlzIHJlc3BvbnNlLg0KDQot
-IEdyZWcNCg0K77u/RnJvbToJbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBvbiBiZWhhbGYg
-b2YgUm9zZSwgR3JlZ29yeSBWIFtncmVnb3J5LnYucm9zZUBpbnRlbC5jb21dDQpTZW50OglGcmlk
-YXksIEp1bHkgMjksIDIwMTEgOTo1NSBBTQ0KVG86CUplc3NlIEJhcm5lczsgSWFuIENhbXBiZWxs
-DQpDYzoJS29ucmFkIFJ6ZXN6dXRlayBXaWxrOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBkYXZl
-bUBkYXZlbWxvZnQubmV0OyBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOyBLaXJzaGVyLCBKZWZm
-cmV5IFQ7IGxpbnV4LXBjaUB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6CVJFOiBbUkZDIG5ldC1u
-ZXh0IFBBVENIIDEvNF0gcGNpOiBBZGQgZmxhZyBpbmRpY2F0aW5nIGRldmljZSBoYXMgYmVlbiBh
-c3NpZ25lZCBieSBLVk0NCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBK
-ZXNzZSBCYXJuZXMgW21haWx0bzpqYmFybmVzQHZpcnR1b3VzZ2Vlay5vcmddDQo+IFNlbnQ6IEZy
-aWRheSwgSnVseSAyOSwgMjAxMSA5OjUyIEFNDQo+IFRvOiBJYW4gQ2FtcGJlbGwNCj4gQ2M6IFJv
-c2UsIEdyZWdvcnkgVjsgS29ucmFkIFJ6ZXN6dXRlayBXaWxrOyBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnOw0KPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOyBL
-aXJzaGVyLCBKZWZmcmV5IFQ7IGxpbnV4LQ0KPiBwY2lAdmdlci5rZXJuZWwub3JnDQo+IFN1Ympl
-Y3Q6IFJlOiBbUkZDIG5ldC1uZXh0IFBBVENIIDEvNF0gcGNpOiBBZGQgZmxhZyBpbmRpY2F0aW5n
-IGRldmljZSBoYXMNCj4gYmVlbiBhc3NpZ25lZCBieSBLVk0NCj4gDQo+IE9uIFRodSwgMjggSnVs
-IDIwMTEgMTY6MTE6MTcgKzAxMDANCj4gSWFuIENhbXBiZWxsIDxpamNAaGVsbGlvbi5vcmcudWs+
-IHdyb3RlOg0KPiANCj4gPiBPbiBXZWQsIDIwMTEtMDctMjcgYXQgMTU6MTcgLTA3MDAsIEdyZWcg
-Um9zZSB3cm90ZToNCj4gPiA+IERldmljZSBkcml2ZXJzIHRoYXQgY3JlYXRlIGFuZCBkZXN0cm95
-IFNSLUlPViB2aXJ0dWFsIGZ1bmN0aW9ucyB2aWENCj4gPiA+IGNhbGxzIHRvIHBjaV9lbmFibGVf
-c3Jpb3YoKSBhbmQgcGNpX2Rpc2FibGVfc3Jpb3YgY2FuIGNhdXNlDQo+IGNhdGFzdHJvcGhpYw0K
-PiA+ID4gZmFpbHVyZXMgaWYgdGhleSBhdHRlbXB0IHRvIGRlc3Ryb3kgVkZzIHdoaWxlIHRoZXkg
-YXJlIGFzc2lnbmVkIHRvDQo+ID4gPiBndWVzdCB2aXJ0dWFsIG1hY2hpbmVzLiAgQnkgYWRkaW5n
-IGEgZmxhZyBmb3IgdXNlIGJ5IHRoZSBLVk0gbW9kdWxlDQo+ID4gPiB0byBpbmRpY2F0ZSB0aGF0
-IGEgZGV2aWNlIGlzIGFzc2lnbmVkIGEgZGV2aWNlIGRyaXZlciBjYW4gY2hlY2sgdGhhdA0KPiA+
-ID4gZmxhZyBhbmQgYXZvaWQgZGVzdHJveWluZyBWRnMgd2hpbGUgdGhleSBhcmUgYXNzaWduZWQg
-YW5kIGF2b2lkIHN5c3RlbQ0KPiA+ID4gZmFpbHVyZXMuDQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9m
-Zi1ieTogR3JlZyBSb3NlIDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+DQo+ID4gPiAtLS0NCj4g
-PiA+DQo+ID4gPiAgaW5jbHVkZS9saW51eC9wY2kuaCAgICAgfCAgICAyICsrDQo+ID4NCj4gPiBJ
-IGFkZGVkIEplc3NlIGFuZCBsaW51eC1wY2kgdG8gQ0MuDQo+ID4NCj4gPiA+ICB2aXJ0L2t2bS9h
-c3NpZ25lZC1kZXYuYyB8ICAgIDIgKysNCj4gPiA+ICB2aXJ0L2t2bS9pb21tdS5jICAgICAgICB8
-ICAgIDQgKysrKw0KPiA+ID4gIDMgZmlsZXMgY2hhbmdlZCwgOCBpbnNlcnRpb25zKCspLCAwIGRl
-bGV0aW9ucygtKQ0KPiA+DQo+ID4gSSBzdXBwb3NlIHRoaXMgd291bGQgYWxzbyBiZSB1c2VmdWwg
-aW4gWGVuJ3MgcGNpYmFjayBvciBhbnkgb3RoZXIgc3lzdGVtDQo+ID4gd2hpY2ggZG9lcyBwYXNz
-dGhyb3VnaD8gKEtvbnJhZCBDQydkIGZvciBwY2liYWNrKQ0KPiA+DQo+ID4gSXMgdGhlcmUgc29t
-ZSBjb21tb24gbG93ZXIgbGF5ZXIgd2UgY291bGQgaG9vayB0aGlzIGluIHRvPyAoZG9lcw0KPiA+
-IGlvbW11X2F0dGFjaC9kZXRhY2hfZGV2aWNlIG1ha2Ugc2Vuc2U/KSBPciBzaGFsbCB3ZSBqdXN0
-IGFkZCB0aGUgZmxhZw0KPiA+IG1hbmlwdWxhdGlvbnMgdG8gcGNpYmFjayBhcyB3ZWxsPw0KPiA+
-DQo+ID4gSWFuLg0KPiA+DQo+ID4gPg0KPiA+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgv
-cGNpLmggYi9pbmNsdWRlL2xpbnV4L3BjaS5oDQo+ID4gPiBpbmRleCAyZDI5MjE4Li5hMjk3Y2Ey
-IDEwMDY0NA0KPiA+ID4gLS0tIGEvaW5jbHVkZS9saW51eC9wY2kuaA0KPiA+ID4gKysrIGIvaW5j
-bHVkZS9saW51eC9wY2kuaA0KPiA+ID4gQEAgLTE3NCw2ICsxNzQsOCBAQCBlbnVtIHBjaV9kZXZf
-ZmxhZ3Mgew0KPiA+ID4gIAlQQ0lfREVWX0ZMQUdTX01TSV9JTlRYX0RJU0FCTEVfQlVHID0gKF9f
-Zm9yY2UgcGNpX2Rldl9mbGFnc190KSAxLA0KPiA+ID4gIAkvKiBEZXZpY2UgY29uZmlndXJhdGlv
-biBpcyBpcnJldm9jYWJseSBsb3N0IGlmIGRpc2FibGVkIGludG8gRDMgKi8NCj4gPiA+ICAJUENJ
-X0RFVl9GTEFHU19OT19EMyA9IChfX2ZvcmNlIHBjaV9kZXZfZmxhZ3NfdCkgMiwNCj4gPiA+ICsJ
-LyogUHJvdmlkZSBpbmRpY2F0aW9uIGRldmljZSBpcyBhc3NpZ25lZCBieSBLVk0gKi8NCj4gPiA+
-ICsJUENJX0RFVl9GTEFHU19BU1NJR05FRCA9IChfX2ZvcmNlIHBjaV9kZXZfZmxhZ3NfdCkgNCwN
-Cj4gPiA+ICB9Ow0KPiANCj4gTG9va3MgZmluZSwgYnV0IEknZCBtYWtlIHRoZSBjb21tZW50IGxl
-c3MgcmVkdW5kYW50IHdpdGggdGhlIGNvZGUsIGUuZy4NCj4gInNldCB3aGVuIHRoZSBkZXZpY2Ug
-aXMgYXNzaWduZWQgdG8gYSBndWVzdCBpbnN0YW5jZSIgb3Igc29tZXN1Y2guDQoNClN1cmUsIHNv
-dW5kcyBnb29kIHRvIG1lLg0KDQpSZXYgMiBvZiB0aGUgUkZDIHBhdGNoZXMgd2lsbCBiZSBvdXQg
-aW4gYSBjb3VwbGUgb2Ygd2Vla3MsIEknbSBhd2F5IG5leHQgd2Vlay4NCg0KVGhhbmtzLA0KDQot
-IEdyZWcNCg0KPiANCj4gLS0NCj4gSmVzc2UgQmFybmVzLCBJbnRlbCBPcGVuIFNvdXJjZSBUZWNo
-bm9sb2d5IENlbnRlcg0KLS0NClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRo
-ZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8g
-bWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDov
-L3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoNCg==
+
+Highlights: IPSEC crash fix, ipv4 FIB rule BUG trigger fix, cure
+wireless regression that hard-hangs some APs, eliminate deadlock in
+ipw2x00 driver, add bluetooth device IDs for current generation
+Mac Mini and Macbook Air.
+
+1) Fix IPSEC crash due to misplaced replay check, from Steffen Klassert.
+
+2) iwlagn revert as a workaround for behavior which has been found to
+   hard-hang some wireless APs.  From Don Fry.
+
+3) FIB rule insertion can trigger BUG in fib_nl_newrule() if the rule
+   already has a ctarget.  Fix from Gao Feng.
+
+4) Fix DMA address validation in IXGBE, from Jesse Brandeburg.
+
+5) Fix tg3 VLAN regression on outbound packets, from Kasper Pedersen.
+
+6) Fix pxa168_eth build failure, missing interrupt.h include, from Tanmay
+   Upadhyay.
+
+7) netconsole needs to init after built-in drivers, from Lin Ming.
+
+8) gianfar classifier rule handler walks past end of array, fix from
+   Ben Hutchings.
+
+9) Fix MTU fragment calculations in ppp, we generate frags in situations
+   where the packet actually fits.  From Henry WOng.
+
+10) greth accidently corrupts computed checksum on TX, this happens in the
+    case where the stack has fully computed the checksum already in sw.
+    Fix from Daniel Hellstrom.
+
+11) Fix double-free in ipv6_add_dev() failure path.  From Roy Li.
+
+12) b43 should not issue wireless beacons in ad-hoc mode, fix from Manual Munz.
+
+13) Add bluetooth device IDs for 2011 Mac Mini and Macbook Air, from Jurgen
+    Kramer and Pieter-Augustijn Van Malleghem.
+
+14) r8169 bug fixes from Hayes Wang and Francois Romieu:
+    a) Make sure TX processes are really stopped on rtl8111ev1 before
+       spinning on TXCFG_EMPTY bit to clear.
+    b) Add missing MODULE_FIRMWARE entry for RTL8111E-VL
+    c) Set proper RxConfig bits when wake-on-lan is enabled.
+    d) Fix intepretation of RX descriptor status bits.
+    e) Only check TBI bit in PHY status on old 8169 parts.
+
+15) Make sure rate mask is updated properly in cfg80211_conn_scan(), from
+    Rajkumar Manoharan.
+
+16) rtl2800usb MAC address storage endian fix, from Larry Finger.
+
+17) Fix rx2x00 compile error on PowerPC.
+
+18) Fix RTNL mutex deadlock regression in ipw2x00 driver.  From Stanislaw Gruszka.
+
+19) Make sure beacon hint flag is cleared when necessary, otherwise updates
+    are ignored and lost.  From Rajkumar Manoharan.
+
+20) Fix ordering of HCI_MGMT vs. HCI_INQUIRY state bits in bluetooth to
+    fix scanning timeouts.  From Oliver Neukum.
+
+Please pull, thanks a lot!
+
+The following changes since commit 38867a28a7dc9d69389990bcd42f6b7c77da3d9d:
+
+  Merge branch 'fixes' of git://git.linaro.org/people/arnd/arm-soc (2011-09-20 14:23:16 -0700)
+
+are available in the git repository at:
+
+  git://github.com/davem330/net.git master
+
+Ben Hutchings (1):
+      gianfar: Fix overflow check and return value for gfar_get_cls_all()
+
+Chen Ganir (1):
+      Bluetooth: Fixed BT ST Channel reg order
+
+Daniel Hellstrom (2):
+      GRETH: RX/TX bytes were never increased
+      GRETH: avoid overwrite IP-stack's IP-frags checksum
+
+David S. Miller (1):
+      Merge branch 'davem.r8169.fixes' of git://violet.fr.zoreil.com/romieu/linux
+
+Don Fry (1):
+      iwlagn: workaround bug crashing some APs
+
+Francois Romieu (2):
+      r8169: remove erroneous processing of always set bit.
+      r8169: do not enable the TBI for anything but the original 8169.
+
+Gao feng (1):
+      fib:fix BUG_ON in fib_nl_newrule when add new fib rule
+
+Hayes Wang (3):
+      r8169: fix the reset setting for 8111evl
+      r8169: add MODULE_FIRMWARE for the firmware of 8111evl
+      r8169: fix WOL setting for 8105 and 8111evl
+
+Henry Wong (1):
+      ppp_generic: fix multilink fragment MTU calculation (again)
+
+Jesse Brandeburg (1):
+      ixgbe: fix possible null buffer error
+
+John W. Linville (2):
+      Merge branch 'for-3.1' of git://github.com/padovan/bluetooth-next
+      Merge branch 'master' of ssh://infradead/~/public_git/wireless into for-davem
+
+Jurgen Kramer (1):
+      Bluetooth: add support for 2011 mac mini
+
+Kasper Pedersen (1):
+      tg3: fix VLAN tagging regression
+
+Larry Finger (2):
+      rt2800pci: Fix compiler error on PowerPC
+      rtl2800usb: Fix incorrect storage of MAC address on big-endian platforms
+
+Lin Ming (1):
+      netconsole: switch init_netconsole() to late_initcall
+
+Manual Munz (1):
+      b43: Fix beacon problem in ad-hoc mode
+
+Oliver Neukum (1):
+      Bluetooth: Fix timeout on scanning for the second time
+
+Pieter-Augustijn Van Malleghem (1):
+      Bluetooth: Add MacBookAir4,1 support
+
+Rajkumar Manoharan (2):
+      wireless: Reset beacon_found while updating regulatory
+      wireless: Fix rate mask for scan request
+
+Roy Li (1):
+      ipv6: fix a possible double free
+
+Stanislaw Gruszka (1):
+      ipw2x00: fix rtnl mutex deadlock
+
+Steffen Klassert (1):
+      xfrm: Perform a replay check after return from async codepaths
+
+Tanmay Upadhyay (1):
+      net: pxa168: Fix build errors by including interrupt.h
+
+ drivers/bluetooth/btusb.c               |    6 ++++
+ drivers/bluetooth/btwilink.c            |   16 +++++-----
+ drivers/net/gianfar_ethtool.c           |    8 ++--
+ drivers/net/greth.c                     |   12 ++++++-
+ drivers/net/greth.h                     |    1 +
+ drivers/net/ixgbe/ixgbe_main.c          |    4 +-
+ drivers/net/netconsole.c                |    8 ++++-
+ drivers/net/ppp_generic.c               |    7 ++++-
+ drivers/net/pxa168_eth.c                |    1 +
+ drivers/net/r8169.c                     |   32 +++++++++++++++++---
+ drivers/net/tg3.c                       |    2 -
+ drivers/net/wireless/b43/main.c         |    3 +-
+ drivers/net/wireless/ipw2x00/ipw2100.c  |   21 +++++++++----
+ drivers/net/wireless/ipw2x00/ipw2200.c  |   39 +++++++++++++++++--------
+ drivers/net/wireless/iwlwifi/iwl-agn.c  |    5 +++
+ drivers/net/wireless/rt2x00/rt2800lib.c |   47 +++++++++++++++++--------------
+ net/bluetooth/hci_event.c               |   17 +++++------
+ net/core/fib_rules.c                    |    4 +-
+ net/ipv6/addrconf.c                     |    4 +-
+ net/wireless/reg.c                      |    1 +
+ net/wireless/sme.c                      |    2 +
+ net/xfrm/xfrm_input.c                   |    5 +++
+ 22 files changed, 165 insertions(+), 80 deletions(-)
