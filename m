@@ -1,259 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/8] ixgbe: DCB, do not call set_state() from IEEE mode
-Date: Wed, 21 Sep 2011 03:12:49 -0700
-Message-ID: <1316599974-23205-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/8] ixgbe: cleanup X540 interrupt enablement
+Date: Wed, 21 Sep 2011 03:12:50 -0700
+Message-ID: <1316599974-23205-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18266 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:1070 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752842Ab1IUKM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752972Ab1IUKM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 21 Sep 2011 06:12:59 -0400
 In-Reply-To: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The DCB CEE command set_state() will complete successfully
-but is misleading because it enables IEEE mode. After
-this patch the command is failed.
+We don't need SFP+ plugable support for X540 hardware (copper only) so
+don't enable the SFP+ interrupts.
 
-And IEEE PFC/ETS is managed from ieee paths now instead
-of using CEE primitives.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c    |   36 +++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h    |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   54 ++++++++--------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   18 +++++---
- 4 files changed, 69 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-index 9d88c31..83bf7cc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-@@ -40,7 +40,8 @@
-  * hardware. The IEEE 802.1Qaz specification do not use bandwidth
-  * groups so this is much simplified from the CEE case.
-  */
--s32 ixgbe_ieee_credits(__u8 *bw, __u16 *refill, __u16 *max, int max_frame)
-+static s32 ixgbe_ieee_credits(__u8 *bw, __u16 *refill,
-+			      __u16 *max, int max_frame)
- {
- 	int min_percent = 100;
- 	int min_credit, multiplier;
-@@ -291,6 +292,39 @@ s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en)
- 	return ret;
- }
- 
-+s32 ixgbe_dcb_hw_ets(struct ixgbe_hw *hw, struct ieee_ets *ets, int max_frame)
-+{
-+	__u16 refill[IEEE_8021QAZ_MAX_TCS], max[IEEE_8021QAZ_MAX_TCS];
-+	__u8 prio_type[IEEE_8021QAZ_MAX_TCS];
-+	int i;
-+
-+	/* naively give each TC a bwg to map onto CEE hardware */
-+	__u8 bwg_id[IEEE_8021QAZ_MAX_TCS] = {0, 1, 2, 3, 4, 5, 6, 7};
-+
-+	/* Map TSA onto CEE prio type */
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-+		switch (ets->tc_tsa[i]) {
-+		case IEEE_8021QAZ_TSA_STRICT:
-+			prio_type[i] = 2;
-+			break;
-+		case IEEE_8021QAZ_TSA_ETS:
-+			prio_type[i] = 0;
-+			break;
-+		default:
-+			/* Hardware only supports priority strict or
-+			 * ETS transmission selection algorithms if
-+			 * we receive some other value from dcbnl
-+			 * throw an error
-+			 */
-+			return -EINVAL;
-+		}
-+	}
-+
-+	ixgbe_ieee_credits(ets->tc_tx_bw, refill, max, max_frame);
-+	return ixgbe_dcb_hw_ets_config(hw, refill, max,
-+				       bwg_id, prio_type, ets->prio_tc);
-+}
-+
- s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw,
- 			    u16 *refill, u16 *max, u8 *bwg_id,
- 			    u8 *prio_type, u8 *prio_tc)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-index e85826a..0a68aa7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-@@ -29,6 +29,7 @@
- #ifndef _DCB_CONFIG_H_
- #define _DCB_CONFIG_H_
- 
-+#include <linux/dcbnl.h>
- #include "ixgbe_type.h"
- 
- /* DCB data structures */
-@@ -147,11 +148,11 @@ void ixgbe_dcb_unpack_bwgid(struct ixgbe_dcb_config *, int, u8 *);
- void ixgbe_dcb_unpack_prio(struct ixgbe_dcb_config *, int, u8 *);
- 
- /* DCB credits calculation */
--s32 ixgbe_ieee_credits(__u8 *bw, __u16 *refill, __u16 *max, int max_frame);
- s32 ixgbe_dcb_calculate_tc_credits(struct ixgbe_hw *,
- 				   struct ixgbe_dcb_config *, int, u8);
- 
- /* DCB hw initialization */
-+s32 ixgbe_dcb_hw_ets(struct ixgbe_hw *hw, struct ieee_ets *ets, int max);
- s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw, u16 *refill, u16 *max,
- 			    u8 *bwg_id, u8 *prio_type, u8 *tc_prio);
- s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 0422e35..22caad7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -114,6 +114,10 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 	u8 err = 0;
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 
-+	/* Fail command if not in CEE mode */
-+	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
-+		return 1;
-+
- 	/* verify there is something to do, if not then exit */
- 	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
- 		return err;
-@@ -301,6 +305,10 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 	u8 up = dcb_getapp(netdev, &app);
- #endif
- 
-+	/* Fail command if not in CEE mode */
-+	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
-+		return 1;
-+
- 	ret = ixgbe_copy_dcb_cfg(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
- 				 MAX_TRAFFIC_CLASS);
- 	if (ret)
-@@ -537,13 +545,9 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 				   struct ieee_ets *ets)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	__u16 refill[IEEE_8021QAZ_MAX_TCS], max[IEEE_8021QAZ_MAX_TCS];
--	__u8 prio_type[IEEE_8021QAZ_MAX_TCS];
- 	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
--	int i, err;
--	__u64 *p = (__u64 *) ets->prio_tc;
--	/* naively give each TC a bwg to map onto CEE hardware */
--	__u8 bwg_id[IEEE_8021QAZ_MAX_TCS] = {0, 1, 2, 3, 4, 5, 6, 7};
-+	int i;
-+	__u8 max_tc = 0;
- 
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
- 		return -EINVAL;
-@@ -557,34 +561,18 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 
- 	memcpy(adapter->ixgbe_ieee_ets, ets, sizeof(*adapter->ixgbe_ieee_ets));
- 
--	/* Map TSA onto CEE prio type */
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
--		switch (ets->tc_tsa[i]) {
--		case IEEE_8021QAZ_TSA_STRICT:
--			prio_type[i] = 2;
--			break;
--		case IEEE_8021QAZ_TSA_ETS:
--			prio_type[i] = 0;
--			break;
--		default:
--			/* Hardware only supports priority strict or
--			 * ETS transmission selection algorithms if
--			 * we receive some other value from dcbnl
--			 * throw an error
--			 */
--			return -EINVAL;
--		}
-+		if (ets->prio_tc[i] > max_tc)
-+			max_tc = ets->prio_tc[i];
- 	}
- 
--	if (*p)
--		ixgbe_dcbnl_set_state(dev, 1);
--	else
--		ixgbe_dcbnl_set_state(dev, 0);
-+	if (max_tc)
-+		max_tc++;
- 
--	ixgbe_ieee_credits(ets->tc_tx_bw, refill, max, max_frame);
--	err = ixgbe_dcb_hw_ets_config(&adapter->hw, refill, max,
--				      bwg_id, prio_type, ets->prio_tc);
--	return err;
-+	if (max_tc != netdev_get_num_tc(dev))
-+		ixgbe_setup_tc(dev, max_tc);
-+
-+	return ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
- }
- 
- static int ixgbe_dcbnl_ieee_getpfc(struct net_device *dev,
-@@ -615,7 +603,6 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
- 				   struct ieee_pfc *pfc)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	int err;
- 
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
- 		return -EINVAL;
-@@ -628,8 +615,7 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
- 	}
- 
- 	memcpy(adapter->ixgbe_ieee_pfc, pfc, sizeof(*adapter->ixgbe_ieee_pfc));
--	err = ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en);
--	return err;
-+	return ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en);
- }
- 
- #ifdef IXGBE_FCOE
-@@ -740,7 +726,7 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 		 */
- 		ixgbe_dcbnl_ieee_setets(dev, &ets);
- 		ixgbe_dcbnl_ieee_setpfc(dev, &pfc);
--		ixgbe_dcbnl_set_state(dev, 0);
-+		ixgbe_setup_tc(dev, 0);
- 	}
- 
- 	return 0;
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 8b86c41..4cbc3f9 100644
+index 4cbc3f9..fae2f44 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3319,12 +3319,18 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- 	} else {
- 		struct net_device *dev = adapter->netdev;
- 
--		if (adapter->ixgbe_ieee_ets)
--			dev->dcbnl_ops->ieee_setets(dev,
--						    adapter->ixgbe_ieee_ets);
--		if (adapter->ixgbe_ieee_pfc)
--			dev->dcbnl_ops->ieee_setpfc(dev,
--						    adapter->ixgbe_ieee_pfc);
-+		if (adapter->ixgbe_ieee_ets) {
-+			struct ieee_ets *ets = adapter->ixgbe_ieee_ets;
-+			int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
-+
-+			ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
-+		}
-+
-+		if (adapter->ixgbe_ieee_pfc) {
-+			struct ieee_pfc *pfc = adapter->ixgbe_ieee_pfc;
-+
-+			ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en);
-+		}
- 	}
- 
- 	/* Enable RSS Hash per TC */
+@@ -1863,10 +1863,10 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
+ 		mask |= IXGBE_EIMS_GPI_SDP1;
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_82599EB:
+-	case ixgbe_mac_X540:
+-		mask |= IXGBE_EIMS_ECC;
+ 		mask |= IXGBE_EIMS_GPI_SDP1;
+ 		mask |= IXGBE_EIMS_GPI_SDP2;
++	case ixgbe_mac_X540:
++		mask |= IXGBE_EIMS_ECC;
+ 		mask |= IXGBE_EIMS_MAILBOX;
+ 		break;
+ 	default:
 -- 
 1.7.6.2
