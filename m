@@ -1,67 +1,115 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH net-next] net: rps: fix the support for PPPOE
-Date: Wed, 21 Sep 2011 16:36:07 +0800
-Message-ID: <1316594167-12313-1-git-send-email-xiaosuo@gmail.com>
-Cc: netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:58100 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041Ab1IUIzY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 04:55:24 -0400
-Received: by yib18 with SMTP id 18so896907yib.19
-        for <netdev@vger.kernel.org>; Wed, 21 Sep 2011 01:55:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH v6 1/8] SUNRPC: introduce helpers for reference counted
+ rpcbind clients
+Date: Wed, 21 Sep 2011 13:07:43 +0400
+Message-ID: <4E79A95F.8050304@parallels.com>
+References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E7899E7.9090809@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E7899E7.9090809@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The upper protocol numbers of PPPOE are different, and should be treated
-specially.
+v6:
+1) added write memory barrier to rpcb_set_local to make sure, that rpcbind 
+clients become valid before rpcb_users assignment
+2) explicitly set rpcb_users to 1 instead of incrementing it (looks clearer from 
+my pow).
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Notice: write memory barrier after zeroing rpcbind clients in rpcb_put_local() 
+is not required, since to users of them left. New user (service) will create new 
+clients before dereferencing them.
+
+This helpers will be used for dynamical creation and destruction of rpcbind
+clients.
+Variable rpcb_users is actually a counter of lauched RPC services. If rpcbind
+clients has been created already, then we just increase rpcb_users.
+
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+
 ---
- net/core/dev.c |   12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4b9981c..8395fea 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -135,6 +135,7 @@
- #include <linux/cpu_rmap.h>
- #include <linux/if_tunnel.h>
- #include <linux/if_pppox.h>
-+#include <linux/ppp_defs.h>
- 
- #include "net-sysfs.h"
- 
-@@ -2548,6 +2549,7 @@ void __skb_get_rxhash(struct sk_buff *skb)
- again:
- 	switch (proto) {
- 	case __constant_htons(ETH_P_IP):
-+ip:
- 		if (!pskb_may_pull(skb, sizeof(*ip) + nhoff))
- 			goto done;
- 
-@@ -2561,6 +2563,7 @@ again:
- 		nhoff += ip->ihl * 4;
- 		break;
- 	case __constant_htons(ETH_P_IPV6):
-+ipv6:
- 		if (!pskb_may_pull(skb, sizeof(*ip6) + nhoff))
- 			goto done;
- 
-@@ -2583,7 +2586,14 @@ again:
- 		proto = *((__be16 *) (skb->data + nhoff +
- 				      sizeof(struct pppoe_hdr)));
- 		nhoff += PPPOE_SES_HLEN;
--		goto again;
-+		switch (proto) {
-+		case __constant_htons(PPP_IP):
-+			goto ip;
-+		case __constant_htons(PPP_IPV6):
-+			goto ipv6;
-+		default:
-+			goto done;
-+		}
- 	default:
- 		goto done;
- 	}
+  net/sunrpc/rpcb_clnt.c |   54 ++++++++++++++++++++++++++++++++++++++++++++++++
+  1 files changed, 54 insertions(+), 0 deletions(-)
+
+diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+index e45d2fb..9fcdb42 100644
+--- a/net/sunrpc/rpcb_clnt.c
++++ b/net/sunrpc/rpcb_clnt.c
+@@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
+  static struct rpc_clnt *	rpcb_local_clnt;
+  static struct rpc_clnt *	rpcb_local_clnt4;
+
++DEFINE_SPINLOCK(rpcb_clnt_lock);
++unsigned int			rpcb_users;
++
+  struct rpcbind_args {
+  	struct rpc_xprt *	r_xprt;
+
+@@ -161,6 +164,57 @@ static void rpcb_map_release(void *data)
+  	kfree(map);
+  }
+
++static int rpcb_get_local(void)
++{
++	int cnt;
++
++	spin_lock(&rpcb_clnt_lock);
++	if (rpcb_users)
++		rpcb_users++;
++	cnt = rpcb_users;
++	spin_unlock(&rpcb_clnt_lock);
++
++	return cnt;
++}
++
++void rpcb_put_local(void)
++{
++	struct rpc_clnt *clnt = rpcb_local_clnt;
++	struct rpc_clnt *clnt4 = rpcb_local_clnt4;
++	int shutdown;
++
++	spin_lock(&rpcb_clnt_lock);
++	if (--rpcb_users == 0) {
++		rpcb_local_clnt = NULL;
++		rpcb_local_clnt4 = NULL;
++	}
++	shutdown = !rpcb_users;
++	spin_unlock(&rpcb_clnt_lock);
++
++	if (shutdown) {
++		/*
++		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
++		 */
++		if (clnt4)
++			rpc_shutdown_client(clnt4);
++		if (clnt)
++			rpc_shutdown_client(clnt);
++	}
++	return;
++}
++
++static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
++{
++	/* Protected by rpcb_create_local_mutex */
++	rpcb_local_clnt = clnt;
++	rpcb_local_clnt4 = clnt4;
++	smp_wmb();
++	rpcb_users = 1;
++	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
++			"%p, rpcb_local_clnt4: %p)\n", rpcb_local_clnt,
++			rpcb_local_clnt4);
++}
++
+  /*
+   * Returns zero on success, otherwise a negative errno value
+   * is returned.
