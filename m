@@ -1,48 +1,62 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/8] ixgbe: cleanup X540 interrupt enablement
-Date: Wed, 21 Sep 2011 03:12:50 -0700
-Message-ID: <1316599974-23205-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Michael Riesch <michael@riesch.at>
+Subject: [patch] usbnet: add timestamping support
+Date: Wed, 21 Sep 2011 12:11:51 +0200
+Message-ID: <20110921121151.Horde.2_LlPML8999Oebhn0-QlTpA@webmail.df.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed; DelSp=Yes
+Cc: davem@davemloft.net, Oliver Neukum <oneukum@suse.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:1070 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752972Ab1IUKM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Sep 2011 06:12:59 -0400
-In-Reply-To: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtprelay02.ispgateway.de ([80.67.31.25]:48043 "EHLO
+	smtprelay02.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753002Ab1IUKRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 06:17:40 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+In order to make USB-to-Ethernet-adapters (depending on usbnet) support
+time stamping, the "skb_defer_rx_timestamp" and "skb_tx_timestamp"
+function calls are added.
 
-We don't need SFP+ plugable support for X540 hardware (copper only) so
-don't enable the SFP+ interrupts.
+I considered to put these calls between #ifdef's to make them dependent
+on CONFIG_NETWORK_PHY_TIMESTAMPING. I decided not to do so because except
+the check whether the current packet is a PTP packet (and this check
+should be fast) no overhead occurs. But let me know your opinion about
+that one.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Looking forward to your comments,
+Michael
+
+Signed-off-by: Michael Riesch <michael@riesch.at>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+  drivers/net/usb/usbnet.c |    6 ++++++
+  1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 4cbc3f9..fae2f44 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1863,10 +1863,10 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
- 		mask |= IXGBE_EIMS_GPI_SDP1;
- 	switch (adapter->hw.mac.type) {
- 	case ixgbe_mac_82599EB:
--	case ixgbe_mac_X540:
--		mask |= IXGBE_EIMS_ECC;
- 		mask |= IXGBE_EIMS_GPI_SDP1;
- 		mask |= IXGBE_EIMS_GPI_SDP2;
-+	case ixgbe_mac_X540:
-+		mask |= IXGBE_EIMS_ECC;
- 		mask |= IXGBE_EIMS_MAILBOX;
- 		break;
- 	default:
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index ce395fe..cdb9588 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -238,6 +238,10 @@ void usbnet_skb_return (struct usbnet *dev,  
+struct sk_buff *skb)
+          netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
+                    skb->len + sizeof (struct ethhdr), skb->protocol);
+          memset (skb->cb, 0, sizeof (struct skb_data));
++
++        if (skb_defer_rx_timestamp(skb))
++                return;
++
+          status = netif_rx (skb);
+          if (status != NET_RX_SUCCESS)
+                  netif_dbg(dev, rx_err, dev->net,
+@@ -1053,6 +1057,8 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+          unsigned long                flags;
+          int retval;
+
++        skb_tx_timestamp(skb);
++
+          // some devices want funky USB-level framing, for
+          // win32 driver (usually) and/or hardware quirks
+          if (info->tx_fixup) {
 -- 
-1.7.6.2
+1.7.0.4
