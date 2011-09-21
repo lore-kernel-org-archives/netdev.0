@@ -1,75 +1,53 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH v2 1/3] net/fec: change phy-reset-gpio request warning to
- debug message
-Date: Wed, 21 Sep 2011 20:03:42 +0800
-Message-ID: <20110921120341.GG28907@S2100-06.ap.freescale.net>
-References: <1316603432-20032-1-git-send-email-shawn.guo@linaro.org>
- <1316603432-20032-2-git-send-email-shawn.guo@linaro.org>
- <20110921112555.GE1966@pengutronix.de>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: Perform a replay check after return from async
+ codepaths
+Date: Wed, 21 Sep 2011 13:57:27 +0200
+Message-ID: <20110921115727.GX1808@secunet.com>
+References: <20110921093858.GW1808@secunet.com>
+ <20110921112158.GB18648@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Shawn Guo <shawn.guo@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>, <patches@linaro.org>,
-	<netdev@vger.kernel.org>,
-	Troy Kisky <troy.kisky@boundarydevices.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
-To: Wolfram Sang <w.sang@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:28794 "EHLO
-	TX2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752794Ab1IULyF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 07:54:05 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:50071 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752794Ab1IUL53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Sep 2011 07:57:29 -0400
 Content-Disposition: inline
-In-Reply-To: <20110921112555.GE1966@pengutronix.de>
+In-Reply-To: <20110921112158.GB18648@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 21, 2011 at 01:25:55PM +0200, Wolfram Sang wrote:
-> Hi Shawn,
-> 
-> On Wed, Sep 21, 2011 at 07:10:30PM +0800, Shawn Guo wrote:
-> > FEC can work without a phy reset on some platforms, which means not
-> > very platform necessarily have a phy-reset gpio encoded in device tree.
-> > So it makes more sense to have the phy-reset-gpio request failure as
-> > a debug message rather than a warning.
-> 
-> Or remove it entirely?
-> 
-I would like to keep it.  When people want to debug at this point, they
-do not need to type the debug message.
-
+On Wed, Sep 21, 2011 at 09:21:58PM +1000, Herbert Xu wrote:
+> On Wed, Sep 21, 2011 at 11:38:58AM +0200, Steffen Klassert wrote:
+> > When asyncronous crypto algorithms are used, there might be many
+> > packets that passed the xfrm replay check, but the replay advance
+> > function is not called yet for these packets. So the replay check
+> > function would accept a replay of all of these packets. Also the
+> > system might crash if there are more packets in async processing
+> > than the size of the anti replay window, because the replay advance
+> > function would try to update the replay window beyond the bounds.
 > > 
-> > Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
-> > ---
-> >  drivers/net/ethernet/freescale/fec.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > This pach adds a second replay check after resuming from the async
+> > processing to fix these issues.
 > > 
-> > diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-> > index 158b82e..a057abf 100644
-> > --- a/drivers/net/ethernet/freescale/fec.c
-> > +++ b/drivers/net/ethernet/freescale/fec.c
-> > @@ -1422,7 +1422,7 @@ static int __devinit fec_reset_phy(struct platform_device *pdev)
-> >  	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
-> >  	err = gpio_request_one(phy_reset, GPIOF_OUT_INIT_LOW, "phy-reset");
-> >  	if (err) {
-> > -		pr_warn("FEC: failed to get gpio phy-reset: %d\n", err);
-> > +		pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
-> >  		return err;
+> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 > 
-> I also wanted to suggested to drop returning the error code, since it is
-> not an error anymore, strictly speaking. Then I noticed that the caller
-> does not check the error code. So, this could be added or turn the
-> function to void?
+> Actually why does this matter? For a single SA, the processing
+> in xfrm_input should be completely synchronous, even when you're
+> using asynchronous algorithms.
 > 
-To me, keep the return value as integer is more scalable.  Someday,
-someone need to add more stuff in the function, or want to improve
-the caller to check return value, it plays.
 
-Regards,
-Shawn
+Well, I've got pretty reproduceable crashes when the sender of
+the IPsec packets introduces reorder, that's why I noticed this.
 
-> >  	}
-> >  	msleep(1);
-> > -- 
+The problem is, that the replay check function is called before
+the asynchronous crypto processing and the replay advance function
+is called after resume from the asynchronous processing. So
+we can submit multiple packets to the crypto layer without
+updating the replay window. This means that the replay check
+function accepts packets that should have been dropped, because
+they are reordered and more than 'replay window size' packets
+to late. This leads to a crash as we try to update the replay
+window beyond the allocated bounds.
