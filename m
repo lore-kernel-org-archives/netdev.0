@@ -1,36 +1,57 @@
-From: Cantrell_Travis <cantrell_travis@asdk12.org>
-Subject: =?windows-1256?Q?CONTACT_UPS_ON_EMAIL:_ups-ng@dgoh.org=FE?=
-Date: Tue, 20 Sep 2011 14:45:39 -0800
-Message-ID: <6AB4CB2B192EFC4BA27A1D3A340135AE1BC3DB4D3D@ITVMAIL02.asdk12.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1256"
-Content-Transfer-Encoding: 8BIT
-To: undisclosed-recipients:;
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] ixgbe: fix possible null buffer error
+Date: Tue, 20 Sep 2011 18:13:03 -0700
+Message-ID: <1316567583-28673-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	stable@kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.asdk12.org ([74.114.80.19]:45019 "EHLO
-	itmailgw02.asdk12.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752410Ab1ITXBP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Sep 2011 19:01:15 -0400
-Content-Language: en-US
+Received: from mga14.intel.com ([143.182.124.37]:45168 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750711Ab1IUBNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Sep 2011 21:13:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-After much attempts to reach you on phone, I deemed it necessary and urgent to contact you via your e-mail and to notify you finally about your outstanding compensation payment.
+It seems that at least one PPC machine would occasionally give a (valid) 0 as
+the return value from dma_map, this caused the ixgbe code to not work
+correctly.  A fix is pending in the PPC tree to not return 0 from dma map, but
+we can also fix the driver to make sure we don't mess up in other arches as
+well.
 
-I have sucessfully deposited your Cashier Check of $2,811,041.00 USD with the United Parcel Service (UPS). I am now in Kenya for my new job.
+This patch is applicable to all current stable kernels.
 
-For more info, contact the assigned UPS agent for the delivery of your cashier check.
+Ref: https://bugzilla.redhat.com/show_bug.cgi?id=683611
 
-United Parcel Service (UPS)
-Contact Name: Collins Abba
-Tel: +234-818-147-7003
-E-mail: ups-ng@dgoh.org<mailto:ups-ng@dgoh.org>
+Reported-by: Neil Horman <nhorman@redhat.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: stable@kernel.org
+Tested-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ixgbe/ixgbe_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Please take note that you will pay a shipping/handling fee of $245.00 USD to UPS.
-
-Thanks for your attention.
-
-Poussin Catherine
-Programme Manager
-United Nations Human Settlements Programme
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 2279039..e1fcc95 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1321,8 +1321,8 @@ static void ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 		if (ring_is_rsc_enabled(rx_ring))
+ 			pkt_is_rsc = ixgbe_get_rsc_state(rx_desc);
+ 
+-		/* if this is a skb from previous receive DMA will be 0 */
+-		if (rx_buffer_info->dma) {
++		/* linear means we are building an skb from multiple pages */
++		if (!skb_is_nonlinear(skb)) {
+ 			u16 hlen;
+ 			if (pkt_is_rsc &&
+ 			    !(staterr & IXGBE_RXD_STAT_EOP) &&
+-- 
+1.7.6.2
