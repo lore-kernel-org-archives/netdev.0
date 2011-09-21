@@ -1,76 +1,55 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [PATCH v2 1/3] net/fec: change phy-reset-gpio request warning
- to debug message
-Date: Wed, 21 Sep 2011 14:59:05 +0200
-Message-ID: <20110921125905.GI1966@pengutronix.de>
-References: <1316603432-20032-1-git-send-email-shawn.guo@linaro.org>
- <1316603432-20032-2-git-send-email-shawn.guo@linaro.org>
- <20110921112555.GE1966@pengutronix.de>
- <20110921120341.GG28907@S2100-06.ap.freescale.net>
- <20110921121159.GG1966@pengutronix.de>
- <20110921124423.GI28907@S2100-06.ap.freescale.net>
+From: Daniel Baluta <daniel.baluta@gmail.com>
+Subject: TCP_DELACK_MIN vs TCP_ATO_MIN
+Date: Wed, 21 Sep 2011 15:59:54 +0300
+Message-ID: <CAEnQRZAObcdhikY6GzG3mC1KZjgK8Xp5LzNetczmZP=BRPqN6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="uJWb33pM2TcUAXIl"
-Cc: Shawn Guo <shawn.guo@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>, patches@linaro.org,
-	netdev@vger.kernel.org,
-	Troy Kisky <troy.kisky@boundarydevices.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lothar =?iso-8859-15?Q?Wa=DFmann?= <LW@KARO-electronics.de>
-To: Shawn Guo <shawn.guo@freescale.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org,
+	kernelnewbies <kernelnewbies@kernelnewbies.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:54872 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753113Ab1IUM7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 08:59:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20110921124423.GI28907@S2100-06.ap.freescale.net>
+Received: from mail-vw0-f52.google.com ([209.85.212.52]:51711 "EHLO
+	mail-vw0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753286Ab1IUM7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 08:59:54 -0400
+Received: by vws10 with SMTP id 10so2528003vws.11
+        for <netdev@vger.kernel.org>; Wed, 21 Sep 2011 05:59:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
---uJWb33pM2TcUAXIl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+RFC2582, Section 4.2 says:
 
-> > I agree that keeping it int is way better. But why not add it now to
-> > keep things proper and tested? If this patch gets accepted as it is and
-> > later someone else will add error checking to the caller, your platform
-> > will lose FEC support as a regression.
-> >=20
-> Again, fec_reset_phy() failure is not a show-stopper.  We might not
-> want to make the probe fail because of that.
+"... an ACK SHOULD be generated for at least every second
+full-sized segment, and MUST be generated within 500 ms
+of the arrival of the first unacknowledged packet. ".
 
-That would be an argument to make the function returning void?
 
-Well, I still think something like=20
+I guess that the delayed ACK timeout is computed in tcp_send_delayed_ack:
 
-	/* No phy reset configured */
-	if (phy_reset =3D=3D -ENODEV)
-		return 0;
+===
+void tcp_send_delayed_ack(struct sock *sk)
+{
+        struct inet_connection_sock *icsk = inet_csk(sk);
+        int ato = icsk->icsk_ack.ato;
+        unsigned long timeout;
 
-might be cleaner, yet I don't have the setup to test such an approach.
+       /* .... */
+        /* Stay within the limit we were given */
+        timeout = jiffies + ato;
+====
 
-So, I'll be quiet now and hope for no problems.
 
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Can one explain what is the difference between TCP_DELACK_MIN and
+TCP_ATO_MIN, specifically if the timeout (ato) is always in the interval
+[TCP_DELACK_MIN, TCP_DELACK_MAX] ?
 
---uJWb33pM2TcUAXIl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+I want to make the delayed ack timeout configurable as some guys tried
+here [1],
+so for this reason I plan to make TCP_DELACK_MIN and TCP_DELACK_MAX
+tunable via proc entries.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+thanks,
+Daniel.
 
-iEYEARECAAYFAk5535kACgkQD27XaX1/VRuhGQCfdZ5wqP0VxpCVdmg8IOodm9WB
-n4YAnR65I6lNP8uIxExMIPYGRIHIAqF4
-=DR/n
------END PGP SIGNATURE-----
-
---uJWb33pM2TcUAXIl--
+[1] http://kerneltrap.org/mailarchive/linux-netdev/2008/9/9/3245554
