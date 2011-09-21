@@ -1,115 +1,52 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v6 1/8] SUNRPC: introduce helpers for reference counted
- rpcbind clients
-Date: Wed, 21 Sep 2011 13:07:43 +0400
-Message-ID: <4E79A95F.8050304@parallels.com>
-References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E7899E7.9090809@parallels.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] xfrm: Perform a replay check after return from async
+ codepaths
+Date: Wed, 21 Sep 2011 11:38:58 +0200
+Message-ID: <20110921093858.GW1808@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E7899E7.9090809@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:34988 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753933Ab1IUJjL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Sep 2011 05:39:11 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-v6:
-1) added write memory barrier to rpcb_set_local to make sure, that rpcbind 
-clients become valid before rpcb_users assignment
-2) explicitly set rpcb_users to 1 instead of incrementing it (looks clearer from 
-my pow).
+When asyncronous crypto algorithms are used, there might be many
+packets that passed the xfrm replay check, but the replay advance
+function is not called yet for these packets. So the replay check
+function would accept a replay of all of these packets. Also the
+system might crash if there are more packets in async processing
+than the size of the anti replay window, because the replay advance
+function would try to update the replay window beyond the bounds.
 
-Notice: write memory barrier after zeroing rpcbind clients in rpcb_put_local() 
-is not required, since to users of them left. New user (service) will create new 
-clients before dereferencing them.
+This pach adds a second replay check after resuming from the async
+processing to fix these issues.
 
-This helpers will be used for dynamical creation and destruction of rpcbind
-clients.
-Variable rpcb_users is actually a counter of lauched RPC services. If rpcbind
-clients has been created already, then we just increase rpcb_users.
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
-  net/sunrpc/rpcb_clnt.c |   54 ++++++++++++++++++++++++++++++++++++++++++++++++
-  1 files changed, 54 insertions(+), 0 deletions(-)
+ net/xfrm/xfrm_input.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index e45d2fb..9fcdb42 100644
---- a/net/sunrpc/rpcb_clnt.c
-+++ b/net/sunrpc/rpcb_clnt.c
-@@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
-  static struct rpc_clnt *	rpcb_local_clnt;
-  static struct rpc_clnt *	rpcb_local_clnt4;
-
-+DEFINE_SPINLOCK(rpcb_clnt_lock);
-+unsigned int			rpcb_users;
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index a026b0e..54a0dc2 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -212,6 +212,11 @@ resume:
+ 		/* only the first xfrm gets the encap type */
+ 		encap_type = 0;
+ 
++		if (async && x->repl->check(x, skb, seq)) {
++			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATESEQERROR);
++			goto drop_unlock;
++		}
 +
-  struct rpcbind_args {
-  	struct rpc_xprt *	r_xprt;
-
-@@ -161,6 +164,57 @@ static void rpcb_map_release(void *data)
-  	kfree(map);
-  }
-
-+static int rpcb_get_local(void)
-+{
-+	int cnt;
-+
-+	spin_lock(&rpcb_clnt_lock);
-+	if (rpcb_users)
-+		rpcb_users++;
-+	cnt = rpcb_users;
-+	spin_unlock(&rpcb_clnt_lock);
-+
-+	return cnt;
-+}
-+
-+void rpcb_put_local(void)
-+{
-+	struct rpc_clnt *clnt = rpcb_local_clnt;
-+	struct rpc_clnt *clnt4 = rpcb_local_clnt4;
-+	int shutdown;
-+
-+	spin_lock(&rpcb_clnt_lock);
-+	if (--rpcb_users == 0) {
-+		rpcb_local_clnt = NULL;
-+		rpcb_local_clnt4 = NULL;
-+	}
-+	shutdown = !rpcb_users;
-+	spin_unlock(&rpcb_clnt_lock);
-+
-+	if (shutdown) {
-+		/*
-+		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
-+		 */
-+		if (clnt4)
-+			rpc_shutdown_client(clnt4);
-+		if (clnt)
-+			rpc_shutdown_client(clnt);
-+	}
-+	return;
-+}
-+
-+static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
-+{
-+	/* Protected by rpcb_create_local_mutex */
-+	rpcb_local_clnt = clnt;
-+	rpcb_local_clnt4 = clnt4;
-+	smp_wmb();
-+	rpcb_users = 1;
-+	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
-+			"%p, rpcb_local_clnt4: %p)\n", rpcb_local_clnt,
-+			rpcb_local_clnt4);
-+}
-+
-  /*
-   * Returns zero on success, otherwise a negative errno value
-   * is returned.
+ 		x->repl->advance(x, seq);
+ 
+ 		x->curlft.bytes += skb->len;
+-- 
+1.7.0.4
