@@ -1,157 +1,68 @@
-From: Hans-Juergen Schnitzer <schnitzer@rz.RWTH-Aachen.DE>
-Subject: niu: eth0: Transmit timed out, resetting
-Date: Thu, 22 Sep 2011 16:27:42 +0200
-Message-ID: <4E7B45DE.9060905@rz.RWTH-Aachen.DE>
+From: Balbir Singh <bsingharora@gmail.com>
+Subject: Re: [PATCH v3 2/7] socket: initial cgroup code.
+Date: Thu, 22 Sep 2011 20:39:55 +0530
+Message-ID: <CAKTCnz=59HuEg9T-USi5oKSK=F+vr2QxCA17+i-rGj73k49rzw@mail.gmail.com>
+References: <1316393805-3005-1-git-send-email-glommer@parallels.com>
+	<1316393805-3005-3-git-send-email-glommer@parallels.com>
+	<CAHH2K0YgkG2J_bO+U9zbZYhTTqSLvr6NtxKxN8dRtfHs=iB8iA@mail.gmail.com>
+	<4E7A342B.5040608@parallels.com>
+	<CAHH2K0Z_2LJPL0sLVHqkh_6b_BLQnknULTB9a9WfEuibk5kONg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/x-pkcs7-signature";
- micalg=sha1; boundary=------------ms060605080508080903030005
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Glauber Costa <glommer@parallels.com>,
+	linux-kernel@vger.kernel.org, paul@paulmenage.org,
+	lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
+	ebiederm@xmission.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-mm@kvack.org, kirill@shutemov.name
+To: Greg Thelen <gthelen@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:42411 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753216Ab1IVO5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 10:57:44 -0400
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-1.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0LRX00EGNHI7ERB0@mta-1.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Thu, 22 Sep 2011 16:27:43 +0200 (CEST)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:33037 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713Ab1IVPJ5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 11:09:57 -0400
+In-Reply-To: <CAHH2K0Z_2LJPL0sLVHqkh_6b_BLQnknULTB9a9WfEuibk5kONg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a cryptographically signed message in MIME format.
+On Thu, Sep 22, 2011 at 11:30 AM, Greg Thelen <gthelen@google.com> wrot=
+e:
+> On Wed, Sep 21, 2011 at 11:59 AM, Glauber Costa <glommer@parallels.co=
+m> wrote:
+>> Right now I am working under the assumption that tasks are long live=
+d inside
+>> the cgroup. Migration potentially introduces some nasty locking prob=
+lems in
+>> the mem_schedule path.
+>>
+>> Also, unless I am missing something, the memcg already has the polic=
+y of
+>> not carrying charges around, probably because of this very same comp=
+lexity.
+>>
+>> True that at least it won't EBUSY you... But I think this is at leas=
+t a way
+>> to guarantee that the cgroup under our nose won't disappear in the m=
+iddle of
+>> our allocations.
+>
+> Here's the memcg user page behavior using the same pattern:
+>
+> 1. user page P is allocate by task T in memcg M1
+> 2. T is moved to memcg M2. =A0The P charge is left behind still charg=
+ed
+> to M1 if memory.move_charge_at_immigrate=3D0; or the charge is moved =
+to
+> M2 if memory.move_charge_at_immigrate=3D1.
+> 3. rmdir M1 will try to reclaim P (if P was left in M1). =A0If unable=
+ to
+> reclaim, then P is recharged to parent(M1).
+>
 
---------------ms060605080508080903030005
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+We also have some magic in page_referenced() to remove pages
+referenced from different containers. What we do is try not to
+penalize a cgroup if another cgroup is referencing this page and the
+page under consideration is being reclaimed from the cgroup that
+touched it.
 
-Hi,
-
-we have installed Scientific Linux 6.1 (Kernel
-2.6.32-131.12.1.el6.x86_64) on a server with a Sun Neptune 10g card.
-Shortly after transmitting data we get the error
-
-niu: eth0: Transmit timed out, resetting
-
-and the system stops to respond. This behaviour was already reported
-before on this list and I was wondering if there is a fix available.
-
-Thank you,
-Hans Schnitzer
-
-
-
---------------ms060605080508080903030005
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIS+TCC
-BCEwggMJoAMCAQICAgDHMA0GCSqGSIb3DQEBBQUAMHExCzAJBgNVBAYTAkRFMRwwGgYDVQQK
-ExNEZXV0c2NoZSBUZWxla29tIEFHMR8wHQYDVQQLExZULVRlbGVTZWMgVHJ1c3QgQ2VudGVy
-MSMwIQYDVQQDExpEZXV0c2NoZSBUZWxla29tIFJvb3QgQ0EgMjAeFw0wNjEyMTkxMDI5MDBa
-Fw0xOTA2MzAyMzU5MDBaMFoxCzAJBgNVBAYTAkRFMRMwEQYDVQQKEwpERk4tVmVyZWluMRAw
-DgYDVQQLEwdERk4tUEtJMSQwIgYDVQQDExtERk4tVmVyZWluIFBDQSBHbG9iYWwgLSBHMDEw
-ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDpm8NnhfkNrvWNVMOWUDU9YuluTO2U
-1wBblSJ01CDrNI/W7MAxBAuZgeKmFNJSoCgjhIt0iQReW+DieMF4yxbLKDU5ey2QRdDtoAB6
-fL9KDhsAw4bpXCsxEXsM84IkQ4wcOItqaACa7txPeKvSxhObdq3u3ibo7wGvdA/BCaL2a869
-080UME/15eOkyGKbghoDJzANAmVgTe3RCSMqljVYJ9N2xnG2kB3E7f81hn1vM7PbD8URwoqD
-oZRdQWvY0hD1TP3KUazZve+Sg7va64sWVlZDz+HVEz2mHycwzUlU28kTNJpxdcVs6qcLmPkh
-nSevPqM5OUhqjK3JmfvDEvK9AgMBAAGjgdkwgdYwcAYDVR0fBGkwZzBloGOgYYZfaHR0cDov
-L3BraS50ZWxlc2VjLmRlL2NnaS1iaW4vc2VydmljZS9hZl9Eb3dubG9hZEFSTC5jcmw/LWNy
-bF9mb3JtYXQ9WF81MDkmLWlzc3Vlcj1EVF9ST09UX0NBXzIwHQYDVR0OBBYEFEm3xs/oPR9/
-6kR7Eyn38QpwPt5kMB8GA1UdIwQYMBaAFDHDeRu69VPXF+CJei0XbAqzK50zMA4GA1UdDwEB
-/wQEAwIBBjASBgNVHRMBAf8ECDAGAQH/AgECMA0GCSqGSIb3DQEBBQUAA4IBAQA74Vp3wEgX
-3KkY7IGvWonwvSiSpspZGBJw7Cjy565/lizn8l0ZMfYTK3S9vYCyufdnyTmieTvhERHua3iR
-M347XyYndVNljjNj7s9zw7CSI0khUHUjoR8Y4pSFPT8z6XcgjaK95qGFKUD2P3MyWA0Ja6ba
-hWzAP7uNZmRWJE6uDT8yNQFb6YyC2XJZT7GGhfF0hVblw/hc843uR7NTBXDn5U2KaYMo4RMJ
-hp5eyOpYHgwf+aTUWgRo/Sg+iwK2WLX2oSw3VwBnqyNojWOl75lrXP1LVvarQIc01BGSbOyH
-xQoLBzNytG8MHVQs2FHHzL8w00Ny8TK/jM5JY6gA9/IcMIIE6DCCA9CgAwIBAgIECfJ04DAN
-BgkqhkiG9w0BAQUFADBaMQswCQYDVQQGEwJERTETMBEGA1UEChMKREZOLVZlcmVpbjEQMA4G
-A1UECxMHREZOLVBLSTEkMCIGA1UEAxMbREZOLVZlcmVpbiBQQ0EgR2xvYmFsIC0gRzAxMB4X
-DTA3MDIxNDExNDkzOFoXDTE5MDIxMzAwMDAwMFowXjELMAkGA1UEBhMCREUxFDASBgNVBAoT
-C1JXVEggQWFjaGVuMRcwFQYDVQQDEw5SV1RIIEFhY2hlbiBDQTEgMB4GCSqGSIb3DQEJARYR
-Y2FAcnd0aC1hYWNoZW4uZGUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC4MAhk
-48jcelLfNUI5kvMv+CF54xJnL4x/cJQnN2NId6CJ3fqs0siO2exIACfzdjxOUpQ6ZFOn5pdT
-vTi7stnk8WAaP/d9LFd8k9Gbxjh7xh3L+0a3ac+/tHJcX564ntUxGtVGMuShEoUaZUT5fw97
-TL36UJ8OqXLrqpdAKcFKaJ+pgRp2gTLj4MNUMPjA4GlstpjoLnT++qFm7t/ZS92/E3OqNJUw
-HH6C35vSroVscmg+a7XxT6U4JO99MYxNcTIMzhPS9Ytp+302w7i51daBjr0hFGPK0nLSV6gv
-77zBSFJ7AVGJJxBSUzDn0xkDLYvZwqaeYkj8kDB2oSeRyfGjAgMBAAGjggGwMIIBrDAPBgNV
-HRMBAf8EBTADAQH/MAsGA1UdDwQEAwIBBjAdBgNVHQ4EFgQUbtU+wBwvcck8v0lO72pVSOzR
-8jgwHwYDVR0jBBgwFoAUSbfGz+g9H3/qRHsTKffxCnA+3mQwHAYDVR0RBBUwE4ERY2FAcnd0
-aC1hYWNoZW4uZGUwgYgGA1UdHwSBgDB+MD2gO6A5hjdodHRwOi8vY2RwMS5wY2EuZGZuLmRl
-L2dsb2JhbC1yb290LWNhL3B1Yi9jcmwvY2FjcmwuY3JsMD2gO6A5hjdodHRwOi8vY2RwMi5w
-Y2EuZGZuLmRlL2dsb2JhbC1yb290LWNhL3B1Yi9jcmwvY2FjcmwuY3JsMIGiBggrBgEFBQcB
-AQSBlTCBkjBHBggrBgEFBQcwAoY7aHR0cDovL2NkcDEucGNhLmRmbi5kZS9nbG9iYWwtcm9v
-dC1jYS9wdWIvY2FjZXJ0L2NhY2VydC5jcnQwRwYIKwYBBQUHMAKGO2h0dHA6Ly9jZHAyLnBj
-YS5kZm4uZGUvZ2xvYmFsLXJvb3QtY2EvcHViL2NhY2VydC9jYWNlcnQuY3J0MA0GCSqGSIb3
-DQEBBQUAA4IBAQAXh37GLAscIHrVqQYrG5P/dYULxAseU6xuXKnSpVTnMWVFf1TtN/p2D+8X
-TKtl/A4WlYa9np+ONblWcS1nJsuYf7N9wrO4zCEcVBNLIAHCY3ZXG+IoNHwgXqSYqXHzrAQZ
-jkSJr1RfbFE4njUy0nNhtC51HX0ongWfqODc6z7aF9we20615Mh8Kk8uox4XgjLLV/UjPVlw
-RAnuYIeF0wycvQ6jz/PJMuOrXShpqejpaiRXqKx8oPXAlCcnoqRLlQc1L0iwQHBn0Em6tDmM
-Hcahbf9SBOWiZ8+O0av4ly8CQ95okz9hto9UErXUIzNea2AQXBtlIyLLKgVuYPf4i3IyMIIE
-8DCCA9igAwIBAgIED9034DANBgkqhkiG9w0BAQUFADBeMQswCQYDVQQGEwJERTEUMBIGA1UE
-ChMLUldUSCBBYWNoZW4xFzAVBgNVBAMTDlJXVEggQWFjaGVuIENBMSAwHgYJKoZIhvcNAQkB
-FhFjYUByd3RoLWFhY2hlbi5kZTAeFw0xMDA0MDgxMTEzMjBaFw0xMzA0MDcxMTEzMjBaMFEx
-CzAJBgNVBAYTAkRFMRQwEgYDVQQKEwtSV1RIIEFhY2hlbjELMAkGA1UECxMCUloxHzAdBgNV
-BAMTFkhhbnMtSnVlcmdlbiBTY2huaXR6ZXIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-AoIBAQCqGUGTOlo1tWK0e8puvCi/0xT+/iWOCwjlrdZC9BJvgPBbh4E14Z7xZF8VT22vgHwu
-mxLLrSXWPJR0irdR+QNlioxMdzaC0WSar/cOVcD0qbUogFMGlN+d2gMkA3beZ/Cy8DpGJc+G
-oUbNmwdIUDPa3ZFQuf88lUeZjABIMMnXRrONWGvXcVu8oIsh/NXYG/LZK6bKkKqcub3/YL5l
-NPSSou8Y0beJcJ8Y/GU2BBsb8GT+KKT0CXG9xvrDMCfDIW47e/CP4GgenHfN+PZeKjR7ZZqK
-znClJ+CPM0JcYU5E3UEw06uHouu7Jxe1F3jFGOCVBV8EJ6apcTxD4WlGei+ZAgMBAAGjggHB
-MIIBvTAJBgNVHRMEAjAAMAsGA1UdDwQEAwIF4DApBgNVHSUEIjAgBggrBgEFBQcDAgYIKwYB
-BQUHAwQGCisGAQQBgjcUAgIwHQYDVR0OBBYEFH2Sl2XXDBM3LTJRUZQtsq96YZznMB8GA1Ud
-IwQYMBaAFG7VPsAcL3HJPL9JTu9qVUjs0fI4MCYGA1UdEQQfMB2BG3NjaG5pdHplckByei5y
-d3RoLWFhY2hlbi5kZTB5BgNVHR8EcjBwMDagNKAyhjBodHRwOi8vY2RwMS5wY2EuZGZuLmRl
-L3J3dGgtY2EvcHViL2NybC9jYWNybC5jcmwwNqA0oDKGMGh0dHA6Ly9jZHAyLnBjYS5kZm4u
-ZGUvcnd0aC1jYS9wdWIvY3JsL2NhY3JsLmNybDCBlAYIKwYBBQUHAQEEgYcwgYQwQAYIKwYB
-BQUHMAKGNGh0dHA6Ly9jZHAxLnBjYS5kZm4uZGUvcnd0aC1jYS9wdWIvY2FjZXJ0L2NhY2Vy
-dC5jcnQwQAYIKwYBBQUHMAKGNGh0dHA6Ly9jZHAyLnBjYS5kZm4uZGUvcnd0aC1jYS9wdWIv
-Y2FjZXJ0L2NhY2VydC5jcnQwDQYJKoZIhvcNAQEFBQADggEBADStNXhKkKSgchy9Sb2UzpFg
-iIsNF7L/y7KzcLH5w33Yuji8yEkm0v6/qjOj4Fpw03WgdTKctt62ZrbX2lvBzy4JlQ6Ao4Hs
-mSNPo5KQ6GY8BgfU48OTJrVkQREYF6Zb4Heu9kjNolu7gm5rD5n9uUGu/cQp6SS0K0WemTGo
-Yfa7B3ZEJ4ULwuCpx7R8NB5Q2JMIcbIp6y2uOQQtKCtqxP1IjMSds/8wW9neLYQYlpjaElot
-PHM4TqxbA1gQBxmePjTcPk1FGsjdBPx71CtNCNIZvcpsY+BItf9qJ98/MI4uYBOXilYx7Raj
-FtlOtihr0paUAnUBXpIK9Gz4mw2TmDswggTwMIID2KADAgECAgQP3TfgMA0GCSqGSIb3DQEB
-BQUAMF4xCzAJBgNVBAYTAkRFMRQwEgYDVQQKEwtSV1RIIEFhY2hlbjEXMBUGA1UEAxMOUldU
-SCBBYWNoZW4gQ0ExIDAeBgkqhkiG9w0BCQEWEWNhQHJ3dGgtYWFjaGVuLmRlMB4XDTEwMDQw
-ODExMTMyMFoXDTEzMDQwNzExMTMyMFowUTELMAkGA1UEBhMCREUxFDASBgNVBAoTC1JXVEgg
-QWFjaGVuMQswCQYDVQQLEwJSWjEfMB0GA1UEAxMWSGFucy1KdWVyZ2VuIFNjaG5pdHplcjCC
-ASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKoZQZM6WjW1YrR7ym68KL/TFP7+JY4L
-COWt1kL0Em+A8FuHgTXhnvFkXxVPba+AfC6bEsutJdY8lHSKt1H5A2WKjEx3NoLRZJqv9w5V
-wPSptSiAUwaU353aAyQDdt5n8LLwOkYlz4ahRs2bB0hQM9rdkVC5/zyVR5mMAEgwyddGs41Y
-a9dxW7ygiyH81dgb8tkrpsqQqpy5vf9gvmU09JKi7xjRt4lwnxj8ZTYEGxvwZP4opPQJcb3G
-+sMwJ8Mhbjt78I/gaB6cd8349l4qNHtlmorOcKUn4I8zQlxhTkTdQTDTq4ei67snF7UXeMUY
-4JUFXwQnpqlxPEPhaUZ6L5kCAwEAAaOCAcEwggG9MAkGA1UdEwQCMAAwCwYDVR0PBAQDAgXg
-MCkGA1UdJQQiMCAGCCsGAQUFBwMCBggrBgEFBQcDBAYKKwYBBAGCNxQCAjAdBgNVHQ4EFgQU
-fZKXZdcMEzctMlFRlC2yr3phnOcwHwYDVR0jBBgwFoAUbtU+wBwvcck8v0lO72pVSOzR8jgw
-JgYDVR0RBB8wHYEbc2Nobml0emVyQHJ6LnJ3dGgtYWFjaGVuLmRlMHkGA1UdHwRyMHAwNqA0
-oDKGMGh0dHA6Ly9jZHAxLnBjYS5kZm4uZGUvcnd0aC1jYS9wdWIvY3JsL2NhY3JsLmNybDA2
-oDSgMoYwaHR0cDovL2NkcDIucGNhLmRmbi5kZS9yd3RoLWNhL3B1Yi9jcmwvY2FjcmwuY3Js
-MIGUBggrBgEFBQcBAQSBhzCBhDBABggrBgEFBQcwAoY0aHR0cDovL2NkcDEucGNhLmRmbi5k
-ZS9yd3RoLWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDBABggrBgEFBQcwAoY0aHR0cDovL2Nk
-cDIucGNhLmRmbi5kZS9yd3RoLWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDANBgkqhkiG9w0B
-AQUFAAOCAQEANK01eEqQpKByHL1JvZTOkWCIiw0Xsv/LsrNwsfnDfdi6OLzISSbS/r+qM6Pg
-WnDTdaB1Mpy23rZmttfaW8HPLgmVDoCjgeyZI0+jkpDoZjwGB9Tjw5MmtWRBERgXplvgd672
-SM2iW7uCbmsPmf25Qa79xCnpJLQrRZ6ZMahh9rsHdkQnhQvC4KnHtHw0HlDYkwhxsinrLa45
-BC0oK2rE/UiMxJ2z/zBb2d4thBiWmNoSWi08czhOrFsDWBAHGZ4+NNw+TUUayN0E/HvUK00I
-0hm9ymxj4Ei1/2on3z8wji5gE5eKVjHtFqMW2U62KGvSlpQCdQFekgr0bPibDZOYOzGCAz8w
-ggM7AgEBMGYwXjELMAkGA1UEBhMCREUxFDASBgNVBAoTC1JXVEggQWFjaGVuMRcwFQYDVQQD
-Ew5SV1RIIEFhY2hlbiBDQTEgMB4GCSqGSIb3DQEJARYRY2FAcnd0aC1hYWNoZW4uZGUCBA/d
-N+AwCQYFKw4DAhoFAKCCAa4wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0B
-CQUxDxcNMTEwOTIyMTQyNzQyWjAjBgkqhkiG9w0BCQQxFgQUpjugp7NLWyIk6kEe5rw51xny
-srowXwYJKoZIhvcNAQkPMVIwUDALBglghkgBZQMEAQIwCgYIKoZIhvcNAwcwDgYIKoZIhvcN
-AwICAgCAMA0GCCqGSIb3DQMCAgFAMAcGBSsOAwIHMA0GCCqGSIb3DQMCAgEoMHUGCSsGAQQB
-gjcQBDFoMGYwXjELMAkGA1UEBhMCREUxFDASBgNVBAoTC1JXVEggQWFjaGVuMRcwFQYDVQQD
-Ew5SV1RIIEFhY2hlbiBDQTEgMB4GCSqGSIb3DQEJARYRY2FAcnd0aC1hYWNoZW4uZGUCBA/d
-N+AwdwYLKoZIhvcNAQkQAgsxaKBmMF4xCzAJBgNVBAYTAkRFMRQwEgYDVQQKEwtSV1RIIEFh
-Y2hlbjEXMBUGA1UEAxMOUldUSCBBYWNoZW4gQ0ExIDAeBgkqhkiG9w0BCQEWEWNhQHJ3dGgt
-YWFjaGVuLmRlAgQP3TfgMA0GCSqGSIb3DQEBAQUABIIBAIDWCBbtmbqYV5gmSQbPfQWHHdwJ
-LEMXlKVp9H5JDLUZZ4CZtjvEWgfu8qmo8YwXlAyANsEa8HwD0cVK/J4b5Cf9Oi1FMTaD9i9T
-eyH83q6mhlrCG1TxJXg1CHsg0qSPblMaUk78vKDcUxVXUfBqxM/bBUspYJkyVIzXKcfoageK
-g9FiFubOsSvDGq97hna7BWmI6OP4B0bnX77vbEoPdvJfvDBYw7m34SRnPjpqtSVWCWxZAkqG
-65+nwmwytQau0ihqktmkJSWIaT04RZomkbJxc6BPfVkyw/7RvZgMi9sjdNcaJsQHgvrUS9sQ
-w4PMIXh6JjlvnxsyYSBHvTsaqb8AAAAAAAA=
---------------ms060605080508080903030005--
+Balbir Singh
