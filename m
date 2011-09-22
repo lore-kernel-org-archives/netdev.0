@@ -1,23 +1,26 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH net-next v2] candev: allow SJW user setting for bittiming
- calculation
-Date: Thu, 22 Sep 2011 12:28:54 +0200
-Message-ID: <4E7B0DE6.9020807@hartkopp.net>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH net-next] candev: allow SJW user setting for bittiming
+	calculation
+Date: Thu, 22 Sep 2011 12:24:36 +0200
+Message-ID: <4E7B0CE4.3070402@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	=?windows-1252?Q?Pavel_P=ED=9Aa?= <pisa@cmp.felk.cvut.cz>,
-	SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:41634 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752710Ab1IVK3O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 06:29:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Pavel-XecQL68PM4x789tOGE2Ojw@public.gmane.org,
+	Píša@mail.berlios.de, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 This patch adds support for SJW user settings to not set the synchronization
 jump width (SJW) to 1 in any case when using the in-kernel bittiming
@@ -29,18 +32,15 @@ and the calculated tseg2 value. As the SJW can have values up to 4 providing
 this value will lead to the maximum possible SJW automatically. A higher SJW
 allows higher controller oscillator tolerances.
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 
 ---
-
-v2: Resend due to wrong mail address header encoding.
 
 diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
 index 9bf1116..25695bd 100644
 --- a/drivers/net/can/dev.c
 +++ b/drivers/net/can/dev.c
-@@ -150,7 +150,19 @@ static int can_calc_bittiming(struct net_device *dev,
-struct can_bittiming *bt)
+@@ -150,7 +150,19 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt)
  	bt->prop_seg = tseg1 / 2;
  	bt->phase_seg1 = tseg1 - bt->prop_seg;
  	bt->phase_seg2 = tseg2;
