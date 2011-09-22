@@ -1,700 +1,137 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 3/3] enic: Add support for port profile
-	association on a enic SRIOV VF
-Date: Thu, 22 Sep 2011 06:44:43 -0700
-Message-ID: <20110922134443.2145.97036.stgit@savbu-pc100.cisco.com>
-References: <20110922134410.2145.72210.stgit@savbu-pc100.cisco.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: brenohl@br.ibm.com
+Subject: [PATCH net-next] ehea: Remove sleep at .ndo_get_stats
+Date: Thu, 22 Sep 2011 11:10:57 -0300
+Message-ID: <1316700657-14980-1-git-send-email-brenohl@br.ibm.com>
+Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-3.cisco.com ([173.36.130.14]:8218 "EHLO
-	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751374Ab1IVNoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 09:44:44 -0400
-In-Reply-To: <20110922134410.2145.72210.stgit@savbu-pc100.cisco.com>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:56651 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752254Ab1IVOLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 10:11:03 -0400
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id p8MFWHDe008557
+	for <netdev@vger.kernel.org>; Thu, 22 Sep 2011 12:32:17 -0300
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p8MEA5Q63473450
+	for <netdev@vger.kernel.org>; Thu, 22 Sep 2011 11:10:06 -0300
+Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
+	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p8MEApgj029730
+	for <netdev@vger.kernel.org>; Thu, 22 Sep 2011 11:10:52 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roprabhu@cisco.com>
+Currently ehea ndo_get_stats can sleep in two places, in a hcall
+and in a GFP_KERNEL alloc, which is not correct.
+This patch creates a workqueue that grabs the information from time
+to time from the hardware, and place it into the device structure,
+so that, .ndo_get_stats quickly returns the device structure statistics
+block.
 
-This patch touchs most of the enic port profile handling code.
-Tried to break it into sub patches without success.
-
-The patch mainly does the following:
-- Port profile operations for a SRIOV VF are modified to work
-  only via its PF
-- Changes the port profile static struct in struct enic to a pointer.
-  This is because a SRIOV PF has to now hold the port profile information
-  for all its VF's
-- Moved address registration for VF's during port profile ASSOCIATE time
-- Most changes in port profile handling code are changes related to indexing
-  into the port profile struct array of a PF for the VF port profile
-  information
-
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Sujith Sankar <ssujith@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/cisco/enic/enic.h      |    3 
- drivers/net/ethernet/cisco/enic/enic_main.c |  118 ++++++++++-------
- drivers/net/ethernet/cisco/enic/enic_pp.c   |  192 +++++++++++++++++++++------
- drivers/net/ethernet/cisco/enic/enic_pp.h   |   15 ++
- 4 files changed, 232 insertions(+), 96 deletions(-)
+ drivers/net/ehea/ehea.h      |    1 +
+ drivers/net/ehea/ehea_main.c |   20 +++++++++++++++++---
+ 2 files changed, 18 insertions(+), 3 deletions(-)
 
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index 8c5cfb5..fe0c29a 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -96,7 +96,7 @@ struct enic {
- #ifdef CONFIG_PCI_IOV
- 	u32 num_vfs;
- #endif
--	struct enic_port_profile pp;
-+	struct enic_port_profile *pp;
- 
- 	/* work queue cache line section */
- 	____cacheline_aligned struct vnic_wq wq[ENIC_WQ_MAX];
-@@ -130,5 +130,6 @@ static inline struct device *enic_get_dev(struct enic *enic)
- void enic_reset_addr_lists(struct enic *enic);
- int enic_sriov_enabled(struct enic *enic);
- int enic_is_valid_vf(struct enic *enic, int vf);
-+int enic_is_dynamic(struct enic *enic);
- 
- #endif /* _ENIC_H_ */
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 154cb99..bf95348 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -122,7 +122,7 @@ static const struct enic_stat enic_rx_stats[] = {
- static const unsigned int enic_n_tx_stats = ARRAY_SIZE(enic_tx_stats);
- static const unsigned int enic_n_rx_stats = ARRAY_SIZE(enic_rx_stats);
- 
--static int enic_is_dynamic(struct enic *enic)
-+int enic_is_dynamic(struct enic *enic)
+diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
+index 7dd5e6a..05c39ae 100644
+--- a/drivers/net/ehea/ehea.h
++++ b/drivers/net/ehea/ehea.h
+@@ -459,6 +459,7 @@ struct ehea_port {
+ 	struct ehea_mc_list *mc_list;	 /* Multicast MAC addresses */
+ 	struct ehea_eq *qp_eq;
+ 	struct work_struct reset_task;
++	struct work_struct stats_task;
+ 	struct mutex port_lock;
+ 	char int_aff_name[EHEA_IRQ_NAME_SIZE];
+ 	int allmulti;			 /* Indicates IFF_ALLMULTI state */
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index be2cb4a..7465553 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -330,6 +330,15 @@ out:
+ static struct net_device_stats *ehea_get_stats(struct net_device *dev)
  {
- 	return enic->pdev->device == PCI_DEVICE_ID_CISCO_VIC_ENET_DYN;
- }
-@@ -1054,15 +1054,15 @@ static void enic_tx_timeout(struct net_device *netdev)
- static int enic_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
- {
- 	struct enic *enic = netdev_priv(netdev);
-+	struct enic_port_profile *pp;
-+	int err;
- 
--	if (vf != PORT_SELF_VF)
--		return -EOPNOTSUPP;
-+	ENIC_PP_BY_INDEX(enic, vf, pp, &err);
-+	if (err)
-+		return err;
- 
--	/* Ignore the vf argument for now. We can assume the request
--	 * is coming on a vf.
--	 */
- 	if (is_valid_ether_addr(mac)) {
--		memcpy(enic->pp.vf_mac, mac, ETH_ALEN);
-+		memcpy(pp->vf_mac, mac, ETH_ALEN);
- 		return 0;
- 	} else
- 		return -EINVAL;
-@@ -1073,71 +1073,74 @@ static int enic_set_vf_port(struct net_device *netdev, int vf,
- {
- 	struct enic *enic = netdev_priv(netdev);
- 	struct enic_port_profile prev_pp;
-+	struct enic_port_profile *pp;
- 	int err = 0, restore_pp = 1;
- 
--	/* don't support VFs, yet */
--	if (vf != PORT_SELF_VF)
--		return -EOPNOTSUPP;
-+	ENIC_PP_BY_INDEX(enic, vf, pp, &err);
-+	if (err)
-+		return err;
- 
- 	if (!port[IFLA_PORT_REQUEST])
- 		return -EOPNOTSUPP;
- 
--	memcpy(&prev_pp, &enic->pp, sizeof(enic->pp));
--	memset(&enic->pp, 0, sizeof(enic->pp));
-+	memcpy(&prev_pp, pp, sizeof(*enic->pp));
-+	memset(pp, 0, sizeof(*enic->pp));
- 
--	enic->pp.set |= ENIC_SET_REQUEST;
--	enic->pp.request = nla_get_u8(port[IFLA_PORT_REQUEST]);
-+	pp->set |= ENIC_SET_REQUEST;
-+	pp->request = nla_get_u8(port[IFLA_PORT_REQUEST]);
- 
- 	if (port[IFLA_PORT_PROFILE]) {
--		enic->pp.set |= ENIC_SET_NAME;
--		memcpy(enic->pp.name, nla_data(port[IFLA_PORT_PROFILE]),
-+		pp->set |= ENIC_SET_NAME;
-+		memcpy(pp->name, nla_data(port[IFLA_PORT_PROFILE]),
- 			PORT_PROFILE_MAX);
- 	}
- 
- 	if (port[IFLA_PORT_INSTANCE_UUID]) {
--		enic->pp.set |= ENIC_SET_INSTANCE;
--		memcpy(enic->pp.instance_uuid,
-+		pp->set |= ENIC_SET_INSTANCE;
-+		memcpy(pp->instance_uuid,
- 			nla_data(port[IFLA_PORT_INSTANCE_UUID]), PORT_UUID_MAX);
- 	}
- 
- 	if (port[IFLA_PORT_HOST_UUID]) {
--		enic->pp.set |= ENIC_SET_HOST;
--		memcpy(enic->pp.host_uuid,
-+		pp->set |= ENIC_SET_HOST;
-+		memcpy(pp->host_uuid,
- 			nla_data(port[IFLA_PORT_HOST_UUID]), PORT_UUID_MAX);
- 	}
- 
- 	/* Special case handling: mac came from IFLA_VF_MAC */
- 	if (!is_zero_ether_addr(prev_pp.vf_mac))
--		memcpy(enic->pp.mac_addr, prev_pp.vf_mac, ETH_ALEN);
-+		memcpy(pp->mac_addr, prev_pp.vf_mac, ETH_ALEN);
- 
--		if (is_zero_ether_addr(netdev->dev_addr))
--			random_ether_addr(netdev->dev_addr);
-+	if (vf == PORT_SELF_VF && is_zero_ether_addr(netdev->dev_addr))
-+		random_ether_addr(netdev->dev_addr);
- 
--	err = enic_process_set_pp_request(enic, &prev_pp, &restore_pp);
-+	err = enic_process_set_pp_request(enic, vf, &prev_pp, &restore_pp);
- 	if (err) {
- 		if (restore_pp) {
- 			/* Things are still the way they were: Implicit
- 			 * DISASSOCIATE failed
- 			 */
--			memcpy(&enic->pp, &prev_pp, sizeof(enic->pp));
-+			memcpy(pp, &prev_pp, sizeof(*pp));
- 		} else {
--			memset(&enic->pp, 0, sizeof(enic->pp));
--			memset(netdev->dev_addr, 0, ETH_ALEN);
-+			memset(pp, 0, sizeof(*pp));
-+			if (vf == PORT_SELF_VF)
-+				memset(netdev->dev_addr, 0, ETH_ALEN);
- 		}
- 	} else {
- 		/* Set flag to indicate that the port assoc/disassoc
- 		 * request has been sent out to fw
- 		 */
--		enic->pp.set |= ENIC_PORT_REQUEST_APPLIED;
-+		pp->set |= ENIC_PORT_REQUEST_APPLIED;
- 
- 		/* If DISASSOCIATE, clean up all assigned/saved macaddresses */
--		if (enic->pp.request == PORT_REQUEST_DISASSOCIATE) {
--			memset(enic->pp.mac_addr, 0, ETH_ALEN);
--			memset(netdev->dev_addr, 0, ETH_ALEN);
-+		if (pp->request == PORT_REQUEST_DISASSOCIATE) {
-+			memset(pp->mac_addr, 0, ETH_ALEN);
-+			if (vf == PORT_SELF_VF)
-+				memset(netdev->dev_addr, 0, ETH_ALEN);
- 		}
- 	}
- 
--	memset(enic->pp.vf_mac, 0, ETH_ALEN);
-+	memset(pp->vf_mac, 0, ETH_ALEN);
- 
- 	return err;
- }
-@@ -1147,26 +1150,31 @@ static int enic_get_vf_port(struct net_device *netdev, int vf,
- {
- 	struct enic *enic = netdev_priv(netdev);
- 	u16 response = PORT_PROFILE_RESPONSE_SUCCESS;
-+	struct enic_port_profile *pp;
- 	int err;
- 
--	if (!(enic->pp.set & ENIC_PORT_REQUEST_APPLIED))
-+	ENIC_PP_BY_INDEX(enic, vf, pp, &err);
-+	if (err)
-+		return err;
+ 	struct ehea_port *port = netdev_priv(dev);
 +
-+	if (!(pp->set & ENIC_PORT_REQUEST_APPLIED))
- 		return -ENODATA;
- 
--	err = enic_process_get_pp_request(enic, enic->pp.request, &response);
-+	err = enic_process_get_pp_request(enic, vf, pp->request, &response);
- 	if (err)
- 		return err;
- 
--	NLA_PUT_U16(skb, IFLA_PORT_REQUEST, enic->pp.request);
-+	NLA_PUT_U16(skb, IFLA_PORT_REQUEST, pp->request);
- 	NLA_PUT_U16(skb, IFLA_PORT_RESPONSE, response);
--	if (enic->pp.set & ENIC_SET_NAME)
-+	if (pp->set & ENIC_SET_NAME)
- 		NLA_PUT(skb, IFLA_PORT_PROFILE, PORT_PROFILE_MAX,
--			enic->pp.name);
--	if (enic->pp.set & ENIC_SET_INSTANCE)
-+			pp->name);
-+	if (pp->set & ENIC_SET_INSTANCE)
- 		NLA_PUT(skb, IFLA_PORT_INSTANCE_UUID, PORT_UUID_MAX,
--			enic->pp.instance_uuid);
--	if (enic->pp.set & ENIC_SET_HOST)
-+			pp->instance_uuid);
-+	if (pp->set & ENIC_SET_HOST)
- 		NLA_PUT(skb, IFLA_PORT_HOST_UUID, PORT_UUID_MAX,
--			enic->pp.host_uuid);
-+			pp->host_uuid);
- 
- 	return 0;
- 
-@@ -1600,10 +1608,9 @@ static int enic_open(struct net_device *netdev)
- 	for (i = 0; i < enic->rq_count; i++)
- 		vnic_rq_enable(&enic->rq[i]);
- 
--	if (enic_is_dynamic(enic) && !is_zero_ether_addr(enic->pp.mac_addr))
--		enic_dev_add_addr(enic, enic->pp.mac_addr);
--	else
-+	if (!enic_is_dynamic(enic))
- 		enic_dev_add_station_addr(enic);
-+
- 	enic_set_rx_mode(netdev);
- 
- 	netif_wake_queue(netdev);
-@@ -1651,9 +1658,8 @@ static int enic_stop(struct net_device *netdev)
- 
- 	netif_carrier_off(netdev);
- 	netif_tx_disable(netdev);
--	if (enic_is_dynamic(enic) && !is_zero_ether_addr(enic->pp.mac_addr))
--		enic_dev_del_addr(enic, enic->pp.mac_addr);
--	else
-+
-+	if (!enic_is_dynamic(enic))
- 		enic_dev_del_station_addr(enic);
- 
- 	for (i = 0; i < enic->wq_count; i++) {
-@@ -2143,6 +2149,9 @@ static const struct net_device_ops enic_netdev_ops = {
- 	.ndo_vlan_rx_add_vid	= enic_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= enic_vlan_rx_kill_vid,
- 	.ndo_tx_timeout		= enic_tx_timeout,
-+	.ndo_set_vf_port	= enic_set_vf_port,
-+	.ndo_get_vf_port	= enic_get_vf_port,
-+	.ndo_set_vf_mac		= enic_set_vf_mac,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= enic_poll_controller,
- #endif
-@@ -2254,6 +2263,7 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 	int using_dac = 0;
- 	unsigned int i;
- 	int err;
-+	int num_pps = 1;
- #ifdef CONFIG_PCI_IOV
- 	int pos = 0;
- #endif
-@@ -2363,17 +2373,26 @@ static int __devinit enic_probe(struct pci_dev *pdev,
- 				goto err_out_vnic_unregister;
- 			}
- 			enic->priv_flags |= ENIC_SRIOV_ENABLED;
-+			num_pps = enic->num_vfs;
- 		}
- 	}
- 
- #endif
-+	/* Allocate structure for port profiles */
-+	enic->pp = kzalloc(num_pps * sizeof(*enic->pp), GFP_KERNEL);
-+	if (!enic->pp) {
-+		pr_err("port profile alloc failed, aborting\n");
-+		err = -ENOMEM;
-+		goto err_out_disable_sriov;
-+	}
-+
- 	/* Issue device open to get device in known state
- 	 */
- 
- 	err = enic_dev_open(enic);
- 	if (err) {
- 		dev_err(dev, "vNIC dev open failed, aborting\n");
--		goto err_out_disable_sriov;
-+		goto err_out_free_pp;
- 	}
- 
- 	/* Setup devcmd lock
-@@ -2497,6 +2516,8 @@ err_out_dev_deinit:
- 	enic_dev_deinit(enic);
- err_out_dev_close:
- 	vnic_dev_close(enic->vdev);
-+err_out_free_pp:
-+	kfree(enic->pp);
- err_out_disable_sriov:
- #ifdef CONFIG_PCI_IOV
- 	if (enic_sriov_enabled(enic)) {
-@@ -2537,6 +2558,7 @@ static void __devexit enic_remove(struct pci_dev *pdev)
- 			enic->priv_flags &= ~ENIC_SRIOV_ENABLED;
- 		}
- #endif
-+		kfree(enic->pp);
- 		vnic_dev_unregister(enic->vdev);
- 		enic_iounmap(enic);
- 		pci_release_regions(pdev);
-diff --git a/drivers/net/ethernet/cisco/enic/enic_pp.c b/drivers/net/ethernet/cisco/enic/enic_pp.c
-index ffaa75d..22bf03a 100644
---- a/drivers/net/ethernet/cisco/enic/enic_pp.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_pp.c
-@@ -29,10 +29,47 @@
- #include "enic_res.h"
- #include "enic.h"
- #include "enic_dev.h"
-+#include "enic_pp.h"
- 
--static int enic_set_port_profile(struct enic *enic)
-+/*
-+ * Checks validity of vf index that came in
-+ * port profile request
-+ */
-+int enic_is_valid_pp_vf(struct enic *enic, int vf, int *err)
-+{
-+	if (vf != PORT_SELF_VF) {
-+#ifdef CONFIG_PCI_IOV
-+		if (enic_sriov_enabled(enic)) {
-+			if (vf < 0 || vf >= enic->num_vfs) {
-+				*err = -EINVAL;
-+				goto err_out;
-+			}
-+		} else {
-+			*err = -EOPNOTSUPP;
-+			goto err_out;
-+		}
-+#else
-+		*err = -EOPNOTSUPP;
-+		goto err_out;
-+#endif
-+	}
-+
-+	if (vf == PORT_SELF_VF && !enic_is_dynamic(enic)) {
-+		*err = -EOPNOTSUPP;
-+		goto err_out;
-+	}
-+
-+	*err = 0;
-+	return 1;
-+
-+err_out:
-+	return 0;
++	return &port->stats;
 +}
 +
-+static int enic_set_port_profile(struct enic *enic, int vf)
- {
- 	struct net_device *netdev = enic->netdev;
-+	struct enic_port_profile *pp;
- 	struct vic_provinfo *vp;
- 	const u8 oui[3] = VIC_PROVINFO_CISCO_OUI;
- 	const u16 os_type = htons(VIC_GENERIC_PROV_OS_TYPE_LINUX);
-@@ -41,7 +78,11 @@ static int enic_set_port_profile(struct enic *enic)
- 	u8 *client_mac;
- 	int err;
- 
--	if (!(enic->pp.set & ENIC_SET_NAME) || !strlen(enic->pp.name))
-+	ENIC_PP_BY_INDEX(enic, vf, pp, &err);
-+	if (err)
-+		return err;
-+
-+	if (!(pp->set & ENIC_SET_NAME) || !strlen(pp->name))
- 		return -EINVAL;
- 
- 	vp = vic_provinfo_alloc(GFP_KERNEL, oui,
-@@ -51,12 +92,18 @@ static int enic_set_port_profile(struct enic *enic)
- 
- 	VIC_PROVINFO_ADD_TLV(vp,
- 		VIC_GENERIC_PROV_TLV_PORT_PROFILE_NAME_STR,
--		strlen(enic->pp.name) + 1, enic->pp.name);
-+		strlen(pp->name) + 1, pp->name);
- 
--	if (!is_zero_ether_addr(enic->pp.mac_addr))
--		client_mac = enic->pp.mac_addr;
--	else
-+	if (!is_zero_ether_addr(pp->mac_addr)) {
-+		client_mac = pp->mac_addr;
-+	} else if (vf == PORT_SELF_VF) {
- 		client_mac = netdev->dev_addr;
-+	} else {
-+		netdev_err(netdev, "Cannot find pp mac address "
-+			"for VF %d\n", vf);
-+		err = -EINVAL;
-+		goto add_tlv_failure;
-+	}
- 
- 	VIC_PROVINFO_ADD_TLV(vp,
- 		VIC_GENERIC_PROV_TLV_CLIENT_MAC_ADDR,
-@@ -67,15 +114,15 @@ static int enic_set_port_profile(struct enic *enic)
- 		VIC_GENERIC_PROV_TLV_CLUSTER_PORT_UUID_STR,
- 		sizeof(client_mac_str), client_mac_str);
- 
--	if (enic->pp.set & ENIC_SET_INSTANCE) {
--		sprintf(uuid_str, "%pUB", enic->pp.instance_uuid);
-+	if (pp->set & ENIC_SET_INSTANCE) {
-+		sprintf(uuid_str, "%pUB", pp->instance_uuid);
- 		VIC_PROVINFO_ADD_TLV(vp,
- 			VIC_GENERIC_PROV_TLV_CLIENT_UUID_STR,
- 			sizeof(uuid_str), uuid_str);
++static void ehea_update_stats(struct work_struct *work)
++{
++	struct ehea_port *port =
++		container_of(work, struct ehea_port, stats_task);
++	struct net_device *dev = port->netdev;
+ 	struct net_device_stats *stats = &port->stats;
+ 	struct hcp_ehea_port_cb2 *cb2;
+ 	u64 hret, rx_packets, tx_packets, rx_bytes = 0, tx_bytes = 0;
+@@ -340,7 +349,7 @@ static struct net_device_stats *ehea_get_stats(struct net_device *dev)
+ 	cb2 = (void *)get_zeroed_page(GFP_KERNEL);
+ 	if (!cb2) {
+ 		netdev_err(dev, "no mem for cb2\n");
+-		goto out;
++		return;
  	}
  
--	if (enic->pp.set & ENIC_SET_HOST) {
--		sprintf(uuid_str, "%pUB", enic->pp.host_uuid);
-+	if (pp->set & ENIC_SET_HOST) {
-+		sprintf(uuid_str, "%pUB", pp->host_uuid);
- 		VIC_PROVINFO_ADD_TLV(vp,
- 			VIC_GENERIC_PROV_TLV_HOST_UUID_STR,
- 			sizeof(uuid_str), uuid_str);
-@@ -85,7 +132,9 @@ static int enic_set_port_profile(struct enic *enic)
- 		VIC_GENERIC_PROV_TLV_OS_TYPE,
- 		sizeof(os_type), &os_type);
+ 	hret = ehea_h_query_ehea_port(port->adapter->handle,
+@@ -375,8 +384,6 @@ static struct net_device_stats *ehea_get_stats(struct net_device *dev)
  
--	err = enic_dev_status_to_errno(enic_dev_init_prov2(enic, vp));
-+	ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnic_dev_init_prov2, (u8 *)vp,
-+		vic_provinfo_size(vp));
-+	err = enic_dev_status_to_errno(err);
- 
- add_tlv_failure:
- 	vic_provinfo_free(vp);
-@@ -93,15 +142,16 @@ add_tlv_failure:
- 	return err;
+ out_herr:
+ 	free_page((unsigned long)cb2);
+-out:
+-	return stats;
  }
  
--static int enic_unset_port_profile(struct enic *enic)
-+static int enic_unset_port_profile(struct enic *enic, int vf)
- {
- 	int err;
+ static void ehea_refill_rq1(struct ehea_port_res *pr, int index, int nr_of_wqes)
+@@ -789,6 +796,8 @@ static int ehea_proc_rwqes(struct net_device *dev,
+ 	ehea_refill_rq2(pr, processed_rq2);
+ 	ehea_refill_rq3(pr, processed_rq3);
  
--	err = enic_vnic_dev_deinit(enic);
-+	ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnic_dev_deinit);
- 	if (err)
- 		return enic_dev_status_to_errno(err);
- 
--	enic_reset_addr_lists(enic);
-+	if (vf == PORT_SELF_VF)
-+		enic_reset_addr_lists(enic);
- 
- 	return 0;
- }
-@@ -115,17 +165,18 @@ static int enic_are_pp_different(struct enic_port_profile *pp1,
- 		!!memcmp(pp1->mac_addr, pp2->mac_addr, ETH_ALEN);
- }
- 
--static int enic_pp_preassociate(struct enic *enic,
-+static int enic_pp_preassociate(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp);
--static int enic_pp_disassociate(struct enic *enic,
-+static int enic_pp_disassociate(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp);
--static int enic_pp_preassociate_rr(struct enic *enic,
-+static int enic_pp_preassociate_rr(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp);
--static int enic_pp_associate(struct enic *enic,
-+static int enic_pp_associate(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp);
- 
--static int (*enic_pp_handlers[])(struct enic *enic,
--		struct enic_port_profile *prev_state, int *restore_pp) = {
-+static int (*enic_pp_handlers[])(struct enic *enic, int vf,
-+		struct enic_port_profile *prev_state,
-+		int *restore_pp) = {
- 	[PORT_REQUEST_PREASSOCIATE]	= enic_pp_preassociate,
- 	[PORT_REQUEST_PREASSOCIATE_RR]	= enic_pp_preassociate_rr,
- 	[PORT_REQUEST_ASSOCIATE]	= enic_pp_associate,
-@@ -135,28 +186,49 @@ static int (*enic_pp_handlers[])(struct enic *enic,
- static const int enic_pp_handlers_count =
- 			sizeof(enic_pp_handlers)/sizeof(*enic_pp_handlers);
- 
--static int enic_pp_preassociate(struct enic *enic,
-+static int enic_pp_preassociate(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp)
- {
- 	return -EOPNOTSUPP;
- }
- 
--static int enic_pp_disassociate(struct enic *enic,
-+static int enic_pp_disassociate(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp)
- {
--	return enic_unset_port_profile(enic);
-+	struct net_device *netdev = enic->netdev;
-+	struct enic_port_profile *pp;
-+	int err;
++	schedule_work(&port->stats_task);
 +
-+	ENIC_PP_BY_INDEX(enic, vf, pp, &err);
-+	if (err)
-+		return err;
-+
-+	/* Deregister mac addresses */
-+	if (!is_zero_ether_addr(pp->mac_addr))
-+		ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnic_dev_del_addr,
-+			pp->mac_addr);
-+	else if (!is_zero_ether_addr(netdev->dev_addr))
-+		ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnic_dev_del_addr,
-+			netdev->dev_addr);
-+
-+	return enic_unset_port_profile(enic, vf);
+ 	return processed;
  }
  
--static int enic_pp_preassociate_rr(struct enic *enic,
-+static int enic_pp_preassociate_rr(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp)
- {
-+	struct enic_port_profile *pp;
- 	int err;
- 	int active = 0;
- 
--	if (enic->pp.request != PORT_REQUEST_ASSOCIATE) {
-+	ENIC_PP_BY_INDEX(enic, vf, pp, &err);
-+	if (err)
-+		return err;
-+
-+	if (pp->request != PORT_REQUEST_ASSOCIATE) {
- 		/* If pre-associate is not part of an associate.
- 		We always disassociate first */
--		err = enic_pp_handlers[PORT_REQUEST_DISASSOCIATE](enic,
-+		err = enic_pp_handlers[PORT_REQUEST_DISASSOCIATE](enic, vf,
- 			prev_pp, restore_pp);
- 		if (err)
- 			return err;
-@@ -166,29 +238,39 @@ static int enic_pp_preassociate_rr(struct enic *enic,
- 
- 	*restore_pp = 0;
- 
--	err = enic_set_port_profile(enic);
-+	err = enic_set_port_profile(enic, vf);
- 	if (err)
- 		return err;
- 
- 	/* If pre-associate is not part of an associate. */
--	if (enic->pp.request != PORT_REQUEST_ASSOCIATE)
--		err = enic_dev_status_to_errno(enic_dev_enable2(enic, active));
-+	if (pp->request != PORT_REQUEST_ASSOCIATE) {
-+		/* Enable device as standby */
-+		ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnic_dev_enable2,
-+			active);
-+		err = enic_dev_status_to_errno(err);
-+	}
- 
- 	return err;
- }
- 
--static int enic_pp_associate(struct enic *enic,
-+static int enic_pp_associate(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp)
- {
-+	struct net_device *netdev = enic->netdev;
-+	struct enic_port_profile *pp;
- 	int err;
- 	int active = 1;
- 
-+	ENIC_PP_BY_INDEX(enic, vf, pp, &err);
-+	if (err)
-+		return err;
-+
- 	/* Check if a pre-associate was called before */
- 	if (prev_pp->request != PORT_REQUEST_PREASSOCIATE_RR ||
- 		(prev_pp->request == PORT_REQUEST_PREASSOCIATE_RR &&
--			enic_are_pp_different(prev_pp, &enic->pp))) {
-+			enic_are_pp_different(prev_pp, pp))) {
- 		err = enic_pp_handlers[PORT_REQUEST_DISASSOCIATE](
--			enic, prev_pp, restore_pp);
-+			enic, vf, prev_pp, restore_pp);
- 		if (err)
- 			return err;
- 
-@@ -196,28 +278,48 @@ static int enic_pp_associate(struct enic *enic,
+@@ -953,6 +962,7 @@ static int ehea_poll(struct napi_struct *napi, int budget)
+ 		rx += ehea_proc_rwqes(dev, pr, budget - rx);
  	}
  
- 	err = enic_pp_handlers[PORT_REQUEST_PREASSOCIATE_RR](
--			enic, prev_pp, restore_pp);
-+			enic, vf, prev_pp, restore_pp);
- 	if (err)
- 		return err;
- 
- 	*restore_pp = 0;
- 
--	return enic_dev_status_to_errno(enic_dev_enable2(enic, active));
-+	/* Enable device as active */
-+	ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnic_dev_enable2, active);
-+	err = enic_dev_status_to_errno(err);
-+	if (err)
-+		return err;
-+
-+	/* Register mac address */
-+	if (!is_zero_ether_addr(pp->mac_addr))
-+		ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnic_dev_add_addr,
-+			pp->mac_addr);
-+	else if (!is_zero_ether_addr(netdev->dev_addr))
-+		ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnic_dev_add_addr,
-+			netdev->dev_addr);
-+
-+	return 0;
++	ehea_update_stats(dev);
+ 	pr->poll_counter++;
+ 	return rx;
  }
+@@ -2651,6 +2661,7 @@ static int ehea_open(struct net_device *dev)
+ 	}
  
--int enic_process_set_pp_request(struct enic *enic,
-+int enic_process_set_pp_request(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp)
- {
--	if (enic->pp.request < enic_pp_handlers_count
--		&& enic_pp_handlers[enic->pp.request])
--		return enic_pp_handlers[enic->pp.request](enic,
--			prev_pp, restore_pp);
--	else
-+	struct enic_port_profile *pp;
-+	int err;
-+
-+	ENIC_PP_BY_INDEX(enic, vf, pp, &err);
-+	if (err)
-+		return err;
-+
-+	if (pp->request >= enic_pp_handlers_count
-+		|| !enic_pp_handlers[pp->request])
- 		return -EOPNOTSUPP;
-+
-+	return enic_pp_handlers[pp->request](enic, vf, prev_pp, restore_pp);
+ 	mutex_unlock(&port->port_lock);
++	schedule_work(&port->stats_task);
+ 
+ 	return ret;
  }
+@@ -2690,6 +2701,7 @@ static int ehea_stop(struct net_device *dev)
  
--int enic_process_get_pp_request(struct enic *enic, int request,
--	u16 *response)
-+int enic_process_get_pp_request(struct enic *enic, int vf,
-+	int request, u16 *response)
- {
- 	int err, status = ERR_SUCCESS;
+ 	set_bit(__EHEA_DISABLE_PORT_RESET, &port->flags);
+ 	cancel_work_sync(&port->reset_task);
++	cancel_work_sync(&port->stats_task);
+ 	mutex_lock(&port->port_lock);
+ 	netif_stop_queue(dev);
+ 	port_napi_disable(port);
+@@ -3235,6 +3247,7 @@ struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
+ 		dev->features |= NETIF_F_LRO;
  
-@@ -225,11 +327,13 @@ int enic_process_get_pp_request(struct enic *enic, int request,
+ 	INIT_WORK(&port->reset_task, ehea_reset_port);
++	INIT_WORK(&port->stats_task, ehea_update_stats);
  
- 	case PORT_REQUEST_PREASSOCIATE_RR:
- 	case PORT_REQUEST_ASSOCIATE:
--		err = enic_dev_enable2_done(enic, &status);
-+		ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic,
-+			vnic_dev_enable2_done, &status);
- 		break;
+ 	init_waitqueue_head(&port->swqe_avail_wq);
+ 	init_waitqueue_head(&port->restart_wq);
+@@ -3278,6 +3291,7 @@ static void ehea_shutdown_single_port(struct ehea_port *port)
+ 	struct ehea_adapter *adapter = port->adapter;
  
- 	case PORT_REQUEST_DISASSOCIATE:
--		err = enic_dev_deinit_done(enic, &status);
-+		ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic,
-+			vnic_dev_deinit_done, &status);
- 		break;
- 
- 	default:
-diff --git a/drivers/net/ethernet/cisco/enic/enic_pp.h b/drivers/net/ethernet/cisco/enic/enic_pp.h
-index 699e365..a09ff39 100644
---- a/drivers/net/ethernet/cisco/enic/enic_pp.h
-+++ b/drivers/net/ethernet/cisco/enic/enic_pp.h
-@@ -19,9 +19,18 @@
- #ifndef _ENIC_PP_H_
- #define _ENIC_PP_H_
- 
--int enic_process_set_pp_request(struct enic *enic,
-+#define ENIC_PP_BY_INDEX(enic, vf, pp, err) \
-+	do { \
-+		if (enic_is_valid_pp_vf(enic, vf, err)) \
-+			pp = (vf == PORT_SELF_VF) ? enic->pp : enic->pp + vf; \
-+		else \
-+			pp = NULL; \
-+	} while (0)
-+
-+int enic_process_set_pp_request(struct enic *enic, int vf,
- 	struct enic_port_profile *prev_pp, int *restore_pp);
--int enic_process_get_pp_request(struct enic *enic, int request,
--	u16 *response);
-+int enic_process_get_pp_request(struct enic *enic, int vf,
-+	int request, u16 *response);
-+int enic_is_valid_pp_vf(struct enic *enic, int vf, int *err);
- 
- #endif /* _ENIC_PP_H_ */
+ 	cancel_work_sync(&port->reset_task);
++	cancel_work_sync(&port->stats_task);
+ 	unregister_netdev(port->netdev);
+ 	ehea_unregister_port(port);
+ 	kfree(port->mc_list);
+-- 
+1.7.1
