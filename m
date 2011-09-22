@@ -1,127 +1,88 @@
-From: Benjamin Poirier <benjamin.poirier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: discrepancy in ip(7) wrt. IP DF flag for UDP sockets
-Date: Thu, 22 Sep 2011 08:44:48 -0400
-Message-ID: <20110922124448.GA19801@synalogic.ca>
-References: <20110919121940.GA19942@synalogic.ca>
- <20110919130313.GA27819@hmsreliant.think-freely.org>
- <CAKgNAkgWRdkxgTXNnMi4PVGGsOd-8EHF1siBrk-Bj=rnYenVmQ@mail.gmail.com>
- <20110920132954.GA23041@synalogic.ca>
- <20110920133837.GA16323@hmsreliant.think-freely.org>
- <20110920141234.GA23164@synalogic.ca>
- <20110920143109.GB16323@hmsreliant.think-freely.org>
- <CAKgNAkiSrGdXd2e1dpcC0fPmARRwkMrUvB8vCJ7eQ8SYsCuuUw@mail.gmail.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next v2] candev: allow SJW user setting for bittiming
+	calculation
+Date: Thu, 22 Sep 2011 15:07:43 +0200
+Message-ID: <4E7B331F.3070801@grandegger.com>
+References: <4E7B0DE6.9020807@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAKgNAkiSrGdXd2e1dpcC0fPmARRwkMrUvB8vCJ7eQ8SYsCuuUw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4E7B0DE6.9020807-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11-09-22 06:15, Michael Kerrisk wrote:
-> Ben, Neil,
-> 
-[snip]
-> 
-> Ben, thanks for writing this, and Neil, thanks for reviewing it. I've
-> applied that change for man-pages-3.34.
-> 
-> Ben, I added one small piece ti the description of
-> /proc/sys/net/ipv4/ip_no_pmtu_disc. For completeness, I've reproduced
-> the entire text below. Perhaps you could take a quick scan, to make
-> sure that the changed text is consistent with the whole piece.
-> 
-> Thanks,
-> 
-> Michael
-> 
->        IP_MTU_DISCOVER (since Linux 2.2)
->               Set or receive the Path  MTU  Discovery  setting  for  a
->               socket.   When enabled, Linux will perform Path MTU Dis-
->               covery as defined in RFC 1191  on  SOCK_STREAM  sockets.
+Hi Oliver,
 
-Oops, seems like there's a repetition that crept in here. I'd keep only
-the first of those two sentences:
+On 09/22/2011 12:28 PM, Oliver Hartkopp wrote:
+> This patch adds support for SJW user settings to not set the synchronization
+> jump width (SJW) to 1 in any case when using the in-kernel bittiming
+> calculation.
+> 
+> The ip-tool from iproute2 already supports to pass the user defined SJW
+> value. The given SJW value is sanitized with the controller specific sjw_max
+> and the calculated tseg2 value. As the SJW can have values up to 4 providing
+> this value will lead to the maximum possible SJW automatically. A higher SJW
+> allows higher controller oscillator tolerances.
+> 
+> Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+> 
+> ---
+> 
+> v2: Resend due to wrong mail address header encoding.
+> 
+> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+> index 9bf1116..25695bd 100644
+> --- a/drivers/net/can/dev.c
+> +++ b/drivers/net/can/dev.c
+> @@ -150,7 +150,19 @@ static int can_calc_bittiming(struct net_device *dev,
+> struct can_bittiming *bt)
+>  	bt->prop_seg = tseg1 / 2;
+>  	bt->phase_seg1 = tseg1 - bt->prop_seg;
+>  	bt->phase_seg2 = tseg2;
+> -	bt->sjw = 1;
+> +
+> +	/* check for sjw user settings */
+> +	if (!bt->sjw || !btc->sjw_max)
+> +		bt->sjw = 1;
+> +	else {
+> +		/* bt->sjw is at least 1 -> sanitize upper bound to sjw_max */
+> +		if (bt->sjw > btc->sjw_max)
+> +			bt->sjw = btc->sjw_max;
+> +		/* bt->sjw must not be higher than tseg2 */
+> +		if (tseg2 < bt->sjw)
+> +			bt->sjw = tseg2;
+> +	}
+> +
 
->               For  non-SOCK_STREAM  sockets, IP_PMTUDISC_DO forces the
->               don't-fragment flag to be set on all  outgoing  packets.
->               The  don't-fragment  flag  is  set on all outgoing data-
->               grams.  It is the user's responsibility to packetize the
->               data  in  MTU-sized  chunks and to do the retransmits if
->               necessary.  The kernel will reject (with EMSGSIZE) data-
->               grams   that   are  bigger  than  the  known  path  MTU.
->               IP_PMTUDISC_WANT will  fragment  a  datagram  if  needed
->               according  to  the path MTU, or will set the don't-frag-
->               ment flag otherwise.
-> 
->               The system-wide default can be toggled between IP_PMTUD-
->               ISC_WANT  and IP_PMTUDISC_DONT by writing (respectively,
->               zero      and      nonzero      values)      to      the
->               /proc/sys/net/ipv4/ip_no_pmtu_disc file.
+As I already said, I expected "bt->sjw" to be always 0 when
+can_calc_bittiming() is called. But the software somehow allows to
+preset "bt->sjw", which is not intended as the help of the ip utility shows:
 
-I think it's a welcome clarification. Is is normal that IP_PMTUDISC_WANT
-gets hyphenated?
+ $ ip link set can0 type can help
+   Usage: ip link set DEVICE type can
+       [ bitrate BITRATE [ sample-point SAMPLE-POINT] ] |
+       [ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1
+         phase-seg2 PHASE-SEG2 [ sjw SJW ] ]
 
-> 
->               Path MTU discovery flags   Meaning
+I actually hesitate to extend can_calc_bittiming(). I suggest using an
+external tool to calculate proper bit-timing parameters and set them
+with "ip link set DEVICE type can tq ...".
 
-I agree with what Neil said about "flags" here. setsockopt(2) calls
-these "option values".
+See also:
 
-Other than that, LGTM
-Acked-by: Benjamin Poirier <benjamin.poirier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+http://lxr.linux.no/#linux+v3.0.4/Documentation/networking/can.txt#L742
 
-Thanks Michael,
--Ben
-
-
->               IP_PMTUDISC_WANT           Use per-route settings.
->               IP_PMTUDISC_DONT           Never do Path MTU Discovery.
->               IP_PMTUDISC_DO             Always do Path MTU Discovery.
->               IP_PMTUDISC_PROBE          Set DF but ignore Path MTU.
-> 
->               When PMTU discovery is enabled, the kernel automatically
->               keeps track of the path MTU per destination host.   When
->               it  is connected to a specific peer with connect(2), the
->               currently known path MTU can be  retrieved  conveniently
->               using  the IP_MTU socket option (e.g., after an EMSGSIZE
->               error occurred).  The path MTU  may  change  over  time.
->               For  connectionless  sockets with many destinations, the
->               new MTU for a given destination  can  also  be  accessed
->               using  the  error  queue  (see IP_RECVERR).  A new error
->               will be queued for every incoming MTU update.
-> 
->               While MTU discovery is in progress, initial packets from
->               datagram sockets may be dropped.  Applications using UDP
->               should be aware of this and not take it into account for
->               their packet retransmit strategy.
-> 
->               To  bootstrap  the  path MTU discovery process on uncon-
->               nected sockets, it is possible to start with a big data-
->               gram  size  (up  to  64K-headers  bytes long) and let it
->               shrink by updates of the path MTU.
-> 
->               To get an initial estimate of the path  MTU,  connect  a
->               datagram  socket  to  the destination address using con-
->               nect(2) and retrieve the MTU  by  calling  getsockopt(2)
->               with the IP_MTU option.
-> 
->               It  is  possible  to implement RFC 4821 MTU probing with
->               SOCK_DGRAM or SOCK_RAW sockets by  setting  a  value  of
->               IP_PMTUDISC_PROBE  (available since Linux 2.6.22).  This
->               is also particularly useful for diagnostic tools such as
->               tracepath(8)  that wish to deliberately send probe pack-
->               ets larger than the observed Path MTU.
-> 
-> 
-> -- 
-> Michael Kerrisk
-> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-> Author of "The Linux Programming Interface"; http://man7.org/tlpi/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Wolfgang.
