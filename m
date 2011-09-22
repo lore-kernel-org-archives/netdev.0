@@ -1,80 +1,90 @@
-From: Bhavesh Davda <bhavesh@vmware.com>
-Subject: RE: [Pv-drivers] [PATCH 14/14] vmxnet3: convert to SKB paged frag
- API.
-Date: Thu, 22 Sep 2011 09:49:16 -0700
-Message-ID: <B07832953588294D802727FF264E276A13EB817FE8@exch-mbx-112.vmware.com>
-References: <1316677996.23371.10.camel@zakaz.uk.xensource.com>
-	 <1316678008-16842-14-git-send-email-ian.campbell@citrix.com>
-	 <B07832953588294D802727FF264E276A13EB817FBD@exch-mbx-112.vmware.com>
- <1316709993.23371.81.camel@zakaz.uk.xensource.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next v2] candev: allow SJW user setting for bittiming
+	calculation
+Date: Thu, 22 Sep 2011 20:10:56 +0200
+Message-ID: <4E7B7A30.4030707@grandegger.com>
+References: <4E7B0DE6.9020807@hartkopp.net> <4E7B331F.3070801@grandegger.com>
+	<4E7B61C8.8020506@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"VMware, Inc." <pv-drivers@vmware.com>
-To: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:55491 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752174Ab1IVQs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 12:48:59 -0400
-In-Reply-To: <1316709993.23371.81.camel@zakaz.uk.xensource.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4E7B61C8.8020506-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-T2theS4NCg0KU2lnbmVkLW9mZi1ieTogQmhhdmVzaCBEYXZkYSA8YmhhdmVzaEB2bXdhcmUuY29t
-Pg0KDQotIEJoYXZlc2gNCiANCkJoYXZlc2ggUC4gRGF2ZGENCg0KPiAtLS0tLU9yaWdpbmFsIE1l
-c3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0bzpJYW4uQ2FtcGJlbGxAZXUu
-Y2l0cml4LmNvbV0NCj4gU2VudDogVGh1cnNkYXksIFNlcHRlbWJlciAyMiwgMjAxMSA5OjQ3IEFN
-DQo+IFRvOiBCaGF2ZXNoIERhdmRhDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBWTXdh
-cmUsIEluYy4NCj4gU3ViamVjdDogUkU6IFtQdi1kcml2ZXJzXSBbUEFUQ0ggMTQvMTRdIHZteG5l
-dDM6IGNvbnZlcnQgdG8gU0tCIHBhZ2VkIGZyYWcNCj4gQVBJLg0KPiANCj4gT24gVGh1LCAyMDEx
-LTA5LTIyIGF0IDE3OjMwICswMTAwLCBCaGF2ZXNoIERhdmRhIHdyb3RlOg0KPiA+IFRoZXNlIGNo
-YW5nZXMgbG9vayBzYW5lLiBXaGF0IGFib3V0IGZyYWctPnBhZ2Vfb2Zmc2V0IGFuZCBmcmFnLT5z
-aXplLCBhcmUNCj4gdGhlcmUgQVBJcyB0byBhY2Nlc3MgdGhvc2UgYXMgd2VsbD8NCj4gDQo+IFlv
-dSBjYW4gZ28gYXQgdGhvc2UgZGlyZWN0bHkuDQo+IA0KPiBUaGUgaW1wb3J0YW50IHBhcnQgaGVy
-ZSBpcyB0byBhYnN0cmFjdCBhd2F5IHRoZSBhY2Nlc3MgdG8gdGhlIC0+cGFnZQ0KPiB2YXJpYWJs
-ZSBzbyB3ZSBjYW4gY2hhbmdlIGhvdyB0aGUgcmVmZXJlbmNlIGNvdW50aW5nIHdvcmtzLg0KPiAN
-Cj4gU28gdW5sZXNzIHBlb3BsZSB0aGluayB0aGVyZSBpcyBhIGNvbXBlbGxpbmcgcmVhc29uIHRv
-IGhpZGUgYXdheSBzaXplDQo+IGFuZCBvZmZzZXQgSSB3YXNuJ3QgcGxhbm5pbmcgb24gZG9pbmcg
-YW55dGhpbmcgbGlrZSB0aGF0Lg0KPiANCj4gSWFuLg0KPiANCj4gPg0KPiA+IFtzb3JyeSBjYW4n
-dCBwdWxsIGZyb20gZ2l0Lmtlcm5lbC5vcmcgYXQgdGhlIG1vbWVudCB0byBhbnN3ZXIgbXkgb3du
-DQo+IHF1ZXNpb25dDQo+ID4NCj4gPiAtIEJoYXZlc2gNCj4gPg0KPiA+IEJoYXZlc2ggUC4gRGF2
-ZGENCj4gPg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IHB2
-LWRyaXZlcnMtYm91bmNlc0B2bXdhcmUuY29tIFttYWlsdG86cHYtZHJpdmVycy1ib3VuY2VzQHZt
-d2FyZS5jb21dDQo+IE9uDQo+ID4gPiBCZWhhbGYgT2YgSWFuIENhbXBiZWxsDQo+ID4gPiBTZW50
-OiBUaHVyc2RheSwgU2VwdGVtYmVyIDIyLCAyMDExIDEyOjUzIEFNDQo+ID4gPiBUbzogbmV0ZGV2
-QHZnZXIua2VybmVsLm9yZw0KPiA+ID4gQ2M6IFZNd2FyZSwgSW5jLjsgSWFuIENhbXBiZWxsDQo+
-ID4gPiBTdWJqZWN0OiBbUHYtZHJpdmVyc10gW1BBVENIIDE0LzE0XSB2bXhuZXQzOiBjb252ZXJ0
-IHRvIFNLQiBwYWdlZCBmcmFnDQo+IEFQSS4NCj4gPiA+DQo+ID4gPiBTaWduZWQtb2ZmLWJ5OiBJ
-YW4gQ2FtcGJlbGwgPGlhbi5jYW1wYmVsbEBjaXRyaXguY29tPg0KPiA+ID4gQ2M6IFNocmV5YXMg
-QmhhdGV3YXJhIDxzYmhhdGV3YXJhQHZtd2FyZS5jb20+DQo+ID4gPiBDYzogIlZNd2FyZSwgSW5j
-LiIgPHB2LWRyaXZlcnNAdm13YXJlLmNvbT4NCj4gPiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnDQo+ID4gPiAtLS0NCj4gPiA+ICBkcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZHJ2LmMg
-fCAgICA4ICsrKystLS0tDQo+ID4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyks
-IDQgZGVsZXRpb25zKC0pDQo+ID4gPg0KPiA+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3Zt
-eG5ldDMvdm14bmV0M19kcnYuYw0KPiA+ID4gYi9kcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNf
-ZHJ2LmMNCj4gPiA+IGluZGV4IDc1OWMxYTQuLjU3ZTdjNjYgMTAwNjQ0DQo+ID4gPiAtLS0gYS9k
-cml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZHJ2LmMNCj4gPiA+ICsrKyBiL2RyaXZlcnMvbmV0
-L3ZteG5ldDMvdm14bmV0M19kcnYuYw0KPiA+ID4gQEAgLTY1NCw3ICs2NTQsNyBAQCB2bXhuZXQz
-X2FwcGVuZF9mcmFnKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdA0KPiA+ID4gVm14bmV0M19S
-eENvbXBEZXNjICpyY2QsDQo+ID4gPg0KPiA+ID4gIAlCVUdfT04oc2tiX3NoaW5mbyhza2IpLT5u
-cl9mcmFncyA+PSBNQVhfU0tCX0ZSQUdTKTsNCj4gPiA+DQo+ID4gPiAtCWZyYWctPnBhZ2UgPSBy
-YmktPnBhZ2U7DQo+ID4gPiArCV9fc2tiX2ZyYWdfc2V0X3BhZ2UoZnJhZywgcmJpLT5wYWdlKTsN
-Cj4gPiA+ICAJZnJhZy0+cGFnZV9vZmZzZXQgPSAwOw0KPiA+ID4gIAlmcmFnLT5zaXplID0gcmNk
-LT5sZW47DQo+ID4gPiAgCXNrYi0+ZGF0YV9sZW4gKz0gZnJhZy0+c2l6ZTsNCj4gPiA+IEBAIC03
-NDgsOSArNzQ4LDkgQEAgdm14bmV0M19tYXBfcGt0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
-dA0KPiB2bXhuZXQzX3R4X2N0eA0KPiA+ID4gKmN0eCwNCj4gPiA+DQo+ID4gPiAgCQl0YmkgPSB0
-cS0+YnVmX2luZm8gKyB0cS0+dHhfcmluZy5uZXh0MmZpbGw7DQo+ID4gPiAgCQl0YmktPm1hcF90
-eXBlID0gVk1YTkVUM19NQVBfUEFHRTsNCj4gPiA+IC0JCXRiaS0+ZG1hX2FkZHIgPSBwY2lfbWFw
-X3BhZ2UoYWRhcHRlci0+cGRldiwgZnJhZy0+cGFnZSwNCj4gPiA+IC0JCQkJCSAgICAgZnJhZy0+
-cGFnZV9vZmZzZXQsIGZyYWctPnNpemUsDQo+ID4gPiAtCQkJCQkgICAgIFBDSV9ETUFfVE9ERVZJ
-Q0UpOw0KPiA+ID4gKwkJdGJpLT5kbWFfYWRkciA9IHNrYl9mcmFnX2RtYV9tYXAoJmFkYXB0ZXIt
-PnBkZXYtPmRldiwgZnJhZywNCj4gPiA+ICsJCQkJCQkgMCwgZnJhZy0+c2l6ZSwNCj4gPiA+ICsJ
-CQkJCQkgUENJX0RNQV9UT0RFVklDRSk7DQo+ID4gPg0KPiA+ID4gIAkJdGJpLT5sZW4gPSBmcmFn
-LT5zaXplOw0KPiA+ID4NCj4gPiA+IC0tDQo+ID4gPiAxLjcuMi41DQo+ID4gPg0KPiA+ID4gX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18NCj4gPiA+IFB2LWRy
-aXZlcnMgbWFpbGluZyBsaXN0DQo+ID4gPiBQdi1kcml2ZXJzQHZtd2FyZS5jb20NCj4gPiA+IGh0
-dHA6Ly9tYWlsbWFuMi52bXdhcmUuY29tL21haWxtYW4vbGlzdGluZm8vcHYtZHJpdmVycw0KPiAN
-Cg0K
+On 09/22/2011 06:26 PM, Oliver Hartkopp wrote:
+> On 09/22/11 15:07, Wolfgang Grandegger wrote:
+> 
+>> Hi Oliver,
+>>
+>> On 09/22/2011 12:28 PM, Oliver Hartkopp wrote:
+>>> This patch adds support for SJW user settings to not set the synchronization
+>>> jump width (SJW) to 1 in any case when using the in-kernel bittiming
+>>> calculation.
+>>>
+>>> The ip-tool from iproute2 already supports to pass the user defined SJW
+>>> value. The given SJW value is sanitized with the controller specific sjw_max
+>>> and the calculated tseg2 value. As the SJW can have values up to 4 providing
+>>> this value will lead to the maximum possible SJW automatically. A higher SJW
+>>> allows higher controller oscillator tolerances.
+> 
+> (..)
+> 
+> 
+>> As I already said, I expected "bt->sjw" to be always 0 when
+>> can_calc_bittiming() is called. But the software somehow allows to
+>> preset "bt->sjw", which is not intended as the help of the ip utility shows:
+> 
+> 
+> What was the technical reason for this 'not intended' that time?
+
+Fiddling with SJW is something for *expert* only. You need to know
+what's going on the bus (electrically). To be clear, I'm not such an expert.
+
+>> I actually hesitate to extend can_calc_bittiming(). I suggest using an
+>> external tool to calculate proper bit-timing parameters and set them
+>> with "ip link set DEVICE type can tq ...".
+> 
+> 
+> Yes, i know the possibility to specify the bittiming via time-quanta (tq).
+
+This is what we called the "expert mode".
+
+> But i think the in-kernel bittiming calculation is pretty good and solves most
+> usual cases. For me it's just an additional requirement to specify SJW as
+
+What's your reason to increase SJW? Likely because you get bus errors
+with the standard settings. How should it be set? Likely you need to
+fiddle with other parameters as well. For sure, no business for a normal
+CAN user.
+
+> MIN(tseg2, max_sjw) to extend the clock source tolerance - which can be
+> provided as an additional option to the bittiming calculation without pain
+> (IMO). If i can 'tune' the sample point, why should i not have any influence
+> to the synchronization jump width generation then?
+
+Bitrate and sample point is something obvious for normal users.
+
+> And btw. a help text can really be changed easily ;-)
+> 
+> -        [ bitrate BITRATE [ sample-point SAMPLE-POINT] ] |
+> +        [ bitrate BITRATE [ sample-point SAMPLE-POINT] [sjw SJW] ] |
+
+Well, I have stronger arguments against it ;-).
+
+Any other opinions or suggestions?
+
+Wolfgang.
