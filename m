@@ -1,88 +1,27 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next v2] candev: allow SJW user setting for bittiming
-	calculation
-Date: Thu, 22 Sep 2011 15:07:43 +0200
-Message-ID: <4E7B331F.3070801@grandegger.com>
-References: <4E7B0DE6.9020807@hartkopp.net>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH 0/3] enic: updates to version 2.1.1.28
+Date: Thu, 22 Sep 2011 06:44:27 -0700
+Message-ID: <20110922134410.2145.72210.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4E7B0DE6.9020807-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtv-iport-1.cisco.com ([173.36.130.12]:39127 "EHLO
+	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751374Ab1IVNo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 09:44:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Oliver,
+This patch series implements the following enic driver updates:
 
-On 09/22/2011 12:28 PM, Oliver Hartkopp wrote:
-> This patch adds support for SJW user settings to not set the synchronization
-> jump width (SJW) to 1 in any case when using the in-kernel bittiming
-> calculation.
-> 
-> The ip-tool from iproute2 already supports to pass the user defined SJW
-> value. The given SJW value is sanitized with the controller specific sjw_max
-> and the calculated tseg2 value. As the SJW can have values up to 4 providing
-> this value will lead to the maximum possible SJW automatically. A higher SJW
-> allows higher controller oscillator tolerances.
-> 
-> Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> 
-> ---
-> 
-> v2: Resend due to wrong mail address header encoding.
-> 
-> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-> index 9bf1116..25695bd 100644
-> --- a/drivers/net/can/dev.c
-> +++ b/drivers/net/can/dev.c
-> @@ -150,7 +150,19 @@ static int can_calc_bittiming(struct net_device *dev,
-> struct can_bittiming *bt)
->  	bt->prop_seg = tseg1 / 2;
->  	bt->phase_seg1 = tseg1 - bt->prop_seg;
->  	bt->phase_seg2 = tseg2;
-> -	bt->sjw = 1;
-> +
-> +	/* check for sjw user settings */
-> +	if (!bt->sjw || !btc->sjw_max)
-> +		bt->sjw = 1;
-> +	else {
-> +		/* bt->sjw is at least 1 -> sanitize upper bound to sjw_max */
-> +		if (bt->sjw > btc->sjw_max)
-> +			bt->sjw = btc->sjw_max;
-> +		/* bt->sjw must not be higher than tseg2 */
-> +		if (tseg2 < bt->sjw)
-> +			bt->sjw = tseg2;
-> +	}
-> +
+01/3 - Add SRIOV support
+02/3 - Helper code for SRIOV proxy commands
+03/3 - Add support for port profile association on a enic SRIOV VF
 
-As I already said, I expected "bt->sjw" to be always 0 when
-can_calc_bittiming() is called. But the software somehow allows to
-preset "bt->sjw", which is not intended as the help of the ip utility shows:
-
- $ ip link set can0 type can help
-   Usage: ip link set DEVICE type can
-       [ bitrate BITRATE [ sample-point SAMPLE-POINT] ] |
-       [ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1
-         phase-seg2 PHASE-SEG2 [ sjw SJW ] ]
-
-I actually hesitate to extend can_calc_bittiming(). I suggest using an
-external tool to calculate proper bit-timing parameters and set them
-with "ip link set DEVICE type can tq ...".
-
-See also:
-
-http://lxr.linux.no/#linux+v3.0.4/Documentation/networking/can.txt#L742
-
-Wolfgang.
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: Sujith Sankar <ssujith@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
