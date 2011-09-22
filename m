@@ -1,59 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ehea: Remove sleep at .ndo_get_stats
-Date: Thu, 22 Sep 2011 17:14:57 +0200
-Message-ID: <1316704497.29549.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1316700657-14980-1-git-send-email-brenohl@br.ibm.com>
+From: Greg Thelen <gthelen@google.com>
+Subject: Re: [PATCH v3 6/7] tcp buffer limitation: per-cgroup limit
+Date: Thu, 22 Sep 2011 08:44:11 -0700
+Message-ID: <CAHH2K0ZMq_jCGr3m3PZDtmDwHUXnnL-fuQDt-A-SdUKgeK6P6g@mail.gmail.com>
+References: <1316393805-3005-1-git-send-email-glommer@parallels.com>
+ <1316393805-3005-7-git-send-email-glommer@parallels.com> <CAHH2K0Yuji2_2pMdzEaMvRx0KE7OOaoEGT+OK4gJgTcOPKuT9g@mail.gmail.com>
+ <20110922095803.GA4530@shutemov.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Breno Leitao <leitao@linux.vnet.ibm.com>
-To: brenohl@br.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:36719 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750855Ab1IVPOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 11:14:47 -0400
-Received: by ewy4 with SMTP id 4so35308ewy.19
-        for <netdev@vger.kernel.org>; Thu, 22 Sep 2011 08:14:46 -0700 (PDT)
-In-Reply-To: <1316700657-14980-1-git-send-email-brenohl@br.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Glauber Costa <glommer@parallels.com>, linux-kernel@vger.kernel.org,
+        paul@paulmenage.org, lizf@cn.fujitsu.com,
+        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+        davem@davemloft.net, netdev@vger.kernel.org, linux-mm@kvack.org
+To: "Kirill A. Shutemov" <kirill@shutemov.name>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110922095803.GA4530@shutemov.name>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 22 septembre 2011 =C3=A0 11:10 -0300, brenohl@br.ibm.com a =C3=
-=A9crit :
-> Currently ehea ndo_get_stats can sleep in two places, in a hcall
-> and in a GFP_KERNEL alloc, which is not correct.
-> This patch creates a workqueue that grabs the information from time
-> to time from the hardware, and place it into the device structure,
-> so that, .ndo_get_stats quickly returns the device structure statisti=
-cs
-> block.
->=20
-> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-> ---
+On Thu, Sep 22, 2011 at 2:58 AM, Kirill A. Shutemov
+<kirill@shutemov.name> wrote:
+> On Wed, Sep 21, 2011 at 11:01:46PM -0700, Greg Thelen wrote:
+>> On Sun, Sep 18, 2011 at 5:56 PM, Glauber Costa <glommer@parallels.com> w=
+rote:
+>> > +static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
+>> > +{
+>> > + =A0 =A0 =A0 return (mem =3D=3D root_mem_cgroup);
+>> > +}
+>> > +
+>>
+>> Why are you adding a copy of mem_cgroup_is_root(). =A0I see one already
+>> in v3.0. =A0Was it deleted in a previous patch?
+>
+> mem_cgroup_is_root() moved up in the file.
 
+Got it.  Thanks.
 
-Hmm... trigerring a work queue everytime NAPI is run ? That seems very
-expensive to me, if for example no one wants device stats at all.
-
-I read ehea correctly, this blocking suff is only used to compute
-stats->multicast and stats->rx_errors.=20
-
-They probably could be updated once per second, nobody will complain.
-(So use a workqueue, and trigger the job once per second, not once per
-incoming packet)
-
-Also, you dont provide a safe ndo_get_stats() implementation.
-
-Think that several process might read your device stats in //
-
-So the memset(stats, 0, sizeof(*stats)) is wrong :
-You can clear stats that are currently read by another thread.
-
-This makes SNMP readers read intermediate null values, and they dont
-like this.
-
-=46ix is real easy : remove the memset(stats, 0, sizeof(*stats)) :
-
-You only write on some fields, other fields are already 0
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
