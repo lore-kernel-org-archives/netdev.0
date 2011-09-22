@@ -1,191 +1,317 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: [RFC PATCH V2] ethtool:  Add command to configure IOV features
-Date: Thu, 22 Sep 2011 14:35:43 -0700
-Message-ID: <20110922213543.26713.23525.stgit@gitlad.jf.intel.com>
+From: Balbir Singh <bsingharora@gmail.com>
+Subject: Re: [PATCH v3 6/7] tcp buffer limitation: per-cgroup limit
+Date: Fri, 23 Sep 2011 04:38:22 +0530
+Message-ID: <CAKTCnzm8C4RFOxZT7Yh=Cjm8Mby1=9PXQC6c8zpzX6o-vL0EiQ@mail.gmail.com>
+References: <1316393805-3005-1-git-send-email-glommer@parallels.com>
+	<1316393805-3005-7-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:50787 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753939Ab1IVVfq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Sep 2011 17:35:46 -0400
-Received: from gitlad.jf.intel.com (gitlad.jf.intel.com [127.0.0.1])
-	by gitlad.jf.intel.com (8.14.2/8.14.2) with ESMTP id p8MLZhXq026742
-	for <netdev@vger.kernel.org>; Thu, 22 Sep 2011 14:35:43 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com, davem@davemloft.net,
+	gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
+	kirill@shutemov.name
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1316393805-3005-7-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-New command to allow configuration of IOV features such as the number of
-Virtual Functions to allocate for a given Physical Function interface,
-the number of semi-independent net devices to allocate from partitioned
-I/O resources in the PF and to set the number of queues per VF.
+On Mon, Sep 19, 2011 at 6:26 AM, Glauber Costa <glommer@parallels.com> wrot=
+e:
+> This patch uses the "tcp_max_mem" field of the kmem_cgroup to
+> effectively control the amount of kernel memory pinned by a cgroup.
+>
+> We have to make sure that none of the memory pressure thresholds
+> specified in the namespace are bigger than the current cgroup.
+>
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+> CC: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+> =A0Documentation/cgroups/memory.txt | =A0 =A01 +
+> =A0include/linux/memcontrol.h =A0 =A0 =A0 | =A0 10 ++++
+> =A0mm/memcontrol.c =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 89 ++++++++++=
++++++++++++++++++++++++++---
+> =A0net/ipv4/sysctl_net_ipv4.c =A0 =A0 =A0 | =A0 20 ++++++++
+> =A04 files changed, 113 insertions(+), 7 deletions(-)
+>
+> diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/mem=
+ory.txt
+> index 6f1954a..1ffde3e 100644
+> --- a/Documentation/cgroups/memory.txt
+> +++ b/Documentation/cgroups/memory.txt
+> @@ -78,6 +78,7 @@ Brief summary of control files.
+>
+> =A0memory.independent_kmem_limit =A0# select whether or not kernel memory=
+ limits are
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 indep=
+endent of user limits
+> + memory.kmem.tcp.max_memory =A0 =A0 =A0# set/show hard limit for tcp buf=
+ memory
+>
+> =A01. History
+>
+> diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+> index 6b8c0c0..2df6db8 100644
+> --- a/include/linux/memcontrol.h
+> +++ b/include/linux/memcontrol.h
+> @@ -416,6 +416,9 @@ int tcp_init_cgroup_fill(struct proto *prot, struct c=
+group *cgrp,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct cgroup_subsys *ss)=
+;
+> =A0void tcp_destroy_cgroup(struct proto *prot, struct cgroup *cgrp,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct cgroup_subsys *ss);
+> +
+> +unsigned long tcp_max_memory(struct mem_cgroup *cg);
+> +void tcp_prot_mem(struct mem_cgroup *cg, long val, int idx);
+> =A0#else
+> =A0/* memcontrol includes sockets.h, that includes memcontrol.h ... */
+> =A0static inline void memcg_sock_mem_alloc(struct mem_cgroup *mem,
+> @@ -441,6 +444,13 @@ static inline void sock_update_memcg(struct sock *sk=
+)
+> =A0static inline void sock_release_memcg(struct sock *sk)
+> =A0{
+> =A0}
+> +static inline unsigned long tcp_max_memory(struct mem_cgroup *cg)
+> +{
+> + =A0 =A0 =A0 return 0;
+> +}
+> +static inline void tcp_prot_mem(struct mem_cgroup *cg, long val, int idx=
+)
+> +{
+> +}
+> =A0#endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
+> =A0#endif /* CONFIG_INET */
+> =A0#endif /* _LINUX_MEMCONTROL_H */
+> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> index 5e9b2c7..be5ab89 100644
+> --- a/mm/memcontrol.c
+> +++ b/mm/memcontrol.c
+> @@ -345,6 +345,7 @@ struct mem_cgroup {
+> =A0 =A0 =A0 =A0spinlock_t pcp_counter_lock;
+>
+> =A0 =A0 =A0 =A0/* per-cgroup tcp memory pressure knobs */
+> + =A0 =A0 =A0 int tcp_max_memory;
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
----
+Aren't we better of abstracting this in a different structure?
+Including all the tcp parameters in that abstraction and adding that
+structure here?
 
- ethtool.c |   94 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 93 insertions(+), 1 deletions(-)
+> =A0 =A0 =A0 =A0atomic_long_t tcp_memory_allocated;
+> =A0 =A0 =A0 =A0struct percpu_counter tcp_sockets_allocated;
+> =A0 =A0 =A0 =A0/* those two are read-mostly, leave them at the end */
+> @@ -352,6 +353,11 @@ struct mem_cgroup {
+> =A0 =A0 =A0 =A0int tcp_memory_pressure;
+> =A0};
+>
+> +static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
+> +{
+> + =A0 =A0 =A0 return (mem =3D=3D root_mem_cgroup);
+> +}
+> +
+> =A0static struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem);
+> =A0/* Writing them here to avoid exposing memcg's inner layout */
+> =A0#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> @@ -466,6 +472,56 @@ struct percpu_counter *sockets_allocated_tcp(struct =
+mem_cgroup *sg)
+> =A0 =A0 =A0 =A0return &sg->tcp_sockets_allocated;
+> =A0}
+>
+> +static int tcp_write_maxmem(struct cgroup *cgrp, struct cftype *cft, u64=
+ val)
+> +{
+> + =A0 =A0 =A0 struct mem_cgroup *sg =3D mem_cgroup_from_cont(cgrp);
 
-diff --git a/ethtool.c b/ethtool.c
-index 35c3733..1ebf6f3 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -99,6 +99,8 @@ static int do_flash(int fd, struct ifreq *ifr);
- static int do_permaddr(int fd, struct ifreq *ifr);
- static int do_getfwdump(int fd, struct ifreq *ifr);
- static int do_setfwdump(int fd, struct ifreq *ifr);
-+static int do_get_iov(int fd, struct ifreq *ifr);
-+static int do_set_iov(int fd, struct ifreq *ifr);
- 
- static int send_ioctl(int fd, struct ifreq *ifr);
- 
-@@ -133,6 +135,8 @@ static enum {
- 	MODE_PERMADDR,
- 	MODE_SET_DUMP,
- 	MODE_GET_DUMP,
-+	MODE_GET_IOV,
-+	MODE_SET_IOV,
- } mode = MODE_GSET;
- 
- static struct option {
-@@ -266,6 +270,8 @@ static struct option {
-     { "-W", "--set-dump", MODE_SET_DUMP,
- 		"Set dump flag of the device",
- 		"		N\n"},
-+    { "-v", "--get-iov", MODE_GET_IOV, "Get IOV parameters", "\n" },
-+    { "-V", "--set_iov", MODE_SET_IOV, "Set IOV parameters", "[ N ]\n" },
-     { "-h", "--help", MODE_HELP, "Show this help" },
-     { NULL, "--version", MODE_VERSION, "Show version number" },
-     {}
-@@ -392,6 +398,10 @@ static char **rxfhindir_weight = NULL;
- static char *flash_file = NULL;
- static int flash = -1;
- static int flash_region = -1;
-+static int iov_changed = 0;
-+static int iov_numvfs_wanted = -1;
-+static int iov_numnetdevs_wanted = -1;
-+static int iov_numvqueues_wanted = -1;
- 
- static int msglvl_changed;
- static u32 msglvl_wanted = 0;
-@@ -549,6 +559,12 @@ static struct cmdline_info cmdline_msglvl[] = {
- 	  NETIF_MSG_WOL, &msglvl_mask },
- };
- 
-+static struct cmdline_info cmdline_iov[] = {
-+	{ "vfs", CMDL_S32, &iov_numvfs_wanted, NULL },
-+	{ "netdevs", CMDL_S32, &iov_numnetdevs_wanted, NULL },
-+	{ "vqueues", CMDL_S32, &iov_numvqueues_wanted, NULL },
-+};
-+
- static long long
- get_int_range(char *str, int base, long long min, long long max)
- {
-@@ -792,7 +808,9 @@ static void parse_cmdline(int argc, char **argp)
- 			    (mode == MODE_FLASHDEV) ||
- 			    (mode == MODE_PERMADDR) ||
- 			    (mode == MODE_SET_DUMP) ||
--			    (mode == MODE_GET_DUMP)) {
-+			    (mode == MODE_GET_DUMP) ||
-+			    (mode == MODE_GET_IOV) ||
-+			    (mode == MODE_SET_IOV)) {
- 				devname = argp[i];
- 				break;
- 			}
-@@ -1007,6 +1025,14 @@ static void parse_cmdline(int argc, char **argp)
- 				i = argc;
- 				break;
- 			}
-+			if (mode == MODE_SET_IOV) {
-+				parse_generic_cmdline(argc, argp, i,
-+					&iov_changed,
-+					cmdline_iov,
-+					ARRAY_SIZE(cmdline_iov));
-+				i = argc;
-+				break;
-+			}
- 			if (mode != MODE_SSET)
- 				exit_bad_args();
- 			if (!strcmp(argp[i], "speed")) {
-@@ -1949,6 +1975,10 @@ static int doit(void)
- 		return do_getfwdump(fd, &ifr);
- 	} else if (mode == MODE_SET_DUMP) {
- 		return do_setfwdump(fd, &ifr);
-+	} else if (mode == MODE_GET_IOV) {
-+		return do_get_iov(fd, &ifr);
-+	} else if (mode == MODE_SET_IOV) {
-+		return do_set_iov(fd, &ifr);
- 	}
- 
- 	return 69;
-@@ -3338,6 +3368,68 @@ static int do_setfwdump(int fd, struct ifreq *ifr)
- 	return 0;
- }
- 
-+static int do_get_iov(int fd, struct ifreq *ifr)
-+{
-+	int err;
-+	struct ethtool_iov_get_cmd iov_cmd;
-+
-+	iov_cmd.cmd = ETHTOOL_IOV_GET_CMD;
-+	ifr->ifr_data = (caddr_t)&iov_cmd;
-+	err = send_ioctl(fd, ifr);
-+	if (err < 0) {
-+		perror("Can not get current IOV mode\n");
-+		return 1;
-+	}
-+
-+	memcpy(&iov_cmd, ifr->ifr_data, sizeof(iov_cmd));
-+
-+	switch(iov_cmd.mode) {
-+	case ETHTOOL_IOV_MODE_SRIOV:
-+		printf("Device %s is configured for SR-IOV mode\n", devname);
-+		break;
-+	case ETHTOOL_IOV_MODE_VM_QUEUES:
-+		printf("Device %s is configured for VM Queues mode\n", devname);
-+		break;
-+	case ETHTOOL_IOV_MODE_NONE:
-+	default:
-+		printf("Device %s is not configured for IO Virtualization\n",
-+				devname);
-+		break;
-+	}
-+
-+	return 0;
-+}
-+
-+static int do_set_iov(int fd, struct ifreq *ifr)
-+{
-+	int err;
-+	struct ethtool_iov_set_cmd iov_cmd;
-+
-+	if (iov_changed) {
-+		iov_cmd.cmd = ETHTOOL_IOV_SET_CMD;
-+		if (iov_numvfs_wanted >= 0) {
-+			iov_cmd.set_cmd = ETHTOOL_IOV_CMD_CONFIGURE_SRIOV;
-+			iov_cmd.cmd_param = iov_numvfs_wanted;
-+		} else if (iov_numnetdevs_wanted >= 0) {
-+			iov_cmd.set_cmd = ETHTOOL_IOV_CMD_CONFIGURE_NETDEVS;
-+			iov_cmd.cmd_param = iov_numnetdevs_wanted;
-+		} else if (iov_numvqueues_wanted >= 0) {
-+			iov_cmd.set_cmd = ETHTOOL_IOV_CMD_CONFIGURE_VF_QUEUES;
-+			iov_cmd.cmd_param = iov_numvqueues_wanted;
-+		} else {
-+			return -EINVAL;
-+		}
-+		ifr->ifr_data = (caddr_t)&iov_cmd;
-+		err = send_ioctl(fd, ifr);
-+		if (err < 0) {
-+			perror("Can not set new IOV mode\n");
-+			return 1;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- static int send_ioctl(int fd, struct ifreq *ifr)
- {
- 	return ioctl(fd, SIOCETHTOOL, ifr);
+sg, I'd prefer memcg, does sg stand for socket group?
+
+> + =A0 =A0 =A0 struct mem_cgroup *parent =3D parent_mem_cgroup(sg);
+> + =A0 =A0 =A0 struct net *net =3D current->nsproxy->net_ns;
+> + =A0 =A0 =A0 int i;
+> +
+> + =A0 =A0 =A0 if (!cgroup_lock_live_group(cgrp))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+> +
+> + =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0* We can't allow more memory than our parents. Since thi=
+s
+> + =A0 =A0 =A0 =A0* will be tested for all calls, by induction, there is n=
+o need
+> + =A0 =A0 =A0 =A0* to test any parent other than our own
+> + =A0 =A0 =A0 =A0* */
+> + =A0 =A0 =A0 if (parent && (val > parent->tcp_max_memory))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 val =3D parent->tcp_max_memory;
+> +
+> + =A0 =A0 =A0 sg->tcp_max_memory =3D val;
+> +
+> + =A0 =A0 =A0 for (i =3D 0; i < 3; i++)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 sg->tcp_prot_mem[i] =A0=3D min_t(long, val,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0net->ipv4.sysctl_tcp_mem[i]);
+> +
+> + =A0 =A0 =A0 cgroup_unlock();
+> +
+> + =A0 =A0 =A0 return 0;
+> +}
+> +
+> +static u64 tcp_read_maxmem(struct cgroup *cgrp, struct cftype *cft)
+> +{
+> + =A0 =A0 =A0 struct mem_cgroup *sg =3D mem_cgroup_from_cont(cgrp);
+
+sg? We generally use memcg as a convention
+
+> + =A0 =A0 =A0 u64 ret;
+> +
+> + =A0 =A0 =A0 if (!cgroup_lock_live_group(cgrp))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+> + =A0 =A0 =A0 ret =3D sg->tcp_max_memory;
+> +
+> + =A0 =A0 =A0 cgroup_unlock();
+> + =A0 =A0 =A0 return ret;
+> +}
+> +
+> +static struct cftype tcp_files[] =3D {
+> + =A0 =A0 =A0 {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 .name =3D "kmem.tcp.max_memory",
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 .write_u64 =3D tcp_write_maxmem,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 .read_u64 =3D tcp_read_maxmem,
+> + =A0 =A0 =A0 },
+> +};
+> +
+> =A0/*
+> =A0* For ipv6, we only need to fill in the function pointers (can't initi=
+alize
+> =A0* things twice). So keep it separated
+> @@ -487,8 +543,10 @@ int tcp_init_cgroup(struct proto *prot, struct cgrou=
+p *cgrp,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct cgroup_subsys *ss)
+> =A0{
+> =A0 =A0 =A0 =A0struct mem_cgroup *cg =3D mem_cgroup_from_cont(cgrp);
+> + =A0 =A0 =A0 struct mem_cgroup *parent =3D parent_mem_cgroup(cg);
+> =A0 =A0 =A0 =A0unsigned long limit;
+> =A0 =A0 =A0 =A0struct net *net =3D current->nsproxy->net_ns;
+> + =A0 =A0 =A0 int ret =3D 0;
+>
+> =A0 =A0 =A0 =A0cg->tcp_memory_pressure =3D 0;
+> =A0 =A0 =A0 =A0atomic_long_set(&cg->tcp_memory_allocated, 0);
+> @@ -497,12 +555,25 @@ int tcp_init_cgroup(struct proto *prot, struct cgro=
+up *cgrp,
+> =A0 =A0 =A0 =A0limit =3D nr_free_buffer_pages() / 8;
+> =A0 =A0 =A0 =A0limit =3D max(limit, 128UL);
+>
+> + =A0 =A0 =A0 if (parent)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 cg->tcp_max_memory =3D parent->tcp_max_memo=
+ry;
+> + =A0 =A0 =A0 else
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 cg->tcp_max_memory =3D limit * 2;
+> +
+> =A0 =A0 =A0 =A0cg->tcp_prot_mem[0] =3D net->ipv4.sysctl_tcp_mem[0];
+> =A0 =A0 =A0 =A0cg->tcp_prot_mem[1] =3D net->ipv4.sysctl_tcp_mem[1];
+> =A0 =A0 =A0 =A0cg->tcp_prot_mem[2] =3D net->ipv4.sysctl_tcp_mem[2];
+>
+> =A0 =A0 =A0 =A0tcp_init_cgroup_fill(prot, cgrp, ss);
+> - =A0 =A0 =A0 return 0;
+> + =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0* For non-root cgroup, we need to set up all tcp-related=
+ variables,
+> + =A0 =A0 =A0 =A0* but to be consistent with the rest of kmem management,=
+ we don't
+> + =A0 =A0 =A0 =A0* expose any of the controls
+> + =A0 =A0 =A0 =A0*/
+> + =A0 =A0 =A0 if (!mem_cgroup_is_root(cg))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D cgroup_add_files(cgrp, ss, tcp_file=
+s,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0ARRAY_SIZE(tcp_files));
+> + =A0 =A0 =A0 return ret;
+> =A0}
+> =A0EXPORT_SYMBOL(tcp_init_cgroup);
+>
+> @@ -514,6 +585,16 @@ void tcp_destroy_cgroup(struct proto *prot, struct c=
+group *cgrp,
+> =A0 =A0 =A0 =A0percpu_counter_destroy(&cg->tcp_sockets_allocated);
+> =A0}
+> =A0EXPORT_SYMBOL(tcp_destroy_cgroup);
+> +
+> +unsigned long tcp_max_memory(struct mem_cgroup *cg)
+> +{
+> + =A0 =A0 =A0 return cg->tcp_max_memory;
+> +}
+> +
+> +void tcp_prot_mem(struct mem_cgroup *cg, long val, int idx)
+> +{
+> + =A0 =A0 =A0 cg->tcp_prot_mem[idx] =3D val;
+> +}
+> =A0#endif /* CONFIG_INET */
+> =A0#endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
+>
+> @@ -1092,12 +1173,6 @@ static struct mem_cgroup *mem_cgroup_get_next(stru=
+ct mem_cgroup *iter,
+> =A0#define for_each_mem_cgroup_all(iter) \
+> =A0 =A0 =A0 =A0for_each_mem_cgroup_tree_cond(iter, NULL, true)
+>
+> -
+> -static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
+> -{
+> - =A0 =A0 =A0 return (mem =3D=3D root_mem_cgroup);
+> -}
+> -
+> =A0void mem_cgroup_count_vm_event(struct mm_struct *mm, enum vm_event_ite=
+m idx)
+> =A0{
+> =A0 =A0 =A0 =A0struct mem_cgroup *mem;
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index bbd67ab..cdc35f6 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -14,6 +14,7 @@
+> =A0#include <linux/init.h>
+> =A0#include <linux/slab.h>
+> =A0#include <linux/nsproxy.h>
+> +#include <linux/memcontrol.h>
+> =A0#include <linux/swap.h>
+> =A0#include <net/snmp.h>
+> =A0#include <net/icmp.h>
+> @@ -182,6 +183,10 @@ static int ipv4_tcp_mem(ctl_table *ctl, int write,
+> =A0 =A0 =A0 =A0int ret;
+> =A0 =A0 =A0 =A0unsigned long vec[3];
+> =A0 =A0 =A0 =A0struct net *net =3D current->nsproxy->net_ns;
+> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> + =A0 =A0 =A0 int i;
+> + =A0 =A0 =A0 struct mem_cgroup *cg;
+> +#endif
+>
+> =A0 =A0 =A0 =A0ctl_table tmp =3D {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.data =3D &vec,
+> @@ -198,6 +203,21 @@ static int ipv4_tcp_mem(ctl_table *ctl, int write,
+> =A0 =A0 =A0 =A0if (ret)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return ret;
+>
+> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> + =A0 =A0 =A0 rcu_read_lock();
+> + =A0 =A0 =A0 cg =3D mem_cgroup_from_task(current);
+> + =A0 =A0 =A0 for (i =3D 0; i < 3; i++)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (vec[i] > tcp_max_memory(cg)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rcu_read_unlock();
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 tcp_prot_mem(cg, vec[0], 0);
+> + =A0 =A0 =A0 tcp_prot_mem(cg, vec[1], 1);
+> + =A0 =A0 =A0 tcp_prot_mem(cg, vec[2], 2);
+> + =A0 =A0 =A0 rcu_read_unlock();
+> +#endif
+> +
+> =A0 =A0 =A0 =A0net->ipv4.sysctl_tcp_mem[0] =3D vec[0];
+> =A0 =A0 =A0 =A0net->ipv4.sysctl_tcp_mem[1] =3D vec[1];
+> =A0 =A0 =A0 =A0net->ipv4.sysctl_tcp_mem[2] =3D vec[2];
+
+Balbir Singh
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
