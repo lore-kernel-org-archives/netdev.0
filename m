@@ -1,68 +1,59 @@
-From: Balbir Singh <bsingharora@gmail.com>
-Subject: Re: [PATCH v3 2/7] socket: initial cgroup code.
-Date: Thu, 22 Sep 2011 20:39:55 +0530
-Message-ID: <CAKTCnz=59HuEg9T-USi5oKSK=F+vr2QxCA17+i-rGj73k49rzw@mail.gmail.com>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com>
-	<1316393805-3005-3-git-send-email-glommer@parallels.com>
-	<CAHH2K0YgkG2J_bO+U9zbZYhTTqSLvr6NtxKxN8dRtfHs=iB8iA@mail.gmail.com>
-	<4E7A342B.5040608@parallels.com>
-	<CAHH2K0Z_2LJPL0sLVHqkh_6b_BLQnknULTB9a9WfEuibk5kONg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ehea: Remove sleep at .ndo_get_stats
+Date: Thu, 22 Sep 2011 17:14:57 +0200
+Message-ID: <1316704497.29549.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1316700657-14980-1-git-send-email-brenohl@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Glauber Costa <glommer@parallels.com>,
-	linux-kernel@vger.kernel.org, paul@paulmenage.org,
-	lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
-	ebiederm@xmission.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-mm@kvack.org, kirill@shutemov.name
-To: Greg Thelen <gthelen@google.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Breno Leitao <leitao@linux.vnet.ibm.com>
+To: brenohl@br.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:33037 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713Ab1IVPJ5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 11:09:57 -0400
-In-Reply-To: <CAHH2K0Z_2LJPL0sLVHqkh_6b_BLQnknULTB9a9WfEuibk5kONg@mail.gmail.com>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:36719 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750855Ab1IVPOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 11:14:47 -0400
+Received: by ewy4 with SMTP id 4so35308ewy.19
+        for <netdev@vger.kernel.org>; Thu, 22 Sep 2011 08:14:46 -0700 (PDT)
+In-Reply-To: <1316700657-14980-1-git-send-email-brenohl@br.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 22, 2011 at 11:30 AM, Greg Thelen <gthelen@google.com> wrot=
-e:
-> On Wed, Sep 21, 2011 at 11:59 AM, Glauber Costa <glommer@parallels.co=
-m> wrote:
->> Right now I am working under the assumption that tasks are long live=
-d inside
->> the cgroup. Migration potentially introduces some nasty locking prob=
-lems in
->> the mem_schedule path.
->>
->> Also, unless I am missing something, the memcg already has the polic=
-y of
->> not carrying charges around, probably because of this very same comp=
-lexity.
->>
->> True that at least it won't EBUSY you... But I think this is at leas=
-t a way
->> to guarantee that the cgroup under our nose won't disappear in the m=
-iddle of
->> our allocations.
->
-> Here's the memcg user page behavior using the same pattern:
->
-> 1. user page P is allocate by task T in memcg M1
-> 2. T is moved to memcg M2. =A0The P charge is left behind still charg=
-ed
-> to M1 if memory.move_charge_at_immigrate=3D0; or the charge is moved =
-to
-> M2 if memory.move_charge_at_immigrate=3D1.
-> 3. rmdir M1 will try to reclaim P (if P was left in M1). =A0If unable=
- to
-> reclaim, then P is recharged to parent(M1).
->
+Le jeudi 22 septembre 2011 =C3=A0 11:10 -0300, brenohl@br.ibm.com a =C3=
+=A9crit :
+> Currently ehea ndo_get_stats can sleep in two places, in a hcall
+> and in a GFP_KERNEL alloc, which is not correct.
+> This patch creates a workqueue that grabs the information from time
+> to time from the hardware, and place it into the device structure,
+> so that, .ndo_get_stats quickly returns the device structure statisti=
+cs
+> block.
+>=20
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> ---
 
-We also have some magic in page_referenced() to remove pages
-referenced from different containers. What we do is try not to
-penalize a cgroup if another cgroup is referencing this page and the
-page under consideration is being reclaimed from the cgroup that
-touched it.
 
-Balbir Singh
+Hmm... trigerring a work queue everytime NAPI is run ? That seems very
+expensive to me, if for example no one wants device stats at all.
+
+I read ehea correctly, this blocking suff is only used to compute
+stats->multicast and stats->rx_errors.=20
+
+They probably could be updated once per second, nobody will complain.
+(So use a workqueue, and trigger the job once per second, not once per
+incoming packet)
+
+Also, you dont provide a safe ndo_get_stats() implementation.
+
+Think that several process might read your device stats in //
+
+So the memset(stats, 0, sizeof(*stats)) is wrong :
+You can clear stats that are currently read by another thread.
+
+This makes SNMP readers read intermediate null values, and they dont
+like this.
+
+=46ix is real easy : remove the memset(stats, 0, sizeof(*stats)) :
+
+You only write on some fields, other fields are already 0
