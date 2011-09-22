@@ -1,95 +1,80 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+From: Bhavesh Davda <bhavesh@vmware.com>
 Subject: RE: [Pv-drivers] [PATCH 14/14] vmxnet3: convert to SKB paged frag
  API.
-Date: Thu, 22 Sep 2011 17:46:33 +0100
-Message-ID: <1316709993.23371.81.camel@zakaz.uk.xensource.com>
+Date: Thu, 22 Sep 2011 09:49:16 -0700
+Message-ID: <B07832953588294D802727FF264E276A13EB817FE8@exch-mbx-112.vmware.com>
 References: <1316677996.23371.10.camel@zakaz.uk.xensource.com>
 	 <1316678008-16842-14-git-send-email-ian.campbell@citrix.com>
 	 <B07832953588294D802727FF264E276A13EB817FBD@exch-mbx-112.vmware.com>
+ <1316709993.23371.81.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"VMware, Inc." <pv-drivers@vmware.com>
-To: Bhavesh Davda <bhavesh@vmware.com>
+To: Ian Campbell <Ian.Campbell@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:61438 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751717Ab1IVQqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 12:46:34 -0400
-In-Reply-To: <B07832953588294D802727FF264E276A13EB817FBD@exch-mbx-112.vmware.com>
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:55491 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752174Ab1IVQs7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 12:48:59 -0400
+In-Reply-To: <1316709993.23371.81.camel@zakaz.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-09-22 at 17:30 +0100, Bhavesh Davda wrote:
-> These changes look sane. What about frag->page_offset and frag->size, are there APIs to access those as well?
-
-You can go at those directly.
-
-The important part here is to abstract away the access to the ->page
-variable so we can change how the reference counting works.
-
-So unless people think there is a compelling reason to hide away size
-and offset I wasn't planning on doing anything like that.
-
-Ian.
-
-> 
-> [sorry can't pull from git.kernel.org at the moment to answer my own quesion]
-> 
-> - Bhavesh
->  
-> Bhavesh P. Davda
-> 
-> > -----Original Message-----
-> > From: pv-drivers-bounces@vmware.com [mailto:pv-drivers-bounces@vmware.com] On
-> > Behalf Of Ian Campbell
-> > Sent: Thursday, September 22, 2011 12:53 AM
-> > To: netdev@vger.kernel.org
-> > Cc: VMware, Inc.; Ian Campbell
-> > Subject: [Pv-drivers] [PATCH 14/14] vmxnet3: convert to SKB paged frag API.
-> > 
-> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> > Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
-> > Cc: "VMware, Inc." <pv-drivers@vmware.com>
-> > Cc: netdev@vger.kernel.org
-> > ---
-> >  drivers/net/vmxnet3/vmxnet3_drv.c |    8 ++++----
-> >  1 files changed, 4 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
-> > b/drivers/net/vmxnet3/vmxnet3_drv.c
-> > index 759c1a4..57e7c66 100644
-> > --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> > +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> > @@ -654,7 +654,7 @@ vmxnet3_append_frag(struct sk_buff *skb, struct
-> > Vmxnet3_RxCompDesc *rcd,
-> > 
-> >  	BUG_ON(skb_shinfo(skb)->nr_frags >= MAX_SKB_FRAGS);
-> > 
-> > -	frag->page = rbi->page;
-> > +	__skb_frag_set_page(frag, rbi->page);
-> >  	frag->page_offset = 0;
-> >  	frag->size = rcd->len;
-> >  	skb->data_len += frag->size;
-> > @@ -748,9 +748,9 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx
-> > *ctx,
-> > 
-> >  		tbi = tq->buf_info + tq->tx_ring.next2fill;
-> >  		tbi->map_type = VMXNET3_MAP_PAGE;
-> > -		tbi->dma_addr = pci_map_page(adapter->pdev, frag->page,
-> > -					     frag->page_offset, frag->size,
-> > -					     PCI_DMA_TODEVICE);
-> > +		tbi->dma_addr = skb_frag_dma_map(&adapter->pdev->dev, frag,
-> > +						 0, frag->size,
-> > +						 PCI_DMA_TODEVICE);
-> > 
-> >  		tbi->len = frag->size;
-> > 
-> > --
-> > 1.7.2.5
-> > 
-> > _______________________________________________
-> > Pv-drivers mailing list
-> > Pv-drivers@vmware.com
-> > http://mailman2.vmware.com/mailman/listinfo/pv-drivers
+T2theS4NCg0KU2lnbmVkLW9mZi1ieTogQmhhdmVzaCBEYXZkYSA8YmhhdmVzaEB2bXdhcmUuY29t
+Pg0KDQotIEJoYXZlc2gNCiANCkJoYXZlc2ggUC4gRGF2ZGENCg0KPiAtLS0tLU9yaWdpbmFsIE1l
+c3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0bzpJYW4uQ2FtcGJlbGxAZXUu
+Y2l0cml4LmNvbV0NCj4gU2VudDogVGh1cnNkYXksIFNlcHRlbWJlciAyMiwgMjAxMSA5OjQ3IEFN
+DQo+IFRvOiBCaGF2ZXNoIERhdmRhDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBWTXdh
+cmUsIEluYy4NCj4gU3ViamVjdDogUkU6IFtQdi1kcml2ZXJzXSBbUEFUQ0ggMTQvMTRdIHZteG5l
+dDM6IGNvbnZlcnQgdG8gU0tCIHBhZ2VkIGZyYWcNCj4gQVBJLg0KPiANCj4gT24gVGh1LCAyMDEx
+LTA5LTIyIGF0IDE3OjMwICswMTAwLCBCaGF2ZXNoIERhdmRhIHdyb3RlOg0KPiA+IFRoZXNlIGNo
+YW5nZXMgbG9vayBzYW5lLiBXaGF0IGFib3V0IGZyYWctPnBhZ2Vfb2Zmc2V0IGFuZCBmcmFnLT5z
+aXplLCBhcmUNCj4gdGhlcmUgQVBJcyB0byBhY2Nlc3MgdGhvc2UgYXMgd2VsbD8NCj4gDQo+IFlv
+dSBjYW4gZ28gYXQgdGhvc2UgZGlyZWN0bHkuDQo+IA0KPiBUaGUgaW1wb3J0YW50IHBhcnQgaGVy
+ZSBpcyB0byBhYnN0cmFjdCBhd2F5IHRoZSBhY2Nlc3MgdG8gdGhlIC0+cGFnZQ0KPiB2YXJpYWJs
+ZSBzbyB3ZSBjYW4gY2hhbmdlIGhvdyB0aGUgcmVmZXJlbmNlIGNvdW50aW5nIHdvcmtzLg0KPiAN
+Cj4gU28gdW5sZXNzIHBlb3BsZSB0aGluayB0aGVyZSBpcyBhIGNvbXBlbGxpbmcgcmVhc29uIHRv
+IGhpZGUgYXdheSBzaXplDQo+IGFuZCBvZmZzZXQgSSB3YXNuJ3QgcGxhbm5pbmcgb24gZG9pbmcg
+YW55dGhpbmcgbGlrZSB0aGF0Lg0KPiANCj4gSWFuLg0KPiANCj4gPg0KPiA+IFtzb3JyeSBjYW4n
+dCBwdWxsIGZyb20gZ2l0Lmtlcm5lbC5vcmcgYXQgdGhlIG1vbWVudCB0byBhbnN3ZXIgbXkgb3du
+DQo+IHF1ZXNpb25dDQo+ID4NCj4gPiAtIEJoYXZlc2gNCj4gPg0KPiA+IEJoYXZlc2ggUC4gRGF2
+ZGENCj4gPg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IHB2
+LWRyaXZlcnMtYm91bmNlc0B2bXdhcmUuY29tIFttYWlsdG86cHYtZHJpdmVycy1ib3VuY2VzQHZt
+d2FyZS5jb21dDQo+IE9uDQo+ID4gPiBCZWhhbGYgT2YgSWFuIENhbXBiZWxsDQo+ID4gPiBTZW50
+OiBUaHVyc2RheSwgU2VwdGVtYmVyIDIyLCAyMDExIDEyOjUzIEFNDQo+ID4gPiBUbzogbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZw0KPiA+ID4gQ2M6IFZNd2FyZSwgSW5jLjsgSWFuIENhbXBiZWxsDQo+
+ID4gPiBTdWJqZWN0OiBbUHYtZHJpdmVyc10gW1BBVENIIDE0LzE0XSB2bXhuZXQzOiBjb252ZXJ0
+IHRvIFNLQiBwYWdlZCBmcmFnDQo+IEFQSS4NCj4gPiA+DQo+ID4gPiBTaWduZWQtb2ZmLWJ5OiBJ
+YW4gQ2FtcGJlbGwgPGlhbi5jYW1wYmVsbEBjaXRyaXguY29tPg0KPiA+ID4gQ2M6IFNocmV5YXMg
+QmhhdGV3YXJhIDxzYmhhdGV3YXJhQHZtd2FyZS5jb20+DQo+ID4gPiBDYzogIlZNd2FyZSwgSW5j
+LiIgPHB2LWRyaXZlcnNAdm13YXJlLmNvbT4NCj4gPiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQo+ID4gPiAtLS0NCj4gPiA+ICBkcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZHJ2LmMg
+fCAgICA4ICsrKystLS0tDQo+ID4gPiAgMSBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyks
+IDQgZGVsZXRpb25zKC0pDQo+ID4gPg0KPiA+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3Zt
+eG5ldDMvdm14bmV0M19kcnYuYw0KPiA+ID4gYi9kcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNf
+ZHJ2LmMNCj4gPiA+IGluZGV4IDc1OWMxYTQuLjU3ZTdjNjYgMTAwNjQ0DQo+ID4gPiAtLS0gYS9k
+cml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZHJ2LmMNCj4gPiA+ICsrKyBiL2RyaXZlcnMvbmV0
+L3ZteG5ldDMvdm14bmV0M19kcnYuYw0KPiA+ID4gQEAgLTY1NCw3ICs2NTQsNyBAQCB2bXhuZXQz
+X2FwcGVuZF9mcmFnKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdA0KPiA+ID4gVm14bmV0M19S
+eENvbXBEZXNjICpyY2QsDQo+ID4gPg0KPiA+ID4gIAlCVUdfT04oc2tiX3NoaW5mbyhza2IpLT5u
+cl9mcmFncyA+PSBNQVhfU0tCX0ZSQUdTKTsNCj4gPiA+DQo+ID4gPiAtCWZyYWctPnBhZ2UgPSBy
+YmktPnBhZ2U7DQo+ID4gPiArCV9fc2tiX2ZyYWdfc2V0X3BhZ2UoZnJhZywgcmJpLT5wYWdlKTsN
+Cj4gPiA+ICAJZnJhZy0+cGFnZV9vZmZzZXQgPSAwOw0KPiA+ID4gIAlmcmFnLT5zaXplID0gcmNk
+LT5sZW47DQo+ID4gPiAgCXNrYi0+ZGF0YV9sZW4gKz0gZnJhZy0+c2l6ZTsNCj4gPiA+IEBAIC03
+NDgsOSArNzQ4LDkgQEAgdm14bmV0M19tYXBfcGt0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
+dA0KPiB2bXhuZXQzX3R4X2N0eA0KPiA+ID4gKmN0eCwNCj4gPiA+DQo+ID4gPiAgCQl0YmkgPSB0
+cS0+YnVmX2luZm8gKyB0cS0+dHhfcmluZy5uZXh0MmZpbGw7DQo+ID4gPiAgCQl0YmktPm1hcF90
+eXBlID0gVk1YTkVUM19NQVBfUEFHRTsNCj4gPiA+IC0JCXRiaS0+ZG1hX2FkZHIgPSBwY2lfbWFw
+X3BhZ2UoYWRhcHRlci0+cGRldiwgZnJhZy0+cGFnZSwNCj4gPiA+IC0JCQkJCSAgICAgZnJhZy0+
+cGFnZV9vZmZzZXQsIGZyYWctPnNpemUsDQo+ID4gPiAtCQkJCQkgICAgIFBDSV9ETUFfVE9ERVZJ
+Q0UpOw0KPiA+ID4gKwkJdGJpLT5kbWFfYWRkciA9IHNrYl9mcmFnX2RtYV9tYXAoJmFkYXB0ZXIt
+PnBkZXYtPmRldiwgZnJhZywNCj4gPiA+ICsJCQkJCQkgMCwgZnJhZy0+c2l6ZSwNCj4gPiA+ICsJ
+CQkJCQkgUENJX0RNQV9UT0RFVklDRSk7DQo+ID4gPg0KPiA+ID4gIAkJdGJpLT5sZW4gPSBmcmFn
+LT5zaXplOw0KPiA+ID4NCj4gPiA+IC0tDQo+ID4gPiAxLjcuMi41DQo+ID4gPg0KPiA+ID4gX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18NCj4gPiA+IFB2LWRy
+aXZlcnMgbWFpbGluZyBsaXN0DQo+ID4gPiBQdi1kcml2ZXJzQHZtd2FyZS5jb20NCj4gPiA+IGh0
+dHA6Ly9tYWlsbWFuMi52bXdhcmUuY29tL21haWxtYW4vbGlzdGluZm8vcHYtZHJpdmVycw0KPiAN
+Cg0K
