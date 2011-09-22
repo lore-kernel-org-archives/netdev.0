@@ -1,69 +1,46 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next] candev: allow SJW user setting for bittiming
-	calculation
-Date: Thu, 22 Sep 2011 13:00:19 +0200
-Message-ID: <4E7B1543.2000603@grandegger.com>
-References: <4E7B0CE4.3070402@hartkopp.net>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-09-08
+Date: Thu, 22 Sep 2011 13:05:09 +0200
+Message-ID: <201109221305.10111.lindner_marek@yahoo.de>
+References: <201109220139.26897.lindner_marek@yahoo.de>
+	<201109220210.05025.lindner_marek@yahoo.de>
+	<20110921.201153.1030355996800820632.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>, Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Píša@mail.berlios.de, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Pavel-XecQL68PM4x789tOGE2Ojw@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4E7B0CE4.3070402-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20110921.201153.1030355996800820632.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Oliver,
-
-On 09/22/2011 12:24 PM, Oliver Hartkopp wrote:
-> This patch adds support for SJW user settings to not set the synchronization
-> jump width (SJW) to 1 in any case when using the in-kernel bittiming
-> calculation.
+On Thursday, September 22, 2011 02:11:53 David Miller wrote:
+> From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+> Date: Thu, 22 Sep 2011 02:10:04 +0200
 > 
-> The ip-tool from iproute2 already supports to pass the user defined SJW
-> value. The given SJW value is sanitized with the controller specific sjw_max
-> and the calculated tseg2 value. As the SJW can have values up to 4 providing
-> this value will lead to the maximum possible SJW automatically. A higher SJW
-> allows higher controller oscillator tolerances.
+> > No, the data structures for the routing lookups remain the same but there
+> > will be more than one way to fill them with data. You will only use one
+> > "filling algorithm" at a time, so you will need to select the one you
+> > want.
 > 
-> Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> 
-> ---
-> 
-> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-> index 9bf1116..25695bd 100644
-> --- a/drivers/net/can/dev.c
-> +++ b/drivers/net/can/dev.c
-> @@ -150,7 +150,19 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt)
->  	bt->prop_seg = tseg1 / 2;
->  	bt->phase_seg1 = tseg1 - bt->prop_seg;
->  	bt->phase_seg2 = tseg2;
-> -	bt->sjw = 1;
-> +
-> +	/* check for sjw user settings */
-> +	if (!bt->sjw || !btc->sjw_max)
-> +		bt->sjw = 1;
-> +	else {
-> +		/* bt->sjw is at least 1 -> sanitize upper bound to sjw_max */
-> +		if (bt->sjw > btc->sjw_max)
-> +			bt->sjw = btc->sjw_max;
-> +		/* bt->sjw must not be higher than tseg2 */
-> +		if (tseg2 < bt->sjw)
-> +			bt->sjw = tseg2;
-> +	}
-> +
+> Extend the userspace interface for adding route entries with a boolean
+> flag.  You're using netlink right?  If so, this should be trivial by
+> simply adding a flags attribute if you don't have one already.
 
+Not really. It's rather the tcp westwood vs tcp reno type of story. But I 
+think we simply make this a runtime option to keep everybody happy.
 
-Hm, bt->sjw is always 0 when can_calc_bittiming() is called!? Or have I
-missed something.
-
-Wolfgang,
+Thanks,
+Marek
