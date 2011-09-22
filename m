@@ -1,45 +1,63 @@
-From: "Kirill A. Shutemov" <kirill@shutemov.name>
-Subject: Re: [PATCH v3 6/7] tcp buffer limitation: per-cgroup limit
-Date: Thu, 22 Sep 2011 12:58:03 +0300
-Message-ID: <20110922095803.GA4530@shutemov.name>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com>
- <1316393805-3005-7-git-send-email-glommer@parallels.com>
- <CAHH2K0Yuji2_2pMdzEaMvRx0KE7OOaoEGT+OK4gJgTcOPKuT9g@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH net-next v2] candev: allow SJW user setting for bittiming
+ calculation
+Date: Thu, 22 Sep 2011 12:28:54 +0200
+Message-ID: <4E7B0DE6.9020807@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Glauber Costa <glommer@parallels.com>, linux-kernel@vger.kernel.org,
-	paul@paulmenage.org, lizf@cn.fujitsu.com,
-	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
-	davem@davemloft.net, netdev@vger.kernel.org, linux-mm@kvack.org
-To: Greg Thelen <gthelen@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <CAHH2K0Yuji2_2pMdzEaMvRx0KE7OOaoEGT+OK4gJgTcOPKuT9g@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	=?windows-1252?Q?Pavel_P=ED=9Aa?= <pisa@cmp.felk.cvut.cz>,
+	SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:41634 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752710Ab1IVK3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Sep 2011 06:29:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 21, 2011 at 11:01:46PM -0700, Greg Thelen wrote:
-> On Sun, Sep 18, 2011 at 5:56 PM, Glauber Costa <glommer@parallels.com> =
-wrote:
-> > +static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
-> > +{
-> > + =A0 =A0 =A0 return (mem =3D=3D root_mem_cgroup);
-> > +}
-> > +
->=20
-> Why are you adding a copy of mem_cgroup_is_root().  I see one already
-> in v3.0.  Was it deleted in a previous patch?
+This patch adds support for SJW user settings to not set the synchronization
+jump width (SJW) to 1 in any case when using the in-kernel bittiming
+calculation.
 
-mem_cgroup_is_root() moved up in the file.
+The ip-tool from iproute2 already supports to pass the user defined SJW
+value. The given SJW value is sanitized with the controller specific sjw_max
+and the calculated tseg2 value. As the SJW can have values up to 4 providing
+this value will lead to the maximum possible SJW automatically. A higher SJW
+allows higher controller oscillator tolerances.
 
---=20
- Kirill A. Shutemov
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+---
+
+v2: Resend due to wrong mail address header encoding.
+
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 9bf1116..25695bd 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -150,7 +150,19 @@ static int can_calc_bittiming(struct net_device *dev,
+struct can_bittiming *bt)
+ 	bt->prop_seg = tseg1 / 2;
+ 	bt->phase_seg1 = tseg1 - bt->prop_seg;
+ 	bt->phase_seg2 = tseg2;
+-	bt->sjw = 1;
++
++	/* check for sjw user settings */
++	if (!bt->sjw || !btc->sjw_max)
++		bt->sjw = 1;
++	else {
++		/* bt->sjw is at least 1 -> sanitize upper bound to sjw_max */
++		if (bt->sjw > btc->sjw_max)
++			bt->sjw = btc->sjw_max;
++		/* bt->sjw must not be higher than tseg2 */
++		if (tseg2 < bt->sjw)
++			bt->sjw = tseg2;
++	}
++
+ 	bt->brp = best_brp;
+ 	/* real bit-rate */
+ 	bt->bitrate = priv->clock.freq / (bt->brp * (tseg1 + tseg2 + 1));
