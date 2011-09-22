@@ -1,43 +1,43 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: MTU and TCP transmit offload.
-Date: Wed, 21 Sep 2011 16:58:22 -0700
-Message-ID: <4E7A7A1E.1070807@hp.com>
-References: <4E7A51EE.8010403@candelatech.com> <4E7A612C.9090508@hp.com> <4E7A6225.8040902@candelatech.com> <4E7A765E.6020701@candelatech.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-09-08
+Date: Wed, 21 Sep 2011 20:05:39 -0400 (EDT)
+Message-ID: <20110921.200539.1422752575190292433.davem@davemloft.net>
+References: <1315500051-1122-1-git-send-email-lindner_marek@yahoo.de>
+	<20110921.152616.1053525623924985457.davem@davemloft.net>
+	<201109220139.26897.lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:3265 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750781Ab1IUX6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Sep 2011 19:58:23 -0400
-In-Reply-To: <4E7A765E.6020701@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: lindner_marek-LWAfsSFWpa4@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <201109220139.26897.lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->>> Isn't that covered by setsockopt() support for TCP_MAX_SEG? With
->>> TSO what gets passed to the NIC isn't the MTU, but the
->>> connection's MSS derived (in part at least) from the MTU of the
->>> egress interface. If one had made a setsockopt(TCP_MAX_SEG) call
->>> prior to the connect() or listen() call, presumably that would
->>> have influenced the MSS exchange at connection establishment.
->>
->> Ohh, that looks promising!
->>
->> I'll give that a try.
->
-> This works like a charm. I'm so glad I don't need to hack
-> a new sockopt!
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Date: Thu, 22 Sep 2011 01:39:26 +0200
 
-Glad it works for you.
+>  To ensure a smooth transition and efficient testing later, we 
+>  decided to offer a choice of routing algorithm but have not     
+>  come to a final decision on how to design this choice yet. It
+>  either will be a compile time option, a module parameter or a
+>  runtime switch. Any suggestions / best practice tips ?
 
-happy benchmarking,
+What do you mean by "algorithm"?  Do you mean the implementation
+of the data-structure used to perform lookups?
 
-rick jones
-
-One of these days I'll have to decide if I add that as an option to 
-netperf, which presently only does the getsockopt(TCP_MAX_SEG).  Folks 
-with a strong preference one way or t'other should feel free to contact 
-me on the side or via netperf-talk at netperf.org.
+We had two data structures for our main routing table lookup
+implementation in ipv4, this was a mistake.  We spent the next couple
+years maintaining two pieces of code, and finally investing lots of
+effort to eliminate the older code.
