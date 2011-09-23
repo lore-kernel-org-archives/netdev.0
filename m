@@ -1,68 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/8 v2][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 23 Sep 2011 09:12:39 -0700
-Message-ID: <1316794367-23265-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+Subject: [net-next 1/8 v2] pci: Add flag indicating device has been assigned by KVM
+Date: Fri, 23 Sep 2011 09:12:40 -0700
+Message-ID: <1316794367-23265-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1316794367-23265-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Ian Campbell <ijc@hellion.org.uk>,
+	Konrad Wilk <konrad.wilk@oracle.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:35014 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751067Ab1IWQS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Sep 2011 12:18:58 -0400
+	id S1751466Ab1IWQS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Sep 2011 12:18:59 -0400
+In-Reply-To: <1316794367-23265-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to ixgbe and PCI.  The PCI patch
-is a small update to add a flag to indicate when a device has been
-assigned by KVM.  The ixgbe patches consist of the following:
+From: Greg Rose <gregory.v.rose@intel.com>
 
-  - reconfigure SR-IOV init to take advantage of the new pci flag
-  - DCB cleanups/fixes
-  - add WOL support for x540
-  - a few cleanup/fixes
+Device drivers that create and destroy SR-IOV virtual functions via
+calls to pci_enable_sriov() and pci_disable_sriov can cause catastrophic
+failures if they attempt to destroy VFs while they are assigned to
+guest virtual machines.  By adding a flag for use by the KVM module
+to indicate that a device is assigned a device driver can check that
+flag and avoid destroying VFs while they are assigned and avoid system
+failures.
 
- -v2 Fixed up comment in the PCI patch based on feedback from Ian Campbell
+-v2 Fixed comment based on feedback from Ian Campbell.
 
-The following are changes since commit 9c9b1f24f2aa31a3cea94939edc551f68ebadc89:
-  net/phy: add IC+ IP101A and support APS.
-and are available in the git repository at:
-  git://github.com/Jkirsher/net-next.git
+CC: Ian Campbell <ijc@hellion.org.uk>
+CC: Konrad Wilk <konrad.wilk@oracle.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Acked-by: Jesse Barnes <jbarnes@virtuousgeek.org>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ include/linux/pci.h     |    2 ++
+ virt/kvm/assigned-dev.c |    2 ++
+ virt/kvm/iommu.c        |    4 ++++
+ 3 files changed, 8 insertions(+), 0 deletions(-)
 
-Don Skidmore (1):
-  ixgbe: cleanup X540 interrupt enablement
-
-Emil Tantilov (3):
-  ixgbe: avoid HW lockup when adapter is reset with Tx work pending
-  ixgbe: add WOL support for X540
-  ixgbe: remove global reset to the MAC
-
-Greg Rose (2):
-  pci: Add flag indicating device has been assigned by KVM
-  ixgbe: Reconfigure SR-IOV Init
-
-John Fastabend (2):
-  ixgbe: DCB, do not call set_state() from IEEE mode
-  ixgbe: dcb, set priority to traffic class mappings
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |   15 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |   13 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |  145 +++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c     |   36 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h     |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |   57 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   13 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  141 ++++-----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c   |  207 +++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h   |    5 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   10 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |   31 +---
- include/linux/pci.h                              |    2 +
- virt/kvm/assigned-dev.c                          |    2 +
- virt/kvm/iommu.c                                 |    4 +
- 17 files changed, 443 insertions(+), 245 deletions(-)
-
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index f27893b..4f511da 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -174,6 +174,8 @@ enum pci_dev_flags {
+ 	PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG = (__force pci_dev_flags_t) 1,
+ 	/* Device configuration is irrevocably lost if disabled into D3 */
+ 	PCI_DEV_FLAGS_NO_D3 = (__force pci_dev_flags_t) 2,
++	/* Provide indication device is assigned by a Virtual Machine Manager */
++	PCI_DEV_FLAGS_ASSIGNED = (__force pci_dev_flags_t) 4,
+ };
+ 
+ enum pci_irq_reroute_variant {
+diff --git a/virt/kvm/assigned-dev.c b/virt/kvm/assigned-dev.c
+index 4e9eaeb..eaf3a50 100644
+--- a/virt/kvm/assigned-dev.c
++++ b/virt/kvm/assigned-dev.c
+@@ -205,6 +205,8 @@ static void kvm_free_assigned_device(struct kvm *kvm,
+ 	else
+ 		pci_restore_state(assigned_dev->dev);
+ 
++	assigned_dev->dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
++
+ 	pci_release_regions(assigned_dev->dev);
+ 	pci_disable_device(assigned_dev->dev);
+ 	pci_dev_put(assigned_dev->dev);
+diff --git a/virt/kvm/iommu.c b/virt/kvm/iommu.c
+index 78c80f6..967aba1 100644
+--- a/virt/kvm/iommu.c
++++ b/virt/kvm/iommu.c
+@@ -187,6 +187,8 @@ int kvm_assign_device(struct kvm *kvm,
+ 			goto out_unmap;
+ 	}
+ 
++	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
++
+ 	printk(KERN_DEBUG "assign device %x:%x:%x.%x\n",
+ 		assigned_dev->host_segnr,
+ 		assigned_dev->host_busnr,
+@@ -215,6 +217,8 @@ int kvm_deassign_device(struct kvm *kvm,
+ 
+ 	iommu_detach_device(domain, &pdev->dev);
+ 
++	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
++
+ 	printk(KERN_DEBUG "deassign device %x:%x:%x.%x\n",
+ 		assigned_dev->host_segnr,
+ 		assigned_dev->host_busnr,
 -- 
 1.7.6.2
