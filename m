@@ -1,98 +1,36 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 1/8] pci: Add flag indicating device has been
- assigned by KVM
-Date: Fri, 23 Sep 2011 10:04:59 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C518D57@orsmsx508.amr.corp.intel.com>
-References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1316599974-23205-2-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
- <1316762872.23371.88.camel@zakaz.uk.xensource.com>
- <43F901BD926A4E43B106BF17856F0755019C518C0E@orsmsx508.amr.corp.intel.com>
- <1316790220.23371.105.camel@zakaz.uk.xensource.com>
- <43F901BD926A4E43B106BF17856F0755019C518C47@orsmsx508.amr.corp.intel.com>
- <1316792710.2182.124.camel@jtkirshe-mobl>
- <20110923164326.GA23363@phenom.oracle.com>
+From: "Myklebust, Trond" <Trond.Myklebust@netapp.com>
+Subject: RE: [PATCH v6 1/8] SUNRPC: introduce helpers for reference counted rpcbind clients
+Date: Fri, 23 Sep 2011 10:26:49 -0700
+Message-ID: <2E1EB2CF9ED1CB4AA966F0EB76EAB4430B54DB89@SACMVEXC2-PRD.hq.netapp.com>
+References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E7899E7.9090809@parallels.com> <4E79A95F.8050304@parallels.com> <4E7C9A91.1060301@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ian Campbell <ijc@hellion.org.uk>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20110923164326.GA23363@phenom.oracle.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <linux-nfs@vger.kernel.org>,
+	"Pavel Emelianov" <xemul@parallels.com>, <neilb@suse.de>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<bfields@fieldses.org>, <davem@davemloft.net>
+To: "Stanislav Kinsbursky" <skinsbursky@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.netapp.com ([216.240.18.37]:17006 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750981Ab1IWR1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Sep 2011 13:27:07 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <4E7C9A91.1060301@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Konrad Rzeszutek Wilk [mailto:konrad.wilk@oracle.com]
-> Sent: Friday, September 23, 2011 9:43 AM
-> To: Kirsher, Jeffrey T
-> Cc: Rose, Gregory V; Ian Campbell; davem@davemloft.net; Jesse Barnes;
-> netdev@vger.kernel.org; gospo@redhat.com; linux-pci@vger.kernel.org
-> Subject: Re: [net-next 1/8] pci: Add flag indicating device has been
-> assigned by KVM
-> 
-> On Fri, Sep 23, 2011 at 08:45:09AM -0700, Jeff Kirsher wrote:
-> > On Fri, 2011-09-23 at 08:11 -0700, Rose, Gregory V wrote:
-> > > > -----Original Message-----
-> > > > From: Ian Campbell [mailto:ijc@hellion.org.uk]
-> > > > Sent: Friday, September 23, 2011 8:04 AM
-> > > > To: Rose, Gregory V
-> > > > Cc: Kirsher, Jeffrey T; davem@davemloft.net; konrad.wilk@oracle.com;
-> Jesse
-> > > > Barnes; netdev@vger.kernel.org; gospo@redhat.com; linux-
-> > > > pci@vger.kernel.org
-> > > > Subject: RE: [net-next 1/8] pci: Add flag indicating device has been
-> > > > assigned by KVM
-> > > >
-> > > > On Fri, 2011-09-23 at 07:41 -0700, Rose, Gregory V wrote:
-> > > > > > -----Original Message-----
-> > > > > > From: Ian Campbell [mailto:ijc@hellion.org.uk]
-> > > > > > Sent: Friday, September 23, 2011 12:28 AM
-> > > > > > To: Kirsher, Jeffrey T
-> > > > > > Cc: davem@davemloft.net; konrad.wilk@oracle.com; Jesse Barnes;
-> Rose,
-> > > > > > Gregory V; netdev@vger.kernel.org; gospo@redhat.com; linux-
-> > > > > > pci@vger.kernel.org
-> > > > > > Subject: Re: [net-next 1/8] pci: Add flag indicating device has
-> been
-> > > > > > assigned by KVM
-> > > > > >
-> > > > > > I suppose by that measure the comment could be less KVM
-> specific:
-> > > > > > > +       /* Provide indication device is assigned by KVM */
-> > > > > > > +       PCI_DEV_FLAGS_ASSIGNED = (__force pci_dev_flags_t) 4,
-> > > > >
-> > > > > We can resubmit with a more generic comment, maybe this:
-> > > > >
-> > > > > /* Provide indication device is assigned by a Virtual Machine
-> Manager */
-> > > >
-> > > > Sounds good to me.
-> > >
-> > > Dave, Jeff,
-> > >
-> > > Should I resubmit the patch or would it be more convenient to post a
-> follow on patch that fixes up the comment?  Either way is fine by me.
-> > >
-> > > - Greg
-> > >
-> >
-> > let's fix up the patch in my tree and add Jesse Barnes's ACK at the same
-> > time.
-> 
-> Were are the patches now? I am kind of curious to see the changes to the
-> xen pciback.
-> 
-> 
-
-Version 2 of this patch with the modified comment was just posted to netdev.  Ian Campbell had mentioned that the Xen pciback driver should be modified to use this flag but I don't believe any patches for it have been created yet.
-
-- Greg
- 
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTdGFuaXNsYXYgS2luc2J1cnNr
+eSBbbWFpbHRvOnNraW5zYnVyc2t5QHBhcmFsbGVscy5jb21dDQo+IFNlbnQ6IEZyaWRheSwgU2Vw
+dGVtYmVyIDIzLCAyMDExIDEwOjQxIEFNDQo+IFRvOiBNeWtsZWJ1c3QsIFRyb25kDQo+IENjOiBs
+aW51eC1uZnNAdmdlci5rZXJuZWwub3JnOyBQYXZlbCBFbWVsaWFub3Y7IG5laWxiQHN1c2UuZGU7
+DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7
+DQo+IGJmaWVsZHNAZmllbGRzZXMub3JnOyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+IFN1YmplY3Q6
+IFJlOiBbUEFUQ0ggdjYgMS84XSBTVU5SUEM6IGludHJvZHVjZSBoZWxwZXJzIGZvciByZWZlcmVu
+Y2UNCj4gY291bnRlZCBycGNiaW5kIGNsaWVudHMNCj4gDQo+IFRyb25kLCBpcyB0aGlzIHBhdGNo
+IHZlcnNpb24gc3VpdHMgeW91IG5vdz8gT3Igbm90Pw0KPiBQbGVhc2UsIGNvbW1lbnQgc29tZWhv
+dyB0byBsZXQgbWUga25vdywgbWF5IEkgcHJvY2VlZCB3aXRoIGZ1cnRoZXINCj4gZGV2ZWxvcG1l
+bnQgb3Igbm90Lg0KDQpIaSBTdGFuaXNsYXYsDQoNClllcywgdGhpcyB2ZXJzaW9uIG9mIHRoZSBw
+YXRjaCBsb29rcyBzYWZlIHRvIG1lLg0KDQpDaGVlcnMNCiAgVHJvbmQNCg==
