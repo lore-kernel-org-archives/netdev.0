@@ -1,51 +1,37 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH 2/2] wireless: at76c50x: use native hex_pack_byte() method
-Date: Fri, 23 Sep 2011 13:47:27 +0300
-Message-ID: <71d8213731be21f26a82255a4fffdbe1b6dd4a44.1316774801.git.andriy.shevchenko@linux.intel.com>
-References: <20110919232602.ac450450.akpm00@gmail.com>
- <fa146966b0ce1e7f04d59eb27cc0e968f51b22de.1316774801.git.andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <fa146966b0ce1e7f04d59eb27cc0e968f51b22de.1316774801.git.andriy.shevchenko@linux.intel.com>
-In-Reply-To: <fa146966b0ce1e7f04d59eb27cc0e968f51b22de.1316774801.git.andriy.shevchenko@linux.intel.com>
-References: <fa146966b0ce1e7f04d59eb27cc0e968f51b22de.1316774801.git.andriy.shevchenko@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: linux-wireless@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Question regarding wanrouter module
+Date: Fri, 23 Sep 2011 13:26:53 +0200
+Message-ID: <20110923112653.GA27240@electric-eye.fr.zoreil.com>
+References: <4E7C528F.4010303@freyther.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
----
- drivers/net/wireless/at76c50x-usb.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+To: Holger Hans Peter Freyther <holger@freyther.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:55864 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753327Ab1IWL1x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 07:27:53 -0400
+Content-Disposition: inline
+In-Reply-To: <4E7C528F.4010303@freyther.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
-index 2986014..157507a6 100644
---- a/drivers/net/wireless/at76c50x-usb.c
-+++ b/drivers/net/wireless/at76c50x-usb.c
-@@ -500,7 +500,6 @@ exit:
- 
- #define HEX2STR_BUFFERS 4
- #define HEX2STR_MAX_LEN 64
--#define BIN2HEX(x) ((x) < 10 ? '0' + (x) : (x) + 'A' - 10)
- 
- /* Convert binary data into hex string */
- static char *hex2str(void *buf, int len)
-@@ -520,10 +519,8 @@ static char *hex2str(void *buf, int len)
- 	}
- 
- 	while (len--) {
--		*obuf++ = BIN2HEX(*ibuf >> 4);
--		*obuf++ = BIN2HEX(*ibuf & 0xf);
-+		obuf = hex_pack_byte(obuf, *ibuf++);
- 		*obuf++ = '-';
--		ibuf++;
- 	}
- 	*(--obuf) = '\0';
- 
+Holger Hans Peter Freyther <holger@freyther.de> :
+[...]
+> Fast forward to today, Sangoma provides a wanrouter.ko as well (they didn't
+> bother to change the symbol names or module name). I wonder if there are any
+> plans to improve the situation, e.g. rename the kernel module, change symbols,
+> or if there would be objections to trying to add functionality to the kernel
+> wanrouter.ko again ?
+
+There are objections to adding.
+
+The kernel wanrouter code is almost empty. Afaiu it mostly contains a
+wan setup API.
+
+Is there a reason why the added functionalities could not go through the
+generic hdlc kernel code (see drivers/net/wan/hdlc*) ?
+
 -- 
-1.7.6.3
+Ueimor
