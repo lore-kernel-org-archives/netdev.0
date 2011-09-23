@@ -1,33 +1,51 @@
-From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-Subject: RE: [patch v2] caif: add error handling for allocation
-Date: Fri, 23 Sep 2011 12:38:45 +0200
-Message-ID: <81C3A93C17462B4BBD7E272753C105791D2BC1882D@EXDCVYMBSTM005.EQ1STM.local>
-References: <CAJK669Yb6V=xr9ZvQGOKGEvmzO1JGhrHD+sR69b04EQxUjOOrQ@mail.gmail.com>
- <20110921072159.GJ4999@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:37902 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753101Ab1IWKi6 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Sep 2011 06:38:58 -0400
-In-Reply-To: <20110921072159.GJ4999@elgon.mountain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH 2/2] wireless: at76c50x: use native hex_pack_byte() method
+Date: Fri, 23 Sep 2011 13:47:27 +0300
+Message-ID: <71d8213731be21f26a82255a4fffdbe1b6dd4a44.1316774801.git.andriy.shevchenko@linux.intel.com>
+References: <20110919232602.ac450450.akpm00@gmail.com>
+ <fa146966b0ce1e7f04d59eb27cc0e968f51b22de.1316774801.git.andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <fa146966b0ce1e7f04d59eb27cc0e968f51b22de.1316774801.git.andriy.shevchenko@linux.intel.com>
+In-Reply-To: <fa146966b0ce1e7f04d59eb27cc0e968f51b22de.1316774801.git.andriy.shevchenko@linux.intel.com>
+References: <fa146966b0ce1e7f04d59eb27cc0e968f51b22de.1316774801.git.andriy.shevchenko@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[Dan]:=20
-> The allocation of "phyinfo" wasn't checked, and also the allocation
-> wasn't freed on error paths.  Sjur Br=E6ndeland pointed out as well
-> that "phy_driver" should be freed on the error path too.
->=20
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/wireless/at76c50x-usb.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
 
-Looks good, thank you Dan.
-Acked-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
+index 2986014..157507a6 100644
+--- a/drivers/net/wireless/at76c50x-usb.c
++++ b/drivers/net/wireless/at76c50x-usb.c
+@@ -500,7 +500,6 @@ exit:
+ 
+ #define HEX2STR_BUFFERS 4
+ #define HEX2STR_MAX_LEN 64
+-#define BIN2HEX(x) ((x) < 10 ? '0' + (x) : (x) + 'A' - 10)
+ 
+ /* Convert binary data into hex string */
+ static char *hex2str(void *buf, int len)
+@@ -520,10 +519,8 @@ static char *hex2str(void *buf, int len)
+ 	}
+ 
+ 	while (len--) {
+-		*obuf++ = BIN2HEX(*ibuf >> 4);
+-		*obuf++ = BIN2HEX(*ibuf & 0xf);
++		obuf = hex_pack_byte(obuf, *ibuf++);
+ 		*obuf++ = '-';
+-		ibuf++;
+ 	}
+ 	*(--obuf) = '\0';
+ 
+-- 
+1.7.6.3
