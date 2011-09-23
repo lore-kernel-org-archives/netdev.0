@@ -1,21 +1,67 @@
-From: BBC Online <bbc006@rogers.com>
-Subject: Re:
-Date: Fri, 23 Sep 2011 14:21:51 +0200
-Message-ID: <1316780511.4e7c79df6f50b@webmail.netcom.no>
-Reply-To: scott_carsondesk04@hotmail.co.uk
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 1/8] pci: Add flag indicating device has been
+ assigned by KVM
+Date: Fri, 23 Sep 2011 07:41:36 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C518C0E@orsmsx508.amr.corp.intel.com>
+References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1316599974-23205-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
+ <1316762872.23371.88.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ad3-1-pip.netcom.no ([212.45.188.56]:16182 "EHLO
-	ad3-1-pip.netcom.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754055Ab1IWN4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 09:56:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Ian Campbell <ijc@hellion.org.uk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1316762872.23371.88.camel@zakaz.uk.xensource.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-=A3800,000 has been awarded to you in the BBC Online,send Name/Tel/Coun=
-try
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
+bzppamNAaGVsbGlvbi5vcmcudWtdDQo+IFNlbnQ6IEZyaWRheSwgU2VwdGVtYmVyIDIzLCAyMDEx
+IDEyOjI4IEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gQ2M6IGRhdmVtQGRhdmVtbG9m
+dC5uZXQ7IGtvbnJhZC53aWxrQG9yYWNsZS5jb207IEplc3NlIEJhcm5lczsgUm9zZSwNCj4gR3Jl
+Z29yeSBWOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBnb3Nwb0ByZWRoYXQuY29tOyBsaW51eC0N
+Cj4gcGNpQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0IDEvOF0gcGNp
+OiBBZGQgZmxhZyBpbmRpY2F0aW5nIGRldmljZSBoYXMgYmVlbg0KPiBhc3NpZ25lZCBieSBLVk0N
+Cj4gDQo+IE9uIFRodSwgMjAxMS0wOS0yMiBhdCAyMToxNiAtMDcwMCwgSmVmZiBLaXJzaGVyIHdy
+b3RlOg0KPiA+DQo+ID4NCj4gPiBKZXNzZS9Lb25yYWQvSWFuLQ0KPiA+DQo+ID4gSSBzZW50IHRo
+aXMgcGF0Y2ggb3V0IGFzIHBhcnQgb2YgYSBwdWxsIHJlcXVlc3QgZm9yIERhdmlkIE1pbGxlcidz
+DQo+ID4gbmV0LW5leHQgdHJlZS4gIEkga25vdyB0aGF0IEdyZWcgc2VudCB0aGlzIG9yaWdpbmFs
+bHkgb3V0IHRvIHRoZQ0KPiA+IGxpbnV4LXBjaSBtYWlsaW5nIGxpc3QgYXMgYSBSRkMuIFNpbmNl
+IEdyZWcgYWxzbyBoYXMgYSBwYXRjaCBhZ2FpbnN0DQo+ID4gaXhnYmUgd2hpY2ggaW1wbGVtZW50
+ZWQgdGhpcyBmbGFnLCBJIHNlbnQgYm90aCBwYXRjaGVzIGZvciBpbmNsdXNpb24NCj4gPiBpbnRv
+IERhdmlkIE1pbGxlcidzIG5ldC1uZXh0Lg0KPiA+DQo+ID4gRGF2ZSBpcyB3YW50aW5nIHRvIGVu
+c3VyZSB0aGF0IHRoZSBQQ0kgbWFpbnRhaW5lcnMgaGF2ZSByZXZpZXdlZCB0aGlzDQo+ID4gYW5k
+IGFyZSBvayB3aXRoIGl0IGJlZm9yZSBwdWxscyBteSBzZXJpZXMgb2YgcGF0Y2hlcy4NCj4gDQo+
+IEknbSBub3QgYSBQQ0kgbWFpbnRhaW5lciBieSBhbnkgc3RyZXRjaCBvZiB0aGUgaW1hZ2luYXRp
+b24gYnV0IEZXSVcgdGhpcw0KPiBjaGFuZ2UgaXMgZmluZSBieSBtZS4NCj4gDQo+IE15IG9yaWdp
+bmFsIHJlYXNvbiBmb3IgY29tbWVudGluZyBvbiB0aGlzIHBhdGNoIHdhcyBqdXN0IHRvIHdvbmRl
+cg0KPiB3aGV0aGVyIHRoaXMgd291bGQgYWxzbyBiZSB1c2VmdWwgZm9yIFhlbiBhbmQgSSB0aGlu
+ayB0aGUgYW5zd2VyIGlzIHdlDQo+IHNob3VsZCBwYXRjaCB4ZW4tcGNpYmFjayB0byB1c2UgdGhp
+cyBuZXcgZmxhZyBidXQgSSd2ZSBub3QgaGFkIHRpbWUgdG8NCj4gbG9vayBpbnRvIHRoYXQuDQo+
+IA0KPiBJIHN1cHBvc2UgYnkgdGhhdCBtZWFzdXJlIHRoZSBjb21tZW50IGNvdWxkIGJlIGxlc3Mg
+S1ZNIHNwZWNpZmljOg0KPiA+ICsgICAgICAgLyogUHJvdmlkZSBpbmRpY2F0aW9uIGRldmljZSBp
+cyBhc3NpZ25lZCBieSBLVk0gKi8NCj4gPiArICAgICAgIFBDSV9ERVZfRkxBR1NfQVNTSUdORUQg
+PSAoX19mb3JjZSBwY2lfZGV2X2ZsYWdzX3QpIDQsDQoNCldlIGNhbiByZXN1Ym1pdCB3aXRoIGEg
+bW9yZSBnZW5lcmljIGNvbW1lbnQsIG1heWJlIHRoaXM6DQoNCi8qIFByb3ZpZGUgaW5kaWNhdGlv
+biBkZXZpY2UgaXMgYXNzaWduZWQgYnkgYSBWaXJ0dWFsIE1hY2hpbmUgTWFuYWdlciAqLw0KDQo+
+IA0KPiBidXQgdGhhdCdzIG5vdCBleGFjdGx5IGEgYmlnIGRlYWwuDQo+IA0KPiBJIHN1cHBvc2Ug
+cmVhbGx5IHRoZSBmbGFnIGluZGljYXRlcyAiVkYgaW4gdXNlIiByYXRoZXIgdGhhbiBuZWNlc3Nh
+cmlseQ0KPiAiYXNzaWduZWQiPyBXb3VsZCBpdCBiZSBqdXN0IGFzIGJhZCB0byBoYXZlIGEgVkYg
+ZHJpdmVyIGluIHRoZSBob3N0DQo+IGFjdGl2ZSB3aGVuIHRoZSBQRiB3YXMgdW5sb2FkZWQ/DQoN
+ClRoZXJlIGlzIG5vIGlzc3VlIHdpdGggdW5sb2FkaW5nIGFuIGFjdGl2ZSBWRiBpbiB0aGUgaG9z
+dCBiZWNhdXNlIHRoZSBob3QgcmVtb3ZlIGV2ZW50IGlzIHNlZW4gYnkgdGhlIGhvc3QgYW5kIGFj
+Y2Vzc2VzIHRvIHRoZSBkZXZpY2Ugc3RvcC4gIEhvd2V2ZXIsIHdoZW4geW91IGhvdCByZW1vdmUg
+dGhlIGRldmljZSB0aGUgaG9zdCBhbmQgaXQgaXMgYXNzaWduZWQgdG8gYSBWTSB0aGUgVk0gaXMg
+dW5hd2FyZSBvZiB0aGUgZXZlbnQgYW5kIGhhcyBubyB3YXkgb2YgcHJvcGFnYXRpbmcgdGhlIGhv
+dCByZW1vdmUgZXZlbnQuICBTbyBpdCByZWFsbHkgaXMgYSBWRiBhc3NpZ25lZCB0byBWTSBmbGFn
+LiAgVGhlcmUncyBubyBuZWVkIHRvIG1hcmsgVkZzIGFzIGluIHVzZSBpbiB0aGUgaG9zdC4NCg0K
+LSBHcmVnDQoNCg==
