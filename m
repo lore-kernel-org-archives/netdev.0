@@ -1,69 +1,56 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 1/8] pci: Add flag indicating device has been
- assigned by KVM
-Date: Fri, 23 Sep 2011 12:20:27 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C518E80@orsmsx508.amr.corp.intel.com>
-References: <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
- <1316762872.23371.88.camel@zakaz.uk.xensource.com>
- <43F901BD926A4E43B106BF17856F0755019C518C0E@orsmsx508.amr.corp.intel.com>
- <1316790220.23371.105.camel@zakaz.uk.xensource.com>
- <43F901BD926A4E43B106BF17856F0755019C518C47@orsmsx508.amr.corp.intel.com>
- <1316792710.2182.124.camel@jtkirshe-mobl>
- <20110923164326.GA23363@phenom.oracle.com>
- <43F901BD926A4E43B106BF17856F0755019C518D57@orsmsx508.amr.corp.intel.com>
- <20110923180025.GA6251@phenom.oracle.com>
- <43F901BD926A4E43B106BF17856F0755019C518E23@orsmsx508.amr.corp.intel.com>
- <20110923190537.GA18850@phenom.oracle.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] net: change capability used by socket options IP{,V6}_TRANSPARENT
+Date: Fri, 23 Sep 2011 12:33:43 -0700
+Message-ID: <CAHo-OozcFULbDBHoWsQPoun-HAaHLBM=pRzMJjsv1cJF77zSYg@mail.gmail.com>
+References: <1315927629.5851.4.camel@bzorp>
+	<1316734189-26668-1-git-send-email-zenczykowski@gmail.com>
+	<4E7CB5A9.2020303@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Ian Campbell <ijc@hellion.org.uk>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20110923190537.GA18850@phenom.oracle.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	James Morris <jmorris@namei.org>
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:38216 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751687Ab1IWTdn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 15:33:43 -0400
+In-Reply-To: <4E7CB5A9.2020303@schaufler-ca.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Konrad Rzeszutek Wilk [mailto:konrad.wilk@oracle.com]
-> Sent: Friday, September 23, 2011 12:06 PM
-> To: Rose, Gregory V
-> Cc: Kirsher, Jeffrey T; Ian Campbell; davem@davemloft.net; Jesse Barnes;
-> netdev@vger.kernel.org; gospo@redhat.com; linux-pci@vger.kernel.org
-> Subject: Re: [net-next 1/8] pci: Add flag indicating device has been
-> assigned by KVM
-> 
-> > > > Version 2 of this patch with the modified comment was just posted to
-> > > netdev.  Ian Campbell had mentioned that the Xen pciback driver should
-> be
-> > > modified to use this flag but I don't believe any patches for it have
-> been
-> > > created yet.
-> > >
-> > > http://marc.info/?i=20110729165446.GA6731@dumpdata.com
-> > >
-> >
-> > I'm not sure who generated the patches to xen-pciback.  It wasn't me and
-> I couldn't tell from the links you provided who did generate that patch.
-> I don't see it now though.
-> 
-> I provided it.
-> 
-> And I asked for a git tree so I could double check that it actually
-> worked as I don't have the full set of your patches.
-> 
-> Can you provide me a link to your public git tree or just repost it once
-> more?
+> Under what circumstances would a process that requires the
+> new capability not require CAP_NET_ADMIN? Is there a real
+> case where a process would be expected to require only this
+> new capability? Adding new capability values is somewhat
+> perilous and the granularity you are proposing, that of
+> controlling a single bit, would explode the list of
+> capabilities into the hundreds if it were applied throughout
+> the kernel.
 
-Ah, I get it now.
+CAP_NET_ADMIN is a huge hammer, it allows one to totally
+reconfigure the networking subsystem.
 
-Jeff Kirsher is the maintainer of our git trees.  Hopefully he'll come around and provide that info for you soon.
+In a containerized multi-user/job environment, you do not want
+something like an instance of a load-balanced web server, proxy
+or dns server being able to do that - policy/configuration decisions
+should be left up to the administrator and/or machine management
+daemon(s).  Each of these can make use of transparent sockets
+(in various ways, mostly in coordination with large scale load balancing).
 
-- Greg
+You also do not want one user running in one container being able
+to sniff (CAP_NET_RAW) traffic from another user (hence CAP_NET_RAW
+isn't an acceptable substitute).
+
+One could conceivably use network namespaces for seperation, but
+in this particular case they are _way_ too overkill (and also add too
+much overhead).
+
+This might be *just* a single bit in the socket, but this bit effectively
+controls whether you can do certain types of privileged operations
+on the socket in question - and it gets tested in various places throughout
+the networking stack.
+
+Hopefully, this answers your question.
+
+- Maciej
