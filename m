@@ -1,50 +1,69 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp: ECN blackhole should not force quickack mode
-Date: Fri, 23 Sep 2011 22:17:42 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1109232215420.10441@melkinpaasi.cs.helsinki.fi>
-References: <1316757739.2560.12.camel@edumazet-laptop>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 1/8] pci: Add flag indicating device has been
+ assigned by KVM
+Date: Fri, 23 Sep 2011 12:20:27 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C518E80@orsmsx508.amr.corp.intel.com>
+References: <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
+ <1316762872.23371.88.camel@zakaz.uk.xensource.com>
+ <43F901BD926A4E43B106BF17856F0755019C518C0E@orsmsx508.amr.corp.intel.com>
+ <1316790220.23371.105.camel@zakaz.uk.xensource.com>
+ <43F901BD926A4E43B106BF17856F0755019C518C47@orsmsx508.amr.corp.intel.com>
+ <1316792710.2182.124.camel@jtkirshe-mobl>
+ <20110923164326.GA23363@phenom.oracle.com>
+ <43F901BD926A4E43B106BF17856F0755019C518D57@orsmsx508.amr.corp.intel.com>
+ <20110923180025.GA6251@phenom.oracle.com>
+ <43F901BD926A4E43B106BF17856F0755019C518E23@orsmsx508.amr.corp.intel.com>
+ <20110923190537.GA18850@phenom.oracle.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-129742481-1316805463=:10441"
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Jim Gettys <jg@freedesktop.org>,
-	Dave Taht <dave.taht@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42353 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751186Ab1IWTRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 15:17:44 -0400
-In-Reply-To: <1316757739.2560.12.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323329-129742481-1316805463=:10441
-Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Ian Campbell <ijc@hellion.org.uk>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20110923190537.GA18850@phenom.oracle.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Sep 2011, Eric Dumazet wrote:
-
-> While playing with a new ADSL box at home, I discovered that ECN
-> blackhole can trigger suboptimal quickack mode on linux : We send one
-> ACK for each incoming data frame, without any delay and eventual
-> piggyback.
+> -----Original Message-----
+> From: Konrad Rzeszutek Wilk [mailto:konrad.wilk@oracle.com]
+> Sent: Friday, September 23, 2011 12:06 PM
+> To: Rose, Gregory V
+> Cc: Kirsher, Jeffrey T; Ian Campbell; davem@davemloft.net; Jesse Barnes;
+> netdev@vger.kernel.org; gospo@redhat.com; linux-pci@vger.kernel.org
+> Subject: Re: [net-next 1/8] pci: Add flag indicating device has been
+> assigned by KVM
 > 
-> This is because TCP_ECN_check_ce() considers that if no ECT is seen on a
-> segment, this is because this segment was a retransmit.
+> > > > Version 2 of this patch with the modified comment was just posted to
+> > > netdev.  Ian Campbell had mentioned that the Xen pciback driver should
+> be
+> > > modified to use this flag but I don't believe any patches for it have
+> been
+> > > created yet.
+> > >
+> > > http://marc.info/?i=20110729165446.GA6731@dumpdata.com
+> > >
+> >
+> > I'm not sure who generated the patches to xen-pciback.  It wasn't me and
+> I couldn't tell from the links you provided who did generate that patch.
+> I don't see it now though.
 > 
-> Refine this heuristic and apply it only if we seen ECT in a previous
-> segment, to detect ECN blackhole at IP level.
+> I provided it.
+> 
+> And I asked for a git tree so I could double check that it actually
+> worked as I don't have the full set of your patches.
+> 
+> Can you provide me a link to your public git tree or just repost it once
+> more?
 
-This seems sensible thing to do.
+Ah, I get it now.
 
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Jeff Kirsher is the maintainer of our git trees.  Hopefully he'll come around and provide that info for you soon.
 
-
--- 
- i.
---8323329-129742481-1316805463=:10441--
+- Greg
