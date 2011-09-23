@@ -1,457 +1,201 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/8] ixgbe: Reconfigure SR-IOV Init
-Date: Fri, 23 Sep 2011 09:12:41 -0700
-Message-ID: <1316794367-23265-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1316794367-23265-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:35014 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751067Ab1IWQTA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Sep 2011 12:19:00 -0400
-In-Reply-To: <1316794367-23265-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [PATCH] net: change capability used by socket options IP{,V6}_TRANSPARENT
+Date: Fri, 23 Sep 2011 09:36:57 -0700
+Message-ID: <4E7CB5A9.2020303@schaufler-ca.com>
+References: <1315927629.5851.4.camel@bzorp> <1316734189-26668-1-git-send-email-zenczykowski@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <maze@google.com>,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	James Morris <jmorris@namei.org>,
+	Casey Schaufler <casey@schaufler-ca.com>
+To: =?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <zenczykowski@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1316734189-26668-1-git-send-email-zenczykowski@gmail.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On 9/22/2011 4:29 PM, Maciej =C5=BBenczykowski wrote:
+> From: Maciej =C5=BBenczykowski <maze@google.com>
+>
+> Up till now the IP{,V6}_TRANSPARENT socket options (which actually se=
+t
+> the same bit in the socket struct) have required CAP_NET_ADMIN
+> privileges to set or clear the option.
+>
+> - we make clearing the bit not require any privileges.
+> - we deprecate using CAP_NET_ADMIN for this purpose.
+> - we introduce a new capability CAP_NET_TRANSPARENT,
+>   which is tailored to allow setting just this bit.
 
-Use the PCI device flag indicating if a VF is assigned to a guest VM
-to guard against destroying VFs upon driver removal.  Implement
-additional feature to detect if VFs already exist when the driver
-is loaded and if so configure them and set the driver state to
-SR-IOV enabled.
+Under what circumstances would a process that requires the
+new capability not require CAP_NET_ADMIN? Is there a real
+case where a process would be expected to require only this
+new capability? Adding new capability values is somewhat
+perilous and the granularity you are proposing, that of
+controlling a single bit, would explode the list of
+capabilities into the hundreds if it were applied throughout
+the kernel.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  105 +-----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  207 +++++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |    5 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    4 +
- 5 files changed, 225 insertions(+), 97 deletions(-)
+> - we allow either one of CAP_NET_TRANSPARENT or CAP_NET_RAW
+>   to set this bit, because raw sockets already effectively
+>   allow you to emulate socket transparency, and make the
+>   transition easier for apps not desiring to use a brand
+>   new capability (because of header file or glibc support)
+> - we print a warning (but allow it) if you try to set
+>   the socket option with CAP_NET_ADMIN privs, but without
+>   either one of CAP_NET_TRANSPARENT or CAP_NET_RAW.
+>
+> The reason for introducing a new capability is that while
+> transparent sockets are potentially dangerous (and can let you
+> spoof your source IP on traffic), they don't normally give you
+> the full 'freedom' of eavesdropping and/or spoofing that raw sockets
+> give you.
+>
+> Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
+> Acked-by: Balazs Scheidler <bazsi@balabit.hu>
+> Acked-by: David Miller <davem@redhat.com>
+> ---
+>  include/linux/capability.h |   13 +++++++++----
+>  net/ipv4/ip_sockglue.c     |   26 ++++++++++++++++++++++----
+>  net/ipv6/ipv6_sockglue.c   |   29 ++++++++++++++++++++++++-----
+>  3 files changed, 55 insertions(+), 13 deletions(-)
+>
+> diff --git a/include/linux/capability.h b/include/linux/capability.h
+> index c421123..a115ed4 100644
+> --- a/include/linux/capability.h
+> +++ b/include/linux/capability.h
+> @@ -198,7 +198,7 @@ struct cpu_vfs_cap_data {
+>  /* Allow modification of routing tables */
+>  /* Allow setting arbitrary process / process group ownership on
+>     sockets */
+> -/* Allow binding to any address for transparent proxying */
+> +/* Allow binding to any address for transparent proxying (deprecated=
+) */
+>  /* Allow setting TOS (type of service) */
+>  /* Allow setting promiscuous mode */
+>  /* Allow clearing driver statistics */
+> @@ -210,6 +210,7 @@ struct cpu_vfs_cap_data {
+> =20
+>  /* Allow use of RAW sockets */
+>  /* Allow use of PACKET sockets */
+> +/* Allow binding to any address for transparent proxying */
+> =20
+>  #define CAP_NET_RAW          13
+> =20
+> @@ -332,7 +333,7 @@ struct cpu_vfs_cap_data {
+> =20
+>  #define CAP_AUDIT_CONTROL    30
+> =20
+> -#define CAP_SETFCAP	     31
+> +#define CAP_SETFCAP          31
+> =20
+>  /* Override MAC access.
+>     The base kernel enforces no MAC policy.
+> @@ -357,10 +358,14 @@ struct cpu_vfs_cap_data {
+> =20
+>  /* Allow triggering something that will wake the system */
+> =20
+> -#define CAP_WAKE_ALARM            35
+> +#define CAP_WAKE_ALARM       35
+> +
+> +/* Allow binding to any address for transparent proxying */
+> +
+> +#define CAP_NET_TRANSPARENT  36
+> =20
+> =20
+> -#define CAP_LAST_CAP         CAP_WAKE_ALARM
+> +#define CAP_LAST_CAP         CAP_NET_TRANSPARENT
+> =20
+>  #define cap_valid(x) ((x) >=3D 0 && (x) <=3D CAP_LAST_CAP)
+> =20
+> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+> index 8905e92..44efa39 100644
+> --- a/net/ipv4/ip_sockglue.c
+> +++ b/net/ipv4/ip_sockglue.c
+> @@ -961,12 +961,30 @@ mc_msf_out:
+>  		break;
+> =20
+>  	case IP_TRANSPARENT:
+> -		if (!capable(CAP_NET_ADMIN)) {
+> -			err =3D -EPERM;
+> -			break;
+> -		}
+>  		if (optlen < 1)
+>  			goto e_inval;
+> +		/* Always allow clearing the transparent proxy socket option.
+> +		 * The pre-3.2 permission for setting this was CAP_NET_ADMIN,
+> +		 * and this is still supported - but deprecated.  As of Linux
+> +		 * 3.2 the proper permission is one of CAP_NET_TRANSPARENT
+> +		 * (preferred, a new capability) or CAP_NET_RAW.  The latter
+> +		 * is supported to make the transition easier (and because
+> +		 * raw sockets already effectively allow one to emulate
+> +		 * socket transparency).
+> +		 */
+> +		if (!!val && !capable(CAP_NET_TRANSPARENT)
+> +		          && !capable(CAP_NET_RAW)) {
+> +			if (!capable(CAP_NET_ADMIN)) {
+> +				err =3D -EPERM;
+> +				break;
+> +			}
+> +			printk_once(KERN_WARNING "%s (%d): "
+> +				 "deprecated: attempt to set socket option "
+> +				 "IP_TRANSPARENT with CAP_NET_ADMIN but "
+> +				 "without either one of CAP_NET_TRANSPARENT "
+> +				 "or CAP_NET_RAW.\n",
+> +				 current->comm, task_pid_nr(current));
+> +		}
+>  		inet->transparent =3D !!val;
+>  		break;
+> =20
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index 2fbda5f..b8315c8 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -343,13 +343,32 @@ static int do_ipv6_setsockopt(struct sock *sk, =
+int level, int optname,
+>  		break;
+> =20
+>  	case IPV6_TRANSPARENT:
+> -		if (!capable(CAP_NET_ADMIN)) {
+> -			retv =3D -EPERM;
+> -			break;
+> -		}
+>  		if (optlen < sizeof(int))
+>  			goto e_inval;
+> -		/* we don't have a separate transparent bit for IPV6 we use the on=
+e in the IPv4 socket */
+> +		/* Always allow clearing the transparent proxy socket option.
+> +		 * The pre-3.2 permission for setting this was CAP_NET_ADMIN,
+> +		 * and this is still supported - but deprecated.  As of Linux
+> +		 * 3.2 the proper permission is one of CAP_NET_TRANSPARENT
+> +		 * (preferred, a new capability) or CAP_NET_RAW.  The latter
+> +		 * is supported to make the transition easier (and because
+> +		 * raw sockets already effectively allow one to emulate
+> +		 * socket transparency).
+> +		 */
+> +		if (valbool && !capable(CAP_NET_TRANSPARENT)
+> +		            && !capable(CAP_NET_RAW)) {
+> +			if (!capable(CAP_NET_ADMIN)) {
+> +				retv =3D -EPERM;
+> +				break;
+> +			}
+> +			printk_once(KERN_WARNING "%s (%d): "
+> +				 "deprecated: attempt to set socket option "
+> +				 "IPV6_TRANSPARENT with CAP_NET_ADMIN but "
+> +				 "without either one of CAP_NET_TRANSPARENT "
+> +				 "or CAP_NET_RAW.\n",
+> +				 current->comm, task_pid_nr(current));
+> +		}
+> +		/* we don't have a separate transparent bit for IPV6 we use the
+> +		 * one in the IPv4 socket */
+>  		inet_sk(sk)->transparent =3D valbool;
+>  		retv =3D 0;
+>  		break;
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 2c9fdf8..b43b2cd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -128,6 +128,7 @@ struct vf_data_storage {
- 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
- 	u16 pf_qos;
- 	u16 tx_rate;
-+	struct pci_dev *vfdev;
- };
- 
- struct vf_macvlans {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 49e82de..8b86c41 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -134,42 +134,6 @@ MODULE_VERSION(DRV_VERSION);
- 
- #define DEFAULT_DEBUG_LEVEL_SHIFT 3
- 
--static inline void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	u32 gcr;
--	u32 gpie;
--	u32 vmdctl;
--
--#ifdef CONFIG_PCI_IOV
--	/* disable iov and allow time for transactions to clear */
--	pci_disable_sriov(adapter->pdev);
--#endif
--
--	/* turn off device IOV mode */
--	gcr = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
--	gcr &= ~(IXGBE_GCR_EXT_SRIOV);
--	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr);
--	gpie = IXGBE_READ_REG(hw, IXGBE_GPIE);
--	gpie &= ~IXGBE_GPIE_VTMODE_MASK;
--	IXGBE_WRITE_REG(hw, IXGBE_GPIE, gpie);
--
--	/* set default pool back to 0 */
--	vmdctl = IXGBE_READ_REG(hw, IXGBE_VT_CTL);
--	vmdctl &= ~IXGBE_VT_CTL_POOL_MASK;
--	IXGBE_WRITE_REG(hw, IXGBE_VT_CTL, vmdctl);
--	IXGBE_WRITE_FLUSH(hw);
--
--	/* take a breather then clean up driver data */
--	msleep(100);
--
--	kfree(adapter->vfinfo);
--	adapter->vfinfo = NULL;
--
--	adapter->num_vfs = 0;
--	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
--}
--
- static void ixgbe_service_event_schedule(struct ixgbe_adapter *adapter)
- {
- 	if (!test_bit(__IXGBE_DOWN, &adapter->state) &&
-@@ -7064,11 +7028,8 @@ static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
- {
- #ifdef CONFIG_PCI_IOV
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int err;
--	int num_vf_macvlans, i;
--	struct vf_macvlans *mv_list;
- 
--	if (hw->mac.type == ixgbe_mac_82598EB || !max_vfs)
-+	if (hw->mac.type == ixgbe_mac_82598EB)
- 		return;
- 
- 	/* The 82599 supports up to 64 VFs per physical function
-@@ -7077,60 +7038,7 @@ static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
- 	 * physical function
- 	 */
- 	adapter->num_vfs = (max_vfs > 63) ? 63 : max_vfs;
--	adapter->flags |= IXGBE_FLAG_SRIOV_ENABLED;
--	err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
--	if (err) {
--		e_err(probe, "Failed to enable PCI sriov: %d\n", err);
--		goto err_novfs;
--	}
--
--	num_vf_macvlans = hw->mac.num_rar_entries -
--		(IXGBE_MAX_PF_MACVLANS + 1 + adapter->num_vfs);
--
--	adapter->mv_list = mv_list = kcalloc(num_vf_macvlans,
--					     sizeof(struct vf_macvlans),
--					     GFP_KERNEL);
--	if (mv_list) {
--		/* Initialize list of VF macvlans */
--		INIT_LIST_HEAD(&adapter->vf_mvs.l);
--		for (i = 0; i < num_vf_macvlans; i++) {
--			mv_list->vf = -1;
--			mv_list->free = true;
--			mv_list->rar_entry = hw->mac.num_rar_entries -
--				(i + adapter->num_vfs + 1);
--			list_add(&mv_list->l, &adapter->vf_mvs.l);
--			mv_list++;
--		}
--	}
--
--	/* If call to enable VFs succeeded then allocate memory
--	 * for per VF control structures.
--	 */
--	adapter->vfinfo =
--		kcalloc(adapter->num_vfs,
--			sizeof(struct vf_data_storage), GFP_KERNEL);
--	if (adapter->vfinfo) {
--		/* Now that we're sure SR-IOV is enabled
--		 * and memory allocated set up the mailbox parameters
--		 */
--		ixgbe_init_mbx_params_pf(hw);
--		memcpy(&hw->mbx.ops, ii->mbx_ops,
--		       sizeof(hw->mbx.ops));
--
--		/* Disable RSC when in SR-IOV mode */
--		adapter->flags2 &= ~(IXGBE_FLAG2_RSC_CAPABLE |
--				     IXGBE_FLAG2_RSC_ENABLED);
--		return;
--	}
--
--	/* Oh oh */
--	e_err(probe, "Unable to allocate memory for VF Data Storage - "
--	      "SRIOV disabled\n");
--	pci_disable_sriov(adapter->pdev);
--
--err_novfs:
--	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
--	adapter->num_vfs = 0;
-+	ixgbe_enable_sriov(adapter, ii);
- #endif /* CONFIG_PCI_IOV */
- }
- 
-@@ -7580,8 +7488,13 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
- 	if (netdev->reg_state == NETREG_REGISTERED)
- 		unregister_netdev(netdev);
- 
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
--		ixgbe_disable_sriov(adapter);
-+	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
-+		if (!(ixgbe_check_vf_assignment(adapter)))
-+			ixgbe_disable_sriov(adapter);
-+		else
-+			e_dev_warn("Unloading driver while VFs are assigned "
-+				   "- VFs will not be deallocated\n");
-+	}
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index d99d01e..468ddd0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -40,9 +40,174 @@
- #endif
- 
- #include "ixgbe.h"
--
-+#include "ixgbe_type.h"
- #include "ixgbe_sriov.h"
- 
-+#ifdef CONFIG_PCI_IOV
-+static int ixgbe_find_enabled_vfs(struct ixgbe_adapter *adapter)
-+{
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *pvfdev;
-+	u16 vf_devfn = 0;
-+	int device_id;
-+	int vfs_found = 0;
-+
-+	switch (adapter->hw.mac.type) {
-+	case ixgbe_mac_82599EB:
-+		device_id = IXGBE_DEV_ID_82599_VF;
-+		break;
-+	case ixgbe_mac_X540:
-+		device_id = IXGBE_DEV_ID_X540_VF;
-+		break;
-+	default:
-+		device_id = 0;
-+		break;
-+	}
-+
-+	vf_devfn = pdev->devfn + 0x80;
-+	pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID, device_id, NULL);
-+	while (pvfdev) {
-+		if (pvfdev->devfn == vf_devfn)
-+			vfs_found++;
-+		vf_devfn += 2;
-+		pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID,
-+					device_id, pvfdev);
-+	}
-+
-+	return vfs_found;
-+}
-+
-+void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
-+			 const struct ixgbe_info *ii)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int err = 0;
-+	int num_vf_macvlans, i;
-+	struct vf_macvlans *mv_list;
-+	int pre_existing_vfs = 0;
-+
-+	pre_existing_vfs = ixgbe_find_enabled_vfs(adapter);
-+	if (!pre_existing_vfs && !adapter->num_vfs)
-+		return;
-+
-+	/* If there are pre-existing VFs then we have to force
-+	 * use of that many because they were not deleted the last
-+	 * time someone removed the PF driver.  That would have
-+	 * been because they were allocated to guest VMs and can't
-+	 * be removed.  Go ahead and just re-enable the old amount.
-+	 * If the user wants to change the number of VFs they can
-+	 * use ethtool while making sure no VFs are allocated to
-+	 * guest VMs... i.e. the right way.
-+	 */
-+	if (pre_existing_vfs) {
-+		adapter->num_vfs = pre_existing_vfs;
-+		dev_warn(&adapter->pdev->dev, "Virtual Functions already "
-+			 "enabled for this device - Please reload all "
-+			 "VF drivers to avoid spoofed packet errors\n");
-+	} else {
-+		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
-+	}
-+	if (err) {
-+		e_err(probe, "Failed to enable PCI sriov: %d\n", err);
-+		goto err_novfs;
-+	}
-+	adapter->flags |= IXGBE_FLAG_SRIOV_ENABLED;
-+
-+	e_info(probe, "SR-IOV enabled with %d VFs\n", adapter->num_vfs);
-+
-+	num_vf_macvlans = hw->mac.num_rar_entries -
-+	(IXGBE_MAX_PF_MACVLANS + 1 + adapter->num_vfs);
-+
-+	adapter->mv_list = mv_list = kcalloc(num_vf_macvlans,
-+					     sizeof(struct vf_macvlans),
-+					     GFP_KERNEL);
-+	if (mv_list) {
-+		/* Initialize list of VF macvlans */
-+		INIT_LIST_HEAD(&adapter->vf_mvs.l);
-+		for (i = 0; i < num_vf_macvlans; i++) {
-+			mv_list->vf = -1;
-+			mv_list->free = true;
-+			mv_list->rar_entry = hw->mac.num_rar_entries -
-+				(i + adapter->num_vfs + 1);
-+			list_add(&mv_list->l, &adapter->vf_mvs.l);
-+			mv_list++;
-+		}
-+	}
-+
-+	/* If call to enable VFs succeeded then allocate memory
-+	 * for per VF control structures.
-+	 */
-+	adapter->vfinfo =
-+		kcalloc(adapter->num_vfs,
-+			sizeof(struct vf_data_storage), GFP_KERNEL);
-+	if (adapter->vfinfo) {
-+		/* Now that we're sure SR-IOV is enabled
-+		 * and memory allocated set up the mailbox parameters
-+		 */
-+		ixgbe_init_mbx_params_pf(hw);
-+		memcpy(&hw->mbx.ops, ii->mbx_ops,
-+		       sizeof(hw->mbx.ops));
-+
-+		/* Disable RSC when in SR-IOV mode */
-+		adapter->flags2 &= ~(IXGBE_FLAG2_RSC_CAPABLE |
-+				     IXGBE_FLAG2_RSC_ENABLED);
-+		return;
-+	}
-+
-+	/* Oh oh */
-+	e_err(probe, "Unable to allocate memory for VF Data Storage - "
-+	      "SRIOV disabled\n");
-+	pci_disable_sriov(adapter->pdev);
-+
-+err_novfs:
-+	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
-+	adapter->num_vfs = 0;
-+}
-+#endif /* #ifdef CONFIG_PCI_IOV */
-+
-+void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 gcr;
-+	u32 gpie;
-+	u32 vmdctl;
-+	int i;
-+
-+#ifdef CONFIG_PCI_IOV
-+	/* disable iov and allow time for transactions to clear */
-+	pci_disable_sriov(adapter->pdev);
-+#endif
-+
-+	/* turn off device IOV mode */
-+	gcr = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
-+	gcr &= ~(IXGBE_GCR_EXT_SRIOV);
-+	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr);
-+	gpie = IXGBE_READ_REG(hw, IXGBE_GPIE);
-+	gpie &= ~IXGBE_GPIE_VTMODE_MASK;
-+	IXGBE_WRITE_REG(hw, IXGBE_GPIE, gpie);
-+
-+	/* set default pool back to 0 */
-+	vmdctl = IXGBE_READ_REG(hw, IXGBE_VT_CTL);
-+	vmdctl &= ~IXGBE_VT_CTL_POOL_MASK;
-+	IXGBE_WRITE_REG(hw, IXGBE_VT_CTL, vmdctl);
-+	IXGBE_WRITE_FLUSH(hw);
-+
-+	/* take a breather then clean up driver data */
-+	msleep(100);
-+
-+	/* Release reference to VF devices */
-+	for (i = 0; i < adapter->num_vfs; i++) {
-+		if (adapter->vfinfo[i].vfdev)
-+			pci_dev_put(adapter->vfinfo[i].vfdev);
-+	}
-+	kfree(adapter->vfinfo);
-+	kfree(adapter->mv_list);
-+	adapter->vfinfo = NULL;
-+
-+	adapter->num_vfs = 0;
-+	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
-+}
-+
- static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
- 				   int entries, u16 *hash_list, u32 vf)
- {
-@@ -273,11 +438,26 @@ static int ixgbe_set_vf_macvlan(struct ixgbe_adapter *adapter,
- 	return 0;
- }
- 
-+int ixgbe_check_vf_assignment(struct ixgbe_adapter *adapter)
-+{
-+	int i;
-+	for (i = 0; i < adapter->num_vfs; i++) {
-+		if (adapter->vfinfo[i].vfdev->dev_flags &
-+				PCI_DEV_FLAGS_ASSIGNED)
-+			return true;
-+	}
-+	return false;
-+}
-+
- int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
- {
- 	unsigned char vf_mac_addr[6];
- 	struct ixgbe_adapter *adapter = pci_get_drvdata(pdev);
- 	unsigned int vfn = (event_mask & 0x3f);
-+	struct pci_dev *pvfdev;
-+	unsigned int device_id;
-+	u16 thisvf_devfn = (pdev->devfn + 0x80 + (vfn << 1)) |
-+				(pdev->devfn & 1);
- 
- 	bool enable = ((event_mask & 0x10000000U) != 0);
- 
-@@ -290,6 +470,31 @@ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
- 		 * for it later.
- 		 */
- 		memcpy(adapter->vfinfo[vfn].vf_mac_addresses, vf_mac_addr, 6);
-+
-+		switch (adapter->hw.mac.type) {
-+		case ixgbe_mac_82599EB:
-+			device_id = IXGBE_DEV_ID_82599_VF;
-+			break;
-+		case ixgbe_mac_X540:
-+			device_id = IXGBE_DEV_ID_X540_VF;
-+			break;
-+		default:
-+			device_id = 0;
-+			break;
-+		}
-+
-+		pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID, device_id, NULL);
-+		while (pvfdev) {
-+			if (pvfdev->devfn == thisvf_devfn)
-+				break;
-+			pvfdev = pci_get_device(IXGBE_INTEL_VENDOR_ID,
-+						device_id, pvfdev);
-+		}
-+		if (pvfdev)
-+			adapter->vfinfo[vfn].vfdev = pvfdev;
-+		else
-+			e_err(drv, "Couldn't find pci dev ptr for VF %4.4x\n",
-+			      thisvf_devfn);
- 	}
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-index 3417556..2781847 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-@@ -41,6 +41,11 @@ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
- int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 			    int vf, struct ifla_vf_info *ivi);
- void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
-+void ixgbe_disable_sriov(struct ixgbe_adapter *adapter);
-+void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
-+			const struct ixgbe_info *ii);
-+int ixgbe_check_vf_assignment(struct ixgbe_adapter *adapter);
-+
- 
- #endif /* _IXGBE_SRIOV_H_ */
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index a9f8839..56a7adf 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -65,6 +65,10 @@
- #define IXGBE_DEV_ID_82599_LS            0x154F
- #define IXGBE_DEV_ID_X540T               0x1528
- 
-+/* VF Device IDs */
-+#define IXGBE_DEV_ID_82599_VF           0x10ED
-+#define IXGBE_DEV_ID_X540_VF            0x1515
-+
- /* General Registers */
- #define IXGBE_CTRL      0x00000
- #define IXGBE_STATUS    0x00008
--- 
-1.7.6.2
+--
+To unsubscribe from this list: send the line "unsubscribe linux-securit=
+y-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
