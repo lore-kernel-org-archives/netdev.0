@@ -1,67 +1,143 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 1/8] pci: Add flag indicating device has been
- assigned by KVM
-Date: Fri, 23 Sep 2011 07:41:36 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C518C0E@orsmsx508.amr.corp.intel.com>
-References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1316599974-23205-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
- <1316762872.23371.88.camel@zakaz.uk.xensource.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH v6 1/8] SUNRPC: introduce helpers for reference counted
+ rpcbind clients
+Date: Fri, 23 Sep 2011 18:41:21 +0400
+Message-ID: <4E7C9A91.1060301@parallels.com>
+References: <20110920101031.9861.18444.stgit@localhost6.localdomain6> <20110920101341.9861.51453.stgit@localhost6.localdomain6> <4E7899E7.9090809@parallels.com> <4E79A95F.8050304@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Ian Campbell <ijc@hellion.org.uk>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1316762872.23371.88.camel@zakaz.uk.xensource.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E79A95F.8050304@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwgW21haWx0
-bzppamNAaGVsbGlvbi5vcmcudWtdDQo+IFNlbnQ6IEZyaWRheSwgU2VwdGVtYmVyIDIzLCAyMDEx
-IDEyOjI4IEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gQ2M6IGRhdmVtQGRhdmVtbG9m
-dC5uZXQ7IGtvbnJhZC53aWxrQG9yYWNsZS5jb207IEplc3NlIEJhcm5lczsgUm9zZSwNCj4gR3Jl
-Z29yeSBWOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBnb3Nwb0ByZWRoYXQuY29tOyBsaW51eC0N
-Cj4gcGNpQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0IDEvOF0gcGNp
-OiBBZGQgZmxhZyBpbmRpY2F0aW5nIGRldmljZSBoYXMgYmVlbg0KPiBhc3NpZ25lZCBieSBLVk0N
-Cj4gDQo+IE9uIFRodSwgMjAxMS0wOS0yMiBhdCAyMToxNiAtMDcwMCwgSmVmZiBLaXJzaGVyIHdy
-b3RlOg0KPiA+DQo+ID4NCj4gPiBKZXNzZS9Lb25yYWQvSWFuLQ0KPiA+DQo+ID4gSSBzZW50IHRo
-aXMgcGF0Y2ggb3V0IGFzIHBhcnQgb2YgYSBwdWxsIHJlcXVlc3QgZm9yIERhdmlkIE1pbGxlcidz
-DQo+ID4gbmV0LW5leHQgdHJlZS4gIEkga25vdyB0aGF0IEdyZWcgc2VudCB0aGlzIG9yaWdpbmFs
-bHkgb3V0IHRvIHRoZQ0KPiA+IGxpbnV4LXBjaSBtYWlsaW5nIGxpc3QgYXMgYSBSRkMuIFNpbmNl
-IEdyZWcgYWxzbyBoYXMgYSBwYXRjaCBhZ2FpbnN0DQo+ID4gaXhnYmUgd2hpY2ggaW1wbGVtZW50
-ZWQgdGhpcyBmbGFnLCBJIHNlbnQgYm90aCBwYXRjaGVzIGZvciBpbmNsdXNpb24NCj4gPiBpbnRv
-IERhdmlkIE1pbGxlcidzIG5ldC1uZXh0Lg0KPiA+DQo+ID4gRGF2ZSBpcyB3YW50aW5nIHRvIGVu
-c3VyZSB0aGF0IHRoZSBQQ0kgbWFpbnRhaW5lcnMgaGF2ZSByZXZpZXdlZCB0aGlzDQo+ID4gYW5k
-IGFyZSBvayB3aXRoIGl0IGJlZm9yZSBwdWxscyBteSBzZXJpZXMgb2YgcGF0Y2hlcy4NCj4gDQo+
-IEknbSBub3QgYSBQQ0kgbWFpbnRhaW5lciBieSBhbnkgc3RyZXRjaCBvZiB0aGUgaW1hZ2luYXRp
-b24gYnV0IEZXSVcgdGhpcw0KPiBjaGFuZ2UgaXMgZmluZSBieSBtZS4NCj4gDQo+IE15IG9yaWdp
-bmFsIHJlYXNvbiBmb3IgY29tbWVudGluZyBvbiB0aGlzIHBhdGNoIHdhcyBqdXN0IHRvIHdvbmRl
-cg0KPiB3aGV0aGVyIHRoaXMgd291bGQgYWxzbyBiZSB1c2VmdWwgZm9yIFhlbiBhbmQgSSB0aGlu
-ayB0aGUgYW5zd2VyIGlzIHdlDQo+IHNob3VsZCBwYXRjaCB4ZW4tcGNpYmFjayB0byB1c2UgdGhp
-cyBuZXcgZmxhZyBidXQgSSd2ZSBub3QgaGFkIHRpbWUgdG8NCj4gbG9vayBpbnRvIHRoYXQuDQo+
-IA0KPiBJIHN1cHBvc2UgYnkgdGhhdCBtZWFzdXJlIHRoZSBjb21tZW50IGNvdWxkIGJlIGxlc3Mg
-S1ZNIHNwZWNpZmljOg0KPiA+ICsgICAgICAgLyogUHJvdmlkZSBpbmRpY2F0aW9uIGRldmljZSBp
-cyBhc3NpZ25lZCBieSBLVk0gKi8NCj4gPiArICAgICAgIFBDSV9ERVZfRkxBR1NfQVNTSUdORUQg
-PSAoX19mb3JjZSBwY2lfZGV2X2ZsYWdzX3QpIDQsDQoNCldlIGNhbiByZXN1Ym1pdCB3aXRoIGEg
-bW9yZSBnZW5lcmljIGNvbW1lbnQsIG1heWJlIHRoaXM6DQoNCi8qIFByb3ZpZGUgaW5kaWNhdGlv
-biBkZXZpY2UgaXMgYXNzaWduZWQgYnkgYSBWaXJ0dWFsIE1hY2hpbmUgTWFuYWdlciAqLw0KDQo+
-IA0KPiBidXQgdGhhdCdzIG5vdCBleGFjdGx5IGEgYmlnIGRlYWwuDQo+IA0KPiBJIHN1cHBvc2Ug
-cmVhbGx5IHRoZSBmbGFnIGluZGljYXRlcyAiVkYgaW4gdXNlIiByYXRoZXIgdGhhbiBuZWNlc3Nh
-cmlseQ0KPiAiYXNzaWduZWQiPyBXb3VsZCBpdCBiZSBqdXN0IGFzIGJhZCB0byBoYXZlIGEgVkYg
-ZHJpdmVyIGluIHRoZSBob3N0DQo+IGFjdGl2ZSB3aGVuIHRoZSBQRiB3YXMgdW5sb2FkZWQ/DQoN
-ClRoZXJlIGlzIG5vIGlzc3VlIHdpdGggdW5sb2FkaW5nIGFuIGFjdGl2ZSBWRiBpbiB0aGUgaG9z
-dCBiZWNhdXNlIHRoZSBob3QgcmVtb3ZlIGV2ZW50IGlzIHNlZW4gYnkgdGhlIGhvc3QgYW5kIGFj
-Y2Vzc2VzIHRvIHRoZSBkZXZpY2Ugc3RvcC4gIEhvd2V2ZXIsIHdoZW4geW91IGhvdCByZW1vdmUg
-dGhlIGRldmljZSB0aGUgaG9zdCBhbmQgaXQgaXMgYXNzaWduZWQgdG8gYSBWTSB0aGUgVk0gaXMg
-dW5hd2FyZSBvZiB0aGUgZXZlbnQgYW5kIGhhcyBubyB3YXkgb2YgcHJvcGFnYXRpbmcgdGhlIGhv
-dCByZW1vdmUgZXZlbnQuICBTbyBpdCByZWFsbHkgaXMgYSBWRiBhc3NpZ25lZCB0byBWTSBmbGFn
-LiAgVGhlcmUncyBubyBuZWVkIHRvIG1hcmsgVkZzIGFzIGluIHVzZSBpbiB0aGUgaG9zdC4NCg0K
-LSBHcmVnDQoNCg==
+Trond, is this patch version suits you now? Or not?
+Please, comment somehow to let me know, may I proceed with further deve=
+lopment=20
+or not.
+
+Sorry for disturbing (if so).
+
+21.09.2011 13:07, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> v6:
+> 1) added write memory barrier to rpcb_set_local to make sure, that rp=
+cbind
+> clients become valid before rpcb_users assignment
+> 2) explicitly set rpcb_users to 1 instead of incrementing it (looks c=
+learer from
+> my pow).
+>
+> Notice: write memory barrier after zeroing rpcbind clients in rpcb_pu=
+t_local()
+> is not required, since to users of them left. New user (service) will=
+ create new
+> clients before dereferencing them.
+>
+> This helpers will be used for dynamical creation and destruction of r=
+pcbind
+> clients.
+> Variable rpcb_users is actually a counter of lauched RPC services. If=
+ rpcbind
+> clients has been created already, then we just increase rpcb_users.
+>
+> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
+>
+> ---
+>    net/sunrpc/rpcb_clnt.c |   54 ++++++++++++++++++++++++++++++++++++=
+++++++++++++
+>    1 files changed, 54 insertions(+), 0 deletions(-)
+>
+> diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+> index e45d2fb..9fcdb42 100644
+> --- a/net/sunrpc/rpcb_clnt.c
+> +++ b/net/sunrpc/rpcb_clnt.c
+> @@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
+>    static struct rpc_clnt *	rpcb_local_clnt;
+>    static struct rpc_clnt *	rpcb_local_clnt4;
+>
+> +DEFINE_SPINLOCK(rpcb_clnt_lock);
+> +unsigned int			rpcb_users;
+> +
+>    struct rpcbind_args {
+>    	struct rpc_xprt *	r_xprt;
+>
+> @@ -161,6 +164,57 @@ static void rpcb_map_release(void *data)
+>    	kfree(map);
+>    }
+>
+> +static int rpcb_get_local(void)
+> +{
+> +	int cnt;
+> +
+> +	spin_lock(&rpcb_clnt_lock);
+> +	if (rpcb_users)
+> +		rpcb_users++;
+> +	cnt =3D rpcb_users;
+> +	spin_unlock(&rpcb_clnt_lock);
+> +
+> +	return cnt;
+> +}
+> +
+> +void rpcb_put_local(void)
+> +{
+> +	struct rpc_clnt *clnt =3D rpcb_local_clnt;
+> +	struct rpc_clnt *clnt4 =3D rpcb_local_clnt4;
+> +	int shutdown;
+> +
+> +	spin_lock(&rpcb_clnt_lock);
+> +	if (--rpcb_users =3D=3D 0) {
+> +		rpcb_local_clnt =3D NULL;
+> +		rpcb_local_clnt4 =3D NULL;
+> +	}
+> +	shutdown =3D !rpcb_users;
+> +	spin_unlock(&rpcb_clnt_lock);
+> +
+> +	if (shutdown) {
+> +		/*
+> +		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
+> +		 */
+> +		if (clnt4)
+> +			rpc_shutdown_client(clnt4);
+> +		if (clnt)
+> +			rpc_shutdown_client(clnt);
+> +	}
+> +	return;
+> +}
+> +
+> +static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *c=
+lnt4)
+> +{
+> +	/* Protected by rpcb_create_local_mutex */
+> +	rpcb_local_clnt =3D clnt;
+> +	rpcb_local_clnt4 =3D clnt4;
+> +	smp_wmb();
+> +	rpcb_users =3D 1;
+> +	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt=
+: "
+> +			"%p, rpcb_local_clnt4: %p)\n", rpcb_local_clnt,
+> +			rpcb_local_clnt4);
+> +}
+> +
+>    /*
+>     * Returns zero on success, otherwise a negative errno value
+>     * is returned.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" =
+in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--=20
+Best regards,
+Stanislav Kinsbursky
