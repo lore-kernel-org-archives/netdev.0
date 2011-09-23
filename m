@@ -1,190 +1,126 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH] net: change capability used by socket options IP{,V6}_TRANSPARENT
-Date: Thu, 22 Sep 2011 16:29:49 -0700
-Message-ID: <1316734189-26668-1-git-send-email-zenczykowski@gmail.com>
-References: <1315927629.5851.4.camel@bzorp>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 1/8] pci: Add flag indicating device has been assigned
+ by KVM
+Date: Thu, 22 Sep 2011 21:16:18 -0700
+Message-ID: <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
+References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1316599974-23205-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	James Morris <jmorris@namei.org>,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1315927629.5851.4.camel@bzorp>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	linux-pci@vger.kernel.org
+To: davem@davemloft.net,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"ijc@hellion.org.uk" <ijc@hellion.org.uk>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1316599974-23205-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Maciej =C5=BBenczykowski <maze@google.com>
+On Wed, Sep 21, 2011 at 03:12, Jeff Kirsher <jeffrey.t.kirsher@intel.co=
+m> wrote:
+> From: Greg Rose <gregory.v.rose@intel.com>
+>
+> Device drivers that create and destroy SR-IOV virtual functions via
+> calls to pci_enable_sriov() and pci_disable_sriov can cause catastrop=
+hic
+> failures if they attempt to destroy VFs while they are assigned to
+> guest virtual machines. =C2=A0By adding a flag for use by the KVM mod=
+ule
+> to indicate that a device is assigned a device driver can check that
+> flag and avoid destroying VFs while they are assigned and avoid syste=
+m
+> failures.
+>
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> =C2=A0include/linux/pci.h =C2=A0 =C2=A0 | =C2=A0 =C2=A02 ++
+> =C2=A0virt/kvm/assigned-dev.c | =C2=A0 =C2=A02 ++
+> =C2=A0virt/kvm/iommu.c =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0 =C2=A04 ++=
+++
+> =C2=A03 files changed, 8 insertions(+), 0 deletions(-)
+>
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index f27893b..4f511da 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -174,6 +174,8 @@ enum pci_dev_flags {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG =3D (__=
+force pci_dev_flags_t) 1,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Device configuration is irrevocably los=
+t if disabled into D3 */
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0PCI_DEV_FLAGS_NO_D3 =3D (__force pci_dev_f=
+lags_t) 2,
+> + =C2=A0 =C2=A0 =C2=A0 /* Provide indication device is assigned by KV=
+M */
+> + =C2=A0 =C2=A0 =C2=A0 PCI_DEV_FLAGS_ASSIGNED =3D (__force pci_dev_fl=
+ags_t) 4,
+> =C2=A0};
+>
+> =C2=A0enum pci_irq_reroute_variant {
+> diff --git a/virt/kvm/assigned-dev.c b/virt/kvm/assigned-dev.c
+> index 4e9eaeb..eaf3a50 100644
+> --- a/virt/kvm/assigned-dev.c
+> +++ b/virt/kvm/assigned-dev.c
+> @@ -205,6 +205,8 @@ static void kvm_free_assigned_device(struct kvm *=
+kvm,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0else
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_restore_st=
+ate(assigned_dev->dev);
+>
+> + =C2=A0 =C2=A0 =C2=A0 assigned_dev->dev->dev_flags &=3D ~PCI_DEV_FLA=
+GS_ASSIGNED;
+> +
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_release_regions(assigned_dev->dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_disable_device(assigned_dev->dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0pci_dev_put(assigned_dev->dev);
+> diff --git a/virt/kvm/iommu.c b/virt/kvm/iommu.c
+> index 78c80f6..967aba1 100644
+> --- a/virt/kvm/iommu.c
+> +++ b/virt/kvm/iommu.c
+> @@ -187,6 +187,8 @@ int kvm_assign_device(struct kvm *kvm,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0goto out_unmap;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> + =C2=A0 =C2=A0 =C2=A0 pdev->dev_flags |=3D PCI_DEV_FLAGS_ASSIGNED;
+> +
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0printk(KERN_DEBUG "assign device %x:%x:%x.=
+%x\n",
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0assigned_dev->=
+host_segnr,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0assigned_dev->=
+host_busnr,
+> @@ -215,6 +217,8 @@ int kvm_deassign_device(struct kvm *kvm,
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0iommu_detach_device(domain, &pdev->dev);
+>
+> + =C2=A0 =C2=A0 =C2=A0 pdev->dev_flags &=3D ~PCI_DEV_FLAGS_ASSIGNED;
+> +
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0printk(KERN_DEBUG "deassign device %x:%x:%=
+x.%x\n",
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0assigned_dev->=
+host_segnr,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0assigned_dev->=
+host_busnr,
+> --
+> 1.7.6.2
 
-Up till now the IP{,V6}_TRANSPARENT socket options (which actually set
-the same bit in the socket struct) have required CAP_NET_ADMIN
-privileges to set or clear the option.
+Jesse/Konrad/Ian-
 
-- we make clearing the bit not require any privileges.
-- we deprecate using CAP_NET_ADMIN for this purpose.
-- we introduce a new capability CAP_NET_TRANSPARENT,
-  which is tailored to allow setting just this bit.
-- we allow either one of CAP_NET_TRANSPARENT or CAP_NET_RAW
-  to set this bit, because raw sockets already effectively
-  allow you to emulate socket transparency, and make the
-  transition easier for apps not desiring to use a brand
-  new capability (because of header file or glibc support)
-- we print a warning (but allow it) if you try to set
-  the socket option with CAP_NET_ADMIN privs, but without
-  either one of CAP_NET_TRANSPARENT or CAP_NET_RAW.
+I sent this patch out as part of a pull request for David Miller's
+net-next tree.  I know that Greg sent this originally out to the
+linux-pci mailing list as a RFC. Since Greg also has a patch against
+ixgbe which implemented this flag, I sent both patches for inclusion
+into David Miller's net-next.
 
-The reason for introducing a new capability is that while
-transparent sockets are potentially dangerous (and can let you
-spoof your source IP on traffic), they don't normally give you
-the full 'freedom' of eavesdropping and/or spoofing that raw sockets
-give you.
+Dave is wanting to ensure that the PCI maintainers have reviewed this
+and are ok with it before pulls my series of patches.
 
-Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
-Acked-by: Balazs Scheidler <bazsi@balabit.hu>
-Acked-by: David Miller <davem@redhat.com>
----
- include/linux/capability.h |   13 +++++++++----
- net/ipv4/ip_sockglue.c     |   26 ++++++++++++++++++++++----
- net/ipv6/ipv6_sockglue.c   |   29 ++++++++++++++++++++++++-----
- 3 files changed, 55 insertions(+), 13 deletions(-)
-
-diff --git a/include/linux/capability.h b/include/linux/capability.h
-index c421123..a115ed4 100644
---- a/include/linux/capability.h
-+++ b/include/linux/capability.h
-@@ -198,7 +198,7 @@ struct cpu_vfs_cap_data {
- /* Allow modification of routing tables */
- /* Allow setting arbitrary process / process group ownership on
-    sockets */
--/* Allow binding to any address for transparent proxying */
-+/* Allow binding to any address for transparent proxying (deprecated) =
-*/
- /* Allow setting TOS (type of service) */
- /* Allow setting promiscuous mode */
- /* Allow clearing driver statistics */
-@@ -210,6 +210,7 @@ struct cpu_vfs_cap_data {
-=20
- /* Allow use of RAW sockets */
- /* Allow use of PACKET sockets */
-+/* Allow binding to any address for transparent proxying */
-=20
- #define CAP_NET_RAW          13
-=20
-@@ -332,7 +333,7 @@ struct cpu_vfs_cap_data {
-=20
- #define CAP_AUDIT_CONTROL    30
-=20
--#define CAP_SETFCAP	     31
-+#define CAP_SETFCAP          31
-=20
- /* Override MAC access.
-    The base kernel enforces no MAC policy.
-@@ -357,10 +358,14 @@ struct cpu_vfs_cap_data {
-=20
- /* Allow triggering something that will wake the system */
-=20
--#define CAP_WAKE_ALARM            35
-+#define CAP_WAKE_ALARM       35
-+
-+/* Allow binding to any address for transparent proxying */
-+
-+#define CAP_NET_TRANSPARENT  36
-=20
-=20
--#define CAP_LAST_CAP         CAP_WAKE_ALARM
-+#define CAP_LAST_CAP         CAP_NET_TRANSPARENT
-=20
- #define cap_valid(x) ((x) >=3D 0 && (x) <=3D CAP_LAST_CAP)
-=20
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 8905e92..44efa39 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -961,12 +961,30 @@ mc_msf_out:
- 		break;
-=20
- 	case IP_TRANSPARENT:
--		if (!capable(CAP_NET_ADMIN)) {
--			err =3D -EPERM;
--			break;
--		}
- 		if (optlen < 1)
- 			goto e_inval;
-+		/* Always allow clearing the transparent proxy socket option.
-+		 * The pre-3.2 permission for setting this was CAP_NET_ADMIN,
-+		 * and this is still supported - but deprecated.  As of Linux
-+		 * 3.2 the proper permission is one of CAP_NET_TRANSPARENT
-+		 * (preferred, a new capability) or CAP_NET_RAW.  The latter
-+		 * is supported to make the transition easier (and because
-+		 * raw sockets already effectively allow one to emulate
-+		 * socket transparency).
-+		 */
-+		if (!!val && !capable(CAP_NET_TRANSPARENT)
-+		          && !capable(CAP_NET_RAW)) {
-+			if (!capable(CAP_NET_ADMIN)) {
-+				err =3D -EPERM;
-+				break;
-+			}
-+			printk_once(KERN_WARNING "%s (%d): "
-+				 "deprecated: attempt to set socket option "
-+				 "IP_TRANSPARENT with CAP_NET_ADMIN but "
-+				 "without either one of CAP_NET_TRANSPARENT "
-+				 "or CAP_NET_RAW.\n",
-+				 current->comm, task_pid_nr(current));
-+		}
- 		inet->transparent =3D !!val;
- 		break;
-=20
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 2fbda5f..b8315c8 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -343,13 +343,32 @@ static int do_ipv6_setsockopt(struct sock *sk, in=
-t level, int optname,
- 		break;
-=20
- 	case IPV6_TRANSPARENT:
--		if (!capable(CAP_NET_ADMIN)) {
--			retv =3D -EPERM;
--			break;
--		}
- 		if (optlen < sizeof(int))
- 			goto e_inval;
--		/* we don't have a separate transparent bit for IPV6 we use the one =
-in the IPv4 socket */
-+		/* Always allow clearing the transparent proxy socket option.
-+		 * The pre-3.2 permission for setting this was CAP_NET_ADMIN,
-+		 * and this is still supported - but deprecated.  As of Linux
-+		 * 3.2 the proper permission is one of CAP_NET_TRANSPARENT
-+		 * (preferred, a new capability) or CAP_NET_RAW.  The latter
-+		 * is supported to make the transition easier (and because
-+		 * raw sockets already effectively allow one to emulate
-+		 * socket transparency).
-+		 */
-+		if (valbool && !capable(CAP_NET_TRANSPARENT)
-+		            && !capable(CAP_NET_RAW)) {
-+			if (!capable(CAP_NET_ADMIN)) {
-+				retv =3D -EPERM;
-+				break;
-+			}
-+			printk_once(KERN_WARNING "%s (%d): "
-+				 "deprecated: attempt to set socket option "
-+				 "IPV6_TRANSPARENT with CAP_NET_ADMIN but "
-+				 "without either one of CAP_NET_TRANSPARENT "
-+				 "or CAP_NET_RAW.\n",
-+				 current->comm, task_pid_nr(current));
-+		}
-+		/* we don't have a separate transparent bit for IPV6 we use the
-+		 * one in the IPv4 socket */
- 		inet_sk(sk)->transparent =3D valbool;
- 		retv =3D 0;
- 		break;
 --=20
-1.7.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Jeff
