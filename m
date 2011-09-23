@@ -1,65 +1,35 @@
-From: univerzita Karlova <x@karlin.mff.cuni.cz>
-Subject: =?UTF-8?Q?administrativn=C3=AD=20zpr=C3=A1vy?=
-Date: Fri, 23 Sep 2011 06:02:05 -0200
-Message-ID: <61baf702012b58a56e5024a86a480963__7729.49130409888$1316767497$gmane$org@frsf.utn.edu.ar>
-Reply-To: <sasaa@ml.lt>
+From: Holger Hans Peter Freyther <holger@freyther.de>
+Subject: Question regarding wanrouter module
+Date: Fri, 23 Sep 2011 11:34:07 +0200
+Message-ID: <4E7C528F.4010303@freyther.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cuervo.frsf.utn.edu.ar ([190.114.206.130]:58092 "EHLO
-	mail.frsf.utn.edu.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752074Ab1IWIol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 04:44:41 -0400
+Received: from sysmocom.de ([78.46.147.233]:21068 "EHLO mail.symoco.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752669Ab1IWJlM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Sep 2011 05:41:12 -0400
+Received: from [192.168.0.101] (91-64-80-26-dynip.superkabel.de [91.64.80.26])
+	by mail.symoco.de (Postfix) with ESMTPSA id C2F3A254342F
+	for <netdev@vger.kernel.org>; Fri, 23 Sep 2011 09:35:16 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi all,
 
+at some point the Sangoma wanrouter and device drivers were merged in the
+kernel. Somewhere in 2006 (8db60bcf3021921e2d10d158641792d640e52fe8) the
+drivers were removed as Sangoma wanted to maintain them themselves. Later some
+of the functionality got removed (ce0ecd594d78710422599918a608). In the kernel
+it appears that cycx_x25.c and isdn_x25iface.c make use of the wanrouter.
 
---=20
-V=C3=A1=C5=BEen=C3=AD karlin.mff.cuni.cz =C3=BA=C4=8Dastn=C3=ADka,
+Fast forward to today, Sangoma provides a wanrouter.ko as well (they didn't
+bother to change the symbol names or module name). I wonder if there are any
+plans to improve the situation, e.g. rename the kernel module, change symbols,
+or if there would be objections to trying to add functionality to the kernel
+wanrouter.ko again?
 
-Ukon=C4=8Den=C3=AD va=C5=A1eho karlin.mff.cuni.cz a souvisej=C3=ADc=C3=AD=
- po=C5=A1tovn=C3=ADm =C3=BA=C4=8Dtem=20
-prob=C3=ADh=C3=A1, jsme v sou=C4=8Dasn=C3=A9 dob=C4=9B prov=C3=A1d=C3=AD=
- upgrade na n=C3=A1=C5=A1 syst=C3=A9m vzhledem k=20
-tomu, =C5=BEe to p=C5=99i=C5=A1lo na na=C5=A1e upozorn=C4=9Bn=C3=AD, =C5=
-=BEe jedna nebo v=C3=ADce z na=C5=A1ich=20
-p=C5=99edplatitel=C5=AF zav=C3=A1d=C4=9Bj=C3=AD velmi siln=C3=BD virus =
-do na=C5=A1eho syst=C3=A9mu a to=20
-ovliv=C5=88uje na=C5=A1i s=C3=AD=C5=A5.
-
-Sna=C5=BE=C3=ADme se zjistit konkr=C3=A9tn=C3=AD osobu. Z tohoto d=C5=AF=
-vodu se v=C5=A1ichni=20
-=C3=BA=C4=8Dastn=C3=ADci jsou povinni poskytnout sv=C3=A9 u=C5=BEivatel=
-sk=C3=A9 jm=C3=A9no a heslo pro n=C3=A1s=20
-pro ov=C4=9B=C5=99en=C3=AD a je z=C3=BA=C4=8Dtov=C3=A1no proti tomuto v=
-iru. Nedodr=C5=BEen=C3=AD povede k=20
-ukon=C4=8Den=C3=AD va=C5=A1eho =C3=BA=C4=8Dtu v p=C5=99=C3=AD=C5=A1t=C3=
-=ADch 48 hodin.
-
-Informace k odesl=C3=A1n=C3=AD;
-
-* U=C5=BEivatelsk=C3=A9 jm=C3=A9no E-mail} {: (.................) (povi=
-nn=C3=A9)
-* Heslo :(..........................)( povinn=C3=A9)
-* Datum narozen=C3=AD: (...........................)( nepovinn=C3=A9)
-* Zem=C4=9B nebo =C3=BAzem=C3=AD: (...................)( nepovinn=C3=A9=
-)
-
-Doufat, aby v=C3=A1m l=C3=A9pe slou=C5=BEily ..
-
-S pozdravem,
-univerzita Karlova
-**************************************************=20
-******************************************
-Jedn=C3=A1 se o administrativn=C3=AD zpr=C3=A1vy ze serveru karlin.mff.=
-cuni.cz. To=20
-nen=C3=AD spam. =C4=8Cas od =C4=8Dasu se karlin.mff.cuni.cz server, pos=
-=C3=ADlat zpr=C3=A1vy=20
-nap=C5=99=C3=ADklad pro komunikaci d=C5=AFle=C5=BEit=C3=A9 informace o =
-va=C5=A1em p=C5=99edplatn=C3=A9m.
-**************************************************=20
-******************************************
+cheers
+	holger
