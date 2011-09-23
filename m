@@ -1,143 +1,199 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 1/8] pci: Add flag indicating device has been
- assigned by KVM
-Date: Thu, 22 Sep 2011 22:23:13 -0700
-Message-ID: <1316755394.2182.96.camel@jtkirshe-mobl>
-References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1316599974-23205-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
-	 <20110923104957.2f76d1a4@jbarnes-x220>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Michael Kerrisk <mtk.manpages@gmail.com>
+Subject: Re: discrepancy in ip(7) wrt. IP DF flag for UDP sockets
+Date: Fri, 23 Sep 2011 07:27:29 +0200
+Message-ID: <CAKgNAkh-rAAU+Y4wdLNr1JOk3SWrRH8=MNqdWO6Pmcf=Mz4KxQ@mail.gmail.com>
+References: <20110919121940.GA19942@synalogic.ca> <20110919130313.GA27819@hmsreliant.think-freely.org>
+ <CAKgNAkgWRdkxgTXNnMi4PVGGsOd-8EHF1siBrk-Bj=rnYenVmQ@mail.gmail.com>
+ <20110920132954.GA23041@synalogic.ca> <20110920133837.GA16323@hmsreliant.think-freely.org>
+ <20110920141234.GA23164@synalogic.ca> <20110920143109.GB16323@hmsreliant.think-freely.org>
+ <CAKgNAkiSrGdXd2e1dpcC0fPmARRwkMrUvB8vCJ7eQ8SYsCuuUw@mail.gmail.com> <20110922124448.GA19801@synalogic.ca>
+Reply-To: mtk.manpages@gmail.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-OnTFOAN1ddYM9qWvOQH2"
-Cc: netdev <netdev@vger.kernel.org>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Horman <nhorman@tuxdriver.com>, linux-man@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Benjamin Poirier <benjamin.poirier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52773 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751380Ab1IWFXP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Sep 2011 01:23:15 -0400
-In-Reply-To: <20110923104957.2f76d1a4@jbarnes-x220>
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:47969 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751588Ab1IWF1t convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 01:27:49 -0400
+In-Reply-To: <20110922124448.GA19801@synalogic.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+HI Ben, Neil,
 
---=-OnTFOAN1ddYM9qWvOQH2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On Thu, Sep 22, 2011 at 2:44 PM, Benjamin Poirier
+<benjamin.poirier@gmail.com> wrote:
+> On 11-09-22 06:15, Michael Kerrisk wrote:
+>> Ben, Neil,
+>>
+> [snip]
+>>
+>> Ben, thanks for writing this, and Neil, thanks for reviewing it. I'v=
+e
+>> applied that change for man-pages-3.34.
+>>
+>> Ben, I added one small piece ti the description of
+>> /proc/sys/net/ipv4/ip_no_pmtu_disc. For completeness, I've reproduce=
+d
+>> the entire text below. Perhaps you could take a quick scan, to make
+>> sure that the changed text is consistent with the whole piece.
+>>
+>> Thanks,
+>>
+>> Michael
+>>
+>> =A0 =A0 =A0 =A0IP_MTU_DISCOVER (since Linux 2.2)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 Set or receive the Path =A0MTU =A0Discov=
+ery =A0setting =A0for =A0a
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 socket. =A0 When enabled, Linux will per=
+form Path MTU Dis-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 covery as defined in RFC 1191 =A0on =A0S=
+OCK_STREAM =A0sockets.
+>
+> Oops, seems like there's a repetition that crept in here. I'd keep on=
+ly
+> the first of those two sentences:
 
-On Thu, 2011-09-22 at 22:19 -0700, Jesse Barnes wrote:
-> On Thu, 22 Sep 2011 21:16:18 -0700
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
->=20
-> > On Wed, Sep 21, 2011 at 03:12, Jeff Kirsher
-> > <jeffrey.t.kirsher@intel.com> wrote:
-> > > From: Greg Rose <gregory.v.rose@intel.com>
-> > >
-> > > Device drivers that create and destroy SR-IOV virtual functions via
-> > > calls to pci_enable_sriov() and pci_disable_sriov can cause
-> > > catastrophic failures if they attempt to destroy VFs while they are
-> > > assigned to guest virtual machines.  By adding a flag for use by
-> > > the KVM module to indicate that a device is assigned a device
-> > > driver can check that flag and avoid destroying VFs while they are
-> > > assigned and avoid system failures.
-> > >
-> > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > ---
-> > >  include/linux/pci.h     |    2 ++
-> > >  virt/kvm/assigned-dev.c |    2 ++
-> > >  virt/kvm/iommu.c        |    4 ++++
-> > >  3 files changed, 8 insertions(+), 0 deletions(-)
-> > >
-> > > diff --git a/include/linux/pci.h b/include/linux/pci.h
-> > > index f27893b..4f511da 100644
-> > > --- a/include/linux/pci.h
-> > > +++ b/include/linux/pci.h
-> > > @@ -174,6 +174,8 @@ enum pci_dev_flags {
-> > >        PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG =3D (__force
-> > > pci_dev_flags_t) 1, /* Device configuration is irrevocably lost if
-> > > disabled into D3 */ PCI_DEV_FLAGS_NO_D3 =3D (__force pci_dev_flags_t)
-> > > 2,
-> > > +       /* Provide indication device is assigned by KVM */
-> > > +       PCI_DEV_FLAGS_ASSIGNED =3D (__force pci_dev_flags_t) 4,
-> > >  };
-> > >
-> > >  enum pci_irq_reroute_variant {
-> > > diff --git a/virt/kvm/assigned-dev.c b/virt/kvm/assigned-dev.c
-> > > index 4e9eaeb..eaf3a50 100644
-> > > --- a/virt/kvm/assigned-dev.c
-> > > +++ b/virt/kvm/assigned-dev.c
-> > > @@ -205,6 +205,8 @@ static void kvm_free_assigned_device(struct kvm
-> > > *kvm, else
-> > >                pci_restore_state(assigned_dev->dev);
-> > >
-> > > +       assigned_dev->dev->dev_flags &=3D ~PCI_DEV_FLAGS_ASSIGNED;
-> > > +
-> > >        pci_release_regions(assigned_dev->dev);
-> > >        pci_disable_device(assigned_dev->dev);
-> > >        pci_dev_put(assigned_dev->dev);
-> > > diff --git a/virt/kvm/iommu.c b/virt/kvm/iommu.c
-> > > index 78c80f6..967aba1 100644
-> > > --- a/virt/kvm/iommu.c
-> > > +++ b/virt/kvm/iommu.c
-> > > @@ -187,6 +187,8 @@ int kvm_assign_device(struct kvm *kvm,
-> > >                        goto out_unmap;
-> > >        }
-> > >
-> > > +       pdev->dev_flags |=3D PCI_DEV_FLAGS_ASSIGNED;
-> > > +
-> > >        printk(KERN_DEBUG "assign device %x:%x:%x.%x\n",
-> > >                assigned_dev->host_segnr,
-> > >                assigned_dev->host_busnr,
-> > > @@ -215,6 +217,8 @@ int kvm_deassign_device(struct kvm *kvm,
-> > >
-> > >        iommu_detach_device(domain, &pdev->dev);
-> > >
-> > > +       pdev->dev_flags &=3D ~PCI_DEV_FLAGS_ASSIGNED;
-> > > +
-> > >        printk(KERN_DEBUG "deassign device %x:%x:%x.%x\n",
-> > >                assigned_dev->host_segnr,
-> > >                assigned_dev->host_busnr,
-> > > --
-> > > 1.7.6.2
-> >=20
-> > Jesse/Konrad/Ian-
-> >=20
-> > I sent this patch out as part of a pull request for David Miller's
-> > net-next tree.  I know that Greg sent this originally out to the
-> > linux-pci mailing list as a RFC. Since Greg also has a patch against
-> > ixgbe which implemented this flag, I sent both patches for inclusion
-> > into David Miller's net-next.
-> >=20
-> > Dave is wanting to ensure that the PCI maintainers have reviewed this
-> > and are ok with it before pulls my series of patches.
->=20
-> Yeah I think I looked at this one in the past, my ack must have been
-> dropped.  You can add it if you want.
->=20
-> Jesse
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 For =A0non-SOCK_STREAM =A0sockets, IP_PM=
+TUDISC_DO forces the
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 don't-fragment flag to be set on all =A0=
+outgoing =A0packets.
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 The =A0don't-fragment =A0flag =A0is =A0s=
+et on all outgoing data-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 grams.
 
-Thanks Jesse!
+Thanks for catching that! The second of the above sentences is now gone=
+=2E
 
---=-OnTFOAN1ddYM9qWvOQH2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+>>                It is the user's responsibility to packetize the
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 data =A0in =A0MTU-sized =A0chunks and to=
+ do the retransmits if
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 necessary. =A0The kernel will reject (wi=
+th EMSGSIZE) data-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 grams =A0 that =A0 are =A0bigger =A0than=
+ =A0the =A0known =A0path =A0MTU.
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 IP_PMTUDISC_WANT will =A0fragment =A0a =A0=
+datagram =A0if =A0needed
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 according =A0to =A0the path MTU, or will=
+ set the don't-frag-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 ment flag otherwise.
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 The system-wide default can be toggled b=
+etween IP_PMTUD-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 ISC_WANT =A0and IP_PMTUDISC_DONT by writ=
+ing (respectively,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 zero =A0 =A0 =A0and =A0 =A0 =A0nonzero =A0=
+ =A0 =A0values) =A0 =A0 =A0to =A0 =A0 =A0the
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 /proc/sys/net/ipv4/ip_no_pmtu_disc file.
+>
+> I think it's a welcome clarification. Is is normal that IP_PMTUDISC_W=
+ANT
+> gets hyphenated?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+That's just an artifact of groff formatting. One can prevent it, but
+then the text justification of some lines starts to look very weird.
 
-iQEcBAABAgAGBQJOfBfBAAoJECTsCADr/EWUnSwIAKO+IgqxNsjgoKZvlGswbhSB
-1NH6vGDSeU4z5rrtrEL9WjWilEzYCU8cGdiL1wwU95LF9FqFQ7Nfz7vOXb3oHbEh
-5n/EUZ3WrbsnnoKblPwFDOd62Qp93DP7mnZAXWJrenrJFpB6q1u44kRk5rPGHjQf
-IkCY3BtgpkqfDadnsxRy1G/m9q71gmMoP94QmgTVWfLaMmrOWqvu+XhmnlK9fOA+
-4B9t29oZb/Y1DS5NaGxx+8QN0M+MOPaSzrsHUwm3Kxb52jjHTDRFJ/QDOjjYC0lO
-SQ1/mT90htEDxxO+YXNU5OwpQg4P6uFOC8GNWYeUeNfG6DHQFxU702zmfSgckkM=
-=9DOA
------END PGP SIGNATURE-----
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 Path MTU discovery flags =A0 Meaning
+>
+> I agree with what Neil said about "flags" here. setsockopt(2) calls
+> these "option values".
 
---=-OnTFOAN1ddYM9qWvOQH2--
+Changed this to just "value".
+
+> Other than that, LGTM
+> Acked-by: Benjamin Poirier <benjamin.poirier@gmail.com>
+>
+> Thanks Michael,
+> -Ben
+
+You're welcome. Thanks for taking the time to write the text and check =
+my work.
+
+Cheers,
+
+Michael
+
+
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 IP_PMTUDISC_WANT =A0 =A0 =A0 =A0 =A0 Use=
+ per-route settings.
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 IP_PMTUDISC_DONT =A0 =A0 =A0 =A0 =A0 Nev=
+er do Path MTU Discovery.
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 IP_PMTUDISC_DO =A0 =A0 =A0 =A0 =A0 =A0 A=
+lways do Path MTU Discovery.
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 IP_PMTUDISC_PROBE =A0 =A0 =A0 =A0 =A0Set=
+ DF but ignore Path MTU.
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 When PMTU discovery is enabled, the kern=
+el automatically
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 keeps track of the path MTU per destinat=
+ion host. =A0 When
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 it =A0is connected to a specific peer wi=
+th connect(2), the
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 currently known path MTU can be =A0retri=
+eved =A0conveniently
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 using =A0the IP_MTU socket option (e.g.,=
+ after an EMSGSIZE
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 error occurred). =A0The path MTU =A0may =
+=A0change =A0over =A0time.
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 For =A0connectionless =A0sockets with ma=
+ny destinations, the
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 new MTU for a given destination =A0can =A0=
+also =A0be =A0accessed
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 using =A0the =A0error =A0queue =A0(see I=
+P_RECVERR). =A0A new error
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 will be queued for every incoming MTU up=
+date.
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 While MTU discovery is in progress, init=
+ial packets from
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 datagram sockets may be dropped. =A0Appl=
+ications using UDP
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 should be aware of this and not take it =
+into account for
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 their packet retransmit strategy.
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 To =A0bootstrap =A0the =A0path MTU disco=
+very process on uncon-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 nected sockets, it is possible to start =
+with a big data-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 gram =A0size =A0(up =A0to =A064K-headers=
+ =A0bytes long) and let it
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 shrink by updates of the path MTU.
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 To get an initial estimate of the path =A0=
+MTU, =A0connect =A0a
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 datagram =A0socket =A0to =A0the destinat=
+ion address using con-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 nect(2) and retrieve the MTU =A0by =A0ca=
+lling =A0getsockopt(2)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 with the IP_MTU option.
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 It =A0is =A0possible =A0to implement RFC=
+ 4821 MTU probing with
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 SOCK_DGRAM or SOCK_RAW sockets by =A0set=
+ting =A0a =A0value =A0of
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 IP_PMTUDISC_PROBE =A0(available since Li=
+nux 2.6.22). =A0This
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 is also particularly useful for diagnost=
+ic tools such as
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 tracepath(8) =A0that wish to deliberatel=
+y send probe pack-
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 ets larger than the observed Path MTU.
+>>
+>>
+>> --
+>> Michael Kerrisk
+>> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+>> Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+>
+
+
+
+--=20
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface"; http://man7.org/tlpi/
