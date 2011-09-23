@@ -1,62 +1,59 @@
-From: Ian Campbell <ijc@hellion.org.uk>
-Subject: Re: [net-next 1/8] pci: Add flag indicating device has been
- assigned by KVM
-Date: Fri, 23 Sep 2011 08:27:46 +0100
-Message-ID: <1316762872.23371.88.camel@zakaz.uk.xensource.com>
-References: <1316599974-23205-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1316599974-23205-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
+From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Subject: Re: Introducing open source MSTP daemon
+Date: Fri, 23 Sep 2011 10:36:04 +0300
+Message-ID: <201109231036.05039.vitas@nppfactor.kiev.ua>
+References: <201109221727.33010.vitas@nppfactor.kiev.ua> <20110922163939.GB1012103@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, linux-pci@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAL3LdT7jDfytZD7WESmiHxvpmxKTEZ=uWRjzgsR9e4GtBPE31A@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	"Srinivas M.A." <srinivas.aji@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: David Lamparter <equinox@diac24.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.cyfra.ua ([62.80.160.182]:51923 "EHLO mx3.cyfra.ua"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751402Ab1IWHhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Sep 2011 03:37:16 -0400
+In-Reply-To: <20110922163939.GB1012103@jupiter.n2.diac24.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-09-22 at 21:16 -0700, Jeff Kirsher wrote:
-> 
-> 
-> Jesse/Konrad/Ian-
-> 
-> I sent this patch out as part of a pull request for David Miller's
-> net-next tree.  I know that Greg sent this originally out to the
-> linux-pci mailing list as a RFC. Since Greg also has a patch against
-> ixgbe which implemented this flag, I sent both patches for inclusion
-> into David Miller's net-next.
-> 
-> Dave is wanting to ensure that the PCI maintainers have reviewed this
-> and are ok with it before pulls my series of patches.
+On Thursday 22 September 2011 19:39:40 David Lamparter wrote:
+> Very cool!
+>
+> The code looks quite good to me (i've only looked at 2 files though ;).
+> Minor nitpicks:
+>  - hmac_md5 & epoll could maybe come from an external library. you're
+>    the 3810583th person to have code for that... libevent?
+>    OpenSSL/gnutls?
+>  - libnetlink.c is a copy from iproute2? since it is a fresh clean SVN,
+>    it's not easy to know whether you made changes. Can you put a note
+>    which version this is? Or maybe you can link it externally?
+>  - the "assign" macro and "boolFalse" in mstp.c are weird. I understand
+>    you want stricter type checking, but this makes the code somewhat
+>    odd to read. Maybe external tools can be used to do this checking
+>    (sparse, cppcheck, llvm's static analysis, ...)
+>
+Happy to hear you are interested )
+I suppose these questions are not related to kernel development so I suggest 
+to continue discussion on above topics at the project discussion board:
+http://sourceforge.net/p/mstpd/discussion/
 
-I'm not a PCI maintainer by any stretch of the imagination but FWIW this
-change is fine by me.
-
-My original reason for commenting on this patch was just to wonder
-whether this would also be useful for Xen and I think the answer is we
-should patch xen-pciback to use this new flag but I've not had time to
-look into that.
-
-I suppose by that measure the comment could be less KVM specific:
-> +       /* Provide indication device is assigned by KVM */
-> +       PCI_DEV_FLAGS_ASSIGNED = (__force pci_dev_flags_t) 4,
-
-but that's not exactly a big deal.
-
-I suppose really the flag indicates "VF in use" rather than necessarily
-"assigned"? Would it be just as bad to have a VF driver in the host
-active when the PF was unloaded?
-
-Ian.
+> I assume it works with current Linux kernel bridge code on a RSTP level?
+> The code looks considerably more maintainable than rstpd :) - I will try
+> running it later!
+>
+Sorry, at the moment function MSTP_OUT_set_state() does nothing except 
+logging. But it is valueable thought: although MSTI states do not have 
+meaning to the kernel bridge code, CIST states can be used to control bridge 
+slave states, so mstpd can replace rstpd as more generic (and conforming to 
+more recent standard).
+Anyways, the code is basically untested. It compiles and runs in my setup, 
+that's all for now. But I somehow have gut feeling that the code is mature 
+enough to be put for the community consideration.
 
 -- 
-Ian Campbell
-Current Noise: Mudhoney - Mudride (Live In Berlin)
-
-Well, I think Perl should run faster than C.  :-)
-		-- Larry Wall in <199801200306.TAA11638@wall.org>
+Vitalii Demianets
