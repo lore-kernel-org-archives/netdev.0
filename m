@@ -1,259 +1,394 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/8] ixgbe: DCB, do not call set_state() from IEEE mode
-Date: Fri, 23 Sep 2011 09:12:42 -0700
-Message-ID: <1316794367-23265-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/8] ixgbe: avoid HW lockup when adapter is reset with Tx work pending
+Date: Fri, 23 Sep 2011 09:12:45 -0700
+Message-ID: <1316794367-23265-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316794367-23265-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:35019 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751889Ab1IWQS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Sep 2011 12:18:59 -0400
+	id S1751959Ab1IWQTB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Sep 2011 12:19:01 -0400
 In-Reply-To: <1316794367-23265-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The DCB CEE command set_state() will complete successfully
-but is misleading because it enables IEEE mode. After
-this patch the command is failed.
+This change is meant to avoid a hardware lockup when Tx work is still
+pending and we request a reset.
 
-And IEEE PFC/ETS is managed from ieee paths now instead
-of using CEE primitives.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c    |   36 +++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h    |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   54 ++++++++--------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   18 +++++---
- 4 files changed, 69 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |   15 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |   13 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  145 +++++++++++++----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |   12 +-
+ 6 files changed, 104 insertions(+), 85 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-index 9d88c31..83bf7cc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-@@ -40,7 +40,8 @@
-  * hardware. The IEEE 802.1Qaz specification do not use bandwidth
-  * groups so this is much simplified from the CEE case.
-  */
--s32 ixgbe_ieee_credits(__u8 *bw, __u16 *refill, __u16 *max, int max_frame)
-+static s32 ixgbe_ieee_credits(__u8 *bw, __u16 *refill,
-+			      __u16 *max, int max_frame)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 22504f2..b816a62 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -759,7 +759,9 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
+ 	u8  analog_val;
+ 
+ 	/* Call adapter stop to disable tx/rx and clear interrupts */
+-	hw->mac.ops.stop_adapter(hw);
++	status = hw->mac.ops.stop_adapter(hw);
++	if (status != 0)
++		goto reset_hw_out;
+ 
+ 	/*
+ 	 * Power up the Atlas Tx lanes if they are currently powered down.
+@@ -802,19 +804,12 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
+ 		phy_status = hw->phy.ops.init(hw);
+ 		if (phy_status == IXGBE_ERR_SFP_NOT_SUPPORTED)
+ 			goto reset_hw_out;
+-		else if (phy_status == IXGBE_ERR_SFP_NOT_PRESENT)
+-			goto no_phy_reset;
++		if (phy_status == IXGBE_ERR_SFP_NOT_PRESENT)
++			goto mac_reset_top;
+ 
+ 		hw->phy.ops.reset(hw);
+ 	}
+ 
+-no_phy_reset:
+-	/*
+-	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
+-	 * access and verify no pending requests before reset
+-	 */
+-	ixgbe_disable_pcie_master(hw);
+-
+ mac_reset_top:
+ 	/*
+ 	 * Issue global reset to the MAC.  This needs to be a SW reset.
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index a5ff435..5abd520 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -910,7 +910,12 @@ static s32 ixgbe_reset_hw_82599(struct ixgbe_hw *hw)
+ 	bool link_up = false;
+ 
+ 	/* Call adapter stop to disable tx/rx and clear interrupts */
+-	hw->mac.ops.stop_adapter(hw);
++	status = hw->mac.ops.stop_adapter(hw);
++	if (status != 0)
++		goto reset_hw_out;
++
++	/* flush pending Tx transactions */
++	ixgbe_clear_tx_pending(hw);
+ 
+ 	/* PHY ops must be identified and initialized prior to reset */
+ 
+@@ -933,12 +938,6 @@ static s32 ixgbe_reset_hw_82599(struct ixgbe_hw *hw)
+ 	if (hw->phy.reset_disable == false && hw->phy.ops.reset != NULL)
+ 		hw->phy.ops.reset(hw);
+ 
+-	/*
+-	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
+-	 * access and verify no pending requests before reset
+-	 */
+-	ixgbe_disable_pcie_master(hw);
+-
+ mac_reset_top:
+ 	/*
+ 	 * Issue global reset to the MAC. Needs to be SW reset if link is up.
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 91986af..84ed9ef 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -61,6 +61,7 @@ static s32 ixgbe_write_eeprom_buffer_bit_bang(struct ixgbe_hw *hw, u16 offset,
+ 					     u16 words, u16 *data);
+ static s32 ixgbe_detect_eeprom_page_size_generic(struct ixgbe_hw *hw,
+ 						 u16 offset);
++static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
+ 
+ /**
+  *  ixgbe_start_hw_generic - Prepare hardware for Tx/Rx
+@@ -496,7 +497,6 @@ void ixgbe_set_lan_id_multi_port_pcie(struct ixgbe_hw *hw)
+  **/
+ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw)
  {
- 	int min_percent = 100;
- 	int min_credit, multiplier;
-@@ -291,6 +292,39 @@ s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en)
- 	return ret;
- }
+-	u32 number_of_queues;
+ 	u32 reg_val;
+ 	u16 i;
  
-+s32 ixgbe_dcb_hw_ets(struct ixgbe_hw *hw, struct ieee_ets *ets, int max_frame)
-+{
-+	__u16 refill[IEEE_8021QAZ_MAX_TCS], max[IEEE_8021QAZ_MAX_TCS];
-+	__u8 prio_type[IEEE_8021QAZ_MAX_TCS];
-+	int i;
-+
-+	/* naively give each TC a bwg to map onto CEE hardware */
-+	__u8 bwg_id[IEEE_8021QAZ_MAX_TCS] = {0, 1, 2, 3, 4, 5, 6, 7};
-+
-+	/* Map TSA onto CEE prio type */
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-+		switch (ets->tc_tsa[i]) {
-+		case IEEE_8021QAZ_TSA_STRICT:
-+			prio_type[i] = 2;
-+			break;
-+		case IEEE_8021QAZ_TSA_ETS:
-+			prio_type[i] = 0;
-+			break;
-+		default:
-+			/* Hardware only supports priority strict or
-+			 * ETS transmission selection algorithms if
-+			 * we receive some other value from dcbnl
-+			 * throw an error
-+			 */
-+			return -EINVAL;
-+		}
-+	}
-+
-+	ixgbe_ieee_credits(ets->tc_tx_bw, refill, max, max_frame);
-+	return ixgbe_dcb_hw_ets_config(hw, refill, max,
-+				       bwg_id, prio_type, ets->prio_tc);
-+}
-+
- s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw,
- 			    u16 *refill, u16 *max, u8 *bwg_id,
- 			    u8 *prio_type, u8 *prio_tc)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-index e85826a..0a68aa7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-@@ -29,6 +29,7 @@
- #ifndef _DCB_CONFIG_H_
- #define _DCB_CONFIG_H_
+@@ -507,35 +507,35 @@ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw)
+ 	hw->adapter_stopped = true;
  
-+#include <linux/dcbnl.h>
- #include "ixgbe_type.h"
+ 	/* Disable the receive unit */
+-	reg_val = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
+-	reg_val &= ~(IXGBE_RXCTRL_RXEN);
+-	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, reg_val);
+-	IXGBE_WRITE_FLUSH(hw);
+-	usleep_range(2000, 4000);
++	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, 0);
  
- /* DCB data structures */
-@@ -147,11 +148,11 @@ void ixgbe_dcb_unpack_bwgid(struct ixgbe_dcb_config *, int, u8 *);
- void ixgbe_dcb_unpack_prio(struct ixgbe_dcb_config *, int, u8 *);
+-	/* Clear interrupt mask to stop from interrupts being generated */
++	/* Clear interrupt mask to stop interrupts from being generated */
+ 	IXGBE_WRITE_REG(hw, IXGBE_EIMC, IXGBE_IRQ_CLEAR_MASK);
  
- /* DCB credits calculation */
--s32 ixgbe_ieee_credits(__u8 *bw, __u16 *refill, __u16 *max, int max_frame);
- s32 ixgbe_dcb_calculate_tc_credits(struct ixgbe_hw *,
- 				   struct ixgbe_dcb_config *, int, u8);
+-	/* Clear any pending interrupts */
++	/* Clear any pending interrupts, flush previous writes */
+ 	IXGBE_READ_REG(hw, IXGBE_EICR);
  
- /* DCB hw initialization */
-+s32 ixgbe_dcb_hw_ets(struct ixgbe_hw *hw, struct ieee_ets *ets, int max);
- s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw, u16 *refill, u16 *max,
- 			    u8 *bwg_id, u8 *prio_type, u8 *tc_prio);
- s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 0422e35..22caad7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -114,6 +114,10 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 	u8 err = 0;
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 
-+	/* Fail command if not in CEE mode */
-+	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
-+		return 1;
-+
- 	/* verify there is something to do, if not then exit */
- 	if (!!state != !(adapter->flags & IXGBE_FLAG_DCB_ENABLED))
- 		return err;
-@@ -301,6 +305,10 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 	u8 up = dcb_getapp(netdev, &app);
- #endif
- 
-+	/* Fail command if not in CEE mode */
-+	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
-+		return 1;
-+
- 	ret = ixgbe_copy_dcb_cfg(&adapter->temp_dcb_cfg, &adapter->dcb_cfg,
- 				 MAX_TRAFFIC_CLASS);
- 	if (ret)
-@@ -537,13 +545,9 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 				   struct ieee_ets *ets)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	__u16 refill[IEEE_8021QAZ_MAX_TCS], max[IEEE_8021QAZ_MAX_TCS];
--	__u8 prio_type[IEEE_8021QAZ_MAX_TCS];
- 	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
--	int i, err;
--	__u64 *p = (__u64 *) ets->prio_tc;
--	/* naively give each TC a bwg to map onto CEE hardware */
--	__u8 bwg_id[IEEE_8021QAZ_MAX_TCS] = {0, 1, 2, 3, 4, 5, 6, 7};
-+	int i;
-+	__u8 max_tc = 0;
- 
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
- 		return -EINVAL;
-@@ -557,34 +561,18 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 
- 	memcpy(adapter->ixgbe_ieee_ets, ets, sizeof(*adapter->ixgbe_ieee_ets));
- 
--	/* Map TSA onto CEE prio type */
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
--		switch (ets->tc_tsa[i]) {
--		case IEEE_8021QAZ_TSA_STRICT:
--			prio_type[i] = 2;
--			break;
--		case IEEE_8021QAZ_TSA_ETS:
--			prio_type[i] = 0;
--			break;
--		default:
--			/* Hardware only supports priority strict or
--			 * ETS transmission selection algorithms if
--			 * we receive some other value from dcbnl
--			 * throw an error
--			 */
--			return -EINVAL;
+ 	/* Disable the transmit unit.  Each queue must be disabled. */
+-	number_of_queues = hw->mac.max_tx_queues;
+-	for (i = 0; i < number_of_queues; i++) {
+-		reg_val = IXGBE_READ_REG(hw, IXGBE_TXDCTL(i));
+-		if (reg_val & IXGBE_TXDCTL_ENABLE) {
+-			reg_val &= ~IXGBE_TXDCTL_ENABLE;
+-			IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(i), reg_val);
 -		}
-+		if (ets->prio_tc[i] > max_tc)
-+			max_tc = ets->prio_tc[i];
++	for (i = 0; i < hw->mac.max_tx_queues; i++)
++		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(i), IXGBE_TXDCTL_SWFLSH);
++
++	/* Disable the receive unit by stopping each queue */
++	for (i = 0; i < hw->mac.max_rx_queues; i++) {
++		reg_val = IXGBE_READ_REG(hw, IXGBE_RXDCTL(i));
++		reg_val &= ~IXGBE_RXDCTL_ENABLE;
++		reg_val |= IXGBE_RXDCTL_SWFLSH;
++		IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(i), reg_val);
  	}
  
--	if (*p)
--		ixgbe_dcbnl_set_state(dev, 1);
--	else
--		ixgbe_dcbnl_set_state(dev, 0);
-+	if (max_tc)
-+		max_tc++;
- 
--	ixgbe_ieee_credits(ets->tc_tx_bw, refill, max, max_frame);
--	err = ixgbe_dcb_hw_ets_config(&adapter->hw, refill, max,
--				      bwg_id, prio_type, ets->prio_tc);
--	return err;
-+	if (max_tc != netdev_get_num_tc(dev))
-+		ixgbe_setup_tc(dev, max_tc);
++	/* flush all queues disables */
++	IXGBE_WRITE_FLUSH(hw);
++	usleep_range(1000, 2000);
 +
-+	return ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
+ 	/*
+ 	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
+ 	 * access and verify no pending requests
+ 	 */
+-	ixgbe_disable_pcie_master(hw);
+-
+-	return 0;
++	return ixgbe_disable_pcie_master(hw);
  }
  
- static int ixgbe_dcbnl_ieee_getpfc(struct net_device *dev,
-@@ -615,7 +603,6 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
- 				   struct ieee_pfc *pfc)
+ /**
+@@ -2458,75 +2458,57 @@ out:
+  *  bit hasn't caused the master requests to be disabled, else 0
+  *  is returned signifying master requests disabled.
+  **/
+-s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
++static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
  {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	int err;
+ 	struct ixgbe_adapter *adapter = hw->back;
+-	u32 i;
+-	u32 reg_val;
+-	u32 number_of_queues;
+ 	s32 status = 0;
+-	u16 dev_status = 0;
++	u32 i;
++	u16 value;
++
++	/* Always set this bit to ensure any future transactions are blocked */
++	IXGBE_WRITE_REG(hw, IXGBE_CTRL, IXGBE_CTRL_GIO_DIS);
  
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
- 		return -EINVAL;
-@@ -628,8 +615,7 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
+-	/* Just jump out if bus mastering is already disabled */
++	/* Exit if master requests are blocked */
+ 	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
+ 		goto out;
+ 
+-	/* Disable the receive unit by stopping each queue */
+-	number_of_queues = hw->mac.max_rx_queues;
+-	for (i = 0; i < number_of_queues; i++) {
+-		reg_val = IXGBE_READ_REG(hw, IXGBE_RXDCTL(i));
+-		if (reg_val & IXGBE_RXDCTL_ENABLE) {
+-			reg_val &= ~IXGBE_RXDCTL_ENABLE;
+-			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(i), reg_val);
+-		}
+-	}
+-
+-	reg_val = IXGBE_READ_REG(hw, IXGBE_CTRL);
+-	reg_val |= IXGBE_CTRL_GIO_DIS;
+-	IXGBE_WRITE_REG(hw, IXGBE_CTRL, reg_val);
+-
++	/* Poll for master request bit to clear */
+ 	for (i = 0; i < IXGBE_PCI_MASTER_DISABLE_TIMEOUT; i++) {
+-		if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
+-			goto check_device_status;
+ 		udelay(100);
++		if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
++			goto out;
  	}
  
- 	memcpy(adapter->ixgbe_ieee_pfc, pfc, sizeof(*adapter->ixgbe_ieee_pfc));
--	err = ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en);
--	return err;
-+	return ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en);
++	/*
++	 * Two consecutive resets are required via CTRL.RST per datasheet
++	 * 5.2.5.3.2 Master Disable.  We set a flag to inform the reset routine
++	 * of this need.  The first reset prevents new master requests from
++	 * being issued by our device.  We then must wait 1usec or more for any
++	 * remaining completions from the PCIe bus to trickle in, and then reset
++	 * again to clear out any effects they may have had on our device.
++	 */
+ 	hw_dbg(hw, "GIO Master Disable bit didn't clear - requesting resets\n");
+-	status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
++	hw->mac.flags |= IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
+ 
+ 	/*
+ 	 * Before proceeding, make sure that the PCIe block does not have
+ 	 * transactions pending.
+ 	 */
+-check_device_status:
+ 	for (i = 0; i < IXGBE_PCI_MASTER_DISABLE_TIMEOUT; i++) {
+-		pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_STATUS,
+-							 &dev_status);
+-		if (!(dev_status & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
+-			break;
+ 		udelay(100);
++		pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_STATUS,
++							 &value);
++		if (!(value & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
++			goto out;
+ 	}
+ 
+-	if (i == IXGBE_PCI_MASTER_DISABLE_TIMEOUT)
+-		hw_dbg(hw, "PCIe transaction pending bit also did not clear.\n");
+-	else
+-		goto out;
+-
+-	/*
+-	 * Two consecutive resets are required via CTRL.RST per datasheet
+-	 * 5.2.5.3.2 Master Disable.  We set a flag to inform the reset routine
+-	 * of this need.  The first reset prevents new master requests from
+-	 * being issued by our device.  We then must wait 1usec for any
+-	 * remaining completions from the PCIe bus to trickle in, and then reset
+-	 * again to clear out any effects they may have had on our device.
+-	 */
+-	 hw->mac.flags |= IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
++	hw_dbg(hw, "PCIe transaction pending bit also did not clear.\n");
++	status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
+ 
+ out:
+ 	return status;
  }
  
- #ifdef IXGBE_FCOE
-@@ -740,7 +726,7 @@ static u8 ixgbe_dcbnl_setdcbx(struct net_device *dev, u8 mode)
- 		 */
- 		ixgbe_dcbnl_ieee_setets(dev, &ets);
- 		ixgbe_dcbnl_ieee_setpfc(dev, &pfc);
--		ixgbe_dcbnl_set_state(dev, 0);
-+		ixgbe_setup_tc(dev, 0);
- 	}
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 8b86c41..4cbc3f9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3319,12 +3319,18 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- 	} else {
- 		struct net_device *dev = adapter->netdev;
- 
--		if (adapter->ixgbe_ieee_ets)
--			dev->dcbnl_ops->ieee_setets(dev,
--						    adapter->ixgbe_ieee_ets);
--		if (adapter->ixgbe_ieee_pfc)
--			dev->dcbnl_ops->ieee_setpfc(dev,
--						    adapter->ixgbe_ieee_pfc);
-+		if (adapter->ixgbe_ieee_ets) {
-+			struct ieee_ets *ets = adapter->ixgbe_ieee_ets;
-+			int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
+-
+ /**
+  *  ixgbe_acquire_swfw_sync - Acquire SWFW semaphore
+  *  @hw: pointer to hardware structure
+@@ -3509,3 +3491,44 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
+ out:
+ 	return ret_val;
+ }
 +
-+			ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
-+		}
++/**
++ * ixgbe_clear_tx_pending - Clear pending TX work from the PCIe fifo
++ * @hw: pointer to the hardware structure
++ *
++ * The 82599 and x540 MACs can experience issues if TX work is still pending
++ * when a reset occurs.  This function prevents this by flushing the PCIe
++ * buffers on the system.
++ **/
++void ixgbe_clear_tx_pending(struct ixgbe_hw *hw)
++{
++	u32 gcr_ext, hlreg0;
 +
-+		if (adapter->ixgbe_ieee_pfc) {
-+			struct ieee_pfc *pfc = adapter->ixgbe_ieee_pfc;
++	/*
++	 * If double reset is not requested then all transactions should
++	 * already be clear and as such there is no work to do
++	 */
++	if (!(hw->mac.flags & IXGBE_FLAGS_DOUBLE_RESET_REQUIRED))
++		return;
 +
-+			ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en);
-+		}
- 	}
++	/*
++	 * Set loopback enable to prevent any transmits from being sent
++	 * should the link come up.  This assumes that the RXCTRL.RXEN bit
++	 * has already been cleared.
++	 */
++	hlreg0 = IXGBE_READ_REG(hw, IXGBE_HLREG0);
++	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0 | IXGBE_HLREG0_LPBK);
++
++	/* initiate cleaning flow for buffers in the PCIe transaction layer */
++	gcr_ext = IXGBE_READ_REG(hw, IXGBE_GCR_EXT);
++	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT,
++			gcr_ext | IXGBE_GCR_EXT_BUFFERS_CLEAR);
++
++	/* Flush all writes and allow 20usec for all transactions to clear */
++	IXGBE_WRITE_FLUSH(hw);
++	udelay(20);
++
++	/* restore previous register values */
++	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr_ext);
++	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
++}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index f24fd64..863f9c1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -81,7 +81,6 @@ s32 ixgbe_fc_autoneg(struct ixgbe_hw *hw);
+ s32 ixgbe_validate_mac_addr(u8 *mac_addr);
+ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask);
+ void ixgbe_release_swfw_sync(struct ixgbe_hw *hw, u16 mask);
+-s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
+ s32 ixgbe_get_san_mac_addr_generic(struct ixgbe_hw *hw, u8 *san_mac_addr);
+ s32 ixgbe_set_vmdq_generic(struct ixgbe_hw *hw, u32 rar, u32 vmdq);
+ s32 ixgbe_clear_vmdq_generic(struct ixgbe_hw *hw, u32 rar, u32 vmdq);
+@@ -101,6 +100,7 @@ void ixgbe_set_vlan_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf);
+ s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
+ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
+ 				 u8 build, u8 ver);
++void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
  
- 	/* Enable RSS Hash per TC */
+ void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
+ 			     u32 headroom, int strategy);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 56a7adf..b119cd6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -770,6 +770,7 @@
+ #define IXGBE_GCR_CAP_VER2              0x00040000
+ 
+ #define IXGBE_GCR_EXT_MSIX_EN           0x80000000
++#define IXGBE_GCR_EXT_BUFFERS_CLEAR     0x40000000
+ #define IXGBE_GCR_EXT_VT_MODE_16        0x00000001
+ #define IXGBE_GCR_EXT_VT_MODE_32        0x00000002
+ #define IXGBE_GCR_EXT_VT_MODE_64        0x00000003
+@@ -1822,6 +1823,7 @@ enum {
+ #define IXGBE_RXCTRL_RXEN       0x00000001  /* Enable Receiver */
+ #define IXGBE_RXCTRL_DMBYPS     0x00000002  /* Descriptor Monitor Bypass */
+ #define IXGBE_RXDCTL_ENABLE     0x02000000  /* Enable specific Rx Queue */
++#define IXGBE_RXDCTL_SWFLSH     0x04000000  /* Rx Desc. write-back flushing */
+ #define IXGBE_RXDCTL_RLPMLMASK  0x00003FFF  /* Only supported on the X540 */
+ #define IXGBE_RXDCTL_RLPML_EN   0x00008000
+ #define IXGBE_RXDCTL_VME        0x40000000  /* VLAN mode enable */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index bbfe8c4..84bb51d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -99,13 +99,12 @@ static s32 ixgbe_reset_hw_X540(struct ixgbe_hw *hw)
+ 	bool link_up = false;
+ 
+ 	/* Call adapter stop to disable tx/rx and clear interrupts */
+-	hw->mac.ops.stop_adapter(hw);
++	status = hw->mac.ops.stop_adapter(hw);
++	if (status != 0)
++		goto reset_hw_out;
+ 
+-	/*
+-	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
+-	 * access and verify no pending requests before reset
+-	 */
+-	ixgbe_disable_pcie_master(hw);
++	/* flush pending Tx transactions */
++	ixgbe_clear_tx_pending(hw);
+ 
+ mac_reset_top:
+ 	/*
+@@ -180,6 +179,7 @@ mac_reset_top:
+ 	hw->mac.ops.get_wwn_prefix(hw, &hw->mac.wwnn_prefix,
+ 	                           &hw->mac.wwpn_prefix);
+ 
++reset_hw_out:
+ 	return status;
+ }
+ 
 -- 
 1.7.6.2
