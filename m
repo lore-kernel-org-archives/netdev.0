@@ -1,58 +1,149 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] ixgbe: cleanup ixgbe_setup_gpie() for X540
-Date: Sat, 24 Sep 2011 02:17:42 -0700
-Message-ID: <1316855863-6091-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/10] e1000: don't enable dma receives until after dma address has been setup
+Date: Sat, 24 Sep 2011 02:17:34 -0700
+Message-ID: <1316855863-6091-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Dean Nelson <dnelson@redhat.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Andy Gospodarek <andy@greyhouse.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:33105 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752594Ab1IXJRv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Sep 2011 05:17:51 -0400
+	id S1752387Ab1IXJRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Sep 2011 05:17:46 -0400
 In-Reply-To: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Dean Nelson <dnelson@redhat.com>
 
-The X540 thermal sensor interrupt isn't a General Purpose Interrupt
-so doesn't need to be enabled in ixgbe_setup_gpie().  Likewise X540 doesn't
-use the SDP0 for thermal sensor so it doesn't need to be enabled for any
-device other than 82599.
+Doing an 'ifconfig ethN down' followed by an 'ifconfig ethN up' on a qemu-kvm
+guest system configured with two e1000 NICs can result in an 'unable to handle
+kernel paging request at 0000000100000000' or 'bad page map in process ...' or
+something similar.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+These result from a 4096-byte page being corrupted with the following two-word
+pattern (16-bytes) repeated throughout the entire page:
+
+  0x0000000000000000
+  0x0000000100000000
+
+There can be other bits set as well. What is a constant is that the 2nd word
+has the 32nd bit set. So one could see:
+
+        :
+  0x0000000000000000
+  0x0000000100000000
+  0x0000000000000000
+  0x0000000172adc067    <<< bad pte
+  0x800000006ec60067
+  0x0000000700000040
+  0x0000000000000000
+  0x0000000100000000
+        :
+
+Which came from from a process' page table I dumped out when the marked line
+was seen as bad by print_bad_pte().
+
+The repeating pattern represents the e1000's two-word receive descriptor:
+
+struct e1000_rx_desc {
+        __le64 buffer_addr;   /* Address of the descriptor's data buffer */
+        __le16 length;        /* Length of data DMAed into data buffer */
+        __le16 csum;          /* Packet checksum */
+        u8 status;            /* Descriptor status */
+        u8 errors;            /* Descriptor Errors */
+        __le16 special;
+};
+
+And the 32nd bit of the 2nd word maps to the 'u8 status' member, and
+corresponds to E1000_RXD_STAT_DD which indicates the descriptor is done.
+
+The corruption appears to result from the following...
+
+ . An 'ifconfig ethN down' gets us into e1000_close(), which through a number
+   of subfunctions results in:
+     1. E1000_RCTL_EN being cleared in RCTL register.  [e1000_down()]
+     2. dma_free_coherent() being called.  [e1000_free_rx_resources()]
+
+ . An 'ifconfig ethN up' gets us into e1000_open(), which through a number of
+   subfunctions results in:
+     1. dma_alloc_coherent() being called.  [e1000_setup_rx_resources()]
+     2. E1000_RCTL_EN being set in RCTL register.  [e1000_setup_rctl()]
+     3. E1000_RCTL_EN being cleared in RCTL register.  [e1000_configure_rx()]
+     4. RDLEN, RDBAH and RDBAL registers being set to reflect the dma page
+        allocated in step 1.  [e1000_configure_rx()]
+     5. E1000_RCTL_EN being set in RCTL register.  [e1000_configure_rx()]
+
+During the 'ifconfig ethN up' there is a window opened, starting in step 2
+where the receives are enabled up until they are disabled in step 3, in which
+the address of the receive descriptor dma page known by the NIC is still the
+previous one which was freed during the 'ifconfig ethN down'. If this memory
+has been reallocated for some other use and the NIC feels so inclined, it will
+write to that former dma page with predictably unpleasant results.
+
+I realize that in the guest, we're dealing with an e1000 NIC that is software
+emulated by qemu-kvm. The problem doesn't appear to occur on bare-metal. Andy
+suspects that this is because in the emulator link-up is essentially instant
+and traffic can start flowing immediately. Whereas on bare-metal, link-up
+usually seems to take at least a few milliseconds. And this might be enough
+to prevent traffic from flowing into the device inside the window where
+E1000_RCTL_EN is set.
+
+So perhaps a modification needs to be made to the qemu-kvm e1000 NIC emulator
+to delay the link-up. But in defense of the emulator, it seems like a bad idea
+to enable dma operations before the address of the memory to be involved has
+been made known.
+
+The following patch no longer enables receives in e1000_setup_rctl() but leaves
+them however they were. It only enables receives in e1000_configure_rx(), and
+only after the dma address has been made known to the hardware.
+
+There are two places where e1000_setup_rctl() gets called. The one in
+e1000_configure() is followed immediately by a call to e1000_configure_rx(), so
+there's really no change functionally (except for the removal of the problem
+window. The other is in __e1000_shutdown() and is not followed by a call to
+e1000_configure_rx(), so there is a change functionally. But consider...
+
+ . An 'ifconfig ethN down' (just as described above).
+
+ . A 'suspend' of the system, which (I'm assuming) will find its way into
+   e1000_suspend() which calls __e1000_shutdown() resulting in:
+     1. E1000_RCTL_EN being set in RCTL register.  [e1000_setup_rctl()]
+
+And again we've re-opened the problem window for some unknown amount of time.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Dean Nelson <dnelson@redhat.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 45f5ab5..6c97aa4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3685,8 +3685,18 @@ static void ixgbe_setup_gpie(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 27f586a..4bbc05a 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -1814,8 +1814,8 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+ 
+ 	rctl &= ~(3 << E1000_RCTL_MO_SHIFT);
+ 
+-	rctl |= E1000_RCTL_EN | E1000_RCTL_BAM |
+-		E1000_RCTL_LBM_NO | E1000_RCTL_RDMTS_HALF |
++	rctl |= E1000_RCTL_BAM | E1000_RCTL_LBM_NO |
++		E1000_RCTL_RDMTS_HALF |
+ 		(hw->mc_filter_type << E1000_RCTL_MO_SHIFT);
+ 
+ 	if (hw->tbi_compatibility_on == 1)
+@@ -1917,7 +1917,7 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
  	}
  
- 	/* Enable Thermal over heat sensor interrupt */
--	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE)
--		gpie |= IXGBE_SDP0_GPIEN;
-+	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE) {
-+		switch (adapter->hw.mac.type) {
-+		case ixgbe_mac_82599EB:
-+			gpie |= IXGBE_SDP0_GPIEN;
-+			break;
-+		case ixgbe_mac_X540:
-+			gpie |= IXGBE_EIMS_TS;
-+			break;
-+		default:
-+			break;
-+		}
-+	}
+ 	/* Enable Receives */
+-	ew32(RCTL, rctl);
++	ew32(RCTL, rctl | E1000_RCTL_EN);
+ }
  
- 	/* Enable fan failure interrupt */
- 	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE)
+ /**
 -- 
 1.7.6.2
