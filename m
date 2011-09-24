@@ -1,55 +1,84 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next v2] candev: allow SJW user setting for bittiming
-	calculation
-Date: Sat, 24 Sep 2011 09:44:15 +0200
-Message-ID: <4E7D8A4F.7010806@grandegger.com>
-References: <4E7B0DE6.9020807@hartkopp.net>
-	<4E7B8F63.6060108@hartkopp.net>	<4E7C3424.8030406@grandegger.com>
-	<201109231132.49976.pisa@cmp.felk.cvut.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Pavel Pisa <pisa-/N2ztlQkxE7Ub/6JBqosbQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201109231132.49976.pisa-/N2ztlQkxE7Ub/6JBqosbQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/10][pull request] Intel Wired LAN Drivers Update
+Date: Sat, 24 Sep 2011 02:17:33 -0700
+Message-ID: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:33105 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752330Ab1IXJRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Sep 2011 05:17:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pavel,
+The following series contains updates to e1000, ixgbe, ixgbevf and
+if_link.  The e1000 patch is a fix to an issue seen qemu-kvm. The
+if_link patch adds an additional parameter for spoof checking,
+and there is a subsequent ixgbe patch to implement the if_link
+parameter.  The ixgbevf patch fixes an issue with trunk VLAN.
 
-On 09/23/2011 11:32 AM, Pavel Pisa wrote:
-> Hello Oliver and Wolfgang,
-...
-> I hope that actual calculation works reasonably well.
-> But if it should be enhanced, then it would worth
-> to add additional parameter except crystal/controller
-> clock source freqency to the concrete boards drivers.
-> It should be measured round-trip delay of given/used
-> transceiver/optocouplers combination. This would
-> allow to have sampling point setup yet more independent
-> on given HW and same value could be used for different
-> bitrates. But there is still unknown parameter
-> capacity/length of connected wires so there is still
-> something left to user consideration.
+The remainder of the patches for ixgbe include:
+  - add thermal sensor support
+  - add ECC warning for legacy interrupts
+  - cleanup/update interrupt throttle rate logic
+  - cleanup/update X540 code
 
-The actual in-kernel bit-timing calculation is known to work well for
-most, not all, CAN users, especially with "good" clock source
-frequencies (a multiple of 8 MHz). That's fine and intended. The results
-of that algorithm are not always satisfactory. Such cases should then be
-handled in user-space, either manually or by an advanced algorithm. In
-the BerliOS "can-utils" there we have already "can-calc-bit-timing". Any
-enhancements and improvements would be nice to share, indeed. Do you
-already have/use some code for the enhancement mentioned above?
+NOTE- After the discussion on conflating NAPI and interrupt moderation,
+I have a patch in validation to remove the tie between work_limit and
+interrupt moderation for ixgbe, which is not in this series.  I mention
+this because the cleanup to interrupt throttle rate logic patch
+still contains the code that ties NAPI and interrupt moderation.
 
-Wolfgang.
+The following are changes since commit 7777de9af54a1402c79bf7663b38ff5ba308dd45:
+  qlcnic: Change CDRP function
+and are available in the git repository at:
+  git://github.com/Jkirsher/net-next.git
+
+Dean Nelson (1):
+  e1000: don't enable dma receives until after dma address has been
+    setup
+
+Don Skidmore (2):
+  ixgbe: cleanup ixgbe_setup_gpie() for X540
+  ixgbe: add ECC warning for legacy interrupts
+
+Emil Tantilov (1):
+  ixgbe: Cleanup q_vector interrupt throttle rate logic
+
+Greg Rose (3):
+  ixgbevf: Fix broken trunk vlan
+  if_link: Add additional parameter to IFLA_VF_INFO for spoof checking
+  ixgbe: Add new netdev op to turn spoof checking on or off per VF
+
+Jacob Keller (1):
+  ixgbe add thermal sensor support for x540 hardware
+
+John Fastabend (1):
+  ixgbe: update {P}FC thresholds to account for X540 and loopback
+
+Vasu Dev (1):
+  ixgbe: disable LLI for FCoE
+
+ drivers/net/ethernet/intel/e1000/e1000_main.c      |    6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   28 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |   12 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |    9 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  153 +++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |    4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  299 +++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   48 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   64 ++++-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |    6 +-
+ include/linux/if_link.h                            |    7 +
+ include/linux/netdevice.h                          |    3 +
+ net/core/rtnetlink.c                               |   25 ++-
+ 17 files changed, 442 insertions(+), 240 deletions(-)
+
+-- 
+1.7.6.2
