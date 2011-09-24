@@ -1,164 +1,54 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 4/7] bna: Brocade 1860 HW Enablement
-Date: Fri, 23 Sep 2011 19:14:15 -0700
-Message-ID: <1316830458-24773-5-git-send-email-rmody@brocade.com>
-References: <1316830458-24773-1-git-send-email-rmody@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adapter_linux_open_src_team@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>,
-	Gurunatha Karaje <gkaraje@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:39639 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752972Ab1IXCO6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 22:14:58 -0400
-In-Reply-To: <1316830458-24773-1-git-send-email-rmody@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: jgq516@gmail.com
+Subject: [PATCH 1/2] net/fec: replace hardcoded irq num with macro.
+Date: Sat, 24 Sep 2011 10:19:43 +0800
+Message-ID: <1316830784-17108-1-git-send-email-jgq516@gmail.com>
+Cc: jgq516@gmail.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch enables new HW Brocade 1860. Add BFA_CM_NIC capability mask to
-bfa_ioc_attr, Sub-System Device ID Info and support for Brocade 1860 device
-ID to bfa_ioc.c bnad.c and pci_ids.h.
+From: Xiao Jiang <jgq516@gmail.com>
 
-Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
+Don't use hardcoded irq num and replace it with
+FEC_IRQ_NUM macro.
+
+Signed-off-by: Xiao Jiang <jgq516@gmail.com>
 ---
- drivers/net/ethernet/brocade/bna/bfa_defs.h    |   16 +++++++++++++++-
- drivers/net/ethernet/brocade/bna/bfa_ioc.c     |   23 +++++++++++++++++++++++
- drivers/net/ethernet/brocade/bna/bfa_ioc.h     |    1 +
- drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    4 ++++
- drivers/net/ethernet/brocade/bna/bnad.c        |    9 ++++++++-
- include/linux/pci_ids.h                        |    1 +
- 6 files changed, 52 insertions(+), 2 deletions(-)
+ drivers/net/fec.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs.h b/drivers/net/ethernet/brocade/bna/bfa_defs.h
-index 66a6207..48fa410 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_defs.h
-+++ b/drivers/net/ethernet/brocade/bna/bfa_defs.h
-@@ -193,6 +193,7 @@ struct bfa_ioc_attr {
- enum {
- 	BFA_CM_HBA	=	0x01,
- 	BFA_CM_CNA	=	0x02,
-+	BFA_CM_NIC	=	0x04,
- };
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index e8266cc..5705def 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -170,6 +170,8 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ #define PKT_MINBUF_SIZE		64
+ #define PKT_MAXBLR_SIZE		1520
  
- /**
-@@ -264,7 +265,20 @@ struct bfa_mfg_block {
- #define bfa_asic_id_ct(device)			\
- 	((device) == PCI_DEVICE_ID_BROCADE_CT ||	\
- 	 (device) == PCI_DEVICE_ID_BROCADE_CT_FC)
--#define bfa_asic_id_ctc(device) (bfa_asic_id_ct(device))
-+#define bfa_asic_id_ct2(device)			\
-+	((device) == PCI_DEVICE_ID_BROCADE_CT2)
-+#define bfa_asic_id_ctc(device)			\
-+	(bfa_asic_id_ct(device) || bfa_asic_id_ct2(device))
-+
-+/**
-+ * PCI sub-system device and vendor ID information
-+ */
-+enum {
-+	BFA_PCI_FCOE_SSDEVICE_ID	= 0x14,
-+	BFA_PCI_CT2_SSID_FCoE		= 0x22,
-+	BFA_PCI_CT2_SSID_ETH		= 0x23,
-+	BFA_PCI_CT2_SSID_FC		= 0x24,
-+};
++/* This device has up to three irqs on some platforms */
++#define FEC_IRQ_NUM			3
  
- enum bfa_mode {
- 	BFA_MODE_HBA		= 1,
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-index 1e60aa7..2a91cc8 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-@@ -1977,6 +1977,29 @@ bfa_nw_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
- 		ioc->ad_cap_bm = BFA_CM_CNA;
- 		break;
+ /*
+  * The 5270/5271/5280/5282/532x RX control register also contains maximum frame
+@@ -1503,8 +1505,7 @@ fec_probe(struct platform_device *pdev)
  
-+	case PCI_DEVICE_ID_BROCADE_CT2:
-+		ioc->asic_gen = BFI_ASIC_GEN_CT2;
-+		if (clscode == BFI_PCIFN_CLASS_FC &&
-+			pcidev->ssid == BFA_PCI_CT2_SSID_FC) {
-+			ioc->asic_mode  = BFI_ASIC_MODE_FC16;
-+			ioc->fcmode = true;
-+			ioc->port_mode = ioc->port_mode_cfg = BFA_MODE_HBA;
-+			ioc->ad_cap_bm = BFA_CM_HBA;
-+		} else {
-+			ioc->port0_mode = ioc->port1_mode = BFI_PORT_MODE_ETH;
-+			ioc->asic_mode  = BFI_ASIC_MODE_ETH;
-+			if (pcidev->ssid == BFA_PCI_CT2_SSID_FCoE) {
-+				ioc->port_mode =
-+				ioc->port_mode_cfg = BFA_MODE_CNA;
-+				ioc->ad_cap_bm = BFA_CM_CNA;
-+			} else {
-+				ioc->port_mode =
-+				ioc->port_mode_cfg = BFA_MODE_NIC;
-+				ioc->ad_cap_bm = BFA_CM_NIC;
-+			}
-+		}
-+		break;
-+
- 	default:
- 		BUG_ON(1);
- 	}
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
-index 5899a56..c398170 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc.h
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
-@@ -35,6 +35,7 @@ struct bfa_pcidev {
- 	int	pci_slot;
- 	u8	pci_func;
- 	u16	device_id;
-+	u16	ssid;
- 	void	__iomem *pci_bar_kva;
- };
+ 	fec_reset_phy(pdev);
  
-diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-index dde8a46..3da6dd9 100644
---- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-+++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-@@ -133,6 +133,10 @@
- 		ct_reg_addr_init((_bna), (_pcidev));			\
- 		ct_bit_defn_init((_bna), (_pcidev));			\
- 		break;							\
-+	case PCI_DEVICE_ID_BROCADE_CT2:					\
-+		ct2_reg_addr_init((_bna), (_pcidev));			\
-+		ct2_bit_defn_init((_bna), (_pcidev));			\
-+		break;							\
- 	}								\
- }
- 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 320f11c..033c26e 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -3428,7 +3428,14 @@ static DEFINE_PCI_DEVICE_TABLE(bnad_pci_id_table) = {
- 			PCI_DEVICE_ID_BROCADE_CT),
- 		.class = PCI_CLASS_NETWORK_ETHERNET << 8,
- 		.class_mask =  0xffff00
--	}, {0,  }
-+	},
-+	{
-+		PCI_DEVICE(PCI_VENDOR_ID_BROCADE,
-+			PCI_DEVICE_ID_BROCADE_CT2),
-+		.class = PCI_CLASS_NETWORK_ETHERNET << 8,
-+		.class_mask =  0xffff00
-+	},
-+	{0,  },
- };
- 
- MODULE_DEVICE_TABLE(pci, bnad_pci_id_table);
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index ae96bbe..b12b7ae 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -2224,6 +2224,7 @@
- #define PCI_DEVICE_ID_BROCADE_CT	0x0014
- #define PCI_DEVICE_ID_BROCADE_FC_8G1P	0x0017
- #define PCI_DEVICE_ID_BROCADE_CT_FC	0x0021
-+#define PCI_DEVICE_ID_BROCADE_CT2	0x0022
- 
- #define PCI_VENDOR_ID_SIBYTE		0x166d
- #define PCI_DEVICE_ID_BCM1250_PCI	0x0001
+-	/* This device has up to three irqs on some platforms */
+-	for (i = 0; i < 3; i++) {
++	for (i = 0; i < FEC_IRQ_NUM; i++) {
+ 		irq = platform_get_irq(pdev, i);
+ 		if (i && irq < 0)
+ 			break;
+@@ -1549,7 +1550,7 @@ failed_init:
+ 	clk_disable(fep->clk);
+ 	clk_put(fep->clk);
+ failed_clk:
+-	for (i = 0; i < 3; i++) {
++	for (i = 0; i < FEC_IRQ_NUM; i++) {
+ 		irq = platform_get_irq(pdev, i);
+ 		if (irq > 0)
+ 			free_irq(irq, ndev);
 -- 
-1.7.1
+1.7.0.4
