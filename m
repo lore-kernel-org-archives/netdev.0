@@ -1,47 +1,53 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] tcp: ECN blackhole should not force quickack mode
-Date: Fri, 23 Sep 2011 20:55:45 -0400
-Message-ID: <1316825745.1865.24.camel@mojatatu>
-References: <1316757739.2560.12.camel@edumazet-laptop>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [net-next 0/7] bna: H/W enablement and update driver version to 3.0.2.2
+Date: Fri, 23 Sep 2011 19:14:11 -0700
+Message-ID: <1316830458-24773-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Jim Gettys <jg@freedesktop.org>,
-	Dave Taht <dave.taht@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:49605 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752972Ab1IXA7W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 20:59:22 -0400
-Received: by gxk6 with SMTP id 6so3089111gxk.19
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2011 17:59:21 -0700 (PDT)
-In-Reply-To: <1316757739.2560.12.camel@edumazet-laptop>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:46746 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753111Ab1IXCOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 22:14:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-09-23 at 08:02 +0200, Eric Dumazet wrote:
-> While playing with a new ADSL box at home, I discovered that ECN
-> blackhole can trigger suboptimal quickack mode on linux : We send one
-> ACK for each incoming data frame, without any delay and eventual
-> piggyback.
->
-> This is because TCP_ECN_check_ce() considers that if no ECT is seen on a
-> segment, this is because this segment was a retransmit.
+Hi Dave,
 
-If you have Linux as the sender, that assumption is legit (i.e we never
-set ECT on retransmits).
+   The following patch set adds support for Brocade-1860 Fabric Adapter.
 
-> Refine this heuristic and apply it only if we seen ECT in a previous
-> segment, to detect ECN blackhole at IP level.
+   It updates the Brocade BNA driver to v3.0.2.2.
 
-So  small confusion for me, Eric:
-Is theres some middlebox clearing the ECT but allowing the TCP header
-ECN flags to be set during SYN echange?  If yes, why would not allowing
-quickack help?
+   The driver has been compiled & tested against net-next-2.6(3.0.0-rc7).
 
-cheers,
-jamal
+Thanks,
+Rasesh
+
+Rasesh Mody (7):
+  bna: Brocade 1860 IOC PLL, Reg Defs and ASIC Mode Changes
+  bna: Capability Map and MFG Block Changes for New HW
+  bna: Implement FW Download for New HW
+  bna: Brocade 1860 HW Enablement
+  bna: PLL Init Fix and Add Stats Attributes
+  bna: Add Callback to Fix RXQ Stop
+  bna: Driver Version changed to 3.0.2.2
+
+ drivers/net/ethernet/brocade/bna/bfa_defs.h        |   28 ++-
+ drivers/net/ethernet/brocade/bna/bfa_defs_cna.h    |    8 +-
+ .../net/ethernet/brocade/bna/bfa_defs_mfg_comm.h   |   44 +--
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c         |   49 ++-
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h         |   15 +-
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c      |  361 ++++++++++++++++++++
+ drivers/net/ethernet/brocade/bna/bfi.h             |   20 +-
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h     |    4 +
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c       |   11 +
+ drivers/net/ethernet/brocade/bna/bna_types.h       |    2 +
+ drivers/net/ethernet/brocade/bna/bnad.c            |   35 ++-
+ drivers/net/ethernet/brocade/bna/bnad.h            |    3 +-
+ drivers/net/ethernet/brocade/bna/cna.h             |    1 +
+ drivers/net/ethernet/brocade/bna/cna_fwimg.c       |   49 +++-
+ include/linux/pci_ids.h                            |    1 +
+ 15 files changed, 546 insertions(+), 85 deletions(-)
