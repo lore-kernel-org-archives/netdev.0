@@ -1,149 +1,454 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/10] e1000: don't enable dma receives until after dma address has been setup
-Date: Sat, 24 Sep 2011 02:17:34 -0700
-Message-ID: <1316855863-6091-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/10] ixgbe: update {P}FC thresholds to account for X540 and loopback
+Date: Sat, 24 Sep 2011 02:17:40 -0700
+Message-ID: <1316855863-6091-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Dean Nelson <dnelson@redhat.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Andy Gospodarek <andy@greyhouse.net>,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33105 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20391 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752387Ab1IXJRq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Sep 2011 05:17:46 -0400
+	id S1752549Ab1IXJRu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Sep 2011 05:17:50 -0400
 In-Reply-To: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dean Nelson <dnelson@redhat.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Doing an 'ifconfig ethN down' followed by an 'ifconfig ethN up' on a qemu-kvm
-guest system configured with two e1000 NICs can result in an 'unable to handle
-kernel paging request at 0000000100000000' or 'bad page map in process ...' or
-something similar.
+Revise high and low threshold marks wrt flow control to account
+for the X540 devices and latency introduced by the loopback
+switch.
 
-These result from a 4096-byte page being corrupted with the following two-word
-pattern (16-bytes) repeated throughout the entire page:
+Without this it was in theory possible to drop frames on a
+supposedly lossless link with X540 or SR-IOV enabled.
 
-  0x0000000000000000
-  0x0000000100000000
+Previously we used a magic number in a define to calculate the
+threshold values. This made it difficult to sort out exactly
+which latencies were or were not being accounted for. Here
+I was overly explicit and tried to used #define names that would
+be recognizable after reading the IEEE 802.1Qbb specification.
 
-There can be other bits set as well. What is a constant is that the 2nd word
-has the 32nd bit set. So one could see:
-
-        :
-  0x0000000000000000
-  0x0000000100000000
-  0x0000000000000000
-  0x0000000172adc067    <<< bad pte
-  0x800000006ec60067
-  0x0000000700000040
-  0x0000000000000000
-  0x0000000100000000
-        :
-
-Which came from from a process' page table I dumped out when the marked line
-was seen as bad by print_bad_pte().
-
-The repeating pattern represents the e1000's two-word receive descriptor:
-
-struct e1000_rx_desc {
-        __le64 buffer_addr;   /* Address of the descriptor's data buffer */
-        __le16 length;        /* Length of data DMAed into data buffer */
-        __le16 csum;          /* Packet checksum */
-        u8 status;            /* Descriptor status */
-        u8 errors;            /* Descriptor Errors */
-        __le16 special;
-};
-
-And the 32nd bit of the 2nd word maps to the 'u8 status' member, and
-corresponds to E1000_RXD_STAT_DD which indicates the descriptor is done.
-
-The corruption appears to result from the following...
-
- . An 'ifconfig ethN down' gets us into e1000_close(), which through a number
-   of subfunctions results in:
-     1. E1000_RCTL_EN being cleared in RCTL register.  [e1000_down()]
-     2. dma_free_coherent() being called.  [e1000_free_rx_resources()]
-
- . An 'ifconfig ethN up' gets us into e1000_open(), which through a number of
-   subfunctions results in:
-     1. dma_alloc_coherent() being called.  [e1000_setup_rx_resources()]
-     2. E1000_RCTL_EN being set in RCTL register.  [e1000_setup_rctl()]
-     3. E1000_RCTL_EN being cleared in RCTL register.  [e1000_configure_rx()]
-     4. RDLEN, RDBAH and RDBAL registers being set to reflect the dma page
-        allocated in step 1.  [e1000_configure_rx()]
-     5. E1000_RCTL_EN being set in RCTL register.  [e1000_configure_rx()]
-
-During the 'ifconfig ethN up' there is a window opened, starting in step 2
-where the receives are enabled up until they are disabled in step 3, in which
-the address of the receive descriptor dma page known by the NIC is still the
-previous one which was freed during the 'ifconfig ethN down'. If this memory
-has been reallocated for some other use and the NIC feels so inclined, it will
-write to that former dma page with predictably unpleasant results.
-
-I realize that in the guest, we're dealing with an e1000 NIC that is software
-emulated by qemu-kvm. The problem doesn't appear to occur on bare-metal. Andy
-suspects that this is because in the emulator link-up is essentially instant
-and traffic can start flowing immediately. Whereas on bare-metal, link-up
-usually seems to take at least a few milliseconds. And this might be enough
-to prevent traffic from flowing into the device inside the window where
-E1000_RCTL_EN is set.
-
-So perhaps a modification needs to be made to the qemu-kvm e1000 NIC emulator
-to delay the link-up. But in defense of the emulator, it seems like a bad idea
-to enable dma operations before the address of the memory to be involved has
-been made known.
-
-The following patch no longer enables receives in e1000_setup_rctl() but leaves
-them however they were. It only enables receives in e1000_configure_rx(), and
-only after the dma address has been made known to the hardware.
-
-There are two places where e1000_setup_rctl() gets called. The one in
-e1000_configure() is followed immediately by a call to e1000_configure_rx(), so
-there's really no change functionally (except for the removal of the problem
-window. The other is in __e1000_shutdown() and is not followed by a call to
-e1000_configure_rx(), so there is a change functionally. But consider...
-
- . An 'ifconfig ethN down' (just as described above).
-
- . A 'suspend' of the system, which (I'm assuming) will find its way into
-   e1000_suspend() which calls __e1000_shutdown() resulting in:
-     1. E1000_RCTL_EN being set in RCTL register.  [e1000_setup_rctl()]
-
-And again we've re-opened the problem window for some unknown amount of time.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Dean Nelson <dnelson@redhat.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |   12 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |    9 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  128 ++++++++++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   62 +++++++++-
+ 7 files changed, 190 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 27f586a..4bbc05a 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1814,8 +1814,8 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index b816a62..fa079bb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -358,7 +358,6 @@ static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	u32 fctrl_reg;
+ 	u32 rmcs_reg;
+ 	u32 reg;
+-	u32 rx_pba_size;
+ 	u32 link_speed = 0;
+ 	bool link_up;
  
- 	rctl &= ~(3 << E1000_RCTL_MO_SHIFT);
+@@ -461,16 +460,13 @@ static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
  
--	rctl |= E1000_RCTL_EN | E1000_RCTL_BAM |
--		E1000_RCTL_LBM_NO | E1000_RCTL_RDMTS_HALF |
-+	rctl |= E1000_RCTL_BAM | E1000_RCTL_LBM_NO |
-+		E1000_RCTL_RDMTS_HALF |
- 		(hw->mc_filter_type << E1000_RCTL_MO_SHIFT);
+ 	/* Set up and enable Rx high/low water mark thresholds, enable XON. */
+ 	if (hw->fc.current_mode & ixgbe_fc_tx_pause) {
+-		rx_pba_size = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(packetbuf_num));
+-		rx_pba_size >>= IXGBE_RXPBSIZE_SHIFT;
+-
+-		reg = (rx_pba_size - hw->fc.low_water) << 6;
++		reg = hw->fc.low_water << 6;
+ 		if (hw->fc.send_xon)
+ 			reg |= IXGBE_FCRTL_XONE;
  
- 	if (hw->tbi_compatibility_on == 1)
-@@ -1917,7 +1917,7 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTL(packetbuf_num), reg);
+ 
+-		reg = (rx_pba_size - hw->fc.high_water) << 6;
++		reg = hw->fc.high_water[packetbuf_num] << 6;
+ 		reg |= IXGBE_FCRTH_FCEN;
+ 
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTH(packetbuf_num), reg);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 84ed9ef..59cd54c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -1932,7 +1932,6 @@ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	s32 ret_val = 0;
+ 	u32 mflcn_reg, fccfg_reg;
+ 	u32 reg;
+-	u32 rx_pba_size;
+ 	u32 fcrtl, fcrth;
+ 
+ #ifdef CONFIG_DCB
+@@ -2012,11 +2011,8 @@ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	IXGBE_WRITE_REG(hw, IXGBE_MFLCN, mflcn_reg);
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCCFG, fccfg_reg);
+ 
+-	rx_pba_size = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(packetbuf_num));
+-	rx_pba_size >>= IXGBE_RXPBSIZE_SHIFT;
+-
+-	fcrth = (rx_pba_size - hw->fc.high_water) << 10;
+-	fcrtl = (rx_pba_size - hw->fc.low_water) << 10;
++	fcrth = hw->fc.high_water[packetbuf_num] << 10;
++	fcrtl = hw->fc.low_water << 10;
+ 
+ 	if (hw->fc.current_mode & ixgbe_fc_tx_pause) {
+ 		fcrth |= IXGBE_FCRTH_FCEN;
+@@ -2293,7 +2289,9 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	 * Validate the water mark configuration.  Zero water marks are invalid
+ 	 * because it causes the controller to just blast out fc packets.
+ 	 */
+-	if (!hw->fc.low_water || !hw->fc.high_water || !hw->fc.pause_time) {
++	if (!hw->fc.low_water ||
++	    !hw->fc.high_water[packetbuf_num] ||
++	    !hw->fc.pause_time) {
+ 		hw_dbg(hw, "Invalid water mark configuration\n");
+ 		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
+ 		goto out;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
+index 0a68aa7..df095a9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
+@@ -36,7 +36,6 @@
+ 
+ #define IXGBE_MAX_PACKET_BUFFERS 8
+ #define MAX_USER_PRIORITY        8
+-#define MAX_TRAFFIC_CLASS        8
+ #define MAX_BW_GROUP             8
+ #define BW_PERCENT               100
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
+index 2288c3c..fcd0e47 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
+@@ -191,7 +191,7 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82598(struct ixgbe_hw *hw,
+  */
+ s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw, u8 pfc_en)
+ {
+-	u32 reg, rx_pba_size;
++	u32 reg;
+ 	u8  i;
+ 
+ 	if (pfc_en) {
+@@ -222,9 +222,8 @@ s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw, u8 pfc_en)
+ 	 */
+ 	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
+ 		int enabled = pfc_en & (1 << i);
+-		rx_pba_size = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(i));
+-		rx_pba_size >>= IXGBE_RXPBSIZE_SHIFT;
+-		reg = (rx_pba_size - hw->fc.low_water) << 10;
++
++		reg = hw->fc.low_water << 10;
+ 
+ 		if (enabled == pfc_enabled_tx ||
+ 		    enabled == pfc_enabled_full)
+@@ -232,7 +231,7 @@ s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw, u8 pfc_en)
+ 
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTL(i), reg);
+ 
+-		reg = (rx_pba_size - hw->fc.high_water) << 10;
++		reg = hw->fc.high_water[i] << 10;
+ 		if (enabled == pfc_enabled_tx ||
+ 		    enabled == pfc_enabled_full)
+ 			reg |= IXGBE_FCRTH_FCEN;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
+index d64fb87..02f6724 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
+@@ -210,21 +210,19 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82599(struct ixgbe_hw *hw,
+  */
+ s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en)
+ {
+-	u32 i, reg, rx_pba_size;
++	u32 i, reg;
+ 
+ 	/* Configure PFC Tx thresholds per TC */
+ 	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
+ 		int enabled = pfc_en & (1 << i);
+-		rx_pba_size = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(i));
+-		rx_pba_size >>= IXGBE_RXPBSIZE_SHIFT;
+ 
+-		reg = (rx_pba_size - hw->fc.low_water) << 10;
++		reg = hw->fc.low_water << 10;
+ 
+ 		if (enabled)
+ 			reg |= IXGBE_FCRTL_XONE;
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTL_82599(i), reg);
+ 
+-		reg = (rx_pba_size - hw->fc.high_water) << 10;
++		reg = hw->fc.high_water[i] << 10;
+ 		if (enabled)
+ 			reg |= IXGBE_FCRTH_FCEN;
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTH_82599(i), reg);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 29bcdbe..3d289b5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3356,9 +3356,128 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_RQTC, reg);
  	}
+ }
++#endif
++
++/* Additional bittime to account for IXGBE framing */
++#define IXGBE_ETH_FRAMING 20
++
++/*
++ * ixgbe_hpbthresh - calculate high water mark for flow control
++ *
++ * @adapter: board private structure to calculate for
++ * @pb - packet buffer to calculate
++ */
++static int ixgbe_hpbthresh(struct ixgbe_adapter *adapter, int pb)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct net_device *dev = adapter->netdev;
++	int link, tc, kb, marker;
++	u32 dv_id, rx_pba;
++
++	/* Calculate max LAN frame size */
++	tc = link = dev->mtu + ETH_HLEN + ETH_FCS_LEN + IXGBE_ETH_FRAMING;
++
++#ifdef IXGBE_FCOE
++	/* FCoE traffic class uses FCOE jumbo frames */
++	if (dev->features & NETIF_F_FCOE_MTU) {
++		int fcoe_pb = 0;
  
- 	/* Enable Receives */
--	ew32(RCTL, rctl);
-+	ew32(RCTL, rctl | E1000_RCTL_EN);
++#ifdef CONFIG_IXGBE_DCB
++		fcoe_pb = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
++
++#endif
++		if (fcoe_pb == pb && tc < IXGBE_FCOE_JUMBO_FRAME_SIZE)
++			tc = IXGBE_FCOE_JUMBO_FRAME_SIZE;
++	}
+ #endif
+ 
++	/* Calculate delay value for device */
++	switch (hw->mac.type) {
++	case ixgbe_mac_X540:
++		dv_id = IXGBE_DV_X540(link, tc);
++		break;
++	default:
++		dv_id = IXGBE_DV(link, tc);
++		break;
++	}
++
++	/* Loopback switch introduces additional latency */
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++		dv_id += IXGBE_B2BT(tc);
++
++	/* Delay value is calculated in bit times convert to KB */
++	kb = IXGBE_BT2KB(dv_id);
++	rx_pba = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(pb)) >> 10;
++
++	marker = rx_pba - kb;
++
++	/* It is possible that the packet buffer is not large enough
++	 * to provide required headroom. In this case throw an error
++	 * to user and a do the best we can.
++	 */
++	if (marker < 0) {
++		e_warn(drv, "Packet Buffer(%i) can not provide enough"
++			    "headroom to support flow control."
++			    "Decrease MTU or number of traffic classes\n", pb);
++		marker = tc + 1;
++	}
++
++	return marker;
++}
++
++/*
++ * ixgbe_lpbthresh - calculate low water mark for for flow control
++ *
++ * @adapter: board private structure to calculate for
++ * @pb - packet buffer to calculate
++ */
++static int ixgbe_lpbthresh(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct net_device *dev = adapter->netdev;
++	int tc;
++	u32 dv_id;
++
++	/* Calculate max LAN frame size */
++	tc = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
++
++	/* Calculate delay value for device */
++	switch (hw->mac.type) {
++	case ixgbe_mac_X540:
++		dv_id = IXGBE_LOW_DV_X540(tc);
++		break;
++	default:
++		dv_id = IXGBE_LOW_DV(tc);
++		break;
++	}
++
++	/* Delay value is calculated in bit times convert to KB */
++	return IXGBE_BT2KB(dv_id);
++}
++
++/*
++ * ixgbe_pbthresh_setup - calculate and setup high low water marks
++ */
++static void ixgbe_pbthresh_setup(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	int num_tc = netdev_get_num_tc(adapter->netdev);
++	int i;
++
++	if (!num_tc)
++		num_tc = 1;
++
++	hw->fc.low_water = ixgbe_lpbthresh(adapter);
++
++	for (i = 0; i < num_tc; i++) {
++		hw->fc.high_water[i] = ixgbe_hpbthresh(adapter, i);
++
++		/* Low water marks must not be larger than high water marks */
++		if (hw->fc.low_water > hw->fc.high_water[i])
++			hw->fc.low_water = 0;
++	}
++}
++
+ static void ixgbe_configure_pb(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -3372,6 +3491,7 @@ static void ixgbe_configure_pb(struct ixgbe_adapter *adapter)
+ 		hdrm = 0;
+ 
+ 	hw->mac.ops.set_rxpba(hw, tc, hdrm, PBA_STRATEGY_EQUAL);
++	ixgbe_pbthresh_setup(adapter);
  }
  
- /**
+ static void ixgbe_fdir_filter_restore(struct ixgbe_adapter *adapter)
+@@ -4774,13 +4894,11 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	struct net_device *dev = adapter->netdev;
+ 	unsigned int rss;
+ #ifdef CONFIG_IXGBE_DCB
+ 	int j;
+ 	struct tc_configuration *tc;
+ #endif
+-	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
+ 
+ 	/* PCI config space info */
+ 
+@@ -4856,8 +4974,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ #ifdef CONFIG_DCB
+ 	adapter->last_lfc_mode = hw->fc.current_mode;
+ #endif
+-	hw->fc.high_water = FC_HIGH_WATER(max_frame);
+-	hw->fc.low_water = FC_LOW_WATER(max_frame);
++	ixgbe_pbthresh_setup(adapter);
+ 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
+ 	hw->fc.send_xon = true;
+ 	hw->fc.disable_fc_autoneg = false;
+@@ -5124,9 +5241,6 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+ 	/* must set new MTU before calling down or up */
+ 	netdev->mtu = new_mtu;
+ 
+-	hw->fc.high_water = FC_HIGH_WATER(max_frame);
+-	hw->fc.low_water = FC_LOW_WATER(max_frame);
+-
+ 	if (netif_running(netdev))
+ 		ixgbe_reinit_locked(adapter);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 9a03341..16dd461 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -404,6 +404,7 @@
+ #define IXGBE_WUPL_LENGTH_MASK 0xFFFF
+ 
+ /* DCB registers */
++#define MAX_TRAFFIC_CLASS        8
+ #define IXGBE_RMCS      0x03D00
+ #define IXGBE_DPMCS     0x07F40
+ #define IXGBE_PDPMCS    0x0CD00
+@@ -2323,13 +2324,60 @@ typedef u32 ixgbe_physical_layer;
+ #define IXGBE_PHYSICAL_LAYER_10GBASE_XAUI 0x1000
+ #define IXGBE_PHYSICAL_LAYER_SFP_ACTIVE_DA 0x2000
+ 
+-/* Flow Control Macros */
+-#define PAUSE_RTT	8
+-#define PAUSE_MTU(MTU)	((MTU + 1024 - 1) / 1024)
++/* Flow Control Data Sheet defined values
++ * Calculation and defines taken from 802.1bb Annex O
++ */
++
++/* BitTimes (BT) conversion */
++#define IXGBE_BT2KB(BT) ((BT + 1023) / (8 * 1024))
++#define IXGBE_B2BT(BT) (BT * 8)
++
++/* Calculate Delay to respond to PFC */
++#define IXGBE_PFC_D	672
++
++/* Calculate Cable Delay */
++#define IXGBE_CABLE_DC	5556 /* Delay Copper */
++#define IXGBE_CABLE_DO	5000 /* Delay Optical */
++
++/* Calculate Interface Delay X540 */
++#define IXGBE_PHY_DC	25600	/* Delay 10G BASET */
++#define IXGBE_MAC_DC	8192	/* Delay Copper XAUI interface */
++#define IXGBE_XAUI_DC	(2 * 2048) /* Delay Copper Phy */
++
++#define IXGBE_ID_X540	(IXGBE_MAC_DC + IXGBE_XAUI_DC + IXGBE_PHY_DC)
++
++/* Calculate Interface Delay 82598, 82599 */
++#define IXGBE_PHY_D	12800
++#define IXGBE_MAC_D	4096
++#define IXGBE_XAUI_D	(2 * 1024)
++
++#define IXGBE_ID	(IXGBE_MAC_D + IXGBE_XAUI_D + IXGBE_PHY_D)
++
++/* Calculate Delay incurred from higher layer */
++#define IXGBE_HD	6144
++
++/* Calculate PCI Bus delay for low thresholds */
++#define IXGBE_PCI_DELAY	10000
++
++/* Calculate X540 delay value in bit times */
++#define IXGBE_FILL_RATE (36 / 25)
++
++#define IXGBE_DV_X540(LINK, TC) (IXGBE_FILL_RATE * \
++				 (IXGBE_B2BT(LINK) + IXGBE_PFC_D + \
++				 (2 * IXGBE_CABLE_DC) + \
++				 (2 * IXGBE_ID_X540) + \
++				 IXGBE_HD + IXGBE_B2BT(TC)))
++
++/* Calculate 82599, 82598 delay value in bit times */
++#define IXGBE_DV(LINK, TC) (IXGBE_FILL_RATE * \
++			    (IXGBE_B2BT(LINK) + IXGBE_PFC_D + \
++			    (2 * IXGBE_CABLE_DC) + (2 * IXGBE_ID) + \
++			    IXGBE_HD + IXGBE_B2BT(TC)))
+ 
+-#define FC_HIGH_WATER(MTU) ((((PAUSE_RTT + PAUSE_MTU(MTU)) * 144) + 99) / 100 +\
+-				PAUSE_MTU(MTU))
+-#define FC_LOW_WATER(MTU)  (2 * (2 * PAUSE_MTU(MTU) + PAUSE_RTT))
++/* Calculate low threshold delay values */
++#define IXGBE_LOW_DV_X540(TC) (2 * IXGBE_B2BT(TC) + \
++			       (IXGBE_FILL_RATE * IXGBE_PCI_DELAY))
++#define IXGBE_LOW_DV(TC)      (2 * IXGBE_LOW_DV_X540(TC))
+ 
+ /* Software ATR hash keys */
+ #define IXGBE_ATR_BUCKET_HASH_KEY    0x3DAD14E2
+@@ -2548,7 +2596,7 @@ struct ixgbe_bus_info {
+ 
+ /* Flow control parameters */
+ struct ixgbe_fc_info {
+-	u32 high_water; /* Flow Control High-water */
++	u32 high_water[MAX_TRAFFIC_CLASS]; /* Flow Control High-water */
+ 	u32 low_water; /* Flow Control Low-water */
+ 	u16 pause_time; /* Flow Control Pause timer */
+ 	bool send_xon; /* Flow control send XON */
 -- 
 1.7.6.2
