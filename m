@@ -1,65 +1,40 @@
-From: Huajun Li <huajun.li.lee@gmail.com>
-Subject: [PATCH 2/2] net: Fix potential memory leak
-Date: Sat, 24 Sep 2011 23:57:14 +0800
-Message-ID: <CA+v9cxYuFArVUh9gc-be-Lmy4TOTxp72VaCC4QeCEE3p1j2Ykg@mail.gmail.com>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH net-2.6] cxgb4: Fix EEH on IBM P7IOC
+Date: Sat, 24 Sep 2011 09:11:31 -0700
+Message-ID: <20110924161130.18521.39558.stgit@speedy5.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	Huajun Li <huajun.li.lee@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:37651 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751705Ab1IXP5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2011 11:57:15 -0400
-Received: by mail-fx0-f46.google.com with SMTP id 4so4732097fxe.19
-        for <netdev@vger.kernel.org>; Sat, 24 Sep 2011 08:57:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dm@chelsio.com, swise@opengridcomputing.com, kxie@chelsio.com
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While preparing flow caches, once fail may cause potential memory leak , fix it.
+From: Divy Le Ray <divy@chelsio.com>
 
-Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
+Fix EEH recovery on new P Series platform by
+requesting fundamental reset.
+
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
- net/core/flow.c |   19 ++++++++++++++++++-
- 1 files changed, 18 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index ba3e617..2dcaa03 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -420,7 +420,7 @@ static int __init flow_cache_init(struct flow_cache *fc)
+ drivers/net/cxgb4/cxgb4_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
- 	for_each_online_cpu(i) {
- 		if (flow_cache_cpu_prepare(fc, i))
--			return -ENOMEM;
-+			goto err;
+
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index c9957b7..b4efa29 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -3712,6 +3712,9 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		setup_debugfs(adapter);
  	}
- 	fc->hotcpu_notifier = (struct notifier_block){
- 		.notifier_call = flow_cache_cpu,
-@@ -433,6 +433,23 @@ static int __init flow_cache_init(struct flow_cache *fc)
- 	add_timer(&fc->rnd_timer);
-
- 	return 0;
-+err:
-+	if (fc->percpu) {
-+		free_percpu(fc->percpu);
-+		fc->percpu = NULL;
-+	}
+ 
++	/* PCIe EEH recovery on powerpc platforms needs fundamental reset */
++	pdev->needs_freset = 1;
 +
-+	/*
-+	 * Check each possible CPUs rather than online ones because they may be
-+	 * offline before the notifier is registered.
-+	 */
-+	for_each_possible_cpu(i) {
-+		struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, i);
-+		kfree(fcp->hash_table);
-+		fcp->hash_table = NULL;
-+	}
-+
-+	return -ENOMEM;
- }
-
- static int __init flow_cache_init_global(void)
--- 
-1.7.4.1
+ 	if (is_offload(adapter))
+ 		attach_ulds(adapter);
+ 
