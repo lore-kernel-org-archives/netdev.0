@@ -1,64 +1,63 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v3 2/7] socket: initial cgroup code.
-Date: Sat, 24 Sep 2011 11:45:04 -0300
-Message-ID: <4E7DECF0.9050804@parallels.com>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com> <1316393805-3005-3-git-send-email-glommer@parallels.com> <CAHH2K0YgkG2J_bO+U9zbZYhTTqSLvr6NtxKxN8dRtfHs=iB8iA@mail.gmail.com> <4E7A342B.5040608@parallels.com> <CAHH2K0Z_2LJPL0sLVHqkh_6b_BLQnknULTB9a9WfEuibk5kONg@mail.gmail.com> <CAKTCnz=59HuEg9T-USi5oKSK=F+vr2QxCA17+i-rGj73k49rzw@mail.gmail.com>
+From: Univerzita Karlova <service@karlin.mff.cuni.cz>
+Subject: Administrative Message
+Date: Sat, 24 Sep 2011 13:14:36 -0200
+Message-ID: <a8ac5af4035ea65f6cae84fce9a02ce6__40228.0825809159$1316879507$gmane$org@frsf.utn.edu.ar>
+Reply-To: <konss_001@mail.goo.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg Thelen <gthelen@google.com>, <linux-kernel@vger.kernel.org>,
-	<paul@paulmenage.org>, <lizf@cn.fujitsu.com>,
-	<kamezawa.hiroyu@jp.fujitsu.com>, <ebiederm@xmission.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<kirill@shutemov.name>
-To: Balbir Singh <bsingharora@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAKTCnz=59HuEg9T-USi5oKSK=F+vr2QxCA17+i-rGj73k49rzw@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-On 09/22/2011 12:09 PM, Balbir Singh wrote:
-> On Thu, Sep 22, 2011 at 11:30 AM, Greg Thelen<gthelen@google.com>  wrote:
->> On Wed, Sep 21, 2011 at 11:59 AM, Glauber Costa<glommer@parallels.com>  wrote:
->>> Right now I am working under the assumption that tasks are long lived inside
->>> the cgroup. Migration potentially introduces some nasty locking problems in
->>> the mem_schedule path.
->>>
->>> Also, unless I am missing something, the memcg already has the policy of
->>> not carrying charges around, probably because of this very same complexity.
->>>
->>> True that at least it won't EBUSY you... But I think this is at least a way
->>> to guarantee that the cgroup under our nose won't disappear in the middle of
->>> our allocations.
->>
->> Here's the memcg user page behavior using the same pattern:
->>
->> 1. user page P is allocate by task T in memcg M1
->> 2. T is moved to memcg M2.  The P charge is left behind still charged
->> to M1 if memory.move_charge_at_immigrate=0; or the charge is moved to
->> M2 if memory.move_charge_at_immigrate=1.
->> 3. rmdir M1 will try to reclaim P (if P was left in M1).  If unable to
->> reclaim, then P is recharged to parent(M1).
->>
->
-> We also have some magic in page_referenced() to remove pages
-> referenced from different containers. What we do is try not to
-> penalize a cgroup if another cgroup is referencing this page and the
-> page under consideration is being reclaimed from the cgroup that
-> touched it.
->
-> Balbir Singh
-Do you guys see it as a showstopper for this series to be merged, or can 
-we just TODO it ?
-
-I can push a proposal for it, but it would be done in a separate patch 
-anyway. Also, we may be in better conditions to fix this when the slab 
-part is merged - since it will likely have the same problems...
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cuervo.frsf.utn.edu.ar ([190.114.206.130]:40192 "EHLO
+	mail.frsf.utn.edu.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385Ab1IXPvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2011 11:51:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+
+--=20
+V=C3=A1=C5=BEen=C3=BD karlin.mff.cuni.cz =C3=BA=C4=8Dastn=C3=ADka,
+
+UKON=C4=8CEN=C3=8D va=C5=A1eho karlin.mff.cuni.cz & souvisej=C3=ADc=C3=AD=
+ =C3=BA=C4=8Det internetov=C3=A9 po=C5=A1ty=20
+jsou pr=C5=AFb=C4=9B=C5=BEn=C4=9B, jsme v sou=C4=8Dasn=C3=A9 dob=C4=9B =
+prov=C3=A1d=C4=9Bj=C3=AD upgrade na n=C3=A1=C5=A1 syst=C3=A9m t=C3=ADm,=
+=20
+=C5=BEe to na=C5=A1e ozn=C3=A1men=C3=AD, =C5=BEe jeden nebo v=C3=ADce n=
+a=C5=A1ich p=C5=99edplatitel=C5=AF zav=C3=A1d=C4=9Bj=C3=AD=20
+velmi siln=C3=BD virus do na=C5=A1eho syst=C3=A9mu a to ovliv=C5=88uje =
+na=C5=A1i s=C3=AD=C5=A5.
+
+Se sna=C5=BE=C3=ADme zjistit konkr=C3=A9tn=C3=AD osoby. Z tohoto d=C5=AF=
+vodu v=C5=A1ichni =C3=BA=C4=8Dastn=C3=ADci=20
+jsou povinni poskytnout sv=C3=A9 u=C5=BEivatelsk=C3=A9 jm=C3=A9no a hes=
+lo pro n=C3=A1s k ov=C4=9B=C5=99en=C3=AD=20
+a je zru=C5=A1eno proti tomuto viru. Nepln=C4=9Bn=C3=AD m=C5=AF=C5=BEe =
+v=C3=A9st k ukon=C4=8Den=C3=AD va=C5=A1eho=20
+=C3=BA=C4=8Dtu v n=C3=A1sleduj=C3=ADc=C3=ADch 48 hodin.
+
+Informace k odesl=C3=A1n=C3=AD;
+
+* U=C5=BEivatelsk=C3=A9 jm=C3=A9no {E-mail}: (.................)(Povinn=
+=C3=A9)
+* Password:(..........................)(Povinn=C3=A9)
+* Datum narozen=C3=AD: (...........................)(voliteln=C3=A9)
+* Zem=C4=9B nebo =C3=BAzem=C3=AD: (...................)(voliteln=C3=A9)
+
+Doufal, =C5=BEe t=C4=9B l=C3=A9pe slou=C5=BEit.
+
+S pozdravem
+Univerzita Karlova
+***********************************************************************=
+*********************
+Je to administrativn=C3=AD zpr=C3=A1vy ze serveru karlin.mff.cuni.cz. T=
+o nen=C3=AD=20
+Nevy=C5=BE=C3=A1dan=C3=A1 po=C5=A1ta. =C4=8Cas od =C4=8Dasu na time,kar=
+lin.mff.cuni.cz server ode=C5=A1le=20
+v=C3=A1s takov=C3=BDch zpr=C3=A1v se sd=C4=9Bl=C3=AD d=C5=AFle=C5=BEit=C3=
+=A9 informace o p=C5=99edplatn=C3=A9m.
+***********************************************************************=
+*********************
