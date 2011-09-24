@@ -1,47 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/10] ixgbe: disable LLI for FCoE
-Date: Sat, 24 Sep 2011 02:17:37 -0700
-Message-ID: <1316855863-6091-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/10] ixgbe: add ECC warning for legacy interrupts
+Date: Sat, 24 Sep 2011 02:17:43 -0700
+Message-ID: <1316855863-6091-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:20391 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752384Ab1IXJRs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Sep 2011 05:17:48 -0400
+	id S1752595Ab1IXJRw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Sep 2011 05:17:52 -0400
 In-Reply-To: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasu Dev <vasu.dev@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Disable LLI for FCoE since regular interrupt
-and their moderation rate works slightly better
-for FCoE also.
+Noticed that the legacy Interrupt handler didn't have the same
+ECC warning as did the MSI.  So this patch adds it.
 
-Signed-off-by: Vasu Dev <vasu.dev@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index cae766d..323f452 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -661,9 +661,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 			IXGBE_ETQS_QUEUE_EN |
- 			(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 6c97aa4..8995944 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2175,8 +2175,12 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
  
--	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL,
--			IXGBE_FCRXCTRL_FCOELLI |
--			IXGBE_FCRXCTRL_FCCRCBO |
-+	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL, IXGBE_FCRXCTRL_FCCRCBO |
- 			(FC_FCOE_VER << IXGBE_FCRXCTRL_FCOEVER_SHIFT));
- 	return;
- 
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82599EB:
+-	case ixgbe_mac_X540:
+ 		ixgbe_check_sfp_event(adapter, eicr);
++		/* Fall through */
++	case ixgbe_mac_X540:
++		if (eicr & IXGBE_EICR_ECC)
++			e_info(link, "Received unrecoverable ECC err, please "
++				     "reboot\n");
+ 		ixgbe_check_overtemp_event(adapter, eicr);
+ 		break;
+ 	default:
 -- 
 1.7.6.2
