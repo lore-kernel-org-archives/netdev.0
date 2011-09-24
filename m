@@ -1,37 +1,42 @@
-From: "Raymond Loong" <info22@yahoo.com>
-Subject: URGENTATTENTION!!!!!
-Date: Sat, 24 Sep 2011 10:07:25 -0400
-Message-ID: <50e39034745a3ee37b2a230cd69fbbf1.squirrel@webmail.fishintales.com>
-Reply-To: r.loong@hotmail.my
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Bridging broken/unfriendly
+Date: Sat, 24 Sep 2011 18:28:06 -0400
+Message-ID: <4E7E5976.1070200@earthlink.net>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: info@rl.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps4.trkhosting.com ([208.84.146.192]:37326 "EHLO
-	vps4.trkhosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752078Ab1IXSOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2011 14:14:07 -0400
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:56040 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752591Ab1IXWfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2011 18:35:08 -0400
+Received: from [69.22.83.66] (helo=joker.seclark.com)
+	by elasmtp-banded.atl.sa.earthlink.net with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.67)
+	(envelope-from <sclark46@earthlink.net>)
+	id 1R7ahb-0000nu-7e
+	for netdev@vger.kernel.org; Sat, 24 Sep 2011 18:28:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
+Is there some reason Linux bridging won't let the ip address be on
+one of the interfaces, like FreeBSD does, instead of the bridge device?
 
+This makes it very difficult or impossible to remotely add the interface
+you are remoted in on to a bridge, or is there some sneaky way to
+do this without losing your connection?
 
-Dear Friend,
+Thanks,
+Steve
 
-My name is Raymond Loong,am a Singaporean citizen and a seasoned Banker in
- malaysia(Berhad office),I occupy the position of an accountant in this
-branch office,it is with good spirit of heart I opened up this great
-opportunity to you. A deceased client of mine  died as the result of a
-heart-related condition on March 12th 2005. His heart condition was due to
-the lost of all the members of his family in thetsunami disaster on the
-26th December2004in Sumatra Indonesia.
+-- 
 
-He secured a sum of USD$19.761 Million left behind in the bank. I
-contacted you in distributing the amount. Please get back immediately to
-proceed.[r.loong@hotmail.my]
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
 
-Best Regards,
-
-Raymond Loong.
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
