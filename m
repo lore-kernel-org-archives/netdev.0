@@ -1,84 +1,163 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/10][pull request] Intel Wired LAN Drivers Update
-Date: Sat, 24 Sep 2011 02:17:33 -0700
-Message-ID: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+Subject: [net-next 08/10] ixgbe add thermal sensor support for x540 hardware
+Date: Sat, 24 Sep 2011 02:17:41 -0700
+Message-ID: <1316855863-6091-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33105 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:60565 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752330Ab1IXJRq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Sep 2011 05:17:46 -0400
+	id S1752575Ab1IXJRv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Sep 2011 05:17:51 -0400
+In-Reply-To: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to e1000, ixgbe, ixgbevf and
-if_link.  The e1000 patch is a fix to an issue seen qemu-kvm. The
-if_link patch adds an additional parameter for spoof checking,
-and there is a subsequent ixgbe patch to implement the if_link
-parameter.  The ixgbevf patch fixes an issue with trunk VLAN.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The remainder of the patches for ixgbe include:
-  - add thermal sensor support
-  - add ECC warning for legacy interrupts
-  - cleanup/update interrupt throttle rate logic
-  - cleanup/update X540 code
+Add code to enable thermal sensors for the x540 hardware, as well as a
+thermal interrupt check which will exit with a critical message of a
+thermal overheat is detected. Intent of code allows other mac types to
+be added with different configuration in the future.
 
-NOTE- After the discussion on conflating NAPI and interrupt moderation,
-I have a patch in validation to remove the tie between work_limit and
-interrupt moderation for ixgbe, which is not in this series.  I mention
-this because the cleanup to interrupt throttle rate logic patch
-still contains the code that ties NAPI and interrupt moderation.
+Fixed in this version is the addition of setting the temp_sensor
+capable flag which was previously only set for a specific mac.
 
-The following are changes since commit 7777de9af54a1402c79bf7663b38ff5ba308dd45:
-  qlcnic: Change CDRP function
-and are available in the git repository at:
-  git://github.com/Jkirsher/net-next.git
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   66 ++++++++++++++++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |    2 +
+ 2 files changed, 50 insertions(+), 18 deletions(-)
 
-Dean Nelson (1):
-  e1000: don't enable dma receives until after dma address has been
-    setup
-
-Don Skidmore (2):
-  ixgbe: cleanup ixgbe_setup_gpie() for X540
-  ixgbe: add ECC warning for legacy interrupts
-
-Emil Tantilov (1):
-  ixgbe: Cleanup q_vector interrupt throttle rate logic
-
-Greg Rose (3):
-  ixgbevf: Fix broken trunk vlan
-  if_link: Add additional parameter to IFLA_VF_INFO for spoof checking
-  ixgbe: Add new netdev op to turn spoof checking on or off per VF
-
-Jacob Keller (1):
-  ixgbe add thermal sensor support for x540 hardware
-
-John Fastabend (1):
-  ixgbe: update {P}FC thresholds to account for X540 and loopback
-
-Vasu Dev (1):
-  ixgbe: disable LLI for FCoE
-
- drivers/net/ethernet/intel/e1000/e1000_main.c      |    6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   28 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |    8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |   12 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |    9 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |    8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  153 +++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |    4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  299 +++++++++++++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   48 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   64 ++++-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |    6 +-
- include/linux/if_link.h                            |    7 +
- include/linux/netdevice.h                          |    3 +
- net/core/rtnetlink.c                               |   25 ++-
- 17 files changed, 442 insertions(+), 240 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 3d289b5..45f5ab5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1751,6 +1751,39 @@ static void ixgbe_check_fan_failure(struct ixgbe_adapter *adapter, u32 eicr)
+ 	}
+ }
+ 
++static void ixgbe_check_overtemp_event(struct ixgbe_adapter *adapter, u32 eicr)
++{
++	if (!(adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE))
++		return;
++
++	switch (adapter->hw.mac.type) {
++	case ixgbe_mac_82599EB:
++		/*
++		 * Need to check link state so complete overtemp check
++		 * on service task
++		 */
++		if (((eicr & IXGBE_EICR_GPI_SDP0) || (eicr & IXGBE_EICR_LSC)) &&
++		    (!test_bit(__IXGBE_DOWN, &adapter->state))) {
++			adapter->interrupt_event = eicr;
++			adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_EVENT;
++			ixgbe_service_event_schedule(adapter);
++			return;
++		}
++		return;
++	case ixgbe_mac_X540:
++		if (!(eicr & IXGBE_EICR_TS))
++			return;
++		break;
++	default:
++		return;
++	}
++
++	e_crit(drv,
++	       "Network adapter has been stopped because it has over heated. "
++	       "Restart the computer. If the problem persists, "
++	       "power off the system and replace the adapter\n");
++}
++
+ static void ixgbe_check_sfp_event(struct ixgbe_adapter *adapter, u32 eicr)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -1854,7 +1887,16 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter, bool queues,
+ 		mask &= ~IXGBE_EIMS_LSC;
+ 
+ 	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE)
+-		mask |= IXGBE_EIMS_GPI_SDP0;
++		switch (adapter->hw.mac.type) {
++		case ixgbe_mac_82599EB:
++			mask |= IXGBE_EIMS_GPI_SDP0;
++			break;
++		case ixgbe_mac_X540:
++			mask |= IXGBE_EIMS_TS;
++			break;
++		default:
++			break;
++		}
+ 	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE)
+ 		mask |= IXGBE_EIMS_GPI_SDP1;
+ 	switch (adapter->hw.mac.type) {
+@@ -1924,14 +1966,7 @@ static irqreturn_t ixgbe_msix_other(int irq, void *data)
+ 			}
+ 		}
+ 		ixgbe_check_sfp_event(adapter, eicr);
+-		if ((adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE) &&
+-		    ((eicr & IXGBE_EICR_GPI_SDP0) || (eicr & IXGBE_EICR_LSC))) {
+-			if (!test_bit(__IXGBE_DOWN, &adapter->state)) {
+-				adapter->interrupt_event = eicr;
+-				adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_EVENT;
+-				ixgbe_service_event_schedule(adapter);
+-			}
+-		}
++		ixgbe_check_overtemp_event(adapter, eicr);
+ 		break;
+ 	default:
+ 		break;
+@@ -2140,15 +2175,9 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
+ 
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82599EB:
++	case ixgbe_mac_X540:
+ 		ixgbe_check_sfp_event(adapter, eicr);
+-		if ((adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE) &&
+-		    ((eicr & IXGBE_EICR_GPI_SDP0) || (eicr & IXGBE_EICR_LSC))) {
+-			if (!test_bit(__IXGBE_DOWN, &adapter->state)) {
+-				adapter->interrupt_event = eicr;
+-				adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_EVENT;
+-				ixgbe_service_event_schedule(adapter);
+-			}
+-		}
++		ixgbe_check_overtemp_event(adapter, eicr);
+ 		break;
+ 	default:
+ 		break;
+@@ -4918,8 +4947,9 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 			adapter->flags |= IXGBE_FLAG_FAN_FAIL_CAPABLE;
+ 		adapter->max_msix_q_vectors = MAX_MSIX_Q_VECTORS_82598;
+ 		break;
+-	case ixgbe_mac_82599EB:
+ 	case ixgbe_mac_X540:
++		adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_CAPABLE;
++	case ixgbe_mac_82599EB:
+ 		adapter->max_msix_q_vectors = MAX_MSIX_Q_VECTORS_82599;
+ 		adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
+ 		adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 16dd461..838847c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1280,6 +1280,7 @@ enum {
+ #define IXGBE_EICR_LSC          0x00100000 /* Link Status Change */
+ #define IXGBE_EICR_LINKSEC      0x00200000 /* PN Threshold */
+ #define IXGBE_EICR_MNG          0x00400000 /* Manageability Event Interrupt */
++#define IXGBE_EICR_TS           0x00800000 /* Thermal Sensor Event */
+ #define IXGBE_EICR_GPI_SDP0     0x01000000 /* Gen Purpose Interrupt on SDP0 */
+ #define IXGBE_EICR_GPI_SDP1     0x02000000 /* Gen Purpose Interrupt on SDP1 */
+ #define IXGBE_EICR_GPI_SDP2     0x04000000 /* Gen Purpose Interrupt on SDP2 */
+@@ -1314,6 +1315,7 @@ enum {
+ #define IXGBE_EIMS_MAILBOX      IXGBE_EICR_MAILBOX   /* VF to PF Mailbox Int */
+ #define IXGBE_EIMS_LSC          IXGBE_EICR_LSC       /* Link Status Change */
+ #define IXGBE_EIMS_MNG          IXGBE_EICR_MNG       /* MNG Event Interrupt */
++#define IXGBE_EIMS_TS           IXGBE_EICR_TS        /* Thermel Sensor Event */
+ #define IXGBE_EIMS_GPI_SDP0     IXGBE_EICR_GPI_SDP0  /* SDP0 Gen Purpose Int */
+ #define IXGBE_EIMS_GPI_SDP1     IXGBE_EICR_GPI_SDP1  /* SDP1 Gen Purpose Int */
+ #define IXGBE_EIMS_GPI_SDP2     IXGBE_EICR_GPI_SDP2  /* SDP2 Gen Purpose Int */
 -- 
 1.7.6.2
