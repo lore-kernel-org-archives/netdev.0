@@ -1,147 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/10] if_link: Add additional parameter to IFLA_VF_INFO for spoof checking
-Date: Sat, 24 Sep 2011 02:17:38 -0700
-Message-ID: <1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Western Union Money Transfer <transferdpt12@helixnet.cn>
+Subject: We happily announce the sending of your first $5,000.00 USD
+Date: Sat, 24 Sep 2011 03:30:37 +0200
+Message-ID: <5561_1316827849_4E7D32C9_5561_5971_1_1316827837.4e7d32bd6cf72@webmail2.unical.it>
+Reply-To: transferdpt0@helixnet.cn
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:60565 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752505Ab1IXJRt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Sep 2011 05:17:49 -0400
-In-Reply-To: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mercurio.unical.it ([160.97.7.10]:36276 "EHLO
+	mercurio.unical.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750750Ab1IXNUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2011 09:20:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
 
-Add configuration setting for drivers to turn spoof checking on or off
-for discrete VFs.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- include/linux/if_link.h   |    7 +++++++
- include/linux/netdevice.h |    3 +++
- net/core/rtnetlink.c      |   25 ++++++++++++++++++++++---
- 3 files changed, 32 insertions(+), 3 deletions(-)
+We happily announce the sending of your first $5,000.00 USD that was awarded to 
+you by the 
+European Union And United Nation. Our office is mandated to start sending you a 
+total sum of $18,000,000.00 USD 
+And the amount of $5,000.00 USD will be sent to you daily via western Union.
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 0ee969a..8bd6d6d 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -279,6 +279,7 @@ enum {
- 	IFLA_VF_MAC,		/* Hardware queue specific attributes */
- 	IFLA_VF_VLAN,
- 	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
-+	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
- 	__IFLA_VF_MAX,
- };
- 
-@@ -300,12 +301,18 @@ struct ifla_vf_tx_rate {
- 	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling */
- };
- 
-+struct ifla_vf_spoofchk {
-+	__u32 vf;
-+	__u32 setting;
-+};
-+
- struct ifla_vf_info {
- 	__u32 vf;
- 	__u8 mac[32];
- 	__u32 vlan;
- 	__u32 qos;
- 	__u32 tx_rate;
-+	__u32 spoofchk;
- };
- 
- /* VF ports management section
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 43b3298..a2951a0 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -781,6 +781,7 @@ struct netdev_tc_txq {
-  * int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
-  * int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan, u8 qos);
-  * int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
-+ * int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, u8 setting);
-  * int (*ndo_get_vf_config)(struct net_device *dev,
-  *			    int vf, struct ifla_vf_info *ivf);
-  * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
-@@ -900,6 +901,8 @@ struct net_device_ops {
- 						   int queue, u16 vlan, u8 qos);
- 	int			(*ndo_set_vf_tx_rate)(struct net_device *dev,
- 						      int vf, int rate);
-+	int			(*ndo_set_vf_spoofchk)(struct net_device *dev,
-+						       int vf, u8 setting);
- 	int			(*ndo_get_vf_config)(struct net_device *dev,
- 						     int vf,
- 						     struct ifla_vf_info *ivf);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 39f8dd6..6535810 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -731,7 +731,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev)
- 		size += num_vfs *
- 			(nla_total_size(sizeof(struct ifla_vf_mac)) +
- 			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
--			 nla_total_size(sizeof(struct ifla_vf_tx_rate)));
-+			 nla_total_size(sizeof(struct ifla_vf_tx_rate)) +
-+			 nla_total_size(sizeof(struct ifla_vf_spoofchk)));
- 		return size;
- 	} else
- 		return 0;
-@@ -954,13 +955,19 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			struct ifla_vf_mac vf_mac;
- 			struct ifla_vf_vlan vf_vlan;
- 			struct ifla_vf_tx_rate vf_tx_rate;
-+			struct ifla_vf_spoofchk vf_spoofchk;
- 			if (dev->netdev_ops->ndo_get_vf_config(dev, i, &ivi))
- 				break;
--			vf_mac.vf = vf_vlan.vf = vf_tx_rate.vf = ivi.vf;
-+			vf_mac.vf =
-+			vf_vlan.vf =
-+			vf_tx_rate.vf =
-+			vf_spoofchk.vf = ivi.vf;
-+
- 			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
- 			vf_vlan.vlan = ivi.vlan;
- 			vf_vlan.qos = ivi.qos;
- 			vf_tx_rate.rate = ivi.tx_rate;
-+			vf_spoofchk.setting = ivi.spoofchk;
- 			vf = nla_nest_start(skb, IFLA_VF_INFO);
- 			if (!vf) {
- 				nla_nest_cancel(skb, vfinfo);
-@@ -968,7 +975,10 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			}
- 			NLA_PUT(skb, IFLA_VF_MAC, sizeof(vf_mac), &vf_mac);
- 			NLA_PUT(skb, IFLA_VF_VLAN, sizeof(vf_vlan), &vf_vlan);
--			NLA_PUT(skb, IFLA_VF_TX_RATE, sizeof(vf_tx_rate), &vf_tx_rate);
-+			NLA_PUT(skb, IFLA_VF_TX_RATE, sizeof(vf_tx_rate),
-+				&vf_tx_rate);
-+			NLA_PUT(skb, IFLA_VF_SPOOFCHK, sizeof(vf_spoofchk),
-+				&vf_spoofchk);
- 			nla_nest_end(skb, vf);
- 		}
- 		nla_nest_end(skb, vfinfo);
-@@ -1202,6 +1212,15 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
- 							      ivt->rate);
- 			break;
- 		}
-+		case IFLA_VF_SPOOFCHK: {
-+			struct ifla_vf_spoofchk *ivs;
-+			ivs = nla_data(vf);
-+			err = -EOPNOTSUPP;
-+			if (ops->ndo_set_vf_spoofchk)
-+				err = ops->ndo_set_vf_spoofchk(dev, ivs->vf,
-+							       ivs->setting);
-+			break;
-+		}
- 		default:
- 			err = -EINVAL;
- 			break;
--- 
-1.7.6.2
+You are advised to confirm your receiving information by sending the following 
+details:
+
+* Full Names:...............................
+* Current Address:........................
+* Country:....................................
+* Telephone number:....................
+* Age:.........................................
+* Sex:.........................................
+* Occupation:..............................
+* fax:.......................................
+
+The requested information is needed to re-activate your first payment of 
+$5,000.00 USD 
+Feel free to e-mail or call: +44 743 885 8568 for more information and payment 
+procedures.
+
+Sign,
+
+Mr PETER  CLAYTON
+Call Line: +44 743 885 8568
+E-mail: transferdpt0@helixnet.cn
+
+-------------------------------------------------
+This mail sent through IMP: http://horde.org/imp/
+
+
+
+
+**** Riservatezza / Confidentiality ****
+In ottemperanza al D.Lgs. n. 196 del 30/6/2003 in materia di protezione dei dati personali, le informazioni contenute in questo messaggio sono strettamente riservate ed esclusivamente indirizzate al destinatario indicato (oppure alla persona responsabile di  rimetterlo al destinatario). Vogliate tener presente che qualsiasi uso, riproduzione o divulgazione di questo messaggio e' vietato. Nel caso in cui aveste ricevuto questo messaggio per errore, vogliate cortesemente avvertire il mittente e distruggere il presente  messaggio.
