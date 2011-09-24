@@ -1,56 +1,71 @@
-From: Western Union Money Transfer <transferdpt12@helixnet.cn>
-Subject: We happily announce the sending of your first $5,000.00 USD
-Date: Sat, 24 Sep 2011 03:30:37 +0200
-Message-ID: <5561_1316827849_4E7D32C9_5561_5971_1_1316827837.4e7d32bd6cf72@webmail2.unical.it>
-Reply-To: transferdpt0@helixnet.cn
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v3 6/7] tcp buffer limitation: per-cgroup limit
+Date: Sat, 24 Sep 2011 10:30:42 -0300
+Message-ID: <4E7DDB82.3030802@parallels.com>
+References: <1316393805-3005-1-git-send-email-glommer@parallels.com> <1316393805-3005-7-git-send-email-glommer@parallels.com> <CAHH2K0Yuji2_2pMdzEaMvRx0KE7OOaoEGT+OK4gJgTcOPKuT9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mercurio.unical.it ([160.97.7.10]:36276 "EHLO
-	mercurio.unical.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750Ab1IXNUW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2011 09:20:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <kamezawa.hiroyu@jp.fujitsu.com>,
+	<ebiederm@xmission.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-mm@kvack.org>, <kirill@shutemov.name>
+To: Greg Thelen <gthelen@google.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CAHH2K0Yuji2_2pMdzEaMvRx0KE7OOaoEGT+OK4gJgTcOPKuT9g@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On 09/22/2011 03:01 AM, Greg Thelen wrote:
+> On Sun, Sep 18, 2011 at 5:56 PM, Glauber Costa<glommer@parallels.com>  wrote:
+>> +static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
+>> +{
+>> +       return (mem == root_mem_cgroup);
+>> +}
+>> +
+>
+> Why are you adding a copy of mem_cgroup_is_root().  I see one already
+> in v3.0.  Was it deleted in a previous patch?
 
+Already answered by another good samaritan.
 
-We happily announce the sending of your first $5,000.00 USD that was awarded to 
-you by the 
-European Union And United Nation. Our office is mandated to start sending you a 
-total sum of $18,000,000.00 USD 
-And the amount of $5,000.00 USD will be sent to you daily via western Union.
+>> +static int tcp_write_maxmem(struct cgroup *cgrp, struct cftype *cft, u64 val)
+>> +{
+>> +       struct mem_cgroup *sg = mem_cgroup_from_cont(cgrp);
+>> +       struct mem_cgroup *parent = parent_mem_cgroup(sg);
+>> +       struct net *net = current->nsproxy->net_ns;
+>> +       int i;
+>> +
+>> +       if (!cgroup_lock_live_group(cgrp))
+>> +               return -ENODEV;
+>
+> Why is cgroup_lock_live_cgroup() needed here?  Does it protect updates
+> to sg->tcp_prot_mem[*]?
+>
+>> +static u64 tcp_read_maxmem(struct cgroup *cgrp, struct cftype *cft)
+>> +{
+>> +       struct mem_cgroup *sg = mem_cgroup_from_cont(cgrp);
+>> +       u64 ret;
+>> +
+>> +       if (!cgroup_lock_live_group(cgrp))
+>> +               return -ENODEV;
+>
+> Why is cgroup_lock_live_cgroup() needed here?  Does it protect updates
+> to sg->tcp_max_memory?
 
-You are advised to confirm your receiving information by sending the following 
-details:
+No, that is not my understanding. My understanding is this lock is 
+needed to protect against the cgroup just disappearing under our nose.
 
-* Full Names:...............................
-* Current Address:........................
-* Country:....................................
-* Telephone number:....................
-* Age:.........................................
-* Sex:.........................................
-* Occupation:..............................
-* fax:.......................................
+The task reading/writing it is not necessarily inside the cgroup 
+(usually it is not...), so the mere fact of opening the file does not 
+guarantee the cgroup will be kept alive. So we can grab a pointer - 
+cgroup exists - and write to it - cgroup does not exist.
 
-The requested information is needed to re-activate your first payment of 
-$5,000.00 USD 
-Feel free to e-mail or call: +44 743 885 8568 for more information and payment 
-procedures.
+Or am I missing something ?
 
-Sign,
-
-Mr PETER  CLAYTON
-Call Line: +44 743 885 8568
-E-mail: transferdpt0@helixnet.cn
-
--------------------------------------------------
-This mail sent through IMP: http://horde.org/imp/
-
-
-
-
-**** Riservatezza / Confidentiality ****
-In ottemperanza al D.Lgs. n. 196 del 30/6/2003 in materia di protezione dei dati personali, le informazioni contenute in questo messaggio sono strettamente riservate ed esclusivamente indirizzate al destinatario indicato (oppure alla persona responsabile di  rimetterlo al destinatario). Vogliate tener presente che qualsiasi uso, riproduzione o divulgazione di questo messaggio e' vietato. Nel caso in cui aveste ricevuto questo messaggio per errore, vogliate cortesemente avvertire il mittente e distruggere il presente  messaggio.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
