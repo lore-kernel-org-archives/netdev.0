@@ -1,53 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/10] ixgbevf: Fix broken trunk vlan
-Date: Sat, 24 Sep 2011 02:17:35 -0700
-Message-ID: <1316855863-6091-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/10] ixgbe: disable LLI for FCoE
+Date: Sat, 24 Sep 2011 02:17:37 -0700
+Message-ID: <1316855863-6091-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jiri Pirko <jpirko@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:60565 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20391 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752469Ab1IXJRr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Sep 2011 05:17:47 -0400
+	id S1752384Ab1IXJRs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Sep 2011 05:17:48 -0400
 In-Reply-To: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Vasu Dev <vasu.dev@intel.com>
 
-Changes to clean up the vlan rx path broke trunk vlan.  Trunk vlans in
-a VF driver are those set using:
+Disable LLI for FCoE since regular interrupt
+and their moderation rate works slightly better
+for FCoE also.
 
-"ip link set <pfdev> vf <n> <vlanid>"
-
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-CC: Jiri Pirko <jpirko@redhat.com>
+Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index d72905b..4930c46 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -293,12 +293,10 @@ static void ixgbevf_receive_skb(struct ixgbevf_q_vector *q_vector,
- {
- 	struct ixgbevf_adapter *adapter = q_vector->adapter;
- 	bool is_vlan = (status & IXGBE_RXD_STAT_VP);
-+	u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index cae766d..323f452 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -661,9 +661,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 			IXGBE_ETQS_QUEUE_EN |
+ 			(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
  
--	if (is_vlan) {
--		u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
--
-+	if (is_vlan && test_bit(tag, adapter->active_vlans))
- 		__vlan_hwaccel_put_tag(skb, tag);
--	}
+-	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL,
+-			IXGBE_FCRXCTRL_FCOELLI |
+-			IXGBE_FCRXCTRL_FCCRCBO |
++	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL, IXGBE_FCRXCTRL_FCCRCBO |
+ 			(FC_FCOE_VER << IXGBE_FCRXCTRL_FCOEVER_SHIFT));
+ 	return;
  
- 	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
- 			napi_gro_receive(&q_vector->napi, skb);
 -- 
 1.7.6.2
