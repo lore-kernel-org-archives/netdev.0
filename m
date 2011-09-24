@@ -1,117 +1,47 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: Re: BUG_ON -> WARN_ON in tcp_fragment
-Date: Fri, 23 Sep 2011 17:43:18 -0700
-Message-ID: <CAB_+Fg7ATpMVRd-yRtATzdYKwzbCvBdOxD8UvTa=Pj74ErzgjA@mail.gmail.com>
-References: <CAB_+Fg6jv7uqFo7+fjPT1j3TL01rftmxRM1v2oP40sbX8puwyQ@mail.gmail.com>
-	<alpine.DEB.2.00.1109231032450.28649@melkinpaasi.cs.helsinki.fi>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] tcp: ECN blackhole should not force quickack mode
+Date: Fri, 23 Sep 2011 20:55:45 -0400
+Message-ID: <1316825745.1865.24.camel@mojatatu>
+References: <1316757739.2560.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Jim Gettys <jg@freedesktop.org>,
+	Dave Taht <dave.taht@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:56912 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751900Ab1IXAnV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 20:43:21 -0400
-Received: from wpaz29.hot.corp.google.com (wpaz29.hot.corp.google.com [172.24.198.93])
-	by smtp-out.google.com with ESMTP id p8O0hKDd010602
-	for <netdev@vger.kernel.org>; Fri, 23 Sep 2011 17:43:20 -0700
-Received: from ywf9 (ywf9.prod.google.com [10.192.6.9])
-	by wpaz29.hot.corp.google.com with ESMTP id p8O0hJjp003164
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 23 Sep 2011 17:43:19 -0700
-Received: by ywf9 with SMTP id 9so3709558ywf.36
-        for <netdev@vger.kernel.org>; Fri, 23 Sep 2011 17:43:19 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1109231032450.28649@melkinpaasi.cs.helsinki.fi>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:49605 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752972Ab1IXA7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Sep 2011 20:59:22 -0400
+Received: by gxk6 with SMTP id 6so3089111gxk.19
+        for <netdev@vger.kernel.org>; Fri, 23 Sep 2011 17:59:21 -0700 (PDT)
+In-Reply-To: <1316757739.2560.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+netdev
-Thanks, Ilpo.
+On Fri, 2011-09-23 at 08:02 +0200, Eric Dumazet wrote:
+> While playing with a new ADSL box at home, I discovered that ECN
+> blackhole can trigger suboptimal quickack mode on linux : We send one
+> ACK for each incoming data frame, without any delay and eventual
+> piggyback.
+>
+> This is because TCP_ECN_check_ce() considers that if no ECT is seen on a
+> segment, this is because this segment was a retransmit.
 
-On Fri, Sep 23, 2011 at 1:01 AM, Ilpo J=E4rvinen
-<ilpo.jarvinen@helsinki.fi> wrote:
->
-> On Thu, 22 Sep 2011, Nandita Dukkipati wrote:
->
-> > I am observing several instances hitting the BUG_ON(len > skb->len)=
- in
-> > tcp_fragment on older kernels.=A0The function passing incorrect arg=
-uments is
-> > tcp_mark_head_lost. I saw your patch changing BUG_ON to WARN_ON in =
-this
-> > patch. That's a good change, however I am trying to put in some amo=
-unt of
-> > debugging information to get to the root cause.
->
-> Right, that change won't cure the cause. I was able to determine that=
- some
-> invariant must be violated to trigger this. However, the lack of
-> information about the state of variables in tcp_mark_head_lost preven=
-ted
-> me known exactly what is wrong (not to speak of from where the proble=
-m
-> originates, I certainly tried to read some other code too but so far
-> I've not been able to figure it out). I never remembered to do the de=
-bug
-> patch while I would have had time (and I'm sitting at the computer).
->
-> > Given that (packets - oldcnt) < tcp_skb_pcount, it should follow th=
-at
-> > (packets - oldcnt) * mss < skb->len.
-> >
-> > 1)=A0Is it possible that the skb has multiple small packets each sm=
-aller than
-> > mss, in which case we shouldn't expect the above relation to hold?
->
-> It should not happen because we recalculate on each retransmission us=
-ing
-> effective MSS. SACK block combines skbs but should only do that for
-> S-bit'ed skbs requiring reneging at minimum to get them flying again =
-and
-> still they're retransmitted through with the same eff MSS check being
-> done. However, I've seen some indications that there could be some bu=
-g in
-> this as some drivers had to circumvent for the case of very small
-> MSS'ed super skb (pcount > 1) because some hardware fails to handle t=
-hat.
-> I've no idea how such segments can be constructed atm but it certainl=
-y
-> seems that you might be on the right tracks.
->
-> If you're seeing them it would be easy to do sanity checks in
-> tcp_mark_head_lost instead of tcp_fragment and trigger printouts with=
- more
-> verbose information. However, it might not solve the quest for the ca=
-use
-> as this might only be symptom but certainly is still a good initial s=
-tep.
->
-> > If not, then it appears to be one of the two cases -
-> > 2) mss updated in the midst of recovery (path mtu discovery?), with=
-out
-> > corresponding updates of skb->gso_segs or skb-?gso_size?
->
-> This is not relevant, as mss is stored into skb and we fetch it from
-> there: mss =3D skb_shinfo(skb)->gso_size. All such mss changes only a=
-ffect
-> newly generated stuff.
->
-> > 3) skb->len is inaccurately updated st some point.
->
-> This is another possibility. But due to the other bug report I'm more
-> inclined towards the first option. Also, I think this would lead to s=
-ome
-> noisy truesize inconsitency but I'm not the expert in those calculati=
-ons
-> :-D.
->
-> > Your thoughts on which of these is a plausible scenario (or somethi=
-ng other
-> > than these!) would be great.
->
-> Some pcount/cnt_hint misvalue might also explain something.
->
-> --
-> =A0i.
+If you have Linux as the sender, that assumption is legit (i.e we never
+set ECT on retransmits).
+
+> Refine this heuristic and apply it only if we seen ECT in a previous
+> segment, to detect ECN blackhole at IP level.
+
+So  small confusion for me, Eric:
+Is theres some middlebox clearing the ECT but allowing the TCP header
+ECN flags to be set during SYN echange?  If yes, why would not allowing
+quickack help?
+
+cheers,
+jamal
