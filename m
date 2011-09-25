@@ -1,19 +1,53 @@
-From: "Microsoft Corporation 2011 Award" <trevisol.adv@concordia.psi.br>
-Subject: Microsoft Corporation 2011 Award
-Date: Sat, 24 Sep 2011 21:03:48 -0300 (BRT)
-Message-ID: <2077.41.155.74.149.1316909028.squirrel@webmail.concordia.psi.br>
-Reply-To: microfice2011@hotmail.com
-Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from afrodite.concordia.psi.br ([189.91.192.17]:60877 "EHLO
-	concordia.psi.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750946Ab1IYAKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Sep 2011 20:10:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH] IPVS: Removed unused conntrack sysctl entry
+Date: Sun, 25 Sep 2011 09:49:03 +0900
+Message-ID: <1316911743-28269-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Simon Horman <horms@verge.net.au>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-You Won The Microsoft Corporation 2011 Award of 800,000.00 Euro.Contact Mr
-Mark For Claims.
+This does not appear to be used anywhere.
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c |   11 -----------
+ 1 files changed, 0 insertions(+), 11 deletions(-)
+
+Julian, I cant see any users of this sysctl in the current code.
+Am I missing something?
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 36f4495..49befca 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1605,14 +1605,6 @@ static struct ctl_table vs_vars[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_do_defense_mode,
+ 	},
+-#ifdef CONFIG_IP_VS_NFCT
+-	{
+-		.procname	= "conntrack",
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec,
+-	},
+-#endif
+ 	{
+ 		.procname	= "secure_tcp",
+ 		.maxlen		= sizeof(int),
+@@ -3535,9 +3527,6 @@ int __net_init __ip_vs_control_init_sysctl(struct net *net)
+ 	tbl[idx++].data = &ipvs->sysctl_am_droprate;
+ 	tbl[idx++].data = &ipvs->sysctl_drop_entry;
+ 	tbl[idx++].data = &ipvs->sysctl_drop_packet;
+-#ifdef CONFIG_IP_VS_NFCT
+-	tbl[idx++].data = &ipvs->sysctl_conntrack;
+-#endif
+ 	tbl[idx++].data = &ipvs->sysctl_secure_tcp;
+ 	ipvs->sysctl_snat_reroute = 1;
+ 	tbl[idx++].data = &ipvs->sysctl_snat_reroute;
+-- 
+1.7.5.4
+
