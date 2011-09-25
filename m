@@ -1,142 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next] iproute2: Add new command to IP link to enable/disable VF spoof check
-Date: Sun, 25 Sep 2011 01:23:18 -0700
-Message-ID: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Re: Bridge stays down until a port is added
+Date: Sun, 25 Sep 2011 10:25:04 +0200
+Message-ID: <20110925082504.GA32712@torres.zugschlus.de>
+References: <20110811070659.GA21307@torres.zugschlus.de>
+ <20110811081706.7307e8b2@nehalam.ftrdhcpuser.net>
+ <20110917204257.GA2636@torres.zugschlus.de>
+ <1316550027.1783.102.camel@dcbw.foobar.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:25248 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751484Ab1IYIXV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Sep 2011 04:23:21 -0400
+Received: from torres.zugschlus.de ([85.214.131.164]:33747 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751467Ab1IYIZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2011 04:25:06 -0400
+Received: from mh by torres.zugschlus.de with local (Exim 4.72)
+	(envelope-from <mh+netdev@zugschlus.de>)
+	id 1R7k1I-0008WI-Ah
+	for netdev@vger.kernel.org; Sun, 25 Sep 2011 10:25:04 +0200
+Content-Disposition: inline
+In-Reply-To: <1316550027.1783.102.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On Tue, Sep 20, 2011 at 03:20:26PM -0500, Dan Williams wrote:
+> On Sat, 2011-09-17 at 22:42 +0200, Marc Haber wrote:
+> > On Thu, Aug 11, 2011 at 08:17:06AM -0700, Stephen Hemminger wrote:
+> > In the IPv6 SLAAC case, the host tries start its radvd on the bridge
+> > well before the first VM comes up, the radvd barfs since the interface
+> > is not up, does not come up, and the VMs are without network. In this
+> > case, it is needed to force the bridge into an UP state earlier so
+> > that radvd can start.
+> 
+> So why not start radvd when the first interface is added to the bridge?
 
-Add IP link command parsing for VF spoof checking enable/disable
+With a daemon that waits for the bridge coming up? Or do you suggest
+to add that complexity to VirtualBox or KVM's networking scripts?
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- include/linux/if_link.h |    7 +++++++
- ip/ipaddress.c          |    6 ++++++
- ip/iplink.c             |   15 +++++++++++++++
- man/man8/ip.8           |    4 +++-
- 4 files changed, 31 insertions(+), 1 deletions(-)
+> Or, really, make radvd aware of when the bridge comes up so it can
+> handle this itself,
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 304c44f..e421f60 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -277,6 +277,7 @@ enum {
- 	IFLA_VF_MAC,		/* Hardware queue specific attributes */
- 	IFLA_VF_VLAN,
- 	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
-+	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
- 	__IFLA_VF_MAX,
- };
- 
-@@ -298,12 +299,18 @@ struct ifla_vf_tx_rate {
- 	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling */
- };
- 
-+struct ifla_vf_spoofchk {
-+	__u32 vf;
-+	__u32 setting;
-+};
-+
- struct ifla_vf_info {
- 	__u32 vf;
- 	__u8 mac[32];
- 	__u32 vlan;
- 	__u32 qos;
- 	__u32 tx_rate;
-+	__u32 spoofchk;
- };
- 
- /* VF ports management section
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 85f05a2..7e6ac50 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -197,6 +197,7 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	struct ifla_vf_mac *vf_mac;
- 	struct ifla_vf_vlan *vf_vlan;
- 	struct ifla_vf_tx_rate *vf_tx_rate;
-+	struct ifla_vf_spoofchk *vf_spoofchk;
- 	struct rtattr *vf[IFLA_VF_MAX+1];
- 	SPRINT_BUF(b1);
- 
-@@ -210,6 +211,7 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	vf_mac = RTA_DATA(vf[IFLA_VF_MAC]);
- 	vf_vlan = RTA_DATA(vf[IFLA_VF_VLAN]);
- 	vf_tx_rate = RTA_DATA(vf[IFLA_VF_TX_RATE]);
-+	vf_spoofchk = RTA_DATA(vf[IFLA_VF_SPOOFCHK]);
- 
- 	fprintf(fp, "\n    vf %d MAC %s", vf_mac->vf,
- 		ll_addr_n2a((unsigned char *)&vf_mac->mac,
-@@ -220,6 +222,10 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 		fprintf(fp, ", qos %d", vf_vlan->qos);
- 	if (vf_tx_rate->rate)
- 		fprintf(fp, ", tx rate %d (Mbps)", vf_tx_rate->rate);
-+	if (vf_spoofchk->setting)
-+		fprintf(fp, ", spoof checking on");
-+	else
-+		fprintf(fp, ", spoof checking off");
- }
- 
- int print_linkinfo(const struct sockaddr_nl *who,
-diff --git a/ip/iplink.c b/ip/iplink.c
-index e5325a6..f4a5243 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -71,7 +71,10 @@ void iplink_usage(void)
- 	fprintf(stderr, "			  [ alias NAME ]\n");
- 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
- 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
-+
- 	fprintf(stderr, "				   [ rate TXRATE ] ] \n");
-+
-+	fprintf(stderr, "				   [ spoofchk { on | off} ] ] \n");
- 	fprintf(stderr, "			  [ master DEVICE ]\n");
- 	fprintf(stderr, "			  [ nomaster ]\n");
- 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ]\n");
-@@ -228,6 +231,18 @@ int iplink_parse_vf(int vf, int *argcp, char ***argvp,
- 			ivt.vf = vf;
- 			addattr_l(&req->n, sizeof(*req), IFLA_VF_TX_RATE, &ivt, sizeof(ivt));
- 		
-+		} else if (matches(*argv, "spoofchk") == 0) {
-+			struct ifla_vf_spoofchk ivs;
-+			NEXT_ARG();
-+			if (matches(*argv, "on") == 0)
-+				ivs.setting = 1;
-+			else if (matches(*argv, "off") == 0)
-+				ivs.setting = 0;
-+			else
-+				invarg("Invalid \"spoofchk\" value\n", *argv);
-+			ivs.vf = vf;
-+			addattr_l(&req->n, sizeof(*req), IFLA_VF_SPOOFCHK, &ivs, sizeof(ivs));
-+
- 		} else {
- 			/* rewind arg */
- 			PREV_ARG();
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index 27993a4..cd7b97a 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -100,7 +100,9 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
- .B qos
- .IR VLAN-QOS " ] ] ["
- .B rate
--.IR TXRATE " ] |"
-+.IR TXRATE " ] ["
-+.B spoofchk { on | off }
-+] |
- .br
- .B master
- .IR DEVICE
+Ah, Adding complexity to radvd. A really nice idea.
+
+Just for the record: For everybody else, this is a regression, since
+things that used to work for years got broken in recent kernel versions.
+
+Greetings
+Marc, stopping this discussion now
+
 -- 
-1.7.6.2
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
