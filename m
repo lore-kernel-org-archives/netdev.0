@@ -1,37 +1,42 @@
 From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: Re: bridge carrier issue
-Date: Sun, 25 Sep 2011 10:51:04 +0200
-Message-ID: <20110925085104.GB32712@torres.zugschlus.de>
-References: <20110920.152953.448244771460257273.davem@redhat.com>
- <c1e52584-2b98-4e95-bfb1-fe4cd64c1c47@tahiti.vyatta.com>
+Subject: Re: [PATCH 1/2] bridge: leave carrier on for empty bridge
+Date: Sun, 25 Sep 2011 10:55:40 +0200
+Message-ID: <20110925085540.GC32712@torres.zugschlus.de>
+References: <20110902172220.830228928@vyatta.com>
+ <20110902172247.396753508@vyatta.com>
+ <4E614CF7.7030700@gmail.com>
+ <20110902151100.327af0bf@nehalam.ftrdhcpuser.net>
+ <4E618DCD.5070901@sfc.wide.ad.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:33768 "EHLO
+Received: from torres.zugschlus.de ([85.214.131.164]:33771 "EHLO
 	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751489Ab1IYIvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2011 04:51:06 -0400
+	with ESMTP id S1751583Ab1IYIzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2011 04:55:41 -0400
 Received: from mh by torres.zugschlus.de with local (Exim 4.72)
 	(envelope-from <mh+netdev@zugschlus.de>)
-	id 1R7kQS-00009i-IP
-	for netdev@vger.kernel.org; Sun, 25 Sep 2011 10:51:04 +0200
+	id 1R7kUu-0000AX-Lm
+	for netdev@vger.kernel.org; Sun, 25 Sep 2011 10:55:40 +0200
 Content-Disposition: inline
-In-Reply-To: <c1e52584-2b98-4e95-bfb1-fe4cd64c1c47@tahiti.vyatta.com>
+In-Reply-To: <4E618DCD.5070901@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 20, 2011 at 04:00:18PM -0700, Stephen Hemminger wrote:
-> Looked at dnsmasq and it needs some more work to handle IPv6 address
-> correctly. It sleeps if it gets a tentative address.
-> 
-> radvd probably has similar issues.
+On Sat, Sep 03, 2011 at 11:15:41AM +0900, Ang Way Chuang wrote:
+> A more ideal solution in this case is to add the option to enabling
+> carrier on sysfs and modify libvirtd to turn on the carrier if IPv6 is
+> enabled.
 
-And bind. And libvirtd. And apache. And probably a truckload of other
-applications.
+I would even do it manually from an init script if that saves me from
+having an extra dummy interface on a bridge just to force it up.
 
-The ONLY application that I am aware of and that handles this case
-properly is ntpd.
+>  Since there is no other
+>  complain from other user with this setup, I guess nobody actually
+>  assigns IPv6 to libvirtd network device at this moment
+
+I do. Daily. And get bitten every time I reboot. A _major_ nuisance.
 
 Greetings
 Marc
