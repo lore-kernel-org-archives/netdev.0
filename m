@@ -1,71 +1,33 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next 05/10] if_link: Add additional parameter to
- IFLA_VF_INFO for spoof checking
-Date: Sun, 25 Sep 2011 10:22:38 -0700
-Message-ID: <20110925102238.55ba72eb@s6510.linuxnetplumber.net>
-References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next] iproute2: Add new command to IP link to
+ enable/disable VF spoof check
+Date: Sun, 25 Sep 2011 10:23:53 -0700
+Message-ID: <20110925102353.602d239b@s6510.linuxnetplumber.net>
+References: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Greg Rose <gregory.v.rose@intel.com>,
+Cc: Greg Rose <gregory.v.rose@intel.com>, davem@davemloft.net,
 	netdev@vger.kernel.org, gospo@redhat.com
 To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54273 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:54301 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753078Ab1IYRWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Sep 2011 13:22:45 -0400
-In-Reply-To: <1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753113Ab1IYRXz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Sep 2011 13:23:55 -0400
+In-Reply-To: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 24 Sep 2011 02:17:38 -0700
+On Sun, 25 Sep 2011 01:23:18 -0700
 Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
 > From: Greg Rose <gregory.v.rose@intel.com>
 > 
-> Add configuration setting for drivers to turn spoof checking on or off
-> for discrete VFs.
+> Add IP link command parsing for VF spoof checking enable/disable
 > 
 > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  include/linux/if_link.h   |    7 +++++++
->  include/linux/netdevice.h |    3 +++
->  net/core/rtnetlink.c      |   25 ++++++++++++++++++++++---
->  3 files changed, 32 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index 0ee969a..8bd6d6d 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -279,6 +279,7 @@ enum {
->  	IFLA_VF_MAC,		/* Hardware queue specific attributes */
->  	IFLA_VF_VLAN,
->  	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
-> +	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
->  	__IFLA_VF_MAX,
->  };
->  
-> @@ -300,12 +301,18 @@ struct ifla_vf_tx_rate {
->  	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling */
->  };
->  
-> +struct ifla_vf_spoofchk {
-> +	__u32 vf;
-> +	__u32 setting;
-> +};
-> +
->  struct ifla_vf_info {
->  	__u32 vf;
->  	__u8 mac[32];
->  	__u32 vlan;
->  	__u32 qos;
->  	__u32 tx_rate;
-> +	__u32 spoofchk;
->  };
 
-This breaks ABI compatibility, unless you add some special case code
-to handle the case of tools sending the old ifla_vf_info. Users may have older version
-of ip utilities that send smaller size structure.
+See my comments about ABI compatibility. Can't just grow size of structure.
+Need to have new version of iproute work with older kernels.
