@@ -1,36 +1,43 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Forward Shared Patch
-Date: Sun, 25 Sep 2011 11:39:21 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1109251129190.1474@ja.ssi.bg>
-References: <20110925011347.GB31019@verge.net.au>
+From: Marc Haber <mh+netdev@zugschlus.de>
+Subject: Re: bridge carrier issue
+Date: Sun, 25 Sep 2011 10:51:04 +0200
+Message-ID: <20110925085104.GB32712@torres.zugschlus.de>
+References: <20110920.152953.448244771460257273.davem@redhat.com>
+ <c1e52584-2b98-4e95-bfb1-fe4cd64c1c47@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20110925011347.GB31019@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from torres.zugschlus.de ([85.214.131.164]:33768 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751489Ab1IYIvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2011 04:51:06 -0400
+Received: from mh by torres.zugschlus.de with local (Exim 4.72)
+	(envelope-from <mh+netdev@zugschlus.de>)
+	id 1R7kQS-00009i-IP
+	for netdev@vger.kernel.org; Sun, 25 Sep 2011 10:51:04 +0200
+Content-Disposition: inline
+In-Reply-To: <c1e52584-2b98-4e95-bfb1-fe4cd64c1c47@tahiti.vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-On Sun, 25 Sep 2011, Simon Horman wrote:
-
-> Hi Julian,
+On Tue, Sep 20, 2011 at 04:00:18PM -0700, Stephen Hemminger wrote:
+> Looked at dnsmasq and it needs some more work to handle IPv6 address
+> correctly. It sleeps if it gets a tentative address.
 > 
-> I am wondering if you have any interest in/objections to trying
-> to merge your forward shared patch which allows an IPVS director
-> to act as a router for realservers using the direct routing or tunnelling
-> forwarding mechanisms.
-> 
-> http://www.ssi.bg/~ja/#lvsgw
+> radvd probably has similar issues.
 
-	Such feature is already added to 2.6.33:
+And bind. And libvirtd. And apache. And probably a truckload of other
+applications.
 
-/proc/sys/net/ipv4/conf/*/accept_local
+The ONLY application that I am aware of and that handles this case
+properly is ntpd.
 
-Regards
+Greetings
+Marc
 
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
