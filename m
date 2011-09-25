@@ -1,44 +1,71 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: [PATCH] ipv6: nullify ipv6_ac_list and ipv6_fl_list when creating
- new socket
-Date: Sun, 25 Sep 2011 20:21:30 +0800
-Message-ID: <4E7F1CCA.5000104@intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next 05/10] if_link: Add additional parameter to
+ IFLA_VF_INFO for spoof checking
+Date: Sun, 25 Sep 2011 10:22:38 -0700
+Message-ID: <20110925102238.55ba72eb@s6510.linuxnetplumber.net>
+References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Cc: davem@davemloft.net, Greg Rose <gregory.v.rose@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:47064 "EHLO mga14.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:54273 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752376Ab1IYMVd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Sep 2011 08:21:33 -0400
+	id S1753078Ab1IYRWp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Sep 2011 13:22:45 -0400
+In-Reply-To: <1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipv6_ac_list and ipv6_fl_list from listening socket are inadvertently
-shared with new socket created for connection.
+On Sat, 24 Sep 2011 02:17:38 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
-Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
----
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3c9fa61..79cc646 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1383,6 +1383,8 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		newtp->af_specific = &tcp_sock_ipv6_mapped_specific;
- #endif
- 
-+		newnp->ipv6_ac_list = NULL;
-+		newnp->ipv6_fl_list = NULL;
- 		newnp->pktoptions  = NULL;
- 		newnp->opt	   = NULL;
- 		newnp->mcast_oif   = inet6_iif(skb);
-@@ -1447,6 +1449,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	   First: no IPv4 options.
- 	 */
- 	newinet->inet_opt = NULL;
-+	newnp->ipv6_ac_list = NULL;
- 	newnp->ipv6_fl_list = NULL;
- 
- 	/* Clone RX bits */
+> From: Greg Rose <gregory.v.rose@intel.com>
+> 
+> Add configuration setting for drivers to turn spoof checking on or off
+> for discrete VFs.
+> 
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  include/linux/if_link.h   |    7 +++++++
+>  include/linux/netdevice.h |    3 +++
+>  net/core/rtnetlink.c      |   25 ++++++++++++++++++++++---
+>  3 files changed, 32 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> index 0ee969a..8bd6d6d 100644
+> --- a/include/linux/if_link.h
+> +++ b/include/linux/if_link.h
+> @@ -279,6 +279,7 @@ enum {
+>  	IFLA_VF_MAC,		/* Hardware queue specific attributes */
+>  	IFLA_VF_VLAN,
+>  	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
+> +	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
+>  	__IFLA_VF_MAX,
+>  };
+>  
+> @@ -300,12 +301,18 @@ struct ifla_vf_tx_rate {
+>  	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling */
+>  };
+>  
+> +struct ifla_vf_spoofchk {
+> +	__u32 vf;
+> +	__u32 setting;
+> +};
+> +
+>  struct ifla_vf_info {
+>  	__u32 vf;
+>  	__u8 mac[32];
+>  	__u32 vlan;
+>  	__u32 qos;
+>  	__u32 tx_rate;
+> +	__u32 spoofchk;
+>  };
+
+This breaks ABI compatibility, unless you add some special case code
+to handle the case of tools sending the old ifla_vf_info. Users may have older version
+of ip utilities that send smaller size structure.
