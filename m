@@ -1,54 +1,79 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Why not refresh ipv6 local link address of a bridge when a new
- interface added to the bridge?
-Date: Mon, 26 Sep 2011 08:51:17 -0700
-Message-ID: <20110926085117.1a749151@nehalam.linuxnetplumber.net>
-References: <CA+UXGK1Ej4DeS5-=FO0ejMCGjWfptxxxRibhMi2-duE9Cx2D_g@mail.gmail.com>
-	<CA+UXGK1XAgCxYUoOAP6yQSGhzDB-3p3oDqOoOc_e=rTT3DPx7Q@mail.gmail.com>
-	<CA+UXGK3yQzUuZwHWooxd91G77ACvYzwTQUOoDdVc-=CCEv4POQ@mail.gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 02/10] ixgbevf: Fix broken trunk vlan
+Date: Mon, 26 Sep 2011 08:57:03 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C519319@orsmsx508.amr.corp.intel.com>
+References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1316855863-6091-3-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAEP_g=93GcR7yE7N+GtaB6dpjPuGGtCBXznEmV6Sx=BX-kSbmg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Xiong <bottomofstack@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Jesse Gross <jesse@nicira.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40674 "EHLO mail.vyatta.com"
+Received: from mga02.intel.com ([134.134.136.20]:42765 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751257Ab1IZPv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 11:51:27 -0400
-In-Reply-To: <CA+UXGK3yQzUuZwHWooxd91G77ACvYzwTQUOoDdVc-=CCEv4POQ@mail.gmail.com>
+	id S1751347Ab1IZP50 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 11:57:26 -0400
+In-Reply-To: <CAEP_g=93GcR7yE7N+GtaB6dpjPuGGtCBXznEmV6Sx=BX-kSbmg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Sep 2011 10:39:31 +0800
-Eric Xiong <bottomofstack@gmail.com> wrote:
-
-> Hi all:
-> Sorry for disturb! when adding a interface to bridge, maybe the bridge
-> mac address will be changed. the bridge code don't invoke
-> call_netdevice_notifiers to notify ipv6 code to refresh local link
-> address. I don't know why. Thanks for your help!
-> 
-> BRs.
-
-This change went in for v3.1
-
-
-    Bridge: Always send NETDEV_CHANGEADDR up on br MAC change.
-    
-    This ensures the neighbor entries associated with the bridge
-    dev are flushed, also invalidating the associated cached L2 headers.
-    
-    This means we br_add_if/br_del_if ports to implement hand-over and
-    not wind up with bridge packets going out with stale MAC.
-    
-    This means we can also change MAC of port device and also not wind
-    up with bridge packets going out with stale MAC.
-    
-    This builds on Stephen Hemminger's patch, also handling the br_del_if
-    case and the port MAC change case.
-    
-    Cc: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: Andrei Warkentin <andreiw@motorola.com>
-    Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZXNzZSBHcm9zcyBbbWFpbHRv
+Omplc3NlQG5pY2lyYS5jb21dDQo+IFNlbnQ6IFNhdHVyZGF5LCBTZXB0ZW1iZXIgMjQsIDIwMTEg
+OTozMyBBTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQu
+bmV0OyBSb3NlLCBHcmVnb3J5IFY7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdvc3BvQHJl
+ZGhhdC5jb207IEppcmkgUGlya28NCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAwMi8xMF0gaXhn
+YmV2ZjogRml4IGJyb2tlbiB0cnVuayB2bGFuDQo+IA0KPiBPbiBTYXQsIFNlcCAyNCwgMjAxMSBh
+dCAyOjE3IEFNLCBKZWZmIEtpcnNoZXINCj4gPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4g
+d3JvdGU6DQo+ID4gRnJvbTogR3JlZyBSb3NlIDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+DQo+
+ID4NCj4gPiBDaGFuZ2VzIHRvIGNsZWFuIHVwIHRoZSB2bGFuIHJ4IHBhdGggYnJva2UgdHJ1bmsg
+dmxhbi4gwqBUcnVuayB2bGFucyBpbg0KPiA+IGEgVkYgZHJpdmVyIGFyZSB0aG9zZSBzZXQgdXNp
+bmc6DQo+ID4NCj4gPiAiaXAgbGluayBzZXQgPHBmZGV2PiB2ZiA8bj4gPHZsYW5pZD4iDQo+ID4N
+Cj4gPiBTaWduZWQtb2ZmLWJ5OiBHcmVnIFJvc2UgPGdyZWdvcnkudi5yb3NlQGludGVsLmNvbT4N
+Cj4gPiBDQzogSmlyaSBQaXJrbyA8anBpcmtvQHJlZGhhdC5jb20+DQo+ID4gU2lnbmVkLW9mZi1i
+eTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQo+ID4gLS0tDQo+
+ID4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZmL2l4Z2JldmZfbWFpbi5jIHwg
+wqAgwqA2ICsrLS0tLQ0KPiA+IMKgMSBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDQg
+ZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaXhnYmV2Zi9peGdiZXZmX21haW4uYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMNCj4gPiBpbmRleCBkNzI5MDViLi40OTMwYzQ2IDEw
+MDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JldmYvaXhnYmV2
+Zl9tYWluLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZmL2l4
+Z2JldmZfbWFpbi5jDQo+ID4gQEAgLTI5MywxMiArMjkzLDEwIEBAIHN0YXRpYyB2b2lkIGl4Z2Jl
+dmZfcmVjZWl2ZV9za2Ioc3RydWN0DQo+IGl4Z2JldmZfcV92ZWN0b3IgKnFfdmVjdG9yLA0KPiA+
+IMKgew0KPiA+IMKgIMKgIMKgIMKgc3RydWN0IGl4Z2JldmZfYWRhcHRlciAqYWRhcHRlciA9IHFf
+dmVjdG9yLT5hZGFwdGVyOw0KPiA+IMKgIMKgIMKgIMKgYm9vbCBpc192bGFuID0gKHN0YXR1cyAm
+IElYR0JFX1JYRF9TVEFUX1ZQKTsNCj4gPiArIMKgIMKgIMKgIHUxNiB0YWcgPSBsZTE2X3RvX2Nw
+dShyeF9kZXNjLT53Yi51cHBlci52bGFuKTsNCj4gPg0KPiA+IC0gwqAgwqAgwqAgaWYgKGlzX3Zs
+YW4pIHsNCj4gPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHUxNiB0YWcgPSBsZTE2X3RvX2NwdShy
+eF9kZXNjLT53Yi51cHBlci52bGFuKTsNCj4gPiAtDQo+ID4gKyDCoCDCoCDCoCBpZiAoaXNfdmxh
+biAmJiB0ZXN0X2JpdCh0YWcsIGFkYXB0ZXItPmFjdGl2ZV92bGFucykpDQo+ID4gwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqBfX3ZsYW5faHdhY2NlbF9wdXRfdGFnKHNrYiwgdGFnKTsNCj4gPiAtIMKg
+IMKgIMKgIH0NCj4gDQo+IFdoYXQgaGFwcGVucyBpZiB5b3UgcnVuIHRjcGR1bXAgd2l0aG91dCBj
+b25maWd1cmluZyB2bGFuIGRldmljZXM/DQo+IFNob3VsZG4ndCB5b3Ugc2VlIHRhZ2dlZCBwYWNr
+ZXRzIGZvciB0aGUgdmxhbnMgdGhhdCBhcmUgYmVpbmcgdHJ1bmtlZA0KPiB0byB5b3U/ICBJIHRo
+aW5rIHRoaXMgd2lsbCBzdHJpcCB0YWdzIGluIHRoYXQgY2FzZS4gIFRoZSBhcHBhcmVudA0KPiBi
+ZWhhdmlvciBvZiB2bGFuIGZpbHRlcnMgaGVyZSBpcyBhbHNvIHN1cnByaXNpbmcgdG8gbWUgYmVj
+YXVzZSBvbiBvbmUNCj4gaGFuZCBpZiB0aGV5J3JlIHRydWx5IGZpbHRlcmluZyB0aGlzIHRlc3Qg
+c2hvdWxkbid0IGJlIG5lZWRlZCBhbmQgb24NCj4gdGhlIG90aGVyIGhhbmQgdGhleSBkb24ndCBz
+ZWVtIHRvIGJlIGRpc2FibGVkIGluIHByb21pc2N1b3VzIG1vZGUuDQoNCkkgdGhpbmsgeW91J3Jl
+IG5vdCBxdWl0ZSB1bmRlcnN0YW5kaW5nIHRoZSBhY3Rpb24gdGhlIEhXIGlzIHRha2luZyBoZXJl
+LiAgSW4gdGhlIHBoeXNpY2FsIGZ1bmN0aW9uIGRyaXZlciB3ZSBoYXZlIHB1dCB0aGUgVkYgb24g
+YSBWTEFOIHdpdGhvdXQgaXQga25vd2luZyB0aGF0IGl0J3Mgb24gYSBWTEFOLiAgT25jZSB0aGF0
+IGlzIGRvbmUgYnkgdGhlIFBGLCB0aGUgVkYgaXMgbm90IGFsbG93ZWQgdG8gY29uZmlndXJlIGl0
+cyBvd24gVkxBTnMgYW55bW9yZS4gIEhvd2V2ZXIsIHRoZSBkZXNjcmlwdG9yIHN0aWxsIGluY2x1
+ZGVzIGEgYml0IGZvciB0aGUgVkxBTiB0YWcgaW5kaWNhdGluZyBpdCB3YXMgYSBwYWNrZXQgdGhh
+dCBhcnJpdmVkIG9uIGEgVkxBTi4gIFRoZSBIVyBpcyBpbnNlcnRpbmcgYW5kIHN0cmlwcGluZyB0
+aGUgVkxBTiB0YWcgdGhvdWdoIHdpdGhvdXQgYW55IGF3YXJlbmVzcyBvZiB0aGF0IGJ5IHRoZSBW
+RiBkcml2ZXIuDQoNCkl0J3MgYSBzZWN1cml0eSBtZWFzdXJlIHRvIGFsbG93IGFuIGFkbWluaXN0
+cmF0b3IgdG8gcHV0IGEgVkYgb24gYSBWTEFOIHRvIHByb3ZpZGUgYW5vdGhlciBsZXZlbCBvZiBp
+c29sYXRpb24gZm9yIHRoZSBWRi4NCg0KSW50ZWwgVkZzIGRvbid0IHN1cHBvcnQgcHJvbWlzY3Vv
+dXMgbW9kZS4gIElmIHlvdSByYW4gdGNwZHVtcCB5b3Ugd291bGRuJ3Qgc2VlIHRoZSBWTEFOIHRh
+Z3MgYmVjYXVzZSB0aGV5J3ZlIGJlZW4gc3RyaXBwZWQgYnkgdGhlIEhXLiAgVGhlIFZGIGhhcyBu
+byBjaG9pY2UgaW4gdGhpcy4NCg0KLSBHcmVnDQo=
