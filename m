@@ -1,58 +1,34 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/2] virtio-net: Prevent NULL dereference
-Date: Mon, 26 Sep 2011 21:47:03 +0300
-Message-ID: <20110926184703.GB22278@redhat.com>
-References: <1317058869-19276-1-git-send-email-levinsasha928@gmail.com>
- <1317058869-19276-2-git-send-email-levinsasha928@gmail.com>
+From: Breno Leitao <brenohl@br.ibm.com>
+Subject: Re: [PATCH] ehea: Remove sleep at .ndo_get_stats
+Date: Mon, 26 Sep 2011 15:56:35 -0300
+Message-ID: <4E80CAE3.2040100@br.ibm.com>
+References: <1316704497.29549.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1317057325-7410-1-git-send-email-brenohl@br.ibm.com> <1317060132.2796.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5769 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752375Ab1IZSqT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 14:46:19 -0400
-Content-Disposition: inline
-In-Reply-To: <1317058869-19276-2-git-send-email-levinsasha928@gmail.com>
+Received: from e24smtp05.br.ibm.com ([32.104.18.26]:60716 "EHLO
+	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752603Ab1IZS5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 14:57:55 -0400
+Received: from /spool/local
+	by br.ibm.com with XMail ESMTP
+	for <netdev@vger.kernel.org> from <brenohl@br.ibm.com>;
+	Mon, 26 Sep 2011 15:57:53 -0300
+Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p8QIxuUI1159584
+	for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 16:00:06 -0300
+Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
+	by d24av03.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p8QIukSd026283
+	for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 15:56:47 -0300
+In-Reply-To: <1317060132.2796.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 26, 2011 at 08:41:09PM +0300, Sasha Levin wrote:
-> This patch prevents a NULL dereference when the user has passed a length
-> longer than an actual buffer to virtio-net.
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: virtualization@lists.linux-foundation.org
-> Cc: netdev@vger.kernel.org
-> Cc: kvm@vger.kernel.org
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+On 09/26/2011 03:02 PM, Eric Dumazet wrote:
+> You should move in ehea_get_stats() all software-computed stats.
+Agreed. I am going to resend the patch.
 
-Hmm, another protection against a buggy device, right?
-No problem with that, but let's discard the packet
-and print a disgnostic, so that the user can discover
-what happened.
-
-> ---
->  drivers/net/virtio_net.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 64e0717..8d32c1e 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -198,7 +198,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
->  	len -= copy;
->  	offset += copy;
->  
-> -	while (len) {
-> +	while (len && page) {
->  		set_skb_frag(skb, page, offset, &len);
->  		page = (struct page *)page->private;
->  		offset = 0;
-> -- 
-> 1.7.6.1
+Thanks
