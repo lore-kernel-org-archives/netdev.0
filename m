@@ -1,44 +1,38 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [PATCH 0/4] IPVS: sysctl Documentation and Various Clean-Ups
-Date: Mon, 26 Sep 2011 08:43:17 +0200
-Message-ID: <201109260843.18257.hans@schillstrom.com>
-References: <1317000233-11169-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1317000233-11169-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+Subject: [PATCH 1/2] pch_gbe: Fixed the issue on which PC was frozen when link was downed.
+Date: Mon, 26 Sep 2011 16:27:42 +0900
+Message-ID: <1317022063-12143-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
+Cc: qi.wang@intel.com, yong.y.wang@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com, tomoya-linux@dsn.okisemi.com,
+	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Simon
+When a link was downed during network use,
+there is an issue on which PC freezes.
 
-On Monday, September 26, 2011 03:23:49 Simon Horman wrote:
-> Hi,
-> 
-> patch one of this series adds some missing entries to the sysctl
-> documentation. Julian, I would appreciate a review of this change.
-> 
-> The remaining three patches are minor code clean-ups flagged
-> by gcc 4.6.1.
-> 
-> My intention for this post is to solicit review.
-> I intend to post a pull request separately at a later date.
-> 
+This patch fixed this issue.
 
-Your patches looks fine to me,
-you can have mine ack as well
+Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+---
+ drivers/net/pch_gbe/pch_gbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Acked-by Hans Schillstrom <hans@schillstrom.com>
-
-I have two small pending patches,  Deadlock and lockdep fixes. 
-Hopefully the patches will be ready this week. The deadlock is a tricky bastard to fix. 
-
-Regards
-Hans
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
+index 567ff10..5474189 100644
+--- a/drivers/net/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/pch_gbe/pch_gbe_main.c
+@@ -2195,7 +2195,7 @@ static int pch_gbe_napi_poll(struct napi_struct *napi, int budget)
+ 		/* If no Tx and not enough Rx work done,
+ 		 * exit the polling mode
+ 		 */
+-		if ((work_done < budget) || !netif_running(netdev))
++		if (work_done < budget)
+ 			poll_end_flag = true;
+ 	}
+ 
+-- 
+1.7.4.4
