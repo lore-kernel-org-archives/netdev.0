@@ -1,44 +1,59 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: intel 82599 multi-port performance
-Date: Mon, 26 Sep 2011 08:20:49 -0600
-Message-ID: <4E808A41.8040902@genband.com>
-References: <4E805359.2080600@gmail.com>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [SCSI] cxgb3i: convert cdev->l2opt to use rcu to prevent NULL
+ dereference (v2)
+Date: Mon, 26 Sep 2011 09:31:15 -0500
+Message-ID: <1317047476.9560.0.camel@dabdike>
+References: <20110926134048.GA10999@longonot.mountain>
+	 <20110926142052.GA18283@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "J.Hwan Kim" <frog1120@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og126.obsmtp.com ([64.18.2.206]:59799 "EHLO
-	exprod7og126.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751506Ab1IZOVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 10:21:10 -0400
-In-Reply-To: <4E805359.2080600@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20110926142052.GA18283@hmsreliant.think-freely.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/26/2011 04:26 AM, J.Hwan Kim wrote:
-> Hi, everyone
->
-> Now, I'm testing a network card including intel 82599.
-> In our experiment, with the driver modified with ixgbe and multi-port
-> enabled,
+On Mon, 2011-09-26 at 10:20 -0400, Neil Horman wrote:
+> On Mon, Sep 26, 2011 at 04:40:48PM +0300, Dan Carpenter wrote:
+> > Hi Neil,
+> > 
+> > c98bc57ee65b6 "[SCSI] cxgb3i: convert cdev->l2opt to use rcu to
+> > prevent NULL dereference (v2)" from linux-next introduces a usinging
+> > uninitialized variable bug.
+> > 
+> >  struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct neighbour *neigh,
+> >                              struct net_device *dev)
+> >  {
+> > -       struct l2t_entry *e;
+> > -       struct l2t_data *d = L2DATA(cdev);
+> > +       struct l2t_entry *e = NULL;
+> > +       struct l2t_data *d;
+> >         u32 addr = *(u32 *) neigh->primary_key;
+> >         int ifidx = neigh->dev->ifindex;
+> >         int hash = arp_hash(addr, ifidx, d);
+> >                                          ^
+> > Uninitialized variable.
+> > 
+> >         struct port_info *p = netdev_priv(dev);
+> >         int smt_idx = p->port_id;
+> >  
+> > +       rcu_read_lock();
+> > +       d = L2DATA(cdev);
+> > +       if (!d)
+> > +               goto done_rcu;
+> > +
+> > 
+> > regards,
+> > dan carpenter
+> > 
+> 
+> Yup, thanks, you need this to9 fix the uninitalized var.
 
-What do you mean by "modified with ixgbe and multi-port enabled"?  You 
-shouldn't need to do anything special to use both ports.
+I rolled this into the original.
 
-> rx performance of each port with 10Gbps of 64bytes frame is
-> a half than when only 1 port is used.
-
-Sounds like a cpu limitation.  What is your cpu usage?  How are your 
-interrupts routed?  Are you using multiple rx queues?
-
-Chris
+James
 
 
--- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
