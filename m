@@ -1,110 +1,89 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 05/10] if_link: Add additional parameter to
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next 05/10] if_link: Add additional parameter to
  IFLA_VF_INFO for spoof checking
-Date: Mon, 26 Sep 2011 09:06:41 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C51934A@orsmsx508.amr.corp.intel.com>
+Date: Mon, 26 Sep 2011 09:14:26 -0700
+Message-ID: <20110926091426.5c83a4d7@nehalam.linuxnetplumber.net>
 References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <1316882459.4122.83.camel@deadeye>
+	<1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20110925102238.55ba72eb@s6510.linuxnetplumber.net>
+	<1316981213.4122.106.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57249 "EHLO mga11.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:60000 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751744Ab1IZQGm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 12:06:42 -0400
-In-Reply-To: <1316882459.4122.83.camel@deadeye>
-Content-Language: en-US
+	id S1751834Ab1IZQOd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 12:14:33 -0400
+In-Reply-To: <1316981213.4122.106.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIFNlcHRlbWJl
-ciAyNCwgMjAxMSA5OjQxIEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gQ2M6IGRhdmVt
-QGRhdmVtbG9mdC5uZXQ7IFJvc2UsIEdyZWdvcnkgVjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsN
-Cj4gZ29zcG9AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0IDA1LzEwXSBpZl9s
-aW5rOiBBZGQgYWRkaXRpb25hbCBwYXJhbWV0ZXIgdG8NCj4gSUZMQV9WRl9JTkZPIGZvciBzcG9v
-ZiBjaGVja2luZw0KPiANCj4gT24gU2F0LCAyMDExLTA5LTI0IGF0IDAyOjE3IC0wNzAwLCBKZWZm
-IEtpcnNoZXIgd3JvdGU6DQo+ID4gRnJvbTogR3JlZyBSb3NlIDxncmVnb3J5LnYucm9zZUBpbnRl
-bC5jb20+DQo+ID4NCj4gPiBBZGQgY29uZmlndXJhdGlvbiBzZXR0aW5nIGZvciBkcml2ZXJzIHRv
-IHR1cm4gc3Bvb2YgY2hlY2tpbmcgb24gb3Igb2ZmDQo+ID4gZm9yIGRpc2NyZXRlIFZGcy4NCj4g
-Pg0KPiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29t
-Pg0KPiA+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50
-ZWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L2lmX2xpbmsuaCAgIHwgICAgNyAr
-KysrKysrDQo+ID4gIGluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggfCAgICAzICsrKw0KPiA+ICBu
-ZXQvY29yZS9ydG5ldGxpbmsuYyAgICAgIHwgICAyNSArKysrKysrKysrKysrKysrKysrKysrLS0t
-DQo+ID4gIDMgZmlsZXMgY2hhbmdlZCwgMzIgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkN
-Cj4gPg0KPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2lmX2xpbmsuaCBiL2luY2x1ZGUv
-bGludXgvaWZfbGluay5oDQo+ID4gaW5kZXggMGVlOTY5YS4uOGJkNmQ2ZCAxMDA2NDQNCj4gPiAt
-LS0gYS9pbmNsdWRlL2xpbnV4L2lmX2xpbmsuaA0KPiA+ICsrKyBiL2luY2x1ZGUvbGludXgvaWZf
-bGluay5oDQo+ID4gQEAgLTI3OSw2ICsyNzksNyBAQCBlbnVtIHsNCj4gPiAgCUlGTEFfVkZfTUFD
-LAkJLyogSGFyZHdhcmUgcXVldWUgc3BlY2lmaWMgYXR0cmlidXRlcyAqLw0KPiA+ICAJSUZMQV9W
-Rl9WTEFOLA0KPiA+ICAJSUZMQV9WRl9UWF9SQVRFLAkvKiBUWCBCYW5kd2lkdGggQWxsb2NhdGlv
-biAqLw0KPiA+ICsJSUZMQV9WRl9TUE9PRkNISywJLyogU3Bvb2YgQ2hlY2tpbmcgb24vb2ZmIHN3
-aXRjaCAqLw0KPiA+ICAJX19JRkxBX1ZGX01BWCwNCj4gPiAgfTsNCj4gPg0KPiA+IEBAIC0zMDAs
-MTIgKzMwMSwxOCBAQCBzdHJ1Y3QgaWZsYV92Zl90eF9yYXRlIHsNCj4gPiAgCV9fdTMyIHJhdGU7
-IC8qIE1heCBUWCBiYW5kd2lkdGggaW4gTWJwcywgMCBkaXNhYmxlcyB0aHJvdHRsaW5nICovDQo+
-ID4gIH07DQo+ID4NCj4gPiArc3RydWN0IGlmbGFfdmZfc3Bvb2ZjaGsgew0KPiA+ICsJX191MzIg
-dmY7DQo+ID4gKwlfX3UzMiBzZXR0aW5nOw0KPiA+ICt9Ow0KPiA+ICsNCj4gPiAgc3RydWN0IGlm
-bGFfdmZfaW5mbyB7DQo+ID4gIAlfX3UzMiB2ZjsNCj4gPiAgCV9fdTggbWFjWzMyXTsNCj4gPiAg
-CV9fdTMyIHZsYW47DQo+ID4gIAlfX3UzMiBxb3M7DQo+ID4gIAlfX3UzMiB0eF9yYXRlOw0KPiA+
-ICsJX191MzIgc3Bvb2ZjaGs7DQo+ID4gIH07DQo+IA0KPiBOb3Qgc29tZXRoaW5nIHlvdSBuZWVk
-IHRvIGNoYW5nZSBub3csIGJ1dCBzaG91bGRuJ3QgdGhpcyBsYXN0IHN0cnVjdA0KPiBkZWZpbml0
-aW9uIGJlICNpZmRlZiBfX0tFUk5FTF9fPw0KDQpJdCdzIG5vdCBkb25lIGZvciBhbnkgb2YgdGhl
-IG90aGVyIGlmbGFfdmZfKiBzdHJ1Y3RzIGluIGlmX2xpbmsuaC4gIFdoaWNoIGRvZXNuJ3QgbWVh
-biBpdCBzaG91bGRuJ3QgaGF2ZSBiZWVuIGRvbmUgYnV0IEkgd2FzIG1lcmVseSBmb2xsb3dpbmcg
-Y3VzdG9tLiAgSWYgaXQgbmVlZHMgZG9pbmcgdGhvdWdoIHRoZW4gSSdkIGJlIGdsYWQgdG8gZG8g
-aXQuDQoNCj4gDQo+ID4gIC8qIFZGIHBvcnRzIG1hbmFnZW1lbnQgc2VjdGlvbg0KPiA+IGRpZmYg
-LS1naXQgYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIGIvaW5jbHVkZS9saW51eC9uZXRkZXZp
-Y2UuaA0KPiA+IGluZGV4IDQzYjMyOTguLmEyOTUxYTAgMTAwNjQ0DQo+ID4gLS0tIGEvaW5jbHVk
-ZS9saW51eC9uZXRkZXZpY2UuaA0KPiA+ICsrKyBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgN
-Cj4gPiBAQCAtNzgxLDYgKzc4MSw3IEBAIHN0cnVjdCBuZXRkZXZfdGNfdHhxIHsNCj4gPiAgICog
-aW50ICgqbmRvX3NldF92Zl9tYWMpKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCB2ZiwgdTgq
-IG1hYyk7DQo+ID4gICAqIGludCAoKm5kb19zZXRfdmZfdmxhbikoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldiwgaW50IHZmLCB1MTYgdmxhbiwgdTgNCj4gcW9zKTsNCj4gPiAgICogaW50ICgqbmRvX3Nl
-dF92Zl90eF9yYXRlKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgdmYsIGludCByYXRlKTsN
-Cj4gPiArICogaW50ICgqbmRvX3NldF92Zl9zcG9vZmNoaykoc3RydWN0IG5ldF9kZXZpY2UgKmRl
-diwgaW50IHZmLCB1OA0KPiBzZXR0aW5nKTsNCj4gPiAgICogaW50ICgqbmRvX2dldF92Zl9jb25m
-aWcpKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ID4gICAqCQkJICAgIGludCB2Ziwgc3RydWN0
-IGlmbGFfdmZfaW5mbyAqaXZmKTsNCj4gPiAgICogaW50ICgqbmRvX3NldF92Zl9wb3J0KShzdHJ1
-Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgdmYsDQo+ID4gQEAgLTkwMCw2ICs5MDEsOCBAQCBzdHJ1
-Y3QgbmV0X2RldmljZV9vcHMgew0KPiA+ICAJCQkJCQkgICBpbnQgcXVldWUsIHUxNiB2bGFuLCB1
-OCBxb3MpOw0KPiA+ICAJaW50CQkJKCpuZG9fc2V0X3ZmX3R4X3JhdGUpKHN0cnVjdCBuZXRfZGV2
-aWNlICpkZXYsDQo+ID4gIAkJCQkJCSAgICAgIGludCB2ZiwgaW50IHJhdGUpOw0KPiA+ICsJaW50
-CQkJKCpuZG9fc2V0X3ZmX3Nwb29mY2hrKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+ICsJ
-CQkJCQkgICAgICAgaW50IHZmLCB1OCBzZXR0aW5nKTsNCj4gDQo+IFdoeSB1OCBhbmQgbm90IGJv
-b2w/DQoNCkkgZGlkbid0IHNlZSB0aGUgYm9vbCB0eXBlIHVzZWQgaW4gYW55IG9mIHRoZSBvdGhl
-ciBwYXJhbWV0ZXIgbGlzdHMgZm9yIHRoZSBuZXQgZGV2aWNlIG9wcyBzbyBJIGhlc2l0YXRlZCB0
-byB1c2UgaXQgbXlzZWxmLiAgSWYgaXQncyBub3QgYSBwcm9ibGVtIGRvaW5nIHNvIHRoZW4gSSds
-bCBnbyBhaGVhZCBhbmQgY2hhbmdlIGl0Lg0KDQoNCj4gDQo+ID4gIAlpbnQJCQkoKm5kb19nZXRf
-dmZfY29uZmlnKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+ICAJCQkJCQkgICAgIGludCB2
-ZiwNCj4gPiAgCQkJCQkJICAgICBzdHJ1Y3QgaWZsYV92Zl9pbmZvICppdmYpOw0KPiA+IGRpZmYg
-LS1naXQgYS9uZXQvY29yZS9ydG5ldGxpbmsuYyBiL25ldC9jb3JlL3J0bmV0bGluay5jDQo+ID4g
-aW5kZXggMzlmOGRkNi4uNjUzNTgxMCAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvY29yZS9ydG5ldGxp
-bmsuYw0KPiA+ICsrKyBiL25ldC9jb3JlL3J0bmV0bGluay5jDQo+ID4gQEAgLTczMSw3ICs3MzEs
-OCBAQCBzdGF0aWMgaW5saW5lIGludCBydG5sX3ZmaW5mb19zaXplKGNvbnN0IHN0cnVjdA0KPiBu
-ZXRfZGV2aWNlICpkZXYpDQo+ID4gIAkJc2l6ZSArPSBudW1fdmZzICoNCj4gPiAgCQkJKG5sYV90
-b3RhbF9zaXplKHNpemVvZihzdHJ1Y3QgaWZsYV92Zl9tYWMpKSArDQo+ID4gIAkJCSBubGFfdG90
-YWxfc2l6ZShzaXplb2Yoc3RydWN0IGlmbGFfdmZfdmxhbikpICsNCj4gPiAtCQkJIG5sYV90b3Rh
-bF9zaXplKHNpemVvZihzdHJ1Y3QgaWZsYV92Zl90eF9yYXRlKSkpOw0KPiA+ICsJCQkgbmxhX3Rv
-dGFsX3NpemUoc2l6ZW9mKHN0cnVjdCBpZmxhX3ZmX3R4X3JhdGUpKSArDQo+ID4gKwkJCSBubGFf
-dG90YWxfc2l6ZShzaXplb2Yoc3RydWN0IGlmbGFfdmZfc3Bvb2ZjaGspKSk7DQo+ID4gIAkJcmV0
-dXJuIHNpemU7DQo+ID4gIAl9IGVsc2UNCj4gPiAgCQlyZXR1cm4gMDsNCj4gPiBAQCAtOTU0LDEz
-ICs5NTUsMTkgQEAgc3RhdGljIGludCBydG5sX2ZpbGxfaWZpbmZvKHN0cnVjdCBza19idWZmICpz
-a2IsDQo+IHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ID4gIAkJCXN0cnVjdCBpZmxhX3ZmX21h
-YyB2Zl9tYWM7DQo+ID4gIAkJCXN0cnVjdCBpZmxhX3ZmX3ZsYW4gdmZfdmxhbjsNCj4gPiAgCQkJ
-c3RydWN0IGlmbGFfdmZfdHhfcmF0ZSB2Zl90eF9yYXRlOw0KPiA+ICsJCQlzdHJ1Y3QgaWZsYV92
-Zl9zcG9vZmNoayB2Zl9zcG9vZmNoazsNCj4gPiAgCQkJaWYgKGRldi0+bmV0ZGV2X29wcy0+bmRv
-X2dldF92Zl9jb25maWcoZGV2LCBpLCAmaXZpKSkNCj4gPiAgCQkJCWJyZWFrOw0KPiA+IC0JCQl2
-Zl9tYWMudmYgPSB2Zl92bGFuLnZmID0gdmZfdHhfcmF0ZS52ZiA9IGl2aS52ZjsNCj4gPiArCQkJ
-dmZfbWFjLnZmID0NCj4gPiArCQkJdmZfdmxhbi52ZiA9DQo+ID4gKwkJCXZmX3R4X3JhdGUudmYg
-PQ0KPiA+ICsJCQl2Zl9zcG9vZmNoay52ZiA9IGl2aS52ZjsNCj4gPiArDQo+IFsuLi5dDQo+IA0K
-PiBUaGUgY29udGludWF0aW9uIGxpbmVzIHNob3VsZCBiZSBpbmRlbnRlZC4gIE9yIHlvdSBjb3Vs
-ZCBqdXN0IHdyaXRlIHRoZQ0KPiBhc3NpZ25tZW50cyBhcyBtdWx0aXBsZSBzdGF0ZW1lbnRzLg0K
-DQpPSywgc3VyZS4gIEknbGwgZG8gdGhhdC4NCg0KVGhhbmtzLA0KDQotIEdyZWcNCg0K
+On Sun, 25 Sep 2011 21:06:49 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
+
+> On Sun, 2011-09-25 at 10:22 -0700, Stephen Hemminger wrote:
+> > On Sat, 24 Sep 2011 02:17:38 -0700
+> > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > 
+> > > From: Greg Rose <gregory.v.rose@intel.com>
+> > > 
+> > > Add configuration setting for drivers to turn spoof checking on or off
+> > > for discrete VFs.
+> > > 
+> > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > ---
+> > >  include/linux/if_link.h   |    7 +++++++
+> > >  include/linux/netdevice.h |    3 +++
+> > >  net/core/rtnetlink.c      |   25 ++++++++++++++++++++++---
+> > >  3 files changed, 32 insertions(+), 3 deletions(-)
+> > > 
+> > > diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> > > index 0ee969a..8bd6d6d 100644
+> > > --- a/include/linux/if_link.h
+> > > +++ b/include/linux/if_link.h
+> > > @@ -279,6 +279,7 @@ enum {
+> > >  	IFLA_VF_MAC,		/* Hardware queue specific attributes */
+> > >  	IFLA_VF_VLAN,
+> > >  	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
+> > > +	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
+> > >  	__IFLA_VF_MAX,
+> > >  };
+> > >  
+> > > @@ -300,12 +301,18 @@ struct ifla_vf_tx_rate {
+> > >  	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling */
+> > >  };
+> > >  
+> > > +struct ifla_vf_spoofchk {
+> > > +	__u32 vf;
+> > > +	__u32 setting;
+> > > +};
+> > > +
+> > >  struct ifla_vf_info {
+> > >  	__u32 vf;
+> > >  	__u8 mac[32];
+> > >  	__u32 vlan;
+> > >  	__u32 qos;
+> > >  	__u32 tx_rate;
+> > > +	__u32 spoofchk;
+> > >  };
+> > 
+> > This breaks ABI compatibility, unless you add some special case code
+> > to handle the case of tools sending the old ifla_vf_info. Users may have older version
+> > of ip utilities that send smaller size structure.
+> 
+> Unless I'm missing something, that structure is not sent or received by
+> userland; that's why I thought it should be #ifdef __KERNEL__.
+
+The struct ifla_vf_info is exposed to userland, it is not inside the #ifdef
+and therefore exposed.
+
+But it is probably okay to change this structure because the ifla_vf_info
+is not used/supported by any released version iproute2.  There may have been
+some patches to use this, but they never made it into the git or released
+code.
