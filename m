@@ -1,66 +1,110 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: intel 82599 multi-port performance
-Date: Mon, 26 Sep 2011 09:04:59 -0700
-Message-ID: <4E80A2AB.2040206@intel.com>
-References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com> <4E809D59.10103@gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 05/10] if_link: Add additional parameter to
+ IFLA_VF_INFO for spoof checking
+Date: Mon, 26 Sep 2011 09:06:41 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C51934A@orsmsx508.amr.corp.intel.com>
+References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1316882459.4122.83.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "J.Hwan.Kim" <j.hwan.kim99@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: frog1120@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:50910 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:57249 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751472Ab1IZQE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 12:04:59 -0400
-In-Reply-To: <4E809D59.10103@gmail.com>
+	id S1751744Ab1IZQGm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 12:06:42 -0400
+In-Reply-To: <1316882459.4122.83.camel@deadeye>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2011 08:42 AM, J.Hwan.Kim wrote:
-> On 2011=EB=85=84 09=EC=9B=94 26=EC=9D=BC 23:20, Chris Friesen wrote:
->> On 09/26/2011 04:26 AM, J.Hwan Kim wrote:
->>> Hi, everyone
->>>
->>> Now, I'm testing a network card including intel 82599.
->>> In our experiment, with the driver modified with ixgbe and multi-po=
-rt
->>> enabled,
->>
->> What do you mean by "modified with ixgbe and multi-port enabled"? Yo=
-u
->> shouldn't need to do anything special to use both ports.
->>
->>> rx performance of each port with 10Gbps of 64bytes frame is
->>> a half than when only 1 port is used.
->>
->> Sounds like a cpu limitation. What is your cpu usage? How are your
->> interrupts routed? Are you using multiple rx queues?
->>
->
-> Our server is XEON 2.4GHz with 8 cores.
-> I'm using 4 RSS queues for each port and distributed it's interrupts=20
-> to different cores respectively.
-> I checked the CPU utilization with TOP, I guess ,it is not cpu=20
-> imitation problem.
-
-What kind of rates are you seeing on a single port versus multiple=20
-ports?  There are multiple possibilities in terms of what could be=20
-limiting your performance.
-
-It sounds like you are using a single card, would that be correct?  If=20
-you are running close to line rate on both ports this could be causing=20
-you to saturate the PCIe x8 link.  If you have a second card available=20
-you may want to try installing that in a secondary Gen2 PCIe slot and=20
-seeing if you can improve the performance by using 2 PCIe slots instead=
-=20
-of one.
-
-Also could you include your kernel config?  Certain features such as=20
-Netfilter and IOMMU can have a significant impact on performance.
-
-Thanks,
-
-Alex
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIFNlcHRlbWJl
+ciAyNCwgMjAxMSA5OjQxIEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gQ2M6IGRhdmVt
+QGRhdmVtbG9mdC5uZXQ7IFJvc2UsIEdyZWdvcnkgVjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsN
+Cj4gZ29zcG9AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0IDA1LzEwXSBpZl9s
+aW5rOiBBZGQgYWRkaXRpb25hbCBwYXJhbWV0ZXIgdG8NCj4gSUZMQV9WRl9JTkZPIGZvciBzcG9v
+ZiBjaGVja2luZw0KPiANCj4gT24gU2F0LCAyMDExLTA5LTI0IGF0IDAyOjE3IC0wNzAwLCBKZWZm
+IEtpcnNoZXIgd3JvdGU6DQo+ID4gRnJvbTogR3JlZyBSb3NlIDxncmVnb3J5LnYucm9zZUBpbnRl
+bC5jb20+DQo+ID4NCj4gPiBBZGQgY29uZmlndXJhdGlvbiBzZXR0aW5nIGZvciBkcml2ZXJzIHRv
+IHR1cm4gc3Bvb2YgY2hlY2tpbmcgb24gb3Igb2ZmDQo+ID4gZm9yIGRpc2NyZXRlIFZGcy4NCj4g
+Pg0KPiA+IFNpZ25lZC1vZmYtYnk6IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29t
+Pg0KPiA+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50
+ZWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBpbmNsdWRlL2xpbnV4L2lmX2xpbmsuaCAgIHwgICAgNyAr
+KysrKysrDQo+ID4gIGluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggfCAgICAzICsrKw0KPiA+ICBu
+ZXQvY29yZS9ydG5ldGxpbmsuYyAgICAgIHwgICAyNSArKysrKysrKysrKysrKysrKysrKysrLS0t
+DQo+ID4gIDMgZmlsZXMgY2hhbmdlZCwgMzIgaW5zZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkN
+Cj4gPg0KPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2lmX2xpbmsuaCBiL2luY2x1ZGUv
+bGludXgvaWZfbGluay5oDQo+ID4gaW5kZXggMGVlOTY5YS4uOGJkNmQ2ZCAxMDA2NDQNCj4gPiAt
+LS0gYS9pbmNsdWRlL2xpbnV4L2lmX2xpbmsuaA0KPiA+ICsrKyBiL2luY2x1ZGUvbGludXgvaWZf
+bGluay5oDQo+ID4gQEAgLTI3OSw2ICsyNzksNyBAQCBlbnVtIHsNCj4gPiAgCUlGTEFfVkZfTUFD
+LAkJLyogSGFyZHdhcmUgcXVldWUgc3BlY2lmaWMgYXR0cmlidXRlcyAqLw0KPiA+ICAJSUZMQV9W
+Rl9WTEFOLA0KPiA+ICAJSUZMQV9WRl9UWF9SQVRFLAkvKiBUWCBCYW5kd2lkdGggQWxsb2NhdGlv
+biAqLw0KPiA+ICsJSUZMQV9WRl9TUE9PRkNISywJLyogU3Bvb2YgQ2hlY2tpbmcgb24vb2ZmIHN3
+aXRjaCAqLw0KPiA+ICAJX19JRkxBX1ZGX01BWCwNCj4gPiAgfTsNCj4gPg0KPiA+IEBAIC0zMDAs
+MTIgKzMwMSwxOCBAQCBzdHJ1Y3QgaWZsYV92Zl90eF9yYXRlIHsNCj4gPiAgCV9fdTMyIHJhdGU7
+IC8qIE1heCBUWCBiYW5kd2lkdGggaW4gTWJwcywgMCBkaXNhYmxlcyB0aHJvdHRsaW5nICovDQo+
+ID4gIH07DQo+ID4NCj4gPiArc3RydWN0IGlmbGFfdmZfc3Bvb2ZjaGsgew0KPiA+ICsJX191MzIg
+dmY7DQo+ID4gKwlfX3UzMiBzZXR0aW5nOw0KPiA+ICt9Ow0KPiA+ICsNCj4gPiAgc3RydWN0IGlm
+bGFfdmZfaW5mbyB7DQo+ID4gIAlfX3UzMiB2ZjsNCj4gPiAgCV9fdTggbWFjWzMyXTsNCj4gPiAg
+CV9fdTMyIHZsYW47DQo+ID4gIAlfX3UzMiBxb3M7DQo+ID4gIAlfX3UzMiB0eF9yYXRlOw0KPiA+
+ICsJX191MzIgc3Bvb2ZjaGs7DQo+ID4gIH07DQo+IA0KPiBOb3Qgc29tZXRoaW5nIHlvdSBuZWVk
+IHRvIGNoYW5nZSBub3csIGJ1dCBzaG91bGRuJ3QgdGhpcyBsYXN0IHN0cnVjdA0KPiBkZWZpbml0
+aW9uIGJlICNpZmRlZiBfX0tFUk5FTF9fPw0KDQpJdCdzIG5vdCBkb25lIGZvciBhbnkgb2YgdGhl
+IG90aGVyIGlmbGFfdmZfKiBzdHJ1Y3RzIGluIGlmX2xpbmsuaC4gIFdoaWNoIGRvZXNuJ3QgbWVh
+biBpdCBzaG91bGRuJ3QgaGF2ZSBiZWVuIGRvbmUgYnV0IEkgd2FzIG1lcmVseSBmb2xsb3dpbmcg
+Y3VzdG9tLiAgSWYgaXQgbmVlZHMgZG9pbmcgdGhvdWdoIHRoZW4gSSdkIGJlIGdsYWQgdG8gZG8g
+aXQuDQoNCj4gDQo+ID4gIC8qIFZGIHBvcnRzIG1hbmFnZW1lbnQgc2VjdGlvbg0KPiA+IGRpZmYg
+LS1naXQgYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oIGIvaW5jbHVkZS9saW51eC9uZXRkZXZp
+Y2UuaA0KPiA+IGluZGV4IDQzYjMyOTguLmEyOTUxYTAgMTAwNjQ0DQo+ID4gLS0tIGEvaW5jbHVk
+ZS9saW51eC9uZXRkZXZpY2UuaA0KPiA+ICsrKyBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgN
+Cj4gPiBAQCAtNzgxLDYgKzc4MSw3IEBAIHN0cnVjdCBuZXRkZXZfdGNfdHhxIHsNCj4gPiAgICog
+aW50ICgqbmRvX3NldF92Zl9tYWMpKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCB2ZiwgdTgq
+IG1hYyk7DQo+ID4gICAqIGludCAoKm5kb19zZXRfdmZfdmxhbikoc3RydWN0IG5ldF9kZXZpY2Ug
+KmRldiwgaW50IHZmLCB1MTYgdmxhbiwgdTgNCj4gcW9zKTsNCj4gPiAgICogaW50ICgqbmRvX3Nl
+dF92Zl90eF9yYXRlKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgdmYsIGludCByYXRlKTsN
+Cj4gPiArICogaW50ICgqbmRvX3NldF92Zl9zcG9vZmNoaykoc3RydWN0IG5ldF9kZXZpY2UgKmRl
+diwgaW50IHZmLCB1OA0KPiBzZXR0aW5nKTsNCj4gPiAgICogaW50ICgqbmRvX2dldF92Zl9jb25m
+aWcpKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ID4gICAqCQkJICAgIGludCB2Ziwgc3RydWN0
+IGlmbGFfdmZfaW5mbyAqaXZmKTsNCj4gPiAgICogaW50ICgqbmRvX3NldF92Zl9wb3J0KShzdHJ1
+Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgdmYsDQo+ID4gQEAgLTkwMCw2ICs5MDEsOCBAQCBzdHJ1
+Y3QgbmV0X2RldmljZV9vcHMgew0KPiA+ICAJCQkJCQkgICBpbnQgcXVldWUsIHUxNiB2bGFuLCB1
+OCBxb3MpOw0KPiA+ICAJaW50CQkJKCpuZG9fc2V0X3ZmX3R4X3JhdGUpKHN0cnVjdCBuZXRfZGV2
+aWNlICpkZXYsDQo+ID4gIAkJCQkJCSAgICAgIGludCB2ZiwgaW50IHJhdGUpOw0KPiA+ICsJaW50
+CQkJKCpuZG9fc2V0X3ZmX3Nwb29mY2hrKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+ICsJ
+CQkJCQkgICAgICAgaW50IHZmLCB1OCBzZXR0aW5nKTsNCj4gDQo+IFdoeSB1OCBhbmQgbm90IGJv
+b2w/DQoNCkkgZGlkbid0IHNlZSB0aGUgYm9vbCB0eXBlIHVzZWQgaW4gYW55IG9mIHRoZSBvdGhl
+ciBwYXJhbWV0ZXIgbGlzdHMgZm9yIHRoZSBuZXQgZGV2aWNlIG9wcyBzbyBJIGhlc2l0YXRlZCB0
+byB1c2UgaXQgbXlzZWxmLiAgSWYgaXQncyBub3QgYSBwcm9ibGVtIGRvaW5nIHNvIHRoZW4gSSds
+bCBnbyBhaGVhZCBhbmQgY2hhbmdlIGl0Lg0KDQoNCj4gDQo+ID4gIAlpbnQJCQkoKm5kb19nZXRf
+dmZfY29uZmlnKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+ICAJCQkJCQkgICAgIGludCB2
+ZiwNCj4gPiAgCQkJCQkJICAgICBzdHJ1Y3QgaWZsYV92Zl9pbmZvICppdmYpOw0KPiA+IGRpZmYg
+LS1naXQgYS9uZXQvY29yZS9ydG5ldGxpbmsuYyBiL25ldC9jb3JlL3J0bmV0bGluay5jDQo+ID4g
+aW5kZXggMzlmOGRkNi4uNjUzNTgxMCAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvY29yZS9ydG5ldGxp
+bmsuYw0KPiA+ICsrKyBiL25ldC9jb3JlL3J0bmV0bGluay5jDQo+ID4gQEAgLTczMSw3ICs3MzEs
+OCBAQCBzdGF0aWMgaW5saW5lIGludCBydG5sX3ZmaW5mb19zaXplKGNvbnN0IHN0cnVjdA0KPiBu
+ZXRfZGV2aWNlICpkZXYpDQo+ID4gIAkJc2l6ZSArPSBudW1fdmZzICoNCj4gPiAgCQkJKG5sYV90
+b3RhbF9zaXplKHNpemVvZihzdHJ1Y3QgaWZsYV92Zl9tYWMpKSArDQo+ID4gIAkJCSBubGFfdG90
+YWxfc2l6ZShzaXplb2Yoc3RydWN0IGlmbGFfdmZfdmxhbikpICsNCj4gPiAtCQkJIG5sYV90b3Rh
+bF9zaXplKHNpemVvZihzdHJ1Y3QgaWZsYV92Zl90eF9yYXRlKSkpOw0KPiA+ICsJCQkgbmxhX3Rv
+dGFsX3NpemUoc2l6ZW9mKHN0cnVjdCBpZmxhX3ZmX3R4X3JhdGUpKSArDQo+ID4gKwkJCSBubGFf
+dG90YWxfc2l6ZShzaXplb2Yoc3RydWN0IGlmbGFfdmZfc3Bvb2ZjaGspKSk7DQo+ID4gIAkJcmV0
+dXJuIHNpemU7DQo+ID4gIAl9IGVsc2UNCj4gPiAgCQlyZXR1cm4gMDsNCj4gPiBAQCAtOTU0LDEz
+ICs5NTUsMTkgQEAgc3RhdGljIGludCBydG5sX2ZpbGxfaWZpbmZvKHN0cnVjdCBza19idWZmICpz
+a2IsDQo+IHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ID4gIAkJCXN0cnVjdCBpZmxhX3ZmX21h
+YyB2Zl9tYWM7DQo+ID4gIAkJCXN0cnVjdCBpZmxhX3ZmX3ZsYW4gdmZfdmxhbjsNCj4gPiAgCQkJ
+c3RydWN0IGlmbGFfdmZfdHhfcmF0ZSB2Zl90eF9yYXRlOw0KPiA+ICsJCQlzdHJ1Y3QgaWZsYV92
+Zl9zcG9vZmNoayB2Zl9zcG9vZmNoazsNCj4gPiAgCQkJaWYgKGRldi0+bmV0ZGV2X29wcy0+bmRv
+X2dldF92Zl9jb25maWcoZGV2LCBpLCAmaXZpKSkNCj4gPiAgCQkJCWJyZWFrOw0KPiA+IC0JCQl2
+Zl9tYWMudmYgPSB2Zl92bGFuLnZmID0gdmZfdHhfcmF0ZS52ZiA9IGl2aS52ZjsNCj4gPiArCQkJ
+dmZfbWFjLnZmID0NCj4gPiArCQkJdmZfdmxhbi52ZiA9DQo+ID4gKwkJCXZmX3R4X3JhdGUudmYg
+PQ0KPiA+ICsJCQl2Zl9zcG9vZmNoay52ZiA9IGl2aS52ZjsNCj4gPiArDQo+IFsuLi5dDQo+IA0K
+PiBUaGUgY29udGludWF0aW9uIGxpbmVzIHNob3VsZCBiZSBpbmRlbnRlZC4gIE9yIHlvdSBjb3Vs
+ZCBqdXN0IHdyaXRlIHRoZQ0KPiBhc3NpZ25tZW50cyBhcyBtdWx0aXBsZSBzdGF0ZW1lbnRzLg0K
+DQpPSywgc3VyZS4gIEknbGwgZG8gdGhhdC4NCg0KVGhhbmtzLA0KDQotIEdyZWcNCg0K
