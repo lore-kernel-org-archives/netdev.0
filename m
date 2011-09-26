@@ -1,32 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] iproute2: Add new command to IP link to
- enable/disable VF spoof check
-Date: Mon, 26 Sep 2011 17:27:02 -0400 (EDT)
-Message-ID: <20110926.172702.400522716452242592.davem@davemloft.net>
-References: <184D23435BECB444AB6B9D4630C8EC83028F8A71@XMB-RCD-303.cisco.com>
-	<20110926.170049.1943390151354224651.davem@davemloft.net>
-	<20110926141959.58d310c0@nehalam.linuxnetplumber.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/4] IPVS: Add documentation for new sysctl entries
+Date: Tue, 27 Sep 2011 07:07:48 +0900
+Message-ID: <20110926220748.GB5314@verge.net.au>
+References: <1317000233-11169-1-git-send-email-horms@verge.net.au>
+ <1317000233-11169-2-git-send-email-horms@verge.net.au>
+ <4E80B379.2040701@xenotime.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: benve@cisco.com, bhutchings@solarflare.com,
-	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60387 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859Ab1IZV1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 17:27:12 -0400
-In-Reply-To: <20110926141959.58d310c0@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4E80B379.2040701@xenotime.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 26 Sep 2011 14:19:59 -0700
+On Mon, Sep 26, 2011 at 10:16:41AM -0700, Randy Dunlap wrote:
+> On 09/25/2011 06:23 PM, Simon Horman wrote:
+> > Add missing documentation for conntrack, snat_reroute and sync_version.
+> > 
+> > Also fix up a typo, IPVS_DEBUG should be IP_VS_DEBUG.
+> > 
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > 
+> > conntrack
+> > ---
+> >  Documentation/networking/ipvs-sysctl.txt |   53 +++++++++++++++++++++++++++++-
+> >  1 files changed, 52 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
+> > index 4ccdbca..5214339 100644
+> > --- a/Documentation/networking/ipvs-sysctl.txt
+> > +++ b/Documentation/networking/ipvs-sysctl.txt
+> > @@ -15,6 +15,23 @@ amemthresh - INTEGER
+> >          enabled and the variable is automatically set to 2, otherwise
+> >          the strategy is disabled and the variable is  set  to 1.
+> >  
+> > +conntrack - BOOLEAN
+> > +	0 - disabled (default)
+> > +	not 0 - enabled
+> > +
+> > +	If set, maintain connection tracking entries for
+> > +	connections handled by IPVS.
+> > +
+> > +	This should be enabled if connections handled by IPVS are to be
+> > +	also handled by stateful firewall rules. That is, iptables rules
+> > +	that make use of connection tracking.  It is a performance
+> > +	optimisation to disable this setting otherwise.
+> > +
+> > +	Connections handled by the IPVS FTP application module
+> > +	will have connection tracking entries regardless of this setting.
+> > +
+> > +	Only available when IPVS is compiled with the CONFIG_IP_VS_NFCT
+> 
+> seems to be missing something.  Maybe
+> 
+> 	Only available when IPVS is compiled with CONFIG_IP_VS_NFCT enabled.
+> or
+> 	Only available when IPVS is compiled with the CONFIG_IP_VS_NFCT
+> 	symbol enabled.
+> 
+> > +
+> >  cache_bypass - BOOLEAN
+> >          0 - disabled (default)
+> >          not 0 - enabled
+> > @@ -39,7 +56,7 @@ debug_level - INTEGER
+> >  	11         - IPVS packet handling (ip_vs_in/ip_vs_out)
+> >  	12 or more - packet traversal
+> >  
+> > -	Only available when IPVS is compiled with the CONFIG_IPVS_DEBUG
+> > +	Only available when IPVS is compiled with the CONFIG_IP_VS_DEBUG
+> 
+> 	                                     with CONFIG_IP_VS_DEBUG enabled.
+> 
+> >  
+> >  	Higher debugging levels include the messages for lower debugging
+> >  	levels, so setting debug level 2, includes level 0, 1 and 2
 
-> If an interface changes before an official release, there is no
-> problem. I.e. if an interface goes through multiple versions while
-> in net-next (or a bug fix during 3.X-rc*) that's fine.
+Thanks Randy,
 
-Right.
+I was just blindly copying the existing language.
+I'll make a follow up patch which incorporates your suggestions.
+
