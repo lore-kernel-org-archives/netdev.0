@@ -1,49 +1,44 @@
-From: <rongqing.li@windriver.com>
-Subject: [PATCH] staging/octeon: Software should check the checksum of no tcp/udp packets
-Date: Mon, 26 Sep 2011 09:08:00 +0800
-Message-ID: <1316999280-11999-1-git-send-email-rongqing.li@windriver.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] tcp: ECN blackhole should not force quickack mode
+Date: Sun, 25 Sep 2011 21:13:17 -0400
+Message-ID: <1316999597.1865.37.camel@mojatatu>
+References: <1316757739.2560.12.camel@edumazet-laptop>
+	 <1316825745.1865.24.camel@mojatatu>
+	 <1316978684.2531.7.camel@edumazet-laptop>
+	 <1316999266.1865.35.camel@mojatatu>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ralf@linux-mips.org>, <david.daney@cavium.com>
-To: <linux-mips@linux-mips.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Jim Gettys <jg@freedesktop.org>,
+	Dave Taht <dave.taht@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:64108 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753326Ab1IZBIE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2011 21:08:04 -0400
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:65195 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753326Ab1IZBNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2011 21:13:24 -0400
+Received: by ywb5 with SMTP id 5so3911513ywb.19
+        for <netdev@vger.kernel.org>; Sun, 25 Sep 2011 18:13:23 -0700 (PDT)
+In-Reply-To: <1316999266.1865.35.camel@mojatatu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roy.Li <rongqing.li@windriver.com>
+On Sun, 2011-09-25 at 21:07 -0400, jamal wrote:
 
-Icmp packets with wrong checksum are never dropped since
-skb->ip_summed is set to CHECKSUM_UNNECESSARY.
+> In regards to the 'linux funny extension' - this was a brilliant idea
+> in my opinion back then from Alexey; lots of discussions happened but
+> I cant remember if it made it in some RFC or not (I will try to search
+> some old archives).
 
-When icmp packets with wrong checksum pass through the octeon
-net driver, the not_IP, IP_exc, L4_error hardware indicators
-show no error. so the driver sets CHECKSUM_UNNECESSARY on
-skb->ip_summed.
+Wasnt hard:
+https://tools.ietf.org/id/draft-ietf-tsvwg-tcp-ecn-00.txt
+It doesnt seem to have made it to RFC and i cant remember why.
+[We dont wanna bring Sally out of retirement but we can ask KK if
+it bugs you;->]
 
-L4_error only works for TCP/UDP, not for ICMP.
-
-Signed-off-by: Roy.Li <rongqing.li@windriver.com>
----
- drivers/staging/octeon/ethernet-rx.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
-index 1a7c19a..1747024 100644
---- a/drivers/staging/octeon/ethernet-rx.c
-+++ b/drivers/staging/octeon/ethernet-rx.c
-@@ -411,7 +411,8 @@ static int cvm_oct_napi_poll(struct napi_struct *napi, int budget)
- 				skb->protocol = eth_type_trans(skb, dev);
- 				skb->dev = dev;
- 
--				if (unlikely(work->word2.s.not_IP || work->word2.s.IP_exc || work->word2.s.L4_error))
-+				if (unlikely(work->word2.s.not_IP || work->word2.s.IP_exc ||
-+					work->word2.s.L4_error || !work->word2.s.tcp_or_udp))
- 					skb->ip_summed = CHECKSUM_NONE;
- 				else
- 					skb->ip_summed = CHECKSUM_UNNECESSARY;
--- 
-1.7.1
+cheers,
+jamal
