@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] ptp: feature enhancements
-Date: Mon, 26 Sep 2011 16:04:43 -0400 (EDT)
-Message-ID: <20110926.160443.1205173553442138535.davem@davemloft.net>
-References: <cover.1316518332.git.richard.cochran@omicron.at>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [PATCH 1/2] virtio-net: Verify page list size before fitting into skb
+Date: Mon, 26 Sep 2011 23:04:39 +0300
+Message-ID: <CAOJsxLGQ-2y7eQy94F=yj5v9T_Gn-ZgD_1reOsV_Gqrfb7rgKQ@mail.gmail.com>
+References: <1317058869-19276-1-git-send-email-levinsasha928@gmail.com>
+	<20110926184445.GA22278@redhat.com>
+	<1317065842.20885.3.camel@lappy>
+	<CAOJsxLHQZCvRQMcs08GZgDgR9AwtePdr=t7kos6XfMF_dgxZGw@mail.gmail.com>
+	<20110926195716.GB23086@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55671 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752517Ab1IZUEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 16:04:47 -0400
-In-Reply-To: <cover.1316518332.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Sasha Levin <levinsasha928@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110926195716.GB23086@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Tue, 20 Sep 2011 13:43:13 +0200
+On Mon, Sep 26, 2011 at 10:45:35PM +0300, Pekka Enberg wrote:
+>> I'm not sure what Michael means with "theoretical issue" here. Can the guest
+>> driver assume that the hypervisor doesn't attempt to do nasty things?
 
-> This series adds one driver specific enhancement and one new feature
-> to the PTP Hardware Clock subsystem. The first patch enables more of
-> the phyter's IO capabilities. The second patch introduces PTP one-step
-> support for Sync messages at the driver level. The third patch
-> implements the one-step flag in the phyter.
-> 
-> Richard Cochran (3):
->   dp83640: enable six external events and one periodic output
->   net: introduce ptp one step time stamp mode for sync packets
->   dp83640: add time stamp insertion for sync messages
+On Mon, Sep 26, 2011 at 10:57 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> IMO yes, hypervisor has full access to guest memory so it's a safe
+> assumption. But surviving in the face of hypervisor bugs
+> is laudable goal, bugs do happen.
 
-All applied to net-next, thanks.
+I was thinking of a compromised guest that is able to trick the hypervisor into
+doing nasty things to other guests without taking over the hypervisor
+completely. So for something like virtio networking, that's by
+definition exposed
+to rest of the world, I think it's very important not to be robust
+against hypervisor
+bugs.
 
-Could you please add a test at the point where we pull in the
-->tx_type value from the user, to make sure it is one of the
-validly defined HWTSTAMP_TX_FOO values?
+In any case, we were able to trigger this particular case rather easily with our
+buggy tool, so it's definitely worth fixing. ;-)
 
-Thanks.
+FWIW,
+
+Acked-by: Pekka Enberg <penberg@kernel.org>
+
+                                Pekka
