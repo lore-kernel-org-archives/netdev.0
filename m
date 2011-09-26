@@ -1,54 +1,74 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 4/4] IPVS: Removed unused variables
-Date: Mon, 26 Sep 2011 10:23:53 +0900
-Message-ID: <1317000233-11169-5-git-send-email-horms@verge.net.au>
-References: <1317000233-11169-1-git-send-email-horms@verge.net.au>
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	Simon Horman <horms@verge.net.au>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: [PATCH] tcp: properly release md5sig_pool references
+Date: Mon, 26 Sep 2011 10:35:09 +0800
+Message-ID: <4E7FE4DD.5070804@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:48636 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753369Ab1IZBYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Sep 2011 21:24:12 -0400
-In-Reply-To: <1317000233-11169-1-git-send-email-horms@verge.net.au>
+Received: from mga03.intel.com ([143.182.124.21]:65205 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751047Ab1IZCfL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Sep 2011 22:35:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipvs is not used in ip_vs_genl_set_cmd() or ip_vs_genl_get_cmd()
+tcp_v4_md5_do_add() increases use count of md5sig_pool by one for
+each tcp md5sig peer, so we should call tcp_free_md5sig_pool() for
+each peer when destroying the socket.
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 36f4495..f10a903 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3194,10 +3194,8 @@ static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
- 	int ret = 0, cmd;
- 	int need_full_svc = 0, need_full_dest = 0;
- 	struct net *net;
--	struct netns_ipvs *ipvs;
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index c34f015..3ca72ae 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1007,10 +1007,11 @@ static void tcp_v4_clear_md5_list(struct sock *sk)
+ 	 */
+ 	if (tp->md5sig_info->entries4) {
+ 		int i;
+-		for (i = 0; i < tp->md5sig_info->entries4; i++)
++		for (i = 0; i < tp->md5sig_info->entries4; i++) {
+ 			kfree(tp->md5sig_info->keys4[i].base.key);
++			tcp_free_md5sig_pool();
++		}
+ 		tp->md5sig_info->entries4 = 0;
+-		tcp_free_md5sig_pool();
+ 	}
+ 	if (tp->md5sig_info->keys4) {
+ 		kfree(tp->md5sig_info->keys4);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3c9fa61..9dcef7c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -668,10 +668,11 @@ static void tcp_v6_clear_md5_list (struct sock *sk)
+ 	int i;
  
- 	net = skb_sknet(skb);
--	ipvs = net_ipvs(net);
- 	cmd = info->genlhdr->cmd;
+ 	if (tp->md5sig_info->entries6) {
+-		for (i = 0; i < tp->md5sig_info->entries6; i++)
++		for (i = 0; i < tp->md5sig_info->entries6; i++) {
+ 			kfree(tp->md5sig_info->keys6[i].base.key);
++			tcp_free_md5sig_pool();
++		}
+ 		tp->md5sig_info->entries6 = 0;
+-		tcp_free_md5sig_pool();
+ 	}
  
- 	mutex_lock(&__ip_vs_mutex);
-@@ -3307,10 +3305,8 @@ static int ip_vs_genl_get_cmd(struct sk_buff *skb, struct genl_info *info)
- 	void *reply;
- 	int ret, cmd, reply_cmd;
- 	struct net *net;
--	struct netns_ipvs *ipvs;
+ 	kfree(tp->md5sig_info->keys6);
+@@ -679,10 +680,11 @@ static void tcp_v6_clear_md5_list (struct sock *sk)
+ 	tp->md5sig_info->alloced6 = 0;
  
- 	net = skb_sknet(skb);
--	ipvs = net_ipvs(net);
- 	cmd = info->genlhdr->cmd;
+ 	if (tp->md5sig_info->entries4) {
+-		for (i = 0; i < tp->md5sig_info->entries4; i++)
++		for (i = 0; i < tp->md5sig_info->entries4; i++) {
+ 			kfree(tp->md5sig_info->keys4[i].base.key);
++			tcp_free_md5sig_pool();
++		}
+ 		tp->md5sig_info->entries4 = 0;
+-		tcp_free_md5sig_pool();
+ 	}
  
- 	if (cmd == IPVS_CMD_GET_SERVICE)
--- 
-1.7.5.4
+ 	kfree(tp->md5sig_info->keys4);
