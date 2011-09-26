@@ -1,70 +1,96 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: Bridge stays down until a port is added
-Date: Tue, 27 Sep 2011 00:12:13 +0200
-Message-ID: <4E80F8BD.4010401@gmail.com>
-References: <20110811070659.GA21307@torres.zugschlus.de>	<20110811081706.7307e8b2@nehalam.ftrdhcpuser.net>	<20110917204257.GA2636@torres.zugschlus.de>	<1316550027.1783.102.camel@dcbw.foobar.com>	<20110925082504.GA32712@torres.zugschlus.de>	<20110926084743.35cb2ccc@nehalam.linuxnetplumber.net>	<4E80DA4D.3090404@gmail.com> <20110926130507.1435d76b@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC]  bridge: handle bridge group address per 802.1 standards
+Date: Mon, 26 Sep 2011 15:36:30 -0700
+Message-ID: <20110926153630.3959b0ea@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marc Haber <mh+netdev@zugschlus.de>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:32958 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774Ab1IZWMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 18:12:05 -0400
-Received: by wyg34 with SMTP id 34so6388597wyg.19
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 15:12:03 -0700 (PDT)
-In-Reply-To: <20110926130507.1435d76b@nehalam.linuxnetplumber.net>
+Received: from mail.vyatta.com ([76.74.103.46]:45173 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752296Ab1IZWgc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 18:36:32 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 8AD46141007D
+	for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 15:36:32 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id YqO6FGHCmdUi for <netdev@vger.kernel.org>;
+	Mon, 26 Sep 2011 15:36:31 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
+	by mail.vyatta.com (Postfix) with ESMTPSA id 5B14F1410001
+	for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 15:36:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 26/09/2011 22:05, Stephen Hemminger a =E9crit :
-> On Mon, 26 Sep 2011 22:02:21 +0200
-> Nicolas de Peslo=FCan<nicolas.2p.debian@gmail.com>  wrote:
-[...]
->> Stephen,
->>
->> What do you think about a generic per-interface option that would ca=
-use bind() to accept tentative
->> address hold by a particular interface? This of course violate IPv6 =
-principle, but we are talking
->> about interfaces that are unable to do DAD, either permanently or un=
-til something happens on the
->> underlying device.
->>
->> echo 1>  /sys/class/net/br0/allow_bind_on_tentative_address
->> echo 1>  /sys/class/net/dummy0/allow_bind_on_tentative_address
->> echo 1>  /sys/class/net/wlan0/allow_bind_on_tentative_address
->> and so on...
->>
->> And we may possibly automatically reset this option to 0 if DAD even=
-tually causes the address to be
->> considered duplicate.
->
-> The issue is that if DAD rejects a duplicate, the socket is dead and =
-application is
-> out of luck.
+The Linux bridge code would process all packets addressed to
+the multicast address 01:80:C2:00:00:0X as local and
+and never forward. This may have been correct in the ancient past, but
+reading the relevant standards, the correct behavior is to handle only
+the bridge group address as a special case and leave all other link
+local multicast packets alone.
 
-Yes, and this is by design. Setting the option would state "I want to a=
-llow early bind(), prior to=20
-DAD and I assume the fact that a possible duplicate address will cause =
-the corresponding socket to=20
-be dead and so the using application."
+Recently there has been some complaints about forwarding (or not) of
+802.1X EAPOL frames by the bridge. Thanks to Tony Jeffree of the 
+802.1 Bridging Working Group for point me in the correct direction.
+The 802.1X-2010 standard Table 11-1 details how different
+addresses are assigned based on connectivity associations.
+      
+  Bridge group address:		01-80-C2-00-00-00
+  PAE group address:            01-80-C2-00-00-03
+  Link Layer Discovery          01-80-C2-00-00-0E
 
-In the particular use case of a bridge to connect to virtual machines, =
-the user can reasonably=20
-assume that he know what it is doing on this private LAN. As such, he w=
-ould accept the risk to have=20
-applications die if he end up with a duplicate address.
+Warning: this may mean that some people using bridge who expect
+link local packets to be isolated, now need to add firewall rules.
+But in my opinion, following the standard is the correct thing to
+do regardless.
 
-And this might also allow to set an IPv6 address on a dummy interface, =
-which Marc Haber reported as=20
-not being allowed for now, probably because DAD cannot succeed on a dum=
-my interface and as such, a=20
-bind() cannot be allowed, and as such, setting the IPv6 address is curr=
-ently useless.
+This means when using 802.1x with libvirt, there are several options:
+  1. Use macvtap not bridge
+  2. Turn off STP in libvirt
+  3. Use PAE group address for 802.1x
+  4. Provide a user level application using AF_LLC to forward
+     the 802.2 frames
 
-	Nicolas.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+--- a/net/bridge/br_input.c	2011-09-16 13:12:58.061369744 -0700
++++ b/net/bridge/br_input.c	2011-09-26 11:57:41.724554692 -0700
+@@ -126,18 +126,6 @@ static int br_handle_local_finish(struct
+ 	return 0;	 /* process further */
+ }
+ 
+-/* Does address match the link local multicast address.
+- * 01:80:c2:00:00:0X
+- */
+-static inline int is_link_local(const unsigned char *dest)
+-{
+-	__be16 *a = (__be16 *)dest;
+-	static const __be16 *b = (const __be16 *)br_group_address;
+-	static const __be16 m = cpu_to_be16(0xfff0);
+-
+-	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | ((a[2] ^ b[2]) & m)) == 0;
+-}
+-
+ /*
+  * Return NULL if skb is handled
+  * note: already called with rcu_read_lock
+@@ -161,13 +149,10 @@ rx_handler_result_t br_handle_frame(stru
+ 
+ 	p = br_port_get_rcu(skb->dev);
+ 
+-	if (unlikely(is_link_local(dest))) {
+-		/* Pause frames shouldn't be passed up by driver anyway */
+-		if (skb->protocol == htons(ETH_P_PAUSE))
+-			goto drop;
+-
+-		/* If STP is turned off, then forward */
+-		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
++	/* Special handling for bridge group address */
++	if (unlikely(compare_ether_addr(dest, br_group_address) == 0)) {
++		/* If STP is turned off, then act like a hub. */
++		if (p->br->stp_enabled == BR_NO_STP)
+ 			goto forward;
+ 
+ 		if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
