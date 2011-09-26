@@ -1,121 +1,86 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 02/10] ixgbevf: Fix broken trunk vlan
-Date: Mon, 26 Sep 2011 16:24:55 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C5E5B68@orsmsx508.amr.corp.intel.com>
-References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1316855863-6091-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAEP_g=93GcR7yE7N+GtaB6dpjPuGGtCBXznEmV6Sx=BX-kSbmg@mail.gmail.com>
- <43F901BD926A4E43B106BF17856F0755019C519319@orsmsx508.amr.corp.intel.com>
- <CAEP_g=-xqgrS1hjApx5bPE2GFkAPJa6meaL0nmUcUbvSOPK-hQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	Jiri Pirko <jpirko@redhat.com>
-To: Jesse Gross <jesse@nicira.com>
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Subject: [PATCH] Break up the single NBD lock into one per NBD device
+Date: Mon, 26 Sep 2011 16:34:12 -0700
+Message-ID: <1317080052-6052-1-git-send-email-hkchu@google.com>
+Cc: netdev@vger.kernel.org, Jerry Chu <hkchu@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:7556 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752826Ab1IZXY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 19:24:57 -0400
-In-Reply-To: <CAEP_g=-xqgrS1hjApx5bPE2GFkAPJa6meaL0nmUcUbvSOPK-hQ@mail.gmail.com>
-Content-Language: en-US
+Received: from smtp-out.google.com ([216.239.44.51]:32789 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752282Ab1IZXec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 19:34:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZXNzZSBHcm9zcyBbbWFpbHRv
-Omplc3NlQG5pY2lyYS5jb21dDQo+IFNlbnQ6IE1vbmRheSwgU2VwdGVtYmVyIDI2LCAyMDExIDQ6
-MDkgUE0NCj4gVG86IFJvc2UsIEdyZWdvcnkgVg0KPiBDYzogS2lyc2hlciwgSmVmZnJleSBUOyBk
-YXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBnb3Nwb0ByZWRo
-YXQuY29tOyBKaXJpIFBpcmtvDQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDIvMTBdIGl4Z2Jl
-dmY6IEZpeCBicm9rZW4gdHJ1bmsgdmxhbg0KPiANCj4gT24gTW9uLCBTZXAgMjYsIDIwMTEgYXQg
-ODo1NyBBTSwgUm9zZSwgR3JlZ29yeSBWDQo+IDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+IHdy
-b3RlOg0KPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBKZXNzZSBH
-cm9zcyBbbWFpbHRvOmplc3NlQG5pY2lyYS5jb21dDQo+ID4+IFNlbnQ6IFNhdHVyZGF5LCBTZXB0
-ZW1iZXIgMjQsIDIwMTEgOTozMyBBTQ0KPiA+PiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+ID4+
-IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBSb3NlLCBHcmVnb3J5IFY7IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7DQo+ID4+IGdvc3BvQHJlZGhhdC5jb207IEppcmkgUGlya28NCj4gPj4gU3ViamVj
-dDogUmU6IFtuZXQtbmV4dCAwMi8xMF0gaXhnYmV2ZjogRml4IGJyb2tlbiB0cnVuayB2bGFuDQo+
-ID4+DQo+ID4+IFdoYXQgaGFwcGVucyBpZiB5b3UgcnVuIHRjcGR1bXAgd2l0aG91dCBjb25maWd1
-cmluZyB2bGFuIGRldmljZXM/DQo+ID4+IFNob3VsZG4ndCB5b3Ugc2VlIHRhZ2dlZCBwYWNrZXRz
-IGZvciB0aGUgdmxhbnMgdGhhdCBhcmUgYmVpbmcgdHJ1bmtlZA0KPiA+PiB0byB5b3U/IMKgSSB0
-aGluayB0aGlzIHdpbGwgc3RyaXAgdGFncyBpbiB0aGF0IGNhc2UuIMKgVGhlIGFwcGFyZW50DQo+
-ID4+IGJlaGF2aW9yIG9mIHZsYW4gZmlsdGVycyBoZXJlIGlzIGFsc28gc3VycHJpc2luZyB0byBt
-ZSBiZWNhdXNlIG9uIG9uZQ0KPiA+PiBoYW5kIGlmIHRoZXkncmUgdHJ1bHkgZmlsdGVyaW5nIHRo
-aXMgdGVzdCBzaG91bGRuJ3QgYmUgbmVlZGVkIGFuZCBvbg0KPiA+PiB0aGUgb3RoZXIgaGFuZCB0
-aGV5IGRvbid0IHNlZW0gdG8gYmUgZGlzYWJsZWQgaW4gcHJvbWlzY3VvdXMgbW9kZS4NCj4gPg0K
-PiA+IEkgdGhpbmsgeW91J3JlIG5vdCBxdWl0ZSB1bmRlcnN0YW5kaW5nIHRoZSBhY3Rpb24gdGhl
-IEhXIGlzIHRha2luZyBoZXJlLg0KPiDCoEluIHRoZSBwaHlzaWNhbCBmdW5jdGlvbiBkcml2ZXIg
-d2UgaGF2ZSBwdXQgdGhlIFZGIG9uIGEgVkxBTiB3aXRob3V0IGl0DQo+IGtub3dpbmcgdGhhdCBp
-dCdzIG9uIGEgVkxBTi4gwqBPbmNlIHRoYXQgaXMgZG9uZSBieSB0aGUgUEYsIHRoZSBWRiBpcyBu
-b3QNCj4gYWxsb3dlZCB0byBjb25maWd1cmUgaXRzIG93biBWTEFOcyBhbnltb3JlLiDCoEhvd2V2
-ZXIsIHRoZSBkZXNjcmlwdG9yIHN0aWxsDQo+IGluY2x1ZGVzIGEgYml0IGZvciB0aGUgVkxBTiB0
-YWcgaW5kaWNhdGluZyBpdCB3YXMgYSBwYWNrZXQgdGhhdCBhcnJpdmVkIG9uDQo+IGEgVkxBTi4g
-wqBUaGUgSFcgaXMgaW5zZXJ0aW5nIGFuZCBzdHJpcHBpbmcgdGhlIFZMQU4gdGFnIHRob3VnaCB3
-aXRob3V0IGFueQ0KPiBhd2FyZW5lc3Mgb2YgdGhhdCBieSB0aGUgVkYgZHJpdmVyLg0KPiA+DQo+
-ID4gSXQncyBhIHNlY3VyaXR5IG1lYXN1cmUgdG8gYWxsb3cgYW4gYWRtaW5pc3RyYXRvciB0byBw
-dXQgYSBWRiBvbiBhIFZMQU4NCj4gdG8gcHJvdmlkZSBhbm90aGVyIGxldmVsIG9mIGlzb2xhdGlv
-biBmb3IgdGhlIFZGLg0KPiA+DQo+ID4gSW50ZWwgVkZzIGRvbid0IHN1cHBvcnQgcHJvbWlzY3Vv
-dXMgbW9kZS4gwqBJZiB5b3UgcmFuIHRjcGR1bXAgeW91DQo+IHdvdWxkbid0IHNlZSB0aGUgVkxB
-TiB0YWdzIGJlY2F1c2UgdGhleSd2ZSBiZWVuIHN0cmlwcGVkIGJ5IHRoZSBIVy4gwqBUaGUNCj4g
-VkYgaGFzIG5vIGNob2ljZSBpbiB0aGlzLg0KPiANCj4gSSB1bmRlcnN0YW5kIHRoYXQgVkZzIGFy
-ZSBsaW1pdGVkIGluIHdoYXQgdGhleSBjYW4gZG8uICBXaGF0IEknbQ0KPiBjb25jZXJuZWQgYWJv
-dXQgYXJlIGRpZmZlcmVuY2VzIGluIGhvdyB0aGUgZHJpdmVyIGJlaGF2ZXMgd2hlbiBhIHZsYW4N
-Cj4gZGV2aWNlIGlzIGNvbmZpZ3VyZWQgb24gaXQgdnMuIG5vdC4gIFRoZXJlIGFyZSB0d28gY2Fz
-ZXMgdGhhdCBJIHRoaW5rDQo+IHlvdSB3aWxsIHNlZSBkaWZmZXJlbnQgYmVoYXZpb3I6DQo+IA0K
-PiAqIFRoZSBWRiBkcml2ZXIgaGFzIGl0J3Mgb3duIHZsYW4gZmlsdGVycy4gIEknbSBhc3N1bWlu
-ZyAoY29ycmVjdCBtZQ0KPiBpZiBJJ20gd3JvbmcpIHRoYXQgdGhpcyB3aWxsIGZ1cnRoZXIgcmVz
-dHJpY3QgdGhlIHZsYW5zIHRoYXQgdGhlIGd1ZXN0DQo+IHNlZXMgZnJvbSB0aGUgc2V0IHRoYXQg
-aGF2ZSBiZWVuIGNvbmZpZ3VyZWQgb24gdGhlIFBGIGRyaXZlci4gIElmIHRoYXQNCj4gaXMgY29y
-cmVjdCwgdGhlbiBwdXR0aW5nIHRoZSBWRiBpbnRlcmZhY2UgaW4gcHJvbWlzY3VvdXMgbW9kZSBz
-aG91bGQNCj4gZGlzYWJsZSB0aGUgZmlsdGVycyBhbmQgYWxsb3cgcGFja2V0cyBmcm9tIGFsbCB2
-bGFucyB0aGF0IHRoZSBQRg0KPiBhbGxvd3MuICBUaGlzIHNpdHVhdGlvbiBpcyB0aGUgc2FtZSBh
-cyBpZiBhbiB1cHN0cmVhbSBwaHlzaWNhbCBzd2l0Y2gNCj4gaXMgdHJ1bmtpbmcgb25seSBhIHN1
-YnNldCBvZiB2bGFucyB0byBhbiBlbmQgaG9zdCBhbmQgdGhlIE5JQyBpcyBwdXQNCj4gaW4gcHJv
-bWlzY3VvdXMgbW9kZS4gIEhvd2V2ZXIsIGl0IGRvZXNuJ3QgbG9vayBsaWtlIHRoZSBWRiBkcml2
-ZXIgZG9lcw0KPiBhbnl0aGluZyBpbiByZXNwb25zZSB0byBiZWluZyBpbiBwcm9taXNjdW91cyBt
-b2RlLiAgVGhpcyBzaG91bGRuJ3QNCj4gcmVxdWlyZSBhbnkgaGFyZHdhcmUgc3VwcG9ydCBiZWNh
-dXNlIGl0IGlzIGp1c3QgY2xlYXJpbmcgdGhlIGZpbHRlcg0KPiB0YWJsZS4NCg0KVGhlIFZGIGRv
-ZXMgbm90IGhhdmUgaXRzIG93biBWTEFOIGZpbHRlcnMuICBJdCBtdXN0IHJlcXVlc3QgdGhlbSB0
-aHJvdWdoIHRoZSBQRiB2aWEgdGhlIG1haWxib3ggbWVzc2FnaW5nIGZlYXR1cmUgaW4gdGhlIE5J
-Qy4gIFdoZW4gdGhlIFBGIHB1dHMgdGhlIFZGIGluIHRydW5rIFZMQU4gbW9kZSB2aWEgdGhlICdp
-cCBsaW5rIHNldCA8ZGV2PiB2ZiA8bj4gdmxhbiA8dmxhbmlkPicgY29tbWFuZCB0aGVuIHRoZSBQ
-RiBhbHNvIGZsYWdzIHRoYXQgVkYgYW5kIHdpbGwgbm90IHRha2UgVkxBTiBmaWx0ZXIgcmVxdWVz
-dHMgZnJvbSBpdC4gIEluIGVmZmVjdCwgdGhlIFZGIGlzIGZvcmNlZCB0byBhIFZMQU4gYW5kIGhh
-cyBubyBjaG9pY2UuICBTbyBpdCBjYW5ub3QgZnVydGhlciByZXN0cmljdCB3aGF0IFZMQU5zIHRo
-ZSBndWVzdCBzZWVzLiAgQW5kIHRoZSBWRiBjYW4gb25seSBiZSBvbiBhIHNpbmdsZSB0cnVuayBW
-TEFOLCBpdCBkb2VzIG5vdCBzdXBwb3J0IG11bHRpcGxlIHRydW5rIFZMQU5zLg0KDQpBbmQgYWdh
-aW4sIHRoZSBWRiBkb2VzbuKAmXQgc3VwcG9ydCBwcm9taXNjdW91cyBtb2RlLiAgVGhlIFZGIGRl
-dmljZSBIVyBkb2Vzbid0IGhhdmUgdGhhdCBmZWF0dXJlLg0KDQo+ICogSXQgbG9va3MgbGlrZSB0
-aGUgVkYgZHJpdmVyIGlzIHJlY2VpdmluZyBub3QganVzdCBhbiBpbmRpY2F0aW9uIHRoYXQNCj4g
-YSB0YWcgd2FzIHByZXNlbnQgYnV0IHRoZSBhY3R1YWwgdGFnIGFuZCBhbHRob3VnaCBpdCB3YXMg
-YWxyZWFkeQ0KPiBzdHJpcHBlZCBieSB0aGUgTklDIGl0IGNhbiBiZSBwYXNzZWQgdXAgdG8gdGhl
-IG5ldHdvcmsgc3RhY2sganVzdCBhcw0KPiBpZiBpdCB3YXMgc3RyaXBwZWQgaW4gYSBub24tU1It
-SU9WIE5JQy4gIEFmdGVyIHRoaXMgcGF0Y2gsIGlmIHlvdSBydW4NCj4gdGNwZHVtcCBvbiB0aGUg
-VkYgaW50ZXJmYWNlIHlvdSB3aWxsIHNlZSBwYWNrZXRzIHdpdGggdGFncyBpZiBhIHZsYW4NCj4g
-ZGV2aWNlIGlzIGNvbmZpZ3VyZWQgYnV0IHBhY2tldHMgd2l0aG91dCB0YWdzIGlmIHRoZXJlIGlz
-IG5vIHZsYW4NCj4gZGV2aWNlLg0KPiANCg0KTm8uICBJbiB0cnVuayBWTEFOIG1vZGUgdGhlIHJl
-Y2VpdmUgZGVzY3JpcHRvciBwcm92aWRlZCBieSB0aGUgSFcgaGFzIGEgVkxBTiB0YWcgcHJlc2Vu
-dCBiaXQgYW5kIHRoYXQgaXMgc2V0IGJ1dCB1bmxlc3Mgc29tZW9uZSBoYXMgdXNlZCB2Y29uZmln
-IHRvIGNvbmZpZ3VyZSBhIFZMQU4gYW5kIGEgYml0IGlzIHNldCBmb3IgdGhhdCBWTEFOIGluIHRo
-ZSBhY3RpdmVfdmxhbnMgYml0IHRhYmxlIHRoZW4gdGhlIHBhY2tldCBpcyBzZW50IHVwIHRoZSBz
-dGFjayB3aXRob3V0IHRoZSB0YWcuICBVcHBlciBsYXllcnMgZG9uJ3QgaGF2ZSBhY2Nlc3MgdG8g
-dGhlIGRyaXZlcidzIGludGVybmFsIGRlc2NyaXB0b3IgcmluZ3MgYW5kIGhhdmUgbm8gaWRlYSB0
-aGF0IHRoZSBWTEFOIHRhZyBwcmVzZW50IGJpdCB3YXMgc2V0IGluIHRoZSBkZXNjcmlwdG9yLiAg
-VXBwZXIgbGF5ZXIgU1cgaW4gdGhlIG5ldHdvcmsgc3RhY2sgd29uJ3QgYmUgbG9va2luZyBmb3Ig
-VkxBTiB0YWdzIHNpbmNlIGl0IG5ldmVyIHJlcXVlc3RlZCBhbnkgVkxBTnMuICBBbmQgc2luY2Ug
-dGhlIFZMQU4gdGFnIHdhcyBzdHJpcHBlZCwgYW5kIHRoZSB1cHBlciBsYXllcnMgaGF2ZW4ndCBl
-dmVyIHNldCBhIFZMQU4gZmlsdGVyLCB0aGVuIHRoZXJlIGlzIG5vIGV4cGVjdGF0aW9uIG9mIGEg
-VkxBTiB0YWcuDQoNCj4gRG9lcyB0aGUgVkYga25vdyB3aGV0aGVyIGl0IGlzIGFzc2lnbmVkIHRv
-IGEgcGFydGljdWxhciB2bGFuIG9yIGlzDQo+IGFsbG93ZWQgdG8gc2VuZC9yZWNlaXZlIHRhZ2dl
-ZCBwYWNrZXRzIChlc3NlbnRpYWxseSB0aGUgZGlmZmVyZW5jZQ0KPiBiZXR3ZWVuIGFuIGFjY2Vz
-cyBwb3J0IG9yIGEgdHJ1bmsgcG9ydCk/DQoNClllcywgaXQga25vd3MgaWYgaXQgaGFzIHJlcXVl
-c3RlZCBhIFZMQU4gZmlsdGVyIHZpYSB0aGUgYWN0aXZlX3ZsYW5zIGJpdCB0YWJsZS4gIElmIG5v
-IFZMQU5zIGFyZSBzZXQgaW4gdGhlIGFjdGl2ZV92bGFucyB0YWJsZSB0aGVuIGl0IGtub3dzIHRv
-IGlnbm9yZSB0aGUgVkxBTiB0YWcgcHJlc2VudCBiaXQgc2V0IGluIHRoZSBkZXNjcmlwdG9yIHNp
-bmNlIGl0IG11c3QgYmUgaW4gdHJ1bmsgVkxBTiBtb2RlLg0KDQo+ICBPciBpcyB0aGF0IHdoeSB0
-aGUgcHJlc2VuY2UNCj4gb2YgdmxhbiBkZXZpY2UgaXMgdXNlZCBhcyBhbiBpbmRpY2F0aW9uPw0K
-DQpDb3JyZWN0LCB0aGF0IGlzIHRoZSBjYXNlLg0KDQotIEdyZWcNCg0K
+From: Jerry Chu <hkchu@google.com>
+
+This patch breaks up the single NBD lock into one per
+disk. The single NBD lock has become a serious performance
+bottleneck when multiple NBD disks are being used.
+
+The original comment on why a single lock may be ok no
+longer holds for today's much faster NICs.
+
+Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+---
+ drivers/block/nbd.c |   22 +++++++++-------------
+ 1 files changed, 9 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+index f533f33..355e15c 100644
+--- a/drivers/block/nbd.c
++++ b/drivers/block/nbd.c
+@@ -58,20 +58,9 @@ static unsigned int debugflags;
+ 
+ static unsigned int nbds_max = 16;
+ static struct nbd_device *nbd_dev;
++static spinlock_t *nbd_locks;
+ static int max_part;
+ 
+-/*
+- * Use just one lock (or at most 1 per NIC). Two arguments for this:
+- * 1. Each NIC is essentially a synchronization point for all servers
+- *    accessed through that NIC so there's no need to have more locks
+- *    than NICs anyway.
+- * 2. More locks lead to more "Dirty cache line bouncing" which will slow
+- *    down each lock to the point where they're actually slower than just
+- *    a single lock.
+- * Thanks go to Jens Axboe and Al Viro for their LKML emails explaining this!
+- */
+-static DEFINE_SPINLOCK(nbd_lock);
+-
+ #ifndef NDEBUG
+ static const char *ioctl_cmd_to_ascii(int cmd)
+ {
+@@ -753,6 +742,12 @@ static int __init nbd_init(void)
+ 	if (!nbd_dev)
+ 		return -ENOMEM;
+ 
++	nbd_locks = kcalloc(nbds_max, sizeof(*nbd_locks), GFP_KERNEL);
++	if (!nbd_locks) {
++		kfree(nbd_dev);
++		return -ENOMEM;
++	}
++
+ 	part_shift = 0;
+ 	if (max_part > 0) {
+ 		part_shift = fls(max_part);
+@@ -784,7 +779,7 @@ static int __init nbd_init(void)
+ 		 * every gendisk to have its very own request_queue struct.
+ 		 * These structs are big so we dynamically allocate them.
+ 		 */
+-		disk->queue = blk_init_queue(do_nbd_request, &nbd_lock);
++		disk->queue = blk_init_queue(do_nbd_request, &nbd_locks[i]);
+ 		if (!disk->queue) {
+ 			put_disk(disk);
+ 			goto out;
+@@ -832,6 +827,7 @@ out:
+ 		put_disk(nbd_dev[i].disk);
+ 	}
+ 	kfree(nbd_dev);
++	kfree(nbd_locks);
+ 	return err;
+ }
+ 
+-- 
+1.7.3.1
