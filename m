@@ -1,47 +1,47 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [PATCH 1/2] virtio-net: Verify page list size before fitting into skb
-Date: Mon, 26 Sep 2011 20:41:08 +0300
-Message-ID: <1317058869-19276-1-git-send-email-levinsasha928@gmail.com>
-Cc: Sasha Levin <levinsasha928@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: [E1000-devel] intel 82599 multi-port performance
+Date: Mon, 26 Sep 2011 11:46:57 -0600
+Message-ID: <4E80BA91.2040803@genband.com>
+References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com> <4E809D59.10103@gmail.com> <4E80A2AB.2040206@intel.com> <4E80AAF8.1000806@genband.com> <4E80B551.1040609@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"J.Hwan.Kim" <j.hwan.kim99@gmail.com>, frog1120@gmail.com
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og124.obsmtp.com ([64.18.2.26]:55089 "EHLO
+	exprod7og124.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750997Ab1IZRrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 13:47:20 -0400
+In-Reply-To: <4E80B551.1040609@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch verifies that the length of a buffer stored in a linked list
-of pages is small enough to fit into a skb.
+On 09/26/2011 11:24 AM, Ben Greear wrote:
+> On 09/26/2011 09:40 AM, Chris Friesen wrote:
 
-If the size is larger than a max size of a skb, it means that we shouldn't
-go ahead building skbs anyway since we won't be able to send the buffer as
-the user requested.
+>> To any of the Intel guys out there...any ideas? Can an 82599 on an 8x
+>> bus handle max line rate with minimum size packets?
+>
+> Rick Jones sent me an interesting link related to this. Short answer seems
+> to be 'yes', but it seems not for any normal off-the-shelf software stack.
+>
+>  > This: http://comments.gmane.org/gmane.linux.network/203602 should
+> lead you to some slide.
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: virtualization@lists.linux-foundation.org
-Cc: netdev@vger.kernel.org
-Cc: kvm@vger.kernel.org
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
----
- drivers/net/virtio_net.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+Interesting.  I wonder if Intel's DPDK will be the only way to handle 
+those sorts of packet rates.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 0c7321c..64e0717 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -165,6 +165,9 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
- 	unsigned int copy, hdr_len, offset;
- 	char *p;
- 
-+	if (len > MAX_SKB_FRAGS * PAGE_SIZE)
-+		return NULL;
-+
- 	p = page_address(page);
- 
- 	/* copy small packet so we can reuse these pages for small data */
+Chris
+
 -- 
-1.7.6.1
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
