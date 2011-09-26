@@ -1,134 +1,284 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [net-next 02/10] ixgbevf: Fix broken trunk vlan
-Date: Mon, 26 Sep 2011 16:08:47 -0700
-Message-ID: <CAEP_g=-xqgrS1hjApx5bPE2GFkAPJa6meaL0nmUcUbvSOPK-hQ@mail.gmail.com>
-References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1316855863-6091-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAEP_g=93GcR7yE7N+GtaB6dpjPuGGtCBXznEmV6Sx=BX-kSbmg@mail.gmail.com> <43F901BD926A4E43B106BF17856F0755019C519319@orsmsx508.amr.corp.intel.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v3 1/7] Basic kernel memory functionality for the Memory
+ Controller
+Date: Mon, 26 Sep 2011 20:18:39 -0300
+Message-ID: <4E81084F.9010208@parallels.com>
+References: <1316393805-3005-1-git-send-email-glommer@parallels.com> <1316393805-3005-2-git-send-email-glommer@parallels.com> <20110926193451.b419f630.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	Jiri Pirko <jpirko@redhat.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53624 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884Ab1IZXJJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 19:09:09 -0400
-Received: by wyg34 with SMTP id 34so6433344wyg.19
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 16:09:07 -0700 (PDT)
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755019C519319@orsmsx508.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<kirill@shutemov.name>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110926193451.b419f630.kamezawa.hiroyu@jp.fujitsu.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2011 at 8:57 AM, Rose, Gregory V
-<gregory.v.rose@intel.com> wrote:
->> -----Original Message-----
->> From: Jesse Gross [mailto:jesse@nicira.com]
->> Sent: Saturday, September 24, 2011 9:33 AM
->> To: Kirsher, Jeffrey T
->> Cc: davem@davemloft.net; Rose, Gregory V; netdev@vger.kernel.org;
->> gospo@redhat.com; Jiri Pirko
->> Subject: Re: [net-next 02/10] ixgbevf: Fix broken trunk vlan
+On 09/26/2011 07:34 AM, KAMEZAWA Hiroyuki wrote:
+> On Sun, 18 Sep 2011 21:56:39 -0300
+> Glauber Costa<glommer@parallels.com>  wrote:
+>
+>> This patch lays down the foundation for the kernel memory component
+>> of the Memory Controller.
 >>
->> On Sat, Sep 24, 2011 at 2:17 AM, Jeff Kirsher
->> <jeffrey.t.kirsher@intel.com> wrote:
->> > From: Greg Rose <gregory.v.rose@intel.com>
->> >
->> > Changes to clean up the vlan rx path broke trunk vlan. =C2=A0Trunk=
- vlans in
->> > a VF driver are those set using:
->> >
->> > "ip link set <pfdev> vf <n> <vlanid>"
->> >
->> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
->> > CC: Jiri Pirko <jpirko@redhat.com>
->> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> > ---
->> > =C2=A0drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | =C2=A0 =C2=
-=A06 ++----
->> > =C2=A01 files changed, 2 insertions(+), 4 deletions(-)
->> >
->> > diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> > index d72905b..4930c46 100644
->> > --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> > +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> > @@ -293,12 +293,10 @@ static void ixgbevf_receive_skb(struct
->> ixgbevf_q_vector *q_vector,
->> > =C2=A0{
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0struct ixgbevf_adapter *adapter =3D q_v=
-ector->adapter;
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0bool is_vlan =3D (status & IXGBE_RXD_ST=
-AT_VP);
->> > + =C2=A0 =C2=A0 =C2=A0 u16 tag =3D le16_to_cpu(rx_desc->wb.upper.v=
-lan);
->> >
->> > - =C2=A0 =C2=A0 =C2=A0 if (is_vlan) {
->> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 u16 tag =3D le1=
-6_to_cpu(rx_desc->wb.upper.vlan);
->> > -
->> > + =C2=A0 =C2=A0 =C2=A0 if (is_vlan && test_bit(tag, adapter->activ=
-e_vlans))
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0__vlan_hwac=
-cel_put_tag(skb, tag);
->> > - =C2=A0 =C2=A0 =C2=A0 }
+>> As of today, I am only laying down the following files:
 >>
->> What happens if you run tcpdump without configuring vlan devices?
->> Shouldn't you see tagged packets for the vlans that are being trunke=
-d
->> to you? =C2=A0I think this will strip tags in that case. =C2=A0The a=
-pparent
->> behavior of vlan filters here is also surprising to me because on on=
-e
->> hand if they're truly filtering this test shouldn't be needed and on
->> the other hand they don't seem to be disabled in promiscuous mode.
+>>   * memory.independent_kmem_limit
+>>   * memory.kmem.limit_in_bytes (currently ignored)
+>>   * memory.kmem.usage_in_bytes (always zero)
+>>
+>> Signed-off-by: Glauber Costa<glommer@parallels.com>
+>> CC: Paul Menage<paul@paulmenage.org>
+>> CC: Greg Thelen<gthelen@google.com>
 >
-> I think you're not quite understanding the action the HW is taking he=
-re. =C2=A0In the physical function driver we have put the VF on a VLAN =
-without it knowing that it's on a VLAN. =C2=A0Once that is done by the =
-PF, the VF is not allowed to configure its own VLANs anymore. =C2=A0How=
-ever, the descriptor still includes a bit for the VLAN tag indicating i=
-t was a packet that arrived on a VLAN. =C2=A0The HW is inserting and st=
-ripping the VLAN tag though without any awareness of that by the VF dri=
-ver.
+> I'm sorry that my slow review is delaying you.
 >
-> It's a security measure to allow an administrator to put a VF on a VL=
-AN to provide another level of isolation for the VF.
 >
-> Intel VFs don't support promiscuous mode. =C2=A0If you ran tcpdump yo=
-u wouldn't see the VLAN tags because they've been stripped by the HW. =C2=
-=A0The VF has no choice in this.
+>> ---
+>>   Documentation/cgroups/memory.txt |   30 +++++++++-
+>>   init/Kconfig                     |   11 ++++
+>>   mm/memcontrol.c                  |  115 ++++++++++++++++++++++++++++++++++++--
+>>   3 files changed, 148 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
+>> index 6f3c598..6f1954a 100644
+>> --- a/Documentation/cgroups/memory.txt
+>> +++ b/Documentation/cgroups/memory.txt
+>> @@ -44,8 +44,9 @@ Features:
+>>    - oom-killer disable knob and oom-notifier
+>>    - Root cgroup has no limit controls.
+>>
+>> - Kernel memory and Hugepages are not under control yet. We just manage
+>> - pages on LRU. To add more controls, we have to take care of performance.
+>> + Hugepages is not under control yet. We just manage pages on LRU. To add more
+>> + controls, we have to take care of performance. Kernel memory support is work
+>> + in progress, and the current version provides basically functionality.
+>>
+>>   Brief summary of control files.
+>>
+>> @@ -56,8 +57,11 @@ Brief summary of control files.
+>>   				 (See 5.5 for details)
+>>    memory.memsw.usage_in_bytes	 # show current res_counter usage for memory+Swap
+>>   				 (See 5.5 for details)
+>> + memory.kmem.usage_in_bytes	 # show current res_counter usage for kmem only.
+>> +				 (See 2.7 for details)
+>>    memory.limit_in_bytes		 # set/show limit of memory usage
+>>    memory.memsw.limit_in_bytes	 # set/show limit of memory+Swap usage
+>> + memory.kmem.limit_in_bytes	 # if allowed, set/show limit of kernel memory
+>>    memory.failcnt			 # show the number of memory usage hits limits
+>>    memory.memsw.failcnt		 # show the number of memory+Swap hits limits
+>>    memory.max_usage_in_bytes	 # show max memory usage recorded
+>> @@ -72,6 +76,9 @@ Brief summary of control files.
+>>    memory.oom_control		 # set/show oom controls.
+>>    memory.numa_stat		 # show the number of memory usage per numa node
+>>
+>> + memory.independent_kmem_limit	 # select whether or not kernel memory limits are
+>> +				   independent of user limits
+>> +
+>>   1. History
+>>
+>>   The memory controller has a long history. A request for comments for the memory
+>> @@ -255,6 +262,25 @@ When oom event notifier is registered, event will be delivered.
+>>     per-zone-per-cgroup LRU (cgroup's private LRU) is just guarded by
+>>     zone->lru_lock, it has no lock of its own.
+>>
+>> +2.7 Kernel Memory Extension (CONFIG_CGROUP_MEM_RES_CTLR_KMEM)
+>> +
+>> + With the Kernel memory extension, the Memory Controller is able to limit
+>> +the amount of kernel memory used by the system. Kernel memory is fundamentally
+>> +different than user memory, since it can't be swapped out, which makes it
+>> +possible to DoS the system by consuming too much of this precious resource.
+>> +Kernel memory limits are not imposed for the root cgroup.
+>> +
+>> +Memory limits as specified by the standard Memory Controller may or may not
+>> +take kernel memory into consideration. This is achieved through the file
+>> +memory.independent_kmem_limit. A Value different than 0 will allow for kernel
+>> +memory to be controlled separately.
+>> +
+>> +When kernel memory limits are not independent, the limit values set in
+>> +memory.kmem files are ignored.
+>> +
+>> +Currently no soft limit is implemented for kernel memory. It is future work
+>> +to trigger slab reclaim when those limits are reached.
+>> +
+>>   3. User Interface
+>>
+>>   0. Configuration
+>> diff --git a/init/Kconfig b/init/Kconfig
+>> index d627783..49e5839 100644
+>> --- a/init/Kconfig
+>> +++ b/init/Kconfig
+>> @@ -689,6 +689,17 @@ config CGROUP_MEM_RES_CTLR_SWAP_ENABLED
+>>   	  For those who want to have the feature enabled by default should
+>>   	  select this option (if, for some reason, they need to disable it
+>>   	  then swapaccount=0 does the trick).
+>> +config CGROUP_MEM_RES_CTLR_KMEM
+>> +	bool "Memory Resource Controller Kernel Memory accounting"
+>> +	depends on CGROUP_MEM_RES_CTLR
+>> +	default y
+>> +	help
+>> +	  The Kernel Memory extension for Memory Resource Controller can limit
+>> +	  the amount of memory used by kernel objects in the system. Those are
+>> +	  fundamentally different from the entities handled by the standard
+>> +	  Memory Controller, which are page-based, and can be swapped. Users of
+>> +	  the kmem extension can use it to guarantee that no group of processes
+>> +	  will ever exhaust kernel resources alone.
+>>
+>>   config CGROUP_PERF
+>>   	bool "Enable perf_event per-cpu per-container group (cgroup) monitoring"
+>> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+>> index ebd1e86..d32e931 100644
+>> --- a/mm/memcontrol.c
+>> +++ b/mm/memcontrol.c
+>> @@ -73,7 +73,11 @@ static int really_do_swap_account __initdata = 0;
+>>   #define do_swap_account		(0)
+>>   #endif
+>>
+>> -
+>> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+>> +int do_kmem_account __read_mostly = 1;
+>> +#else
+>> +#define do_kmem_account		0
+>> +#endif
+>
+>
+> Hmm, do we really need this boot option ?
+>  From my experience to have swap-accounting boot option,
+> this scares us ;) I think config is enough.
+>
+>
+>
+>
+>>   /*
+>>    * Statistics for memory cgroup.
+>>    */
+>> @@ -270,6 +274,10 @@ struct mem_cgroup {
+>>   	 */
+>>   	struct res_counter memsw;
+>>   	/*
+>> +	 * the counter to account for kmem usage.
+>> +	 */
+>> +	struct res_counter kmem;
+>> +	/*
+>>   	 * Per cgroup active and inactive list, similar to the
+>>   	 * per zone LRU lists.
+>>   	 */
+>> @@ -321,6 +329,11 @@ struct mem_cgroup {
+>>   	 */
+>>   	unsigned long 	move_charge_at_immigrate;
+>>   	/*
+>> +	 * Should kernel memory limits be stabilished independently
+>> +	 * from user memory ?
+>> +	 */
+>> +	int		kmem_independent;
+>> +	/*
+>>   	 * percpu counter.
+>>   	 */
+>>   	struct mem_cgroup_stat_cpu *stat;
+>> @@ -388,9 +401,14 @@ enum charge_type {
+>>   };
+>>
+>>   /* for encoding cft->private value on file */
+>> -#define _MEM			(0)
+>> -#define _MEMSWAP		(1)
+>> -#define _OOM_TYPE		(2)
+>> +
+>> +enum mem_type {
+>> +	_MEM = 0,
+>> +	_MEMSWAP,
+>> +	_OOM_TYPE,
+>> +	_KMEM,
+>> +};
+>> +
+>
+> ok, nice clean up.
+>
+>
+>>   #define MEMFILE_PRIVATE(x, val)	(((x)<<  16) | (val))
+>>   #define MEMFILE_TYPE(val)	(((val)>>  16)&  0xffff)
+>>   #define MEMFILE_ATTR(val)	((val)&  0xffff)
+>> @@ -3943,10 +3961,15 @@ static inline u64 mem_cgroup_usage(struct mem_cgroup *mem, bool swap)
+>>   	u64 val;
+>>
+>>   	if (!mem_cgroup_is_root(mem)) {
+>> +		val = 0;
+>> +		if (!mem->kmem_independent)
+>> +			val = res_counter_read_u64(&mem->kmem, RES_USAGE);
+>
+>>   		if (!swap)
+>> -			return res_counter_read_u64(&mem->res, RES_USAGE);
+>> +			val += res_counter_read_u64(&mem->res, RES_USAGE);
+>>   		else
+>> -			return res_counter_read_u64(&mem->memsw, RES_USAGE);
+>> +			val += res_counter_read_u64(&mem->memsw, RES_USAGE);
+>> +
+>> +		return val;
+>>   	}
+>>
+>>   	val = mem_cgroup_recursive_stat(mem, MEM_CGROUP_STAT_CACHE);
+>> @@ -3979,6 +4002,10 @@ static u64 mem_cgroup_read(struct cgroup *cont, struct cftype *cft)
+>>   		else
+>>   			val = res_counter_read_u64(&mem->memsw, name);
+>>   		break;
+>> +	case _KMEM:
+>> +		val = res_counter_read_u64(&mem->kmem, name);
+>> +		break;
+>> +
+>>   	default:
+>>   		BUG();
+>>   		break;
+>> @@ -4756,6 +4783,21 @@ static int mem_cgroup_reset_vmscan_stat(struct cgroup *cgrp,
+>>   	return 0;
+>>   }
+>>
+>> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+>> +static u64 kmem_limit_independent_read(struct cgroup *cont, struct cftype *cft)
+>> +{
+>> +	return mem_cgroup_from_cont(cont)->kmem_independent;
+>> +}
+>> +
+>> +static int kmem_limit_independent_write(struct cgroup *cont, struct cftype *cft,
+>> +					u64 val)
+>> +{
+>> +	cgroup_lock();
+>> +	mem_cgroup_from_cont(cont)->kmem_independent = !!val;
+>> +	cgroup_unlock();
+>
+> Hm. This code allows that parent/child can have different settings.
+> Could you add parent-child check as..
+>
+> "If parent sets use_hierarchy==1, children must have the same kmem_independent value
+> with parant's one."
+>
+> How do you think ? I think a hierarchy must have the same config.
+BTW, Kame:
 
-I understand that VFs are limited in what they can do.  What I'm
-concerned about are differences in how the driver behaves when a vlan
-device is configured on it vs. not.  There are two cases that I think
-you will see different behavior:
+Look again (I forgot myself when I first replied to you)
+Only in the root cgroup those files get registered.
+So shouldn't be a problem, because children won't even
+be able to see them.
 
-* The VF driver has it's own vlan filters.  I'm assuming (correct me
-if I'm wrong) that this will further restrict the vlans that the guest
-sees from the set that have been configured on the PF driver.  If that
-is correct, then putting the VF interface in promiscuous mode should
-disable the filters and allow packets from all vlans that the PF
-allows.  This situation is the same as if an upstream physical switch
-is trunking only a subset of vlans to an end host and the NIC is put
-in promiscuous mode.  However, it doesn't look like the VF driver does
-anything in response to being in promiscuous mode.  This shouldn't
-require any hardware support because it is just clearing the filter
-table.
-* It looks like the VF driver is receiving not just an indication that
-a tag was present but the actual tag and although it was already
-stripped by the NIC it can be passed up to the network stack just as
-if it was stripped in a non-SR-IOV NIC.  After this patch, if you run
-tcpdump on the VF interface you will see packets with tags if a vlan
-device is configured but packets without tags if there is no vlan
-device.
+Do you agree with this ?
 
-Does the VF know whether it is assigned to a particular vlan or is
-allowed to send/receive tagged packets (essentially the difference
-between an access port or a trunk port)?  Or is that why the presence
-of vlan device is used as an indication?
+>
+> BTW...I don't like naming a little ;)
+>
+> memory->consolidated/shared/?????_kmem_accounting ?
+> Or
+> memory->kmem_independent_accounting ?
+>
+> or some better naming ?
+>
+> Thanks,
+> -Kame
+>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
