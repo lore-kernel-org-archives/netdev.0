@@ -1,9 +1,9 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] virtio-net: Verify page list size before fitting
- into skb
-Date: Mon, 26 Sep 2011 21:44:45 +0300
-Message-ID: <20110926184445.GA22278@redhat.com>
+Subject: Re: [PATCH 2/2] virtio-net: Prevent NULL dereference
+Date: Mon, 26 Sep 2011 21:47:03 +0300
+Message-ID: <20110926184703.GB22278@redhat.com>
 References: <1317058869-19276-1-git-send-email-levinsasha928@gmail.com>
+ <1317058869-19276-2-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org,
@@ -11,19 +11,19 @@ Cc: linux-kernel@vger.kernel.org,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	kvm@vger.kernel.org
 To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5769 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752375Ab1IZSqT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 14:46:19 -0400
 Content-Disposition: inline
-In-Reply-To: <1317058869-19276-1-git-send-email-levinsasha928@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1317058869-19276-2-git-send-email-levinsasha928@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 26, 2011 at 08:41:08PM +0300, Sasha Levin wrote:
-> This patch verifies that the length of a buffer stored in a linked list
-> of pages is small enough to fit into a skb.
-> 
-> If the size is larger than a max size of a skb, it means that we shouldn't
-> go ahead building skbs anyway since we won't be able to send the buffer as
-> the user requested.
+On Mon, Sep 26, 2011 at 08:41:09PM +0300, Sasha Levin wrote:
+> This patch prevents a NULL dereference when the user has passed a length
+> longer than an actual buffer to virtio-net.
 > 
 > Cc: Rusty Russell <rusty@rustcorp.com.au>
 > Cc: "Michael S. Tsirkin" <mst@redhat.com>
@@ -32,46 +32,27 @@ On Mon, Sep 26, 2011 at 08:41:08PM +0300, Sasha Levin wrote:
 > Cc: kvm@vger.kernel.org
 > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
 
-Interesting.  This is a theoretical issue, correct?
-Not a crash you actually see.
-
-This crash would mean device is giving us packets
-that are way too large. Avoiding crashes even in the face of
-a misbehaved device is a good idea, but should
-we print a diagnostic to a system log?
-Maybe rate-limited or print once to avoid filling
-up the disk. Other places in driver print with pr_debug
-I'm not sure that's right but better than nothing.
+Hmm, another protection against a buggy device, right?
+No problem with that, but let's discard the packet
+and print a disgnostic, so that the user can discover
+what happened.
 
 > ---
->  drivers/net/virtio_net.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
+>  drivers/net/virtio_net.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
 > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 0c7321c..64e0717 100644
+> index 64e0717..8d32c1e 100644
 > --- a/drivers/net/virtio_net.c
 > +++ b/drivers/net/virtio_net.c
-> @@ -165,6 +165,9 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
->  	unsigned int copy, hdr_len, offset;
->  	char *p;
+> @@ -198,7 +198,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+>  	len -= copy;
+>  	offset += copy;
 >  
-> +	if (len > MAX_SKB_FRAGS * PAGE_SIZE)
-
-unlikely()?
-
-Also, this seems too aggressive: at this point len includes the header
-and the linear part. The right place for this
-test is probably where we fill in the frags, just before
-while (len)
-
-The whole can only happen when mergeable buffers
-are disabled, right?
-
-
-> +		return NULL;
-> +
->  	p = page_address(page);
->  
->  	/* copy small packet so we can reuse these pages for small data */
+> -	while (len) {
+> +	while (len && page) {
+>  		set_skb_frag(skb, page, offset, &len);
+>  		page = (struct page *)page->private;
+>  		offset = 0;
 > -- 
 > 1.7.6.1
