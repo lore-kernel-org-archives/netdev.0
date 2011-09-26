@@ -1,121 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next 05/10] if_link: Add additional parameter to
- IFLA_VF_INFO for spoof checking
-Date: Mon, 26 Sep 2011 09:37:57 -0700
-Message-ID: <20110926093757.6a9fa23e@nehalam.linuxnetplumber.net>
-References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20110925102238.55ba72eb@s6510.linuxnetplumber.net>
-	<1316981213.4122.106.camel@deadeye>
-	<20110926091426.5c83a4d7@nehalam.linuxnetplumber.net>
-	<43F901BD926A4E43B106BF17856F0755019C5193B4@orsmsx508.amr.corp.intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [net-next] iproute2: Add new command to IP link to
+ enable/disable VF spoof check
+Date: Mon, 26 Sep 2011 17:41:59 +0100
+Message-ID: <1317055319.2773.41.camel@bwh-desktop>
+References: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20110925102353.602d239b@s6510.linuxnetplumber.net>
+	 <43F901BD926A4E43B106BF17856F0755019C519385@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>
 To: "Rose, Gregory V" <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58679 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751588Ab1IZQiH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 12:38:07 -0400
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755019C5193B4@orsmsx508.amr.corp.intel.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:24632 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299Ab1IZQmD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 12:42:03 -0400
+In-Reply-To: <43F901BD926A4E43B106BF17856F0755019C519385@orsmsx508.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 Sep 2011 09:32:35 -0700
-"Rose, Gregory V" <gregory.v.rose@intel.com> wrote:
-
+On Mon, 2011-09-26 at 09:21 -0700, Rose, Gregory V wrote:
 > > -----Original Message-----
 > > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> > Sent: Monday, September 26, 2011 9:14 AM
-> > To: Ben Hutchings
-> > Cc: Kirsher, Jeffrey T; davem@davemloft.net; Rose, Gregory V;
-> > netdev@vger.kernel.org; gospo@redhat.com
-> > Subject: Re: [net-next 05/10] if_link: Add additional parameter to
-> > IFLA_VF_INFO for spoof checking
+> > Sent: Sunday, September 25, 2011 10:24 AM
+> > To: Kirsher, Jeffrey T
+> > Cc: Rose, Gregory V; davem@davemloft.net; netdev@vger.kernel.org;
+> > gospo@redhat.com
+> > Subject: Re: [net-next] iproute2: Add new command to IP link to
+> > enable/disable VF spoof check
 > > 
-> > On Sun, 25 Sep 2011 21:06:49 +0100
-> > Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > On Sun, 25 Sep 2011 01:23:18 -0700
+> > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 > > 
-> > > On Sun, 2011-09-25 at 10:22 -0700, Stephen Hemminger wrote:
-> > > > On Sat, 24 Sep 2011 02:17:38 -0700
-> > > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> > > >
-> > > > > From: Greg Rose <gregory.v.rose@intel.com>
-> > > > >
-> > > > > Add configuration setting for drivers to turn spoof checking on or
-> > off
-> > > > > for discrete VFs.
-> > > > >
-> > > > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> > > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > > ---
-> > > > >  include/linux/if_link.h   |    7 +++++++
-> > > > >  include/linux/netdevice.h |    3 +++
-> > > > >  net/core/rtnetlink.c      |   25 ++++++++++++++++++++++---
-> > > > >  3 files changed, 32 insertions(+), 3 deletions(-)
-> > > > >
-> > > > > diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> > > > > index 0ee969a..8bd6d6d 100644
-> > > > > --- a/include/linux/if_link.h
-> > > > > +++ b/include/linux/if_link.h
-> > > > > @@ -279,6 +279,7 @@ enum {
-> > > > >  	IFLA_VF_MAC,		/* Hardware queue specific attributes
-> > */
-> > > > >  	IFLA_VF_VLAN,
-> > > > >  	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
-> > > > > +	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
-> > > > >  	__IFLA_VF_MAX,
-> > > > >  };
-> > > > >
-> > > > > @@ -300,12 +301,18 @@ struct ifla_vf_tx_rate {
-> > > > >  	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling
-> > */
-> > > > >  };
-> > > > >
-> > > > > +struct ifla_vf_spoofchk {
-> > > > > +	__u32 vf;
-> > > > > +	__u32 setting;
-> > > > > +};
-> > > > > +
-> > > > >  struct ifla_vf_info {
-> > > > >  	__u32 vf;
-> > > > >  	__u8 mac[32];
-> > > > >  	__u32 vlan;
-> > > > >  	__u32 qos;
-> > > > >  	__u32 tx_rate;
-> > > > > +	__u32 spoofchk;
-> > > > >  };
-> > > >
-> > > > This breaks ABI compatibility, unless you add some special case code
-> > > > to handle the case of tools sending the old ifla_vf_info. Users may
-> > have older version
-> > > > of ip utilities that send smaller size structure.
+> > > From: Greg Rose <gregory.v.rose@intel.com>
 > > >
-> > > Unless I'm missing something, that structure is not sent or received by
-> > > userland; that's why I thought it should be #ifdef __KERNEL__.
+> > > Add IP link command parsing for VF spoof checking enable/disable
+> > >
+> > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > > 
-> > The struct ifla_vf_info is exposed to userland, it is not inside the
-> > #ifdef
-> > and therefore exposed.
-> > 
-> > But it is probably okay to change this structure because the ifla_vf_info
-> > is not used/supported by any released version iproute2.  There may have
-> > been
-> > some patches to use this, but they never made it into the git or released
-> > code.
-> > 
+> > See my comments about ABI compatibility. Can't just grow size of
+> > structure.
+> > Need to have new version of iproute work with older kernels.
 > 
-> I will respin the patches with *ifdef __KERNEL__ wrapper.
-> 
-> Thanks,
-> 
-> - Greg
-> 
+> In this case I have no idea how to proceed.  I'll go back and stare at it some more.
 
-Just make spoofchk a new nested attribute.
+Where is this structure used on the wire?  I just don't see it.
+
+If the modified iproute2 crashes on older kernels, that's presumably
+because it's not correctly handling the case where IFLA_VF_SPOOFCHK is
+missing.  Nothing to do with the size of this structure.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
