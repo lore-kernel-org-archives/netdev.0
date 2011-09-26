@@ -1,64 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [net-next] iproute2: Add new command to IP link to
- enable/disable VF spoof check
-Date: Mon, 26 Sep 2011 17:41:59 +0100
-Message-ID: <1317055319.2773.41.camel@bwh-desktop>
-References: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110925102353.602d239b@s6510.linuxnetplumber.net>
-	 <43F901BD926A4E43B106BF17856F0755019C519385@orsmsx508.amr.corp.intel.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: intel 82599 multi-port performance
+Date: Mon, 26 Sep 2011 10:40:24 -0600
+Message-ID: <4E80AAF8.1000806@genband.com>
+References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com> <4E809D59.10103@gmail.com> <4E80A2AB.2040206@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
+Cc: frog1120@gmail.com, "J.Hwan.Kim" <j.hwan.kim99@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:24632 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751299Ab1IZQmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 12:42:03 -0400
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755019C519385@orsmsx508.amr.corp.intel.com>
+Received: from exprod7og106.obsmtp.com ([64.18.2.165]:53825 "EHLO
+	exprod7og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751280Ab1IZQm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 12:42:26 -0400
+In-Reply-To: <4E80A2AB.2040206@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-09-26 at 09:21 -0700, Rose, Gregory V wrote:
-> > -----Original Message-----
-> > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> > Sent: Sunday, September 25, 2011 10:24 AM
-> > To: Kirsher, Jeffrey T
-> > Cc: Rose, Gregory V; davem@davemloft.net; netdev@vger.kernel.org;
-> > gospo@redhat.com
-> > Subject: Re: [net-next] iproute2: Add new command to IP link to
-> > enable/disable VF spoof check
-> > 
-> > On Sun, 25 Sep 2011 01:23:18 -0700
-> > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> > 
-> > > From: Greg Rose <gregory.v.rose@intel.com>
-> > >
-> > > Add IP link command parsing for VF spoof checking enable/disable
-> > >
-> > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > 
-> > See my comments about ABI compatibility. Can't just grow size of
-> > structure.
-> > Need to have new version of iproute work with older kernels.
-> 
-> In this case I have no idea how to proceed.  I'll go back and stare at it some more.
+On 09/26/2011 10:04 AM, Alexander Duyck wrote:
 
-Where is this structure used on the wire?  I just don't see it.
+> It sounds like you are using a single card, would that be correct? If
+> you are running close to line rate on both ports this could be causing
+> you to saturate the PCIe x8 link.
 
-If the modified iproute2 crashes on older kernels, that's presumably
-because it's not correctly handling the case where IFLA_VF_SPOOFCHK is
-missing.  Nothing to do with the size of this structure.
+According to 
+"http://communities.intel.com/community/wired/blog/2009/06/08/understanding-pci-express-bandwidth" 
+8x PCIe should have a bandwidth of 4GB/s.  2 10Gigabit ports is 2.5GB/s.
 
-Ben.
+The 82599 only goes up to 8x, so I'd expect that it should be sufficient 
+to handle the full traffic.
+
+To any of the Intel guys out there...any ideas?  Can an 82599 on an 8x 
+bus handle max line rate with minimum size packets?
+
+Chris
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
