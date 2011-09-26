@@ -1,76 +1,49 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v3 6/7] tcp buffer limitation: per-cgroup limit
-Date: Mon, 26 Sep 2011 20:02:47 +0900
-Message-ID: <20110926200247.c80f7e47.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com>
-	<1316393805-3005-7-git-send-email-glommer@parallels.com>
-	<CAHH2K0Yuji2_2pMdzEaMvRx0KE7OOaoEGT+OK4gJgTcOPKuT9g@mail.gmail.com>
-	<4E7DDB82.3030802@parallels.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] tcp: ECN blackhole should not force quickack mode
+Date: Mon, 26 Sep 2011 08:00:43 -0400
+Message-ID: <1317038443.1865.40.camel@mojatatu>
+References: <1316757739.2560.12.camel@edumazet-laptop>
+	 <1316825745.1865.24.camel@mojatatu>
+	 <1316978684.2531.7.camel@edumazet-laptop>
+	 <1316999266.1865.35.camel@mojatatu>  <1316999597.1865.37.camel@mojatatu>
+	 <1317025614.2557.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Reply-To: jhs@mojatatu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Greg Thelen <gthelen@google.com>, <linux-kernel@vger.kernel.org>,
- <paul@paulmenage.org>, <lizf@cn.fujitsu.com>, <ebiederm@xmission.com>,
- <davem@davemloft.net>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
- <kirill@shutemov.name>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4E7DDB82.3030802@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Jim Gettys <jg@freedesktop.org>,
+	Dave Taht <dave.taht@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:37579 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753314Ab1IZMAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 08:00:50 -0400
+Received: by ywb5 with SMTP id 5so4196324ywb.19
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 05:00:50 -0700 (PDT)
+In-Reply-To: <1317025614.2557.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 24 Sep 2011 10:30:42 -0300
-Glauber Costa <glommer@parallels.com> wrote:
+On Mon, 2011-09-26 at 10:26 +0200, Eric Dumazet wrote:
 
-> On 09/22/2011 03:01 AM, Greg Thelen wrote:
-> > On Sun, Sep 18, 2011 at 5:56 PM, Glauber Costa<glommer@parallels.com>  wrote:
-> >> +static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
-> >> +{
-> >> +       return (mem == root_mem_cgroup);
-> >> +}
-> >> +
-> >
-> > Why are you adding a copy of mem_cgroup_is_root().  I see one already
-> > in v3.0.  Was it deleted in a previous patch?
+> This refers to additions to RFC 2481 : This was refined by RFC 3168, and
+> the retransmitted TCP packets requirement is part of the final RFC :
+
+Ah, yes - thats where it went.
+
 > 
-> Already answered by another good samaritan.
-> 
-> >> +static int tcp_write_maxmem(struct cgroup *cgrp, struct cftype *cft, u64 val)
-> >> +{
-> >> +       struct mem_cgroup *sg = mem_cgroup_from_cont(cgrp);
-> >> +       struct mem_cgroup *parent = parent_mem_cgroup(sg);
-> >> +       struct net *net = current->nsproxy->net_ns;
-> >> +       int i;
-> >> +
-> >> +       if (!cgroup_lock_live_group(cgrp))
-> >> +               return -ENODEV;
-> >
-> > Why is cgroup_lock_live_cgroup() needed here?  Does it protect updates
-> > to sg->tcp_prot_mem[*]?
-> >
-> >> +static u64 tcp_read_maxmem(struct cgroup *cgrp, struct cftype *cft)
-> >> +{
-> >> +       struct mem_cgroup *sg = mem_cgroup_from_cont(cgrp);
-> >> +       u64 ret;
-> >> +
-> >> +       if (!cgroup_lock_live_group(cgrp))
-> >> +               return -ENODEV;
-> >
-> > Why is cgroup_lock_live_cgroup() needed here?  Does it protect updates
-> > to sg->tcp_max_memory?
-> 
-> No, that is not my understanding. My understanding is this lock is 
-> needed to protect against the cgroup just disappearing under our nose.
-> 
+> BTW, the ECN+ proposal (RFC 5562 :  Adding Explicit Congestion
+> Notification (ECN) Capability to TCP's SYN/ACK Packets) would allow the
+> client (receiving SYNACK message with ECT flags) to set the TCP_ECN_SEEN
+> I added in my patch, allowing even the first (retransmitted) data packet
+> to trigger quickack mode.
 
-Hm. reference count of dentry for cgroup isn't enough ?
+Excellent ;->
+Are you going to add 5562 support?
 
-Thanks,
--Kame
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+cheers,
+jamal
