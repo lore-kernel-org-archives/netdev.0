@@ -1,148 +1,139 @@
-From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Subject: [PATCH 2/2] pch_gbe: Fixed the issue on which a network freezes
-Date: Mon, 26 Sep 2011 16:27:43 +0900
-Message-ID: <1317022063-12143-2-git-send-email-toshiharu-linux@dsn.okisemi.com>
-References: <1317022063-12143-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
-Cc: qi.wang@intel.com, yong.y.wang@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, tomoya-linux@dsn.okisemi.com,
-	Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317022063-12143-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: Re: [PATCH] tcp: properly release md5sig_pool references
+Date: Mon, 26 Sep 2011 16:11:55 +0800
+Message-ID: <4E8033CB.6050200@intel.com>
+References: <4E7FE4DD.5070804@intel.com> <1317018369.2853.16.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:27168 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751010Ab1IZIL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 04:11:57 -0400
+In-Reply-To: <1317018369.2853.16.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The pch_gbe driver has an issue which a network stops,
-when receiving traffic is high.
-In the case, The link down and up are necessary to return a network.
+On 09/26/2011 02:26 PM, Eric Dumazet wrote:
+> Le lundi 26 septembre 2011 =C3=A0 10:35 +0800, Yan, Zheng a =C3=A9cri=
+t :
+>> tcp_v4_md5_do_add() increases use count of md5sig_pool by one for
+>> each tcp md5sig peer, so we should call tcp_free_md5sig_pool() for
+>> each peer when destroying the socket.
+>>
+>> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+>=20
+> As managing the use count is rather expensive, I think it would be
+> better to hold a single reference instead of multiple ones ?
+>=20
+>=20
 
-This patch fixed this issue.
+Here is the new patch, thanks.
 
-Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
 ---
- drivers/net/pch_gbe/pch_gbe_main.c |   56 +++++++++++++++++------------------
- 1 files changed, 27 insertions(+), 29 deletions(-)
+tcp: properly handle md5sig_pool references
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
-index 5474189..b8b4ba2 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -1199,6 +1199,8 @@ static irqreturn_t pch_gbe_intr(int irq, void *data)
- 			iowrite32((int_en & ~PCH_GBE_INT_RX_FIFO_ERR),
- 				  &hw->reg->INT_EN);
- 			pch_gbe_stop_receive(adapter);
-+			int_st |= ioread32(&hw->reg->INT_ST);
-+			int_st = int_st & ioread32(&hw->reg->INT_EN);
+tcp_v4_clear_md5_list() assumes that multiple tcp md5sig peers
+only hold one reference to md5sig_pool. but tcp_v4_md5_do_add()
+increases use count of md5sig_pool for each peer. This patch
+makes tcp_v4_md5_do_add() only increases use count for the first
+tcp md5sig peer.
+
+Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+---
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index c34f015..29ecfa9 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -927,18 +927,20 @@ int tcp_v4_md5_do_add(struct sock *sk, __be32 add=
+r,
+ 			}
+ 			sk_nocaps_add(sk, NETIF_F_GSO_MASK);
  		}
- 	if (int_st & PCH_GBE_INT_RX_DMA_ERR)
- 		adapter->stats.intr_rx_dma_err_count++;
-@@ -1218,14 +1220,11 @@ static irqreturn_t pch_gbe_intr(int irq, void *data)
- 			/* Set Pause packet */
- 			pch_gbe_mac_set_pause_packet(hw);
- 		}
--		if ((int_en & (PCH_GBE_INT_RX_DMA_CMPLT | PCH_GBE_INT_TX_CMPLT))
--		    == 0) {
--			return IRQ_HANDLED;
--		}
- 	}
- 
- 	/* When request status is Receive interruption */
--	if ((int_st & (PCH_GBE_INT_RX_DMA_CMPLT | PCH_GBE_INT_TX_CMPLT))) {
-+	if ((int_st & (PCH_GBE_INT_RX_DMA_CMPLT | PCH_GBE_INT_TX_CMPLT)) ||
-+	    (adapter->rx_stop_flag == true)) {
- 		if (likely(napi_schedule_prep(&adapter->napi))) {
- 			/* Enable only Rx Descriptor empty */
- 			atomic_inc(&adapter->irq_sem);
-@@ -1385,7 +1384,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
- 	struct sk_buff *skb;
- 	unsigned int i;
- 	unsigned int cleaned_count = 0;
--	bool cleaned = false;
-+	bool cleaned = true;
- 
- 	pr_debug("next_to_clean : %d\n", tx_ring->next_to_clean);
- 
-@@ -1396,7 +1395,6 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
- 
- 	while ((tx_desc->gbec_status & DSC_INIT16) == 0x0000) {
- 		pr_debug("gbec_status:0x%04x\n", tx_desc->gbec_status);
--		cleaned = true;
- 		buffer_info = &tx_ring->buffer_info[i];
- 		skb = buffer_info->skb;
- 
-@@ -1439,8 +1437,10 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
- 		tx_desc = PCH_GBE_TX_DESC(*tx_ring, i);
- 
- 		/* weight of a sort for tx, to avoid endless transmit cleanup */
--		if (cleaned_count++ == PCH_GBE_TX_WEIGHT)
-+		if (cleaned_count++ == PCH_GBE_TX_WEIGHT) {
-+			cleaned = false;
- 			break;
-+		}
- 	}
- 	pr_debug("called pch_gbe_unmap_and_free_tx_resource() %d count\n",
- 		 cleaned_count);
-@@ -2168,7 +2168,6 @@ static int pch_gbe_napi_poll(struct napi_struct *napi, int budget)
- {
- 	struct pch_gbe_adapter *adapter =
- 	    container_of(napi, struct pch_gbe_adapter, napi);
--	struct net_device *netdev = adapter->netdev;
- 	int work_done = 0;
- 	bool poll_end_flag = false;
- 	bool cleaned = false;
-@@ -2176,33 +2175,32 @@ static int pch_gbe_napi_poll(struct napi_struct *napi, int budget)
- 
- 	pr_debug("budget : %d\n", budget);
- 
--	/* Keep link state information with original netdev */
--	if (!netif_carrier_ok(netdev)) {
-+	pch_gbe_clean_rx(adapter, adapter->rx_ring, &work_done, budget);
-+	cleaned = pch_gbe_clean_tx(adapter, adapter->tx_ring);
+-		if (tcp_alloc_md5sig_pool(sk) =3D=3D NULL) {
 +
-+	if (!cleaned)
-+		work_done = budget;
-+	/* If no Tx and not enough Rx work done,
-+	 * exit the polling mode
-+	 */
-+	if (work_done < budget)
- 		poll_end_flag = true;
--	} else {
--		pch_gbe_clean_rx(adapter, adapter->rx_ring, &work_done, budget);
-+
-+	if (poll_end_flag) {
-+		napi_complete(napi);
-+		if (adapter->rx_stop_flag) {
-+			adapter->rx_stop_flag = false;
-+			pch_gbe_start_receive(&adapter->hw);
-+		}
-+		pch_gbe_irq_enable(adapter);
-+	} else
- 		if (adapter->rx_stop_flag) {
- 			adapter->rx_stop_flag = false;
- 			pch_gbe_start_receive(&adapter->hw);
- 			int_en = ioread32(&adapter->hw.reg->INT_EN);
- 			iowrite32((int_en | PCH_GBE_INT_RX_FIFO_ERR),
--					&adapter->hw.reg->INT_EN);
-+				&adapter->hw.reg->INT_EN);
++		md5sig =3D tp->md5sig_info;
++		if (md5sig->entries4 =3D=3D 0 && tcp_alloc_md5sig_pool(sk) =3D=3D NU=
+LL) {
+ 			kfree(newkey);
+ 			return -ENOMEM;
  		}
--		cleaned = pch_gbe_clean_tx(adapter, adapter->tx_ring);
--
--		if (cleaned)
--			work_done = budget;
--		/* If no Tx and not enough Rx work done,
--		 * exit the polling mode
--		 */
--		if (work_done < budget)
--			poll_end_flag = true;
--	}
--
--	if (poll_end_flag) {
--		napi_complete(napi);
--		pch_gbe_irq_enable(adapter);
--	}
- 
- 	pr_debug("poll_end_flag : %d  work_done : %d  budget : %d\n",
- 		 poll_end_flag, work_done, budget);
--- 
-1.7.4.4
+-		md5sig =3D tp->md5sig_info;
+=20
+ 		if (md5sig->alloced4 =3D=3D md5sig->entries4) {
+ 			keys =3D kmalloc((sizeof(*keys) *
+ 					(md5sig->entries4 + 1)), GFP_ATOMIC);
+ 			if (!keys) {
+ 				kfree(newkey);
+-				tcp_free_md5sig_pool();
++				if (md5sig->entries4 =3D=3D 0)
++					tcp_free_md5sig_pool();
+ 				return -ENOMEM;
+ 			}
+=20
+@@ -982,6 +984,7 @@ int tcp_v4_md5_do_del(struct sock *sk, __be32 addr)
+ 				kfree(tp->md5sig_info->keys4);
+ 				tp->md5sig_info->keys4 =3D NULL;
+ 				tp->md5sig_info->alloced4 =3D 0;
++				tcp_free_md5sig_pool();
+ 			} else if (tp->md5sig_info->entries4 !=3D i) {
+ 				/* Need to do some manipulation */
+ 				memmove(&tp->md5sig_info->keys4[i],
+@@ -989,7 +992,6 @@ int tcp_v4_md5_do_del(struct sock *sk, __be32 addr)
+ 					(tp->md5sig_info->entries4 - i) *
+ 					 sizeof(struct tcp4_md5sig_key));
+ 			}
+-			tcp_free_md5sig_pool();
+ 			return 0;
+ 		}
+ 	}
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3c9fa61..20ac0fc 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -591,7 +591,8 @@ static int tcp_v6_md5_do_add(struct sock *sk, const=
+ struct in6_addr *peer,
+ 			}
+ 			sk_nocaps_add(sk, NETIF_F_GSO_MASK);
+ 		}
+-		if (tcp_alloc_md5sig_pool(sk) =3D=3D NULL) {
++		if (tp->md5sig_info->entries6 =3D=3D 0 &&
++			tcp_alloc_md5sig_pool(sk) =3D=3D NULL) {
+ 			kfree(newkey);
+ 			return -ENOMEM;
+ 		}
+@@ -600,8 +601,9 @@ static int tcp_v6_md5_do_add(struct sock *sk, const=
+ struct in6_addr *peer,
+ 				       (tp->md5sig_info->entries6 + 1)), GFP_ATOMIC);
+=20
+ 			if (!keys) {
+-				tcp_free_md5sig_pool();
+ 				kfree(newkey);
++				if (tp->md5sig_info->entries6 =3D=3D 0)
++					tcp_free_md5sig_pool();
+ 				return -ENOMEM;
+ 			}
+=20
+@@ -647,6 +649,7 @@ static int tcp_v6_md5_do_del(struct sock *sk, const=
+ struct in6_addr *peer)
+ 				kfree(tp->md5sig_info->keys6);
+ 				tp->md5sig_info->keys6 =3D NULL;
+ 				tp->md5sig_info->alloced6 =3D 0;
++				tcp_free_md5sig_pool();
+ 			} else {
+ 				/* shrink the database */
+ 				if (tp->md5sig_info->entries6 !=3D i)
+@@ -655,7 +658,6 @@ static int tcp_v6_md5_do_del(struct sock *sk, const=
+ struct in6_addr *peer)
+ 						(tp->md5sig_info->entries6 - i)
+ 						* sizeof (tp->md5sig_info->keys6[0]));
+ 			}
+-			tcp_free_md5sig_pool();
+ 			return 0;
+ 		}
+ 	}
