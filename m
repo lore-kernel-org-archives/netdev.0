@@ -1,79 +1,66 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 02/10] ixgbevf: Fix broken trunk vlan
-Date: Mon, 26 Sep 2011 08:57:03 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C519319@orsmsx508.amr.corp.intel.com>
-References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1316855863-6091-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAEP_g=93GcR7yE7N+GtaB6dpjPuGGtCBXznEmV6Sx=BX-kSbmg@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: intel 82599 multi-port performance
+Date: Mon, 26 Sep 2011 09:04:59 -0700
+Message-ID: <4E80A2AB.2040206@intel.com>
+References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com> <4E809D59.10103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	Jiri Pirko <jpirko@redhat.com>
-To: Jesse Gross <jesse@nicira.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "J.Hwan.Kim" <j.hwan.kim99@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: frog1120@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:42765 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:50910 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751347Ab1IZP50 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 11:57:26 -0400
-In-Reply-To: <CAEP_g=93GcR7yE7N+GtaB6dpjPuGGtCBXznEmV6Sx=BX-kSbmg@mail.gmail.com>
-Content-Language: en-US
+	id S1751472Ab1IZQE7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 12:04:59 -0400
+In-Reply-To: <4E809D59.10103@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZXNzZSBHcm9zcyBbbWFpbHRv
-Omplc3NlQG5pY2lyYS5jb21dDQo+IFNlbnQ6IFNhdHVyZGF5LCBTZXB0ZW1iZXIgMjQsIDIwMTEg
-OTozMyBBTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQu
-bmV0OyBSb3NlLCBHcmVnb3J5IFY7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdvc3BvQHJl
-ZGhhdC5jb207IEppcmkgUGlya28NCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAwMi8xMF0gaXhn
-YmV2ZjogRml4IGJyb2tlbiB0cnVuayB2bGFuDQo+IA0KPiBPbiBTYXQsIFNlcCAyNCwgMjAxMSBh
-dCAyOjE3IEFNLCBKZWZmIEtpcnNoZXINCj4gPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4g
-d3JvdGU6DQo+ID4gRnJvbTogR3JlZyBSb3NlIDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+DQo+
-ID4NCj4gPiBDaGFuZ2VzIHRvIGNsZWFuIHVwIHRoZSB2bGFuIHJ4IHBhdGggYnJva2UgdHJ1bmsg
-dmxhbi4gwqBUcnVuayB2bGFucyBpbg0KPiA+IGEgVkYgZHJpdmVyIGFyZSB0aG9zZSBzZXQgdXNp
-bmc6DQo+ID4NCj4gPiAiaXAgbGluayBzZXQgPHBmZGV2PiB2ZiA8bj4gPHZsYW5pZD4iDQo+ID4N
-Cj4gPiBTaWduZWQtb2ZmLWJ5OiBHcmVnIFJvc2UgPGdyZWdvcnkudi5yb3NlQGludGVsLmNvbT4N
-Cj4gPiBDQzogSmlyaSBQaXJrbyA8anBpcmtvQHJlZGhhdC5jb20+DQo+ID4gU2lnbmVkLW9mZi1i
-eTogSmVmZiBLaXJzaGVyIDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+DQo+ID4gLS0tDQo+
-ID4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZmL2l4Z2JldmZfbWFpbi5jIHwg
-wqAgwqA2ICsrLS0tLQ0KPiA+IMKgMSBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDQg
-ZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-aW50ZWwvaXhnYmV2Zi9peGdiZXZmX21haW4uYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2l4Z2JldmYvaXhnYmV2Zl9tYWluLmMNCj4gPiBpbmRleCBkNzI5MDViLi40OTMwYzQ2IDEw
-MDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JldmYvaXhnYmV2
-Zl9tYWluLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZmL2l4
-Z2JldmZfbWFpbi5jDQo+ID4gQEAgLTI5MywxMiArMjkzLDEwIEBAIHN0YXRpYyB2b2lkIGl4Z2Jl
-dmZfcmVjZWl2ZV9za2Ioc3RydWN0DQo+IGl4Z2JldmZfcV92ZWN0b3IgKnFfdmVjdG9yLA0KPiA+
-IMKgew0KPiA+IMKgIMKgIMKgIMKgc3RydWN0IGl4Z2JldmZfYWRhcHRlciAqYWRhcHRlciA9IHFf
-dmVjdG9yLT5hZGFwdGVyOw0KPiA+IMKgIMKgIMKgIMKgYm9vbCBpc192bGFuID0gKHN0YXR1cyAm
-IElYR0JFX1JYRF9TVEFUX1ZQKTsNCj4gPiArIMKgIMKgIMKgIHUxNiB0YWcgPSBsZTE2X3RvX2Nw
-dShyeF9kZXNjLT53Yi51cHBlci52bGFuKTsNCj4gPg0KPiA+IC0gwqAgwqAgwqAgaWYgKGlzX3Zs
-YW4pIHsNCj4gPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHUxNiB0YWcgPSBsZTE2X3RvX2NwdShy
-eF9kZXNjLT53Yi51cHBlci52bGFuKTsNCj4gPiAtDQo+ID4gKyDCoCDCoCDCoCBpZiAoaXNfdmxh
-biAmJiB0ZXN0X2JpdCh0YWcsIGFkYXB0ZXItPmFjdGl2ZV92bGFucykpDQo+ID4gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqBfX3ZsYW5faHdhY2NlbF9wdXRfdGFnKHNrYiwgdGFnKTsNCj4gPiAtIMKg
-IMKgIMKgIH0NCj4gDQo+IFdoYXQgaGFwcGVucyBpZiB5b3UgcnVuIHRjcGR1bXAgd2l0aG91dCBj
-b25maWd1cmluZyB2bGFuIGRldmljZXM/DQo+IFNob3VsZG4ndCB5b3Ugc2VlIHRhZ2dlZCBwYWNr
-ZXRzIGZvciB0aGUgdmxhbnMgdGhhdCBhcmUgYmVpbmcgdHJ1bmtlZA0KPiB0byB5b3U/ICBJIHRo
-aW5rIHRoaXMgd2lsbCBzdHJpcCB0YWdzIGluIHRoYXQgY2FzZS4gIFRoZSBhcHBhcmVudA0KPiBi
-ZWhhdmlvciBvZiB2bGFuIGZpbHRlcnMgaGVyZSBpcyBhbHNvIHN1cnByaXNpbmcgdG8gbWUgYmVj
-YXVzZSBvbiBvbmUNCj4gaGFuZCBpZiB0aGV5J3JlIHRydWx5IGZpbHRlcmluZyB0aGlzIHRlc3Qg
-c2hvdWxkbid0IGJlIG5lZWRlZCBhbmQgb24NCj4gdGhlIG90aGVyIGhhbmQgdGhleSBkb24ndCBz
-ZWVtIHRvIGJlIGRpc2FibGVkIGluIHByb21pc2N1b3VzIG1vZGUuDQoNCkkgdGhpbmsgeW91J3Jl
-IG5vdCBxdWl0ZSB1bmRlcnN0YW5kaW5nIHRoZSBhY3Rpb24gdGhlIEhXIGlzIHRha2luZyBoZXJl
-LiAgSW4gdGhlIHBoeXNpY2FsIGZ1bmN0aW9uIGRyaXZlciB3ZSBoYXZlIHB1dCB0aGUgVkYgb24g
-YSBWTEFOIHdpdGhvdXQgaXQga25vd2luZyB0aGF0IGl0J3Mgb24gYSBWTEFOLiAgT25jZSB0aGF0
-IGlzIGRvbmUgYnkgdGhlIFBGLCB0aGUgVkYgaXMgbm90IGFsbG93ZWQgdG8gY29uZmlndXJlIGl0
-cyBvd24gVkxBTnMgYW55bW9yZS4gIEhvd2V2ZXIsIHRoZSBkZXNjcmlwdG9yIHN0aWxsIGluY2x1
-ZGVzIGEgYml0IGZvciB0aGUgVkxBTiB0YWcgaW5kaWNhdGluZyBpdCB3YXMgYSBwYWNrZXQgdGhh
-dCBhcnJpdmVkIG9uIGEgVkxBTi4gIFRoZSBIVyBpcyBpbnNlcnRpbmcgYW5kIHN0cmlwcGluZyB0
-aGUgVkxBTiB0YWcgdGhvdWdoIHdpdGhvdXQgYW55IGF3YXJlbmVzcyBvZiB0aGF0IGJ5IHRoZSBW
-RiBkcml2ZXIuDQoNCkl0J3MgYSBzZWN1cml0eSBtZWFzdXJlIHRvIGFsbG93IGFuIGFkbWluaXN0
-cmF0b3IgdG8gcHV0IGEgVkYgb24gYSBWTEFOIHRvIHByb3ZpZGUgYW5vdGhlciBsZXZlbCBvZiBp
-c29sYXRpb24gZm9yIHRoZSBWRi4NCg0KSW50ZWwgVkZzIGRvbid0IHN1cHBvcnQgcHJvbWlzY3Vv
-dXMgbW9kZS4gIElmIHlvdSByYW4gdGNwZHVtcCB5b3Ugd291bGRuJ3Qgc2VlIHRoZSBWTEFOIHRh
-Z3MgYmVjYXVzZSB0aGV5J3ZlIGJlZW4gc3RyaXBwZWQgYnkgdGhlIEhXLiAgVGhlIFZGIGhhcyBu
-byBjaG9pY2UgaW4gdGhpcy4NCg0KLSBHcmVnDQo=
+On 09/26/2011 08:42 AM, J.Hwan.Kim wrote:
+> On 2011=EB=85=84 09=EC=9B=94 26=EC=9D=BC 23:20, Chris Friesen wrote:
+>> On 09/26/2011 04:26 AM, J.Hwan Kim wrote:
+>>> Hi, everyone
+>>>
+>>> Now, I'm testing a network card including intel 82599.
+>>> In our experiment, with the driver modified with ixgbe and multi-po=
+rt
+>>> enabled,
+>>
+>> What do you mean by "modified with ixgbe and multi-port enabled"? Yo=
+u
+>> shouldn't need to do anything special to use both ports.
+>>
+>>> rx performance of each port with 10Gbps of 64bytes frame is
+>>> a half than when only 1 port is used.
+>>
+>> Sounds like a cpu limitation. What is your cpu usage? How are your
+>> interrupts routed? Are you using multiple rx queues?
+>>
+>
+> Our server is XEON 2.4GHz with 8 cores.
+> I'm using 4 RSS queues for each port and distributed it's interrupts=20
+> to different cores respectively.
+> I checked the CPU utilization with TOP, I guess ,it is not cpu=20
+> imitation problem.
+
+What kind of rates are you seeing on a single port versus multiple=20
+ports?  There are multiple possibilities in terms of what could be=20
+limiting your performance.
+
+It sounds like you are using a single card, would that be correct?  If=20
+you are running close to line rate on both ports this could be causing=20
+you to saturate the PCIe x8 link.  If you have a second card available=20
+you may want to try installing that in a secondary Gen2 PCIe slot and=20
+seeing if you can improve the performance by using 2 PCIe slots instead=
+=20
+of one.
+
+Also could you include your kernel config?  Certain features such as=20
+Netfilter and IOMMU can have a significant impact on performance.
+
+Thanks,
+
+Alex
