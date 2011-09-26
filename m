@@ -1,13 +1,13 @@
 From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 05/10] if_link: Add additional parameter to
- IFLA_VF_INFO for spoof checking
-Date: Mon, 26 Sep 2011 09:57:17 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C51940A@orsmsx508.amr.corp.intel.com>
-References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20110925102238.55ba72eb@s6510.linuxnetplumber.net>
-	<43F901BD926A4E43B106BF17856F0755019C519376@orsmsx508.amr.corp.intel.com>
- <20110926092114.05e99094@nehalam.linuxnetplumber.net>
+Subject: RE: [net-next] iproute2: Add new command to IP link to
+ enable/disable VF spoof check
+Date: Mon, 26 Sep 2011 09:58:58 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C519414@orsmsx508.amr.corp.intel.com>
+References: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20110925102353.602d239b@s6510.linuxnetplumber.net>
+	<43F901BD926A4E43B106BF17856F0755019C519385@orsmsx508.amr.corp.intel.com>
+	<1317055319.2773.41.camel@bwh-desktop>
+ <20110926094719.0cb6c296@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -15,116 +15,66 @@ Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10574 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:40843 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016Ab1IZQ5b convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 12:57:31 -0400
-In-Reply-To: <20110926092114.05e99094@nehalam.linuxnetplumber.net>
+	id S1751619Ab1IZQ7C convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 12:59:02 -0400
+In-Reply-To: <20110926094719.0cb6c296@nehalam.linuxnetplumber.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 > -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Stephen Hemminger
-> Sent: Monday, September 26, 2011 9:21 AM
-> To: Rose, Gregory V
-> Cc: Kirsher, Jeffrey T; davem@davemloft.net; netdev@vger.kernel.org;
-> gospo@redhat.com
-> Subject: Re: [net-next 05/10] if_link: Add additional parameter to
-> IFLA_VF_INFO for spoof checking
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: Monday, September 26, 2011 9:47 AM
+> To: Ben Hutchings
+> Cc: Rose, Gregory V; Kirsher, Jeffrey T; davem@davemloft.net;
+> netdev@vger.kernel.org; gospo@redhat.com
+> Subject: Re: [net-next] iproute2: Add new command to IP link to
+> enable/disable VF spoof check
 > 
-> On Mon, 26 Sep 2011 09:18:34 -0700
-> "Rose, Gregory V" <gregory.v.rose@intel.com> wrote:
+> On Mon, 26 Sep 2011 17:41:59 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
 > 
-> > > -----Original Message-----
-> > > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> > > Sent: Sunday, September 25, 2011 10:23 AM
-> > > To: Kirsher, Jeffrey T
-> > > Cc: davem@davemloft.net; Rose, Gregory V; netdev@vger.kernel.org;
-> > > gospo@redhat.com
-> > > Subject: Re: [net-next 05/10] if_link: Add additional parameter to
-> > > IFLA_VF_INFO for spoof checking
+> > On Mon, 2011-09-26 at 09:21 -0700, Rose, Gregory V wrote:
+> > > > -----Original Message-----
+> > > > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> > > > Sent: Sunday, September 25, 2011 10:24 AM
+> > > > To: Kirsher, Jeffrey T
+> > > > Cc: Rose, Gregory V; davem@davemloft.net; netdev@vger.kernel.org;
+> > > > gospo@redhat.com
+> > > > Subject: Re: [net-next] iproute2: Add new command to IP link to
+> > > > enable/disable VF spoof check
+> > > >
+> > > > On Sun, 25 Sep 2011 01:23:18 -0700
+> > > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > > >
+> > > > > From: Greg Rose <gregory.v.rose@intel.com>
+> > > > >
+> > > > > Add IP link command parsing for VF spoof checking enable/disable
+> > > > >
+> > > > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > >
+> > > > See my comments about ABI compatibility. Can't just grow size of
+> > > > structure.
+> > > > Need to have new version of iproute work with older kernels.
 > > >
-> > > On Sat, 24 Sep 2011 02:17:38 -0700
-> > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> > >
-> > > > From: Greg Rose <gregory.v.rose@intel.com>
-> > > >
-> > > > Add configuration setting for drivers to turn spoof checking on or
-> off
-> > > > for discrete VFs.
-> > > >
-> > > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > ---
-> > > >  include/linux/if_link.h   |    7 +++++++
-> > > >  include/linux/netdevice.h |    3 +++
-> > > >  net/core/rtnetlink.c      |   25 ++++++++++++++++++++++---
-> > > >  3 files changed, 32 insertions(+), 3 deletions(-)
-> > > >
-> > > > diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> > > > index 0ee969a..8bd6d6d 100644
-> > > > --- a/include/linux/if_link.h
-> > > > +++ b/include/linux/if_link.h
-> > > > @@ -279,6 +279,7 @@ enum {
-> > > >  	IFLA_VF_MAC,		/* Hardware queue specific attributes
-> */
-> > > >  	IFLA_VF_VLAN,
-> > > >  	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
-> > > > +	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
-> > > >  	__IFLA_VF_MAX,
-> > > >  };
-> > > >
-> > > > @@ -300,12 +301,18 @@ struct ifla_vf_tx_rate {
-> > > >  	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling
-> */
-> > > >  };
-> > > >
-> > > > +struct ifla_vf_spoofchk {
-> > > > +	__u32 vf;
-> > > > +	__u32 setting;
-> > > > +};
-> > > > +
-> > > >  struct ifla_vf_info {
-> > > >  	__u32 vf;
-> > > >  	__u8 mac[32];
-> > > >  	__u32 vlan;
-> > > >  	__u32 qos;
-> > > >  	__u32 tx_rate;
-> > > > +	__u32 spoofchk;
-> > > >  };
-> > >
-> > > This breaks ABI compatibility, unless you add some special case code
-> > > to handle the case of tools sending the old ifla_vf_info. Users may
-> have
-> > > older version
-> > > of ip utilities that send smaller size structure.
+> > > In this case I have no idea how to proceed.  I'll go back and stare at
+> it some more.
 > >
-> > The structure is not sent directly to the kernel from user space.  The
-> kernel will get the information and stuff it into individual data units
-> using NLA_PUT.  If the older tool doesn't ask for the info then that's
-> fine so far as I can tell.
+> > Where is this structure used on the wire?  I just don't see it.
 > >
-> > The only issue I've seen is using the new ip tool on older kernels that
-> don't supply the data.  You'll get a segmentation fault and core dump.
-> However, I was under the impression that the general rule was to use a
-> release of the ip tool only on the kernel it was released for or on newer
-> kernels.
-> >
-> > - Greg
+> > If the modified iproute2 crashes on older kernels, that's presumably
+> > because it's not correctly handling the case where IFLA_VF_SPOOFCHK is
+> > missing.  Nothing to do with the size of this structure.
 > 
-> The tools need to run on older kernels. Think of Debian and other
-> distributions which want to
-> ship newer ip tools but run on old kernel.  In this case, what is expected
-> is:
-> # ip li some new option
-> RTNETLINK: Invalid ...
+> The proposed code is fine because the vf_info is not used by any code
+> in iproute right now and I doubt that any other tools are using it either.
 
-That is what happens when you set the option on older kernels that don't support it.  In the do_setvfinfo() function in ../net/core/rtnetlink.c the default return value is EINVAL.  If the case for IFLA_VF_SPOOFCHK doesn't exist then it falls through and returns with the error value.
-
-It's when you do the ip link show <dev> command on an older kernel that doesn't report the spoof check value that you get the segmentation fault in the ip tool.  I'll look at that and see what I can do to fix that up and respin the patch.
+As I mentioned in another post to this thread the ip tool works fine on older kernels when you do the set operation.  It's when you run the ip link show command that you can get a seg fault because the ip tool is looking for a spoof check value set by the kernel that doesn't exist.  I'll see what I can do to fix that up and respin the patch.
 
 - Greg
