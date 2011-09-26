@@ -1,36 +1,162 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Bridge stays down until a port is added
-Date: Mon, 26 Sep 2011 15:42:25 -0700
-Message-ID: <20110926154225.76514656@nehalam.linuxnetplumber.net>
-References: <20110811070659.GA21307@torres.zugschlus.de>
-	<20110811081706.7307e8b2@nehalam.ftrdhcpuser.net>
-	<20110917204257.GA2636@torres.zugschlus.de>
-	<1316550027.1783.102.camel@dcbw.foobar.com>
-	<20110925082504.GA32712@torres.zugschlus.de>
-	<20110926084743.35cb2ccc@nehalam.linuxnetplumber.net>
-	<4E80DA4D.3090404@gmail.com>
-	<20110926130507.1435d76b@nehalam.linuxnetplumber.net>
-	<4E80F8BD.4010401@gmail.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v3 1/7] Basic kernel memory functionality for the Memory
+ Controller
+Date: Mon, 26 Sep 2011 19:44:40 -0300
+Message-ID: <4E810058.8080305@parallels.com>
+References: <1316393805-3005-1-git-send-email-glommer@parallels.com> <1316393805-3005-2-git-send-email-glommer@parallels.com> <20110926193451.b419f630.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Marc Haber <mh+netdev@zugschlus.de>, netdev@vger.kernel.org
-To: Nicolas de =?ISO-8859-1?B?UGVzbG/8YW4=?=
-	<nicolas.2p.debian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54380 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751480Ab1IZWm2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 18:42:28 -0400
-In-Reply-To: <4E80F8BD.4010401@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<kirill@shutemov.name>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110926193451.b419f630.kamezawa.hiroyu@jp.fujitsu.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
- 
-> And this might also allow to set an IPv6 address on a dummy interface, which Marc Haber reported as 
-> not being allowed for now, probably because DAD cannot succeed on a dummy interface and as such, a 
-> bind() cannot be allowed, and as such, setting the IPv6 address is currently useless.
+>>   #endif
+>>
+>> -
+>> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+>> +int do_kmem_account __read_mostly = 1;
+>> +#else
+>> +#define do_kmem_account		0
+>> +#endif
+>
+>
+> Hmm, do we really need this boot option ?
+>  From my experience to have swap-accounting boot option,
+> this scares us ;) I think config is enough.
 
-For dummy, the interface should probably have the IFF_NOARP flag set.
-There isn't any point in doing network discovery on a non-connected
-interface. That would make DAD a no-op and bind would work.
+If no one else wants it, I can remove it. I personally
+don't need it, just wanted to follow the convention laid down by swap here.
+
+>
+>
+>
+>>   /*
+>>    * Statistics for memory cgroup.
+>>    */
+>> @@ -270,6 +274,10 @@ struct mem_cgroup {
+>>   	 */
+>>   	struct res_counter memsw;
+>>   	/*
+>> +	 * the counter to account for kmem usage.
+>> +	 */
+>> +	struct res_counter kmem;
+>> +	/*
+>>   	 * Per cgroup active and inactive list, similar to the
+>>   	 * per zone LRU lists.
+>>   	 */
+>> @@ -321,6 +329,11 @@ struct mem_cgroup {
+>>   	 */
+>>   	unsigned long 	move_charge_at_immigrate;
+>>   	/*
+>> +	 * Should kernel memory limits be stabilished independently
+>> +	 * from user memory ?
+>> +	 */
+>> +	int		kmem_independent;
+>> +	/*
+>>   	 * percpu counter.
+>>   	 */
+>>   	struct mem_cgroup_stat_cpu *stat;
+>> @@ -388,9 +401,14 @@ enum charge_type {
+>>   };
+>>
+>>   /* for encoding cft->private value on file */
+>> -#define _MEM			(0)
+>> -#define _MEMSWAP		(1)
+>> -#define _OOM_TYPE		(2)
+>> +
+>> +enum mem_type {
+>> +	_MEM = 0,
+>> +	_MEMSWAP,
+>> +	_OOM_TYPE,
+>> +	_KMEM,
+>> +};
+>> +
+>
+> ok, nice clean up.
+>
+>
+>>   #define MEMFILE_PRIVATE(x, val)	(((x)<<  16) | (val))
+>>   #define MEMFILE_TYPE(val)	(((val)>>  16)&  0xffff)
+>>   #define MEMFILE_ATTR(val)	((val)&  0xffff)
+>> @@ -3943,10 +3961,15 @@ static inline u64 mem_cgroup_usage(struct mem_cgroup *mem, bool swap)
+>>   	u64 val;
+>>
+>>   	if (!mem_cgroup_is_root(mem)) {
+>> +		val = 0;
+>> +		if (!mem->kmem_independent)
+>> +			val = res_counter_read_u64(&mem->kmem, RES_USAGE);
+>
+>>   		if (!swap)
+>> -			return res_counter_read_u64(&mem->res, RES_USAGE);
+>> +			val += res_counter_read_u64(&mem->res, RES_USAGE);
+>>   		else
+>> -			return res_counter_read_u64(&mem->memsw, RES_USAGE);
+>> +			val += res_counter_read_u64(&mem->memsw, RES_USAGE);
+>> +
+>> +		return val;
+>>   	}
+>>
+>>   	val = mem_cgroup_recursive_stat(mem, MEM_CGROUP_STAT_CACHE);
+>> @@ -3979,6 +4002,10 @@ static u64 mem_cgroup_read(struct cgroup *cont, struct cftype *cft)
+>>   		else
+>>   			val = res_counter_read_u64(&mem->memsw, name);
+>>   		break;
+>> +	case _KMEM:
+>> +		val = res_counter_read_u64(&mem->kmem, name);
+>> +		break;
+>> +
+>>   	default:
+>>   		BUG();
+>>   		break;
+>> @@ -4756,6 +4783,21 @@ static int mem_cgroup_reset_vmscan_stat(struct cgroup *cgrp,
+>>   	return 0;
+>>   }
+>>
+>> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+>> +static u64 kmem_limit_independent_read(struct cgroup *cont, struct cftype *cft)
+>> +{
+>> +	return mem_cgroup_from_cont(cont)->kmem_independent;
+>> +}
+>> +
+>> +static int kmem_limit_independent_write(struct cgroup *cont, struct cftype *cft,
+>> +					u64 val)
+>> +{
+>> +	cgroup_lock();
+>> +	mem_cgroup_from_cont(cont)->kmem_independent = !!val;
+>> +	cgroup_unlock();
+>
+> Hm. This code allows that parent/child can have different settings.
+> Could you add parent-child check as..
+>
+> "If parent sets use_hierarchy==1, children must have the same kmem_independent value
+> with parant's one."
+Agree.
+> How do you think ? I think a hierarchy must have the same config.
+Yes, I think this is reasonable.
+
+>
+> BTW...I don't like naming a little ;)
+>
+> memory->consolidated/shared/?????_kmem_accounting ?
+> Or
+> memory->kmem_independent_accounting ?
+>
+> or some better naming ?
+
+I can go with kmem_independent_accounting if you like, it is fine
+by me.
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
