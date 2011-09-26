@@ -1,83 +1,76 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: intel 82599 multi-port performance
-Date: Mon, 26 Sep 2011 10:57:52 -0700
-Message-ID: <4E80BD20.2040301@candelatech.com>
-References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com>
-	<4E809D59.10103@gmail.com> <4E80A2AB.2040206@intel.com>
-	<4E80AAF8.1000806@genband.com> <4E80B551.1040609@candelatech.com>
-	<4E80BA91.2040803@genband.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ehea: Remove sleep at .ndo_get_stats
+Date: Mon, 26 Sep 2011 20:02:12 +0200
+Message-ID: <1317060132.2796.4.camel@edumazet-laptop>
+References: <1316704497.29549.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1317057325-7410-1-git-send-email-brenohl@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	"J.Hwan.Kim" <j.hwan.kim99@gmail.com>, frog1120@gmail.com
-To: Chris Friesen <chris.friesen@genband.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <4E80BA91.2040803@genband.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: brenohl@br.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61197 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751246Ab1IZSCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 14:02:16 -0400
+Received: by wyg34 with SMTP id 34so6173343wyg.19
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 11:02:15 -0700 (PDT)
+In-Reply-To: <1317057325-7410-1-git-send-email-brenohl@br.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2011 10:46 AM, Chris Friesen wrote:
-> On 09/26/2011 11:24 AM, Ben Greear wrote:
->> On 09/26/2011 09:40 AM, Chris Friesen wrote:
->
->>> To any of the Intel guys out there...any ideas? Can an 82599 on an 8x
->>> bus handle max line rate with minimum size packets?
->>
->> Rick Jones sent me an interesting link related to this. Short answer seems
->> to be 'yes', but it seems not for any normal off-the-shelf software stack.
->>
->> > This: http://comments.gmane.org/gmane.linux.network/203602 should
->> lead you to some slide.
->
-> Interesting. I wonder if Intel's DPDK will be the only way to handle those sorts of packet rates.
-
-Pktgen is probably still the fastest general code that I know of,
-but we had some interesting results setting the TCP_MAXSEGS to
-88, which creates around 150 byte packets, and let the NICs offload
-chop up large TCP writes into small packets on the wire.
-
-Using core-I7 980x CPU, and dual-port 82599, we could send
-around 4Mpps and receive around 2Mpps between two machines.
-We were using a single port on each NIC/machine for this test.  Connection
-was a bit asymmetric, seems one side would over-power the other...so if
-we twiddled a bit, we could get around 3Mpps in each direction.
-
-Our user-space app has some over-head as well, but we can send
-at least 5Gbps full duplex on two ports using normal sized frames, so I
-think the bottleneck in this case is the TCP offload in the NIC.
-
-Still, pretty impressive for stateful TCP packets per second :)
-
-Top-of-tree netperf just learned to do the TCP_MAXSEG trick as well,
-so it might be fun to play with that.  It probably has less overhead
-than our tool, so might run even faster.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Le lundi 26 septembre 2011 =C3=A0 14:15 -0300, brenohl@br.ibm.com a =C3=
+=A9crit :
+> Currently ehea ndo_get_stats can sleep in two places, in a hcall
+> and in a GFP_KERNEL alloc, which is not correct.
+> This patch creates a delayed workqueue that grabs the information eac=
+h 1
+> sec from the hardware, and place it into the device structure, so tha=
+t,
+> .ndo_get_stats quickly returns the device structure statistics block.
+>=20
+> Signed-off-by: Breno Leitao <brenohl@br.ibm.com>
+> ---
+>  drivers/net/ethernet/ibm/ehea/ehea.h      |    1 +
+>  drivers/net/ethernet/ibm/ehea/ehea_main.c |   26 +++++++++++++++++++=
++------
+>  2 files changed, 21 insertions(+), 6 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/ibm/ehea/ehea.h b/drivers/net/ether=
+net/ibm/ehea/ehea.h
+> index 7dd5e6a..0b8e6a9 100644
+> --- a/drivers/net/ethernet/ibm/ehea/ehea.h
+> +++ b/drivers/net/ethernet/ibm/ehea/ehea.h
+> @@ -459,6 +459,7 @@ struct ehea_port {
+>  	struct ehea_mc_list *mc_list;	 /* Multicast MAC addresses */
+>  	struct ehea_eq *qp_eq;
+>  	struct work_struct reset_task;
+> +	struct delayed_work stats_work;
+>  	struct mutex port_lock;
+>  	char int_aff_name[EHEA_IRQ_NAME_SIZE];
+>  	int allmulti;			 /* Indicates IFF_ALLMULTI state */
+> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/=
+ethernet/ibm/ehea/ehea_main.c
+> index 583bcd3..a10f6b3 100644
+> --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> @@ -330,17 +330,24 @@ out:
+>  static struct net_device_stats *ehea_get_stats(struct net_device *de=
+v)
+>  {
+>  	struct ehea_port *port =3D netdev_priv(dev);
+> +
+> +	return &port->stats;
+> +}
 
 
-------------------------------------------------------------------------------
-All the data continuously generated in your IT infrastructure contains a
-definitive record of customers, application performance, security
-threats, fraudulent activity and more. Splunk takes this data and makes
-sense of it. Business sense. IT sense. Common sense.
-http://p.sf.net/sfu/splunk-d2dcopy1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Hmm...
+
+You should move in ehea_get_stats() all software-computed stats.
+
+Only the hardware assisted stats should be gathered/changed from your
+ehea_update_stats() helper.
+
+This way, SNMP readers get accurate stats for all fields but the
+stats->multicast and stats->rx_errors that are updated once per second.
