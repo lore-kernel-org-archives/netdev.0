@@ -1,38 +1,69 @@
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: RE: [RFC/PATCH] net: add deferred flow cache flush function to be
-Date: Mon, 26 Sep 2011 19:58:54 +0300
-Message-ID: <1317056334-23521-1-git-send-email-madalin.bucur@freescale.com>
-Reply-To: <madalin.bucur@freescale.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 1/8] pci: Add flag indicating device has been
+ assigned by KVM [and Xen]
+Date: Mon, 26 Sep 2011 10:01:36 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C51941D@orsmsx508.amr.corp.intel.com>
+References: <43F901BD926A4E43B106BF17856F0755019C518C47@orsmsx508.amr.corp.intel.com>
+ <1316792710.2182.124.camel@jtkirshe-mobl>
+ <20110923164326.GA23363@phenom.oracle.com>
+ <43F901BD926A4E43B106BF17856F0755019C518D57@orsmsx508.amr.corp.intel.com>
+ <20110923180025.GA6251@phenom.oracle.com>
+ <43F901BD926A4E43B106BF17856F0755019C518E23@orsmsx508.amr.corp.intel.com>
+ <20110923190537.GA18850@phenom.oracle.com>
+ <1316839300.2182.134.camel@jtkirshe-mobl>
+ <20110926162552.GA4175@phenom.oracle.com>
+ <43F901BD926A4E43B106BF17856F0755019C5193AF@orsmsx508.amr.corp.intel.com>
+ <20110926164238.GA4667@phenom.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<timo.teras@iki.fi>, Madalin Bucur <madalin.bucur@freescale.com>
-To: <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Ian Campbell <ijc@hellion.org.uk>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:39583
-	"EHLO AM1EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751380Ab1IZQ7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 12:59:23 -0400
+Received: from mga11.intel.com ([192.55.52.93]:16495 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751198Ab1IZRBj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 13:01:39 -0400
+In-Reply-To: <20110926164238.GA4667@phenom.oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've investigated this issue further and come up with a different fix -
-modify the flow_cache_flush to prevent it from sleeping and also remove the
-deferral of the actual gc work through schedule_work. That caused the gc never
-to happen on a highly loaded system that had the cpus occupied servicing
-network softirqs.
-
-During the investigation I've also found two places the return value of 
-dst_alloc was used without checking, leading to a crash. 
-
-The 3 patches will follow.
-
-
 > -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On 
-> Behalf Of Eric Dumazet
->
-> Problem is sometime we dont want to defer and are in process context.
+> From: Konrad Rzeszutek Wilk [mailto:konrad.wilk@oracle.com]
+> Sent: Monday, September 26, 2011 9:43 AM
+> To: Rose, Gregory V
+> Cc: Kirsher, Jeffrey T; davem@davemloft.net; Ian Campbell; Jesse Barnes;
+> netdev@vger.kernel.org; gospo@redhat.com; linux-pci@vger.kernel.org
+> Subject: Re: [net-next 1/8] pci: Add flag indicating device has been
+> assigned by KVM [and Xen]
 > 
-> xfrm_dev_event(  event == NETDEV_DOWN) is probably a place we dont want
-> to defer the garbage collection.
+> > > Any plans to support bnx4 and igb with this feature?
+> >
+> > I'm updating the igb driver to support this feature right now.  I would
+> hesitate to get into other drivers and muck with them because the changes
+> to support this feature are not trivial and also involve policy decisions
+> that I'd prefer to leave up to the folks who maintain those drivers.  Plus
+> I have no other vendor hardware available to test the changes.
+> >
+> 
+> Sounds fair. Did you CC them?
+
+I'll grep through the drivers and find who calls pci_disable_sriov() and send the respective driver maintainers a notification letting them know of the patches.
+
+> 
+> > > Any ETA?
+> >
+> > I should have the igb driver work done in the next week or so.
+> 
+> Ok, please CC me on the code when you post it.
+
+Will do.
+
+- Greg
