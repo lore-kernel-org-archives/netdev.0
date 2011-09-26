@@ -1,45 +1,31 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [net-next 1/8] pci: Add flag indicating device has been assigned
- by KVM [and Xen]
-Date: Mon, 26 Sep 2011 12:42:38 -0400
-Message-ID: <20110926164238.GA4667@phenom.oracle.com>
-References: <43F901BD926A4E43B106BF17856F0755019C518C47@orsmsx508.amr.corp.intel.com>
- <1316792710.2182.124.camel@jtkirshe-mobl>
- <20110923164326.GA23363@phenom.oracle.com>
- <43F901BD926A4E43B106BF17856F0755019C518D57@orsmsx508.amr.corp.intel.com>
- <20110923180025.GA6251@phenom.oracle.com>
- <43F901BD926A4E43B106BF17856F0755019C518E23@orsmsx508.amr.corp.intel.com>
- <20110923190537.GA18850@phenom.oracle.com>
- <1316839300.2182.134.camel@jtkirshe-mobl>
- <20110926162552.GA4175@phenom.oracle.com>
- <43F901BD926A4E43B106BF17856F0755019C5193AF@orsmsx508.amr.corp.intel.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [net-next 1/7] bna: Brocade 1860 IOC PLL, Reg Defs and ASIC
+ Mode Changes
+Date: Mon, 26 Sep 2011 09:43:10 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86AC9B6D957F@HQ1-EXCH01.corp.brocade.com>
+References: <1316830458-24773-1-git-send-email-rmody@brocade.com>
+	 <1316830458-24773-2-git-send-email-rmody@brocade.com>
+ <1316831427.28330.17.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Ian Campbell <ijc@hellion.org.uk>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755019C5193AF@orsmsx508.amr.corp.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Adapter Linux Open SRC Team
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Gurunatha Karaje <gkaraje@Brocade.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:47913 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751182Ab1IZQna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 12:43:30 -0400
+In-Reply-To: <1316831427.28330.17.camel@Joe-Laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > Any plans to support bnx4 and igb with this feature?
-> 
-> I'm updating the igb driver to support this feature right now.  I would hesitate to get into other drivers and muck with them because the changes to support this feature are not trivial and also involve policy decisions that I'd prefer to leave up to the folks who maintain those drivers.  Plus I have no other vendor hardware available to test the changes.
-> 
-
-Sounds fair. Did you CC them?
-
-> > Any ETA?
-> 
-> I should have the igb driver work done in the next week or so.
-
-Ok, please CC me on the code when you post it.
-> 
-> - Greg
+PkZyb206IEpvZSBQZXJjaGVzIFttYWlsdG86am9lQHBlcmNoZXMuY29tXQ0KPlNlbnQ6IEZyaWRh
+eSwgU2VwdGVtYmVyIDIzLCAyMDExIDc6MzAgUE0NCj4NCj50cml2aWEuLi4NCg0KSGkgSm9lLA0K
+V2UnbGwgcmUtc3VibWl0IHRoaXMgcGF0Y2gtc2V0IGFkZHJlc3NpbmcgdGhlIGNvbW1lbnRzLg0K
+VGhhbmtzLA0KUmFzZXNoDQoNCg==
