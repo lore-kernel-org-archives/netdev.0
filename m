@@ -1,38 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ehea: Remove sleep at .ndo_get_stats
-Date: Mon, 26 Sep 2011 22:28:55 +0200
-Message-ID: <1317068935.2796.12.camel@edumazet-laptop>
-References: <1317066179.2796.9.camel@edumazet-laptop>
-	 <1317067863-11706-1-git-send-email-brenohl@br.ibm.com>
+From: "Christian Benvenuti (benve)" <benve@cisco.com>
+Subject: RE: [net-next] iproute2: Add new command to IP link to enable/disable VF spoof check
+Date: Mon, 26 Sep 2011 15:54:53 -0500
+Message-ID: <184D23435BECB444AB6B9D4630C8EC83028F8A71@XMB-RCD-303.cisco.com>
+References: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com><20110925102353.602d239b@s6510.linuxnetplumber.net><43F901BD926A4E43B106BF17856F0755019C519385@orsmsx508.amr.corp.intel.com><1317055319.2773.41.camel@bwh-desktop> <20110926094719.0cb6c296@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: brenohl@br.ibm.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>, <gospo@redhat.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64696 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753075Ab1IZU3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 16:29:02 -0400
-Received: by wwf22 with SMTP id 22so7281119wwf.1
-        for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 13:29:01 -0700 (PDT)
-In-Reply-To: <1317067863-11706-1-git-send-email-brenohl@br.ibm.com>
+Received: from rcdn-iport-6.cisco.com ([173.37.86.77]:35414 "EHLO
+	rcdn-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751493Ab1IZUyz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 16:54:55 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20110926094719.0cb6c296@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 26 septembre 2011 =C3=A0 17:11 -0300, brenohl@br.ibm.com a =C3=
-=A9crit :
-> Currently ehea ndo_get_stats can sleep in two places, in a hcall
-> and in a GFP_KERNEL alloc, which is not correct.
-> This patch creates a delayed workqueue that grabs the information eac=
-h 1
-> sec from the hardware, and place it into the device structure, so tha=
-t,
-> .ndo_get_stats quickly returns the device structure statistics block.
->=20
-> Signed-off-by: Breno Leitao <brenohl@br.ibm.com>
-> ---
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Stephen Hemminger
+> Sent: Monday, September 26, 2011 9:47 AM
+> To: Ben Hutchings
+> Cc: Rose, Gregory V; Kirsher, Jeffrey T; davem@davemloft.net;
+> netdev@vger.kernel.org; gospo@redhat.com
+> Subject: Re: [net-next] iproute2: Add new command to IP link to
+> enable/disable VF spoof check
+> 
+> On Mon, 26 Sep 2011 17:41:59 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> > On Mon, 2011-09-26 at 09:21 -0700, Rose, Gregory V wrote:
+> > > > -----Original Message-----
+> > > > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> > > > Sent: Sunday, September 25, 2011 10:24 AM
+> > > > To: Kirsher, Jeffrey T
+> > > > Cc: Rose, Gregory V; davem@davemloft.net;
+netdev@vger.kernel.org;
+> > > > gospo@redhat.com
+> > > > Subject: Re: [net-next] iproute2: Add new command to IP link to
+> > > > enable/disable VF spoof check
+> > > >
+> > > > On Sun, 25 Sep 2011 01:23:18 -0700
+> > > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > > >
+> > > > > From: Greg Rose <gregory.v.rose@intel.com>
+> > > > >
+> > > > > Add IP link command parsing for VF spoof checking
+> enable/disable
+> > > > >
+> > > > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > >
+> > > > See my comments about ABI compatibility. Can't just grow size of
+> > > > structure.
+> > > > Need to have new version of iproute work with older kernels.
+> > >
+> > > In this case I have no idea how to proceed.  I'll go back and
+stare
+> at it some more.
+> >
+> > Where is this structure used on the wire?  I just don't see it.
+> >
+> > If the modified iproute2 crashes on older kernels, that's presumably
+> > because it's not correctly handling the case where IFLA_VF_SPOOFCHK
+> is
+> > missing.  Nothing to do with the size of this structure.
+> 
+> The proposed code is fine because the vf_info is not used by any code
+> in iproute right now and I doubt that any other tools are using it
+> either.
 
-Seems good, thanks
+Does it mean that a Netlink interface becomes official (and backward
+compatibility
+should not be broken) only once iproute2 starts supporting it?
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+/Chris
