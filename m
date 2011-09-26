@@ -1,70 +1,69 @@
-From: Andrew Vagin <avagin@gmail.com>
-Subject: Re: [PATCH v3 4/7] per-cgroup tcp buffers control
-Date: Mon, 26 Sep 2011 18:39:34 +0400
-Message-ID: <4E808EA6.4000301@gmail.com>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com> <1316393805-3005-5-git-send-email-glommer@parallels.com>
-Reply-To: avagin@gmail.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [SCSI] cxgb3i: convert cdev->l2opt to use rcu to prevent NULL
+ dereference (v2)
+Date: Mon, 26 Sep 2011 11:02:26 -0400
+Message-ID: <20110926150226.GB18283@hmsreliant.think-freely.org>
+References: <20110926134048.GA10999@longonot.mountain>
+ <20110926142052.GA18283@hmsreliant.think-freely.org>
+ <1317047476.9560.0.camel@dabdike>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
-        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
-        davem@davemloft.net, gthelen@google.com, netdev@vger.kernel.org,
-        linux-mm@kvack.org, kirill@shutemov.name
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1316393805-3005-5-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Carpenter <dan.carpenter@oracle.com>, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54682 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752330Ab1IZPCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 11:02:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1317047476.9560.0.camel@dabdike>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We can't change net.ipv4.tcp_mem if a cgroup with memory controller 
-isn't mounted.
+On Mon, Sep 26, 2011 at 09:31:15AM -0500, James Bottomley wrote:
+> On Mon, 2011-09-26 at 10:20 -0400, Neil Horman wrote:
+> > On Mon, Sep 26, 2011 at 04:40:48PM +0300, Dan Carpenter wrote:
+> > > Hi Neil,
+> > > 
+> > > c98bc57ee65b6 "[SCSI] cxgb3i: convert cdev->l2opt to use rcu to
+> > > prevent NULL dereference (v2)" from linux-next introduces a usinging
+> > > uninitialized variable bug.
+> > > 
+> > >  struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct neighbour *neigh,
+> > >                              struct net_device *dev)
+> > >  {
+> > > -       struct l2t_entry *e;
+> > > -       struct l2t_data *d = L2DATA(cdev);
+> > > +       struct l2t_entry *e = NULL;
+> > > +       struct l2t_data *d;
+> > >         u32 addr = *(u32 *) neigh->primary_key;
+> > >         int ifidx = neigh->dev->ifindex;
+> > >         int hash = arp_hash(addr, ifidx, d);
+> > >                                          ^
+> > > Uninitialized variable.
+> > > 
+> > >         struct port_info *p = netdev_priv(dev);
+> > >         int smt_idx = p->port_id;
+> > >  
+> > > +       rcu_read_lock();
+> > > +       d = L2DATA(cdev);
+> > > +       if (!d)
+> > > +               goto done_rcu;
+> > > +
+> > > 
+> > > regards,
+> > > dan carpenter
+> > > 
+> > 
+> > Yup, thanks, you need this to9 fix the uninitalized var.
+> 
+> I rolled this into the original.
+> 
+Thank you!
+Neil
 
-[root@dhcp-10-30-20-19 ~]# sysctl -w net.ipv4.tcp_mem="3 2 3"
-error: "Invalid argument" setting key "net.ipv4.tcp_mem"
-
-It's because tcp_max_memory is initialized in mem_cgroup_populate:
-
-mem_cgroup_populate->register_kmem_files->sockets_populate->tcp_init_cgroup
-
-> +int sockets_populate(struct cgroup *cgrp, struct cgroup_subsys *ss)
-> +{
-> +	struct proto *proto;
-> +	int ret = 0;
-> +
-> +	read_lock(&proto_list_lock);
-> +	list_for_each_entry(proto,&proto_list, node) {
-> +		if (proto->init_cgroup)
-> +			ret |= proto->init_cgroup(proto, cgrp, ss);
-> +	}
-> +	if (!ret)
-> +		goto out;
-> +
-> +	list_for_each_entry_continue_reverse(proto,&proto_list, node)
-> +		if (proto->destroy_cgroup)
-> +			proto->destroy_cgroup(proto, cgrp, ss);
-> +
-> +out:
-> +	read_unlock(&proto_list_lock);
-> +	return ret;
-> +}
-
-> @@ -198,6 +203,21 @@ static int ipv4_tcp_mem(ctl_table *ctl, int write,
->   	if (ret)
->   		return ret;
->
-> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
-> +	rcu_read_lock();
-> +	cg = mem_cgroup_from_task(current);
-> +	for (i = 0; i<  3; i++)
-> +		if (vec[i]>  tcp_max_memory(cg)) {
-> +			rcu_read_unlock();
-> +			return -EINVAL;
-> +		}
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> James
+> 
+> 
+> 
