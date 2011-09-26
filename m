@@ -1,64 +1,119 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next] iproute2: Add new command to IP link to
- enable/disable VF spoof check
-Date: Mon, 26 Sep 2011 09:47:19 -0700
-Message-ID: <20110926094719.0cb6c296@nehalam.linuxnetplumber.net>
-References: <1316938998-29855-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20110925102353.602d239b@s6510.linuxnetplumber.net>
-	<43F901BD926A4E43B106BF17856F0755019C519385@orsmsx508.amr.corp.intel.com>
-	<1317055319.2773.41.camel@bwh-desktop>
+From: Catalin Marinas <Catalin.Marinas@arm.com>
+Subject: Re: Question about memory leak detector giving false positive
+ report for net/core/flow.c
+Date: Mon, 26 Sep 2011 17:50:24 +0100
+Message-ID: <20110926165024.GA21617@e102109-lin.cambridge.arm.com>
+References: <CA+v9cxadZzWr35Q9RFzVgk_NZsbZ8PkVLJNxjBAMpargW9Lm4Q@mail.gmail.com>
+ <1317054774.6363.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38267 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751191Ab1IZQr3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 12:47:29 -0400
-In-Reply-To: <1317055319.2773.41.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Huajun Li <huajun.li.lee@gmail.com>,
+   "linux-mm@kvack.org" <linux-mm@kvack.org>, netdev <netdev@vger.kernel.org>,
+   linux-kernel <linux-kernel@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
+   Christoph Lameter <cl@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1317054774.6363.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Sep 2011 17:41:59 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Mon, Sep 26, 2011 at 05:32:54PM +0100, Eric Dumazet wrote:
+> Le lundi 26 septembre 2011 =E0 23:17 +0800, Huajun Li a =E9crit :
+> > Memory leak detector gives following memory leak report, it seems the
+> > report is triggered by net/core/flow.c, but actually, it should be a
+> > false positive report.
+> > So, is there any idea from kmemleak side to fix/disable this false
+> > positive report like this?
+> > Yes, kmemleak_not_leak(...) could disable it, but is it suitable for =
+this case ?
+...
+> CC lkml and percpu maintainers (Tejun Heo & Christoph Lameter ) as well
+>=20
+> AFAIK this false positive only occurs if percpu data is allocated
+> outside of embedded pcu space.=20
+>=20
+>  (grep pcpu_get_vm_areas /proc/vmallocinfo)
+>=20
+> I suspect this is a percpu/kmemleak cooperation problem (a missing
+> kmemleak_alloc() ?)
+>=20
+> I am pretty sure kmemleak_not_leak() is not the right answer to this
+> problem.
 
-> On Mon, 2011-09-26 at 09:21 -0700, Rose, Gregory V wrote:
-> > > -----Original Message-----
-> > > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> > > Sent: Sunday, September 25, 2011 10:24 AM
-> > > To: Kirsher, Jeffrey T
-> > > Cc: Rose, Gregory V; davem@davemloft.net; netdev@vger.kernel.org;
-> > > gospo@redhat.com
-> > > Subject: Re: [net-next] iproute2: Add new command to IP link to
-> > > enable/disable VF spoof check
-> > > 
-> > > On Sun, 25 Sep 2011 01:23:18 -0700
-> > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> > > 
-> > > > From: Greg Rose <gregory.v.rose@intel.com>
-> > > >
-> > > > Add IP link command parsing for VF spoof checking enable/disable
-> > > >
-> > > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > 
-> > > See my comments about ABI compatibility. Can't just grow size of
-> > > structure.
-> > > Need to have new version of iproute work with older kernels.
-> > 
-> > In this case I have no idea how to proceed.  I'll go back and stare at it some more.
-> 
-> Where is this structure used on the wire?  I just don't see it.
-> 
-> If the modified iproute2 crashes on older kernels, that's presumably
-> because it's not correctly handling the case where IFLA_VF_SPOOFCHK is
-> missing.  Nothing to do with the size of this structure.
+kmemleak_not_leak() definitely not the write answer. The alloc_percpu()
+call does not have any kmemleak_alloc() callback, so it doesn't scan
+them.
 
-The proposed code is fine because the vf_info is not used by any code
-in iproute right now and I doubt that any other tools are using it either.
+Huajun, could you please try the patch below:
+
+8<--------------------------------
+kmemleak: Handle percpu memory allocation
+
+From: Catalin Marinas <catalin.marinas@arm.com>
+
+This patch adds kmemleak callbacks from the percpu allocator, reducing a
+number of false positives caused by kmemleak not scanning such memory
+blocks.
+
+Reported-by: Huajun Li <huajun.li.lee@gmail.com>
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+---
+ mm/percpu.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/mm/percpu.c b/mm/percpu.c
+index bf80e55..c47a90b 100644
+--- a/mm/percpu.c
++++ b/mm/percpu.c
+@@ -67,6 +67,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/vmalloc.h>
+ #include <linux/workqueue.h>
++#include <linux/kmemleak.h>
+=20
+ #include <asm/cacheflush.h>
+ #include <asm/sections.h>
+@@ -833,7 +834,9 @@ fail_unlock_mutex:
+  */
+ void __percpu *__alloc_percpu(size_t size, size_t align)
+ {
+-	return pcpu_alloc(size, align, false);
++	void __percpu *ptr =3D pcpu_alloc(size, align, false);
++	kmemleak_alloc(ptr, size, 1, GFP_KERNEL);
++	return ptr;
+ }
+ EXPORT_SYMBOL_GPL(__alloc_percpu);
+=20
+@@ -855,7 +858,9 @@ EXPORT_SYMBOL_GPL(__alloc_percpu);
+  */
+ void __percpu *__alloc_reserved_percpu(size_t size, size_t align)
+ {
+-	return pcpu_alloc(size, align, true);
++	void __percpu *ptr =3D pcpu_alloc(size, align, true);
++	kmemleak_alloc(ptr, size, 1, GFP_KERNEL);
++	return ptr;
+ }
+=20
+ /**
+@@ -915,6 +920,8 @@ void free_percpu(void __percpu *ptr)
+ 	if (!ptr)
+ 		return;
+=20
++	kmemleak_free(ptr);
++
+ 	addr =3D __pcpu_ptr_to_addr(ptr);
+=20
+ 	spin_lock_irqsave(&pcpu_lock, flags);
+
+--=20
+Catalin
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
