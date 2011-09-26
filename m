@@ -1,53 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [E1000-devel] intel 82599 multi-port performance
-Date: Mon, 26 Sep 2011 10:24:33 -0700
-Message-ID: <4E80B551.1040609@candelatech.com>
-References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com> <4E809D59.10103@gmail.com> <4E80A2AB.2040206@intel.com> <4E80AAF8.1000806@genband.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"J.Hwan.Kim" <j.hwan.kim99@gmail.com>, frog1120@gmail.com
-To: Chris Friesen <chris.friesen@genband.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH 2/2] virtio-net: Prevent NULL dereference
+Date: Mon, 26 Sep 2011 20:41:09 +0300
+Message-ID: <1317058869-19276-2-git-send-email-levinsasha928@gmail.com>
+References: <1317058869-19276-1-git-send-email-levinsasha928@gmail.com>
+Cc: Sasha Levin <levinsasha928@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54690 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385Ab1IZRYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 13:24:47 -0400
-In-Reply-To: <4E80AAF8.1000806@genband.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:35093 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751990Ab1IZRme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 13:42:34 -0400
+In-Reply-To: <1317058869-19276-1-git-send-email-levinsasha928@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2011 09:40 AM, Chris Friesen wrote:
-> On 09/26/2011 10:04 AM, Alexander Duyck wrote:
->
->> It sounds like you are using a single card, would that be correct? If
->> you are running close to line rate on both ports this could be causing
->> you to saturate the PCIe x8 link.
->
-> According to
-> "http://communities.intel.com/community/wired/blog/2009/06/08/understanding-pci-express-bandwidth"
-> 8x PCIe should have a bandwidth of 4GB/s.  2 10Gigabit ports is 2.5GB/s.
->
-> The 82599 only goes up to 8x, so I'd expect that it should be sufficient
-> to handle the full traffic.
->
-> To any of the Intel guys out there...any ideas?  Can an 82599 on an 8x
-> bus handle max line rate with minimum size packets?
+This patch prevents a NULL dereference when the user has passed a length
+longer than an actual buffer to virtio-net.
 
-Rick Jones sent me an interesting link related to this.  Short answer seems
-to be 'yes', but it seems not for any normal off-the-shelf software stack.
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: virtualization@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
+Cc: kvm@vger.kernel.org
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ drivers/net/virtio_net.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- > This: http://comments.gmane.org/gmane.linux.network/203602 should lead you to some slide.
-
-
-Thanks,
-Ben
-
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 64e0717..8d32c1e 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -198,7 +198,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 	len -= copy;
+ 	offset += copy;
+ 
+-	while (len) {
++	while (len && page) {
+ 		set_skb_frag(skb, page, offset, &len);
+ 		page = (struct page *)page->private;
+ 		offset = 0;
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.6.1
