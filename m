@@ -1,142 +1,121 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Question about memory leak detector giving false positive
- report for net/core/flow.c
-Date: Mon, 26 Sep 2011 18:32:54 +0200
-Message-ID: <1317054774.6363.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CA+v9cxadZzWr35Q9RFzVgk_NZsbZ8PkVLJNxjBAMpargW9Lm4Q@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next 05/10] if_link: Add additional parameter to
+ IFLA_VF_INFO for spoof checking
+Date: Mon, 26 Sep 2011 09:37:57 -0700
+Message-ID: <20110926093757.6a9fa23e@nehalam.linuxnetplumber.net>
+References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1316855863-6091-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20110925102238.55ba72eb@s6510.linuxnetplumber.net>
+	<1316981213.4122.106.camel@deadeye>
+	<20110926091426.5c83a4d7@nehalam.linuxnetplumber.net>
+	<43F901BD926A4E43B106BF17856F0755019C5193B4@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Catalin Marinas <catalin.marinas@arm.com>, linux-mm@kvack.org, netdev
- <netdev@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>,
- Tejun Heo <tj@kernel.org>, Christoph Lameter <cl@linux-foundation.org>
-To: Huajun Li <huajun.li.lee@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CA+v9cxadZzWr35Q9RFzVgk_NZsbZ8PkVLJNxjBAMpargW9Lm4Q@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:58679 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751588Ab1IZQiH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 12:38:07 -0400
+In-Reply-To: <43F901BD926A4E43B106BF17856F0755019C5193B4@orsmsx508.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 26 septembre 2011 =C3=A0 23:17 +0800, Huajun Li a =C3=A9crit :
-> Memory leak detector gives following memory leak report, it seems the
-> report is triggered by net/core/flow.c, but actually, it should be a
-> false positive report.
-> So, is there any idea from kmemleak side to fix/disable this false
-> positive report like this?
-> Yes, kmemleak_not_leak(...) could disable it, but is it suitable for th=
-is case ?
->=20
-> BTW, I wrote a simple test code to emulate net/core/flow.c behavior at
-> this stage which triggers the report, and it could also make kmemleak
-> give similar report, please check below test code:
->=20
-> kernel version:
-> #uname -a
-> Linux 3.1.0-rc7 #22 SMP Tue Sep 26 05:43:01 CST 2011 x86_64 x86_64
-> x86_64 GNU/Linux
->=20
-> memory leak report:
-> -----------------------------------------------------------------------=
---------------------
-> unreferenced object 0xffff880073a70000 (size 8192):
->   comm "swapper", pid 1, jiffies 4294937832 (age 445.740s)
->   hex dump (first 32 bytes):
->     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
->     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
->   backtrace:
->     [<ffffffff8124db64>] create_object+0x144/0x360
->     [<ffffffff8191192e>] kmemleak_alloc+0x7e/0x110
->     [<ffffffff81235b26>] __kmalloc_node+0x156/0x3a0
->     [<ffffffff81935512>] flow_cache_cpu_prepare.clone.1+0x58/0xc0
->     [<ffffffff8214c361>] flow_cache_init_global+0xb6/0x1af
->     [<ffffffff8100225d>] do_one_initcall+0x4d/0x260
->     [<ffffffff820ec2e9>] kernel_init+0x161/0x23a
->     [<ffffffff8194ab04>] kernel_thread_helper+0x4/0x10
->     [<ffffffffffffffff>] 0xffffffffffffffff
-> unreferenced object 0xffff880073a74290 (size 8192):
->   comm "swapper", pid 1, jiffies 4294937832 (age 445.740s)
->   hex dump (first 32 bytes):
->     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
->     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
->   backtrace:
->     [<ffffffff8124db64>] create_object+0x144/0x360
->     [<ffffffff8191192e>] kmemleak_alloc+0x7e/0x110
->     [<ffffffff81235b26>] __kmalloc_node+0x156/0x3a0
->     [<ffffffff81935512>] flow_cache_cpu_prepare.clone.1+0x58/0xc0
->     [<ffffffff8214c361>] flow_cache_init_global+0xb6/0x1af
->     [<ffffffff8100225d>] do_one_initcall+0x4d/0x260
->     [<ffffffff820ec2e9>] kernel_init+0x161/0x23a
->     [<ffffffff8194ab04>] kernel_thread_helper+0x4/0x10
->     [<ffffffffffffffff>] 0xffffffffffffffff
->=20
->=20
->=20
-> Simple test code to reproduce a similar report:
-> -----------------------------------------------------------------------=
-------------------
-> MODULE_LICENSE("GPL");
->=20
-> struct test {
->         int *pt;
+On Mon, 26 Sep 2011 09:32:35 -0700
+"Rose, Gregory V" <gregory.v.rose@intel.com> wrote:
 
+> > -----Original Message-----
+> > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> > Sent: Monday, September 26, 2011 9:14 AM
+> > To: Ben Hutchings
+> > Cc: Kirsher, Jeffrey T; davem@davemloft.net; Rose, Gregory V;
+> > netdev@vger.kernel.org; gospo@redhat.com
+> > Subject: Re: [net-next 05/10] if_link: Add additional parameter to
+> > IFLA_VF_INFO for spoof checking
+> > 
+> > On Sun, 25 Sep 2011 21:06:49 +0100
+> > Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > 
+> > > On Sun, 2011-09-25 at 10:22 -0700, Stephen Hemminger wrote:
+> > > > On Sat, 24 Sep 2011 02:17:38 -0700
+> > > > Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+> > > >
+> > > > > From: Greg Rose <gregory.v.rose@intel.com>
+> > > > >
+> > > > > Add configuration setting for drivers to turn spoof checking on or
+> > off
+> > > > > for discrete VFs.
+> > > > >
+> > > > > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > > > > ---
+> > > > >  include/linux/if_link.h   |    7 +++++++
+> > > > >  include/linux/netdevice.h |    3 +++
+> > > > >  net/core/rtnetlink.c      |   25 ++++++++++++++++++++++---
+> > > > >  3 files changed, 32 insertions(+), 3 deletions(-)
+> > > > >
+> > > > > diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> > > > > index 0ee969a..8bd6d6d 100644
+> > > > > --- a/include/linux/if_link.h
+> > > > > +++ b/include/linux/if_link.h
+> > > > > @@ -279,6 +279,7 @@ enum {
+> > > > >  	IFLA_VF_MAC,		/* Hardware queue specific attributes
+> > */
+> > > > >  	IFLA_VF_VLAN,
+> > > > >  	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
+> > > > > +	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
+> > > > >  	__IFLA_VF_MAX,
+> > > > >  };
+> > > > >
+> > > > > @@ -300,12 +301,18 @@ struct ifla_vf_tx_rate {
+> > > > >  	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling
+> > */
+> > > > >  };
+> > > > >
+> > > > > +struct ifla_vf_spoofchk {
+> > > > > +	__u32 vf;
+> > > > > +	__u32 setting;
+> > > > > +};
+> > > > > +
+> > > > >  struct ifla_vf_info {
+> > > > >  	__u32 vf;
+> > > > >  	__u8 mac[32];
+> > > > >  	__u32 vlan;
+> > > > >  	__u32 qos;
+> > > > >  	__u32 tx_rate;
+> > > > > +	__u32 spoofchk;
+> > > > >  };
+> > > >
+> > > > This breaks ABI compatibility, unless you add some special case code
+> > > > to handle the case of tools sending the old ifla_vf_info. Users may
+> > have older version
+> > > > of ip utilities that send smaller size structure.
+> > >
+> > > Unless I'm missing something, that structure is not sent or received by
+> > > userland; that's why I thought it should be #ifdef __KERNEL__.
+> > 
+> > The struct ifla_vf_info is exposed to userland, it is not inside the
+> > #ifdef
+> > and therefore exposed.
+> > 
+> > But it is probably okay to change this structure because the ifla_vf_info
+> > is not used/supported by any released version iproute2.  There may have
+> > been
+> > some patches to use this, but they never made it into the git or released
+> > code.
+> > 
+> 
+> I will respin the patches with *ifdef __KERNEL__ wrapper.
+> 
+> Thanks,
+> 
+> - Greg
+> 
 
-	char spaceholder[30000];
-
-> };
->=20
-> static struct test __percpu *percpu;
->=20
-> static int __init test_init(void)
-> {
->         int i;
->=20
->         percpu =3D alloc_percpu(struct test);
->         if (!percpu)
->                 return -ENOMEM;
->=20
->         for_each_online_cpu(i) {
->                 struct test *p =3D per_cpu_ptr(percpu, i);
->                 p->pt =3D kmalloc(sizeof(int), GFP_KERNEL);
->         }
->=20
->         return 0;
-> }
->=20
-> static void __exit test_exit(void)
-> {
->         int i;
->=20
->         for_each_possible_cpu(i) {
->                 struct test *p =3D per_cpu_ptr(percpu, i);
->                 if (p->pt)
->                         kfree(p->pt);
->         }
->=20
->         if (percpu)
->                 free_percpu(percpu);
-> }
-> module_init(test_init);
-> module_exit(test_exit);
-
-
-CC lkml and percpu maintainers (Tejun Heo & Christoph Lameter ) as well
-
-AFAIK this false positive only occurs if percpu data is allocated
-outside of embedded pcu space.=20
-
- (grep pcpu_get_vm_areas /proc/vmallocinfo)
-
-I suspect this is a percpu/kmemleak cooperation problem (a missing
-kmemleak_alloc() ?)
-
-I am pretty sure kmemleak_not_leak() is not the right answer to this
-problem.
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+Just make spoofchk a new nested attribute.
