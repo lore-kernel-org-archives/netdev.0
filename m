@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/flow: remove sleeping and deferral mechanism from
- flow_cache_flush
-Date: Tue, 27 Sep 2011 15:31:32 -0400 (EDT)
-Message-ID: <20110927.153132.900366550174236643.davem@davemloft.net>
-References: <1317056956-23644-1-git-send-email-madalin.bucur@freescale.com>
-	<20110927.152836.1747700807304689813.davem@davemloft.net>
+Subject: Re: [PATCH] ipv6-multicast: Fix memory leak in IPv6 multicast.
+Date: Tue, 27 Sep 2011 15:34:04 -0400 (EDT)
+Message-ID: <20110927.153404.420686663860879218.davem@davemloft.net>
+References: <1316819461-3192-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, timo.teras@iki.fi
-To: madalin.bucur@freescale.com
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56170 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56185 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752221Ab1I0Tcp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 15:32:45 -0400
-In-Reply-To: <20110927.152836.1747700807304689813.davem@davemloft.net>
+	with ESMTP id S1751429Ab1I0TeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 15:34:07 -0400
+In-Reply-To: <1316819461-3192-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 27 Sep 2011 15:28:36 -0400 (EDT)
+From: greearb@candelatech.com
+Date: Fri, 23 Sep 2011 16:11:01 -0700
 
-> afinfo->garbage_collect is the only other place __xfrm_garbage_collect
-> is referenced, and that is completely unused and should thus be deleted
-> (I'll take care of that in net-next).
+> From: Ben Greear <greearb@candelatech.com>
+> 
+> If reg_vif_xmit cannot find a routing entry, be sure to
+> free the skb before returning the error.
+> 
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
 
-Nevermind I see how these are referenced directly via xfrm4_policy.c
-and xfrm6_policy.c, sigh...
+Applied.
