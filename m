@@ -1,86 +1,60 @@
-From: Sven-Haegar Koch <haegar@sdinet.de>
-Subject: Re: Bridge stays down until a port is added
-Date: Tue, 27 Sep 2011 02:28:42 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1109270224220.30860@aurora>
-References: <20110811070659.GA21307@torres.zugschlus.de> <20110811081706.7307e8b2@nehalam.ftrdhcpuser.net> <20110917204257.GA2636@torres.zugschlus.de> <1316550027.1783.102.camel@dcbw.foobar.com> <20110925082504.GA32712@torres.zugschlus.de>
- <20110926084743.35cb2ccc@nehalam.linuxnetplumber.net> <4E80DA4D.3090404@gmail.com> <20110926130507.1435d76b@nehalam.linuxnetplumber.net> <4E80F8BD.4010401@gmail.com>
+From: "J.Hwan Kim" <frog1120@gmail.com>
+Subject: Re: intel 82599 multi-port performance
+Date: Tue, 27 Sep 2011 09:39:06 +0900
+Message-ID: <4E811B2A.7000609@gmail.com>
+References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com> <4E809D59.10103@gmail.com> <4E80C161.1040204@hp.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-94995099-1317083332=:30860"
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Marc Haber <mh+netdev@zugschlus.de>, netdev@vger.kernel.org
-To: =?ISO-8859-15?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sdinet.de ([78.47.32.153]:60096 "EHLO mail.sdinet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752740Ab1I0Aet (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Sep 2011 20:34:49 -0400
-In-Reply-To: <4E80F8BD.4010401@gmail.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:55857 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025Ab1I0AjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 20:39:14 -0400
+Received: by ywb5 with SMTP id 5so4814173ywb.19
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 17:39:14 -0700 (PDT)
+In-Reply-To: <4E80C161.1040204@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On 2011=EB=85=84 09=EC=9B=94 27=EC=9D=BC 03:16, Rick Jones wrote:
+> On 09/26/2011 08:42 AM, J.Hwan.Kim wrote:
+>> On 2011=EB=85=84 09=EC=9B=94 26=EC=9D=BC 23:20, Chris Friesen wrote:
+>>> On 09/26/2011 04:26 AM, J.Hwan Kim wrote:
+>>>> Hi, everyone
+>>>>
+>>>> Now, I'm testing a network card including intel 82599.
+>>>> In our experiment, with the driver modified with ixgbe and multi-p=
+ort
+>>>> enabled,
+>>>
+>>> What do you mean by "modified with ixgbe and multi-port enabled"? Y=
+ou
+>>> shouldn't need to do anything special to use both ports.
+>>>
+>>>> rx performance of each port with 10Gbps of 64bytes frame is
+>>>> a half than when only 1 port is used.
+>>>
+>>> Sounds like a cpu limitation. What is your cpu usage? How are your
+>>> interrupts routed? Are you using multiple rx queues?
+>>>
+>>
+>> Our server is XEON 2.4GHz with 8 cores.
+>> I'm using 4 RSS queues for each port and distributed it's interrupts=
+ to
+>> different cores respectively.
+>> I checked the CPU utilization with TOP, I guess ,it is not cpu imita=
+tion
+>> problem.
+>
+> 99 times out of 10, by default top will show the average CPU=20
+> utilization across all the "CPUs" of the system. So I will ask the=20
+> pedantic question - Did you check per-CPU utilization or just overall=
+?
+>
 
---8323328-94995099-1317083332=:30860
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-
-On Tue, 27 Sep 2011, Nicolas de Peslo=FCan wrote:
-
-> Le 26/09/2011 22:05, Stephen Hemminger a =E9crit :
-> > On Mon, 26 Sep 2011 22:02:21 +0200
-> > Nicolas de Peslo=FCan<nicolas.2p.debian@gmail.com>  wrote:
-> [...]
-> > > Stephen,
-> > >=20
-> > > What do you think about a generic per-interface option that would cau=
-se
-> > > bind() to accept tentative
-> > > address hold by a particular interface? This of course violate IPv6
-> > > principle, but we are talking
-> > > about interfaces that are unable to do DAD, either permanently or unt=
-il
-> > > something happens on the
-> > > underlying device.
-> > >=20
-> > > echo 1>  /sys/class/net/br0/allow_bind_on_tentative_address
-> > > echo 1>  /sys/class/net/dummy0/allow_bind_on_tentative_address
-> > > echo 1>  /sys/class/net/wlan0/allow_bind_on_tentative_address
-> > > and so on...
-> > >=20
-> > > And we may possibly automatically reset this option to 0 if DAD event=
-ually
-> > > causes the address to be
-> > > considered duplicate.
-> >=20
-> > The issue is that if DAD rejects a duplicate, the socket is dead and
-> > application is
-> > out of luck.
->=20
-> Yes, and this is by design. Setting the option would state "I want to all=
-ow
-> early bind(), prior to DAD and I assume the fact that a possible duplicat=
-e
-> address will cause the corresponding socket to be dead and so the using
-> application."
-
-How about a setting just completely disabling this=20
-duplicate-address-detection crap?
-
-I do not want my servers to ever give up servicing a configured IP no=20
-matter what else on the network tries to interfere.
-
-If there are two machines using the same IP at a moment, then it may not=20
-work so great, but both should have all their services up and running,=20
-and once the invalid one got disconnected ("switch port down")=20
-everything works - not needing to reboot the real one because some=20
-daemons were not able to bind their service IPs.
-
-c'ya
-sven-haegar
-
---=20
-Three may keep a secret, if two of them are dead.
-- Ben F.
---8323328-94995099-1317083332=:30860--
+I checked CPU utilization per CPU with top. I pressed "1" after=20
+executing top so that I can view the per-cpu utilization.
