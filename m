@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 2/7] bna: Capability Map and MFG Block Changes for New HW
-Date: Tue, 27 Sep 2011 13:39:06 -0700
-Message-ID: <1317155951-17242-3-git-send-email-rmody@brocade.com>
+Subject: [net-next 6/7] bna: Add Callback to Fix RXQ Stop
+Date: Tue, 27 Sep 2011 13:39:10 -0700
+Message-ID: <1317155951-17242-7-git-send-email-rmody@brocade.com>
 References: <1317155951-17242-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,111 +10,179 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:58056 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752574Ab1I0Ujb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 16:39:31 -0400
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:35175 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753543Ab1I0Ujj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 16:39:39 -0400
 In-Reply-To: <1317155951-17242-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add capability map and generic model name scheme for manufacturing block.
-Add card types for new HW.
-
-Remove bfa_mfg_is_card_type_valid and ibfa_mfg_adapter_prop_init_flash_ct
-macros.
+Change details:
+ - Add a callback in the BNA, which is called before sending FW command to stop
+   RxQs. After this callback is called, driver should not post anymore Rx
+   buffers to the RxQ. This addresses a small window where driver posts Rx
+   buffers while FW is stopping/has stopped the RxQ.
+ - Registering callback function, rx_stall_cbfn, during bna_rx_create.
+   Invoking callback function, rx_stall_cbfn, before sending rx_cfg_clr
+   command to FW
+ - Bnad_cb_rx_stall implementation - set a flag in the Rxq to mark buffer
+   posting disabled state. While posting buffers check for the above flag.
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bfa_defs.h        |   12 +++++-
- .../net/ethernet/brocade/bna/bfa_defs_mfg_comm.h   |   44 +++----------------
- 2 files changed, 18 insertions(+), 38 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c |   11 +++++++++++
+ drivers/net/ethernet/brocade/bna/bna_types.h |    2 ++
+ drivers/net/ethernet/brocade/bna/bnad.c      |   25 ++++++++++++++++++++++++-
+ drivers/net/ethernet/brocade/bna/bnad.h      |    1 +
+ 4 files changed, 38 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs.h b/drivers/net/ethernet/brocade/bna/bfa_defs.h
-index a81c0cc..66a6207 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_defs.h
-+++ b/drivers/net/ethernet/brocade/bna/bfa_defs.h
-@@ -241,7 +241,17 @@ struct bfa_mfg_block {
- 	u8		num_mac;	/*!< number of mac addresses */
- 	u8		rsv2;
- 	u32		card_type;	/*!< card type */
--	u8		rsv3[108];
-+	char		cap_nic;	/*!< capability nic */
-+	char		cap_cna;	/*!< capability cna */
-+	char		cap_hba;	/*!< capability hba */
-+	char		cap_fc16g;	/*!< capability fc 16g */
-+	char		cap_sriov;	/*!< capability sriov */
-+	char		cap_mezz;	/*!< capability mezz */
-+	u8		rsv3;
-+	u8		mfg_nports;	/*!< number of ports */
-+	char		media[8];	/*!< xfi/xaui */
-+	char		initial_mode[8];/*!< initial mode: hba/cna/nic */
-+	u8		rsv4[84];
- 	u8		md5_chksum[BFA_MFG_CHKSUM_SIZE]; /*!< md5 checksum */
- };
+diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+index 066704e..276fcb5 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
++++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+@@ -1335,6 +1335,12 @@ do {								    \
+ 	}							       \
+ } while (0)
  
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
-index 7e5df90..6681fe8 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
-+++ b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
-@@ -60,6 +60,11 @@ enum {
- 	BFA_MFG_TYPE_ASTRA    = 807,	 /*!< Astra mezz card		*/
- 	BFA_MFG_TYPE_LIGHTNING_P0 = 902, /*!< Lightning mezz card - old	*/
- 	BFA_MFG_TYPE_LIGHTNING = 1741,	 /*!< Lightning mezz card	*/
-+	BFA_MFG_TYPE_PROWLER_F = 1560,	 /*!< Prowler FC only cards	*/
-+	BFA_MFG_TYPE_PROWLER_N = 1410,	 /*!< Prowler NIC only cards	*/
-+	BFA_MFG_TYPE_PROWLER_C = 1710,	 /*!< Prowler CNA only cards	*/
-+	BFA_MFG_TYPE_PROWLER_D = 1860,	 /*!< Prowler Dual cards	*/
-+	BFA_MFG_TYPE_CHINOOK   = 1867,	 /*!< Chinook cards		*/
- 	BFA_MFG_TYPE_INVALID = 0,	 /*!< Invalid card type		*/
- };
++#define call_rx_stall_cbfn(rx)						\
++do {									\
++	if ((rx)->rx_stall_cbfn)					\
++		(rx)->rx_stall_cbfn((rx)->bna->bnad, (rx));		\
++} while (0)
++
+ #define bfi_enet_datapath_q_init(bfi_q, bna_qpt)			\
+ do {									\
+ 	struct bna_dma_addr cur_q_addr =				\
+@@ -1467,6 +1473,7 @@ bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
+ 	case RX_E_FAIL:
+ 		bfa_fsm_set_state(rx, bna_rx_sm_cleanup_wait);
+ 		bna_rxf_fail(&rx->rxf);
++		call_rx_stall_cbfn(rx);
+ 		rx->rx_cleanup_cbfn(rx->bna->bnad, rx);
+ 		break;
  
-@@ -73,43 +78,8 @@ enum {
- 	(type) == BFA_MFG_TYPE_WANCHESE || \
- 	(type) == BFA_MFG_TYPE_ASTRA || \
- 	(type) == BFA_MFG_TYPE_LIGHTNING_P0 || \
--	(type) == BFA_MFG_TYPE_LIGHTNING))
--
--/**
-- * Check if card type valid
-- */
--#define bfa_mfg_is_card_type_valid(type) (( \
--	(type) == BFA_MFG_TYPE_FC8P2 || \
--	(type) == BFA_MFG_TYPE_FC8P1 || \
--	(type) == BFA_MFG_TYPE_FC4P2 || \
--	(type) == BFA_MFG_TYPE_FC4P1 || \
--	(type) == BFA_MFG_TYPE_CNA10P2 || \
--	(type) == BFA_MFG_TYPE_CNA10P1 || \
--	bfa_mfg_is_mezz(type)))
--
--#define bfa_mfg_adapter_prop_init_flash_ct(mfgblk, prop)	\
--do {								\
--	switch ((mfgblk)->card_type) {				\
--	case BFA_MFG_TYPE_JAYHAWK:				\
--	case BFA_MFG_TYPE_ASTRA:				\
--		(prop) = BFI_ADAPTER_SETP(NPORTS, 2) |		\
--			BFI_ADAPTER_SETP(SPEED, 8);		\
--		break;						\
--	case BFA_MFG_TYPE_CNA10P2:				\
--	case BFA_MFG_TYPE_WANCHESE:				\
--	case BFA_MFG_TYPE_LIGHTNING_P0:				\
--	case BFA_MFG_TYPE_LIGHTNING:				\
--		(prop) = BFI_ADAPTER_SETP(NPORTS, 2);		\
--		(prop) |= BFI_ADAPTER_SETP(SPEED, 10);		\
--		break;						\
--	case BFA_MFG_TYPE_CNA10P1:				\
--		(prop) = BFI_ADAPTER_SETP(NPORTS, 1);		\
--		(prop) |= BFI_ADAPTER_SETP(SPEED, 10);		\
--		break;						\
--	default:						\
--		(prop) = BFI_ADAPTER_UNSUPP;			\
--	}							\
--} while (0)
-+	(type) == BFA_MFG_TYPE_LIGHTNING || \
-+	(type) == BFA_MFG_TYPE_CHINOOK))
+@@ -1476,6 +1483,7 @@ bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
  
- enum {
- 	CB_GPIO_TTV	= (1),		/*!< TTV debug capable cards	*/
+ 	case RX_E_RXF_STOPPED:
+ 		bfa_fsm_set_state(rx, bna_rx_sm_stop_wait);
++		call_rx_stall_cbfn(rx);
+ 		bna_rx_enet_stop(rx);
+ 		break;
+ 
+@@ -1516,6 +1524,7 @@ bna_rx_sm_started(struct bna_rx *rx, enum bna_rx_event event)
+ 		bfa_fsm_set_state(rx, bna_rx_sm_failed);
+ 		bna_ethport_cb_rx_stopped(&rx->bna->ethport);
+ 		bna_rxf_fail(&rx->rxf);
++		call_rx_stall_cbfn(rx);
+ 		rx->rx_cleanup_cbfn(rx->bna->bnad, rx);
+ 		break;
+ 
+@@ -1536,6 +1545,7 @@ static void bna_rx_sm_rxf_start_wait(struct bna_rx *rx,
+ 	case RX_E_FAIL:
+ 		bfa_fsm_set_state(rx, bna_rx_sm_failed);
+ 		bna_rxf_fail(&rx->rxf);
++		call_rx_stall_cbfn(rx);
+ 		rx->rx_cleanup_cbfn(rx->bna->bnad, rx);
+ 		break;
+ 
+@@ -2369,6 +2379,7 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+ 	rx->rcb_destroy_cbfn = rx_cbfn->rcb_destroy_cbfn;
+ 	rx->ccb_setup_cbfn = rx_cbfn->ccb_setup_cbfn;
+ 	rx->ccb_destroy_cbfn = rx_cbfn->ccb_destroy_cbfn;
++	rx->rx_stall_cbfn = rx_cbfn->rx_stall_cbfn;
+ 	/* Following callbacks are mandatory */
+ 	rx->rx_cleanup_cbfn = rx_cbfn->rx_cleanup_cbfn;
+ 	rx->rx_post_cbfn = rx_cbfn->rx_post_cbfn;
+diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
+index 242d799..d090fbf 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_types.h
++++ b/drivers/net/ethernet/brocade/bna/bna_types.h
+@@ -847,6 +847,7 @@ struct bna_rx {
+ 	void (*rcb_destroy_cbfn)(struct bnad *, struct bna_rcb *);
+ 	void (*ccb_setup_cbfn)(struct bnad *, struct bna_ccb *);
+ 	void (*ccb_destroy_cbfn)(struct bnad *, struct bna_ccb *);
++	void (*rx_stall_cbfn)(struct bnad *, struct bna_rx *);
+ 	void (*rx_cleanup_cbfn)(struct bnad *, struct bna_rx *);
+ 	void (*rx_post_cbfn)(struct bnad *, struct bna_rx *);
+ 
+@@ -864,6 +865,7 @@ struct bna_rx_event_cbfn {
+ 	void (*rcb_destroy_cbfn)(struct bnad *, struct bna_rcb *);
+ 	void (*ccb_setup_cbfn)(struct bnad *, struct bna_ccb *);
+ 	void (*ccb_destroy_cbfn)(struct bnad *, struct bna_ccb *);
++	void (*rx_stall_cbfn)(struct bnad *, struct bna_rx *);
+ 	/* Mandatory */
+ 	void (*rx_cleanup_cbfn)(struct bnad *, struct bna_rx *);
+ 	void (*rx_post_cbfn)(struct bnad *, struct bna_rx *);
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index d76d7cb..2f4ced6 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -396,7 +396,7 @@ finishing:
+ 		unmap_q->producer_index = unmap_prod;
+ 		rcb->producer_index = unmap_prod;
+ 		smp_mb();
+-		if (likely(test_bit(BNAD_RXQ_STARTED, &rcb->flags)))
++		if (likely(test_bit(BNAD_RXQ_POST_OK, &rcb->flags)))
+ 			bna_rxq_prod_indx_doorbell(rcb);
+ 	}
+ }
+@@ -956,6 +956,27 @@ bnad_cb_tx_cleanup(struct bnad *bnad, struct bna_tx *tx)
+ }
+ 
+ static void
++bnad_cb_rx_stall(struct bnad *bnad, struct bna_rx *rx)
++{
++	struct bnad_rx_info *rx_info = (struct bnad_rx_info *)rx->priv;
++	struct bna_ccb *ccb;
++	struct bnad_rx_ctrl *rx_ctrl;
++	int i;
++
++	for (i = 0; i < BNAD_MAX_RXP_PER_RX; i++) {
++		rx_ctrl = &rx_info->rx_ctrl[i];
++		ccb = rx_ctrl->ccb;
++		if (!ccb)
++			continue;
++
++		clear_bit(BNAD_RXQ_POST_OK, &ccb->rcb[0]->flags);
++
++		if (ccb->rcb[1])
++			clear_bit(BNAD_RXQ_POST_OK, &ccb->rcb[1]->flags);
++	}
++}
++
++static void
+ bnad_cb_rx_cleanup(struct bnad *bnad, struct bna_rx *rx)
+ {
+ 	struct bnad_rx_info *rx_info = (struct bnad_rx_info *)rx->priv;
+@@ -1009,6 +1030,7 @@ bnad_cb_rx_post(struct bnad *bnad, struct bna_rx *rx)
+ 			bnad_free_all_rxbufs(bnad, rcb);
+ 
+ 			set_bit(BNAD_RXQ_STARTED, &rcb->flags);
++			set_bit(BNAD_RXQ_POST_OK, &rcb->flags);
+ 			unmap_q = rcb->unmap_q;
+ 
+ 			/* Now allocate & post buffers for this RCB */
+@@ -1898,6 +1920,7 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
+ 		.rcb_destroy_cbfn = bnad_cb_rcb_destroy,
+ 		.ccb_setup_cbfn = bnad_cb_ccb_setup,
+ 		.ccb_destroy_cbfn = bnad_cb_ccb_destroy,
++		.rx_stall_cbfn = bnad_cb_rx_stall,
+ 		.rx_cleanup_cbfn = bnad_cb_rx_cleanup,
+ 		.rx_post_cbfn = bnad_cb_rx_post,
+ 	};
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index 1c9328d..50fb36a 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -103,6 +103,7 @@ struct bnad_rx_ctrl {
+ /* Bit positions for rcb->flags */
+ #define BNAD_RXQ_REFILL			0
+ #define BNAD_RXQ_STARTED		1
++#define BNAD_RXQ_POST_OK		2
+ 
+ /* Resource limits */
+ #define BNAD_NUM_TXQ			(bnad->num_tx * bnad->num_txq_per_tx)
 -- 
 1.7.1
