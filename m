@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sky2: manage irq better on single port card
-Date: Tue, 27 Sep 2011 00:51:15 -0400 (EDT)
-Message-ID: <20110927.005115.2030295462342658475.davem@davemloft.net>
-References: <20110923141340.39a8de91@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] tcp: ECN blackhole should not force quickack mode
+Date: Tue, 27 Sep 2011 00:59:05 -0400 (EDT)
+Message-ID: <20110927.005905.1166544891922183065.davem@davemloft.net>
+References: <1316757739.2560.12.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, hkchu@google.com,
+	ilpo.jarvinen@helsinki.fi, jhs@mojatatu.com, jg@freedesktop.org,
+	dave.taht@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33493 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42083 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752466Ab1I0EvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 00:51:17 -0400
-In-Reply-To: <20110923141340.39a8de91@nehalam.linuxnetplumber.net>
+	with ESMTP id S1751585Ab1I0E7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 00:59:21 -0400
+In-Reply-To: <1316757739.2560.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 23 Sep 2011 14:13:40 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 23 Sep 2011 08:02:19 +0200
 
-> Most sky2 hardware only has a single port, although some variations of the
-> chip support two interfaces.  For the single port case, use the standard
-> Ethernet driver convention of allocating IRQ when device is brought up
-> rather than at probe time.
+> While playing with a new ADSL box at home, I discovered that ECN
+> blackhole can trigger suboptimal quickack mode on linux : We send one
+> ACK for each incoming data frame, without any delay and eventual
+> piggyback.
 > 
-> Also, change the error handling of dual port cards so that if second
-> port can not be brought up, then just fail. No point in continuing, since
-> the failure is most certainly because of out of memory.
+> This is because TCP_ECN_check_ce() considers that if no ECT is seen on a
+> segment, this is because this segment was a retransmit.
 > 
-> The dual port sky2 device has a single irq and a single status ring,
-> therefore it has a single NAPI object shared by both ports.
+> Refine this heuristic and apply it only if we seen ECT in a previous
+> segment, to detect ECN blackhole at IP level.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
+Applied to net-next, thanks Eric.
