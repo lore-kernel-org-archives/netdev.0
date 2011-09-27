@@ -1,110 +1,75 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: Re: [PATCH 01/15] add Documentation/namespaces/user_namespace.txt
- (v3)
-Date: Tue, 27 Sep 2011 19:56:59 +0400
-Message-ID: <20110927155659.GA22532@albatros>
-References: <1314993400-6910-1-git-send-email-serge@hallyn.com>
- <1314993400-6910-4-git-send-email-serge@hallyn.com>
- <20110926191737.GA4562@albatros>
- <20110927132157.GB3111@sergelap>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 02/10] ixgbevf: Fix broken trunk vlan
+Date: Tue, 27 Sep 2011 09:39:15 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C5E5E44@orsmsx508.amr.corp.intel.com>
+References: <1316855863-6091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1316855863-6091-3-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAEP_g=93GcR7yE7N+GtaB6dpjPuGGtCBXznEmV6Sx=BX-kSbmg@mail.gmail.com>
+ <43F901BD926A4E43B106BF17856F0755019C519319@orsmsx508.amr.corp.intel.com>
+ <CAEP_g=-xqgrS1hjApx5bPE2GFkAPJa6meaL0nmUcUbvSOPK-hQ@mail.gmail.com>
+ <43F901BD926A4E43B106BF17856F0755019C5E5B68@orsmsx508.amr.corp.intel.com>
+ <CAEP_g=-OhrQ5QMbj5_d4BhLHEdDim1_STgy96Vdx5mYFagpVGg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Serge Hallyn <serge@hallyn.com>, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org, dhowells@redhat.com,
-	ebiederm@xmission.com, rdunlap@xenotime.net,
-	kernel-hardening@lists.openwall.com
-To: "Serge E. Hallyn" <serge.hallyn@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110927132157.GB3111@sergelap>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:48855 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751343Ab1I0Qj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Sep 2011 12:39:26 -0400
+In-Reply-To: <CAEP_g=-OhrQ5QMbj5_d4BhLHEdDim1_STgy96Vdx5mYFagpVGg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2011 at 08:21 -0500, Serge E. Hallyn wrote:
-> > First, the patches by design expose much kernel code to unprivileged
-> > userspace processes.  This code doesn't expect malformed data (e.g. VFS,
-> > specific filesystems, block layer, char drivers, sysadmin part of LSMs,
-> > etc. etc.).  By relaxing permission rules you greatly increase attack
-> > surface of the kernel from unprivileged users.  Are you (or somebody
-> > else) planning to audit this code?
-> 
-> I had wanted to (but didn't) propose a discussion at ksummit about how
-> best to approach the filesystem code.  That's not even just for user
-> namespaces - patches have been floated in the past to make mount an
-> unprivileged operation depending on the FS and the user's permission
-> over the device and target.
-
-This is a dangerous operation by itself.  AFAICS, this is the reason why
-e.g. FUSE doesn't pass user mount points to other users and even root.
-Beginning from violating some rules like existance of single "." and
-".." in each directory and ending with filename charsets with /, \000
-and things like `, ", ', \ inside.
-
-
->  So I don't know if a combination of auditing
-> and fuzzing is the way to go,
-
-Maybe the combination of both.  There are no generic recommendations,
-it's always limited to the subsystem, checked property, and the
-auditor.
-
-
-> > Also, will it be possible to somehow restrict what specific kernel
-> > facilities are accessible from users (IOW, what root emulation
-> > limitations are in action)?  It is userful from both points of sysadmin,
-> > who might not want to allow users to do such things, and from the
-> > security POV in sense of attack surface reduction.
-> 
-> You're probably thinking along different lines, but this is why I've
-> been wanting seccomp2 to get pushed through.  So that we can deny a
-> container the syscalls we know it won't need, especially newer ones,
-> to reduce the attack surface available to it.
-
-This dependency greatly complicates the things.
-
-First, there is a big misunderstanding between Will and Ingo in what
-needs seccompv2 should serve.  Will wants to reduce kernel attack
-surface by limiting syscalls and syscall arguments available to a user
-(a single task, btw).  Ingo wants to see a full featured filtering
-engine, which needs code changes all over the kernel.  Given the needed
-changes amounts, it will unlikely reduce attack surface.
-
-You probably don't want Will's version as syscalls filtering is a very
-bad abstraction in your case.  user_namespaces likely need Ingo's
-version of seccomp as it will be possible to filter e.g. fs-specific
-events, but even if it is implemented, it will take a looong time for
-your needs IMHO.
-
-
-Also, I'm afraid for _good_ user_namespace filtering the policy
-definition will be too complicated (like SELinux policy definition for
-non-trivial applications) if it is implemented in events filtering
-terms.
-
-
-> The way we're approaching it right now is that by default everything
-> stays 'capable(X)', so that a non-init user namespace doesn't get the
-> privileges.
-
-Great.  I was not sure about it.
-
-
->  While some of my patchsets this summer didn't follow this,
-> Eric reminded me that we should first clamp down on the user namespaces
-> as much as possible, and relax permissions in child namespaces later.
-
-I think it is the only sane way.
-
-
-> So the small (1-2 patch sized) sets I've been sending the last few
-> weeks are just trying to fix existing inadequate userid or capability
-> checks.
-> 
-> -serge
-
-Thanks,
-
--- 
-Vasiliy Kulikov
-http://www.openwall.com - bringing security into open computing environments
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZXNzZSBHcm9zcyBbbWFpbHRv
+Omplc3NlQG5pY2lyYS5jb21dDQo+IFNlbnQ6IE1vbmRheSwgU2VwdGVtYmVyIDI2LCAyMDExIDU6
+NTQgUE0NCj4gVG86IFJvc2UsIEdyZWdvcnkgVg0KPiBDYzogS2lyc2hlciwgSmVmZnJleSBUOyBk
+YXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBnb3Nwb0ByZWRo
+YXQuY29tOyBKaXJpIFBpcmtvDQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDIvMTBdIGl4Z2Jl
+dmY6IEZpeCBicm9rZW4gdHJ1bmsgdmxhbg0KPiANCj4gDQo+IE9LLCBtYXliZSBkdWUgdG8gaGFy
+ZHdhcmUgbGltaXRhdGlvbnMgd2hhdCBJJ20gbG9va2luZyBmb3IganVzdCByZWFsbHkNCj4gaXNu
+J3QgcG9zc2libGUuDQoNCkZyb20gd2hhdCBJIGNhbiB0ZWxsIHRoYXQgaXMgdGhlIGNhc2UuDQoN
+Cj4gIEhvd2V2ZXIsIHdoYXQgSSdtIHRyeWluZyB0byBlbXBoYXNpemUgaXMgdGhhdCB2Y29uZmln
+DQo+IGlzIG5vdCB0aGUgb25seSB3YXkgdGhhdCB2bGFucyBjYW4gYmUgY29uc3VtZWQgYnkgdGhl
+IG5ldHdvcmsgc3RhY2sNCj4gYW5kIGFjdGl2ZV92bGFucyBpcyBqdXN0IGFuIGluZGljYXRpb24g
+b2Ygd2hldGhlciBhIHZsYW4gZmlsdGVyIHdhcw0KPiBzZXQsIG5vdGhpbmcgbW9yZSAocGVyaGFw
+cyBJIHNob3VsZCBoYXZlIHBpY2tlZCBhIGJldHRlciBuYW1lIHdoZW4gSQ0KPiBvcmlnaW5hbGx5
+IGRlc2lnbmVkIHRoaXMgc3R1ZmYpLg0KDQpVbmRlcnN0b29kLiAgVGhlIFZGIGlzIGluY2FwYWJs
+ZSBvZiByZWNlaXZpbmcgVkxBTiB0cmFmZmljIHVubGVzcyBhIGZpbHRlciBoYXMgYmVlbiBzZXQu
+ICBJdCBkb2Vzbid0IGRvIHByb21pc2N1b3VzIG1vZGUgYW5kIGFueSBwYXRoIHRoYXQgZG9lc24n
+dCBhY3R1YWxseSBlbmQgdXAgc2V0dGluZyBhIFZMQU4gZmlsdGVyIHdvbid0IHJlY2VpdmUgYW55
+IFZMQU4gdHJhZmZpYy4NCg0KPiAgSW4gcGFydGljdWxhciwgaXQgaXMgbm90IGludGVuZGVkIHRv
+DQo+IGRldGVybWluZSB3aGV0aGVyIGEgdGFnIHNob3VsZCBiZSBzdHJpcHBlZCBvZmYgb3Igbm90
+IGJlY2F1c2UNCj4gbm9uLXZjb25maWcgdXNlcnMgZG9uJ3QgbmVjZXNzYXJpbHkga25vdyB3aGlj
+aCB2bGFucyB0aGV5IGNhcmUgYWJvdXQNCj4gKHRoaW5rIHRjcGR1bXAgb3IgdHJ1bmtpbmcgb3Zl
+ciBhIGJyaWRnZSkuICBBIG1ham9yIGdvYWwgb2YgdGhlDQo+IGV4aXN0aW5nIHZsYW4gaW5mcmFz
+dHJ1Y3R1cmUgaXMgdG8gYXZvaWQgaGF2aW5nIGRyaXZlcnMgbWFrZQ0KPiBhc3N1bXB0aW9ucyBh
+Ym91dCB0aGUgY29uc3VtZXIgb2YgdGhlIHRhZyBhbmQgaW5zdGVhZCBqdXN0IGhhbmQgYWxsDQo+
+IGluZm9ybWF0aW9uIG92ZXIgdG8gdGhlIG5ldHdvcmsgc3RhY2sgc28gaXQgY2FuIGJlaGF2ZSBp
+biBhIGNvbnNpc3RlbnQNCj4gbWFubmVyLiAgVGhhdCdzIHdoeSBJIHdhcyBsb29raW5nIGZvciBh
+bHRlcm5hdGUgd2F5cyB0byBnZXQgdGhpcw0KPiBpbmZvcm1hdGlvbiB3aXRob3V0IGRlcGVuZGlu
+ZyBvbiBhY3RpdmVfdmxhbnMgYXMgdGhpcyBkcml2ZXIgYmVoYXZlcw0KPiBxdWl0ZSBhIGJpdCBk
+aWZmZXJlbnRseSBmcm9tIG90aGVycywgaW5jbHVkZSB0aGUgaXhnYmUgUEYgZHJpdmVyLg0KDQpU
+aGVyZSBhcmUgb25seSB0d28gcGF0aHMgZm9yIHRoZSBpeGdiZXZmIGRyaXZlciB0byByZWNlaXZl
+IFZMQU4gdHJhZmZpYy4gIEVpdGhlciBhIFZMQU4gZmlsdGVyIGhhcyBiZWVuIHNldCwgd2hpY2gg
+d2lsbCByZXN1bHQgaW4gYSBiaXQgdGFnIGluIGFjdGl2ZV92bGFucyBiZWluZyBzZXQgb3IgdGhl
+IHN5c3RlbSBhZG1pbmlzdHJhdG9yIGluIHRoZSBob3N0IFZNTSBoYXMgcHV0IHRoZSBWRiBkZXZp
+Y2UgaW4gdHJ1bmsgVkxBTiBtb2RlIHVzaW5nIHRoZSAnaXAgbGluayBzZXQgPGRldj4gdmYgPG4+
+IDx2bGFuaWQ+JyBwYXRoLiAgVGhlcmUgaXMgbm8gb3RoZXIgd2F5IGZvciBpdCB0byByZWNlaXZl
+IFZMQU4gdHJhZmZpYywgc28gSSB0aGluayB3ZSdyZSBmaW5lLiAgQW5kIGtlZXAgaW4gbWluZCwg
+b25jZSB0aGUgc3lzdGVtIGFkbWluIGhhcyBwdXQgdGhlIFZGIGRldmljZSBpbiB0cnVuayB2bGFu
+IG1vZGUsIHRoZSBWRiBpcyBubyBsb25nZXIgYWxsb3dlZCwgYXMgYSBwb2xpY3kgaW1wbGVtZW50
+ZWQgaW4gdGhlIFBGIGRyaXZlciwgdG8gc2V0IGFueSBvdGhlciBWTEFOIGZpbHRlcnMuICBFdmVu
+IGlmIGl0IGRpZCwgaXQgd291bGRuJ3Qgd29yayBkdWUgdG8gdGhlIG9wZXJhdGlvbmFsIGNoYXJh
+Y3RlcmlzdGljcyBvZiB0aGUgVkYgZGV2aWNlIEhXLg0KDQpUaGUgbWV0aG9kcyBieSB3aGljaCB0
+aGUgaXhnYmUgZHJpdmVyLCBhcyBhIGZ1bGx5IGZlYXR1cmVkIFBoeXNpY2FsIEZ1bmN0aW9uIGRl
+dmljZSwgYXJlIHF1aXRlIGEgYml0IG1vcmUgdmFyaWVkLiAgSSBiZWxpZXZlIHlvdSdyZSB0aGlu
+a2luZyBvZiB0aGUgVkYgZGV2aWNlIGFzIGEgdHlwaWNhbCBFdGhlcm5ldCBkZXZpY2UgYW5kIHRo
+YXQgaXMganVzdCBub3QgdGhlIGNhc2UuDQoNCi0gR3JlZw0KDQo=
