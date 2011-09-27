@@ -1,96 +1,179 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: intel 82599 multi-port performance
-Date: Tue, 27 Sep 2011 10:14:46 -0700
-Message-ID: <4E820486.4090204@intel.com>
-References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com> <4E809D59.10103@gmail.com> <4E80A2AB.2040206@intel.com> <4E811C8E.8020508@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] skge: handle irq better on single port card
+Date: Tue, 27 Sep 2011 10:25:23 -0700
+Message-ID: <20110927102523.5f8b7f2a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: "J.Hwan Kim" <frog1120@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:47939 "EHLO mga03.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:49092 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751572Ab1I0ROr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Sep 2011 13:14:47 -0400
-In-Reply-To: <4E811C8E.8020508@gmail.com>
+	id S1750928Ab1I0RZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Sep 2011 13:25:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2011 05:45 PM, J.Hwan Kim wrote:
-> On 2011=EB=85=84 09=EC=9B=94 27=EC=9D=BC 01:04, Alexander Duyck wrote=
-:
->> On 09/26/2011 08:42 AM, J.Hwan.Kim wrote:
->>> On 2011=EB=85=84 09=EC=9B=94 26=EC=9D=BC 23:20, Chris Friesen wrote=
-:
->>>> On 09/26/2011 04:26 AM, J.Hwan Kim wrote:
->>>>> Hi, everyone
->>>>>
->>>>> Now, I'm testing a network card including intel 82599.
->>>>> In our experiment, with the driver modified with ixgbe and multi-=
-port
->>>>> enabled,
->>>>
->>>> What do you mean by "modified with ixgbe and multi-port enabled"? =
-You
->>>> shouldn't need to do anything special to use both ports.
->>>>
->>>>> rx performance of each port with 10Gbps of 64bytes frame is
->>>>> a half than when only 1 port is used.
->>>>
->>>> Sounds like a cpu limitation. What is your cpu usage? How are your
->>>> interrupts routed? Are you using multiple rx queues?
->>>>
->>>
->>> Our server is XEON 2.4GHz with 8 cores.
->>> I'm using 4 RSS queues for each port and distributed it's interrupt=
-s=20
->>> to different cores respectively.
->>> I checked the CPU utilization with TOP, I guess ,it is not cpu=20
->>> imitation problem.
->>
->> What kind of rates are you seeing on a single port versus multiple=20
->> ports?  There are multiple possibilities in terms of what could be=20
->> limiting your performance.
->>
->
-> I tested the 10G - 64byte frames.
-> With ixgbe-modified driver, in single port, 92% of packet received in=
-=20
-> driver level and in 2 port we received around 42% packets.
+Most boards with SysKonnect/Marvell Ethernet have only a single port.
+For the single port case, use the standard Ethernet driver convention
+of allocating IRQ when device is brought up rather than at probe time.
 
-When you say 92% of packets are received are you talking about 92% of=20
-line rate which would be somewhere around 14.8Mpps?
+This patch also adds some additional read after writes to avoid any
+PCI posting problems when setting the IRQ mask.
 
->> It sounds like you are using a single card, would that be correct?
->
-> Yes, I tested a single card with 2 ports.
->
->> If you are running close to line rate on both ports this could be=20
->> causing you to saturate the PCIe x8 link.  If you have a second card=
-=20
->> available you may want to try installing that in a secondary Gen2=20
->> PCIe slot and seeing if you can improve the performance by using 2=20
->> PCIe slots instead of one.
->
-> I tested it also, if it is tested with 2 card, it seems that the=20
-> performance of each port is almost same with a single port. (maximum=20
-> performance)
+The error handling of dual port cards is also changed.  If second port
+can not be brought up, then just fail. No point in continuing, since
+the failure is most certainly because of out of memory.
 
-This more or less confirms what I was thinking.  You are likely hitting=
-=20
-the PCIe limits of the adapters.  The overhead for 64 byte packets is=20
-too great and as a result you are exceeding the PCIe bandwidth availabl=
-e=20
-to the adapter.  In order to achieve line  rate on both ports you would=
-=20
-likely need to increase your packet size to something along the lines o=
-f=20
-256 bytes so that the additional PCIe overhead only contributes 50% or=20
-less to the total PCIe traffic across the bus.  Then the 2.5Gb/s of=20
-network traffic should consume less than 4.0GT/s of PCIe traffic.
+It is worth noting that the dual port skge device has a single irq but two
+seperate status rings and therefore has two NAPI objects, one for
+each port.
 
-Thanks,
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Alex
+--- a/drivers/net/ethernet/marvell/skge.c	2011-09-27 08:46:08.893778800 -0700
++++ b/drivers/net/ethernet/marvell/skge.c	2011-09-27 10:23:37.557144935 -0700
+@@ -113,6 +113,7 @@ static void yukon_init(struct skge_hw *h
+ static void genesis_mac_init(struct skge_hw *hw, int port);
+ static void genesis_link_up(struct skge_port *skge);
+ static void skge_set_multicast(struct net_device *dev);
++static irqreturn_t skge_intr(int irq, void *dev_id);
+ 
+ /* Avoid conditionals by using array */
+ static const int txqaddr[] = { Q_XA1, Q_XA2 };
+@@ -2568,6 +2569,16 @@ static int skge_up(struct net_device *de
+ 	if (err)
+ 		goto free_rx_ring;
+ 
++	if (hw->ports == 1) {
++		err = request_irq(hw->pdev->irq, skge_intr, IRQF_SHARED,
++				  dev->name, hw);
++		if (err) {
++			netdev_err(dev, "Unable to allocate interrupt %d error: %d\n",
++				   hw->pdev->irq, err);
++			goto free_tx_ring;
++		}
++	}
++
+ 	/* Initialize MAC */
+ 	spin_lock_bh(&hw->phy_lock);
+ 	if (is_genesis(hw))
+@@ -2595,11 +2606,14 @@ static int skge_up(struct net_device *de
+ 	spin_lock_irq(&hw->hw_lock);
+ 	hw->intr_mask |= portmask[port];
+ 	skge_write32(hw, B0_IMSK, hw->intr_mask);
++	skge_read32(hw, B0_IMSK);
+ 	spin_unlock_irq(&hw->hw_lock);
+ 
+ 	napi_enable(&skge->napi);
+ 	return 0;
+ 
++ free_tx_ring:
++	kfree(skge->tx_ring.start);
+  free_rx_ring:
+ 	skge_rx_clean(skge);
+ 	kfree(skge->rx_ring.start);
+@@ -2640,9 +2654,13 @@ static int skge_down(struct net_device *
+ 
+ 	spin_lock_irq(&hw->hw_lock);
+ 	hw->intr_mask &= ~portmask[port];
+-	skge_write32(hw, B0_IMSK, hw->intr_mask);
++	skge_write32(hw, B0_IMSK, (hw->ports == 1) ? 0 : hw->intr_mask);
++	skge_read32(hw, B0_IMSK);
+ 	spin_unlock_irq(&hw->hw_lock);
+ 
++	if (hw->ports == 1)
++		free_irq(hw->pdev->irq, hw);
++
+ 	skge_write8(skge->hw, SK_REG(skge->port, LNK_LED_REG), LED_OFF);
+ 	if (is_genesis(hw))
+ 		genesis_stop(skge);
+@@ -3603,7 +3621,8 @@ static int skge_reset(struct skge_hw *hw
+ 	skge_write32(hw, B2_IRQM_INI, skge_usecs2clk(hw, 100));
+ 	skge_write32(hw, B2_IRQM_CTRL, TIM_START);
+ 
+-	skge_write32(hw, B0_IMSK, hw->intr_mask);
++	/* Leave irq disabled until first port is brought up. */
++	skge_write32(hw, B0_IMSK, 0);
+ 
+ 	for (i = 0; i < hw->ports; i++) {
+ 		if (is_genesis(hw))
+@@ -3930,31 +3949,39 @@ static int __devinit skge_probe(struct p
+ 		goto err_out_free_netdev;
+ 	}
+ 
+-	err = request_irq(pdev->irq, skge_intr, IRQF_SHARED, hw->irq_name, hw);
+-	if (err) {
+-		dev_err(&pdev->dev, "%s: cannot assign irq %d\n",
+-		       dev->name, pdev->irq);
+-		goto err_out_unregister;
+-	}
+ 	skge_show_addr(dev);
+ 
+ 	if (hw->ports > 1) {
+ 		dev1 = skge_devinit(hw, 1, using_dac);
+-		if (dev1 && register_netdev(dev1) == 0)
+-			skge_show_addr(dev1);
+-		else {
+-			/* Failure to register second port need not be fatal */
+-			dev_warn(&pdev->dev, "register of second port failed\n");
+-			hw->dev[1] = NULL;
+-			hw->ports = 1;
+-			if (dev1)
+-				free_netdev(dev1);
++		if (!dev1) {
++			err = -ENOMEM;
++			goto err_out_unregister;
+ 		}
++
++		err = register_netdev(dev1);
++		if (err) {
++			dev_err(&pdev->dev, "cannot register second net device\n");
++			goto err_out_free_dev1;
++		}
++
++		err = request_irq(pdev->irq, skge_intr, IRQF_SHARED,
++				  hw->irq_name, hw);
++		if (err) {
++			dev_err(&pdev->dev, "cannot assign irq %d\n",
++				pdev->irq);
++			goto err_out_unregister_dev1;
++		}
++
++		skge_show_addr(dev1);
+ 	}
+ 	pci_set_drvdata(pdev, hw);
+ 
+ 	return 0;
+ 
++err_out_unregister_dev1:
++	unregister_netdev(dev1);
++err_out_free_dev1:
++	free_netdev(dev1);
+ err_out_unregister:
+ 	unregister_netdev(dev);
+ err_out_free_netdev:
+@@ -3992,14 +4019,19 @@ static void __devexit skge_remove(struct
+ 
+ 	spin_lock_irq(&hw->hw_lock);
+ 	hw->intr_mask = 0;
+-	skge_write32(hw, B0_IMSK, 0);
+-	skge_read32(hw, B0_IMSK);
++
++	if (hw->ports > 1) {
++		skge_write32(hw, B0_IMSK, 0);
++		skge_read32(hw, B0_IMSK);
++		free_irq(pdev->irq, hw);
++	}
+ 	spin_unlock_irq(&hw->hw_lock);
+ 
+ 	skge_write16(hw, B0_LED, LED_STAT_OFF);
+ 	skge_write8(hw, B0_CTST, CS_RST_SET);
+ 
+-	free_irq(pdev->irq, hw);
++	if (hw->ports > 1)
++		free_irq(pdev->irq, hw);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+ 	if (dev1)
