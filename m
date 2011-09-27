@@ -1,29 +1,40 @@
 From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
 Subject: Re: macvlan/macvtap patch in patchwork
-Date: Tue, 27 Sep 2011 19:10:31 -0400
-Message-ID: <4E8257E7.6060704@ll.mit.edu>
+Date: Tue, 27 Sep 2011 19:11:00 -0400
+Message-ID: <4E825804.2010603@ll.mit.edu>
 References: <20110927.151415.1749891588648068894.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms030600050602070708040107"
+	micalg=sha1; boundary="------------ms030203020000070900000405"
 Cc: "kaber@trash.net" <kaber@trash.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
 	"krkumar2@in.ibm.com" <krkumar2@in.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:50472 "EHLO mx2.ll.mit.edu"
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:50511 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752510Ab1I0XLB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Sep 2011 19:11:01 -0400
+	id S1753239Ab1I0XLQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Sep 2011 19:11:16 -0400
 In-Reply-To: <20110927.151415.1749891588648068894.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------ms030600050602070708040107
+--------------ms030203020000070900000405
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: quoted-printable
+
+On 27/09/11 15:14, David Miller wrote:
+> Could you guys please review:
+>
+> 	http://patchwork.ozlabs.org/patch/115273/
+>
+> My gut instinct is that the current behavior is intentional, but since
+> the patch submitter didn't describe exactly what the undesirable
+> behavior is it's hard to tell what the patch is actually fixing.
+>
+> Thanks.
 
 Sorry if my commit message was not descriptive enough -- I can revise it =
 
@@ -45,29 +56,7 @@ forward to a lowerdev.
 David
 
 
-On 27/09/11 15:14, David Miller wrote:
-> Could you guys please review:
->
-> 	http://patchwork.ozlabs.org/patch/115273/
->
-> My gut instinct is that the current behavior is intentional, but since
-> the patch submitter didn't describe exactly what the undesirable
-> behavior is it's hard to tell what the patch is actually fixing.
->
-> Thanks.
-
-
---=20
-David Ward, Associate Staff
-Wideband Tactical Networking Group
-MIT Lincoln Laboratory
-Office: 781-981-4266
-Mobile: 781-999-1925
-Fax: 781-981-4583
-
-
-
---------------ms030600050602070708040107
+--------------ms030203020000070900000405
 Content-Type: application/pkcs7-signature; name="smime.p7s"
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="smime.p7s"
@@ -165,17 +154,17 @@ cWI0GQbBEHVtTSNfbymwljp15nbE8/jThG1MES/mbLq+jue7BCDUw6jLp10fg2uXDd+DmZOI
 a9kEAAOnbIZ2xXSi7EAz0AD/QPSwUnf8MYIDKjCCAyYCAQEwXzBRMQswCQYDVQQGEwJVUzEf
 MB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQD
 EwpNSVRMTCBDQS0yAgodmr+JAAAAACaLMAkGBSsOAwIaBQCgggGgMBgGCSqGSIb3DQEJAzEL
-BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTExMDkyNzIzMTAzMVowIwYJKoZIhvcNAQkE
-MRYEFJHDUOcJj8U+8VtaRgA2ogkM9AdoMF8GCSqGSIb3DQEJDzFSMFAwCwYJYIZIAWUDBAEC
+BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTExMDkyNzIzMTEwMFowIwYJKoZIhvcNAQkE
+MRYEFN4iOZ3m28pAI2URBip6iSBNFJZeMF8GCSqGSIb3DQEJDzFSMFAwCwYJYIZIAWUDBAEC
 MAoGCCqGSIb3DQMHMA4GCCqGSIb3DQMCAgIAgDANBggqhkiG9w0DAgIBQDAHBgUrDgMCBzAN
 BggqhkiG9w0DAgIBKDBuBgkrBgEEAYI3EAQxYTBfMFExCzAJBgNVBAYTAlVTMR8wHQYDVQQK
 ExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMTCk1JVExM
 IENBLTICCh2aFRcAAAAAJoowcAYLKoZIhvcNAQkQAgsxYaBfMFExCzAJBgNVBAYTAlVTMR8w
 HQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMT
-Ck1JVExMIENBLTICCh2aFRcAAAAAJoowDQYJKoZIhvcNAQEBBQAEggEAkXmoqkyKgbdhkKYe
-5AXW62aO6/yL1vXcCA4uKJtXuIlpV4oigZVv5bwm06Idg/6ExNNpCO7HpQpliUS+UKVTvkAp
-fB74IElCcJNk6dcT2rpS6EoEK5EJ9EAC/BuJOpFpGS4GM+uRx2i+ZzCXxxXlrrx9c5IZppPM
-2gDGFvbmDScmQQgxBBc3/A2IS7VAuxc+SsKz6QiDeqcqTj+79a8sI7OXFEMyCCJvuXc1HqiF
-bw4/SRsoqVn7+yTaCbtX5Sfm1kBA8wERDzj0IT8LQt661gCBchaaN4zOcXpJ6NmQqZN1FsY8
-p8lo5hXAVsJFSF1NQV/IFIoUFifZZMhxI6FZzgAAAAAAAA==
---------------ms030600050602070708040107--
+Ck1JVExMIENBLTICCh2aFRcAAAAAJoowDQYJKoZIhvcNAQEBBQAEggEAi4CxmG+SD9LaOx2H
+2xCWt2dfDG9w4lVDC3SCG7CCep2aSzyelMjherDvKRXK8ENBOw1BY0cfOgbArg/U/Tt8x8Jf
+lYkB6exvzgjE4elS8tlvhEqF3ISOkFEc2Yznx1wpiYyTGb7nn40LOuFmfko1VAC1dO1K9tIl
+ZqmpDmIDSq/6RpS4aiasybwOVdLyTWkHqOhfXZoKIJxmZ69SaHbfgcSkhdKMjz/AwBvK9gNY
+12Xdl97/XbGZP/h5B5u5QVsvLz1t/ZIl4ot6hhqDI74zxmNEC1jNJ3400uuNn9kvRlKKtr92
++MvS9w6V4Scyl1+5Ty/P0BSij2R7DYWovLzbQQAAAAAAAA==
+--------------ms030203020000070900000405--
