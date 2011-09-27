@@ -1,22 +1,51 @@
-From: Song Li <info@mail.com>
-Subject: RE: Thanks
-Date: Wed, 28 Sep 2011 00:51:25 -0700
-Message-ID: <20110927164059.4A2904E5E5E0__43605.1013450653$1317142890$gmane$org@mail.ahievran.edu.tr>
-Reply-To: mrsong.lile@yahoo.cn
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: Question about memory leak detector giving false positive
+ report for net/core/flow.c
+Date: Tue, 27 Sep 2011 17:58:07 +0100
+Message-ID: <20110927165807.GM14237@e102109-lin.cambridge.arm.com>
+References: <CA+v9cxadZzWr35Q9RFzVgk_NZsbZ8PkVLJNxjBAMpargW9Lm4Q@mail.gmail.com>
+ <1317054774.6363.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20110926165024.GA21617@e102109-lin.cambridge.arm.com>
+ <1317066395.2796.11.camel@edumazet-laptop>
+ <CA+v9cxYzWJScCa2mMoEovq3WULSZYQaq6EjoRV7SQUjr0L_RiQ@mail.gmail.com>
+ <1317102918.2796.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <info@mail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comp102.ahievran.edu.tr ([79.123.210.102]:35261 "EHLO
-	mail.ahievran.edu.tr" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642Ab1I0RBQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 13:01:16 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Huajun Li <huajun.li.lee@gmail.com>,
+   "linux-mm@kvack.org" <linux-mm@kvack.org>, netdev <netdev@vger.kernel.org>,
+   linux-kernel <linux-kernel@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
+   Christoph Lameter <cl@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1317102918.2796.22.camel@edumazet-laptop>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-l am a Staff of Hang Seng Bank HongKong, I do not know if we can work
-together in transferring $19,500,000.USD from my bank.
-Finally if you are interested I shall provide you with more details.
-Email: mrsong.lile@yahoo.cn
+On Tue, Sep 27, 2011 at 06:55:18AM +0100, Eric Dumazet wrote:
+> Yes, it was not a patch, but the general idea for Catalin ;)
+> 
+> You hit the fact that same zone (embedded percpu space) is now in a
+> mixed state.
+> 
+> In current kernels, the embedded percpu zone is already known by
+> kmemleak, but with a large granularity. kmemleak is not aware of
+> individual allocations/freeing in this large zone.
+> 
+> Once kmemleak and percpu allocator are cooperating, we might find more
+> kmemleaks. Right now, kmemleak can find pointers in percpu chunks that
+> are not anymore reachable (they were freed), and therefore doesnt warn
+> of possible memory leaks.
+
+Thanks for suggestions. I need to understand the percpu code a bit
+better as it looks that kmemleak is told about some memory blocks twice.
+
+-- 
+Catalin
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
