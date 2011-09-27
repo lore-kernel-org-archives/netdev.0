@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: check return value for dst_alloc
-Date: Tue, 27 Sep 2011 15:32:23 -0400 (EDT)
-Message-ID: <20110927.153223.1456216895615936555.davem@davemloft.net>
-References: <1317056696-23611-1-git-send-email-madalin.bucur@freescale.com>
+Subject: Re: [PATCH] net/flow: remove sleeping and deferral mechanism from
+ flow_cache_flush
+Date: Tue, 27 Sep 2011 15:31:32 -0400 (EDT)
+Message-ID: <20110927.153132.900366550174236643.davem@davemloft.net>
+References: <1317056956-23644-1-git-send-email-madalin.bucur@freescale.com>
+	<20110927.152836.1747700807304689813.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, timo.teras@iki.fi
 To: madalin.bucur@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56165 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56170 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882Ab1I0Tcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 15:32:32 -0400
-In-Reply-To: <1317056696-23611-1-git-send-email-madalin.bucur@freescale.com>
+	with ESMTP id S1752221Ab1I0Tcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 15:32:45 -0400
+In-Reply-To: <20110927.152836.1747700807304689813.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Date: Mon, 26 Sep 2011 20:04:56 +0300
+From: David Miller <davem@davemloft.net>
+Date: Tue, 27 Sep 2011 15:28:36 -0400 (EDT)
 
-> return value of dst_alloc must be checked before use
-> 
-> Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+> afinfo->garbage_collect is the only other place __xfrm_garbage_collect
+> is referenced, and that is completely unused and should thus be deleted
+> (I'll take care of that in net-next).
 
-Applied.
+Nevermind I see how these are referenced directly via xfrm4_policy.c
+and xfrm6_policy.c, sigh...
