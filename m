@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 3/7] bna: Implement FW Download for New HW
-Date: Tue, 27 Sep 2011 13:39:07 -0700
-Message-ID: <1317155951-17242-4-git-send-email-rmody@brocade.com>
+Subject: [net-next 5/7] bna: PLL Init Fix and Add Stats Attributes
+Date: Tue, 27 Sep 2011 13:39:09 -0700
+Message-ID: <1317155951-17242-6-git-send-email-rmody@brocade.com>
 References: <1317155951-17242-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,152 +10,228 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:35173 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753351Ab1I0Ujc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 16:39:32 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:58069 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753665Ab1I0Ujl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 16:39:41 -0400
 In-Reply-To: <1317155951-17242-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new device ID 0x22 and new asic generation BFI_ASIC_GEN_CT2 for 1860.
-Implement FW download from user space for new Brocade HW.
+Change details:
+ - Fix to release soft reset in PLL init for HW
+ - Added stats attributes and new bfi msg class
+ - Removed some unused code and typo fixes
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bfa_defs.h  |    7 ++++
- drivers/net/ethernet/brocade/bna/bfi.h       |    1 +
- drivers/net/ethernet/brocade/bna/bnad.c      |    1 +
- drivers/net/ethernet/brocade/bna/cna.h       |    1 +
- drivers/net/ethernet/brocade/bna/cna_fwimg.c |   48 ++++++++++++++++++++-----
- 5 files changed, 48 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/brocade/bna/bfa_defs_cna.h |    8 +++++++-
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c      |   18 ++++++------------
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h      |   12 ++----------
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c   |    9 ++++++++-
+ drivers/net/ethernet/brocade/bna/bfi.h          |   19 ++++++++++---------
+ 5 files changed, 33 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs.h b/drivers/net/ethernet/brocade/bna/bfa_defs.h
-index 66a6207..f9d4100 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_defs.h
-+++ b/drivers/net/ethernet/brocade/bna/bfa_defs.h
-@@ -261,6 +261,13 @@ struct bfa_mfg_block {
-  * ---------------------- pci definitions ------------
-  */
- 
-+/*
-+ * PCI device ID information
-+ */
-+enum {
-+	BFA_PCI_DEVICE_ID_CT2		= 0x22,
-+};
-+
- #define bfa_asic_id_ct(device)			\
- 	((device) == PCI_DEVICE_ID_BROCADE_CT ||	\
- 	 (device) == PCI_DEVICE_ID_BROCADE_CT_FC)
-diff --git a/drivers/net/ethernet/brocade/bna/bfi.h b/drivers/net/ethernet/brocade/bna/bfi.h
-index 4e04c14..54bcafe 100644
---- a/drivers/net/ethernet/brocade/bna/bfi.h
-+++ b/drivers/net/ethernet/brocade/bna/bfi.h
-@@ -159,6 +159,7 @@ enum bfi_mclass {
- enum bfi_asic_gen {
- 	BFI_ASIC_GEN_CB		= 1,
- 	BFI_ASIC_GEN_CT		= 2,
-+	BFI_ASIC_GEN_CT2	= 3,
- };
- 
- enum bfi_asic_mode {
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index db6c097..320f11c 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -3477,3 +3477,4 @@ MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("Brocade 10G PCIe Ethernet driver");
- MODULE_VERSION(BNAD_VERSION);
- MODULE_FIRMWARE(CNA_FW_FILE_CT);
-+MODULE_FIRMWARE(CNA_FW_FILE_CT2);
-diff --git a/drivers/net/ethernet/brocade/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
-index cb48742..1b3e90d 100644
---- a/drivers/net/ethernet/brocade/bna/cna.h
-+++ b/drivers/net/ethernet/brocade/bna/cna.h
-@@ -38,6 +38,7 @@
- extern char bfa_version[];
- 
- #define	CNA_FW_FILE_CT	"ctfw.bin"
-+#define	CNA_FW_FILE_CT2	"ct2fw.bin"
- #define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
- 
- #pragma pack(1)
-diff --git a/drivers/net/ethernet/brocade/bna/cna_fwimg.c b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-index e8f4ecd..725b9ff 100644
---- a/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-+++ b/drivers/net/ethernet/brocade/bna/cna_fwimg.c
-@@ -16,11 +16,12 @@
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h b/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
+index 7e0a918..8ab33ee 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
+@@ -15,7 +15,6 @@
+  * All rights reserved
   * www.brocade.com
   */
- #include <linux/firmware.h>
-+#include "bfi.h"
- #include "cna.h"
+-
+ #ifndef __BFA_DEFS_CNA_H__
+ #define __BFA_DEFS_CNA_H__
  
- const struct firmware *bfi_fw;
--static u32 *bfi_image_ct_cna;
--static u32 bfi_image_ct_cna_size;
-+static u32 *bfi_image_ct_cna, *bfi_image_ct2_cna;
-+static u32 bfi_image_ct_cna_size, bfi_image_ct2_cna_size;
+@@ -55,6 +54,9 @@ struct bfa_port_fc_stats {
+ 	u64	bad_os_count;	/*!< Invalid ordered sets	*/
+ 	u64	err_enc_out;	/*!< Encoding err nonframe_8b10b */
+ 	u64	err_enc;	/*!< Encoding err frame_8b10b	*/
++	u64	bbsc_frames_lost; /*!< Credit Recovery-Frames Lost  */
++	u64	bbsc_credits_lost; /*!< Credit Recovery-Credits Lost */
++	u64	bbsc_link_resets; /*!< Credit Recovery-Link Resets   */
+ };
  
- static u32 *
- cna_read_firmware(struct pci_dev *pdev, u32 **bfi_image,
-@@ -45,20 +46,47 @@ error:
- u32 *
- cna_get_firmware_buf(struct pci_dev *pdev)
+ /**
+@@ -100,6 +102,10 @@ struct bfa_port_eth_stats {
+ 	u64	rx_fcoe_zero_pause; /*!< Rx FCoE zero pause	*/
+ 	u64	tx_fcoe_pause;	/*!< Tx FCoE pause		*/
+ 	u64	tx_fcoe_zero_pause; /*!< Tx FCoE zero pause	*/
++	u64	rx_iscsi_pause;	/*!< Rx iSCSI pause		*/
++	u64	rx_iscsi_zero_pause; /*!< Rx iSCSI zero pause	*/
++	u64	tx_iscsi_pause;	/*!< Tx iSCSI pause		*/
++	u64	tx_iscsi_zero_pause; /*!< Tx iSCSI zero pause	*/
+ };
+ 
+ /**
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+index f89ac7a..e02d607 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+@@ -17,8 +17,6 @@
+  */
+ 
+ #include "bfa_ioc.h"
+-#include "cna.h"
+-#include "bfi.h"
+ #include "bfi_reg.h"
+ #include "bfa_defs.h"
+ 
+@@ -140,10 +138,6 @@ static struct bfa_sm_table ioc_sm_table[] = {
+ 	{BFA_SM(bfa_ioc_sm_hwfail), BFA_IOC_HWFAIL},
+ };
+ 
+-/**
+- * IOCPF state machine definitions/declarations
+- */
+-
+ /*
+  * Forward declareations for iocpf state machine
+  */
+@@ -427,7 +421,7 @@ bfa_ioc_sm_disabling_entry(struct bfa_ioc *ioc)
+ }
+ 
+ /**
+- * IOC is being desabled
++ * IOC is being disabled
+  */
+ static void
+ bfa_ioc_sm_disabling(struct bfa_ioc *ioc, enum ioc_event event)
+@@ -457,7 +451,7 @@ bfa_ioc_sm_disabling(struct bfa_ioc *ioc, enum ioc_event event)
+ }
+ 
+ /**
+- * IOC desable completion entry.
++ * IOC disable completion entry.
+  */
+ static void
+ bfa_ioc_sm_disabled_entry(struct bfa_ioc *ioc)
+@@ -782,7 +776,7 @@ static void
+ bfa_iocpf_sm_hwinit_entry(struct bfa_iocpf *iocpf)
  {
--	if (bfi_image_ct_cna_size == 0)
--		cna_read_firmware(pdev, &bfi_image_ct_cna,
--			&bfi_image_ct_cna_size, CNA_FW_FILE_CT);
--	return bfi_image_ct_cna;
-+	if (pdev->device == BFA_PCI_DEVICE_ID_CT2) {
-+		if (bfi_image_ct2_cna_size == 0)
-+			cna_read_firmware(pdev, &bfi_image_ct2_cna,
-+				&bfi_image_ct2_cna_size, CNA_FW_FILE_CT2);
-+		return bfi_image_ct2_cna;
-+	} else if (bfa_asic_id_ct(pdev->device)) {
-+		if (bfi_image_ct_cna_size == 0)
-+			cna_read_firmware(pdev, &bfi_image_ct_cna,
-+				&bfi_image_ct_cna_size, CNA_FW_FILE_CT);
-+		return bfi_image_ct_cna;
-+	}
+ 	iocpf->poll_time = 0;
+-	bfa_ioc_reset(iocpf->ioc, 0);
++	bfa_ioc_reset(iocpf->ioc, false);
+ }
+ 
+ /**
+@@ -1759,6 +1753,9 @@ bfa_ioc_fail_notify(struct bfa_ioc *ioc)
+ 	bfa_ioc_event_notify(ioc, BFA_IOC_E_FAILED);
+ }
+ 
++/**
++ * IOCPF to IOC interface
++ */
+ static void
+ bfa_ioc_pf_enabled(struct bfa_ioc *ioc)
+ {
+@@ -2292,9 +2289,6 @@ bfa_ioc_get_adapter_model(struct bfa_ioc *ioc, char *model)
+ 
+ 	ioc_attr = ioc->attr;
+ 
+-	/**
+-	 * model name
+-	 */
+ 	snprintf(model, BFA_ADAPTER_MODEL_NAME_LEN, "%s-%u",
+ 		BFA_MFG_NAME, ioc_attr->card_type);
+ }
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+index c398170..d5a21f4 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+@@ -152,16 +152,7 @@ struct bfa_ioc_notify {
+ };
+ 
+ /**
+- * Heartbeat failure notification queue element.
+- */
+-struct bfa_ioc_hbfail_notify {
+-	struct list_head	qe;
+-	bfa_ioc_hbfail_cbfn_t	cbfn;
+-	void			*cbarg;
+-};
+-
+-/**
+- * Initialize a heartbeat failure notification structure
++ * Initialize a IOC event notification structure
+  */
+ #define bfa_ioc_notify_init(__notify, __cbfn, __cbarg) do {	\
+ 	(__notify)->cbfn = (__cbfn);				\
+@@ -290,6 +281,7 @@ void bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
+ 
+ void bfa_nw_ioc_set_ct_hwif(struct bfa_ioc *ioc);
+ void bfa_nw_ioc_set_ct2_hwif(struct bfa_ioc *ioc);
++void bfa_ioc_ct2_poweron(struct bfa_ioc *ioc);
+ 
+ void bfa_nw_ioc_attach(struct bfa_ioc *ioc, void *bfa,
+ 		struct bfa_ioc_cbfn *cbfn);
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+index bc9e598..c2d3b1a 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+@@ -850,10 +850,17 @@ bfa_ioc_ct2_pll_init(void __iomem *rb, enum bfi_asic_mode asic_mode)
+ 	 * release soft reset on s_clk & l_clk
+ 	 */
+ 	r32 = readl((rb + CT2_APP_PLL_SCLK_CTL_REG));
+-	writel((r32 & ~__APP_PLL_LCLK_LOGIC_SOFT_RESET),
++	writel((r32 & ~__APP_PLL_SCLK_LOGIC_SOFT_RESET),
+ 			(rb + CT2_APP_PLL_SCLK_CTL_REG));
+ 
+ 	/*
++	 * release soft reset on s_clk & l_clk
++	 */
++	r32 = readl((rb + CT2_APP_PLL_LCLK_CTL_REG));
++	writel(r32 & ~__APP_PLL_LCLK_LOGIC_SOFT_RESET,
++		      (rb + CT2_APP_PLL_LCLK_CTL_REG));
 +
-+	return NULL;
- }
++	/*
+ 	 * Announce flash device presence, if flash was corrupted.
+ 	 */
+ 	if (wgn == (__WGN_READY | __GLBL_PF_VF_CFG_RDY)) {
+diff --git a/drivers/net/ethernet/brocade/bna/bfi.h b/drivers/net/ethernet/brocade/bna/bfi.h
+index 54bcafe..7a1393a 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi.h
++++ b/drivers/net/ethernet/brocade/bna/bfi.h
+@@ -135,18 +135,22 @@ enum bfi_mclass {
+ 	BFI_MC_SFP		= 22,	/*!< SFP module			    */
+ 	BFI_MC_MSGQ		= 23,	/*!< MSGQ			    */
+ 	BFI_MC_ENET		= 24,	/*!< ENET commands/responses	    */
+-	BFI_MC_MAX		= 32
++	BFI_MC_PHY		= 25,	/*!< External PHY message class	    */
++	BFI_MC_NBOOT		= 26,	/*!< Network Boot		    */
++	BFI_MC_TIO_READ		= 27,	/*!< read IO (Target mode)	    */
++	BFI_MC_TIO_WRITE	= 28,	/*!< write IO (Target mode)	    */
++	BFI_MC_TIO_DATA_XFERED	= 29,	/*!< ds transferred (target mode)   */
++	BFI_MC_TIO_IO		= 30,	/*!< IO (Target mode)		    */
++	BFI_MC_TIO		= 31,	/*!< IO (target mode)		    */
++	BFI_MC_MFG		= 32,	/*!< MFG/ASIC block commands	    */
++	BFI_MC_EDMA		= 33,	/*!< EDMA copy commands		    */
++	BFI_MC_MAX		= 34
+ };
  
- u32 *
--bfa_cb_image_get_chunk(int type, u32 off)
-+bfa_cb_image_get_chunk(enum bfi_asic_gen asic_gen, u32 off)
- {
--	return (u32 *)(bfi_image_ct_cna + off);
-+	switch (asic_gen) {
-+	case BFI_ASIC_GEN_CT:
-+		return (u32 *)(bfi_image_ct_cna + off);
-+		break;
-+	case BFI_ASIC_GEN_CT2:
-+		return (u32 *)(bfi_image_ct2_cna + off);
-+		break;
-+	default:
-+		return NULL;
-+	}
- }
+-#define BFI_IOC_MAX_CQS		4
+-#define BFI_IOC_MAX_CQS_ASIC	8
+ #define BFI_IOC_MSGLEN_MAX	32	/* 32 bytes */
  
- u32
--bfa_cb_image_get_size(int type)
-+bfa_cb_image_get_size(enum bfi_asic_gen asic_gen)
- {
--	return bfi_image_ct_cna_size;
-+	switch (asic_gen) {
-+	case BFI_ASIC_GEN_CT:
-+		return bfi_image_ct_cna_size;
-+		break;
-+	case BFI_ASIC_GEN_CT2:
-+		return bfi_image_ct2_cna_size;
-+		break;
-+	default:
-+		return 0;
-+	}
- }
+ #define BFI_FWBOOT_ENV_OS		0
+ 
+-#define BFI_BOOT_MEMTEST_RES_ADDR   0x900
+-#define BFI_BOOT_MEMTEST_RES_SIG    0xA0A1A2A3
+-
+ /**
+  *----------------------------------------------------------------------
+  *				IOC
+@@ -280,9 +284,6 @@ enum bfi_port_mode {
+ 	BFI_PORT_MODE_ETH	= 2,
+ };
+ 
+-/**
+- *  BFI_IOC_I2H_READY_EVENT message
+- */
+ struct bfi_ioc_hbeat {
+ 	struct bfi_mhdr mh;		/*!< common msg header		*/
+ 	u32	   hb_count;	/*!< current heart beat count	*/
 -- 
 1.7.1
