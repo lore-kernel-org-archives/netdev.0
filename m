@@ -1,82 +1,43 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v3 4/7] per-cgroup tcp buffers control
-Date: Mon, 26 Sep 2011 22:53:05 -0300
-Message-ID: <4E812C81.9020909@parallels.com>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com> <1316393805-3005-5-git-send-email-glommer@parallels.com> <20110926195906.f1f5831c.kamezawa.hiroyu@jp.fujitsu.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] staging/octeon: Software should check the checksum of no
+ tcp/udp packets
+Date: Tue, 27 Sep 2011 04:01:28 +0200
+Message-ID: <20110927020128.GA26048@linux-mips.org>
+References: <1316999280-11999-1-git-send-email-rongqing.li@windriver.com>
+ <4E80D794.3040701@cavium.com>
+ <20110927005127.GB10447@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
-	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
-	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<kirill@shutemov.name>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110926195906.f1f5831c.kamezawa.hiroyu@jp.fujitsu.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Daney <david.daney@cavium.com>, rongqing.li@windriver.com,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	linux-mips@linux-mips.org
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eddie.linux-mips.org ([78.24.191.182]:56071 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387Ab1I0CB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 22:01:27 -0400
+Received: from localhost.localdomain ([127.0.0.1]:56830 "EHLO linux-mips.org"
+        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
+        id S1492055Ab1I0CBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Sep 2011 04:01:25 +0200
+Content-Disposition: inline
+In-Reply-To: <20110927005127.GB10447@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2011 07:59 AM, KAMEZAWA Hiroyuki wrote:
-> On Sun, 18 Sep 2011 21:56:42 -0300
-> Glauber Costa<glommer@parallels.com>  wrote:
->
->> With all the infrastructure in place, this patch implements
->> per-cgroup control for tcp memory pressure handling.
->>
->> Signed-off-by: Glauber Costa<glommer@parallels.com>
->> CC: David S. Miller<davem@davemloft.net>
->> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
->> CC: Eric W. Biederman<ebiederm@xmission.com>
->
-> a comment below.
->
->> +int tcp_init_cgroup(struct proto *prot, struct cgroup *cgrp,
->> +		    struct cgroup_subsys *ss)
->> +{
->> +	struct mem_cgroup *cg = mem_cgroup_from_cont(cgrp);
->> +	unsigned long limit;
->> +
->> +	cg->tcp_memory_pressure = 0;
->> +	atomic_long_set(&cg->tcp_memory_allocated, 0);
->> +	percpu_counter_init(&cg->tcp_sockets_allocated, 0);
->> +
->> +	limit = nr_free_buffer_pages() / 8;
->> +	limit = max(limit, 128UL);
->> +
->> +	cg->tcp_prot_mem[0] = sysctl_tcp_mem[0];
->> +	cg->tcp_prot_mem[1] = sysctl_tcp_mem[1];
->> +	cg->tcp_prot_mem[2] = sysctl_tcp_mem[2];
->> +
->
-> Then, the parameter doesn't inherit parent's one ?
->
-> I think sockets_populate should pass 'parent' and
->
->
-> I think you should have a function
->
->      mem_cgroup_should_inherit_parent_settings(parent)
->
-> (This is because you made this feature as a part of memcg.
->   please provide expected behavior.)
->
-> Thanks,
-> -Kame
+On Mon, Sep 26, 2011 at 05:51:27PM -0700, Greg KH wrote:
 
-Kame: Another look into this:
+> > This looks fine to me,
+> > 
+> > Acked-by: David Daney <david.daney@cavium.com>
+> > 
+> > I would let davem, Ralf and Greg KH fight over who gets to merge it.
+> 
+> I'll let Ralf take it, unless he wants me to.
+> 
+> Ralf?
 
-sysctl_tcp_mem is a global value, unless you have different namespaces.
-So it is either global anyway, or should come from the namespace, not 
-the parent.
+Ok.  Yes, that seems the best solution.
 
-Now, the goal here is to set the maximum possible value for those 
-fields. That, indeed, should come from the parent.
-
-That's my understanding...
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+  Ralf
