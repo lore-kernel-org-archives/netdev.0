@@ -1,29 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: unalias tcp_skb_cb flags and ip_dsfield
-Date: Tue, 27 Sep 2011 04:08:53 -0400 (EDT)
-Message-ID: <20110927.040853.516739403765881835.davem@davemloft.net>
-References: <1317103249.2796.25.camel@edumazet-laptop>
-	<20110927.022025.1306291417181821045.davem@davemloft.net>
-	<201109271037.38786.christoph.paasch@uclouvain.be>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL net-next] IPVS
+Date: Tue, 27 Sep 2011 10:16:18 +0200
+Message-ID: <20110927081618.GA22655@1984>
+References: <1317027938-22053-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hkchu@google.com,
-	ilpo.jarvinen@helsinki.fi, jhs@mojatatu.com
-To: christoph.paasch@uclouvain.be
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53753 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752132Ab1I0IKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 04:10:17 -0400
-In-Reply-To: <201109271037.38786.christoph.paasch@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1317027938-22053-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Tue, 27 Sep 2011 10:37:38 +0300
+On Mon, Sep 26, 2011 at 06:05:33PM +0900, Simon Horman wrote:
+> Hi,
+> 
+> with all the excitement of kernel.org being offline and a bunch of trees
+> likewise being offline I am a little unsure who should take this pull
+> request which is based on the current net-next tree. But I guess it should
+> be Patrick, Pablo or Dave.
 
-> However, (as far as I can see) before Eric's change it was 42 bytes long and 
-> now it became 43 bytes.
+I'll try to set up one tree in one of my servers along today, I'll
+send you the URI. We can use it until kernel.org comes back.
 
-Then, I suggest that you go buy a pair of glasses. :-)
+@Patrick: Contact me and I'll create one account for you so we can
+access the same tree.
