@@ -1,49 +1,38 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] ipv6-multicast: Fix memory leak in input path.
-Date: Tue, 27 Sep 2011 12:34:42 -0700
-Message-ID: <4E822552.7000401@candelatech.com>
-References: <1317149897-14932-1-git-send-email-greearb@candelatech.com> <20110927.151616.1706187903528893128.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] net: Always fire at least one linkwatch event
+Date: Tue, 27 Sep 2011 15:49:35 -0400 (EDT)
+Message-ID: <20110927.154935.1119264051234681851.davem@davemloft.net>
+References: <1316634689-15083-1-git-send-email-nhorman@tuxdriver.com>
+	<20110927.145943.1365764295978178226.davem@redhat.com>
+	<20110927193413.GA30020@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, jfeeney@redhat.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54670 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752659Ab1I0Ten (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 15:34:43 -0400
-In-Reply-To: <20110927.151616.1706187903528893128.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43058 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220Ab1I0Tur (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 15:50:47 -0400
+In-Reply-To: <20110927193413.GA30020@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/27/2011 12:16 PM, David Miller wrote:
-> From: greearb@candelatech.com
-> Date: Tue, 27 Sep 2011 11:58:17 -0700
->
->> From: Ben Greear<greearb@candelatech.com>
->>
->> Have to free the skb before returning if we fail
->> the fib lookup.
->>
->> Signed-off-by: Ben Greear<greearb@candelatech.com>
->
-> Applied, thanks.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 27 Sep 2011 15:34:13 -0400
 
-Thanks.
+> So tg3 actually works properly upstream, but the larger issue remains - Drivers
+> individually must set and clear the NOCARRIER flag in order to effectively prime
+> the linkwatch state machine, which seems to me haphazard and prone to recurring
+> bugs.
 
-This bug was introduced in 2.6.35, I believe, so should probably send
-this to stable as well.
+Driver controls when the PHY is reset, auto-negotiation is started, etc. so it is
+the only entity which is in the position to set the correct state.
 
-Thanks,
-Ben
+So we kind of depend upon drivers managing the state correctly and accurately.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+If I follow what tg3 is currently doing, just to show an example, it first
+sets carrier off then resets then entire chip atomically.  This reset will
+restart auto-neg, etc. and trigger a subsequent link-up event which will
+netif_carrier_on() and get the proper transition.
