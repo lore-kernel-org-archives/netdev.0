@@ -1,61 +1,115 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 1/7] bna: Brocade 1860 IOC PLL, Reg Defs and ASIC
- Mode Changes
-Date: Tue, 27 Sep 2011 16:26:11 -0700
-Message-ID: <1317165971.19340.5.camel@Joe-Laptop>
-References: <1317155951-17242-1-git-send-email-rmody@brocade.com>
-	 <1317155951-17242-2-git-send-email-rmody@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	adapter_linux_open_src_team@brocade.com,
-	Gurunatha Karaje <gkaraje@brocade.com>
-To: Rasesh Mody <rmody@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:52169 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752319Ab1I0X0N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Sep 2011 19:26:13 -0400
-In-Reply-To: <1317155951-17242-2-git-send-email-rmody@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <david.daney@cavium.com>
+Subject: [PATCH v2 1/3] netdev/of/phy: New function: of_mdio_find_bus().
+Date: Tue, 27 Sep 2011 16:26:53 -0700
+Message-ID: <1317166015-20714-2-git-send-email-david.daney@cavium.com>
+References: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
+Cc: David Daney <david.daney@cavium.com>
+To: devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-09-27 at 13:39 -0700, Rasesh Mody wrote:
-> Add logic to set ASIC specfic interface in IOC, HW interface initialization
-> APIs, mode based initialization and MSI-X resource allocation for 1860 with
-> no asic block. Add new h/w specific register definitions and setup registers
-> used by IOC logic.
+Add of_mdio_find_bus() which allows an mii_bus to be located given its
+associated the device tree node.
 
-decidedly trivial...
+This is needed by the follow-on patch to add a driver for MDIO bus
+multiplexers.
 
-> diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-[]
-> @@ -1981,7 +1981,13 @@ bfa_nw_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
->  		BUG_ON(1);
->  	}
->  
-> -	bfa_nw_ioc_set_ct_hwif(ioc);
-> +	/**
-> +	 * Set asic specific interfaces.
-> +	 */
-> +	if (ioc->asic_gen == BFI_ASIC_GEN_CT)
-> +		bfa_nw_ioc_set_ct_hwif(ioc);
-> +	else
-> +		bfa_nw_ioc_set_ct2_hwif(ioc);
-[]
-> diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
-[]
->  	/**
->  	 * sram memory access
->  	 */
+The of_mdiobus_register() function is modified so that the device tree
+node is recorded in the mii_bus.  Then we can find it again by
+iterating over all mdio_bus_class devices.
 
-> @@ -256,6 +310,64 @@ bfa_ioc_ct_reg_init(struct bfa_ioc *ioc)
-[]
-> +	/**
-> +	 * sram memory access
-> +	 */
+Signed-off-by: David Daney <david.daney@cavium.com>
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/phy/mdio_bus.c |    3 ++-
+ drivers/of/of_mdio.c       |   26 ++++++++++++++++++++++++++
+ include/linux/of_mdio.h    |    2 ++
+ include/linux/phy.h        |    1 +
+ 4 files changed, 31 insertions(+), 1 deletions(-)
 
-There's at least a few places where this introductory /**
-comment style is used.  Perhaps this confuses kernel-doc.
-I think that it should just be /*
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 6c58da2..227a060 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -70,10 +70,11 @@ static void mdiobus_release(struct device *d)
+ 	kfree(bus);
+ }
+ 
+-static struct class mdio_bus_class = {
++struct class mdio_bus_class = {
+ 	.name		= "mdio_bus",
+ 	.dev_release	= mdiobus_release,
+ };
++EXPORT_SYMBOL(mdio_bus_class);
+ 
+ /**
+  * mdiobus_register - bring up all the PHYs on a given bus and attach them to bus
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index d35e300..7c28e8c 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -45,6 +45,8 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 		for (i=0; i<PHY_MAX_ADDR; i++)
+ 			mdio->irq[i] = PHY_POLL;
+ 
++	mdio->dev.of_node = np;
++
+ 	/* Register the MDIO bus */
+ 	rc = mdiobus_register(mdio);
+ 	if (rc)
+@@ -189,3 +191,27 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+ 	return IS_ERR(phy) ? NULL : phy;
+ }
+ EXPORT_SYMBOL(of_phy_connect_fixed_link);
++
++/**
++ * of_mdio_find_bus - Given an mii_bus node, find the mii_bus.
++ * @mdio_np: Pointer to the mii_bus.
++ *
++ * Returns a pointer to the mii_bus, or NULL if none found.
++ *
++ * Because the association of a device_node and mii_bus is made via
++ * of_mdiobus_register(), the mii_bus cannot be found before it is
++ * registered with of_mdiobus_register().
++ *
++ */
++struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
++{
++	struct device *d;
++
++	if (!mdio_np)
++		return NULL;
++
++	d = class_find_device(&mdio_bus_class, NULL,  mdio_np, of_phy_match);
++
++	return d ? to_mii_bus(d) : NULL;
++}
++EXPORT_SYMBOL(of_mdio_find_bus);
+diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+index 53b94e0..912c27a 100644
+--- a/include/linux/of_mdio.h
++++ b/include/linux/of_mdio.h
+@@ -22,4 +22,6 @@ extern struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+ 					 void (*hndlr)(struct net_device *),
+ 					 phy_interface_t iface);
+ 
++extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
++
+ #endif /* __LINUX_OF_MDIO_H */
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 54fc413..e4c3844 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -528,4 +528,5 @@ int __init mdio_bus_init(void);
+ void mdio_bus_exit(void);
+ 
+ extern struct bus_type mdio_bus_type;
++extern struct class mdio_bus_class;
+ #endif /* __PHY_H */
+-- 
+1.7.2.3
