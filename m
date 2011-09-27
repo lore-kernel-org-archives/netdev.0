@@ -1,83 +1,74 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Bridge stays down until a port is added
-Date: Mon, 26 Sep 2011 17:43:19 -0700
-Message-ID: <20110926174319.0fa59e1f@nehalam.linuxnetplumber.net>
-References: <20110811070659.GA21307@torres.zugschlus.de>
-	<20110811081706.7307e8b2@nehalam.ftrdhcpuser.net>
-	<20110917204257.GA2636@torres.zugschlus.de>
-	<1316550027.1783.102.camel@dcbw.foobar.com>
-	<20110925082504.GA32712@torres.zugschlus.de>
-	<20110926084743.35cb2ccc@nehalam.linuxnetplumber.net>
-	<4E80DA4D.3090404@gmail.com>
-	<20110926130507.1435d76b@nehalam.linuxnetplumber.net>
-	<4E80F8BD.4010401@gmail.com>
-	<alpine.DEB.2.02.1109270224220.30860@aurora>
+From: "J.Hwan Kim" <frog1120@gmail.com>
+Subject: Re: intel 82599 multi-port performance
+Date: Tue, 27 Sep 2011 09:45:02 +0900
+Message-ID: <4E811C8E.8020508@gmail.com>
+References: <4E805359.2080600@gmail.com> <4E808A41.8040902@genband.com> <4E809D59.10103@gmail.com> <4E80A2AB.2040206@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas de =?ISO-8859-1?B?UGVzbG/8YW4=?=
-	<nicolas.2p.debian@gmail.com>, Marc Haber <mh+netdev@zugschlus.de>,
-	netdev@vger.kernel.org
-To: Sven-Haegar Koch <haegar@sdinet.de>
+Cc: netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44464 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750788Ab1I0AnW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 20:43:22 -0400
-In-Reply-To: <alpine.DEB.2.02.1109270224220.30860@aurora>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:36333 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765Ab1I0ApI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 20:45:08 -0400
+Received: by pzk1 with SMTP id 1so16070154pzk.1
+        for <netdev@vger.kernel.org>; Mon, 26 Sep 2011 17:45:07 -0700 (PDT)
+In-Reply-To: <4E80A2AB.2040206@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Sep 2011 02:28:42 +0200 (CEST)
-Sven-Haegar Koch <haegar@sdinet.de> wrote:
-
-> On Tue, 27 Sep 2011, Nicolas de Peslo=FCan wrote:
->=20
-> > Le 26/09/2011 22:05, Stephen Hemminger a =E9crit :
-> > > On Mon, 26 Sep 2011 22:02:21 +0200
-> > > Nicolas de Peslo=FCan<nicolas.2p.debian@gmail.com>  wrote:
-> > [...]
-> > > > Stephen,
-> > > >=20
-> > > > What do you think about a generic per-interface option that wou=
-ld cause
-> > > > bind() to accept tentative
-> > > > address hold by a particular interface? This of course violate =
-IPv6
-> > > > principle, but we are talking
-> > > > about interfaces that are unable to do DAD, either permanently =
-or until
-> > > > something happens on the
-> > > > underlying device.
-> > > >=20
-> > > > echo 1>  /sys/class/net/br0/allow_bind_on_tentative_address
-> > > > echo 1>  /sys/class/net/dummy0/allow_bind_on_tentative_address
-> > > > echo 1>  /sys/class/net/wlan0/allow_bind_on_tentative_address
-> > > > and so on...
-> > > >=20
-> > > > And we may possibly automatically reset this option to 0 if DAD=
- eventually
-> > > > causes the address to be
-> > > > considered duplicate.
-> > >=20
-> > > The issue is that if DAD rejects a duplicate, the socket is dead =
-and
-> > > application is
-> > > out of luck.
-> >=20
-> > Yes, and this is by design. Setting the option would state "I want =
-to allow
-> > early bind(), prior to DAD and I assume the fact that a possible du=
-plicate
-> > address will cause the corresponding socket to be dead and so the u=
-sing
-> > application."
->=20
-> How about a setting just completely disabling this=20
-> duplicate-address-detection crap?
+On 2011=EB=85=84 09=EC=9B=94 27=EC=9D=BC 01:04, Alexander Duyck wrote:
+> On 09/26/2011 08:42 AM, J.Hwan.Kim wrote:
+>> On 2011=EB=85=84 09=EC=9B=94 26=EC=9D=BC 23:20, Chris Friesen wrote:
+>>> On 09/26/2011 04:26 AM, J.Hwan Kim wrote:
+>>>> Hi, everyone
+>>>>
+>>>> Now, I'm testing a network card including intel 82599.
+>>>> In our experiment, with the driver modified with ixgbe and multi-p=
+ort
+>>>> enabled,
+>>>
+>>> What do you mean by "modified with ixgbe and multi-port enabled"? Y=
+ou
+>>> shouldn't need to do anything special to use both ports.
+>>>
+>>>> rx performance of each port with 10Gbps of 64bytes frame is
+>>>> a half than when only 1 port is used.
+>>>
+>>> Sounds like a cpu limitation. What is your cpu usage? How are your
+>>> interrupts routed? Are you using multiple rx queues?
+>>>
+>>
+>> Our server is XEON 2.4GHz with 8 cores.
+>> I'm using 4 RSS queues for each port and distributed it's interrupts=
+=20
+>> to different cores respectively.
+>> I checked the CPU utilization with TOP, I guess ,it is not cpu=20
+>> imitation problem.
+>
+> What kind of rates are you seeing on a single port versus multiple=20
+> ports?  There are multiple possibilities in terms of what could be=20
+> limiting your performance.
 >
 
-Already multiple ways to disable it:
-  1. Set /proc/sys/net/ipv6/XXX/accept_dad to 0
-  2. Set flag when assigning address with 'ip add add ... nodad'=20
-  3. Set IFF_NOARP on the interface (done by drivers)
+I tested the 10G - 64byte frames.
+With ixgbe-modified driver, in single port, 92% of packet received in=20
+driver level and in 2 port we received around 42% packets.
+
+> It sounds like you are using a single card, would that be correct?
+
+Yes, I tested a single card with 2 ports.
+
+> If you are running close to line rate on both ports this could be=20
+> causing you to saturate the PCIe x8 link.  If you have a second card=20
+> available you may want to try installing that in a secondary Gen2 PCI=
+e=20
+> slot and seeing if you can improve the performance by using 2 PCIe=20
+> slots instead of one.
+
+I tested it also, if it is tested with 2 card, it seems that the=20
+performance of each port is almost same with a single port. (maximum=20
+performance)
