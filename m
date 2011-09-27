@@ -1,43 +1,29 @@
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: Re: TSO support
-Date: Tue, 27 Sep 2011 17:00:44 +0900
-Message-ID: <9E843B57-78E9-43E1-8963-ABBF841CF318@sfc.wide.ad.jp>
-References: <CAG+4w0mNdSwwQMH7+DSGUzMUrqjE_v7M55EP8Ug6JxytuJsN7g@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v1244.3)
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: Sedat Cakir <sedat.cakirim@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: unalias tcp_skb_cb flags and ip_dsfield
+Date: Tue, 27 Sep 2011 04:08:53 -0400 (EDT)
+Message-ID: <20110927.040853.516739403765881835.davem@davemloft.net>
+References: <1317103249.2796.25.camel@edumazet-laptop>
+	<20110927.022025.1306291417181821045.davem@davemloft.net>
+	<201109271037.38786.christoph.paasch@uclouvain.be>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hkchu@google.com,
+	ilpo.jarvinen@helsinki.fi, jhs@mojatatu.com
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:57738 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751172Ab1I0IHQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 04:07:16 -0400
-In-Reply-To: <CAG+4w0mNdSwwQMH7+DSGUzMUrqjE_v7M55EP8Ug6JxytuJsN7g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53753 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752132Ab1I0IKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 04:10:17 -0400
+In-Reply-To: <201109271037.38786.christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, 
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Tue, 27 Sep 2011 10:37:38 +0300
 
-On TSO and TCP options, as far as I tested approx. 10 NICs, TSO copies TCP options to all the split segments. (We performed this test for Timestamp and an undefined option).  
-This paper (http://nrg.cs.ucl.ac.uk/mjh/tmp/mboxes.pdf) would be helpful.  
+> However, (as far as I can see) before Eric's change it was 42 bytes long and 
+> now it became 43 bytes.
 
-Thanks,
-- Michio
-
-On Sep 27, 2011, at 4:19 PM, Sedat Cakir wrote:
-
-> Hi,
-> 
-> We are adding the TCP Segmentation offload (TSO) support to the device
-> driver and the hardware. I am wondering: Can Linux subsystem supports
-> the use of IP options and TCP options? If so then which options (e.g
-> SACK processing for TCP)? Do we need any implementation in the NIC to
-> manage TCP/IP options?
-> 
-> Thanks,
-> Sedat
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Then, I suggest that you go buy a pair of glasses. :-)
