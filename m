@@ -1,41 +1,37 @@
-From: Balbir Singh <bsingharora@gmail.com>
-Subject: Re: [PATCH v3 1/7] Basic kernel memory functionality for the Memory Controller
-Date: Tue, 27 Sep 2011 15:36:04 +0530
-Message-ID: <CAKTCnz=DFUc=s9LzxPp-P2jOPXvNzWj8OswadCR09nVmM=ozxQ@mail.gmail.com>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com>
-	<1316393805-3005-2-git-send-email-glommer@parallels.com>
-	<4E794AA2.9080008@parallels.com>
-	<CAKTCnzmkuL+9ftD5d0Z8b5w+DUSUoLiWqSX_TgGxtRxtoPsxpA@mail.gmail.com>
-	<4E7DECA0.5020707@parallels.com>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: ioctl interface for ethernet switch  configuration
+Date: Tue, 27 Sep 2011 15:36:01 +0530
+Message-ID: <45EE9921DD12714AB1D7B7B9D2FE208B023025DA68BF@dbde03.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
-	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com, davem@davemloft.net,
-	gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
-	kirill@shutemov.name, Ying Han <yinghan@google.com>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4E7DECA0.5020707@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:42132 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753258Ab1I0KGH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 06:06:07 -0400
+Received: from dbdp20.itg.ti.com ([172.24.170.38])
+	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id p8RA64Ln014629
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 27 Sep 2011 05:06:06 -0500
+Received: from dbde70.ent.ti.com (localhost [127.0.0.1])
+	by dbdp20.itg.ti.com (8.13.8/8.13.8) with ESMTP id p8RA63I7022909
+	for <netdev@vger.kernel.org>; Tue, 27 Sep 2011 15:36:03 +0530 (IST)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> I know we have a lot of pending xxx_from_cont() and struct cgroup
->> *cont, can we move it to memcg notation to be more consistent with our
->> usage. There is a patch to convert old usage
->>
->
-> Hello Balbir, I missed this comment. What exactly do you propose in this
-> patch, since I have to assume that the patch you talk about is not applied?
-> Is it just a change to the parameter name that you propose?
->
+Hi All
 
-Yes, it is a patch posted on linux-mm by raghavendra
+I am implementing a network driver for a 3 port Ethernet switch. We hav=
+e sorted out the data path for the switch driver. Additionally being a =
+switch module, there are lot other configuration options to program the=
+ ALE entries and configure forwarding rules. We are considering impleme=
+nting these through driver ioctl interface. Are there existing drivers =
+that implement these? Is there a standard interface to handle such a re=
+quirement?
 
-Balbir Singh
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+---
+Regards,
+Mugunthan V N.=A0
