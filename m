@@ -1,65 +1,47 @@
-From: Huajun Li <huajun.li.lee@gmail.com>
-Subject: [PATCH v2] net/flow: Fix potential memory leak
-Date: Tue, 27 Sep 2011 18:34:33 +0800
-Message-ID: <CA+v9cxZMwTPXw-_pWc-SRsTs5GqmqK2-46Mr06HxhVN4aH93Yg@mail.gmail.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next 1/2] be2net: fix multicast filter programming Multicast programming has been broken since commit 5b8821b7. Setting the MULTICAST flag while sending the cmd to the FW was missing. Fixed this.
+Date: Tue, 27 Sep 2011 16:43:54 +0530
+Message-ID: <1317122035-5533-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Huajun Li <huajun.li.lee@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42378 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752878Ab1I0Kef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 06:34:35 -0400
-Received: by fxe4 with SMTP id 4so6957878fxe.19
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2011 03:34:33 -0700 (PDT)
+Received: from exht2.emulex.com ([138.239.113.184]:4968 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752594Ab1I0LON (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 07:14:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While preparing net flow caches, once fail may cause potential memory
-leak , fix it.
+Also fixed-up some indentation in the adjacent lines.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- net/core/flow.c |   16 +++++++++++++++-
- 1 files changed, 15 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 555a456..4e60fce 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -413,7 +413,7 @@ static int __init flow_cache_init(struct flow_cache *fc)
-
- 	for_each_online_cpu(i) {
- 		if (flow_cache_cpu_prepare(fc, i))
--			return -ENOMEM;
-+			goto err;
- 	}
- 	fc->hotcpu_notifier = (struct notifier_block){
- 		.notifier_call = flow_cache_cpu,
-@@ -426,6 +426,20 @@ static int __init flow_cache_init(struct flow_cache *fc)
- 	add_timer(&fc->rnd_timer);
-
- 	return 0;
-+
-+err:
-+	for_each_possible_cpu(i) {
-+		struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, i);
-+		kfree(fcp->hash_table);
-+		fcp->hash_table = NULL;
-+	}
-+
-+	if (fc->percpu) {
-+		free_percpu(fc->percpu);
-+		fc->percpu = NULL;
-+	}
-+
-+	return -ENOMEM;
- }
-
- static int __init flow_cache_init_global(void)
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index bebeee6..6bc07c7 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1580,14 +1580,16 @@ int be_cmd_rx_filter(struct be_adapter *adapter, u32 flags, u32 value)
+ 					BE_IF_FLAGS_VLAN_PROMISCUOUS);
+ 		if (value == ON)
+ 			req->if_flags = cpu_to_le32(BE_IF_FLAGS_PROMISCUOUS |
+-					BE_IF_FLAGS_VLAN_PROMISCUOUS);
++						BE_IF_FLAGS_VLAN_PROMISCUOUS);
+ 	} else if (flags & IFF_ALLMULTI) {
+ 		req->if_flags_mask = req->if_flags =
+-			cpu_to_le32(BE_IF_FLAGS_MCAST_PROMISCUOUS);
++				cpu_to_le32(BE_IF_FLAGS_MCAST_PROMISCUOUS);
+ 	} else {
+ 		struct netdev_hw_addr *ha;
+ 		int i = 0;
+ 
++		req->if_flags_mask = req->if_flags =
++				cpu_to_le32(BE_IF_FLAGS_MULTICAST);
+ 		req->mcast_num = cpu_to_le16(netdev_mc_count(adapter->netdev));
+ 		netdev_for_each_mc_addr(ha, adapter->netdev)
+ 			memcpy(req->mcast_mac[i++].byte, ha->addr, ETH_ALEN);
 -- 
-1.7.4.1
+1.7.4
