@@ -1,170 +1,61 @@
-From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
-Subject: Re: macvlan/macvtap patch in patchwork
-Date: Tue, 27 Sep 2011 19:11:00 -0400
-Message-ID: <4E825804.2010603@ll.mit.edu>
-References: <20110927.151415.1749891588648068894.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 1/7] bna: Brocade 1860 IOC PLL, Reg Defs and ASIC
+ Mode Changes
+Date: Tue, 27 Sep 2011 16:26:11 -0700
+Message-ID: <1317165971.19340.5.camel@Joe-Laptop>
+References: <1317155951-17242-1-git-send-email-rmody@brocade.com>
+	 <1317155951-17242-2-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms030203020000070900000405"
-Cc: "kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
-	"krkumar2@in.ibm.com" <krkumar2@in.ibm.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	adapter_linux_open_src_team@brocade.com,
+	Gurunatha Karaje <gkaraje@brocade.com>
+To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:50511 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753239Ab1I0XLQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Sep 2011 19:11:16 -0400
-In-Reply-To: <20110927.151415.1749891588648068894.davem@davemloft.net>
-Content-Language: en-US
+Received: from perches-mx.perches.com ([206.117.179.246]:52169 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752319Ab1I0X0N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Sep 2011 19:26:13 -0400
+In-Reply-To: <1317155951-17242-2-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------ms030203020000070900000405
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+On Tue, 2011-09-27 at 13:39 -0700, Rasesh Mody wrote:
+> Add logic to set ASIC specfic interface in IOC, HW interface initialization
+> APIs, mode based initialization and MSI-X resource allocation for 1860 with
+> no asic block. Add new h/w specific register definitions and setup registers
+> used by IOC logic.
 
-On 27/09/11 15:14, David Miller wrote:
-> Could you guys please review:
->
-> 	http://patchwork.ozlabs.org/patch/115273/
->
-> My gut instinct is that the current behavior is intentional, but since
-> the patch submitter didn't describe exactly what the undesirable
-> behavior is it's hard to tell what the patch is actually fixing.
->
-> Thanks.
+decidedly trivial...
 
-Sorry if my commit message was not descriptive enough -- I can revise it =
+> diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+[]
+> @@ -1981,7 +1981,13 @@ bfa_nw_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
+>  		BUG_ON(1);
+>  	}
+>  
+> -	bfa_nw_ioc_set_ct_hwif(ioc);
+> +	/**
+> +	 * Set asic specific interfaces.
+> +	 */
+> +	if (ioc->asic_gen == BFI_ASIC_GEN_CT)
+> +		bfa_nw_ioc_set_ct_hwif(ioc);
+> +	else
+> +		bfa_nw_ioc_set_ct2_hwif(ioc);
+[]
+> diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+[]
+>  	/**
+>  	 * sram memory access
+>  	 */
 
-if you would like.
+> @@ -256,6 +310,64 @@ bfa_ioc_ct_reg_init(struct bfa_ioc *ioc)
+[]
+> +	/**
+> +	 * sram memory access
+> +	 */
 
-The macvlan and macvtap drivers both call macvlan_queue_xmit when=20
-sending outgoing frames.  In the case of unicast frames between=20
-macvlan/macvtap devices, we first forward the frame to the lowerdev, so=20
-that its network taps can see it.
-
-The problem is that I was forwarding the frame to the lowerdev the wrong =
-
-way, by calling vlan->forward which serves a different purpose. =20
-vlan->forward points to dev_forward_skb for macvlan (so the forwarding=20
-works fine), but it points to macvtap_forward for macvtap (which causes=20
-an oops when called here).  We need to always use dev_forward_skb to=20
-forward to a lowerdev.
-
-David
-
-
---------------ms030203020000070900000405
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-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
-b3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0yMB4XDTExMDkwMjEz
-MjI0M1oXDTEyMDkwMTEzMjI0M1owXzELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1JVCBMaW5j
-b2xuIExhYm9yYXRvcnkxDzANBgNVBAsTBlBlb3BsZTEeMBwGA1UEAxMVV2FyZC5EYXZpZC5Q
-LjUwMDExNDU5MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsuroCmsIXD3x6D20
-VEA7j995rdTiXDpzcrJOm23Y91lHvgR1slI2kcwcKe5ERFn17G9wN/rQn6ASYcKL1+LjjcnY
-GtHBIOkKcIJSVMObDG+Fblg2osuJf6iRd3nvIUHqezt4mrH9VWpRZTCYzJcl/S8VBMqgsY7o
-No9IfEL3c7IKqER4yAvjD/iPg81VaWR2QOcubms42J5O48qWt0p9sr0/Z2CYC2iGy+QfAkeq
-OXSGvhcDckiYEOpEsegN0S6y4mvY+KpvTR6QUh2YfRf69r6/v/xp/KxmsgtbZzf4KWnUsBYq
-2h9d1gIxtRkxiNSU1qCKLhrHB4sTYMEaxzI75QIDAQABo4IBnTCCAZkwHQYDVR0OBBYEFA8t
-Ovez46Vf83C/sZVnvVWVzGSMMA4GA1UdDwEB/wQEAwIFIDAfBgNVHSMEGDAWgBSOSn2JoWMX
-HIGINFc3JkVeGYp+JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1pdC5lZHUv
-Z2V0Y3JsL0xMQ0EyMGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDovL2NybC5s
-bC5taXQuZWR1L2dldHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5sbC5taXQu
-ZWR1LzAMBgNVHRMBAf8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD5R2H7Kdm
-hq2HFYPq8EWFtqEfHYXr0HCD6+0gAgFkAgEEMCUGA1UdJQQeMBwGBFUdJQAGCCsGAQUFBwME
-BgorBgEEAYI3CgMEMBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwIAYDVR0RBBkwF4EVZGF2
-aWQud2FyZEBsbC5taXQuZWR1MA0GCSqGSIb3DQEBCwUAA4IBAQAzAVu7kVRNe2jceIj9uOxv
-gvJuvrK0dZ0BM/PQpB0VJq5QDpe00fQSJmVurv4+/QZOC6Pbe81Rsott3eXgHdpTBnghWaYQ
-KqMhNEAH0QQ2nvcYvMn46DRU29u+v7F1XkhYG9GTR9F88EeAO3r/Fio6M+0NNPxSab6p/pke
-cWI0GQbBEHVtTSNfbymwljp15nbE8/jThG1MES/mbLq+jue7BCDUw6jLp10fg2uXDd+DmZOI
-2K2G4kpZ0s2T1dtXh4HfOoHsBGFUMYQGMnL48b9p9mXwrJXo/WKFGe8l9+dLoOWMdZ+dvKQv
-a9kEAAOnbIZ2xXSi7EAz0AD/QPSwUnf8MYIDKjCCAyYCAQEwXzBRMQswCQYDVQQGEwJVUzEf
-MB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQD
-EwpNSVRMTCBDQS0yAgodmr+JAAAAACaLMAkGBSsOAwIaBQCgggGgMBgGCSqGSIb3DQEJAzEL
-BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTExMDkyNzIzMTEwMFowIwYJKoZIhvcNAQkE
-MRYEFN4iOZ3m28pAI2URBip6iSBNFJZeMF8GCSqGSIb3DQEJDzFSMFAwCwYJYIZIAWUDBAEC
-MAoGCCqGSIb3DQMHMA4GCCqGSIb3DQMCAgIAgDANBggqhkiG9w0DAgIBQDAHBgUrDgMCBzAN
-BggqhkiG9w0DAgIBKDBuBgkrBgEEAYI3EAQxYTBfMFExCzAJBgNVBAYTAlVTMR8wHQYDVQQK
-ExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMTCk1JVExM
-IENBLTICCh2aFRcAAAAAJoowcAYLKoZIhvcNAQkQAgsxYaBfMFExCzAJBgNVBAYTAlVTMR8w
-HQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNVBAMT
-Ck1JVExMIENBLTICCh2aFRcAAAAAJoowDQYJKoZIhvcNAQEBBQAEggEAi4CxmG+SD9LaOx2H
-2xCWt2dfDG9w4lVDC3SCG7CCep2aSzyelMjherDvKRXK8ENBOw1BY0cfOgbArg/U/Tt8x8Jf
-lYkB6exvzgjE4elS8tlvhEqF3ISOkFEc2Yznx1wpiYyTGb7nn40LOuFmfko1VAC1dO1K9tIl
-ZqmpDmIDSq/6RpS4aiasybwOVdLyTWkHqOhfXZoKIJxmZ69SaHbfgcSkhdKMjz/AwBvK9gNY
-12Xdl97/XbGZP/h5B5u5QVsvLz1t/ZIl4ot6hhqDI74zxmNEC1jNJ3400uuNn9kvRlKKtr92
-+MvS9w6V4Scyl1+5Ty/P0BSij2R7DYWovLzbQQAAAAAAAA==
---------------ms030203020000070900000405--
+There's at least a few places where this introductory /**
+comment style is used.  Perhaps this confuses kernel-doc.
+I think that it should just be /*
