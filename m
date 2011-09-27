@@ -1,52 +1,61 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 1/2] be2net: fix multicast filter programming
-Date: Tue, 27 Sep 2011 16:55:13 +0530
-Message-ID: <1317122713-5640-1-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:5099 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753428Ab1I0LZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 07:25:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCHv2] wireless: at76c50x: use native hex_pack_byte() method
+Date: Tue, 27 Sep 2011 14:51:02 +0300
+Message-ID: <a1f4782ddfc14a689a056a911f1efac6e9e9a6da.1317124055.git.andriy.shevchenko@linux.intel.com>
+References: <71d8213731be21f26a82255a4fffdbe1b6dd4a44.1316774801.git.andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <71d8213731be21f26a82255a4fffdbe1b6dd4a44.1316774801.git.andriy.shevchenko@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- Re-posting with subject fixed!
-
- Multicast programming has been broken since commit 5b8821b7. Setting the
- MULTICAST flag while sending the cmd to the FW was missing. Fixed this.
-
-Also fixed-up some indentation in the adjacent lines.
-
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/wireless/at76c50x-usb.c |   16 ++++++----------
+ 1 files changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index bebeee6..6bc07c7 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1580,14 +1580,16 @@ int be_cmd_rx_filter(struct be_adapter *adapter, u32 flags, u32 value)
- 					BE_IF_FLAGS_VLAN_PROMISCUOUS);
- 		if (value == ON)
- 			req->if_flags = cpu_to_le32(BE_IF_FLAGS_PROMISCUOUS |
--					BE_IF_FLAGS_VLAN_PROMISCUOUS);
-+						BE_IF_FLAGS_VLAN_PROMISCUOUS);
- 	} else if (flags & IFF_ALLMULTI) {
- 		req->if_flags_mask = req->if_flags =
--			cpu_to_le32(BE_IF_FLAGS_MCAST_PROMISCUOUS);
-+				cpu_to_le32(BE_IF_FLAGS_MCAST_PROMISCUOUS);
- 	} else {
- 		struct netdev_hw_addr *ha;
- 		int i = 0;
+diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
+index 2986014..96daaad 100644
+--- a/drivers/net/wireless/at76c50x-usb.c
++++ b/drivers/net/wireless/at76c50x-usb.c
+@@ -500,7 +500,6 @@ exit:
  
-+		req->if_flags_mask = req->if_flags =
-+				cpu_to_le32(BE_IF_FLAGS_MULTICAST);
- 		req->mcast_num = cpu_to_le16(netdev_mc_count(adapter->netdev));
- 		netdev_for_each_mc_addr(ha, adapter->netdev)
- 			memcpy(req->mcast_mac[i++].byte, ha->addr, ETH_ALEN);
+ #define HEX2STR_BUFFERS 4
+ #define HEX2STR_MAX_LEN 64
+-#define BIN2HEX(x) ((x) < 10 ? '0' + (x) : (x) + 'A' - 10)
+ 
+ /* Convert binary data into hex string */
+ static char *hex2str(void *buf, int len)
+@@ -514,18 +513,15 @@ static char *hex2str(void *buf, int len)
+ 	if (len > HEX2STR_MAX_LEN)
+ 		len = HEX2STR_MAX_LEN;
+ 
+-	if (len <= 0) {
+-		ret[0] = '\0';
+-		return ret;
+-	}
+-
+ 	while (len--) {
+-		*obuf++ = BIN2HEX(*ibuf >> 4);
+-		*obuf++ = BIN2HEX(*ibuf & 0xf);
++		obuf = pack_hex_byte(obuf, *ibuf++);
+ 		*obuf++ = '-';
+-		ibuf++;
+ 	}
+-	*(--obuf) = '\0';
++
++	if (*obuf == '-')
++		obuf--;
++
++	*obuf = '\0';
+ 
+ 	return ret;
+ }
 -- 
-1.7.4
+1.7.6.3
