@@ -1,52 +1,37 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] virtio-net: Verify page list size before fitting
- into skb
-Date: Tue, 27 Sep 2011 15:37:20 +0300
-Message-ID: <20110927123719.GB11276@redhat.com>
-References: <1317058869-19276-1-git-send-email-levinsasha928@gmail.com>
- <20110926184445.GA22278@redhat.com>
- <1317065842.20885.3.camel@lappy>
- <20110926195541.GA23086@redhat.com>
- <1317105842.3467.3.camel@lappy>
- <20110927070034.GB4690@redhat.com>
- <1317122429.3467.5.camel@lappy>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: linux-next: manual merge of the net tree with the
+ wireless-current tree
+Date: Tue, 27 Sep 2011 09:09:27 -0400
+Message-ID: <20110927130926.GA2824@tuxdriver.com>
+References: <20110927125132.002db8176a66f85286dcd027@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Johannes Berg <johannes.berg@intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1317122429.3467.5.camel@lappy>
-Sender: kvm-owner@vger.kernel.org
+In-Reply-To: <20110927125132.002db8176a66f85286dcd027@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 27, 2011 at 02:20:29PM +0300, Sasha Levin wrote:
-> On Tue, 2011-09-27 at 10:00 +0300, Michael S. Tsirkin wrote:
-> > >               skb = page_to_skb(vi, page, len);
-> > >               ...
-> > 
-> > Sorry I don't get it yet. Where is mergeable ignored here?
+On Tue, Sep 27, 2011 at 12:51:32PM +1000, Stephen Rothwell wrote:
+> Hi all,
 > 
-> The NULL deref happens in page_to_skb(), before merge buffers are
-> handled.
-
-The len here is a single buffer length, so for mergeable
-buffers it is <= the size of the buffer we gave to hardware,
-which is PAGE_SIZE.
-
-        err = virtqueue_add_buf_single(vi->rvq, page_address(page),
-                                       PAGE_SIZE, false, page, gfp);
- 
-
-Unless of course we are trying to work around broken hardware again,
-which I don't have a problem with, but should probably
-get appropriate comments in code and trigger a warning.
-
-> I'll test it and see if it's really the case.
+> Today's linux-next merge of the net tree got a conflict in
+> drivers/net/wireless/iwlwifi/iwl-scan.c between commit 6c80c39d9a69
+> ("iwlagn: fix dangling scan request") from the wireless-current tree and
+> commits 63013ae30159 ("iwlagn: priv->status moves to iwl_shared") and
+> 6ac2f839b0b2 ("iwlagn: priv->mutex moves to iwl_shared") from the net
+> tree.
 > 
-> -- 
-> 
-> Sasha.
+> I fixed it up (see below) and can carry the fix as necessary.
+
+Looks good, thanks!
+
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
