@@ -1,86 +1,86 @@
-From: "H.K. Jerry Chu" <hkchu@google.com>
-Subject: [PATCH] Break up the single NBD lock into one per NBD device
-Date: Mon, 26 Sep 2011 16:34:12 -0700
-Message-ID: <1317080052-6052-1-git-send-email-hkchu@google.com>
-Cc: netdev@vger.kernel.org, Jerry Chu <hkchu@google.com>
-To: davem@davemloft.net
+From: Sven-Haegar Koch <haegar@sdinet.de>
+Subject: Re: Bridge stays down until a port is added
+Date: Tue, 27 Sep 2011 02:28:42 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1109270224220.30860@aurora>
+References: <20110811070659.GA21307@torres.zugschlus.de> <20110811081706.7307e8b2@nehalam.ftrdhcpuser.net> <20110917204257.GA2636@torres.zugschlus.de> <1316550027.1783.102.camel@dcbw.foobar.com> <20110925082504.GA32712@torres.zugschlus.de>
+ <20110926084743.35cb2ccc@nehalam.linuxnetplumber.net> <4E80DA4D.3090404@gmail.com> <20110926130507.1435d76b@nehalam.linuxnetplumber.net> <4E80F8BD.4010401@gmail.com>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-94995099-1317083332=:30860"
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Marc Haber <mh+netdev@zugschlus.de>, netdev@vger.kernel.org
+To: =?ISO-8859-15?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:32789 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752282Ab1IZXec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 19:34:32 -0400
+Received: from mail.sdinet.de ([78.47.32.153]:60096 "EHLO mail.sdinet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752740Ab1I0Aet (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Sep 2011 20:34:49 -0400
+In-Reply-To: <4E80F8BD.4010401@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jerry Chu <hkchu@google.com>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-This patch breaks up the single NBD lock into one per
-disk. The single NBD lock has become a serious performance
-bottleneck when multiple NBD disks are being used.
+--8323328-94995099-1317083332=:30860
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-The original comment on why a single lock may be ok no
-longer holds for today's much faster NICs.
+On Tue, 27 Sep 2011, Nicolas de Peslo=FCan wrote:
 
-Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
----
- drivers/block/nbd.c |   22 +++++++++-------------
- 1 files changed, 9 insertions(+), 13 deletions(-)
+> Le 26/09/2011 22:05, Stephen Hemminger a =E9crit :
+> > On Mon, 26 Sep 2011 22:02:21 +0200
+> > Nicolas de Peslo=FCan<nicolas.2p.debian@gmail.com>  wrote:
+> [...]
+> > > Stephen,
+> > >=20
+> > > What do you think about a generic per-interface option that would cau=
+se
+> > > bind() to accept tentative
+> > > address hold by a particular interface? This of course violate IPv6
+> > > principle, but we are talking
+> > > about interfaces that are unable to do DAD, either permanently or unt=
+il
+> > > something happens on the
+> > > underlying device.
+> > >=20
+> > > echo 1>  /sys/class/net/br0/allow_bind_on_tentative_address
+> > > echo 1>  /sys/class/net/dummy0/allow_bind_on_tentative_address
+> > > echo 1>  /sys/class/net/wlan0/allow_bind_on_tentative_address
+> > > and so on...
+> > >=20
+> > > And we may possibly automatically reset this option to 0 if DAD event=
+ually
+> > > causes the address to be
+> > > considered duplicate.
+> >=20
+> > The issue is that if DAD rejects a duplicate, the socket is dead and
+> > application is
+> > out of luck.
+>=20
+> Yes, and this is by design. Setting the option would state "I want to all=
+ow
+> early bind(), prior to DAD and I assume the fact that a possible duplicat=
+e
+> address will cause the corresponding socket to be dead and so the using
+> application."
 
-diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
-index f533f33..355e15c 100644
---- a/drivers/block/nbd.c
-+++ b/drivers/block/nbd.c
-@@ -58,20 +58,9 @@ static unsigned int debugflags;
- 
- static unsigned int nbds_max = 16;
- static struct nbd_device *nbd_dev;
-+static spinlock_t *nbd_locks;
- static int max_part;
- 
--/*
-- * Use just one lock (or at most 1 per NIC). Two arguments for this:
-- * 1. Each NIC is essentially a synchronization point for all servers
-- *    accessed through that NIC so there's no need to have more locks
-- *    than NICs anyway.
-- * 2. More locks lead to more "Dirty cache line bouncing" which will slow
-- *    down each lock to the point where they're actually slower than just
-- *    a single lock.
-- * Thanks go to Jens Axboe and Al Viro for their LKML emails explaining this!
-- */
--static DEFINE_SPINLOCK(nbd_lock);
--
- #ifndef NDEBUG
- static const char *ioctl_cmd_to_ascii(int cmd)
- {
-@@ -753,6 +742,12 @@ static int __init nbd_init(void)
- 	if (!nbd_dev)
- 		return -ENOMEM;
- 
-+	nbd_locks = kcalloc(nbds_max, sizeof(*nbd_locks), GFP_KERNEL);
-+	if (!nbd_locks) {
-+		kfree(nbd_dev);
-+		return -ENOMEM;
-+	}
-+
- 	part_shift = 0;
- 	if (max_part > 0) {
- 		part_shift = fls(max_part);
-@@ -784,7 +779,7 @@ static int __init nbd_init(void)
- 		 * every gendisk to have its very own request_queue struct.
- 		 * These structs are big so we dynamically allocate them.
- 		 */
--		disk->queue = blk_init_queue(do_nbd_request, &nbd_lock);
-+		disk->queue = blk_init_queue(do_nbd_request, &nbd_locks[i]);
- 		if (!disk->queue) {
- 			put_disk(disk);
- 			goto out;
-@@ -832,6 +827,7 @@ out:
- 		put_disk(nbd_dev[i].disk);
- 	}
- 	kfree(nbd_dev);
-+	kfree(nbd_locks);
- 	return err;
- }
- 
--- 
-1.7.3.1
+How about a setting just completely disabling this=20
+duplicate-address-detection crap?
+
+I do not want my servers to ever give up servicing a configured IP no=20
+matter what else on the network tries to interfere.
+
+If there are two machines using the same IP at a moment, then it may not=20
+work so great, but both should have all their services up and running,=20
+and once the invalid one got disconnected ("switch port down")=20
+everything works - not needing to reboot the real one because some=20
+daemons were not able to bind their service IPs.
+
+c'ya
+sven-haegar
+
+--=20
+Three may keep a secret, if two of them are dead.
+- Ben F.
+--8323328-94995099-1317083332=:30860--
