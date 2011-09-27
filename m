@@ -1,49 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6-multicast: Fix memory leak in input path.
-Date: Tue, 27 Sep 2011 22:08:46 +0200
-Message-ID: <1317154126.2472.2.camel@edumazet-laptop>
-References: <1317149897-14932-1-git-send-email-greearb@candelatech.com>
-	 <20110927.151616.1706187903528893128.davem@davemloft.net>
-	 <4E822552.7000401@candelatech.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: __pskb_pull_tail oops from 2.6.35
+Date: Tue, 27 Sep 2011 16:15:00 -0400
+Message-ID: <20110927201500.GA27713@redhat.com>
+References: <20110927200328.GA22678@redhat.com>
+ <20110927.160804.528213323197711241.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:47421 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752061Ab1I0UIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 16:08:52 -0400
-Received: by bkbzt4 with SMTP id zt4so7318308bkb.19
-        for <netdev@vger.kernel.org>; Tue, 27 Sep 2011 13:08:51 -0700 (PDT)
-In-Reply-To: <4E822552.7000401@candelatech.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1028 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752493Ab1I0UPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Sep 2011 16:15:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20110927.160804.528213323197711241.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 27 septembre 2011 =C3=A0 12:34 -0700, Ben Greear a =C3=A9crit =
-:
-> On 09/27/2011 12:16 PM, David Miller wrote:
-> > From: greearb@candelatech.com
-> > Date: Tue, 27 Sep 2011 11:58:17 -0700
-> >
-> >> From: Ben Greear<greearb@candelatech.com>
-> >>
-> >> Have to free the skb before returning if we fail
-> >> the fib lookup.
-> >>
-> >> Signed-off-by: Ben Greear<greearb@candelatech.com>
-> >
-> > Applied, thanks.
->=20
-> Thanks.
->=20
-> This bug was introduced in 2.6.35, I believe, so should probably send
-> this to stable as well.
->=20
+On Tue, Sep 27, 2011 at 04:08:04PM -0400, David Miller wrote:
+ > From: Dave Jones <davej@redhat.com>
+ > Date: Tue, 27 Sep 2011 16:03:28 -0400
+ > 
+ > > A user just reported this on a fairly old kernel (running the latest -longterm patch).
+ > > I had a look through net/core/skbuff.c since 2.6.35, and didn't see anything obvious.
+ > > Does this look familiar to anyone ? 
+ > 
+ > I would say that something far outside of __pskb_pull_tail() is corrupting the
+ > SKB state.  He has a bunch of netfilter stuff loaded so the possibilities are
+ > endless :-)
+ > 
+ > Any chance to figure out exactly what NULL dereference happens inside of
+ > __pskb_pull_tail()?
 
-A good way to handle this is to include in the changelog of the patch
-the reference on faulty commit, to ease David and stable teams work.
+It looks like it died in put_page..
 
-Commit d1db275dd3f6
-(ipv6: ip6mr: support multiple tables)
+<1>[  262.574991] IP: [<ffffffff810dca57>] put_page+0x10/0x7c
+
+which is only called in one place..
+
+1267         for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+1268                 if (skb_shinfo(skb)->frags[i].size <= eat) {
+1269                         put_page(skb_shinfo(skb)->frags[i].page);
+1270                         eat -= skb_shinfo(skb)->frags[i].size;
+1271                 } else {
+
+
+	Dave
