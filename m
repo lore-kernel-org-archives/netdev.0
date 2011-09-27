@@ -1,43 +1,67 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH] staging/octeon: Software should check the checksum of no
- tcp/udp packets
-Date: Tue, 27 Sep 2011 04:01:28 +0200
-Message-ID: <20110927020128.GA26048@linux-mips.org>
-References: <1316999280-11999-1-git-send-email-rongqing.li@windriver.com>
- <4E80D794.3040701@cavium.com>
- <20110927005127.GB10447@kroah.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the wireless-current
+ tree
+Date: Tue, 27 Sep 2011 12:51:32 +1000
+Message-ID: <20110927125132.002db8176a66f85286dcd027@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Daney <david.daney@cavium.com>, rongqing.li@windriver.com,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	linux-mips@linux-mips.org
-To: Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:56071 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387Ab1I0CB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Sep 2011 22:01:27 -0400
-Received: from localhost.localdomain ([127.0.0.1]:56830 "EHLO linux-mips.org"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S1492055Ab1I0CBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Sep 2011 04:01:25 +0200
-Content-Disposition: inline
-In-Reply-To: <20110927005127.GB10447@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Johannes Berg <johannes.berg@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Wey-Yi Guy" <wey-yi.w.guy@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2011 at 05:51:27PM -0700, Greg KH wrote:
+Hi all,
 
-> > This looks fine to me,
-> > 
-> > Acked-by: David Daney <david.daney@cavium.com>
-> > 
-> > I would let davem, Ralf and Greg KH fight over who gets to merge it.
-> 
-> I'll let Ralf take it, unless he wants me to.
-> 
-> Ralf?
+Today's linux-next merge of the net tree got a conflict in
+drivers/net/wireless/iwlwifi/iwl-scan.c between commit 6c80c39d9a69
+("iwlagn: fix dangling scan request") from the wireless-current tree and
+commits 63013ae30159 ("iwlagn: priv->status moves to iwl_shared") and
+6ac2f839b0b2 ("iwlagn: priv->mutex moves to iwl_shared") from the net
+tree.
 
-Ok.  Yes, that seems the best solution.
+I fixed it up (see below) and can carry the fix as necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-  Ralf
+diff --cc drivers/net/wireless/iwlwifi/iwl-scan.c
+index 77e528f,fc5af34..0000000
+--- a/drivers/net/wireless/iwlwifi/iwl-scan.c
++++ b/drivers/net/wireless/iwlwifi/iwl-scan.c
+@@@ -403,8 -413,19 +413,8 @@@ int iwl_mac_hw_scan(struct ieee80211_h
+  	if (req->n_channels == 0)
+  		return -EINVAL;
+  
+- 	mutex_lock(&priv->mutex);
++ 	mutex_lock(&priv->shrd->mutex);
+  
+ -	if (test_bit(STATUS_SCANNING, &priv->shrd->status) &&
+ -	    priv->scan_type != IWL_SCAN_NORMAL) {
+ -		IWL_DEBUG_SCAN(priv, "Scan already in progress.\n");
+ -		ret = -EAGAIN;
+ -		goto out_unlock;
+ -	}
+ -
+ -	/* mac80211 will only ask for one band at a time */
+ -	priv->scan_request = req;
+ -	priv->scan_vif = vif;
+ -
+  	/*
+  	 * If an internal scan is in progress, just set
+  	 * up the scan_request as per above.
+@@@ -432,7 -439,8 +442,7 @@@
+  
+  	IWL_DEBUG_MAC80211(priv, "leave\n");
+  
+- 	mutex_unlock(&priv->mutex);
+ -out_unlock:
++ 	mutex_unlock(&priv->shrd->mutex);
+  
+  	return ret;
+  }
