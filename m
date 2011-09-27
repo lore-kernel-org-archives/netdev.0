@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 6/7] bna: Add Callback to Fix RXQ Stop
-Date: Tue, 27 Sep 2011 13:39:10 -0700
-Message-ID: <1317155951-17242-7-git-send-email-rmody@brocade.com>
+Subject: [net-next 4/7] bna: Brocade 1860 HW Enablement
+Date: Tue, 27 Sep 2011 13:39:08 -0700
+Message-ID: <1317155951-17242-5-git-send-email-rmody@brocade.com>
 References: <1317155951-17242-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,179 +10,142 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Gurunatha Karaje <gkaraje@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:35175 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753543Ab1I0Ujj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 16:39:39 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:58063 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753351Ab1I0Ujh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 16:39:37 -0400
 In-Reply-To: <1317155951-17242-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - Add a callback in the BNA, which is called before sending FW command to stop
-   RxQs. After this callback is called, driver should not post anymore Rx
-   buffers to the RxQ. This addresses a small window where driver posts Rx
-   buffers while FW is stopping/has stopped the RxQ.
- - Registering callback function, rx_stall_cbfn, during bna_rx_create.
-   Invoking callback function, rx_stall_cbfn, before sending rx_cfg_clr
-   command to FW
- - Bnad_cb_rx_stall implementation - set a flag in the Rxq to mark buffer
-   posting disabled state. While posting buffers check for the above flag.
+This patch enables new HW Brocade 1860. Add BFA_CM_NIC capability mask to
+bfa_ioc_attr, Sub-System Device ID Info and support for Brocade 1860 device
+ID to bfa_ioc.c and bnad.c.
 
 Signed-off-by: Gurunatha Karaje <gkaraje@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c |   11 +++++++++++
- drivers/net/ethernet/brocade/bna/bna_types.h |    2 ++
- drivers/net/ethernet/brocade/bna/bnad.c      |   25 ++++++++++++++++++++++++-
- drivers/net/ethernet/brocade/bna/bnad.h      |    1 +
- 4 files changed, 38 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/brocade/bna/bfa_defs.h    |   16 +++++++++++++++-
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c     |   23 +++++++++++++++++++++++
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h     |    1 +
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    4 ++++
+ drivers/net/ethernet/brocade/bna/bnad.c        |    9 ++++++++-
+ 5 files changed, 51 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-index 066704e..276fcb5 100644
---- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-+++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-@@ -1335,6 +1335,12 @@ do {								    \
- 	}							       \
- } while (0)
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs.h b/drivers/net/ethernet/brocade/bna/bfa_defs.h
+index f9d4100..2f12d68 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_defs.h
+@@ -193,6 +193,7 @@ struct bfa_ioc_attr {
+ enum {
+ 	BFA_CM_HBA	=	0x01,
+ 	BFA_CM_CNA	=	0x02,
++	BFA_CM_NIC	=	0x04,
+ };
  
-+#define call_rx_stall_cbfn(rx)						\
-+do {									\
-+	if ((rx)->rx_stall_cbfn)					\
-+		(rx)->rx_stall_cbfn((rx)->bna->bnad, (rx));		\
-+} while (0)
+ /**
+@@ -271,7 +272,20 @@ enum {
+ #define bfa_asic_id_ct(device)			\
+ 	((device) == PCI_DEVICE_ID_BROCADE_CT ||	\
+ 	 (device) == PCI_DEVICE_ID_BROCADE_CT_FC)
+-#define bfa_asic_id_ctc(device) (bfa_asic_id_ct(device))
++#define bfa_asic_id_ct2(device)			\
++	((device) == BFA_PCI_DEVICE_ID_CT2)
++#define bfa_asic_id_ctc(device)			\
++	(bfa_asic_id_ct(device) || bfa_asic_id_ct2(device))
 +
- #define bfi_enet_datapath_q_init(bfi_q, bna_qpt)			\
- do {									\
- 	struct bna_dma_addr cur_q_addr =				\
-@@ -1467,6 +1473,7 @@ bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
- 	case RX_E_FAIL:
- 		bfa_fsm_set_state(rx, bna_rx_sm_cleanup_wait);
- 		bna_rxf_fail(&rx->rxf);
-+		call_rx_stall_cbfn(rx);
- 		rx->rx_cleanup_cbfn(rx->bna->bnad, rx);
++/**
++ * PCI sub-system device and vendor ID information
++ */
++enum {
++	BFA_PCI_FCOE_SSDEVICE_ID	= 0x14,
++	BFA_PCI_CT2_SSID_FCoE		= 0x22,
++	BFA_PCI_CT2_SSID_ETH		= 0x23,
++	BFA_PCI_CT2_SSID_FC		= 0x24,
++};
+ 
+ enum bfa_mode {
+ 	BFA_MODE_HBA		= 1,
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+index 1e60aa7..f89ac7a 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+@@ -1977,6 +1977,29 @@ bfa_nw_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
+ 		ioc->ad_cap_bm = BFA_CM_CNA;
  		break;
  
-@@ -1476,6 +1483,7 @@ bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
++	case BFA_PCI_DEVICE_ID_CT2:
++		ioc->asic_gen = BFI_ASIC_GEN_CT2;
++		if (clscode == BFI_PCIFN_CLASS_FC &&
++			pcidev->ssid == BFA_PCI_CT2_SSID_FC) {
++			ioc->asic_mode  = BFI_ASIC_MODE_FC16;
++			ioc->fcmode = true;
++			ioc->port_mode = ioc->port_mode_cfg = BFA_MODE_HBA;
++			ioc->ad_cap_bm = BFA_CM_HBA;
++		} else {
++			ioc->port0_mode = ioc->port1_mode = BFI_PORT_MODE_ETH;
++			ioc->asic_mode  = BFI_ASIC_MODE_ETH;
++			if (pcidev->ssid == BFA_PCI_CT2_SSID_FCoE) {
++				ioc->port_mode =
++				ioc->port_mode_cfg = BFA_MODE_CNA;
++				ioc->ad_cap_bm = BFA_CM_CNA;
++			} else {
++				ioc->port_mode =
++				ioc->port_mode_cfg = BFA_MODE_NIC;
++				ioc->ad_cap_bm = BFA_CM_NIC;
++			}
++		}
++		break;
++
+ 	default:
+ 		BUG_ON(1);
+ 	}
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+index 5899a56..c398170 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+@@ -35,6 +35,7 @@ struct bfa_pcidev {
+ 	int	pci_slot;
+ 	u8	pci_func;
+ 	u16	device_id;
++	u16	ssid;
+ 	void	__iomem *pci_bar_kva;
+ };
  
- 	case RX_E_RXF_STOPPED:
- 		bfa_fsm_set_state(rx, bna_rx_sm_stop_wait);
-+		call_rx_stall_cbfn(rx);
- 		bna_rx_enet_stop(rx);
- 		break;
+diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+index dde8a46..4c6aab2 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+@@ -133,6 +133,10 @@
+ 		ct_reg_addr_init((_bna), (_pcidev));			\
+ 		ct_bit_defn_init((_bna), (_pcidev));			\
+ 		break;							\
++	case BFA_PCI_DEVICE_ID_CT2:					\
++		ct2_reg_addr_init((_bna), (_pcidev));			\
++		ct2_bit_defn_init((_bna), (_pcidev));			\
++		break;							\
+ 	}								\
+ }
  
-@@ -1516,6 +1524,7 @@ bna_rx_sm_started(struct bna_rx *rx, enum bna_rx_event event)
- 		bfa_fsm_set_state(rx, bna_rx_sm_failed);
- 		bna_ethport_cb_rx_stopped(&rx->bna->ethport);
- 		bna_rxf_fail(&rx->rxf);
-+		call_rx_stall_cbfn(rx);
- 		rx->rx_cleanup_cbfn(rx->bna->bnad, rx);
- 		break;
- 
-@@ -1536,6 +1545,7 @@ static void bna_rx_sm_rxf_start_wait(struct bna_rx *rx,
- 	case RX_E_FAIL:
- 		bfa_fsm_set_state(rx, bna_rx_sm_failed);
- 		bna_rxf_fail(&rx->rxf);
-+		call_rx_stall_cbfn(rx);
- 		rx->rx_cleanup_cbfn(rx->bna->bnad, rx);
- 		break;
- 
-@@ -2369,6 +2379,7 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
- 	rx->rcb_destroy_cbfn = rx_cbfn->rcb_destroy_cbfn;
- 	rx->ccb_setup_cbfn = rx_cbfn->ccb_setup_cbfn;
- 	rx->ccb_destroy_cbfn = rx_cbfn->ccb_destroy_cbfn;
-+	rx->rx_stall_cbfn = rx_cbfn->rx_stall_cbfn;
- 	/* Following callbacks are mandatory */
- 	rx->rx_cleanup_cbfn = rx_cbfn->rx_cleanup_cbfn;
- 	rx->rx_post_cbfn = rx_cbfn->rx_post_cbfn;
-diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
-index 242d799..d090fbf 100644
---- a/drivers/net/ethernet/brocade/bna/bna_types.h
-+++ b/drivers/net/ethernet/brocade/bna/bna_types.h
-@@ -847,6 +847,7 @@ struct bna_rx {
- 	void (*rcb_destroy_cbfn)(struct bnad *, struct bna_rcb *);
- 	void (*ccb_setup_cbfn)(struct bnad *, struct bna_ccb *);
- 	void (*ccb_destroy_cbfn)(struct bnad *, struct bna_ccb *);
-+	void (*rx_stall_cbfn)(struct bnad *, struct bna_rx *);
- 	void (*rx_cleanup_cbfn)(struct bnad *, struct bna_rx *);
- 	void (*rx_post_cbfn)(struct bnad *, struct bna_rx *);
- 
-@@ -864,6 +865,7 @@ struct bna_rx_event_cbfn {
- 	void (*rcb_destroy_cbfn)(struct bnad *, struct bna_rcb *);
- 	void (*ccb_setup_cbfn)(struct bnad *, struct bna_ccb *);
- 	void (*ccb_destroy_cbfn)(struct bnad *, struct bna_ccb *);
-+	void (*rx_stall_cbfn)(struct bnad *, struct bna_rx *);
- 	/* Mandatory */
- 	void (*rx_cleanup_cbfn)(struct bnad *, struct bna_rx *);
- 	void (*rx_post_cbfn)(struct bnad *, struct bna_rx *);
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index d76d7cb..2f4ced6 100644
+index 320f11c..d76d7cb 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -396,7 +396,7 @@ finishing:
- 		unmap_q->producer_index = unmap_prod;
- 		rcb->producer_index = unmap_prod;
- 		smp_mb();
--		if (likely(test_bit(BNAD_RXQ_STARTED, &rcb->flags)))
-+		if (likely(test_bit(BNAD_RXQ_POST_OK, &rcb->flags)))
- 			bna_rxq_prod_indx_doorbell(rcb);
- 	}
- }
-@@ -956,6 +956,27 @@ bnad_cb_tx_cleanup(struct bnad *bnad, struct bna_tx *tx)
- }
+@@ -3428,7 +3428,14 @@ static DEFINE_PCI_DEVICE_TABLE(bnad_pci_id_table) = {
+ 			PCI_DEVICE_ID_BROCADE_CT),
+ 		.class = PCI_CLASS_NETWORK_ETHERNET << 8,
+ 		.class_mask =  0xffff00
+-	}, {0,  }
++	},
++	{
++		PCI_DEVICE(PCI_VENDOR_ID_BROCADE,
++			BFA_PCI_DEVICE_ID_CT2),
++		.class = PCI_CLASS_NETWORK_ETHERNET << 8,
++		.class_mask =  0xffff00
++	},
++	{0,  },
+ };
  
- static void
-+bnad_cb_rx_stall(struct bnad *bnad, struct bna_rx *rx)
-+{
-+	struct bnad_rx_info *rx_info = (struct bnad_rx_info *)rx->priv;
-+	struct bna_ccb *ccb;
-+	struct bnad_rx_ctrl *rx_ctrl;
-+	int i;
-+
-+	for (i = 0; i < BNAD_MAX_RXP_PER_RX; i++) {
-+		rx_ctrl = &rx_info->rx_ctrl[i];
-+		ccb = rx_ctrl->ccb;
-+		if (!ccb)
-+			continue;
-+
-+		clear_bit(BNAD_RXQ_POST_OK, &ccb->rcb[0]->flags);
-+
-+		if (ccb->rcb[1])
-+			clear_bit(BNAD_RXQ_POST_OK, &ccb->rcb[1]->flags);
-+	}
-+}
-+
-+static void
- bnad_cb_rx_cleanup(struct bnad *bnad, struct bna_rx *rx)
- {
- 	struct bnad_rx_info *rx_info = (struct bnad_rx_info *)rx->priv;
-@@ -1009,6 +1030,7 @@ bnad_cb_rx_post(struct bnad *bnad, struct bna_rx *rx)
- 			bnad_free_all_rxbufs(bnad, rcb);
- 
- 			set_bit(BNAD_RXQ_STARTED, &rcb->flags);
-+			set_bit(BNAD_RXQ_POST_OK, &rcb->flags);
- 			unmap_q = rcb->unmap_q;
- 
- 			/* Now allocate & post buffers for this RCB */
-@@ -1898,6 +1920,7 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
- 		.rcb_destroy_cbfn = bnad_cb_rcb_destroy,
- 		.ccb_setup_cbfn = bnad_cb_ccb_setup,
- 		.ccb_destroy_cbfn = bnad_cb_ccb_destroy,
-+		.rx_stall_cbfn = bnad_cb_rx_stall,
- 		.rx_cleanup_cbfn = bnad_cb_rx_cleanup,
- 		.rx_post_cbfn = bnad_cb_rx_post,
- 	};
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index 1c9328d..50fb36a 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -103,6 +103,7 @@ struct bnad_rx_ctrl {
- /* Bit positions for rcb->flags */
- #define BNAD_RXQ_REFILL			0
- #define BNAD_RXQ_STARTED		1
-+#define BNAD_RXQ_POST_OK		2
- 
- /* Resource limits */
- #define BNAD_NUM_TXQ			(bnad->num_tx * bnad->num_txq_per_tx)
+ MODULE_DEVICE_TABLE(pci, bnad_pci_id_table);
 -- 
 1.7.1
