@@ -1,39 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ICMP redirect issue
-Date: Wed, 28 Sep 2011 18:56:54 -0400 (EDT)
-Message-ID: <20110928.185654.560483806662347226.davem@davemloft.net>
-References: <20110927162120.30394030@asterix.rh>
-	<20110928.140632.726302773135946390.davem@davemloft.net>
-	<20110928171952.0c0d2d05@asterix.rh>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL net-next] IPVS
+Date: Thu, 29 Sep 2011 08:01:59 +0900
+Message-ID: <20110928230158.GC16908@verge.net.au>
+References: <1317027938-22053-1-git-send-email-horms@verge.net.au>
+ <20110927081618.GA22655@1984>
+ <20110928132802.GC7661@verge.net.au>
+ <20110928214516.GE2761@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fbl@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56528 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933456Ab1I1W44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 18:56:56 -0400
-In-Reply-To: <20110928171952.0c0d2d05@asterix.rh>
+Received: from kirsty.vergenet.net ([202.4.237.240]:48971 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756063Ab1I1XCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 19:02:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20110928214516.GE2761@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fbl@redhat.com>
-Date: Wed, 28 Sep 2011 17:19:52 -0300
+On Wed, Sep 28, 2011 at 11:45:16PM +0200, Pablo Neira Ayuso wrote:
+> On Wed, Sep 28, 2011 at 10:28:03PM +0900, Simon Horman wrote:
+> > On Tue, Sep 27, 2011 at 10:16:18AM +0200, Pablo Neira Ayuso wrote:
+> > > On Mon, Sep 26, 2011 at 06:05:33PM +0900, Simon Horman wrote:
+> > > > Hi,
+> > > > 
+> > > > with all the excitement of kernel.org being offline and a bunch of trees
+> > > > likewise being offline I am a little unsure who should take this pull
+> > > > request which is based on the current net-next tree. But I guess it should
+> > > > be Patrick, Pablo or Dave.
+> > > 
+> > > I'll try to set up one tree in one of my servers along today, I'll
+> > > send you the URI. We can use it until kernel.org comes back.
+> > 
+> > Thanks. Would you like me to rebase my tree on yours?
+> 
+> Thinking it well, and given that you'll have to send me more patches,
+> I think it's a good idea if you rebase.
 
-> What about something like below? It will change a bit the
-> secure_redirects documentation.
+Good thinking. I have rebased my ipvs-next tree on your nf-next branch.
 
-The previous check was stronger, and served other purposes.
+> BTW, please no need to Cc netfilter@vger.kernel.org, that list is for
+> netfilter users, not for developers.
 
-Firstly, it required that the spoofer know the exact gateway
-IP address we used previously, whereas your test requires only
-knowing the subnet which is easier to figure out.
-
-But more importantly, the old test allowed us to ignore outdated
-or erroneous redirects.
-
-We really have to restore the original behavior before my inetpeer
-changes (enforce that the old gateway matches), and find another way
-to accomodate IPVS.
+Thanks, notied.
