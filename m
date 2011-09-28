@@ -1,61 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ICMP redirect issue
-Date: Wed, 28 Sep 2011 19:12:55 -0400 (EDT)
-Message-ID: <20110928.191255.1803703769504267178.davem@davemloft.net>
-References: <20110928.140632.726302773135946390.davem@davemloft.net>
-	<20110928171952.0c0d2d05@asterix.rh>
-	<20110928.185654.560483806662347226.davem@davemloft.net>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: 82574 DMA Burst Mode Enablement
+Date: Wed, 28 Sep 2011 16:20:08 -0700
+Message-ID: <20110928162008.00001061@unknown>
+References: <30751F5D655350478D3821069A3CF1F29D618D@365EXCH-MBX-P5.nbttech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fbl@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42703 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755958Ab1I1XM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 19:12:57 -0400
-In-Reply-To: <20110928.185654.560483806662347226.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Prasanna Panchamukhi <Prasanna.Panchamukhi@riverbed.com>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>
+To: Denis Radovanovic <Denis.Radovanovic@riverbed.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <30751F5D655350478D3821069A3CF1F29D618D@365EXCH-MBX-P5.nbttech.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 28 Sep 2011 18:56:54 -0400 (EDT)
-
-> From: Flavio Leitner <fbl@redhat.com>
-> Date: Wed, 28 Sep 2011 17:19:52 -0300
+On Wed, 28 Sep 2011 11:39:54 -0700
+Denis Radovanovic <Denis.Radovanovic@riverbed.com> wrote:
+> We are currently testing small packet performance on 82574, comparing
+> it to 82571. Initial pktgen measurements have shown a significant
+> difference in performance that is the most visible when running
+> bidirectional traffic with 256 byte packets.
 > 
->> What about something like below? It will change a bit the
->> secure_redirects documentation.
-> 
-> The previous check was stronger, and served other purposes.
-> 
-> Firstly, it required that the spoofer know the exact gateway
-> IP address we used previously, whereas your test requires only
-> knowing the subnet which is easier to figure out.
-> 
-> But more importantly, the old test allowed us to ignore outdated
-> or erroneous redirects.
-> 
-> We really have to restore the original behavior before my inetpeer
-> changes (enforce that the old gateway matches), and find another way
-> to accomodate IPVS.
+> Looking at the e1000e driver, we noticed that flag FLAG2_DMA_BURST is
+> enabled for 82571 and 82572 but it is not enabled for 82574. After
+> enabling the flag, the 82574 performance significantly improved,
+> approaching the one on 82571.
 
-BTW, I just double-checked RFC1122 and it explicitly specifies the
-old_gw check:
+At the time the feature was implemented we didn't have the bandwidth to
+validate it on other parts besides 82571/2
 
-[ RFC1122, section 3.2.2.2 ]
+As it stands, yes you can enable it, but there will likely be some bugs
+that you will run into that we already know about but don't fully have
+fixed in the code.  The bugs might result in tx hangs or other issues.
+I do agree that there are significant performance gains to be had via
+this feature, if the bugs can all be worked out.
 
- ...
+if this is a feature that you would really like implemented please use
+your Intel Field Agent or TME contacts  in order to document your requirement 
+so we can consider it for future releases.
 
-	A Redirect message SHOULD be silently discarded if the new
-        gateway address it specifies is not on the same connected
-        (sub-) net through which the Redirect arrived [INTRO:2,
-        Appendix A], or if the source of the Redirect is not the
-        current first-hop gateway for the specified destination (see
-        Section 3.3.1).
+Thanks,
+  Jesse
 
-In fact, it's saying that we should also validate that saddr == old_gw
-too.
-
-So really, we need to put the check back and find a way to accomodate IPVS.
+------------------------------------------------------------------------------
+All the data continuously generated in your IT infrastructure contains a
+definitive record of customers, application performance, security
+threats, fraudulent activity and more. Splunk takes this data and makes
+sense of it. Business sense. IT sense. Common sense.
+http://p.sf.net/sfu/splunk-d2dcopy1
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
