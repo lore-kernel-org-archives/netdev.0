@@ -1,32 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] ptp: feature enhancements
-Date: Wed, 28 Sep 2011 04:17:30 -0400 (EDT)
-Message-ID: <20110928.041730.1317347250549344077.davem@davemloft.net>
-References: <cover.1316518332.git.richard.cochran@omicron.at>
-	<20110926.160443.1205173553442138535.davem@davemloft.net>
-	<20110928080023.GB6670@netboy.at.omicron.at>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the moduleh tree
+Date: Wed, 28 Sep 2011 18:25:49 +1000
+Message-ID: <20110928182549.2574857be45b6850c832c419@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41664 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984Ab1I1IRe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 04:17:34 -0400
-In-Reply-To: <20110928080023.GB6670@netboy.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stefan Assmann <sassmann@kpanic.de>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Wed, 28 Sep 2011 10:00:24 +0200
+Hi Paul,
 
-> On Mon, Sep 26, 2011 at 04:04:43PM -0400, David Miller wrote:
->> Could you please add a test at the point where we pull in the
->> ->tx_type value from the user, to make sure it is one of the
->> validly defined HWTSTAMP_TX_FOO values?
-> 
-> Okay, will do. Any chance of getting the bug fixes in for 3.1?
+After merging the moduleh tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-I plan to try to get them into the next round.
+drivers/net/wireless/rtlwifi/debug.c:32:21: error: expected ')' before 'uint'
+drivers/net/wireless/rtlwifi/debug.c:33:25: error: expected ')' before string constant
+
+Caused by commit b5be7e4c8f7b ("rtlwifi: add module parameter to set
+global debug level") from the net tree interacting with the module.h
+split up.
+
+I have applied the following patch for today (and it could be applied to
+the net or wireless trees).
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 28 Sep 2011 18:21:47 +1000
+Subject: [PATCH] rtlwifi: use of module_param requires the inclusion of
+ moduleparam.h
+
+Otherwise the module.h split up will fail like this:
+
+drivers/net/wireless/rtlwifi/debug.c:32:21: error: expected ')' before 'uint'
+drivers/net/wireless/rtlwifi/debug.c:33:25: error: expected ')' before string constant
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/wireless/rtlwifi/debug.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/debug.c b/drivers/net/wireless/rtlwifi/debug.c
+index b2f897a..e69aba9 100644
+--- a/drivers/net/wireless/rtlwifi/debug.c
++++ b/drivers/net/wireless/rtlwifi/debug.c
+@@ -26,6 +26,8 @@
+  * Larry Finger <Larry.Finger@lwfinger.net>
+  *****************************************************************************/
+ 
++#include <linux/moduleparam.h>
++
+ #include "wifi.h"
+ 
+ static unsigned int debug = DBG_EMERG;
+-- 
+1.7.6.3
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
