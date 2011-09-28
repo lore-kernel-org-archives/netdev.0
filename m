@@ -1,35 +1,82 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH v2 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
-Date: Wed, 28 Sep 2011 09:25:42 +0200
-Message-ID: <CAHXqBFLzrkH4AJVozbtT4k7ccgVgfaPoq69J48DeSJKSwEtxHw@mail.gmail.com>
-References: <1317166015-20714-1-git-send-email-david.daney@cavium.com> <1317166015-20714-3-git-send-email-david.daney@cavium.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: __pskb_pull_tail oops from 2.6.35
+Date: Wed, 28 Sep 2011 10:30:00 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1109281006380.1552@ja.ssi.bg>
+References: <20110927200328.GA22678@redhat.com>  <20110927.160804.528213323197711241.davem@davemloft.net>  <20110927201500.GA27713@redhat.com>  <20110927.161848.1967387021236457958.davem@davemloft.net>  <20110927202405.GB27713@redhat.com>
+ <1317155839.2472.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: David Daney <david.daney@cavium.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317166015-20714-3-git-send-email-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-136697441-1317195001=:1552"
+Cc: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:34888 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751785Ab1I1H3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Sep 2011 03:29:21 -0400
+In-Reply-To: <1317155839.2472.5.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-MjAxMS85LzI4IERhdmlkIERhbmV5IDxkYXZpZC5kYW5leUBjYXZpdW0uY29tPjoKWy4uLl0KPiAr
-RXhhbXBsZSA6Cj4gKwo+ICsgwqAgwqAgwqAgLyogVGhlIHBhcmVudCBNRElPIGJ1cy4gKi8KPiAr
-IMKgIMKgIMKgIHNtaTE6IG1kaW9AMTE4MDAwMDAwMTkwMCB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCBjb21wYXRpYmxlID0gImNhdml1bSxvY3Rlb24tMzg2MC1tZGlvIjsKPiArIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgICNhZGRyZXNzLWNlbGxzID0gPDE+Owo+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgI3NpemUtY2VsbHMgPSA8MD47Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCByZWcgPSA8MHgx
-MTgwMCAweDAwMDAxOTAwIDB4MCAweDQwPjsKPiArIMKgIMKgIMKgIH07Cj4gKwo+ICsgwqAgwqAg
-wqAgLyoKPiArIMKgIMKgIMKgIMKgIMKgQW4gTlhQIHNuNzRjYnRsdjMyNTMgZHVhbCAxLW9mLTQg
-c3dpdGNoIGNvbnRyb2xsZWQgYnkgYQo+ICsgwqAgwqAgwqAgwqAgwqBwYWlyIG9mIEdQSU8gbGlu
-ZXMuIMKgQ2hpbGQgYnVzc2VzIDIgYW5kIDMgcG9wdWxhdGVkIHdpdGggNAo+ICsgwqAgwqAgwqAg
-wqAgwqBQSFlzIGVhY2guCj4gKyDCoCDCoCDCoCDCoCovCj4gKyDCoCDCoCDCoCBtZGlvLW11eCB7
-Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBjb21wYXRpYmxlID0gImNhdml1bSxtZGlvLW11eC1z
-bjc0Y2J0bHYzMjUzIiwgImNhdml1bSxtZGlvLW11eCI7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBncGlvcyA9IDwmZ3BpbzEgMyAwPiwgPCZncGlvMSA0IDA+Owo+ICsgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgbWRpby1wYXJlbnQtYnVzID0gPCZzbWkxPjsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-ICNhZGRyZXNzLWNlbGxzID0gPDE+Owo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgI3NpemUtY2Vs
-bHMgPSA8MD47CgpUaGlzIHNob3VsZCBwcm9iYWJseSBoYXZlICdjb21wYXRpYmxlID0gIm54cCxz
-bjc0Y2J0bHYzMjUzIjsnIGhlcmUuCgpCZXN0IFJlZ2FyZHMsCk1pY2hhxYIgTWlyb3PFgmF3Cg==
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---1463811672-136697441-1317195001=:1552
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+
+
+	Hello,
+
+On Tue, 27 Sep 2011, Eric Dumazet wrote:
+
+> Le mardi 27 septembre 2011 à 16:24 -0400, Dave Jones a écrit :
+> > On Tue, Sep 27, 2011 at 04:18:48PM -0400, David Miller wrote:
+> >  > From: Dave Jones <davej@redhat.com>
+> >  > Date: Tue, 27 Sep 2011 16:15:00 -0400
+> >  > 
+> >  > > It looks like it died in put_page..
+> >  > > 
+> >  > > <1>[  262.574991] IP: [<ffffffff810dca57>] put_page+0x10/0x7c
+> >  > > 
+> >  > > which is only called in one place..
+> >  > > 
+> >  > > 1267         for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+> >  > > 1268                 if (skb_shinfo(skb)->frags[i].size <= eat) {
+> >  > > 1269                         put_page(skb_shinfo(skb)->frags[i].page);
+> >  > > 1270                         eat -= skb_shinfo(skb)->frags[i].size;
+> >  > > 1271                 } else {
+> >  > 
+> >  > That's a pretty serious corruption, all frag array entries from 0 to
+> >  > nr_frags should have valid, non-NULL page pointers.
+> >  > 
+> >  > Maybe a LRO/GRO bug?  There were a couple of those.
+> > 
+> > I'll see if I can talk him into trying a self-built kernel, as we're not
+> > rebasing f14 at this point in its life-cycle. If it turns out to still affect
+> > 3.x, I'll bring it up again.
+> > 
+> 
+> This could be a struct skb_shared_info -> nr_frags corruption
+> 
+> (Something was overflowing skb head and overflowing very beginning of
+> skb_shared_info in rare circumstances)
+> 
+> We had such bug in the past, I cant remember details right now.
+
+	I remember for similar problem that was fixed
+recently (IPVS+nf_reinject), oops is here:
+
+http://marc.info/?l=linux-virtual-server&m=131098073717449&w=2
+
+	Oops points to put_page but not sure for the call trace.
+Code auditing pointed out to be a double kfree_skb issue. Still,
+it was never confirmed by the original reporter. May be
+problem with double kfree_skb is easier to track in all
+modules that play with the packet.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+---1463811672-136697441-1317195001=:1552--
