@@ -1,79 +1,54 @@
-From: skandranon <skandranon@gmx.at>
-Subject: Problem with ARP-replies on Kernels 2.6 (possibly 3.0, but not 2.4!)
-Date: Wed, 28 Sep 2011 19:49:41 +0200
-Message-ID: <4E835E35.3030503@gmx.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ICMP redirect issue
+Date: Wed, 28 Sep 2011 14:06:32 -0400 (EDT)
+Message-ID: <20110928.140632.726302773135946390.davem@davemloft.net>
+References: <20110927162120.30394030@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.22]:47212 "HELO
-	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754642Ab1I1Rtq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 13:49:46 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:45528 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753770Ab1I1SHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 14:07:04 -0400
+In-Reply-To: <20110927162120.30394030@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Flavio Leitner <fbl@redhat.com>
+Date: Tue, 27 Sep 2011 16:21:20 -0300
 
-I sure hope that this is the right forum to find help with my problem.
-If not, please someone provide me with a pointer!
+> The issue is about the gateway being a LVS, so the servers behind use
+> the IP alias address as the default gateway.  However, when the gateway
+> sends an ICMP redirect, it comes from the primary IP address which is
+> ignored on older kernels because of the old_gw check:
+> 
+> -                               if (rth->rt_dst != daddr ||
+> -                                   rth->rt_src != saddr ||
+> -                                   rth->dst.error ||
+> -                                   rth->rt_gateway != old_gw ||
+> -                                   rth->dst.dev != dev)
+> -                                       break;
+> 
+> 
+> Well, the consequence is that the issue doesn't happen in newer kernels
+> because it happily accepts the ICMP redirect.
+> 
+> The admin can still control using shared_media and secure_redirects if
+> the host should accept only the ICMP redirects for gateways listed in
+> default gateway list or not.
 
-Following up to a complaint, I found some strange behavior with ARP 
-replies being sent out for IP addresses via interfaces that have no 
-relation to the IP addresses being queried.
+Unfortunately, shared_media is on by default which means the default
+secure_redirects setting of '1' is ignored.
 
-The setup is about as follows:
-I have a machine connected to multiple physically disconnected networks, 
-neither doing any routing, bridging or anything similar.
-MyMachine:eth0: 10.1.1.1/24
-MyMachine:eth1: 192.168.1.2/24
-MyMachine:eth2: 172.20.7.7/24
+This means that redirects can be spoofed in the default configuration,
+but with the above check they would not be spoofable.
 
-Network 10.1.1.0/24 is not controlled by me, and someone decided to 
-setup a Windows machine doing multinetworking:similar to
-HisMachine:eth0: 10.1.1.15/24
-HisMachine:eth0:0: 192.168.1.2/24
+I suspect that, because of this, we'll need to add the check back.  Or
+do something similar.
 
-Now, HisMachine is detecting another server using IP address 
-192.168.1.2, and it is giving the MAC address of MyMachine:eth0 as the 
-offender.
-
-Some investigation showed that MyMachine is responding to ARP-broadcasts 
-coming in on interface eth0 if those ARP packets have a source address 
-of either 0.0.0.0 or some IP address from 10.1.1.0/24 irrespective of 
-the IP address that is being queried:
-example queries:
-"ARP: who has 192.168.1.2 tell 0.0.0.0", received on MyMachine:eth0 => 
-MyMachine sends a reply with the MAC-address of its eth0
-"ARP: who has 192.168.1.2 tell 10.1.1.15", received on MyMachine:eth0 => 
-MyMachine send a reply with the MAC-address of its eth0
-"ARP: who has 192.168.1.2 tell 192.168.1.x" (x=1..254), received on 
-MyMachine:eth0 => no reply is being sent
-
-Similar behaviour can be seen for other combination of IP addresses and 
-interfaces (e.g. "ARP: who has 10.1.1.1 tell 0.0.0.0" received on 
-interface eth1 would also be answered - via eth1, of course)
-
-I've tested this using
-arping -I <interface> -s <source> <IP address>
-arping -I <interface> -D <IP address>
-for several different systems (SuSE SLES 8- 2.421, SuSE SLES 9 - 2.6.5, 
-SuSE SLES 10 - 2.6.16, SuSE SLES 11 - 2.6.32, Open Suse 11.3 - 2.6.34, 
-OpenSuSE 11.4 - 2.6.37, several different Ubuntu versions...),
-and found that any 2.6-based system displayed similar behaviour, but not 
-the old 2.4-based ones.
-
-Basically, I would have expected MyMachine to answer ARP queries 
-received via eth0 only if an address was queried that was assigned to 
-eth0 (also secondary IP addresses assigned by "ip" or virtual interfaces 
-generated by ifconfig).
-
-So: Is this a bug or a feature?
-
-In any case: many thanks to each of you developers (but for you, I 
-wouldn't have my current job), and also many thanks to each of you 
-taking the time to answer questions on this list!
-
-Best Regards,
-   Frank Mayer
+We can't "fix" this by turning shared_media off by default because that
+changes behavior on input route processing wrt. how we decide whether
+to emit a redirect or not.
