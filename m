@@ -1,50 +1,46 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: [PATCH 1/1] ibmveth: Fix oops on request_irq failure
-Date: Wed, 28 Sep 2011 10:33:43 -0500
-Message-ID: <201109281533.p8SFXhfe030707@d03av04.boulder.ibm.com>
-Cc: brking@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:38185 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753168Ab1I1PeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Sep 2011 11:34:05 -0400
-Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
-	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p8SFA3BD030996
-	for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 11:10:03 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p8SFXwGl966658
-	for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 11:33:58 -0400
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p8SFXiKt030802
-	for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 09:33:44 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL net-next] IPVS
+Date: Wed, 28 Sep 2011 17:45:40 +0200
+Message-ID: <20110928154540.GA1158@1984>
+References: <1317027938-22053-1-git-send-email-horms@verge.net.au>
+ <20110927081618.GA22655@1984>
+ <20110928132802.GC7661@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110928132802.GC7661@verge.net.au>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Sep 28, 2011 at 10:28:03PM +0900, Simon Horman wrote:
+> On Tue, Sep 27, 2011 at 10:16:18AM +0200, Pablo Neira Ayuso wrote:
+> > On Mon, Sep 26, 2011 at 06:05:33PM +0900, Simon Horman wrote:
+> > > Hi,
+> > > 
+> > > with all the excitement of kernel.org being offline and a bunch of trees
+> > > likewise being offline I am a little unsure who should take this pull
+> > > request which is based on the current net-next tree. But I guess it should
+> > > be Patrick, Pablo or Dave.
+> > 
+> > I'll try to set up one tree in one of my servers along today, I'll
+> > send you the URI. We can use it until kernel.org comes back.
+> 
+> Thanks. Would you like me to rebase my tree on yours?
 
-If request_irq fails, the ibmveth driver will overwrite
-the rc and end up returning a successful rc on its open
-function, resulting in an oops later when a packet gets
-sent and buffers are not allocated due to the failed open.
+For your patches, I put them in one branch and will cherrypick them
+into master.
 
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
----
+BTW, the trees are here:
 
- drivers/net/ibmveth.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+http://1984.lsi.us.es/git/?p=net/.git;a=summary
+http://1984.lsi.us.es/git/?p=net-next/.git;a=summary
 
-diff -puN drivers/net/ibmveth.c~ibmveth_bounce_oops2 drivers/net/ibmveth.c
---- linux-2.6/drivers/net/ibmveth.c~ibmveth_bounce_oops2	2011-09-28 09:53:09.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.c	2011-09-28 09:53:09.000000000 -0500
-@@ -636,8 +636,8 @@ static int ibmveth_open(struct net_devic
- 		netdev_err(netdev, "unable to request irq 0x%x, rc %d\n",
- 			   netdev->irq, rc);
- 		do {
--			rc = h_free_logical_lan(adapter->vdev->unit_address);
--		} while (H_IS_LONG_BUSY(rc) || (rc == H_BUSY));
-+			lpar_rc = h_free_logical_lan(adapter->vdev->unit_address);
-+		} while (H_IS_LONG_BUSY(lpar_rc) || (lpar_rc == H_BUSY));
- 
- 		goto err_out;
- 	}
-_
+I'll start iterating over the list collecting patches along today.
