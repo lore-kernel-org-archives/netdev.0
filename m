@@ -1,20 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net/fec: replace hardcoded irq num with macro.
-Date: Wed, 28 Sep 2011 03:24:19 -0400 (EDT)
-Message-ID: <20110928.032419.2113734655470772752.davem@davemloft.net>
-References: <1316830784-17108-1-git-send-email-jgq516@gmail.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH v2 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Wed, 28 Sep 2011 09:25:42 +0200
+Message-ID: <CAHXqBFLzrkH4AJVozbtT4k7ccgVgfaPoq69J48DeSJKSwEtxHw@mail.gmail.com>
+References: <1317166015-20714-1-git-send-email-david.daney@cavium.com> <1317166015-20714-3-git-send-email-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jgq516@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: David Daney <david.daney@cavium.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1316830784-17108-1-git-send-email-jgq516@gmail.com>
+In-Reply-To: <1317166015-20714-3-git-send-email-david.daney@cavium.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Please respin these patches against net-next, where the FEC driver
-lives in a different directory.
-
-Thanks.
+MjAxMS85LzI4IERhdmlkIERhbmV5IDxkYXZpZC5kYW5leUBjYXZpdW0uY29tPjoKWy4uLl0KPiAr
+RXhhbXBsZSA6Cj4gKwo+ICsgwqAgwqAgwqAgLyogVGhlIHBhcmVudCBNRElPIGJ1cy4gKi8KPiAr
+IMKgIMKgIMKgIHNtaTE6IG1kaW9AMTE4MDAwMDAwMTkwMCB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDC
+oCDCoCBjb21wYXRpYmxlID0gImNhdml1bSxvY3Rlb24tMzg2MC1tZGlvIjsKPiArIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgICNhZGRyZXNzLWNlbGxzID0gPDE+Owo+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgI3NpemUtY2VsbHMgPSA8MD47Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCByZWcgPSA8MHgx
+MTgwMCAweDAwMDAxOTAwIDB4MCAweDQwPjsKPiArIMKgIMKgIMKgIH07Cj4gKwo+ICsgwqAgwqAg
+wqAgLyoKPiArIMKgIMKgIMKgIMKgIMKgQW4gTlhQIHNuNzRjYnRsdjMyNTMgZHVhbCAxLW9mLTQg
+c3dpdGNoIGNvbnRyb2xsZWQgYnkgYQo+ICsgwqAgwqAgwqAgwqAgwqBwYWlyIG9mIEdQSU8gbGlu
+ZXMuIMKgQ2hpbGQgYnVzc2VzIDIgYW5kIDMgcG9wdWxhdGVkIHdpdGggNAo+ICsgwqAgwqAgwqAg
+wqAgwqBQSFlzIGVhY2guCj4gKyDCoCDCoCDCoCDCoCovCj4gKyDCoCDCoCDCoCBtZGlvLW11eCB7
+Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBjb21wYXRpYmxlID0gImNhdml1bSxtZGlvLW11eC1z
+bjc0Y2J0bHYzMjUzIiwgImNhdml1bSxtZGlvLW11eCI7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCBncGlvcyA9IDwmZ3BpbzEgMyAwPiwgPCZncGlvMSA0IDA+Owo+ICsgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgbWRpby1wYXJlbnQtYnVzID0gPCZzbWkxPjsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+ICNhZGRyZXNzLWNlbGxzID0gPDE+Owo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgI3NpemUtY2Vs
+bHMgPSA8MD47CgpUaGlzIHNob3VsZCBwcm9iYWJseSBoYXZlICdjb21wYXRpYmxlID0gIm54cCxz
+bjc0Y2J0bHYzMjUzIjsnIGhlcmUuCgpCZXN0IFJlZ2FyZHMsCk1pY2hhxYIgTWlyb3PFgmF3Cg==
