@@ -1,59 +1,45 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [PATCH v2 2/2] virtio-net: Prevent NULL dereference
-Date: Wed, 28 Sep 2011 17:40:55 +0300
-Message-ID: <1317220855-9352-2-git-send-email-levinsasha928@gmail.com>
-References: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
-Cc: Sasha Levin <levinsasha928@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next 11/13] igb: Make Tx budget for NAPI user adjustable
+Date: Wed, 28 Sep 2011 08:11:58 -0700
+Message-ID: <20110928081158.7273e9b4@nehalam.linuxnetplumber.net>
+References: <19fca01e-5827-4e28-b12c-2b65cca96878@tahiti.vyatta.com>
+	<1316477404.14749.256.camel@deadeye>
+	<20110920185918.GX21309@gospo.rdu.redhat.com>
+	<20110920202305.GC16323@hmsreliant.think-freely.org>
+	<1317167146.2845.48.camel@bwh-desktop>
+	<20110928110055.GA15340@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	jeffrey t kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	gospo@redhat.com, Alexander H Duyck <alexander.h.duyck@intel.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:34668 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751668Ab1I1PME (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Sep 2011 11:12:04 -0400
+In-Reply-To: <20110928110055.GA15340@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch prevents a NULL dereference when the user has passed a length
-longer than an actual buffer to virtio-net.
+On Wed, 28 Sep 2011 07:00:55 -0400
+Neil Horman <nhorman@tuxdriver.com> wrote:
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: virtualization@lists.linux-foundation.org
-Cc: netdev@vger.kernel.org
-Cc: kvm@vger.kernel.org
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
----
- drivers/net/virtio_net.c |   12 +++++++++++-
- 1 files changed, 11 insertions(+), 1 deletions(-)
+> I was thinking of something along the lines of two more attributes in
+> /sys/class/net/<if>/queues:
+> napi_weight
+> irq
+> 
+> The former is the napi weight of a given napi instance associated with a queue,
+> while the latter is a symlink either to ../device/irq or ../device/msi_irqs/<n>/
+> (or perhaps to ../devices/msi_irqs/<n>/irq if we want more consistency).   This
+> lets us tune the napi weight of a queue and know what interrupt is associated
+> with it.  That seems fairly sane to me.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index bde0dec..4a53d2a 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -208,12 +208,22 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
- 		return NULL;
- 	}
- 
--	while (len) {
-+	while (len && page) {
- 		set_skb_frag(skb, page, offset, &len);
- 		page = (struct page *)page->private;
- 		offset = 0;
- 	}
- 
-+	/*
-+	 * This is the case where we ran out of pages in our linked list, but
-+	 * supposedly have more data to read.
-+	 */	
-+	if (len > 0) {
-+		pr_debug("%s: missing data to assemble skb\n", skb->dev->name);
-+		dev_kfree_skb(skb);
-+		return NULL;
-+	}
-+
- 	if (page)
- 		give_pages(vi, page);
- 
--- 
-1.7.6.1
+This breaks for the case of some corner case devices like multi-port Marvell boards.
+There can be a N to 1 or 1 to N relationship between NAPI and the device.
