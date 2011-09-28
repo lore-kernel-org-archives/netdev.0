@@ -1,43 +1,39 @@
-From: Gregory.Dietsche@cuw.edu
-Subject: [PATCH] iwlagn: iwl-agn-rs: remove unnecessary null check for sta and lq_sta
-Date: Wed, 28 Sep 2011 17:54:04 -0500
-Message-ID: <1317250444-2248-1-git-send-email-Gregory.Dietsche@cuw.edu>
-Cc: ilw@linux.intel.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Greg Dietsche <Gregory.Dietsche@cuw.edu>
-To: wey-yi.w.guy@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: ICMP redirect issue
+Date: Wed, 28 Sep 2011 18:56:54 -0400 (EDT)
+Message-ID: <20110928.185654.560483806662347226.davem@davemloft.net>
+References: <20110927162120.30394030@asterix.rh>
+	<20110928.140632.726302773135946390.davem@davemloft.net>
+	<20110928171952.0c0d2d05@asterix.rh>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta21.charter.net ([216.33.127.81]:53608 "EHLO
-	mta21.charter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755175Ab1I1WyS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 18:54:18 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:56528 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933456Ab1I1W44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 18:56:56 -0400
+In-Reply-To: <20110928171952.0c0d2d05@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Dietsche <Gregory.Dietsche@cuw.edu>
+From: Flavio Leitner <fbl@redhat.com>
+Date: Wed, 28 Sep 2011 17:19:52 -0300
 
-both sta and lq_sta are guaranteed to be not null in the
-calling function so we don't need to check them here.
+> What about something like below? It will change a bit the
+> secure_redirects documentation.
 
-Signed-off-by: Greg Dietsche <Gregory.Dietsche@cuw.edu>
----
- drivers/net/wireless/iwlwifi/iwl-agn-rs.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+The previous check was stronger, and served other purposes.
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-rs.c b/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
-index 3789ff4..e5ea33b 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn-rs.c
-@@ -2269,9 +2269,6 @@ static void rs_rate_scale_perform(struct iwl_priv *priv,
- 	    info->flags & IEEE80211_TX_CTL_NO_ACK)
- 		return;
- 
--	if (!sta || !lq_sta)
--		return;
--
- 	lq_sta->supp_rates = sta->supp_rates[lq_sta->band];
- 
- 	tid = rs_tl_add_packet(lq_sta, hdr);
--- 
-1.7.6.4
+Firstly, it required that the spoofer know the exact gateway
+IP address we used previously, whereas your test requires only
+knowing the subnet which is easier to figure out.
+
+But more importantly, the old test allowed us to ignore outdated
+or erroneous redirects.
+
+We really have to restore the original behavior before my inetpeer
+changes (enforce that the old gateway matches), and find another way
+to accomodate IPVS.
