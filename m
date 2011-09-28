@@ -1,31 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Wed, 28 Sep 2011 01:36:52 -0400 (EDT)
-Message-ID: <20110928.013652.1712671417837562954.davem@davemloft.net>
-References: <20110928125428.70d5cf10ea59f729135d5dff@canb.auug.org.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the moduleh tree with the net tree
+Date: Wed, 28 Sep 2011 16:34:06 +1000
+Message-ID: <20110928163406.843e4be56b42dca280d85489@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ordex@autistici.org,
-	lindner_marek@yahoo.de
-To: sfr@canb.auug.org.au
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pavel Roskin <proski@gnu.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110928125428.70d5cf10ea59f729135d5dff@canb.auug.org.au>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 28 Sep 2011 12:54:28 +1000
+Hi Paul,
 
-> Today's linux-next merge of the net tree got a conflict in
-> net/batman-adv/soft-interface.c between commit 8b267b312df9 ("batman-adv:
-> do_bcast has to be true for broadcast packets only") from the net-current
-> tree and commit 3d393e473210 ("batman-adv: implement AP-isolation on the
-> sender side") from the net tree.
-> 
-> Just context changes.  I fixed it up (see below) and can carry the fix as
-> necessary.
+Today's linux-next merge of the moduleh tree got a conflict in
+drivers/net/wireless/ath/ath5k/debug.c between commit 931be260ed54
+("ath5k: clean up base.h and its use") from the net tree and commits
+9ec3f961e31a ("drivers/net: Add export.h to files using
+EXPORT_SYMBOL/THIS_MODULE") and 0cccb17382f1 ("drivers/net: Add
+moduleparam.h to drivers as required") from the moduleh tree.
 
-Yep, I'll do a merge soon to fix this up for good, thanks Stephen!
+I fixed it up (see below) and can carry the fix as necessary.  (I am
+pretty sure that this file doesn't need module.h, but not completely).
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/wireless/ath/ath5k/debug.c
+index fce8c90,1051ede..0000000
+--- a/drivers/net/wireless/ath/ath5k/debug.c
++++ b/drivers/net/wireless/ath/ath5k/debug.c
+@@@ -58,13 -58,9 +58,15 @@@
+   * THE POSSIBILITY OF SUCH DAMAGES.
+   */
+  
+ +#include <linux/module.h>
++ #include <linux/moduleparam.h>
+ -#include "base.h"
+++#include <linux/export.h>
+ +#include <linux/seq_file.h>
+ +#include <linux/list.h>
+  #include "debug.h"
+ +#include "ath5k.h"
+ +#include "reg.h"
+ +#include "base.h"
+  
+  static unsigned int ath5k_debug;
+  module_param_named(debug, ath5k_debug, uint, 0);
