@@ -1,53 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible NULL dereference caused by -stable commit
- ef81bb40bf15f350fe865f31fa42f1082772a576
-Date: Wed, 28 Sep 2011 14:09:09 +0200
-Message-ID: <1317211749.2941.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4E82FC4E.5010101@redhat.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v2 4/7] per-cgroup tcp buffers control
+Date: Wed, 28 Sep 2011 09:11:29 -0300
+Message-ID: <4E830EF1.5080704@parallels.com>
+References: <1316051175-17780-1-git-send-email-glommer@parallels.com> <1316051175-17780-5-git-send-email-glommer@parallels.com> <CANaxB-wy8VDv0Wjni6UzcfBzSgNn=bZBey5f+fXHebNuek=O1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@redhat.com>,
-	linux-kernel@vger.kernel.org, Greg KH <gregkh@suse.de>,
-	stable@kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	Amos Kong <akong@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E82FC4E.5010101@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <kamezawa.hiroyu@jp.fujitsu.com>,
+	<ebiederm@xmission.com>, <davem@davemloft.net>, <gthelen@google.com>,
+	<netdev@vger.kernel.org>, <linux-mm@kvack.org>
+To: Andrew Wagin <avagin@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CANaxB-wy8VDv0Wjni6UzcfBzSgNn=bZBey5f+fXHebNuek=O1A@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Le mercredi 28 septembre 2011 =C3=A0 18:51 +0800, Jason Wang a =C3=A9cr=
-it :
-> Hi all:
->=20
-> A possible NULL dereference were noticed by the stable commit=20
-> ef81bb40bf15f350fe865f31fa42f1082772a576 (which is a backport of=20
-> 87c48fa3b4630905f98268dde838ee43626a060c). The case happens when brid=
-ge=20
-> froward a packet from guest to a physical nic, at this time no route =
-is=20
-> attached to the skb which may lead a NULL dereference in=20
-> ipv6_select_ident(). -Next version have this check so it is fine. The=
-=20
-> following patch may be used to avoid this but may also lead the ip=20
-> identification predicable, and this defect is also exist -next versio=
-n=20
-> when no route because we still depends on a global variable to genera=
-te=20
-> the identification.  Any thought on this?
+On 09/28/2011 08:58 AM, Andrew Wagin wrote:
+> * tcp_destroy_cgroup_fill() is executed for each cgroup and
+> initializes some proto methods. proto_list is global and we can
+> initialize each proto one time. Do we need this really?
+>
+> * And when a cgroup is destroyed, it cleans proto methods
+> (tcp_destroy_cgroup_fill), how other cgroups will work after that?
 
-1) Discussion on current kernel :
+I've already realized that, and removed destruction from my upcoming
+series. Thanks
 
-All we need here is not the route but inet_peer, so that inet_getid()
-can be called on it.
+> * What about proto, which is registered when cgroup mounted?
+>
+> My opinion that we may initialize proto by the following way:
+>
+> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM+       .enter_memory_pressure
+> = tcp_enter_memory_pressure_nocg,
+> +       .sockets_allocated      = sockets_allocated_tcp_nocg,
+> +       .memory_allocated       = memory_allocated_tcp_nocg,
+> +       .memory_pressure        = memory_pressure_tcp_nocg,
+> +#else
+>          .enter_memory_pressure  = tcp_enter_memory_pressure,
+>          .sockets_allocated      = sockets_allocated_tcp,
+>          .memory_allocated       = memory_allocated_tcp,
+>          .memory_pressure        = memory_pressure_tcp,
+> +#endif
+>
+> It should work, because the root memory cgroup always exists.
+Yeah, I was still doing the initialization through cgroups, but I think
+this works.
 
-If no route is given to ipv6_select_ident(), at least we can try to get
-inet_peer, and release it before exiting from ipv6_select_ident()
+The reason I was keeping it cgroup's initialization method, was because 
+we have a parameter that allowed kmem accounting to be disabled.
+But Kame suggested we'd remove it, and so I did.
 
-2) On stable kernel, we already use an array
-(ipv6_fragmentation_id[FID_HASH_SZ];) to make less predictables
-fragments ids.
+>
+>> +int tcp_init_cgroup_fill(struct proto *prot, struct cgroup *cgrp,
+>> +                        struct cgroup_subsys *ss)
+>> +{
+>> +       prot->enter_memory_pressure     = tcp_enter_memory_pressure;
+>> +       prot->memory_allocated          = memory_allocated_tcp;
+>> +       prot->prot_mem                  = tcp_sysctl_mem;
+>> +       prot->sockets_allocated         = sockets_allocated_tcp;
+>> +       prot->memory_pressure           = memory_pressure_tcp;
+>> +
+>> +       return 0;
+>> +}
+>
+>
+>> +void tcp_destroy_cgroup_fill(struct proto *prot, struct cgroup *cgrp,
+>> +                            struct cgroup_subsys *ss)
+>> +{
+>> +       prot->enter_memory_pressure     = tcp_enter_memory_pressure_nocg;
+>> +       prot->memory_allocated          = memory_allocated_tcp_nocg;
+>> +       prot->prot_mem                  = tcp_sysctl_mem_nocg;
+>> +       prot->sockets_allocated         = sockets_allocated_tcp_nocg;
+>> +       prot->memory_pressure           = memory_pressure_tcp_nocg;
+>>
+>
+>> @@ -2220,12 +2220,16 @@ struct proto tcpv6_prot = {
+>>        .hash                   = tcp_v6_hash,
+>>        .unhash                 = inet_unhash,
+>>        .get_port               = inet_csk_get_port
+>> +       .enter_memory_pressure  = tcp_enter_memory_pressure_nocg,
+>> +       .sockets_allocated      = sockets_allocated_tcp_nocg,
+>> +       .memory_allocated       = memory_allocated_tcp_nocg,
+>> +       .memory_pressure        = memory_pressure_tcp_nocg,
 
-So we could get dst addr from the packet to be forwarded instead of the
-(possibly NULL) route.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
