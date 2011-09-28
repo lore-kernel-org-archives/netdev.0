@@ -1,77 +1,38 @@
-From: Denis Radovanovic <Denis.Radovanovic@riverbed.com>
-Subject: 82574 DMA Burst Mode Enablement
-Date: Wed, 28 Sep 2011 18:39:54 +0000
-Message-ID: <30751F5D655350478D3821069A3CF1F29D618D@365EXCH-MBX-P5.nbttech.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH] RDSRDMA: Fix cleanup of rds_iw_mr_pool
+Date: Wed, 28 Sep 2011 15:03:22 -0500
+Message-ID: <4E837D8A.4080807@opengridcomputing.com>
+References: <20110913194101.7497.65515.stgit@build.ogc.int> <20110927.013247.336618301904552114.davem@davemloft.net> <4E82075B.9000003@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0113002802385226747=="
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Prasanna Panchamukhi <Prasanna.Panchamukhi@riverbed.com>
-To: "bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
---===============0113002802385226747==
-Content-Language: en-US
-Content-Type: multipart/alternative;
-	boundary="_000_30751F5D655350478D3821069A3CF1F29D618D365EXCHMBXP5nbtte_"
-
---_000_30751F5D655350478D3821069A3CF1F29D618D365EXCHMBXP5nbtte_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-We are currently testing small packet performance on 82574, comparing it to=
- 82571. Initial pktgen measurements have shown a significant difference in =
-performance that is the most visible when running bidirectional traffic wit=
-h 256 byte packets.
-
-Looking at the e1000e driver, we noticed that flag FLAG2_DMA_BURST is enabl=
-ed for 82571 and 82572 but it is not enabled for 82574. After enabling the =
-flag, the 82574 performance significantly improved, approaching the one on =
-82571.
-
-Is there a reason that this flag is not enabled for 82574?
-
-Thank you,
-Denis Radovanovic
-
---_000_30751F5D655350478D3821069A3CF1F29D618D365EXCHMBXP5nbtte_--
-
-
---===============0113002802385226747==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jonathan Lallinger <jonathan@opengridcomputing.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.opengridcomputing.com ([209.198.142.2]:34277 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753882Ab1I1UDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 16:03:35 -0400
+In-Reply-To: <4E82075B.9000003@opengridcomputing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-------------------------------------------------------------------------------
-All the data continuously generated in your IT infrastructure contains a
-definitive record of customers, application performance, security
-threats, fraudulent activity and more. Splunk takes this data and makes
-sense of it. Business sense. IT sense. Common sense.
-http://p.sf.net/sfu/splunk-d2dcopy1
---===============0113002802385226747==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+On 09/27/2011 12:26 PM, Jonathan Lallinger wrote:
+> Hello David,
+>
+> I am ashamed I made the same mistake twice. This happened because I had two git trees (I made a second one when 
+> kernel.org went down based off the github remote). I fixed, built, and ran several tests on the patch, and then sent 
+> the wrong patch from an old git tree (which was never build tested).
+>
+> I can assure you I have a working patch, and it has been tested by the QA group at Chelsio and it builds/runs but 
+> there are still additional bugs in rds. So once I resolve those I will resend the correct patch with some additional 
+> fixes.
 
---===============0113002802385226747==--
+Hey Jonathan,
+
+I think you should get this patch resubmitted as-is (the correct patch though ;).  If we hit other issues in testing, 
+then we can submit more patches.  The problems Chelsio is seeing may be backport issues and not upstream bugs.
+
+
+Steve.
