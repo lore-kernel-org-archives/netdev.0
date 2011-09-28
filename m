@@ -1,121 +1,31 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH 3/3] net: sh_eth: move the asm/sh_eth.h to include/linux/
-Date: Wed, 28 Sep 2011 16:49:12 +0900
-Message-ID: <4E82D178.9020808@renesas.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 0/3] ptp: feature enhancements
+Date: Wed, 28 Sep 2011 10:00:24 +0200
+Message-ID: <20110928080023.GB6670@netboy.at.omicron.at>
+References: <cover.1316518332.git.richard.cochran@omicron.at>
+ <20110926.160443.1205173553442138535.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, SH-Linux <linux-sh@vger.kernel.org>
-To: davem@davemloft.net, Paul Mundt <lethal@linux-sh.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:39163 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753790Ab1I1IAf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 04:00:35 -0400
+Received: by fxe4 with SMTP id 4so302115fxe.19
+        for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 01:00:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20110926.160443.1205173553442138535.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- This patch is for net-next.
+On Mon, Sep 26, 2011 at 04:04:43PM -0400, David Miller wrote:
+> Could you please add a test at the point where we pull in the
+> ->tx_type value from the user, to make sure it is one of the
+> validly defined HWTSTAMP_TX_FOO values?
 
- arch/sh/include/asm/sh_eth.h          |   25 -------------------------
- drivers/net/ethernet/renesas/sh_eth.c |    1 +
- drivers/net/ethernet/renesas/sh_eth.h |    8 --------
- include/linux/sh_eth.h                |   25 +++++++++++++++++++++++++
- 4 files changed, 26 insertions(+), 33 deletions(-)
- delete mode 100644 arch/sh/include/asm/sh_eth.h
- create mode 100644 include/linux/sh_eth.h
+Okay, will do. Any chance of getting the bug fixes in for 3.1?
 
-diff --git a/arch/sh/include/asm/sh_eth.h b/arch/sh/include/asm/sh_eth.h
-deleted file mode 100644
-index 2076acf..0000000
---- a/arch/sh/include/asm/sh_eth.h
-+++ /dev/null
-@@ -1,25 +0,0 @@
--#ifndef __ASM_SH_ETH_H__
--#define __ASM_SH_ETH_H__
--
--#include <linux/phy.h>
--
--enum {EDMAC_LITTLE_ENDIAN, EDMAC_BIG_ENDIAN};
--enum {
--	SH_ETH_REG_GIGABIT,
--	SH_ETH_REG_FAST_SH4,
--	SH_ETH_REG_FAST_SH3_SH2
--};
--
--struct sh_eth_plat_data {
--	int phy;
--	int edmac_endian;
--	int register_type;
--	phy_interface_t phy_interface;
--	void (*set_mdio_gate)(void *addr);
--
--	unsigned char mac_addr[6];
--	unsigned no_ether_link:1;
--	unsigned ether_link_active_low:1;
--};
--
--#endif
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 38ccda5..6aa0704 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -35,6 +35,7 @@
- #include <linux/pm_runtime.h>
- #include <linux/slab.h>
- #include <linux/ethtool.h>
-+#include <linux/sh_eth.h>
-
- #include "sh_eth.h"
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index 78e586e..47877b1 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -23,14 +23,6 @@
- #ifndef __SH_ETH_H__
- #define __SH_ETH_H__
-
--#include <linux/module.h>
--#include <linux/kernel.h>
--#include <linux/spinlock.h>
--#include <linux/netdevice.h>
--#include <linux/phy.h>
--
--#include <asm/sh_eth.h>
--
- #define CARDNAME	"sh-eth"
- #define TX_TIMEOUT	(5*HZ)
- #define TX_RING_SIZE	64	/* Tx ring size */
-diff --git a/include/linux/sh_eth.h b/include/linux/sh_eth.h
-new file mode 100644
-index 0000000..2076acf
---- /dev/null
-+++ b/include/linux/sh_eth.h
-@@ -0,0 +1,25 @@
-+#ifndef __ASM_SH_ETH_H__
-+#define __ASM_SH_ETH_H__
-+
-+#include <linux/phy.h>
-+
-+enum {EDMAC_LITTLE_ENDIAN, EDMAC_BIG_ENDIAN};
-+enum {
-+	SH_ETH_REG_GIGABIT,
-+	SH_ETH_REG_FAST_SH4,
-+	SH_ETH_REG_FAST_SH3_SH2
-+};
-+
-+struct sh_eth_plat_data {
-+	int phy;
-+	int edmac_endian;
-+	int register_type;
-+	phy_interface_t phy_interface;
-+	void (*set_mdio_gate)(void *addr);
-+
-+	unsigned char mac_addr[6];
-+	unsigned no_ether_link:1;
-+	unsigned ether_link_active_low:1;
-+};
-+
-+#endif
--- 
-1.7.1
-
+Thanks,
+Richard
