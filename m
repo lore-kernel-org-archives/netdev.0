@@ -1,35 +1,50 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL net-next] IPVS
-Date: Wed, 28 Sep 2011 22:28:03 +0900
-Message-ID: <20110928132802.GC7661@verge.net.au>
-References: <1317027938-22053-1-git-send-email-horms@verge.net.au>
- <20110927081618.GA22655@1984>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: [PATCH v2] tcp: properly update lost_cnt_hint during shifting
+Date: Wed, 28 Sep 2011 22:13:16 +0800
+Message-ID: <4E832B7C.5070404@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110927081618.GA22655@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Nandita Dukkipati <nanditad@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:20052 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752643Ab1I1ONS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Sep 2011 10:13:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 27, 2011 at 10:16:18AM +0200, Pablo Neira Ayuso wrote:
-> On Mon, Sep 26, 2011 at 06:05:33PM +0900, Simon Horman wrote:
-> > Hi,
-> > 
-> > with all the excitement of kernel.org being offline and a bunch of trees
-> > likewise being offline I am a little unsure who should take this pull
-> > request which is based on the current net-next tree. But I guess it should
-> > be Patrick, Pablo or Dave.
-> 
-> I'll try to set up one tree in one of my servers along today, I'll
-> send you the URI. We can use it until kernel.org comes back.
+lost_skb_hint is used by tcp_mark_head_lost() to mark the first unhandl=
+ed skb.
+lost_cnt_hint is the number of sacked packets before the lost_skb_hint.=
+ When
+shifting a skb that is before the lost_skb_hint, tcp_shifted_skb() does=
+n't need
+to adjust lost_cnt_hint by itself because it calls tcp_sacktag_one() wh=
+ich will
+do the job right.
 
-Thanks. Would you like me to rebase my tree on yours?
-
+Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+Acked-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 21fab3e..ae5a934 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1389,9 +1389,7 @@ static int tcp_shifted_skb(struct sock *sk, struc=
+t sk_buff *skb,
+=20
+ 	BUG_ON(!pcount);
+=20
+-	/* Tweak before seqno plays */
+-	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint &&
+-	    !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_SKB_CB(skb)->seq)=
+)
++	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint =3D=3D s=
+kb)
+ 		tp->lost_cnt_hint +=3D pcount;
+=20
+ 	TCP_SKB_CB(prev)->end_seq +=3D shifted;
