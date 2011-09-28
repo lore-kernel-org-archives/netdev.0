@@ -1,41 +1,70 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH v2 net-next] af_unix: dont send SCM_CREDENTIALS by
- default
-Date: Wed, 28 Sep 2011 13:30:39 -0400 (EDT)
-Message-ID: <20110928.133039.889094831443618032.davem@redhat.com>
-References: <1316406528.2521.15.camel@edumazet-laptop>
-	<1316444524.2539.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1316447547.2539.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH v2 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Wed, 28 Sep 2011 19:32:16 +0200
+Message-ID: <CAHXqBF+ZVbCGEvnCcOtHk+sOWFLp1CuEnGLq+GEtHQTpu9PuYg@mail.gmail.com>
+References: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
+ <1317166015-20714-3-git-send-email-david.daney@cavium.com>
+ <CAHXqBFLzrkH4AJVozbtT4k7ccgVgfaPoq69J48DeSJKSwEtxHw@mail.gmail.com> <4E8350A8.7090307@cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tim.c.chen@linux.intel.com, zheng.z.yan@intel.com,
-	yanzheng@21cn.com, netdev@vger.kernel.org, sfr@canb.auug.org.au,
-	jirislaby@gmail.com, sedat.dilek@gmail.com, alex.shi@intel.com,
-	Valdis.Kletnieks@vt.edu
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16444 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754299Ab1I1Raw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Sep 2011 13:30:52 -0400
-In-Reply-To: <1316447547.2539.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: David Daney <david.daney@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E8350A8.7090307@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 19 Sep 2011 17:52:27 +0200
+W dniu 28 wrze=B6nia 2011 18:51 u=BFytkownik David Daney
+<david.daney@cavium.com> napisa=B3:
+> On 09/28/2011 12:25 AM, Micha=B3 Miros=B3aw wrote:
+>>
+>> 2011/9/28 David Daney<david.daney@cavium.com>:
+>> [...]
+>>>
+>>> +Example :
+>>> +
+>>> + =A0 =A0 =A0 /* The parent MDIO bus. */
+>>> + =A0 =A0 =A0 smi1: mdio@1180000001900 {
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 compatible =3D "cavium,octeon-3860-md=
+io";
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 #address-cells =3D<1>;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 #size-cells =3D<0>;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 reg =3D<0x11800 0x00001900 0x0 0x40>;
+>>> + =A0 =A0 =A0 };
+>>> +
+>>> + =A0 =A0 =A0 /*
+>>> + =A0 =A0 =A0 =A0 =A0An NXP sn74cbtlv3253 dual 1-of-4 switch contro=
+lled by a
+>>> + =A0 =A0 =A0 =A0 =A0pair of GPIO lines. =A0Child busses 2 and 3 po=
+pulated with 4
+>>> + =A0 =A0 =A0 =A0 =A0PHYs each.
+>>> + =A0 =A0 =A0 =A0*/
+>>> + =A0 =A0 =A0 mdio-mux {
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 compatible =3D "cavium,mdio-mux-sn74c=
+btlv3253",
+>>> "cavium,mdio-mux";
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 gpios =3D<&gpio1 3 0>,<&gpio1 4 0>;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 mdio-parent-bus =3D<&smi1>;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 #address-cells =3D<1>;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 #size-cells =3D<0>;
+>>
+>> This should probably have 'compatible =3D "nxp,sn74cbtlv3253";' here=
+=2E
+>>
+>
+> No, the sn74cbtlv3253 is a general purpose part that could be used to
+> multiplex anything (I2C, SPI, random analog signals, etc.). =A0Only w=
+hen it is
+> in the "cavium,mdio-mux-sn74cbtlv3253" configuration is it an MDIO bu=
+s
+> multiplexer.
 
-> This patch includes SCM_CREDENTIALS information in a af_unix message/skb
-> only if requested by the sender, [man 7 unix for details how to include
-> ancillary data using sendmsg() system call]
-> 
-> Note: This might break buggy applications that expected SCM_CREDENTIAL
-> from an unaware write() system call, and receiver not using SO_PASSCRED
-> socket option.
-> 
-> If SOCK_PASSCRED is set on source or destination socket, we still
-> include credentials for mere write() syscalls.
+This should use some generic name then. 'mdio-mux-gpio' or something.
+There's no point in introducing chip's model for a gate-like discrete
+device.
 
-I thought a lot about this and I think we should be able to get away
-with this trick, so I've added this patch to net-next, thanks!
+Best Regards,
+Micha=B3 Miros=B3aw
