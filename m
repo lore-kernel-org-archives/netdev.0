@@ -1,42 +1,30 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL net-next] IPVS
-Date: Wed, 28 Sep 2011 23:45:16 +0200
-Message-ID: <20110928214516.GE2761@1984>
-References: <1317027938-22053-1-git-send-email-horms@verge.net.au>
- <20110927081618.GA22655@1984>
- <20110928132802.GC7661@verge.net.au>
+From: "Luis R. Rodriguez" <mcgrof@frijolero.org>
+Subject: [ANN] compat-wireless for 3.1-rc8 is out
+Date: Wed, 28 Sep 2011 15:53:46 -0700
+Message-ID: <CAB=NE6WKv3ZDP_2xq5D8Y7S6-w1=a4gsRBj8QvQ1QX9G413Rww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110928132802.GC7661@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-bluetooth <linux-bluetooth@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 28, 2011 at 10:28:03PM +0900, Simon Horman wrote:
-> On Tue, Sep 27, 2011 at 10:16:18AM +0200, Pablo Neira Ayuso wrote:
-> > On Mon, Sep 26, 2011 at 06:05:33PM +0900, Simon Horman wrote:
-> > > Hi,
-> > > 
-> > > with all the excitement of kernel.org being offline and a bunch of trees
-> > > likewise being offline I am a little unsure who should take this pull
-> > > request which is based on the current net-next tree. But I guess it should
-> > > be Patrick, Pablo or Dave.
-> > 
-> > I'll try to set up one tree in one of my servers along today, I'll
-> > send you the URI. We can use it until kernel.org comes back.
-> 
-> Thanks. Would you like me to rebase my tree on yours?
+The world hasn't ended yet, even without kernel.org, so we get a new
+compat-wireless release based on Linus' rc8 release. Given that
+kernel.org is down I just sucked in Linus' tree on github into my
+linux-2.6-allstable and reset it to 3.1-rc8. Please test and rant
+about issues found.
 
-Thinking it well, and given that you'll have to send me more patches,
-I think it's a good idea if you rebase.
+http://linuxwireless.org/en/users/Download/stable (as
+wireless.kernel.org DNS is bust right now)
 
-BTW, please no need to Cc netfilter@vger.kernel.org, that list is for
-netfilter users, not for developers.
+sha1sum: db33de991c9764185707591da881963e041de9c8
+Size: 4.1 MiB
+
+http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.1/compat-wireless-3.1-rc8-1.tar.bz2
+http://www.orbit-lab.org/kernel/compat-wireless-3-stable/v3.1/ChangeLog-3.1-wireless
+
+  Luis
