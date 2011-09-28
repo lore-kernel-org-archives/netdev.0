@@ -1,42 +1,47 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the moduleh tree with the net tree
-Date: Wed, 28 Sep 2011 16:36:56 +1000
-Message-ID: <20110928163656.4d0ec3d9d40471f4e051605f@canb.auug.org.au>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: [PATCH] tcp: properly update lost_cnt_hint during shifting
+Date: Wed, 28 Sep 2011 14:38:21 +0800
+Message-ID: <4E82C0DD.6010304@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	ilpo.jarvinen@helsinki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:50185 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751112Ab1I1GiX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Sep 2011 02:38:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Paul,
+lost_skb_hint is used by tcp_mark_head_lost() to mark the first
+unhandled skb. lost_cnt_hint is the number of sacked packets before
+the lost_skb_hint. tcp_shifted_skb() shouldn't increase lost_cnt_hint
+when shifting a sacked skb that is before the lost_skb_hint, because
+packets in it are already counted.
 
-Today's linux-next merge of the moduleh tree got a conflict in
-drivers/net/wireless/p54/txrx.c between commit 1cda0fd60963 ("p54: Use
-do_div for 64-bit division to fix 32-bit kernels") from the  tree and
-commit 9ec3f961e31a ("drivers/net: Add export.h to files using
-EXPORT_SYMBOL/THIS_MODULE") from the moduleh tree.
-
-I fixed it up (see below) and can carry the fix as necessary.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/wireless/p54/txrx.c
-index 2b97a89,d5c12bc..0000000
---- a/drivers/net/wireless/p54/txrx.c
-+++ b/drivers/net/wireless/p54/txrx.c
-@@@ -19,7 -19,7 +19,8 @@@
-  #include <linux/init.h>
-  #include <linux/firmware.h>
-  #include <linux/etherdevice.h>
-+ #include <linux/export.h>
- +#include <asm/div64.h>
-  
-  #include <net/mac80211.h>
-  
+Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+---
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 21fab3e..f712ace 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1390,9 +1390,14 @@ static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+ 	BUG_ON(!pcount);
+ 
+ 	/* Tweak before seqno plays */
+-	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint &&
+-	    !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_SKB_CB(skb)->seq))
+-		tp->lost_cnt_hint += pcount;
++	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint) {
++		if (skb == tp->lost_skb_hint)
++			tp->lost_cnt_hint += pcount;
++		else if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) &&
++			 before(TCP_SKB_CB(skb)->seq,
++				TCP_SKB_CB(tp->lost_skb_hint)->seq))
++			tp->lost_cnt_hint += pcount;
++	}
+ 
+ 	TCP_SKB_CB(prev)->end_seq += shifted;
+ 	TCP_SKB_CB(skb)->seq += shifted;
