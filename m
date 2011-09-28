@@ -1,54 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ICMP redirect issue
-Date: Wed, 28 Sep 2011 14:06:32 -0400 (EDT)
-Message-ID: <20110928.140632.726302773135946390.davem@davemloft.net>
-References: <20110927162120.30394030@asterix.rh>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
+Date: Wed, 28 Sep 2011 21:30:51 +0300
+Message-ID: <1317234651.11915.6.camel@lappy>
+References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com>
+	 <20110819152335.GA19489@redhat.com> <1313771587.12243.16.camel@lappy>
+	 <20110820200043.GB5276@redhat.com> <871uvdryq2.fsf@rustcorp.com.au>
+	 <20110919060150.GB1569@redhat.com>  <874o09x97m.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fbl@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45528 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753770Ab1I1SHE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 14:07:04 -0400
-In-Reply-To: <20110927162120.30394030@asterix.rh>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <874o09x97m.fsf@rustcorp.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Flavio Leitner <fbl@redhat.com>
-Date: Tue, 27 Sep 2011 16:21:20 -0300
-
-> The issue is about the gateway being a LVS, so the servers behind use
-> the IP alias address as the default gateway.  However, when the gateway
-> sends an ICMP redirect, it comes from the primary IP address which is
-> ignored on older kernels because of the old_gw check:
+On Mon, 2011-09-19 at 17:19 +0930, Rusty Russell wrote:
+> On Mon, 19 Sep 2011 09:01:50 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > On Mon, Sep 19, 2011 at 01:05:17PM +0930, Rusty Russell wrote:
+> > > On Sat, 20 Aug 2011 23:00:44 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > > > On Fri, Aug 19, 2011 at 07:33:07PM +0300, Sasha Levin wrote:
+> > > > > Maybe this is better solved by copying the way it was done in PCI itself
+> > > > > with capability linked list?
+> > > > 
+> > > > There are any number of ways to lay out the structure.  I went for what
+> > > > seemed a simplest one.  For MSI-X the train has left the station.  We
+> > > > can probably still tweak where the high 32 bit features
+> > > > for 64 bit features are.  No idea if it's worth it.
+> > > 
+> > > Sorry, this has been in the back of my mind.  I think it's a good idea;
+> > > can we use the capability linked list for pre-device specific stuff from
+> > > now on?
+> > > 
+> > > Thanks,
+> > > Rusty.
+> > 
+> > Do we even want capability bits then?
+> > We can give each capability an ack flag ...
 > 
-> -                               if (rth->rt_dst != daddr ||
-> -                                   rth->rt_src != saddr ||
-> -                                   rth->dst.error ||
-> -                                   rth->rt_gateway != old_gw ||
-> -                                   rth->dst.dev != dev)
-> -                                       break;
+> We could have, and if I'd known PCI when I designed virtio I might have.
 > 
+> But it's not easy now to map structure offsets to that scheme, and we
+> can't really force such a change on the non-PCI users.  So I'd say we
+> should only do it for the non-device-specific options.  ie. we'll still
+> have the MSI-X case move the device-specific config, but we'll use a
+> linked list from now on, eg. for the next 32 features bits...
 > 
-> Well, the consequence is that the issue doesn't happen in newer kernels
-> because it happily accepts the ICMP redirect.
-> 
-> The admin can still control using shared_media and secure_redirects if
-> the host should accept only the ICMP redirects for gateways listed in
-> default gateway list or not.
+> Thoughts?
+> Rusty.
 
-Unfortunately, shared_media is on by default which means the default
-secure_redirects setting of '1' is ignored.
+What if we create a capability list but place it in the virtio-pci
+config space instead of the PCI space?
 
-This means that redirects can be spoofed in the default configuration,
-but with the above check they would not be spoofable.
+It'll work fine with non-PCI users and would leave MSI-X as the only
+thing that changes offsets (and we could probably deprecate and remove
+it at some point in the future).
 
-I suspect that, because of this, we'll need to add the check back.  Or
-do something similar.
+-- 
 
-We can't "fix" this by turning shared_media off by default because that
-changes behavior on input route processing wrt. how we decide whether
-to emit a redirect or not.
+Sasha.
