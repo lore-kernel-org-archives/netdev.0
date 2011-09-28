@@ -1,50 +1,68 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: [PATCH v2] tcp: properly update lost_cnt_hint during shifting
-Date: Wed, 28 Sep 2011 22:13:16 +0800
-Message-ID: <4E832B7C.5070404@intel.com>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Question about reply to a datagram sent to a Subnet-Router anycast address
+Date: Wed, 28 Sep 2011 07:13:22 -0700 (PDT)
+Message-ID: <1317219202.22987.YahooMailClassic@web126017.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Nandita Dukkipati <nanditad@google.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:20052 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752643Ab1I1ONS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Sep 2011 10:13:18 -0400
+Received: from nm24.bullet.mail.ne1.yahoo.com ([98.138.90.87]:24880 "HELO
+	nm24.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754146Ab1I1OUE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Sep 2011 10:20:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-lost_skb_hint is used by tcp_mark_head_lost() to mark the first unhandl=
-ed skb.
-lost_cnt_hint is the number of sacked packets before the lost_skb_hint.=
- When
-shifting a skb that is before the lost_skb_hint, tcp_shifted_skb() does=
-n't need
-to adjust lost_cnt_hint by itself because it calls tcp_sacktag_one() wh=
-ich will
-do the job right.
+Hi All,
 
-Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
-Acked-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 21fab3e..ae5a934 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1389,9 +1389,7 @@ static int tcp_shifted_skb(struct sock *sk, struc=
-t sk_buff *skb,
-=20
- 	BUG_ON(!pcount);
-=20
--	/* Tweak before seqno plays */
--	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint &&
--	    !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_SKB_CB(skb)->seq)=
-)
-+	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint =3D=3D s=
-kb)
- 		tp->lost_cnt_hint +=3D pcount;
-=20
- 	TCP_SKB_CB(prev)->end_seq +=3D shifted;
+I try to ping some routers on one of their Subnet-Router anycast addres=
+ses (SRAA).
+(http://tools.ietf.org/html/rfc4291#section-2.6.1)
+
+A Linux kernel 3.0 in IPv6 forwarding mode reply with an unicast source=
+ address (same subnet prefix).
+An Alcatel router reply with the SRAA as source address.
+
+The RFC 4291 removed the restrictions on using IPv6 anycast addresses, =
+so a SRAA may be used as a source address, in a reply.
+
+In the following draft, we have a rationale for the removal of restrict=
+ions regarding anycast as source address in RFC 4291 :
+(http://tools.ietf.org/html/draft-jabley-v6-anycast-clarify-00#section-=
+3.1)
+"3.1 Anycast Source Addresses
+=A0=A0=A0For many conventional services to be distributed using anycast=
+, it is
+=A0=A0=A0necessary for reply datagrams sent from servers to clients to =
+be
+=A0=A0=A0sourced from the same address that was used as the destination=
+ in
+=A0=A0=A0request datagrams sent from clients to servers.=A0 When such a=
+ service
+=A0=A0=A0is distributed using anycast, the destination address used in =
+request
+=A0=A0=A0datagrams is necessarily an anycast address; corresponding rep=
+ly
+=A0=A0=A0packets must therefore use the same anycast address as their s=
+ource
+=A0=A0=A0address.
+=A0=A0=A0Being able to use an anycast address as the source address in =
+an IPv6
+=A0=A0=A0datagram is a prerequisite for the distribution of many servic=
+es
+=A0=A0=A0using anycast over IPv6."
+
+A SRAA is a special case of anycast address.
+
+Is there a way to setup the Linux kernel to behave like Alcatel router,=
+ replying with the SRAA as source address ?
+
+If not, why not update the behaviour of the Linux kernel to configurabl=
+e ?
+
+Please let me know your feedback.
+
+Thanks,
+=46rancois-Xavier Le Bail
