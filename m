@@ -1,35 +1,61 @@
-From: "Guy, Wey-Yi" <wey-yi.w.guy@intel.com>
-Subject: Re: [PATCH] iwlagn: iwl-agn-rs: remove unnecessary null check for
- sta and lq_sta
-Date: Wed, 28 Sep 2011 15:18:38 -0700
-Message-ID: <1317248318.1958.21.camel@wwguy-huron>
-References: <1317250444-2248-1-git-send-email-Gregory.Dietsche@cuw.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ICMP redirect issue
+Date: Wed, 28 Sep 2011 19:12:55 -0400 (EDT)
+Message-ID: <20110928.191255.1803703769504267178.davem@davemloft.net>
+References: <20110928.140632.726302773135946390.davem@davemloft.net>
+	<20110928171952.0c0d2d05@asterix.rh>
+	<20110928.185654.560483806662347226.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Gregory.Dietsche@cuw.edu" <Gregory.Dietsche@cuw.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317250444-2248-1-git-send-email-Gregory.Dietsche@cuw.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fbl@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42703 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755958Ab1I1XM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 19:12:57 -0400
+In-Reply-To: <20110928.185654.560483806662347226.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-09-28 at 15:54 -0700, Gregory.Dietsche@cuw.edu wrote:
-> From: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-> 
-> both sta and lq_sta are guaranteed to be not null in the
-> calling function so we don't need to check them here.
-> 
-> Signed-off-by: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-Signed-off-by: Wey-Yi Guy <wey-yi.w.guy@intel.com>
-> ---
->  drivers/net/wireless/iwlwifi/iwl-agn-rs.c |    3 ---
->  1 files changed, 0 insertions(+), 3 deletions(-)
-> 
-you are correct
+From: David Miller <davem@davemloft.net>
+Date: Wed, 28 Sep 2011 18:56:54 -0400 (EDT)
 
-Wey
+> From: Flavio Leitner <fbl@redhat.com>
+> Date: Wed, 28 Sep 2011 17:19:52 -0300
+> 
+>> What about something like below? It will change a bit the
+>> secure_redirects documentation.
+> 
+> The previous check was stronger, and served other purposes.
+> 
+> Firstly, it required that the spoofer know the exact gateway
+> IP address we used previously, whereas your test requires only
+> knowing the subnet which is easier to figure out.
+> 
+> But more importantly, the old test allowed us to ignore outdated
+> or erroneous redirects.
+> 
+> We really have to restore the original behavior before my inetpeer
+> changes (enforce that the old gateway matches), and find another way
+> to accomodate IPVS.
+
+BTW, I just double-checked RFC1122 and it explicitly specifies the
+old_gw check:
+
+[ RFC1122, section 3.2.2.2 ]
+
+ ...
+
+	A Redirect message SHOULD be silently discarded if the new
+        gateway address it specifies is not on the same connected
+        (sub-) net through which the Redirect arrived [INTRO:2,
+        Appendix A], or if the source of the Redirect is not the
+        current first-hop gateway for the specified destination (see
+        Section 3.3.1).
+
+In fact, it's saying that we should also validate that saddr == old_gw
+too.
+
+So really, we need to put the check back and find a way to accomodate IPVS.
