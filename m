@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/7] bna: H/W enablement and update driver version
- to 3.0.2.2
-Date: Wed, 28 Sep 2011 02:59:37 -0400 (EDT)
-Message-ID: <20110928.025937.1162448846487782731.davem@davemloft.net>
-References: <1317155951-17242-1-git-send-email-rmody@brocade.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: about bmac/mace/macmace/mac89x0/cs89x0: Move the Macintosh (Apple)
+ drivers
+Date: Wed, 28 Sep 2011 09:04:39 +0200
+Message-ID: <20110928070439.GV31404@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@brocade.com
-To: rmody@brocade.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Mackerras <paulus@samba.org>,
+	Russell Nelson <nelson@crynwr.com>, netdev@vger.kernel.org,
+	davem@davemloft.net,
+	Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48503 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753136Ab1I1HAl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 03:00:41 -0400
-In-Reply-To: <1317155951-17242-1-git-send-email-rmody@brocade.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:43708 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751928Ab1I1HE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 03:04:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rasesh Mody <rmody@brocade.com>
-Date: Tue, 27 Sep 2011 13:39:04 -0700
+Hi,
 
-> Hi Dave,
-> 
->    The following series is re-submitted. These patches add support for
->    Brocade-1860 Fabric Adapter and address the comments received from
->    upstream community.
-> 
->    It updates the Brocade BNA driver to v3.0.2.2.
-> 
->    The driver has been compiled & tested against net-next-2.6(3.0.0-rc7).
+> commit 8fb6b0908176704a3ea22005e8a9fa3ebf35b5be
+> Author: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date:   Mon May 16 01:39:01 2011 -0700
+>
+>    bmac/mace/macmace/mac89x0/cs89x0: Move the Macintosh (Apple) drivers
+>
+>    Move the Apple drivers into driver/net/ethernet/apple/ and make the
+>    necessary Kconfig and Makefile changes.
 
-All applied, thanks.
+This commit moves drivers/net/cs89x0.[ch] to drivers/net/ethernet/apple/.
+
+This is wrong. The cs89x0 driver is a general ISA driver and is also
+used on some embedded boards. This patch should only move drivers/net/mac89x0.c
+which basically is a driver for the same device but used on Macintosh.
+
+I think it should go to drivers/net/ethernet/cirrus instead.
+
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
