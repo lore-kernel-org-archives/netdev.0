@@ -1,56 +1,53 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v3 1/7] Basic kernel memory functionality for the Memory
- Controller
-Date: Wed, 28 Sep 2011 09:03:39 -0300
-Message-ID: <4E830D1B.1070503@parallels.com>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com> <1316393805-3005-2-git-send-email-glommer@parallels.com> <20110926193451.b419f630.kamezawa.hiroyu@jp.fujitsu.com> <4E81084F.9010208@parallels.com> <20110928095826.eb8ebc8c.kamezawa.hiroyu@jp.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Possible NULL dereference caused by -stable commit
+ ef81bb40bf15f350fe865f31fa42f1082772a576
+Date: Wed, 28 Sep 2011 14:09:09 +0200
+Message-ID: <1317211749.2941.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4E82FC4E.5010101@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
-	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
-	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<kirill@shutemov.name>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110928095826.eb8ebc8c.kamezawa.hiroyu@jp.fujitsu.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@redhat.com>,
+	linux-kernel@vger.kernel.org, Greg KH <gregkh@suse.de>,
+	stable@kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	Amos Kong <akong@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E82FC4E.5010101@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/27/2011 09:58 PM, KAMEZAWA Hiroyuki wrote:
-> On Mon, 26 Sep 2011 20:18:39 -0300
-> Glauber Costa<glommer@parallels.com>  wrote:
->
->> On 09/26/2011 07:34 AM, KAMEZAWA Hiroyuki wrote:
->>> On Sun, 18 Sep 2011 21:56:39 -0300
->>> Glauber Costa<glommer@parallels.com>   wrote:
-> "If parent sets use_hierarchy==1, children must have the same kmem_independent value
->>> with parant's one."
->>>
->>> How do you think ? I think a hierarchy must have the same config.
->> BTW, Kame:
->>
->> Look again (I forgot myself when I first replied to you)
->> Only in the root cgroup those files get registered.
->> So shouldn't be a problem, because children won't even
->> be able to see them.
->>
->> Do you agree with this ?
->>
->
-> agreed.
->
+Le mercredi 28 septembre 2011 =C3=A0 18:51 +0800, Jason Wang a =C3=A9cr=
+it :
+> Hi all:
+>=20
+> A possible NULL dereference were noticed by the stable commit=20
+> ef81bb40bf15f350fe865f31fa42f1082772a576 (which is a backport of=20
+> 87c48fa3b4630905f98268dde838ee43626a060c). The case happens when brid=
+ge=20
+> froward a packet from guest to a physical nic, at this time no route =
+is=20
+> attached to the skb which may lead a NULL dereference in=20
+> ipv6_select_ident(). -Next version have this check so it is fine. The=
+=20
+> following patch may be used to avoid this but may also lead the ip=20
+> identification predicable, and this defect is also exist -next versio=
+n=20
+> when no route because we still depends on a global variable to genera=
+te=20
+> the identification.  Any thought on this?
 
-Actually it is the other way around, following previous suggestions...
+1) Discussion on current kernel :
 
-The root cgroup does *not* get those files registered, since we don't 
-intend to do any kernel memory limitation for it. The others get it.
-Given that, I will proceed writing some code to respect parent cgroup's
-hierarchy.
+All we need here is not the route but inet_peer, so that inet_getid()
+can be called on it.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+If no route is given to ipv6_select_ident(), at least we can try to get
+inet_peer, and release it before exiting from ipv6_select_ident()
+
+2) On stable kernel, we already use an array
+(ipv6_fragmentation_id[FID_HASH_SZ];) to make less predictables
+fragments ids.
+
+So we could get dst addr from the packet to be forwarded instead of the
+(possibly NULL) route.
