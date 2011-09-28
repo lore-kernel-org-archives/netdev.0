@@ -1,69 +1,66 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [net-next 11/13] igb: Make Tx budget for NAPI user adjustable
-Date: Wed, 28 Sep 2011 07:00:55 -0400
-Message-ID: <20110928110055.GA15340@hmsreliant.think-freely.org>
-References: <19fca01e-5827-4e28-b12c-2b65cca96878@tahiti.vyatta.com>
- <1316477404.14749.256.camel@deadeye>
- <20110920185918.GX21309@gospo.rdu.redhat.com>
- <20110920202305.GC16323@hmsreliant.think-freely.org>
- <1317167146.2845.48.camel@bwh-desktop>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: properly update lost_cnt_hint during shifting
+Date: Wed, 28 Sep 2011 14:29:34 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1109281418280.21709@wel-95.cs.helsinki.fi>
+References: <4E82C0DD.6010304@intel.com> <alpine.DEB.2.00.1109281103410.21709@wel-95.cs.helsinki.fi> <4E82E0EE.1050600@intel.com> <4E82E5B5.1050206@intel.com> <alpine.DEB.2.00.1109281226480.21709@wel-95.cs.helsinki.fi> <4E82FAD6.1010708@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	jeffrey t kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	gospo@redhat.com, Alexander H Duyck <alexander.h.duyck@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-2065980787-1317209374=:21709"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>
+To: "Yan, Zheng" <zheng.z.yan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37266 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417Ab1I1LBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 07:01:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1317167146.2845.48.camel@bwh-desktop>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:60967 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105Ab1I1L3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 07:29:36 -0400
+In-Reply-To: <4E82FAD6.1010708@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2011 at 12:45:46AM +0100, Ben Hutchings wrote:
-> On Tue, 2011-09-20 at 16:23 -0400, Neil Horman wrote:
-> [...]
-> > This is the work Andy is referring to for those interested:
-> > http://marc.info/?l=linux-kernel&m=131644727521409&w=2
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323329-2065980787-1317209374=:21709
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Wed, 28 Sep 2011, Yan, Zheng wrote:
+
+> > But is the non-SACKed case really handled right when hint == skb by the 
+> > sacktag_one. We move the seqno in between and then before(x->newseq, 
+> > x->newseq) check returns false?
 > > 
-> > This version has Gregs Ack, and is waiting for an Ack from Jesse Barnes at the
-> > moment.
+> you are right, thank you.
 > 
-> While I think it's useful to be able to list all IRQs assigned to a PCI
-> device, this doesn't tell us anything about the way they're associated
-> with queues.
-> 
-I never claimed that it did.  This just lets us definitavely correlate msi irq
-instances to pci devices, and their device class.  Preveously we were limited to
-guessing what kind device an irq belonged to by doing hopeful string matches on
-device names from proc/interrupts, something which was easily broken by a change
-in driver naming practice, or an administrative device name change.
+> really hope my patch is correct this time :)
+> ---
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 21fab3e..a04622e 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -1390,8 +1390,7 @@ static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+>  	BUG_ON(!pcount);
+>  
+>  	/* Tweak before seqno plays */
+> -	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint &&
+> -	    !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_SKB_CB(skb)->seq))
+> +	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint == skb)
+>  		tp->lost_cnt_hint += pcount;
+>  
+>  	TCP_SKB_CB(prev)->end_seq += shifted;
 
-> > I think Andy's probably right, theres room here for expansion to create
-> > a relationship between a given interrupt and a napi wieght.  I expect what would
-> > be most direct would be adding a napi_weight attribute that was conditional on
-> > the class of the pci device allocating the irqs (make it visible for class 0x200
-> > devs, invisible for others).
-> 
-> That's a terrible idea; what has NAPI got to do with PCI devices?
-> 
-Nothing directly, but stop making up an implementation, and deciding based on
-that the whole notion is stupid.  There are a few ways to do this, some of which
-make sense.
+It also looks a lot nicer now and more obvious. According to my current 
+understanding, feel free to add this once doing the proper submission with 
+Signed-off etc. (please also remove the comment too as seqnos have no 
+longer any significance here):
 
-I was thinking of something along the lines of two more attributes in
-/sys/class/net/<if>/queues:
-napi_weight
-irq
+Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 
-The former is the napi weight of a given napi instance associated with a queue,
-while the latter is a symlink either to ../device/irq or ../device/msi_irqs/<n>/
-(or perhaps to ../devices/msi_irqs/<n>/irq if we want more consistency).   This
-lets us tune the napi weight of a queue and know what interrupt is associated
-with it.  That seems fairly sane to me.
-Neil
+...but it certainly wouldn't hurt if also somebody else has pair of eyes 
+to spare to confirm that we (both) are now in agreement what the code 
+really says.
+
+
+-- 
+ i.
+--8323329-2065980787-1317209374=:21709--
