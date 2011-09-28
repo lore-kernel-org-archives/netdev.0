@@ -1,64 +1,55 @@
-From: Stephen Clark <sclark46@earthlink.net>
-Subject: Re: Bridging broken/unfriendly
-Date: Wed, 28 Sep 2011 12:10:37 -0400
-Message-ID: <4E8346FD.9000306@earthlink.net>
-References: <4E7E5976.1070200@earthlink.net> <20110928083021.2edf43a6@nehalam.linuxnetplumber.net>
-Reply-To: sclark46@earthlink.net
+From: David Daney <david.daney@cavium.com>
+Subject: Re: [PATCH v2 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Wed, 28 Sep 2011 09:51:52 -0700
+Message-ID: <4E8350A8.7090307@cavium.com>
+References: <1317166015-20714-1-git-send-email-david.daney@cavium.com> <1317166015-20714-3-git-send-email-david.daney@cavium.com> <CAHXqBFLzrkH4AJVozbtT4k7ccgVgfaPoq69J48DeSJKSwEtxHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:38118 "EHLO
-	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750982Ab1I1QKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 12:10:39 -0400
-In-Reply-To: <20110928083021.2edf43a6@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHXqBFLzrkH4AJVozbtT4k7ccgVgfaPoq69J48DeSJKSwEtxHw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/28/2011 11:30 AM, Stephen Hemminger wrote:
-> On Sat, 24 Sep 2011 18:28:06 -0400
-> Stephen Clark<sclark46@earthlink.net>  wrote:
+On 09/28/2011 12:25 AM, Micha=C5=82 Miros=C5=82aw wrote:
+> 2011/9/28 David Daney<david.daney@cavium.com>:
+> [...]
+>> +Example :
+>> +
+>> +       /* The parent MDIO bus. */
+>> +       smi1: mdio@1180000001900 {
+>> +               compatible =3D "cavium,octeon-3860-mdio";
+>> +               #address-cells =3D<1>;
+>> +               #size-cells =3D<0>;
+>> +               reg =3D<0x11800 0x00001900 0x0 0x40>;
+>> +       };
+>> +
+>> +       /*
+>> +          An NXP sn74cbtlv3253 dual 1-of-4 switch controlled by a
+>> +          pair of GPIO lines.  Child busses 2 and 3 populated with =
+4
+>> +          PHYs each.
+>> +        */
+>> +       mdio-mux {
+>> +               compatible =3D "cavium,mdio-mux-sn74cbtlv3253", "cav=
+ium,mdio-mux";
+>> +               gpios =3D<&gpio1 3 0>,<&gpio1 4 0>;
+>> +               mdio-parent-bus =3D<&smi1>;
+>> +               #address-cells =3D<1>;
+>> +               #size-cells =3D<0>;
 >
->    
->> Hi,
->>
->> Is there some reason Linux bridging won't let the ip address be on
->> one of the interfaces, like FreeBSD does, instead of the bridge device?
->>
->> This makes it very difficult or impossible to remotely add the interface
->> you are remoted in on to a bridge, or is there some sneaky way to
->> do this without losing your connection?
->>
->>      
-> I would like to see a clean solution to setting up a bridge.
-> There was a patch that was never completed to allow migrating a ethernet
-> interface into a bridge. It is possible to do it with a script, by
-> dumping routes with ip command and replaying that into the bridge.
-> To really do it right (including neighbor table and iptables rules)
-> would be complex, especially considering the error cases.
+> This should probably have 'compatible =3D "nxp,sn74cbtlv3253";' here.
 >
-> Having looked at the FreeBSD code, that is not the answer. Trying to keep
-> a clean separation between IP and bridging is much better.
->
->    
-Hi Stephen,
 
-Thanks for taking the time to reply. I had pretty much decided I would 
-have to do some kind
-of script that would do everything at once, instead of trying to do the 
-commands one at a
-time from the console.
+No, the sn74cbtlv3253 is a general purpose part that could be used to=20
+multiplex anything (I2C, SPI, random analog signals, etc.).  Only when=20
+it is in the "cavium,mdio-mux-sn74cbtlv3253" configuration is it an MDI=
+O=20
+bus multiplexer.
 
-Regards,
-Steve
-
--- 
-
-"They that give up essential liberty to obtain temporary safety,
-deserve neither liberty nor safety."  (Ben Franklin)
-
-"The course of history shows that as a government grows, liberty
-decreases."  (Thomas Jefferson)
+David Daney.
