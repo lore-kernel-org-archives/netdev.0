@@ -1,65 +1,37 @@
-From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2 0/3] netdev/of/phy: MDIO bus multiplexer support.
-Date: Tue, 27 Sep 2011 16:26:52 -0700
-Message-ID: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
+From: "Webmaster alerte" <dcustomerc@hotmail.com>
+Subject: Chers User Account Email.
+Date: Wed, 28 Sep 2011 1:20:31 -0000
+Message-ID: <SERVEUR-SMTPmLAztxc000002bd@smtp1.infonet-services.fr>
+Reply-To: "Webmaster alerte" <dcustomerc@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 120.15.64.86.rev.sfr.net ([86.64.15.120]:2532 "EHLO
+	smtp1.infonet-services.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750803Ab1I0Xho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 19:37:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-v2: Update bindings to use "reg" and "mdio-parent-bus" insutead of
-    "cell-index" and "parent-bus"
+--
+CLIQUEZ R=C9PONSE AVANT DE REMPLIR D=C9TAILS
 
-v1:
+Attention:
 
-We have several different boards with a multiplexer in the MDIO bus.
-There is an MDIO bus controller connected to a switching device with
-several child MDIO busses.
+Une tentative a =E9t=E9 faite de se connecter =E0 partir d'un nouvel or=
+dinateur.
+Pour la s=E9curit=E9 de votre compte, nous sommes pr=EAts =E0 ouvrir un=
+e requ=EAte.
+Veuillez v=E9rifier vos informations de connexion en r=E9pondant =E0 ce=
+t e-mail et
+en fournissant votre nom d'utilisateur / ID {_______} Mot de passe {___=
+____}
+Alternate {_______} dans les espaces.
 
-Everything is wired up using device tree bindings.
+Ne pas ignorer ce message pour =E9viter la r=E9siliation de votre compt=
+e
+webmail.
 
- 1/3 - New of_mdio_find_bus() function used to help configuring the
-       driver topology.
-
- 2/3 - MDIO bus multiplexer framework.
-
- 3/3 - A driver for a GPIO controlled multiplexer.
-
-
-David Daney (3):
-  netdev/of/phy: New function: of_mdio_find_bus().
-  netdev/of/phy: Add MDIO bus multiplexer support.
-  netdev/of/phy: Add MDIO bus multiplexer driven by GPIO lines.
-
- .../devicetree/bindings/net/mdio-mux-gpio.txt      |  129 ++++++++++++++
- Documentation/devicetree/bindings/net/mdio-mux.txt |  136 +++++++++++++++
- drivers/net/phy/Kconfig                            |   17 ++
- drivers/net/phy/Makefile                           |    2 +
- drivers/net/phy/mdio-mux-gpio.c                    |  143 +++++++++++++++
- drivers/net/phy/mdio-mux.c                         |  182 ++++++++++++++++++++
- drivers/net/phy/mdio_bus.c                         |    3 +-
- drivers/of/of_mdio.c                               |   26 +++
- include/linux/mdio-mux.h                           |   18 ++
- include/linux/of_mdio.h                            |    2 +
- include/linux/phy.h                                |    1 +
- 11 files changed, 658 insertions(+), 1 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/mdio-mux-gpio.txt
- create mode 100644 Documentation/devicetree/bindings/net/mdio-mux.txt
- create mode 100644 drivers/net/phy/mdio-mux-gpio.c
- create mode 100644 drivers/net/phy/mdio-mux.c
- create mode 100644 include/linux/mdio-mux.h
-
--- 
-1.7.2.3
+Customer Care Webmaster.
