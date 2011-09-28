@@ -1,63 +1,120 @@
-From: Huajun Li <huajun.li.lee@gmail.com>
-Subject: [PATCH v3] net/flow: Fix potential memory leak
-Date: Wed, 28 Sep 2011 16:51:39 +0800
-Message-ID: <CA+v9cxZ=ZYQ_nUXp-8M1Kciia2F6F0MZpq-kKGE4J-ayEGeScw@mail.gmail.com>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: Re: [PATCH] tcp: properly update lost_cnt_hint during shifting
+Date: Wed, 28 Sep 2011 16:55:10 +0800
+Message-ID: <4E82E0EE.1050600@intel.com>
+References: <4E82C0DD.6010304@intel.com> <alpine.DEB.2.00.1109281103410.21709@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Huajun Li <huajun.li.lee@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48883 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750926Ab1I1Ivk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 04:51:40 -0400
-Received: by fxe4 with SMTP id 4so330491fxe.19
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 01:51:39 -0700 (PDT)
+Received: from mga11.intel.com ([192.55.52.93]:61207 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751170Ab1I1IzL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Sep 2011 04:55:11 -0400
+In-Reply-To: <alpine.DEB.2.00.1109281103410.21709@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While preparing net flow caches, once a fail may cause potential
-memory leak , fix it.
+On 09/28/2011 04:17 PM, Ilpo J=E4rvinen wrote:
+> On Wed, 28 Sep 2011, Yan, Zheng wrote:
+>=20
+>> lost_skb_hint is used by tcp_mark_head_lost() to mark the first
+>> unhandled skb. lost_cnt_hint is the number of sacked packets before
+>> the lost_skb_hint. tcp_shifted_skb() shouldn't increase lost_cnt_hin=
+t
+>> when shifting a sacked skb that is before the lost_skb_hint, because
+>> packets in it are already counted.
+>>
+>> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+>> ---
+>> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+>> index 21fab3e..f712ace 100644
+>> --- a/net/ipv4/tcp_input.c
+>> +++ b/net/ipv4/tcp_input.c
+>> @@ -1390,9 +1390,14 @@ static int tcp_shifted_skb(struct sock *sk, s=
+truct sk_buff *skb,
+>>  	BUG_ON(!pcount);
+>> =20
+>>  	/* Tweak before seqno plays */
+>> -	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint &&
+>> -	    !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_SKB_CB(skb)->s=
+eq))
+>> -		tp->lost_cnt_hint +=3D pcount;
+>> +	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint) {
+>> +		if (skb =3D=3D tp->lost_skb_hint)
+>> +			tp->lost_cnt_hint +=3D pcount;
+>> +		else if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) &&
+>> +			 before(TCP_SKB_CB(skb)->seq,
+>> +				TCP_SKB_CB(tp->lost_skb_hint)->seq))
+>> +			tp->lost_cnt_hint +=3D pcount;
+>> +	}
+>=20
+> Ah right, the hole filled case which shifts not only the newly SACKed=
+=20
+> skb but also the next, already SACKed skb?
+>=20
+> I fail to see why you needed to change !before into two checks though=
+:
+>  skb =3D=3D tp->lost_skb_hint and before(params reversed) ? Shouldn't=
+ the=20
+> equality that is provided by the negation cover for the =3D=3D check =
+(and the=20
+> params reversion isn't necessary in any case)? In fact, isn't the skb=
+ =3D=3D=20
+> tp->lost_skb_hint check strictly wrong without the same TCPCB_SACKED_=
+ACKED=20
+> guard (though I'm not sure, I didn't check, if the hint can ever poin=
+t to=20
+> such a segment in the first place)?
 
+Thanks you for your reply.
 
-Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
+skb =3D=3D tp->lost_skb_hint is special.
+
+If the skb is sacked and we shift 'pcount' packets to previous skb,
+these packets will not be counted by future tcp_mark_head_lost() call.
+So we should increase lost_cnt_hint.
+
+If the skb is not sacked, the skb will be sacked soon by tcp_sacktag_on=
+e(),
+So we should not increase lost_cnt_hint.
+
+I didn't think out the second case. I think the correct patch should be=
+:
 ---
- net/core/flow.c |   14 +++++++++++++-
- 1 files changed, 13 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 555a456..8ae42de 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -413,7 +413,7 @@ static int __init flow_cache_init(struct flow_cache *fc)
-
- 	for_each_online_cpu(i) {
- 		if (flow_cache_cpu_prepare(fc, i))
--			return -ENOMEM;
-+			goto err;
- 	}
- 	fc->hotcpu_notifier = (struct notifier_block){
- 		.notifier_call = flow_cache_cpu,
-@@ -426,6 +426,18 @@ static int __init flow_cache_init(struct flow_cache *fc)
- 	add_timer(&fc->rnd_timer);
-
- 	return 0;
-+
-+err:
-+	for_each_possible_cpu(i) {
-+		struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, i);
-+		kfree(fcp->hash_table);
-+		fcp->hash_table = NULL;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 21fab3e..dcc2411 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1390,9 +1390,15 @@ static int tcp_shifted_skb(struct sock *sk, stru=
+ct sk_buff *skb,
+ 	BUG_ON(!pcount);
+=20
+ 	/* Tweak before seqno plays */
+-	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint &&
+-	    !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_SKB_CB(skb)->seq)=
+)
+-		tp->lost_cnt_hint +=3D pcount;
++	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint) {
++		if ((TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) &&
++		    skb =3D=3D tp->lost_skb_hint)
++			tp->lost_cnt_hint +=3D pcount;
++		else if (!(TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED) &&
++			 before(TCP_SKB_CB(skb)->seq,
++				TCP_SKB_CB(tp->lost_skb_hint)->seq))
++			tp->lost_cnt_hint +=3D pcount;
 +	}
-+
-+	free_percpu(fc->percpu);
-+	fc->percpu = NULL;
-+
-+	return -ENOMEM;
- }
+=20
+ 	TCP_SKB_CB(prev)->end_seq +=3D shifted;
+ 	TCP_SKB_CB(skb)->seq +=3D shifted;
+---
 
- static int __init flow_cache_init_global(void)
--- 
-1.7.4.1
+
+>=20
+> Added Cc to Nandita as they're hunting (possibly other) bug in=20
+> tcp_mark_head_lost.
+>=20
