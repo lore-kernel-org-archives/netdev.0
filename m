@@ -1,94 +1,63 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: ICMP redirect issue
-Date: Wed, 28 Sep 2011 17:19:52 -0300
-Message-ID: <20110928171952.0c0d2d05@asterix.rh>
-References: <20110927162120.30394030@asterix.rh>
-	<20110928.140632.726302773135946390.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] Fix repeatable Oops on container destroy with conntrack
+Date: Wed, 28 Sep 2011 23:08:51 +0200
+Message-ID: <20110928210851.GA2761@1984>
+References: <2184C0CE5A5EDC94CDDA5053@Ximines.local>
+ <20110912072524.GA2996@p183.telecom.by>
+ <20110912093749.GE2194@1984>
+ <E0902A9541FD5D118EA02B31@Ximines.local>
+ <20110912183357.GC3641@1984>
+ <87A32B21CA99D62CE1AB7A4B@Ximines.local>
+ <7631498AC7E7C0EAD641AC7D@nimrod.local>
+ <20110914013500.GB17051@1984>
+ <A51A04647674405AF6C39A4F@nimrod.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42576 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752221Ab1I1UT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Sep 2011 16:19:56 -0400
-In-Reply-To: <20110928.140632.726302773135946390.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	containers@lists.linux-foundation.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: Alex Bligh <alex@alex.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <A51A04647674405AF6C39A4F@nimrod.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Sep 2011 14:06:32 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Flavio Leitner <fbl@redhat.com>
-> Date: Tue, 27 Sep 2011 16:21:20 -0300
+On Wed, Sep 14, 2011 at 09:01:34AM +0100, Alex Bligh wrote:
+> --On 14 September 2011 03:35:00 +0200 Pablo Neira Ayuso
+> <pablo@netfilter.org> wrote:
 > 
-> > The issue is about the gateway being a LVS, so the servers behind
-> > use the IP alias address as the default gateway.  However, when the
-> > gateway sends an ICMP redirect, it comes from the primary IP
-> > address which is ignored on older kernels because of the old_gw
-> > check:
-> > 
-> > -                               if (rth->rt_dst != daddr ||
-> > -                                   rth->rt_src != saddr ||
-> > -                                   rth->dst.error ||
-> > -                                   rth->rt_gateway != old_gw ||
-> > -                                   rth->dst.dev != dev)
-> > -                                       break;
-> > 
-> > 
-> > Well, the consequence is that the issue doesn't happen in newer
-> > kernels because it happily accepts the ICMP redirect.
-> > 
-> > The admin can still control using shared_media and secure_redirects
-> > if the host should accept only the ICMP redirects for gateways
-> > listed in default gateway list or not.
+> >>Is this new version OK? I am happy to adjust if not.
+> >
+> >Hm, I still think that this is a workaround.
 > 
-> Unfortunately, shared_media is on by default which means the default
-> secure_redirects setting of '1' is ignored.
+> It is a bit of a workaround, that is true. But it is a workaround
+> that will fix the bug in every kernel since 2.6.32 (and perhaps
+> before - I haven't looked). It's thus reasonably easily applicable
+> to stable kernel series.
+
+The container support for netfilter seems to be in intermediate state,
+we need several patches to get it finished that:
+
+* subsys_table definition in nfnetlink.c.
+* ctnl_notifier and ctnl_notifier_exp definitions in
+  nfnetlink_conntrack.c
+* similar things for nfnetlink_queue and nfnetlink_log.
+
+If nobody is going to fix all these, I'll find some spare time to do
+it myself, but I don't think we'll have a proper fix that we can pass
+to -stable. This will have to go to net-next, given the amount of
+patches that we'll need to appropriately fix this.
+
+> I'm not clued-up enough on Netfilter to know what the right fix is,
+> but is applying the workaround in a commit which could be easily
+> backported, then applying the 'right fix' (assuming that is different)
+> a reasonable strategy?
 > 
-> This means that redirects can be spoofed in the default configuration,
-> but with the above check they would not be spoofable.
+> As you can probably tell, my interest here is to get something that
+> doesn't oops into stable kernels.
 
-I fail to see what that check is preventing because if someone manages
-to inject a redirect packet into the network, then likely the old_gw can
-be tweaked to be the network gateway.
-
-> I suspect that, because of this, we'll need to add the check back.  Or
-> do something similar.
-> 
-> We can't "fix" this by turning shared_media off by default because
-> that changes behavior on input route processing wrt. how we decide
-> whether to emit a redirect or not.
-
-What about something like below? It will change a bit the
-secure_redirects documentation.
-
-shared_media  secure_redirect  behavior:
-      0             0          all pass.
-      0             1          only from gateways and for gateways.
-      1             0          all pass.
-      1             1          default, old behavior, only from
-                               gateways.
-
-If you agree with the approach, I'll run tests here and post
-the patch with a proper changelog, documentation and signed-off.
-
-thanks,
-fbl
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 075212e..fa00fcd 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1332,6 +1332,9 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 			goto reject_redirect;
- 	}
- 
-+	if (IN_DEV_SEC_REDIRECTS(in_dev) && ip_fib_check_default(old_gw, dev))
-+		goto reject_redirect;
-+
- 	peer = inet_getpeer_v4(daddr, 1);
- 	if (peer) {
- 		peer->redirect_learned.a4 = new_gw;
+As said, I'm not sure that this can happen, given that the amount of
+patches that we need to fix it fine, sorry.
