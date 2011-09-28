@@ -1,50 +1,48 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the net-current tree
-Date: Wed, 28 Sep 2011 12:54:28 +1000
-Message-ID: <20110928125428.70d5cf10ea59f729135d5dff@canb.auug.org.au>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH v3 6/7] tcp buffer limitation: per-cgroup limit
+Date: Wed, 28 Sep 2011 05:06:23 +0200
+Message-ID: <20110928030623.GF7761@one.firstfloor.org>
+References: <1316393805-3005-1-git-send-email-glommer@parallels.com> <1316393805-3005-7-git-send-email-glommer@parallels.com> <m24o01khcp.fsf@firstfloor.org> <CAKTCnzm_BVOLK8c0rwYoDJCs+-920DWjwHFoQtgriRTEXrGiqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, Glauber Costa <glommer@parallels.com>,
+	linux-kernel@vger.kernel.org, paul@paulmenage.org,
+	lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
+	ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
+	netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name
+To: Balbir Singh <bsingharora@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <CAKTCnzm_BVOLK8c0rwYoDJCs+-920DWjwHFoQtgriRTEXrGiqw@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Wed, Sep 28, 2011 at 07:59:31AM +0530, Balbir Singh wrote:
+> On Sat, Sep 24, 2011 at 10:28 PM, Andi Kleen <andi@firstfloor.org> wrote:
+> > Glauber Costa <glommer@parallels.com> writes:
+> >
+> >> This patch uses the "tcp_max_mem" field of the kmem_cgroup to
+> >> effectively control the amount of kernel memory pinned by a cgroup.
+> >>
+> >> We have to make sure that none of the memory pressure thresholds
+> >> specified in the namespace are bigger than the current cgroup.
+> >
+> > I noticed that some other OS known by bash seem to have a rlimit per
+> > process for this. Would that make sense too? Not sure how difficult
+> > your infrastructure would be to extend to that.
+> 
+> rlimit per process for tcp usage? Interesting, that reminds me, we
+> need to revisit rlimit (RSS) at some point
 
-Today's linux-next merge of the net tree got a conflict in
-net/batman-adv/soft-interface.c between commit 8b267b312df9 ("batman-adv:
-do_bcast has to be true for broadcast packets only") from the net-current
-tree and commit 3d393e473210 ("batman-adv: implement AP-isolation on the
-sender side") from the net tree.
+I would love to have that for some situations!
+-Andi
 
-Just context changes.  I fixed it up (see below) and can carry the fix as
-necessary.
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+ak@linux.intel.com -- Speaking for myself only.
 
-diff --cc net/batman-adv/soft-interface.c
-index 05dd351,aceeabc..0000000
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@@ -595,11 -596,12 +596,12 @@@ static int interface_tx(struct sk_buff 
-  		goto dropped;
-  
-  	/* Register the client MAC in the transtable */
-- 	tt_local_add(soft_iface, ethhdr->h_source);
-+ 	tt_local_add(soft_iface, ethhdr->h_source, skb->skb_iif);
-  
-- 	orig_node = transtable_search(bat_priv, ethhdr->h_dest);
-+ 	orig_node = transtable_search(bat_priv, ethhdr->h_source,
-+ 				      ethhdr->h_dest);
- -	if (is_multicast_ether_addr(ethhdr->h_dest) ||
- -				(orig_node && orig_node->gw_flags)) {
- +	do_bcast = is_multicast_ether_addr(ethhdr->h_dest);
- +	if (do_bcast ||	(orig_node && orig_node->gw_flags)) {
-  		ret = gw_is_target(bat_priv, skb, orig_node);
-  
-  		if (ret < 0)
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
