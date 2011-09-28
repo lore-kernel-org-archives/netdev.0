@@ -1,66 +1,91 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp: properly update lost_cnt_hint during shifting
-Date: Wed, 28 Sep 2011 14:29:34 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1109281418280.21709@wel-95.cs.helsinki.fi>
-References: <4E82C0DD.6010304@intel.com> <alpine.DEB.2.00.1109281103410.21709@wel-95.cs.helsinki.fi> <4E82E0EE.1050600@intel.com> <4E82E5B5.1050206@intel.com> <alpine.DEB.2.00.1109281226480.21709@wel-95.cs.helsinki.fi> <4E82FAD6.1010708@intel.com>
+From: Andrew Wagin <avagin@gmail.com>
+Subject: Re: [PATCH v2 4/7] per-cgroup tcp buffers control
+Date: Wed, 28 Sep 2011 15:58:13 +0400
+Message-ID: <CANaxB-wy8VDv0Wjni6UzcfBzSgNn=bZBey5f+fXHebNuek=O1A@mail.gmail.com>
+References: <1316051175-17780-1-git-send-email-glommer@parallels.com>
+	<1316051175-17780-5-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-2065980787-1317209374=:21709"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Nandita Dukkipati <nanditad@google.com>
-To: "Yan, Zheng" <zheng.z.yan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:60967 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105Ab1I1L3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 07:29:36 -0400
-In-Reply-To: <4E82FAD6.1010708@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com, davem@davemloft.net,
+	gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1316051175-17780-5-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+* tcp_destroy_cgroup_fill() is executed for each cgroup and
+initializes some proto methods. proto_list is global and we can
+initialize each proto one time. Do we need this really?
 
---8323329-2065980787-1317209374=:21709
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+* And when a cgroup is destroyed, it cleans proto methods
+(tcp_destroy_cgroup_fill), how other cgroups will work after that?
 
-On Wed, 28 Sep 2011, Yan, Zheng wrote:
+* What about proto, which is registered when cgroup mounted?
 
-> > But is the non-SACKed case really handled right when hint == skb by the 
-> > sacktag_one. We move the seqno in between and then before(x->newseq, 
-> > x->newseq) check returns false?
-> > 
-> you are right, thank you.
-> 
-> really hope my patch is correct this time :)
-> ---
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 21fab3e..a04622e 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -1390,8 +1390,7 @@ static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
->  	BUG_ON(!pcount);
->  
->  	/* Tweak before seqno plays */
-> -	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint &&
-> -	    !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_SKB_CB(skb)->seq))
-> +	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint == skb)
->  		tp->lost_cnt_hint += pcount;
->  
->  	TCP_SKB_CB(prev)->end_seq += shifted;
+My opinion that we may initialize proto by the following way:
 
-It also looks a lot nicer now and more obvious. According to my current 
-understanding, feel free to add this once doing the proper submission with 
-Signed-off etc. (please also remove the comment too as seqnos have no 
-longer any significance here):
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM+       .enter_memory_pressure
+=3D tcp_enter_memory_pressure_nocg,
++       .sockets_allocated      =3D sockets_allocated_tcp_nocg,
++       .memory_allocated       =3D memory_allocated_tcp_nocg,
++       .memory_pressure        =3D memory_pressure_tcp_nocg,
++#else
+        .enter_memory_pressure  =3D tcp_enter_memory_pressure,
+        .sockets_allocated      =3D sockets_allocated_tcp,
+        .memory_allocated       =3D memory_allocated_tcp,
+        .memory_pressure        =3D memory_pressure_tcp,
++#endif
 
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+It should work, because the root memory cgroup always exists.
 
-...but it certainly wouldn't hurt if also somebody else has pair of eyes 
-to spare to confirm that we (both) are now in agreement what the code 
-really says.
+>+int tcp_init_cgroup_fill(struct proto *prot, struct cgroup *cgrp,
+>+                        struct cgroup_subsys *ss)
+>+{
+>+       prot->enter_memory_pressure     =3D tcp_enter_memory_pressure;
+>+       prot->memory_allocated          =3D memory_allocated_tcp;
+>+       prot->prot_mem                  =3D tcp_sysctl_mem;
+>+       prot->sockets_allocated         =3D sockets_allocated_tcp;
+>+       prot->memory_pressure           =3D memory_pressure_tcp;
+>+
+>+       return 0;
+>+}
 
 
--- 
- i.
---8323329-2065980787-1317209374=:21709--
+> +void tcp_destroy_cgroup_fill(struct proto *prot, struct cgroup *cgrp,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct cgroup_su=
+bsys *ss)
+> +{
+> + =A0 =A0 =A0 prot->enter_memory_pressure =A0 =A0 =3D tcp_enter_memory_pr=
+essure_nocg;
+> + =A0 =A0 =A0 prot->memory_allocated =A0 =A0 =A0 =A0 =A0=3D memory_alloca=
+ted_tcp_nocg;
+> + =A0 =A0 =A0 prot->prot_mem =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=3D tcp_s=
+ysctl_mem_nocg;
+> + =A0 =A0 =A0 prot->sockets_allocated =A0 =A0 =A0 =A0 =3D sockets_allocat=
+ed_tcp_nocg;
+> + =A0 =A0 =A0 prot->memory_pressure =A0 =A0 =A0 =A0 =A0 =3D memory_pressu=
+re_tcp_nocg;
+>
+
+>@@ -2220,12 +2220,16 @@ struct proto tcpv6_prot =3D {
+>       .hash                   =3D tcp_v6_hash,
+>       .unhash                 =3D inet_unhash,
+>       .get_port               =3D inet_csk_get_port
+> + =A0 =A0 =A0 .enter_memory_pressure =A0=3D tcp_enter_memory_pressure_noc=
+g,
+> + =A0 =A0 =A0 .sockets_allocated =A0 =A0 =A0=3D sockets_allocated_tcp_noc=
+g,
+> + =A0 =A0 =A0 .memory_allocated =A0 =A0 =A0 =3D memory_allocated_tcp_nocg=
+,
+> + =A0 =A0 =A0 .memory_pressure =A0 =A0 =A0 =A0=3D memory_pressure_tcp_noc=
+g,
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
