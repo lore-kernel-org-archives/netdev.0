@@ -1,68 +1,35 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH net-next v3] candev: allow SJW user setting for bittiming
-	calculation
-Date: Wed, 28 Sep 2011 14:50:11 +0200
-Message-ID: <4E831803.7020409@hartkopp.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL net-next] IPVS
+Date: Wed, 28 Sep 2011 22:28:03 +0900
+Message-ID: <20110928132802.GC7661@verge.net.au>
+References: <1317027938-22053-1-git-send-email-horms@verge.net.au>
+ <20110927081618.GA22655@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110927081618.GA22655@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for SJW user settings to not set the synchronization
-jump width (SJW) to 1 in any case when using the in-kernel bittiming
-calculation.
+On Tue, Sep 27, 2011 at 10:16:18AM +0200, Pablo Neira Ayuso wrote:
+> On Mon, Sep 26, 2011 at 06:05:33PM +0900, Simon Horman wrote:
+> > Hi,
+> > 
+> > with all the excitement of kernel.org being offline and a bunch of trees
+> > likewise being offline I am a little unsure who should take this pull
+> > request which is based on the current net-next tree. But I guess it should
+> > be Patrick, Pablo or Dave.
+> 
+> I'll try to set up one tree in one of my servers along today, I'll
+> send you the URI. We can use it until kernel.org comes back.
 
-The ip-tool from iproute2 already supports to pass the user defined SJW
-value. The given SJW value is sanitized with the controller specific sjw_max
-and the calculated tseg2 value. As the SJW can have values up to 4 providing
-this value will lead to the maximum possible SJW automatically. A higher SJW
-allows higher controller oscillator tolerances.
+Thanks. Would you like me to rebase my tree on yours?
 
-Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-
----
-
-v2: Resend due to wrong mail address header encoding.
-v3: - Detected malformed patch format due to line break in function name
-    - Added Acked-by: from Wolfgang Grandegger
-
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index 9bf1116..25695bd 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -150,7 +150,19 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt)
- 	bt->prop_seg = tseg1 / 2;
- 	bt->phase_seg1 = tseg1 - bt->prop_seg;
- 	bt->phase_seg2 = tseg2;
--	bt->sjw = 1;
-+
-+	/* check for sjw user settings */
-+	if (!bt->sjw || !btc->sjw_max)
-+		bt->sjw = 1;
-+	else {
-+		/* bt->sjw is at least 1 -> sanitize upper bound to sjw_max */
-+		if (bt->sjw > btc->sjw_max)
-+			bt->sjw = btc->sjw_max;
-+		/* bt->sjw must not be higher than tseg2 */
-+		if (tseg2 < bt->sjw)
-+			bt->sjw = tseg2;
-+	}
-+
- 	bt->brp = best_brp;
- 	/* real bit-rate */
- 	bt->bitrate = priv->clock.freq / (bt->brp * (tseg1 + tseg2 + 1));
