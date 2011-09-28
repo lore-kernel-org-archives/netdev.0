@@ -1,56 +1,149 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: linux-next: build failure after merge of the moduleh tree
-Date: Wed, 28 Sep 2011 19:42:35 +0300
-Message-ID: <4E834E7B.3010405@qca.qualcomm.com>
-References: <20110928183552.cb27a2b28b02fec275bca009@canb.auug.org.au>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: Question about memory leak detector giving false positive
+ report for net/core/flow.c
+Date: Wed, 28 Sep 2011 18:23:43 +0100
+Message-ID: <20110928172342.GH23559@e102109-lin.cambridge.arm.com>
+References: <CA+v9cxadZzWr35Q9RFzVgk_NZsbZ8PkVLJNxjBAMpargW9Lm4Q@mail.gmail.com>
+ <1317054774.6363.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20110926165024.GA21617@e102109-lin.cambridge.arm.com>
+ <1317066395.2796.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>,
-	Raja Mani <rmani@qca.qualcomm.com>,
-	Vivek Natarajan <nataraja@qca.qualcomm.com>,
-	Suraj Sumangala <surajs@qca.qualcomm.com>,
-	Joe Perches <joe@perches.com>,
-	Jouni Malinen <jouni@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110928183552.cb27a2b28b02fec275bca009@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Huajun Li <huajun.li.lee@gmail.com>,
+   "linux-mm@kvack.org" <linux-mm@kvack.org>, netdev <netdev@vger.kernel.org>,
+   linux-kernel <linux-kernel@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
+   Christoph Lameter <cl@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1317066395.2796.11.camel@edumazet-laptop>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 09/28/2011 11:35 AM, Stephen Rothwell wrote:
-> Hi Paul,
-> 
-> After merging the moduleh tree, today's linux-next build (x86_64
-> allmodconfig) failed like this:
-> 
-> drivers/net/wireless/ath/ath6kl/init.c:27:26: error: expected ')' before 'uint'
-> 
-> Caused by commit bdcd81707973 ("Add ath6kl cleaned up driver") from the
-> net tree interacting with the module.h split up.
-> 
-> I have applied the following patch for today (which sould be applied to
-> the net or wireless trees).
-> 
-> From 1875bfc8881cca3064c7d7fad024555fe1652926 Mon Sep 17 00:00:00 2001
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Wed, 28 Sep 2011 18:32:34 +1000
-> Subject: [PATCH] wireless/ath6kl: use of module_param requires the inclusion
->  of moduleparam.h
-> 
-> Otheriwse the module.h split up fails like this:
-> 
-> drivers/net/wireless/ath/ath6kl/init.c:27:26: error: expected ')' before 'uint'
+On Mon, Sep 26, 2011 at 08:46:35PM +0100, Eric Dumazet wrote:
+> Le lundi 26 septembre 2011 =E0 17:50 +0100, Catalin Marinas a =E9crit :
+> > kmemleak_not_leak() definitely not the write answer. The alloc_percpu=
+()
+> > call does not have any kmemleak_alloc() callback, so it doesn't scan
+> > them.
+> >=20
+> > Huajun, could you please try the patch below:
+...
+> Hmm, you need to call kmemleak_alloc() for each chunk allocated per
+> possible cpu.
 
-Thanks, I applied this to ath6kl.git (had to fix just one conflict).
-Later this week I will send a pull request to John so that the patch
-should get to the wireless tree soon.
+I tried this but it's tricky. The problem is that the percpu pointer
+returned by alloc_percpu() does not directly point to the per-cpu chunks
+and kmemleak would report most percpu allocations as leaks. So far the
+workaround is to simply mark the alloc_percpu() objects as never leaking
+and at least we avoid false positives in other areas. See the patch
+below (note that you have to increase the CONFIG_KMEMLEAK_EARLY_LOG_SIZE
+as there are many alloc_percpu() calls before kmemleak is fully
+initialised):
 
-Unless John wants to take the patch directly, of course.
+------------8<------------------------------------
 
-Kalle
+kmemleak: Handle percpu memory allocation
+
+From: Catalin Marinas <catalin.marinas@arm.com>
+
+This patch adds kmemleak callbacks from the percpu allocator, reducing a
+number of false positives caused by kmemleak not scanning such memory
+blocks.
+
+Reported-by: Huajun Li <huajun.li.lee@gmail.com>
+Cc: Tejun Heo <tj@kernel.org>,
+Cc: Christoph Lameter <cl@linux-foundation.org>
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+---
+ mm/percpu.c |   22 +++++++++++++++++++++-
+ 1 files changed, 21 insertions(+), 1 deletions(-)
+
+diff --git a/mm/percpu.c b/mm/percpu.c
+index bf80e55..ece9f85 100644
+--- a/mm/percpu.c
++++ b/mm/percpu.c
+@@ -67,6 +67,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/vmalloc.h>
+ #include <linux/workqueue.h>
++#include <linux/kmemleak.h>
+=20
+ #include <asm/cacheflush.h>
+ #include <asm/sections.h>
+@@ -709,6 +710,8 @@ static void __percpu *pcpu_alloc(size_t size, size_t =
+align, bool reserved)
+ 	const char *err;
+ 	int slot, off, new_alloc;
+ 	unsigned long flags;
++	void __percpu *ptr;
++	unsigned int cpu;
+=20
+ 	if (unlikely(!size || size > PCPU_MIN_UNIT_SIZE || align > PAGE_SIZE)) =
+{
+ 		WARN(true, "illegal size (%zu) or align (%zu) for "
+@@ -801,7 +804,16 @@ area_found:
+ 	mutex_unlock(&pcpu_alloc_mutex);
+=20
+ 	/* return address relative to base address */
+-	return __addr_to_pcpu_ptr(chunk->base_addr + off);
++	ptr =3D __addr_to_pcpu_ptr(chunk->base_addr + off);
++
++	/*
++	 * Percpu allocations are currently reported as leaks (kmemleak false
++	 * positives). To avoid this, just set min_count to 0.
++	 */
++	for_each_possible_cpu(cpu)
++		kmemleak_alloc(per_cpu_ptr(ptr, cpu), size, 0, GFP_KERNEL);
++
++	return ptr;
+=20
+ fail_unlock:
+ 	spin_unlock_irqrestore(&pcpu_lock, flags);
+@@ -911,10 +923,14 @@ void free_percpu(void __percpu *ptr)
+ 	struct pcpu_chunk *chunk;
+ 	unsigned long flags;
+ 	int off;
++	unsigned int cpu;
+=20
+ 	if (!ptr)
+ 		return;
+=20
++	for_each_possible_cpu(cpu)
++		kmemleak_free(per_cpu_ptr(ptr, cpu));
++
+ 	addr =3D __pcpu_ptr_to_addr(ptr);
+=20
+ 	spin_lock_irqsave(&pcpu_lock, flags);
+@@ -1619,6 +1635,8 @@ int __init pcpu_embed_first_chunk(size_t reserved_s=
+ize, size_t dyn_size,
+ 			rc =3D -ENOMEM;
+ 			goto out_free_areas;
+ 		}
++		/* kmemleak tracks the percpu allocations separately */
++		kmemleak_free(ptr);
+ 		areas[group] =3D ptr;
+=20
+ 		base =3D min(ptr, base);
+@@ -1733,6 +1751,8 @@ int __init pcpu_page_first_chunk(size_t reserved_si=
+ze,
+ 					   "for cpu%u\n", psize_str, cpu);
+ 				goto enomem;
+ 			}
++			/* kmemleak tracks the percpu allocations separately */
++			kmemleak_free(ptr);
+ 			pages[j++] =3D virt_to_page(ptr);
+ 		}
+=20
+
+--=20
+Catalin
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
+.ca/
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
