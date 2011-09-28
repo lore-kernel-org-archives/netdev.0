@@ -1,89 +1,64 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v3 4/7] per-cgroup tcp buffers control
-Date: Wed, 28 Sep 2011 10:09:38 +0900
-Message-ID: <20110928100938.89c68c45.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1316393805-3005-1-git-send-email-glommer@parallels.com>
-	<1316393805-3005-5-git-send-email-glommer@parallels.com>
-	<20110926195906.f1f5831c.kamezawa.hiroyu@jp.fujitsu.com>
-	<4E812C81.9020909@parallels.com>
+From: =?utf-8?B?5LuFMTDlhYPmr4/lpKk=?= <admin@pmlimited.com.hk>
+Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrY=?=
+	=?utf-8?B?44CB5rW35YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
+Date: Wed, 28 Sep 2011 02:10:07 +0000 (UTC)
+Message-ID: <20120928095827072786@pmlimited.com.hk>
+Reply-To: <1339625218@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
-	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>,
-	<davem@davemloft.net>, <gthelen@google.com>,
-	<netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<kirill@shutemov.name>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E812C81.9020909@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <navy8088@hotmail.com>, <nco@hotmail.com>,
+	<netdev@vger.kernel.org>, <netfueflyveli@mymail-in.net>,
+	<nethlon@hotmail.com>, <netminda@msn.com>,
+	<netrangr@prodrubdir.hew.us.ml>, <neuhau
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.pmlimited.com.hk ([210.17.212.122]:57289 "EHLO
+	pmlsrv.pmlimited.com.hk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751558Ab1I1CJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Sep 2011 22:09:55 -0400
+Date: Fri, 28 Sep 2012 09:58:19 +0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 Sep 2011 22:53:05 -0300
-Glauber Costa <glommer@parallels.com> wrote:
-
-> On 09/26/2011 07:59 AM, KAMEZAWA Hiroyuki wrote:
-> > On Sun, 18 Sep 2011 21:56:42 -0300
-> > Glauber Costa<glommer@parallels.com>  wrote:
-> >
-> >> With all the infrastructure in place, this patch implements
-> >> per-cgroup control for tcp memory pressure handling.
-> >>
-> >> Signed-off-by: Glauber Costa<glommer@parallels.com>
-> >> CC: David S. Miller<davem@davemloft.net>
-> >> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
-> >> CC: Eric W. Biederman<ebiederm@xmission.com>
-> >
-> > a comment below.
-> >
-> >> +int tcp_init_cgroup(struct proto *prot, struct cgroup *cgrp,
-> >> +		    struct cgroup_subsys *ss)
-> >> +{
-> >> +	struct mem_cgroup *cg = mem_cgroup_from_cont(cgrp);
-> >> +	unsigned long limit;
-> >> +
-> >> +	cg->tcp_memory_pressure = 0;
-> >> +	atomic_long_set(&cg->tcp_memory_allocated, 0);
-> >> +	percpu_counter_init(&cg->tcp_sockets_allocated, 0);
-> >> +
-> >> +	limit = nr_free_buffer_pages() / 8;
-> >> +	limit = max(limit, 128UL);
-> >> +
-> >> +	cg->tcp_prot_mem[0] = sysctl_tcp_mem[0];
-> >> +	cg->tcp_prot_mem[1] = sysctl_tcp_mem[1];
-> >> +	cg->tcp_prot_mem[2] = sysctl_tcp_mem[2];
-> >> +
-> >
-> > Then, the parameter doesn't inherit parent's one ?
-> >
-> > I think sockets_populate should pass 'parent' and
-> >
-> >
-> > I think you should have a function
-> >
-> >      mem_cgroup_should_inherit_parent_settings(parent)
-> >
-> > (This is because you made this feature as a part of memcg.
-> >   please provide expected behavior.)
-> >
-> > Thanks,
-> > -Kame
-> 
-> Kame: Another look into this:
-> 
-> sysctl_tcp_mem is a global value, unless you have different namespaces.
-> So it is either global anyway, or should come from the namespace, not 
-> the parent.
-> 
-> Now, the goal here is to set the maximum possible value for those 
-> fields. That, indeed, should come from the parent.
-> 
-> That's my understanding...
-> 
-Hmm, I may misunderstand something. If this isn't a value you don't want to limit
-by memcg's kmem_limit, it's ok.
-Maybe memcg should just take care of kmem_limit.
-
-Thanks,
--Kame
+576k5Y+R6L2v5Lu2KzEwOeWxiuW5v+S6pOS8muS5sOWutuOAgea1t+WFs+aVsOaNruOAgeaQnOe0
+ouW8leaTjuS5sOWutixCMkLor6Lnm5jkubDlrrblhbE1MDDkuIcs5LuFMTDlhYPmr4/lpKnjgIIg
+DQrnvqTlj5Hova/ku7YrMTA55bGK5bm/5Lqk5Lya5Lmw5a6244CB5rW35YWz5pWw5o2u44CB5pCc
+57Si5byV5pOO5Lmw5a62LEIyQuivouebmOS5sOWutuWFsTUwMOS4hyzku4UxMOWFg+avj+WkqeOA
+giANCuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp6YO95pyJ
+5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCg0KMeOA
+gee+pOWPkei9r+S7tu+8miDmk43kvZznroDljZXvvIzlip/og73lvLrlpKfvvIzmqKHku7/kurrl
+t6Xmk43kvZzmqKHlvI/vvIzliLDovr7njofpq5jvvIzml6Xlj5HpgIE15LiH5bCB5Lul5LiK44CC
+IA0KMuOAgTUwMOS4h+S5sOWutui1hOa6kO+8miDotaDpgIHnmoQ1MDDkuIfkubDlrrbotYTmupDl
+upPvvIzmm7TmlrAgKOWPr+S7peaMieeFp+aCqOeahOS6p+WTgeaPkOWPluWHuuadpe+8jOabtOey
+vuWHhuW8gOWPkSnjgIIgDQoz44CB6LaF57qn5rW35aSW5Lmw5a62RW1haWzmkJzntKLmnLrvvJog
+5YaF572u5LqGNjAw5LiH6KGM5Lia5YWz6ZSu6K+N77yM5qC55o2u6ZW/5bC+6K+N5pCc57Si77yM
+57uT5p6c5pu057K+56Gu5Yy56YWN77yb5q+P5aSp6IO95pCc57SiMS0y5LiH5Lul5LiK5Lmw5a62
+55yf5a6eRU1BSUzvvIzmiJDljZXnjofpq5jjgIIgDQogDQoNCuimgeeahOaKk+e0p+iBlOezu1FR
+OiAxMzM5NjI1MjE4ICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNv
+bQ0K6KaB55qE5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUyMTggICDmiJbogIXnq4vljbPlm57lpI3p
+gq7nrrE6IDEzMzk2MjUyMThAcXEuY29tDQropoHnmoTmipPntKfogZTns7tRUTogMTMzOTYyNTIx
+OCAgIOaIluiAheeri+WNs+WbnuWkjemCrueusTogMTMzOTYyNTIxOEBxcS5jb20NCiANCuWFjei0
+uei1oOmAgToNCuS4gOWFsTjkuKrljIUo5pWw5o2u5piv5YWo6KGM5Lia55qE77yM5oyJ54Wn6KGM
+5Lia5YiG5aW957G777yM5bm25LiU5Y+v5Lul5oyJ54Wn5YWz6ZSu6K+N5p+l6K+i55qEKe+8miAN
+CjHvvIwyMDEx5pil5a2jMTA55bGK5bm/5Lqk5Lya5Lmw5a62546w5Zy66K+i55uY5pWw5o2u5bqT
+5paw6bKc5Ye654KJ77yM6LaF57qn5paw6bKc5Lmw5a6277yM5paw6bKc5pWw5o2u77yM5a655piT
+5oiQ5Y2V77yBIA0KMu+8jOi0reS5sOWQjuWPr+S7peWFjei0ueabtOaWsDIwMTHnp4vlraPlub/k
+uqTkvJorMjAxMuaYpeWto+W5v+S6pOS8muS5sOWutuaVsOaNruOAguWkqui2heWAvOS6huOAgg0K
+M++8jOacgOaWsOWFqOeQg+S5sOWutuW6kyzlhbE0NTE2NjDmnaHmlbDmja7jgIIgKOacgOaWsOab
+tOaWsOaXpeacnyAyMDExLTA1LTE25pelKQ0KNO+8jDIwMDjlubQsMjAwOeW5tCwyMDEw5bm0IOaY
+peWtoyvnp4vlraPlub/kuqTkvJrkubDlrrblkI3lvZXvvIwxMDMgMTA0IDEwNSAxMDYgMTA3IDEw
+OCDlhbHlha3lsYog5YWxMTIwLjbkuIfmlbDmja7jgIINCjXvvIwyMDEw5bm05Zu96ZmF5L+D6ZSA
+5Y2P5Lya77yIUFBBSe+8ieaIkOWRmOWQjeWNlSBQUEFJIE1lbWJlcnMgRGlyZWN0b3J577yM6Z2e
+5bi46YeN6KaB55qE5aSn5Lmw5a6244CCDQo277yMMjAxMOW5tOWIsOmmmea4r+mHh+i0reeahOWb
+veWkluWuouS6uuWQjeW9lSjpppnmuK/otLjlj5HlsYDmj5Dkvpsp77yM5YWxNy4y5LiH5pWw5o2u
+77yM6LaF57qn6YeN6KaB55qE5Lmw5a6244CCDQo377yMNDguNjjkuIfmnaHmnIDmlrDkubDlrrbo
+r6Lnm5jvvIzotK3kubDlkI7mr4/mnIjmm7TmlrAgMS0y5LiH5p2h77yM5YyF5ousMumDqOWIhu+8
+jDHvvIzmnIDmlrDnmoTor6Lnm5ggMu+8jOacgOaWsOeahOWxleS8muS5sOWutuOAguWFjei0ueab
+tOaWsDM25Liq5pyI44CCDQo477yMMjAwOeW5tOa1t+WFs+aPkOWNleaVsOaNrnBpZXJz54mI5pWw
+5o2uIDHljYPkuIfjgIINCg0KDQror5rkv6HkuLrmnKzvvIzmlK/mjIHmlK/ku5jlrp3mi4Xkv53k
+uqTmmJMgKOWFiOWPkei0p+W5tuWuieijheiuvue9rue+pOWPkei9r+S7tu+8jOeEtuWQjuS7mOas
+vikg5b275bqV5omT5raI5oKo55qEIOmhvuiZkeOAgg0KDQogDQoNCg0KIA0KDQrnsr7lh4bmlbDm
+ja4t5oiQ5Y2V546H5p6B6auYDQrnsr7lh4bmlbDmja4t5oiQ5Y2V546H5p6B6auYDQrnsr7lh4bm
+lbDmja4t5oiQ5Y2V546H5p6B6auYDQrnsr7lh4bmlbDmja4t5oiQ5Y2V546H5p6B6auYDQrnsr7l
+h4bmlbDmja4t5oiQ5Y2V546H5p6B6auYDQo=
