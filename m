@@ -1,68 +1,57 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Question about reply to a datagram sent to a Subnet-Router anycast address
-Date: Wed, 28 Sep 2011 07:13:22 -0700 (PDT)
-Message-ID: <1317219202.22987.YahooMailClassic@web126017.mail.ne1.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm24.bullet.mail.ne1.yahoo.com ([98.138.90.87]:24880 "HELO
-	nm24.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754146Ab1I1OUE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Sep 2011 10:20:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH v2 1/2] virtio-net: Verify page list size before fitting into  skb
+Date: Wed, 28 Sep 2011 17:40:54 +0300
+Message-ID: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
+Cc: Sasha Levin <levinsasha928@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+This patch verifies that the length of a buffer stored in a linked list
+of pages is small enough to fit into a skb.
 
-I try to ping some routers on one of their Subnet-Router anycast addres=
-ses (SRAA).
-(http://tools.ietf.org/html/rfc4291#section-2.6.1)
+If the size is larger than a max size of a skb, it means that we shouldn't
+go ahead building skbs anyway since we won't be able to send the buffer as
+the user requested.
 
-A Linux kernel 3.0 in IPv6 forwarding mode reply with an unicast source=
- address (same subnet prefix).
-An Alcatel router reply with the SRAA as source address.
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: virtualization@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
+Cc: kvm@vger.kernel.org
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ drivers/net/virtio_net.c |   13 +++++++++++++
+ 1 files changed, 13 insertions(+), 0 deletions(-)
 
-The RFC 4291 removed the restrictions on using IPv6 anycast addresses, =
-so a SRAA may be used as a source address, in a reply.
-
-In the following draft, we have a rationale for the removal of restrict=
-ions regarding anycast as source address in RFC 4291 :
-(http://tools.ietf.org/html/draft-jabley-v6-anycast-clarify-00#section-=
-3.1)
-"3.1 Anycast Source Addresses
-=A0=A0=A0For many conventional services to be distributed using anycast=
-, it is
-=A0=A0=A0necessary for reply datagrams sent from servers to clients to =
-be
-=A0=A0=A0sourced from the same address that was used as the destination=
- in
-=A0=A0=A0request datagrams sent from clients to servers.=A0 When such a=
- service
-=A0=A0=A0is distributed using anycast, the destination address used in =
-request
-=A0=A0=A0datagrams is necessarily an anycast address; corresponding rep=
-ly
-=A0=A0=A0packets must therefore use the same anycast address as their s=
-ource
-=A0=A0=A0address.
-=A0=A0=A0Being able to use an anycast address as the source address in =
-an IPv6
-=A0=A0=A0datagram is a prerequisite for the distribution of many servic=
-es
-=A0=A0=A0using anycast over IPv6."
-
-A SRAA is a special case of anycast address.
-
-Is there a way to setup the Linux kernel to behave like Alcatel router,=
- replying with the SRAA as source address ?
-
-If not, why not update the behaviour of the Linux kernel to configurabl=
-e ?
-
-Please let me know your feedback.
-
-Thanks,
-=46rancois-Xavier Le Bail
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 0c7321c..bde0dec 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -195,6 +195,19 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 	len -= copy;
+ 	offset += copy;
+ 
++	/*
++	 * Verify that we can indeed put this data into a skb.
++	 * This is here to handle cases when the device erroneously
++	 * tries to receive more than is possible. This is usually
++	 * the case of a broken device.
++	 */
++	if (unlikely(len > MAX_SKB_FRAGS * PAGE_SIZE)) {
++		if (net_ratelimit())
++			pr_debug("%s: too much data\n", skb->dev->name);
++		dev_kfree_skb(skb);
++		return NULL;
++	}
++
+ 	while (len) {
+ 		set_skb_frag(skb, page, offset, &len);
+ 		page = (struct page *)page->private;
+-- 
+1.7.6.1
