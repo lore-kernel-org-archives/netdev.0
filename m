@@ -1,101 +1,65 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH v2 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
-Date: Thu, 29 Sep 2011 16:56:13 -0500
-Message-ID: <20110929215613.GD10886@ponder.secretlab.ca>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH v2 3/3] netdev/of/phy: Add MDIO bus multiplexer driven by
+	GPIO lines.
+Date: Thu, 29 Sep 2011 17:01:11 -0500
+Message-ID: <20110929220111.GE10886@ponder.secretlab.ca>
 References: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
- <1317166015-20714-3-git-send-email-david.daney@cavium.com>
+	<1317166015-20714-4-git-send-email-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: David Daney <david.daney@cavium.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1317166015-20714-3-git-send-email-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1317166015-20714-4-git-send-email-david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 27, 2011 at 04:26:54PM -0700, David Daney wrote:
-> This patch adds a somewhat generic framework for MDIO bus
-> multiplexers.  It is modeled on the I2C multiplexer.
+On Tue, Sep 27, 2011 at 04:26:55PM -0700, David Daney wrote:
+> The GPIO pins select which sub bus is connected to the master.
 > 
-> The multiplexer is needed if there are multiple PHYs with the same
-> address connected to the same MDIO bus adepter, or if there is
-> insufficient electrical drive capability for all the connected PHY
-> devices.
+> Initially tested with an sn74cbtlv3253 switch device wired into the
+> MDIO bus.
 > 
-> Conceptually it could look something like this:
-> 
->                    ------------------
->                    | Control Signal |
->                    --------+---------
->                            |
->  ---------------   --------+------
->  | MDIO MASTER |---| Multiplexer |
->  ---------------   --+-------+----
->                      |       |
->                      C       C
->                      h       h
->                      i       i
->                      l       l
->                      d       d
->                      |       |
->      ---------       A       B   ---------
->      |       |       |       |   |       |
->      | PHY@1 +-------+       +---+ PHY@1 |
->      |       |       |       |   |       |
->      ---------       |       |   ---------
->      ---------       |       |   ---------
->      |       |       |       |   |       |
->      | PHY@2 +-------+       +---+ PHY@2 |
->      |       |                   |       |
->      ---------                   ---------
-> 
-> This framework configures the bus topology from device tree data.  The
-> mechanics of switching the multiplexer is left to device specific
-> drivers.
-> 
-> The follow-on patch contains a multiplexer driven by GPIO lines.
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> Acked-by: Andy Fleming <afleming@freescale.com>
-> Cc: Grant Likely <grant.likely@secretlab.ca>
-> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 > ---
->  Documentation/devicetree/bindings/net/mdio-mux.txt |  136 +++++++++++++++
->  drivers/net/phy/Kconfig                            |    8 +
+>  .../devicetree/bindings/net/mdio-mux-gpio.txt      |  129 ++++++++++++++++++
+>  drivers/net/phy/Kconfig                            |    9 ++
 >  drivers/net/phy/Makefile                           |    1 +
->  drivers/net/phy/mdio-mux.c                         |  182 ++++++++++++++++++++
->  include/linux/mdio-mux.h                           |   18 ++
->  5 files changed, 345 insertions(+), 0 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/mdio-mux.txt
->  create mode 100644 drivers/net/phy/mdio-mux.c
->  create mode 100644 include/linux/mdio-mux.h
+>  drivers/net/phy/mdio-mux-gpio.c                    |  143 ++++++++++++++++++++
+>  4 files changed, 282 insertions(+), 0 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/mdio-mux-gpio.txt
+>  create mode 100644 drivers/net/phy/mdio-mux-gpio.c
 > 
-> diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt
+> diff --git a/Documentation/devicetree/bindings/net/mdio-mux-gpio.txt b/Documentation/devicetree/bindings/net/mdio-mux-gpio.txt
 > new file mode 100644
-> index 0000000..5acba65
+> index 0000000..8d0f945
 > --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
-> @@ -0,0 +1,136 @@
-> +Common MDIO bus multiplexer/switch properties.
+> +++ b/Documentation/devicetree/bindings/net/mdio-mux-gpio.txt
+> @@ -0,0 +1,129 @@
+> +Properties for an MDIO bus multiplexer/switch controlled by GPIO pins.
 > +
-> +An MDIO bus multiplexer/switch will have several child busses that are
-> +numbered uniquely in a device dependent manner.  The nodes for an MDIO
-> +bus multiplexer/switch will have one child node for each child bus.
+> +This is a special case of a MDIO bus multiplexer.  One or more GPIO
+> +lines are used to control which child bus is connected.
 > +
-> +Required properties:
-> +- mdio-parent-bus : phandle to the parent MDIO bus.
-> +- #address-cells = <1>;
-> +- #size-cells = <0>;
+> +Required properties in addition to the generic multiplexer properties:
 > +
-> +Optional properties:
-> +- Other properties specific to the multiplexer/switch hardware.
-> +
-> +Required properties for child nodes:
-> +- #address-cells = <1>;
-> +- #size-cells = <0>;
-> +- reg : The sub-bus number.
+> +- compatible : Should define the compatible device type for the
+> +               multiplexer.  Currently "cavium,mdio-mux-sn74cbtlv3253"
+> +               is defined, others are possible.
+> +- gpios : GPIO specifiers for each GPIO line.  One or more must be specified.
 > +
 > +
 > +Example :
@@ -215,42 +179,40 @@ On Tue, Sep 27, 2011 at 04:26:54PM -0700, David Daney wrote:
 > +		};
 > +	};
 > diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index a702443..59848bc 100644
+> index 59848bc..59b3b17 100644
 > --- a/drivers/net/phy/Kconfig
 > +++ b/drivers/net/phy/Kconfig
-> @@ -119,6 +119,14 @@ config MDIO_GPIO
->  	  To compile this driver as a module, choose M here: the module
->  	  will be called mdio-gpio.
+> @@ -127,6 +127,15 @@ config MDIO_BUS_MUX
+>  	  to a parent bus.  Switching between child busses is done by
+>  	  device specific drivers.
 >  
-> +config MDIO_BUS_MUX
-> +	tristate "Support for MDIO bus multiplexers"
+> +config MDIO_BUS_MUX_GPIO
+> +	tristate "Support for GPIO controlled MDIO bus multiplexers"
+> +	depends on MDIO_BUS_MUX && GENERIC_GPIO
 > +	help
-> +	  This module provides a driver framework for MDIO bus
-> +	  multiplexers which connect one of several child MDIO busses
-> +	  to a parent bus.  Switching between child busses is done by
-> +	  device specific drivers.
+> +	  This module provides a driver for MDIO bus multiplexers that
+> +	  are controlled via GPIO lines.  The multiplexer connects one of
+> +	  several child MDIO busses to a parent bus.  Child bus
+> +	  selection is under the control of GPIO lines.
 > +
-
-Don't make this a user visible option.  Make the bus driver select it.
-
 >  config MDIO_OCTEON
 >  	tristate "Support for MDIO buses on Octeon SOCs"
 >  	depends on  CPU_CAVIUM_OCTEON
 > diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-> index 2333215..0c081d5 100644
+> index 0c081d5..d1a1927 100644
 > --- a/drivers/net/phy/Makefile
 > +++ b/drivers/net/phy/Makefile
-> @@ -23,3 +23,4 @@ obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
->  obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+> @@ -24,3 +24,4 @@ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
 >  obj-$(CONFIG_MICREL_PHY)	+= micrel.o
 >  obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
-> +obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
-> diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+>  obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
+> +obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
+> diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
 > new file mode 100644
-> index 0000000..a940296
+> index 0000000..3cdad35
 > --- /dev/null
-> +++ b/drivers/net/phy/mdio-mux.c
-> @@ -0,0 +1,182 @@
+> +++ b/drivers/net/phy/mdio-mux-gpio.c
+> @@ -0,0 +1,143 @@
 > +/*
 > + * This file is subject to the terms and conditions of the GNU General Public
 > + * License.  See the file "COPYING" in the main directory of this archive
@@ -266,218 +228,107 @@ Don't make this a user visible option.  Make the bus driver select it.
 > +#include <linux/gfp.h>
 > +#include <linux/phy.h>
 > +#include <linux/mdio-mux.h>
+> +#include <linux/of_gpio.h>
 > +
 > +#define DRV_VERSION "1.0"
-> +#define DRV_DESCRIPTION "MDIO bus multiplexer driver"
+> +#define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
 > +
-> +struct mdio_mux_parent_bus {
-> +	struct mii_bus *mii_bus;
-> +	int current_child;
-> +	int parent_id;
-> +	void *switch_data;
-> +	int (*switch_fn)(int current_child, int desired_child, void *data);
+> +#define MDIO_MUX_GPIO_MAX_BITS 8
+> +
+> +struct mdio_mux_gpio_state {
+> +	int gpio[MDIO_MUX_GPIO_MAX_BITS];
+> +	unsigned int num_gpios;
 > +};
 > +
-> +struct mdio_mux_child_bus {
-> +	struct mii_bus *mii_bus;
-> +	struct mdio_mux_parent_bus *parent;
-> +	int bus_number;
-> +	int phy_irq[PHY_MAX_ADDR];
-> +};
-> +
-> +/*
-> + * The parent bus' lock is used to order access to the switch_fn.
-> + */
-> +static int mdio_mux_read(struct mii_bus *bus, int phy_id, int regnum)
+> +static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+> +				   void *data)
 > +{
-> +	struct mdio_mux_child_bus *cb = bus->priv;
-> +	struct mdio_mux_parent_bus *pb = cb->parent;
-> +	int r;
+> +	int change;
+> +	unsigned int n;
+> +	struct mdio_mux_gpio_state *s = data;
 > +
-> +	mutex_lock(&pb->mii_bus->mdio_lock);
-> +	r = pb->switch_fn(pb->current_child, cb->bus_number, pb->switch_data);
-> +	if (r)
-> +		goto out;
+> +	if (current_child == desired_child)
+> +		return 0;
 > +
-> +	pb->current_child = cb->bus_number;
+> +	change = current_child == -1 ? -1 : current_child ^ desired_child;
 > +
-> +	r = pb->mii_bus->read(pb->mii_bus, phy_id, regnum);
-> +out:
-> +	mutex_unlock(&pb->mii_bus->mdio_lock);
+> +	for (n = 0; n < s->num_gpios; n++) {
+> +		if (change & 1)
+> +			gpio_set_value_cansleep(s->gpio[n],
+> +						(desired_child & 1) != 0);
+> +		change >>= 1;
+> +		desired_child >>= 1;
+> +	}
 > +
-> +	return r;
+> +	return 0;
 > +}
 > +
-> +/*
-> + * The parent bus' lock is used to order access to the switch_fn.
-> + */
-> +static int mdio_mux_write(struct mii_bus *bus, int phy_id,
-> +			  int regnum, u16 val)
+> +static int __devinit mdio_mux_gpio_probe(struct platform_device *pdev)
 > +{
-> +	struct mdio_mux_child_bus *cb = bus->priv;
-> +	struct mdio_mux_parent_bus *pb = cb->parent;
-> +
+> +	enum of_gpio_flags f;
+> +	struct mdio_mux_gpio_state *s;
+> +	unsigned int num_gpios;
+> +	unsigned int n;
 > +	int r;
-> +
-> +	mutex_lock(&pb->mii_bus->mdio_lock);
-> +	r = pb->switch_fn(pb->current_child, cb->bus_number, pb->switch_data);
-> +	if (r)
-> +		goto out;
-> +
-> +	pb->current_child = cb->bus_number;
-> +
-> +	r = pb->mii_bus->write(pb->mii_bus, phy_id, regnum, val);
-> +out:
-> +	mutex_unlock(&pb->mii_bus->mdio_lock);
-> +
-> +	return r;
-> +}
-> +
-> +static int parent_count;
-> +
-> +int mdio_mux_probe(struct platform_device *pdev,
-> +		   int (*switch_fn)(int cur, int desired, void *data),
-> +		   void *data)
-> +{
-
-Don't call this probe.  Probe typically means top level driver, but
-this module is a library used by MDIO mux drivers.  Call this
-functions something like init.  Also, passing it a platform_device
-looks wrong since it might be a platform_device, but it might be an
-i2c_client or an spi_device.  Pass in struct device instead.
-
-Also, this function should return the pointer to the allocated
-mdio_mux_parent_bus so that the calling driver has a reference to it.
-
-> +	struct device_node *parent_bus_node;
-> +	struct device_node *child_bus_node;
-> +	int r, n, ret_val;
-> +	struct mii_bus *parent_bus;
-> +	struct mdio_mux_parent_bus *pb;
-> +	struct mdio_mux_child_bus *cb;
 > +
 > +	if (!pdev->dev.of_node)
 > +		return -ENODEV;
 > +
-> +	parent_bus_node = of_parse_phandle(pdev->dev.of_node, "mdio-parent-bus", 0);
-> +
-> +	if (!parent_bus_node)
+> +	num_gpios = of_gpio_count(pdev->dev.of_node);
+> +	if (num_gpios == 0 || num_gpios > MDIO_MUX_GPIO_MAX_BITS)
 > +		return -ENODEV;
 > +
-> +	parent_bus = of_mdio_find_bus(parent_bus_node);
-
-What if of_mdio_find_bus() fails?
-
+> +	s = devm_kzalloc(&pdev->dev, sizeof(*s), GFP_KERNEL);
+> +	if (!s)
+> +		return -ENOMEM;
 > +
-> +	pb = devm_kzalloc(&pdev->dev, sizeof(*pb), GFP_KERNEL);
-> +	if (pb == NULL) {
-> +		ret_val = -ENOMEM;
-> +		goto err_parent_bus;
-> +	}
+> +	s->num_gpios = num_gpios;
 > +
-> +	pb->switch_data = data;
-> +	pb->switch_fn = switch_fn;
-> +	pb->current_child = -1;
-> +	pb->parent_id = parent_count++;
-> +	pb->mii_bus = parent_bus;
-> +
-> +	n = 0;
-> +	for_each_child_of_node(pdev->dev.of_node, child_bus_node) {
-> +		u32 v;
-> +
-> +		r = of_property_read_u32(child_bus_node, "reg", &v);
-> +		if (r == 0) {
-> +			cb = devm_kzalloc(&pdev->dev, sizeof(*cb), GFP_KERNEL);
-> +			if (cb == NULL)
-> +				break;
-> +			cb->bus_number = v;
-> +			cb->parent = pb;
-> +			cb->mii_bus = mdiobus_alloc();
-> +			cb->mii_bus->priv = cb;
-> +
-> +			cb->mii_bus->irq = cb->phy_irq;
-> +			cb->mii_bus->name = "mdio_mux";
-> +			snprintf(cb->mii_bus->id, MII_BUS_ID_SIZE, "%x.%x",
-> +				 pb->parent_id, v);
-> +			cb->mii_bus->parent = &pdev->dev;
-> +			cb->mii_bus->read = mdio_mux_read;
-> +			cb->mii_bus->write = mdio_mux_write;
-
-The parent bus should probably maintain a list of all child busses so
-that a shutdown function can tear it all down again.
-
-> +			r = of_mdiobus_register(cb->mii_bus, child_bus_node);
-> +			if (r) {
-> +				of_node_put(child_bus_node);
-> +				devm_kfree(&pdev->dev, cb);
-> +			} else {
-> +				n++;
-> +			}
-> +
-> +		} else {
-> +			of_node_put(child_bus_node);
+> +	for (n = 0; n < num_gpios; ) {
+> +		int gpio = of_get_named_gpio_flags(pdev->dev.of_node,
+> +						   "gpios", n, &f);
+> +		s->gpio[n] = gpio;
+> +		if (gpio < 0) {
+> +			r = -ENODEV;
+> +			goto err;
 > +		}
+> +
+> +		n++;
+> +
+> +		r = gpio_request(gpio, "mdio_mux_gpio");
+> +		if (r)
+> +			goto err;
+> +
+> +		r = gpio_direction_output(gpio, 0);
+> +		if (r)
+> +			goto err;
 > +	}
-> +	if (n) {
-> +		dev_info(&pdev->dev, "Version " DRV_VERSION "\n");
+> +
+> +	r = mdio_mux_probe(pdev, mdio_mux_gpio_switch_fn, s);
+> +
+> +	if (r == 0)
 > +		return 0;
+> +err:
+> +	while (n) {
+> +		n--;
+> +		gpio_free(s->gpio[n]);
 > +	}
-> +	ret_val = -ENOMEM;
-> +	devm_kfree(&pdev->dev, pb);
-> +err_parent_bus:
-> +	of_node_put(parent_bus_node);
-> +	return ret_val;
+> +	devm_kfree(&pdev->dev, s);
+
+Don't need to do this.  The probe failed, so the free will automatically happen because devm_kzalloc was used.
+
+> +	return r;
 > +}
-> +EXPORT_SYMBOL(mdio_mux_probe);
 > +
-> +static int __devexit mdio_mux_remove(struct platform_device *pdev)
+> +static int __devexit mdio_mux_gpio_remove(struct platform_device *pdev)
 > +{
 > +	return 0;
 > +}
-> +
-> +static int __init mdio_mux_mod_init(void)
-> +{
-> +	return 0;
-> +}
-> +module_init(mdio_mux_mod_init);
-> +
-> +static void __exit mdio_mux_mod_exit(void)
-> +{
-> +}
-> +module_exit(mdio_mux_mod_exit);
 
-I don't believe that you need module empty module init/exit/remove
-routines.  Just drop them.
+Don't do empty remove functions.
 
-> +
-> +MODULE_DESCRIPTION(DRV_DESCRIPTION);
-> +MODULE_VERSION(DRV_VERSION);
-> +MODULE_AUTHOR("David Daney");
-> +MODULE_LICENSE("GPL");
-> diff --git a/include/linux/mdio-mux.h b/include/linux/mdio-mux.h
-> new file mode 100644
-> index 0000000..522992a
-> --- /dev/null
-> +++ b/include/linux/mdio-mux.h
-> @@ -0,0 +1,18 @@
-> +/*
-> + * MDIO bus multiplexer framwork.
-> + *
-> + * This file is subject to the terms and conditions of the GNU General Public
-> + * License.  See the file "COPYING" in the main directory of this archive
-> + * for more details.
-> + *
-> + * Copyright (C) 2011 Cavium Networks
-> + */
-> +#ifndef __LINUX_MDIO_MUX_H
-> +#define __LINUX_MDIO_MUX_H
-> +#include <linux/platform_device.h>
-> +
-> +int mdio_mux_probe(struct platform_device *pdev,
-> +		   int (*switch_fn) (int cur, int desired, void *data),
-> +		   void *data);
-> +
-> +#endif /* __LINUX_MDIO_MUX_H */
-> -- 
-> 1.7.2.3
-> 
+This driver looks okay, but it needs the unwind stuff for removal, or
+it needs to be explicit that it cannot be removed (which also means
+that the mdio parent driver becomes unremovable too).
+
+g.
