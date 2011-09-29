@@ -1,64 +1,60 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: about bmac/mace/macmace/mac89x0/cs89x0: Move the Macintosh
- (Apple) drivers
-Date: Thu, 29 Sep 2011 02:12:37 -0700
-Message-ID: <CAL3LdT7EUs8BQ7+kikzD9MbTC4e2sHUs=5b1jQsieo-OZhU38A@mail.gmail.com>
-References: <20110928070439.GV31404@pengutronix.de>
+From: Thomas Wiedemann <Thomas.Wiedemann@iav.de>
+Subject: Re: [PATCH net-next-2.6] can/sja1000: driver for PEAK PCAN PCI/PCIe cards
+Date: Thu, 29 Sep 2011 11:21:54 +0200
+Message-ID: <OFA1D2B7AC.618D2DB3-ONC125791A.0032F517-C125791A.00335871@retarus.de>
+References: <4E6F0891.8030600@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Paul Mackerras <paulus@samba.org>,
-	Russell Nelson <nelson@crynwr.com>, netdev@vger.kernel.org,
-	davem@davemloft.net,
-	Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: linux@peak-system.com, Netdev@vger.kernel.org,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48400 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754977Ab1I2JMj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 05:12:39 -0400
-Received: by fxe4 with SMTP id 4so1504775fxe.19
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 02:12:38 -0700 (PDT)
-In-Reply-To: <20110928070439.GV31404@pengutronix.de>
+Received: from mailout01.rmx.de ([217.111.120.9]:47885 "EHLO mailout01.rmx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755048Ab1I2JV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Sep 2011 05:21:28 -0400
+In-Reply-To: <4E6F0891.8030600@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2011 at 00:04, Sascha Hauer <s.hauer@pengutronix.de> wr=
-ote:
-> Hi,
->
->> commit 8fb6b0908176704a3ea22005e8a9fa3ebf35b5be
->> Author: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Date: =C2=A0 Mon May 16 01:39:01 2011 -0700
->>
->> =C2=A0 =C2=A0bmac/mace/macmace/mac89x0/cs89x0: Move the Macintosh (A=
-pple) drivers
->>
->> =C2=A0 =C2=A0Move the Apple drivers into driver/net/ethernet/apple/ =
-and make the
->> =C2=A0 =C2=A0necessary Kconfig and Makefile changes.
->
-> This commit moves drivers/net/cs89x0.[ch] to drivers/net/ethernet/app=
-le/.
->
-> This is wrong. The cs89x0 driver is a general ISA driver and is also
-> used on some embedded boards. This patch should only move drivers/net=
-/mac89x0.c
-> which basically is a driver for the same device but used on Macintosh=
-=2E
->
-> I think it should go to drivers/net/ethernet/cirrus instead.
->
-> Sascha
->
+I got access to another system with a 4 channel card and tested your patch 
+(v1) within the Berlios socket-can SVN tree: it worked :)
+Thanks!
+ 
+Thomas
 
-Thanks Sasha, I am looking into the past emails on this to see if
-there was a suggested reason that in be where it is at.  I do agree
-with you that it looks like it should be in
-/drivers/net/ethernet/cirrus/, before making a patch to move it, I
-want to double check all the previous emails I received to ensure that
-there was a logic reason for placing it where it is.
 
---=20
-Cheers,
-Jeff
+Wolfgang Grandegger <wg@grandegger.com> schrieb am 13.09.2011 09:38:57:
+
+> Hi Oliver,
+> 
+> On 09/12/2011 05:49 PM, Oliver Hartkopp wrote:
+> > On 09/09/11 17:20, Wolfgang Grandegger wrote:
+> > 
+> > 
+> >>
+> >>> I'll also test your driver on Monday.
+> >>
+> >> Thanks,
+> > 
+> > 
+> > Hi Wolfgang,
+> > 
+> > even if i only had my hardware-patched PEAK PCI ExpressCard hardware 
+here
+> > (which is to be removed in the supported PCI device list due to the 
+missing
+> > I2C initialization), i successfully tested your driver.
+> > 
+> > Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> 
+> Thanks, I have just sent v2.
+> 
+> > So let's wait for some feedback from Thomas, when he's back to the 
+office ;-)
+> 
+> Yep, some testing on a 4 channel card would be nice.
+> 
+> Wolfgang.
+> 
