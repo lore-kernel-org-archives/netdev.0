@@ -1,149 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/8] e1000: don't enable dma receives until after dma address has been setup
-Date: Wed, 28 Sep 2011 23:30:09 -0700
-Message-ID: <1317277816-6024-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/8] ixgbevf: Fix broken trunk vlan
+Date: Wed, 28 Sep 2011 23:30:10 -0700
+Message-ID: <1317277816-6024-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Dean Nelson <dnelson@redhat.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Andy Gospodarek <andy@greyhouse.net>,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jiri Pirko <jpirko@redhat.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62728 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:18142 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751290Ab1I2GaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751621Ab1I2GaU (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 29 Sep 2011 02:30:20 -0400
 In-Reply-To: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dean Nelson <dnelson@redhat.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Doing an 'ifconfig ethN down' followed by an 'ifconfig ethN up' on a qemu-kvm
-guest system configured with two e1000 NICs can result in an 'unable to handle
-kernel paging request at 0000000100000000' or 'bad page map in process ...' or
-something similar.
+Changes to clean up the vlan rx path broke trunk vlan.  Trunk vlans in
+a VF driver are those set using:
 
-These result from a 4096-byte page being corrupted with the following two-word
-pattern (16-bytes) repeated throughout the entire page:
+"ip link set <pfdev> vf <n> <vlanid>"
 
-  0x0000000000000000
-  0x0000000100000000
-
-There can be other bits set as well. What is a constant is that the 2nd word
-has the 32nd bit set. So one could see:
-
-        :
-  0x0000000000000000
-  0x0000000100000000
-  0x0000000000000000
-  0x0000000172adc067    <<< bad pte
-  0x800000006ec60067
-  0x0000000700000040
-  0x0000000000000000
-  0x0000000100000000
-        :
-
-Which came from from a process' page table I dumped out when the marked line
-was seen as bad by print_bad_pte().
-
-The repeating pattern represents the e1000's two-word receive descriptor:
-
-struct e1000_rx_desc {
-        __le64 buffer_addr;   /* Address of the descriptor's data buffer */
-        __le16 length;        /* Length of data DMAed into data buffer */
-        __le16 csum;          /* Packet checksum */
-        u8 status;            /* Descriptor status */
-        u8 errors;            /* Descriptor Errors */
-        __le16 special;
-};
-
-And the 32nd bit of the 2nd word maps to the 'u8 status' member, and
-corresponds to E1000_RXD_STAT_DD which indicates the descriptor is done.
-
-The corruption appears to result from the following...
-
- . An 'ifconfig ethN down' gets us into e1000_close(), which through a number
-   of subfunctions results in:
-     1. E1000_RCTL_EN being cleared in RCTL register.  [e1000_down()]
-     2. dma_free_coherent() being called.  [e1000_free_rx_resources()]
-
- . An 'ifconfig ethN up' gets us into e1000_open(), which through a number of
-   subfunctions results in:
-     1. dma_alloc_coherent() being called.  [e1000_setup_rx_resources()]
-     2. E1000_RCTL_EN being set in RCTL register.  [e1000_setup_rctl()]
-     3. E1000_RCTL_EN being cleared in RCTL register.  [e1000_configure_rx()]
-     4. RDLEN, RDBAH and RDBAL registers being set to reflect the dma page
-        allocated in step 1.  [e1000_configure_rx()]
-     5. E1000_RCTL_EN being set in RCTL register.  [e1000_configure_rx()]
-
-During the 'ifconfig ethN up' there is a window opened, starting in step 2
-where the receives are enabled up until they are disabled in step 3, in which
-the address of the receive descriptor dma page known by the NIC is still the
-previous one which was freed during the 'ifconfig ethN down'. If this memory
-has been reallocated for some other use and the NIC feels so inclined, it will
-write to that former dma page with predictably unpleasant results.
-
-I realize that in the guest, we're dealing with an e1000 NIC that is software
-emulated by qemu-kvm. The problem doesn't appear to occur on bare-metal. Andy
-suspects that this is because in the emulator link-up is essentially instant
-and traffic can start flowing immediately. Whereas on bare-metal, link-up
-usually seems to take at least a few milliseconds. And this might be enough
-to prevent traffic from flowing into the device inside the window where
-E1000_RCTL_EN is set.
-
-So perhaps a modification needs to be made to the qemu-kvm e1000 NIC emulator
-to delay the link-up. But in defense of the emulator, it seems like a bad idea
-to enable dma operations before the address of the memory to be involved has
-been made known.
-
-The following patch no longer enables receives in e1000_setup_rctl() but leaves
-them however they were. It only enables receives in e1000_configure_rx(), and
-only after the dma address has been made known to the hardware.
-
-There are two places where e1000_setup_rctl() gets called. The one in
-e1000_configure() is followed immediately by a call to e1000_configure_rx(), so
-there's really no change functionally (except for the removal of the problem
-window. The other is in __e1000_shutdown() and is not followed by a call to
-e1000_configure_rx(), so there is a change functionally. But consider...
-
- . An 'ifconfig ethN down' (just as described above).
-
- . A 'suspend' of the system, which (I'm assuming) will find its way into
-   e1000_suspend() which calls __e1000_shutdown() resulting in:
-     1. E1000_RCTL_EN being set in RCTL register.  [e1000_setup_rctl()]
-
-And again we've re-opened the problem window for some unknown amount of time.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Dean Nelson <dnelson@redhat.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+CC: Jiri Pirko <jpirko@redhat.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 27f586a..4bbc05a 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1814,8 +1814,8 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index d72905b..4930c46 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -293,12 +293,10 @@ static void ixgbevf_receive_skb(struct ixgbevf_q_vector *q_vector,
+ {
+ 	struct ixgbevf_adapter *adapter = q_vector->adapter;
+ 	bool is_vlan = (status & IXGBE_RXD_STAT_VP);
++	u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
  
- 	rctl &= ~(3 << E1000_RCTL_MO_SHIFT);
+-	if (is_vlan) {
+-		u16 tag = le16_to_cpu(rx_desc->wb.upper.vlan);
+-
++	if (is_vlan && test_bit(tag, adapter->active_vlans))
+ 		__vlan_hwaccel_put_tag(skb, tag);
+-	}
  
--	rctl |= E1000_RCTL_EN | E1000_RCTL_BAM |
--		E1000_RCTL_LBM_NO | E1000_RCTL_RDMTS_HALF |
-+	rctl |= E1000_RCTL_BAM | E1000_RCTL_LBM_NO |
-+		E1000_RCTL_RDMTS_HALF |
- 		(hw->mc_filter_type << E1000_RCTL_MO_SHIFT);
- 
- 	if (hw->tbi_compatibility_on == 1)
-@@ -1917,7 +1917,7 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 	}
- 
- 	/* Enable Receives */
--	ew32(RCTL, rctl);
-+	ew32(RCTL, rctl | E1000_RCTL_EN);
- }
- 
- /**
+ 	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
+ 			napi_gro_receive(&q_vector->napi, skb);
 -- 
 1.7.6.2
