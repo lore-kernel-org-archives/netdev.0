@@ -1,82 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Ipv6: Delete rcu_read_lock
-Date: Thu, 29 Sep 2011 10:44:19 +0200
-Message-ID: <1317285859.2855.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC] IPVS: secure_tcp does provide alternate state timeouts
+Date: Thu, 29 Sep 2011 11:47:10 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1109291119420.1696@ja.ssi.bg>
+References: <1317281111-23985-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: rongqing.li@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:65287 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab1I2IoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 04:44:08 -0400
-Received: by bkbzt4 with SMTP id zt4so396814bkb.19
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 01:44:07 -0700 (PDT)
-In-Reply-To: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Le jeudi 29 septembre 2011 =C3=A0 15:46 +0800, rongqing.li@windriver.co=
-m a
-=C3=A9crit :
-> From: Roy.Li <rongqing.li@windriver.com>
->=20
-> Delete rcu_read_lock, it is redundant.
->=20
-
-A good changelog and patch title are required.
-
-Something like :
-
-[PATCH net-next] ipv6: remove a rcu_read_lock in ndisc_constructor
-
-in6_dev_get(dev) takes a reference on struct inet6_dev, we dont need rc=
-u
-locking in ndisc_constructor()
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1317281111-23985-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+	Hello,
 
------
+On Thu, 29 Sep 2011, Simon Horman wrote:
 
-Or, you could try to really use RCU and not take a reference (ie, use=20
-__in6_dev_get() instead of in6_dev_get(dev).
+> * Also reword the test to make it read more easily (to me)
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> ---
+> 
+> Julian, I don't see that IPVS currently implements alternate
+> timeouts for secure_tcp. Am I missing something?
 
+	Yes, only states are changed. What is missing is a
+libipvs support to modify per-protocol timeouts because they
+are not exported to /proc anymore. As the states have name,
+may be we can implement timeout to be set as follows:
 
-Untested patch :
+	ipvsadm --set-state-timeout -p TCP SYN 10
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 9da6e02..a4f4472 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -371,7 +371,7 @@ static int ndisc_constructor(struct neighbour *neig=
-h)
- 	int is_multicast =3D ipv6_addr_is_multicast(addr);
-=20
- 	rcu_read_lock();
--	in6_dev =3D in6_dev_get(dev);
-+	in6_dev =3D __in6_dev_get(dev);
- 	if (in6_dev =3D=3D NULL) {
- 		rcu_read_unlock();
- 		return -EINVAL;
-@@ -380,7 +380,6 @@ static int ndisc_constructor(struct neighbour *neig=
-h)
- 	parms =3D in6_dev->nd_parms;
- 	__neigh_parms_put(neigh->parms);
- 	neigh->parms =3D neigh_parms_clone(parms);
--	rcu_read_unlock();
-=20
- 	neigh->type =3D is_multicast ? RTN_MULTICAST : RTN_UNICAST;
- 	if (!dev->header_ops) {
-@@ -409,7 +408,7 @@ static int ndisc_constructor(struct neighbour *neig=
-h)
- 		else
- 			neigh->output =3D neigh->ops->output;
- 	}
--	in6_dev_put(in6_dev);
-+	rcu_read_unlock();
- 	return 0;
- }
-=20
+	Using 2 timeout tables just for secure_tcp is
+complicated and with the above control it is not needed.
+
+> ---
+>  Documentation/networking/ipvs-sysctl.txt |   10 ++++------
+>  1 files changed, 4 insertions(+), 6 deletions(-)
+> 
+> diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
+> index 1dcdd49..13610e3 100644
+> --- a/Documentation/networking/ipvs-sysctl.txt
+> +++ b/Documentation/networking/ipvs-sysctl.txt
+> @@ -140,13 +140,11 @@ nat_icmp_send - BOOLEAN
+>  secure_tcp - INTEGER
+>          0  - disabled (default)
+>  
+> -        The secure_tcp defense is to use a more complicated state
+> -        transition table and some possible short timeouts of each
+> -        state. In the VS/NAT, it delays the entering the ESTABLISHED
+> -        until the real server starts to send data and ACK packet
+> -        (after 3-way handshake).
+> +	The secure_tcp defense is to use a more complicated TCP state
+> +	transition table. For VS/NAT, it also delays entering the
+> +	TCP ESTABLISHED state until the three way handshake is completed.
+>  
+> -        The value definition is the same as that of drop_entry or
+> +        The value definition is the same as that of drop_entry and
+>          drop_packet.
+>  
+>  sync_threshold - INTEGER
+> -- 
+> 1.7.5.4
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
