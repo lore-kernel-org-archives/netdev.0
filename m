@@ -1,51 +1,91 @@
-From: <rongqing.li@windriver.com>
-Subject: [PATCH] net: Documentation: Fix type of variables
-Date: Thu, 29 Sep 2011 13:51:54 +0800
-Message-ID: <1317275514-12620-1-git-send-email-rongqing.li@windriver.com>
+From: Xiao Jiang <jgq516@gmail.com>
+Subject: Re: [PATCH] tg3: Dont dump registers if interface not ready.
+Date: Thu, 29 Sep 2011 14:50:01 +0800
+Message-ID: <4E841519.6040201@gmail.com>
+References: <4E83D3B3.7090508@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:62526 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754497Ab1I2Fvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 01:51:54 -0400
-Received: from ALA-HCA.corp.ad.wrs.com (ala-hca [147.11.189.40])
-	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id p8T5prXN004911
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 22:51:53 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Guru Anbalagane <guru.anbalagane@oracle.com>,
+	Gurudas Pai <gurudas.pai@oracle.com>, <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Greg Marsden <greg.marsden@oracle.com>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E83D3B3.7090508@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roy.Li <rongqing.li@windriver.com>
+Joe Jin wrote:
+> When bootup the server with BCM5704 Gigabit Ethernet get below warning:
+>
+> tg3 0000:03:01.0: eth0: DMA Status error.  Resetting chip.
+> <Registers state of device>
+> tg3 0000:03:01.0: eth0: 0: Host status block [00000007:00000002:(0000:0000:0000):(0000:0000)]
+> tg3 0000:03:01.0: eth0: 0: NAPI info [00000001:00000002:(0000:0000:01ff):0000:(00c8:0000:0000:0000)]
+> tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
+> tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
+> tg3 0000:03:01.0: tg3_stop_block timed out, ofs=4800 enable_bit=2
+> tg3 0000:03:01.0: eth0: Link is down
+> tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
+> tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
+>
+> If device not ready, then would not dump registers info.
+>
+> Signed-off-by: Joe Jin <joe.jin@oracle.com>
+> Signed-off-by: Guru Anbalagane <guru.anbalagane@oracle.com>
+> Reported-by: Gurudas Pai <gurudas.pai@oracle.com>
+> Cc: Matt Carlson <mcarlson@broadcom.com>
+> Cc: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/tg3.c |   11 +++++++++--
+>   
+Maybe this one should based on net-next tree too, the tg3.c
+is lived below ./drivers/net/ethernet/broadcom/ in that tree.
 
-
-Signed-off-by: Roy.Li <rongqing.li@windriver.com>
----
- Documentation/networking/ip-sysctl.txt |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 8154699..ca5cdcd 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1042,7 +1042,7 @@ conf/interface/*:
- 	The functional behaviour for certain settings is different
- 	depending on whether local forwarding is enabled or not.
- 
--accept_ra - BOOLEAN
-+accept_ra - INTEGER
- 	Accept Router Advertisements; autoconfigure using them.
- 
- 	Possible values are:
-@@ -1106,7 +1106,7 @@ dad_transmits - INTEGER
- 	The amount of Duplicate Address Detection probes to send.
- 	Default: 1
- 
--forwarding - BOOLEAN
-+forwarding - INTEGER
- 	Configure interface-specific Host/Router behaviour.
- 
- 	Note: It is recommended to have the same setting on all
--- 
-1.7.1
+Thanks,
+Xiao Jiang
+>  1 files changed, 9 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index 4a1374d..d79d344 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -5475,10 +5475,15 @@ static void tg3_process_error(struct tg3 *tp)
+>  {
+>  	u32 val;
+>  	bool real_error = false;
+> +	bool dump = true;
+>  
+>  	if (tg3_flag(tp, ERROR_PROCESSED))
+>  		return;
+>  
+> +	/* If interface not ready then dont dump error */
+> +	if (!netif_carrier_ok(tp->dev))
+> +		dump = false;
+> +
+>  	/* Check Flow Attention register */
+>  	val = tr32(HOSTCC_FLOW_ATTN);
+>  	if (val & ~HOSTCC_FLOW_ATTN_MBUF_LWM) {
+> @@ -5492,14 +5497,16 @@ static void tg3_process_error(struct tg3 *tp)
+>  	}
+>  
+>  	if (tr32(RDMAC_STATUS) || tr32(WDMAC_STATUS)) {
+> -		netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
+> +		if (dump)
+> +			netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
+>  		real_error = true;
+>  	}
+>  
+>  	if (!real_error)
+>  		return;
+>  
+> -	tg3_dump_state(tp);
+> +	if (dump)
+> +		tg3_dump_state(tp);
+>  
+>  	tg3_flag_set(tp, ERROR_PROCESSED);
+>  	schedule_work(&tp->reset_task);
+>   
