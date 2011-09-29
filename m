@@ -1,135 +1,50 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: [PATCH] net/flow: remove sleeping and deferral mechanism from
- flow_cache_flush
-Date: Thu, 29 Sep 2011 09:24:05 -0400
-Message-ID: <20110929132405.GA28550@lg3.synalogic.ca>
-References: <1317056956-23644-1-git-send-email-madalin.bucur@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	davem@davemloft.net, timo.teras@iki.fi
-To: Madalin Bucur <madalin.bucur@freescale.com>
+From: Michael Riesch <michael@riesch.at>
+Subject: [patch] usbnet: add timestamping support
+Date: Thu, 29 Sep 2011 16:06:26 +0200
+Message-ID: <1317305186-32700-1-git-send-email-michael@riesch.at>
+Cc: oneukum@suse.de, davem@davemloft.net,
+	Michael Riesch <michael@riesch.at>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:50164 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753073Ab1I2NYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 09:24:13 -0400
-Received: by qyk30 with SMTP id 30so3648263qyk.19
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 06:24:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1317056956-23644-1-git-send-email-madalin.bucur@freescale.com>
+Received: from smtprelay02.ispgateway.de ([80.67.31.40]:45822 "EHLO
+	smtprelay02.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752014Ab1I2OGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 10:06:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-09-26 20:09, Madalin Bucur wrote:
-> flow_cache_flush must not sleep as it can be called in atomic context;
-> removed the schedule_work as the deferred processing lead to the flow
-> cache gc never being actually run under heavy network load
-> 
-> Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
-> ---
->  net/core/flow.c |   21 +++++++++------------
->  1 files changed, 9 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/core/flow.c b/net/core/flow.c
-> index 555a456..0950f97 100644
-> --- a/net/core/flow.c
-> +++ b/net/core/flow.c
-> @@ -14,7 +14,6 @@
->  #include <linux/init.h>
->  #include <linux/slab.h>
->  #include <linux/smp.h>
-> -#include <linux/completion.h>
->  #include <linux/percpu.h>
->  #include <linux/bitops.h>
->  #include <linux/notifier.h>
-> @@ -49,7 +48,6 @@ struct flow_cache_percpu {
->  struct flow_flush_info {
->  	struct flow_cache		*cache;
->  	atomic_t			cpuleft;
-> -	struct completion		completion;
->  };
->  
->  struct flow_cache {
-> @@ -100,7 +98,7 @@ static void flow_entry_kill(struct flow_cache_entry *fle)
->  	kmem_cache_free(flow_cachep, fle);
->  }
->  
-> -static void flow_cache_gc_task(struct work_struct *work)
-> +static void flow_cache_gc_task(void)
->  {
->  	struct list_head gc_list;
->  	struct flow_cache_entry *fce, *n;
-> @@ -113,7 +111,6 @@ static void flow_cache_gc_task(struct work_struct *work)
->  	list_for_each_entry_safe(fce, n, &gc_list, u.gc_list)
->  		flow_entry_kill(fce);
->  }
-> -static DECLARE_WORK(flow_cache_gc_work, flow_cache_gc_task);
->  
->  static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
->  				     int deleted, struct list_head *gc_list)
-> @@ -123,7 +120,7 @@ static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
->  		spin_lock_bh(&flow_cache_gc_lock);
->  		list_splice_tail(gc_list, &flow_cache_gc_list);
->  		spin_unlock_bh(&flow_cache_gc_lock);
-> -		schedule_work(&flow_cache_gc_work);
-> +		flow_cache_gc_task();
->  	}
->  }
->  
-> @@ -320,8 +317,7 @@ static void flow_cache_flush_tasklet(unsigned long data)
->  
->  	flow_cache_queue_garbage(fcp, deleted, &gc_list);
->  
-> -	if (atomic_dec_and_test(&info->cpuleft))
-> -		complete(&info->completion);
-> +	atomic_dec(&info->cpuleft);
->  }
->  
->  static void flow_cache_flush_per_cpu(void *data)
-> @@ -339,22 +335,23 @@ static void flow_cache_flush_per_cpu(void *data)
->  void flow_cache_flush(void)
->  {
->  	struct flow_flush_info info;
-> -	static DEFINE_MUTEX(flow_flush_sem);
-> +	static DEFINE_SPINLOCK(flow_flush_lock);
->  
->  	/* Don't want cpus going down or up during this. */
->  	get_online_cpus();
-> -	mutex_lock(&flow_flush_sem);
-> +	spin_lock_bh(&flow_flush_lock);
->  	info.cache = &flow_cache_global;
->  	atomic_set(&info.cpuleft, num_online_cpus());
-> -	init_completion(&info.completion);
->  
->  	local_bh_disable();
-local_bh_disable may as well be removed with the change to
-spin_lock_bh() just above.
+In order to make USB-to-Ethernet-adapters (depending on usbnet) support
+timestamping, the "skb_defer_rx_timestamp" and "skb_tx_timestamp" function
+calls are added.
 
-Also, I fail to see why bh_disable is needed for
-flow_cache_flush_tasklet(). If you don't mind enlightening me, it'll be
-appreciated.
+Signed-off-by: Michael Riesch <michael@riesch.at>
+---
+ drivers/net/usb/usbnet.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Thanks,
--Ben
->  	smp_call_function(flow_cache_flush_per_cpu, &info, 0);
->  	flow_cache_flush_tasklet((unsigned long)&info);
->  	local_bh_enable();
->  
-> -	wait_for_completion(&info.completion);
-> -	mutex_unlock(&flow_flush_sem);
-> +	while (atomic_read(&info.cpuleft) != 0)
-> +		cpu_relax();
-> +
-> +	spin_unlock_bh(&flow_flush_lock);
->  	put_online_cpus();
->  }
->  
-> -- 
-> 1.7.0.1
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 2ab9b98..b57b57b 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -239,6 +239,10 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
+ 	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
+ 		  skb->len + sizeof (struct ethhdr), skb->protocol);
+ 	memset (skb->cb, 0, sizeof (struct skb_data));
++
++	if (skb_defer_rx_timestamp(skb))
++		return;
++
+ 	status = netif_rx (skb);
+ 	if (status != NET_RX_SUCCESS)
+ 		netif_dbg(dev, rx_err, dev->net,
+@@ -1071,6 +1075,8 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 	unsigned long		flags;
+ 	int retval;
+ 
++	skb_tx_timestamp(skb);
++
+ 	// some devices want funky USB-level framing, for
+ 	// win32 driver (usually) and/or hardware quirks
+ 	if (info->tx_fixup) {
+-- 
+1.6.3.3
