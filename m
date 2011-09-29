@@ -1,33 +1,84 @@
-From: "Yan, Zheng " <yanzheng@21cn.com>
-Subject: Re: [PATCH] Ipv6: Delete rcu_read_lock
-Date: Thu, 29 Sep 2011 16:52:38 +0800
-Message-ID: <CAAM7YAmwXyORpFWhthX4iSEkBp7OANnZ8tHruEyN62Z3mnOdLw@mail.gmail.com>
-References: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com>
-	<CAAM7YAnE4w4y6YWWxk0QGOX8Y6AZQHHQBuVMoRuSm=GtALAx=Q@mail.gmail.com>
-	<4E842B93.3010203@windriver.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC] IPVS: secure_tcp does provide alternate state timeouts
+Date: Thu, 29 Sep 2011 18:01:56 +0900
+Message-ID: <20110929090152.GA14203@verge.net.au>
+References: <1317281111-23985-1-git-send-email-horms@verge.net.au>
+ <alpine.LFD.2.00.1109291119420.1696@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Rongqing Li <rongqing.li@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:55265 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754894Ab1I2Iwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 04:52:39 -0400
-Received: by vws1 with SMTP id 1so241910vws.19
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 01:52:38 -0700 (PDT)
-In-Reply-To: <4E842B93.3010203@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1109291119420.1696@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 29, 2011 at 4:25 PM, Rongqing Li <rongqing.li@windriver.com> wrote:
-> On 09/29/2011 04:16 PM, Yan, Zheng wrote:
->>
->> I think the rcu_read_lock protects in6_dev->nd_parms.
->>
-> It can not protect in6_dev->nd_parms.
->
-> rcu_read_lock protects the data which is accessed by rcu_XXX,
->
+On Thu, Sep 29, 2011 at 11:47:10AM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 29 Sep 2011, Simon Horman wrote:
+> 
+> > * Also reword the test to make it read more easily (to me)
+> > 
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > 
+> > ---
+> > 
+> > Julian, I don't see that IPVS currently implements alternate
+> > timeouts for secure_tcp. Am I missing something?
+> 
+> 	Yes, only states are changed. What is missing is a
+> libipvs support to modify per-protocol timeouts because they
+> are not exported to /proc anymore. As the states have name,
+> may be we can implement timeout to be set as follows:
+> 
+> 	ipvsadm --set-state-timeout -p TCP SYN 10
+> 
+> 	Using 2 timeout tables just for secure_tcp is
+> complicated and with the above control it is not needed.
 
-I'm confused, why does neigh_parms_release() use call_rcu() to release nd_parms.
+Yes, I agree there is room for improvement.
+I guess the best way forward is to use netlink
+to allow per-state per-protocol timeout adjustment.
+
+In the mean time, I'll queue this patch up as I think
+its good that the documentation reflects the implementation.
+
+> 
+> > ---
+> >  Documentation/networking/ipvs-sysctl.txt |   10 ++++------
+> >  1 files changed, 4 insertions(+), 6 deletions(-)
+> > 
+> > diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
+> > index 1dcdd49..13610e3 100644
+> > --- a/Documentation/networking/ipvs-sysctl.txt
+> > +++ b/Documentation/networking/ipvs-sysctl.txt
+> > @@ -140,13 +140,11 @@ nat_icmp_send - BOOLEAN
+> >  secure_tcp - INTEGER
+> >          0  - disabled (default)
+> >  
+> > -        The secure_tcp defense is to use a more complicated state
+> > -        transition table and some possible short timeouts of each
+> > -        state. In the VS/NAT, it delays the entering the ESTABLISHED
+> > -        until the real server starts to send data and ACK packet
+> > -        (after 3-way handshake).
+> > +	The secure_tcp defense is to use a more complicated TCP state
+> > +	transition table. For VS/NAT, it also delays entering the
+> > +	TCP ESTABLISHED state until the three way handshake is completed.
+> >  
+> > -        The value definition is the same as that of drop_entry or
+> > +        The value definition is the same as that of drop_entry and
+> >          drop_packet.
+> >  
+> >  sync_threshold - INTEGER
+> > -- 
+> > 1.7.5.4
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
