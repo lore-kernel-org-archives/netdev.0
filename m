@@ -1,83 +1,61 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: [PATCH] tg3: Dont dump registers if interface not ready.
-Date: Thu, 29 Sep 2011 10:10:59 +0800
-Message-ID: <4E83D3B3.7090508@oracle.com>
+From: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Draft manpage for recvmmsg [RESEND]
+Date: Thu, 29 Sep 2011 06:10:26 +0200
+Message-ID: <CAKgNAkiw=vySn4cxeowgi1f-_D0eFAV4kw6G_Ngogqr_KMijqQ@mail.gmail.com>
+References: <CAKgNAki0bw4ezSNAYMcg92Gyan049Pg7PyXkcEwJLSiAXOZ_Rg@mail.gmail.com>
+ <20110928175213.GK7761@one.firstfloor.org>
+Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Guru Anbalagane <guru.anbalagane@oracle.com>,
-	Gurudas Pai <gurudas.pai@oracle.com>,
-	Joe Jin <joe.jin@oracle.com>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Greg Marsden <greg.marsden@oracle.com>
-To: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Stephan Mueller <stephan.mueller-fwYZOkdEjagAvxtiuMwx3w@public.gmane.org>,
+	linux-man <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110928175213.GK7761-qrUzlfsMFqo/4alezvVtWx2eb7JE58TQ@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When bootup the server with BCM5704 Gigabit Ethernet get below warning:
+[Restoring CC]
 
-tg3 0000:03:01.0: eth0: DMA Status error.  Resetting chip.
-<Registers state of device>
-tg3 0000:03:01.0: eth0: 0: Host status block [00000007:00000002:(0000:0000:0000):(0000:0000)]
-tg3 0000:03:01.0: eth0: 0: NAPI info [00000001:00000002:(0000:0000:01ff):0000:(00c8:0000:0000:0000)]
-tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
-tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
-tg3 0000:03:01.0: tg3_stop_block timed out, ofs=4800 enable_bit=2
-tg3 0000:03:01.0: eth0: Link is down
-tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
-tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
+Hi Andi,
 
-If device not ready, then would not dump registers info.
+On Wed, Sep 28, 2011 at 7:52 PM, Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org> wrote:
+> On Wed, Sep 28, 2011 at 07:29:00PM +0200, Michael Kerrisk wrote:
+>> Hi Andi, Arnaldo,
+>>
+>> Could you please review the revised recvmmsg.2 man page below.
+>>
+>> Andi: I need to know what copyright and license to attach to the page
+>> before I can release it.
+>
+> Your original proposal was fine for me.
 
-Signed-off-by: Joe Jin <joe.jin@oracle.com>
-Signed-off-by: Guru Anbalagane <guru.anbalagane@oracle.com>
-Reported-by: Gurudas Pai <gurudas.pai@oracle.com>
-Cc: Matt Carlson <mcarlson@broadcom.com>
-Cc: Michael Chan <mchan@broadcom.com>
----
- drivers/net/tg3.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+I didn't make an initial proposal (or I don't recall that I did), but
+I suspect you mean the initial proposal on
+http://man7.org/linux/man-pages/licenses.html -- that is, the
+"Verbatim license". Right?
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 4a1374d..d79d344 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -5475,10 +5475,15 @@ static void tg3_process_error(struct tg3 *tp)
- {
- 	u32 val;
- 	bool real_error = false;
-+	bool dump = true;
- 
- 	if (tg3_flag(tp, ERROR_PROCESSED))
- 		return;
- 
-+	/* If interface not ready then dont dump error */
-+	if (!netif_carrier_ok(tp->dev))
-+		dump = false;
-+
- 	/* Check Flow Attention register */
- 	val = tr32(HOSTCC_FLOW_ATTN);
- 	if (val & ~HOSTCC_FLOW_ATTN_MBUF_LWM) {
-@@ -5492,14 +5497,16 @@ static void tg3_process_error(struct tg3 *tp)
- 	}
- 
- 	if (tr32(RDMAC_STATUS) || tr32(WDMAC_STATUS)) {
--		netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
-+		if (dump)
-+			netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
- 		real_error = true;
- 	}
- 
- 	if (!real_error)
- 		return;
- 
--	tg3_dump_state(tp);
-+	if (dump)
-+		tg3_dump_state(tp);
- 
- 	tg3_flag_set(tp, ERROR_PROCESSED);
- 	schedule_work(&tp->reset_task);
+But please note, I'm also looking for content review on the page,
+since I made some notable changes:
+* Reworking of some pieces of text
+* Added new material on blocking versus non-blocking calls
+* Added a more detailed description of how msgvec is updated on return
+from the call.
+* Added an ERRORS section
+
+Do these changes look okay?
+
+Cheers,
+
+Michael
+
 -- 
-1.7.6.2
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
