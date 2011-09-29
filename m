@@ -1,105 +1,63 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: Re: [PATCH] tcp: properly update lost_cnt_hint during shifting
-Date: Wed, 28 Sep 2011 17:12:23 -0700
-Message-ID: <CAB_+Fg6vPX9L5+uzKAop-92dtgMYuDCd-DnUk534RAksDd6uMg@mail.gmail.com>
-References: <4E82C0DD.6010304@intel.com>
-	<alpine.DEB.2.00.1109281103410.21709@wel-95.cs.helsinki.fi>
-	<4E82E0EE.1050600@intel.com>
-	<4E82E5B5.1050206@intel.com>
-	<alpine.DEB.2.00.1109281226480.21709@wel-95.cs.helsinki.fi>
-	<4E82FAD6.1010708@intel.com>
-	<alpine.DEB.2.00.1109281418280.21709@wel-95.cs.helsinki.fi>
-	<CAB_+Fg5ZzC43XcVjoByepZvA4Mknu6PkRWzpUju+KAQnoMb8JQ@mail.gmail.com>
+From: =?utf-8?B?5LuFMTDlhYPmr4/lpKk=?= <admin@hs-s.net>
+Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuivmnIDmlrDlub/kuqTkvJrkubDlrrbjgIHmtbc=?=
+	=?utf-8?B?5YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
+Date: Thu, 29 Sep 2011 00:25:28 +0000 (UTC)
+Message-ID: <20120929080059302261@hs-s.net>
+Reply-To: <1339625218@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: "Yan, Zheng" <zheng.z.yan@intel.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <net2@hotmail.com>, <netblaise@aol.com>, <netdev@vger.kernel.org>,
+	<netfund@msn.com>, <nethxz@163.com>, <netm.vpm@gmail.com>,
+	<netplus@guomai.sh.cn>, <netseek@linuxmine.com>, <nett61@a
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:44076 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753937Ab1I2AMZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Sep 2011 20:12:25 -0400
-Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
-	by smtp-out.google.com with ESMTP id p8T0CPOH008692
-	for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 17:12:25 -0700
-Received: from gyf2 (gyf2.prod.google.com [10.243.50.66])
-	by wpaz33.hot.corp.google.com with ESMTP id p8T0CNpA015231
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 17:12:24 -0700
-Received: by gyf2 with SMTP id 2so69959gyf.13
-        for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 17:12:23 -0700 (PDT)
-In-Reply-To: <CAB_+Fg5ZzC43XcVjoByepZvA4Mknu6PkRWzpUju+KAQnoMb8JQ@mail.gmail.com>
+Received: from old.hs-s.net ([210.134.18.56]:53126 "HELO hs-s.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754063Ab1I2AZW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Sep 2011 20:25:22 -0400
+Date: Sat, 29 Sep 2012 08:00:51 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Actually don't bother about my question. Your patch is correct. I
-convinced myself that it's taking care of diff. cases correctly.
-
-Nandita
-
-On Wed, Sep 28, 2011 at 5:06 PM, Nandita Dukkipati <nanditad@google.com=
-> wrote:
-> Could you please clarify this case for me-
->
-> skb =3D=3D tp->lost_skb_hint
-> If skb is sacked, doesn't tcp_mark_head_lost() already increment
-> lost_cnt_hint, in which case you won't need to do it here?
->
-> Nandita
->
-> On Wed, Sep 28, 2011 at 4:29 AM, Ilpo J=E4rvinen
-> <ilpo.jarvinen@helsinki.fi> wrote:
->> On Wed, 28 Sep 2011, Yan, Zheng wrote:
->>
->>> > But is the non-SACKed case really handled right when hint =3D=3D =
-skb by the
->>> > sacktag_one. We move the seqno in between and then before(x->news=
-eq,
->>> > x->newseq) check returns false?
->>> >
->>> you are right, thank you.
->>>
->>> really hope my patch is correct this time :)
->>> ---
->>> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->>> index 21fab3e..a04622e 100644
->>> --- a/net/ipv4/tcp_input.c
->>> +++ b/net/ipv4/tcp_input.c
->>> @@ -1390,8 +1390,7 @@ static int tcp_shifted_skb(struct sock *sk, s=
-truct sk_buff *skb,
->>> =A0 =A0 =A0 BUG_ON(!pcount);
->>>
->>> =A0 =A0 =A0 /* Tweak before seqno plays */
->>> - =A0 =A0 if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_h=
-int &&
->>> - =A0 =A0 =A0 =A0 !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_S=
-KB_CB(skb)->seq))
->>> + =A0 =A0 if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_h=
-int =3D=3D skb)
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 tp->lost_cnt_hint +=3D pcount;
->>>
->>> =A0 =A0 =A0 TCP_SKB_CB(prev)->end_seq +=3D shifted;
->>
->> It also looks a lot nicer now and more obvious. According to my curr=
-ent
->> understanding, feel free to add this once doing the proper submissio=
-n with
->> Signed-off etc. (please also remove the comment too as seqnos have n=
-o
->> longer any significance here):
->>
->> Acked-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
->>
->> ...but it certainly wouldn't hurt if also somebody else has pair of =
-eyes
->> to spare to confirm that we (both) are now in agreement what the cod=
-e
->> really says.
->>
->>
->> --
->> =A0i.
->
+576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrbjgIHlsZXk
+vJrkubDlrrbjgIHmtbflhbPmlbDmja4sQjJC6K+i55uY5Lmw5a62NTAw5LiH44CCDQoNCuS4gOWF
+sTjkuKrljIUo5pWw5o2u5piv5YWo6KGM5Lia55qE77yM5oyJ54Wn6KGM5Lia5YiG5aW957G777yM
+5bm25LiU5Y+v5Lul5oyJ54Wn5YWz6ZSu6K+N5p+l6K+i55qEKe+8miANCjHvvIwyMDEx5pil5a2j
+MTA55bGK5bm/5Lqk5Lya5Lmw5a625pWw5o2u5bqT5paw6bKc5Ye654KJ77yM6LaF57qn5paw6bKc
+5Lmw5a6277yM5paw6bKc5pWw5o2u77yM5a655piT5oiQ5Y2V77yBIA0KMu+8jOacgOaWsOWFqOeQ
+g+S5sOWutuW6kyzlhbE0NTE2NjDmnaHmlbDmja7jgIIgDQoz77yMMjAwOOW5tCwyMDA55bm0LDIw
+MTDlubQg5pil5a2jK+eni+Wto+W5v+S6pOS8muS5sOWutuWQjeW9le+8jDEwMyAxMDQgMTA1IDEw
+NiAxMDcgMTA4IOWFseWFreWxiiDlhbExMjAuNuS4h+aVsOaNruOAgg0KNO+8jDIwMTDlubTlm73p
+mYXkv4PplIDljY/kvJrvvIhQUEFJ77yJ5oiQ5ZGY5ZCN5Y2VIFBQQUkgTWVtYmVycyBEaXJlY3Rv
+cnnvvIzpnZ7luLjph43opoHnmoTlpKfkubDlrrbjgIINCjXvvIwyMDEw5bm05Yiw6aaZ5riv6YeH
+6LSt55qE5Zu95aSW5a6i5Lq65ZCN5b2VKOmmmea4r+i0uOWPkeWxgOaPkOS+mynvvIzlhbE3LjLk
+uIfmlbDmja7vvIzotoXnuqfph43opoHnmoTkubDlrrbjgIINCjbvvIw2MC445LiH5p2h5pyA5paw
+5Zu95aSWQjJC5Lmw5a626K+i55uY44CCDQo377yMMjAwOeW5tOa1t+WFs+aPkOWNleaVsOaNrnBp
+ZXJz54mI5pWw5o2uIDHljYPkuIfjgIINCjjvvIznvqTlj5Hova/ku7bvvIznvqTlj5Hova/ku7bn
+moTpg6jnvbLkuI7lronoo4XjgIINCg0K5YWxIDUwMOS4h+S4quS5sOWutu+8jOavj+S4quWdh+ac
+iUVtYWlsLiANCg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/l
+pKnpg73mnInkubDlrrblm57lpI3jgIINCg0K6KaB55qE5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUy
+MTggICDmiJbogIXnq4vljbPlm57lpI3pgq7nrrE6IDEzMzk2MjUyMThAcXEuY29tDQropoHnmoTm
+ipPntKfogZTns7tRUTogMTMzOTYyNTIxOCAgIOaIluiAheeri+WNs+WbnuWkjemCrueusTogMTMz
+OTYyNTIxOEBxcS5jb20NCuimgeeahOaKk+e0p+iBlOezu1FROiAxMzM5NjI1MjE4ICAg5oiW6ICF
+56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0KIA0KDQror5rkv6HkuLrmnKzv
+vIzlpoLmnpzkuI3kv6Hku7vmnKzkuros5Y+v5Lul6LWw5reY5a6d5Lqk5piTLOaUtui0p+mqjOiv
+geWQjuWGjeS7mOasvizov5nmmK/lr7nmgqjmnIDlpb3nmoTkv53pmpzkuobjgIIgDQoNCuS/neiv
+geavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue
+5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCg0KDQoNCg0K5bm/5Lqk
+5Lya5Lmw5a625oyJ5Lqn5ZOB57G75Yir5YiG57G777yM5YiG5Li65Lul5LiL5Yeg57G777yaDQox
+IOWKnuWFrOiuvuWkhw0KMiDnvJbnu4flj4rol6Tpk4Hlt6Xoibrlk4ENCjMg546755KDDQo0IOmk
+kOWOqOeUqOWFtw0KNSDovabovoYNCjYg5aSn5Z6L5py65qKw5Y+K6K6+5aSHDQo3IOeUteWtkOeU
+teawlA0KOCDnlLXlrZDmtojotLnlk4ENCjkg57q657uHDQoxMCDmnI3oo4UNCjExIOS4quS6uuaK
+pOeQhg0KMTIg5bel56iL5py65qKwDQoxMyDlt6XlhbcNCjE0IOWMluW3pQ0KMTUg6K6h566X5py6
+5Y+K6YCa6K6vDQoxNiDlrrblsYXnlKjlk4ENCjE3IOWutuWxheijhemlsA0KMTgg5a625YW3DQox
+OSDlrrbnlKjnlLXlmagNCjIwIOW7uuetkeWPiuijhemlsOadkOaWmQ0KMjEg6IqC5pel55So5ZOB
+DQoyMiDnpLzlk4Hlj4rotaDlk4ENCjIzIOaRqeaJmOi9pg0KMjQg5rG96L2m6YWN5Lu2DQoyNSDp
+o5/lk4ENCjI2IOmZtueTtw0KMjcg6ZOB55+zDQoyOCDnjqnlhbcNCjI5IOWNq+a1tA0KMzAg5LqU
+6YeRDQozMSDlsI/lnovmnLrmorANCjMyIOmeiw0KMzMg5LyR6Zey55So5ZOBDQozNCDljLvnlpcN
+CjM1IOa1tOWupOS6p+WTgQ0KMzYg5Zut5p6XDQozNyDnhafmmI7kuqflk4ENCjM4IOmSn+ihqOec
+vOmVnA0KMzkg6Ieq6KGM6L2mDQo0MCDljIUNCg0KDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrbl
+m57lpI3jgIINCuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp
+6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIIN
+CuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg==
