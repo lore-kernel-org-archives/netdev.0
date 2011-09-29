@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Drivers Update
-Date: Thu, 29 Sep 2011 15:48:54 -0400 (EDT)
-Message-ID: <20110929.154854.678982585840454891.davem@davemloft.net>
-References: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 0/3] netdev/of/phy: MDIO bus multiplexer support.
+Date: Thu, 29 Sep 2011 16:31:12 -0400 (EDT)
+Message-ID: <20110929.163112.1523715692737597332.davem@davemloft.net>
+References: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42777 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752977Ab1I2Ts7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 15:48:59 -0400
-In-Reply-To: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: david.daney@cavium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 28 Sep 2011 23:30:08 -0700
+From: David Daney <david.daney@cavium.com>
+Date: Tue, 27 Sep 2011 16:26:52 -0700
 
-> The following series contains updates to e1000, ixgbe and ixgbevf.  This
-> series is missing the if_link and ixgbe patches for the additional
-> parameter for spoof checking, since Greg is re-working those patches
-> currently.
-> 
-> The following are changes since commit 2e1143742789463c00ed5e7f9bf471f2b707b493:
->   candev: allow SJW user setting for bittiming calculation
-> and are available in the git repository at:
->   git://github.com/Jkirsher/net-next.git
+> v2: Update bindings to use "reg" and "mdio-parent-bus" insutead of
+>     "cell-index" and "parent-bus"
 
-Pulled, thanks Jeff.
+Grant, when the final version of this patch set is ready how do
+you want to handle merging it in?
+
+I think it would be safe to merge this via your tree, since the
+changes made to existing network driver files are rather trivial and
+thus merge conflict friendly.
+
+Actually, I feel like we've discussed this before :-)
