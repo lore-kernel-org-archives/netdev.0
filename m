@@ -1,66 +1,483 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: tg3: BMC stops responding in 3.0
-Date: Thu, 29 Sep 2011 16:57:01 -0700
-Message-ID: <20110929235701.GA9513@mcarlson.broadcom.com>
-References: <201109232145.50449.a.miskiewicz@gmail.com>
- <20110926182217.GB2440@mcarlson.broadcom.com>
- <201109262031.33956.a.miskiewicz@gmail.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH v2 2/3] netdev/of/phy: Add MDIO bus multiplexer support.
+Date: Thu, 29 Sep 2011 16:56:13 -0500
+Message-ID: <20110929215613.GD10886@ponder.secretlab.ca>
+References: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
+ <1317166015-20714-3-git-send-email-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Arkadiusz Mi??kiewicz" <a.miskiewicz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2247 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752072Ab1I2X5m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Sep 2011 19:57:42 -0400
-In-Reply-To: <201109262031.33956.a.miskiewicz@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: David Daney <david.daney@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1317166015-20714-3-git-send-email-david.daney@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2011 at 11:31:33AM -0700, Arkadiusz Mi??kiewicz wrote:
-> On Monday 26 of September 2011, Matt Carlson wrote:
-> > On Fri, Sep 23, 2011 at 12:45:50PM -0700, Arkadiusz Mi??kiewicz wrote:
-> > > Hi,
-> > > 
-> > > I was using 2.6.38.8 and recently tried to switch to 3.0.4 on Tyan S2891
-> > > platform.
-> > > 
-> > > This platform uses tg3:
-> > > tg3 0000:0a:09.1: eth1: Tigon3 [partno(BCM95704) rev 2003]
-> > > (PCIX:133MHz:64- bit) MAC address 00:e0:81:33:5e:af
-> > > tg3 0000:0a:09.1: eth1: attached PHY is 5704 (10/100/1000Base-T Ethernet)
-> > > (WireSpeed[1], EEE[0])
-> > > tg3 0000:0a:09.1: eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0]
-> > > TSOcap[1] tg3 0000:0a:09.1: eth1: dma_rwctrl[769f4000] dma_mask[64-bit]
-> > > 
-> > > With 2.6.38.8 everything was working fine. With 3.0.4 there is a problem.
-> > > As soon as tg3 module is loaded or eth0 configured (can't tell which one
-> > > since the machine is 400km away from me and I have no way to play with
-> > > it other than ipmi or ssh) BMC stops responding (so all ipmitool
-> > > commands over LAN stop working). Normal tg3 activity is not affected - I
-> > > can ssh-in without a problem etc but ipmi over lan doesn't work.
-> > > 
-> > > From ssh console "ipmitool lan print" works, shows data but for example
-> > > after "ipmitool mc reset cold" it doesn't recover - ipmitool returns
-> > > "Invalid channel: 255". I have to reboot to 2.6.38.8 and then issue
-> > > "ipmitool mc reset cold" to recover.
-> > > 
-> > > Any idea which tg3 change could break this? Can't bisect this due remote
-> > > access only.
-> > > 
-> > > I was hoping that maybe 9e975cc291d80d5e4562d6bed15ec171e896d69b
-> > > "tg3: Fix io failures after chip reset" will fix things for me but no -
-> > > this doesn't help.
-> > 
-> > What version of the tg3 driver are you working with?
+On Tue, Sep 27, 2011 at 04:26:54PM -0700, David Daney wrote:
+> This patch adds a somewhat generic framework for MDIO bus
+> multiplexers.  It is modeled on the I2C multiplexer.
 > 
-> The one in 3.0.4 kernel. I think it's 3.119 (at least modinfo says so).
+> The multiplexer is needed if there are multiple PHYs with the same
+> address connected to the same MDIO bus adepter, or if there is
+> insufficient electrical drive capability for all the connected PHY
+> devices.
+> 
+> Conceptually it could look something like this:
+> 
+>                    ------------------
+>                    | Control Signal |
+>                    --------+---------
+>                            |
+>  ---------------   --------+------
+>  | MDIO MASTER |---| Multiplexer |
+>  ---------------   --+-------+----
+>                      |       |
+>                      C       C
+>                      h       h
+>                      i       i
+>                      l       l
+>                      d       d
+>                      |       |
+>      ---------       A       B   ---------
+>      |       |       |       |   |       |
+>      | PHY@1 +-------+       +---+ PHY@1 |
+>      |       |       |       |   |       |
+>      ---------       |       |   ---------
+>      ---------       |       |   ---------
+>      |       |       |       |   |       |
+>      | PHY@2 +-------+       +---+ PHY@2 |
+>      |       |                   |       |
+>      ---------                   ---------
+> 
+> This framework configures the bus topology from device tree data.  The
+> mechanics of switching the multiplexer is left to device specific
+> drivers.
+> 
+> The follow-on patch contains a multiplexer driven by GPIO lines.
+> 
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> Acked-by: Andy Fleming <afleming@freescale.com>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> ---
+>  Documentation/devicetree/bindings/net/mdio-mux.txt |  136 +++++++++++++++
+>  drivers/net/phy/Kconfig                            |    8 +
+>  drivers/net/phy/Makefile                           |    1 +
+>  drivers/net/phy/mdio-mux.c                         |  182 ++++++++++++++++++++
+>  include/linux/mdio-mux.h                           |   18 ++
+>  5 files changed, 345 insertions(+), 0 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/mdio-mux.txt
+>  create mode 100644 drivers/net/phy/mdio-mux.c
+>  create mode 100644 include/linux/mdio-mux.h
+> 
+> diff --git a/Documentation/devicetree/bindings/net/mdio-mux.txt b/Documentation/devicetree/bindings/net/mdio-mux.txt
+> new file mode 100644
+> index 0000000..5acba65
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/mdio-mux.txt
+> @@ -0,0 +1,136 @@
+> +Common MDIO bus multiplexer/switch properties.
+> +
+> +An MDIO bus multiplexer/switch will have several child busses that are
+> +numbered uniquely in a device dependent manner.  The nodes for an MDIO
+> +bus multiplexer/switch will have one child node for each child bus.
+> +
+> +Required properties:
+> +- mdio-parent-bus : phandle to the parent MDIO bus.
+> +- #address-cells = <1>;
+> +- #size-cells = <0>;
+> +
+> +Optional properties:
+> +- Other properties specific to the multiplexer/switch hardware.
+> +
+> +Required properties for child nodes:
+> +- #address-cells = <1>;
+> +- #size-cells = <0>;
+> +- reg : The sub-bus number.
+> +
+> +
+> +Example :
+> +
+> +	/* The parent MDIO bus. */
+> +	smi1: mdio@1180000001900 {
+> +		compatible = "cavium,octeon-3860-mdio";
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		reg = <0x11800 0x00001900 0x0 0x40>;
+> +	};
+> +
+> +	/*
+> +	   An NXP sn74cbtlv3253 dual 1-of-4 switch controlled by a
+> +	   pair of GPIO lines.  Child busses 2 and 3 populated with 4
+> +	   PHYs each.
+> +	 */
+> +	mdio-mux {
+> +		compatible = "cavium,mdio-mux-sn74cbtlv3253", "cavium,mdio-mux";
+> +		gpios = <&gpio1 3 0>, <&gpio1 4 0>;
+> +		mdio-parent-bus = <&smi1>;
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +
+> +		mdio@2 {
+> +			reg = <2>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			phy11: ethernet-phy@1 {
+> +				reg = <1>;
+> +				compatible = "marvell,88e1149r";
+> +				marvell,reg-init = <3 0x10 0 0x5777>,
+> +					<3 0x11 0 0x00aa>,
+> +					<3 0x12 0 0x4105>,
+> +					<3 0x13 0 0x0a60>;
+> +				interrupt-parent = <&gpio>;
+> +				interrupts = <10 8>; /* Pin 10, active low */
+> +			};
+> +			phy12: ethernet-phy@2 {
+> +				reg = <2>;
+> +				compatible = "marvell,88e1149r";
+> +				marvell,reg-init = <3 0x10 0 0x5777>,
+> +					<3 0x11 0 0x00aa>,
+> +					<3 0x12 0 0x4105>,
+> +					<3 0x13 0 0x0a60>;
+> +				interrupt-parent = <&gpio>;
+> +				interrupts = <10 8>; /* Pin 10, active low */
+> +			};
+> +			phy13: ethernet-phy@3 {
+> +				reg = <3>;
+> +				compatible = "marvell,88e1149r";
+> +				marvell,reg-init = <3 0x10 0 0x5777>,
+> +					<3 0x11 0 0x00aa>,
+> +					<3 0x12 0 0x4105>,
+> +					<3 0x13 0 0x0a60>;
+> +				interrupt-parent = <&gpio>;
+> +				interrupts = <10 8>; /* Pin 10, active low */
+> +			};
+> +			phy14: ethernet-phy@4 {
+> +				reg = <4>;
+> +				compatible = "marvell,88e1149r";
+> +				marvell,reg-init = <3 0x10 0 0x5777>,
+> +					<3 0x11 0 0x00aa>,
+> +					<3 0x12 0 0x4105>,
+> +					<3 0x13 0 0x0a60>;
+> +				interrupt-parent = <&gpio>;
+> +				interrupts = <10 8>; /* Pin 10, active low */
+> +			};
+> +		};
+> +
+> +		mdio@3 {
+> +			reg = <3>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			phy21: ethernet-phy@1 {
+> +				reg = <1>;
+> +				compatible = "marvell,88e1149r";
+> +				marvell,reg-init = <3 0x10 0 0x5777>,
+> +					<3 0x11 0 0x00aa>,
+> +					<3 0x12 0 0x4105>,
+> +					<3 0x13 0 0x0a60>;
+> +				interrupt-parent = <&gpio>;
+> +				interrupts = <12 8>; /* Pin 12, active low */
+> +			};
+> +			phy22: ethernet-phy@2 {
+> +				reg = <2>;
+> +				compatible = "marvell,88e1149r";
+> +				marvell,reg-init = <3 0x10 0 0x5777>,
+> +					<3 0x11 0 0x00aa>,
+> +					<3 0x12 0 0x4105>,
+> +					<3 0x13 0 0x0a60>;
+> +				interrupt-parent = <&gpio>;
+> +				interrupts = <12 8>; /* Pin 12, active low */
+> +			};
+> +			phy23: ethernet-phy@3 {
+> +				reg = <3>;
+> +				compatible = "marvell,88e1149r";
+> +				marvell,reg-init = <3 0x10 0 0x5777>,
+> +					<3 0x11 0 0x00aa>,
+> +					<3 0x12 0 0x4105>,
+> +					<3 0x13 0 0x0a60>;
+> +				interrupt-parent = <&gpio>;
+> +				interrupts = <12 8>; /* Pin 12, active low */
+> +			};
+> +			phy24: ethernet-phy@4 {
+> +				reg = <4>;
+> +				compatible = "marvell,88e1149r";
+> +				marvell,reg-init = <3 0x10 0 0x5777>,
+> +					<3 0x11 0 0x00aa>,
+> +					<3 0x12 0 0x4105>,
+> +					<3 0x13 0 0x0a60>;
+> +				interrupt-parent = <&gpio>;
+> +				interrupts = <12 8>; /* Pin 12, active low */
+> +			};
+> +		};
+> +	};
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index a702443..59848bc 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -119,6 +119,14 @@ config MDIO_GPIO
+>  	  To compile this driver as a module, choose M here: the module
+>  	  will be called mdio-gpio.
+>  
+> +config MDIO_BUS_MUX
+> +	tristate "Support for MDIO bus multiplexers"
+> +	help
+> +	  This module provides a driver framework for MDIO bus
+> +	  multiplexers which connect one of several child MDIO busses
+> +	  to a parent bus.  Switching between child busses is done by
+> +	  device specific drivers.
+> +
 
-Unfortunately there were a lot of changes between 3.117 and 3.119(+).
-Is there any way you can narrow down the gap?
+Don't make this a user visible option.  Make the bus driver select it.
+
+>  config MDIO_OCTEON
+>  	tristate "Support for MDIO buses on Octeon SOCs"
+>  	depends on  CPU_CAVIUM_OCTEON
+> diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+> index 2333215..0c081d5 100644
+> --- a/drivers/net/phy/Makefile
+> +++ b/drivers/net/phy/Makefile
+> @@ -23,3 +23,4 @@ obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
+>  obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+>  obj-$(CONFIG_MICREL_PHY)	+= micrel.o
+>  obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
+> +obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
+> diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+> new file mode 100644
+> index 0000000..a940296
+> --- /dev/null
+> +++ b/drivers/net/phy/mdio-mux.c
+> @@ -0,0 +1,182 @@
+> +/*
+> + * This file is subject to the terms and conditions of the GNU General Public
+> + * License.  See the file "COPYING" in the main directory of this archive
+> + * for more details.
+> + *
+> + * Copyright (C) 2011 Cavium Networks
+> + */
+> +
+> +#include <linux/platform_device.h>
+> +#include <linux/of_mdio.h>
+> +#include <linux/module.h>
+> +#include <linux/init.h>
+> +#include <linux/gfp.h>
+> +#include <linux/phy.h>
+> +#include <linux/mdio-mux.h>
+> +
+> +#define DRV_VERSION "1.0"
+> +#define DRV_DESCRIPTION "MDIO bus multiplexer driver"
+> +
+> +struct mdio_mux_parent_bus {
+> +	struct mii_bus *mii_bus;
+> +	int current_child;
+> +	int parent_id;
+> +	void *switch_data;
+> +	int (*switch_fn)(int current_child, int desired_child, void *data);
+> +};
+> +
+> +struct mdio_mux_child_bus {
+> +	struct mii_bus *mii_bus;
+> +	struct mdio_mux_parent_bus *parent;
+> +	int bus_number;
+> +	int phy_irq[PHY_MAX_ADDR];
+> +};
+> +
+> +/*
+> + * The parent bus' lock is used to order access to the switch_fn.
+> + */
+> +static int mdio_mux_read(struct mii_bus *bus, int phy_id, int regnum)
+> +{
+> +	struct mdio_mux_child_bus *cb = bus->priv;
+> +	struct mdio_mux_parent_bus *pb = cb->parent;
+> +	int r;
+> +
+> +	mutex_lock(&pb->mii_bus->mdio_lock);
+> +	r = pb->switch_fn(pb->current_child, cb->bus_number, pb->switch_data);
+> +	if (r)
+> +		goto out;
+> +
+> +	pb->current_child = cb->bus_number;
+> +
+> +	r = pb->mii_bus->read(pb->mii_bus, phy_id, regnum);
+> +out:
+> +	mutex_unlock(&pb->mii_bus->mdio_lock);
+> +
+> +	return r;
+> +}
+> +
+> +/*
+> + * The parent bus' lock is used to order access to the switch_fn.
+> + */
+> +static int mdio_mux_write(struct mii_bus *bus, int phy_id,
+> +			  int regnum, u16 val)
+> +{
+> +	struct mdio_mux_child_bus *cb = bus->priv;
+> +	struct mdio_mux_parent_bus *pb = cb->parent;
+> +
+> +	int r;
+> +
+> +	mutex_lock(&pb->mii_bus->mdio_lock);
+> +	r = pb->switch_fn(pb->current_child, cb->bus_number, pb->switch_data);
+> +	if (r)
+> +		goto out;
+> +
+> +	pb->current_child = cb->bus_number;
+> +
+> +	r = pb->mii_bus->write(pb->mii_bus, phy_id, regnum, val);
+> +out:
+> +	mutex_unlock(&pb->mii_bus->mdio_lock);
+> +
+> +	return r;
+> +}
+> +
+> +static int parent_count;
+> +
+> +int mdio_mux_probe(struct platform_device *pdev,
+> +		   int (*switch_fn)(int cur, int desired, void *data),
+> +		   void *data)
+> +{
+
+Don't call this probe.  Probe typically means top level driver, but
+this module is a library used by MDIO mux drivers.  Call this
+functions something like init.  Also, passing it a platform_device
+looks wrong since it might be a platform_device, but it might be an
+i2c_client or an spi_device.  Pass in struct device instead.
+
+Also, this function should return the pointer to the allocated
+mdio_mux_parent_bus so that the calling driver has a reference to it.
+
+> +	struct device_node *parent_bus_node;
+> +	struct device_node *child_bus_node;
+> +	int r, n, ret_val;
+> +	struct mii_bus *parent_bus;
+> +	struct mdio_mux_parent_bus *pb;
+> +	struct mdio_mux_child_bus *cb;
+> +
+> +	if (!pdev->dev.of_node)
+> +		return -ENODEV;
+> +
+> +	parent_bus_node = of_parse_phandle(pdev->dev.of_node, "mdio-parent-bus", 0);
+> +
+> +	if (!parent_bus_node)
+> +		return -ENODEV;
+> +
+> +	parent_bus = of_mdio_find_bus(parent_bus_node);
+
+What if of_mdio_find_bus() fails?
+
+> +
+> +	pb = devm_kzalloc(&pdev->dev, sizeof(*pb), GFP_KERNEL);
+> +	if (pb == NULL) {
+> +		ret_val = -ENOMEM;
+> +		goto err_parent_bus;
+> +	}
+> +
+> +	pb->switch_data = data;
+> +	pb->switch_fn = switch_fn;
+> +	pb->current_child = -1;
+> +	pb->parent_id = parent_count++;
+> +	pb->mii_bus = parent_bus;
+> +
+> +	n = 0;
+> +	for_each_child_of_node(pdev->dev.of_node, child_bus_node) {
+> +		u32 v;
+> +
+> +		r = of_property_read_u32(child_bus_node, "reg", &v);
+> +		if (r == 0) {
+> +			cb = devm_kzalloc(&pdev->dev, sizeof(*cb), GFP_KERNEL);
+> +			if (cb == NULL)
+> +				break;
+> +			cb->bus_number = v;
+> +			cb->parent = pb;
+> +			cb->mii_bus = mdiobus_alloc();
+> +			cb->mii_bus->priv = cb;
+> +
+> +			cb->mii_bus->irq = cb->phy_irq;
+> +			cb->mii_bus->name = "mdio_mux";
+> +			snprintf(cb->mii_bus->id, MII_BUS_ID_SIZE, "%x.%x",
+> +				 pb->parent_id, v);
+> +			cb->mii_bus->parent = &pdev->dev;
+> +			cb->mii_bus->read = mdio_mux_read;
+> +			cb->mii_bus->write = mdio_mux_write;
+
+The parent bus should probably maintain a list of all child busses so
+that a shutdown function can tear it all down again.
+
+> +			r = of_mdiobus_register(cb->mii_bus, child_bus_node);
+> +			if (r) {
+> +				of_node_put(child_bus_node);
+> +				devm_kfree(&pdev->dev, cb);
+> +			} else {
+> +				n++;
+> +			}
+> +
+> +		} else {
+> +			of_node_put(child_bus_node);
+> +		}
+> +	}
+> +	if (n) {
+> +		dev_info(&pdev->dev, "Version " DRV_VERSION "\n");
+> +		return 0;
+> +	}
+> +	ret_val = -ENOMEM;
+> +	devm_kfree(&pdev->dev, pb);
+> +err_parent_bus:
+> +	of_node_put(parent_bus_node);
+> +	return ret_val;
+> +}
+> +EXPORT_SYMBOL(mdio_mux_probe);
+> +
+> +static int __devexit mdio_mux_remove(struct platform_device *pdev)
+> +{
+> +	return 0;
+> +}
+> +
+> +static int __init mdio_mux_mod_init(void)
+> +{
+> +	return 0;
+> +}
+> +module_init(mdio_mux_mod_init);
+> +
+> +static void __exit mdio_mux_mod_exit(void)
+> +{
+> +}
+> +module_exit(mdio_mux_mod_exit);
+
+I don't believe that you need module empty module init/exit/remove
+routines.  Just drop them.
+
+> +
+> +MODULE_DESCRIPTION(DRV_DESCRIPTION);
+> +MODULE_VERSION(DRV_VERSION);
+> +MODULE_AUTHOR("David Daney");
+> +MODULE_LICENSE("GPL");
+> diff --git a/include/linux/mdio-mux.h b/include/linux/mdio-mux.h
+> new file mode 100644
+> index 0000000..522992a
+> --- /dev/null
+> +++ b/include/linux/mdio-mux.h
+> @@ -0,0 +1,18 @@
+> +/*
+> + * MDIO bus multiplexer framwork.
+> + *
+> + * This file is subject to the terms and conditions of the GNU General Public
+> + * License.  See the file "COPYING" in the main directory of this archive
+> + * for more details.
+> + *
+> + * Copyright (C) 2011 Cavium Networks
+> + */
+> +#ifndef __LINUX_MDIO_MUX_H
+> +#define __LINUX_MDIO_MUX_H
+> +#include <linux/platform_device.h>
+> +
+> +int mdio_mux_probe(struct platform_device *pdev,
+> +		   int (*switch_fn) (int cur, int desired, void *data),
+> +		   void *data);
+> +
+> +#endif /* __LINUX_MDIO_MUX_H */
+> -- 
+> 1.7.2.3
+> 
