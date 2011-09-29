@@ -1,58 +1,28 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH next 2/7] 8139cp : removal of headers.
-Date: Fri, 30 Sep 2011 00:53:59 +0200
-Message-ID: <20110929225359.GC16376@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH next 0/7] Pull request for 'davem-next.misc' branch
+Date: Fri, 30 Sep 2011 01:00:07 +0200
+Message-ID: <20110929230007.GD16376@electric-eye.fr.zoreil.com>
 References: <20110929225234.GA16376@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:37684 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:55301 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756609Ab1I2Wz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 18:55:29 -0400
+	with ESMTP id S1751620Ab1I2XBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 19:01:46 -0400
 Content-Disposition: inline
 In-Reply-To: <20110929225234.GA16376@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/realtek/8139cp.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+> back-to-back oc3 cards. The bnx2 firmware changes have been rebased
+> against -next as suggested by Michael Chan.
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index c77d5af..60c8de5 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -55,8 +55,6 @@
- 
- #include <linux/module.h>
- #include <linux/moduleparam.h>
--#include <linux/kernel.h>
--#include <linux/compiler.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/init.h>
-@@ -65,7 +63,6 @@
- #include <linux/dma-mapping.h>
- #include <linux/delay.h>
- #include <linux/ethtool.h>
--#include <linux/gfp.h>
- #include <linux/mii.h>
- #include <linux/if_vlan.h>
- #include <linux/crc32.h>
-@@ -73,10 +70,8 @@
- #include <linux/ip.h>
- #include <linux/tcp.h>
- #include <linux/udp.h>
--#include <linux/cache.h>
- #include <asm/io.h>
- #include <asm/irq.h>
--#include <asm/uaccess.h>
- 
- /* These identify the driver base version and may not be removed. */
- static char version[] =
+Don't pull, this one still includes erroneous __devinit.
+
 -- 
-1.7.6.2
+Ueimor
