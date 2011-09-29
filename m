@@ -1,46 +1,60 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net/stable] can bcm: fix tx_setup off-by-one errors
-Date: Thu, 29 Sep 2011 10:04:40 +0200
-Message-ID: <4E842698.8090107@hartkopp.net>
-References: <4E7CCEB3.4050408@hartkopp.net>	<20110929.003317.223715542181691202.davem@davemloft.net>	<4E842266.9090407@hartkopp.net> <20110929.035809.1014076114218537552.davem@davemloft.net>
+From: "Yan, Zheng " <yanzheng@21cn.com>
+Subject: Re: [PATCH] Ipv6: Delete rcu_read_lock
+Date: Thu, 29 Sep 2011 16:16:58 +0800
+Message-ID: <CAAM7YAnE4w4y6YWWxk0QGOX8Y6AZQHHQBuVMoRuSm=GtALAx=Q@mail.gmail.com>
+References: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org, nautsch@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: rongqing.li@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:25978 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754769Ab1I2IIl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 04:08:41 -0400
-In-Reply-To: <20110929.035809.1014076114218537552.davem@davemloft.net>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:55577 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755848Ab1I2IQ7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 04:16:59 -0400
+Received: by vws1 with SMTP id 1so226655vws.19
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 01:16:58 -0700 (PDT)
+In-Reply-To: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/29/11 09:58, David Miller wrote:
+On Thu, Sep 29, 2011 at 3:46 PM,  <rongqing.li@windriver.com> wrote:
+> From: Roy.Li <rongqing.li@windriver.com>
+>
+> Delete rcu_read_lock, it is redundant.
+>
+> Signed-off-by: Roy.Li <rongqing.li@windriver.com>
+> ---
+> =A0net/ipv6/ndisc.c | =A0 =A03 ---
+> =A01 files changed, 0 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 9da6e02..dd633ff 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -370,17 +370,14 @@ static int ndisc_constructor(struct neighbour *=
+neigh)
+> =A0 =A0 =A0 =A0struct neigh_parms *parms;
+> =A0 =A0 =A0 =A0int is_multicast =3D ipv6_addr_is_multicast(addr);
+>
+> - =A0 =A0 =A0 rcu_read_lock();
+> =A0 =A0 =A0 =A0in6_dev =3D in6_dev_get(dev);
+> =A0 =A0 =A0 =A0if (in6_dev =3D=3D NULL) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 rcu_read_unlock();
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EINVAL;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0parms =3D in6_dev->nd_parms;
+> =A0 =A0 =A0 =A0__neigh_parms_put(neigh->parms);
+> =A0 =A0 =A0 =A0neigh->parms =3D neigh_parms_clone(parms);
+> - =A0 =A0 =A0 rcu_read_unlock();
+>
+> =A0 =A0 =A0 =A0neigh->type =3D is_multicast ? RTN_MULTICAST : RTN_UNI=
+CAST;
+> =A0 =A0 =A0 =A0if (!dev->header_ops) {
+> --
 
-> From: Oliver Hartkopp <socketcan@hartkopp.net>
-> Date: Thu, 29 Sep 2011 09:46:46 +0200
-> 
->> when backporting the patch to an older kernel we discovered a problem this
->> patch is introducing - which causes a new regression :-(
->>
->> Could you please revert this patch and dequeue it from stable?
-> 
-> It's already pushed out to the net GIT tree, I can't delete history so
-> now the only thing I can do is add a butt-ugly revert commit this late
-> in the -rcX which is terrible.
-> 
-> This patch was sitting out there for review for 6 days, which should
-> have been more than enough time to audit it for problems.
+I think the rcu_read_lock protects in6_dev->nd_parms.
 
-
-Yeah, i'm really sorry about that.
-
-As Linus didn't pull the latest changes, what would be your favorite then to
-not revert the patch?
-
-Sending a new fix that fixes the broken fix?
-
-Regards,
-Oliver
+Yan, Zheng
