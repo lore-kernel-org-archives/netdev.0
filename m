@@ -1,52 +1,53 @@
-From: <rongqing.li@windriver.com>
-Subject: [PATCH] Ipv6: Delete rcu_read_lock
-Date: Thu, 29 Sep 2011 15:46:54 +0800
-Message-ID: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net/stable] can bcm: fix tx_setup off-by-one errors
+Date: Thu, 29 Sep 2011 09:46:46 +0200
+Message-ID: <4E842266.9090407@hartkopp.net>
+References: <4E7CCEB3.4050408@hartkopp.net> <20110929.003317.223715542181691202.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stable@kernel.org, nautsch@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50588 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754655Ab1I2Hqx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 03:46:53 -0400
-Received: from ALA-HCA.corp.ad.wrs.com (ala-hca [147.11.189.40])
-	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id p8T7kqK3022241
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 00:46:52 -0700 (PDT)
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:50246 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904Ab1I2Huk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 03:50:40 -0400
+In-Reply-To: <20110929.003317.223715542181691202.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roy.Li <rongqing.li@windriver.com>
+On 09/29/11 06:33, David Miller wrote:
 
-Delete rcu_read_lock, it is redundant.
+> From: Oliver Hartkopp <socketcan@hartkopp.net>
+> Date: Fri, 23 Sep 2011 20:23:47 +0200
+> 
+>> This patch fixes two off-by-one errors that canceled each other out.
+>> Checking for the same condition two times in bcm_tx_timeout_tsklet() reduced
+>> the count of frames to be sent by one. This did not show up the first time
+>> tx_setup is invoked as an additional frame is sent due to TX_ANNONCE.
+>> Invoking a second tx_setup on the same item led to a reduced (by 1) number of
+>> sent frames.
+>>
+>> Reported-by: Andre Naujoks <nautsch@gmail.com>
+>> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> 
+> Applied, and queued up for -stable.
 
-Signed-off-by: Roy.Li <rongqing.li@windriver.com>
----
- net/ipv6/ndisc.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 9da6e02..dd633ff 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -370,17 +370,14 @@ static int ndisc_constructor(struct neighbour *neigh)
- 	struct neigh_parms *parms;
- 	int is_multicast = ipv6_addr_is_multicast(addr);
- 
--	rcu_read_lock();
- 	in6_dev = in6_dev_get(dev);
- 	if (in6_dev == NULL) {
--		rcu_read_unlock();
- 		return -EINVAL;
- 	}
- 
- 	parms = in6_dev->nd_parms;
- 	__neigh_parms_put(neigh->parms);
- 	neigh->parms = neigh_parms_clone(parms);
--	rcu_read_unlock();
- 
- 	neigh->type = is_multicast ? RTN_MULTICAST : RTN_UNICAST;
- 	if (!dev->header_ops) {
--- 
-1.7.1
+Hello Dave,
+
+when backporting the patch to an older kernel we discovered a problem this
+patch is introducing - which causes a new regression :-(
+
+Could you please revert this patch and dequeue it from stable?
+
+We'll send a new patch for net-next as this fix changes/repairs the behaviour
+of the count variable. Therefore it's probably better to have a fixed Kernel
+version where the fix emerges. Or should we better not fix it at all and
+document it in 'know bugs' ?
+
+Sorry for that noise ...
+
+Thanks,
+Oliver
