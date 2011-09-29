@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-proc: expose the tos values in /proc/net/[tcp|udp]
-Date: Thu, 29 Sep 2011 15:32:59 -0400 (EDT)
-Message-ID: <20110929.153259.169108824599752228.davem@davemloft.net>
-References: <1317324162-21621-1-git-send-email-muralira@google.com>
+Subject: Re: [PATCH net/stable] can bcm: fix incomplete tx_setup fix
+Date: Thu, 29 Sep 2011 15:38:44 -0400 (EDT)
+Message-ID: <20110929.153844.1309851828877561670.davem@davemloft.net>
+References: <4E84C4B9.7020706@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: muralira@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317324162-21621-1-git-send-email-muralira@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stable@kernel.org, nautsch@gmail.com
+To: socketcan@hartkopp.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48623 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755403Ab1I2Tmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 15:42:50 -0400
+In-Reply-To: <4E84C4B9.7020706@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Muraliraja Muniraju <muralira@google.com>
-Date: Thu, 29 Sep 2011 12:22:42 -0700
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Thu, 29 Sep 2011 21:19:21 +0200
 
-> From: Murali Raja <muralira@google.com>
+> The commit aabdcb0b553b9c9547b1a506b34d55a764745870 ("can bcm: fix tx_setup
+> off-by-one errors") fixed only a part of the original problem reported by
+> Andre Naujoks. It turned out that the original code needed to be re-ordered
+> to reduce complexity and to finally fix the reported frame counting issues.
 > 
-> This patch exports the tos values from the inet_sock struct
-> for tcp and udp into the /proc/net/tcp or /proc/net/udp respectively.
-> This will not pickup per packet tos changes but it will address most
-> of the cases. This is mainly useful as it would decrease reliance on
-> tcpdump and also people without root access will be able to read
-> the values.
-> 
-> Signed-off-by: Murali Raja <muralira@google.com>
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-You cannot change the layout of these files, they are parsed by userland
-problems and therefore have a fixed API.
-
-Netlink based socket dumping provides a proper, backwards compatible,
-way to extend what is reported, so please consider adding your changes
-there.
+Applied, thanks.
