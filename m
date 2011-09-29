@@ -1,58 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/8] ixgbe: cleanup ixgbe_setup_gpie() for X540
-Date: Wed, 28 Sep 2011 23:30:15 -0700
-Message-ID: <1317277816-6024-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/8][pull request] Intel Wired LAN Drivers Update
+Date: Wed, 28 Sep 2011 23:30:08 -0700
+Message-ID: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62728 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:37696 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754810Ab1I2GaW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Sep 2011 02:30:22 -0400
-In-Reply-To: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751175Ab1I2GaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Sep 2011 02:30:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+The following series contains updates to e1000, ixgbe and ixgbevf.  This
+series is missing the if_link and ixgbe patches for the additional
+parameter for spoof checking, since Greg is re-working those patches
+currently.
 
-The X540 thermal sensor interrupt isn't a General Purpose Interrupt
-so doesn't need to be enabled in ixgbe_setup_gpie().  Likewise X540 doesn't
-use the SDP0 for thermal sensor so it doesn't need to be enabled for any
-device other than 82599.
+The following are changes since commit 2e1143742789463c00ed5e7f9bf471f2b707b493:
+  candev: allow SJW user setting for bittiming calculation
+and are available in the git repository at:
+  git://github.com/Jkirsher/net-next.git
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
+Dean Nelson (1):
+  e1000: don't enable dma receives until after dma address has been
+    setup
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 79636ea..3f5c5a4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3680,8 +3680,18 @@ static void ixgbe_setup_gpie(struct ixgbe_adapter *adapter)
- 	}
- 
- 	/* Enable Thermal over heat sensor interrupt */
--	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE)
--		gpie |= IXGBE_SDP0_GPIEN;
-+	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE) {
-+		switch (adapter->hw.mac.type) {
-+		case ixgbe_mac_82599EB:
-+			gpie |= IXGBE_SDP0_GPIEN;
-+			break;
-+		case ixgbe_mac_X540:
-+			gpie |= IXGBE_EIMS_TS;
-+			break;
-+		default:
-+			break;
-+		}
-+	}
- 
- 	/* Enable fan failure interrupt */
- 	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE)
+Don Skidmore (2):
+  ixgbe: cleanup ixgbe_setup_gpie() for X540
+  ixgbe: add ECC warning for legacy interrupts
+
+Emil Tantilov (1):
+  ixgbe: Cleanup q_vector interrupt throttle rate logic
+
+Greg Rose (1):
+  ixgbevf: Fix broken trunk vlan
+
+Jacob Keller (1):
+  ixgbe add thermal sensor support for x540 hardware
+
+John Fastabend (1):
+  ixgbe: update {P}FC thresholds to account for X540 and loopback
+
+Vasu Dev (1):
+  ixgbe: disable LLI for FCoE
+
+ drivers/net/ethernet/intel/e1000/e1000_main.c      |    6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   25 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |   12 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |    9 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  153 ++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |    4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  289 +++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   64 ++++-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |    6 +-
+ 12 files changed, 358 insertions(+), 227 deletions(-)
+
 -- 
 1.7.6.2
