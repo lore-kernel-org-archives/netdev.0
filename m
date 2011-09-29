@@ -1,33 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net/stable] can bcm: fix tx_setup off-by-one errors
-Date: Thu, 29 Sep 2011 00:33:17 -0400 (EDT)
-Message-ID: <20110929.003317.223715542181691202.davem@davemloft.net>
-References: <4E7CCEB3.4050408@hartkopp.net>
+From: <rongqing.li@windriver.com>
+Subject: [PATCH] net: Documentation: Fix type of variables
+Date: Thu, 29 Sep 2011 13:51:54 +0800
+Message-ID: <1317275514-12620-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org, nautsch@gmail.com
-To: socketcan@hartkopp.net
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37289 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753228Ab1I2EhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 00:37:21 -0400
-In-Reply-To: <4E7CCEB3.4050408@hartkopp.net>
+Received: from mail.windriver.com ([147.11.1.11]:62526 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754497Ab1I2Fvy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 01:51:54 -0400
+Received: from ALA-HCA.corp.ad.wrs.com (ala-hca [147.11.189.40])
+	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id p8T5prXN004911
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 28 Sep 2011 22:51:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Fri, 23 Sep 2011 20:23:47 +0200
+From: Roy.Li <rongqing.li@windriver.com>
 
-> This patch fixes two off-by-one errors that canceled each other out.
-> Checking for the same condition two times in bcm_tx_timeout_tsklet() reduced
-> the count of frames to be sent by one. This did not show up the first time
-> tx_setup is invoked as an additional frame is sent due to TX_ANNONCE.
-> Invoking a second tx_setup on the same item led to a reduced (by 1) number of
-> sent frames.
-> 
-> Reported-by: Andre Naujoks <nautsch@gmail.com>
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-Applied, and queued up for -stable.
+Signed-off-by: Roy.Li <rongqing.li@windriver.com>
+---
+ Documentation/networking/ip-sysctl.txt |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 8154699..ca5cdcd 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1042,7 +1042,7 @@ conf/interface/*:
+ 	The functional behaviour for certain settings is different
+ 	depending on whether local forwarding is enabled or not.
+ 
+-accept_ra - BOOLEAN
++accept_ra - INTEGER
+ 	Accept Router Advertisements; autoconfigure using them.
+ 
+ 	Possible values are:
+@@ -1106,7 +1106,7 @@ dad_transmits - INTEGER
+ 	The amount of Duplicate Address Detection probes to send.
+ 	Default: 1
+ 
+-forwarding - BOOLEAN
++forwarding - INTEGER
+ 	Configure interface-specific Host/Router behaviour.
+ 
+ 	Note: It is recommended to have the same setting on all
+-- 
+1.7.1
