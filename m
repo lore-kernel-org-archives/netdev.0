@@ -1,41 +1,64 @@
-From: Rongqing Li <rongqing.li@windriver.com>
-Subject: Re: [PATCH] Ipv6: Delete rcu_read_lock
-Date: Thu, 29 Sep 2011 17:10:31 +0800
-Message-ID: <4E843607.6010306@windriver.com>
-References: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com>	<CAAM7YAnE4w4y6YWWxk0QGOX8Y6AZQHHQBuVMoRuSm=GtALAx=Q@mail.gmail.com>	<4E842B93.3010203@windriver.com> <CAAM7YAmwXyORpFWhthX4iSEkBp7OANnZ8tHruEyN62Z3mnOdLw@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: about bmac/mace/macmace/mac89x0/cs89x0: Move the Macintosh
+ (Apple) drivers
+Date: Thu, 29 Sep 2011 02:12:37 -0700
+Message-ID: <CAL3LdT7EUs8BQ7+kikzD9MbTC4e2sHUs=5b1jQsieo-OZhU38A@mail.gmail.com>
+References: <20110928070439.GV31404@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "Yan, Zheng " <yanzheng@21cn.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Paul Mackerras <paulus@samba.org>,
+	Russell Nelson <nelson@crynwr.com>, netdev@vger.kernel.org,
+	davem@davemloft.net,
+	Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:65085 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754959Ab1I2JK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 05:10:29 -0400
-Received: from ALA-HCA.corp.ad.wrs.com (ala-hca [147.11.189.40])
-	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id p8T9ASL0005218
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 02:10:28 -0700 (PDT)
-In-Reply-To: <CAAM7YAmwXyORpFWhthX4iSEkBp7OANnZ8tHruEyN62Z3mnOdLw@mail.gmail.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:48400 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754977Ab1I2JMj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 05:12:39 -0400
+Received: by fxe4 with SMTP id 4so1504775fxe.19
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 02:12:38 -0700 (PDT)
+In-Reply-To: <20110928070439.GV31404@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/29/2011 04:52 PM, Yan, Zheng wrote:
-> On Thu, Sep 29, 2011 at 4:25 PM, Rongqing Li<rongqing.li@windriver.com>  wrote:
->> On 09/29/2011 04:16 PM, Yan, Zheng wrote:
->>>
->>> I think the rcu_read_lock protects in6_dev->nd_parms.
->>>
->> It can not protect in6_dev->nd_parms.
->>
->> rcu_read_lock protects the data which is accessed by rcu_XXX,
->>
+On Wed, Sep 28, 2011 at 00:04, Sascha Hauer <s.hauer@pengutronix.de> wr=
+ote:
+> Hi,
 >
-> I'm confused, why does neigh_parms_release() use call_rcu() to release nd_parms.
+>> commit 8fb6b0908176704a3ea22005e8a9fa3ebf35b5be
+>> Author: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Date: =C2=A0 Mon May 16 01:39:01 2011 -0700
+>>
+>> =C2=A0 =C2=A0bmac/mace/macmace/mac89x0/cs89x0: Move the Macintosh (A=
+pple) drivers
+>>
+>> =C2=A0 =C2=A0Move the Apple drivers into driver/net/ethernet/apple/ =
+and make the
+>> =C2=A0 =C2=A0necessary Kconfig and Makefile changes.
+>
+> This commit moves drivers/net/cs89x0.[ch] to drivers/net/ethernet/app=
+le/.
+>
+> This is wrong. The cs89x0 driver is a general ISA driver and is also
+> used on some embedded boards. This patch should only move drivers/net=
+/mac89x0.c
+> which basically is a driver for the same device but used on Macintosh=
+=2E
+>
+> I think it should go to drivers/net/ethernet/cirrus instead.
+>
+> Sascha
 >
 
-Same as idev, there is a reference on struct neigh_parms
-which protects them
+Thanks Sasha, I am looking into the past emails on this to see if
+there was a suggested reason that in be where it is at.  I do agree
+with you that it looks like it should be in
+/drivers/net/ethernet/cirrus/, before making a patch to move it, I
+want to double check all the previous emails I received to ensure that
+there was a logic reason for placing it where it is.
 
--Roy
+--=20
+Cheers,
+Jeff
