@@ -1,34 +1,33 @@
-From: Rongqing Li <rongqing.li@windriver.com>
+From: "Yan, Zheng " <yanzheng@21cn.com>
 Subject: Re: [PATCH] Ipv6: Delete rcu_read_lock
-Date: Thu, 29 Sep 2011 16:49:07 +0800
-Message-ID: <4E843103.2060609@windriver.com>
-References: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com> <1317285859.2855.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Date: Thu, 29 Sep 2011 16:52:38 +0800
+Message-ID: <CAAM7YAmwXyORpFWhthX4iSEkBp7OANnZ8tHruEyN62Z3mnOdLw@mail.gmail.com>
+References: <1317282414-13368-1-git-send-email-rongqing.li@windriver.com>
+	<CAAM7YAnE4w4y6YWWxk0QGOX8Y6AZQHHQBuVMoRuSm=GtALAx=Q@mail.gmail.com>
+	<4E842B93.3010203@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Rongqing Li <rongqing.li@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61261 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab1I2ItL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 04:49:11 -0400
-In-Reply-To: <1317285859.2855.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:55265 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754894Ab1I2Iwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 04:52:39 -0400
+Received: by vws1 with SMTP id 1so241910vws.19
+        for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 01:52:38 -0700 (PDT)
+In-Reply-To: <4E842B93.3010203@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/29/2011 04:44 PM, Eric Dumazet wrote:
-> A good changelog and patch title are required.
+On Thu, Sep 29, 2011 at 4:25 PM, Rongqing Li <rongqing.li@windriver.com> wrote:
+> On 09/29/2011 04:16 PM, Yan, Zheng wrote:
+>>
+>> I think the rcu_read_lock protects in6_dev->nd_parms.
+>>
+> It can not protect in6_dev->nd_parms.
 >
-> Something like :
->
-> [PATCH net-next] ipv6: remove a rcu_read_lock in ndisc_constructor
->
-> in6_dev_get(dev) takes a reference on struct inet6_dev, we dont need rcu
-> locking in ndisc_constructor()
->
+> rcu_read_lock protects the data which is accessed by rcu_XXX,
 >
 
-Thank you, I will resend it.
-
--Roy
+I'm confused, why does neigh_parms_release() use call_rcu() to release nd_parms.
