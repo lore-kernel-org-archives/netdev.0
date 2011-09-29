@@ -1,76 +1,49 @@
-From: jgq516@gmail.com
-Subject: [PATCH v2 2/2] net/fec: add poll controller function for fec nic
-Date: Thu, 29 Sep 2011 20:15:57 +0800
-Message-ID: <1317298557-2878-2-git-send-email-jgq516@gmail.com>
-References: <1317298557-2878-1-git-send-email-jgq516@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jgq516@gmail.com
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317298557-2878-1-git-send-email-jgq516@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: William Thompson <wt@electro-mechanical.com>
+Subject: Network problem with bridge and virtualbox
+Date: Thu, 29 Sep 2011 08:49:41 -0400
+Message-ID: <20110929124941.GA16567@electro-mechanical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.electro-mechanical.com ([216.184.71.30]:56805 "EHLO
+	mail.electro-mechanical.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754739Ab1I2NGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 09:06:21 -0400
+Received: from root by mail.electro-mechanical.com with local (Exim 4.69 #1 (Debian))
+	id 1R9G3Z-0005n2-S2
+	for netdev@vger.kernel.org; Thu, 29 Sep 2011 08:49:41 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xiao Jiang <jgq516@gmail.com>
+Please keep me in the CC as I am not subscribed.
 
-Add poll controller function for fec nic.
+I'm using a 64-bit kernel 3.0.0 and virtualbox 4.1.2.
 
-Signed-off-by: Xiao Jiang <jgq516@gmail.com>
----
- drivers/net/ethernet/freescale/fec.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+My problem is that I cannot ping the host from a virtual machine.
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 1794ea4..1124ce0 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -242,6 +242,7 @@ struct fec_enet_private {
- 	int	link;
- 	int	full_duplex;
- 	struct	completion mdio_done;
-+	int	irq[FEC_IRQ_NUM];
- };
- 
- /* FEC MII MMFR bits definition */
-@@ -1363,6 +1364,29 @@ fec_set_mac_address(struct net_device *ndev, void *p)
- 	return 0;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/*
-+ * fec_poll_controller: FEC Poll controller function
-+ * @dev: The FEC network adapter
-+ *
-+ * Polled functionality used by netconsole and others in non interrupt mode
-+ *
-+ */
-+void fec_poll_controller(struct net_device *dev)
-+{
-+	int i;
-+	struct fec_enet_private *fep = netdev_priv(dev);
-+
-+	for (i = 0; i < FEC_IRQ_NUM; i++) {
-+		if (fep->irq[i] > 0) {
-+			disable_irq(fep->irq[i]);
-+			fec_enet_interrupt(fep->irq[i], dev);
-+			enable_irq(fep->irq[i]);
-+		}
-+	}
-+}
-+#endif
-+
- static const struct net_device_ops fec_netdev_ops = {
- 	.ndo_open		= fec_enet_open,
- 	.ndo_stop		= fec_enet_close,
-@@ -1373,6 +1397,9 @@ static const struct net_device_ops fec_netdev_ops = {
- 	.ndo_tx_timeout		= fec_timeout,
- 	.ndo_set_mac_address	= fec_set_mac_address,
- 	.ndo_do_ioctl		= fec_enet_ioctl,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= fec_poll_controller,
-+#endif
- };
- 
-  /*
--- 
-1.7.6.1
+My bridge is configured as follows:
+# brctl addbr br0
+# brctl setfd br0 0
+# brctl stp br0 off
+# ifconfig br0 10.2.3.1 netmask 255.255.255.0
+
+In the virtual machine, it is set to use br0 as it's interface (bridge mode)
+and it's IP is 10.2.3.10.
+
+The host gets packets from the vm, but the vm does not receive packets back. 
+
+I have this same setup working on a 32-bit kernel 2.6.38.6 on another
+machine with virtualbox 4.0.4.
+
+I had a thought that the bridge on the host wasn't responding due to having
+no ports configured so I added one of my spare ethernet cards to it as
+follows:
+# brctl addif br0 eth1
+# ifconfig eth1 up
+
+The card was plugged into a switch.  After doing this, the vm still could not
+talk to the host.  I added a physical machine to the switch that eth1 was
+connected to and configured it to 10.2.3.2.  I was able to ping 10.2.3.2 but
+not 10.2.3.1
