@@ -1,63 +1,83 @@
-From: =?utf-8?B?5LuFMTDlhYPmr4/lpKk=?= <admin@hs-s.net>
-Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuivmnIDmlrDlub/kuqTkvJrkubDlrrbjgIHmtbc=?=
-	=?utf-8?B?5YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
-Date: Thu, 29 Sep 2011 00:25:28 +0000 (UTC)
-Message-ID: <20120929080059302261@hs-s.net>
-Reply-To: <1339625218@qq.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: [PATCH] tg3: Dont dump registers if interface not ready.
+Date: Thu, 29 Sep 2011 10:10:59 +0800
+Message-ID: <4E83D3B3.7090508@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <net2@hotmail.com>, <netblaise@aol.com>, <netdev@vger.kernel.org>,
-	<netfund@msn.com>, <nethxz@163.com>, <netm.vpm@gmail.com>,
-	<netplus@guomai.sh.cn>, <netseek@linuxmine.com>, <nett61@a
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from old.hs-s.net ([210.134.18.56]:53126 "HELO hs-s.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754063Ab1I2AZW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Sep 2011 20:25:22 -0400
-Date: Sat, 29 Sep 2012 08:00:51 +0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Guru Anbalagane <guru.anbalagane@oracle.com>,
+	Gurudas Pai <gurudas.pai@oracle.com>,
+	Joe Jin <joe.jin@oracle.com>, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Greg Marsden <greg.marsden@oracle.com>
+To: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrbjgIHlsZXk
-vJrkubDlrrbjgIHmtbflhbPmlbDmja4sQjJC6K+i55uY5Lmw5a62NTAw5LiH44CCDQoNCuS4gOWF
-sTjkuKrljIUo5pWw5o2u5piv5YWo6KGM5Lia55qE77yM5oyJ54Wn6KGM5Lia5YiG5aW957G777yM
-5bm25LiU5Y+v5Lul5oyJ54Wn5YWz6ZSu6K+N5p+l6K+i55qEKe+8miANCjHvvIwyMDEx5pil5a2j
-MTA55bGK5bm/5Lqk5Lya5Lmw5a625pWw5o2u5bqT5paw6bKc5Ye654KJ77yM6LaF57qn5paw6bKc
-5Lmw5a6277yM5paw6bKc5pWw5o2u77yM5a655piT5oiQ5Y2V77yBIA0KMu+8jOacgOaWsOWFqOeQ
-g+S5sOWutuW6kyzlhbE0NTE2NjDmnaHmlbDmja7jgIIgDQoz77yMMjAwOOW5tCwyMDA55bm0LDIw
-MTDlubQg5pil5a2jK+eni+Wto+W5v+S6pOS8muS5sOWutuWQjeW9le+8jDEwMyAxMDQgMTA1IDEw
-NiAxMDcgMTA4IOWFseWFreWxiiDlhbExMjAuNuS4h+aVsOaNruOAgg0KNO+8jDIwMTDlubTlm73p
-mYXkv4PplIDljY/kvJrvvIhQUEFJ77yJ5oiQ5ZGY5ZCN5Y2VIFBQQUkgTWVtYmVycyBEaXJlY3Rv
-cnnvvIzpnZ7luLjph43opoHnmoTlpKfkubDlrrbjgIINCjXvvIwyMDEw5bm05Yiw6aaZ5riv6YeH
-6LSt55qE5Zu95aSW5a6i5Lq65ZCN5b2VKOmmmea4r+i0uOWPkeWxgOaPkOS+mynvvIzlhbE3LjLk
-uIfmlbDmja7vvIzotoXnuqfph43opoHnmoTkubDlrrbjgIINCjbvvIw2MC445LiH5p2h5pyA5paw
-5Zu95aSWQjJC5Lmw5a626K+i55uY44CCDQo377yMMjAwOeW5tOa1t+WFs+aPkOWNleaVsOaNrnBp
-ZXJz54mI5pWw5o2uIDHljYPkuIfjgIINCjjvvIznvqTlj5Hova/ku7bvvIznvqTlj5Hova/ku7bn
-moTpg6jnvbLkuI7lronoo4XjgIINCg0K5YWxIDUwMOS4h+S4quS5sOWutu+8jOavj+S4quWdh+ac
-iUVtYWlsLiANCg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/l
-pKnpg73mnInkubDlrrblm57lpI3jgIINCg0K6KaB55qE5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUy
-MTggICDmiJbogIXnq4vljbPlm57lpI3pgq7nrrE6IDEzMzk2MjUyMThAcXEuY29tDQropoHnmoTm
-ipPntKfogZTns7tRUTogMTMzOTYyNTIxOCAgIOaIluiAheeri+WNs+WbnuWkjemCrueusTogMTMz
-OTYyNTIxOEBxcS5jb20NCuimgeeahOaKk+e0p+iBlOezu1FROiAxMzM5NjI1MjE4ICAg5oiW6ICF
-56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0KIA0KDQror5rkv6HkuLrmnKzv
-vIzlpoLmnpzkuI3kv6Hku7vmnKzkuros5Y+v5Lul6LWw5reY5a6d5Lqk5piTLOaUtui0p+mqjOiv
-geWQjuWGjeS7mOasvizov5nmmK/lr7nmgqjmnIDlpb3nmoTkv53pmpzkuobjgIIgDQoNCuS/neiv
-geavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue
-5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCg0KDQoNCg0K5bm/5Lqk
-5Lya5Lmw5a625oyJ5Lqn5ZOB57G75Yir5YiG57G777yM5YiG5Li65Lul5LiL5Yeg57G777yaDQox
-IOWKnuWFrOiuvuWkhw0KMiDnvJbnu4flj4rol6Tpk4Hlt6Xoibrlk4ENCjMg546755KDDQo0IOmk
-kOWOqOeUqOWFtw0KNSDovabovoYNCjYg5aSn5Z6L5py65qKw5Y+K6K6+5aSHDQo3IOeUteWtkOeU
-teawlA0KOCDnlLXlrZDmtojotLnlk4ENCjkg57q657uHDQoxMCDmnI3oo4UNCjExIOS4quS6uuaK
-pOeQhg0KMTIg5bel56iL5py65qKwDQoxMyDlt6XlhbcNCjE0IOWMluW3pQ0KMTUg6K6h566X5py6
-5Y+K6YCa6K6vDQoxNiDlrrblsYXnlKjlk4ENCjE3IOWutuWxheijhemlsA0KMTgg5a625YW3DQox
-OSDlrrbnlKjnlLXlmagNCjIwIOW7uuetkeWPiuijhemlsOadkOaWmQ0KMjEg6IqC5pel55So5ZOB
-DQoyMiDnpLzlk4Hlj4rotaDlk4ENCjIzIOaRqeaJmOi9pg0KMjQg5rG96L2m6YWN5Lu2DQoyNSDp
-o5/lk4ENCjI2IOmZtueTtw0KMjcg6ZOB55+zDQoyOCDnjqnlhbcNCjI5IOWNq+a1tA0KMzAg5LqU
-6YeRDQozMSDlsI/lnovmnLrmorANCjMyIOmeiw0KMzMg5LyR6Zey55So5ZOBDQozNCDljLvnlpcN
-CjM1IOa1tOWupOS6p+WTgQ0KMzYg5Zut5p6XDQozNyDnhafmmI7kuqflk4ENCjM4IOmSn+ihqOec
-vOmVnA0KMzkg6Ieq6KGM6L2mDQo0MCDljIUNCg0KDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrbl
-m57lpI3jgIINCuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp
-6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIIN
-CuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg==
+When bootup the server with BCM5704 Gigabit Ethernet get below warning:
+
+tg3 0000:03:01.0: eth0: DMA Status error.  Resetting chip.
+<Registers state of device>
+tg3 0000:03:01.0: eth0: 0: Host status block [00000007:00000002:(0000:0000:0000):(0000:0000)]
+tg3 0000:03:01.0: eth0: 0: NAPI info [00000001:00000002:(0000:0000:01ff):0000:(00c8:0000:0000:0000)]
+tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
+tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
+tg3 0000:03:01.0: tg3_stop_block timed out, ofs=4800 enable_bit=2
+tg3 0000:03:01.0: eth0: Link is down
+tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
+tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
+
+If device not ready, then would not dump registers info.
+
+Signed-off-by: Joe Jin <joe.jin@oracle.com>
+Signed-off-by: Guru Anbalagane <guru.anbalagane@oracle.com>
+Reported-by: Gurudas Pai <gurudas.pai@oracle.com>
+Cc: Matt Carlson <mcarlson@broadcom.com>
+Cc: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/tg3.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 4a1374d..d79d344 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -5475,10 +5475,15 @@ static void tg3_process_error(struct tg3 *tp)
+ {
+ 	u32 val;
+ 	bool real_error = false;
++	bool dump = true;
+ 
+ 	if (tg3_flag(tp, ERROR_PROCESSED))
+ 		return;
+ 
++	/* If interface not ready then dont dump error */
++	if (!netif_carrier_ok(tp->dev))
++		dump = false;
++
+ 	/* Check Flow Attention register */
+ 	val = tr32(HOSTCC_FLOW_ATTN);
+ 	if (val & ~HOSTCC_FLOW_ATTN_MBUF_LWM) {
+@@ -5492,14 +5497,16 @@ static void tg3_process_error(struct tg3 *tp)
+ 	}
+ 
+ 	if (tr32(RDMAC_STATUS) || tr32(WDMAC_STATUS)) {
+-		netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
++		if (dump)
++			netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
+ 		real_error = true;
+ 	}
+ 
+ 	if (!real_error)
+ 		return;
+ 
+-	tg3_dump_state(tp);
++	if (dump)
++		tg3_dump_state(tp);
+ 
+ 	tg3_flag_set(tp, ERROR_PROCESSED);
+ 	schedule_work(&tp->reset_task);
+-- 
+1.7.6.2
