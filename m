@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net/stable] can bcm: fix incomplete tx_setup fix
-Date: Thu, 29 Sep 2011 15:38:44 -0400 (EDT)
-Message-ID: <20110929.153844.1309851828877561670.davem@davemloft.net>
-References: <4E84C4B9.7020706@hartkopp.net>
+Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Drivers Update
+Date: Thu, 29 Sep 2011 15:48:54 -0400 (EDT)
+Message-ID: <20110929.154854.678982585840454891.davem@davemloft.net>
+References: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org, nautsch@gmail.com
-To: socketcan@hartkopp.net
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48623 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42777 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755403Ab1I2Tmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 15:42:50 -0400
-In-Reply-To: <4E84C4B9.7020706@hartkopp.net>
+	with ESMTP id S1752977Ab1I2Ts7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 15:48:59 -0400
+In-Reply-To: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Thu, 29 Sep 2011 21:19:21 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 28 Sep 2011 23:30:08 -0700
 
-> The commit aabdcb0b553b9c9547b1a506b34d55a764745870 ("can bcm: fix tx_setup
-> off-by-one errors") fixed only a part of the original problem reported by
-> Andre Naujoks. It turned out that the original code needed to be re-ordered
-> to reduce complexity and to finally fix the reported frame counting issues.
+> The following series contains updates to e1000, ixgbe and ixgbevf.  This
+> series is missing the if_link and ixgbe patches for the additional
+> parameter for spoof checking, since Greg is re-working those patches
+> currently.
 > 
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> The following are changes since commit 2e1143742789463c00ed5e7f9bf471f2b707b493:
+>   candev: allow SJW user setting for bittiming calculation
+> and are available in the git repository at:
+>   git://github.com/Jkirsher/net-next.git
 
-Applied, thanks.
+Pulled, thanks Jeff.
