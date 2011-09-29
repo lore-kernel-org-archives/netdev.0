@@ -1,123 +1,88 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH net/stable] can bcm: fix incomplete tx_setup fix
-Date: Thu, 29 Sep 2011 21:19:21 +0200
-Message-ID: <4E84C4B9.7020706@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org,
-	Andre Naujoks <nautsch@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:52262 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753608Ab1I2TXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 15:23:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Muraliraja Muniraju <muralira@google.com>
+Subject: [PATCH] net-proc: expose the tos values in /proc/net/[tcp|udp]
+Date: Thu, 29 Sep 2011 12:22:42 -0700
+Message-ID: <1317324162-21621-1-git-send-email-muralira@google.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Murali Raja <muralira@google.com>
+To: "David S. Miller\"" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <ka
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The commit aabdcb0b553b9c9547b1a506b34d55a764745870 ("can bcm: fix tx_setup
-off-by-one errors") fixed only a part of the original problem reported by
-Andre Naujoks. It turned out that the original code needed to be re-ordered
-to reduce complexity and to finally fix the reported frame counting issues.
+From: Murali Raja <muralira@google.com>
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+This patch exports the tos values from the inet_sock struct
+for tcp and udp into the /proc/net/tcp or /proc/net/udp respectively.
+This will not pickup per packet tos changes but it will address most
+of the cases. This is mainly useful as it would decrease reliance on
+tcpdump and also people without root access will be able to read
+the values.
 
+Signed-off-by: Murali Raja <muralira@google.com>
 ---
+ net/ipv4/tcp_ipv4.c |    7 +++++--
+ net/ipv4/udp.c      |    5 +++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-@Andre: I checked the changes (which make the code much clearer now) against
-your test program and some of mine i modified to test all flags like
-STARTTIMER, SETTIMER, TX_ANNOUNCE in different configurations. Please double
-check with your setup and send a Tested-by: if it is ok for you.
-
-@Dave: Again sorry for this second patch. The first patch looked sane and
-fixed the reported issue - but obviously not the whole problem :-(
-
- bcm.c |   48 +++++++++++++++++++++---------------------------
- 1 file changed, 21 insertions(+), 27 deletions(-)
-
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index c9cdb8d..c84963d 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -344,6 +344,18 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
- 	}
- }
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index dd3fad9..b036184 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2416,6 +2416,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
+ 	__u16 destp = ntohs(inet->inet_dport);
+ 	__u16 srcp = ntohs(inet->inet_sport);
+ 	int rx_queue;
++	unsigned int tos;
  
-+static void bcm_tx_start_timer(struct bcm_op *op)
-+{
-+	if (op->kt_ival1.tv64 && op->count)
-+		hrtimer_start(&op->timer,
-+			      ktime_add(ktime_get(), op->kt_ival1),
-+			      HRTIMER_MODE_ABS);
-+	else if (op->kt_ival2.tv64)
-+		hrtimer_start(&op->timer,
-+			      ktime_add(ktime_get(), op->kt_ival2),
-+			      HRTIMER_MODE_ABS);
-+}
+ 	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
+ 		timer_active	= 1;
+@@ -2439,8 +2440,10 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
+ 		 */
+ 		rx_queue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
+ 
++	tos = inet->tos;
 +
- static void bcm_tx_timeout_tsklet(unsigned long data)
- {
- 	struct bcm_op *op = (struct bcm_op *)data;
-@@ -365,23 +377,12 @@ static void bcm_tx_timeout_tsklet(unsigned long data)
- 
- 			bcm_send_to_user(op, &msg_head, NULL, 0);
- 		}
--
--		/* send (next) frame */
- 		bcm_can_tx(op);
--		hrtimer_start(&op->timer,
--			      ktime_add(ktime_get(), op->kt_ival1),
--			      HRTIMER_MODE_ABS);
- 
--	} else {
--		if (op->kt_ival2.tv64) {
-+	} else if (op->kt_ival2.tv64)
-+		bcm_can_tx(op);
- 
--			/* send (next) frame */
--			bcm_can_tx(op);
--			hrtimer_start(&op->timer,
--				      ktime_add(ktime_get(), op->kt_ival2),
--				      HRTIMER_MODE_ABS);
--		}
--	}
-+	bcm_tx_start_timer(op);
+ 	seq_printf(f, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
+-			"%08X %5d %8d %lu %d %pK %lu %lu %u %u %d%n",
++			"%08X %5d %8d %lu %d %pK %lu %lu %u %u %d %u%n",
+ 		i, src, srcp, dest, destp, sk->sk_state,
+ 		tp->write_seq - tp->snd_una,
+ 		rx_queue,
+@@ -2455,7 +2458,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
+ 		jiffies_to_clock_t(icsk->icsk_ack.ato),
+ 		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
+ 		tp->snd_cwnd,
+-		tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh,
++		tcp_in_initial_slowstart(tp) ? -1 : tp->snd_ssthresh, tos,
+ 		len);
  }
  
- /*
-@@ -961,28 +962,21 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
- 			hrtimer_cancel(&op->timer);
- 	}
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index ebaa96b..588786e 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2092,15 +2092,16 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
+ 	__be32 src  = inet->inet_rcv_saddr;
+ 	__u16 destp	  = ntohs(inet->inet_dport);
+ 	__u16 srcp	  = ntohs(inet->inet_sport);
++	unsigned int tos = inet->tos;
  
--	if ((op->flags & STARTTIMER) &&
--	    ((op->kt_ival1.tv64 && op->count) || op->kt_ival2.tv64)) {
--
-+	if (op->flags & STARTTIMER) {
-+		hrtimer_cancel(&op->timer);
- 		/* spec: send can_frame when starting timer */
- 		op->flags |= TX_ANNOUNCE;
--
--		/* only start timer when having more frames than sent below */
--		if (op->kt_ival1.tv64 && (op->count > 1)) {
--			/* op->count-- is done in bcm_tx_timeout_tsklet */
--			hrtimer_start(&op->timer, op->kt_ival1,
--				      HRTIMER_MODE_REL);
--		} else
--			hrtimer_start(&op->timer, op->kt_ival2,
--				      HRTIMER_MODE_REL);
- 	}
- 
- 	if (op->flags & TX_ANNOUNCE) {
- 		bcm_can_tx(op);
--		if (op->kt_ival1.tv64 && (op->count > 0))
-+		if (op->count)
- 			op->count--;
- 	}
- 
-+	if (op->flags & STARTTIMER)
-+		bcm_tx_start_timer(op);
-+
- 	return msg_head->nframes * CFSIZ + MHSIZ;
+ 	seq_printf(f, "%5d: %08X:%04X %08X:%04X"
+-		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK %d%n",
++		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK %d %d%n",
+ 		bucket, src, srcp, dest, destp, sp->sk_state,
+ 		sk_wmem_alloc_get(sp),
+ 		sk_rmem_alloc_get(sp),
+ 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+ 		atomic_read(&sp->sk_refcnt), sp,
+-		atomic_read(&sp->sk_drops), len);
++		atomic_read(&sp->sk_drops), tos, len);
  }
  
+ int udp4_seq_show(struct seq_file *seq, void *v)
+-- 
+1.7.3.1
