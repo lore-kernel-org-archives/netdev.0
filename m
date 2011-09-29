@@ -1,23 +1,39 @@
-From: Diana Yicel Jimenez Agudelo <dyjimeneza@unal.edu.co>
-Subject: COCA COLA AWARD!!
-Date: Thu, 29 Sep 2011 15:32:27 +0530
-Message-ID: <0LSA00JWQ3VD64Q0@unmtaout.unal.edu.co>
-Reply-To: cocadpt2011@live.co.uk
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6] can/sja1000: driver for PEAK PCAN PCI/PCIe
+	cards
+Date: Thu, 29 Sep 2011 12:39:55 +0200
+Message-ID: <4E844AFB.3020201@grandegger.com>
+References: <OFA1D2B7AC.618D2DB3-ONC125791A.0032F517-C125791A.00335871@retarus.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1251
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from filtromx7.unal.edu.co ([168.176.5.176]:65328 "EHLO
-	filtromx7.unal.edu.co" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752941Ab1I2KC2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 06:02:28 -0400
-Received: from User ([115.241.131.135])
- by unmtaout.unal.edu.co (Sun Java System Messaging Server 6.1 HotFix 0.11
- (built Jan 28 2005)) with ESMTPA id <0LSA00JWP3VA64Q0@unmtaout.unal.edu.co> for
- netdev@vger.kernel.org; Thu, 29 Sep 2011 05:02:27 -0500 (GMT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-g4cQ8AsIbFbL9ATBNaCtXw@public.gmane.org,
+	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+To: Thomas Wiedemann <Thomas.Wiedemann-8kCRUXUQ4vU@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <OFA1D2B7AC.618D2DB3-ONC125791A.0032F517-C125791A.00335871-Npw8gZsewqCELgA04lAiVw@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Your Email-ID  Has won =A31,000,000.00 GBP from the Coca Cola Anniversa=
-ry Award for claims send your details to email cocadpt2011@live.co.uk
+Hi Thomas,
+
+On 09/29/2011 11:21 AM, Thomas Wiedemann wrote:
+> I got access to another system with a 4 channel card and tested your patch 
+> (v1) within the Berlios socket-can SVN tree: it worked :)
+
+Hm, did the patch apply to the SVN tree? Any chance to test with David
+Miller's net-next-2.6 tree. Anyway, I'm quite sure now that the patch
+works fine on 4-channel cards as well.
+
+Thanks for your effort.
+
+Wolfgang.
