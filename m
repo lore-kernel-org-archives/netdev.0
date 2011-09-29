@@ -1,60 +1,123 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: Question about memory leak detector giving false positive report
- for net/core/flow.c
-Date: Thu, 29 Sep 2011 12:07:41 -0700
-Message-ID: <20110929190741.GA10425@mtj.dyndns.org>
-References: <CA+v9cxadZzWr35Q9RFzVgk_NZsbZ8PkVLJNxjBAMpargW9Lm4Q@mail.gmail.com>
- <1317054774.6363.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20110926165024.GA21617@e102109-lin.cambridge.arm.com>
- <1317066395.2796.11.camel@edumazet-laptop>
- <20110928172342.GH23559@e102109-lin.cambridge.arm.com>
- <alpine.DEB.2.00.1109290907450.9382@router.home>
- <20110929141809.GD32023@e102109-lin.cambridge.arm.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH net/stable] can bcm: fix incomplete tx_setup fix
+Date: Thu, 29 Sep 2011 21:19:21 +0200
+Message-ID: <4E84C4B9.7020706@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <cl@gentwo.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Huajun Li <huajun.li.lee@gmail.com>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Catalin Marinas <catalin.marinas@arm.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20110929141809.GD32023@e102109-lin.cambridge.arm.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org,
+	Andre Naujoks <nautsch@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:52262 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753608Ab1I2TXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 15:23:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 29, 2011 at 03:18:10PM +0100, Catalin Marinas wrote:
-> On Thu, Sep 29, 2011 at 03:08:47PM +0100, Christoph Lameter wrote:
-> > On Wed, 28 Sep 2011, Catalin Marinas wrote:
-> > 
-> > > I tried this but it's tricky. The problem is that the percpu pointer
-> > > returned by alloc_percpu() does not directly point to the per-cpu chunks
-> > > and kmemleak would report most percpu allocations as leaks. So far the
-> > > workaround is to simply mark the alloc_percpu() objects as never leaking
-> > > and at least we avoid false positives in other areas. See the patch
-> > > below (note that you have to increase the CONFIG_KMEMLEAK_EARLY_LOG_SIZE
-> > > as there are many alloc_percpu() calls before kmemleak is fully
-> > > initialised):
-> > 
-> > Seems that kernel.org is out and so tejon wont be seeing these.
-> 
-> That's ok, I don't aim this at the upcoming merging window. I don't have
-> an alternative email address for him.
+The commit aabdcb0b553b9c9547b1a506b34d55a764745870 ("can bcm: fix tx_setup
+off-by-one errors") fixed only a part of the original problem reported by
+Andre Naujoks. It turned out that the original code needed to be re-ordered
+to reduce complexity and to finally fix the reported frame counting issues.
 
-That's htejun@gmail.com but as long as lkml is cc'd I can read the
-emails.  Lack of replies is more due to the month long vacation which
-just ended. ;)
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-Thank you.
+---
 
--- 
-tejun
+@Andre: I checked the changes (which make the code much clearer now) against
+your test program and some of mine i modified to test all flags like
+STARTTIMER, SETTIMER, TX_ANNOUNCE in different configurations. Please double
+check with your setup and send a Tested-by: if it is ok for you.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+@Dave: Again sorry for this second patch. The first patch looked sane and
+fixed the reported issue - but obviously not the whole problem :-(
+
+ bcm.c |   48 +++++++++++++++++++++---------------------------
+ 1 file changed, 21 insertions(+), 27 deletions(-)
+
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index c9cdb8d..c84963d 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -344,6 +344,18 @@ static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
+ 	}
+ }
+ 
++static void bcm_tx_start_timer(struct bcm_op *op)
++{
++	if (op->kt_ival1.tv64 && op->count)
++		hrtimer_start(&op->timer,
++			      ktime_add(ktime_get(), op->kt_ival1),
++			      HRTIMER_MODE_ABS);
++	else if (op->kt_ival2.tv64)
++		hrtimer_start(&op->timer,
++			      ktime_add(ktime_get(), op->kt_ival2),
++			      HRTIMER_MODE_ABS);
++}
++
+ static void bcm_tx_timeout_tsklet(unsigned long data)
+ {
+ 	struct bcm_op *op = (struct bcm_op *)data;
+@@ -365,23 +377,12 @@ static void bcm_tx_timeout_tsklet(unsigned long data)
+ 
+ 			bcm_send_to_user(op, &msg_head, NULL, 0);
+ 		}
+-
+-		/* send (next) frame */
+ 		bcm_can_tx(op);
+-		hrtimer_start(&op->timer,
+-			      ktime_add(ktime_get(), op->kt_ival1),
+-			      HRTIMER_MODE_ABS);
+ 
+-	} else {
+-		if (op->kt_ival2.tv64) {
++	} else if (op->kt_ival2.tv64)
++		bcm_can_tx(op);
+ 
+-			/* send (next) frame */
+-			bcm_can_tx(op);
+-			hrtimer_start(&op->timer,
+-				      ktime_add(ktime_get(), op->kt_ival2),
+-				      HRTIMER_MODE_ABS);
+-		}
+-	}
++	bcm_tx_start_timer(op);
+ }
+ 
+ /*
+@@ -961,28 +962,21 @@ static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
+ 			hrtimer_cancel(&op->timer);
+ 	}
+ 
+-	if ((op->flags & STARTTIMER) &&
+-	    ((op->kt_ival1.tv64 && op->count) || op->kt_ival2.tv64)) {
+-
++	if (op->flags & STARTTIMER) {
++		hrtimer_cancel(&op->timer);
+ 		/* spec: send can_frame when starting timer */
+ 		op->flags |= TX_ANNOUNCE;
+-
+-		/* only start timer when having more frames than sent below */
+-		if (op->kt_ival1.tv64 && (op->count > 1)) {
+-			/* op->count-- is done in bcm_tx_timeout_tsklet */
+-			hrtimer_start(&op->timer, op->kt_ival1,
+-				      HRTIMER_MODE_REL);
+-		} else
+-			hrtimer_start(&op->timer, op->kt_ival2,
+-				      HRTIMER_MODE_REL);
+ 	}
+ 
+ 	if (op->flags & TX_ANNOUNCE) {
+ 		bcm_can_tx(op);
+-		if (op->kt_ival1.tv64 && (op->count > 0))
++		if (op->count)
+ 			op->count--;
+ 	}
+ 
++	if (op->flags & STARTTIMER)
++		bcm_tx_start_timer(op);
++
+ 	return msg_head->nframes * CFSIZ + MHSIZ;
+ }
+ 
