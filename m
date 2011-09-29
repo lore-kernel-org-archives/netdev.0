@@ -1,463 +1,454 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/8] ixgbe: Cleanup q_vector interrupt throttle rate logic
-Date: Wed, 28 Sep 2011 23:30:11 -0700
-Message-ID: <1317277816-6024-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/8] ixgbe: update {P}FC thresholds to account for X540 and loopback
+Date: Wed, 28 Sep 2011 23:30:13 -0700
+Message-ID: <1317277816-6024-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37696 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:18142 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751636Ab1I2GaU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Sep 2011 02:30:20 -0400
+	id S1754679Ab1I2GaV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Sep 2011 02:30:21 -0400
 In-Reply-To: <1317277816-6024-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This patch is meant to help cleanup the interrupt throttle rate logic by
-storing the interrupt throttle rate as a value in microseconds instead of
-interrupts per second.  The advantage to this approach is that the value
-can now be stored in an 16 bit field and doesn't require as much math to
-flip the value back and forth since the hardware already used microseconds
-when setting the rate.
+Revise high and low threshold marks wrt flow control to account
+for the X540 devices and latency introduced by the loopback
+switch.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Without this it was in theory possible to drop frames on a
+supposedly lossless link with X540 or SR-IOV enabled.
+
+Previously we used a magic number in a define to calculate the
+threshold values. This made it difficult to sort out exactly
+which latencies were or were not being accounted for. Here
+I was overly explicit and tried to used #define names that would
+be recognizable after reading the IEEE 802.1Qbb specification.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   25 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  153 +++++++---------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   77 +++++------
- 3 files changed, 96 insertions(+), 159 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |   12 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |    9 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |    8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  128 ++++++++++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   62 +++++++++-
+ 7 files changed, 190 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 1f4a4ca..38940d7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -301,26 +301,29 @@ struct ixgbe_ring_container {
-  */
- struct ixgbe_q_vector {
- 	struct ixgbe_adapter *adapter;
--	unsigned int v_idx; /* index of q_vector within array, also used for
--	                     * finding the bit in EICR and friends that
--	                     * represents the vector for this ring */
- #ifdef CONFIG_IXGBE_DCA
- 	int cpu;	    /* CPU for DCA */
- #endif
--	struct napi_struct napi;
-+	u16 v_idx;		/* index of q_vector within array, also used for
-+				 * finding the bit in EICR and friends that
-+				 * represents the vector for this ring */
-+	u16 itr;		/* Interrupt throttle rate written to EITR */
- 	struct ixgbe_ring_container rx, tx;
--	u32 eitr;
-+
-+	struct napi_struct napi;
- 	cpumask_var_t affinity_mask;
- 	char name[IFNAMSIZ + 9];
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index b816a62..fa079bb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -358,7 +358,6 @@ static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	u32 fctrl_reg;
+ 	u32 rmcs_reg;
+ 	u32 reg;
+-	u32 rx_pba_size;
+ 	u32 link_speed = 0;
+ 	bool link_up;
  
--/* Helper macros to switch between ints/sec and what the register uses.
-- * And yes, it's the same math going both ways.  The lowest value
-- * supported by all of the ixgbe hardware is 8.
-+/*
-+ * microsecond values for various ITR rates shifted by 2 to fit itr register
-+ * with the first 3 bits reserved 0
-  */
--#define EITR_INTS_PER_SEC_TO_REG(_eitr) \
--	((_eitr) ? (1000000000 / ((_eitr) * 256)) : 8)
--#define EITR_REG_TO_INTS_PER_SEC EITR_INTS_PER_SEC_TO_REG
-+#define IXGBE_MIN_RSC_ITR	24
-+#define IXGBE_100K_ITR		40
-+#define IXGBE_20K_ITR		200
-+#define IXGBE_10K_ITR		400
-+#define IXGBE_8K_ITR		500
+@@ -461,16 +460,13 @@ static s32 ixgbe_fc_enable_82598(struct ixgbe_hw *hw, s32 packetbuf_num)
  
- static inline u16 ixgbe_desc_unused(struct ixgbe_ring *ring)
+ 	/* Set up and enable Rx high/low water mark thresholds, enable XON. */
+ 	if (hw->fc.current_mode & ixgbe_fc_tx_pause) {
+-		rx_pba_size = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(packetbuf_num));
+-		rx_pba_size >>= IXGBE_RXPBSIZE_SHIFT;
+-
+-		reg = (rx_pba_size - hw->fc.low_water) << 6;
++		reg = hw->fc.low_water << 6;
+ 		if (hw->fc.send_xon)
+ 			reg |= IXGBE_FCRTL_XONE;
+ 
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTL(packetbuf_num), reg);
+ 
+-		reg = (rx_pba_size - hw->fc.high_water) << 6;
++		reg = hw->fc.high_water[packetbuf_num] << 6;
+ 		reg |= IXGBE_FCRTH_FCEN;
+ 
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTH(packetbuf_num), reg);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 84ed9ef..59cd54c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -1932,7 +1932,6 @@ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	s32 ret_val = 0;
+ 	u32 mflcn_reg, fccfg_reg;
+ 	u32 reg;
+-	u32 rx_pba_size;
+ 	u32 fcrtl, fcrth;
+ 
+ #ifdef CONFIG_DCB
+@@ -2012,11 +2011,8 @@ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	IXGBE_WRITE_REG(hw, IXGBE_MFLCN, mflcn_reg);
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCCFG, fccfg_reg);
+ 
+-	rx_pba_size = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(packetbuf_num));
+-	rx_pba_size >>= IXGBE_RXPBSIZE_SHIFT;
+-
+-	fcrth = (rx_pba_size - hw->fc.high_water) << 10;
+-	fcrtl = (rx_pba_size - hw->fc.low_water) << 10;
++	fcrth = hw->fc.high_water[packetbuf_num] << 10;
++	fcrtl = hw->fc.low_water << 10;
+ 
+ 	if (hw->fc.current_mode & ixgbe_fc_tx_pause) {
+ 		fcrth |= IXGBE_FCRTH_FCEN;
+@@ -2293,7 +2289,9 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw, s32 packetbuf_num)
+ 	 * Validate the water mark configuration.  Zero water marks are invalid
+ 	 * because it causes the controller to just blast out fc packets.
+ 	 */
+-	if (!hw->fc.low_water || !hw->fc.high_water || !hw->fc.pause_time) {
++	if (!hw->fc.low_water ||
++	    !hw->fc.high_water[packetbuf_num] ||
++	    !hw->fc.pause_time) {
+ 		hw_dbg(hw, "Invalid water mark configuration\n");
+ 		ret_val = IXGBE_ERR_INVALID_LINK_SETTINGS;
+ 		goto out;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
+index 0a68aa7..df095a9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
+@@ -36,7 +36,6 @@
+ 
+ #define IXGBE_MAX_PACKET_BUFFERS 8
+ #define MAX_USER_PRIORITY        8
+-#define MAX_TRAFFIC_CLASS        8
+ #define MAX_BW_GROUP             8
+ #define BW_PERCENT               100
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
+index 2288c3c..fcd0e47 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c
+@@ -191,7 +191,7 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82598(struct ixgbe_hw *hw,
+  */
+ s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw, u8 pfc_en)
  {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index debcf5f..ae9fba5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2026,39 +2026,20 @@ static int ixgbe_get_coalesce(struct net_device *netdev,
- 	ec->tx_max_coalesced_frames_irq = adapter->tx_work_limit;
+-	u32 reg, rx_pba_size;
++	u32 reg;
+ 	u8  i;
  
- 	/* only valid if in constant ITR mode */
--	switch (adapter->rx_itr_setting) {
--	case 0:
--		/* throttling disabled */
--		ec->rx_coalesce_usecs = 0;
--		break;
--	case 1:
--		/* dynamic ITR mode */
--		ec->rx_coalesce_usecs = 1;
--		break;
--	default:
--		/* fixed interrupt rate mode */
--		ec->rx_coalesce_usecs = 1000000/adapter->rx_eitr_param;
--		break;
--	}
-+	if (adapter->rx_itr_setting <= 1)
-+		ec->rx_coalesce_usecs = adapter->rx_itr_setting;
-+	else
-+		ec->rx_coalesce_usecs = adapter->rx_itr_setting >> 2;
+ 	if (pfc_en) {
+@@ -222,9 +222,8 @@ s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw, u8 pfc_en)
+ 	 */
+ 	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
+ 		int enabled = pfc_en & (1 << i);
+-		rx_pba_size = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(i));
+-		rx_pba_size >>= IXGBE_RXPBSIZE_SHIFT;
+-		reg = (rx_pba_size - hw->fc.low_water) << 10;
++
++		reg = hw->fc.low_water << 10;
  
- 	/* if in mixed tx/rx queues per vector mode, report only rx settings */
- 	if (adapter->q_vector[0]->tx.count && adapter->q_vector[0]->rx.count)
- 		return 0;
+ 		if (enabled == pfc_enabled_tx ||
+ 		    enabled == pfc_enabled_full)
+@@ -232,7 +231,7 @@ s32 ixgbe_dcb_config_pfc_82598(struct ixgbe_hw *hw, u8 pfc_en)
  
- 	/* only valid if in constant ITR mode */
--	switch (adapter->tx_itr_setting) {
--	case 0:
--		/* throttling disabled */
--		ec->tx_coalesce_usecs = 0;
--		break;
--	case 1:
--		/* dynamic ITR mode */
--		ec->tx_coalesce_usecs = 1;
--		break;
--	default:
--		ec->tx_coalesce_usecs = 1000000/adapter->tx_eitr_param;
--		break;
--	}
-+	if (adapter->tx_itr_setting <= 1)
-+		ec->tx_coalesce_usecs = adapter->tx_itr_setting;
-+	else
-+		ec->tx_coalesce_usecs = adapter->tx_itr_setting >> 2;
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTL(i), reg);
  
- 	return 0;
- }
-@@ -2077,10 +2058,9 @@ static bool ixgbe_update_rsc(struct ixgbe_adapter *adapter,
+-		reg = (rx_pba_size - hw->fc.high_water) << 10;
++		reg = hw->fc.high_water[i] << 10;
+ 		if (enabled == pfc_enabled_tx ||
+ 		    enabled == pfc_enabled_full)
+ 			reg |= IXGBE_FCRTH_FCEN;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
+index d64fb87..02f6724 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
+@@ -210,21 +210,19 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82599(struct ixgbe_hw *hw,
+  */
+ s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en)
+ {
+-	u32 i, reg, rx_pba_size;
++	u32 i, reg;
  
- 	/* if interrupt rate is too high then disable RSC */
- 	if (ec->rx_coalesce_usecs != 1 &&
--	    ec->rx_coalesce_usecs <= 1000000/IXGBE_MAX_RSC_INT_RATE) {
-+	    ec->rx_coalesce_usecs <= (IXGBE_MIN_RSC_ITR >> 2)) {
- 		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
--			e_info(probe, "rx-usecs set too low, "
--				      "disabling RSC\n");
-+			e_info(probe, "rx-usecs set too low, disabling RSC\n");
- 			adapter->flags2 &= ~IXGBE_FLAG2_RSC_ENABLED;
- 			return true;
- 		}
-@@ -2088,8 +2068,7 @@ static bool ixgbe_update_rsc(struct ixgbe_adapter *adapter,
- 		/* check the feature flag value and enable RSC if necessary */
- 		if ((netdev->features & NETIF_F_LRO) &&
- 		    !(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)) {
--			e_info(probe, "rx-usecs set to %d, "
--				      "re-enabling RSC\n",
-+			e_info(probe, "rx-usecs set to %d, re-enabling RSC\n",
- 			       ec->rx_coalesce_usecs);
- 			adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
- 			return true;
-@@ -2104,97 +2083,59 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_q_vector *q_vector;
- 	int i;
-+	int num_vectors;
-+	u16 tx_itr_param, rx_itr_param;
- 	bool need_reset = false;
+ 	/* Configure PFC Tx thresholds per TC */
+ 	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
+ 		int enabled = pfc_en & (1 << i);
+-		rx_pba_size = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(i));
+-		rx_pba_size >>= IXGBE_RXPBSIZE_SHIFT;
  
- 	/* don't accept tx specific changes if we've got mixed RxTx vectors */
- 	if (adapter->q_vector[0]->tx.count && adapter->q_vector[0]->rx.count
--	   && ec->tx_coalesce_usecs)
-+	    && ec->tx_coalesce_usecs)
- 		return -EINVAL;
+-		reg = (rx_pba_size - hw->fc.low_water) << 10;
++		reg = hw->fc.low_water << 10;
  
- 	if (ec->tx_max_coalesced_frames_irq)
- 		adapter->tx_work_limit = ec->tx_max_coalesced_frames_irq;
+ 		if (enabled)
+ 			reg |= IXGBE_FCRTL_XONE;
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTL_82599(i), reg);
  
--	if (ec->rx_coalesce_usecs > 1) {
--		/* check the limits */
--		if ((1000000/ec->rx_coalesce_usecs > IXGBE_MAX_INT_RATE) ||
--		    (1000000/ec->rx_coalesce_usecs < IXGBE_MIN_INT_RATE))
--			return -EINVAL;
--
--		/* check the old value and enable RSC if necessary */
--		need_reset = ixgbe_update_rsc(adapter, ec);
--
--		/* store the value in ints/second */
--		adapter->rx_eitr_param = 1000000/ec->rx_coalesce_usecs;
-+	if ((ec->rx_coalesce_usecs > (IXGBE_MAX_EITR >> 2)) ||
-+	    (ec->tx_coalesce_usecs > (IXGBE_MAX_EITR >> 2)))
-+		return -EINVAL;
- 
--		/* static value of interrupt rate */
--		adapter->rx_itr_setting = adapter->rx_eitr_param;
--		/* clear the lower bit as its used for dynamic state */
--		adapter->rx_itr_setting &= ~1;
--	} else if (ec->rx_coalesce_usecs == 1) {
--		/* check the old value and enable RSC if necessary */
--		need_reset = ixgbe_update_rsc(adapter, ec);
-+	/* check the old value and enable RSC if necessary */
-+	need_reset = ixgbe_update_rsc(adapter, ec);
- 
--		/* 1 means dynamic mode */
--		adapter->rx_eitr_param = 20000;
--		adapter->rx_itr_setting = 1;
--	} else {
--		/* check the old value and enable RSC if necessary */
--		need_reset = ixgbe_update_rsc(adapter, ec);
--		/*
--		 * any other value means disable eitr, which is best
--		 * served by setting the interrupt rate very high
--		 */
--		adapter->rx_eitr_param = IXGBE_MAX_INT_RATE;
--		adapter->rx_itr_setting = 0;
--	}
-+	if (ec->rx_coalesce_usecs > 1)
-+		adapter->rx_itr_setting = ec->rx_coalesce_usecs << 2;
-+	else
-+		adapter->rx_itr_setting = ec->rx_coalesce_usecs;
- 
--	if (ec->tx_coalesce_usecs > 1) {
--		/*
--		 * don't have to worry about max_int as above because
--		 * tx vectors don't do hardware RSC (an rx function)
--		 */
--		/* check the limits */
--		if ((1000000/ec->tx_coalesce_usecs > IXGBE_MAX_INT_RATE) ||
--		    (1000000/ec->tx_coalesce_usecs < IXGBE_MIN_INT_RATE))
--			return -EINVAL;
-+	if (adapter->rx_itr_setting == 1)
-+		rx_itr_param = IXGBE_20K_ITR;
-+	else
-+		rx_itr_param = adapter->rx_itr_setting;
- 
--		/* store the value in ints/second */
--		adapter->tx_eitr_param = 1000000/ec->tx_coalesce_usecs;
-+	if (ec->tx_coalesce_usecs > 1)
-+		adapter->tx_itr_setting = ec->tx_coalesce_usecs << 2;
-+	else
-+		adapter->tx_itr_setting = ec->tx_coalesce_usecs;
- 
--		/* static value of interrupt rate */
--		adapter->tx_itr_setting = adapter->tx_eitr_param;
-+	if (adapter->tx_itr_setting == 1)
-+		tx_itr_param = IXGBE_10K_ITR;
-+	else
-+		tx_itr_param = adapter->tx_itr_setting;
- 
--		/* clear the lower bit as its used for dynamic state */
--		adapter->tx_itr_setting &= ~1;
--	} else if (ec->tx_coalesce_usecs == 1) {
--		/* 1 means dynamic mode */
--		adapter->tx_eitr_param = 10000;
--		adapter->tx_itr_setting = 1;
--	} else {
--		adapter->tx_eitr_param = IXGBE_MAX_INT_RATE;
--		adapter->tx_itr_setting = 0;
--	}
-+	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED)
-+		num_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
-+	else
-+		num_vectors = 1;
- 
--	/* MSI/MSIx Interrupt Mode */
--	if (adapter->flags &
--	    (IXGBE_FLAG_MSIX_ENABLED | IXGBE_FLAG_MSI_ENABLED)) {
--		int num_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
--		for (i = 0; i < num_vectors; i++) {
--			q_vector = adapter->q_vector[i];
--			if (q_vector->tx.count && !q_vector->rx.count)
--				/* tx only */
--				q_vector->eitr = adapter->tx_eitr_param;
--			else
--				/* rx only or mixed */
--				q_vector->eitr = adapter->rx_eitr_param;
--			q_vector->tx.work_limit = adapter->tx_work_limit;
--			ixgbe_write_eitr(q_vector);
--		}
--	/* Legacy Interrupt Mode */
--	} else {
--		q_vector = adapter->q_vector[0];
--		q_vector->eitr = adapter->rx_eitr_param;
-+	for (i = 0; i < num_vectors; i++) {
-+		q_vector = adapter->q_vector[i];
- 		q_vector->tx.work_limit = adapter->tx_work_limit;
-+		if (q_vector->tx.count && !q_vector->rx.count)
-+			/* tx only */
-+			q_vector->itr = tx_itr_param;
-+		else
-+			/* rx only or mixed */
-+			q_vector->itr = rx_itr_param;
- 		ixgbe_write_eitr(q_vector);
- 	}
- 
+-		reg = (rx_pba_size - hw->fc.high_water) << 10;
++		reg = hw->fc.high_water[i] << 10;
+ 		if (enabled)
+ 			reg |= IXGBE_FCRTH_FCEN;
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRTH_82599(i), reg);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index c26ea94..3594b09 100644
+index 3594b09..ba703d3 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1500,12 +1500,19 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 		for (ring = q_vector->tx.ring; ring != NULL; ring = ring->next)
- 			ixgbe_set_ivar(adapter, 1, ring->reg_idx, v_idx);
- 
--		if (q_vector->tx.ring && !q_vector->rx.ring)
--			/* tx only */
--			q_vector->eitr = adapter->tx_eitr_param;
--		else if (q_vector->rx.ring)
--			/* rx or mixed */
--			q_vector->eitr = adapter->rx_eitr_param;
-+		if (q_vector->tx.ring && !q_vector->rx.ring) {
-+			/* tx only vector */
-+			if (adapter->tx_itr_setting == 1)
-+				q_vector->itr = IXGBE_10K_ITR;
-+			else
-+				q_vector->itr = adapter->tx_itr_setting;
-+		} else {
-+			/* rx or rx/tx vector */
-+			if (adapter->rx_itr_setting == 1)
-+				q_vector->itr = IXGBE_20K_ITR;
-+			else
-+				q_vector->itr = adapter->rx_itr_setting;
-+		}
- 
- 		ixgbe_write_eitr(q_vector);
+@@ -3351,9 +3351,128 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_RQTC, reg);
  	}
-@@ -1519,7 +1526,6 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 	case ixgbe_mac_X540:
- 		ixgbe_set_ivar(adapter, -1, 1, v_idx);
- 		break;
--
- 	default:
- 		break;
- 	}
-@@ -1527,12 +1533,10 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 
- 	/* set up to autoclear timer, and the vectors */
- 	mask = IXGBE_EIMS_ENABLE_MASK;
--	if (adapter->num_vfs)
--		mask &= ~(IXGBE_EIMS_OTHER |
--			  IXGBE_EIMS_MAILBOX |
--			  IXGBE_EIMS_LSC);
--	else
--		mask &= ~(IXGBE_EIMS_OTHER | IXGBE_EIMS_LSC);
-+	mask &= ~(IXGBE_EIMS_OTHER |
-+		  IXGBE_EIMS_MAILBOX |
-+		  IXGBE_EIMS_LSC);
+ }
++#endif
 +
- 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIAC, mask);
++/* Additional bittime to account for IXGBE framing */
++#define IXGBE_ETH_FRAMING 20
++
++/*
++ * ixgbe_hpbthresh - calculate high water mark for flow control
++ *
++ * @adapter: board private structure to calculate for
++ * @pb - packet buffer to calculate
++ */
++static int ixgbe_hpbthresh(struct ixgbe_adapter *adapter, int pb)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct net_device *dev = adapter->netdev;
++	int link, tc, kb, marker;
++	u32 dv_id, rx_pba;
++
++	/* Calculate max LAN frame size */
++	tc = link = dev->mtu + ETH_HLEN + ETH_FCS_LEN + IXGBE_ETH_FRAMING;
++
++#ifdef IXGBE_FCOE
++	/* FCoE traffic class uses FCOE jumbo frames */
++	if (dev->features & NETIF_F_FCOE_MTU) {
++		int fcoe_pb = 0;
+ 
++#ifdef CONFIG_IXGBE_DCB
++		fcoe_pb = netdev_get_prio_tc_map(dev, adapter->fcoe.up);
++
++#endif
++		if (fcoe_pb == pb && tc < IXGBE_FCOE_JUMBO_FRAME_SIZE)
++			tc = IXGBE_FCOE_JUMBO_FRAME_SIZE;
++	}
+ #endif
+ 
++	/* Calculate delay value for device */
++	switch (hw->mac.type) {
++	case ixgbe_mac_X540:
++		dv_id = IXGBE_DV_X540(link, tc);
++		break;
++	default:
++		dv_id = IXGBE_DV(link, tc);
++		break;
++	}
++
++	/* Loopback switch introduces additional latency */
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++		dv_id += IXGBE_B2BT(tc);
++
++	/* Delay value is calculated in bit times convert to KB */
++	kb = IXGBE_BT2KB(dv_id);
++	rx_pba = IXGBE_READ_REG(hw, IXGBE_RXPBSIZE(pb)) >> 10;
++
++	marker = rx_pba - kb;
++
++	/* It is possible that the packet buffer is not large enough
++	 * to provide required headroom. In this case throw an error
++	 * to user and a do the best we can.
++	 */
++	if (marker < 0) {
++		e_warn(drv, "Packet Buffer(%i) can not provide enough"
++			    "headroom to support flow control."
++			    "Decrease MTU or number of traffic classes\n", pb);
++		marker = tc + 1;
++	}
++
++	return marker;
++}
++
++/*
++ * ixgbe_lpbthresh - calculate low water mark for for flow control
++ *
++ * @adapter: board private structure to calculate for
++ * @pb - packet buffer to calculate
++ */
++static int ixgbe_lpbthresh(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	struct net_device *dev = adapter->netdev;
++	int tc;
++	u32 dv_id;
++
++	/* Calculate max LAN frame size */
++	tc = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
++
++	/* Calculate delay value for device */
++	switch (hw->mac.type) {
++	case ixgbe_mac_X540:
++		dv_id = IXGBE_LOW_DV_X540(tc);
++		break;
++	default:
++		dv_id = IXGBE_LOW_DV(tc);
++		break;
++	}
++
++	/* Delay value is calculated in bit times convert to KB */
++	return IXGBE_BT2KB(dv_id);
++}
++
++/*
++ * ixgbe_pbthresh_setup - calculate and setup high low water marks
++ */
++static void ixgbe_pbthresh_setup(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	int num_tc = netdev_get_num_tc(adapter->netdev);
++	int i;
++
++	if (!num_tc)
++		num_tc = 1;
++
++	hw->fc.low_water = ixgbe_lpbthresh(adapter);
++
++	for (i = 0; i < num_tc; i++) {
++		hw->fc.high_water[i] = ixgbe_hpbthresh(adapter, i);
++
++		/* Low water marks must not be larger than high water marks */
++		if (hw->fc.low_water > hw->fc.high_water[i])
++			hw->fc.low_water = 0;
++	}
++}
++
+ static void ixgbe_configure_pb(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -3367,6 +3486,7 @@ static void ixgbe_configure_pb(struct ixgbe_adapter *adapter)
+ 		hdrm = 0;
+ 
+ 	hw->mac.ops.set_rxpba(hw, tc, hdrm, PBA_STRATEGY_EQUAL);
++	ixgbe_pbthresh_setup(adapter);
  }
  
-@@ -1577,7 +1581,7 @@ static void ixgbe_update_itr(struct ixgbe_q_vector *q_vector,
- 	 *  100-1249MB/s bulk (8000 ints/s)
- 	 */
- 	/* what was last interrupt timeslice? */
--	timepassed_us = 1000000/q_vector->eitr;
-+	timepassed_us = q_vector->itr >> 2;
- 	bytes_perint = bytes / timepassed_us; /* bytes/usec */
- 
- 	switch (itr_setting) {
-@@ -1618,7 +1622,7 @@ void ixgbe_write_eitr(struct ixgbe_q_vector *q_vector)
- 	struct ixgbe_adapter *adapter = q_vector->adapter;
+ static void ixgbe_fdir_filter_restore(struct ixgbe_adapter *adapter)
+@@ -4769,13 +4889,11 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ {
  	struct ixgbe_hw *hw = &adapter->hw;
- 	int v_idx = q_vector->v_idx;
--	u32 itr_reg = EITR_INTS_PER_SEC_TO_REG(q_vector->eitr);
-+	u32 itr_reg = q_vector->itr;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	struct net_device *dev = adapter->netdev;
+ 	unsigned int rss;
+ #ifdef CONFIG_IXGBE_DCB
+ 	int j;
+ 	struct tc_configuration *tc;
+ #endif
+-	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
  
- 	switch (adapter->hw.mac.type) {
- 	case ixgbe_mac_82598EB:
-@@ -1628,15 +1632,6 @@ void ixgbe_write_eitr(struct ixgbe_q_vector *q_vector)
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
- 		/*
--		 * 82599 and X540 can support a value of zero, so allow it for
--		 * max interrupt rate, but there is an errata where it can
--		 * not be zero with RSC
--		 */
--		if (itr_reg == 8 &&
--		    !(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))
--			itr_reg = 0;
+ 	/* PCI config space info */
+ 
+@@ -4851,8 +4969,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ #ifdef CONFIG_DCB
+ 	adapter->last_lfc_mode = hw->fc.current_mode;
+ #endif
+-	hw->fc.high_water = FC_HIGH_WATER(max_frame);
+-	hw->fc.low_water = FC_LOW_WATER(max_frame);
++	ixgbe_pbthresh_setup(adapter);
+ 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
+ 	hw->fc.send_xon = true;
+ 	hw->fc.disable_fc_autoneg = false;
+@@ -5119,9 +5236,6 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+ 	/* must set new MTU before calling down or up */
+ 	netdev->mtu = new_mtu;
+ 
+-	hw->fc.high_water = FC_HIGH_WATER(max_frame);
+-	hw->fc.low_water = FC_LOW_WATER(max_frame);
 -
--		/*
- 		 * set the WDIS bit to not clear the timer bits and cause an
- 		 * immediate assertion of the interrupt
- 		 */
-@@ -1650,7 +1645,7 @@ void ixgbe_write_eitr(struct ixgbe_q_vector *q_vector)
+ 	if (netif_running(netdev))
+ 		ixgbe_reinit_locked(adapter);
  
- static void ixgbe_set_itr(struct ixgbe_q_vector *q_vector)
- {
--	u32 new_itr = q_vector->eitr;
-+	u32 new_itr = q_vector->itr;
- 	u8 current_itr;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 9a03341..16dd461 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -404,6 +404,7 @@
+ #define IXGBE_WUPL_LENGTH_MASK 0xFFFF
  
- 	ixgbe_update_itr(q_vector, &q_vector->tx);
-@@ -1661,24 +1656,25 @@ static void ixgbe_set_itr(struct ixgbe_q_vector *q_vector)
- 	switch (current_itr) {
- 	/* counts and packets in update_itr are dependent on these numbers */
- 	case lowest_latency:
--		new_itr = 100000;
-+		new_itr = IXGBE_100K_ITR;
- 		break;
- 	case low_latency:
--		new_itr = 20000; /* aka hwitr = ~200 */
-+		new_itr = IXGBE_20K_ITR;
- 		break;
- 	case bulk_latency:
--		new_itr = 8000;
-+		new_itr = IXGBE_8K_ITR;
- 		break;
- 	default:
- 		break;
- 	}
+ /* DCB registers */
++#define MAX_TRAFFIC_CLASS        8
+ #define IXGBE_RMCS      0x03D00
+ #define IXGBE_DPMCS     0x07F40
+ #define IXGBE_PDPMCS    0x0CD00
+@@ -2323,13 +2324,60 @@ typedef u32 ixgbe_physical_layer;
+ #define IXGBE_PHYSICAL_LAYER_10GBASE_XAUI 0x1000
+ #define IXGBE_PHYSICAL_LAYER_SFP_ACTIVE_DA 0x2000
  
--	if (new_itr != q_vector->eitr) {
-+	if (new_itr != q_vector->itr) {
- 		/* do an exponential smoothing */
--		new_itr = ((q_vector->eitr * 9) + new_itr)/10;
-+		new_itr = (10 * new_itr * q_vector->itr) /
-+			  ((9 * new_itr) + q_vector->itr);
- 
- 		/* save the algorithm value here */
--		q_vector->eitr = new_itr;
-+		q_vector->itr = new_itr & IXGBE_MAX_EITR;
- 
- 		ixgbe_write_eitr(q_vector);
- 	}
-@@ -2301,10 +2297,15 @@ static inline void ixgbe_irq_disable(struct ixgbe_adapter *adapter)
-  **/
- static void ixgbe_configure_msi_and_legacy(struct ixgbe_adapter *adapter)
- {
--	struct ixgbe_hw *hw = &adapter->hw;
-+	struct ixgbe_q_vector *q_vector = adapter->q_vector[0];
- 
--	IXGBE_WRITE_REG(hw, IXGBE_EITR(0),
--			EITR_INTS_PER_SEC_TO_REG(adapter->rx_eitr_param));
-+	/* rx/tx vector */
-+	if (adapter->rx_itr_setting == 1)
-+		q_vector->itr = IXGBE_20K_ITR;
-+	else
-+		q_vector->itr = adapter->rx_itr_setting;
+-/* Flow Control Macros */
+-#define PAUSE_RTT	8
+-#define PAUSE_MTU(MTU)	((MTU + 1024 - 1) / 1024)
++/* Flow Control Data Sheet defined values
++ * Calculation and defines taken from 802.1bb Annex O
++ */
 +
-+	ixgbe_write_eitr(q_vector);
++/* BitTimes (BT) conversion */
++#define IXGBE_BT2KB(BT) ((BT + 1023) / (8 * 1024))
++#define IXGBE_B2BT(BT) (BT * 8)
++
++/* Calculate Delay to respond to PFC */
++#define IXGBE_PFC_D	672
++
++/* Calculate Cable Delay */
++#define IXGBE_CABLE_DC	5556 /* Delay Copper */
++#define IXGBE_CABLE_DO	5000 /* Delay Optical */
++
++/* Calculate Interface Delay X540 */
++#define IXGBE_PHY_DC	25600	/* Delay 10G BASET */
++#define IXGBE_MAC_DC	8192	/* Delay Copper XAUI interface */
++#define IXGBE_XAUI_DC	(2 * 2048) /* Delay Copper Phy */
++
++#define IXGBE_ID_X540	(IXGBE_MAC_DC + IXGBE_XAUI_DC + IXGBE_PHY_DC)
++
++/* Calculate Interface Delay 82598, 82599 */
++#define IXGBE_PHY_D	12800
++#define IXGBE_MAC_D	4096
++#define IXGBE_XAUI_D	(2 * 1024)
++
++#define IXGBE_ID	(IXGBE_MAC_D + IXGBE_XAUI_D + IXGBE_PHY_D)
++
++/* Calculate Delay incurred from higher layer */
++#define IXGBE_HD	6144
++
++/* Calculate PCI Bus delay for low thresholds */
++#define IXGBE_PCI_DELAY	10000
++
++/* Calculate X540 delay value in bit times */
++#define IXGBE_FILL_RATE (36 / 25)
++
++#define IXGBE_DV_X540(LINK, TC) (IXGBE_FILL_RATE * \
++				 (IXGBE_B2BT(LINK) + IXGBE_PFC_D + \
++				 (2 * IXGBE_CABLE_DC) + \
++				 (2 * IXGBE_ID_X540) + \
++				 IXGBE_HD + IXGBE_B2BT(TC)))
++
++/* Calculate 82599, 82598 delay value in bit times */
++#define IXGBE_DV(LINK, TC) (IXGBE_FILL_RATE * \
++			    (IXGBE_B2BT(LINK) + IXGBE_PFC_D + \
++			    (2 * IXGBE_CABLE_DC) + (2 * IXGBE_ID) + \
++			    IXGBE_HD + IXGBE_B2BT(TC)))
  
- 	ixgbe_set_ivar(adapter, 0, 0, 0);
- 	ixgbe_set_ivar(adapter, 1, 0, 0);
-@@ -4613,12 +4614,6 @@ static int ixgbe_alloc_q_vectors(struct ixgbe_adapter *adapter)
- 		if (!alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL))
- 			goto err_out;
- 		cpumask_set_cpu(v_idx, q_vector->affinity_mask);
--
--		if (q_vector->tx.count && !q_vector->rx.count)
--			q_vector->eitr = adapter->tx_eitr_param;
--		else
--			q_vector->eitr = adapter->rx_eitr_param;
--
- 		netif_napi_add(adapter->netdev, &q_vector->napi,
- 			       ixgbe_poll, 64);
- 		adapter->q_vector[v_idx] = q_vector;
-@@ -4864,9 +4859,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+-#define FC_HIGH_WATER(MTU) ((((PAUSE_RTT + PAUSE_MTU(MTU)) * 144) + 99) / 100 +\
+-				PAUSE_MTU(MTU))
+-#define FC_LOW_WATER(MTU)  (2 * (2 * PAUSE_MTU(MTU) + PAUSE_RTT))
++/* Calculate low threshold delay values */
++#define IXGBE_LOW_DV_X540(TC) (2 * IXGBE_B2BT(TC) + \
++			       (IXGBE_FILL_RATE * IXGBE_PCI_DELAY))
++#define IXGBE_LOW_DV(TC)      (2 * IXGBE_LOW_DV_X540(TC))
  
- 	/* enable itr by default in dynamic mode */
- 	adapter->rx_itr_setting = 1;
--	adapter->rx_eitr_param = 20000;
- 	adapter->tx_itr_setting = 1;
--	adapter->tx_eitr_param = 10000;
+ /* Software ATR hash keys */
+ #define IXGBE_ATR_BUCKET_HASH_KEY    0x3DAD14E2
+@@ -2548,7 +2596,7 @@ struct ixgbe_bus_info {
  
- 	/* set defaults for eitr in MegaBytes */
- 	adapter->eitr_low = 10;
+ /* Flow control parameters */
+ struct ixgbe_fc_info {
+-	u32 high_water; /* Flow Control High-water */
++	u32 high_water[MAX_TRAFFIC_CLASS]; /* Flow Control High-water */
+ 	u32 low_water; /* Flow Control Low-water */
+ 	u16 pause_time; /* Flow Control Pause timer */
+ 	bool send_xon; /* Flow control send XON */
 -- 
 1.7.6.2
