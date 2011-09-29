@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: tehuti: Alexander Indenbaum's address
- bounces
-Date: Thu, 29 Sep 2011 00:32:42 -0400 (EDT)
-Message-ID: <20110929.003242.2190252185274075567.davem@davemloft.net>
-References: <1316678008-16842-9-git-send-email-ian.campbell@citrix.com>
-	<1316678906-17113-1-git-send-email-ian.campbell@citrix.com>
+Subject: Re: [PATCH net-2.6] cxgb4: Fix EEH on IBM P7IOC
+Date: Thu, 29 Sep 2011 00:34:02 -0400 (EDT)
+Message-ID: <20110929.003402.1451668842764449391.davem@davemloft.net>
+References: <20110924161130.18521.39558.stgit@speedy5.asicdesigners.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, baum@tehutinetworks.net,
-	andy@greyhouse.net, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: ian.campbell@citrix.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dm@chelsio.com, swise@opengridcomputing.com, kxie@chelsio.com
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46273 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:46287 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954Ab1I2Ecy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 00:32:54 -0400
-In-Reply-To: <1316678906-17113-1-git-send-email-ian.campbell@citrix.com>
+	with ESMTP id S1752798Ab1I2EeG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 00:34:06 -0400
+In-Reply-To: <20110924161130.18521.39558.stgit@speedy5.asicdesigners.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Thu, 22 Sep 2011 09:08:26 +0100
+From: Divy Le Ray <divy@chelsio.com>
+Date: Sat, 24 Sep 2011 09:11:31 -0700
 
-> I got:
-> 	Generating server: Tehuti.onmicrosoft.com
+> From: Divy Le Ray <divy@chelsio.com>
 > 
-> 	baum@tehutinetworks.net
-> 	#< #5.1.1 smtp;550 5.1.1 RESOLVER.ADR.RecipNotFound; not found> #SMTP#
+> Fix EEH recovery on new P Series platform by
+> requesting fundamental reset.
 > 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Signed-off-by: Divy Le Ray <divy@chelsio.com>
 
 Applied.
