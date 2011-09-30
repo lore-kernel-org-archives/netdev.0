@@ -1,27 +1,31 @@
-From: "geqil" <juan_xia@hofu888.com>
-Subject: =?utf-8?B?6ZuG5Zui?=
-Date: Fri, 30 Sep 2011 08:48:49 +0800
-Message-ID: <C63E7AE2ECAC6C8DCC1D5F95409F051A@aujgymk>
-Reply-To: <et123e@sina.cn>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH next 0/7] Pull request for 'davem-next.misc' branch
+Date: Thu, 29 Sep 2011 21:33:13 -0400 (EDT)
+Message-ID: <20110929.213313.1119713062637362451.davem@davemloft.net>
+References: <20110929225234.GA16376@electric-eye.fr.zoreil.com>
+	<20110929230007.GD16376@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <neritec@neritec.com>, <net18722166369@126.com>,
-	<netadmini@126.com>, <netdev@vger.kernel.org>,
-	<netherlia@googlemail.com>, <netnews@zjol.com.cn>,
-	<netsky@eyou.com>, <netwinner@371.ne
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mchan@broadcom.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.224.79.58] ([221.224.79.58]:23541 "HELO hofu888.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
-	id S1755716Ab1I3BGp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Sep 2011 21:06:45 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:58231 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000Ab1I3BeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 21:34:20 -0400
+In-Reply-To: <20110929230007.GD16376@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ODo0ODozMeS9oOWlve+8jOaIkeS7rOWFrCDlj7jmnInnnJ/lj5Egdmfnpajlj6/ku6XkvJgg5oOg
-5a+55aSWZmTlvIDvvIzmma7pgJrjgIHlop7lgLzjgIHmnI3liqHjgIHllYbkuJrnrYnlj5FxaSDn
-pajvvIwo5Y+v5Lul6aqM6K+B5ZCO5LuYa+asvu+8ieacrOS/oSDmga/plb8g5pyf5pyJ5pWI77yM
-6IGUa+ezu+aWueW8j+ivt+WBmuS/neeVmeWkh+mcgOimgeaXtueUqO+8jOiBlCDns7vkurrvvJti
-Z+WRqCDlsI/lp5AxNTkgMTk4OCA2MDY577yI5pyfIOW+heS4juS9oOeahOWQiCDkvZzvvIk5cTPC
-tyDlvJjmiazigJzoooHpmoblubPlvI/otKLlr4zigJ3vvIzlvojmnInlv4XopoENCg==
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Fri, 30 Sep 2011 01:00:07 +0200
+
+> Francois Romieu <romieu@fr.zoreil.com> :
+> [...]
+>> back-to-back oc3 cards. The bnx2 firmware changes have been rebased
+>> against -next as suggested by Michael Chan.
+> 
+> Don't pull, this one still includes erroneous __devinit.
+
+Ok.
