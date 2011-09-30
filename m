@@ -1,28 +1,60 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] tcp: report ECN_SEEN in tcp_info
-Date: Fri, 30 Sep 2011 09:29:27 -0700
-Message-ID: <20110930092927.0d4a6ad5@nehalam.linuxnetplumber.net>
-References: <1317357897.3274.11.camel@edumazet-laptop>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCH] net: xen-netback: correctly restart Tx after a
+	VM restore/migrate
+Date: Fri, 30 Sep 2011 17:37:51 +0100
+Message-ID: <1317400671-21236-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35657 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754068Ab1I3Q3a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Sep 2011 12:29:30 -0400
-In-Reply-To: <1317357897.3274.11.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+	David Vrabel <david.vrabel@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
+List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Sep 2011 06:44:57 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+If a VM is saved and restored (or migrated) the netback driver will no
+longer process any Tx packets from the frontend.  xenvif_up() does not
+schedule the processing of any pending Tx requests from the front end
+because the carrier is off.  Without this initial kick the frontend
+just adds Tx requests to the ring without raising an event (until the
+ring is full).
 
-> Stephen are you planning to provide an alternative git tree for
-> iproute2 ? Thanks !
+This was caused by 47103041e91794acdbc6165da0ae288d844c820b (net:
+xen-netback: convert to hw_features) which reordered the calls to
+xenvif_up() and netif_carrier_on() in xenvif_connect().
 
-It is on github for now.
-  
-  git clone git://github.com/shemminger/iproute2.git
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+---
+ drivers/net/xen-netback/interface.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 0ca86f9..1825629 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -327,12 +327,12 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
+ 	xenvif_get(vif);
+ 
+ 	rtnl_lock();
+-	if (netif_running(vif->dev))
+-		xenvif_up(vif);
+ 	if (!vif->can_sg && vif->dev->mtu > ETH_DATA_LEN)
+ 		dev_set_mtu(vif->dev, ETH_DATA_LEN);
+ 	netdev_update_features(vif->dev);
+ 	netif_carrier_on(vif->dev);
++	if (netif_running(vif->dev))
++		xenvif_up(vif);
+ 	rtnl_unlock();
+ 
+ 	return 0;
+-- 
+1.7.2.5
