@@ -1,95 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/11] ixgbe: remove instances of ixgbe_phy_aq for 82598 and 82599
-Date: Thu, 29 Sep 2011 22:24:50 -0700
-Message-ID: <1317360291-5576-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/11] ixgbe: clear the data field in ixgbe_read_i2c_byte_generic
+Date: Thu, 29 Sep 2011 22:24:43 -0700
+Message-ID: <1317360291-5576-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317360291-5576-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:2856 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:56204 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754200Ab1I3FZA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Sep 2011 01:25:00 -0400
+	id S1754239Ab1I3FY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Sep 2011 01:24:56 -0400
 In-Reply-To: <1317360291-5576-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-82598 and 82599 do not ship with this type of PHY
+Clear the data field in ixgbe_read_i2c_byte_generic so it does not
+accumulate 1 bit using the same variable multiple times.
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c |    2 --
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |    6 ------
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c  |    1 +
- 3 files changed, 1 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 56c32dc..e02e911 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -307,7 +307,6 @@ static enum ixgbe_media_type ixgbe_get_media_type_82598(struct ixgbe_hw *hw)
- 	switch (hw->phy.type) {
- 	case ixgbe_phy_cu_unknown:
- 	case ixgbe_phy_tn:
--	case ixgbe_phy_aq:
- 		media_type = ixgbe_media_type_copper;
- 		goto out;
- 	default:
-@@ -1112,7 +1111,6 @@ static u32 ixgbe_get_supported_physical_layer_82598(struct ixgbe_hw *hw)
- 	 * physical layer because 10GBase-T PHYs use LMS = KX4/KX */
- 	switch (hw->phy.type) {
- 	case ixgbe_phy_tn:
--	case ixgbe_phy_aq:
- 	case ixgbe_phy_cu_unknown:
- 		hw->phy.ops.read_reg(hw, MDIO_PMA_EXTABLE,
- 		MDIO_MMD_PMAPMD, &ext_ability);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index cdcf32a..4ae26a7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -217,10 +217,6 @@ static s32 ixgbe_init_phy_ops_82599(struct ixgbe_hw *hw)
- 		phy->ops.get_firmware_version =
- 		             &ixgbe_get_phy_firmware_version_tnx;
- 		break;
--	case ixgbe_phy_aq:
--		phy->ops.get_firmware_version =
--			&ixgbe_get_phy_firmware_version_generic;
--		break;
- 	default:
- 		break;
- 	}
-@@ -340,7 +336,6 @@ static enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
- 	switch (hw->phy.type) {
- 	case ixgbe_phy_cu_unknown:
- 	case ixgbe_phy_tn:
--	case ixgbe_phy_aq:
- 		media_type = ixgbe_media_type_copper;
- 		goto out;
- 	default:
-@@ -1805,7 +1800,6 @@ static u32 ixgbe_get_supported_physical_layer_82599(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+index f7ca351..cf3c227 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+@@ -1205,7 +1205,7 @@ s32 ixgbe_write_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
+  *  @data: value read
+  *
+  *  Performs byte read operation to SFP module's EEPROM over I2C interface at
+- *  a specified deivce address.
++ *  a specified device address.
+  **/
+ s32 ixgbe_read_i2c_byte_generic(struct ixgbe_hw *hw, u8 byte_offset,
+                                 u8 dev_addr, u8 *data)
+@@ -1215,6 +1215,7 @@ s32 ixgbe_read_i2c_byte_generic(struct ixgbe_hw *hw, u8 byte_offset,
+ 	u32 retry = 0;
+ 	u16 swfw_mask = 0;
+ 	bool nack = 1;
++	*data = 0;
  
- 	switch (hw->phy.type) {
- 	case ixgbe_phy_tn:
--	case ixgbe_phy_aq:
- 	case ixgbe_phy_cu_unknown:
- 		hw->phy.ops.read_reg(hw, MDIO_PMA_EXTABLE, MDIO_MMD_PMAPMD,
- 							 &ext_ability);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 96e0b20..e5101e9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -870,6 +870,7 @@ static struct ixgbe_phy_operations phy_ops_X540 = {
- 	.read_i2c_eeprom        = &ixgbe_read_i2c_eeprom_generic,
- 	.write_i2c_eeprom       = &ixgbe_write_i2c_eeprom_generic,
- 	.check_overtemp         = &ixgbe_tn_check_overtemp,
-+	.get_firmware_version   = &ixgbe_get_phy_firmware_version_generic,
- };
- 
- struct ixgbe_info ixgbe_X540_info = {
+ 	if (IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_LAN_ID_1)
+ 		swfw_mask = IXGBE_GSSR_PHY1_SM;
 -- 
 1.7.6.2
