@@ -1,31 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2011-09-30
-Date: Fri, 30 Sep 2011 15:27:32 -0400 (EDT)
-Message-ID: <20110930.152732.1662403204315863756.davem@davemloft.net>
-References: <20110930191131.GC2526@tuxdriver.com>
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: Re: [PATCH] net: sh_eth: fix build failure
+Date: Sat, 1 Oct 2011 04:36:53 +0900
+Message-ID: <CABMQnVKLL8fA9sZCNE4gPSo3z8fNXV7tv=LD9MLS1Tr7y48hAA@mail.gmail.com>
+References: <4E8534A9.3050002@renesas.com> <CABMQnVLRO1q=Oi7CWE=CJqYcUBD6s+z1JTWrO8W1wVmFwuA45w@mail.gmail.com>
+ <4E857506.5030501@renesas.com> <20110930.035449.1012299223616580574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33781 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932379Ab1I3T2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 15:28:41 -0400
-In-Reply-To: <20110930191131.GC2526@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: yoshihiro.shimoda.uh@renesas.com, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20110930.035449.1012299223616580574.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 30 Sep 2011 15:11:31 -0400
+I see.
+Thanks you.
 
-> Here is yet another big package of wireless updates for 3.2.  Highlights
-> include a bluetooth pull, a wl12xx pull, and a pull of the wireless tree
-> to fix some merge issues.  Also included is the usual big sets of
-> updates to ath9k, iwlagn, b43, and others.  Plus, the NFC subsystem grew
-> NCI support.
-> 
-> Please let me know if there are problems!
+Nobuhiro
 
-Pulled, thanks John.
+2011/9/30 David Miller <davem@davemloft.net>:
+> From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> Date: Fri, 30 Sep 2011 16:51:34 +0900
+>
+>> 2011/09/30 15:55, Nobuhiro Iwamatsu wrote:
+>>> 2011/9/30 Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>:
+>> < snip >
+>>>> +#include <linux/kernel.h>
+>>>> +#include <linux/spinlock.h>
+>>> These are not required.
+>>
+>> The Documentation/SubmitChecklist says the following:
+>>
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> 1: If you use a facility then #include the file that defines/declare=
+s
+>> =A0 =A0that facility. =A0Don't depend on other header files pulling =
+in ones
+>> =A0 =A0that you use.
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>
+>> The sh_eth driver uses spinlock functions and some macros of kernel.=
+h.
+>> So, I think that I have to write their "#include" in the driver.
+>
+> Agreed.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sh" i=
+n
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
+
+
+
+--=20
+Nobuhiro Iwamatsu
