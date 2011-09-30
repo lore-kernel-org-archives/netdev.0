@@ -1,42 +1,48 @@
-From: Alex Bligh <alex@alex.org.uk>
-Subject: Re: [PATCH] Fix repeatable Oops on container destroy with conntrack
-Date: Fri, 30 Sep 2011 16:54:21 +0100
-Message-ID: <EBB118BCDCB0BE733EF43F1E@Ximines.local>
-References: <2184C0CE5A5EDC94CDDA5053@Ximines.local>
- <20110912072524.GA2996@p183.telecom.by> <20110912093749.GE2194@1984>
- <E0902A9541FD5D118EA02B31@Ximines.local> <20110912183357.GC3641@1984>
- <87A32B21CA99D62CE1AB7A4B@Ximines.local>
- <7631498AC7E7C0EAD641AC7D@nimrod.local> <20110914013500.GB17051@1984>
- <A51A04647674405AF6C39A4F@nimrod.local> <20110928210851.GA2761@1984>
-Reply-To: Alex Bligh <alex@alex.org.uk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC patch net-next-2.6] net: introduce ethernet teaming device
+Date: Fri, 30 Sep 2011 09:26:19 -0700
+Message-ID: <20110930092619.6b45087d@nehalam.linuxnetplumber.net>
+References: <1317386643-3041-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	containers@lists.linux-foundation.org,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, Alex Bligh <alex@alex.org.uk>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110928210851.GA2761@1984>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	fubar@us.ibm.com, andy@greyhouse.net, tgraf@infradead.org,
+	ebiederm@xmission.com, mirqus@gmail.com, kaber@trash.net,
+	greearb@candelatech.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42876 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751813Ab1I3Q0W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Sep 2011 12:26:22 -0400
+In-Reply-To: <1317386643-3041-1-git-send-email-jpirko@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 30 Sep 2011 14:44:03 +0200
+Jiri Pirko <jpirko@redhat.com> wrote:
 
+> +static struct rtnl_link_stats64 *team_get_stats(struct net_device *dev,
+> +						struct rtnl_link_stats64 *stats)
+> +{
+> +	struct team *team = netdev_priv(dev);
+> +	struct rtnl_link_stats64 temp;
+> +	struct team_port *port;
+> +
+> +	memset(stats, 0, sizeof(*stats));
+> +
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(port, &team->port_list, list) {
+> +		const struct rtnl_link_stats64 *pstats;
 
---On 28 September 2011 23:08:51 +0200 Pablo Neira Ayuso 
-<pablo@netfilter.org> wrote:
+You need to use u64_stats_sync macros to make this safe on 32 bit
+mode.
 
->> As you can probably tell, my interest here is to get something that
->> doesn't oops into stable kernels.
->
-> As said, I'm not sure that this can happen, given that the amount of
-> patches that we need to fix it fine, sorry.
+Also, I am not sure about the handling of speed and duplex.
+There are people who do active backup with links of different speeds.
 
-This is why I was suggesting the 2 line "don't oops" patch in the
-interim.
-
--- 
-Alex Bligh
+The team device doesn't seem to handle hardware offload features
+as completely as it should.  The TSO and transmit checksumming should
+be the union of the teamed ports.
