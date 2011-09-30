@@ -1,75 +1,48 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: conntrack events over netlink flood
-Date: Fri, 30 Sep 2011 16:46:12 +0300
-Message-ID: <21804201a542b723ddc2bbfb8bcb570d@visp.net.lb>
-References: <069917f11e06f3cf2e1ce9715f435b61@visp.net.lb>
- <20110930125956.GD13047@Chamillionaire.breakpoint.cc>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 11/11] ixgbe: allow eeprom writes via ethtool
+Date: Fri, 30 Sep 2011 14:52:31 +0100
+Message-ID: <1317390753.4068.32.camel@deadeye>
+References: <1317360291-5576-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1317360291-5576-12-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:40668 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752575Ab1I3NrS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 09:47:18 -0400
-In-Reply-To: <20110930125956.GD13047@Chamillionaire.breakpoint.cc>
+Received: from mail.solarflare.com ([216.237.3.220]:45565 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757981Ab1I3Nwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 09:52:43 -0400
+In-Reply-To: <1317360291-5576-12-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- On Fri, 30 Sep 2011 14:59:56 +0200, Florian Westphal wrote:
-> Denys Fedoryshchenko <denys@visp.net.lb> wrote:
->
-> [ cc: netfilter-devel ]
->
->>  After enabling events and running conntrack -E i notice flood in 
->> output
->>  of server that have PPPoE and PPTP connections. Here is the output:
->>
->>  OfficeNAT ~ # conntrack  -E
->>   [UPDATE] gre      47 17999 src=192.168.0.140 dst=192.168.0.1
->>  srckey=0x0 dstkey=0x3 src=192.168.0.1 dst=192.168.0.140 srckey=0x3
->>  dstkey=0x0 [ASSURED]
->>   [UPDATE] gre      47 17999 src=192.168.0.140 dst=192.168.0.1
->>  srckey=0x0 dstkey=0x3 src=192.168.0.1 dst=192.168.0.140 srckey=0x3
->>  dstkey=0x0 [ASSURED]
->
-> [..]
->
->>  Is it considered as a bug? I think it should not send on each 
->> packet
->>  conntrack event.
->
-> Bug. Update events should only be generated when something in the
-> conntrack has changed (e.g. the connmark).
->
-> Could you please try this patch (untested)?
->
-> Subject: [PATCH] netfilter: conntrack_gre: only create ct assured 
-> event once
->
-> diff --git a/net/netfilter/nf_conntrack_proto_gre.c
-> b/net/netfilter/nf_conntrack_proto_gre.c
-> --- a/net/netfilter/nf_conntrack_proto_gre.c
-> +++ b/net/netfilter/nf_conntrack_proto_gre.c
-> @@ -241,8 +241,8 @@ static int gre_packet(struct nf_conn *ct,
->  		nf_ct_refresh_acct(ct, ctinfo, skb,
->  				   ct->proto.gre.stream_timeout);
->  		/* Also, more likely to be important, and not a probe. */
-> -		set_bit(IPS_ASSURED_BIT, &ct->status);
-> -		nf_conntrack_event_cache(IPCT_ASSURED, ct);
-> +		if (!test_and_set_bit(IPS_ASSURED_BIT, &ct->status))
-> +			nf_conntrack_event_cache(IPCT_ASSURED, ct);
->  	} else
->  		nf_ct_refresh_acct(ct, ctinfo, skb,
->  				   ct->proto.gre.timeout);
- Fine now, patch fixed this bug.
+On Thu, 2011-09-29 at 22:24 -0700, Jeff Kirsher wrote:
+[...]
+> +static int ixgbe_set_eeprom(struct net_device *netdev,
+> +			    struct ethtool_eeprom *eeprom, u8 *bytes)
+> +{
+> +	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+> +	struct ixgbe_hw *hw = &adapter->hw;
+> +	u16 *eeprom_buff;
+> +	void *ptr;
+> +	int max_len, first_word, last_word, ret_val = 0;
+> +	u16 i;
+> +
+> +	if (eeprom->len == 0)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (eeprom->magic != (hw->vendor_id | (hw->device_id << 16)))
+> +		return -EFAULT;
+[...]
 
- Tested-by: Denys Fedoryshchenko <denys@visp.net.lb>
+Both these error codes should be EINVAL.
 
- ---
- System administrator
- Denys Fedoryshchenko
- Virtual ISP S.A.L.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
