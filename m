@@ -1,87 +1,48 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [patch] make PACKET_STATISTICS getsockopt report consistently between
- ring and non-ring
-Date: Fri, 30 Sep 2011 16:38:28 -0400
-Message-ID: <4E8628C4.2070504@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: David Daney <david.daney@cavium.com>
+Subject: [PATCH] netdev/phy: Use mdiobus_read() so that proper locks are taken.
+Date: Fri, 30 Sep 2011 14:51:22 -0700
+Message-ID: <1317419482-25655-1-git-send-email-david.daney@cavium.com>
+Cc: linux-mips@linux-mips.org, David Daney <david.daney@cavium.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:12299 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752836Ab1I3Uif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 16:38:35 -0400
-Received: from wpaz1.hot.corp.google.com (wpaz1.hot.corp.google.com [172.24.198.65])
-	by smtp-out.google.com with ESMTP id p8UKcW1G019443
-	for <netdev@vger.kernel.org>; Fri, 30 Sep 2011 13:38:33 -0700
-Received: from vws20 (vws20.prod.google.com [10.241.21.148])
-	by wpaz1.hot.corp.google.com with ESMTP id p8UKcV7G006258
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 30 Sep 2011 13:38:31 -0700
-Received: by vws20 with SMTP id 20so1845745vws.38
-        for <netdev@vger.kernel.org>; Fri, 30 Sep 2011 13:38:31 -0700 (PDT)
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:18529 "EHLO
+	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752703Ab1I3VwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 17:52:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a minor change.
+Accesses to the mdio busses must be done with the mdio_lock to ensure
+proper operation.  Conveniently we have the helper function
+mdiobus_read() to do that for us.  Lets use it in get_phy_id() instead
+of accessing the bus without the lock held.
 
-Up until kernel 2.6.32, getsockopt(fd, SOL_PACKET, PACKET_STATISTICS,
-...) would return total and dropped packets since its last invocation. The
-introduction of socket queue overflow reporting [1] changed drop
-rate calculation in the normal packet socket path, but not when using a
-packet ring. As a result, the getsockopt now returns different statistics
-depending on the reception method used. With a ring, it still returns the
-count since the last call, as counts are incremented in tpacket_rcv and
-reset in getsockopt. Without a ring, it returns 0 if no drops occurred
-since the last getsockopt and the total drops over the lifespan of
-the socket otherwise. The culprit is this line in packet_rcv, executed
-on a drop:
-
-drop_n_acct:
-        po->stats.tp_drops = atomic_inc_return(&sk->sk_drops);
-
-As it shows, the new drop number it taken from the socket drop counter,
-which is not reset at getsockopt. I put together a small example
-that demonstrates the issue [2]. It runs for 10 seconds and overflows
-the queue/ring on every odd second. The reported drop rates are:
-ring: 16, 0, 16, 0, 16, ...
-non-ring: 0, 15, 0, 30, 0, 46, 0, 60, 0 , 74.
-
-Note how the even ring counts monotonically increase. Because the
-getsockopt adds tp_drops to tp_packets, total counts are similarly
-reported cumulatively. Long story short, reinstating the original code, as
-the below patch does, fixes the issue at the cost of additional per-packet
-cycles. Another solution that does not introduce per-packet overhead
-is be to keep the current data path, record the value of sk_drops at
-getsockopt() at call N in a new field in struct packetsock and subtract
-that when reporting at call N+1. I'll be happy to code that, instead,
-it's just more messy.
-
-[1] http://patchwork.ozlabs.org/patch/35665/
-[2] http://kernel.googlecode.com/files/test-packetsock-getstatistics.c
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- net/packet/af_packet.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ drivers/net/phy/phy_device.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index c698cec..fabb4fa 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -961,7 +961,10 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
- 	return 0;
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index ff109fe..83a5a5a 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -213,7 +213,7 @@ int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
  
- drop_n_acct:
--	po->stats.tp_drops = atomic_inc_return(&sk->sk_drops);
-+	spin_lock(&sk->sk_receive_queue.lock);
-+	po->stats.tp_drops++;
-+	atomic_inc(&sk->sk_drops);
-+	spin_unlock(&sk->sk_receive_queue.lock);
+ 	/* Grab the bits from PHYIR1, and put them
+ 	 * in the upper half */
+-	phy_reg = bus->read(bus, addr, MII_PHYSID1);
++	phy_reg = mdiobus_read(bus, addr, MII_PHYSID1);
  
- drop_n_restore:
- 	if (skb_head != skb->data && skb_shared(skb)) {
+ 	if (phy_reg < 0)
+ 		return -EIO;
+@@ -221,7 +221,7 @@ int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
+ 	*phy_id = (phy_reg & 0xffff) << 16;
+ 
+ 	/* Grab the bits from PHYIR2, and put them in the lower half */
+-	phy_reg = bus->read(bus, addr, MII_PHYSID2);
++	phy_reg = mdiobus_read(bus, addr, MII_PHYSID2);
+ 
+ 	if (phy_reg < 0)
+ 		return -EIO;
 -- 
-1.7.3.1
+1.7.2.3
