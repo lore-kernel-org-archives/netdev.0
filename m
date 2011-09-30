@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev/phy/icplus: Use mdiobus_write() and
- mdiobus_read() for proper locking.
-Date: Fri, 30 Sep 2011 18:54:33 -0400 (EDT)
-Message-ID: <20110930.185433.371029849281805679.davem@davemloft.net>
-References: <1317421068-27278-1-git-send-email-david.daney@cavium.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-        Gregory.Dietsche@cuw.edu, u.kleine-koenig@pengutronix.de,
-        peppe.cavallaro@st.com
-To: david.daney@cavium.com
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1317421068-27278-1-git-send-email-david.daney@cavium.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+From: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH net-next] drivers/net: Add module.h to wireless/ath/ath6kl/sdio.c
+Date: Fri, 30 Sep 2011 19:07:59 -0400
+Message-ID: <1317424079-31793-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: David Daney <david.daney@cavium.com>
-Date: Fri, 30 Sep 2011 15:17:48 -0700
+This file uses various MODULE_* macros, and so needs the full
+module.h header called out explicitly.
 
-> Usually you have to take the bus lock.  Why not here too?
-> 
-> I saw this when working on something else.  Not even compile tested.
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> Cc: Greg Dietsche <Gregory.Dietsche@cuw.edu>
-> Cc: "Uwe Kleine-Konig" <u.kleine-koenig@pengutronix.de>
-> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
 
-Applied to net-next.
+---
+
+[Dave: I can't carry this in the module.h tree with all the other one
+line patches, as it only exists in trees based off wireless/net-next.
+It fixes a compile failure that shows up in linux-next.  Thanks.]
+
+diff --git a/drivers/net/wireless/ath/ath6kl/sdio.c b/drivers/net/wireless/ath/ath6kl/sdio.c
+index 3417160..ca4a93e 100644
+--- a/drivers/net/wireless/ath/ath6kl/sdio.c
++++ b/drivers/net/wireless/ath/ath6kl/sdio.c
+@@ -14,6 +14,7 @@
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
+ 
++#include <linux/module.h>
+ #include <linux/mmc/card.h>
+ #include <linux/mmc/mmc.h>
+ #include <linux/mmc/host.h>
+-- 
+1.7.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
