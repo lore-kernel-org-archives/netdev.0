@@ -1,118 +1,63 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: [PATCH v2] tcp: properly handle md5sig_pool references
-Date: Fri, 30 Sep 2011 11:10:10 +0800
-Message-ID: <4E853312.1050107@intel.com>
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH] net: sh_eth: fix build failure
+Date: Fri, 30 Sep 2011 12:16:57 +0900
+Message-ID: <4E8534A9.3050002@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
+	SH-Linux <linux-sh@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26062 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756105Ab1I3DKM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Sep 2011 23:10:12 -0400
+Received: from relmlor3.renesas.com ([210.160.252.173]:48057 "EHLO
+	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756588Ab1I3DSy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Sep 2011 23:18:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp_v4_clear_md5_list() assumes that multiple tcp md5sig peers
-only hold one reference to md5sig_pool. but tcp_v4_md5_do_add()
-increases use count of md5sig_pool for each peer. This patch
-makes tcp_v4_md5_do_add() only increases use count for the first
-tcp md5sig peer.
+The following commit removed some including headers:
+ "net: sh_eth: move the asm/sh_eth.h to include/linux/"
+ (commit id: d4fa0e35fdbd54acf791fa3793d6d17f7795f7ae)
 
-Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+Then, the build failure happened on the linux-next:
+
+drivers/net/ethernet/renesas/sh_eth.c:601: error: 'THIS_MODULE' undeclared here (not in a function)
+drivers/net/ethernet/renesas/sh_eth.c:1970: error: expected declaration specifiers or '...' before string constant
+drivers/net/ethernet/renesas/sh_eth.c:1970: warning: data definition has no type or storage class
+drivers/net/ethernet/renesas/sh_eth.c:1970: warning: type defaults to 'int' in declaration of 'MODULE_AUTHOR'
+drivers/net/ethernet/renesas/sh_eth.c:1970: warning: function declaration isn't a prototype
+drivers/net/ethernet/renesas/sh_eth.c:1971: error: expected declaration specifiers or '...' before string constant
+drivers/net/ethernet/renesas/sh_eth.c:1971: warning: data definition has no type or storage class
+drivers/net/ethernet/renesas/sh_eth.c:1971: warning: type defaults to 'int' in declaration of 'MODULE_DESCRIPTION'
+drivers/net/ethernet/renesas/sh_eth.c:1971: warning: function declaration isn't a prototype
+drivers/net/ethernet/renesas/sh_eth.c:1972: error: expected declaration specifiers or '...' before string constant
+drivers/net/ethernet/renesas/sh_eth.c:1972: warning: data definition has no type or storage class
+drivers/net/ethernet/renesas/sh_eth.c:1972: warning: type defaults to 'int' in declaration of 'MODULE_LICENSE'
+drivers/net/ethernet/renesas/sh_eth.c:1972: warning: function declaration isn't a prototype
+
+This patch fixes the issue. This patch also get back include/kernel.h
+and linux/spinlock.h.
+
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
-Changes since v1:
- Fix a line over 80 characters warning
+ drivers/net/ethernet/renesas/sh_eth.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
- net/ipv4/tcp_ipv4.c |   11 +++++++----
- net/ipv6/tcp_ipv6.c |    8 +++++---
- 2 files changed, 12 insertions(+), 7 deletions(-)
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 6aa0704..9b23074 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -21,6 +21,9 @@
+  */
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index c34f015..7963e03 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -927,18 +927,21 @@ int tcp_v4_md5_do_add(struct sock *sk, __be32 addr,
- 			}
- 			sk_nocaps_add(sk, NETIF_F_GSO_MASK);
- 		}
--		if (tcp_alloc_md5sig_pool(sk) == NULL) {
-+
-+		md5sig = tp->md5sig_info;
-+		if (md5sig->entries4 == 0 &&
-+		    tcp_alloc_md5sig_pool(sk) == NULL) {
- 			kfree(newkey);
- 			return -ENOMEM;
- 		}
--		md5sig = tp->md5sig_info;
- 
- 		if (md5sig->alloced4 == md5sig->entries4) {
- 			keys = kmalloc((sizeof(*keys) *
- 					(md5sig->entries4 + 1)), GFP_ATOMIC);
- 			if (!keys) {
- 				kfree(newkey);
--				tcp_free_md5sig_pool();
-+				if (md5sig->entries4 == 0)
-+					tcp_free_md5sig_pool();
- 				return -ENOMEM;
- 			}
- 
-@@ -982,6 +985,7 @@ int tcp_v4_md5_do_del(struct sock *sk, __be32 addr)
- 				kfree(tp->md5sig_info->keys4);
- 				tp->md5sig_info->keys4 = NULL;
- 				tp->md5sig_info->alloced4 = 0;
-+				tcp_free_md5sig_pool();
- 			} else if (tp->md5sig_info->entries4 != i) {
- 				/* Need to do some manipulation */
- 				memmove(&tp->md5sig_info->keys4[i],
-@@ -989,7 +993,6 @@ int tcp_v4_md5_do_del(struct sock *sk, __be32 addr)
- 					(tp->md5sig_info->entries4 - i) *
- 					 sizeof(struct tcp4_md5sig_key));
- 			}
--			tcp_free_md5sig_pool();
- 			return 0;
- 		}
- 	}
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3c9fa61..20ac0fc 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -591,7 +591,8 @@ static int tcp_v6_md5_do_add(struct sock *sk, const struct in6_addr *peer,
- 			}
- 			sk_nocaps_add(sk, NETIF_F_GSO_MASK);
- 		}
--		if (tcp_alloc_md5sig_pool(sk) == NULL) {
-+		if (tp->md5sig_info->entries6 == 0 &&
-+			tcp_alloc_md5sig_pool(sk) == NULL) {
- 			kfree(newkey);
- 			return -ENOMEM;
- 		}
-@@ -600,8 +601,9 @@ static int tcp_v6_md5_do_add(struct sock *sk, const struct in6_addr *peer,
- 				       (tp->md5sig_info->entries6 + 1)), GFP_ATOMIC);
- 
- 			if (!keys) {
--				tcp_free_md5sig_pool();
- 				kfree(newkey);
-+				if (tp->md5sig_info->entries6 == 0)
-+					tcp_free_md5sig_pool();
- 				return -ENOMEM;
- 			}
- 
-@@ -647,6 +649,7 @@ static int tcp_v6_md5_do_del(struct sock *sk, const struct in6_addr *peer)
- 				kfree(tp->md5sig_info->keys6);
- 				tp->md5sig_info->keys6 = NULL;
- 				tp->md5sig_info->alloced6 = 0;
-+				tcp_free_md5sig_pool();
- 			} else {
- 				/* shrink the database */
- 				if (tp->md5sig_info->entries6 != i)
-@@ -655,7 +658,6 @@ static int tcp_v6_md5_do_del(struct sock *sk, const struct in6_addr *peer)
- 						(tp->md5sig_info->entries6 - i)
- 						* sizeof (tp->md5sig_info->keys6[0]));
- 			}
--			tcp_free_md5sig_pool();
- 			return 0;
- 		}
- 	}
+ #include <linux/init.h>
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/spinlock.h>
+ #include <linux/interrupt.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/etherdevice.h>
+-- 
+1.7.1
