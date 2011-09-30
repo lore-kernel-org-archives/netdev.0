@@ -1,74 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: report ECN_SEEN in tcp_info
-Date: Fri, 30 Sep 2011 06:44:57 +0200
-Message-ID: <1317357897.3274.11.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 29 Sep 2011 22:24:40 -0700
+Message-ID: <1317360291-5576-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54037 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751875Ab1I3EpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 00:45:04 -0400
-Received: by wyg34 with SMTP id 34so682939wyg.19
-        for <netdev@vger.kernel.org>; Thu, 29 Sep 2011 21:45:02 -0700 (PDT)
+Received: from mga03.intel.com ([143.182.124.21]:56204 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753808Ab1I3FYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Sep 2011 01:24:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows ss command (iproute2) to display "ecnseen" if at least one packet
-with ECT(0) or ECT(1) or ECN was received by this socket.
+The following series contains updates to e1000e and ixgbe. The one
+patch for e1000e makes function tables const, thanks to Stephen
+Hemminger for reporting this.  The remaining patches are for ixgbe,
+and the contain the following:
 
-"ecn" means ECN was negociated at session establishment (TCP level)
+ - minor cleanups
+ - add support for 82599 device and ethtool -E support
+ - removal of a PHY which is not used in production silicon
 
-"ecnseen" means we received at least one packet with ECT fields set (IP
-level)
+The following are changes since commit 56fd49e399ce1d82200fad5b8924d4e35a587809:
+  bna: Driver Version changed to 3.0.2.2
+and are available in the git repository at
+  git://github.com/Jkirsher/net-next.git
 
-ss -i
-...
-ESTAB      0      0   192.168.20.110:22  192.168.20.144:38016
-ino:5950 sk:f178e400
-	 mem:(r0,w0,f0,t0) ts sack ecn ecnseen bic wscale:7,8 rto:210
-rtt:12.5/7.5 cwnd:10 send 9.3Mbps rcv_space:14480
+Emil Tantilov (8):
+  ixgbe: prevent link checks while resetting
+  ixgbe: clear the data field in ixgbe_read_i2c_byte_generic
+  ixgbe: remove return code for functions that always return 0
+  ixgbe: add support for new 82599 device
+  ixgbe: send MFLCN to ethtool
+  ixgbe: do not disable flow control in ixgbe_check_mac_link
+  ixgbe: remove instances of ixgbe_phy_aq for 82598 and 82599
+  ixgbe: allow eeprom writes via ethtool
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-Stephen are you planning to provide an alternative git tree for
-iproute2 ? Thanks !
+Jacob Keller (1):
+  ixgbe: fix driver version initialization in firmware
 
- include/linux/tcp.h |    3 ++-
- net/ipv4/tcp.c      |    4 +++-
- 2 files changed, 5 insertions(+), 2 deletions(-)
+Jeff Kirsher (1):
+  e1000e: make function tables const
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 6b63b31..7f59ee9 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -111,7 +111,8 @@ enum {
- #define TCPI_OPT_TIMESTAMPS	1
- #define TCPI_OPT_SACK		2
- #define TCPI_OPT_WSCALE		4
--#define TCPI_OPT_ECN		8
-+#define TCPI_OPT_ECN		8 /* ECN was negociated at TCP session init */
-+#define TCPI_OPT_ECN_SEEN	16 /* we received at least one packet with ECT */
- 
- enum tcp_ca_state {
- 	TCP_CA_Open = 0,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 131c45f..4c0da24 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2455,8 +2455,10 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 		info->tcpi_rcv_wscale = tp->rx_opt.rcv_wscale;
- 	}
- 
--	if (tp->ecn_flags&TCP_ECN_OK)
-+	if (tp->ecn_flags & TCP_ECN_OK)
- 		info->tcpi_options |= TCPI_OPT_ECN;
-+	if (tp->ecn_flags & TCP_ECN_SEEN)
-+		info->tcpi_options |= TCPI_OPT_ECN_SEEN;
- 
- 	info->tcpi_rto = jiffies_to_usecs(icsk->icsk_rto);
- 	info->tcpi_ato = jiffies_to_usecs(icsk->icsk_ack.ato);
+Mika Lansirinne (1):
+  ixgbe: get pauseparam autoneg
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c  |    8 +-
+ drivers/net/ethernet/intel/e1000e/82571.c        |   20 +++---
+ drivers/net/ethernet/intel/e1000e/e1000.h        |   28 ++++----
+ drivers/net/ethernet/intel/e1000e/ich8lan.c      |   16 +++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |    8 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |    7 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |    6 --
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   74 +++++++++++++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   12 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   33 +++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |    1 +
+ 12 files changed, 125 insertions(+), 89 deletions(-)
+
+-- 
+1.7.6.2
