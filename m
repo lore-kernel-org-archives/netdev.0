@@ -1,26 +1,29 @@
-From: "SENATE HOLDING (HOUSE OF SENATE)" <rderrett@iuncapped.co.za>
-Subject: Urgent&#8207;...
-Date: Fri, 30 Sep 2011 12:12:50 +0200 (SAST)
-Message-ID: <4178.69.65.58.133.1317377570.squirrel@mail.iuncapped.co.za>
-Reply-To: jeffersoncarls@zemra.org
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net-next-2.6 0/4] be2net: fixes
+Date: Fri, 30 Sep 2011 22:52:09 +0530
+Message-ID: <4bdbbef6-24f6-432f-9642-99ce7887f52d@exht2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: text/plain
+Cc: Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.iuncapped.co.za ([196.214.93.189]:33178 "EHLO
-	mail.iuncapped.co.za" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755691Ab1I3Lht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 07:37:49 -0400
+Received: from exht2.emulex.com ([138.239.113.184]:10146 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755678Ab1I3MAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 08:00:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Attn:
+Pls apply
 
-You have been Issued an Atm card with code (ATM-822) Indicate When
-replying to this email
+Somnath Kotur (4):
+  be2net: Change the data type of the 'on die temperature' stat.
+  be2net: Fixed Endianness issues in the response read log length field
+    while retrieving FAT data
+  be2net: Modified PCI MaxReadReq size to 4096 bytes
+  be2net: Making die temperature ioctl call async
 
-
-KINDEST REGARDS,
-MR DAVID MARK.
-SENATE PRESIDENT.
+ drivers/net/ethernet/emulex/benet/be.h      |    7 ++++-
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   42 ++++++++++++++++----------
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 +
+ 3 files changed, 34 insertions(+), 17 deletions(-)
