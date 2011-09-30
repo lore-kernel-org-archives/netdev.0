@@ -1,48 +1,69 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC patch net-next-2.6] net: introduce ethernet teaming device
-Date: Fri, 30 Sep 2011 09:26:19 -0700
-Message-ID: <20110930092619.6b45087d@nehalam.linuxnetplumber.net>
-References: <1317386643-3041-1-git-send-email-jpirko@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH next 2/7] 8139cp : removal of headers.
+Date: Fri, 30 Sep 2011 18:26:49 +0200
+Message-ID: <20110930162649.GA32195@electric-eye.fr.zoreil.com>
+References: <20110930103604.GA26727@electric-eye.fr.zoreil.com> <20110930103719.GC26727@electric-eye.fr.zoreil.com> <1317391428.4068.36.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	fubar@us.ibm.com, andy@greyhouse.net, tgraf@infradead.org,
-	ebiederm@xmission.com, mirqus@gmail.com, kaber@trash.net,
-	greearb@candelatech.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42876 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751813Ab1I3Q0W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Sep 2011 12:26:22 -0400
-In-Reply-To: <1317386643-3041-1-git-send-email-jpirko@redhat.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49014 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757400Ab1I3Q21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 12:28:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1317391428.4068.36.camel@deadeye>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Sep 2011 14:44:03 +0200
-Jiri Pirko <jpirko@redhat.com> wrote:
+Ben Hutchings <bhutchings@solarflare.com> :
+[...]
+> > diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+> > index c77d5af..60c8de5 100644
+> > --- a/drivers/net/ethernet/realtek/8139cp.c
+> > +++ b/drivers/net/ethernet/realtek/8139cp.c
+> > @@ -55,8 +55,6 @@
+> >  
+> >  #include <linux/module.h>
+> >  #include <linux/moduleparam.h>
+> > -#include <linux/kernel.h>
+> 
+> Needed for container_of.
+> 
+> > -#include <linux/compiler.h>
+> 
+> Needed for __packed.  But it's probably safe to assume that
+> <linux/kernel.h> will include it.
 
-> +static struct rtnl_link_stats64 *team_get_stats(struct net_device *dev,
-> +						struct rtnl_link_stats64 *stats)
-> +{
-> +	struct team *team = netdev_priv(dev);
-> +	struct rtnl_link_stats64 temp;
-> +	struct team_port *port;
-> +
-> +	memset(stats, 0, sizeof(*stats));
-> +
-> +	rcu_read_lock();
-> +	list_for_each_entry_rcu(port, &team->port_list, list) {
-> +		const struct rtnl_link_stats64 *pstats;
+<linux/module.h> would include it too.
 
-You need to use u64_stats_sync macros to make this safe on 32 bit
-mode.
+Being modular opens the doors for a lot of features. :o|
 
-Also, I am not sure about the handling of speed and duplex.
-There are people who do active backup with links of different speeds.
+[...]
+> > @@ -65,7 +63,6 @@
+> >  #include <linux/dma-mapping.h>
+> >  #include <linux/delay.h>
+> >  #include <linux/ethtool.h>
+> > -#include <linux/gfp.h>
+> 
+> Needed for GFP_KERNEL.
 
-The team device doesn't seem to handle hardware offload features
-as completely as it should.  The TSO and transmit checksumming should
-be the union of the teamed ports.
+I would have assumed that <linux/dma-mapping.h> provides it as it
+publicizes gfp_t dependant data.
+
+
+I am sceptical about the value in including so much headers for
+rather common things at the network device driver level. After all
+the code is supposed to be cross-platform, modular or monolithic
+built.
+
+I can understand that even a single class of devices requires some
+variation but including kernel.h, init.h, module.h and moduleparam.h
+all around in drivers/net seems a bit silly. Same thing for including
+both netdevice.h and etherdevice.h.
+
+It's probably not worth the hassle. I'll drop it.
+
+-- 
+Ueimor
