@@ -1,41 +1,27 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH v2 0/3] netdev/of/phy: MDIO bus multiplexer support.
-Date: Thu, 29 Sep 2011 18:32:14 -0600
-Message-ID: <20110930003214.GB12606@ponder.secretlab.ca>
-References: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
- <20110929.163112.1523715692737597332.davem@davemloft.net>
+From: "geqil" <juan_xia@hofu888.com>
+Subject: =?utf-8?B?6ZuG5Zui?=
+Date: Fri, 30 Sep 2011 08:48:49 +0800
+Message-ID: <C63E7AE2ECAC6C8DCC1D5F95409F051A@aujgymk>
+Reply-To: <et123e@sina.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: david.daney@cavium.com, devicetree-discuss@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110929.163112.1523715692737597332.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <neritec@neritec.com>, <net18722166369@126.com>,
+	<netadmini@126.com>, <netdev@vger.kernel.org>,
+	<netherlia@googlemail.com>, <netnews@zjol.com.cn>,
+	<netsky@eyou.com>, <netwinner@371.ne
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [221.224.79.58] ([221.224.79.58]:23541 "HELO hofu888.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
+	id S1755716Ab1I3BGp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Sep 2011 21:06:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 29, 2011 at 04:31:12PM -0400, David Miller wrote:
-> From: David Daney <david.daney@cavium.com>
-> Date: Tue, 27 Sep 2011 16:26:52 -0700
-> 
-> > v2: Update bindings to use "reg" and "mdio-parent-bus" insutead of
-> >     "cell-index" and "parent-bus"
-> 
-> Grant, when the final version of this patch set is ready how do
-> you want to handle merging it in?
-> 
-> I think it would be safe to merge this via your tree, since the
-> changes made to existing network driver files are rather trivial and
-> thus merge conflict friendly.
-
-Your tree or mine, I'm happy either way.  Even if there were
-conflicts, they would be trivial.
-
-Sure, I'll take care of merging it when I see an ack from you.
-
-> Actually, I feel like we've discussed this before :-)
-
-:)
-
-g.
+ODo0ODozMeS9oOWlve+8jOaIkeS7rOWFrCDlj7jmnInnnJ/lj5Egdmfnpajlj6/ku6XkvJgg5oOg
+5a+55aSWZmTlvIDvvIzmma7pgJrjgIHlop7lgLzjgIHmnI3liqHjgIHllYbkuJrnrYnlj5FxaSDn
+pajvvIwo5Y+v5Lul6aqM6K+B5ZCO5LuYa+asvu+8ieacrOS/oSDmga/plb8g5pyf5pyJ5pWI77yM
+6IGUa+ezu+aWueW8j+ivt+WBmuS/neeVmeWkh+mcgOimgeaXtueUqO+8jOiBlCDns7vkurrvvJti
+Z+WRqCDlsI/lp5AxNTkgMTk4OCA2MDY577yI5pyfIOW+heS4juS9oOeahOWQiCDkvZzvvIk5cTPC
+tyDlvJjmiazigJzoooHpmoblubPlvI/otKLlr4zigJ3vvIzlvojmnInlv4XopoENCg==
