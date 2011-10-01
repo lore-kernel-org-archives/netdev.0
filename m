@@ -1,74 +1,53 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: ICMP redirect issue
-Date: Sat, 1 Oct 2011 12:22:56 +0900
-Message-ID: <20111001032255.GG2781@verge.net.au>
-References: <20110928.140632.726302773135946390.davem@davemloft.net>
- <20110928171952.0c0d2d05@asterix.rh>
- <20110928.185654.560483806662347226.davem@davemloft.net>
- <20110928.191255.1803703769504267178.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fbl@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:48292 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752062Ab1JADXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 23:23:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20110928.191255.1803703769504267178.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 1/2] IPVS: secure_tcp does provide alternate state timeouts
+Date: Sat,  1 Oct 2011 12:34:18 +0900
+Message-ID: <1317440059-31112-2-git-send-email-horms@verge.net.au>
+References: <1317440059-31112-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1317440059-31112-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 28, 2011 at 07:12:55PM -0400, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 28 Sep 2011 18:56:54 -0400 (EDT)
-> 
-> > From: Flavio Leitner <fbl@redhat.com>
-> > Date: Wed, 28 Sep 2011 17:19:52 -0300
-> > 
-> >> What about something like below? It will change a bit the
-> >> secure_redirects documentation.
-> > 
-> > The previous check was stronger, and served other purposes.
-> > 
-> > Firstly, it required that the spoofer know the exact gateway
-> > IP address we used previously, whereas your test requires only
-> > knowing the subnet which is easier to figure out.
-> > 
-> > But more importantly, the old test allowed us to ignore outdated
-> > or erroneous redirects.
-> > 
-> > We really have to restore the original behavior before my inetpeer
-> > changes (enforce that the old gateway matches), and find another way
-> > to accomodate IPVS.
-> 
-> BTW, I just double-checked RFC1122 and it explicitly specifies the
-> old_gw check:
-> 
-> [ RFC1122, section 3.2.2.2 ]
-> 
->  ...
-> 
-> 	A Redirect message SHOULD be silently discarded if the new
->         gateway address it specifies is not on the same connected
->         (sub-) net through which the Redirect arrived [INTRO:2,
->         Appendix A], or if the source of the Redirect is not the
->         current first-hop gateway for the specified destination (see
->         Section 3.3.1).
-> 
-> In fact, it's saying that we should also validate that saddr == old_gw
-> too.
-> 
-> So really, we need to put the check back and find a way to accomodate IPVS.
+* Also reword the test to make it read more easily (to me)
 
-Hi Dave,
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-I'm have to admit that this issues is new to me.
-But doesn't it affect any setup where a secondary
-address is being used as the gateway and the gateway
-send an ICMP redirect?
+---
 
-Perhaps an option to weaken the check for these cases
-would provide a work-around for those who need it.
-Or does that break your inetpeer changes horribly?
+Julian, I don't see that IPVS currently implements alternate
+timeouts for secure_tcp. Am I missing something?
+---
+ Documentation/networking/ipvs-sysctl.txt |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/Documentation/networking/ipvs-sysctl.txt b/Documentation/networking/ipvs-sysctl.txt
+index 1dcdd49..13610e3 100644
+--- a/Documentation/networking/ipvs-sysctl.txt
++++ b/Documentation/networking/ipvs-sysctl.txt
+@@ -140,13 +140,11 @@ nat_icmp_send - BOOLEAN
+ secure_tcp - INTEGER
+         0  - disabled (default)
+ 
+-        The secure_tcp defense is to use a more complicated state
+-        transition table and some possible short timeouts of each
+-        state. In the VS/NAT, it delays the entering the ESTABLISHED
+-        until the real server starts to send data and ACK packet
+-        (after 3-way handshake).
++	The secure_tcp defense is to use a more complicated TCP state
++	transition table. For VS/NAT, it also delays entering the
++	TCP ESTABLISHED state until the three way handshake is completed.
+ 
+-        The value definition is the same as that of drop_entry or
++        The value definition is the same as that of drop_entry and
+         drop_packet.
+ 
+ sync_threshold - INTEGER
+-- 
+1.7.5.4
+
