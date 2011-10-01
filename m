@@ -1,75 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [net-next 11/11 v2] ixgbe: allow eeprom writes via ethtool
-Date: Sat, 1 Oct 2011 11:31:05 +0200
-Message-ID: <20111001093105.GA9885@electric-eye.fr.zoreil.com>
-References: <1317444771-13962-1-git-send-email-jeffrey.t.kirsher@intel.com> <1317444771-13962-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: alexis.houdart@devinci.fr
+Subject: Attention administrateur =?iso-8859-1?b?c3lzdOhtZSw=?=
+Date: Sat, 01 Oct 2011 12:54:40 +0200
+Message-ID: <20111001125440.12724ymt8irefucw@webmail.devinci.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:44870 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300Ab1JAJcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2011 05:32:54 -0400
+Received: from mail.devinci.fr ([194.254.135.15]:41542 "EHLO smtp.devinci.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755098Ab1JAKyo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Oct 2011 06:54:44 -0400
 Content-Disposition: inline
-In-Reply-To: <1317444771-13962-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> :
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-> index 10ea29f..fb47abb 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-> @@ -812,6 +812,66 @@ static int ixgbe_get_eeprom(struct net_device *netdev,
-[...]
-> +	ptr = (void *)eeprom_buff;
+System Administrator Waarschuwing,
 
-(nit) useless cast to void *.
+Uw mailbox heeft overschreden de limiet van 20 GB, dat wordt gedefinieerd
+door je manager, u op dit moment op 20.9GB, zult u niet
+in staat zijn om een nieuwe e-mail te sturen maakt of ontvangt
+opnieuw tot bevestigt u uw mailbox.To revalideren uw
+mailbox,
+Klik en vul de link hieronder
 
-> +
-> +	if (eeprom->offset & 1) {
-[...]
-> +		ret_val = hw->eeprom.ops.read(hw, first_word, &eeprom_buff[0]);
-> +		ptr++;
-> +	}
-> +	if (((eeprom->offset + eeprom->len) & 1) && (ret_val == 0)) {
-[...]
-> +		ret_val = hw->eeprom.ops.read(hw, last_word,
-> +					  &eeprom_buff[last_word - first_word]);
-> +	}
+==================>http://buzurl.com/bo61
 
-I guess that the code tries to do its best to write something even when the
-reads or writes partially fail but this one should imho be :
+Bedankt voor uw begrip
 
-	if ((eeprom->offset + eeprom->len) & 1) {
-[...]
-		ret_val |= hw->eeprom.ops.read(hw, last_word,
-
-> +
-> +	/* Device's eeprom is always little-endian, word addressable */
-> +	for (i = 0; i < last_word - first_word + 1; i++)
-> +		le16_to_cpus(&eeprom_buff[i]);
-
-Shouldn't there be (drivers/net/ethernet/intel/ixgbe/ixgbe_type.h):
-
-struct ixgbe_eeprom_operations {
-[...]
-        s32 (*read)(struct ixgbe_hw *, u16, __le16 *);
-
-instead of :
-
-struct ixgbe_eeprom_operations {
-[...]
-        s32 (*read)(struct ixgbe_hw *, u16, u16 *);
-
-[...]
-> +	/* Update the checksum */
-> +	hw->eeprom.ops.update_checksum(hw);
-
-The returned status code is ignored.
-
--- 
-Ueimor
+De beheerder van het systeem.
