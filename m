@@ -1,57 +1,53 @@
-From: starlight@binnacle.cx
-Subject: Re: big picture UDP/IP performance question re 2.6.18
-  -> 2.6.32
-Date: Sat, 01 Oct 2011 15:43:02 -0400
-Message-ID: <6.2.5.6.2.20111001153616.05c03658@binnacle.cx>
-References: <6.2.5.6.2.20111001141002.05af4b20@binnacle.cx>
- <1317496303.3802.25.camel@edumazet-laptop>
+From: Shea Levy <shea@shealevy.com>
+Subject: Re: Hang with "runaway loop modprobe net-pf-1" on Linux 3.0.4
+Date: Sat, 01 Oct 2011 16:37:54 -0400
+Message-ID: <4E877A22.6070605@shealevy.com>
+References: <7ca3debde28dcc206c1f6f787df5c619.squirrel@webmail.shealevy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Alban Crequy" <alban.crequy@collabora.co.uk>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"Davide Libenzi" <davidel@xmailserver.org>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.binnacle.cx ([74.95.187.105]:56870 "EHLO mx.binnacle.cx"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751087Ab1JATti convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2011 15:49:38 -0400
-In-Reply-To: <1317496303.3802.25.camel@edumazet-laptop>
-References: <6.2.5.6.2.20111001141002.05af4b20@binnacle.cx>
- <1317496303.3802.25.camel@edumazet-laptop>
+Received: from hapkido.dreamhost.com ([66.33.216.122]:39307 "EHLO
+	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754908Ab1JAUiL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2011 16:38:11 -0400
+Received: from homiemail-a80.g.dreamhost.com (caibbdcaaaaf.dreamhost.com [208.113.200.5])
+	by hapkido.dreamhost.com (Postfix) with ESMTP id 1D3A91844DE
+	for <netdev@vger.kernel.org>; Sat,  1 Oct 2011 13:38:10 -0700 (PDT)
+In-Reply-To: <7ca3debde28dcc206c1f6f787df5c619.squirrel@webmail.shealevy.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At 09:11 PM 10/1/2011 +0200, Eric Dumazet wrote:
->Le samedi 01 octobre 2011 =C3  14:16 -0400, starlight@binnacle.cx=20
->a =C3=A9crit :
+On 09/29/2011 08:38 AM, shea@shealevy.com wrote:
+> Hello,
 >
->2.6.32 has a perf tool, that can really help to
->spot in a few minutes hot spots. That would
->definitely help to further diagnose what could be
->the problem in your workload.
+> My initrd mounts /proc and /sys, puts a tmpfs at /dev, then loads ext4. On
+> 2.6.39 (and earlier), this works fine and the initrd init continues
+> happily. On 3.0.4, however, the kernel spits out
+>
+>> request_module: runaway loop modprobe net-pf-1
+> a few times then hangs. If I drop into a shell before loading ext4 and run
+> modprobe unix, the same problem occurs. The modprobe used is dynamically
+> linked with glibc (which is included in the initrd), and it is the same
+> modprobe on the working and non-working systems. From my searches, it
+> appears that CONFIG_UNIX=y instead of =m would probably solve this
+> problem, but I'd rather keep it as a module if it's possible to get it
+> working. What's going wrong here? Why does it work on 2.6.39 but not
+> 3.0.4?
+>
+> Regards,
+> Shea Levy
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-Ok.
-
-=46irst I'm really interested in turning off all the
-container stuff, so I'm building a 2.6.32.27
-kernel that way to see the effect.
-
-If that doesn't fix it, I'll dig in with 'perf'
-in the RHEL-like build I've tried and found
-performs the same as RH.
-
-If it does fix it, I doubt much can be done
-except compile kernels without it.
-
-Haven't been paying attention to containers
-but now that I've read up on them, it sure
-sounds like the kind of feature that can
-double the length of an efficient code-path.
-Sometimes performance is traded for new features
-and that's just the way it is.  As long as
-some way to maintain efficiency by shedding
-them is available, I'll be happy.  Our workload
-is essentially a HPC one, and like most in the
-HPC realm, we need to be as close to the metal
-as possible.
+CC'ing af_unix.c maintainers. Also, I had the same problem with 3.0.
