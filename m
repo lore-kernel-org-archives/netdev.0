@@ -1,66 +1,124 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/11 v2][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 30 Sep 2011 21:52:50 -0700
-Message-ID: <1317444771-13962-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com
+Subject: [net-next 11/11 v2] ixgbe: allow eeprom writes via ethtool
+Date: Fri, 30 Sep 2011 21:52:51 -0700
+Message-ID: <1317444771-13962-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1317444771-13962-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:50707 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751211Ab1JAEwx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Oct 2011 00:52:53 -0400
+	id S1751233Ab1JAEwy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Oct 2011 00:52:54 -0400
+In-Reply-To: <1317444771-13962-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to e1000e and ixgbe. The one
-patch for e1000e makes function tables const, thanks to Stephen
-Hemminger for reporting this.  The remaining patches are for ixgbe,
-and the contain the following:
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
- - minor cleanups
- - add support for 82599 device and ethtool -E support
- - removal of a PHY which is not used in production silicon
+Implement support for ethtool -E
 
-v2- Updated patch 11 with the suggested changes from Ben Hutchings
+v2- change 2 return values to EINVAL based on feedback
 
-The following are changes since commit 56fd49e399ce1d82200fad5b8924d4e35a587809:
-  bna: Driver Version changed to 3.0.2.2
-and are available in the git repository at
-  git://github.com/Jkirsher/net-next.git
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   61 ++++++++++++++++++++++
+ 2 files changed, 62 insertions(+), 0 deletions(-)
 
-Emil Tantilov (8):
-  ixgbe: prevent link checks while resetting
-  ixgbe: clear the data field in ixgbe_read_i2c_byte_generic
-  ixgbe: remove return code for functions that always return 0
-  ixgbe: add support for new 82599 device
-  ixgbe: send MFLCN to ethtool
-  ixgbe: do not disable flow control in ixgbe_check_mac_link
-  ixgbe: remove instances of ixgbe_phy_aq for 82598 and 82599
-  ixgbe: allow eeprom writes via ethtool
-
-Jacob Keller (1):
-  ixgbe: fix driver version initialization in firmware
-
-Jeff Kirsher (1):
-  e1000e: make function tables const
-
-Mika Lansirinne (1):
-  ixgbe: get pauseparam autoneg
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c  |    8 +-
- drivers/net/ethernet/intel/e1000e/82571.c        |   20 +++---
- drivers/net/ethernet/intel/e1000e/e1000.h        |   28 ++++----
- drivers/net/ethernet/intel/e1000e/ich8lan.c      |   16 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |    8 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |    7 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |    6 --
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   74 +++++++++++++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   12 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   33 +++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |    1 +
- 12 files changed, 125 insertions(+), 89 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index e02e911..fff57a0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -1305,6 +1305,7 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
+ static struct ixgbe_eeprom_operations eeprom_ops_82598 = {
+ 	.init_params		= &ixgbe_init_eeprom_params_generic,
+ 	.read			= &ixgbe_read_eerd_generic,
++	.write			= &ixgbe_write_eeprom_generic,
+ 	.read_buffer		= &ixgbe_read_eerd_buffer_generic,
+ 	.calc_checksum          = &ixgbe_calc_eeprom_checksum_generic,
+ 	.validate_checksum	= &ixgbe_validate_eeprom_checksum_generic,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 10ea29f..fb47abb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -812,6 +812,66 @@ static int ixgbe_get_eeprom(struct net_device *netdev,
+ 	return ret_val;
+ }
+ 
++static int ixgbe_set_eeprom(struct net_device *netdev,
++			    struct ethtool_eeprom *eeprom, u8 *bytes)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	u16 *eeprom_buff;
++	void *ptr;
++	int max_len, first_word, last_word, ret_val = 0;
++	u16 i;
++
++	if (eeprom->len == 0)
++		return -EINVAL;
++
++	if (eeprom->magic != (hw->vendor_id | (hw->device_id << 16)))
++		return -EINVAL;
++
++	max_len = hw->eeprom.word_size * 2;
++
++	first_word = eeprom->offset >> 1;
++	last_word = (eeprom->offset + eeprom->len - 1) >> 1;
++	eeprom_buff = kmalloc(max_len, GFP_KERNEL);
++	if (!eeprom_buff)
++		return -ENOMEM;
++
++	ptr = (void *)eeprom_buff;
++
++	if (eeprom->offset & 1) {
++		/*
++		 * need read/modify/write of first changed EEPROM word
++		 * only the second byte of the word is being modified
++		 */
++		ret_val = hw->eeprom.ops.read(hw, first_word, &eeprom_buff[0]);
++		ptr++;
++	}
++	if (((eeprom->offset + eeprom->len) & 1) && (ret_val == 0)) {
++		/*
++		 * need read/modify/write of last changed EEPROM word
++		 * only the first byte of the word is being modified
++		 */
++		ret_val = hw->eeprom.ops.read(hw, last_word,
++					  &eeprom_buff[last_word - first_word]);
++	}
++
++	/* Device's eeprom is always little-endian, word addressable */
++	for (i = 0; i < last_word - first_word + 1; i++)
++		le16_to_cpus(&eeprom_buff[i]);
++
++	memcpy(ptr, bytes, eeprom->len);
++
++	for (i = 0; i <= (last_word - first_word); i++)
++		ret_val |= hw->eeprom.ops.write(hw, first_word + i,
++						eeprom_buff[i]);
++
++	/* Update the checksum */
++	hw->eeprom.ops.update_checksum(hw);
++
++	kfree(eeprom_buff);
++	return ret_val;
++}
++
+ static void ixgbe_get_drvinfo(struct net_device *netdev,
+                               struct ethtool_drvinfo *drvinfo)
+ {
+@@ -2526,6 +2586,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
+ 	.get_link               = ethtool_op_get_link,
+ 	.get_eeprom_len         = ixgbe_get_eeprom_len,
+ 	.get_eeprom             = ixgbe_get_eeprom,
++	.set_eeprom             = ixgbe_set_eeprom,
+ 	.get_ringparam          = ixgbe_get_ringparam,
+ 	.set_ringparam          = ixgbe_set_ringparam,
+ 	.get_pauseparam         = ixgbe_get_pauseparam,
 -- 
 1.7.6.2
