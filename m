@@ -1,56 +1,40 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [RFC patch net-next-2.6] net: introduce ethernet teaming device
-Date: Sat, 1 Oct 2011 11:15:01 -0700
-Message-ID: <CAEP_g=8uJnngfKJRGLLnd8U7M9aJTfOSUheB62-O7OX6Ud0DLw@mail.gmail.com>
-References: <1317386643-3041-1-git-send-email-jpirko@redhat.com>
+From: starlight@binnacle.cx
+Subject: Re: big picture UDP/IP performance question re 2.6.18
+  -> 2.6.32
+Date: Sat, 01 Oct 2011 14:16:05 -0400
+Message-ID: <6.2.5.6.2.20111001141002.05af4b20@binnacle.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
-	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
-	kaber@trash.net, greearb@candelatech.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:62981 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751506Ab1JASQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Oct 2011 14:16:28 -0400
-Received: by vcbfk10 with SMTP id fk10so1950642vcb.19
-        for <netdev@vger.kernel.org>; Sat, 01 Oct 2011 11:16:27 -0700 (PDT)
-In-Reply-To: <1317386643-3041-1-git-send-email-jpirko@redhat.com>
+Received: from mx.binnacle.cx ([74.95.187.105]:59618 "EHLO mx.binnacle.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752691Ab1JASTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Oct 2011 14:19:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 30, 2011 at 5:44 AM, Jiri Pirko <jpirko@redhat.com> wrote:
-> This patch introduces new network device called team. It supposes to be
-> very fast, simple, userspace-driven parallel to existing bonding device.
-> Userspace library called libteam with couple of demo apps is available
-> here:
-> https://github.com/jpirko/libteam
-> Note it's still in its dipers atm.
->
-> team<->libteam use generic netlink for communication. That and rtnl
-> suppose to be the only way to configure team device, no sysfs etc.
->
-> In near future python binding for libteam will be introduced. Also
-> daemon providing arpmon/miimon active-backup functionality will
-> be introduced. All what's necessary is already implemented in kernel team
-> driver.
->
-> Plan is to support 8023ad in near future with it's logic mainly in
-> userspace daemon as well.
->
-> Please review, try, comment. All feedback would be much appreciated.
->
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+At 08:44 AM 10/1/2011 +0200, Eric Dumazet wrote:
+>In my experience, I have the exact opposite :
+>performance greatly improved in recent
+>kernels. Unless you compile your kernel to include
+>new features that might reduce performance
+>(namespaces, cgroup, ...)
 
-Not to push my own agenda too much but you might want to take a look
-at Open vSwitch.  It uses the same strategy of userspace directed
-bonding and already supports active-backup, 802.3ad, and quite a few
-other networking tools all controlled by userspace.
+RH has both of the above turned on in the
+2.6.32-71.29.1.el6.x86_64 kernel tested.
 
-I know there's been a lot of talk and not a lot of action when it
-comes to upstreaming but that's changing.  We're fixing up a few loose
-ends in the userspace/kernel interface and then intend to propose a
-patch fairly soon.
+If these are big negatives to network
+performance, could you list what should
+specifically turned off to maximize
+results?  Also a recommendation for
+the best recent kernel for another
+benchmark would be helpful.
+
+Probably can't convince anyone to deploy a
+kernel without commercial support, but if
+an alternate compile fixes performance it
+might be possible to convince RH to support
+the alternative build.
