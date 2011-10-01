@@ -1,47 +1,74 @@
-From: FEDEX OFFICE <fedex@galiciaaberta.com>
-Subject: (unknown)
-Date: Sat, 01 Oct 2011 04:08:38 +0200
-Message-ID: <20111001040838.78686nfmbefnyluo@mail.galiciaaberta.com>
-Reply-To: fedexdelivery1952@msn.com
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: ICMP redirect issue
+Date: Sat, 1 Oct 2011 12:22:56 +0900
+Message-ID: <20111001032255.GG2781@verge.net.au>
+References: <20110928.140632.726302773135946390.davem@davemloft.net>
+ <20110928171952.0c0d2d05@asterix.rh>
+ <20110928.185654.560483806662347226.davem@davemloft.net>
+ <20110928.191255.1803703769504267178.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: fbl@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 21.255.60.213.static.mundo-r.com ([213.60.255.21]:32888 "EHLO
-	mail.galiciaaberta.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752876Ab1JAC4s convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 22:56:48 -0400
-Subject: 
+Received: from kirsty.vergenet.net ([202.4.237.240]:48292 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062Ab1JADXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Sep 2011 23:23:00 -0400
 Content-Disposition: inline
+In-Reply-To: <20110928.191255.1803703769504267178.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Sep 28, 2011 at 07:12:55PM -0400, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 28 Sep 2011 18:56:54 -0400 (EDT)
+> 
+> > From: Flavio Leitner <fbl@redhat.com>
+> > Date: Wed, 28 Sep 2011 17:19:52 -0300
+> > 
+> >> What about something like below? It will change a bit the
+> >> secure_redirects documentation.
+> > 
+> > The previous check was stronger, and served other purposes.
+> > 
+> > Firstly, it required that the spoofer know the exact gateway
+> > IP address we used previously, whereas your test requires only
+> > knowing the subnet which is easier to figure out.
+> > 
+> > But more importantly, the old test allowed us to ignore outdated
+> > or erroneous redirects.
+> > 
+> > We really have to restore the original behavior before my inetpeer
+> > changes (enforce that the old gateway matches), and find another way
+> > to accomodate IPVS.
+> 
+> BTW, I just double-checked RFC1122 and it explicitly specifies the
+> old_gw check:
+> 
+> [ RFC1122, section 3.2.2.2 ]
+> 
+>  ...
+> 
+> 	A Redirect message SHOULD be silently discarded if the new
+>         gateway address it specifies is not on the same connected
+>         (sub-) net through which the Redirect arrived [INTRO:2,
+>         Appendix A], or if the source of the Redirect is not the
+>         current first-hop gateway for the specified destination (see
+>         Section 3.3.1).
+> 
+> In fact, it's saying that we should also validate that saddr == old_gw
+> too.
+> 
+> So really, we need to put the check back and find a way to accomodate IPVS.
 
+Hi Dave,
 
-Attn: Beneficiary,
+I'm have to admit that this issues is new to me.
+But doesn't it affect any setup where a secondary
+address is being used as the gateway and the gateway
+send an ICMP redirect?
 
-This is to inform you that your package worth the sum of $800,000.00 (E=
-ight
-Hundred Thousand United State Dollars) in a certified bank draft is in =
-our
-office ready for delivery,We are sending you this email because your pa=
-ckage
-has been registered on a Special Order.You are advise to contact our De=
-livery
-Department for immediate dispatch of your package to your designated ad=
-dress.
-
-
-Regards
-Mr.Umar Tony {Head Dispatch Officer}
-=46edEx Express =AECourier Company West-Africa
-E-mail:fedexdelivery1952@msn.com
-Telephone Number:+234-70-65749930
-
------------------------------------------------------------------------=
-----------
-www.galiciaaberta.com
-Informaci=F3n mantida pola Secretar=EDa Xeral de Emigraci=F3n da Xunta =
-de Galicia
+Perhaps an option to weaken the check for these cases
+would provide a work-around for those who need it.
+Or does that break your inetpeer changes horribly?
