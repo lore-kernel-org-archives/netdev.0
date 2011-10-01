@@ -1,84 +1,70 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2] bridge: fix ordering of NEWLINK and NEWNEIGH events
-Date: Fri, 30 Sep 2011 17:37:26 -0700
-Message-ID: <20111001003835.282462632@vyatta.com>
-References: <20111001003725.449204345@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sfca-50.vyatta.com ([76.74.103.50]:51638 "EHLO fiji.vyatta.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751093Ab1JAAkw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Sep 2011 20:40:52 -0400
-Content-Disposition: inline; filename=bridge-fix-event-order.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] bluetooth: macroize two small inlines to avoid module.h
+Date: Fri, 30 Sep 2011 22:12:07 -0400
+Message-ID: <1317435127-15649-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When port is added to a bridge, the old code would send the new neighbor
-netlink message before the subsequent new link message. This bug makes
-it difficult to use the monitoring API in an application.
+These two small inlines make calls to try_module_get() and
+module_put() which would force us to keep module.h present
+within yet another common include header.  We can avoid this
+by turning them into macros.  The hci_dev_hold construct
+is patterned off of raw_spin_trylock_irqsave() in spinlock.h
 
-This code changes the ordering to add the forwarding entry
-after the port is setup. One of the error checks (for invalid address)
-is moved earlier in the process to avoid having to do unwind.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
 
 ---
- net/bridge/br_if.c |   15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
 
---- a/net/bridge/br_if.c	2011-09-22 21:59:11.515091624 -0700
-+++ b/net/bridge/br_if.c	2011-09-30 10:31:32.877957572 -0700
-@@ -13,6 +13,7 @@
+[This is something I've added to the module.h cleanup tree since
+ the original module.h cleanup RFC patchset; sending here just for
+ transparency and for any review comments.]
+
+diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
+index 8f441b8..9a77e8a 100644
+--- a/include/net/bluetooth/hci_core.h
++++ b/include/net/bluetooth/hci_core.h
+@@ -498,11 +498,15 @@ static inline void __hci_dev_put(struct hci_dev *d)
+ 		d->destruct(d);
+ }
  
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
- #include <linux/netpoll.h>
- #include <linux/ethtool.h>
- #include <linux/if_arp.h>
-@@ -322,7 +323,8 @@ int br_add_if(struct net_bridge *br, str
+-static inline void hci_dev_put(struct hci_dev *d)
+-{
+-	__hci_dev_put(d);
+-	module_put(d->owner);
+-}
++/*
++ * hci_dev_put and hci_dev_hold are macros to avoid dragging all the
++ * overhead of all the modular infrastructure into this header.
++ */
++#define hci_dev_put(d)		\
++do {				\
++	__hci_dev_put(d);	\
++	module_put(d->owner);	\
++} while (0)
  
- 	/* Don't allow bridging non-ethernet like devices */
- 	if ((dev->flags & IFF_LOOPBACK) ||
--	    dev->type != ARPHRD_ETHER || dev->addr_len != ETH_ALEN)
-+	    dev->type != ARPHRD_ETHER || dev->addr_len != ETH_ALEN ||
-+	    !is_valid_ether_addr(dev->dev_addr))
- 		return -EINVAL;
+ static inline struct hci_dev *__hci_dev_hold(struct hci_dev *d)
+ {
+@@ -510,12 +514,10 @@ static inline struct hci_dev *__hci_dev_hold(struct hci_dev *d)
+ 	return d;
+ }
  
- 	/* No bridging of bridges */
-@@ -350,10 +352,6 @@ int br_add_if(struct net_bridge *br, str
- 	err = kobject_init_and_add(&p->kobj, &brport_ktype, &(dev->dev.kobj),
- 				   SYSFS_BRIDGE_PORT_ATTR);
- 	if (err)
--		goto err0;
--
--	err = br_fdb_insert(br, p, dev->dev_addr);
--	if (err)
- 		goto err1;
+-static inline struct hci_dev *hci_dev_hold(struct hci_dev *d)
+-{
+-	if (try_module_get(d->owner))
+-		return __hci_dev_hold(d);
+-	return NULL;
+-}
++#define hci_dev_hold(d)						\
++({								\
++	try_module_get(d->owner) ? __hci_dev_hold(d) : NULL;	\
++})
  
- 	err = br_sysfs_addif(p);
-@@ -394,6 +392,9 @@ int br_add_if(struct net_bridge *br, str
- 
- 	dev_set_mtu(br->dev, br_min_mtu(br));
- 
-+	if (br_fdb_insert(br, p, dev->dev_addr))
-+		netdev_err(dev, "failed insert local address bridge forwarding table\n");
-+
- 	kobject_uevent(&p->kobj, KOBJ_ADD);
- 
- 	return 0;
-@@ -403,11 +404,9 @@ err4:
- err3:
- 	sysfs_remove_link(br->ifobj, p->dev->name);
- err2:
--	br_fdb_delete_by_port(br, p, 1);
--err1:
- 	kobject_put(&p->kobj);
- 	p = NULL; /* kobject_put frees */
--err0:
-+err1:
- 	dev_set_promiscuity(dev, -1);
- put_back:
- 	dev_put(dev);
+ #define hci_dev_lock(d)		spin_lock(&d->lock)
+ #define hci_dev_unlock(d)	spin_unlock(&d->lock)
+-- 
+1.7.6
