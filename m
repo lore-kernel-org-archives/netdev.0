@@ -1,199 +1,202 @@
-From: Andy Fleming <afleming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFD PATCH] netdev/phy/of: Augment device tree bindings for PHYs
-	to specify IEEE802.3-2005 Section 45 addressing.
-Date: Sat, 1 Oct 2011 21:59:23 -0500
-Message-ID: <CAKWjMd43YK=ucBhPkW=JDtM1qUos3OOqxFgUJ2rUWauvQ-=74A@mail.gmail.com>
-References: <1317424182-29252-1-git-send-email-david.daney@cavium.com>
+From: Christian Vasquez Perales <christian.vasquez.perales@gmail.com>
+Subject: Fwd: wrong VENDOR_ID 10ac
+Date: Sun, 2 Oct 2011 06:31:58 +0100
+Message-ID: <CAPZBsTg_UjUGuNFbyh+D31swOaQSdA_U9Apx8z6oQsrSNe3ohw@mail.gmail.com>
+References: <CAPZBsThhGxpvioOKuCffOiJXKiZs47RQ2bT-ZSaVSM5Eigxkog@mail.gmail.com>
+	<CAPZBsTgtfeZFoLENX7K9Hii7-SFpCQas80ka9cokx=0UPQEfhw@mail.gmail.com>
+	<CAPZBsTi6a1necbvEANP4Sx=Ovo-ntPLyiFfus3dDiKBrSvkc7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1015257517849240157=="
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
-	<devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1317424182-29252-1-git-send-email-david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=0016364edfd658bc9404ae4a2db2
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:59315 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771Ab1JBFcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2011 01:32:00 -0400
+Received: by wwf22 with SMTP id 22so4433617wwf.1
+        for <netdev@vger.kernel.org>; Sat, 01 Oct 2011 22:31:59 -0700 (PDT)
+In-Reply-To: <CAPZBsTi6a1necbvEANP4Sx=Ovo-ntPLyiFfus3dDiKBrSvkc7w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============1015257517849240157==
-Content-Type: multipart/alternative; boundary=20cf305b0ec4a4c5ec04ae480b7f
-
---20cf305b0ec4a4c5ec04ae480b7f
+--0016364edfd658bc9404ae4a2db2
 Content-Type: text/plain; charset=ISO-8859-1
 
-On Friday, September 30, 2011, David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org> wrote:
-> Many 10 gigabit Ethernet PHY devices are interfaced to the MDIO bus
-> using a protocol called IEEE802.3-2005 Section 45.  Where as PHYS for
-> 1G, 100M and 10M usually use IEEE802.3-2005 Section 22.  These two
-> protocols can be present on the same MDIO bus.
->
-> If we look at the Linux PHY probing code in drivers/of/of_mdio.c and
-> drivers/net/phy/phy_device.c, we have the situation where we need to
-> read the PHY registers to get the PHY ID out so that we can use this
-> to bind to a compatible driver.  However we can only read these
-> registers if we know the proper MDIO bus protocol to use.
->
-> My idea is as follows:
->
-> o Add an optional property "mdio-clause-45" to the PHY's device tree
->  node to indicate that clause 45 addressing is used.
->
-> o When calling get_phy_id() we will set MII_ADDR_C45 in the address
->  if we know that clause 45 addressing is required for the PHY.
->  get_phy_id() will then use the proper bus protocol and register
->  numbers to read PHY ID based on MII_ADDR_C45.
->
-> o of_mdiobus_register() will signal MII_ADDR_C45 for PHYs tagged with
->  "mdio-clause-45"
->
-> o Existing PHYs without "mdio-clause-45" are unaffected.
->
-> o If no specific driver for the probed PHY ID is present, we can still
->  communicate with the PHY and perhaps use a generic 10G phy driver.
->  If the MDIO bus protocol were just to depend on the "compatible"
->  property, then we could not use generic drivers for unknown PHY IDs
->
-> Comments/other ideas welcome.
+Hello,
+
+May be you can help me, I have bought 2 identical trendnet TEG-PCITXR
+gigabit cards, and my centos has detected automatically just 1 of the
+2 cards and this card is working fine with the driver r8169, but the
+other is not recognized,
+
+As per my investigation, the VENDOR_ID in the wrong card is 10ac, and
+it must to be 10ec (according the PCI database), please see the
+attached with the output from lspci and setpci,
+
+Could you give me some ideas? or do you know how to change the
+Vendor_ID in a network card?
+
+Thanks in advance by your attention,
+
+Kind regards, Christian Vasquez.
+
+---------- Forwarded message ----------
+From: Christian Vasquez Perales <christian.vasquez.perales@gmail.com>
+Date: 1 October 2011 11:02
+Subject: Re: wrong VENDOR_ID 10ac
+To: nicfae@realtek.com
 
 
-About a year ago, I  submitted some patches to deal with the Clause 45
-stuff. I'm currently working on updating them and fixing the issues raised
-during the review. My preferred solution is actually to modify all of the
-mdio drivers to support an additional argument which will either be
-MDIO_DEVAD_NONE, or an actual device address. IMHO, it makes the interface
-more communicative.
+Hi,
+Here you have the output from the linux standard tools,
 
-I had a mechanism in place in my patches which, I believe, should have
-properly noted whether a PHY at a given address was operating under clause
-45 rather than clause 22. I also had a generic driver (The last issues
-remaining with my patches are related to how the generic driver operates; my
-original driver was a stub which worked fine for my particular PHY, but
-assumed too much about the PHY state).
+Honestly, I don't understand how 2 identical cards have diferent
+vendor_id in the ROM memory, I have checked in the Realtek website and
+nothing is there,
 
-However, I think that the idea of a different compatible property for 10g
-PHYs could be useful, anyway.
+Please. let me know as soon as possible,
 
+Regards, Christian.
+
+On 1 October 2011 02:02, Christian Vasquez Perales
+<christian.vasquez.perales@gmail.com> wrote:
 >
-> Thanks,
+> Hi,
 >
-> Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> ---
->  Documentation/devicetree/bindings/net/phy.txt |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
+> I have bough 2 Trendnet TEG-PCITXR PCI Gigabit card (RTL8169SC), however the first card has VENDOR_ID:DEVICE_ID 10ec:8169 and the second card has 10ac:8169,
 >
-> diff --git a/Documentation/devicetree/bindings/net/phy.txt
-b/Documentation/devicetree/bindings/net/phy.txt
-> index bb8c742..69fd948 100644
-> --- a/Documentation/devicetree/bindings/net/phy.txt
-> +++ b/Documentation/devicetree/bindings/net/phy.txt
-> @@ -14,6 +14,11 @@ Required properties:
->  - linux,phandle :  phandle for this node; likely referenced by an
->    ethernet controller node.
+> I have checked in the PCI database (http://pci-ids.ucw.cz/read/PC/10ec/8169/10ec8169) and the 10ec is detected inmediately and is working fine, however the 10ac is being detected as Honeywell card (due to the wrong VENDOR_ID),
 >
-> +Optional properties:
-> +
-> + - mdio-clause-45 : Optional.  If present, IEEE802.3-2005 Section 45
-> +   protocol is used for register access (usually for 10G PHYs).
-> +
->  Example:
+> How can I fix it?
 >
->  ethernet-phy@0 {
-> --
-> 1.7.2.3
+> As testing cases: I have inserted the 10ac card and the result is exactly the same,
+>
+> Please, I will really appreciate a quick reply,
 >
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Christian.
 >
 
---20cf305b0ec4a4c5ec04ae480b7f
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
 
-<br><br>On Friday, September 30, 2011, David Daney &lt;<a href=3D"mailto:da=
-vid.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org">david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org</a>&gt; wrote:<br>&gt; Many 10=
- gigabit Ethernet PHY devices are interfaced to the MDIO bus<br>&gt; using =
-a protocol called IEEE802.3-2005 Section 45. =A0Where as PHYS for<br>
-&gt; 1G, 100M and 10M usually use IEEE802.3-2005 Section 22. =A0These two<b=
-r>&gt; protocols can be present on the same MDIO bus.<br>&gt;<br>&gt; If we=
- look at the Linux PHY probing code in drivers/of/of_mdio.c and<br>&gt; dri=
-vers/net/phy/phy_device.c, we have the situation where we need to<br>
-&gt; read the PHY registers to get the PHY ID out so that we can use this<b=
-r>&gt; to bind to a compatible driver. =A0However we can only read these<br=
->&gt; registers if we know the proper MDIO bus protocol to use.<br>&gt;<br>
-&gt; My idea is as follows:<br>&gt;<br>&gt; o Add an optional property &quo=
-t;mdio-clause-45&quot; to the PHY&#39;s device tree<br>&gt; =A0node to indi=
-cate that clause 45 addressing is used.<br>&gt;<br>&gt; o When calling get_=
-phy_id() we will set MII_ADDR_C45 in the address<br>
-&gt; =A0if we know that clause 45 addressing is required for the PHY.<br>&g=
-t; =A0get_phy_id() will then use the proper bus protocol and register<br>&g=
-t; =A0numbers to read PHY ID based on MII_ADDR_C45.<br>&gt;<br>&gt; o of_md=
-iobus_register() will signal MII_ADDR_C45 for PHYs tagged with<br>
-&gt; =A0&quot;mdio-clause-45&quot;<br>&gt;<br>&gt; o Existing PHYs without =
-&quot;mdio-clause-45&quot; are unaffected.<br>&gt;<br>&gt; o If no specific=
- driver for the probed PHY ID is present, we can still<br>&gt; =A0communica=
-te with the PHY and perhaps use a generic 10G phy driver.<br>
-&gt; =A0If the MDIO bus protocol were just to depend on the &quot;compatibl=
-e&quot;<br>&gt; =A0property, then we could not use generic drivers for unkn=
-own PHY IDs<br>&gt;<br>&gt; Comments/other ideas welcome.<br><br><br>About =
-a year ago, I =A0submitted some patches to deal with the Clause 45 stuff. I=
-&#39;m currently working on updating them and fixing the issues raised duri=
-ng the review. My preferred solution is actually to modify all of the mdio =
-drivers to support an additional argument which will either be MDIO_DEVAD_N=
-ONE, or an actual device address. IMHO, it makes the interface more communi=
-cative.<br>
-<br>I had a mechanism in place in my patches which, I believe, should have =
-properly noted whether a PHY at a given address was operating under clause =
-45 rather than clause 22. I also had a generic driver (The last issues rema=
-ining with my patches are related to how the generic driver operates; my or=
-iginal driver was a stub which worked fine for my particular PHY, but assum=
-ed too much about the PHY state).<br>
-<br>However, I think that the idea of a different compatible property for 1=
-0g PHYs could be useful, anyway.<br><br>&gt;<br>&gt; Thanks,<br>&gt;<br>&gt=
-; Signed-off-by: David Daney &lt;<a href=3D"mailto:david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org">=
-david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org</a>&gt;<br>
-&gt; ---<br>&gt; =A0Documentation/devicetree/bindings/net/phy.txt | =A0 =A0=
-5 +++++<br>&gt; =A01 files changed, 5 insertions(+), 0 deletions(-)<br>&gt;=
-<br>&gt; diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Docum=
-entation/devicetree/bindings/net/phy.txt<br>
-&gt; index bb8c742..69fd948 100644<br>&gt; --- a/Documentation/devicetree/b=
-indings/net/phy.txt<br>&gt; +++ b/Documentation/devicetree/bindings/net/phy=
-.txt<br>&gt; @@ -14,6 +14,11 @@ Required properties:<br>&gt; =A0- linux,pha=
-ndle : =A0phandle for this node; likely referenced by an<br>
-&gt; =A0 =A0ethernet controller node.<br>&gt;<br>&gt; +Optional properties:=
-<br>&gt; +<br>&gt; + - mdio-clause-45 : Optional. =A0If present, IEEE802.3-=
-2005 Section 45<br>&gt; + =A0 protocol is used for register access (usually=
- for 10G PHYs).<br>
-&gt; +<br>&gt; =A0Example:<br>&gt;<br>&gt; =A0ethernet-phy@0 {<br>&gt; --<b=
-r>&gt; 1.7.2.3<br>&gt;<br>&gt; --<br>&gt; To unsubscribe from this list: se=
-nd the line &quot;unsubscribe netdev&quot; in<br>&gt; the body of a message=
- to <a href=3D"mailto:majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org">majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org<=
-/a><br>
-&gt; More majordomo info at =A0<a href=3D"http://vger.kernel.org/majordomo-=
-info.html">http://vger.kernel.org/majordomo-info.html</a><br>&gt;
 
---20cf305b0ec4a4c5ec04ae480b7f--
+--
+Christian Vasquez Perales
 
---===============1015257517849240157==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-_______________________________________________
-devicetree-discuss mailing list
-devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-https://lists.ozlabs.org/listinfo/devicetree-discuss
 
---===============1015257517849240157==--
+
+--
+Christian Vasquez Perales
+
+
+
+
+--
+Christian Vasquez Perales
+
+--0016364edfd658bc9404ae4a2db2
+Content-Type: application/octet-stream; name=lspci_output
+Content-Disposition: attachment; filename=lspci_output
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gt8fke0v0
+
+XSMgbHNwY2kKCjAwOjAwLjAgSG9zdCBicmlkZ2U6IEludGVsIENvcnBvcmF0aW9uIDgyODQ1IDg0
+NSBbQnJvb2tkYWxlXSBDaGlwc2V0IEhvc3QgQnJpZGdlIChyZXYgMDMpCjAwOjAxLjAgUENJIGJy
+aWRnZTogSW50ZWwgQ29ycG9yYXRpb24gODI4NDUgODQ1IFtCcm9va2RhbGVdIENoaXBzZXQgQUdQ
+IEJyaWRnZSAocmV2IDAzKQowMDoxZS4wIFBDSSBicmlkZ2U6IEludGVsIENvcnBvcmF0aW9uIDgy
+ODAxIFBDSSBCcmlkZ2UgKHJldiAxMikKMDA6MWYuMCBJU0EgYnJpZGdlOiBJbnRlbCBDb3Jwb3Jh
+dGlvbiA4MjgwMUJBIElTQSBCcmlkZ2UgKExQQykgKHJldiAxMikKMDA6MWYuMSBJREUgaW50ZXJm
+YWNlOiBJbnRlbCBDb3Jwb3JhdGlvbiA4MjgwMUJBIElERSBVMTAwIENvbnRyb2xsZXIgKHJldiAx
+MikKMDA6MWYuMiBVU0IgQ29udHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODI4MDFCQS9CQU0g
+VVNCIENvbnRyb2xsZXIgIzEgKHJldiAxMikKMDA6MWYuMyBTTUJ1czogSW50ZWwgQ29ycG9yYXRp
+b24gODI4MDFCQS9CQU0gU01CdXMgQ29udHJvbGxlciAocmV2IDEyKQowMDoxZi40IFVTQiBDb250
+cm9sbGVyOiBJbnRlbCBDb3Jwb3JhdGlvbiA4MjgwMUJBL0JBTSBVU0IgQ29udHJvbGxlciAjMSAo
+cmV2IDEyKQowMDoxZi41IE11bHRpbWVkaWEgYXVkaW8gY29udHJvbGxlcjogSW50ZWwgQ29ycG9y
+YXRpb24gODI4MDFCQS9CQU0gQUMnOTcgQXVkaW8gQ29udHJvbGxlciAocmV2IDEyKQowMTowMC4w
+IFZHQSBjb21wYXRpYmxlIGNvbnRyb2xsZXI6IEFUSSBUZWNobm9sb2dpZXMgSW5jIFJhZGVvbiBS
+VjEwMCBRWSBbUmFkZW9uIDcwMDAvVkVdCjAyOjA4LjAgRXRoZXJuZXQgY29udHJvbGxlcjogSW50
+ZWwgQ29ycG9yYXRpb24gODI4MDFCQS9CQU0vQ0EvQ0FNIEV0aGVybmV0IENvbnRyb2xsZXIgKHJl
+diAwMykKMDI6MGMuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBSZWFsdGVrIFNlbWljb25kdWN0b3Ig
+Q28uLCBMdGQuIFJUTC04MTY5IEdpZ2FiaXQgRXRoZXJuZXQgKHJldiAxMCkKMDI6MGUuMCBFdGhl
+cm5ldCBjb250cm9sbGVyOiBIb25leXdlbGwgSUFDIERldmljZSA4MTY5IChyZXYgMTApCgpdIyBs
+c3BjaSAtbgoKMDA6MDAuMCAwNjAwOiA4MDg2OjFhMzAgKHJldiAwMykKMDA6MDEuMCAwNjA0OiA4
+MDg2OjFhMzEgKHJldiAwMykKMDA6MWUuMCAwNjA0OiA4MDg2OjI0NGUgKHJldiAxMikKMDA6MWYu
+MCAwNjAxOiA4MDg2OjI0NDAgKHJldiAxMikKMDA6MWYuMSAwMTAxOiA4MDg2OjI0NGIgKHJldiAx
+MikKMDA6MWYuMiAwYzAzOiA4MDg2OjI0NDIgKHJldiAxMikKMDA6MWYuMyAwYzA1OiA4MDg2OjI0
+NDMgKHJldiAxMikKMDA6MWYuNCAwYzAzOiA4MDg2OjI0NDQgKHJldiAxMikKMDA6MWYuNSAwNDAx
+OiA4MDg2OjI0NDUgKHJldiAxMikKMDE6MDAuMCAwMzAwOiAxMDAyOjUxNTkKMDI6MDguMCAwMjAw
+OiA4MDg2OjI0NDkgKHJldiAwMykKMDI6MGMuMCAwMjAwOiAxMGVjOjgxNjkgKHJldiAxMCkKMDI6
+MGUuMCAwMjAwOiAxMGFjOjgxNjkgKHJldiAxMCkKCmxzcGNpIC12dnYgLWQgMTBhYzo4MTY5CjAy
+OjBlLjAgRXRoZXJuZXQgY29udHJvbGxlcjogSG9uZXl3ZWxsIElBQyBEZXZpY2UgODE2OSAocmV2
+IDEwKQoJU3Vic3lzdGVtOiBSZWFsdGVrIFNlbWljb25kdWN0b3IgQ28uLCBMdGQuIERldmljZSA4
+MTY5CglDb250cm9sOiBJL08rIE1lbSsgQnVzTWFzdGVyKyBTcGVjQ3ljbGUtIE1lbVdJTlYrIFZH
+QVNub29wLSBQYXJFcnItIFN0ZXBwaW5nLSBTRVJSKyBGYXN0QjJCLSBEaXNJTlR4LQoJU3RhdHVz
+OiBDYXArIDY2TUh6KyBVREYtIEZhc3RCMkIrIFBhckVyci0gREVWU0VMPW1lZGl1bSA+VEFib3J0
+LSA8VEFib3J0LSA8TUFib3J0LSA+U0VSUi0gPFBFUlItIElOVHgtCglMYXRlbmN5OiAzMiAoODAw
+MG5zIG1pbiwgMTYwMDBucyBtYXgpLCBDYWNoZSBMaW5lIFNpemU6IDMyIGJ5dGVzCglJbnRlcnJ1
+cHQ6IHBpbiBBIHJvdXRlZCB0byBJUlEgNQoJUmVnaW9uIDA6IEkvTyBwb3J0cyBhdCAzNDAwIFtz
+aXplPTI1Nl0KCVJlZ2lvbiAxOiBNZW1vcnkgYXQgZTgxMDE0MDAgKDMyLWJpdCwgbm9uLXByZWZl
+dGNoYWJsZSkgW3NpemU9MjU2XQoJW3ZpcnR1YWxdIEV4cGFuc2lvbiBST00gYXQgMzAwMjAwMDAg
+W2Rpc2FibGVkXSBbc2l6ZT0xMjhLXQoJQ2FwYWJpbGl0aWVzOiBbZGNdIFBvd2VyIE1hbmFnZW1l
+bnQgdmVyc2lvbiAyCgkJRmxhZ3M6IFBNRUNsay0gRFNJLSBEMSsgRDIrIEF1eEN1cnJlbnQ9Mzc1
+bUEgUE1FKEQwLSxEMSssRDIrLEQzaG90KyxEM2NvbGQrKQoJCVN0YXR1czogRDAgTm9Tb2Z0UnN0
+LSBQTUUtRW5hYmxlLSBEU2VsPTAgRFNjYWxlPTAgUE1FLQoK
+--0016364edfd658bc9404ae4a2db2
+Content-Type: application/octet-stream; name=setpci_output
+Content-Disposition: attachment; filename=setpci_output
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gt8fkrqf1
+
+c2V0cGNpIC1zIDAyOjBjLjAgVkVORE9SX0lECjEwZWMKCnNldHBjaSAtcyAwMjowZS4wIFZFTkRP
+Ul9JRAoxMGFjCgpdIyBzZXRwY2kgLXYgLXMgMDI6MGUuMCBWRU5ET1JfSUQ9MTBlYwowMDAwOjAy
+OjBlLjAgQDAwIDEwZWMKCl0jIHNldHBjaSAtdiAtcyAwMjowZS4wIFZFTkRPUl9JRAowMDAwOjAy
+OjBlLjAgQDAwIDEwYWMKCl0jIHNldHBjaSAtdiAtcyAwMjowZS4wIFZFTkRPUl9JRD0weDEwZWMK
+MDAwMDowMjowZS4wIEAwMCAxMGVjCgpdIyBzZXRwY2kgLXYgLXMgMDI6MGUuMCBWRU5ET1JfSUQu
+dz0xMGVjCjAwMDA6MDI6MGUuMCBAMDAgMTBlYwoKc2V0cGNpIC1zIDAyOjBlLjAgVkVORE9SX0lE
+IFNVQlNZU1RFTV9WRU5ET1JfSUQgU1VCU1lTVEVNX0lECjEwYWMKODE2OTEwZWMKODE2OQo=
+--0016364edfd658bc9404ae4a2db2
+Content-Type: application/octet-stream; name=lsmod_output
+Content-Disposition: attachment; filename=lsmod_output
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gt8fkx7h2
+
+bHNtb2QKCk1vZHVsZSAgICAgICAgICAgICAgICAgIFNpemUgIFVzZWQgYnkKdmZhdCAgICAgICAg
+ICAgICAgICAgICAgODY3NyAgMSAKZmF0ICAgICAgICAgICAgICAgICAgICA0NzE1MSAgMSB2ZmF0
+CnVzYl9zdG9yYWdlICAgICAgICAgICAgMzkxMTQgIDEgCmlwdF9SRUpFQ1QgICAgICAgICAgICAg
+IDE5MDUgIDIgCm5mX2Nvbm50cmFja19pcHY0ICAgICAgIDc3MDAgIDIgCm5mX2RlZnJhZ19pcHY0
+ICAgICAgICAgIDEwMTMgIDEgbmZfY29ubnRyYWNrX2lwdjQKaXB0YWJsZV9maWx0ZXIgICAgICAg
+ICAgMjE0NyAgMSAKaXBfdGFibGVzICAgICAgICAgICAgICAgOTU0MSAgMSBpcHRhYmxlX2ZpbHRl
+cgppcDZ0X1JFSkVDVCAgICAgICAgICAgICAzOTYxICAyIApuZl9jb25udHJhY2tfaXB2NiAgICAg
+IDE2MTk4ICAyIAp4dF9zdGF0ZSAgICAgICAgICAgICAgICAxMDA2ICA0IApuZl9jb25udHJhY2sg
+ICAgICAgICAgIDY2MDEwICAzIG5mX2Nvbm50cmFja19pcHY0LG5mX2Nvbm50cmFja19pcHY2LHh0
+X3N0YXRlCmlwNnRhYmxlX2ZpbHRlciAgICAgICAgIDIyMTkgIDEgCmlwNl90YWJsZXMgICAgICAg
+ICAgICAgMTA4MDkgIDEgaXA2dGFibGVfZmlsdGVyCmlwdjYgICAgICAgICAgICAgICAgICAyNjQ4
+OTAgIDE0IGlwNnRfUkVKRUNULG5mX2Nvbm50cmFja19pcHY2CnBwZGV2ICAgICAgICAgICAgICAg
+ICAgIDczMzUgIDAgCnBhcnBvcnRfcGMgICAgICAgICAgICAgMTkzNDggIDAgCnBhcnBvcnQgICAg
+ICAgICAgICAgICAgMzEwMTkgIDIgcHBkZXYscGFycG9ydF9wYwpyODE2OSAgICAgICAgICAgICAg
+ICAgIDM0MTI1ICAwIAplMTAwICAgICAgICAgICAgICAgICAgIDI3ODI1ICAwIAptaWkgICAgICAg
+ICAgICAgICAgICAgICA0Mjg5ICAyIHI4MTY5LGUxMDAKc25kX2ludGVsOHgwICAgICAgICAgICAy
+NDMxOSAgMCAKc25kX2FjOTdfY29kZWMgICAgICAgICA5NTY3OCAgMSBzbmRfaW50ZWw4eDAKYWM5
+N19idXMgICAgICAgICAgICAgICAgIDk0MiAgMSBzbmRfYWM5N19jb2RlYwpzbmRfc2VxICAgICAg
+ICAgICAgICAgIDQ2MDkxICAwIApzbmRfc2VxX2RldmljZSAgICAgICAgICA1MzU0ICAxIHNuZF9z
+ZXEKc25kX3BjbSAgICAgICAgICAgICAgICA2NzIyNSAgMiBzbmRfaW50ZWw4eDAsc25kX2FjOTdf
+Y29kZWMKc25kX3RpbWVyICAgICAgICAgICAgICAxODMwOCAgMiBzbmRfc2VxLHNuZF9wY20Kc25k
+ICAgICAgICAgICAgICAgICAgICA1Mjc1NCAgNiBzbmRfaW50ZWw4eDAsc25kX2FjOTdfY29kZWMs
+c25kX3NlcSxzbmRfc2VxX2RldmljZSxzbmRfcGNtLHNuZF90aW1lcgpzb3VuZGNvcmUgICAgICAg
+ICAgICAgICA2NDYwICAxIHNuZApzbmRfcGFnZV9hbGxvYyAgICAgICAgICA3MDgwICAyIHNuZF9p
+bnRlbDh4MCxzbmRfcGNtCmkyY19pODAxICAgICAgICAgICAgICAgIDkyMjIgIDAgCnNnICAgICAg
+ICAgICAgICAgICAgICAgMjQ3NzggIDAgCmlUQ09fd2R0ICAgICAgICAgICAgICAgIDkzMjQgIDAg
+CmlUQ09fdmVuZG9yX3N1cHBvcnQgICAgIDIzODIgIDEgaVRDT193ZHQKZXh0NCAgICAgICAgICAg
+ICAgICAgIDMyMjY3MSAgMiAKbWJjYWNoZSAgICAgICAgICAgICAgICAgNTkxOCAgMSBleHQ0Cmpi
+ZDIgICAgICAgICAgICAgICAgICAgNzM4NzYgIDEgZXh0NApzZF9tb2QgICAgICAgICAgICAgICAg
+IDMzMzQ0ICA2IApjcmNfdDEwZGlmICAgICAgICAgICAgICAxMTkxICAxIHNkX21vZApzcl9tb2Qg
+ICAgICAgICAgICAgICAgIDE0MTg3ICAwIApjZHJvbSAgICAgICAgICAgICAgICAgIDM0MDM2ICAx
+IHNyX21vZApwYXRhX2FjcGkgICAgICAgICAgICAgICAyNDg3ICAwIAphdGFfZ2VuZXJpYyAgICAg
+ICAgICAgICAyNTU1ICAwIAphdGFfcGlpeCAgICAgICAgICAgICAgIDE5MDE2ICAzIApyYWRlb24g
+ICAgICAgICAgICAgICAgNzQ2NDU5ICAxIAp0dG0gICAgICAgICAgICAgICAgICAgIDM4MTM2ICAx
+IHJhZGVvbgpkcm1fa21zX2hlbHBlciAgICAgICAgIDI5MDI5ICAxIHJhZGVvbgpkcm0gICAgICAg
+ICAgICAgICAgICAgMTYzMjkxICAzIHJhZGVvbix0dG0sZHJtX2ttc19oZWxwZXIKaTJjX2FsZ29f
+Yml0ICAgICAgICAgICAgNDYwMCAgMSByYWRlb24KaTJjX2NvcmUgICAgICAgICAgICAgICAyNTc5
+OSAgNSBpMmNfaTgwMSxyYWRlb24sZHJtX2ttc19oZWxwZXIsZHJtLGkyY19hbGdvX2JpdApkbV9t
+b2QgICAgICAgICAgICAgICAgIDYzODI3ICAwIAo=
+--0016364edfd658bc9404ae4a2db2--
