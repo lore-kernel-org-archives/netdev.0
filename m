@@ -1,72 +1,49 @@
-From: Amir Vadai <amirv@mellanox.co.il>
-Subject: Re: RFS issue: no HW filter for paused stream
-Date: Sun, 2 Oct 2011 09:59:57 +0200
-Message-ID: <4E8819FD.7090107@mellanox.co.il>
-References: <CAP7N4Kfd9TOPr_V6+R9yVtK80eGWbkAvPE8BStG0+WhvJHaLGg@mail.gmail.com>  <CAP7N4Kes9=VdRV8NHvk03SBg5GbohgdbGqKPABCfYbVyzZ+1ng@mail.gmail.com>  <CA+mtBx9K8MY+WcFZpQp_85rcf316jrPpNgzqSzgMLzy7TC6eXQ@mail.gmail.com>  <1316447572.2764.21.camel@bwh-desktop>  <4E783855.4020907@dev.mellanox.co.il>  <1316617742.2760.18.camel@bwh-desktop>  <4E7AD1A4.7000308@mellanox.co.il> <1317166968.2845.45.camel@bwh-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: big picture UDP/IP performance question re 2.6.18 -> 2.6.32
+Date: Sun, 02 Oct 2011 10:03:23 +0200
+Message-ID: <1317542603.3802.48.camel@edumazet-laptop>
+References: <6.2.5.6.2.20111001215241.03a7ed48@binnacle.cx>
+	 <1317540066.3802.32.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, <oren@mellanox.co.il>,
-	<liranl@mellanox.co.il>, <netdev@vger.kernel.org>,
-	Diego Crupnicoff <Diego@Mellanox.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: starlight@binnacle.cx
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:57408 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750928Ab1JBIAD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Oct 2011 04:00:03 -0400
-In-Reply-To: <1317166968.2845.45.camel@bwh-desktop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48676 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750831Ab1JBIDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2011 04:03:30 -0400
+In-Reply-To: <1317540066.3802.32.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes - checked it and it works.
+Le dimanche 02 octobre 2011 =C3=A0 09:21 +0200, Eric Dumazet a =C3=A9cr=
+it :
 
-- Amir
+> You might try to disable any fancy power saving mode in your machine.
+> Maybe on your machine, cost to enter/exit deep sleep state is too hig=
+h.
+>=20
+> I see nothing obvious in the profile but userland processing, futex
+> calls.=20
 
-On 09/28/2011 02:42 AM, Ben Hutchings wrote:
-> On Thu, 2011-09-22 at 09:11 +0300, Amir Vadai wrote:
->> Looks good.
->> and now the code is much clearer
-> Does that mean that this change *works* for you?
->
-> Ben.
->
-> [...]
->>> But that means we never move the flow to a new CPU in the non-
->>> accelerated case.  So maybe the proper change would be:
->>>
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -2652,10 +2652,7 @@ static struct rps_dev_flow *
->>>    set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
->>>    	    struct rps_dev_flow *rflow, u16 next_cpu)
->>>    {
->>> -	u16 tcpu;
->>> -
->>> -	tcpu = rflow->cpu = next_cpu;
->>> -	if (tcpu != RPS_NO_CPU) {
->>> +	if (next_cpu != RPS_NO_CPU) {
->>>    #ifdef CONFIG_RFS_ACCEL
->>>    		struct netdev_rx_queue *rxqueue;
->>>    		struct rps_dev_flow_table *flow_table;
->>> @@ -2683,16 +2680,16 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
->>>    			goto out;
->>>    		old_rflow = rflow;
->>>    		rflow =&flow_table->flows[flow_id];
->>> -		rflow->cpu = next_cpu;
->>>    		rflow->filter = rc;
->>>    		if (old_rflow->filter == rflow->filter)
->>>    			old_rflow->filter = RPS_NO_FILTER;
->>>    	out:
->>>    #endif
->>>    		rflow->last_qtail =
->>> -			per_cpu(softnet_data, tcpu).input_queue_head;
->>> +			per_cpu(softnet_data, next_cpu).input_queue_head;
->>>    	}
->>>
->>> +	rflow->cpu = next_cpu;
->>>    	return rflow;
->>>    }
->>>
->>> --- END ---
->>>
+Just to clarify a bit :
+
+Sometimes, optimizing one part of the kernel can have a negative impact
+on some workloads because we end up doing more sleep/wakeup of
+consumers : Several threads might try to acquire a lock at the same
+time, while previously they got no contention.
+
+In 2.6.35, commit c377411f2494a (net: sk_add_backlog() take rmem_alloc
+into account) changed backlog limit, avoid taking socket lock on flood,
+allowing to receive 200.000 pps on a test machine instead of 100pps.
+But the receiver was doing a plain
+
+while (1)
+	recv(...);
+
+And maximum throughput was reached because task never called
+scheduler...
