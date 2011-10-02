@@ -1,48 +1,114 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Fwd: wrong VENDOR_ID 10ac
-Date: Sun, 02 Oct 2011 16:14:34 +0100
-Message-ID: <1317568476.4068.95.camel@deadeye>
-References: <CAPZBsThhGxpvioOKuCffOiJXKiZs47RQ2bT-ZSaVSM5Eigxkog@mail.gmail.com>
-	 <CAPZBsTgtfeZFoLENX7K9Hii7-SFpCQas80ka9cokx=0UPQEfhw@mail.gmail.com>
-	 <CAPZBsTi6a1necbvEANP4Sx=Ovo-ntPLyiFfus3dDiKBrSvkc7w@mail.gmail.com>
-	 <CAPZBsTg_UjUGuNFbyh+D31swOaQSdA_U9Apx8z6oQsrSNe3ohw@mail.gmail.com>
+From: starlight@binnacle.cx
+Subject: Re: big picture UDP/IP performance question re 2.6.18
+  -> 2.6.32
+Date: Sun, 02 Oct 2011 11:06:25 -0400
+Message-ID: <6.2.5.6.2.20111002110545.03a82460@binnacle.cx>
+References: <6.2.5.6.2.20111001215241.03a7ed48@binnacle.cx>
+ <1317540066.3802.32.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Christian Vasquez Perales <christian.vasquez.perales@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:57986 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750727Ab1JBPOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2011 11:14:46 -0400
-In-Reply-To: <CAPZBsTg_UjUGuNFbyh+D31swOaQSdA_U9Apx8z6oQsrSNe3ohw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1317540066.3802.32.camel@edumazet-laptop>
+References: <6.2.5.6.2.20111001215241.03a7ed48@binnacle.cx>
+ <1317540066.3802.32.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2011-10-02 at 06:31 +0100, Christian Vasquez Perales wrote:
-> Hello,
-> 
-> May be you can help me, I have bought 2 identical trendnet TEG-PCITXR
-> gigabit cards, and my centos has detected automatically just 1 of the
-> 2 cards and this card is working fine with the driver r8169, but the
-> other is not recognized,
-> 
-> As per my investigation, the VENDOR_ID in the wrong card is 10ac, and
-> it must to be 10ec (according the PCI database), please see the
-> attached with the output from lspci and setpci,
-> 
-> Could you give me some ideas? or do you know how to change the
-> Vendor_ID in a network card?
-[...]
+At 09:21 AM 10/2/2011 +0200, Eric Dumazet wrote:
+>Le dimanche 02 octobre 2011 =C3  01:33 -0400,=20
+>
+>You might try to disable any fancy power saving
+>mode in your machine.  Maybe on your machine, cost
+>to enter/exit deep sleep state is too high.
 
-There's no generic way to do this.  I suggest you return the faulty card
-for a refund/replacement; there is quite possibly more wrong with it
-than this one-bit error.
+I'll check this out.  It's an Opteron 6174 and
+so recent and with all the aggressive power
+saving AMD can dish out.  Note that 'cpuspeed'
+is turned off.  Only thing I can think of
+off the top of my head is to boot with=20
+'nohalt' (which used to be idle=3Dpoll).  If
+anyone knows further Magney Cours tweaks
+please let me know.
 
-Ben.
+>Just to clarify a bit :
+>
+>Sometimes, optimizing one part of the kernel can
+>have a negative impact on some workloads because
+>we end up doing more sleep/wakeup of consumers :
+>Several threads might try to acquire a lock at the
+>same time, while previously they got no
+>contention.
+>
+>In 2.6.35, commit c377411f2494a (net:
+>sk_add_backlog() take rmem_alloc into account)
+>changed backlog limit, avoid taking socket lock on
+>flood, allowing to receive 200.000 pps on a test
+>machine instead of 100pps.  But the receiver was
+>doing a plain
+>
+>while (1)
+>	recv(...);
+>
+>And maximum throughput was reached because task
+>never called scheduler...
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Sometimes I think it might be nice to run without
+an OS at all :-)
+
+We are looking at various kernel bypass approaches
+for receiving packets and it's in my mind that
+one of these may get us to running on newer
+kernels without giving up performance.
+
+>I see nothing obvious in the profile but userland
+>processing, futex calls.
+
+Indeed, this is from the app-internal queuing
+I mentioned in the last post.  Because UDP is
+presently unusable in any .32 or .39 kernel
+I'm stuck with using packet sockets as a proxy
+for them.  As mentioned, the two produce very
+similar results in all past tests.
+
+>Network processing seems to account less than 10%
+>of total cpu...  All this sounds more a process
+>scheduling regression than a network stack one..
+
+Interesting.  When I start testing kernel bypass
+the degree to which this is the case should become
+clear.
+
+>On new kernels, you can check if your udp sockets
+>drops frames because of rcvbuffer being full (cat
+>/proc/net/udp, check last column 'drops')
+
+As I've stated several times, all these tests are
+run with verifiable zero data loss.  The max-load
+test is the highest rate were zero data loss can
+be maintained.  UDP socket buffers are set to 64MB.
+
+>To check if softirq processing hit some limits :
+>cat /proc/net/softnet_stat
+
+Ok.
+
+>Please send full "dmesg" output=20
+
+Ok.
+
+At 07:47 AM 10/2/2011 -0700, Stephen Hemminger wrote:
+>Try disabling PCI DMA remapping. The additional
+>overhead of setting up IO mapping can be a
+>performance buzz kill. Try CONGIG_DMAR=3Dn
+
+Definitely.  Thanks for the tip!
+
+-----
+
+Probably won't get to these until Monday or
+Tuesday.
