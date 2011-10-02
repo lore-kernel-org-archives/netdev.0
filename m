@@ -1,66 +1,81 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: RE: [PATCH] mlx4_en: fix transmit of packages when blue frame is
- enabled
-Date: Sun, 2 Oct 2011 08:58:21 +0000
-Message-ID: <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
-References: <1317388995-411-1-git-send-email-cascardo@linux.vnet.ibm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio-net: Read MAC only after initializing MSI-X
+Date: Sun, 2 Oct 2011 11:09:00 +0200
+Message-ID: <20111002090900.GA29706@redhat.com>
+References: <1313225461-24458-1-git-send-email-levinsasha928@gmail.com>
+ <20110819152335.GA19489@redhat.com>
+ <1313771587.12243.16.camel@lappy>
+ <20110820200043.GB5276@redhat.com>
+ <871uvdryq2.fsf@rustcorp.com.au>
+ <20110919060150.GB1569@redhat.com>
+ <874o09x97m.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sasha Levin <levinsasha928@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:48405 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751661Ab1JBI6Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2011 04:58:25 -0400
-In-Reply-To: <1317388995-411-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:32831 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751515Ab1JBJIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Oct 2011 05:08:17 -0400
+Content-Disposition: inline
+In-Reply-To: <874o09x97m.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Sep 19, 2011 at 05:19:49PM +0930, Rusty Russell wrote:
+> On Mon, 19 Sep 2011 09:01:50 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > On Mon, Sep 19, 2011 at 01:05:17PM +0930, Rusty Russell wrote:
+> > > On Sat, 20 Aug 2011 23:00:44 +0300, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> > > > On Fri, Aug 19, 2011 at 07:33:07PM +0300, Sasha Levin wrote:
+> > > > > Maybe this is better solved by copying the way it was done in PCI itself
+> > > > > with capability linked list?
+> > > > 
+> > > > There are any number of ways to lay out the structure.  I went for what
+> > > > seemed a simplest one.  For MSI-X the train has left the station.  We
+> > > > can probably still tweak where the high 32 bit features
+> > > > for 64 bit features are.  No idea if it's worth it.
+> > > 
+> > > Sorry, this has been in the back of my mind.  I think it's a good idea;
+> > > can we use the capability linked list for pre-device specific stuff from
+> > > now on?
+> > > 
+> > > Thanks,
+> > > Rusty.
+> > 
+> > Do we even want capability bits then?
+> > We can give each capability an ack flag ...
+> 
+> We could have, and if I'd known PCI when I designed virtio I might have.
+> 
+> But it's not easy now to map structure offsets to that scheme, and we
+> can't really force such a change on the non-PCI users.  So I'd say we
+> should only do it for the non-device-specific options.  ie. we'll still
+> have the MSI-X case move the device-specific config, but we'll use a
+> linked list from now on, eg. for the next 32 features bits...
+> 
+> Thoughts?
+> Rusty.
 
-> With the addition of Blue Frame support in the network driver for mlx4, the doorbell is not written in the path where blue frame is enabled and the package follows some characteristics.
-> 
-> The consequence of that is that ICMP ECHO requests, for example, were not transmitted by the device. A ping flood, for example, would make the
-> watchdog dispatch, because the ring was full and transmissions have timed out.
-> 
-> After this fix, I could ping two systems using mlx4_en (both with the fix).
-> 
-> Signed-off-by: Thadeu Lima de Souza Cascardo
-> <cascardo@linux.vnet.ibm.com>
-> Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_tx.c |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index 6e03de0..270da80 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -811,10 +811,11 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb,
-> struct net_device *dev)
->  		* before setting ownership of this descriptor to HW */
->  		wmb();
->  		tx_desc->ctrl.owner_opcode = op_own;
-> -		wmb();
-> -		writel(ring->doorbell_qpn, ring->bf.uar->map + MLX4_SEND_DOORBELL);
->  	}
-> 
-> +	wmb();
-> +	writel(ring->doorbell_qpn, ring->bf.uar->map + MLX4_SEND_DOORBELL);
-> +
->  	/* Poll CQ here */
->  	mlx4_en_xmit_poll(priv, tx_ind);
-> 
-> --
-> 1.7.4.4
+So I thought about this some more. It probably makes sense to
+stop adding info in the io space, and start adding new stuff in
+memory space which is much less contrained.
 
-What this patch does is ringing the doorbell unconditionally, whether blue flame is used or not.
-The whole idea, is to copy the data to the blueflame register and have the HW take the data from there and save the memory access to the work queue entry.
-In this patch you do both, copy the data to the register, and then still the HW accesses the memory to take it.
-For some reason Blue flame is not working on your system and we need to understand why, I'll be glad to work with you to debug it.
-Anyway, this patch is not the solution (even that it works on your systems) for the problem.
+As we need to keep compatibility, and also because memory access is
+much slower with kvm so we prefer io for datapath, we could have the
+first X bytes still mirrored in io space.
 
-Yevgeny
+MSIX is there, and it's pointed to from config space,
+so we could just put our stuff at offset 0.
+
+Or if we wanted a lot of flexibility, we could add pointers, in config
+space, to device specific and non device specific regions in memory
+space.
+
+Makes sense?
+
+-- 
+MST
