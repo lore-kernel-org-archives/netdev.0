@@ -1,50 +1,53 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Why might packets go into a tunnel and not come out
-Date: Sun, 02 Oct 2011 11:25:04 +0200
-Message-ID: <4E882DF0.90404@computer.org>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: [PATCH v3] tcp: properly update lost_cnt_hint during shifting
+Date: Sun, 02 Oct 2011 22:21:50 +0800
+Message-ID: <4E88737E.5030906@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Nandita Dukkipati <nanditad@google.com>, ycheng@google.com,
+	"davem@dav
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay007.isp.belgacom.be ([195.238.6.173]:62104 "EHLO
-	mailrelay007.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751456Ab1JBJ2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2011 05:28:18 -0400
-Received: from [192.168.1.6] (wendy.xperim.be [192.168.1.6])
-	by zotac.xperim.be (8.14.3/8.14.3/Debian-9.2ubuntu1) with ESMTP id p929P4hg000695
-	for <netdev@vger.kernel.org>; Sun, 2 Oct 2011 11:25:07 +0200
+Received: from mga02.intel.com ([134.134.136.20]:44977 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752590Ab1JBOWF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Oct 2011 10:22:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All,
+lost_skb_hint is used by tcp_mark_head_lost() to mark the first unhandled skb.
+lost_cnt_hint is the number of packets or sacked packets before the lost_skb_hint;
+When shifting a skb that is before the lost_skb_hint, if tcp_is_fack() is ture,
+the skb has already been counted in the lost_cnt_hint; if tcp_is_fack() is false,
+tcp_sacktag_one() will increase the lost_cnt_hint. So tcp_shifted_skb() does not
+need to adjust the lost_cnt_hint by itself. When shifting a skb that is equal to
+lost_skb_hint, the shifted packets will not be counted by tcp_mark_head_lost().
+So tcp_shifted_skb() should adjust the lost_cnt_hint even tcp_is_fack(tp) is true.
 
-This is a question that I would have posted to linux-net had it still 
-existed. I beg your indulgence.
+Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+---
+Changes since v2:
+ adjust the lost_cnt_hint even tcp_is_fack(tp) is true.
 
-I have established an SSH tunnel (device tunX) between two remote hosts. 
-This tunnel is operating properly in that I can ping each peer from the 
-other.
+ net/ipv4/tcp_input.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-I am now trying to route traffic through this tunnel to onward 
-destinations. This is not working: when I ping such an onward 
-destination I can see the packets going into the tunnel (using tcpdump) 
-but they're not coming out of the other end (again as seen by tcpdump).
-
-I have added logging to all firewall rules that drop or reject traffic; 
-nothing is logged. (And yes I have checked that logging itself works by 
-briefly adding logging to an ACCEPT rule). Routing is enabled on both 
-hosts. The counters for the tun devices (as seen using ifconfig) do not 
-show any dropped traffic.
-
-I am not asking you to debug my problem for me, but could anyone please 
-point me to an overview of the reasons why packets might be going into 
-one end of a tunnel and not come out the other end? I have studied the 
-diagram at the following link and I think I've checked the potential 
-issues that it prompts:
-
-http://www.shorewall.net/Shorewall_and_Routing.html
-
-Many thanks.
-
-Jan
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 21fab3e..d73aab3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1389,9 +1389,7 @@ static int tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+ 
+ 	BUG_ON(!pcount);
+ 
+-	/* Tweak before seqno plays */
+-	if (!tcp_is_fack(tp) && tcp_is_sack(tp) && tp->lost_skb_hint &&
+-	    !before(TCP_SKB_CB(tp->lost_skb_hint)->seq, TCP_SKB_CB(skb)->seq))
++	if (skb == tp->lost_skb_hint)
+ 		tp->lost_cnt_hint += pcount;
+ 
+ 	TCP_SKB_CB(prev)->end_seq += shifted;
+-- 
+1.7.4.4
