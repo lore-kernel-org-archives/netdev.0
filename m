@@ -1,39 +1,70 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net-next-2.6] be2net: Add 60 second delay to allow FAT dump completion on recovery from EEH
-Date: Mon, 3 Oct 2011 23:40:57 +0530
-Message-ID: <5bb8f639-e754-4e08-8b7b-9830a57e4826@exht2.ad.emulex.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] SELinux: Fix RCU deref check warning in sel_netport_insert()
+Date: Mon, 03 Oct 2011 14:58:24 +0100
+Message-ID: <20111003135824.15303.10147.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Somnath Kotur <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dhowells@redhat.com
+To: selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:3859 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755722Ab1JCMnk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 08:43:40 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:26522 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932134Ab1JCN7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Oct 2011 09:59:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add 60s delay before timeout on polling Bit 31 so that FAT dump can
-complete when reset occurs.
+Fix the following bug in sel_netport_insert() where rcu_dereference() should
+be rcu_dereference_protected() as sel_netport_lock is held.
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+===================================================
+[ INFO: suspicious rcu_dereference_check() usage. ]
+---------------------------------------------------
+security/selinux/netport.c:127 invoked rcu_dereference_check() without protection!
+
+other info that might help us debug this:
+
+
+rcu_scheduler_active = 1, debug_locks = 0
+1 lock held by ossec-rootcheck/3323:
+ #0:  (sel_netport_lock){+.....}, at: [<ffffffff8117d775>] sel_netport_sid+0xbb/0x226
+
+stack backtrace:
+Pid: 3323, comm: ossec-rootcheck Not tainted 3.1.0-rc8-fsdevel+ #1095
+Call Trace:
+ [<ffffffff8105cfb7>] lockdep_rcu_dereference+0xa7/0xb0
+ [<ffffffff8117d871>] sel_netport_sid+0x1b7/0x226
+ [<ffffffff8117d6ba>] ? sel_netport_avc_callback+0xbc/0xbc
+ [<ffffffff8117556c>] selinux_socket_bind+0x115/0x230
+ [<ffffffff810a5388>] ? might_fault+0x4e/0x9e
+ [<ffffffff810a53d1>] ? might_fault+0x97/0x9e
+ [<ffffffff81171cf4>] security_socket_bind+0x11/0x13
+ [<ffffffff812ba967>] sys_bind+0x56/0x95
+ [<ffffffff81380dac>] ? sysret_check+0x27/0x62
+ [<ffffffff8105b767>] ? trace_hardirqs_on_caller+0x11e/0x155
+ [<ffffffff81076fcd>] ? audit_syscall_entry+0x17b/0x1ae
+ [<ffffffff811b5eae>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+ [<ffffffff81380d7b>] system_call_fastpath+0x16/0x1b
+
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 38c9222..6e7b521 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -416,7 +416,7 @@ int be_cmd_POST(struct be_adapter *adapter)
- 		} else {
- 			return 0;
- 		}
--	} while (timeout < 40);
-+	} while (timeout < 60);
- 
- 	dev_err(dev, "POST timeout; stage=0x%x\n", stage);
- 	return -1;
--- 
-1.5.6.1
+ security/selinux/netport.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/security/selinux/netport.c b/security/selinux/netport.c
+index 0b62bd1..39e2138 100644
+--- a/security/selinux/netport.c
++++ b/security/selinux/netport.c
+@@ -123,7 +123,9 @@ static void sel_netport_insert(struct sel_netport *port)
+ 	if (sel_netport_hash[idx].size == SEL_NETPORT_HASH_BKT_LIMIT) {
+ 		struct sel_netport *tail;
+ 		tail = list_entry(
+-			rcu_dereference(sel_netport_hash[idx].list.prev),
++			rcu_dereference_protected(
++				sel_netport_hash[idx].list.prev,
++				spin_is_locked(&sel_netport_lock)),
+ 			struct sel_netport, list);
+ 		list_del_rcu(&tail->list);
+ 		kfree_rcu(tail, rcu);
