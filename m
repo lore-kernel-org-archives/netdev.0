@@ -1,44 +1,126 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [PATCH 1/2] fix lockdep warning
-Date: Mon, 3 Oct 2011 12:56:38 +0200
-Message-ID: <1317639399-4522-1-git-send-email-hans.schillstrom@ericsson.com>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Subject: Re: [PATCH v4 2/8] socket: initial cgroup code.
+Date: Mon, 3 Oct 2011 14:02:30 +0300
+Message-ID: <20111003110230.GC29312@shutemov.name>
+References: <1317637123-18306-1-git-send-email-glommer@parallels.com>
+ <1317637123-18306-3-git-send-email-glommer@parallels.com>
+ <20111003104733.GB29312@shutemov.name>
+ <4E8992EF.30001@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <horms@verge.net.au>, <ja@ssi.bg>, <wensong@linux-vs.org>,
-	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+	kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+	davem@davemloft.net, gthelen@google.com, netdev@vger.kernel.org,
+	linux-mm@kvack.org, avagin@parallels.com
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <4E8992EF.30001@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Hans Schillstrom <hans@schillstrom.com>
+On Mon, Oct 03, 2011 at 02:48:15PM +0400, Glauber Costa wrote:
+> On 10/03/2011 02:47 PM, Kirill A. Shutemov wrote:
+> > On Mon, Oct 03, 2011 at 02:18:37PM +0400, Glauber Costa wrote:
+> >> We aim to control the amount of kernel memory pinned at any
+> >> time by tcp sockets. To lay the foundations for this work,
+> >> this patch adds a pointer to the kmem_cgroup to the socket
+> >> structure.
+> >>
+> >> Signed-off-by: Glauber Costa<glommer@parallels.com>
+> >> CC: David S. Miller<davem@davemloft.net>
+> >> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+> >> CC: Eric W. Biederman<ebiederm@xmission.com>
+> >> ---
+> >>   include/linux/memcontrol.h |   15 +++++++++++++++
+> >>   include/net/sock.h         |    2 ++
+> >>   mm/memcontrol.c            |   33 +++++++++++++++++++++++++++++++++
+> >>   net/core/sock.c            |    3 +++
+> >>   4 files changed, 53 insertions(+), 0 deletions(-)
+> >>
+> >> diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+> >> index 3b535db..2cb9226 100644
+> >> --- a/include/linux/memcontrol.h
+> >> +++ b/include/linux/memcontrol.h
+> >> @@ -395,5 +395,20 @@ mem_cgroup_print_bad_page(struct page *page)
+> >>   }
+> >>   #endif
+> >>
+> >> +#ifdef CONFIG_INET
+> >> +struct sock;
+> >> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> >> +void sock_update_memcg(struct sock *sk);
+> >> +void sock_release_memcg(struct sock *sk);
+> >> +
+> >> +#else
+> >> +static inline void sock_update_memcg(struct sock *sk)
+> >> +{
+> >> +}
+> >> +static inline void sock_release_memcg(struct sock *sk)
+> >> +{
+> >> +}
+> >> +#endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
+> >> +#endif /* CONFIG_INET */
+> >>   #endif /* _LINUX_MEMCONTROL_H */
+> >>
+> >> diff --git a/include/net/sock.h b/include/net/sock.h
+> >> index 8e4062f..afe1467 100644
+> >> --- a/include/net/sock.h
+> >> +++ b/include/net/sock.h
+> >> @@ -228,6 +228,7 @@ struct sock_common {
+> >>     *	@sk_security: used by security modules
+> >>     *	@sk_mark: generic packet mark
+> >>     *	@sk_classid: this socket's cgroup classid
+> >> +  *	@sk_cgrp: this socket's kernel memory (kmem) cgroup
+> >>     *	@sk_write_pending: a write to stream socket waits to start
+> >>     *	@sk_state_change: callback to indicate change in the state of the sock
+> >>     *	@sk_data_ready: callback to indicate there is data to be processed
+> >> @@ -339,6 +340,7 @@ struct sock {
+> >>   #endif
+> >>   	__u32			sk_mark;
+> >>   	u32			sk_classid;
+> >> +	struct mem_cgroup	*sk_cgrp;
+> >>   	void			(*sk_state_change)(struct sock *sk);
+> >>   	void			(*sk_data_ready)(struct sock *sk, int bytes);
+> >>   	void			(*sk_write_space)(struct sock *sk);
+> >> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> >> index 8aaf4ce..08a520e 100644
+> >> --- a/mm/memcontrol.c
+> >> +++ b/mm/memcontrol.c
+> >> @@ -339,6 +339,39 @@ struct mem_cgroup {
+> >>   	spinlock_t pcp_counter_lock;
+> >>   };
+> >>
+> >> +/* Writing them here to avoid exposing memcg's inner layout */
+> >> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+> >> +#ifdef CONFIG_INET
+> >> +#include<net/sock.h>
+> >> +
+> >> +void sock_update_memcg(struct sock *sk)
+> >> +{
+> >> +	/* right now a socket spends its whole life in the same cgroup */
+> >> +	BUG_ON(sk->sk_cgrp);
+> >
+> > Do we really want to panic in this case?
+> >
+> > What about WARN() + return?
+> 
+> Kirill,
+> 
+> I am keeping this code just to have something workable in between.
+> If you take a look at the last patch, this hunk is going away anyway.
+> 
+> So if you don't oppose it, I'll just keep it to avoid rebasing it.
 
-rs_lock needs a key to make lock dep happy.
+Sorry, but I don't see where you remove BUG_ON().
+You remove only cgroup_exclude_rmdir().
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 2b771dc..a1af72f 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -57,6 +57,7 @@ static DEFINE_MUTEX(__ip_vs_mutex);
- 
- /* lock for service table */
- static DEFINE_RWLOCK(__ip_vs_svc_lock);
-+static struct lock_class_key ip_vs_rs_key;
- 
- /* sysctl variables */
- 
-@@ -3680,6 +3681,7 @@ int __net_init ip_vs_control_net_init(struct net *net)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	ipvs->rs_lock = __RW_LOCK_UNLOCKED(ipvs->rs_lock);
-+	__rwlock_init(&ipvs->rs_lock, "ipvs->rs_lock", &ip_vs_rs_key);
- 
- 	/* Initialize rs_table */
- 	for (idx = 0; idx < IP_VS_RTAB_SIZE; idx++)
 -- 
-1.7.4.4
+ Kirill A. Shutemov
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
