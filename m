@@ -1,70 +1,109 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] SELinux: Fix RCU deref check warning in sel_netport_insert()
-Date: Mon, 03 Oct 2011 14:58:24 +0100
-Message-ID: <20111003135824.15303.10147.stgit@warthog.procyon.org.uk>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH] mlx4_en: fix transmit of packages when blue frame is
+ enabled
+Date: Mon, 3 Oct 2011 11:37:21 -0300
+Message-ID: <20111003143721.GA3596@oc1711230544.ibm.com>
+References: <1317388995-411-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dhowells@redhat.com
-To: selinux@tycho.nsa.gov
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26522 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932134Ab1JCN7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Oct 2011 09:59:16 -0400
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:58678 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754496Ab1JCOhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 10:37:40 -0400
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id p93BbL2b023971
+	for <netdev@vger.kernel.org>; Mon, 3 Oct 2011 08:37:21 -0300
+Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p93Eeok0631070
+	for <netdev@vger.kernel.org>; Mon, 3 Oct 2011 11:40:53 -0300
+Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
+	by d24av03.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p93EbYla026160
+	for <netdev@vger.kernel.org>; Mon, 3 Oct 2011 11:37:34 -0300
+Content-Disposition: inline
+In-Reply-To: <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the following bug in sel_netport_insert() where rcu_dereference() should
-be rcu_dereference_protected() as sel_netport_lock is held.
+On Sun, Oct 02, 2011 at 08:58:21AM +0000, Yevgeny Petrilin wrote:
+> 
+> > With the addition of Blue Frame support in the network driver for mlx4, the doorbell is not written in the path where blue frame is enabled and the package follows some characteristics.
+> > 
+> > The consequence of that is that ICMP ECHO requests, for example, were not transmitted by the device. A ping flood, for example, would make the
+> > watchdog dispatch, because the ring was full and transmissions have timed out.
+> > 
+> > After this fix, I could ping two systems using mlx4_en (both with the fix).
+> > 
+> > Signed-off-by: Thadeu Lima de Souza Cascardo
+> > <cascardo@linux.vnet.ibm.com>
+> > Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> > ---
+> >  drivers/net/ethernet/mellanox/mlx4/en_tx.c |    5 +++--
+> >  1 files changed, 3 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> > b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> > index 6e03de0..270da80 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> > @@ -811,10 +811,11 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb,
+> > struct net_device *dev)
+> >  		* before setting ownership of this descriptor to HW */
+> >  		wmb();
+> >  		tx_desc->ctrl.owner_opcode = op_own;
+> > -		wmb();
+> > -		writel(ring->doorbell_qpn, ring->bf.uar->map + MLX4_SEND_DOORBELL);
+> >  	}
+> > 
+> > +	wmb();
+> > +	writel(ring->doorbell_qpn, ring->bf.uar->map + MLX4_SEND_DOORBELL);
+> > +
+> >  	/* Poll CQ here */
+> >  	mlx4_en_xmit_poll(priv, tx_ind);
+> > 
+> > --
+> > 1.7.4.4
+> 
+> What this patch does is ringing the doorbell unconditionally, whether blue flame is used or not.
+> The whole idea, is to copy the data to the blueflame register and have the HW take the data from there and save the memory access to the work queue entry.
+> In this patch you do both, copy the data to the register, and then still the HW accesses the memory to take it.
+> For some reason Blue flame is not working on your system and we need to understand why, I'll be glad to work with you to debug it.
+> Anyway, this patch is not the solution (even that it works on your systems) for the problem.
+> 
+> Yevgeny
 
-===================================================
-[ INFO: suspicious rcu_dereference_check() usage. ]
----------------------------------------------------
-security/selinux/netport.c:127 invoked rcu_dereference_check() without protection!
+Hello, Yevgeny.
 
-other info that might help us debug this:
+We use a MT26448 (lspci -v output bellow) on a POWER7. Any other
+information, tests or debug patches you want me to try, just tell me.
 
+I expected this was really not the proper fix, but thought it would be
+better to send it than just guess. Any clues what the problem might be?
+Perhaps, we would have to disable blue frame for this particular device?
 
-rcu_scheduler_active = 1, debug_locks = 0
-1 lock held by ossec-rootcheck/3323:
- #0:  (sel_netport_lock){+.....}, at: [<ffffffff8117d775>] sel_netport_sid+0xbb/0x226
+Regards,
+Cascardo.
 
-stack backtrace:
-Pid: 3323, comm: ossec-rootcheck Not tainted 3.1.0-rc8-fsdevel+ #1095
-Call Trace:
- [<ffffffff8105cfb7>] lockdep_rcu_dereference+0xa7/0xb0
- [<ffffffff8117d871>] sel_netport_sid+0x1b7/0x226
- [<ffffffff8117d6ba>] ? sel_netport_avc_callback+0xbc/0xbc
- [<ffffffff8117556c>] selinux_socket_bind+0x115/0x230
- [<ffffffff810a5388>] ? might_fault+0x4e/0x9e
- [<ffffffff810a53d1>] ? might_fault+0x97/0x9e
- [<ffffffff81171cf4>] security_socket_bind+0x11/0x13
- [<ffffffff812ba967>] sys_bind+0x56/0x95
- [<ffffffff81380dac>] ? sysret_check+0x27/0x62
- [<ffffffff8105b767>] ? trace_hardirqs_on_caller+0x11e/0x155
- [<ffffffff81076fcd>] ? audit_syscall_entry+0x17b/0x1ae
- [<ffffffff811b5eae>] ? trace_hardirqs_on_thunk+0x3a/0x3f
- [<ffffffff81380d7b>] system_call_fastpath+0x16/0x1b
-
-Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-
- security/selinux/netport.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/security/selinux/netport.c b/security/selinux/netport.c
-index 0b62bd1..39e2138 100644
---- a/security/selinux/netport.c
-+++ b/security/selinux/netport.c
-@@ -123,7 +123,9 @@ static void sel_netport_insert(struct sel_netport *port)
- 	if (sel_netport_hash[idx].size == SEL_NETPORT_HASH_BKT_LIMIT) {
- 		struct sel_netport *tail;
- 		tail = list_entry(
--			rcu_dereference(sel_netport_hash[idx].list.prev),
-+			rcu_dereference_protected(
-+				sel_netport_hash[idx].list.prev,
-+				spin_is_locked(&sel_netport_lock)),
- 			struct sel_netport, list);
- 		list_del_rcu(&tail->list);
- 		kfree_rcu(tail, rcu);
+lspci output
+0006:01:00.0 Ethernet controller: Mellanox Technologies MT26448 [ConnectX EN 10GigE, PCIe 2.0 5GT/s] (rev b0)
+---
+lspci -v output
+0006:01:00.0 0200: 15b3:6750 (rev b0)
+        Subsystem: 1014:0416
+        Flags: bus master, fast devsel, latency 0, IRQ 31
+        Memory at 3da47be00000 (64-bit, non-prefetchable) [size=1M]
+        Memory at 3da47c000000 (64-bit, prefetchable) [size=32M]
+        Expansion ROM at 3da47bf00000 [disabled] [size=1M]
+        Capabilities: [40] Power Management version 3
+        Capabilities: [48] Vital Product Data
+        Capabilities: [9c] MSI-X: Enable+ Count=128 Masked-
+        Capabilities: [60] Express Endpoint, MSI 00
+        Capabilities: [100] Alternative Routing-ID Interpretation (ARI)
+        Capabilities: [148] Device Serial Number 00-02-c9-03-00-0f-50-be
+        Kernel driver in use: mlx4_core
+        Kernel modules: mlx4_en, mlx4_core
+---
