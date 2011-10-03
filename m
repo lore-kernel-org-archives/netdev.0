@@ -1,72 +1,102 @@
-From: starlight@binnacle.cx
-Subject: Re: big picture UDP/IP performance question re 2.6.18
-  -> 2.6.32
-Date: Mon, 03 Oct 2011 12:28:13 -0400
-Message-ID: <6.2.5.6.2.20111003121925.03a83a28@binnacle.cx>
-References: <6.2.5.6.2.20111003112108.03a83a28@binnacle.cx>
- <1317658588.2442.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1317658588.2442.5.camel@edumazet-HP-Compaq-6005-Pro
- -SFF-PC>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next 11/11 v2] ixgbe: allow eeprom writes via ethtool
+Date: Mon, 3 Oct 2011 11:00:10 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A136605A8FCB18@rrsmsx501.amr.corp.intel.com>
+References: <1317444771-13962-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1317444771-13962-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20111001093105.GA9885@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.binnacle.cx ([74.95.187.105]:59503 "EHLO mx.binnacle.cx"
+Received: from mga02.intel.com ([134.134.136.20]:47112 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751640Ab1JCQmd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Oct 2011 12:42:33 -0400
-In-Reply-To: <1317658588.2442.5.camel@edumazet-HP-Compaq-6005-Pro
- -SFF-PC>
-References: <6.2.5.6.2.20111003112108.03a83a28@binnacle.cx>
- <1317658588.2442.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	id S1756935Ab1JCRAM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 13:00:12 -0400
+In-Reply-To: <20111001093105.GA9885@electric-eye.fr.zoreil.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At 06:16 PM 10/3/2011 +0200, Eric Dumazet wrote:
->> >Please send full "dmesg" output 
->> 
->> Attached.
->> 
+>-----Original Message-----
+>From: Francois Romieu [mailto:romieu@fr.zoreil.com]
+>Sent: Saturday, October 01, 2011 2:31 AM
+>To: Kirsher, Jeffrey T
+>Cc: davem@davemloft.net; Tantilov, Emil S; netdev@vger.kernel.org;
+>gospo@redhat.com
+>Subject: Re: [net-next 11/11 v2] ixgbe: allow eeprom writes via ethtool
 >
->Minor note :
+>Jeff Kirsher <jeffrey.t.kirsher@intel.com> :
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+>b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+>> index 10ea29f..fb47abb 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+>> @@ -812,6 +812,66 @@ static int ixgbe_get_eeprom(struct net_device
+>*netdev,
+>[...]
+>> +	ptr = (void *)eeprom_buff;
 >
->It seems you use 4096 2MB hugepages, and your
->machine has 1GB pages availabe, you could
->try to use them.
+>(nit) useless cast to void *.
 >
->(boot cmd : hugepagesz=1GB hugepages=8 )
+>> +
+>> +	if (eeprom->offset & 1) {
+>[...]
+>> +		ret_val = hw->eeprom.ops.read(hw, first_word, &eeprom_buff[0]);
+>> +		ptr++;
+>> +	}
+>> +	if (((eeprom->offset + eeprom->len) & 1) && (ret_val == 0)) {
+>[...]
+>> +		ret_val = hw->eeprom.ops.read(hw, last_word,
+>> +					  &eeprom_buff[last_word - first_word]);
+>> +	}
+>
+>I guess that the code tries to do its best to write something even when the
+>reads or writes partially fail but this one should imho be :
 
-Interesting.  I'll give it a try for sure, but
-since hugepages only gives a 5% improvement
-taking the page size up probably will not
-dent it by more than an additional percent
-or so.
+Actually we shouldn't be writing if any of the eeprom read operations fail. I will revisit the error checking logic.
 
-BTW I goofed on the kernel version number in my
-last post.  It should be 2.6.39.4.  That .27 was
-my mind transposing the 2.6.32 sub-version
-onto 2.6.39.
+>
+>	if ((eeprom->offset + eeprom->len) & 1) {
+>[...]
+>		ret_val |= hw->eeprom.ops.read(hw, last_word,
+>
+>> +
+>> +	/* Device's eeprom is always little-endian, word addressable */
+>> +	for (i = 0; i < last_word - first_word + 1; i++)
+>> +		le16_to_cpus(&eeprom_buff[i]);
+>
+>Shouldn't there be (drivers/net/ethernet/intel/ixgbe/ixgbe_type.h):
+>
+>struct ixgbe_eeprom_operations {
+>[...]
+>        s32 (*read)(struct ixgbe_hw *, u16, __le16 *);
+>
+>instead of :
+>
+>struct ixgbe_eeprom_operations {
+>[...]
+>        s32 (*read)(struct ixgbe_hw *, u16, u16 *);
+>
+>[...]
 
-Have one closing thought, which is to wonder if the
+That's a good idea.
 
-    9.98% swapper [kernel.kallsyms]  [k] native_safe_halt
+>> +	/* Update the checksum */
+>> +	hw->eeprom.ops.update_checksum(hw);
+>
+>The returned status code is ignored.
 
-CPU is included in the 2.6.18(rhel) CPU accounting
-or not.  If it's excluded that would make 2.6.39.4
-look much better--possibly put it at near parity
-though I'm too lazy to do the math just now.
+Thanks for the review. I already asked Jeff to drop this patch, we'll address the issues pointed out and submit a new version.
 
-My guess is that this number is something of an
-artifact of the clock-tick CPU histogram logic.
-Perhaps it's seeing the IP register parked in the
-idle-loop HALT instruction some of the time and
-counting it as non-idle time.  I'd be happier if
-it either counted all idle time and showed the
-45% that the poll=idle run shows, or none of
-the idle time at all--if it is in fact idle time.
+Thanks,
+Emil
 
-Unfortunately 'perf' is not available for
-2.6.18(rhel) so the value cannot be compared.
+>
+>--
+>Ueimor
