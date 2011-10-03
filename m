@@ -1,42 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/2] virtio-net: Verify page list size before
- fitting into skb
-Date: Mon, 03 Oct 2011 14:19:51 -0400 (EDT)
-Message-ID: <20111003.141951.1122469843900651595.davem@davemloft.net>
-References: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
+Subject: Re: [PATCH 1/2] pch_gbe: Fixed the issue on which PC was frozen
+ when link was downed.
+Date: Mon, 03 Oct 2011 14:25:54 -0400 (EDT)
+Message-ID: <20111003.142554.1957747149860835445.davem@davemloft.net>
+References: <1317022063-12143-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, rusty@rustcorp.com.au,
-	mst@redhat.com, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: levinsasha928@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eric.dumazet@gmail.com, qi.wang@intel.com, yong.y.wang@intel.com,
+	joel.clark@intel.com, kok.howg.ewe@intel.com,
+	tomoya-linux@dsn.okisemi.com
+To: toshiharu-linux@dsn.okisemi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53173 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53221 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932263Ab1JCSWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 14:22:03 -0400
-In-Reply-To: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
+	with ESMTP id S932263Ab1JCS0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 14:26:04 -0400
+In-Reply-To: <1317022063-12143-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <levinsasha928@gmail.com>
-Date: Wed, 28 Sep 2011 17:40:54 +0300
+From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+Date: Mon, 26 Sep 2011 16:27:42 +0900
 
-> This patch verifies that the length of a buffer stored in a linked list
-> of pages is small enough to fit into a skb.
+> When a link was downed during network use,
+> there is an issue on which PC freezes.
 > 
-> If the size is larger than a max size of a skb, it means that we shouldn't
-> go ahead building skbs anyway since we won't be able to send the buffer as
-> the user requested.
+> This patch fixed this issue.
 > 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: virtualization@lists.linux-foundation.org
-> Cc: netdev@vger.kernel.org
-> Cc: kvm@vger.kernel.org
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
 
-Michael, tell me what's happening with these two virtio-net bug fixes.
-
-Thanks.
+Applied.
