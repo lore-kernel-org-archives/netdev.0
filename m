@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sh_eth: fix build failure
-Date: Mon, 03 Oct 2011 14:00:02 -0400 (EDT)
-Message-ID: <20111003.140002.2213436684657121394.davem@davemloft.net>
-References: <4E8534A9.3050002@renesas.com>
+From: starlight@binnacle.cx
+Subject: Re: big picture UDP/IP performance question re 2.6.18
+  -> 2.6.32
+Date: Mon, 03 Oct 2011 14:02:35 -0400
+Message-ID: <6.2.5.6.2.20111003140010.05a70ed0@binnacle.cx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: yoshihiro.shimoda.uh@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4E8534A9.3050002@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.binnacle.cx ([74.95.187.105]:29736 "EHLO mx.binnacle.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932263Ab1JCSDv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Oct 2011 14:03:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Date: Fri, 30 Sep 2011 12:16:57 +0900
+At 06:16 PM 10/3/2011 +0200, Eric Dumazet wrote:
+>
+>It seems you use 4096 2MB hugepages, and your
+>machine has 1GB pages availabe, you could
+>try to use them.
+>
+>(boot cmd : hugepagesz=1GB hugepages=8 )
 
-> The following commit removed some including headers:
->  "net: sh_eth: move the asm/sh_eth.h to include/linux/"
->  (commit id: d4fa0e35fdbd54acf791fa3793d6d17f7795f7ae)
-> 
-> Then, the build failure happened on the linux-next:
- ...
-> This patch fixes the issue. This patch also get back include/kernel.h
-> and linux/spinlock.h.
-> 
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-
-Applied, thanks.
+Tried it and got errno 12 on the segment
+allocations.  None were allocated, though
+the count is six and the largest is exactly
+1GB.  Don't have time to dig into it.
