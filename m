@@ -1,79 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next] RPS: Ensure that an expired hardware filter can
- be re-added later
-Date: Mon, 03 Oct 2011 15:42:46 +0100
-Message-ID: <1317652966.2847.0.camel@bwh-desktop>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: RE: [PATCH] mlx4_en: fix transmit of packages when blue frame is
+ enabled
+Date: Mon, 3 Oct 2011 14:56:08 +0000
+Message-ID: <953B660C027164448AE903364AC447D2235DAA9D@MTLDAG02.mtl.com>
+References: <1317388995-411-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
+ <20111003143721.GA3596@oc1711230544.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Amir Vadai <amirv@dev.mellanox.co.il>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eli Cohen <eli@mellanox.co.il>,
+	"eli@dev.mellanox.co.il" <eli@dev.mellanox.co.il>
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:32974 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753529Ab1JCOmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 10:42:49 -0400
+Received: from mail.mellanox.co.il ([194.90.237.43]:54115 "EHLO mellanox.co.il"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756260Ab1JCO4N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 10:56:13 -0400
+In-Reply-To: <20111003143721.GA3596@oc1711230544.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Amir Vadai wrote:
-> When a stream is paused, and its rule is expired while it is paused,
-> no new rule will be configured to the HW when traffic resume.
-[...]
-> - When stream was resumed, traffic was steered again by RSS, and
-> because current-cpu was equal to desired-cpu,  ndo_rx_flow_steer
-> wasn't called and no rule was configured to the HW.
+> Hello, Yevgeny.
+> 
+> We use a MT26448 (lspci -v output bellow) on a POWER7. Any other
+> information, tests or debug patches you want me to try, just tell me.
+> 
+> I expected this was really not the proper fix, but thought it would be
+> better to send it than just guess. Any clues what the problem might be?
+> Perhaps, we would have to disable blue frame for this particular device?
+> 
+> Regards,
+> Cascardo.
+> 
+> ---
+> lspci output
+> 0006:01:00.0 Ethernet controller: Mellanox Technologies MT26448 [ConnectX EN 10GigE, PCIe 2.0 5GT/s] (rev b0)
+> ---
+> lspci -v output
+> 0006:01:00.0 0200: 15b3:6750 (rev b0)
+>         Subsystem: 1014:0416
+>         Flags: bus master, fast devsel, latency 0, IRQ 31
+>         Memory at 3da47be00000 (64-bit, non-prefetchable) [size=1M]
+>         Memory at 3da47c000000 (64-bit, prefetchable) [size=32M]
+>         Expansion ROM at 3da47bf00000 [disabled] [size=1M]
+>         Capabilities: [40] Power Management version 3
+>         Capabilities: [48] Vital Product Data
+>         Capabilities: [9c] MSI-X: Enable+ Count=128 Masked-
+>         Capabilities: [60] Express Endpoint, MSI 00
+>         Capabilities: [100] Alternative Routing-ID Interpretation (ARI)
+>         Capabilities: [148] Device Serial Number 00-02-c9-03-00-0f-50-be
+>         Kernel driver in use: mlx4_core
+>         Kernel modules: mlx4_en, mlx4_core
+> ---
 
-Fix this by setting the flow's current CPU only in the table for the
-newly selected RX queue.
+Cascardo,
 
-Reported-and-tested-by: Amir Vadai <amirv@dev.mellanox.co.il>
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- net/core/dev.c |    9 +++------
- 1 files changed, 3 insertions(+), 6 deletions(-)
+Can you also send me the output of ethtool -i?
+It seems that there is a problem with write combining on Power processors, we will check this issue.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7f4486e..70ecb86 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2670,10 +2670,7 @@ static struct rps_dev_flow *
- set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 	    struct rps_dev_flow *rflow, u16 next_cpu)
- {
--	u16 tcpu;
--
--	tcpu = rflow->cpu = next_cpu;
--	if (tcpu != RPS_NO_CPU) {
-+	if (next_cpu != RPS_NO_CPU) {
- #ifdef CONFIG_RFS_ACCEL
- 		struct netdev_rx_queue *rxqueue;
- 		struct rps_dev_flow_table *flow_table;
-@@ -2701,16 +2698,16 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 			goto out;
- 		old_rflow = rflow;
- 		rflow = &flow_table->flows[flow_id];
--		rflow->cpu = next_cpu;
- 		rflow->filter = rc;
- 		if (old_rflow->filter == rflow->filter)
- 			old_rflow->filter = RPS_NO_FILTER;
- 	out:
- #endif
- 		rflow->last_qtail =
--			per_cpu(softnet_data, tcpu).input_queue_head;
-+			per_cpu(softnet_data, next_cpu).input_queue_head;
- 	}
- 
-+	rflow->cpu = next_cpu;
- 	return rflow;
- }
- 
--- 
-1.7.4.4
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Yevgeny
