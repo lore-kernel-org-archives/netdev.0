@@ -1,101 +1,157 @@
-From: Taehun Kim <kth3321@gmail.com>
-Subject: Re: [PATCH] w5300: add WIZnet W5300 Ethernet driver
-Date: Mon, 3 Oct 2011 18:15:54 +0900
-Message-ID: <CAOkfWjfujtrFLd8HFLVC_jAQ98o8BkZNg0zGSbceFoTt9Cw6fg@mail.gmail.com>
-References: <1316261666-28555-1-git-send-email-kth3321@gmail.com>
-	<CAOkfWjcHxh60D9KvxLfgL0tw9XdPyDN9xr7q+9V+nM6B6g8tDA@mail.gmail.com>
-	<20110927174523.GA12600@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:55363 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752639Ab1JCJPz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 05:15:55 -0400
-In-Reply-To: <20110927174523.GA12600@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH v4 2/8] socket: initial cgroup code.
+Date: Mon,  3 Oct 2011 14:18:37 +0400
+Message-ID: <1317637123-18306-3-git-send-email-glommer@parallels.com>
+References: <1317637123-18306-1-git-send-email-glommer@parallels.com>
+Cc: paul@paulmenage.org, lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com,
+        ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
+        netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
+        avagin@parallels.com, Glauber Costa <glommer@parallels.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1317637123-18306-1-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-2011/9/28 Francois Romieu <romieu@fr.zoreil.com>:
+We aim to control the amount of kernel memory pinned at any
+time by tcp sockets. To lay the foundations for this work,
+this patch adds a pointer to the kmem_cgroup to the socket
+structure.
 
->> +/* Opening channels of W5300 */
->> +static int
->> +w5300_open(struct wiz_private *wp, u32 type)
->
-> Name it w5300_channel_open or more adequately w5300_channel_0_open
-> as it is hardwired to channel 0 ?
+Signed-off-by: Glauber Costa <glommer@parallels.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+CC: Eric W. Biederman <ebiederm@xmission.com>
+---
+ include/linux/memcontrol.h |   15 +++++++++++++++
+ include/net/sock.h         |    2 ++
+ mm/memcontrol.c            |   33 +++++++++++++++++++++++++++++++++
+ net/core/sock.c            |    3 +++
+ 4 files changed, 53 insertions(+), 0 deletions(-)
 
-The W5300 Ethernet function is only available in channel 0. The other c=
-hannels
-(1~7) is used hardwired TCP/IP stack.
-I was limited to the Ethernet function in this driver because hardwired=
- TCP/IP
-stack to use the TCP/IP stack in linux kernel be modified.
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 3b535db..2cb9226 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -395,5 +395,20 @@ mem_cgroup_print_bad_page(struct page *page)
+ }
+ #endif
+ 
++#ifdef CONFIG_INET
++struct sock;
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++void sock_update_memcg(struct sock *sk);
++void sock_release_memcg(struct sock *sk);
++
++#else
++static inline void sock_update_memcg(struct sock *sk)
++{
++}
++static inline void sock_release_memcg(struct sock *sk)
++{
++}
++#endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
++#endif /* CONFIG_INET */
+ #endif /* _LINUX_MEMCONTROL_H */
+ 
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 8e4062f..afe1467 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -228,6 +228,7 @@ struct sock_common {
+   *	@sk_security: used by security modules
+   *	@sk_mark: generic packet mark
+   *	@sk_classid: this socket's cgroup classid
++  *	@sk_cgrp: this socket's kernel memory (kmem) cgroup
+   *	@sk_write_pending: a write to stream socket waits to start
+   *	@sk_state_change: callback to indicate change in the state of the sock
+   *	@sk_data_ready: callback to indicate there is data to be processed
+@@ -339,6 +340,7 @@ struct sock {
+ #endif
+ 	__u32			sk_mark;
+ 	u32			sk_classid;
++	struct mem_cgroup	*sk_cgrp;
+ 	void			(*sk_state_change)(struct sock *sk);
+ 	void			(*sk_data_ready)(struct sock *sk, int bytes);
+ 	void			(*sk_write_space)(struct sock *sk);
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 8aaf4ce..08a520e 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -339,6 +339,39 @@ struct mem_cgroup {
+ 	spinlock_t pcp_counter_lock;
+ };
+ 
++/* Writing them here to avoid exposing memcg's inner layout */
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++#ifdef CONFIG_INET
++#include <net/sock.h>
++
++void sock_update_memcg(struct sock *sk)
++{
++	/* right now a socket spends its whole life in the same cgroup */
++	BUG_ON(sk->sk_cgrp);
++
++	rcu_read_lock();
++	sk->sk_cgrp = mem_cgroup_from_task(current);
++
++	/*
++	 * We don't need to protect against anything task-related, because
++	 * we are basically stuck with the sock pointer that won't change,
++	 * even if the task that originated the socket changes cgroups.
++	 *
++	 * What we do have to guarantee, is that the chain leading us to
++	 * the top level won't change under our noses. Incrementing the
++	 * reference count via cgroup_exclude_rmdir guarantees that.
++	 */
++	cgroup_exclude_rmdir(mem_cgroup_css(sk->sk_cgrp));
++	rcu_read_unlock();
++}
++
++void sock_release_memcg(struct sock *sk)
++{
++	cgroup_release_and_wakeup_rmdir(mem_cgroup_css(sk->sk_cgrp));
++}
++#endif /* CONFIG_INET */
++#endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
++
+ /* Stuffs for move charges at task migration. */
+ /*
+  * Types of charges to be moved. "move_charge_at_immitgrate" is treated as a
+diff --git a/net/core/sock.c b/net/core/sock.c
+index bc745d0..5426ba0 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -125,6 +125,7 @@
+ #include <net/xfrm.h>
+ #include <linux/ipsec.h>
+ #include <net/cls_cgroup.h>
++#include <linux/memcontrol.h>
+ 
+ #include <linux/filter.h>
+ 
+@@ -1141,6 +1142,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 		atomic_set(&sk->sk_wmem_alloc, 1);
+ 
+ 		sock_update_classid(sk);
++		sock_update_memcg(sk);
+ 	}
+ 
+ 	return sk;
+@@ -1172,6 +1174,7 @@ static void __sk_free(struct sock *sk)
+ 		put_cred(sk->sk_peer_cred);
+ 	put_pid(sk->sk_peer_pid);
+ 	put_net(sock_net(sk));
++	sock_release_memcg(sk);
+ 	sk_prot_free(sk->sk_prot_creator, sk);
+ }
+ 
+-- 
+1.7.6
 
->> + =C2=A0 =C2=A0 int s;
->> +
->> + =C2=A0 =C2=A0 isr =3D w5300_read(wp, IR);
->> +
->> + =C2=A0 =C2=A0 /* Completing all interrupts at a time. */
->> + =C2=A0 =C2=A0 while (isr) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 w5300_write(wp, IR, isr)=
-;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Finding the channel t=
-o create the interrupt */
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 s =3D find_first_bit(&is=
-r, sizeof(u16));
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ssr =3D w5300_read(wp, S=
-n_IR(s));
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* socket interrupt is c=
-leared. */
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 w5300_write(wp, Sn_IR(s)=
-, ssr);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 DPRINTK("%s: ISR =3D %X,=
- SSR =3D %X, s =3D %X\n",
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 __func__, isr, ssr, s);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (likely(!s)) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 if (ssr & Sn_IR_RECV) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* De-activation of interrupt */
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 w5300_interrupt_disable(wp, 0);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Receiving by polling method */
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 napi_schedule(&wp->napi);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 }
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Is there any interrup=
-t to be processed? */
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 isr =3D w5300_read(wp, I=
-R);
->> + =C2=A0 =C2=A0 }
->> +
->> + =C2=A0 =C2=A0 return IRQ_HANDLED;
->
-> The hardware implementation is supposed to enforce that the 'while' i=
-s
-> always entered, right ?
->
-
-If isr is 0, it is to ensure that the W5300 is received an interrupt re=
-sponses.
-You mean that there is a need to the loop exit routine. right?
-
-Thank you for your detailed feedback.
-
-I will rewrite the driver code by applied your feedback. When the work =
-is
-completed, I will suggest the rewritten driver code to this thread.
-
-Thank you.
-
-T.K.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
