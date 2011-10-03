@@ -1,31 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] pch_gbe: Fixed the issue on which a network freezes
-Date: Mon, 03 Oct 2011 14:25:59 -0400 (EDT)
-Message-ID: <20111003.142559.2285791137343264317.davem@davemloft.net>
-References: <1317022063-12143-1-git-send-email-toshiharu-linux@dsn.okisemi.com>
-	<1317022063-12143-2-git-send-email-toshiharu-linux@dsn.okisemi.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 2/2] virtio-net: Prevent NULL dereference
+Date: Mon, 3 Oct 2011 20:40:38 +0200
+Message-ID: <20111003184037.GA22427@redhat.com>
+References: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
+ <1317220855-9352-2-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, qi.wang@intel.com, yong.y.wang@intel.com,
-	joel.clark@intel.com, kok.howg.ewe@intel.com,
-	tomoya-linux@dsn.okisemi.com
-To: toshiharu-linux@dsn.okisemi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317022063-12143-2-git-send-email-toshiharu-linux@dsn.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1317220855-9352-2-git-send-email-levinsasha928@gmail.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Date: Mon, 26 Sep 2011 16:27:43 +0900
-
-> The pch_gbe driver has an issue which a network stops,
-> when receiving traffic is high.
-> In the case, The link down and up are necessary to return a network.
+On Wed, Sep 28, 2011 at 05:40:55PM +0300, Sasha Levin wrote:
+> This patch prevents a NULL dereference when the user has passed a length
+> longer than an actual buffer to virtio-net.
 > 
-> This patch fixed this issue.
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: virtualization@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
+> Cc: kvm@vger.kernel.org
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> ---
+>  drivers/net/virtio_net.c |   12 +++++++++++-
+>  1 files changed, 11 insertions(+), 1 deletions(-)
 > 
-> Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index bde0dec..4a53d2a 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -208,12 +208,22 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+>  		return NULL;
+>  	}
+>  
+> -	while (len) {
+> +	while (len && page) {
+>  		set_skb_frag(skb, page, offset, &len);
+>  		page = (struct page *)page->private;
+>  		offset = 0;
+>  	}
+>  
+> +	/*
+> +	 * This is the case where we ran out of pages in our linked list, but
+> +	 * supposedly have more data to read.
 
-Applied.
+Again, let's clarify that this only happens with broken devices.
+
+> +	 */	
+> +	if (len > 0) {
+> +		pr_debug("%s: missing data to assemble skb\n", skb->dev->name);
+> +		dev_kfree_skb(skb);
+> +		return NULL;
+> +	}
+> +
+>  	if (page)
+>  		give_pages(vi, page);
+>  
+> -- 
+> 1.7.6.1
