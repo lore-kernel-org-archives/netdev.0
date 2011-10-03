@@ -1,73 +1,43 @@
-From: venkatesh natarajan <venks@hp.com>
-Subject: Re: GTSM and TCP accept problem
-Date: Mon, 3 Oct 2011 01:46:51 +0000 (UTC)
-Message-ID: <loom.20111003T034624-148@post.gmane.org>
-References: <20100814214634.24a87715@s6510> <1281951825.2524.5.camel@edumazet-laptop> <20100818143913.1478acea@nehalam> <20100818.144837.179941999.davem@davemloft.net>
+From: matt d <mattjd@gmail.com>
+Subject: x25: remote-triggerable heap overflow in call user data processing
+Date: Mon, 3 Oct 2011 16:23:10 +1300
+Message-ID: <CA+nUz_K-mWFbFbSGKDFDGUufQmDA9+qW-0=1BDJ9QGe2Dxi-3w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:42250 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754887Ab1JCBzK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Oct 2011 21:55:10 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1RAXkJ-00052R-90
-	for netdev@vger.kernel.org; Mon, 03 Oct 2011 03:55:07 +0200
-Received: from bbnwebdproxy3.europe.hp.net ([15.195.185.83])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 03 Oct 2011 03:55:07 +0200
-Received: from venks by bbnwebdproxy3.europe.hp.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 03 Oct 2011 03:55:07 +0200
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:41539 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754887Ab1JCDXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Oct 2011 23:23:10 -0400
+Received: by gyg10 with SMTP id 10so2995478gyg.19
+        for <netdev@vger.kernel.org>; Sun, 02 Oct 2011 20:23:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem <at> davemloft.net> writes:
+Refer to the x25 packet layer's handling of incoming call user data,
+namely at these two locations, in x25_rx_call_request and
+x25_state1_machine:
+https://github.com/mirrors/linux/blob/master/net/x25/af_x25.c#L1039
+https://github.com/mirrors/linux/blob/master/net/x25/x25_in.c#L126
 
-> 
-> From: Stephen Hemminger <shemminger <at> vyatta.com>
-> Date: Wed, 18 Aug 2010 14:39:13 -0700
-> 
-> > On Mon, 16 Aug 2010 11:43:45 +0200
-> > Eric Dumazet <eric.dumazet <at> gmail.com> wrote:
-> > 
-> >> Another idea would be to store the TTL of the SYN packet (or third
-> >> packet) and let application read it after accept(), allowing it to
-> >> reject the connection if it doesnt match expected TTL.
-> > 
-> > could be in tcp_info?
-> 
-> I'm sure we can squeeze a byte out of there 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo <at> vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Call user data from an incoming message is copied into
+(make)x25->calluserdata.cuddata buffers, which are 128 bytes long.
+However, the length copied is based on the remaining message length,
+and is not limited to the output buffer size. This allows a remote
+attacker to overflow data onto the heap.
 
+There is an appropriate constant defined for the length, but it
+seemingly isn't used there:
+https://github.com/mirrors/linux/blob/master/include/net/x25.h#L104
 
-I am facing the same issue with the implementation of GTSM for BGP. Typically 
-the outbound TTL value set is 64. With min_ttl implementaion we set the outbound 
-TTL value of 255 by default. So all bgp speakers will send out 255 in their 
-connect SYN packets. Lets say we configure the min_ttl of 254 on the listen 
-socket then it will allow only those peers that are 2 hops away to connect 
-(Which is correct for eBGP Peers) but it will also filter out legitimate connect 
-SYN packets that come from iBGP peers that are more than 2 hops away (Which I 
-feel is a unexpected behavior). 
+It seems this issue was noticed some time ago:
+http://www.spinics.net/lists/linux-x25/msg00043.html
+http://patchwork.ozlabs.org/patch/23917/
+...however nothing was done about the bigger problem.
 
-How can accept check for iBGP peers and not check for the MIN_TTL. I feel this 
-could be done only by pushing the iBGP Peer ip-address information to accept so 
-that it can bypass MIN_TTL Checks for them.
+I have written a simple exploit for this vulnerability if it needs to
+be posted, however I think the problem is pretty straightforward to
+see as-is.
 
-If I apply the MIN_TTL setsockopt on the accepted socket (Instead of seting it 
-on the listen socket) then I open up the port for DOS attack at the tcp level by 
-allowing attackers to establish connection and repeatedly..
-
-Have I understood the problem correctly or have gone off-tangent on this.
-
-Thanks
-Venks
+- Matthew Daley
