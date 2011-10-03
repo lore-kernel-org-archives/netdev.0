@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] RPS: Ensure that an expired hardware filter
- can be re-added later
-Date: Mon, 03 Oct 2011 12:14:54 -0400 (EDT)
-Message-ID: <20111003.121454.1901988100913775562.davem@davemloft.net>
-References: <1317652966.2847.0.camel@bwh-desktop>
+Subject: Re: [PATCH net-next-2.6] be2net: Add 60 second delay to allow FAT
+ dump completion on recovery from EEH
+Date: Mon, 03 Oct 2011 12:15:04 -0400 (EDT)
+Message-ID: <20111003.121504.1168096803076705686.davem@davemloft.net>
+References: <5bb8f639-e754-4e08-8b7b-9830a57e4826@exht2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	amirv@dev.mellanox.co.il
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53739 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:53742 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853Ab1JCQPC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 12:15:02 -0400
-In-Reply-To: <1317652966.2847.0.camel@bwh-desktop>
+	with ESMTP id S1751853Ab1JCQPJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 12:15:09 -0400
+In-Reply-To: <5bb8f639-e754-4e08-8b7b-9830a57e4826@exht2.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 03 Oct 2011 15:42:46 +0100
+From: Somnath Kotur <somnath.kotur@Emulex.Com>
+Date: Mon, 3 Oct 2011 23:40:57 +0530
 
-> Amir Vadai wrote:
->> When a stream is paused, and its rule is expired while it is paused,
->> no new rule will be configured to the HW when traffic resume.
-> [...]
->> - When stream was resumed, traffic was steered again by RSS, and
->> because current-cpu was equal to desired-cpu,  ndo_rx_flow_steer
->> wasn't called and no rule was configured to the HW.
+> Add 60s delay before timeout on polling Bit 31 so that FAT dump can
+> complete when reset occurs.
 > 
-> Fix this by setting the flow's current CPU only in the table for the
-> newly selected RX queue.
-> 
-> Reported-and-tested-by: Amir Vadai <amirv@dev.mellanox.co.il>
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 
-Applied, thanks.
+Applied.
