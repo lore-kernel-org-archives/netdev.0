@@ -1,120 +1,72 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v4 2/8] socket: initial cgroup code.
-Date: Mon, 3 Oct 2011 15:03:35 +0400
-Message-ID: <4E899687.8010607@parallels.com>
-References: <1317637123-18306-1-git-send-email-glommer@parallels.com> <1317637123-18306-3-git-send-email-glommer@parallels.com> <20111003104733.GB29312@shutemov.name> <4E8992EF.30001@parallels.com> <20111003110230.GC29312@shutemov.name>
+From: William Thompson <wt@electro-mechanical.com>
+Subject: Re: Network problem with bridge and virtualbox
+Date: Mon, 3 Oct 2011 07:30:44 -0400
+Message-ID: <20111003113044.GR19871@electro-mechanical.com>
+References: <20110929124941.GA16567@electro-mechanical.com>
+ <20110930171839.2893bfa6@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
-	<lizf@cn.fujitsu.com>, <kamezawa.hiroyu@jp.fujitsu.com>,
-	<ebiederm@xmission.com>, <davem@davemloft.net>,
-	<gthelen@google.com>, <netdev@vger.kernel.org>,
-	<linux-mm@kvack.org>, <avagin@parallels.com>
-To: "Kirill A. Shutemov" <kirill@shutemov.name>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111003110230.GC29312@shutemov.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.electro-mechanical.com ([216.184.71.30]:57843 "EHLO
+	mail.electro-mechanical.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755084Ab1JCLau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 07:30:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20110930171839.2893bfa6@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/03/2011 03:02 PM, Kirill A. Shutemov wrote:
-> On Mon, Oct 03, 2011 at 02:48:15PM +0400, Glauber Costa wrote:
->> On 10/03/2011 02:47 PM, Kirill A. Shutemov wrote:
->>> On Mon, Oct 03, 2011 at 02:18:37PM +0400, Glauber Costa wrote:
->>>> We aim to control the amount of kernel memory pinned at any
->>>> time by tcp sockets. To lay the foundations for this work,
->>>> this patch adds a pointer to the kmem_cgroup to the socket
->>>> structure.
->>>>
->>>> Signed-off-by: Glauber Costa<glommer@parallels.com>
->>>> CC: David S. Miller<davem@davemloft.net>
->>>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
->>>> CC: Eric W. Biederman<ebiederm@xmission.com>
->>>> ---
->>>>    include/linux/memcontrol.h |   15 +++++++++++++++
->>>>    include/net/sock.h         |    2 ++
->>>>    mm/memcontrol.c            |   33 +++++++++++++++++++++++++++++++++
->>>>    net/core/sock.c            |    3 +++
->>>>    4 files changed, 53 insertions(+), 0 deletions(-)
->>>>
->>>> diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
->>>> index 3b535db..2cb9226 100644
->>>> --- a/include/linux/memcontrol.h
->>>> +++ b/include/linux/memcontrol.h
->>>> @@ -395,5 +395,20 @@ mem_cgroup_print_bad_page(struct page *page)
->>>>    }
->>>>    #endif
->>>>
->>>> +#ifdef CONFIG_INET
->>>> +struct sock;
->>>> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
->>>> +void sock_update_memcg(struct sock *sk);
->>>> +void sock_release_memcg(struct sock *sk);
->>>> +
->>>> +#else
->>>> +static inline void sock_update_memcg(struct sock *sk)
->>>> +{
->>>> +}
->>>> +static inline void sock_release_memcg(struct sock *sk)
->>>> +{
->>>> +}
->>>> +#endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
->>>> +#endif /* CONFIG_INET */
->>>>    #endif /* _LINUX_MEMCONTROL_H */
->>>>
->>>> diff --git a/include/net/sock.h b/include/net/sock.h
->>>> index 8e4062f..afe1467 100644
->>>> --- a/include/net/sock.h
->>>> +++ b/include/net/sock.h
->>>> @@ -228,6 +228,7 @@ struct sock_common {
->>>>      *	@sk_security: used by security modules
->>>>      *	@sk_mark: generic packet mark
->>>>      *	@sk_classid: this socket's cgroup classid
->>>> +  *	@sk_cgrp: this socket's kernel memory (kmem) cgroup
->>>>      *	@sk_write_pending: a write to stream socket waits to start
->>>>      *	@sk_state_change: callback to indicate change in the state of the sock
->>>>      *	@sk_data_ready: callback to indicate there is data to be processed
->>>> @@ -339,6 +340,7 @@ struct sock {
->>>>    #endif
->>>>    	__u32			sk_mark;
->>>>    	u32			sk_classid;
->>>> +	struct mem_cgroup	*sk_cgrp;
->>>>    	void			(*sk_state_change)(struct sock *sk);
->>>>    	void			(*sk_data_ready)(struct sock *sk, int bytes);
->>>>    	void			(*sk_write_space)(struct sock *sk);
->>>> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
->>>> index 8aaf4ce..08a520e 100644
->>>> --- a/mm/memcontrol.c
->>>> +++ b/mm/memcontrol.c
->>>> @@ -339,6 +339,39 @@ struct mem_cgroup {
->>>>    	spinlock_t pcp_counter_lock;
->>>>    };
->>>>
->>>> +/* Writing them here to avoid exposing memcg's inner layout */
->>>> +#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
->>>> +#ifdef CONFIG_INET
->>>> +#include<net/sock.h>
->>>> +
->>>> +void sock_update_memcg(struct sock *sk)
->>>> +{
->>>> +	/* right now a socket spends its whole life in the same cgroup */
->>>> +	BUG_ON(sk->sk_cgrp);
->>>
->>> Do we really want to panic in this case?
->>>
->>> What about WARN() + return?
->>
->> Kirill,
->>
->> I am keeping this code just to have something workable in between.
->> If you take a look at the last patch, this hunk is going away anyway.
->>
->> So if you don't oppose it, I'll just keep it to avoid rebasing it.
->
-> Sorry, but I don't see where you remove BUG_ON().
-> You remove only cgroup_exclude_rmdir().
->
-Oh yeah, you are right, sorry.
+On Fri, Sep 30, 2011 at 05:18:39PM -0700, Stephen Hemminger wrote:
+> On Thu, 29 Sep 2011 08:49:41 -0400
+> William Thompson <wt@electro-mechanical.com> wrote:
+> 
+> > Please keep me in the CC as I am not subscribed.
+> > 
+> > I'm using a 64-bit kernel 3.0.0 and virtualbox 4.1.2.
+> > 
+> > My problem is that I cannot ping the host from a virtual machine.
+> > 
+> > My bridge is configured as follows:
+> > # brctl addbr br0
+> > # brctl setfd br0 0
+> > # brctl stp br0 off
+> > # ifconfig br0 10.2.3.1 netmask 255.255.255.0
+> > 
+> > In the virtual machine, it is set to use br0 as it's interface (bridge mode)
+> > and it's IP is 10.2.3.10.
+> > 
+> > The host gets packets from the vm, but the vm does not receive packets back. 
+> > 
+> > I have this same setup working on a 32-bit kernel 2.6.38.6 on another
+> > machine with virtualbox 4.0.4.
+> > 
+> > I had a thought that the bridge on the host wasn't responding due to having
+> > no ports configured so I added one of my spare ethernet cards to it as
+> > follows:
+> > # brctl addif br0 eth1
+> > # ifconfig eth1 up
+> > 
+> > The card was plugged into a switch.  After doing this, the vm still could not
+> > talk to the host.  I added a physical machine to the switch that eth1 was
+> > connected to and configured it to 10.2.3.2.  I was able to ping 10.2.3.2 but
+> > not 10.2.3.1
+> 
+> Did you add any interface to the bridge?
 
-So, I guess some kind of check is sane here. I am happy to change it to 
-WARN_ON.
+Initially, no.
+
+> I think you were bit by the change in carrier behavior. No carrier on the
+> bridge interface tracks the union of the devices in the bridge.
+> Several people have been using bridge in strange way (as a dummy device)
+> with no physical interfaces and some applications are checking for carrier.
+
+That's how I have been using it.
+
+Using it as a dummy, ie no interfaces added to the bridge, on 3.0.0 I was
+unable to communicate with the host from the VM.  I added eth1 to it.  This
+has a link to a physical network.  I assigned IPs to the host and the VM to
+be on the same network that eth1 was attached.  From the VM I could
+communicate with devices on the physical network but not the host.  The host
+could also communicate with the other devices.
