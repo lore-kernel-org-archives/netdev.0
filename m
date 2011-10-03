@@ -1,67 +1,101 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: Re: x25: remote-triggerable heap overflow in call user data processing
-Date: Mon, 3 Oct 2011 17:51:53 +1100
-Message-ID: <CADo0ohj-CJs9qCz9=LNCrGwduREVK54qUfTqTM+hXDWMATT9Zg@mail.gmail.com>
-References: <CA+nUz_K-mWFbFbSGKDFDGUufQmDA9+qW-0=1BDJ9QGe2Dxi-3w@mail.gmail.com>
-	<1317620731.3802.50.camel@edumazet-laptop>
+From: Taehun Kim <kth3321@gmail.com>
+Subject: Re: [PATCH] w5300: add WIZnet W5300 Ethernet driver
+Date: Mon, 3 Oct 2011 18:15:54 +0900
+Message-ID: <CAOkfWjfujtrFLd8HFLVC_jAQ98o8BkZNg0zGSbceFoTt9Cw6fg@mail.gmail.com>
+References: <1316261666-28555-1-git-send-email-kth3321@gmail.com>
+	<CAOkfWjcHxh60D9KvxLfgL0tw9XdPyDN9xr7q+9V+nM6B6g8tDA@mail.gmail.com>
+	<20110927174523.GA12600@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: matt d <mattjd@gmail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:41876 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894Ab1JCGvy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 02:51:54 -0400
-Received: by vws1 with SMTP id 1so2504451vws.19
-        for <netdev@vger.kernel.org>; Sun, 02 Oct 2011 23:51:54 -0700 (PDT)
-In-Reply-To: <1317620731.3802.50.camel@edumazet-laptop>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:55363 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752639Ab1JCJPz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 05:15:55 -0400
+In-Reply-To: <20110927174523.GA12600@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-x25_in.c looks straightforward.
-with af_x25.c we might want to move the incoming call user data check
-before the call accept block above.
-Otherwise it could send call accept/call clear right next to each
-other and it might get bad state
+2011/9/28 Francois Romieu <romieu@fr.zoreil.com>:
 
-On Mon, Oct 3, 2011 at 4:45 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le lundi 03 octobre 2011 =E0 16:23 +1300, matt d a =E9crit :
->> Refer to the x25 packet layer's handling of incoming call user data,
->> namely at these two locations, in x25_rx_call_request and
->> x25_state1_machine:
->> https://github.com/mirrors/linux/blob/master/net/x25/af_x25.c#L1039
->> https://github.com/mirrors/linux/blob/master/net/x25/x25_in.c#L126
->>
->> Call user data from an incoming message is copied into
->> (make)x25->calluserdata.cuddata buffers, which are 128 bytes long.
->> However, the length copied is based on the remaining message length,
->> and is not limited to the output buffer size. This allows a remote
->> attacker to overflow data onto the heap.
->>
->> There is an appropriate constant defined for the length, but it
->> seemingly isn't used there:
->> https://github.com/mirrors/linux/blob/master/include/net/x25.h#L104
->>
->> It seems this issue was noticed some time ago:
->> http://www.spinics.net/lists/linux-x25/msg00043.html
->> http://patchwork.ozlabs.org/patch/23917/
->> ...however nothing was done about the bigger problem.
->>
->> I have written a simple exploit for this vulnerability if it needs t=
-o
->> be posted, however I think the problem is pretty straightforward to
->> see as-is.
+>> +/* Opening channels of W5300 */
+>> +static int
+>> +w5300_open(struct wiz_private *wp, u32 type)
 >
-> Please send a patch, it seems you have everything done to do it
-> properly ;)
+> Name it w5300_channel_open or more adequately w5300_channel_0_open
+> as it is hardwired to channel 0 ?
+
+The W5300 Ethernet function is only available in channel 0. The other c=
+hannels
+(1~7) is used hardwired TCP/IP stack.
+I was limited to the Ethernet function in this driver because hardwired=
+ TCP/IP
+stack to use the TCP/IP stack in linux kernel be modified.
+
+>> + =C2=A0 =C2=A0 int s;
+>> +
+>> + =C2=A0 =C2=A0 isr =3D w5300_read(wp, IR);
+>> +
+>> + =C2=A0 =C2=A0 /* Completing all interrupts at a time. */
+>> + =C2=A0 =C2=A0 while (isr) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 w5300_write(wp, IR, isr)=
+;
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Finding the channel t=
+o create the interrupt */
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 s =3D find_first_bit(&is=
+r, sizeof(u16));
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ssr =3D w5300_read(wp, S=
+n_IR(s));
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* socket interrupt is c=
+leared. */
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 w5300_write(wp, Sn_IR(s)=
+, ssr);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 DPRINTK("%s: ISR =3D %X,=
+ SSR =3D %X, s =3D %X\n",
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 __func__, isr, ssr, s);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (likely(!s)) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 if (ssr & Sn_IR_RECV) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* De-activation of interrupt */
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 w5300_interrupt_disable(wp, 0);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Receiving by polling method */
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 napi_schedule(&wp->napi);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 }
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Is there any interrup=
+t to be processed? */
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 isr =3D w5300_read(wp, I=
+R);
+>> + =C2=A0 =C2=A0 }
+>> +
+>> + =C2=A0 =C2=A0 return IRQ_HANDLED;
 >
+> The hardware implementation is supposed to enforce that the 'while' i=
+s
+> always entered, right ?
 >
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+
+If isr is 0, it is to ensure that the W5300 is received an interrupt re=
+sponses.
+You mean that there is a need to the loop exit routine. right?
+
+Thank you for your detailed feedback.
+
+I will rewrite the driver code by applied your feedback. When the work =
+is
+completed, I will suggest the rewritten driver code to this thread.
+
+Thank you.
+
+T.K.
