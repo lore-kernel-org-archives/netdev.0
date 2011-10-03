@@ -1,102 +1,36 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next 11/11 v2] ixgbe: allow eeprom writes via ethtool
-Date: Mon, 3 Oct 2011 11:00:10 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A136605A8FCB18@rrsmsx501.amr.corp.intel.com>
-References: <1317444771-13962-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1317444771-13962-2-git-send-email-jeffrey.t.kirsher@intel.com>
- <20111001093105.GA9885@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch v2] caif: add error handling for allocation
+Date: Mon, 03 Oct 2011 13:46:11 -0400 (EDT)
+Message-ID: <20111003.134611.1100932218414818334.davem@davemloft.net>
+References: <CAJK669Yb6V=xr9ZvQGOKGEvmzO1JGhrHD+sR69b04EQxUjOOrQ@mail.gmail.com>
+	<20110921072159.GJ4999@elgon.mountain>
+	<81C3A93C17462B4BBD7E272753C105791D2BC1882D@EXDCVYMBSTM005.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47112 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756935Ab1JCRAM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 13:00:12 -0400
-In-Reply-To: <20111001093105.GA9885@electric-eye.fr.zoreil.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:50127 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932244Ab1JCRqT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 13:46:19 -0400
+In-Reply-To: <81C3A93C17462B4BBD7E272753C105791D2BC1882D@EXDCVYMBSTM005.EQ1STM.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Francois Romieu [mailto:romieu@fr.zoreil.com]
->Sent: Saturday, October 01, 2011 2:31 AM
->To: Kirsher, Jeffrey T
->Cc: davem@davemloft.net; Tantilov, Emil S; netdev@vger.kernel.org;
->gospo@redhat.com
->Subject: Re: [net-next 11/11 v2] ixgbe: allow eeprom writes via ethtool
->
->Jeff Kirsher <jeffrey.t.kirsher@intel.com> :
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
->b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
->> index 10ea29f..fb47abb 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
->> @@ -812,6 +812,66 @@ static int ixgbe_get_eeprom(struct net_device
->*netdev,
->[...]
->> +	ptr = (void *)eeprom_buff;
->
->(nit) useless cast to void *.
->
->> +
->> +	if (eeprom->offset & 1) {
->[...]
->> +		ret_val = hw->eeprom.ops.read(hw, first_word, &eeprom_buff[0]);
->> +		ptr++;
->> +	}
->> +	if (((eeprom->offset + eeprom->len) & 1) && (ret_val == 0)) {
->[...]
->> +		ret_val = hw->eeprom.ops.read(hw, last_word,
->> +					  &eeprom_buff[last_word - first_word]);
->> +	}
->
->I guess that the code tries to do its best to write something even when the
->reads or writes partially fail but this one should imho be :
+=46rom: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
+Date: Fri, 23 Sep 2011 12:38:45 +0200
 
-Actually we shouldn't be writing if any of the eeprom read operations fail. I will revisit the error checking logic.
+> [Dan]:=20
+>> The allocation of "phyinfo" wasn't checked, and also the allocation
+>> wasn't freed on error paths.  Sjur Br=E6ndeland pointed out as well
+>> that "phy_driver" should be freed on the error path too.
+>>=20
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>=20
+> Looks good, thank you Dan.
+> Acked-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
 
->
->	if ((eeprom->offset + eeprom->len) & 1) {
->[...]
->		ret_val |= hw->eeprom.ops.read(hw, last_word,
->
->> +
->> +	/* Device's eeprom is always little-endian, word addressable */
->> +	for (i = 0; i < last_word - first_word + 1; i++)
->> +		le16_to_cpus(&eeprom_buff[i]);
->
->Shouldn't there be (drivers/net/ethernet/intel/ixgbe/ixgbe_type.h):
->
->struct ixgbe_eeprom_operations {
->[...]
->        s32 (*read)(struct ixgbe_hw *, u16, __le16 *);
->
->instead of :
->
->struct ixgbe_eeprom_operations {
->[...]
->        s32 (*read)(struct ixgbe_hw *, u16, u16 *);
->
->[...]
-
-That's a good idea.
-
->> +	/* Update the checksum */
->> +	hw->eeprom.ops.update_checksum(hw);
->
->The returned status code is ignored.
-
-Thanks for the review. I already asked Jeff to drop this patch, we'll address the issues pointed out and submit a new version.
-
-Thanks,
-Emil
-
->
->--
->Ueimor
+Applied, thanks.
