@@ -1,66 +1,48 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 2/2] virtio-net: Prevent NULL dereference
-Date: Mon, 3 Oct 2011 20:40:38 +0200
-Message-ID: <20111003184037.GA22427@redhat.com>
+Subject: Re: [PATCH v2 1/2] virtio-net: Verify page list size before fitting
+ into skb
+Date: Mon, 3 Oct 2011 20:42:57 +0200
+Message-ID: <20111003184257.GB22427@redhat.com>
 References: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
- <1317220855-9352-2-git-send-email-levinsasha928@gmail.com>
+ <20111003.141951.1122469843900651595.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
+Cc: levinsasha928@gmail.com, linux-kernel@vger.kernel.org,
+	rusty@rustcorp.com.au, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1317220855-9352-2-git-send-email-levinsasha928@gmail.com>
+In-Reply-To: <20111003.141951.1122469843900651595.davem@davemloft.net>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 28, 2011 at 05:40:55PM +0300, Sasha Levin wrote:
-> This patch prevents a NULL dereference when the user has passed a length
-> longer than an actual buffer to virtio-net.
+On Mon, Oct 03, 2011 at 02:19:51PM -0400, David Miller wrote:
+> From: Sasha Levin <levinsasha928@gmail.com>
+> Date: Wed, 28 Sep 2011 17:40:54 +0300
 > 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: virtualization@lists.linux-foundation.org
-> Cc: netdev@vger.kernel.org
-> Cc: kvm@vger.kernel.org
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> ---
->  drivers/net/virtio_net.c |   12 +++++++++++-
->  1 files changed, 11 insertions(+), 1 deletions(-)
+> > This patch verifies that the length of a buffer stored in a linked list
+> > of pages is small enough to fit into a skb.
+> > 
+> > If the size is larger than a max size of a skb, it means that we shouldn't
+> > go ahead building skbs anyway since we won't be able to send the buffer as
+> > the user requested.
+> > 
+> > Cc: Rusty Russell <rusty@rustcorp.com.au>
+> > Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> > Cc: virtualization@lists.linux-foundation.org
+> > Cc: netdev@vger.kernel.org
+> > Cc: kvm@vger.kernel.org
+> > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index bde0dec..4a53d2a 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -208,12 +208,22 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
->  		return NULL;
->  	}
->  
-> -	while (len) {
-> +	while (len && page) {
->  		set_skb_frag(skb, page, offset, &len);
->  		page = (struct page *)page->private;
->  		offset = 0;
->  	}
->  
-> +	/*
-> +	 * This is the case where we ran out of pages in our linked list, but
-> +	 * supposedly have more data to read.
+> Michael, tell me what's happening with these two virtio-net bug fixes.
+> 
+> Thanks.
 
-Again, let's clarify that this only happens with broken devices.
+Thanks for the reminder.
+They are more enhancements than bugfixes, in that both help debug buggy
+hypervisors. So net-next material.
+Patch 1 is ok patch 2 would benefit from a slightly clearer comment.
 
-> +	 */	
-> +	if (len > 0) {
-> +		pr_debug("%s: missing data to assemble skb\n", skb->dev->name);
-> +		dev_kfree_skb(skb);
-> +		return NULL;
-> +	}
-> +
->  	if (page)
->  		give_pages(vi, page);
->  
-> -- 
-> 1.7.6.1
+-- 
+MST
