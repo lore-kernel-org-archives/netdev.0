@@ -1,109 +1,79 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [PATCH] mlx4_en: fix transmit of packages when blue frame is
- enabled
-Date: Mon, 3 Oct 2011 11:37:21 -0300
-Message-ID: <20111003143721.GA3596@oc1711230544.ibm.com>
-References: <1317388995-411-1-git-send-email-cascardo@linux.vnet.ibm.com>
- <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next] RPS: Ensure that an expired hardware filter can
+ be re-added later
+Date: Mon, 03 Oct 2011 15:42:46 +0100
+Message-ID: <1317652966.2847.0.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Amir Vadai <amirv@dev.mellanox.co.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp02.br.ibm.com ([32.104.18.86]:58678 "EHLO
-	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754496Ab1JCOhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 10:37:40 -0400
-Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
-	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id p93BbL2b023971
-	for <netdev@vger.kernel.org>; Mon, 3 Oct 2011 08:37:21 -0300
-Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
-	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p93Eeok0631070
-	for <netdev@vger.kernel.org>; Mon, 3 Oct 2011 11:40:53 -0300
-Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
-	by d24av03.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p93EbYla026160
-	for <netdev@vger.kernel.org>; Mon, 3 Oct 2011 11:37:34 -0300
-Content-Disposition: inline
-In-Reply-To: <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
+Received: from mail.solarflare.com ([216.237.3.220]:32974 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753529Ab1JCOmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 10:42:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 02, 2011 at 08:58:21AM +0000, Yevgeny Petrilin wrote:
-> 
-> > With the addition of Blue Frame support in the network driver for mlx4, the doorbell is not written in the path where blue frame is enabled and the package follows some characteristics.
-> > 
-> > The consequence of that is that ICMP ECHO requests, for example, were not transmitted by the device. A ping flood, for example, would make the
-> > watchdog dispatch, because the ring was full and transmissions have timed out.
-> > 
-> > After this fix, I could ping two systems using mlx4_en (both with the fix).
-> > 
-> > Signed-off-by: Thadeu Lima de Souza Cascardo
-> > <cascardo@linux.vnet.ibm.com>
-> > Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> > ---
-> >  drivers/net/ethernet/mellanox/mlx4/en_tx.c |    5 +++--
-> >  1 files changed, 3 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> > b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> > index 6e03de0..270da80 100644
-> > --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> > @@ -811,10 +811,11 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb,
-> > struct net_device *dev)
-> >  		* before setting ownership of this descriptor to HW */
-> >  		wmb();
-> >  		tx_desc->ctrl.owner_opcode = op_own;
-> > -		wmb();
-> > -		writel(ring->doorbell_qpn, ring->bf.uar->map + MLX4_SEND_DOORBELL);
-> >  	}
-> > 
-> > +	wmb();
-> > +	writel(ring->doorbell_qpn, ring->bf.uar->map + MLX4_SEND_DOORBELL);
-> > +
-> >  	/* Poll CQ here */
-> >  	mlx4_en_xmit_poll(priv, tx_ind);
-> > 
-> > --
-> > 1.7.4.4
-> 
-> What this patch does is ringing the doorbell unconditionally, whether blue flame is used or not.
-> The whole idea, is to copy the data to the blueflame register and have the HW take the data from there and save the memory access to the work queue entry.
-> In this patch you do both, copy the data to the register, and then still the HW accesses the memory to take it.
-> For some reason Blue flame is not working on your system and we need to understand why, I'll be glad to work with you to debug it.
-> Anyway, this patch is not the solution (even that it works on your systems) for the problem.
-> 
-> Yevgeny
+Amir Vadai wrote:
+> When a stream is paused, and its rule is expired while it is paused,
+> no new rule will be configured to the HW when traffic resume.
+[...]
+> - When stream was resumed, traffic was steered again by RSS, and
+> because current-cpu was equal to desired-cpu,  ndo_rx_flow_steer
+> wasn't called and no rule was configured to the HW.
 
-Hello, Yevgeny.
+Fix this by setting the flow's current CPU only in the table for the
+newly selected RX queue.
 
-We use a MT26448 (lspci -v output bellow) on a POWER7. Any other
-information, tests or debug patches you want me to try, just tell me.
-
-I expected this was really not the proper fix, but thought it would be
-better to send it than just guess. Any clues what the problem might be?
-Perhaps, we would have to disable blue frame for this particular device?
-
-Regards,
-Cascardo.
-
+Reported-and-tested-by: Amir Vadai <amirv@dev.mellanox.co.il>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-lspci output
-0006:01:00.0 Ethernet controller: Mellanox Technologies MT26448 [ConnectX EN 10GigE, PCIe 2.0 5GT/s] (rev b0)
----
-lspci -v output
-0006:01:00.0 0200: 15b3:6750 (rev b0)
-        Subsystem: 1014:0416
-        Flags: bus master, fast devsel, latency 0, IRQ 31
-        Memory at 3da47be00000 (64-bit, non-prefetchable) [size=1M]
-        Memory at 3da47c000000 (64-bit, prefetchable) [size=32M]
-        Expansion ROM at 3da47bf00000 [disabled] [size=1M]
-        Capabilities: [40] Power Management version 3
-        Capabilities: [48] Vital Product Data
-        Capabilities: [9c] MSI-X: Enable+ Count=128 Masked-
-        Capabilities: [60] Express Endpoint, MSI 00
-        Capabilities: [100] Alternative Routing-ID Interpretation (ARI)
-        Capabilities: [148] Device Serial Number 00-02-c9-03-00-0f-50-be
-        Kernel driver in use: mlx4_core
-        Kernel modules: mlx4_en, mlx4_core
----
+ net/core/dev.c |    9 +++------
+ 1 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7f4486e..70ecb86 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2670,10 +2670,7 @@ static struct rps_dev_flow *
+ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 	    struct rps_dev_flow *rflow, u16 next_cpu)
+ {
+-	u16 tcpu;
+-
+-	tcpu = rflow->cpu = next_cpu;
+-	if (tcpu != RPS_NO_CPU) {
++	if (next_cpu != RPS_NO_CPU) {
+ #ifdef CONFIG_RFS_ACCEL
+ 		struct netdev_rx_queue *rxqueue;
+ 		struct rps_dev_flow_table *flow_table;
+@@ -2701,16 +2698,16 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 			goto out;
+ 		old_rflow = rflow;
+ 		rflow = &flow_table->flows[flow_id];
+-		rflow->cpu = next_cpu;
+ 		rflow->filter = rc;
+ 		if (old_rflow->filter == rflow->filter)
+ 			old_rflow->filter = RPS_NO_FILTER;
+ 	out:
+ #endif
+ 		rflow->last_qtail =
+-			per_cpu(softnet_data, tcpu).input_queue_head;
++			per_cpu(softnet_data, next_cpu).input_queue_head;
+ 	}
+ 
++	rflow->cpu = next_cpu;
+ 	return rflow;
+ }
+ 
+-- 
+1.7.4.4
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
