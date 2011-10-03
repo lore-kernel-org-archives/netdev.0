@@ -1,72 +1,64 @@
-From: William Thompson <wt@electro-mechanical.com>
-Subject: Re: Network problem with bridge and virtualbox
-Date: Mon, 3 Oct 2011 07:30:44 -0400
-Message-ID: <20111003113044.GR19871@electro-mechanical.com>
-References: <20110929124941.GA16567@electro-mechanical.com>
- <20110930171839.2893bfa6@nehalam.linuxnetplumber.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [RFC patch net-next-2.6] net: introduce ethernet teaming device
+Date: Mon, 3 Oct 2011 13:37:06 +0200
+Message-ID: <20111003113705.GC2140@minipsycho.brq.redhat.com>
+References: <1317386643-3041-1-git-send-email-jpirko@redhat.com>
+ <CAEP_g=8uJnngfKJRGLLnd8U7M9aJTfOSUheB62-O7OX6Ud0DLw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
+	kaber@trash.net, greearb@candelatech.com
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.electro-mechanical.com ([216.184.71.30]:57843 "EHLO
-	mail.electro-mechanical.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755084Ab1JCLau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 07:30:50 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:40040 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752520Ab1JCLhs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Oct 2011 07:37:48 -0400
 Content-Disposition: inline
-In-Reply-To: <20110930171839.2893bfa6@nehalam.linuxnetplumber.net>
+In-Reply-To: <CAEP_g=8uJnngfKJRGLLnd8U7M9aJTfOSUheB62-O7OX6Ud0DLw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 30, 2011 at 05:18:39PM -0700, Stephen Hemminger wrote:
-> On Thu, 29 Sep 2011 08:49:41 -0400
-> William Thompson <wt@electro-mechanical.com> wrote:
-> 
-> > Please keep me in the CC as I am not subscribed.
-> > 
-> > I'm using a 64-bit kernel 3.0.0 and virtualbox 4.1.2.
-> > 
-> > My problem is that I cannot ping the host from a virtual machine.
-> > 
-> > My bridge is configured as follows:
-> > # brctl addbr br0
-> > # brctl setfd br0 0
-> > # brctl stp br0 off
-> > # ifconfig br0 10.2.3.1 netmask 255.255.255.0
-> > 
-> > In the virtual machine, it is set to use br0 as it's interface (bridge mode)
-> > and it's IP is 10.2.3.10.
-> > 
-> > The host gets packets from the vm, but the vm does not receive packets back. 
-> > 
-> > I have this same setup working on a 32-bit kernel 2.6.38.6 on another
-> > machine with virtualbox 4.0.4.
-> > 
-> > I had a thought that the bridge on the host wasn't responding due to having
-> > no ports configured so I added one of my spare ethernet cards to it as
-> > follows:
-> > # brctl addif br0 eth1
-> > # ifconfig eth1 up
-> > 
-> > The card was plugged into a switch.  After doing this, the vm still could not
-> > talk to the host.  I added a physical machine to the switch that eth1 was
-> > connected to and configured it to 10.2.3.2.  I was able to ping 10.2.3.2 but
-> > not 10.2.3.1
-> 
-> Did you add any interface to the bridge?
+Sat, Oct 01, 2011 at 08:15:01PM CEST, jesse@nicira.com wrote:
+>On Fri, Sep 30, 2011 at 5:44 AM, Jiri Pirko <jpirko@redhat.com> wrote:
+>> This patch introduces new network device called team. It supposes to be
+>> very fast, simple, userspace-driven parallel to existing bonding device.
+>> Userspace library called libteam with couple of demo apps is available
+>> here:
+>> https://github.com/jpirko/libteam
+>> Note it's still in its dipers atm.
+>>
+>> team<->libteam use generic netlink for communication. That and rtnl
+>> suppose to be the only way to configure team device, no sysfs etc.
+>>
+>> In near future python binding for libteam will be introduced. Also
+>> daemon providing arpmon/miimon active-backup functionality will
+>> be introduced. All what's necessary is already implemented in kernel team
+>> driver.
+>>
+>> Plan is to support 8023ad in near future with it's logic mainly in
+>> userspace daemon as well.
+>>
+>> Please review, try, comment. All feedback would be much appreciated.
+>>
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>
+>Not to push my own agenda too much but you might want to take a look
+>at Open vSwitch.  It uses the same strategy of userspace directed
+>bonding and already supports active-backup, 802.3ad, and quite a few
+>other networking tools all controlled by userspace.
+>
+>I know there's been a lot of talk and not a lot of action when it
+>comes to upstreaming but that's changing.  We're fixing up a few loose
+>ends in the userspace/kernel interface and then intend to propose a
+>patch fairly soon.
 
-Initially, no.
+Looks interesting. From quick peak the code is much bigger and fairly
+complicated. The main reason for doing "team" is to do ethernet teaming
+in as much simple way as it can be done. Final user destination areas
+of openvswitch and team seem different to me.
 
-> I think you were bit by the change in carrier behavior. No carrier on the
-> bridge interface tracks the union of the devices in the bridge.
-> Several people have been using bridge in strange way (as a dummy device)
-> with no physical interfaces and some applications are checking for carrier.
-
-That's how I have been using it.
-
-Using it as a dummy, ie no interfaces added to the bridge, on 3.0.0 I was
-unable to communicate with the host from the VM.  I added eth1 to it.  This
-has a link to a physical network.  I assigned IPs to the host and the VM to
-be on the same network that eth1 was attached.  From the VM I could
-communicate with devices on the physical network but not the host.  The host
-could also communicate with the other devices.
+Jirka
