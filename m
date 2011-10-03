@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] bridge: allow updating existing fdb entries
-Date: Mon, 03 Oct 2011 12:18:43 -0400 (EDT)
-Message-ID: <20111003.121843.197010181791293319.davem@davemloft.net>
-References: <20111001003725.449204345@vyatta.com>
-	<20111001003835.411004527@vyatta.com>
+Subject: Re: [PATCH net-next-2.6 0/4] be2net: fixes
+Date: Mon, 03 Oct 2011 12:19:35 -0400 (EDT)
+Message-ID: <20111003.121935.211295251414278823.davem@davemloft.net>
+References: <4bdbbef6-24f6-432f-9642-99ce7887f52d@exht2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+To: somnath.kotur@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:42877 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:42886 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980Ab1JCQSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 12:18:46 -0400
-In-Reply-To: <20111001003835.411004527@vyatta.com>
+	with ESMTP id S1751980Ab1JCQTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 12:19:39 -0400
+In-Reply-To: <4bdbbef6-24f6-432f-9642-99ce7887f52d@exht2.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 30 Sep 2011 17:37:27 -0700
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Fri, 30 Sep 2011 22:52:09 +0530
 
-> Need to allow application to update existing fdb entries that already
-> exist. This makes bridge netlink neighbor API have same flags and
-> semantics as ip neighbor table.
+> Pls apply
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Somnath Kotur (4):
+>   be2net: Change the data type of the 'on die temperature' stat.
+>   be2net: Fixed Endianness issues in the response read log length field
+>     while retrieving FAT data
+>   be2net: Modified PCI MaxReadReq size to 4096 bytes
+>   be2net: Making die temperature ioctl call async
 
-Applied.
+All applied, thanks.
