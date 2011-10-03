@@ -1,125 +1,32 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [v2 PATCH 0/2] NETFILTER new target module, HMARK
-Date: Mon, 3 Oct 2011 19:46:41 +0200
-Message-ID: <1317664003-28189-1-git-send-email-hans.schillstrom@ericsson.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: sh_eth: fix build failure
+Date: Mon, 03 Oct 2011 14:00:02 -0400 (EDT)
+Message-ID: <20111003.140002.2213436684657121394.davem@davemloft.net>
+References: <4E8534A9.3050002@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <kaber@trash.net>, <pablo@netfilter.org>, <jengelh@medozas.de>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: yoshihiro.shimoda.uh@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4E8534A9.3050002@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The target allows you to create rules in the "raw" and "mangle" tables
-which alter the netfilter mark (nfmark) field within a given range.
-First a 32 bit hash value is generated then modulus by <limit> and
-finally an offset is added before it's written to nfmark.
-Prior to routing, the nfmark can influence the routing method (see
-"Use netfilter MARK value as routing key") and can also be used by
-other subsystems to change their behaviour.
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Date: Fri, 30 Sep 2011 12:16:57 +0900
 
-The mark match can also be used to match nfmark produced by this module.
-See the kernel module for more info.
+> The following commit removed some including headers:
+>  "net: sh_eth: move the asm/sh_eth.h to include/linux/"
+>  (commit id: d4fa0e35fdbd54acf791fa3793d6d17f7795f7ae)
+> 
+> Then, the build failure happened on the linux-next:
+ ...
+> This patch fixes the issue. This patch also get back include/kernel.h
+> and linux/spinlock.h.
+> 
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 
-REVISION
-
-Version 2
-	NAT Added for IPv4
-	IPv6 ICMP handling enhanced.
-	Usage example added
-
-Version 1
-	Initial RFC
-
-
-We (Ericsson) use hmark in-front of ipvs as a pre-loadbalancer and
-handles up to 70 ipvs running in parallel in clusters.
-However hmark is not restricted to run infront of IPVS it can also be used as
-"poor mans" load balancer.
-With this version is also NAT supported as an option, with very high flows
-you might not want to use conntrack.
-
-The idea is to generate a direction independent fw mark range to use as input to
-the routing (i.e. ip rule add fwmark ...).
-Pretty straight forward and simple.
-
-
-Example:
-                                      App Server (Real Server)
-
-                                           +---------+
-                                        -->| Service |
-     Gateway A                             +---------+
-                          /
-            +----------+ /     +----+      +---------+
---- if -A---| selector |---->  |ipvs|  --->| Service |
-            +----------+ \     +----+      +---------+
-                          \
-                               +----+      +---------+
-                               |ipvs|   -->| Service |
-                               +----+      +---------+
-      Gateway C
-            +----------+ /     +----+
---- if-B ---| selector | --->  |ipvs|
-            +----------+ \     +----+      +---------+
-                                           | Service |
-                                           +---------+
-                          /
-            +----------+ /     +----+     ..
---- if-B ---| selector | --->  |ipvs|      +---------+
-            +----------+ \     +----+      | Service |
-                          \                +---------+
-#
-# Example with four ipvs loadbalancers
-#
-iptables -t mangle -I PREROUTING -d $IPADDR -j HMARK --hmark-mod 4 --hmark-offs 100
-
-ip rule add fwmark 100 table 100
-ip rule add fwmark 101 table 101
-ip rule add fwmark 102 table 102
-ip rule add fwmark 103 table 103
-
-ip ro ad table 100 default via x.y.z.1 dev bond1
-ip ro ad table 101 default via x.y.z.2 dev bond1
-ip ro ad table 102 default via x.y.z.3 dev bond1
-ip ro ad table 103 default via x.y.z.4 dev bond1
-
-
-If conntrack doesn't handle the return path,
-do the oposite with HMARK and send it back right to ipvs.
-
-Another exmaple of usage could be if you have cluster originated connections
-and want to spread the connections over a number of interfaces
-(NAT will complpicate things for you in this case)
-
-
-
-                     \  Blade 1
-                      \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
-   +------+
--- | Gw-A |          \  Blade 2
-   +------+           \ +----------+      +---------+
-   +------+         <-- | selector | <--- | Service |
--- | Gw-B |           / +----------+      +---------+
-   +------+          /
-   +------+
--- | Gw-C |          \
-   +------+           \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
-
-                     \  Blande -n
-                      \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
-
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
-
+Applied, thanks.
