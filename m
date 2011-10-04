@@ -1,37 +1,277 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: manual merge of the staging tree with the net and
- wireless trees
-Date: Tue, 4 Oct 2011 08:25:22 -0700
-Message-ID: <20111004152522.GA29994@kroah.com>
-References: <20111004171449.de5c45332510a453cc3ff879@canb.auug.org.au>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6] net: introduce ethernet teaming device
+Date: Tue, 4 Oct 2011 18:12:41 +0200
+Message-ID: <20111004161241.GB2011@minipsycho>
+References: <1317737703-19457-1-git-send-email-jpirko@redhat.com>
+ <20111004115344.0aca0fa1@asterix.rh>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eliad Peller <eliad@wizery.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
+	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com
+To: Flavio Leitner <fbl@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38619 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932085Ab1JDQNq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Oct 2011 12:13:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20111004171449.de5c45332510a453cc3ff879@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20111004115344.0aca0fa1@asterix.rh>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 04, 2011 at 05:14:49PM +1100, Stephen Rothwell wrote:
-> Hi Greg,
-> 
-> Today's linux-next merge of the staging tree got a conflict in
-> drivers/staging/brcm80211/brcmsmac/mac80211_if.c between commit
-> 37a41b4affa3 ("mac80211: add ieee80211_vif param to tsf functions") from
-> the net tree, commit 8a3a3c85e44d ("mac80211: pass vif param to conf_tx()
-> callback") from the wireless tree and several commits from the staging
-> tree.
-> 
-> I fixed it up (just removed the forward declarions that were changed by
-> the former commits) and can carry the fix as necessary.
+Tue, Oct 04, 2011 at 04:53:44PM CEST, fbl@redhat.com wrote:
 
-Thanks, that sounds correct.
+<snip>
 
-Aren't you happy my trees are back now?  :)
+>> +
+>> +struct team_mode_ops {
+>> +	int (*init)(struct team *team);
+>> +	void (*exit)(struct team *team);
+>> +	rx_handler_result_t (*receive)(struct team *team,
+>> +				       struct team_port *port,
+>> +				       struct sk_buff *skb);
+>
+>nitpick:
+>As it doesn't have any other type of results, I would suggest
+>to rename rx_handler_result_t be to shorter, i.e. rx_result_t.
 
-greg k-h
+Well that type is defined already in include/linux/netdevice.h
+I like the original name better because it has "handler" word in it
+(which imo reduces possible confusion)
+
+>
+>
+>> +	bool (*transmit)(struct team *team, struct sk_buff *skb);
+>> +	int (*port_enter)(struct team *team, struct team_port *port);
+>
+>Perhaps instead of 'port_enter', use 'port_join'.
+
+Might be more appropriate, not sure (my eng skills recognize these two
+as very similar in this case)
+
+>
+>
+>> +	void (*port_leave)(struct team *team, struct team_port
+>> *port);
+>> +	void (*port_change_mac)(struct team *team, struct team_port
+>> *port); +};
+>> +
+>> +enum team_option_type {
+>> +	TEAM_OPTION_TYPE_U32,
+>> +	TEAM_OPTION_TYPE_STRING,
+>> +};
+>> +
+>> +struct team_option {
+>> +	struct list_head list;
+>> +	const char *name;
+>> +	enum team_option_type type;
+>> +	int (*getter)(struct team *team, void *arg);
+>> +	int (*setter)(struct team *team, void *arg);
+>
+>What means getter and setter?
+
+Option getter and setter. Function used to set and get the option.
+
+>
+>> +};
+>> +
+>> +struct team_mode {
+>> +	const char *kind;
+>> +	const struct team_mode_ops *ops;
+>> +};
+>> +
+>> +struct rr_priv {
+>> +	unsigned int sent_packets;
+>> +};
+>> +
+>> +struct ab_priv {
+>> +	struct team_port __rcu *active_port;
+>> +};
+>> +
+>> +struct team {
+>> +	struct net_device *dev; /* associated netdevice */
+>> +	spinlock_t lock; /* used for overall locking, e.g. port
+>> lists write */ +
+>> +	/*
+>> +	 * port lists with port count
+>> +	 */
+>> +	int port_count;
+>> +	struct hlist_head *port_hlist;
+>> +	struct list_head port_list;
+>> +
+>> +	struct list_head option_list;
+>> +
+>> +	const char *mode_kind;
+>> +	struct team_mode_ops mode_ops;
+>> +	union {
+>> +		char priv_first_byte;
+>> +		struct ab_priv ab_priv;
+>> +		struct rr_priv rr_priv;
+>> +	};
+>
+>I think the union should be a pointer or work in the same
+>way as netdev_priv() does.
+
+The reason I did this this way is saving one pointer dereference in hot
+paths. In netdev priv the memory for priv data is allcated along with
+netdev struct. In this case this is not possible because mode can be
+changed during team device lifetime (and team priv is netdev priv).
+
+
+<snip>
+
+>> +
+>> +static bool rr_transmit(struct team *team, struct sk_buff *skb)
+>> +{
+>> +	struct team_port *port;
+>> +	int port_index;
+>> +
+>> +	port_index = team->rr_priv.sent_packets++ % team->port_count;
+>> +	port = team_get_port_by_index_rcu(team, port_index);
+>> +	port = __get_first_port_up(team, port);
+>
+>Well, __get_first_port_up() will frequently just do:
+>
+>	if (port->linkup)
+>		return port;
+>
+>so, as it is in the hot TX path, can this be modified to be something
+>like below to avoid one function call?
+>
+>        port = team_get_port_by_index_rcu(team, port_index);
+>        if (unlikely(port->linkup))
+>            port = __get_first_port_up(team, port);
+
+Hmm, I don't think this is correct place to use "likely". Imagine you
+have 2 ports and one of them is down all the team lifetime. You would
+be hitting wrong branch always which will cause performance penalty.
+
+>> +
+>> +static const struct team_mode ab_mode = {
+>> +	.kind		= "activebackup",
+>> +	.ops		= &ab_mode_ops,
+>> +};
+>> +
+>
+>I would suggest to move each of the ab and rr specifics
+>to their own module.  The idea is to have the team module
+>as a generic module as possible and every mode on its module.
+>Not sure what your plans are for this.
+
+Well I was thinking about this for sure. One reason to have this in one
+place is the mode_priv union you were referring to.
+Other reason is that mode parts should be very easy and short. Also
+their number should be limited (~4).
+
+
+>
+>
+>> +/****************
+>> + * Mode handling
+>> + ****************/
+>> +
+>> +static const struct team_mode *team_modes[] = {
+>> +	&rr_mode,
+>> +	&ab_mode,
+>> +};
+>
+>Following the above suggestion, this would require
+>register/unregister ops.
+>
+>
+
+<snip>
+
+>> +
+>> +static struct rtnl_link_stats64 *team_get_stats(struct net_device
+>> *dev,
+>> +						struct
+>> rtnl_link_stats64 *stats) +{
+>> +	struct team *team = netdev_priv(dev);
+>> +	struct rtnl_link_stats64 temp;
+>> +	struct team_port *port;
+>> +
+>> +	memset(stats, 0, sizeof(*stats));
+>> +
+>> +	rcu_read_lock();
+>> +	list_for_each_entry_rcu(port, &team->port_list, list) {
+>> +		const struct rtnl_link_stats64 *pstats;
+>> +
+>> +		pstats = dev_get_stats(port->dev, &temp);
+>> +
+>> +		stats->rx_packets += pstats->rx_packets;
+>> +		stats->rx_bytes += pstats->rx_bytes;
+>> +		stats->rx_errors += pstats->rx_errors;
+>> +		stats->rx_dropped += pstats->rx_dropped;
+>> +
+>> +		stats->tx_packets += pstats->tx_packets;
+>> +		stats->tx_bytes += pstats->tx_bytes;
+>> +		stats->tx_errors += pstats->tx_errors;
+>> +		stats->tx_dropped += pstats->tx_dropped;
+>> +
+>> +		stats->multicast += pstats->multicast;
+>> +		stats->collisions += pstats->collisions;
+>> +
+>> +		stats->rx_length_errors += pstats->rx_length_errors;
+>> +		stats->rx_over_errors += pstats->rx_over_errors;
+>> +		stats->rx_crc_errors += pstats->rx_crc_errors;
+>> +		stats->rx_frame_errors += pstats->rx_frame_errors;
+>> +		stats->rx_fifo_errors += pstats->rx_fifo_errors;
+>> +		stats->rx_missed_errors += pstats->rx_missed_errors;
+>> +
+>> +		stats->tx_aborted_errors +=
+>> pstats->tx_aborted_errors;
+>> +		stats->tx_carrier_errors +=
+>> pstats->tx_carrier_errors;
+>> +		stats->tx_fifo_errors += pstats->tx_fifo_errors;
+>> +		stats->tx_heartbeat_errors +=
+>> pstats->tx_heartbeat_errors;
+>> +		stats->tx_window_errors += pstats->tx_window_errors;
+>> +	}
+>> +	rcu_read_unlock();
+>> +
+>> +	return stats;
+>> +}
+>
+>I don't think computing stats like that is useful.  We can do
+>that in userlevel with ethtool -S on each slave and sum all them.
+>I think it would be better to have the errors computed based on
+>events that happens inside of Team driver, so we can really see if
+>something is happening inside of the Team driver or on its slaves.
+
+I was thinking about this as well. I did this in same ways it's done in
+bonding driver. One of reasons were that I can't count dropped packets
+in team_handle_frame because I do not call netif_rx there and only
+return RX_HANDLER_ANOTHER to "reinject" (saving one function call).
+
+<snip>
+
+>> +
+>> +static int team_add_slave(struct net_device *dev, struct net_device
+>> *port_dev) +{
+>> +	struct team *team = netdev_priv(dev);
+>> +	int err;
+>> +
+>> +	spin_lock(&team->lock);
+>> +	err = team_port_add(team, port_dev);
+>> +	spin_unlock(&team->lock);
+>> +	return err;
+>> +}
+>
+>I am not seeing any difference between slave and port, so why not stick
+>with just one?
+
+I like "port" better. It's more accurate. team_add/del_slave has its name
+only because ndo is named the same.
+
+<snip>
+
+>
+>fbl
+
+Thanks for review Flavio.
+
+Jirka
