@@ -1,47 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next-2.6] net: introduce ethernet teaming device
-Date: Tue, 04 Oct 2011 13:51:06 -0400 (EDT)
-Message-ID: <20111004.135106.65049103540781494.davem@davemloft.net>
-References: <1317737703-19457-1-git-send-email-jpirko@redhat.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: [PATCH 2/2] bridge: allow forwarding some link local frames
+Date: Tue, 4 Oct 2011 15:11:01 -0400
+Message-ID: <20111004191101.GA17483@synalogic.ca>
+References: <20111004041444.793960297@vyatta.com>
+ <20111004041509.292932641@vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com
-To: jpirko@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45377 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932845Ab1JDRxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 13:53:34 -0400
-In-Reply-To: <1317737703-19457-1-git-send-email-jpirko@redhat.com>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:42727 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932820Ab1JDTLH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 15:11:07 -0400
+Received: by vcbfk10 with SMTP id fk10so685076vcb.19
+        for <netdev@vger.kernel.org>; Tue, 04 Oct 2011 12:11:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20111004041509.292932641@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Tue,  4 Oct 2011 16:15:03 +0200
+On 11-10-03 21:14, Stephen Hemminger wrote:
+> This is based on an earlier patch by Nick Carter with comments
+> by David Lamparter but with some refinements. Thanks for their patience
+> this is a confusing area with overlap of standards, user requirements,
+> and compatibility with earlier releases.
+> 
+> It adds a new sysfs attribute 
+>    /sys/class/net/brX/bridge/group_fwd_mask
+> that controls forwarding of frames with address of: 01-80-C2-00-00-0X
+> The default setting has no forwarding to retain compatibility.
+> 
+> One change from earlier releases is that forwarding of group
+> addresses is not dependent on STP being enabled or disabled. This
+> choice was made based on interpretation of tie 802.1 standards.
+> I expect complaints will arise because of this, but better to follow
+> the standard than continue acting incorrectly by default.
+> 
+> The filtering mask is writeable, but only values that don't forward
+> known control frames are allowed. It intentionally blocks attempts
+> to filter control protocols. For example: writing a 8 allows
+> forwarding 802.1X PAE addresses which is the most common request.
+> 
 
-> This patch introduces new network device called team. It supposes to be
-> very fast, simple, userspace-driven alternative to existing bonding
-> driver.
-> 
-> Userspace library called libteam with couple of demo apps is available
-> here:
-> https://github.com/jpirko/libteam
-> Note it's still in its dipers atm.
-> 
-> team<->libteam use generic netlink for communication. That and rtnl
-> suppose to be the only way to configure team device, no sysfs etc.
-> 
-> In near future python binding for libteam will be introduced. Also
-> daemon providing arpmon/miimon active-backup functionality will
-> be introduced. All what's necessary is already implemented in kernel team
-> driver.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Indeed, I have tested this patch with kvm + tap + bridge to
+authenticate/authorize a virtual machine connected to a 802.1X enabled
+switch. It works swell.
 
-I just want to say that, besides the implementation detail feedback you've
-received thus far, I really like this stuff.  Please keep working on it!
+Tested-by: Benjamin Poirier <benjamin.poirier@gmail.com>
