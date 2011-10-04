@@ -1,44 +1,37 @@
-From: sannikov <sannikov@cs.karelia.ru>
-Subject: TCP-RENO in Linux
-Date: Tue, 04 Oct 2011 19:10:19 +0400
-Message-ID: <a894f35e3d8398643b3338248fef0dbf@cs.karelia.ru>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: manual merge of the staging tree with the net and
+ wireless trees
+Date: Tue, 4 Oct 2011 08:25:22 -0700
+Message-ID: <20111004152522.GA29994@kroah.com>
+References: <20111004171449.de5c45332510a453cc3ff879@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.cs.karelia.ru ([194.85.173.9]:59106 "EHLO
-	mail.cs.karelia.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932683Ab1JDPZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 11:25:41 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.cs.karelia.ru (Postfix) with ESMTP id 30B02A31B8
-	for <netdev@vger.kernel.org>; Tue,  4 Oct 2011 19:10:22 +0400 (MSK)
-Received: from mail.cs.karelia.ru ([127.0.0.1])
-	by localhost (mail.cs.karelia.ru [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id a95CZCIe2SUI for <netdev@vger.kernel.org>;
-	Tue,  4 Oct 2011 19:10:19 +0400 (MSK)
-Received: from mail.cs.karelia.ru (localhost [127.0.0.1])
-	by mail.cs.karelia.ru (Postfix) with ESMTP id C5153A0296
-	for <netdev@vger.kernel.org>; Tue,  4 Oct 2011 19:10:19 +0400 (MSK)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eliad Peller <eliad@wizery.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111004171449.de5c45332510a453cc3ff879@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Tue, Oct 04, 2011 at 05:14:49PM +1100, Stephen Rothwell wrote:
+> Hi Greg,
+> 
+> Today's linux-next merge of the staging tree got a conflict in
+> drivers/staging/brcm80211/brcmsmac/mac80211_if.c between commit
+> 37a41b4affa3 ("mac80211: add ieee80211_vif param to tsf functions") from
+> the net tree, commit 8a3a3c85e44d ("mac80211: pass vif param to conf_tx()
+> callback") from the wireless tree and several commits from the staging
+> tree.
+> 
+> I fixed it up (just removed the forward declarions that were changed by
+> the former commits) and can carry the fix as necessary.
 
-Sorry, maybe this question not for netdev mailing list.
+Thanks, that sounds correct.
 
-Does anybody works with TCP congestion control (RENO)?
-I'm observe strange behavior of RENO: number of
-TCP-segments transmitted with some value of 
-window is much more than this value.
+Aren't you happy my trees are back now?  :)
 
-For example: if window size is 212 it is
-transmits 450 segments with such window size.
-
-Can you give me some ideas or search direction.
-I will be very thankful to you.
-
---
-With best regards, Alexander Sannikov.
+greg k-h
