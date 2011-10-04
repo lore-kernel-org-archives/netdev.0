@@ -1,151 +1,139 @@
 From: Grant Grundler <grundler@chromium.org>
-Subject: [PATCH 1/3] NET: fix phy init for AX88772 USB ethernet
-Date: Tue,  4 Oct 2011 12:55:16 -0700
-Message-ID: <1317758118-24052-1-git-send-email-grundler@chromium.org>
+Subject: [PATCH 2/3] NET: fix phy init for Asix AX88178 USB (GigE)
+Date: Tue,  4 Oct 2011 12:55:17 -0700
+Message-ID: <1317758118-24052-2-git-send-email-grundler@chromium.org>
+References: <1317758118-24052-1-git-send-email-grundler@chromium.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	allan@asix.com.tw, Grant Grundler <grundler@chromium.org>,
 	"Freddy Xin" <freddy@asix.com.tw>
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1317758118-24052-1-git-send-email-grundler@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix phy initialization for AX88772 (USB 2.0 100BT). Failure was
-occasionally DHCP wouldn't work after reboot or suspend/resume cycle.
-
-Remove MONITOR_MODE. In this mode, Received packets are not buffered when
-the remote wakeup is enabled.
+Asix provided this patch and I've confirmed "Plugable USB2-E1000" and
+"Shenzhen Winstars NWU220G" USB dongles can get a link and TX/RX data.
 
 Signed-off-by: "Freddy Xin" <freddy@asix.com.tw>
 Signed-off-by: Grant Grundler <grundler@chromium.org>
-Acked-by: Olof Johansson <olofj@chromium.org>
 ---
- drivers/net/usb/asix.c |  116 +++++++++++++++++++++++++----------------------
- 1 files changed, 62 insertions(+), 54 deletions(-)
+ drivers/net/usb/asix.c |  163 ++++++++++++++++++++++++++++++------------------
+ 1 files changed, 101 insertions(+), 62 deletions(-)
 
 diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index 6998aa6..a035aa9 100644
+index a035aa9..23ee22d 100644
 --- a/drivers/net/usb/asix.c
 +++ b/drivers/net/usb/asix.c
-@@ -36,7 +36,7 @@
- #include <linux/usb/usbnet.h>
- #include <linux/slab.h>
+@@ -164,6 +164,8 @@ static const char driver_name [] = "asix";
+ #define MARVELL_CTRL_TXDELAY	0x0002
+ #define MARVELL_CTRL_RXDELAY	0x0080
  
--#define DRIVER_VERSION "14-Jun-2006"
-+#define DRIVER_VERSION "26-Sep-2011"
- static const char driver_name [] = "asix";
- 
- /* ASIX AX8817X based USB 2.0 Ethernet Devices */
-@@ -677,12 +677,6 @@ asix_get_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo)
- 	}
- 	wolinfo->supported = WAKE_PHY | WAKE_MAGIC;
- 	wolinfo->wolopts = 0;
--	if (opt & AX_MONITOR_MODE) {
--		if (opt & AX_MONITOR_LINK)
--			wolinfo->wolopts |= WAKE_PHY;
--		if (opt & AX_MONITOR_MAGIC)
--			wolinfo->wolopts |= WAKE_MAGIC;
--	}
- }
- 
- static int
-@@ -695,8 +689,6 @@ asix_set_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo)
- 		opt |= AX_MONITOR_LINK;
- 	if (wolinfo->wolopts & WAKE_MAGIC)
- 		opt |= AX_MONITOR_MAGIC;
--	if (opt != 0)
--		opt |= AX_MONITOR_MODE;
- 
- 	if (asix_write_cmd(dev, AX_CMD_WRITE_MONITOR_MODE,
- 			      opt, 0, 0, NULL) < 0)
-@@ -967,36 +959,18 @@ static int ax88772_link_reset(struct usbnet *dev)
++#define	PHY_MODE_RTL8211CL	0x0004
++
+ /* This structure cannot exceed sizeof(unsigned long [5]) AKA 20 bytes */
+ struct asix_data {
+ 	u8 multi_filter[AX_MCAST_FILTER_SIZE];
+@@ -1151,6 +1153,27 @@ static int marvell_phy_init(struct usbnet *dev)
  	return 0;
  }
  
--static const struct net_device_ops ax88772_netdev_ops = {
--	.ndo_open		= usbnet_open,
--	.ndo_stop		= usbnet_stop,
--	.ndo_start_xmit		= usbnet_start_xmit,
--	.ndo_tx_timeout		= usbnet_tx_timeout,
--	.ndo_change_mtu		= usbnet_change_mtu,
--	.ndo_set_mac_address 	= asix_set_mac_address,
--	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_do_ioctl		= asix_ioctl,
--	.ndo_set_multicast_list = asix_set_multicast,
--};
--
--static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
-+static int ax88772_reset(struct usbnet *dev)
++static int rtl8211cl_phy_init(struct usbnet *dev)
++{
++	struct asix_data *data = (struct asix_data *)&dev->data;
++
++	netdev_dbg(dev->net, "rtl8211cl_phy_init()\n");
++
++	asix_mdio_write (dev->net, dev->mii.phy_id, 0x1f, 0x0005);
++	asix_mdio_write (dev->net, dev->mii.phy_id, 0x0c, 0);
++	asix_mdio_write (dev->net, dev->mii.phy_id, 0x01,
++		asix_mdio_read (dev->net, dev->mii.phy_id, 0x01) | 0x0080);
++	asix_mdio_write (dev->net, dev->mii.phy_id, 0x1f, 0);
++
++	if (data->ledmode == 12) {
++		asix_mdio_write (dev->net, dev->mii.phy_id, 0x1f, 0x0002);
++		asix_mdio_write (dev->net, dev->mii.phy_id, 0x1a, 0x00cb);
++		asix_mdio_write (dev->net, dev->mii.phy_id, 0x1f, 0);
++	}
++
++	return 0;
++}
++
+ static int marvell_led_status(struct usbnet *dev, u16 speed)
  {
+ 	u16 reg = asix_mdio_read(dev->net, dev->mii.phy_id, MARVELL_LED_MANUAL);
+@@ -1177,6 +1200,81 @@ static int marvell_led_status(struct usbnet *dev, u16 speed)
+ 	return 0;
+ }
+ 
++static int ax88178_reset(struct usbnet *dev)
++{
++	struct asix_data *data = (struct asix_data *)&dev->data;
++	int ret;
++	__le16 eeprom;
++	u8 status;
++	int gpio0 = 0;
 +
- 	int ret, embd_phy;
- 	u16 rx_ctl;
--	struct asix_data *data = (struct asix_data *)&dev->data;
--	u8 buf[ETH_ALEN];
--	u32 phyid;
--
--	data->eeprom_len = AX88772_EEPROM_LEN;
--
--	usbnet_get_endpoints(dev,intf);
- 
- 	if ((ret = asix_write_gpio(dev,
- 			AX_GPIO_RSE | AX_GPIO_GPO_2 | AX_GPIO_GPO2EN, 5)) < 0)
- 		goto out;
- 
--	/* 0x10 is the phy id of the embedded 10/100 ethernet phy */
- 	embd_phy = ((asix_get_phy_addr(dev) & 0x1f) == 0x10 ? 1 : 0);
++	asix_read_cmd(dev, AX_CMD_READ_GPIOS, 0, 0, 1, &status);
++	dbg("GPIO Status: 0x%04x", status);
 +
- 	if ((ret = asix_write_cmd(dev, AX_CMD_SW_PHY_SELECT,
- 				embd_phy, 0, 0, NULL)) < 0) {
- 		dbg("Select PHY #1 failed: %d", ret);
-@@ -1011,6 +985,7 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 		goto out;
- 
- 	msleep(150);
++	asix_write_cmd(dev, AX_CMD_WRITE_ENABLE, 0, 0, 0, NULL);
++	asix_read_cmd(dev, AX_CMD_READ_EEPROM, 0x0017, 0, 2, &eeprom);
++	asix_write_cmd(dev, AX_CMD_WRITE_DISABLE, 0, 0, 0, NULL);
 +
- 	if (embd_phy) {
- 		if ((ret = asix_sw_reset(dev, AX_SWRESET_IPRL)) < 0)
- 			goto out;
-@@ -1029,25 +1004,6 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 	rx_ctl = asix_read_rx_ctl(dev);
- 	dbg("RX_CTL is 0x%04x setting to 0x0000", rx_ctl);
- 
--	/* Get the MAC address */
--	if ((ret = asix_read_cmd(dev, AX_CMD_READ_NODE_ID,
--				0, 0, ETH_ALEN, buf)) < 0) {
--		dbg("Failed to read MAC address: %d", ret);
--		goto out;
--	}
--	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
--
--	/* Initialize MII structure */
--	dev->mii.dev = dev->net;
--	dev->mii.mdio_read = asix_mdio_read;
--	dev->mii.mdio_write = asix_mdio_write;
--	dev->mii.phy_id_mask = 0x1f;
--	dev->mii.reg_num_mask = 0x1f;
--	dev->mii.phy_id = asix_get_phy_addr(dev);
--
--	phyid = asix_get_phyid(dev);
--	dbg("PHYID=0x%08x", phyid);
--
- 	if ((ret = asix_sw_reset(dev, AX_SWRESET_PRL)) < 0)
- 		goto out;
- 
-@@ -1058,9 +1014,6 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 
- 	msleep(150);
- 
--	dev->net->netdev_ops = &ax88772_netdev_ops;
--	dev->net->ethtool_ops = &ax88772_ethtool_ops;
--
- 	asix_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR, BMCR_RESET);
- 	asix_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE,
- 			ADVERTISE_ALL | ADVERTISE_CSMA);
-@@ -1086,6 +1039,61 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 	rx_ctl = asix_read_medium_status(dev);
- 	dbg("Medium Status is 0x%04x after all initializations", rx_ctl);
- 
++	dbg("EEPROM index 0x17 is 0x%04x", eeprom);
++
++	if (eeprom == cpu_to_le16(0xffff)) {
++		data->phymode = PHY_MODE_MARVELL;
++		data->ledmode = 0;
++		gpio0 = 1;
++	} else {
++		data->phymode = le16_to_cpu(eeprom) & 7;
++		data->ledmode = le16_to_cpu(eeprom) >> 8;
++		gpio0 = (le16_to_cpu(eeprom) & 0x80) ? 0 : 1;
++	}
++	dbg("GPIO0: %d, PhyMode: %d", gpio0, data->phymode);
++
++	asix_write_gpio(dev, AX_GPIO_RSE | AX_GPIO_GPO_1 | AX_GPIO_GPO1EN, 40);
++	if ((le16_to_cpu(eeprom) >> 8) != 1) {
++		asix_write_gpio(dev, 0x003c, 30);
++		asix_write_gpio(dev, 0x001c, 300);
++		asix_write_gpio(dev, 0x003c, 30);
++	} else {
++		dbg("gpio phymode == 1 path");
++		asix_write_gpio(dev, AX_GPIO_GPO1EN, 30);
++		asix_write_gpio(dev, AX_GPIO_GPO1EN | AX_GPIO_GPO_1, 30);
++	}
++
++	asix_sw_reset(dev, 0);
++	msleep(150);
++
++	asix_sw_reset(dev, AX_SWRESET_PRL | AX_SWRESET_IPPD);
++	msleep(150);
++
++	asix_write_rx_ctl(dev, 0);
++
++	if (data->phymode == PHY_MODE_MARVELL) {
++		marvell_phy_init(dev);
++		msleep(60);
++	} else if (data->phymode == PHY_MODE_RTL8211CL)
++		rtl8211cl_phy_init(dev);
++
++	asix_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR,
++			BMCR_RESET | BMCR_ANENABLE);
++	asix_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE,
++			ADVERTISE_ALL | ADVERTISE_CSMA | ADVERTISE_PAUSE_CAP);
++	asix_mdio_write(dev->net, dev->mii.phy_id, MII_CTRL1000,
++			ADVERTISE_1000FULL);
++
++	mii_nway_restart(&dev->mii);
++
++	if ((ret = asix_write_medium_mode(dev, AX88178_MEDIUM_DEFAULT)) < 0)
++		goto out;
++
++	if ((ret = asix_write_rx_ctl(dev, AX_DEFAULT_RX_CTL)) < 0)
++		goto out;
++
 +	return 0;
 +
 +out:
@@ -153,81 +141,100 @@ index 6998aa6..a035aa9 100644
 +
 +}
 +
-+static const struct net_device_ops ax88772_netdev_ops = {
-+	.ndo_open		= usbnet_open,
-+	.ndo_stop		= usbnet_stop,
-+	.ndo_start_xmit		= usbnet_start_xmit,
-+	.ndo_tx_timeout		= usbnet_tx_timeout,
-+	.ndo_change_mtu		= usbnet_change_mtu,
-+	.ndo_set_mac_address 	= asix_set_mac_address,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_do_ioctl		= asix_ioctl,
-+	.ndo_set_multicast_list = asix_set_multicast,
-+};
-+
-+static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
-+{
-+	int ret;
-+	struct asix_data *data = (struct asix_data *)&dev->data;
-+	u8 buf[ETH_ALEN];
-+	u32 phyid;
-+
-+	data->eeprom_len = AX88772_EEPROM_LEN;
-+
-+	usbnet_get_endpoints(dev,intf);
-+
-+	/* Get the MAC address */
-+	if ((ret = asix_read_cmd(dev, AX_CMD_READ_NODE_ID,
-+				0, 0, ETH_ALEN, buf)) < 0) {
-+		dbg("Failed to read MAC address: %d", ret);
-+		goto out;
-+	}
-+	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-+
-+	/* Initialize MII structure */
-+	dev->mii.dev = dev->net;
-+	dev->mii.mdio_read = asix_mdio_read;
-+	dev->mii.mdio_write = asix_mdio_write;
-+	dev->mii.phy_id_mask = 0x1f;
-+	dev->mii.reg_num_mask = 0x1f;
-+	dev->mii.phy_id = asix_get_phy_addr(dev);
-+
-+	phyid = asix_get_phyid(dev);
-+	dbg("PHYID=0x%08x", phyid);
-+
-+	dev->net->netdev_ops = &ax88772_netdev_ops;
-+	dev->net->ethtool_ops = &ax88772_ethtool_ops;
-+
-+	if ((ret = ax88772_reset(dev)) < 0)
-+		goto out;
-+
- 	/* Asix framing packs multiple eth frames into a 2K usb bulk transfer */
- 	if (dev->driver_info->flags & FLAG_FRAMING_AX) {
- 		/* hard_mtu  is still the default - the device does not support
-@@ -1093,7 +1101,6 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 		dev->rx_urb_size = 2048;
- 	}
- 	return 0;
+ static int ax88178_link_reset(struct usbnet *dev)
+ {
+ 	u16 mode;
+@@ -1285,55 +1383,12 @@ static const struct net_device_ops ax88178_netdev_ops = {
+ 
+ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+-	struct asix_data *data = (struct asix_data *)&dev->data;
+ 	int ret;
+ 	u8 buf[ETH_ALEN];
+-	__le16 eeprom;
+-	u8 status;
+-	int gpio0 = 0;
+ 	u32 phyid;
+ 
+ 	usbnet_get_endpoints(dev,intf);
+ 
+-	asix_read_cmd(dev, AX_CMD_READ_GPIOS, 0, 0, 1, &status);
+-	dbg("GPIO Status: 0x%04x", status);
 -
- out:
- 	return ret;
- }
-@@ -1427,7 +1434,7 @@ static const struct driver_info ax88772_info = {
- 	.bind = ax88772_bind,
+-	asix_write_cmd(dev, AX_CMD_WRITE_ENABLE, 0, 0, 0, NULL);
+-	asix_read_cmd(dev, AX_CMD_READ_EEPROM, 0x0017, 0, 2, &eeprom);
+-	asix_write_cmd(dev, AX_CMD_WRITE_DISABLE, 0, 0, 0, NULL);
+-
+-	dbg("EEPROM index 0x17 is 0x%04x", eeprom);
+-
+-	if (eeprom == cpu_to_le16(0xffff)) {
+-		data->phymode = PHY_MODE_MARVELL;
+-		data->ledmode = 0;
+-		gpio0 = 1;
+-	} else {
+-		data->phymode = le16_to_cpu(eeprom) & 7;
+-		data->ledmode = le16_to_cpu(eeprom) >> 8;
+-		gpio0 = (le16_to_cpu(eeprom) & 0x80) ? 0 : 1;
+-	}
+-	dbg("GPIO0: %d, PhyMode: %d", gpio0, data->phymode);
+-
+-	asix_write_gpio(dev, AX_GPIO_RSE | AX_GPIO_GPO_1 | AX_GPIO_GPO1EN, 40);
+-	if ((le16_to_cpu(eeprom) >> 8) != 1) {
+-		asix_write_gpio(dev, 0x003c, 30);
+-		asix_write_gpio(dev, 0x001c, 300);
+-		asix_write_gpio(dev, 0x003c, 30);
+-	} else {
+-		dbg("gpio phymode == 1 path");
+-		asix_write_gpio(dev, AX_GPIO_GPO1EN, 30);
+-		asix_write_gpio(dev, AX_GPIO_GPO1EN | AX_GPIO_GPO_1, 30);
+-	}
+-
+-	asix_sw_reset(dev, 0);
+-	msleep(150);
+-
+-	asix_sw_reset(dev, AX_SWRESET_PRL | AX_SWRESET_IPPD);
+-	msleep(150);
+-
+-	asix_write_rx_ctl(dev, 0);
+-
+ 	/* Get the MAC address */
+ 	if ((ret = asix_read_cmd(dev, AX_CMD_READ_NODE_ID,
+ 				0, 0, ETH_ALEN, buf)) < 0) {
+@@ -1357,24 +1412,8 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	phyid = asix_get_phyid(dev);
+ 	dbg("PHYID=0x%08x", phyid);
+ 
+-	if (data->phymode == PHY_MODE_MARVELL) {
+-		marvell_phy_init(dev);
+-		msleep(60);
+-	}
+-
+-	asix_mdio_write(dev->net, dev->mii.phy_id, MII_BMCR,
+-			BMCR_RESET | BMCR_ANENABLE);
+-	asix_mdio_write(dev->net, dev->mii.phy_id, MII_ADVERTISE,
+-			ADVERTISE_ALL | ADVERTISE_CSMA | ADVERTISE_PAUSE_CAP);
+-	asix_mdio_write(dev->net, dev->mii.phy_id, MII_CTRL1000,
+-			ADVERTISE_1000FULL);
+-
+-	mii_nway_restart(&dev->mii);
+-
+-	if ((ret = asix_write_medium_mode(dev, AX88178_MEDIUM_DEFAULT)) < 0)
+-		goto out;
+-
+-	if ((ret = asix_write_rx_ctl(dev, AX_DEFAULT_RX_CTL)) < 0)
++	ret = ax88178_reset(dev);
++	if (ret < 0)
+ 		goto out;
+ 
+ 	/* Asix framing packs multiple eth frames into a 2K usb bulk transfer */
+@@ -1445,7 +1484,7 @@ static const struct driver_info ax88178_info = {
+ 	.bind = ax88178_bind,
  	.status = asix_status,
- 	.link_reset = ax88772_link_reset,
--	.reset = ax88772_link_reset,
-+	.reset = ax88772_reset,
+ 	.link_reset = ax88178_link_reset,
+-	.reset = ax88178_link_reset,
++	.reset = ax88178_reset,
  	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR,
  	.rx_fixup = asix_rx_fixup,
  	.tx_fixup = asix_tx_fixup,
-@@ -1585,6 +1592,7 @@ static void __exit asix_exit(void)
- module_exit(asix_exit);
- 
- MODULE_AUTHOR("David Hollis");
-+MODULE_VERSION(DRIVER_VERSION);
- MODULE_DESCRIPTION("ASIX AX8817X based USB 2.0 Ethernet Devices");
- MODULE_LICENSE("GPL");
- 
 -- 
 1.7.2.3
