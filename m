@@ -1,34 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] iproute2: add br command
-Date: Tue, 4 Oct 2011 14:08:22 -0700
-Message-ID: <20111004140822.56d7878b@nehalam.linuxnetplumber.net>
-References: <CAGXs5wWeFcyHQ4vO562pTOdqLNEKrJwES3W_hFF_M2reNoe1rA@mail.gmail.com>
-	<20111004093413.2f6bbd67@nehalam.linuxnetplumber.net>
-	<1317747490.2751.4.camel@bwh-desktop>
+From: Eduardo Panisset <eduardo.panisset@gmail.com>
+Subject: Application brokne due to XFRMA_ALG_AUTH_TRUNC
+Date: Tue, 4 Oct 2011 18:08:37 -0300
+Message-ID: <CADsjWXR66C2SdfmLP0wqRvbcDJkXbYBN=zzTZLP5_+pE0fenqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Wilson <wkevils@gmail.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56402 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933618Ab1JDVIY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Oct 2011 17:08:24 -0400
-In-Reply-To: <1317747490.2751.4.camel@bwh-desktop>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:44441 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933618Ab1JDVIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 17:08:38 -0400
+Received: by ywb5 with SMTP id 5so921044ywb.19
+        for <netdev@vger.kernel.org>; Tue, 04 Oct 2011 14:08:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 04 Oct 2011 17:58:10 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+Hi All,
 
-> On Tue, 2011-10-04 at 09:34 -0700, Stephen Hemminger wrote:
-> > This adds a new 'br' command which is the bridging equivalent of
-> > the ip command. More of a demo of how to use netlink and bridging
-> > at this point.
-> [...]
-> 
-> This command name is already in use:
-> http://packages.debian.org/sid/bottlerocket
+I have an application compiled against kernel 2.6.32 and which is
+using XFRMA_MARK (value 20).
+However the same aplication does not work anymore on kernel 2.6.38.8
+due to XFRMA_MARK has now the value 21 because of a new attribute
+XFRMA_ALG_AUTH_TRUNC inserted before it in the file linux/xfrm.h.
+Now the only solution would be recompiling this application. Is
+correct introducing a new parameter in the middle of an existing enum
+in the kernel headers ?
 
-Damn name squatters.
+
+Rgds,
+Eduardo Panisset.
