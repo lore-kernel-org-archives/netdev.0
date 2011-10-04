@@ -1,31 +1,60 @@
-From: Eduardo Panisset <eduardo.panisset@gmail.com>
-Subject: Application brokne due to XFRMA_ALG_AUTH_TRUNC
-Date: Tue, 4 Oct 2011 18:08:37 -0300
-Message-ID: <CADsjWXR66C2SdfmLP0wqRvbcDJkXbYBN=zzTZLP5_+pE0fenqQ@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/2] fix lockdep warning
+Date: Wed, 5 Oct 2011 06:14:23 +0900
+Message-ID: <20111004211420.GA11987@verge.net.au>
+References: <1317639399-4522-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:44441 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933618Ab1JDVIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 17:08:38 -0400
-Received: by ywb5 with SMTP id 5so921044ywb.19
-        for <netdev@vger.kernel.org>; Tue, 04 Oct 2011 14:08:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ja@ssi.bg, wensong@linux-vs.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hans@schillstrom.com
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1317639399-4522-1-git-send-email-hans.schillstrom@ericsson.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+On Mon, Oct 03, 2011 at 12:56:38PM +0200, Hans Schillstrom wrote:
+> From: Hans Schillstrom <hans@schillstrom.com>
+> 
+> rs_lock needs a key to make lock dep happy.
+> 
+> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-I have an application compiled against kernel 2.6.32 and which is
-using XFRMA_MARK (value 20).
-However the same aplication does not work anymore on kernel 2.6.38.8
-due to XFRMA_MARK has now the value 21 because of a new attribute
-XFRMA_ALG_AUTH_TRUNC inserted before it in the file linux/xfrm.h.
-Now the only solution would be recompiling this application. Is
-correct introducing a new parameter in the middle of an existing enum
-in the kernel headers ?
+Hi Julian,
 
+can I get an Ack or otherwise from you on this patch?
 
-Rgds,
-Eduardo Panisset.
+I already have one for
+[PATCH 2/2] IPVS netns shutdown/startup dead-lock (Take III)
+
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 2b771dc..a1af72f 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -57,6 +57,7 @@ static DEFINE_MUTEX(__ip_vs_mutex);
+>  
+>  /* lock for service table */
+>  static DEFINE_RWLOCK(__ip_vs_svc_lock);
+> +static struct lock_class_key ip_vs_rs_key;
+>  
+>  /* sysctl variables */
+>  
+> @@ -3680,6 +3681,7 @@ int __net_init ip_vs_control_net_init(struct net *net)
+>  	struct netns_ipvs *ipvs = net_ipvs(net);
+>  
+>  	ipvs->rs_lock = __RW_LOCK_UNLOCKED(ipvs->rs_lock);
+> +	__rwlock_init(&ipvs->rs_lock, "ipvs->rs_lock", &ip_vs_rs_key);
+>  
+>  	/* Initialize rs_table */
+>  	for (idx = 0; idx < IP_VS_RTAB_SIZE; idx++)
+> -- 
+> 1.7.4.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
