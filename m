@@ -1,56 +1,47 @@
-From: MuraliRaja Muniraju <muralira@google.com>
-Subject: Re: [PATCH] net-proc: expose the tos values in /proc/net/[tcp|udp]
-Date: Tue, 4 Oct 2011 10:38:06 -0700
-Message-ID: <CAP3iWTTYk7tErsCVdeytdpiu0fo-7B8cNZZk0EpR_rj-VOGi-g@mail.gmail.com>
-References: <1317324162-21621-1-git-send-email-muralira@google.com>
-	<20110929.153259.169108824599752228.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next-2.6] net: introduce ethernet teaming device
+Date: Tue, 04 Oct 2011 13:51:06 -0400 (EDT)
+Message-ID: <20111004.135106.65049103540781494.davem@davemloft.net>
+References: <1317737703-19457-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110929.153259.169108824599752228.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com
+To: jpirko@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:45377 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932845Ab1JDRxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 13:53:34 -0400
+In-Reply-To: <1317737703-19457-1-git-send-email-jpirko@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I shall make the changes by exposing the tos values via the
-netlink as suggested. I had a doubt is I have to modify the
-inet_diag_sockid or export it via a new option. I am considering
-that adding into inet_diag_sockid is better because the latter is a
-bit of a over kill for a single value to be exposed and it also seems
-to be logical fit.
-Can you let me know your thoughts on this.
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Tue,  4 Oct 2011 16:15:03 +0200
 
-Thanks,
-Murali
+> This patch introduces new network device called team. It supposes to be
+> very fast, simple, userspace-driven alternative to existing bonding
+> driver.
+> 
+> Userspace library called libteam with couple of demo apps is available
+> here:
+> https://github.com/jpirko/libteam
+> Note it's still in its dipers atm.
+> 
+> team<->libteam use generic netlink for communication. That and rtnl
+> suppose to be the only way to configure team device, no sysfs etc.
+> 
+> In near future python binding for libteam will be introduced. Also
+> daemon providing arpmon/miimon active-backup functionality will
+> be introduced. All what's necessary is already implemented in kernel team
+> driver.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-On Thu, Sep 29, 2011 at 12:32 PM, David Miller <davem@davemloft.net> wrote:
-> From: Muraliraja Muniraju <muralira@google.com>
-> Date: Thu, 29 Sep 2011 12:22:42 -0700
->
->> From: Murali Raja <muralira@google.com>
->>
->> This patch exports the tos values from the inet_sock struct
->> for tcp and udp into the /proc/net/tcp or /proc/net/udp respectively.
->> This will not pickup per packet tos changes but it will address most
->> of the cases. This is mainly useful as it would decrease reliance on
->> tcpdump and also people without root access will be able to read
->> the values.
->>
->> Signed-off-by: Murali Raja <muralira@google.com>
->
-> You cannot change the layout of these files, they are parsed by userland
-> problems and therefore have a fixed API.
->
-> Netlink based socket dumping provides a proper, backwards compatible,
-> way to extend what is reported, so please consider adding your changes
-> there.
->
-
-
-
--- 
-Thanks,
-Murali
+I just want to say that, besides the implementation detail feedback you've
+received thus far, I really like this stuff.  Please keep working on it!
