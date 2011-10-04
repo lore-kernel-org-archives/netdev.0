@@ -1,32 +1,42 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC] iproute2: add br command
-Date: Tue, 04 Oct 2011 09:58:55 -0700
-Message-ID: <m27h4klmls.fsf@firstfloor.org>
-References: <CAGXs5wWeFcyHQ4vO562pTOdqLNEKrJwES3W_hFF_M2reNoe1rA@mail.gmail.com>
-	<20111004093413.2f6bbd67@nehalam.linuxnetplumber.net>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 1/4] SUNRPC: rpcbind clients internals virtualization
+Date: Tue, 04 Oct 2011 20:58:58 +0300
+Message-ID: <20111004165858.6638.76932.stgit@localhost6.localdomain6>
+References: <20111004165637.6638.57399.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kevin Wilson <wkevils@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:57913 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932341Ab1JDQ64 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Oct 2011 12:58:56 -0400
-In-Reply-To: <20111004093413.2f6bbd67@nehalam.linuxnetplumber.net> (Stephen
-	Hemminger's message of "Tue, 4 Oct 2011 09:34:13 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bfields@fieldses.org, davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111004165637.6638.57399.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+This patch moves static rpcbind internals to sunrpc part of network namespace
+context. This will allow to create rcpbind clients per network namespace.
 
-> This adds a new 'br' command which is the bridging equivalent of
-> the ip command. More of a demo of how to use netlink and bridging
-> at this point.
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-Please name it "bridge", not "br"
+---
+ net/sunrpc/netns.h |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only
+diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
+index d013bf2..83eede3 100644
+--- a/net/sunrpc/netns.h
++++ b/net/sunrpc/netns.h
+@@ -9,6 +9,11 @@ struct cache_detail;
+ struct sunrpc_net {
+ 	struct proc_dir_entry *proc_net_rpc;
+ 	struct cache_detail *ip_map_cache;
++
++	struct rpc_clnt *rpcb_local_clnt;
++	struct rpc_clnt *rpcb_local_clnt4;
++	spinlock_t rpcb_clnt_lock;
++	unsigned int rpcb_users;
+ };
+ 
+ extern int sunrpc_net_id;
