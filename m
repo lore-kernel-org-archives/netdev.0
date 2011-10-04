@@ -1,52 +1,61 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] mlx4_en: fix transmit of packages when blue frame is
- enabled
-Date: Tue, 04 Oct 2011 08:02:12 +0200
-Message-ID: <1317708132.29415.213.camel@pasglop>
-References: <1317388995-411-1-git-send-email-cascardo@linux.vnet.ibm.com>
-	 <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
-	 <20111003143721.GA3596@oc1711230544.ibm.com>
-	 <953B660C027164448AE903364AC447D2235DAA9D@MTLDAG02.mtl.com>
-	 <20111003205358.GB3596@oc1711230544.ibm.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging tree with the net and
+ wireless trees
+Date: Tue, 4 Oct 2011 17:14:49 +1100
+Message-ID: <20111004171449.de5c45332510a453cc3ff879@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eli Cohen <eli@mellanox.co.il>,
-	"eli@dev.mellanox.co.il" <eli@dev.mellanox.co.il>,
-	linuxppc-dev@lists.ozlabs.org
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:58324 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751555Ab1JDGCi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Oct 2011 02:02:38 -0400
-In-Reply-To: <20111003205358.GB3596@oc1711230544.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__4_Oct_2011_17_14_49_+1100_OOHQJAq5upA9nka+"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eliad Peller <eliad@wizery.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-10-03 at 17:53 -0300, Thadeu Lima de Souza Cascardo wrote:
+--Signature=_Tue__4_Oct_2011_17_14_49_+1100_OOHQJAq5upA9nka+
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
- .../...
+Hi Greg,
 
-> > Can you also send me the output of ethtool -i?
-> > It seems that there is a problem with write combining on Power processors, we will check this issue.
-> > 
-> > Yevgeny
-> 
-> Hello, Yevgeny.
-> 
-> You will find the output of ethtool -i below.
-> 
-> I am copying Ben and powerpc list, in case this is an issue with Power
-> processors. They can provide us some more insight into this.
+Today's linux-next merge of the staging tree got a conflict in
+drivers/staging/brcm80211/brcmsmac/mac80211_if.c between commit
+37a41b4affa3 ("mac80211: add ieee80211_vif param to tsf functions") from
+the net tree, commit 8a3a3c85e44d ("mac80211: pass vif param to conf_tx()
+callback") from the wireless tree and several commits from the staging
+tree.
 
-May I get some background please ? :-)
-
-I'm not aware of a specific issue with write combining but I'd need to
-know more about what you are doing and the code to do it to comment on
-whether it should work or not.
-
+I fixed it up (just removed the forward declarions that were changed by
+the former commits) and can carry the fix as necessary.
+--=20
 Cheers,
-Ben.
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__4_Oct_2011_17_14_49_+1100_OOHQJAq5upA9nka+
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJOiqRZAAoJEECxmPOUX5FErKoP/AmwS5HyNOfvBp/EEXOv9dye
+QCfuTa8O3zOyCbVruJ5RLPQeOJt+EU/oiHoBiTR7YTIDJjRC649laW9zRSwcOd7h
+TX2I1pfaLLRChpOoSbqUiTo8UalP6DPRKEpDlmHhcHTfq1/mASwqNE9ynVOcJVqm
+IjD4gefpSR9TUp2y1EzRaeHh4w614zHCmjsEXCXxCC9lStfpncVAdk8NVOhDVhSP
+uU44vgkE9BtwdqOZR7H4JjNaCXLQlYmsPp5LO+c6P5ElupOa+W1D2UWe0HCL/93T
+/BLQF8TVMzCzekVKUhqls+5sWaFLpGYLrs4LByl4QYK4zNxZgM587/Xo/zXkQSni
+3YdaBq2veYQIYe0mavEHMCMzKofAYHo7PPiZYy5y3/6boULu9DECoN3xSXH0/y+n
+JEqoTKYZ9MWlGXC6GEbfgJBf+4+jlZBMctC4QOOhfIjqEjksrDIo9K6cb9XG+xEr
+vbWckn2jXi01x7LSvuE5Mx1xqLKj0pU5q1tKGwJhyGslyH9NpvUESye4aiQwmJdH
+TkciZBB5aAjkd5/juy7Sd9elQWg4tTElBA36vQOWtvoC7JPksiW9DcvpHX4RZ+9q
+XCtVvWcKAk+s1rjKMKf8aDfqVj7p5oxZXV4P3LsrEJr/UXbO2/wZLIBmb1CwH4hT
++A1eFsop0Xhk7kXuw2Mm
+=ThXa
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__4_Oct_2011_17_14_49_+1100_OOHQJAq5upA9nka+--
