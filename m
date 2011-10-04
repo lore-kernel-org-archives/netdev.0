@@ -1,53 +1,40 @@
-From: <rongqing.li@windriver.com>
-Subject: [PATCH net-next] ipv6: remove a rcu_read_lock in ndisc_constructor
-Date: Tue, 4 Oct 2011 13:43:35 +0800
-Message-ID: <1317707015-2432-1-git-send-email-rongqing.li@windriver.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v4 4/8] per-cgroup tcp buffers control
+Date: Tue, 4 Oct 2011 09:43:32 +0400
+Message-ID: <4E8A9D04.7060002@parallels.com>
+References: <1317637123-18306-1-git-send-email-glommer@parallels.com> <1317637123-18306-5-git-send-email-glommer@parallels.com> <20111004101633.6b44201d.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35390 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751727Ab1JDFni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 01:43:38 -0400
-Received: from ALA-HCA.corp.ad.wrs.com (ala-hca [147.11.189.40])
-	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id p945hbbN022537
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 3 Oct 2011 22:43:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<kirill@shutemov.name>, <avagin@parallels.com>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111004101633.6b44201d.kamezawa.hiroyu@jp.fujitsu.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Roy.Li <rongqing.li@windriver.com>
+On 10/04/2011 05:16 AM, KAMEZAWA Hiroyuki wrote:
+> It seems memcg->tcp.tcp_memory_pressure has no locks and not atomic.
+>
+> no problematic race ?
+>
+> Thanks,
+> -Kame
+Well,
 
-in6_dev_get(dev) takes a reference on struct inet6_dev, we dont need
-rcu locking in ndisc_constructor()
+prior to this patch, it was a global variable. And nobody complained so 
+far...
 
-Signed-off-by: Roy.Li <rongqing.li@windriver.com>
----
- net/ipv6/ndisc.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+My impression is that the only thing that really needs to be atomic is
+the memory accounting, which is already. If we miss a memory pressure 
+condition entry, we'll get to it next time.
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 9da6e02..dd633ff 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -370,17 +370,14 @@ static int ndisc_constructor(struct neighbour *neigh)
- 	struct neigh_parms *parms;
- 	int is_multicast = ipv6_addr_is_multicast(addr);
- 
--	rcu_read_lock();
- 	in6_dev = in6_dev_get(dev);
- 	if (in6_dev == NULL) {
--		rcu_read_unlock();
- 		return -EINVAL;
- 	}
- 
- 	parms = in6_dev->nd_parms;
- 	__neigh_parms_put(neigh->parms);
- 	neigh->parms = neigh_parms_clone(parms);
--	rcu_read_unlock();
- 
- 	neigh->type = is_multicast ? RTN_MULTICAST : RTN_UNICAST;
- 	if (!dev->header_ops) {
--- 
-1.7.1
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
