@@ -1,68 +1,97 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the akpm tree
-Date: Tue, 4 Oct 2011 18:44:19 +1100
-Message-ID: <20111004184419.80cb1cc4cb47e6bce83bff2d@canb.auug.org.au>
-References: <20110930153255.6e3a0d6dc7758b7fb5561fc6@canb.auug.org.au>
-	<20110929230226.5fed4095.akpm00@gmail.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v4 7/8] Display current tcp memory allocation in kmem
+ cgroup
+Date: Tue, 4 Oct 2011 13:10:06 +0400
+Message-ID: <4E8ACD6E.3090208@parallels.com>
+References: <1317637123-18306-1-git-send-email-glommer@parallels.com> <1317637123-18306-8-git-send-email-glommer@parallels.com> <20111003121446.GD29312@shutemov.name> <4E89A846.1010200@parallels.com> <20111003122511.GA29982@shutemov.name> <4E89AA01.3000803@parallels.com> <20111003123620.GA30018@shutemov.name>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__4_Oct_2011_18_44_19_+1100_zMMuwhx7YIvjppg1"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stephen Boyd <sboyd@codeaurora.org>,
-	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Andrew Morton <akpm00@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110929230226.5fed4095.akpm00@gmail.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <kamezawa.hiroyu@jp.fujitsu.com>,
+	<ebiederm@xmission.com>, <davem@davemloft.net>, <gthelen@google.com>,
+	<netdev@vger.kernel.org>, <linux-mm@kvack.org>, <avagin@parallels.com>
+To: "Kirill A. Shutemov" <kirill@shutemov.name>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20111003123620.GA30018@shutemov.name>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__4_Oct_2011_18_44_19_+1100_zMMuwhx7YIvjppg1
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Andrew,
-
-On Thu, 29 Sep 2011 23:02:26 -0700 Andrew Morton <akpm00@gmail.com> wrote:
+On 10/03/2011 04:36 PM, Kirill A. Shutemov wrote:
+> On Mon, Oct 03, 2011 at 04:26:41PM +0400, Glauber Costa wrote:
+>> On 10/03/2011 04:25 PM, Kirill A. Shutemov wrote:
+>>> On Mon, Oct 03, 2011 at 04:19:18PM +0400, Glauber Costa wrote:
+>>>> On 10/03/2011 04:14 PM, Kirill A. Shutemov wrote:
+>>>>> On Mon, Oct 03, 2011 at 02:18:42PM +0400, Glauber Costa wrote:
+>>>>>> This patch introduces kmem.tcp_current_memory file, living in the
+>>>>>> kmem_cgroup filesystem. It is a simple read-only file that displays the
+>>>>>> amount of kernel memory currently consumed by the cgroup.
+>>>>>>
+>>>>>> Signed-off-by: Glauber Costa<glommer@parallels.com>
+>>>>>> CC: David S. Miller<davem@davemloft.net>
+>>>>>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+>>>>>> CC: Eric W. Biederman<ebiederm@xmission.com>
+>>>>>> ---
+>>>>>>     Documentation/cgroups/memory.txt |    1 +
+>>>>>>     mm/memcontrol.c                  |   11 +++++++++++
+>>>>>>     2 files changed, 12 insertions(+), 0 deletions(-)
+>>>>>>
+>>>>>> diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
+>>>>>> index 1ffde3e..f5a539d 100644
+>>>>>> --- a/Documentation/cgroups/memory.txt
+>>>>>> +++ b/Documentation/cgroups/memory.txt
+>>>>>> @@ -79,6 +79,7 @@ Brief summary of control files.
+>>>>>>      memory.independent_kmem_limit	 # select whether or not kernel memory limits are
+>>>>>>     				   independent of user limits
+>>>>>>      memory.kmem.tcp.max_memory      # set/show hard limit for tcp buf memory
+>>>>>> + memory.kmem.tcp.current_memory  # show current tcp buf memory allocation
+>>>>>
+>>>>> Both are in pages, right?
+>>>>> Shouldn't it be scaled to bytes and named uniform with other memcg file?
+>>>>> memory.kmem.tcp.limit_in_bytes/usage_in_bytes.
+>>>>>
+>>>> You are absolutely correct.
+>>>> Since the internal tcp comparison works, I just ended up never noticing
+>>>> this.
+>>>
+>>> Should we have failcnt and max_usage_in_bytes for tcp as well?
+>>>
+>>
+>> Well, we get a fail count from the tracer anyway, so I don't really see
+>> a need for that. I see value in having it for the slab allocation
+>> itself, but since this only controls the memory pressure framework, I
+>> think we can live without it.
+>>
+>> That said, this is not a strong opinion. I can add it if you'd prefer.
 >
-> > Caused by commit 15e19cbbbf2a ("x86: implement strict user copy checks
-> > for x86_64") when built with gcc 4.6.0.  This does not fail when built
-> > with 4.5.2.
->=20
-> That patch is a PITA.  I've been waiting for some saviour to come along
-> and fix all the warnings it emits before proceeding with it.  As I am
-> apparently saviourless I shall hide that patch from the mm->linux-next
-> drop, so only I get to suffer its effects.
+> It's good for userspace to have the same set of files for all domains:
+>   - memory;
+>   - memory.memsw;
+>   - memory.kmem;
+>   - memory.kmem.tcp;
+>   - etc.
+> Userspace can reuse code for handling them in this case.
+>
+Ok. Back on this.
 
-OK, I have dropped that commit from linux-next.
+Not all domains have all files anyway.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+max_usage seems to be a property of the main memcg, not of its domains.
+failcnt is present on memsw, and on that only. The problem here, is that 
+this can fail ( and usually will ) in codepaths outside the memory
+controller. (see net/core/sock.c:__sk_mem_schedule)
 
---Signature=_Tue__4_Oct_2011_18_44_19_+1100_zMMuwhx7YIvjppg1
-Content-Type: application/pgp-signature
+Also, max_usage makes sense for kernel memory as a whole, but I don't 
+think it makes sense here as we're only controlling a specific pressure 
+condition.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+So in a nutshell: I'd like to leave this alone, and add 
+kmem.max_usage_in_bytes and kmem.failcnt to the to soon-to-land-here 
+slab accounting patches. (Where the actual allocation happens)
 
-iQIcBAEBCAAGBQJOirlTAAoJEECxmPOUX5FELkIP/14Z3Vr/HvL3LtNnwdf1rW7g
-sbZPWlJAw7yYgLfELTIbuZCHguqfJ02WESGyYHc+RXRFysCf0VTJ98VXCaufiSNu
-Oea3nH/+aq6QubLHIRmO4Q90UD0b3aTy/bUOVJF5ynRahPkKHiDieSolbY69/AN0
-70+6l9yV3dsVJDkH0PpbLENCnl0pRgi3suBkcpQv5iyXSGnJKHBH5Ku6KdjH6cXy
-UGZvjMrhnBAcx4I63ONpfcfbAXFow+PR84e/gtXK+Zy0Rx72CRX/nrQgmJTfPG1k
-F6VNbWBteqd8EbzxTFCIDTgvdjblfDf+eBgNPDijnVa2oWSstP6EHdYG7CPXNvAD
-r2yadXOWdkO/aseMIvZjs/G8pH2iGfIA1+srvNYkVORMGyC/C1NXxoigJ+PUa/3A
-GfH8Dsna7lH6JcXiPL0n2rK2sFxYtCcd1J9j+3s88P9rbcOhJf1RCh30WMI20Zfj
-lNGWc4+p5WxkMtIjsViAZzHTer1Hu9yjo702TATjto1f/SyZ0Qwk8vVSU/RrFklP
-eK6Fkw9ISrc3gIUqqtKhNOEA+Mas7ud7cag/keLXGFJ0+fo0WUWedcjdpBE4+H5s
-GNeHDnUSN1F3bRHz/uvLpv9oKf0f/gKBUImFWeQR9jxiC1VLEiuJ2PgB4vb25uBJ
-BmY5pYkIdKc5lJE76mDR
-=xqD/
------END PGP SIGNATURE-----
-
---Signature=_Tue__4_Oct_2011_18_44_19_+1100_zMMuwhx7YIvjppg1--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
