@@ -1,28 +1,30 @@
-From: Serge Belyshev <belyshev@depni.sinp.msu.ru>
-Subject: Re: big picture UDP/IP performance question re 2.6.18  -> 2.6.32
-Date: Tue, 04 Oct 2011 23:49:25 +0400
-Message-ID: <874nzo35bu.fsf@depni.sinp.msu.ru>
-References: <6.2.5.6.2.20111003112108.03a83a28@binnacle.cx>
-	<alpine.DEB.2.00.1110041358500.12199@router.home>
-	<1317757118.3580.24.camel@Joe-Laptop>
-	<alpine.DEB.2.00.1110041442020.15871@router.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] NET: fix phy init for AX88772 USB ethernet
+Date: Tue, 04 Oct 2011 16:25:46 -0400 (EDT)
+Message-ID: <20111004.162546.1812071808303878499.davem@davemloft.net>
+References: <1317758118-24052-1-git-send-email-grundler@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, starlight@binnacle.cx,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>
-To: Christoph Lameter <cl@gentwo.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	allan@asix.com.tw, freddy@asix.com.tw
+To: grundler@chromium.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1110041442020.15871@router.home> (Christoph
-	Lameter's message of "Tue, 4 Oct 2011 14:42:28 -0500 (CDT)")
+In-Reply-To: <1317758118-24052-1-git-send-email-grundler@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Grant Grundler <grundler@chromium.org>
+Date: Tue,  4 Oct 2011 12:55:16 -0700
 
-Christoph Lameter <cl@gentwo.org> writes:
-> No. BFS has no NUMA support.
+> Fix phy initialization for AX88772 (USB 2.0 100BT). Failure was
+> occasionally DHCP wouldn't work after reboot or suspend/resume cycle.
+> 
+> Remove MONITOR_MODE. In this mode, Received packets are not buffered when
+> the remote wakeup is enabled.
+> 
+> Signed-off-by: "Freddy Xin" <freddy@asix.com.tw>
+> Signed-off-by: Grant Grundler <grundler@chromium.org>
+> Acked-by: Olof Johansson <olofj@chromium.org>
 
-BFS has NUMA support since v0.300, 1st oct. 2009.
+Applied to net-next-2.6
