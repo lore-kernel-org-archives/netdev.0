@@ -1,36 +1,124 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH] SELinux: Fix RCU deref check warning in sel_netport_insert()
-Date: Mon, 03 Oct 2011 20:06:59 -0400
-Message-ID: <1743108.Ii53PKTyVY@olly>
-References: <2230709.7n5noARWFd@sifl> <20111003135824.15303.10147.stgit@warthog.procyon.org.uk> <25906.1317683262@redhat.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v4 1/8] Basic kernel memory functionality for the Memory
+ Controller
+Date: Tue, 4 Oct 2011 09:38:51 +0900
+Message-ID: <20111004093851.7536e505.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1317637123-18306-1-git-send-email-glommer@parallels.com>
+	<1317637123-18306-2-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7Bit
-Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:52294 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751602Ab1JDAHF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Oct 2011 20:07:05 -0400
-Received: by vws1 with SMTP id 1so3288887vws.19
-        for <netdev@vger.kernel.org>; Mon, 03 Oct 2011 17:07:03 -0700 (PDT)
-In-Reply-To: <25906.1317683262@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org,
+	lizf@cn.fujitsu.com, ebiederm@xmission.com, davem@davemloft.net,
+	gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org,
+	kirill@shutemov.name, avagin@parallels.com
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1317637123-18306-2-git-send-email-glommer@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday, October 4, 2011 12:07:42 AM David Howells wrote:
-> Paul Moore <paul@paul-moore.com> wrote:
-> > We should probably do the same for the security/selinux/netif.c as it
-> > uses the same logic; David is this something you want to tackle?
+On Mon,  3 Oct 2011 14:18:36 +0400
+Glauber Costa <glommer@parallels.com> wrote:
+
+> This patch lays down the foundation for the kernel memory component
+> of the Memory Controller.
 > 
-> I can have a look, but it won't be before Wednesday.
+> As of today, I am only laying down the following files:
+> 
+>  * memory.independent_kmem_limit
+>  * memory.kmem.limit_in_bytes (currently ignored)
+>  * memory.kmem.usage_in_bytes (always zero)
+> 
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> CC: Paul Menage <paul@paulmenage.org>
+> CC: Greg Thelen <gthelen@google.com>
+> ---
+>  Documentation/cgroups/memory.txt |   30 +++++++++++-
+>  init/Kconfig                     |   11 ++++
+>  mm/memcontrol.c                  |   94 +++++++++++++++++++++++++++++++++++---
+>  3 files changed, 126 insertions(+), 9 deletions(-)
+> 
+> diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
+> index 6f3c598..6f1954a 100644
+> --- a/Documentation/cgroups/memory.txt
+> +++ b/Documentation/cgroups/memory.txt
+> @@ -44,8 +44,9 @@ Features:
+>   - oom-killer disable knob and oom-notifier
+>   - Root cgroup has no limit controls.
+>  
+> - Kernel memory and Hugepages are not under control yet. We just manage
+> - pages on LRU. To add more controls, we have to take care of performance.
+> + Hugepages is not under control yet. We just manage pages on LRU. To add more
+> + controls, we have to take care of performance. Kernel memory support is work
+> + in progress, and the current version provides basically functionality.
+>  
+>  Brief summary of control files.
+>  
+> @@ -56,8 +57,11 @@ Brief summary of control files.
+>  				 (See 5.5 for details)
+>   memory.memsw.usage_in_bytes	 # show current res_counter usage for memory+Swap
+>  				 (See 5.5 for details)
+> + memory.kmem.usage_in_bytes	 # show current res_counter usage for kmem only.
+> +				 (See 2.7 for details)
+>   memory.limit_in_bytes		 # set/show limit of memory usage
+>   memory.memsw.limit_in_bytes	 # set/show limit of memory+Swap usage
+> + memory.kmem.limit_in_bytes	 # if allowed, set/show limit of kernel memory
+>   memory.failcnt			 # show the number of memory usage hits limits
+>   memory.memsw.failcnt		 # show the number of memory+Swap hits limits
+>   memory.max_usage_in_bytes	 # show max memory usage recorded
+> @@ -72,6 +76,9 @@ Brief summary of control files.
+>   memory.oom_control		 # set/show oom controls.
+>   memory.numa_stat		 # show the number of memory usage per numa node
+>  
+> + memory.independent_kmem_limit	 # select whether or not kernel memory limits are
+> +				   independent of user limits
+> +
+>  1. History
+>  
+>  The memory controller has a long history. A request for comments for the memory
+> @@ -255,6 +262,25 @@ When oom event notifier is registered, event will be delivered.
+>    per-zone-per-cgroup LRU (cgroup's private LRU) is just guarded by
+>    zone->lru_lock, it has no lock of its own.
+>  
+> +2.7 Kernel Memory Extension (CONFIG_CGROUP_MEM_RES_CTLR_KMEM)
+> +
+> + With the Kernel memory extension, the Memory Controller is able to limit
+> +the amount of kernel memory used by the system. Kernel memory is fundamentally
+> +different than user memory, since it can't be swapped out, which makes it
+> +possible to DoS the system by consuming too much of this precious resource.
+> +Kernel memory limits are not imposed for the root cgroup.
+> +
+> +Memory limits as specified by the standard Memory Controller may or may not
+> +take kernel memory into consideration. This is achieved through the file
+> +memory.independent_kmem_limit. A Value different than 0 will allow for kernel
+> +memory to be controlled separately.
+> +
+> +When kernel memory limits are not independent, the limit values set in
+> +memory.kmem files are ignored.
+> +
+> +Currently no soft limit is implemented for kernel memory. It is future work
+> +to trigger slab reclaim when those limits are reached.
+> +
 
-Not a problem, if you don't get to it just let me know and I'll put together a 
-patch.
+Please add some CAUTION like
+==
+"CAUTION: the kmem extetion prevents tasks from moving among cgroups.
+ If a task has kmem accounting in a cgroup, the task cannot be moved
+ until the kmem resource is released. And more, until the resource is
+ fully released, the cgroup cannot be destroyed. So, please consider 
+ your use cases and set kmem extention config carefully".
+==
 
-Thanks.
+And add some memo to KCONFIG. This should be warned.
 
--- 
-paul moore
-www.paul-moore.com
+> +config CGROUP_MEM_RES_CTLR_KMEM
+> +	bool "Memory Resource Controller Kernel Memory accounting (EXPERIMENTAL)"
+> +	depends on CGROUP_MEM_RES_CTLR && EXPERIMENTAL
+> +	default y
+
+default must be n until you fixes the bug.
+
+
+Thanks,
+-Kame
