@@ -1,35 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] iproute2: add br command
-Date: Tue, 04 Oct 2011 17:58:10 +0100
-Message-ID: <1317747490.2751.4.camel@bwh-desktop>
-References: <CAGXs5wWeFcyHQ4vO562pTOdqLNEKrJwES3W_hFF_M2reNoe1rA@mail.gmail.com>
-	 <20111004093413.2f6bbd67@nehalam.linuxnetplumber.net>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH 0/4] SUNRPC: rcbind clients virtualization
+Date: Tue, 04 Oct 2011 20:58:46 +0300
+Message-ID: <20111004165637.6638.57399.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kevin Wilson <wkevils@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:32166 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932341Ab1JDQ6N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 12:58:13 -0400
-In-Reply-To: <20111004093413.2f6bbd67@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bfields@fieldses.org, davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-10-04 at 09:34 -0700, Stephen Hemminger wrote:
-> This adds a new 'br' command which is the bridging equivalent of
-> the ip command. More of a demo of how to use netlink and bridging
-> at this point.
-[...]
+This patch-set virtualizes rpcbind clients per network namespace context. IOW,
+each network namespace will have its own pair of rpcbind clients (if the would
+be created by request).
 
-This command name is already in use:
-http://packages.debian.org/sid/bottlerocket
+Note:
+1) this patch-set depends on "SUNRPC: make rpcbind clients allocated and
+destroyed dynamically" patch-set which has been send earlier.
+2) init_net pointer is still used instead of current->nsproxy->net_ns,
+because I'm not sure yet about how to virtualize services.
+I.e. NFS callback services will be per netns. NFSd service will be per netns
+too from my pow. But Lockd can be per netns or one for all.
+And also we have NFSd file system, which is not virtualized yet.
 
-Ben.
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (4):
+      SUNRPC: rpcbind clients internals virtualization
+      SUNRPC: use virtualized rpcbind internals instead of static ones
+      SUNRPC: optimize net_ns dereferencing in rpcbind creation calls
+      SUNRPC: optimize net_ns dereferencing in rpcbind registering calls
+
+
+ net/sunrpc/netns.h     |    5 ++
+ net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++----------------------
+ 2 files changed, 61 insertions(+), 47 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signature
