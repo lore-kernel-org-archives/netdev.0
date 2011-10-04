@@ -1,149 +1,261 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH 3/4] SUNRPC: optimize net_ns dereferencing in rpcbind creation
-	calls
-Date: Tue, 04 Oct 2011 20:59:13 +0300
-Message-ID: <20111004165913.6638.76593.stgit@localhost6.localdomain6>
-References: <20111004165637.6638.57399.stgit@localhost6.localdomain6>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [patch net-next-2.6] net: introduce ethernet teaming device
+Date: Tue, 4 Oct 2011 14:27:13 -0300
+Message-ID: <20111004142713.7d8aa201@asterix.rh>
+References: <1317737703-19457-1-git-send-email-jpirko@redhat.com>
+	<20111004115344.0aca0fa1@asterix.rh>
+	<20111004161241.GB2011@minipsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111004165637.6638.57399.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
+	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44500 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932788Ab1JDR1h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Oct 2011 13:27:37 -0400
+In-Reply-To: <20111004161241.GB2011@minipsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Static rpcbind creation functions can be parametrized by network namespace
-pointer, calculated only once, instead of using init_net pointer (or taking it
-from current when virtualization will be comleted) in many places.
+On Tue, 4 Oct 2011 18:12:41 +0200
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Tue, Oct 04, 2011 at 04:53:44PM CEST, fbl@redhat.com wrote:
+> 
+> <snip>
+> 
+> >> +
+> >> +struct team_mode_ops {
+> >> +	int (*init)(struct team *team);
+> >> +	void (*exit)(struct team *team);
+> >> +	rx_handler_result_t (*receive)(struct team *team,
+> >> +				       struct team_port *port,
+> >> +				       struct sk_buff *skb);
+> >
+> >nitpick:
+> >As it doesn't have any other type of results, I would suggest
+> >to rename rx_handler_result_t be to shorter, i.e. rx_result_t.
+> 
+> Well that type is defined already in include/linux/netdevice.h
+> I like the original name better because it has "handler" word in it
+> (which imo reduces possible confusion)
 
----
- net/sunrpc/rpcb_clnt.c |   35 +++++++++++++++++++----------------
- 1 files changed, 19 insertions(+), 16 deletions(-)
+Alright, I missed that somehow. Sorry.
 
-diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 18eba8e..ef37c55 100644
---- a/net/sunrpc/rpcb_clnt.c
-+++ b/net/sunrpc/rpcb_clnt.c
-@@ -161,10 +161,10 @@ static void rpcb_map_release(void *data)
- 	kfree(map);
- }
- 
--static int rpcb_get_local(void)
-+static int rpcb_get_local(struct net *net)
- {
- 	int cnt;
--	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
- 
- 	spin_lock(&sn->rpcb_clnt_lock);
- 	if (sn->rpcb_users)
-@@ -202,9 +202,10 @@ void rpcb_put_local(void)
- 	return;
- }
- 
--static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
-+static void rpcb_set_local(struct net *net, struct rpc_clnt *clnt,
-+			struct rpc_clnt *clnt4)
- {
--	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
- 
- 	/* Protected by rpcb_create_local_mutex */
- 	sn->rpcb_local_clnt = clnt;
-@@ -212,22 +213,23 @@ static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
- 	smp_wmb(); 
- 	sn->rpcb_users = 1;
- 	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
--			"%p, rpcb_local_clnt4: %p)\n", sn->rpcb_local_clnt,
--			sn->rpcb_local_clnt4);
-+			"%p, rpcb_local_clnt4: %p) for net %p%s\n",
-+			sn->rpcb_local_clnt, sn->rpcb_local_clnt4,
-+			net, (net == &init_net) ? " (init_net)" : "");
- }
- 
- /*
-  * Returns zero on success, otherwise a negative errno value
-  * is returned.
-  */
--static int rpcb_create_local_unix(void)
-+static int rpcb_create_local_unix(struct net *net)
- {
- 	static const struct sockaddr_un rpcb_localaddr_rpcbind = {
- 		.sun_family		= AF_LOCAL,
- 		.sun_path		= RPCBIND_SOCK_PATHNAME,
- 	};
- 	struct rpc_create_args args = {
--		.net		= &init_net,
-+		.net		= net,
- 		.protocol	= XPRT_TRANSPORT_LOCAL,
- 		.address	= (struct sockaddr *)&rpcb_localaddr_rpcbind,
- 		.addrsize	= sizeof(rpcb_localaddr_rpcbind),
-@@ -260,7 +262,7 @@ static int rpcb_create_local_unix(void)
- 		clnt4 = NULL;
- 	}
- 
--	rpcb_set_local(clnt, clnt4);
-+	rpcb_set_local(net, clnt, clnt4);
- 
- out:
- 	return result;
-@@ -270,7 +272,7 @@ out:
-  * Returns zero on success, otherwise a negative errno value
-  * is returned.
-  */
--static int rpcb_create_local_net(void)
-+static int rpcb_create_local_net(struct net *net)
- {
- 	static const struct sockaddr_in rpcb_inaddr_loopback = {
- 		.sin_family		= AF_INET,
-@@ -278,7 +280,7 @@ static int rpcb_create_local_net(void)
- 		.sin_port		= htons(RPCBIND_PORT),
- 	};
- 	struct rpc_create_args args = {
--		.net		= &init_net,
-+		.net		= net,
- 		.protocol	= XPRT_TRANSPORT_TCP,
- 		.address	= (struct sockaddr *)&rpcb_inaddr_loopback,
- 		.addrsize	= sizeof(rpcb_inaddr_loopback),
-@@ -312,7 +314,7 @@ static int rpcb_create_local_net(void)
- 		clnt4 = NULL;
- 	}
- 
--	rpcb_set_local(clnt, clnt4);
-+	rpcb_set_local(net, clnt, clnt4);
- 
- out:
- 	return result;
-@@ -326,16 +328,17 @@ int rpcb_create_local(void)
- {
- 	static DEFINE_MUTEX(rpcb_create_local_mutex);
- 	int result = 0;
-+	struct net *net = &init_net;
- 
--	if (rpcb_get_local())
-+	if (rpcb_get_local(net))
- 		return result;
- 
- 	mutex_lock(&rpcb_create_local_mutex);
--	if (rpcb_get_local())
-+	if (rpcb_get_local(net))
- 		goto out;
- 
--	if (rpcb_create_local_unix() != 0)
--		result = rpcb_create_local_net();
-+	if (rpcb_create_local_unix(net) != 0)
-+		result = rpcb_create_local_net(net);
- 
- out:
- 	mutex_unlock(&rpcb_create_local_mutex);
+> >
+> >> +	bool (*transmit)(struct team *team, struct sk_buff *skb);
+> >> +	int (*port_enter)(struct team *team, struct team_port
+> >> *port);
+> >
+> >Perhaps instead of 'port_enter', use 'port_join'.
+> 
+> Might be more appropriate, not sure (my eng skills recognize these two
+> as very similar in this case)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yeah, I am just trying to find the term that is most used for this. We
+used attach/detach terms in bonding driver and they seem appropriated
+to me.
+
+
+> >> +	int (*getter)(struct team *team, void *arg);
+> >> +	int (*setter)(struct team *team, void *arg);
+> >
+> >What means getter and setter?
+> 
+> Option getter and setter. Function used to set and get the option.
+
+sorry, I meant the last part of it - "ter". 
+getoption and setoption would make more sense to me.
+
+
+<snipped>
+> >> +	union {
+> >> +		char priv_first_byte;
+> >> +		struct ab_priv ab_priv;
+> >> +		struct rr_priv rr_priv;
+> >> +	};
+> >
+> >I think the union should be a pointer or work in the same
+> >way as netdev_priv() does.
+> 
+> The reason I did this this way is saving one pointer dereference in
+> hot paths. In netdev priv the memory for priv data is allcated along
+> with netdev struct. In this case this is not possible because mode
+> can be changed during team device lifetime (and team priv is netdev
+> priv).
+>
+
+but then any external/new team mode will require patching the
+team driver. 
+
+> <snip>
+> 
+> >> +
+> >> +static bool rr_transmit(struct team *team, struct sk_buff *skb)
+> >> +{
+> >> +	struct team_port *port;
+> >> +	int port_index;
+> >> +
+> >> +	port_index = team->rr_priv.sent_packets++ %
+> >> team->port_count;
+> >> +	port = team_get_port_by_index_rcu(team, port_index);
+> >> +	port = __get_first_port_up(team, port);
+> >
+> >Well, __get_first_port_up() will frequently just do:
+> >
+> >	if (port->linkup)
+> >		return port;
+> >
+> >so, as it is in the hot TX path, can this be modified to be something
+> >like below to avoid one function call?
+> >
+> >        port = team_get_port_by_index_rcu(team, port_index);
+> >        if (unlikely(port->linkup))
+> >            port = __get_first_port_up(team, port);
+> 
+> Hmm, I don't think this is correct place to use "likely". Imagine you
+> have 2 ports and one of them is down all the team lifetime. You would
+> be hitting wrong branch always which will cause performance penalty.
+
+Right, my point was to avoid the extra function call.
+I agree with you that using "likely" there might not be a good idea.
+
+
+> >> +
+> >> +static const struct team_mode ab_mode = {
+> >> +	.kind		= "activebackup",
+> >> +	.ops		= &ab_mode_ops,
+> >> +};
+> >> +
+> >
+> >I would suggest to move each of the ab and rr specifics
+> >to their own module.  The idea is to have the team module
+> >as a generic module as possible and every mode on its module.
+> >Not sure what your plans are for this.
+> 
+> Well I was thinking about this for sure. One reason to have this in
+> one place is the mode_priv union you were referring to.
+> Other reason is that mode parts should be very easy and short. Also
+> their number should be limited (~4).
+> 
+
+Are you sure? :)
+
+
+> <snip>
+> >> +
+> >> +static struct rtnl_link_stats64 *team_get_stats(struct net_device
+> >> *dev,
+> >> +						struct
+> >> rtnl_link_stats64 *stats) +{
+> >> +	struct team *team = netdev_priv(dev);
+> >> +	struct rtnl_link_stats64 temp;
+> >> +	struct team_port *port;
+> >> +
+> >> +	memset(stats, 0, sizeof(*stats));
+> >> +
+> >> +	rcu_read_lock();
+> >> +	list_for_each_entry_rcu(port, &team->port_list, list) {
+> >> +		const struct rtnl_link_stats64 *pstats;
+> >> +
+> >> +		pstats = dev_get_stats(port->dev, &temp);
+> >> +
+> >> +		stats->rx_packets += pstats->rx_packets;
+> >> +		stats->rx_bytes += pstats->rx_bytes;
+> >> +		stats->rx_errors += pstats->rx_errors;
+> >> +		stats->rx_dropped += pstats->rx_dropped;
+> >> +
+> >> +		stats->tx_packets += pstats->tx_packets;
+> >> +		stats->tx_bytes += pstats->tx_bytes;
+> >> +		stats->tx_errors += pstats->tx_errors;
+> >> +		stats->tx_dropped += pstats->tx_dropped;
+> >> +
+> >> +		stats->multicast += pstats->multicast;
+> >> +		stats->collisions += pstats->collisions;
+> >> +
+> >> +		stats->rx_length_errors +=
+> >> pstats->rx_length_errors;
+> >> +		stats->rx_over_errors += pstats->rx_over_errors;
+> >> +		stats->rx_crc_errors += pstats->rx_crc_errors;
+> >> +		stats->rx_frame_errors += pstats->rx_frame_errors;
+> >> +		stats->rx_fifo_errors += pstats->rx_fifo_errors;
+> >> +		stats->rx_missed_errors +=
+> >> pstats->rx_missed_errors; +
+> >> +		stats->tx_aborted_errors +=
+> >> pstats->tx_aborted_errors;
+> >> +		stats->tx_carrier_errors +=
+> >> pstats->tx_carrier_errors;
+> >> +		stats->tx_fifo_errors += pstats->tx_fifo_errors;
+> >> +		stats->tx_heartbeat_errors +=
+> >> pstats->tx_heartbeat_errors;
+> >> +		stats->tx_window_errors +=
+> >> pstats->tx_window_errors;
+> >> +	}
+> >> +	rcu_read_unlock();
+> >> +
+> >> +	return stats;
+> >> +}
+> >
+> >I don't think computing stats like that is useful.  We can do
+> >that in userlevel with ethtool -S on each slave and sum all them.
+> >I think it would be better to have the errors computed based on
+> >events that happens inside of Team driver, so we can really see if
+> >something is happening inside of the Team driver or on its slaves.
+> 
+> I was thinking about this as well. I did this in same ways it's done
+> in bonding driver. One of reasons were that I can't count dropped
+> packets in team_handle_frame because I do not call netif_rx there and
+> only return RX_HANDLER_ANOTHER to "reinject" (saving one function
+> call).
+>
+
+My concern is that while debugging some issue, I cannot tell if Team
+driver dropped packets or not. Actually, there are some places in the
+patch dropping skbs without any sort of notification.  So, I suggested
+to compute the stats leaving the slave stats out of it but now I have
+realized that the admin and monitoring tools will expect to find the
+interface stats to be a sum of all its slaves.
+
+I think the solution would be having a master stats set apart to keep
+track of internal driver work and then sum the slaves stats like the
+patch does right now.  By doing so, I can grab ethtool -S of all slaves,
+sum them, and check if Team dropped or not.
+
+
+
+> 
+> <snip>
+> 
+> >> +
+> >> +static int team_add_slave(struct net_device *dev, struct
+> >> net_device *port_dev) +{
+> >> +	struct team *team = netdev_priv(dev);
+> >> +	int err;
+> >> +
+> >> +	spin_lock(&team->lock);
+> >> +	err = team_port_add(team, port_dev);
+> >> +	spin_unlock(&team->lock);
+> >> +	return err;
+> >> +}
+> >
+> >I am not seeing any difference between slave and port, so why not
+> >stick with just one?
+> 
+> I like "port" better. It's more accurate. 
+
+Definitely.
+
+> team_add/del_slave has its
+> name only because ndo is named the same.
+
+Hm, makes sense then.
+
+Although I am still digesting the patch, nice work Jiri!
+thanks,
+fbl
