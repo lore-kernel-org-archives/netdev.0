@@ -1,76 +1,66 @@
-From: Matthew Daley <mattjd@gmail.com>
-Subject: [PATCH] x25: Validate incoming call user data lengths
-Date: Tue, 4 Oct 2011 14:00:20 +0000
-Message-ID: <CA+nUz_J73agjPQPqdbTraUPLyv39sqQ4kvZTmrZrFXLW1faqwg@mail.gmail.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: =?UTF-8?q?=5BPATCH=5D=20net=3A=20fix=20typos=20in=20Documentation/networking/scaling=2Etxt?=
+Date: Tue,  4 Oct 2011 10:00:30 -0400
+Message-ID: <1317736830-4442-1-git-send-email-benjamin.poirier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Hendry <andrew.hendry@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:61943 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757286Ab1JDOAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 10:00:21 -0400
-Received: by gyg10 with SMTP id 10so491644gyg.19
-        for <netdev@vger.kernel.org>; Tue, 04 Oct 2011 07:00:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-doc@vger.kernel.org, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-X.25 call user data is being copied in its entirety from incoming messages
-without consideration to the size of the destination buffers, leading to
-possible buffer overflows. Validate incoming call user data lengths before
-these copies are performed.
+The second hunk fixes rps_sock_flow_table but has to re-wrap the paragr=
+aph.
 
-It appears this issue was noticed some time ago, however nothing seemed to
-come of it: see http://www.spinics.net/lists/linux-x25/msg00043.html and
-commit 8db09f26f912f7c90c764806e804b558da520d4f.
-
-Signed-off-by: Matthew Daley <mattjd@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Andrew Hendry <andrew.hendry@gmail.com>
-Cc: stable <stable@kernel.org>
+Signed-off-by: Benjamin Poirier <benjamin.poirier@gmail.com>
 ---
-Hopefully this is acceptable; I thought someone with greater knowledge of
-X.25 might step in :) It should take into account Andrew's suggestion to
-move af_x25.c's check to before the call acception.
+ Documentation/networking/scaling.txt |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
- net/x25/af_x25.c |    6 ++++++
- net/x25/x25_in.c |    3 +++
- 2 files changed, 9 insertions(+), 0 deletions(-)
+diff --git a/Documentation/networking/scaling.txt b/Documentation/netwo=
+rking/scaling.txt
+index 8ce7c30..fe67b5c 100644
+--- a/Documentation/networking/scaling.txt
++++ b/Documentation/networking/scaling.txt
+@@ -27,7 +27,7 @@ applying a filter to each packet that assigns it to o=
+ne of a small number
+ of logical flows. Packets for each flow are steered to a separate rece=
+ive
+ queue, which in turn can be processed by separate CPUs. This mechanism=
+ is
+ generally known as =E2=80=9CReceive-side Scaling=E2=80=9D (RSS). The g=
+oal of RSS and
+-the other scaling techniques to increase performance uniformly.
++the other scaling techniques is to increase performance uniformly.
+ Multi-queue distribution can also be used for traffic prioritization, =
+but
+ that is not the focus of these techniques.
+=20
+@@ -186,10 +186,10 @@ are steered using plain RPS. Multiple table entri=
+es may point to the
+ same CPU. Indeed, with many flows and few CPUs, it is very likely that
+ a single application thread handles flows with many different flow has=
+hes.
+=20
+-rps_sock_table is a global flow table that contains the *desired* CPU =
+for
+-flows: the CPU that is currently processing the flow in userspace. Eac=
+h
+-table value is a CPU index that is updated during calls to recvmsg and
+-sendmsg (specifically, inet_recvmsg(), inet_sendmsg(), inet_sendpage()
++rps_sock_flow_table is a global flow table that contains the *desired*=
+ CPU
++for flows: the CPU that is currently processing the flow in userspace.
++Each table value is a CPU index that is updated during calls to recvms=
+g
++and sendmsg (specifically, inet_recvmsg(), inet_sendmsg(), inet_sendpa=
+ge()
+ and tcp_splice_read()).
+=20
+ When the scheduler moves a thread to a new CPU while it has outstandin=
+g
+--=20
+1.7.6.3
 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index d306154..a4bd172 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -959,6 +959,12 @@ int x25_rx_call_request(struct sk_buff *skb,
-struct x25_neigh *nb,
- 	skb_pull(skb,len);
-
- 	/*
-+	 *	Ensure that the amount of call user data is valid.
-+	 */
-+	if (skb->len > X25_MAX_CUD_LEN)
-+		goto out_clear_request;
-+
-+	/*
- 	 *	Find a listener for the particular address/cud pair.
- 	 */
- 	sk = x25_find_listener(&source_addr,skb);
-diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
-index 0b073b5..63488fd 100644
---- a/net/x25/x25_in.c
-+++ b/net/x25/x25_in.c
-@@ -127,6 +127,9 @@ static int x25_state1_machine(struct sock *sk,
-struct sk_buff *skb, int frametyp
- 		 *	Copy any Call User Data.
- 		 */
- 		if (skb->len > 0) {
-+			if (skb->len > X25_MAX_CUD_LEN)
-+				goto out_clear;
-+
- 			skb_copy_from_linear_data(skb,
- 						  x25->calluserdata.cuddata,
- 						  skb->len);
---
-1.7.2.5
