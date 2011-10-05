@@ -1,75 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net-proc: expose the tos values in /proc/net/[tcp|udp]
-Date: Wed, 05 Oct 2011 11:34:29 +0200
-Message-ID: <1317807270.2473.35.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1317324162-21621-1-git-send-email-muralira@google.com>
-	 <20110929.153259.169108824599752228.davem@davemloft.net>
-	 <CAP3iWTTYk7tErsCVdeytdpiu0fo-7B8cNZZk0EpR_rj-VOGi-g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: MuraliRaja Muniraju <muralira@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAP3iWTTYk7tErsCVdeytdpiu0fo-7B8cNZZk0EpR_rj-VOGi-g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/10 v3][pull request] Intel Wired LAN Driver Updates
+Date: Wed,  5 Oct 2011 03:20:14 -0700
+Message-ID: <1317810024-20846-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:7240 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932963Ab1JEKU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Oct 2011 06:20:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 04 octobre 2011 =C3=A0 10:38 -0700, MuraliRaja Muniraju a =C3=A9=
-crit :
-> I shall make the changes by exposing the tos values via the
-> netlink as suggested. I had a doubt is I have to modify the
-> inet_diag_sockid or export it via a new option. I am considering
-> that adding into inet_diag_sockid is better because the latter is a
-> bit of a over kill for a single value to be exposed and it also seems
-> to be logical fit.
-> Can you let me know your thoughts on this.
+The following series contains updates to e1000e and ixgbe. The one
+patch for e1000e makes function tables const, thanks to Stephen
+Hemminger for reporting this.  The remaining patches are for ixgbe,
+and the contain the following:
 
-I believe you could add one "u32 tos" to struct tcp_info
+ - minor cleanups
+ - add support for 82599 device and ethtool -E support
+ - removal of a PHY which is not used in production silicon
 
-[ It wont solve the UDP case, since "ss -u" still dumps /proc/net/udp
-and /proc/net/udp6 ]
+v2- Updated patch 11 with the suggested changes from Ben Hutchings
+v3- Drop patch 11 so that Emil can re-work the patch based on feedback
 
-=46ollowing patch should handle tcp/dccp ipv4/ipv6
+The following are changes since commit 70f14381299984f05764c3188f1706288285c953:
+  bna: Multiple Definition and Interface Setup Fix
+and are available in the git repository at
+  git://github.com/Jkirsher/net-next.git
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 7f59ee9..eec6f3b 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -167,6 +167,7 @@ struct tcp_info {
- 	__u32	tcpi_rcv_space;
-=20
- 	__u32	tcpi_total_retrans;
-+	__u32	tos;
- };
-=20
- /* for TCP_MD5SIG socket option */
-diff --git a/net/dccp/diag.c b/net/dccp/diag.c
-index b21f261..70d9498 100644
---- a/net/dccp/diag.c
-+++ b/net/dccp/diag.c
-@@ -37,6 +37,7 @@ static void dccp_get_info(struct sock *sk, struct tcp=
-_info *info)
-=20
- 	if (dp->dccps_hc_tx_ccid !=3D NULL)
- 		ccid_hc_tx_get_info(dp->dccps_hc_tx_ccid, sk, info);
-+	info->tos =3D inet_sk(sk)->tos;
- }
-=20
- static void dccp_diag_get_info(struct sock *sk, struct inet_diag_msg *=
-r,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 4c0da24..b24c3d8 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2493,6 +2493,7 @@ void tcp_get_info(struct sock *sk, struct tcp_inf=
-o *info)
- 	info->tcpi_rcv_space =3D tp->rcvq_space.space;
-=20
- 	info->tcpi_total_retrans =3D tp->total_retrans;
-+	info->tos =3D inet_sk(sk)->tos;
- }
- EXPORT_SYMBOL_GPL(tcp_get_info);
-=20
+Emil Tantilov (7):
+  ixgbe: prevent link checks while resetting
+  ixgbe: clear the data field in ixgbe_read_i2c_byte_generic
+  ixgbe: remove return code for functions that always return 0
+  ixgbe: add support for new 82599 device
+  ixgbe: send MFLCN to ethtool
+  ixgbe: do not disable flow control in ixgbe_check_mac_link
+  ixgbe: remove instances of ixgbe_phy_aq for 82598 and 82599
+
+Jacob Keller (1):
+  ixgbe: fix driver version initialization in firmware
+
+Jeff Kirsher (1):
+  e1000e: make function tables const
+
+Mika Lansirinne (1):
+  ixgbe: get pauseparam autoneg
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c  |    8 ++--
+ drivers/net/ethernet/intel/e1000e/82571.c        |   20 ++++++------
+ drivers/net/ethernet/intel/e1000e/e1000.h        |   28 +++++++++---------
+ drivers/net/ethernet/intel/e1000e/ich8lan.c      |   16 +++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |    7 ----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |    7 +----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |    6 ----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   13 +++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   12 +++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   33 +++++++--------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |    1 +
+ 12 files changed, 63 insertions(+), 89 deletions(-)
+
+-- 
+1.7.6.4
