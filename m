@@ -1,56 +1,48 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/8] vxge: convert to SKB paged frag API.
-Date: Wed, 5 Oct 2011 23:03:27 +0200
-Message-ID: <CAHXqBFKX5eojLMhT1MW1inAUH9cfVne4-rhDQYSLsUh-OTzuPQ@mail.gmail.com>
-References: <1317810511.21903.204.camel@zakaz.uk.xensource.com> <1317810532-24984-1-git-send-email-ian.campbell@citrix.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: loopback IP alias breaks tftp?
+Date: Thu, 6 Oct 2011 00:18:44 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1110060009020.1959@ja.ssi.bg>
+References: <20111005202723.GE2479@zod.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jon Mason <jdmason@kudzu.us>
-To: Ian Campbell <ian.campbell@citrix.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Josh Boyer <jwboyer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:43402 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757872Ab1JEVDr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 17:03:47 -0400
-Received: by iakk32 with SMTP id k32so2198978iak.19
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2011 14:03:47 -0700 (PDT)
-In-Reply-To: <1317810532-24984-1-git-send-email-ian.campbell@citrix.com>
+Received: from ja.ssi.bg ([178.16.129.10]:60307 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753795Ab1JEVRx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Oct 2011 17:17:53 -0400
+In-Reply-To: <20111005202723.GE2479@zod.bos.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/10/5 Ian Campbell <ian.campbell@citrix.com>:
-[...]
-> --- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> +++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> @@ -923,9 +923,9 @@ vxge_xmit(struct sk_buff *skb, struct net_device =
-*dev)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (!frag->size)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0continue;
->
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_pointer =3D (u64) pci_map_page(fifo=
-->pdev, frag->page,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 frag->p=
-age_offset, frag->size,
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 PCI_DMA=
-_TODEVICE);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_pointer =3D (u64)skb_frag_dma_map(&=
-fifo->pdev->dev, frag,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0, frag->size,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 PCI_DMA_TODEVICE);
 
-This should be DMA_TO_DEVICE instead of PCI_DMA_TODEVICE.
+	Hello,
 
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (unlikely(pci_dma_mapping_error(fif=
-o->pdev, dma_pointer)))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto _exit2;
+On Wed, 5 Oct 2011, Josh Boyer wrote:
 
-I would also change this to dma_mapping_error() in one go.
+> Hi All,
+> 
+> We've had a report [1] of a change in behavior when trying to use an IP
+> alias to tftp from a loopback device.  Apparently the steps outlined in
+> the bug worked in 2.6.35, and broke somewhere before 2.6.38.6.
+> 
+> I can confirm the steps fail on a 3.0 based kernel and I'm trying to do
+> a git bisect to find the commit involved, but I thought I would send
+> this along to see if anyone might have an idea.  (Also, I'm not really
+> sure how valid of a usecase this was to begin with.)
 
-Just a random patch check.
+	What about commit 9fc3bbb4a752f108cf096d96640f3b548bbbce6c ?
 
-Best Regards,
-Micha=B3 Miros=B3aw
+ipv4/route.c: respect prefsrc for local routes
+
+http://marc.info/?t=129412232500001&r=1&w=2
+
+> [1] https://bugzilla.redhat.com/show_bug.cgi?id=739534
+> 
+> josh
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
