@@ -1,51 +1,54 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 5/8] hv: netvsc: convert to SKB paged frag API.
-Date: Wed, 5 Oct 2011 11:28:49 +0100
-Message-ID: <1317810532-24984-5-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 4/8] et131x: convert to SKB paged frag API.
+Date: Wed, 5 Oct 2011 11:28:48 +0100
+Message-ID: <1317810532-24984-4-git-send-email-ian.campbell@citrix.com>
 References: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Hank Janssen <hjanssen@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
 	Greg Kroah-Hartman <gregkh@suse.de>,
-	"K. Y. Srinivasan" <kys@microsoft.com>,
-	Abhishek Kane <v-abkane@microsoft.com>,
-	devel@driverdev.osuosl.org
+	Mark Einon <mark.einon@gmail.com>, devel@driverdev.osuosl.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:34524 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934263Ab1JEK3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 06:29:02 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:27833 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934347Ab1JEK3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Oct 2011 06:29:06 -0400
 In-Reply-To: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Hank Janssen <hjanssen@microsoft.com>
-Cc: Haiyang Zhang <haiyangz@microsoft.com>
 Cc: Greg Kroah-Hartman <gregkh@suse.de>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-Cc: Abhishek Kane <v-abkane@microsoft.com>
+Cc: Mark Einon <mark.einon@gmail.com>
 Cc: devel@driverdev.osuosl.org
 Cc: netdev@vger.kernel.org
 ---
- drivers/staging/hv/netvsc_drv.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/staging/et131x/et1310_tx.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/staging/hv/netvsc_drv.c b/drivers/staging/hv/netvsc_drv.c
-index bfd4c81..58792ae 100644
---- a/drivers/staging/hv/netvsc_drv.c
-+++ b/drivers/staging/hv/netvsc_drv.c
-@@ -171,7 +171,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
- 
--		packet->page_buf[i+2].pfn = page_to_pfn(f->page);
-+		packet->page_buf[i+2].pfn = page_to_pfn(skb_frag_page(f));
- 		packet->page_buf[i+2].offset = f->page_offset;
- 		packet->page_buf[i+2].len = f->size;
+diff --git a/drivers/staging/et131x/et1310_tx.c b/drivers/staging/et131x/et1310_tx.c
+index 8fb3051..03e7a4e 100644
+--- a/drivers/staging/et131x/et1310_tx.c
++++ b/drivers/staging/et131x/et1310_tx.c
+@@ -519,12 +519,12 @@ static int nic_send_packet(struct et131x_adapter *etdev, struct tcb *tcb)
+ 			 * returned by pci_map_page() is always 32-bit
+ 			 * addressable (as defined by the pci/dma subsystem)
+ 			 */
+-			desc[frag++].addr_lo =
+-			    pci_map_page(etdev->pdev,
+-					 frags[i - 1].page,
+-					 frags[i - 1].page_offset,
+-					 frags[i - 1].size,
+-					 PCI_DMA_TODEVICE);
++			desc[frag++].addr_lo = skb_frag_dma_map(
++							&etdev->pdev->dev,
++							&frags[i - 1],
++							0,
++							frags[i - 1].size,
++							PCI_DMA_TODEVICE);
+ 		}
  	}
+ 
 -- 
 1.7.2.5
