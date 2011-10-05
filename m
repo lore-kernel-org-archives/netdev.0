@@ -1,108 +1,77 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: [PATCH] route: fix ICMP redirect validation
-Date: Wed,  5 Oct 2011 11:20:04 -0300
-Message-ID: <1317824404-9513-1-git-send-email-fbl@redhat.com>
-Cc: David Miller <davem@davemloft.net>, Flavio Leitner <fbl@redhat.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33700 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934342Ab1JEOUO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Oct 2011 10:20:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 1/2] virtio-net: Verify page list size before fitting
+ into  skb
+Date: Wed, 5 Oct 2011 16:59:04 -0200
+Message-ID: <20111005185904.GA15444@redhat.com>
+References: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
+ <20111003190416.GC22427@redhat.com>
+ <1317822654.3676.1.camel@lappy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1317822654.3676.1.camel@lappy>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The commit f39925dbde7788cfb96419c0f092b086aa325c0f
-(ipv4: Cache learned redirect information in inetpeer.)
-removed some ICMP packet validations which are required by
-RFC 1122, section 3.2.2.2:
-...
-  A Redirect message SHOULD be silently discarded if the new
-  gateway address it specifies is not on the same connected
-  (sub-) net through which the Redirect arrived [INTRO:2,
-  Appendix A], or if the source of the Redirect is not the
-  current first-hop gateway for the specified destination (see
-  Section 3.3.1).
+On Wed, Oct 05, 2011 at 03:50:54PM +0200, Sasha Levin wrote:
+> On Mon, 2011-10-03 at 21:04 +0200, Michael S. Tsirkin wrote:
+> > On Wed, Sep 28, 2011 at 05:40:54PM +0300, Sasha Levin wrote:
+> > > This patch verifies that the length of a buffer stored in a linked list
+> > > of pages is small enough to fit into a skb.
+> > > 
+> > > If the size is larger than a max size of a skb, it means that we shouldn't
+> > > go ahead building skbs anyway since we won't be able to send the buffer as
+> > > the user requested.
+> > > 
+> > > Cc: Rusty Russell <rusty@rustcorp.com.au>
+> > > Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> > > Cc: virtualization@lists.linux-foundation.org
+> > > Cc: netdev@vger.kernel.org
+> > > Cc: kvm@vger.kernel.org
+> > > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> > > ---
+> > >  drivers/net/virtio_net.c |   13 +++++++++++++
+> > >  1 files changed, 13 insertions(+), 0 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > > index 0c7321c..bde0dec 100644
+> > > --- a/drivers/net/virtio_net.c
+> > > +++ b/drivers/net/virtio_net.c
+> > > @@ -195,6 +195,19 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+> > >  	len -= copy;
+> > >  	offset += copy;
+> > >  
+> > > +	/*
+> > > +	 * Verify that we can indeed put this data into a skb.
+> > > +	 * This is here to handle cases when the device erroneously
+> > > +	 * tries to receive more than is possible. This is usually
+> > > +	 * the case of a broken device.
+> > > +	 */
+> > > +	if (unlikely(len > MAX_SKB_FRAGS * PAGE_SIZE)) {
+> > > +		if (net_ratelimit())
+> > > +			pr_debug("%s: too much data\n", skb->dev->name);
+> > > +		dev_kfree_skb(skb);
+> > > +		return NULL;
+> > > +	}
+> > > +
+> > 
+> > BTW, receive_mergeable does
+> >                         pr_debug("%s: packet too long\n", skb->dev->name);
+> >                         skb->dev->stats.rx_length_errors++;
+> > 
+> > which makes sense.
+> 
+> Do you think we should increase rx_length_errors here as well?
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
----
- net/ipv4/route.c |   47 ++++++++++++++++++++++++++++++++++++++++++-----
- 1 files changed, 42 insertions(+), 5 deletions(-)
+this is all debugging tool for devices/drivers, right?
+so maybe not worth the noise.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 26c77e1..1c11f28 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1308,7 +1308,12 @@ static void rt_del(unsigned hash, struct rtable *rt)
- void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 		    __be32 saddr, struct net_device *dev)
- {
-+	int s, i;
- 	struct in_device *in_dev = __in_dev_get_rcu(dev);
-+	struct rtable *rth;
-+	struct rtable __rcu **rthp;
-+	__be32 skeys[2] = { saddr, 0 };
-+	int    ikeys[2] = { dev->ifindex, 0 };
- 	struct inet_peer *peer;
- 	struct net *net;
- 
-@@ -1321,6 +1326,9 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 	    ipv4_is_zeronet(new_gw))
- 		goto reject_redirect;
- 
-+	if (!rt_caching(net))
-+		goto reject_redirect;;
-+
- 	if (!IN_DEV_SHARED_MEDIA(in_dev)) {
- 		if (!inet_addr_onlink(in_dev, new_gw, old_gw))
- 			goto reject_redirect;
-@@ -1331,13 +1339,42 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
- 			goto reject_redirect;
- 	}
- 
--	peer = inet_getpeer_v4(daddr, 1);
--	if (peer) {
--		peer->redirect_learned.a4 = new_gw;
-+	for (s = 0; s < 2; s++) {
-+		for (i = 0; i < 2; i++) {
-+			unsigned int hash = rt_hash(daddr, skeys[s],
-+						    ikeys[i], rt_genid(net));
- 
--		inet_putpeer(peer);
-+			rthp=&rt_hash_table[hash].chain;
- 
--		atomic_inc(&__rt_peer_genid);
-+			while ((rth = rcu_dereference(*rthp)) != NULL) {
-+
-+				if (rth->rt_key_dst != daddr ||
-+				    rth->rt_key_src != skeys[s] ||
-+				    rth->rt_oif != ikeys[i] ||
-+				    rt_is_input_route(rth) ||
-+				    rt_is_expired(rth) ||
-+				    !net_eq(dev_net(rth->dst.dev), net)) {
-+					rthp = &rth->dst.rt_next;
-+					continue;
-+				}
-+
-+				if (rth->rt_dst != daddr ||
-+				    rth->rt_src != saddr ||
-+				    rth->rt_gateway != old_gw ||
-+				    rth->dst.dev != dev ||
-+				    rth->dst.error)
-+					break;
-+
-+				peer = inet_getpeer_v4(daddr, 1);
-+				if (peer) {
-+					peer->redirect_learned.a4 = new_gw;
-+					inet_putpeer(peer);
-+					atomic_inc(&__rt_peer_genid);
-+				}
-+
-+				break;
-+			}
-+		}
- 	}
- 	return;
- 
--- 
-1.7.6
+> -- 
+> 
+> Sasha.
