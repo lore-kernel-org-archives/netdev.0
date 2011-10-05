@@ -1,59 +1,27 @@
-From: raj@tardy.cup.hp.com (Rick Jones)
-Subject: [PATCH net-next] Add ethtool -g support to 8139cp
-Date: Wed,  5 Oct 2011 11:08:54 -0700 (PDT)
-Message-ID: <20111005180854.3D68129003A8@tardy>
-To: <netdev@vger.kernel.org>
+From: Eduardo Panisset <eduardo.panisset@gmail.com>
+Subject: RCU list entry in ipv6_chk_addr function
+Date: Wed, 5 Oct 2011 15:16:43 -0300
+Message-ID: <CADsjWXR2WffKKHxom16i01_BbCWBBQWLdQUz_vEnp_enuFoEdQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:4591 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932812Ab1JESIz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 14:08:55 -0400
-Received: from g4t0009.houston.hp.com (g4t0009.houston.hp.com [16.234.32.26])
-	by g4t0016.houston.hp.com (Postfix) with ESMTP id E3EFD143E4
-	for <netdev@vger.kernel.org>; Wed,  5 Oct 2011 18:08:54 +0000 (UTC)
-Received: from tardy (tardy.cup.hp.com [16.89.244.213])
-	by g4t0009.houston.hp.com (Postfix) with ESMTP id C07C8C19C
-	for <netdev@vger.kernel.org>; Wed,  5 Oct 2011 18:08:54 +0000 (UTC)
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:56272 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933193Ab1JESQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 14:16:43 -0400
+Received: by yxl31 with SMTP id 31so1841855yxl.19
+        for <netdev@vger.kernel.org>; Wed, 05 Oct 2011 11:16:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
+Hi All,
 
-Add support for reporting ring sizes via ethtool -g to the 8139cp driver.
+I was looking over ipv6 implementation for kernel 3.0.4.
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
+Shouldn't "hlist_for_each_entry_rcu_bh" be used instead of
+"hlist_for_each_entry_rcu" in the function ipv6_chk_addr (file
+net/ipv6/addrconf.c) ?
 
----
-
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index c77d5af..1dcfe57 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -1324,6 +1324,19 @@ static void cp_get_drvinfo (struct net_device *dev, struct ethtool_drvinfo *info
- 	strcpy (info->bus_info, pci_name(cp->pdev));
- }
- 
-+static void cp_get_ringparam(struct net_device *dev,
-+				struct ethtool_ringparam *ring)
-+{
-+	ring->rx_max_pending = CP_RX_RING_SIZE;
-+	ring->tx_max_pending = CP_TX_RING_SIZE;
-+	ring->rx_mini_max_pending = 0;
-+	ring->rx_jumbo_max_pending = 0;
-+	ring->rx_pending = CP_RX_RING_SIZE;
-+	ring->tx_pending = CP_TX_RING_SIZE;
-+	ring->rx_mini_pending = 0;
-+	ring->rx_jumbo_pending = 0;
-+}
-+
- static int cp_get_regs_len(struct net_device *dev)
- {
- 	return CP_REGS_SIZE;
-@@ -1525,6 +1538,7 @@ static const struct ethtool_ops cp_ethtool_ops = {
- 	.get_eeprom_len		= cp_get_eeprom_len,
- 	.get_eeprom		= cp_get_eeprom,
- 	.set_eeprom		= cp_set_eeprom,
-+	.get_ringparam		= cp_get_ringparam,
- };
- 
- static int cp_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
+Best Regards,
+Eduardo Panisset.
