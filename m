@@ -1,83 +1,53 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [PATCH net] mscan: zero accidentally copied register content
-Date: Thu, 6 Oct 2011 11:24:57 +0200
-Message-ID: <20111006092456.GB1974@pengutronix.de>
-References: <4E8C78E8.3010605@hartkopp.net>
- <20111005155127.GB13794@pengutronix.de>
- <4E8C8175.2040202@hartkopp.net>
- <4E8D528D.8020607@hartkopp.net>
- <4E8D7065.8040905@grandegger.com>
+From: =?ISO-8859-1?Q?David_T=E4ht?= <dave.taht@gmail.com>
+Subject: Asserting ECN from userspace?
+Date: Tue, 04 Oct 2011 23:18:26 -0700
+Message-ID: <4E8BF6B2.6030101@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="gatW/ieO32f1wygP"
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andre Naujoks <nautsch@gmail.com>
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, bloat-devel@lists.bufferbloat.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:51003 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932475Ab1JFJY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 05:24:59 -0400
-Content-Disposition: inline
-In-Reply-To: <4E8D7065.8040905@grandegger.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:64828 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935693Ab1JFJd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 05:33:26 -0400
+Received: by bkbzt4 with SMTP id zt4so3209487bkb.19
+        for <netdev@vger.kernel.org>; Thu, 06 Oct 2011 02:33:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---gatW/ieO32f1wygP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+No sooner had I noted (with pleasure) the kernel's new ability to
+correctly set the dscp bits on IPv6 TCP streams without messing with the
+negotiated ECN status, that I found several use cases where being able
+to assert ECN from userspace (for either ipv4, or ipv6) would be useful.
 
+1) Applications such as bittorrent (transmission, etc) that are much
+more aware of their overall environment could assert ECN on their UDP
+streams to indicate congestion.
 
-> Why do you want to change 16-bit accesses in general? They are faster
-> than two 8 bit accesses.=20
+2) Test tools. It would be nice to be able, from userspace, to easily
+diagnose if ECN was working on a stream, end to end, and being able to
+set and receive the ECN bits on a less algorithmic basis (ie, not wedged
+deep within a kernel aqm such as RED or SFB)
 
-Yup, was thinking the same.
+3) Web Proxies. A web proxy could note when it was experiencing
+congestion on one side of the proxied connection (or another) and signal
+the other side to slow down.
 
->=20
-> > IMHO this fix is small and clear and especially not risky. I wonder if
-> > reworking the 16 bit register access is worth the effort?
->=20
-> I would prefer:
->=20
->  	if (!(frame->can_id & CAN_RTR_FLAG)) {
->  		void __iomem *data =3D &regs->rx.dsr1_0;
->  		u16 *payload =3D (u16 *)frame->data;
-> =20
->  		for (i =3D 0; i < frame->can_dlc / 2; i++) {
->  			*payload++ =3D in_be16(data);
->  			data +=3D 2 + _MSCAN_RESERVED_DSR_SIZE;
->  		}
-> 		/* copy remaining byte */
+Ah, ECN, we hardly know ye.
 
-if any
+as for item 1 I'm hard pressed to think of a case where setting the ECN
+bits on udp streams would introduce a security problem.
 
-> 		if (frame->can_dlc & 1)
-> 			frame->data[frame->can_dlc - 1] =3D in_8(data);
+As for 2, can live without.
 
-Ack.
+As for 3... perhaps a grantable network capability? A proxy could
+acquire privs to twiddle those bits before dropping root privs.
 
-Regards,
+That begs the question of how to see those bits in the first place. OOB
+data?
 
-   Wolfram
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---gatW/ieO32f1wygP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAk6Nc+gACgkQD27XaX1/VRvdOACeMLf46anf+iqQAS/c80Lj+oiE
-Q+0AnA3b0ChPnn3UWFKk/1/+Zczru00o
-=nyiH
------END PGP SIGNATURE-----
-
---gatW/ieO32f1wygP--
+And twiddling them, on a per stream basis, for a single packet, would
+seem to require something more robust than setsockopt/getsockopt
+(although that would work for udp streams)
