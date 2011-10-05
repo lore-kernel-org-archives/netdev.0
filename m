@@ -1,43 +1,53 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: IPv4 multicast and mac-vlans acting weird on 3.0.4+
-Date: Wed, 05 Oct 2011 09:46:38 -0700
-Message-ID: <4E8C89EE.3090600@candelatech.com>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: [net-next 1/1] bna: Multiple Definition and Interface Setup Fix
+Date: Wed, 05 Oct 2011 10:09:17 -0700
+Message-ID: <4E8C8F3D.8040605@xenotime.net>
+References: <1317781880-26515-1-git-send-email-rmody@brocade.com>	<20111004.232713.1345786533613742751.davem@davemloft.net> <20111005192601.fa947a78b188f4a021042a5e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:56250 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934476Ab1JEQqi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 12:46:38 -0400
-Received: from [192.168.100.111] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p95Gkcdj016364
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 5 Oct 2011 09:46:38 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, rmody@brocade.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org,
+	huangj@brocade.com, adapter_linux_open_src_team@brocade.com,
+	Mauro Carvalho Chehab <mchehab@redhat.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20111005192601.fa947a78b188f4a021042a5e@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 10/05/11 01:26, Stephen Rothwell wrote:
+> On Tue, 04 Oct 2011 23:27:13 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+>>
+>> From: Rasesh Mody <rmody@brocade.com>
+>> Date: Tue, 4 Oct 2011 19:31:20 -0700
+>>
+>>> drivers/net/built-in.o: In function `bfa_ioc_ct2_poweron':
+>>> (.text+0xcdc90): multiple definition of `bfa_ioc_ct2_poweron'
+>>> drivers/scsi/built-in.o:(.text+0x17f9a0): first defined here
+>>>
+>>> This patch renames bfa_ioc_ct2_poweron() to bfa_nw_ioc_ct2_poweron() to avoid
+>>> multiple definition with Brocade scsi driver. It also modifies asic specific
+>>> interface setup to allocate MSIX resources at power on in case of 1860 HW with
+>>> no asic block and warns if the asic gen is neither BFI_ASIC_GEN_CT nor
+>>> BFI_ASIC_GEN_CT2.
+>>>
+>>> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+>>> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+>>
+>> Applied, thanks.
 
-This is on a hacked 3.0.4 kernel...
+Thanks for the patch.
 
-I am seeing an issue where an IPv4 mcast receiver will not receive
-a 1473 or larger byte mcast message, but will receive a 1472.  The difference
-being that 1473 ends up being two packets on the wire.  It works on
-802.1Q VLANs, VETH interfaces and real Ethernet.  It does not work
-on a mac-vlan hanging off the VETH.
+> I also manually applied this to linux-next today.
 
-I see packets received on the macvlan in tshark, and they appear correct.  No
-obvious errors in the macvlan port stats or netstat -s,
-and the 'ss' tool doesn't appear to support UDP sockets at all.
+We could also stand to have this patch applied to linux-next since
+it doesn't seem to be merged anywhere else yet: (for drivers/media/video)
 
-So, I'm about to go digging into the code, but if anyone has any
-suggestions for places to look, please let me know!
+http://marc.info/?l=linux-next&m=131741851601754&w=2
 
-Thanks,
-Ben
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
