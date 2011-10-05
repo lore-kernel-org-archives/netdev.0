@@ -1,95 +1,104 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v5 0/8] per-cgroup tcp buffer pressure settings
-Date: Wed, 5 Oct 2011 09:29:54 +0900
-Message-ID: <20111005092954.718a0c29.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1317730680-24352-1-git-send-email-glommer@parallels.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH] tg3: Dont dump registers if interface not ready.
+Date: Tue, 4 Oct 2011 19:14:23 -0700
+Message-ID: <20111005021423.GA2787@mcarlson.broadcom.com>
+References: <4E83D3B3.7090508@oracle.com> <4E841519.6040201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
- ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
- netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
- avagin@parallels.com, devel@openvz.org
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1317730680-24352-1-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Cc: "Joe Jin" <joe.jin@oracle.com>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Guru Anbalagane" <guru.anbalagane@oracle.com>,
+	"Gurudas Pai" <gurudas.pai@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Greg Marsden" <greg.marsden@oracle.com>
+To: "Xiao Jiang" <jgq516@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E841519.6040201@gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue,  4 Oct 2011 16:17:52 +0400
-Glauber Costa <glommer@parallels.com> wrote:
-
-> [[ v3: merge Kirill's suggestions, + a destroy-related bugfix ]]
-> [[ v4: Fix a bug with non-mounted cgroups + disallow task movement ]]
-> [[ v5: Compile bug with modular ipv6 + tcp files in bytes ]]
+On Wed, Sep 28, 2011 at 11:50:01PM -0700, Xiao Jiang wrote:
+> Joe Jin wrote:
+> > When bootup the server with BCM5704 Gigabit Ethernet get below warning:
+> >
+> > tg3 0000:03:01.0: eth0: DMA Status error.  Resetting chip.
+> > <Registers state of device>
+> > tg3 0000:03:01.0: eth0: 0: Host status block [00000007:00000002:(0000:0000:0000):(0000:0000)]
+> > tg3 0000:03:01.0: eth0: 0: NAPI info [00000001:00000002:(0000:0000:01ff):0000:(00c8:0000:0000:0000)]
+> > tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
+> > tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
+> > tg3 0000:03:01.0: tg3_stop_block timed out, ofs=4800 enable_bit=2
+> > tg3 0000:03:01.0: eth0: Link is down
+> > tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
+> > tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
+> >
+> > If device not ready, then would not dump registers info.
+> >
+> > Signed-off-by: Joe Jin <joe.jin@oracle.com>
+> > Signed-off-by: Guru Anbalagane <guru.anbalagane@oracle.com>
+> > Reported-by: Gurudas Pai <gurudas.pai@oracle.com>
+> > Cc: Matt Carlson <mcarlson@broadcom.com>
+> > Cc: Michael Chan <mchan@broadcom.com>
+> > ---
+> >  drivers/net/tg3.c |   11 +++++++++--
+> >   
+> Maybe this one should based on net-next tree too, the tg3.c
+> is lived below ./drivers/net/ethernet/broadcom/ in that tree.
 > 
-> Kame, Kirill,
+> Thanks,
+> Xiao Jiang
+> >  1 files changed, 9 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> > index 4a1374d..d79d344 100644
+> > --- a/drivers/net/tg3.c
+> > +++ b/drivers/net/tg3.c
+> > @@ -5475,10 +5475,15 @@ static void tg3_process_error(struct tg3 *tp)
+> >  {
+> >  	u32 val;
+> >  	bool real_error = false;
+> > +	bool dump = true;
+> >  
+> >  	if (tg3_flag(tp, ERROR_PROCESSED))
+> >  		return;
+> >  
+> > +	/* If interface not ready then dont dump error */
+> > +	if (!netif_carrier_ok(tp->dev))
+> > +		dump = false;
+
+Would you still experience the problem if you did the following instead
+of the above link check?
+
+		if (tg3_flag(tp, INIT_COMPLETE))
+			dump = false;
+
+> >  	/* Check Flow Attention register */
+> >  	val = tr32(HOSTCC_FLOW_ATTN);
+> >  	if (val & ~HOSTCC_FLOW_ATTN_MBUF_LWM) {
+> > @@ -5492,14 +5497,16 @@ static void tg3_process_error(struct tg3 *tp)
+> >  	}
+> >  
+> >  	if (tr32(RDMAC_STATUS) || tr32(WDMAC_STATUS)) {
+> > -		netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
+> > +		if (dump)
+> > +			netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
+> >  		real_error = true;
+> >  	}
+> >  
+> >  	if (!real_error)
+> >  		return;
+> >  
+> > -	tg3_dump_state(tp);
+> > +	if (dump)
+> > +		tg3_dump_state(tp);
+> >  
+> >  	tg3_flag_set(tp, ERROR_PROCESSED);
+> >  	schedule_work(&tp->reset_task);
+> >   
 > 
-> I am submitting this again merging most of your comments. I've decided to
-> leave some of them out:
->  * I am not using res_counters for allocated_memory. Besides being more
->    expensive than what we need, to make it work in a nice way, we'd have
->    to change the !cgroup code, including other protocols than tcp. Also,
->    
->  * I am not using failcnt and max_usage_in_bytes for it. I believe the value
->    of those lies more in the allocation than in the pressure control. Besides,
->    fail conditions lie mostly outside of the memory cgroup's control. (Actually,
->    a soft_limit makes a lot of sense, and I do plan to introduce it in a follow
->    up series)
 > 
-> If you agree with the above, and there are any other pressing issues, let me
-> know and I will address them ASAP. Otherwise, let's discuss it. I'm always open.
-> 
-
-I'm not familar with reuqirements of users. So, I appreciate your choices.
-What I adivse you here is taking a deep breath. Making new version every day
-is not good for reviewing process ;)
-(It's now -rc8 and merge will not be so quick, anyway.)
-
-At this stage, my concern is view of interfaces and documenation, and future plans.
-
-Let me give  a try explanation by myself. (Correct me ;)
-I added some questions but I'm sorry you've already answered.
-
-New interfaces are 5 files. All files exists only for non-root memory cgroup.
-
-1. memory.independent_kmem_limit
-2. memory.kmem.usage_in_bytes
-3. memory.kmem.limit_in_bytes
-4. memory.kmem.tcp.limit_in_bytes
-5. memory.kmem.tcp.usage_in_bytes
-
-* memory.independent_kmem_limit
- If 1, kmem_limit_in_bytes/kmem_usage_in_bytes works.
- If 0, kmem_limit_in_bytes/kmem_usage_in_bytes doesn't work and all kmem
-    usages are controlled under memory.limit_in_bytes.
-
-Question:
- - What happens when parent/chidlren cgroup has different indepedent_kmem_limit ?
- - What happens at creating a new cgroup with use_hierarchy==1.
-
-* memory.kmem_limit_in_bytes/memory.kmem.tcp.limit_in_bytes
-
- Both files works independently for _Now_. And memory.kmem_usage_in_bytes and
- memory.kmem_tcp.usage_in_bytes has no relationships.
-
- In future plan, kmem.usage_in_bytes should includes tcp.kmem_usage_in_bytes.
- And kmem.limit_in_bytes should be the limiation of sum of all kmem.xxxx.limit_in_bytes.
-
-Question:
- - Why this integration is difficult ?
-   Can't tcp-limit-code borrows some amount of charges in batch from kmem_limit 
-   and use it ?
- 
- - Don't you need a stat file to indicate "tcp memory pressure works!" ?
-   It can be obtained already ?
-
-Thanks,
--Kame
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
