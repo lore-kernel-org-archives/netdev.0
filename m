@@ -1,34 +1,55 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 0/8] skb fragment API: convert network drivers (part IV)
-Date: Wed, 5 Oct 2011 12:17:17 -0700
-Message-ID: <20111005191717.GC30378@suse.de>
-References: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 5/7] bridge: allow creating/deleting fdb entries via
+ netlink
+Date: Wed, 05 Oct 2011 20:36:15 +0100
+Message-ID: <1317843375.2802.29.camel@bwh-desktop>
+References: <20110405000326.714524584@vyatta.com>
+	 <20110405000537.372602366@vyatta.com>
+	 <CAGXs5wXc0RLE9KbTVVYRa0xuLEKh8mTM7AR7hMBe86HNfDX0HQ@mail.gmail.com>
+	 <20111005121305.26ac48bf@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kevin Wilson <wkevils@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:39619 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934402Ab1JETZF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Oct 2011 15:25:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:56958 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933233Ab1JETgT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 15:36:19 -0400
+In-Reply-To: <20111005121305.26ac48bf@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 05, 2011 at 11:28:30AM +0100, Ian Campbell wrote:
-> The following series converts a forth batch of network drivers to the
-> SKB pages fragment API introduced in 131ea6675c76.
+On Wed, 2011-10-05 at 12:13 -0700, Stephen Hemminger wrote:
+> On Wed, 5 Oct 2011 21:06:54 +0200
+> Kevin Wilson <wkevils@gmail.com> wrote:
 > 
-> There are two drivers/staging patches in here. I'm not sure who normally
-> takes these, I'm sure you guys know though.
+> > Hello all,
+> > I would appreciate if someone can elaborate about "bridge extensions
+> > to iproute2" mentioned here.
+> > I downloaded latest iproute2 git tree and did not find it there.
+> > googling for it did not gave much info about it.
+> > I will appreciate if someone can tell  who develop it, what is the
+> > status, site, repository tree, etc.
+> > 
+> > rgs,
+> > Kevin
+> 
+> The patch to handle this was posted, but is not committed to the tree yet.
+[...]
+> +static void usage(void)
+> +{
+> +	fprintf(stderr,
+> +"Usage: br [ OPTIONS ] OBJECT { COMMAND | help }\n"
+[...]
 
-I take them.  As I don't have commit 131ea6675c76 in my tree
-(staging-next), I'd have to wait until that patch gets merged into
-Linus's tree, which should be after 3.2-rc1, right?  Mind if I hold off
-in taking them until then?
+This and the sub-command usage functions still report the command name
+as 'br'.
 
-thanks,
+Ben.
 
-greg k-h
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
