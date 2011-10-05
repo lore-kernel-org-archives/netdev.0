@@ -1,7 +1,7 @@
 From: Nathan Williams <nathan@traverse.com.au>
-Subject: [PATCH 1/4] atm: solos-pci: Add AnnexA/M capability attributes
-Date: Wed, 05 Oct 2011 15:43:30 +1100
-Message-ID: <1317789810.2424.82.camel@dualcore.traverse>
+Subject: [PATCH 2/4] atm: solos-pci: Remove annoying line of debugging
+Date: Wed, 05 Oct 2011 15:44:17 +1100
+Message-ID: <1317789857.2424.86.camel@dualcore.traverse>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,26 +13,24 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-BisACapability and BisMCapability allow users to
-force either Annex A or Annex M.
+"len: %d" isn't particularly useful for anyone and confuses users.
 
 Signed-off-by: Nathan Williams <nathan@traverse.com.au>
 ---
- drivers/atm/solos-attrlist.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/atm/solos-pci.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/atm/solos-attrlist.c b/drivers/atm/solos-attrlist.c
-index 9a676ee..8092533 100644
---- a/drivers/atm/solos-attrlist.c
-+++ b/drivers/atm/solos-attrlist.c
-@@ -71,6 +71,8 @@ SOLOS_ATTR_RW(BisAForceSNRMarginDn)
- SOLOS_ATTR_RW(BisMForceSNRMarginDn)
- SOLOS_ATTR_RW(BisAMaxMargin)
- SOLOS_ATTR_RW(BisMMaxMargin)
-+SOLOS_ATTR_RW(BisACapability)
-+SOLOS_ATTR_RW(BisMCapability)
- SOLOS_ATTR_RW(AnnexAForceSNRMarginDn)
- SOLOS_ATTR_RW(AnnexAMaxMargin)
- SOLOS_ATTR_RW(AnnexMMaxMargin)
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 5d1d076..bd01aa3 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -452,7 +452,6 @@ static ssize_t console_show(struct device *dev, struct device_attribute *attr,
+ 
+ 	len = skb->len;
+ 	memcpy(buf, skb->data, len);
+-	dev_dbg(&card->dev->dev, "len: %d\n", len);
+ 
+ 	kfree_skb(skb);
+ 	return len;
 -- 
 1.7.2.5
