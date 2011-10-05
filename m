@@ -1,53 +1,59 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [net-next 1/1] bna: Multiple Definition and Interface Setup Fix
-Date: Wed, 05 Oct 2011 10:09:17 -0700
-Message-ID: <4E8C8F3D.8040605@xenotime.net>
-References: <1317781880-26515-1-git-send-email-rmody@brocade.com>	<20111004.232713.1345786533613742751.davem@davemloft.net> <20111005192601.fa947a78b188f4a021042a5e@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rmody@brocade.com,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org,
-	huangj@brocade.com, adapter_linux_open_src_team@brocade.com,
-	Mauro Carvalho Chehab <mchehab@redhat.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20111005192601.fa947a78b188f4a021042a5e@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: raj@tardy.cup.hp.com (Rick Jones)
+Subject: [PATCH net-next] Add ethtool -g support to 8139cp
+Date: Wed,  5 Oct 2011 11:08:54 -0700 (PDT)
+Message-ID: <20111005180854.3D68129003A8@tardy>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:4591 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932812Ab1JESIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 14:08:55 -0400
+Received: from g4t0009.houston.hp.com (g4t0009.houston.hp.com [16.234.32.26])
+	by g4t0016.houston.hp.com (Postfix) with ESMTP id E3EFD143E4
+	for <netdev@vger.kernel.org>; Wed,  5 Oct 2011 18:08:54 +0000 (UTC)
+Received: from tardy (tardy.cup.hp.com [16.89.244.213])
+	by g4t0009.houston.hp.com (Postfix) with ESMTP id C07C8C19C
+	for <netdev@vger.kernel.org>; Wed,  5 Oct 2011 18:08:54 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/05/11 01:26, Stephen Rothwell wrote:
-> On Tue, 04 Oct 2011 23:27:13 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
->>
->> From: Rasesh Mody <rmody@brocade.com>
->> Date: Tue, 4 Oct 2011 19:31:20 -0700
->>
->>> drivers/net/built-in.o: In function `bfa_ioc_ct2_poweron':
->>> (.text+0xcdc90): multiple definition of `bfa_ioc_ct2_poweron'
->>> drivers/scsi/built-in.o:(.text+0x17f9a0): first defined here
->>>
->>> This patch renames bfa_ioc_ct2_poweron() to bfa_nw_ioc_ct2_poweron() to avoid
->>> multiple definition with Brocade scsi driver. It also modifies asic specific
->>> interface setup to allocate MSIX resources at power on in case of 1860 HW with
->>> no asic block and warns if the asic gen is neither BFI_ASIC_GEN_CT nor
->>> BFI_ASIC_GEN_CT2.
->>>
->>> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
->>> Signed-off-by: Rasesh Mody <rmody@brocade.com>
->>
->> Applied, thanks.
+From: Rick Jones <rick.jones2@hp.com>
 
-Thanks for the patch.
+Add support for reporting ring sizes via ethtool -g to the 8139cp driver.
 
-> I also manually applied this to linux-next today.
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-We could also stand to have this patch applied to linux-next since
-it doesn't seem to be merged anywhere else yet: (for drivers/media/video)
+---
 
-http://marc.info/?l=linux-next&m=131741851601754&w=2
-
-
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index c77d5af..1dcfe57 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -1324,6 +1324,19 @@ static void cp_get_drvinfo (struct net_device *dev, struct ethtool_drvinfo *info
+ 	strcpy (info->bus_info, pci_name(cp->pdev));
+ }
+ 
++static void cp_get_ringparam(struct net_device *dev,
++				struct ethtool_ringparam *ring)
++{
++	ring->rx_max_pending = CP_RX_RING_SIZE;
++	ring->tx_max_pending = CP_TX_RING_SIZE;
++	ring->rx_mini_max_pending = 0;
++	ring->rx_jumbo_max_pending = 0;
++	ring->rx_pending = CP_RX_RING_SIZE;
++	ring->tx_pending = CP_TX_RING_SIZE;
++	ring->rx_mini_pending = 0;
++	ring->rx_jumbo_pending = 0;
++}
++
+ static int cp_get_regs_len(struct net_device *dev)
+ {
+ 	return CP_REGS_SIZE;
+@@ -1525,6 +1538,7 @@ static const struct ethtool_ops cp_ethtool_ops = {
+ 	.get_eeprom_len		= cp_get_eeprom_len,
+ 	.get_eeprom		= cp_get_eeprom,
+ 	.set_eeprom		= cp_set_eeprom,
++	.get_ringparam		= cp_get_ringparam,
+ };
+ 
+ static int cp_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
