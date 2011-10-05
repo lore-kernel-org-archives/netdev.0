@@ -1,42 +1,59 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [PATCH 1/2] fix lockdep warning
-Date: Wed, 5 Oct 2011 08:31:26 +0200
-Message-ID: <201110050831.26652.hans@schillstrom.com>
-References: <1317639399-4522-1-git-send-email-hans.schillstrom@ericsson.com> <alpine.LFD.2.00.1110050133290.2388@ja.ssi.bg>
+From: starlight@binnacle.cx
+Subject: Re: big picture UDP/IP performance question re 2.6.18
+  -> 2.6.32
+Date: Wed, 05 Oct 2011 02:11:27 -0400
+Message-ID: <6.2.5.6.2.20111005020421.03a9e6c0@binnacle.cx>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	horms@verge.net.au, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:39607 "EHLO
-	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757658Ab1JEGbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 02:31:32 -0400
-In-Reply-To: <alpine.LFD.2.00.1110050133290.2388@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Willy Tarreau <w@1wt.eu>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>
+To: Joe Perches <joe@perches.com>, Christoph Lameter <cl@gentwo.org>,
+	Serge Belyshev <belyshev@depni.sinp.msu.ru>,
+	Con Kolivas <kernel@kolivas.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, October 05, 2011 00:51:31 Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Mon, 3 Oct 2011, Hans Schillstrom wrote:
-> 
-[snip]
-> 
-> 	ip_vs_rs_key remains unused without debugging. I don't
-> remember the reason why IPVS is the only place that calls
-> __rwlock_init instead of rwlock_init. Can we use rwlock_init?
+Gremlins!
 
-I'm Sorry, this was not meant to go to the list :-(
-It should be rwlock_init() as you say 
-I'll send a new one row patch...
+In my haste I overlooked that changing the
+thread pool from 140 to 13 is radical,
+especially with a core count matching
+the thread count.  Apples and oranges.
 
+Ran the small-pool test on the other two
+kernels and here are the results.  The
+user and system columns are in jiffies.
 
-Thanks
-Hans
+kernel          total      user   system
+2.6.18(rhel5)   02:07:16  615516  148152 (19.4%)
+2.6.39.4        02:27:44  658074  228420 (25.7%)
+2.6.39.4(bfs)   02:34:49  899936   29000 (3%)
+
+So BFS performs somewhat worse than the default
+scheduler on total-CPU.  The old RHEL 5 kernel
+is still the winner, but not by nearly as
+much in the small thread-pool scenario--.39
+is only 16% slower than .18 with the
+system overhead being 55% worse rather
+than 100% worse.
+
+So all that is shown after all is that
+the differential between the older and
+newer kernels is strongly influenced by
+the number of active threads, and the O(N)
+aspect of BFS makes it an inappropriate
+choice for heavy multithreaded workloads.
+
+Also small thread pools are more efficient
+than large ones (especially when the workflow
+is routed for optimal cache locality as
+is the case here).  However the small
+pool does not scale as well to maximum CPU
+load as the large pool (a different test)
+which is why it is no longer used in
+production and was only dusted off
+in order to enable the BFS comparison.
