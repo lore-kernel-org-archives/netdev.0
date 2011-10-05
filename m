@@ -1,54 +1,65 @@
-From: starlight@binnacle.cx
-Subject: Re: big picture UDP/IP performance question re 2.6.18
-  -> 2.6.32
-Date: Wed, 05 Oct 2011 11:12:15 -0400
-Message-ID: <6.2.5.6.2.20111005110324.03a9df10@binnacle.cx>
-References: <6.2.5.6.2.20111003112108.03a83a28@binnacle.cx>
- <alpine.DEB.2.00.1110041358500.12199@router.home>
- <1317820942.6766.26.camel@twins>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [PATCH net] mscan: zero accidentally copied register content
+Date: Wed, 05 Oct 2011 17:34:00 +0200
+Message-ID: <4E8C78E8.3010605@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>, Ingo Molnar <mingo@elte.hu>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Christoph Lameter <cl@gentwo.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317820942.6766.26.camel@twins>
-References: <6.2.5.6.2.20111003112108.03a83a28@binnacle.cx>
- <alpine.DEB.2.00.1110041358500.12199@router.home>
- <1317820942.6766.26.camel@twins>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Andre Naujoks <nautsch@gmail.com>
+To: Wolfgang Grandegger <wg@grandegger.com>,
+	Wolfram Sang <w.sang@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:23865 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758049Ab1JEPeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 11:34:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-At 03:22 PM 10/5/2011 +0200, Peter Zijlstra wrote:
->On Tue, 2011-10-04 at 14:16 -0500, Christoph Lameter wrote:
->I suppose all this testing and feedback we receive
->from you really helps us keep the performance
->levels you want.. Oh wait, that's 0.
+Due to the 16 bit access to mscan registers there's too much data copied to
+the zero initialized CAN frame when having an odd number of bytes to copy.
+This patch clears the data byte read from the invalid register entry.
 
-Well I have to admit that I've looked into the
-future (i.e. tested kernel.org releases) only on
-occasion.  To the extent that performance wasn't
-looking great I harbored an apparently over
-optimistic hope that things would get tuned/fixed
-in the process somewhere.  In particular I was
-thinking that RH might do something impressive
-with RHEL 6 where Novell failed with SLES 11.
-However, if anything the downstream is fiddling
-less and less with the kernel as it becomes ever
-more complex.
+Reported-by: Andre Naujoks <nautsch@gmail.com>
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
->Clearly none of the tests being ran on a regular
->basis, by for instance the Intel regression team,
->covers your needs. Start by fixing that.
+---
 
-I could create a test case.  It's quite a lot more
-than trivial, but not ridiculous either.  That UDP
-is broken on everything past 2.6.27 may goad me
-into the effort.  Have had a fairly excellent
-experience WRT the hugepage kernel corruption bugs
-I reported 18 months or so ago.  Not only did the
-kernel developers fix them, the fixes made it
-downstream into RHEL fairly quickly.  So that does
-encourage me.
+Hello Wolf[gang|ram],
+
+from an error report from Andre Naujoks i tracked down the problem of
+uninitialized data in (normally) initialized CAN frames to the mscan driver.
+
+Regards,
+Oliver
+
+
+diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+index 92feac6..1b60fbe 100644
+--- a/drivers/net/can/mscan/mscan.c
++++ b/drivers/net/can/mscan/mscan.c
+@@ -327,20 +327,23 @@ static void mscan_get_rx_frame(struct net_device *dev, struct can_frame *frame)
+ 	frame->can_dlc = get_can_dlc(in_8(&regs->rx.dlr) & 0xf);
+ 
+ 	if (!(frame->can_id & CAN_RTR_FLAG)) {
+ 		void __iomem *data = &regs->rx.dsr1_0;
+ 		u16 *payload = (u16 *)frame->data;
+ 
+ 		for (i = 0; i < (frame->can_dlc + 1) / 2; i++) {
+ 			*payload++ = in_be16(data);
+ 			data += 2 + _MSCAN_RESERVED_DSR_SIZE;
+ 		}
++		/* zero accidentally copied register content at odd DLCs */
++		if (frame->can_dlc & 1)
++			frame->data[frame->can_dlc] = 0;
+ 	}
+ 
+ 	out_8(&regs->canrflg, MSCAN_RXF);
+ }
+ 
+ static void mscan_get_err_frame(struct net_device *dev, struct can_frame *frame,
+ 				u8 canrflg)
+ {
+ 	struct mscan_priv *priv = netdev_priv(dev);
+ 	struct mscan_regs *regs = (struct mscan_regs *)priv->reg_base;
