@@ -1,72 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/10] ixgbe: get pauseparam autoneg
-Date: Wed,  5 Oct 2011 03:20:23 -0700
-Message-ID: <1317810024-20846-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/10] ixgbe: add support for new 82599 device
+Date: Wed,  5 Oct 2011 03:20:20 -0700
+Message-ID: <1317810024-20846-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317810024-20846-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mika Lansirinne <mika.lansirinne@stonesoft.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36493 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:41269 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934298Ab1JEKUe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Oct 2011 06:20:34 -0400
+	id S934229Ab1JEKUb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Oct 2011 06:20:31 -0400
 In-Reply-To: <1317810024-20846-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mika Lansirinne <mika.lansirinne@stonesoft.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-There is a problem in the ixgbe driver with the reporting of the flow
-control parameters. The autoneg parameter is shown to be of if
-*either* it really is off, or current modes for both tx and rx are off.
+This patch adds support for new device ID.
 
-The problem is seen when the parameters are read or set when the link
-is down. In this case, the driver sees that tx and rx are currently off
-and therefore autoneg parameter is incorrectly reported to be off too.
-Also, the ethtool binary can not set the autoneg off since it sees that
-it already is. When a link later comes up, the autonegotiation is
-carried out normally and the driver later on reports the autoneg
-parameter to be on (as it is) and then it can also be changed with
-ethtool.
-
-The patch is made against v3.0 kernel, but the problem seems to be there
-since v2.6.30-rc1.
-
-Reviewer comments: What we are trying to do is to disable flow control
-while the cable is disconnected. Since ixgbe defaults to full flow
-control, we call ethtool -A autoneg off rx off tx off while the cable
-is disconnected. This doesn't work, because the driver sets
-hw->fc.current_mode = ixgbe_fc_none if the cable is unplugged.
-ixgbe_get_pauseparam() then reports to ethtool that nothing needs to be
-done. The code fixes this, but it might have some unknown consequences.
-
-Signed-off-by: Mika Lansirinne <mika.lansirinne@stonesoft.com>
-Reviewed-by: Esa-Pekka Pyokkimies <esa-pekka.pyokkimies@stonesoft.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    8 +-------
- 1 files changed, 1 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    1 +
+ 3 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index db255fc..10ea29f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -372,13 +372,7 @@ static void ixgbe_get_pauseparam(struct net_device *netdev,
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 
--	/*
--	 * Flow Control Autoneg isn't on if
--	 *  - we didn't ask for it OR
--	 *  - it failed, we know this by tx & rx being off
--	 */
--	if (hw->fc.disable_fc_autoneg ||
--	    (hw->fc.current_mode == ixgbe_fc_none))
-+	if (hw->fc.disable_fc_autoneg)
- 		pause->autoneg = 0;
- 	else
- 		pause->autoneg = 1;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 5abd520..cdcf32a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -361,6 +361,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_82599(struct ixgbe_hw *hw)
+ 	case IXGBE_DEV_ID_82599_SFP_FCOE:
+ 	case IXGBE_DEV_ID_82599_SFP_EM:
+ 	case IXGBE_DEV_ID_82599_SFP_SF2:
++	case IXGBE_DEV_ID_82599EN_SFP:
+ 		media_type = ixgbe_media_type_fiber;
+ 		break;
+ 	case IXGBE_DEV_ID_82599_CX4:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 1a3b91f..757e98e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -105,6 +105,7 @@ static DEFINE_PCI_DEVICE_TABLE(ixgbe_pci_tbl) = {
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X540T), board_X540 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_SFP_SF2), board_82599 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_LS), board_82599 },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599EN_SFP), board_82599 },
+ 	/* required last entry */
+ 	{0, }
+ };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 838847c..baad0cb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -59,6 +59,7 @@
+ #define IXGBE_SUBDEV_ID_82599_SFP        0x11A9
+ #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
+ #define IXGBE_DEV_ID_82599_SFP_SF2       0x154D
++#define IXGBE_DEV_ID_82599EN_SFP         0x1557
+ #define IXGBE_DEV_ID_82599_XAUI_LOM      0x10FC
+ #define IXGBE_DEV_ID_82599_COMBO_BACKPLANE 0x10F8
+ #define IXGBE_SUBDEV_ID_82599_KX4_KR_MEZZ  0x000C
 -- 
 1.7.6.4
