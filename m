@@ -1,54 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2] bridge: allow forwarding some link local frames
-Date: Wed, 05 Oct 2011 20:40:19 +0100
-Message-ID: <1317843619.2802.32.camel@bwh-desktop>
-References: <20111004041444.793960297@vyatta.com>
-	 <20111004041509.292932641@vyatta.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IPv4 multicast and mac-vlans acting weird on 3.0.4+
+Date: Wed, 05 Oct 2011 21:54:09 +0200
+Message-ID: <1317844449.3457.3.camel@edumazet-laptop>
+References: <4E8C89EE.3090600@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:57174 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933747Ab1JETkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 15:40:22 -0400
-In-Reply-To: <20111004041509.292932641@vyatta.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63989 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933233Ab1JETyW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 15:54:22 -0400
+Received: by wyg34 with SMTP id 34so2077442wyg.19
+        for <netdev@vger.kernel.org>; Wed, 05 Oct 2011 12:54:21 -0700 (PDT)
+In-Reply-To: <4E8C89EE.3090600@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-10-03 at 21:14 -0700, Stephen Hemminger wrote:
-> plain text document attachment (bridge-multicast-filter.patch)
-> This is based on an earlier patch by Nick Carter with comments
-> by David Lamparter but with some refinements. Thanks for their patience
-> this is a confusing area with overlap of standards, user requirements,
-> and compatibility with earlier releases.
-> 
-> It adds a new sysfs attribute 
->    /sys/class/net/brX/bridge/group_fwd_mask
-> that controls forwarding of frames with address of: 01-80-C2-00-00-0X
-> The default setting has no forwarding to retain compatibility.
-> 
-> One change from earlier releases is that forwarding of group
-> addresses is not dependent on STP being enabled or disabled. This
-> choice was made based on interpretation of tie 802.1 standards.
-> I expect complaints will arise because of this, but better to follow
-> the standard than continue acting incorrectly by default.
-> 
-> The filtering mask is writeable, but only values that don't forward
-> known control frames are allowed. It intentionally blocks attempts
-> to filter control protocols. For example: writing a 8 allows
-> forwarding 802.1X PAE addresses which is the most common request.
-[...]
+Le mercredi 05 octobre 2011 =C3=A0 09:46 -0700, Ben Greear a =C3=A9crit=
+ :
+> This is on a hacked 3.0.4 kernel...
+>=20
+> I am seeing an issue where an IPv4 mcast receiver will not receive
+> a 1473 or larger byte mcast message, but will receive a 1472.  The di=
+fference
+> being that 1473 ends up being two packets on the wire.  It works on
+> 802.1Q VLANs, VETH interfaces and real Ethernet.  It does not work
+> on a mac-vlan hanging off the VETH.
+>=20
+> I see packets received on the macvlan in tshark, and they appear corr=
+ect.  No
+> obvious errors in the macvlan port stats or netstat -s,
+> and the 'ss' tool doesn't appear to support UDP sockets at all.
+>=20
+> So, I'm about to go digging into the code, but if anyone has any
+> suggestions for places to look, please let me know!
+>=20
 
-I wonder why you don't forbid forwarding frames sent to reserved
-destination addresses?  The standards seem pretty clear that this should
-not be allowed.
+Well, problem is defragmentation and macvlan cooperation.
 
-Ben.
+Multicast messages are broadcasted on all macvlan ports.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+But IP defrag will probably deliver a single final frame.
+
+We probably need to handle defrag in macvlan before broadcasting to all
+ports.
