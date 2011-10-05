@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/8] vxge: convert to SKB paged frag API.
-Date: Wed, 05 Oct 2011 17:32:11 -0400 (EDT)
-Message-ID: <20111005.173211.2266129927073683688.davem@davemloft.net>
+Subject: Re: [PATCH 0/8] skb fragment API: convert network drivers (part IV)
+Date: Wed, 05 Oct 2011 17:36:31 -0400 (EDT)
+Message-ID: <20111005.173631.1683862156493452092.davem@davemloft.net>
 References: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
-	<1317810532-24984-1-git-send-email-ian.campbell@citrix.com>
-	<CAHXqBFKX5eojLMhT1MW1inAUH9cfVne4-rhDQYSLsUh-OTzuPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: ian.campbell@citrix.com, netdev@vger.kernel.org, jdmason@kudzu.us
-To: mirqus@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gregkh@suse.de
+To: Ian.Campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:34061 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:34086 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752341Ab1JEVcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 17:32:16 -0400
-In-Reply-To: <CAHXqBFKX5eojLMhT1MW1inAUH9cfVne4-rhDQYSLsUh-OTzuPQ@mail.gmail.com>
+	with ESMTP id S1754579Ab1JEVgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 17:36:39 -0400
+In-Reply-To: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0BnbWFpbC5jb20+DQpEYXRlOiBXZWQsIDUg
-T2N0IDIwMTEgMjM6MDM6MjcgKzAyMDANCg0KPiAyMDExLzEwLzUgSWFuIENhbXBiZWxsIDxpYW4u
-Y2FtcGJlbGxAY2l0cml4LmNvbT46DQo+IFsuLi5dDQo+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9uZXRlcmlvbi92eGdlL3Z4Z2UtbWFpbi5jDQo+PiArKysgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9uZXRlcmlvbi92eGdlL3Z4Z2UtbWFpbi5jDQo+PiBAQCAtOTIzLDkgKzkyMyw5IEBAIHZ4
-Z2VfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPj4g
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBpZiAoIWZyYWctPnNpemUpDQo+PiDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoGNvbnRpbnVlOw0KPj4NCj4+IC0gwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgZG1hX3BvaW50ZXIgPSAodTY0KSBwY2lfbWFwX3BhZ2UoZmlmby0+cGRldiwgZnJhZy0+
-cGFnZSwNCj4+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-ZnJhZy0+cGFnZV9vZmZzZXQsIGZyYWctPnNpemUsDQo+PiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIFBDSV9ETUFfVE9ERVZJQ0UpOw0KPj4gKyDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCBkbWFfcG9pbnRlciA9ICh1NjQpc2tiX2ZyYWdfZG1hX21hcCgmZmlmby0+
-cGRldi0+ZGV2LCBmcmFnLA0KPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAwLCBmcmFnLT5zaXplLA0K
-Pj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBQQ0lfRE1BX1RPREVWSUNFKTsNCj4gDQo+IFRoaXMgc2hv
-dWxkIGJlIERNQV9UT19ERVZJQ0UgaW5zdGVhZCBvZiBQQ0lfRE1BX1RPREVWSUNFLg0KPiANCj4+
-DQo+PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGlmICh1bmxpa2VseShwY2lfZG1hX21hcHBpbmdf
-ZXJyb3IoZmlmby0+cGRldiwgZG1hX3BvaW50ZXIpKSkNCj4+IMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgZ290byBfZXhpdDI7DQo+IA0KPiBJIHdvdWxkIGFsc28gY2hhbmdlIHRo
-aXMgdG8gZG1hX21hcHBpbmdfZXJyb3IoKSBpbiBvbmUgZ28uDQo+IA0KPiBKdXN0IGEgcmFuZG9t
-IHBhdGNoIGNoZWNrLg0KDQpJJ2xsIG1ha2UgdGhlc2UgYWRqdXN0bWVudHMgd2hlbiBJIGFwcGx5
-IHRoaXMgcGF0Y2gsIHRoYW5rcy4NCg==
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Date: Wed, 5 Oct 2011 11:28:30 +0100
+
+> The following series converts a forth batch of network drivers to the
+> SKB pages fragment API introduced in 131ea6675c76.
+> 
+> There are two drivers/staging patches in here. I'm not sure who normally
+> takes these, I'm sure you guys know though.
+> 
+> After this batch there are ~4 drivers which need a little more thought
+> (the inevitable fifth out of four series...). Specifically these drivers
+> will switch from skb_frag_t -> struct subpage (which I am going to
+> introduce shortly) in their internal data structures, this will isolate
+> them from changes to skb_frag_t coming from the network core.
+
+All applied with the mentioned vxge adjustments, thanks Ian.
