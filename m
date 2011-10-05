@@ -1,93 +1,38 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IPv4 multicast and mac-vlans acting weird on 3.0.4+
-Date: Wed, 05 Oct 2011 13:19:34 -0700
-Message-ID: <4E8CBBD6.3080500@candelatech.com>
-References: <4E8C89EE.3090600@candelatech.com>  <1317844449.3457.3.camel@edumazet-laptop>  <4E8CB990.1010406@candelatech.com> <1317845835.3457.5.camel@edumazet-laptop>
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: loopback IP alias breaks tftp?
+Date: Wed, 5 Oct 2011 16:27:23 -0400
+Message-ID: <20111005202723.GE2479@zod.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:48419 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935309Ab1JEUTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 16:19:37 -0400
-In-Reply-To: <1317845835.3457.5.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:3684 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932349Ab1JEU10 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Oct 2011 16:27:26 -0400
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p95KRQqP030401
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 5 Oct 2011 16:27:26 -0400
+Received: from zod.bos.redhat.com (ovpn-113-43.phx2.redhat.com [10.3.113.43])
+	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id p95KRNG7010383
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 5 Oct 2011 16:27:25 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2011 01:17 PM, Eric Dumazet wrote:
-> Le mercredi 05 octobre 2011 =C3=A0 13:09 -0700, Ben Greear a =C3=A9cr=
-it :
->> On 10/05/2011 12:54 PM, Eric Dumazet wrote:
->>> Le mercredi 05 octobre 2011 =C3=A0 09:46 -0700, Ben Greear a =C3=A9=
-crit :
->>>> This is on a hacked 3.0.4 kernel...
->>>>
->>>> I am seeing an issue where an IPv4 mcast receiver will not receive
->>>> a 1473 or larger byte mcast message, but will receive a 1472.  The=
- difference
->>>> being that 1473 ends up being two packets on the wire.  It works o=
-n
->>>> 802.1Q VLANs, VETH interfaces and real Ethernet.  It does not work
->>>> on a mac-vlan hanging off the VETH.
->>>>
->>>> I see packets received on the macvlan in tshark, and they appear c=
-orrect.  No
->>>> obvious errors in the macvlan port stats or netstat -s,
->>>> and the 'ss' tool doesn't appear to support UDP sockets at all.
->>>>
->>>> So, I'm about to go digging into the code, but if anyone has any
->>>> suggestions for places to look, please let me know!
->>>>
->>>
->>> Well, problem is defragmentation and macvlan cooperation.
->>>
->>> Multicast messages are broadcasted on all macvlan ports.
->>>
->>> But IP defrag will probably deliver a single final frame.
->>>
->>> We probably need to handle defrag in macvlan before broadcasting to=
- all
->>> ports.
->>
->> I see packets get to this code in ip_input.c (line 467 or so),
->> and that printk is mine of course.
->>
->> 	if ((dev&&  strcmp(dev->name, "rddVR10#0") =3D=3D 0) ||
->> 	    (dev&&  strcmp(dev->name, "rddVR10") =3D=3D 0)) {
->> 		printk("calling ip_rcv_finish through NF_HOOK, dev: %s, len: %i\n"=
-,
->> 		       dev->name, skb->len);
->> 	}
->>
->> 	return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING, skb, dev, NULL,
->> 		       ip_rcv_finish);
->>
->> But, the macvlan packets never make it to the ip_rcv_finish method.
->>
->> I do see a big and a little packet entering this code.
->>
->> I have no firewall rules that I'm aware of, though there
->> is some conn-track logic (though not associated with the
->> mac-vlan interface):
->
-> Say you have 10 vlans on your eth0, how many times do you want one
-> incoming multicast frame being delivered to your application listenin=
-g
-> on 0.0.0.0:port ?
+Hi All,
 
-How would it work for two Ethernet devices on the same LAN?  I'd
-say that mac-vlans should mimic that case.
+We've had a report [1] of a change in behavior when trying to use an IP
+alias to tftp from a loopback device.  Apparently the steps outlined in
+the bug worked in 2.6.35, and broke somewhere before 2.6.38.6.
 
-And in my case, I'm binding hard to a device & IP address,
-so my app should get it once regardless.
+I can confirm the steps fail on a 3.0 based kernel and I'm trying to do
+a git bisect to find the commit involved, but I thought I would send
+this along to see if anyone might have an idea.  (Also, I'm not really
+sure how valid of a usecase this was to begin with.)
 
-Thanks,
-Ben
+[1] https://bugzilla.redhat.com/show_bug.cgi?id=739534
 
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+josh
