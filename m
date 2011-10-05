@@ -1,92 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IPv4 multicast and mac-vlans acting weird on 3.0.4+
-Date: Wed, 05 Oct 2011 13:09:52 -0700
-Message-ID: <4E8CB990.1010406@candelatech.com>
-References: <4E8C89EE.3090600@candelatech.com> <1317844449.3457.3.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/8] skb fragment API: convert network drivers (part IV)
+Date: Wed, 05 Oct 2011 16:13:41 -0400 (EDT)
+Message-ID: <20111005.161341.840183744862645286.davem@davemloft.net>
+References: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
+	<20111005191717.GC30378@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Ian.Campbell@citrix.com, netdev@vger.kernel.org
+To: gregkh@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53581 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935116Ab1JEUJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 16:09:53 -0400
-In-Reply-To: <1317844449.3457.3.camel@edumazet-laptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:53118 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935270Ab1JEUNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 16:13:51 -0400
+In-Reply-To: <20111005191717.GC30378@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2011 12:54 PM, Eric Dumazet wrote:
-> Le mercredi 05 octobre 2011 =C3=A0 09:46 -0700, Ben Greear a =C3=A9cr=
-it :
->> This is on a hacked 3.0.4 kernel...
->>
->> I am seeing an issue where an IPv4 mcast receiver will not receive
->> a 1473 or larger byte mcast message, but will receive a 1472.  The d=
-ifference
->> being that 1473 ends up being two packets on the wire.  It works on
->> 802.1Q VLANs, VETH interfaces and real Ethernet.  It does not work
->> on a mac-vlan hanging off the VETH.
->>
->> I see packets received on the macvlan in tshark, and they appear cor=
-rect.  No
->> obvious errors in the macvlan port stats or netstat -s,
->> and the 'ss' tool doesn't appear to support UDP sockets at all.
->>
->> So, I'm about to go digging into the code, but if anyone has any
->> suggestions for places to look, please let me know!
->>
->
-> Well, problem is defragmentation and macvlan cooperation.
->
-> Multicast messages are broadcasted on all macvlan ports.
->
-> But IP defrag will probably deliver a single final frame.
->
-> We probably need to handle defrag in macvlan before broadcasting to a=
-ll
-> ports.
+From: Greg KH <gregkh@suse.de>
+Date: Wed, 5 Oct 2011 12:17:17 -0700
 
-I see packets get to this code in ip_input.c (line 467 or so),
-and that printk is mine of course.
+> On Wed, Oct 05, 2011 at 11:28:30AM +0100, Ian Campbell wrote:
+>> The following series converts a forth batch of network drivers to the
+>> SKB pages fragment API introduced in 131ea6675c76.
+>> 
+>> There are two drivers/staging patches in here. I'm not sure who normally
+>> takes these, I'm sure you guys know though.
+> 
+> I take them.  As I don't have commit 131ea6675c76 in my tree
+> (staging-next), I'd have to wait until that patch gets merged into
+> Linus's tree, which should be after 3.2-rc1, right?  Mind if I hold off
+> in taking them until then?
 
-	if ((dev && strcmp(dev->name, "rddVR10#0") =3D=3D 0) ||
-	    (dev && strcmp(dev->name, "rddVR10") =3D=3D 0)) {
-		printk("calling ip_rcv_finish through NF_HOOK, dev: %s, len: %i\n",
-		       dev->name, skb->len);
-	}
+We're trying to change all the driver accesses so we can change
+the datastructures underneath this stuff.
 
-	return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING, skb, dev, NULL,
-		       ip_rcv_finish);
-
-But, the macvlan packets never make it to the ip_rcv_finish method.
-
-I do see a big and a little packet entering this code.
-
-I have no firewall rules that I'm aware of, though there
-is some conn-track logic (though not associated with the
-mac-vlan interface):
-
-[root@lec2010-ath9k-1 ~]# iptables -L
-Chain INPUT (policy ACCEPT)
-target     prot opt source               destination
-
-Chain FORWARD (policy ACCEPT)
-target     prot opt source               destination
-
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-
-
-And, I just reproduced the problem on vanilla linus top-of-tree (3.1.0-=
-rc9).
-
-
-Thanks,
-Ben
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+If we have to wait until after 3.2-rc1, then we won't be able to
+make the datastructure change this merge window.
