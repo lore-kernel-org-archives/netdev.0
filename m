@@ -1,104 +1,83 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH] tg3: Dont dump registers if interface not ready.
-Date: Tue, 4 Oct 2011 19:14:23 -0700
-Message-ID: <20111005021423.GA2787@mcarlson.broadcom.com>
-References: <4E83D3B3.7090508@oracle.com> <4E841519.6040201@gmail.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [net-next 1/1] bna: Multiple Definition and Interface Setup Fix
+Date: Tue, 4 Oct 2011 19:31:20 -0700
+Message-ID: <1317781880-26515-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Joe Jin" <joe.jin@oracle.com>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Guru Anbalagane" <guru.anbalagane@oracle.com>,
-	"Gurudas Pai" <gurudas.pai@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Greg Marsden" <greg.marsden@oracle.com>
-To: "Xiao Jiang" <jgq516@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E841519.6040201@gmail.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-scsi@vger.kernel.org>, <rdunlap@xenotime.net>,
+	<sfr@canb.auug.org.au>, <huangj@brocade.com>,
+	<adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:43039 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933575Ab1JECbs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Oct 2011 22:31:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 28, 2011 at 11:50:01PM -0700, Xiao Jiang wrote:
-> Joe Jin wrote:
-> > When bootup the server with BCM5704 Gigabit Ethernet get below warning:
-> >
-> > tg3 0000:03:01.0: eth0: DMA Status error.  Resetting chip.
-> > <Registers state of device>
-> > tg3 0000:03:01.0: eth0: 0: Host status block [00000007:00000002:(0000:0000:0000):(0000:0000)]
-> > tg3 0000:03:01.0: eth0: 0: NAPI info [00000001:00000002:(0000:0000:01ff):0000:(00c8:0000:0000:0000)]
-> > tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
-> > tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
-> > tg3 0000:03:01.0: tg3_stop_block timed out, ofs=4800 enable_bit=2
-> > tg3 0000:03:01.0: eth0: Link is down
-> > tg3 0000:03:01.0: eth0: Link is up at 1000 Mbps, full duplex
-> > tg3 0000:03:01.0: eth0: Flow control is on for TX and on for RX
-> >
-> > If device not ready, then would not dump registers info.
-> >
-> > Signed-off-by: Joe Jin <joe.jin@oracle.com>
-> > Signed-off-by: Guru Anbalagane <guru.anbalagane@oracle.com>
-> > Reported-by: Gurudas Pai <gurudas.pai@oracle.com>
-> > Cc: Matt Carlson <mcarlson@broadcom.com>
-> > Cc: Michael Chan <mchan@broadcom.com>
-> > ---
-> >  drivers/net/tg3.c |   11 +++++++++--
-> >   
-> Maybe this one should based on net-next tree too, the tg3.c
-> is lived below ./drivers/net/ethernet/broadcom/ in that tree.
-> 
-> Thanks,
-> Xiao Jiang
-> >  1 files changed, 9 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> > index 4a1374d..d79d344 100644
-> > --- a/drivers/net/tg3.c
-> > +++ b/drivers/net/tg3.c
-> > @@ -5475,10 +5475,15 @@ static void tg3_process_error(struct tg3 *tp)
-> >  {
-> >  	u32 val;
-> >  	bool real_error = false;
-> > +	bool dump = true;
-> >  
-> >  	if (tg3_flag(tp, ERROR_PROCESSED))
-> >  		return;
-> >  
-> > +	/* If interface not ready then dont dump error */
-> > +	if (!netif_carrier_ok(tp->dev))
-> > +		dump = false;
+drivers/net/built-in.o: In function `bfa_ioc_ct2_poweron':
+(.text+0xcdc90): multiple definition of `bfa_ioc_ct2_poweron'
+drivers/scsi/built-in.o:(.text+0x17f9a0): first defined here
 
-Would you still experience the problem if you did the following instead
-of the above link check?
+This patch renames bfa_ioc_ct2_poweron() to bfa_nw_ioc_ct2_poweron() to avoid
+multiple definition with Brocade scsi driver. It also modifies asic specific
+interface setup to allocate MSIX resources at power on in case of 1860 HW with
+no asic block and warns if the asic gen is neither BFI_ASIC_GEN_CT nor
+BFI_ASIC_GEN_CT2.
 
-		if (tg3_flag(tp, INIT_COMPLETE))
-			dump = false;
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c    |    5 ++++-
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h    |    2 +-
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c |    2 +-
+ 3 files changed, 6 insertions(+), 3 deletions(-)
 
-> >  	/* Check Flow Attention register */
-> >  	val = tr32(HOSTCC_FLOW_ATTN);
-> >  	if (val & ~HOSTCC_FLOW_ATTN_MBUF_LWM) {
-> > @@ -5492,14 +5497,16 @@ static void tg3_process_error(struct tg3 *tp)
-> >  	}
-> >  
-> >  	if (tr32(RDMAC_STATUS) || tr32(WDMAC_STATUS)) {
-> > -		netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
-> > +		if (dump)
-> > +			netdev_err(tp->dev, "DMA Status error.  Resetting chip.\n");
-> >  		real_error = true;
-> >  	}
-> >  
-> >  	if (!real_error)
-> >  		return;
-> >  
-> > -	tg3_dump_state(tp);
-> > +	if (dump)
-> > +		tg3_dump_state(tp);
-> >  
-> >  	tg3_flag_set(tp, ERROR_PROCESSED);
-> >  	schedule_work(&tp->reset_task);
-> >   
-> 
-> 
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+index e02d607..b0307a0 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+@@ -2006,8 +2006,11 @@ bfa_nw_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
+ 	 */
+ 	if (ioc->asic_gen == BFI_ASIC_GEN_CT)
+ 		bfa_nw_ioc_set_ct_hwif(ioc);
+-	else
++	else {
++		WARN_ON(ioc->asic_gen != BFI_ASIC_GEN_CT2);
+ 		bfa_nw_ioc_set_ct2_hwif(ioc);
++		bfa_nw_ioc_ct2_poweron(ioc);
++	}
+ 
+ 	bfa_ioc_map_port(ioc);
+ 	bfa_ioc_reg_init(ioc);
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+index d5a21f4..ca158d1 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+@@ -281,7 +281,7 @@ void bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
+ 
+ void bfa_nw_ioc_set_ct_hwif(struct bfa_ioc *ioc);
+ void bfa_nw_ioc_set_ct2_hwif(struct bfa_ioc *ioc);
+-void bfa_ioc_ct2_poweron(struct bfa_ioc *ioc);
++void bfa_nw_ioc_ct2_poweron(struct bfa_ioc *ioc);
+ 
+ void bfa_nw_ioc_attach(struct bfa_ioc *ioc, void *bfa,
+ 		struct bfa_ioc_cbfn *cbfn);
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+index c2d3b1a..348479b 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+@@ -454,7 +454,7 @@ bfa_ioc_ct2_lpu_read_stat(struct bfa_ioc *ioc)
+ #define __MSIX_VT_NUMVT_(_v)		((_v) << __MSIX_VT_NUMVT__SH)
+ #define __MSIX_VT_OFST_			0x000007ff
+ void
+-bfa_ioc_ct2_poweron(struct bfa_ioc *ioc)
++bfa_nw_ioc_ct2_poweron(struct bfa_ioc *ioc)
+ {
+ 	void __iomem *rb = ioc->pcidev.pci_bar_kva;
+ 	u32 r32;
+-- 
+1.7.1
