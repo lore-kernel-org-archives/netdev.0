@@ -1,18 +1,18 @@
 From: David Howells <dhowells@redhat.com>
 Subject: [PATCH] SELinux: Fix RCU deref check warning in sel_netport_insert()
- [ver #2]
-Date: Wed, 05 Oct 2011 12:08:43 +0100
-Message-ID: <20111005110843.30324.19133.stgit@warthog.procyon.org.uk>
+ [ver #3]
+Date: Wed, 05 Oct 2011 12:19:19 +0100
+Message-ID: <20111005111919.30551.77529.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, dhowells@redhat.com
 To: selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27660 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35906 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934403Ab1JELJi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Oct 2011 07:09:38 -0400
+	id S934386Ab1JELUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Oct 2011 07:20:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -55,7 +55,7 @@ Signed-off-by: David Howells <dhowells@redhat.com>
  1 files changed, 3 insertions(+), 1 deletions(-)
 
 diff --git a/security/selinux/netport.c b/security/selinux/netport.c
-index 0b62bd1..39e2138 100644
+index 0b62bd1..7b9eb1f 100644
 --- a/security/selinux/netport.c
 +++ b/security/selinux/netport.c
 @@ -123,7 +123,9 @@ static void sel_netport_insert(struct sel_netport *port)
@@ -65,7 +65,7 @@ index 0b62bd1..39e2138 100644
 -			rcu_dereference(sel_netport_hash[idx].list.prev),
 +			rcu_dereference_protected(
 +				sel_netport_hash[idx].list.prev,
-+				spin_is_locked(&sel_netport_lock)),
++				lockdep_is_held(&sel_netport_lock)),
  			struct sel_netport, list);
  		list_del_rcu(&tail->list);
  		kfree_rcu(tail, rcu);
