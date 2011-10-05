@@ -1,112 +1,92 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: Re: [PATCH] x25: Validate incoming call user data lengths
-Date: Thu, 6 Oct 2011 07:09:31 +1100
-Message-ID: <CADo0ohgP70GgrSfg3MUqS4juZ=wQa_Lz4=UM=1OAzEbh_f4ZSg@mail.gmail.com>
-References: <CA+nUz_J73agjPQPqdbTraUPLyv39sqQ4kvZTmrZrFXLW1faqwg@mail.gmail.com>
-	<1317738819.2440.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: IPv4 multicast and mac-vlans acting weird on 3.0.4+
+Date: Wed, 05 Oct 2011 13:09:52 -0700
+Message-ID: <4E8CB990.1010406@candelatech.com>
+References: <4E8C89EE.3090600@candelatech.com> <1317844449.3457.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matthew Daley <mattjd@gmail.com>, netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:52587 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935116Ab1JEUJc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 16:09:32 -0400
-Received: by vws1 with SMTP id 1so1667143vws.19
-        for <netdev@vger.kernel.org>; Wed, 05 Oct 2011 13:09:31 -0700 (PDT)
-In-Reply-To: <1317738819.2440.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail.candelatech.com ([208.74.158.172]:53581 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935116Ab1JEUJx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 16:09:53 -0400
+In-Reply-To: <1317844449.3457.3.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ran this on a few systems and put a few GB through it, looks good.
+On 10/05/2011 12:54 PM, Eric Dumazet wrote:
+> Le mercredi 05 octobre 2011 =C3=A0 09:46 -0700, Ben Greear a =C3=A9cr=
+it :
+>> This is on a hacked 3.0.4 kernel...
+>>
+>> I am seeing an issue where an IPv4 mcast receiver will not receive
+>> a 1473 or larger byte mcast message, but will receive a 1472.  The d=
+ifference
+>> being that 1473 ends up being two packets on the wire.  It works on
+>> 802.1Q VLANs, VETH interfaces and real Ethernet.  It does not work
+>> on a mac-vlan hanging off the VETH.
+>>
+>> I see packets received on the macvlan in tshark, and they appear cor=
+rect.  No
+>> obvious errors in the macvlan port stats or netstat -s,
+>> and the 'ss' tool doesn't appear to support UDP sockets at all.
+>>
+>> So, I'm about to go digging into the code, but if anyone has any
+>> suggestions for places to look, please let me know!
+>>
+>
+> Well, problem is defragmentation and macvlan cooperation.
+>
+> Multicast messages are broadcasted on all macvlan ports.
+>
+> But IP defrag will probably deliver a single final frame.
+>
+> We probably need to handle defrag in macvlan before broadcasting to a=
+ll
+> ports.
 
-Tested-by: Andrew Hendry <andrew.hendry@gmail.com>
+I see packets get to this code in ip_input.c (line 467 or so),
+and that printk is mine of course.
 
-On Wed, Oct 5, 2011 at 1:33 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le mardi 04 octobre 2011 =E0 14:00 +0000, Matthew Daley a =E9crit :
->> X.25 call user data is being copied in its entirety from incoming me=
-ssages
->> without consideration to the size of the destination buffers, leadin=
-g to
->> possible buffer overflows. Validate incoming call user data lengths =
-before
->> these copies are performed.
->>
->> It appears this issue was noticed some time ago, however nothing see=
-med to
->> come of it: see http://www.spinics.net/lists/linux-x25/msg00043.html=
- and
->> commit 8db09f26f912f7c90c764806e804b558da520d4f.
->>
->> Signed-off-by: Matthew Daley <mattjd@gmail.com>
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->> Cc: Andrew Hendry <andrew.hendry@gmail.com>
->> Cc: stable <stable@kernel.org>
->> ---
->> Hopefully this is acceptable; I thought someone with greater knowled=
-ge of
->> X.25 might step in :) It should take into account Andrew's suggestio=
-n to
->> move af_x25.c's check to before the call acception.
->>
->> =A0net/x25/af_x25.c | =A0 =A06 ++++++
->> =A0net/x25/x25_in.c | =A0 =A03 +++
->> =A02 files changed, 9 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
->> index d306154..a4bd172 100644
->> --- a/net/x25/af_x25.c
->> +++ b/net/x25/af_x25.c
->> @@ -959,6 +959,12 @@ int x25_rx_call_request(struct sk_buff *skb,
->> struct x25_neigh *nb,
->> =A0 =A0 =A0 skb_pull(skb,len);
->>
->> =A0 =A0 =A0 /*
->> + =A0 =A0 =A0* =A0 =A0 =A0Ensure that the amount of call user data i=
-s valid.
->> + =A0 =A0 =A0*/
->> + =A0 =A0 if (skb->len > X25_MAX_CUD_LEN)
->> + =A0 =A0 =A0 =A0 =A0 =A0 goto out_clear_request;
->> +
->> + =A0 =A0 /*
->> =A0 =A0 =A0 =A0* =A0 =A0 =A0Find a listener for the particular addre=
-ss/cud pair.
->> =A0 =A0 =A0 =A0*/
->> =A0 =A0 =A0 sk =3D x25_find_listener(&source_addr,skb);
->> diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
->> index 0b073b5..63488fd 100644
->> --- a/net/x25/x25_in.c
->> +++ b/net/x25/x25_in.c
->> @@ -127,6 +127,9 @@ static int x25_state1_machine(struct sock *sk,
->> struct sk_buff *skb, int frametyp
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* =A0 =A0 =A0Copy any Call User Data.
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb->len > 0) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (skb->len > X25_MAX_CUD=
-_LEN)
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out_c=
-lear;
->> +
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb_copy_from_linear_dat=
-a(skb,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 x25->calluserdata.cuddata,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->len);
->> --
->
-> It seems fine to me.
->
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->
-> Now, you could also fix x25 for undersized/frags frames :
->
-> Apparently, no check is done in this respect (missing pskb_may_pull()
-> calls)...
->
->
->
->
+	if ((dev && strcmp(dev->name, "rddVR10#0") =3D=3D 0) ||
+	    (dev && strcmp(dev->name, "rddVR10") =3D=3D 0)) {
+		printk("calling ip_rcv_finish through NF_HOOK, dev: %s, len: %i\n",
+		       dev->name, skb->len);
+	}
+
+	return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING, skb, dev, NULL,
+		       ip_rcv_finish);
+
+But, the macvlan packets never make it to the ip_rcv_finish method.
+
+I do see a big and a little packet entering this code.
+
+I have no firewall rules that I'm aware of, though there
+is some conn-track logic (though not associated with the
+mac-vlan interface):
+
+[root@lec2010-ath9k-1 ~]# iptables -L
+Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain FORWARD (policy ACCEPT)
+target     prot opt source               destination
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+
+
+And, I just reproduced the problem on vanilla linus top-of-tree (3.1.0-=
+rc9).
+
+
+Thanks,
+Ben
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
