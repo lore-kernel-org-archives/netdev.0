@@ -1,101 +1,155 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IPv4 multicast and mac-vlans acting weird on 3.0.4+
-Date: Wed, 05 Oct 2011 15:35:07 -0700
-Message-ID: <4E8CDB9B.6010900@candelatech.com>
-References: <4E8C89EE.3090600@candelatech.com>  <1317844449.3457.3.camel@edumazet-laptop>  <4E8CB990.1010406@candelatech.com>  <1317845835.3457.5.camel@edumazet-laptop>  <4E8CBBD6.3080500@candelatech.com>  <1317846693.3457.11.camel@edumazet-laptop>  <4E8CC474.7050803@candelatech.com> <1317850603.3457.21.camel@edumazet-laptop> <4E8CD180.5010905@candelatech.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [RFC] iproute2: add br command
+Date: Wed, 05 Oct 2011 16:00:14 -0700
+Message-ID: <1317855614.8950.57.camel@w-sridhar.beaverton.ibm.com>
+References: <4E8BE29A.9070100@us.ibm.com>	<4E8BE63F.4020706@us.ibm.com>
+	 <20111005085807.2afc2f1c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:39694 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932231Ab1JEWfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 18:35:10 -0400
-In-Reply-To: <4E8CD180.5010905@candelatech.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:45883 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935484Ab1JEXAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 19:00:24 -0400
+Received: from /spool/local
+	by us.ibm.com with XMail ESMTP
+	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
+	Wed, 5 Oct 2011 17:00:23 -0600
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p95N0FTk088600
+	for <netdev@vger.kernel.org>; Wed, 5 Oct 2011 17:00:15 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p95N0FZm030159
+	for <netdev@vger.kernel.org>; Wed, 5 Oct 2011 17:00:15 -0600
+In-Reply-To: <20111005085807.2afc2f1c@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2011 02:52 PM, Ben Greear wrote:
-> On 10/05/2011 02:36 PM, Eric Dumazet wrote:
->> Le mercredi 05 octobre 2011 =C3=A0 13:56 -0700, Ben Greear a =C3=A9c=
-rit :
->>
->>> Wouldn't you have the same problem with two real Ethernet interface=
-s on
->>> the same LAN, or two 802.1Q devices for that matter? The addrs will=
- all
->>> be the same in that case too?
->>>
->>
->> Usually multicast is coupled with routing.
->>
->> A JOIN message from your app wont be sent on all interfaces...
->
-> It will be if you open two sockets and bind each one of them
-> to a network device, at least as far as I can tell.
->
->>
->> But yes, we might have a similar issue with regular vlans.
->>
->> Probably nobody noticed yet. Just say no to fragments :)
->
-> Heh, it's regression testing time..we're trying all the weird
-> stuff this week :)
->
->>> Also, if I have just a single mac-vlan active (the other 3 are 'ifc=
-onfig foo down'),
->>> I still see the problem with mcast.
->>>
->>
->> Thats another bug : macvlan doesnt test IFF_UP on broadcasts, only f=
-or
->> unicast messages. Please test following patch.
->>
->>> From what you describe, I am thinking I may be hitting a different
->>> issue. Any ideas on how to figure out why exactly the NF_HOOK isn't
->>> calling the ip_rcv_finish method?
->>>
->>
->> Really I believe I tried to explain the thing already...
->>
->> ip_local_deliver() -> ip_defrag() :
->
-> It seems that netfilter is reporting the pkt as NF_STOLEN, probably
-> because of the nf_ct_ipv4_gather_frags (which ends up calling ip_defr=
-ag)
-> logic in nf_defrag_ipv4.c, line 86 or so. I'm adding more debugging
-> to verify this.
+On Wed, 2011-10-05 at 08:58 -0700, Stephen Hemminger wrote:
+> On Tue, 04 Oct 2011 22:08:15 -0700
+> Sridhar Samudrala <sri@us.ibm.com> wrote:
+>=20
+> >=20
+> > On Tue, 2011-10-04 at 16:00 -0700, Stephen Hemminger wrote:
+> > > On Tue, 04 Oct 2011 15:54:07 -0700
+> > > Sridhar Samudrala<sri@us.ibm.com  <mailto:sri@us.ibm.com>>  wrote=
+:
+> > >
+> > > >  On Tue, 2011-10-04 at 15:42 -0700, Stephen Hemminger wrote:
+> > > >  >  On Wed, 5 Oct 2011 00:32:31 +0200
+> > > >  >  Micha=C5=82 Miros=C5=82aw<mirqus@gmail.com  <mailto:mirqus@=
+gmail.com>>  wrote:
+> > > >  >
+> > > >  >  >  2011/10/5 Sridhar Samudrala<sri@us.ibm.com  <mailto:sri@=
+us.ibm.com>>:
+> > > >  >  >  >  On Tue, 2011-10-04 at 14:07 -0700, Stephen Hemminger =
+wrote:
+> > > >  >  >  >>  On Tue, 04 Oct 2011 09:58:55 -0700
+> > > >  >  >  >>  Andi Kleen<andi@firstfloor.org  <mailto:andi@firstfl=
+oor.org>>  wrote:
+> > > >  >  >  >>  >  Stephen Hemminger<shemminger@vyatta.com  <mailto:=
+shemminger@vyatta.com>>  writes:
+> > > >  >  >  >>  >  >  This adds a new 'br' command which is the brid=
+ging equivalent of
+> > > >  >  >  >>  >  >  the ip command. More of a demo of how to use n=
+etlink and bridging
+> > > >  >  >  >>  >  >  at this point.
+> > > >  >  >  >>  >  Please name it "bridge", not "br"
+> > > >  >  >  >>  Ok, but it breaks the existing pattern.
+> > > >  >  >  >  Is this supposed to replace brctl utility?
+> > > >  >  >  >
+> > > >  >  >  >  Can we add/delete a bridge and add/delete interfaces =
+to a bridge using
+> > > >  >  >  >  this command?
+> > > >  >  >  >
+> > > >  >  >  >  If so, why not make it
+> > > >  >  >  >    ip bridge add/del<brname>
+> > > >  >  >  >    ip bridge addif/delif<brname>  <ifname>
+> > > >  >  >
+> > > >  >  >  I'll add one more idea:
+> > > >  >  >
+> > > >  >  >  ip link add/del<brname>  type bridge
+> > > >  >  >  ip bridge add/del<brname>  <ifname>
+> > > >  >  >  ip bridge fdb ...
+> > > >  >
+> > > >  >  In 3.0 you can already do:
+> > > >  >  # ip link add dev br3 type bridge
+> > This is a new syntax that i think works only for 'bridge' type.
+>=20
+>=20
+> The bridge interface to 'ip link' is nothing special. The same syntax
+> is available for macvlan, vlan, and bonding.
+>=20
+>=20
+> > All other types require a prefix 'ip link add link'
+>=20
+>=20
+>=20
+> For vlan:
+>   ip link add link eth0 name eth0.1 type vlan id 1
+>=20
+> The reason there is no 'link' parameter when creating a bridge is tha=
+t
+> the bridge is a standalone device it is not slaved to an underlying
+> device.
+>=20
+> >=20
+> > I think the ip command help text should be updated to include this =
+syntax.
+>=20
+>=20
+> patches accepted...
 
-Ok, this is definitely the problem.  Also, even if you have a single
-mac-vlan, you will still have this problem because the underlying devic=
-e
-will get a copy first.  So, your patch doesn't solve my particular prob=
-lem,
-but it does appear to be correct.
+Will submit soon.
+>=20
+> >=20
+> > > >  >  # ip link set dev eth3 master br3
+> >=20
+> > looks like the command to delete an interface from a bridge is
+> >        ip link set dev eth3 nomaster
+> >=20
+> > Somehow this interface doesn't look all that intuitive.
+>=20
+> Propose something better.=20
 
-If someone wants to cook up macvlan-ip-defrag patch I'll be happy
-to test it.  But, as far as I can tell, this problem can happen on
-any two interfaces.  The reason that some of mine work (.1q vlans)
-and macvlan didn't is probably because those were separated by
-some virtual network links that imparted extra delay...so the
-vlan consumed all its fragments and passed the complete pkt up
-the stack before the mac-vlan ever saw the initial frame.
+Add eth3 to br3
+ip link add link br3 [name] eth3 type brif
 
-With this in mind, it seems that using multiple udp multicast
-sockets bound to specific devices is fundamentally broken for
-fragmented packets.
+Delete eth3 from br3
+ip link del link br3 [name] eth3 type brif
 
-I have no pressing need for this feature, so now that I better understa=
+>=20
+>=20
+> > Currently we have 'ip route' and 'ip neigh' to manipulate routing a=
 nd
-the problem I can just document it and move on to other things.
+> > neighbor entry tables. I think 'ip bridge' would be good way to ext=
+end
+> > this to support bridging.
+> >=20
+> > If it is not too late, can we have a interface where all bridge rel=
+ated
+> > commands can be done using the same prefix.
+> >=20
+> > I think we also should think about how this syntax can be extended =
+to show
+> > embedded bridges in SR-IOV NICs.
+>=20
+> The iproute2 commands in general try to be as close to the
+> underlying netlink protocol. This makes it less user friendly but sma=
+ller,
+> easier to program. The only part of bridging that is special is the
+> forwarding database which is similar to the neighbor table.
+> If I do merge bridging into ip, it would not be as 'ip bridge' but as
+> another protocol family.
+>=20
+>    ip -family bridge neigh ...
 
-Thanks for all the help.
+OK. I am not too familiar with the internal implementation details.
+So i guess this may not be as straightforward as i thought.
 
-Ben
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Thanks
+Sridhar
