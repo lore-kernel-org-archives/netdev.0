@@ -1,26 +1,53 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] SELinux: Fix RCU deref check warning in sel_netport_insert()
-Date: Wed, 05 Oct 2011 14:32:03 +0100
-Message-ID: <1624.1317821523@redhat.com>
-References: <2230709.7n5noARWFd@sifl> <20111003135824.15303.10147.stgit@warthog.procyon.org.uk>
-Cc: dhowells@redhat.com, selinux@tycho.nsa.gov, netdev@vger.kernel.org
-To: Paul Moore <paul@paul-moore.com>
+From: =?iso-8859-1?Q?Hans_Schillstr=F6m?= <hans.schillstrom@ericsson.com>
+Subject: RE: netfilter: Use proper rwlock init function
+Date: Wed, 5 Oct 2011 15:54:07 +0200
+Message-ID: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D90314C@ESESSCMS0356.eemea.ericsson.se>
+References: <alpine.LFD.2.02.1110051522410.18778@ionos>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>
+To: Thomas Gleixner <tglx@linutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	"horms@verge.net.au" <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1053 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934670Ab1JENc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Oct 2011 09:32:59 -0400
-In-Reply-To: <2230709.7n5noARWFd@sifl>
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:45526 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752658Ab1JENyZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 09:54:25 -0400
+In-Reply-To: <alpine.LFD.2.02.1110051522410.18778@ionos>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul Moore <paul@paul-moore.com> wrote:
+Hello Simon,
+you can drop my "fix lockdep warning" patch
+since Thomas patch is identical to what I prepared to send...
 
-> We should probably do the same for the security/selinux/netif.c as it uses
-> the same logic; David is this something you want to tackle?
+>Replace the open coded initialization with the init function.
+>
+>Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
-netif.c doesn't use any rcu_dereference*() function directly, though it does
-use list_for_each_entry_rcu().  However, I'm not sure that's a problem.  What
-is it you're referring to?
+Ack-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-David
+>---
+> net/netfilter/ipvs/ip_vs_ctl.c |    2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>Index: linux-2.6/net/netfilter/ipvs/ip_vs_ctl.c
+>===================================================================
+>--- linux-2.6.orig/net/netfilter/ipvs/ip_vs_ctl.c
+>+++ linux-2.6/net/netfilter/ipvs/ip_vs_ctl.c
+>@@ -3679,7 +3679,7 @@ int __net_init __ip_vs_control_init(stru
+>        int idx;
+>        struct netns_ipvs *ipvs = net_ipvs(net);
+>
+>-       ipvs->rs_lock = __RW_LOCK_UNLOCKED(ipvs->rs_lock);
+>+       rwlock_init(&ipvs->rs_lock);
+>
+>        /* Initialize rs_table */
+>        for (idx = 0; idx < IP_VS_RTAB_SIZE; idx++)
+
+Thanks
+Hans
