@@ -1,136 +1,78 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] iproute2: add br command
-Date: Wed, 5 Oct 2011 08:58:07 -0700
-Message-ID: <20111005085807.2afc2f1c@nehalam.linuxnetplumber.net>
-References: <4E8BE29A.9070100@us.ibm.com>
-	<4E8BE63F.4020706@us.ibm.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net] mscan: zero accidentally copied register content
+Date: Wed, 05 Oct 2011 18:10:29 +0200
+Message-ID: <4E8C8175.2040202@hartkopp.net>
+References: <4E8C78E8.3010605@hartkopp.net> <20111005155127.GB13794@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andre Naujoks <nautsch@gmail.com>
+To: Wolfram Sang <w.sang@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35004 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934513Ab1JEP6M convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 11:58:12 -0400
-In-Reply-To: <4E8BE63F.4020706@us.ibm.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:30723 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934499Ab1JEQKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 12:10:33 -0400
+In-Reply-To: <20111005155127.GB13794@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 04 Oct 2011 22:08:15 -0700
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On 10/05/11 17:51, Wolfram Sang wrote:
 
->=20
-> On Tue, 2011-10-04 at 16:00 -0700, Stephen Hemminger wrote:
-> > On Tue, 04 Oct 2011 15:54:07 -0700
-> > Sridhar Samudrala<sri@us.ibm.com  <mailto:sri@us.ibm.com>>  wrote:
-> >
-> > >  On Tue, 2011-10-04 at 15:42 -0700, Stephen Hemminger wrote:
-> > >  >  On Wed, 5 Oct 2011 00:32:31 +0200
-> > >  >  Micha=C5=82 Miros=C5=82aw<mirqus@gmail.com  <mailto:mirqus@gm=
-ail.com>>  wrote:
-> > >  >
-> > >  >  >  2011/10/5 Sridhar Samudrala<sri@us.ibm.com  <mailto:sri@us=
-=2Eibm.com>>:
-> > >  >  >  >  On Tue, 2011-10-04 at 14:07 -0700, Stephen Hemminger wr=
-ote:
-> > >  >  >  >>  On Tue, 04 Oct 2011 09:58:55 -0700
-> > >  >  >  >>  Andi Kleen<andi@firstfloor.org  <mailto:andi@firstfloo=
-r.org>>  wrote:
-> > >  >  >  >>  >  Stephen Hemminger<shemminger@vyatta.com  <mailto:sh=
-emminger@vyatta.com>>  writes:
-> > >  >  >  >>  >  >  This adds a new 'br' command which is the bridgi=
-ng equivalent of
-> > >  >  >  >>  >  >  the ip command. More of a demo of how to use net=
-link and bridging
-> > >  >  >  >>  >  >  at this point.
-> > >  >  >  >>  >  Please name it "bridge", not "br"
-> > >  >  >  >>  Ok, but it breaks the existing pattern.
-> > >  >  >  >  Is this supposed to replace brctl utility?
-> > >  >  >  >
-> > >  >  >  >  Can we add/delete a bridge and add/delete interfaces to=
- a bridge using
-> > >  >  >  >  this command?
-> > >  >  >  >
-> > >  >  >  >  If so, why not make it
-> > >  >  >  >    ip bridge add/del<brname>
-> > >  >  >  >    ip bridge addif/delif<brname>  <ifname>
-> > >  >  >
-> > >  >  >  I'll add one more idea:
-> > >  >  >
-> > >  >  >  ip link add/del<brname>  type bridge
-> > >  >  >  ip bridge add/del<brname>  <ifname>
-> > >  >  >  ip bridge fdb ...
-> > >  >
-> > >  >  In 3.0 you can already do:
-> > >  >  # ip link add dev br3 type bridge
-> This is a new syntax that i think works only for 'bridge' type.
-
-
-The bridge interface to 'ip link' is nothing special. The same syntax
-is available for macvlan, vlan, and bonding.
+> On Wed, Oct 05, 2011 at 05:34:00PM +0200, Oliver Hartkopp wrote:
+>> Due to the 16 bit access to mscan registers there's too much data copied to
+>> the zero initialized CAN frame when having an odd number of bytes to copy.
+>> This patch clears the data byte read from the invalid register entry.
+>>
+>> Reported-by: Andre Naujoks <nautsch@gmail.com>
+>> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+>>
+>> ---
+>>
+>> Hello Wolf[gang|ram],
+>>
+>> from an error report from Andre Naujoks i tracked down the problem of
+>> uninitialized data in (normally) initialized CAN frames to the mscan driver.
+>>
+>> Regards,
+>> Oliver
+>>
+>>
+>> diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+>> index 92feac6..1b60fbe 100644
+>> --- a/drivers/net/can/mscan/mscan.c
+>> +++ b/drivers/net/can/mscan/mscan.c
+>> @@ -327,20 +327,23 @@ static void mscan_get_rx_frame(struct net_device *dev, struct can_frame *frame)
+>>  	frame->can_dlc = get_can_dlc(in_8(&regs->rx.dlr) & 0xf);
+>>  
+>>  	if (!(frame->can_id & CAN_RTR_FLAG)) {
+>>  		void __iomem *data = &regs->rx.dsr1_0;
+>>  		u16 *payload = (u16 *)frame->data;
+>>  
+>>  		for (i = 0; i < (frame->can_dlc + 1) / 2; i++) {
+>>  			*payload++ = in_be16(data);
+>>  			data += 2 + _MSCAN_RESERVED_DSR_SIZE;
+>>  		}
+>> +		/* zero accidentally copied register content at odd DLCs */
+>> +		if (frame->can_dlc & 1)
+>> +			frame->data[frame->can_dlc] = 0;
+>>  	}
+>>  
+>>  	out_8(&regs->canrflg, MSCAN_RXF);
+> 
+> Nice catch, but wouldn't it be more elegant to never have an invalid byte
+> in the first place?
+> 
+> if (can_dlc & 1)
+> 	*payload = in_be16() & mask;
+> 
 
 
-> All other types require a prefix 'ip link add link'
+Hm, then i would rather think about changing the for() statement and to read
+byte-by-byte instead of the current in_be16() usage with the 16bit access
+drawbacks ...
 
-
-
-=46or vlan:
-  ip link add link eth0 name eth0.1 type vlan id 1
-
-The reason there is no 'link' parameter when creating a bridge is that
-the bridge is a standalone device it is not slaved to an underlying
-device.
-
->=20
-> I think the ip command help text should be updated to include this sy=
-ntax.
-
-
-patches accepted...
-
->=20
-> > >  >  # ip link set dev eth3 master br3
->=20
-> looks like the command to delete an interface from a bridge is
->        ip link set dev eth3 nomaster
->=20
-> Somehow this interface doesn't look all that intuitive.
-
-Propose something better.=20
-
-
-> Currently we have 'ip route' and 'ip neigh' to manipulate routing and
-> neighbor entry tables. I think 'ip bridge' would be good way to exten=
-d
-> this to support bridging.
->=20
-> If it is not too late, can we have a interface where all bridge relat=
-ed
-> commands can be done using the same prefix.
->=20
-> I think we also should think about how this syntax can be extended to=
- show
-> embedded bridges in SR-IOV NICs.
-
-The iproute2 commands in general try to be as close to the
-underlying netlink protocol. This makes it less user friendly but small=
-er,
-easier to program. The only part of bridging that is special is the
-forwarding database which is similar to the neighbor table.
-If I do merge bridging into ip, it would not be as 'ip bridge' but as
-another protocol family.
-
-   ip -family bridge neigh ...
-
-
-As far as SR-IOV, the interface in the kernel is netlink and the hardwa=
-re
-people are free to use netlink to use the same messages for SR-IOV, but
-haven't.
-
-
-
- =20
+Regards,
+Oliver
