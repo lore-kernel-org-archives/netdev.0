@@ -1,59 +1,68 @@
-From: starlight@binnacle.cx
-Subject: Re: big picture UDP/IP performance question re 2.6.18
-  -> 2.6.32
-Date: Wed, 05 Oct 2011 02:11:27 -0400
-Message-ID: <6.2.5.6.2.20111005020421.03a9e6c0@binnacle.cx>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC] [PATCH] virtio: Dont add "config" to list for
+ !per_vq_vector
+Date: Wed, 5 Oct 2011 08:48:23 -0200
+Message-ID: <20111005104822.GC5587@redhat.com>
+References: <20111005053859.5825.1089.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>
-To: Joe Perches <joe@perches.com>, Christoph Lameter <cl@gentwo.org>,
-	Serge Belyshev <belyshev@depni.sinp.msu.ru>,
-	Con Kolivas <kernel@kolivas.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111005053859.5825.1089.sendpatchset@krkumar2.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gremlins!
+On Wed, Oct 05, 2011 at 11:08:59AM +0530, Krishna Kumar wrote:
+> For the MSI but non-per_vq_vector case, the config/change vq
+> also gets added to the list of vqs that need to process the
+> MSI interrupt. This is not needed as config has it's own
+> handler (vp_config_changed). In any case, vring_interrupt()
+> finds nothing needs to be done on this vq.
+> 
+> I tested this patch by testing the "Fallback:" and "Finally
+> fall back" cases in vp_find_vqs(). Please review.
+> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 
-In my haste I overlooked that changing the
-thread pool from 140 to 13 is radical,
-especially with a core count matching
-the thread count.  Apples and oranges.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+(note: this is not a bugfix so not 3.1 material).
 
-Ran the small-pool test on the other two
-kernels and here are the results.  The
-user and system columns are in jiffies.
+> ---
+>  drivers/virtio/virtio_pci.c |   10 +++++++---
+>  1 file changed, 7 insertions(+), 3 deletions(-)
+> 
+> diff -ruNp org/drivers/virtio/virtio_pci.c new/drivers/virtio/virtio_pci.c
+> --- org/drivers/virtio/virtio_pci.c	2011-10-03 09:10:11.000000000 +0530
+> +++ new/drivers/virtio/virtio_pci.c	2011-10-04 19:16:34.000000000 +0530
+> @@ -415,9 +415,13 @@ static struct virtqueue *setup_vq(struct
+>  		}
+>  	}
+>  
+> -	spin_lock_irqsave(&vp_dev->lock, flags);
+> -	list_add(&info->node, &vp_dev->virtqueues);
+> -	spin_unlock_irqrestore(&vp_dev->lock, flags);
+> +	if (callback) {
+> +		spin_lock_irqsave(&vp_dev->lock, flags);
+> +		list_add(&info->node, &vp_dev->virtqueues);
+> +		spin_unlock_irqrestore(&vp_dev->lock, flags);
+> +	} else {
+> +		INIT_LIST_HEAD(&info->node);
+> +	}
+>  
+>  	return vq;
 
-kernel          total      user   system
-2.6.18(rhel5)   02:07:16  615516  148152 (19.4%)
-2.6.39.4        02:27:44  658074  228420 (25.7%)
-2.6.39.4(bfs)   02:34:49  899936   29000 (3%)
+Some further enhancement suggestions for this shared case:
+- we don't really need a lock, do we? and how about replacing vq list
+  with an array?
+- vring_interrupt calls
+        if (!more_used(vq))
+  outside any lock.
+  This looks scary - don't we need a read barrier somewhere?
 
-So BFS performs somewhat worse than the default
-scheduler on total-CPU.  The old RHEL 5 kernel
-is still the winner, but not by nearly as
-much in the small thread-pool scenario--.39
-is only 16% slower than .18 with the
-system overhead being 55% worse rather
-than 100% worse.
 
-So all that is shown after all is that
-the differential between the older and
-newer kernels is strongly influenced by
-the number of active threads, and the O(N)
-aspect of BFS makes it an inappropriate
-choice for heavy multithreaded workloads.
-
-Also small thread pools are more efficient
-than large ones (especially when the workflow
-is routed for optimal cache locality as
-is the case here).  However the small
-pool does not scale as well to maximum CPU
-load as the large pool (a different test)
-which is why it is no longer used in
-production and was only dusted off
-in order to enable the BFS comparison.
+-- 
+MST
