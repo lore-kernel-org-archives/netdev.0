@@ -1,51 +1,50 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 5/7] bridge: allow creating/deleting fdb entries via
- netlink
-Date: Wed, 05 Oct 2011 20:36:15 +0100
-Message-ID: <1317843375.2802.29.camel@bwh-desktop>
-References: <20110405000326.714524584@vyatta.com>
-	 <20110405000537.372602366@vyatta.com>
-	 <CAGXs5wXc0RLE9KbTVVYRa0xuLEKh8mTM7AR7hMBe86HNfDX0HQ@mail.gmail.com>
-	 <20111005121305.26ac48bf@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH 2/2] bridge: allow forwarding some link local frames
+Date: Wed, 05 Oct 2011 20:40:19 +0100
+Message-ID: <1317843619.2802.32.camel@bwh-desktop>
+References: <20111004041444.793960297@vyatta.com>
+	 <20111004041509.292932641@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kevin Wilson <wkevils@gmail.com>, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:56958 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:57174 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933233Ab1JETgT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 15:36:19 -0400
-In-Reply-To: <20111005121305.26ac48bf@nehalam.linuxnetplumber.net>
+	with ESMTP id S933747Ab1JETkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 15:40:22 -0400
+In-Reply-To: <20111004041509.292932641@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-10-05 at 12:13 -0700, Stephen Hemminger wrote:
-> On Wed, 5 Oct 2011 21:06:54 +0200
-> Kevin Wilson <wkevils@gmail.com> wrote:
+On Mon, 2011-10-03 at 21:14 -0700, Stephen Hemminger wrote:
+> plain text document attachment (bridge-multicast-filter.patch)
+> This is based on an earlier patch by Nick Carter with comments
+> by David Lamparter but with some refinements. Thanks for their patience
+> this is a confusing area with overlap of standards, user requirements,
+> and compatibility with earlier releases.
 > 
-> > Hello all,
-> > I would appreciate if someone can elaborate about "bridge extensions
-> > to iproute2" mentioned here.
-> > I downloaded latest iproute2 git tree and did not find it there.
-> > googling for it did not gave much info about it.
-> > I will appreciate if someone can tell  who develop it, what is the
-> > status, site, repository tree, etc.
-> > 
-> > rgs,
-> > Kevin
+> It adds a new sysfs attribute 
+>    /sys/class/net/brX/bridge/group_fwd_mask
+> that controls forwarding of frames with address of: 01-80-C2-00-00-0X
+> The default setting has no forwarding to retain compatibility.
 > 
-> The patch to handle this was posted, but is not committed to the tree yet.
-[...]
-> +static void usage(void)
-> +{
-> +	fprintf(stderr,
-> +"Usage: br [ OPTIONS ] OBJECT { COMMAND | help }\n"
+> One change from earlier releases is that forwarding of group
+> addresses is not dependent on STP being enabled or disabled. This
+> choice was made based on interpretation of tie 802.1 standards.
+> I expect complaints will arise because of this, but better to follow
+> the standard than continue acting incorrectly by default.
+> 
+> The filtering mask is writeable, but only values that don't forward
+> known control frames are allowed. It intentionally blocks attempts
+> to filter control protocols. For example: writing a 8 allows
+> forwarding 802.1X PAE addresses which is the most common request.
 [...]
 
-This and the sub-command usage functions still report the command name
-as 'br'.
+I wonder why you don't forbid forwarding frames sent to reserved
+destination addresses?  The standards seem pretty clear that this should
+not be allowed.
 
 Ben.
 
