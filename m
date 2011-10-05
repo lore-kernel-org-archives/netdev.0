@@ -1,45 +1,36 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [RFC] [PATCH] virtio: Dont add "config" to list for !per_vq_vector
-Date: Wed, 05 Oct 2011 11:08:59 +0530
-Message-ID: <20111005053859.5825.1089.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Krishna Kumar <krkumar2@in.ibm.com>,
-	virtualization@lists.linux-foundation.org
-To: rusty@rustcorp.com.au, mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] bnx2x: remove some dead code
+Date: Wed, 5 Oct 2011 08:49:18 +0300
+Message-ID: <20111005054918.GC32077@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Eilon Greenstein <eilong@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from acsinet15.oracle.com ([141.146.126.227]:42347 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932862Ab1JEFtZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Oct 2011 01:49:25 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For the MSI but non-per_vq_vector case, the config/change vq
-also gets added to the list of vqs that need to process the
-MSI interrupt. This is not needed as config has it's own
-handler (vp_config_changed). In any case, vring_interrupt()
-finds nothing needs to be done on this vq.
+This code is after the break statement so it never gets used.  The
+"vlan_mac_obj" variable does get initialized properly, so we can just
+delete this.
 
-I tested this patch by testing the "Fallback:" and "Finally
-fall back" cases in vp_find_vqs(). Please review.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- drivers/virtio/virtio_pci.c |   10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-
-diff -ruNp org/drivers/virtio/virtio_pci.c new/drivers/virtio/virtio_pci.c
---- org/drivers/virtio/virtio_pci.c	2011-10-03 09:10:11.000000000 +0530
-+++ new/drivers/virtio/virtio_pci.c	2011-10-04 19:16:34.000000000 +0530
-@@ -415,9 +415,13 @@ static struct virtqueue *setup_vq(struct
- 		}
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 04f17a1..6486ab8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -4353,8 +4353,6 @@ static inline void bnx2x_handle_classification_eqe(struct bnx2x *bp,
+ 			vlan_mac_obj = &bp->fp[cid].mac_obj;
  
--	spin_lock_irqsave(&vp_dev->lock, flags);
--	list_add(&info->node, &vp_dev->virtqueues);
--	spin_unlock_irqrestore(&vp_dev->lock, flags);
-+	if (callback) {
-+		spin_lock_irqsave(&vp_dev->lock, flags);
-+		list_add(&info->node, &vp_dev->virtqueues);
-+		spin_unlock_irqrestore(&vp_dev->lock, flags);
-+	} else {
-+		INIT_LIST_HEAD(&info->node);
-+	}
- 
- 	return vq;
+ 		break;
+-		vlan_mac_obj = &bp->fp[cid].mac_obj;
+-
+ 	case BNX2X_FILTER_MCAST_PENDING:
+ 		/* This is only relevant for 57710 where multicast MACs are
+ 		 * configured as unicast MACs using the same ramrod.
