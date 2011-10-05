@@ -1,63 +1,62 @@
-From: starlight@binnacle.cx
-Subject: Re: big picture UDP/IP performance question re 2.6.18
-  -> 2.6.32
-Date: Wed, 05 Oct 2011 07:50:26 -0400
-Message-ID: <6.2.5.6.2.20111005074401.03a9d0f8@binnacle.cx>
-References: <6.2.5.6.2.20111005025227.03a9d9f0@binnacle.cx>
- <1317804832.2473.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1317804832.2473.25.camel@edumazet-HP-Compaq-6005-Pr
- o-SFF-PC>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH v2 2/2] virtio-net: Prevent NULL dereference
+Date: Wed, 05 Oct 2011 15:50:14 +0200
+Message-ID: <1317822614.3676.0.camel@lappy>
+References: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
+	 <1317220855-9352-2-git-send-email-levinsasha928@gmail.com>
+	 <20111003184037.GA22427@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Joe Perches <joe@perches.com>, Christoph Lameter <cl@gentwo.org>,
-	Serge Belyshev <belyshev@depni.sinp.msu.ru>,
-	Con Kolivas <kernel@kolivas.org>, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>, Willy Tarreau <w@1wt.eu>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317804832.2473.25.camel@edumazet-HP-Compaq-6005-Pr
- o-SFF-PC>
-References: <6.2.5.6.2.20111005025227.03a9d9f0@binnacle.cx>
- <1317804832.2473.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+In-Reply-To: <20111003184037.GA22427@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-At 10:53 AM 10/5/2011 +0200, Eric Dumazet wrote:
->
->Note :
->
->Your results are from a combination of a user
->application and kernel default strategies.
->
->On other combinations, results can be completely different.
->
->A wakeup strategy is somewhat tricky : 
->
->- Should we affine or not.
->- Should we queue the wakeup on a remote CPU,
->  to keep scheduler data hot in a single cpu cache.
->- Should we use RPS/RFS to queue the packet to
->  another CPU before  even handling it in our stack,
->  to keep network data hot in a single cpu
->   cache. (check Documentation/networking/scaling.txt)
->
->At least, with recent kernels, we have many
->available choices to tune a workload.
+On Mon, 2011-10-03 at 20:40 +0200, Michael S. Tsirkin wrote:
+> On Wed, Sep 28, 2011 at 05:40:55PM +0300, Sasha Levin wrote:
+> > This patch prevents a NULL dereference when the user has passed a length
+> > longer than an actual buffer to virtio-net.
+> > 
+> > Cc: Rusty Russell <rusty@rustcorp.com.au>
+> > Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> > Cc: virtualization@lists.linux-foundation.org
+> > Cc: netdev@vger.kernel.org
+> > Cc: kvm@vger.kernel.org
+> > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> > ---
+> >  drivers/net/virtio_net.c |   12 +++++++++++-
+> >  1 files changed, 11 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index bde0dec..4a53d2a 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -208,12 +208,22 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+> >  		return NULL;
+> >  	}
+> >  
+> > -	while (len) {
+> > +	while (len && page) {
+> >  		set_skb_frag(skb, page, offset, &len);
+> >  		page = (struct page *)page->private;
+> >  		offset = 0;
+> >  	}
+> >  
+> > +	/*
+> > +	 * This is the case where we ran out of pages in our linked list, but
+> > +	 * supposedly have more data to read.
+> 
+> Again, let's clarify that this only happens with broken devices.
 
-I would argue that results speak louder than
-features.  A 300% deterioration in latency,
-600% deterioration in sigma latency and
-a 50-100% increase in apparent system overhead
-is not impressive.
+I think that the code within the if() makes it clear that it isn't the
+regular path.
 
-Our application is designed to run optimally
-as a scalable real-time network transaction
-processor and provides for a variety of
-different thread-pool and queuing approaches.
-Performance is worse for every one of them
-in newer kernels.  The ones that scale the
-best fared worst.
+-- 
 
-It seems to me that any scheduler-intensive
-application will suffer a similar fate.
+Sasha.
