@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] virtio-net: Prevent NULL dereference
-Date: Thu, 06 Oct 2011 15:41:17 -0400 (EDT)
-Message-ID: <20111006.154117.730931075310414439.davem@davemloft.net>
-References: <1317220855-9352-1-git-send-email-levinsasha928@gmail.com>
-	<1317220855-9352-2-git-send-email-levinsasha928@gmail.com>
+Subject: Re: [net-next PATCH 1/3] dcb: Use ifindex instead of ifname
+Date: Thu, 06 Oct 2011 15:50:12 -0400 (EDT)
+Message-ID: <20111006.155012.1825838109469418965.davem@davemloft.net>
+References: <20111006185233.2781.80310.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, rusty@rustcorp.com.au,
-	mst@redhat.com, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: levinsasha928@gmail.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com
+To: john.r.fastabend@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33852 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59140 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759183Ab1JFTnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 15:43:24 -0400
-In-Reply-To: <1317220855-9352-2-git-send-email-levinsasha928@gmail.com>
+	with ESMTP id S1759213Ab1JFTuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 15:50:17 -0400
+In-Reply-To: <20111006185233.2781.80310.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <levinsasha928@gmail.com>
-Date: Wed, 28 Sep 2011 17:40:55 +0300
+From: John Fastabend <john.r.fastabend@intel.com>
+Date: Thu, 06 Oct 2011 11:52:33 -0700
 
-> This patch prevents a NULL dereference when the user has passed a length
-> longer than an actual buffer to virtio-net.
+> From: Mark Rustad <mark.d.rustad@intel.com>
 > 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: virtualization@lists.linux-foundation.org
-> Cc: netdev@vger.kernel.org
-> Cc: kvm@vger.kernel.org
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> Use ifindex instead of ifname in the DCB app ring. This makes for a smaller
+> data structure and faster comparisons. It also avoids possible issues when
+> a net device is renamed.
+> 
+> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Waiting for a respin of this patch with clarified comments.
+Applied.
