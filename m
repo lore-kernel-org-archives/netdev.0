@@ -1,29 +1,44 @@
-From: David Miller <davem@davemloft.net>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
 Subject: Re: [PATCH 1/8] vxge: convert to SKB paged frag API.
-Date: Thu, 06 Oct 2011 17:16:45 -0400 (EDT)
-Message-ID: <20111006.171645.1154998655978830692.davem@davemloft.net>
-References: <1317916822.21903.252.camel@zakaz.uk.xensource.com>
-	<CAHXqBFJsGcAdH0zFS_Gd34oR3Ov6ssbXRMzK-KrnSxq8c3=WNg@mail.gmail.com>
-	<1317935310.24742.18.camel@dagon.hellion.org.uk>
+Date: Thu, 6 Oct 2011 22:19:35 +0100
+Message-ID: <1317935975.24742.20.camel@dagon.hellion.org.uk>
+References: <1317884756.24742.13.camel@dagon.hellion.org.uk>
+	 <1317916822.21903.252.camel@zakaz.uk.xensource.com>
+	 <CAHXqBFJsGcAdH0zFS_Gd34oR3Ov6ssbXRMzK-KrnSxq8c3=WNg@mail.gmail.com>
+	 <20111006.171519.797156146863050743.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mirqus@gmail.com, netdev@vger.kernel.org, jdmason@kudzu.us
-To: Ian.Campbell@eu.citrix.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "mirqus@gmail.com" <mirqus@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jdmason@kudzu.us" <jdmason@kudzu.us>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50752 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759174Ab1JFVQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 17:16:50 -0400
-In-Reply-To: <1317935310.24742.18.camel@dagon.hellion.org.uk>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:25110 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755089Ab1JFVTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 17:19:37 -0400
+In-Reply-To: <20111006.171519.797156146863050743.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Date: Thu, 6 Oct 2011 22:08:30 +0100
+On Thu, 2011-10-06 at 22:15 +0100, David Miller wrote:
+> From: Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>
+> Date: Thu, 6 Oct 2011 22:45:57 +0200
+>=20
+> > There's a catch there, though:
+>  ..
+> > dma_mapping_error() takes struct device *, so those changes should =
+be:
+> >=20
+> > dma_mapping_error(&tp->pdev->dev, mapping)
+> >=20
+> > (Like skb_frag_dma_map()'s first argument).
+>=20
+> Why don't you take a look at what I committed and pushed out
+> (hint: I fixed it up when I saw the build warnings)?
 
-> You are absolutely right, I've no idea how I missed the very obvious
-> warning this produces. Incremental patch is below, sorry about this!
+I pulled your tree and it wasn't there yet and it still isn't, I guess
+it's delayed in mirroring?
 
-Would really love to know what your patch is against, since I
-fixed this problem when I commited your original patch.
+Ian.
