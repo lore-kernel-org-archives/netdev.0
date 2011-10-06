@@ -1,441 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/9] ixgbe: fixup hard dependencies on supporting 8 traffic classes
-Date: Thu,  6 Oct 2011 04:02:34 -0700
-Message-ID: <1317898959-16550-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 7/9] igb: Code to prevent overwriting SFP I2C
+Date: Thu,  6 Oct 2011 04:02:37 -0700
+Message-ID: <1317898959-16550-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
+Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:30733 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:62105 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758213Ab1JFLCo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Oct 2011 07:02:44 -0400
+	id S935422Ab1JFLCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Oct 2011 07:02:46 -0400
 In-Reply-To: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-This patch correctly configures DCB when less than 8 traffic classes
-are available in hardware.
+This patch fixes "overwrite" problem. without this fix, SFP I2C EEPROM
+data, which is located at A0 can be overwritten by the phy write function.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |   20 +++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   38 ++++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   60 +++++++++++++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   12 +++-
- 6 files changed, 101 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_phy.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-index 3d44b15..318caf4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-@@ -231,6 +231,18 @@ void ixgbe_dcb_unpack_prio(struct ixgbe_dcb_config *cfg, int direction,
- 	}
- }
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index e662554..7edf31e 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -306,6 +306,12 @@ s32 igb_write_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 data)
+ 	u32 i, i2ccmd = 0;
+ 	u16 phy_data_swapped;
  
-+void ixgbe_dcb_unpack_map(struct ixgbe_dcb_config *cfg, int direction, u8 *map)
-+{
-+	int i, up;
-+	unsigned long bitmap;
-+
-+	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
-+		bitmap = cfg->tc_config[i].path[direction].up_to_tc_bitmap;
-+		for_each_set_bit(up, &bitmap, MAX_USER_PRIORITY)
-+			map[up] = i;
++	/* Prevent overwritting SFP I2C EEPROM which is at A0 address.*/
++	if ((hw->phy.addr == 0) || (hw->phy.addr > 7)) {
++		hw_dbg("PHY I2C Address %d is out of range.\n",
++			  hw->phy.addr);
++		return -E1000_ERR_CONFIG;
 +	}
-+}
-+
- /**
-  * ixgbe_dcb_hw_config - Config and enable DCB
-  * @hw: pointer to hardware structure
-@@ -245,10 +257,9 @@ s32 ixgbe_dcb_hw_config(struct ixgbe_hw *hw,
- 	u8 pfc_en;
- 	u8 ptype[MAX_TRAFFIC_CLASS];
- 	u8 bwgid[MAX_TRAFFIC_CLASS];
-+	u8 prio_tc[MAX_TRAFFIC_CLASS];
- 	u16 refill[MAX_TRAFFIC_CLASS];
- 	u16 max[MAX_TRAFFIC_CLASS];
--	/* CEE does not define a priority to tc mapping so map 1:1 */
--	u8 prio_tc[MAX_TRAFFIC_CLASS] = {0, 1, 2, 3, 4, 5, 6, 7};
  
- 	/* Unpack CEE standard containers */
- 	ixgbe_dcb_unpack_pfc(dcb_config, &pfc_en);
-@@ -256,6 +267,7 @@ s32 ixgbe_dcb_hw_config(struct ixgbe_hw *hw,
- 	ixgbe_dcb_unpack_max(dcb_config, max);
- 	ixgbe_dcb_unpack_bwgid(dcb_config, DCB_TX_CONFIG, bwgid);
- 	ixgbe_dcb_unpack_prio(dcb_config, DCB_TX_CONFIG, ptype);
-+	ixgbe_dcb_unpack_map(dcb_config, DCB_TX_CONFIG, prio_tc);
- 
- 	switch (hw->mac.type) {
- 	case ixgbe_mac_82598EB:
-@@ -274,7 +286,7 @@ s32 ixgbe_dcb_hw_config(struct ixgbe_hw *hw,
- }
- 
- /* Helper routines to abstract HW specifics from DCB netlink ops */
--s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en)
-+s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en, u8 *prio_tc)
- {
- 	int ret = -EINVAL;
- 
-@@ -284,7 +296,7 @@ s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en)
- 		break;
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
--		ret = ixgbe_dcb_config_pfc_82599(hw, pfc_en);
-+		ret = ixgbe_dcb_config_pfc_82599(hw, pfc_en, prio_tc);
- 		break;
- 	default:
- 		break;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-index df095a9..e162775 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-@@ -145,6 +145,7 @@ void ixgbe_dcb_unpack_refill(struct ixgbe_dcb_config *, int, u16 *);
- void ixgbe_dcb_unpack_max(struct ixgbe_dcb_config *, u16 *);
- void ixgbe_dcb_unpack_bwgid(struct ixgbe_dcb_config *, int, u8 *);
- void ixgbe_dcb_unpack_prio(struct ixgbe_dcb_config *, int, u8 *);
-+void ixgbe_dcb_unpack_map(struct ixgbe_dcb_config *, int, u8 *);
- 
- /* DCB credits calculation */
- s32 ixgbe_dcb_calculate_tc_credits(struct ixgbe_hw *,
-@@ -154,7 +155,7 @@ s32 ixgbe_dcb_calculate_tc_credits(struct ixgbe_hw *,
- s32 ixgbe_dcb_hw_ets(struct ixgbe_hw *hw, struct ieee_ets *ets, int max);
- s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw, u16 *refill, u16 *max,
- 			    u8 *bwg_id, u8 *prio_type, u8 *tc_prio);
--s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en);
-+s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en, u8 *tc_prio);
- s32 ixgbe_dcb_hw_config(struct ixgbe_hw *, struct ixgbe_dcb_config *);
- 
- /* DCB definitions for credit calculation */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
-index 02f6724..45fe710 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c
-@@ -59,9 +59,9 @@ s32 ixgbe_dcb_config_rx_arbiter_82599(struct ixgbe_hw *hw,
- 	reg = IXGBE_RTRPCS_RRM | IXGBE_RTRPCS_RAC | IXGBE_RTRPCS_ARBDIS;
- 	IXGBE_WRITE_REG(hw, IXGBE_RTRPCS, reg);
- 
--	/* Map all traffic classes to their UP, 1 to 1 */
-+	/* Map all traffic classes to their UP */
- 	reg = 0;
--	for (i = 0; i < MAX_TRAFFIC_CLASS; i++)
-+	for (i = 0; i < MAX_USER_PRIORITY; i++)
- 		reg |= (prio_tc[i] << (i * IXGBE_RTRUP2TC_UP_SHIFT));
- 	IXGBE_WRITE_REG(hw, IXGBE_RTRUP2TC, reg);
- 
-@@ -169,9 +169,9 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82599(struct ixgbe_hw *hw,
- 	      IXGBE_RTTPCS_ARBDIS;
- 	IXGBE_WRITE_REG(hw, IXGBE_RTTPCS, reg);
- 
--	/* Map all traffic classes to their UP, 1 to 1 */
-+	/* Map all traffic classes to their UP */
- 	reg = 0;
--	for (i = 0; i < MAX_TRAFFIC_CLASS; i++)
-+	for (i = 0; i < MAX_USER_PRIORITY; i++)
- 		reg |= (prio_tc[i] << (i * IXGBE_RTTUP2TC_UP_SHIFT));
- 	IXGBE_WRITE_REG(hw, IXGBE_RTTUP2TC, reg);
- 
-@@ -205,16 +205,36 @@ s32 ixgbe_dcb_config_tx_data_arbiter_82599(struct ixgbe_hw *hw,
-  * ixgbe_dcb_config_pfc_82599 - Configure priority flow control
-  * @hw: pointer to hardware structure
-  * @pfc_en: enabled pfc bitmask
-+ * @prio_tc: priority to tc assignments indexed by priority
-  *
-  * Configure Priority Flow Control (PFC) for each traffic class.
-  */
--s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en)
-+s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en, u8 *prio_tc)
- {
--	u32 i, reg;
-+	u32 i, j, reg;
-+	u8 max_tc = 0;
-+
-+	for (i = 0; i < MAX_USER_PRIORITY; i++)
-+		if (prio_tc[i] > max_tc)
-+			max_tc = prio_tc[i];
- 
- 	/* Configure PFC Tx thresholds per TC */
- 	for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
--		int enabled = pfc_en & (1 << i);
-+		int enabled = 0;
-+
-+		if (i > max_tc) {
-+			reg = 0;
-+			IXGBE_WRITE_REG(hw, IXGBE_FCRTL_82599(i), reg);
-+			IXGBE_WRITE_REG(hw, IXGBE_FCRTH_82599(i), reg);
-+			continue;
-+		}
-+
-+		for (j = 0; j < MAX_USER_PRIORITY; j++) {
-+			if ((prio_tc[j] == i) && (pfc_en & (1 << j))) {
-+				enabled = 1;
-+				break;
-+			}
-+		}
- 
- 		reg = hw->fc.low_water << 10;
- 
-@@ -251,7 +271,7 @@ s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en)
- 		reg |= IXGBE_MFLCN_RPFCE | IXGBE_MFLCN_DPF;
- 
- 		if (hw->mac.type == ixgbe_mac_X540) {
--			reg &= ~IXGBE_MFLCN_RPFCE_MASK;
-+			reg &= ~(IXGBE_MFLCN_RPFCE_MASK | 0x10);
- 			reg |= pfc_en << IXGBE_MFLCN_RPFCE_SHIFT;
- 		}
- 
-@@ -338,7 +358,7 @@ s32 ixgbe_dcb_hw_config_82599(struct ixgbe_hw *hw, u8 pfc_en, u16 *refill,
- 					       bwg_id, prio_type);
- 	ixgbe_dcb_config_tx_data_arbiter_82599(hw, refill, max,
- 					       bwg_id, prio_type, prio_tc);
--	ixgbe_dcb_config_pfc_82599(hw, pfc_en);
-+	ixgbe_dcb_config_pfc_82599(hw, pfc_en, prio_tc);
- 	ixgbe_dcb_config_tc_stats_82599(hw);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-index 08d1749..a59d5dc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-@@ -93,7 +93,7 @@
- /* DCB hardware-specific driver APIs */
- 
- /* DCB PFC functions */
--s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en);
-+s32 ixgbe_dcb_config_pfc_82599(struct ixgbe_hw *hw, u8 pfc_en, u8 *prio_tc);
- 
- /* DCB hw initialization */
- s32 ixgbe_dcb_config_rx_arbiter_82599(struct ixgbe_hw *hw,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 1d38955..be66bb6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -123,7 +123,7 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 		return err;
- 
- 	if (state > 0)
--		err = ixgbe_setup_tc(netdev, MAX_TRAFFIC_CLASS);
-+		err = ixgbe_setup_tc(netdev, adapter->dcb_cfg.num_tcs.pg_tcs);
- 	else
- 		err = ixgbe_setup_tc(netdev, 0);
- 
-@@ -158,6 +158,10 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_tx(struct net_device *netdev, int tc,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 
-+	/* Abort a bad configuration */
-+	if (ffs(up_map) > adapter->dcb_cfg.num_tcs.pg_tcs)
-+		return;
-+
- 	if (prio != DCB_ATTR_VALUE_UNDEFINED)
- 		adapter->temp_dcb_cfg.tc_config[tc].path[0].prio_type = prio;
- 	if (bwg_id != DCB_ATTR_VALUE_UNDEFINED)
-@@ -178,6 +182,10 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_tx(struct net_device *netdev, int tc,
- 	    (adapter->temp_dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap !=
- 	     adapter->dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap))
- 		adapter->dcb_set_bitmap |= BIT_PG_TX;
-+
-+	if (adapter->temp_dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap !=
-+	     adapter->dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap)
-+		adapter->dcb_set_bitmap |= BIT_PFC;
- }
- 
- static void ixgbe_dcbnl_set_pg_bwg_cfg_tx(struct net_device *netdev, int bwg_id,
-@@ -198,6 +206,10 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_rx(struct net_device *netdev, int tc,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 
-+	/* Abort bad configurations */
-+	if (ffs(up_map) > adapter->dcb_cfg.num_tcs.pg_tcs)
-+		return;
-+
- 	if (prio != DCB_ATTR_VALUE_UNDEFINED)
- 		adapter->temp_dcb_cfg.tc_config[tc].path[1].prio_type = prio;
- 	if (bwg_id != DCB_ATTR_VALUE_UNDEFINED)
-@@ -218,6 +230,10 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_rx(struct net_device *netdev, int tc,
- 	    (adapter->temp_dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap !=
- 	     adapter->dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap))
- 		adapter->dcb_set_bitmap |= BIT_PG_RX;
-+
-+	if (adapter->temp_dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap !=
-+	     adapter->dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap)
-+		adapter->dcb_set_bitmap |= BIT_PFC;
- }
- 
- static void ixgbe_dcbnl_set_pg_bwg_cfg_rx(struct net_device *netdev, int bwg_id,
-@@ -296,7 +312,7 @@ static void ixgbe_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
- static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
--	int ret;
-+	int ret, i;
- #ifdef IXGBE_FCOE
- 	struct dcb_app app = {
- 			      .selector = DCB_APP_IDTYPE_ETHTYPE,
-@@ -370,18 +386,11 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 	}
- #endif
- 
--	if (adapter->dcb_set_bitmap & BIT_PFC) {
--		u8 pfc_en;
--		ixgbe_dcb_unpack_pfc(&adapter->dcb_cfg, &pfc_en);
--		ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc_en);
--		ret = DCB_HW_CHG;
--	}
--
- 	if (adapter->dcb_set_bitmap & (BIT_PG_TX|BIT_PG_RX)) {
- 		u16 refill[MAX_TRAFFIC_CLASS], max[MAX_TRAFFIC_CLASS];
- 		u8 bwg_id[MAX_TRAFFIC_CLASS], prio_type[MAX_TRAFFIC_CLASS];
- 		/* Priority to TC mapping in CEE case default to 1:1 */
--		u8 prio_tc[MAX_TRAFFIC_CLASS] = {0, 1, 2, 3, 4, 5, 6, 7};
-+		u8 prio_tc[MAX_USER_PRIORITY];
- 		int max_frame = adapter->netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 
- #ifdef IXGBE_FCOE
-@@ -401,9 +410,25 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 				       DCB_TX_CONFIG, bwg_id);
- 		ixgbe_dcb_unpack_prio(&adapter->dcb_cfg,
- 				      DCB_TX_CONFIG, prio_type);
-+		ixgbe_dcb_unpack_map(&adapter->dcb_cfg,
-+				     DCB_TX_CONFIG, prio_tc);
- 
- 		ixgbe_dcb_hw_ets_config(&adapter->hw, refill, max,
- 					bwg_id, prio_type, prio_tc);
-+
-+		for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
-+			netdev_set_prio_tc_map(netdev, i, prio_tc[i]);
-+	}
-+
-+	if (adapter->dcb_set_bitmap & BIT_PFC) {
-+		u8 pfc_en;
-+		u8 prio_tc[MAX_USER_PRIORITY];
-+
-+		ixgbe_dcb_unpack_map(&adapter->dcb_cfg,
-+				     DCB_TX_CONFIG, prio_tc);
-+		ixgbe_dcb_unpack_pfc(&adapter->dcb_cfg, &pfc_en);
-+		ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc_en, prio_tc);
-+		ret = DCB_HW_CHG;
- 	}
- 
- 	if (adapter->dcb_cfg.pfc_mode_enable)
-@@ -460,10 +485,10 @@ static u8 ixgbe_dcbnl_getnumtcs(struct net_device *netdev, int tcid, u8 *num)
- 	if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
- 		switch (tcid) {
- 		case DCB_NUMTCS_ATTR_PG:
--			*num = MAX_TRAFFIC_CLASS;
-+			*num = adapter->dcb_cfg.num_tcs.pg_tcs;
- 			break;
- 		case DCB_NUMTCS_ATTR_PFC:
--			*num = MAX_TRAFFIC_CLASS;
-+			*num = adapter->dcb_cfg.num_tcs.pfc_tcs;
- 			break;
- 		default:
- 			rval = -EINVAL;
-@@ -532,7 +557,7 @@ static int ixgbe_dcbnl_ieee_getets(struct net_device *dev,
- 	if (!my_ets)
- 		return -EINVAL;
- 
--	ets->ets_cap = MAX_TRAFFIC_CLASS;
-+	ets->ets_cap = adapter->dcb_cfg.num_tcs.pg_tcs;
- 	ets->cbs = my_ets->cbs;
- 	memcpy(ets->tc_tx_bw, my_ets->tc_tx_bw, sizeof(ets->tc_tx_bw));
- 	memcpy(ets->tc_rx_bw, my_ets->tc_rx_bw, sizeof(ets->tc_rx_bw));
-@@ -569,6 +594,9 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 	if (max_tc)
- 		max_tc++;
- 
-+	if (max_tc > adapter->dcb_cfg.num_tcs.pg_tcs)
-+		return -EINVAL;
-+
- 	if (max_tc != netdev_get_num_tc(dev))
- 		ixgbe_setup_tc(dev, max_tc);
- 
-@@ -589,7 +617,7 @@ static int ixgbe_dcbnl_ieee_getpfc(struct net_device *dev,
- 	if (!my_pfc)
- 		return -EINVAL;
- 
--	pfc->pfc_cap = MAX_TRAFFIC_CLASS;
-+	pfc->pfc_cap = adapter->dcb_cfg.num_tcs.pfc_tcs;
- 	pfc->pfc_en = my_pfc->pfc_en;
- 	pfc->mbc = my_pfc->mbc;
- 	pfc->delay = my_pfc->delay;
-@@ -606,6 +634,7 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
- 				   struct ieee_pfc *pfc)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	u8 *prio_tc;
- 
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
- 		return -EINVAL;
-@@ -617,8 +646,9 @@ static int ixgbe_dcbnl_ieee_setpfc(struct net_device *dev,
- 			return -ENOMEM;
- 	}
- 
-+	prio_tc = adapter->ixgbe_ieee_ets->prio_tc;
- 	memcpy(adapter->ixgbe_ieee_pfc, pfc, sizeof(*adapter->ixgbe_ieee_pfc));
--	return ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en);
-+	return ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en, prio_tc);
- }
- 
- #ifdef IXGBE_FCOE
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 757e98e..2b8ff95 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3363,8 +3363,10 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- 
- 		if (adapter->ixgbe_ieee_pfc) {
- 			struct ieee_pfc *pfc = adapter->ixgbe_ieee_pfc;
-+			u8 *prio_tc = adapter->ixgbe_ieee_ets->prio_tc;
- 
--			ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en);
-+			ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en,
-+						prio_tc);
- 		}
- 	}
- 
-@@ -4241,7 +4243,6 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
- 	q = min((int)num_online_cpus(), per_tc_q);
- 
- 	for (i = 0; i < tcs; i++) {
--		netdev_set_prio_tc_map(dev, i, i);
- 		netdev_set_tc_queue(dev, i, q, offset);
- 		offset += q;
- 	}
-@@ -4994,8 +4995,10 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		tc = &adapter->dcb_cfg.tc_config[j];
- 		tc->path[DCB_TX_CONFIG].bwg_id = 0;
- 		tc->path[DCB_TX_CONFIG].bwg_percent = 12 + (j & 1);
-+		tc->path[DCB_TX_CONFIG].up_to_tc_bitmap = 1 << j;
- 		tc->path[DCB_RX_CONFIG].bwg_id = 0;
- 		tc->path[DCB_RX_CONFIG].bwg_percent = 12 + (j & 1);
-+		tc->path[DCB_RX_CONFIG].up_to_tc_bitmap = 1 << j;
- 		tc->dcb_pfc = pfc_disabled;
- 	}
- 	adapter->dcb_cfg.bw_percentage[DCB_TX_CONFIG][0] = 100;
-@@ -6704,12 +6707,13 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 		tx_flags |= IXGBE_TX_FLAGS_SW_VLAN;
- 	}
- 
-+	/* DCB maps skb priorities 0-7 onto 3 bit PCP of VLAN tag. */
- 	if ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
- 	    ((tx_flags & (IXGBE_TX_FLAGS_HW_VLAN | IXGBE_TX_FLAGS_SW_VLAN)) ||
- 	     (skb->priority != TC_PRIO_CONTROL))) {
- 		tx_flags &= ~IXGBE_TX_FLAGS_VLAN_PRIO_MASK;
--		tx_flags |= tx_ring->dcb_tc <<
--			    IXGBE_TX_FLAGS_VLAN_PRIO_SHIFT;
-+		tx_flags |= (skb->priority & 0x7) <<
-+					IXGBE_TX_FLAGS_VLAN_PRIO_SHIFT;
- 		if (tx_flags & IXGBE_TX_FLAGS_SW_VLAN) {
- 			struct vlan_ethhdr *vhdr;
- 			if (skb_header_cloned(skb) &&
+ 	/* Swap the data bytes for the I2C interface */
+ 	phy_data_swapped = ((data >> 8) & 0x00FF) | ((data << 8) & 0xFF00);
 -- 
 1.7.6.4
