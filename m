@@ -1,70 +1,57 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [PATCH net] mscan: zero accidentally copied register content
-Date: Thu, 6 Oct 2011 16:09:04 +0200
-Message-ID: <20111006140904.GD1974@pengutronix.de>
-References: <4E8C78E8.3010605@hartkopp.net>
- <20111005155127.GB13794@pengutronix.de>
- <4E8C8175.2040202@hartkopp.net>
- <4E8D528D.8020607@hartkopp.net>
- <4E8D7065.8040905@grandegger.com>
- <20111006092456.GB1974@pengutronix.de>
- <4E8DB4C9.30109@hartkopp.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] mlx4_en: fix transmit of packages when blue frame
+	isenabled
+Date: Thu, 6 Oct 2011 15:10:28 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AE76@saturn3.aculab.com>
+References: <20111006135759.GH2681@mtldesk30>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="48TaNjbzBVislYPb"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andre Naujoks <nautsch@gmail.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:60684 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758253Ab1JFOJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 10:09:07 -0400
-Content-Disposition: inline
-In-Reply-To: <4E8DB4C9.30109@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eli Cohen <eli@mellanox.co.il>, Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: "Eli Cohen" <eli@dev.mellanox.co.il>,
+	"Thadeu Lima de Souza Cascardo" <cascardo@linux.vnet.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20111006135759.GH2681@mtldesk30>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
+ 
+>  static void mlx4_bf_copy(unsigned long *dst, unsigned long *src,
+unsigned bytecnt) {
+> +	int i;
+> +	__le32 *psrc = (__le32 *)src;
+> +
+> +	/*
+> +	 * the buffer is already in big endian. For little endian
+machines that's
+> +	 * fine. For big endain machines we must swap since the chipset
+swaps again
+> +	 */
+> +	for (i = 0; i < bytecnt / 4; ++i)
+> +		psrc[i] = le32_to_cpu(psrc[i]);
+> +
+>  	__iowrite64_copy(dst, src, bytecnt / 8);
+>  }
 
---48TaNjbzBVislYPb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-
-> Ah, i did not get this from your code example
->=20
-> 	if (can_dlc & 1)
-> 		*payload =3D in_be16() & mask;
-
-Sorry, I thought it was obvious that I was using pseudo_code here :)
-
-> ... it would be nice if e.g. Wolfgang could send his patch after some tes=
-ting,
-> as i currently don't have access to my MPC5200 hardware here.
-
-What about Andre?
-
-Regards,
-
-   Wolfram
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---48TaNjbzBVislYPb
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAk6NtoAACgkQD27XaX1/VRudMQCeMX3yMc+Au65BwKDocJNXtG/d
-RxgAoJnY/p0csrHa0o/7SpnQdtEhEOQn
-=Sxlb
------END PGP SIGNATURE-----
-
---48TaNjbzBVislYPb--
+That code looks horrid...
+1) I'm not sure the caller expects the buffer to be corrupted.
+2) It contains a lot of memory cycles.
+3) It looked from the calls that this code is copying descriptors,
+   so the transfer length is probably 1 or 2 words - so the loop
+   is inefficient.
+4) ppc doesn't have a fast byteswap instruction (very new gcc might
+   use the byteswapping memery access for the le32_to_cpu() though),
+   so it would be better getting the byteswap done inside
+   __iowrite64_copy() - since that is probably requesting a byteswap
+   anyway.
+OTOH I'm not at all clear about the 64bit xfers....
