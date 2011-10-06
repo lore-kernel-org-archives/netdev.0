@@ -1,96 +1,65 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
 Subject: Re: [PATCH net] mscan: zero accidentally copied register content
-Date: Thu, 06 Oct 2011 20:24:14 +0200
-Message-ID: <4E8DF24E.5030606@grandegger.com>
-References: <4E8C78E8.3010605@hartkopp.net>	<20111005155127.GB13794@pengutronix.de>	<4E8C8175.2040202@hartkopp.net>	<4E8D528D.8020607@hartkopp.net>	<4E8D7065.8040905@grandegger.com>	<4E8DBC34.80607@hartkopp.net> <CAOCMmufQ77Vz4XTSTZTVSMiOA4QtWkZEvWHjGXip5-JK20E=QA@mail.gmail.com>
+Date: Thu, 06 Oct 2011 20:25:24 +0200
+Message-ID: <4E8DF294.7060707@pengutronix.de>
+References: <4E8C78E8.3010605@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigEE8750CC6416954630333F34"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
 	Wolfram Sang <w.sang@pengutronix.de>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Andre Naujoks <nautsch@gmail.com>
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andre Naujoks <nautsch@gmail.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:58630 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753372Ab1JFSYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 14:24:18 -0400
-In-Reply-To: <CAOCMmufQ77Vz4XTSTZTVSMiOA4QtWkZEvWHjGXip5-JK20E=QA@mail.gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:43626 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754178Ab1JFSZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 14:25:30 -0400
+In-Reply-To: <4E8C78E8.3010605@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/06/2011 05:03 PM, Andre Naujoks wrote:
-> 2011/10/6 Oliver Hartkopp <socketcan@hartkopp.net>:
->> On 10/06/11 11:09, Wolfgang Grandegger wrote:
->>
->>> On 10/06/2011 09:02 AM, Oliver Hartkopp wrote:
->>>>
->>>> I think if one would like to rework the 16bit register access (which is used
->>>> in the rx path /and/ in the tx path also) this should go via net-next after
->>>> some discussion and testing.
->>>
->>> Why do you want to change 16-bit accesses in general? They are faster
->>> than two 8 bit accesses.
->>>
->>>> IMHO this fix is small and clear and especially not risky. I wonder if
->>>> reworking the 16 bit register access is worth the effort?
->>>
->>> I would prefer:
->>>
->>>       if (!(frame->can_id & CAN_RTR_FLAG)) {
->>>               void __iomem *data = &regs->rx.dsr1_0;
->>>               u16 *payload = (u16 *)frame->data;
->>>
->>>               for (i = 0; i < frame->can_dlc / 2; i++) {
->>>                       *payload++ = in_be16(data);
->>>                       data += 2 + _MSCAN_RESERVED_DSR_SIZE;
->>>               }
->>>               /* copy remaining byte */
->>>               if (frame->can_dlc & 1)
->>>                       frame->data[frame->can_dlc - 1] = in_8(data);
->>>       }
->>
->>
->> Besides the fact that Andre is going to test this idea from Wolfgang now, are
->> you really sure that it must be
->>
->>        in_8(data)
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigEE8750CC6416954630333F34
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-That should be the right byte.
+On 10/05/2011 05:34 PM, Oliver Hartkopp wrote:
+> Due to the 16 bit access to mscan registers there's too much data copie=
+d to
+> the zero initialized CAN frame when having an odd number of bytes to co=
+py.
+> This patch clears the data byte read from the invalid register entry.
+>=20
+> Reported-by: Andre Naujoks <nautsch@gmail.com>
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
->>
->> and not
->>
->>        in_8(data+1)
->>
->> ???
->>
->> And that data definitely points to the right place?
->>
->> I would prefer to be really cautious with these big endian 16 bit registers!
->>
->> Therefore my fix with
->>
->> +               /* zero accidentally copied register content at odd DLCs */
->> +               if (frame->can_dlc & 1)
->> +                       frame->data[frame->can_dlc] = 0;
->>
->> only repairing the result looks much more defensive to me.
-> 
-> First things first: Both ways seem to work correctly. At least on the
-> MPC5200 I have here.
-> 
-> But I am with Oliver on this one. The solution looks much simpler and
-> endianess errors are not possible. If the few CPU cycles are worth it
-> on the other hand, then Wolfgangs version is probably preferable. I
-> don't have access to this kind of hardware on a little endian machine
-> to test it, though.
+This problem have some other drivers, too, e.g. the at91 and the flexcan
+driver both copy unconditionally all 8 bytes from the hardware. However,
+I don't know if the hardware sets the remaining bytes to zero.
 
-Well, copying just the relevant bytes seem much more straight-forward
-than removing accidentally copied bytes later-on. You do not need to
-care about little endian. The MSCAN is only available on PowerPC SOCs,
-which are big endian.
+cheers, Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-I'm going to test and post a patch tomorrow.
 
-Wolfgang.
+--------------enigEE8750CC6416954630333F34
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk6N8pcACgkQjTAFq1RaXHPpwwCfVW2eu0Ot38LnEvOWqy1QGJ1B
+mS0An27ZYicC4RmTdoU586IBj13Y3JEf
+=X4Wk
+-----END PGP SIGNATURE-----
+
+--------------enigEE8750CC6416954630333F34--
