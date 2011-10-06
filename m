@@ -1,84 +1,58 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] IPv6: DAD from bonding iface is treated as dup address
- from others
-Date: Thu, 6 Oct 2011 07:00:47 -0400
-Message-ID: <20111006110047.GA22462@hmsreliant.think-freely.org>
-References: <1317873550-1677-1-git-send-email-Yinglin.Sun@emc.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Yinglin Sun <Yinglin.Sun@emc.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
+Date: Thu,  6 Oct 2011 04:02:30 -0700
+Message-ID: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:51337 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754701Ab1JFLBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 07:01:16 -0400
-Content-Disposition: inline
-In-Reply-To: <1317873550-1677-1-git-send-email-Yinglin.Sun@emc.com>
+Received: from mga03.intel.com ([143.182.124.21]:30733 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754701Ab1JFLCl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Oct 2011 07:02:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 05, 2011 at 08:59:10PM -0700, Yinglin Sun wrote:
-> Steps to reproduce this issue:
-> 1. create bond0 over eth0 and eth1, set the mode to balance-xor
-> 2. add an IPv6 address to bond0
-> 3. DAD packet is sent out from one slave and then is looped back from
-> the other slave. Therefore, it is treated as a duplicate address and
-> stays tentative afterwards:
->    kern.info:
->        Oct  5 11:50:18 testvm1 kernel: [  129.224353] bond0: IPv6 duplicate address 1234::1 detected!
-> 
-> Signed-off-by: Yinglin Sun <Yinglin.Sun@emc.com>
-> ---
->  net/ipv6/ndisc.c |   15 +++++++++++++--
->  1 files changed, 13 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 9da6e02..c82f4c7 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -809,9 +809,10 @@ static void ndisc_recv_ns(struct sk_buff *skb)
->  
->  		if (ifp->flags & (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)) {
->  			if (dad) {
-> +				const unsigned char *sadr;
-> +				sadr = skb_mac_header(skb);
-> +
->  				if (dev->type == ARPHRD_IEEE802_TR) {
-> -					const unsigned char *sadr;
-> -					sadr = skb_mac_header(skb);
->  					if (((sadr[8] ^ dev->dev_addr[0]) & 0x7f) == 0 &&
->  					    sadr[9] == dev->dev_addr[1] &&
->  					    sadr[10] == dev->dev_addr[2] &&
-> @@ -821,6 +822,16 @@ static void ndisc_recv_ns(struct sk_buff *skb)
->  						/* looped-back to us */
->  						goto out;
->  					}
-> +				} else if (dev->type == ARPHRD_ETHER) {
-> +					if (sadr[6] == dev->dev_addr[0] &&
-> +					    sadr[7] == dev->dev_addr[1] &&
-> +					    sadr[8] == dev->dev_addr[2] &&
-> +					    sadr[9] == dev->dev_addr[3] &&
-> +					    sadr[10] == dev->dev_addr[4] &&
-> +					    sadr[11] == dev->dev_addr[5]) {
-> +						/* looped-back to us */
-> +						goto out;
-> +					}
->  				}
->  
->  				/*
-> -- 
-> 1.7.4.1
-> 
-Nack, This seems like it will just completely break DAD.  What if theres another
-system out there with the same mac address.  A response from that system would
-get dropped by this filter, instead of causing The local system to stop using
-the address.  What you really want to do is modify
-bond_should_deliver_exact_match to detect this frame on the inactive slave or
-some such, and drop the frame there.
+The following series contains updates to e1000e, igb and ixgbe.  Here
+is a quick summary:
+  - e1000e: fixes for 2 WoL issues
+  - igb: fix for I2C, and 2 Alt. MAC address updates
+  - ixgbe: fix dependencies for 8 traffic classes, add X540 traffic
+    class support and a fix for PFC mask generation
 
-Neil
+The following are changes since commit f0cd7bdc042310b6b104f133bbfd520a72b3c08a:
+  bnx2x: remove some dead code
+and are available in the git repository at
+  git://github.com/Jkirsher/net-next.git
+
+Akeem G. Abodunrin (3):
+  igb: Code to prevent overwriting SFP I2C
+  igb: Alternate MAC Address EEPROM Updates
+  igb: Alternate MAC Address Updates for Func2&3
+
+Bruce Allan (2):
+  e1000e: WoL can fail on 82578DM
+  e1000e: WoL fails on device ID 0x1501
+
+John Fastabend (3):
+  ixgbe: fixup hard dependencies on supporting 8 traffic classes
+  ixgbe: DCB X540 devices support max traffic class of 4
+  ixgbe: X540 devices RX PFC frames pause traffic even if disabled
+
+Mark Rustad (1):
+  ixgbe: Fix PFC mask generation
+
+ drivers/net/ethernet/intel/e1000e/ich8lan.c        |   25 +++++---
+ drivers/net/ethernet/intel/igb/e1000_mac.c         |    9 ++-
+ drivers/net/ethernet/intel/igb/e1000_phy.c         |    6 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |   22 ++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   46 ++++++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   60 +++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   29 ++++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |    3 +-
+ 10 files changed, 158 insertions(+), 47 deletions(-)
+
+-- 
+1.7.6.4
