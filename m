@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] atm: solos-pci: Add AnnexA/M capability attributes
-Date: Wed, 05 Oct 2011 19:12:21 -0400 (EDT)
-Message-ID: <20111005.191221.1311750381389518350.davem@davemloft.net>
-References: <1317789810.2424.82.camel@dualcore.traverse>
-	<20111005.175019.1707448511283364180.davem@davemloft.net>
-	<1317855694.2426.2.camel@shinybook.infradead.org>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC] [PATCH] virtio: Dont add "config" to list for !per_vq_vector
+Date: Thu, 06 Oct 2011 11:01:00 +1030
+Message-ID: <87wrcjezaz.fsf@rustcorp.com.au>
+References: <20111005053859.5825.1089.sendpatchset@krkumar2.in.ibm.com> <20111005104822.GC5587@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nathan@traverse.com.au, netdev@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: dwmw2@infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317855694.2426.2.camel@shinybook.infradead.org>
+In-Reply-To: <20111005104822.GC5587@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Thu, 06 Oct 2011 00:01:31 +0100
-
-> On Wed, 2011-10-05 at 17:50 -0400, David Miller wrote:
->> 
->> David, Nathan's patches look fine to me, want me to stick them into
->> net-next? 
+On Wed, 5 Oct 2011 08:48:23 -0200, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> On Wed, Oct 05, 2011 at 11:08:59AM +0530, Krishna Kumar wrote:
+> > For the MSI but non-per_vq_vector case, the config/change vq
+> > also gets added to the list of vqs that need to process the
+> > MSI interrupt. This is not needed as config has it's own
+> > handler (vp_config_changed). In any case, vring_interrupt()
+> > finds nothing needs to be done on this vq.
+> > 
+> > I tested this patch by testing the "Fallback:" and "Finally
+> > fall back" cases in vp_find_vqs(). Please review.
+> > 
+> > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 > 
-> Please. All of them can be
-> 
->  Acked-By: David Woodhouse <David.Woodhouse@intel.com>
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> (note: this is not a bugfix so not 3.1 material).
 
-Done, thanks everyone.
+Thanks, applied.
+
+Cheers,
+Rusty.
