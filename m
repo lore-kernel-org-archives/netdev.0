@@ -1,40 +1,77 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: __net_exit bogusly defined as __exit_refok ?
-Date: Thu, 06 Oct 2011 12:55:23 +0100
-Message-ID: <4E8DB34B0200007800059AA5@nat28.tlf.novell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 01/14] mm: Serialize access to min_free_kbytes
+Date: Thu,  6 Oct 2011 13:41:37 +0100
+Message-ID: <1317904910-14095-2-git-send-email-mgorman@suse.de>
+References: <1317904910-14095-1-git-send-email-mgorman@suse.de>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1317904910-14095-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Realizing that this has been this way a for a rather long time, I still wonder
-why it was done that way: __exit_refok (evaluating to __ref) allows these
-functions to reference __init functions and __initdata objects (which is
-wrong, since those can get called in the context of __exit code, at which
-point .init.* sections are already gone).
+There is a race between the min_free_kbytes sysctl, memory hotplug
+and transparent hugepage support enablement.  Memory hotplug uses a
+zonelists_mutex to avoid a race when building zonelists. Reuse it to
+serialise watermark updates.
 
-Second, __exit_refok results in the code to not be discarded at all
-(with the original patch's description wrongly indicating that without
-NET_NS the exit functions would never be called - they get called from
-unregister_pernet_operations(), which generally gets invoked from
-modules' __exit sections), which is the same as if no section
-placement annotation was present.
+[a.p.zijlstra@chello.nl: Older patch fixed the race with spinlock]
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ mm/page_alloc.c |   23 +++++++++++++++--------
+ 1 files changed, 15 insertions(+), 8 deletions(-)
 
-Thus, rather than being the only user of __exit_refok (which by itself
-is a dubious construct), it would seem to make more sense to make
-__net_exit resolve to nothingregardless of NET_NS  (short of going
-through the code and remove all uses of it) and delete __exit_refok.
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 6e8ecb6..9d8bd0e 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -5113,14 +5113,7 @@ static void setup_per_zone_lowmem_reserve(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
+-/**
+- * setup_per_zone_wmarks - called when min_free_kbytes changes
+- * or when memory is hot-{added|removed}
+- *
+- * Ensures that the watermark[min,low,high] values for each zone are set
+- * correctly with respect to min_free_kbytes.
+- */
+-void setup_per_zone_wmarks(void)
++static void __setup_per_zone_wmarks(void)
+ {
+ 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+ 	unsigned long lowmem_pages = 0;
+@@ -5175,6 +5168,20 @@ void setup_per_zone_wmarks(void)
+ 	calculate_totalreserve_pages();
+ }
+ 
++/**
++ * setup_per_zone_wmarks - called when min_free_kbytes changes
++ * or when memory is hot-{added|removed}
++ *
++ * Ensures that the watermark[min,low,high] values for each zone are set
++ * correctly with respect to min_free_kbytes.
++ */
++void setup_per_zone_wmarks(void)
++{
++	mutex_lock(&zonelists_mutex);
++	__setup_per_zone_wmarks();
++	mutex_unlock(&zonelists_mutex);
++}
++
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+  * do too much work, but large enough that each inactive page has a chance
+-- 
+1.7.3.4
 
-One alternative might be to make __net_exit at least resolve to
-__init_or_module, as __exit functions won't be called without
-MODULES. Or really, you'd want something that resolves to __init
-when built into the kernel, and to nothing when built as a module.
-Both, however, would require some adjustments to modpost's
-section mismatch checking.
-
-Jan
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
