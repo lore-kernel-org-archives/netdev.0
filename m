@@ -1,45 +1,75 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: linux-next: manual merge of the staging tree with the net
- tree
-Date: Thu, 6 Oct 2011 10:59:10 +0200
-Message-ID: <4E8D6DDE.9050102@broadcom.com>
-References: <20111006155810.14a6b5c199edc388bbf11437@canb.auug.org.au>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH net] mscan: zero accidentally copied register content
+Date: Thu, 06 Oct 2011 11:09:57 +0200
+Message-ID: <4E8D7065.8040905@grandegger.com>
+References: <4E8C78E8.3010605@hartkopp.net> <20111005155127.GB13794@pengutronix.de> <4E8C8175.2040202@hartkopp.net> <4E8D528D.8020607@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1;
- format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Greg KH" <greg@kroah.com>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Eliad Peller" <eliad@wizery.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Stephen Rothwell" <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20111006155810.14a6b5c199edc388bbf11437@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wolfram Sang <w.sang@pengutronix.de>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Andre Naujoks <nautsch@gmail.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:57708 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935693Ab1JFJKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 05:10:02 -0400
+In-Reply-To: <4E8D528D.8020607@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/06/2011 06:58 AM, Stephen Rothwell wrote:
-> Hi Greg,
->
-> Today's linux-next merge of the staging tree got a conflict in
-> drivers/staging/brcm80211/brcmsmac/mac80211_if.c between commit
-> 37a41b4affa3 ("mac80211: add ieee80211_vif param to tsf functions") from
-> the net tree and commit 3956b4a2ddb0 ("staging: brcm80211: remove locking
-> macro definitions") from the staging tree.
->
-> I fixed it up (which essentially means I used the staging tree version
-> with one small change to the brcms_ops_conf_tx prototype) and can carry
-> the fixes as necessary.
+Hi Oliver,
 
-Thanks, Stephen
+On 10/06/2011 09:02 AM, Oliver Hartkopp wrote:
+> On 10/05/11 18:10, Oliver Hartkopp wrote:
+> 
+>> On 10/05/11 17:51, Wolfram Sang wrote:
+> 
+>>>> +		/* zero accidentally copied register content at odd DLCs */
+>>>> +		if (frame->can_dlc & 1)
+>>>> +			frame->data[frame->can_dlc] = 0;
+>>>>  	}
+>>>>  
+>>>>  	out_8(&regs->canrflg, MSCAN_RXF);
+>>>
+>>> Nice catch, but wouldn't it be more elegant to never have an invalid byte
+>>> in the first place?
+>>>
+>>> if (can_dlc & 1)
+>>> 	*payload = in_be16() & mask;
+>>>
+>>
+>>
+>> Hm, then i would rather think about changing the for() statement and to read
+>> byte-by-byte instead of the current in_be16() usage with the 16bit access
+>> drawbacks ...
+>>
+> 
+> 
+> I think if one would like to rework the 16bit register access (which is used
+> in the rx path /and/ in the tx path also) this should go via net-next after
+> some discussion and testing.
 
-I had to make the mac80211 conf_tx callback change  for the mainline 
-patch as well.
+Why do you want to change 16-bit accesses in general? They are faster
+than two 8 bit accesses. 
 
-Acked.
+> IMHO this fix is small and clear and especially not risky. I wonder if
+> reworking the 16 bit register access is worth the effort?
 
-Gr. AvS
+I would prefer:
+
+ 	if (!(frame->can_id & CAN_RTR_FLAG)) {
+ 		void __iomem *data = &regs->rx.dsr1_0;
+ 		u16 *payload = (u16 *)frame->data;
+ 
+ 		for (i = 0; i < frame->can_dlc / 2; i++) {
+ 			*payload++ = in_be16(data);
+ 			data += 2 + _MSCAN_RESERVED_DSR_SIZE;
+ 		}
+		/* copy remaining byte */
+		if (frame->can_dlc & 1)
+			frame->data[frame->can_dlc - 1] = in_8(data);
+ 	}
+
+Wolfgang.
