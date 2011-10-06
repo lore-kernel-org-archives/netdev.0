@@ -1,75 +1,83 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
+From: Wolfram Sang <w.sang@pengutronix.de>
 Subject: Re: [PATCH net] mscan: zero accidentally copied register content
-Date: Thu, 06 Oct 2011 11:09:57 +0200
-Message-ID: <4E8D7065.8040905@grandegger.com>
-References: <4E8C78E8.3010605@hartkopp.net> <20111005155127.GB13794@pengutronix.de> <4E8C8175.2040202@hartkopp.net> <4E8D528D.8020607@hartkopp.net>
+Date: Thu, 6 Oct 2011 11:24:57 +0200
+Message-ID: <20111006092456.GB1974@pengutronix.de>
+References: <4E8C78E8.3010605@hartkopp.net>
+ <20111005155127.GB13794@pengutronix.de>
+ <4E8C8175.2040202@hartkopp.net>
+ <4E8D528D.8020607@hartkopp.net>
+ <4E8D7065.8040905@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wolfram Sang <w.sang@pengutronix.de>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="gatW/ieO32f1wygP"
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Andre Naujoks <nautsch@gmail.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:57708 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935693Ab1JFJKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 05:10:02 -0400
-In-Reply-To: <4E8D528D.8020607@hartkopp.net>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:51003 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932475Ab1JFJY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 05:24:59 -0400
+Content-Disposition: inline
+In-Reply-To: <4E8D7065.8040905@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Oliver,
 
-On 10/06/2011 09:02 AM, Oliver Hartkopp wrote:
-> On 10/05/11 18:10, Oliver Hartkopp wrote:
-> 
->> On 10/05/11 17:51, Wolfram Sang wrote:
-> 
->>>> +		/* zero accidentally copied register content at odd DLCs */
->>>> +		if (frame->can_dlc & 1)
->>>> +			frame->data[frame->can_dlc] = 0;
->>>>  	}
->>>>  
->>>>  	out_8(&regs->canrflg, MSCAN_RXF);
->>>
->>> Nice catch, but wouldn't it be more elegant to never have an invalid byte
->>> in the first place?
->>>
->>> if (can_dlc & 1)
->>> 	*payload = in_be16() & mask;
->>>
->>
->>
->> Hm, then i would rather think about changing the for() statement and to read
->> byte-by-byte instead of the current in_be16() usage with the 16bit access
->> drawbacks ...
->>
-> 
-> 
-> I think if one would like to rework the 16bit register access (which is used
-> in the rx path /and/ in the tx path also) this should go via net-next after
-> some discussion and testing.
+--gatW/ieO32f1wygP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Why do you want to change 16-bit accesses in general? They are faster
-than two 8 bit accesses. 
 
-> IMHO this fix is small and clear and especially not risky. I wonder if
-> reworking the 16 bit register access is worth the effort?
+> Why do you want to change 16-bit accesses in general? They are faster
+> than two 8 bit accesses.=20
 
-I would prefer:
+Yup, was thinking the same.
 
- 	if (!(frame->can_id & CAN_RTR_FLAG)) {
- 		void __iomem *data = &regs->rx.dsr1_0;
- 		u16 *payload = (u16 *)frame->data;
- 
- 		for (i = 0; i < frame->can_dlc / 2; i++) {
- 			*payload++ = in_be16(data);
- 			data += 2 + _MSCAN_RESERVED_DSR_SIZE;
- 		}
-		/* copy remaining byte */
-		if (frame->can_dlc & 1)
-			frame->data[frame->can_dlc - 1] = in_8(data);
- 	}
+>=20
+> > IMHO this fix is small and clear and especially not risky. I wonder if
+> > reworking the 16 bit register access is worth the effort?
+>=20
+> I would prefer:
+>=20
+>  	if (!(frame->can_id & CAN_RTR_FLAG)) {
+>  		void __iomem *data =3D &regs->rx.dsr1_0;
+>  		u16 *payload =3D (u16 *)frame->data;
+> =20
+>  		for (i =3D 0; i < frame->can_dlc / 2; i++) {
+>  			*payload++ =3D in_be16(data);
+>  			data +=3D 2 + _MSCAN_RESERVED_DSR_SIZE;
+>  		}
+> 		/* copy remaining byte */
 
-Wolfgang.
+if any
+
+> 		if (frame->can_dlc & 1)
+> 			frame->data[frame->can_dlc - 1] =3D in_8(data);
+
+Ack.
+
+Regards,
+
+   Wolfram
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--gatW/ieO32f1wygP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAk6Nc+gACgkQD27XaX1/VRvdOACeMLf46anf+iqQAS/c80Lj+oiE
+Q+0AnA3b0ChPnn3UWFKk/1/+Zczru00o
+=nyiH
+-----END PGP SIGNATURE-----
+
+--gatW/ieO32f1wygP--
