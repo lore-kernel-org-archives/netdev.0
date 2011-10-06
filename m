@@ -1,55 +1,64 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net] mscan: zero accidentally copied register content
-Date: Thu, 06 Oct 2011 09:02:37 +0200
-Message-ID: <4E8D528D.8020607@hartkopp.net>
-References: <4E8C78E8.3010605@hartkopp.net> <20111005155127.GB13794@pengutronix.de> <4E8C8175.2040202@hartkopp.net>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [PATCH 1/8] vxge: convert to SKB paged frag API.
+Date: Thu, 6 Oct 2011 08:05:56 +0100
+Message-ID: <1317884756.24742.13.camel@dagon.hellion.org.uk>
+References: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
+	 <1317810532-24984-1-git-send-email-ian.campbell@citrix.com>
+	 <CAHXqBFKX5eojLMhT1MW1inAUH9cfVne4-rhDQYSLsUh-OTzuPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andre Naujoks <nautsch@gmail.com>
-To: Wolfram Sang <w.sang@pengutronix.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jon Mason <jdmason@kudzu.us>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.160]:37534 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753471Ab1JFHCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 03:02:49 -0400
-In-Reply-To: <4E8C8175.2040202@hartkopp.net>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:8959 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757829Ab1JFHF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 03:05:58 -0400
+In-Reply-To: <CAHXqBFKX5eojLMhT1MW1inAUH9cfVne4-rhDQYSLsUh-OTzuPQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/11 18:10, Oliver Hartkopp wrote:
+On Wed, 2011-10-05 at 22:03 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> 2011/10/5 Ian Campbell <ian.campbell@citrix.com>:
+> [...]
+> > --- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> > +++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> > @@ -923,9 +923,9 @@ vxge_xmit(struct sk_buff *skb, struct net_devic=
+e *dev)
+> >                if (!frag->size)
+> >                        continue;
+> >
+> > -               dma_pointer =3D (u64) pci_map_page(fifo->pdev, frag=
+->page,
+> > -                               frag->page_offset, frag->size,
+> > -                               PCI_DMA_TODEVICE);
+> > +               dma_pointer =3D (u64)skb_frag_dma_map(&fifo->pdev->=
+dev, frag,
+> > +                                                   0, frag->size,
+> > +                                                   PCI_DMA_TODEVIC=
+E);
+>=20
+> This should be DMA_TO_DEVICE instead of PCI_DMA_TODEVICE.
+>=20
+> >
+> >                if (unlikely(pci_dma_mapping_error(fifo->pdev, dma_p=
+ointer)))
+> >                        goto _exit2;
+>=20
+> I would also change this to dma_mapping_error() in one go.
+>=20
+> Just a random patch check.
 
-> On 10/05/11 17:51, Wolfram Sang wrote:
+Thanks Micha=C5=82.
 
->>> +		/* zero accidentally copied register content at odd DLCs */
->>> +		if (frame->can_dlc & 1)
->>> +			frame->data[frame->can_dlc] = 0;
->>>  	}
->>>  
->>>  	out_8(&regs->canrflg, MSCAN_RXF);
->>
->> Nice catch, but wouldn't it be more elegant to never have an invalid byte
->> in the first place?
->>
->> if (can_dlc & 1)
->> 	*payload = in_be16() & mask;
->>
-> 
-> 
-> Hm, then i would rather think about changing the for() statement and to read
-> byte-by-byte instead of the current in_be16() usage with the 16bit access
-> drawbacks ...
-> 
+I'm sure I must have made the same mistakes in a whole bunch of patches
+which have already been applied. I'll knock up a fixup patch.
 
+Cheers,
+Ian.
 
-I think if one would like to rework the 16bit register access (which is used
-in the rx path /and/ in the tx path also) this should go via net-next after
-some discussion and testing.
-
-IMHO this fix is small and clear and especially not risky. I wonder if
-reworking the 16 bit register access is worth the effort?
-
-Regards,
-Oliver
+>=20
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
