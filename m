@@ -1,75 +1,49 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 14/14] mm: Account for the number of times direct reclaimers get throttled
-Date: Thu,  6 Oct 2011 13:41:50 +0100
-Message-ID: <1317904910-14095-15-git-send-email-mgorman@suse.de>
-References: <1317904910-14095-1-git-send-email-mgorman@suse.de>
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>, Mel Gorman <mgorman@suse.de>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1317904910-14095-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Petr Sabata <contyk@redhat.com>
+Subject: [PATCH 2/3] iproute2: lnstat - fix typos
+Date: Thu,  6 Oct 2011 14:45:33 +0200
+Message-ID: <1317905134-23175-3-git-send-email-contyk@redhat.com>
+References: <1317905134-23175-1-git-send-email-contyk@redhat.com>
+Cc: Petr Sabata <contyk@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:17623 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758255Ab1JFMrj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Oct 2011 08:47:39 -0400
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p96CldSv007748
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 6 Oct 2011 08:47:39 -0400
+In-Reply-To: <1317905134-23175-1-git-send-email-contyk@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Under significant pressure when writing back to network-backed storage,
-direct reclaimers may get throttled. This is expected to be a
-short-lived event and the processes get woken up again but processes do
-get stalled. This patch counts how many times such stalling occurs. It's
-up to the administrator whether to reduce these stalls by increasing
-min_free_kbytes.
-
-Signed-off-by: Mel Gorman <mgorman@suse.de>
+Signed-off-by: Petr Sabata <contyk@redhat.com>
 ---
- include/linux/vm_event_item.h |    1 +
- mm/vmscan.c                   |    1 +
- mm/vmstat.c                   |    1 +
- 3 files changed, 3 insertions(+), 0 deletions(-)
+ misc/lnstat.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/vm_event_item.h b/include/linux/vm_event_item.h
-index 03b90cdc..652e5f3 100644
---- a/include/linux/vm_event_item.h
-+++ b/include/linux/vm_event_item.h
-@@ -29,6 +29,7 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
- 		FOR_ALL_ZONES(PGSTEAL),
- 		FOR_ALL_ZONES(PGSCAN_KSWAPD),
- 		FOR_ALL_ZONES(PGSCAN_DIRECT),
-+		PGSCAN_DIRECT_THROTTLE,
- #ifdef CONFIG_NUMA
- 		PGSCAN_ZONE_RECLAIM_FAILED,
- #endif
-diff --git a/mm/vmscan.c b/mm/vmscan.c
-index ca5ca02..6cb1aee 100644
---- a/mm/vmscan.c
-+++ b/mm/vmscan.c
-@@ -2258,6 +2258,7 @@ static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
- 		return;
- 
- 	/* Throttle */
-+	count_vm_event(PGSCAN_DIRECT_THROTTLE);
- 	wait_event_killable(zone->zone_pgdat->pfmemalloc_wait,
- 		pfmemalloc_watermark_ok(zone->zone_pgdat, high_zoneidx));
- }
-diff --git a/mm/vmstat.c b/mm/vmstat.c
-index d52b13d..96070b4 100644
---- a/mm/vmstat.c
-+++ b/mm/vmstat.c
-@@ -740,6 +740,7 @@ const char * const vmstat_text[] = {
- 	TEXTS_FOR_ZONES("pgsteal")
- 	TEXTS_FOR_ZONES("pgscan_kswapd")
- 	TEXTS_FOR_ZONES("pgscan_direct")
-+	"pgscan_direct_throttle",
- 
- #ifdef CONFIG_NUMA
- 	"zone_reclaim_failed",
+diff --git a/misc/lnstat.c b/misc/lnstat.c
+index 32ab6a4..bd19cc1 100644
+--- a/misc/lnstat.c
++++ b/misc/lnstat.c
+@@ -45,7 +45,7 @@ static struct option opts[] = {
+ 	{ "file", 1, NULL, 'f' },
+ 	{ "help", 0, NULL, 'h' },
+ 	{ "interval", 1, NULL, 'i' },
+-	{ "key", 1, NULL, 'k' },
++	{ "keys", 1, NULL, 'k' },
+ 	{ "subject", 1, NULL, 's' },
+ 	{ "width", 1, NULL, 'w' },
+ };
+@@ -61,7 +61,7 @@ static int usage(char *name, int exit_code)
+ 	fprintf(stderr, "\t-V --version\t\tPrint Version of Program\n");
+ 	fprintf(stderr, "\t-c --count <count>\t"
+ 			"Print <count> number of intervals\n");
+-	fprintf(stderr, "\t-d --dumpt\t\t"
++	fprintf(stderr, "\t-d --dump\t\t"
+ 			"Dump list of available files/keys\n");
+ 	fprintf(stderr, "\t-f --file <file>\tStatistics file to use\n");
+ 	fprintf(stderr, "\t-h --help\t\tThis help message\n");
 -- 
-1.7.3.4
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.7.6.4
