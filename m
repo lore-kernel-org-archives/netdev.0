@@ -1,59 +1,32 @@
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [PATCH 3/3] net/phy: abort genphy_read_status when link changes during speed and duplex reading
-Date: Thu, 6 Oct 2011 19:48:57 +0300
-Message-ID: <1317919737-25893-1-git-send-email-madalin.bucur@freescale.com>
-Reply-To: <madalin.bucur@freescale.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2 rxhash
+Date: Thu, 6 Oct 2011 09:52:54 -0700
+Message-ID: <1317919974.8939.5.camel@HP1>
+References: <4E8D7B85.7060702@fox-it.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <afleming@freescale.com>,
-	Madalin Bucur <madalin.bucur@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Jasper Spaans" <spaans@fox-it.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:55728
-	"EHLO DB3EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935224Ab1JFQsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 12:48:33 -0400
-Received: from mail103-db3 (localhost.localdomain [127.0.0.1])	by
- mail103-db3-R.bigfish.com (Postfix) with ESMTP id 6360E6C83A3	for
- <netdev@vger.kernel.org>; Thu,  6 Oct 2011 16:48:32 +0000 (UTC)
-Received: from DB3EHSMHS005.bigfish.com (unknown [10.3.81.251])	by
- mail103-db3.bigfish.com (Postfix) with ESMTP id 32EA4B9004F	for
- <netdev@vger.kernel.org>; Thu,  6 Oct 2011 16:48:32 +0000 (UTC)
-Received: from madalin-fedora64.ea.freescale.net
- (udp126375uds.ea.freescale.net [10.171.73.201])	by az33smr01.freescale.net
- (8.13.1/8.13.0) with ESMTP id p96GmPl3005220	for <netdev@vger.kernel.org>;
- Thu, 6 Oct 2011 11:48:28 -0500 (CDT)
+Received: from mms1.broadcom.com ([216.31.210.17]:3695 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965078Ab1JFRCd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Oct 2011 13:02:33 -0400
+In-Reply-To: <4E8D7B85.7060702@fox-it.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the link changes during speed and duplex reading the values may be out of sync;
-abort the update if the link state changes during the read
 
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
----
- drivers/net/phy/phy_device.c |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+On Thu, 2011-10-06 at 02:57 -0700, Jasper Spaans wrote:
+> The data I'm processing consists of (almost 100% tcp) traffic between an
+> ssl-offloader and a cluster of webservers, so the range of mac-addresses
+> is rather limited. This ssl-offloader does preserve the IP-address and
+> tcp ports of the clients, so if the rxhash is based on that data, it
+> should be distributed evenly.
+> 
+> Is there anything I can do about this?
+> 
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index a1e132c..e88f49a 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -824,6 +824,16 @@ int genphy_read_status(struct phy_device *phydev)
- 
- 		lpa &= adv;
- 
-+		err = phy_read(phydev, MII_BMSR);
-+
-+		if (err < 0)
-+			return err;
-+
-+		/* if the link changed while reading speed and duplex
-+		 * abort the speed and duplex update */
-+		if (((err & BMSR_LSTATUS) == 0) != (phydev->link == 0))
-+			return 0;
-+
- 		phydev->speed = SPEED_10;
- 		phydev->duplex = DUPLEX_HALF;
- 		phydev->pause = phydev->asym_pause = 0;
--- 
-1.7.0.1
+Can you send me a small tcpdump/wireshark trace of the incoming packets?
+I just need to see the tuple values in the packet headers.  Thanks.
