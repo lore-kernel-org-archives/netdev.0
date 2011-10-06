@@ -1,30 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/8] vxge: convert to SKB paged frag API.
-Date: Thu, 06 Oct 2011 16:00:41 -0400 (EDT)
-Message-ID: <20111006.160041.2173171682206246692.davem@davemloft.net>
-References: <CAHXqBFKX5eojLMhT1MW1inAUH9cfVne4-rhDQYSLsUh-OTzuPQ@mail.gmail.com>
-	<1317884756.24742.13.camel@dagon.hellion.org.uk>
-	<1317916822.21903.252.camel@zakaz.uk.xensource.com>
+Subject: [GIT] Networking
+Date: Thu, 06 Oct 2011 16:23:43 -0400 (EDT)
+Message-ID: <20111006.162343.1556311465620900007.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mirqus@gmail.com, netdev@vger.kernel.org, jdmason@kudzu.us
-To: Ian.Campbell@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37617 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753933Ab1JFUAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 16:00:48 -0400
-In-Reply-To: <1317916822.21903.252.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Thu, 6 Oct 2011 17:00:22 +0100
 
-> Here it is. David, if you want N separate patches (or a git pull
-> request?) let me know.
+1) MD5 signature pool leak fix in TCP, from Zheng Yan.
 
-No, this is fine, applied.
+2) Fix carrier state regression in bridging, from Stephen Hemminger.
 
-Thanks.
+3) Unicast forwards between macvtap interfaces should use
+   dev_forward_skb() not the vlan->forward() method.  Fix from David
+   Ward.
+
+4) TCP's lost_cnt_hint is updated one too many times in some situations,
+   fix from Zheng Yan.
+
+5) netfilter needs to use rwlock_init(), from Thomas Gleixner.
+
+Please pull, thanks a lot!
+
+The following changes since commit 6367f1775ebb66b0f0e9e3512159f3257a6fde0e:
+
+  Merge branch 'for-linus' of http://people.redhat.com/agk/git/linux-dm (2011-10-06 08:31:47 -0700)
+
+are available in the git repository at:
+
+  git://github.com/davem330/net.git master
+
+Benjamin Poirier (1):
+      net: fix typos in Documentation/networking/scaling.txt
+
+David Ward (1):
+      macvlan/macvtap: Fix unicast between macvtap interfaces in bridge mode
+
+Thomas Gleixner (1):
+      netfilter: Use proper rwlock init function
+
+Yan, Zheng (2):
+      tcp: properly handle md5sig_pool references
+      tcp: properly update lost_cnt_hint during shifting
+
+stephen hemminger (1):
+      bridge: leave carrier on for empty bridge
+
+ Documentation/networking/scaling.txt |   10 +++++-----
+ drivers/net/macvlan.c                |    2 +-
+ net/bridge/br_device.c               |    3 ---
+ net/ipv4/tcp_input.c                 |    4 +---
+ net/ipv4/tcp_ipv4.c                  |   11 +++++++----
+ net/ipv6/tcp_ipv6.c                  |    8 +++++---
+ net/netfilter/ipvs/ip_vs_ctl.c       |    2 +-
+ 7 files changed, 20 insertions(+), 20 deletions(-)
