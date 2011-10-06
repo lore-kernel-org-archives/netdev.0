@@ -1,74 +1,147 @@
-From: Petr Sabata <contyk@redhat.com>
-Subject: [PATCH 1/3] iproute2: ss - fix missing parameters
-Date: Thu,  6 Oct 2011 14:45:32 +0200
-Message-ID: <1317905134-23175-2-git-send-email-contyk@redhat.com>
-References: <1317905134-23175-1-git-send-email-contyk@redhat.com>
-Cc: Petr Sabata <contyk@redhat.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next] cs89x0: Move the driver into the Cirrus dir
+Date: Thu,  6 Oct 2011 06:14:48 -0700
+Message-ID: <1317906888-32515-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Russell Nelson <nelson@crynwr.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46431 "EHLO mx1.redhat.com"
+Received: from mga01.intel.com ([192.55.52.88]:20531 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758260Ab1JFMrj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Oct 2011 08:47:39 -0400
-Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p96ClceK009938
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 6 Oct 2011 08:47:38 -0400
-In-Reply-To: <1317905134-23175-1-git-send-email-contyk@redhat.com>
+	id S1758298Ab1JFNPK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Oct 2011 09:15:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Petr Sabata <contyk@redhat.com>
----
- man/man8/ss.8 |    4 ++--
- misc/ss.c     |    6 ++++--
- 2 files changed, 6 insertions(+), 4 deletions(-)
+The cs89x0 driver was initial placed in the apple/ when it
+should have been placed in the cirrus/.  This resolves the
+issue by moving the dirver and fixing up the respective
+Kconfig(s) and Makefile(s).
 
-diff --git a/man/man8/ss.8 b/man/man8/ss.8
-index b309df2..0b9a8c4 100644
---- a/man/man8/ss.8
-+++ b/man/man8/ss.8
-@@ -85,12 +85,12 @@ Display Unix domain sockets (alias for -f unix).
- Display sockets of type FAMILY.
- Currently the following families are supported: unix, inet, inet6, link, netlink.
- .TP
--.B \-A QUERY, \-\-query=QUERY
-+.B \-A QUERY, \-\-query=QUERY, \-\-socket=QUERY
- List of socket tables to dump, separated by commas. The following identifiers
- are understood: all, inet, tcp, udp, raw, unix, packet, netlink, unix_dgram,
- unix_stream, packet_raw, packet_dgram.
- .TP
--.B \-D FILE
-+.B \-D FILE, \-\-diag=FILE
- Do not display anything, just dump raw information about TCP sockets to FILE after applying filters. If FILE is - stdout is used.
- .TP
- .B \-F FILE, \-\-filter=FILE
-diff --git a/misc/ss.c b/misc/ss.c
-index 1597ff9..253f8d3 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2416,9 +2416,10 @@ static void _usage(FILE *dest)
- "   -x, --unix		display only Unix domain sockets\n"
- "   -f, --family=FAMILY display sockets of type FAMILY\n"
- "\n"
--"   -A, --query=QUERY\n"
-+"   -A, --query=QUERY, --socket=QUERY\n"
- "       QUERY := {all|inet|tcp|udp|raw|unix|packet|netlink}[,QUERY]\n"
- "\n"
-+"   -D, --diag=FILE     Dump raw information about TCP sockets to FILE\n"
- "   -F, --filter=FILE   read filter information from FILE\n"
- "       FILTER := [ state TCP-STATE ] [ EXPRESSION ]\n"
- 		);
-@@ -2486,8 +2487,9 @@ static const struct option long_opts[] = {
- 	{ "packet", 0, 0, '0' },
- 	{ "family", 1, 0, 'f' },
- 	{ "socket", 1, 0, 'A' },
-+	{ "query", 1, 0, 'A' },
- 	{ "summary", 0, 0, 's' },
--	{ "diag", 0, 0, 'D' },
-+	{ "diag", 1, 0, 'D' },
- 	{ "filter", 1, 0, 'F' },
- 	{ "version", 0, 0, 'V' },
- 	{ "help", 0, 0, 'h' },
+Thanks to Sascha for reporting the issue.
+
+CC: Russell Nelson <nelson@crynwr.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+Reported-by: Sascha Hauer <s.hauer@pengutronix.de>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/apple/Kconfig              |   22 +---------------------
+ drivers/net/ethernet/apple/Makefile             |    1 -
+ drivers/net/ethernet/cirrus/Kconfig             |   22 +++++++++++++++++++++-
+ drivers/net/ethernet/cirrus/Makefile            |    1 +
+ drivers/net/ethernet/{apple => cirrus}/cs89x0.c |    0
+ drivers/net/ethernet/{apple => cirrus}/cs89x0.h |    0
+ 6 files changed, 23 insertions(+), 23 deletions(-)
+ rename drivers/net/ethernet/{apple => cirrus}/cs89x0.c (100%)
+ rename drivers/net/ethernet/{apple => cirrus}/cs89x0.h (100%)
+
+diff --git a/drivers/net/ethernet/apple/Kconfig b/drivers/net/ethernet/apple/Kconfig
+index 59d5c26..90ad2c1 100644
+--- a/drivers/net/ethernet/apple/Kconfig
++++ b/drivers/net/ethernet/apple/Kconfig
+@@ -5,8 +5,7 @@
+ config NET_VENDOR_APPLE
+ 	bool "Apple devices"
+ 	default y
+-	depends on (PPC_PMAC && PPC32) || MAC || ISA || EISA || MACH_IXDP2351 \
+-		   || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
++	depends on (PPC_PMAC && PPC32) || MACE || MAC
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -75,23 +74,4 @@ config MACMACE
+ 	  say Y and read the Ethernet-HOWTO, available from
+ 	  <http://www.tldp.org/docs.html#howto>.
+ 
+-config CS89x0
+-	tristate "CS89x0 support"
+-	depends on (ISA || EISA || MACH_IXDP2351 \
+-		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440)
+-	---help---
+-	  Support for CS89x0 chipset based Ethernet cards. If you have a
+-	  network (Ethernet) card of this type, say Y and read the
+-	  Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto> as well as
+-	  <file:Documentation/networking/cs89x0.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called cs89x0.
+-
+-config CS89x0_NONISA_IRQ
+-	def_bool y
+-	depends on CS89x0 != n
+-	depends on MACH_IXDP2351 || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
+-
+ endif # NET_VENDOR_APPLE
+diff --git a/drivers/net/ethernet/apple/Makefile b/drivers/net/ethernet/apple/Makefile
+index 9d30086..0d3a591 100644
+--- a/drivers/net/ethernet/apple/Makefile
++++ b/drivers/net/ethernet/apple/Makefile
+@@ -5,5 +5,4 @@
+ obj-$(CONFIG_MACE) += mace.o
+ obj-$(CONFIG_BMAC) += bmac.o
+ obj-$(CONFIG_MAC89x0) += mac89x0.o
+-obj-$(CONFIG_CS89x0) += cs89x0.o
+ obj-$(CONFIG_MACMACE) += macmace.o
+diff --git a/drivers/net/ethernet/cirrus/Kconfig b/drivers/net/ethernet/cirrus/Kconfig
+index e9386ef..6cbb81c 100644
+--- a/drivers/net/ethernet/cirrus/Kconfig
++++ b/drivers/net/ethernet/cirrus/Kconfig
+@@ -5,7 +5,8 @@
+ config NET_VENDOR_CIRRUS
+ 	bool "Cirrus devices"
+ 	default y
+-	depends on ARM && ARCH_EP93XX
++	depends on ISA || EISA || MACH_IXDP2351 || ARCH_IXDP2X01 \
++		|| MACH_MX31ADS || MACH_QQ2440 || (ARM && ARCH_EP93XX)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -18,6 +19,25 @@ config NET_VENDOR_CIRRUS
+ 
+ if NET_VENDOR_CIRRUS
+ 
++config CS89x0
++	tristate "CS89x0 support"
++	depends on (ISA || EISA || MACH_IXDP2351 \
++		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440)
++	---help---
++	  Support for CS89x0 chipset based Ethernet cards. If you have a
++	  network (Ethernet) card of this type, say Y and read the
++	  Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto> as well as
++	  <file:Documentation/networking/cs89x0.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called cs89x0.
++
++config CS89x0_NONISA_IRQ
++	def_bool y
++	depends on CS89x0 != n
++	depends on MACH_IXDP2351 || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
++
+ config EP93XX_ETH
+ 	tristate "EP93xx Ethernet support"
+ 	depends on ARM && ARCH_EP93XX
+diff --git a/drivers/net/ethernet/cirrus/Makefile b/drivers/net/ethernet/cirrus/Makefile
+index 9905ea2..14bd77e 100644
+--- a/drivers/net/ethernet/cirrus/Makefile
++++ b/drivers/net/ethernet/cirrus/Makefile
+@@ -2,4 +2,5 @@
+ # Makefile for the Cirrus network device drivers.
+ #
+ 
++obj-$(CONFIG_CS89x0) += cs89x0.o
+ obj-$(CONFIG_EP93XX_ETH) += ep93xx_eth.o
+diff --git a/drivers/net/ethernet/apple/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+similarity index 100%
+rename from drivers/net/ethernet/apple/cs89x0.c
+rename to drivers/net/ethernet/cirrus/cs89x0.c
+diff --git a/drivers/net/ethernet/apple/cs89x0.h b/drivers/net/ethernet/cirrus/cs89x0.h
+similarity index 100%
+rename from drivers/net/ethernet/apple/cs89x0.h
+rename to drivers/net/ethernet/cirrus/cs89x0.h
 -- 
 1.7.6.4
