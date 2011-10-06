@@ -1,183 +1,56 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: Re: [PATCH] mlx4_en: fix transmit of packages when blue frame is
- enabled
-Date: Thu, 6 Oct 2011 15:57:59 +0200
-Message-ID: <20111006135759.GH2681@mtldesk30>
-References: <1317388995-411-1-git-send-email-cascardo@linux.vnet.ibm.com>
- <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
- <20111003143721.GA3596@oc1711230544.ibm.com>
- <953B660C027164448AE903364AC447D2235DAA9D@MTLDAG02.mtl.com>
- <20111003205358.GB3596@oc1711230544.ibm.com>
- <1317708132.29415.213.camel@pasglop>
- <20111004202620.GA3455@oc1711230544.ibm.com>
- <20111005081502.GB2681@mtldesk30>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net] mscan: zero accidentally copied register content
+Date: Thu, 06 Oct 2011 16:01:45 +0200
+Message-ID: <4E8DB4C9.30109@hartkopp.net>
+References: <4E8C78E8.3010605@hartkopp.net> <20111005155127.GB13794@pengutronix.de> <4E8C8175.2040202@hartkopp.net> <4E8D528D.8020607@hartkopp.net> <4E8D7065.8040905@grandegger.com> <20111006092456.GB1974@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eli Cohen <eli@mellanox.co.il>, linuxppc-dev@lists.ozlabs.org
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Andre Naujoks <nautsch@gmail.com>
+To: Wolfram Sang <w.sang@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53475 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758515Ab1JFN6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 09:58:06 -0400
-Received: by wyg34 with SMTP id 34so2836491wyg.19
-        for <netdev@vger.kernel.org>; Thu, 06 Oct 2011 06:58:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20111005081502.GB2681@mtldesk30>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:34512 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753720Ab1JFOBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 10:01:53 -0400
+In-Reply-To: <20111006092456.GB1974@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 05, 2011 at 10:15:02AM +0200, Eli Cohen wrote:
+On 10/06/11 11:24, Wolfram Sang wrote:
 
-How about this patch - can you give it a try?
-
-
->From dee60547aa9e35a02835451d9e694cd80dd3072f Mon Sep 17 00:00:00 2001
-From: Eli Cohen <eli@mellanox.co.il>
-Date: Thu, 6 Oct 2011 15:50:02 +0200
-Subject: [PATCH] mlx4_en: Fix blue flame on powerpc
-
-The source buffer used for copying into the blue flame register is already in
-big endian. However, when copying to device on powerpc, the endianess is
-swapped so the data reaches th device in little endian which is wrong. On x86
-based platform no swapping occurs so it reaches the device with the correct
-endianess. Fix this by calling le32_to_cpu() on the buffer. On LE systems there
-is no change; on BE there will be a swap.
-
-Signed-off-by: Eli Cohen <eli@mellanox.co.il>
----
- drivers/net/mlx4/en_tx.c |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/mlx4/en_tx.c b/drivers/net/mlx4/en_tx.c
-index 16337fb..3743acc 100644
---- a/drivers/net/mlx4/en_tx.c
-+++ b/drivers/net/mlx4/en_tx.c
-@@ -601,6 +601,16 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
- 
- static void mlx4_bf_copy(unsigned long *dst, unsigned long *src, unsigned bytecnt)
- {
-+	int i;
-+	__le32 *psrc = (__le32 *)src;
-+
-+	/*
-+	 * the buffer is already in big endian. For little endian machines that's
-+	 * fine. For big endain machines we must swap since the chipset swaps again
-+	 */
-+	for (i = 0; i < bytecnt / 4; ++i)
-+		psrc[i] = le32_to_cpu(psrc[i]);
-+
- 	__iowrite64_copy(dst, src, bytecnt / 8);
- }
- 
--- 
-1.7.7.rc0.70.g82660
-
-
-
-> On Tue, Oct 04, 2011 at 05:26:20PM -0300, Thadeu Lima de Souza Cascardo wrote:
 > 
-> I believe we have an endianess problem here. The source buffer is in
-> big endian - in x86 archs, it will rich the pci device unswapped since
-> both x86 and pci are little endian. In ppc, it wil be swapped by the
-> chipset so it will reach the device in little endian which is wrong.
-> So, in mlx4_bf_copy, you could loop over the buffer and swap32 the all
-> the dwords before the call to __iowrite64_copy. Of course which should
-> fix this in an arch independent manner. Let me know this works for
-> you.
+>> Why do you want to change 16-bit accesses in general? They are faster
+>> than two 8 bit accesses. 
 > 
-> > On Tue, Oct 04, 2011 at 08:02:12AM +0200, Benjamin Herrenschmidt wrote:
-> > > On Mon, 2011-10-03 at 17:53 -0300, Thadeu Lima de Souza Cascardo wrote:
-> > > 
-> > >  .../...
-> > > 
-> > > > > Can you also send me the output of ethtool -i?
-> > > > > It seems that there is a problem with write combining on Power processors, we will check this issue.
-> > > > > 
-> > > > > Yevgeny
-> > > > 
-> > > > Hello, Yevgeny.
-> > > > 
-> > > > You will find the output of ethtool -i below.
-> > > > 
-> > > > I am copying Ben and powerpc list, in case this is an issue with Power
-> > > > processors. They can provide us some more insight into this.
-> > > 
-> > > May I get some background please ? :-)
-> > > 
-> > > I'm not aware of a specific issue with write combining but I'd need to
-> > > know more about what you are doing and the code to do it to comment on
-> > > whether it should work or not.
-> > > 
-> > > Cheers,
-> > > Ben.
-> > > 
-> > > 
-> > 
-> > Hello, Ben.
-> > 
-> > Sorry for that. I am testing mlx4_en driver on a POWER. Yevgeny has
-> > added blue frame support, that does not require writing to the device
-> > memory to indicate a new packet (the doorbell register as it is called).
-> > 
-> > Well, the ring is getting full with no interrupt or packets transmitted.
-> > I simply added a write to the doorbell register and it works for me.
-> > Yevgeny says this is not the right fix, claiming there is a problem with
-> > write combining on POWER. The code uses memory barriers, so I don't know
-> > why there is any problem.
-> > 
-> > I am posting the code here to show better what the situation is.
-> > Yevgeny can tell more about the device and the driver.
-> > 
-> > The code below is the driver as of now, including a diff with what I
-> > changed and had resulted OK for me. Before the blue frame support, the
-> > only code executed was the else part. I can't tell much what the device
-> > should be seeing and doing after the blue frame part of the code is
-> > executed. But it does send the packet if I write to the doorbell
-> > register.
-> > 
-> > Yevgeny, can you tell us what the device should be doing and why you
-> > think this is a problem on POWER? Is it possible that this is simply a
-> > problem with the firmware version?
-> > 
-> > Thanks,
-> > Cascardo.
-> > 
-> > ---
-> >         if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
-> > !vlan_tag) {
-> >                 *(u32 *) (&tx_desc->ctrl.vlan_tag) |=
-> > ring->doorbell_qpn;
-> >                 op_own |= htonl((bf_index & 0xffff) << 8);
-> >                 /* Ensure new descirptor hits memory
-> >                 * before setting ownership of this descriptor to HW */
-> >                 wmb();
-> >                 tx_desc->ctrl.owner_opcode = op_own;
-> > 
-> >                 wmb();
-> > 
-> >                 mlx4_bf_copy(ring->bf.reg + ring->bf.offset, (unsigned
-> > long *) &tx_desc->ctrl,
-> >                      desc_size);
-> > 
-> >                 wmb();
-> > 
-> >                 ring->bf.offset ^= ring->bf.buf_size;
-> >         } else {
-> >                 /* Ensure new descirptor hits memory
-> >                 * before setting ownership of this descriptor to HW */
-> >                 wmb();
-> >                 tx_desc->ctrl.owner_opcode = op_own;
-> > -               wmb();
-> > -               writel(ring->doorbell_qpn, ring->bf.uar->map +
-> > MLX4_SEND_DOORBELL);
-> >         }
-> > 
-> > +       wmb();
-> > +       writel(ring->doorbell_qpn, ring->bf.uar->map +
-> > MLX4_SEND_DOORBELL);
-> > +
-> > ---
+> Yup, was thinking the same.
+
+
+Ah, i did not get this from your code example
+
+	if (can_dlc & 1)
+		*payload = in_be16() & mask;
+
+
+which probably does the same as Wolfgangs more obvious suggestion
+
+	if (frame->can_dlc & 1)
+		frame->data[frame->can_dlc - 1] = in_8(data);
+
+
+:-)
+
+As my patch could be done without real testing, as i did not change the
+register access and only fixed the result ...
+
+	if (frame->can_dlc & 1)
+		frame->data[frame->can_dlc] = 0;
+
+
+... it would be nice if e.g. Wolfgang could send his patch after some testing,
+as i currently don't have access to my MPC5200 hardware here.
+
+Tnx & best regards,
+Oliver
