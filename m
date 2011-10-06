@@ -1,64 +1,55 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [PATCH 1/8] vxge: convert to SKB paged frag API.
-Date: Thu, 6 Oct 2011 08:05:56 +0100
-Message-ID: <1317884756.24742.13.camel@dagon.hellion.org.uk>
-References: <1317810511.21903.204.camel@zakaz.uk.xensource.com>
-	 <1317810532-24984-1-git-send-email-ian.campbell@citrix.com>
-	 <CAHXqBFKX5eojLMhT1MW1inAUH9cfVne4-rhDQYSLsUh-OTzuPQ@mail.gmail.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: Re: [PATCH v5 6/8] tcp buffer limitation: per-cgroup limit
+Date: Thu, 6 Oct 2011 12:38:59 +0400
+Message-ID: <4E8D6923.7080404@parallels.com>
+References: <1317730680-24352-1-git-send-email-glommer@parallels.com>  <1317730680-24352-7-git-send-email-glommer@parallels.com>  <1317732535.2440.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>  <4E8C1064.3030902@parallels.com> <1317805090.2473.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jon Mason <jdmason@kudzu.us>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:8959 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757829Ab1JFHF6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 03:05:58 -0400
-In-Reply-To: <CAHXqBFKX5eojLMhT1MW1inAUH9cfVne4-rhDQYSLsUh-OTzuPQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
+	<lizf@cn.fujitsu.com>, <kamezawa.hiroyu@jp.fujitsu.com>,
+	<ebiederm@xmission.com>, <davem@davemloft.net>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>,
+	<linux-mm@kvack.org>, <kirill@shutemov.name>,
+	<avagin@parallels.com>, <devel@openvz.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1317805090.2473.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-10-05 at 22:03 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> 2011/10/5 Ian Campbell <ian.campbell@citrix.com>:
-> [...]
-> > --- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> > +++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> > @@ -923,9 +923,9 @@ vxge_xmit(struct sk_buff *skb, struct net_devic=
-e *dev)
-> >                if (!frag->size)
-> >                        continue;
-> >
-> > -               dma_pointer =3D (u64) pci_map_page(fifo->pdev, frag=
-->page,
-> > -                               frag->page_offset, frag->size,
-> > -                               PCI_DMA_TODEVICE);
-> > +               dma_pointer =3D (u64)skb_frag_dma_map(&fifo->pdev->=
-dev, frag,
-> > +                                                   0, frag->size,
-> > +                                                   PCI_DMA_TODEVIC=
-E);
->=20
-> This should be DMA_TO_DEVICE instead of PCI_DMA_TODEVICE.
->=20
-> >
-> >                if (unlikely(pci_dma_mapping_error(fifo->pdev, dma_p=
-ointer)))
-> >                        goto _exit2;
->=20
-> I would also change this to dma_mapping_error() in one go.
->=20
-> Just a random patch check.
+On 10/05/2011 12:58 PM, Eric Dumazet wrote:
+> Le mercredi 05 octobre 2011 =C3=A0 12:08 +0400, Glauber Costa a =C3=A9=
+crit :
+>> On 10/04/2011 04:48 PM, Eric Dumazet wrote:
+>
+>>> 2) Could you add const qualifiers when possible to your pointers ?
+>>
+>> Well, I'll go over the patches again and see where I can add them.
+>> Any specific place site you're concerned about?
+>
+> Everywhere its possible :
+>
+> It helps reader to instantly knows if a function is about to change s=
+ome
+> part of the object or only read it, without reading function body.
+Sure it does.
 
-Thanks Micha=C5=82.
+So, give me your opinion on this:
 
-I'm sure I must have made the same mistakes in a whole bunch of patches
-which have already been applied. I'll knock up a fixup patch.
+most of the acessors inside struct sock do not modify the pointers,
+but return an address of an element inside it (that can later on be
+modified by the caller.
 
-Cheers,
-Ian.
+I think it is fine for the purpose of clarity, but to avoid warnings we=
+=20
+end up having to do stuff like this:
 
->=20
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
++#define CONSTCG(m) ((struct mem_cgroup *)(m))
++long *tcp_sysctl_mem(const struct mem_cgroup *memcg)
++{
++       return CONSTCG(memcg)->tcp.tcp_prot_mem;
++}
+
+Is it acceptable?
