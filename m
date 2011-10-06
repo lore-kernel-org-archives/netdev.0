@@ -1,72 +1,40 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/9] e1000e: WoL can fail on 82578DM
-Date: Thu,  6 Oct 2011 04:02:31 -0700
-Message-ID: <1317898959-16550-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: __net_exit bogusly defined as __exit_refok ?
+Date: Thu, 06 Oct 2011 12:55:23 +0100
+Message-ID: <4E8DB34B0200007800059AA5@nat28.tlf.novell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:30733 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756022Ab1JFLCm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Oct 2011 07:02:42 -0400
-In-Reply-To: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+Realizing that this has been this way a for a rather long time, I still wonder
+why it was done that way: __exit_refok (evaluating to __ref) allows these
+functions to reference __init functions and __initdata objects (which is
+wrong, since those can get called in the context of __exit code, at which
+point .init.* sections are already gone).
 
-During suspend, the PHY must be reset for workaround updates to take effect
-without restarting auto-negotiation.  Also, set the disable GbE and enable
-Low Power Link Up (LPLU) if the EEPROM is configured to do likewise in
-either D0 or non-D0a instead of just the latter.
+Second, __exit_refok results in the code to not be discarded at all
+(with the original patch's description wrongly indicating that without
+NET_NS the exit functions would never be called - they get called from
+unregister_pernet_operations(), which generally gets invoked from
+modules' __exit sections), which is the same as if no section
+placement annotation was present.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/ich8lan.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+Thus, rather than being the only user of __exit_refok (which by itself
+is a dubious construct), it would seem to make more sense to make
+__net_exit resolve to nothingregardless of NET_NS  (short of going
+through the code and remove all uses of it) and delete __exit_refok.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 3b063e1..4ec5a5a 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1319,16 +1319,20 @@ static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state)
- 
- 		if (mac_reg & E1000_PHY_CTRL_D0A_LPLU)
- 			oem_reg |= HV_OEM_BITS_LPLU;
-+
-+		/* Set Restart auto-neg to activate the bits */
-+		if (!e1000_check_reset_block(hw))
-+			oem_reg |= HV_OEM_BITS_RESTART_AN;
- 	} else {
--		if (mac_reg & E1000_PHY_CTRL_NOND0A_GBE_DISABLE)
-+		if (mac_reg & (E1000_PHY_CTRL_GBE_DISABLE |
-+			       E1000_PHY_CTRL_NOND0A_GBE_DISABLE))
- 			oem_reg |= HV_OEM_BITS_GBE_DIS;
- 
--		if (mac_reg & E1000_PHY_CTRL_NOND0A_LPLU)
-+		if (mac_reg & (E1000_PHY_CTRL_D0A_LPLU |
-+			       E1000_PHY_CTRL_NOND0A_LPLU))
- 			oem_reg |= HV_OEM_BITS_LPLU;
- 	}
--	/* Restart auto-neg to activate the bits */
--	if (!e1000_check_reset_block(hw))
--		oem_reg |= HV_OEM_BITS_RESTART_AN;
-+
- 	ret_val = hw->phy.ops.write_reg_locked(hw, HV_OEM_BITS, oem_reg);
- 
- out:
-@@ -3684,6 +3688,7 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
- 
- 	if (hw->mac.type >= e1000_pchlan) {
- 		e1000_oem_bits_config_ich8lan(hw, false);
-+		e1000_phy_hw_reset_ich8lan(hw);
- 		ret_val = hw->phy.ops.acquire(hw);
- 		if (ret_val)
- 			return;
--- 
-1.7.6.4
+One alternative might be to make __net_exit at least resolve to
+__init_or_module, as __exit functions won't be called without
+MODULES. Or really, you'd want something that resolves to __init
+when built into the kernel, and to nothing when built as a module.
+Both, however, would require some adjustments to modpost's
+section mismatch checking.
+
+Jan
