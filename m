@@ -1,105 +1,97 @@
 From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH] bridge: fix hang on removal of bridge via netlink
-Date: Thu, 06 Oct 2011 16:02:49 -0700
-Message-ID: <1317942169.6433.17.camel@w-sridhar.beaverton.ibm.com>
-References: <1317921532.6433.13.camel@w-sridhar.beaverton.ibm.com>
-	 <20111006141941.437be127@nehalam.linuxnetplumber.net>
+Subject: [PATCH] iproute2: Fix usage and man page for 'ip link'
+Date: Thu, 06 Oct 2011 16:10:51 -0700
+Message-ID: <1317942651.6433.25.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:51532 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755411Ab1JFXCw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Oct 2011 19:02:52 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p96Mce1X022072
-	for <netdev@vger.kernel.org>; Thu, 6 Oct 2011 18:38:40 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p96N2pda138116
-	for <netdev@vger.kernel.org>; Thu, 6 Oct 2011 19:02:51 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p96N2o63032249
-	for <netdev@vger.kernel.org>; Thu, 6 Oct 2011 20:02:51 -0300
-In-Reply-To: <20111006141941.437be127@nehalam.linuxnetplumber.net>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:52419 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752764Ab1JFXK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 19:10:59 -0400
+Received: from /spool/local
+	by us.ibm.com with XMail ESMTP
+	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
+	Thu, 6 Oct 2011 17:10:55 -0600
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p96NAqNl159642
+	for <netdev@vger.kernel.org>; Thu, 6 Oct 2011 17:10:52 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p96NAqdD032218
+	for <netdev@vger.kernel.org>; Thu, 6 Oct 2011 17:10:52 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-10-06 at 14:19 -0700, Stephen Hemminger wrote:
-> Need to cleanup bridge device timers and ports when being bridge
-> device is being removed via netlink.
-> 
-> This fixes the problem of observed when doing:
->  ip link add br0 type bridge
->  ip link set dev eth1 master br0
->  ip link set br0 up
->  ip link del br0
-> 
-> which would cause br0 to hang in unregister_netdev because
-> of leftover reference count.
-> 
-> Reported-by: Sridhar Samudrala <sri@us.ibm.com>
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Add bridge as a supported type with 'ip link' in usage and all the missing
+types in 'ip' man page. Also fixed some typos.
 
-Acked-by: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-> 
-> ---
-> Patch is against net-next but should go to net and stable trees
-> since it is an observable hang on 3.0 and later kernels.
-> 
-> --- a/net/bridge/br_if.c	2011-10-03 11:08:36.304168386 -0700
-> +++ b/net/bridge/br_if.c	2011-10-06 11:27:47.682488755 -0700
-> @@ -160,9 +160,10 @@ static void del_nbp(struct net_bridge_po
->  	call_rcu(&p->rcu, destroy_nbp_rcu);
->  }
-> 
-> -/* called with RTNL */
-> -static void del_br(struct net_bridge *br, struct list_head *head)
-> +/* Delete bridge device */
-> +void br_dev_delete(struct net_device *dev, struct list_head *head)
->  {
-> +	struct net_bridge *br = netdev_priv(dev);
->  	struct net_bridge_port *p, *n;
-> 
->  	list_for_each_entry_safe(p, n, &br->port_list, list) {
-> @@ -267,7 +268,7 @@ int br_del_bridge(struct net *net, const
->  	}
-> 
->  	else
-> -		del_br(netdev_priv(dev), NULL);
-> +		br_dev_delete(dev, NULL);
-> 
->  	rtnl_unlock();
->  	return ret;
-> @@ -446,7 +447,7 @@ void __net_exit br_net_exit(struct net *
->  	rtnl_lock();
->  	for_each_netdev(net, dev)
->  		if (dev->priv_flags & IFF_EBRIDGE)
-> -			del_br(netdev_priv(dev), &list);
-> +			br_dev_delete(dev, &list);
-> 
->  	unregister_netdevice_many(&list);
->  	rtnl_unlock();
-> --- a/net/bridge/br_netlink.c	2011-09-16 13:12:58.061369744 -0700
-> +++ b/net/bridge/br_netlink.c	2011-10-06 11:20:21.808911679 -0700
-> @@ -210,6 +210,7 @@ static struct rtnl_link_ops br_link_ops
->  	.priv_size	= sizeof(struct net_bridge),
->  	.setup		= br_dev_setup,
->  	.validate	= br_validate,
-> +	.dellink	= br_dev_delete,
->  };
-> 
->  int __init br_netlink_init(void)
-> --- a/net/bridge/br_private.h	2011-10-06 08:42:27.353044954 -0700
-> +++ b/net/bridge/br_private.h	2011-10-06 11:25:17.845118817 -0700
-> @@ -301,6 +301,7 @@ static inline int br_is_root_bridge(cons
-> 
->  /* br_device.c */
->  extern void br_dev_setup(struct net_device *dev);
-> +extern void br_dev_delete(struct net_device *dev, struct list_head *list);
->  extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
->  			       struct net_device *dev);
->  #ifdef CONFIG_NET_POLL_CONTROLLER
+diff --git a/ip/iplink.c b/ip/iplink.c
+index e5325a6..35e6dc6 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -43,7 +43,7 @@ static int iplink_have_newlink(void);
+ void iplink_usage(void)
+ {
+ 	if (iplink_have_newlink()) {
+-		fprintf(stderr, "Usage: ip link add link DEV [ name ] NAME\n");
++		fprintf(stderr, "Usage: ip link add [link DEV] [ name ] NAME\n");
+ 		fprintf(stderr, "                   [ txqueuelen PACKETS ]\n");
+ 		fprintf(stderr, "                   [ address LLADDR ]\n");
+ 		fprintf(stderr, "                   [ broadcast LLADDR ]\n");
+@@ -78,7 +78,7 @@ void iplink_usage(void)
+ 
+ 	if (iplink_have_newlink()) {
+ 		fprintf(stderr, "\n");
+-		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | can }\n");
++		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | can | bridge }\n");
+ 	}
+ 	exit(-1);
+ }
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index 27993a4..49d94f5 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -47,7 +47,7 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
+ 
+ .ti -8
+ .IR TYPE " := [ "
+-.BR vlan " | " maclan " | " can " ]"
++.BR vlan " | " veth " | " vcan " | " dummy " | " ifb " | " macvlan " | " can " | " bridge ]"
+ 
+ .ti -8
+ .BI "ip link delete " DEVICE
+@@ -989,13 +989,28 @@ Link types:
+ 
+ .in +8
+ .B vlan
+-- 802.1q tagged virrtual LAN interface
++- 802.1q tagged virtual LAN interface
++.sp
++.B veth
++- Virtual ethernet interface
++.sp
++.B vcan
++- Virtual Local CAN interface
++.sp
++.B dummy
++- Dummy network interface
++.sp
++.B ifb
++- Intermediate Functional Block device
+ .sp
+ .B macvlan
+ - virtual interface base on link layer address (MAC)
+ .sp
+ .B can
+ - Controller Area Network interface
++.sp
++.B bridge
++- Ethernet Bridge device
+ .in -8
+ 
+ .SS ip link delete - delete virtual link
