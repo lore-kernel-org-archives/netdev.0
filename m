@@ -1,65 +1,35 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH net] mscan: zero accidentally copied register content
-Date: Thu, 06 Oct 2011 20:25:24 +0200
-Message-ID: <4E8DF294.7060707@pengutronix.de>
-References: <4E8C78E8.3010605@hartkopp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 06 Oct 2011 14:33:50 -0400 (EDT)
+Message-ID: <20111006.143350.1218857772271381910.davem@davemloft.net>
+References: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigEE8750CC6416954630333F34"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Wolfram Sang <w.sang@pengutronix.de>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Andre Naujoks <nautsch@gmail.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:43626 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754178Ab1JFSZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 14:25:30 -0400
-In-Reply-To: <4E8C78E8.3010605@hartkopp.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43453 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758915Ab1JFSeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 14:34:02 -0400
+In-Reply-To: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigEE8750CC6416954630333F34
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu,  6 Oct 2011 04:02:30 -0700
 
-On 10/05/2011 05:34 PM, Oliver Hartkopp wrote:
-> Due to the 16 bit access to mscan registers there's too much data copie=
-d to
-> the zero initialized CAN frame when having an odd number of bytes to co=
-py.
-> This patch clears the data byte read from the invalid register entry.
->=20
-> Reported-by: Andre Naujoks <nautsch@gmail.com>
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> The following series contains updates to e1000e, igb and ixgbe.  Here
+> is a quick summary:
+>   - e1000e: fixes for 2 WoL issues
+>   - igb: fix for I2C, and 2 Alt. MAC address updates
+>   - ixgbe: fix dependencies for 8 traffic classes, add X540 traffic
+>     class support and a fix for PFC mask generation
+> 
+> The following are changes since commit f0cd7bdc042310b6b104f133bbfd520a72b3c08a:
+>   bnx2x: remove some dead code
+> and are available in the git repository at
+>   git://github.com/Jkirsher/net-next.git
 
-This problem have some other drivers, too, e.g. the at91 and the flexcan
-driver both copy unconditionally all 8 bytes from the hardware. However,
-I don't know if the hardware sets the remaining bytes to zero.
-
-cheers, Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigEE8750CC6416954630333F34
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk6N8pcACgkQjTAFq1RaXHPpwwCfVW2eu0Ot38LnEvOWqy1QGJ1B
-mS0An27ZYicC4RmTdoU586IBj13Y3JEf
-=X4Wk
------END PGP SIGNATURE-----
-
---------------enigEE8750CC6416954630333F34--
+Pulled, thanks Jeff.
