@@ -1,147 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next] cs89x0: Move the driver into the Cirrus dir
-Date: Thu,  6 Oct 2011 06:14:48 -0700
-Message-ID: <1317906888-32515-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Russell Nelson <nelson@crynwr.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: davem@davemloft.net
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: Re: loopback IP alias breaks tftp?
+Date: Thu, 6 Oct 2011 09:23:53 -0400
+Message-ID: <20111006132353.GF2479@zod.bos.redhat.com>
+References: <20111005202723.GE2479@zod.bos.redhat.com>
+ <alpine.LFD.2.00.1110060009020.1959@ja.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>, Joel Sing <jsing@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:20531 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:64718 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758298Ab1JFNPK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Oct 2011 09:15:10 -0400
+	id S964855Ab1JFNYI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Oct 2011 09:24:08 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1110060009020.1959@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The cs89x0 driver was initial placed in the apple/ when it
-should have been placed in the cirrus/.  This resolves the
-issue by moving the dirver and fixing up the respective
-Kconfig(s) and Makefile(s).
+On Thu, Oct 06, 2011 at 12:18:44AM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Wed, 5 Oct 2011, Josh Boyer wrote:
+> 
+> > Hi All,
+> > 
+> > We've had a report [1] of a change in behavior when trying to use an IP
+> > alias to tftp from a loopback device.  Apparently the steps outlined in
+> > the bug worked in 2.6.35, and broke somewhere before 2.6.38.6.
+> > 
+> > I can confirm the steps fail on a 3.0 based kernel and I'm trying to do
+> > a git bisect to find the commit involved, but I thought I would send
+> > this along to see if anyone might have an idea.  (Also, I'm not really
+> > sure how valid of a usecase this was to begin with.)
+> 
+> 	What about commit 9fc3bbb4a752f108cf096d96640f3b548bbbce6c ?
+> 
+> ipv4/route.c: respect prefsrc for local routes
+> 
+> http://marc.info/?t=129412232500001&r=1&w=2
+> 
+> > [1] https://bugzilla.redhat.com/show_bug.cgi?id=739534
 
-Thanks to Sascha for reporting the issue.
+Yep.  That is exactly what my git bisect said too.
 
-CC: Russell Nelson <nelson@crynwr.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-Reported-by: Sascha Hauer <s.hauer@pengutronix.de>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/apple/Kconfig              |   22 +---------------------
- drivers/net/ethernet/apple/Makefile             |    1 -
- drivers/net/ethernet/cirrus/Kconfig             |   22 +++++++++++++++++++++-
- drivers/net/ethernet/cirrus/Makefile            |    1 +
- drivers/net/ethernet/{apple => cirrus}/cs89x0.c |    0
- drivers/net/ethernet/{apple => cirrus}/cs89x0.h |    0
- 6 files changed, 23 insertions(+), 23 deletions(-)
- rename drivers/net/ethernet/{apple => cirrus}/cs89x0.c (100%)
- rename drivers/net/ethernet/{apple => cirrus}/cs89x0.h (100%)
+So now we have a change in behavior since that commit for the usecase
+described in the bug above, but I'm unsure if that usecase was ever
+really valid or if the commit had unintentional side effects.
 
-diff --git a/drivers/net/ethernet/apple/Kconfig b/drivers/net/ethernet/apple/Kconfig
-index 59d5c26..90ad2c1 100644
---- a/drivers/net/ethernet/apple/Kconfig
-+++ b/drivers/net/ethernet/apple/Kconfig
-@@ -5,8 +5,7 @@
- config NET_VENDOR_APPLE
- 	bool "Apple devices"
- 	default y
--	depends on (PPC_PMAC && PPC32) || MAC || ISA || EISA || MACH_IXDP2351 \
--		   || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
-+	depends on (PPC_PMAC && PPC32) || MACE || MAC
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-@@ -75,23 +74,4 @@ config MACMACE
- 	  say Y and read the Ethernet-HOWTO, available from
- 	  <http://www.tldp.org/docs.html#howto>.
- 
--config CS89x0
--	tristate "CS89x0 support"
--	depends on (ISA || EISA || MACH_IXDP2351 \
--		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440)
--	---help---
--	  Support for CS89x0 chipset based Ethernet cards. If you have a
--	  network (Ethernet) card of this type, say Y and read the
--	  Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto> as well as
--	  <file:Documentation/networking/cs89x0.txt>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called cs89x0.
--
--config CS89x0_NONISA_IRQ
--	def_bool y
--	depends on CS89x0 != n
--	depends on MACH_IXDP2351 || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
--
- endif # NET_VENDOR_APPLE
-diff --git a/drivers/net/ethernet/apple/Makefile b/drivers/net/ethernet/apple/Makefile
-index 9d30086..0d3a591 100644
---- a/drivers/net/ethernet/apple/Makefile
-+++ b/drivers/net/ethernet/apple/Makefile
-@@ -5,5 +5,4 @@
- obj-$(CONFIG_MACE) += mace.o
- obj-$(CONFIG_BMAC) += bmac.o
- obj-$(CONFIG_MAC89x0) += mac89x0.o
--obj-$(CONFIG_CS89x0) += cs89x0.o
- obj-$(CONFIG_MACMACE) += macmace.o
-diff --git a/drivers/net/ethernet/cirrus/Kconfig b/drivers/net/ethernet/cirrus/Kconfig
-index e9386ef..6cbb81c 100644
---- a/drivers/net/ethernet/cirrus/Kconfig
-+++ b/drivers/net/ethernet/cirrus/Kconfig
-@@ -5,7 +5,8 @@
- config NET_VENDOR_CIRRUS
- 	bool "Cirrus devices"
- 	default y
--	depends on ARM && ARCH_EP93XX
-+	depends on ISA || EISA || MACH_IXDP2351 || ARCH_IXDP2X01 \
-+		|| MACH_MX31ADS || MACH_QQ2440 || (ARM && ARCH_EP93XX)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-@@ -18,6 +19,25 @@ config NET_VENDOR_CIRRUS
- 
- if NET_VENDOR_CIRRUS
- 
-+config CS89x0
-+	tristate "CS89x0 support"
-+	depends on (ISA || EISA || MACH_IXDP2351 \
-+		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440)
-+	---help---
-+	  Support for CS89x0 chipset based Ethernet cards. If you have a
-+	  network (Ethernet) card of this type, say Y and read the
-+	  Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto> as well as
-+	  <file:Documentation/networking/cs89x0.txt>.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called cs89x0.
-+
-+config CS89x0_NONISA_IRQ
-+	def_bool y
-+	depends on CS89x0 != n
-+	depends on MACH_IXDP2351 || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
-+
- config EP93XX_ETH
- 	tristate "EP93xx Ethernet support"
- 	depends on ARM && ARCH_EP93XX
-diff --git a/drivers/net/ethernet/cirrus/Makefile b/drivers/net/ethernet/cirrus/Makefile
-index 9905ea2..14bd77e 100644
---- a/drivers/net/ethernet/cirrus/Makefile
-+++ b/drivers/net/ethernet/cirrus/Makefile
-@@ -2,4 +2,5 @@
- # Makefile for the Cirrus network device drivers.
- #
- 
-+obj-$(CONFIG_CS89x0) += cs89x0.o
- obj-$(CONFIG_EP93XX_ETH) += ep93xx_eth.o
-diff --git a/drivers/net/ethernet/apple/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-similarity index 100%
-rename from drivers/net/ethernet/apple/cs89x0.c
-rename to drivers/net/ethernet/cirrus/cs89x0.c
-diff --git a/drivers/net/ethernet/apple/cs89x0.h b/drivers/net/ethernet/cirrus/cs89x0.h
-similarity index 100%
-rename from drivers/net/ethernet/apple/cs89x0.h
-rename to drivers/net/ethernet/cirrus/cs89x0.h
--- 
-1.7.6.4
+Joel (or anyone else) can you take a look and comment?
+
+josh
