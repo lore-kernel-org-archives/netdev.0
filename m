@@ -1,61 +1,52 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH 3/3] dcb: Add stub routines for !CONFIG_DCB
-Date: Thu, 06 Oct 2011 11:52:44 -0700
-Message-ID: <20111006185243.2781.67932.stgit@jf-dev1-dcblab>
-References: <20111006185233.2781.80310.stgit@jf-dev1-dcblab>
+From: nick black <dankamongmen@gmail.com>
+Subject: is PACKET_TX_RING expected to work on loopback?
+Date: Thu, 6 Oct 2011 14:37:32 -0400
+Message-ID: <20111006183732.GA24014@qemfd.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-net@vger.kernel.org
+To: Vitali Lovitch <vlovich@qualcomm.com>,
+	Johann Baudy <johann.baudy@gnu-log.net>,
+	David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:17763 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759028Ab1JFTBp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Oct 2011 15:01:45 -0400
-In-Reply-To: <20111006185233.2781.80310.stgit@jf-dev1-dcblab>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:57305 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755185Ab1JFTEg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 15:04:36 -0400
+Received: by gyg10 with SMTP id 10so2904424gyg.19
+        for <netdev@vger.kernel.org>; Thu, 06 Oct 2011 12:04:35 -0700 (PDT)
+Received: from recombinator.qemfd.net (localhost.localdomain [127.0.0.1])
+	by vps.qemfd.net (Postfix) with ESMTP id 2CBC62B136
+	for <netdev@vger.kernel.org>; Thu,  6 Oct 2011 15:04:33 -0400 (EDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To avoid ifdefs in the other code that supports DCB notifiers
-add stub routines. This method seems popular in other net code
-for example 8021Q.
+Hey there. I'm developing an application which makes use of PACKET_TX_R=
+ING
+(http://dank.qemfd.net/dankwiki/index.php/Omphalos), one mmap'd RX and =
+TX
+socket per interface. When I transmit on wireless/ethernet devices, the
+packets flow out fine, and I get responses.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
+When I transmit on loopback, I can see the packets using tcpdump -i lo,=
+=20
+send() returns 0, and the frame is set back to TP_STATUS_AVAILABLE.
+Checksums are properly set and the packets appear well-formed in Wiresh=
+ark.
+I can't seem to read the packets, however; neither the intended DNS ser=
+ver
+(verified via dnsmasq -d and strace) nor my own socat udp-listen proces=
+s
+seem to get the packets.
 
- include/net/dcbevent.h |   18 ++++++++++++++++++
- 1 files changed, 18 insertions(+), 0 deletions(-)
+Is PACKET_TX_RING expected to work on loopback?
 
-diff --git a/include/net/dcbevent.h b/include/net/dcbevent.h
-index bc1e7ef..443626e 100644
---- a/include/net/dcbevent.h
-+++ b/include/net/dcbevent.h
-@@ -24,8 +24,26 @@ enum dcbevent_notif_type {
- 	DCB_APP_EVENT = 1,
- };
- 
-+#ifdef CONFIG_DCB
- extern int register_dcbevent_notifier(struct notifier_block *nb);
- extern int unregister_dcbevent_notifier(struct notifier_block *nb);
- extern int call_dcbevent_notifiers(unsigned long val, void *v);
-+#else
-+static inline int
-+register_dcbevent_notifier(struct notifier_block *nb)
-+{
-+	return 0;
-+}
-+
-+static inline int unregister_dcbevent_notifier(struct notifier_block *nb)
-+{
-+	return 0;
-+}
-+
-+static inline int call_dcbevent_notifiers(unsigned long val, void *v)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_DCB */
- 
- #endif
+Thanks!
+
+--=20
+                                         nick black <nblack@nvidia.com>
+"A main cause of the Roman Empire's fall was that=E2=80=93lacking zero=E2=
+=80=93they had
+       no way to indicate successful termination of their C programs."
