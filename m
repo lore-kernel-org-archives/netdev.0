@@ -1,49 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/9] igb: Code to prevent overwriting SFP I2C
-Date: Thu,  6 Oct 2011 04:02:37 -0700
-Message-ID: <1317898959-16550-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: A new 40G Network driver ready to submit to the kernel tree
+Date: Thu, 6 Oct 2011 13:00:56 +0200
+Message-ID: <20111006110056.GB27447@electric-eye.fr.zoreil.com>
+References: <4E8CE4A0.4060202@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joyce Yu - System Software <joyce.yu@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62105 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935422Ab1JFLCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Oct 2011 07:02:46 -0400
-In-Reply-To: <1317898959-16550-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:33108 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935418Ab1JFLDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Oct 2011 07:03:00 -0400
+Content-Disposition: inline
+In-Reply-To: <4E8CE4A0.4060202@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+Joyce Yu - System Software <joyce.yu@oracle.com> :
+[...]
+> I have a new 40G Network driver ready to submit to the kernel tree.
+> The driver has been ported to latest linux-3.0-rc5 and
+> net-2.6-353e5c9 tree.
 
-This patch fixes "overwrite" problem. without this fix, SFP I2C EEPROM
-data, which is located at A0 can be overwritten by the phy write function.
+It is a bit old. It could be better to rebase it against David Miller's
+net-next tree as the drivers/net/ ethernet device tree has undergone
+some changes.
 
-Signed-off-by: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_phy.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+The net-next tree is currently available at:
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index e662554..7edf31e 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -306,6 +306,12 @@ s32 igb_write_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 data)
- 	u32 i, i2ccmd = 0;
- 	u16 phy_data_swapped;
- 
-+	/* Prevent overwritting SFP I2C EEPROM which is at A0 address.*/
-+	if ((hw->phy.addr == 0) || (hw->phy.addr > 7)) {
-+		hw_dbg("PHY I2C Address %d is out of range.\n",
-+			  hw->phy.addr);
-+		return -E1000_ERR_CONFIG;
-+	}
- 
- 	/* Swap the data bytes for the I2C interface */
- 	phy_data_swapped = ((data >> 8) & 0x00FF) | ((data << 8) & 0xFF00);
+git://github.com/davem330/net-next.git
+
+> The driver versions for 2.6.18 and 2.6.32 based kernel have been
+> fully tested and released to the customer.  Shall I just send the
+> driverxx.c and driverxx.h for net-2.6-353e5c9 and linux-3.0-rc5
+> to this alias?
+
+The remarks from 04/11 are still relevant but it will be a good start.
+
+Did it went through internal reviewing by some usual Linux folks at
+oracle (hint, hint) ?
+
 -- 
-1.7.6.4
+Ueimor
