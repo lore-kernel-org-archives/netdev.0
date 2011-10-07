@@ -1,202 +1,117 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] IPv6: DAD from bonding iface is treated as dup address
- from others
-Date: Fri, 7 Oct 2011 07:10:28 -0400
-Message-ID: <20111007111028.GA11408@hmsreliant.think-freely.org>
-References: <1317873550-1677-1-git-send-email-Yinglin.Sun@emc.com>
- <20111006110047.GA22462@hmsreliant.think-freely.org>
- <27199.1317927933@death>
- <CAN17JHUo00BGbsQ0wDjhcY-wWRuGr-in-i_JBzE5__jgO5be=g@mail.gmail.com>
- <CAN17JHWgYyrz0WFmXiyR8Ep1W-zGjeQEKCADmX6zMT=ZfQ8n7Q@mail.gmail.com>
- <7122.1317949193@death>
- <CAN17JHUkeCarKf3U-0EMEyL+RJvZGV3GSQWG7+TZFy7ZvD8jYA@mail.gmail.com>
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: Re: loopback IP alias breaks tftp?
+Date: Fri, 7 Oct 2011 07:40:18 -0400
+Message-ID: <20111007114017.GA1165@zod.bos.redhat.com>
+References: <20111005202723.GE2479@zod.bos.redhat.com>
+ <alpine.LFD.2.00.1110060009020.1959@ja.ssi.bg>
+ <20111006132353.GF2479@zod.bos.redhat.com>
+ <CAA6X_dP_LDO0hQYpixi-DtsKVJZQEgAY5wa4y_wYpEqXVyn7TQ@mail.gmail.com>
+ <1317972573.3457.55.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Yinglin Sun <yinglin.s@gmail.com>
+Cc: Joel Sing <jsing@google.com>, Julian Anastasov <ja@ssi.bg>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49395 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759824Ab1JGLK7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 07:10:59 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:3706 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965366Ab1JGLkh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 07:40:37 -0400
 Content-Disposition: inline
-In-Reply-To: <CAN17JHUkeCarKf3U-0EMEyL+RJvZGV3GSQWG7+TZFy7ZvD8jYA@mail.gmail.com>
+In-Reply-To: <1317972573.3457.55.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 06, 2011 at 06:24:36PM -0700, Yinglin Sun wrote:
-> On Thu, Oct 6, 2011 at 5:59 PM, Jay Vosburgh <fubar@us.ibm.com> wrote=
-:
-> > Yinglin Sun <Yinglin.Sun@emc.com> wrote:
-> >
-> >>On Thu, Oct 6, 2011 at 3:17 PM, Yinglin Sun <Yinglin.Sun@emc.com> w=
-rote:
-> >>>
-> >>> On Thu, Oct 6, 2011 at 12:05 PM, Jay Vosburgh <fubar@us.ibm.com> =
-wrote:
-> >>> >
-> >>> > Neil Horman <nhorman@tuxdriver.com> wrote:
-> >>> >
-> >>> > >On Wed, Oct 05, 2011 at 08:59:10PM -0700, Yinglin Sun wrote:
-> >>> > >> Steps to reproduce this issue:
-> >>> > >> 1. create bond0 over eth0 and eth1, set the mode to balance-=
-xor
-> >>> > >> 2. add an IPv6 address to bond0
-> >>> > >> 3. DAD packet is sent out from one slave and then is looped =
-back from
-> >>> > >> the other slave. Therefore, it is treated as a duplicate add=
-ress and
-> >>> > >> stays tentative afterwards:
-> >>> > >> =A0 =A0kern.info:
-> >>> > >> =A0 =A0 =A0 =A0Oct =A05 11:50:18 testvm1 kernel: [ =A0129.22=
-4353] bond0: IPv6 duplicate address 1234::1 detected!
-> >
-> > [...]
-> >
-> >>> > >Nack, This seems like it will just completely break DAD. =A0Wh=
-at if theres another
-> >>> > >system out there with the same mac address. =A0A response from=
- that system would
-> >>> > >get dropped by this filter, instead of causing The local syste=
-m to stop using
-> >>> > >the address. =A0What you really want to do is modify
-> >>> > >bond_should_deliver_exact_match to detect this frame on the in=
-active slave or
-> >>> > >some such, and drop the frame there.
-> >>> >
-> >>> > =A0 =A0 =A0 =A0Also NACK; and adding a bit of information. =A0T=
-he balance-xor
-> >>> > mode is nominally expecting to interact with a switch whose por=
-ts are
-> >>> > set for etherchannel ("static link aggregation"), in which case=
- the
-> >>> > switch will not loop the packet back around.
-> >>> >
-> >>> > =A0 =A0 =A0 =A0If your switch can do etherchannel, then enable =
-it and the
-> >>> > problem should go away. =A0If your switch cannot do this, then =
-you may
-> >>> > have other issues, because all of the multicast or broadcast pa=
-ckets
-> >>> > going out any bonding slave will loop around to another slave. =
-=A0You
-> >>> > could also use 802.3ad / LACP if you switch supports that.
-> >>> >
-> >>> > =A0 =A0 =A0 =A0For balance-xor (or balance-rr, for that matter)=
- mode to a
-> >>> > non-etherchannel switch, it's going to be difficult, if not imp=
-ossible,
-> >>> > to modify bond_should_deliver_exact_match, because there are no=
- inactive
-> >>> > slaves. =A0In this mode, bonding is expecting the switch to bal=
-ance
-> >>> > incoming traffic across the ports, and not deliver looped back =
-packets
-> >>> > or duplicates. =A0There are no restrictions on what type of tra=
-ffic
-> >>> > (mcast, bcast, ucast) may arrive on any given port.
-> >>> >
-> >>> > =A0 =A0 =A0 =A0I can't think of a way to make the non-etherchan=
-nel case work
-> >>> > for balance-xor (or balance-rr) without breaking the DAD functi=
-onality
-> >>> > in the case of an actual duplicate. =A0I'm not aware of a way t=
-o
-> >>> > distinguish a looped back DAD probe from an actual duplicate ad=
-dress
-> >>> > probe elsewhere on the network.
-> >>> >
-> >>>
-> >>> Hi Neil & Jay,
-> >>>
-> >>> Thanks a lot for the comments.
-> >>>
-> >>> The use case is to add IPv6 address on the bonding interface firs=
-t,
-> >>> and then set up port channel on switch. We'll hit this issue and =
-the
-> >>> new address will stay tentative and unusable after port channel i=
-s set
-> >>> up on switch. This patch is for this valid use case.
-> >>>
-> >>> Except failover mode, all slaves are active on receiving packets,=
- so
-> >>> we are receiving such looped back DAD and the bonding driver cann=
-ot
-> >>> ignore them. I cannot think of a way to distinguish if a DAD is l=
-ooped
-> >>> back or from someone else having the same mac address. They look =
-the
-> >>> same to the host. If there is another machine having the same mac
-> >>> address, this code path gets executed if both are doing DAD at th=
+On Fri, Oct 07, 2011 at 09:29:33AM +0200, Eric Dumazet wrote:
+> Le vendredi 07 octobre 2011 =E0 18:02 +1100, Joel Sing a =E9crit :
+> > > > > We've had a report [1] of a change in behavior when trying to=
+ use an IP
+> > > > > alias to tftp from a loopback device.  Apparently the steps o=
+utlined in
+> > > > > [1] https://bugzilla.redhat.com/show_bug.cgi?id=3D739534
+> > >
+> > > Yep.  That is exactly what my git bisect said too.
+> > >
+> > > So now we have a change in behavior since that commit for the use=
+case
+> > > described in the bug above, but I'm unsure if that usecase was ev=
+er
+> > > really valid or if the commit had unintentional side effects.
+> > >
+> > > Joel (or anyone else) can you take a look and comment?
+> >=20
+> > Prior to this commit the src address in the local routing table was
+> > completely ignored, so connecting to a local address always used th=
 e
-> >>> same time for the same IPv6 address. Maybe we should find out wha=
-t the
-> >>> specification defines for this case?
-> >>>
-> >>
-> >>RFC4862 has a discussion about this issue:
-> >>http://tools.ietf.org/html/rfc4862#appendix-A
-> >>The better solution could be to record the number of DAD sent out. =
-If
-> >>we received more DAD packets than we sent out, there is someone els=
-e
-> >>on the network who has the same mac address and sent DAD for the sa=
-me
-> >>IPv6 address. However, this solution doesn't work with bonding
-> >>interface, since all other active slaves but the one sending out DA=
-D
-> >>will receive packet looped back. It doesn't seem there is a simple
-> >>solution for this issue.
-> >
-> > =A0 =A0 =A0 =A0Why are you setting up the port channel after config=
-uring the
-> > bond?
-> >
-> > =A0 =A0 =A0 =A0As a possible workaround, if you have control over t=
-he setup
-> > process (perhaps it's some sort of manual process), adding one slav=
-e to
-> > the bond, leaving the other soon-to-be slaves down, then setting up=
- the
-> > switch, and finally adding the remaining slaves should work around =
-the
-> > issue, since if the bond has only one slave it won't see any looped
-> > packets.
-> >
-> > =A0 =A0 =A0 =A0Or you could bring the bond up as active-backup, the=
-n change the
-> > mode to balance-xor once the switch is configured.
-> >
-> > =A0 =A0 =A0 =A0Ultimately, though, the problem stems from the setti=
-ngs mismatch
-> > between the switch and the bonding system; balance-xor is meant to
-> > interoperate with etherchannel, and when the switch is not configur=
+> > same source and destination addresses. However, this is not what wa=
+s
+> > configured in the local routing table:
+> >=20
+> >   $ ifconfig lo:0 127.0.0.2
+> >   $ ip route show table local | grep 127.0.0.2
+> >   local 127.0.0.2 dev lo  proto kernel  scope host  src 127.0.0.1
+> >=20
+> > When an interface has an alias configured, the source address
+> > installed in the local routing table is always the primary address =
+for
+> > the interface. The tftp use case you've described now breaks due to
+> > the way that in.tftpd is determining the reply address (as document=
 ed
-> > properly, correct behavior is difficult to guarantee.
-> >
+> > in the in.tftpd manual page). This means that it is now responding
+> > from 127.0.0.1 even though the client connected to 127.0.0.2. Bindi=
+ng
+> > inetd to a specific address will avoid this issue.
+> >=20
+> > I have not yet looked to see if there is a specific reason for the
+> > source address selection, however one way of restoring the previous
+> > behaviour (whilst still respecting the configured source address)
+> > would be to use a default source address which matches the configur=
+ed
+> > address (as is done for primary addresses). I cannot immediately th=
+ink
+> > of a reason not to do this, but I've not gone looking at the code.
+> >=20
+> > Worst case scenario if you specifically need the original behaviour
+> > then the source address can be changed in the local routing table:
+> >=20
+> >   $ ip route change table local local 127.0.0.2 dev lo:0 proto kern=
+el
+> > scope host src 127.0.0.2
+> >   $ ip route show table local | grep 127.0.0.2
+> >   local 127.0.0.2 dev lo  proto kernel  scope host  src 127.0.0.2
 >=20
-> Jay,
+> Agreed.
 >=20
-> Thanks a lot for the suggestion.
+> The "table local" bit is really the key, because following naive setu=
+p
+> doesnt work.
 >=20
-> It's mainly about usability. We would like to provide customers with
-> consistent IPv6 configuration procedures as IPv4.  Such workarounds
-> could be confusing and generate customer calls.
+> # ip addr add 127.0.0.11/8 dev lo
+> # ip route add 127.0.0.11 dev lo src 127.0.0.11
 >=20
-Its not a workaround, its the way it has to be done.  You can't just dr=
-op dad
-packets because you can't tell the difference between those that are lo=
-oped back
-and those that are legitimaely from other hosts, so you need to do some=
-thing
-like what Jay is suggesting.
+> since 127.0.0.1 will still be the src address selected for connection=
+s.
+>=20
+> # ip ro show table local | grep 127.0.0.11
+> local 127.0.0.11 dev lo  proto kernel  scope host  src 127.0.0.1=20
 
-> Yinglin
->=20
+The original bug reporter explained the loopback testcase is simply a
+trivial example to illustrate the problem.  The real setup seems to be:
+
+"I have a hardware (Dell PC) booting over the network with PXE, this
+hardware try to load it system from a tftp server. If I used the real
+ip of the tftp server I have no problem, if I used an alias I have the
+problem (I have to use an alias, because I have a Cluster).
+
+What I think, the bios tftp client talk to the server with the IP alias
+but the server reply with the real IP and the client reject the reply."
+
+So in this case, because the alias is being used in a cluster, should h=
+e
+also setup the local routing table as you suggested?
+
+I apologize for my lack of depth here.  I'm at the moment somewhat of a
+go-between.  I do greatly appreciate the help!
+
+josh
