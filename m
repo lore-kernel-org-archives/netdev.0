@@ -1,33 +1,55 @@
-From: Marc Ballarin <ballarin.marc@gmx.de>
-Subject: Regression: non-working WOL with r8169
-Date: Fri, 7 Oct 2011 22:19:06 +0200
-Message-ID: <20111007221906.810698ba9bf825566a2478bb@gmx.de>
+From: "Mr. Beuker Hendrik" <guidek@ufpr.br>
+Subject: (unknown)
+Date: Fri, 7 Oct 2011 16:03:00 -0300 (BRT)
+Message-ID: <6c471a7ff045dbfbfdd983795a84158b.squirrel@webmail.ufpr.br>
+Reply-To: mrbeuker@yahoo.co.jp
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hayeswang@realtek.com
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.22]:46456 "HELO
-	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753540Ab1JGUTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 16:19:10 -0400
+Received: from mail.ufpr.br ([200.17.203.37]:55836 "EHLO ufpr.br"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754212Ab1JGUYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 16:24:16 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hi,
-I just bisected a wake-on-lan regression to commit 
-92fc43b4159b518f5baae57301f26d770b0834c9 "r8169: modify the flow of the hw reset."
 
-Symptoms: Wake-on-lan does not work, although ethtool reports "Wake-on: g".
-Working kernels: 3.0.x or 3.1-rcX with the above commit and all following commits (which
-depend on it) reverted (or 3.1-rc with r8169.c from 3.0.x + include fixes)
 
-Hardware is "Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet
-controller (rev 06)", (tp->mac_version is 32, i.e RTL_GIGA_MAC_VER_33)
+UBS International Holdings BV
+Herengracht 600
+NL-1017 CJ Amsterdam, Netherlands.
+www.ubs.com/investmentbank
 
-Feel free to ask for any further information.
+Greetings,
 
-Regards,
-Marc
+  I am an investment consultant working with UBS International Holdings BV
+in the Netherlands. I will be happy to work this transaction out with you
+if you have a corporate or personal Bank Account and if you are reliable
+and honest. I need strong Assurance that you will never let me down, as I
+can arrange and provide you details/documentatal proof so that
+funds($8.5 million) will be transferred into your account as the next of
+kin to the late depositor(Abbas Farhan al-Jabouri, who was an Election
+candidate and also a business man). Abbas Farhan al-Jabouri and his two
+relatives were executed in Mohammed al Malih, near Mandali onthe 29th of
+January 2009.  During one of our periodic auditing I discovered a dormant
+accounts with the said balance (Eight million, five Hundred thousand
+Dollars only), this account have not been operated for some years now.
+
+At this moment I will not be able to issue more details about this
+business, until your response is received.
+
+  If you are not familiar with my Bank profile, please take a moment of your
+very busy schedules to read about my Bank
+website(www.ubs.com/investment bank). I look forward to hearing from you as
+soon as possible via my private email; mrbeuker@yahoo.co.jp
+
+Thank you for your time and attention.
+
+Warmest Regards,
+Mr. Beuker Hendrik
+Investment Consultant.
+UBS.
