@@ -1,370 +1,226 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [RFC] net: add wireless TX status socket option
-Date: Fri, 07 Oct 2011 20:06:25 +0200
-Message-ID: <1318010785.3988.39.camel@jlt3.sipsolutions.net>
-References: <1318007970.3988.27.camel@jlt3.sipsolutions.net>
-	 (sfid-20111007_191939_635174_0248A79F)
+From: Yinglin Sun <yinglin.s@gmail.com>
+Subject: Re: [PATCH] IPv6: DAD from bonding iface is treated as dup address
+ from others
+Date: Fri, 7 Oct 2011 11:08:49 -0700
+Message-ID: <CAN17JHUZLWmDQF8P6eCbLkTanYjwi0YmF5dXkfvH_QCRnbtaMA@mail.gmail.com>
+References: <1317873550-1677-1-git-send-email-Yinglin.Sun@emc.com>
+	<20111006110047.GA22462@hmsreliant.think-freely.org>
+	<27199.1317927933@death>
+	<CAN17JHUo00BGbsQ0wDjhcY-wWRuGr-in-i_JBzE5__jgO5be=g@mail.gmail.com>
+	<CAN17JHWgYyrz0WFmXiyR8Ep1W-zGjeQEKCADmX6zMT=ZfQ8n7Q@mail.gmail.com>
+	<7122.1317949193@death>
+	<CAN17JHUkeCarKf3U-0EMEyL+RJvZGV3GSQWG7+TZFy7ZvD8jYA@mail.gmail.com>
+	<20111007111028.GA11408@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1318007970.3988.27.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org> (sfid-20111007_191939_635174_0248A79F)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:41663 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752821Ab1JGSIv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 14:08:51 -0400
+Received: by bkbzt4 with SMTP id zt4so5123966bkb.19
+        for <netdev@vger.kernel.org>; Fri, 07 Oct 2011 11:08:50 -0700 (PDT)
+In-Reply-To: <20111007111028.GA11408@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-10-07 at 19:19 +0200, Johannes Berg wrote:
+On Fri, Oct 7, 2011 at 4:10 AM, Neil Horman <nhorman@tuxdriver.com> wro=
+te:
+> On Thu, Oct 06, 2011 at 06:24:36PM -0700, Yinglin Sun wrote:
+>> On Thu, Oct 6, 2011 at 5:59 PM, Jay Vosburgh <fubar@us.ibm.com> wrot=
+e:
+>> > Yinglin Sun <Yinglin.Sun@emc.com> wrote:
+>> >
+>> >>On Thu, Oct 6, 2011 at 3:17 PM, Yinglin Sun <Yinglin.Sun@emc.com> =
+wrote:
+>> >>>
+>> >>> On Thu, Oct 6, 2011 at 12:05 PM, Jay Vosburgh <fubar@us.ibm.com>=
+ wrote:
+>> >>> >
+>> >>> > Neil Horman <nhorman@tuxdriver.com> wrote:
+>> >>> >
+>> >>> > >On Wed, Oct 05, 2011 at 08:59:10PM -0700, Yinglin Sun wrote:
+>> >>> > >> Steps to reproduce this issue:
+>> >>> > >> 1. create bond0 over eth0 and eth1, set the mode to balance=
+-xor
+>> >>> > >> 2. add an IPv6 address to bond0
+>> >>> > >> 3. DAD packet is sent out from one slave and then is looped=
+ back from
+>> >>> > >> the other slave. Therefore, it is treated as a duplicate ad=
+dress and
+>> >>> > >> stays tentative afterwards:
+>> >>> > >> =C2=A0 =C2=A0kern.info:
+>> >>> > >> =C2=A0 =C2=A0 =C2=A0 =C2=A0Oct =C2=A05 11:50:18 testvm1 ker=
+nel: [ =C2=A0129.224353] bond0: IPv6 duplicate address 1234::1 detected=
+!
+>> >
+>> > [...]
+>> >
+>> >>> > >Nack, This seems like it will just completely break DAD. =C2=A0=
+What if theres another
+>> >>> > >system out there with the same mac address. =C2=A0A response =
+from that system would
+>> >>> > >get dropped by this filter, instead of causing The local syst=
+em to stop using
+>> >>> > >the address. =C2=A0What you really want to do is modify
+>> >>> > >bond_should_deliver_exact_match to detect this frame on the i=
+nactive slave or
+>> >>> > >some such, and drop the frame there.
+>> >>> >
+>> >>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Also NACK; and adding a bit of info=
+rmation. =C2=A0The balance-xor
+>> >>> > mode is nominally expecting to interact with a switch whose po=
+rts are
+>> >>> > set for etherchannel ("static link aggregation"), in which cas=
+e the
+>> >>> > switch will not loop the packet back around.
+>> >>> >
+>> >>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0If your switch can do etherchannel,=
+ then enable it and the
+>> >>> > problem should go away. =C2=A0If your switch cannot do this, t=
+hen you may
+>> >>> > have other issues, because all of the multicast or broadcast p=
+ackets
+>> >>> > going out any bonding slave will loop around to another slave.=
+ =C2=A0You
+>> >>> > could also use 802.3ad / LACP if you switch supports that.
+>> >>> >
+>> >>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0For balance-xor (or balance-rr, for=
+ that matter) mode to a
+>> >>> > non-etherchannel switch, it's going to be difficult, if not im=
+possible,
+>> >>> > to modify bond_should_deliver_exact_match, because there are n=
+o inactive
+>> >>> > slaves. =C2=A0In this mode, bonding is expecting the switch to=
+ balance
+>> >>> > incoming traffic across the ports, and not deliver looped back=
+ packets
+>> >>> > or duplicates. =C2=A0There are no restrictions on what type of=
+ traffic
+>> >>> > (mcast, bcast, ucast) may arrive on any given port.
+>> >>> >
+>> >>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0I can't think of a way to make the =
+non-etherchannel case work
+>> >>> > for balance-xor (or balance-rr) without breaking the DAD funct=
+ionality
+>> >>> > in the case of an actual duplicate. =C2=A0I'm not aware of a w=
+ay to
+>> >>> > distinguish a looped back DAD probe from an actual duplicate a=
+ddress
+>> >>> > probe elsewhere on the network.
+>> >>> >
+>> >>>
+>> >>> Hi Neil & Jay,
+>> >>>
+>> >>> Thanks a lot for the comments.
+>> >>>
+>> >>> The use case is to add IPv6 address on the bonding interface fir=
+st,
+>> >>> and then set up port channel on switch. We'll hit this issue and=
+ the
+>> >>> new address will stay tentative and unusable after port channel =
+is set
+>> >>> up on switch. This patch is for this valid use case.
+>> >>>
+>> >>> Except failover mode, all slaves are active on receiving packets=
+, so
+>> >>> we are receiving such looped back DAD and the bonding driver can=
+not
+>> >>> ignore them. I cannot think of a way to distinguish if a DAD is =
+looped
+>> >>> back or from someone else having the same mac address. They look=
+ the
+>> >>> same to the host. If there is another machine having the same ma=
+c
+>> >>> address, this code path gets executed if both are doing DAD at t=
+he
+>> >>> same time for the same IPv6 address. Maybe we should find out wh=
+at the
+>> >>> specification defines for this case?
+>> >>>
+>> >>
+>> >>RFC4862 has a discussion about this issue:
+>> >>http://tools.ietf.org/html/rfc4862#appendix-A
+>> >>The better solution could be to record the number of DAD sent out.=
+ If
+>> >>we received more DAD packets than we sent out, there is someone el=
+se
+>> >>on the network who has the same mac address and sent DAD for the s=
+ame
+>> >>IPv6 address. However, this solution doesn't work with bonding
+>> >>interface, since all other active slaves but the one sending out D=
+AD
+>> >>will receive packet looped back. It doesn't seem there is a simple
+>> >>solution for this issue.
+>> >
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Why are you setting up the port channel=
+ after configuring the
+>> > bond?
+>> >
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0As a possible workaround, if you have c=
+ontrol over the setup
+>> > process (perhaps it's some sort of manual process), adding one sla=
+ve to
+>> > the bond, leaving the other soon-to-be slaves down, then setting u=
+p the
+>> > switch, and finally adding the remaining slaves should work around=
+ the
+>> > issue, since if the bond has only one slave it won't see any loope=
+d
+>> > packets.
+>> >
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Or you could bring the bond up as activ=
+e-backup, then change the
+>> > mode to balance-xor once the switch is configured.
+>> >
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Ultimately, though, the problem stems f=
+rom the settings mismatch
+>> > between the switch and the bonding system; balance-xor is meant to
+>> > interoperate with etherchannel, and when the switch is not configu=
+red
+>> > properly, correct behavior is difficult to guarantee.
+>> >
+>>
+>> Jay,
+>>
+>> Thanks a lot for the suggestion.
+>>
+>> It's mainly about usability. We would like to provide customers with
+>> consistent IPv6 configuration procedures as IPv4. =C2=A0Such workaro=
+unds
+>> could be confusing and generate customer calls.
+>>
+> Its not a workaround, its the way it has to be done. =C2=A0You can't =
+just drop dad
+> packets because you can't tell the difference between those that are =
+looped back
+> and those that are legitimaely from other hosts, so you need to do so=
+mething
+> like what Jay is suggesting.
+>
 
-> This works similar to the existing TX timestamping
-> in that it reflects the SKB back to the socket's
-> error queue with a SCM_WIFI_STATUS cmsg that has
-> an int indicating ACK status (0/1).
+Yes, you are right. For this case, we cannot tell the difference
+between those DADs  looped back and DADs for the same IPv6 addresses,
+which are from other machines having the same mac address on the
+network.
 
-I should give you a test application. This is based on the code in
-Documentation/networking/timestamping/timestamping.c and sends the same
-frames, but to UDP port 1 to a peer you give on the command line.
+If this happens, the network is already broken due to duplicate mac
+addresses, right? I know this is not the excuse to drop DAD from
+others having the same mac address, since those DADs are legitimate
+and indicate duplicate IPv6 address in the network. Just out of
+curiosity, is there any case that such network can still function well
+with multiple machines having the same mac address besides link
+aggregation? Maybe we could drop those DADs since the network is
+already in trouble?
 
-E.g. if you save this file as ack.c, you can do
+Thanks.
 
-$ ./ack 192.168.100.2
-SO_WIFI_STATUS 1
-1318010597.494035: sent 124 bytes
-1318010597.494084: select 2505916us
-1318010597.513457: select returned: 1, success
-ready for reading
-1318010597.513668: received error data, 194 bytes from 69.0.0.152, 72 bytes control messages
-   cmsg len 20: SOL_SOCKET acked: 1
-   cmsg len 48: IPPROTO_IP IP_RECVERR ee_errno 'No message of desired type' ee_origin 4 => bounced packet => GOT OUR DATA BACK (HURRAY!)
-1318010597.513860: select 2486140us
-
-(not sure what's with the bogus RX IP, probably just not a valid field here)
-
-johannes
-
-
-/*
- * This program demonstrates how the wifi ack status feature in
- * the Linux kernel works. It sends some random packets and prints
- * out whether it was acked.
- *
- * Copyright (C) 2009, 2011 Intel Corporation.
- * Author: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
- * Author: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-
-#include <sys/time.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <sys/ioctl.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-
-#include <asm/types.h>
-#include <linux/net_tstamp.h>
-#include <linux/errqueue.h>
-
-#ifndef SO_WIFI_STATUS
-# define SO_WIFI_STATUS		41
-# define SCM_WIFI_STATUS	SO_WIFI_STATUS
-#endif
-
-#ifndef SO_EE_ORIGIN_TXSTATUS
-#define SO_EE_ORIGIN_TXSTATUS	4
-#endif
-
-static void bail(const char *error)
-{
-	printf("%s: %s\n", error, strerror(errno));
-	exit(1);
-}
-
-static const unsigned char sync[] = {
-	0x00, 0x01, 0x00, 0x01,
-	0x5f, 0x44, 0x46, 0x4c,
-	0x54, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00,
-	0x01, 0x01,
-
-	/* fake uuid */
-	0x00, 0x01,
-	0x02, 0x03, 0x04, 0x05,
-
-	0x00, 0x01, 0x00, 0x37,
-	0x00, 0x00, 0x00, 0x08,
-	0x00, 0x00, 0x00, 0x00,
-	0x49, 0x05, 0xcd, 0x01,
-	0x29, 0xb1, 0x8d, 0xb0,
-	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x01,
-
-	/* fake uuid */
-	0x00, 0x01,
-	0x02, 0x03, 0x04, 0x05,
-
-	0x00, 0x00, 0x00, 0x37,
-	0x00, 0x00, 0x00, 0x04,
-	0x44, 0x46, 0x4c, 0x54,
-	0x00, 0x00, 0xf0, 0x60,
-	0x00, 0x01, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x01,
-	0x00, 0x00, 0xf0, 0x60,
-	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x04,
-	0x44, 0x46, 0x4c, 0x54,
-	0x00, 0x01,
-
-	/* fake uuid */
-	0x00, 0x01,
-	0x02, 0x03, 0x04, 0x05,
-
-	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00
-};
-
-static void sendpacket(int sock, struct sockaddr *addr, socklen_t addr_len)
-{
-	struct timeval now;
-	int res;
-
-	res = sendto(sock, sync, sizeof(sync), 0,
-		addr, addr_len);
-	gettimeofday(&now, 0);
-	if (res < 0)
-		printf("%s: %s\n", "send", strerror(errno));
-	else
-		printf("%ld.%06ld: sent %d bytes\n",
-		       (long)now.tv_sec, (long)now.tv_usec,
-		       res);
-}
-
-static void printpacket(struct msghdr *msg, int res,
-			char *data, int sock)
-{
-	struct sockaddr_in *from_addr = (struct sockaddr_in *)msg->msg_name;
-	struct cmsghdr *cmsg;
-	struct timeval tv;
-	struct timespec ts;
-	struct timeval now;
-
-	gettimeofday(&now, 0);
-
-	printf("%ld.%06ld: received %s data, %d bytes from %s, %zu bytes control messages\n",
-	       (long)now.tv_sec, (long)now.tv_usec, "error",
-	       res,
-	       inet_ntoa(from_addr->sin_addr),
-	       msg->msg_controllen);
-	for (cmsg = CMSG_FIRSTHDR(msg);
-	     cmsg;
-	     cmsg = CMSG_NXTHDR(msg, cmsg)) {
-		printf("   cmsg len %zu: ", cmsg->cmsg_len);
-		switch (cmsg->cmsg_level) {
-		case SOL_SOCKET:
-			printf("SOL_SOCKET ");
-			switch (cmsg->cmsg_type) {
-			case SCM_WIFI_STATUS: {
-				int *ack = (void *)CMSG_DATA(cmsg);
-				printf("acked: %d", *ack);
-				break;
-			}
-			default:
-				printf("type %d", cmsg->cmsg_type);
-				break;
-			}
-			break;
-		case IPPROTO_IP:
-			printf("IPPROTO_IP ");
-			switch (cmsg->cmsg_type) {
-			case IP_RECVERR: {
-				struct sock_extended_err *err =
-					(struct sock_extended_err *)CMSG_DATA(cmsg);
-				printf("IP_RECVERR ee_errno '%s' ee_origin %d => %s",
-					strerror(err->ee_errno),
-					err->ee_origin,
-					err->ee_origin == SO_EE_ORIGIN_TXSTATUS ?
-					"bounced packet" : "unexpected origin"
-					);
-				if (res < sizeof(sync))
-					printf(" => truncated data?!");
-				else if (!memcmp(sync, data + res - sizeof(sync),
-						 sizeof(sync)))
-					printf(" => GOT OUR DATA BACK (HURRAY!)");
-				break;
-			}
-			case IP_PKTINFO: {
-				struct in_pktinfo *pktinfo =
-					(struct in_pktinfo *)CMSG_DATA(cmsg);
-				printf("IP_PKTINFO interface index %u",
-					pktinfo->ipi_ifindex);
-				break;
-			}
-			default:
-				printf("type %d", cmsg->cmsg_type);
-				break;
-			}
-			break;
-		default:
-			printf("level %d type %d",
-				cmsg->cmsg_level,
-				cmsg->cmsg_type);
-			break;
-		}
-		printf("\n");
-	}
-}
-
-static void recvpacket(int sock)
-{
-	char data[256];
-	struct msghdr msg;
-	struct iovec entry;
-	struct sockaddr_in from_addr;
-	struct {
-		struct cmsghdr cm;
-		char control[512];
-	} control;
-	int res;
-
-	memset(&msg, 0, sizeof(msg));
-	msg.msg_iov = &entry;
-	msg.msg_iovlen = 1;
-	entry.iov_base = data;
-	entry.iov_len = sizeof(data);
-	msg.msg_name = (caddr_t)&from_addr;
-	msg.msg_namelen = sizeof(from_addr);
-	msg.msg_control = &control;
-	msg.msg_controllen = sizeof(control);
-
-	res = recvmsg(sock, &msg, MSG_ERRQUEUE|MSG_DONTWAIT);
-	if (res < 0) {
-		printf("%s %s: %s\n",
-		       "recvmsg", "error",
-		       strerror(errno));
-	} else {
-		printpacket(&msg, res, data, sock);
-	}
-}
-
-int main(int argc, char **argv)
-{
-	int i;
-	int enabled = 1;
-	int sock;
-	struct ifreq device;
-	struct ifreq hwtstamp;
-	struct sockaddr_in addr;
-	struct ip_mreq imr;
-	int val;
-	socklen_t len;
-	struct timeval next;
-
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(1);
-
-	if (argc != 2 || inet_aton(argv[1], &addr.sin_addr) == 0) {
-		printf("%s <ip addr>\n", argv[0]);
-		exit(1);
-	}
-
-	sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (sock < 0)
-		bail("socket");
-
-
-	/* set socket option for wifi status */
-	if (setsockopt(sock, SOL_SOCKET, SO_WIFI_STATUS,
-		       &enabled, sizeof(enabled)) < 0) {
-		bail("enable ack status");
-	}
-
-	/* request IP_PKTINFO for debugging purposes */
-	if (setsockopt(sock, SOL_IP, IP_PKTINFO,
-		       &enabled, sizeof(enabled)) < 0)
-		printf("%s: %s\n", "setsockopt IP_PKTINFO", strerror(errno));
-
-	/* verify socket options */
-	len = sizeof(val);
-	if (getsockopt(sock, SOL_SOCKET, SO_WIFI_STATUS, &val, &len) < 0)
-		printf("%s: %s\n", "getsockopt SO_TIMESTAMP", strerror(errno));
-	else
-		printf("SO_WIFI_STATUS %d\n", val);
-
-	/* send packets forever every five seconds */
-	gettimeofday(&next, 0);
-	next.tv_sec = (next.tv_sec + 1) / 5 * 5;
-	next.tv_usec = 0;
-	while (1) {
-		struct timeval now;
-		struct timeval delta;
-		long delta_us;
-		int res;
-		fd_set readfs, errorfs;
-
-		gettimeofday(&now, 0);
-		delta_us = (long)(next.tv_sec - now.tv_sec) * 1000000 +
-			(long)(next.tv_usec - now.tv_usec);
-		if (delta_us > 0) {
-			/* continue waiting for timeout or data */
-			delta.tv_sec = delta_us / 1000000;
-			delta.tv_usec = delta_us % 1000000;
-
-			FD_ZERO(&readfs);
-			FD_ZERO(&errorfs);
-			FD_SET(sock, &readfs);
-			FD_SET(sock, &errorfs);
-			printf("%ld.%06ld: select %ldus\n",
-			       (long)now.tv_sec, (long)now.tv_usec,
-			       delta_us);
-			res = select(sock + 1, &readfs, 0, &errorfs, &delta);
-			gettimeofday(&now, 0);
-			printf("%ld.%06ld: select returned: %d, %s\n",
-			       (long)now.tv_sec, (long)now.tv_usec,
-			       res,
-			       res < 0 ? strerror(errno) : "success");
-			if (res > 0) {
-				if (FD_ISSET(sock, &readfs))
-					printf("ready for reading\n");
-				if (FD_ISSET(sock, &errorfs))
-					printf("has error\n");
-				recvpacket(sock);
-			}
-		} else {
-			/* write one packet */
-			sendpacket(sock,
-				   (struct sockaddr *)&addr,
-				   sizeof(addr));
-			next.tv_sec += 5;
-			continue;
-		}
-	}
-
-	return 0;
-}
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yinglin
