@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/13] igb: Combine all flag info fields into a single tx_flags structure
-Date: Fri,  7 Oct 2011 00:18:45 -0700
-Message-ID: <1317971926-23145-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/13] igb: Create separate functions for generating cmd_type and olinfo
+Date: Fri,  7 Oct 2011 00:18:43 -0700
+Message-ID: <1317971926-23145-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317971926-23145-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,148 +10,204 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:34234 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759329Ab1JGHSy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Oct 2011 03:18:54 -0400
+	id S1758905Ab1JGHSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 03:18:53 -0400
 In-Reply-To: <1317971926-23145-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change is meant to combine all of the TX flags fields into one u32
-flags field so that it can be stored into the tx_buffer_info structure.
-This includes the time stamp flag as well as mapped_as_page flag info.
+This change is meant to improve the readability of the driver by separating
+out the cmd_type configuration and the olinfo configuration into their own
+functions.  By doing this it is much easier to determine which ingredients
+go into setting up these to portions of the descriptor.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |    9 +++++++++
- drivers/net/ethernet/intel/igb/igb_main.c |   24 ++++++++----------------
- 2 files changed, 17 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.h |    2 +
+ drivers/net/ethernet/intel/igb/igb.h         |    2 +-
+ drivers/net/ethernet/intel/igb/igb_main.c    |  105 +++++++++++++++-----------
+ 3 files changed, 65 insertions(+), 44 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
+index 786e110..08a757e 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.h
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
+@@ -130,7 +130,9 @@ union e1000_adv_tx_desc {
+ #define E1000_ADVTXD_MAC_TSTAMP   0x00080000 /* IEEE1588 Timestamp packet */
+ #define E1000_ADVTXD_DTYP_CTXT    0x00200000 /* Advanced Context Descriptor */
+ #define E1000_ADVTXD_DTYP_DATA    0x00300000 /* Advanced Data Descriptor */
++#define E1000_ADVTXD_DCMD_EOP     0x01000000 /* End of Packet */
+ #define E1000_ADVTXD_DCMD_IFCS    0x02000000 /* Insert FCS (Ethernet CRC) */
++#define E1000_ADVTXD_DCMD_RS      0x08000000 /* Report Status */
+ #define E1000_ADVTXD_DCMD_DEXT    0x20000000 /* Descriptor extension (1=Adv) */
+ #define E1000_ADVTXD_DCMD_VLE     0x40000000 /* VLAN pkt enable */
+ #define E1000_ADVTXD_DCMD_TSE     0x80000000 /* TCP Seg enable */
 diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 1608110..b71d186 100644
+index 7185667..1608110 100644
 --- a/drivers/net/ethernet/intel/igb/igb.h
 +++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -130,6 +130,15 @@ struct vf_data_storage {
+@@ -231,7 +231,7 @@ struct igb_ring {
  
- #define IGB_MNG_VLAN_NONE -1
+ #define IGB_RING_FLAG_TX_CTX_IDX     0x00000001 /* HW requires context index */
  
-+#define IGB_TX_FLAGS_CSUM		0x00000001
-+#define IGB_TX_FLAGS_VLAN		0x00000002
-+#define IGB_TX_FLAGS_TSO		0x00000004
-+#define IGB_TX_FLAGS_IPV4		0x00000008
-+#define IGB_TX_FLAGS_TSTAMP		0x00000010
-+#define IGB_TX_FLAGS_MAPPED_AS_PAGE	0x00000020
-+#define IGB_TX_FLAGS_VLAN_MASK		0xffff0000
-+#define IGB_TX_FLAGS_VLAN_SHIFT	16
-+
- /* wrapper around a pointer to a socket buffer,
-  * so a DMA handle can be stored along with the buffer */
- struct igb_tx_buffer {
+-#define IGB_ADVTXD_DCMD (E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS)
++#define IGB_TXD_DCMD (E1000_ADVTXD_DCMD_EOP | E1000_ADVTXD_DCMD_RS)
+ 
+ #define IGB_RX_DESC(R, i)	    \
+ 	(&(((union e1000_adv_rx_desc *)((R)->desc))[i]))
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 3ebeb3e..dc93d64 100644
+index edc2cae..2c61ec4 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3143,7 +3143,7 @@ void igb_unmap_and_free_tx_resource(struct igb_ring *tx_ring,
- 				    struct igb_tx_buffer *buffer_info)
- {
- 	if (buffer_info->dma) {
--		if (buffer_info->mapped_as_page)
-+		if (buffer_info->tx_flags & IGB_TX_FLAGS_MAPPED_AS_PAGE)
- 			dma_unmap_page(tx_ring->dev,
- 					buffer_info->dma,
- 					buffer_info->length,
-@@ -3162,7 +3162,6 @@ void igb_unmap_and_free_tx_resource(struct igb_ring *tx_ring,
- 	buffer_info->time_stamp = 0;
- 	buffer_info->length = 0;
- 	buffer_info->next_to_watch = NULL;
--	buffer_info->mapped_as_page = false;
+@@ -4103,6 +4103,50 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring,
+ 	return (skb->ip_summed == CHECKSUM_PARTIAL);
  }
  
- /**
-@@ -3955,14 +3954,6 @@ set_itr_now:
- 	}
- }
- 
--#define IGB_TX_FLAGS_CSUM		0x00000001
--#define IGB_TX_FLAGS_VLAN		0x00000002
--#define IGB_TX_FLAGS_TSO		0x00000004
--#define IGB_TX_FLAGS_IPV4		0x00000008
--#define IGB_TX_FLAGS_TSTAMP		0x00000010
--#define IGB_TX_FLAGS_VLAN_MASK		0xffff0000
--#define IGB_TX_FLAGS_VLAN_SHIFT		        16
--
- void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
- 		     u32 type_tucmd, u32 mss_l4len_idx)
- {
-@@ -4151,7 +4142,7 @@ static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
++static __le32 igb_tx_cmd_type(u32 tx_flags)
++{
++	/* set type for advanced descriptor with frame checksum insertion */
++	__le32 cmd_type = cpu_to_le32(E1000_ADVTXD_DTYP_DATA |
++				      E1000_ADVTXD_DCMD_IFCS |
++				      E1000_ADVTXD_DCMD_DEXT);
++
++	/* set HW vlan bit if vlan is present */
++	if (tx_flags & IGB_TX_FLAGS_VLAN)
++		cmd_type |= cpu_to_le32(E1000_ADVTXD_DCMD_VLE);
++
++	/* set timestamp bit if present */
++	if (tx_flags & IGB_TX_FLAGS_TSTAMP)
++		cmd_type |= cpu_to_le32(E1000_ADVTXD_MAC_TSTAMP);
++
++	/* set segmentation bits for TSO */
++	if (tx_flags & IGB_TX_FLAGS_TSO)
++		cmd_type |= cpu_to_le32(E1000_ADVTXD_DCMD_TSE);
++
++	return cmd_type;
++}
++
++static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
++				   struct igb_ring *tx_ring)
++{
++	u32 olinfo_status = paylen << E1000_ADVTXD_PAYLEN_SHIFT;
++
++	/* 82575 requires a unique index per ring if any offload is enabled */
++	if ((tx_flags & (IGB_TX_FLAGS_CSUM | IGB_TX_FLAGS_VLAN)) &&
++	    (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX))
++		olinfo_status |= tx_ring->reg_idx << 4;
++
++	/* insert L4 checksum */
++	if (tx_flags & IGB_TX_FLAGS_CSUM) {
++		olinfo_status |= E1000_TXD_POPTS_TXSM << 8;
++
++		/* insert IPv4 checksum */
++		if (tx_flags & IGB_TX_FLAGS_IPV4)
++			olinfo_status |= E1000_TXD_POPTS_IXSM << 8;
++	}
++
++	return cpu_to_le32(olinfo_status);
++}
++
+ #define IGB_MAX_TXD_PWR	16
  #define IGB_MAX_DATA_PER_TXD	(1<<IGB_MAX_TXD_PWR)
  
- static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
--			     struct igb_tx_buffer *first)
-+			     struct igb_tx_buffer *first, u32 tx_flags)
+@@ -4187,54 +4231,28 @@ static inline void igb_tx_queue(struct igb_ring *tx_ring,
  {
+ 	union e1000_adv_tx_desc *tx_desc;
  	struct igb_tx_buffer *buffer_info;
- 	struct device *dev = tx_ring->dev;
-@@ -4165,11 +4156,14 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	buffer_info = &tx_ring->tx_buffer_info[i];
- 	BUG_ON(hlen >= IGB_MAX_DATA_PER_TXD);
- 	buffer_info->length = hlen;
-+	buffer_info->tx_flags = tx_flags;
- 	buffer_info->dma = dma_map_single(dev, skb->data, hlen,
- 					  DMA_TO_DEVICE);
- 	if (dma_mapping_error(dev, buffer_info->dma))
- 		goto dma_error;
+-	u32 olinfo_status = 0, cmd_type_len;
++	__le32 olinfo_status, cmd_type;
+ 	unsigned int i = tx_ring->next_to_use;
  
-+	tx_flags |= IGB_TX_FLAGS_MAPPED_AS_PAGE;
-+
- 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++) {
- 		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[f];
- 		unsigned int len = frag->size;
-@@ -4182,7 +4176,7 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
+-	cmd_type_len = (E1000_ADVTXD_DTYP_DATA | E1000_ADVTXD_DCMD_IFCS |
+-			E1000_ADVTXD_DCMD_DEXT);
+-
+-	if (tx_flags & IGB_TX_FLAGS_VLAN)
+-		cmd_type_len |= E1000_ADVTXD_DCMD_VLE;
+-
+-	if (tx_flags & IGB_TX_FLAGS_TSTAMP)
+-		cmd_type_len |= E1000_ADVTXD_MAC_TSTAMP;
+-
+-	if (tx_flags & IGB_TX_FLAGS_TSO) {
+-		cmd_type_len |= E1000_ADVTXD_DCMD_TSE;
+-
+-		/* insert tcp checksum */
+-		olinfo_status |= E1000_TXD_POPTS_TXSM << 8;
+-
+-		/* insert ip checksum */
+-		if (tx_flags & IGB_TX_FLAGS_IPV4)
+-			olinfo_status |= E1000_TXD_POPTS_IXSM << 8;
+-
+-	} else if (tx_flags & IGB_TX_FLAGS_CSUM) {
+-		olinfo_status |= E1000_TXD_POPTS_TXSM << 8;
+-	}
+-
+-	if ((tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX) &&
+-	    (tx_flags & (IGB_TX_FLAGS_CSUM |
+-	                 IGB_TX_FLAGS_TSO |
+-			 IGB_TX_FLAGS_VLAN)))
+-		olinfo_status |= tx_ring->reg_idx << 4;
+-
+-	olinfo_status |= ((paylen - hdr_len) << E1000_ADVTXD_PAYLEN_SHIFT);
++	cmd_type = igb_tx_cmd_type(tx_flags);
++	olinfo_status = igb_tx_olinfo_status(tx_flags,
++					     paylen - hdr_len,
++					     tx_ring);
+ 
+ 	do {
  		buffer_info = &tx_ring->tx_buffer_info[i];
- 		BUG_ON(len >= IGB_MAX_DATA_PER_TXD);
- 		buffer_info->length = len;
--		buffer_info->mapped_as_page = true;
-+		buffer_info->tx_flags = tx_flags;
- 		buffer_info->dma = skb_frag_dma_map(dev, frag, 0, len,
- 						DMA_TO_DEVICE);
- 		if (dma_mapping_error(dev, buffer_info->dma))
-@@ -4191,7 +4185,6 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 		tx_desc = IGB_TX_DESC(tx_ring, i);
+ 		tx_desc->read.buffer_addr = cpu_to_le64(buffer_info->dma);
+-		tx_desc->read.cmd_type_len =
+-			cpu_to_le32(cmd_type_len | buffer_info->length);
+-		tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
++		tx_desc->read.cmd_type_len = cmd_type |
++					     cpu_to_le32(buffer_info->length);
++		tx_desc->read.olinfo_status = olinfo_status;
+ 		count--;
+ 		i++;
+ 		if (i == tx_ring->count)
+ 			i = 0;
+ 	} while (count > 0);
+ 
+-	tx_desc->read.cmd_type_len |= cpu_to_le32(IGB_ADVTXD_DCMD);
++	tx_desc->read.cmd_type_len |= cpu_to_le32(IGB_TXD_DCMD);
+ 	/* Force memory writes to complete before letting h/w
+ 	 * know there are new descriptors to fetch.  (Only
+ 	 * applicable for weak-ordered memory model archs,
+@@ -4309,21 +4327,22 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
  	}
  
- 	buffer_info->skb = skb;
--	buffer_info->tx_flags = skb_shinfo(skb)->tx_flags;
- 	/* multiply data chunks by size of headers */
- 	buffer_info->bytecount = ((gso_segs - 1) * hlen) + skb->len;
- 	buffer_info->gso_segs = gso_segs;
-@@ -4211,7 +4204,6 @@ dma_error:
- 	buffer_info->dma = 0;
- 	buffer_info->time_stamp = 0;
- 	buffer_info->length = 0;
--	buffer_info->mapped_as_page = false;
+-	if (skb->protocol == htons(ETH_P_IP))
+-		tx_flags |= IGB_TX_FLAGS_IPV4;
+-
+ 	/* record the location of the first descriptor for this packet */
+ 	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
  
- 	/* clear timestamp and dma mappings for remaining portion of packet */
- 	while (count--) {
-@@ -4347,7 +4339,7 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	tso = igb_tso(tx_ring, skb, tx_flags, &hdr_len);
+ 
+-	if (tso < 0)
++	if (tso < 0) {
+ 		goto out_drop;
+-	else if (tso)
+-		tx_flags |= IGB_TX_FLAGS_TSO;
+-	else if (igb_tx_csum(tx_ring, skb, tx_flags) &&
+-	         (skb->ip_summed == CHECKSUM_PARTIAL))
++	} else if (tso) {
++		tx_flags |= IGB_TX_FLAGS_TSO | IGB_TX_FLAGS_CSUM;
++		if (skb->protocol == htons(ETH_P_IP))
++			tx_flags |= IGB_TX_FLAGS_IPV4;
++
++	} else if (igb_tx_csum(tx_ring, skb, tx_flags) &&
++		   (skb->ip_summed == CHECKSUM_PARTIAL)) {
+ 		tx_flags |= IGB_TX_FLAGS_CSUM;
++	}
+ 
+ 	/*
  	 * count reflects descriptors mapped, if 0 or less then mapping error
- 	 * has occurred and we need to rewind the descriptor queue
- 	 */
--	count = igb_tx_map(tx_ring, skb, first);
-+	count = igb_tx_map(tx_ring, skb, first, tx_flags);
- 	if (!count) {
- 		dev_kfree_skb_any(skb);
- 		first->time_stamp = 0;
-@@ -5567,7 +5559,7 @@ static void igb_tx_hwtstamp(struct igb_q_vector *q_vector,
- 	u64 regval;
- 
- 	/* if skb does not support hw timestamp or TX stamp not valid exit */
--	if (likely(!(buffer_info->tx_flags & SKBTX_HW_TSTAMP)) ||
-+	if (likely(!(buffer_info->tx_flags & IGB_TX_FLAGS_TSTAMP)) ||
- 	    !(rd32(E1000_TSYNCTXCTL) & E1000_TSYNCTXCTL_VALID))
- 		return;
- 
 -- 
 1.7.6.4
