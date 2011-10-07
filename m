@@ -1,32 +1,41 @@
-From: Joerg Pommnitz <pommnitz@yahoo.com>
-Subject: Old Mobile-IP code and modern Linux
-Date: Fri, 7 Oct 2011 06:27:24 -0700 (PDT)
-Message-ID: <1317994044.53022.YahooMailNeo@web161201.mail.bf1.yahoo.com>
-Reply-To: Joerg Pommnitz <pommnitz@yahoo.com>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH net 2/2] [BUGFIX] bonding: use flush_delayed_work_sync
+ in bond_close
+Date: Fri, 7 Oct 2011 21:34:32 +0800
+Message-ID: <CAM_iQpX+wfpkNiRfom148FEuSTqH_S3OiY31e+uCcTiuCx4etg@mail.gmail.com>
+References: <20111007124925.7089.27260.stgit@ltc219.sdl.hitachi.co.jp>
+	<20111007125006.7089.9539.stgit@ltc219.sdl.hitachi.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm30.bullet.mail.bf1.yahoo.com ([98.139.212.189]:37981 "HELO
-	nm30.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752532Ab1JGNeL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Oct 2011 09:34:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111007125006.7089.9539.stgit@ltc219.sdl.hitachi.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello all,
-I'm trying to run the old dynamics Mobile IP implementation (see http:/=
-/dynamics.sourceforge.net/) on a modern Linux kernel (Fedora 15 2.6.40 =
-aka 3.0).
-There seems to be a problem in the communication between a mobile node =
-and the foreign agent. The mobile node sends UDP packets with a source =
-address from its own home network to the discovered address of the FA. =
-Unfortunately the FA never sees these packets. It seems that packets wi=
-th an unexpected source address will be discarded (ingress filtering?).=
- Is there a way to disable this behavior? What is the right way to impl=
-ement MobileIP on a recent Linux kernel?
+On Fri, Oct 7, 2011 at 8:50 PM, Mitsuo Hayasaka
+<mitsuo.hayasaka.hu@hitachi.com> wrote:
+> The bond_close() calls cancel_delayed_work() to cancel delayed works.
+> It, however, cannot cancel works that were already queued in workqueue.
+> The bond_open() initializes work->data, and proccess_one_work() refers
+> get_work_cwq(work)->wq->flags. The get_work_cwq() returns NULL when
+> work->data has been initialized. Thus, a panic occurs.
+>
+> This patch uses flush_delayed_work_sync() instead of cancel_delayed_work()
+> in bond_close(). It cancels delayed timer and waits for work to finish
+> execution. So, it can avoid the null pointer dereference due to the
+> parallel executions of proccess_one_work() and initializing proccess
+> of bond_open().
+>
+> Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+> Cc: Jay Vosburgh <fubar@us.ibm.com>
+> Cc: Andy Gospodarek <andy@greyhouse.net>
 
-Thanks in advance
-=A0 Joerg
+Makes sense,
+
+Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
+
+Thanks!
