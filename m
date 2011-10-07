@@ -1,60 +1,124 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [PATCH 1/8] vxge: convert to SKB paged frag API.
-Date: Fri, 7 Oct 2011 06:29:17 +0100
-Message-ID: <1317965357.24742.24.camel@dagon.hellion.org.uk>
-References: <1317935310.24742.18.camel@dagon.hellion.org.uk>
-	 <20111006.171645.1154998655978830692.davem@davemloft.net>
-	 <1317936302.24742.23.camel@dagon.hellion.org.uk>
-	 <20111006.175632.863279389111584127.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: big picture UDP/IP performance question re 2.6.18  -> 2.6.32
+Date: Fri, 07 Oct 2011 07:40:07 +0200
+Message-ID: <1317966007.3457.47.camel@edumazet-laptop>
+References: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "mirqus@gmail.com" <mirqus@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jdmason@kudzu.us" <jdmason@kudzu.us>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:35932 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755973Ab1JGF3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 01:29:23 -0400
-In-Reply-To: <20111006.175632.863279389111584127.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Christoph Lameter <cl@gentwo.org>, Willy Tarreau <w@1wt.eu>,
+	Ingo Molnar <mingo@elte.hu>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	Joe Perches <joe@perches.com>,
+	Chetan Loke <Chetan.Loke@netscout.com>,
+	Con Kolivas <conman@kolivas.org>,
+	Serge Belyshev <belyshev@depni.sinp.msu.ru>
+To: starlight@binnacle.cx
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-10-06 at 22:56 +0100, David Miller wrote:
-> From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-> Date: Thu, 6 Oct 2011 22:25:02 +0100
-> 
-> > On Thu, 2011-10-06 at 22:16 +0100, David Miller wrote:
-> >> From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-> >> Date: Thu, 6 Oct 2011 22:08:30 +0100
-> >> 
-> >> > You are absolutely right, I've no idea how I missed the very obvious
-> >> > warning this produces. Incremental patch is below, sorry about this!
-> >> 
-> >> Would really love to know what your patch is against, since I
-> >> fixed this problem when I commited your original patch.
-> > 
-> > It was against e878d78b9a74 + the original bad patch, i.e.:
-> > 
-> > $ git log --pretty=oneline net-next/master^..HEAD
-> > 80f4b53b3d2c009689178d12de0bc108ddd580cd net: fix argument to dma_mapping_error after conversion to skb_frag_dma_map
-> > 669b1ce22eedd0f7bac048299feb06c67804ed83 net: use DMA_x_DEVICE and dma_mapping_error with skb_frag_dma_map
-> > e878d78b9a7403fabc89ecc93c56928b74d14f01 virtio-net: Verify page list size before fitting into skb
-> > 
-> > AFAICT e878d78b9a7403fabc89ecc93c56928b74d14f01 is still the head of the
-> > public git://github.com/davem330/net-next master.
-> 
-> I'm and idiot, I didn't push it out when I left the office :-/
-> 
-> Sorry.
+Le jeudi 06 octobre 2011 =C3=A0 23:27 -0400, starlight@binnacle.cx a =C3=
+=A9crit :
+> After writing the last post, the large
+> difference in IRQ rate between the older
+> and newer kernels caught my eye.
+>=20
+> I wonder if the hugely lower rate in the older
+> kernels reflects a more agile shifting
+> into and out of NAPI mode by the network
+> bottom-half.
+>=20
+> In this test the sending system
+> pulses data out on millisecond boundaries
+> due to the behavior of nsleep(), which
+> is used to establish the playback pace.
+>=20
+> If the older kernels are switching to NAPI
+> for much of surge and the switching out
+> once the pulse falls off, it might
+> conceivably result in much better latency
+> and overall performance.
+>=20
+> All tests were run with Intel 82571=20
+> network interfaces and the 'e1000e'
+> device driver.  Some used the driver
+> packaged with the kernel, some used
+> Intel driver compiled from the source
+> found on sourceforge.net.  Never could
+> detected any difference between the two.
+>=20
+> Since data in the production environment
+> also tends to arrive in bursts, I don't find
+> the pulsing playback behavior a detriment.
+>=20
 
-No problem.
+Thats exactly the opposite : Your old kernel is not fast enough to
+enter/exit NAPI on every incoming frame.
 
-> But when your commit appears it will have the dma_mapping_error() stuff
-> fixed up, so don't worry about it. :-)
+Instead of one IRQ per incoming frame, you have less interrupts :
+A napi run processes more than 1 frame.
 
-Thanks!
+Now increase your incoming rate, and you'll discover a new kernel will
+be able to process more frames without losses.
 
-Ian.
+About your thread model :
+
+You have one thread that reads the incoming frame, and do a distributio=
+n
+on several queues based on some flow parameters. Then you wakeup a
+second thread.
+
+This kind of model is very expensive and triggers lot of false sharing.
+
+New kernels are able to perform this fanout in kernel land.
+
+You really should take a look at Documentation/networking/scaling.txt
+
+[ An other way of doing this fanout is using some iptables rules :
+check following commit changelog for an idea ]
+
+commit e8648a1fdb54da1f683784b36a17aa65ea56e931
+Author: Eric Dumazet <eric.dumazet@gmail.com>
+Date:   Fri Jul 23 12:59:36 2010 +0200
+
+    netfilter: add xt_cpu match
+   =20
+    In some situations a CPU match permits a better spreading of
+    connections, or select targets only for a given cpu.
+   =20
+    With Remote Packet Steering or multiqueue NIC and appropriate IRQ
+    affinities, we can distribute trafic on available cpus, per session=
+=2E
+    (all RX packets for a given flow is handled by a given cpu)
+   =20
+    Some legacy applications being not SMP friendly, one way to scale a
+    server is to run multiple copies of them.
+   =20
+    Instead of randomly choosing an instance, we can use the cpu number=
+ as a
+    key so that softirq handler for a whole instance is running on a si=
+ngle
+    cpu, maximizing cache effects in TCP/UDP stacks.
+   =20
+    Using NAT for example, a four ways machine might run four copies of
+    server application, using a separate listening port for each instan=
+ce,
+    but still presenting an unique external port :
+   =20
+    iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 0 \
+            -j REDIRECT --to-port 8080
+   =20
+    iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 1 \
+            -j REDIRECT --to-port 8081
+   =20
+    iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 2 \
+            -j REDIRECT --to-port 8082
+   =20
+    iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 3 \
+            -j REDIRECT --to-port 8083
+   =20
