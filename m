@@ -1,112 +1,52 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v5 0/8] per-cgroup tcp buffer pressure settings
-Date: Fri, 7 Oct 2011 17:55:00 +0900
-Message-ID: <20111007175500.ca280fc6.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1317730680-24352-1-git-send-email-glommer@parallels.com>
-	<20111005092954.718a0c29.kamezawa.hiroyu@jp.fujitsu.com>
-	<4E8C067E.6040203@parallels.com>
-	<20111007170522.624fab3d.kamezawa.hiroyu@jp.fujitsu.com>
-	<4E8EB634.9090208@parallels.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 1/2 net-next] r6040: invoke phy_{start,stop} when appropriate
+Date: Fri, 7 Oct 2011 11:36:22 +0200
+Message-ID: <201110071136.22107.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
- <lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
- <gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
- <kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4E8EB634.9090208@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33788 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896Ab1JGJg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 05:36:28 -0400
+Received: by wyg34 with SMTP id 34so3689780wyg.19
+        for <netdev@vger.kernel.org>; Fri, 07 Oct 2011 02:36:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 7 Oct 2011 12:20:04 +0400
-Glauber Costa <glommer@parallels.com> wrote:
+Joe reported to me that right after a bring up of a r6040 interface
+the ethtool output had no consistent output with respect to link duplex
+and speed. Fix this by adding a missing phy_start call in r6040_up and
+conversely a phy_stop call in r6040_down to properly initialize phy states.
 
-> >
-> >> So what I really mean here with "will integrate later", is that I think
-> >> that we'd be better off tracking the allocations themselves at the slab
-> >> level.
-> >>
-> >>>      Can't tcp-limit-code borrows some amount of charges in batch from kmem_limit
-> >>>      and use it ?
-> >> Sorry, I don't know what exactly do you mean. Can you clarify?
-> >>
-> > Now, tcp-usage is independent from kmem-usage.
-> >
-> > My idea is
-> >
-> >    1. when you account tcp usage, charge kmem, too.
-> 
-> Absolutely.
-> >    Now, your work is
-> >       a) tcp use new xxxx bytes.
-> >       b) account it to tcp.uage and check tcp limit
-> >
-> >    To ingegrate kmem,
-> >       a) tcp use new xxxx bytes.
-> >       b) account it to tcp.usage and check tcp limit
-> >       c) account it to kmem.usage
-> >
-> > ? 2 counters may be slow ?
-> 
-> Well, the way I see it, 1 counter is slow already =)
-> I honestly think we need some optimizations here. But
-> that is a side issue.
-> 
-> To begin with: The new patchset that I intend to spin
-> today or Monday, depending on my progress, uses res_counters,
-> as you and Kirill requested.
-> 
-> So what makes res_counters slow IMHO, is two things:
-> 
-> 1) interrupts are always disabled.
-> 2) All is done under a lock.
-> 
-> Now, we are starting to have resources that are billed to multiple
-> counters. One simple way to work around it, is to have child counters
-> that has to be accounted for as well everytime a resource is counted.
-> 
-> Like this:
-> 
-> 1) tcp has kmem as child. When we bill to tcp, we bill to kmem as well.
->     For protocols that do memory pressure, we then don't bill kmem from
->     the slab.
-> 2) When kmem_independent_account is set to 0, kmem has mem as child.
-> 
-
-Seems reasonable.
-
-
-> >
-> >
-> >>>    - Don't you need a stat file to indicate "tcp memory pressure works!" ?
-> >>>      It can be obtained already ?
-> >>
-> >> Not 100 % clear as well. We can query the amount of buffer used, and the
-> >> amount of buffer allowed. What else do we need?
-> >>
-> >
-> > IIUC, we can see the fact tcp.usage is near to tcp.limit but never can see it
-> > got memory pressure and how many numbers of failure happens.
-> > I'm sorry if I don't read codes correctly.
-> 
-> IIUC, With res_counters being used, we get at least failcnt for free, right?
-> 
-
-Right. you can get failcnt and max_usage and can have soft_limit base
-implemenation at the same time.
-
-Thank you.
--Kame
-
-
-
+Reported-by: Joe Chou <Joe.Chou@rdc.com.tw>
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 2bbadc0..a128c3d 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -470,6 +470,8 @@ static void r6040_down(struct net_device *dev)
+ 	iowrite16(adrp[0], ioaddr + MID_0L);
+ 	iowrite16(adrp[1], ioaddr + MID_0M);
+ 	iowrite16(adrp[2], ioaddr + MID_0H);
++
++	phy_stop(lp->phydev);
+ }
  
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ static int r6040_close(struct net_device *dev)
+@@ -727,6 +729,8 @@ static int r6040_up(struct net_device *dev)
+ 	/* Initialize all MAC registers */
+ 	r6040_init_mac_regs(dev);
+ 
++	phy_start(lp->phydev);
++
+ 	return 0;
+ }
+ 
+-- 
+1.7.4.1
