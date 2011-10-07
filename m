@@ -1,44 +1,28 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] net: remove erroneous sk null assignment in timestamping
-Date: Fri, 07 Oct 2011 19:53:10 +0200
-Message-ID: <1318009990.3988.36.camel@jlt3.sipsolutions.net>
-References: <1318007501.3988.20.camel@jlt3.sipsolutions.net>
-	 <20111007.133356.489094996618032061.davem@davemloft.net>
-	 <1318009222.3988.28.camel@jlt3.sipsolutions.net>
-	 <1318009644.3988.33.camel@jlt3.sipsolutions.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: Fix usage and man page for 'ip link'
+Date: Fri, 7 Oct 2011 11:05:39 -0700
+Message-ID: <20111007110539.1023ffd6@nehalam.linuxnetplumber.net>
+References: <1317942651.6433.25.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:50279 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753756Ab1JGRxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 13:53:13 -0400
-In-Reply-To: <1318009644.3988.33.camel@jlt3.sipsolutions.net>
+Received: from mail.vyatta.com ([76.74.103.46]:38822 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758494Ab1JGSFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 14:05:43 -0400
+In-Reply-To: <1317942651.6433.25.camel@w-sridhar.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-10-07 at 19:47 +0200, Johannes Berg wrote:
+On Thu, 06 Oct 2011 16:10:51 -0700
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> I'm afraid as is this is terminally broken. I don't have a device with a
-> dp83640 PHY, but I bet you can cause kernel crashes by doing something
-> like
+> Add bridge as a supported type with 'ip link' in usage and all the missing
+> types in 'ip' man page. Also fixed some typos.
 > 
-> while (1)
-> 	fd = open()
-> 	enable tx timestamping on fd;
-> 	send(fd, frame)
-> 	close(fd);
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-It's possible that it doesn't crash *if* (and only if!) the ethernet
-driver is guaranteed to process the TXTS RX packet before freeing the
-original SKB off the TX queue, and also never orphans or whatever the
-original TX SKB. In that case the original TX SKB will hang on to the
-socket for long enough I guess.
-
-But that's not something I'd want to rely on. All it means that the
-above code isn't an instant kernel crash. The code is still broken.
-
-johannes
+Applied. This manpage is getting huge.
