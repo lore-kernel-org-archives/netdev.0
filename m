@@ -1,87 +1,33 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: big picture UDP/IP performance question re 2.6.18 -> 2.6.32
-Date: Fri, 07 Oct 2011 21:07:03 +0100
-Message-ID: <1318018023.2771.44.camel@bwh-desktop>
-References: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx>
-	 <1317966007.3457.47.camel@edumazet-laptop>
-	 <6.2.5.6.2.20111007020308.039be248@binnacle.cx>
-	 <CAAsGZS4s1wTWW1j7FRUWW9jqpPUVF3Q46AMa7+njvE1ckX0Snw@mail.gmail.com>
-	 <6.2.5.6.2.20111007143050.039bd578@binnacle.cx>
+From: Marc Ballarin <ballarin.marc@gmx.de>
+Subject: Regression: non-working WOL with r8169
+Date: Fri, 7 Oct 2011 22:19:06 +0200
+Message-ID: <20111007221906.810698ba9bf825566a2478bb@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chetan loke <loke.chetan@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Christoph Lameter <cl@gentwo.org>, Willy Tarreau <w@1wt.eu>,
-	Ingo Molnar <mingo@elte.hu>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Joe Perches <joe@perches.com>, lokechetan@gmail.com,
-	Con Kolivas <conman@kolivas.org>,
-	Serge Belyshev <belyshev@depni.sinp.msu.ru>
-To: starlight@binnacle.cx
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6.2.5.6.2.20111007143050.039bd578@binnacle.cx>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout-de.gmx.net ([213.165.64.22]:46456 "HELO
+	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753540Ab1JGUTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 16:19:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-10-07 at 14:37 -0400, starlight@binnacle.cx wrote:
-> At 02:09 PM 10/7/2011 -0400, chetan loke wrote:
-[...]
-> b) Use non-commodity(?) NICs(from vendors
-> >you mentioned): where it might have some on-board
-> >memory(cushion) and so it can absorb the spikes
-> >and can also smoothen out too many
-> >PCI-transactions for bursty (and small payload -
-> >as in 64 byte traffic). But wait, when you use the
-> >libs provided by these vendors, then their
-> >driver(especially the Rx path) is not so much
-> >working in inline mode as NIC drivers in case a)
-> >above. This driver with a special Rx-path purely
-> >exists for managing your mmap'd queues.So
-> >of-course it's going to be faster that the
-> >traditional inline drivers. In this partial-inline
-> >mode, the adapter might i) batch the packets and
-> >ii) send a single notification to the
-> >host-side. With that single event you are now
-> >processing 1+ packets.
 
-Solarflare's user-mode queues have their own wakeup moderation timers,
-similar to interrupt moderation timers.
+Hi,
+I just bisected a wake-on-lan regression to commit 
+92fc43b4159b518f5baae57301f26d770b0834c9 "r8169: modify the flow of the hw reset."
 
-Note also that NICs designed for user-mode networking may allow DMA
-descriptor/event rings and doorbell registers to be mapped into user
-processes.  This allows packets to be passed continuously without any
-need to call into the kernel.
+Symptoms: Wake-on-lan does not work, although ethtool reports "Wake-on: g".
+Working kernels: 3.0.x or 3.1-rcX with the above commit and all following commits (which
+depend on it) reverted (or 3.1-rc with r8169.c from 3.0.x + include fixes)
 
-> Kernel bypass is probably the best answer for
-> what we do.  Problem has been lack of maturity
-> in their driver software.  Looks like it's reaching
-> a point where they cover our use case.  As mentioned
-> earlier, Solarflare could not match the Intel
-> 82599 + ixgbe for this app last year.  Was a
-> disaster.
+Hardware is "Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet
+controller (rev 06)", (tp->mac_version is 32, i.e RTL_GIGA_MAC_VER_33)
 
-Ouch.  What's the application?
+Feel free to ask for any further information.
 
-> Myricom is focused on UDP (better
-> for us), but only just added multi-core IRQ
-> doorbell wakeups in recent months.  Previously
-> one had to accept all IRQs on a single core or
-> poll, neither of which works for us.
-[...]
-
-Our hardware does support spreading wakeups for user-mode queues across
-multiple kernel-mode event queues (hence multiple CPUs), although not in
-a very flexible way.  I believe most Onload users prefer to keep their
-threads polling for events rather than waiting for wakeups, though, so
-it doesn't yet use this feature.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards,
+Marc
