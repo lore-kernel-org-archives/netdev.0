@@ -1,84 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Asserting ECN from userspace?
-Date: Fri, 07 Oct 2011 07:23:09 +0200
-Message-ID: <1317964989.3457.39.camel@edumazet-laptop>
-References: <4E8BF6B2.6030101@gmail.com>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [PATCH 1/8] vxge: convert to SKB paged frag API.
+Date: Fri, 7 Oct 2011 06:29:17 +0100
+Message-ID: <1317965357.24742.24.camel@dagon.hellion.org.uk>
+References: <1317935310.24742.18.camel@dagon.hellion.org.uk>
+	 <20111006.171645.1154998655978830692.davem@davemloft.net>
+	 <1317936302.24742.23.camel@dagon.hellion.org.uk>
+	 <20111006.175632.863279389111584127.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bloat-devel@lists.bufferbloat.net
-To: David =?ISO-8859-1?Q?T=E4ht?= <dave.taht@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "mirqus@gmail.com" <mirqus@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jdmason@kudzu.us" <jdmason@kudzu.us>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:63837 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755973Ab1JGFXS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 01:23:18 -0400
-Received: by wwf22 with SMTP id 22so5327071wwf.1
-        for <netdev@vger.kernel.org>; Thu, 06 Oct 2011 22:23:16 -0700 (PDT)
-In-Reply-To: <4E8BF6B2.6030101@gmail.com>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:35932 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755973Ab1JGF3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 01:29:23 -0400
+In-Reply-To: <20111006.175632.863279389111584127.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 04 octobre 2011 =C3=A0 23:18 -0700, David T=C3=A4ht a =C3=A9cr=
-it :
-> No sooner had I noted (with pleasure) the kernel's new ability to
-> correctly set the dscp bits on IPv6 TCP streams without messing with =
-the
-> negotiated ECN status, that I found several use cases where being abl=
-e
-> to assert ECN from userspace (for either ipv4, or ipv6) would be usef=
-ul.
->=20
-> 1) Applications such as bittorrent (transmission, etc) that are much
-> more aware of their overall environment could assert ECN on their UDP
-> streams to indicate congestion.
->=20
-> 2) Test tools. It would be nice to be able, from userspace, to easily
-> diagnose if ECN was working on a stream, end to end, and being able t=
-o
-> set and receive the ECN bits on a less algorithmic basis (ie, not wed=
-ged
-> deep within a kernel aqm such as RED or SFB)
->=20
-> 3) Web Proxies. A web proxy could note when it was experiencing
-> congestion on one side of the proxied connection (or another) and sig=
-nal
-> the other side to slow down.
->=20
-> Ah, ECN, we hardly know ye.
->=20
-> as for item 1 I'm hard pressed to think of a case where setting the E=
-CN
-> bits on udp streams would introduce a security problem.
->=20
-> As for 2, can live without.
->=20
-> As for 3... perhaps a grantable network capability? A proxy could
-> acquire privs to twiddle those bits before dropping root privs.
->=20
-> That begs the question of how to see those bits in the first place. O=
-OB
-> data?
->=20
-> And twiddling them, on a per stream basis, for a single packet, would
-> seem to require something more robust than setsockopt/getsockopt
-> (although that would work for udp streams)
->=20
+On Thu, 2011-10-06 at 22:56 +0100, David Miller wrote:
+> From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+> Date: Thu, 6 Oct 2011 22:25:02 +0100
+> 
+> > On Thu, 2011-10-06 at 22:16 +0100, David Miller wrote:
+> >> From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+> >> Date: Thu, 6 Oct 2011 22:08:30 +0100
+> >> 
+> >> > You are absolutely right, I've no idea how I missed the very obvious
+> >> > warning this produces. Incremental patch is below, sorry about this!
+> >> 
+> >> Would really love to know what your patch is against, since I
+> >> fixed this problem when I commited your original patch.
+> > 
+> > It was against e878d78b9a74 + the original bad patch, i.e.:
+> > 
+> > $ git log --pretty=oneline net-next/master^..HEAD
+> > 80f4b53b3d2c009689178d12de0bc108ddd580cd net: fix argument to dma_mapping_error after conversion to skb_frag_dma_map
+> > 669b1ce22eedd0f7bac048299feb06c67804ed83 net: use DMA_x_DEVICE and dma_mapping_error with skb_frag_dma_map
+> > e878d78b9a7403fabc89ecc93c56928b74d14f01 virtio-net: Verify page list size before fitting into skb
+> > 
+> > AFAICT e878d78b9a7403fabc89ecc93c56928b74d14f01 is still the head of the
+> > public git://github.com/davem330/net-next master.
+> 
+> I'm and idiot, I didn't push it out when I left the office :-/
+> 
+> Sorry.
 
-=46or UDP, its really easy to set ECT(0) or ECT(1) in your outgoing
-frames, and test as well ECT(0),ECT(1),ECN in incoming frames.
+No problem.
 
-=46or the sending part:
-int tos =3D 0x2; /* ECT(1) */
-setsockopt(fd, IP_PROTOIP, IP_TOS, &tos, sizeof(tos));
+> But when your commit appears it will have the dma_mapping_error() stuff
+> fixed up, so don't worry about it. :-)
 
-To be able to get the TOS value :
+Thanks!
 
-int on =3D 1;
-setsockopt(fd, IP_PROTOIP, IP_RECVTOS, &on, sizeof(on));
-
-RECVTOS (since Linux 2.2)
-     If  enabled the IP_TOS ancillary message is passed with incoming p=
-ackets.
-     It contains a byte which specifies the Type of Service/Precedence
-     field of the packet header.  Expects a boolean integer flag.
+Ian.
