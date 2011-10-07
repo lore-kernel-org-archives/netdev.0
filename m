@@ -1,58 +1,72 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: big picture UDP/IP performance question re 2.6.18 -> 2.6.32
-Date: Fri, 7 Oct 2011 15:27:52 -0400
-Message-ID: <CAAsGZS4b2F9N3nV3TNu5xG+=2d0L0ncste4xv2vqoVFb1pOxEw@mail.gmail.com>
-References: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx>
-	<1317966007.3457.47.camel@edumazet-laptop>
-	<6.2.5.6.2.20111007020308.039be248@binnacle.cx>
-	<CAAsGZS4s1wTWW1j7FRUWW9jqpPUVF3Q46AMa7+njvE1ckX0Snw@mail.gmail.com>
-	<6.2.5.6.2.20111007143050.039bd578@binnacle.cx>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: [PATCH] mscan: too much data copied to CAN frame due to 16 bit
+	accesses
+Date: Fri, 07 Oct 2011 21:28:14 +0200
+Message-ID: <4E8F52CE.1000204@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Christoph Lameter <cl@gentwo.org>, Willy Tarreau <w@1wt.eu>,
-	Ingo Molnar <mingo@elte.hu>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Joe Perches <joe@perches.com>, lokechetan@gmail.com,
-	Con Kolivas <conman@kolivas.org>,
-	Serge Belyshev <belyshev@depni.sinp.msu.ru>
-To: starlight@binnacle.cx
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6.2.5.6.2.20111007143050.039bd578@binnacle.cx>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>, Andre Naujoks <nautsch-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 7, 2011 at 2:37 PM,  <starlight@binnacle.cx> wrote:
-> At 02:09 PM 10/7/2011 -0400, chetan loke wrote:
->>You got it. In case of tilera there are two modes:
->>tile-cpu in device mode: beats most of the
->>non-COTS NICs. It runs linux on the adapter
->>side. Imagine having the flexibility/power to
->>program the ASIC using your favorite OS. Its
->>orgasmic. So go for it! =C2=A0tile-cpu in host-mode:
->>Yes, it could be a game changer.
->
-> We almost went for the 1st gen Tile64 outboard
-> NIC approach, but were concerned about whether
-> they would survive--still are. =C2=A0Intel has
-> crushed more than a few competitors along
-> the way. =C2=A0If Google or Facebook buys into the
-> Tile-Gx it becomes a safe choice overnight.
->
->
+Due to the 16 bit access to mscan registers there's too much data copied to
+the zero initialized CAN frame when having an odd number of bytes to copy.
+This patch ensures that only the requested bytes are copied by using an
+8 bit access for the remaining byte.
 
-If at all, tile-cpu may not be able to survive the heat in host-mode,
-but there's no competition in device-mode. ASIC design is an expensive
-science project. All adapter vendors know this. Not to mention all the
-chicken-games they then have to play to incorporate multi-core ARMs(or
-whatever CPUs) to support big(40/100 G) pipes. Slowly their firmware
-needs to evolve as an OS and they start shopping for RT linux
-shops/consulting firms.Been there. Done that. There's a lot of bad
-blood and too much pain involved when you ask clunky firmware guys to
-abandon the big fat while loop in their beloved firmware and stop
-hacking the chip ;). Offload it to a tile-CPU and just sell what you
-are good at - a darn protocol stack...
+Reported-by: Andre Naujoks <nautsch-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+---
+ drivers/net/can/mscan/mscan.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+index ac42f5d..ec4a311 100644
+--- a/drivers/net/can/mscan/mscan.c
++++ b/drivers/net/can/mscan/mscan.c
+@@ -261,11 +261,13 @@ static netdev_tx_t mscan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		void __iomem *data = &regs->tx.dsr1_0;
+ 		u16 *payload = (u16 *)frame->data;
+ 
+-		/* It is safe to write into dsr[dlc+1] */
+-		for (i = 0; i < (frame->can_dlc + 1) / 2; i++) {
++		for (i = 0; i < frame->can_dlc / 2; i++) {
+ 			out_be16(data, *payload++);
+ 			data += 2 + _MSCAN_RESERVED_DSR_SIZE;
+ 		}
++		/* write remaining byte if necessary */
++		if (frame->can_dlc & 1)
++			out_8(data, frame->data[frame->can_dlc - 1]);
+ 	}
+ 
+ 	out_8(&regs->tx.dlr, frame->can_dlc);
+@@ -330,10 +332,13 @@ static void mscan_get_rx_frame(struct net_device *dev, struct can_frame *frame)
+ 		void __iomem *data = &regs->rx.dsr1_0;
+ 		u16 *payload = (u16 *)frame->data;
+ 
+-		for (i = 0; i < (frame->can_dlc + 1) / 2; i++) {
++		for (i = 0; i < frame->can_dlc / 2; i++) {
+ 			*payload++ = in_be16(data);
+ 			data += 2 + _MSCAN_RESERVED_DSR_SIZE;
+ 		}
++		/* read remaining byte if necessary */
++		if (frame->can_dlc & 1)
++			frame->data[frame->can_dlc - 1] = in_8(data);
+ 	}
+ 
+ 	out_8(&regs->canrflg, MSCAN_RXF);
+-- 
+1.7.4.1
