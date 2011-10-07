@@ -1,26 +1,35 @@
 From: starlight@binnacle.cx
 Subject: Re: big picture UDP/IP performance question re 2.6.18
   -> 2.6.32
-Date: Thu, 06 Oct 2011 22:24:03 -0400
-Message-ID: <6.2.5.6.2.20111006164948.05ba0e00@binnacle.cx>
+Date: Thu, 06 Oct 2011 22:33:44 -0400
+Message-ID: <6.2.5.6.2.20111006222921.039bb800@binnacle.cx>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-To: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Christoph Lameter <cl@gentwo.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Will
+To: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+[repost with wrapped lines]
 
 UPDATE
 
 Hi all, I'm back with a significant update.
 
-First, discovered that the problem with UDP was a tightening of the reverse-path filter logic in newer kernels.  To make the test work had to configure 'net.ipv4.conf.default.rp_filter = 0' in 'sysctl.conf'.  Was able to rerun all the tests in the nominal UDP sockets mode instead of packet socket mode.
+First, discovered that the problem with UDP was a
+tightening of the reverse-path filter logic in
+newer kernels.  To make the test work had to
+configure 'net.ipv4.conf.default.rp_filter = 0' in
+'sysctl.conf'.  Was able to rerun all the tests in
+the nominal UDP sockets mode instead of packet
+socket mode.
 
-Second I was intrigued by an assertion put forward that older kernels are always better than newer kernels.  So with some effort I managed to coerce 2.6.9(rhel4) into running on the Opteron 6174 CPU, though it only recognized eight of the twelve cores.
+Second I was intrigued by an assertion put forward
+that older kernels are always better than newer
+kernels.  So with some effort I managed to coerce
+2.6.9(rhel4) into running on the Opteron 6174 CPU,
+though it only recognized eight of the twelve
+cores.
 
 
 Here are the CPU results.  User and sys are expressed in jiffies.
@@ -42,7 +51,10 @@ kernel version      cpu total   user     sys        IRQ/s
   were disabled
 
 
-Here are some latency data samples.  Report interval is 10 seconds, all latency columns are in milliseconds.
+Here are some latency data samples.  Report
+interval is 10 seconds, all latency columns are in
+milliseconds.
+
 
 2.6.18-194.8.1.el5
 sample     min      max     mean    sigma
@@ -84,13 +96,43 @@ sample     min      max     mean    sigma
 211549   0.010    3.075    0.282    0.158
 219332   0.012    2.658    0.271    0.144
 
-2.6.9(rhel4) was a bit worse than 2.6.18(rhel5).  However the fact that it ran on eight cores instead of twelve may have subtly affected the outcome.  Also this kernel was built with the gcc 3.4.6 RH distro compiler which may generate code less well optimized for the 6174 CPU.  Therefore I view it as pretty close to a tie, but 2.6.18(rhel5) is the obviously better choice for the superior hardware support it provides.
+2.6.9(rhel4) was a bit worse than 2.6.18(rhel5).
+However the fact that it ran on eight cores
+instead of twelve may have subtly affected the
+outcome.  Also this kernel was built with the gcc
+3.4.6 RH distro compiler which may generate code
+less well optimized for the 6174 CPU.  Therefore I
+view it as pretty close to a tie, but
+2.6.18(rhel5) is the obviously better choice for
+the superior hardware support it provides.
 
-Despite consuming a great deal more CPU, the newer kernels made a good showing on latency in this mode where only one thread wakeup occurs per arriving frame.  Both have slighter tighter latency distributions and slightly improved worst-case latencies.  2.6.39.4 is somewhat better than 2.6.32(rhel6) on all fronts.  Nonetheless I find the much higher CPU consumption to be a major negative since this reduces the overall capacity available on identical hardware.
+Despite consuming a great deal more CPU, the newer
+kernels made a good showing on latency in this
+mode where only one thread wakeup occurs per
+arriving frame.  Both have slighter tighter
+latency distributions and slightly improved
+worst-case latencies.  2.6.39.4 is somewhat better
+than 2.6.32(rhel6) on all fronts.  Nonetheless I
+find the much higher CPU consumption to be a major
+negative since this reduces the overall capacity
+available on identical hardware.
 
 -----
 
-Now for the tests performed earlier and to which all my comments prior to this post apply.  Ran these only because I thought UDP was broken, but now I find I'm pleased with the added perspective they provide.  In this mode our application reads all the data from four interfaces via packet sockets (one per interface), and then requeues the packets to a pool of worker threads.  Potentially two application worker thread wakeup events occur for each frame, though wakeups only occur when work queues become empty.  The worker thread pool consists of nine threads with packets routed by similar type to maximize cache locality during processing.
+Now for the tests performed earlier and to which
+all my comments prior to this post apply.  Ran
+these only because I thought UDP was broken, but
+now I find I'm pleased with the added perspective
+they provide.  In this mode our application reads
+all the data from four interfaces via packet
+sockets (one per interface), and then requeues the
+packets to a pool of worker threads.  Potentially
+two application worker thread wakeup events occur
+for each frame, though wakeups only occur when
+work queues become empty.  The worker thread pool
+consists of nine threads with packets routed by
+similar type to maximize cache locality during
+processing.
 
 2.6.18-194.8.1.el5
 sample     min      max     mean    sigma
@@ -130,7 +172,21 @@ sample     min      max     mean    sigma
 244735   0.018    6.781    0.542    0.634
 250195   0.021    8.205    0.531    0.568
 
-In this mode latency is quite a lot better with the 2.6.18(rhel5) kernel and seriously worse in the newer kernels.  Perhaps what is happening in 2.6.18(rhel) is that frames are being received on one set of cores and processed on a different set, with relatively few actual thread sleep/wake events.  The cache on each core is hot for the task it is performing, and due to the specialization of each worker thread less code cache pressure is present.  In 2.6.39.4 I can only say that the context switch rate was in the typical 200k/sec range where older kernels ran at less than half that.  Sorry now that I did not record CS rates more carefully.
+In this mode latency is quite a lot better with
+the 2.6.18(rhel5) kernel and seriously worse in
+the newer kernels.  Perhaps what is happening in
+2.6.18(rhel) is that frames are being received on
+one set of cores and processed on a different set,
+with relatively few actual thread sleep/wake
+events.  The cache on each core is hot for the
+task it is performing, and due to the
+specialization of each worker thread less code
+cache pressure is present.  In 2.6.39.4 I can only
+say that the context switch rate was in the
+typical 200k/sec range where older kernels ran at
+less than half that.  Sorry now that I did not
+record CS rates more carefully.
+
 
 Here's CPU consumption:
 
@@ -146,22 +202,59 @@ kernel version      cpu total   user     sys        IRQ/s
 2.6.32-71.29.1.el6     +6.7%   -4.9%   +55.0%       +482%
 2.6.39.4(vanilla)     +16.0%   +6.0%   +54.1%       +489%
 
-The 2.6.18(rhel5) kernel performed significantly better here than in the many-threaded UDP-mode which I attribute to the close matching of the thread and core count and the reasons stated in the previous paragraph.  CPU consumption of 2.6.9(rhel4) with thirteen active threads scheduled on eight cores was about the same here as it was with the large UDP-mode thread count.
+The 2.6.18(rhel5) kernel performed significantly
+better here than in the many-threaded UDP-mode
+which I attribute to the close matching of the
+thread and core count and the reasons stated in
+the previous paragraph.  CPU consumption of
+2.6.9(rhel4) with thirteen active threads
+scheduled on eight cores was about the same here
+as it was with the large UDP-mode thread count.
 
-Relative to the many-threaded UDP-mode, matching of thread and core counts seems to help .32(rhel6) a great deal, but to a lesser degree for .39.
+Relative to the many-threaded UDP-mode, matching
+of thread and core counts seems to help .32(rhel6)
+a great deal, but to a lesser degree for .39.
 
-As with UDP-mode, system overhead is substantialy higher with newer kernels.
+As with UDP-mode, system overhead is substantialy
+higher with newer kernels.
 
 -----
 
-Note that some tests were run with packets sockets and a large thread pool, but not all scenarios were covered and I find it less interesting than the small thread pool so it is omitted here.
+Note that some tests were run with packets sockets
+and a large thread pool, but not all scenarios
+were covered and I find it less interesting than
+the small thread pool so it is omitted here.
 
-Have perf reports for all 2.6.39.4 runs and a perf report for the the packet socket run on 2.6.32(rhel6).  If anyone is interested let me know and I'll post them.
+Have perf reports for all 2.6.39.4 runs and a perf
+report for the the packet socket run on
+2.6.32(rhel6).  If anyone is interested let me
+know and I'll post them.
 
 -----
 
-Overall our application runs best with 2.6.18(rhel5) in all regards excepting a slight improvement in latency distribution where, despite higher CPU consumption, the .32 and .39 kernels are better at 50% CPU load.  Naturally at higher data rates the newer kernel latency will go to pieces sooner and the absolute maximum performance attainable is substantially lower.
+Overall our application runs best with
+2.6.18(rhel5) in all regards excepting a slight
+improvement in latency distribution where, despite
+higher CPU consumption, the .32 and .39 kernels
+are better at 50% CPU load.  Naturally at higher
+data rates the newer kernel latency will go to
+pieces sooner and the absolute maximum performance
+attainable is substantially lower.
 
-Until truly spectacular core counts arrive 2.6.18 remains the kernel of choice.
+Until truly spectacular core counts arrive 2.6.18
+remains the kernel of choice.
 
-We would find it attractive if an option to compile newer kernels with a circa 2.6.18 O(1) scheduler was made available in the future.  Not a problem if doing so would disable any number of dependent kernel features.  Target here is HPC where in our view less is more and virtuzlization, resource allocation fairness (not to mention the SCHED_OTHER priority policy) etc. have little or no utility.  A shorter scheduler code path-length and lower cache pressure are more important than enhanced functionality.  The original O(1) scheduler appears to handle chains of related-processing thread hand-offs dramatically better.
+We would find it attractive if an option to
+compile newer kernels with a circa 2.6.18 O(1)
+scheduler was made available in the future.  Not a
+problem if doing so would disable any number of
+dependent kernel features.  Target here is HPC
+where in our view less is more and virtuzlization,
+resource allocation fairness (not to mention the
+SCHED_OTHER priority policy) etc. have little or
+no utility.  A shorter scheduler code path-length
+and lower cache pressure are more important than
+enhanced functionality.  The original O(1)
+scheduler appears to handle chains of
+related-processing thread hand-offs dramatically
+better.
