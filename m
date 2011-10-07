@@ -1,8 +1,8 @@
 From: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-Subject: [RFC PATCH net 2/2] [BUGFIX] bonding: use flush_delayed_work_sync in
- bond_close
-Date: Fri, 07 Oct 2011 21:50:06 +0900
-Message-ID: <20111007125006.7089.9539.stgit@ltc219.sdl.hitachi.co.jp>
+Subject: [RFC PATCH net 1/2] [BUGFIX] bonding: use local function pointer of
+ bond->recv_probe in bond_handle_frame
+Date: Fri, 07 Oct 2011 21:49:54 +0900
+Message-ID: <20111007124954.7089.9776.stgit@ltc219.sdl.hitachi.co.jp>
 References: <20111007124925.7089.27260.stgit@ltc219.sdl.hitachi.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,60 +19,55 @@ In-Reply-To: <20111007124925.7089.27260.stgit@ltc219.sdl.hitachi.co.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The bond_close() calls cancel_delayed_work() to cancel delayed works.
-It, however, cannot cancel works that were already queued in workqueue.
-The bond_open() initializes work->data, and proccess_one_work() refers
-get_work_cwq(work)->wq->flags. The get_work_cwq() returns NULL when
-work->data has been initialized. Thus, a panic occurs.
+The bond->recv_probe is called in bond_handle_frame() when
+a packet is received, but bond_close() sets it to NULL. So,
+a panic occurs when both functions work in parallel.
 
-This patch uses flush_delayed_work_sync() instead of cancel_delayed_work()
-in bond_close(). It cancels delayed timer and waits for work to finish
-execution. So, it can avoid the null pointer dereference due to the
-parallel executions of proccess_one_work() and initializing proccess
-of bond_open().
+Why this happen:
+After null pointer check of bond->recv_probe, an sk_buff is
+duplicated and bond->recv_probe is called in bond_handle_frame.
+So, a panic occurs when bond_close() is called between the
+check and call of bond->recv_probe.
+
+Patch:
+This patch uses a local function pointer of bond->recv_probe
+in bond_handle_frame(). So, it can avoid the null pointer
+dereference.
+
 
 Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
 Cc: Jay Vosburgh <fubar@us.ibm.com>
 Cc: Andy Gospodarek <andy@greyhouse.net>
 ---
 
- drivers/net/bonding/bond_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/bonding/bond_main.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f1baec5..cd490b7 100644
+index 6d79b78..f1baec5 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -3504,27 +3504,27 @@ static int bond_close(struct net_device *bond_dev)
- 	write_unlock_bh(&bond->lock);
+@@ -1435,6 +1435,8 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 	struct sk_buff *skb = *pskb;
+ 	struct slave *slave;
+ 	struct bonding *bond;
++	void (*recv_probe)(struct sk_buff *, struct bonding *,
++				struct slave *);
  
- 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
--		cancel_delayed_work(&bond->mii_work);
-+		flush_delayed_work_sync(&bond->mii_work);
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+@@ -1448,11 +1450,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 	if (bond->params.arp_interval)
+ 		slave->dev->last_rx = jiffies;
+ 
+-	if (bond->recv_probe) {
++	recv_probe = bond->recv_probe;
++	if (recv_probe) {
+ 		struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
+ 
+ 		if (likely(nskb)) {
+-			bond->recv_probe(nskb, bond, slave);
++			recv_probe(nskb, bond, slave);
+ 			dev_kfree_skb(nskb);
+ 		}
  	}
- 
- 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
--		cancel_delayed_work(&bond->arp_work);
-+		flush_delayed_work_sync(&bond->arp_work);
- 	}
- 
- 	switch (bond->params.mode) {
- 	case BOND_MODE_8023AD:
--		cancel_delayed_work(&bond->ad_work);
-+		flush_delayed_work_sync(&bond->ad_work);
- 		break;
- 	case BOND_MODE_TLB:
- 	case BOND_MODE_ALB:
--		cancel_delayed_work(&bond->alb_work);
-+		flush_delayed_work_sync(&bond->alb_work);
- 		break;
- 	default:
- 		break;
- 	}
- 
- 	if (delayed_work_pending(&bond->mcast_work))
--		cancel_delayed_work(&bond->mcast_work);
-+		flush_delayed_work_sync(&bond->mcast_work);
- 
- 	if (bond_is_lb(bond)) {
- 		/* Must be called only after all
