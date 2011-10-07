@@ -1,126 +1,104 @@
-From: starlight@binnacle.cx
-Subject: Re: big picture UDP/IP performance question re 2.6.18
-  -> 2.6.32
-Date: Fri, 07 Oct 2011 02:13:42 -0400
-Message-ID: <6.2.5.6.2.20111007020308.039be248@binnacle.cx>
-References: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx>
- <1317966007.3457.47.camel@edumazet-laptop>
+From: Joel Sing <jsing@google.com>
+Subject: Re: loopback IP alias breaks tftp?
+Date: Fri, 7 Oct 2011 18:02:57 +1100
+Message-ID: <CAA6X_dP_LDO0hQYpixi-DtsKVJZQEgAY5wa4y_wYpEqXVyn7TQ@mail.gmail.com>
+References: <20111005202723.GE2479@zod.bos.redhat.com>
+	<alpine.LFD.2.00.1110060009020.1959@ja.ssi.bg>
+	<20111006132353.GF2479@zod.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Christoph Lameter <cl@gentwo.org>, Willy Tarreau <w@1wt.eu>,
-	Ingo Molnar <mingo@elte.hu>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Joe Perches <joe@perches.com>,
-	Chetan Loke <Chetan.Loke@netscout.com>,
-	Con Kolivas <conman@kolivas.org>,
-	Serge Belyshev <belyshev@depni.sinp.msu.ru>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317966007.3457.47.camel@edumazet-laptop>
-References: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx>
- <1317966007.3457.47.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
+To: Josh Boyer <jwboyer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:21475 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749Ab1JGHDB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 03:03:01 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id p97730Iu029146
+	for <netdev@vger.kernel.org>; Fri, 7 Oct 2011 00:03:00 -0700
+Received: from pzk34 (pzk34.prod.google.com [10.243.19.162])
+	by wpaz33.hot.corp.google.com with ESMTP id p9771ZsK025099
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 7 Oct 2011 00:02:59 -0700
+Received: by pzk34 with SMTP id 34so12519600pzk.6
+        for <netdev@vger.kernel.org>; Fri, 07 Oct 2011 00:02:59 -0700 (PDT)
+In-Reply-To: <20111006132353.GF2479@zod.bos.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-At 07:40 AM 10/7/2011 +0200, Eric Dumazet wrote:
+On 7 October 2011 00:23, Josh Boyer <jwboyer@redhat.com> wrote:
 >
->Thats exactly the opposite : Your old kernel is not fast enough 
->to enter/exit NAPI on every incoming frame.
+> On Thu, Oct 06, 2011 at 12:18:44AM +0300, Julian Anastasov wrote:
+> >
+> > =A0 =A0 =A0 Hello,
+> >
+> > On Wed, 5 Oct 2011, Josh Boyer wrote:
+> >
+> > > Hi All,
+> > >
+> > > We've had a report [1] of a change in behavior when trying to use=
+ an IP
+> > > alias to tftp from a loopback device. =A0Apparently the steps out=
+lined in
+> > > the bug worked in 2.6.35, and broke somewhere before 2.6.38.6.
+> > >
+> > > I can confirm the steps fail on a 3.0 based kernel and I'm trying=
+ to do
+> > > a git bisect to find the commit involved, but I thought I would s=
+end
+> > > this along to see if anyone might have an idea. =A0(Also, I'm not=
+ really
+> > > sure how valid of a usecase this was to begin with.)
+> >
+> > =A0 =A0 =A0 What about commit 9fc3bbb4a752f108cf096d96640f3b548bbbc=
+e6c ?
+> >
+> > ipv4/route.c: respect prefsrc for local routes
+> >
+> > http://marc.info/?t=3D129412232500001&r=3D1&w=3D2
+> >
+> > > [1] https://bugzilla.redhat.com/show_bug.cgi?id=3D739534
 >
->Instead of one IRQ per incoming frame, you have less interrupts:
->A napi run processes more than 1 frame.
-
-Please look at the data I posted.  Batching
-appears to give 80us *better* latency in this
-case--with the old kernel.
-
->Now increase your incoming rate, and you'll discover a new 
->kernel will be able to process more frames without losses.
-
-Data loss happens mainly in relation to CPU
-utilization-per-message-rate as buffers are
-configured huge at all points.  So newer
-kernels break down at significantly lower
-message rates than older kernels.  Determined
-this last year when testing SLES 11 and
-unmodified 2.6.27.
-
-I can run a max-rate comparison for 2.6.39.4
-if you like.
-
->About your thread model :
+> Yep. =A0That is exactly what my git bisect said too.
 >
->You have one thread that reads the incoming
->frame, and do a distribution on several queues
->based on some flow parameters. Then you wakeup 
->a second thread.
+> So now we have a change in behavior since that commit for the usecase
+> described in the bug above, but I'm unsure if that usecase was ever
+> really valid or if the commit had unintentional side effects.
 >
->This kind of model is very expensive and triggers
->lot of false sharing.
+> Joel (or anyone else) can you take a look and comment?
 
-Please note my use of the word "nominal" and the
-overall context.  Both thread-per-socket and
-dual-thread handoff handling tests were performed
-with the clear observation that the former is
-the production model and works best at maximum
-load.
+Prior to this commit the src address in the local routing table was
+completely ignored, so connecting to a local address always used the
+same source and destination addresses. However, this is not what was
+configured in the local routing table:
 
-However at 50% load (the test here), the
-dual-thread handoff model is the clear winner
-over *all* other scenarios.
+=A0 $ ifconfig lo:0 127.0.0.2
+=A0 $ ip route show table local | grep 127.0.0.2
+=A0 local 127.0.0.2 dev lo =A0proto kernel =A0scope host =A0src 127.0.0=
+=2E1
 
->New kernels are able to perform this fanout in kernel land.
+When an interface has an alias configured, the source address
+installed in the=A0local routing table=A0is always the primary address =
+for
+the interface.=A0The tftp use case you've described now breaks due to
+the way that in.tftpd is determining the reply address (as documented
+in the in.tftpd manual page). This means that it is now responding
+from 127.0.0.1 even though the client connected to 127.0.0.2. Binding
+inetd to a specific address will avoid this issue.
 
-Yes, of course I am interested in Intel's flow
-director and similar solutions, netfilter especially.
-2.6.32 is only recently available in commercial
-deployment and I will be looking at that next up.
-Mainly I'll be looking at complete kernel bypass
-with 10G.  Myricom looks like it might be good.
-Tested Solarflare last year and it was a bust
-for high volume UDP (one thread) but I've heard
-that they fixed that and will revisit.
+I have not yet looked to see if there is a specific reason for the
+source address selection, however one way of restoring the previous
+behaviour (whilst still respecting the configured source address)
+would be to use a default source address which matches the configured
+address (as is done for primary addresses). I cannot immediately think
+of a reason not to do this, but I've not gone looking at the code.
 
-In relation to the above observation that
-less CPU-per-packet is best for avoiding
-data loss, it also correlates somewhat
-(though not always) with better latency.
+Worst case scenario if you specifically need the original behaviour
+then the source address can be changed in the local routing table:
 
-I've used the 'e1000e' 1G network interfaces
-for these tests because they work better than
-the multi-queue 'igb' (Intel 82576) and
-'ixgbe' (Intel 82599) in all scenarios other
-than maximum-stress load.  The reason is
-apparently that the old 'e1000e' driver has
-shorter, more efficient code paths while
-'igb' and 'ixgbe' use significantly more
-CPU to process the same number of packets.
-I can quantify that if it is of interest.
-
-At present the only place where multi-queue
-NICs best four 1G NICs is at breaking-point
-traffic loads where asymmetries in the traffic
-can't be easily redistributed by the kernel
-and the resulting hot-spots are weakest-link
-breakpoints.
-
-Please understand that I am not a curmudgeonly
-Luddite.  I realize that sometimes it is
-necessary to trade efficiency for scalability.
-All I'm doing here is trying to quantify the
-current state of affairs and make recommendations
-in a commercial environment.  For the moment
-all the excellent enhancements designed to
-permit extreme scalability are costing too
-much in efficiency to be worth using in
-production.  When/if Tilera delivers their
-100 core CPU in volume this state of affairs
-will likely change.  I imagine both Intel
-and AMD have many-core solutions in the pipe
-as well, though it will be interesting to see
-if Tilera has the essential patents and can
-surpass the two majors in the market and the
-courts.
+  $ ip route change table local local 127.0.0.2 dev lo:0 proto kernel
+scope host src 127.0.0.2
+  $ ip route show table local | grep 127.0.0.2
+  local 127.0.0.2 dev lo =A0proto kernel =A0scope host =A0src 127.0.0.2
