@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/13] igb: Make first and tx_buffer_info->next_to_watch into pointers
-Date: Fri,  7 Oct 2011 00:18:42 -0700
-Message-ID: <1317971926-23145-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/13] igb: Consolidate creation of Tx context descriptors into a single function
+Date: Fri,  7 Oct 2011 00:18:41 -0700
+Message-ID: <1317971926-23145-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317971926-23145-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34234 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:34245 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759182Ab1JGHSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759179Ab1JGHSx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 7 Oct 2011 03:18:53 -0400
 In-Reply-To: <1317971926-23145-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,243 +18,357 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change converts two tx_buffer_info index values into pointers.  The
-advantage to this is that we reduce unnecessary computations and in the case
-of next_to_watch we get an added bonus of the value being able to provide
-additional information as a NULL value indicates it is unset versus a 0 not
-having any meaning for the index value.
+This patch is meant to simplify the transmit path by reducing the overhead
+for creating a transmit context descriptor.  The current implementation is
+split with igb_tso and igb_tx_csum doing two separate implementations on
+how to setup the tx_buffer_info structure and the tx_desc.  By combining
+them it is possible to reduce code and simplify things since now only one
+function will create context descriptors.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |    2 +-
- drivers/net/ethernet/intel/igb/igb_main.c |   66 ++++++++++++++++-------------
- 2 files changed, 37 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c |  233 +++++++++++++----------------
+ 1 files changed, 106 insertions(+), 127 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 56c68fc..7185667 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -133,7 +133,7 @@ struct vf_data_storage {
- /* wrapper around a pointer to a socket buffer,
-  * so a DMA handle can be stored along with the buffer */
- struct igb_tx_buffer {
--	u16 next_to_watch;
-+	union e1000_adv_tx_desc *next_to_watch;
- 	unsigned long time_stamp;
- 	dma_addr_t dma;
- 	u32 length;
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index a0bb81d..edc2cae 100644
+index 2bdc783..a0bb81d 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -381,7 +381,7 @@ static void igb_dump(struct igb_adapter *adapter)
- 		struct igb_tx_buffer *buffer_info;
- 		tx_ring = adapter->tx_ring[n];
- 		buffer_info = &tx_ring->tx_buffer_info[tx_ring->next_to_clean];
--		printk(KERN_INFO " %5d %5X %5X %016llX %04X %3X %016llX\n",
-+		printk(KERN_INFO " %5d %5X %5X %016llX %04X %p %016llX\n",
- 			   n, tx_ring->next_to_use, tx_ring->next_to_clean,
- 			   (u64)buffer_info->dma,
- 			   buffer_info->length,
-@@ -421,7 +421,7 @@ static void igb_dump(struct igb_adapter *adapter)
- 			buffer_info = &tx_ring->tx_buffer_info[i];
- 			u0 = (struct my_u0 *)tx_desc;
- 			printk(KERN_INFO "T [0x%03X]    %016llX %016llX %016llX"
--				" %04X  %3X %016llX %p", i,
-+				" %04X  %p %016llX %p", i,
- 				le64_to_cpu(u0->a),
- 				le64_to_cpu(u0->b),
- 				(u64)buffer_info->dma,
-@@ -3161,7 +3161,7 @@ void igb_unmap_and_free_tx_resource(struct igb_ring *tx_ring,
+@@ -45,6 +45,9 @@
+ #include <linux/pci-aspm.h>
+ #include <linux/delay.h>
+ #include <linux/interrupt.h>
++#include <linux/ip.h>
++#include <linux/tcp.h>
++#include <linux/sctp.h>
+ #include <linux/if_ether.h>
+ #include <linux/aer.h>
+ #include <linux/prefetch.h>
+@@ -3960,16 +3963,39 @@ set_itr_now:
+ #define IGB_TX_FLAGS_VLAN_MASK		0xffff0000
+ #define IGB_TX_FLAGS_VLAN_SHIFT		        16
+ 
++void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
++		     u32 type_tucmd, u32 mss_l4len_idx)
++{
++	struct e1000_adv_tx_context_desc *context_desc;
++	u16 i = tx_ring->next_to_use;
++
++	context_desc = IGB_TX_CTXTDESC(tx_ring, i);
++
++	i++;
++	tx_ring->next_to_use = (i < tx_ring->count) ? i : 0;
++
++	/* set bits to identify this as an advanced context descriptor */
++	type_tucmd |= E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT;
++
++	/* For 82575, context index must be unique per ring. */
++	if (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX)
++		mss_l4len_idx |= tx_ring->reg_idx << 4;
++
++	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
++	context_desc->seqnum_seed	= 0;
++	context_desc->type_tucmd_mlhl	= cpu_to_le32(type_tucmd);
++	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
++}
++
+ static inline int igb_tso(struct igb_ring *tx_ring,
+ 			  struct sk_buff *skb, u32 tx_flags, u8 *hdr_len)
+ {
+-	struct e1000_adv_tx_context_desc *context_desc;
+-	unsigned int i;
+ 	int err;
+-	struct igb_tx_buffer *buffer_info;
+-	u32 info = 0, tu_cmd = 0;
+-	u32 mss_l4len_idx;
+-	u8 l4len;
++	u32 vlan_macip_lens, type_tucmd;
++	u32 mss_l4len_idx, l4len;
++
++	if (!skb_is_gso(skb))
++		return 0;
+ 
+ 	if (skb_header_cloned(skb)) {
+ 		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+@@ -3977,8 +4003,8 @@ static inline int igb_tso(struct igb_ring *tx_ring,
+ 			return err;
  	}
- 	buffer_info->time_stamp = 0;
- 	buffer_info->length = 0;
--	buffer_info->next_to_watch = 0;
-+	buffer_info->next_to_watch = NULL;
- 	buffer_info->mapped_as_page = false;
+ 
+-	l4len = tcp_hdrlen(skb);
+-	*hdr_len += l4len;
++	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
++	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
+ 
+ 	if (skb->protocol == htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+@@ -3988,6 +4014,7 @@ static inline int igb_tso(struct igb_ring *tx_ring,
+ 							 iph->daddr, 0,
+ 							 IPPROTO_TCP,
+ 							 0);
++		type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
+ 	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+@@ -3995,131 +4022,85 @@ static inline int igb_tso(struct igb_ring *tx_ring,
+ 						       0, IPPROTO_TCP, 0);
+ 	}
+ 
+-	i = tx_ring->next_to_use;
+-
+-	buffer_info = &tx_ring->tx_buffer_info[i];
+-	context_desc = IGB_TX_CTXTDESC(tx_ring, i);
+-	/* VLAN MACLEN IPLEN */
+-	if (tx_flags & IGB_TX_FLAGS_VLAN)
+-		info |= (tx_flags & IGB_TX_FLAGS_VLAN_MASK);
+-	info |= (skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT);
+-	*hdr_len += skb_network_offset(skb);
+-	info |= skb_network_header_len(skb);
+-	*hdr_len += skb_network_header_len(skb);
+-	context_desc->vlan_macip_lens = cpu_to_le32(info);
+-
+-	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+-	tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
+-
+-	if (skb->protocol == htons(ETH_P_IP))
+-		tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
+-	tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
+-
+-	context_desc->type_tucmd_mlhl = cpu_to_le32(tu_cmd);
++	l4len = tcp_hdrlen(skb);
++	*hdr_len = skb_transport_offset(skb) + l4len;
+ 
+ 	/* MSS L4LEN IDX */
+-	mss_l4len_idx = (skb_shinfo(skb)->gso_size << E1000_ADVTXD_MSS_SHIFT);
+-	mss_l4len_idx |= (l4len << E1000_ADVTXD_L4LEN_SHIFT);
++	mss_l4len_idx = l4len << E1000_ADVTXD_L4LEN_SHIFT;
++	mss_l4len_idx |= skb_shinfo(skb)->gso_size << E1000_ADVTXD_MSS_SHIFT;
+ 
+-	/* For 82575, context index must be unique per ring. */
+-	if (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX)
+-		mss_l4len_idx |= tx_ring->reg_idx << 4;
+-
+-	context_desc->mss_l4len_idx = cpu_to_le32(mss_l4len_idx);
+-	context_desc->seqnum_seed = 0;
+-
+-	buffer_info->time_stamp = jiffies;
+-	buffer_info->next_to_watch = i;
+-	buffer_info->dma = 0;
+-	i++;
+-	if (i == tx_ring->count)
+-		i = 0;
++	/* VLAN MACLEN IPLEN */
++	vlan_macip_lens = skb_network_header_len(skb);
++	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
++	vlan_macip_lens |= tx_flags & IGB_TX_FLAGS_VLAN_MASK;
+ 
+-	tx_ring->next_to_use = i;
++	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
+ 
+-	return true;
++	return 1;
  }
  
-@@ -4107,7 +4107,7 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring,
- #define IGB_MAX_DATA_PER_TXD	(1<<IGB_MAX_TXD_PWR)
- 
- static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
--			     unsigned int first)
-+			     struct igb_tx_buffer *first)
+ static inline bool igb_tx_csum(struct igb_ring *tx_ring,
+ 			       struct sk_buff *skb, u32 tx_flags)
  {
- 	struct igb_tx_buffer *buffer_info;
- 	struct device *dev = tx_ring->dev;
-@@ -4121,7 +4121,6 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
+-	struct e1000_adv_tx_context_desc *context_desc;
+-	struct device *dev = tx_ring->dev;
+-	struct igb_tx_buffer *buffer_info;
+-	u32 info = 0, tu_cmd = 0;
+-	unsigned int i;
+-
+-	if ((skb->ip_summed == CHECKSUM_PARTIAL) ||
+-	    (tx_flags & IGB_TX_FLAGS_VLAN)) {
+-		i = tx_ring->next_to_use;
+-		buffer_info = &tx_ring->tx_buffer_info[i];
+-		context_desc = IGB_TX_CTXTDESC(tx_ring, i);
+-
+-		if (tx_flags & IGB_TX_FLAGS_VLAN)
+-			info |= (tx_flags & IGB_TX_FLAGS_VLAN_MASK);
+-
+-		info |= (skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT);
+-		if (skb->ip_summed == CHECKSUM_PARTIAL)
+-			info |= skb_network_header_len(skb);
+-
+-		context_desc->vlan_macip_lens = cpu_to_le32(info);
+-
+-		tu_cmd |= (E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT);
+-
+-		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-			__be16 protocol;
++	u32 vlan_macip_lens = 0;
++	u32 mss_l4len_idx = 0;
++	u32 type_tucmd = 0;
+ 
+-			if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
+-				const struct vlan_ethhdr *vhdr =
+-				          (const struct vlan_ethhdr*)skb->data;
+-
+-				protocol = vhdr->h_vlan_encapsulated_proto;
+-			} else {
+-				protocol = skb->protocol;
++	if (skb->ip_summed != CHECKSUM_PARTIAL) {
++		if (!(tx_flags & IGB_TX_FLAGS_VLAN))
++			return false;
++	} else {
++		u8 l4_hdr = 0;
++		switch (skb->protocol) {
++		case __constant_htons(ETH_P_IP):
++			vlan_macip_lens |= skb_network_header_len(skb);
++			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
++			l4_hdr = ip_hdr(skb)->protocol;
++			break;
++		case __constant_htons(ETH_P_IPV6):
++			vlan_macip_lens |= skb_network_header_len(skb);
++			l4_hdr = ipv6_hdr(skb)->nexthdr;
++			break;
++		default:
++			if (unlikely(net_ratelimit())) {
++				dev_warn(tx_ring->dev,
++				 "partial checksum but proto=%x!\n",
++				 skb->protocol);
+ 			}
++			break;
++		}
+ 
+-			switch (protocol) {
+-			case cpu_to_be16(ETH_P_IP):
+-				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
+-				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+-					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
+-				else if (ip_hdr(skb)->protocol == IPPROTO_SCTP)
+-					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_SCTP;
+-				break;
+-			case cpu_to_be16(ETH_P_IPV6):
+-				/* XXX what about other V6 headers?? */
+-				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+-					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
+-				else if (ipv6_hdr(skb)->nexthdr == IPPROTO_SCTP)
+-					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_SCTP;
+-				break;
+-			default:
+-				if (unlikely(net_ratelimit()))
+-					dev_warn(dev,
+-					    "partial checksum but proto=%x!\n",
+-					    skb->protocol);
+-				break;
++		switch (l4_hdr) {
++		case IPPROTO_TCP:
++			type_tucmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
++			mss_l4len_idx = tcp_hdrlen(skb) <<
++					E1000_ADVTXD_L4LEN_SHIFT;
++			break;
++		case IPPROTO_SCTP:
++			type_tucmd |= E1000_ADVTXD_TUCMD_L4T_SCTP;
++			mss_l4len_idx = sizeof(struct sctphdr) <<
++					E1000_ADVTXD_L4LEN_SHIFT;
++			break;
++		case IPPROTO_UDP:
++			mss_l4len_idx = sizeof(struct udphdr) <<
++					E1000_ADVTXD_L4LEN_SHIFT;
++			break;
++		default:
++			if (unlikely(net_ratelimit())) {
++				dev_warn(tx_ring->dev,
++				 "partial checksum but l4 proto=%x!\n",
++				 l4_hdr);
+ 			}
++			break;
+ 		}
++	}
+ 
+-		context_desc->type_tucmd_mlhl = cpu_to_le32(tu_cmd);
+-		context_desc->seqnum_seed = 0;
+-		if (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX)
+-			context_desc->mss_l4len_idx =
+-				cpu_to_le32(tx_ring->reg_idx << 4);
++	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
++	vlan_macip_lens |= tx_flags & IGB_TX_FLAGS_VLAN_MASK;
+ 
+-		buffer_info->time_stamp = jiffies;
+-		buffer_info->next_to_watch = i;
+-		buffer_info->dma = 0;
++	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
+ 
+-		i++;
+-		if (i == tx_ring->count)
+-			i = 0;
+-		tx_ring->next_to_use = i;
+-
+-		return true;
+-	}
+-	return false;
++	return (skb->ip_summed == CHECKSUM_PARTIAL);
+ }
+ 
+ #define IGB_MAX_TXD_PWR	16
+@@ -4140,8 +4121,6 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
  	buffer_info = &tx_ring->tx_buffer_info[i];
  	BUG_ON(hlen >= IGB_MAX_DATA_PER_TXD);
  	buffer_info->length = hlen;
--	buffer_info->next_to_watch = i;
+-	/* set time_stamp *before* dma to help avoid a possible race */
+-	buffer_info->time_stamp = jiffies;
+ 	buffer_info->next_to_watch = i;
  	buffer_info->dma = dma_map_single(dev, skb->data, hlen,
  					  DMA_TO_DEVICE);
- 	if (dma_mapping_error(dev, buffer_info->dma))
-@@ -4139,7 +4138,6 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
+@@ -4160,7 +4139,6 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
  		buffer_info = &tx_ring->tx_buffer_info[i];
  		BUG_ON(len >= IGB_MAX_DATA_PER_TXD);
  		buffer_info->length = len;
--		buffer_info->next_to_watch = i;
+-		buffer_info->time_stamp = jiffies;
+ 		buffer_info->next_to_watch = i;
  		buffer_info->mapped_as_page = true;
  		buffer_info->dma = skb_frag_dma_map(dev, frag, 0, len,
- 						DMA_TO_DEVICE);
-@@ -4153,8 +4151,12 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	/* multiply data chunks by size of headers */
+@@ -4176,6 +4154,7 @@ static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
  	buffer_info->bytecount = ((gso_segs - 1) * hlen) + skb->len;
  	buffer_info->gso_segs = gso_segs;
--	tx_ring->tx_buffer_info[first].next_to_watch = i;
--	tx_ring->tx_buffer_info[first].time_stamp = jiffies;
-+
-+	/* set the timestamp */
-+	first->time_stamp = jiffies;
-+
-+	/* set next_to_watch value indicating a packet is present */
-+	first->next_to_watch = IGB_TX_DESC(tx_ring, i);
+ 	tx_ring->tx_buffer_info[first].next_to_watch = i;
++	tx_ring->tx_buffer_info[first].time_stamp = jiffies;
  
  	return ++count;
  
-@@ -4165,7 +4167,6 @@ dma_error:
- 	buffer_info->dma = 0;
- 	buffer_info->time_stamp = 0;
- 	buffer_info->length = 0;
--	buffer_info->next_to_watch = 0;
- 	buffer_info->mapped_as_page = false;
- 
- 	/* clear timestamp and dma mappings for remaining portion of packet */
-@@ -4283,9 +4284,9 @@ static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, int size)
+@@ -4304,7 +4283,7 @@ static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, int size)
  netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
  				struct igb_ring *tx_ring)
  {
-+	struct igb_tx_buffer *first;
- 	int tso, count;
+-	int tso = 0, count;
++	int tso, count;
  	u32 tx_flags = 0;
--	u16 first;
+ 	u16 first;
  	u8 hdr_len = 0;
- 
- 	/* need: 1 descriptor per page,
-@@ -4311,7 +4312,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	if (skb->protocol == htons(ETH_P_IP))
+@@ -4333,16 +4312,12 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
  		tx_flags |= IGB_TX_FLAGS_IPV4;
  
--	first = tx_ring->next_to_use;
-+	/* record the location of the first descriptor for this packet */
-+	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
+ 	first = tx_ring->next_to_use;
+-	if (skb_is_gso(skb)) {
+-		tso = igb_tso(tx_ring, skb, tx_flags, &hdr_len);
  
- 	tso = igb_tso(tx_ring, skb, tx_flags, &hdr_len);
+-		if (tso < 0) {
+-			dev_kfree_skb_any(skb);
+-			return NETDEV_TX_OK;
+-		}
+-	}
++	tso = igb_tso(tx_ring, skb, tx_flags, &hdr_len);
  
-@@ -4330,8 +4332,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	count = igb_tx_map(tx_ring, skb, first);
- 	if (!count) {
- 		dev_kfree_skb_any(skb);
--		tx_ring->tx_buffer_info[first].time_stamp = 0;
--		tx_ring->next_to_use = first;
-+		first->time_stamp = 0;
-+		tx_ring->next_to_use = first - tx_ring->tx_buffer_info;
- 		return NETDEV_TX_OK;
- 	}
+-	if (tso)
++	if (tso < 0)
++		goto out_drop;
++	else if (tso)
+ 		tx_flags |= IGB_TX_FLAGS_TSO;
+ 	else if (igb_tx_csum(tx_ring, skb, tx_flags) &&
+ 	         (skb->ip_summed == CHECKSUM_PARTIAL))
+@@ -4366,6 +4341,10 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 4);
  
-@@ -5568,29 +5570,34 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 	struct igb_adapter *adapter = q_vector->adapter;
- 	struct igb_ring *tx_ring = q_vector->tx_ring;
- 	struct igb_tx_buffer *tx_buffer;
--	union e1000_adv_tx_desc *tx_desc;
-+	union e1000_adv_tx_desc *tx_desc, *eop_desc;
- 	unsigned int total_bytes = 0, total_packets = 0;
- 	unsigned int budget = q_vector->tx_work_limit;
--	u16 i = tx_ring->next_to_clean;
-+	unsigned int i = tx_ring->next_to_clean;
- 
- 	if (test_bit(__IGB_DOWN, &adapter->state))
- 		return true;
- 
- 	tx_buffer = &tx_ring->tx_buffer_info[i];
- 	tx_desc = IGB_TX_DESC(tx_ring, i);
-+	i -= tx_ring->count;
- 
- 	for (; budget; budget--) {
--		u16 eop = tx_buffer->next_to_watch;
--		union e1000_adv_tx_desc *eop_desc;
-+		eop_desc = tx_buffer->next_to_watch;
- 
--		eop_desc = IGB_TX_DESC(tx_ring, eop);
-+		/* prevent any other reads prior to eop_desc */
-+		rmb();
+ 	return NETDEV_TX_OK;
 +
-+		/* if next_to_watch is not set then there is no work pending */
-+		if (!eop_desc)
-+			break;
++out_drop:
++	dev_kfree_skb_any(skb);
++	return NETDEV_TX_OK;
+ }
  
- 		/* if DD is not set pending work has not been completed */
- 		if (!(eop_desc->wb.status & cpu_to_le32(E1000_TXD_STAT_DD)))
- 			break;
- 
--		/* prevent any other reads prior to eop_desc being verified */
--		rmb();
-+		/* clear next_to_watch to prevent false hangs */
-+		tx_buffer->next_to_watch = NULL;
- 
- 		do {
- 			tx_desc->wb.status = 0;
-@@ -5607,14 +5614,15 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 			tx_buffer++;
- 			tx_desc++;
- 			i++;
--			if (unlikely(i == tx_ring->count)) {
--				i = 0;
-+			if (unlikely(!i)) {
-+				i -= tx_ring->count;
- 				tx_buffer = tx_ring->tx_buffer_info;
- 				tx_desc = IGB_TX_DESC(tx_ring, 0);
- 			}
- 		} while (eop_desc);
- 	}
- 
-+	i += tx_ring->count;
- 	tx_ring->next_to_clean = i;
- 	u64_stats_update_begin(&tx_ring->tx_syncp);
- 	tx_ring->tx_stats.bytes += total_bytes;
-@@ -5625,16 +5633,14 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 
- 	if (tx_ring->detect_tx_hung) {
- 		struct e1000_hw *hw = &adapter->hw;
--		u16 eop = tx_ring->tx_buffer_info[i].next_to_watch;
--		union e1000_adv_tx_desc *eop_desc;
- 
--		eop_desc = IGB_TX_DESC(tx_ring, eop);
-+		eop_desc = tx_buffer->next_to_watch;
- 
- 		/* Detect a transmit hang in hardware, this serializes the
- 		 * check with the clearing of time_stamp and movement of i */
- 		tx_ring->detect_tx_hung = false;
--		if (tx_ring->tx_buffer_info[i].time_stamp &&
--		    time_after(jiffies, tx_ring->tx_buffer_info[i].time_stamp +
-+		if (eop_desc &&
-+		    time_after(jiffies, tx_buffer->time_stamp +
- 			       (adapter->tx_timeout_factor * HZ)) &&
- 		    !(rd32(E1000_STATUS) & E1000_STATUS_TXOFF)) {
- 
-@@ -5648,7 +5654,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 				"  next_to_clean        <%x>\n"
- 				"buffer_info[next_to_clean]\n"
- 				"  time_stamp           <%lx>\n"
--				"  next_to_watch        <%x>\n"
-+				"  next_to_watch        <%p>\n"
- 				"  jiffies              <%lx>\n"
- 				"  desc.status          <%x>\n",
- 				tx_ring->queue_index,
-@@ -5656,8 +5662,8 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 				readl(tx_ring->tail),
- 				tx_ring->next_to_use,
- 				tx_ring->next_to_clean,
--				tx_ring->tx_buffer_info[eop].time_stamp,
--				eop,
-+				tx_buffer->time_stamp,
-+				eop_desc,
- 				jiffies,
- 				eop_desc->wb.status);
- 			netif_stop_subqueue(tx_ring->netdev,
+ static inline struct igb_ring *igb_tx_queue_mapping(struct igb_adapter *adapter,
 -- 
 1.7.6.4
