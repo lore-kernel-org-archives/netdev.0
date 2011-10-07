@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/13] igb: consolidate creation of Tx buffer info and data descriptor
-Date: Fri,  7 Oct 2011 00:18:46 -0700
-Message-ID: <1317971926-23145-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/13] igb: Cleanup protocol handling in transmit path
+Date: Fri,  7 Oct 2011 00:18:44 -0700
+Message-ID: <1317971926-23145-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317971926-23145-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,449 +10,104 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:34273 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759334Ab1JGHSz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Oct 2011 03:18:55 -0400
+	id S1758795Ab1JGHSy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 03:18:54 -0400
 In-Reply-To: <1317971926-23145-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change will combine the writes of tx_buffer_info and the Tx data
-descriptors into a single function. The advantage of this is that we can
-avoid needless memory reads from the buffer info struct and speed things up
-by keeping the accesses to the local registers.
+This change is meant to cleanup the protocol handling in the transmit path
+so that it correctly offloads software VLAN tagged frames.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |    8 +-
- drivers/net/ethernet/intel/igb/igb_main.c |  318 ++++++++++++++++-------------
- 2 files changed, 184 insertions(+), 142 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c |   23 +++++++++++------------
+ 1 files changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index b71d186..77793a9 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -135,7 +135,6 @@ struct vf_data_storage {
- #define IGB_TX_FLAGS_TSO		0x00000004
- #define IGB_TX_FLAGS_IPV4		0x00000008
- #define IGB_TX_FLAGS_TSTAMP		0x00000010
--#define IGB_TX_FLAGS_MAPPED_AS_PAGE	0x00000020
- #define IGB_TX_FLAGS_VLAN_MASK		0xffff0000
- #define IGB_TX_FLAGS_VLAN_SHIFT	16
- 
-@@ -144,13 +143,12 @@ struct vf_data_storage {
- struct igb_tx_buffer {
- 	union e1000_adv_tx_desc *next_to_watch;
- 	unsigned long time_stamp;
--	dma_addr_t dma;
--	u32 length;
--	u32 tx_flags;
- 	struct sk_buff *skb;
- 	unsigned int bytecount;
- 	u16 gso_segs;
--	u8 mapped_as_page;
-+	dma_addr_t dma;
-+	u32 length;
-+	u32 tx_flags;
- };
- 
- struct igb_rx_buffer {
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index dc93d64..862dd7c 100644
+index 2c61ec4..3ebeb3e 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3139,29 +3139,26 @@ static void igb_free_all_tx_resources(struct igb_adapter *adapter)
- 		igb_free_tx_resources(adapter->tx_ring[i]);
+@@ -3987,8 +3987,8 @@ void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
+ 	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
  }
  
--void igb_unmap_and_free_tx_resource(struct igb_ring *tx_ring,
--				    struct igb_tx_buffer *buffer_info)
--{
--	if (buffer_info->dma) {
--		if (buffer_info->tx_flags & IGB_TX_FLAGS_MAPPED_AS_PAGE)
--			dma_unmap_page(tx_ring->dev,
--					buffer_info->dma,
--					buffer_info->length,
--					DMA_TO_DEVICE);
--		else
--			dma_unmap_single(tx_ring->dev,
--					buffer_info->dma,
--					buffer_info->length,
--					DMA_TO_DEVICE);
--		buffer_info->dma = 0;
--	}
--	if (buffer_info->skb) {
--		dev_kfree_skb_any(buffer_info->skb);
--		buffer_info->skb = NULL;
--	}
--	buffer_info->time_stamp = 0;
--	buffer_info->length = 0;
--	buffer_info->next_to_watch = NULL;
-+void igb_unmap_and_free_tx_resource(struct igb_ring *ring,
-+				    struct igb_tx_buffer *tx_buffer)
-+{
-+	if (tx_buffer->skb) {
-+		dev_kfree_skb_any(tx_buffer->skb);
-+		if (tx_buffer->dma)
-+			dma_unmap_single(ring->dev,
-+					 tx_buffer->dma,
-+					 tx_buffer->length,
-+					 DMA_TO_DEVICE);
-+	} else if (tx_buffer->dma) {
-+		dma_unmap_page(ring->dev,
-+			       tx_buffer->dma,
-+			       tx_buffer->length,
-+			       DMA_TO_DEVICE);
-+	}
-+	tx_buffer->next_to_watch = NULL;
-+	tx_buffer->skb = NULL;
-+	tx_buffer->dma = 0;
-+	/* buffer_info must be completely set up in the transmit path */
- }
- 
- /**
-@@ -4138,124 +4135,153 @@ static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
- 	return cpu_to_le32(olinfo_status);
- }
- 
--#define IGB_MAX_TXD_PWR	16
--#define IGB_MAX_DATA_PER_TXD	(1<<IGB_MAX_TXD_PWR)
-+/*
-+ * The largest size we can write to the descriptor is 65535.  In order to
-+ * maintain a power of two alignment we have to limit ourselves to 32K.
-+ */
-+#define IGB_MAX_TXD_PWR	15
-+#define IGB_MAX_DATA_PER_TXD	(1 << IGB_MAX_TXD_PWR)
- 
--static inline int igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
--			     struct igb_tx_buffer *first, u32 tx_flags)
-+static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
-+		       struct igb_tx_buffer *first, u32 tx_flags,
-+		       const u8 hdr_len)
+-static inline int igb_tso(struct igb_ring *tx_ring,
+-			  struct sk_buff *skb, u32 tx_flags, u8 *hdr_len)
++static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
++			  u32 tx_flags, __be16 protocol, u8 *hdr_len)
  {
--	struct igb_tx_buffer *buffer_info;
--	struct device *dev = tx_ring->dev;
--	unsigned int hlen = skb_headlen(skb);
--	unsigned int count = 0, i;
--	unsigned int f;
--	u16 gso_segs = skb_shinfo(skb)->gso_segs ?: 1;
--
--	i = tx_ring->next_to_use;
--
--	buffer_info = &tx_ring->tx_buffer_info[i];
--	BUG_ON(hlen >= IGB_MAX_DATA_PER_TXD);
--	buffer_info->length = hlen;
--	buffer_info->tx_flags = tx_flags;
--	buffer_info->dma = dma_map_single(dev, skb->data, hlen,
--					  DMA_TO_DEVICE);
--	if (dma_mapping_error(dev, buffer_info->dma))
-+	struct igb_tx_buffer *tx_buffer_info;
-+	union e1000_adv_tx_desc *tx_desc;
-+	dma_addr_t dma;
-+	struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[0];
-+	unsigned int data_len = skb->data_len;
-+	unsigned int size = skb_headlen(skb);
-+	unsigned int paylen = skb->len - hdr_len;
-+	__le32 cmd_type;
-+	u16 i = tx_ring->next_to_use;
-+	u16 gso_segs;
-+
-+	if (tx_flags & IGB_TX_FLAGS_TSO)
-+		gso_segs = skb_shinfo(skb)->gso_segs;
-+	else
-+		gso_segs = 1;
-+
-+	/* multiply data chunks by size of headers */
-+	first->bytecount = paylen + (gso_segs * hdr_len);
-+	first->gso_segs = gso_segs;
-+	first->skb = skb;
-+
-+	tx_desc = IGB_TX_DESC(tx_ring, i);
-+
-+	tx_desc->read.olinfo_status =
-+		igb_tx_olinfo_status(tx_flags, paylen, tx_ring);
-+
-+	cmd_type = igb_tx_cmd_type(tx_flags);
-+
-+	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
-+	if (dma_mapping_error(tx_ring->dev, dma))
- 		goto dma_error;
+ 	int err;
+ 	u32 vlan_macip_lens, type_tucmd;
+@@ -4006,7 +4006,7 @@ static inline int igb_tso(struct igb_ring *tx_ring,
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
  
--	tx_flags |= IGB_TX_FLAGS_MAPPED_AS_PAGE;
-+	/* record length, and DMA address */
-+	first->length = size;
-+	first->dma = dma;
-+	first->tx_flags = tx_flags;
-+	tx_desc->read.buffer_addr = cpu_to_le64(dma);
- 
--	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++) {
--		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[f];
--		unsigned int len = frag->size;
-+	for (;;) {
-+		while (unlikely(size > IGB_MAX_DATA_PER_TXD)) {
-+			tx_desc->read.cmd_type_len =
-+				cmd_type | cpu_to_le32(IGB_MAX_DATA_PER_TXD);
-+
-+			i++;
-+			tx_desc++;
-+			if (i == tx_ring->count) {
-+				tx_desc = IGB_TX_DESC(tx_ring, 0);
-+				i = 0;
-+			}
-+
-+			dma += IGB_MAX_DATA_PER_TXD;
-+			size -= IGB_MAX_DATA_PER_TXD;
-+
-+			tx_desc->read.olinfo_status = 0;
-+			tx_desc->read.buffer_addr = cpu_to_le64(dma);
-+		}
-+
-+		if (likely(!data_len))
-+			break;
-+
-+		tx_desc->read.cmd_type_len = cmd_type | cpu_to_le32(size);
- 
--		count++;
- 		i++;
--		if (i == tx_ring->count)
-+		tx_desc++;
-+		if (i == tx_ring->count) {
-+			tx_desc = IGB_TX_DESC(tx_ring, 0);
- 			i = 0;
-+		}
- 
--		buffer_info = &tx_ring->tx_buffer_info[i];
--		BUG_ON(len >= IGB_MAX_DATA_PER_TXD);
--		buffer_info->length = len;
--		buffer_info->tx_flags = tx_flags;
--		buffer_info->dma = skb_frag_dma_map(dev, frag, 0, len,
--						DMA_TO_DEVICE);
--		if (dma_mapping_error(dev, buffer_info->dma))
-+		size = frag->size;
-+		data_len -= size;
-+
-+		dma = skb_frag_dma_map(tx_ring->dev, frag, 0,
-+				   size, DMA_TO_DEVICE);
-+		if (dma_mapping_error(tx_ring->dev, dma))
- 			goto dma_error;
- 
-+		tx_buffer_info = &tx_ring->tx_buffer_info[i];
-+		tx_buffer_info->length = size;
-+		tx_buffer_info->dma = dma;
-+
-+		tx_desc->read.olinfo_status = 0;
-+		tx_desc->read.buffer_addr = cpu_to_le64(dma);
-+
-+		frag++;
- 	}
- 
--	buffer_info->skb = skb;
--	/* multiply data chunks by size of headers */
--	buffer_info->bytecount = ((gso_segs - 1) * hlen) + skb->len;
--	buffer_info->gso_segs = gso_segs;
-+	/* write last descriptor with RS and EOP bits */
-+	cmd_type |= cpu_to_le32(size) | cpu_to_le32(IGB_TXD_DCMD);
-+	tx_desc->read.cmd_type_len = cmd_type;
- 
- 	/* set the timestamp */
- 	first->time_stamp = jiffies;
- 
-+	/*
-+	 * Force memory writes to complete before letting h/w know there
-+	 * are new descriptors to fetch.  (Only applicable for weak-ordered
-+	 * memory model archs, such as IA-64).
-+	 *
-+	 * We also need this memory barrier to make certain all of the
-+	 * status bits have been updated before next_to_watch is written.
-+	 */
-+	wmb();
-+
- 	/* set next_to_watch value indicating a packet is present */
--	first->next_to_watch = IGB_TX_DESC(tx_ring, i);
-+	first->next_to_watch = tx_desc;
- 
--	return ++count;
-+	i++;
-+	if (i == tx_ring->count)
-+		i = 0;
- 
--dma_error:
--	dev_err(dev, "TX DMA map failed\n");
-+	tx_ring->next_to_use = i;
-+
-+	writel(i, tx_ring->tail);
- 
--	/* clear timestamp and dma mappings for failed buffer_info mapping */
--	buffer_info->dma = 0;
--	buffer_info->time_stamp = 0;
--	buffer_info->length = 0;
-+	/* we need this if more than one processor can write to our tail
-+	 * at a time, it syncronizes IO on IA64/Altix systems */
-+	mmiowb();
-+
-+	return;
-+
-+dma_error:
-+	dev_err(tx_ring->dev, "TX DMA map failed\n");
- 
--	/* clear timestamp and dma mappings for remaining portion of packet */
--	while (count--) {
-+	/* clear dma mappings for failed tx_buffer_info map */
-+	for (;;) {
-+		tx_buffer_info = &tx_ring->tx_buffer_info[i];
-+		igb_unmap_and_free_tx_resource(tx_ring, tx_buffer_info);
-+		if (tx_buffer_info == first)
-+			break;
- 		if (i == 0)
- 			i = tx_ring->count;
- 		i--;
--		buffer_info = &tx_ring->tx_buffer_info[i];
--		igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
- 	}
- 
--	return 0;
--}
--
--static inline void igb_tx_queue(struct igb_ring *tx_ring,
--				u32 tx_flags, int count, u32 paylen,
--				u8 hdr_len)
--{
--	union e1000_adv_tx_desc *tx_desc;
--	struct igb_tx_buffer *buffer_info;
--	__le32 olinfo_status, cmd_type;
--	unsigned int i = tx_ring->next_to_use;
--
--	cmd_type = igb_tx_cmd_type(tx_flags);
--	olinfo_status = igb_tx_olinfo_status(tx_flags,
--					     paylen - hdr_len,
--					     tx_ring);
--
--	do {
--		buffer_info = &tx_ring->tx_buffer_info[i];
--		tx_desc = IGB_TX_DESC(tx_ring, i);
--		tx_desc->read.buffer_addr = cpu_to_le64(buffer_info->dma);
--		tx_desc->read.cmd_type_len = cmd_type |
--					     cpu_to_le32(buffer_info->length);
--		tx_desc->read.olinfo_status = olinfo_status;
--		count--;
--		i++;
--		if (i == tx_ring->count)
--			i = 0;
--	} while (count > 0);
--
--	tx_desc->read.cmd_type_len |= cpu_to_le32(IGB_TXD_DCMD);
--	/* Force memory writes to complete before letting h/w
--	 * know there are new descriptors to fetch.  (Only
--	 * applicable for weak-ordered memory model archs,
--	 * such as IA-64). */
--	wmb();
--
- 	tx_ring->next_to_use = i;
--	writel(i, tx_ring->tail);
--	/* we need this if more than one processor can write to our tail
--	 * at a time, it syncronizes IO on IA64/Altix systems */
--	mmiowb();
+-	if (skb->protocol == htons(ETH_P_IP)) {
++	if (protocol == __constant_htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+@@ -4039,8 +4039,8 @@ static inline int igb_tso(struct igb_ring *tx_ring,
+ 	return 1;
  }
  
- static int __igb_maybe_stop_tx(struct igb_ring *tx_ring, int size)
-@@ -4295,7 +4321,7 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 				struct igb_ring *tx_ring)
+-static inline bool igb_tx_csum(struct igb_ring *tx_ring,
+-			       struct sk_buff *skb, u32 tx_flags)
++static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
++			       u32 tx_flags, __be16 protocol)
  {
+ 	u32 vlan_macip_lens = 0;
+ 	u32 mss_l4len_idx = 0;
+@@ -4051,7 +4051,7 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring,
+ 			return false;
+ 	} else {
+ 		u8 l4_hdr = 0;
+-		switch (skb->protocol) {
++		switch (protocol) {
+ 		case __constant_htons(ETH_P_IP):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
+@@ -4065,7 +4065,7 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring,
+ 			if (unlikely(net_ratelimit())) {
+ 				dev_warn(tx_ring->dev,
+ 				 "partial checksum but proto=%x!\n",
+-				 skb->protocol);
++				 protocol);
+ 			}
+ 			break;
+ 		}
+@@ -4305,6 +4305,7 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
  	struct igb_tx_buffer *first;
--	int tso, count;
-+	int tso;
+ 	int tso, count;
  	u32 tx_flags = 0;
- 	__be16 protocol = vlan_get_protocol(skb);
++	__be16 protocol = vlan_get_protocol(skb);
  	u8 hdr_len = 0;
-@@ -4335,19 +4361,7 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 
+ 	/* need: 1 descriptor per page,
+@@ -4330,16 +4331,14 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	/* record the location of the first descriptor for this packet */
+ 	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
+ 
+-	tso = igb_tso(tx_ring, skb, tx_flags, &hdr_len);
+-
++	tso = igb_tso(tx_ring, skb, tx_flags, protocol, &hdr_len);
+ 	if (tso < 0) {
+ 		goto out_drop;
+ 	} else if (tso) {
+ 		tx_flags |= IGB_TX_FLAGS_TSO | IGB_TX_FLAGS_CSUM;
+-		if (skb->protocol == htons(ETH_P_IP))
++		if (protocol == htons(ETH_P_IP))
+ 			tx_flags |= IGB_TX_FLAGS_IPV4;
+-
+-	} else if (igb_tx_csum(tx_ring, skb, tx_flags) &&
++	} else if (igb_tx_csum(tx_ring, skb, tx_flags, protocol) &&
+ 		   (skb->ip_summed == CHECKSUM_PARTIAL)) {
  		tx_flags |= IGB_TX_FLAGS_CSUM;
  	}
- 
--	/*
--	 * count reflects descriptors mapped, if 0 or less then mapping error
--	 * has occurred and we need to rewind the descriptor queue
--	 */
--	count = igb_tx_map(tx_ring, skb, first, tx_flags);
--	if (!count) {
--		dev_kfree_skb_any(skb);
--		first->time_stamp = 0;
--		tx_ring->next_to_use = first - tx_ring->tx_buffer_info;
--		return NETDEV_TX_OK;
--	}
--
--	igb_tx_queue(tx_ring, tx_flags, count, skb->len, hdr_len);
-+	igb_tx_map(tx_ring, skb, first, tx_flags, hdr_len);
- 
- 	/* Make sure there is space in the ring for the next send. */
- 	igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 4);
-@@ -5609,17 +5623,26 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 		/* clear next_to_watch to prevent false hangs */
- 		tx_buffer->next_to_watch = NULL;
- 
--		do {
--			tx_desc->wb.status = 0;
--			if (likely(tx_desc == eop_desc)) {
--				eop_desc = NULL;
-+		/* update the statistics for this packet */
-+		total_bytes += tx_buffer->bytecount;
-+		total_packets += tx_buffer->gso_segs;
- 
--				total_bytes += tx_buffer->bytecount;
--				total_packets += tx_buffer->gso_segs;
--				igb_tx_hwtstamp(q_vector, tx_buffer);
--			}
-+		/* retrieve hardware timestamp */
-+		igb_tx_hwtstamp(q_vector, tx_buffer);
-+
-+		/* free the skb */
-+		dev_kfree_skb_any(tx_buffer->skb);
-+		tx_buffer->skb = NULL;
-+
-+		/* unmap skb header data */
-+		dma_unmap_single(tx_ring->dev,
-+				 tx_buffer->dma,
-+				 tx_buffer->length,
-+				 DMA_TO_DEVICE);
- 
--			igb_unmap_and_free_tx_resource(tx_ring, tx_buffer);
-+		/* clear last DMA location and unmap remaining buffers */
-+		while (tx_desc != eop_desc) {
-+			tx_buffer->dma = 0;
- 
- 			tx_buffer++;
- 			tx_desc++;
-@@ -5629,7 +5652,28 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 				tx_buffer = tx_ring->tx_buffer_info;
- 				tx_desc = IGB_TX_DESC(tx_ring, 0);
- 			}
--		} while (eop_desc);
-+
-+			/* unmap any remaining paged data */
-+			if (tx_buffer->dma) {
-+				dma_unmap_page(tx_ring->dev,
-+					       tx_buffer->dma,
-+					       tx_buffer->length,
-+					       DMA_TO_DEVICE);
-+			}
-+		}
-+
-+		/* clear last DMA location */
-+		tx_buffer->dma = 0;
-+
-+		/* move us one more past the eop_desc for start of next pkt */
-+		tx_buffer++;
-+		tx_desc++;
-+		i++;
-+		if (unlikely(!i)) {
-+			i -= tx_ring->count;
-+			tx_buffer = tx_ring->tx_buffer_info;
-+			tx_desc = IGB_TX_DESC(tx_ring, 0);
-+		}
- 	}
- 
- 	i += tx_ring->count;
 -- 
 1.7.6.4
