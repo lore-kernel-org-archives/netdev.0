@@ -1,45 +1,49 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Flow control config vs status
-Date: Fri, 7 Oct 2011 14:19:18 -0700
-Message-ID: <20111007211918.GA7388@mcarlson.broadcom.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: Cannot delete a bridge using 'ip' netlink interface
+Date: Sat, 08 Oct 2011 01:22:40 +0400
+Message-ID: <4E8F6DA0.80006@msgid.tls.msk.ru>
+References: <1317921532.6433.13.camel@w-sridhar.beaverton.ibm.com> <4E8F62F7.4080408@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2799 "EHLO mms2.broadcom.com"
+Received: from isrv.corpit.ru ([86.62.121.231]:51253 "EHLO isrv.corpit.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751209Ab1JGVTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Oct 2011 17:19:48 -0400
-Content-Disposition: inline
+	id S1751209Ab1JGVWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 17:22:43 -0400
+In-Reply-To: <4E8F62F7.4080408@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ben.  I've been encountering with a small problem with how ethtool
-handles flow control settings.
+On 08.10.2011 00:37, Michael Tokarev wrote:
+> On 06.10.2011 21:18, Sridhar Samudrala wrote:
+>> On a linux 3.1.0-rc9 system using the latest iproute2, i tried
+>> creating a bridge and deleting it with an attached interface. 
+>>
+>> Here is the sequence of steps i tried
+>> ip link add br0 type bridge
+>> ip link set dev eth1 master br0
+>> ip link set br0 up
+>> ip link del br0
+>>
+>> The last command hangs with the following kernel messages
+>> kernel:unregister_netdevice: waiting for br0 to become free. Usage count = 1
+> 
+> Note that the same thing happens when one tries to rmmod bridge
+> while it is in use.  I'm trying your patch to see if that helps... ;)
 
-When the admin runs 'ethtool -A ...', ethtool will run an
-ETHTOOL_GPAUSEPARAM query, check the new settings against the 'old',
-and then issue ETHTOOL_SPAUSEPARAM if they don't match.  My problem is
-that the tg3 driver returns the flow control status in a
-ETHTOOL_GPAUSEPARAM query, not the configuration.
+..And with the patch sent in this thread, bridge module can be
+removed and inserted again with proper cleanup.
 
-So, as an example of the problem, if the local side sets
-'ethtool -A ethx rx on tx on autoneg on', and then the remote side sets
-'ethtool -A ethy rx off tx off autoneg off', the link will autoneg to rx
-off, tx off.  Then, the local side will be unable to turn off rx or tx
-flow control because ethtool will act on the current link flow control
-status, not the config.
+So you can add my
 
-The tg3 isn't the only driver that reports flow control status through
-ETHTOOL_GPAUSEPARAM.  The e1000e, bnx2, and bnx2x drivers do this as
-well.
+Tested-Off-By: Michael Tokarev <mjt@tls.msk.ru>
 
-The ETHTOOL_GSET query does make room for flow control advertisements,
-but a device doesn't have to advertise its flow control settings if flow
-control autoneg is turned off.  I'm thinking this interface doesn't
-really solve the problem.
+too, if necessary :)
 
-Any recommendations?
+Thanks,
+
+/mjt
