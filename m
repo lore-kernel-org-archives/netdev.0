@@ -1,44 +1,32 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] net: use sock_valbool_flag to set/clear SOCK_RXQ_OVFL
-Date: Fri, 07 Oct 2011 15:30:20 +0200
-Message-ID: <1317994221.3988.12.camel@jlt3.sipsolutions.net>
+From: Joerg Pommnitz <pommnitz@yahoo.com>
+Subject: Old Mobile-IP code and modern Linux
+Date: Fri, 7 Oct 2011 06:27:24 -0700 (PDT)
+Message-ID: <1317994044.53022.YahooMailNeo@web161201.mail.bf1.yahoo.com>
+Reply-To: Joerg Pommnitz <pommnitz@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:34000 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752532Ab1JGNaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 09:30:30 -0400
-Received: by sipsolutions.net with esmtpsa (TLS1.0:RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.76)
-	(envelope-from <johannes@sipsolutions.net>)
-	id 1RCAVL-0008FF-Ll
-	for netdev@vger.kernel.org; Fri, 07 Oct 2011 15:30:23 +0200
+Received: from nm30.bullet.mail.bf1.yahoo.com ([98.139.212.189]:37981 "HELO
+	nm30.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752532Ab1JGNeL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 09:34:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+Hello all,
+I'm trying to run the old dynamics Mobile IP implementation (see http:/=
+/dynamics.sourceforge.net/) on a modern Linux kernel (Fedora 15 2.6.40 =
+aka 3.0).
+There seems to be a problem in the communication between a mobile node =
+and the foreign agent. The mobile node sends UDP packets with a source =
+address from its own home network to the discovered address of the FA. =
+Unfortunately the FA never sees these packets. It seems that packets wi=
+th an unexpected source address will be discarded (ingress filtering?).=
+ Is there a way to disable this behavior? What is the right way to impl=
+ement MobileIP on a recent Linux kernel?
 
-There's no point in open-coding sock_valbool_flag().
-
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- net/core/sock.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
---- a/net/core/sock.c	2011-10-07 15:26:30.000000000 +0200
-+++ b/net/core/sock.c	2011-10-07 15:27:46.000000000 +0200
-@@ -738,10 +738,7 @@ set_rcvbuf:
- 		/* We implement the SO_SNDLOWAT etc to
- 		   not be settable (1003.1g 5.3) */
- 	case SO_RXQ_OVFL:
--		if (valbool)
--			sock_set_flag(sk, SOCK_RXQ_OVFL);
--		else
--			sock_reset_flag(sk, SOCK_RXQ_OVFL);
-+		sock_valbool_flag(sk, SOCK_RXQ_OVFL, valbool);
- 		break;
- 	default:
- 		ret = -ENOPROTOOPT;
+Thanks in advance
+=A0 Joerg
