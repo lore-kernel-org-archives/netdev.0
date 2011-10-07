@@ -1,132 +1,37 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH] bluetooth: Properly clone LSM attributes to newly created
- child connections
-Date: Fri, 07 Oct 2011 13:26:38 -0700
-Message-ID: <4E8F607E.80600@schaufler-ca.com>
-References: <20111007194059.12345.13398.stgit@sifl>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: Cannot delete a bridge using 'ip' netlink interface
+Date: Sat, 08 Oct 2011 00:37:11 +0400
+Message-ID: <4E8F62F7.4080408@msgid.tls.msk.ru>
+References: <1317921532.6433.13.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20111007194059.12345.13398.stgit@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	netdev <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from isrv.corpit.ru ([86.62.121.231]:40682 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934769Ab1JGUhN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 16:37:13 -0400
+In-Reply-To: <1317921532.6433.13.camel@w-sridhar.beaverton.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/7/2011 12:40 PM, Paul Moore wrote:
-> The Bluetooth stack has internal connection handlers for all of the various
-> Bluetooth protocols, and unfortunately, they are currently lacking the LSM
-> hooks found in the core network stack's connection handlers.  I say
-> unfortunately, because this can cause problems for users who have have an
-> LSM enabled and are using certain Bluetooth devices.  See one problem
-> report below:
->
->  * http://bugzilla.redhat.com/show_bug.cgi?id=741703
->
-> In order to keep things simple at this point in time, this patch fixes the
-> problem by cloning the parent socket's LSM attributes to the newly created
-> child socket.  If we decide we need a more elaborate LSM marking mechanism
-> for Bluetooth (I somewhat doubt this) we can always revisit this decision
-> in the future.
->
-> Reported-by: James M. Cape <jcape@ignore-your.tv>
-> Signed-off-by: Paul Moore <pmoore@redhat.com>
+On 06.10.2011 21:18, Sridhar Samudrala wrote:
+> On a linux 3.1.0-rc9 system using the latest iproute2, i tried
+> creating a bridge and deleting it with an attached interface. 
+> 
+> Here is the sequence of steps i tried
+> ip link add br0 type bridge
+> ip link set dev eth1 master br0
+> ip link set br0 up
+> ip link del br0
+> 
+> The last command hangs with the following kernel messages
+> kernel:unregister_netdevice: waiting for br0 to become free. Usage count = 1
 
-I haven't tested anything out yet, but it's hard to see
-how this would be a problem from the Smack point of view.
+Note that the same thing happens when one tries to rmmod bridge
+while it is in use.  I'm trying your patch to see if that helps... ;)
 
-> ---
->  net/bluetooth/l2cap_sock.c  |    4 ++++
->  net/bluetooth/rfcomm/sock.c |    3 +++
->  net/bluetooth/sco.c         |    5 ++++-
->  security/security.c         |    1 +
->  4 files changed, 12 insertions(+), 1 deletions(-)
->
-> diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-> index 61f1f62..e829236 100644
-> --- a/net/bluetooth/l2cap_sock.c
-> +++ b/net/bluetooth/l2cap_sock.c
-> @@ -26,6 +26,8 @@
->  
->  /* Bluetooth L2CAP sockets. */
->  
-> +#include <linux/security.h>
-> +
->  #include <net/bluetooth/bluetooth.h>
->  #include <net/bluetooth/hci_core.h>
->  #include <net/bluetooth/l2cap.h>
-> @@ -933,6 +935,8 @@ static void l2cap_sock_init(struct sock *sk, struct sock *parent)
->  		chan->force_reliable = pchan->force_reliable;
->  		chan->flushable = pchan->flushable;
->  		chan->force_active = pchan->force_active;
-> +
-> +		security_sk_clone(parent, sk);
->  	} else {
->  
->  		switch (sk->sk_type) {
-> diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
-> index 482722b..5417f61 100644
-> --- a/net/bluetooth/rfcomm/sock.c
-> +++ b/net/bluetooth/rfcomm/sock.c
-> @@ -42,6 +42,7 @@
->  #include <linux/device.h>
->  #include <linux/debugfs.h>
->  #include <linux/seq_file.h>
-> +#include <linux/security.h>
->  #include <net/sock.h>
->  
->  #include <asm/system.h>
-> @@ -264,6 +265,8 @@ static void rfcomm_sock_init(struct sock *sk, struct sock *parent)
->  
->  		pi->sec_level = rfcomm_pi(parent)->sec_level;
->  		pi->role_switch = rfcomm_pi(parent)->role_switch;
-> +
-> +		security_sk_clone(parent, sk);
->  	} else {
->  		pi->dlc->defer_setup = 0;
->  
-> diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
-> index 8270f05..a324b00 100644
-> --- a/net/bluetooth/sco.c
-> +++ b/net/bluetooth/sco.c
-> @@ -41,6 +41,7 @@
->  #include <linux/debugfs.h>
->  #include <linux/seq_file.h>
->  #include <linux/list.h>
-> +#include <linux/security.h>
->  #include <net/sock.h>
->  
->  #include <asm/system.h>
-> @@ -403,8 +404,10 @@ static void sco_sock_init(struct sock *sk, struct sock *parent)
->  {
->  	BT_DBG("sk %p", sk);
->  
-> -	if (parent)
-> +	if (parent) {
->  		sk->sk_type = parent->sk_type;
-> +		security_sk_clone(parent, sk);
-> +	}
->  }
->  
->  static struct proto sco_proto = {
-> diff --git a/security/security.c b/security/security.c
-> index 0e4fccf..d9e1533 100644
-> --- a/security/security.c
-> +++ b/security/security.c
-> @@ -1097,6 +1097,7 @@ void security_sk_clone(const struct sock *sk, struct sock *newsk)
->  {
->  	security_ops->sk_clone_security(sk, newsk);
->  }
-> +EXPORT_SYMBOL(security_sk_clone);
->  
->  void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
->  {
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
+/mjt
