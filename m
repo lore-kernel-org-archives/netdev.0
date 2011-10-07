@@ -1,118 +1,69 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH] bluetooth: Properly clone LSM attributes to newly created
- child connections
-Date: Fri, 07 Oct 2011 15:40:59 -0400
-Message-ID: <20111007194059.12345.13398.stgit@sifl>
+From: starlight@binnacle.cx
+Subject: Re: big picture UDP/IP performance question re 2.6.18
+  -> 2.6.32
+Date: Fri, 07 Oct 2011 15:41:37 -0400
+Message-ID: <6.2.5.6.2.20111007153756.039bcdc8@binnacle.cx>
+References: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx>
+ <1317966007.3457.47.camel@edumazet-laptop>
+ <6.2.5.6.2.20111007020308.039be248@binnacle.cx>
+ <CAAsGZS4s1wTWW1j7FRUWW9jqpPUVF3Q46AMa7+njvE1ckX0Snw@mail.gmail.com>
+ <6.2.5.6.2.20111007143050.039bd578@binnacle.cx>
+ <CAAsGZS4b2F9N3nV3TNu5xG+=2d0L0ncste4xv2vqoVFb1pOxEw@mail.gmail.com> <CAAsGZS4b2F9N3nV3TNu5xG+=2d0L0ncste4xv2vqoVFb1pOxEw
+ @mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Christoph Lameter <cl@gentwo.org>, Willy Tarreau <w@1wt.eu>,
+	Ingo Molnar <mingo@elte.hu>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	Joe Perches <joe@perches.com>, lokechetan@gmail.com,
+	Con Kolivas <conman@kolivas.org>,
+	Serge Belyshev <belyshev@depni.sinp.msu.ru>
+To: chetan loke <loke.chetan@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAsGZS4b2F9N3nV3TNu5xG+=2d0L0ncste4xv2vqoVFb1pOxEw
+ @mail.gmail.com>
+References: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx>
+ <1317966007.3457.47.camel@edumazet-laptop>
+ <6.2.5.6.2.20111007020308.039be248@binnacle.cx>
+ <CAAsGZS4s1wTWW1j7FRUWW9jqpPUVF3Q46AMa7+njvE1ckX0Snw@mail.gmail.com>
+ <6.2.5.6.2.20111007143050.039bd578@binnacle.cx>
+ <CAAsGZS4b2F9N3nV3TNu5xG+=2d0L0ncste4xv2vqoVFb1pOxEw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Bluetooth stack has internal connection handlers for all of the various
-Bluetooth protocols, and unfortunately, they are currently lacking the LSM
-hooks found in the core network stack's connection handlers.  I say
-unfortunately, because this can cause problems for users who have have an
-LSM enabled and are using certain Bluetooth devices.  See one problem
-report below:
+If they didn't want $20k to get started ($10k
+for the card, $10k for the developer kit) would
+probably have ported our application to run
+outboard on a Tile64 NIC.  The cost + youth
+of Tilra has been just a little to far out
+on the edge.  If they survive (and lower the
+price a bit) it will become an increasingly
+easier sell.
 
- * http://bugzilla.redhat.com/show_bug.cgi?id=741703
+If their patents hold up and their investors
+can stomach the legal battles, they may
+win the day.  Intel and AMD use ring
+topologies between cores and this can
+only scale so far.
 
-In order to keep things simple at this point in time, this patch fixes the
-problem by cloning the parent socket's LSM attributes to the newly created
-child socket.  If we decide we need a more elaborate LSM marking mechanism
-for Bluetooth (I somewhat doubt this) we can always revisit this decision
-in the future.
 
-Reported-by: James M. Cape <jcape@ignore-your.tv>
-Signed-off-by: Paul Moore <pmoore@redhat.com>
----
- net/bluetooth/l2cap_sock.c  |    4 ++++
- net/bluetooth/rfcomm/sock.c |    3 +++
- net/bluetooth/sco.c         |    5 ++++-
- security/security.c         |    1 +
- 4 files changed, 12 insertions(+), 1 deletions(-)
-
-diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-index 61f1f62..e829236 100644
---- a/net/bluetooth/l2cap_sock.c
-+++ b/net/bluetooth/l2cap_sock.c
-@@ -26,6 +26,8 @@
- 
- /* Bluetooth L2CAP sockets. */
- 
-+#include <linux/security.h>
-+
- #include <net/bluetooth/bluetooth.h>
- #include <net/bluetooth/hci_core.h>
- #include <net/bluetooth/l2cap.h>
-@@ -933,6 +935,8 @@ static void l2cap_sock_init(struct sock *sk, struct sock *parent)
- 		chan->force_reliable = pchan->force_reliable;
- 		chan->flushable = pchan->flushable;
- 		chan->force_active = pchan->force_active;
-+
-+		security_sk_clone(parent, sk);
- 	} else {
- 
- 		switch (sk->sk_type) {
-diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
-index 482722b..5417f61 100644
---- a/net/bluetooth/rfcomm/sock.c
-+++ b/net/bluetooth/rfcomm/sock.c
-@@ -42,6 +42,7 @@
- #include <linux/device.h>
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
-+#include <linux/security.h>
- #include <net/sock.h>
- 
- #include <asm/system.h>
-@@ -264,6 +265,8 @@ static void rfcomm_sock_init(struct sock *sk, struct sock *parent)
- 
- 		pi->sec_level = rfcomm_pi(parent)->sec_level;
- 		pi->role_switch = rfcomm_pi(parent)->role_switch;
-+
-+		security_sk_clone(parent, sk);
- 	} else {
- 		pi->dlc->defer_setup = 0;
- 
-diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
-index 8270f05..a324b00 100644
---- a/net/bluetooth/sco.c
-+++ b/net/bluetooth/sco.c
-@@ -41,6 +41,7 @@
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
- #include <linux/list.h>
-+#include <linux/security.h>
- #include <net/sock.h>
- 
- #include <asm/system.h>
-@@ -403,8 +404,10 @@ static void sco_sock_init(struct sock *sk, struct sock *parent)
- {
- 	BT_DBG("sk %p", sk);
- 
--	if (parent)
-+	if (parent) {
- 		sk->sk_type = parent->sk_type;
-+		security_sk_clone(parent, sk);
-+	}
- }
- 
- static struct proto sco_proto = {
-diff --git a/security/security.c b/security/security.c
-index 0e4fccf..d9e1533 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -1097,6 +1097,7 @@ void security_sk_clone(const struct sock *sk, struct sock *newsk)
- {
- 	security_ops->sk_clone_security(sk, newsk);
- }
-+EXPORT_SYMBOL(security_sk_clone);
- 
- void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
- {
-
+At 03:27 PM 10/7/2011 -0400, chetan loke wrote:
+>If at all, tile-cpu may not be able to survive the
+>heat in host-mode, but there's no competition in
+>device-mode. ASIC design is an expensive science
+>project. All adapter vendors know this. Not to
+>mention all the chicken-games they then have to
+>play to incorporate multi-core ARMs(or whatever
+>CPUs) to support big(40/100 G) pipes. Slowly their
+>firmware needs to evolve as an OS and they start
+>shopping for RT linux shops/consulting firms.Been
+>there. Done that. There's a lot of bad blood and
+>too much pain involved when you ask clunky
+>firmware guys to abandon the big fat while loop in
+>their beloved firmware and stop hacking the chip
+>;). Offload it to a tile-CPU and just sell what
+>you are good at - a darn protocol stack...
