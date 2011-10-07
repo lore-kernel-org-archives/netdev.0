@@ -1,41 +1,57 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [net-next 01/11] ixgb: convert to ndo_fix_features
-Date: Fri, 7 Oct 2011 22:47:01 +0200
-Message-ID: <20111007204701.GA31706@rere.qmqm.pl>
-References: <1316225752-1709-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1316225752-1709-2-git-send-email-jeffrey.t.kirsher@intel.com>
- <20110917132153.GA32572@rere.qmqm.pl>
- <1316476968.2184.14.camel@jtkirshe-mobl>
- <20110923205621.GA27138@rere.qmqm.pl>
- <1316839657.2182.136.camel@jtkirshe-mobl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Ashish Sharma <ashishsharma@google.com>
+Subject: [PATCH] bridge: Have tx_bytes count headers like rx_bytes.
+Date: Fri,  7 Oct 2011 13:47:41 -0700
+Message-ID: <1318020461-14494-1-git-send-email-ashishsharma@google.com>
+Cc: ashishsharma@google.com, jpa@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:40592 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758740Ab1JGUrE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Oct 2011 16:47:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1316839657.2182.136.camel@jtkirshe-mobl>
+Received: from smtp-out.google.com ([74.125.121.67]:30875 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754550Ab1JGUrr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 16:47:47 -0400
+Received: from hpaq6.eem.corp.google.com (hpaq6.eem.corp.google.com [172.25.149.6])
+	by smtp-out.google.com with ESMTP id p97KlkGR011329
+	for <netdev@vger.kernel.org>; Fri, 7 Oct 2011 13:47:46 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 23, 2011 at 09:47:36PM -0700, Jeff Kirsher wrote:
-> On Fri, 2011-09-23 at 13:56 -0700, Micha=B3 Miros=B3aw wrote:
-> > On Mon, Sep 19, 2011 at 05:02:47PM -0700, Jeff Kirsher wrote:
-> > > On Sat, 2011-09-17 at 06:21 -0700, Micha=B3 Miros=B3aw wrote:
-> > >> [patch finishing ixgb conversion to hw_features]
-> > > Thanks Michal, I have added the patch to my queue.
-> > I see that only a single driver left: igbvf. What's the status
-> > on its conversion?
-> Just waiting on validation at this point to verify the patch we have.=
-  I
-> will see if I can get this patch verified and pushed asap.
+Since rx_bytes accounting does not include Ethernet Headers in
+br_input.c, excluding ETH_HLEN on the transmit path for consistent
+measurement of packet length on both the Tx and Rx chains.
 
-Ping?
+Signed-off-by: Ashish Sharma <ashishsharma@google.com>
+Signed-off-by: JP Abgrall <jpa@google.com>
+---
+:100644 100644 32b8f9f... a9dd166... M	net/bridge/br_device.c
+ net/bridge/br_device.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-Best Regards,
-Micha=B3 Miros=B3aw
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 32b8f9f..a9dd166 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -38,16 +38,17 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ #endif
+ 
+-	u64_stats_update_begin(&brstats->syncp);
+-	brstats->tx_packets++;
+-	brstats->tx_bytes += skb->len;
+-	u64_stats_update_end(&brstats->syncp);
+-
+ 	BR_INPUT_SKB_CB(skb)->brdev = dev;
+ 
+ 	skb_reset_mac_header(skb);
+ 	skb_pull(skb, ETH_HLEN);
+ 
++	u64_stats_update_begin(&brstats->syncp);
++	brstats->tx_packets++;
++	/* Exclude ETH_HLEN from byte stats for consistency with Rx chain */
++	brstats->tx_bytes += skb->len;
++	u64_stats_update_end(&brstats->syncp);
++
+ 	rcu_read_lock();
+ 	if (is_broadcast_ether_addr(dest))
+ 		br_flood_deliver(br, skb);
+-- 
+1.7.3.1
