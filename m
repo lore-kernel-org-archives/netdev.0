@@ -1,101 +1,47 @@
-From: Dave Jones <davej@redhat.com>
-Subject: e1000e might_sleep warnings (3.1-rc9)
-Date: Fri, 7 Oct 2011 12:14:30 -0400
-Message-ID: <20111007161430.GA2752@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] dev: use name hash for dev_seq_ops.
+Date: Fri, 7 Oct 2011 09:24:45 -0700
+Message-ID: <20111007092445.4f097ed9@nehalam.linuxnetplumber.net>
+References: <1318000849-2531-1-git-send-email-mmaruseac@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42890 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751203Ab1JGQOb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Oct 2011 12:14:31 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id p97GEVwq031340
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 7 Oct 2011 12:14:31 -0400
-Received: from gelk.kernelslacker.org (ovpn-113-27.phx2.redhat.com [10.3.113.27])
-	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id p97GEUlG005986
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 7 Oct 2011 12:14:31 -0400
-Received: from gelk.kernelslacker.org (gelk [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.5/8.14.4) with ESMTP id p97GEUQK003061
-	for <netdev@vger.kernel.org>; Fri, 7 Oct 2011 12:14:30 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.5/8.14.5/Submit) id p97GEUZZ003060
-	for netdev@vger.kernel.org; Fri, 7 Oct 2011 12:14:30 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dbaluta@ixiacom.com, Mihai Maruseac <mmaruseac@ixiacom.com>
+To: Mihai Maruseac <mihai.maruseac@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318000849-2531-1-git-send-email-mmaruseac@ixiacom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Just had this reported..
+On Fri,  7 Oct 2011 18:20:49 +0300
+Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
 
- > [20734.109233] Call Trace:
- > [20734.109242]  [<ffffffff8104f6b5>] __might_sleep+0x103/0x108
- > [20734.109249]  [<ffffffff8150363e>] mutex_lock_nested+0x25/0x45
- > [20734.109260]  [<ffffffffa023b8f7>] e1000_acquire_swflag_ich8lan+0x26/0x136 [e1000e]
- > [20734.109271]  [<ffffffffa024a3af>] e1000e_update_stats+0x156/0x73e [e1000e]
- > [20734.109275]  [<ffffffff81504561>] ? _raw_spin_lock+0x71/0x79
- > [20734.109285]  [<ffffffffa024e658>] ? e1000_watchdog_task+0x3b1/0x5de [e1000e]
- > [20734.109294]  [<ffffffffa024e660>] e1000_watchdog_task+0x3b9/0x5de [e1000e]
- > [20734.109303]  [<ffffffffa024e2a7>] ? e1000_update_mng_vlan+0x68/0x68 [e1000e]
- > [20734.109307]  [<ffffffff81075b21>] process_one_work+0x205/0x3e7
- > [20734.109310]  [<ffffffff81075a69>] ? process_one_work+0x14d/0x3e7
- > [20734.109315]  [<ffffffff8108cf0f>] ? lock_acquired+0x210/0x243
- > [20734.109320]  [<ffffffff810767cf>] worker_thread+0xda/0x15d
- > [20734.109323]  [<ffffffff810766f5>] ? manage_workers+0x176/0x176
- > [20734.109327]  [<ffffffff8107a195>] kthread+0xa8/0xb0
- > [20734.109332]  [<ffffffff8150dec4>] kernel_thread_helper+0x4/0x10
- > [20734.109336]  [<ffffffff81505334>] ? retint_restore_args+0x13/0x13
- > [20734.109340]  [<ffffffff8107a0ed>] ? __init_kthread_worker+0x5a/0x5a
- > [20734.109344]  [<ffffffff8150dec0>] ? gs_change+0x13/0x13
- > [20736.106653] BUG: sleeping function called from invalid context at kernel/mutex.c:271
- > [20736.106658] in_atomic(): 1, irqs_disabled(): 0, pid: 18071, name: kworker/0:1
- > [20736.106661] INFO: lockdep is turned off.
- > [20736.106664] Pid: 18071, comm: kworker/0:1 Not tainted 3.1.0-0.rc9.git0.0.fc17.x86_64 #1
- > [20736.106667] Call Trace:
- > [20736.106675]  [<ffffffff8104f6b5>] __might_sleep+0x103/0x108
- > [20736.106682]  [<ffffffff8150363e>] mutex_lock_nested+0x25/0x45
- > [20736.106693]  [<ffffffffa023b8f7>] e1000_acquire_swflag_ich8lan+0x26/0x136 [e1000e]
- > [20736.106705]  [<ffffffffa024a3af>] e1000e_update_stats+0x156/0x73e [e1000e]
- > [20736.106709]  [<ffffffff81504561>] ? _raw_spin_lock+0x71/0x79
- > [20736.106719]  [<ffffffffa024e658>] ? e1000_watchdog_task+0x3b1/0x5de [e1000e]
- > [20736.106728]  [<ffffffffa024e660>] e1000_watchdog_task+0x3b9/0x5de [e1000e]
- > [20736.106737]  [<ffffffffa024e2a7>] ? e1000_update_mng_vlan+0x68/0x68 [e1000e]
- > [20736.106741]  [<ffffffff81075b21>] process_one_work+0x205/0x3e7
- > [20736.106744]  [<ffffffff81075a69>] ? process_one_work+0x14d/0x3e7
- > [20736.106749]  [<ffffffff8108cf0f>] ? lock_acquired+0x210/0x243
- > [20736.106754]  [<ffffffff810767cf>] worker_thread+0xda/0x15d
- > [20736.106757]  [<ffffffff810766f5>] ? manage_workers+0x176/0x176
- > [20736.106761]  [<ffffffff8107a195>] kthread+0xa8/0xb0
- > [20736.106767]  [<ffffffff8150dec4>] kernel_thread_helper+0x4/0x10
- > [20736.106771]  [<ffffffff81505334>] ? retint_restore_args+0x13/0x13
- > [20736.106775]  [<ffffffff8107a0ed>] ? __init_kthread_worker+0x5a/0x5a
- > [20736.106779]  [<ffffffff8150dec0>] ? gs_change+0x13/0x13
- > [20738.104064] BUG: sleeping function called from invalid context at kernel/mutex.c:271
- > [20738.104070] in_atomic(): 1, irqs_disabled(): 0, pid: 18071, name: kworker/0:1
- > [20738.104073] INFO: lockdep is turned off.
- > [20738.104077] Pid: 18071, comm: kworker/0:1 Not tainted 3.1.0-0.rc9.git0.0.fc17.x86_64 #1
- > [20738.104079] Call Trace:
- > [20738.104088]  [<ffffffff8104f6b5>] __might_sleep+0x103/0x108
- > [20738.104096]  [<ffffffff8150363e>] mutex_lock_nested+0x25/0x45
- > [20738.104107]  [<ffffffffa023b8f7>] e1000_acquire_swflag_ich8lan+0x26/0x136 [e1000e]
- > [20738.104118]  [<ffffffffa024a3af>] e1000e_update_stats+0x156/0x73e [e1000e]
- > [20738.104123]  [<ffffffff81504561>] ? _raw_spin_lock+0x71/0x79
- > [20738.104133]  [<ffffffffa024e658>] ? e1000_watchdog_task+0x3b1/0x5de [e1000e]
- > [20738.104142]  [<ffffffffa024e660>] e1000_watchdog_task+0x3b9/0x5de [e1000e]
- > [20738.104151]  [<ffffffffa024e2a7>] ? e1000_update_mng_vlan+0x68/0x68 [e1000e]
- > [20738.104155]  [<ffffffff81075b21>] process_one_work+0x205/0x3e7
- > [20738.104158]  [<ffffffff81075a69>] ? process_one_work+0x14d/0x3e7
- > [20738.104162]  [<ffffffff8108cf0f>] ? lock_acquired+0x210/0x243
- > [20738.104167]  [<ffffffff810767cf>] worker_thread+0xda/0x15d
- > [20738.104170]  [<ffffffff810766f5>] ? manage_workers+0x176/0x176
- > [20738.104175]  [<ffffffff8107a195>] kthread+0xa8/0xb0
- > [20738.104180]  [<ffffffff8150dec4>] kernel_thread_helper+0x4/0x10
- > [20738.104184]  [<ffffffff81505334>] ? retint_restore_args+0x13/0x13
- > [20738.104188]  [<ffffffff8107a0ed>] ? __init_kthread_worker+0x5a/0x5a
- > [20738.104192]  [<ffffffff8150dec0>] ? gs_change+0x13/0x13
- > 
- > 
- > 
- > On my x220 ThinnkPad.
+> Instead of using the dev->next chain and trying to resync at each call to
+> dev_seq_start, use this hash and store bucket number and bucket offset in
+> seq->private field.
+> 
+> Tests revealed the following results for ifconfig > /dev/null
+> 	* 1000 interfaces:
+> 		* 0.114s without patch
+> 		* 0.020s with patch
+> 	* 3000 interfaces:
+> 		* 0.489s without patch
+> 		* 0.048s with patch
+> 	* 5000 interfaces:
+> 		* 1.363s without patch
+> 		* 0.131s with patch
+> 
+> As one can notice the improvement is of 1 order of magnitude.
+
+Good idea,
+This will change the ordering of entries in /proc which may upset
+some program, not a critical flaw but worth noting.
+
+Rather than recording the bucket and offset of last entry, another
+alternative would be to just record the ifindex.
+
+Also ifconfig is considered deprecated and replaced by ip commands
+for general use.
