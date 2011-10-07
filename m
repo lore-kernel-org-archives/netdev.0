@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] Remove unnecessary driver assignments of
- ethtool_ringparam fields to zero
-Date: Fri, 07 Oct 2011 19:13:41 -0400 (EDT)
-Message-ID: <20111007.191341.833783740566988169.davem@davemloft.net>
-References: <20111007224838.DCD05290054F@tardy>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Regression: non-working WOL with r8169
+Date: Sat, 8 Oct 2011 01:28:35 +0200
+Message-ID: <20111007232834.GA29770@electric-eye.fr.zoreil.com>
+References: <20111007221906.810698ba9bf825566a2478bb@gmx.de> <20111007210017.GA27820@electric-eye.fr.zoreil.com> <20111007214200.GA28365@electric-eye.fr.zoreil.com> <20111008003156.ef4dfaa76576ca8079edfbb9@gmx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com,
-	rmody@brocade.com, divy@chelsio.com, alexander.h.duyck@intel.com,
-	jeffrey.t.kirsher@intel.com, buytenh@wantstofly.org,
-	sony.chacko@qlogic.com, anirban.chakraborty@qlogic.com,
-	bhutchings@solarflare.com
-To: raj@tardy.cup.hp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org
+To: Marc Ballarin <ballarin.marc@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54012 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754028Ab1JGXQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 19:16:52 -0400
-In-Reply-To: <20111007224838.DCD05290054F@tardy>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54346 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753370Ab1JGXar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Oct 2011 19:30:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20111008003156.ef4dfaa76576ca8079edfbb9@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: raj@tardy.cup.hp.com (Rick Jones)
-Date: Fri,  7 Oct 2011 15:48:38 -0700 (PDT)
-
-> From: Rick Jones <rick.jones2@hp.com>
+Marc Ballarin <ballarin.marc@gmx.de> :
+[...]
+> CONFIG_PM is set, but the way the system is shut down seems to be an issue
+> indeed.
 > 
-> Per comments from Ben Hutchings on a previous patch, sweep the floors
-> a little removing unnecessary assignments of zero to fields of struct
-> ethtool_ringparam in driver code supporting ethtool -g.
+> WOL works after echo mem > /sys/power/state (but then the system crashes,
+> but this is a separate issue).
 > 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> But it does not work after halt/shutdown -h now.
 
-I'm fine with this, applied.
+How surprizing... :o/
 
-Thanks.
+pci_driver.shutdown - aka rtl_shutdown - uses rtl8169_hw_reset and
+stomps on RxConfig without further care when something similar to
+r8168_pll_power_down is needed.
+
+I'll dig it during the week end.
+
+-- 
+Ueimor
