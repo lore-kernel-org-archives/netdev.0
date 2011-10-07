@@ -1,140 +1,149 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/13] e1000: convert mdelay to msleep
-Date: Fri,  7 Oct 2011 00:18:36 -0700
-Message-ID: <1317971926-23145-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next] cs89x0: Move the driver into the Cirrus dir
+Date: Fri,  7 Oct 2011 00:18:33 -0700
+Message-ID: <1317971926-23145-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1317971926-23145-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Tushar Dave <tushar.n.dave@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Russell Nelson <nelson@crynwr.com>,
+	Andrew Morton <akpm@linux-foundation.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34220 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:34195 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758795Ab1JGHSu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Oct 2011 03:18:50 -0400
+	id S1757343Ab1JGHSs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Oct 2011 03:18:48 -0400
 In-Reply-To: <1317971926-23145-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+The cs89x0 driver was initial placed in the apple/ when it
+should have been placed in the cirrus/.  This resolves the
+issue by moving the dirver and fixing up the respective
+Kconfig(s) and Makefile(s).
 
-With the previous commit, there are several functions
-that are only ever called from thread context, and are
-able to sleep with msleep instead of mdelay.
+Thanks to Sascha for reporting the issue.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Thomas Gleixner <tglx@linutronix.de>
-CC: Tushar Dave <tushar.n.dave@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+CC: Russell Nelson <nelson@crynwr.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+Reported-by: Sascha Hauer <s.hauer@pengutronix.de>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_hw.c   |   22 +++++++++++-----------
- drivers/net/ethernet/intel/e1000/e1000_main.c |    2 +-
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/apple/Kconfig              |   22 +---------------------
+ drivers/net/ethernet/apple/Makefile             |    1 -
+ drivers/net/ethernet/cirrus/Kconfig             |   22 +++++++++++++++++++++-
+ drivers/net/ethernet/cirrus/Makefile            |    1 +
+ drivers/net/ethernet/{apple => cirrus}/cs89x0.c |    0
+ drivers/net/ethernet/{apple => cirrus}/cs89x0.h |    0
+ 6 files changed, 23 insertions(+), 23 deletions(-)
+ rename drivers/net/ethernet/{apple => cirrus}/cs89x0.c (100%)
+ rename drivers/net/ethernet/{apple => cirrus}/cs89x0.h (100%)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index a5a89ec..36ee76b 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -5385,7 +5385,7 @@ static s32 e1000_config_dsp_after_link_change(struct e1000_hw *hw, bool link_up)
- 			if (ret_val)
- 				return ret_val;
+diff --git a/drivers/net/ethernet/apple/Kconfig b/drivers/net/ethernet/apple/Kconfig
+index 59d5c26..90ad2c1 100644
+--- a/drivers/net/ethernet/apple/Kconfig
++++ b/drivers/net/ethernet/apple/Kconfig
+@@ -5,8 +5,7 @@
+ config NET_VENDOR_APPLE
+ 	bool "Apple devices"
+ 	default y
+-	depends on (PPC_PMAC && PPC32) || MAC || ISA || EISA || MACH_IXDP2351 \
+-		   || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
++	depends on (PPC_PMAC && PPC32) || MACE || MAC
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -75,23 +74,4 @@ config MACMACE
+ 	  say Y and read the Ethernet-HOWTO, available from
+ 	  <http://www.tldp.org/docs.html#howto>.
  
--			mdelay(20);
-+			msleep(20);
+-config CS89x0
+-	tristate "CS89x0 support"
+-	depends on (ISA || EISA || MACH_IXDP2351 \
+-		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440)
+-	---help---
+-	  Support for CS89x0 chipset based Ethernet cards. If you have a
+-	  network (Ethernet) card of this type, say Y and read the
+-	  Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto> as well as
+-	  <file:Documentation/networking/cs89x0.txt>.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called cs89x0.
+-
+-config CS89x0_NONISA_IRQ
+-	def_bool y
+-	depends on CS89x0 != n
+-	depends on MACH_IXDP2351 || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
+-
+ endif # NET_VENDOR_APPLE
+diff --git a/drivers/net/ethernet/apple/Makefile b/drivers/net/ethernet/apple/Makefile
+index 9d30086..0d3a591 100644
+--- a/drivers/net/ethernet/apple/Makefile
++++ b/drivers/net/ethernet/apple/Makefile
+@@ -5,5 +5,4 @@
+ obj-$(CONFIG_MACE) += mace.o
+ obj-$(CONFIG_BMAC) += bmac.o
+ obj-$(CONFIG_MAC89x0) += mac89x0.o
+-obj-$(CONFIG_CS89x0) += cs89x0.o
+ obj-$(CONFIG_MACMACE) += macmace.o
+diff --git a/drivers/net/ethernet/cirrus/Kconfig b/drivers/net/ethernet/cirrus/Kconfig
+index e9386ef..6cbb81c 100644
+--- a/drivers/net/ethernet/cirrus/Kconfig
++++ b/drivers/net/ethernet/cirrus/Kconfig
+@@ -5,7 +5,8 @@
+ config NET_VENDOR_CIRRUS
+ 	bool "Cirrus devices"
+ 	default y
+-	depends on ARM && ARCH_EP93XX
++	depends on ISA || EISA || MACH_IXDP2351 || ARCH_IXDP2X01 \
++		|| MACH_MX31ADS || MACH_QQ2440 || (ARM && ARCH_EP93XX)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -18,6 +19,25 @@ config NET_VENDOR_CIRRUS
  
- 			ret_val = e1000_write_phy_reg(hw, 0x0000,
- 						      IGP01E1000_IEEE_FORCE_GIGA);
-@@ -5413,7 +5413,7 @@ static s32 e1000_config_dsp_after_link_change(struct e1000_hw *hw, bool link_up)
- 			if (ret_val)
- 				return ret_val;
+ if NET_VENDOR_CIRRUS
  
--			mdelay(20);
-+			msleep(20);
++config CS89x0
++	tristate "CS89x0 support"
++	depends on (ISA || EISA || MACH_IXDP2351 \
++		|| ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440)
++	---help---
++	  Support for CS89x0 chipset based Ethernet cards. If you have a
++	  network (Ethernet) card of this type, say Y and read the
++	  Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto> as well as
++	  <file:Documentation/networking/cs89x0.txt>.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called cs89x0.
++
++config CS89x0_NONISA_IRQ
++	def_bool y
++	depends on CS89x0 != n
++	depends on MACH_IXDP2351 || ARCH_IXDP2X01 || MACH_MX31ADS || MACH_QQ2440
++
+ config EP93XX_ETH
+ 	tristate "EP93xx Ethernet support"
+ 	depends on ARM && ARCH_EP93XX
+diff --git a/drivers/net/ethernet/cirrus/Makefile b/drivers/net/ethernet/cirrus/Makefile
+index 9905ea2..14bd77e 100644
+--- a/drivers/net/ethernet/cirrus/Makefile
++++ b/drivers/net/ethernet/cirrus/Makefile
+@@ -2,4 +2,5 @@
+ # Makefile for the Cirrus network device drivers.
+ #
  
- 			/* Now enable the transmitter */
- 			ret_val =
-@@ -5440,7 +5440,7 @@ static s32 e1000_config_dsp_after_link_change(struct e1000_hw *hw, bool link_up)
- 			if (ret_val)
- 				return ret_val;
- 
--			mdelay(20);
-+			msleep(20);
- 
- 			ret_val = e1000_write_phy_reg(hw, 0x0000,
- 						      IGP01E1000_IEEE_FORCE_GIGA);
-@@ -5457,7 +5457,7 @@ static s32 e1000_config_dsp_after_link_change(struct e1000_hw *hw, bool link_up)
- 			if (ret_val)
- 				return ret_val;
- 
--			mdelay(20);
-+			msleep(20);
- 
- 			/* Now enable the transmitter */
- 			ret_val =
-@@ -5750,26 +5750,26 @@ static s32 e1000_polarity_reversal_workaround(struct e1000_hw *hw)
- 
- 		if ((mii_status_reg & ~MII_SR_LINK_STATUS) == 0)
- 			break;
--		mdelay(100);
-+		msleep(100);
- 	}
- 
- 	/* Recommended delay time after link has been lost */
--	mdelay(1000);
-+	msleep(1000);
- 
- 	/* Now we will re-enable th transmitter on the PHY */
- 
- 	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0019);
- 	if (ret_val)
- 		return ret_val;
--	mdelay(50);
-+	msleep(50);
- 	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0xFFF0);
- 	if (ret_val)
- 		return ret_val;
--	mdelay(50);
-+	msleep(50);
- 	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0xFF00);
- 	if (ret_val)
- 		return ret_val;
--	mdelay(50);
-+	msleep(50);
- 	ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0x0000);
- 	if (ret_val)
- 		return ret_val;
-@@ -5794,7 +5794,7 @@ static s32 e1000_polarity_reversal_workaround(struct e1000_hw *hw)
- 
- 		if (mii_status_reg & MII_SR_LINK_STATUS)
- 			break;
--		mdelay(100);
-+		msleep(100);
- 	}
- 	return E1000_SUCCESS;
- }
-@@ -5825,6 +5825,6 @@ static s32 e1000_get_auto_rd_done(struct e1000_hw *hw)
- static s32 e1000_get_phy_cfg_done(struct e1000_hw *hw)
- {
- 	e_dbg("e1000_get_phy_cfg_done");
--	mdelay(10);
-+	msleep(10);
- 	return E1000_SUCCESS;
- }
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index a0c5ea0..6d03d76 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -485,7 +485,7 @@ static void e1000_power_down_phy(struct e1000_adapter *adapter)
- 		e1000_read_phy_reg(hw, PHY_CTRL, &mii_reg);
- 		mii_reg |= MII_CR_POWER_DOWN;
- 		e1000_write_phy_reg(hw, PHY_CTRL, mii_reg);
--		mdelay(1);
-+		msleep(1);
- 	}
- out:
- 	return;
++obj-$(CONFIG_CS89x0) += cs89x0.o
+ obj-$(CONFIG_EP93XX_ETH) += ep93xx_eth.o
+diff --git a/drivers/net/ethernet/apple/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
+similarity index 100%
+rename from drivers/net/ethernet/apple/cs89x0.c
+rename to drivers/net/ethernet/cirrus/cs89x0.c
+diff --git a/drivers/net/ethernet/apple/cs89x0.h b/drivers/net/ethernet/cirrus/cs89x0.h
+similarity index 100%
+rename from drivers/net/ethernet/apple/cs89x0.h
+rename to drivers/net/ethernet/cirrus/cs89x0.h
 -- 
 1.7.6.4
