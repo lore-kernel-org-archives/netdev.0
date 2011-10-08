@@ -1,51 +1,60 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: e100 + VLANs?
-Date: Sat, 08 Oct 2011 14:08:45 +0400
-Message-ID: <4E90212D.8030009@msgid.tls.msk.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net] vlan:make mtu of vlan equal to physical dev
+Date: Sat,  8 Oct 2011 18:12:15 +0800
+Message-ID: <bc33a6142ce48b71b9c232a9154ed76f6048f0cb.1318068629.git.panweiping3@gmail.com>
+Cc: Weiping Pan <panweiping3@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:38107 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751575Ab1JHKIs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Oct 2011 06:08:48 -0400
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:50010 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963Ab1JHKK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 06:10:56 -0400
+Received: by wwf22 with SMTP id 22so7022435wwf.1
+        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 03:10:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yesterday I tried to use 802.1Q VLAN tagging with an (oldish)
-e100-driven network card, identified by lspci like this:
+Default mtu of vlan device is the same with mtu of physical device,
+for example 1500, but when change physics mtu to 1600,
+VLAN device's mtu is still 1500.
+Certainly, you can change vlan device's mtu to 1600 manually,
+but I think when you change physics device's mtu, VLAN's mtu should be changed
+automatically instead of by manually.
 
- 00:12.0 Ethernet controller: Intel Corporation 82557/8/9/0/1 Ethernet Pro 100 (rev 02)
+Steps to Reproduce:
+1.vconfig add eth4 3
+2.ifconfig eth4 mtu 1600
+3.check mtu on eth4.3
 
-Just to discover that it does not quite work: packets of
-size 1497+ bytes gets lost.
+And what's worse is that if you decrease mtu of pyhsical device,
+and when you want to increase it, the mtu of vlan device won't be changed.
 
-This appears to be a classical problems in this case -
-something forgot to allocate extra 4 bytes for the
-packets.
+Steps to Reproduce:
+1.vconfig add eth4 3
+2.ifconfig eth4 mtu 100
+3.ifconfig eth4 mtu 1500
+4.the mtu of eth4.3 is still 100
 
-There's at least one bugreport from 2008 (!) about this
-very issue: http://bugs.centos.org/view.php?id=2719
-which is still open.
+This bug is reported by Liang Zheng(lzheng@redhat.com).
 
-The kernel I tried this on was 2.6.32, I checked git log
-for drivers/net/e100.c - there was no changes up to
-current version which may be related to this issue.
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+---
+ net/8021q/vlan.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-The question: is this a driver problem or hardware? If
-it's the driver, can it be fixed? And if it's hardware,
-can the driver notify the user somehow - like, by refusing
-to enable VLAN (sub)devices maybe?
-
-Yesterday it was actually a bit more complicated for me,
-since the card in question was used to connect to our
-ISP, and they use fixed MAC address per port, so I had
-to find another NIC which is a) able to work with VLAN
-tags properly, and b) is able to change its mac address.
-Lucky I had a VIA RhineIII which does both :)
-
-Thanks,
-
-/mjt
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 8970ba1..f6072b4 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -417,9 +417,6 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 			if (!vlandev)
+ 				continue;
+ 
+-			if (vlandev->mtu <= dev->mtu)
+-				continue;
+-
+ 			dev_set_mtu(vlandev, dev->mtu);
+ 		}
+ 		break;
+-- 
+1.7.4.4
