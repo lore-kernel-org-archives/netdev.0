@@ -1,50 +1,64 @@
-From: Olaf van der Spek <ml@vdspek.org>
-Subject: Re: SOMAXCONN = 128, but max defaults to 2048
-Date: Sat, 8 Oct 2011 14:44:29 +0200
-Message-ID: <CAGVGHmtT1UQn4oZiSd_uzBQLcZextA3Hap2ZLhgKG3A3xWfkqg@mail.gmail.com>
-References: <CAGVGHmt1OVOj0NSEo3qHCh1CR10eZTNjxuUh_mB6sXxcx5gKmA@mail.gmail.com>
-	<1318077339.5276.17.camel@edumazet-laptop>
+From: =?utf-8?B?5LuFMTDlhYPmr4/lpKk=?= <admin@reidhaina.com>
+Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuivmnIDmlrDlub/kuqTkvJrkubDlrrbjgIHmtbc=?=
+	=?utf-8?B?5YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
+Date: Sat, 8 Oct 2011 16:09:54 +0000 (UTC)
+Message-ID: <20121009001025835868@reidhaina.com>
+Reply-To: <1339625218@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <nessen@enter.vg>, <net@verizon.net>, <netamieya@hotmail.com>,
+	<netdev@vger.kernel.org>, <nethashem@yahoo.com>,
+	<netmarkc@aol.com>, <netrangr@prodrubdir.hew.us.ml>,
+	<nette@floweroflig
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:53897 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802Ab1JHMoa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 08:44:30 -0400
-Received: by vcbfk10 with SMTP id fk10so3680070vcb.19
-        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 05:44:30 -0700 (PDT)
-In-Reply-To: <1318077339.5276.17.camel@edumazet-laptop>
+Received: from [210.51.181.156] ([210.51.181.156]:4341 "HELO reidhaina.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751255Ab1JHQJm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Oct 2011 12:09:42 -0400
+Date: Tue, 9 Oct 2012 00:10:12 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 8, 2011 at 2:35 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le samedi 08 octobre 2011 =E0 13:51 +0200, Olaf van der Spek a =E9cri=
-t :
->> Is the name of SOMAXCONN wrong and is it actually defining the defau=
-lt?
->> Would there be a disadvantage to defining SOMAXCONN as INT_MAX and
->> letting the kernel control the actual max?
->>
->
-> You mean : remove somaxconn tunable ?
-
-No, I mean basically removing the compile-time value and only using
-the run-time value (from the kernel).
-
-> accept()/listen() is not bound to TCP only.
-
-What else is that value used for?
-
-> We had a recent discussion on the matter lately, but Hagen Paul Pfeif=
-er
-> did not polish his patches enough :
->
-> http://lists.openwall.net/netdev/2011/03/20/3
-
-Isn't it a single-line change?
-
-Olaf
+576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrbjgIHlsZXk
+vJrkubDlrrbjgIHmtbflhbPmlbDmja4sQjJC6K+i55uY5Lmw5a62NTAw5LiH44CCDQoNCuS4gOWF
+sTjkuKrljIUo5pWw5o2u5piv5YWo6KGM5Lia55qE77yM5oyJ54Wn6KGM5Lia5YiG5aW957G777yM
+5bm25LiU5Y+v5Lul5oyJ54Wn5YWz6ZSu6K+N5p+l6K+i55qEKe+8miANCjHvvIwyMDEx5pil5a2j
+MTA55bGK5bm/5Lqk5Lya5Lmw5a625pWw5o2u5bqT5paw6bKc5Ye654KJ77yM6LaF57qn5paw6bKc
+5Lmw5a6277yM5paw6bKc5pWw5o2u77yM5a655piT5oiQ5Y2V77yBIA0KMu+8jOacgOaWsOWFqOeQ
+g+S5sOWutuW6kyzlhbE0NTE2NjDmnaHmlbDmja7jgIIgDQoz77yMMjAwOOW5tCwyMDA55bm0LDIw
+MTDlubQg5pil5a2jK+eni+Wto+W5v+S6pOS8muS5sOWutuWQjeW9le+8jDEwMyAxMDQgMTA1IDEw
+NiAxMDcgMTA4IOWFseWFreWxiiDlhbExMjAuNuS4h+aVsOaNruOAgg0KNO+8jDIwMTDlubTlm73p
+mYXkv4PplIDljY/kvJrvvIhQUEFJ77yJ5oiQ5ZGY5ZCN5Y2VIFBQQUkgTWVtYmVycyBEaXJlY3Rv
+cnnvvIzpnZ7luLjph43opoHnmoTlpKfkubDlrrbjgIINCjXvvIwyMDEw5bm05Yiw6aaZ5riv6YeH
+6LSt55qE5Zu95aSW5a6i5Lq65ZCN5b2VKOmmmea4r+i0uOWPkeWxgOaPkOS+mynvvIzlhbE3LjLk
+uIfmlbDmja7vvIzotoXnuqfph43opoHnmoTkubDlrrbjgIINCjbvvIw2MC445LiH5p2h5pyA5paw
+5Zu95aSWQjJC5Lmw5a626K+i55uY44CCDQo377yMMjAwOeW5tOa1t+WFs+aPkOWNleaVsOaNrnBp
+ZXJz54mI5pWw5o2uIDHljYPkuIfjgIINCjjvvIznvqTlj5Hova/ku7bvvIznvqTlj5Hova/ku7bn
+moTpg6jnvbLkuI7lronoo4XjgIINCg0K5YWxIDUwMOS4h+S4quS5sOWutu+8jOavj+S4quWdh+ac
+iUVtYWlsLiANCg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/l
+pKnpg73mnInkubDlrrblm57lpI3jgIINCg0K6KaB55qE5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUy
+MTggICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0K6KaB55qE
+5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUyMTggICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAx
+MzM5NjI1MjE4QHFxLmNvbQ0K6KaB55qE5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUyMTggICAg5oiW
+6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0KDQror5rkv6HkuLrmnKzv
+vIzlpoLmnpzkuI3kv6Hku7vmnKzkuros5Y+v5Lul6LWw5reY5a6d5Lqk5piTLOaUtui0p+mqjOiv
+geWQjuWGjeS7mOasvizov5nmmK/lr7nmgqjmnIDlpb3nmoTkv53pmpzkuobjgIIgDQoNCuS/neiv
+geavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue
+5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCg0KDQoNCg0K5bm/5Lqk
+5Lya5Lmw5a625oyJ5Lqn5ZOB57G75Yir5YiG57G777yM5YiG5Li65Lul5LiL5Yeg57G777yaDQox
+IOWKnuWFrOiuvuWkhw0KMiDnvJbnu4flj4rol6Tpk4Hlt6Xoibrlk4ENCjMg546755KDDQo0IOmk
+kOWOqOeUqOWFtw0KNSDovabovoYNCjYg5aSn5Z6L5py65qKw5Y+K6K6+5aSHDQo3IOeUteWtkOeU
+teawlA0KOCDnlLXlrZDmtojotLnlk4ENCjkg57q657uHDQoxMCDmnI3oo4UNCjExIOS4quS6uuaK
+pOeQhg0KMTIg5bel56iL5py65qKwDQoxMyDlt6XlhbcNCjE0IOWMluW3pQ0KMTUg6K6h566X5py6
+5Y+K6YCa6K6vDQoxNiDlrrblsYXnlKjlk4ENCjE3IOWutuWxheijhemlsA0KMTgg5a625YW3DQox
+OSDlrrbnlKjnlLXlmagNCjIwIOW7uuetkeWPiuijhemlsOadkOaWmQ0KMjEg6IqC5pel55So5ZOB
+DQoyMiDnpLzlk4Hlj4rotaDlk4ENCjIzIOaRqeaJmOi9pg0KMjQg5rG96L2m6YWN5Lu2DQoyNSDp
+o5/lk4ENCjI2IOmZtueTtw0KMjcg6ZOB55+zDQoyOCDnjqnlhbcNCjI5IOWNq+a1tA0KMzAg5LqU
+6YeRDQozMSDlsI/lnovmnLrmorANCjMyIOmeiw0KMzMg5LyR6Zey55So5ZOBDQozNCDljLvnlpcN
+CjM1IOa1tOWupOS6p+WTgQ0KMzYg5Zut5p6XDQozNyDnhafmmI7kuqflk4ENCjM4IOmSn+ihqOec
+vOmVnA0KMzkg6Ieq6KGM6L2mDQo0MCDljIUNCg0KDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrbl
+m57lpI3jgIINCuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp
+6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIIN
+CuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K
