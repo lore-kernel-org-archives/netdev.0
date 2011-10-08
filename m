@@ -1,63 +1,49 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: e100 + VLANs?
-Date: Sat, 08 Oct 2011 18:24:06 +0200
-Message-ID: <1318091046.5276.22.camel@edumazet-laptop>
-References: <4E90212D.8030009@msgid.tls.msk.ru>
+Subject: [BUG] igb : rtnl assert on resume
+Date: Sat, 08 Oct 2011 19:51:24 +0200
+Message-ID: <1318096284.5276.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60482 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742Ab1JHQYT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 12:24:19 -0400
-Received: by wwf22 with SMTP id 22so7291940wwf.1
-        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 09:24:18 -0700 (PDT)
-In-Reply-To: <4E90212D.8030009@msgid.tls.msk.ru>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39985 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752887Ab1JHRva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 13:51:30 -0400
+Received: by wyg34 with SMTP id 34so4789466wyg.19
+        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 10:51:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 08 octobre 2011 =C3=A0 14:08 +0400, Michael Tokarev a =C3=A9c=
-rit :
-> Yesterday I tried to use 802.1Q VLAN tagging with an (oldish)
-> e100-driven network card, identified by lspci like this:
->=20
->  00:12.0 Ethernet controller: Intel Corporation 82557/8/9/0/1 Etherne=
-t Pro 100 (rev 02)
->=20
-> Just to discover that it does not quite work: packets of
-> size 1497+ bytes gets lost.
->=20
-> This appears to be a classical problems in this case -
-> something forgot to allocate extra 4 bytes for the
-> packets.
->=20
-> There's at least one bugreport from 2008 (!) about this
-> very issue: http://bugs.centos.org/view.php?id=3D2719
-> which is still open.
->=20
-> The kernel I tried this on was 2.6.32, I checked git log
-> for drivers/net/e100.c - there was no changes up to
-> current version which may be related to this issue.
->=20
-> The question: is this a driver problem or hardware? If
-> it's the driver, can it be fixed? And if it's hardware,
-> can the driver notify the user somehow - like, by refusing
-> to enable VLAN (sub)devices maybe?
->=20
-> Yesterday it was actually a bit more complicated for me,
-> since the card in question was used to connect to our
-> ISP, and they use fixed MAC address per port, so I had
-> to find another NIC which is a) able to work with VLAN
-> tags properly, and b) is able to change its mac address.
-> Lucky I had a VIA RhineIII which does both :)
->=20
+Hi guys
 
-Since you have two cards (and probably two machines), maybe you could
-try to track if the problem is a bad transmit or a bad receive ?
+Not sure if its a regression (it seems linux-3.0 probably should trigger
+same trace) but I caught this on latest net-next when suspend/resume
+cycle was done :
 
-tcpdump on both machines, and ping -s 2000 from both sides...
+[ 5279.891512] RTNL: assertion failed at net/core/dev.c (1665)
+[ 5279.891515] Pid: 2785, comm: kworker/u:9 Not tainted 3.1.0-rc9+ #81
+[ 5279.891517] Call Trace:
+[ 5279.891523]  [<ffffffff814802ec>] netif_set_real_num_tx_queues+0x1ac/0x1c0
+[ 5279.891540]  [<ffffffffa00244d1>] igb_init_interrupt_scheme+0x151/0x4b0 [igb]
+[ 5279.891546]  [<ffffffffa002984d>] igb_resume+0x9d/0x160 [igb]
+[ 5279.891550]  [<ffffffff812e0b91>] pci_legacy_resume+0x41/0x60
+[ 5279.891552]  [<ffffffff812e17c0>] pci_pm_resume+0x90/0xd0
+[ 5279.891555]  [<ffffffff813896b7>] pm_op+0xe7/0x1c0
+[ 5279.891558]  [<ffffffff81389ba7>] device_resume+0xf7/0x1b0
+[ 5279.891561]  [<ffffffff8108a520>] ? async_schedule+0x20/0x20
+[ 5279.891564]  [<ffffffff81389c81>] async_resume+0x21/0x50
+[ 5279.891566]  [<ffffffff8108a59f>] async_run_entry_fn+0x7f/0x180
+[ 5279.891569]  [<ffffffff8107ca73>] process_one_work+0x123/0x480
+[ 5279.891572]  [<ffffffff8107d638>] ? manage_workers.isra.30+0x1e8/0x230
+[ 5279.891574]  [<ffffffff8107d7de>] worker_thread+0x15e/0x360
+[ 5279.891576]  [<ffffffff8107d680>] ? manage_workers.isra.30+0x230/0x230
+[ 5279.891579]  [<ffffffff8108225c>] kthread+0x8c/0xa0
+[ 5279.891583]  [<ffffffff8157fc74>] kernel_thread_helper+0x4/0x10
+[ 5279.891586]  [<ffffffff810821d0>] ? flush_kthread_worker+0xa0/0xa0
+[ 5279.891588]  [<ffffffff8157fc70>] ? gs_change+0x13/0x13
 
-e100 driver seems VLAN enabled at a first glance.
+Thanks
