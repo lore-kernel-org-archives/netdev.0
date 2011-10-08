@@ -1,60 +1,67 @@
-From: Mihai Maruseac <mihai.maruseac@gmail.com>
-Subject: Re: [PATCH] dev: use name hash for dev_seq_ops.
-Date: Sat, 8 Oct 2011 10:22:26 +0300
-Message-ID: <CAOMsUMKcd-Xg0uezvknBFLCYx7U9PuKpgfHdKw8vjVvmbH6KoQ@mail.gmail.com>
-References: <1318000849-2531-1-git-send-email-mmaruseac@ixiacom.com> <20111007092445.4f097ed9@nehalam.linuxnetplumber.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC] net: remove erroneous sk null assignment in timestamping
+Date: Sat, 8 Oct 2011 09:57:20 +0200
+Message-ID: <20111008075719.GA2284@netboy.at.omicron.at>
+References: <1318007501.3988.20.camel@jlt3.sipsolutions.net>
+ <20111007.133356.489094996618032061.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dbaluta@ixiacom.com, Mihai Maruseac <mmaruseac@ixiacom.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111007092445.4f097ed9@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:48857 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753339Ab1JHH5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 03:57:24 -0400
+Received: by eye27 with SMTP id 27so187128eye.19
+        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 00:57:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20111007.133356.489094996618032061.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 7, 2011 at 7:24 PM, Stephen Hemminger <shemminger@vyatta.co=
-m> wrote:
-> On Fri, =A07 Oct 2011 18:20:49 +0300
-> Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
->
->> Instead of using the dev->next chain and trying to resync at each ca=
-ll to
->> dev_seq_start, use this hash and store bucket number and bucket offs=
-et in
->> seq->private field.
->>
->> Tests revealed the following results for ifconfig > /dev/null
->> =A0 =A0 =A0 * 1000 interfaces:
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.114s without patch
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.020s with patch
->> =A0 =A0 =A0 * 3000 interfaces:
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.489s without patch
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.048s with patch
->> =A0 =A0 =A0 * 5000 interfaces:
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 1.363s without patch
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.131s with patch
->>
->> As one can notice the improvement is of 1 order of magnitude.
->
-> Good idea,
-> This will change the ordering of entries in /proc which may upset
-> some program, not a critical flaw but worth noting.
->
-> Rather than recording the bucket and offset of last entry, another
-> alternative would be to just record the ifindex.
->
-> Also ifconfig is considered deprecated and replaced by ip commands
-> for general use.
->
+On Fri, Oct 07, 2011 at 01:33:56PM -0400, David Miller wrote:
+> It looks like skb_clone_tx_timestamp() sets clone->sk without any
+> proper refcounting, so I bet this NULL'ing it out is working
+> around that bug.
+
+I don't remember why I put it that way, but I took a look at the
+problem, and I am not sure how to solve it. The other callers of
+sock_queue_err_skb all create or clone the error skb immediately
+before queueing it:
+
+  net/core/skbuff.c:       skb_tstamp_tx
+  net/ipv4/ip_sockglue.c:  ip_icmp_error, ip_local_error
+  net/ipv6/datagram.c:     ipv6_icmp_error, ipv6_local_error
+
+So I need to prevent the socket from disappearing between
+skb_clone_tx_timestamp and skb_complete_tx_timestamp:
+
+  skb_clone_tx_timestamp
+	clone = skb_clone(skb, GFP_ATOMIC);
+	sock_hold
+  skb_complete_tx_timestamp
+	sock_queue_err_skb(sk, skb);
+	sock_put
+
+What do you think?
+
+BTW, while looking for a good pattern to follow, I found that the can
+driver also sets skb->sk after clone with no special treatment, like
+so:
+
+  drivers/net/can/dev.c:285
+	can_put_echo_skb
+		struct sock *srcsk = skb->sk;
+		skb = skb_clone(old_skb, GFP_ATOMIC);
+		skb->sk = srcsk;
+
+> The TX side of this infrastructure seems very poorly tested.
+
+In fact, we do have the phyter driver used in an extensive automated
+test farm, but the applications just don't do the kinds of things
+suggested to trigger the problem. The normal pattern is, send event
+packet, get tx timestamp, and so we haven't seen the bug at all.
 
 Thanks,
-This is a patch from a series of improvements to both the ifconfig and
-ip commands. The ip part will come later, after being properly
-implemented and tested.
-
---=20
-Mihai
+Richard
