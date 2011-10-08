@@ -1,184 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/11] igb: cleanup IVAR configuration
-Date: Fri,  7 Oct 2011 23:47:36 -0700
-Message-ID: <1318056461-19562-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 07 Oct 2011 23:52:42 -0700
+Message-ID: <1318056763.23688.153.camel@jtkirshe-mobl>
 References: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ytTI9WmtOzmOCQBm5HMk"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:16687 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:10724 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751972Ab1JHGrs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Oct 2011 02:47:48 -0400
+	id S1751145Ab1JHGwn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Oct 2011 02:52:43 -0400
 In-Reply-To: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change is meant to cleanup some of the IVAR register configuration.
-igb_assign_vector had become pretty large with multiple copies of the same
-general code for setting the IVAR. This change consolidates most of that
-code by adding the igb_write_ivar function which allows us just to compute
-the index and offset and then use that information to setup the IVAR.
+--=-ytTI9WmtOzmOCQBm5HMk
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |  120 +++++++++++++---------------
- 1 files changed, 56 insertions(+), 64 deletions(-)
+On Fri, 2011-10-07 at 23:47 -0700, Kirsher, Jeffrey T wrote:
+> The following series contains updates to igb only.  They are a
+> continuation of the cleanups and refactoring that Alex has done.
+> After this series there are 4-5 more patches to complete the work
+> that Alex has done on igb.
+>=20
+> The following are changes since commit
+> 1d0861acfb24d0ca0661ff5a156b992b2c589458:
+>   Add ethtool -g support to 8139cp
+> and are available in the git repository at
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+> or
+>   git://github.com/Jkirsher/net-next.git=20
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 8dc04e0..ec715f4 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -754,15 +754,40 @@ err:
- 	return -ENOMEM;
- }
- 
-+/**
-+ *  igb_write_ivar - configure ivar for given MSI-X vector
-+ *  @hw: pointer to the HW structure
-+ *  @msix_vector: vector number we are allocating to a given ring
-+ *  @index: row index of IVAR register to write within IVAR table
-+ *  @offset: column offset of in IVAR, should be multiple of 8
-+ *
-+ *  This function is intended to handle the writing of the IVAR register
-+ *  for adapters 82576 and newer.  The IVAR table consists of 2 columns,
-+ *  each containing an cause allocation for an Rx and Tx ring, and a
-+ *  variable number of rows depending on the number of queues supported.
-+ **/
-+static void igb_write_ivar(struct e1000_hw *hw, int msix_vector,
-+			   int index, int offset)
-+{
-+	u32 ivar = array_rd32(E1000_IVAR0, index);
-+
-+	/* clear any bits that are currently set */
-+	ivar &= ~((u32)0xFF << offset);
-+
-+	/* write vector and valid bit */
-+	ivar |= (msix_vector | E1000_IVAR_VALID) << offset;
-+
-+	array_wr32(E1000_IVAR0, index, ivar);
-+}
-+
- #define IGB_N0_QUEUE -1
- static void igb_assign_vector(struct igb_q_vector *q_vector, int msix_vector)
- {
--	u32 msixbm = 0;
- 	struct igb_adapter *adapter = q_vector->adapter;
- 	struct e1000_hw *hw = &adapter->hw;
--	u32 ivar, index;
- 	int rx_queue = IGB_N0_QUEUE;
- 	int tx_queue = IGB_N0_QUEUE;
-+	u32 msixbm = 0;
- 
- 	if (q_vector->rx.ring)
- 		rx_queue = q_vector->rx.ring->reg_idx;
-@@ -785,72 +810,39 @@ static void igb_assign_vector(struct igb_q_vector *q_vector, int msix_vector)
- 		q_vector->eims_value = msixbm;
- 		break;
- 	case e1000_82576:
--		/* 82576 uses a table-based method for assigning vectors.
--		   Each queue has a single entry in the table to which we write
--		   a vector number along with a "valid" bit.  Sadly, the layout
--		   of the table is somewhat counterintuitive. */
--		if (rx_queue > IGB_N0_QUEUE) {
--			index = (rx_queue & 0x7);
--			ivar = array_rd32(E1000_IVAR0, index);
--			if (rx_queue < 8) {
--				/* vector goes into low byte of register */
--				ivar = ivar & 0xFFFFFF00;
--				ivar |= msix_vector | E1000_IVAR_VALID;
--			} else {
--				/* vector goes into third byte of register */
--				ivar = ivar & 0xFF00FFFF;
--				ivar |= (msix_vector | E1000_IVAR_VALID) << 16;
--			}
--			array_wr32(E1000_IVAR0, index, ivar);
--		}
--		if (tx_queue > IGB_N0_QUEUE) {
--			index = (tx_queue & 0x7);
--			ivar = array_rd32(E1000_IVAR0, index);
--			if (tx_queue < 8) {
--				/* vector goes into second byte of register */
--				ivar = ivar & 0xFFFF00FF;
--				ivar |= (msix_vector | E1000_IVAR_VALID) << 8;
--			} else {
--				/* vector goes into high byte of register */
--				ivar = ivar & 0x00FFFFFF;
--				ivar |= (msix_vector | E1000_IVAR_VALID) << 24;
--			}
--			array_wr32(E1000_IVAR0, index, ivar);
--		}
-+		/*
-+		 * 82576 uses a table that essentially consists of 2 columns
-+		 * with 8 rows.  The ordering is column-major so we use the
-+		 * lower 3 bits as the row index, and the 4th bit as the
-+		 * column offset.
-+		 */
-+		if (rx_queue > IGB_N0_QUEUE)
-+			igb_write_ivar(hw, msix_vector,
-+				       rx_queue & 0x7,
-+				       (rx_queue & 0x8) << 1);
-+		if (tx_queue > IGB_N0_QUEUE)
-+			igb_write_ivar(hw, msix_vector,
-+				       tx_queue & 0x7,
-+				       ((tx_queue & 0x8) << 1) + 8);
- 		q_vector->eims_value = 1 << msix_vector;
- 		break;
- 	case e1000_82580:
- 	case e1000_i350:
--		/* 82580 uses the same table-based approach as 82576 but has fewer
--		   entries as a result we carry over for queues greater than 4. */
--		if (rx_queue > IGB_N0_QUEUE) {
--			index = (rx_queue >> 1);
--			ivar = array_rd32(E1000_IVAR0, index);
--			if (rx_queue & 0x1) {
--				/* vector goes into third byte of register */
--				ivar = ivar & 0xFF00FFFF;
--				ivar |= (msix_vector | E1000_IVAR_VALID) << 16;
--			} else {
--				/* vector goes into low byte of register */
--				ivar = ivar & 0xFFFFFF00;
--				ivar |= msix_vector | E1000_IVAR_VALID;
--			}
--			array_wr32(E1000_IVAR0, index, ivar);
--		}
--		if (tx_queue > IGB_N0_QUEUE) {
--			index = (tx_queue >> 1);
--			ivar = array_rd32(E1000_IVAR0, index);
--			if (tx_queue & 0x1) {
--				/* vector goes into high byte of register */
--				ivar = ivar & 0x00FFFFFF;
--				ivar |= (msix_vector | E1000_IVAR_VALID) << 24;
--			} else {
--				/* vector goes into second byte of register */
--				ivar = ivar & 0xFFFF00FF;
--				ivar |= (msix_vector | E1000_IVAR_VALID) << 8;
--			}
--			array_wr32(E1000_IVAR0, index, ivar);
--		}
-+		/*
-+		 * On 82580 and newer adapters the scheme is similar to 82576
-+		 * however instead of ordering column-major we have things
-+		 * ordered row-major.  So we traverse the table by using
-+		 * bit 0 as the column offset, and the remaining bits as the
-+		 * row index.
-+		 */
-+		if (rx_queue > IGB_N0_QUEUE)
-+			igb_write_ivar(hw, msix_vector,
-+				       rx_queue >> 1,
-+				       (rx_queue & 0x1) << 4);
-+		if (tx_queue > IGB_N0_QUEUE)
-+			igb_write_ivar(hw, msix_vector,
-+				       tx_queue >> 1,
-+				       ((tx_queue & 0x1) << 4) + 8);
- 		q_vector->eims_value = 1 << msix_vector;
- 		break;
- 	default:
--- 
-1.7.6.4
+Even though I have my kernel.org tree back up and running, I will keep
+the github tree's updated (at least for now).
+
+--=-ytTI9WmtOzmOCQBm5HMk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJOj/M6AAoJEOVv75VaS+3Oe4EP/0yr8Pecc8cS1bApwTaQkffE
+HUKkpxXtb70b6i+I0c51ace5J4Cfuy+C4HdzlbAb37A773cBRXAUZQf0qG6kPgpK
+qQOOm+S2xzLVrvoBFlXvR4aGreEVCTUrHL3ayaB+V+7g8aM+LXq8rBoHif1vOofH
+Q4WNrJozPrqkZCOQgS7L7YBxlwPEvL9dJItrG/5VSW/YcaublSM3WfDhqRyJugjg
+vOEqOWs4iIdWP+TJIHrWDZv5oxzg4qTvMtJb+E/cLWK6XeIoHpICeil9qHsH3IJB
++CNChWVRnBt5xCfsO53bo5SAZBiEXU3SaA1YZjMZl/Jn/tbIATpL4qAa/maCQVAF
+QjJQC5iiHAlQRIOIdJ6z5RfDOSe1lZLaQsPVpObfbd3/JreDFWomFoLjFpD/F8oc
+9sGhwKh+hTdyfpvw7N+XSrmlEDzM5BeQBSlgfZ6rtYetrrAKmzo9wlbhfiNBEOx7
+FFVMSsm8+aD9VkSCKn+jEZc7pKkWa+OpltOklG8z3Lw6YV4AP06LfScneIpDBYYK
+9BYGyoBrVRJhjhKYc97UdYOK5zncfO4IeDSI4fVlrOIz4S6vImRURhajnRI+o29a
+VAfBunN12d+klhpIs0rUxWxJ2RWHQvbs3DzP8kWCWI28KCZm1pP69AYiUniXBztN
+keJSFXfO6BzmAmckLwl1
+=Bbuu
+-----END PGP SIGNATURE-----
+
+--=-ytTI9WmtOzmOCQBm5HMk--
