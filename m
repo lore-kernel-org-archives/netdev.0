@@ -1,72 +1,60 @@
-From: Yinglin Sun <yinglin.s@gmail.com>
-Subject: Re: moving GIT back to kernel.org...
-Date: Sat, 8 Oct 2011 00:09:24 -0700
-Message-ID: <CAN17JHUdg2aJmpMOD_hn61eramPPnTr0_tiy3c7w7cKa8FMtsQ@mail.gmail.com>
-References: <20111007.145703.842130763413648388.davem@davemloft.net>
-	<20111007.155902.916470368193047875.davem@davemloft.net>
-	<CAN17JHUGnAbHJmwybjJVdxq4JOgHfDxChw1P7q1yrkqH6Ci05w@mail.gmail.com>
-	<4E8FF54F.1080306@gmail.com>
+From: Mihai Maruseac <mihai.maruseac@gmail.com>
+Subject: Re: [PATCH] dev: use name hash for dev_seq_ops.
+Date: Sat, 8 Oct 2011 10:22:26 +0300
+Message-ID: <CAOMsUMKcd-Xg0uezvknBFLCYx7U9PuKpgfHdKw8vjVvmbH6KoQ@mail.gmail.com>
+References: <1318000849-2531-1-git-send-email-mmaruseac@ixiacom.com> <20111007092445.4f097ed9@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au, linux-wireless@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, sparclinux@vger.kernel.org,
-	linux-ide@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:47748 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750827Ab1JHHJ0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 03:09:26 -0400
-In-Reply-To: <4E8FF54F.1080306@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dbaluta@ixiacom.com, Mihai Maruseac <mmaruseac@ixiacom.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111007092445.4f097ed9@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 8, 2011 at 12:01 AM, Jeff Kirsher <tarbal@gmail.com> wrote:
-> On 10/07/2011 11:55 PM, Yinglin Sun wrote:
->> On Fri, Oct 7, 2011 at 12:59 PM, David Miller <davem@davemloft.net> =
-wrote:
->>> From: David Miller <davem@davemloft.net>
->>> Date: Fri, 07 Oct 2011 14:57:03 -0400 (EDT)
->>>
->>>> I'm about to setup my GIT trees on kernel.org, once that is comple=
-te
->>>> I will be solely updating those trees again.
->>>>
->>>> I will notify everyone when this is ready to go.
->>>>
->>>> Just a heads up for everyone...
->>> Ok, they are now online, please update your URLs.
->>>
->>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
->>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
->>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/sparc.git
->>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/ide.git
->>>
->> I'm still new to net kernel development, so a little confused about =
-these trees.
->> So we should submit patches based on these trees, instead of Linus'?
->> About net and net-next, How to decide which one to use?
+On Fri, Oct 7, 2011 at 7:24 PM, Stephen Hemminger <shemminger@vyatta.co=
+m> wrote:
+> On Fri, =A07 Oct 2011 18:20:49 +0300
+> Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
+>
+>> Instead of using the dev->next chain and trying to resync at each ca=
+ll to
+>> dev_seq_start, use this hash and store bucket number and bucket offs=
+et in
+>> seq->private field.
 >>
->> Thanks!
+>> Tests revealed the following results for ifconfig > /dev/null
+>> =A0 =A0 =A0 * 1000 interfaces:
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.114s without patch
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.020s with patch
+>> =A0 =A0 =A0 * 3000 interfaces:
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.489s without patch
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.048s with patch
+>> =A0 =A0 =A0 * 5000 interfaces:
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 1.363s without patch
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 0.131s with patch
 >>
->> Yinglin
->>
+>> As one can notice the improvement is of 1 order of magnitude.
 >
-> *If* you have change against the network core/drivers then, you would
-> want to use David Miller's net or net-next trees.
+> Good idea,
+> This will change the ordering of entries in /proc which may upset
+> some program, not a critical flaw but worth noting.
 >
-> As a general rule:
-> =C2=A0- net tree is only for fixes/critical fixes
-> =C2=A0- net-next tree is for everything else
+> Rather than recording the bucket and offset of last entry, another
+> alternative would be to just record the ifindex.
 >
-> There are always exceptions, but if you stick to the above general ru=
-le,
-> you will be fine.
->
+> Also ifconfig is considered deprecated and replaced by ip commands
+> for general use.
 >
 
-Got it. Thanks Jeff!
+Thanks,
+This is a patch from a series of improvements to both the ifconfig and
+ip commands. The ip part will come later, after being properly
+implemented and tested.
 
-Yinglin
+--=20
+Mihai
