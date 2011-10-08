@@ -1,64 +1,63 @@
-From: =?utf-8?B?5LuFMTDlhYPmr4/lpKk=?= <admin@reidhaina.com>
-Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuivmnIDmlrDlub/kuqTkvJrkubDlrrbjgIHmtbc=?=
-	=?utf-8?B?5YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
-Date: Sat, 8 Oct 2011 16:09:54 +0000 (UTC)
-Message-ID: <20121009001025835868@reidhaina.com>
-Reply-To: <1339625218@qq.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: e100 + VLANs?
+Date: Sat, 08 Oct 2011 18:24:06 +0200
+Message-ID: <1318091046.5276.22.camel@edumazet-laptop>
+References: <4E90212D.8030009@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <nessen@enter.vg>, <net@verizon.net>, <netamieya@hotmail.com>,
-	<netdev@vger.kernel.org>, <nethashem@yahoo.com>,
-	<netmarkc@aol.com>, <netrangr@prodrubdir.hew.us.ml>,
-	<nette@floweroflig
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [210.51.181.156] ([210.51.181.156]:4341 "HELO reidhaina.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751255Ab1JHQJm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Oct 2011 12:09:42 -0400
-Date: Tue, 9 Oct 2012 00:10:12 +0800
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60482 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742Ab1JHQYT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 12:24:19 -0400
+Received: by wwf22 with SMTP id 22so7291940wwf.1
+        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 09:24:18 -0700 (PDT)
+In-Reply-To: <4E90212D.8030009@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrbjgIHlsZXk
-vJrkubDlrrbjgIHmtbflhbPmlbDmja4sQjJC6K+i55uY5Lmw5a62NTAw5LiH44CCDQoNCuS4gOWF
-sTjkuKrljIUo5pWw5o2u5piv5YWo6KGM5Lia55qE77yM5oyJ54Wn6KGM5Lia5YiG5aW957G777yM
-5bm25LiU5Y+v5Lul5oyJ54Wn5YWz6ZSu6K+N5p+l6K+i55qEKe+8miANCjHvvIwyMDEx5pil5a2j
-MTA55bGK5bm/5Lqk5Lya5Lmw5a625pWw5o2u5bqT5paw6bKc5Ye654KJ77yM6LaF57qn5paw6bKc
-5Lmw5a6277yM5paw6bKc5pWw5o2u77yM5a655piT5oiQ5Y2V77yBIA0KMu+8jOacgOaWsOWFqOeQ
-g+S5sOWutuW6kyzlhbE0NTE2NjDmnaHmlbDmja7jgIIgDQoz77yMMjAwOOW5tCwyMDA55bm0LDIw
-MTDlubQg5pil5a2jK+eni+Wto+W5v+S6pOS8muS5sOWutuWQjeW9le+8jDEwMyAxMDQgMTA1IDEw
-NiAxMDcgMTA4IOWFseWFreWxiiDlhbExMjAuNuS4h+aVsOaNruOAgg0KNO+8jDIwMTDlubTlm73p
-mYXkv4PplIDljY/kvJrvvIhQUEFJ77yJ5oiQ5ZGY5ZCN5Y2VIFBQQUkgTWVtYmVycyBEaXJlY3Rv
-cnnvvIzpnZ7luLjph43opoHnmoTlpKfkubDlrrbjgIINCjXvvIwyMDEw5bm05Yiw6aaZ5riv6YeH
-6LSt55qE5Zu95aSW5a6i5Lq65ZCN5b2VKOmmmea4r+i0uOWPkeWxgOaPkOS+mynvvIzlhbE3LjLk
-uIfmlbDmja7vvIzotoXnuqfph43opoHnmoTkubDlrrbjgIINCjbvvIw2MC445LiH5p2h5pyA5paw
-5Zu95aSWQjJC5Lmw5a626K+i55uY44CCDQo377yMMjAwOeW5tOa1t+WFs+aPkOWNleaVsOaNrnBp
-ZXJz54mI5pWw5o2uIDHljYPkuIfjgIINCjjvvIznvqTlj5Hova/ku7bvvIznvqTlj5Hova/ku7bn
-moTpg6jnvbLkuI7lronoo4XjgIINCg0K5YWxIDUwMOS4h+S4quS5sOWutu+8jOavj+S4quWdh+ac
-iUVtYWlsLiANCg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/l
-pKnpg73mnInkubDlrrblm57lpI3jgIINCg0K6KaB55qE5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUy
-MTggICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0K6KaB55qE
-5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUyMTggICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAx
-MzM5NjI1MjE4QHFxLmNvbQ0K6KaB55qE5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUyMTggICAg5oiW
-6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0KDQror5rkv6HkuLrmnKzv
-vIzlpoLmnpzkuI3kv6Hku7vmnKzkuros5Y+v5Lul6LWw5reY5a6d5Lqk5piTLOaUtui0p+mqjOiv
-geWQjuWGjeS7mOasvizov5nmmK/lr7nmgqjmnIDlpb3nmoTkv53pmpzkuobjgIIgDQoNCuS/neiv
-geavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue
-5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCg0KDQoNCg0K5bm/5Lqk
-5Lya5Lmw5a625oyJ5Lqn5ZOB57G75Yir5YiG57G777yM5YiG5Li65Lul5LiL5Yeg57G777yaDQox
-IOWKnuWFrOiuvuWkhw0KMiDnvJbnu4flj4rol6Tpk4Hlt6Xoibrlk4ENCjMg546755KDDQo0IOmk
-kOWOqOeUqOWFtw0KNSDovabovoYNCjYg5aSn5Z6L5py65qKw5Y+K6K6+5aSHDQo3IOeUteWtkOeU
-teawlA0KOCDnlLXlrZDmtojotLnlk4ENCjkg57q657uHDQoxMCDmnI3oo4UNCjExIOS4quS6uuaK
-pOeQhg0KMTIg5bel56iL5py65qKwDQoxMyDlt6XlhbcNCjE0IOWMluW3pQ0KMTUg6K6h566X5py6
-5Y+K6YCa6K6vDQoxNiDlrrblsYXnlKjlk4ENCjE3IOWutuWxheijhemlsA0KMTgg5a625YW3DQox
-OSDlrrbnlKjnlLXlmagNCjIwIOW7uuetkeWPiuijhemlsOadkOaWmQ0KMjEg6IqC5pel55So5ZOB
-DQoyMiDnpLzlk4Hlj4rotaDlk4ENCjIzIOaRqeaJmOi9pg0KMjQg5rG96L2m6YWN5Lu2DQoyNSDp
-o5/lk4ENCjI2IOmZtueTtw0KMjcg6ZOB55+zDQoyOCDnjqnlhbcNCjI5IOWNq+a1tA0KMzAg5LqU
-6YeRDQozMSDlsI/lnovmnLrmorANCjMyIOmeiw0KMzMg5LyR6Zey55So5ZOBDQozNCDljLvnlpcN
-CjM1IOa1tOWupOS6p+WTgQ0KMzYg5Zut5p6XDQozNyDnhafmmI7kuqflk4ENCjM4IOmSn+ihqOec
-vOmVnA0KMzkg6Ieq6KGM6L2mDQo0MCDljIUNCg0KDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrbl
-m57lpI3jgIINCuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp
-6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIIN
-CuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K
+Le samedi 08 octobre 2011 =C3=A0 14:08 +0400, Michael Tokarev a =C3=A9c=
+rit :
+> Yesterday I tried to use 802.1Q VLAN tagging with an (oldish)
+> e100-driven network card, identified by lspci like this:
+>=20
+>  00:12.0 Ethernet controller: Intel Corporation 82557/8/9/0/1 Etherne=
+t Pro 100 (rev 02)
+>=20
+> Just to discover that it does not quite work: packets of
+> size 1497+ bytes gets lost.
+>=20
+> This appears to be a classical problems in this case -
+> something forgot to allocate extra 4 bytes for the
+> packets.
+>=20
+> There's at least one bugreport from 2008 (!) about this
+> very issue: http://bugs.centos.org/view.php?id=3D2719
+> which is still open.
+>=20
+> The kernel I tried this on was 2.6.32, I checked git log
+> for drivers/net/e100.c - there was no changes up to
+> current version which may be related to this issue.
+>=20
+> The question: is this a driver problem or hardware? If
+> it's the driver, can it be fixed? And if it's hardware,
+> can the driver notify the user somehow - like, by refusing
+> to enable VLAN (sub)devices maybe?
+>=20
+> Yesterday it was actually a bit more complicated for me,
+> since the card in question was used to connect to our
+> ISP, and they use fixed MAC address per port, so I had
+> to find another NIC which is a) able to work with VLAN
+> tags properly, and b) is able to change its mac address.
+> Lucky I had a VIA RhineIII which does both :)
+>=20
+
+Since you have two cards (and probably two machines), maybe you could
+try to track if the problem is a bad transmit or a bad receive ?
+
+tcpdump on both machines, and ping -s 2000 from both sides...
+
+e100 driver seems VLAN enabled at a first glance.
