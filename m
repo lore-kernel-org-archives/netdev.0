@@ -1,31 +1,32 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Richard Cochran <richardcochran@gmail.com>
 Subject: Re: [RFC] net: remove erroneous sk null assignment in timestamping
-Date: Sat, 08 Oct 2011 12:32:15 +0200
-Message-ID: <1318069935.3991.25.camel@jlt3.sipsolutions.net>
+Date: Sat, 8 Oct 2011 12:35:05 +0200
+Message-ID: <20111008103503.GA2148@netboy.at.omicron.at>
 References: <1318007501.3988.20.camel@jlt3.sipsolutions.net>
-	 <20111007.133356.489094996618032061.davem@davemloft.net>
-	 <20111008075719.GA2284@netboy.at.omicron.at>
-	 (sfid-20111008_095753_882744_64F82E9F)  <1318061808.3991.12.camel@jlt3.sipsolutions.net>
-	 <1318064238.5276.2.camel@edumazet-laptop>
-	 (sfid-20111008_105753_719848_528419C0)
+ <20111007.133356.489094996618032061.davem@davemloft.net>
+ <20111008075719.GA2284@netboy.at.omicron.at>
+ <1318061808.3991.12.camel@jlt3.sipsolutions.net>
+ <1318064238.5276.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Richard Cochran <richardcochran@gmail.com>,
+Cc: Johannes Berg <johannes@sipsolutions.net>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:49660 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879Ab1JHKcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 06:32:22 -0400
-In-Reply-To: <1318064238.5276.2.camel@edumazet-laptop> (sfid-20111008_105753_719848_528419C0)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:59337 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750778Ab1JHKfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 06:35:09 -0400
+Received: by bkbzt4 with SMTP id zt4so5959416bkb.19
+        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 03:35:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1318064238.5276.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-10-08 at 10:57 +0200, Eric Dumazet wrote:
-> Le samedi 08 octobre 2011 =C3=A0 10:16 +0200, Johannes Berg a =C3=A9c=
-rit :
+On Sat, Oct 08, 2011 at 10:57:18AM +0200, Eric Dumazet wrote:
+> Le samedi 08 octobre 2011 =E0 10:16 +0200, Johannes Berg a =E9crit :
 >=20
 > > I'm not terribly familiar with struct sock. Looking at it, I'm a bi=
 t
@@ -35,53 +36,64 @@ re
 > > sock_wfree() which does a bit more than this it seems, and I don't =
 see
 > > it using sk_refcnt anywhere so I'm a bit confused now.
->=20
+
+Me, too.
+
 > Check following commit changelog to get some information on this.
->=20
-> commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
-> Author: Eric Dumazet <eric.dumazet@gmail.com>
-> Date:   Thu Jun 11 02:55:43 2009 -0700
->=20
->     net: No more expensive sock_hold()/sock_put() on each tx
 
-Aha, thanks for the pointer!
+Thanks, Eric, that does help explain.
 
+>     We use this sock_hold()/sock_put() so that sock freeing
+>     is delayed until all tx packets are completed.
+>    =20
 >     As we also update sk_wmem_alloc, we could offset sk_wmem_alloc
 >     by one unit at init time, until sk_free() is called.
+>     Once sk_free() is called, we atomic_dec_and_test(sk_wmem_alloc)
+>     to decrement initial offset and atomicaly check if any packets
+>     are in flight.
+>    =20
+>     skb_set_owner_w() doesnt call sock_hold() anymore
 
-This is the trick! Neat. I see it now, now sk_free() makes sense to
-me :-)
+So, if I understand, then I can solve my particular problem by doing:
 
-There's one thing I still miss though: It seems to me that if you have =
-a
-reference to a socket that has been sk_free()'ed (which is possible
-since it might still have sk_wmem_alloc > 0) you can't sock_hold() that
-socket. That feels a bit unexpected -- and might happen in the code
-Richard just suggested.
+* skb_clone_tx_timestamp
+	clone =3D skb_clone(skb, GFP_ATOMIC);
+	skb_set_owner_w(clone, sk)
+// instead of
+//	clone->sk =3D sk;
+	phydev->drv->txtstamp(phydev, clone, type);
 
-Basically, while you can bump a reference you own via sock_hold() by
-sk_wmem_alloc, as soon as sk_refcnt reaches 0 it must never go > 0 agai=
-n
-because that will have released the sk_wmem_alloc offset.
+* skb_complete_tx_timestamp
+	serr->ee.ee_errno =3D ENOMSG;
+	serr->ee.ee_origin =3D SO_EE_ORIGIN_TIMESTAMPING;
+// just remove this:
+//	skb->sk =3D NULL;
+	err =3D sock_queue_err_skb(sk, skb);
 
-That can be fixed, but I'm not exactly sure what would be an efficient
-way of doing it. Maybe by adding some flag that says whether or not the
-sk_wmem_alloc offset is present, but that flag would have to be atomic
-since I guess even this could race.
+The only problem(?) I see is that it violates the rules from sock.h,
+quoted below. The cloned tx skb destined for the error queue would be
+budgeted to sk_wmem_alloc while wait for the time stamp. But maybe we
+can allow this?
 
->     Drawback is that a skb->truesize error could lead to unfreeable s=
-ockets, or
->     even worse, prematurely calling __sk_free() on a live socket.
+from sock.h:
+/*
+ * Socket reference counting postulates.
+ *
+ * * Each user of socket SHOULD hold a reference count.
+ * * Each access point to socket (an hash table bucket, reference from =
+a list,
+ *   running timer, skb in flight MUST hold a reference count.
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                   /
+BTW, no longer true.
 
-I was thinking about this yesterday as well. What we could do is wrap
-all the skb truesize operations in inlines -- the regular ones like
-skb_truesize_set()/add()/sub() would (depending on a debug Kconfig)
-check that the skb isn't charged to a socket, and common sequences like
-changing truesize and updating the sock could be wrapped into another
-set of inlines that do both. Or something like that.
+ * * Packets, delivered from outside (from network or from another proc=
+ess)
+ *   and enqueued on receive/error queues SHOULD NOT grab reference cou=
+nt,
+ *   when they sit in queue. ~~~~~~~~~~~~~~~~~~~~~~~
 
-I was actually thinking about this for other reasons but then realised
-that with the truesize bug check gone (which was really checking
-something else) I didn't really need to worry any more.
+Want to break/bend this rule.
 
-johannes
+Thanks,
+Richard
