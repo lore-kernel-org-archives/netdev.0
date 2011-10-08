@@ -1,50 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] igb : rtnl assert on resume
-Date: Sat, 08 Oct 2011 21:29:52 +0200
-Message-ID: <1318102192.5276.27.camel@edumazet-laptop>
-References: <1318096284.5276.25.camel@edumazet-laptop>
-	 <1318098396.23688.169.camel@jtkirshe-mobl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 02/11] igb: Use node specific allocations for the
+ q_vectors and rings
+Date: Sat, 08 Oct 2011 15:51:58 -0400 (EDT)
+Message-ID: <20111008.155158.566839176815794249.davem@davemloft.net>
+References: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:34726 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753789Ab1JHT35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 15:29:57 -0400
-Received: by wyg34 with SMTP id 34so4825852wyg.19
-        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 12:29:56 -0700 (PDT)
-In-Reply-To: <1318098396.23688.169.camel@jtkirshe-mobl>
+Received: from shards.monkeyblade.net ([198.137.202.13]:36907 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753812Ab1JHTwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 15:52:08 -0400
+In-Reply-To: <1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 08 octobre 2011 =C3=A0 11:26 -0700, Jeff Kirsher a =C3=A9crit=
- :
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri,  7 Oct 2011 23:47:32 -0700
 
-> Any chance you can pull my net-next tree Eric to verify if the issue
-> still exists?
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This change is meant to update the ring and vector allocations so that they
+> are per node instead of allocating everything on the node that
+> ifconfig/modprobe is called on.  By doing this we can cut down
+> significantly on cross node traffic.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Sure, I'll do that.
+adapter->node seems superfluous.
 
-In the meantime, I upgraded my (slow, old) machine to ubuntu 11.11, and
-reproduced the problem on their 3.0.something kernel.
+It's always "-1" when we enter the allocation functions, and we
+always restore it to it's original value upon exit from such
+functions.
 
->=20
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
->=20
-> I currently have 11 igb patches on that tree (which I recently
-> submitted) that are not in Dave's tree yet.
->=20
-> There have been a number of cleanup's recently, so while this is not
-> expected, I am not surprised at the same time since I am in the middl=
-e
-> of the update to igb.
->=20
-> We have not seen this on my local tree (which has the 11 patches plus
-> 4-5 more patches for igb).  Almost all of them are
-> cleanup's/re-organizing of igb, so nothing specific to the issue you
-> have seen.
+Just get rid of it and use a local variable in these functions
+to keep track of the current allocation node.
 
-Thanks
+Also, what ensures that MSI-X interrupts are targetted to a cpu
+on the the node where you've made these allocations?  I was
+pretty sure Ben Hutchings added infrastructure that's usable
+to ensure this, but I can't see where you're using it.
