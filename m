@@ -1,300 +1,262 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/11] igb: push data into first igb_tx_buffer sooner to reduce stack usage
-Date: Fri,  7 Oct 2011 23:47:31 -0700
-Message-ID: <1318056461-19562-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/11] igb: Use node specific allocations for the q_vectors and rings
+Date: Fri,  7 Oct 2011 23:47:32 -0700
+Message-ID: <1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:59348 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:6789 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751450Ab1JHGro (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Oct 2011 02:47:44 -0400
+	id S1751383Ab1JHGrp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Oct 2011 02:47:45 -0400
 In-Reply-To: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Instead of storing most of the data for the TX hot path in the stack until
-we are ready to write the descriptor we can save ourselves some time and
-effort by pushing the SKB, tx_flags, gso_size, bytecount, and protocol into
-the first igb_tx_buffer since that is where we will end up putting it
-anyway.
+This change is meant to update the ring and vector allocations so that they
+are per node instead of allocating everything on the node that
+ifconfig/modprobe is called on.  By doing this we can cut down
+significantly on cross node traffic.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |    1 +
- drivers/net/ethernet/intel/igb/igb_main.c |  103 +++++++++++++++--------------
- 2 files changed, 54 insertions(+), 50 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    4 ++
+ drivers/net/ethernet/intel/igb/igb_main.c |   80 +++++++++++++++++++++++++++--
+ 2 files changed, 79 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 77793a9..de35c02 100644
+index de35c02..9e4bed3 100644
 --- a/drivers/net/ethernet/intel/igb/igb.h
 +++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -146,6 +146,7 @@ struct igb_tx_buffer {
- 	struct sk_buff *skb;
- 	unsigned int bytecount;
- 	u16 gso_segs;
-+	__be16 protocol;
- 	dma_addr_t dma;
- 	u32 length;
- 	u32 tx_flags;
+@@ -185,6 +185,8 @@ struct igb_q_vector {
+ 	u16 cpu;
+ 	u16 tx_work_limit;
+ 
++	int numa_node;
++
+ 	u16 itr_val;
+ 	u8 set_itr;
+ 	void __iomem *itr_register;
+@@ -232,6 +234,7 @@ struct igb_ring {
+ 	};
+ 	/* Items past this point are only used during ring alloc / free */
+ 	dma_addr_t dma;                /* phys address of the ring */
++	int numa_node;                  /* node to alloc ring memory on */
+ };
+ 
+ #define IGB_RING_FLAG_RX_CSUM        0x00000001 /* RX CSUM enabled */
+@@ -341,6 +344,7 @@ struct igb_adapter {
+ 	int vf_rate_link_speed;
+ 	u32 rss_queues;
+ 	u32 wvbr;
++	int node;
+ };
+ 
+ #define IGB_FLAG_HAS_MSI           (1 << 0)
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 862dd7c..1c234f0 100644
+index 1c234f0..287be85 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3975,10 +3975,11 @@ void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
- 	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
- }
- 
--static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
--			  u32 tx_flags, __be16 protocol, u8 *hdr_len)
-+static int igb_tso(struct igb_ring *tx_ring,
-+		   struct igb_tx_buffer *first,
-+		   u8 *hdr_len)
+@@ -687,41 +687,68 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
  {
--	int err;
-+	struct sk_buff *skb = first->skb;
- 	u32 vlan_macip_lens, type_tucmd;
- 	u32 mss_l4len_idx, l4len;
+ 	struct igb_ring *ring;
+ 	int i;
++	int orig_node = adapter->node;
  
-@@ -3986,7 +3987,7 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
- 		return 0;
- 
- 	if (skb_header_cloned(skb)) {
--		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+		int err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
- 		if (err)
- 			return err;
+ 	for (i = 0; i < adapter->num_tx_queues; i++) {
+-		ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
++		if (orig_node == -1) {
++			int cur_node = next_online_node(adapter->node);
++			if (cur_node == MAX_NUMNODES)
++				cur_node = first_online_node;
++			adapter->node = cur_node;
++		}
++		ring = kzalloc_node(sizeof(struct igb_ring), GFP_KERNEL,
++				    adapter->node);
++		if (!ring)
++			ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
+ 		if (!ring)
+ 			goto err;
+ 		ring->count = adapter->tx_ring_count;
+ 		ring->queue_index = i;
+ 		ring->dev = &adapter->pdev->dev;
+ 		ring->netdev = adapter->netdev;
++		ring->numa_node = adapter->node;
+ 		/* For 82575, context index must be unique per ring. */
+ 		if (adapter->hw.mac.type == e1000_82575)
+ 			ring->flags = IGB_RING_FLAG_TX_CTX_IDX;
+ 		adapter->tx_ring[i] = ring;
  	}
-@@ -3994,7 +3995,7 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
- 	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
++	/* Restore the adapter's original node */
++	adapter->node = orig_node;
  
--	if (protocol == __constant_htons(ETH_P_IP)) {
-+	if (first->protocol == __constant_htons(ETH_P_IP)) {
- 		struct iphdr *iph = ip_hdr(skb);
- 		iph->tot_len = 0;
- 		iph->check = 0;
-@@ -4003,16 +4004,26 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
- 							 IPPROTO_TCP,
- 							 0);
- 		type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
-+		first->tx_flags |= IGB_TX_FLAGS_TSO |
-+				   IGB_TX_FLAGS_CSUM |
-+				   IGB_TX_FLAGS_IPV4;
- 	} else if (skb_is_gso_v6(skb)) {
- 		ipv6_hdr(skb)->payload_len = 0;
- 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 						       &ipv6_hdr(skb)->daddr,
- 						       0, IPPROTO_TCP, 0);
-+		first->tx_flags |= IGB_TX_FLAGS_TSO |
-+				   IGB_TX_FLAGS_CSUM;
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+-		ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
++		if (orig_node == -1) {
++			int cur_node = next_online_node(adapter->node);
++			if (cur_node == MAX_NUMNODES)
++				cur_node = first_online_node;
++			adapter->node = cur_node;
++		}
++		ring = kzalloc_node(sizeof(struct igb_ring), GFP_KERNEL,
++				    adapter->node);
++		if (!ring)
++			ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
+ 		if (!ring)
+ 			goto err;
+ 		ring->count = adapter->rx_ring_count;
+ 		ring->queue_index = i;
+ 		ring->dev = &adapter->pdev->dev;
+ 		ring->netdev = adapter->netdev;
++		ring->numa_node = adapter->node;
+ 		ring->flags = IGB_RING_FLAG_RX_CSUM; /* enable rx checksum */
+ 		/* set flag indicating ring supports SCTP checksum offload */
+ 		if (adapter->hw.mac.type >= e1000_82576)
+ 			ring->flags |= IGB_RING_FLAG_RX_SCTP_CSUM;
+ 		adapter->rx_ring[i] = ring;
  	}
++	/* Restore the adapter's original node */
++	adapter->node = orig_node;
  
-+	/* compute header lengths */
- 	l4len = tcp_hdrlen(skb);
- 	*hdr_len = skb_transport_offset(skb) + l4len;
+ 	igb_cache_ring_register(adapter);
  
-+	/* update gso size and bytecount with header size */
-+	first->gso_segs = skb_shinfo(skb)->gso_segs;
-+	first->bytecount += (first->gso_segs - 1) * *hdr_len;
+ 	return 0;
+ 
+ err:
++	/* Restore the adapter's original node */
++	adapter->node = orig_node;
+ 	igb_free_queues(adapter);
+ 
+ 	return -ENOMEM;
+@@ -1087,9 +1114,24 @@ static int igb_alloc_q_vectors(struct igb_adapter *adapter)
+ 	struct igb_q_vector *q_vector;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	int v_idx;
++	int orig_node = adapter->node;
+ 
+ 	for (v_idx = 0; v_idx < adapter->num_q_vectors; v_idx++) {
+-		q_vector = kzalloc(sizeof(struct igb_q_vector), GFP_KERNEL);
++		if ((adapter->num_q_vectors == (adapter->num_rx_queues +
++						adapter->num_tx_queues)) &&
++		    (adapter->num_rx_queues == v_idx))
++			adapter->node = orig_node;
++		if (orig_node == -1) {
++			int cur_node = next_online_node(adapter->node);
++			if (cur_node == MAX_NUMNODES)
++				cur_node = first_online_node;
++			adapter->node = cur_node;
++		}
++		q_vector = kzalloc_node(sizeof(struct igb_q_vector), GFP_KERNEL,
++					adapter->node);
++		if (!q_vector)
++			q_vector = kzalloc(sizeof(struct igb_q_vector),
++					   GFP_KERNEL);
+ 		if (!q_vector)
+ 			goto err_out;
+ 		q_vector->adapter = adapter;
+@@ -1098,9 +1140,14 @@ static int igb_alloc_q_vectors(struct igb_adapter *adapter)
+ 		netif_napi_add(adapter->netdev, &q_vector->napi, igb_poll, 64);
+ 		adapter->q_vector[v_idx] = q_vector;
+ 	}
++	/* Restore the adapter's original node */
++	adapter->node = orig_node;
 +
- 	/* MSS L4LEN IDX */
- 	mss_l4len_idx = l4len << E1000_ADVTXD_L4LEN_SHIFT;
- 	mss_l4len_idx |= skb_shinfo(skb)->gso_size << E1000_ADVTXD_MSS_SHIFT;
-@@ -4020,26 +4031,26 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	/* VLAN MACLEN IPLEN */
- 	vlan_macip_lens = skb_network_header_len(skb);
- 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
--	vlan_macip_lens |= tx_flags & IGB_TX_FLAGS_VLAN_MASK;
-+	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
+ 	return 0;
  
- 	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
- 
- 	return 1;
+ err_out:
++	/* Restore the adapter's original node */
++	adapter->node = orig_node;
+ 	igb_free_q_vectors(adapter);
+ 	return -ENOMEM;
  }
+@@ -2409,6 +2456,8 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
+ 				  VLAN_HLEN;
+ 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
  
--static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
--			       u32 tx_flags, __be16 protocol)
-+static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
++	adapter->node = -1;
++
+ 	spin_lock_init(&adapter->stats64_lock);
+ #ifdef CONFIG_PCI_IOV
+ 	switch (hw->mac.type) {
+@@ -2579,10 +2628,13 @@ static int igb_close(struct net_device *netdev)
+ int igb_setup_tx_resources(struct igb_ring *tx_ring)
  {
-+	struct sk_buff *skb = first->skb;
- 	u32 vlan_macip_lens = 0;
- 	u32 mss_l4len_idx = 0;
- 	u32 type_tucmd = 0;
+ 	struct device *dev = tx_ring->dev;
++	int orig_node = dev_to_node(dev);
+ 	int size;
  
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
--		if (!(tx_flags & IGB_TX_FLAGS_VLAN))
--			return false;
-+		if (!(first->tx_flags & IGB_TX_FLAGS_VLAN))
-+			return;
- 	} else {
- 		u8 l4_hdr = 0;
--		switch (protocol) {
-+		switch (first->protocol) {
- 		case __constant_htons(ETH_P_IP):
- 			vlan_macip_lens |= skb_network_header_len(skb);
- 			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
-@@ -4053,7 +4064,7 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
- 			if (unlikely(net_ratelimit())) {
- 				dev_warn(tx_ring->dev,
- 				 "partial checksum but proto=%x!\n",
--				 protocol);
-+				 first->protocol);
- 			}
- 			break;
- 		}
-@@ -4081,14 +4092,15 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
- 			}
- 			break;
- 		}
+ 	size = sizeof(struct igb_tx_buffer) * tx_ring->count;
+-	tx_ring->tx_buffer_info = vzalloc(size);
++	tx_ring->tx_buffer_info = vzalloc_node(size, tx_ring->numa_node);
++	if (!tx_ring->tx_buffer_info)
++		tx_ring->tx_buffer_info = vzalloc(size);
+ 	if (!tx_ring->tx_buffer_info)
+ 		goto err;
+ 
+@@ -2590,16 +2642,24 @@ int igb_setup_tx_resources(struct igb_ring *tx_ring)
+ 	tx_ring->size = tx_ring->count * sizeof(union e1000_adv_tx_desc);
+ 	tx_ring->size = ALIGN(tx_ring->size, 4096);
+ 
++	set_dev_node(dev, tx_ring->numa_node);
+ 	tx_ring->desc = dma_alloc_coherent(dev,
+ 					   tx_ring->size,
+ 					   &tx_ring->dma,
+ 					   GFP_KERNEL);
++	set_dev_node(dev, orig_node);
++	if (!tx_ring->desc)
++		tx_ring->desc = dma_alloc_coherent(dev,
++						   tx_ring->size,
++						   &tx_ring->dma,
++						   GFP_KERNEL);
+ 
+ 	if (!tx_ring->desc)
+ 		goto err;
+ 
+ 	tx_ring->next_to_use = 0;
+ 	tx_ring->next_to_clean = 0;
 +
-+		/* update TX checksum flag */
-+		first->tx_flags |= IGB_TX_FLAGS_CSUM;
- 	}
+ 	return 0;
  
- 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
--	vlan_macip_lens |= tx_flags & IGB_TX_FLAGS_VLAN_MASK;
-+	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
- 
- 	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
--
--	return (skb->ip_summed == CHECKSUM_PARTIAL);
- }
- 
- static __le32 igb_tx_cmd_type(u32 tx_flags)
-@@ -4113,8 +4125,9 @@ static __le32 igb_tx_cmd_type(u32 tx_flags)
- 	return cmd_type;
- }
- 
--static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
--				   struct igb_ring *tx_ring)
-+static void igb_tx_olinfo_status(struct igb_ring *tx_ring,
-+				 union e1000_adv_tx_desc *tx_desc,
-+				 u32 tx_flags, unsigned int paylen)
+ err:
+@@ -2722,10 +2782,13 @@ static void igb_configure_tx(struct igb_adapter *adapter)
+ int igb_setup_rx_resources(struct igb_ring *rx_ring)
  {
- 	u32 olinfo_status = paylen << E1000_ADVTXD_PAYLEN_SHIFT;
+ 	struct device *dev = rx_ring->dev;
++	int orig_node = dev_to_node(dev);
+ 	int size, desc_len;
  
-@@ -4132,7 +4145,7 @@ static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
- 			olinfo_status |= E1000_TXD_POPTS_IXSM << 8;
- 	}
+ 	size = sizeof(struct igb_rx_buffer) * rx_ring->count;
+-	rx_ring->rx_buffer_info = vzalloc(size);
++	rx_ring->rx_buffer_info = vzalloc_node(size, rx_ring->numa_node);
++	if (!rx_ring->rx_buffer_info)
++		rx_ring->rx_buffer_info = vzalloc(size);
+ 	if (!rx_ring->rx_buffer_info)
+ 		goto err;
  
--	return cpu_to_le32(olinfo_status);
-+	tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
- }
+@@ -2735,10 +2798,17 @@ int igb_setup_rx_resources(struct igb_ring *rx_ring)
+ 	rx_ring->size = rx_ring->count * desc_len;
+ 	rx_ring->size = ALIGN(rx_ring->size, 4096);
  
- /*
-@@ -4140,12 +4153,13 @@ static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
-  * maintain a power of two alignment we have to limit ourselves to 32K.
-  */
- #define IGB_MAX_TXD_PWR	15
--#define IGB_MAX_DATA_PER_TXD	(1 << IGB_MAX_TXD_PWR)
-+#define IGB_MAX_DATA_PER_TXD	(1<<IGB_MAX_TXD_PWR)
++	set_dev_node(dev, rx_ring->numa_node);
+ 	rx_ring->desc = dma_alloc_coherent(dev,
+ 					   rx_ring->size,
+ 					   &rx_ring->dma,
+ 					   GFP_KERNEL);
++	set_dev_node(dev, orig_node);
++	if (!rx_ring->desc)
++		rx_ring->desc = dma_alloc_coherent(dev,
++						   rx_ring->size,
++						   &rx_ring->dma,
++						   GFP_KERNEL);
  
--static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
--		       struct igb_tx_buffer *first, u32 tx_flags,
-+static void igb_tx_map(struct igb_ring *tx_ring,
-+		       struct igb_tx_buffer *first,
- 		       const u8 hdr_len)
- {
-+	struct sk_buff *skb = first->skb;
- 	struct igb_tx_buffer *tx_buffer_info;
- 	union e1000_adv_tx_desc *tx_desc;
- 	dma_addr_t dma;
-@@ -4154,24 +4168,12 @@ static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	unsigned int size = skb_headlen(skb);
- 	unsigned int paylen = skb->len - hdr_len;
- 	__le32 cmd_type;
-+	u32 tx_flags = first->tx_flags;
- 	u16 i = tx_ring->next_to_use;
--	u16 gso_segs;
--
--	if (tx_flags & IGB_TX_FLAGS_TSO)
--		gso_segs = skb_shinfo(skb)->gso_segs;
--	else
--		gso_segs = 1;
--
--	/* multiply data chunks by size of headers */
--	first->bytecount = paylen + (gso_segs * hdr_len);
--	first->gso_segs = gso_segs;
--	first->skb = skb;
- 
- 	tx_desc = IGB_TX_DESC(tx_ring, i);
- 
--	tx_desc->read.olinfo_status =
--		igb_tx_olinfo_status(tx_flags, paylen, tx_ring);
--
-+	igb_tx_olinfo_status(tx_ring, tx_desc, tx_flags, paylen);
- 	cmd_type = igb_tx_cmd_type(tx_flags);
- 
- 	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
-@@ -4181,7 +4183,6 @@ static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	/* record length, and DMA address */
- 	first->length = size;
- 	first->dma = dma;
--	first->tx_flags = tx_flags;
- 	tx_desc->read.buffer_addr = cpu_to_le64(dma);
- 
- 	for (;;) {
-@@ -4336,6 +4337,12 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 		return NETDEV_TX_BUSY;
- 	}
- 
-+	/* record the location of the first descriptor for this packet */
-+	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
-+	first->skb = skb;
-+	first->bytecount = skb->len;
-+	first->gso_segs = 1;
-+
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
-@@ -4346,22 +4353,17 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
- 	}
- 
--	/* record the location of the first descriptor for this packet */
--	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
-+	/* record initial flags and protocol */
-+	first->tx_flags = tx_flags;
-+	first->protocol = protocol;
- 
--	tso = igb_tso(tx_ring, skb, tx_flags, protocol, &hdr_len);
--	if (tso < 0) {
-+	tso = igb_tso(tx_ring, first, &hdr_len);
-+	if (tso < 0)
- 		goto out_drop;
--	} else if (tso) {
--		tx_flags |= IGB_TX_FLAGS_TSO | IGB_TX_FLAGS_CSUM;
--		if (protocol == htons(ETH_P_IP))
--			tx_flags |= IGB_TX_FLAGS_IPV4;
--	} else if (igb_tx_csum(tx_ring, skb, tx_flags, protocol) &&
--		   (skb->ip_summed == CHECKSUM_PARTIAL)) {
--		tx_flags |= IGB_TX_FLAGS_CSUM;
--	}
-+	else if (!tso)
-+		igb_tx_csum(tx_ring, first);
- 
--	igb_tx_map(tx_ring, skb, first, tx_flags, hdr_len);
-+	igb_tx_map(tx_ring, first, hdr_len);
- 
- 	/* Make sure there is space in the ring for the next send. */
- 	igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 4);
-@@ -4369,7 +4371,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- 
- out_drop:
--	dev_kfree_skb_any(skb);
-+	igb_unmap_and_free_tx_resource(tx_ring, first);
-+
- 	return NETDEV_TX_OK;
- }
- 
+ 	if (!rx_ring->desc)
+ 		goto err;
 -- 
 1.7.6.4
