@@ -1,98 +1,86 @@
-From: Ronny Meeus <ronny.meeus@gmail.com>
-Subject: raw ethenet socket question
-Date: Sat, 8 Oct 2011 22:20:32 +0200
-Message-ID: <CAMJ=MEfkY4M6M=yfzXcGt1qPnDJ_3ESmb0rfYpTmENOxQUE7-Q@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] mlx4_en: fix transmit of packages when blue frame is
+ enabled
+Date: Sun, 09 Oct 2011 09:19:45 +0200
+Message-ID: <1318144785.29415.367.camel@pasglop>
+References: <1317388995-411-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <953B660C027164448AE903364AC447D2235D9A8C@MTLDAG02.mtl.com>
+ <20111003143721.GA3596@oc1711230544.ibm.com>
+ <953B660C027164448AE903364AC447D2235DAA9D@MTLDAG02.mtl.com>
+ <20111003205358.GB3596@oc1711230544.ibm.com>
+ <1317708132.29415.213.camel@pasglop>
+ <20111004202620.GA3455@oc1711230544.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:41071 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753897Ab1JHUUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Oct 2011 16:20:33 -0400
-Received: by gyg10 with SMTP id 10so4465381gyg.19
-        for <netdev@vger.kernel.org>; Sat, 08 Oct 2011 13:20:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Eli Cohen <eli@mellanox.co.il>,
+ "eli@dev.mellanox.co.il" <eli@dev.mellanox.co.il>,
+ linuxppc-dev@lists.ozlabs.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20111004202620.GA3455@oc1711230544.ibm.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
- Hello
+On Tue, 2011-10-04 at 17:26 -0300, Thadeu Lima de Souza Cascardo wrote:
 
-I'm doing some tests on a raw Ethernet socket and I observe some
-strange behavior.
+>         if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
+> !vlan_tag) {
+>                 *(u32 *) (&tx_desc->ctrl.vlan_tag) |=
+> ring->doorbell_qpn;
 
-My system is a FreeScale P4040, running  Linux 2.6.36.4 compiled for
-SMP mode but only 1 core activated.
-[    0.000000] Using P4080 DS machine description
-[    0.000000] Memory CAM mapping: 256/256/256 Mb, residual: 1248Mb
-[    0.000000] Linux version 2.6.36.4 (meeusr@devws108) (gcc version
-4.4.6 (Buildroot 2011.08-hgc574811c3fc5) ) #1 SMP Sat Oct 8 20:40:40
-CEST 2011
+Could this have endianness problems ?
 
-I basically have one of the Ethernet ports in a loopmode, which means
-that all packets sent to the port will be received on the same port.
-I want to check the amount of packets I can send/receive on my board,
-so there a large loop to send/receive packets (see code below).
-To stress the system a bit more, I send a number of packets before I
-start to receive packets.
+>                 op_own |= htonl((bf_index & 0xffff) << 8);
 
-If I send 10 or less packets at a time, I do not see issues (see for
-(j=0;j<10;j++)), but if I send for example 16 packets before starting
-to receive, I always see packet loss.
-For example if I send 1000 times 16 packets, I only receive 12000
-packets, if I send 1000 times 20 packets, I receive 16000 packets.
+Probably better to use cpu_to_be/lexx() here. Also make sure your
+descriptors are defined with the appropriate __beXX or __leXX types
+so sparse can tell you when you get this wrong
 
-I also checked the ifconfig statistics and the counters for Rx and Tx
-are always identical and equal to the amount of packets that were
-sent. So it looks like the packets are getting lost in the linux
-kernel of in my test application.
+>                 /* Ensure new descirptor hits memory
+>                 * before setting ownership of this descriptor to HW */
+>                 wmb();
+>                 tx_desc->ctrl.owner_opcode = op_own;
 
-Can somebody explain this behavior?
-Is there a fixed amount of Ethernet packets that are queue in a socket?
+>                 wmb();
+> 
+>                 mlx4_bf_copy(ring->bf.reg + ring->bf.offset, (unsigned
+> long *) &tx_desc->ctrl,
+>                      desc_size);
 
-Test code:
+What does the above do ?
 
-  for (i=0;i<packets_to_send;i++)
-  {
-    fd_set readset;
-    struct timeval tv;
+>                 wmb();
+> 
+>                 ring->bf.offset ^= ring->bf.buf_size;
 
-    FD_ZERO(&readset);
-    FD_SET(eth_sock,&readset);
+Is this HW visible ? It's a bit odd, are you doing double bufferring and
+trying to flip a bit ? If it's HW visible, is endian correct ?
+ 
+        } else {
+>                 /* Ensure new descirptor hits memory
+>                 * before setting ownership of this descriptor to HW */
+>                 wmb();
+>                 tx_desc->ctrl.owner_opcode = op_own;
+> -               wmb();
+> -               writel(ring->doorbell_qpn, ring->bf.uar->map +
+> MLX4_SEND_DOORBELL);
+>         }
+> 
+> +       wmb();
+> +       writel(ring->doorbell_qpn, ring->bf.uar->map +
+> MLX4_SEND_DOORBELL);
+> +
+> ---
 
-    for (j=0;j<10;j++)
-    {
-      if (sendto(eth_sock,packet,packet_size, 0,(struct
-sockaddr*)eth_dest, sizeof(struct sockaddr_ll)) > 0)
-        packet_count++;
-    }
-
-    tv.tv_sec = 0;
-    tv.tv_usec = 500;
-    while (select(eth_sock+1,&readset,0,0,&tv) == 1) {
-        int len = recvfrom(eth_sock,recvdata,sizeof(recvdata),0,NULL,NULL);
-        if (len>0) rcv_count++;
-        tv.tv_usec = 500;
-    }
-    printf("packet sent: %10ld  packets received:
-%10ld\r",packet_count,rcv_count);
-  }
-
-This is how I create my socket:
-
-int create_raw_eth_socket(void)
-{
-  int eth_sock;
-  eth_dest.sll_family   = PF_PACKET;
-  eth_dest.sll_protocol = htons(ETH_P_ALL);
-  eth_dest.sll_ifindex  = itf_ifindex;
-  eth_dest.sll_hatype   = ARPHRD_ETHER;
-  eth_dest.sll_pkttype  = PACKET_OTHERHOST;
-  eth_dest.sll_halen    = ETH_ALEN;
-  eth_sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-  bind(eth_sock,(struct sockaddr*)&eth_dest,sizeof(eth_dest));
-  return eth_sock;
-}
-
-
-Regards,
-Ronny
+Cheers,
+Ben.
