@@ -1,47 +1,40 @@
-From: danborkmann@iogearbox.net
-Subject: [PATCH] af_packet: tpacket_destruct_skb, deref skb after BUG_ON
- assertion
-Date: Sun, 09 Oct 2011 17:19:19 +0200
-Message-ID: <20111009171919.10922hrx8qjm2f7b@webmail.your-server.de>
+From: Marc Ballarin <ballarin.marc@gmx.de>
+Subject: Re: [PATCH] r8169: Fix WOL in power down case
+Date: Sun, 9 Oct 2011 19:13:31 +0200
+Message-ID: <20111009191331.cbfca0b6b724921f35fd8c41@gmx.de>
+References: <20111007221906.810698ba9bf825566a2478bb@gmx.de>
+	<20111007210017.GA27820@electric-eye.fr.zoreil.com>
+	<20111007214200.GA28365@electric-eye.fr.zoreil.com>
+	<20111008003156.ef4dfaa76576ca8079edfbb9@gmx.de>
+	<20111007232834.GA29770@electric-eye.fr.zoreil.com>
+	<20111009104907.0c6cd439900ca5eb7789295f@gmx.de>
+	<20111009115438.GA12343@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- DelSp="Yes";
- format="flowed"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36186 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853Ab1JIPwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2011 11:52:41 -0400
-Content-Disposition: inline
+Received: from mailout-de.gmx.net ([213.165.64.22]:55762 "HELO
+	mailout-de.gmx.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751850Ab1JIRNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2011 13:13:37 -0400
+In-Reply-To: <20111009115438.GA12343@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This tiny patch derefs the skb only after BUG_ON(skb==NULL) was evaluated
-and not before. Patched against latest Linus tree.
+On Sun, 9 Oct 2011 13:54:38 +0200
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-Thanks,
-Daniel
+> ...
+> Moreover, the patch duplicates a chunk of conditional code:
+> 1) it bloats the driver (ok, we have seen worse...).
+> 2) you can bet that both instances won't be updated if / when
+>    RTL_GIGA_MAC_VER_xy appears.
 
-Signed-off-by: Daniel Borkmann <danborkmann@iogearbox.net>
+I thought so ;-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index fabb4fa..d9d833b 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1167,11 +1167,12 @@ ring_is_full:
+> 
+> The patch below should fix it.
 
-  static void tpacket_destruct_skb(struct sk_buff *skb)
-  {
--	struct packet_sock *po = pkt_sk(skb->sk);
-+	struct packet_sock *po;
-  	void *ph;
-
-  	BUG_ON(skb == NULL);
-
-+	po = pkt_sk(skb->sk);
-  	if (likely(po->tx_ring.pg_vec)) {
-  		ph = skb_shinfo(skb)->destructor_arg;
-  		BUG_ON(__packet_get_status(po, ph) != TP_STATUS_SENDING);
+Yes, it works fine here. Thanks a lot.
