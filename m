@@ -1,228 +1,47 @@
-From: Alexander Guller <alexg@mellanox.com>
-Subject: [PATCH 3/7] mlx4_en: Adjusting moderation per each ring
-Date: Sun, 9 Oct 2011 17:38:23 +0200
-Message-ID: <4E91BFEF.1060308@mellanox.com>
+From: danborkmann@iogearbox.net
+Subject: [PATCH] af_packet: tpacket_destruct_skb, deref skb after BUG_ON
+ assertion
+Date: Sun, 09 Oct 2011 17:19:19 +0200
+Message-ID: <20111009171919.10922hrx8qjm2f7b@webmail.your-server.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain;
+ charset=UTF-8;
+ DelSp="Yes";
+ format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <alexg@mellanox.com>,
-	<yevgenyp@mellanox.com>
-To: <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:45144 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751240Ab1JIPi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Oct 2011 11:38:27 -0400
+Received: from www62.your-server.de ([213.133.104.62]:36186 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750853Ab1JIPwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2011 11:52:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moderation is now done per ring and coalescing is enabled
-by set_ring_param in ethtool.
+This tiny patch derefs the skb only after BUG_ON(skb==NULL) was evaluated
+and not before. Patched against latest Linus tree.
 
-Signed-off-by: Alexander Guller <alexg@mellanox.co.il>
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   12 +++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   88 ++++++++---------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    6 +-
- 3 files changed, 45 insertions(+), 61 deletions(-)
+Thanks,
+Daniel
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index e247bd7..74e2a2a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -342,13 +342,13 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
- 	priv->rx_usecs_high = coal->rx_coalesce_usecs_high;
- 	priv->sample_interval = coal->rate_sample_interval;
- 	priv->adaptive_rx_coal = coal->use_adaptive_rx_coalesce;
--	priv->last_moder_time = MLX4_EN_AUTO_CONF;
- 	if (priv->adaptive_rx_coal)
- 		return 0;
- 
- 	for (i = 0; i < priv->rx_ring_num; i++) {
- 		priv->rx_cq[i].moder_cnt = priv->rx_frames;
- 		priv->rx_cq[i].moder_time = priv->rx_usecs;
-+		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
- 		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
- 		if (err)
- 			return err;
-@@ -394,6 +394,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
- 	u32 rx_size, tx_size;
- 	int port_up = 0;
- 	int err = 0;
-+	int i;
- 
- 	if (param->rx_jumbo_pending || param->rx_mini_pending)
- 		return -EINVAL;
-@@ -432,6 +433,15 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
- 			en_err(priv, "Failed starting port\n");
- 	}
- 
-+	for (i = 0; i < priv->rx_ring_num; i++) {
-+		priv->rx_cq[i].moder_cnt = priv->rx_frames;
-+		priv->rx_cq[i].moder_time = priv->rx_usecs;
-+		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
-+		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
-+		if (err)
-+			goto out;
-+	}
-+
- out:
- 	mutex_unlock(&mdev->state_lock);
- 	return err;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 8402982..b82db4a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -415,6 +415,9 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
- 		cq = &priv->rx_cq[i];
- 		cq->moder_cnt = priv->rx_frames;
- 		cq->moder_time = priv->rx_usecs;
-+		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
-+		priv->last_moder_packets[i] = 0;
-+		priv->last_moder_bytes[i] = 0;
- 	}
- 
- 	for (i = 0; i < priv->tx_ring_num; i++) {
-@@ -430,11 +433,8 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
- 	priv->rx_usecs_high = MLX4_EN_RX_COAL_TIME_HIGH;
- 	priv->sample_interval = MLX4_EN_SAMPLE_INTERVAL;
- 	priv->adaptive_rx_coal = 1;
--	priv->last_moder_time = MLX4_EN_AUTO_CONF;
- 	priv->last_moder_jiffies = 0;
--	priv->last_moder_packets = 0;
- 	priv->last_moder_tx_packets = 0;
--	priv->last_moder_bytes = 0;
- }
- 
- static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
-@@ -446,43 +446,30 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
- 	unsigned long avg_pkt_size;
- 	unsigned long rx_packets;
- 	unsigned long rx_bytes;
--	unsigned long tx_packets;
--	unsigned long tx_pkt_diff;
- 	unsigned long rx_pkt_diff;
- 	int moder_time;
--	int i, err;
-+	int ring, err;
- 
- 	if (!priv->adaptive_rx_coal || period < priv->sample_interval * HZ)
- 		return;
- 
--	spin_lock_bh(&priv->stats_lock);
--	rx_packets = priv->stats.rx_packets;
--	rx_bytes = priv->stats.rx_bytes;
--	tx_packets = priv->stats.tx_packets;
--	spin_unlock_bh(&priv->stats_lock);
--
--	if (!priv->last_moder_jiffies || !period)
--		goto out;
--
--	tx_pkt_diff = ((unsigned long) (tx_packets -
--					priv->last_moder_tx_packets));
--	rx_pkt_diff = ((unsigned long) (rx_packets -
--					priv->last_moder_packets));
--	packets = max(tx_pkt_diff, rx_pkt_diff);
--	rate = packets * HZ / period;
--	avg_pkt_size = packets ? ((unsigned long) (rx_bytes -
--				 priv->last_moder_bytes)) / packets : 0;
--
--	/* Apply auto-moderation only when packet rate exceeds a rate that
--	 * it matters */
--	if (rate > MLX4_EN_RX_RATE_THRESH && avg_pkt_size > MLX4_EN_AVG_PKT_SMALL) {
--		/* If tx and rx packet rates are not balanced, assume that
--		 * traffic is mainly BW bound and apply maximum moderation.
--		 * Otherwise, moderate according to packet rate */
--		if (2 * tx_pkt_diff > 3 * rx_pkt_diff ||
--		    2 * rx_pkt_diff > 3 * tx_pkt_diff) {
--			moder_time = priv->rx_usecs_high;
--		} else {
-+	for (ring = 0; ring < priv->rx_ring_num; ring++) {
-+		spin_lock_bh(&priv->stats_lock);
-+		rx_packets = priv->rx_ring[ring].packets;
-+		rx_bytes = priv->rx_ring[ring].bytes;
-+		spin_unlock_bh(&priv->stats_lock);
-+
-+		rx_pkt_diff = ((unsigned long) (rx_packets -
-+				priv->last_moder_packets[ring]));
-+		packets = rx_pkt_diff;
-+		rate = packets * HZ / period;
-+		avg_pkt_size = packets ? ((unsigned long) (rx_bytes -
-+				priv->last_moder_bytes[ring])) / packets : 0;
-+
-+		/* Apply auto-moderation only when packet rate
-+		 * exceeds a rate that it matters */
-+		if (rate > (MLX4_EN_RX_RATE_THRESH / priv->rx_ring_num) &&
-+		    avg_pkt_size > MLX4_EN_AVG_PKT_SMALL) {
- 			if (rate < priv->pkt_rate_low)
- 				moder_time = priv->rx_usecs_low;
- 			else if (rate > priv->pkt_rate_high)
-@@ -492,36 +479,23 @@ static void mlx4_en_auto_moderation(struct mlx4_en_priv *priv)
- 					(priv->rx_usecs_high - priv->rx_usecs_low) /
- 					(priv->pkt_rate_high - priv->pkt_rate_low) +
- 					priv->rx_usecs_low;
-+		} else {
-+			moder_time = priv->rx_usecs_low;
- 		}
--	} else {
--		moder_time = priv->rx_usecs_low;
--	}
--
--	en_dbg(INTR, priv, "tx rate:%lu rx_rate:%lu\n",
--	       tx_pkt_diff * HZ / period, rx_pkt_diff * HZ / period);
- 
--	en_dbg(INTR, priv, "Rx moder_time changed from:%d to %d period:%lu "
--	       "[jiff] packets:%lu avg_pkt_size:%lu rate:%lu [p/s])\n",
--		 priv->last_moder_time, moder_time, period, packets,
--		 avg_pkt_size, rate);
--
--	if (moder_time != priv->last_moder_time) {
--		priv->last_moder_time = moder_time;
--		for (i = 0; i < priv->rx_ring_num; i++) {
--			cq = &priv->rx_cq[i];
-+		if (moder_time != priv->last_moder_time[ring]) {
-+			priv->last_moder_time[ring] = moder_time;
-+			cq = &priv->rx_cq[ring];
- 			cq->moder_time = moder_time;
- 			err = mlx4_en_set_cq_moder(priv, cq);
--			if (err) {
--				en_err(priv, "Failed modifying moderation for cq:%d\n", i);
--				break;
--			}
-+			if (err)
-+				en_err(priv, "Failed modifying moderation "
-+					     "for cq:%d\n", ring);
- 		}
-+		priv->last_moder_packets[ring] = rx_packets;
-+		priv->last_moder_bytes[ring] = rx_bytes;
- 	}
- 
--out:
--	priv->last_moder_packets = rx_packets;
--	priv->last_moder_tx_packets = tx_packets;
--	priv->last_moder_bytes = rx_bytes;
- 	priv->last_moder_jiffies = jiffies;
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index fe8146d..3b753f7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -426,11 +426,11 @@ struct mlx4_en_priv {
- 	struct mlx4_en_port_state port_state;
- 	spinlock_t stats_lock;
- 
--	unsigned long last_moder_packets;
-+	unsigned long last_moder_packets[MAX_RX_RINGS];
- 	unsigned long last_moder_tx_packets;
--	unsigned long last_moder_bytes;
-+	unsigned long last_moder_bytes[MAX_RX_RINGS];
- 	unsigned long last_moder_jiffies;
--	int last_moder_time;
-+	int last_moder_time[MAX_RX_RINGS];
- 	u16 rx_usecs;
- 	u16 rx_frames;
- 	u16 tx_usecs;
--- 
-1.7.5.4
+Signed-off-by: Daniel Borkmann <danborkmann@iogearbox.net>
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index fabb4fa..d9d833b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1167,11 +1167,12 @@ ring_is_full:
+
+  static void tpacket_destruct_skb(struct sk_buff *skb)
+  {
+-	struct packet_sock *po = pkt_sk(skb->sk);
++	struct packet_sock *po;
+  	void *ph;
+
+  	BUG_ON(skb == NULL);
+
++	po = pkt_sk(skb->sk);
+  	if (likely(po->tx_ring.pg_vec)) {
+  		ph = skb_shinfo(skb)->destructor_arg;
+  		BUG_ON(__packet_get_status(po, ph) != TP_STATUS_SENDING);
