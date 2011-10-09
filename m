@@ -1,41 +1,49 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [net-next 02/11] igb: Use node specific allocations for the q_vectors and rings
-Date: Sun, 09 Oct 2011 11:08:47 -0700
-Message-ID: <m21uum2g28.fsf@firstfloor.org>
-References: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] truesize lies
+Date: Sun, 09 Oct 2011 21:02:28 +0200
+Message-ID: <1318186948.5276.49.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:49376 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752017Ab1JISIt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Oct 2011 14:08:49 -0400
-In-Reply-To: <1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	(Jeff Kirsher's message of "Fri, 7 Oct 2011 23:47:32 -0700")
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:54724 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751369Ab1JITCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Oct 2011 15:02:34 -0400
+Received: by wyg34 with SMTP id 34so5282900wyg.19
+        for <netdev@vger.kernel.org>; Sun, 09 Oct 2011 12:02:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
->  
->  	for (i = 0; i < adapter->num_tx_queues; i++) {
-> -		ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
-> +		if (orig_node == -1) {
-> +			int cur_node = next_online_node(adapter->node);
-> +			if (cur_node == MAX_NUMNODES)
-> +				cur_node = first_online_node;
+I noticed on my laptop a difference if I use wifi or wired internet
+connectivity.
 
-RR seems quite arbitrary. Who guarantees those nodes have any
-relationship with the CPUs submitting on those queues? Or the node
-the device is on.
+On wifi mode, I can see netstat -s giving sign of bad rcvbuf tuning :
 
-Anyways if it's a good idea probably need to add a
-dma_alloc_coherent_node() too
+   371 packets collapsed in receive queue due to low socket buffer
 
--Andi
+After some analysis, I found full sized tcp skbs (len=1440) had a 2864
+bytes truesize on my wifi adapter. Ouch...
 
--- 
-ak@linux.intel.com -- Speaking for myself only
+On tg3 adapter, truesize is MTU + NET_SKB_PAD + sizeof(sk_buff).
+
+On some devices (say... NIU, but other drivers have same problem :
+bnx2x, ), truesize is sizeof(sk_buff) + frame_length.
+
+So if 'truesize' really means to account exact memory cost of frames
+(including the empty space after used part), I would say :
+
+1) NIU is lying (it should account in niu_rx_skb_append() not the used
+part of the page, but reserved part : PAGE_SIZE/rbr_blocks_per_page)
+
+2) Autotuning is a bit pessimistic : It works only if truesize is MSS +
+sizeof(sk_buff) + 16 + MAX_TCP_HEADER
+
+
+I guess most driver writers adjust truesize to please TCP stack and get
+nice performance numbers.
+
+skb->truesize = frame_len + sizeof(sk_buff);
+
+What should we do exactly ?
