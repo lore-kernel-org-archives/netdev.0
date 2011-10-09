@@ -1,7 +1,7 @@
 From: Alexander Guller <alexg@mellanox.com>
-Subject: [PATCH 1/7] mlx4_en: Assigning TX irq per ring
-Date: Sun, 9 Oct 2011 17:26:31 +0200
-Message-ID: <4E91BD27.8040502@mellanox.com>
+Subject: [PATCH 2/7] mlx4_en: Removing reserve vectors
+Date: Sun, 9 Oct 2011 17:26:46 +0200
+Message-ID: <4E91BD36.6090903@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -9,145 +9,117 @@ Cc: <netdev@vger.kernel.org>, <alexg@mellanox.com>,
 	<yevgenyp@mellanox.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:53583 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:53601 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751726Ab1JIP0f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Oct 2011 11:26:35 -0400
+	id S1751240Ab1JIP0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Oct 2011 11:26:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Until now only RX rings used irq per ring
-and TX used only one per port.
->From now on, both of them will use the
-irq per ring while RX & TX ring[i] will
-use the same irq.
+Fixed a bug where ring size change caused insufficient memory
+upon driver restart due to unreleased EQs.
 
 Signed-off-by: Alexander Guller <alexg@mellanox.co.il>
-Signed-off-by: Sharon Cohen <sharonc@mellanox.co.il>
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_cq.c     |   26 ++++++++++++++---------
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   14 +-----------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    4 +-
- 3 files changed, 20 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c      |    5 ++---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    8 ++++----
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    5 ++---
+ 4 files changed, 9 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index ec4b6d0..70ec529 100644
+index 70ec529..227997d 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -74,7 +74,8 @@ int mlx4_en_create_cq(struct mlx4_en_priv *priv,
- 	return err;
+@@ -139,14 +139,13 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 	return 0;
  }
  
--int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
-+int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
-+			int cq_idx)
+-void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+-			bool reserve_vectors)
++void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
  {
  	struct mlx4_en_dev *mdev = priv->mdev;
- 	int err = 0;
-@@ -90,13 +91,15 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
- 	if (cq->is_tx == RX) {
- 		if (mdev->dev->caps.comp_pool) {
- 			if (!cq->vector) {
--				sprintf(name , "%s-rx-%d", priv->dev->name, cq->ring);
-+				sprintf(name, "%s-%d", priv->dev->name,
-+					cq->ring);
-+				/* Set IRQ for specific name (per ring) */
- 				if (mlx4_assign_eq(mdev->dev, name, &cq->vector)) {
--					cq->vector = (cq->ring + 1 + priv->port) %
--						mdev->dev->caps.num_comp_vectors;
-+					cq->vector = (cq->ring + 1 + priv->port)
-+					    % mdev->dev->caps.num_comp_vectors;
- 					mlx4_warn(mdev, "Failed Assigning an EQ to "
--						  "%s_rx-%d ,Falling back to legacy EQ's\n",
--						  priv->dev->name, cq->ring);
-+						  "%s ,Falling back to legacy EQ's\n",
-+						  name);
- 				}
- 			}
- 		} else {
-@@ -104,10 +107,13 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
- 				mdev->dev->caps.num_comp_vectors;
- 		}
- 	} else {
--		if (!cq->vector || !mdev->dev->caps.comp_pool) {
--			/*Fallback to legacy pool in case of error*/
--			cq->vector   = 0;
--		}
-+		/* For TX we use the same irq per
-+		ring we assigned for the RX    */
-+		struct mlx4_en_cq *rx_cq;
-+
-+		cq_idx = cq_idx % priv->rx_ring_num;
-+		rx_cq = &priv->rx_cq[cq_idx];
-+		cq->vector = rx_cq->vector;
+ 
+ 	mlx4_en_unmap_buffer(&cq->wqres.buf);
+ 	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
+-	if (priv->mdev->dev->caps.comp_pool && cq->vector && !reserve_vectors)
++	if (priv->mdev->dev->caps.comp_pool && cq->vector)
+ 		mlx4_release_eq(priv->mdev->dev, cq->vector);
+ 	cq->buf_size = 0;
+ 	cq->buf = NULL;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index eb09625..e247bd7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -416,7 +416,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
+ 		mlx4_en_stop_port(dev);
  	}
  
- 	if (!cq->is_tx)
+-	mlx4_en_free_resources(priv, true);
++	mlx4_en_free_resources(priv);
+ 
+ 	priv->prof->tx_ring_size = tx_size;
+ 	priv->prof->rx_ring_size = rx_size;
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 27789be..b42c6aa 100644
+index b42c6aa..8402982 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -587,7 +587,6 @@ int mlx4_en_start_port(struct net_device *dev)
+@@ -876,7 +876,7 @@ static int mlx4_en_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-void mlx4_en_free_resources(struct mlx4_en_priv *priv, bool reserve_vectors)
++void mlx4_en_free_resources(struct mlx4_en_priv *priv)
+ {
  	int i;
- 	int j;
- 	u8 mc_list[16] = {0};
--	char name[32];
  
- 	if (priv->port_up) {
- 		en_dbg(DRV, priv, "start port called while port already up\n");
-@@ -608,7 +607,7 @@ int mlx4_en_start_port(struct net_device *dev)
- 	for (i = 0; i < priv->rx_ring_num; i++) {
- 		cq = &priv->rx_cq[i];
- 
--		err = mlx4_en_activate_cq(priv, cq);
-+		err = mlx4_en_activate_cq(priv, cq, i);
- 		if (err) {
- 			en_err(priv, "Failed activating Rx CQ\n");
- 			goto cq_err;
-@@ -642,20 +641,11 @@ int mlx4_en_start_port(struct net_device *dev)
- 		goto mac_err;
+@@ -884,14 +884,14 @@ void mlx4_en_free_resources(struct mlx4_en_priv *priv, bool reserve_vectors)
+ 		if (priv->tx_ring[i].tx_info)
+ 			mlx4_en_destroy_tx_ring(priv, &priv->tx_ring[i]);
+ 		if (priv->tx_cq[i].buf)
+-			mlx4_en_destroy_cq(priv, &priv->tx_cq[i], reserve_vectors);
++			mlx4_en_destroy_cq(priv, &priv->tx_cq[i]);
  	}
  
--	if (mdev->dev->caps.comp_pool && !priv->tx_vector) {
--		sprintf(name , "%s-tx", priv->dev->name);
--		if (mlx4_assign_eq(mdev->dev , name, &priv->tx_vector)) {
--			mlx4_warn(mdev, "Failed Assigning an EQ to "
--					"%s_tx ,Falling back to legacy "
--					"EQ's\n", priv->dev->name);
--		}
--	}
- 	/* Configure tx cq's and rings */
- 	for (i = 0; i < priv->tx_ring_num; i++) {
- 		/* Configure cq */
- 		cq = &priv->tx_cq[i];
--		cq->vector = priv->tx_vector;
--		err = mlx4_en_activate_cq(priv, cq);
-+		err = mlx4_en_activate_cq(priv, cq, i);
- 		if (err) {
- 			en_err(priv, "Failed allocating Tx CQ\n");
- 			goto tx_err;
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		if (priv->rx_ring[i].rx_info)
+ 			mlx4_en_destroy_rx_ring(priv, &priv->rx_ring[i]);
+ 		if (priv->rx_cq[i].buf)
+-			mlx4_en_destroy_cq(priv, &priv->rx_cq[i], reserve_vectors);
++			mlx4_en_destroy_cq(priv, &priv->rx_cq[i]);
+ 	}
+ }
+ 
+@@ -961,7 +961,7 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
+ 	mdev->pndev[priv->port] = NULL;
+ 	mutex_unlock(&mdev->state_lock);
+ 
+-	mlx4_en_free_resources(priv, false);
++	mlx4_en_free_resources(priv);
+ 	free_netdev(dev);
+ }
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index ed84811..115784d 100644
+index 115784d..fe8146d 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -470,7 +470,6 @@ struct mlx4_en_priv {
- 	u16 log_rx_info;
+@@ -502,13 +502,12 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ int mlx4_en_start_port(struct net_device *dev);
+ void mlx4_en_stop_port(struct net_device *dev);
  
- 	struct mlx4_en_tx_ring tx_ring[MAX_TX_RINGS];
--	int tx_vector;
- 	struct mlx4_en_rx_ring rx_ring[MAX_RX_RINGS];
- 	struct mlx4_en_cq tx_cq[MAX_TX_RINGS];
- 	struct mlx4_en_cq rx_cq[MAX_RX_RINGS];
-@@ -510,7 +509,8 @@ int mlx4_en_create_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+-void mlx4_en_free_resources(struct mlx4_en_priv *priv, bool reserve_vectors);
++void mlx4_en_free_resources(struct mlx4_en_priv *priv);
+ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv);
+ 
+ int mlx4_en_create_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
  		      int entries, int ring, enum cq_type mode);
- void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 			bool reserve_vectors);
--int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
-+int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
-+			int cq_idx);
+-void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+-			bool reserve_vectors);
++void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
+ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 			int cq_idx);
  void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
- int mlx4_en_set_cq_moder(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
- int mlx4_en_arm_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq);
 -- 
 1.7.5.4
