@@ -1,70 +1,41 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 1/9] mm: add a "struct subpage" type containing a page,
- offset and length
-Date: Mon, 10 Oct 2011 17:27:07 +0100
-Message-ID: <1318264027.21903.470.camel@zakaz.uk.xensource.com>
-References: <1318245076.21903.408.camel@zakaz.uk.xensource.com>
-	 <1318245101-16890-1-git-send-email-ian.campbell@citrix.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [net-next 02/11] igb: Use node specific allocations for the q_vectors and rings
+Date: Mon, 10 Oct 2011 18:32:28 +0200
+Message-ID: <20111010163228.GA14482@one.firstfloor.org>
+References: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com> <1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com> <m21uum2g28.fsf@firstfloor.org> <4E931C61.7040204@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>, linux-kernel
-	<linux-kernel@vger.kernel.org>, Jens Axboe <axboe@kernel.dk>, "Christoph
- Hellwig" <hch@infradead.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1318245101-16890-1-git-send-email-ian.campbell@citrix.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:34320 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912Ab1JJQcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 12:32:32 -0400
+Content-Disposition: inline
+In-Reply-To: <4E931C61.7040204@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(reposting including LKML to catch other potential users)
+> The RR configuration is somewhat arbitrary.  However it is still better
+> than dumping everyting on a single node, and it works with the
+> configuration when the rings numbers line up with the CPU numbers since
+> normally the CPUs are RR on the nodes.  From what I have seen it does
+> work quite well and it prevents almost all cross-node memory accesses
+> when running a routing workload.
 
-Is this structure of any use to unify other instances of a similar
-tuple, e.g. biovec, pagefrag etc?
+Ok so it's optimized for one specific workload. I'm sure you'll
+find some other workload where it doesn't work out.
 
-Ian.
+I suppose it's hard to get right in the general case, but best
+would be if ethtool had a nice and easy interface to set it at least.
 
-On Mon, 2011-10-10 at 12:11 +0100, Ian Campbell wrote:
-> A few network drivers currently use skb_frag_struct for this purpose but I have
-> patches which add additional fields and semantics there which these other uses
-> do not want.
-> 
-> A structure for reference sub-page regions seems like a generally useful thing
-> so do so instead of adding a network subsystem specific structure.
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> Cc: linux-mm@kvack.org
-> ---
->  include/linux/mm_types.h |   11 +++++++++++
->  1 files changed, 11 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-> index 774b895..dc1d103 100644
-> --- a/include/linux/mm_types.h
-> +++ b/include/linux/mm_types.h
-> @@ -135,6 +135,17 @@ struct page {
->  #endif
->  ;
->  
-> +struct subpage {
-> +	struct page *page;
-> +#if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
-> +	__u32 page_offset;
-> +	__u32 size;
-> +#else
-> +	__u16 page_offset;
-> +	__u16 size;
-> +#endif
-> +};
-> +
->  typedef unsigned long __nocast vm_flags_t;
->  
->  /*
+However one disadvantage of that patch over the existing state of the
+art (numactl modprobe ...) is that there's no way to override the placement
+now. So if you do the forced RR I think you need the ethtool part too,
+or at least some parameter to turn it off.
 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-Andi
