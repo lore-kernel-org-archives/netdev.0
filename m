@@ -1,139 +1,106 @@
-From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: Re: net/fec on i.MX28: failure after network cable unplug or device down
-Date: Mon, 10 Oct 2011 15:52:30 +0200
-Message-ID: <20114.63646.3360.632242@ipc1.ka-ro>
-References: <20111010131705.GA25293@pengutronix.de>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: e100 + VLANs?
+Date: Mon, 10 Oct 2011 18:57:15 +0400
+Message-ID: <4E9307CB.4050704@msgid.tls.msk.ru>
+References: <4E90212D.8030009@msgid.tls.msk.ru> <1318091046.5276.22.camel@edumazet-laptop> <4E9097C0.2030307@gmail.com> <20111010101954.GB2840382@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="v50+Ddm1QR"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Shawn Guo <shawn.guo@freescale.com>,
-	Wolfram Sang <w.sang@pengutronix.de>
-To: Uwe =?utf-8?Q?Kleine-K=C3=B6nig?= <u.kleine-koenig@pengutronix.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeffrey.t.kirsher@intel.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.karo-electronics.de ([81.173.242.67]:62870 "EHLO
-	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753140Ab1JJNwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 09:52:45 -0400
-In-Reply-To: <20111010131705.GA25293@pengutronix.de>
+Received: from isrv.corpit.ru ([86.62.121.231]:54331 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751118Ab1JJO5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Oct 2011 10:57:17 -0400
+In-Reply-To: <20111010101954.GB2840382@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+10.10.2011 14:19, David Lamparter wrote:
+> On Sat, Oct 08, 2011 at 11:34:40AM -0700, Jeff Kirsher wrote:
+>> On 10/08/2011 09:24 AM, Eric Dumazet wrote:
+>>> Le samedi 08 octobre 2011 =C3=A0 14:08 +0400, Michael Tokarev a =C3=
+=A9crit :
+>>>>> Yesterday I tried to use 802.1Q VLAN tagging with an (oldish)
+>>>>> e100-driven network card, identified by lspci like this:
+>>>>>
+>>>>>  00:12.0 Ethernet controller: Intel Corporation 82557/8/9/0/1 Eth=
+ernet Pro 100 (rev 02)
+>>>>>
+>>>>> Just to discover that it does not quite work: packets of
+>>>>> size 1497+ bytes gets lost.
+> [...]
+>>> e100 driver seems VLAN enabled at a first glance.
+>> Eric is correct, that e100 does support VLANs.
+>>
+>> In addition to Eric's suggestion, can you also provide all the outpu=
+t of
+>> lspci -vvv for the network card?
+>=20
+> I'm opening the lore box here, but early e100 cards AFAIK have a=20
+> hardware limit at 1500 (+18 src/dst/proto) bytes. At least, Juniper's
+> JUNOS does not support full-sized .1Q on their e100 control plane
+> interfaces...
 
---v50+Ddm1QR
-Content-Type: text/plain; charset=iso-8859-1
-Content-Description: message body and .signature
-Content-Transfer-Encoding: 8bit
+Thank you all for the suggestions and feedback.
 
-Hi,
+The card may indeed be quite old, I don't know where it come from and
+when.  Here's lspci -vvv for it:
 
-Uwe Kleine-König writes:
-> Hello,
-> 
-> I currently see the problem on two different i.MX28 based system
-> (Freescale's mx28evk and a Karo TX28) that after unplugging and
-> reconnection of the network cable or ifconfig down; ifconfig up; the
-> network is dead. That means nothing is sent or received anymore.
-> 
-I already solved this problem (and some others too), but wasn't able
-to send any patch yet.
-
-The FEC of the i.MX28 requires the ETHER_EN bit in the ECR to be set
-for the MII interface to work. Resetting the interface upon shutdown
-is required though, because otherwise the receiver will remain active
-and use the stale DMA descriptors in memory to store received packets!
-
-Furthermore the (R)MII mode must be configured correctly in the RCR
-register.
-
-The current state of my patch is appended for reference.
+00:12.0 Ethernet controller: Intel Corporation 82557/8/9/0/1 Ethernet P=
+ro 100 (rev 02)
+	Subsystem: Intel Corporation EtherExpress PRO/100B (TX)
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- St=
+epping- SERR+ FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=3Dmedium >TAbort- <TA=
+bort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 66 (2000ns min, 14000ns max)
+	Interrupt: pin A routed to IRQ 11
+	Region 0: Memory at fe200000 (32-bit, prefetchable) [size=3D4K]
+	Region 1: I/O ports at 2400 [size=3D32]
+	Region 2: Memory at fc000000 (32-bit, non-prefetchable) [size=3D1M]
+	[virtual] Expansion ROM at 30100000 [disabled] [size=3D1M]
+	Kernel driver in use: e100
 
 
-Lothar Waßmann
--- 
+I tried to set it up to talk to another machine in order to find
+out where the packets gets lost.  But had another complication
+on the way: it does not "want" to work with 802.1Q VLANs anymore
+at all... ;)
 
---v50+Ddm1QR
-Content-Type: application/octet-stream; name="fec-cleanup"
-Content-Disposition: attachment;
-	filename="fec-cleanup"
-Content-Transfer-Encoding: base64
+When pinging this NIC from another machine over VLAN5, I see
+ARP packets coming to it, gets recognized and replies going
+back, all on vlan 5.  But on the other side, replies comes
+WITHOUT a VLAN tag!
 
-SW5kZXg6IGxpbnV4L2RyaXZlcnMvbmV0L2ZlYy5jCj09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGxpbnV4Lm9yaWcv
-ZHJpdmVycy9uZXQvZmVjLmMJMjAxMS0wOS0xMyAwOTo1ODozOC4wMDAwMDAwMDAgKzAyMDAKKysr
-IGxpbnV4L2RyaXZlcnMvbmV0L2ZlYy5jCTIwMTEtMDktMTMgMDk6NTg6NDEuMDAwMDAwMDAwICsw
-MjAwCkBAIC00ODYsMTAgKzQ4NiwxNiBAQAogCXdyaXRlbChGRUNfREVGQVVMVF9JTUFTSywgZmVw
-LT5od3AgKyBGRUNfSU1BU0spOwogfQogCisvKiBwcmV2ZW50IHRoZSBGRUMgZnJvbSB0cmFuc21p
-dHRpbmcvcmVjZWl2aW5nIHBhY2tldHMsIGJ1dCBsZWF2ZQorICogdGhlIE1JSSBpbnRlcmZhY2Ug
-YWN0aXZlIHRvIGRldGVjdCBsaW5rIGNoYW5nZQorICovCiBzdGF0aWMgdm9pZAogZmVjX3N0b3Ao
-c3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpCiB7CiAJc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgKmZl
-cCA9IG5ldGRldl9wcml2KG5kZXYpOworCWNvbnN0IHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2VfaWQg
-KmlkX2VudHJ5ID0KKwkJCQlwbGF0Zm9ybV9nZXRfZGV2aWNlX2lkKGZlcC0+cGRldik7CisJdTMy
-IHJtaWlfbW9kZSA9IHJlYWRsKGZlcC0+aHdwICsgRkVDX1JfQ05UUkwpICYgKDEgPDwgOCk7CiAK
-IAkvKiBXZSBjYW5ub3QgZXhwZWN0IGEgZ3JhY2VmdWwgdHJhbnNtaXQgc3RvcCB3aXRob3V0IGxp
-bmsgISEhICovCiAJaWYgKGZlcC0+bGluaykgewpAQCAtNTA0LDggKzUxMCwzMyBAQAogCXVkZWxh
-eSgxMCk7CiAJd3JpdGVsKGZlcC0+cGh5X3NwZWVkLCBmZXAtPmh3cCArIEZFQ19NSUlfU1BFRUQp
-OwogCXdyaXRlbChGRUNfREVGQVVMVF9JTUFTSywgZmVwLT5od3AgKyBGRUNfSU1BU0spOworCisJ
-aWYgKGlkX2VudHJ5LT5kcml2ZXJfZGF0YSAmIEZFQ19RVUlSS19FTkVUX01BQykgeworCQkvKiBp
-Lk1YMjggcmVxdWlyZXMgRVRIRVJfRU4gZW5hYmxlZCB0byBiZSBhYmxlIHRvCisJCSAqIGFjY2Vz
-cyB0aGUgUEhZIHJlZ2lzdGVycyBhbmQgdGhlIFJNSUkgbW9kZSBwcm9wZXJseSBzZXQgdG8KKwkJ
-ICogYmUgYWJsZSB0byBkZXRlY3QgbGluayBjaGFuZ2VzCisJCSAqLworCQl3cml0ZWwoMiwgZmVw
-LT5od3AgKyBGRUNfRUNOVFJMKTsKKwkJd3JpdGVsKHJtaWlfbW9kZSwgZmVwLT5od3AgKyBGRUNf
-Ul9DTlRSTCk7CisJfQogfQogCisvKiBzaHV0ZG93biB0aGUgRkVDIGFuZCB0aGUgTUlJIGludGVy
-ZmFjZSAqLworc3RhdGljIHZvaWQKK2ZlY19zaHV0ZG93bihzdHJ1Y3QgbmV0X2RldmljZSAqbmRl
-dikKK3sKKwlzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwID0gbmV0ZGV2X3ByaXYobmRldik7
-CisKKwkvKiBXZSBjYW5ub3QgZXhwZWN0IGEgZ3JhY2VmdWwgdHJhbnNtaXQgc3RvcCB3aXRob3V0
-IGxpbmsgISEhICovCisJaWYgKGZlcC0+bGluaykgeworCQl3cml0ZWwoMSwgZmVwLT5od3AgKyBG
-RUNfWF9DTlRSTCk7IC8qIEdyYWNlZnVsIHRyYW5zbWl0IHN0b3AgKi8KKwkJdWRlbGF5KDEwKTsK
-KwkJaWYgKCEocmVhZGwoZmVwLT5od3AgKyBGRUNfSUVWRU5UKSAmIEZFQ19FTkVUX0dSQSkpCisJ
-CQlwcmludGsoImZlY19zdG9wIDogR3JhY2VmdWwgdHJhbnNtaXQgc3RvcCBkaWQgbm90IGNvbXBs
-ZXRlICFcbiIpOworCX0KKworCXdyaXRlbCgwLCBmZXAtPmh3cCArIEZFQ19FQ05UUkwpOworfQog
-CiBzdGF0aWMgdm9pZAogZmVjX3RpbWVvdXQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpCkBAIC03
-ODksNyArODIwLDcgQEAKIAkJCWlhcCA9ICh1bnNpZ25lZCBjaGFyICopRkVDX0ZMQVNITUFDOwog
-I2Vsc2UKIAkJaWYgKHBkYXRhKQotCQkJbWVtY3B5KGlhcCwgcGRhdGEtPm1hYywgRVRIX0FMRU4p
-OworCQkJaWFwID0gKHVuc2lnbmVkIGNoYXIgKikmcGRhdGEtPm1hYzsKICNlbmRpZgogCX0KIApA
-QCAtODM2LDYgKzg2Nyw4IEBACiAJaWYgKHBoeV9kZXYtPmxpbmspIHsKIAkJaWYgKGZlcC0+ZnVs
-bF9kdXBsZXggIT0gcGh5X2Rldi0+ZHVwbGV4KSB7CiAJCQlmZWNfcmVzdGFydChuZGV2LCBwaHlf
-ZGV2LT5kdXBsZXgpOworCQkJLyogcHJldmVudCB1bm5lY2Vzc2FyeSBzZWNvbmQgZmVjX3Jlc3Rh
-cnQoKSBiZWxvdyAqLworCQkJZmVwLT5saW5rID0gcGh5X2Rldi0+bGluazsKIAkJCXN0YXR1c19j
-aGFuZ2UgPSAxOwogCQl9CiAJfQpAQCAtMTA1Miw4ICsxMDg1LDYgQEAKIAogc3RhdGljIHZvaWQg
-ZmVjX2VuZXRfbWlpX3JlbW92ZShzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwKQogewotCWlm
-IChmZXAtPnBoeV9kZXYpCi0JCXBoeV9kaXNjb25uZWN0KGZlcC0+cGh5X2Rldik7CiAJbWRpb2J1
-c191bnJlZ2lzdGVyKGZlcC0+bWlpX2J1cyk7CiAJa2ZyZWUoZmVwLT5taWlfYnVzLT5pcnEpOwog
-CW1kaW9idXNfZnJlZShmZXAtPm1paV9idXMpOwpAQCAtMTE4NCw2ICsxMjE1LDggQEAKIGZlY19l
-bmV0X29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpCiB7CiAJc3RydWN0IGZlY19lbmV0X3By
-aXZhdGUgKmZlcCA9IG5ldGRldl9wcml2KG5kZXYpOworCWNvbnN0IHN0cnVjdCBwbGF0Zm9ybV9k
-ZXZpY2VfaWQgKmlkX2VudHJ5ID0KKwkJCQlwbGF0Zm9ybV9nZXRfZGV2aWNlX2lkKGZlcC0+cGRl
-dik7CiAJaW50IHJldDsKIAogCS8qIEkgc2hvdWxkIHJlc2V0IHRoZSByaW5nIGJ1ZmZlcnMgaGVy
-ZSwgYnV0IEkgZG9uJ3QgeWV0IGtub3cKQEAgLTEyMTQsNyArMTI0Nyw3IEBACiAJLyogRG9uJ3Qg
-a25vdyB3aGF0IHRvIGRvIHlldC4gKi8KIAlmZXAtPm9wZW5lZCA9IDA7CiAJbmV0aWZfc3RvcF9x
-dWV1ZShuZGV2KTsKLQlmZWNfc3RvcChuZGV2KTsKKwlmZWNfc2h1dGRvd24obmRldik7CiAKIAlp
-ZiAoZmVwLT5waHlfZGV2KSB7CiAJCXBoeV9zdG9wKGZlcC0+cGh5X2Rldik7CkBAIC0xNTE4LDcg
-KzE1NTEsNyBAQAogCQl9CiAJfQogCi0JZmVwLT5jbGsgPSBjbGtfZ2V0KCZwZGV2LT5kZXYsICJm
-ZWNfY2xrIik7CisJZmVwLT5jbGsgPSBjbGtfZ2V0KCZwZGV2LT5kZXYsIE5VTEwpOwogCWlmIChJ
-U19FUlIoZmVwLT5jbGspKSB7CiAJCXJldCA9IFBUUl9FUlIoZmVwLT5jbGspOwogCQlnb3RvIGZh
-aWxlZF9jbGs7CkBAIC0xNTcwLDEzICsxNjAzLDE4IEBACiAJc3RydWN0IG5ldF9kZXZpY2UgKm5k
-ZXYgPSBwbGF0Zm9ybV9nZXRfZHJ2ZGF0YShwZGV2KTsKIAlzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0
-ZSAqZmVwID0gbmV0ZGV2X3ByaXYobmRldik7CiAJc3RydWN0IHJlc291cmNlICpyOworCWludCBp
-OwogCi0JZmVjX3N0b3AobmRldik7CisJdW5yZWdpc3Rlcl9uZXRkZXYobmRldik7CiAJZmVjX2Vu
-ZXRfbWlpX3JlbW92ZShmZXApOworCWZvciAoaSA9IDA7IGkgPCAzOyBpKyspIHsKKwkJaW50IGly
-cSA9IHBsYXRmb3JtX2dldF9pcnEocGRldiwgaSk7CisJCWlmIChpcnEgPiAwKQorCQkJZnJlZV9p
-cnEoaXJxLCBuZGV2KTsKKwl9CiAJY2xrX2Rpc2FibGUoZmVwLT5jbGspOwogCWNsa19wdXQoZmVw
-LT5jbGspOwogCWlvdW5tYXAoZmVwLT5od3ApOwotCXVucmVnaXN0ZXJfbmV0ZGV2KG5kZXYpOwog
-CWZyZWVfbmV0ZGV2KG5kZXYpOwogCiAJciA9IHBsYXRmb3JtX2dldF9yZXNvdXJjZShwZGV2LCBJ
-T1JFU09VUkNFX01FTSwgMCk7Cg==
---v50+Ddm1QR
-Content-Type: text/plain; charset=iso-8859-1
-Content-Description: message body text
-Content-Transfer-Encoding: 8bit
+=46rom this NIC's point of view, capturing on whole ethX:
 
-___________________________________________________________
+00:1f:c6:ef:e5:1b > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), lengt=
+h 60: vlan 5, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Reque=
+st who-has 10.48.11.2 tell 10.48.11.1, length 42
+00:90:27:30:6d:1c > 00:1f:c6:ef:e5:1b, ethertype 802.1Q (0x8100), lengt=
+h 46: vlan 5, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Reply=
+ 10.48.11.2 is-at 00:90:27:30:6d:1c, length 28
 
-Ka-Ro electronics GmbH | Pascalstraße 22 | D - 52076 Aachen
-Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
-Geschäftsführer: Matthias Kaussen
-Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+=46rom the partner point of view, also on whole ethX:
 
-www.karo-electronics.de | info@karo-electronics.de
-___________________________________________________________
+00:1f:c6:ef:e5:1b > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), lengt=
+h 46: vlan 5, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Reque=
+st who-has 10.48.11.2 tell 10.48.11.1, length 28
+00:90:27:30:6d:1c > 00:1f:c6:ef:e5:1b, ethertype ARP (0x0806), length 6=
+0: Ethernet (len 6), IPv4 (len 4), Reply 10.48.11.2 is-at 00:90:27:30:6=
+d:1c, length 46
 
---v50+Ddm1QR--
+So, the tag gets eaten somewhere along the way... ;)
+
+And I can't really recreate the situation which I had - I know
+some packets were flowing, so at least ARP worked.  Now it
+does not work anymore.
+
+Hmm.... ;)
+
+Thank you!
+
+/mjt
