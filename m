@@ -1,19 +1,139 @@
-From: Chang <y.chang.yahoo.com.hk@[69.22.2.165]>
-Subject: Re:await your response
-Date: Mon, 10 Oct 2011 12:15:58 +0200
-Message-ID: <0LSU002XVQJ3NA90@a-mtaout20.012.net.il>
-Reply-To: private_ychang2038@yahoo.com.hk
+From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: Re: net/fec on i.MX28: failure after network cable unplug or device down
+Date: Mon, 10 Oct 2011 15:52:30 +0200
+Message-ID: <20114.63646.3360.632242@ipc1.ka-ro>
+References: <20111010131705.GA25293@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1251
-Content-Transfer-Encoding: 7bit
-To: Undisclosed recipients:;
+Content-Type: multipart/mixed; boundary="v50+Ddm1QR"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Shawn Guo <shawn.guo@freescale.com>,
+	Wolfram Sang <w.sang@pengutronix.de>
+To: Uwe =?utf-8?Q?Kleine-K=C3=B6nig?= <u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout20.012.net.il ([80.179.55.166]:34189 "EHLO
-	mtaout20.012.net.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753028Ab1JJNYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 09:24:24 -0400
-Received: from conversion-daemon.a-mtaout20.012.net.il by a-mtaout20.012.net.il (HyperSendmail v2007.08) id <0LSU00300QIWLY00@a-mtaout20.012.net.il> for netdev@vger.kernel.org; Mon, 10 Oct 2011 15:24:00 +0200 (IST)
+Received: from mail.karo-electronics.de ([81.173.242.67]:62870 "EHLO
+	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753140Ab1JJNwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 09:52:45 -0400
+In-Reply-To: <20111010131705.GA25293@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My name is Mr Young Chang, Head of operation Mevas Bank here in Hong Kong. I have a business proposal that i will like you to handle with me from my bank worth 19.7m USD 
+
+--v50+Ddm1QR
+Content-Type: text/plain; charset=iso-8859-1
+Content-Description: message body and .signature
+Content-Transfer-Encoding: 8bit
+
+Hi,
+
+Uwe Kleine-König writes:
+> Hello,
+> 
+> I currently see the problem on two different i.MX28 based system
+> (Freescale's mx28evk and a Karo TX28) that after unplugging and
+> reconnection of the network cable or ifconfig down; ifconfig up; the
+> network is dead. That means nothing is sent or received anymore.
+> 
+I already solved this problem (and some others too), but wasn't able
+to send any patch yet.
+
+The FEC of the i.MX28 requires the ETHER_EN bit in the ECR to be set
+for the MII interface to work. Resetting the interface upon shutdown
+is required though, because otherwise the receiver will remain active
+and use the stale DMA descriptors in memory to store received packets!
+
+Furthermore the (R)MII mode must be configured correctly in the RCR
+register.
+
+The current state of my patch is appended for reference.
+
+
+Lothar Waßmann
+-- 
+
+--v50+Ddm1QR
+Content-Type: application/octet-stream; name="fec-cleanup"
+Content-Disposition: attachment;
+	filename="fec-cleanup"
+Content-Transfer-Encoding: base64
+
+SW5kZXg6IGxpbnV4L2RyaXZlcnMvbmV0L2ZlYy5jCj09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGxpbnV4Lm9yaWcv
+ZHJpdmVycy9uZXQvZmVjLmMJMjAxMS0wOS0xMyAwOTo1ODozOC4wMDAwMDAwMDAgKzAyMDAKKysr
+IGxpbnV4L2RyaXZlcnMvbmV0L2ZlYy5jCTIwMTEtMDktMTMgMDk6NTg6NDEuMDAwMDAwMDAwICsw
+MjAwCkBAIC00ODYsMTAgKzQ4NiwxNiBAQAogCXdyaXRlbChGRUNfREVGQVVMVF9JTUFTSywgZmVw
+LT5od3AgKyBGRUNfSU1BU0spOwogfQogCisvKiBwcmV2ZW50IHRoZSBGRUMgZnJvbSB0cmFuc21p
+dHRpbmcvcmVjZWl2aW5nIHBhY2tldHMsIGJ1dCBsZWF2ZQorICogdGhlIE1JSSBpbnRlcmZhY2Ug
+YWN0aXZlIHRvIGRldGVjdCBsaW5rIGNoYW5nZQorICovCiBzdGF0aWMgdm9pZAogZmVjX3N0b3Ao
+c3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpCiB7CiAJc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgKmZl
+cCA9IG5ldGRldl9wcml2KG5kZXYpOworCWNvbnN0IHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2VfaWQg
+KmlkX2VudHJ5ID0KKwkJCQlwbGF0Zm9ybV9nZXRfZGV2aWNlX2lkKGZlcC0+cGRldik7CisJdTMy
+IHJtaWlfbW9kZSA9IHJlYWRsKGZlcC0+aHdwICsgRkVDX1JfQ05UUkwpICYgKDEgPDwgOCk7CiAK
+IAkvKiBXZSBjYW5ub3QgZXhwZWN0IGEgZ3JhY2VmdWwgdHJhbnNtaXQgc3RvcCB3aXRob3V0IGxp
+bmsgISEhICovCiAJaWYgKGZlcC0+bGluaykgewpAQCAtNTA0LDggKzUxMCwzMyBAQAogCXVkZWxh
+eSgxMCk7CiAJd3JpdGVsKGZlcC0+cGh5X3NwZWVkLCBmZXAtPmh3cCArIEZFQ19NSUlfU1BFRUQp
+OwogCXdyaXRlbChGRUNfREVGQVVMVF9JTUFTSywgZmVwLT5od3AgKyBGRUNfSU1BU0spOworCisJ
+aWYgKGlkX2VudHJ5LT5kcml2ZXJfZGF0YSAmIEZFQ19RVUlSS19FTkVUX01BQykgeworCQkvKiBp
+Lk1YMjggcmVxdWlyZXMgRVRIRVJfRU4gZW5hYmxlZCB0byBiZSBhYmxlIHRvCisJCSAqIGFjY2Vz
+cyB0aGUgUEhZIHJlZ2lzdGVycyBhbmQgdGhlIFJNSUkgbW9kZSBwcm9wZXJseSBzZXQgdG8KKwkJ
+ICogYmUgYWJsZSB0byBkZXRlY3QgbGluayBjaGFuZ2VzCisJCSAqLworCQl3cml0ZWwoMiwgZmVw
+LT5od3AgKyBGRUNfRUNOVFJMKTsKKwkJd3JpdGVsKHJtaWlfbW9kZSwgZmVwLT5od3AgKyBGRUNf
+Ul9DTlRSTCk7CisJfQogfQogCisvKiBzaHV0ZG93biB0aGUgRkVDIGFuZCB0aGUgTUlJIGludGVy
+ZmFjZSAqLworc3RhdGljIHZvaWQKK2ZlY19zaHV0ZG93bihzdHJ1Y3QgbmV0X2RldmljZSAqbmRl
+dikKK3sKKwlzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwID0gbmV0ZGV2X3ByaXYobmRldik7
+CisKKwkvKiBXZSBjYW5ub3QgZXhwZWN0IGEgZ3JhY2VmdWwgdHJhbnNtaXQgc3RvcCB3aXRob3V0
+IGxpbmsgISEhICovCisJaWYgKGZlcC0+bGluaykgeworCQl3cml0ZWwoMSwgZmVwLT5od3AgKyBG
+RUNfWF9DTlRSTCk7IC8qIEdyYWNlZnVsIHRyYW5zbWl0IHN0b3AgKi8KKwkJdWRlbGF5KDEwKTsK
+KwkJaWYgKCEocmVhZGwoZmVwLT5od3AgKyBGRUNfSUVWRU5UKSAmIEZFQ19FTkVUX0dSQSkpCisJ
+CQlwcmludGsoImZlY19zdG9wIDogR3JhY2VmdWwgdHJhbnNtaXQgc3RvcCBkaWQgbm90IGNvbXBs
+ZXRlICFcbiIpOworCX0KKworCXdyaXRlbCgwLCBmZXAtPmh3cCArIEZFQ19FQ05UUkwpOworfQog
+CiBzdGF0aWMgdm9pZAogZmVjX3RpbWVvdXQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpCkBAIC03
+ODksNyArODIwLDcgQEAKIAkJCWlhcCA9ICh1bnNpZ25lZCBjaGFyICopRkVDX0ZMQVNITUFDOwog
+I2Vsc2UKIAkJaWYgKHBkYXRhKQotCQkJbWVtY3B5KGlhcCwgcGRhdGEtPm1hYywgRVRIX0FMRU4p
+OworCQkJaWFwID0gKHVuc2lnbmVkIGNoYXIgKikmcGRhdGEtPm1hYzsKICNlbmRpZgogCX0KIApA
+QCAtODM2LDYgKzg2Nyw4IEBACiAJaWYgKHBoeV9kZXYtPmxpbmspIHsKIAkJaWYgKGZlcC0+ZnVs
+bF9kdXBsZXggIT0gcGh5X2Rldi0+ZHVwbGV4KSB7CiAJCQlmZWNfcmVzdGFydChuZGV2LCBwaHlf
+ZGV2LT5kdXBsZXgpOworCQkJLyogcHJldmVudCB1bm5lY2Vzc2FyeSBzZWNvbmQgZmVjX3Jlc3Rh
+cnQoKSBiZWxvdyAqLworCQkJZmVwLT5saW5rID0gcGh5X2Rldi0+bGluazsKIAkJCXN0YXR1c19j
+aGFuZ2UgPSAxOwogCQl9CiAJfQpAQCAtMTA1Miw4ICsxMDg1LDYgQEAKIAogc3RhdGljIHZvaWQg
+ZmVjX2VuZXRfbWlpX3JlbW92ZShzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwKQogewotCWlm
+IChmZXAtPnBoeV9kZXYpCi0JCXBoeV9kaXNjb25uZWN0KGZlcC0+cGh5X2Rldik7CiAJbWRpb2J1
+c191bnJlZ2lzdGVyKGZlcC0+bWlpX2J1cyk7CiAJa2ZyZWUoZmVwLT5taWlfYnVzLT5pcnEpOwog
+CW1kaW9idXNfZnJlZShmZXAtPm1paV9idXMpOwpAQCAtMTE4NCw2ICsxMjE1LDggQEAKIGZlY19l
+bmV0X29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpCiB7CiAJc3RydWN0IGZlY19lbmV0X3By
+aXZhdGUgKmZlcCA9IG5ldGRldl9wcml2KG5kZXYpOworCWNvbnN0IHN0cnVjdCBwbGF0Zm9ybV9k
+ZXZpY2VfaWQgKmlkX2VudHJ5ID0KKwkJCQlwbGF0Zm9ybV9nZXRfZGV2aWNlX2lkKGZlcC0+cGRl
+dik7CiAJaW50IHJldDsKIAogCS8qIEkgc2hvdWxkIHJlc2V0IHRoZSByaW5nIGJ1ZmZlcnMgaGVy
+ZSwgYnV0IEkgZG9uJ3QgeWV0IGtub3cKQEAgLTEyMTQsNyArMTI0Nyw3IEBACiAJLyogRG9uJ3Qg
+a25vdyB3aGF0IHRvIGRvIHlldC4gKi8KIAlmZXAtPm9wZW5lZCA9IDA7CiAJbmV0aWZfc3RvcF9x
+dWV1ZShuZGV2KTsKLQlmZWNfc3RvcChuZGV2KTsKKwlmZWNfc2h1dGRvd24obmRldik7CiAKIAlp
+ZiAoZmVwLT5waHlfZGV2KSB7CiAJCXBoeV9zdG9wKGZlcC0+cGh5X2Rldik7CkBAIC0xNTE4LDcg
+KzE1NTEsNyBAQAogCQl9CiAJfQogCi0JZmVwLT5jbGsgPSBjbGtfZ2V0KCZwZGV2LT5kZXYsICJm
+ZWNfY2xrIik7CisJZmVwLT5jbGsgPSBjbGtfZ2V0KCZwZGV2LT5kZXYsIE5VTEwpOwogCWlmIChJ
+U19FUlIoZmVwLT5jbGspKSB7CiAJCXJldCA9IFBUUl9FUlIoZmVwLT5jbGspOwogCQlnb3RvIGZh
+aWxlZF9jbGs7CkBAIC0xNTcwLDEzICsxNjAzLDE4IEBACiAJc3RydWN0IG5ldF9kZXZpY2UgKm5k
+ZXYgPSBwbGF0Zm9ybV9nZXRfZHJ2ZGF0YShwZGV2KTsKIAlzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0
+ZSAqZmVwID0gbmV0ZGV2X3ByaXYobmRldik7CiAJc3RydWN0IHJlc291cmNlICpyOworCWludCBp
+OwogCi0JZmVjX3N0b3AobmRldik7CisJdW5yZWdpc3Rlcl9uZXRkZXYobmRldik7CiAJZmVjX2Vu
+ZXRfbWlpX3JlbW92ZShmZXApOworCWZvciAoaSA9IDA7IGkgPCAzOyBpKyspIHsKKwkJaW50IGly
+cSA9IHBsYXRmb3JtX2dldF9pcnEocGRldiwgaSk7CisJCWlmIChpcnEgPiAwKQorCQkJZnJlZV9p
+cnEoaXJxLCBuZGV2KTsKKwl9CiAJY2xrX2Rpc2FibGUoZmVwLT5jbGspOwogCWNsa19wdXQoZmVw
+LT5jbGspOwogCWlvdW5tYXAoZmVwLT5od3ApOwotCXVucmVnaXN0ZXJfbmV0ZGV2KG5kZXYpOwog
+CWZyZWVfbmV0ZGV2KG5kZXYpOwogCiAJciA9IHBsYXRmb3JtX2dldF9yZXNvdXJjZShwZGV2LCBJ
+T1JFU09VUkNFX01FTSwgMCk7Cg==
+--v50+Ddm1QR
+Content-Type: text/plain; charset=iso-8859-1
+Content-Description: message body text
+Content-Transfer-Encoding: 8bit
+
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstraße 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Geschäftsführer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
+
+--v50+Ddm1QR--
