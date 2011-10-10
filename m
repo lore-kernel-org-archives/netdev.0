@@ -1,77 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] truesize lies
-Date: Mon, 10 Oct 2011 08:54:57 +0200
-Message-ID: <1318229697.21116.23.camel@edumazet-laptop>
-References: <1318186948.5276.49.camel@edumazet-laptop>
-	 <20111009.172739.2151675769111763947.davem@davemloft.net>
-	 <1318197320.21116.11.camel@edumazet-laptop>
-	 <20111009.181023.328192272226333109.davem@davemloft.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] mlx4_en: fix transmit of packages when blue frame is
+ enabled
+Date: Mon, 10 Oct 2011 09:32:00 +0200
+Message-ID: <1318231920.29415.404.camel@pasglop>
+References: <20111004202620.GA3455@oc1711230544.ibm.com>
+	 <20111005081502.GB2681@mtldesk30> <20111006135759.GH2681@mtldesk30>
+	 <1318145118.29415.371.camel@pasglop> <20111009073546.GI2681@mtldesk30>
+	 <1318147254.29415.377.camel@pasglop> <20111009080747.GJ2681@mtldesk30>
+	 <1318149536.29415.384.camel@pasglop> <20111009092102.GK2681@mtldesk30>
+	 <1318153939.29415.401.camel@pasglop>  <20111009103020.GL2681@mtldesk30>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eli Cohen <eli@mellanox.co.il>, linuxppc-dev@lists.ozlabs.org
+To: Eli Cohen <eli@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:42479 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740Ab1JJGzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 02:55:05 -0400
-Received: by wwf22 with SMTP id 22so8692674wwf.1
-        for <netdev@vger.kernel.org>; Sun, 09 Oct 2011 23:55:04 -0700 (PDT)
-In-Reply-To: <20111009.181023.328192272226333109.davem@davemloft.net>
+Received: from gate.crashing.org ([63.228.1.57]:51257 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752381Ab1JJHc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Oct 2011 03:32:26 -0400
+In-Reply-To: <20111009103020.GL2681@mtldesk30>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 09 octobre 2011 =C3=A0 18:10 -0400, David Miller a =C3=A9cr=
-it :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sun, 09 Oct 2011 23:55:20 +0200
->=20
-> > Some drivers splits a page in two (or more) pieces, so we cant know=
- what
-> > was really reserved by a driver for paged skbs.
-> >=20
-> > Only thing we could enforce at the moment is the proper accounting =
-for
-> > skb head :
-> >=20
-> > WARN_ON(skb->truesize < (skb_end_pointer(skb) - skb->head) + sizeof=
-(sk_buff) + skb->data_len);
->=20
-> This is partly true.
->=20
-> Drivers that use page pools divide pages up into different pools, eac=
-h
-> with some specific block size.  At least this is how NIU works.
->=20
-> So NIU knows exactly how much of the block is logically part of that
-> SKB yet unused.
->=20
-> And if we really wanted to we could add a frag[].reserved field that
-> keeps track of this for debugging.
+On Sun, 2011-10-09 at 12:30 +0200, Eli Cohen wrote:
 
-Hmm, this would still be possible for a driver to lie and consume lot o=
-f
-ram on 64bit arches.
+> > Ideally you want to avoid that swapping altogether and use the right
+> > accessor that indicates that your register is BE to start with. IE.
+> > remove the swab32 completely and then use something like 
+> > iowrite32be() instead of writel().
+> I agree, this looks better but does it work on memory mapped io or
+> only on io pci space? All our registers are memory mapped...
 
-How about using a "struct page" field then, since for a given page, we
-can assume/enforce it was divided in equal units (kind of a negative
-order) by a driver.
+The iomap functions work on both.
 
-Instead of using alloc_page(order) a driver could use
+> > Basically, the problem you have is that writel() has an implicit "write
+> > to LE register" semantic. Your register is BE. the "iomap" variants
+> > provide you with more fine grained "be" variants to use in that case.
+> > There's also writel_be() but that one doesn't exist on every
+> > architecture afaik.
+> So writel_be is the function I should use for memory mapped io? If it
+> does not exist for all platforms it's a pitty :-(
 
-alloc_page_truesize(gfp_t mask, int page_order, int subunit_order)
+Just use the iomap variant. Usually you also use pci_iomap() instead of
+ioremap() but afaik, for straight MMIO, it works with normal ioremap as
+well.
 
-=46or example, an x86 driver using 4KB page splitted in two pieces woul=
-d
-use alloc_page_truesize(gfp, 0, 1)
+> > Now, once the mmio problem is out of the way, let's look back at how you
+> > then use that qpn.
+> > 
+> > With the current code, you've generated something in memory which is
+> > byte reversed, so essentially "LE" on ppc and "BE" on x86.
+> > 
+> > Then, this statement:
+> > 
+> > *(u32 *) (&tx_desc->ctrl.vlan_tag) |= ring->doorbell_qpn;
+> > 
+> > Will essentially write it out as-is in memory for use by the chip. The chip,
+> > from what you say, expects BE, so this will be broken on PPC.
+> I see. So this field is layed in le for ppc and the rest of the
+> descriptor is be. so I assum that __iowrite64_copy() does not swap
+> anything but we still have tx_desc->ctrl.vlan_tag in the wrong
+> endianess.
 
-To get frag[i].reserved (aka truesize), we then would do
+Yes because you had swapped it initially. IE your original swab32 is
+what busts it for you on ppc.
 
-static inline int frag_truesize(const skb_frag_t *frag)
-{
-	return compound_head(frag->page)->truesize;
-}
+> > Here too, the right solution is to instead not do that swab32 to begin
+> > with (ring->doorbell_qpn remains a native endian value) and instead do,
+> > in addition to the above mentioned change to the writel:
+> > 
+> > 	*(u32 *) (&tx_desc->ctrl.vlan_tag) |= cpu_to_be32(ring->doorbell_qpn);
+> > 
+> > (Also get rid of that cast and define vlan_tag as a __be32 to start
+> > with).
+> > 
+> > Cheers,
+> > Ben.
+> 
+> Thanks for your review. I will send another patch which should fix the
+> deficiencies.
 
-(Not even sure compound_head() is even necessary here, but I see NIU
-uses it in niu_rbr_add_page() ?)
+Cheers,
+Ben.
