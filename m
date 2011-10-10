@@ -1,72 +1,51 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] mlx4_en: fix transmit of packages when blue frame is
- enabled
-Date: Mon, 10 Oct 2011 12:18:33 +0200
-Message-ID: <1318241913.29415.428.camel@pasglop>
-References: <1318145118.29415.371.camel@pasglop>
-	 <AE90C24D6B3A694183C094C60CF0A2F6D8AE78@saturn3.aculab.com>
-	 <20111010084726.GM2681@mtldesk30> <1318237284.29415.422.camel@pasglop>
-	 <20111010091611.GN2681@mtldesk30> <1318238645.29415.426.camel@pasglop>
-	 <20111010092926.GO2681@mtldesk30>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: e100 + VLANs?
+Date: Mon, 10 Oct 2011 12:19:54 +0200
+Message-ID: <20111010101954.GB2840382@jupiter.n2.diac24.net>
+References: <4E90212D.8030009@msgid.tls.msk.ru>
+ <1318091046.5276.22.camel@edumazet-laptop>
+ <4E9097C0.2030307@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org,
-	Eli Cohen <eli@mellanox.co.il>, linuxppc-dev@lists.ozlabs.org,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: Eli Cohen <eli@dev.mellanox.co.il>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Michael Tokarev <mjt@tls.msk.ru>,
+	netdev <netdev@vger.kernel.org>
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:37823 "EHLO gate.crashing.org"
+Received: from spaceboyz.net ([87.106.131.203]:56801 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753097Ab1JJKTA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Oct 2011 06:19:00 -0400
-In-Reply-To: <20111010092926.GO2681@mtldesk30>
+	id S1753097Ab1JJKUH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Oct 2011 06:20:07 -0400
+Content-Disposition: inline
+In-Reply-To: <4E9097C0.2030307@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-10-10 at 11:29 +0200, Eli Cohen wrote:
-> On Mon, Oct 10, 2011 at 11:24:05AM +0200, Benjamin Herrenschmidt wrote:
-> > On Mon, 2011-10-10 at 11:16 +0200, Eli Cohen wrote:
-> > 
-> > > Until then I think we need to have the logic working right on ppc and
-> > > measure if blue flame buys us any improvement in ppc. If that's not
-> > > the case (e.g because write combining is not working), then maybe we
-> > > should avoid using blueflame in ppc.
-> > > Could any of the guys from IBM check this and give us feedback?
-> > 
-> > I don't have the necessary hardware myself to test that but maybe Thadeu
-> > can.
-> > 
-> > Note that for WC to work, things must be mapped non-guarded. You can do
-> > that by using ioremap_prot() with pgprot_noncached_wc(PAGE_KERNEL) or
-> > ioremap_wc() (dunno how "generic" the later is).
-> 
-> I use the io mapping API:
-> 
-> at driver statrt:
->         priv->bf_mapping = io_mapping_create_wc(bf_start, bf_len);
->         if (!priv->bf_mapping)
->                 err = -ENOMEM;
-> 
-> and then:
->         uar->bf_map = io_mapping_map_wc(priv->bf_mapping, uar->index << PAGE_SHIFT);
-> 
->         
-> Will this work on ppc?
+On Sat, Oct 08, 2011 at 11:34:40AM -0700, Jeff Kirsher wrote:
+> On 10/08/2011 09:24 AM, Eric Dumazet wrote:
+> > Le samedi 08 octobre 2011 =C3=A0 14:08 +0400, Michael Tokarev a =C3=
+=A9crit :
+> >> > Yesterday I tried to use 802.1Q VLAN tagging with an (oldish)
+> >> > e100-driven network card, identified by lspci like this:
+> >> >=20
+> >> >  00:12.0 Ethernet controller: Intel Corporation 82557/8/9/0/1 Et=
+hernet Pro 100 (rev 02)
+> >> >=20
+> >> > Just to discover that it does not quite work: packets of
+> >> > size 1497+ bytes gets lost.
+[...]
+> > e100 driver seems VLAN enabled at a first glance.
+> Eric is correct, that e100 does support VLANs.
+>=20
+> In addition to Eric's suggestion, can you also provide all the output=
+ of
+> lspci -vvv for the network card?
 
-That API has never been tested on ppc I suspect. We don't have
-CONFIG_HAVE_ATOMIC_IOMAP (mostly because we never needed it, it
-was designed and only ever used for Intel graphics before), so
-it will fallback to:
+I'm opening the lore box here, but early e100 cards AFAIK have a=20
+hardware limit at 1500 (+18 src/dst/proto) bytes. At least, Juniper's
+JUNOS does not support full-sized .1Q on their e100 control plane
+interfaces...
 
-static inline struct io_mapping *
-io_mapping_create_wc(resource_size_t base, unsigned long size)
-{
-	return (struct io_mapping __force *) ioremap_wc(base, size);
-}
 
-Which should work (hopefully :-)
-
-Cheers,
-Ben.
+-equi
