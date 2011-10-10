@@ -1,79 +1,103 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 1/9] mm: add a "struct subpage" type containing a page,
- offset and length
-Date: Mon, 10 Oct 2011 13:27:00 +0100
-Message-ID: <1318249620.21903.416.camel@zakaz.uk.xensource.com>
-References: <1318245076.21903.408.camel@zakaz.uk.xensource.com>
-	 <1318245101-16890-1-git-send-email-ian.campbell@citrix.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: net/fec on i.MX28: failure after network cable unplug or device down
+Date: Mon, 10 Oct 2011 15:17:05 +0200
+Message-ID: <20111010131705.GA25293@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "linux-mm@kvack.org" <linux-mm@kvack.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1318245101-16890-1-git-send-email-ian.campbell@citrix.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shawn Guo <shawn.guo@freescale.com>,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42346 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753012Ab1JJNRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 09:17:07 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-10-10 at 12:11 +0100, Ian Campbell wrote:
+Hello,
 
-> Cc: linux-mm@kvack.org
-> ---
->  include/linux/mm_types.h |   11 +++++++++++
->  1 files changed, 11 insertions(+), 0 deletions(-)
+I currently see the problem on two different i.MX28 based system
+(Freescale's mx28evk and a Karo TX28) that after unplugging and
+reconnection of the network cable or ifconfig down; ifconfig up; the
+network is dead. That means nothing is sent or received anymore.
 
-get_maintainers.pl didn't pick up on this CC. Since mm_types.h was split
-out of mm.h does the following make sense? Not sure if mm_*.h (or just
-mm_inline.hm?) also makes sense.
+ifconfig up dies with:
 
-8<--------------------------
+	[   32.120000] FEC: MDIO read timeout
+	[   32.120000] eth0: could not attach to PHY
+	ifconfig: SIOCSIFFLAGS: Connection timed out
 
-Subject: MAINTAINER: mm subsystem includes mm_types.h
+after unplugging the network cable I get:
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+	[   25.520000] PHY: 1:00 - Link is Down
+	[   26.530000] FEC: MDIO read timeout
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index ae8820e..f10a7ea 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4212,6 +4212,7 @@ L:	linux-mm@kvack.org
- W:	http://www.linux-mm.org
- S:	Maintained
- F:	include/linux/mm.h
-+F:	include/linux/mm_types.h
- F:	mm/
- 
- MEMORY RESOURCE CONTROLLER
+In both cases the mdio read operation doesn't fire the mii irq, though
+the FEC_MII_DATA contains data that looks right and the interrupt
+register (FEC_IEVENT) has the mii bit set and according to the mask
+register (FEC_IMASK) the irq isn't masked.
 
+When commenting out
 
-> 
-> diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-> index 774b895..dc1d103 100644
-> --- a/include/linux/mm_types.h
-> +++ b/include/linux/mm_types.h
-> @@ -135,6 +135,17 @@ struct page {
->  #endif
->  ;
->  
-> +struct subpage {
-> +	struct page *page;
-> +#if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
-> +	__u32 page_offset;
-> +	__u32 size;
-> +#else
-> +	__u16 page_offset;
-> +	__u16 size;
-> +#endif
-> +};
-> +
->  typedef unsigned long __nocast vm_flags_t;
->  
->  /*
+	writel(1, fep->hwp + FEC_ECNTRL);
 
+(i.e. don't reset the network unit) in fec_stop it works (but Wolfram
+seems to remember that doing so breaks e.g. i.MX35. We have not checked
+yet).
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Strange enough with the reset commented out in fec_stop, fec_restart
+resets the fec (when the cable is reconnected) but without breaking it.
+
+I tried to restore more registers in fec_stop (most notably FEC_R_CNTRL
+that has some mii fields) but without success.
+
+Do you see this problem, too? Maybe do you have an idea to fix it?
+Currently I use the following patch:
+
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 5b631fe..8c1330f 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -458,6 +458,8 @@ static void
+ fec_stop(struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep =3D netdev_priv(ndev);
++	const struct platform_device_id *id_entry =3D
++				platform_get_device_id(fep->pdev);
+=20
+ 	/* We cannot expect a graceful transmit stop without link !!! */
+ 	if (fep->link) {
+@@ -467,11 +469,13 @@ fec_stop(struct net_device *ndev)
+ 			printk("fec_stop : Graceful transmit stop did not complete !\n");
+ 	}
+=20
+-	/* Whack a reset.  We should wait for this. */
+-	writel(1, fep->hwp + FEC_ECNTRL);
+-	udelay(10);
+-	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+-	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++	if (!(id_entry->driver_data & FEC_QUIRK_ENET_MAC)) {
++		/* Whack a reset.  We should wait for this. */
++		writel(1, fep->hwp + FEC_ECNTRL);
++		udelay(10);
++		writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
++		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++	}
+ }
+=20
+but this feels wrong because sending and receiving isn't disabled in
+hardware without link then.
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
