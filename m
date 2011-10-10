@@ -1,45 +1,58 @@
-From: danborkmann@iogearbox.net
-Subject: [PATCH] af_packet: remove unnecessary BUG_ON() in
- tpacket_destruct_skb
-Date: Mon, 10 Oct 2011 18:52:46 +0200
-Message-ID: <20111010185246.15533bv1p3pmnba6@mail.your-server.de>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next 02/11] igb: Use node specific allocations for the q_vectors
+ and rings
+Date: Mon, 10 Oct 2011 10:02:07 -0700
+Message-ID: <4E93250F.9090000@intel.com>
+References: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com> <1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com> <m21uum2g28.fsf@firstfloor.org> <4E931C61.7040204@intel.com> <20111010163228.GA14482@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- DelSp="Yes";
- format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34990 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753076Ab1JJQzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 12:55:44 -0400
-Content-Disposition: inline
+Received: from mga14.intel.com ([143.182.124.37]:64915 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752456Ab1JJRB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Oct 2011 13:01:57 -0400
+In-Reply-To: <20111010163228.GA14482@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If skb is NULL, then stack trace is thrown anyway on dereference.
-Therefore, the stack trace triggered by BUG_ON is duplicate.
+On 10/10/2011 09:32 AM, Andi Kleen wrote:
+>> The RR configuration is somewhat arbitrary.  However it is still better
+>> than dumping everyting on a single node, and it works with the
+>> configuration when the rings numbers line up with the CPU numbers since
+>> normally the CPUs are RR on the nodes.  From what I have seen it does
+>> work quite well and it prevents almost all cross-node memory accesses
+>> when running a routing workload.
+> 
+> Ok so it's optimized for one specific workload. I'm sure you'll
+> find some other workload where it doesn't work out.
 
-Signed-off-by: Daniel Borkmann <danborkmann@googlemail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
----
-  net/packet/af_packet.c |    2 --
-  1 files changed, 0 insertions(+), 2 deletions(-)
+It isn't that I optimized it for one specific workload.  I was just
+citing that specific workload as one of the ones seeing the advantage.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index fabb4fa..886ae50 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1170,8 +1170,6 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
-  	struct packet_sock *po = pkt_sk(skb->sk);
-  	void *ph;
+> I suppose it's hard to get right in the general case, but best
+> would be if ethtool had a nice and easy interface to set it at least.
 
--	BUG_ON(skb == NULL);
--
-  	if (likely(po->tx_ring.pg_vec)) {
-  		ph = skb_shinfo(skb)->destructor_arg;
-  		BUG_ON(__packet_get_status(po, ph) != TP_STATUS_SENDING);
+The general case is never right for this it seems like.  At least in
+this case it becomes much easier to line up the memory and interrupts so
+that they are all affinitized to the same core.  From there RPS/RFS can
+typically be used to spread out the work more if necessary.
+
+> However one disadvantage of that patch over the existing state of the
+> art (numactl modprobe ...) is that there's no way to override the placement
+> now. So if you do the forced RR I think you need the ethtool part too,
+> or at least some parameter to turn it off.
+> 
+> -Andi
+
+The counter argument to that though is that the approach you mention
+always limits you to one node.  At least with this approach we are
+spread out over multiple nodes so that we can make full use of the
+memory bandwidth on the system.
+
+Thanks,
+
+Alex
