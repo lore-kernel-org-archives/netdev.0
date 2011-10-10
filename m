@@ -1,88 +1,96 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] mlx4_en: fix transmit of packages when blue frame is
- enabled
-Date: Mon, 10 Oct 2011 09:32:00 +0200
-Message-ID: <1318231920.29415.404.camel@pasglop>
-References: <20111004202620.GA3455@oc1711230544.ibm.com>
-	 <20111005081502.GB2681@mtldesk30> <20111006135759.GH2681@mtldesk30>
-	 <1318145118.29415.371.camel@pasglop> <20111009073546.GI2681@mtldesk30>
-	 <1318147254.29415.377.camel@pasglop> <20111009080747.GJ2681@mtldesk30>
-	 <1318149536.29415.384.camel@pasglop> <20111009092102.GK2681@mtldesk30>
-	 <1318153939.29415.401.camel@pasglop>  <20111009103020.GL2681@mtldesk30>
+From: danborkmann@iogearbox.net
+Subject: Re: [PATCH] af_packet: tpacket_destruct_skb, deref skb after
+ BUG_ON assertion
+Date: Mon, 10 Oct 2011 10:02:03 +0200
+Message-ID: <20111010100203.15066m7nvqod58cb@webmail.your-server.de>
+References: <20111009171919.10922hrx8qjm2f7b@webmail.your-server.de>
+ <1318193866.21116.3.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eli Cohen <eli@mellanox.co.il>, linuxppc-dev@lists.ozlabs.org
-To: Eli Cohen <eli@dev.mellanox.co.il>
+Content-Type: text/plain; charset=UTF-8;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51257 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752381Ab1JJHc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Oct 2011 03:32:26 -0400
-In-Reply-To: <20111009103020.GL2681@mtldesk30>
+Received: from www62.your-server.de ([213.133.104.62]:60402 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752455Ab1JJIFA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 04:05:00 -0400
+In-Reply-To: <1318193866.21116.3.camel@edumazet-laptop>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-10-09 at 12:30 +0200, Eli Cohen wrote:
+Hi Eric,
 
-> > Ideally you want to avoid that swapping altogether and use the right
-> > accessor that indicates that your register is BE to start with. IE.
-> > remove the swab32 completely and then use something like 
-> > iowrite32be() instead of writel().
-> I agree, this looks better but does it work on memory mapped io or
-> only on io pci space? All our registers are memory mapped...
+Quoting Eric Dumazet <eric.dumazet@gmail.com>:
+> Le dimanche 09 octobre 2011 =C3=A0 17:19 +0200, danborkmann@iogearbox=
+=2Enet a
+> =C3=A9crit :
+>> This tiny patch derefs the skb only after BUG_ON(skb=3D=3DNULL) was =
+evaluated
+>> and not before. Patched against latest Linus tree.
+>>
+>> Thanks,
+>> Daniel
+>>
+>> Signed-off-by: Daniel Borkmann <danborkmann@iogearbox.net>
+>>
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index fabb4fa..d9d833b 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -1167,11 +1167,12 @@ ring_is_full:
+>>
+>>   static void tpacket_destruct_skb(struct sk_buff *skb)
+>>   {
+>> -	struct packet_sock *po =3D pkt_sk(skb->sk);
+>> +	struct packet_sock *po;
+>>   	void *ph;
+>>
+>>   	BUG_ON(skb =3D=3D NULL);
+>>
+>> +	po =3D pkt_sk(skb->sk);
+>>   	if (likely(po->tx_ring.pg_vec)) {
+>>   		ph =3D skb_shinfo(skb)->destructor_arg;
+>>   		BUG_ON(__packet_get_status(po, ph) !=3D TP_STATUS_SENDING);
+>>
+>>
+>
+> Well, to be honest, this BUG_ON(!skb) is absolutely useless for two
+> reasons.
+>
+> 1) If skb happens to be NULL, the NULL dereference is trapped and sta=
+ck
+> trace dumped as well.
+>
+> 2) Of course, tpacket_destruct_skb() being an skb destructor, skb can=
+not
+> be NULL at this point by design.
+>
+> Please remove the BUG_ON() instead of trying to move it ;)
 
-The iomap functions work on both.
+Thanks, you're absolutely right! Here's the trivial patch:
 
-> > Basically, the problem you have is that writel() has an implicit "write
-> > to LE register" semantic. Your register is BE. the "iomap" variants
-> > provide you with more fine grained "be" variants to use in that case.
-> > There's also writel_be() but that one doesn't exist on every
-> > architecture afaik.
-> So writel_be is the function I should use for memory mapped io? If it
-> does not exist for all platforms it's a pitty :-(
+af_packet: removed unnecessary BUG_ON assertion in tpacket_destruct_skb
 
-Just use the iomap variant. Usually you also use pci_iomap() instead of
-ioremap() but afaik, for straight MMIO, it works with normal ioremap as
-well.
+If skb is NULL, then stack trace is thrown on anyway on dereference. =20
+Therefore,
+the stack trace triggered by BUG_ON is duplicate.
 
-> > Now, once the mmio problem is out of the way, let's look back at how you
-> > then use that qpn.
-> > 
-> > With the current code, you've generated something in memory which is
-> > byte reversed, so essentially "LE" on ppc and "BE" on x86.
-> > 
-> > Then, this statement:
-> > 
-> > *(u32 *) (&tx_desc->ctrl.vlan_tag) |= ring->doorbell_qpn;
-> > 
-> > Will essentially write it out as-is in memory for use by the chip. The chip,
-> > from what you say, expects BE, so this will be broken on PPC.
-> I see. So this field is layed in le for ppc and the rest of the
-> descriptor is be. so I assum that __iowrite64_copy() does not swap
-> anything but we still have tx_desc->ctrl.vlan_tag in the wrong
-> endianess.
+Signed-off-by: Daniel Borkmann <danborkmann@googlemail.com>
 
-Yes because you had swapped it initially. IE your original swab32 is
-what busts it for you on ppc.
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index fabb4fa..886ae50 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1170,8 +1170,6 @@ static void tpacket_destruct_skb(struct sk_buff *=
+skb)
+  	struct packet_sock *po =3D pkt_sk(skb->sk);
+  	void *ph;
 
-> > Here too, the right solution is to instead not do that swab32 to begin
-> > with (ring->doorbell_qpn remains a native endian value) and instead do,
-> > in addition to the above mentioned change to the writel:
-> > 
-> > 	*(u32 *) (&tx_desc->ctrl.vlan_tag) |= cpu_to_be32(ring->doorbell_qpn);
-> > 
-> > (Also get rid of that cast and define vlan_tag as a __be32 to start
-> > with).
-> > 
-> > Cheers,
-> > Ben.
-> 
-> Thanks for your review. I will send another patch which should fix the
-> deficiencies.
-
-Cheers,
-Ben.
+-	BUG_ON(skb =3D=3D NULL);
+-
+  	if (likely(po->tx_ring.pg_vec)) {
+  		ph =3D skb_shinfo(skb)->destructor_arg;
+  		BUG_ON(__packet_get_status(po, ph) !=3D TP_STATUS_SENDING);
