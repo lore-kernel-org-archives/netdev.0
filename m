@@ -1,55 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/9] skb fragment API: convert network drivers (part V)
-Date: Mon, 10 Oct 2011 21:42:15 +0200
-Message-ID: <1318275735.2567.5.camel@edumazet-laptop>
-References: <20111010.142040.2267571270586671416.davem@davemloft.net>
-	 <1318272731.2567.4.camel@edumazet-laptop>
-	 <1318274224.27397.11.camel@dagon.hellion.org.uk>
-	 <20111010.151858.301337439177641970.davem@davemloft.net>
+From: "Brett Woon Chee" <BrettWoon@adm.univ-lille2.fr>
+Subject: Dear E-mail User
+Date: Mon, 10 Oct 2011 19:51:55 -0000
+Message-ID: <eb42e90a8fca03f1e6d6b47b5599b5c8.squirrel@webmail.univ-lille2.fr>
+Reply-To: shangymrwong101@tnctr.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ian.Campbell@citrix.com, netdev@vger.kernel.org,
- linux-scsi@vger.kernel.org,  linux-mm@kvack.org
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111010.151858.301337439177641970.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-Le lundi 10 octobre 2011 =C3=A0 15:18 -0400, David Miller a =C3=A9crit :
-> From: Ian Campbell <Ian.Campbell@citrix.com>
-> Date: Mon, 10 Oct 2011 20:17:04 +0100
->=20
-> > On Mon, 2011-10-10 at 19:52 +0100, Eric Dumazet wrote:
-> >> Le lundi 10 octobre 2011 =C3=A0 14:20 -0400, David Miller a =C3=A9cr=
-it :
-> >> > From: Ian Campbell <Ian.Campbell@citrix.com>
-> >> > Date: Mon, 10 Oct 2011 12:11:16 +0100
-> >> >=20
-> >> > > I think "struct subpage" is a generally useful tuple I added to =
-a
-> >> > > central location (mm_types.h) rather than somewhere networking o=
-r driver
-> >> > > specific but I can trivially move if preferred.
-> >> >=20
-> >> > I'm fine with the patch series, but this generic datastructure
-> >> > addition needs some feedback first.
-> >=20
-> > Sure. Would you take patches 6, 7 & 8 now? They don't rely on the new
-> > struct.
->=20
-> I'll do that right now, thanks Ian.
-
-I'll respin my patch once your tree is pushed.
-
-Thanks
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.univ-lille2.fr ([194.254.117.6]:49238 "EHLO
+	smtp.univ-lille2.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753026Ab1JJUCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 16:02:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+
+
+-- 
+Dear E-mail User,
+
+This is to inform you that your email address with MICROS ID
+MCX-84743-MFG-133CN-9JP emerge our second place winner of $593,000 plus a
+brand new 2012 Ford TAURUS Car from the Shangyu Long Mid-year
+promotion.Please confirm your status by Contacting Agent: Mr.Fred  Wong,
+with info below..
+***Full Name
+***Country
+***Phone
+***Age
+***Gender
+***Occupation
+For claims proceedures Send your details to
+Email: shangymrwong101@tnctr.com
+Phone-(+60-111-645-5077.)
+Congratulations!!!
+Brett Woon Chee, (Sec.announcer)
