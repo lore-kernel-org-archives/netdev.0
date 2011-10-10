@@ -1,94 +1,64 @@
-From: Josh Boyer <jwboyer@redhat.com>
-Subject: Re: loopback IP alias breaks tftp?
-Date: Mon, 10 Oct 2011 11:10:59 -0400
-Message-ID: <20111010151058.GD1165@zod.bos.redhat.com>
-References: <20111005202723.GE2479@zod.bos.redhat.com>
- <alpine.LFD.2.00.1110060009020.1959@ja.ssi.bg>
- <20111006132353.GF2479@zod.bos.redhat.com>
- <CAA6X_dP_LDO0hQYpixi-DtsKVJZQEgAY5wa4y_wYpEqXVyn7TQ@mail.gmail.com>
- <1317972573.3457.55.camel@edumazet-laptop>
- <20111007114017.GA1165@zod.bos.redhat.com>
- <1317989073.3207.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <1317990201.3207.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: e100 + VLANs?
+Date: Mon, 10 Oct 2011 17:13:43 +0200
+Message-ID: <20111010151343.GB3260852@jupiter.n2.diac24.net>
+References: <4E90212D.8030009@msgid.tls.msk.ru>
+ <1318091046.5276.22.camel@edumazet-laptop>
+ <4E9097C0.2030307@gmail.com>
+ <20111010101954.GB2840382@jupiter.n2.diac24.net>
+ <4E9307CB.4050704@msgid.tls.msk.ru>
+ <1318259152.3227.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joel Sing <jsing@google.com>, Julian Anastasov <ja@ssi.bg>,
-	netdev@vger.kernel.org, francis.souyri@apec.fr
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Tokarev <mjt@tls.msk.ru>,
+	David Lamparter <equinox@diac24.net>,
+	jeffrey.t.kirsher@intel.com, netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50670 "EHLO mx1.redhat.com"
+Received: from spaceboyz.net ([87.106.131.203]:39178 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750756Ab1JJPLR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Oct 2011 11:11:17 -0400
+	id S1750737Ab1JJPN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Oct 2011 11:13:56 -0400
 Content-Disposition: inline
-In-Reply-To: <1317990201.3207.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+In-Reply-To: <1318259152.3227.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 07, 2011 at 02:23:21PM +0200, Eric Dumazet wrote:
-> Le vendredi 07 octobre 2011 =E0 14:04 +0200, Eric Dumazet a =E9crit :
->=20
-> > Its a completely different problem IMHO : You describe a tftp serve=
-r
-> > bug.
-> >=20
-> > Say your tftp server is multihomed with 3 different IPS :=20
-> >=20
-> > 192.168.20.21, 192.168.20.22, 192.168.20.23
-> >=20
-> > And tftp server listens to any address (UDP port 69) : 0.0.0.0:69
-> >=20
-> > When receiving a request on 192.168.20.22, it should use same sourc=
-e
-> > address, not let the system chose a "random or whatever policy" one=
-=2E
-> >=20
-> >=20
-> >=20
-> > So I would suggest to check/fix if TFTP server uses the correct soc=
-ket
-> > API to get both the client IP and its own IP in each UDP datagram
-> >=20
-> > -> setsockopt(fd, IPPROTO_IP, &on, sizeof(on))
->=20
-> > This permits tftp server to use the same "struct in_pktinfo" for re=
-plies, forcing a correct source address.
-> >=20
->=20
-> By the way, there is no need for tftp change :
->=20
-> Just launch several tftpd instances, and bind each them to one
-> particular IP.
->=20
-> If started from xinetd.d :
->=20
-> $ cat /etc/xinetd.d/tftp1
-> service tftp
-> {
-> 	socket_type		=3D dgram
-> 	protocol		=3D udp
-> 	wait			=3D yes
-> 	user			=3D root
-> 	server			=3D /usr/sbin/in.tftpd
-> 	server_args		=3D -s /tftpboot
-> 	disable			=3D no
-> 	bind		=3D 192.168.20.21
-> 	per_source		=3D 11
-> 	cps			=3D 100 2
-> 	flags			=3D IPv4
-> }
+On Mon, Oct 10, 2011 at 05:05:52PM +0200, Eric Dumazet wrote:
+> > When pinging this NIC from another machine over VLAN5, I see
+> > ARP packets coming to it, gets recognized and replies going
+> > back, all on vlan 5.  But on the other side, replies comes
+> > WITHOUT a VLAN tag!
+> > 
+> > From this NIC's point of view, capturing on whole ethX:
+> > 
+> > 00:1f:c6:ef:e5:1b > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), length 60: vlan 5, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.48.11.2 tell 10.48.11.1, length 42
+> > 00:90:27:30:6d:1c > 00:1f:c6:ef:e5:1b, ethertype 802.1Q (0x8100), length 46: vlan 5, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Reply 10.48.11.2 is-at 00:90:27:30:6d:1c, length 28
+> > 
+> > From the partner point of view, also on whole ethX:
+> > 
+> > 00:1f:c6:ef:e5:1b > ff:ff:ff:ff:ff:ff, ethertype 802.1Q (0x8100), length 46: vlan 5, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 10.48.11.2 tell 10.48.11.1, length 28
+> > 00:90:27:30:6d:1c > 00:1f:c6:ef:e5:1b, ethertype ARP (0x0806), length 60: Ethernet (len 6), IPv4 (len 4), Reply 10.48.11.2 is-at 00:90:27:30:6d:1c, length 46
+> > 
+> > So, the tag gets eaten somewhere along the way... ;)
 
-(I've CC'd the original bug reporter now.)
+Hmm. Looks like broken VLAN TX offload, but the driver doesn't even
+implement VLAN offload. Maybe it's broken in its non-implementation...
 
-I did this locally and it still timed out.  So the bind alone is not
-enough to fix the problem.  At least not on lo:0 127.0.0.2.
+Your "partner" is a known-good setup and can be assumed to be working
+correctly? This is over a crossover cable, no evil switches involved?
 
-Changing the source address in the routing table as Joel suggested does
-work around the problem.
+> > And I can't really recreate the situation which I had - I know
+> > some packets were flowing, so at least ARP worked.  Now it
+> > does not work anymore.
+> 
+> What the 'partner' setup looks like ?
+> 
+> ip link
+> ip addr
+> ip ro
 
-So, in summary,  either the TFTP server needs to be changed per your
-original suggestion, or the routing table needs to be altered for every
-alias?  Is that correct?
+'local' setup too please :)
 
-josh
+
+-David
