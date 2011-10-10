@@ -1,92 +1,93 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 5/9] cxgbi: convert to SKB paged frag API.
-Date: Mon, 10 Oct 2011 12:11:37 +0100
-Message-ID: <1318245101-16890-5-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 9/9] net: add opaque struct around skb frag page
+Date: Mon, 10 Oct 2011 12:11:41 +0100
+Message-ID: <1318245101-16890-9-git-send-email-ian.campbell@citrix.com>
 References: <1318245076.21903.408.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	James Bottomley <James.Bottomley@suse.de>,
-	Karen Xie <kxie@chelsio.com>, linux-scsi@vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:44685 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753714Ab1JJLLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 07:11:51 -0400
+	with ESMTP id S1753640Ab1JJLLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 07:11:55 -0400
 In-Reply-To: <1318245076.21903.408.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: "James E.J. Bottomley" <JBottomley@parallels.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Mike Christie <michaelc@cs.wisc.edu>
-Cc: James Bottomley <James.Bottomley@suse.de>
-Cc: Karen Xie <kxie@chelsio.com>
-Cc: linux-scsi@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
- drivers/scsi/cxgbi/libcxgbi.c |   16 +++++++++-------
- drivers/scsi/cxgbi/libcxgbi.h |    2 +-
- 2 files changed, 10 insertions(+), 8 deletions(-)
+I've split this bit out of the skb frag destructor patch since it helps enforce
+the use of the fragment API.
 
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index 77ac217..628b23d 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -1787,7 +1787,7 @@ static int sgl_seek_offset(struct scatterlist *sgl, unsigned int sgcnt,
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+---
+ include/linux/skbuff.h |   10 ++++++----
+ net/core/skbuff.c      |    6 +++---
+ 2 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index ac6b05a..f881d75 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -135,7 +135,9 @@ struct sk_buff;
+ typedef struct skb_frag_struct skb_frag_t;
+ 
+ struct skb_frag_struct {
+-	struct page *page;
++	struct {
++		struct page *p;
++	} page;
+ #if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
+ 	__u32 page_offset;
+ 	__u32 size;
+@@ -1149,7 +1151,7 @@ static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
+ {
+ 	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 
+-	frag->page		  = page;
++	frag->page.p		  = page;
+ 	frag->page_offset	  = off;
+ 	frag->size		  = size;
+ }
+@@ -1673,7 +1675,7 @@ static inline void netdev_free_page(struct net_device *dev, struct page *page)
+  */
+ static inline struct page *skb_frag_page(const skb_frag_t *frag)
+ {
+-	return frag->page;
++	return frag->page.p;
  }
  
- static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
--				unsigned int dlen, skb_frag_t *frags,
-+				unsigned int dlen, struct subpage *frags,
- 				int frag_max)
+ /**
+@@ -1759,7 +1761,7 @@ static inline void *skb_frag_address_safe(const skb_frag_t *frag)
+  */
+ static inline void __skb_frag_set_page(skb_frag_t *frag, struct page *page)
  {
- 	unsigned int datalen = dlen;
-@@ -1944,7 +1944,7 @@ int cxgbi_conn_init_pdu(struct iscsi_task *task, unsigned int offset,
- 		if (tdata->nr_frags > MAX_SKB_FRAGS ||
- 		    (padlen && tdata->nr_frags == MAX_SKB_FRAGS)) {
- 			char *dst = skb->data + task->hdr_len;
--			skb_frag_t *frag = tdata->frags;
-+			struct subpage *frag = tdata->frags;
+-	frag->page = page;
++	frag->page.p = page;
+ 	__skb_frag_ref(frag);
+ }
  
- 			/* data fits in the skb's headroom */
- 			for (i = 0; i < tdata->nr_frags; i++, frag++) {
-@@ -1962,11 +1962,13 @@ int cxgbi_conn_init_pdu(struct iscsi_task *task, unsigned int offset,
- 			skb_put(skb, count + padlen);
- 		} else {
- 			/* data fit into frag_list */
--			for (i = 0; i < tdata->nr_frags; i++)
--				get_page(tdata->frags[i].page);
--
--			memcpy(skb_shinfo(skb)->frags, tdata->frags,
--				sizeof(skb_frag_t) * tdata->nr_frags);
-+			for (i = 0; i < tdata->nr_frags; i++) {
-+				__skb_fill_page_desc(skb, i,
-+						tdata->frags[i].page,
-+						tdata->frags[i].page_offset,
-+						tdata->frags[i].size);
-+				skb_frag_ref(skb, i);
-+			}
- 			skb_shinfo(skb)->nr_frags = tdata->nr_frags;
- 			skb->len += count;
- 			skb->data_len += count;
-diff --git a/drivers/scsi/cxgbi/libcxgbi.h b/drivers/scsi/cxgbi/libcxgbi.h
-index 9267844..9406759 100644
---- a/drivers/scsi/cxgbi/libcxgbi.h
-+++ b/drivers/scsi/cxgbi/libcxgbi.h
-@@ -574,7 +574,7 @@ struct cxgbi_endpoint {
- #define MAX_PDU_FRAGS	((ULP2_MAX_PDU_PAYLOAD + 512 - 1) / 512)
- struct cxgbi_task_data {
- 	unsigned short nr_frags;
--	skb_frag_t frags[MAX_PDU_FRAGS];
-+	struct subpage frags[MAX_PDU_FRAGS];
- 	struct sk_buff *skb;
- 	unsigned int offset;
- 	unsigned int count;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5b2c5f1..6305076 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -657,14 +657,14 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
+ 
+ 	/* skb frags release userspace buffers */
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+-		put_page(skb_shinfo(skb)->frags[i].page);
++		skb_frag_unref(skb, i);
+ 
+ 	uarg->callback(uarg);
+ 
+ 	/* skb frags point to kernel buffers */
+ 	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
+-		skb_shinfo(skb)->frags[i - 1].page_offset = 0;
+-		skb_shinfo(skb)->frags[i - 1].page = head;
++		__skb_fill_page_desc(skb, i-1, head, 0,
++				     skb_shinfo(skb)->frags[i - 1].size);
+ 		head = (struct page *)head->private;
+ 	}
+ 
 -- 
 1.7.2.5
