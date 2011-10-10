@@ -1,91 +1,70 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH net-next] macvlan: handle fragmented multicast frames
-Date: Mon, 10 Oct 2011 09:27:24 -0700
-Message-ID: <4E931CEC.5050404@candelatech.com>
-References: <4E8C89EE.3090600@candelatech.com>  <1317844449.3457.3.camel@edumazet-laptop>  <4E8CB990.1010406@candelatech.com>  <1317845835.3457.5.camel@edumazet-laptop>  <4E8CBBD6.3080500@candelatech.com>  <1317846693.3457.11.camel@edumazet-laptop>  <4E8CC474.7050803@candelatech.com>  <1317850603.3457.21.camel@edumazet-laptop>  <4E8CD180.5010905@candelatech.com>  <4E8CDB9B.6010900@candelatech.com> <1317932911.3457.31.camel@edumazet-laptop>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 1/9] mm: add a "struct subpage" type containing a page,
+ offset and length
+Date: Mon, 10 Oct 2011 17:27:07 +0100
+Message-ID: <1318264027.21903.470.camel@zakaz.uk.xensource.com>
+References: <1318245076.21903.408.camel@zakaz.uk.xensource.com>
+	 <1318245101-16890-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:51305 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919Ab1JJQ11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 12:27:27 -0400
-In-Reply-To: <1317932911.3457.31.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>, linux-kernel
+	<linux-kernel@vger.kernel.org>, Jens Axboe <axboe@kernel.dk>, "Christoph
+ Hellwig" <hch@infradead.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1318245101-16890-1-git-send-email-ian.campbell@citrix.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 10/06/2011 01:28 PM, Eric Dumazet wrote:
-> Le mercredi 05 octobre 2011 =C3=A0 15:35 -0700, Ben Greear a =C3=A9cr=
-it :
->
->> If someone wants to cook up macvlan-ip-defrag patch I'll be happy
->> to test it.  But, as far as I can tell, this problem can happen on
->> any two interfaces.  The reason that some of mine work (.1q vlans)
->> and macvlan didn't is probably because those were separated by
->> some virtual network links that imparted extra delay...so the
->> vlan consumed all its fragments and passed the complete pkt up
->> the stack before the mac-vlan ever saw the initial frame.
->>
->> With this in mind, it seems that using multiple udp multicast
->> sockets bound to specific devices is fundamentally broken for
->> fragmented packets.
->>
->> I have no pressing need for this feature, so now that I better under=
-stand
->> the problem I can just document it and move on to other things.
->>
->> Thanks for all the help.
->>
->
-> Please test following patch (note I had no time to test it, sorry !)
->
-> Based on net-next tree, might apply on 3.0 kernel...
->
-> [PATCH net-next] macvlan: handle fragmented multicast frames
->
-> Fragmented multicast frames are delivered to a single macvlan port,
-> because ip defrag logic considers other samples are redundant.
->
-> Implement a defrag step before trying to send the multicast frame.
+(reposting including LKML to catch other potential users)
 
-I applied this to Linus' top-of-tree this morning and it does appear
-to fix the problem for mac-vlans.
+Is this structure of any use to unify other instances of a similar
+tuple, e.g. biovec, pagefrag etc?
 
-I do see this error, but I doubt it has anything to do with your
-patch:
+Ian.
 
-device eth0 entered promiscuous mode
-device rddVR10 entered promiscuous mode
-ADDRCONF(NETDEV_CHANGE): rddVR1b: link becomes ready
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-[ BUG: lock held when returning to user space! ]
-------------------------------------------------
-ip/3452 is leaving the kernel with locks still held!
-1 lock held by ip/3452:
-  #0:  (rcu_read_lock){.+.+..}, at: [<f8c5336f>] rcu_read_lock+0x0/0x26=
- [ipv6]
-ADDRCONF(NETDEV_CHANGE): rddVR4b: link becomes ready
-ADDRCONF(NETDEV_CHANGE): rddVR5b: link becomes ready
+On Mon, 2011-10-10 at 12:11 +0100, Ian Campbell wrote:
+> A few network drivers currently use skb_frag_struct for this purpose but I have
+> patches which add additional fields and semantics there which these other uses
+> do not want.
+> 
+> A structure for reference sub-page regions seems like a generally useful thing
+> so do so instead of adding a network subsystem specific structure.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: linux-mm@kvack.org
+> ---
+>  include/linux/mm_types.h |   11 +++++++++++
+>  1 files changed, 11 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+> index 774b895..dc1d103 100644
+> --- a/include/linux/mm_types.h
+> +++ b/include/linux/mm_types.h
+> @@ -135,6 +135,17 @@ struct page {
+>  #endif
+>  ;
+>  
+> +struct subpage {
+> +	struct page *page;
+> +#if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
+> +	__u32 page_offset;
+> +	__u32 size;
+> +#else
+> +	__u16 page_offset;
+> +	__u16 size;
+> +#endif
+> +};
+> +
+>  typedef unsigned long __nocast vm_flags_t;
+>  
+>  /*
 
 
-I have no idea why it doesn't print out a more useful stack
-trace.  It seems repeatable (2 of 2 reboots so far).  I'm
-configuring a pretty complex virtual network, with veth devices,
-xorp instances running ipv4 and ipv6 routing protocols, etc.
-
-This is a clean upstream kernel with no outside patches aside from your
-own.
-
-Thanks,
-Ben
-
-
---=20
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
