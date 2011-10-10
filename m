@@ -1,47 +1,47 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: RE: [PATCH] mlx4_en: fix transmit of packages when blue frame is
- enabled
-Date: Mon, 10 Oct 2011 10:29:40 +0200
-Message-ID: <1318235380.29415.411.camel@pasglop>
-References: <AE90C24D6B3A694183C094C60CF0A2F6D8AE77@saturn3.aculab.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] mlx4_en: fix transmit of packages when blue frame is enabled
+Date: Mon, 10 Oct 2011 09:40:17 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AE78@saturn3.aculab.com>
+References: <1318145118.29415.371.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eli Cohen <eli@dev.mellanox.co.il>, netdev@vger.kernel.org,
-	Eli Cohen <eli@mellanox.co.il>, linuxppc-dev@lists.ozlabs.org,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "Eli Cohen" <eli@mellanox.co.il>,
+	<linuxppc-dev@lists.ozlabs.org>,
+	"Thadeu Lima de Souza Cascardo" <cascardo@linux.vnet.ibm.com>,
+	"Yevgeny Petrilin" <yevgenyp@mellanox.co.il>
+To: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
+	"Eli Cohen" <eli@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:45973 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751353Ab1JJIaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Oct 2011 04:30:07 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6D8AE77@saturn3.aculab.com>
+Received: from mx0.aculab.com ([213.249.233.131]:39750 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752193Ab1JJIl3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 04:41:29 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 08802-05 for <netdev@vger.kernel.org>;
+ Mon, 10 Oct 2011 09:41:23 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1318145118.29415.371.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-10-10 at 09:20 +0100, David Laight wrote:
+ 
+> What is this __iowrite64_copy... oh I see
 > 
-> For the above I'd actually suggest making 'doorbell_qpn' have the
-> correct endianness in order to avoid the (potential) swap every
-> time it is set.
+> Nice, somebody _AGAIN_ added a bunch of "generic" IO 
+> accessors that are utterly wrong on all archs except
+> x86 (ok, -almost-).
+> There isn't a single bloody memory barrier in there !
 
-Well, the problem is that either you'll end up swapping on x86 or you'll
-end up swapping on ppc, there is no "native" MMIO accessor that allow
-you to do a no-swap access whatever the arch you are on. Or rather,
-there is the __raw_ one but you shouldn't use it for most things :-)
-(Because it also doesn't have the right memory barriers).
+Actually memory barriers shouldn't really be added to
+any of these 'accessor' functions.
+(Or, at least, ones without barriers should be provided.)
 
-So I'd rather they do it right using the simpler method, the cost of
-swap is going to be negligible, probably not even measurable, and if and
-only if they think they can improve on that in a second step, then
-consider doing otherwise with appropriate measurements showing a
-significant difference.
+The driver may want to to a series of writes, then a
+single barrier, before a final write of a command (etc).
 
-> You also need to treble-check the required endianness for the
-> 'vlan_tag' in the tx descriptor. What would be needed is the
-> MAC PCI slave were on an x86 (LE) system.
+in_le32() from io.h is specially horrid!
 
-Cheers,
-Ben.
+	David
