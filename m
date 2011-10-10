@@ -1,94 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vlan:make mtu of vlan equal to physical dev
-Date: Mon, 10 Oct 2011 00:00:09 -0400 (EDT)
-Message-ID: <20111010.000009.1901557507648118650.davem@davemloft.net>
-References: <bc33a6142ce48b71b9c232a9154ed76f6048f0cb.1318068629.git.panweiping3@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] truesize lies
+Date: Mon, 10 Oct 2011 08:54:57 +0200
+Message-ID: <1318229697.21116.23.camel@edumazet-laptop>
+References: <1318186948.5276.49.camel@edumazet-laptop>
+	 <20111009.172739.2151675769111763947.davem@davemloft.net>
+	 <1318197320.21116.11.camel@edumazet-laptop>
+	 <20111009.181023.328192272226333109.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au
-To: panweiping3@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36262 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750715Ab1JJEAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 00:00:19 -0400
-In-Reply-To: <bc33a6142ce48b71b9c232a9154ed76f6048f0cb.1318068629.git.panweiping3@gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:42479 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740Ab1JJGzF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 02:55:05 -0400
+Received: by wwf22 with SMTP id 22so8692674wwf.1
+        for <netdev@vger.kernel.org>; Sun, 09 Oct 2011 23:55:04 -0700 (PDT)
+In-Reply-To: <20111009.181023.328192272226333109.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weiping Pan <panweiping3@gmail.com>
-Date: Sat,  8 Oct 2011 18:12:15 +0800
+Le dimanche 09 octobre 2011 =C3=A0 18:10 -0400, David Miller a =C3=A9cr=
+it :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sun, 09 Oct 2011 23:55:20 +0200
+>=20
+> > Some drivers splits a page in two (or more) pieces, so we cant know=
+ what
+> > was really reserved by a driver for paged skbs.
+> >=20
+> > Only thing we could enforce at the moment is the proper accounting =
+for
+> > skb head :
+> >=20
+> > WARN_ON(skb->truesize < (skb_end_pointer(skb) - skb->head) + sizeof=
+(sk_buff) + skb->data_len);
+>=20
+> This is partly true.
+>=20
+> Drivers that use page pools divide pages up into different pools, eac=
+h
+> with some specific block size.  At least this is how NIU works.
+>=20
+> So NIU knows exactly how much of the block is logically part of that
+> SKB yet unused.
+>=20
+> And if we really wanted to we could add a frag[].reserved field that
+> keeps track of this for debugging.
 
-[ Herbert, Weiping is suggesting to remove the "vlandev->mtu <= dev->mtu"
-  test in your patch below. ]
+Hmm, this would still be possible for a driver to lie and consume lot o=
+f
+ram on 64bit arches.
 
-> Default mtu of vlan device is the same with mtu of physical device,
-> for example 1500, but when change physics mtu to 1600,
-> VLAN device's mtu is still 1500.
-> Certainly, you can change vlan device's mtu to 1600 manually,
-> but I think when you change physics device's mtu, VLAN's mtu should be changed
-> automatically instead of by manually.
-> 
-> Steps to Reproduce:
-> 1.vconfig add eth4 3
-> 2.ifconfig eth4 mtu 1600
-> 3.check mtu on eth4.3
-> 
-> And what's worse is that if you decrease mtu of pyhsical device,
-> and when you want to increase it, the mtu of vlan device won't be changed.
-> 
-> Steps to Reproduce:
-> 1.vconfig add eth4 3
-> 2.ifconfig eth4 mtu 100
-> 3.ifconfig eth4 mtu 1500
-> 4.the mtu of eth4.3 is still 100
-> 
-> This bug is reported by Liang Zheng(lzheng@redhat.com).
-> 
-> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+How about using a "struct page" field then, since for a given page, we
+can assume/enforce it was divided in equal units (kind of a negative
+order) by a driver.
 
-But now this setting is unconditional, and thus value user made
-settings will be ignored.
+Instead of using alloc_page(order) a driver could use
 
-The code that is there now is just a safety measure, and the
-test appears to very much be intentional:
+alloc_page_truesize(gfp_t mask, int page_order, int subunit_order)
 
---------------------
-commit 2e477c9bd2bb6a1606e498adb53ba913378ecdf2
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Mon Jul 20 07:35:37 2009 -0700
+=46or example, an x86 driver using 4KB page splitted in two pieces woul=
+d
+use alloc_page_truesize(gfp, 0, 1)
 
-    vlan: Propagate physical MTU changes
-    
-    When the physical MTU changes we want to ensure that all existing
-    VLAN device MTUs do not exceed the new underlying MTU.  This patch
-    adds that propagation.
-    
-    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+To get frag[i].reserved (aka truesize), we then would do
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index fe64908..6d37b7e 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -468,6 +468,19 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		}
- 		break;
- 
-+	case NETDEV_CHANGEMTU:
-+		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
-+			vlandev = vlan_group_get_device(grp, i);
-+			if (!vlandev)
-+				continue;
-+
-+			if (vlandev->mtu <= dev->mtu)
-+				continue;
-+
-+			dev_set_mtu(vlandev, dev->mtu);
-+		}
-+		break;
-+
- 	case NETDEV_FEAT_CHANGE:
- 		/* Propagate device features to underlying device */
- 		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
+static inline int frag_truesize(const skb_frag_t *frag)
+{
+	return compound_head(frag->page)->truesize;
+}
+
+(Not even sure compound_head() is even necessary here, but I see NIU
+uses it in niu_rbr_add_page() ?)
