@@ -1,45 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 02/11] igb: Use node specific allocations for the
- q_vectors and rings
-Date: Mon, 10 Oct 2011 13:50:28 -0400 (EDT)
-Message-ID: <20111010.135028.1975552298597502010.davem@davemloft.net>
-References: <1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20111008.155158.566839176815794249.davem@davemloft.net>
-	<4E931A06.7090805@intel.com>
+Subject: Re: [PATCH] af_packet: remove unnecessary BUG_ON() in
+ tpacket_destruct_skb
+Date: Mon, 10 Oct 2011 14:09:51 -0400 (EDT)
+Message-ID: <20111010.140951.1248594231055254215.davem@davemloft.net>
+References: <20111010185246.15533bv1p3pmnba6@mail.your-server.de>
+	<1318266304.3227.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: alexander.h.duyck@intel.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: danborkmann@iogearbox.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35370 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:33441 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753800Ab1JJRum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 13:50:42 -0400
-In-Reply-To: <4E931A06.7090805@intel.com>
+	with ESMTP id S1753031Ab1JJSKQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 14:10:16 -0400
+In-Reply-To: <1318266304.3227.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Mon, 10 Oct 2011 09:15:02 -0700
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 10 Oct 2011 19:05:04 +0200
 
-> Actually the main reason for having adapter->node is because in our
-> out-of-tree driver we end up using it as a module parameter in the event
-> that someone is running in single queue mode and wants to split up the
-> ports between nodes.  As such I would prefer to keep the parameter
-> around and just default it to -1 as I am currently doing.  However if it
-> must go I guess I can work around that sync-up issue.
+> Le lundi 10 octobre 2011 =E0 18:52 +0200, danborkmann@iogearbox.net a
+> =E9crit :
+>> If skb is NULL, then stack trace is thrown anyway on dereference.
+>> Therefore, the stack trace triggered by BUG_ON is duplicate.
+>>=20
+>> Signed-off-by: Daniel Borkmann <danborkmann@googlemail.com>
+>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Please stop adding such hacks to your out-of-tree driver and add
-appropriate, generic, configure mechanisms to the upstream tree.
-
-It absolutely is not appropriate to add something which is completely
-useless to the upstream tree for the sake of something being done
-only externally.
-
-You guys are the best at upstream net driver maintainence, so it
-really surprises me that you continue to do completely unacceptable
-crap like this.  Write the necessary generic non-module-option
-mechanisms to facilitate the features you need and kill your out of
-tree driver _now_.
+Applied, but please make patches like this against the net-next tree
+in which the af_packet.c code had changed quite a bit and therefore
+I had to munch your patch to get it to apply.
