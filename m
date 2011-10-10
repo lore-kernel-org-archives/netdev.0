@@ -1,50 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] skb fragment API: convert network drivers (part V)
-Date: Mon, 10 Oct 2011 15:18:58 -0400 (EDT)
-Message-ID: <20111010.151858.301337439177641970.davem@davemloft.net>
-References: <20111010.142040.2267571270586671416.davem@davemloft.net>
-	<1318272731.2567.4.camel@edumazet-laptop>
-	<1318274224.27397.11.camel@dagon.hellion.org.uk>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next PATCH] net: allow vlan traffic to be received under bond
+Date: Mon, 10 Oct 2011 12:16:41 -0700
+Message-ID: <20111010191641.2496.84845.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-mm@kvack.org
-To: Ian.Campbell@citrix.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1318274224.27397.11.camel@dagon.hellion.org.uk>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jpirko@redhat.com, jesse@nicira.com,
+	fubar@us.ibm.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:41556 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754571Ab1JJTZl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Oct 2011 15:25:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Mon, 10 Oct 2011 20:17:04 +0100
+The following configuration used to work as I expected. At least
+we could use the fcoe interfaces to do MPIO and the bond0 iface
+to do load balancing or failover.
 
-> On Mon, 2011-10-10 at 19:52 +0100, Eric Dumazet wrote:
->> Le lundi 10 octobre 2011 =E0 14:20 -0400, David Miller a =E9crit :
->> > From: Ian Campbell <Ian.Campbell@citrix.com>
->> > Date: Mon, 10 Oct 2011 12:11:16 +0100
->> > =
+       ---eth2.228-fcoe
+       |
+eth2 -----|
+          |
+          |---- bond0
+          |
+eth3 -----|
+       |
+       ---eth3.228-fcoe
 
->> > > I think "struct subpage" is a generally useful tuple I added to =
-a
->> > > central location (mm_types.h) rather than somewhere networking o=
-r driver
->> > > specific but I can trivially move if preferred.
->> > =
+This worked because of a change we added to allow inactive slaves
+to rx 'exact' matches. This functionality was kept intact with the
+rx_handler mechanism. However now the vlan interface attached to the
+active slave never receives traffic because the bonding rx_handler
+updates the skb->dev and goto's another_round. Previously, the
+vlan_do_receive() logic was called before the bonding rx_handler.
 
->> > I'm fine with the patch series, but this generic datastructure
->> > addition needs some feedback first.
-> =
+Now by the time vlan_do_receive calls vlan_find_dev() the
+skb->dev is set to bond0 and it is clear no vlan is attached
+to this iface. The vlan lookup fails.
 
-> Sure. Would you take patches 6, 7 & 8 now? They don't rely on the new=
+This patch moves the VLAN check above the rx_handler. A VLAN
+tagged frame is now routed to the eth2.228-fcoe iface in the
+above schematic. Untagged frames continue to the bond0 as
+normal. This case also remains intact,
 
-> struct.
+eth2 --> bond0 --> vlan.228
 
-I'll do that right now, thanks Ian.
+Here the skb is VLAN tagged but the vlan lookup fails on eth2
+causing the bonding rx_handler to be called. On the second
+pass the vlan lookup is on the bond0 iface and completes as
+expected.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Putting a VLAN.228 on both the bond0 and eth2 device will
+result in eth2.228 receiving the skb. I don't think this is
+completely unexpected and was the result prior to the rx_handler
+result.
+
+Note, the same setup is also used for other storage traffic that
+MPIO is used with eg. iSCSI and similar setups can be contrived
+without storage protocols.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+
+ net/core/dev.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 70ecb86..8b6118a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3231,6 +3231,17 @@ another_round:
+ ncls:
+ #endif
+ 
++	if (vlan_tx_tag_present(skb)) {
++		if (pt_prev) {
++			ret = deliver_skb(skb, pt_prev, orig_dev);
++			pt_prev = NULL;
++		}
++		if (vlan_do_receive(&skb))
++			goto another_round;
++		else if (unlikely(!skb))
++			goto out;
++	}
++
+ 	rx_handler = rcu_dereference(skb->dev->rx_handler);
+ 	if (rx_handler) {
+ 		if (pt_prev) {
+@@ -3251,17 +3262,6 @@ ncls:
+ 		}
+ 	}
+ 
+-	if (vlan_tx_tag_present(skb)) {
+-		if (pt_prev) {
+-			ret = deliver_skb(skb, pt_prev, orig_dev);
+-			pt_prev = NULL;
+-		}
+-		if (vlan_do_receive(&skb))
+-			goto another_round;
+-		else if (unlikely(!skb))
+-			goto out;
+-	}
+-
+ 	/* deliver only exact match when indicated */
+ 	null_or_dev = deliver_exact ? skb->dev : NULL;
+ 
