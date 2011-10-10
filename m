@@ -1,67 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] af_packet: tpacket_destruct_skb, deref skb after
- BUG_ON assertion
-Date: Mon, 10 Oct 2011 18:06:24 +0200
-Message-ID: <1318262784.3227.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111009171919.10922hrx8qjm2f7b@webmail.your-server.de>
-	 <1318193866.21116.3.camel@edumazet-laptop>
-	 <20111010100203.15066m7nvqod58cb@webmail.your-server.de>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 1/9] mm: add a "struct subpage" type containing a page,
+ offset and length
+Date: Mon, 10 Oct 2011 17:10:59 +0100
+Message-ID: <1318263059.21903.462.camel@zakaz.uk.xensource.com>
+References: <1318245076.21903.408.camel@zakaz.uk.xensource.com>
+	 <1318245101-16890-1-git-send-email-ian.campbell@citrix.com>
+	 <20111010155557.GA15503@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: danborkmann@iogearbox.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:64226 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147Ab1JJQGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 12:06:09 -0400
-Received: by gyg10 with SMTP id 10so5474543gyg.19
-        for <netdev@vger.kernel.org>; Mon, 10 Oct 2011 09:06:08 -0700 (PDT)
-In-Reply-To: <20111010100203.15066m7nvqod58cb@webmail.your-server.de>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:31648 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751825Ab1JJQLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 12:11:01 -0400
+In-Reply-To: <20111010155557.GA15503@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 10 octobre 2011 =C3=A0 10:02 +0200, danborkmann@iogearbox.net =
-a
-=C3=A9crit :
+On Mon, 2011-10-10 at 16:55 +0100, Christoph Hellwig wrote:
+> On Mon, Oct 10, 2011 at 12:11:33PM +0100, Ian Campbell wrote:
+> > A few network drivers currently use skb_frag_struct for this purpose but I have
+> > patches which add additional fields and semantics there which these other uses
+> > do not want.
+> > 
+> > A structure for reference sub-page regions seems like a generally useful thing
+> > so do so instead of adding a network subsystem specific structure.
+> 
+> Subpage seems like a fairly bad name.  page_frag would fit into the
+> scheme used in a few other places.
 
-> Thanks, you're absolutely right! Here's the trivial patch:
->=20
-> af_packet: removed unnecessary BUG_ON assertion in tpacket_destruct_s=
-kb
->=20
+ok.
 
-OK but a proper title should be=20
+> The brings back the discussion of unifying the various incarnations we
+> have of this (biovec, skb frag and there were a few more at times),
+> but IIRC one of the sticking points back then was that one offset
+> insistet in 32-bit offset/len and the other on 16-bit.
 
-[PATCH] af_packet: remove unnecessary BUG_ON() in tpacket_destruct_skb
+This version sizes the fields according to page size, was there
+somewhere which wanted to use an offset > PAGE_SIZE (or size > PAGE_SIZE
+for that matter). That would be pretty odd and/or not really a candidate
+for using this datastructure?
 
-
-> If skb is NULL, then stack trace is thrown on anyway on dereference. =
-=20
-> Therefore,
-> the stack trace triggered by BUG_ON is duplicate.
->=20
-> Signed-off-by: Daniel Borkmann <danborkmann@googlemail.com>
->=20
-
-missing "---" separator
-
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index fabb4fa..886ae50 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1170,8 +1170,6 @@ static void tpacket_destruct_skb(struct sk_buff=
- *skb)
->   	struct packet_sock *po =3D pkt_sk(skb->sk);
->   	void *ph;
->=20
-> -	BUG_ON(skb =3D=3D NULL);
-> -
->   	if (likely(po->tx_ring.pg_vec)) {
->   		ph =3D skb_shinfo(skb)->destructor_arg;
->   		BUG_ON(__packet_get_status(po, ph) !=3D TP_STATUS_SENDING);
->=20
->=20
-
-Please send a complete new mail without any history.
+Ian.
