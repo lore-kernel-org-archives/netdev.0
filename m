@@ -1,45 +1,57 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] net: ipv6: Allow netlink to set IPv6 address scope
-Date: Mon, 10 Oct 2011 12:16:06 -0400
-Message-ID: <4E931A46.1040905@hp.com>
-References: <20111005201559.E544016A599@drone1.mtv.corp.google.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next 02/11] igb: Use node specific allocations for the q_vectors
+ and rings
+Date: Mon, 10 Oct 2011 09:25:05 -0700
+Message-ID: <4E931C61.7040204@intel.com>
+References: <1318056461-19562-1-git-send-email-jeffrey.t.kirsher@intel.com>	<1318056461-19562-3-git-send-email-jeffrey.t.kirsher@intel.com> <m21uum2g28.fsf@firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: maze@google.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	c@google.com
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:46843 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752572Ab1JJQXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 12:23:00 -0400
-In-Reply-To: <20111005201559.E544016A599@drone1.mtv.corp.google.com>
+Received: from mga02.intel.com ([134.134.136.20]:16156 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751924Ab1JJQZA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Oct 2011 12:25:00 -0400
+In-Reply-To: <m21uum2g28.fsf@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/05/2011 04:15 PM, Lorenzo Colitti wrote:
-> net: ipv6: Allow netlink to set IPv6 address scope
+On 10/09/2011 11:08 AM, Andi Kleen wrote:
+> Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
+>>  
+>>  	for (i = 0; i < adapter->num_tx_queues; i++) {
+>> -		ring = kzalloc(sizeof(struct igb_ring), GFP_KERNEL);
+>> +		if (orig_node == -1) {
+>> +			int cur_node = next_online_node(adapter->node);
+>> +			if (cur_node == MAX_NUMNODES)
+>> +				cur_node = first_online_node;
 > 
-> Currently, userspace cannot specify the scope of IPv6
-> addresses when creating or modifying them. Instead, the
-> scope is automatically determined from the address itself.
-> In IPv4, userspace can set whatever scope it likes.
+> RR seems quite arbitrary. Who guarantees those nodes have any
+> relationship with the CPUs submitting on those queues? Or the node
+> the device is on.
 > 
-> Allow userspace to specify the scope of IPv6 addresses in
-> a backwards-compatible way: if the scope passed in is zero,
-> use the old behaviour of automatically determining the
-> scope based on the address.
+> Anyways if it's a good idea probably need to add a
+> dma_alloc_coherent_node() too
 > 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> -Andi
+> 
 
-Hi Lorenzo,
+The RR configuration is somewhat arbitrary.  However it is still better
+than dumping everyting on a single node, and it works with the
+configuration when the rings numbers line up with the CPU numbers since
+normally the CPUs are RR on the nodes.  From what I have seen it does
+work quite well and it prevents almost all cross-node memory accesses
+when running a routing workload.
 
-I remember someone proposing a similar patch before and it was not accepted, do
-you have a use case for doing this?  It just seems like it will cause problems.
+I was thinking along the same lines for dma_alloc_coherent_node as well.
+ I've been meaning to get to it but I just haven't had the time.  I'm
+intentionally holding off on the ixgbe version of these patches until I
+get the time to write up such a function.  At which time I was going to
+write up a patch to convert igb over to it.
 
-Also, there are other parts of the kernel (NFS, SCTP, IPv6 multicast) that are
-still calling ipv6_addr_scope() on a plain address - won't those be broken since
-they'll return the correct, RFC-implied scope?
+Thanks,
 
--Brian
+Alex
