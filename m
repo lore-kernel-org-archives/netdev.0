@@ -1,48 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 9/9] net: add opaque struct around skb frag page
-Date: Mon, 10 Oct 2011 17:09:35 +0200
-Message-ID: <1318259375.3227.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1318245076.21903.408.camel@zakaz.uk.xensource.com>
-	 <1318245101-16890-9-git-send-email-ian.campbell@citrix.com>
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: Re: loopback IP alias breaks tftp?
+Date: Mon, 10 Oct 2011 11:10:59 -0400
+Message-ID: <20111010151058.GD1165@zod.bos.redhat.com>
+References: <20111005202723.GE2479@zod.bos.redhat.com>
+ <alpine.LFD.2.00.1110060009020.1959@ja.ssi.bg>
+ <20111006132353.GF2479@zod.bos.redhat.com>
+ <CAA6X_dP_LDO0hQYpixi-DtsKVJZQEgAY5wa4y_wYpEqXVyn7TQ@mail.gmail.com>
+ <1317972573.3457.55.camel@edumazet-laptop>
+ <20111007114017.GA1165@zod.bos.redhat.com>
+ <1317989073.3207.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1317990201.3207.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ian Campbell <ian.campbell@citrix.com>
+Cc: Joel Sing <jsing@google.com>, Julian Anastasov <ja@ssi.bg>,
+	netdev@vger.kernel.org, francis.souyri@apec.fr
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:64843 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730Ab1JJPJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Oct 2011 11:09:20 -0400
-Received: by eye27 with SMTP id 27so1463027eye.19
-        for <netdev@vger.kernel.org>; Mon, 10 Oct 2011 08:09:19 -0700 (PDT)
-In-Reply-To: <1318245101-16890-9-git-send-email-ian.campbell@citrix.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50670 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750756Ab1JJPLR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Oct 2011 11:11:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1317990201.3207.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 10 octobre 2011 =C3=A0 12:11 +0100, Ian Campbell a =C3=A9crit =
-:
-> I've split this bit out of the skb frag destructor patch since it hel=
-ps enforce
-> the use of the fragment API.
+On Fri, Oct 07, 2011 at 02:23:21PM +0200, Eric Dumazet wrote:
+> Le vendredi 07 octobre 2011 =E0 14:04 +0200, Eric Dumazet a =E9crit :
 >=20
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> ---
->  include/linux/skbuff.h |   10 ++++++----
->  net/core/skbuff.c      |    6 +++---
->  2 files changed, 9 insertions(+), 7 deletions(-)
+> > Its a completely different problem IMHO : You describe a tftp serve=
+r
+> > bug.
+> >=20
+> > Say your tftp server is multihomed with 3 different IPS :=20
+> >=20
+> > 192.168.20.21, 192.168.20.22, 192.168.20.23
+> >=20
+> > And tftp server listens to any address (UDP port 69) : 0.0.0.0:69
+> >=20
+> > When receiving a request on 192.168.20.22, it should use same sourc=
+e
+> > address, not let the system chose a "random or whatever policy" one=
+=2E
+> >=20
+> >=20
+> >=20
+> > So I would suggest to check/fix if TFTP server uses the correct soc=
+ket
+> > API to get both the client IP and its own IP in each UDP datagram
+> >=20
+> > -> setsockopt(fd, IPPROTO_IP, &on, sizeof(on))
 >=20
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index ac6b05a..f881d75 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -135,7 +135,9 @@ struct sk_buff;
->  typedef struct skb_frag_struct skb_frag_t;
-> =20
->  struct skb_frag_struct {
-> -	struct page *page;
-> +	struct {
-> +		struct page *p;
-> +	} page;
+> > This permits tftp server to use the same "struct in_pktinfo" for re=
+plies, forcing a correct source address.
+> >=20
+>=20
+> By the way, there is no need for tftp change :
+>=20
+> Just launch several tftpd instances, and bind each them to one
+> particular IP.
+>=20
+> If started from xinetd.d :
+>=20
+> $ cat /etc/xinetd.d/tftp1
+> service tftp
+> {
+> 	socket_type		=3D dgram
+> 	protocol		=3D udp
+> 	wait			=3D yes
+> 	user			=3D root
+> 	server			=3D /usr/sbin/in.tftpd
+> 	server_args		=3D -s /tftpboot
+> 	disable			=3D no
+> 	bind		=3D 192.168.20.21
+> 	per_source		=3D 11
+> 	cps			=3D 100 2
+> 	flags			=3D IPv4
+> }
 
-Oh well, why dont you rename page to something else, say frag_page ?
+(I've CC'd the original bug reporter now.)
+
+I did this locally and it still timed out.  So the bind alone is not
+enough to fix the problem.  At least not on lo:0 127.0.0.2.
+
+Changing the source address in the routing table as Joel suggested does
+work around the problem.
+
+So, in summary,  either the TFTP server needs to be changed per your
+original suggestion, or the routing table needs to be altered for every
+alias?  Is that correct?
+
+josh
