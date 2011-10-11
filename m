@@ -1,66 +1,67 @@
-From: Shea Levy <shea@shealevy.com>
-Subject: Re: Hang with "runaway loop modprobe net-pf-1" on Linux 3.0.4
-Date: Tue, 11 Oct 2011 10:16:49 -0400
-Message-ID: <4E944FD1.8030302@shealevy.com>
-References: <7ca3debde28dcc206c1f6f787df5c619.squirrel@webmail.shealevy.com> <4E877A22.6070605@shealevy.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] bonding: L2L3 xmit doesn't support IPv6
+Date: Tue, 11 Oct 2011 10:33:48 -0400
+Message-ID: <20111011143348.GA20605@gospo.rdu.redhat.com>
+References: <1318052205-21991-1-git-send-email-Yinglin.Sun@emc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alban Crequy <alban.crequy@collabora.co.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E877A22.6070605@shealevy.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Yinglin Sun <Yinglin.Sun@emc.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46624 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754089Ab1JKOd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 10:33:57 -0400
+Content-Disposition: inline
+In-Reply-To: <1318052205-21991-1-git-send-email-Yinglin.Sun@emc.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/1/11 4:37 PM, Shea Levy wrote:
-> On 09/29/2011 08:38 AM, shea@shealevy.com wrote:
->> Hello,
->>
->> My initrd mounts /proc and /sys, puts a tmpfs at /dev, then loads 
->> ext4. On
->> 2.6.39 (and earlier), this works fine and the initrd init continues
->> happily. On 3.0.4, however, the kernel spits out
->>
->>> request_module: runaway loop modprobe net-pf-1
->> a few times then hangs. If I drop into a shell before loading ext4 
->> and run
->> modprobe unix, the same problem occurs. The modprobe used is dynamically
->> linked with glibc (which is included in the initrd), and it is the same
->> modprobe on the working and non-working systems. From my searches, it
->> appears that CONFIG_UNIX=y instead of =m would probably solve this
->> problem, but I'd rather keep it as a module if it's possible to get it
->> working. What's going wrong here? Why does it work on 2.6.39 but not
->> 3.0.4?
->>
->> Regards,
->> Shea Levy
->>
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe 
->> linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
->
-> CC'ing af_unix.c maintainers. Also, I had the same problem with 3.0.
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe 
-> linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-This ended up being a problem with how my distro builds its initrd, 
-sorry for the noise.
+On Fri, Oct 07, 2011 at 10:36:45PM -0700, Yinglin Sun wrote:
+> Add IPv6 support in L2L3 xmit policy.
+> L3L4 doesn't support IPv6 either, and I'll try to fix that later.
+> 
+> Signed-off-by: Yinglin Sun <Yinglin.Sun@emc.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    7 +++++++
+>  1 files changed, 7 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 6d79b78..d6fd282 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -41,8 +41,10 @@
+>  #include <linux/ptrace.h>
+>  #include <linux/ioport.h>
+>  #include <linux/in.h>
+> +#include <linux/in6.h>
+>  #include <net/ip.h>
+>  #include <linux/ip.h>
+> +#include <linux/ipv6.h>
+>  #include <linux/tcp.h>
+>  #include <linux/udp.h>
+>  #include <linux/slab.h>
+> @@ -3372,10 +3374,15 @@ static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
+>  {
+>  	struct ethhdr *data = (struct ethhdr *)skb->data;
+>  	struct iphdr *iph = ip_hdr(skb);
+> +	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+>  
+>  	if (skb->protocol == htons(ETH_P_IP)) {
+>  		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
+>  			(data->h_dest[5] ^ data->h_source[5])) % count;
+> +	} else if (skb->protocol == htons(ETH_P_IPV6)) {
+> +		return ((ntohl(ipv6h->saddr.s6_addr32[3] ^
+> +			       ipv6h->daddr.s6_addr32[3]) & 0xffff) ^
+> +			(data->h_dest[5] ^ data->h_source[5])) % count;
+>  	}
+>  
 
-For the curious: The problem had to do with moving the depmod logic out 
-of the main Makefile and into scripts/depmod.sh. My distro doesn't use a 
-single global directory for all modules, so we needed to remove the '-b 
-"$INSTALL_MOD_PATH"' from the depmod command that's run after module 
-installation. We did this with a sed on the Makefile, which was a noop 
-once that code was moved into a different file.
+There have been some attempts to add support for ipv6 hashing this in
+the past, but none have been committed.  The best one I had seen was one
+that did some extensive testing one a wide variety of ipv6 traffic and
+it showed nice traffic distribution.  I'm not sure if it was ever posted
+upstream, so I will see if I can dig it up.
+
+Can you quantify how traffic was distributed with this algorithm?
