@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/11] igb: Consolidate all of the ring feature flags into a single value
-Date: Tue, 11 Oct 2011 08:45:45 -0700
-Message-ID: <1318347952-25068-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/11] igb: avoid unnecessary conversions from u16 to int
+Date: Tue, 11 Oct 2011 08:45:44 -0700
+Message-ID: <1318347952-25068-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:11070 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:52698 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754831Ab1JKPp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754694Ab1JKPp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 11 Oct 2011 11:45:56 -0400
 In-Reply-To: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,117 +18,89 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change moves all of the ring flags into a single value.  The advantage
-to this is that there is one central area for all of these flags and they
-can all make use of the set/test bit operations.
+There are a number of places where we have values that are stored as u16
+but are being converted to int unnecessarily.  In order to avoid that we
+should convert all variables that deal with the next_to_clean, next_to_use,
+and count to u16 values.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |   10 ++++++----
- drivers/net/ethernet/intel/igb/igb_main.c |   23 +++++++++++++----------
- 2 files changed, 19 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |    5 +++--
+ drivers/net/ethernet/intel/igb/igb_main.c    |    9 ++++-----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index de35c02..0cc4702 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -234,10 +234,12 @@ struct igb_ring {
- 	dma_addr_t dma;                /* phys address of the ring */
- };
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 174540f..c364d84 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -1577,8 +1577,8 @@ static int igb_clean_test_rings(struct igb_ring *rx_ring,
+ 	union e1000_adv_rx_desc *rx_desc;
+ 	struct igb_rx_buffer *rx_buffer_info;
+ 	struct igb_tx_buffer *tx_buffer_info;
+-	int rx_ntc, tx_ntc, count = 0;
+ 	u32 staterr;
++	u16 rx_ntc, tx_ntc, count = 0;
  
--#define IGB_RING_FLAG_RX_CSUM        0x00000001 /* RX CSUM enabled */
--#define IGB_RING_FLAG_RX_SCTP_CSUM   0x00000002 /* SCTP CSUM offload enabled */
--
--#define IGB_RING_FLAG_TX_CTX_IDX     0x00000001 /* HW requires context index */
-+enum e1000_ring_flags_t {
-+	IGB_RING_FLAG_RX_CSUM,
-+	IGB_RING_FLAG_RX_SCTP_CSUM,
-+	IGB_RING_FLAG_TX_CTX_IDX,
-+	IGB_RING_FLAG_TX_DETECT_HANG
-+};
- 
- #define IGB_TXD_DCMD (E1000_ADVTXD_DCMD_EOP | E1000_ADVTXD_DCMD_RS)
- 
+ 	/* initialize next to clean and descriptor values */
+ 	rx_ntc = rx_ring->next_to_clean;
+@@ -1630,7 +1630,8 @@ static int igb_run_loopback_test(struct igb_adapter *adapter)
+ {
+ 	struct igb_ring *tx_ring = &adapter->test_tx_ring;
+ 	struct igb_ring *rx_ring = &adapter->test_rx_ring;
+-	int i, j, lc, good_cnt, ret_val = 0;
++	u16 i, j, lc, good_cnt;
++	int ret_val = 0;
+ 	unsigned int size = IGB_RX_HDR_LEN;
+ 	netdev_tx_t tx_ret_val;
+ 	struct sk_buff *skb;
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 150bf4e..91ae368 100644
+index 1c234f0..150bf4e 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -697,7 +697,7 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		ring->netdev = adapter->netdev;
- 		/* For 82575, context index must be unique per ring. */
- 		if (adapter->hw.mac.type == e1000_82575)
--			ring->flags = IGB_RING_FLAG_TX_CTX_IDX;
-+			set_bit(IGB_RING_FLAG_TX_CTX_IDX, &ring->flags);
- 		adapter->tx_ring[i] = ring;
- 	}
+@@ -338,14 +338,13 @@ static void igb_dump(struct igb_adapter *adapter)
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct igb_reg_info *reginfo;
+-	int n = 0;
+ 	struct igb_ring *tx_ring;
+ 	union e1000_adv_tx_desc *tx_desc;
+ 	struct my_u0 { u64 a; u64 b; } *u0;
+ 	struct igb_ring *rx_ring;
+ 	union e1000_adv_rx_desc *rx_desc;
+ 	u32 staterr;
+-	int i = 0;
++	u16 i, n;
  
-@@ -709,10 +709,11 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		ring->queue_index = i;
- 		ring->dev = &adapter->pdev->dev;
- 		ring->netdev = adapter->netdev;
--		ring->flags = IGB_RING_FLAG_RX_CSUM; /* enable rx checksum */
-+		/* enable rx checksum */
-+		set_bit(IGB_RING_FLAG_RX_CSUM, &ring->flags);
- 		/* set flag indicating ring supports SCTP checksum offload */
- 		if (adapter->hw.mac.type >= e1000_82576)
--			ring->flags |= IGB_RING_FLAG_RX_SCTP_CSUM;
-+			set_bit(IGB_RING_FLAG_RX_SCTP_CSUM, &ring->flags);
- 		adapter->rx_ring[i] = ring;
- 	}
- 
-@@ -1775,9 +1776,11 @@ static int igb_set_features(struct net_device *netdev, u32 features)
- 
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		if (features & NETIF_F_RXCSUM)
--			adapter->rx_ring[i]->flags |= IGB_RING_FLAG_RX_CSUM;
-+			set_bit(IGB_RING_FLAG_RX_CSUM,
-+				&adapter->rx_ring[i]->flags);
- 		else
--			adapter->rx_ring[i]->flags &= ~IGB_RING_FLAG_RX_CSUM;
-+			clear_bit(IGB_RING_FLAG_RX_CSUM,
-+				  &adapter->rx_ring[i]->flags);
- 	}
- 
- 	if (changed & NETIF_F_HW_VLAN_RX)
-@@ -3965,7 +3968,7 @@ void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
- 	type_tucmd |= E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT;
- 
- 	/* For 82575, context index must be unique per ring. */
--	if (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX)
-+	if (test_bit(IGB_RING_FLAG_TX_CTX_IDX, &tx_ring->flags))
- 		mss_l4len_idx |= tx_ring->reg_idx << 4;
- 
- 	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
-@@ -4132,7 +4135,7 @@ static void igb_tx_olinfo_status(struct igb_ring *tx_ring,
- 
- 	/* 82575 requires a unique index per ring if any offload is enabled */
- 	if ((tx_flags & (IGB_TX_FLAGS_CSUM | IGB_TX_FLAGS_VLAN)) &&
--	    (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX))
-+	    test_bit(IGB_RING_FLAG_TX_CTX_IDX, &tx_ring->flags))
- 		olinfo_status |= tx_ring->reg_idx << 4;
- 
- 	/* insert L4 checksum */
-@@ -5758,7 +5761,7 @@ static inline void igb_rx_checksum(struct igb_ring *ring,
- 	skb_checksum_none_assert(skb);
- 
- 	/* Ignore Checksum bit is set or checksum is disabled through ethtool */
--	if (!(ring->flags & IGB_RING_FLAG_RX_CSUM) ||
-+	if (!test_bit(IGB_RING_FLAG_RX_CSUM, &ring->flags) ||
- 	     (status_err & E1000_RXD_STAT_IXSM))
+ 	if (!netif_msg_hw(adapter))
  		return;
+@@ -3169,7 +3168,7 @@ static void igb_clean_tx_ring(struct igb_ring *tx_ring)
+ {
+ 	struct igb_tx_buffer *buffer_info;
+ 	unsigned long size;
+-	unsigned int i;
++	u16 i;
  
-@@ -5770,8 +5773,8 @@ static inline void igb_rx_checksum(struct igb_ring *ring,
- 		 * L4E bit is set incorrectly on 64 byte (60 byte w/o crc)
- 		 * packets, (aka let the stack check the crc32c)
- 		 */
--		if ((skb->len == 60) &&
--		    (ring->flags & IGB_RING_FLAG_RX_SCTP_CSUM)) {
-+		if (!((skb->len == 60) &&
-+		      test_bit(IGB_RING_FLAG_RX_SCTP_CSUM, &ring->flags))) {
- 			u64_stats_update_begin(&ring->rx_syncp);
- 			ring->rx_stats.csum_err++;
- 			u64_stats_update_end(&ring->rx_syncp);
+ 	if (!tx_ring->tx_buffer_info)
+ 		return;
+@@ -4285,7 +4284,7 @@ dma_error:
+ 	tx_ring->next_to_use = i;
+ }
+ 
+-static int __igb_maybe_stop_tx(struct igb_ring *tx_ring, int size)
++static int __igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
+ {
+ 	struct net_device *netdev = tx_ring->netdev;
+ 
+@@ -4311,7 +4310,7 @@ static int __igb_maybe_stop_tx(struct igb_ring *tx_ring, int size)
+ 	return 0;
+ }
+ 
+-static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, int size)
++static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
+ {
+ 	if (igb_desc_unused(tx_ring) >= size)
+ 		return 0;
 -- 
 1.7.6.4
