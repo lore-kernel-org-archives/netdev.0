@@ -1,103 +1,134 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/11] igb: fix recent VLAN changes that would leave VLANs disabled after reset
-Date: Tue, 11 Oct 2011 08:45:50 -0700
-Message-ID: <1318347952-25068-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/11] igb: Consolidate all of the ring feature flags into a single value
+Date: Tue, 11 Oct 2011 08:45:45 -0700
+Message-ID: <1318347952-25068-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29971 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:11070 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754947Ab1JKPp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 11:45:58 -0400
+	id S1754831Ab1JKPp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 11:45:56 -0400
 In-Reply-To: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch cleans up several issues with VLANs on igb after the recent
-changes that were meant to leave the VLANs enabled/disable via the
-netdev->features flags.
-
-Specifically the Rx VLAN settings were being dropped after reset due to the
-fact that they were not being restored correctly.  In addition I removed
-the IRQ disable/enable since those were in place to protect the setting of
-vlgrp.
+This change moves all of the ring flags into a single value.  The advantage
+to this is that there is one central area for all of these flags and they
+can all make use of the set/test bit operations.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c |   18 ++++--------------
- 1 files changed, 4 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |   10 ++++++----
+ drivers/net/ethernet/intel/igb/igb_main.c |   23 +++++++++++++----------
+ 2 files changed, 19 insertions(+), 14 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index de35c02..0cc4702 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -234,10 +234,12 @@ struct igb_ring {
+ 	dma_addr_t dma;                /* phys address of the ring */
+ };
+ 
+-#define IGB_RING_FLAG_RX_CSUM        0x00000001 /* RX CSUM enabled */
+-#define IGB_RING_FLAG_RX_SCTP_CSUM   0x00000002 /* SCTP CSUM offload enabled */
+-
+-#define IGB_RING_FLAG_TX_CTX_IDX     0x00000001 /* HW requires context index */
++enum e1000_ring_flags_t {
++	IGB_RING_FLAG_RX_CSUM,
++	IGB_RING_FLAG_RX_SCTP_CSUM,
++	IGB_RING_FLAG_TX_CTX_IDX,
++	IGB_RING_FLAG_TX_DETECT_HANG
++};
+ 
+ #define IGB_TXD_DCMD (E1000_ADVTXD_DCMD_EOP | E1000_ADVTXD_DCMD_RS)
+ 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 6917c33..689c2c2 100644
+index 150bf4e..91ae368 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2065,8 +2065,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_register;
- 
--	igb_vlan_mode(netdev, netdev->features);
--
- 	/* carrier off reporting is important to ethtool even BEFORE open */
- 	netif_carrier_off(netdev);
- 
-@@ -5050,7 +5048,6 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
- 			}
- 
- 			adapter->vf_data[vf].vlans_enabled++;
--			return 0;
- 		}
- 	} else {
- 		if (i < E1000_VLVF_ARRAY_SIZE) {
-@@ -6315,10 +6312,9 @@ static void igb_vlan_mode(struct net_device *netdev, u32 features)
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 ctrl, rctl;
-+	bool enable = !!(features & NETIF_F_HW_VLAN_RX);
- 
--	igb_irq_disable(adapter);
--
--	if (features & NETIF_F_HW_VLAN_RX) {
-+	if (enable) {
- 		/* enable VLAN tag insert/strip */
- 		ctrl = rd32(E1000_CTRL);
- 		ctrl |= E1000_CTRL_VME;
-@@ -6336,9 +6332,6 @@ static void igb_vlan_mode(struct net_device *netdev, u32 features)
+@@ -697,7 +697,7 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
+ 		ring->netdev = adapter->netdev;
+ 		/* For 82575, context index must be unique per ring. */
+ 		if (adapter->hw.mac.type == e1000_82575)
+-			ring->flags = IGB_RING_FLAG_TX_CTX_IDX;
++			set_bit(IGB_RING_FLAG_TX_CTX_IDX, &ring->flags);
+ 		adapter->tx_ring[i] = ring;
  	}
  
- 	igb_rlpml_set(adapter);
--
--	if (!test_bit(__IGB_DOWN, &adapter->state))
--		igb_irq_enable(adapter);
- }
+@@ -709,10 +709,11 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
+ 		ring->queue_index = i;
+ 		ring->dev = &adapter->pdev->dev;
+ 		ring->netdev = adapter->netdev;
+-		ring->flags = IGB_RING_FLAG_RX_CSUM; /* enable rx checksum */
++		/* enable rx checksum */
++		set_bit(IGB_RING_FLAG_RX_CSUM, &ring->flags);
+ 		/* set flag indicating ring supports SCTP checksum offload */
+ 		if (adapter->hw.mac.type >= e1000_82576)
+-			ring->flags |= IGB_RING_FLAG_RX_SCTP_CSUM;
++			set_bit(IGB_RING_FLAG_RX_SCTP_CSUM, &ring->flags);
+ 		adapter->rx_ring[i] = ring;
+ 	}
  
- static void igb_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
-@@ -6363,11 +6356,6 @@ static void igb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
- 	int pf_id = adapter->vfs_allocated_count;
- 	s32 err;
+@@ -1775,9 +1776,11 @@ static int igb_set_features(struct net_device *netdev, u32 features)
  
--	igb_irq_disable(adapter);
--
--	if (!test_bit(__IGB_DOWN, &adapter->state))
--		igb_irq_enable(adapter);
--
- 	/* remove vlan from VLVF table array */
- 	err = igb_vlvf_set(adapter, vid, false, pf_id);
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+ 		if (features & NETIF_F_RXCSUM)
+-			adapter->rx_ring[i]->flags |= IGB_RING_FLAG_RX_CSUM;
++			set_bit(IGB_RING_FLAG_RX_CSUM,
++				&adapter->rx_ring[i]->flags);
+ 		else
+-			adapter->rx_ring[i]->flags &= ~IGB_RING_FLAG_RX_CSUM;
++			clear_bit(IGB_RING_FLAG_RX_CSUM,
++				  &adapter->rx_ring[i]->flags);
+ 	}
  
-@@ -6382,6 +6370,8 @@ static void igb_restore_vlan(struct igb_adapter *adapter)
- {
- 	u16 vid;
+ 	if (changed & NETIF_F_HW_VLAN_RX)
+@@ -3965,7 +3968,7 @@ void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
+ 	type_tucmd |= E1000_TXD_CMD_DEXT | E1000_ADVTXD_DTYP_CTXT;
  
-+	igb_vlan_mode(adapter->netdev, adapter->netdev->features);
-+
- 	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
- 		igb_vlan_rx_add_vid(adapter->netdev, vid);
- }
+ 	/* For 82575, context index must be unique per ring. */
+-	if (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX)
++	if (test_bit(IGB_RING_FLAG_TX_CTX_IDX, &tx_ring->flags))
+ 		mss_l4len_idx |= tx_ring->reg_idx << 4;
+ 
+ 	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
+@@ -4132,7 +4135,7 @@ static void igb_tx_olinfo_status(struct igb_ring *tx_ring,
+ 
+ 	/* 82575 requires a unique index per ring if any offload is enabled */
+ 	if ((tx_flags & (IGB_TX_FLAGS_CSUM | IGB_TX_FLAGS_VLAN)) &&
+-	    (tx_ring->flags & IGB_RING_FLAG_TX_CTX_IDX))
++	    test_bit(IGB_RING_FLAG_TX_CTX_IDX, &tx_ring->flags))
+ 		olinfo_status |= tx_ring->reg_idx << 4;
+ 
+ 	/* insert L4 checksum */
+@@ -5758,7 +5761,7 @@ static inline void igb_rx_checksum(struct igb_ring *ring,
+ 	skb_checksum_none_assert(skb);
+ 
+ 	/* Ignore Checksum bit is set or checksum is disabled through ethtool */
+-	if (!(ring->flags & IGB_RING_FLAG_RX_CSUM) ||
++	if (!test_bit(IGB_RING_FLAG_RX_CSUM, &ring->flags) ||
+ 	     (status_err & E1000_RXD_STAT_IXSM))
+ 		return;
+ 
+@@ -5770,8 +5773,8 @@ static inline void igb_rx_checksum(struct igb_ring *ring,
+ 		 * L4E bit is set incorrectly on 64 byte (60 byte w/o crc)
+ 		 * packets, (aka let the stack check the crc32c)
+ 		 */
+-		if ((skb->len == 60) &&
+-		    (ring->flags & IGB_RING_FLAG_RX_SCTP_CSUM)) {
++		if (!((skb->len == 60) &&
++		      test_bit(IGB_RING_FLAG_RX_SCTP_CSUM, &ring->flags))) {
+ 			u64_stats_update_begin(&ring->rx_syncp);
+ 			ring->rx_stats.csum_err++;
+ 			u64_stats_update_end(&ring->rx_syncp);
 -- 
 1.7.6.4
