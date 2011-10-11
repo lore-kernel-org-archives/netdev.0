@@ -1,63 +1,44 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: big picture UDP/IP performance question re 2.6.18  -> 2.6.32
-Date: Tue, 11 Oct 2011 10:24:31 -0600
-Message-ID: <4E946DBF.5050105@genband.com>
-References: <6.2.5.6.2.20111006231958.039bb570@binnacle.cx> <1317966007.3457.47.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/11 v2][pull request] Intel Wired LAN Driver
+ Updates
+Date: Tue, 11 Oct 2011 15:25:39 -0400 (EDT)
+Message-ID: <20111011.152539.381627107095548221.davem@davemloft.net>
+References: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: starlight@binnacle.cx, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Christoph Lameter <cl@gentwo.org>, Willy Tarreau <w@1wt.eu>,
-	Ingo Molnar <mingo@elte.hu>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Benjamin LaHaise <bcrl@kvack.org>,
-	Joe Perches <joe@perches.com>,
-	Chetan Loke <Chetan.Loke@netscout.com>,
-	Con Kolivas <conman@kolivas.org>,
-	Serge Belyshev <belyshev@depni.sinp.msu.ru>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1317966007.3457.47.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54991 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754933Ab1JKTZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 15:25:47 -0400
+In-Reply-To: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/06/2011 11:40 PM, Eric Dumazet wrote:
-> Le jeudi 06 octobre 2011 =E0 23:27 -0400, starlight@binnacle.cx a =E9=
-crit :
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 11 Oct 2011 08:45:41 -0700
 
->> If the older kernels are switching to NAPI
->> for much of surge and the switching out
->> once the pulse falls off, it might
->> conceivably result in much better latency
->> and overall performance.
+> The following series contains updates to e1000e and igb.  This
+> version of the series contains the following changes:
+> 
+> - Added the e1000e bug fix patch
+> - Dropped the igb patch "igb: Use node specific allocations for
+>   the q_vectors and rings" based on feedback
+> 
+> Based on the feedback, I am working on re-working the igb patch that
+> was dropped in this series and will re-submit it later on.
+> 
+> The remain 10 igb patches are unchanged from the previous pull request
+> and are the continuation of the cleanups and refactoring that Alex has done.
+> After this series there are 4-5 more patches to complete the work
+> that Alex has done on igb.
+> 
+> The following are changes since commit 3ed6f6958c0ac21958285d8648f14d34da4bbcb3:
+>   ll_temac: convert to SKB paged frag API.
+> and are available in the git repository at
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
 
-> Thats exactly the opposite : Your old kernel is not fast enough to
-> enter/exit NAPI on every incoming frame.
->
-> Instead of one IRQ per incoming frame, you have less interrupts :
-> A napi run processes more than 1 frame.
->
-> Now increase your incoming rate, and you'll discover a new kernel wil=
-l
-> be able to process more frames without losses.
-
-I wonder if it would make sense to adjust the interrupt mitigation=20
-parameters in the NIC to allow it to accumulate a few packets before=20
-interrupting the CPU.  We had good luck using this to reduce interrupt=20
-rate on a quasi-pathological case where we were bouncing in and out of=20
-NAPI because we were *just* fast enough to keep up with incoming packet=
-s.
-
-Chris
-
-
-
---=20
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+Pulled, thanks Jeff.
