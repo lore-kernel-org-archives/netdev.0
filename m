@@ -1,41 +1,66 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] cipso: remove an unneeded NULL check in cipso_v4_doi_add()
-Date: Tue, 11 Oct 2011 16:22:29 +0300
-Message-ID: <20111011132228.GA27127@elgon.mountain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net 1/2] [BUGFIX] bonding: use local function
+ pointer of bond->recv_probe in bond_handle_frame
+Date: Tue, 11 Oct 2011 15:23:53 +0200
+Message-ID: <1318339433.2538.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20111007124925.7089.27260.stgit@ltc219.sdl.hitachi.co.jp>
+	 <20111007124954.7089.9776.stgit@ltc219.sdl.hitachi.co.jp>
+	 <CAM_iQpXZmX2GPb99tF7xMEup52o8AfeUi+0awvHr7C9LVWTjEg@mail.gmail.com>
+	 <4E943E53.6010601@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:56701 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754234Ab1JKNXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 09:23:22 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4E943E53.6010601@hitachi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We dereference doi_def on the line before the NULL check.  It has
-been this way since 2008.  I checked all the callers and doi_def is
-always non-NULL here.
+Le mardi 11 octobre 2011 =C3=A0 22:02 +0900, HAYASAKA Mitsuo a =C3=A9cr=
+it :
+> Hi WANG Cong
+>=20
+> Thank you for your comments.
+>=20
+> (2011/10/07 22:24), Am=C3=A9rico Wang wrote:
+> > On Fri, Oct 7, 2011 at 8:49 PM, Mitsuo Hayasaka
+> > <mitsuo.hayasaka.hu@hitachi.com> wrote:
+> >> The bond->recv_probe is called in bond_handle_frame() when
+> >> a packet is received, but bond_close() sets it to NULL. So,
+> >> a panic occurs when both functions work in parallel.
+> >>
+> >> Why this happen:
+> >> After null pointer check of bond->recv_probe, an sk_buff is
+> >> duplicated and bond->recv_probe is called in bond_handle_frame.
+> >> So, a panic occurs when bond_close() is called between the
+> >> check and call of bond->recv_probe.
+> >>
+> >> Patch:
+> >> This patch uses a local function pointer of bond->recv_probe
+> >> in bond_handle_frame(). So, it can avoid the null pointer
+> >> dereference.
+> >>
+> >=20
+> > Hmm, I don't doubt it can fix the problem, I am wondering if
+> > bond->recv_probe should be protected by bond->lock...
+>=20
+> Indeed, in general any resources should be protected from the asynchr=
+onous
+> workers.
+>=20
+> At first, I thought it should be handled with lock protection, as wel=
+l.
+> However, I guess that using bond->lock on this kind of hot-path may
+> introduces unnecessary overhead. In addition, this code works well
+> without the strict lock protection. So, I think this change is the
+> right way to fix it.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Maybe, but then ACCESS_ONCE() is needed to prevent compiler to
+'optimize' the temporary variable.
 
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index 2c2a98e..86f3b88 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -476,7 +476,7 @@ int cipso_v4_doi_add(struct cipso_v4_doi *doi_def,
- 	doi = doi_def->doi;
- 	doi_type = doi_def->type;
- 
--	if (doi_def == NULL || doi_def->doi == CIPSO_V4_DOI_UNKNOWN)
-+	if (doi_def->doi == CIPSO_V4_DOI_UNKNOWN)
- 		goto doi_add_return;
- 	for (iter = 0; iter < CIPSO_V4_TAG_MAXCNT; iter++) {
- 		switch (doi_def->tags[iter]) {
+Or use rcu_dereference() to make the whole thing really safe and self
+documented.
