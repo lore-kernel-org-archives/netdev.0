@@ -1,300 +1,184 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/11] igb: push data into first igb_tx_buffer sooner to reduce stack usage
-Date: Tue, 11 Oct 2011 08:45:43 -0700
-Message-ID: <1318347952-25068-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/11] igb: cleanup IVAR configuration
+Date: Tue, 11 Oct 2011 08:45:47 -0700
+Message-ID: <1318347952-25068-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:52698 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:11070 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754812Ab1JKPpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 11:45:55 -0400
+	id S1754812Ab1JKPp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 11:45:57 -0400
 In-Reply-To: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Instead of storing most of the data for the TX hot path in the stack until
-we are ready to write the descriptor we can save ourselves some time and
-effort by pushing the SKB, tx_flags, gso_size, bytecount, and protocol into
-the first igb_tx_buffer since that is where we will end up putting it
-anyway.
+This change is meant to cleanup some of the IVAR register configuration.
+igb_assign_vector had become pretty large with multiple copies of the same
+general code for setting the IVAR. This change consolidates most of that
+code by adding the igb_write_ivar function which allows us just to compute
+the index and offset and then use that information to setup the IVAR.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |    1 +
- drivers/net/ethernet/intel/igb/igb_main.c |  103 +++++++++++++++--------------
- 2 files changed, 54 insertions(+), 50 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c |  120 +++++++++++++---------------
+ 1 files changed, 56 insertions(+), 64 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 77793a9..de35c02 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -146,6 +146,7 @@ struct igb_tx_buffer {
- 	struct sk_buff *skb;
- 	unsigned int bytecount;
- 	u16 gso_segs;
-+	__be16 protocol;
- 	dma_addr_t dma;
- 	u32 length;
- 	u32 tx_flags;
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 862dd7c..1c234f0 100644
+index a5597de..bcc1c28 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3975,10 +3975,11 @@ void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
- 	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
+@@ -727,15 +727,40 @@ err:
+ 	return -ENOMEM;
  }
  
--static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
--			  u32 tx_flags, __be16 protocol, u8 *hdr_len)
-+static int igb_tso(struct igb_ring *tx_ring,
-+		   struct igb_tx_buffer *first,
-+		   u8 *hdr_len)
- {
--	int err;
-+	struct sk_buff *skb = first->skb;
- 	u32 vlan_macip_lens, type_tucmd;
- 	u32 mss_l4len_idx, l4len;
- 
-@@ -3986,7 +3987,7 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
- 		return 0;
- 
- 	if (skb_header_cloned(skb)) {
--		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+		int err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
- 		if (err)
- 			return err;
- 	}
-@@ -3994,7 +3995,7 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
- 	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
- 
--	if (protocol == __constant_htons(ETH_P_IP)) {
-+	if (first->protocol == __constant_htons(ETH_P_IP)) {
- 		struct iphdr *iph = ip_hdr(skb);
- 		iph->tot_len = 0;
- 		iph->check = 0;
-@@ -4003,16 +4004,26 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
- 							 IPPROTO_TCP,
- 							 0);
- 		type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
-+		first->tx_flags |= IGB_TX_FLAGS_TSO |
-+				   IGB_TX_FLAGS_CSUM |
-+				   IGB_TX_FLAGS_IPV4;
- 	} else if (skb_is_gso_v6(skb)) {
- 		ipv6_hdr(skb)->payload_len = 0;
- 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 						       &ipv6_hdr(skb)->daddr,
- 						       0, IPPROTO_TCP, 0);
-+		first->tx_flags |= IGB_TX_FLAGS_TSO |
-+				   IGB_TX_FLAGS_CSUM;
- 	}
- 
-+	/* compute header lengths */
- 	l4len = tcp_hdrlen(skb);
- 	*hdr_len = skb_transport_offset(skb) + l4len;
- 
-+	/* update gso size and bytecount with header size */
-+	first->gso_segs = skb_shinfo(skb)->gso_segs;
-+	first->bytecount += (first->gso_segs - 1) * *hdr_len;
++/**
++ *  igb_write_ivar - configure ivar for given MSI-X vector
++ *  @hw: pointer to the HW structure
++ *  @msix_vector: vector number we are allocating to a given ring
++ *  @index: row index of IVAR register to write within IVAR table
++ *  @offset: column offset of in IVAR, should be multiple of 8
++ *
++ *  This function is intended to handle the writing of the IVAR register
++ *  for adapters 82576 and newer.  The IVAR table consists of 2 columns,
++ *  each containing an cause allocation for an Rx and Tx ring, and a
++ *  variable number of rows depending on the number of queues supported.
++ **/
++static void igb_write_ivar(struct e1000_hw *hw, int msix_vector,
++			   int index, int offset)
++{
++	u32 ivar = array_rd32(E1000_IVAR0, index);
 +
- 	/* MSS L4LEN IDX */
- 	mss_l4len_idx = l4len << E1000_ADVTXD_L4LEN_SHIFT;
- 	mss_l4len_idx |= skb_shinfo(skb)->gso_size << E1000_ADVTXD_MSS_SHIFT;
-@@ -4020,26 +4031,26 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	/* VLAN MACLEN IPLEN */
- 	vlan_macip_lens = skb_network_header_len(skb);
- 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
--	vlan_macip_lens |= tx_flags & IGB_TX_FLAGS_VLAN_MASK;
-+	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
- 
- 	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
- 
- 	return 1;
- }
- 
--static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
--			       u32 tx_flags, __be16 protocol)
-+static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
- {
-+	struct sk_buff *skb = first->skb;
- 	u32 vlan_macip_lens = 0;
- 	u32 mss_l4len_idx = 0;
- 	u32 type_tucmd = 0;
- 
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
--		if (!(tx_flags & IGB_TX_FLAGS_VLAN))
--			return false;
-+		if (!(first->tx_flags & IGB_TX_FLAGS_VLAN))
-+			return;
- 	} else {
- 		u8 l4_hdr = 0;
--		switch (protocol) {
-+		switch (first->protocol) {
- 		case __constant_htons(ETH_P_IP):
- 			vlan_macip_lens |= skb_network_header_len(skb);
- 			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
-@@ -4053,7 +4064,7 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
- 			if (unlikely(net_ratelimit())) {
- 				dev_warn(tx_ring->dev,
- 				 "partial checksum but proto=%x!\n",
--				 protocol);
-+				 first->protocol);
- 			}
- 			break;
- 		}
-@@ -4081,14 +4092,15 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
- 			}
- 			break;
- 		}
++	/* clear any bits that are currently set */
++	ivar &= ~((u32)0xFF << offset);
 +
-+		/* update TX checksum flag */
-+		first->tx_flags |= IGB_TX_FLAGS_CSUM;
- 	}
- 
- 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
--	vlan_macip_lens |= tx_flags & IGB_TX_FLAGS_VLAN_MASK;
-+	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
- 
- 	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
--
--	return (skb->ip_summed == CHECKSUM_PARTIAL);
- }
- 
- static __le32 igb_tx_cmd_type(u32 tx_flags)
-@@ -4113,8 +4125,9 @@ static __le32 igb_tx_cmd_type(u32 tx_flags)
- 	return cmd_type;
- }
- 
--static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
--				   struct igb_ring *tx_ring)
-+static void igb_tx_olinfo_status(struct igb_ring *tx_ring,
-+				 union e1000_adv_tx_desc *tx_desc,
-+				 u32 tx_flags, unsigned int paylen)
- {
- 	u32 olinfo_status = paylen << E1000_ADVTXD_PAYLEN_SHIFT;
- 
-@@ -4132,7 +4145,7 @@ static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
- 			olinfo_status |= E1000_TXD_POPTS_IXSM << 8;
- 	}
- 
--	return cpu_to_le32(olinfo_status);
-+	tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
- }
- 
- /*
-@@ -4140,12 +4153,13 @@ static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
-  * maintain a power of two alignment we have to limit ourselves to 32K.
-  */
- #define IGB_MAX_TXD_PWR	15
--#define IGB_MAX_DATA_PER_TXD	(1 << IGB_MAX_TXD_PWR)
-+#define IGB_MAX_DATA_PER_TXD	(1<<IGB_MAX_TXD_PWR)
- 
--static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
--		       struct igb_tx_buffer *first, u32 tx_flags,
-+static void igb_tx_map(struct igb_ring *tx_ring,
-+		       struct igb_tx_buffer *first,
- 		       const u8 hdr_len)
- {
-+	struct sk_buff *skb = first->skb;
- 	struct igb_tx_buffer *tx_buffer_info;
- 	union e1000_adv_tx_desc *tx_desc;
- 	dma_addr_t dma;
-@@ -4154,24 +4168,12 @@ static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	unsigned int size = skb_headlen(skb);
- 	unsigned int paylen = skb->len - hdr_len;
- 	__le32 cmd_type;
-+	u32 tx_flags = first->tx_flags;
- 	u16 i = tx_ring->next_to_use;
--	u16 gso_segs;
--
--	if (tx_flags & IGB_TX_FLAGS_TSO)
--		gso_segs = skb_shinfo(skb)->gso_segs;
--	else
--		gso_segs = 1;
--
--	/* multiply data chunks by size of headers */
--	first->bytecount = paylen + (gso_segs * hdr_len);
--	first->gso_segs = gso_segs;
--	first->skb = skb;
- 
- 	tx_desc = IGB_TX_DESC(tx_ring, i);
- 
--	tx_desc->read.olinfo_status =
--		igb_tx_olinfo_status(tx_flags, paylen, tx_ring);
--
-+	igb_tx_olinfo_status(tx_ring, tx_desc, tx_flags, paylen);
- 	cmd_type = igb_tx_cmd_type(tx_flags);
- 
- 	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
-@@ -4181,7 +4183,6 @@ static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
- 	/* record length, and DMA address */
- 	first->length = size;
- 	first->dma = dma;
--	first->tx_flags = tx_flags;
- 	tx_desc->read.buffer_addr = cpu_to_le64(dma);
- 
- 	for (;;) {
-@@ -4336,6 +4337,12 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 		return NETDEV_TX_BUSY;
- 	}
- 
-+	/* record the location of the first descriptor for this packet */
-+	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
-+	first->skb = skb;
-+	first->bytecount = skb->len;
-+	first->gso_segs = 1;
++	/* write vector and valid bit */
++	ivar |= (msix_vector | E1000_IVAR_VALID) << offset;
 +
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
-@@ -4346,22 +4353,17 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
- 	}
- 
--	/* record the location of the first descriptor for this packet */
--	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
-+	/* record initial flags and protocol */
-+	first->tx_flags = tx_flags;
-+	first->protocol = protocol;
- 
--	tso = igb_tso(tx_ring, skb, tx_flags, protocol, &hdr_len);
--	if (tso < 0) {
-+	tso = igb_tso(tx_ring, first, &hdr_len);
-+	if (tso < 0)
- 		goto out_drop;
--	} else if (tso) {
--		tx_flags |= IGB_TX_FLAGS_TSO | IGB_TX_FLAGS_CSUM;
--		if (protocol == htons(ETH_P_IP))
--			tx_flags |= IGB_TX_FLAGS_IPV4;
--	} else if (igb_tx_csum(tx_ring, skb, tx_flags, protocol) &&
--		   (skb->ip_summed == CHECKSUM_PARTIAL)) {
--		tx_flags |= IGB_TX_FLAGS_CSUM;
--	}
-+	else if (!tso)
-+		igb_tx_csum(tx_ring, first);
- 
--	igb_tx_map(tx_ring, skb, first, tx_flags, hdr_len);
-+	igb_tx_map(tx_ring, first, hdr_len);
- 
- 	/* Make sure there is space in the ring for the next send. */
- 	igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 4);
-@@ -4369,7 +4371,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- 
- out_drop:
--	dev_kfree_skb_any(skb);
-+	igb_unmap_and_free_tx_resource(tx_ring, first);
++	array_wr32(E1000_IVAR0, index, ivar);
++}
 +
- 	return NETDEV_TX_OK;
- }
+ #define IGB_N0_QUEUE -1
+ static void igb_assign_vector(struct igb_q_vector *q_vector, int msix_vector)
+ {
+-	u32 msixbm = 0;
+ 	struct igb_adapter *adapter = q_vector->adapter;
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 ivar, index;
+ 	int rx_queue = IGB_N0_QUEUE;
+ 	int tx_queue = IGB_N0_QUEUE;
++	u32 msixbm = 0;
  
+ 	if (q_vector->rx.ring)
+ 		rx_queue = q_vector->rx.ring->reg_idx;
+@@ -758,72 +783,39 @@ static void igb_assign_vector(struct igb_q_vector *q_vector, int msix_vector)
+ 		q_vector->eims_value = msixbm;
+ 		break;
+ 	case e1000_82576:
+-		/* 82576 uses a table-based method for assigning vectors.
+-		   Each queue has a single entry in the table to which we write
+-		   a vector number along with a "valid" bit.  Sadly, the layout
+-		   of the table is somewhat counterintuitive. */
+-		if (rx_queue > IGB_N0_QUEUE) {
+-			index = (rx_queue & 0x7);
+-			ivar = array_rd32(E1000_IVAR0, index);
+-			if (rx_queue < 8) {
+-				/* vector goes into low byte of register */
+-				ivar = ivar & 0xFFFFFF00;
+-				ivar |= msix_vector | E1000_IVAR_VALID;
+-			} else {
+-				/* vector goes into third byte of register */
+-				ivar = ivar & 0xFF00FFFF;
+-				ivar |= (msix_vector | E1000_IVAR_VALID) << 16;
+-			}
+-			array_wr32(E1000_IVAR0, index, ivar);
+-		}
+-		if (tx_queue > IGB_N0_QUEUE) {
+-			index = (tx_queue & 0x7);
+-			ivar = array_rd32(E1000_IVAR0, index);
+-			if (tx_queue < 8) {
+-				/* vector goes into second byte of register */
+-				ivar = ivar & 0xFFFF00FF;
+-				ivar |= (msix_vector | E1000_IVAR_VALID) << 8;
+-			} else {
+-				/* vector goes into high byte of register */
+-				ivar = ivar & 0x00FFFFFF;
+-				ivar |= (msix_vector | E1000_IVAR_VALID) << 24;
+-			}
+-			array_wr32(E1000_IVAR0, index, ivar);
+-		}
++		/*
++		 * 82576 uses a table that essentially consists of 2 columns
++		 * with 8 rows.  The ordering is column-major so we use the
++		 * lower 3 bits as the row index, and the 4th bit as the
++		 * column offset.
++		 */
++		if (rx_queue > IGB_N0_QUEUE)
++			igb_write_ivar(hw, msix_vector,
++				       rx_queue & 0x7,
++				       (rx_queue & 0x8) << 1);
++		if (tx_queue > IGB_N0_QUEUE)
++			igb_write_ivar(hw, msix_vector,
++				       tx_queue & 0x7,
++				       ((tx_queue & 0x8) << 1) + 8);
+ 		q_vector->eims_value = 1 << msix_vector;
+ 		break;
+ 	case e1000_82580:
+ 	case e1000_i350:
+-		/* 82580 uses the same table-based approach as 82576 but has fewer
+-		   entries as a result we carry over for queues greater than 4. */
+-		if (rx_queue > IGB_N0_QUEUE) {
+-			index = (rx_queue >> 1);
+-			ivar = array_rd32(E1000_IVAR0, index);
+-			if (rx_queue & 0x1) {
+-				/* vector goes into third byte of register */
+-				ivar = ivar & 0xFF00FFFF;
+-				ivar |= (msix_vector | E1000_IVAR_VALID) << 16;
+-			} else {
+-				/* vector goes into low byte of register */
+-				ivar = ivar & 0xFFFFFF00;
+-				ivar |= msix_vector | E1000_IVAR_VALID;
+-			}
+-			array_wr32(E1000_IVAR0, index, ivar);
+-		}
+-		if (tx_queue > IGB_N0_QUEUE) {
+-			index = (tx_queue >> 1);
+-			ivar = array_rd32(E1000_IVAR0, index);
+-			if (tx_queue & 0x1) {
+-				/* vector goes into high byte of register */
+-				ivar = ivar & 0x00FFFFFF;
+-				ivar |= (msix_vector | E1000_IVAR_VALID) << 24;
+-			} else {
+-				/* vector goes into second byte of register */
+-				ivar = ivar & 0xFFFF00FF;
+-				ivar |= (msix_vector | E1000_IVAR_VALID) << 8;
+-			}
+-			array_wr32(E1000_IVAR0, index, ivar);
+-		}
++		/*
++		 * On 82580 and newer adapters the scheme is similar to 82576
++		 * however instead of ordering column-major we have things
++		 * ordered row-major.  So we traverse the table by using
++		 * bit 0 as the column offset, and the remaining bits as the
++		 * row index.
++		 */
++		if (rx_queue > IGB_N0_QUEUE)
++			igb_write_ivar(hw, msix_vector,
++				       rx_queue >> 1,
++				       (rx_queue & 0x1) << 4);
++		if (tx_queue > IGB_N0_QUEUE)
++			igb_write_ivar(hw, msix_vector,
++				       tx_queue >> 1,
++				       ((tx_queue & 0x1) << 4) + 8);
+ 		q_vector->eims_value = 1 << msix_vector;
+ 		break;
+ 	default:
 -- 
 1.7.6.4
