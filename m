@@ -1,66 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net 1/2] [BUGFIX] bonding: use local function
- pointer of bond->recv_probe in bond_handle_frame
-Date: Tue, 11 Oct 2011 15:23:53 +0200
-Message-ID: <1318339433.2538.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111007124925.7089.27260.stgit@ltc219.sdl.hitachi.co.jp>
-	 <20111007124954.7089.9776.stgit@ltc219.sdl.hitachi.co.jp>
-	 <CAM_iQpXZmX2GPb99tF7xMEup52o8AfeUi+0awvHr7C9LVWTjEg@mail.gmail.com>
-	 <4E943E53.6010601@hitachi.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC] net: remove erroneous sk null assignment in timestamping
+Date: Tue, 11 Oct 2011 15:34:11 +0200
+Message-ID: <20111011133411.GA2545@netboy.at.omicron.at>
+References: <1318007501.3988.20.camel@jlt3.sipsolutions.net>
+ <20111007.133356.489094996618032061.davem@davemloft.net>
+ <20111008075719.GA2284@netboy.at.omicron.at>
+ <1318061808.3991.12.camel@jlt3.sipsolutions.net>
+ <1318064238.5276.2.camel@edumazet-laptop>
+ <1318069935.3991.25.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
-To: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4E943E53.6010601@hitachi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:39577 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752888Ab1JKNeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 09:34:15 -0400
+Received: by ywb5 with SMTP id 5so6541718ywb.19
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 06:34:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1318069935.3991.25.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 11 octobre 2011 =C3=A0 22:02 +0900, HAYASAKA Mitsuo a =C3=A9cr=
-it :
-> Hi WANG Cong
->=20
-> Thank you for your comments.
->=20
-> (2011/10/07 22:24), Am=C3=A9rico Wang wrote:
-> > On Fri, Oct 7, 2011 at 8:49 PM, Mitsuo Hayasaka
-> > <mitsuo.hayasaka.hu@hitachi.com> wrote:
-> >> The bond->recv_probe is called in bond_handle_frame() when
-> >> a packet is received, but bond_close() sets it to NULL. So,
-> >> a panic occurs when both functions work in parallel.
-> >>
-> >> Why this happen:
-> >> After null pointer check of bond->recv_probe, an sk_buff is
-> >> duplicated and bond->recv_probe is called in bond_handle_frame.
-> >> So, a panic occurs when bond_close() is called between the
-> >> check and call of bond->recv_probe.
-> >>
-> >> Patch:
-> >> This patch uses a local function pointer of bond->recv_probe
-> >> in bond_handle_frame(). So, it can avoid the null pointer
-> >> dereference.
-> >>
-> >=20
-> > Hmm, I don't doubt it can fix the problem, I am wondering if
-> > bond->recv_probe should be protected by bond->lock...
->=20
-> Indeed, in general any resources should be protected from the asynchr=
-onous
-> workers.
->=20
-> At first, I thought it should be handled with lock protection, as wel=
-l.
-> However, I guess that using bond->lock on this kind of hot-path may
-> introduces unnecessary overhead. In addition, this code works well
-> without the strict lock protection. So, I think this change is the
-> right way to fix it.
+On Sat, Oct 08, 2011 at 12:32:15PM +0200, Johannes Berg wrote:
+> On Sat, 2011-10-08 at 10:57 +0200, Eric Dumazet wrote:
+> > Check following commit changelog to get some information on this.
+> > 
+> > commit 2b85a34e911bf483c27cfdd124aeb1605145dc80
+> > Author: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date:   Thu Jun 11 02:55:43 2009 -0700
+> > 
+> >     net: No more expensive sock_hold()/sock_put() on each tx
+...
+> There's one thing I still miss though: It seems to me that if you have a
+> reference to a socket that has been sk_free()'ed (which is possible
+> since it might still have sk_wmem_alloc > 0) you can't sock_hold() that
+> socket. That feels a bit unexpected -- and might happen in the code
+> Richard just suggested.
 
-Maybe, but then ACCESS_ONCE() is needed to prevent compiler to
-'optimize' the temporary variable.
+Yes, I have been trying to see how to solve this, but it looks like I
+am out of luck. 
 
-Or use rcu_dereference() to make the whole thing really safe and self
-documented.
+Even if I use skb_set_owner_w() in skb_clone_tx_timestamp(), still the
+sock might go away during skb_orphan() in sock_queue_err_skb().
+
+It is no good to take sock_hold() in skb_complete_tx_timestamp(),
+since, as you point out, it might not be safe to call.
+
+So, I wonder, when is it safe to call sock_hold?
+
+Are the 101 odd callers protected against the situation where the last
+sock_out() has already happened?
+
+Thanks,
+
+Richard
