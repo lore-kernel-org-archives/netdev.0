@@ -1,78 +1,47 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 4/5] stmmac: Stop advertising 1000Base capabilties for non GMII iface (v2).
-Date: Tue, 11 Oct 2011 09:30:45 +0200
-Message-ID: <1318318246-1326-5-git-send-email-peppe.cavallaro@st.com>
-References: <1318318246-1326-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Srinivas Kandagatla <srinivas.kandagatla@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] netconsole: enable netconsole can make net_device refcnt
+Date: Tue, 11 Oct 2011 16:05:48 +0800
+Message-ID: <4E93F8DC.5080909@cn.fujitsu.com>
+References: <4E93E238.7000105@cn.fujitsu.com> <1318319438-7159-1-git-send-email-gaowanlong@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Wanlong Gao <gaowanlong@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:54560 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752597Ab1JKIBT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 04:01:19 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 65AAA98
-	for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 07:31:12 +0000 (GMT)
-Received: from mail7.sgp.st.com (mail7.sgp.st.com [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 0909A1A78
-	for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 07:31:12 +0000 (GMT)
-In-Reply-To: <1318318246-1326-1-git-send-email-peppe.cavallaro@st.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:53371 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752810Ab1JKIFT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 04:05:19 -0400
+In-Reply-To: <1318319438-7159-1-git-send-email-gaowanlong@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Im so sorry.
+the first patch has some format err.
+Please use this one.
+thanks wanlong! ^V^
 
-This patch stops advertising 1000Base capablities if GMAC is either
-configured for MII or RMII mode and on board there is a GPHY plugged on.
-Without this patch if an GBit switch is connected on MII interface,
-Ethernet stops working at all.
-
-Discovered as part of
-https://bugzilla.stlinux.com/show_bug.cgi?id=14148 triage
-
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 87767d5..4f7af52 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -304,7 +304,7 @@ static int stmmac_init_phy(struct net_device *dev)
- 	struct phy_device *phydev;
- 	char phy_id[MII_BUS_ID_SIZE + 3];
- 	char bus_id[MII_BUS_ID_SIZE];
--
-+	int interface = priv->plat->interface;
- 	priv->oldlink = 0;
- 	priv->speed = 0;
- 	priv->oldduplex = -1;
-@@ -314,14 +314,21 @@ static int stmmac_init_phy(struct net_device *dev)
- 		 priv->plat->phy_addr);
- 	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
- 
--	phydev = phy_connect(dev, phy_id, &stmmac_adjust_link, 0,
--			     priv->plat->interface);
-+	phydev = phy_connect(dev, phy_id, &stmmac_adjust_link, 0, interface);
- 
- 	if (IS_ERR(phydev)) {
- 		pr_err("%s: Could not attach to PHY\n", dev->name);
- 		return PTR_ERR(phydev);
- 	}
- 
-+	/* Stop Advertising 1000BASE Capability if interface is not GMII */
-+	if ((interface == PHY_INTERFACE_MODE_MII) ||
-+	    (interface == PHY_INTERFACE_MODE_RMII)) {
-+		phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
-+				      SUPPORTED_Asym_Pause);
-+		priv->phydev->advertising = priv->phydev->supported;
-+	}
-+
- 	/*
- 	 * Broken HW is sometimes missing the pull-up resistor on the
- 	 * MDIO line, which results in reads to non-existent devices returning
--- 
-1.7.4.4
+11.10.2011 15:50, Wanlong Gao wrote:
+> There is no check if netconsole is enabled current.
+> so when exec echo 1 > enabled;
+> the reference of net_device will increment always.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  drivers/net/netconsole.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+> index ed2a397..4e6323df 100644
+> --- a/drivers/net/netconsole.c
+> +++ b/drivers/net/netconsole.c
+> @@ -307,6 +307,8 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+>  		return err;
+>  	if (enabled < 0 || enabled > 1)
+>  		return -EINVAL;
+> +	if (enabled == nt->enabled)
+> +		return err;
+>  
+>  	if (enabled) {	/* 1 */
+>  
