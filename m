@@ -1,74 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/11] igb: move TX hang check flag into ring->flags
-Date: Tue, 11 Oct 2011 08:45:51 -0700
-Message-ID: <1318347952-25068-11-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/11 v2][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 11 Oct 2011 08:45:41 -0700
+Message-ID: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29971 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:52698 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754952Ab1JKPp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 11:45:59 -0400
-In-Reply-To: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1754694Ab1JKPpy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 11:45:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+The following series contains updates to e1000e and igb.  This
+version of the series contains the following changes:
 
-This change moves the Tx hang check into the ring flags.
+- Added the e1000e bug fix patch
+- Dropped the igb patch "igb: Use node specific allocations for
+  the q_vectors and rings" based on feedback
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb.h      |    1 -
- drivers/net/ethernet/intel/igb/igb_main.c |    6 +++---
- 2 files changed, 3 insertions(+), 4 deletions(-)
+Based on the feedback, I am working on re-working the igb patch that
+was dropped in this series and will re-submit it later on.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 04dd6d7..5def94c 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -230,7 +230,6 @@ struct igb_ring {
- 			struct igb_tx_queue_stats tx_stats;
- 			struct u64_stats_sync tx_syncp;
- 			struct u64_stats_sync tx_syncp2;
--			bool detect_tx_hung;
- 		};
- 		/* RX */
- 		struct {
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 689c2c2..c4c3acf 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3684,7 +3684,7 @@ static void igb_watchdog_task(struct work_struct *work)
- 		}
- 
- 		/* Force detection of hung controller every watchdog period */
--		tx_ring->detect_tx_hung = true;
-+		set_bit(IGB_RING_FLAG_TX_DETECT_HANG, &tx_ring->flags);
- 	}
- 
- 	/* Cause software interrupt to ensure rx ring is cleaned */
-@@ -5651,14 +5651,14 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
- 	q_vector->tx.total_bytes += total_bytes;
- 	q_vector->tx.total_packets += total_packets;
- 
--	if (tx_ring->detect_tx_hung) {
-+	if (test_bit(IGB_RING_FLAG_TX_DETECT_HANG, &tx_ring->flags)) {
- 		struct e1000_hw *hw = &adapter->hw;
- 
- 		eop_desc = tx_buffer->next_to_watch;
- 
- 		/* Detect a transmit hang in hardware, this serializes the
- 		 * check with the clearing of time_stamp and movement of i */
--		tx_ring->detect_tx_hung = false;
-+		clear_bit(IGB_RING_FLAG_TX_DETECT_HANG, &tx_ring->flags);
- 		if (eop_desc &&
- 		    time_after(jiffies, tx_buffer->time_stamp +
- 			       (adapter->tx_timeout_factor * HZ)) &&
+The remain 10 igb patches are unchanged from the previous pull request
+and are the continuation of the cleanups and refactoring that Alex has done.
+After this series there are 4-5 more patches to complete the work
+that Alex has done on igb.
+
+The following are changes since commit 3ed6f6958c0ac21958285d8648f14d34da4bbcb3:
+  ll_temac: convert to SKB paged frag API.
+and are available in the git repository at
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+or
+  git://github.com/Jkirsher/net-next.git
+
+Alexander Duyck (10):
+  igb: push data into first igb_tx_buffer sooner to reduce stack usage
+  igb: avoid unnecessary conversions from u16 to int
+  igb: Consolidate all of the ring feature flags into a single value
+  igb: Move ITR related data into work container within the q_vector
+  igb: cleanup IVAR configuration
+  igb: retire the RX_CSUM flag and use the netdev flag instead
+  igb: leave staterr in place and instead us a helper function to check
+    bits
+  igb: fix recent VLAN changes that would leave VLANs disabled after
+    reset
+  igb: move TX hang check flag into ring->flags
+  igb: add support for NETIF_F_RXHASH
+
+Bruce Allan (1):
+  e1000e: locking bug introduced by commit 67fd4fcb
+
+ drivers/net/ethernet/intel/e1000e/e1000.h      |    1 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c    |   21 +-
+ drivers/net/ethernet/intel/igb/e1000_defines.h |    3 +
+ drivers/net/ethernet/intel/igb/igb.h           |   50 ++-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   |   14 +-
+ drivers/net/ethernet/intel/igb/igb_main.c      |  595 ++++++++++++------------
+ 6 files changed, 347 insertions(+), 337 deletions(-)
+
 -- 
 1.7.6.4
