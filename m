@@ -1,94 +1,300 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/11] igb: retire the RX_CSUM flag and use the netdev flag instead
-Date: Tue, 11 Oct 2011 08:45:48 -0700
-Message-ID: <1318347952-25068-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/11] igb: push data into first igb_tx_buffer sooner to reduce stack usage
+Date: Tue, 11 Oct 2011 08:45:43 -0700
+Message-ID: <1318347952-25068-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33975 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:52698 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754884Ab1JKPp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 11:45:57 -0400
+	id S1754812Ab1JKPpz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 11:45:55 -0400
 In-Reply-To: <1318347952-25068-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Since the netdev now has its' own checksum flag to indicate if Rx checksum
-is enabled we might as well use that instead of using the ring flag.
+Instead of storing most of the data for the TX hot path in the stack until
+we are ready to write the descriptor we can save ourselves some time and
+effort by pushing the SKB, tx_flags, gso_size, bytecount, and protocol into
+the first igb_tx_buffer since that is where we will end up putting it
+anyway.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |    1 -
- drivers/net/ethernet/intel/igb/igb_main.c |   22 ++++++----------------
- 2 files changed, 6 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    1 +
+ drivers/net/ethernet/intel/igb/igb_main.c |  103 +++++++++++++++--------------
+ 2 files changed, 54 insertions(+), 50 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index e0dea22..8a15d43 100644
+index 77793a9..de35c02 100644
 --- a/drivers/net/ethernet/intel/igb/igb.h
 +++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -243,7 +243,6 @@ struct igb_ring {
- };
- 
- enum e1000_ring_flags_t {
--	IGB_RING_FLAG_RX_CSUM,
- 	IGB_RING_FLAG_RX_SCTP_CSUM,
- 	IGB_RING_FLAG_TX_CTX_IDX,
- 	IGB_RING_FLAG_TX_DETECT_HANG
+@@ -146,6 +146,7 @@ struct igb_tx_buffer {
+ 	struct sk_buff *skb;
+ 	unsigned int bytecount;
+ 	u16 gso_segs;
++	__be16 protocol;
+ 	dma_addr_t dma;
+ 	u32 length;
+ 	u32 tx_flags;
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index bcc1c28..33b250f 100644
+index 862dd7c..1c234f0 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -709,8 +709,6 @@ static int igb_alloc_queues(struct igb_adapter *adapter)
- 		ring->queue_index = i;
- 		ring->dev = &adapter->pdev->dev;
- 		ring->netdev = adapter->netdev;
--		/* enable rx checksum */
--		set_bit(IGB_RING_FLAG_RX_CSUM, &ring->flags);
- 		/* set flag indicating ring supports SCTP checksum offload */
- 		if (adapter->hw.mac.type >= e1000_82576)
- 			set_bit(IGB_RING_FLAG_RX_SCTP_CSUM, &ring->flags);
-@@ -1764,19 +1762,8 @@ static u32 igb_fix_features(struct net_device *netdev, u32 features)
+@@ -3975,10 +3975,11 @@ void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
+ 	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
+ }
  
- static int igb_set_features(struct net_device *netdev, u32 features)
+-static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
+-			  u32 tx_flags, __be16 protocol, u8 *hdr_len)
++static int igb_tso(struct igb_ring *tx_ring,
++		   struct igb_tx_buffer *first,
++		   u8 *hdr_len)
  {
--	struct igb_adapter *adapter = netdev_priv(netdev);
--	int i;
- 	u32 changed = netdev->features ^ features;
+-	int err;
++	struct sk_buff *skb = first->skb;
+ 	u32 vlan_macip_lens, type_tucmd;
+ 	u32 mss_l4len_idx, l4len;
  
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		if (features & NETIF_F_RXCSUM)
--			set_bit(IGB_RING_FLAG_RX_CSUM,
--				&adapter->rx_ring[i]->flags);
--		else
--			clear_bit(IGB_RING_FLAG_RX_CSUM,
--				  &adapter->rx_ring[i]->flags);
--	}
--
- 	if (changed & NETIF_F_HW_VLAN_RX)
- 		igb_vlan_mode(netdev, features);
+@@ -3986,7 +3987,7 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 		return 0;
  
-@@ -5737,9 +5724,12 @@ static inline void igb_rx_checksum(struct igb_ring *ring,
- {
- 	skb_checksum_none_assert(skb);
+ 	if (skb_header_cloned(skb)) {
+-		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
++		int err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -3994,7 +3995,7 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
  
--	/* Ignore Checksum bit is set or checksum is disabled through ethtool */
--	if (!test_bit(IGB_RING_FLAG_RX_CSUM, &ring->flags) ||
--	     (status_err & E1000_RXD_STAT_IXSM))
-+	/* Ignore Checksum bit is set */
-+	if (status_err & E1000_RXD_STAT_IXSM)
-+		return;
+-	if (protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == __constant_htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+@@ -4003,16 +4004,26 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 							 IPPROTO_TCP,
+ 							 0);
+ 		type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
++		first->tx_flags |= IGB_TX_FLAGS_TSO |
++				   IGB_TX_FLAGS_CSUM |
++				   IGB_TX_FLAGS_IPV4;
+ 	} else if (skb_is_gso_v6(skb)) {
+ 		ipv6_hdr(skb)->payload_len = 0;
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 						       &ipv6_hdr(skb)->daddr,
+ 						       0, IPPROTO_TCP, 0);
++		first->tx_flags |= IGB_TX_FLAGS_TSO |
++				   IGB_TX_FLAGS_CSUM;
+ 	}
+ 
++	/* compute header lengths */
+ 	l4len = tcp_hdrlen(skb);
+ 	*hdr_len = skb_transport_offset(skb) + l4len;
+ 
++	/* update gso size and bytecount with header size */
++	first->gso_segs = skb_shinfo(skb)->gso_segs;
++	first->bytecount += (first->gso_segs - 1) * *hdr_len;
 +
-+	/* Rx checksum disabled via ethtool */
-+	if (!(ring->netdev->features & NETIF_F_RXCSUM))
- 		return;
+ 	/* MSS L4LEN IDX */
+ 	mss_l4len_idx = l4len << E1000_ADVTXD_L4LEN_SHIFT;
+ 	mss_l4len_idx |= skb_shinfo(skb)->gso_size << E1000_ADVTXD_MSS_SHIFT;
+@@ -4020,26 +4031,26 @@ static inline int igb_tso(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 	/* VLAN MACLEN IPLEN */
+ 	vlan_macip_lens = skb_network_header_len(skb);
+ 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
+-	vlan_macip_lens |= tx_flags & IGB_TX_FLAGS_VLAN_MASK;
++	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
  
- 	/* TCP/UDP checksum error bit is set */
+ 	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
+ 
+ 	return 1;
+ }
+ 
+-static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
+-			       u32 tx_flags, __be16 protocol)
++static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
+ {
++	struct sk_buff *skb = first->skb;
+ 	u32 vlan_macip_lens = 0;
+ 	u32 mss_l4len_idx = 0;
+ 	u32 type_tucmd = 0;
+ 
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+-		if (!(tx_flags & IGB_TX_FLAGS_VLAN))
+-			return false;
++		if (!(first->tx_flags & IGB_TX_FLAGS_VLAN))
++			return;
+ 	} else {
+ 		u8 l4_hdr = 0;
+-		switch (protocol) {
++		switch (first->protocol) {
+ 		case __constant_htons(ETH_P_IP):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
+@@ -4053,7 +4064,7 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 			if (unlikely(net_ratelimit())) {
+ 				dev_warn(tx_ring->dev,
+ 				 "partial checksum but proto=%x!\n",
+-				 protocol);
++				 first->protocol);
+ 			}
+ 			break;
+ 		}
+@@ -4081,14 +4092,15 @@ static inline bool igb_tx_csum(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 			}
+ 			break;
+ 		}
++
++		/* update TX checksum flag */
++		first->tx_flags |= IGB_TX_FLAGS_CSUM;
+ 	}
+ 
+ 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
+-	vlan_macip_lens |= tx_flags & IGB_TX_FLAGS_VLAN_MASK;
++	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
+ 
+ 	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
+-
+-	return (skb->ip_summed == CHECKSUM_PARTIAL);
+ }
+ 
+ static __le32 igb_tx_cmd_type(u32 tx_flags)
+@@ -4113,8 +4125,9 @@ static __le32 igb_tx_cmd_type(u32 tx_flags)
+ 	return cmd_type;
+ }
+ 
+-static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
+-				   struct igb_ring *tx_ring)
++static void igb_tx_olinfo_status(struct igb_ring *tx_ring,
++				 union e1000_adv_tx_desc *tx_desc,
++				 u32 tx_flags, unsigned int paylen)
+ {
+ 	u32 olinfo_status = paylen << E1000_ADVTXD_PAYLEN_SHIFT;
+ 
+@@ -4132,7 +4145,7 @@ static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
+ 			olinfo_status |= E1000_TXD_POPTS_IXSM << 8;
+ 	}
+ 
+-	return cpu_to_le32(olinfo_status);
++	tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
+ }
+ 
+ /*
+@@ -4140,12 +4153,13 @@ static __le32 igb_tx_olinfo_status(u32 tx_flags, unsigned int paylen,
+  * maintain a power of two alignment we have to limit ourselves to 32K.
+  */
+ #define IGB_MAX_TXD_PWR	15
+-#define IGB_MAX_DATA_PER_TXD	(1 << IGB_MAX_TXD_PWR)
++#define IGB_MAX_DATA_PER_TXD	(1<<IGB_MAX_TXD_PWR)
+ 
+-static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
+-		       struct igb_tx_buffer *first, u32 tx_flags,
++static void igb_tx_map(struct igb_ring *tx_ring,
++		       struct igb_tx_buffer *first,
+ 		       const u8 hdr_len)
+ {
++	struct sk_buff *skb = first->skb;
+ 	struct igb_tx_buffer *tx_buffer_info;
+ 	union e1000_adv_tx_desc *tx_desc;
+ 	dma_addr_t dma;
+@@ -4154,24 +4168,12 @@ static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 	unsigned int size = skb_headlen(skb);
+ 	unsigned int paylen = skb->len - hdr_len;
+ 	__le32 cmd_type;
++	u32 tx_flags = first->tx_flags;
+ 	u16 i = tx_ring->next_to_use;
+-	u16 gso_segs;
+-
+-	if (tx_flags & IGB_TX_FLAGS_TSO)
+-		gso_segs = skb_shinfo(skb)->gso_segs;
+-	else
+-		gso_segs = 1;
+-
+-	/* multiply data chunks by size of headers */
+-	first->bytecount = paylen + (gso_segs * hdr_len);
+-	first->gso_segs = gso_segs;
+-	first->skb = skb;
+ 
+ 	tx_desc = IGB_TX_DESC(tx_ring, i);
+ 
+-	tx_desc->read.olinfo_status =
+-		igb_tx_olinfo_status(tx_flags, paylen, tx_ring);
+-
++	igb_tx_olinfo_status(tx_ring, tx_desc, tx_flags, paylen);
+ 	cmd_type = igb_tx_cmd_type(tx_flags);
+ 
+ 	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
+@@ -4181,7 +4183,6 @@ static void igb_tx_map(struct igb_ring *tx_ring, struct sk_buff *skb,
+ 	/* record length, and DMA address */
+ 	first->length = size;
+ 	first->dma = dma;
+-	first->tx_flags = tx_flags;
+ 	tx_desc->read.buffer_addr = cpu_to_le64(dma);
+ 
+ 	for (;;) {
+@@ -4336,6 +4337,12 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	/* record the location of the first descriptor for this packet */
++	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
++	first->skb = skb;
++	first->bytecount = skb->len;
++	first->gso_segs = 1;
++
+ 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
+@@ -4346,22 +4353,17 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
+ 	}
+ 
+-	/* record the location of the first descriptor for this packet */
+-	first = &tx_ring->tx_buffer_info[tx_ring->next_to_use];
++	/* record initial flags and protocol */
++	first->tx_flags = tx_flags;
++	first->protocol = protocol;
+ 
+-	tso = igb_tso(tx_ring, skb, tx_flags, protocol, &hdr_len);
+-	if (tso < 0) {
++	tso = igb_tso(tx_ring, first, &hdr_len);
++	if (tso < 0)
+ 		goto out_drop;
+-	} else if (tso) {
+-		tx_flags |= IGB_TX_FLAGS_TSO | IGB_TX_FLAGS_CSUM;
+-		if (protocol == htons(ETH_P_IP))
+-			tx_flags |= IGB_TX_FLAGS_IPV4;
+-	} else if (igb_tx_csum(tx_ring, skb, tx_flags, protocol) &&
+-		   (skb->ip_summed == CHECKSUM_PARTIAL)) {
+-		tx_flags |= IGB_TX_FLAGS_CSUM;
+-	}
++	else if (!tso)
++		igb_tx_csum(tx_ring, first);
+ 
+-	igb_tx_map(tx_ring, skb, first, tx_flags, hdr_len);
++	igb_tx_map(tx_ring, first, hdr_len);
+ 
+ 	/* Make sure there is space in the ring for the next send. */
+ 	igb_maybe_stop_tx(tx_ring, MAX_SKB_FRAGS + 4);
+@@ -4369,7 +4371,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ 
+ out_drop:
+-	dev_kfree_skb_any(skb);
++	igb_unmap_and_free_tx_resource(tx_ring, first);
++
+ 	return NETDEV_TX_OK;
+ }
+ 
 -- 
 1.7.6.4
