@@ -1,49 +1,56 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: pull request: wireless-next 2011-10-11
-Date: Tue, 11 Oct 2011 15:51:02 -0400
-Message-ID: <20111011195102.GJ6558@tuxdriver.com>
-References: <20111011191616.GF6558@tuxdriver.com>
- <20111011193806.GI6558@tuxdriver.com>
- <20111011.154526.442711861363485253.davem@davemloft.net>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [patch] cipso: remove an unneeded NULL check in cipso_v4_doi_add()
+Date: Tue, 11 Oct 2011 17:20:11 -0400
+Message-ID: <CAHC9VhRMy-DbbkXSSWQPh8QgHAm5xzZ1qWJaYLiOERPagDfrbQ@mail.gmail.com>
+References: <20111011132228.GA27127@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20111011.154526.442711861363485253.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:62431 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780Ab1JKVUL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 17:20:11 -0400
+In-Reply-To: <20111011132228.GA27127@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2011 at 03:45:26PM -0400, David Miller wrote:
-> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Date: Tue, 11 Oct 2011 15:38:06 -0400
-> 
-> > On Tue, Oct 11, 2011 at 03:16:16PM -0400, John W. Linville wrote:
-> >> commit bfb3780bc9b622422c1f0d3e12371a70863000da
-> >> 
-> >> Dave,
-> >> 
-> >> Here is another wireless batch intended for 3.2...  Highlights include a
-> >> bluetooth pull with some refactoring, a big pull of ath6kl updates, a
-> >> flurry of mac80211 patches from Johannes, and the usual strong ath9k
-> >> showing.
-> >> 
-> >> Please let me know if there are problems!
-> > 
-> > There was a problem -- a warning in ath6kl.  Sorry about that!
-> > 
-> > commit 094daf7db7c47861009899ce23f9177d761e20b0
-> 
-> I made sure I got the most recent changes.
+On Tue, Oct 11, 2011 at 9:22 AM, Dan Carpenter <dan.carpenter@oracle.co=
+m> wrote:
+> We dereference doi_def on the line before the NULL check. =A0It has
+> been this way since 2008. =A0I checked all the callers and doi_def is
+> always non-NULL here.
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+> index 2c2a98e..86f3b88 100644
+> --- a/net/ipv4/cipso_ipv4.c
+> +++ b/net/ipv4/cipso_ipv4.c
+> @@ -476,7 +476,7 @@ int cipso_v4_doi_add(struct cipso_v4_doi *doi_def=
+,
+> =A0 =A0 =A0 =A0doi =3D doi_def->doi;
+> =A0 =A0 =A0 =A0doi_type =3D doi_def->type;
+>
+> - =A0 =A0 =A0 if (doi_def =3D=3D NULL || doi_def->doi =3D=3D CIPSO_V4=
+_DOI_UNKNOWN)
+> + =A0 =A0 =A0 if (doi_def->doi =3D=3D CIPSO_V4_DOI_UNKNOWN)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto doi_add_return;
+> =A0 =A0 =A0 =A0for (iter =3D 0; iter < CIPSO_V4_TAG_MAXCNT; iter++) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0switch (doi_def->tags[iter]) {
 
-Cool -- sorry for the confusion!
+I'd prefer to keep the NULL check in there as it does afford a little
+bit of extra safety and this is management code after all, not
+per-packet processing code, so the extra check should have no
+observable performance impact.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+paul moore
+www.paul-moore.com
