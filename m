@@ -1,45 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 1/5] stmmac: add CHAINED descriptor mode support
-Date: Tue, 11 Oct 2011 15:42:03 -0400 (EDT)
-Message-ID: <20111011.154203.569015025155780686.davem@davemloft.net>
-References: <1318318246-1326-1-git-send-email-peppe.cavallaro@st.com>
-	<1318318246-1326-2-git-send-email-peppe.cavallaro@st.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2011-10-11
+Date: Tue, 11 Oct 2011 15:45:26 -0400 (EDT)
+Message-ID: <20111011.154526.442711861363485253.davem@davemloft.net>
+References: <20111011191616.GF6558@tuxdriver.com>
+	<20111011193806.GI6558@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rayagond@vayavyalabs.com
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40055 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754933Ab1JKTmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 15:42:11 -0400
-In-Reply-To: <1318318246-1326-2-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111011193806.GI6558-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Tue, 11 Oct 2011 09:30:42 +0200
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 11 Oct 2011 15:38:06 -0400
 
-> From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+> On Tue, Oct 11, 2011 at 03:16:16PM -0400, John W. Linville wrote:
+>> commit bfb3780bc9b622422c1f0d3e12371a70863000da
+>> 
+>> Dave,
+>> 
+>> Here is another wireless batch intended for 3.2...  Highlights include a
+>> bluetooth pull with some refactoring, a big pull of ath6kl updates, a
+>> flurry of mac80211 patches from Johannes, and the usual strong ath9k
+>> showing.
+>> 
+>> Please let me know if there are problems!
 > 
-> This patch enhances the STMMAC driver to support CHAINED mode of
-> descriptor (useful also on validation side).
+> There was a problem -- a warning in ath6kl.  Sorry about that!
 > 
-> STMMAC supports DMA descriptor to operate both in dual buffer(RING)
-> and linked-list(CHAINED) mode. In RING mode (default) each descriptor
-> points to two data buffer pointers whereas in CHAINED mode they point
-> to only one data buffer pointer.
-> 
-> In CHAINED mode each descriptor will have pointer to next descriptor in
-> the list, hence creating the explicit chaining in the descriptor itself,
-> whereas such explicit chaining is not possible in RING mode.
-> 
-> Signed-off-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-> Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> commit 094daf7db7c47861009899ce23f9177d761e20b0
 
-These ifdefs added all over the place in the foo.c files are terrible.
-
-Abstract out the differences between RING and CHAINED mode into helper
-inline routines which live in some foo.h header file, that way you won't
-need any ifdefs in the driver foo.c files.
+I made sure I got the most recent changes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
