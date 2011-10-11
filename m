@@ -1,28 +1,40 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-next 2011-10-11
-Date: Tue, 11 Oct 2011 15:16:16 -0400
-Message-ID: <20111011191616.GF6558@tuxdriver.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-next 2011-10-11
+Date: Tue, 11 Oct 2011 15:38:06 -0400
+Message-ID: <20111011193806.GI6558@tuxdriver.com>
+References: <20111011191616.GF6558@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="FCuugMFkClbJLl1L"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43786 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754948Ab1JKTar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 15:30:47 -0400
+	protocol="application/pgp-signature"; boundary="7iMSBzlTiPOCCT2k"
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111011191616.GF6558-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---FCuugMFkClbJLl1L
+--7iMSBzlTiPOCCT2k
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-commit bfb3780bc9b622422c1f0d3e12371a70863000da
+On Tue, Oct 11, 2011 at 03:16:16PM -0400, John W. Linville wrote:
+> commit bfb3780bc9b622422c1f0d3e12371a70863000da
+>=20
+> Dave,
+>=20
+> Here is another wireless batch intended for 3.2...  Highlights include a
+> bluetooth pull with some refactoring, a big pull of ath6kl updates, a
+> flurry of mac80211 patches from Johannes, and the usual strong ath9k
+> showing.
+>=20
+> Please let me know if there are problems!
+
+There was a problem -- a warning in ath6kl.  Sorry about that!
+
+commit 094daf7db7c47861009899ce23f9177d761e20b0
 
 Dave,
 
@@ -36,6 +48,9 @@ Please let me know if there are problems!
 Thanks,
 
 John
+
+P.S.  This version correct a warning due to some merge damage in
+ath6kl...
 
 ---
 
@@ -408,29 +423,34 @@ Yogesh Ashok Powar (1):
  delete mode 100644 drivers/net/wireless/ath/ath6kl/node.c
  create mode 100644 drivers/net/wireless/ath/ath6kl/testmode.c
  create mode 100644 drivers/net/wireless/ath/ath6kl/testmode.h
+
 --=20
 John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
 
---FCuugMFkClbJLl1L
+--7iMSBzlTiPOCCT2k
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIcBAEBAgAGBQJOlJYAAAoJEJctW/TcYTgGG6IP+gJ+yxEaBg1kIB7opjTlkD6o
-gzDz7ci7T6lP7YzlvMppS6AUG9W2KsYxXvXhveARtrHSErP+Jwm65sxIY6cNdaRv
-U5yMVH+JaHhh85BB/7D+Kdn/j0WxWz7//TCTQ1tAdHKGpIsJPonXoCERikq8uC1Y
-vTLK3ENt6nVqK0gm/b1hlYxt1wf878x0MEkdQMhyXEbqHqez95IdA4rJ424o4SvE
-LbvA3a2Ph0JNVUEsIJqIceczWDkP3/7++R+5EZTgBLw+fITo4B0O2+G2Q8IJvIDT
-cKAjdwlBWGlJOdDK7Jc2Dj9WZ3sOgUWz/S0PmpW52p3Rb0yUD7q3fu0Pz6bRY+Ae
-c6gDI2myJ7TyivvsZjccKHk937VhzBpJQGq0tIgYa+T3ybRaQb9tQoSyIkL7s6W+
-dU5AJRjGZ+G3jbvCdeQLDgwoxMF0fPVEIvUniL3JfyAgXLI/WCpCpsc7+gZljh8Y
-X0BK316OSlP5fBCPEjQV9QGg+JACoTA6YTT+bHIsWT7NL1phUjymxuhbUgGS0swk
-pRsYT3s4+6yrv6V1xEwM4D+04/hIxnNgOG/iTdWuXT/taMv7SoJaur0vY00Ew9/z
-LRP8meepmhNtGKn2ecQV7ve70MWaC/+2+hpjzfLA4vDHNK1BYsx8L7KMTCQW0hew
-ewpxZrxUNUdi67KUIUDy
-=J92h
+iQIcBAEBAgAGBQJOlJseAAoJEJctW/TcYTgG7D0P/A3m6aCt4MRmZp3LbbG7Tuhu
+AOcfPRJTVt1Kt1hq2sDYKLsezPlmmsBiiGo7HXoQl+lnP9X0fMzPDFKWdWq1oes7
+Sjqkw4u2kX7WIIh9NfX/nJMNbzckMFFdJm8xuoBf+EUs+grlZ646qjkv1JhC3vts
+s1+6hBGqpSAooXxsKL/Ko9YIIVcgf9uYWEnOwcR5bAVGSc5vnvxFSK5l1HEaov86
+2rdEWzVntrJkxUvwMxen5dNJ+WjrX6zvcgWeQlHL2DouIV1aG63AluByP9bjoWVm
+qvdEpNWQtxm6nM2OTkvunny6DGjszz+6YXFpBkZJSVvn4m1qnhztTibT74mJaHy6
+MShsOrgRUecaAIcbxpKh5pJjTMUdMNHgjw5VOO6tiMlsbN6PZ6bA+yc4o6GYnMXH
+b1ALWJpEKg23WaIO8itFTQOvKKOmXUBuzc52uOVo4MwYjBBHrrOBLPPsdS403GTN
+OMDF0+MzEOr8aMTjk/QN4xHTP2qgG5aMeqKDLZ+IVIPMgF8RkrI/eTBR3P5jtHBR
+R9+Q7CLK4XSmkB8Vlzqr2g0DNdov/JEzAFwW/6SDyBhUg5JbRMg/hzih8BUT34PB
++Bcw1oArRD3JuAIDmi72qj3Jo0FkaIUFzBQBjO6J9ygM7wtsDpRVSr3chCfBvW9b
+e0c4DmLJBkjsgfTQNsPK
+=gqgB
 -----END PGP SIGNATURE-----
 
---FCuugMFkClbJLl1L--
+--7iMSBzlTiPOCCT2k--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
