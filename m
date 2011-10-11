@@ -1,61 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] dev: use name hash for dev_seq_ops.
-Date: Mon, 10 Oct 2011 22:55:36 -0700
-Message-ID: <20111010225536.6ca5c042@nehalam.linuxnetplumber.net>
-References: <1318000849-2531-1-git-send-email-mmaruseac@ixiacom.com>
-	<20111007092445.4f097ed9@nehalam.linuxnetplumber.net>
-	<CAOMsUMLRc5dT4kGyAUMLka2f=jTOCeYt8WEkNZPY+dwkrBhPeQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Host got crash when guest running netperf client with
+ UDP_STREAM protocol with IPV6
+Date: Tue, 11 Oct 2011 08:04:51 +0200
+Message-ID: <1318313091.2606.4.camel@edumazet-laptop>
+References: <4E93A94A.1010001@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dbaluta@ixiacom.com, Mihai Maruseac <mmaruseac@ixiacom.com>
-To: Mihai Maruseac <mihai.maruseac@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOMsUMLRc5dT4kGyAUMLka2f=jTOCeYt8WEkNZPY+dwkrBhPeQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Qunfang Zhang <qzhang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:53734 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751316Ab1JKGE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 02:04:56 -0400
+Received: by wyg34 with SMTP id 34so6619283wyg.19
+        for <netdev@vger.kernel.org>; Mon, 10 Oct 2011 23:04:55 -0700 (PDT)
+In-Reply-To: <4E93A94A.1010001@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Oct 2011 11:43:20 +0300
-Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
-
-> On Fri, Oct 7, 2011 at 7:24 PM, Stephen Hemminger <shemminger@vyatta.=
-com> wrote:
-> > On Fri, =A07 Oct 2011 18:20:49 +0300
-> > Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
-> >
-> >> Instead of using the dev->next chain and trying to resync at each =
-call to
-> >> dev_seq_start, use this hash and store bucket number and bucket of=
-fset in
-> >> seq->private field.
-> >>
-> >> As one can notice the improvement is of 1 order of magnitude.
-> >
-> > Good idea,
-> > This will change the ordering of entries in /proc which may upset
-> > some program, not a critical flaw but worth noting.
-> >
-> > Rather than recording the bucket and offset of last entry, another
-> > alternative would be to just record the ifindex.
-> >
+Le mardi 11 octobre 2011 =C3=A0 10:26 +0800, Qunfang Zhang a =C3=A9crit=
+ :
 >=20
-> I tried to record the ifindex but I think that using it and
-> dev_get_by_index can result in an infinite loop or a NULL
-> dereferrence. If a device is removed and ifindex points to it we'll
-> get a NULL from dev_get_by_index. Checking for NULL and calling again
-> dev_get_by_index will end in an infinite loop at the end of the hlist=
-=2E
+> Hi, guys
 >=20
-> Augmenting the structure to also contain the number of indexes when
-> the seq_file is opened returns to the current situation with two ints=
-=2E
-> Also, it is more prone to bugs caused by device removal while
-> printing.
+> I found the following bug on RHEL6.2 kernel and after re-test, latest
+> stable kernel also has this problem.
+> Jiri suggests it would be best to resolve this via upstream as well,
+> so I send you the mail.  Thank you.
+>=20
+> Bug 740465 - Host got crash when guest running netperf client with
+> UDP_STREAM protocol with IPV6
+> https://bugzilla.redhat.com/show_bug.cgi?id=3D740465
+>=20
+> For the vmcore log please also find it from the bug attachment.
+>=20
+>=20
+>=20
+Isnt it fixed by Jason Wang patch ?
 
-If ifindex has been deleted, the code should fall back to delivering
-the next offset. That means for the rare case it would have the old
-behavior of linear searching.  There is similar code already to
-deal with /proc/net/route; it continues from the last address.
+( ipv6: fix NULL dereference in udp6_ufo_fragment() )
