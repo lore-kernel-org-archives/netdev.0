@@ -1,40 +1,61 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2011-10-11
-Date: Tue, 11 Oct 2011 15:45:26 -0400 (EDT)
-Message-ID: <20111011.154526.442711861363485253.davem@davemloft.net>
-References: <20111011191616.GF6558@tuxdriver.com>
-	<20111011193806.GI6558@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Tue, 11 Oct 2011 15:54:14 -0400 (EDT)
+Message-ID: <20111011.155414.810541217087355148.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111011193806.GI6558-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59967 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754933Ab1JKTyU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 15:54:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 11 Oct 2011 15:38:06 -0400
 
-> On Tue, Oct 11, 2011 at 03:16:16PM -0400, John W. Linville wrote:
->> commit bfb3780bc9b622422c1f0d3e12371a70863000da
->> 
->> Dave,
->> 
->> Here is another wireless batch intended for 3.2...  Highlights include a
->> bluetooth pull with some refactoring, a big pull of ath6kl updates, a
->> flurry of mac80211 patches from Johannes, and the usual strong ath9k
->> showing.
->> 
->> Please let me know if there are problems!
-> 
-> There was a problem -- a warning in ath6kl.  Sorry about that!
-> 
-> commit 094daf7db7c47861009899ce23f9177d761e20b0
+Just a few driver bugs, and one missing state update during ipv6 GRO processing.
 
-I made sure I got the most recent changes.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1) When iSCSI and FCOE are both in use, bnx2x allocated conflicting client IDs.
+   Fix from Dmitry Kravkov.
+
+2) MSCAN CAN driver copies one byte to many on odd packet lengths, fix from
+   Wolfgang Grandegger.
+
+3) Blue frame support in mlx4_en driver is busted on PowerPC due to endian
+   bugs, fix from Thadeu Lima de Souza Cascardo.
+
+4) When GRO pulls ipv6 extension headers, the protocol value changes,
+   so it has to reload the protocol ops pointer.  Fix from Zheng Yan.
+
+Please pull, thanks a lot!
+
+The following changes since commit 65112dccf8a113737684366349d7f9ec373ddc47:
+
+  Merge git://git.samba.org/sfrench/cifs-2.6 (2011-10-10 14:53:11 +1200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+Dmitry Kravkov (1):
+      bnx2x: fix cl_id allocation for non-eth clients for NPAR mode
+
+Thadeu Lima de Souza Cascardo (1):
+      mlx4_en: fix endianness with blue frame support
+
+Wolfgang Grandegger (1):
+      mscan: too much data copied to CAN frame due to 16 bit accesses
+
+Yan, Zheng (1):
+      gro: refetch inet6_protos[] after pulling ext headers
+
+ drivers/net/bnx2x/bnx2x.h     |   20 +++++++++++++-------
+ drivers/net/bnx2x/bnx2x_cmn.h |    2 +-
+ drivers/net/can/mscan/mscan.c |   11 ++++++++---
+ drivers/net/mlx4/en_tx.c      |    6 +++---
+ net/ipv6/af_inet6.c           |    1 +
+ 5 files changed, 26 insertions(+), 14 deletions(-)
