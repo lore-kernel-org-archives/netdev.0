@@ -1,89 +1,51 @@
-From: Arvid Brodin <arvid.brodin@enea.com>
-Subject: Re: bridge: HSR support
-Date: Wed, 12 Oct 2011 01:51:22 +0200
-Message-ID: <4E94D67A.9060207@enea.com>
-References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: iproute2 back at kernel.org
+Date: Tue, 11 Oct 2011 16:59:08 -0700
+Message-ID: <20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
+References: <20110916103031.7f22b35f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sestofw01.enea.se ([192.36.1.252]:2587 "HELO mx-3.enea.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1750919Ab1JKX47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 19:56:59 -0400
-In-Reply-To: <20111011112821.28cd3e51@nehalam.linuxnetplumber.net>
+Received: from mail.vyatta.com ([76.74.103.46]:55081 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751344Ab1JKX7K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 19:59:10 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id A3CCD1410048
+	for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 16:59:09 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id UhijYpCJ0mmc for <netdev@vger.kernel.org>;
+	Tue, 11 Oct 2011 16:59:09 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
+	by mail.vyatta.com (Postfix) with ESMTPSA id 42CC61410034
+	for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 16:59:09 -0700 (PDT)
+In-Reply-To: <20110916103031.7f22b35f@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 11 Oct 2011 20:25:08 +0200
-> Arvid Brodin <arvid.brodin@enea.com> wrote:
-> 
->> Hi,
->>
->> I want to add support for HSR ("High-availability Seamless Redundancy",
->> IEC-62439-3) to the bridge code. With HSR, all connected units have two network
->> ports and are connected in a ring. All new Ethernet packets are sent on both
->> ports (or passed through if the current unit is not the originating unit). The
->> same packet is never passed twice. Non-HSR units are not allowed in the ring.
->>
->> This gives instant, reconfiguration-free failover.
->>
->> I'd like your input on how to design the user interface. To me it seems natural
->> to use bridge-utils, which of course today supports STP.
->>
->> One solution is to simply add an "hsr" command:
->>
->> # brctl hsr <bridge> on|off
->>
->> But HSR is mutually exclusive to other modes, and I think that STP and standard
->> bridge mode are mutually exclusive, too? Perhaps it would be better (more user-
->> friendly) to 
->>
->> # brctl type <bridge> standard|stp|hsr
->>
->> ?
->>
->> 'brctl stp <bridge> on|off' would have to be kept for compatibility, but could
->> be a simple wrapper for 'brctl type <bridge> stp|standard'
->>
->> What do you think about this?
->>
->>
-> 
-> Why is it a bridge thing and not a standalone or bonding (or the new team
-> device feature? Wouldn't users want to use it without all the stuff
-> related to bridging. The fact that it doesn't work with STP is a big
-> red flag that it doesn't belong in the bridge.
-
-Good question! I'm new to the more advanced networking possibilities in Linux, so 
-I really don't know where HSR fits best.
-
-HSR is a layer 2 only protocol, with the host acting as bridge for packets not 
-destined for itself. It also sends all originating Ethernet packets on both ports,
-adding a HSR sequence tag to the packet (using a dedicated EtherType of 0x88FB).
-As described above, the HSR units are connected in a ring, in which only HSR units
-are allowed.
-
-Having looked now at bonding, it seems to act on several network layers, doing 
-multiple things mainly centered around 802.3ad (link aggregation). I'm not sure
-how HSR would fit there.
-
-If I understand correctly, team device is an emerging userspace implementation of
-the bonding driver?
-
-I guess my take was that HSR seems like a special bridging mode, much like STP.
-
-
-> Please discuss this on netdev mailing list, others may have different
-> opinions.
-
-Done! :)
-
-
--- 
-Arvid Brodin
-Enea Services Stockholm AB
+LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQ0KSGFzaDogU0hBMjU2DQoNCk5vdyB0
+aGF0IGtlcm5lbC5vcmcgaXMgYmFjayBvbmxpbmUsIHRoZSBpcHJvdXRlMiByZXBvc2l0b3J5IGlz
+IGJhY2sNCmF0IGl0J3Mgb2xkIGxvY2F0aW9uLg0KICAgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHVi
+L3NjbS9saW51eC9rZXJuZWwvZ2l0L3NoZW1taW5nZXIvaXByb3V0ZTINCg0KSSBoYXZlIGZyb3pl
+biBhbmQgdGFnZ2VkIHRoZSB2My4wIHJlbGVhc2UsIGJ1dCBkb24ndCBoYXZlIGEgZ29vZCBwbGFj
+ZQ0KdG8gcHV0IHRoZSB0YXIgYmFsbCB5ZXQgKHN0YXkgdHVuZWQpLiBBbHNvIHRoZSBzaWduaW5n
+IGtleSBmb3IgdGhlIHJlbGVhc2UNCndpbGwgYmUgY2hhbmdpbmcuDQotLS0tLUJFR0lOIFBHUCBT
+SUdOQVRVUkUtLS0tLQ0KVmVyc2lvbjogR251UEcgdjEuNC4xMSAoR05VL0xpbnV4KQ0KDQppUUlj
+QkFFQkNBQUdCUUpPbE5oTUFBb0pFSUNuZjJDVnplUiszdm9QL0EwT3dTcnphR1pJZjhWTXBQd3F2
+aGdNDQp4WjZFVWFzZ0lSUFRxZDBGTkRrY29OVHFUOGhJVUwrQ2QyNm54cDA5b3lTelBLWXFobldS
+MFhIUkxEclBFdWlyDQpkaGlmejZXWFVGMVpxb0taVTdoczFadGcvdHZNM1M5blY4U0kxaEtOTXA4
+dHZ4TlM1cDFrYWRUUmIreWl5ZWp6DQpvWGo5ZlY3dDhUQ1R3TDBmemRGeG83ZFRldUNZbzZxMW51
+c2JYVndHRlV3cUNkL2krWEFQR1BtQ094L0tzWVRmDQpGL0p1c2VIQml5bFZLdEJNYkkvTzFhdDRj
+NnZ4d2loNktrWGR3RkZ4VmVEbEZaSEQrU3JvU241VWp4RytDdnZCDQp2c0F0NkwwbTNmYklIVmtz
+dzlVTGJNemVHVTUvT2RXTXd4ZTZrckh1bFhKZFM4Qld2U1dhT1ZmRVdvcWRHb0dUDQpmYjJxdlpS
+eHN2VGlmaHhVbktkN0oxejJXZkZLYit6a3Y0WXlOV2p0TTBCSkRvemt0YTRKc3VSV01CbGhoU2Jy
+DQozQkE4bVBJUXlSNGIrUXc2NHBHR2FhbHgwM1JOQ2NkVVNFYlJLUFZlZjZSWGRFRjZNSzRVQXVI
+clBkbnp3V3JNDQprN3F2QkMwUnlrMnhkcTllSlp2NGlDc0M5TE4vK2NvcE5BaVlEb29TYXMvdytQ
+ZzNQSEtncFBUVk5kSE1Tb3dJDQpnT2hTQU5oRzlxWVhoaEpFVFZUV21SREc4bk1ydVM2UklNMFho
+eEhZR0pIdGdaYUtRQUpoQ3c0QmdIZUVKeWxSDQpsNUt3ckVZV2s0MlRCVXFreGRMYWJkYVd3T0FQ
+a0xxM3VqREtnMFJNZHcveVcrcFdyUWdHWi9GNlBRbGplbFZLDQpWQ2xrUDdBQ0JrRTZFSWZlVlNl
+Mg0KPVJIOE8NCi0tLS0tRU5EIFBHUCBTSUdOQVRVUkUtLS0tLQ0K
