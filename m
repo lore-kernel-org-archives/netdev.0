@@ -1,49 +1,55 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: e100 + VLANs?
-Date: Tue, 11 Oct 2011 16:56:23 +0400
-Message-ID: <4E943CF7.6030905@msgid.tls.msk.ru>
-References: <4E90212D.8030009@msgid.tls.msk.ru>		<1318091046.5276.22.camel@edumazet-laptop>	<4E9097C0.2030307@gmail.com>		<20111010101954.GB2840382@jupiter.n2.diac24.net>		<4E9307CB.4050704@msgid.tls.msk.ru>		<1318259152.3227.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>		<20111010151343.GB3260852@jupiter.n2.diac24.net>		<4E932278.8010802@tls.msk.ru>	<4E941198.9000307@msgid.tls.msk.ru>	 <CAL4WiiphpyizVaNkvOdJp1+UK53TkGw9RXnC-vzH7fTNpBAAEA@mail.gmail.com>	 <4E942F8A.90205@msgid.tls.msk.ru> <1318334674.2538.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
+Subject: Re: [RFC PATCH net 1/2] [BUGFIX] bonding: use local function pointer
+ of bond->recv_probe in bond_handle_frame
+Date: Tue, 11 Oct 2011 22:02:11 +0900
+Message-ID: <4E943E53.6010601@hitachi.com>
+References: <20111007124925.7089.27260.stgit@ltc219.sdl.hitachi.co.jp> <20111007124954.7089.9776.stgit@ltc219.sdl.hitachi.co.jp> <CAM_iQpXZmX2GPb99tF7xMEup52o8AfeUi+0awvHr7C9LVWTjEg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Lamparter <equinox@diac24.net>, jeffrey.t.kirsher@intel.com,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:38245 "EHLO isrv.corpit.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752888Ab1JKM4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 08:56:24 -0400
-In-Reply-To: <1318334674.2538.6.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: =?UTF-8?B?QW3DqXJpY28gV2FuZw==?= <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpXZmX2GPb99tF7xMEup52o8AfeUi+0awvHr7C9LVWTjEg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-11.10.2011 16:04, Eric Dumazet wrote:
-> Le mardi 11 octobre 2011 =C3=A0 15:59 +0400, Michael Tokarev a =C3=A9=
-crit :
-[]
->> (and it works).  With -s 1469, no ICMP packets can be seen
->> on e100 side.
+Hi WANG Cong
+
+Thank you for your comments.
+
+(2011/10/07 22:24), Am=C3=A9rico Wang wrote:
+> On Fri, Oct 7, 2011 at 8:49 PM, Mitsuo Hayasaka
+> <mitsuo.hayasaka.hu@hitachi.com> wrote:
+>> The bond->recv_probe is called in bond_handle_frame() when
+>> a packet is received, but bond_close() sets it to NULL. So,
+>> a panic occurs when both functions work in parallel.
 >>
->> So it still may be the hardware... :)
->
-> Yes, my patch was not needed, I was not sure sizeof(struct rfd) was
-> included or not in the rfd.size setting (apparently its not needed)
+>> Why this happen:
+>> After null pointer check of bond->recv_probe, an sk_buff is
+>> duplicated and bond->recv_probe is called in bond_handle_frame.
+>> So, a panic occurs when bond_close() is called between the
+>> check and call of bond->recv_probe.
+>>
+>> Patch:
+>> This patch uses a local function pointer of bond->recv_probe
+>> in bond_handle_frame(). So, it can avoid the null pointer
+>> dereference.
+>>
+>=20
+> Hmm, I don't doubt it can fix the problem, I am wondering if
+> bond->recv_probe should be protected by bond->lock...
 
-Ok, good to know!
+Indeed, in general any resources should be protected from the asynchron=
+ous
+workers.
 
-> Any counters increase in "ethtool -S eth0" ?
+At first, I thought it should be handled with lock protection, as well.
+However, I guess that using bond->lock on this kind of hot-path may
+introduces unnecessary overhead. In addition, this code works well
+without the strict lock protection. So, I think this change is the
+right way to fix it.
 
-None at all.  Number of interrupts gets increased by 2 about every
-2 seconds, even when the other side is doing ping -f, or not pinging
-at all.
-
-So it looks like the card merely ignores these packets.
-
-So little result for so much efforts... :(
-
-But it is not really that bad I think - it is an obsolete hardware.
-
-Thank you for all the help!
-
-/mjt
+Thanks.
