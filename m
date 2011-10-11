@@ -1,207 +1,71 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH net-next] xfrm: Simplify the replay check and advance
- functions
-Date: Tue, 11 Oct 2011 13:58:37 +0200
-Message-ID: <20111011115837.GK1830@secunet.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: e100 + VLANs?
+Date: Tue, 11 Oct 2011 15:59:06 +0400
+Message-ID: <4E942F8A.90205@msgid.tls.msk.ru>
+References: <4E90212D.8030009@msgid.tls.msk.ru>	<1318091046.5276.22.camel@edumazet-laptop>	<4E9097C0.2030307@gmail.com>	<20111010101954.GB2840382@jupiter.n2.diac24.net>	<4E9307CB.4050704@msgid.tls.msk.ru>	<1318259152.3227.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>	<20111010151343.GB3260852@jupiter.n2.diac24.net>	<4E932278.8010802@tls.msk.ru>	<4E941198.9000307@msgid.tls.msk.ru> <CAL4WiiphpyizVaNkvOdJp1+UK53TkGw9RXnC-vzH7fTNpBAAEA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Lamparter <equinox@diac24.net>, jeffrey.t.kirsher@intel.com,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53530 "EHLO a.mx.secunet.com"
+Received: from isrv.corpit.ru ([86.62.121.231]:48061 "EHLO isrv.corpit.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751918Ab1JKL6l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 07:58:41 -0400
-Content-Disposition: inline
+	id S1752957Ab1JKL7I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 07:59:08 -0400
+In-Reply-To: <CAL4WiiphpyizVaNkvOdJp1+UK53TkGw9RXnC-vzH7fTNpBAAEA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The replay check and replay advance functions had some code
-duplications. This patch removes the duplications.
+11.10.2011 15:25, Eric Dumazet wrote:
+>> So, is that a hardware limitation?
+> 
+> Its a driver bug
+> 
+> This comes from fact that sizeof(struct rfd) = 16
+> 
+> and VLAN_ETH_FRAME_LEN is 1518
+> 
+> driver mixes VLAN_ETH_FRAME_LEN and 1500+4+sizeof(struct rfd)   (1520, not 1518)
+> 
+> It therefore misses 2 bytes for large frames (VLAN tagged)
+> 
+> Fix is to remove VLAN_ETH_FRAME_LEN references for good...
+> 
+> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> index c1352c6..3287d31 100644
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_replay.c |   98 ++++++++++++++++-------------------------------
- 1 files changed, 34 insertions(+), 64 deletions(-)
+Hmm.  This does not _exactly_ work.
 
-diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
-index b11ea69..6ca3574 100644
---- a/net/xfrm/xfrm_replay.c
-+++ b/net/xfrm/xfrm_replay.c
-@@ -203,8 +203,6 @@ static int xfrm_replay_check_bmp(struct xfrm_state *x,
- 	if (!replay_esn->replay_window)
- 		return 0;
- 
--	pos = (replay_esn->seq - 1) % replay_esn->replay_window;
--
- 	if (unlikely(seq == 0))
- 		goto err;
- 
-@@ -216,19 +214,18 @@ static int xfrm_replay_check_bmp(struct xfrm_state *x,
- 		goto err;
- 	}
- 
--	if (pos >= diff) {
-+	pos = (replay_esn->seq - 1) % replay_esn->replay_window;
-+
-+	if (pos >= diff)
- 		bitnr = (pos - diff) % replay_esn->replay_window;
--		nr = bitnr >> 5;
--		bitnr = bitnr & 0x1F;
--		if (replay_esn->bmp[nr] & (1U << bitnr))
--			goto err_replay;
--	} else {
-+	else
- 		bitnr = replay_esn->replay_window - (diff - pos);
--		nr = bitnr >> 5;
--		bitnr = bitnr & 0x1F;
--		if (replay_esn->bmp[nr] & (1U << bitnr))
--			goto err_replay;
--	}
-+
-+	nr = bitnr >> 5;
-+	bitnr = bitnr & 0x1F;
-+	if (replay_esn->bmp[nr] & (1U << bitnr))
-+		goto err_replay;
-+
- 	return 0;
- 
- err_replay:
-@@ -259,39 +256,27 @@ static void xfrm_replay_advance_bmp(struct xfrm_state *x, __be32 net_seq)
- 				bitnr = bitnr & 0x1F;
- 				replay_esn->bmp[nr] &=  ~(1U << bitnr);
- 			}
--
--			bitnr = (pos + diff) % replay_esn->replay_window;
--			nr = bitnr >> 5;
--			bitnr = bitnr & 0x1F;
--			replay_esn->bmp[nr] |= (1U << bitnr);
- 		} else {
- 			nr = (replay_esn->replay_window - 1) >> 5;
- 			for (i = 0; i <= nr; i++)
- 				replay_esn->bmp[i] = 0;
--
--			bitnr = (pos + diff) % replay_esn->replay_window;
--			nr = bitnr >> 5;
--			bitnr = bitnr & 0x1F;
--			replay_esn->bmp[nr] |= (1U << bitnr);
- 		}
- 
-+		bitnr = (pos + diff) % replay_esn->replay_window;
- 		replay_esn->seq = seq;
- 	} else {
- 		diff = replay_esn->seq - seq;
- 
--		if (pos >= diff) {
-+		if (pos >= diff)
- 			bitnr = (pos - diff) % replay_esn->replay_window;
--			nr = bitnr >> 5;
--			bitnr = bitnr & 0x1F;
--			replay_esn->bmp[nr] |= (1U << bitnr);
--		} else {
-+		else
- 			bitnr = replay_esn->replay_window - (diff - pos);
--			nr = bitnr >> 5;
--			bitnr = bitnr & 0x1F;
--			replay_esn->bmp[nr] |= (1U << bitnr);
--		}
- 	}
- 
-+	nr = bitnr >> 5;
-+	bitnr = bitnr & 0x1F;
-+	replay_esn->bmp[nr] |= (1U << bitnr);
-+
- 	if (xfrm_aevent_is_on(xs_net(x)))
- 		xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
- }
-@@ -390,8 +375,6 @@ static int xfrm_replay_check_esn(struct xfrm_state *x,
- 	if (!wsize)
- 		return 0;
- 
--	pos = (replay_esn->seq - 1) % replay_esn->replay_window;
--
- 	if (unlikely(seq == 0 && replay_esn->seq_hi == 0 &&
- 		     (replay_esn->seq < replay_esn->replay_window - 1)))
- 		goto err;
-@@ -415,19 +398,18 @@ static int xfrm_replay_check_esn(struct xfrm_state *x,
- 		goto err;
- 	}
- 
--	if (pos >= diff) {
-+	pos = (replay_esn->seq - 1) % replay_esn->replay_window;
-+
-+	if (pos >= diff)
- 		bitnr = (pos - diff) % replay_esn->replay_window;
--		nr = bitnr >> 5;
--		bitnr = bitnr & 0x1F;
--		if (replay_esn->bmp[nr] & (1U << bitnr))
--			goto err_replay;
--	} else {
-+	else
- 		bitnr = replay_esn->replay_window - (diff - pos);
--		nr = bitnr >> 5;
--		bitnr = bitnr & 0x1F;
--		if (replay_esn->bmp[nr] & (1U << bitnr))
--			goto err_replay;
--	}
-+
-+	nr = bitnr >> 5;
-+	bitnr = bitnr & 0x1F;
-+	if (replay_esn->bmp[nr] & (1U << bitnr))
-+		goto err_replay;
-+
- 	return 0;
- 
- err_replay:
-@@ -465,22 +447,13 @@ static void xfrm_replay_advance_esn(struct xfrm_state *x, __be32 net_seq)
- 				bitnr = bitnr & 0x1F;
- 				replay_esn->bmp[nr] &=  ~(1U << bitnr);
- 			}
--
--			bitnr = (pos + diff) % replay_esn->replay_window;
--			nr = bitnr >> 5;
--			bitnr = bitnr & 0x1F;
--			replay_esn->bmp[nr] |= (1U << bitnr);
- 		} else {
- 			nr = (replay_esn->replay_window - 1) >> 5;
- 			for (i = 0; i <= nr; i++)
- 				replay_esn->bmp[i] = 0;
--
--			bitnr = (pos + diff) % replay_esn->replay_window;
--			nr = bitnr >> 5;
--			bitnr = bitnr & 0x1F;
--			replay_esn->bmp[nr] |= (1U << bitnr);
- 		}
- 
-+		bitnr = (pos + diff) % replay_esn->replay_window;
- 		replay_esn->seq = seq;
- 
- 		if (unlikely(wrap > 0))
-@@ -488,19 +461,16 @@ static void xfrm_replay_advance_esn(struct xfrm_state *x, __be32 net_seq)
- 	} else {
- 		diff = replay_esn->seq - seq;
- 
--		if (pos >= diff) {
-+		if (pos >= diff)
- 			bitnr = (pos - diff) % replay_esn->replay_window;
--			nr = bitnr >> 5;
--			bitnr = bitnr & 0x1F;
--			replay_esn->bmp[nr] |= (1U << bitnr);
--		} else {
-+		else
- 			bitnr = replay_esn->replay_window - (diff - pos);
--			nr = bitnr >> 5;
--			bitnr = bitnr & 0x1F;
--			replay_esn->bmp[nr] |= (1U << bitnr);
--		}
- 	}
- 
-+	nr = bitnr >> 5;
-+	bitnr = bitnr & 0x1F;
-+	replay_esn->bmp[nr] |= (1U << bitnr);
-+
- 	if (xfrm_aevent_is_on(xs_net(x)))
- 		xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
- }
--- 
-1.7.0.4
+I applied it on top of 2.6.32, patch applied but with some fuzz - I checked
+manually and it appears to be ok.
+
+Now, with this patch applied, I see on the e100 side:
+
+00:1f:c6:ef:e5:1b > 00:90:27:30:6d:1c, ethertype 802.1Q (0x8100), length 1504: vlan 6, p 0, ethertype IPv4, truncated-ip - 1 bytes missing! (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto ICMP (1), length 1487)
+    10.48.6.1 > 10.48.6.2: ICMP echo request, id 27613, seq 6, length 1467
+
+when pinging it with -s 1459 (1487 total size).
+
+I added extra +40 for RFD_BUF_LEN define and recompiled
+(this resulted in RFD_BUF_LEN=1560, - I've added a printk
+just to be sure).
+
+Now I see the same effect as before the patch:  maximum
+packet size that goes and can be seen on the e100 side
+is 1468(1496) (ping), which results in this on e100 side:
+
+15:54:44.830941 00:1f:c6:ef:e5:1b > 00:90:27:30:6d:1c, ethertype 802.1Q (0x8100), length 1514: vlan 6, p 0, ethertype IPv4, (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto ICMP (1), length 1496)
+    10.48.6.1 > 10.48.6.2: ICMP echo request, id 28735, seq 4, length 1476
+15:54:44.831025 00:90:27:30:6d:1c > 00:1f:c6:ef:e5:1b, ethertype 802.1Q (0x8100), length 1514: vlan 6, p 0, ethertype IPv4, (tos 0x0, ttl 64, id 12010, offset 0, flags [none], proto ICMP (1), length 1496)
+    10.48.6.2 > 10.48.6.1: ICMP echo reply, id 28735, seq 4, length 1476
+
+(and it works).  With -s 1469, no ICMP packets can be seen
+on e100 side.
+
+So it still may be the hardware... :)
+
+Thank you!
+
+/mjt
