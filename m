@@ -1,73 +1,38 @@
-From: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
-Subject: Re: [RFC PATCH net 1/2] [BUGFIX] bonding: use local function pointer
- of bond->recv_probe in bond_handle_frame
-Date: Wed, 12 Oct 2011 16:04:44 +0900
-Message-ID: <4E953C0C.9020107@hitachi.com>
-References: <20111007124925.7089.27260.stgit@ltc219.sdl.hitachi.co.jp>  <20111007124954.7089.9776.stgit@ltc219.sdl.hitachi.co.jp>  <CAM_iQpXZmX2GPb99tF7xMEup52o8AfeUi+0awvHr7C9LVWTjEg@mail.gmail.com>  <4E943E53.6010601@hitachi.com> <1318339433.2538.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
+Subject: about phonet pipe controller
+Date: Wed, 12 Oct 2011 09:25:01 +0200
+Message-ID: <81C3A93C17462B4BBD7E272753C105791EAACAE76F@EXDCVYMBSTM005.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?QW3DqXJpY28gV2FuZw==?= <xiyou.wangcong@gmail.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318339433.2538.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Srinidhi KASAGAR <srinidhi.kasagar@stericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "remi.denis-courmont@nokia.com" <remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:48753 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751401Ab1JLHZM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Oct 2011 03:25:12 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Hi Remi,
 
-Thank you for your comment.
+You have mentioned in the
+"a015f6f: Phonet: kill the ST-Ericsson pipe controller Kconfig",
+that "Support for manually enabling the pipe flow is removed as it
+did not work properly, does not fit well with the socket API, and
+I am not aware of any use at the moment.."
 
-(2011/10/11 22:23), Eric Dumazet wrote:
-> Le mardi 11 octobre 2011 =C3=A0 22:02 +0900, HAYASAKA Mitsuo a =C3=A9=
-crit :
->> Hi WANG Cong
->>
->> Thank you for your comments.
->>
->> (2011/10/07 22:24), Am=C3=A9rico Wang wrote:
->>> On Fri, Oct 7, 2011 at 8:49 PM, Mitsuo Hayasaka
->>> <mitsuo.hayasaka.hu@hitachi.com> wrote:
->>>> The bond->recv_probe is called in bond_handle_frame() when
->>>> a packet is received, but bond_close() sets it to NULL. So,
->>>> a panic occurs when both functions work in parallel.
->>>>
->>>> Why this happen:
->>>> After null pointer check of bond->recv_probe, an sk_buff is
->>>> duplicated and bond->recv_probe is called in bond_handle_frame.
->>>> So, a panic occurs when bond_close() is called between the
->>>> check and call of bond->recv_probe.
->>>>
->>>> Patch:
->>>> This patch uses a local function pointer of bond->recv_probe
->>>> in bond_handle_frame(). So, it can avoid the null pointer
->>>> dereference.
->>>>
->>>
->>> Hmm, I don't doubt it can fix the problem, I am wondering if
->>> bond->recv_probe should be protected by bond->lock...
->>
->> Indeed, in general any resources should be protected from the asynch=
-ronous
->> workers.
->>
->> At first, I thought it should be handled with lock protection, as we=
-ll.
->> However, I guess that using bond->lock on this kind of hot-path may
->> introduces unnecessary overhead. In addition, this code works well
->> without the strict lock protection. So, I think this change is the
->> right way to fix it.
->=20
-> Maybe, but then ACCESS_ONCE() is needed to prevent compiler to
-> 'optimize' the temporary variable.
->=20
-> Or use rcu_dereference() to make the whole thing really safe and self
-> documented.
->=20
-I agreed.
-I'd like to send the patch with ACCESS_ONCE(), again.
+On STE U8500 modem, you must first create pipe in disabled state, then do
+local link configuration (does't work when pipe is enabled) & then enable pipe.
 
-Thanks.
+Because of this connect() cannot be used anymore and it needs to be modified to
+reintroduce pipe-controller functionality again.
+
+Do you have any suggestions?
+
+Regards,
+Hemant Ramdasi
