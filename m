@@ -1,43 +1,89 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 0/5] stmmac: update to Oct 2011 version (V2)
-Date: Wed, 12 Oct 2011 15:38:03 +0200
-Message-ID: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next 3/5] stmmac: protect tx process with lock (V2)
+Date: Wed, 12 Oct 2011 15:38:06 +0200
+Message-ID: <1318426688-9419-4-git-send-email-peppe.cavallaro@st.com>
+References: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:58211 "EHLO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753053Ab1JLNiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 09:38:23 -0400
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:34492 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753327Ab1JLNid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 09:38:33 -0400
+In-Reply-To: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patches update the driver adding the chained
-descriptor mode and some new useful fixes.
-Chained / Ring modes have been reworked after D. Miller
-advice and removing the ifdef selection within the C
-code.
+This patch fixes a problem raised on Orly ARM SMP platform
+where, in case of fragmented frames, the descriptors
+in the TX ring resulted broken. This was due to a missing lock
+protection in the tx process.
 
-Giuseppe Cavallaro (4):
-  stmmac: add CHAINED descriptor mode support
-  stmmac: allow mtu bigger than 1500 in case of normal desc.
-  stmmac: protect tx process with lock
-  stmmac: update the driver version and doc
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Tested-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    8 ++++++++
+ 2 files changed, 9 insertions(+), 0 deletions(-)
 
-Srinivas Kandagatla (1):
-  stmmac: Stop advertising 1000Base capabilties for non GMII iface
-    (v2).
-
- Documentation/networking/stmmac.txt               |   11 +-
- drivers/net/ethernet/stmicro/stmmac/Kconfig       |   18 +
- drivers/net/ethernet/stmicro/stmmac/common.h      |   19 +
- drivers/net/ethernet/stmicro/stmmac/enh_desc.c    |   51 ---
- drivers/net/ethernet/stmicro/stmmac/norm_desc.c   |   42 --
- drivers/net/ethernet/stmicro/stmmac/ring_mode.h   |  450 +++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    3 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  148 +++----
- 8 files changed, 564 insertions(+), 178 deletions(-)
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/ring_mode.h
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 1434bdb..50e95d8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -70,6 +70,7 @@ struct stmmac_priv {
+ 
+ 	u32 msg_enable;
+ 	spinlock_t lock;
++	spinlock_t tx_lock;
+ 	int wolopts;
+ 	int wolenabled;
+ 	int wol_irq;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index de3e536..7b3b6c9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -590,6 +590,8 @@ static void stmmac_tx(struct stmmac_priv *priv)
+ {
+ 	unsigned int txsize = priv->dma_tx_size;
+ 
++	spin_lock(&priv->tx_lock);
++
+ 	while (priv->dirty_tx != priv->cur_tx) {
+ 		int last;
+ 		unsigned int entry = priv->dirty_tx % txsize;
+@@ -652,6 +654,7 @@ static void stmmac_tx(struct stmmac_priv *priv)
+ 		}
+ 		netif_tx_unlock(priv->dev);
+ 	}
++	spin_unlock(&priv->tx_lock);
+ }
+ 
+ static inline void stmmac_enable_irq(struct stmmac_priv *priv)
+@@ -1038,6 +1041,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	spin_lock(&priv->tx_lock);
++
+ 	entry = priv->cur_tx % txsize;
+ 
+ #ifdef STMMAC_XMIT_DEBUG
+@@ -1126,6 +1131,8 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	priv->hw->dma->enable_dma_transmission(priv->ioaddr);
+ 
++	spin_unlock(&priv->tx_lock);
++
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -1690,6 +1697,7 @@ static int stmmac_probe(struct net_device *dev)
+ 			"please, use ifconfig or nwhwconfig!\n");
+ 
+ 	spin_lock_init(&priv->lock);
++	spin_lock_init(&priv->tx_lock);
+ 
+ 	ret = register_netdev(dev);
+ 	if (ret) {
 -- 
 1.7.4.4
