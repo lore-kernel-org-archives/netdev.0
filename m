@@ -1,45 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] net-netlink: Add a new attribute to expose TOS
- values via netlink
-Date: Wed, 12 Oct 2011 19:10:15 -0400 (EDT)
-Message-ID: <20111012.191015.389657713979036834.davem@davemloft.net>
-References: <20111012085235.3b78729b@nehalam.linuxnetplumber.net>
-	<1318446035-10267-1-git-send-email-muralira@google.com>
-	<1318446934.2644.0.camel@edumazet-laptop>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [patch net-2.6] tg3: negate USE_PHYLIB flag check
+Date: Wed, 12 Oct 2011 16:55:01 -0700
+Message-ID: <20111012235501.GA31550@mcarlson.broadcom.com>
+References: <1318410041-2476-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: muralira@google.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318446934.2644.0.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Jiri Pirko" <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3298 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750792Ab1JLXzE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Oct 2011 19:55:04 -0400
+In-Reply-To: <1318410041-2476-1-git-send-email-jpirko@redhat.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 12 Oct 2011 21:15:34 +0200
+On Wed, Oct 12, 2011 at 02:00:41AM -0700, Jiri Pirko wrote:
+> USE_PHYLIB flag in tg3_remove_one() is being checked incorrectly. This
+> results tg3_phy_fini->phy_disconnect is never called and when tg3 module
+> is removed.
+> 
+> In my case this resulted in panics in phy_state_machine calling function
+> phydev->adjust_link.
+> 
+> So correct this check.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-> Le mercredi 12 octobre 2011 =E0 12:00 -0700, Muraliraja Muniraju a =E9=
-crit :
->> From: Murali Raja <muralira@google.com>
->>=20
->> This patch exposes the tos value for the TCP sockets when the TOS fl=
-ag
->> is requested in the ext_flags for the inet_diag request. This would =
-mainly be
->> used to expose TOS values for both for TCP and UDP sockets. Currentl=
-y it is
->> supported for TCP. When netlink support for UDP would be added the s=
-upport
->> to expose the TOS values would alse be done. For IPV4 tos value is e=
-xposed
->> and for IPV6 tclass value is exposed.
->>=20
->> Signed-off-by: Murali Raja <muralira@google.com>
->> ---
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Introduced by commit 63c3a66fe6c827a731dcbdee181158b295626f83, entitled
+"tg3: Convert u32 flag,flg2,flg3 uses to bitmap".
 
-Applied, thanks everyone.
+Acked-by: Matt Carlson <mcarlson@broadcom.com>
+
+> ---
+>  drivers/net/tg3.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index 4a1374d..c11a2b8 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -15577,7 +15577,7 @@ static void __devexit tg3_remove_one(struct pci_dev *pdev)
+>  
+>  		cancel_work_sync(&tp->reset_task);
+>  
+> -		if (!tg3_flag(tp, USE_PHYLIB)) {
+> +		if (tg3_flag(tp, USE_PHYLIB)) {
+>  			tg3_phy_fini(tp);
+>  			tg3_mdio_fini(tp);
+>  		}
+> -- 
+> 1.7.6.2
+> 
+> 
