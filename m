@@ -1,75 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Update
-Date: Tue, 11 Oct 2011 20:38:16 -0700
-Message-ID: <1318390708-12232-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 05/12] igb: Make certain one vector is always assigned in igb_request_irq
+Date: Tue, 11 Oct 2011 20:38:21 -0700
+Message-ID: <1318390708-12232-6-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1318390708-12232-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:41058 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750951Ab1JLDia (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 23:38:30 -0400
+	id S1751252Ab1JLDic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 23:38:32 -0400
+In-Reply-To: <1318390708-12232-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to ixgbe and igb.  This
-version of the series contains the following changes:
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-- ixgbe add FCoE stats, add protection from invalid DMA and fix
-  check for change in FCoE priority
-- igb version bump, fix sparse warnings and finish up the cleanup
-  work of igb by Alex Duyck.
+This change makes certain that one interrupt is always initialized in
+igb_request_irq.  In addition we drop the use of adapter->pdev and
+instead just call pdev since we made a local copy of the pointer earlier in
+the function.
 
-The following are changes since commit 3e5057114643d14679c2ba05594eb5f844488287:
-  igb: add support for NETIF_F_RXHASH
-and are available in the git repository at
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
-or
-  git://github.com/Jkirsher/net-next.git
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-Akeem G. Abodunrin (1):
-  igb: Loopback funtionality supports for i350 devices
-
-Alexander Duyck (5):
-  igb: avoid unnecessarily creating a local copy of the q_vector
-  igb: Make certain one vector is always assigned in igb_request_irq
-  igb: Fix features that are currently 82580 only and should also be
-    i350
-  igb: Drop unnecessary write of E1000_IMS from igb_msix_other
-  igb: Add workaround for byte swapped VLAN on i350 local traffic
-
-Amir Hanania (1):
-  ixgbe: Add FCoE DDP allocation failure counters to ethtool stats.
-
-Carolyn Wyborny (1):
-  igb: Version bump.
-
-Emil Tantilov (1):
-  igb: fix static function warnings reported by sparse
-
-Greg Rose (1):
-  ixgbe: Add protection from VF invalid target DMA
-
-Jacob Sowles (1):
-  igb: move DMA Coalescing feature code into separate function.
-
-Mark Rustad (1):
-  ixgbe: Correct check for change in FCoE priority
-
- drivers/net/ethernet/intel/igb/e1000_82575.c     |   38 +++--
- drivers/net/ethernet/intel/igb/e1000_defines.h   |    1 +
- drivers/net/ethernet/intel/igb/e1000_regs.h      |    1 +
- drivers/net/ethernet/intel/igb/igb.h             |    1 +
- drivers/net/ethernet/intel/igb/igb_main.c        |  178 ++++++++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    4 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |   12 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c    |   44 ++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h    |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  189 +++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |    2 +
- 12 files changed, 390 insertions(+), 84 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 2768c35..29ec64f 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1215,7 +1215,7 @@ static int igb_request_irq(struct igb_adapter *adapter)
+ 			goto request_done;
+ 		/* fall back to MSI */
+ 		igb_clear_interrupt_scheme(adapter);
+-		if (!pci_enable_msi(adapter->pdev))
++		if (!pci_enable_msi(pdev))
+ 			adapter->flags |= IGB_FLAG_HAS_MSI;
+ 		igb_free_all_tx_resources(adapter);
+ 		igb_free_all_rx_resources(adapter);
+@@ -1237,12 +1237,12 @@ static int igb_request_irq(struct igb_adapter *adapter)
+ 		}
+ 		igb_setup_all_tx_resources(adapter);
+ 		igb_setup_all_rx_resources(adapter);
+-	} else {
+-		igb_assign_vector(adapter->q_vector[0], 0);
+ 	}
+ 
++	igb_assign_vector(adapter->q_vector[0], 0);
++
+ 	if (adapter->flags & IGB_FLAG_HAS_MSI) {
+-		err = request_irq(adapter->pdev->irq, igb_intr_msi, 0,
++		err = request_irq(pdev->irq, igb_intr_msi, 0,
+ 				  netdev->name, adapter);
+ 		if (!err)
+ 			goto request_done;
+@@ -1252,11 +1252,11 @@ static int igb_request_irq(struct igb_adapter *adapter)
+ 		adapter->flags &= ~IGB_FLAG_HAS_MSI;
+ 	}
+ 
+-	err = request_irq(adapter->pdev->irq, igb_intr, IRQF_SHARED,
++	err = request_irq(pdev->irq, igb_intr, IRQF_SHARED,
+ 			  netdev->name, adapter);
+ 
+ 	if (err)
+-		dev_err(&adapter->pdev->dev, "Error %d getting interrupt\n",
++		dev_err(&pdev->dev, "Error %d getting interrupt\n",
+ 			err);
+ 
+ request_done:
 -- 
 1.7.6.4
