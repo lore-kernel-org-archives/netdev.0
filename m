@@ -1,96 +1,79 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the wireless tree
-Date: Wed, 12 Oct 2011 13:36:00 +1100
-Message-ID: <20111012133600.256fea364b17e6bf96ee1081@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] net-netlink: Add a new attribute to expose TOS
+ values via netlink
+Date: Wed, 12 Oct 2011 04:48:54 +0200
+Message-ID: <1318387734.3686.2.camel@edumazet-laptop>
+References: <20111010145206.6f7e9ee2@nehalam.linuxnetplumber.net>
+	 <1318382887-31824-1-git-send-email-muralira@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__12_Oct_2011_13_36_00_+1100_qpLE67rUHAYjb+5o"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Arend van Spriel <arend@broadcom.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Muraliraja Muniraju <muralira@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318382887-31824-1-git-send-email-muralira@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__12_Oct_2011_13_36_00_+1100_qpLE67rUHAYjb+5o
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Le mardi 11 octobre 2011 =C3=A0 18:28 -0700, Muraliraja Muniraju a =C3=A9=
+crit :
+> From: Murali Raja <muralira@google.com>
+>=20
+> This patch exposes the tos value for the TCP sockets when the TOS fla=
+g
+> is requested in the ext_flags for the inet_diag request. This would m=
+ainly be
+> used to expose TOS values for both for TCP and UDP sockets. Currently=
+ it is
+> supported for TCP. When netlink support for UDP would be added the su=
+pport
+> to expose the TOS values would alse be done.
+>=20
 
-Hi John,
+You could mention TCLASS support for IPv6
 
-After merging the wireless tree, today's linux-next build (x86_64
-allmodconfig) failed like this:
+> Signed-off-by: Murali Raja <muralira@google.com>
+> ---
+> Changelog since v2:
+> - Adding support for IPV6 class and using right API's
+> Changelog since v1:
+> - Removing reserved field=20
+>=20
+>  include/linux/inet_diag.h |    9 ++++++++-
+>  net/ipv4/inet_diag.c      |    5 +++++
+>  2 files changed, 13 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+> index bc8c490..e36093d 100644
+> --- a/include/linux/inet_diag.h
+> +++ b/include/linux/inet_diag.h
+> @@ -97,9 +97,10 @@ enum {
+>  	INET_DIAG_INFO,
+>  	INET_DIAG_VEGASINFO,
+>  	INET_DIAG_CONG,
+> +	INET_DIAG_TOS,
+>  };
+> =20
+> -#define INET_DIAG_MAX INET_DIAG_CONG
+> +#define INET_DIAG_MAX INET_DIAG_TOS
+> =20
+>=20
+>  /* INET_DIAG_MEM */
+> @@ -120,6 +121,12 @@ struct tcpvegas_info {
+>  	__u32	tcpv_minrtt;
+>  };
+> =20
+> +/* INET_DIAG_TOS */
+> +
+> +struct inet_diag_tos {
+> +	__u8	idiag_tos;
+> +};
 
-drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c:1131:2: error: unknown =
-field 'ndo_set_multicast_list' specified in initializer
-drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c:1132:1: warning: initia=
-lization from incompatible pointer type [enabled by default]
-drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c:1132:1: warning: (near =
-initialization for 'brcmf_netdev_ops_pri.ndo_validate_addr') [enabled by de=
-fault]
+Are you sure its still needed ?
 
-Caused by commit 5b435de0d786 ("net: wireless: add brcm80211 drivers")
-interacting with commit b81693d9149c ("net: remove ndo_set_multicast_list
-callback") from the net-next tree.
-
-I have applied the following merge fixup patch for today.
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 12 Oct 2011 13:33:10 +1100
-Subject: [PATCH] net: wireless: brcm80211: replace ndo_set_multicast_list  =
-with ndo_set_rx_mode
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- .../net/wireless/brcm80211/brcmfmac/dhd_linux.c    |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c b/drivers/=
-net/wireless/brcm80211/brcmfmac/dhd_linux.c
-index 99ba5e3..03607ca 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
-@@ -1128,7 +1128,7 @@ static struct net_device_ops brcmf_netdev_ops_pri =3D=
- {
- 	.ndo_do_ioctl =3D brcmf_netdev_ioctl_entry,
- 	.ndo_start_xmit =3D brcmf_netdev_start_xmit,
- 	.ndo_set_mac_address =3D brcmf_netdev_set_mac_address,
--	.ndo_set_multicast_list =3D brcmf_netdev_set_multicast_list
-+	.ndo_set_rx_mode =3D brcmf_netdev_set_multicast_list
- };
-=20
- int brcmf_net_attach(struct brcmf_pub *drvr, int ifidx)
---=20
-1.7.6.3
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__12_Oct_2011_13_36_00_+1100_qpLE67rUHAYjb+5o
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJOlP0QAAoJEECxmPOUX5FEl2kQAJwjZtVfV425wQdg+0+R7rf0
-BdjfSf0LZnC64bPRx9Fnlh4AKjFf7T641Tr6yZrLMNbJh4pYeEojwzIg7v5jn6UO
-E/pVdZV3ra7wtvxusg0vQlOECw9/XV+XiSa2vgRIcpSKEO71ifqW5/9UJ0LhtgKN
-lc9MnkcZqPRQZwpXRvU71M2y2JvWBQnP0Aa23gBH3aaFyz//2x4bUTw+VpLlpNo9
-JX3xmYtZHhiPcrjbGRWlEJXmHfp9DVJXPSSpuu+ZIrKbBFGfNIsmmGiMgCVNGwh7
-UGKA8inAbpIzIm5vWgFJiejYUJSLm1fDB9le4rhEnNG4bQ3P7jOejK+0Af2Km6Ka
-6qht0FwBqVUx/aVbbAi81kV1kQRHe/Mm0C0u2UfIrW1BkSlTzjg2ZEerJ4h0zjj/
-5ay0/154olSQgqvdSBpvBQu7TFy6k0VpkCNSrkgl7C86sEJMSoSGZR1HChic7u74
-CV+IH4KosQcJeCoYesNzdtC+Tosw0Z2cge+WKuuQDT3fDwoYqjkNldHkjgtuIYto
-ZqRDVNH9c/G8+jnPoXlMdQG1eoVI1p7APpsjLlimWbdlBf9+m+ZXYRIe/pSyt0A1
-PXiPdoTEIDZg56GrBa3SKCuvrY3GouGol7PSFxjhl4EJleD54dq0I9N71gJf9FQc
-NaZ4wv7b9j5Wz9eXzREu
-=b85/
------END PGP SIGNATURE-----
-
---Signature=_Wed__12_Oct_2011_13_36_00_+1100_qpLE67rUHAYjb+5o--
+I am now wondering what is done in TIME_WAIT state.
