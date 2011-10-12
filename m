@@ -1,65 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] ss: report ecnseen
-Date: Wed, 12 Oct 2011 05:18:21 +0200
-Message-ID: <1318389501.3686.8.camel@edumazet-laptop>
-References: <20110916103031.7f22b35f@nehalam.linuxnetplumber.net>
-	 <20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
+From: Yinglin Sun <yinglin.s@gmail.com>
+Subject: Re: [PATCH] bonding: L2L3 xmit doesn't support IPv6
+Date: Tue, 11 Oct 2011 20:27:51 -0700
+Message-ID: <CAN17JHV72d-P5bN=fRyKdF7zEhDAJ_qb7KyPGdorwhbe87ZsAw@mail.gmail.com>
+References: <1318052205-21991-1-git-send-email-Yinglin.Sun@emc.com>
+	<20111011143348.GA20605@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:65315 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752401Ab1JLDS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 23:18:27 -0400
-Received: by wyg34 with SMTP id 34so230807wyg.19
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 20:18:26 -0700 (PDT)
-In-Reply-To: <20111011165908.0d6ed7de@nehalam.linuxnetplumber.net>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:36935 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584Ab1JLD1x convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 23:27:53 -0400
+Received: by bkbzt4 with SMTP id zt4so353560bkb.19
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 20:27:51 -0700 (PDT)
+In-Reply-To: <20111011143348.GA20605@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support ECNSEEN reporting in ss command.
+On Tue, Oct 11, 2011 at 7:33 AM, Andy Gospodarek <andy@greyhouse.net> w=
+rote:
+> On Fri, Oct 07, 2011 at 10:36:45PM -0700, Yinglin Sun wrote:
+>> Add IPv6 support in L2L3 xmit policy.
+>> L3L4 doesn't support IPv6 either, and I'll try to fix that later.
+>>
+>> Signed-off-by: Yinglin Sun <Yinglin.Sun@emc.com>
+>> ---
+>> =C2=A0drivers/net/bonding/bond_main.c | =C2=A0 =C2=A07 +++++++
+>> =C2=A01 files changed, 7 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
+ond_main.c
+>> index 6d79b78..d6fd282 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -41,8 +41,10 @@
+>> =C2=A0#include <linux/ptrace.h>
+>> =C2=A0#include <linux/ioport.h>
+>> =C2=A0#include <linux/in.h>
+>> +#include <linux/in6.h>
+>> =C2=A0#include <net/ip.h>
+>> =C2=A0#include <linux/ip.h>
+>> +#include <linux/ipv6.h>
+>> =C2=A0#include <linux/tcp.h>
+>> =C2=A0#include <linux/udp.h>
+>> =C2=A0#include <linux/slab.h>
+>> @@ -3372,10 +3374,15 @@ static int bond_xmit_hash_policy_l23(struct =
+sk_buff *skb, int count)
+>> =C2=A0{
+>> =C2=A0 =C2=A0 =C2=A0 struct ethhdr *data =3D (struct ethhdr *)skb->d=
+ata;
+>> =C2=A0 =C2=A0 =C2=A0 struct iphdr *iph =3D ip_hdr(skb);
+>> + =C2=A0 =C2=A0 struct ipv6hdr *ipv6h =3D ipv6_hdr(skb);
+>>
+>> =C2=A0 =C2=A0 =C2=A0 if (skb->protocol =3D=3D htons(ETH_P_IP)) {
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return ((ntohl(iph-=
+>saddr ^ iph->daddr) & 0xffff) ^
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 (data->h_dest[5] ^ data->h_source[5])) % count;
+>> + =C2=A0 =C2=A0 } else if (skb->protocol =3D=3D htons(ETH_P_IPV6)) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return ((ntohl(ipv6h->sa=
+ddr.s6_addr32[3] ^
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ipv6h->daddr.s6_addr32[3]) & 0xffff) ^
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 (data->h_dest[5] ^ data->h_source[5])) % count;
+>> =C2=A0 =C2=A0 =C2=A0 }
+>>
+>
+> There have been some attempts to add support for ipv6 hashing this in
+> the past, but none have been committed. =C2=A0The best one I had seen=
+ was one
+> that did some extensive testing one a wide variety of ipv6 traffic an=
+d
+> it showed nice traffic distribution. =C2=A0I'm not sure if it was eve=
+r posted
+> upstream, so I will see if I can dig it up.
+>
+> Can you quantify how traffic was distributed with this algorithm?
+>
 
-ESTAB      0      0           10.170.73.123:4900
-10.170.73.125:51001    uid:501 ino:385994 sk:f31e5f00
-	 mem:(r0,w0,f0,t0) ts sack ecn ecnseen bic wscale:8,8 rto:210
-rtt:18.75/15 ato:40 cwnd:10 send 69.9Mbps rcv_space:32768
+My test was not extensive. I manually set some addresses which vary by
+the last 32bit portion, and the traffic was distributed evenly across
+slaves.
 
-"ecn" means TCP session negociated ECN capability at setup time
+I agree that the real world IPv6 traffic should be used for more extens=
+ive test.
 
-"ecnseen" at least one frame with ECT(0) or ECT(1) or ECN (IP layer) was
-received from peer.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/netinet/tcp.h |    1 +
- misc/ss.c             |    2 ++
- 2 files changed, 3 insertions(+)
-
-diff --git a/include/netinet/tcp.h b/include/netinet/tcp.h
-index 282b29c..95a4fe6 100644
---- a/include/netinet/tcp.h
-+++ b/include/netinet/tcp.h
-@@ -172,6 +172,7 @@ enum
- # define TCPI_OPT_SACK		2
- # define TCPI_OPT_WSCALE	4
- # define TCPI_OPT_ECN		8
-+# define TCPI_OPT_ECNSEEN	16
- 
- /* Values for tcpi_state.  */
- enum tcp_ca_state
-diff --git a/misc/ss.c b/misc/ss.c
-index b00841b..778bf0a 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1357,6 +1357,8 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
- 				printf(" sack");
- 			if (info->tcpi_options & TCPI_OPT_ECN)
- 				printf(" ecn");
-+			if (info->tcpi_options & TCPI_OPT_ECNSEEN)
-+				printf(" ecnseen");
- 		}
- 
- 		if (tb[INET_DIAG_CONG])
+Yinglin
