@@ -1,81 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: hold sock reference while processing tx
- timestamps
-Date: Wed, 12 Oct 2011 21:52:39 +0200
-Message-ID: <1318449159.2644.9.camel@edumazet-laptop>
-References: <1318007501.3988.20.camel@jlt3.sipsolutions.net>
-	 <56185ca8a7dc0223031ca0f0996302cac1b497eb.1318444117.git.richard.cochran@omicron.at>
-	 (sfid-20111012_203706_058621_68EB8D6B) <1318447673.3933.47.camel@jlt3.sipsolutions.net>
+Subject: Re: [net-next 2/5] stmmac: allow mtu bigger than 1500 in case of
+ normal desc (V2).
+Date: Wed, 12 Oct 2011 21:58:01 +0200
+Message-ID: <1318449481.2644.11.camel@edumazet-laptop>
+References: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
+	 <1318426688-9419-3-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Deepak SIKRI <deepak.sikri@st.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:47666 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39942 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752878Ab1JLTwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 15:52:43 -0400
-Received: by wwf22 with SMTP id 22so577185wwf.1
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2011 12:52:42 -0700 (PDT)
-In-Reply-To: <1318447673.3933.47.camel@jlt3.sipsolutions.net>
+	with ESMTP id S1754076Ab1JLT6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 15:58:06 -0400
+Received: by wwf22 with SMTP id 22so583820wwf.1
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2011 12:58:05 -0700 (PDT)
+In-Reply-To: <1318426688-9419-3-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 12 octobre 2011 =C3=A0 21:27 +0200, Johannes Berg a =C3=A9c=
-rit :
-> On Wed, 2011-10-12 at 20:36 +0200, Richard Cochran wrote:
-> > The pair of functions,
-> >=20
-> >  * skb_clone_tx_timestamp()
-> >  * skb_complete_tx_timestamp()
-> >=20
-> > were designed to allow timestamping in PHY devices. The first
-> > function, called during the MAC driver's hard_xmit method, identifi=
-es
-> > PTP protocol packets, clones them, and gives them to the PHY device
-> > driver. The PHY driver may hold onto the packet and deliver it at a
-> > later time using the second function, which adds the packet to the
-> > socket's error queue.
-> >=20
-> > As pointed out by Johannes, nothing prevents the socket from
-> > disappearing while the cloned packet is sitting in the PHY driver
-> > awaiting a timestamp. This patch fixes the issue by taking a refere=
-nce
-> > on the socket for each such packet. In addition, the comments
-> > regarding the usage of these function are expanded to highlight the
-> > rule that PHY drivers must use skb_complete_tx_timestamp() to relea=
-se
-> > the packet, in order to release the socket reference, too.
+Le mercredi 12 octobre 2011 =C3=A0 15:38 +0200, Giuseppe CAVALLARO a =C3=
+=A9crit :
+> This patch allows to set the mtu bigger than 1500
+> in case of normal descriptors.
+> This is helping some SPEAr customers.
 >=20
-> This still needs a fix to the PHY driver right? It has a case that ca=
-n
-> kfree_skb() the skb instead of passing it back to
-> complete_tx_timestamp().
+> Signed-off-by: Deepak SIKRI <deepak.sikri@st.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
 >=20
-> > -	if (!hwtstamps)
-> > +	if (!hwtstamps) {
-> > +		sock_put(sk);
-> > +		kfree_skb(skb);
-> >  		return;
-> > +	}
->=20
-> Is that right w/o skb->sk =3D NULL?
->=20
->=20
-> The other thing I was wondering -- what if we just set truesize to 1 =
-(we
-> don't have any truesize checks) and account the skb to the socket
-> normally. Not really a good way either though.
->=20
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driv=
+ers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index ba7af2c..de3e536 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1357,17 +1357,17 @@ static void stmmac_set_rx_mode(struct net_dev=
+ice *dev)
+>  static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
+>  {
+>  	struct stmmac_priv *priv =3D netdev_priv(dev);
+> -	int max_mtu;
+> +	int max_mtu =3D ETH_DATA_LEN;
 
-Changing truesize is not allowed here see below.
+Why are you setting max_mtu to ETH_DATA_LEN here ?
 
-> FWIW I just decided to do it the other way around in mac80211 -- keep
-> the original SKB that's charged to the socket for the error queue, an=
-d
-> use a clone to actually do the TX.
+> =20
+>  	if (netif_running(dev)) {
+>  		pr_err("%s: must be stopped to change its MTU\n", dev->name);
+>  		return -EBUSY;
+>  	}
+> =20
+> -	if (priv->plat->has_gmac)
+> +	if (priv->plat->enh_desc)
+>  		max_mtu =3D JUMBO_LEN;
+>  	else
+> -		max_mtu =3D ETH_DATA_LEN;
+> +		max_mtu =3D BUF_SIZE_4KiB;
 
-Hmm, please take a look at IFF_SKB_TX_SHARING stuff, added in commit
-d88733150 (net: add IFF_SKB_TX_SHARED flag to priv_flags)
+Since later you init to completely different values...
