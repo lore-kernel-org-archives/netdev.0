@@ -1,33 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v3] net-netlink: Add a new attribute to expose TOS
- values via netlink
-Date: Wed, 12 Oct 2011 08:52:35 -0700
-Message-ID: <20111012085235.3b78729b@nehalam.linuxnetplumber.net>
-References: <20111010145206.6f7e9ee2@nehalam.linuxnetplumber.net>
-	<1318382887-31824-1-git-send-email-muralira@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Muraliraja Muniraju <muralira@google.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next 0/5] intel: Logging cleanups
+Date: Wed, 12 Oct 2011 09:18:05 -0700
+Message-ID: <cover.1318436085.git.joe@perches.com>
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318382887-31824-1-git-send-email-muralira@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Oct 2011 18:28:07 -0700
-Muraliraja Muniraju <muralira@google.com> wrote:
+Just some conversions of printks to pr_<level>
+and some trivial defect corrections.
 
-> +/* INET_DIAG_TOS */
-> +
-> +struct inet_diag_tos {
-> +	__u8	idiag_tos;
-> +};
-> +
+Joe Perches (5):
+  e1000e: Convert printks to pr_<level>
+  ixgbevf: Convert printks to pr_<level>
+  igbvf: Convert printks to pr_<level>
+  igb: Convert printks to pr_<level>
+  igb: Convert bare printk to pr_notice
 
-This structure is not used.
+ drivers/net/ethernet/intel/e1000e/netdev.c        |  232 +++++++++------------
+ drivers/net/ethernet/intel/igb/e1000_82575.c      |    5 +-
+ drivers/net/ethernet/intel/igb/igb_main.c         |  155 +++++++--------
+ drivers/net/ethernet/intel/igbvf/netdev.c         |   14 +-
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |    6 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   26 ++--
+ 6 files changed, 201 insertions(+), 237 deletions(-)
+
+-- 
+1.7.6.405.gc1be0
