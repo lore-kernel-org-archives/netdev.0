@@ -1,7 +1,7 @@
 From: Mihai Maruseac <mihai.maruseac@gmail.com>
 Subject: [PATCH] dev: use ifindex hash for dev_seq_ops
-Date: Wed, 12 Oct 2011 12:49:10 +0300
-Message-ID: <1318412950-22014-1-git-send-email-mmaruseac@ixiacom.com>
+Date: Wed, 12 Oct 2011 12:57:26 +0300
+Message-ID: <1318413446-22258-1-git-send-email-mmaruseac@ixiacom.com>
 References: <1318000849-2531-1-git-send-email-mmaruseac@ixiacom.com>
 Cc: eric.dumazet@gmail.com, mirq-linux@rere.qmqm.pl,
 	therbert@google.com, jpirko@redhat.com, netdev@vger.kernel.org,
@@ -29,6 +29,8 @@ Tests revealed the following results for ifconfig > /dev/null
 	* 128000 interfaces (other setup):
 		* ~100s without patch
 		* ~30s with patch
+
+Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
 ---
  net/core/dev.c |   53 ++++++++++++++++++++++++++++++++---------------------
  1 files changed, 32 insertions(+), 21 deletions(-)
@@ -47,7 +49,7 @@ index 70ecb86..3ca0df8 100644
 +	int ifindex;
 +};
 +
-+static inline struct net_device* next_dev(struct seq_file *seq, loff_t *pos)
++static inline struct net_device *next_dev(struct seq_file *seq, loff_t *pos)
 +{
 +	struct dev_iter_state *state = seq->private;
 +	struct net *net = seq_file_net(seq);
