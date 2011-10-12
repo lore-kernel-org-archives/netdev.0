@@ -1,73 +1,59 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 4/5] stmmac: Stop advertising 1000Base capabilties for non GMII iface (V2).
-Date: Wed, 12 Oct 2011 15:38:07 +0200
-Message-ID: <1318426688-9419-5-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next 5/5] stmmac: update the driver version and doc (V2)
+Date: Wed, 12 Oct 2011 15:38:08 +0200
+Message-ID: <1318426688-9419-6-git-send-email-peppe.cavallaro@st.com>
 References: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
-Cc: davem@davemloft.net,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:33615 "EHLO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753327Ab1JLNii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 09:38:38 -0400
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:41295 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753327Ab1JLNim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 09:38:42 -0400
 In-Reply-To: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-
-This patch stops advertising 1000Base capablities if GMAC is either
-configured for MII or RMII mode and on board there is a GPHY plugged on.
-Without this patch if an GBit switch is connected on MII interface,
-Ethernet stops working at all.
-
-Discovered as part of
-https://bugzilla.stlinux.com/show_bug.cgi?id=14148 triage
-
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
+ Documentation/networking/stmmac.txt          |   11 ++++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h |    2 +-
+ 2 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 7b3b6c9..08dc116 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -314,7 +314,7 @@ static int stmmac_init_phy(struct net_device *dev)
- 	struct phy_device *phydev;
- 	char phy_id[MII_BUS_ID_SIZE + 3];
- 	char bus_id[MII_BUS_ID_SIZE];
--
-+	int interface = priv->plat->interface;
- 	priv->oldlink = 0;
- 	priv->speed = 0;
- 	priv->oldduplex = -1;
-@@ -324,14 +324,21 @@ static int stmmac_init_phy(struct net_device *dev)
- 		 priv->plat->phy_addr);
- 	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index 40ec92c..8d67980 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -76,7 +76,16 @@ core.
  
--	phydev = phy_connect(dev, phy_id, &stmmac_adjust_link, 0,
--			     priv->plat->interface);
-+	phydev = phy_connect(dev, phy_id, &stmmac_adjust_link, 0, interface);
- 
- 	if (IS_ERR(phydev)) {
- 		pr_err("%s: Could not attach to PHY\n", dev->name);
- 		return PTR_ERR(phydev);
- 	}
- 
-+	/* Stop Advertising 1000BASE Capability if interface is not GMII */
-+	if ((interface == PHY_INTERFACE_MODE_MII) ||
-+	    (interface == PHY_INTERFACE_MODE_RMII)) {
-+		phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
-+				      SUPPORTED_Asym_Pause);
-+		priv->phydev->advertising = priv->phydev->supported;
-+	}
+ 4.5) DMA descriptors
+ Driver handles both normal and enhanced descriptors. The latter has been only
+-tested on DWC Ether MAC 10/100/1000 Universal version 3.41a.
++tested on DWC Ether MAC 10/100/1000 Universal version 3.41a and later.
 +
- 	/*
- 	 * Broken HW is sometimes missing the pull-up resistor on the
- 	 * MDIO line, which results in reads to non-existent devices returning
++STMMAC supports DMA descriptor to operate both in dual buffer (RING)
++and linked-list(CHAINED) mode. In RING each descriptor points to two
++data buffer pointers whereas in CHAINED mode they point to only one data
++buffer pointer. RING mode is the default.
++
++In CHAINED mode each descriptor will have pointer to next descriptor in
++the list, hence creating the explicit chaining in the descriptor itself,
++whereas such explicit chaining is not possible in RING mode.
+ 
+ 4.6) Ethtool support
+ Ethtool is supported. Driver statistics and internal errors can be taken using:
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 50e95d8..49a4af3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -20,7 +20,7 @@
+   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+ *******************************************************************************/
+ 
+-#define DRV_MODULE_VERSION	"Aug_2011"
++#define DRV_MODULE_VERSION	"Oct_2011"
+ #include <linux/stmmac.h>
+ 
+ #include "common.h"
 -- 
 1.7.4.4
