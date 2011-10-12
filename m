@@ -1,66 +1,58 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: ixgbe: fixup hard dependencies on supporting 8 traffic classes
-Date: Tue, 11 Oct 2011 23:58:33 -0700
-Message-ID: <4E953A99.4030402@intel.com>
-References: <20111012063555.GA23359@elgon.mountain>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next 1/5] stmmac: add CHAINED descriptor mode support
+Date: Wed, 12 Oct 2011 08:37:31 +0200
+Message-ID: <4E9535AB.6020608@st.com>
+References: <1318318246-1326-1-git-send-email-peppe.cavallaro@st.com> <1318318246-1326-2-git-send-email-peppe.cavallaro@st.com> <20111011.154203.569015025155780686.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org, rayagond@vayavyalabs.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:28152 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751106Ab1JLG6e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Oct 2011 02:58:34 -0400
-In-Reply-To: <20111012063555.GA23359@elgon.mountain>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:56782 "EHLO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752207Ab1JLHEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 03:04:39 -0400
+In-Reply-To: <20111011.154203.569015025155780686.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/11/2011 11:35 PM, Dan Carpenter wrote:
-> Hello John Fastabend,
+On 10/11/2011 9:42 PM, David Miller wrote:
+> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Date: Tue, 11 Oct 2011 09:30:42 +0200
 > 
-> This is a semi-automatic email about new static checker warnings.
+>> From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+>>
+>> This patch enhances the STMMAC driver to support CHAINED mode of
+>> descriptor (useful also on validation side).
+>>
+>> STMMAC supports DMA descriptor to operate both in dual buffer(RING)
+>> and linked-list(CHAINED) mode. In RING mode (default) each descriptor
+>> points to two data buffer pointers whereas in CHAINED mode they point
+>> to only one data buffer pointer.
+>>
+>> In CHAINED mode each descriptor will have pointer to next descriptor in
+>> the list, hence creating the explicit chaining in the descriptor itself,
+>> whereas such explicit chaining is not possible in RING mode.
+>>
+>> Signed-off-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+>> Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 > 
-> The patch 32701dc2e616: "ixgbe: fixup hard dependencies on supporting
-> 8 traffic classes" from Sep 27, 2011, leads to the following Smatch
-> complaint:
+> These ifdefs added all over the place in the foo.c files are terrible.
 > 
-> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c +3366 ixgbe_configure_dcb()
-> 	 error: we previously assumed 'adapter->ixgbe_ieee_ets' could be null (see line 3357)
-> 
-> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->   3356	
->   3357			if (adapter->ixgbe_ieee_ets) {
->                             ^^^^^^^^^^^^^^^^^^^^^^^
-> Null check.
-> 
->   3358				struct ieee_ets *ets = adapter->ixgbe_ieee_ets;
->   3359				int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
->   3360	
->   3361				ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
->   3362			}
->   3363	
->   3364			if (adapter->ixgbe_ieee_pfc) {
->   3365				struct ieee_pfc *pfc = adapter->ixgbe_ieee_pfc;
->   3366				u8 *prio_tc = adapter->ixgbe_ieee_ets->prio_tc;
->                                               ^^^^^^^^^^^^^^^^^^^^^^^^^
-> New dereference.
-> 
->   3367	
->   3368				ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en,
-> 
-> regards,
-> dan carpenter
-> 
+> Abstract out the differences between RING and CHAINED mode into helper
+> inline routines which live in some foo.h header file, that way you won't
+> need any ifdefs in the driver foo.c files.
 
-Actually both structures ixgbe_ieee_ets and ixgbe_ieee_pfc get initialized
-at the same time. So no null dereference will occur. That said this snippit
-should be fixed.
+Hello David
 
-I'll send a patch to JeffK. Thanks for the catch Dan.
+I'll rework the patch and send all these updates to the mailing list
+again (as V2).
 
-.John
+Peppe
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
