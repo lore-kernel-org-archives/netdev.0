@@ -1,68 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bonding: L2L3 xmit doesn't support IPv6
-Date: Wed, 12 Oct 2011 06:06:35 +0200
-Message-ID: <1318392395.3686.12.camel@edumazet-laptop>
-References: <1318052205-21991-1-git-send-email-Yinglin.Sun@emc.com>
-	 <20111011143348.GA20605@gospo.rdu.redhat.com> <23119.1318348739@death>
-	 <20111012025137.GB20605@gospo.rdu.redhat.com>
-	 <CAN17JHVsgRqkOgeJ0+vvQe3kN1W0ue0vKHa3uebFHa9oH2ngXA@mail.gmail.com>
+From: MuraliRaja Muniraju <muralira@google.com>
+Subject: Re: [PATCH v3] net-netlink: Add a new attribute to expose TOS values
+ via netlink
+Date: Tue, 11 Oct 2011 21:16:44 -0700
+Message-ID: <CAP3iWTQXHwzw-qUYVfT--uNv4pNZnu0ROJnF7B1VLeZBbrfdqw@mail.gmail.com>
+References: <20111010145206.6f7e9ee2@nehalam.linuxnetplumber.net>
+	<1318382887-31824-1-git-send-email-muralira@google.com>
+	<1318387734.3686.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	John Eaglesham <johneagl@yahoo-inc.com>
-To: Yinglin Sun <yinglin.s@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46925 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707Ab1JLEGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 00:06:42 -0400
-Received: by wwf22 with SMTP id 22so420004wwf.1
-        for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 21:06:41 -0700 (PDT)
-In-Reply-To: <CAN17JHVsgRqkOgeJ0+vvQe3kN1W0ue0vKHa3uebFHa9oH2ngXA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318387734.3686.2.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 11 octobre 2011 =C3=A0 20:39 -0700, Yinglin Sun a =C3=A9crit :
-> On Tue, Oct 11, 2011 at 7:51 PM, Andy Gospodarek <andy@greyhouse.net>=
- wrote:
-> >
-> >        if (skb->protocol =3D=3D htons(ETH_P_IP)) {
-> > +               struct iphdr *iph =3D ip_hdr(skb);
-> > +               __be16 *layer4hdr =3D (__be16 *)((u32 *)iph + iph->=
-ihl);
-> >                if (!ip_is_fragment(iph) &&
-> >                    (iph->protocol =3D=3D IPPROTO_TCP ||
-> >                     iph->protocol =3D=3D IPPROTO_UDP)) {
-> > @@ -3398,7 +3407,18 @@ static int bond_xmit_hash_policy_l34(struct =
-sk_buff *skb, int count)
-> >                }
-> >                return (layer4_xor ^
-> >                        ((ntohl(iph->saddr ^ iph->daddr)) & 0xffff))=
- % count;
-> > -
-> > +       } else if (skb->protocol =3D=3D htons(ETH_P_IPV6)) {
-> > +               struct ipv6hdr *ipv6h =3D ipv6_hdr(skb);
-> > +               __be16 *layer4hdrv6 =3D (__be16 *)((u8 *)ipv6h + si=
-zeof(*ipv6h));
-> > +               if (ipv6h->nexthdr =3D=3D IPPROTO_TCP || ipv6h->nex=
-thdr =3D=3D IPPROTO_UDP) {
->=20
-> Does this work if this is a fragmentation packet? and if
-> ipv6h->nexthdr is not IPPROTO_TCP/IPPROTO_UDP, it doesn't mean this i=
-s
-> not TCP/UDP packet. We need to go through the extension header chain
-> and look at the last one. It's likely there are some other extension
-> headers before L4 header.
->=20
+Eric,
+     I think it would be useful to expose the values this way.
+     I shall make the changes to add TCLASS for ipv6 in the description=
+=2E
 
-Its a best effort.
+     Regarding the TIME_WAIT state, I think it would be better of not
+exposing the values because there would hardly be anything to transmit
+during this time.
 
-If first header is not IPPROTO_TCP/UDP, I am not sure its wise to spend
-time in hope to find layer4 info (missing anyway in fragments)
+Thanks,
+Murali
 
-By the way I see no bound checking on SKB head : malicious packet could
-make bond_xmit_hash_policy_l34() access unitialized memory.
+On Tue, Oct 11, 2011 at 7:48 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mardi 11 octobre 2011 =E0 18:28 -0700, Muraliraja Muniraju a =E9cr=
+it :
+>> From: Murali Raja <muralira@google.com>
+>>
+>> This patch exposes the tos value for the TCP sockets when the TOS fl=
+ag
+>> is requested in the ext_flags for the inet_diag request. This would =
+mainly be
+>> used to expose TOS values for both for TCP and UDP sockets. Currentl=
+y it is
+>> supported for TCP. When netlink support for UDP would be added the s=
+upport
+>> to expose the TOS values would alse be done.
+>>
+>
+> You could mention TCLASS support for IPv6
+>
+>> Signed-off-by: Murali Raja <muralira@google.com>
+>> ---
+>> Changelog since v2:
+>> - Adding support for IPV6 class and using right API's
+>> Changelog since v1:
+>> - Removing reserved field
+>>
+>> =A0include/linux/inet_diag.h | =A0 =A09 ++++++++-
+>> =A0net/ipv4/inet_diag.c =A0 =A0 =A0| =A0 =A05 +++++
+>> =A02 files changed, 13 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+>> index bc8c490..e36093d 100644
+>> --- a/include/linux/inet_diag.h
+>> +++ b/include/linux/inet_diag.h
+>> @@ -97,9 +97,10 @@ enum {
+>> =A0 =A0 =A0 INET_DIAG_INFO,
+>> =A0 =A0 =A0 INET_DIAG_VEGASINFO,
+>> =A0 =A0 =A0 INET_DIAG_CONG,
+>> + =A0 =A0 INET_DIAG_TOS,
+>> =A0};
+>>
+>> -#define INET_DIAG_MAX INET_DIAG_CONG
+>> +#define INET_DIAG_MAX INET_DIAG_TOS
+>>
+>>
+>> =A0/* INET_DIAG_MEM */
+>> @@ -120,6 +121,12 @@ struct tcpvegas_info {
+>> =A0 =A0 =A0 __u32 =A0 tcpv_minrtt;
+>> =A0};
+>>
+>> +/* INET_DIAG_TOS */
+>> +
+>> +struct inet_diag_tos {
+>> + =A0 =A0 __u8 =A0 =A0idiag_tos;
+>> +};
+>
+> Are you sure its still needed ?
+>
+> I am now wondering what is done in TIME_WAIT state.
+>
+>
+>
 
-We have same 'fastpath' in __skb_get_rxhash()
+
+
+--=20
+Thanks,
+Murali
