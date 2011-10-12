@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 1/5] e1000e: Convert printks to pr_<level>
-Date: Wed, 12 Oct 2011 09:18:06 -0700
-Message-ID: <fbd071286f5646c7935f5d333bfc5629c3e83fb3.1318436085.git.joe@perches.com>
+Subject: [PATCH net-next 4/5] igb: Convert printks to pr_<level>
+Date: Wed, 12 Oct 2011 09:18:09 -0700
+Message-ID: <f798850b903a47383a0e39ea1ed9207ce9930f9d.1318436085.git.joe@perches.com>
 References: <cover.1318436085.git.joe@perches.com>
 Cc: netdev@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
@@ -22,61 +22,79 @@ List-Id: netdev.vger.kernel.org
 
 Use the current logging styles.
 
-pr_<level> conversions are now prefixed with "e1000e:"
+pr_<level> conversions are now prefixed with "igb: "
 
-Correct a couple of defects where the trailing NTU may have
-been printed on a separate line because of an interleaving
-hex_dump.
+Correct a defect where the trailing NTU may have been printed
+on a separate line because of an interleaving hex_dump.
 
 Remove unnecessary uses of KERN_CONT and use single pr_info()s
 to avoid any possible output interleaving from other modules.
 
 Coalesce formats as appropriate.
 
-Remove an extra space from a broken across lines
-coalescing of "Link Status " and " Change".
-
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c |  232 ++++++++++++----------------
- 1 files changed, 102 insertions(+), 130 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c |  155 +++++++++++++---------------
+ 1 files changed, 72 insertions(+), 83 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 78c5d21..40fcbee 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -163,16 +163,13 @@ static void e1000_regdump(struct e1000_hw *hw, struct e1000_reg_info *reginfo)
- 			regs[n] = __er32(hw, E1000_TARC(n));
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 10670f9..37c0000 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -25,6 +25,8 @@
+ 
+ *******************************************************************************/
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/init.h>
+@@ -65,7 +67,7 @@ char igb_driver_name[] = "igb";
+ char igb_driver_version[] = DRV_VERSION;
+ static const char igb_driver_string[] =
+ 				"Intel(R) Gigabit Ethernet Network Driver";
+-static const char igb_copyright[] = "Copyright (c) 2007-2011 Intel Corporation.";
++static const char igb_copyright[] = "Copyright (c) 2007-2011 Intel Corporation";
+ 
+ static const struct e1000_info *igb_info_tbl[] = {
+ 	[board_82575] = &e1000_82575_info,
+@@ -318,16 +320,14 @@ static void igb_regdump(struct e1000_hw *hw, struct igb_reg_info *reginfo)
+ 			regs[n] = rd32(E1000_TXDCTL(n));
  		break;
  	default:
 -		printk(KERN_INFO "%-15s %08x\n",
--		       reginfo->name, __er32(hw, reginfo->ofs));
 +		pr_info("%-15s %08x\n",
-+			reginfo->name, __er32(hw, reginfo->ofs));
+ 			reginfo->name, rd32(reginfo->ofs));
  		return;
  	}
  
- 	snprintf(rname, 16, "%s%s", reginfo->name, "[0-1]");
+ 	snprintf(rname, 16, "%s%s", reginfo->name, "[0-3]");
 -	printk(KERN_INFO "%-15s ", rname);
--	for (n = 0; n < 2; n++)
+-	for (n = 0; n < 4; n++)
 -		printk(KERN_CONT "%08x ", regs[n]);
 -	printk(KERN_CONT "\n");
-+	pr_info("%-15s %08x %08x\n", rname, regs[0], regs[1]);
++	pr_info("%-15s %08x %08x %08x %08x\n",
++		rname, regs[0], regs[1], regs[2], regs[3]);
  }
  
  /*
-@@ -208,16 +205,15 @@ static void e1000e_dump(struct e1000_adapter *adapter)
+@@ -352,18 +352,17 @@ static void igb_dump(struct igb_adapter *adapter)
  	/* Print netdevice Info */
  	if (netdev) {
  		dev_info(&adapter->pdev->dev, "Net device Info\n");
 -		printk(KERN_INFO "Device Name     state            "
--		       "trans_start      last_rx\n");
+-			"trans_start      last_rx\n");
 -		printk(KERN_INFO "%-15s %016lX %016lX %016lX\n",
--		       netdev->name, netdev->state, netdev->trans_start,
--		       netdev->last_rx);
+-		netdev->name,
+-		netdev->state,
+-		netdev->trans_start,
+-		netdev->last_rx);
 +		pr_info("Device Name     state            trans_start      last_rx\n");
 +		pr_info("%-15s %016lX %016lX %016lX\n",
-+			netdev->name, netdev->state, netdev->trans_start,
++			netdev->name,
++			netdev->state,
++			netdev->trans_start,
 +			netdev->last_rx);
  	}
  
@@ -84,214 +102,131 @@ index 78c5d21..40fcbee 100644
  	dev_info(&adapter->pdev->dev, "Register Dump\n");
 -	printk(KERN_INFO " Register Name   Value\n");
 +	pr_info(" Register Name   Value\n");
- 	for (reginfo = (struct e1000_reg_info *)e1000_reg_info_tbl;
+ 	for (reginfo = (struct igb_reg_info *)igb_reg_info_tbl;
  	     reginfo->name; reginfo++) {
- 		e1000_regdump(hw, reginfo);
-@@ -228,15 +224,14 @@ static void e1000e_dump(struct e1000_adapter *adapter)
+ 		igb_regdump(hw, reginfo);
+@@ -374,18 +373,17 @@ static void igb_dump(struct igb_adapter *adapter)
  		goto exit;
  
- 	dev_info(&adapter->pdev->dev, "Tx Ring Summary\n");
+ 	dev_info(&adapter->pdev->dev, "TX Rings Summary\n");
 -	printk(KERN_INFO "Queue [NTU] [NTC] [bi(ntc)->dma  ]"
--	       " leng ntw timestamp\n");
+-		" leng ntw timestamp\n");
 +	pr_info("Queue [NTU] [NTC] [bi(ntc)->dma  ] leng ntw timestamp\n");
- 	buffer_info = &tx_ring->buffer_info[tx_ring->next_to_clean];
--	printk(KERN_INFO " %5d %5X %5X %016llX %04X %3X %016llX\n",
--	       0, tx_ring->next_to_use, tx_ring->next_to_clean,
--	       (unsigned long long)buffer_info->dma,
--	       buffer_info->length,
--	       buffer_info->next_to_watch,
--	       (unsigned long long)buffer_info->time_stamp);
-+	pr_info(" %5d %5X %5X %016llX %04X %3X %016llX\n",
-+		0, tx_ring->next_to_use, tx_ring->next_to_clean,
-+		(unsigned long long)buffer_info->dma,
-+		buffer_info->length,
-+		buffer_info->next_to_watch,
-+		(unsigned long long)buffer_info->time_stamp);
+ 	for (n = 0; n < adapter->num_tx_queues; n++) {
+ 		struct igb_tx_buffer *buffer_info;
+ 		tx_ring = adapter->tx_ring[n];
+ 		buffer_info = &tx_ring->tx_buffer_info[tx_ring->next_to_clean];
+-		printk(KERN_INFO " %5d %5X %5X %016llX %04X %p %016llX\n",
+-			   n, tx_ring->next_to_use, tx_ring->next_to_clean,
+-			   (u64)buffer_info->dma,
+-			   buffer_info->length,
+-			   buffer_info->next_to_watch,
+-			   (u64)buffer_info->time_stamp);
++		pr_info(" %5d %5X %5X %016llX %04X %p %016llX\n",
++			n, tx_ring->next_to_use, tx_ring->next_to_clean,
++			(u64)buffer_info->dma,
++			buffer_info->length,
++			buffer_info->next_to_watch,
++			(u64)buffer_info->time_stamp);
+ 	}
  
- 	/* Print Tx Ring */
- 	if (!netif_msg_tx_done(adapter))
-@@ -271,37 +266,32 @@ static void e1000e_dump(struct e1000_adapter *adapter)
- 	 *   +----------------------------------------------------------------+
- 	 *   63       48 47     40 39  36 35    32 31     24 23  20 19        0
- 	 */
--	printk(KERN_INFO "Tl[desc]     [address 63:0  ] [SpeCssSCmCsLen]"
--	       " [bi->dma       ] leng  ntw timestamp        bi->skb "
--	       "<-- Legacy format\n");
--	printk(KERN_INFO "Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen]"
--	       " [bi->dma       ] leng  ntw timestamp        bi->skb "
--	       "<-- Ext Context format\n");
--	printk(KERN_INFO "Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen]"
--	       " [bi->dma       ] leng  ntw timestamp        bi->skb "
--	       "<-- Ext Data format\n");
-+	pr_info("Tl[desc]     [address 63:0  ] [SpeCssSCmCsLen] [bi->dma       ] leng  ntw timestamp        bi->skb <-- Legacy format\n");
-+	pr_info("Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen] [bi->dma       ] leng  ntw timestamp        bi->skb <-- Ext Context format\n");
-+	pr_info("Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen] [bi->dma       ] leng  ntw timestamp        bi->skb <-- Ext Data format\n");
- 	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
-+		const char *next_desc;
- 		tx_desc = E1000_TX_DESC(*tx_ring, i);
- 		buffer_info = &tx_ring->buffer_info[i];
- 		u0 = (struct my_u0 *)tx_desc;
--		printk(KERN_INFO "T%c[0x%03X]    %016llX %016llX %016llX "
--		       "%04X  %3X %016llX %p",
--		       (!(le64_to_cpu(u0->b) & (1 << 29)) ? 'l' :
--			((le64_to_cpu(u0->b) & (1 << 20)) ? 'd' : 'c')), i,
--		       (unsigned long long)le64_to_cpu(u0->a),
--		       (unsigned long long)le64_to_cpu(u0->b),
--		       (unsigned long long)buffer_info->dma,
--		       buffer_info->length, buffer_info->next_to_watch,
--		       (unsigned long long)buffer_info->time_stamp,
--		       buffer_info->skb);
- 		if (i == tx_ring->next_to_use && i == tx_ring->next_to_clean)
--			printk(KERN_CONT " NTC/U\n");
-+			next_desc = " NTC/U";
- 		else if (i == tx_ring->next_to_use)
--			printk(KERN_CONT " NTU\n");
-+			next_desc = " NTU";
- 		else if (i == tx_ring->next_to_clean)
--			printk(KERN_CONT " NTC\n");
-+			next_desc = " NTC";
- 		else
--			printk(KERN_CONT "\n");
-+			next_desc = "";
-+		pr_info("T%c[0x%03X]    %016llX %016llX %016llX %04X  %3X %016llX %p%s\n",
-+			(!(le64_to_cpu(u0->b) & (1 << 29)) ? 'l' :
-+			 ((le64_to_cpu(u0->b) & (1 << 20)) ? 'd' : 'c')),
-+			i,
-+			(unsigned long long)le64_to_cpu(u0->a),
-+			(unsigned long long)le64_to_cpu(u0->b),
-+			(unsigned long long)buffer_info->dma,
-+			buffer_info->length, buffer_info->next_to_watch,
-+			(unsigned long long)buffer_info->time_stamp,
-+			buffer_info->skb, next_desc);
+ 	/* Print TX Rings */
+@@ -407,36 +405,37 @@ static void igb_dump(struct igb_adapter *adapter)
  
- 		if (netif_msg_pktdata(adapter) && buffer_info->dma != 0)
- 			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
-@@ -312,9 +302,9 @@ static void e1000e_dump(struct e1000_adapter *adapter)
- 	/* Print Rx Ring Summary */
- rx_ring_summary:
- 	dev_info(&adapter->pdev->dev, "Rx Ring Summary\n");
--	printk(KERN_INFO "Queue [NTU] [NTC]\n");
--	printk(KERN_INFO " %5d %5X %5X\n", 0,
--	       rx_ring->next_to_use, rx_ring->next_to_clean);
-+	pr_info("Queue [NTU] [NTC]\n");
-+	pr_info(" %5d %5X %5X\n",
-+		0, rx_ring->next_to_use, rx_ring->next_to_clean);
+ 	for (n = 0; n < adapter->num_tx_queues; n++) {
+ 		tx_ring = adapter->tx_ring[n];
+-		printk(KERN_INFO "------------------------------------\n");
+-		printk(KERN_INFO "TX QUEUE INDEX = %d\n", tx_ring->queue_index);
+-		printk(KERN_INFO "------------------------------------\n");
+-		printk(KERN_INFO "T [desc]     [address 63:0  ] "
+-			"[PlPOCIStDDM Ln] [bi->dma       ] "
+-			"leng  ntw timestamp        bi->skb\n");
++		pr_info("------------------------------------\n");
++		pr_info("TX QUEUE INDEX = %d\n", tx_ring->queue_index);
++		pr_info("------------------------------------\n");
++		pr_info("T [desc]     [address 63:0  ] [PlPOCIStDDM Ln] [bi->dma       ] leng  ntw timestamp        bi->skb\n");
  
- 	/* Print Rx Ring */
- 	if (!netif_msg_rx_status(adapter))
-@@ -337,10 +327,7 @@ rx_ring_summary:
- 		 * 24 |                Buffer Address 3 [63:0]              |
- 		 *    +-----------------------------------------------------+
- 		 */
--		printk(KERN_INFO "R  [desc]      [buffer 0 63:0 ] "
--		       "[buffer 1 63:0 ] "
--		       "[buffer 2 63:0 ] [buffer 3 63:0 ] [bi->dma       ] "
--		       "[bi->skb] <-- Ext Pkt Split format\n");
-+		pr_info("R  [desc]      [buffer 0 63:0 ] [buffer 1 63:0 ] [buffer 2 63:0 ] [buffer 3 63:0 ] [bi->dma       ] [bi->skb] <-- Ext Pkt Split format\n");
- 		/* [Extended] Receive Descriptor (Write-Back) Format
- 		 *
- 		 *   63       48 47    32 31     13 12    8 7    4 3        0
-@@ -352,35 +339,40 @@ rx_ring_summary:
- 		 *   +------------------------------------------------------+
- 		 *   63       48 47    32 31            20 19               0
- 		 */
--		printk(KERN_INFO "RWB[desc]      [ck ipid mrqhsh] "
--		       "[vl   l0 ee  es] "
--		       "[ l3  l2  l1 hs] [reserved      ] ---------------- "
--		       "[bi->skb] <-- Ext Rx Write-Back format\n");
-+		pr_info("RWB[desc]      [ck ipid mrqhsh] [vl   l0 ee  es] [ l3  l2  l1 hs] [reserved      ] ---------------- [bi->skb] <-- Ext Rx Write-Back format\n");
- 		for (i = 0; i < rx_ring->count; i++) {
+ 		for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
 +			const char *next_desc;
- 			buffer_info = &rx_ring->buffer_info[i];
- 			rx_desc_ps = E1000_RX_DESC_PS(*rx_ring, i);
- 			u1 = (struct my_u1 *)rx_desc_ps;
- 			staterr =
- 			    le32_to_cpu(rx_desc_ps->wb.middle.status_error);
-+
-+			if (i == rx_ring->next_to_use)
+ 			struct igb_tx_buffer *buffer_info;
+ 			tx_desc = IGB_TX_DESC(tx_ring, i);
+ 			buffer_info = &tx_ring->tx_buffer_info[i];
+ 			u0 = (struct my_u0 *)tx_desc;
+-			printk(KERN_INFO "T [0x%03X]    %016llX %016llX %016llX"
+-				" %04X  %p %016llX %p", i,
++			if (i == tx_ring->next_to_use &&
++			    i == tx_ring->next_to_clean)
++				next_desc = " NTC/U";
++			else if (i == tx_ring->next_to_use)
 +				next_desc = " NTU";
-+			else if (i == rx_ring->next_to_clean)
++			else if (i == tx_ring->next_to_clean)
 +				next_desc = " NTC";
 +			else
 +				next_desc = "";
 +
- 			if (staterr & E1000_RXD_STAT_DD) {
- 				/* Descriptor Done */
--				printk(KERN_INFO "RWB[0x%03X]     %016llX "
--				       "%016llX %016llX %016llX "
--				       "---------------- %p", i,
--				       (unsigned long long)le64_to_cpu(u1->a),
--				       (unsigned long long)le64_to_cpu(u1->b),
--				       (unsigned long long)le64_to_cpu(u1->c),
--				       (unsigned long long)le64_to_cpu(u1->d),
--				       buffer_info->skb);
-+				pr_info("%s[0x%03X]     %016llX %016llX %016llX %016llX ---------------- %p%s\n",
-+					"RWB", i,
-+					(unsigned long long)le64_to_cpu(u1->a),
-+					(unsigned long long)le64_to_cpu(u1->b),
-+					(unsigned long long)le64_to_cpu(u1->c),
-+					(unsigned long long)le64_to_cpu(u1->d),
-+					buffer_info->skb, next_desc);
- 			} else {
--				printk(KERN_INFO "R  [0x%03X]     %016llX "
--				       "%016llX %016llX %016llX %016llX %p", i,
--				       (unsigned long long)le64_to_cpu(u1->a),
--				       (unsigned long long)le64_to_cpu(u1->b),
--				       (unsigned long long)le64_to_cpu(u1->c),
--				       (unsigned long long)le64_to_cpu(u1->d),
--				       (unsigned long long)buffer_info->dma,
--				       buffer_info->skb);
-+				pr_info("%s[0x%03X]     %016llX %016llX %016llX %016llX %016llX %p%s\n",
-+					"R  ", i,
-+					(unsigned long long)le64_to_cpu(u1->a),
-+					(unsigned long long)le64_to_cpu(u1->b),
-+					(unsigned long long)le64_to_cpu(u1->c),
-+					(unsigned long long)le64_to_cpu(u1->d),
-+					(unsigned long long)buffer_info->dma,
-+					buffer_info->skb, next_desc);
- 
- 				if (netif_msg_pktdata(adapter))
- 					print_hex_dump(KERN_INFO, "",
-@@ -388,13 +380,6 @@ rx_ring_summary:
- 						phys_to_virt(buffer_info->dma),
- 						adapter->rx_ps_bsize0, true);
- 			}
--
--			if (i == rx_ring->next_to_use)
++			pr_info("T [0x%03X]    %016llX %016llX %016llX"
++				" %04X  %p %016llX %p%s\n",
++				i,
+ 				le64_to_cpu(u0->a),
+ 				le64_to_cpu(u0->b),
+ 				(u64)buffer_info->dma,
+ 				buffer_info->length,
+ 				buffer_info->next_to_watch,
+ 				(u64)buffer_info->time_stamp,
+-				buffer_info->skb);
+-			if (i == tx_ring->next_to_use &&
+-				i == tx_ring->next_to_clean)
+-				printk(KERN_CONT " NTC/U\n");
+-			else if (i == tx_ring->next_to_use)
 -				printk(KERN_CONT " NTU\n");
--			else if (i == rx_ring->next_to_clean)
+-			else if (i == tx_ring->next_to_clean)
 -				printk(KERN_CONT " NTC\n");
 -			else
 -				printk(KERN_CONT "\n");
- 		}
- 		break;
- 	default:
-@@ -407,9 +392,7 @@ rx_ring_summary:
- 		 * 8 |                      Reserved                       |
- 		 *   +-----------------------------------------------------+
- 		 */
--		printk(KERN_INFO "R  [desc]      [buf addr 63:0 ] "
--		       "[reserved 63:0 ] [bi->dma       ] "
--		       "[bi->skb] <-- Ext (Read) format\n");
-+		pr_info("R  [desc]      [buf addr 63:0 ] [reserved 63:0 ] [bi->dma       ] [bi->skb] <-- Ext (Read) format\n");
- 		/* Extended Receive Descriptor (Write-Back) Format
- 		 *
- 		 *   63       48 47    32 31    24 23            4 3        0
-@@ -423,29 +406,37 @@ rx_ring_summary:
- 		 *   +------------------------------------------------------+
- 		 *   63       48 47    32 31            20 19               0
- 		 */
--		printk(KERN_INFO "RWB[desc]      [cs ipid    mrq] "
--		       "[vt   ln xe  xs] "
--		       "[bi->skb] <-- Ext (Write-Back) format\n");
-+		pr_info("RWB[desc]      [cs ipid    mrq] [vt   ln xe  xs] [bi->skb] <-- Ext (Write-Back) format\n");
++				buffer_info->skb, next_desc);
+ 
+ 			if (netif_msg_pktdata(adapter) && buffer_info->dma != 0)
+ 				print_hex_dump(KERN_INFO, "",
+@@ -449,11 +448,11 @@ static void igb_dump(struct igb_adapter *adapter)
+ 	/* Print RX Rings Summary */
+ rx_ring_summary:
+ 	dev_info(&adapter->pdev->dev, "RX Rings Summary\n");
+-	printk(KERN_INFO "Queue [NTU] [NTC]\n");
++	pr_info("Queue [NTU] [NTC]\n");
+ 	for (n = 0; n < adapter->num_rx_queues; n++) {
+ 		rx_ring = adapter->rx_ring[n];
+-		printk(KERN_INFO " %5d %5X %5X\n", n,
+-			   rx_ring->next_to_use, rx_ring->next_to_clean);
++		pr_info(" %5d %5X %5X\n",
++			n, rx_ring->next_to_use, rx_ring->next_to_clean);
+ 	}
+ 
+ 	/* Print RX Rings */
+@@ -485,36 +484,41 @@ rx_ring_summary:
+ 
+ 	for (n = 0; n < adapter->num_rx_queues; n++) {
+ 		rx_ring = adapter->rx_ring[n];
+-		printk(KERN_INFO "------------------------------------\n");
+-		printk(KERN_INFO "RX QUEUE INDEX = %d\n", rx_ring->queue_index);
+-		printk(KERN_INFO "------------------------------------\n");
+-		printk(KERN_INFO "R  [desc]      [ PktBuf     A0] "
+-			"[  HeadBuf   DD] [bi->dma       ] [bi->skb] "
+-			"<-- Adv Rx Read format\n");
+-		printk(KERN_INFO "RWB[desc]      [PcsmIpSHl PtRs] "
+-			"[vl er S cks ln] ---------------- [bi->skb] "
+-			"<-- Adv Rx Write-Back format\n");
++		pr_info("------------------------------------\n");
++		pr_info("RX QUEUE INDEX = %d\n", rx_ring->queue_index);
++		pr_info("------------------------------------\n");
++		pr_info("R  [desc]      [ PktBuf     A0] [  HeadBuf   DD] [bi->dma       ] [bi->skb] <-- Adv Rx Read format\n");
++		pr_info("RWB[desc]      [PcsmIpSHl PtRs] [vl er S cks ln] ---------------- [bi->skb] <-- Adv Rx Write-Back format\n");
  
  		for (i = 0; i < rx_ring->count; i++) {
 +			const char *next_desc;
-+
- 			buffer_info = &rx_ring->buffer_info[i];
- 			rx_desc = E1000_RX_DESC_EXT(*rx_ring, i);
- 			u1 = (struct my_u1 *)rx_desc;
+ 			struct igb_rx_buffer *buffer_info;
+ 			buffer_info = &rx_ring->rx_buffer_info[i];
+ 			rx_desc = IGB_RX_DESC(rx_ring, i);
+ 			u0 = (struct my_u0 *)rx_desc;
  			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
 +
 +			if (i == rx_ring->next_to_use)
@@ -304,34 +239,29 @@ index 78c5d21..40fcbee 100644
  			if (staterr & E1000_RXD_STAT_DD) {
  				/* Descriptor Done */
 -				printk(KERN_INFO "RWB[0x%03X]     %016llX "
--				       "%016llX ---------------- %p", i,
--				       (unsigned long long)le64_to_cpu(u1->a),
--				       (unsigned long long)le64_to_cpu(u1->b),
--				       buffer_info->skb);
+-					"%016llX ---------------- %p", i,
 +				pr_info("%s[0x%03X]     %016llX %016llX ---------------- %p%s\n",
 +					"RWB", i,
-+					(unsigned long long)le64_to_cpu(u1->a),
-+					(unsigned long long)le64_to_cpu(u1->b),
+ 					le64_to_cpu(u0->a),
+ 					le64_to_cpu(u0->b),
+-					buffer_info->skb);
 +					buffer_info->skb, next_desc);
  			} else {
 -				printk(KERN_INFO "R  [0x%03X]     %016llX "
--				       "%016llX %016llX %p", i,
--				       (unsigned long long)le64_to_cpu(u1->a),
--				       (unsigned long long)le64_to_cpu(u1->b),
--				       (unsigned long long)buffer_info->dma,
--				       buffer_info->skb);
+-					"%016llX %016llX %p", i,
 +				pr_info("%s[0x%03X]     %016llX %016llX %016llX %p%s\n",
 +					"R  ", i,
-+					(unsigned long long)le64_to_cpu(u1->a),
-+					(unsigned long long)le64_to_cpu(u1->b),
-+					(unsigned long long)buffer_info->dma,
+ 					le64_to_cpu(u0->a),
+ 					le64_to_cpu(u0->b),
+ 					(u64)buffer_info->dma,
+-					buffer_info->skb);
 +					buffer_info->skb, next_desc);
  
- 				if (netif_msg_pktdata(adapter))
+ 				if (netif_msg_pktdata(adapter)) {
  					print_hex_dump(KERN_INFO, "",
-@@ -456,13 +447,6 @@ rx_ring_summary:
- 						       adapter->rx_buffer_len,
- 						       true);
+@@ -531,14 +535,6 @@ rx_ring_summary:
+ 					  PAGE_SIZE/2, true);
+ 				}
  			}
 -
 -			if (i == rx_ring->next_to_use)
@@ -340,124 +270,65 @@ index 78c5d21..40fcbee 100644
 -				printk(KERN_CONT " NTC\n");
 -			else
 -				printk(KERN_CONT "\n");
+-
  		}
  	}
  
-@@ -1222,8 +1206,7 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
- 			adapter->flags2 |= FLAG2_IS_DISCARDING;
+@@ -592,10 +588,10 @@ struct net_device *igb_get_hw_dev(struct e1000_hw *hw)
+ static int __init igb_init_module(void)
+ {
+ 	int ret;
+-	printk(KERN_INFO "%s - version %s\n",
++	pr_info("%s - version %s\n",
+ 	       igb_driver_string, igb_driver_version);
  
- 		if (adapter->flags2 & FLAG2_IS_DISCARDING) {
--			e_dbg("Packet Split buffers didn't pick up the full "
--			      "packet\n");
-+			e_dbg("Packet Split buffers didn't pick up the full packet\n");
- 			dev_kfree_skb_irq(skb);
- 			if (staterr & E1000_RXD_STAT_EOP)
- 				adapter->flags2 &= ~FLAG2_IS_DISCARDING;
-@@ -1238,8 +1221,7 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
- 		length = le16_to_cpu(rx_desc->wb.middle.length0);
+-	printk(KERN_INFO "%s\n", igb_copyright);
++	pr_info("%s\n", igb_copyright);
  
- 		if (!length) {
--			e_dbg("Last part of the packet spanning multiple "
--			      "descriptors\n");
-+			e_dbg("Last part of the packet spanning multiple descriptors\n");
- 			dev_kfree_skb_irq(skb);
- 			goto next_desc;
- 		}
-@@ -1917,8 +1899,7 @@ void e1000e_set_interrupt_capability(struct e1000_adapter *adapter)
- 					return;
- 			}
- 			/* MSI-X failed, so fall through and try MSI */
--			e_err("Failed to initialize MSI-X interrupts.  "
--			      "Falling back to MSI interrupts.\n");
-+			e_err("Failed to initialize MSI-X interrupts.  Falling back to MSI interrupts.\n");
- 			e1000e_reset_interrupt_capability(adapter);
- 		}
- 		adapter->int_mode = E1000E_INT_MODE_MSI;
-@@ -1928,8 +1909,7 @@ void e1000e_set_interrupt_capability(struct e1000_adapter *adapter)
- 			adapter->flags |= FLAG_MSI_ENABLED;
- 		} else {
- 			adapter->int_mode = E1000E_INT_MODE_LEGACY;
--			e_err("Failed to initialize MSI interrupts.  Falling "
--			      "back to legacy interrupts.\n");
-+			e_err("Failed to initialize MSI interrupts.  Falling back to legacy interrupts.\n");
- 		}
- 		/* Fall through */
- 	case E1000E_INT_MODE_LEGACY:
-@@ -4168,16 +4148,13 @@ static void e1000_print_link_info(struct e1000_adapter *adapter)
- 	u32 ctrl = er32(CTRL);
+ #ifdef CONFIG_IGB_DCA
+ 	dca_register_notify(&dca_notifier);
+@@ -3676,23 +3672,19 @@ static void igb_watchdog_task(struct work_struct *work)
  
- 	/* Link status message must follow this format for user tools */
--	printk(KERN_INFO "e1000e: %s NIC Link is Up %d Mbps %s, "
--	       "Flow Control: %s\n",
--	       adapter->netdev->name,
--	       adapter->link_speed,
--	       (adapter->link_duplex == FULL_DUPLEX) ?
--	       "Full Duplex" : "Half Duplex",
--	       ((ctrl & E1000_CTRL_TFCE) && (ctrl & E1000_CTRL_RFCE)) ?
--	       "Rx/Tx" :
--	       ((ctrl & E1000_CTRL_RFCE) ? "Rx" :
--		((ctrl & E1000_CTRL_TFCE) ? "Tx" : "None")));
-+	printk(KERN_INFO "e1000e: %s NIC Link is Up %d Mbps %s Duplex, Flow Control: %s\n",
-+		adapter->netdev->name,
-+		adapter->link_speed,
-+		adapter->link_duplex == FULL_DUPLEX ? "Full" : "Half",
-+		(ctrl & E1000_CTRL_TFCE) && (ctrl & E1000_CTRL_RFCE) ? "Rx/Tx" :
-+		(ctrl & E1000_CTRL_RFCE) ? "Rx" :
-+		(ctrl & E1000_CTRL_TFCE) ? "Tx" : "None");
- }
+ 			ctrl = rd32(E1000_CTRL);
+ 			/* Links status message must follow this format */
+-			printk(KERN_INFO "igb: %s NIC Link is Up %d Mbps %s, "
+-				 "Flow Control: %s\n",
++			printk(KERN_INFO "igb: %s NIC Link is Up %d Mbps %s Duplex, Flow Control: %s\n",
+ 			       netdev->name,
+ 			       adapter->link_speed,
+ 			       adapter->link_duplex == FULL_DUPLEX ?
+-				 "Full Duplex" : "Half Duplex",
+-			       ((ctrl & E1000_CTRL_TFCE) &&
+-			        (ctrl & E1000_CTRL_RFCE)) ? "RX/TX" :
+-			       ((ctrl & E1000_CTRL_RFCE) ?  "RX" :
+-			       ((ctrl & E1000_CTRL_TFCE) ?  "TX" : "None")));
++			       "Full" : "Half",
++			       (ctrl & E1000_CTRL_TFCE) &&
++			       (ctrl & E1000_CTRL_RFCE) ? "RX/TX" :
++			       (ctrl & E1000_CTRL_RFCE) ?  "RX" :
++			       (ctrl & E1000_CTRL_TFCE) ?  "TX" : "None");
  
- static bool e1000e_has_link(struct e1000_adapter *adapter)
-@@ -4323,10 +4300,7 @@ static void e1000_watchdog_task(struct work_struct *work)
- 				e1e_rphy(hw, PHY_AUTONEG_EXP, &autoneg_exp);
- 
- 				if (!(autoneg_exp & NWAY_ER_LP_NWAY_CAPS))
--					e_info("Autonegotiated half duplex but"
--					       " link partner cannot autoneg. "
--					       " Try forcing full duplex if "
--					       "link gets many collisions.\n");
-+					e_info("Autonegotiated half duplex but link partner cannot autoneg.  Try forcing full duplex if link gets many collisions.\n");
+ 			/* check for thermal sensor event */
+ 			if (igb_thermal_sensor_event(hw, E1000_THSTAT_LINK_THROTTLE)) {
+-				printk(KERN_INFO "igb: %s The network adapter "
+-						 "link speed was downshifted "
+-						 "because it overheated.\n",
+-						 netdev->name);
++				netdev_info(netdev, "The network adapter link speed was downshifted because it overheated\n");
  			}
  
  			/* adjust timeout factor according to speed/duplex */
-@@ -5110,8 +5084,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	if ((adapter->hw.mac.type == e1000_pch2lan) &&
- 	    !(adapter->flags2 & FLAG2_CRC_STRIPPING) &&
- 	    (new_mtu > ETH_DATA_LEN)) {
--		e_err("Jumbo Frames not supported on 82579 when CRC "
--		      "stripping is disabled.\n");
-+		e_err("Jumbo Frames not supported on 82579 when CRC stripping is disabled.\n");
- 		return -EINVAL;
- 	}
+@@ -3723,10 +3715,7 @@ static void igb_watchdog_task(struct work_struct *work)
  
-@@ -5527,8 +5500,8 @@ static int __e1000_resume(struct pci_dev *pdev)
- 				phy_data & E1000_WUS_MC ? "Multicast Packet" :
- 				phy_data & E1000_WUS_BC ? "Broadcast Packet" :
- 				phy_data & E1000_WUS_MAG ? "Magic Packet" :
--				phy_data & E1000_WUS_LNKC ? "Link Status "
--				" Change" : "other");
-+				phy_data & E1000_WUS_LNKC ? "Link Status Change" :
-+			       "other");
- 		}
- 		e1e_wphy(&adapter->hw, BM_WUS, ~0);
- 	} else {
-@@ -5949,8 +5922,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 			err = dma_set_coherent_mask(&pdev->dev,
- 						    DMA_BIT_MASK(32));
- 			if (err) {
--				dev_err(&pdev->dev, "No usable DMA "
--					"configuration, aborting\n");
-+				dev_err(&pdev->dev, "No usable DMA configuration, aborting\n");
- 				goto err_dma;
+ 			/* check for thermal sensor event */
+ 			if (igb_thermal_sensor_event(hw, E1000_THSTAT_PWR_DOWN)) {
+-				printk(KERN_ERR "igb: %s The network adapter "
+-						"was stopped because it "
+-						"overheated.\n",
+-						netdev->name);
++				netdev_err(netdev, "The network adapter was stopped because it overheated\n");
  			}
- 		}
-@@ -6412,7 +6384,7 @@ static int __init e1000_init_module(void)
- 	int ret;
- 	pr_info("Intel(R) PRO/1000 Network Driver - %s\n",
- 		e1000e_driver_version);
--	pr_info("Copyright(c) 1999 - 2011 Intel Corporation.\n");
-+	pr_info("Copyright(c) 1999 - 2011 Intel Corporation\n");
- 	ret = pci_register_driver(&e1000_driver);
  
- 	return ret;
+ 			/* Links status message must follow this format */
 -- 
 1.7.6.405.gc1be0
