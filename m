@@ -1,102 +1,140 @@
 From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH] phylib: Modify Vitesse RGMII skew settings
-Date: Tue, 11 Oct 2011 20:20:51 -0500
-Message-ID: <1318382451-2194-1-git-send-email-afleming@freescale.com>
+Subject: [PATCH] net: Allow skb_recycle_check to be done in stages
+Date: Tue, 11 Oct 2011 20:19:18 -0500
+Message-ID: <1318382358-2047-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:25082 "EHLO
-	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751159Ab1JLBVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 21:21:07 -0400
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:55826
+	"EHLO VA3EHSOBE010.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751159Ab1JLBV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 21:21:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Vitesse driver was using the RGMII_ID interface type to determine if
-skew was necessary.  However, we want to move away from using that
-interface type, as it's really a property of the board's PHY connection.
-However, some boards depend on it, so we want to support it, while
-allowing new boards to use the more flexible "fixups" approach.  To do
-this, we extract the code which adds skew into its own function, and
-call that function when RGMII_ID has been selected.
-
-Another side-effect of this change is that if your PHY has skew set
-already, it doesn't clear it.  This way, the fixup code can modify the
-register without config_init then clearing it.
+skb_recycle_check resets the skb if it's eligible for recycling.
+However, there are times when a driver might want to optionally
+manipulate the skb data with the skb before resetting the skb,
+but after it has determined eligibility.  We do this by splitting the
+eligibility check from the skb reset, creating two inline functions to
+accomplish that task.
 
 Signed-off-by: Andy Fleming <afleming@freescale.com>
 ---
- drivers/net/phy/vitesse.c |   34 ++++++++++++++++++++++------------
- 1 files changed, 22 insertions(+), 12 deletions(-)
+ include/linux/skbuff.h |   21 +++++++++++++++++++
+ net/core/skbuff.c      |   51 ++++++++++++++++++++++++-----------------------
+ 2 files changed, 47 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
-index 5d8f6e1..0ec8e09 100644
---- a/drivers/net/phy/vitesse.c
-+++ b/drivers/net/phy/vitesse.c
-@@ -3,7 +3,7 @@
-  *
-  * Author: Kriston Carson
-  *
-- * Copyright (c) 2005 Freescale Semiconductor, Inc.
-+ * Copyright (c) 2005, 2009 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -61,32 +61,42 @@ MODULE_DESCRIPTION("Vitesse PHY driver");
- MODULE_AUTHOR("Kriston Carson");
- MODULE_LICENSE("GPL");
- 
--static int vsc824x_config_init(struct phy_device *phydev)
-+int vsc824x_add_skew(struct phy_device *phydev)
- {
--	int extcon;
- 	int err;
--
--	err = phy_write(phydev, MII_VSC8244_AUX_CONSTAT,
--			MII_VSC8244_AUXCONSTAT_INIT);
--	if (err < 0)
--		return err;
-+	int extcon;
- 
- 	extcon = phy_read(phydev, MII_VSC8244_EXT_CON1);
- 
- 	if (extcon < 0)
--		return err;
-+		return extcon;
- 
- 	extcon &= ~(MII_VSC8244_EXTCON1_TX_SKEW_MASK |
- 			MII_VSC8244_EXTCON1_RX_SKEW_MASK);
- 
--	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
--		extcon |= (MII_VSC8244_EXTCON1_TX_SKEW |
--				MII_VSC8244_EXTCON1_RX_SKEW);
-+	extcon |= (MII_VSC8244_EXTCON1_TX_SKEW |
-+			MII_VSC8244_EXTCON1_RX_SKEW);
- 
- 	err = phy_write(phydev, MII_VSC8244_EXT_CON1, extcon);
- 
- 	return err;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index ac6b05a..6b35ca1 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -525,6 +525,7 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
+ 	return __alloc_skb(size, priority, 1, NUMA_NO_NODE);
  }
-+EXPORT_SYMBOL(vsc824x_add_skew);
-+
-+static int vsc824x_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_write(phydev, MII_VSC8244_AUX_CONSTAT,
-+			MII_VSC8244_AUXCONSTAT_INIT);
-+	if (err < 0)
-+		return err;
-+
-+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
-+		err = vsc824x_add_skew(phydev);
-+
-+	return err;
-+}
  
- static int vsc824x_ack_interrupt(struct phy_device *phydev)
++extern void skb_recycle(struct sk_buff *skb);
+ extern bool skb_recycle_check(struct sk_buff *skb, int skb_size);
+ 
+ extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+@@ -2459,5 +2460,25 @@ static inline void skb_checksum_none_assert(struct sk_buff *skb)
+ 
+ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
+ 
++static inline bool skb_is_recycleable(struct sk_buff *skb, int skb_size)
++{
++	if (irqs_disabled())
++		return false;
++
++	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY)
++		return false;
++
++	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
++		return false;
++
++	skb_size = SKB_DATA_ALIGN(skb_size + NET_SKB_PAD);
++	if (skb_end_pointer(skb) - skb->head < skb_size)
++		return false;
++
++	if (skb_shared(skb) || skb_cloned(skb))
++		return false;
++
++	return true;
++}
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 5b2c5f1..48bee84 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -475,6 +475,30 @@ void consume_skb(struct sk_buff *skb)
+ EXPORT_SYMBOL(consume_skb);
+ 
+ /**
++ * 	skb_recycle - clean up an skb for reuse
++ * 	@skb: buffer
++ *
++ * 	Recycles the skb to be reused as a receive buffer. This
++ * 	function does any necessary reference count dropping, and
++ * 	cleans up the skbuff as if it just came from __alloc_skb().
++ */
++void skb_recycle(struct sk_buff *skb)
++{
++	struct skb_shared_info *shinfo;
++
++	skb_release_head_state(skb);
++
++	shinfo = skb_shinfo(skb);
++	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
++	atomic_set(&shinfo->dataref, 1);
++
++	memset(skb, 0, offsetof(struct sk_buff, tail));
++	skb->data = skb->head + NET_SKB_PAD;
++	skb_reset_tail_pointer(skb);
++}
++EXPORT_SYMBOL(skb_recycle);
++
++/**
+  *	skb_recycle_check - check if skb can be reused for receive
+  *	@skb: buffer
+  *	@skb_size: minimum receive buffer size
+@@ -488,33 +512,10 @@ EXPORT_SYMBOL(consume_skb);
+  */
+ bool skb_recycle_check(struct sk_buff *skb, int skb_size)
  {
+-	struct skb_shared_info *shinfo;
+-
+-	if (irqs_disabled())
+-		return false;
+-
+-	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY)
+-		return false;
+-
+-	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
+-		return false;
+-
+-	skb_size = SKB_DATA_ALIGN(skb_size + NET_SKB_PAD);
+-	if (skb_end_pointer(skb) - skb->head < skb_size)
+-		return false;
+-
+-	if (skb_shared(skb) || skb_cloned(skb))
++	if (!skb_is_recycleable(skb, skb_size))
+ 		return false;
+ 
+-	skb_release_head_state(skb);
+-
+-	shinfo = skb_shinfo(skb);
+-	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+-	atomic_set(&shinfo->dataref, 1);
+-
+-	memset(skb, 0, offsetof(struct sk_buff, tail));
+-	skb->data = skb->head + NET_SKB_PAD;
+-	skb_reset_tail_pointer(skb);
++	skb_recycle(skb);
+ 
+ 	return true;
+ }
 -- 
 1.7.3.4
