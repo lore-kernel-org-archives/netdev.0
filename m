@@ -1,46 +1,28 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] IPVS netns shutdown/startup dead-lock
-Date: Wed, 12 Oct 2011 18:33:42 +0200
-Message-ID: <20111012163342.GB14338@1984>
-References: <1318298075-23501-1-git-send-email-horms@verge.net.au>
- <1318298075-23501-2-git-send-email-horms@verge.net.au>
+From: Olaf van der Spek <ml@vdspek.org>
+Subject: Seamless Service Restart / Port Takeover
+Date: Wed, 12 Oct 2011 18:53:51 +0200
+Message-ID: <CAGVGHmuVnsw4mdsxO=93yaYRgGaj20gR0+nNB_iaS=nTM_BThw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	Hans Schillstrom <hans@schillstrom.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1318298075-23501-2-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:61842 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752680Ab1JLQxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 12:53:52 -0400
+Received: by vcbgb30 with SMTP id gb30so745245vcb.19
+        for <netdev@vger.kernel.org>; Wed, 12 Oct 2011 09:53:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 11, 2011 at 10:54:35AM +0900, Simon Horman wrote:
-> From: Hans Schillstrom <hans@schillstrom.com>
-> 
-> ip_vs_mutext is used by both netns shutdown code and startup
-> and both implicit uses sk_lock-AF_INET mutex.
-> 
-> cleanup CPU-1         startup CPU-2
-> ip_vs_dst_event()     ip_vs_genl_set_cmd()
->  sk_lock-AF_INET     __ip_vs_mutex
->                      sk_lock-AF_INET
-> __ip_vs_mutex
-> * DEAD LOCK *
-> 
-> A new mutex placed in ip_vs netns struct called sync_mutex is added.
-> 
-> Comments from Julian and Simon added.
-> This patch has been running for more than 3 month now and it seems to work.
-> 
-> Ver. 3
->     IP_VS_SO_GET_DAEMON in do_ip_vs_get_ctl protected by sync_mutex
->     instead of __ip_vs_mutex as sugested by Julian.
+Hi,
 
-Applied, thanks Simon.
+When restarting a service, a webserver for example, you'd like this to
+be seamless for clients. Often, first a signal is send to the old
+process to close listening sockets, then the new process is started.
+This has both a race condition (sometimes 'avoided' with a sleep in
+between) and service interruption.
+Wouldn't it be possible to introduce mv / move like behaviour, where
+the socket can be rebound without races and without interruption?
 
-http://1984.lsi.us.es/git/?p=net/.git;a=shortlog;h=refs/heads/nf
+Olaf
