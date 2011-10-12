@@ -1,52 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] ipv4: Update pmtu informations on inetpeer only
- for output routes
-Date: Wed, 12 Oct 2011 17:08:05 -0400 (EDT)
-Message-ID: <20111012.170805.2172804476308993385.davem@davemloft.net>
-References: <20111011110842.GC1830@secunet.com>
-	<20111011111027.GE1830@secunet.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] [TRIVIAL] isdn: hisax: Fix typo 'HISAX_DE_AOC'
+Date: Wed, 12 Oct 2011 23:19:32 +0200
+Message-ID: <1318454372.8345.11.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:59172 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753034Ab1JLVIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 17:08:10 -0400
-In-Reply-To: <20111011111027.GE1830@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
+	netdev@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 11 Oct 2011 13:10:27 +0200
+That should probably be 'CONFIG_DE_AOC'.
 
-> @@ -1817,9 +1819,14 @@ static void rt_init_metrics(struct rtable *rt, const struct flowi4 *fl4,
->  		if (inet_metrics_new(peer))
->  			memcpy(peer->metrics, fi->fib_metrics,
->  			       sizeof(u32) * RTAX_MAX);
-> -		dst_init_metrics(&rt->dst, peer->metrics, false);
->  
-> -		check_peer_pmtu(&rt->dst, peer);
-> +		dst_init_metrics(dst, peer->metrics, false);
-> +		check_peer_pmtu(dst, peer);
-> +
-> +		if (rt_is_input_route(rt))
-> +			dst_metric_set(dst, RTAX_MTU,
-> +				       dst->ops->default_mtu(dst));
-> +
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+This is just the most obvious way to reconcile an unused Kconfig symbol
+(DE_AOC) and an unknown macro (HISAX_DE_AOC). But it's basically just
+educated guesswork. Entirely untested too. Added maintainer and netdev,
+since this might be stretching the definition of a trivial patch.
 
-You really can't do this, it's going to kill all of the memory savings from
-storing metrics in the inetpeer cache.
+ drivers/isdn/hisax/l3dss1.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Every input route is going to have it's metrics COW'd with this change.
-
-The whole idea is to use defaults as heavily as possible, and that's
-the entire reason why the dst->ops->default_mtu() method exists, so
-that we can just leave the values alone and have read-only copies %99
-of the time.
-
-Please rearrange your fix so that these goals are still achieved.
-
-Thanks.
+diff --git a/drivers/isdn/hisax/l3dss1.c b/drivers/isdn/hisax/l3dss1.c
+index b0d9ab1..6a8acf6 100644
+--- a/drivers/isdn/hisax/l3dss1.c
++++ b/drivers/isdn/hisax/l3dss1.c
+@@ -353,7 +353,7 @@ l3dss1_parse_facility(struct PStack *st, struct l3_process *pc,
+ 			         { l3dss1_dummy_invoke(st, cr, id, ident, p, nlen);
+                                    return;
+                                  } 
+-#ifdef HISAX_DE_AOC
++#ifdef CONFIG_DE_AOC
+ 			{
+ 
+ #define FOO1(s,a,b) \
+@@ -422,9 +422,9 @@ l3dss1_parse_facility(struct PStack *st, struct l3_process *pc,
+ #undef FOO1
+ 
+ 			}
+-#else  /* not HISAX_DE_AOC */
++#else  /* not CONFIG_DE_AOC */
+                         l3_debug(st, "invoke break");
+-#endif /* not HISAX_DE_AOC */
++#endif /* not CONFIG_DE_AOC */
+ 			break;
+ 		case 2:	/* return result */
+ 			 /* if no process available handle separately */ 
+-- 
+1.7.4.4
