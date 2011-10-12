@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 2/5] ixgbevf: Convert printks to pr_<level>
-Date: Wed, 12 Oct 2011 09:18:07 -0700
-Message-ID: <130402c3963706ad2f6ae443ad91aab20ebaa8a1.1318436085.git.joe@perches.com>
+Subject: [PATCH net-next 1/5] e1000e: Convert printks to pr_<level>
+Date: Wed, 12 Oct 2011 09:18:06 -0700
+Message-ID: <fbd071286f5646c7935f5d333bfc5629c3e83fb3.1318436085.git.joe@perches.com>
 References: <cover.1318436085.git.joe@perches.com>
 Cc: netdev@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
@@ -20,127 +20,444 @@ In-Reply-To: <cover.1318436085.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the current logging styles, prefix output with "ixgbevf: "
+Use the current logging styles.
 
-Add #define pr_fmt
-Coalesce formats.
+pr_<level> conversions are now prefixed with "e1000e:"
+
+Correct a couple of defects where the trailing NTU may have
+been printed on a separate line because of an interleaving
+hex_dump.
+
+Remove unnecessary uses of KERN_CONT and use single pr_info()s
+to avoid any possible output interleaving from other modules.
+
+Coalesce formats as appropriate.
+
+Remove an extra space from a broken across lines
+coalescing of "Link Status " and " Change".
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |    6 +++-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   26 ++++++++++----------
- 2 files changed, 17 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c |  232 ++++++++++++----------------
+ 1 files changed, 102 insertions(+), 130 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index e29ba45..c9c084b 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -27,6 +27,8 @@
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 78c5d21..40fcbee 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -163,16 +163,13 @@ static void e1000_regdump(struct e1000_hw *hw, struct e1000_reg_info *reginfo)
+ 			regs[n] = __er32(hw, E1000_TARC(n));
+ 		break;
+ 	default:
+-		printk(KERN_INFO "%-15s %08x\n",
+-		       reginfo->name, __er32(hw, reginfo->ofs));
++		pr_info("%-15s %08x\n",
++			reginfo->name, __er32(hw, reginfo->ofs));
+ 		return;
+ 	}
  
- /* ethtool support for ixgbevf */
+ 	snprintf(rname, 16, "%s%s", reginfo->name, "[0-1]");
+-	printk(KERN_INFO "%-15s ", rname);
+-	for (n = 0; n < 2; n++)
+-		printk(KERN_CONT "%08x ", regs[n]);
+-	printk(KERN_CONT "\n");
++	pr_info("%-15s %08x %08x\n", rname, regs[0], regs[1]);
+ }
  
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ /*
+@@ -208,16 +205,15 @@ static void e1000e_dump(struct e1000_adapter *adapter)
+ 	/* Print netdevice Info */
+ 	if (netdev) {
+ 		dev_info(&adapter->pdev->dev, "Net device Info\n");
+-		printk(KERN_INFO "Device Name     state            "
+-		       "trans_start      last_rx\n");
+-		printk(KERN_INFO "%-15s %016lX %016lX %016lX\n",
+-		       netdev->name, netdev->state, netdev->trans_start,
+-		       netdev->last_rx);
++		pr_info("Device Name     state            trans_start      last_rx\n");
++		pr_info("%-15s %016lX %016lX %016lX\n",
++			netdev->name, netdev->state, netdev->trans_start,
++			netdev->last_rx);
+ 	}
+ 
+ 	/* Print Registers */
+ 	dev_info(&adapter->pdev->dev, "Register Dump\n");
+-	printk(KERN_INFO " Register Name   Value\n");
++	pr_info(" Register Name   Value\n");
+ 	for (reginfo = (struct e1000_reg_info *)e1000_reg_info_tbl;
+ 	     reginfo->name; reginfo++) {
+ 		e1000_regdump(hw, reginfo);
+@@ -228,15 +224,14 @@ static void e1000e_dump(struct e1000_adapter *adapter)
+ 		goto exit;
+ 
+ 	dev_info(&adapter->pdev->dev, "Tx Ring Summary\n");
+-	printk(KERN_INFO "Queue [NTU] [NTC] [bi(ntc)->dma  ]"
+-	       " leng ntw timestamp\n");
++	pr_info("Queue [NTU] [NTC] [bi(ntc)->dma  ] leng ntw timestamp\n");
+ 	buffer_info = &tx_ring->buffer_info[tx_ring->next_to_clean];
+-	printk(KERN_INFO " %5d %5X %5X %016llX %04X %3X %016llX\n",
+-	       0, tx_ring->next_to_use, tx_ring->next_to_clean,
+-	       (unsigned long long)buffer_info->dma,
+-	       buffer_info->length,
+-	       buffer_info->next_to_watch,
+-	       (unsigned long long)buffer_info->time_stamp);
++	pr_info(" %5d %5X %5X %016llX %04X %3X %016llX\n",
++		0, tx_ring->next_to_use, tx_ring->next_to_clean,
++		(unsigned long long)buffer_info->dma,
++		buffer_info->length,
++		buffer_info->next_to_watch,
++		(unsigned long long)buffer_info->time_stamp);
+ 
+ 	/* Print Tx Ring */
+ 	if (!netif_msg_tx_done(adapter))
+@@ -271,37 +266,32 @@ static void e1000e_dump(struct e1000_adapter *adapter)
+ 	 *   +----------------------------------------------------------------+
+ 	 *   63       48 47     40 39  36 35    32 31     24 23  20 19        0
+ 	 */
+-	printk(KERN_INFO "Tl[desc]     [address 63:0  ] [SpeCssSCmCsLen]"
+-	       " [bi->dma       ] leng  ntw timestamp        bi->skb "
+-	       "<-- Legacy format\n");
+-	printk(KERN_INFO "Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen]"
+-	       " [bi->dma       ] leng  ntw timestamp        bi->skb "
+-	       "<-- Ext Context format\n");
+-	printk(KERN_INFO "Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen]"
+-	       " [bi->dma       ] leng  ntw timestamp        bi->skb "
+-	       "<-- Ext Data format\n");
++	pr_info("Tl[desc]     [address 63:0  ] [SpeCssSCmCsLen] [bi->dma       ] leng  ntw timestamp        bi->skb <-- Legacy format\n");
++	pr_info("Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen] [bi->dma       ] leng  ntw timestamp        bi->skb <-- Ext Context format\n");
++	pr_info("Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen] [bi->dma       ] leng  ntw timestamp        bi->skb <-- Ext Data format\n");
+ 	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
++		const char *next_desc;
+ 		tx_desc = E1000_TX_DESC(*tx_ring, i);
+ 		buffer_info = &tx_ring->buffer_info[i];
+ 		u0 = (struct my_u0 *)tx_desc;
+-		printk(KERN_INFO "T%c[0x%03X]    %016llX %016llX %016llX "
+-		       "%04X  %3X %016llX %p",
+-		       (!(le64_to_cpu(u0->b) & (1 << 29)) ? 'l' :
+-			((le64_to_cpu(u0->b) & (1 << 20)) ? 'd' : 'c')), i,
+-		       (unsigned long long)le64_to_cpu(u0->a),
+-		       (unsigned long long)le64_to_cpu(u0->b),
+-		       (unsigned long long)buffer_info->dma,
+-		       buffer_info->length, buffer_info->next_to_watch,
+-		       (unsigned long long)buffer_info->time_stamp,
+-		       buffer_info->skb);
+ 		if (i == tx_ring->next_to_use && i == tx_ring->next_to_clean)
+-			printk(KERN_CONT " NTC/U\n");
++			next_desc = " NTC/U";
+ 		else if (i == tx_ring->next_to_use)
+-			printk(KERN_CONT " NTU\n");
++			next_desc = " NTU";
+ 		else if (i == tx_ring->next_to_clean)
+-			printk(KERN_CONT " NTC\n");
++			next_desc = " NTC";
+ 		else
+-			printk(KERN_CONT "\n");
++			next_desc = "";
++		pr_info("T%c[0x%03X]    %016llX %016llX %016llX %04X  %3X %016llX %p%s\n",
++			(!(le64_to_cpu(u0->b) & (1 << 29)) ? 'l' :
++			 ((le64_to_cpu(u0->b) & (1 << 20)) ? 'd' : 'c')),
++			i,
++			(unsigned long long)le64_to_cpu(u0->a),
++			(unsigned long long)le64_to_cpu(u0->b),
++			(unsigned long long)buffer_info->dma,
++			buffer_info->length, buffer_info->next_to_watch,
++			(unsigned long long)buffer_info->time_stamp,
++			buffer_info->skb, next_desc);
+ 
+ 		if (netif_msg_pktdata(adapter) && buffer_info->dma != 0)
+ 			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
+@@ -312,9 +302,9 @@ static void e1000e_dump(struct e1000_adapter *adapter)
+ 	/* Print Rx Ring Summary */
+ rx_ring_summary:
+ 	dev_info(&adapter->pdev->dev, "Rx Ring Summary\n");
+-	printk(KERN_INFO "Queue [NTU] [NTC]\n");
+-	printk(KERN_INFO " %5d %5X %5X\n", 0,
+-	       rx_ring->next_to_use, rx_ring->next_to_clean);
++	pr_info("Queue [NTU] [NTC]\n");
++	pr_info(" %5d %5X %5X\n",
++		0, rx_ring->next_to_use, rx_ring->next_to_clean);
+ 
+ 	/* Print Rx Ring */
+ 	if (!netif_msg_rx_status(adapter))
+@@ -337,10 +327,7 @@ rx_ring_summary:
+ 		 * 24 |                Buffer Address 3 [63:0]              |
+ 		 *    +-----------------------------------------------------+
+ 		 */
+-		printk(KERN_INFO "R  [desc]      [buffer 0 63:0 ] "
+-		       "[buffer 1 63:0 ] "
+-		       "[buffer 2 63:0 ] [buffer 3 63:0 ] [bi->dma       ] "
+-		       "[bi->skb] <-- Ext Pkt Split format\n");
++		pr_info("R  [desc]      [buffer 0 63:0 ] [buffer 1 63:0 ] [buffer 2 63:0 ] [buffer 3 63:0 ] [bi->dma       ] [bi->skb] <-- Ext Pkt Split format\n");
+ 		/* [Extended] Receive Descriptor (Write-Back) Format
+ 		 *
+ 		 *   63       48 47    32 31     13 12    8 7    4 3        0
+@@ -352,35 +339,40 @@ rx_ring_summary:
+ 		 *   +------------------------------------------------------+
+ 		 *   63       48 47    32 31            20 19               0
+ 		 */
+-		printk(KERN_INFO "RWB[desc]      [ck ipid mrqhsh] "
+-		       "[vl   l0 ee  es] "
+-		       "[ l3  l2  l1 hs] [reserved      ] ---------------- "
+-		       "[bi->skb] <-- Ext Rx Write-Back format\n");
++		pr_info("RWB[desc]      [ck ipid mrqhsh] [vl   l0 ee  es] [ l3  l2  l1 hs] [reserved      ] ---------------- [bi->skb] <-- Ext Rx Write-Back format\n");
+ 		for (i = 0; i < rx_ring->count; i++) {
++			const char *next_desc;
+ 			buffer_info = &rx_ring->buffer_info[i];
+ 			rx_desc_ps = E1000_RX_DESC_PS(*rx_ring, i);
+ 			u1 = (struct my_u1 *)rx_desc_ps;
+ 			staterr =
+ 			    le32_to_cpu(rx_desc_ps->wb.middle.status_error);
 +
- #include <linux/types.h>
- #include <linux/module.h>
- #include <linux/slab.h>
-@@ -549,8 +551,8 @@ static const u32 register_test_patterns[] = {
- 	writel((W & M), (adapter->hw.hw_addr + R));                           \
- 	val = readl(adapter->hw.hw_addr + R);                                 \
- 	if ((W & M) != (val & M)) {                                           \
--		printk(KERN_ERR "set/check reg %04X test failed: got 0x%08X " \
--				 "expected 0x%08X\n", R, (val & M), (W & M)); \
-+		pr_err("set/check reg %04X test failed: got 0x%08X expected 0x%08X\n", \
-+		       R, (val & M), (W & M));                                \
- 		*data = R;                                                    \
- 		writel(before, (adapter->hw.hw_addr + R));                    \
- 		return 1;                                                     \
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 4930c46..51e944d 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -29,6 +29,9 @@
- /******************************************************************************
-  Copyright (c)2006 - 2007 Myricom, Inc. for some LRO specific code
- ******************************************************************************/
++			if (i == rx_ring->next_to_use)
++				next_desc = " NTU";
++			else if (i == rx_ring->next_to_clean)
++				next_desc = " NTC";
++			else
++				next_desc = "";
 +
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/types.h>
- #include <linux/bitops.h>
- #include <linux/module.h>
-@@ -1437,7 +1440,7 @@ static int ixgbevf_write_uc_addr_list(struct net_device *netdev)
- 	int count = 0;
+ 			if (staterr & E1000_RXD_STAT_DD) {
+ 				/* Descriptor Done */
+-				printk(KERN_INFO "RWB[0x%03X]     %016llX "
+-				       "%016llX %016llX %016llX "
+-				       "---------------- %p", i,
+-				       (unsigned long long)le64_to_cpu(u1->a),
+-				       (unsigned long long)le64_to_cpu(u1->b),
+-				       (unsigned long long)le64_to_cpu(u1->c),
+-				       (unsigned long long)le64_to_cpu(u1->d),
+-				       buffer_info->skb);
++				pr_info("%s[0x%03X]     %016llX %016llX %016llX %016llX ---------------- %p%s\n",
++					"RWB", i,
++					(unsigned long long)le64_to_cpu(u1->a),
++					(unsigned long long)le64_to_cpu(u1->b),
++					(unsigned long long)le64_to_cpu(u1->c),
++					(unsigned long long)le64_to_cpu(u1->d),
++					buffer_info->skb, next_desc);
+ 			} else {
+-				printk(KERN_INFO "R  [0x%03X]     %016llX "
+-				       "%016llX %016llX %016llX %016llX %p", i,
+-				       (unsigned long long)le64_to_cpu(u1->a),
+-				       (unsigned long long)le64_to_cpu(u1->b),
+-				       (unsigned long long)le64_to_cpu(u1->c),
+-				       (unsigned long long)le64_to_cpu(u1->d),
+-				       (unsigned long long)buffer_info->dma,
+-				       buffer_info->skb);
++				pr_info("%s[0x%03X]     %016llX %016llX %016llX %016llX %016llX %p%s\n",
++					"R  ", i,
++					(unsigned long long)le64_to_cpu(u1->a),
++					(unsigned long long)le64_to_cpu(u1->b),
++					(unsigned long long)le64_to_cpu(u1->c),
++					(unsigned long long)le64_to_cpu(u1->d),
++					(unsigned long long)buffer_info->dma,
++					buffer_info->skb, next_desc);
  
- 	if ((netdev_uc_count(netdev)) > 10) {
--		printk(KERN_ERR "Too many unicast filters - No Space\n");
-+		pr_err("Too many unicast filters - No Space\n");
- 		return -ENOSPC;
- 	}
- 
-@@ -2135,7 +2138,7 @@ static int ixgbevf_init_interrupt_scheme(struct ixgbevf_adapter *adapter)
- 
- 	err = ixgbevf_alloc_queues(adapter);
- 	if (err) {
--		printk(KERN_ERR "Unable to allocate memory for queues\n");
-+		pr_err("Unable to allocate memory for queues\n");
- 		goto err_alloc_queues;
- 	}
- 
-@@ -2189,7 +2192,7 @@ static int __devinit ixgbevf_sw_init(struct ixgbevf_adapter *adapter)
- 	} else {
- 		err = hw->mac.ops.init_hw(hw);
- 		if (err) {
--			printk(KERN_ERR "init_shared_code failed: %d\n", err);
-+			pr_err("init_shared_code failed: %d\n", err);
- 			goto out;
- 		}
- 	}
-@@ -2630,8 +2633,7 @@ static int ixgbevf_open(struct net_device *netdev)
- 		 * the vf can't start. */
- 		if (hw->adapter_stopped) {
- 			err = IXGBE_ERR_MBX;
--			printk(KERN_ERR "Unable to start - perhaps the PF"
--			       " Driver isn't up yet\n");
-+			pr_err("Unable to start - perhaps the PF Driver isn't up yet\n");
- 			goto err_setup_reset;
- 		}
- 	}
-@@ -2842,10 +2844,8 @@ static bool ixgbevf_tx_csum(struct ixgbevf_adapter *adapter,
- 				break;
- 			default:
- 				if (unlikely(net_ratelimit())) {
--					printk(KERN_WARNING
--					       "partial checksum but "
--					       "proto=%x!\n",
--					       skb->protocol);
-+					pr_warn("partial checksum but proto=%x!\n",
-+						skb->protocol);
- 				}
- 				break;
+ 				if (netif_msg_pktdata(adapter))
+ 					print_hex_dump(KERN_INFO, "",
+@@ -388,13 +380,6 @@ rx_ring_summary:
+ 						phys_to_virt(buffer_info->dma),
+ 						adapter->rx_ps_bsize0, true);
  			}
-@@ -3414,7 +3414,7 @@ static int __devinit ixgbevf_probe(struct pci_dev *pdev,
- 	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
+-
+-			if (i == rx_ring->next_to_use)
+-				printk(KERN_CONT " NTU\n");
+-			else if (i == rx_ring->next_to_clean)
+-				printk(KERN_CONT " NTC\n");
+-			else
+-				printk(KERN_CONT "\n");
+ 		}
+ 		break;
+ 	default:
+@@ -407,9 +392,7 @@ rx_ring_summary:
+ 		 * 8 |                      Reserved                       |
+ 		 *   +-----------------------------------------------------+
+ 		 */
+-		printk(KERN_INFO "R  [desc]      [buf addr 63:0 ] "
+-		       "[reserved 63:0 ] [bi->dma       ] "
+-		       "[bi->skb] <-- Ext (Read) format\n");
++		pr_info("R  [desc]      [buf addr 63:0 ] [reserved 63:0 ] [bi->dma       ] [bi->skb] <-- Ext (Read) format\n");
+ 		/* Extended Receive Descriptor (Write-Back) Format
+ 		 *
+ 		 *   63       48 47    32 31    24 23            4 3        0
+@@ -423,29 +406,37 @@ rx_ring_summary:
+ 		 *   +------------------------------------------------------+
+ 		 *   63       48 47    32 31            20 19               0
+ 		 */
+-		printk(KERN_INFO "RWB[desc]      [cs ipid    mrq] "
+-		       "[vt   ln xe  xs] "
+-		       "[bi->skb] <-- Ext (Write-Back) format\n");
++		pr_info("RWB[desc]      [cs ipid    mrq] [vt   ln xe  xs] [bi->skb] <-- Ext (Write-Back) format\n");
  
- 	if (!is_valid_ether_addr(netdev->dev_addr)) {
--		printk(KERN_ERR "invalid MAC address\n");
-+		pr_err("invalid MAC address\n");
- 		err = -EIO;
- 		goto err_sw_init;
+ 		for (i = 0; i < rx_ring->count; i++) {
++			const char *next_desc;
++
+ 			buffer_info = &rx_ring->buffer_info[i];
+ 			rx_desc = E1000_RX_DESC_EXT(*rx_ring, i);
+ 			u1 = (struct my_u1 *)rx_desc;
+ 			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
++
++			if (i == rx_ring->next_to_use)
++				next_desc = " NTU";
++			else if (i == rx_ring->next_to_clean)
++				next_desc = " NTC";
++			else
++				next_desc = "";
++
+ 			if (staterr & E1000_RXD_STAT_DD) {
+ 				/* Descriptor Done */
+-				printk(KERN_INFO "RWB[0x%03X]     %016llX "
+-				       "%016llX ---------------- %p", i,
+-				       (unsigned long long)le64_to_cpu(u1->a),
+-				       (unsigned long long)le64_to_cpu(u1->b),
+-				       buffer_info->skb);
++				pr_info("%s[0x%03X]     %016llX %016llX ---------------- %p%s\n",
++					"RWB", i,
++					(unsigned long long)le64_to_cpu(u1->a),
++					(unsigned long long)le64_to_cpu(u1->b),
++					buffer_info->skb, next_desc);
+ 			} else {
+-				printk(KERN_INFO "R  [0x%03X]     %016llX "
+-				       "%016llX %016llX %p", i,
+-				       (unsigned long long)le64_to_cpu(u1->a),
+-				       (unsigned long long)le64_to_cpu(u1->b),
+-				       (unsigned long long)buffer_info->dma,
+-				       buffer_info->skb);
++				pr_info("%s[0x%03X]     %016llX %016llX %016llX %p%s\n",
++					"R  ", i,
++					(unsigned long long)le64_to_cpu(u1->a),
++					(unsigned long long)le64_to_cpu(u1->b),
++					(unsigned long long)buffer_info->dma,
++					buffer_info->skb, next_desc);
+ 
+ 				if (netif_msg_pktdata(adapter))
+ 					print_hex_dump(KERN_INFO, "",
+@@ -456,13 +447,6 @@ rx_ring_summary:
+ 						       adapter->rx_buffer_len,
+ 						       true);
+ 			}
+-
+-			if (i == rx_ring->next_to_use)
+-				printk(KERN_CONT " NTU\n");
+-			else if (i == rx_ring->next_to_clean)
+-				printk(KERN_CONT " NTC\n");
+-			else
+-				printk(KERN_CONT "\n");
+ 		}
  	}
-@@ -3535,10 +3535,10 @@ static struct pci_driver ixgbevf_driver = {
- static int __init ixgbevf_init_module(void)
- {
+ 
+@@ -1222,8 +1206,7 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
+ 			adapter->flags2 |= FLAG2_IS_DISCARDING;
+ 
+ 		if (adapter->flags2 & FLAG2_IS_DISCARDING) {
+-			e_dbg("Packet Split buffers didn't pick up the full "
+-			      "packet\n");
++			e_dbg("Packet Split buffers didn't pick up the full packet\n");
+ 			dev_kfree_skb_irq(skb);
+ 			if (staterr & E1000_RXD_STAT_EOP)
+ 				adapter->flags2 &= ~FLAG2_IS_DISCARDING;
+@@ -1238,8 +1221,7 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
+ 		length = le16_to_cpu(rx_desc->wb.middle.length0);
+ 
+ 		if (!length) {
+-			e_dbg("Last part of the packet spanning multiple "
+-			      "descriptors\n");
++			e_dbg("Last part of the packet spanning multiple descriptors\n");
+ 			dev_kfree_skb_irq(skb);
+ 			goto next_desc;
+ 		}
+@@ -1917,8 +1899,7 @@ void e1000e_set_interrupt_capability(struct e1000_adapter *adapter)
+ 					return;
+ 			}
+ 			/* MSI-X failed, so fall through and try MSI */
+-			e_err("Failed to initialize MSI-X interrupts.  "
+-			      "Falling back to MSI interrupts.\n");
++			e_err("Failed to initialize MSI-X interrupts.  Falling back to MSI interrupts.\n");
+ 			e1000e_reset_interrupt_capability(adapter);
+ 		}
+ 		adapter->int_mode = E1000E_INT_MODE_MSI;
+@@ -1928,8 +1909,7 @@ void e1000e_set_interrupt_capability(struct e1000_adapter *adapter)
+ 			adapter->flags |= FLAG_MSI_ENABLED;
+ 		} else {
+ 			adapter->int_mode = E1000E_INT_MODE_LEGACY;
+-			e_err("Failed to initialize MSI interrupts.  Falling "
+-			      "back to legacy interrupts.\n");
++			e_err("Failed to initialize MSI interrupts.  Falling back to legacy interrupts.\n");
+ 		}
+ 		/* Fall through */
+ 	case E1000E_INT_MODE_LEGACY:
+@@ -4168,16 +4148,13 @@ static void e1000_print_link_info(struct e1000_adapter *adapter)
+ 	u32 ctrl = er32(CTRL);
+ 
+ 	/* Link status message must follow this format for user tools */
+-	printk(KERN_INFO "e1000e: %s NIC Link is Up %d Mbps %s, "
+-	       "Flow Control: %s\n",
+-	       adapter->netdev->name,
+-	       adapter->link_speed,
+-	       (adapter->link_duplex == FULL_DUPLEX) ?
+-	       "Full Duplex" : "Half Duplex",
+-	       ((ctrl & E1000_CTRL_TFCE) && (ctrl & E1000_CTRL_RFCE)) ?
+-	       "Rx/Tx" :
+-	       ((ctrl & E1000_CTRL_RFCE) ? "Rx" :
+-		((ctrl & E1000_CTRL_TFCE) ? "Tx" : "None")));
++	printk(KERN_INFO "e1000e: %s NIC Link is Up %d Mbps %s Duplex, Flow Control: %s\n",
++		adapter->netdev->name,
++		adapter->link_speed,
++		adapter->link_duplex == FULL_DUPLEX ? "Full" : "Half",
++		(ctrl & E1000_CTRL_TFCE) && (ctrl & E1000_CTRL_RFCE) ? "Rx/Tx" :
++		(ctrl & E1000_CTRL_RFCE) ? "Rx" :
++		(ctrl & E1000_CTRL_TFCE) ? "Tx" : "None");
+ }
+ 
+ static bool e1000e_has_link(struct e1000_adapter *adapter)
+@@ -4323,10 +4300,7 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 				e1e_rphy(hw, PHY_AUTONEG_EXP, &autoneg_exp);
+ 
+ 				if (!(autoneg_exp & NWAY_ER_LP_NWAY_CAPS))
+-					e_info("Autonegotiated half duplex but"
+-					       " link partner cannot autoneg. "
+-					       " Try forcing full duplex if "
+-					       "link gets many collisions.\n");
++					e_info("Autonegotiated half duplex but link partner cannot autoneg.  Try forcing full duplex if link gets many collisions.\n");
+ 			}
+ 
+ 			/* adjust timeout factor according to speed/duplex */
+@@ -5110,8 +5084,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 	if ((adapter->hw.mac.type == e1000_pch2lan) &&
+ 	    !(adapter->flags2 & FLAG2_CRC_STRIPPING) &&
+ 	    (new_mtu > ETH_DATA_LEN)) {
+-		e_err("Jumbo Frames not supported on 82579 when CRC "
+-		      "stripping is disabled.\n");
++		e_err("Jumbo Frames not supported on 82579 when CRC stripping is disabled.\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -5527,8 +5500,8 @@ static int __e1000_resume(struct pci_dev *pdev)
+ 				phy_data & E1000_WUS_MC ? "Multicast Packet" :
+ 				phy_data & E1000_WUS_BC ? "Broadcast Packet" :
+ 				phy_data & E1000_WUS_MAG ? "Magic Packet" :
+-				phy_data & E1000_WUS_LNKC ? "Link Status "
+-				" Change" : "other");
++				phy_data & E1000_WUS_LNKC ? "Link Status Change" :
++			       "other");
+ 		}
+ 		e1e_wphy(&adapter->hw, BM_WUS, ~0);
+ 	} else {
+@@ -5949,8 +5922,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 			err = dma_set_coherent_mask(&pdev->dev,
+ 						    DMA_BIT_MASK(32));
+ 			if (err) {
+-				dev_err(&pdev->dev, "No usable DMA "
+-					"configuration, aborting\n");
++				dev_err(&pdev->dev, "No usable DMA configuration, aborting\n");
+ 				goto err_dma;
+ 			}
+ 		}
+@@ -6412,7 +6384,7 @@ static int __init e1000_init_module(void)
  	int ret;
--	printk(KERN_INFO "ixgbevf: %s - version %s\n", ixgbevf_driver_string,
--	       ixgbevf_driver_version);
-+	pr_info("%s - version %s\n",
-+		ixgbevf_driver_string, ixgbevf_driver_version);
+ 	pr_info("Intel(R) PRO/1000 Network Driver - %s\n",
+ 		e1000e_driver_version);
+-	pr_info("Copyright(c) 1999 - 2011 Intel Corporation.\n");
++	pr_info("Copyright(c) 1999 - 2011 Intel Corporation\n");
+ 	ret = pci_register_driver(&e1000_driver);
  
--	printk(KERN_INFO "%s\n", ixgbevf_copyright);
-+	pr_info("%s\n", ixgbevf_copyright);
- 
- 	ret = pci_register_driver(&ixgbevf_driver);
  	return ret;
 -- 
 1.7.6.405.gc1be0
