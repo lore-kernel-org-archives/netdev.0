@@ -1,58 +1,73 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 1/5] stmmac: add CHAINED descriptor mode support
-Date: Wed, 12 Oct 2011 08:37:31 +0200
-Message-ID: <4E9535AB.6020608@st.com>
-References: <1318318246-1326-1-git-send-email-peppe.cavallaro@st.com> <1318318246-1326-2-git-send-email-peppe.cavallaro@st.com> <20111011.154203.569015025155780686.davem@davemloft.net>
+From: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
+Subject: Re: [RFC PATCH net 1/2] [BUGFIX] bonding: use local function pointer
+ of bond->recv_probe in bond_handle_frame
+Date: Wed, 12 Oct 2011 16:04:44 +0900
+Message-ID: <4E953C0C.9020107@hitachi.com>
+References: <20111007124925.7089.27260.stgit@ltc219.sdl.hitachi.co.jp>  <20111007124954.7089.9776.stgit@ltc219.sdl.hitachi.co.jp>  <CAM_iQpXZmX2GPb99tF7xMEup52o8AfeUi+0awvHr7C9LVWTjEg@mail.gmail.com>  <4E943E53.6010601@hitachi.com> <1318339433.2538.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rayagond@vayavyalabs.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:56782 "EHLO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752207Ab1JLHEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 03:04:39 -0400
-In-Reply-To: <20111011.154203.569015025155780686.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?QW3DqXJpY28gV2FuZw==?= <xiyou.wangcong@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318339433.2538.25.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/11/2011 9:42 PM, David Miller wrote:
-> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> Date: Tue, 11 Oct 2011 09:30:42 +0200
-> 
->> From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Hi Eric,
+
+Thank you for your comment.
+
+(2011/10/11 22:23), Eric Dumazet wrote:
+> Le mardi 11 octobre 2011 =C3=A0 22:02 +0900, HAYASAKA Mitsuo a =C3=A9=
+crit :
+>> Hi WANG Cong
 >>
->> This patch enhances the STMMAC driver to support CHAINED mode of
->> descriptor (useful also on validation side).
+>> Thank you for your comments.
 >>
->> STMMAC supports DMA descriptor to operate both in dual buffer(RING)
->> and linked-list(CHAINED) mode. In RING mode (default) each descriptor
->> points to two data buffer pointers whereas in CHAINED mode they point
->> to only one data buffer pointer.
+>> (2011/10/07 22:24), Am=C3=A9rico Wang wrote:
+>>> On Fri, Oct 7, 2011 at 8:49 PM, Mitsuo Hayasaka
+>>> <mitsuo.hayasaka.hu@hitachi.com> wrote:
+>>>> The bond->recv_probe is called in bond_handle_frame() when
+>>>> a packet is received, but bond_close() sets it to NULL. So,
+>>>> a panic occurs when both functions work in parallel.
+>>>>
+>>>> Why this happen:
+>>>> After null pointer check of bond->recv_probe, an sk_buff is
+>>>> duplicated and bond->recv_probe is called in bond_handle_frame.
+>>>> So, a panic occurs when bond_close() is called between the
+>>>> check and call of bond->recv_probe.
+>>>>
+>>>> Patch:
+>>>> This patch uses a local function pointer of bond->recv_probe
+>>>> in bond_handle_frame(). So, it can avoid the null pointer
+>>>> dereference.
+>>>>
+>>>
+>>> Hmm, I don't doubt it can fix the problem, I am wondering if
+>>> bond->recv_probe should be protected by bond->lock...
 >>
->> In CHAINED mode each descriptor will have pointer to next descriptor in
->> the list, hence creating the explicit chaining in the descriptor itself,
->> whereas such explicit chaining is not possible in RING mode.
+>> Indeed, in general any resources should be protected from the asynch=
+ronous
+>> workers.
 >>
->> Signed-off-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
->> Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> 
-> These ifdefs added all over the place in the foo.c files are terrible.
-> 
-> Abstract out the differences between RING and CHAINED mode into helper
-> inline routines which live in some foo.h header file, that way you won't
-> need any ifdefs in the driver foo.c files.
+>> At first, I thought it should be handled with lock protection, as we=
+ll.
+>> However, I guess that using bond->lock on this kind of hot-path may
+>> introduces unnecessary overhead. In addition, this code works well
+>> without the strict lock protection. So, I think this change is the
+>> right way to fix it.
+>=20
+> Maybe, but then ACCESS_ONCE() is needed to prevent compiler to
+> 'optimize' the temporary variable.
+>=20
+> Or use rcu_dereference() to make the whole thing really safe and self
+> documented.
+>=20
+I agreed.
+I'd like to send the patch with ACCESS_ONCE(), again.
 
-Hello David
-
-I'll rework the patch and send all these updates to the mailing list
-again (as V2).
-
-Peppe
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Thanks.
