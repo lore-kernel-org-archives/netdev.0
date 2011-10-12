@@ -1,102 +1,212 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/12] igb: Fix features that are currently 82580 only and should also be i350
-Date: Tue, 11 Oct 2011 20:38:22 -0700
-Message-ID: <1318390708-12232-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1318390708-12232-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Yinglin Sun <yinglin.s@gmail.com>
+Subject: Re: [PATCH] bonding: L2L3 xmit doesn't support IPv6
+Date: Tue, 11 Oct 2011 20:39:00 -0700
+Message-ID: <CAN17JHVsgRqkOgeJ0+vvQe3kN1W0ue0vKHa3uebFHa9oH2ngXA@mail.gmail.com>
+References: <1318052205-21991-1-git-send-email-Yinglin.Sun@emc.com>
+	<20111011143348.GA20605@gospo.rdu.redhat.com>
+	<23119.1318348739@death>
+	<20111012025137.GB20605@gospo.rdu.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	John Eaglesham <johneagl@yahoo-inc.com>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:34679 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751252Ab1JLDio (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Oct 2011 23:38:44 -0400
-In-Reply-To: <1318390708-12232-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:35173 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751833Ab1JLDjB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 23:39:01 -0400
+Received: by bkbzt4 with SMTP id zt4so361651bkb.19
+        for <netdev@vger.kernel.org>; Tue, 11 Oct 2011 20:39:00 -0700 (PDT)
+In-Reply-To: <20111012025137.GB20605@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Tue, Oct 11, 2011 at 7:51 PM, Andy Gospodarek <andy@greyhouse.net> w=
+rote:
+> On Tue, Oct 11, 2011 at 08:58:59AM -0700, Jay Vosburgh wrote:
+>> Andy Gospodarek <andy@greyhouse.net> wrote:
+> [...]
+>> >
+>> >There have been some attempts to add support for ipv6 hashing this =
+in
+>> >the past, but none have been committed. =C2=A0The best one I had se=
+en was one
+>> >that did some extensive testing one a wide variety of ipv6 traffic =
+and
+>> >it showed nice traffic distribution. =C2=A0I'm not sure if it was e=
+ver posted
+>> >upstream, so I will see if I can dig it up.
+>> >
+>> >Can you quantify how traffic was distributed with this algorithm?
+>>
+>> =C2=A0 =C2=A0 =C2=A0 As I recall, the IPv6 issues had to do with the=
+ "layer3+4" hash,
+>> because the IPv6 TCP or UDP port numbers can be harder to get at tha=
+n in
+>> IPv4 (which typically has a fixed size header). =C2=A0The above is j=
+ust for
+>> layer 2, so it only hits the IPv6 addresses, which don't move around=
+=2E
+>>
+>> =C2=A0 =C2=A0 =C2=A0 That said, I believe that many IPv6 addresses a=
+re derived from
+>> the MAC address, the autoconf addresses in particular, so s6_addr32[=
+3]
+>> may not show a lot more variation than just the MAC address. =C2=A0I=
+ don't
+>> know for sure though, since I haven't tested it.
+>>
+>> =C2=A0 =C2=A0 =C2=A0 I don't recall seeing the patch you mention, An=
+dy, that checks
+>> ipv6 traffic; can you post it?
+>>
+>
+> I found the patch, cleaned it up, and compile tested it against
+> net-next. =C2=A0I traded some emails with John Eaglesham (cc'd) earli=
+er this
+> year and though he planned to post it, I never followed up.
+>
+> His comments about this patch were as follows:
+>
+> "I've attached my patch for IPv6 transmit hashing for the nic bonding
+> driver.
+>
+> "The algorithm I chose is based on 273,913 IPv6 client addresses I
+> gathered from webservers and ran through a test program that implemen=
+ted
+> several algorithms. This algorithm provided the most even distributio=
+n
+> while using the fewest instructions.
+>
+> "I've tested this on 2.6.39-rc4 and a similar patch to 2.6.18 (from
+> RHEL5 5.4.3) and it has performed as expected in both cases.
+>
+> "Please let me know if you have any comments, otherwise I suppose the
+> next step is to propose the patch to LKML."
+>
+> I would suggest we use this. =C2=A0John or I could write an official
+> changelog and post this in it's own thread if it looks good to others=
+=2E
+>
+> ---
+> =C2=A0drivers/net/bonding/bond_main.c | =C2=A0 30 +++++++++++++++++++=
+++++++-----
+> =C2=A01 files changed, 25 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> index 6191e63..335cb67 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3368,11 +3368,20 @@ static struct notifier_block bond_inetaddr_no=
+tifier =3D {
+> =C2=A0static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int c=
+ount)
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct ethhdr *data =3D (struct ethhdr *)s=
+kb->data;
+> - =C2=A0 =C2=A0 =C2=A0 struct iphdr *iph =3D ip_hdr(skb);
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb->protocol =3D=3D htons(ETH_P_IP)) =
+{
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct iphdr *iph =
+=3D ip_hdr(skb);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return ((ntohl=
+(iph->saddr ^ iph->daddr) & 0xffff) ^
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0(data->h_dest[5] ^ data->h_source[5])) % count;
+> + =C2=A0 =C2=A0 =C2=A0 } else if (skb->protocol =3D=3D htons(ETH_P_IP=
+V6)) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ipv6hdr *ip=
+v6h =3D ipv6_hdr(skb);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 u32 v6hash =3D (
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 (ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 (ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 (ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3])
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 );
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 v6hash =3D (v6hash=
+ >> 16) ^ (v6hash >> 8) ^ v6hash;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return (v6hash ^ d=
+ata->h_dest[5] ^ data->h_source[5]) % count;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return (data->h_dest[5] ^ data->h_source[5=
+]) % count;
+> @@ -3386,11 +3395,11 @@ static int bond_xmit_hash_policy_l23(struct s=
+k_buff *skb, int count)
+> =C2=A0static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int c=
+ount)
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct ethhdr *data =3D (struct ethhdr *)s=
+kb->data;
+> - =C2=A0 =C2=A0 =C2=A0 struct iphdr *iph =3D ip_hdr(skb);
+> - =C2=A0 =C2=A0 =C2=A0 __be16 *layer4hdr =3D (__be16 *)((u32 *)iph + =
+iph->ihl);
+> - =C2=A0 =C2=A0 =C2=A0 int layer4_xor =3D 0;
+> + =C2=A0 =C2=A0 =C2=A0 u32 layer4_xor =3D 0;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb->protocol =3D=3D htons(ETH_P_IP)) =
+{
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct iphdr *iph =
+=3D ip_hdr(skb);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 __be16 *layer4hdr =
+=3D (__be16 *)((u32 *)iph + iph->ihl);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!ip_is_fra=
+gment(iph) &&
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+(iph->protocol =3D=3D IPPROTO_TCP ||
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ iph->protocol =3D=3D IPPROTO_UDP)) {
+> @@ -3398,7 +3407,18 @@ static int bond_xmit_hash_policy_l34(struct sk=
+_buff *skb, int count)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return (layer4=
+_xor ^
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
+> -
+> + =C2=A0 =C2=A0 =C2=A0 } else if (skb->protocol =3D=3D htons(ETH_P_IP=
+V6)) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ipv6hdr *ip=
+v6h =3D ipv6_hdr(skb);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 __be16 *layer4hdrv=
+6 =3D (__be16 *)((u8 *)ipv6h + sizeof(*ipv6h));
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (ipv6h->nexthdr=
+ =3D=3D IPPROTO_TCP || ipv6h->nexthdr =3D=3D IPPROTO_UDP) {
 
-This change allows support for per packet timesync and global device reset
-on the i350 adapter.  These features were supported on both 82580 and i350
-however it looks like several checks where not updated and as such the i350
-support was not enabled.
+Does this work if this is a fragmentation packet? and if
+ipv6h->nexthdr is not IPPROTO_TCP/IPPROTO_UDP, it doesn't mean this is
+not TCP/UDP packet. We need to go through the extension header chain
+and look at the last one. It's likely there are some other extension
+headers before L4 header.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |   15 ++++++---------
- 1 files changed, 6 insertions(+), 9 deletions(-)
+Yinglin
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 29ec64f..ff4a335 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -563,7 +563,7 @@ static cycle_t igb_read_clock(const struct cyclecounter *tc)
- 	 * the lowest register is SYSTIMR instead of SYSTIML.  However we never
- 	 * adjusted TIMINCA so SYSTIMR will just read as all 0s so ignore it.
- 	 */
--	if (hw->mac.type == e1000_82580) {
-+	if (hw->mac.type >= e1000_82580) {
- 		stamp = rd32(E1000_SYSTIMR) >> 8;
- 		shift = IGB_82580_TSYNC_SHIFT;
- 	}
-@@ -1320,7 +1320,7 @@ static void igb_irq_enable(struct igb_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 
- 	if (adapter->msix_entries) {
--		u32 ims = E1000_IMS_LSC | E1000_IMS_DOUTSYNC;
-+		u32 ims = E1000_IMS_LSC | E1000_IMS_DOUTSYNC | E1000_IMS_DRSTA;
- 		u32 regval = rd32(E1000_EIAC);
- 		wr32(E1000_EIAC, regval | adapter->eims_enable_mask);
- 		regval = rd32(E1000_EIAM);
-@@ -1330,9 +1330,6 @@ static void igb_irq_enable(struct igb_adapter *adapter)
- 			wr32(E1000_MBVFIMR, 0xFF);
- 			ims |= E1000_IMS_VMMB;
- 		}
--		if (adapter->hw.mac.type == e1000_82580)
--			ims |= E1000_IMS_DRSTA;
--
- 		wr32(E1000_IMS, ims);
- 	} else {
- 		wr32(E1000_IMS, IMS_ENABLE_MASK |
-@@ -3042,7 +3039,7 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	srrctl |= (PAGE_SIZE / 2) >> E1000_SRRCTL_BSIZEPKT_SHIFT;
- #endif
- 	srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
--	if (hw->mac.type == e1000_82580)
-+	if (hw->mac.type >= e1000_82580)
- 		srrctl |= E1000_SRRCTL_TIMESTAMP;
- 	/* Only set Drop Enable if we are supporting multiple queues */
- 	if (adapter->vfs_allocated_count || adapter->num_rx_queues > 1)
-@@ -4393,7 +4390,7 @@ static void igb_tx_timeout(struct net_device *netdev)
- 	/* Do the reset outside of interrupt context */
- 	adapter->tx_timeout_count++;
- 
--	if (hw->mac.type == e1000_82580)
-+	if (hw->mac.type >= e1000_82580)
- 		hw->dev_spec._82575.global_device_reset = true;
- 
- 	schedule_work(&adapter->reset_task);
-@@ -5511,7 +5508,7 @@ static void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
- 	 * The 82580 starts with 1ns at bit 0 in RX/TXSTMPL, shift this up to
- 	 * 24 to match clock shift we setup earlier.
- 	 */
--	if (adapter->hw.mac.type == e1000_82580)
-+	if (adapter->hw.mac.type >= e1000_82580)
- 		regval <<= IGB_82580_TSYNC_SHIFT;
- 
- 	ns = timecounter_cyc2time(&adapter->clock, regval);
-@@ -6206,7 +6203,7 @@ static int igb_hwtstamp_ioctl(struct net_device *netdev,
- 	 * timestamped, so enable timestamping in all packets as
- 	 * long as one rx filter was configured.
- 	 */
--	if ((hw->mac.type == e1000_82580) && tsync_rx_ctl) {
-+	if ((hw->mac.type >= e1000_82580) && tsync_rx_ctl) {
- 		tsync_rx_ctl = E1000_TSYNCRXCTL_ENABLED;
- 		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_ALL;
- 	}
--- 
-1.7.6.4
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 layer4_xor =3D (*layer4hdrv6 ^ *(layer4hdrv6 + 1));
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 layer4_xor ^=3D (
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 (ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 (ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 (ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3])
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 );
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return ((layer4_xo=
+r >> 16) ^ (layer4_xor >> 8) ^ layer4_xor) % count;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return (data->h_dest[5] ^ data->h_source[5=
+]) % count;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
+ml
+>
