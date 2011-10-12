@@ -1,54 +1,42 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 2/5] stmmac: allow mtu bigger than 1500 in case of normal desc (V2).
-Date: Wed, 12 Oct 2011 15:38:05 +0200
-Message-ID: <1318426688-9419-3-git-send-email-peppe.cavallaro@st.com>
-References: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
-Cc: davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Deepak SIKRI <deepak.sikri@st.com>
-To: netdev@vger.kernel.org
+From: Arvid Brodin <arvid.brodin@enea.com>
+Subject: Re: bridge: HSR support
+Date: Wed, 12 Oct 2011 16:24:50 +0200
+Message-ID: <4E95A332.1040806@enea.com>
+References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net> <4E94D67A.9060207@enea.com> <20111012132822.GJ2840382@jupiter.n2.diac24.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:60403 "EHLO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750907Ab1JLOBU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 10:01:20 -0400
-In-Reply-To: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
+Received: from sestofw01.enea.se ([192.36.1.252]:20225 "HELO mx-3.enea.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751076Ab1JLOY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Oct 2011 10:24:57 -0400
+In-Reply-To: <20111012132822.GJ2840382@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows to set the mtu bigger than 1500
-in case of normal descriptors.
-This is helping some SPEAr customers.
 
-Signed-off-by: Deepak SIKRI <deepak.sikri@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+David Lamparter wrote:
+> On Wed, Oct 12, 2011 at 01:51:22AM +0200, Arvid Brodin wrote:
+>> Stephen Hemminger wrote:
+>>>> I want to add support for HSR ("High-availability Seamless Redundancy",
+>>>> IEC-62439-3) to the bridge code. With HSR, all connected units have two network
+>>>> ports and are connected in a ring. All new Ethernet packets are sent on both
+>>>> ports (or passed through if the current unit is not the originating unit).
+> 
+> 
+>>>> The same packet is never passed twice.
+> 
+> How does the bridge decide whether a packet is arriving the second time?
+> Is the ring pre-resolved to stop things or does this happen per-packet?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index ba7af2c..de3e536 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1357,17 +1357,17 @@ static void stmmac_set_rx_mode(struct net_device *dev)
- static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
--	int max_mtu;
-+	int max_mtu = ETH_DATA_LEN;
- 
- 	if (netif_running(dev)) {
- 		pr_err("%s: must be stopped to change its MTU\n", dev->name);
- 		return -EBUSY;
- 	}
- 
--	if (priv->plat->has_gmac)
-+	if (priv->plat->enh_desc)
- 		max_mtu = JUMBO_LEN;
- 	else
--		max_mtu = ETH_DATA_LEN;
-+		max_mtu = BUF_SIZE_4KiB;
- 
- 	if ((new_mtu < 46) || (new_mtu > max_mtu)) {
- 		pr_err("%s: invalid MTU, max MTU is: %d\n", dev->name, max_mtu);
+It happens per-packet. I believe a combination of source MAC address and the HSR
+sequence tag is used to identify duplicates.
+
 -- 
-1.7.4.4
+Arvid Brodin
+Enea Services Stockholm AB
