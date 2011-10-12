@@ -1,54 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 5/5] igb: Convert bare printk to pr_notice
-Date: Wed, 12 Oct 2011 09:18:10 -0700
-Message-ID: <1b72526330e273e78649e92f606b7779c3db7533.1318436085.git.joe@perches.com>
-References: <cover.1318436085.git.joe@perches.com>
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	e1000-devel@lists.sourceforge.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1318436085.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] IPVS netns shutdown/startup dead-lock
+Date: Wed, 12 Oct 2011 18:33:42 +0200
+Message-ID: <20111012163342.GB14338@1984>
+References: <1318298075-23501-1-git-send-email-horms@verge.net.au>
+ <1318298075-23501-2-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	David Miller <davem@davemloft.net>,
+	Hans Schillstrom <hans@schillstrom.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1318298075-23501-2-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-printks should use KERN_ levels.
+On Tue, Oct 11, 2011 at 10:54:35AM +0900, Simon Horman wrote:
+> From: Hans Schillstrom <hans@schillstrom.com>
+> 
+> ip_vs_mutext is used by both netns shutdown code and startup
+> and both implicit uses sk_lock-AF_INET mutex.
+> 
+> cleanup CPU-1         startup CPU-2
+> ip_vs_dst_event()     ip_vs_genl_set_cmd()
+>  sk_lock-AF_INET     __ip_vs_mutex
+>                      sk_lock-AF_INET
+> __ip_vs_mutex
+> * DEAD LOCK *
+> 
+> A new mutex placed in ip_vs netns struct called sync_mutex is added.
+> 
+> Comments from Julian and Simon added.
+> This patch has been running for more than 3 month now and it seems to work.
+> 
+> Ver. 3
+>     IP_VS_SO_GET_DAEMON in do_ip_vs_get_ctl protected by sync_mutex
+>     instead of __ip_vs_mutex as sugested by Julian.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/intel/igb/e1000_82575.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+Applied, thanks Simon.
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index c0857bd..e0acfff 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -29,6 +29,8 @@
-  * e1000_82576
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/types.h>
- #include <linux/if_ether.h>
- 
-@@ -248,8 +250,7 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 	 * Check for invalid size
- 	 */
- 	if ((hw->mac.type == e1000_82576) && (size > 15)) {
--		printk("igb: The NVM size is not valid, "
--			"defaulting to 32K.\n");
-+		pr_notice("The NVM size is not valid, defaulting to 32K\n");
- 		size = 15;
- 	}
- 	nvm->word_size = 1 << size;
--- 
-1.7.6.405.gc1be0
+http://1984.lsi.us.es/git/?p=net/.git;a=shortlog;h=refs/heads/nf
