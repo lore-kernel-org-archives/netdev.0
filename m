@@ -1,37 +1,43 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: bridge: HSR support
-Date: Wed, 12 Oct 2011 15:28:22 +0200
-Message-ID: <20111012132822.GJ2840382@jupiter.n2.diac24.net>
-References: <4E948A04.8060400@enea.com>
- <20111011112821.28cd3e51@nehalam.linuxnetplumber.net>
- <4E94D67A.9060207@enea.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>
-To: Arvid Brodin <arvid.brodin@enea.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 0/5] stmmac: update to Oct 2011 version (V2)
+Date: Wed, 12 Oct 2011 15:38:03 +0200
+Message-ID: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>
+Cc: davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:49694 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753045Ab1JLN22 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Oct 2011 09:28:28 -0400
-Content-Disposition: inline
-In-Reply-To: <4E94D67A.9060207@enea.com>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:58211 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753053Ab1JLNiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 09:38:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 12, 2011 at 01:51:22AM +0200, Arvid Brodin wrote:
-> Stephen Hemminger wrote:
-> >> I want to add support for HSR ("High-availability Seamless Redundancy",
-> >> IEC-62439-3) to the bridge code. With HSR, all connected units have two network
-> >> ports and are connected in a ring. All new Ethernet packets are sent on both
-> >> ports (or passed through if the current unit is not the originating unit).
+This patches update the driver adding the chained
+descriptor mode and some new useful fixes.
+Chained / Ring modes have been reworked after D. Miller
+advice and removing the ifdef selection within the C
+code.
 
+Giuseppe Cavallaro (4):
+  stmmac: add CHAINED descriptor mode support
+  stmmac: allow mtu bigger than 1500 in case of normal desc.
+  stmmac: protect tx process with lock
+  stmmac: update the driver version and doc
 
-> >> The same packet is never passed twice.
+Srinivas Kandagatla (1):
+  stmmac: Stop advertising 1000Base capabilties for non GMII iface
+    (v2).
 
-How does the bridge decide whether a packet is arriving the second time?
-Is the ring pre-resolved to stop things or does this happen per-packet?
+ Documentation/networking/stmmac.txt               |   11 +-
+ drivers/net/ethernet/stmicro/stmmac/Kconfig       |   18 +
+ drivers/net/ethernet/stmicro/stmmac/common.h      |   19 +
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c    |   51 ---
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c   |   42 --
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.h   |  450 +++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    3 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  148 +++----
+ 8 files changed, 564 insertions(+), 178 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/ring_mode.h
 
-
--David
+-- 
+1.7.4.4
