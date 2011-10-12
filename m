@@ -1,63 +1,44 @@
-From: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
-Subject: Re: about phonet pipe controller
-Date: Wed, 12 Oct 2011 10:58:05 +0300
-Message-ID: <3025840.a3oI7lSnik@leon.remlab.net>
-References: <81C3A93C17462B4BBD7E272753C105791EAACAE76F@EXDCVYMBSTM005.EQ1STM.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Srinidhi KASAGAR <srinidhi.kasagar@stericsson.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: ext Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-2.6] tg3: negate USE_PHYLIB flag check
+Date: Wed, 12 Oct 2011 11:00:41 +0200
+Message-ID: <1318410041-2476-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, mcarlson@broadcom.com,
+	mchan@broadcom.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.1.47]:34780 "EHLO mgw-sa01.nokia.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30085 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751743Ab1JLH6H convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 03:58:07 -0400
-In-Reply-To: <81C3A93C17462B4BBD7E272753C105791EAACAE76F@EXDCVYMBSTM005.EQ1STM.local>
+	id S1750756Ab1JLJAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Oct 2011 05:00:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Mercredi 12 Octobre 2011 09:25:01 ext Hemant-vilas RAMDASI a =E9crit=
- :
-> You have mentioned in the
-> "a015f6f: Phonet: kill the ST-Ericsson pipe controller Kconfig",
-> that "Support for manually enabling the pipe flow is removed as it
-> did not work properly, does not fit well with the socket API, and
-> I am not aware of any use at the moment.."
->=20
-> On STE U8500 modem, you must first create pipe in disabled state, the=
-n do
-> local link configuration (does't work when pipe is enabled) & then en=
-able
-> pipe.
+USE_PHYLIB flag in tg3_remove_one() is being checked incorrectly. This
+results tg3_phy_fini->phy_disconnect is never called and when tg3 module
+is removed.
 
-The Kconfig option broke support for existing hardware (Nokia N900 as a=
- USB=20
-gadget) and userspace (namely the oFono ISI driver). We cannot expect=20
-distributions to provide two different kernel builds for different flav=
-ors of ISI=20
-modems.
+In my case this resulted in panics in phy_state_machine calling function
+phydev->adjust_link.
 
-> Because of this connect() cannot be used anymore and it needs to be m=
-odified
-> to reintroduce pipe-controller functionality again.
+So correct this check.
 
-As far as I can tell, that code NEVER worked properly. Not only the use=
- of a=20
-build-time option is inappropriate, but the code did not deal with a nu=
-mber of=20
-new corner cases that it introduced.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/tg3.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> Do you have any suggestions?
-
-I'm sorry but I don't really get where you're trying to get. The code h=
-ad more=20
-bugs than I could fix by myself, especially when I don't have the hardw=
-are and=20
-the specification.
-
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 4a1374d..c11a2b8 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -15577,7 +15577,7 @@ static void __devexit tg3_remove_one(struct pci_dev *pdev)
+ 
+ 		cancel_work_sync(&tp->reset_task);
+ 
+-		if (!tg3_flag(tp, USE_PHYLIB)) {
++		if (tg3_flag(tp, USE_PHYLIB)) {
+ 			tg3_phy_fini(tp);
+ 			tg3_mdio_fini(tp);
+ 		}
+-- 
+1.7.6.2
