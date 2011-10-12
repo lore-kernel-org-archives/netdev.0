@@ -1,67 +1,71 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [net-next 10/12] igb: move DMA Coalescing feature code into
- separate function.
-Date: Wed, 12 Oct 2011 15:21:34 -0700
-Message-ID: <EDC0E76513226749BFBC9C3FB031318F017D02550C@orsmsx508.amr.corp.intel.com>
-References: <1318390708-12232-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1318390708-12232-11-git-send-email-jeffrey.t.kirsher@intel.com>
- <20111012.164834.2208432778408483576.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 0/5] intel: Logging cleanups
+Date: Wed, 12 Oct 2011 15:56:21 -0700
+Message-ID: <1318460181.15319.11.camel@jtkirshe-mobl>
+References: <cover.1318436085.git.joe@perches.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sowles, Jacob R" <jacob.r.sowles@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:35043 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752093Ab1JLWVf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 18:21:35 -0400
-In-Reply-To: <20111012.164834.2208432778408483576.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-AcewzO/0y3crV2Fc/8tc"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1318436085.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+--=-AcewzO/0y3crV2Fc/8tc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of David Miller
->Sent: Wednesday, October 12, 2011 1:49 PM
->To: Kirsher, Jeffrey T
->Cc: Sowles, Jacob R; netdev@vger.kernel.org; gospo@redhat.com;
->sassmann@redhat.com
->Subject: Re: [net-next 10/12] igb: move DMA Coalescing feature code into
->separate function.
->
->From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->Date: Tue, 11 Oct 2011 20:38:26 -0700
->
->> From: Jacob Sowles <jacob.r.sowles@intel.com>
->>
->> DMA Coalescing code needs to be executed during reset, if enabled.
->Moved
->> code to separate function and added a call to it in igb_reset.
->>
->> Signed-off-by: Jacob Sowles <jacob.r.sowles@intel.com>
->> Tested-by:  Aaron Brown <aaron.f.brown@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->
->Something is wrong here, this patch just adds the new function but no
->actual callers.
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, 2011-10-12 at 09:18 -0700, Joe Perches wrote:
+> Just some conversions of printks to pr_<level>
+> and some trivial defect corrections.
+>=20
+> Joe Perches (5):
+>   e1000e: Convert printks to pr_<level>
+>   ixgbevf: Convert printks to pr_<level>
+>   igbvf: Convert printks to pr_<level>
+>   igb: Convert printks to pr_<level>
+>   igb: Convert bare printk to pr_notice
+>=20
+>  drivers/net/ethernet/intel/e1000e/netdev.c        |  232 +++++++++------=
+------
+>  drivers/net/ethernet/intel/igb/e1000_82575.c      |    5 +-
+>  drivers/net/ethernet/intel/igb/igb_main.c         |  155 +++++++--------
+>  drivers/net/ethernet/intel/igbvf/netdev.c         |   14 +-
+>  drivers/net/ethernet/intel/ixgbevf/ethtool.c      |    6 +-
+>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   26 ++--
+>  6 files changed, 201 insertions(+), 237 deletions(-)
+>=20
 
-Yes, you are correct.  We had a problem in our process and this patch got inadvertently changed during it, removing a substantial part of it, including the call to the new function.  I'm on it and will be submitting a replacement as soon as possible.
+Thanks Joe.  I will add these to my queue of patches.
 
-Thanks,
+--=-AcewzO/0y3crV2Fc/8tc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAABCgAGBQJOlhsVAAoJEOVv75VaS+3OdFcP/1JkwHu8t9ckGDKtBgNeZLi0
+eCv2NUAdUg7EeSp9pmgQIZgEhv5hSMgmLpn/qZebkR11MEEeEwrfZiFKCn6Z91bK
+lOxQq8JIf8stasg1TadlOBg7b1JgxCpdqJng4MAeVubWBzkiGP7IGQ8pcZnvX5/u
+QzeeWtzDieCtpT5TSADZuZ5Yc7vuA0AvCX1q2CwyzS1HhKNUBhpUMwAFd9bSGTgj
+80XDluZ5IzYE/k8eQQgymzFYm2ZZ1q03RPEJcS2gsi9BJJAGabE6ppBi1chCqvmR
+Qy06k33gkhpiwNFPPi4jnFg7Uz0y1RYgfwzvhn6ZeuRpo4faPhgeMEBotvyOR5E6
+n6u+p9ckWVNprazC8LQ44FMsohFSvez2rBBEIlM22WYAby6Qw8f4N2Mhperf7Wcu
+ES9qO1LWuU0/jqhOlV3I+NLLoptzrC9HplOeiV5y+nG0PDss5CSh2xto1jQ76e3S
+p9VVz4ndWbxqtrnZRVgFLIFj5DSR+3YWeIA4Uj+W6s5Hd8EprYgerAa0gyTrFzcO
+8W0iEWcI7eDRp31QbeZxoXy6jiUVYg4OD7PkqV0eg/E2AT6STm6ttMz+12Nb6bdR
+Cm8kbhk7cshJNU87OfMxrX359IsCRPCroyHEc96V9qq8CvZSOucEc3ownp2kWB11
+ASPc3XUAzrSCyNcjUhro
+=GajS
+-----END PGP SIGNATURE-----
+
+--=-AcewzO/0y3crV2Fc/8tc--
