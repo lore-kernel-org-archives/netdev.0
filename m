@@ -1,92 +1,57 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v2 2/2] phylib: Convert MDIO bitbang to new MDIO 45 format
-Date: Tue, 11 Oct 2011 20:20:21 -0500
-Message-ID: <1318382422-2133-2-git-send-email-afleming@freescale.com>
-References: <1318382422-2133-1-git-send-email-afleming@freescale.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] netconsole: enable netconsole can make net_device refcnt
+Date: Wed, 12 Oct 2011 09:45:55 +0800
+Message-ID: <4E94F153.2070105@cn.fujitsu.com>
+References: <4E93E238.7000105@cn.fujitsu.com>	<1318319438-7159-1-git-send-email-gaowanlong@cn.fujitsu.com>	<4E93F8DC.5080909@cn.fujitsu.com> <20111011221148.2ef4487d@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:48907 "EHLO
-	TX2EHSOBE010.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858Ab1JLBgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Oct 2011 21:36:10 -0400
-In-Reply-To: <1318382422-2133-1-git-send-email-afleming@freescale.com>
+Received: from [222.73.24.84] ([222.73.24.84]:58118 "EHLO song.cn.fujitsu.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750980Ab1JLBp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Oct 2011 21:45:59 -0400
+In-Reply-To: <20111011221148.2ef4487d@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we've added somewhat more complete MDIO 45 support to the PHY
-Lib, convert the MDIO bitbang driver to use this new infrastructure.
+12.10.2011 09:11, Flavio Leitner wrote:
+> On Tue, 11 Oct 2011 16:05:48 +0800
+> Gao feng <gaofeng@cn.fujitsu.com> wrote:
+> 
+>> Im so sorry.
+>> the first patch has some format err.
+>> Please use this one.
+>> thanks wanlong! ^V^
+>>
+>> 11.10.2011 15:50, Wanlong Gao wrote:
+>>> There is no check if netconsole is enabled current.
+>>> so when exec echo 1 > enabled;
+>>> the reference of net_device will increment always.
+>>>
+>>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>>> ---
+>>>  drivers/net/netconsole.c |    2 ++
+>>>  1 files changed, 2 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+>>> index ed2a397..4e6323df 100644
+>>> --- a/drivers/net/netconsole.c
+>>> +++ b/drivers/net/netconsole.c
+>>> @@ -307,6 +307,8 @@ static ssize_t store_enabled(struct
+>>> netconsole_target *nt, return err;
+>>>  	if (enabled < 0 || enabled > 1)
+>>>  		return -EINVAL;
+>>> +	if (enabled == nt->enabled)
+>>> +		return err;
+> 
+> It looks like 'err' will be 0.  Maybe it is better to
+> return -EINVAL?
+> 
+> fbl
+> 
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
----
- drivers/net/phy/mdio-bitbang.c |   29 +++++++++++++++--------------
- 1 files changed, 15 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/phy/mdio-bitbang.c b/drivers/net/phy/mdio-bitbang.c
-index 2f6f02e..df7f496 100644
---- a/drivers/net/phy/mdio-bitbang.c
-+++ b/drivers/net/phy/mdio-bitbang.c
-@@ -134,11 +134,10 @@ static void mdiobb_cmd(struct mdiobb_ctrl *ctrl, int op, u8 phy, u8 reg)
-    MII_ADDR_C45 into the address. Theoretically clause 45 and normal devices
-    can exist on the same bus. Normal devices should ignore the MDIO_ADDR
-    phase. */
--static int mdiobb_cmd_addr(struct mdiobb_ctrl *ctrl, int phy, u32 addr)
-+static void mdiobb_cmd_addr(struct mdiobb_ctrl *ctrl, int phy, int devad,
-+				int reg)
- {
--	unsigned int dev_addr = (addr >> 16) & 0x1F;
--	unsigned int reg = addr & 0xFFFF;
--	mdiobb_cmd(ctrl, MDIO_C45_ADDR, phy, dev_addr);
-+	mdiobb_cmd(ctrl, MDIO_C45_ADDR, phy, devad);
- 
- 	/* send the turnaround (10) */
- 	mdiobb_send_bit(ctrl, 1);
-@@ -148,8 +147,6 @@ static int mdiobb_cmd_addr(struct mdiobb_ctrl *ctrl, int phy, u32 addr)
- 
- 	ctrl->ops->set_mdio_dir(ctrl, 0);
- 	mdiobb_get_bit(ctrl);
--
--	return dev_addr;
- }
- 
- static int mdiobb_read(struct mii_bus *bus, int phy, int devad, int reg)
-@@ -157,11 +154,13 @@ static int mdiobb_read(struct mii_bus *bus, int phy, int devad, int reg)
- 	struct mdiobb_ctrl *ctrl = bus->priv;
- 	int ret, i;
- 
--	if (reg & MII_ADDR_C45) {
--		reg = mdiobb_cmd_addr(ctrl, phy, reg);
--		mdiobb_cmd(ctrl, MDIO_C45_READ, phy, reg);
--	} else
-+	/* Clause 22 PHYs don't have a devad */
-+	if (devad == MDIO_DEVAD_NONE)
- 		mdiobb_cmd(ctrl, MDIO_READ, phy, reg);
-+	else {
-+		mdiobb_cmd_addr(ctrl, phy, devad, reg);
-+		mdiobb_cmd(ctrl, MDIO_C45_READ, phy, devad);
-+	}
- 
- 	ctrl->ops->set_mdio_dir(ctrl, 0);
- 
-@@ -186,11 +185,13 @@ static int mdiobb_write(struct mii_bus *bus, int phy, int devad, int reg,
- {
- 	struct mdiobb_ctrl *ctrl = bus->priv;
- 
--	if (reg & MII_ADDR_C45) {
--		reg = mdiobb_cmd_addr(ctrl, phy, reg);
--		mdiobb_cmd(ctrl, MDIO_C45_WRITE, phy, reg);
--	} else
-+	/* Clause 22 PHYs don't have a devad */
-+	if (devad == MDIO_DEVAD_NONE)
- 		mdiobb_cmd(ctrl, MDIO_WRITE, phy, reg);
-+	else {
-+		mdiobb_cmd_addr(ctrl, phy, devad, reg);
-+		mdiobb_cmd(ctrl, MDIO_C45_WRITE, phy, devad);
-+	}
- 
- 	/* send the turnaround (10) */
- 	mdiobb_send_bit(ctrl, 1);
--- 
-1.7.3.4
+Yes,you are right,and I will add some printk.thanks.
