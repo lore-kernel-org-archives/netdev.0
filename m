@@ -1,41 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] igb: fix skb truesize underestimation
-Date: Thu, 13 Oct 2011 19:56:41 +0200
-Message-ID: <1318528601.2393.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] ipv4: Fix pmtu propagating
+Date: Thu, 13 Oct 2011 13:58:08 -0400 (EDT)
+Message-ID: <20111013.135808.636341622629050648.davem@davemloft.net>
+References: <20111011110922.GD1830@secunet.com>
+	<20111012.170218.279202034199478303.davem@davemloft.net>
+	<20111013100950.GO1830@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49531 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756641Ab1JMR4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 13:56:24 -0400
-Received: by wyg34 with SMTP id 34so2145042wyg.19
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 10:56:23 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:44329 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932263Ab1JMR6T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 13:58:19 -0400
+In-Reply-To: <20111013100950.GO1830@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-e1000 allocates half a page per skb fragment. We must account
-PAGE_SIZE/2 increments on skb->truesize, not the actual frag length.
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 13 Oct 2011 12:09:50 +0200
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> At least it seems that raw_sendmsg() and ping_sendmsg() don't use
+> a cached route, they do the route lookup in any case. I don't see
+> where we check if we learned a new pmtu in this cases. 
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 10670f9..1adcdf8 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5946,7 +5946,7 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
- 
- 			skb->len += length;
- 			skb->data_len += length;
--			skb->truesize += length;
-+			skb->truesize += PAGE_SIZE / 2;
- 
- 			if ((page_count(buffer_info->page) != 1) ||
- 			    (page_to_nid(buffer_info->page) != current_node))
+A freshly looked up route should not have ->obsolete set.
+
+That's why we don't do dst_check() in that part of the ip_output.c
+helper code you're modifying.
+
+Please find out exactly why dst->obsolete is non-zero on a freshly
+looked up route.  It's unexpected.
