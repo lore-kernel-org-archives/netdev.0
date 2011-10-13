@@ -1,100 +1,90 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH] net: allow vlan traffic to be received under
- bond
-Date: Thu, 13 Oct 2011 10:42:25 -0700
-Message-ID: <4E972301.4030004@intel.com>
-References: <20111010191641.2496.84845.stgit@jf-dev1-dcblab> <20111010223752.GB2373@minipsycho> <1318518274.9266.94.camel@sakura.staff.proxad.net>,<20111013153850.GA2031@minipsycho> <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, Maxime Bizon <mbizon@freebox.fr>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>
-To: =?ISO-8859-1?Q?Hans_Schillstr=F6m?= <hans.schillstrom@ericsson.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next] bonding: fix wrong port enabling in 802.3ad
+Date: Thu, 13 Oct 2011 10:46:31 -0700
+Message-ID: <18216.1318527991@death>
+References: <1318526483-16073-1-git-send-email-fbl@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:12703 "EHLO mga03.intel.com"
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:55208 "EHLO e8.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752906Ab1JMRm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Oct 2011 13:42:26 -0400
-In-Reply-To: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>
+	id S1756696Ab1JMRr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Oct 2011 13:47:57 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e8.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p9DHWTlD004530
+	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 13:32:29 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p9DHkYBa140588
+	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 13:46:34 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p9DHkXVx001195
+	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 14:46:34 -0300
+In-reply-to: <1318526483-16073-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/13/2011 8:59 AM, Hans Schillstr=F6m wrote:
-> Thu, Oct 13, 2011 at 05:04:34PM CEST, mbizon@freebox.fr wrote:
->>>
->>> On Tue, 2011-10-11 at 00:37 +0200, Jiri Pirko wrote:
->>>
->>>> Hmm, I must look at this again tomorrow but I have strong feeling =
-this
->>>> will break some some scenario including vlan-bridge-macvlan.
->>>
->>> unless I'm mistaken, today's behaviour:
->>>
->>> # vconfig add eth0 100
->>> # brctl addbr br0
->>> # brctl addif br0 eth0
->>>
->>> =3D> eth0.100 gets no more packets, br0.100 is to be used
->>>
->>> after the patch won't we get the opposite ?
->>
->> Looks like it. The question is what is the correct behaviour...
->=20
-> I think this it become correct now, you should not destroy lover leve=
-l if possible.
-> I.e. as John wrote "it's not an unexpected behaviour"
->=20
-> Consider adding a bridge to a vlan like this
->=20
-> vconfig add eth0 100
-> brctl addbr br1
-> brctl addif br1 eth0.100
->=20
-> If you later add a bridge (or bond) should the previous added bridge =
-still work ?=20
-> Yes I think so, for me it's the expected behaviour.
->=20
-> brctl addbr br0
-> brctl addif br0 eth0
->=20
-> Regards
-> Hans
->=20
->=20
+Flavio Leitner <fbl@redhat.com> wrote:
 
-Sorry I'm not entirely sure I followed the above two posts. Note
-this patch restores behavior that has existed for most of the
-2.6.x kernels. In the 3.x kernels VLAN100 is dropped in the
-schematic below (assuming eth0 is active), I think this is
-incorrect.
+>The port shouldn't be enabled unless its current MUX
+>state is DISTRIBUTING which is correctly handled by
+>ad_mux_machine(), otherwise the packet sent can be
+>lost because the other end may not be ready.
+>
+>The issue happens on every port initialization, but
+>as the ports are expected to move quickly to DISTRIBUTING,
+>it doesn't cause much problem.  However, it does cause
+>constant packet loss if the other peer has the port
+>configured to stay in STANDBY (i.e. SYNC set to OFF).
 
-       ---> eth0.100
-       |
-       |
-eth0 -----> br0
+	This may explain another misbehavior I've been looking into: if
+the bond's outgoing LACPDUs are lost (never received by the switch), but
+the switch's incoming LACPDUs are received, bonding puts the port into
+use, and packets to the switch are dropped by the switch.
 
-With this patch VLAN100 is delivered to eth0.100 as I expect. Now
-adding a VLAN100 to br0.
+>Signed-off-by: Flavio Leitner <fbl@redhat.com>
+>---
+>
+>The comments there suggests it was a workaround for losses
+>of link events, but I couldn't track the changelog as it
+>seems to be pretty old.  Thus, as all the link notification
+>stuff has been improved a lot, maybe this is not an issue
+>anymore.  At least, I didn't find any problem while
+>unplugging/plugging cables here.
 
+	I believe this code fragment is original to the 802.3ad
+submission, which would have been around 2003 or so.
 
-       ---> eth0.100
-       |
-       |
-eth0 -----> br0---> br0.100
+	Did you check the standard for what it says should happen in
+this case?  I'm guessing this is something not specified by the
+standard, given the comment, but we should check to make sure.
 
-With this patch in the above case VLAN100 is delivered to the
-first matching vlan. Here eth0.100 will receive the packet If
-you really want br0.100 to receive the packet remove eth0.100.
-Without this patch the packet will be delivered to br0.100,
-but no configuration will allow a packet to be delivered to
-eth0.100 with a bond.
+	-J
 
-The first schematic is used for doing bonding on LAN traffic
-and SAN (storage) traffic with MPIO. So I think my expectations
-are correct and have a real use case.
+> drivers/net/bonding/bond_3ad.c |    7 -------
+> 1 files changed, 0 insertions(+), 7 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>index 47b928e..b33c099 100644
+>--- a/drivers/net/bonding/bond_3ad.c
+>+++ b/drivers/net/bonding/bond_3ad.c
+>@@ -1135,13 +1135,6 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
+> 			__record_pdu(lacpdu, port);
+> 			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(port->actor_oper_port_state & AD_STATE_LACP_TIMEOUT));
+> 			port->actor_oper_port_state &= ~AD_STATE_EXPIRED;
+>-			// verify that if the aggregator is enabled, the port is enabled too.
+>-			//(because if the link goes down for a short time, the 802.3ad will not
+>-			// catch it, and the port will continue to be disabled)
+>-			if (port->aggregator
+>-			    && port->aggregator->is_active
+>-			    && !__port_is_enabled(port))
+>-				__enable_port(port);
+> 			break;
+> 		default:    //to silence the compiler
+> 			break;
+>-- 
+>1.7.6
+>
 
-Thanks,
-John
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
