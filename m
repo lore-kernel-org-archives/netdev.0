@@ -1,10 +1,10 @@
 From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v6 7/8] Display current tcp memory allocation in kmem
- cgroup
-Date: Thu, 13 Oct 2011 14:59:31 +0900
-Message-ID: <20111013145931.118c3064.kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v6 8/8] Disable task moving when using kernel memory
+ accounting
+Date: Thu, 13 Oct 2011 15:00:21 +0900
+Message-ID: <20111013150021.0899b3ab.kamezawa.hiroyu@jp.fujitsu.com>
 References: <1318242268-2234-1-git-send-email-glommer@parallels.com>
-	<1318242268-2234-8-git-send-email-glommer@parallels.com>
+	<1318242268-2234-9-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -14,21 +14,22 @@ Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
  avagin@parallels.com, devel@openvz.org
 To: Glauber Costa <glommer@parallels.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1318242268-2234-8-git-send-email-glommer@parallels.com>
+In-Reply-To: <1318242268-2234-9-git-send-email-glommer@parallels.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Oct 2011 14:24:27 +0400
+On Mon, 10 Oct 2011 14:24:28 +0400
 Glauber Costa <glommer@parallels.com> wrote:
 
-> This patch introduces kmem.tcp_current_memory file, living in the
-> kmem_cgroup filesystem. It is a simple read-only file that displays the
-> amount of kernel memory currently consumed by the cgroup.
+> Since this code is still experimental, we are leaving the exact
+> details of how to move tasks between cgroups when kernel memory
+> accounting is used as future work.
+> 
+> For now, we simply disallow movement if there are any pending
+> accounted memory.
 > 
 > Signed-off-by: Glauber Costa <glommer@parallels.com>
-> CC: David S. Miller <davem@davemloft.net>
 > CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
-> CC: Eric W. Biederman <ebiederm@xmission.com>
 
 Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
