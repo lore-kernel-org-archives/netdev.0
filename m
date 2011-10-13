@@ -1,41 +1,34 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v6 8/8] Disable task moving when using kernel memory
- accounting
-Date: Thu, 13 Oct 2011 15:00:21 +0900
-Message-ID: <20111013150021.0899b3ab.kamezawa.hiroyu@jp.fujitsu.com>
-References: <1318242268-2234-1-git-send-email-glommer@parallels.com>
-	<1318242268-2234-9-git-send-email-glommer@parallels.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: manual merge of the staging tree with the net tree
+Date: Thu, 13 Oct 2011 00:12:23 -0600
+Message-ID: <20111013061223.GC23172@kroah.com>
+References: <20111013164353.09c495e1b63d23e380cca1f7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
- ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
- netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
- avagin@parallels.com, devel@openvz.org
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1318242268-2234-9-git-send-email-glommer@parallels.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Arend van Spriel <arend@broadcom.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jiri Pirko <jpirko@redhat.com>,
+	Eliad Peller <eliad@wizery.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111013164353.09c495e1b63d23e380cca1f7@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Oct 2011 14:24:28 +0400
-Glauber Costa <glommer@parallels.com> wrote:
-
-> Since this code is still experimental, we are leaving the exact
-> details of how to move tasks between cgroups when kernel memory
-> accounting is used as future work.
+On Thu, Oct 13, 2011 at 04:43:53PM +1100, Stephen Rothwell wrote:
+> Hi Greg,
 > 
-> For now, we simply disallow movement if there are any pending
-> accounted memory.
+> Today's linux-next merge of the staging tree got a conflicts in
+> drivers/staging/brcm80211/brcmfmac/dhd_linux.c and
+> drivers/staging/brcm80211/brcmsmac/mac80211_if.c between commits from the
+> net-next tree and commit fc2d6e573be6 ("staging: brcm80211: remove
+> brcm80211 driver from the staging tree") from the staging tree.
 > 
-> Signed-off-by: Glauber Costa <glommer@parallels.com>
-> CC: Hiroyouki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
+> The latter removed the files, so I did that
 
-Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Wonderful, thanks for doing that.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+greg
