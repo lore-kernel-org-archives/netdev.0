@@ -1,60 +1,45 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the staging tree with the net tree
-Date: Thu, 13 Oct 2011 16:43:53 +1100
-Message-ID: <20111013164353.09c495e1b63d23e380cca1f7@canb.auug.org.au>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v6 1/8] Basic kernel memory functionality for the Memory
+ Controller
+Date: Thu, 13 Oct 2011 14:44:30 +0900
+Message-ID: <20111013144430.636ee7e2.kamezawa.hiroyu@jp.fujitsu.com>
+References: <1318242268-2234-1-git-send-email-glommer@parallels.com>
+	<1318242268-2234-2-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Thu__13_Oct_2011_16_43_53_+1100__cd91dPJ13Bc48dn"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Arend van Spriel <arend@broadcom.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Eliad Peller <eliad@wizery.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+ ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com,
+ netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
+ avagin@parallels.com, devel@openvz.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1318242268-2234-2-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Thu__13_Oct_2011_16_43_53_+1100__cd91dPJ13Bc48dn
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Mon, 10 Oct 2011 14:24:21 +0400
+Glauber Costa <glommer@parallels.com> wrote:
 
-Hi Greg,
+> This patch lays down the foundation for the kernel memory component
+> of the Memory Controller.
+> 
+> As of today, I am only laying down the following files:
+> 
+>  * memory.independent_kmem_limit
+>  * memory.kmem.limit_in_bytes (currently ignored)
+>  * memory.kmem.usage_in_bytes (always zero)
+> 
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> Reviewed-by: Kirill A. Shutemov <kirill@shutemov.name>
+> CC: Paul Menage <paul@paulmenage.org>
+> CC: Greg Thelen <gthelen@google.com>
 
-Today's linux-next merge of the staging tree got a conflicts in
-drivers/staging/brcm80211/brcmfmac/dhd_linux.c and
-drivers/staging/brcm80211/brcmsmac/mac80211_if.c between commits from the
-net-next tree and commit fc2d6e573be6 ("staging: brcm80211: remove
-brcm80211 driver from the staging tree") from the staging tree.
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
-The latter removed the files, so I did that
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Thu__13_Oct_2011_16_43_53_+1100__cd91dPJ13Bc48dn
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJOlnqZAAoJEECxmPOUX5FEVvMP/1GUqQdKC7EsKL/ldG9jNtsj
-GsESUdKVgCJgE6Ab9MEXfsSf+K/mZvwMh+tZb6DUxcFpDFypULzPwwZ7qRRH5jCb
-G0sNCGBJe3GN0WZTui3KIUurljkfIPmcBx9reYuZRv9QFta/vHQAh1f+QMKeI4Ye
-u0MqdlWAsw3k1II8pBhil2FH0lIOUeAKCQt5b7kJFXMr/+r7Horoea+O0couyefc
-svnaxIaNhBZTImXNqyFuxOP8qdQD6vV+hq3TT686U0t98g06ly7vbFx4QbSxzZex
-5tjwBL+npzdnoVyJIp4zIyUwbbWlfItyGYEGXVlLGp6fmg8fmp5qQ6LHN00GpM7k
-2eSy+DYtmXcJAdxH7YyLtlFCMFrfA9GaByI9An2dmC0/dRX+REhBHoQslIOoiu4u
-C6X/JCw5k1FeO/Pe2SD91k5vjfa+bMbK/M3G3VFYfcgIuYZYxXVi2Ol3MkEMpO+j
-pZHaO3PUQVn6roSwi2p9zxMmrDmkVLfIKO7W3Z3SiuijRsSOfalOL7zZ/+3yP8sz
-r50kS2h27fviUWN0RDSaAHh/SPNDJhATKOLzVWvfvQU+GFnQ03zNtG6BSJXm4hIs
-d/wBq6Ogq4nCRSnVIDoAw8Rhjv4xYqBD9TQtywknDYP6qeCZ/15fp3xvA8dUejMi
-d8fi6mEf5E1iozX+epgf
-=PZPQ
------END PGP SIGNATURE-----
-
---Signature=_Thu__13_Oct_2011_16_43_53_+1100__cd91dPJ13Bc48dn--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
