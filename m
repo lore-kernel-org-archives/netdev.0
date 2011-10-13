@@ -1,46 +1,34 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v7 0/8] Request for inclusion: tcp memory buffers
-Date: Fri, 14 Oct 2011 00:23:33 +0400
-Message-ID: <4E9748C5.6070306@parallels.com>
-References: <1318511382-31051-1-git-send-email-glommer@parallels.com> <20111013.160031.605700447623532119.davem@davemloft.net> <4E9744A6.5010101@parallels.com> <20111013.161608.1413756673453885746.davem@davemloft.net>
+From: Andi Kleen <ak@linux.intel.com>
+Subject: Re: [PATCH net-next] net: more accurate skb truesize
+Date: Thu, 13 Oct 2011 13:33:52 -0700
+Message-ID: <20111013203352.GA5707@tassilo.jf.intel.com>
+References: <1318519581.2393.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <akpm@linux-foundation.org>,
-	<lizf@cn.fujitsu.com>, <kamezawa.hiroyu@jp.fujitsu.com>,
-	<ebiederm@xmission.com>, <paul@paulmenage.org>, <gthelen@google.com>,
-	<netdev@vger.kernel.org>, <linux-mm@kvack.org>, <kirill@shutemov.name>,
-	<avagin@parallels.com>, <devel@openvz.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111013.161608.1413756673453885746.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:58345 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751761Ab1JMUdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Oct 2011 16:33:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1318519581.2393.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/14/2011 12:16 AM, David Miller wrote:
-> From: Glauber Costa<glommer@parallels.com>
-> Date: Fri, 14 Oct 2011 00:05:58 +0400
->
->> Thank you for letting me now about your view of this that early.
->
-> I depend upon my colleagues to assist me in the large task that is reviewing
-> the enormous number of networking patches that get submitted.
->
-> Unfortunately, none of them got a chance to review this patch set
-> seriously, since I know most of them (especially Eric Dumazet) would
-> balk at the overhead you're proposing to add to our stack, just as I
-> did.
->
-> This is the reality of the situation, and I'm sorry to tell you that
-> snippy retorts when someone does take the time out to review your work
-> won't help at all.
-I understand that and appreciate your time.
-I'll try to come up with something that addresses this problem in the 
-next submission.
+On Thu, Oct 13, 2011 at 05:26:21PM +0200, Eric Dumazet wrote:
+> skb truesize currently accounts for sk_buff struct and part of skb head.
+> 
+> Considering that skb_shared_info is larger than sk_buff, its time to
+> take it into account for better memory accounting.
+> 
+> This patch introduces SKB_TRUESIZE(X) macro to centralize various
+> assumptions into a single place.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+It's still quite inaccurate, especially for the kmalloced data area if it's not
+paged. It would be better to ask slab how much memory was really 
+allocated. But at least this could be done more easily now with the new 
+macro, so it's definitely a step in the right direction.
+
+-Andi
