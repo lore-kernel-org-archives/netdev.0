@@ -1,67 +1,217 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/11] ixgbe: Correct check for change in FCoE priority
-Date: Thu, 13 Oct 2011 00:15:04 -0700
-Message-ID: <1318490112-5092-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/11] ixgbe: Add FCoE DDP allocation failure counters to ethtool stats.
+Date: Thu, 13 Oct 2011 00:15:03 -0700
+Message-ID: <1318490112-5092-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1318490112-5092-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55428 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:40611 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751542Ab1JMHPR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752866Ab1JMHPR (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 13 Oct 2011 03:15:17 -0400
 In-Reply-To: <1318490112-5092-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Amir Hanania <amir.hanania@intel.com>
 
-Correct a check for change in FCoE priority when IEEE mode DCB is in use.
-In IEEE mode a different function has to be used to get the FCoE priority
-mask. Also, the check for the mask assumed that only one priority was set.
-In case there should be more than one, check just the bit.
+Add 2 new counters to ethtool:
+	1. Count DDP allocation failure since we max the number of buffers
+		allowed in one DDP context.
+	2. Count DDP allocation failure since we max the number of buffers
+		allowed in one DDP context when we alloc an extra buffer.
 
-These changes help avoid link flapping issues that can come up when IEEE
-DCB is in use.
-
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Amir Hanania <amir.hanania@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c    |   44 ++++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h    |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   17 ++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |    2 +
+ 5 files changed, 56 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index be66bb6..3631d63 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -318,7 +318,15 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 			      .selector = DCB_APP_IDTYPE_ETHTYPE,
- 			      .protocol = ETH_P_FCOE,
- 			     };
--	u8 up = dcb_getapp(netdev, &app);
-+	u8 up;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 18520ce..e102ff6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -113,6 +113,8 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ 	{"rx_fcoe_dropped", IXGBE_STAT(stats.fcoerpdc)},
+ 	{"rx_fcoe_packets", IXGBE_STAT(stats.fcoeprc)},
+ 	{"rx_fcoe_dwords", IXGBE_STAT(stats.fcoedwrc)},
++	{"fcoe_noddp", IXGBE_STAT(stats.fcoe_noddp)},
++	{"fcoe_noddp_ext_buff", IXGBE_STAT(stats.fcoe_noddp_ext_buff)},
+ 	{"tx_fcoe_packets", IXGBE_STAT(stats.fcoeptc)},
+ 	{"tx_fcoe_dwords", IXGBE_STAT(stats.fcoedwtc)},
+ #endif /* IXGBE_FCOE */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index 323f452..df3b1be 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -145,6 +145,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 	u32 fcbuff, fcdmarw, fcfltrw, fcrxctl;
+ 	dma_addr_t addr = 0;
+ 	struct pci_pool *pool;
++	unsigned int cpu;
+ 
+ 	if (!netdev || !sgl)
+ 		return 0;
+@@ -182,7 +183,8 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 	}
+ 
+ 	/* alloc the udl from per cpu ddp pool */
+-	pool = *per_cpu_ptr(fcoe->pool, get_cpu());
++	cpu = get_cpu();
++	pool = *per_cpu_ptr(fcoe->pool, cpu);
+ 	ddp->udl = pci_pool_alloc(pool, GFP_ATOMIC, &ddp->udp);
+ 	if (!ddp->udl) {
+ 		e_err(drv, "failed allocated ddp context\n");
+@@ -199,9 +201,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 		while (len) {
+ 			/* max number of buffers allowed in one DDP context */
+ 			if (j >= IXGBE_BUFFCNT_MAX) {
+-				e_err(drv, "xid=%x:%d,%d,%d:addr=%llx "
+-				      "not enough descriptors\n",
+-				      xid, i, j, dmacount, (u64)addr);
++				*per_cpu_ptr(fcoe->pcpu_noddp, cpu) += 1;
+ 				goto out_noddp_free;
+ 			}
+ 
+@@ -241,12 +241,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 	 */
+ 	if (lastsize == bufflen) {
+ 		if (j >= IXGBE_BUFFCNT_MAX) {
+-			printk_once("Will NOT use DDP since there are not "
+-				    "enough user buffers. We need an  extra "
+-				    "buffer because lastsize is bufflen. "
+-				    "xid=%x:%d,%d,%d:addr=%llx\n",
+-				    xid, i, j, dmacount, (u64)addr);
+-
++			*per_cpu_ptr(fcoe->pcpu_noddp_ext_buff, cpu) += 1;
+ 			goto out_noddp_free;
+ 		}
+ 
+@@ -600,6 +595,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
+ 	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_FCOE];
++	unsigned int cpu;
+ 
+ 	if (!fcoe->pool) {
+ 		spin_lock_init(&fcoe->lock);
+@@ -627,6 +623,24 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 			e_err(drv, "failed to map extra DDP buffer\n");
+ 			goto out_extra_ddp_buffer;
+ 		}
 +
-+	/* In IEEE mode, use the IEEE Ethertype selector value */
-+	if (adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) {
-+		app.selector = IEEE_8021QAZ_APP_SEL_ETHERTYPE;
-+		up = dcb_ieee_getapp_mask(netdev, &app);
-+	} else {
-+		up = dcb_getapp(netdev, &app);
-+	}
++		/* Alloc per cpu mem to count the ddp alloc failure number */
++		fcoe->pcpu_noddp = alloc_percpu(u64);
++		if (!fcoe->pcpu_noddp) {
++			e_err(drv, "failed to alloc noddp counter\n");
++			goto out_pcpu_noddp_alloc_fail;
++		}
++
++		fcoe->pcpu_noddp_ext_buff = alloc_percpu(u64);
++		if (!fcoe->pcpu_noddp_ext_buff) {
++			e_err(drv, "failed to alloc noddp extra buff cnt\n");
++			goto out_pcpu_noddp_extra_buff_alloc_fail;
++		}
++
++		for_each_possible_cpu(cpu) {
++			*per_cpu_ptr(fcoe->pcpu_noddp, cpu) = 0;
++			*per_cpu_ptr(fcoe->pcpu_noddp_ext_buff, cpu) = 0;
++		}
+ 	}
+ 
+ 	/* Enable L2 eth type filter for FCoE */
+@@ -664,7 +678,13 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL, IXGBE_FCRXCTRL_FCCRCBO |
+ 			(FC_FCOE_VER << IXGBE_FCRXCTRL_FCOEVER_SHIFT));
+ 	return;
+-
++out_pcpu_noddp_extra_buff_alloc_fail:
++	free_percpu(fcoe->pcpu_noddp);
++out_pcpu_noddp_alloc_fail:
++	dma_unmap_single(&adapter->pdev->dev,
++			 fcoe->extra_ddp_buffer_dma,
++			 IXGBE_FCBUFF_MIN,
++			 DMA_FROM_DEVICE);
+ out_extra_ddp_buffer:
+ 	kfree(fcoe->extra_ddp_buffer);
+ out_ddp_pools:
+@@ -693,6 +713,8 @@ void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter)
+ 			 fcoe->extra_ddp_buffer_dma,
+ 			 IXGBE_FCBUFF_MIN,
+ 			 DMA_FROM_DEVICE);
++	free_percpu(fcoe->pcpu_noddp);
++	free_percpu(fcoe->pcpu_noddp_ext_buff);
+ 	kfree(fcoe->extra_ddp_buffer);
+ 	ixgbe_fcoe_ddp_pools_free(fcoe);
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
+index 99de145..261fd62 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
+@@ -73,6 +73,8 @@ struct ixgbe_fcoe {
+ 	unsigned char *extra_ddp_buffer;
+ 	dma_addr_t extra_ddp_buffer_dma;
+ 	unsigned long mode;
++	u64 __percpu *pcpu_noddp;
++	u64 __percpu *pcpu_noddp_ext_buff;
+ #ifdef CONFIG_IXGBE_DCB
+ 	u8 up;
  #endif
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index b95c6e9..f6fea67 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5552,6 +5552,11 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 	u64 non_eop_descs = 0, restart_queue = 0, tx_busy = 0;
+ 	u64 alloc_rx_page_failed = 0, alloc_rx_buff_failed = 0;
+ 	u64 bytes = 0, packets = 0;
++#ifdef IXGBE_FCOE
++	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
++	unsigned int cpu;
++	u64 fcoe_noddp_counts_sum = 0, fcoe_noddp_ext_buff_counts_sum = 0;
++#endif /* IXGBE_FCOE */
  
- 	/* Fail command if not in CEE mode */
-@@ -331,7 +339,7 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 		return DCB_NO_HW_CHG;
- 
- #ifdef IXGBE_FCOE
--	if (up && (up != (1 << adapter->fcoe.up)))
-+	if (up && !(up & (1 << adapter->fcoe.up)))
- 		adapter->dcb_set_bitmap |= BIT_APP_UPCHG;
- 
- 	/*
+ 	if (test_bit(__IXGBE_DOWN, &adapter->state) ||
+ 	    test_bit(__IXGBE_RESETTING, &adapter->state))
+@@ -5679,6 +5684,18 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 		hwstats->fcoeptc += IXGBE_READ_REG(hw, IXGBE_FCOEPTC);
+ 		hwstats->fcoedwrc += IXGBE_READ_REG(hw, IXGBE_FCOEDWRC);
+ 		hwstats->fcoedwtc += IXGBE_READ_REG(hw, IXGBE_FCOEDWTC);
++		/* Add up per cpu counters for total ddp aloc fail */
++		if (fcoe->pcpu_noddp && fcoe->pcpu_noddp_ext_buff) {
++			for_each_possible_cpu(cpu) {
++				fcoe_noddp_counts_sum +=
++					*per_cpu_ptr(fcoe->pcpu_noddp, cpu);
++				fcoe_noddp_ext_buff_counts_sum +=
++					*per_cpu_ptr(fcoe->
++						pcpu_noddp_ext_buff, cpu);
++			}
++		}
++		hwstats->fcoe_noddp = fcoe_noddp_counts_sum;
++		hwstats->fcoe_noddp_ext_buff = fcoe_noddp_ext_buff_counts_sum;
+ #endif /* IXGBE_FCOE */
+ 		break;
+ 	default:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index d1d6894..6c5cca8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2682,6 +2682,8 @@ struct ixgbe_hw_stats {
+ 	u64 fcoeptc;
+ 	u64 fcoedwrc;
+ 	u64 fcoedwtc;
++	u64 fcoe_noddp;
++	u64 fcoe_noddp_ext_buff;
+ 	u64 b2ospc;
+ 	u64 b2ogprc;
+ 	u64 o2bgptc;
 -- 
 1.7.6.4
