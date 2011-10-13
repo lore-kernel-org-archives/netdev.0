@@ -1,52 +1,49 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: [iproute2 PATCH] Fix unterminated readlink() buffer usage
-Date: Thu, 13 Oct 2011 10:30:21 +0200
-Message-ID: <201110131030.21723.thomas.jarosch@intra2net.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/1] net: hold sock reference while processing tx
+ timestamps
+Date: Thu, 13 Oct 2011 10:54:43 +0200
+Message-ID: <1318496083.5612.1.camel@jlt3.sipsolutions.net>
+References: <1318007501.3988.20.camel@jlt3.sipsolutions.net>
+	 <56185ca8a7dc0223031ca0f0996302cac1b497eb.1318444117.git.richard.cochran@omicron.at>
+	 (sfid-20111012_203706_058621_68EB8D6B) <1318447673.3933.47.camel@jlt3.sipsolutions.net>
+	 <1318449159.2644.9.camel@edumazet-laptop>
+	 (sfid-20111012_215313_649610_CEB1D4B5)
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-To: netdev@vger.kernel.org
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from re04.intra2net.com ([82.165.46.26]:50276 "EHLO
-	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753709Ab1JMIaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 04:30:23 -0400
+Received: from he.sipsolutions.net ([78.46.109.217]:34768 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753747Ab1JMIyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 04:54:49 -0400
+In-Reply-To: <1318449159.2644.9.camel@edumazet-laptop> (sfid-20111012_215313_649610_CEB1D4B5)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2011-10-12 at 21:52 +0200, Eric Dumazet wrote:
 
-Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
----
- misc/ss.c |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+> > The other thing I was wondering -- what if we just set truesize to 1 (we
+> > don't have any truesize checks) and account the skb to the socket
+> > normally. Not really a good way either though.
+> > 
+> 
+> Changing truesize is not allowed here see below.
 
-diff --git a/misc/ss.c b/misc/ss.c
-index b00841b..1353620 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -273,13 +273,19 @@ static void user_ent_hash_build(void)
- 			unsigned int ino;
- 			char lnk[64];
- 			int fd;
-+			ssize_t link_len;
- 
- 			if (sscanf(d1->d_name, "%d%c", &fd, &crap) != 1)
- 				continue;
- 
- 			sprintf(name+pos, "%d", fd);
--			if (readlink(name, lnk, sizeof(lnk)-1) < 0 ||
--			    strncmp(lnk, pattern, strlen(pattern)))
-+
-+			link_len = readlink(name, lnk, sizeof(lnk)-1);
-+			if (link_len == -1)
-+				continue;
-+			lnk[link_len] = '\0';
-+
-+			if (strncmp(lnk, pattern, strlen(pattern)))
- 				continue;
- 
- 			sscanf(lnk, "socket:[%u]", &ino);
--- 
-1.7.4.4
+Oh, good point.
+
+> > FWIW I just decided to do it the other way around in mac80211 -- keep
+> > the original SKB that's charged to the socket for the error queue, and
+> > use a clone to actually do the TX.
+> 
+> Hmm, please take a look at IFF_SKB_TX_SHARING stuff, added in commit
+> d88733150 (net: add IFF_SKB_TX_SHARED flag to priv_flags)
+
+mac80211 got that flag cleared -- and right now I see no way to change
+that. 11ac/ad may require work in this area to be able to do this
+better, and I have a number of ideas on how to do that, but right now I
+don't see how we can do that.
+
+johannes
