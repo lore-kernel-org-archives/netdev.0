@@ -1,95 +1,142 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH v3 2/3] phylib: Convert MDIO bitbang to new MDIO 45 format
-Date: Thu, 13 Oct 2011 09:37:39 -0500
-Message-ID: <1318516660-25452-3-git-send-email-afleming@freescale.com>
-References: <1318516660-25452-1-git-send-email-afleming@freescale.com>
+From: =?UTF-8?B?0JzQsNGA0Log0JrQvtGA0LXQvdCx0LXRgNCz?=
+	<socketpair@gmail.com>
+Subject: (splice socket -> pipe) + EPOLLET -> epoll_wait does not not wake up !
+Date: Thu, 13 Oct 2011 20:48:00 +0600
+Message-ID: <CAEmTpZFt=j-TQjk_8Hx1Yv781SH8MFR_=OrnfH+vke9Q8JZpFA@mail.gmail.com>
+References: <CAEmTpZG5MN8Ha4=ZcCnWC3jJP9x4Bw7ZEC2vQdOGJZiaG4QYkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary=0015174bf16e28367704af2f3a10
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe003.messaging.microsoft.com ([213.199.154.206]:58812
-	"EHLO AM1EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755481Ab1JMOiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 10:38:24 -0400
-In-Reply-To: <1318516660-25452-1-git-send-email-afleming@freescale.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:55173 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753270Ab1JMOsC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 10:48:02 -0400
+Received: by bkbzt4 with SMTP id zt4so1541779bkb.19
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 07:48:01 -0700 (PDT)
+In-Reply-To: <CAEmTpZG5MN8Ha4=ZcCnWC3jJP9x4Bw7ZEC2vQdOGJZiaG4QYkA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we've added somewhat more complete MDIO 45 support to the PHY
-Lib, convert the MDIO bitbang driver to use this new infrastructure.
+--0015174bf16e28367704af2f3a10
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
----
-v2: rebase on top of tree
-v3: Make patch series more coherent
+The problem:
 
- drivers/net/phy/mdio-bitbang.c |   29 +++++++++++++++--------------
- 1 files changed, 15 insertions(+), 14 deletions(-)
+man 7 epoll said:
+For =C2=A0stream-oriented =C2=A0files =C2=A0(e.g., =C2=A0pipe, FIFO, stream=
+ socket), the
+condition that the read/write I/O space is exhausted can also be
+detected by checking the amount of data read from / written to the
+target file descriptor. =C2=A0For example, if you call read(2) by asking to
+read a certain amount of data and read(2) returns a lower number of
+bytes, you =C2=A0can =C2=A0be =C2=A0sure of having exhausted the read I/O s=
+pace for
+the file descriptor.
 
-diff --git a/drivers/net/phy/mdio-bitbang.c b/drivers/net/phy/mdio-bitbang.c
-index 2f6f02e..df7f496 100644
---- a/drivers/net/phy/mdio-bitbang.c
-+++ b/drivers/net/phy/mdio-bitbang.c
-@@ -134,11 +134,10 @@ static void mdiobb_cmd(struct mdiobb_ctrl *ctrl, int op, u8 phy, u8 reg)
-    MII_ADDR_C45 into the address. Theoretically clause 45 and normal devices
-    can exist on the same bus. Normal devices should ignore the MDIO_ADDR
-    phase. */
--static int mdiobb_cmd_addr(struct mdiobb_ctrl *ctrl, int phy, u32 addr)
-+static void mdiobb_cmd_addr(struct mdiobb_ctrl *ctrl, int phy, int devad,
-+				int reg)
- {
--	unsigned int dev_addr = (addr >> 16) & 0x1F;
--	unsigned int reg = addr & 0xFFFF;
--	mdiobb_cmd(ctrl, MDIO_C45_ADDR, phy, dev_addr);
-+	mdiobb_cmd(ctrl, MDIO_C45_ADDR, phy, devad);
- 
- 	/* send the turnaround (10) */
- 	mdiobb_send_bit(ctrl, 1);
-@@ -148,8 +147,6 @@ static int mdiobb_cmd_addr(struct mdiobb_ctrl *ctrl, int phy, u32 addr)
- 
- 	ctrl->ops->set_mdio_dir(ctrl, 0);
- 	mdiobb_get_bit(ctrl);
--
--	return dev_addr;
- }
- 
- static int mdiobb_read(struct mii_bus *bus, int phy, int devad, int reg)
-@@ -157,11 +154,13 @@ static int mdiobb_read(struct mii_bus *bus, int phy, int devad, int reg)
- 	struct mdiobb_ctrl *ctrl = bus->priv;
- 	int ret, i;
- 
--	if (reg & MII_ADDR_C45) {
--		reg = mdiobb_cmd_addr(ctrl, phy, reg);
--		mdiobb_cmd(ctrl, MDIO_C45_READ, phy, reg);
--	} else
-+	/* Clause 22 PHYs don't have a devad */
-+	if (devad == MDIO_DEVAD_NONE)
- 		mdiobb_cmd(ctrl, MDIO_READ, phy, reg);
-+	else {
-+		mdiobb_cmd_addr(ctrl, phy, devad, reg);
-+		mdiobb_cmd(ctrl, MDIO_C45_READ, phy, devad);
-+	}
- 
- 	ctrl->ops->set_mdio_dir(ctrl, 0);
- 
-@@ -186,11 +185,13 @@ static int mdiobb_write(struct mii_bus *bus, int phy, int devad, int reg,
- {
- 	struct mdiobb_ctrl *ctrl = bus->priv;
- 
--	if (reg & MII_ADDR_C45) {
--		reg = mdiobb_cmd_addr(ctrl, phy, reg);
--		mdiobb_cmd(ctrl, MDIO_C45_WRITE, phy, reg);
--	} else
-+	/* Clause 22 PHYs don't have a devad */
-+	if (devad == MDIO_DEVAD_NONE)
- 		mdiobb_cmd(ctrl, MDIO_WRITE, phy, reg);
-+	else {
-+		mdiobb_cmd_addr(ctrl, phy, devad, reg);
-+		mdiobb_cmd(ctrl, MDIO_C45_WRITE, phy, devad);
-+	}
- 
- 	/* send the turnaround (10) */
- 	mdiobb_send_bit(ctrl, 1);
--- 
-1.7.3.4
+I decide to use splice socket -> pipe instead of recv. So I have
+registered socket's fd in epoll with EPOLLIN|EPOLLET.
+
+When data appear in socket faster than I splice() it from socket, the
+following sometimes appear:
+
+1. in my code I sure, that pipe is empty.
+2. my code do splice(socket, pipe, 65536)
+3. splice return, say, 53248
+4. my code accordingly to man, decide not to fire splice() again, as
+it thinks that it will return EWOULDBLOCK=3DEAGAIN.
+5. so, my code go to epoll_wait to wait for EPOLLIN on socket
+6. epoll hangs.
+
+This is not appear if I do just recv(). But it may be because speed is
+lower, and some race condition in effect.
+
+The hacked version of strace output is attached.
+
+--0015174bf16e28367704af2f3a10
+Content-Type: text/plain; charset=US-ASCII; name="strace.txt"
+Content-Disposition: attachment; filename="strace.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gtpuzv190
+
+ZXBvbGxfY3JlYXRlKEVQT0xMX0NMT0VYRUMpICAgICAgICAgICAgICAgICAgICA9IDYKCi8qIDQg
+aXMgYSBzb2NrZXQgb2YgSFRUUF9DTElFTlQuIChnb3QgZnJvbSBhY2NlcHQ0KFNPQ0tfQ0xPRVhF
+Q3xTT0NLX05PTkJMT0NLKSkgKi8KZXBvbGxfY3RsKDYsIEVQT0xMX0NUTF9BREQsIDQsIHtFUE9M
+TElOfEVQT0xMT1VUfEVQT0xMRVR8RVBPTExSREhVUCwge2ZkPTR9fSkgPSAwCnBpcGUyKFs3LCA5
+XSwgT19OT05CTE9DS3xPX0NMT0VYRUMpICAgICA9IDAKCi8qIENyZWF0aW5nIHNvY2tldCBmb3Ig
+YSBIVFRQX1NFUlZFUiAqLwpzb2NrZXQoUEZfSU5FVCwgU09DS19TVFJFQU18U09DS19DTE9FWEVD
+fFNPQ0tfTk9OQkxPQ0ssIElQUFJPVE9fSVApID0gMTAKY29ubmVjdCgxMCwge3NhX2ZhbWlseT1B
+Rl9JTkVULCBzaW5fcG9ydD1odG9ucyg4MCksIHNpbl9hZGRyPWluZXRfYWRkcigiMTI3LjAuMC4x
+Iil9LCAxNikgPSAtMSBFSU5QUk9HUkVTUyAoT3BlcmF0aW9uIG5vdyBpbiBwcm9ncmVzcykKZXBv
+bGxfY3RsKDYsIEVQT0xMX0NUTF9BREQsIDEwLCB7RVBPTExJTnxFUE9MTE9VVHxFUE9MTEVUfDB4
+MjAwMCwge2ZkPTEwfX0pID0gMApwaXBlMihbMTEsIDEyXSwgT19OT05CTE9DS3xPX0NMT0VYRUMp
+ICAgPSAwCmVwb2xsX3dhaXQoNiwge3tFUE9MTE9VVCwge2ZkPTR9fSwge0VQT0xMT1VULCB7ZmQ9
+MTB9fX0sIDEwMCwgLTEpID0gMgpnZXRzb2Nrb3B0KDEwLCBTT0xfU09DS0VULCBTT19FUlJPUiwg
+WzBdLCBbNF0pID0gMAplcG9sbF93YWl0KDYsIHt7RVBPTExJTnxFUE9MTE9VVCwge2ZkPTR9fX0s
+IDEwMCwgLTEpID0gMQpzcGxpY2UoNCwgMCwgOSwgMCwgNjU1MzYsIFNQTElDRV9GX01PVkV8U1BM
+SUNFX0ZfTk9OQkxPQ0spICAgID0gNDIxCnNwbGljZSg3LCAwLCAxMCwgMCwgMHgxYTUsIFNQTElD
+RV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxPQ0spICAgICAgPSA0MjEKZXBvbGxfd2FpdCg2LCB7e0VQ
+T0xMSU58RVBPTExPVVQsIHtmZD0xMH19fSwgMTAwLCAtMSkgPSAxCnNwbGljZSgxMCwgMCwgMTIs
+IDAsIDY1NTM2LCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05PTkJMT0NLKSAgICA9IDgwMQpzcGxp
+Y2UoMTEsIDAsIDQsIDAsIDB4MzIxLCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05PTkJMT0NLKSAg
+ICAgID0gODAxCmVwb2xsX3dhaXQoNiwge3tFUE9MTElOfEVQT0xMT1VULCB7ZmQ9NH19fSwgMTAw
+LCAtMSkgPSAxCnNwbGljZSg0LCAwLCA5LCAwLCA2NTUzNiwgU1BMSUNFX0ZfTU9WRXxTUExJQ0Vf
+Rl9OT05CTE9DSykgICAgPSAzNDUKc3BsaWNlKDcsIDAsIDEwLCAwLCAweDE1OSwgU1BMSUNFX0Zf
+TU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgICA9IDM0NQplcG9sbF93YWl0KDYsIHt7RVBPTExJ
+TnxFUE9MTE9VVCwge2ZkPTEwfX19LCAxMDAsIC0xKSA9IDEKc3BsaWNlKDEwLCAwLCAxMiwgMCwg
+NjU1MzYsIFNQTElDRV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxPQ0spICAgID0gNTAyCnNwbGljZSgx
+MSwgMCwgNCwgMCwgMHgxZjYsIFNQTElDRV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxPQ0spICAgICAg
+PSA1MDIKZXBvbGxfd2FpdCg2LCB7e0VQT0xMSU58RVBPTExPVVQsIHtmZD00fX19LCAxMDAsIC0x
+KSA9IDEKc3BsaWNlKDQsIDAsIDksIDAsIDY1NTM2LCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05P
+TkJMT0NLKSAgICA9IDQ1OApzcGxpY2UoNywgMCwgMTAsIDAsIDB4MWNhLCBTUExJQ0VfRl9NT1ZF
+fFNQTElDRV9GX05PTkJMT0NLKSAgICAgID0gNDU4CmVwb2xsX3dhaXQoNiwge3tFUE9MTElOfEVQ
+T0xMT1VULCB7ZmQ9MTB9fX0sIDEwMCwgLTEpID0gMQpzcGxpY2UoMTAsIDAsIDEyLCAwLCA2NTUz
+NiwgU1BMSUNFX0ZfTU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgPSA5MjkKc3BsaWNlKDExLCAw
+LCA0LCAwLCAweDNhMSwgU1BMSUNFX0ZfTU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgICA9IDky
+OQplcG9sbF93YWl0KDYsIHt7RVBPTExJTnxFUE9MTE9VVCwge2ZkPTR9fX0sIDEwMCwgLTEpID0g
+MQpzcGxpY2UoNCwgMCwgOSwgMCwgNjU1MzYsIFNQTElDRV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxP
+Q0spICAgID0gMzQ1CnNwbGljZSg3LCAwLCAxMCwgMCwgMHgxNTksIFNQTElDRV9GX01PVkV8U1BM
+SUNFX0ZfTk9OQkxPQ0spICAgICAgPSAzNDUKZXBvbGxfd2FpdCg2LCB7e0VQT0xMSU58RVBPTExP
+VVQsIHtmZD0xMH19fSwgMTAwLCAtMSkgPSAxCnNwbGljZSgxMCwgMCwgMTIsIDAsIDY1NTM2LCBT
+UExJQ0VfRl9NT1ZFfFNQTElDRV9GX05PTkJMT0NLKSAgICA9IDUwMgpzcGxpY2UoMTEsIDAsIDQs
+IDAsIDB4MWY2LCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05PTkJMT0NLKSAgICAgID0gNTAyCmVw
+b2xsX3dhaXQoNiwge3tFUE9MTElOfEVQT0xMT1VULCB7ZmQ9NH19fSwgMTAwLCAtMSkgPSAxCnNw
+bGljZSg0LCAwLCA5LCAwLCA2NTUzNiwgU1BMSUNFX0ZfTU9WRXxTUExJQ0VfRl9OT05CTE9DSykg
+ICAgPSA1NDMKc3BsaWNlKDcsIDAsIDEwLCAwLCAweDIxZiwgU1BMSUNFX0ZfTU9WRXxTUExJQ0Vf
+Rl9OT05CTE9DSykgICAgICA9IDU0MwplcG9sbF93YWl0KDYsIHt7RVBPTExJTnxFUE9MTE9VVCwg
+e2ZkPTEwfX19LCAxMDAsIC0xKSA9IDEKc3BsaWNlKDEwLCAwLCAxMiwgMCwgNjU1MzYsIFNQTElD
+RV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxPQ0spICAgID0gMzQ4CnNwbGljZSgxMSwgMCwgNCwgMCwg
+MHgxNWMsIFNQTElDRV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxPQ0spICAgICAgPSAzNDgKZXBvbGxf
+d2FpdCg2LCB7e0VQT0xMSU58RVBPTExPVVQsIHtmZD00fX19LCAxMDAsIC0xKSA9IDEKc3BsaWNl
+KDQsIDAsIDksIDAsIDY1NTM2LCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05PTkJMT0NLKSAgICA9
+IDU0MwpzcGxpY2UoNywgMCwgMTAsIDAsIDB4MjFmLCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05P
+TkJMT0NLKSAgICAgID0gNTQzCmVwb2xsX3dhaXQoNiwge3tFUE9MTElOfEVQT0xMT1VULCB7ZmQ9
+MTB9fX0sIDEwMCwgLTEpID0gMQpzcGxpY2UoMTAsIDAsIDEyLCAwLCA2NTUzNiwgU1BMSUNFX0Zf
+TU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgPSAzODc4NwpzcGxpY2UoMTEsIDAsIDQsIDAsIDB4
+OTc4MywgU1BMSUNFX0ZfTU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgID0gMzg3ODcKZXBvbGxf
+d2FpdCg2LCB7e0VQT0xMSU58RVBPTExPVVQsIHtmZD00fX19LCAxMDAsIC0xKSA9IDEKc3BsaWNl
+KDQsIDAsIDksIDAsIDY1NTM2LCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05PTkJMT0NLKSAgICA9
+IDM0NQpzcGxpY2UoNywgMCwgMTAsIDAsIDB4MTU5LCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05P
+TkJMT0NLKSAgICAgID0gMzQ1CmVwb2xsX3dhaXQoNiwge3tFUE9MTElOfEVQT0xMT1VULCB7ZmQ9
+MTB9fX0sIDEwMCwgLTEpID0gMQpzcGxpY2UoMTAsIDAsIDEyLCAwLCA2NTUzNiwgU1BMSUNFX0Zf
+TU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgPSA1MDIKc3BsaWNlKDExLCAwLCA0LCAwLCAweDFm
+NiwgU1BMSUNFX0ZfTU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgICA9IDUwMgplcG9sbF93YWl0
+KDYsIHt7RVBPTExJTnxFUE9MTE9VVCwge2ZkPTR9fX0sIDEwMCwgLTEpID0gMQpzcGxpY2UoNCwg
+MCwgOSwgMCwgNjU1MzYsIFNQTElDRV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxPQ0spICAgID0gNTE5
+CnNwbGljZSg3LCAwLCAxMCwgMCwgMHgyMDcsIFNQTElDRV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxP
+Q0spICAgICAgPSA1MTkKZXBvbGxfd2FpdCg2LCB7e0VQT0xMSU58RVBPTExPVVQsIHtmZD0xMH19
+fSwgMTAwLCAtMSkgPSAxCnNwbGljZSgxMCwgMCwgMTIsIDAsIDY1NTM2LCBTUExJQ0VfRl9NT1ZF
+fFNQTElDRV9GX05PTkJMT0NLKSAgICA9IDQ5MTUyCnNwbGljZSgxMSwgMCwgNCwgMCwgMHhjMDAw
+LCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05PTkJMT0NLKSAgICAgPSA0OTE1MgplcG9sbF93YWl0
+KDYsIHt7RVBPTExJTnxFUE9MTE9VVCwge2ZkPTEwfX19LCAxMDAsIC0xKSA9IDEKc3BsaWNlKDEw
+LCAwLCAxMiwgMCwgNjU1MzYsIFNQTElDRV9GX01PVkV8U1BMSUNFX0ZfTk9OQkxPQ0spICAgID0g
+NDk0NDgKc3BsaWNlKDExLCAwLCA0LCAwLCAweGMxMjgsIFNQTElDRV9GX01PVkV8U1BMSUNFX0Zf
+Tk9OQkxPQ0spICAgICA9IDQ5NDQ4CmVwb2xsX3dhaXQoNiwge3tFUE9MTElOfEVQT0xMT1VULCB7
+ZmQ9MTB9fX0sIDEwMCwgLTEpID0gMQpzcGxpY2UoMTAsIDAsIDEyLCAwLCA2NTUzNiwgU1BMSUNF
+X0ZfTU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgPSA1MzI0OApzcGxpY2UoMTEsIDAsIDQsIDAs
+IDUzMjQ4LCBTUExJQ0VfRl9NT1ZFfFNQTElDRV9GX05PTkJMT0NLKSAgICAgPSAzMjQ3MgplcG9s
+bF93YWl0KDYsIHt7RVBPTExPVVQsIHtmZD00fX19LCAxMDAsIC0xKSA9IDEKc3BsaWNlKDExLCAw
+LCA0LCAwLCAyMDc3NiwgU1BMSUNFX0ZfTU9WRXxTUExJQ0VfRl9OT05CTE9DSykgICAgID0gMjA3
+NzYKZXBvbGxfd2FpdCg2LCArKysga2lsbGVkIGJ5IFNJR0lOVCArKysK
+--0015174bf16e28367704af2f3a10--
