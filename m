@@ -1,90 +1,48 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next] bonding: fix wrong port enabling in 802.3ad
-Date: Thu, 13 Oct 2011 10:46:31 -0700
-Message-ID: <18216.1318527991@death>
-References: <1318526483-16073-1-git-send-email-fbl@redhat.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Flavio Leitner <fbl@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bnx2: fix skb truesize underestimation
+Date: Thu, 13 Oct 2011 19:50:19 +0200
+Message-ID: <1318528219.2393.52.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:55208 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756696Ab1JMRr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Oct 2011 13:47:57 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e8.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p9DHWTlD004530
-	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 13:32:29 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p9DHkYBa140588
-	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 13:46:34 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p9DHkXVx001195
-	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 14:46:34 -0300
-In-reply-to: <1318526483-16073-1-git-send-email-fbl@redhat.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:59131 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752964Ab1JMRuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 13:50:02 -0400
+Received: by wwf22 with SMTP id 22so2173340wwf.1
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 10:50:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flavio Leitner <fbl@redhat.com> wrote:
+bnx2 allocates a full page per fragment. We must account PAGE_SIZE
+increments on skb->truesize, not the actual frag length.
 
->The port shouldn't be enabled unless its current MUX
->state is DISTRIBUTING which is correctly handled by
->ad_mux_machine(), otherwise the packet sent can be
->lost because the other end may not be ready.
->
->The issue happens on every port initialization, but
->as the ports are expected to move quickly to DISTRIBUTING,
->it doesn't cause much problem.  However, it does cause
->constant packet loss if the other peer has the port
->configured to stay in STANDBY (i.e. SYNC set to OFF).
-
-	This may explain another misbehavior I've been looking into: if
-the bond's outgoing LACPDUs are lost (never received by the switch), but
-the switch's incoming LACPDUs are received, bonding puts the port into
-use, and packets to the switch are dropped by the switch.
-
->Signed-off-by: Flavio Leitner <fbl@redhat.com>
->---
->
->The comments there suggests it was a workaround for losses
->of link events, but I couldn't track the changelog as it
->seems to be pretty old.  Thus, as all the link notification
->stuff has been improved a lot, maybe this is not an issue
->anymore.  At least, I didn't find any problem while
->unplugging/plugging cables here.
-
-	I believe this code fragment is original to the 802.3ad
-submission, which would have been around 2003 or so.
-
-	Did you check the standard for what it says should happen in
-this case?  I'm guessing this is something not specified by the
-standard, given the comment, but we should check to make sure.
-
-	-J
-
-> drivers/net/bonding/bond_3ad.c |    7 -------
-> 1 files changed, 0 insertions(+), 7 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 47b928e..b33c099 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -1135,13 +1135,6 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
-> 			__record_pdu(lacpdu, port);
-> 			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(port->actor_oper_port_state & AD_STATE_LACP_TIMEOUT));
-> 			port->actor_oper_port_state &= ~AD_STATE_EXPIRED;
->-			// verify that if the aggregator is enabled, the port is enabled too.
->-			//(because if the link goes down for a short time, the 802.3ad will not
->-			// catch it, and the port will continue to be disabled)
->-			if (port->aggregator
->-			    && port->aggregator->is_active
->-			    && !__port_is_enabled(port))
->-				__enable_port(port);
-> 			break;
-> 		default:    //to silence the compiler
-> 			break;
->-- 
->1.7.6
->
-
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/ethernet/broadcom/bnx2.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 3c221be..6ff7636 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -3051,7 +3051,6 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, struct sk_buff *skb,
+ 						&skb_shinfo(skb)->frags[i - 1];
+ 					frag->size -= tail;
+ 					skb->data_len -= tail;
+-					skb->truesize -= tail;
+ 				}
+ 				return 0;
+ 			}
+@@ -3083,7 +3082,7 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, struct sk_buff *skb,
+ 
+ 			frag_size -= frag_len;
+ 			skb->data_len += frag_len;
+-			skb->truesize += frag_len;
++			skb->truesize += PAGE_SIZE;
+ 			skb->len += frag_len;
+ 
+ 			pg_prod = NEXT_RX_BD(pg_prod);
