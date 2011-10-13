@@ -1,63 +1,75 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [patch net-2.6] tg3: negate USE_PHYLIB flag check
-Date: Wed, 12 Oct 2011 16:55:01 -0700
-Message-ID: <20111012235501.GA31550@mcarlson.broadcom.com>
-References: <1318410041-2476-1-git-send-email-jpirko@redhat.com>
+From: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Subject: [PATCH net -v2] [BUGFIX] bonding: use local function pointer of
+ bond->recv_probe in bond_handle_frame
+Date: Thu, 13 Oct 2011 11:04:29 +0900
+Message-ID: <20111013020429.3554.78679.stgit@ltc219.sdl.hitachi.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Jiri Pirko" <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3298 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750792Ab1JLXzE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Oct 2011 19:55:04 -0400
-In-Reply-To: <1318410041-2476-1-git-send-email-jpirko@redhat.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yrl.pp-manager.tt@hitachi.com,
+	Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	WANG Cong <xiyou.wangcong@gmail.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 12, 2011 at 02:00:41AM -0700, Jiri Pirko wrote:
-> USE_PHYLIB flag in tg3_remove_one() is being checked incorrectly. This
-> results tg3_phy_fini->phy_disconnect is never called and when tg3 module
-> is removed.
-> 
-> In my case this resulted in panics in phy_state_machine calling function
-> phydev->adjust_link.
-> 
-> So correct this check.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+The bond->recv_probe is called in bond_handle_frame() when
+a packet is received, but bond_close() sets it to NULL. So,
+a panic occurs when both functions work in parallel.
 
-Introduced by commit 63c3a66fe6c827a731dcbdee181158b295626f83, entitled
-"tg3: Convert u32 flag,flg2,flg3 uses to bitmap".
+Why this happen:
+After null pointer check of bond->recv_probe, an sk_buff is
+duplicated and bond->recv_probe is called in bond_handle_frame.
+So, a panic occurs when bond_close() is called between the
+check and call of bond->recv_probe.
 
-Acked-by: Matt Carlson <mcarlson@broadcom.com>
+Patch:
+This patch uses a local function pointer of bond->recv_probe
+in bond_handle_frame(). So, it can avoid the null pointer
+dereference.
 
-> ---
->  drivers/net/tg3.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index 4a1374d..c11a2b8 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -15577,7 +15577,7 @@ static void __devexit tg3_remove_one(struct pci_dev *pdev)
->  
->  		cancel_work_sync(&tp->reset_task);
->  
-> -		if (!tg3_flag(tp, USE_PHYLIB)) {
-> +		if (tg3_flag(tp, USE_PHYLIB)) {
->  			tg3_phy_fini(tp);
->  			tg3_mdio_fini(tp);
->  		}
-> -- 
-> 1.7.6.2
-> 
-> 
+
+Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: WANG Cong <xiyou.wangcong@gmail.com>
+---
+
+ drivers/net/bonding/bond_main.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6d79b78..de3d351 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1435,6 +1435,8 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 	struct sk_buff *skb = *pskb;
+ 	struct slave *slave;
+ 	struct bonding *bond;
++	void (*recv_probe)(struct sk_buff *, struct bonding *,
++				struct slave *);
+ 
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+@@ -1448,11 +1450,12 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+ 	if (bond->params.arp_interval)
+ 		slave->dev->last_rx = jiffies;
+ 
+-	if (bond->recv_probe) {
++	recv_probe = ACCESS_ONCE(bond->recv_probe);
++	if (recv_probe) {
+ 		struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
+ 
+ 		if (likely(nskb)) {
+-			bond->recv_probe(nskb, bond, slave);
++			recv_probe(nskb, bond, slave);
+ 			dev_kfree_skb(nskb);
+ 		}
+ 	}
