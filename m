@@ -1,63 +1,60 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/1] net: hold sock reference while processing tx
- timestamps
-Date: Thu, 13 Oct 2011 06:51:41 +0200
-Message-ID: <20111013045141.GA1943@netboy.at.omicron.at>
-References: <1318007501.3988.20.camel@jlt3.sipsolutions.net>
- <56185ca8a7dc0223031ca0f0996302cac1b497eb.1318444117.git.richard.cochran@omicron.at>
- <1318447673.3933.47.camel@jlt3.sipsolutions.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging tree with the net tree
+Date: Thu, 13 Oct 2011 16:43:53 +1100
+Message-ID: <20111013164353.09c495e1b63d23e380cca1f7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:51261 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751062Ab1JMEvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 00:51:41 -0400
-Received: by eye27 with SMTP id 27so1440748eye.19
-        for <netdev@vger.kernel.org>; Wed, 12 Oct 2011 21:51:40 -0700 (PDT)
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__13_Oct_2011_16_43_53_+1100__cd91dPJ13Bc48dn"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Arend van Spriel <arend@broadcom.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Eliad Peller <eliad@wizery.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Thu__13_Oct_2011_16_43_53_+1100__cd91dPJ13Bc48dn
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <1318447673.3933.47.camel@jlt3.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, Oct 12, 2011 at 09:27:53PM +0200, Johannes Berg wrote:
-> On Wed, 2011-10-12 at 20:36 +0200, Richard Cochran wrote:
-> > The pair of functions,
-> > 
-> >  * skb_clone_tx_timestamp()
-> >  * skb_complete_tx_timestamp()
-...
-> 
-> This still needs a fix to the PHY driver right? It has a case that can
-> kfree_skb() the skb instead of passing it back to
-> complete_tx_timestamp().
+Hi Greg,
 
-Yes, right, will do.
+Today's linux-next merge of the staging tree got a conflicts in
+drivers/staging/brcm80211/brcmfmac/dhd_linux.c and
+drivers/staging/brcm80211/brcmsmac/mac80211_if.c between commits from the
+net-next tree and commit fc2d6e573be6 ("staging: brcm80211: remove
+brcm80211 driver from the staging tree") from the staging tree.
 
-> > -	if (!hwtstamps)
-> > +	if (!hwtstamps) {
-> > +		sock_put(sk);
-> > +		kfree_skb(skb);
-> >  		return;
-> > +	}
-> 
-> Is that right w/o skb->sk = NULL?
+The latter removed the files, so I did that
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-I think it is okay. In clone/complete, we use skb->sk in a special
-way, just to remember the socket. Within kfree_skb, only the
-skb->destructor would possibly use skb->sk, and that function pointer
-is NULL (after the clone in the Tx path).
+--Signature=_Thu__13_Oct_2011_16_43_53_+1100__cd91dPJ13Bc48dn
+Content-Type: application/pgp-signature
 
-> FWIW I just decided to do it the other way around in mac80211 -- keep
-> the original SKB that's charged to the socket for the error queue, and
-> use a clone to actually do the TX.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-In this case, we must clone, I think. The Ethernet MAC driver will
-call the clone_tx_timetstamp hook just before freeing the original
-skb.
+iQIcBAEBCAAGBQJOlnqZAAoJEECxmPOUX5FEVvMP/1GUqQdKC7EsKL/ldG9jNtsj
+GsESUdKVgCJgE6Ab9MEXfsSf+K/mZvwMh+tZb6DUxcFpDFypULzPwwZ7qRRH5jCb
+G0sNCGBJe3GN0WZTui3KIUurljkfIPmcBx9reYuZRv9QFta/vHQAh1f+QMKeI4Ye
+u0MqdlWAsw3k1II8pBhil2FH0lIOUeAKCQt5b7kJFXMr/+r7Horoea+O0couyefc
+svnaxIaNhBZTImXNqyFuxOP8qdQD6vV+hq3TT686U0t98g06ly7vbFx4QbSxzZex
+5tjwBL+npzdnoVyJIp4zIyUwbbWlfItyGYEGXVlLGp6fmg8fmp5qQ6LHN00GpM7k
+2eSy+DYtmXcJAdxH7YyLtlFCMFrfA9GaByI9An2dmC0/dRX+REhBHoQslIOoiu4u
+C6X/JCw5k1FeO/Pe2SD91k5vjfa+bMbK/M3G3VFYfcgIuYZYxXVi2Ol3MkEMpO+j
+pZHaO3PUQVn6roSwi2p9zxMmrDmkVLfIKO7W3Z3SiuijRsSOfalOL7zZ/+3yP8sz
+r50kS2h27fviUWN0RDSaAHh/SPNDJhATKOLzVWvfvQU+GFnQ03zNtG6BSJXm4hIs
+d/wBq6Ogq4nCRSnVIDoAw8Rhjv4xYqBD9TQtywknDYP6qeCZ/15fp3xvA8dUejMi
+d8fi6mEf5E1iozX+epgf
+=PZPQ
+-----END PGP SIGNATURE-----
 
-Thanks,
-Richard
+--Signature=_Thu__13_Oct_2011_16_43_53_+1100__cd91dPJ13Bc48dn--
