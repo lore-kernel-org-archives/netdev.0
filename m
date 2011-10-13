@@ -1,40 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/11 v2][pull request] Intel Wired LAN Driver
- Updates
-Date: Thu, 13 Oct 2011 14:00:20 -0400 (EDT)
-Message-ID: <20111013.140020.1488831185205140243.davem@davemloft.net>
-References: <1318490112-5092-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] e1000e: fix skb truesize underestimation
+Date: Thu, 13 Oct 2011 20:03:36 +0200
+Message-ID: <1318529016.2393.62.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44375 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755193Ab1JMSA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 14:00:26 -0400
-In-Reply-To: <1318490112-5092-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33992 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754207Ab1JMSD1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 14:03:27 -0400
+Received: by wyg34 with SMTP id 34so2154157wyg.19
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 11:03:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 13 Oct 2011 00:15:01 -0700
+e1000e allocates a page per skb fragment. We must account
+PAGE_SIZE increments on skb->truesize, not the actual frag length.
 
-> The following series contains updates to ixgbe and igb.  This
-> version of the series contains the following changes:
-> 
-> - ixgbe add FCoE stats, add protection from invalid DMA and fix
->   check for change in FCoE priority
-> - igb version bump, fix sparse warnings and finish up the cleanup
->   work of igb by Alex Duyck.
-> 
-> - v2: drop the "igb: move DMA Coalescing feature code into separate function."
->   patch while Carolyn fixes the patch based on David Miller's comments.
-> 
-> The following are changes since commit 9687c637388f63b87fcc18eee6e65bcfca4f49ca:
->   Merge branch 'for-davem' of git://git.infradead.org/users/linville/wireless-next
-> and are available in the git repository at
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Pulled, thanks.
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 78c5d21..035ce73 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1300,7 +1300,7 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
+ 			ps_page->page = NULL;
+ 			skb->len += length;
+ 			skb->data_len += length;
+-			skb->truesize += length;
++			skb->truesize += PAGE_SIZE;
+ 		}
+ 
+ 		/* strip the ethernet crc, problem is we're using pages now so
+@@ -1360,7 +1360,7 @@ static void e1000_consume_page(struct e1000_buffer *bi, struct sk_buff *skb,
+ 	bi->page = NULL;
+ 	skb->len += length;
+ 	skb->data_len += length;
+-	skb->truesize += length;
++	skb->truesize += PAGE_SIZE;
+ }
+ 
+ /**
