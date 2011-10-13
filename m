@@ -1,7 +1,7 @@
 From: Glauber Costa <glommer@parallels.com>
-Subject: [PATCH v7 7/8] Display current tcp memory allocation in kmem cgroup
-Date: Thu, 13 Oct 2011 17:09:41 +0400
-Message-ID: <1318511382-31051-8-git-send-email-glommer@parallels.com>
+Subject: [PATCH v7 8/8] Disable task moving when using kernel memory accounting
+Date: Thu, 13 Oct 2011 17:09:42 +0400
+Message-ID: <1318511382-31051-9-git-send-email-glommer@parallels.com>
 References: <1318511382-31051-1-git-send-email-glommer@parallels.com>
 Cc: akpm@linux-foundation.org, lizf@cn.fujitsu.com,
         kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
@@ -15,47 +15,83 @@ In-Reply-To: <1318511382-31051-1-git-send-email-glommer@parallels.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces kmem.tcp_current_memory file, living in the
-kmem_cgroup filesystem. It is a simple read-only file that displays the
-amount of kernel memory currently consumed by the cgroup.
+Since this code is still experimental, we are leaving the exact
+details of how to move tasks between cgroups when kernel memory
+accounting is used as future work.
+
+For now, we simply disallow movement if there are any pending
+accounted memory.
 
 Signed-off-by: Glauber Costa <glommer@parallels.com>
 Reviewed-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: Eric W. Biederman <ebiederm@xmission.com>
 ---
- Documentation/cgroups/memory.txt |    1 +
- mm/memcontrol.c                  |    5 +++++
- 2 files changed, 6 insertions(+), 0 deletions(-)
+ mm/memcontrol.c |   31 ++++++++++++++++++-------------
+ 1 files changed, 18 insertions(+), 13 deletions(-)
 
-diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
-index e773bd7..b937a99 100644
---- a/Documentation/cgroups/memory.txt
-+++ b/Documentation/cgroups/memory.txt
-@@ -79,6 +79,7 @@ Brief summary of control files.
-  memory.independent_kmem_limit	 # select whether or not kernel memory limits are
- 				   independent of user limits
-  memory.kmem.tcp.limit_in_bytes  # set/show hard limit for tcp buf memory
-+ memory.kmem.tcp.usage_in_bytes  # show current tcp buf memory allocation
- 
- 1. History
- 
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index b696267..1ba318d 100644
+index 1ba318d..b46232b 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -543,6 +543,11 @@ static struct cftype tcp_files[] = {
- 		.read_u64 = mem_cgroup_read,
- 		.private = MEMFILE_PRIVATE(_KMEM_TCP, RES_LIMIT),
- 	},
-+	{
-+		.name = "kmem.tcp.usage_in_bytes",
-+		.read_u64 = mem_cgroup_read,
-+		.private = MEMFILE_PRIVATE(_KMEM_TCP, RES_USAGE),
-+	},
- };
+@@ -408,23 +408,11 @@ void sock_update_memcg(struct sock *sk)
  
- static void tcp_create_cgroup(struct mem_cgroup *cg, struct cgroup_subsys *ss)
+ 	rcu_read_lock();
+ 	sk->sk_cgrp = mem_cgroup_from_task(current);
+-
+-	/*
+-	 * We don't need to protect against anything task-related, because
+-	 * we are basically stuck with the sock pointer that won't change,
+-	 * even if the task that originated the socket changes cgroups.
+-	 *
+-	 * What we do have to guarantee, is that the chain leading us to
+-	 * the top level won't change under our noses. Incrementing the
+-	 * reference count via cgroup_exclude_rmdir guarantees that.
+-	 */
+-	cgroup_exclude_rmdir(mem_cgroup_css(sk->sk_cgrp));
+ 	rcu_read_unlock();
+ }
+ 
+ void sock_release_memcg(struct sock *sk)
+ {
+-	cgroup_release_and_wakeup_rmdir(mem_cgroup_css(sk->sk_cgrp));
+ }
+ 
+ void memcg_sockets_allocated_dec(struct mem_cgroup *memcg, struct proto *prot)
+@@ -5634,10 +5622,17 @@ static int mem_cgroup_can_attach(struct cgroup_subsys *ss,
+ {
+ 	int ret = 0;
+ 	struct mem_cgroup *mem = mem_cgroup_from_cont(cgroup);
++	struct mem_cgroup *from = mem_cgroup_from_task(p);
++
++	if (from != mem &&
++	    res_counter_read_u64(&mem->tcp.tcp_memory_allocated, RES_USAGE)) {
++		printk(KERN_WARNING "Can't move tasks between cgroups: "
++			"Kernel memory held. task: %s\n", p->comm);
++		return 1;
++	}
+ 
+ 	if (mem->move_charge_at_immigrate) {
+ 		struct mm_struct *mm;
+-		struct mem_cgroup *from = mem_cgroup_from_task(p);
+ 
+ 		VM_BUG_ON(from == mem);
+ 
+@@ -5805,6 +5800,16 @@ static int mem_cgroup_can_attach(struct cgroup_subsys *ss,
+ 				struct cgroup *cgroup,
+ 				struct task_struct *p)
+ {
++	struct mem_cgroup *mem = mem_cgroup_from_cont(cgroup);
++	struct mem_cgroup *from = mem_cgroup_from_task(p);
++
++	if (from != mem &&
++	    res_counter_read_u64(&mem->tcp.tcp_memory_allocated, RES_USAGE)) {
++		printk(KERN_WARNING "Can't move tasks between cgroups: "
++			"Kernel memory held. task: %s\n", p->comm);
++		return 1;
++	}
++
+ 	return 0;
+ }
+ static void mem_cgroup_cancel_attach(struct cgroup_subsys *ss,
 -- 
 1.7.6.4
 
