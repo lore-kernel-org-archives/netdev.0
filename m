@@ -1,91 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: more accurate skb truesize
-Date: Thu, 13 Oct 2011 18:24:50 +0200
-Message-ID: <1318523090.2393.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1318519581.2393.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1318521901.2745.18.camel@bwh-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/3] netdev/phy: Handle IEEE802.3 clause 45 Ethernet
+ PHYs
+Date: Thu, 13 Oct 2011 17:27:16 +0100
+Message-ID: <1318523236.2745.29.camel@bwh-desktop>
+References: <1318442783-29058-1-git-send-email-david.daney@cavium.com>
+	 <1318442783-29058-2-git-send-email-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Andi Kleen <ak@linux.intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:53477 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752462Ab1JMQYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 12:24:34 -0400
-Received: by wyg34 with SMTP id 34so2037969wyg.19
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 09:24:33 -0700 (PDT)
-In-Reply-To: <1318521901.2745.18.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, afleming@gmail.com
+To: David Daney <david.daney@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318442783-29058-2-git-send-email-david.daney@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 13 octobre 2011 =C3=A0 17:05 +0100, Ben Hutchings a =C3=A9crit=
- :
-> On Thu, 2011-10-13 at 17:26 +0200, Eric Dumazet wrote:
-> > skb truesize currently accounts for sk_buff struct and part of skb =
-head.
-> >=20
-> > Considering that skb_shared_info is larger than sk_buff, its time t=
-o
-> > take it into account for better memory accounting.
-> >=20
-> > This patch introduces SKB_TRUESIZE(X) macro to centralize various
-> > assumptions into a single place.
-> >=20
-> > At skb alloc phase, we put skb_shared_info struct at the exact end =
-of
-> > skb head, to allow a better use of memory (lowering number of
-> > reallocations), since kmalloc() gives us power-of-two memory blocks=
-=2E
-> [...]
-> > index 5b2c5f1..be66154 100644
-> > --- a/net/core/skbuff.c
-> > +++ b/net/core/skbuff.c
-> > @@ -184,11 +184,15 @@ struct sk_buff *__alloc_skb(unsigned int size=
-, gfp_t gfp_mask,
-> >  		goto out;
-> >  	prefetchw(skb);
-> > =20
-> > -	size =3D SKB_DATA_ALIGN(size);
-> > -	data =3D kmalloc_node_track_caller(size + sizeof(struct skb_share=
-d_info),
-> > -			gfp_mask, node);
-> > +	size +=3D SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-> [...]
->=20
-> If we want to put the data and skb_shared_info on separate cache-line=
-s
-> then we should use:
-> 	size =3D SKB_DATA_ALIGN(size) + sizeof(struct skb_shared_info);
-> (which is effectively what we're doing now).
->=20
+On Wed, 2011-10-12 at 11:06 -0700, David Daney wrote:
+> The IEEE802.3 clause 45 MDIO bus protocol allows for directly
+> addressing PHY registers using a 21 bit address, and is used by many
+> 10G Ethernet PHYS.  Already existing is the ability of MDIO bus
+> drivers to use clause 45, with the MII_ADDR_C45 flag.  Here we add
+> some support in the PHY and device tree infrastructure to use these
+> PHYs.
+> 
+> Normally the MII_ADDR_C45 flag is ORed with the register address to
+> indicate a clause 45 transaction.  Here we also use this flag in the
+> *device* address passed to get_phy_id() and get_phy_device() to
+> indicate that probing should be done with clause 45 transactions.  If
+> a PHY is successfully probed with MII_ADDR_C45, the new struct
+> phy_device is_c45 flag is set for the PHY.
 
-Same behavior after my patch : skb_shared_info starts at a cache-line
-boundary, like before, unless kmalloc() gives us unaligned memory (it
-can in certain debugging situations)
+That deserves a comment next to the definition of the macro.
 
-So previous part (before skb_shared_info) will also be a multiple of
-SMP_CACHE_BYTES because of kmalloc() behavior.
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> ---
+>  drivers/net/phy/phy_device.c |   25 ++++++++++++++++++++++---
+>  include/linux/phy.h          |    3 +++
+>  2 files changed, 25 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 83a5a5a..7e4d61b 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -171,6 +171,8 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
+>  
+>  	dev->autoneg = AUTONEG_ENABLE;
+>  
+> +	dev->is_c45 = (addr & MII_ADDR_C45) != 0;
+> +	addr &= ~MII_ADDR_C45;
+>  	dev->addr = addr;
+>  	dev->phy_id = phy_id;
+>  	dev->bus = bus;
+> @@ -205,15 +207,24 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
+>   * @phy_id: where to store the ID retrieved.
+>   *
+>   * Description: Reads the ID registers of the PHY at @addr on the
+> - *   @bus, stores it in @phy_id and returns zero on success.
+> + *   @bus, stores it in @phy_id and returns zero on success.  If the
+> + *   @addr has been ORed with MII_ADDR_C45, mdio clause 45 data
+> + *   transfer is used to read ID from the PHY device, otherwise the
+> + *   standard protocol (clause 22) is used.
+>   */
+>  int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
+>  {
+>  	int phy_reg;
+> +	u32 c45_reg_base = 0;
+>  
+> +	if (addr & MII_ADDR_C45) {
+> +		addr &= ~MII_ADDR_C45;
+> +		/* Access the PHY's PHY XS registers with C45 mode. */
+> +		c45_reg_base = MII_ADDR_C45 | 0x40000;
+> +	}
+[...]
 
-> If that's not important, and we just want to be sure that the allocat=
-ion
-> occupies at least a whole cache line, then it should be:
-> 	size =3D SKB_DATA_ALIGN(size + sizeof(struct skb_shared_info));
->=20
-> But I don't think it makes sense to use SKB_DATA_ALIGN(sizeof(struct
-> skb_shared_info)).
+I'm not sure it's a safe assumption that every PHY has a PHY XS block.
+That said, I've not seen any that don't.  mdio45_probe() should work out
+which blocks are there, if you can set up an mdio_if_info for it.
 
-If you take a closer look, you'll see that my patch addresses your
-concerns, but at minimal cpu cost.
+It would be nice if someone would try to improve integration between
+mdio/mii and phylib rather than duplicating logic and interfaces.  I'm
+afraid I'm not going to be spending time on MDIO, though, since we've
+putting PHY drivers in firmware rather than on the host now.
 
-kmalloc(size + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+Ben.
 
-will give same result than :
-
-kmalloc(SKB_DATA_ALIGN(size) + SKB_DATA_ALIGN(sizeof(struct
-skb_shared_info)))
-
-But my version is a bit faster (a single add of a compiler known
-constant)
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
