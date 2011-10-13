@@ -1,129 +1,164 @@
-From: =?iso-8859-1?Q?Hans_Schillstr=F6m?= <hans.schillstrom@ericsson.com>
-Subject: RE: [net-next PATCH] net: allow vlan traffic to be received under
- bond
-Date: Thu, 13 Oct 2011 15:09:38 +0200
-Message-ID: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903176@ESESSCMS0356.eemea.ericsson.se>
-References: <20111010191641.2496.84845.stgit@jf-dev1-dcblab>
- <4E93A4D2.10301@intel.com>
-  <CAEP_g=83tCQMVPOTT82GBw6GamodpqU-SAeYyx9noWnzbGfUpg@mail.gmail.com>
- <201110111308.53152.hans.schillstrom@ericsson.com>,<4E944116.8020103@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Jesse Gross <jesse@nicira.com>, Jiri Pirko <jpirko@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:55654 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755154Ab1JMNJm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 09:09:42 -0400
-In-Reply-To: <4E944116.8020103@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Glauber Costa <glommer@parallels.com>
+Subject: [PATCH v7 2/8] socket: initial cgroup code.
+Date: Thu, 13 Oct 2011 17:09:36 +0400
+Message-ID: <1318511382-31051-3-git-send-email-glommer@parallels.com>
+References: <1318511382-31051-1-git-send-email-glommer@parallels.com>
+Cc: akpm@linux-foundation.org, lizf@cn.fujitsu.com,
+        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+        davem@davemloft.net, paul@paulmenage.org, gthelen@google.com,
+        netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name,
+        avagin@parallels.com, devel@openvz.org,
+        Glauber Costa <glommer@parallels.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1318511382-31051-1-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
->On 10/11/2011 4:08 AM, Hans Schillstrom wrote:
->> Hello
->> On Tuesday 11 October 2011 04:43:03 Jesse Gross wrote:
->>> On Mon, Oct 10, 2011 at 7:07 PM, John Fastabend
->>> <john.r.fastabend@intel.com> wrote:
->>>> On 10/10/2011 3:37 PM, Jiri Pirko wrote:
->>>>> Mon, Oct 10, 2011 at 09:16:41PM CEST, john.r.fastabend@intel.com wrote:
->>>>>> The following configuration used to work as I expected. At least
->>>>>> we could use the fcoe interfaces to do MPIO and the bond0 iface
->>>>>> to do load balancing or failover.
->>>>>>
->>>>>>       ---eth2.228-fcoe
->>>>>>       |
->>>>>> eth2 -----|
->>>>>>          |
->>>>>>          |---- bond0
->>>>>>          |
->>>>>> eth3 -----|
->>>>>>       |
->>>>>>       ---eth3.228-fcoe
->>>>>>
->>>>>> This worked because of a change we added to allow inactive slaves
->>>>>> to rx 'exact' matches. This functionality was kept intact with the
->>>>>> rx_handler mechanism. However now the vlan interface attached to the
->>>>>> active slave never receives traffic because the bonding rx_handler
->>>>>> updates the skb->dev and goto's another_round. Previously, the
->>>>>> vlan_do_receive() logic was called before the bonding rx_handler.
->>>>>>
->>>>>> Now by the time vlan_do_receive calls vlan_find_dev() the
->>>>>> skb->dev is set to bond0 and it is clear no vlan is attached
->>>>>> to this iface. The vlan lookup fails.
->>>>>>
->>>>>> This patch moves the VLAN check above the rx_handler. A VLAN
->>>>>> tagged frame is now routed to the eth2.228-fcoe iface in the
->>>>>> above schematic. Untagged frames continue to the bond0 as
->>>>>> normal. This case also remains intact,
->>>>>>
->>>>>> eth2 --> bond0 --> vlan.228
->>>>>>
->>>>>> Here the skb is VLAN tagged but the vlan lookup fails on eth2
->>>>>> causing the bonding rx_handler to be called. On the second
->>>>>> pass the vlan lookup is on the bond0 iface and completes as
->>>>>> expected.
->>>>>>
->>>>>> Putting a VLAN.228 on both the bond0 and eth2 device will
->>>>>> result in eth2.228 receiving the skb. I don't think this is
->>>>>> completely unexpected and was the result prior to the rx_handler
->>>>>> result.
->>
->> I think this OK, but I do have a question
->> if bond0 is in Active/Backup mode, eth2 and eth3 got the same MAC.addr,
->> what about the VLAN:s ?
->> (or is just one of thme working ??)
->>
->
->The VLAN MAC address will not be managed by the bond. In the
->storage case a SAN mac may be used (NETDEV_HW_ADDR_T_SAN).
->Otherwise the MAC can be managed normally.
->
->Both VLANs will receive frames but in some modes only to packet
->handlers that have exact matches. See bond_should_deliver_exact_match().
->
->.John.
+We aim to control the amount of kernel memory pinned at any
+time by tcp sockets. To lay the foundations for this work,
+this patch adds a pointer to the kmem_cgroup to the socket
+structure.
 
-Have made some test now,  this patch solves a big issue that we had with VLANs 
-i.e. as a work-a-round we put macvlans in between the phys. interface and the bond.
-I have tested the scenario below, where tipc is running on VLAN below the bonding interface.
-With the patch it works fine now.
-If you want you can add a
-Tested-by: Hans Schillstrom <hams.schillstrom@ericsson.com>
+Signed-off-by: Glauber Costa <glommer@parallels.com>
+Acked-by: Kirill A. Shutemov<kirill@shutemov.name>
+Reviewed-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujtsu.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Eric W. Biederman <ebiederm@xmission.com>
+---
+ include/linux/memcontrol.h |   15 +++++++++++++++
+ include/net/sock.h         |    2 ++
+ mm/memcontrol.c            |   37 +++++++++++++++++++++++++++++++++++++
+ net/core/sock.c            |    3 +++
+ 4 files changed, 57 insertions(+), 0 deletions(-)
 
-                      +---------+        +---------+
-                    +---------+ |      +---------+ |
-                  +---------+ |-+    +---------+ |-+
-                  | macvlan |-+      | macvlan |-+
-                  +---------+        +---------+
-                     | | |              | | |
-                     | | |           +---------+
-                     | | |       ----|  vlan8  |
-                     | | |      /    +---------+
-                     | | |     /
-                  +----+----+ /
-        +---------|  bond0  |=------------+
-        |         +---------+             |
-        |                                 |
-   +----+----+  +---------+          +----+----+  +---------+
-   |   eth1  |--|  vlan20 |          |   eth2  |--|  vlan21 |
-   +----+----+  +---------+          +----+----+  +---------+
-        |                                 |
-        |                                 |
-  +-----+-----+                     +-----+-----+
-  | Switch-0  |_____________________|   Sw1     |
-  |           |    ISL TRUNK        |           |
-  +-+---+---+-+                     +-+---+---+-+
-    |   |   |                         |   |   |
-  vlan1 | vlan20                    vlan1 | vlan21
-      vlan8                             vlan8
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 343bd76..88aea1b 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -376,5 +376,20 @@ mem_cgroup_print_bad_page(struct page *page)
+ }
+ #endif
+ 
++#ifdef CONFIG_INET
++struct sock;
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++void sock_update_memcg(struct sock *sk);
++void sock_release_memcg(struct sock *sk);
++
++#else
++static inline void sock_update_memcg(struct sock *sk)
++{
++}
++static inline void sock_release_memcg(struct sock *sk)
++{
++}
++#endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
++#endif /* CONFIG_INET */
+ #endif /* _LINUX_MEMCONTROL_H */
+ 
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 8e4062f..afe1467 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -228,6 +228,7 @@ struct sock_common {
+   *	@sk_security: used by security modules
+   *	@sk_mark: generic packet mark
+   *	@sk_classid: this socket's cgroup classid
++  *	@sk_cgrp: this socket's kernel memory (kmem) cgroup
+   *	@sk_write_pending: a write to stream socket waits to start
+   *	@sk_state_change: callback to indicate change in the state of the sock
+   *	@sk_data_ready: callback to indicate there is data to be processed
+@@ -339,6 +340,7 @@ struct sock {
+ #endif
+ 	__u32			sk_mark;
+ 	u32			sk_classid;
++	struct mem_cgroup	*sk_cgrp;
+ 	void			(*sk_state_change)(struct sock *sk);
+ 	void			(*sk_data_ready)(struct sock *sk, int bytes);
+ 	void			(*sk_write_space)(struct sock *sk);
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 4f8a5bb..623841d 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -376,6 +376,43 @@ enum mem_type {
+ #define MEM_CGROUP_RECLAIM_SOFT_BIT	0x2
+ #define MEM_CGROUP_RECLAIM_SOFT		(1 << MEM_CGROUP_RECLAIM_SOFT_BIT)
+ 
++/* Writing them here to avoid exposing memcg's inner layout */
++#ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
++#ifdef CONFIG_INET
++#include <net/sock.h>
++
++void sock_update_memcg(struct sock *sk)
++{
++	/* right now a socket spends its whole life in the same cgroup */
++	if (sk->sk_cgrp) {
++		WARN_ON(1);
++		return;
++	}
++
++	rcu_read_lock();
++	sk->sk_cgrp = mem_cgroup_from_task(current);
++
++	/*
++	 * We don't need to protect against anything task-related, because
++	 * we are basically stuck with the sock pointer that won't change,
++	 * even if the task that originated the socket changes cgroups.
++	 *
++	 * What we do have to guarantee, is that the chain leading us to
++	 * the top level won't change under our noses. Incrementing the
++	 * reference count via cgroup_exclude_rmdir guarantees that.
++	 */
++	cgroup_exclude_rmdir(mem_cgroup_css(sk->sk_cgrp));
++	rcu_read_unlock();
++}
++
++void sock_release_memcg(struct sock *sk)
++{
++	cgroup_release_and_wakeup_rmdir(mem_cgroup_css(sk->sk_cgrp));
++}
++#endif /* CONFIG_INET */
++#endif /* CONFIG_CGROUP_MEM_RES_CTLR_KMEM */
++
++
+ static void mem_cgroup_get(struct mem_cgroup *mem);
+ static void mem_cgroup_put(struct mem_cgroup *mem);
+ static struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *mem);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index bc745d0..5426ba0 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -125,6 +125,7 @@
+ #include <net/xfrm.h>
+ #include <linux/ipsec.h>
+ #include <net/cls_cgroup.h>
++#include <linux/memcontrol.h>
+ 
+ #include <linux/filter.h>
+ 
+@@ -1141,6 +1142,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 		atomic_set(&sk->sk_wmem_alloc, 1);
+ 
+ 		sock_update_classid(sk);
++		sock_update_memcg(sk);
+ 	}
+ 
+ 	return sk;
+@@ -1172,6 +1174,7 @@ static void __sk_free(struct sock *sk)
+ 		put_cred(sk->sk_peer_cred);
+ 	put_pid(sk->sk_peer_pid);
+ 	put_net(sock_net(sk));
++	sock_release_memcg(sk);
+ 	sk_prot_free(sk->sk_prot_creator, sk);
+ }
+ 
+-- 
+1.7.6.4
 
-
-
-Thanks 
-Hans
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
