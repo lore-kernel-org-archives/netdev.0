@@ -1,130 +1,86 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [v3 PATCH 0/2] NETFILTER new target module, HMARK
-Date: Thu, 13 Oct 2011 21:02:08 +0200
-Message-ID: <1318532530-29446-1-git-send-email-hans.schillstrom@ericsson.com>
+From: Mark Larwill <larwill@gmail.com>
+Subject: Help with NULL pointer derefrence in net/ipv4/xfrm4_policy.c
+Date: Thu, 13 Oct 2011 12:39:33 -0700
+Message-ID: <CAEY+5yAY12EhntaoDetf7+OTvAHVYKXOJQckZXAowmHGm_p96g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <kaber@trash.net>, <pablo@netfilter.org>, <jengelh@medozas.de>,
-	<netfilter-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:46151 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752178Ab1JMTCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 15:02:15 -0400
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:42319 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753053Ab1JMTje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 15:39:34 -0400
+Received: by gyb13 with SMTP id 13so384918gyb.19
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 12:39:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The target allows you to create rules in the "raw" and "mangle" tables
-which alter the netfilter mark (nfmark) field within a given range.
-First a 32 bit hash value is generated then modulus by <limit> and
-finally an offset is added before it's written to nfmark.
-Prior to routing, the nfmark can influence the routing method (see
-"Use netfilter MARK value as routing key") and can also be used by
-other subsystems to change their behaviour.
+I'm an software developer working for a small firewall company. I am
+running into a kernel NULL pointer deference bug (using an older
+2.6.35.12 kernel), and noticed a patch submitted that seems like it
+might fix my problem. I was hoping someone could help me out a bit. It
+is not practical for me to simply upgrade to the latest Linux, rather
+I must make a targeted fix.
 
-The mark match can also be used to match nfmark produced by this module.
-See the kernel module for more info.
+First a little on my specific issue, then my questions. My problem is
+in the file net/ipv4/xfrm4_policy.c in the function
+xfrm4_dst_ifdown(), on this line: " if (xdst->u.rt.idev->dev == dev)
+{" basically idev is all 0 so xdst->u.rt.idev->dev will crash.
 
-REVISION
-Version 3
-        Handling of SCTP for IPv6 added.
+But before I blindly apply the patch I was hoping someone could help
+answer some questions on it so I don't make things worse by not
+understanding everything. The patch I reference below removes all of
+this idev stuff from the kernel. I can see that as long as the if
+condition (mentioned above) is met the (xfrm4_dst_ifdown) code
+basically goes through a list and assigns the idev structures loopback
+devices, so my guess is that for some reason these idev devices are no
+longer being used or never were used to begin with. Also similar
+behavior is done in the generic ipv4_dst_ifdown() function in
+net/ipv4/route.c.
 
-Version 2
-	NAT Added for IPv4
-	IPv6 ICMP handling enhanced.
-	Usage example added
+My questions are:
+Q1) Why was the idev stuff there to begin with if it was unnecessary?
+/ What was it's original purpose?
+Q2) Why did we have to assign the devices to the loopback device? (Was
+it so no packets would go out during deletion?)
+Q3) When, and in what context are the ipv4_dst_ops.ifdown, and
+ops->ifdown function pointers called? (What are they doing and why?)
+Q4) Between 2.6.35.12 and the patch that removes the idev stuff in
+from 11 Nov 2010 in 2.6.38-rc8 are there any other things
+removed/changed in between that made it possible to remove the idef
+stuff?
+Q5) All of these basically lead up to: Why is it safe to remove all of
+the idev stuff?
+Q6) Is there a safe way I can safely remove this idev stuff or at
+least avoid the NULL pointer deference? (Just blindly returning if it
+is NULL would be the immediate reaction without thinking about it, but
+chances are that's wrong---otherwise why is xfrm4_dst_ifdown written
+the way it is?
 
-Version 1
-	Initial RFC
-
-
-We (Ericsson) use hmark in-front of ipvs as a pre-loadbalancer and
-handles up to 70 ipvs running in parallel in clusters.
-However hmark is not restricted to run infront of IPVS it can also be used as
-"poor mans" load balancer.
-With this version is also NAT supported as an option, with very high flows
-you might not want to use conntrack.
-
-The idea is to generate a direction independent fw mark range to use as input to
-the routing (i.e. ip rule add fwmark ...).
-Pretty straight forward and simple.
-
-
-Example:
-                                      App Server (Real Server)
-
-                                           +---------+
-                                        -->| Service |
-     Gateway A                             +---------+
-                          /
-            +----------+ /     +----+      +---------+
---- if -A---| selector |---->  |ipvs|  --->| Service |
-            +----------+ \     +----+      +---------+
-                          \
-                               +----+      +---------+
-                               |ipvs|   -->| Service |
-                               +----+      +---------+
-      Gateway C
-            +----------+ /     +----+
---- if-B ---| selector | --->  |ipvs|
-            +----------+ \     +----+      +---------+
-                                           | Service |
-                                           +---------+
-                          /
-            +----------+ /     +----+     ..
---- if-B ---| selector | --->  |ipvs|      +---------+
-            +----------+ \     +----+      | Service |
-                          \                +---------+
-#
-# Example with four ipvs loadbalancers
-#
-iptables -t mangle -I PREROUTING -d $IPADDR -j HMARK --hmark-mod 4 --hmark-offs 100
-
-ip rule add fwmark 100 table 100
-ip rule add fwmark 101 table 101
-ip rule add fwmark 102 table 102
-ip rule add fwmark 103 table 103
-
-ip ro ad table 100 default via x.y.z.1 dev bond1
-ip ro ad table 101 default via x.y.z.2 dev bond1
-ip ro ad table 102 default via x.y.z.3 dev bond1
-ip ro ad table 103 default via x.y.z.4 dev bond1
+Any help is greatly appreciated, thanks very much!
 
 
-If conntrack doesn't handle the return path,
-do the oposite with HMARK and send it back right to ipvs.
+--Mark Larwill
 
-Another exmaple of usage could be if you have cluster originated connections
-and want to spread the connections over a number of interfaces
-(NAT will complpicate things for you in this case)
+REFERENCES:
+A)
+This post here to kerneltrap.org which seems to describe the old behavior:
+http://kerneltrap.org/mailarchive/linux-netdev/2007/9/27/324077
+
+B) The main change I am referring to, and text below
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=72cdd1d971c0deb1619c5c339270570c43647a78
 
 
+It seems idev field in struct rtable has no special purpose, but adding
+extra atomic ops.
 
-                     \  Blade 1
-                      \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
-   +------+
--- | Gw-A |          \  Blade 2
-   +------+           \ +----------+      +---------+
-   +------+         <-- | selector | <--- | Service |
--- | Gw-B |           / +----------+      +---------+
-   +------+          /
-   +------+
--- | Gw-C |          \
-   +------+           \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
+We hold refcounts on the device itself (using percpu data, so pretty
+cheap in current kernel).
 
-                     \  Blande -n
-                      \ +----------+      +---------+
-                    <-- | selector | <--- | Service |
-                      / +----------+      +---------+
-                     /
+infiniband case is solved using dst.dev instead of idev->dev
 
-Regards
-Hans Schillstrom <hans.schillstrom@ericsson.com>
+Removal of this field means routing without route cache is now using
+shared data, percpu data, and only potential contention is a pair of
+atomic ops on struct neighbour per forwarded packet.
+
+About 5% speedup on routing test.
