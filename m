@@ -1,11 +1,12 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 4/5] sysfs: Remove support for tagged directories with untagged members.
-Date: Thu, 13 Oct 2011 01:01:34 -0700
-Message-ID: <m1ehyh9v6p.fsf_-_@fess.ebiederm.org>
+Subject: [PATCH 5/5] sysfs: Reject with a warning invalid uses of tagged directories.
+Date: Thu, 13 Oct 2011 01:02:43 -0700
+Message-ID: <m1aa959v4s.fsf_-_@fess.ebiederm.org>
 References: <m1hb3dbae5.fsf@fess.ebiederm.org>
 	<m1wrc99vjx.fsf@fess.ebiederm.org>
 	<m1sjmx9vhf.fsf_-_@fess.ebiederm.org>
 	<m1mxd59vfa.fsf_-_@fess.ebiederm.org>
+	<m1ehyh9v6p.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
@@ -14,71 +15,73 @@ Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
 To: Greg Kroah-Hartman <gregkh@suse.de>,
 	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1mxd59vfa.fsf_-_@fess.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 13 Oct 2011 00:56:25 -0700")
+In-Reply-To: <m1ehyh9v6p.fsf_-_@fess.ebiederm.org> (Eric W. Biederman's
+	message of "Thu, 13 Oct 2011 01:01:34 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Now that /sys/class/net/bonding_masters is implemented as a tagged sysfs
-file we can remove support for untagged files in tagged directories.
+sysfs is a core piece of ifrastructure that many people use and
+few people have all of the rules in their head on how to use
+it correctly.  Add warnings for people using tagged directories
+improperly to that any misuses can be caught and diagnosed quickly.
 
-This change removes any ambiguity of what a NULL namespace value
-means.  A NULL namespace parameter after this patch means
-that we are talking about an untagged sysfs dirent.
-
-This makes the sysfs code much less prone to mistakes when during
-maintenance.
+A single inexpensive test in sysfs_find_dirent is almost sufficient
+to catch all possible misuses.  An additional warning is needed
+in sysfs_add_dirent so that we actually fail when attempting to
+add an untagged dirent in a tagged directory.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- fs/sysfs/dir.c   |    6 +++---
- fs/sysfs/inode.c |    2 --
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ fs/sysfs/dir.c  |   14 ++++++++++++++
+ fs/sysfs/file.c |    3 ---
+ 2 files changed, 14 insertions(+), 3 deletions(-)
 
 diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
-index ea9120a..352d26d 100644
+index 352d26d..26f370a 100644
 --- a/fs/sysfs/dir.c
 +++ b/fs/sysfs/dir.c
-@@ -543,7 +543,7 @@ struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
+@@ -384,6 +384,13 @@ int __sysfs_add_one(struct sysfs_addrm_cxt *acxt, struct sysfs_dirent *sd)
+ {
+ 	struct sysfs_inode_attrs *ps_iattr;
+ 
++	if (!!sysfs_ns_type(acxt->parent_sd) != !!sd->s_ns) {
++		WARN(1, KERN_WARNING "sysfs: ns %s in '%s' for '%s'\n",
++			sysfs_ns_type(acxt->parent_sd)? "required": "invalid",
++			acxt->parent_sd->s_name, sd->s_name);
++		return -EINVAL;
++	}
++
+ 	if (sysfs_find_dirent(acxt->parent_sd, sd->s_ns, sd->s_name))
+ 		return -EEXIST;
+ 
+@@ -542,6 +549,13 @@ struct sysfs_dirent *sysfs_find_dirent(struct sysfs_dirent *parent_sd,
+ {
  	struct sysfs_dirent *sd;
  
++	if (!!sysfs_ns_type(parent_sd) != !!ns) {
++		WARN(1, KERN_WARNING "sysfs: ns %s in '%s' for '%s'\n",
++			sysfs_ns_type(parent_sd)? "required": "invalid",
++			parent_sd->s_name, name);
++		return NULL;
++	}
++
  	for (sd = parent_sd->s_dir.children; sd; sd = sd->s_sibling) {
--		if (ns && sd->s_ns && (sd->s_ns != ns))
-+		if (sd->s_ns != ns)
+ 		if (sd->s_ns != ns)
  			continue;
- 		if (!strcmp(sd->s_name, name))
- 			return sd;
-@@ -885,7 +885,7 @@ static struct sysfs_dirent *sysfs_dir_pos(const void *ns,
- 		while (pos && (ino > pos->s_ino))
- 			pos = pos->s_sibling;
- 	}
--	while (pos && pos->s_ns && pos->s_ns != ns)
-+	while (pos && pos->s_ns != ns)
- 		pos = pos->s_sibling;
- 	return pos;
- }
-@@ -896,7 +896,7 @@ static struct sysfs_dirent *sysfs_dir_next_pos(const void *ns,
- 	pos = sysfs_dir_pos(ns, parent_sd, ino, pos);
- 	if (pos)
- 		pos = pos->s_sibling;
--	while (pos && pos->s_ns && pos->s_ns != ns)
-+	while (pos && pos->s_ns != ns)
- 		pos = pos->s_sibling;
- 	return pos;
- }
-diff --git a/fs/sysfs/inode.c b/fs/sysfs/inode.c
-index e3f091a..527f0cc 100644
---- a/fs/sysfs/inode.c
-+++ b/fs/sysfs/inode.c
-@@ -336,8 +336,6 @@ int sysfs_hash_and_remove(struct sysfs_dirent *dir_sd, const void *ns, const cha
- 	sysfs_addrm_start(&acxt, dir_sd);
+diff --git a/fs/sysfs/file.c b/fs/sysfs/file.c
+index 07c1b4e..d4e6080 100644
+--- a/fs/sysfs/file.c
++++ b/fs/sysfs/file.c
+@@ -466,9 +466,6 @@ void sysfs_notify(struct kobject *k, const char *dir, const char *attr)
+ 	mutex_lock(&sysfs_mutex);
  
- 	sd = sysfs_find_dirent(dir_sd, ns, name);
--	if (sd && (sd->s_ns != ns))
--		sd = NULL;
- 	if (sd)
- 		sysfs_remove_one(&acxt, sd);
- 
+ 	if (sd && dir)
+-		/* Only directories are tagged, so no need to pass
+-		 * a tag explicitly.
+-		 */
+ 		sd = sysfs_find_dirent(sd, NULL, dir);
+ 	if (sd && attr)
+ 		sd = sysfs_find_dirent(sd, NULL, attr);
 -- 
 1.7.2.5
