@@ -1,137 +1,129 @@
-From: =?ISO-8859-1?Q?David_T=E4ht?= <dave.taht@gmail.com>
-Subject: Re: Asserting ECN from userspace?
-Date: Thu, 13 Oct 2011 14:44:48 +0200
-Message-ID: <4E96DD40.4040002@gmail.com>
+From: =?iso-8859-1?Q?Hans_Schillstr=F6m?= <hans.schillstrom@ericsson.com>
+Subject: RE: [net-next PATCH] net: allow vlan traffic to be received under
+ bond
+Date: Thu, 13 Oct 2011 15:09:38 +0200
+Message-ID: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903176@ESESSCMS0356.eemea.ericsson.se>
+References: <20111010191641.2496.84845.stgit@jf-dev1-dcblab>
+ <4E93A4D2.10301@intel.com>
+  <CAEP_g=83tCQMVPOTT82GBw6GamodpqU-SAeYyx9noWnzbGfUpg@mail.gmail.com>
+ <201110111308.53152.hans.schillstrom@ericsson.com>,<4E944116.8020103@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040102020901030403060702"
-To: bloat <bloat@lists.bufferbloat.net>, netdev@vger.kernel.org,
-	Juliusz Chroboczek <jch@pps.jussieu.fr>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Jesse Gross <jesse@nicira.com>, Jiri Pirko <jpirko@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"fubar@us.ibm.com" <fubar@us.ibm.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60752 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754207Ab1JMMov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 08:44:51 -0400
-Received: by wwf22 with SMTP id 22so1686421wwf.1
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 05:44:50 -0700 (PDT)
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:55654 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755154Ab1JMNJm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 09:09:42 -0400
+In-Reply-To: <4E944116.8020103@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040102020901030403060702
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-
-
-My original attempt at sending this was blocked due to the ip address
-embedded in the url I'd included.... resending...
-
-On 10/13/2011 01:30 PM, Juliusz Chroboczek wrote:
-> Dave,
+>On 10/11/2011 4:08 AM, Hans Schillstrom wrote:
+>> Hello
+>> On Tuesday 11 October 2011 04:43:03 Jesse Gross wrote:
+>>> On Mon, Oct 10, 2011 at 7:07 PM, John Fastabend
+>>> <john.r.fastabend@intel.com> wrote:
+>>>> On 10/10/2011 3:37 PM, Jiri Pirko wrote:
+>>>>> Mon, Oct 10, 2011 at 09:16:41PM CEST, john.r.fastabend@intel.com wrote:
+>>>>>> The following configuration used to work as I expected. At least
+>>>>>> we could use the fcoe interfaces to do MPIO and the bond0 iface
+>>>>>> to do load balancing or failover.
+>>>>>>
+>>>>>>       ---eth2.228-fcoe
+>>>>>>       |
+>>>>>> eth2 -----|
+>>>>>>          |
+>>>>>>          |---- bond0
+>>>>>>          |
+>>>>>> eth3 -----|
+>>>>>>       |
+>>>>>>       ---eth3.228-fcoe
+>>>>>>
+>>>>>> This worked because of a change we added to allow inactive slaves
+>>>>>> to rx 'exact' matches. This functionality was kept intact with the
+>>>>>> rx_handler mechanism. However now the vlan interface attached to the
+>>>>>> active slave never receives traffic because the bonding rx_handler
+>>>>>> updates the skb->dev and goto's another_round. Previously, the
+>>>>>> vlan_do_receive() logic was called before the bonding rx_handler.
+>>>>>>
+>>>>>> Now by the time vlan_do_receive calls vlan_find_dev() the
+>>>>>> skb->dev is set to bond0 and it is clear no vlan is attached
+>>>>>> to this iface. The vlan lookup fails.
+>>>>>>
+>>>>>> This patch moves the VLAN check above the rx_handler. A VLAN
+>>>>>> tagged frame is now routed to the eth2.228-fcoe iface in the
+>>>>>> above schematic. Untagged frames continue to the bond0 as
+>>>>>> normal. This case also remains intact,
+>>>>>>
+>>>>>> eth2 --> bond0 --> vlan.228
+>>>>>>
+>>>>>> Here the skb is VLAN tagged but the vlan lookup fails on eth2
+>>>>>> causing the bonding rx_handler to be called. On the second
+>>>>>> pass the vlan lookup is on the bond0 iface and completes as
+>>>>>> expected.
+>>>>>>
+>>>>>> Putting a VLAN.228 on both the bond0 and eth2 device will
+>>>>>> result in eth2.228 receiving the skb. I don't think this is
+>>>>>> completely unexpected and was the result prior to the rx_handler
+>>>>>> result.
+>>
+>> I think this OK, but I do have a question
+>> if bond0 is in Active/Backup mode, eth2 and eth3 got the same MAC.addr,
+>> what about the VLAN:s ?
+>> (or is just one of thme working ??)
+>>
 >
-> I'm not sure what you are getting at.  ECN is designed for routers, not
-> for end-points.
-
-Which happens to be what I'm primarily working on at the moment.
-Secondly, in mesh networks, all machines are routers.
-
->   Assering ECN congestion-experienced at the sender will
-> cause the sender to react to the congestion indication after a whole RTT
-> (after the ECN-echo is received).  For end-to-end flow control, it is
-> both simpler and more efficient to reduce the sending rate immediately,
-> without going over the network.
+>The VLAN MAC address will not be managed by the bond. In the
+>storage case a SAN mac may be used (NETDEV_HW_ADDR_T_SAN).
+>Otherwise the MAC can be managed normally.
 >
-> There's a good reason why we're careful to distinguish congestion
-> control (router-to-endpoint) and flow control (endpoint-to-endpoint).
-> The latter is much easier.
-My message was overly broad in scope and I failed to distinguish between 'asserting ECN from userspace', and 'indicating a flow was ECN capable'
-
-
->> 1) Applications such as bittorrent (transmission, etc) that are much
->> more aware of their overall environment could assert ECN on their UDP
->> streams to indicate congestion.
-> The sender can react to congestion by simply reducing the sending rate.
-> The receiver can react to congestion by pipelining fewer chunk requests
-> to the sender.
+>Both VLANs will receive frames but in some modes only to packet
+>handlers that have exact matches. See bond_should_deliver_exact_match().
 >
+>.John.
 
-And what I meant here, was more 'indicate a flow is ecn capable' than
-'assert ECN', so routers in the middle can do better signalling.
+Have made some test now,  this patch solves a big issue that we had with VLANs 
+i.e. as a work-a-round we put macvlans in between the phys. interface and the bond.
+I have tested the scenario below, where tipc is running on VLAN below the bonding interface.
+With the patch it works fine now.
+If you want you can add a
+Tested-by: Hans Schillstrom <hams.schillstrom@ericsson.com>
 
-...although I can still imagine circumstances where asserting ECN makes
-sense at the endpoint. See for example:
-
-http://en.wikipedia.org/wiki/Data_Center_TCP
-
->> 3) Web Proxies. A web proxy could note when it was experiencing
->> congestion on one side of the proxied connection (or another) and signal
->> the other side to slow down.
-> It can cause the other side to slow down by simply stopping reading,
-> thus causing the normal TCP flow control (not congestion control) to
-> kick in.
-
-Yes, but in this case a TCP flow will continue to scale the window and
-thus sending rate until those buffers fill. Signalling ECN sooner would
-allow a middlebox/web proxy/split tcp session that is blocking on send
-to throttle the overall rate from the other side at the speed it is
-actually capable of retransmitting.
-
-> What would be useful, on the other hand, would be the ability to set the
-> ECN enabled codepoint on UDP packets, 
-
-Agreed.
-
-> and have some means to reliably
-> check whether the Congestion-Experienced codepoint has been set by some
-> intermediate router. 
->From the previous discussion on this thread it looks as though the core
-capabilities exist, if not application code... which looks simple to
-play with, and then apply to the AQM work ongoing.
-
->  But that's different from what you appear to be
-> suggesting.
->
-
-You make my thoughts clearer, as always.
-
-Also, as we discussed elsewhere, setting the ECN capable bit on streams
-such as VOIP has a packet
-preservation-through-a-single-congested-endpoint feature that may well
-be useful.
-
-Completely as a side note, I've been looking over the shortest queue
-first algorithm for AQM, which is quite promising in and of itself,
-without qos or signalling needed at all.
-
-My first attempt at sending this mail failed due to the embedded ip
-address for the paper in the google search - if you search for this, you
-can find the paper I'm referring to:
-
-  Self-Prioritization of Audio and Video Traffic
-
-> -- Juliusz
+                      +---------+        +---------+
+                    +---------+ |      +---------+ |
+                  +---------+ |-+    +---------+ |-+
+                  | macvlan |-+      | macvlan |-+
+                  +---------+        +---------+
+                     | | |              | | |
+                     | | |           +---------+
+                     | | |       ----|  vlan8  |
+                     | | |      /    +---------+
+                     | | |     /
+                  +----+----+ /
+        +---------|  bond0  |=------------+
+        |         +---------+             |
+        |                                 |
+   +----+----+  +---------+          +----+----+  +---------+
+   |   eth1  |--|  vlan20 |          |   eth2  |--|  vlan21 |
+   +----+----+  +---------+          +----+----+  +---------+
+        |                                 |
+        |                                 |
+  +-----+-----+                     +-----+-----+
+  | Switch-0  |_____________________|   Sw1     |
+  |           |    ISL TRUNK        |           |
+  +-+---+---+-+                     +-+---+---+-+
+    |   |   |                         |   |   |
+  vlan1 | vlan20                    vlan1 | vlan21
+      vlan8                             vlan8
 
 
--- 
-Dave Täht
 
-
---------------040102020901030403060702
-Content-Type: text/x-vcard; charset=utf-8;
- name="dave_taht.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="dave_taht.vcf"
-
-begin:vcard
-fn;quoted-printable:Dave T=C3=A4ht
-n;quoted-printable:T=C3=A4ht;Dave
-email;internet:dave.taht@gmail.com
-tel;home:1-239-829-5608
-tel;cell:0638645374
-x-mozilla-html:FALSE
-version:2.1
-end:vcard
-
-
---------------040102020901030403060702--
+Thanks 
+Hans
