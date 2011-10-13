@@ -1,68 +1,52 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v6 3/8] foundations of per-cgroup memory pressure controlling.
-Date: Thu, 13 Oct 2011 12:25:53 +0400
-Message-ID: <4E96A091.4000705@parallels.com>
-References: <1318242268-2234-1-git-send-email-glommer@parallels.com> <1318242268-2234-4-git-send-email-glommer@parallels.com> <20111013145353.161009ea.kamezawa.hiroyu@jp.fujitsu.com>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: [iproute2 PATCH] Fix unterminated readlink() buffer usage
+Date: Thu, 13 Oct 2011 10:30:21 +0200
+Message-ID: <201110131030.21723.thomas.jarosch@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
-	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
-	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
-	<kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111013145353.161009ea.kamezawa.hiroyu@jp.fujitsu.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-On 10/13/2011 09:53 AM, KAMEZAWA Hiroyuki wrote:
-> On Mon, 10 Oct 2011 14:24:23 +0400
-> Glauber Costa<glommer@parallels.com>  wrote:
->
->> This patch converts struct sock fields memory_pressure,
->> memory_allocated, sockets_allocated, and sysctl_mem (now prot_mem)
->> to function pointers, receiving a struct mem_cgroup parameter.
->>
->> enter_memory_pressure is kept the same, since all its callers
->> have socket a context, and the kmem_cgroup can be derived from
->> the socket itself.
->>
->> To keep things working, the patch convert all users of those fields
->> to use acessor functions.
->>
->> In my benchmarks I didn't see a significant performance difference
->> with this patch applied compared to a baseline (around 1 % diff, thus
->> inside error margin).
->>
->> Signed-off-by: Glauber Costa<glommer@parallels.com>
->> CC: David S. Miller<davem@davemloft.net>
->> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
->> CC: Eric W. Biederman<ebiederm@xmission.com>
->
-> Reviewed-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
->
-> a nitpick.
->
->
->>   #ifdef CONFIG_INET
->> +enum {
->> +	UNDER_LIMIT,
->> +	OVER_LIMIT,
->> +};
->> +
->
-> It may be better to move this to res_counter.h or memcontrol.h
->
-Sorry Kame,
-
-It is in memcontrol.h already. What exactly do you mean here ?
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from re04.intra2net.com ([82.165.46.26]:50276 "EHLO
+	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753709Ab1JMIaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 04:30:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+Signed-off-by: Thomas Jarosch <thomas.jarosch@intra2net.com>
+---
+ misc/ss.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/misc/ss.c b/misc/ss.c
+index b00841b..1353620 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -273,13 +273,19 @@ static void user_ent_hash_build(void)
+ 			unsigned int ino;
+ 			char lnk[64];
+ 			int fd;
++			ssize_t link_len;
+ 
+ 			if (sscanf(d1->d_name, "%d%c", &fd, &crap) != 1)
+ 				continue;
+ 
+ 			sprintf(name+pos, "%d", fd);
+-			if (readlink(name, lnk, sizeof(lnk)-1) < 0 ||
+-			    strncmp(lnk, pattern, strlen(pattern)))
++
++			link_len = readlink(name, lnk, sizeof(lnk)-1);
++			if (link_len == -1)
++				continue;
++			lnk[link_len] = '\0';
++
++			if (strncmp(lnk, pattern, strlen(pattern)))
+ 				continue;
+ 
+ 			sscanf(lnk, "socket:[%u]", &ino);
+-- 
+1.7.4.4
