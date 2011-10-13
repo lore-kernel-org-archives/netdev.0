@@ -1,63 +1,112 @@
-From: =?iso-8859-1?Q?Hans_Schillstr=F6m?= <hans.schillstrom@ericsson.com>
-Subject: RE: [net-next PATCH] net: allow vlan traffic to be received under
- bond
-Date: Thu, 13 Oct 2011 17:59:42 +0200
-Message-ID: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>
-References: <20111010191641.2496.84845.stgit@jf-dev1-dcblab>
- <20111010223752.GB2373@minipsycho>
- <1318518274.9266.94.camel@sakura.staff.proxad.net>,<20111013153850.GA2031@minipsycho>
+From: David Daney <david.daney@cavium.com>
+Subject: Re: [PATCH v3 1/3] phylib: Convert MDIO and PHY Lib drivers to support
+ 10G
+Date: Thu, 13 Oct 2011 09:00:03 -0700
+Message-ID: <4E970B03.9060200@cavium.com>
+References: <1318516660-25452-1-git-send-email-afleming@freescale.com> <1318516660-25452-2-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>
-To: Jiri Pirko <jpirko@redhat.com>, Maxime Bizon <mbizon@freebox.fr>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:51653 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756397Ab1JMP7o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 11:59:44 -0400
-In-Reply-To: <20111013153850.GA2031@minipsycho>
-Content-Language: en-US
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:9331 "EHLO
+	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756389Ab1JMQAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 12:00:04 -0400
+In-Reply-To: <1318516660-25452-2-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Oct 13, 2011 at 05:04:34PM CEST, mbizon@freebox.fr wrote:
->>
->>On Tue, 2011-10-11 at 00:37 +0200, Jiri Pirko wrote:
->>
->>> Hmm, I must look at this again tomorrow but I have strong feeling this
->>> will break some some scenario including vlan-bridge-macvlan.
->>
->>unless I'm mistaken, today's behaviour:
->>
->># vconfig add eth0 100
->># brctl addbr br0
->># brctl addif br0 eth0
->>
->>=> eth0.100 gets no more packets, br0.100 is to be used
->>
->>after the patch won't we get the opposite ?
+On 10/13/2011 07:37 AM, Andy Fleming wrote:
+> 10G MDIO is a totally different protocol (clause 45 of 802.3).
+> Supporting this new protocol requires a couple of changes:
 >
->Looks like it. The question is what is the correct behaviour...
+> * Add a new parameter to the mdiobus_read functions to specify the
+>    "device address" inside the PHY.
+> * Add a phy45_read/write function which takes advantage of that
+>    new parameter
+> * Convert all of the existing drivers to use the new format
+>
+> I created a new clause-45-specific read/write functions because:
+> 1) phy_read and phy_write are highly overloaded functions, and
+>     finding every instance which is actually the PHY Lib version
+>     was quite difficult
+> 2) Most code which invokes phy_read/phy_write inside PHY Lib is
+>     Clause-22-specific. None of the phy_read/phy_write invocations
+>     were useable on 10G PHYs
+>
 
-I think this it become correct now, you should not destroy lover level if possible.
-I.e. as John wrote "it's not an unexpected behaviour"
+I think converting all these phy_read/phy_write to take an extra
+parameter is a mistake.  99% of the users have no need for the "device
+address".  Also you are still passing the protocol mode as a high
+order bit in the register address, so that part is still quite ugly.
 
-Consider adding a bridge to a vlan like this
+The existing infrastructure where we pass the "device address" in bits
+16..20 of the register number is much less disruptive.
 
-vconfig add eth0 100
-brctl addbr br1
-brctl addif br1 eth0.100
+If you don't like it, an easy and much less intrusive approach might
+be a simple (untested) wrapper:
 
-If you later add a bridge (or bond) should the previous added bridge still work ? 
-Yes I think so, for me it's the expected behaviour.
+static inline int phy45_read(struct phy_device *phydev,
+                              int devad, u16 regnum)
+{
+	u32 c45_reg = MII_ADDR_C45 | ((devad & 0x1f) << 16) | regnum;
+	return phy_read(phydev, c45_reg)
+}
 
-brctl addbr br0
-brctl addif br0 eth0
+static inline int phy45_write(struct phy_device *phydev,
+                               int devad, u16 regnum, u16 val)
+{
+	u32 c45_reg = MII_ADDR_C45 | ((devad & 0x1f) << 16) | regnum;
+	return phy_write(phydev, c45_reg, val)
+}
 
-Regards
-Hans
+
+> Signed-off-by: Andy Fleming<afleming@freescale.com>
+> ---
+> v2: Convert newer buses, split out generic PHY support
+> v3: Make patch series more coherent
+>
+>   Documentation/networking/phy.txt                  |   15 +++--
+>   arch/powerpc/platforms/pasemi/gpio_mdio.c         |    6 +-
+>   drivers/net/ethernet/adi/bfin_mac.c               |    7 +-
+>   drivers/net/ethernet/aeroflex/greth.c             |    5 +-
+>   drivers/net/ethernet/amd/au1000_eth.c             |    7 +-
+>   drivers/net/ethernet/broadcom/bcm63xx_enet.c      |    4 +-
+>   drivers/net/ethernet/broadcom/sb1250-mac.c        |    7 +-
+>   drivers/net/ethernet/broadcom/tg3.c               |    5 +-
+>   drivers/net/ethernet/cadence/macb.c               |    7 +-
+>   drivers/net/ethernet/dnet.c                       |    7 +-
+>   drivers/net/ethernet/ethoc.c                      |    5 +-
+>   drivers/net/ethernet/faraday/ftgmac100.c          |    5 +-
+>   drivers/net/ethernet/freescale/fec.c              |    7 +-
+>   drivers/net/ethernet/freescale/fec_mpc52xx_phy.c  |    7 +-
+>   drivers/net/ethernet/freescale/fs_enet/mii-fec.c  |    6 +-
+>   drivers/net/ethernet/freescale/fsl_pq_mdio.c      |   13 ++--
+>   drivers/net/ethernet/freescale/fsl_pq_mdio.h      |   11 ++-
+>   drivers/net/ethernet/lantiq_etop.c                |    5 +-
+>   drivers/net/ethernet/marvell/mv643xx_eth.c        |    5 +-
+>   drivers/net/ethernet/marvell/pxa168_eth.c         |    7 +-
+>   drivers/net/ethernet/rdc/r6040.c                  |    5 +-
+>   drivers/net/ethernet/s6gmac.c                     |    5 +-
+>   drivers/net/ethernet/smsc/smsc911x.c              |   22 ++++---
+>   drivers/net/ethernet/smsc/smsc9420.c              |   10 ++-
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    9 ++-
+>   drivers/net/ethernet/ti/cpmac.c                   |    4 +-
+>   drivers/net/ethernet/ti/davinci_mdio.c            |    5 +-
+>   drivers/net/ethernet/toshiba/tc35815.c            |    5 +-
+>   drivers/net/ethernet/xilinx/ll_temac_mdio.c       |    5 +-
+>   drivers/net/ethernet/xilinx/xilinx_emaclite.c     |    9 ++-
+>   drivers/net/ethernet/xscale/ixp4xx_eth.c          |    7 +-
+>   drivers/net/phy/fixed.c                           |    5 +-
+>   drivers/net/phy/icplus.c                          |   17 +++--
+>   drivers/net/phy/mdio-bitbang.c                    |    5 +-
+>   drivers/net/phy/mdio-octeon.c                     |    5 +-
+>   drivers/net/phy/mdio_bus.c                        |    8 +-
+>   drivers/net/phy/phy.c                             |    5 +-
+>   drivers/net/phy/phy_device.c                      |   64 +++++++++++++------
+>   include/linux/phy.h                               |   70 ++++++++++++++++++---
+>   net/dsa/slave.c                                   |    5 +-
+>   40 files changed, 270 insertions(+), 141 deletions(-)
+>
