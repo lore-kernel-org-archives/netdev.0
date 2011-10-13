@@ -1,102 +1,79 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/11] igb: Fix features that are currently 82580 only and should also be i350
-Date: Thu, 13 Oct 2011 00:15:07 -0700
-Message-ID: <1318490112-5092-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1318490112-5092-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10144 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753301Ab1JMHPT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Oct 2011 03:15:19 -0400
-In-Reply-To: <1318490112-5092-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Thelen <gthelen@google.com>
+Subject: Re: [PATCH v6 1/8] Basic kernel memory functionality for the Memory Controller
+Date: Thu, 13 Oct 2011 00:18:49 -0700
+Message-ID: <CAHH2K0awiPZZ9EJLyZy_p_ehf0-waQ-vGUAhAZEpdCMnYqKidA@mail.gmail.com>
+References: <1318242268-2234-1-git-send-email-glommer@parallels.com> <1318242268-2234-2-git-send-email-glommer@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
+        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+        davem@davemloft.net, netdev@vger.kernel.org, linux-mm@kvack.org,
+        kirill@shutemov.name, avagin@parallels.com, devel@openvz.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1318242268-2234-2-git-send-email-glommer@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Mon, Oct 10, 2011 at 3:24 AM, Glauber Costa <glommer@parallels.com> wrot=
+e:
+> diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/mem=
+ory.txt
+> index 06eb6d9..bf00cd2 100644
+> --- a/Documentation/cgroups/memory.txt
+> +++ b/Documentation/cgroups/memory.txt
+...
+> @@ -255,6 +262,31 @@ When oom event notifier is registered, event will be=
+ delivered.
+> =A0 per-zone-per-cgroup LRU (cgroup's private LRU) is just guarded by
+> =A0 zone->lru_lock, it has no lock of its own.
+>
+> +2.7 Kernel Memory Extension (CONFIG_CGROUP_MEM_RES_CTLR_KMEM)
+> +
+> + With the Kernel memory extension, the Memory Controller is able to limi=
+t
 
-This change allows support for per packet timesync and global device reset
-on the i350 adapter.  These features were supported on both 82580 and i350
-however it looks like several checks where not updated and as such the i350
-support was not enabled.
+Extra leading space before 'With'.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by:  Aaron Brown  <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |   15 ++++++---------
- 1 files changed, 6 insertions(+), 9 deletions(-)
+> +the amount of kernel memory used by the system. Kernel memory is fundame=
+ntally
+> +different than user memory, since it can't be swapped out, which makes i=
+t
+> +possible to DoS the system by consuming too much of this precious resour=
+ce.
+> +Kernel memory limits are not imposed for the root cgroup.
+> +
+> +Memory limits as specified by the standard Memory Controller may or may =
+not
+> +take kernel memory into consideration. This is achieved through the file
+> +memory.independent_kmem_limit. A Value different than 0 will allow for k=
+ernel
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index efc367b..fee771b 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -563,7 +563,7 @@ static cycle_t igb_read_clock(const struct cyclecounter *tc)
- 	 * the lowest register is SYSTIMR instead of SYSTIML.  However we never
- 	 * adjusted TIMINCA so SYSTIMR will just read as all 0s so ignore it.
- 	 */
--	if (hw->mac.type == e1000_82580) {
-+	if (hw->mac.type >= e1000_82580) {
- 		stamp = rd32(E1000_SYSTIMR) >> 8;
- 		shift = IGB_82580_TSYNC_SHIFT;
- 	}
-@@ -1367,7 +1367,7 @@ static void igb_irq_enable(struct igb_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 
- 	if (adapter->msix_entries) {
--		u32 ims = E1000_IMS_LSC | E1000_IMS_DOUTSYNC;
-+		u32 ims = E1000_IMS_LSC | E1000_IMS_DOUTSYNC | E1000_IMS_DRSTA;
- 		u32 regval = rd32(E1000_EIAC);
- 		wr32(E1000_EIAC, regval | adapter->eims_enable_mask);
- 		regval = rd32(E1000_EIAM);
-@@ -1377,9 +1377,6 @@ static void igb_irq_enable(struct igb_adapter *adapter)
- 			wr32(E1000_MBVFIMR, 0xFF);
- 			ims |= E1000_IMS_VMMB;
- 		}
--		if (adapter->hw.mac.type == e1000_82580)
--			ims |= E1000_IMS_DRSTA;
--
- 		wr32(E1000_IMS, ims);
- 	} else {
- 		wr32(E1000_IMS, IMS_ENABLE_MASK |
-@@ -3112,7 +3109,7 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	srrctl |= (PAGE_SIZE / 2) >> E1000_SRRCTL_BSIZEPKT_SHIFT;
- #endif
- 	srrctl |= E1000_SRRCTL_DESCTYPE_HDR_SPLIT_ALWAYS;
--	if (hw->mac.type == e1000_82580)
-+	if (hw->mac.type >= e1000_82580)
- 		srrctl |= E1000_SRRCTL_TIMESTAMP;
- 	/* Only set Drop Enable if we are supporting multiple queues */
- 	if (adapter->vfs_allocated_count || adapter->num_rx_queues > 1)
-@@ -4463,7 +4460,7 @@ static void igb_tx_timeout(struct net_device *netdev)
- 	/* Do the reset outside of interrupt context */
- 	adapter->tx_timeout_count++;
- 
--	if (hw->mac.type == e1000_82580)
-+	if (hw->mac.type >= e1000_82580)
- 		hw->dev_spec._82575.global_device_reset = true;
- 
- 	schedule_work(&adapter->reset_task);
-@@ -5581,7 +5578,7 @@ static void igb_systim_to_hwtstamp(struct igb_adapter *adapter,
- 	 * The 82580 starts with 1ns at bit 0 in RX/TXSTMPL, shift this up to
- 	 * 24 to match clock shift we setup earlier.
- 	 */
--	if (adapter->hw.mac.type == e1000_82580)
-+	if (adapter->hw.mac.type >= e1000_82580)
- 		regval <<= IGB_82580_TSYNC_SHIFT;
- 
- 	ns = timecounter_cyc2time(&adapter->clock, regval);
-@@ -6276,7 +6273,7 @@ static int igb_hwtstamp_ioctl(struct net_device *netdev,
- 	 * timestamped, so enable timestamping in all packets as
- 	 * long as one rx filter was configured.
- 	 */
--	if ((hw->mac.type == e1000_82580) && tsync_rx_ctl) {
-+	if ((hw->mac.type >= e1000_82580) && tsync_rx_ctl) {
- 		tsync_rx_ctl = E1000_TSYNCRXCTL_ENABLED;
- 		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_ALL;
- 	}
--- 
-1.7.6.4
+s/Value/value/
+
+> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+> index 3508777..d25c5cb 100644
+> --- a/mm/memcontrol.c
+> +++ b/mm/memcontrol.c
+...
+> +static int kmem_limit_independent_write(struct cgroup *cont, struct cfty=
+pe *cft,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 u64 val)
+> +{
+> + =A0 =A0 =A0 cgroup_lock();
+> + =A0 =A0 =A0 mem_cgroup_from_cont(cont)->kmem_independent_accounting =3D=
+ !!val;
+> + =A0 =A0 =A0 cgroup_unlock();
+
+I do not think cgroup_lock,unlock are needed here.  The cont and
+associated cgroup should be guaranteed by the caller to be valid.
+Does this lock provide some other synchronization?
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
