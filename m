@@ -1,51 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] e1000e: fix skb truesize underestimation
-Date: Thu, 13 Oct 2011 20:03:36 +0200
-Message-ID: <1318529016.2393.62.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net-next] bonding: fix wrong port enabling in 802.3ad
+Date: Thu, 13 Oct 2011 15:20:31 -0300
+Message-ID: <20111013152031.6e2ff168@asterix.rh>
+References: <1318526483-16073-1-git-send-email-fbl@redhat.com>
+	<18216.1318527991@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+	Andy Gospodarek <andy@greyhouse.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33992 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754207Ab1JMSD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 14:03:27 -0400
-Received: by wyg34 with SMTP id 34so2154157wyg.19
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 11:03:26 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:39888 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753553Ab1JMSUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Oct 2011 14:20:38 -0400
+In-Reply-To: <18216.1318527991@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-e1000e allocates a page per skb fragment. We must account
-PAGE_SIZE increments on skb->truesize, not the actual frag length.
+On Thu, 13 Oct 2011 10:46:31 -0700
+Jay Vosburgh <fubar@us.ibm.com> wrote:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Flavio Leitner <fbl@redhat.com> wrote:
+> 
+> >The port shouldn't be enabled unless its current MUX
+> >state is DISTRIBUTING which is correctly handled by
+> >ad_mux_machine(), otherwise the packet sent can be
+> >lost because the other end may not be ready.
+> >
+> >The issue happens on every port initialization, but
+> >as the ports are expected to move quickly to DISTRIBUTING,
+> >it doesn't cause much problem.  However, it does cause
+> >constant packet loss if the other peer has the port
+> >configured to stay in STANDBY (i.e. SYNC set to OFF).
+> 
+> 	This may explain another misbehavior I've been looking into: if
+> the bond's outgoing LACPDUs are lost (never received by the switch), but
+> the switch's incoming LACPDUs are received, bonding puts the port into
+> use, and packets to the switch are dropped by the switch.
+>
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 78c5d21..035ce73 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1300,7 +1300,7 @@ static bool e1000_clean_rx_irq_ps(struct e1000_adapter *adapter,
- 			ps_page->page = NULL;
- 			skb->len += length;
- 			skb->data_len += length;
--			skb->truesize += length;
-+			skb->truesize += PAGE_SIZE;
- 		}
+Yeah, it could explain that as well because on my tests here,
+all ports were enabled as soon as the aggregator is active.
+
  
- 		/* strip the ethernet crc, problem is we're using pages now so
-@@ -1360,7 +1360,7 @@ static void e1000_consume_page(struct e1000_buffer *bi, struct sk_buff *skb,
- 	bi->page = NULL;
- 	skb->len += length;
- 	skb->data_len += length;
--	skb->truesize += length;
-+	skb->truesize += PAGE_SIZE;
- }
- 
- /**
+> >Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> >---
+> >
+> >The comments there suggests it was a workaround for losses
+> >of link events, but I couldn't track the changelog as it
+> >seems to be pretty old.  Thus, as all the link notification
+> >stuff has been improved a lot, maybe this is not an issue
+> >anymore.  At least, I didn't find any problem while
+> >unplugging/plugging cables here.
+> 
+> 	I believe this code fragment is original to the 802.3ad
+> submission, which would have been around 2003 or so.
+> 
+> 	Did you check the standard for what it says should happen in
+> this case?  I'm guessing this is something not specified by the
+> standard, given the comment, but we should check to make sure.
+> 
+
+The standard says that the port should receive when its mux state
+is COLLECTING and transmitting when its mux state is DISTRIBUTING.
+So, that seems to be violationing the standard because it doesn't
+consider the mux state at all.  It is harmless for almost all cases
+though, because ports move quickly to DISTRIBUTING or no link at
+all, which disables the port.
+
+fbl
