@@ -1,92 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/3] netdev/phy: Handle IEEE802.3 clause 45 Ethernet
- PHYs
-Date: Thu, 13 Oct 2011 17:27:16 +0100
-Message-ID: <1318523236.2745.29.camel@bwh-desktop>
-References: <1318442783-29058-1-git-send-email-david.daney@cavium.com>
-	 <1318442783-29058-2-git-send-email-david.daney@cavium.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] be2net: fix truesize errors
+Date: Thu, 13 Oct 2011 18:31:02 +0200
+Message-ID: <1318523462.2393.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, afleming@gmail.com
-To: David Daney <david.daney@cavium.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318442783-29058-2-git-send-email-david.daney@cavium.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:38172 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756316Ab1JMQaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 12:30:46 -0400
+Received: by wwf22 with SMTP id 22so2056272wwf.1
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 09:30:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-10-12 at 11:06 -0700, David Daney wrote:
-> The IEEE802.3 clause 45 MDIO bus protocol allows for directly
-> addressing PHY registers using a 21 bit address, and is used by many
-> 10G Ethernet PHYS.  Already existing is the ability of MDIO bus
-> drivers to use clause 45, with the MII_ADDR_C45 flag.  Here we add
-> some support in the PHY and device tree infrastructure to use these
-> PHYs.
-> 
-> Normally the MII_ADDR_C45 flag is ORed with the register address to
-> indicate a clause 45 transaction.  Here we also use this flag in the
-> *device* address passed to get_phy_id() and get_phy_device() to
-> indicate that probing should be done with clause 45 transactions.  If
-> a PHY is successfully probed with MII_ADDR_C45, the new struct
-> phy_device is_c45 flag is set for the PHY.
+Fix skb truesize underestimations of this driver.
 
-That deserves a comment next to the definition of the macro.
+Each frag truesize is exactly rx_frag_size bytes. (2048 bytes per
+default)
 
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> ---
->  drivers/net/phy/phy_device.c |   25 ++++++++++++++++++++++---
->  include/linux/phy.h          |    3 +++
->  2 files changed, 25 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 83a5a5a..7e4d61b 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -171,6 +171,8 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
->  
->  	dev->autoneg = AUTONEG_ENABLE;
->  
-> +	dev->is_c45 = (addr & MII_ADDR_C45) != 0;
-> +	addr &= ~MII_ADDR_C45;
->  	dev->addr = addr;
->  	dev->phy_id = phy_id;
->  	dev->bus = bus;
-> @@ -205,15 +207,24 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
->   * @phy_id: where to store the ID retrieved.
->   *
->   * Description: Reads the ID registers of the PHY at @addr on the
-> - *   @bus, stores it in @phy_id and returns zero on success.
-> + *   @bus, stores it in @phy_id and returns zero on success.  If the
-> + *   @addr has been ORed with MII_ADDR_C45, mdio clause 45 data
-> + *   transfer is used to read ID from the PHY device, otherwise the
-> + *   standard protocol (clause 22) is used.
->   */
->  int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
->  {
->  	int phy_reg;
-> +	u32 c45_reg_base = 0;
->  
-> +	if (addr & MII_ADDR_C45) {
-> +		addr &= ~MII_ADDR_C45;
-> +		/* Access the PHY's PHY XS registers with C45 mode. */
-> +		c45_reg_base = MII_ADDR_C45 | 0x40000;
-> +	}
-[...]
+A driver should not use "sizeof(struct sk_buff)" at all.
 
-I'm not sure it's a safe assumption that every PHY has a PHY XS block.
-That said, I've not seen any that don't.  mdio45_probe() should work out
-which blocks are there, if you can set up an mdio_if_info for it.
+Signed-off-by: Eric Dumazet <eric.dumazet>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-It would be nice if someone would try to improve integration between
-mdio/mii and phylib rather than duplicating logic and interfaces.  I'm
-afraid I'm not going to be spending time on MDIO, though, since we've
-putting PHY drivers in firmware rather than on the host now.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 816ce56..679b804 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1071,6 +1071,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter, struct be_rx_obj *rxo,
+ 					page_info->page_offset + hdr_len;
+ 		skb_shinfo(skb)->frags[0].size = curr_frag_len - hdr_len;
+ 		skb->data_len = curr_frag_len - hdr_len;
++		skb->truesize += rx_frag_size;
+ 		skb->tail += hdr_len;
+ 	}
+ 	page_info->page = NULL;
+@@ -1103,7 +1104,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter, struct be_rx_obj *rxo,
+ 		skb_shinfo(skb)->frags[j].size += curr_frag_len;
+ 		skb->len += curr_frag_len;
+ 		skb->data_len += curr_frag_len;
+-
++		skb->truesize += rx_frag_size;
+ 		remaining -= curr_frag_len;
+ 		index_inc(&rxcp->rxq_idx, rxq->len);
+ 		page_info->page = NULL;
+@@ -1133,7 +1134,6 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 	else
+ 		skb_checksum_none_assert(skb);
+ 
+-	skb->truesize = skb->len + sizeof(struct sk_buff);
+ 	skb->protocol = eth_type_trans(skb, netdev);
+ 	if (adapter->netdev->features & NETIF_F_RXHASH)
+ 		skb->rxhash = rxcp->rss_hash;
+@@ -1181,7 +1181,7 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 			put_page(page_info->page);
+ 		}
+ 		skb_shinfo(skb)->frags[j].size += curr_frag_len;
+-
++		skb->truesize += rx_frag_size;
+ 		remaining -= curr_frag_len;
+ 		index_inc(&rxcp->rxq_idx, rxq->len);
+ 		memset(page_info, 0, sizeof(*page_info));
+@@ -1191,7 +1191,6 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 	skb_shinfo(skb)->nr_frags = j + 1;
+ 	skb->len = rxcp->pkt_size;
+ 	skb->data_len = rxcp->pkt_size;
+-	skb->truesize += rxcp->pkt_size;
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	if (adapter->netdev->features & NETIF_F_RXHASH)
+ 		skb->rxhash = rxcp->rss_hash;
