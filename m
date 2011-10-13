@@ -1,106 +1,87 @@
-From: =?iso-8859-1?Q?Hans_Schillstr=F6m?= <hans.schillstrom@ericsson.com>
-Subject: RE: [net-next PATCH] net: allow vlan traffic to be received under
- bond
-Date: Thu, 13 Oct 2011 20:23:22 +0200
-Message-ID: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D90317A@ESESSCMS0356.eemea.ericsson.se>
-References: <20111010191641.2496.84845.stgit@jf-dev1-dcblab>
- <20111010223752.GB2373@minipsycho>
- <1318518274.9266.94.camel@sakura.staff.proxad.net>,<20111013153850.GA2031@minipsycho>
- <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>,<4E972301.4030004@intel.com>
+From: sveniu@opera.com
+Subject: Route flagged RTCF_REDIRECTED without ICMP redirs?
+Date: Thu, 13 Oct 2011 18:50:15 +0000
+Message-ID: <20111013185015.fa2abpjlpw8c0408@staff.opera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, Maxime Bizon <mbizon@freebox.fr>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain;
+	charset=UTF-8;
+	DelSp="Yes";
+	format="flowed"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw10.se.ericsson.net ([193.180.251.61]:55486 "EHLO
-	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751694Ab1JMSXY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 14:23:24 -0400
-In-Reply-To: <4E972301.4030004@intel.com>
-Content-Language: en-US
+Received: from smtp.opera.com ([213.236.208.81]:54603 "EHLO smtp.opera.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751731Ab1JMTBh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 15:01:37 -0400
+Received: from staff.opera.com (www-data@e3.opera.com [213.236.208.179])
+	by smtp.opera.com (8.14.3/8.14.3/Debian-5+lenny1) with ESMTP id p9DIoF0K011407
+	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 18:50:15 GMT
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+How can a route end up with being flagged with RTCF_REDIRECTED, and
+point to the default gateway, even though it's explicitly set to route
+to another node in the same subnet, in the rpdb and routing tables?
+There is zero trace of icmp redirects, and all redirect sysctls have
+been disabled, and the route cache flushed before every test.
 
->On 10/13/2011 8:59 AM, Hans Schillstr=F6m wrote:
->> Thu, Oct 13, 2011 at 05:04:34PM CEST, mbizon@freebox.fr wrote:
->>>>
->>>> On Tue, 2011-10-11 at 00:37 +0200, Jiri Pirko wrote:
->>>>
->>>>> Hmm, I must look at this again tomorrow but I have strong feeling=
- this
->>>>> will break some some scenario including vlan-bridge-macvlan.
->>>>
->>>> unless I'm mistaken, today's behaviour:
->>>>
->>>> # vconfig add eth0 100
->>>> # brctl addbr br0
->>>> # brctl addif br0 eth0
->>>>
->>>> =3D> eth0.100 gets no more packets, br0.100 is to be used
->>>>
->>>> after the patch won't we get the opposite ?
->>>
->>> Looks like it. The question is what is the correct behaviour...
->>
->> I think this it become correct now, you should not destroy lover lev=
-el if possible.
->> I.e. as John wrote "it's not an unexpected behaviour"
->>
->> Consider adding a bridge to a vlan like this
->>
->> vconfig add eth0 100
->> brctl addbr br1
->> brctl addif br1 eth0.100
->>
->> If you later add a bridge (or bond) should the previous added bridge=
- still work ?
->> Yes I think so, for me it's the expected behaviour.
->>
->> brctl addbr br0
->> brctl addif br0 eth0
->>
->
->Sorry I'm not entirely sure I followed the above two posts. Note
->this patch restores behavior that has existed for most of the
->2.6.x kernels. In the 3.x kernels VLAN100 is dropped in the
->schematic below (assuming eth0 is active), I think this is
->incorrect.
->
->      ---> eth0.100
->       |
->       |
->eth0 -----> br0
->
->With this patch VLAN100 is delivered to eth0.100 as I expect. Now
->adding a VLAN100 to br0.
->
->
->       ---> eth0.100
->       |
->       |
->eth0 -----> br0---> br0.100
->
->With this patch in the above case VLAN100 is delivered to the
->first matching vlan. Here eth0.100 will receive the packet If
->you really want br0.100 to receive the packet remove eth0.100.
->Without this patch the packet will be delivered to br0.100,
->but no configuration will allow a packet to be delivered to
->eth0.100 with a bond.
->
->The first schematic is used for doing bonding on LAN traffic
->and SAN (storage) traffic with MPIO. So I think my expectations
->are correct and have a real use case.
->
->Thanks,
->John
+The flag is only set in route.c:rt_init_metrics() and check_peer_redir(),
+only if peer->redirect_learned.a4 is set. The only place I see that
+being modified, is in route.c:ip_rt_redirect(), which I only see called
+from icmp.c:icmp_redirect(). What gives?
 
-Sorry if I caused confusion,  I do agree with you to 100%.
+This is using kernel version 3.0.
 
-Regards
-Hans
+This is happening on a two-node LVS/ipvs setup, where the master node A
+schedules packets to node B, and due to having to use NETMAP to handle
+multiple overlapping source subnets, node B must send return packets back
+to node A for correct translation back to the requestor.
+
+However, node B (172.16.0.3) insists on sending packets straight to its
+default gateway (172.16.0.1). Excessive logging in all netfilter tables
+and chains, and tcpdump on all interfaces, doesn't show abnormal activity.
+Node B's lvs/ipvs does not touch the packet at all.
+
+Here's how it looks after node B has seen a packet, and has responded (by
+wrongly sending the response to its default gateway):
+
+# ip route show cache
+10.0.0.2 from 172.16.0.3 via 172.16.0.1 dev bond0.310
+   cache <redirected>  ipid 0x80e3 rtt 80ms rttvar 70ms cwnd 10
+
+Entry in the rpdb:
+
+# ip rule show
+0:      from all lookup local
+99:     from 172.16.0.3 to 10.0.0.0/24 lookup to_node1
+32766:  from all lookup main
+32767:  from all lookup default
+(The rpdb really should have eval/match counters, btw!)
+
+Corresponding routing table:
+
+# ip route show table to_node1
+default via 172.16.0.2 dev bond0.310
+
+# ip route show
+default via 172.16.0.1 dev bond0.310
+172.16.0.0/24 dev bond0.310  proto kernel  scope link  src 172.16.0.3
+172.16.1.0/24 dev bond0.311  proto kernel  scope link  src 172.16.1.3
+
+Relevant sysctls have been configured on both node A and B:
+net.ipv4.conf.*.shared_media = 0
+net.ipv4.conf.*.accept_redirects = 0
+net.ipv4.conf.*.secure_redirects = 0
+net.ipv4.conf.*.send_redirects = 0
+* = {all,default,devices}
+(Same for ipv6 too, for good measure, although there's no ipv6 traffic.)
+
+Tcpdump on all interfaces shows no traces of any icmp activity. The
+'netstat -s' icmp redirect counter does not increase.
+
+What am I missing?
+
+best regards,
+Sven Ulland
