@@ -1,42 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ixgbe: fix skb truesize underestimation
-Date: Thu, 13 Oct 2011 19:59:41 +0200
-Message-ID: <1318528781.2393.59.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/11 v2][pull request] Intel Wired LAN Driver
+ Updates
+Date: Thu, 13 Oct 2011 14:00:20 -0400 (EDT)
+Message-ID: <20111013.140020.1488831185205140243.davem@davemloft.net>
+References: <1318490112-5092-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55434 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932177Ab1JMR7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 13:59:25 -0400
-Received: by wwf22 with SMTP id 22so2187390wwf.1
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 10:59:24 -0700 (PDT)
+Received: from shards.monkeyblade.net ([198.137.202.13]:44375 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755193Ab1JMSA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 14:00:26 -0400
+In-Reply-To: <1318490112-5092-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ixgbe allocates half a page per skb fragment. We must account
-PAGE_SIZE/2 increments on skb->truesize, not the actual frag length.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 13 Oct 2011 00:15:01 -0700
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> The following series contains updates to ixgbe and igb.  This
+> version of the series contains the following changes:
+> 
+> - ixgbe add FCoE stats, add protection from invalid DMA and fix
+>   check for change in FCoE priority
+> - igb version bump, fix sparse warnings and finish up the cleanup
+>   work of igb by Alex Duyck.
+> 
+> - v2: drop the "igb: move DMA Coalescing feature code into separate function."
+>   patch while Carolyn fixes the patch based on David Miller's comments.
+> 
+> The following are changes since commit 9687c637388f63b87fcc18eee6e65bcfca4f49ca:
+>   Merge branch 'for-davem' of git://git.infradead.org/users/linville/wireless-next
+> and are available in the git repository at
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1519a23..fdb6ae4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1326,7 +1326,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
- 
- 			skb->len += upper_len;
- 			skb->data_len += upper_len;
--			skb->truesize += upper_len;
-+			skb->truesize += PAGE_SIZE / 2;
- 		}
- 
- 		i++;
+Pulled, thanks.
