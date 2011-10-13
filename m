@@ -1,9 +1,10 @@
 From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Subject: Re: [PATCH v6 6/8] tcp buffer limitation: per-cgroup limit
-Date: Thu, 13 Oct 2011 14:58:51 +0900
-Message-ID: <20111013145851.4a3739ee.kamezawa.hiroyu@jp.fujitsu.com>
+Subject: Re: [PATCH v6 7/8] Display current tcp memory allocation in kmem
+ cgroup
+Date: Thu, 13 Oct 2011 14:59:31 +0900
+Message-ID: <20111013145931.118c3064.kamezawa.hiroyu@jp.fujitsu.com>
 References: <1318242268-2234-1-git-send-email-glommer@parallels.com>
-	<1318242268-2234-7-git-send-email-glommer@parallels.com>
+	<1318242268-2234-8-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -13,18 +14,16 @@ Cc: linux-kernel@vger.kernel.org, paul@paulmenage.org, lizf@cn.fujitsu.com,
  avagin@parallels.com, devel@openvz.org
 To: Glauber Costa <glommer@parallels.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1318242268-2234-7-git-send-email-glommer@parallels.com>
+In-Reply-To: <1318242268-2234-8-git-send-email-glommer@parallels.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Oct 2011 14:24:26 +0400
+On Mon, 10 Oct 2011 14:24:27 +0400
 Glauber Costa <glommer@parallels.com> wrote:
 
-> This patch uses the "tcp_max_mem" field of the kmem_cgroup to
-> effectively control the amount of kernel memory pinned by a cgroup.
-> 
-> We have to make sure that none of the memory pressure thresholds
-> specified in the namespace are bigger than the current cgroup.
+> This patch introduces kmem.tcp_current_memory file, living in the
+> kmem_cgroup filesystem. It is a simple read-only file that displays the
+> amount of kernel memory currently consumed by the cgroup.
 > 
 > Signed-off-by: Glauber Costa <glommer@parallels.com>
 > CC: David S. Miller <davem@davemloft.net>
