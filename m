@@ -1,72 +1,82 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 1/3] netdev/phy: Handle IEEE802.3 clause 45 Ethernet PHYs
-Date: Wed, 12 Oct 2011 18:21:11 -0600
-Message-ID: <20111013002111.GA14042@ponder.secretlab.ca>
+Subject: Re: [PATCH 2/3] netdev/phy/of: Handle IEEE802.3 clause 45 Ethernet
+ PHYs in of_mdiobus_register()
+Date: Wed, 12 Oct 2011 18:23:25 -0600
+Message-ID: <20111013002325.GB14042@ponder.secretlab.ca>
 References: <1318442783-29058-1-git-send-email-david.daney@cavium.com>
- <1318442783-29058-2-git-send-email-david.daney@cavium.com>
+ <1318442783-29058-3-git-send-email-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, davem@davemloft.net, afleming@gmail.com
 To: David Daney <david.daney@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:59239 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752504Ab1JMCZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Oct 2011 22:25:39 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1318442783-29058-2-git-send-email-david.daney@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1318442783-29058-3-git-send-email-david.daney@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 12, 2011 at 11:06:21AM -0700, David Daney wrote:
-> The IEEE802.3 clause 45 MDIO bus protocol allows for directly
-> addressing PHY registers using a 21 bit address, and is used by many
-> 10G Ethernet PHYS.  Already existing is the ability of MDIO bus
-> drivers to use clause 45, with the MII_ADDR_C45 flag.  Here we add
-> some support in the PHY and device tree infrastructure to use these
-> PHYs.
+On Wed, Oct 12, 2011 at 11:06:22AM -0700, David Daney wrote:
+> Define two new "compatible" values for Ethernet
+> PHYs. "ethernet-phy-ieee802.3-c22" and "ethernet-phy-ieee802.3-c45"
+> are used to indicate a PHY uses the corresponding protocol.
 > 
-> Normally the MII_ADDR_C45 flag is ORed with the register address to
-> indicate a clause 45 transaction.  Here we also use this flag in the
-> *device* address passed to get_phy_id() and get_phy_device() to
-> indicate that probing should be done with clause 45 transactions.  If
-> a PHY is successfully probed with MII_ADDR_C45, the new struct
-> phy_device is_c45 flag is set for the PHY.
+> If a PHY is "compatible" with "ethernet-phy-ieee802.3-c45", we
+> indicate this so that get_phy_device() can properly probe the device.
 > 
 > Signed-off-by: David Daney <david.daney@cavium.com>
 
-Minor comment below, but otherwise,
+I'm okay with this binding.  I'd like to get opinions from other
+developers before it is committed to though.
 
 Acked-by: Grant Likely <grant.likely@secretlab.ca>
 
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index e4c3844..0a25e2c 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -246,6 +246,7 @@ struct sk_buff;
->   * phy_id: UID for this device found during discovery
->   * state: state of the PHY for management purposes
->   * dev_flags: Device-specific flags used by the PHY driver.
-> + * is_c45:  Set to 1 if this phy uses clause 45 addressing.
+g.
 
-"Set to true if ..."
-
->   * addr: Bus address of PHY
->   * link_timeout: The number of timer firings to wait before the
->   * giving up on the current attempt at acquiring a link
-> @@ -283,6 +284,8 @@ struct phy_device {
+> ---
+>  Documentation/devicetree/bindings/net/phy.txt |   12 +++++++++++-
+>  drivers/of/of_mdio.c                          |    4 ++++
+>  2 files changed, 15 insertions(+), 1 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+> index bb8c742..de9cb32 100644
+> --- a/Documentation/devicetree/bindings/net/phy.txt
+> +++ b/Documentation/devicetree/bindings/net/phy.txt
+> @@ -16,8 +16,18 @@ Required properties:
 >  
->  	u32 dev_flags;
+>  Example:
 >  
-> +	unsigned int is_c45:1;
+> +Optional Properties:
 > +
-
-bool
-
->  	phy_interface_t interface;
+> +- compatible: Compatible list, may contain "ethernet-phy-ieee802.3-c22" or
+> +              "ethernet-phy-ieee802.3-c45" for PHYs that implement
+> +              IEEE802.3 clause 22 or IEEE802.3 clause 45
+> +              specifications.  If neither of these are specified, the
+> +              default is to assume clause 22.  The compatible list may
+> +              also contain other elements.
+> +
+>  ethernet-phy@0 {
+> -	linux,phandle = <2452000>
+> +	compatible = "ethernet-phy-ieee802.3-c22";
+> +	linux,phandle = <2452000>;
+>  	interrupt-parent = <40000>;
+>  	interrupts = <35 1>;
+>  	reg = <0>;
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index 7c28e8c..f837a7f 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -79,6 +79,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+>  				mdio->irq[addr] = PHY_POLL;
+>  		}
 >  
->  	/* Bus address of the PHY (0-31) */
+> +		if (of_device_is_compatible(child,
+> +					    "ethernet-phy-ieee802.3-c45"))
+> +			addr |= MII_ADDR_C45;
+> +
+>  		phy = get_phy_device(mdio, addr);
+>  		if (!phy || IS_ERR(phy)) {
+>  			dev_err(&mdio->dev, "error probing PHY at address %i\n",
 > -- 
 > 1.7.2.3
 > 
