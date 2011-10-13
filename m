@@ -1,46 +1,62 @@
-From: Olaf van der Spek <ml@vdspek.org>
-Subject: Re: Seamless Service Restart / Port Takeover
-Date: Thu, 13 Oct 2011 11:56:04 +0200
-Message-ID: <CAGVGHmugM7Ta3mafe1V5n76QZrZzCryMo3kr=XPfb4knmPP_hg@mail.gmail.com>
-References: <CAGVGHmuVnsw4mdsxO=93yaYRgGaj20gR0+nNB_iaS=nTM_BThw@mail.gmail.com>
-	<4E95CAD8.3050405@hp.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 1/4] ipv4: Fix pmtu propagating
+Date: Thu, 13 Oct 2011 12:09:50 +0200
+Message-ID: <20111013100950.GO1830@secunet.com>
+References: <20111011110842.GC1830@secunet.com>
+ <20111011110922.GD1830@secunet.com>
+ <20111012.170218.279202034199478303.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:42365 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752003Ab1JMJ4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 05:56:05 -0400
-Received: by vcbgb30 with SMTP id gb30so1337183vcb.19
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 02:56:04 -0700 (PDT)
-In-Reply-To: <4E95CAD8.3050405@hp.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:41347 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752553Ab1JMKJ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Oct 2011 06:09:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20111012.170218.279202034199478303.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 12, 2011 at 7:14 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> On 10/12/2011 09:53 AM, Olaf van der Spek wrote:
->>
->> Hi,
->>
->> When restarting a service, a webserver for example, you'd like this to
->> be seamless for clients. Often, first a signal is send to the old
->> process to close listening sockets, then the new process is started.
->> This has both a race condition (sometimes 'avoided' with a sleep in
->> between) and service interruption.
->> Wouldn't it be possible to introduce mv / move like behaviour, where
->> the socket can be rebound without races and without interruption?
->
-> I believe you can do that today if you write the application such that the
-> old instance, before it closes the listen endpoint and terminates, instead
-> passes access to it to the new instance via a Unix domain socket between the
-> two.
+On Wed, Oct 12, 2011 at 05:02:18PM -0400, David Miller wrote:
+> 
+> This dst_check() call will only do something if dst->obsolete is non-zero.
+> 
+> If dst->obsolete can be set in these circumstances, that's a bug.  The
+> caller is responsible for providing either a freshly looked up route
+> or a cached route which has had dst_check() or sk_dst_check() invoked
+> upon it.
 
-Hi Rick,
+dst->obsolete was -1 in all cases I observed, regardless if connected or not.
 
-That sounds rather complicated. What daemons implement the
-functionality this way?
-I think an easier way to accomplish this would be quite welcome.
+> 
+> I am pretty sure these rules are followed by the current code.
+> 
+> Again, there are only two scenerios:
+> 
+> 1) 'rt' is just looked up by caller (f.e. udp_sendmsg() in rt == NULL case),
+>    here dst->obsolete is very unlikely to be non-zero.
+> 
+> 2) Connected case, and we use cached route from the socket, but here
+>    we'll use sk_dst_check() to validate the route.  sk_dst_check()
+>    makes the necessary dst->ops->check() call if dst->obsolete is
+>    non-zero, and in fact that is it's one and only job.
+> 
 
-Olaf
+At least it seems that raw_sendmsg() and ping_sendmsg() don't use
+a cached route, they do the route lookup in any case. I don't see
+where we check if we learned a new pmtu in this cases. 
+
+I added some debugging output and saw that peer->pmtu_learned
+has the correct pmtu value, but it never ends up in the metric
+of the dst_entry.
+
+With a ping -s 1400 to a destination where the pmtu is 1000
+I get for each packet 'Frag needed and DF set (mtu = 1000)'.
+That's how I noticed that something changed.
+
+With the dst_check() in ip_setup_cork() I get
+'Frag needed and DF set (mtu = 1000)' for the first packet and
+all further packets reach the destination, as it was before
+commmit 2c8cec5c.
