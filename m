@@ -1,70 +1,64 @@
 From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH v6 1/8] Basic kernel memory functionality for the Memory
- Controller
-Date: Thu, 13 Oct 2011 12:19:37 +0400
-Message-ID: <4E969F19.4010802@parallels.com>
-References: <1318242268-2234-1-git-send-email-glommer@parallels.com> <1318242268-2234-2-git-send-email-glommer@parallels.com> <CAHH2K0awiPZZ9EJLyZy_p_ehf0-waQ-vGUAhAZEpdCMnYqKidA@mail.gmail.com>
+Subject: Re: [PATCH v6 3/8] foundations of per-cgroup memory pressure controlling.
+Date: Thu, 13 Oct 2011 12:25:53 +0400
+Message-ID: <4E96A091.4000705@parallels.com>
+References: <1318242268-2234-1-git-send-email-glommer@parallels.com> <1318242268-2234-4-git-send-email-glommer@parallels.com> <20111013145353.161009ea.kamezawa.hiroyu@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: <linux-kernel@vger.kernel.org>, <paul@paulmenage.org>,
-	<lizf@cn.fujitsu.com>, <kamezawa.hiroyu@jp.fujitsu.com>,
-	<ebiederm@xmission.com>, <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-mm@kvack.org>, <kirill@shutemov.name>, <avagin@parallels.com>,
-	<devel@openvz.org>
-To: Greg Thelen <gthelen@google.com>
+	<lizf@cn.fujitsu.com>, <ebiederm@xmission.com>, <davem@davemloft.net>,
+	<gthelen@google.com>, <netdev@vger.kernel.org>, <linux-mm@kvack.org>,
+	<kirill@shutemov.name>, <avagin@parallels.com>, <devel@openvz.org>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CAHH2K0awiPZZ9EJLyZy_p_ehf0-waQ-vGUAhAZEpdCMnYqKidA@mail.gmail.com>
+In-Reply-To: <20111013145353.161009ea.kamezawa.hiroyu@jp.fujitsu.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 10/13/2011 11:18 AM, Greg Thelen wrote:
-> On Mon, Oct 10, 2011 at 3:24 AM, Glauber Costa<glommer@parallels.com>  wrote:
->> diff --git a/Documentation/cgroups/memory.txt b/Documentation/cgroups/memory.txt
->> index 06eb6d9..bf00cd2 100644
->> --- a/Documentation/cgroups/memory.txt
->> +++ b/Documentation/cgroups/memory.txt
-> ...
->> @@ -255,6 +262,31 @@ When oom event notifier is registered, event will be delivered.
->>    per-zone-per-cgroup LRU (cgroup's private LRU) is just guarded by
->>    zone->lru_lock, it has no lock of its own.
+On 10/13/2011 09:53 AM, KAMEZAWA Hiroyuki wrote:
+> On Mon, 10 Oct 2011 14:24:23 +0400
+> Glauber Costa<glommer@parallels.com>  wrote:
+>
+>> This patch converts struct sock fields memory_pressure,
+>> memory_allocated, sockets_allocated, and sysctl_mem (now prot_mem)
+>> to function pointers, receiving a struct mem_cgroup parameter.
 >>
->> +2.7 Kernel Memory Extension (CONFIG_CGROUP_MEM_RES_CTLR_KMEM)
+>> enter_memory_pressure is kept the same, since all its callers
+>> have socket a context, and the kmem_cgroup can be derived from
+>> the socket itself.
+>>
+>> To keep things working, the patch convert all users of those fields
+>> to use acessor functions.
+>>
+>> In my benchmarks I didn't see a significant performance difference
+>> with this patch applied compared to a baseline (around 1 % diff, thus
+>> inside error margin).
+>>
+>> Signed-off-by: Glauber Costa<glommer@parallels.com>
+>> CC: David S. Miller<davem@davemloft.net>
+>> CC: Hiroyouki Kamezawa<kamezawa.hiroyu@jp.fujitsu.com>
+>> CC: Eric W. Biederman<ebiederm@xmission.com>
+>
+> Reviewed-by: KAMEZAWA Hiroyuki<kamezawa.hiroyu@jp.fujitsu.com>
+>
+> a nitpick.
+>
+>
+>>   #ifdef CONFIG_INET
+>> +enum {
+>> +	UNDER_LIMIT,
+>> +	OVER_LIMIT,
+>> +};
 >> +
->> + With the Kernel memory extension, the Memory Controller is able to limit
 >
-> Extra leading space before 'With'.
+> It may be better to move this to res_counter.h or memcontrol.h
 >
->> +the amount of kernel memory used by the system. Kernel memory is fundamentally
->> +different than user memory, since it can't be swapped out, which makes it
->> +possible to DoS the system by consuming too much of this precious resource.
->> +Kernel memory limits are not imposed for the root cgroup.
->> +
->> +Memory limits as specified by the standard Memory Controller may or may not
->> +take kernel memory into consideration. This is achieved through the file
->> +memory.independent_kmem_limit. A Value different than 0 will allow for kernel
->
-> s/Value/value/
->
->> diff --git a/mm/memcontrol.c b/mm/memcontrol.c
->> index 3508777..d25c5cb 100644
->> --- a/mm/memcontrol.c
->> +++ b/mm/memcontrol.c
-> ...
->> +static int kmem_limit_independent_write(struct cgroup *cont, struct cftype *cft,
->> +                                       u64 val)
->> +{
->> +       cgroup_lock();
->> +       mem_cgroup_from_cont(cont)->kmem_independent_accounting = !!val;
->> +       cgroup_unlock();
->
-> I do not think cgroup_lock,unlock are needed here.  The cont and
-> associated cgroup should be guaranteed by the caller to be valid.
-> Does this lock provide some other synchronization?
-Yeah, I think I was being overcautious.
+Sorry Kame,
 
-With the following comments addressed, can I add your Reviewed-by to 
-this one ?
+It is in memcontrol.h already. What exactly do you mean here ?
+
+
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
