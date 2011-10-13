@@ -1,68 +1,39 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [RFC PATCH V2] ethtool:  Add command to configure IOV features
-Date: Thu, 13 Oct 2011 10:07:27 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755019C9F2F08@orsmsx508.amr.corp.intel.com>
-References: <20110922213543.26713.23525.stgit@gitlad.jf.intel.com>
- <1318034485.2771.162.camel@bwh-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: more accurate skb truesize
+Date: Thu, 13 Oct 2011 19:11:17 +0200
+Message-ID: <1318525877.2393.41.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1318519581.2393.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1318521901.2745.18.camel@bwh-desktop>
+	 <1318523090.2393.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1318523564.2745.32.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Andi Kleen <ak@linux.intel.com>
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:57035 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751869Ab1JMRHa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Oct 2011 13:07:30 -0400
-In-Reply-To: <1318034485.2771.162.camel@bwh-desktop>
-Content-Language: en-US
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:49035 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754207Ab1JMRLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 13:11:01 -0400
+Received: by wwf22 with SMTP id 22so2117274wwf.1
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 10:11:00 -0700 (PDT)
+In-Reply-To: <1318523564.2745.32.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBPY3RvYmVyIDA3
-LCAyMDExIDU6NDEgUE0NCj4gVG86IFJvc2UsIEdyZWdvcnkgVg0KPiBDYzogbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1JGQyBQQVRDSCBWMl0gZXRodG9vbDogQWRkIGNv
-bW1hbmQgdG8gY29uZmlndXJlIElPViBmZWF0dXJlcw0KPiANCj4gT24gVGh1LCAyMDExLTA5LTIy
-IGF0IDE0OjM1IC0wNzAwLCBHcmVnIFJvc2Ugd3JvdGU6DQo+ID4gTmV3IGNvbW1hbmQgdG8gYWxs
-b3cgY29uZmlndXJhdGlvbiBvZiBJT1YgZmVhdHVyZXMgc3VjaCBhcyB0aGUgbnVtYmVyIG9mDQo+
-ID4gVmlydHVhbCBGdW5jdGlvbnMgdG8gYWxsb2NhdGUgZm9yIGEgZ2l2ZW4gUGh5c2ljYWwgRnVu
-Y3Rpb24gaW50ZXJmYWNlLA0KPiA+IHRoZSBudW1iZXIgb2Ygc2VtaS1pbmRlcGVuZGVudCBuZXQg
-ZGV2aWNlcyB0byBhbGxvY2F0ZSBmcm9tIHBhcnRpdGlvbmVkDQo+ID4gSS9PIHJlc291cmNlcyBp
-biB0aGUgUEYgYW5kIHRvIHNldCB0aGUgbnVtYmVyIG9mIHF1ZXVlcyBwZXIgVkYuDQo+IFsuLi5d
-DQo+ID4gQEAgLTI2Niw2ICsyNzAsOCBAQCBzdGF0aWMgc3RydWN0IG9wdGlvbiB7DQo+ID4gICAg
-ICB7ICItVyIsICItLXNldC1kdW1wIiwgTU9ERV9TRVRfRFVNUCwNCj4gPiAgCQkiU2V0IGR1bXAg
-ZmxhZyBvZiB0aGUgZGV2aWNlIiwNCj4gPiAgCQkiCQlOXG4ifSwNCj4gPiArICAgIHsgIi12Iiwg
-Ii0tZ2V0LWlvdiIsIE1PREVfR0VUX0lPViwgIkdldCBJT1YgcGFyYW1ldGVycyIsICJcbiIgfSwN
-Cj4gPiArICAgIHsgIi1WIiwgIi0tc2V0X2lvdiIsIE1PREVfU0VUX0lPViwgIlNldCBJT1YgcGFy
-YW1ldGVycyIsICJbIE4gXVxuIg0KPiB9LA0KPiANCj4gRG9lc24ndCBtYXRjaCB0aGUgaW1wbGVt
-ZW50YXRpb24uDQoNCldob29wcy4uLiBPSy4NCg0KPiANCj4gWy4uLl0NCj4gPiArc3RhdGljIGlu
-dCBkb19nZXRfaW92KGludCBmZCwgc3RydWN0IGlmcmVxICppZnIpDQo+ID4gK3sNCj4gPiArCWlu
-dCBlcnI7DQo+ID4gKwlzdHJ1Y3QgZXRodG9vbF9pb3ZfZ2V0X2NtZCBpb3ZfY21kOw0KPiA+ICsN
-Cj4gPiArCWlvdl9jbWQuY21kID0gRVRIVE9PTF9JT1ZfR0VUX0NNRDsNCj4gPiArCWlmci0+aWZy
-X2RhdGEgPSAoY2FkZHJfdCkmaW92X2NtZDsNCj4gPiArCWVyciA9IHNlbmRfaW9jdGwoZmQsIGlm
-cik7DQo+ID4gKwlpZiAoZXJyIDwgMCkgew0KPiA+ICsJCXBlcnJvcigiQ2FuIG5vdCBnZXQgY3Vy
-cmVudCBJT1YgbW9kZVxuIik7DQo+ID4gKwkJcmV0dXJuIDE7DQo+ID4gKwl9DQo+ID4gKw0KPiA+
-ICsJbWVtY3B5KCZpb3ZfY21kLCBpZnItPmlmcl9kYXRhLCBzaXplb2YoaW92X2NtZCkpOw0KPiAN
-Cj4gQnV0IGlmci0+aWZyX2RhdGEgPT0gJmlvdl9jbWQuICBTbyB0aGlzIGlzIGJvdGggcG9pbnRs
-ZXNzIGFuZCBkYW5nZXJvdXMNCj4gKGFzIG1lbWNweSgpIGRvZXNuJ3QgaGFuZGxlIG92ZXJsYXBw
-aW5nIHNvdXJjZSBhbmQgZGVzdGluYXRpb24pLg0KDQpIdWguLi4gd2hhdCB3YXMgSSB0aGlua2lu
-Zz8gIFllYWgsIEknbGwgZml4IHRoYXQuDQoNCj4gDQo+IFsuLi5dDQo+ID4gK3N0YXRpYyBpbnQg
-ZG9fc2V0X2lvdihpbnQgZmQsIHN0cnVjdCBpZnJlcSAqaWZyKQ0KPiA+ICt7DQo+ID4gKwlpbnQg
-ZXJyOw0KPiA+ICsJc3RydWN0IGV0aHRvb2xfaW92X3NldF9jbWQgaW92X2NtZDsNCj4gPiArDQo+
-ID4gKwlpZiAoaW92X2NoYW5nZWQpIHsNCj4gPiArCQlpb3ZfY21kLmNtZCA9IEVUSFRPT0xfSU9W
-X1NFVF9DTUQ7DQo+ID4gKwkJaWYgKGlvdl9udW12ZnNfd2FudGVkID49IDApIHsNCj4gPiArCQkJ
-aW92X2NtZC5zZXRfY21kID0gRVRIVE9PTF9JT1ZfQ01EX0NPTkZJR1VSRV9TUklPVjsNCj4gPiAr
-CQkJaW92X2NtZC5jbWRfcGFyYW0gPSBpb3ZfbnVtdmZzX3dhbnRlZDsNCj4gPiArCQl9IGVsc2Ug
-aWYgKGlvdl9udW1uZXRkZXZzX3dhbnRlZCA+PSAwKSB7DQo+ID4gKwkJCWlvdl9jbWQuc2V0X2Nt
-ZCA9IEVUSFRPT0xfSU9WX0NNRF9DT05GSUdVUkVfTkVUREVWUzsNCj4gPiArCQkJaW92X2NtZC5j
-bWRfcGFyYW0gPSBpb3ZfbnVtbmV0ZGV2c193YW50ZWQ7DQo+ID4gKwkJfSBlbHNlIGlmIChpb3Zf
-bnVtdnF1ZXVlc193YW50ZWQgPj0gMCkgew0KPiA+ICsJCQlpb3ZfY21kLnNldF9jbWQgPSBFVEhU
-T09MX0lPVl9DTURfQ09ORklHVVJFX1ZGX1FVRVVFUzsNCj4gPiArCQkJaW92X2NtZC5jbWRfcGFy
-YW0gPSBpb3ZfbnVtdnF1ZXVlc193YW50ZWQ7DQo+ID4gKwkJfSBlbHNlIHsNCj4gPiArCQkJcmV0
-dXJuIC1FSU5WQUw7DQo+ID4gKwkJfQ0KPiBbLi4uXQ0KPiANCj4gU28gd2hhdCBpZiB0aGUgdXNl
-ciBzcGVjaWZpZXMgbXVsdGlwbGUga2V5d29yZHM/DQoNCkkgaGFkbid0IGNvbnRlbXBsYXRlZCB0
-aGF0Lg0KDQo+IA0KPiBBbHNvIG1pc3NpbmcgYW4gdXBkYXRlIHRvIHRoZSBtYW51YWwgcGFnZS4N
-Cg0KV2hlbiBJIGdldCB0aHJvdWdoIHRoZSBSRkMgcHJvY2VzcyBhbmQgd2UndmUgc2V0dGxlZCBv
-biBzb21ldGhpbmcgYWNjZXB0YWJsZSB0byB0aGUgY29tbXVuaXR5IEknbGwgdXBkYXRlIHRoZSBt
-YW4gcGFnZS4NCg0KVGhhbmtzIGZvciB0aGUgcmV2aWV3IEJlbi4NCg0KLSBHcmVnDQoNCg==
+Le jeudi 13 octobre 2011 =C3=A0 17:32 +0100, Ben Hutchings a =C3=A9crit=
+ :
+
+> Fair enough, but please add a comment explaining this.
+>=20
+
+
+What about :
+
+	/* We do our best to align skb_shared_info on a separate cache
+	 * line. It usually works because kmalloc(X > CACHE_BYTES) gives
+	 * aligned memory blocks, unless SLUB/SLAB debug is enabled.
+	 */
+	size +=3D SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
