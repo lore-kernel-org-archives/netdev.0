@@ -1,56 +1,82 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] net: more accurate skb truesize
-Date: Thu, 13 Oct 2011 17:32:44 +0100
-Message-ID: <1318523564.2745.32.camel@bwh-desktop>
-References: <1318519581.2393.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1318521901.2745.18.camel@bwh-desktop>
-	 <1318523090.2393.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [RFC PATCH V2 1/2] net/core/ethtool: New Commands to Configure
+ IOV features
+Date: Thu, 13 Oct 2011 10:04:26 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755019C9F2EFA@orsmsx508.amr.corp.intel.com>
+References: <20110922213522.26654.59301.stgit@gitlad.jf.intel.com>
+ <1318034250.2771.158.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Andi Kleen <ak@linux.intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:23732 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab1JMQcq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 12:32:46 -0400
-In-Reply-To: <1318523090.2393.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mga14.intel.com ([143.182.124.37]:17340 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755014Ab1JMRE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Oct 2011 13:04:29 -0400
+In-Reply-To: <1318034250.2771.158.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-10-13 at 18:24 +0200, Eric Dumazet wrote:
-> Le jeudi 13 octobre 2011 =C3=A0 17:05 +0100, Ben Hutchings a =C3=A9cr=
-it :
-[...]
-> > If that's not important, and we just want to be sure that the alloc=
-ation
-> > occupies at least a whole cache line, then it should be:
-> > 	size =3D SKB_DATA_ALIGN(size + sizeof(struct skb_shared_info));
-> >=20
-> > But I don't think it makes sense to use SKB_DATA_ALIGN(sizeof(struc=
-t
-> > skb_shared_info)).
->=20
-> If you take a closer look, you'll see that my patch addresses your
-> concerns, but at minimal cpu cost.
->=20
-> kmalloc(size + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
->=20
-> will give same result than :
->=20
-> kmalloc(SKB_DATA_ALIGN(size) + SKB_DATA_ALIGN(sizeof(struct
-> skb_shared_info)))
->=20
-> But my version is a bit faster (a single add of a compiler known
-> constant)
-
-=46air enough, but please add a comment explaining this.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBPY3RvYmVyIDA3
+LCAyMDExIDU6MzggUE0NCj4gVG86IFJvc2UsIEdyZWdvcnkgVg0KPiBDYzogbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1JGQyBQQVRDSCBWMiAxLzJdIG5ldC9jb3JlL2V0
+aHRvb2w6IE5ldyBDb21tYW5kcyB0bw0KPiBDb25maWd1cmUgSU9WIGZlYXR1cmVzDQo+IA0KPiBP
+biBUaHUsIDIwMTEtMDktMjIgYXQgMTQ6MzUgLTA3MDAsIEdyZWcgUm9zZSB3cm90ZToNCj4gPiBU
+aGUgb25seSBjdXJyZW50bHkgc3VwcG9ydGVkIG1ldGhvZCBvZiBjb25maWd1cmluZyB0aGUgbnVt
+YmVyIG9mIFZGcw0KPiA+IGlzIHRocm91Z2ggdGhlIG1heF92ZnMgbW9kdWxlIHBhcmFtZXRlci4g
+IFRoaXMgbWV0aG9kIGlzIGluYWRlcXVhdGUgdG8NCj4gPiBzdXBwb3J0IHNjZW5hcmlvcyBpbiB3
+aGljaCB0aGUgdXNlciBtaWdodCB3aXNoIHRvIGhhdmUgdmFyeWluZyBudW1iZXJzDQo+ID4gb2Yg
+VkZzIHBlciBQRi4gIFRoZXJlIGlzIGFkZGl0aW9uYWwgc3VwcG9ydCBmb3IgZHJpdmVycyB0aGF0
+IHdhbnQgdG8NCj4gPiBwYXJ0aXRpb24gc29tZSBkcml2ZXIgcmVzb3VyY2VzIHRvIGFkZGl0aW9u
+YWwgbmV0IGRldmljZXMgYW5kIGZvcg0KPiA+IGNvbmZpZ3VyaW5nIHRoZSBudW1iZXIgb2YgVHgv
+UnggcXVldWUgcGFpcnMgcGVyIFZGLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogR3JlZyBSb3Nl
+IDxncmVnb3J5LnYucm9zZUBpbnRlbC5jb20+DQo+ID4gLS0tDQo+ID4NCj4gPiAgaW5jbHVkZS9s
+aW51eC9ldGh0b29sLmggfCAgIDMwICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrLQ0KPiA+
+ICBuZXQvY29yZS9ldGh0b29sLmMgICAgICB8ICAgMzggKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysNCj4gPiAgMiBmaWxlcyBjaGFuZ2VkLCA2NyBpbnNlcnRpb25zKCspLCAx
+IGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvZXRodG9v
+bC5oIGIvaW5jbHVkZS9saW51eC9ldGh0b29sLmgNCj4gPiBpbmRleCA0NWYwMGI2Li40NDg3MzBm
+IDEwMDY0NA0KPiA+IC0tLSBhL2luY2x1ZGUvbGludXgvZXRodG9vbC5oDQo+ID4gKysrIGIvaW5j
+bHVkZS9saW51eC9ldGh0b29sLmgNCj4gPiBAQCAtNzIwLDYgKzcyMCwyNyBAQCBlbnVtIGV0aHRv
+b2xfc2ZlYXR1cmVzX3JldHZhbF9iaXRzIHsNCj4gPiAgI2RlZmluZSBFVEhUT09MX0ZfV0lTSCAg
+ICAgICAgICAoMSA8PCBFVEhUT09MX0ZfV0lTSF9fQklUKQ0KPiA+ICAjZGVmaW5lIEVUSFRPT0xf
+Rl9DT01QQVQgICAgICAgICgxIDw8IEVUSFRPT0xfRl9DT01QQVRfX0JJVCkNCj4gPg0KPiA+ICtl
+bnVtIGV0aHRvb2xfaW92X21vZGVzIHsNCj4gPiArCUVUSFRPT0xfSU9WX01PREVfTk9ORSwNCj4g
+PiArCUVUSFRPT0xfSU9WX01PREVfU1JJT1YsDQo+ID4gKwlFVEhUT09MX0lPVl9NT0RFX05FVERF
+VlMsDQo+ID4gK307DQo+ID4gKw0KPiA+ICsjZGVmaW5lCUVUSFRPT0xfSU9WX0NNRF9DT05GSUdV
+UkVfU1JJT1YJCTENCj4gPiArI2RlZmluZQlFVEhUT09MX0lPVl9DTURfQ09ORklHVVJFX05FVERF
+VlMJMg0KPiA+ICsjZGVmaW5lCUVUSFRPT0xfSU9WX0NNRF9DT05GSUdVUkVfVkZfUVVFVUVTCTMN
+Cj4gPiArDQo+ID4gK3N0cnVjdCBldGh0b29sX2lvdl9zZXRfY21kIHsNCj4gPiArCV9fdTMyIGNt
+ZDsNCj4gPiArCV9fdTMyIHNldF9jbWQ7DQo+ID4gKwlfX3UzMiBjbWRfcGFyYW07DQo+ID4gK307
+DQo+IA0KPiBXaHkgaW50cm9kdWNlIHN1Yi1jb21tYW5kcz8NCg0KRm9yIG1heGltdW0gZmxleGli
+aWxpdHkuICBJdCdzIGRpZmZpY3VsdCAodG8gbWUgYW55d2F5KSB0byBmb3Jlc2VlIGFsbCB0aGUg
+dGhpbmdzIHdlIG1pZ2h0IHdhbnQgdG8gY29uZmlndXJlIGZvciBJL08gdmlydHVhbGl6YXRpb24g
+ZmVhdHVyZXMuDQoNCj4gDQo+ID4gK3N0cnVjdCBldGh0b29sX2lvdl9nZXRfY21kIHsNCj4gPiAr
+CV9fdTMyIGNtZDsNCj4gPiArCV9fdTMyIG1vZGU7DQo+ID4gK307DQo+IA0KPiBXaHkgaXMgaXQg
+b25seSBwb3NzaWJsZSB0byBnZXQgdGhlIG1vZGU/DQoNClRvIG15IHdheSBvZiB0aGlua2luZyBp
+dCB3YXMgdGhlIG9ubHkgaW50ZXJlc3RpbmcgdGhpbmcgdG8gcXVlcnkuICBJIHN1cHBvc2UgSSBj
+b3VsZCBhbHNvIHJldHVybiB0aGUgbnVtYmVyIG9mIFZGcyBvciBuZXQgZGV2aWNlcyBhbG9uZyB3
+aXRoIHRoZSBtb2RlLg0KDQo+IA0KPiBJdCByZWFsbHkgc2VlbXMgdG8gbWFrZSBtb3JlIHNlbnNl
+IHRvIGdyb3VwIHRoZXNlIHRocmVlIHBhcmFtZXRlcnMNCj4gdG9nZXRoZXIgYW5kIGdldC9zZXQg
+dGhlbSBhbGwgYXQgb25jZS4gIEJ1dCBpZiB5b3UgY2FuIGp1c3RpZnkgbWFraW5nDQo+IHRoZW0g
+c2VwYXJhdGUgdGhlbiBzdHJ1Y3QgZXRodG9vbF92YWx1ZSBpcyB0aGUgdHlwZSB0byB1c2UuDQoN
+CkkgY2FuIGRvIHRoYXQuDQoNCj4gDQo+IEluIGFueSBjYXNlLCBhbnkgbmV3IHR5cGVzIG9yIG1h
+Y3JvcyBuZWVkIGNvbW1lbnRzLg0KDQpPSy4NCg0KPiANCj4gWy4uLl0NCj4gPiArc3RhdGljIGlu
+dCBldGh0b29sX2lvdl9nZXRfY29tbWFuZChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPiA+ICsJ
+CQkJICB2b2lkIF9fdXNlciAqdXNlcmFkZHIpDQo+ID4gK3sNCj4gPiArCWludCByZXQ7DQo+ID4g
+KwlzdHJ1Y3QgZXRodG9vbF9pb3ZfZ2V0X2NtZCBpb3ZfY21kOw0KPiA+ICsNCj4gPiArCWlmICgh
+ZGV2LT5ldGh0b29sX29wcy0+aW92X2dldF9jbWQpDQo+ID4gKwkJcmV0dXJuIC1FT1BOT1RTVVBQ
+Ow0KPiA+ICsJaWYgKGNvcHlfZnJvbV91c2VyKCZpb3ZfY21kLCB1c2VyYWRkciwgc2l6ZW9mKGlv
+dl9jbWQpKSkNCj4gPiArCQlyZXR1cm4gLUVGQVVMVDsNCj4gPiArDQo+ID4gKwlyZXQgPSBkZXYt
+PmV0aHRvb2xfb3BzLT5pb3ZfZ2V0X2NtZChkZXYsICZpb3ZfY21kKTsNCj4gPiArCWlmICghcmV0
+KQ0KPiA+ICsJCXJldCA9IGNvcHlfdG9fdXNlcih1c2VyYWRkciwgJmlvdl9jbWQsIHNpemVvZihp
+b3ZfY21kKSk7DQo+IA0KPiAJaWYgKCFyZXQgJiYgY29weV90b191c2VyKC4uLikpDQo+IAkJcmV0
+ID0gLUVGQVVMVDsNCj4gDQo+ID4gKwlyZXR1cm4gcmV0Ow0KPiA+ICt9DQo+IFsuLi5dDQo+IA0K
+PiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVlciwgU29sYXJmbGFyZQ0KPiBOb3Qg
+c3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MgdGhlIG1hcmtldGluZyBkZXBhcnRtZW50
+J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3Qg
+bmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
