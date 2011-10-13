@@ -1,62 +1,34 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 1/4] ipv4: Fix pmtu propagating
-Date: Thu, 13 Oct 2011 12:09:50 +0200
-Message-ID: <20111013100950.GO1830@secunet.com>
-References: <20111011110842.GC1830@secunet.com>
- <20111011110922.GD1830@secunet.com>
- <20111012.170218.279202034199478303.davem@davemloft.net>
+From: Neil Horman <nhorman@redhat.com>
+Subject: Re: __kfree_skb eventually calls kfree_skb violating dropwatch
+ assumption
+Date: Thu, 13 Oct 2011 07:09:56 -0400
+Message-ID: <20111013110956.GA30171@hmsreliant.think-freely.org>
+References: <27F465BDABE6954AABB2A4E3599BDAC702AD1DC3A7@sausexmbp02.amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Suresh, Charles" <Charles.Suresh@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:41347 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11532 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752553Ab1JMKJ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Oct 2011 06:09:57 -0400
+	id S1752555Ab1JMLKB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Oct 2011 07:10:01 -0400
 Content-Disposition: inline
-In-Reply-To: <20111012.170218.279202034199478303.davem@davemloft.net>
+In-Reply-To: <27F465BDABE6954AABB2A4E3599BDAC702AD1DC3A7@sausexmbp02.amd.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 12, 2011 at 05:02:18PM -0400, David Miller wrote:
+On Wed, Oct 12, 2011 at 09:17:56PM -0500, Suresh, Charles wrote:
+> kfree_skb can be called from __kfree_skb through the following call chain :
 > 
-> This dst_check() call will only do something if dst->obsolete is non-zero.
+> kfree_skb  <- skb_drop_list <- skb_drop_fraglist <- skb_release_data <-  skb_release_all <- __kfree_skb (on the 2.38.4 kernel).
 > 
-> If dst->obsolete can be set in these circumstances, that's a bug.  The
-> caller is responsible for providing either a freshly looked up route
-> or a cached route which has had dst_check() or sk_dst_check() invoked
-> upon it.
-
-dst->obsolete was -1 in all cases I observed, regardless if connected or not.
-
+> This violates the assumption in the dropwatch tool that discarded packets go through the kfree_skb path and all others must go through the consume_skb path (thus resulting in the over-counting of discarded packets in dropwatch).
 > 
-> I am pretty sure these rules are followed by the current code.
+> Neil Horman the author of dropwatch suggested that this could be fixed by skb_drop_list calling consume_skb instead of kfree_skb.
 > 
-> Again, there are only two scenerios:
+> Charles
 > 
-> 1) 'rt' is just looked up by caller (f.e. udp_sendmsg() in rt == NULL case),
->    here dst->obsolete is very unlikely to be non-zero.
-> 
-> 2) Connected case, and we use cached route from the socket, but here
->    we'll use sk_dst_check() to validate the route.  sk_dst_check()
->    makes the necessary dst->ops->check() call if dst->obsolete is
->    non-zero, and in fact that is it's one and only job.
-> 
-
-At least it seems that raw_sendmsg() and ping_sendmsg() don't use
-a cached route, they do the route lookup in any case. I don't see
-where we check if we learned a new pmtu in this cases. 
-
-I added some debugging output and saw that peer->pmtu_learned
-has the correct pmtu value, but it never ends up in the metric
-of the dst_entry.
-
-With a ping -s 1400 to a destination where the pmtu is 1000
-I get for each packet 'Frag needed and DF set (mtu = 1000)'.
-That's how I noticed that something changed.
-
-With the dst_check() in ip_setup_cork() I get
-'Frag needed and DF set (mtu = 1000)' for the first packet and
-all further packets reach the destination, as it was before
-commmit 2c8cec5c.
+I assume theres meant to be a patch attached here?
+Regards
+Neil
