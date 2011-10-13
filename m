@@ -1,53 +1,49 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ftgmac100: fix skb truesize underestimation
-Date: Thu, 13 Oct 2011 23:30:52 +0200
-Message-ID: <1318541452.2533.30.camel@edumazet-laptop>
+Subject: [PATCH net-next] vmxnet3: fix skb truesize underestimation
+Date: Thu, 13 Oct 2011 23:38:17 +0200
+Message-ID: <1318541897.2533.33.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
-	Po-Yu Chuang <ratbert@faraday-tech.com>
+	Shreyas Bhatewara <sbhatewara@vmware.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:44122 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51409 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754595Ab1JMVa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 17:30:57 -0400
-Received: by wwf22 with SMTP id 22so2470274wwf.1
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 14:30:56 -0700 (PDT)
+	with ESMTP id S1754037Ab1JMViW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 17:38:22 -0400
+Received: by wwf22 with SMTP id 22so2478256wwf.1
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 14:38:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ftgmac100 allocates a page per skb fragment. We must account
+vmxnet3 allocates a page per skb fragment. We must account
 PAGE_SIZE increments on skb->truesize, not the actual frag length.
 
-If frame is under 64 bytes, page is freed, and truesize adjusted.
-
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Po-Yu Chuang <ratbert@faraday-tech.com>
+CC: Shreyas Bhatewara <sbhatewara@vmware.com>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/vmxnet3/vmxnet3_drv.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 54709af..fb5579a 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -467,7 +467,7 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 1694038..902f284 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -658,6 +658,7 @@ vmxnet3_append_frag(struct sk_buff *skb, struct Vmxnet3_RxCompDesc *rcd,
+ 	frag->page_offset = 0;
+ 	frag->size = rcd->len;
+ 	skb->data_len += frag->size;
++	skb->truesize += PAGE_SIZE;
+ 	skb_shinfo(skb)->nr_frags++;
+ }
  
- 		skb->len += size;
- 		skb->data_len += size;
--		skb->truesize += size;
-+		skb->truesize += PAGE_SIZE;
+@@ -1277,7 +1278,6 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 		skb = ctx->skb;
+ 		if (rcd->eop) {
+ 			skb->len += skb->data_len;
+-			skb->truesize += skb->data_len;
  
- 		if (ftgmac100_rxdes_last_segment(rxdes))
- 			done = true;
-@@ -478,6 +478,8 @@ static bool ftgmac100_rx_packet(struct ftgmac100 *priv, int *processed)
- 		rxdes = ftgmac100_current_rxdes(priv);
- 	} while (!done);
- 
-+	if (skb->len <= 64)
-+		skb->truesize -= PAGE_SIZE;
- 	__pskb_pull_tail(skb, min(skb->len, 64U));
- 	skb->protocol = eth_type_trans(skb, netdev);
- 
+ 			vmxnet3_rx_csum(adapter, skb,
+ 					(union Vmxnet3_GenericDesc *)rcd);
