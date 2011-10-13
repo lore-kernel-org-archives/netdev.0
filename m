@@ -1,60 +1,59 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: [PATCH net-next] bonding: fix wrong port enabling in 802.3ad
-Date: Thu, 13 Oct 2011 14:21:23 -0300
-Message-ID: <1318526483-16073-1-git-send-email-fbl@redhat.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Flavio Leitner <fbl@redhat.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17801 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753711Ab1JMRVt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Oct 2011 13:21:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 0/5] Better namespace handling for
+ /sys/class/net/bonding_masters
+Date: Thu, 13 Oct 2011 11:25:19 -0600
+Message-ID: <20111013172519.GA30682@suse.de>
+References: <m1hb3dbae5.fsf@fess.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Tejun Heo <htejun@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m1hb3dbae5.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The port shouldn't be enabled unless its current MUX
-state is DISTRIBUTING which is correctly handled by
-ad_mux_machine(), otherwise the packet sent can be
-lost because the other end may not be ready.
+On Thu, Oct 13, 2011 at 12:47:46AM -0700, Eric W. Biederman wrote:
+> 
+> When I was looking at another sysfs issue that Al pointed out (since
+> fixed) I realized that I had implemented a trivial code size but overly
+> clever way to handle /sys/class/net/bonding_masters.
+> 
+> This patchset removes the support for untagged entries in tagged
+> directories (that is currently used to support bonding_masters)
+> and replaces it with support for tagged sysfs attributes.
+> 
+> In the process this fixes a small misfeature in how bonding_masters
+> derives the network namespace we are dealing with.  This change
+> allows bonding_masters to derive the network namespace from the
+> copy of bonding_masters we open instead of magically from current.
+> 
+> The final patch of this patchset adds sanity checks to sysfs.  To
+> ensure that we don't accidentally mishandle tagged sysfs entities.
+> 
+> I have tested this code against 3.1-rc9 on my laptop with a mostly yes
+> config and I am not seeing any problems.  The loud screaming warnings I
+> have added in the last patch should catch any corner cases in how people
+> use sysfs that I might have overlooked.
+> 
+> Greg, Dave I'm don't know whose tree to merge this through as this code
+> is equally device-core and networking.  I am hoping that we can get this
+> improvement merged for 3.2.
 
-The issue happens on every port initialization, but
-as the ports are expected to move quickly to DISTRIBUTING,
-it doesn't cause much problem.  However, it does cause
-constant packet loss if the other peer has the port
-configured to stay in STANDBY (i.e. SYNC set to OFF).
+These all look fine to me, and I have no problem with them going through
+the network tree as that will most likely be the easiest way due to any
+potential merge issues.
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
----
+David, feel free to add an:
+	Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-The comments there suggests it was a workaround for losses
-of link events, but I couldn't track the changelog as it
-seems to be pretty old.  Thus, as all the link notification
-stuff has been improved a lot, maybe this is not an issue
-anymore.  At least, I didn't find any problem while
-unplugging/plugging cables here.
+to these patches and take them through your tree if that is ok with you.
+If not, I can also always take them through mine, it's your choice.
 
- drivers/net/bonding/bond_3ad.c |    7 -------
- 1 files changed, 0 insertions(+), 7 deletions(-)
+thanks,
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 47b928e..b33c099 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -1135,13 +1135,6 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 			__record_pdu(lacpdu, port);
- 			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(port->actor_oper_port_state & AD_STATE_LACP_TIMEOUT));
- 			port->actor_oper_port_state &= ~AD_STATE_EXPIRED;
--			// verify that if the aggregator is enabled, the port is enabled too.
--			//(because if the link goes down for a short time, the 802.3ad will not
--			// catch it, and the port will continue to be disabled)
--			if (port->aggregator
--			    && port->aggregator->is_active
--			    && !__port_is_enabled(port))
--				__enable_port(port);
- 			break;
- 		default:    //to silence the compiler
- 			break;
--- 
-1.7.6
+greg k-h
