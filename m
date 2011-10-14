@@ -1,221 +1,143 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] tcp: reduce memory needs of out of order queue
-Date: Fri, 14 Oct 2011 15:12:04 -0700
-Message-ID: <4E98B3B4.20406@hp.com>
-References: <1318576791.2533.99.camel@edumazet-laptop> <20111014.034224.1197576516015404466.davem@davemloft.net> <4E985A3F.5080103@hp.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] net: ipv6: Allow netlink to set IPv6 address scope
+Date: Fri, 14 Oct 2011 15:32:31 -0700
+Message-ID: <CAKD1Yr0EQ0P8e1V7pw48F2LMPCFKuZHm0DGoq8VM+LeKO_aZhQ@mail.gmail.com>
+References: <20111005201559.E544016A599@drone1.mtv.corp.google.com>
+ <4E931A46.1040905@hp.com> <CAKD1Yr29dAC+_=bT5-_W3XuTzoxMiEzOhpHvwrAzyA8NdcCjSQ@mail.gmail.com>
+ <4E98981D.6080908@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: maze@google.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:12833 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404Ab1JNWMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 18:12:07 -0400
-In-Reply-To: <4E985A3F.5080103@hp.com>
+Received: from smtp-out.google.com ([74.125.121.67]:11655 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752476Ab1JNWcy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 18:32:54 -0400
+Received: from wpaz1.hot.corp.google.com (wpaz1.hot.corp.google.com [172.24.198.65])
+	by smtp-out.google.com with ESMTP id p9EMWqol013424
+	for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 15:32:53 -0700
+Received: from vws18 (vws18.prod.google.com [10.241.21.146])
+	by wpaz1.hot.corp.google.com with ESMTP id p9EMP4UZ019314
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 15:32:51 -0700
+Received: by vws18 with SMTP id 18so2314081vws.1
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 15:32:51 -0700 (PDT)
+In-Reply-To: <4E98981D.6080908@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Oct 14, 2011 at 13:14, Brian Haley <brian.haley@hp.com> wrote:
+> Playing devil's advocate here, isn't this a brain-dead ISP? =A0If the=
+y're
+> giving=A0you a global IPv6 address you should get Internet connectivi=
+ty
+> with it. =A0If not,=A0you probably knew it up front, or you're going =
+to find
+> another provider that=A0does. =A0It's like they're giving you a site-=
+local
+> address...
 
-> I believe that may be the case - at least during something like:
->
-> netperf -t TCP_RR -H <host> -l 30 -- -b 256 -D
->
-> which on an otherwise quiet test setup will report a non-trivial number
-> of retransmissions - either via looking at netstat -s output, or by
-> adding local_transport_retrans,remote_transport_retrans to an output
-> selector for netperf (eg -o
-> throughput,burst_size,local_transport_retrans,remote_transport_retrans,lss_size_end,rsr_size_end)
->
->
-> (I plan on providing more data after a laptop has gone through some
-> upgrades)
+I wouldn't say they're a brain-dead carrier, because they also give you
+true IPv6 connectivity on another interface. The phone will deactivate
+this interface when bringing up wifi, because wifi is usually cheaper a=
+nd
+faster.=A0However, the carrier interface needs to stay up all the time
+in order to do such things as provisioning, send and receive SMS
+messages, handle voice over IP calls, and so on. So you will have
+cases where the phone's primary Internet connection is over wifi, but
+the phone still has a global unicast IPv6 address on the carrier interf=
+ace.
 
-So, a test as above from a system running 2.6.38-11-generic to a system 
-running 3.0.0-12-generic.  On the sender we have:
+> So are you talking about being able to dynamically change the scope
+> of an=A0address? =A0Wifi comes up - change provider addreses to host-
+> local, wifi goes down=A0- change it back to global. =A0That looks lik=
+e a
+> hack.
 
-raj@tardy:~/netperf2_trunk$ netstat -s > before; src/netperf -H 
-raj-8510w.americas.hpqcorp.net -t tcp_rr -- -b 256 -D -o 
-throughput,local_transport_retrans,remote_transport_retrans,lss_size_end,rsr_size_end 
-; netstat -s > after
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET 
-to internal-host.americas.hpqcorp.net (16.89.245.115) port 0 AF_INET : 
-nodelay : first burst 256
-Throughput,Local Transport Retransmissions,Remote Transport 
-Retransmissions,Local Send Socket Size Final,Remote Recv Socket Size Final
-76752.43,274,0,16384,98304
+What I'm suggesting is to have the carrier interface be created with
+site scope and stay up forever (or as long as the phone is on the cell
+network). If an application wants to use the carrier interface, it will=
+ create
+host routes that explicitly specify the carrier interface and the sourc=
+e
+address of the carrier interface.
 
-274 retransmissions at the sender.  The "beforeafter" of that on the sender:
+Applications that don't use the carrier interface will not have to do
+anything special; if you set the carrier interface to site scope,
+the kernel should just do the right thing.
 
-raj@tardy:~/netperf2_trunk$ cat delta.send
-Ip:
-     766747 total packets received
-     12 with invalid addresses
-     0 forwarded
-     0 incoming packets discarded
-     766735 incoming packets delivered
-     734689 requests sent out
-     0 dropped because of missing route
-Icmp:
-     0 ICMP messages received
-     0 input ICMP message failed.
-     ICMP input histogram:
-         destination unreachable: 0
-         echo requests: 0
-         echo replies: 0
-     0 ICMP messages sent
-     0 ICMP messages failed
-     ICMP output histogram:
-         destination unreachable: 0
-         echo request: 0
-         echo replies: 0
-IcmpMsg:
-         InType0: 0
-         InType3: 0
-         InType8: 0
-         OutType0: 0
-         OutType3: 0
-         OutType8: 0
-Tcp:
-     2 active connections openings
-     0 passive connection openings
-     0 failed connection attempts
-     0 connection resets received
-     0 connections established
-     766727 segments received
-     734408 segments send out
-     274 segments retransmited
-     0 bad segments received.
-     0 resets sent
-Udp:
-     7 packets received
-     0 packets to unknown port received.
-     0 packet receive errors
-     7 packets sent
-UdpLite:
-TcpExt:
-     0 packets pruned from receive queue because of socket buffer overrun
-     0 ICMP packets dropped because they were out-of-window
-     0 TCP sockets finished time wait in fast timer
-     2 delayed acks sent
-     0 delayed acks further delayed because of locked socket
-     Quick ack mode was activated 0 times
-     170856 packets directly queued to recvmsg prequeue.
-     1204 bytes directly in process context from backlog
-     170678 bytes directly received in process context from prequeue
-     592090 packet headers predicted
-     170626 packets header predicted and directly queued to user
-     1375 acknowledgments not containing data payload received
-     174911 predicted acknowledgments
-     150 times recovered from packet loss by selective acknowledgements
-     0 congestion windows recovered without slow start by DSACK
-     0 congestion windows recovered without slow start after partial ack
-     299 TCP data loss events
-     TCPLostRetransmit: 9
-     0 timeouts after reno fast retransmit
-     0 timeouts after SACK recovery
-     253 fast retransmits
-     14 forward retransmits
-     6 retransmits in slow start
-     0 other TCP timeouts
-     1 SACK retransmits failed
-     0 times receiver scheduled too late for direct processing
-     0 packets collapsed in receive queue due to low socket buffer
-     0 DSACKs sent for old packets
-     0 DSACKs received
-     0 connections reset due to unexpected data
-     0 connections reset due to early user close
-     0 connections aborted due to timeout
-     0 times unabled to send RST due to no memory
-     TCPDSACKIgnoredOld: 0
-     TCPDSACKIgnoredNoUndo: 0
-     TCPSackShifted: 0
-     TCPSackMerged: 1031
-     TCPSackShiftFallback: 240
-     TCPBacklogDrop: 0
-     IPReversePathFilter: 0
-IpExt:
-     InMcastPkts: 0
-     OutMcastPkts: 0
-     InBcastPkts: 1
-     InOctets: -1012182764
-     OutOctets: -1436530450
-     InMcastOctets: 0
-     OutMcastOctets: 0
-     InBcastOctets: 147
+> A default route with only a link-local address isn't very useful. =A0=
+Will the
+> kernel ever use this interface with the global address of your carrie=
+r -
+> isn't=A0it going to prefer the interface that address is configured o=
+n?
 
-and then the deltas on the receiver:
+No, it will use the carrier address, because RFC3484 says "avoid
+deprecated addresses" (rule 3) before it says "prefer outgoing interfac=
+e"
+(rule 5).
 
-raj@raj-8510w:~/netperf2_trunk$ cat delta.recv
-Ip:
-     734669 total packets received
-     0 with invalid addresses
-     0 forwarded
-     0 incoming packets discarded
-     734669 incoming packets delivered
-     766696 requests sent out
-     0 dropped because of missing route
-Icmp:
-     0 ICMP messages received
-     0 input ICMP message failed.
-     ICMP input histogram:
-         destination unreachable: 0
-     0 ICMP messages sent
-     0 ICMP messages failed
-     ICMP output histogram:
-IcmpMsg:
-         InType3: 0
-Tcp:
-     0 active connections openings
-     2 passive connection openings
-     0 failed connection attempts
-     0 connection resets received
-     0 connections established
-     734651 segments received
-     766695 segments send out
-     0 segments retransmited
-     0 bad segments received.
-     0 resets sent
-Udp:
-     1 packets received
-     0 packets to unknown port received.
-     0 packet receive errors
-     1 packets sent
-UdpLite:
-TcpExt:
-     28 packets pruned from receive queue because of socket buffer overrun
-     0 delayed acks sent
-     0 delayed acks further delayed because of locked socket
-     19 packets directly queued to recvmsg prequeue.
-     0 bytes directly in process context from backlog
-     667 bytes directly received in process context from prequeue
-     727842 packet headers predicted
-     9 packets header predicted and directly queued to user
-     161 acknowledgments not containing data payload received
-     229704 predicted acknowledgments
-     6774 packets collapsed in receive queue due to low socket buffer
-     TCPBacklogDrop: 276
-IpExt:
-     InMcastPkts: 0
-     OutMcastPkts: 0
-     InBcastPkts: 17
-     OutBcastPkts: 0
-     InOctets: 38973144
-     OutOctets: 40673137
-     InMcastOctets: 0
-     OutMcastOctets: 0
-     InBcastOctets: 1816
-     OutBcastOctets: 0
+> That's a pretty small window where the address is in tentative state =
+(< 2 sec),=A0and re-trying shortly after will work.
 
-this is an otherwise clean network, no errors reported by ifconfig or 
-ethtool -S, and the packet rate was well within the limits of 1 GbE and 
-the ProCurve 2724 switch between the two systems.
+That's true, but as the application you don't know that. You just call
+connect(), and sit there and hang. There's a lot of applications that w=
+ant
+to reconnect as soon as they see that wifi has come up, and they all
+get stuck.
 
- From just a very quick look it looks like tcp_v[46]_rcv is called, 
-finds that the socket is owned by the user, attempts to add to the 
-backlog, but the path called by sk_add_backlog does not seem to make any 
-attempts to compress things, so when the quantity of data is << the 
-truesize it starts tossing babies out with the bathwater.
+> You can also use routing rules, like anyone that does dual-homed
+> with IPv4 does =A0- only use 1.2.3.4 on eth0, and only use 4.3.2.1 on
+> eth1.
 
-rick jones
+That doesn't work, because when the kernel creates a new TCP
+connection, its source address is empty, so no source-based rules
+match. More specifically, if I do (assume the carrier IP address is
+2001:db8::1/64):
+
+ip -6 rule add prio 100 from 2001:db8::/64 lookup 100
+ip -6 route add table 100 unreachable default
+ip -6 route add default via fe80::1 dev wlan0
+
+the system will still use the address from the carrier interface. I thi=
+nk
+this is by design though.
+
+> And there's also gai.conf, although I haven't played with that in a
+> while.
+
+gai.conf only handles destination address selection; the kernel
+handles source address selection.
+
+> The other trick/hack is to change the preferred lifetime of an addres=
+s
+> to zero,=A0which should mark it deprecated, moving it down in the
+> selection list.
+
+That will work, but I think it's more of a hack than setting scope to
+site. The carrier address is not deprecated, it's perfectly
+functional. It just can't reach the Internet, but only a part of it.
+So I think that calling it scoped is the solution that makes the most
+sense.
+
+> What else will break though? =A0If I configure fe80::1/64 and set the
+> scope to=A0global, do applications know to look at ifa_scope and not
+> just the address=A0itself to determine the scope? =A0Should they?
+
+If the application treats scoped addresses specially, it will treat
+fe80::1 as link-local scope, and will do things like check
+sin6_scope_id to see if it's unique. On balance, I think that's the
+right thing to do for an application in this situation, since, as
+above, it's the network that truly decides what scope an address is
+unique in, not the application or the kernel, and I would expect the
+rest of the network to treat fe80::/64 as link-local (for example,
+routers won't forward it, and so on).
+
+The kernel, on the other hand, will try to use fe80::1 as if it were a
+global address for the purposes of source address selection, but after
+all, that's what you asked it to do, so you can't really blame it.
+
+Make sense?
