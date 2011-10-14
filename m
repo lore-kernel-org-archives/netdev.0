@@ -1,42 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bug] skb truesize does not update properly in many place
-Date: Fri, 14 Oct 2011 07:51:57 +0200
-Message-ID: <1318571517.2533.80.camel@edumazet-laptop>
-References: <1318570381-4731-1-git-send-email-roy.qing.li@gmail.com>
-	 <1318571313.2533.77.camel@edumazet-laptop>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 1/4] ipv4: Fix pmtu propagating
+Date: Fri, 14 Oct 2011 07:54:06 +0200
+Message-ID: <20111014055406.GP1830@secunet.com>
+References: <20111011110922.GD1830@secunet.com>
+ <20111012.170218.279202034199478303.davem@davemloft.net>
+ <20111013100950.GO1830@secunet.com>
+ <20111013.135808.636341622629050648.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57865 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753830Ab1JNFwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 01:52:04 -0400
-Received: by wyg34 with SMTP id 34so2619755wyg.19
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 22:52:03 -0700 (PDT)
-In-Reply-To: <1318571313.2533.77.camel@edumazet-laptop>
+Received: from a.mx.secunet.com ([195.81.216.161]:41003 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755170Ab1JNFyN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Oct 2011 01:54:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20111013.135808.636341622629050648.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 14 octobre 2011 =C3=A0 07:48 +0200, Eric Dumazet a =C3=A9cr=
-it :
+On Thu, Oct 13, 2011 at 01:58:08PM -0400, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Thu, 13 Oct 2011 12:09:50 +0200
+> 
+> > At least it seems that raw_sendmsg() and ping_sendmsg() don't use
+> > a cached route, they do the route lookup in any case. I don't see
+> > where we check if we learned a new pmtu in this cases. 
+> 
+> A freshly looked up route should not have ->obsolete set.
+> 
+> That's why we don't do dst_check() in that part of the ip_output.c
+> helper code you're modifying.
+> 
+> Please find out exactly why dst->obsolete is non-zero on a freshly
+> looked up route.  It's unexpected.
 
-> I am now focusing in the TCP pruning effect, that we can see with WIF=
-I
-> drivers (and also with drivers using a full PAGE to store a 1500 byte
-> tcp frame), when a single packet loss is happening on a session with
-> large RTT.
->=20
+Hm, on a slow path route lookup e.g. __mkroute_output() calls
+rt_dst_alloc() which initializes dst->obsolete to -1. It seems
+that ___dst_free() is the only function that ever changes the
+initial obsolete value. After calling ___dst_free() dst->obsolete
+is 2.
 
-Here is what I am currently testing :
+Btw. on a slow path route lookup, __mkroute_output() and friends
+initialize the pmtu informations via rt_set_nexthop(). How do we
+check if these informations are still valid if we get the route
+via the routing hash cache? Do we need to check in this case?
 
-When one SKB has to be queued in out_of_order_queue,
-possibly for a long time, try to reduce its truesize (by using
-skb_copy_expand()) if skb->truesize is larger than
-2*SKB_TRUESIZE(skb->len)
-
-It seems to work very well, and should not happen in fast path.
-
-Stay tuned
+The raw protocol uses ip4_datagram_connect() as it's connect function.
+ip4_datagram_connect() uses sk_dst_set() to cache the dst_entry on
+the socket, why we don't use this cached dst_entry on raw_sendmsg()
+in the connected case?
