@@ -1,137 +1,126 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 1/1] net: validate HWTSTAMP ioctl parameters
-Date: Fri, 14 Oct 2011 11:37:48 +0200
-Message-ID: <eca6d279cd96da44d9ad26bdda8fc8c2130c03c1.1318584677.git.richard.cochran@omicron.at>
-References: <cover.1318584677.git.richard.cochran@omicron.at>
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:63268 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932152Ab1JNJht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 05:37:49 -0400
-Received: by mail-bw0-f46.google.com with SMTP id zt4so2589293bkb.19
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 02:37:48 -0700 (PDT)
-In-Reply-To: <cover.1318584677.git.richard.cochran@omicron.at>
-In-Reply-To: <cover.1318584677.git.richard.cochran@omicron.at>
-References: <20110926.160443.1205173553442138535.davem@davemloft.net> <cover.1318584677.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mihai Maruseac <mihai.maruseac@gmail.com>
+Subject: [PATCH] dev: use ifindex hash for dev_seq_ops
+Date: Fri, 14 Oct 2011 12:53:37 +0300
+Message-ID: <1318586017-17207-1-git-send-email-mmaruseac@ixiacom.com>
+References: <1318413446-22258-1-git-send-email-mmaruseac@ixiacom.com>
+Cc: eric.dumazet@gmail.com, mirq-linux@rere.qmqm.pl,
+	therbert@google.com, jpirko@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dbaluta@ixiacom.com,
+	Mihai Maruseac <mmaruseac@ixiacom.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318413446-22258-1-git-send-email-mmaruseac@ixiacom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a sanity check on the values provided by user space for
-the hardware time stamping configuration. If the values lie outside of
-the absolute limits, then the ioctl request will be denied.
+Instead of using the dev->next chain and trying to resync at each call to
+dev_seq_start, use the ifindex, keeping the last index in seq->private field.
 
-Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+Tests revealed the following results for ifconfig > /dev/null
+	* 1000 interfaces:
+		* 0.114s without patch
+		* 0.089s with patch
+	* 3000 interfaces:
+		* 0.489s without patch
+		* 0.110s with patch
+	* 5000 interfaces:
+		* 1.363s without patch
+		* 0.250s with patch
+	* 128000 interfaces (other setup):
+		* ~100s without patch
+		* ~30s with patch
+
+Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
 ---
- include/linux/net_tstamp.h |    4 +-
- net/core/dev.c             |   58 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 60 insertions(+), 2 deletions(-)
+ net/core/dev.c |   55 ++++++++++++++++++++++++++++++++++---------------------
+ 1 files changed, 34 insertions(+), 21 deletions(-)
 
-diff --git a/include/linux/net_tstamp.h b/include/linux/net_tstamp.h
-index 3df0984..ae5df12 100644
---- a/include/linux/net_tstamp.h
-+++ b/include/linux/net_tstamp.h
-@@ -45,7 +45,7 @@ struct hwtstamp_config {
- };
- 
- /* possible values for hwtstamp_config->tx_type */
--enum {
-+enum hwtstamp_tx_types {
- 	/*
- 	 * No outgoing packet will need hardware time stamping;
- 	 * should a packet arrive which asks for it, no hardware
-@@ -72,7 +72,7 @@ enum {
- };
- 
- /* possible values for hwtstamp_config->rx_filter */
--enum {
-+enum hwtstamp_rx_filters {
- 	/* time stamp no incoming packet at all */
- 	HWTSTAMP_FILTER_NONE,
- 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 70ecb86..bc347e6 100644
+index 70ecb86..ea24445 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -136,6 +136,7 @@
- #include <linux/if_tunnel.h>
- #include <linux/if_pppox.h>
- #include <linux/ppp_defs.h>
-+#include <linux/net_tstamp.h>
- 
- #include "net-sysfs.h"
- 
-@@ -1477,6 +1478,57 @@ static inline void net_timestamp_check(struct sk_buff *skb)
- 		__net_timestamp(skb);
+@@ -4041,6 +4041,37 @@ static int dev_ifconf(struct net *net, char __user *arg)
  }
  
-+static int net_hwtstamp_validate(struct ifreq *ifr)
+ #ifdef CONFIG_PROC_FS
++
++struct dev_iter_state {
++	struct seq_net_private p;
++	int ifindex;
++};
++
++static struct net_device *__dev_seq_next(struct seq_file *seq, loff_t *pos)
 +{
-+	struct hwtstamp_config cfg;
-+	enum hwtstamp_tx_types tx_type;
-+	enum hwtstamp_rx_filters rx_filter;
-+	int tx_type_valid = 0;
-+	int rx_filter_valid = 0;
++	struct dev_iter_state *state = seq->private;
++	struct net *net = seq_file_net(seq);
++	struct net_device *dev;
++	loff_t off;
 +
-+	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
-+		return -EFAULT;
++	dev = dev_get_by_index_rcu(net, state->ifindex);
++	if (likely(dev))
++		goto found;
 +
-+	if (cfg.flags) /* reserved for future extensions */
-+		return -EINVAL;
++	off = 0;
++	for_each_netdev_rcu(net, dev)
++		if (off++ == *pos) {
++			state->ifindex = dev->ifindex;
++			goto found;
++		}
 +
-+	tx_type = cfg.tx_type;
-+	rx_filter = cfg.rx_filter;
-+
-+	switch (tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+	case HWTSTAMP_TX_ON:
-+	case HWTSTAMP_TX_ONESTEP_SYNC:
-+		tx_type_valid = 1;
-+		break;
-+	}
-+
-+	switch (rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+	case HWTSTAMP_FILTER_ALL:
-+	case HWTSTAMP_FILTER_SOME:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-+		rx_filter_valid = 1;
-+		break;
-+	}
-+
-+	if (!tx_type_valid || !rx_filter_valid)
-+		return -ERANGE;
-+
-+	return 0;
++	return NULL;
++found:
++	state->ifindex++;
++	++*pos;
++	return dev;
 +}
 +
- static inline bool is_skb_forwardable(struct net_device *dev,
- 				      struct sk_buff *skb)
+ /*
+  *	This is invoked by the /proc filesystem handler to display a device
+  *	in detail.
+@@ -4048,33 +4079,15 @@ static int dev_ifconf(struct net *net, char __user *arg)
+ void *dev_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(RCU)
  {
-@@ -4921,6 +4973,12 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 		ifr->ifr_newname[IFNAMSIZ-1] = '\0';
- 		return dev_change_name(dev, ifr->ifr_newname);
+-	struct net *net = seq_file_net(seq);
+-	loff_t off;
+-	struct net_device *dev;
+-
+ 	rcu_read_lock();
+ 	if (!*pos)
+ 		return SEQ_START_TOKEN;
+-
+-	off = 1;
+-	for_each_netdev_rcu(net, dev)
+-		if (off++ == *pos)
+-			return dev;
+-
+-	return NULL;
++	return __dev_seq_next(seq, pos);
+ }
  
-+	case SIOCSHWTSTAMP:
-+		err = net_hwtstamp_validate(ifr);
-+		if (err)
-+			return err;
-+		/* fall through */
-+
- 	/*
- 	 *	Unknown or private ioctl
- 	 */
+ void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct net_device *dev = v;
+-
+-	if (v == SEQ_START_TOKEN)
+-		dev = first_net_device_rcu(seq_file_net(seq));
+-	else
+-		dev = next_net_device_rcu(dev);
+-
+-	++*pos;
+-	return dev;
++	return __dev_seq_next(seq, pos);
+ }
+ 
+ void dev_seq_stop(struct seq_file *seq, void *v)
+@@ -4173,7 +4186,7 @@ static const struct seq_operations dev_seq_ops = {
+ static int dev_seq_open(struct inode *inode, struct file *file)
+ {
+ 	return seq_open_net(inode, file, &dev_seq_ops,
+-			    sizeof(struct seq_net_private));
++			    sizeof(struct dev_iter_state));
+ }
+ 
+ static const struct file_operations dev_seq_fops = {
 -- 
-1.7.2.5
+1.7.4.1
