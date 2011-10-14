@@ -1,110 +1,85 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH] net: ipv6: Allow netlink to set IPv6 address scope
-Date: Thu, 13 Oct 2011 16:55:22 -0700
-Message-ID: <CAKD1Yr29dAC+_=bT5-_W3XuTzoxMiEzOhpHvwrAzyA8NdcCjSQ@mail.gmail.com>
-References: <20111005201559.E544016A599@drone1.mtv.corp.google.com> <4E931A46.1040905@hp.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [net-next PATCH] net: allow vlan traffic to be received under bond
+Date: Thu, 13 Oct 2011 17:22:02 -0700
+Message-ID: <CAEP_g=9dk_ERdnw4Hw_8RO8Z23E1g2Q9G=AxPkiaVhwbHvo47A@mail.gmail.com>
+References: <20111010191641.2496.84845.stgit@jf-dev1-dcblab>
+ <20111010223752.GB2373@minipsycho> <1318518274.9266.94.camel@sakura.staff.proxad.net>
+ <20111013153850.GA2031@minipsycho> <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>
+ <4E972301.4030004@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: maze@google.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Cc: =?UTF-8?Q?Hans_Schillstr=C3=B6m?= <hans.schillstrom@ericsson.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Maxime Bizon <mbizon@freebox.fr>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"fubar@us.ibm.com" <fubar@us.ibm.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:30026 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918Ab1JMXzp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 19:55:45 -0400
-Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
-	by smtp-out.google.com with ESMTP id p9DNti5N005098
-	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 16:55:44 -0700
-Received: from ywm14 (ywm14.prod.google.com [10.192.13.14])
-	by wpaz33.hot.corp.google.com with ESMTP id p9DNmdfn009585
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 16:55:43 -0700
-Received: by ywm14 with SMTP id 14so2665049ywm.4
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 16:55:43 -0700 (PDT)
-In-Reply-To: <4E931A46.1040905@hp.com>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:39936 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678Ab1JNAWX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 20:22:23 -0400
+Received: by vcge1 with SMTP id e1so109644vcg.19
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 17:22:22 -0700 (PDT)
+In-Reply-To: <4E972301.4030004@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 10, 2011 at 09:16, Brian Haley <brian.haley@hp.com> wrote:
-> > net: ipv6: Allow netlink to set IPv6 address scope
-> >
-> > Currently, userspace cannot specify the scope of IPv6
-> > addresses when creating or modifying them. Instead, the
-> > scope is automatically determined from the address itself.
-> > In IPv4, userspace can set whatever scope it likes.
-> >
-> > Allow userspace to specify the scope of IPv6 addresses in
-> > a backwards-compatible way: if the scope passed in is zero,
-> > use the old behaviour of automatically determining the
-> > scope based on the address.
-> >
-> > Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+2011/10/13 John Fastabend <john.r.fastabend@intel.com>:
+> On 10/13/2011 8:59 AM, Hans Schillstr=C3=B6m wrote:
+>> Thu, Oct 13, 2011 at 05:04:34PM CEST, mbizon@freebox.fr wrote:
+>>>>
+>>>> On Tue, 2011-10-11 at 00:37 +0200, Jiri Pirko wrote:
+>>>>
+>>>>> Hmm, I must look at this again tomorrow but I have strong feeling=
+ this
+>>>>> will break some some scenario including vlan-bridge-macvlan.
+>>>>
+>>>> unless I'm mistaken, today's behaviour:
+>>>>
+>>>> # vconfig add eth0 100
+>>>> # brctl addbr br0
+>>>> # brctl addif br0 eth0
+>>>>
+>>>> =3D> eth0.100 gets no more packets, br0.100 is to be used
+>>>>
+>>>> after the patch won't we get the opposite ?
+>>>
+>>> Looks like it. The question is what is the correct behaviour...
+>>
+>> I think this it become correct now, you should not destroy lover lev=
+el if possible.
+>> I.e. as John wrote "it's not an unexpected behaviour"
+>>
+>> Consider adding a bridge to a vlan like this
+>>
+>> vconfig add eth0 100
+>> brctl addbr br1
+>> brctl addif br1 eth0.100
+>>
+>> If you later add a bridge (or bond) should the previous added bridge=
+ still work ?
+>> Yes I think so, for me it's the expected behaviour.
+>>
+>> brctl addbr br0
+>> brctl addif br0 eth0
+>>
+>> Regards
+>> Hans
+>>
+>>
 >
-> Hi Lorenzo,
->
-> I remember someone proposing a similar patch before and it was not ac=
-cepted, do=A0you have a use case for doing this? =A0It just seems like =
-it will cause problems.
+> Sorry I'm not entirely sure I followed the above two posts. Note
+> this patch restores behavior that has existed for most of the
+> 2.6.x kernels. In the 3.x kernels VLAN100 is dropped in the
+> schematic below (assuming eth0 is active), I think this is
+> incorrect.
 
-Well, to begin with it's a question of feature parity. If we allow
-users to set the scope of IPv4 addresses, then we should allow them to
-set the scope of IPv6 addresses as well. Policy belongs in userspace,
-not in the kernel.
-
-One use case is as follows. I have a phone with an always-on IPv6
-interface which is used for signaling, provisioning, SMS, etc. This
-IPv6 address is a global unicast IPv6 address, but it belongs to a
-closed carrier network, and cannot be used to communicate with the
-IPv6 Internet in either direction.
-
-The phone also supports wifi. When there is IPv6 on the wifi
-interface, things get messy because the phone can decide to use the
-carrier source address on the wifi interface. This will not work,
-because the replies will be dropped in the carrier network.
-
-You can stop this from happening in most cases by not putting a
-default route on the walled garden interface, and only using host
-routes as needed. Unfortunately, you can't stop it from happening in
-at least the following two cases:
-
-1. You receive an IPv6 RA on the wifi interface which provides a
-default route and a 6to4 address, or a default route and no IPv6
-address (for example, because the network uses DHCPv6 and not
-RFC4862-style autoconf)
-
-2. You receive an IPv6 RA on the wifi interface which provides a
-default route and a "native" IPv6 address, but the phone attempts a
-connection while the address is in the tentative state (i.e., the
-phone is performing DAD on the address)
-
-In both cases, ipv6_get_saddr_eval will return the carrier IPv6
-address (because "avoid tentative and optimistic addresses" takes
-precedence over "prefer outgoing interface" in RFC3484) and the kernel
-will pick the default route on the wifi interface. The return packets
-will get dropped and the connection will time out after several
-minutes.
-The only way I can think of to get this right is to set the carrier
-IPv6 address to a scope less than global - which, in effect, it is,
-because it can't reach the Internet.
-
-> Also, there are other parts of the kernel (NFS, SCTP, IPv6 multicast)=
- that are=A0still calling ipv6_addr_scope() on a plain address - won't =
-those be broken since=A0they'll return the correct, RFC-implied scope?
-
-Good point. I looked at these and don't think there is a serious proble=
-m though:
-
-- SCTP doesn't look at the scope in IPv4 either,=A0it just looks at the
-address itself. So at worse this change will make IPv6 match IPv4.
-
-- NFS only looks at the scope to check whether it's link-local, and if
-so only declares an address to be unique if the scopes match. In this
-case I think it's the right thing to do, because it's really the
-network that decides whether an address can be duplicate on different
-links, not the host.
-
-- Unicast and multicast do it when dumping the addresses to userspace.
-I need to fix these.
-
-Does that make sense?
+Actually, for most of 2.6.x the behavior was somewhat
+non-deterministic since it depended on kernel version and the NIC.  As
+a result, I think we can safely say that this wasn't a particularly
+firm interface that we have to be wedded to.  Based on overwhelming
+feedback, I think the interface in this patch is the preferred one and
+what we should stabilize on.
