@@ -1,66 +1,60 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH v7 0/8] Request for inclusion: tcp memory buffers
-Date: Thu, 13 Oct 2011 22:55:59 -0400
-Message-ID: <60642.1318560959@turing-police.cc.vt.edu>
-References: <1318511382-31051-1-git-send-email-glommer@parallels.com> <20111013.160031.605700447623532119.davem@davemloft.net>
-            <4E9744A6.5010101@parallels.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] niu: fix skb truesize underestimation
+Date: Fri, 14 Oct 2011 05:33:51 +0200
+Message-ID: <1318563231.2533.55.camel@edumazet-laptop>
+References: <1318545567.2533.46.camel@edumazet-laptop>
+	 <20111013.222659.12182837968152363.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1318560959_28908P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-        akpm@linux-foundation.org, lizf@cn.fujitsu.com,
-        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
-        paul@paulmenage.org, gthelen@google.com, netdev@vger.kernel.org,
-        linux-mm@kvack.org, kirill@shutemov.name, avagin@parallels.com,
-        devel@openvz.org
-To: Glauber Costa <glommer@parallels.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: Your message of "Fri, 14 Oct 2011 00:05:58 +0400."
-             <4E9744A6.5010101@parallels.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:47256 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754966Ab1JNDd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 23:33:57 -0400
+Received: by wwn22 with SMTP id 22so196548wwn.1
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 20:33:56 -0700 (PDT)
+In-Reply-To: <20111013.222659.12182837968152363.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1318560959_28908P
-Content-Type: text/plain; charset=us-ascii
+Le jeudi 13 octobre 2011 =C3=A0 22:26 -0400, David Miller a =C3=A9crit =
+:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 14 Oct 2011 00:39:27 +0200
+>=20
+> > Add a 'truesize' argument to niu_rx_skb_append(), filled with rcr_s=
+ize
+> > by the caller to properly account frag sizes in skb->truesize
+> >=20
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > ---
+> > Please David double check this one as I am not very familiar with N=
+IU
+> > code. Thanks !
+>=20
+> It looks perfect!  And if it's not I'll soon find out :-)
+>=20
 
-On Fri, 14 Oct 2011 00:05:58 +0400, Glauber Costa said:
-> On 10/14/2011 12:00 AM, David Miller wrote:
+Thanks !
 
-> > Make this evaluate into exactly the same exact code stream we have
-> > now when the memory cgroup feature is not in use, which will be the
-> > majority of users.
-> 
-> What exactly do you mean by "not in use" ? Not compiled in or not 
-> actively being exercised ? If you mean the later, I appreciate tips on 
-> how to achieve it.
-> 
-> Also, I kind of dispute the affirmation that !cgroup will encompass
-> the majority of users, since cgroups is being enabled by default by
-> most vendors. All systemd based systems use it extensively, for instance.
+By the way, I noticed NIU uses a get_page() every time a chunk is
+attached to a skb (only the last chunk of a page is given without the
+get_page())
 
-Yes, systemd requires a kernel that includes cgroups.  However, systemd does
-*not* require the memory cgroup feature.  As a practical matter, if your patch
-doesn't generate equivalent code for the "have cgroups, but no memory cgroup"
-situation, it's a non-starter.
+So I thought it might incur false sharing if a previous SKB using a
+chunk from same page is processed by another CPU.
 
---==_Exmh_1318560959_28908P
-Content-Type: application/pgp-signature
+But then I see you also do in niu_rbr_add_page(), rigth after the
+alloc_page(), the thing I was thinking to add : (perform all needed
+get_page() in a single shot)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+atomic_add(rp->rbr_blocks_per_page - 1,
+	&compound_head(page)->_count);
 
-iD8DBQFOl6S/cC3lWbTT17ARArxnAKDanOuIMQXHrs/wd4CYgmiG8QsllQCeN/MT
-xx+W0iVP/IssCSI12NSp7yI=
-=czOf
------END PGP SIGNATURE-----
+So I am a bit lost here. Arent you doing too many page->_count
+increases ?
 
---==_Exmh_1318560959_28908P--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks !
