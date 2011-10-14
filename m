@@ -1,139 +1,162 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/6] e1000e: locking bug introduced by commit 67fd4fcb
-Date: Thu, 13 Oct 2011 23:21:23 -0700
-Message-ID: <1318573288-18286-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1318573288-18286-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
+Subject: [iproute2] iproute2: Add new command to ip link to enable/disable VF spoof check
+Date: Thu, 13 Oct 2011 23:31:32 -0700
+Message-ID: <1318573892-19093-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net, shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:27147 "EHLO mga14.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:57804 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751800Ab1JNGVb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Oct 2011 02:21:31 -0400
-In-Reply-To: <1318573288-18286-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1755084Ab1JNGbf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Oct 2011 02:31:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Commit 67fd4fcb (e1000e: convert to stats64) added the ability to update
-statistics more accurately and on-demand through the net_device_ops
-.ndo_get_stats64 hook, but introduced a locking bug on 82577/8/9 when
-linked at half-duplex (seen on kernels with CONFIG_DEBUG_ATOMIC_SLEEP=y and
-CONFIG_PROVE_LOCKING=y).  The commit introduced code paths that caused a
-mutex to be locked in atomic contexts, e.g. an rcu_read_lock is held when
-irqbalance reads the stats from /sys/class/net/ethX/statistics causing the
-mutex to be locked to read the Phy half-duplex statistics registers.
+Add ip link command parsing for VF spoof checking enable/disable
 
-The mutex was originally introduced to prevent concurrent accesses of
-resources (the NVM and Phy) shared by the driver, firmware and hardware
-a few years back when there was an issue with the NVM getting corrupted.
-It was later split into two mutexes - one for the NVM and one for the Phy
-when it was determined the NVM, unlike the Phy, should not be protected by
-the software/firmware/hardware semaphore (arbitration of which is done in
-part with the SWFLAG bit in the EXTCNF_CTRL register).  This latter
-semaphore should be sufficient to prevent resource contention of the Phy in
-the driver (i.e. the mutex for Phy accesses is not needed), but to be sure
-the mutex is replaced with an atomic bit flag which will warn if any
-contention is possible.
+V2 - Fixed problem with parsing of dump info on kernels that don't
+     support the spoof checking option and also wrapped the ifla_vf_info
+     structure in #ifdef __KERNEL__ to prevent user space from directly
+     accessing the structure
+V3 - Improved parsing of vfinfo
+V4 - Put Makefile back to proper list of subdirs
+V5 - Remove struct ifla_vf_info, it is only used by the kernel
+V6 - Make sure spoof check is reported by the driver - rtnl will set
+     it to -1 to indicate driver didn't report a value.
 
-Also add additional debug output to help determine when the sw/fw/hw
-semaphore is owned by the firmware or hardware.
-
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Reported-by: Francois Romieu <romieu@fr.zoreil.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h   |    1 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c |   21 +++++++++++++--------
- 2 files changed, 14 insertions(+), 8 deletions(-)
+ include/linux/if_link.h |    8 +++-----
+ ip/ipaddress.c          |   19 +++++++++++++++++++
+ ip/iplink.c             |   15 +++++++++++++++
+ man/man8/ip.8           |    4 +++-
+ 4 files changed, 40 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 7877b9c..9fe18d1 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -469,6 +469,7 @@ struct e1000_info {
- enum e1000_state_t {
- 	__E1000_TESTING,
- 	__E1000_RESETTING,
-+	__E1000_ACCESS_SHARED_RESOURCE,
- 	__E1000_DOWN
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 304c44f..d3bc04c 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -277,6 +277,7 @@ enum {
+ 	IFLA_VF_MAC,		/* Hardware queue specific attributes */
+ 	IFLA_VF_VLAN,
+ 	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
++	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
+ 	__IFLA_VF_MAX,
  };
  
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 4f70974..6a17c62 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -852,8 +852,6 @@ static void e1000_release_nvm_ich8lan(struct e1000_hw *hw)
- 	mutex_unlock(&nvm_mutex);
- }
+@@ -298,12 +299,9 @@ struct ifla_vf_tx_rate {
+ 	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling */
+ };
  
--static DEFINE_MUTEX(swflag_mutex);
--
- /**
-  *  e1000_acquire_swflag_ich8lan - Acquire software control flag
-  *  @hw: pointer to the HW structure
-@@ -866,7 +864,12 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
- 	u32 extcnf_ctrl, timeout = PHY_CFG_TIMEOUT;
- 	s32 ret_val = 0;
+-struct ifla_vf_info {
++struct ifla_vf_spoofchk {
+ 	__u32 vf;
+-	__u8 mac[32];
+-	__u32 vlan;
+-	__u32 qos;
+-	__u32 tx_rate;
++	__u32 setting;
+ };
  
--	mutex_lock(&swflag_mutex);
-+	if (test_and_set_bit(__E1000_ACCESS_SHARED_RESOURCE,
-+			     &hw->adapter->state)) {
-+		WARN(1, "e1000e: %s: contention for Phy access\n",
-+		     hw->adapter->netdev->name);
-+		return -E1000_ERR_PHY;
+ /* VF ports management section
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 85f05a2..2f2cabd 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -197,7 +197,9 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 	struct ifla_vf_mac *vf_mac;
+ 	struct ifla_vf_vlan *vf_vlan;
+ 	struct ifla_vf_tx_rate *vf_tx_rate;
++	struct ifla_vf_spoofchk *vf_spoofchk;
+ 	struct rtattr *vf[IFLA_VF_MAX+1];
++	struct rtattr *tmp;
+ 	SPRINT_BUF(b1);
+ 
+ 	if (vfinfo->rta_type != IFLA_VF_INFO) {
+@@ -211,6 +213,17 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 	vf_vlan = RTA_DATA(vf[IFLA_VF_VLAN]);
+ 	vf_tx_rate = RTA_DATA(vf[IFLA_VF_TX_RATE]);
+ 
++	/* Check if the spoof checking vf info type is supported by
++	 * this kernel.
++	 */
++	tmp = (struct rtattr *)((char *)vf[IFLA_VF_TX_RATE] +
++			vf[IFLA_VF_TX_RATE]->rta_len);
++
++	if (tmp->rta_type != IFLA_VF_SPOOFCHK)
++		vf_spoofchk = NULL;
++	else
++		vf_spoofchk = RTA_DATA(vf[IFLA_VF_SPOOFCHK]);
++
+ 	fprintf(fp, "\n    vf %d MAC %s", vf_mac->vf,
+ 		ll_addr_n2a((unsigned char *)&vf_mac->mac,
+ 		ETH_ALEN, 0, b1, sizeof(b1)));
+@@ -220,6 +233,12 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 		fprintf(fp, ", qos %d", vf_vlan->qos);
+ 	if (vf_tx_rate->rate)
+ 		fprintf(fp, ", tx rate %d (Mbps)", vf_tx_rate->rate);
++	if (vf_spoofchk && vf_spoofchk->setting != -1) {
++		if (vf_spoofchk->setting)
++			fprintf(fp, ", spoof checking on");
++		else
++			fprintf(fp, ", spoof checking off");
 +	}
- 
- 	while (timeout) {
- 		extcnf_ctrl = er32(EXTCNF_CTRL);
-@@ -878,7 +881,7 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
- 	}
- 
- 	if (!timeout) {
--		e_dbg("SW/FW/HW has locked the resource for too long.\n");
-+		e_dbg("SW has already locked the resource.\n");
- 		ret_val = -E1000_ERR_CONFIG;
- 		goto out;
- 	}
-@@ -898,7 +901,9 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
- 	}
- 
- 	if (!timeout) {
--		e_dbg("Failed to acquire the semaphore.\n");
-+		e_dbg("Failed to acquire the semaphore, FW or HW has it: "
-+		      "FWSM=0x%8.8x EXTCNF_CTRL=0x%8.8x)\n",
-+		      er32(FWSM), extcnf_ctrl);
- 		extcnf_ctrl &= ~E1000_EXTCNF_CTRL_SWFLAG;
- 		ew32(EXTCNF_CTRL, extcnf_ctrl);
- 		ret_val = -E1000_ERR_CONFIG;
-@@ -907,7 +912,7 @@ static s32 e1000_acquire_swflag_ich8lan(struct e1000_hw *hw)
- 
- out:
- 	if (ret_val)
--		mutex_unlock(&swflag_mutex);
-+		clear_bit(__E1000_ACCESS_SHARED_RESOURCE, &hw->adapter->state);
- 
- 	return ret_val;
- }
-@@ -932,7 +937,7 @@ static void e1000_release_swflag_ich8lan(struct e1000_hw *hw)
- 		e_dbg("Semaphore unexpectedly released by sw/fw/hw\n");
- 	}
- 
--	mutex_unlock(&swflag_mutex);
-+	clear_bit(__E1000_ACCESS_SHARED_RESOURCE, &hw->adapter->state);
  }
  
- /**
-@@ -3139,7 +3144,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
- 	msleep(20);
- 
- 	if (!ret_val)
--		mutex_unlock(&swflag_mutex);
-+		clear_bit(__E1000_ACCESS_SHARED_RESOURCE, &hw->adapter->state);
- 
- 	if (ctrl & E1000_CTRL_PHY_RST) {
- 		ret_val = hw->phy.ops.get_cfg_done(hw);
+ int print_linkinfo(const struct sockaddr_nl *who,
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 35e6dc6..ca1aaeb 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -71,7 +71,10 @@ void iplink_usage(void)
+ 	fprintf(stderr, "			  [ alias NAME ]\n");
+ 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
+ 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
++
+ 	fprintf(stderr, "				   [ rate TXRATE ] ] \n");
++
++	fprintf(stderr, "				   [ spoofchk { on | off} ] ] \n");
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
+ 	fprintf(stderr, "			  [ nomaster ]\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ]\n");
+@@ -228,6 +231,18 @@ int iplink_parse_vf(int vf, int *argcp, char ***argvp,
+ 			ivt.vf = vf;
+ 			addattr_l(&req->n, sizeof(*req), IFLA_VF_TX_RATE, &ivt, sizeof(ivt));
+ 		
++		} else if (matches(*argv, "spoofchk") == 0) {
++			struct ifla_vf_spoofchk ivs;
++			NEXT_ARG();
++			if (matches(*argv, "on") == 0)
++				ivs.setting = 1;
++			else if (matches(*argv, "off") == 0)
++				ivs.setting = 0;
++			else
++				invarg("Invalid \"spoofchk\" value\n", *argv);
++			ivs.vf = vf;
++			addattr_l(&req->n, sizeof(*req), IFLA_VF_SPOOFCHK, &ivs, sizeof(ivs));
++
+ 		} else {
+ 			/* rewind arg */
+ 			PREV_ARG();
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index 36431b6..a20eca7 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -100,7 +100,9 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
+ .B qos
+ .IR VLAN-QOS " ] ] ["
+ .B rate
+-.IR TXRATE " ] |"
++.IR TXRATE " ] ["
++.B spoofchk { on | off }
++] |
+ .br
+ .B master
+ .IR DEVICE
 -- 
 1.7.6.4
