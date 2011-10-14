@@ -1,35 +1,66 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH] r8169: fix wrong eee setting for rlt8111evl
-Date: Fri, 14 Oct 2011 14:14:37 +0800
-Message-ID: <1318572877-1549-1-git-send-email-hayeswang@realtek.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 13 Oct 2011 23:21:22 -0700
+Message-ID: <1318573288-18286-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:27147 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751666Ab1JNGVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Oct 2011 02:21:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Correct the wrong parameter for setting EEE for RTL8111E-VL.
+The following series contains updates to e1000e, if_link, ixgbe, igbvf
+and igb.  This version of the series contains the following changes:
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/r8169.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+- e1000e not sure what happened in the pull on Tuesday which has this f=
+ix
+  so re-posting this fix
+- igb fix for timecompare_update and enable L4 timestamping
+- igbvf final conversion to ndo_fix_features
+- if_link/ixgbe add spoof checking feature
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index c236670..27f7ebc 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2859,7 +2859,7 @@ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x1f, 0x0004);
- 	rtl_writephy(tp, 0x1f, 0x0007);
- 	rtl_writephy(tp, 0x1e, 0x0020);
--	rtl_w1w0_phy(tp, 0x06, 0x0000, 0x0100);
-+	rtl_w1w0_phy(tp, 0x15, 0x0000, 0x0100);
- 	rtl_writephy(tp, 0x1f, 0x0002);
- 	rtl_writephy(tp, 0x1f, 0x0000);
- 	rtl_writephy(tp, 0x0d, 0x0007);
--- 
-1.7.6.2
+The following are changes since commit 7ae60b3f3b297b7f04025c93f1cb2275=
+c3a1dfcd:
+  sky2: fix skb truesize underestimation
+and are available in the git repository at
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+
+Bruce Allan (1):
+  e1000e: locking bug introduced by commit 67fd4fcb
+
+Greg Rose (2):
+  if_link: Add additional parameter to IFLA_VF_INFO for spoof checking
+  ixgbe: Add new netdev op to turn spoof checking on or off per VF
+
+Jacob Keller (2):
+  igb: enable l4 timestamping for v2 event packets
+  igb: fix timecompare_upate race condition
+
+Micha=C5=82 Miros=C5=82aw (1):
+  igbvf: convert to ndo_fix_features
+
+ drivers/net/ethernet/intel/e1000e/e1000.h      |    1 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c    |   21 +++++---
+ drivers/net/ethernet/intel/igb/igb_main.c      |   11 ++++-
+ drivers/net/ethernet/intel/igbvf/ethtool.c     |   57 ----------------=
+--------
+ drivers/net/ethernet/intel/igbvf/netdev.c      |   25 ++++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |   10 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   48 ++++++++++++++++=
++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |    1 +
+ include/linux/if_link.h                        |   10 ++++
+ include/linux/netdevice.h                      |    3 +
+ net/core/rtnetlink.c                           |   33 ++++++++++++-
+ 12 files changed, 139 insertions(+), 84 deletions(-)
+
+--=20
+1.7.6.4
