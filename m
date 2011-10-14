@@ -1,41 +1,85 @@
-From: Sven Ulland <sveniu@opera.com>
-Subject: Re: Route flagged RTCF_REDIRECTED without ICMP redirs?
-Date: Fri, 14 Oct 2011 09:15:48 +0200
-Message-ID: <4E97E1A4.9080703@opera.com>
-References: <20111013185015.fa2abpjlpw8c0408@staff.opera.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: reduce memory needs of out of order queue
+Date: Fri, 14 Oct 2011 09:19:51 +0200
+Message-ID: <1318576791.2533.99.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opera.com ([213.236.208.81]:33780 "EHLO smtp.opera.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755319Ab1JNHPv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Oct 2011 03:15:51 -0400
-Received: from [10.20.18.128] (pat-tdc.opera.com [213.236.208.22])
-	(authenticated bits=0)
-	by smtp.opera.com (8.14.3/8.14.3/Debian-5+lenny1) with ESMTP id p9E7FmQa030982
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 07:15:48 GMT
-In-Reply-To: <20111013185015.fa2abpjlpw8c0408@staff.opera.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:65190 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932100Ab1JNHT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 03:19:57 -0400
+Received: by wyg34 with SMTP id 34so2674715wyg.19
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 00:19:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/13/2011 08:50 PM, sveniu@opera.com wrote:
-> How can a route end up with being flagged with RTCF_REDIRECTED, and
-> point to the default gateway, even though it's explicitly set to
-> route to another node in the same subnet, in the rpdb and routing
-> tables? There is zero trace of icmp redirects, and all redirect
-> sysctls have been disabled, and the route cache flushed before every
-> test.
+Many drivers allocates big skb to store a single TCP frame.
+(WIFI drivers, or NIC using PAGE_SIZE fragments)
 
-This turned out to be due to [1], where the inet peer cache kept
-a redirect learned via icmp before accept_redirect and friends were
-disabled, so it was propagated to the route cache. Resolved by
-a reboot to clean the inet peer cache.
+Its now common to get skb->truesize bigger than 4096 to store a ~1500
+bytes TCP frame.
 
-[1]: Commit f39925d:
-<URL:https://github.com/torvalds/linux/commit/f39925dbde7788cfb96419c0f092b086aa325c0f>
+TCP sessions with large RTT and packet losses can fill their Out Of
+Order queue with such oversized skbs, and hit their sk_rcvbuf limit,
+starting a pruning of complete OFO queue, without giving chance to
+receive the missing packet(s) and moving skbs from OFO to receive queue.
 
-best regards,
-Sven Ulland
+This patch adds skb_reduce_truesize() helper, and uses it for all skbs
+queued into OFO queue.
+
+Spending some time to perform a copy is worth the pain, since it permits
+SACK processing to have a chance to complete over the RTT barrier.
+
+This greatly improves user experience, without added cost on fast path.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/tcp_input.c |   24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c1653fe..1d10edb 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4426,6 +4426,25 @@ static inline int tcp_try_rmem_schedule(struct sock *sk, unsigned int size)
+ 	return 0;
+ }
+ 
++/*
++ * Caller want to reduce memory needs before queueing skb
++ * The (expensive) copy should not be be done in fast path.
++ */
++static struct sk_buff *skb_reduce_truesize(struct sk_buff *skb)
++{
++	if (skb->truesize > 2 * SKB_TRUESIZE(skb->len)) {
++		struct sk_buff *nskb;
++
++		nskb = skb_copy_expand(skb, skb_headroom(skb), 0,
++				       GFP_ATOMIC | __GFP_NOWARN);
++		if (nskb) {
++			__kfree_skb(skb);
++			skb = nskb;
++		}
++	}
++	return skb;
++}
++
+ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct tcphdr *th = tcp_hdr(skb);
+@@ -4553,6 +4572,11 @@ drop:
+ 	SOCK_DEBUG(sk, "out of order segment: rcv_next %X seq %X - %X\n",
+ 		   tp->rcv_nxt, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
+ 
++	/* Since this skb might stay on ofo a long time, try to reduce
++	 * its truesize (if its too big) to avoid future pruning.
++	 * Many drivers allocate large buffers even to hold tiny frames.
++	 */
++	skb = skb_reduce_truesize(skb);
+ 	skb_set_owner_r(skb, sk);
+ 
+ 	if (!skb_peek(&tp->out_of_order_queue)) {
