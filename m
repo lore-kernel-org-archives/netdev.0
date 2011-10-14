@@ -1,64 +1,165 @@
-From: =?utf-8?B?5L+d6K+B5pyJ5Lmw5a625Zue5aSN?= <user@tuwharetoafm.co.nz>
-Subject: =?utf-8?B?576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuivmnIDmlrDlub/kuqTkvJrkubDlrrbjgIHmtbc=?=
-	=?utf-8?B?5YWz5pWw5o2uLEIyQuivouebmOS5sOWutjUwMOS4h+OAgg==?=
-Date: Fri, 14 Oct 2011 20:41:19 +0000 (UTC)
-Message-ID: <20121015015935615374@tuwharetoafm.co.nz>
-Reply-To: <1339625218@qq.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH RFC 1/2] ethtool: Add extended flow control query
+ facility
+Date: Fri, 14 Oct 2011 13:54:01 -0700
+Message-ID: <1318625642-9668-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <netacrylichaiying@126.com>, <netcomsales@comcast.net>,
-	<netcross1960@eml.cc>, <netdev@vger.kernel.org>, <neted@263.net>,
-	<netherwerks@gmail.com>, <netinfo@uk.imshealth.com>,
-	<netlaw_
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com,
+	bhutchings@solarflare.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.ttt91-9fm.co.nz ([222.154.233.154]:52481 "EHLO
-	tuwharetoafm.co.nz" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753947Ab1JNUlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 16:41:09 -0400
-Date: Mon, 15 Oct 2012 01:59:26 +0800
+Received: from mms2.broadcom.com ([216.31.210.18]:2608 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932460Ab1JNUyC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Oct 2011 16:54:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-576k5Y+R6L2v5Lu2K+S5sOWutuaQnOe0ouacuisxMDnlsYrlub/kuqTkvJrkubDlrrbjgIHlsZXk
-vJrkubDlrrbjgIHmtbflhbPmlbDmja4sQjJC6K+i55uY5Lmw5a62NTAw5LiH44CCDQoNCuS4gOWF
-sTjkuKrljIUo5pWw5o2u5piv5YWo6KGM5Lia55qE77yM5oyJ54Wn6KGM5Lia5YiG5aW957G777yM
-5bm25LiU5Y+v5Lul5oyJ54Wn5YWz6ZSu6K+N5p+l6K+i55qEKe+8miANCjHvvIwyMDEx5pil5a2j
-MTA55bGK5bm/5Lqk5Lya5Lmw5a625pWw5o2u5bqT5paw6bKc5Ye654KJ77yM6LaF57qn5paw6bKc
-5Lmw5a6277yM5paw6bKc5pWw5o2u77yM5a655piT5oiQ5Y2V77yBIA0KMu+8jOacgOaWsOWFqOeQ
-g+S5sOWutuW6kyzlhbE0NTE2NjDmnaHmlbDmja7jgIIgDQoz77yMMjAwOOW5tCwyMDA55bm0LDIw
-MTDlubQg5pil5a2jK+eni+Wto+W5v+S6pOS8muS5sOWutuWQjeW9le+8jDEwMyAxMDQgMTA1IDEw
-NiAxMDcgMTA4IOWFseWFreWxiiDlhbExMjAuNuS4h+aVsOaNruOAgg0KNO+8jDIwMTDlubTlm73p
-mYXkv4PplIDljY/kvJrvvIhQUEFJ77yJ5oiQ5ZGY5ZCN5Y2VIFBQQUkgTWVtYmVycyBEaXJlY3Rv
-cnnvvIzpnZ7luLjph43opoHnmoTlpKfkubDlrrbjgIINCjXvvIwyMDEw5bm05Yiw6aaZ5riv6YeH
-6LSt55qE5Zu95aSW5a6i5Lq65ZCN5b2VKOmmmea4r+i0uOWPkeWxgOaPkOS+mynvvIzlhbE3LjLk
-uIfmlbDmja7vvIzotoXnuqfph43opoHnmoTkubDlrrbjgIINCjbvvIw2MC445LiH5p2h5pyA5paw
-5Zu95aSWQjJC5Lmw5a626K+i55uY44CCDQo377yMMjAwOeW5tOa1t+WFs+aPkOWNleaVsOaNrnBp
-ZXJz54mI5pWw5o2uIDHljYPkuIfjgIINCjjvvIznvqTlj5Hova/ku7bvvIznvqTlj5Hova/ku7bn
-moTpg6jnvbLkuI7lronoo4XjgIINCg0K5YWxIDUwMOS4h+S4quS5sOWutu+8jOavj+S4quWdh+ac
-iUVtYWlsLiANCg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/l
-pKnpg73mnInkubDlrrblm57lpI3jgIINCg0K6KaB55qE5oqT57Sn6IGU57O7UVE6IDEzMzk2MjUy
-MTggICDmiJbogIXnq4vljbPlm57lpI3pgq7nrrE6IDEzMzk2MjUyMThAcXEuY29tDQropoHnmoTm
-ipPntKfogZTns7tRUTogMTMzOTYyNTIxOCAgIOaIluiAheeri+WNs+WbnuWkjemCrueusTogMTMz
-OTYyNTIxOEBxcS5jb20NCuimgeeahOaKk+e0p+iBlOezu1FROiAxMzM5NjI1MjE4ICAg5oiW6ICF
-56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0KDQror5rkv6HkuLrmnKzvvIzl
-poLmnpzkuI3kv6Hku7vmnKzkuros5Y+v5Lul6LWw5reY5a6d5Lqk5piTLOaUtui0p+mqjOivgeWQ
-juWGjeS7mOasvizov5nmmK/lr7nmgqjmnIDlpb3nmoTkv53pmpzkuobjgIIgDQoNCuS/neivgeav
-j+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue5aSN
-44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCg0KDQoNCg0K5bm/5Lqk5Lya
-5Lmw5a625oyJ5Lqn5ZOB57G75Yir5YiG57G777yM5YiG5Li65Lul5LiL5Yeg57G777yaDQoxIOWK
-nuWFrOiuvuWkhw0KMiDnvJbnu4flj4rol6Tpk4Hlt6Xoibrlk4ENCjMg546755KDDQo0IOmkkOWO
-qOeUqOWFtw0KNSDovabovoYNCjYg5aSn5Z6L5py65qKw5Y+K6K6+5aSHDQo3IOeUteWtkOeUteaw
-lA0KOCDnlLXlrZDmtojotLnlk4ENCjkg57q657uHDQoxMCDmnI3oo4UNCjExIOS4quS6uuaKpOeQ
-hg0KMTIg5bel56iL5py65qKwDQoxMyDlt6XlhbcNCjE0IOWMluW3pQ0KMTUg6K6h566X5py65Y+K
-6YCa6K6vDQoxNiDlrrblsYXnlKjlk4ENCjE3IOWutuWxheijhemlsA0KMTgg5a625YW3DQoxOSDl
-rrbnlKjnlLXlmagNCjIwIOW7uuetkeWPiuijhemlsOadkOaWmQ0KMjEg6IqC5pel55So5ZOBDQoy
-MiDnpLzlk4Hlj4rotaDlk4ENCjIzIOaRqeaJmOi9pg0KMjQg5rG96L2m6YWN5Lu2DQoyNSDpo5/l
-k4ENCjI2IOmZtueTtw0KMjcg6ZOB55+zDQoyOCDnjqnlhbcNCjI5IOWNq+a1tA0KMzAg5LqU6YeR
-DQozMSDlsI/lnovmnLrmorANCjMyIOmeiw0KMzMg5LyR6Zey55So5ZOBDQozNCDljLvnlpcNCjM1
-IOa1tOWupOS6p+WTgQ0KMzYg5Zut5p6XDQozNyDnhafmmI7kuqflk4ENCjM4IOmSn+ihqOecvOmV
-nA0KMzkg6Ieq6KGM6L2mDQo0MCDljIUNCg0KDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57l
-pI3jgIINCuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K5L+d6K+B5q+P5aSp6YO9
-5pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/lpKnpg73mnInkubDlrrblm57lpI3jgIINCuS/
-neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOAgg0K
+This patch creates a new ethtool_pauseparamext structure that elaborates
+on the older struct ethtool_pauseparam structure.  The new structure
+adds two new fields that represent the current flow control status.
+
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+---
+ include/linux/ethtool.h |   14 ++++++++++-
+ net/core/ethtool.c      |   59 +++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 67 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 45f00b6..cd60d74 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -284,6 +284,15 @@ struct ethtool_pauseparam {
+ 	__u32	tx_pause;
+ };
+ 
++/* for configuring link flow control parameters */
++struct ethtool_pauseparamext {
++	struct ethtool_pauseparam cfg;
++
++	__u32	rx_pause_status;
++	__u32	tx_pause_status;
++	__u32	reserved[2];
++};
++
+ #define ETH_GSTRING_LEN		32
+ enum ethtool_stringset {
+ 	ETH_SS_TEST		= 0,
+@@ -956,7 +965,8 @@ struct ethtool_ops {
+ 	int	(*get_dump_data)(struct net_device *,
+ 				 struct ethtool_dump *, void *);
+ 	int	(*set_dump)(struct net_device *, struct ethtool_dump *);
+-
++	void	(*get_pauseparamext)(struct net_device *,
++				  struct ethtool_pauseparamext*);
+ };
+ #endif /* __KERNEL__ */
+ 
+@@ -1030,6 +1040,8 @@ struct ethtool_ops {
+ #define ETHTOOL_SET_DUMP	0x0000003e /* Set dump settings */
+ #define ETHTOOL_GET_DUMP_FLAG	0x0000003f /* Get dump settings */
+ #define ETHTOOL_GET_DUMP_DATA	0x00000040 /* Get dump data */
++#define ETHTOOL_GPAUSEPARAMEXT	0x00000041 /* Get pause parameters v2 */
++#define ETHTOOL_SPAUSEPARAMEXT	0x00000042 /* Set pause parameters v2 */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index f444817..1c0f58c 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1206,15 +1206,21 @@ static noinline_for_stack int ethtool_set_channels(struct net_device *dev,
+ 
+ static int ethtool_get_pauseparam(struct net_device *dev, void __user *useraddr)
+ {
+-	struct ethtool_pauseparam pauseparam = { ETHTOOL_GPAUSEPARAM };
++	struct ethtool_pauseparamext pauseparam = {
++		{ .cmd = ETHTOOL_GPAUSEPARAM }
++	};
+ 
+-	if (!dev->ethtool_ops->get_pauseparam)
++	if (dev->ethtool_ops->get_pauseparam)
++		dev->ethtool_ops->get_pauseparam(dev, &pauseparam.cfg);
++	else if (dev->ethtool_ops->get_pauseparamext)
++		dev->ethtool_ops->get_pauseparamext(dev, &pauseparam);
++	else
+ 		return -EOPNOTSUPP;
+ 
+-	dev->ethtool_ops->get_pauseparam(dev, &pauseparam);
+-
+-	if (copy_to_user(useraddr, &pauseparam, sizeof(pauseparam)))
++	if (copy_to_user(useraddr, &pauseparam,
++			 sizeof(struct ethtool_pauseparam)))
+ 		return -EFAULT;
++
+ 	return 0;
+ }
+ 
+@@ -1231,6 +1237,42 @@ static int ethtool_set_pauseparam(struct net_device *dev, void __user *useraddr)
+ 	return dev->ethtool_ops->set_pauseparam(dev, &pauseparam);
+ }
+ 
++static int ethtool_get_pauseparamext(struct net_device *dev,
++				     void __user *useraddr)
++{
++	struct ethtool_pauseparamext pauseparam = {
++		{ .cmd = ETHTOOL_GPAUSEPARAMEXT }
++	};
++
++	if (dev->ethtool_ops->get_pauseparamext) {
++		dev->ethtool_ops->get_pauseparamext(dev, &pauseparam);
++	} else {
++		if (!dev->ethtool_ops->get_pauseparam)
++			return -EOPNOTSUPP;
++
++		dev->ethtool_ops->get_pauseparam(dev, &pauseparam.cfg);
++	}
++
++	if (copy_to_user(useraddr, &pauseparam, sizeof(pauseparam)))
++		return -EFAULT;
++
++	return 0;
++}
++
++static int ethtool_set_pauseparamext(struct net_device *dev,
++				     void __user *useraddr)
++{
++	struct ethtool_pauseparamext pauseparam;
++
++	if (!dev->ethtool_ops->set_pauseparam)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&pauseparam, useraddr, sizeof(pauseparam)))
++		return -EFAULT;
++
++	return dev->ethtool_ops->set_pauseparam(dev, &pauseparam.cfg);
++}
++
+ static int __ethtool_set_sg(struct net_device *dev, u32 data)
+ {
+ 	int err;
+@@ -1667,6 +1709,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_GCOALESCE:
+ 	case ETHTOOL_GRINGPARAM:
+ 	case ETHTOOL_GPAUSEPARAM:
++	case ETHTOOL_GPAUSEPARAMEXT:
+ 	case ETHTOOL_GRXCSUM:
+ 	case ETHTOOL_GTXCSUM:
+ 	case ETHTOOL_GSG:
+@@ -1754,6 +1797,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SPAUSEPARAM:
+ 		rc = ethtool_set_pauseparam(dev, useraddr);
+ 		break;
++	case ETHTOOL_GPAUSEPARAMEXT:
++		rc = ethtool_get_pauseparamext(dev, useraddr);
++		break;
++	case ETHTOOL_SPAUSEPARAMEXT:
++		rc = ethtool_set_pauseparamext(dev, useraddr);
++		break;
+ 	case ETHTOOL_TEST:
+ 		rc = ethtool_self_test(dev, useraddr);
+ 		break;
+-- 
+1.7.3.4
