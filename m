@@ -1,80 +1,41 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 2/5] stmmac: allow mtu bigger than 1500 in case of
- normal desc (V2).
-Date: Fri, 14 Oct 2011 09:15:09 +0200
-Message-ID: <4E97E17D.4010705@st.com>
-References: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>  <1318426688-9419-3-git-send-email-peppe.cavallaro@st.com> <1318449481.2644.11.camel@edumazet-laptop>
+From: Sven Ulland <sveniu@opera.com>
+Subject: Re: Route flagged RTCF_REDIRECTED without ICMP redirs?
+Date: Fri, 14 Oct 2011 09:15:48 +0200
+Message-ID: <4E97E1A4.9080703@opera.com>
+References: <20111013185015.fa2abpjlpw8c0408@staff.opera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Deepak SIKRI <deepak.sikri@st.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:42098 "EHLO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755025Ab1JNHPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 03:15:16 -0400
-In-Reply-To: <1318449481.2644.11.camel@edumazet-laptop>
+Received: from smtp.opera.com ([213.236.208.81]:33780 "EHLO smtp.opera.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755319Ab1JNHPv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Oct 2011 03:15:51 -0400
+Received: from [10.20.18.128] (pat-tdc.opera.com [213.236.208.22])
+	(authenticated bits=0)
+	by smtp.opera.com (8.14.3/8.14.3/Debian-5+lenny1) with ESMTP id p9E7FmQa030982
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 07:15:48 GMT
+In-Reply-To: <20111013185015.fa2abpjlpw8c0408@staff.opera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Eric
+On 10/13/2011 08:50 PM, sveniu@opera.com wrote:
+> How can a route end up with being flagged with RTCF_REDIRECTED, and
+> point to the default gateway, even though it's explicitly set to
+> route to another node in the same subnet, in the rpdb and routing
+> tables? There is zero trace of icmp redirects, and all redirect
+> sysctls have been disabled, and the route cache flushed before every
+> test.
 
-On 10/12/2011 9:58 PM, Eric Dumazet wrote:
-> Le mercredi 12 octobre 2011 =C3=A0 15:38 +0200, Giuseppe CAVALLARO a =
-=C3=A9crit :
->> This patch allows to set the mtu bigger than 1500
->> in case of normal descriptors.
->> This is helping some SPEAr customers.
->>
->> Signed-off-by: Deepak SIKRI <deepak.sikri@st.com>
->> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->> ---
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    6 +++---
->>  1 files changed, 3 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/dri=
-vers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index ba7af2c..de3e536 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -1357,17 +1357,17 @@ static void stmmac_set_rx_mode(struct net_de=
-vice *dev)
->>  static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
->>  {
->>  	struct stmmac_priv *priv =3D netdev_priv(dev);
->> -	int max_mtu;
->> +	int max_mtu =3D ETH_DATA_LEN;
->=20
-> Why are you setting max_mtu to ETH_DATA_LEN here ?
->=20
->> =20
->>  	if (netif_running(dev)) {
->>  		pr_err("%s: must be stopped to change its MTU\n", dev->name);
->>  		return -EBUSY;
->>  	}
->> =20
->> -	if (priv->plat->has_gmac)
->> +	if (priv->plat->enh_desc)
->>  		max_mtu =3D JUMBO_LEN;
->>  	else
->> -		max_mtu =3D ETH_DATA_LEN;
->> +		max_mtu =3D BUF_SIZE_4KiB;
->=20
-> Since later you init to completely different values...
+This turned out to be due to [1], where the inet peer cache kept
+a redirect learned via icmp before accept_redirect and friends were
+disabled, so it was propagated to the route cache. Resolved by
+a reboot to clean the inet peer cache.
 
+[1]: Commit f39925d:
+<URL:https://github.com/torvalds/linux/commit/f39925dbde7788cfb96419c0f092b086aa325c0f>
 
-Hmm, yes you are right. it's not needed to initialized the max_mtu.
-
-Thanks! I'll rework the patch and send it again in the V3.
-
-Thx
-
-Regards
-Peppe
-
->=20
->=20
->=20
->=20
+best regards,
+Sven Ulland
