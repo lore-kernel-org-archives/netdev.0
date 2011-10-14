@@ -1,49 +1,35 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 5/6] igb: fix timecompare_upate race condition
-Date: Fri, 14 Oct 2011 11:26:46 +0200
-Message-ID: <20111014092646.GA22928@netboy.at.omicron.at>
-References: <1318573288-18286-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1318573288-18286-6-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Jacob Keller <jacob.e.keller@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH net-next 0/1] net: validate HWTSTAMP ioctl parameters
+Date: Fri, 14 Oct 2011 11:37:47 +0200
+Message-ID: <cover.1318584677.git.richard.cochran@omicron.at>
+References: <20110926.160443.1205173553442138535.davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:46013 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752291Ab1JNJ0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 05:26:47 -0400
-Received: by eye27 with SMTP id 27so939897eye.19
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 02:26:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1318573288-18286-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:63268 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752568Ab1JNJho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 05:37:44 -0400
+Received: by bkbzt4 with SMTP id zt4so2589293bkb.19
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 02:37:43 -0700 (PDT)
+In-Reply-To: <20110926.160443.1205173553442138535.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 13, 2011 at 11:21:27PM -0700, Jeff Kirsher wrote:
-> From: Jacob Keller <jacob.e.keller@intel.com>
-> 
-> This patch closes a possible race condition when timestamping using
-> the timecompare_update function as a method to detect clock skew of
-> the internal cycle counter. Because timecompare_update usually allows
-> skew detection no more than once a second, if ptpd or other software
-> performs a clock offset (for example, using the "date" command), there
-> is a small window of time where the clock skew will not match the
-> current kernel wall time. This patch forces the timecompare_update to
-> calculate skew every time we timestamp a packet, which removes the
-> possibility of this race condition.
+Okay, here is a patch to check the ioctl.
 
-NAK.
+I took the liberty to check both the Rx and Tx fields. I coded the
+check rather pedantically, using a switch/case over the enumerated
+values. The advantage of this style is that the compiler will warn
+if someone adds a new enum into net_tstamp.h without fixing the
+checking function in dev.c.
 
-What will happen when you use the card for the telecom profile?
+Richard Cochran (1):
+  net: validate HWTSTAMP ioctl parameters
 
-In that case you can expect 32 sync packets per second (plus delay
-requests times number of clients).
+ include/linux/net_tstamp.h |    4 +-
+ net/core/dev.c             |   58 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+), 2 deletions(-)
 
-A better way is to remove the timecompare stuff and offer a PTP
-Hardware Clock instead. That would make the race condition a non-issue
-and also enable the nice hardware clock offered by the card(s).
-
-Thanks,
-Richard
+-- 
+1.7.2.5
