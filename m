@@ -1,31 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ftmac100: fix skb truesize underestimation
-Date: Thu, 13 Oct 2011 22:28:43 -0400 (EDT)
-Message-ID: <20111013.222843.948173647135141130.davem@davemloft.net>
-References: <1318540808.2533.27.camel@edumazet-laptop>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH v7 0/8] Request for inclusion: tcp memory buffers
+Date: Thu, 13 Oct 2011 22:55:59 -0400
+Message-ID: <60642.1318560959@turing-police.cc.vt.edu>
+References: <1318511382-31051-1-git-send-email-glommer@parallels.com> <20111013.160031.605700447623532119.davem@davemloft.net>
+            <4E9744A6.5010101@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed; boundary="==_Exmh_1318560959_28908P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ratbert@faraday-tech.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48817 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753961Ab1JNC3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 22:29:02 -0400
-In-Reply-To: <1318540808.2533.27.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+        akpm@linux-foundation.org, lizf@cn.fujitsu.com,
+        kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com,
+        paul@paulmenage.org, gthelen@google.com, netdev@vger.kernel.org,
+        linux-mm@kvack.org, kirill@shutemov.name, avagin@parallels.com,
+        devel@openvz.org
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: Your message of "Fri, 14 Oct 2011 00:05:58 +0400."
+             <4E9744A6.5010101@parallels.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 13 Oct 2011 23:20:08 +0200
+--==_Exmh_1318560959_28908P
+Content-Type: text/plain; charset=us-ascii
 
-> ftmac100 allocates a page per skb fragment. We must account
-> PAGE_SIZE increments on skb->truesize, not the actual frag length.
+On Fri, 14 Oct 2011 00:05:58 +0400, Glauber Costa said:
+> On 10/14/2011 12:00 AM, David Miller wrote:
+
+> > Make this evaluate into exactly the same exact code stream we have
+> > now when the memory cgroup feature is not in use, which will be the
+> > majority of users.
 > 
-> If frame is under 64 bytes, page is freed, so increase truesize only for
-> bigger frames.
+> What exactly do you mean by "not in use" ? Not compiled in or not 
+> actively being exercised ? If you mean the later, I appreciate tips on 
+> how to achieve it.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Also, I kind of dispute the affirmation that !cgroup will encompass
+> the majority of users, since cgroups is being enabled by default by
+> most vendors. All systemd based systems use it extensively, for instance.
 
-Applied.
+Yes, systemd requires a kernel that includes cgroups.  However, systemd does
+*not* require the memory cgroup feature.  As a practical matter, if your patch
+doesn't generate equivalent code for the "have cgroups, but no memory cgroup"
+situation, it's a non-starter.
+
+--==_Exmh_1318560959_28908P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFOl6S/cC3lWbTT17ARArxnAKDanOuIMQXHrs/wd4CYgmiG8QsllQCeN/MT
+xx+W0iVP/IssCSI12NSp7yI=
+=czOf
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1318560959_28908P--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
