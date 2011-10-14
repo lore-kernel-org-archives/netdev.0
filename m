@@ -1,96 +1,80 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next 1/5] stmmac: add CHAINED descriptor mode support (V2)
-Date: Fri, 14 Oct 2011 09:10:49 +0200
-Message-ID: <4E97E079.8030205@st.com>
-References: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com> <1318426688-9419-2-git-send-email-peppe.cavallaro@st.com> <20111013.163946.859494070937160730.davem@davemloft.net>
+Subject: Re: [net-next 2/5] stmmac: allow mtu bigger than 1500 in case of
+ normal desc (V2).
+Date: Fri, 14 Oct 2011 09:15:09 +0200
+Message-ID: <4E97E17D.4010705@st.com>
+References: <1318426688-9419-1-git-send-email-peppe.cavallaro@st.com>  <1318426688-9419-3-git-send-email-peppe.cavallaro@st.com> <1318449481.2644.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rayagond@vayavyalabs.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Deepak SIKRI <deepak.sikri@st.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:53775 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754196Ab1JNHLU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 03:11:20 -0400
-In-Reply-To: <20111013.163946.859494070937160730.davem@davemloft.net>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:42098 "EHLO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755025Ab1JNHPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 03:15:16 -0400
+In-Reply-To: <1318449481.2644.11.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/13/2011 10:39 PM, David Miller wrote:
-> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> Date: Wed, 12 Oct 2011 15:38:04 +0200
-> 
->> +#if defined(CONFIG_STMMAC_RING)
->> +
->> +static unsigned int stmmac_jumbo_frm(struct stmmac_priv *priv,
->> +				     struct sk_buff *skb, int csum_insertion)
->> +{
-> 
-> This is not exactly what I meant.
-> 
-> In your original patch, two or three line snippets of code were conditionalized.
-> 
-> That's what I wanted you to do here.  Keep as much common code around as possible
-> in the driver *.c file, but the small 2 or 3 line conditional parts are implemented
-> in very small well contained inline functions implemented in a header file.
-> 
-> These small, 2 or 3 line, inline functions are where the ifdefs go.
-> 
-> I didn't mean to replicate all of the functions, in their entirety, into some
-> header file.
+Hello Eric
 
-This is what I wanted to do indeed. :-(
-
-I had added new small functions like where possible (used in the main):
-
-static void stmmac_refill_desc3(int bfsize, struct dma_desc *p)
-static void stmmac_init_desc3(int des3_as_data_buf, struct dma_desc *p)
-static void stmmac_clean_desc3(struct dma_desc *p)
-
-I guess this is what you actually wanted.
-
-In other cases, I had put two implementation of the same function
-specialized for ring and chained mode. This was the case of the enhanced
-and normal descriptors. Instead of implementing new inline funtcs I
-direcly moved the functions themselves into the header because small enough.
-
-For example
-
-inline void enh_desc_release_tx_desc(struct dma_desc *p)
-{
-	memset(p, 0, offsetof(struct dma_desc, des2));
-	p->des01.etx.second_address_chained = 1;
-}
-
-and
-inline void enh_desc_release_tx_desc(struct dma_desc *p)
-{
-	int ter = p->des01.etx.end_ring;
-
-	memset(p, 0, offsetof(struct dma_desc, des2));
-	p->des01.etx.end_ring = ter;
-}
+On 10/12/2011 9:58 PM, Eric Dumazet wrote:
+> Le mercredi 12 octobre 2011 =C3=A0 15:38 +0200, Giuseppe CAVALLARO a =
+=C3=A9crit :
+>> This patch allows to set the mtu bigger than 1500
+>> in case of normal descriptors.
+>> This is helping some SPEAr customers.
+>>
+>> Signed-off-by: Deepak SIKRI <deepak.sikri@st.com>
+>> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> ---
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    6 +++---
+>>  1 files changed, 3 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/dri=
+vers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index ba7af2c..de3e536 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -1357,17 +1357,17 @@ static void stmmac_set_rx_mode(struct net_de=
+vice *dev)
+>>  static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
+>>  {
+>>  	struct stmmac_priv *priv =3D netdev_priv(dev);
+>> -	int max_mtu;
+>> +	int max_mtu =3D ETH_DATA_LEN;
+>=20
+> Why are you setting max_mtu to ETH_DATA_LEN here ?
+>=20
+>> =20
+>>  	if (netif_running(dev)) {
+>>  		pr_err("%s: must be stopped to change its MTU\n", dev->name);
+>>  		return -EBUSY;
+>>  	}
+>> =20
+>> -	if (priv->plat->has_gmac)
+>> +	if (priv->plat->enh_desc)
+>>  		max_mtu =3D JUMBO_LEN;
+>>  	else
+>> -		max_mtu =3D ETH_DATA_LEN;
+>> +		max_mtu =3D BUF_SIZE_4KiB;
+>=20
+> Since later you init to completely different values...
 
 
-Unfortunately, jumbo frame function is big :-( and I agree with you that
-it's not good to have this in the Header.
+Hmm, yes you are right. it's not needed to initialized the max_mtu.
 
-At any rate, I'll try to reduce the code in the header as much possible
-although this makes more complex the driver's API.
+Thanks! I'll rework the patch and send it again in the V3.
 
-Thanks for your feedback.
-
-Let me know for other advice and comments
+Thx
 
 Regards
 Peppe
 
-> 
-> You might was well put the entire driver into a header file, then you can add
-> all the ifdefs you want :-)
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>=20
+>=20
+>=20
+>=20
