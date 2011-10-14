@@ -1,44 +1,30 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH v7 0/8] Request for inclusion: tcp memory buffers
-Date: Thu, 13 Oct 2011 19:12:29 -0700
-Message-ID: <m2d3e01fua.fsf@firstfloor.org>
-References: <1318511382-31051-1-git-send-email-glommer@parallels.com>
-	<20111013.160031.605700447623532119.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ftgmac100: fix skb truesize underestimation
+Date: Thu, 13 Oct 2011 22:25:50 -0400 (EDT)
+Message-ID: <20111013.222550.2221506906969662746.davem@davemloft.net>
+References: <1318541452.2533.30.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: glommer@parallels.com,  linux-kernel@vger.kernel.org,  akpm@linux-foundation.org,  lizf@cn.fujitsu.com,  kamezawa.hiroyu@jp.fujitsu.com,  ebiederm@xmission.com,  paul@paulmenage.org,  gthelen@google.com,  netdev@vger.kernel.org,  linux-mm@kvack.org,  kirill@shutemov.name,  avagin@parallels.com,  devel@openvz.org
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20111013.160031.605700447623532119.davem@davemloft.net> (David
-	Miller's message of "Thu, 13 Oct 2011 16:00:31 -0400 (EDT)")
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ratbert@faraday-tech.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60182 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752928Ab1JNC0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 22:26:19 -0400
+In-Reply-To: <1318541452.2533.30.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
->
-> Make this evaluate into exactly the same exact code stream we have
-> now when the memory cgroup feature is not in use, which will be the
-> majority of users.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 13 Oct 2011 23:30:52 +0200
 
-One possible way may be to guard it with static_branch() for 
-no limit per cgroup set. That should be as near as practically
-possible to the original code.
+> ftgmac100 allocates a page per skb fragment. We must account
+> PAGE_SIZE increments on skb->truesize, not the actual frag length.
+> 
+> If frame is under 64 bytes, page is freed, and truesize adjusted.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-BTW the thing that usually worries me more is the cache line behaviour
-when the feature is in use. In the past some of the namespace patches
-have created some extremly hot global cache lines, that hurt on larger
-systems (for example the Unix socket regression from uid namespaces that
-is still not completly fixed). It would be good to double check that all
-important state is distributed properly.
-
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied.
