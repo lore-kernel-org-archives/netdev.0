@@ -1,49 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: use TCP_INIT_CWND in tcp_fixup_sndbuf()
-Date: Fri, 14 Oct 2011 06:24:42 +0200
-Message-ID: <1318566282.2533.63.camel@edumazet-laptop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next] bnx2x: Disable LRO on FCoE or iSCSI boot
+ device
+Date: Thu, 13 Oct 2011 20:38:01 -0700
+Message-ID: <1318563481-19631-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, dmitry@broadcom.com, eilong@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57296 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750948Ab1JNEYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 00:24:50 -0400
-Received: by wwf22 with SMTP id 22so2828346wwf.1
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 21:24:49 -0700 (PDT)
+Received: from mms1.broadcom.com ([216.31.210.17]:3996 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932284Ab1JNE1g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Oct 2011 00:27:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Initial cwnd being 10 (TCP_INIT_CWND) instead of 3, change
-tcp_fixup_sndbuf() to get more than 16384 bytes (sysctl_tcp_wmem[1]) in
-initial sk_sndbuf
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+For an FCoE or iSCSI boot device, the networking side must stay "up" all
+the time.  Otherwise, the FCoE/iSCSI interface driven by bnx2i/bnx2fc
+will be reset and we'll lose the root file system.
+
+If LRO is enabled, scripts that enable IP forwarding or bridging will
+disable LRO and cause the device to be reset.  Disabling LRO on these
+boot devices will prevent the reset.
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
-I believe a similar change in tcp_fixup_rcvbuf() is needed too.
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
- net/ipv4/tcp_input.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c1653fe..1e848b2 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -267,11 +267,9 @@ static void tcp_fixup_sndbuf(struct sock *sk)
- {
- 	int sndmem = SKB_TRUESIZE(tcp_sk(sk)->rx_opt.mss_clamp + MAX_TCP_HEADER);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 6486ab8..4960048 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -9794,6 +9794,7 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
+ 	int func;
+ 	int timer_interval;
+ 	int rc;
++	u32 cnic_boot_device;
  
--	if (sk->sk_sndbuf < 3 * sndmem) {
--		sk->sk_sndbuf = 3 * sndmem;
--		if (sk->sk_sndbuf > sysctl_tcp_wmem[2])
--			sk->sk_sndbuf = sysctl_tcp_wmem[2];
--	}
-+	sndmem *= TCP_INIT_CWND;
-+	if (sk->sk_sndbuf < sndmem)
-+		sk->sk_sndbuf = min(sndmem, sysctl_tcp_wmem[2]);
- }
+ 	mutex_init(&bp->port.phy_mutex);
+ 	mutex_init(&bp->fw_mb_mutex);
+@@ -9840,8 +9841,11 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
  
- /* 2. Tuning advertised window (window_clamp, rcv_ssthresh)
+ 	bp->multi_mode = multi_mode;
+ 
++	cnic_boot_device =
++		!!SHMEM_RD(bp, func_mb[BP_FW_MB_IDX(bp)].iscsi_boot_signature);
++
+ 	/* Set TPA flags */
+-	if (disable_tpa) {
++	if (disable_tpa || cnic_boot_device) {
+ 		bp->flags &= ~TPA_ENABLE_FLAG;
+ 		bp->dev->features &= ~NETIF_F_LRO;
+ 	} else {
+-- 
+1.7.1
