@@ -1,40 +1,49 @@
-From: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Subject: Re: [PATCH net-next] ftgmac100: fix skb truesize underestimation
-Date: Fri, 14 Oct 2011 11:50:34 +0800
-Message-ID: <CANutaR_RZ=jkcj3bMe7XuyLSuWL9r1EyC-zzytWV4xF4DPu9LQ@mail.gmail.com>
-References: <1318541452.2533.30.camel@edumazet-laptop> <20111013.222550.2221506906969662746.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: use TCP_INIT_CWND in tcp_fixup_sndbuf()
+Date: Fri, 14 Oct 2011 06:24:42 +0200
+Message-ID: <1318566282.2533.63.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	ratbert@faraday-tech.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:43172 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755459Ab1JNDvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Oct 2011 23:51:07 -0400
-Received: by eye27 with SMTP id 27so730472eye.19
-        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 20:51:06 -0700 (PDT)
-In-Reply-To: <20111013.222550.2221506906969662746.davem@davemloft.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:57296 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750948Ab1JNEYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 00:24:50 -0400
+Received: by wwf22 with SMTP id 22so2828346wwf.1
+        for <netdev@vger.kernel.org>; Thu, 13 Oct 2011 21:24:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Eric and David,
+Initial cwnd being 10 (TCP_INIT_CWND) instead of 3, change
+tcp_fixup_sndbuf() to get more than 16384 bytes (sysctl_tcp_wmem[1]) in
+initial sk_sndbuf
 
-On Fri, Oct 14, 2011 at 10:25 AM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 13 Oct 2011 23:30:52 +0200
->
->> ftgmac100 allocates a page per skb fragment. We must account
->> PAGE_SIZE increments on skb->truesize, not the actual frag length.
->>
->> If frame is under 64 bytes, page is freed, and truesize adjusted.
->>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->
-> Applied.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+I believe a similar change in tcp_fixup_rcvbuf() is needed too.
 
-Thank you.
+ net/ipv4/tcp_input.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-best regards,
-Po-Yu Chuang
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c1653fe..1e848b2 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -267,11 +267,9 @@ static void tcp_fixup_sndbuf(struct sock *sk)
+ {
+ 	int sndmem = SKB_TRUESIZE(tcp_sk(sk)->rx_opt.mss_clamp + MAX_TCP_HEADER);
+ 
+-	if (sk->sk_sndbuf < 3 * sndmem) {
+-		sk->sk_sndbuf = 3 * sndmem;
+-		if (sk->sk_sndbuf > sysctl_tcp_wmem[2])
+-			sk->sk_sndbuf = sysctl_tcp_wmem[2];
+-	}
++	sndmem *= TCP_INIT_CWND;
++	if (sk->sk_sndbuf < sndmem)
++		sk->sk_sndbuf = min(sndmem, sysctl_tcp_wmem[2]);
+ }
+ 
+ /* 2. Tuning advertised window (window_clamp, rcv_ssthresh)
