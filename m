@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: reduce memory needs of out of order queue
-Date: Fri, 14 Oct 2011 19:18:45 -0400 (EDT)
-Message-ID: <20111014.191845.232827637484150228.davem@davemloft.net>
-References: <20111014.034224.1197576516015404466.davem@davemloft.net>
-	<4E985A3F.5080103@hp.com>
-	<4E98B3B4.20406@hp.com>
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH net-next] skbuff: update sk truesize in pskb_expand_head
+Date: Sat, 15 Oct 2011 11:52:22 +0800
+Message-ID: <CAJFZqHyvu5419zaJ6Ro+s2d06LZ3mBqbAPuGF=3K6JAUK_vHqA@mail.gmail.com>
+References: <1318577970-19566-1-git-send-email-roy.qing.li@gmail.com>
+	<20111014.034822.2255593021765068562.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58129 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751575Ab1JNXTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 19:19:03 -0400
-In-Reply-To: <4E98B3B4.20406@hp.com>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:60969 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752907Ab1JODwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 23:52:22 -0400
+Received: by pzk1 with SMTP id 1so6934306pzk.1
+        for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 20:52:22 -0700 (PDT)
+In-Reply-To: <20111014.034822.2255593021765068562.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Fri, 14 Oct 2011 15:12:04 -0700
+2011/10/14 David Miller <davem@davemloft.net>:
+> From: roy.qing.li@gmail.com
+> Date: Fri, 14 Oct 2011 15:39:30 +0800
+>
+>> when pskb_expand_head reallocates header of &sk_buff, the sk
+>> truesize should be updated simultaneously
+>>
+>> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+>
+> I know you did not test this patch at all.
+>
+> You can't modify the truesize because packets passed to this routine
+> are often attached to a socket, thus if you change the truesize the
+> socket memory accouting will be adjusted incorrectly later when the
+> SKB is freed up.
+>
+> Most SKB modifying functions have to operate with this restriction.
+>
+>
 
-> From just a very quick look it looks like tcp_v[46]_rcv is called,
-> finds that the socket is owned by the user, attempts to add to the
-> backlog, but the path called by sk_add_backlog does not seem to make
-> any attempts to compress things, so when the quantity of data is <<
-> the truesize it starts tossing babies out with the bathwater.
+I am sorry I do not know how to test it in fact.
 
-This is why I don't believe the right fix is to add bandaids all
-around the TCP layer.
+But I believe the adjustment is right here
+About incorrectly impact on socket, I am consider it, but I still no
+idea about it.
 
-The wastage has to be avoided at a higher level.
+Thanks.
