@@ -1,43 +1,28 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-next [PATCH 1/1] ipv4: compat_ioctl is local to af_inet.c,
- make it static
-Date: Sat, 15 Oct 2011 13:26:56 -0600
-Message-ID: <20111015192656.GA4066@gerrit.erg.abdn.ac.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: ipv6: inet6_connection_sock.h needs flowi
+Date: Sat, 15 Oct 2011 18:41:26 -0400 (EDT)
+Message-ID: <20111015.184126.53610934026688054.davem@davemloft.net>
+References: <1318671264-19684-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:44956 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754610Ab1JOT1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Oct 2011 15:27:07 -0400
-Received: from laptev.erg.abdn.ac.uk (Debian-exim@ra-gerrit.erg.abdn.ac.uk [139.133.204.38])
-	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id p9FJQuWh023385
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sat, 15 Oct 2011 20:27:00 +0100 (BST)
-Received: from gerrit by laptev.erg.abdn.ac.uk with local (Exim 4.72)
-	(envelope-from <gerrit@laptev.erg.abdn.ac.uk>)
-	id 1RF9sm-000148-L5
-	for netdev@vger.kernel.org; Sat, 15 Oct 2011 13:26:56 -0600
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([198.137.202.13]:51405 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751914Ab1JOWmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2011 18:42:39 -0400
+In-Reply-To: <1318671264-19684-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipv4: compat_ioctl is local to af_inet.c, make it static
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Sat, 15 Oct 2011 12:34:24 +0300
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/ipv4/af_inet.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Otherwise we have a compiler-warning in c-files not including net/flow.h
+> before inet6_connection_sock.h .
+> 
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -893,7 +893,7 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- EXPORT_SYMBOL(inet_ioctl);
- 
- #ifdef CONFIG_COMPAT
--int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
-+static int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- {
- 	struct sock *sk = sock->sk;
- 	int err = -ENOIOCTLCMD;
+Example?  I've never seen this warning.
