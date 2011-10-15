@@ -1,41 +1,43 @@
-From: Pavel =?utf-8?q?Mat=C4=9Bja?= <pavel@netsafe.cz>
-Subject: sky2: only 10Mb/s
-Date: Sat, 15 Oct 2011 19:58:31 +0200
-Message-ID: <201110151958.31300.pavel@netsafe.cz>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: net-next [PATCH 1/1] ipv4: compat_ioctl is local to af_inet.c,
+ make it static
+Date: Sat, 15 Oct 2011 13:26:56 -0600
+Message-ID: <20111015192656.GA4066@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate1.netsafe.cz ([83.223.49.132]:54053 "EHLO gate1.netsafe.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752631Ab1JOSFN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Oct 2011 14:05:13 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:44956 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754610Ab1JOT1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Oct 2011 15:27:07 -0400
+Received: from laptev.erg.abdn.ac.uk (Debian-exim@ra-gerrit.erg.abdn.ac.uk [139.133.204.38])
+	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id p9FJQuWh023385
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Sat, 15 Oct 2011 20:27:00 +0100 (BST)
+Received: from gerrit by laptev.erg.abdn.ac.uk with local (Exim 4.72)
+	(envelope-from <gerrit@laptev.erg.abdn.ac.uk>)
+	id 1RF9sm-000148-L5
+	for netdev@vger.kernel.org; Sat, 15 Oct 2011 13:26:56 -0600
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I tested new kernel and I have found out I have only 10Mb/s link instead of 
-100Mb/s to my router.
-If I did the git bisect right it was caused by commit 
-4fb99cd6ac4fe6d03a334a6f4ebb2bbfc4b479ed
+ipv4: compat_ioctl is local to af_inet.c, make it static
 
-My card is (lspci -v):
-05:00.0 Ethernet controller: Marvell Technology Group Ltd. Yukon Optima 
-88E8059 [PCIe Gigabit Ethernet Controller with AVB] (rev 11)
-        Subsystem: ASUSTeK Computer Inc. Device 8439
-        Flags: bus master, fast devsel, latency 0, IRQ 80
-        Memory at fe6fc000 (64-bit, non-prefetchable) [size=16K]
-        I/O ports at b800 [size=256]
-        Expansion ROM at fe6c0000 [disabled] [size=128K]
-        Capabilities: [48] Power Management version 3
-        Capabilities: [5c] MSI: Enable+ Count=1/1 Maskable- 64bit+
-        Capabilities: [c0] Express Legacy Endpoint, MSI 00
-        Capabilities: [100] Advanced Error Reporting
-        Capabilities: [130] Device Serial Number a5-89-6d-ff-ff-30-cf-20
-        Kernel driver in use: sky2
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/ipv4/af_inet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Can anybody help me?
--- 
-Pavel Mateja
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -893,7 +893,7 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ EXPORT_SYMBOL(inet_ioctl);
+ 
+ #ifdef CONFIG_COMPAT
+-int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
++static int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ {
+ 	struct sock *sk = sock->sk;
+ 	int err = -ENOIOCTLCMD;
