@@ -1,52 +1,38 @@
-From: RongQing Li <roy.qing.li@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] skbuff: update sk truesize in pskb_expand_head
-Date: Sat, 15 Oct 2011 11:54:38 +0800
-Message-ID: <CAJFZqHyGPUZqAdoZ0MygD6nx0T+kZAQ+hZ2ZFNV62SVkTjSpvw@mail.gmail.com>
+Date: Sat, 15 Oct 2011 00:02:35 -0400 (EDT)
+Message-ID: <20111015.000235.314539622449271332.davem@davemloft.net>
 References: <1318577970-19566-1-git-send-email-roy.qing.li@gmail.com>
-	<1318578829.2533.100.camel@edumazet-laptop>
+	<20111014.034822.2255593021765068562.davem@davemloft.net>
+	<CAJFZqHyvu5419zaJ6Ro+s2d06LZ3mBqbAPuGF=3K6JAUK_vHqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:44849 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754910Ab1JODyj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Oct 2011 23:54:39 -0400
-Received: by pzk1 with SMTP id 1so6937674pzk.1
-        for <netdev@vger.kernel.org>; Fri, 14 Oct 2011 20:54:39 -0700 (PDT)
-In-Reply-To: <1318578829.2533.100.camel@edumazet-laptop>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50252 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764Ab1JOECh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Oct 2011 00:02:37 -0400
+In-Reply-To: <CAJFZqHyvu5419zaJ6Ro+s2d06LZ3mBqbAPuGF=3K6JAUK_vHqA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/10/14 Eric Dumazet <eric.dumazet@gmail.com>:
-> Le vendredi 14 octobre 2011 =E0 15:39 +0800, roy.qing.li@gmail.com a
-> =E9crit :
->
-> I dont believe this is needed or complete patch.
->
-> Callers that need an updated truesize do the adjustement.
->
+From: RongQing Li <roy.qing.li@gmail.com>
+Date: Sat, 15 Oct 2011 11:52:22 +0800
 
-If we think the size which needs to adjust is small, we can ignore it,
-I accept it.
+> About incorrectly impact on socket, I am consider it, but I still no
+> idea about it.
 
-if Let caller to adjust it, I think the caller is hard to get the adjus=
-tment.
+Sockets attach themselves to packets, and assign a destructor.
 
-Do you think the below adjustment is needed?
+This destructor atomically decrements the receive or send buffer
+space used, and amount decremented is skb->truesize.
 
-void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int=
- off,
-		int size)
-{
-	skb_fill_page_desc(skb, i, page, off, size);
-	skb->len +=3D size;
-	skb->data_len +=3D size;
--	skb->truesize +=3D size;
-+	skb->truesize +=3D PAGE_SIZE;
-}
+Therefore if you change skb->truesize on such an SKB, the wrong
+amount will be decremented when the destructor is called.
 
-Thanks
--Qing
+This is a very fundamental aspec of SKB handling, perhaps you should
+familiarize yourself with SKBs a little bit more before modifying code
+which manages them.
