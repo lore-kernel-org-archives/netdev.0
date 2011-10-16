@@ -1,229 +1,64 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 3/4 v3] net: mvmdio: enhance driver to support SMI error/done interrupts
-Date: Fri, 22 Mar 2013 14:39:27 +0100
-Message-ID: <1363959568-16976-4-git-send-email-florian@openwrt.org>
-References: <1363284515-9865-1-git-send-email-florian@openwrt.org>
- <1363959568-16976-1-git-send-email-florian@openwrt.org>
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King <linux@arm.linux.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Florian Fainelli <florian@openwrt.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH] phy: Add support for VSC8234
+Date: Sun, 16 Oct 2011 01:49:49 -0500
+Message-ID: <E1UJ1fR-0004hp-2j@swissweb.swissdisk.com>
+Cc: Kumar Gala <kumar.gala@freescale.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1363959568-16976-1-git-send-email-florian@openwrt.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch enhances the "mvmdio" to support a SMI error/done interrupt
-line which can be used along with a wait queue instead of doing
-busy-waiting on the registers. This is a feature which is available in
-the mv643xx_eth SMI code and thus reduces again the gap between the two.
+No functional changes other than to recognize this PHYID.
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+Signed-off-by: Kumar Gala <kumar.gala@freescale.com>
+Signed-off-by: Ben Collins <ben.c@servergy.com>
+Cc: netdev@vger.kernel.org
 ---
-Changes since v2:
-- remove NO_IRQ usage which is not portable, check for irq >= 0
-  instead
-- factor out mdiobus cleaning under the out_mdio label in probe()
+ drivers/net/phy/vitesse.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
 
-Chances since v1:
-- always use orion_smi_is_done() helper
-- make interrupt/non-interrupt code path entirely independant
-
- .../devicetree/bindings/net/marvell-orion-mdio.txt |    3 +
- drivers/net/ethernet/marvell/mvmdio.c              |   98 ++++++++++++++++----
- 2 files changed, 83 insertions(+), 18 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-index 34e7aaf..052b5f2 100644
---- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-@@ -9,6 +9,9 @@ Required properties:
- - compatible: "marvell,orion-mdio"
- - reg: address and length of the SMI register
+diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+index 2585c38..b760ba1 100644
+--- a/drivers/net/phy/vitesse.c
++++ b/drivers/net/phy/vitesse.c
+@@ -54,6 +54,7 @@
+ #define MII_VSC8221_AUXCONSTAT_INIT	0x0004 /* need to set this bit? */
+ #define MII_VSC8221_AUXCONSTAT_RESERVED	0x0004
  
-+Optional properties:
-+- interrupts: interrupt line number for the SMI error/done interrupt
-+
- The child nodes of the MDIO driver are the individual PHY devices
- connected to this MDIO bus. They must have a "reg" property given the
- PHY address on the MDIO bus.
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 3e2711d..3472574 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -24,10 +24,13 @@
- #include <linux/module.h>
- #include <linux/mutex.h>
- #include <linux/phy.h>
-+#include <linux/interrupt.h>
- #include <linux/platform_device.h>
- #include <linux/delay.h>
- #include <linux/io.h>
- #include <linux/of_mdio.h>
-+#include <linux/sched.h>
-+#include <linux/wait.h>
++#define PHY_ID_VSC8234			0x000fc620
+ #define PHY_ID_VSC8244			0x000fc6c0
+ #define PHY_ID_VSC8221			0x000fc550
  
- #define MVMDIO_SMI_DATA_SHIFT              0
- #define MVMDIO_SMI_PHY_ADDR_SHIFT          16
-@@ -36,33 +39,58 @@
- #define MVMDIO_SMI_WRITE_OPERATION         0
- #define MVMDIO_SMI_READ_VALID              BIT(27)
- #define MVMDIO_SMI_BUSY                    BIT(28)
-+#define MVMDIO_ERR_INT_CAUSE		   0x007C
-+#define  MVMDIO_ERR_INT_SMI_DONE	   0x00000010
-+#define MVMDIO_ERR_INT_MASK		   0x0080
+@@ -119,7 +120,8 @@ static int vsc82xx_config_intr(struct phy_device *phydev)
  
- struct orion_mdio_dev {
- 	struct mutex lock;
- 	void __iomem *regs;
-+	/*
-+	 * If we have access to the error interrupt pin (which is
-+	 * somewhat misnamed as it not only reflects internal errors
-+	 * but also reflects SMI completion), use that to wait for
-+	 * SMI access completion instead of polling the SMI busy bit.
-+	 */
-+	int err_interrupt;
-+	wait_queue_head_t smi_busy_wait;
- };
- 
-+static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
-+{
-+	return !(readl(dev->regs) & MVMDIO_SMI_BUSY);
-+}
-+
- /* Wait for the SMI unit to be ready for another operation
-  */
- static int orion_mdio_wait_ready(struct mii_bus *bus)
- {
- 	struct orion_mdio_dev *dev = bus->priv;
- 	int count;
--	u32 val;
- 
--	count = 0;
--	while (1) {
--		val = readl(dev->regs);
--		if (!(val & MVMDIO_SMI_BUSY))
--			break;
-+	if (dev->err_interrupt <= 0) {
-+		count = 0;
-+		while (1) {
-+			if (orion_mdio_smi_is_done(dev))
-+				break;
- 
--		if (count > 100) {
--			dev_err(bus->parent, "Timeout: SMI busy for too long\n");
--			return -ETIMEDOUT;
--		}
-+			if (count > 100) {
-+				dev_err(bus->parent,
-+					"Timeout: SMI busy for too long\n");
-+				return -ETIMEDOUT;
-+			}
- 
--		udelay(10);
--		count++;
-+			udelay(10);
-+			count++;
-+		}
-+	} else {
-+		if (!orion_mdio_smi_is_done(dev)) {
-+			wait_event_timeout(dev->smi_busy_wait,
-+				orion_mdio_smi_is_done(dev),
-+				msecs_to_jiffies(100));
-+			if (!orion_mdio_smi_is_done(dev))
-+				return -ETIMEDOUT;
-+		}
- 	}
- 
- 	return 0;
-@@ -141,6 +169,21 @@ static int orion_mdio_reset(struct mii_bus *bus)
- 	return 0;
- }
- 
-+static irqreturn_t orion_mdio_err_irq(int irq, void *dev_id)
-+{
-+	struct orion_mdio_dev *dev = dev_id;
-+
-+	if (readl(dev->regs + MVMDIO_ERR_INT_CAUSE) &
-+			MVMDIO_ERR_INT_SMI_DONE) {
-+		writel(~MVMDIO_ERR_INT_SMI_DONE,
-+				dev->regs + MVMDIO_ERR_INT_CAUSE);
-+		wake_up(&dev->smi_busy_wait);
-+		return IRQ_HANDLED;
-+	}
-+
-+	return IRQ_NONE;
-+}
-+
- static int orion_mdio_probe(struct platform_device *pdev)
- {
- 	struct resource *r;
-@@ -181,9 +224,22 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 	dev->regs = devm_ioremap(&pdev->dev, r->start, resource_size(r));
- 	if (!dev->regs) {
- 		dev_err(&pdev->dev, "Unable to remap SMI register\n");
--		kfree(bus->irq);
--		mdiobus_free(bus);
--		return -ENODEV;
-+		ret = -ENODEV;
-+		goto out_mdio;
-+	}
-+
-+	init_waitqueue_head(&dev->smi_busy_wait);
-+
-+	dev->err_interrupt = platform_get_irq(pdev, 0);
-+	if (dev->err_interrupt != -ENXIO) {
-+		ret = devm_request_irq(&pdev->dev, dev->err_interrupt,
-+					orion_mdio_err_irq,
-+					IRQF_SHARED, pdev->name, dev);
-+		if (ret)
-+			goto out_mdio;
-+
-+		writel(MVMDIO_ERR_INT_SMI_DONE,
-+			dev->regs + MVMDIO_ERR_INT_MASK);
- 	}
- 
- 	mutex_init(&dev->lock);
-@@ -194,19 +250,25 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 		ret = mdiobus_register(bus);
- 	if (ret < 0) {
- 		dev_err(&pdev->dev, "Cannot register MDIO bus (%d)\n", ret);
--		kfree(bus->irq);
--		mdiobus_free(bus);
--		return ret;
-+		goto out_mdio;
- 	}
- 
- 	platform_set_drvdata(pdev, bus);
- 
- 	return 0;
-+
-+out_mdio:
-+	kfree(bus->irq);
-+	mdiobus_free(bus);
-+	return ret;
- }
- 
- static int orion_mdio_remove(struct platform_device *pdev)
- {
- 	struct mii_bus *bus = platform_get_drvdata(pdev);
-+	struct orion_mdio_dev *dev = bus->priv;
-+
-+	writel(0, dev->regs + MVMDIO_ERR_INT_MASK);
- 	mdiobus_unregister(bus);
- 	kfree(bus->irq);
- 	mdiobus_free(bus);
+ 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
+ 		err = phy_write(phydev, MII_VSC8244_IMASK,
+-			phydev->drv->phy_id == PHY_ID_VSC8244 ?
++			((phydev->drv->phy_id == PHY_ID_VSC8234) ||
++			 (phydev->drv->phy_id == PHY_ID_VSC8244)) ?
+ 				MII_VSC8244_IMASK_MASK :
+ 				MII_VSC8221_IMASK_MASK);
+ 	else {
+@@ -165,6 +167,19 @@ static struct phy_driver vsc82xx_driver[] = {
+ 	.config_intr	= &vsc82xx_config_intr,
+ 	.driver		= { .owner = THIS_MODULE,},
+ }, {
++	/* Vitesse 8234 */
++	.phy_id		= PHY_ID_VSC8234,
++	.phy_id_mask	= 0x000ffff0,
++	.name		= "Vitesse VSC8234",
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= &vsc8221_config_init,
++	.config_aneg	= &genphy_config_aneg,
++	.read_status	= &genphy_read_status,
++	.ack_interrupt	= &vsc824x_ack_interrupt,
++	.config_intr	= &vsc82xx_config_intr,
++	.driver		= { .owner = THIS_MODULE,},
++}, {
+ 	/* Vitesse 8221 */
+ 	.phy_id		= PHY_ID_VSC8221,
+ 	.phy_id_mask	= 0x000ffff0,
 -- 
-1.7.10.4
+1.8.1.2
