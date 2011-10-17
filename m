@@ -1,83 +1,211 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: reduce memory needs of out of order queue
-Date: Mon, 17 Oct 2011 09:02:54 +0200
-Message-ID: <1318834974.2500.61.camel@edumazet-laptop>
-References: <4E98B3B4.20406@hp.com>
-	 <20111014.191845.232827637484150228.davem@davemloft.net>
-	 <1318661682.2525.41.camel@edumazet-laptop>
-	 <20111016.205329.560591300167306483.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Robert Marklund <robert.marklund@stericsson.com>
+Subject: [PATCH] smsc911x: Add regulator support
+Date: Mon, 17 Oct 2011 08:56:37 +0200
+Message-ID: <1318834597-3479-1-git-send-email-robert.marklund@stericsson.com>
+Cc: Mathieu Poirer <mathieu.poirier@linaro.org>,
+	Robert Marklund <robert.marklund@stericsson.com>
+To: netdev@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:51962 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752532Ab1JQHDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 03:03:01 -0400
-Received: by wwn22 with SMTP id 22so3075125wwn.1
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2011 00:03:00 -0700 (PDT)
-In-Reply-To: <20111016.205329.560591300167306483.davem@davemloft.net>
+Received: from mail.df.lth.se ([194.47.250.12]:37795 "EHLO mail.df.lth.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751574Ab1JQHGM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 03:06:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 16 octobre 2011 =C3=A0 20:53 -0400, David Miller a =C3=A9cr=
-it :
+Add some regulator support, there can be
+necessary to add more regulators to suite
+all power save needs. But this is a start.
 
-> So perhaps the best solution is to divorce truesize from such driver
-> and device details?  If there is one calculation, then TCP need only
-> be concerned with one case.
->=20
-> Look at how confusing and useless tcp_adv_win_scale ends up being for
-> this problem.
->=20
-> Therefore I'll make the mostly-serious propsal that truesize be
-> something like "initial_real_total_data + sizeof(metadata)"
->=20
-> So if a device receives a 512 byte packet, it's:
->=20
-> 	512 + sizeof(metadata)
->=20
+Also add a wait for the chip to be ready after
+the regulators are enabled, this was a bug in
+the old implementation.
 
-That would probably OOM in stress situation, with thousand of sockets.
+Signed-off-by: Robert Marklund <robert.marklund@stericsson.com>
+---
+ drivers/net/smsc911x.c |  113 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 113 insertions(+), 0 deletions(-)
 
-> It still provides the necessary protection that truesize is meant to
-> provide, yet sanitizes all of the receive and send buffer overhead
-> handling.
->=20
-> TCP should be absoultely, and completely, impervious to details like
-> how buffering needs to be done for some random wireless card.  Just
-> the mere fact that using a larger buffer in a driver ruins TCP
-> performance indicates a serious design failure.
->=20
-
-I dont think its a design failure. Its the same problem when computing
-the TCP window given the rcvspace (memory we allow to be consumed for
-the socket) based on the MSS : If the sender uses 1-bytes frames only,
-then receiver hit the memory limit and performance drops.
-
-Right now our tcp-window tuning really assumes too much : perfect MSS
-skb using _exactly_ MSS + sizeof(metadata), while we already know that
-real slab cost is higher :=20
-
-  __roundup_pow_of_two(MSS + sizeof(struct skb_shared_info)) +
-  SKB_DATA_ALIGN(sizeof(struct sk_buff))
-
-and now with paged frag devices :
-
-  PAGE_SIZE + SKB_DATA_ALIGN(sizeof(struct sk_buff))
-
-We assume sender behaves correctly and drivers dont use 64KB pages to
-store a single 72-bytes frame
-
-I would say the first thing TCP stack must respect is the memory limits
-that the admin set for it. Thats what skb->truesize is for.
-
-# cat /proc/sys/net/ipv4/tcp_rmem
-4096	87380	4127616
-
-In this case, we allow up to 4Mbytes or receiver memory per session.
-Not 20 or 30 Mbytes...
-
-We must translate this to a TCP window, suitable for current hardware.
+diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+index b9016a3..4de3bd8 100644
+--- a/drivers/net/smsc911x.c
++++ b/drivers/net/smsc911x.c
+@@ -53,6 +53,8 @@
+ #include <linux/phy.h>
+ #include <linux/smsc911x.h>
+ #include <linux/device.h>
++#include <linux/regulator/consumer.h>
++
+ #include "smsc911x.h"
+ 
+ #define SMSC_CHIPNAME		"smsc911x"
+@@ -133,6 +135,10 @@ struct smsc911x_data {
+ 
+ 	/* register access functions */
+ 	const struct smsc911x_ops *ops;
++
++	/* regulators */
++	struct regulator *regulator_vddvario;
++	struct regulator *regulator_vdd33a;
+ };
+ 
+ /* Easy access to information */
+@@ -357,6 +363,81 @@ out:
+ 	spin_unlock_irqrestore(&pdata->dev_lock, flags);
+ }
+ 
++/* Enable resources(clocks and regulators) */
++static int smsc911x_enable_resources(struct platform_device *pdev, bool enable)
++{
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct smsc911x_data *pdata = netdev_priv(ndev);
++	int err = 0;
++
++	/* enable/diable regulator for vddvario */
++	if (pdata->regulator_vddvario) {
++		if (enable) {
++			err = regulator_enable(pdata->regulator_vddvario);
++			if (err < 0) {
++				netdev_err(ndev, "%s: regulator_enable failed '%s'\n",
++						__func__, "vddvario");
++			}
++		} else
++			err = regulator_disable(pdata->regulator_vdd33a);
++	}
++
++	/* enable/diableregulator for vdd33a */
++	if (pdata->regulator_vdd33a) {
++		if (enable) {
++			err = regulator_enable(pdata->regulator_vdd33a);
++			if (err < 0) {
++				netdev_err(ndev, "%s: regulator_enable failed '%s'\n",
++						__func__, "vdd33a");
++			}
++		} else
++			err = regulator_disable(pdata->regulator_vdd33a);
++	}
++	return err;
++}
++
++
++/* Request resources(clocks and regulators) */
++static int smsc911x_request_resources(struct platform_device *pdev,
++		bool request)
++{
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct smsc911x_data *pdata = netdev_priv(ndev);
++	int err = 0;
++
++	/* Request regulator for vddvario */
++	if (request && !pdata->regulator_vddvario) {
++		pdata->regulator_vddvario = regulator_get(&pdev->dev,
++				"vddvario");
++		if (IS_ERR(pdata->regulator_vddvario)) {
++			netdev_warn(ndev,
++					"%s: Failed to get regulator '%s'\n",
++					__func__, "vddvario");
++			pdata->regulator_vddvario = NULL;
++		}
++	} else if (!request && pdata->regulator_vddvario) {
++		regulator_put(pdata->regulator_vddvario);
++		pdata->regulator_vddvario = NULL;
++	}
++
++	/* Request regulator for vdd33a */
++	if (request && !pdata->regulator_vddvario) {
++		pdata->regulator_vdd33a = regulator_get(&pdev->dev,
++				"vdd33a");
++		if (IS_ERR(pdata->regulator_vdd33a)) {
++			netdev_warn(ndev,
++					"%s: Failed to get regulator '%s'\n",
++					__func__, "vdd33a");
++			pdata->regulator_vdd33a = NULL;
++		}
++	} else if (!request && pdata->regulator_vdd33a) {
++		regulator_put(pdata->regulator_vdd33a);
++		pdata->regulator_vdd33a = NULL;
++	}
++
++	return err;
++}
++
+ /* waits for MAC not busy, with timeout.  Only called by smsc911x_mac_read
+  * and smsc911x_mac_write, so assumes mac_lock is held */
+ static int smsc911x_mac_complete(struct smsc911x_data *pdata)
+@@ -2047,6 +2128,7 @@ static int __devexit smsc911x_drv_remove(struct platform_device *pdev)
+ 	struct net_device *dev;
+ 	struct smsc911x_data *pdata;
+ 	struct resource *res;
++	int retval;
+ 
+ 	dev = platform_get_drvdata(pdev);
+ 	BUG_ON(!dev);
+@@ -2074,6 +2156,12 @@ static int __devexit smsc911x_drv_remove(struct platform_device *pdev)
+ 
+ 	iounmap(pdata->ioaddr);
+ 
++	if (smsc911x_enable_resources(pdev, false))
++		pr_warn("Could not disable resource\n");
++
++	retval = smsc911x_request_resources(pdev, false);
++	/* ignore not all have regulators */
++
+ 	free_netdev(dev);
+ 
+ 	return 0;
+@@ -2104,6 +2192,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	unsigned int intcfg = 0;
+ 	int res_size, irq_flags;
+ 	int retval;
++	int to = 100;
+ 
+ 	pr_info("Driver version %s\n", SMSC_DRV_VERSION);
+ 
+@@ -2158,6 +2247,17 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	pdata->dev = dev;
+ 	pdata->msg_enable = ((1 << debug) - 1);
+ 
++	platform_set_drvdata(pdev, dev);
++
++	retval = smsc911x_request_resources(pdev, true);
++	/* ignore not all have regulators */
++
++	retval = smsc911x_enable_resources(pdev, true);
++	if (retval) {
++		pr_warn("Could not enable resource\n");
++		goto out_0;
++	}
++
+ 	if (pdata->ioaddr == NULL) {
+ 		SMSC_WARN(pdata, probe, "Error smsc911x base address invalid");
+ 		retval = -ENOMEM;
+@@ -2170,6 +2270,18 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	if (config->shift)
+ 		pdata->ops = &shifted_smsc911x_ops;
+ 
++	/* poll the READY bit in PMT_CTRL. Any other access to the device is
++	 * forbidden while this bit isn't set. Try for 100ms
++	 */
++	while (!(smsc911x_reg_read(pdata, PMT_CTRL) & PMT_CTRL_READY_) && --to)
++		udelay(1000);
++
++	if (to == 0) {
++		pr_err("Device not READY in 100ms aborting\n");
++		goto out_0;
++	}
++
++
+ 	retval = smsc911x_init(dev);
+ 	if (retval < 0)
+ 		goto out_unmap_io_3;
+@@ -2262,6 +2374,7 @@ out_0:
+ 	return retval;
+ }
+ 
++
+ #ifdef CONFIG_PM
+ /* This implementation assumes the devices remains powered on its VDDVARIO
+  * pins during suspend. */
+-- 
+1.7.1
