@@ -1,75 +1,64 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] tcp: reduce memory needs of out of order queue
-Date: Mon, 17 Oct 2011 09:47:44 -0700
-Message-ID: <4E9C5C30.1040804@hp.com>
-References: <1318576791.2533.99.camel@edumazet-laptop> <20111014.034224.1197576516015404466.davem@davemloft.net> <4E985A3F.5080103@hp.com> <4E98B3B4.20406@hp.com> <1318660775.2525.29.camel@edumazet-laptop>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH net-next] net: ipv6: inet6_connection_sock.h needs flowi
+Date: Mon, 17 Oct 2011 19:59:26 +0300
+Message-ID: <4E9C5EEE.6060909@uclouvain.be>
+References: <1318671264-19684-1-git-send-email-christoph.paasch@uclouvain.be> <20111015.184126.53610934026688054.davem@davemloft.net> <4E9AA043.1090008@uclouvain.be> <20111016.201310.2196482600418365872.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:31460 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951Ab1JQQrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 12:47:46 -0400
-In-Reply-To: <1318660775.2525.29.camel@edumazet-laptop>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:33948 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751791Ab1JQQ7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 12:59:32 -0400
+In-Reply-To: <20111016.201310.2196482600418365872.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10/17/2011 03:13 AM, David Miller wrote:
+> From: Christoph Paasch<christoph.paasch@uclouvain.be>
+> Date: Sun, 16 Oct 2011 12:13:39 +0300
 >
-> Rick, could you redo the test, using following bit on receiver :
+>> On 10/16/2011 01:41 AM, David Miller wrote:
+>>> From: Christoph Paasch<christoph.paasch@uclouvain.be>
+>>> Date: Sat, 15 Oct 2011 12:34:24 +0300
+>>>
+>>>> Otherwise we have a compiler-warning in c-files not including
+>>>> net/flow.h
+>>>> before inet6_connection_sock.h .
+>>>>
+>>>> Signed-off-by: Christoph Paasch<christoph.paasch@uclouvain.be>
+>>>
+>>> Example?  I've never seen this warning.
+>>
+>> Currently, all the c-files that include inet6_connection_sock.h
+>> indirectly include flow.h before inet6_connection_sock.h. Thus
+>> currently there is no compiler-warning.
 >
-> echo 1>/proc/sys/net/ipv4/tcp_adv_win_scale
+> Then there is no bug you are fixing.
+
+You're right. The patch did not intend to fix a bug (maybe the=20
+commit-message should have been more clear about that).
+It was intended to make inet6_connection_sock.h not rely on the c-files=
+=20
+to include flow.h, even if they would not need to. And to do the same=20
+for struct flowi as it is done for the other structs in this=20
+header-file. Thus it was rather a coding-style patch... :)
+
+But ok, maybe I should not try to change something which is not really=20
+broken... ;-)
+
+Christoph
 
 
-raj@tardy:~/netperf2_trunk$ netstat -s > before; src/netperf -H 
-raj-8510w.americas.hpqcorp.net -t tcp_rr -- -b 256 -D -o 
-throughput,local_transport_retrans,remote_transport_retrans,lss_size_end,rsr_size_end 
-; netstat -s > afterMIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 
-(0.0.0.0) port 0 AF_INET to internal-host.americas.hpqcorp.net 
-(16.89.245.115) port 0 AF_INET : nodelay : first burst 256
-Throughput,Local Transport Retransmissions,Remote Transport 
-Retransmissions,Local Send Socket Size Final,Remote Recv Socket Size Final
-78527.68,289,0,16384,98304
+--=20
+Christoph Paasch
+PhD Student
 
-Deltas on the receiver:
-
-TcpExt:
-     27 packets pruned from receive queue because of socket buffer overrun
-     0 TCP sockets finished time wait in fast timer
-     0 delayed acks sent
-     0 delayed acks further delayed because of locked socket
-     Quick ack mode was activated 0 times
-     19 packets directly queued to recvmsg prequeue.
-     0 bytes directly in process context from backlog
-     670 bytes directly received in process context from prequeue
-     739983 packet headers predicted
-     14 packets header predicted and directly queued to user
-     127 acknowledgments not containing data payload received
-     235774 predicted acknowledgments
-     0 other TCP timeouts
-     6553 packets collapsed in receive queue due to low socket buffer
-     0 DSACKs sent for old packets
-     TCPBacklogDrop: 294
-
-So, moving on to:
-
-> If you still have collapses/retransmits, you then could try :
->
-> echo -2>/proc/sys/net/ipv4/tcp_adv_win_scale
-
-raj@tardy:~/netperf2_trunk$ netstat -s > before; src/netperf -H 
-raj-8510w.americas.hpqcorp.net -t tcp_rr -- -b 256 -D -o 
-throughput,local_transport_retrans,remote_transport_retrans,lss_size_end,rsr_size_end 
-; netstat -s > after
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET 
-to internal-host.americas.hpqcorp.net (16.89.245.115) port 0 AF_INET : 
-nodelay : first burst 256
-Throughput,Local Transport Retransmissions,Remote Transport 
-Retransmissions,Local Send Socket Size Final,Remote Recv Socket Size Final
-95981.83,0,0,121200,156600
-
-No retransmissions in that one.
-
-rick
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
+Universit=C3=A9 Catholique de Louvain
+--=20
