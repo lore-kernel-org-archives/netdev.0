@@ -1,39 +1,69 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 0/7] mlx4_en: Data path optimizations and bug fix.
-Date: Mon, 17 Oct 2011 22:16:16 +0200
-Message-ID: <4E9C8D10.9020509@mellanox.co.il>
+Subject: [PATCH 1/7] mlx4: Fix vlan table overflow
+Date: Mon, 17 Oct 2011 22:16:44 +0200
+Message-ID: <4E9C8D2C.40407@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:50182 "HELO
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:48463 "HELO
 	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754371Ab1JQWXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 18:23:19 -0400
+	by vger.kernel.org with SMTP id S1754371Ab1JQWXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 18:23:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dave,
 
-This series of patches presents a bug fix (VLAN table overflow),
-some alignment optimizations for better HW performance, RXHASH support.
-Updated driver version.
+Prevent overflow when trying to register more Vlans then the Vlan table in
+HW is configured to.
+Need to take into account that the first 2 entries are reserved.
 
-Patches are generated against net-next tree.
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/port.c |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
 
-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 -
- drivers/net/ethernet/mellanox/mlx4/en_port.c   |    6 ++++
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     |   32 +++++++++++++++----------
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    2 -
- drivers/net/ethernet/mellanox/mlx4/fw.c        |    1
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    9 ++++---
- drivers/net/ethernet/mellanox/mlx4/port.c      |   15 ++++++-----
- include/linux/mlx4/device.h                    |    1
- 8 files changed, 44 insertions(+), 24 deletions(-)
-
-
-Thanks,
-Yevgeny
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 609e0ec..163a314 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -65,7 +65,7 @@ void mlx4_init_vlan_table(struct mlx4_dev *dev, struct mlx4_vlan_table *table)
+ 		table->entries[i] = 0;
+ 		table->refs[i]	 = 0;
+ 	}
+-	table->max   = 1 << dev->caps.log_num_vlans;
++	table->max   = (1 << dev->caps.log_num_vlans) - MLX4_VLAN_REGULAR;
+ 	table->total = 0;
+ }
+ 
+@@ -354,6 +354,13 @@ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index)
+ 	int free = -1;
+ 
+ 	mutex_lock(&table->mutex);
++
++	if (table->total == table->max) {
++		/* No free vlan entries */
++		err = -ENOSPC;
++		goto out;
++	}
++
+ 	for (i = MLX4_VLAN_REGULAR; i < MLX4_MAX_VLAN_NUM; i++) {
+ 		if (free < 0 && (table->refs[i] == 0)) {
+ 			free = i;
+@@ -375,12 +382,6 @@ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index)
+ 		goto out;
+ 	}
+ 
+-	if (table->total == table->max) {
+-		/* No free vlan entries */
+-		err = -ENOSPC;
+-		goto out;
+-	}
+-
+ 	/* Register new MAC */
+ 	table->refs[free] = 1;
+ 	table->entries[free] = cpu_to_be32(vlan | MLX4_VLAN_VALID);
+-- 
+1.7.7
