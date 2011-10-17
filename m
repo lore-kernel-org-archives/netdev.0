@@ -1,67 +1,32 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next 6/6] ixgbe: change the eeprom version reported by
- ethtool
-Date: Mon, 17 Oct 2011 12:02:47 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A136605AD43452@rrsmsx501.amr.corp.intel.com>
-References: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1318854062-3628-7-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1318867035.5407.5.camel@Joe-Laptop> <1318871797.2784.36.camel@bwh-desktop>
+From: HacKurx <hackurx@gmail.com>
+Subject: realtek 8168 driver problem
+Date: Mon, 17 Oct 2011 20:13:31 +0200
+Message-ID: <CAFwXZv9pq+SZh7kY5kS3k9Jmnih9t++rvtuWvLH9VOAttE+RVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:18915 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751164Ab1JQSCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 14:02:50 -0400
-In-Reply-To: <1318871797.2784.36.camel@bwh-desktop>
-Content-Language: en-US
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:38508 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198Ab1JQSNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 14:13:32 -0400
+Received: by vws1 with SMTP id 1so2813347vws.19
+        for <netdev@vger.kernel.org>; Mon, 17 Oct 2011 11:13:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
-OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogTW9uZGF5LCBPY3RvYmVyIDE3LCAy
-MDExIDEwOjE3IEFNDQo+VG86IEpvZSBQZXJjaGVzDQo+Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsg
-ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgVGFudGlsb3YsIEVtaWwgUzsNCj5uZXRkZXZAdmdlci5rZXJu
-ZWwub3JnOyBnb3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tDQo+U3ViamVjdDog
-UmU6IFtuZXQtbmV4dCA2LzZdIGl4Z2JlOiBjaGFuZ2UgdGhlIGVlcHJvbSB2ZXJzaW9uIHJlcG9y
-dGVkIGJ5DQo+ZXRodG9vbA0KPg0KPk9uIE1vbiwgMjAxMS0xMC0xNyBhdCAwODo1NyAtMDcwMCwg
-Sm9lIFBlcmNoZXMgd3JvdGU6DQo+PiBPbiBNb24sIDIwMTEtMTAtMTcgYXQgMDU6MjEgLTA3MDAs
-IEplZmYgS2lyc2hlciB3cm90ZToNCj4+ID4gRnJvbTogRW1pbCBUYW50aWxvdiA8ZW1pbC5zLnRh
-bnRpbG92QGludGVsLmNvbT4NCj4+ID4NCj4+ID4gVXNlIDMyYml0IHZhbHVlIHN0YXJ0aW5nIGF0
-IG9mZnNldCAweDJkIGZvciBkaXNwbGF5aW5nIHRoZSBmaXJtd2FyZQ0KPj4gPiB2ZXJzaW9uIGlu
-IGV0aHRvb2wuIFRoaXMgc2hvdWxkIHdvcmsgZm9yIGFsbCBjdXJyZW50IGl4Z2JlIEhXDQo+PiBb
-XQ0KPj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhn
-YmVfZXRodG9vbC5jDQo+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9l
-dGh0b29sLmMNCj4+IFtdDQo+PiA+IC0Jc25wcmludGYoZmlybXdhcmVfdmVyc2lvbiwgc2l6ZW9m
-KGZpcm13YXJlX3ZlcnNpb24pLCAiJWQuJWQtJWQiLA0KPj4gPiAtCSAgICAgICAgIChhZGFwdGVy
-LT5lZXByb21fdmVyc2lvbiAmIDB4RjAwMCkgPj4gMTIsDQo+PiA+IC0JICAgICAgICAgKGFkYXB0
-ZXItPmVlcHJvbV92ZXJzaW9uICYgMHgwRkYwKSA+PiA0LA0KPj4gPiAtCSAgICAgICAgIGFkYXB0
-ZXItPmVlcHJvbV92ZXJzaW9uICYgMHgwMDBGKTsNCj4+ID4gKwludm1fdHJhY2tfaWQgPSAoYWRh
-cHRlci0+ZWVwcm9tX3ZlcmggPDwgMTYpIHwNCj4+ID4gKwkJCWFkYXB0ZXItPmVlcHJvbV92ZXJs
-Ow0KPj4gPiArCXNucHJpbnRmKGZpcm13YXJlX3ZlcnNpb24sIHNpemVvZihmaXJtd2FyZV92ZXJz
-aW9uKSwgIjB4JTA4eCIsDQo+PiA+ICsJCSBudm1fdHJhY2tfaWQpOw0KPj4NCj4+IElzIGV0aHRv
-b2wgb3V0cHV0IGxpa2UgcHJvYyBvdXRwdXQgY29uc2lkZXJlZCBhbiBhYmkNCj4+IHRoYXQgc2hv
-dWxkIG5vdCBiZSBjaGFuZ2VkPw0KPg0KPk5vLW9uZSBzaG91bGQgbWFrZSBhbnkgYXNzdW1wdGlv
-bnMgYWJvdXQgdGhlIGZvcm1hdCBvZiBmaXJtd2FyZV92ZXJzaW9uDQo+c3RyaW5ncy4gIEhvd2V2
-ZXIgdGhleSBvdWdodCB0byBiZSBjb25zaXN0ZW50IHdpdGggdmVuZG9yIGRvY3VtZW50YXRpb24s
-DQo+dXBkYXRlIHByb2dyYW1zLCBldGMuDQoNClRoZSBvbGQgdmFsdWUgd2FzIG9ubHkgbWFyZ2lu
-YWxseSB1c2VmdWwgYXMgaXQgd2FzIHBvc3NpYmxlIHRvIGhhdmUgZGlmZmVyZW50IA0KaW1hZ2Vz
-IHdpdGggdGhlIHNhbWUgdmVyc2lvbi4gVGhlIDMyIGJpdCB2YWx1ZSBzaG93biBieSB0aGlzIHBh
-dGNoIGlzIHdoYXQgDQppcyBiZWluZyB1c2VkIGJ5IHRoZSBGVyB0ZWFtIHRvIHJlY29yZCB0aGUg
-cmV2aXNpb25zIG9mIHRoZSBpbWFnZXMuDQoNClRoZSB3b3JkcyB1c2VkIHRvIGhvbGQgdGhlIDMy
-IGJpdCB2YWx1ZSBhcmUgbm90IGRlc2NyaWJlZCBpbiB0aGUgZGF0YXNoZWV0DQpmb3IgODI1OTgv
-OSwgYnV0IHdpbGwgYmUgaW4gWDU0MCBvbmNlIGl0IGJlY29tZXMgYXZhaWxhYmxlIGFuZCBJIGhh
-dmUgcmVxdWVzdGVkIHRoYXQgdGhpcyBpbmZvcm1hdGlvbiBiZSBhZGRlZCB0byB0aGUgODI1OTgv
-OSBkb2NzIGFzIHdlbGwuDQoNClRoYW5rcywNCkVtaWwNCg0KPg0KPkJlbi4NCj4NCj4tLQ0KPkJl
-biBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBTb2xhcmZsYXJlDQo+Tm90IHNwZWFraW5nIGZv
-ciBteSBlbXBsb3llcjsgdGhhdCdzIHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj5U
-aGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRy
-YWRlbWFya2VkLg0KDQo=
+Hi,
+
+A very annoying problem affects a large number of GNU/Linux distribution.
+Network card problem (with 8111/8168 chipset), As you can see:
+
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/839393
+http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=627704#84
+http://forums.linuxmint.com/viewtopic.php?f=49&t=80757
+https://aur.archlinux.org/packages.php?ID=27000
+
+Can you fix it?
+
+Thank you, best regards
+
+Loic (HacKurx).
