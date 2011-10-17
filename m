@@ -1,69 +1,65 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 2/7] mlx4_en: Controlling FCS header removal
-Date: Mon, 17 Oct 2011 22:17:06 +0200
-Message-ID: <4E9C8D42.8010404@mellanox.co.il>
+Subject: [PATCH 3/7] mlx4_en: Incoming traffic alignment optimizations
+Date: Mon, 17 Oct 2011 22:17:23 +0200
+Message-ID: <4E9C8D53.5040006@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:44851 "HELO
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:35020 "HELO
 	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754371Ab1JQWXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 18:23:36 -0400
+	by vger.kernel.org with SMTP id S1754371Ab1JQWYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 18:24:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Canceling FCS removal where FW allows for better alignment
-of incoming data.
+Packet headers are copied to skb linear part (which is IP aligned), so there is no reason for
+the scatter entry to be IP aligned.
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |    4 ++++
- drivers/net/ethernet/mellanox/mlx4/fw.c    |    1 +
- include/linux/mlx4/device.h                |    1 +
- 3 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   |   12 +++---------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    2 +-
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 37cc9e5..fbf1dcf 100644
+index fbf1dcf..8ae1eb5 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -806,6 +806,10 @@ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv, int qpn,
- 				qpn, ring->cqn, context);
- 	context->db_rec_addr = cpu_to_be64(ring->wqres.db.dma);
- 
-+	/* Cancel FCS removal if FW allows */
-+	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP)
-+		context->param3 |= cpu_to_be32(1 << 29);
-+
- 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, context, qp, state);
- 	if (err) {
- 		mlx4_qp_remove(mdev->dev, qp);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 7eb8ba8..ed452dd 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -101,6 +101,7 @@ static void dump_dev_cap_flags(struct mlx4_dev *dev, u64 flags)
- 		[25] = "Router support",
- 		[30] = "IBoE support",
- 		[32] = "Unicast loopback support",
-+		[34] = "FCS header control",
- 		[38] = "Wake On LAN support",
- 		[40] = "UDP RSS support",
- 		[41] = "Unicast VEP steering support",
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 53ef894..2366f94 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -75,6 +75,7 @@ enum {
- 	MLX4_DEV_CAP_FLAG_UD_MCAST	= 1LL << 21,
- 	MLX4_DEV_CAP_FLAG_IBOE		= 1LL << 30,
- 	MLX4_DEV_CAP_FLAG_UC_LOOPBACK	= 1LL << 32,
-+	MLX4_DEV_CAP_FLAG_FCS_KEEP	= 1LL << 34,
- 	MLX4_DEV_CAP_FLAG_WOL		= 1LL << 38,
- 	MLX4_DEV_CAP_FLAG_UDP_RSS	= 1LL << 40,
- 	MLX4_DEV_CAP_FLAG_VEP_UC_STEER	= 1LL << 41,
+@@ -744,15 +744,9 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 			(eff_mtu > buf_size + frag_sizes[i]) ?
+ 				frag_sizes[i] : eff_mtu - buf_size;
+ 		priv->frag_info[i].frag_prefix_size = buf_size;
+-		if (!i)	{
+-			priv->frag_info[i].frag_align = NET_IP_ALIGN;
+-			priv->frag_info[i].frag_stride =
+-				ALIGN(frag_sizes[i] + NET_IP_ALIGN, SMP_CACHE_BYTES);
+-		} else {
+-			priv->frag_info[i].frag_align = 0;
+-			priv->frag_info[i].frag_stride =
+-				ALIGN(frag_sizes[i], SMP_CACHE_BYTES);
+-		}
++		priv->frag_info[i].frag_align = 0;
++		priv->frag_info[i].frag_stride =
++			ALIGN(frag_sizes[i], SMP_CACHE_BYTES);
+ 		priv->frag_info[i].last_offset = mlx4_en_last_alloc_offset(
+ 						priv, priv->frag_info[i].frag_stride,
+ 						priv->frag_info[i].frag_align);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 3b753f7..013cda2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -91,7 +91,7 @@
+ /* Receive fragment sizes; we use at most 4 fragments (for 9600 byte MTU
+  * and 4K allocations) */
+ enum {
+-	FRAG_SZ0 = 512 - NET_IP_ALIGN,
++	FRAG_SZ0 = 2048,
+ 	FRAG_SZ1 = 1024,
+ 	FRAG_SZ2 = 4096,
+ 	FRAG_SZ3 = MLX4_EN_ALLOC_SIZE
 -- 
 1.7.7
