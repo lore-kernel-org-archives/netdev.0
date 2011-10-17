@@ -1,32 +1,47 @@
-From: HacKurx <hackurx@gmail.com>
-Subject: realtek 8168 driver problem
-Date: Mon, 17 Oct 2011 20:13:31 +0200
-Message-ID: <CAFwXZv9pq+SZh7kY5kS3k9Jmnih9t++rvtuWvLH9VOAttE+RVw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+From: Ed Swierk <eswierk@bigswitch.com>
+Subject: bridge: allow forwarding LLDP frames
+Date: Mon, 17 Oct 2011 11:12:07 -0700 (PDT)
+Message-ID: <20111017181207.06081E3280@meep>
+To: <shemminger@vyatta.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <eswierk@bigswitch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:38508 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751198Ab1JQSNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 14:13:32 -0400
-Received: by vws1 with SMTP id 1so2813347vws.19
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2011 11:13:31 -0700 (PDT)
+Received: from c-98-248-32-191.hsd1.ca.comcast.net ([98.248.32.191]:59813 "EHLO
+	meep" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751198Ab1JQSUg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 14:20:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+LLDP frames have reserved destination MAC address 01-80-C2-00-00-0E,
+which by default are not forwarded by 802.1d-compliant bridges.
 
-A very annoying problem affects a large number of GNU/Linux distribution.
-Network card problem (with 8111/8168 chipset), As you can see:
+In certain situations, like when creating a transparent link-layer
+relay between a pair of interfaces, it may be useful to configure a
+bridge interface to forward LLDP and other control frames in the
+01-80-C2-00-00-xx range rather than filtering them.
 
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/839393
-http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=627704#84
-http://forums.linuxmint.com/viewtopic.php?f=49&t=80757
-https://aur.archlinux.org/packages.php?ID=27000
+Stephen Hemminger's recent patch allows the user to set a sysfs
+attribute /sys/class/net/brX/bridge/group_fwd_mask to enable
+forwarding of normally filtered addresses, with certain exceptions.
+This patch eliminates the restriction on LLDP frames, allowing the
+user to override the default behavior of filtering them.
 
-Can you fix it?
+Signed-off-by: Ed Swierk <eswierk@bigswitch.com>
 
-Thank you, best regards
+---
 
-Loic (HacKurx).
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index a248fe6..b016dd8 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -31,8 +31,8 @@
+ 
+ /* Control of forwarding link local multicast */
+ #define BR_GROUPFWD_DEFAULT	0
+-/* Don't allow forwarding control protocols like STP and LLDP */
+-#define BR_GROUPFWD_RESTRICTED	0x4007u
++/* Don't allow forwarding control protocols like STP */
++#define BR_GROUPFWD_RESTRICTED	0x0007u
+ 
+ /* Path to usermode spanning tree program */
+ #define BR_STP_PROG	"/sbin/bridge-stp"
