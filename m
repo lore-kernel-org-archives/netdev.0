@@ -1,53 +1,62 @@
-From: Ross Brattain <ross.b.brattain@intel.com>
-Subject: Re: [PATCH 2/2] bridge: allow forwarding some link local frames
-Date: Mon, 17 Oct 2011 13:53:23 -0700
-Message-ID: <20111017135323.00003ee5@unknown>
-References: <20111004041444.793960297@vyatta.com>
-	<20111004041509.292932641@vyatta.com>
-	<CAF5U64AYRhZ1e0=-RhSemgaOnewTQSpAoRY2FUrFr252PG98Pw@mail.gmail.com>
+From: Pavel =?utf-8?q?Mat=C4=9Bja?= <pavel@netsafe.cz>
+Subject: Re: sky2: only 10Mb/s
+Date: Mon, 17 Oct 2011 22:53:39 +0200
+Message-ID: <201110172253.39948.pavel@netsafe.cz>
+References: <201110171434.50436.pavel@netsafe.cz> <20111017085647.346a37cb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ed Swierk <eswierk@bigswitch.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:14760 "EHLO mga01.intel.com"
+Received: from gate1.netsafe.cz ([83.223.49.132]:42143 "EHLO gate1.netsafe.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753990Ab1JQUxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 16:53:25 -0400
-In-Reply-To: <CAF5U64AYRhZ1e0=-RhSemgaOnewTQSpAoRY2FUrFr252PG98Pw@mail.gmail.com>
+	id S1753990Ab1JQUxn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 16:53:43 -0400
+In-Reply-To: <20111017085647.346a37cb@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Oct 2011 07:35:53 -0700
-Ed Swierk <eswierk@bigswitch.com> wrote:
-
-> Why is forwarding LLDP (01-80-C2-00-00-0E) frames forbidden? I'm
-> testing LLDP in a virtual topology and need the bridge to forward
-> them.
+> > Hi,
+> > I tested new kernel and I have found out I have only 10Mb/s link instead
+> > of 100Mb/s to my router.
+> > If I did the git bisect right it was caused by commit
+> > 4fb99cd6ac4fe6d03a334a6f4ebb2bbfc4b479ed which was submitted by you.
+> > 
+> > My card is (lspci -v):
+> > 05:00.0 Ethernet controller: Marvell Technology Group Ltd. Yukon Optima
+> > 88E8059 [PCIe Gigabit Ethernet Controller with AVB] (rev 11)
+> > 
+> >         Subsystem: ASUSTeK Computer Inc. Device 8439
+> >         Flags: bus master, fast devsel, latency 0, IRQ 80
+> >         Memory at fe6fc000 (64-bit, non-prefetchable) [size=16K]
+> >         I/O ports at b800 [size=256]
+> >         Expansion ROM at fe6c0000 [disabled] [size=128K]
+> >         Capabilities: [48] Power Management version 3
+> >         Capabilities: [5c] MSI: Enable+ Count=1/1 Maskable- 64bit+
+> >         Capabilities: [c0] Express Legacy Endpoint, MSI 00
+> >         Capabilities: [100] Advanced Error Reporting
+> >         Capabilities: [130] Device Serial Number a5-89-6d-ff-ff-30-cf-20
+> >         Kernel driver in use: sky2
+> > 
+> > I'm quite sure it's related to Yukon Optima because "Ethernet controller:
+> > Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller"
+> > in my work computer has 100Mb/s with the same kernel and driver.
+> > 
+> > I got no response on netdev@vger.kernel.org.
+> > Can you help me?
 > 
-> If we're worried about standards, there is justification for allowing
-> forwarding of LLDP frames. 802.1d-2005 specifies two classes of
-> bridge, customer (C-VLAN) and provider (S-VLAN). Customer bridge is
-> just new terminology for what was previously just called an
-> 802.1d-compliant bridge, while provider bridge is a new class that
-> transparently forwards certain control frames.
+> What is output of dmesg for sky2.
+>  dmesg | grep sky2
 
-01-80-C2-00-00-0E should not pass the physical link.  If it does it will affect PFC 802.1Qbb and ETS 802.1Qaz.
-
-802.1AB-2009 is more specific.  See Table 7-1 Group MAC addresses used by LLDP:
-
-Nearest bridge: 01-80-C2-00-00-0E
-Propagation constrained to a single physical link; stopped by all types of bridge
-
-Nearest non-TPMR bridge: 01-80-C2-00-00-03
-Propagation constrained by all bridges other than TPMRs; intended for use within provider bridged networks
-
-Nearest Customer Bridge: 01-80-C2-00-00-00
-Propagation constrained by customer bridges; this gives the same coverage as a customer-customer MACSec connection
-
-
---
-Ross
+sky2: driver version 1.28                                                                                                                                                          
+sky2 0000:05:00.0: PCI INT A -> GSI 51 (level, low) -> IRQ 51                                                                                                                      
+sky2 0000:05:00.0: setting latency timer to 64                                                                                                                                     
+sky2 0000:05:00.0: Yukon-2 Optima chip revision 1                                                                                                                                  
+sky2 0000:05:00.0: irq 80 for MSI/MSI-X                                                                                                                                            
+sky2 0000:05:00.0: eth0: addr 20:cf:30:6d:89:a5                                                                                                                                    
+sky2 0000:05:00.0: eth0: enabling interface                                                                                                                                        
+sky2 0000:05:00.0: eth0: Link is up at 10 Mbps, full duplex, flow control both                                                                                                     
+-- 
+Pavel Mateja
