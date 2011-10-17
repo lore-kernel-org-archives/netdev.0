@@ -1,134 +1,36 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [RFC PATCH 5/5] SUNRPC: pipefs per-net operations helper introduced
-Date: Mon, 17 Oct 2011 16:10:58 +0300
-Message-ID: <20111017121058.4541.11909.stgit@localhost6.localdomain6>
-References: <20111017120629.4541.67395.stgit@localhost6.localdomain6>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 1/4] ipv4: Fix pmtu propagating
+Date: Mon, 17 Oct 2011 14:18:05 +0200
+Message-ID: <20111017121805.GR1830@secunet.com>
+References: <20111011110922.GD1830@secunet.com>
+ <20111012.170218.279202034199478303.davem@davemloft.net>
+ <20111013100950.GO1830@secunet.com>
+ <20111013.135808.636341622629050648.davem@davemloft.net>
+ <20111014055406.GP1830@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111017120629.4541.67395.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:50631 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751303Ab1JQMSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 08:18:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20111014055406.GP1830@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-During per-net operation pipes creation and destruction we have to make sure,
-that pipefs sb exists for the whole creation/destruction procedure.
-This is done by using special mutex which controls pipefs sb reference on network namespace context.
-Helper consist of two parts: first of them (rpc_get_dentry_net) searches for
-dentry with specified name and returns with mutex taken on success. When pipe
-creation is completed, caller should release this mutex by rpc_put_dentry_net
-call.
+On Fri, Oct 14, 2011 at 07:54:06AM +0200, Steffen Klassert wrote:
+> On Thu, Oct 13, 2011 at 01:58:08PM -0400, David Miller wrote:
+> > 
+> > Please find out exactly why dst->obsolete is non-zero on a freshly
+> > looked up route.  It's unexpected.
+> 
+> Hm, on a slow path route lookup e.g. __mkroute_output() calls
+> rt_dst_alloc() which initializes dst->obsolete to -1.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
----
- include/linux/sunrpc/rpc_pipe_fs.h |    5 ++++
- net/sunrpc/netns.h                 |    1 +
- net/sunrpc/rpc_pipe.c              |   41 ++++++++++++++++++++++++++++++++++++
- net/sunrpc/sunrpc_syms.c           |    1 +
- 4 files changed, 48 insertions(+), 0 deletions(-)
-
-diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index 4a327ad..d48ff0b 100644
---- a/include/linux/sunrpc/rpc_pipe_fs.h
-+++ b/include/linux/sunrpc/rpc_pipe_fs.h
-@@ -55,6 +55,11 @@ enum {
- extern struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
- 				      const unsigned char *dir_name);
- 
-+extern void rpc_pipefs_init_net(struct net *net);
-+extern struct dentry *rpc_get_dentry_net(const struct net *net,
-+					 const unsigned char *dir_name);
-+extern void rpc_put_dentry_net(const struct net *net, struct dentry *dentry);
-+
- extern int rpc_queue_upcall(struct inode *, struct rpc_pipe_msg *);
- 
- struct rpc_clnt;
-diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
-index b384252..11d2f48 100644
---- a/net/sunrpc/netns.h
-+++ b/net/sunrpc/netns.h
-@@ -11,6 +11,7 @@ struct sunrpc_net {
- 	struct cache_detail *ip_map_cache;
- 
- 	struct super_block *pipefs_sb;
-+	struct mutex pipefs_sb_lock;
- };
- 
- extern int sunrpc_net_id;
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index a873f03..331be28 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -1033,6 +1033,45 @@ struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
- }
- EXPORT_SYMBOL_GPL(rpc_d_lookup_sb);
- 
-+void rpc_pipefs_init_net(struct net *net)
-+{
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
-+
-+	mutex_init(&sn->pipefs_sb_lock);
-+}
-+
-+/*
-+ * This call will be used for per network namespace operations calls.
-+ * Note: Function will be returned with pipefs_sb_lock taken if dentry was
-+ * found. This lock have to be released by rpc_put_dentry_net() when all
-+ * operations will be completed.
-+ */
-+struct dentry *rpc_get_dentry_net(const struct net *net,
-+				  const unsigned char *dir_name)
-+{
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
-+	struct dentry *dentry = ERR_PTR(-ENOENT);
-+
-+	mutex_lock(&sn->pipefs_sb_lock);
-+	if (sn->pipefs_sb) {
-+		dentry = rpc_d_lookup_sb(sn->pipefs_sb, dir_name);
-+		if (dentry)
-+			return dentry;
-+	}
-+	mutex_unlock(&sn->pipefs_sb_lock);
-+	return ERR_PTR(-ENOENT);
-+}
-+EXPORT_SYMBOL_GPL(rpc_get_dentry_net);
-+
-+void rpc_put_dentry_net(const struct net *net, struct dentry *dentry)
-+{
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
-+
-+	dput(dentry);
-+	mutex_unlock(&sn->pipefs_sb_lock);
-+}
-+EXPORT_SYMBOL_GPL(rpc_put_dentry_net);
-+
- static int
- rpc_fill_super(struct super_block *sb, void *data, int silent)
- {
-@@ -1085,7 +1124,9 @@ void rpc_kill_sb(struct super_block *sb)
- 	struct net *net = sb->s_fs_info;
- 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
- 
-+	mutex_lock(&sn->pipefs_sb_lock);
- 	sn->pipefs_sb = NULL;
-+	mutex_unlock(&sn->pipefs_sb_lock);
- 	put_net(net);
- 	blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
- 					   RPC_PIPEFS_UMOUNT,
-diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
-index 9d08091..880de8b 100644
---- a/net/sunrpc/sunrpc_syms.c
-+++ b/net/sunrpc/sunrpc_syms.c
-@@ -38,6 +38,7 @@ static __net_init int sunrpc_init_net(struct net *net)
- 	if (err)
- 		goto err_ipmap;
- 
-+	rpc_pipefs_init_net(net);
- 	return 0;
- 
- err_ipmap:
+Just a follow up:
+git commit d11a4dc18 (ipv4: check rt_genid in dst_check)
+changed the initialization value of dst->obsolete from
+0 to -1.
