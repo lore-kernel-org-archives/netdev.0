@@ -1,54 +1,106 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/6 v2][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 17 Oct 2011 05:20:56 -0700
-Message-ID: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 6/6] ixgbe: change the eeprom version reported by ethtool
+Date: Mon, 17 Oct 2011 05:21:02 -0700
+Message-ID: <1318854062-3628-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:33845 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:43899 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752828Ab1JQMVF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 08:21:05 -0400
+	id S1752931Ab1JQMVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 08:21:09 -0400
+In-Reply-To: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains updates to ixgbe, igbvf and igb.
-This version of the series contains the following changes:
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-- igb fix/add check if subordinate VFs are assigned to VM's
-- igbvf fix for trunk VLAN
-- ixgbe 2 fixes for ethtool and 1 endianess fix
+Use 32bit value starting at offset 0x2d for displaying the firmware
+version in ethtool. This should work for all current ixgbe HW
 
--v2 update the igb patch to resolve a variable initialization warning
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    3 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   13 +++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    7 ++++---
+ 3 files changed, 13 insertions(+), 10 deletions(-)
 
-The following are changes since commit fd38f734cb8200529e281338514945fcbff2364b:
-  igbvf: convert to ndo_fix_features
-and are available in the git repository at
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
-
-Emil Tantilov (3):
-  ixgbe: fix endianess when writing driver version to firmware
-  ixgbe: allow eeprom writes via ethtool
-  ixgbe: change the eeprom version reported by ethtool
-
-Greg Rose (2):
-  igbvf: Fix trunk vlan
-  igb: Check if subordinate VFs are assigned to virtual machines
-
-Jacob Keller (1):
-  ixgbe: add hardware timestamping support
-
- drivers/net/ethernet/intel/igb/igb.h             |    3 +
- drivers/net/ethernet/intel/igb/igb_main.c        |  177 +++++++--
- drivers/net/ethernet/intel/igbvf/netdev.c        |    4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   24 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |   16 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   84 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  452 +++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   32 ++
- 9 files changed, 743 insertions(+), 51 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 9e6635e..4881807 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -518,7 +518,8 @@ struct ixgbe_adapter {
+ 	u64 rsc_total_count;
+ 	u64 rsc_total_flush;
+ 	u32 wol;
+-	u16 eeprom_version;
++	u16 eeprom_verh;
++	u16 eeprom_verl;
+ 	u16 eeprom_cap;
+ 
+ 	int node;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 7acfce3..70d58c3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -889,21 +889,22 @@ static void ixgbe_get_drvinfo(struct net_device *netdev,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	char firmware_version[32];
++	u32 nvm_track_id;
+ 
+ 	strncpy(drvinfo->driver, ixgbe_driver_name,
+ 	        sizeof(drvinfo->driver) - 1);
+ 	strncpy(drvinfo->version, ixgbe_driver_version,
+ 	        sizeof(drvinfo->version) - 1);
+ 
+-	snprintf(firmware_version, sizeof(firmware_version), "%d.%d-%d",
+-	         (adapter->eeprom_version & 0xF000) >> 12,
+-	         (adapter->eeprom_version & 0x0FF0) >> 4,
+-	         adapter->eeprom_version & 0x000F);
++	nvm_track_id = (adapter->eeprom_verh << 16) |
++			adapter->eeprom_verl;
++	snprintf(firmware_version, sizeof(firmware_version), "0x%08x",
++		 nvm_track_id);
+ 
+ 	strncpy(drvinfo->fw_version, firmware_version,
+-	        sizeof(drvinfo->fw_version));
++		sizeof(drvinfo->fw_version) - 1);
+ 	strncpy(drvinfo->bus_info, pci_name(adapter->pdev),
+-	        sizeof(drvinfo->bus_info));
++		sizeof(drvinfo->bus_info) - 1);
+ 	drvinfo->n_stats = IXGBE_STATS_LEN;
+ 	drvinfo->testinfo_len = IXGBE_TEST_LEN;
+ 	drvinfo->regdump_len = ixgbe_get_regs_len(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c92c3a7..31f4f53 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8066,6 +8066,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	}
+ 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+ 
++	/* save off EEPROM version number */
++	hw->eeprom.ops.read(hw, 0x2e, &adapter->eeprom_verh);
++	hw->eeprom.ops.read(hw, 0x2d, &adapter->eeprom_verl);
++
+ 	/* pick up the PCI bus settings for reporting later */
+ 	hw->mac.ops.get_bus_info(hw);
+ 
+@@ -8115,9 +8119,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 			   "is required.\n");
+ 	}
+ 
+-	/* save off EEPROM version number */
+-	hw->eeprom.ops.read(hw, 0x29, &adapter->eeprom_version);
+-
+ 	/* reset the hardware with the new settings */
+ 	err = hw->mac.ops.start_hw(hw);
+ 
 -- 
 1.7.6.4
