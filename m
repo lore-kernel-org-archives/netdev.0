@@ -1,41 +1,37 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH] iproute2: update CAN bitrate SJW help text
-Date: Mon, 17 Oct 2011 17:43:37 +0200
-Message-ID: <4E9C4D29.7010302@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-can@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:53777 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752452Ab1JQPnn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 11:43:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grant Grundler <grundler@chromium.org>
+Subject: [PATCH] NET: asix: fix ethtool -e for AX88178 USB dongle
+Date: Mon, 17 Oct 2011 08:51:06 -0700
+Message-ID: <1318866666-956-1-git-send-email-grundler@chromium.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	allan@asix.com.tw, Freddy Xin <freddy@asix.com.tw>,
+	Grant Grundler <grundler@chromium.org>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The ip-tool from iproute2 already supports to pass a user defined SJW
-value for the in-kernel bittiming calculation. This patch updates the
-help text accordingly.
+"ethtool -e ethX" dumps EEPROM data. Patch sets EEPROM length for device.
+Ethtool works alot better when the kernel believes the length is > 0.
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-
+From: Allan Chou <allan@asix.com.tw>
+Signed-off-by: Grant Grundler <grundler@chromium.org>
 ---
+ drivers/net/usb/asix.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/ip/iplink_can.c b/ip/iplink_can.c
-index c8af4bc..00e7d98 100644
---- a/ip/iplink_can.c
-+++ b/ip/iplink_can.c
-@@ -23,7 +23,8 @@ static void usage(void)
- {
- 	fprintf(stderr,
- 		"Usage: ip link set DEVICE type can\n"
--	        "\t[ bitrate BITRATE [ sample-point SAMPLE-POINT] ] | \n"
-+		"\t[ bitrate BITRATE [ sample-point SAMPLE-POINT ] [ sjw SJW "
-+		"] ] | \n"
- 	        "\t[ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1\n "
- 		"\t  phase-seg2 PHASE-SEG2 [ sjw SJW ] ]\n"
- 		"\n"
+diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
+index 66e5ccb..03a1621 100644
+--- a/drivers/net/usb/asix.c
++++ b/drivers/net/usb/asix.c
+@@ -1399,6 +1399,9 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	int ret;
+ 	u8 buf[ETH_ALEN];
+ 	u32 phyid;
++	struct asix_data *data = (struct asix_data *)&dev->data;
++
++	data->eeprom_len = AX88772_EEPROM_LEN;
+ 
+ 	usbnet_get_endpoints(dev,intf);
+ 
+-- 
+1.7.2.3
