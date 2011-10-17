@@ -1,39 +1,39 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH] net: change capability used by socket options IP{,V6}_TRANSPARENT
-Date: Mon, 17 Oct 2011 15:19:51 -0700
-Message-ID: <CANP3RGde3Rsv2HrptywtgPbN5-Vk34O3T2ZN5bte8OHhGUxBwg@mail.gmail.com>
-References: <20110920.154213.888729603269720228.davem@redhat.com>
-	<1318889783-23183-1-git-send-email-zenczykowski@gmail.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH 0/7] mlx4_en: Data path optimizations and bug fix.
+Date: Mon, 17 Oct 2011 22:16:16 +0200
+Message-ID: <4E9C8D10.9020509@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Balazs Scheidler <bazsi@balabit.hu>
-To: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:31370 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754371Ab1JQWTy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 18:19:54 -0400
-Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [172.25.149.2])
-	by smtp-out.google.com with ESMTP id p9HMJrKw005193
-	for <netdev@vger.kernel.org>; Mon, 17 Oct 2011 15:19:53 -0700
-Received: from pzk1 (pzk1.prod.google.com [10.243.19.129])
-	by hpaq2.eem.corp.google.com with ESMTP id p9HMDZ7Q022229
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 17 Oct 2011 15:19:52 -0700
-Received: by pzk1 with SMTP id 1so6799829pzk.5
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2011 15:19:51 -0700 (PDT)
-In-Reply-To: <1318889783-23183-1-git-send-email-zenczykowski@gmail.com>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:50182 "HELO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754371Ab1JQWXT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 18:23:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I still think we need a more precise permission for this, but possibly
-not quite as specific as a separate capability just for transparent.
-Maybe RAW should be split into RAW_READ (eavesdropping) and RAW_WRITE (=
-spoof).
+Hello Dave,
 
-Either way, I'll leave that for another day.
+This series of patches presents a bug fix (VLAN table overflow),
+some alignment optimizations for better HW performance, RXHASH support.
+Updated driver version.
 
---=20
-Maciej A. =C5=BBenczykowski
-Kernel Networking Developer @ Google
+Patches are generated against net-next tree.
+
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 -
+ drivers/net/ethernet/mellanox/mlx4/en_port.c   |    6 ++++
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     |   32 +++++++++++++++----------
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    2 -
+ drivers/net/ethernet/mellanox/mlx4/fw.c        |    1
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    9 ++++---
+ drivers/net/ethernet/mellanox/mlx4/port.c      |   15 ++++++-----
+ include/linux/mlx4/device.h                    |    1
+ 8 files changed, 44 insertions(+), 24 deletions(-)
+
+
+Thanks,
+Yevgeny
