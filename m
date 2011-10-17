@@ -1,41 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 6/6] ixgbe: change the eeprom version reported by
- ethtool
-Date: Mon, 17 Oct 2011 08:57:15 -0700
-Message-ID: <1318867035.5407.5.camel@Joe-Laptop>
-References: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1318854062-3628-7-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: update CAN bitrate SJW help text
+Date: Mon, 17 Oct 2011 08:58:26 -0700
+Message-ID: <20111017085826.7a62ed11@nehalam.linuxnetplumber.net>
+References: <4E9C4D29.7010302@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-can@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:59064 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756371Ab1JQP5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 11:57:16 -0400
-In-Reply-To: <1318854062-3628-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.vyatta.com ([76.74.103.46]:55860 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752187Ab1JQP6a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 11:58:30 -0400
+In-Reply-To: <4E9C4D29.7010302@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-10-17 at 05:21 -0700, Jeff Kirsher wrote:
-> From: Emil Tantilov <emil.s.tantilov@intel.com>
-> 
-> Use 32bit value starting at offset 0x2d for displaying the firmware
-> version in ethtool. This should work for all current ixgbe HW
-[]
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-[]
-> -	snprintf(firmware_version, sizeof(firmware_version), "%d.%d-%d",
-> -	         (adapter->eeprom_version & 0xF000) >> 12,
-> -	         (adapter->eeprom_version & 0x0FF0) >> 4,
-> -	         adapter->eeprom_version & 0x000F);
-> +	nvm_track_id = (adapter->eeprom_verh << 16) |
-> +			adapter->eeprom_verl;
-> +	snprintf(firmware_version, sizeof(firmware_version), "0x%08x",
-> +		 nvm_track_id);
+On Mon, 17 Oct 2011 17:43:37 +0200
+Oliver Hartkopp <socketcan@hartkopp.net> wrote:
 
-Is ethtool output like proc output considered an abi
-that should not be changed?
+> The ip-tool from iproute2 already supports to pass a user defined SJW
+> value for the in-kernel bittiming calculation. This patch updates the
+> help text accordingly.
+> 
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> 
+> ---
+> 
+> diff --git a/ip/iplink_can.c b/ip/iplink_can.c
+> index c8af4bc..00e7d98 100644
+> --- a/ip/iplink_can.c
+> +++ b/ip/iplink_can.c
+> @@ -23,7 +23,8 @@ static void usage(void)
+>  {
+>  	fprintf(stderr,
+>  		"Usage: ip link set DEVICE type can\n"
+> -	        "\t[ bitrate BITRATE [ sample-point SAMPLE-POINT] ] | \n"
+> +		"\t[ bitrate BITRATE [ sample-point SAMPLE-POINT ] [ sjw SJW "
+> +		"] ] | \n"
+>  	        "\t[ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1\n "
+>  		"\t  phase-seg2 PHASE-SEG2 [ sjw SJW ] ]\n"
+>  		"\n"
+
+Please update man page as well.
