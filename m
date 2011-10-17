@@ -1,41 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipv6: inet6_connection_sock.h needs flowi
-Date: Sun, 16 Oct 2011 20:13:10 -0400 (EDT)
-Message-ID: <20111016.201310.2196482600418365872.davem@davemloft.net>
-References: <1318671264-19684-1-git-send-email-christoph.paasch@uclouvain.be>
-	<20111015.184126.53610934026688054.davem@davemloft.net>
-	<4E9AA043.1090008@uclouvain.be>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] net: ipv6: Allow netlink to set IPv6 address scope
+Date: Sun, 16 Oct 2011 20:45:19 -0400
+Message-ID: <4E9B7A9F.7000302@hp.com>
+References: <20111005201559.E544016A599@drone1.mtv.corp.google.com> <4E931A46.1040905@hp.com> <CAKD1Yr29dAC+_=bT5-_W3XuTzoxMiEzOhpHvwrAzyA8NdcCjSQ@mail.gmail.com> <4E98981D.6080908@hp.com> <CAKD1Yr0EQ0P8e1V7pw48F2LMPCFKuZHm0DGoq8VM+LeKO_aZhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: christoph.paasch@uclouvain.be
+Cc: maze@google.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36548 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752775Ab1JQAOX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Oct 2011 20:14:23 -0400
-In-Reply-To: <4E9AA043.1090008@uclouvain.be>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:11363 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751044Ab1JQApZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Oct 2011 20:45:25 -0400
+In-Reply-To: <CAKD1Yr0EQ0P8e1V7pw48F2LMPCFKuZHm0DGoq8VM+LeKO_aZhQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Sun, 16 Oct 2011 12:13:39 +0300
-
-> On 10/16/2011 01:41 AM, David Miller wrote:
->> From: Christoph Paasch<christoph.paasch@uclouvain.be>
->> Date: Sat, 15 Oct 2011 12:34:24 +0300
->>
->>> Otherwise we have a compiler-warning in c-files not including
->>> net/flow.h
->>> before inet6_connection_sock.h .
->>>
->>> Signed-off-by: Christoph Paasch<christoph.paasch@uclouvain.be>
->>
->> Example?  I've never seen this warning.
+On 10/14/2011 06:32 PM, Lorenzo Colitti wrote:
+> On Fri, Oct 14, 2011 at 13:14, Brian Haley <brian.haley@hp.com> wrote:
+>> Playing devil's advocate here, isn't this a brain-dead ISP?  If they're
+>> giving you a global IPv6 address you should get Internet connectivity
+>> with it.  If not, you probably knew it up front, or you're going to find
+>> another provider that does.  It's like they're giving you a site-local
+>> address...
 > 
-> Currently, all the c-files that include inet6_connection_sock.h
-> indirectly include flow.h before inet6_connection_sock.h. Thus
-> currently there is no compiler-warning.
+> I wouldn't say they're a brain-dead carrier, because they also give you
+> true IPv6 connectivity on another interface. The phone will deactivate
+> this interface when bringing up wifi, because wifi is usually cheaper and
+> faster. However, the carrier interface needs to stay up all the time
+> in order to do such things as provisioning, send and receive SMS
+> messages, handle voice over IP calls, and so on. So you will have
+> cases where the phone's primary Internet connection is over wifi, but
+> the phone still has a global unicast IPv6 address on the carrier interface.
+> 
+>> So are you talking about being able to dynamically change the scope
+>> of an address?  Wifi comes up - change provider addreses to host-
+>> local, wifi goes down - change it back to global.  That looks like a
+>> hack.
+> 
+> What I'm suggesting is to have the carrier interface be created with
+> site scope and stay up forever (or as long as the phone is on the cell
+> network). If an application wants to use the carrier interface, it will create
+> host routes that explicitly specify the carrier interface and the source
+> address of the carrier interface.
+> 
+> Applications that don't use the carrier interface will not have to do
+> anything special; if you set the carrier interface to site scope,
+> the kernel should just do the right thing.
 
-Then there is no bug you are fixing.
+I think this goes against the intent of RFC 3879 (Deprecating Site Local
+Addresses), and it assumes that the user has some knowledge of the network
+topology.  When we send something out the carrier interface, we don't know why
+it didn't make it to it's final destination - firewall, network link down,
+congestion - we might not get the ICMP reason back.
+
+The MIF problem statement (in the RFC editor's queue) talks about this problem,
+http://tools.ietf.org/html/draft-ietf-mif-problem-statement-15 - perhaps it's
+better to work there to develop a more generic solution (using DHCPv6, RA
+options, etc) before making this change?
+
+-Brian
