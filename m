@@ -1,60 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] cls_flow: Add tunnel support to the flow classifier
-Date: Mon, 17 Oct 2011 08:40:23 +0200
-Message-ID: <1318833623.2500.45.camel@edumazet-laptop>
-References: <1318806373.7169.35.camel@ganymede>
+From: Linus Walleij <linus.walleij@stericsson.com>
+Subject: Re: smsc911x: Add regulator support
+Date: Mon, 17 Oct 2011 08:53:19 +0200
+Message-ID: <4E9BD0DF.403@stericsson.com>
+References: <2B1D156D95AE9B4EAD379CB9E465FE7323A936438B@EXDCVYMBSTM005.EQ1STM.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Dan Siemon <dan@coverfire.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	"mathieu.poirier@linaro.org" <mathieu.poirier@linaro.org>
+To: Robert MARKLUND <robert.marklund@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41200 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751269Ab1JQGka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 02:40:30 -0400
-Received: by wyg36 with SMTP id 36so1845930wyg.19
-        for <netdev@vger.kernel.org>; Sun, 16 Oct 2011 23:40:28 -0700 (PDT)
-In-Reply-To: <1318806373.7169.35.camel@ganymede>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:46266 "EHLO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752090Ab1JQGx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 02:53:26 -0400
+In-Reply-To: <2B1D156D95AE9B4EAD379CB9E465FE7323A936438B@EXDCVYMBSTM005.EQ1STM.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 16 octobre 2011 =C3=A0 19:06 -0400, Dan Siemon a =C3=A9crit=
- :
-> When used on an interface carrying tunneled traffic the flow classifi=
-er
-> can't look into the tunnels so all of the traffic within the tunnel i=
-s
-> treated as a single flow. This does not allow any type of intelligent
-> queuing to occur. This patch adds new keys to the flow classifier whi=
-ch
-> look inside the tunnel. Presently IP-IP, IP-IPv6, IPv6-IPv6 and IPv6-=
-IP
-> tunnels are supported.
->=20
-> If you are interested I have posted some background and experimental
-> results at:
-> http://www.coverfire.com/archives/2011/10/16/making-the-linux-flow-cl=
-assifier-tunnel-aware/
->=20
-> The related iproute2 patch can be found at the above URL as well.
->=20
-> Signed-off-by: Dan Siemon <dan@coverfire.com>
->=20
+On 10/14/2011 07:51 PM, Robert MARKLUND wrote:
+> Sry about the zipped patch but our mail system kind of destroys them otherwise.
+>    
 
-Hi Dan
+Bah, I'll mail them out...
 
-You're adding a lot of code (omitting the diffstat :( ) for a specific
-usage, yet GRE tunnels are not supported.
-
-IPv6 part is also a bit limited : It assumes TCP/UDP headers are the
-first ones. Maybe its time to use ipv6_skip_exthdr() ?
-
-Note also that if we pull (with pskb_network_may_pull()) too many bytes=
-,
-we kill routing performance on paged frags devices, wich are now
-becoming very common.
-
-Adding tunnel support and deep packet inspection might require the use
-of skb_header_pointer() wich does the copy of needed data without
-requiring expensive reallocation of skb head.
+Linus
