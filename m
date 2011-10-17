@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net [BUG-FIX][PATCH 1/1] udplite: fast-path computation of
- checksum coverage
-Date: Mon, 17 Oct 2011 19:07:44 -0400 (EDT)
-Message-ID: <20111017.190744.56109078989285693.davem@davemloft.net>
-References: <20111017213447.GA4061@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH v3] net/flow: Fix potential memory leak
+Date: Mon, 17 Oct 2011 19:19:06 -0400 (EDT)
+Message-ID: <20111017.191906.877362854035909797.davem@davemloft.net>
+References: <CA+v9cxZ=ZYQ_nUXp-8M1Kciia2F6F0MZpq-kKGE4J-ayEGeScw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: huajun.li.lee@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:38615 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:49296 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756208Ab1JQXIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 19:08:50 -0400
-In-Reply-To: <20111017213447.GA4061@gerrit.erg.abdn.ac.uk>
+	with ESMTP id S1754390Ab1JQXTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 19:19:09 -0400
+In-Reply-To: <CA+v9cxZ=ZYQ_nUXp-8M1Kciia2F6F0MZpq-kKGE4J-ayEGeScw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 17 Oct 2011 15:34:47 -0600
+From: Huajun Li <huajun.li.lee@gmail.com>
+Date: Wed, 28 Sep 2011 16:51:39 +0800
 
-> can you please consider the fix below -- the checksum coverage in
-> UDP-Lite had been broken for over half a year; then reported by
-> Thomas. I have tested the patch below in various scenarios with IPv4
-> and IPv6, on localhost, and between multiple hosts.
+> While preparing net flow caches, once a fail may cause potential
+> memory leak , fix it.
+> 
+> Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
 
-Applied, thanks a lot Gerrit.
+Applied to net-next, thanks.
