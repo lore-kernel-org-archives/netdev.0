@@ -1,75 +1,51 @@
-From: Ed Swierk <eswierk@bigswitch.com>
-Subject: Re: [PATCH 2/2] bridge: allow forwarding some link local frames
-Date: Mon, 17 Oct 2011 14:09:34 -0700
-Message-ID: <CAF5U64D36-Kb+KN6kNskE6yaPW6G_Ue8-OcskseKWoBEPQdVUA@mail.gmail.com>
-References: <20111004041444.793960297@vyatta.com> <20111004041509.292932641@vyatta.com>
- <CAF5U64AYRhZ1e0=-RhSemgaOnewTQSpAoRY2FUrFr252PG98Pw@mail.gmail.com> <20111017135323.00003ee5@unknown>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] net: ipv6: Allow netlink to set IPv6 address scope
+Date: Mon, 17 Oct 2011 17:32:06 -0400
+Message-ID: <4E9C9ED6.9080601@hp.com>
+References: <20111005201559.E544016A599@drone1.mtv.corp.google.com> <4E931A46.1040905@hp.com> <CAKD1Yr29dAC+_=bT5-_W3XuTzoxMiEzOhpHvwrAzyA8NdcCjSQ@mail.gmail.com> <4E98981D.6080908@hp.com> <CAKD1Yr0EQ0P8e1V7pw48F2LMPCFKuZHm0DGoq8VM+LeKO_aZhQ@mail.gmail.com> <4E9B7A9F.7000302@hp.com> <CAKD1Yr0mnSM5EyVhJDPyq3Obe2WNiEjgQ=0uQ-r39Fg9WTsVmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ross Brattain <ross.b.brattain@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: maze@google.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:39632 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754099Ab1JQVKP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 17:10:15 -0400
-Received: by vws1 with SMTP id 1so2966412vws.19
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2011 14:10:14 -0700 (PDT)
-In-Reply-To: <20111017135323.00003ee5@unknown>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:22266 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751344Ab1JQVcJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 17:32:09 -0400
+In-Reply-To: <CAKD1Yr0mnSM5EyVhJDPyq3Obe2WNiEjgQ=0uQ-r39Fg9WTsVmw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Interesting, I didn't realize LLDP could use any of those addresses.
+On 10/16/2011 10:26 PM, Lorenzo Colitti wrote:
+> RFC 3879 deprecated site-local addresses because the were non-unique and thus
+> ambiguous, and if they leak, they cause problems. This is not an issue
+> in the use
+> case I presented, because the addresses are syntactically global
+> addresses - they
+> just don't have global reachability.
 
-I finally got a peek at the hot-off-the-presses IEEE 802.1Q-2011, and
-notice that 01-80-C2-00-00-0E is now assigned as "Individual LAN Scope
-group address, Nearest bridge group address" rather than dedicated to
-LLDP specifically.
+Not very global then :(
 
-Since our application is generating the LLDP frames we could change it
-to use -00 or -03 and let the Linux bridge drop the -0E frames.
+>> The MIF problem statement (in the RFC editor's queue) talks about this problem,
+>> http://tools.ietf.org/html/draft-ietf-mif-problem-statement-15 - perhaps it's
+>> better to work there to develop a more generic solution (using DHCPv6, RA
+>> options, etc) before making this change?
+> 
+> I don't think it's a good idea. Waiting for an IETF working group to
+> produce a standard
+> when it doesn't even have a problem statement finalized could take years.
 
---Ed
+It would be useful to give some input there, even if the Linux-specific
+implementation of any standard plays with bits in the ifaddr.
 
-On Mon, Oct 17, 2011 at 1:53 PM, Ross Brattain
-<ross.b.brattain@intel.com> wrote:
-> On Mon, 17 Oct 2011 07:35:53 -0700
-> Ed Swierk <eswierk@bigswitch.com> wrote:
->
->> Why is forwarding LLDP (01-80-C2-00-00-0E) frames forbidden? I'm
->> testing LLDP in a virtual topology and need the bridge to forward
->> them.
->>
->> If we're worried about standards, there is justification for allowin=
-g
->> forwarding of LLDP frames. 802.1d-2005 specifies two classes of
->> bridge, customer (C-VLAN) and provider (S-VLAN). Customer bridge is
->> just new terminology for what was previously just called an
->> 802.1d-compliant bridge, while provider bridge is a new class that
->> transparently forwards certain control frames.
->
-> 01-80-C2-00-00-0E should not pass the physical link. =C2=A0If it does=
- it will affect PFC 802.1Qbb and ETS 802.1Qaz.
->
-> 802.1AB-2009 is more specific. =C2=A0See Table 7-1 Group MAC addresse=
-s used by LLDP:
->
-> Nearest bridge: 01-80-C2-00-00-0E
-> Propagation constrained to a single physical link; stopped by all typ=
-es of bridge
->
-> Nearest non-TPMR bridge: 01-80-C2-00-00-03
-> Propagation constrained by all bridges other than TPMRs; intended for=
- use within provider bridged networks
->
-> Nearest Customer Bridge: 01-80-C2-00-00-00
-> Propagation constrained by customer bridges; this gives the same cove=
-rage as a customer-customer MACSec connection
->
->
-> --
-> Ross
->
+> Is there another reason why we shouldn't enable userspace to do what it wants?
+
+In my opinion it just feels like a hack, because things won't work when your
+wifi attaches to a walled garden, or there's a third interface - who wins the
+tiebreaker?
+
+I do see your point that it will help with the problem you're trying to solve,
+hopefully someone else will offer their opinion.
+
+-Brian
