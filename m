@@ -1,8 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [RFC PATCH 1/5] SUNRPC: hold current network namespace while pipefs
-	superblock is active
-Date: Mon, 17 Oct 2011 16:10:27 +0300
-Message-ID: <20111017121027.4541.66778.stgit@localhost6.localdomain6>
+Subject: [RFC PATCH 3/5] SUNRPC: pipefs dentry lookup helper introduced
+Date: Mon, 17 Oct 2011 16:10:43 +0300
+Message-ID: <20111017121043.4541.76010.stgit@localhost6.localdomain6>
 References: <20111017120629.4541.67395.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -16,63 +15,62 @@ In-Reply-To: <20111017120629.4541.67395.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We want to be sure that network namespace is still alive while we have pipefs
-mounted.
+In all places, where pipefs dentries are created, only directory inode is
+actually required to create new dentry. And all this directories has root
+pipefs dentry as their parent. So we actually don't need this pipefs mount
+point at all if some pipefs lookup method will be provided.
+IOW, all we really need is just superblock and simple lookup method to find
+root's dentry child dentry with appropriate name. And this patch introduces
+this method.
+Note, that no loking implemented in rpc_d_lookup_sb(). So it can be used only
+in case of assurance, that pipefs superblock still exist. IOW, we can use this
+method only in pipefs mount-umount notificators.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/rpc_pipe.c |   15 ++++++++++++++-
- 1 files changed, 14 insertions(+), 1 deletions(-)
+ include/linux/sunrpc/rpc_pipe_fs.h |    3 +++
+ net/sunrpc/rpc_pipe.c              |   16 ++++++++++++++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index b181e34..8322080 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -27,6 +27,9 @@
- #include <linux/workqueue.h>
- #include <linux/sunrpc/rpc_pipe_fs.h>
- #include <linux/sunrpc/cache.h>
-+#include <linux/nsproxy.h>
-+
-+#include "netns.h"
- 
- static struct vfsmount *rpc_mnt __read_mostly;
- static int rpc_mount_count;
-@@ -1006,6 +1009,7 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- {
- 	struct inode *inode;
- 	struct dentry *root;
-+	struct net *net = current->nsproxy->net_ns;
- 
- 	sb->s_blocksize = PAGE_CACHE_SIZE;
- 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
-@@ -1023,6 +1027,7 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- 	}
- 	if (rpc_populate(root, files, RPCAUTH_lockd, RPCAUTH_RootEOF, NULL))
- 		return -ENOMEM;
-+	sb->s_fs_info = get_net(net);
- 	return 0;
- }
- 
-@@ -1033,11 +1038,19 @@ rpc_mount(struct file_system_type *fs_type,
- 	return mount_single(fs_type, flags, data, rpc_fill_super);
- }
- 
-+void rpc_kill_sb(struct super_block *sb)
-+{
-+	struct net *net = sb->s_fs_info;
-+
-+	put_net(net);
-+	kill_litter_super(sb);
-+}
-+
- static struct file_system_type rpc_pipe_fs_type = {
- 	.owner		= THIS_MODULE,
- 	.name		= "rpc_pipefs",
- 	.mount		= rpc_mount,
--	.kill_sb	= kill_litter_super,
-+	.kill_sb	= rpc_kill_sb,
+diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
+index c1cdb2f..4a327ad 100644
+--- a/include/linux/sunrpc/rpc_pipe_fs.h
++++ b/include/linux/sunrpc/rpc_pipe_fs.h
+@@ -52,6 +52,9 @@ enum {
+ 	RPC_PIPEFS_UMOUNT,
  };
  
- static void
++extern struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
++				      const unsigned char *dir_name);
++
+ extern int rpc_queue_upcall(struct inode *, struct rpc_pipe_msg *);
+ 
+ struct rpc_clnt;
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index c90a7e0..a8a8812 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -1017,6 +1017,22 @@ static const struct rpc_filelist files[] = {
+ 	},
+ };
+ 
++/*
++ * This call can be used only in RPC pipefs mount notification hooks.
++ */
++struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
++			       const unsigned char *dir_name)
++{
++	struct qstr dir = {
++		.name = dir_name,
++		.len = strlen(dir_name),
++		.hash = full_name_hash(dir_name, strlen(dir_name)),
++	};
++
++	return d_lookup(sb->s_root, &dir);
++}
++EXPORT_SYMBOL_GPL(rpc_d_lookup_sb);
++
+ static int
+ rpc_fill_super(struct super_block *sb, void *data, int silent)
+ {
