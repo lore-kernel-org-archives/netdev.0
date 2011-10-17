@@ -1,99 +1,55 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] iproute2: update CAN bitrate SJW help text
-Date: Mon, 17 Oct 2011 19:02:05 +0200
-Message-ID: <4E9C5F8D.1010909@hartkopp.net>
-References: <4E9C4D29.7010302@hartkopp.net> <20111017085826.7a62ed11@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 6/6] ixgbe: change the eeprom version reported by
+ ethtool
+Date: Mon, 17 Oct 2011 18:16:37 +0100
+Message-ID: <1318871797.2784.36.camel@bwh-desktop>
+References: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1318854062-3628-7-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1318867035.5407.5.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-can@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:56740 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753640Ab1JQRCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 13:02:07 -0400
-In-Reply-To: <20111017085826.7a62ed11@nehalam.linuxnetplumber.net>
+Received: from exchange.solarflare.com ([216.237.3.220]:18763 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752797Ab1JQRQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 13:16:43 -0400
+In-Reply-To: <1318867035.5407.5.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/17/11 17:58, Stephen Hemminger wrote:
-
-> On Mon, 17 Oct 2011 17:43:37 +0200
-> Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+On Mon, 2011-10-17 at 08:57 -0700, Joe Perches wrote:
+> On Mon, 2011-10-17 at 05:21 -0700, Jeff Kirsher wrote:
+> > From: Emil Tantilov <emil.s.tantilov@intel.com>
+> > 
+> > Use 32bit value starting at offset 0x2d for displaying the firmware
+> > version in ethtool. This should work for all current ixgbe HW
+> []
+> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+> []
+> > -	snprintf(firmware_version, sizeof(firmware_version), "%d.%d-%d",
+> > -	         (adapter->eeprom_version & 0xF000) >> 12,
+> > -	         (adapter->eeprom_version & 0x0FF0) >> 4,
+> > -	         adapter->eeprom_version & 0x000F);
+> > +	nvm_track_id = (adapter->eeprom_verh << 16) |
+> > +			adapter->eeprom_verl;
+> > +	snprintf(firmware_version, sizeof(firmware_version), "0x%08x",
+> > +		 nvm_track_id);
 > 
->> The ip-tool from iproute2 already supports to pass a user defined SJW
->> value for the in-kernel bittiming calculation. This patch updates the
->> help text accordingly.
->>
->> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
->>
->> ---
->>
->> diff --git a/ip/iplink_can.c b/ip/iplink_can.c
->> index c8af4bc..00e7d98 100644
->> --- a/ip/iplink_can.c
->> +++ b/ip/iplink_can.c
->> @@ -23,7 +23,8 @@ static void usage(void)
->>  {
->>  	fprintf(stderr,
->>  		"Usage: ip link set DEVICE type can\n"
->> -	        "\t[ bitrate BITRATE [ sample-point SAMPLE-POINT] ] | \n"
->> +		"\t[ bitrate BITRATE [ sample-point SAMPLE-POINT ] [ sjw SJW "
->> +		"] ] | \n"
->>  	        "\t[ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1\n "
->>  		"\t  phase-seg2 PHASE-SEG2 [ sjw SJW ] ]\n"
->>  		"\n"
-> 
-> Please update man page as well.
+> Is ethtool output like proc output considered an abi
+> that should not be changed?
 
+No-one should make any assumptions about the format of firmware_version
+strings.  However they ought to be consistent with vendor documentation,
+update programs, etc.
 
-Oops. The manpage has several issues regarding CAN support:
+Ben.
 
-- this updated help text is _not_ part of the ip.8 man page at all
-
-    It can only be accessed by 'ip link set <anynetdev> type can help'
-
-Usage: ip link set DEVICE type can
-	[ bitrate BITRATE [ sample-point SAMPLE-POINT] ] |
-	[ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1
- 	  phase-seg2 PHASE-SEG2 [ sjw SJW ] ]
-
-	[ loopback { on | off } ]
-	[ listen-only { on | off } ]
-	[ triple-sampling { on | off } ]
-	[ one-shot { on | off } ]
-	[ berr-reporting { on | off } ]
-
-	[ restart-ms TIME-MS ]
-	[ restart ]
-
-	Where: BITRATE       := { 1..1000000 }
-	       SAMPLE-POINT  := { 0.000..0.999 }
-	       TQ            := { NUMBER }
-	       PROP-SEG      := { 1..8 }
-	       PHASE-SEG1    := { 1..8 }
-	       PHASE-SEG2    := { 1..8 }
-	       SJW           := { 1..4 }
-	       RESTART-MS    := { 0 | NUMBER }
-
--> ip link set <anynetdev> "type TYPE" is not documented in help text & man
-page anywhere
-
-- VCAN and CAN interfaces are mixed in the man page
-
-    You can not create real CAN interfaces, only virtual ones.
-
-Looks like i tapped into a bigger problem here :-(
-
-Maybe it's the best to apply this help text update first and then to try to
-rework the ip.8 man page according to the latest version.
-
-Setting the CAN bittiming & controller setting does not seem to fit into the
-'ip link' section of the man page. Do you have an idea how to do that in a
-'nice' way?
-
-Regards,
-Oliver
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
