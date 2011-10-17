@@ -1,66 +1,52 @@
-From: Robert MARKLUND <robert.marklund@stericsson.com>
-Subject: RE: [PATCH] smsc911x: Add regulator support
-Date: Mon, 17 Oct 2011 13:30:06 +0200
-Message-ID: <2B1D156D95AE9B4EAD379CB9E465FE7324AB09DE76@EXDCVYMBSTM005.EQ1STM.local>
-References: <1318834597-3479-1-git-send-email-robert.marklund@stericsson.com>
- <20111017105256.GG5448@sirena.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Mathieu Poirer <mathieu.poirier@linaro.org>
-To: Mark Brown <broonie@opensource.wolfsonmicro.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 17 Oct 2011 04:32:35 -0700
+Message-ID: <1318851161-30163-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:34412 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752058Ab1JQLaV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 07:30:21 -0400
-In-Reply-To: <20111017105256.GG5448@sirena.org.uk>
-Content-Language: en-US
+Received: from mga02.intel.com ([134.134.136.20]:28654 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751055Ab1JQLcn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 07:32:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Mark Brown [mailto:broonie@opensource.wolfsonmicro.com]
-> Sent: den 17 oktober 2011 12:53
-> To: Robert MARKLUND
-> Cc: netdev@vger.kernel.org; Steve Glendinning; Mathieu Poirer
-> Subject: Re: [PATCH] smsc911x: Add regulator support
-> 
-> On Mon, Oct 17, 2011 at 08:56:37AM +0200, Robert Marklund wrote:
-> 
-> > +	/* Request regulator for vddvario */
-> > +	if (request && !pdata->regulator_vddvario) {
-> > +		pdata->regulator_vddvario = regulator_get(&pdev-
-> >dev,
-> > +				"vddvario");
-> > +		if (IS_ERR(pdata->regulator_vddvario)) {
-> > +			netdev_warn(ndev,
-> > +					"%s: Failed to
-> get regulator '%s'\n",
-> > +					__func__,
-> "vddvario");
-> > +			pdata->regulator_vddvario = NULL;
-> > +		}
-> 
-> No, this is broken - look at how other devices use the regulator API.
-> The driver should just request and use the regulators unconditionally
-> and let the stubbing and mapping facilities the API has deal with
-> ensuring that they always succeed.
+The following series contains updates to ixgbe, igbvf and igb.
+This version of the series contains the following changes:
 
-[Robert MARKLUND] 
-So what you mean is get them and use them and ignore all the return codes, and let the FW take care of the error handling ?
+- igb fix/add check if subordinate VFs are assigned to VM's
+- igbvf fix for trunk VLAN
+- ixgbe 2 fixes for ethtool and 1 endianess fix
 
-> 
-> As a side note the use of "pdata" as a name for the driver internal
-> data
-> is really not helpful, pdata is traditionally the platform data passed
-> in by the machine (which would be even more broken).
+The following are changes since commit fd38f734cb8200529e281338514945fcbff2364b:
+  igbvf: convert to ndo_fix_features
+and are available in the git repository at
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
 
-[Robert MARKLUND] 
-In the driver they have used this name for this structure throughout the file I just followed that.
-Personally I think it will be more confusing to change the name of this structure in just this new function.
+Emil Tantilov (3):
+  ixgbe: fix endianess when writing driver version to firmware
+  ixgbe: allow eeprom writes via ethtool
+  ixgbe: change the eeprom version reported by ethtool
 
-/R
+Greg Rose (2):
+  igbvf: Fix trunk vlan
+  igb: Check if subordinate VFs are assigned to virtual machines
+
+Jacob Keller (1):
+  ixgbe: add hardware timestamping support
+
+ drivers/net/ethernet/intel/igb/igb.h             |    3 +
+ drivers/net/ethernet/intel/igb/igb_main.c        |  176 +++++++--
+ drivers/net/ethernet/intel/igbvf/netdev.c        |    4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   24 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |    2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |   16 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   84 ++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  452 +++++++++++++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   32 ++
+ 9 files changed, 742 insertions(+), 51 deletions(-)
+
+-- 
+1.7.6.4
