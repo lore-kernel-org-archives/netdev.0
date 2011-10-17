@@ -1,57 +1,54 @@
-From: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH v2 0/3] netdev/of/phy: MDIO bus multiplexer support.
-Date: Mon, 17 Oct 2011 09:48:47 -0500
-Message-ID: <C81814FF-4E56-4B28-8043-F874EE1D6B51@kernel.crashing.org>
-References: <1317166015-20714-1-git-send-email-david.daney@cavium.com>
- <20110929.163112.1523715692737597332.davem@davemloft.net>
- <20110930003214.GB12606@ponder.secretlab.ca>
-Mime-Version: 1.0 (Apple Message framework v1251.1)
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20110930003214.GB12606-e0URQFbLeQY2iJbIjFUEsiwD8/FfD2ys@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] dev: use ifindex hash for dev_seq_ops
+Date: Mon, 17 Oct 2011 08:12:05 -0700
+Message-ID: <20111017081205.2e41d03f@nehalam.linuxnetplumber.net>
+References: <1318413446-22258-1-git-send-email-mmaruseac@ixiacom.com>
+	<1318586017-17207-1-git-send-email-mmaruseac@ixiacom.com>
+	<1318596791.2223.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<CAEnQRZCWBhTy24WkWoC_wy11YuLxWQ3GWr3v1=JcGvprq4AtmA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Mihai Maruseac <mihai.maruseac@gmail.com>, davem@davemloft.net,
+	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mihai Maruseac <mmaruseac@ixiacom.com>
+To: Daniel Baluta <dbaluta@ixiacom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEnQRZCWBhTy24WkWoC_wy11YuLxWQ3GWr3v1=JcGvprq4AtmA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 17 Oct 2011 11:03:54 +0300
+Daniel Baluta <dbaluta@ixiacom.com> wrote:
 
-On Sep 29, 2011, at 7:32 PM, Grant Likely wrote:
+> > This assumes device ifindexes are contained in a small range
+> > [N .. N + X]
+> >
+> > I understand this can help some benchmarks, but in real world this =
+wont
+> > help that much once ifindexes are 'fragmented' (If really this mult=
+i
+> > thousand devices stuff is for real)
+> >
+> > Listen, we currently have 256 slots in the hash table.
+> >
+> > Can we try to make 'offset' something like =A0(slot_number<<24) +
+> > (position in hash chain [slot_number]), instead of (position in dev=
+ices
+> > global list)
+>=20
+>=20
+> Eric, we can refine the idea of our first patch [1], where we recorde=
+d
+> the (bucket, offset) pair. Stephen, do you agree with this?
+>=20
+>=20
+> thanks,
+> Daniel.
+>=20
+> [1] http://patchwork.ozlabs.org/patch/118331/
 
-> On Thu, Sep 29, 2011 at 04:31:12PM -0400, David Miller wrote:
->> From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
->> Date: Tue, 27 Sep 2011 16:26:52 -0700
->> 
->>> v2: Update bindings to use "reg" and "mdio-parent-bus" insutead of
->>>    "cell-index" and "parent-bus"
->> 
->> Grant, when the final version of this patch set is ready how do
->> you want to handle merging it in?
->> 
->> I think it would be safe to merge this via your tree, since the
->> changes made to existing network driver files are rather trivial and
->> thus merge conflict friendly.
-> 
-> Your tree or mine, I'm happy either way.  Even if there were
-> conflicts, they would be trivial.
-> 
-> Sure, I'll take care of merging it when I see an ack from you.
-> 
->> Actually, I feel like we've discussed this before :-)
-> 
-> :)
-> 
-> g.
-
-Any updates to these patches?
-
-- k
+Using buckets is fine, my idea about ifindex was just to try and
+preserve the order, but it doesn't matter.
