@@ -1,48 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: update CAN bitrate SJW help text
-Date: Mon, 17 Oct 2011 08:58:26 -0700
-Message-ID: <20111017085826.7a62ed11@nehalam.linuxnetplumber.net>
-References: <4E9C4D29.7010302@hartkopp.net>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: [PATCH] bnx2x: Adding FW 7.0.29.0
+Date: Mon, 17 Oct 2011 18:12:48 +0200
+Message-ID: <1318867968.5817.1.camel@lb-tlvb-dmitry>
+References: <1318860047-5044-1-git-send-email-dmitry@broadcom.com>
+Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-can@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "dwmw2@infradead.org" <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55860 "EHLO mail.vyatta.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4597 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752187Ab1JQP6a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 11:58:30 -0400
-In-Reply-To: <4E9C4D29.7010302@hartkopp.net>
+	id S1752639Ab1JQQM6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 12:12:58 -0400
+In-Reply-To: <1318860047-5044-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Oct 2011 17:43:37 +0200
-Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+Adding netdev
 
-> The ip-tool from iproute2 already supports to pass a user defined SJW
-> value for the in-kernel bittiming calculation. This patch updates the
-> help text accordingly.
+On Mon, 2011-10-17 at 07:00 -0700, Dmitry Kravkov wrote:
+> Includes fixes for the following issues:
+>   1. (iSCSI) Arrival of un-solicited ASYNC message causes
+>      firmware to abort the connection with RST.
+>   2. (FCoE) There is a probability that truncated FCoE packet on
+>      RX path won't get detected which might lead to FW assert.
+>   3. (iSCSI) Arrival of target-initiated NOP-IN during intense
+>      ISCSI traffic might lead to FW assert.
+>   4. (iSCSI) Chip hangs when in case of retransmission not aligned
+>      to 4-bytes from the beginning of iSCSI PDU.
+>   5. (FCoE) Arrival of packets beyond task IO size can lead to crash.
 > 
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 > 
+> 
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 > ---
-> 
-> diff --git a/ip/iplink_can.c b/ip/iplink_can.c
-> index c8af4bc..00e7d98 100644
-> --- a/ip/iplink_can.c
-> +++ b/ip/iplink_can.c
-> @@ -23,7 +23,8 @@ static void usage(void)
->  {
->  	fprintf(stderr,
->  		"Usage: ip link set DEVICE type can\n"
-> -	        "\t[ bitrate BITRATE [ sample-point SAMPLE-POINT] ] | \n"
-> +		"\t[ bitrate BITRATE [ sample-point SAMPLE-POINT ] [ sjw SJW "
-> +		"] ] | \n"
->  	        "\t[ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1\n "
->  		"\t  phase-seg2 PHASE-SEG2 [ sjw SJW ] ]\n"
->  		"\n"
-
-Please update man page as well.
+> The patch also available at:
+> http://linux.broadcom.com/eilong/FW-7.0.29.0/0001-bnx2x-Adding-FW-7.0.29.0.patch
+> ___
