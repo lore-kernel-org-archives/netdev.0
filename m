@@ -1,42 +1,38 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 7/7] mlx4_en: Updating driver version
-Date: Mon, 17 Oct 2011 22:18:37 +0200
-Message-ID: <4E9C8D9D.708@mellanox.co.il>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: BUG in skb_pull with e1000e, PPTP, and L2TP
+Date: Mon, 17 Oct 2011 15:25:31 -0700
+Message-ID: <20111017152531.144b16a1@nehalam.linuxnetplumber.net>
+References: <CAJuWrdtOru6KSNTxXhhQNEZUTaX5KvyF7macx4RZYxMzcAo0KQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	e1000-devel@lists.sourceforge.net
+To: Bradley Peterson <despite@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:33276 "HELO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752453Ab1JQWYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 18:24:43 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:45240 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752134Ab1JQWZe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 18:25:34 -0400
+In-Reply-To: <CAJuWrdtOru6KSNTxXhhQNEZUTaX5KvyF7macx4RZYxMzcAo0KQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 17 Oct 2011 17:19:53 -0500
+Bradley Peterson <despite@gmail.com> wrote:
 
-Driver version updated to 1.5.4.2
+>  using 3rd
+> party pptp and l2tp modules.=A0
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 89fb57c..d62c65c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -51,8 +51,8 @@
- #include "en_port.h"
- 
- #define DRV_NAME	"mlx4_en"
--#define DRV_VERSION	"1.5.4.1"
--#define DRV_RELDATE	"March 2011"
-+#define DRV_VERSION	"1.5.4.2"
-+#define DRV_RELDATE	"October 2011"
- 
- #define MLX4_EN_MSG_LEVEL	(NETIF_MSG_LINK | NETIF_MSG_IFDOWN)
- 
--- 
-1.7.7
+More than likely your 3rd party modules are buggy and
+can't handle all the possible types of skb layout.=20
+I have seen out of tree code that can't handle non-linear
+skb's. You need to take it up with the those developer.
