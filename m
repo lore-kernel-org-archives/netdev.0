@@ -1,63 +1,60 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] net: ipv6: Allow netlink to set IPv6 address scope
-Date: Sun, 16 Oct 2011 20:45:19 -0400
-Message-ID: <4E9B7A9F.7000302@hp.com>
-References: <20111005201559.E544016A599@drone1.mtv.corp.google.com> <4E931A46.1040905@hp.com> <CAKD1Yr29dAC+_=bT5-_W3XuTzoxMiEzOhpHvwrAzyA8NdcCjSQ@mail.gmail.com> <4E98981D.6080908@hp.com> <CAKD1Yr0EQ0P8e1V7pw48F2LMPCFKuZHm0DGoq8VM+LeKO_aZhQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: reduce memory needs of out of order queue
+Date: Sun, 16 Oct 2011 20:53:29 -0400 (EDT)
+Message-ID: <20111016.205329.560591300167306483.davem@davemloft.net>
+References: <4E98B3B4.20406@hp.com>
+	<20111014.191845.232827637484150228.davem@davemloft.net>
+	<1318661682.2525.41.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maze@google.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:11363 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044Ab1JQApZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Oct 2011 20:45:25 -0400
-In-Reply-To: <CAKD1Yr0EQ0P8e1V7pw48F2LMPCFKuZHm0DGoq8VM+LeKO_aZhQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:54390 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751044Ab1JQAxq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Oct 2011 20:53:46 -0400
+In-Reply-To: <1318661682.2525.41.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/14/2011 06:32 PM, Lorenzo Colitti wrote:
-> On Fri, Oct 14, 2011 at 13:14, Brian Haley <brian.haley@hp.com> wrote:
->> Playing devil's advocate here, isn't this a brain-dead ISP?  If they're
->> giving you a global IPv6 address you should get Internet connectivity
->> with it.  If not, you probably knew it up front, or you're going to find
->> another provider that does.  It's like they're giving you a site-local
->> address...
-> 
-> I wouldn't say they're a brain-dead carrier, because they also give you
-> true IPv6 connectivity on another interface. The phone will deactivate
-> this interface when bringing up wifi, because wifi is usually cheaper and
-> faster. However, the carrier interface needs to stay up all the time
-> in order to do such things as provisioning, send and receive SMS
-> messages, handle voice over IP calls, and so on. So you will have
-> cases where the phone's primary Internet connection is over wifi, but
-> the phone still has a global unicast IPv6 address on the carrier interface.
-> 
->> So are you talking about being able to dynamically change the scope
->> of an address?  Wifi comes up - change provider addreses to host-
->> local, wifi goes down - change it back to global.  That looks like a
->> hack.
-> 
-> What I'm suggesting is to have the carrier interface be created with
-> site scope and stay up forever (or as long as the phone is on the cell
-> network). If an application wants to use the carrier interface, it will create
-> host routes that explicitly specify the carrier interface and the source
-> address of the carrier interface.
-> 
-> Applications that don't use the carrier interface will not have to do
-> anything special; if you set the carrier interface to site scope,
-> the kernel should just do the right thing.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 15 Oct 2011 08:54:42 +0200
 
-I think this goes against the intent of RFC 3879 (Deprecating Site Local
-Addresses), and it assumes that the user has some knowledge of the network
-topology.  When we send something out the carrier interface, we don't know why
-it didn't make it to it's final destination - firewall, network link down,
-congestion - we might not get the ICMP reason back.
+> I think the problem is in TCP layer (and maybe in other protocols) :
+> 
+> 1) Either tune rcvbuf to allow more memory to be used, for a particular
+> tcp window,
+> 
+>    Or lower TCP window to allow less packets in flight for a given
+> rcvbuf.
+> 
+> 2) TCP COLLAPSE already is trying to reduce memory costs of a tcp socket
+> with many packets in OFO queue. But fixing 1) would make these collapses
+> never happen in the first place. People wanting high TCP bandwidth
+> [ with say more than 500 in-flight packets per session ] can certainly
+> afford having enough memory.
 
-The MIF problem statement (in the RFC editor's queue) talks about this problem,
-http://tools.ietf.org/html/draft-ietf-mif-problem-statement-15 - perhaps it's
-better to work there to develop a more generic solution (using DHCPv6, RA
-options, etc) before making this change?
+So perhaps the best solution is to divorce truesize from such driver
+and device details?  If there is one calculation, then TCP need only
+be concerned with one case.
 
--Brian
+Look at how confusing and useless tcp_adv_win_scale ends up being for
+this problem.
+
+Therefore I'll make the mostly-serious propsal that truesize be
+something like "initial_real_total_data + sizeof(metadata)"
+
+So if a device receives a 512 byte packet, it's:
+
+	512 + sizeof(metadata)
+
+It still provides the necessary protection that truesize is meant to
+provide, yet sanitizes all of the receive and send buffer overhead
+handling.
+
+TCP should be absoultely, and completely, impervious to details like
+how buffering needs to be done for some random wireless card.  Just
+the mere fact that using a larger buffer in a driver ruins TCP
+performance indicates a serious design failure.
