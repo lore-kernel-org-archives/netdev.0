@@ -1,44 +1,54 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: [PATCH] smsc911x: Add regulator support
-Date: Mon, 17 Oct 2011 16:38:02 +0100
-Message-ID: <20111017153802.GK5448@sirena.org.uk>
-References: <1318834597-3479-1-git-send-email-robert.marklund@stericsson.com>
- <20111017105256.GG5448@sirena.org.uk>
- <2B1D156D95AE9B4EAD379CB9E465FE7324AB09DE76@EXDCVYMBSTM005.EQ1STM.local>
- <20111017123614.GC27266@opensource.wolfsonmicro.com>
- <2B1D156D95AE9B4EAD379CB9E465FE7324AB09E052@EXDCVYMBSTM005.EQ1STM.local>
- <20111017143358.GI5448@sirena.org.uk>
- <2B1D156D95AE9B4EAD379CB9E465FE7324AB09E0EE@EXDCVYMBSTM005.EQ1STM.local>
+From: David Daney <david.daney@cavium.com>
+Subject: Re: [PATCH v2 0/3] netdev/of/phy: MDIO bus multiplexer support.
+Date: Mon, 17 Oct 2011 08:41:25 -0700
+Message-ID: <4E9C4CA5.8020407@cavium.com>
+References: <1317166015-20714-1-git-send-email-david.daney@cavium.com> <20110929.163112.1523715692737597332.davem@davemloft.net> <20110930003214.GB12606@ponder.secretlab.ca> <C81814FF-4E56-4B28-8043-F874EE1D6B51@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Mathieu Poirer <mathieu.poirier@linaro.org>
-To: Robert MARKLUND <robert.marklund@stericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassiel.sirena.org.uk ([80.68.93.111]:46695 "EHLO
-	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751512Ab1JQPiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 11:38:05 -0400
-Content-Disposition: inline
-In-Reply-To: <2B1D156D95AE9B4EAD379CB9E465FE7324AB09E0EE@EXDCVYMBSTM005.EQ1STM.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	David Miller <davem@davemloft.net>,
+	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kumar Gala <galak@kernel.crashing.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C81814FF-4E56-4B28-8043-F874EE1D6B51@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 17, 2011 at 05:28:08PM +0200, Robert MARKLUND wrote:
+On 10/17/2011 07:48 AM, Kumar Gala wrote:
+>
+> On Sep 29, 2011, at 7:32 PM, Grant Likely wrote:
+>
+>> On Thu, Sep 29, 2011 at 04:31:12PM -0400, David Miller wrote:
+>>> From: David Daney<david.daney@cavium.com>
+>>> Date: Tue, 27 Sep 2011 16:26:52 -0700
+>>>
+>>>> v2: Update bindings to use "reg" and "mdio-parent-bus" insutead of
+>>>>     "cell-index" and "parent-bus"
+>>>
+>>> Grant, when the final version of this patch set is ready how do
+>>> you want to handle merging it in?
+>>>
+>>> I think it would be safe to merge this via your tree, since the
+>>> changes made to existing network driver files are rather trivial and
+>>> thus merge conflict friendly.
+>>
+>> Your tree or mine, I'm happy either way.  Even if there were
+>> conflicts, they would be trivial.
+>>
+>> Sure, I'll take care of merging it when I see an ack from you.
+>>
+>>> Actually, I feel like we've discussed this before :-)
+>>
+>> :)
+>>
+>> g.
+>
+> Any updates to these patches?
 
-> > If we fail to grab a critical resource for the device like the power
-> > supply then we should be failing passing the error back.  As I keep
-> > saying this is what all the other regulator consumers are doing.
+Not yet, so you didn't miss anything.
 
-> Most of the boards out there don't have any regulators for the chip(power is always on).
-> So when we can't get the regulator, we assume that the power is already on.
-> That's why it hasn't been implemented before.
+They are on my to-do list though
 
-> So adding this functionality will make all the other boards out there fail, to start the driver.
-
-Clearly this issue is going to apply to every single user of the
-regulator API which is one reason why it's insane to open code handling
-of missing regulators in individual regulator consumer drivers.  As I
-keep saying you should unconditionally use the regulators and let the
-regulator API facilities for stubbing itself out deal with this.
+David Daney
