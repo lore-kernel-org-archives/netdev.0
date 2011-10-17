@@ -1,87 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/6] ixgbe: fix endianess when writing driver version to firmware
-Date: Mon, 17 Oct 2011 05:20:59 -0700
-Message-ID: <1318854062-3628-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: [PATCH] smsc911x: Add regulator support
+Date: Mon, 17 Oct 2011 13:36:14 +0100
+Message-ID: <20111017123614.GC27266@opensource.wolfsonmicro.com>
+References: <1318834597-3479-1-git-send-email-robert.marklund@stericsson.com>
+ <20111017105256.GG5448@sirena.org.uk>
+ <2B1D156D95AE9B4EAD379CB9E465FE7324AB09DE76@EXDCVYMBSTM005.EQ1STM.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Mathieu Poirer <mathieu.poirier@linaro.org>
+To: Robert MARKLUND <robert.marklund@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:33845 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753038Ab1JQMVH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 08:21:07 -0400
-In-Reply-To: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:52367 "EHLO
+	opensource.wolfsonmicro.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752230Ab1JQMgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 08:36:16 -0400
+Content-Disposition: inline
+In-Reply-To: <2B1D156D95AE9B4EAD379CB9E465FE7324AB09DE76@EXDCVYMBSTM005.EQ1STM.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+On Mon, Oct 17, 2011 at 01:30:06PM +0200, Robert MARKLUND wrote:
 
-This patch makes sure that register writes are in little endian and
-also converts the reads back to big-endian.
+You should fix your mail client to word wrap within paragraphs, I've
+reformatted it for legibility.  Also leave a blank line between
+paragraphs for the same reason.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+> > No, this is broken - look at how other devices use the regulator API.
+> > The driver should just request and use the regulators unconditionally
+> > and let the stubbing and mapping facilities the API has deal with
+> > ensuring that they always succeed.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 35fa444..834f044 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3341,7 +3341,7 @@ static u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
-  *  Communicates with the manageability block.  On success return 0
-  *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
-  **/
--static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
-+static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 					u32 length)
- {
- 	u32 hicr, i;
-@@ -3374,7 +3374,7 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
- 	 */
- 	for (i = 0; i < dword_len; i++)
- 		IXGBE_WRITE_REG_ARRAY(hw, IXGBE_FLEX_MNG,
--				      i, *((u32 *)buffer + i));
-+				      i, cpu_to_le32(buffer[i]));
- 
- 	/* Setting this bit tells the ARC that a new command is pending. */
- 	IXGBE_WRITE_REG(hw, IXGBE_HICR, hicr | IXGBE_HICR_C);
-@@ -3398,9 +3398,10 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
- 	dword_len = hdr_size >> 2;
- 
- 	/* first pull in the header so we know the buffer length */
--	for (i = 0; i < dword_len; i++)
--		*((u32 *)buffer + i) =
--			IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
-+	for (i = 0; i < dword_len; i++) {
-+		buffer[i] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
-+		le32_to_cpus(&buffer[i]);
-+	}
- 
- 	/* If there is any thing in data position pull it in */
- 	buf_len = ((struct ixgbe_hic_hdr *)buffer)->buf_len;
-@@ -3418,8 +3419,7 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
- 
- 	/* Pull in the rest of the buffer (i is where we left off)*/
- 	for (; i < buf_len; i++)
--		*((u32 *)buffer + i) =
--			IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
-+		buffer[i] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
- 
- out:
- 	return ret_val;
-@@ -3465,7 +3465,7 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
- 	fw_cmd.pad2 = 0;
- 
- 	for (i = 0; i <= FW_CEM_MAX_RETRIES; i++) {
--		ret_val = ixgbe_host_interface_command(hw, (u8 *)&fw_cmd,
-+		ret_val = ixgbe_host_interface_command(hw, (u32 *)&fw_cmd,
- 						       sizeof(fw_cmd));
- 		if (ret_val != 0)
- 			continue;
--- 
-1.7.6.4
+> So what you mean is get them and use them and ignore all the return
+> codes, and let the FW take care of the error handling ?
+
+No, you should do what all the other drivers do and actually pay
+attention to the errors.  If we can't get power to the device that's a
+pretty serious problem and the driver ought  to fail.
+
+> > As a side note the use of "pdata" as a name for the driver internal data
+> > is really not helpful, pdata is traditionally the platform data passed
+> > in by the machine (which would be even more broken).
+
+> In the driver they have used this name for this structure throughout
+> the file I just followed that.  Personally I think it will be more
+> confusing to change the name of this structure in just this new
+> function.
+
+I think someone should send a patch renaming the data throughout the
+entire driver, it's a terrible name for an embedded context.
