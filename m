@@ -1,39 +1,58 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH] route:ip_rt_frag_needed always return unzero
-Date: Tue, 18 Oct 2011 15:04:29 +0800
-Message-ID: <1318921469-25599-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	eric.dumazet@gmail.com
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] filter: use unsigned int to silence static checker warning
+Date: Tue, 18 Oct 2011 10:04:20 +0300
+Message-ID: <20111018070420.GR27732@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:49490 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753243Ab1JRHEO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Oct 2011 03:04:14 -0400
+Received: from rcsinet15.oracle.com ([148.87.113.117]:31078 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753243Ab1JRHEZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 03:04:25 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-int function ip_rt_frag_need,if peer is null,
-there is no need to do ipprot->err_handler.
-I am right?
+This is just a cleanup.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/ipv4/route.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+My testing version of Smatch warns about this:
+net/core/filter.c +380 check_load_and_stores(6)
+	warn: check 'flen' for negative values
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 075212e..6cde0fa 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1574,7 +1574,7 @@ unsigned short ip_rt_frag_needed(struct net *net, const struct iphdr *iph,
+flen comes from the user.  We try to clamp the values here between 1
+and BPF_MAXINSNS but the clamp doesn't work because it could be
+negative.  This is a bug, but it's not exploitable.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 741956f..8eeb205 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -155,7 +155,7 @@ extern unsigned int sk_run_filter(const struct sk_buff *skb,
+ 				  const struct sock_filter *filter);
+ extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
+ extern int sk_detach_filter(struct sock *sk);
+-extern int sk_chk_filter(struct sock_filter *filter, int flen);
++extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
  
- 		atomic_inc(&__rt_peer_genid);
- 	}
--	return est_mtu ? : new_mtu;
-+	return est_mtu;
- }
- 
- static void check_peer_pmtu(struct dst_entry *dst, struct inet_peer *peer)
--- 
-1.7.1
+ #ifdef CONFIG_BPF_JIT
+ extern void bpf_jit_compile(struct sk_filter *fp);
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 8fcc2d7..5dea452 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -436,7 +436,7 @@ error:
+  *
+  * Returns 0 if the rule set is legal or -EINVAL if not.
+  */
+-int sk_chk_filter(struct sock_filter *filter, int flen)
++int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ {
+ 	/*
+ 	 * Valid instructions are initialized to non-0.
