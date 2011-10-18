@@ -1,58 +1,63 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] filter: use unsigned int to silence static checker warning
-Date: Tue, 18 Oct 2011 10:04:20 +0300
-Message-ID: <20111018070420.GR27732@elgon.mountain>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v13 0/6] flexcan: Add support for powerpc flexcan
+	(freescale p1010)
+Date: Tue, 18 Oct 2011 09:13:53 +0200
+Message-ID: <4E9D2731.4010800@grandegger.com>
+References: <1313551944-28603-1-git-send-email-holt@sgi.com>
+	<16FBAA47-5133-43A1-80CE-C6D63B79FB5D@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:31078 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753243Ab1JRHEZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 03:04:25 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, U Bhaskar-B22300 <B22300-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	PPC list <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Kumar Gala <galak-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <16FBAA47-5133-43A1-80CE-C6D63B79FB5D-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is just a cleanup.
+Hi Kumar,
 
-My testing version of Smatch warns about this:
-net/core/filter.c +380 check_load_and_stores(6)
-	warn: check 'flen' for negative values
+On 10/18/2011 07:44 AM, Kumar Gala wrote:
+> 
+> On Aug 16, 2011, at 10:32 PM, Robin Holt wrote:
+> 
+>> David,
+>>
+>> The following set of patches have been reviewed by the above parties and
+>> all comments have been integrated.  Although the patches stray from the
+>> drivers/net/can directory, the diversions are related to changes for
+>> the flexcan driver.
+>>
+>> The patch set is based upon your net-next-2.6 tree's commit 6c37e46.
+>>
+>> Could you please queue these up for the next appropriate push to Linus'
+>> tree?
+>>
+>> Thanks,
+>> Robin Holt
+> 
+> Robin,
+> 
+> Do you remember why we went with just 'fsl,p1010-flexcan' as the device tree compatible?  Do we feel the flex can on P1010 isn't the same as on MPC5xxx? or the ARM SoCs?
 
-flen comes from the user.  We try to clamp the values here between 1
-and BPF_MAXINSNS but the clamp doesn't work because it could be
-negative.  This is a bug, but it's not exploitable.
+The MPC5xxx SOCs have a MSCAN controller, which is different to the
+Flexcan and handled by another driver. But the Flexcan's  on the
+Freescale ARM SOCs are identical and supported by that driver as well
+and "fsl,flexcan" would work *perfectly*. Actually Grant instructed use
+to be more explicit and use "fsl,p1010-flexcan". Anyway,
+"fsl,p1010-flexcan" should work on ARM SOCs if the source frequency is
+provided via boot loader or the DTS file. Compatibility was one of our
+main concerns.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 741956f..8eeb205 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -155,7 +155,7 @@ extern unsigned int sk_run_filter(const struct sk_buff *skb,
- 				  const struct sock_filter *filter);
- extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
- extern int sk_detach_filter(struct sock *sk);
--extern int sk_chk_filter(struct sock_filter *filter, int flen);
-+extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
- 
- #ifdef CONFIG_BPF_JIT
- extern void bpf_jit_compile(struct sk_filter *fp);
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 8fcc2d7..5dea452 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -436,7 +436,7 @@ error:
-  *
-  * Returns 0 if the rule set is legal or -EINVAL if not.
-  */
--int sk_chk_filter(struct sock_filter *filter, int flen)
-+int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- {
- 	/*
- 	 * Valid instructions are initialized to non-0.
+Wolfgang.
