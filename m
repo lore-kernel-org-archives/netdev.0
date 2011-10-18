@@ -1,96 +1,109 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCBN net-next] mlx4_en: fix skb truesize underestimation
-Date: Tue, 18 Oct 2011 12:13:02 +0200
-Message-ID: <1318932782.2657.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [net-next 8/8] stmmac: limit max_mtu in case of 4KiB and use
+ __netdev_alloc_skb.
+Date: Tue, 18 Oct 2011 12:18:30 +0200
+Message-ID: <1318933110.2657.39.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1318932085-14927-1-git-send-email-peppe.cavallaro@st.com>
+	 <1318932085-14927-9-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:55684 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753973Ab1JRKMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 06:12:43 -0400
-Received: by bkbzt19 with SMTP id zt19so602390bkb.19
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2011 03:12:42 -0700 (PDT)
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:42569 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753973Ab1JRKSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 06:18:10 -0400
+Received: by gyb13 with SMTP id 13so398759gyb.19
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2011 03:18:10 -0700 (PDT)
+In-Reply-To: <1318932085-14927-9-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb->truesize must account for allocated memory, not the used part of
-it. Doing this work is important to avoid unexpected OOM situations.
+Le mardi 18 octobre 2011 =C3=A0 12:01 +0200, Giuseppe CAVALLARO a =C3=A9=
+crit :
+> Problem using big mtu around 4096 bytes is you end allocating (4096
+> +NET_SKB_PAD + NET_IP_ALIGN + sizeof(struct skb_shared_info) bytes ->
+> 8192 bytes : order-1 pages
+>=20
+> It's better to limit the mtu to SKB_MAX_HEAD(NET_SKB_PAD),
+> to have no more than one page per skb.
+>=20
+> Also the patch changes the netdev_alloc_skb_ip_align() done in
+> init_dma_desc_rings() and uses a variant allowing GFP_KERNEL allocati=
+ons
+> allowing the driver to load even in case of memory pressure.
+>=20
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   13 +++++++++--=
+--
+>  1 files changed, 9 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driv=
+ers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 1848a16..f5ca3be 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -474,11 +474,13 @@ static void init_dma_desc_rings(struct net_devi=
+ce *dev)
+>  	for (i =3D 0; i < rxsize; i++) {
+>  		struct dma_desc *p =3D priv->dma_rx + i;
+> =20
+> -		skb =3D netdev_alloc_skb_ip_align(dev, bfsize);
+> +		skb =3D __netdev_alloc_skb(dev, bfsize + NET_IP_ALIGN,
+> +					 GFP_KERNEL);
+>  		if (unlikely(skb =3D=3D NULL)) {
+>  			pr_err("%s: Rx init fails; skb is NULL\n", __func__);
+>  			break;
+>  		}
+> +		skb_reserve(skb, NET_IP_ALIGN);
+>  		priv->rx_skbuff[i] =3D skb;
+>  		priv->rx_skbuff_dma[i] =3D dma_map_single(priv->device, skb->data,
+>  						bfsize, DMA_FROM_DEVICE);
+> @@ -1176,12 +1178,15 @@ static inline void stmmac_rx_refill(struct st=
+mmac_priv *priv)
+> =20
+>  			skb =3D __skb_dequeue(&priv->rx_recycle);
+>  			if (skb =3D=3D NULL)
+> -				skb =3D netdev_alloc_skb_ip_align(priv->dev,
+> -								bfsize);
+> +				skb =3D __netdev_alloc_skb(priv->dev, bfsize +
+> +							 NET_IP_ALIGN,
+> +							 GFP_KERNEL);
+> =20
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
-Note: To improve performance, this driver should avoid all the
-get_page() done for every frag since it dirties page->_count and
-conflict with previous skbs consumers (on a different cpu maybe)
+No, you cant do that in softirq context. We cant sleep here and must us=
+e
+GFP_ATOMIC
 
-Only at alloc_pages() time should we add to page->count the
-(number_of_frags on this page) - 1
+Only the init_dma_desc_rings() part is OK, we run in process context an=
+d
+are allowed to sleep in memory allocations (GFP_KERNEL)
 
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |   11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 37cc9e5..c9aaf20 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -404,10 +404,11 @@ void mlx4_en_deactivate_rx_ring(struct mlx4_en_priv *priv,
- static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 				    struct mlx4_en_rx_desc *rx_desc,
- 				    struct skb_frag_struct *skb_frags,
--				    struct skb_frag_struct *skb_frags_rx,
-+				    struct sk_buff *skb,
- 				    struct mlx4_en_rx_alloc *page_alloc,
- 				    int length)
- {
-+	struct skb_frag_struct *skb_frags_rx = skb_shinfo(skb)->frags;
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_frag_info *frag_info;
- 	int nr;
-@@ -423,6 +424,7 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 		skb_frags_rx[nr].page = skb_frags[nr].page;
- 		skb_frags_rx[nr].size = skb_frags[nr].size;
- 		skb_frags_rx[nr].page_offset = skb_frags[nr].page_offset;
-+		skb->truesize += frag_info->frag_stride;
- 		dma = be64_to_cpu(rx_desc->data[nr].addr);
- 
- 		/* Allocate a replacement page */
-@@ -470,7 +472,6 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 	skb->dev = priv->dev;
- 	skb_reserve(skb, NET_IP_ALIGN);
- 	skb->len = length;
--	skb->truesize = length + sizeof(struct sk_buff);
- 
- 	/* Get pointer to first fragment so we could copy the headers into the
- 	 * (linear part of the) skb */
-@@ -490,8 +491,7 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 
- 		/* Move relevant fragments to skb */
- 		used_frags = mlx4_en_complete_rx_desc(priv, rx_desc, skb_frags,
--						      skb_shinfo(skb)->frags,
--						      page_alloc, length);
-+						      skb, page_alloc, length);
- 		if (unlikely(!used_frags)) {
- 			kfree_skb(skb);
- 			return NULL;
-@@ -600,7 +600,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 
- 					nr = mlx4_en_complete_rx_desc(
- 						priv, rx_desc,
--						skb_frags, skb_shinfo(gro_skb)->frags,
-+						skb_frags, gro_skb,
- 						ring->page_alloc, length);
- 					if (!nr)
- 						goto next;
-@@ -608,7 +608,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					skb_shinfo(gro_skb)->nr_frags = nr;
- 					gro_skb->len = length;
- 					gro_skb->data_len = length;
--					gro_skb->truesize += length;
- 					gro_skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 					if (cqe->vlan_my_qpn &
+>  			if (unlikely(skb =3D=3D NULL))
+>  				break;
+> =20
+> +			skb_reserve(skb, NET_IP_ALIGN);
+> +
+>  			priv->rx_skbuff[entry] =3D skb;
+>  			priv->rx_skbuff_dma[entry] =3D
+>  			    dma_map_single(priv->device, skb->data, bfsize,
+> @@ -1401,7 +1406,7 @@ static int stmmac_change_mtu(struct net_device =
+*dev, int new_mtu)
+>  	if (priv->plat->enh_desc)
+>  		max_mtu =3D JUMBO_LEN;
+>  	else
+> -		max_mtu =3D BUF_SIZE_4KiB;
+> +		max_mtu =3D SKB_MAX_HEAD(NET_SKB_PAD);
+> =20
+
+minor nit (since NET_IP_ALIGN is 0 anyway on modern x86)
+max_mtu =3D SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN);
+
+
+>  	if ((new_mtu < 46) || (new_mtu > max_mtu)) {
+>  		pr_err("%s: invalid MTU, max MTU is: %d\n", dev->name, max_mtu);
