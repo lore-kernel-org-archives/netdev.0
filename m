@@ -1,43 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga)
-	causes kernel oops
-Date: Tue, 18 Oct 2011 13:49:45 +0200
-Message-ID: <20111018114945.GA16359@gondor.apana.org.au>
-References: <CA+0Zf5Be5JUSvssH9CrDQq=jtETZr=veAPC7jriM8B-FZKbbpg@mail.gmail.com> <1318604266.2223.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <CA+0Zf5A-8X5MaXC4+BbLKtMb8S8B-Ln_a3JNfz0jR4O-ruefuw@mail.gmail.com> <1318905032.2571.35.camel@edumazet-laptop> <20111018093411.GA15165@gondor.apana.org.au> <1318932093.2657.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111018100527.GA15383@gondor.apana.org.au> <1318933423.2657.44.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111018104504.GA15913@gondor.apana.org.au> <1318937878.2657.50.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch] pktgen: bug when calling ndelay in x86 architectures
+Date: Tue, 18 Oct 2011 13:56:47 +0200
+Message-ID: <1318939007.2657.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4E9D5E1B.3080704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Elmar Vonlanthen <evonlanthen@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1318937878.2657.50.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Robert Olsson <robert@herjulf.net>,
+	Voravit Tanyingyong <voravit@kth.se>,
+	Jens Laas <jens.laas@uadm.uu.se>
+To: Daniel Turull <daniel.turull@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:42145 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754854Ab1JRL42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 07:56:28 -0400
+Received: by eye27 with SMTP id 27so461975eye.19
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2011 04:56:27 -0700 (PDT)
+In-Reply-To: <4E9D5E1B.3080704@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 18, 2011 at 01:37:58PM +0200, Eric Dumazet wrote:
->
-> In the bug we try to fix, we have :
-> 
-> skb = sock_alloc_send_skb(sk, ... + LL_ALLOCATED_SPACE(rt->dst.dev) 
-> 
-> ... < increase of dev->needed_headroom by another cpu/task >
-> 
-> skb_reserve(skb, LL_RESERVED_SPACE(rt->dst.dev));
+Le mardi 18 octobre 2011 =C3=A0 13:08 +0200, Daniel Turull a =C3=A9crit=
+ :
+> The value selected to delay the transmission in pktgen with the ndela=
+y function should be lower.
+> In Linux/arch/x86/include/asm/delay.h and Linux/arch/sh/include/asm/d=
+elay.h
+> the maximal expected value for a constant is 20000 ns.
+>=20
+> Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
+> ---
+> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> index 796044a..e17bd41 100644
+> --- a/net/core/pktgen.c
+> +++ b/net/core/pktgen.c
+> @@ -2145,7 +2145,7 @@ static void spin(struct pktgen_dev *pkt_dev, kt=
+ime_t spin_until)
+>  	}
+> =20
+>  	start_time =3D ktime_now();
+> -	if (remaining < 100000)
+> +	if (remaining < 20000)
+>  		ndelay(remaining);	/* really small just spin */
+>  	else {
+>  		/* see do_nanosleep */
 
-OK, in that case one fix would be to replace LL_ALLOCATED_SPACE
-with its two constiuents so that they may be stored in local
-variables for later use.
+But 'remaining' is not a constant.
 
-	hlen = LL_HEADROOM(skb);
-	tlen = LL_TAILROOM(skb);
-	skb_alloc_send_skb(sk, ... + LL_ALIGN(hlen + tlen));
+If we want exactly 40.000 packets per second rate (25 us between
+packets), your patch makes this not quite possible without
+CONFIG_HIGH_RES_TIMERS and probable high jitter because of scheduler
+effects.
 
-	skb_reserve(skb, LL_ALIGN(hlen));
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+pktgen is kind of special, we _want_ a cpu for our exclusive use.
