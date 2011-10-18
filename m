@@ -1,40 +1,67 @@
-From: Daniel Turull <daniel.turull@gmail.com>
-Subject: [patch] pktgen: bug when calling ndelay in x86 architectures
-Date: Tue, 18 Oct 2011 13:08:11 +0200
-Message-ID: <4E9D5E1B.3080704@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga) causes
+ kernel oops
+Date: Tue, 18 Oct 2011 13:37:58 +0200
+Message-ID: <1318937878.2657.50.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <CA+0Zf5Be5JUSvssH9CrDQq=jtETZr=veAPC7jriM8B-FZKbbpg@mail.gmail.com>
+	 <1318604266.2223.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CA+0Zf5A-8X5MaXC4+BbLKtMb8S8B-Ln_a3JNfz0jR4O-ruefuw@mail.gmail.com>
+	 <1318905032.2571.35.camel@edumazet-laptop>
+	 <20111018093411.GA15165@gondor.apana.org.au>
+	 <1318932093.2657.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111018100527.GA15383@gondor.apana.org.au>
+	 <1318933423.2657.44.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111018104504.GA15913@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert Olsson <robert@herjulf.net>,
-	Voravit Tanyingyong <voravit@kth.se>,
-	Jens Laas <jens.laas@uadm.uu.se>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:52179 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750823Ab1JRLIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 07:08:15 -0400
-Received: by bkbzt19 with SMTP id zt19so650902bkb.19
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2011 04:08:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Elmar Vonlanthen <evonlanthen@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111018104504.GA15913@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The value selected to delay the transmission in pktgen with the ndelay function should be lower.
-In Linux/arch/x86/include/asm/delay.h and Linux/arch/sh/include/asm/delay.h
-the maximal expected value for a constant is 20000 ns.
+Le mardi 18 octobre 2011 =C3=A0 12:45 +0200, Herbert Xu a =C3=A9crit :
+> On Tue, Oct 18, 2011 at 12:23:43PM +0200, Eric Dumazet wrote:
+> >=20
+> > You're right, if reallocations are OK in all paths.
+>=20
+> If it wasn't OK then making needed_headroom constant won't work
+> anyway.
+>=20
+> > We'll need to change LL_RESERVED_SPACE() / LL_RESERVED_SPACE_EXTRA(=
+) /
+> > LL_ALLOCATED_SPACE() macros and provide the [read once] values, ins=
+tead
+> > of a [read once] pointer to values.
+>=20
+> I'm not sure what you mean here.  I don't see any need to change
+> these macros.  All we need is to save the value in a local variable:
+>=20
+> 	hh_len =3D LL_RESERVED_SPACE(dev);
+>=20
+> 	skb =3D alloc_skb(hh_len + len);
+> 	skb_reserve(skb, hh_len);
+>=20
 
-Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
----
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 796044a..e17bd41 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2145,7 +2145,7 @@ static void spin(struct pktgen_dev *pkt_dev, ktime_t spin_until)
- 	}
- 
- 	start_time = ktime_now();
--	if (remaining < 100000)
-+	if (remaining < 20000)
- 		ndelay(remaining);	/* really small just spin */
- 	else {
- 		/* see do_nanosleep */
+Not really Herbert. Please read again my patch changelog.
+
+In the bug we try to fix, we have :
+
+skb =3D sock_alloc_send_skb(sk, ... + LL_ALLOCATED_SPACE(rt->dst.dev)=20
+
+=2E.. < increase of dev->needed_headroom by another cpu/task >
+
+skb_reserve(skb, LL_RESERVED_SPACE(rt->dst.dev));
+
+skb_put() -> crash because we reserved too much space
+
+So we really want LL_ALLOCATED_SPACE() and LL_RESERVED_SPACE() use the
+same needed_headroom, or else you can have LL_RESERVED_SPACE() >
+LL_ALLOCATED_SPACE().
+
+There are several way to fix this, but this kind of code assumed the
+dev->needed... values were consistent for the whole block.
