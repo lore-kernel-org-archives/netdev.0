@@ -1,92 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 6/7] mlx4_en: Adding rxhash support
-Date: Tue, 18 Oct 2011 20:35:00 +0100
-Message-ID: <1318966500.2783.124.camel@bwh-desktop>
-References: <4E9C8D8B.90606@mellanox.co.il>
-	 <1318902525.2571.24.camel@edumazet-laptop>
-	 <953B660C027164448AE903364AC447D2235EEB65@MTLDAG01.mtl.com>
-	 <1318926870.2657.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <953B660C027164448AE903364AC447D2235EEC80@MTLDAG01.mtl.com>
-	 <20111018083606.6367ff50@nehalam.linuxnetplumber.net>
+From: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+Subject: [PATCH] ipvs: Remove unused variable "cs" from ip_vs_leave function.
+Date: Tue, 18 Oct 2011 20:59:49 +0100
+Message-ID: <1318967989-14076-1-git-send-email-krzysztof.wilczynski@linux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:36367 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753535Ab1JRTfG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 15:35:06 -0400
-In-Reply-To: <20111018083606.6367ff50@nehalam.linuxnetplumber.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:43872 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753238Ab1JRT7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 15:59:54 -0400
+Received: by wwe6 with SMTP id 6so1434501wwe.1
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2011 12:59:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-10-18 at 08:36 -0700, Stephen Hemminger wrote:
-> On Tue, 18 Oct 2011 08:59:44 +0000
-> Yevgeny Petrilin <yevgenyp@mellanox.co.il> wrote:
-> 
-> > > 
-> > > What is the gain using random values ?
-> > > 
-> > > Usually, we tend to have same hardware in a single machine, or we use
-> > > active-backup bonding mode, and an active slave flip can change rxhash
-> > > values with litle effect, since this happens not often.
-> > > 
-> > > I really prefer not random values, because it allows to have replayable
-> > > configurations : For a given tcp flow, the same rxhash value is given
-> > > and same cpu target in RPS. Its way easier to tune your machine for some workloads.
-> > > 
-> > 
-> > There is no gain in random values, 
-> > I'll make the change to have static value for RSS function.
-> > 
-> > We might consider how to ensure consistency across the different drivers in this aspect.
-> 
-> The key should be part of the network device core. Almost all hardware just
-> implements the Microsoft standard, and if all drivers used same key they should
-> come up with the same hash.
+This is to address the following warning during compilation time:
 
-It should, but that's not enough.  The core also needs to be responsible
-for initialising the hash indirection table, determining how many RX
-queues to create, and IRQ affinity hints.
+  net/netfilter/ipvs/ip_vs_core.c: In function =E2=80=98ip_vs_leave=E2=80=
+=99:
+  net/netfilter/ipvs/ip_vs_core.c:532: warning: unused variable =E2=80=98=
+cs=E2=80=99
 
-> Although using the same key all the time makes testing easier.
-> The risk of using the same key is that it makes it easier for an attacker to
-> create a set of addresses that all map to the same CPU which would make a DoS
-> attack work better.  Therefore the key should be randomly generated at boot time.
+This variable is indeed no longer in use.
 
-If I understand correctly, the core of the Toeplitz hash functions is
-(pretending we have a wide enough type called bigint):
+Signed-off-by: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+---
+ net/netfilter/ipvs/ip_vs_core.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-u32 toeplitz_hash(bigint input, bigint key, unsigned width)
-{
-	u32 hash = 0;
-	unsigned i;
-
-	for (i = 0; i < width; i++)
-		if (input & ((bigint)1 << i))
-		        hash ^= key >> (1 + i);
-	return hash;
-}
-
-This is hardly a cryptographic hash!  And while the key probably should
-be random it should not just be random *bits*.  For example, if any 32
-consecutive bits of the key are zero then 1 bit of input will have no
-effect on the hash at all.
-
-There was also a proposal a while back that we should try to make the
-hash symmetric w.r.t. RX and TX addresses, so that both directions of a
-flow through a router/bridge are aligned.  I think this was to be done
-by repeating a 16-bit pattern across the key.  Not sure whether that's
-worthwhile.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs=
+_core.c
+index 00ea1ad..4f7d89d 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -529,7 +529,7 @@ int ip_vs_leave(struct ip_vs_service *svc, struct s=
+k_buff *skb,
+ 	   a cache_bypass connection entry */
+ 	ipvs =3D net_ipvs(net);
+ 	if (ipvs->sysctl_cache_bypass && svc->fwmark && unicast) {
+-		int ret, cs;
++		int ret;
+ 		struct ip_vs_conn *cp;
+ 		unsigned int flags =3D (svc->flags & IP_VS_SVC_F_ONEPACKET &&
+ 				      iph.protocol =3D=3D IPPROTO_UDP)?
+--=20
+1.7.7
