@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/5] ixgbe: allow eeprom writes via ethtool
-Date: Mon, 17 Oct 2011 17:12:46 -0700
-Message-ID: <1318896767-5374-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/5] ixgbe: change the eeprom version reported by ethtool
+Date: Mon, 17 Oct 2011 17:12:47 -0700
+Message-ID: <1318896767-5374-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1318896767-5374-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,126 +10,97 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:45853 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751017Ab1JRAMw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 20:12:52 -0400
+	id S1751402Ab1JRAMx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 20:12:53 -0400
 In-Reply-To: <1318896767-5374-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Implement support for ethtool -E
+Use 32bit value starting at offset 0x2d for displaying the firmware
+version in ethtool. This should work for all current ixgbe HW
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   71 ++++++++++++++++++++++
- 2 files changed, 73 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    3 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   13 +++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    7 ++++---
+ 3 files changed, 13 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index e02e911..ef2afef 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1305,6 +1305,8 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
- static struct ixgbe_eeprom_operations eeprom_ops_82598 = {
- 	.init_params		= &ixgbe_init_eeprom_params_generic,
- 	.read			= &ixgbe_read_eerd_generic,
-+	.write			= &ixgbe_write_eeprom_generic,
-+	.write_buffer		= &ixgbe_write_eeprom_buffer_bit_bang_generic,
- 	.read_buffer		= &ixgbe_read_eerd_buffer_generic,
- 	.calc_checksum          = &ixgbe_calc_eeprom_checksum_generic,
- 	.validate_checksum	= &ixgbe_validate_eeprom_checksum_generic,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 6c4d693..a8368d5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -497,7 +497,8 @@ struct ixgbe_adapter {
+ 	u64 rsc_total_count;
+ 	u64 rsc_total_flush;
+ 	u32 wol;
+-	u16 eeprom_version;
++	u16 eeprom_verh;
++	u16 eeprom_verl;
+ 	u16 eeprom_cap;
+ 
+ 	int node;
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index e102ff6..7acfce3 100644
+index 7acfce3..70d58c3 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -814,6 +814,76 @@ static int ixgbe_get_eeprom(struct net_device *netdev,
- 	return ret_val;
- }
- 
-+static int ixgbe_set_eeprom(struct net_device *netdev,
-+			    struct ethtool_eeprom *eeprom, u8 *bytes)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u16 *eeprom_buff;
-+	void *ptr;
-+	int max_len, first_word, last_word, ret_val = 0;
-+	u16 i;
-+
-+	if (eeprom->len == 0)
-+		return -EINVAL;
-+
-+	if (eeprom->magic != (hw->vendor_id | (hw->device_id << 16)))
-+		return -EINVAL;
-+
-+	max_len = hw->eeprom.word_size * 2;
-+
-+	first_word = eeprom->offset >> 1;
-+	last_word = (eeprom->offset + eeprom->len - 1) >> 1;
-+	eeprom_buff = kmalloc(max_len, GFP_KERNEL);
-+	if (!eeprom_buff)
-+		return -ENOMEM;
-+
-+	ptr = eeprom_buff;
-+
-+	if (eeprom->offset & 1) {
-+		/*
-+		 * need read/modify/write of first changed EEPROM word
-+		 * only the second byte of the word is being modified
-+		 */
-+		ret_val = hw->eeprom.ops.read(hw, first_word, &eeprom_buff[0]);
-+		if (ret_val)
-+			goto err;
-+
-+		ptr++;
-+	}
-+	if ((eeprom->offset + eeprom->len) & 1) {
-+		/*
-+		 * need read/modify/write of last changed EEPROM word
-+		 * only the first byte of the word is being modified
-+		 */
-+		ret_val = hw->eeprom.ops.read(hw, last_word,
-+					  &eeprom_buff[last_word - first_word]);
-+		if (ret_val)
-+			goto err;
-+	}
-+
-+	/* Device's eeprom is always little-endian, word addressable */
-+	for (i = 0; i < last_word - first_word + 1; i++)
-+		le16_to_cpus(&eeprom_buff[i]);
-+
-+	memcpy(ptr, bytes, eeprom->len);
-+
-+	for (i = 0; i < last_word - first_word + 1; i++)
-+		cpu_to_le16s(&eeprom_buff[i]);
-+
-+	ret_val = hw->eeprom.ops.write_buffer(hw, first_word,
-+					      last_word - first_word + 1,
-+					      eeprom_buff);
-+
-+	/* Update the checksum */
-+	if (ret_val == 0)
-+		hw->eeprom.ops.update_checksum(hw);
-+
-+err:
-+	kfree(eeprom_buff);
-+	return ret_val;
-+}
-+
- static void ixgbe_get_drvinfo(struct net_device *netdev,
-                               struct ethtool_drvinfo *drvinfo)
+@@ -889,21 +889,22 @@ static void ixgbe_get_drvinfo(struct net_device *netdev,
  {
-@@ -2524,6 +2594,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_link               = ethtool_op_get_link,
- 	.get_eeprom_len         = ixgbe_get_eeprom_len,
- 	.get_eeprom             = ixgbe_get_eeprom,
-+	.set_eeprom             = ixgbe_set_eeprom,
- 	.get_ringparam          = ixgbe_get_ringparam,
- 	.set_ringparam          = ixgbe_set_ringparam,
- 	.get_pauseparam         = ixgbe_get_pauseparam,
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	char firmware_version[32];
++	u32 nvm_track_id;
+ 
+ 	strncpy(drvinfo->driver, ixgbe_driver_name,
+ 	        sizeof(drvinfo->driver) - 1);
+ 	strncpy(drvinfo->version, ixgbe_driver_version,
+ 	        sizeof(drvinfo->version) - 1);
+ 
+-	snprintf(firmware_version, sizeof(firmware_version), "%d.%d-%d",
+-	         (adapter->eeprom_version & 0xF000) >> 12,
+-	         (adapter->eeprom_version & 0x0FF0) >> 4,
+-	         adapter->eeprom_version & 0x000F);
++	nvm_track_id = (adapter->eeprom_verh << 16) |
++			adapter->eeprom_verl;
++	snprintf(firmware_version, sizeof(firmware_version), "0x%08x",
++		 nvm_track_id);
+ 
+ 	strncpy(drvinfo->fw_version, firmware_version,
+-	        sizeof(drvinfo->fw_version));
++		sizeof(drvinfo->fw_version) - 1);
+ 	strncpy(drvinfo->bus_info, pci_name(adapter->pdev),
+-	        sizeof(drvinfo->bus_info));
++		sizeof(drvinfo->bus_info) - 1);
+ 	drvinfo->n_stats = IXGBE_STATS_LEN;
+ 	drvinfo->testinfo_len = IXGBE_TEST_LEN;
+ 	drvinfo->regdump_len = ixgbe_get_regs_len(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index fb7d884..8075d11 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7640,6 +7640,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	}
+ 	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+ 
++	/* save off EEPROM version number */
++	hw->eeprom.ops.read(hw, 0x2e, &adapter->eeprom_verh);
++	hw->eeprom.ops.read(hw, 0x2d, &adapter->eeprom_verl);
++
+ 	/* pick up the PCI bus settings for reporting later */
+ 	hw->mac.ops.get_bus_info(hw);
+ 
+@@ -7672,9 +7676,6 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 			   "is required.\n");
+ 	}
+ 
+-	/* save off EEPROM version number */
+-	hw->eeprom.ops.read(hw, 0x29, &adapter->eeprom_version);
+-
+ 	/* reset the hardware with the new settings */
+ 	err = hw->mac.ops.start_hw(hw);
+ 
 -- 
 1.7.6.4
