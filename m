@@ -1,42 +1,47 @@
-From: Jim Sansing <jjsansing@verizon.net>
-Subject: Comment on nf_queue NF_STOLEN patch
-Date: Tue, 18 Oct 2011 15:08:29 -0400
-Message-ID: <4E9DCEAD.7070603@verizon.net>
-References: <4E988B1E.5000606@itcare.pl>
- <CAEuXFEy89F_=J_PJMSbQ1fDcOEkkpz2vucq3LcToi7rTcZHcDA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
-To: Linux Network Development list <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms173003pub.verizon.net ([206.46.173.3]:64959 "EHLO
-	vms173003pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405Ab1JRUvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 16:51:06 -0400
-Received: from [192.168.1.5] ([unknown] [108.15.85.191])
- by vms173003.mailsrvcs.net
- (Sun Java(tm) System Messaging Server 7u2-7.02 32bit (built Apr 16 2009))
- with ESMTPA id <0LTA002DE1SPRHX0@vms173003.mailsrvcs.net> for
- netdev@vger.kernel.org; Tue, 18 Oct 2011 14:50:50 -0500 (CDT)
-In-reply-to: <CAEuXFEy89F_=J_PJMSbQ1fDcOEkkpz2vucq3LcToi7rTcZHcDA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: pull request: batman-adv 2011-10-18 (more regression
+	fixes)
+Date: Tue, 18 Oct 2011 23:01:07 +0200
+Message-ID: <1318971669-941-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I have been working on a kernel module that registers with netfilter,
-and I noticed that a patch was added to nf_queue that changed the
-handling of return code NF_FILTER from 'do nothing' to 'free the skb'. 
-I'm not sure which kernel version this went in, but the date of the
-patch is Feb, 19, 2010.
+Hi David,
 
-Everything I have read about netfilter states that it is up to the
-netfilter hook to free the skb if NF_STOLEN is returned.  The
-implications of this patch from a hook programming perspective are:
+we have identified and fixed 2 more critical bugs in the linux-3.1
+code base. We are somewhat late in the 3.1 release cycle but hoped
+to take advantage of the delayed release to get these patches 
+included before the final version is out. If not I will have to
+send these patches to stable@ and would like to see these patches
+applied to net-next-2.6/3.2. No merge conflicts are to be expected.
+Let us know what works best for you.
 
-1) If the skb is used after the return from the hook, it must be cloned.
-2) The original skb must not be freed.
+Thanks,
+Marek
 
-I suggest that a comment be added to include/linux/netfilter.h that says
-explicitly the skb will be freed if NF_STOLEN is returned.
+The following changes since commit 8b267b312df9343fea3bd679c509b36214b5a854:
 
+  batman-adv: do_bcast has to be true for broadcast packets only (2011-09-22 20:27:10 +0200)
 
-Later . . .   Jim
+are available in the git repository at:
+  git://git.open-mesh.org/linux-merge.git batman-adv/maint
+
+Antonio Quartulli (2):
+      batman-adv: fix tt_local_reset_flags() function
+      batman-adv: correctly set the data field in the TT_REPONSE packet
+
+ net/batman-adv/translation-table.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
