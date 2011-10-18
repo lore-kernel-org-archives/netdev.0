@@ -1,60 +1,74 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 3/8] stmmac: update the driver version and doc (V4)
-Date: Tue, 18 Oct 2011 12:01:20 +0200
-Message-ID: <1318932085-14927-4-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next 4/8] stmmac: allow mtu bigger than 1500 in case of normal desc (V4)
+Date: Tue, 18 Oct 2011 12:01:21 +0200
+Message-ID: <1318932085-14927-5-git-send-email-peppe.cavallaro@st.com>
 References: <1318932085-14927-1-git-send-email-peppe.cavallaro@st.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Deepak SIKRI <deepak.sikri@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:57583 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757116Ab1JRKBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 06:01:55 -0400
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:42113 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757116Ab1JRKCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 06:02:02 -0400
 In-Reply-To: <1318932085-14927-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch allows to set the mtu bigger than 1500
+in case of normal descriptors.
+This is helping some SPEAr customers.
+
+Signed-off-by: Deepak SIKRI <deepak.sikri@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- Documentation/networking/stmmac.txt          |   11 ++++++++++-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h |    2 +-
- 2 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c   |    8 +++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    4 ++--
+ 2 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index 40ec92c..8d67980 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -76,7 +76,16 @@ core.
- 
- 4.5) DMA descriptors
- Driver handles both normal and enhanced descriptors. The latter has been only
--tested on DWC Ether MAC 10/100/1000 Universal version 3.41a.
-+tested on DWC Ether MAC 10/100/1000 Universal version 3.41a and later.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+index 029c2a2..e13226b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -126,6 +126,7 @@ static void ndesc_init_rx_desc(struct dma_desc *p, unsigned int ring_size,
+ 	for (i = 0; i < ring_size; i++) {
+ 		p->des01.rx.own = 1;
+ 		p->des01.rx.buffer1_size = BUF_SIZE_2KiB - 1;
++		p->des01.rx.buffer2_size = BUF_SIZE_2KiB - 1;
+ 		if (i == ring_size - 1)
+ 			p->des01.rx.end_ring = 1;
+ 		if (disable_rx_ic)
+@@ -183,7 +184,12 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 				  int csum_flag)
+ {
+ 	p->des01.tx.first_segment = is_fs;
+-	p->des01.tx.buffer1_size = len;
 +
-+STMMAC supports DMA descriptor to operate both in dual buffer (RING)
-+and linked-list(CHAINED) mode. In RING each descriptor points to two
-+data buffer pointers whereas in CHAINED mode they point to only one data
-+buffer pointer. RING mode is the default.
-+
-+In CHAINED mode each descriptor will have pointer to next descriptor in
-+the list, hence creating the explicit chaining in the descriptor itself,
-+whereas such explicit chaining is not possible in RING mode.
++	if (unlikely(len > BUF_SIZE_2KiB)) {
++		p->des01.etx.buffer1_size = BUF_SIZE_2KiB - 1;
++		p->des01.etx.buffer2_size = len - p->des01.etx.buffer1_size;
++	} else
++		p->des01.tx.buffer1_size = len;
+ }
  
- 4.6) Ethtool support
- Ethtool is supported. Driver statistics and internal errors can be taken using:
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 50e95d8..49a4af3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -20,7 +20,7 @@
-   Author: Giuseppe Cavallaro <peppe.cavallaro@st.com>
- *******************************************************************************/
+ static void ndesc_clear_tx_ic(struct dma_desc *p)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index d0af002..622b7ac 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1412,10 +1412,10 @@ static int stmmac_change_mtu(struct net_device *dev, int new_mtu)
+ 		return -EBUSY;
+ 	}
  
--#define DRV_MODULE_VERSION	"Aug_2011"
-+#define DRV_MODULE_VERSION	"Oct_2011"
- #include <linux/stmmac.h>
+-	if (priv->plat->has_gmac)
++	if (priv->plat->enh_desc)
+ 		max_mtu = JUMBO_LEN;
+ 	else
+-		max_mtu = ETH_DATA_LEN;
++		max_mtu = BUF_SIZE_4KiB;
  
- #include "common.h"
+ 	if ((new_mtu < 46) || (new_mtu > max_mtu)) {
+ 		pr_err("%s: invalid MTU, max MTU is: %d\n", dev->name, max_mtu);
 -- 
 1.7.4.4
