@@ -1,65 +1,104 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: BUG in skb_pull with e1000e, PPTP, and L2TP
-Date: Tue, 18 Oct 2011 05:51:19 +0200
-Message-ID: <1318909879.2571.43.camel@edumazet-laptop>
+Date: Tue, 18 Oct 2011 05:59:53 +0200
+Message-ID: <1318910393.2571.47.camel@edumazet-laptop>
 References: <CAJuWrdtOru6KSNTxXhhQNEZUTaX5KvyF7macx4RZYxMzcAo0KQ@mail.gmail.com>
-	 <1318904666.2571.33.camel@edumazet-laptop>
+	<1318904666.2571.33.camel@edumazet-laptop>
+	<1318909879.2571.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Don, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	e1000-devel@lists.sourceforge.net
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>
 To: Bradley Peterson <despite@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:52782 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608Ab1JRDvY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Oct 2011 23:51:24 -0400
-Received: by wwn22 with SMTP id 22so4360846wwn.1
-        for <netdev@vger.kernel.org>; Mon, 17 Oct 2011 20:51:23 -0700 (PDT)
-In-Reply-To: <1318904666.2571.33.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1318909879.2571.43.camel@edumazet-laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Le mardi 18 octobre 2011 =C3=A0 04:24 +0200, Eric Dumazet a =C3=A9crit =
-:
-
-> diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-> index eae542a..d0197e3 100644
-> --- a/drivers/net/ppp/pptp.c
-> +++ b/drivers/net/ppp/pptp.c
-> @@ -305,11 +305,16 @@ static int pptp_rcv_core(struct sock *sk, struc=
-t sk_buff *skb)
->  	}
-> =20
->  	header =3D (struct pptp_gre_header *)(skb->data);
-> +	headersize  =3D sizeof(*header);
-> =20
->  	/* test if acknowledgement present */
->  	if (PPTP_GRE_IS_A(header->ver)) {
-> -		__u32 ack =3D (PPTP_GRE_IS_S(header->flags)) ?
-> -				header->ack : header->seq; /* ack in different place if S =3D 0 =
-*/
-> +		__u32 ack;
-> +
-> +		if (!pskb_may_pull(skb, headersize))
-> +			goto drop;
-
-Oh well, this is buggy, I need to set header again, I'll send an update=
-d
-patch
-
-		header =3D (struct pptp_gre_header *)(skb->data);
-
-> +		ack =3D (PPTP_GRE_IS_S(header->flags)) ?
-> +			header->ack : header->seq; /* ack in different place if S =3D 0 *=
-/
-> =20
+TGUgbWFyZGkgMTggb2N0b2JyZSAyMDExIMOgIDA1OjUxICswMjAwLCBFcmljIER1bWF6ZXQgYSDD
+qWNyaXQgOgo+IExlIG1hcmRpIDE4IG9jdG9icmUgMjAxMSDDoCAwNDoyNCArMDIwMCwgRXJpYyBE
+dW1hemV0IGEgw6ljcml0IDoKPiAKPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9wcHAvcHB0
+cC5jIGIvZHJpdmVycy9uZXQvcHBwL3BwdHAuYwo+ID4gaW5kZXggZWFlNTQyYS4uZDAxOTdlMyAx
+MDA2NDQKPiA+IC0tLSBhL2RyaXZlcnMvbmV0L3BwcC9wcHRwLmMKPiA+ICsrKyBiL2RyaXZlcnMv
+bmV0L3BwcC9wcHRwLmMKPiA+IEBAIC0zMDUsMTEgKzMwNSwxNiBAQCBzdGF0aWMgaW50IHBwdHBf
+cmN2X2NvcmUoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQo+ID4gIAl9Cj4g
+PiAgCj4gPiAgCWhlYWRlciA9IChzdHJ1Y3QgcHB0cF9ncmVfaGVhZGVyICopKHNrYi0+ZGF0YSk7
+Cj4gPiArCWhlYWRlcnNpemUgID0gc2l6ZW9mKCpoZWFkZXIpOwo+ID4gIAo+ID4gIAkvKiB0ZXN0
+IGlmIGFja25vd2xlZGdlbWVudCBwcmVzZW50ICovCj4gPiAgCWlmIChQUFRQX0dSRV9JU19BKGhl
+YWRlci0+dmVyKSkgewo+ID4gLQkJX191MzIgYWNrID0gKFBQVFBfR1JFX0lTX1MoaGVhZGVyLT5m
+bGFncykpID8KPiA+IC0JCQkJaGVhZGVyLT5hY2sgOiBoZWFkZXItPnNlcTsgLyogYWNrIGluIGRp
+ZmZlcmVudCBwbGFjZSBpZiBTID0gMCAqLwo+ID4gKwkJX191MzIgYWNrOwo+ID4gKwo+ID4gKwkJ
+aWYgKCFwc2tiX21heV9wdWxsKHNrYiwgaGVhZGVyc2l6ZSkpCj4gPiArCQkJZ290byBkcm9wOwo+
+IAo+IE9oIHdlbGwsIHRoaXMgaXMgYnVnZ3ksIEkgbmVlZCB0byBzZXQgaGVhZGVyIGFnYWluLCBJ
+J2xsIHNlbmQgYW4gdXBkYXRlZAo+IHBhdGNoCj4gCgpbUEFUQ0ggdjJdIHBwdHA6IHBwdHBfcmN2
+X2NvcmUoKSBtaXNzZXMgcHNrYl9tYXlfcHVsbCgpIGNhbGwKCmUxMDAwZSB1c2VzIHBhZ2VkIGZy
+YWdzLCBzbyBhbnkgbGF5ZXIgaW5jb3JyZWN0bHkgcHVsbGluZyBieXRlcyBmcm9tIHNrYgpjYW4g
+dHJpZ2dlciBhIEJVRyBpbiBza2JfcHVsbCgpCgpbOTUxLjE0MjczN10gIFs8ZmZmZmZmZmY4MTNk
+MmYzNj5dIHNrYl9wdWxsKzB4MTUvMHgxNwpbOTUxLjE0MjczN10gIFs8ZmZmZmZmZmZhMDI4Njgy
+ND5dIHBwdHBfcmN2X2NvcmUrMHgxMjYvMHgxOWEgW3BwdHBdCls5NTEuMTUyNzI1XSAgWzxmZmZm
+ZmZmZjgxM2QxN2M0Pl0gc2tfcmVjZWl2ZV9za2IrMHg2OS8weDEwNQpbOTUxLjE2MzU1OF0gIFs8
+ZmZmZmZmZmZhMDI4Njk5Mz5dIHBwdHBfcmN2KzB4YzgvMHhkYyBbcHB0cF0KWzk1MS4xNjUwOTJd
+ICBbPGZmZmZmZmZmYTAyODAwYTM+XSBncmVfcmN2KzB4NjIvMHg3NSBbZ3JlXQpbOTUxLjE2NTA5
+Ml0gIFs8ZmZmZmZmZmY4MTQxMDc4ND5dIGlwX2xvY2FsX2RlbGl2ZXJfZmluaXNoKzB4MTUwLzB4
+MWMxCls5NTEuMTc3NTk5XSAgWzxmZmZmZmZmZjgxNDEwNjM0Pl0gPyBpcF9sb2NhbF9kZWxpdmVy
+X2ZpbmlzaCsweDAvMHgxYzEKWzk1MS4xNzc1OTldICBbPGZmZmZmZmZmODE0MTA4NDY+XSBORl9I
+T09LLmNsb25lLjcrMHg1MS8weDU4Cls5NTEuMTc3NTk5XSAgWzxmZmZmZmZmZjgxNDEwOTk2Pl0g
+aXBfbG9jYWxfZGVsaXZlcisweDUxLzB4NTUKWzk1MS4xNzc1OTldICBbPGZmZmZmZmZmODE0MTA1
+Yjk+XSBpcF9yY3ZfZmluaXNoKzB4MzFhLzB4MzNlCls5NTEuMTc3NTk5XSAgWzxmZmZmZmZmZjgx
+NDEwMjlmPl0gPyBpcF9yY3ZfZmluaXNoKzB4MC8weDMzZQpbOTUxLjIwNDg5OF0gIFs8ZmZmZmZm
+ZmY4MTQxMDg0Nj5dIE5GX0hPT0suY2xvbmUuNysweDUxLzB4NTgKWzk1MS4yMTQ2NTFdICBbPGZm
+ZmZmZmZmODE0MTBiYjU+XSBpcF9yY3YrMHgyMWIvMHgyNDYKCnBwdHBfcmN2X2NvcmUoKSBpcyBh
+IG5pY2UgZXhhbXBsZSBvZiBhIGZ1bmN0aW9uIGFzc3VtaW5nIGV2ZXJ5dGhpbmcgaXQKbmVlZHMg
+aXMgYXZhaWxhYmxlIGluIHNrYiBoZWFkLgoKUmVwb3J0ZWQtYnk6IEJyYWRsZXkgUGV0ZXJzb24g
+PGRlc3BpdGVAZ21haWwuY29tPgpTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVt
+YXpldEBnbWFpbC5jb20+Ci0tLQogZHJpdmVycy9uZXQvcHBwL3BwdHAuYyB8ICAgMjAgKysrKysr
+KysrKysrLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAxMiBpbnNlcnRpb25zKCspLCA4IGRlbGV0
+aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcC9wcHRwLmMgYi9kcml2ZXJzL25l
+dC9wcHAvcHB0cC5jCmluZGV4IGVhZTU0MmEuLjI5NzMwZmQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMv
+bmV0L3BwcC9wcHRwLmMKKysrIGIvZHJpdmVycy9uZXQvcHBwL3BwdHAuYwpAQCAtMzA1LDExICsz
+MDUsMTggQEAgc3RhdGljIGludCBwcHRwX3Jjdl9jb3JlKHN0cnVjdCBzb2NrICpzaywgc3RydWN0
+IHNrX2J1ZmYgKnNrYikKIAl9CiAKIAloZWFkZXIgPSAoc3RydWN0IHBwdHBfZ3JlX2hlYWRlciAq
+KShza2ItPmRhdGEpOworCWhlYWRlcnNpemUgID0gc2l6ZW9mKCpoZWFkZXIpOwogCiAJLyogdGVz
+dCBpZiBhY2tub3dsZWRnZW1lbnQgcHJlc2VudCAqLwogCWlmIChQUFRQX0dSRV9JU19BKGhlYWRl
+ci0+dmVyKSkgewotCQlfX3UzMiBhY2sgPSAoUFBUUF9HUkVfSVNfUyhoZWFkZXItPmZsYWdzKSkg
+PwotCQkJCWhlYWRlci0+YWNrIDogaGVhZGVyLT5zZXE7IC8qIGFjayBpbiBkaWZmZXJlbnQgcGxh
+Y2UgaWYgUyA9IDAgKi8KKwkJX191MzIgYWNrOworCisJCWlmICghcHNrYl9tYXlfcHVsbChza2Is
+IGhlYWRlcnNpemUpKQorCQkJZ290byBkcm9wOworCQloZWFkZXIgPSAoc3RydWN0IHBwdHBfZ3Jl
+X2hlYWRlciAqKShza2ItPmRhdGEpOworCisJCS8qIGFjayBpbiBkaWZmZXJlbnQgcGxhY2UgaWYg
+UyA9IDAgKi8KKwkJYWNrID0gUFBUUF9HUkVfSVNfUyhoZWFkZXItPmZsYWdzKSA/IGhlYWRlci0+
+YWNrIDogaGVhZGVyLT5zZXE7CiAKIAkJYWNrID0gbnRvaGwoYWNrKTsKIApAQCAtMzE4LDIxICsz
+MjUsMTggQEAgc3RhdGljIGludCBwcHRwX3Jjdl9jb3JlKHN0cnVjdCBzb2NrICpzaywgc3RydWN0
+IHNrX2J1ZmYgKnNrYikKIAkJLyogYWxzbyBoYW5kbGUgc2VxdWVuY2UgbnVtYmVyIHdyYXAtYXJv
+dW5kICAqLwogCQlpZiAoV1JBUFBFRChhY2ssIG9wdC0+YWNrX3JlY3YpKQogCQkJb3B0LT5hY2tf
+cmVjdiA9IGFjazsKKwl9IGVsc2UgeworCQloZWFkZXJzaXplIC09IHNpemVvZihoZWFkZXItPmFj
+ayk7CiAJfQotCiAJLyogdGVzdCBpZiBwYXlsb2FkIHByZXNlbnQgKi8KIAlpZiAoIVBQVFBfR1JF
+X0lTX1MoaGVhZGVyLT5mbGFncykpCiAJCWdvdG8gZHJvcDsKIAotCWhlYWRlcnNpemUgID0gc2l6
+ZW9mKCpoZWFkZXIpOwogCXBheWxvYWRfbGVuID0gbnRvaHMoaGVhZGVyLT5wYXlsb2FkX2xlbik7
+CiAJc2VxICAgICAgICAgPSBudG9obChoZWFkZXItPnNlcSk7CiAKLQkvKiBubyBhY2sgcHJlc2Vu
+dD8gKi8KLQlpZiAoIVBQVFBfR1JFX0lTX0EoaGVhZGVyLT52ZXIpKQotCQloZWFkZXJzaXplIC09
+IHNpemVvZihoZWFkZXItPmFjayk7CiAJLyogY2hlY2sgZm9yIGluY29tcGxldGUgcGFja2V0IChs
+ZW5ndGggc21hbGxlciB0aGFuIGV4cGVjdGVkKSAqLwotCWlmIChza2ItPmxlbiAtIGhlYWRlcnNp
+emUgPCBwYXlsb2FkX2xlbikKKwlpZiAoIXBza2JfbWF5X3B1bGwoc2tiLCBoZWFkZXJzaXplICsg
+cGF5bG9hZF9sZW4pKQogCQlnb3RvIGRyb3A7CiAKIAlwYXlsb2FkID0gc2tiLT5kYXRhICsgaGVh
+ZGVyc2l6ZTsKCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkFsbCB0aGUgZGF0YSBjb250aW51b3Vz
+bHkgZ2VuZXJhdGVkIGluIHlvdXIgSVQgaW5mcmFzdHJ1Y3R1cmUgY29udGFpbnMgYQpkZWZpbml0
+aXZlIHJlY29yZCBvZiBjdXN0b21lcnMsIGFwcGxpY2F0aW9uIHBlcmZvcm1hbmNlLCBzZWN1cml0
+eQp0aHJlYXRzLCBmcmF1ZHVsZW50IGFjdGl2aXR5IGFuZCBtb3JlLiBTcGx1bmsgdGFrZXMgdGhp
+cyBkYXRhIGFuZCBtYWtlcwpzZW5zZSBvZiBpdC4gQnVzaW5lc3Mgc2Vuc2UuIElUIHNlbnNlLiBD
+b21tb24gc2Vuc2UuCmh0dHA6Ly9wLnNmLm5ldC9zZnUvc3BsdW5rLWQyZC1vY3QKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGlu
+ZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNv
+dXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFi
+b3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwu
+Y29tL2NvbW11bml0eS93aXJlZAo=
