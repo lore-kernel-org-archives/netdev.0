@@ -1,289 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/5] igb: Check if subordinate VFs are assigned to virtual machines
-Date: Mon, 17 Oct 2011 17:12:44 -0700
-Message-ID: <1318896767-5374-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/5] ixgbe: fix endianess when writing driver version to firmware
+Date: Mon, 17 Oct 2011 17:12:45 -0700
+Message-ID: <1318896767-5374-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1318896767-5374-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Christian Benvenuti <benve@cisco.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	Jon Mason <jdmason@kudzu.us>,
-	James Smart <james.smart@emulex.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:32924 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751460Ab1JRAMv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Oct 2011 20:12:51 -0400
+	id S1751293Ab1JRAMw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Oct 2011 20:12:52 -0400
 In-Reply-To: <1318896767-5374-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Kvm and the Xen pci-back driver will set a flag in the virtual function
-pci device dev_flags when the VF is assigned to a guest VM.  Before
-destroying subordinate VFs check to see if the flag is set and if so
-skip the call to pci_disable_sriov() to avoid system crashes.
+This patch makes sure that register writes are in little endian and
+also converts the reads back to big-endian.
 
-Copy the maintainer for the Xen pci-back driver.  Also CC'ing
-maintainers of all drivers found to call pci_disable_sriov().
-
-V2 - Fix  uninitialized variable warning
-
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Christian Benvenuti <benve@cisco.com>
-Cc: Sathya Perla <sathya.perla@emulex.com>
-Cc: Dimitris Michailidis <dm@chelsio.com>
-Cc: Jon Mason <jdmason@kudzu.us>
-Cc: James Smart <james.smart@emulex.com>
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |    3 +
- drivers/net/ethernet/intel/igb/igb_main.c |  177 ++++++++++++++++++++++++-----
- 2 files changed, 150 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 4c500a7..5594430 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -72,6 +72,8 @@ struct igb_adapter;
- #define IGB_MAX_VF_MC_ENTRIES              30
- #define IGB_MAX_VF_FUNCTIONS               8
- #define IGB_MAX_VFTA_ENTRIES               128
-+#define IGB_82576_VF_DEV_ID                0x10CA
-+#define IGB_I350_VF_DEV_ID                 0x1520
- 
- struct vf_data_storage {
- 	unsigned char vf_mac_addresses[ETH_ALEN];
-@@ -83,6 +85,7 @@ struct vf_data_storage {
- 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
- 	u16 pf_qos;
- 	u16 tx_rate;
-+	struct pci_dev *vfdev;
- };
- 
- #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index c10cc71..837adbb 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -162,6 +162,9 @@ static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
- static int igb_ndo_get_vf_config(struct net_device *netdev, int vf,
- 				 struct ifla_vf_info *ivi);
- static void igb_check_vf_rate_limit(struct igb_adapter *);
-+static int igb_vf_configure(struct igb_adapter *adapter, int vf);
-+static int igb_find_enabled_vfs(struct igb_adapter *adapter);
-+static int igb_check_vf_assignment(struct igb_adapter *adapter);
- 
- #ifdef CONFIG_PM
- static int igb_suspend(struct pci_dev *, pm_message_t);
-@@ -2232,8 +2235,12 @@ static void __devexit igb_remove(struct pci_dev *pdev)
- 	/* reclaim resources allocated to VFs */
- 	if (adapter->vf_data) {
- 		/* disable iov and allow time for transactions to clear */
--		pci_disable_sriov(pdev);
--		msleep(500);
-+		if (!igb_check_vf_assignment(adapter)) {
-+			pci_disable_sriov(pdev);
-+			msleep(500);
-+		} else {
-+			dev_info(&pdev->dev, "VF(s) assigned to guests!\n");
-+		}
- 
- 		kfree(adapter->vf_data);
- 		adapter->vf_data = NULL;
-@@ -2270,42 +2277,49 @@ static void __devinit igb_probe_vfs(struct igb_adapter * adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 35fa444..834f044 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -3341,7 +3341,7 @@ static u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
+  *  Communicates with the manageability block.  On success return 0
+  *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
+  **/
+-static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
++static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
+ 					u32 length)
  {
- #ifdef CONFIG_PCI_IOV
- 	struct pci_dev *pdev = adapter->pdev;
-+	int old_vfs = igb_find_enabled_vfs(adapter);
-+	int i;
+ 	u32 hicr, i;
+@@ -3374,7 +3374,7 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
+ 	 */
+ 	for (i = 0; i < dword_len; i++)
+ 		IXGBE_WRITE_REG_ARRAY(hw, IXGBE_FLEX_MNG,
+-				      i, *((u32 *)buffer + i));
++				      i, cpu_to_le32(buffer[i]));
  
--	if (adapter->vfs_allocated_count) {
--		adapter->vf_data = kcalloc(adapter->vfs_allocated_count,
--		                           sizeof(struct vf_data_storage),
--		                           GFP_KERNEL);
--		/* if allocation failed then we do not support SR-IOV */
--		if (!adapter->vf_data) {
--			adapter->vfs_allocated_count = 0;
--			dev_err(&pdev->dev, "Unable to allocate memory for VF "
--			        "Data Storage\n");
--		}
-+	if (old_vfs) {
-+		dev_info(&pdev->dev, "%d pre-allocated VFs found - override "
-+			 "max_vfs setting of %d\n", old_vfs, max_vfs);
-+		adapter->vfs_allocated_count = old_vfs;
- 	}
+ 	/* Setting this bit tells the ARC that a new command is pending. */
+ 	IXGBE_WRITE_REG(hw, IXGBE_HICR, hicr | IXGBE_HICR_C);
+@@ -3398,9 +3398,10 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
+ 	dword_len = hdr_size >> 2;
  
--	if (pci_enable_sriov(pdev, adapter->vfs_allocated_count)) {
--		kfree(adapter->vf_data);
--		adapter->vf_data = NULL;
--#endif /* CONFIG_PCI_IOV */
-+	if (!adapter->vfs_allocated_count)
-+		return;
-+
-+	adapter->vf_data = kcalloc(adapter->vfs_allocated_count,
-+				sizeof(struct vf_data_storage), GFP_KERNEL);
-+	/* if allocation failed then we do not support SR-IOV */
-+	if (!adapter->vf_data) {
- 		adapter->vfs_allocated_count = 0;
--#ifdef CONFIG_PCI_IOV
--	} else {
--		unsigned char mac_addr[ETH_ALEN];
--		int i;
--		dev_info(&pdev->dev, "%d vfs allocated\n",
--		         adapter->vfs_allocated_count);
--		for (i = 0; i < adapter->vfs_allocated_count; i++) {
--			random_ether_addr(mac_addr);
--			igb_set_vf_mac(adapter, i, mac_addr);
--		}
--		/* DMA Coalescing is not supported in IOV mode. */
--		if (adapter->flags & IGB_FLAG_DMAC)
--			adapter->flags &= ~IGB_FLAG_DMAC;
-+		dev_err(&pdev->dev, "Unable to allocate memory for VF "
-+			"Data Storage\n");
-+		goto out;
- 	}
-+
-+	if (!old_vfs) {
-+		if (pci_enable_sriov(pdev, adapter->vfs_allocated_count))
-+			goto err_out;
+ 	/* first pull in the header so we know the buffer length */
+-	for (i = 0; i < dword_len; i++)
+-		*((u32 *)buffer + i) =
+-			IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
++	for (i = 0; i < dword_len; i++) {
++		buffer[i] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
++		le32_to_cpus(&buffer[i]);
 +	}
-+	dev_info(&pdev->dev, "%d VFs allocated\n",
-+		 adapter->vfs_allocated_count);
-+	for (i = 0; i < adapter->vfs_allocated_count; i++)
-+		igb_vf_configure(adapter, i);
-+
-+	/* DMA Coalescing is not supported in IOV mode. */
-+	adapter->flags &= ~IGB_FLAG_DMAC;
-+	goto out;
-+err_out:
-+	kfree(adapter->vf_data);
-+	adapter->vf_data = NULL;
-+	adapter->vfs_allocated_count = 0;
-+out:
-+	return;
- #endif /* CONFIG_PCI_IOV */
- }
  
--
- /**
-  * igb_init_hw_timer - Initialize hardware timer used with IEEE 1588 timestamp
-  * @adapter: board private structure to initialize
-@@ -4917,6 +4931,109 @@ static int igb_notify_dca(struct notifier_block *nb, unsigned long event,
- }
- #endif /* CONFIG_IGB_DCA */
+ 	/* If there is any thing in data position pull it in */
+ 	buf_len = ((struct ixgbe_hic_hdr *)buffer)->buf_len;
+@@ -3418,8 +3419,7 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u8 *buffer,
  
-+#ifdef CONFIG_PCI_IOV
-+static int igb_vf_configure(struct igb_adapter *adapter, int vf)
-+{
-+	unsigned char mac_addr[ETH_ALEN];
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct e1000_hw *hw = &adapter->hw;
-+	struct pci_dev *pvfdev;
-+	unsigned int device_id;
-+	u16 thisvf_devfn;
-+
-+	random_ether_addr(mac_addr);
-+	igb_set_vf_mac(adapter, vf, mac_addr);
-+
-+	switch (adapter->hw.mac.type) {
-+	case e1000_82576:
-+		device_id = IGB_82576_VF_DEV_ID;
-+		/* VF Stride for 82576 is 2 */
-+		thisvf_devfn = (pdev->devfn + 0x80 + (vf << 1)) |
-+			(pdev->devfn & 1);
-+		break;
-+	case e1000_i350:
-+		device_id = IGB_I350_VF_DEV_ID;
-+		/* VF Stride for I350 is 4 */
-+		thisvf_devfn = (pdev->devfn + 0x80 + (vf << 2)) |
-+				(pdev->devfn & 3);
-+		break;
-+	default:
-+		device_id = 0;
-+		thisvf_devfn = 0;
-+		break;
-+	}
-+
-+	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
-+	while (pvfdev) {
-+		if (pvfdev->devfn == thisvf_devfn)
-+			break;
-+		pvfdev = pci_get_device(hw->vendor_id,
-+					device_id, pvfdev);
-+	}
-+
-+	if (pvfdev)
-+		adapter->vf_data[vf].vfdev = pvfdev;
-+	else
-+		dev_err(&pdev->dev,
-+			"Couldn't find pci dev ptr for VF %4.4x\n",
-+			thisvf_devfn);
-+	return pvfdev != NULL;
-+}
-+
-+static int igb_find_enabled_vfs(struct igb_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *pvfdev;
-+	u16 vf_devfn = 0;
-+	u16 vf_stride;
-+	unsigned int device_id;
-+	int vfs_found = 0;
-+
-+	switch (adapter->hw.mac.type) {
-+	case e1000_82576:
-+		device_id = IGB_82576_VF_DEV_ID;
-+		/* VF Stride for 82576 is 2 */
-+		vf_stride = 2;
-+		break;
-+	case e1000_i350:
-+		device_id = IGB_I350_VF_DEV_ID;
-+		/* VF Stride for I350 is 4 */
-+		vf_stride = 4;
-+		break;
-+	default:
-+		device_id = 0;
-+		vf_stride = 0;
-+		break;
-+	}
-+
-+	vf_devfn = pdev->devfn + 0x80;
-+	pvfdev = pci_get_device(hw->vendor_id, device_id, NULL);
-+	while (pvfdev) {
-+		if (pvfdev->devfn == vf_devfn)
-+			vfs_found++;
-+		vf_devfn += vf_stride;
-+		pvfdev = pci_get_device(hw->vendor_id,
-+					device_id, pvfdev);
-+	}
-+
-+	return vfs_found;
-+}
-+
-+static int igb_check_vf_assignment(struct igb_adapter *adapter)
-+{
-+	int i;
-+	for (i = 0; i < adapter->vfs_allocated_count; i++) {
-+		if (adapter->vf_data[i].vfdev) {
-+			if (adapter->vf_data[i].vfdev->dev_flags &
-+			    PCI_DEV_FLAGS_ASSIGNED)
-+				return true;
-+		}
-+	}
-+	return false;
-+}
-+
-+#endif
- static void igb_ping_all_vfs(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
+ 	/* Pull in the rest of the buffer (i is where we left off)*/
+ 	for (; i < buf_len; i++)
+-		*((u32 *)buffer + i) =
+-			IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
++		buffer[i] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
+ 
+ out:
+ 	return ret_val;
+@@ -3465,7 +3465,7 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
+ 	fw_cmd.pad2 = 0;
+ 
+ 	for (i = 0; i <= FW_CEM_MAX_RETRIES; i++) {
+-		ret_val = ixgbe_host_interface_command(hw, (u8 *)&fw_cmd,
++		ret_val = ixgbe_host_interface_command(hw, (u32 *)&fw_cmd,
+ 						       sizeof(fw_cmd));
+ 		if (ret_val != 0)
+ 			continue;
 -- 
 1.7.6.4
