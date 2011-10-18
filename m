@@ -1,53 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 6/7] mlx4_en: Adding rxhash support
-Date: Tue, 18 Oct 2011 08:36:06 -0700
-Message-ID: <20111018083606.6367ff50@nehalam.linuxnetplumber.net>
-References: <4E9C8D8B.90606@mellanox.co.il>
-	<1318902525.2571.24.camel@edumazet-laptop>
-	<953B660C027164448AE903364AC447D2235EEB65@MTLDAG01.mtl.com>
-	<1318926870.2657.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<953B660C027164448AE903364AC447D2235EEC80@MTLDAG01.mtl.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33912 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932876Ab1JRPgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Oct 2011 11:36:09 -0400
-In-Reply-To: <953B660C027164448AE903364AC447D2235EEC80@MTLDAG01.mtl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+Subject: [RESEND] [PATCH] ll_temac: Add support for ethtool
+Date: Tue, 18 Oct 2011 19:55:01 +0200
+Message-ID: <1318960501-3544-1-git-send-email-ricardo.ribalda@gmail.com>
+Cc: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+To: davem@davemloft.net, grant.likely@secretlab.ca,
+	sfr@canb.auug.org.au, u.kleine-koenig@pengutronix.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Oct 2011 08:59:44 +0000
-Yevgeny Petrilin <yevgenyp@mellanox.co.il> wrote:
+This patch enables the ethtool interface. The implementation is done
+using the libphy helper functions.
 
-> > 
-> > What is the gain using random values ?
-> > 
-> > Usually, we tend to have same hardware in a single machine, or we use
-> > active-backup bonding mode, and an active slave flip can change rxhash
-> > values with litle effect, since this happens not often.
-> > 
-> > I really prefer not random values, because it allows to have replayable
-> > configurations : For a given tcp flow, the same rxhash value is given
-> > and same cpu target in RPS. Its way easier to tune your machine for some workloads.
-> > 
-> 
-> There is no gain in random values, 
-> I'll make the change to have static value for RSS function.
-> 
-> We might consider how to ensure consistency across the different drivers in this aspect.
+Reviewed-by: Grant Likely <grant.likely@secretlab.ca>
+Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+---
+ drivers/net/ll_temac_main.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
-The key should be part of the network device core. Almost all hardware just
-implements the Microsoft standard, and if all drivers used same key they should
-come up with the same hash.
-
-Although using the same key all the time makes testing easier.
-The risk of using the same key is that it makes it easier for an attacker to
-create a set of addresses that all map to the same CPU which would make a DoS
-attack work better.  Therefore the key should be randomly generated at boot time.
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index 728fe41..91a9804 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -957,6 +957,32 @@ static const struct attribute_group temac_attr_group = {
+ 	.attrs = temac_device_attrs,
+ };
+ 
++/* ethtool support */
++static int temac_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
++{
++	struct temac_local *lp = netdev_priv(ndev);
++	return phy_ethtool_gset(lp->phy_dev, cmd);
++}
++
++static int temac_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
++{
++	struct temac_local *lp = netdev_priv(ndev);
++	return phy_ethtool_sset(lp->phy_dev, cmd);
++}
++
++static int temac_nway_reset(struct net_device *ndev)
++{
++	struct temac_local *lp = netdev_priv(ndev);
++	return phy_start_aneg(lp->phy_dev);
++}
++
++static const struct ethtool_ops temac_ethtool_ops = {
++	.get_settings = temac_get_settings,
++	.set_settings = temac_set_settings,
++	.nway_reset = temac_nway_reset,
++	.get_link = ethtool_op_get_link,
++};
++
+ static int __devinit temac_of_probe(struct platform_device *op)
+ {
+ 	struct device_node *np;
+@@ -978,6 +1004,7 @@ static int __devinit temac_of_probe(struct platform_device *op)
+ 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
+ 	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
+ 	ndev->netdev_ops = &temac_netdev_ops;
++	ndev->ethtool_ops= &temac_ethtool_ops;
+ #if 0
+ 	ndev->features |= NETIF_F_IP_CSUM; /* Can checksum TCP/UDP over IPv4. */
+ 	ndev->features |= NETIF_F_HW_CSUM; /* Can checksum all the packets. */
+-- 
+1.7.7
