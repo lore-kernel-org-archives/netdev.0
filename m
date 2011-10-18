@@ -1,36 +1,81 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: RE: [PATCH 3/7] mlx4_en: Incoming traffic alignment optimizations
-Date: Tue, 18 Oct 2011 08:52:03 +0000
-Message-ID: <953B660C027164448AE903364AC447D2235EEC59@MTLDAG01.mtl.com>
-References: <4E9C8D53.5040006@mellanox.co.il>
-	 <1318902799.2571.26.camel@edumazet-laptop>
-	 <953B660C027164448AE903364AC447D2235EEB7E@MTLDAG01.mtl.com>
- <1318927207.2657.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v2 0/2] MAINTAINERS: can: the mailinglist moved to vger.kernel.org
+Date: Tue, 18 Oct 2011 11:00:07 +0200
+Message-ID: <4E9D4017.2020306@pengutronix.de>
+References: <1318879920-25280-1-git-send-email-mkl@pengutronix.de> <20111017.192304.702126748312724567.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigBFEFC6D7A3022118998081F6"
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:39185 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754549Ab1JRIy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 04:54:58 -0400
-In-Reply-To: <1318927207.2657.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Content-Language: en-US
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42051 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932160Ab1JRJAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 05:00:13 -0400
+In-Reply-To: <20111017.192304.702126748312724567.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gT2ggbXkuLi4NCj4gDQo+IE9mIGNvdXJzZSB5b3UgYXJlIGF3YXJlIHRoYXQgdGhlICd0
-cnVlc2l6ZScgc3R1ZmYgYXJvdW5kIG1lYW5zIHRoYXQgdXNpbmcgYmlnIGZyYWcgc2l6ZSB3aWxs
-IHByb2JhYmx5IGxvd2VyIHlvdXIgcGVyZm9ybWFuY2UgbnVtYmVyLCB1bmxlc3MgeW91IGFsbG93
-IHByb3RvY29sIHN0YWNrcyB0byB1c2UgbW9yZSByYW0gPw0KPiANCj4gT25seSBwb3NzaWJsZSBk
-cmF3YmFjayB1c2luZyA1MTIgYnl0ZXMgaW5zdGVhZCBvZiAyMDQ4IGlzIHRoZSBjYWNoZS1saW5l
-IGJvdW5jZSBvbiB0aGUgcGFnZS0+X2NvdW50IGZpZWxkLiBTbyBJIHdvdWxkIHNheSB5b3VyIGNo
-YW5nZSBoaWRlcyBhIHBlcmZvcm1hbmNlIGlzc3VlIG9mIHlvdXIgZHJpdmVyLg0KPiANCj4gTWF5
-YmUgeW91IHNob3VsZCBtYWtlIHN1cmUgeW91IGRvbnQgdG91Y2ggaXQgdG9vIG9mdGVuIFsgWW91
-IHNob3VsZCB1c2UgYSBzaW5nbGUgYWRkIHBlciBhbGxvY2F0ZWQgUEFHRSwgbm90IDIgKGZvciAy
-MDQ4LWJ5dGVzIGZyYWdzKSBvciA4IChmb3IgNTEyLWJ5dGVzIGZyYWdzKSBdDQo+IA0KPiANClRo
-YW5rcyBFcmljLA0KSSdsbCBjaGVjayB0aGlzLg0KSW4gdGhlIG1lYW53aGlsZSB3aWxsIHJlc3Vi
-bWl0IHRoZSBzZXJpZXMgd2l0aG91dCB0aGlzIGNoYW5nZS4NCg==
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigBFEFC6D7A3022118998081F6
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 10/18/2011 01:23 AM, David Miller wrote:
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Mon, 17 Oct 2011 21:31:58 +0200
+>=20
+>> Hello,
+>>
+>> the BerliOS project will close with the end of the year, so we moved o=
+ur
+>> mailinglist to vger.kernel.org, it's now linux-can@vger.kernel.org.
+>>
+>> This patch series change the mailinglist in MAINTAINERS and remove all=
+ other
+>> references from the source tree. As David pointed out, automated tool =
+will
+>> use MAINTAINERS to gather this information.
+>>
+>> cheers, Marc
+>>
+>> The following changes since commit fd38f734cb8200529e281338514945fcbff=
+2364b:
+>>
+>>   igbvf: convert to ndo_fix_features (2011-10-16 13:18:47 -0700)
+>>
+>> are available in the git repository at:
+>>   git.pengutronix.de:/git/mkl/linux-2.6.git can/mailinglist-for-net-ne=
+xt
+>=20
+> That URL prompts me for a password, so I applied these patches by hand
+> to net-next, thanks.
+
+Sorry - my fault. That was my commit address.
+
+regards, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigBFEFC6D7A3022118998081F6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk6dQBoACgkQjTAFq1RaXHP+rACeOHotc1PgQpceAGR+oB/FQHmf
+/v4An0oZiJv2p2scCJkk8uVDzwxg5eCz
+=w3d0
+-----END PGP SIGNATURE-----
+
+--------------enigBFEFC6D7A3022118998081F6--
