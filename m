@@ -1,62 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH 3/7] mlx4_en: Incoming traffic alignment optimizations
-Date: Tue, 18 Oct 2011 10:40:07 +0200
-Message-ID: <1318927207.2657.10.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <4E9C8D53.5040006@mellanox.co.il>
-	 <1318902799.2571.26.camel@edumazet-laptop>
-	 <953B660C027164448AE903364AC447D2235EEB7E@MTLDAG01.mtl.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 0/7] stmmac: update to Oct 2011 version (V2)
+Date: Tue, 18 Oct 2011 10:42:04 +0200
+Message-ID: <1318927331-20855-1-git-send-email-peppe.cavallaro@st.com>
+Cc: davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:40147 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331Ab1JRIjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 04:39:49 -0400
-Received: by eye27 with SMTP id 27so310304eye.19
-        for <netdev@vger.kernel.org>; Tue, 18 Oct 2011 01:39:48 -0700 (PDT)
-In-Reply-To: <953B660C027164448AE903364AC447D2235EEB7E@MTLDAG01.mtl.com>
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:55174 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751331Ab1JRIme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 04:42:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 18 octobre 2011 =C3=A0 07:43 +0000, Yevgeny Petrilin a =C3=A9c=
-rit :
-> >=20
-> > > @@ -91,7 +91,7 @@
-> > >  /* Receive fragment sizes; we use at most 4 fragments (for 9600 =
-byte MTU
-> > >   * and 4K allocations) */
-> > >  enum {
-> > > -	FRAG_SZ0 =3D 512 - NET_IP_ALIGN,
-> > > +	FRAG_SZ0 =3D 2048,
-> > >  	FRAG_SZ1 =3D 1024,
-> > >  	FRAG_SZ2 =3D 4096,
-> > >  	FRAG_SZ3 =3D MLX4_EN_ALLOC_SIZE
-> >=20
-> > Is the 512 -> 2048 change really wanted ? Its not mentioned in chan=
-gelog and is confusing.
-> >=20
-> > This means mlx4 lost the ability to use a small frag (512 bytes) to=
- store small frames.
-> >=20
-> The change is wanted as an optimization for our HW.
-> We do get better numbers with this change, even with small packets.
-> You are correct, I should have mentioned it in the changelog.
+This patches update the driver adding the chained
+descriptor mode and some new useful fixes.
 
-Oh my...
+I've reviewed some patches after the V1 and V2:
 
-Of course you are aware that the 'truesize' stuff around means that
-using big frag size will probably lower your performance number, unless
-you allow protocol stacks to use more ram ?
+ stmmac: allow mtu bigger than 1500 in case of normal desc (V3)
+   |-> removed the useless max_mtu init: Thx Eric's feedback
 
-Only possible drawback using 512 bytes instead of 2048 is the cache-lin=
-e
-bounce on the page->_count field. So I would say your change hides a
-performance issue of your driver.
+ stmmac: add CHAINED descriptor mode support (V3)
+   |-> removed ifdef in the C and added small routines
+	specialised for chained/ring modes. See comment
+	within the patch itself. Thx David's feedback.
 
-Maybe you should make sure you dont touch it too often [ You should use
-a single add per allocated PAGE, not 2 (for 2048-bytes frags) or 8 (for
-512-bytes frags) ]
+ stmmac: allow mmc usage only if feature actually available (V3)
+   |-> added a check if interface is NULL
+
+In the end, I added two new small patches:
+
+ stmmac: use predefined macros for HW cap register fields (V3)
+ stmmac: allow mmc usage only if feature actually available (V3)
+
+made by Rayagond and reviewed/reworked by myself
+
+Let me know if it's ok.
+
+Giuseppe Cavallaro (5):
+  stmmac: protect tx process with lock (V3)
+  stmmac: update the driver version and doc (V3)
+  stmmac: allow mtu bigger than 1500 in case of normal desc (V3)
+  stmmac: allow mmc usage only if feature actually available (V3)
+  stmmac: add CHAINED descriptor mode support (V3)
+
+Rayagond Kokatanur (1):
+  stmmac: use predefined macros for HW cap register fields (V3)
+
+Srinivas Kandagatla (1):
+  stmmac: Stop advertising 1000Base capabilties for non GMII iface
+    (V3).
+
+ Documentation/networking/stmmac.txt                |   11 +-
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   18 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    2 +
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c   |  137 +++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   43 ++++
+ drivers/net/ethernet/stmicro/stmmac/descs_com.h    |  126 ++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |   22 +--
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |   14 +-
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c    |  126 ++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    5 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   24 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  212 ++++++++++----------
+ 12 files changed, 602 insertions(+), 138 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/descs_com.h
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+
+-- 
+1.7.4.4
