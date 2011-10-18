@@ -1,56 +1,60 @@
-From: Marek Lindner <lindner_marek@yahoo.de>
-Subject: [PATCH 2/2] batman-adv: correctly set the data field in the TT_REPONSE packet
-Date: Tue, 18 Oct 2011 23:01:09 +0200
-Message-ID: <1318971669-941-3-git-send-email-lindner_marek@yahoo.de>
-References: <1318971669-941-1-git-send-email-lindner_marek@yahoo.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Comment on nf_queue NF_STOLEN patch
+Date: Tue, 18 Oct 2011 23:23:52 +0200
+Message-ID: <1318973032.19139.5.camel@edumazet-laptop>
+References: <4E988B1E.5000606@itcare.pl>
+	 <CAEuXFEy89F_=J_PJMSbQ1fDcOEkkpz2vucq3LcToi7rTcZHcDA@mail.gmail.com>
+	 <4E9DCEAD.7070603@verizon.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Jim Sansing <jjsansing@verizon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm6-vm0.bullet.mail.ukl.yahoo.com ([217.146.183.234]:46678 "HELO
-	nm6-vm0.bullet.mail.ukl.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752471Ab1JRVBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 17:01:30 -0400
-In-Reply-To: <1318971669-941-1-git-send-email-lindner_marek@yahoo.de>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:60411 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754179Ab1JRVX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 17:23:58 -0400
+Received: by wwn22 with SMTP id 22so5524844wwn.1
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2011 14:23:56 -0700 (PDT)
+In-Reply-To: <4E9DCEAD.7070603@verizon.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
+Le mardi 18 octobre 2011 =C3=A0 15:08 -0400, Jim Sansing a =C3=A9crit :
+> I have been working on a kernel module that registers with netfilter,
+> and I noticed that a patch was added to nf_queue that changed the
+> handling of return code NF_FILTER from 'do nothing' to 'free the skb'=
+=2E=20
+> I'm not sure which kernel version this went in, but the date of the
+> patch is Feb, 19, 2010.
+>=20
+> Everything I have read about netfilter states that it is up to the
+> netfilter hook to free the skb if NF_STOLEN is returned.  The
+> implications of this patch from a hook programming perspective are:
+>=20
+> 1) If the skb is used after the return from the hook, it must be clon=
+ed.
+> 2) The original skb must not be freed.
+>=20
+> I suggest that a comment be added to include/linux/netfilter.h that s=
+ays
+> explicitly the skb will be freed if NF_STOLEN is returned.
 
-In the TT_RESPONSE packet, the number of carried entries is not correctly set.
-This leads to a wrong interpretation of the packet payload on the receiver side
-causing random entries to be added to the global translation table. Therefore
-the latter gets always corrupted, triggering a table recovery all the time.
+But its not true. Just read the code.
 
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
- net/batman-adv/translation-table.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+If you are working on this stuff I recommend you take a look at
+commits :
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index f599db9..ef1acfd 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -999,7 +999,6 @@ static struct sk_buff *tt_response_fill_table(uint16_t tt_len, uint8_t ttvn,
- 	tt_response = (struct tt_query_packet *)skb_put(skb,
- 						     tt_query_size + tt_len);
- 	tt_response->ttvn = ttvn;
--	tt_response->tt_data = htons(tt_tot);
- 
- 	tt_change = (struct tt_change *)(skb->data + tt_query_size);
- 	tt_count = 0;
-@@ -1025,6 +1024,10 @@ static struct sk_buff *tt_response_fill_table(uint16_t tt_len, uint8_t ttvn,
- 	}
- 	rcu_read_unlock();
- 
-+	/* store in the message the number of entries we have successfully
-+	 * copied */
-+	tt_response->tt_data = htons(tt_count);
-+
- out:
- 	return skb;
- }
--- 
-1.7.5.4
+c6675233f9015d3c0460c8aab53ed9b99d915c64
+(netfilter: nf_queue: reject NF_STOLEN verdicts from userspace)
+
+fad54440438a7c231a6ae347738423cbabc936d9
+(netfilter: avoid double free in nf_reinject)
+
+64507fdbc29c3a622180378210ecea8659b14e40
+(netfilter: nf_queue: fix NF_STOLEN skb leak)
+
+3bc38712e3a6e0596ccb6f8299043a826f983701
+([NETFILTER]: nf_queue: handle NF_STOP and unknown verdicts in
+nf_reinject)
