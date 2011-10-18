@@ -1,55 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga) causes
- kernel oops
-Date: Tue, 18 Oct 2011 12:01:33 +0200
-Message-ID: <1318932093.2657.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CA+0Zf5Be5JUSvssH9CrDQq=jtETZr=veAPC7jriM8B-FZKbbpg@mail.gmail.com>
-	 <1318604266.2223.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CA+0Zf5A-8X5MaXC4+BbLKtMb8S8B-Ln_a3JNfz0jR4O-ruefuw@mail.gmail.com>
-	 <1318905032.2571.35.camel@edumazet-laptop>
-	 <20111018093411.GA15165@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Elmar Vonlanthen <evonlanthen@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111018093411.GA15165@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 0/8] stmmac: update to Oct 2011 version (v4)
+Date: Tue, 18 Oct 2011 12:01:17 +0200
+Message-ID: <1318932085-14927-1-git-send-email-peppe.cavallaro@st.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:44254 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753973Ab1JRKBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 06:01:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 18 octobre 2011 =C3=A0 11:34 +0200, Herbert Xu a =C3=A9crit :
-> On Tue, Oct 18, 2011 at 04:30:32AM +0200, Eric Dumazet wrote:
-> >
-> > If David/Herbert/Timo agree, then patch should find its way into cu=
-rrent
-> > kernel, then to stable trees as well.
->=20
-> Actually, I think we should instead fix the users of needed_headroom
-> to not read it twice which is causing problems here.
->=20
-> GRE tunnels by their nature do not have a fixed value for
-> needed_headroom.  As the underlying routes change the necessary
-> headroom may need to be adjusted due to further encapsulation such
-> as IPsec.
->=20
-> Keeping it constant from tunnel creation may result in suboptimal
-> performance due to unnecessary header reallocations.
->=20
-> However, until we audit the stack to see if there are further
-> instances of double-readings such as the one causing the crash
-> here, I'm fine with your patch making it constant.
->=20
-> Once we're sure that all of the double-readings are gone we
-> can revert to a dynamic needed_headroom.
->=20
+This patches update the driver adding the chained
+descriptor mode and some new useful fixes.
 
-Sure, we can work on this path for future kernels.
+I've reviewed some patches after the V1/2/3 and added new ones:
 
-Adding an RCU protected structure to hold hard_header_len /
-needed_headroom / needed_tailroom should be possible, but this adds yet
-another pointer dereference...
+ stmmac: allow mtu bigger than 1500 in case of normal desc (V4)
+   |-> removed the useless max_mtu init: Thx Eric's feedback
 
-Thanks !
+ stmmac: add CHAINED descriptor mode support (V4)
+   |-> removed ifdef in the C and added small routines
+	specialised for chained/ring modes. See comment
+	within the patch itself. Thx David's feedback.
+
+ stmmac: allow mmc usage only if feature actually available (V4)
+   |-> added a check if interface is NULL
+
+ stmmac: limit max_mtu in case of 4KiB and use __netdev_alloc_skb.
+  |-> another enhancements proposed by Eric (built on top of the
+      V3 patches sent today).
+
+ stmmac: use predefined macros for HW cap register fields (V4)
+ stmmac: allow mmc usage only if feature actually available (V4)
+
+Let me know if all is ok.
+
+Regards
+Peppe
+
+Giuseppe Cavallaro (6):
+  stmmac: protect tx process with lock (V4)
+  stmmac: update the driver version and doc (V4)
+  stmmac: allow mtu bigger than 1500 in case of normal desc (V4)
+  stmmac: allow mmc usage only if feature actually available (V4)
+  stmmac: add CHAINED descriptor mode support (V4)
+  stmmac: limit max_mtu in case of 4KiB and use __netdev_alloc_skb.
+
+Rayagond Kokatanur (1):
+  stmmac: use predefined macros for HW cap register fields (V4)
+
+Srinivas Kandagatla (1):
+  stmmac: Stop advertising 1000Base capabilties for non GMII iface
+    (V4).
+
+ Documentation/networking/stmmac.txt                |   11 +-
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   18 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    2 +
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c   |  137 ++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   43 ++++
+ drivers/net/ethernet/stmicro/stmmac/descs_com.h    |  126 +++++++++++
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |   22 +--
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |   14 +-
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c    |  126 +++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    5 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   24 ++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  223 ++++++++++----------
+ 12 files changed, 610 insertions(+), 141 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/descs_com.h
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+
+-- 
+1.7.4.4
