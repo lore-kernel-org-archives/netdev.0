@@ -1,45 +1,102 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] tc: fix parallel build file with lex/yacc
-Date: Tue, 18 Oct 2011 17:38:08 -0400
-Message-ID: <1318973888-29496-1-git-send-email-vapier@gentoo.org>
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:53834 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754265Ab1JRViI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Oct 2011 17:38:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Serge Hallyn <serge@hallyn.com>
+Subject: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace aware
+Date: Tue, 18 Oct 2011 21:54:58 +0000
+Message-ID: <1318974898-21431-10-git-send-email-serge@hallyn.com>
+References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
+Cc: ebiederm@xmission.com, akpm@linux-foundation.org, oleg@redhat.com,
+	richard@nod.at, mikevs@xs4all.net, segoon@openwall.com,
+	gregkh@suse.de, dhowells@redhat.com, eparis@redhat.com,
+	"Serge E. Hallyn" <serge.hallyn@canonical.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318974898-21431-1-git-send-email-serge@hallyn.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Building iproute2 in parallel might hit the race failure:
-	emp_ematch.l:2:30: fatal error: emp_ematch.yacc.h:
-		No such file or directory
-	make[1]: *** [emp_ematch.lex.o] Error 1
+From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
 
-This is because we currently allow the yacc/lex files to generate and
-compile in parallel.  So add a simple dependency to make sure yacc has
-finished before we attempt to compile the lex output.
+Currently uids are compared without regard for the user namespace.
+Fix that to prevent tasks in a different user namespace from
+wrongly matching on SCM_CREDENTIALS.
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+In the past, either your uids had to match, or you had to have
+CAP_SETXID.  In a namespaced world, you must either (both be in the
+same user namespace and have your uids match), or you must have
+CAP_SETXID targeted at the other user namespace.  The latter can
+happen for instance if uid 500 created a new user namespace and
+now interacts with uid 0 in it.
+
+Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org
 ---
- tc/Makefile |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ net/core/scm.c |   41 ++++++++++++++++++++++++++++++++++-------
+ 1 files changed, 34 insertions(+), 7 deletions(-)
 
-diff --git a/tc/Makefile b/tc/Makefile
-index 08aa4ce..b2ca165 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -136,6 +136,11 @@ m_xt_old.so: m_xt_old.c
- %.lex.c: %.l
- 	$(LEX) $(LEXFLAGS) -o$@ $<
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 811b53f..4f376bf 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -43,17 +43,44 @@
+  *	setu(g)id.
+  */
  
-+# our lexer includes the header from yacc, so make sure
-+# we don't attempt to compile it before the header has
-+# been generated as part of the yacc step.
-+emp_ematch.lex.o: emp_ematch.yacc.c
+-static __inline__ int scm_check_creds(struct ucred *creds)
++static __inline__ bool uidequiv(const struct cred *src, struct ucred *tgt,
++			       struct user_namespace *ns)
++{
++	if (src->user_ns != ns)
++		goto check_capable;
++	if (src->uid == tgt->uid || src->euid == tgt->uid ||
++	    src->suid == tgt->uid)
++		return true;
++check_capable:
++	if (ns_capable(ns, CAP_SETUID))
++		return true;
++	return false;
++}
 +
- ifneq ($(SHARED_LIBS),y)
++static __inline__ bool gidequiv(const struct cred *src, struct ucred *tgt,
++			       struct user_namespace *ns)
++{
++	if (src->user_ns != ns)
++		goto check_capable;
++	if (src->gid == tgt->gid || src->egid == tgt->gid ||
++	    src->sgid == tgt->gid)
++		return true;
++check_capable:
++	if (ns_capable(ns, CAP_SETGID))
++		return true;
++	return false;
++}
++
++static __inline__ int scm_check_creds(struct ucred *creds, struct socket *sock)
+ {
+ 	const struct cred *cred = current_cred();
++	struct user_namespace *ns = sock_net(sock->sk)->user_ns;
  
- tc: static-syms.o
+-	if ((creds->pid == task_tgid_vnr(current) || capable(CAP_SYS_ADMIN)) &&
+-	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
+-	      creds->uid == cred->suid) || capable(CAP_SETUID)) &&
+-	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
+-	      creds->gid == cred->sgid) || capable(CAP_SETGID))) {
++	if ((creds->pid == task_tgid_vnr(current) || ns_capable(ns, CAP_SYS_ADMIN)) &&
++	     uidequiv(cred, creds, ns) && gidequiv(cred, creds, ns)) {
+ 	       return 0;
+ 	}
++
+ 	return -EPERM;
+ }
+ 
+@@ -169,7 +196,7 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
+ 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct ucred)))
+ 				goto error;
+ 			memcpy(&p->creds, CMSG_DATA(cmsg), sizeof(struct ucred));
+-			err = scm_check_creds(&p->creds);
++			err = scm_check_creds(&p->creds, sock);
+ 			if (err)
+ 				goto error;
+ 
 -- 
-1.7.6.1
+1.7.5.4
