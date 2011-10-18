@@ -1,47 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga) causes
- kernel oops
-Date: Tue, 18 Oct 2011 12:23:43 +0200
-Message-ID: <1318933423.2657.44.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <CA+0Zf5Be5JUSvssH9CrDQq=jtETZr=veAPC7jriM8B-FZKbbpg@mail.gmail.com>
-	 <1318604266.2223.29.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CA+0Zf5A-8X5MaXC4+BbLKtMb8S8B-Ln_a3JNfz0jR4O-ruefuw@mail.gmail.com>
-	 <1318905032.2571.35.camel@edumazet-laptop>
-	 <20111018093411.GA15165@gondor.apana.org.au>
-	 <1318932093.2657.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111018100527.GA15383@gondor.apana.org.au>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] Fix guest memory leak and panic
+Date: Tue, 18 Oct 2011 15:58:52 +0530
+Message-ID: <OFF9A5DA76.A2860DAC-ON6525792D.0039157B-6525792D.00396BDE@in.ibm.com>
+References: <20111018080523.16861.55402.sendpatchset@krkumar2.in.ibm.com> <1318927016.16132.49.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Elmar Vonlanthen <evonlanthen@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111018100527.GA15383@gondor.apana.org.au>
+In-Reply-To: <1318927016.16132.49.camel@zakaz.uk.xensource.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 18 octobre 2011 =C3=A0 12:05 +0200, Herbert Xu a =C3=A9crit :
-> On Tue, Oct 18, 2011 at 12:01:33PM +0200, Eric Dumazet wrote:
-> >
-> > Adding an RCU protected structure to hold hard_header_len /
-> > needed_headroom / needed_tailroom should be possible, but this adds=
- yet
-> > another pointer dereference...
->=20
-> I don't think we need RCU here since the problem is simply that
-> we're using two different values for skb allocations and skb_reserve.
->=20
-> As long as we use one and the same value it should work.  The value
-> will rarely be incorrect and when it is, automatic reallocation will
-> occur.
->=20
+Ian Campbell <Ian.Campbell@citrix.com> wrote on 10/18/2011 02:06:56 PM:
 
-You're right, if reallocations are OK in all paths.
+Hi Ian,
 
-We'll need to change LL_RESERVED_SPACE() / LL_RESERVED_SPACE_EXTRA() /
-LL_ALLOCATED_SPACE() macros and provide the [read once] values, instead
-of a [read once] pointer to values.
+> On Tue, 2011-10-18 at 09:05 +0100, Krishna Kumar wrote:
+> > The extra reference to the fragment pages causes those pages to
+> > not get freed in skb_release_data(). The following patch fixes
+> > the bug. I have not checked if any other converted driver has
+> > the same issue.
+>
+> Damn. You are completely correct and I appear to have made this same
+> mistake several times. A quick look suggests that at least cxbg,
+> myriage, vmxnet, cassini and bnx2 may potentially have a similar
+> issue :-( (I stopped looking at that point, I'll obviously do a full
+> audit).
+>
+> I considered quite carefully whether (__)skb_frag_set_page should take a
+> reference or not and decided yes but I'm starting to reconsider whether
+> I made the right choice. It seems that is just confusing and violates
+> the principal of least surprise to have a function called "set" take a
+> new reference. In reality all existing drivers expect that adding a page
+> to an SKB frag will just take over the existing reference.
+>
+> I think the best thing might be to remove the additional ref taking from
+> the setter function and audit the previous changes to ensure they
+> conform. I'll do that right away and post a fixup patch ASAP.
+>
+> > Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+>
+> This change is correct as things stand today, so:
+>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+>
+> but perhaps it would be better to hold off and let me fix all of these
+> all at once.
 
-Thats a bit complex change, but doable.
+Either way is fine with me. However, besides having a fix,
+I would like to remove the manual initializations in
+set_skb_frag(), and substitute with __skb_fill_page_desc,
+like other drivers do.
+
+thanks,
+
+- KK
