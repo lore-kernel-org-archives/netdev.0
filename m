@@ -1,10 +1,14 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
 Subject: Re: [PATCH] Fix guest memory leak and panic
-Date: Tue, 18 Oct 2011 16:16:41 +0530
-Message-ID: <OFB632D60B.6534A38B-ON6525792D.003A1B21-6525792D.003B0DB8@in.ibm.com>
-References: <20111018080523.16861.55402.sendpatchset@krkumar2.in.ibm.com>	 <1318927016.16132.49.camel@zakaz.uk.xensource.com> <1318931232.16132.65.camel@zakaz.uk.xensource.com>
+Date: Tue, 18 Oct 2011 11:50:55 +0100
+Message-ID: <1318935055.3385.0.camel@zakaz.uk.xensource.com>
+References: <20111018080523.16861.55402.sendpatchset@krkumar2.in.ibm.com>
+	 <1318927016.16132.49.camel@zakaz.uk.xensource.com>
+	 <1318931232.16132.65.camel@zakaz.uk.xensource.com>
+	 <OFB632D60B.6534A38B-ON6525792D.003A1B21-6525792D.003B0DB8@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"mst@redhat.com" <mst@redhat.com>,
@@ -12,38 +16,34 @@ Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
 	"virtualization@lists.linux-foundation.org"
 	<virtualization@lists.linux-foundation.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp08.in.ibm.com ([122.248.162.8]:51910 "EHLO
-	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207Ab1JRKpa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 06:45:30 -0400
-Received: from /spool/local
-	by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
-	Tue, 18 Oct 2011 16:15:28 +0530
-In-Reply-To: <1318931232.16132.65.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <OFB632D60B.6534A38B-ON6525792D.003A1B21-6525792D.003B0DB8@in.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ian Campbell <Ian.Campbell@citrix.com> wrote on 10/18/2011 03:17:11 PM:
+On Tue, 2011-10-18 at 11:46 +0100, Krishna Kumar2 wrote:
+> Ian Campbell <Ian.Campbell@citrix.com> wrote on 10/18/2011 03:17:11 PM:
+> 
+> > > I think the best thing might be to remove the additional ref taking
+> from
+> > > the setter function and audit the previous changes to ensure they
+> > > conform. I'll do that right away and post a fixup patch ASAP.
+> >
+> > Sigh, only one out of the ten callers of (__)skb_frag_set_page expects
+> > skb_frag_set_page to take a new reference. I think that's pretty
+> > comprehensive evidence that the current behaviour is unexpected and
+> > wrong.
+> 
+> Looks good!
 
-> > I think the best thing might be to remove the additional ref taking
-from
-> > the setter function and audit the previous changes to ensure they
-> > conform. I'll do that right away and post a fixup patch ASAP.
->
-> Sigh, only one out of the ten callers of (__)skb_frag_set_page expects
-> skb_frag_set_page to take a new reference. I think that's pretty
-> comprehensive evidence that the current behaviour is unexpected and
-> wrong.
+Thanks.
 
-Looks good!
+> Does it make sense to commit both of these patches? The
+> reason being - my patch becomes a cleanup of set_skb_frag()
+> in virtio_net driver.
 
-Does it make sense to commit both of these patches? The
-reason being - my patch becomes a cleanup of set_skb_frag()
-in virtio_net driver.
+I think your patch remains a valid cleanup but I don't maintain that
+code.
 
-thanks,
-
-- KK
+Ian.
