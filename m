@@ -1,63 +1,85 @@
-From: "Serge E. Hallyn" <serge@hallyn.com>
-Subject: Re: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace
- aware
-Date: Tue, 18 Oct 2011 23:22:42 +0000
-Message-ID: <20111018232242.GA22950@hallyn.com>
-References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
- <1318974898-21431-10-git-send-email-serge@hallyn.com>
- <1318976049.2273.7.camel@Joe-Laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RESEND] [PATCH] ll_temac: Add support for ethtool
+Date: Wed, 19 Oct 2011 00:29:30 +0100
+Message-ID: <1318980570.23980.28.camel@deadeye>
+References: <1318960501-3544-1-git-send-email-ricardo.ribalda@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, ebiederm@xmission.com,
-	akpm@linux-foundation.org, oleg@redhat.com, richard@nod.at,
-	mikevs@xs4all.net, segoon@openwall.com, gregkh@suse.de,
-	dhowells@redhat.com, eparis@redhat.com,
-	"Serge E. Hallyn" <serge.hallyn@canonical.com>,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, grant.likely@secretlab.ca,
+	sfr@canb.auug.org.au, u.kleine-koenig@pengutronix.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1318976049.2273.7.camel@Joe-Laptop>
+In-Reply-To: <1318960501-3544-1-git-send-email-ricardo.ribalda@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Joe Perches (joe@perches.com):
-> On Tue, 2011-10-18 at 21:54 +0000, Serge Hallyn wrote:
-> > From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
-> 
-> Hi Serge.
-> 
-> Just some trivial style notes.
-> 
-> > Currently uids are compared without regard for the user namespace.
-> > Fix that to prevent tasks in a different user namespace from
-> > wrongly matching on SCM_CREDENTIALS.
-> []
-> > diff --git a/net/core/scm.c b/net/core/scm.c
-> 
-> > -static __inline__ int scm_check_creds(struct ucred *creds)
-> > +static __inline__ bool uidequiv(const struct cred *src, struct ucred *tgt,
-> > +			       struct user_namespace *ns)
-> 
-> Perhaps inline is better than __inline__ and do these
-> functions really need to be marked inline at all?
+On Tue, 2011-10-18 at 19:55 +0200, Ricardo Ribalda Delgado wrote:
+> This patch enables the ethtool interface. The implementation is done
+> using the libphy helper functions.
 
-Dunno, I was just sticking with the current style.
+All Ethernet drivers have been moved in net-next.  This driver is now
+under drivers/net/ethernet/xilinx.
 
-> > +{
-> > +	if (src->user_ns != ns)
-> > +		goto check_capable;
-> > +	if (src->uid == tgt->uid || src->euid == tgt->uid ||
-> > +	    src->suid == tgt->uid)
+> Reviewed-by: Grant Likely <grant.likely@secretlab.ca>
+> Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+> ---
+>  drivers/net/ll_temac_main.c |   27 +++++++++++++++++++++++++++
+>  1 files changed, 27 insertions(+), 0 deletions(-)
 > 
-> Perhaps this is less prone to typo errors and are a bit
-> more readable as:
-> 
-> 	if (tgt->uid == src->uid ||
-> 	    tgt->uid == src->euid ||
-> 	    tgt->uid == src->suid)
+> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+> index 728fe41..91a9804 100644
+> --- a/drivers/net/ll_temac_main.c
+> +++ b/drivers/net/ll_temac_main.c
+> @@ -957,6 +957,32 @@ static const struct attribute_group temac_attr_group = {
+>  	.attrs = temac_device_attrs,
+>  };
+>  
+> +/* ethtool support */
+> +static int temac_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+> +{
+> +	struct temac_local *lp = netdev_priv(ndev);
+> +	return phy_ethtool_gset(lp->phy_dev, cmd);
+> +}
+> +
+> +static int temac_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+> +{
+> +	struct temac_local *lp = netdev_priv(ndev);
+> +	return phy_ethtool_sset(lp->phy_dev, cmd);
+> +}
+> +
+> +static int temac_nway_reset(struct net_device *ndev)
+> +{
+> +	struct temac_local *lp = netdev_priv(ndev);
+> +	return phy_start_aneg(lp->phy_dev);
+> +}
+> +
+> +static const struct ethtool_ops temac_ethtool_ops = {
+> +	.get_settings = temac_get_settings,
+> +	.set_settings = temac_set_settings,
+> +	.nway_reset = temac_nway_reset,
+> +	.get_link = ethtool_op_get_link,
+> +};
+> +
+>  static int __devinit temac_of_probe(struct platform_device *op)
+>  {
+>  	struct device_node *np;
+> @@ -978,6 +1004,7 @@ static int __devinit temac_of_probe(struct platform_device *op)
+>  	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
+>  	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
+>  	ndev->netdev_ops = &temac_netdev_ops;
+> +	ndev->ethtool_ops= &temac_ethtool_ops;
 
-I do like that better.
+Missing space before '='.
 
-thanks,
--serge
+Ben.
+
+>  #if 0
+>  	ndev->features |= NETIF_F_IP_CSUM; /* Can checksum TCP/UDP over IPv4. */
+>  	ndev->features |= NETIF_F_HW_CSUM; /* Can checksum all the packets. */
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
