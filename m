@@ -1,109 +1,80 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next 6/7] stmmac: allow mmc usage only if feature actually available (V3)
-Date: Tue, 18 Oct 2011 10:42:10 +0200
-Message-ID: <1318927331-20855-7-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [net-next 0/7] stmmac: update to Oct 2011 version (V2)
+Date: Tue, 18 Oct 2011 10:44:58 +0200
+Message-ID: <4E9D3C8A.50403@st.com>
 References: <1318927331-20855-1-git-send-email-peppe.cavallaro@st.com>
-Cc: davem@davemloft.net, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:41723 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754034Ab1JRIxk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 04:53:40 -0400
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:46987 "EHLO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756900Ab1JRIx5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 04:53:57 -0400
 In-Reply-To: <1318927331-20855-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable the MMC support if it is actually available from the
-HW capability register.
+Sorry this is the V3 :-(
 
-Signed-off-by: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   24 +++++++++++--------
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    3 +-
- 2 files changed, 16 insertions(+), 11 deletions(-)
+Peppe
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index aedff9a..406404f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -96,7 +96,7 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	{ #m, FIELD_SIZEOF(struct stmmac_counters, m),	\
- 	offsetof(struct stmmac_priv, mmc.m)}
- 
--static const struct stmmac_stats stmmac_gstr_mmc[] = {
-+static const struct stmmac_stats stmmac_mmc[] = {
- 	STMMAC_MMC_STAT(mmc_tx_octetcount_gb),
- 	STMMAC_MMC_STAT(mmc_tx_framecount_gb),
- 	STMMAC_MMC_STAT(mmc_tx_broadcastframe_g),
-@@ -177,7 +177,7 @@ static const struct stmmac_stats stmmac_gstr_mmc[] = {
- 	STMMAC_MMC_STAT(mmc_rx_icmp_gd_octets),
- 	STMMAC_MMC_STAT(mmc_rx_icmp_err_octets),
- };
--#define STMMAC_MMC_STATS_LEN ARRAY_SIZE(stmmac_gstr_mmc)
-+#define STMMAC_MMC_STATS_LEN ARRAY_SIZE(stmmac_mmc)
- 
- static void stmmac_ethtool_getdrvinfo(struct net_device *dev,
- 				      struct ethtool_drvinfo *info)
-@@ -348,13 +348,17 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 						 priv->ioaddr);
- 	else {
- 		/* If supported, for new GMAC chips expose the MMC counters */
--		dwmac_mmc_read(priv->ioaddr, &priv->mmc);
-+		if (priv->dma_cap.rmon) {
-+			dwmac_mmc_read(priv->ioaddr, &priv->mmc);
- 
--		for (i = 0; i < STMMAC_MMC_STATS_LEN; i++) {
--			char *p = (char *)priv + stmmac_gstr_mmc[i].stat_offset;
-+			for (i = 0; i < STMMAC_MMC_STATS_LEN; i++) {
-+				char *p;
-+				p = (char *)priv + stmmac_mmc[i].stat_offset;
- 
--			data[j++] = (stmmac_gstr_mmc[i].sizeof_stat ==
--				     sizeof(u64)) ? (*(u64 *)p) : (*(u32 *)p);
-+				data[j++] = (stmmac_mmc[i].sizeof_stat ==
-+					     sizeof(u64)) ? (*(u64 *)p) :
-+					     (*(u32 *)p);
-+			}
- 		}
- 	}
- 	for (i = 0; i < STMMAC_STATS_LEN; i++) {
-@@ -373,7 +377,7 @@ static int stmmac_get_sset_count(struct net_device *netdev, int sset)
- 	case ETH_SS_STATS:
- 		len = STMMAC_STATS_LEN;
- 
--		if (priv->plat->has_gmac)
-+		if (priv->dma_cap.rmon)
- 			len += STMMAC_MMC_STATS_LEN;
- 
- 		return len;
-@@ -390,9 +394,9 @@ static void stmmac_get_strings(struct net_device *dev, u32 stringset, u8 *data)
- 
- 	switch (stringset) {
- 	case ETH_SS_STATS:
--		if (priv->plat->has_gmac)
-+		if (priv->dma_cap.rmon)
- 			for (i = 0; i < STMMAC_MMC_STATS_LEN; i++) {
--				memcpy(p, stmmac_gstr_mmc[i].stat_string,
-+				memcpy(p, stmmac_mmc[i].stat_string,
- 				       ETH_GSTRING_LEN);
- 				p += ETH_GSTRING_LEN;
- 			}
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 125a177..7325256 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -946,7 +946,8 @@ static int stmmac_open(struct net_device *dev)
- 	memset(&priv->xstats, 0, sizeof(struct stmmac_extra_stats));
- 	priv->xstats.threshold = tc;
- 
--	stmmac_mmc_setup(priv);
-+	if (priv->dma_cap.rmon)
-+		stmmac_mmc_setup(priv);
- 
- 	/* Start the ball rolling... */
- 	DBG(probe, DEBUG, "%s: DMA RX/TX processes started...\n", dev->name);
--- 
-1.7.4.4
+On 10/18/2011 10:42 AM, Giuseppe CAVALLARO wrote:
+> This patches update the driver adding the chained
+> descriptor mode and some new useful fixes.
+> 
+> I've reviewed some patches after the V1 and V2:
+> 
+>  stmmac: allow mtu bigger than 1500 in case of normal desc (V3)
+>    |-> removed the useless max_mtu init: Thx Eric's feedback
+> 
+>  stmmac: add CHAINED descriptor mode support (V3)
+>    |-> removed ifdef in the C and added small routines
+> 	specialised for chained/ring modes. See comment
+> 	within the patch itself. Thx David's feedback.
+> 
+>  stmmac: allow mmc usage only if feature actually available (V3)
+>    |-> added a check if interface is NULL
+> 
+> In the end, I added two new small patches:
+> 
+>  stmmac: use predefined macros for HW cap register fields (V3)
+>  stmmac: allow mmc usage only if feature actually available (V3)
+> 
+> made by Rayagond and reviewed/reworked by myself
+> 
+> Let me know if it's ok.
+> 
+> Giuseppe Cavallaro (5):
+>   stmmac: protect tx process with lock (V3)
+>   stmmac: update the driver version and doc (V3)
+>   stmmac: allow mtu bigger than 1500 in case of normal desc (V3)
+>   stmmac: allow mmc usage only if feature actually available (V3)
+>   stmmac: add CHAINED descriptor mode support (V3)
+> 
+> Rayagond Kokatanur (1):
+>   stmmac: use predefined macros for HW cap register fields (V3)
+> 
+> Srinivas Kandagatla (1):
+>   stmmac: Stop advertising 1000Base capabilties for non GMII iface
+>     (V3).
+> 
+>  Documentation/networking/stmmac.txt                |   11 +-
+>  drivers/net/ethernet/stmicro/stmmac/Kconfig        |   18 ++
+>  drivers/net/ethernet/stmicro/stmmac/Makefile       |    2 +
+>  drivers/net/ethernet/stmicro/stmmac/chain_mode.c   |  137 +++++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/common.h       |   43 ++++
+>  drivers/net/ethernet/stmicro/stmmac/descs_com.h    |  126 ++++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |   22 +--
+>  drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |   14 +-
+>  drivers/net/ethernet/stmicro/stmmac/ring_mode.c    |  126 ++++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    5 +-
+>  .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   24 ++-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  212 ++++++++++----------
+>  12 files changed, 602 insertions(+), 138 deletions(-)
+>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/descs_com.h
+>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+> 
