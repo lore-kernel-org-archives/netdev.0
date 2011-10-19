@@ -1,64 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] smsc911x: Enable flow control advertisement
-Date: Wed, 19 Oct 2011 13:26:39 +0100
-Message-ID: <1319027199.23980.47.camel@deadeye>
-References: <1319016114-4781-1-git-send-email-kkobayas@igel.co.jp>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: kenel level packet capturing
+Date: Wed, 19 Oct 2011 14:30:25 +0200
+Message-ID: <20111019123025.GA9320@netboy.at.omicron.at>
+References: <CAKj1SsP+GE=QqN8nx7aaAxXE8BODKb=vns_=SnbyySQjZp3-pg@mail.gmail.com>
+ <CAKj1SsOnYsOXjRBKm+=hTnEiesXrC3h0Q-KN2b61nPSQud9wMA@mail.gmail.com>
+ <20111019.031314.1383303852454510720.davem@davemloft.net>
+ <CADAe=++9WYg6nGH1vZ0BZKP5CDHO30i-pNVhBzgO9C-6FQX6cQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com,
-	dhobsong@igel.co.jp
-To: Kazunori Kobayashi <kkobayas@igel.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:50166 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755299Ab1JSM0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 08:26:51 -0400
-In-Reply-To: <1319016114-4781-1-git-send-email-kkobayas@igel.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, raviraj.j1991@gmail.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org
+To: Ajith Adapa <adapa.ajith@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CADAe=++9WYg6nGH1vZ0BZKP5CDHO30i-pNVhBzgO9C-6FQX6cQ@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-10-19 at 18:21 +0900, Kazunori Kobayashi wrote:
-> Enable the advertisement of both symmetric pause and asymmetric pause 
-> flow control capability. 
+On Wed, Oct 19, 2011 at 02:22:35PM +0530, Ajith Adapa wrote:
+> Yeah you are right David. But ..
 > 
-> Signed-off-by: Kazunori Kobayashi <kkobayas@igel.co.jp>
-> ---
->  drivers/net/smsc911x.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-> index b9016a3..60c3bc2 100644
-> --- a/drivers/net/smsc911x.c
-> +++ b/drivers/net/smsc911x.c
+> For a newbie who just know more about linux userspace level need to
+> know starting steps like where to start from and flow of packet might
+> be confusing because of the level of abstraction being used. I guess
+> it might take some time until you are really serious about making
+> hands dirty :)
 
-This file has been moved.
+For working with or just reading kernel sources I recommend getting to
+know the cscope tool. Do a "make cscope" and then use one of the front
+end browsers.
 
-> @@ -800,8 +800,13 @@ static void smsc911x_phy_update_flowcontrol(struct smsc911x_data *pdata)
->  	struct phy_device *phy_dev = pdata->phy_dev;
->  	u32 afc = smsc911x_reg_read(pdata, AFC_CFG);
->  	u32 flow;
-> +	u16 miiadv = smsc911x_mii_read(phy_dev->bus, phy_dev->addr,
-> +				       MII_ADVERTISE);
->  	unsigned long flags;
->  
-> +	miiadv |= (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
-> +	smsc911x_mii_write(phy_dev->bus, phy_dev->addr, MII_ADVERTISE, miiadv);
+If you use emacs, then you really should have this set
 
-This should be controllable through ethtool; I assume phy_ethtool_sset()
-already covers that.
+	; When working on the kernel
+	(setq cscope-do-not-update-database t)
 
-Further, it's far too late to change advertising when you're just about
-to resolve what was negotiated.  It has to be done before (re)starting
-autoneg.
+otherwise it tries to re-index after every search.
 
-Ben.
+HTH,
+Richard
 
->  	if (phy_dev->duplex == DUPLEX_FULL) {
->  		u16 lcladv = phy_read(phy_dev, MII_ADVERTISE);
->  		u16 rmtadv = phy_read(phy_dev, MII_LPA);
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
