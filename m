@@ -1,110 +1,215 @@
-From: Bin Li <libin.charles@gmail.com>
-Subject: Re: [PATCH] iproute2: Conforming to -D_FORTIFY_SOURCE=2 restrictions
-Date: Wed, 19 Oct 2011 17:15:26 +0800
-Message-ID: <CAGBH1r66sTJUiq=EaqgsW-3nKzhhJoQ1Bwd9EC6AmsEd-E8SRQ@mail.gmail.com>
-References: <CAGBH1r6P_nmVhSQ7d9sj1qU_1VY7QssWm3ftS4mNcQjyAuCcqA@mail.gmail.com>
-	<20111017082307.46a994a8@nehalam.linuxnetplumber.net>
+From: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Problem with ixgbe and TX locked on one cpu
+Date: Wed, 19 Oct 2011 11:21:16 +0200
+Message-ID: <4E9E968C.8020807@itcare.pl>
+References: <4E988B1E.5000606@itcare.pl> <CAEuXFEy89F_=J_PJMSbQ1fDcOEkkpz2vucq3LcToi7rTcZHcDA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: multipart/mixed;
+ boundary="------------010502050003020101070506"
+Cc: Linux Network Development list <netdev@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:47659 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752667Ab1JSJP1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 05:15:27 -0400
-Received: by gyb13 with SMTP id 13so1443407gyb.19
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2011 02:15:26 -0700 (PDT)
-In-Reply-To: <20111017082307.46a994a8@nehalam.linuxnetplumber.net>
+Received: from smtp2.iq.pl ([86.111.242.20]:44048 "EHLO smtp4.iq.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752948Ab1JSJVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Oct 2011 05:21:23 -0400
+In-Reply-To: <CAEuXFEy89F_=J_PJMSbQ1fDcOEkkpz2vucq3LcToi7rTcZHcDA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen,
+This is a multi-part message in MIME format.
+--------------010502050003020101070506
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 8bit
 
- You can reproduce this issue in 2.6.37 like below. And the previous
-gdb log is after the install the debuginfo package in SUSE.
-
-# ip -6 xfrm state add src 3ffe:501:ffff:ff03:21a:64ff:fe12:e4c1 dst
-3ffe:501:ffff:ff05:200:ff:fe00:c1c1 proto ah spi 0x1000 mode transport
-auth md5 "TAHITEST89ABCDEF"
-
-*** buffer overflow detected ***: ip terminated
-=3D=3D=3D=3D=3D=3D=3D Backtrace: =3D=3D=3D=3D=3D=3D=3D=3D=3D
-/lib/libc.so.6(__fortify_fail+0x40)[0xb76d0070]
-/lib/libc.so.6(+0xe8e27)[0xb76cde27]
-/lib/libc.so.6(+0xe8317)[0xb76cd317]
-ip[0x806d6c4]
-ip(do_xfrm_state+0x120)[0x806dc70]
-ip(do_xfrm+0x81)[0x806ad51]
-ip[0x804c355]
-ip(main+0x476)[0x804caa6]
-/lib/libc.so.6(__libc_start_main+0xfe)[0xb75fbc2e]
-ip[0x804c261]
-=3D=3D=3D=3D=3D=3D=3D Memory map: =3D=3D=3D=3D=3D=3D=3D=3D
-08048000-08087000 r-xp 00000000 08:01 4465       /sbin/ip
-08087000-08088000 r--p 0003e000 08:01 4465       /sbin/ip
-08088000-0808a000 rw-p 0003f000 08:01 4465       /sbin/ip
-0808a000-080ad000 rw-p 00000000 00:00 0          [heap]
-b75c6000-b75e2000 r-xp 00000000 08:01 131084     /lib/libgcc_s.so.1
-b75e2000-b75e3000 r--p 0001b000 08:01 131084     /lib/libgcc_s.so.1
-b75e3000-b75e4000 rw-p 0001c000 08:01 131084     /lib/libgcc_s.so.1
-b75e4000-b75e5000 rw-p 00000000 00:00 0
-b75e5000-b774b000 r-xp 00000000 08:01 131375     /lib/libc-2.11.3.so
-b774b000-b774c000 ---p 00166000 08:01 131375     /lib/libc-2.11.3.so
-b774c000-b774e000 r--p 00166000 08:01 131375     /lib/libc-2.11.3.so
-b774e000-b774f000 rw-p 00168000 08:01 131375     /lib/libc-2.11.3.so
-b774f000-b7752000 rw-p 00000000 00:00 0
-b7752000-b7755000 r-xp 00000000 08:01 131428     /lib/libdl-2.11.3.so
-b7755000-b7756000 r--p 00002000 08:01 131428     /lib/libdl-2.11.3.so
-b7756000-b7757000 rw-p 00003000 08:01 131428     /lib/libdl-2.11.3.so
-b7774000-b7775000 rw-p 00000000 00:00 0
-b7775000-b7794000 r-xp 00000000 08:01 154467     /lib/ld-2.11.3.so
-b7794000-b7795000 r--p 0001e000 08:01 154467     /lib/ld-2.11.3.so
-b7795000-b7796000 rw-p 0001f000 08:01 154467     /lib/ld-2.11.3.so
-bfa02000-bfa23000 rw-p 00000000 00:00 0          [stack]
-ffffe000-fffff000 r-xp 00000000 00:00 0          [vdso]
-Aborted
-
-And If without -D_FORTIFY_SOURCE=3D2 in gcc, it works fine, so It's a
-bug in iproute2 which is not conforming to -D_FORTIFY_SOURCE=3D2
-restrictions.
-
-Thanks!
-
-On Mon, Oct 17, 2011 at 11:23 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> On Mon, 17 Oct 2011 15:35:35 +0800
-> Bin Li <libin.charles@gmail.com> wrote:
+W dniu 2011-10-18 20:57, Jesse Brandeburg pisze:
+> CC: e1000-devel
 >
->> (gdb) l
->> 161 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 len =3D slen;
->> 162 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (len > 0) {
->> 163 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (len =
-> max)
->> 164 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 invarg("\"ALGOKEY\" makes buffer
->> overflow\n", key);
->> 165
->> 166 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 strncpy(=
-buf, key, len);
->> 167 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->> 168 =A0 =A0 =A0 =A0 =A0 =A0 }
->> 169
->> 170 =A0 =A0 =A0 =A0 =A0 =A0 alg->alg_key_len =3D len * 8;
->> (gdb) up
->> #8 =A0xfrm_state_modify (cmd=3D<optimized out>, flags=3D<optimized o=
-ut>, argc=3D1,
->> =A0 =A0 argv=3D0x7fffffffe370) at xfrm_state.c:406
->> 406 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 xfrm_algo_parse((void *)&alg, type,
->> name, key,
+> 2011/10/14 Pawe³ Staszewski<pstaszewski@itcare.pl>:
+>> Hello
 >>
->> the compiler passes zero to __builtin___strncpy_chk as the buffer si=
-ze.
->> xfrm_algo_parse is inlined into xfrm_state_modify.
+>> I have weird problem with ixgbe and irq affinity / rx-tx queue assignment
+> what application are you running, how are you using ixgbe? looks like
+> a router.  is something changing the skb->rx_queue entry (like
+> netfilter) or is there a layered device above ixgbe (bonding or ...) ?
+Yes it is a router. - Quagga - BGP
+
+There is few (10rules) iptables rules in INPUT - and nothing more
+
+There are also namespaces running - and traffic is processed in namespaces.
+no bonding
+
+> why do your interrupts move after a long period? did you do it by
+> hand? we recommend disabling irqbalance and hand tuning interrupts
+> possibly with the set_irq_affinity.sh script.
+Yes it was changed by hand to check why TX is processed on one interrupt.
+Also now it is impossible to move this TX traffic to other interrupt.
+
+All configuration for affinity is made by hand - no irqbalance running.
+
+>> Statistics for my ethernet - ixgbe driver:
+>> ethtool -S eth4
+>> NIC statistics:
+>>      rx_packets: 5815535848808
+>>      tx_packets: 5811202378421
+>>      rx_bytes: 4791001750842200
+>>      tx_bytes: 4781190419358301
+>>      rx_pkts_nic: 5815535848827
+>>      tx_pkts_nic: 5811202378510
+>>      rx_bytes_nic: 4837563124411799
+>>      tx_bytes_nic: 4829987507084013
+>>      lsc_int: 8
+>>      tx_busy: 0
+>>      non_eop_descs: 0
+>>      rx_errors: 0
+>>      tx_errors: 0
+>>      rx_dropped: 0
+>>      tx_dropped: 0
+>>      multicast: 92494273
+>>      broadcast: 268718206
+>>      rx_no_buffer_count: 28829
+>>      collisions: 0
+>>      rx_over_errors: 0
+>>      rx_crc_errors: 0
+>>      rx_frame_errors: 0
+>>      hw_rsc_aggregated: 0
+>>      hw_rsc_flushed: 0
+>>      fdir_match: 0
+>>      fdir_miss: 0
+>>      rx_fifo_errors: 0
+>>      rx_missed_errors: 307051074
+>>      tx_aborted_errors: 0
+>>      tx_carrier_errors: 0
+>>      tx_fifo_errors: 0
+>>      tx_heartbeat_errors: 0
+>>      tx_timeout_count: 0
+>>      tx_restart_queue: 15926219
+>>      rx_long_length_errors: 298
+>>      rx_short_length_errors: 0
+>>      tx_flow_control_xon: 0
+>>      rx_flow_control_xon: 0
+>>      tx_flow_control_xoff: 0
+>>      rx_flow_control_xoff: 0
+>>      rx_csum_offload_errors: 54173917
+>>      alloc_rx_page_failed: 0
+>>      alloc_rx_buff_failed: 0
+>>      rx_no_dma_resources: 0
+>>      tx_queue_0_packets: 68694825
+>>      tx_queue_0_bytes: 9443750332
+>>      tx_queue_1_packets: 8410961
+>>      tx_queue_1_bytes: 2527763233
+>>      tx_queue_2_packets: 14411252
+>>      tx_queue_2_bytes: 1317132394
+>>      tx_queue_3_packets: 15013508147
+>>      tx_queue_3_bytes: 17364767277348
+>>      tx_queue_4_packets: 62779891
+>>      tx_queue_4_bytes: 63476596221
+>>      tx_queue_5_packets: 11176001
+>>      tx_queue_5_bytes: 2763600253
+>>      tx_queue_6_packets: 4416357
+>>      tx_queue_6_bytes: 611874984
+>>      tx_queue_7_packets: 8933405
+>>      tx_queue_7_bytes: 1837198524
+>>      tx_queue_8_packets: 13292669
+>>      tx_queue_8_bytes: 3241333510
+>>      tx_queue_9_packets: 10747236
+>>      tx_queue_9_bytes: 1805109931
+>>      tx_queue_10_packets: 5795935258380
+>>      tx_queue_10_bytes: 4763725304722245
+>>      tx_queue_11_packets: 12073934
+>>      tx_queue_11_bytes: 2982743045
+>>      tx_queue_12_packets: 10523764
+>>      tx_queue_12_bytes: 2637451199
+>>      tx_queue_13_packets: 12480552
+>>      tx_queue_13_bytes: 2434827407
+>>      tx_queue_14_packets: 7401777
+>>      tx_queue_14_bytes: 2413618099
+>>      tx_queue_15_packets: 8269270
+>>      tx_queue_15_bytes: 2854359576
+>>      rx_queue_0_packets: 361373769507
+>>      rx_queue_0_bytes: 298565751248279
+>>      rx_queue_1_packets: 369901571908
+>>      rx_queue_1_bytes: 303414679798160
+>>      rx_queue_2_packets: 362508961738
+>>      rx_queue_2_bytes: 299852439447157
+>>      rx_queue_3_packets: 363449272013
+>>      rx_queue_3_bytes: 299738390792515
+>>      rx_queue_4_packets: 361876234461
+>>      rx_queue_4_bytes: 297483366939732
+>>      rx_queue_5_packets: 361402926316
+>>      rx_queue_5_bytes: 297633876486533
+>>      rx_queue_6_packets: 362261522767
+>>      rx_queue_6_bytes: 298026696344647
+>>      rx_queue_7_packets: 361248593301
+>>      rx_queue_7_bytes: 296756459279986
+>>      rx_queue_8_packets: 361654143416
+>>      rx_queue_8_bytes: 298272433659520
+>>      rx_queue_9_packets: 362781764710
+>>      rx_queue_9_bytes: 298804803191595
+>>      rx_queue_10_packets: 361386593064
+>>      rx_queue_10_bytes: 297434987797644
+>>      rx_queue_11_packets: 369886597895
+>>      rx_queue_11_bytes: 302353350171712
+>>      rx_queue_12_packets: 361582732276
+>>      rx_queue_12_bytes: 298670408005971
+>>      rx_queue_13_packets: 365248093536
+>>      rx_queue_13_bytes: 302573023878287
+>>      rx_queue_14_packets: 366571142073
+>>      rx_queue_14_bytes: 302396739276514
+>>      rx_queue_15_packets: 362401929830
+>>      rx_queue_15_bytes: 299024344526029
+>>
+>> The problem is with queue 10
+>>      tx_queue_10_packets: 5795935258380
+>>      tx_queue_10_bytes: 4763725304722245
+>>
+>> as you can see most of the queue processing is used in queue 10
+>> Average difference is 1,854271229903958e-6  - compared to other queues
+>>
+>> and the problem is that almost all TX packet processing is on one CPU
+>> cat /proc/interrupts - in attached file
+>>
+>> Is this driver or kernel problem ?
+>>
+>> Kernel is: 2.6.38.2
+>>
+>> ixgbe driver is:
+>> ethtool -i eth4
+>> driver: ixgbe
+>> version: 3.2.9-k2
+>> firmware-version: 1.12-2
+>> bus-info: 0000:04:00.0
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
-> I don't understand, looks like a compiler bug. Call strncpy with
-> 0 length should not be possible since the check was =A03 lines
-> before for len > 0.
 >
+
+
+-- 
+
+
+--------------010502050003020101070506
+Content-Type: text/x-vcard; charset=utf-8;
+ name="pstaszewski.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="pstaszewski.vcf"
+
+begin:vcard
+fn;quoted-printable:Pawe=C5=82 Staszewski
+n;quoted-printable:Staszewski;Pawe=C5=82
+org:ITCare
+adr;quoted-printable;quoted-printable;dom:;;Sikorskiego 22;Libi=C4=85=C5=BC;Ma=C5=82opolskie;32-590
+title:IT Manager
+tel;work:+48 32 7203681
+tel;fax:+48 32 7203682
+tel;cell:+48 0 609911040
+url:www.itcare.pl
+version:2.1
+end:vcard
+
+
+--------------010502050003020101070506--
