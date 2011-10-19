@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2] cs89x0: Move the driver into the Cirrus dir
-Date: Tue, 18 Oct 2011 23:42:05 -0400 (EDT)
-Message-ID: <20111018.234205.1412280184407630539.davem@davemloft.net>
-References: <1318061264-25310-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH] net: allow vlan traffic to be received under
+ bond
+Date: Tue, 18 Oct 2011 23:47:23 -0400 (EDT)
+Message-ID: <20111018.234723.1235424375699917420.davem@davemloft.net>
+References: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>
+	<4E972301.4030004@intel.com>
+	<CAEP_g=9dk_ERdnw4Hw_8RO8Z23E1g2Q9G=AxPkiaVhwbHvo47A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	nelson@crynwr.com, akpm@linux-foundation.org
-To: jeffrey.t.kirsher@intel.com
+Cc: john.r.fastabend@intel.com, hans.schillstrom@ericsson.com,
+	jpirko@redhat.com, mbizon@freebox.fr, netdev@vger.kernel.org,
+	fubar@us.ibm.com
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:47234 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48407 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753156Ab1JSDmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 23:42:19 -0400
-In-Reply-To: <1318061264-25310-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1751405Ab1JSDrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 23:47:37 -0400
+In-Reply-To: <CAEP_g=9dk_ERdnw4Hw_8RO8Z23E1g2Q9G=AxPkiaVhwbHvo47A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat,  8 Oct 2011 01:07:44 -0700
+From: Jesse Gross <jesse@nicira.com>
+Date: Thu, 13 Oct 2011 17:22:02 -0700
 
-> The cs89x0 driver was initial placed in the apple/ when it
-> should have been placed in the cirrus/.  This resolves the
-> issue by moving the dirver and fixing up the respective
-> Kconfig(s) and Makefile(s).
-> 
-> Thanks to Sascha for reporting the issue.
-> 
-> -v2 Fix a config error that was introduced with v1 by removing
->     the dependency on MACE for NET_VENDOR_APPLE.
-> 
-> CC: Russell Nelson <nelson@crynwr.com>
-> CC: Andrew Morton <akpm@linux-foundation.org>
-> Reported-by: Sascha Hauer <s.hauer@pengutronix.de>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Actually, for most of 2.6.x the behavior was somewhat
+> non-deterministic since it depended on kernel version and the NIC.  As
+> a result, I think we can safely say that this wasn't a particularly
+> firm interface that we have to be wedded to.  Based on overwhelming
+> feedback, I think the interface in this patch is the preferred one and
+> what we should stabilize on.
 
-Applied, thanks.
+Agreed, and I've applied this patch to net-next, thanks everyone!
