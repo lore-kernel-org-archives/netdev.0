@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] filter: use unsigned int to silence static checker
- warning
-Date: Wed, 19 Oct 2011 19:36:05 -0400 (EDT)
-Message-ID: <20111019.193605.621716042975197432.davem@davemloft.net>
-References: <20111018070420.GR27732@elgon.mountain>
+Subject: Re: [PATCH net-next] neigh: fix rcu splat in neigh_update()
+Date: Wed, 19 Oct 2011 19:39:10 -0400 (EDT)
+Message-ID: <20111019.193910.388701305423765916.davem@davemloft.net>
+References: <1318926762-14563-1-git-send-email-roy.qing.li@gmail.com>
+	<1318929095.2657.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, xiaosuo@gmail.com,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roy.qing.li@gmail.com, ari.m.savolainen@gmail.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51614 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51136 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751689Ab1JSXgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 19:36:10 -0400
-In-Reply-To: <20111018070420.GR27732@elgon.mountain>
+	with ESMTP id S1754680Ab1JSXjO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 19:39:14 -0400
+In-Reply-To: <1318929095.2657.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 18 Oct 2011 10:04:20 +0300
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 18 Oct 2011 11:11:35 +0200
 
-> This is just a cleanup.
-> 
-> My testing version of Smatch warns about this:
-> net/core/filter.c +380 check_load_and_stores(6)
-> 	warn: check 'flen' for negative values
-> 
-> flen comes from the user.  We try to clamp the values here between 1
-> and BPF_MAXINSNS but the clamp doesn't work because it could be
-> negative.  This is a bug, but it's not exploitable.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Le mardi 18 octobre 2011 =E0 16:32 +0800, roy.qing.li@gmail.com a =E9=
+crit :
+>> when use dst_get_neighbour to get neighbour, we need=20
+>> rcu_read_lock to protect, since dst_get_neighbour uses
+>> rcu_dereference.
+>>=20
+>> The bug was reported by Ari Savolainen <ari.m.savolainen@gmail.com>
+>>=20
+> ...
+>>=20
+>> Reported-by: Ari Savolainen <ari.m.savolainen@gmail.com>
+>> Signed-off-by: RongQing <roy.qing.li@gmail.com>
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied to net-next, thanks Dan.
+Applied, thanks.
