@@ -1,116 +1,108 @@
-From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
-Subject: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace aware
- (v2)
-Date: Tue, 18 Oct 2011 21:25:52 -0500
-Message-ID: <20111019022552.GA29251@sergelap>
-References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
- <1318974898-21431-10-git-send-email-serge@hallyn.com>
- <1318976049.2273.7.camel@Joe-Laptop>
- <20111018232242.GA22950@hallyn.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] route:ip_rt_frag_needed always return unzero
+Date: Wed, 19 Oct 2011 10:33:00 +0800
+Message-ID: <4E9E36DC.4050304@cn.fujitsu.com>
+References: <1318921469-25599-1-git-send-email-gaofeng@cn.fujitsu.com> <1318929797.2657.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4E9E2929.7070701@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, akpm@linux-foundation.org, oleg@redhat.com,
-	richard@nod.at, mikevs@xs4all.net, segoon@openwall.com,
-	gregkh@suse.de, dhowells@redhat.com, eparis@redhat.com,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serge@hallyn.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111018232242.GA22950@hallyn.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:51859 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752385Ab1JSCch convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 22:32:37 -0400
+In-Reply-To: <4E9E2929.7070701@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(Thanks for the suggestions, Joe.)
+=E4=BA=8E 2011=E5=B9=B410=E6=9C=8819=E6=97=A5 09:34, Gao feng =E5=86=99=
+=E9=81=93:
+> 2011.10.18 17:23, Eric Dumazet wrote:
+>> Le mardi 18 octobre 2011 =C3=A0 15:04 +0800, Gao feng a =C3=A9crit :
+>>> int function ip_rt_frag_need,if peer is null,
+>>> there is no need to do ipprot->err_handler.
+>>> I am right?
+>>>
+>>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>>> ---
+>>>  net/ipv4/route.c |    2 +-
+>>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>>
+>>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>>> index 075212e..6cde0fa 100644
+>>> --- a/net/ipv4/route.c
+>>> +++ b/net/ipv4/route.c
+>>> @@ -1574,7 +1574,7 @@ unsigned short ip_rt_frag_needed(struct net *=
+net, const struct iphdr *iph,
+>>> =20
+>>>  		atomic_inc(&__rt_peer_genid);
+>>>  	}
+>>> -	return est_mtu ? : new_mtu;
+>>> +	return est_mtu;
+>>>  }
+>>> =20
+>>>  static void check_peer_pmtu(struct dst_entry *dst, struct inet_pee=
+r *peer)
+>>
+>> No idea why you want this, your changelog is a bit cryptic :)
+>>
+>> Wont this bypass the raw_icmp_error(skb, protocol, info);
+>> call in icmp_unreach() as well ?
+>>
+>>
+>=20
+> thanks Eric!
+>=20
+> I mean that the pmtu is update by inet_peer->pmtu_learned as I know.
+> so in function ip_rt_frag_needed,
+> if inet_peer is null or someting else make the setting of inet_peer->=
+pmtu_learned failed.
+> there is no need to call function tcp_v4_err.
+>=20
+> the call stack is
+> icmp_unreach
+>   |
+>   |--->ip_rt_frag_needed(fill inet_peer)
+>   |
+>   |--->raw_icmp_error()
+>   |
+>   |--->ipprot->err_handler(tcp_v4_err or something else)
+> 	|
+> 	|--->tcp_v4_err(frag need icmp is triggered by tcp packet)
+> 		|
+> 		|--->do_pmtu_discovery
+> 		(in this function both __sk_dst_check or dst->ops->update_pmtu
+> 		need struct inet_peer to update pmtu)
+>=20
+> so,I think when set inet_peer->pmtu_learned failed,
+> in func icmp_unreach we should goto out immediately.
+>=20
+> And it's confuse me that why func ping_err and udp_err not update the=
+ pmtu?
+> What I miss?
+> --
 
-Currently uids are compared without regard for the user namespace.
-Fix that to prevent tasks in a different user namespace from
-wrongly matching on SCM_CREDENTIALS.
+And move atomic_inc(&__rt_peer_genid) just like func ip_rt_update_pmtu?
 
-In the past, either your uids had to match, or you had to have
-CAP_SETXID.  In a namespaced world, you must either (both be in the
-same user namespace and have your uids match), or you must have
-CAP_SETXID targeted at the other user namespace.  The latter can
-happen for instance if uid 500 created a new user namespace and
-now interacts with uid 0 in it.
-
-Changelog: Oct 18:
-	Per Joe Perches: don't mark uidequiv and gidequiv fns inline
-	(let the compiler do that if appropriate), and change the flow
-	of id comparisons to make it clearer.
-
-Signed-off-by: Serge E. Hallyn <serge.hallyn@canonical.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Cc: Joe Perches <joe@perches.com>
----
- net/core/scm.c |   43 ++++++++++++++++++++++++++++++++++++-------
- 1 files changed, 36 insertions(+), 7 deletions(-)
-
-diff --git a/net/core/scm.c b/net/core/scm.c
-index 811b53f..2261607 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -43,17 +43,46 @@
-  *	setu(g)id.
-  */
- 
--static __inline__ int scm_check_creds(struct ucred *creds)
-+static bool uidequiv(const struct cred *src, struct ucred *tgt,
-+			       struct user_namespace *ns)
-+{
-+	if (src->user_ns != ns)
-+		goto check_capable;
-+	if (tgt->uid == src->uid ||
-+	    tgt->uid == src->euid ||
-+	    tgt->uid == src->suid)
-+		return true;
-+check_capable:
-+	if (ns_capable(ns, CAP_SETUID))
-+		return true;
-+	return false;
-+}
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 6cde0fa..3e1aa5c 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1568,11 +1568,12 @@ unsigned short ip_rt_frag_needed(struct net *ne=
+t, const
+                        est_mtu =3D mtu;
+                        peer->pmtu_learned =3D mtu;
+                        peer->pmtu_expires =3D pmtu_expires;
 +
-+static bool gidequiv(const struct cred *src, struct ucred *tgt,
-+			       struct user_namespace *ns)
-+{
-+	if (src->user_ns != ns)
-+		goto check_capable;
-+	if (tgt->gid == src->gid ||
-+	    tgt->gid == src->egid ||
-+	    tgt->gid == src->sgid)
-+		return true;
-+check_capable:
-+	if (ns_capable(ns, CAP_SETGID))
-+		return true;
-+	return false;
-+}
-+
-+static int scm_check_creds(struct ucred *creds, struct socket *sock)
- {
- 	const struct cred *cred = current_cred();
-+	struct user_namespace *ns = sock_net(sock->sk)->user_ns;
- 
--	if ((creds->pid == task_tgid_vnr(current) || capable(CAP_SYS_ADMIN)) &&
--	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
--	      creds->uid == cred->suid) || capable(CAP_SETUID)) &&
--	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
--	      creds->gid == cred->sgid) || capable(CAP_SETGID))) {
-+	if ((creds->pid == task_tgid_vnr(current) || ns_capable(ns, CAP_SYS_ADMIN)) &&
-+	     uidequiv(cred, creds, ns) && gidequiv(cred, creds, ns)) {
- 	       return 0;
- 	}
-+
- 	return -EPERM;
++                       atomic_inc(&__rt_peer_genid);
+                }
+
+                inet_putpeer(peer);
+
+-               atomic_inc(&__rt_peer_genid);
+        }
+        return est_mtu;
  }
- 
-@@ -169,7 +198,7 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
- 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct ucred)))
- 				goto error;
- 			memcpy(&p->creds, CMSG_DATA(cmsg), sizeof(struct ucred));
--			err = scm_check_creds(&p->creds);
-+			err = scm_check_creds(&p->creds, sock);
- 			if (err)
- 				goto error;
- 
--- 
-1.7.5.4
