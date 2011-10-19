@@ -1,51 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 6/7] mlx4_en: Adding rxhash support
-Date: Wed, 19 Oct 2011 15:57:08 +0100
-Message-ID: <1319036228.2829.14.camel@bwh-desktop>
-References: <4E9C8D8B.90606@mellanox.co.il>
-	 <1318902525.2571.24.camel@edumazet-laptop>
-	 <953B660C027164448AE903364AC447D2235EEB65@MTLDAG01.mtl.com>
-	 <1318926870.2657.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <953B660C027164448AE903364AC447D2235EEC80@MTLDAG01.mtl.com>
-	 <20111018083606.6367ff50@nehalam.linuxnetplumber.net>
-	 <1318966500.2783.124.camel@bwh-desktop>
+From: Nico Schottelius <nico-linux-20111017@schottelius.org>
+Subject: Re: BUG: All network processes hang (brcmsmac/wpa_supplicant)
+Date: Wed, 19 Oct 2011 16:58:00 +0200
+Message-ID: <20111019145800.GC1414@schottelius.org>
+References: <20111019123602.GA11883@schottelius.org>
+ <1319028563.8416.1.camel@edumazet-laptop>
+ <20111019130749.GD11883@schottelius.org>
+ <20111019142837.GA1414@schottelius.org>
+ <1319035584.8416.34.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:2242 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755010Ab1JSO5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 10:57:12 -0400
-In-Reply-To: <1318966500.2783.124.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nico Schottelius <nico-linux-20111017@schottelius.org>,
+	Arend van Spriel <arend@broadcom.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1319035584.8416.34.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-10-18 at 20:35 +0100, Ben Hutchings wrote:
-[...]
-> There was also a proposal a while back that we should try to make the
-> hash symmetric w.r.t. RX and TX addresses, so that both directions of a
-> flow through a router/bridge are aligned.  I think this was to be done
-> by repeating a 16-bit pattern across the key.  Not sure whether that's
-> worthwhile.
+Eric Dumazet [Wed, Oct 19, 2011 at 04:46:24PM +0200]:
+> Le mercredi 19 octobre 2011 =E0 16:28 +0200, Nico Schottelius a =E9cr=
+it :
+> > Triggered it!=20
+> >=20
+> > And also got the traceback!
+> >=20
+> > Dmesg + log attached, let me know when I can pull the fix from
+> > somewhere.
+> >=20
+>=20
+> Sorry, I cant see same messages in your dmesg, no mention of stuck
+> processes (blocked for more than 120 seconds.)
+>=20
+> By the way, please update to latest 3.1.rc10
+=20
+I can rebuild Linus' tree if you want, but only use it temporarily due
+to the other errors mentioned in the previous message.
 
-That also makes it relatively cheap to calculate in software, which
-DragonflyBSD does:
+If you've a tree somewhere that merges on top of Keith+Jiri,
+I'd try to merge that one as well, to make the mba more usable.
 
-http://gitweb.dragonflybsd.org/dragonfly.git/blob/master:/sys/net/toeplitz.c
-http://gitweb.dragonflybsd.org/dragonfly.git/blob/master:/sys/net/toeplitz2.h
+Cheers,
 
-(the latter file appears to assume that in_addr_t/in_port_t are byte-
-swapped i.e. the host is little-endian).
+Nico
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--=20
+PGP key: 7ED9 F7D3 6B10 81D7 0EC5  5C09 D7DC C8E4 3187 7DF0
