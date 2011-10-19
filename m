@@ -1,43 +1,38 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] route:ip_rt_frag_needed always return unzero
-Date: Wed, 19 Oct 2011 16:59:15 +0800
-Message-ID: <4E9E9163.1090008@cn.fujitsu.com>
-References: <1318921469-25599-1-git-send-email-gaofeng@cn.fujitsu.com> <1318929797.2657.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4E9E2929.7070701@cn.fujitsu.com> <1318996187.19139.8.camel@edumazet-laptop> <4E9E5E1C.5020603@cn.fujitsu.com> <20111019072628.GS1830@secunet.com> <4E9E8552.1050405@cn.fujitsu.com> <20111019083832.GT1830@secunet.com>
+Subject: Re: [PATCH 1/4] ipv4: Fix pmtu propagating
+Date: Wed, 19 Oct 2011 17:07:50 +0800
+Message-ID: <4E9E9366.1050702@cn.fujitsu.com>
+References: <20111011110922.GD1830@secunet.com> <20111012.170218.279202034199478303.davem@davemloft.net> <20111013100950.GO1830@secunet.com> <20111013.135808.636341622629050648.davem@davemloft.net> <20111014055406.GP1830@secunet.com> <20111017121805.GR1830@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:54588 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:57097 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752114Ab1JSI6s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Oct 2011 04:58:48 -0400
-In-Reply-To: <20111019083832.GT1830@secunet.com>
+	id S1752789Ab1JSJHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Oct 2011 05:07:23 -0400
+In-Reply-To: <20111017121805.GR1830@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011.10.19 16:38, Steffen Klassert wrote:
-> On Wed, Oct 19, 2011 at 04:07:46PM +0800, Gao feng wrote:
->> 2011.10.19 15:26, Steffen Klassert wrote:
->>
+2011.10.17 20:18, Steffen Klassert wrote:
+> On Fri, Oct 14, 2011 at 07:54:06AM +0200, Steffen Klassert wrote:
+>> On Thu, Oct 13, 2011 at 01:58:08PM -0400, David Miller wrote:
 >>>
->>> It is valid in the sense that we should not provide the user
->>> with a mtu information if we know that the value we got from
->>> the icmp packet ist bogus. But perhaps we can think about
->>> making the check for a valid mtu unconditionally and let
->>> ip_rt_frag_needed return a valid mtu in any case.
->>>
->>>
+>>> Please find out exactly why dst->obsolete is non-zero on a freshly
+>>> looked up route.  It's unexpected.
 >>
->> I think we should return the pmtu in icmp packet to the raw socket,
->> and the valid mtu to tcp_v4_err or something else.
->>
+>> Hm, on a slow path route lookup e.g. __mkroute_output() calls
+>> rt_dst_alloc() which initializes dst->obsolete to -1.
 > 
-> Why you want to handle raw sockets different here?
-> 
+> Just a follow up:
+> git commit d11a4dc18 (ipv4: check rt_genid in dst_check)
+> changed the initialization value of dst->obsolete from
+> 0 to -1.
+> --
 
-Return the pmtu in icmp packet to the raw socket,
-let user space program to decide what to do.
-BUT this is not important.
+Anybody give any suggestion?
+Actually,we can't suppose the dst->obsolete is non-zero.
+maybe we should use both dst->obsolete and rt->rt_peer_genid to decide whether to do dst_check or not?
