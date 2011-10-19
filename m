@@ -1,127 +1,127 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6] net: introduce ethernet teaming device
-Date: Wed, 19 Oct 2011 19:39:28 +0200
-Message-ID: <20111019173927.GA2922@minipsycho>
-References: <1317737703-19457-1-git-send-email-jpirko@redhat.com>
- <20111019172624.GB21324@synalogic.ca>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] route: fix ICMP redirect validation
+Date: Wed, 19 Oct 2011 16:05:37 -0200
+Message-ID: <20111019160537.4aeedef8@asterix.rh>
+References: <1317824404-9513-1-git-send-email-fbl@redhat.com>
+	<20111017.194344.510280595317217573.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
-	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
-	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com
-To: Benjamin Poirier <benjamin.poirier@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17970 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41576 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757070Ab1JSRjr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Oct 2011 13:39:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20111019172624.GB21324@synalogic.ca>
+	id S1750855Ab1JSSFl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Oct 2011 14:05:41 -0400
+In-Reply-To: <20111017.194344.510280595317217573.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Oct 19, 2011 at 07:26:24PM CEST, benjamin.poirier@gmail.com wrote:
->Hi Jiri, just a few late comments:
->
->On 11/10/04 16:15, Jiri Pirko wrote:
->> This patch introduces new network device called team. It supposes to be
->> very fast, simple, userspace-driven alternative to existing bonding
->> driver.
->> 
->> Userspace library called libteam with couple of demo apps is available
->> here:
->> https://github.com/jpirko/libteam
->> Note it's still in its dipers atm.
->> 
->> team<->libteam use generic netlink for communication. That and rtnl
->> suppose to be the only way to configure team device, no sysfs etc.
->> 
->> In near future python binding for libteam will be introduced. Also
->> daemon providing arpmon/miimon active-backup functionality will
->> be introduced. All what's necessary is already implemented in kernel team
->> driver.
->> 
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->
->[...]
->
->> +/******************************
->> + * Round-robin mode definition
->> + ******************************/
->> +
->> +static struct team_port *__get_first_port_up(struct team *team,
->> +					     struct team_port *port)
->
->This is more like __get_"next"_port_up() no?
+On Mon, 17 Oct 2011 19:43:44 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-Might be.
+> From: Flavio Leitner <fbl@redhat.com>
+> Date: Wed,  5 Oct 2011 11:20:04 -0300
+> 
+> > The commit f39925dbde7788cfb96419c0f092b086aa325c0f
+> > (ipv4: Cache learned redirect information in inetpeer.)
+> > removed some ICMP packet validations which are required by
+> > RFC 1122, section 3.2.2.2:
+> > ...
+> >   A Redirect message SHOULD be silently discarded if the new
+> >   gateway address it specifies is not on the same connected
+> >   (sub-) net through which the Redirect arrived [INTRO:2,
+> >   Appendix A], or if the source of the Redirect is not the
+> >   current first-hop gateway for the specified destination (see
+> >   Section 3.3.1).
+> > 
+> > Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> 
+> The reason for putting this into the inetpeer cache was so that we
+> didn't need to consult the routing cache at all.  We're working to
+> remove it at some point, so every dependency matters.
+> 
+> Can you implement this such that only an inetpeer cache probe is
+> necessary?
+> 
 
->
->> +{
->> +	struct team_port *cur;
->> +
->> +	if (port->linkup)
->> +		return port;
->> +	cur = port;
->> +	list_for_each_entry_continue_rcu(cur, &team->port_list, list)
->> +		if (cur->linkup)
->> +			return cur;
->> +	list_for_each_entry_rcu(cur, &team->port_list, list) {
->> +		if (cur == port)
->> +			break;
->> +		if (cur->linkup)
->> +			return cur;
->> +	}
->> +	return NULL;
->> +}
->> +
->
->[...]
->
->> +
->> +
->> +/****************
->> + * Mode handling
->> + ****************/
->> +
->> +static const struct team_mode *team_modes[] = {
->> +	&rr_mode,
->> +	&ab_mode,
->> +};
->> +
->> +static const int team_mode_count = ARRAY_SIZE(team_modes);
->> +
->> +static int team_find_mode(const char *kind)
->> +{
->> +	int i;
->> +
->> +	for (i = 0; i < team_mode_count; i++) {
->> +		const struct team_mode *mode = team_modes[i];
->> +
->> +		if (strcmp(mode->kind, kind) == 0)
->> +			return i;
->> +	}
->> +	return -ENOENT;
->> +}
->> +
->> +/*
->> + * We can benefit from the fact that it's ensured no port is present
->> + * at the time of mode change.
->> + */
->> +static void __team_change_mode(struct team *team, const int mode_index)
->> +{
->> +	const struct team_mode *mode = team_modes[mode_index];
->
->team_uninit() calls __team_change_mode(team, -1) which will therefore
->dereference team_modes[-1]. Is this always safe?
+Sure, I have reviewed your patch series to remove the routing
+cache and I believe this version works with and without it, though
+I have tested only with current net-next code.
 
-I changed this bits. New patch is coming soon...
+Thanks for your time reviewing, I appreciate it.
+fbl
 
-Thanks.
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
+---
+ net/ipv4/route.c |   43 ++++++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 38 insertions(+), 5 deletions(-)
 
-Jirka
-
->
->-Ben
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 26c77e1..1a639b9 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1308,8 +1308,14 @@ static void rt_del(unsigned hash, struct rtable *rt)
+ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 		    __be32 saddr, struct net_device *dev)
+ {
++	int s, i;
+ 	struct in_device *in_dev = __in_dev_get_rcu(dev);
++	struct rtable *rt;
++	__be32 skeys[2] = { saddr, 0 };
++	int    ikeys[2] = { dev->ifindex, 0 };
++	struct flowi4 fl4;
+ 	struct inet_peer *peer;
++	bool   putpeer = false;
+ 	struct net *net;
+ 
+ 	if (!in_dev)
+@@ -1331,13 +1337,40 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 			goto reject_redirect;
+ 	}
+ 
+-	peer = inet_getpeer_v4(daddr, 1);
+-	if (peer) {
+-		peer->redirect_learned.a4 = new_gw;
++	memset(&fl4, 0, sizeof(fl4));
++	fl4.daddr = daddr;
++	for (s = 0; s < 2; s++) {
++		for (i = 0; i < 2; i++) {
++			fl4.flowi4_oif = ikeys[i];
++			fl4.saddr = skeys[s];
++			rt = __ip_route_output_key(net, &fl4);
++			if (IS_ERR(rt))
++				continue;
+ 
+-		inet_putpeer(peer);
++			if (rt->dst.error || rt->dst.dev != dev ||
++			    rt->rt_gateway != old_gw) {
++				ip_rt_put(rt);
++				continue;
++			}
+ 
+-		atomic_inc(&__rt_peer_genid);
++			peer = rt->peer;
++			if (!peer) {
++				peer = inet_getpeer_v4(daddr, 1);
++				putpeer = true;
++			}
++
++			if (peer) {
++				peer->redirect_learned.a4 = new_gw;
++
++				if (putpeer)
++					inet_putpeer(peer);
++
++				atomic_inc(&__rt_peer_genid);
++			}
++
++			ip_rt_put(rt);
++			return;
++		}
+ 	}
+ 	return;
+ 
+-- 
+1.7.6
