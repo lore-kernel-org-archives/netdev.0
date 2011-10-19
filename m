@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix guest memory leak and panic
-Date: Wed, 19 Oct 2011 19:42:05 -0400 (EDT)
-Message-ID: <20111019.194205.2298875957485608359.davem@davemloft.net>
-References: <1318944002.2657.76.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1319014511.3385.72.camel@zakaz.uk.xensource.com>
-	<1319015259.3103.3.camel@edumazet-laptop>
+Subject: Re: [PATCBN net-next] mlx4_en: fix skb truesize underestimation
+Date: Wed, 19 Oct 2011 19:53:41 -0400 (EDT)
+Message-ID: <20111019.195341.1872717723240004710.davem@davemloft.net>
+References: <1318932782.2657.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ian.Campbell@citrix.com, krkumar2@in.ibm.com,
-	rusty@rustcorp.com.au, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.co.il
 To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319015259.3103.3.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:58577 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010Ab1JSXxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 19:53:51 -0400
+In-Reply-To: <1318932782.2657.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 19 Oct 2011 11:07:39 +0200
+Date: Tue, 18 Oct 2011 12:13:02 +0200
 
->> From 369022220db31efb9c261cbabcb890a4d216a176 Mon Sep 17 00:00:00 2001
->> From: Ian Campbell <ian.campbell@citrix.com>
->> Date: Tue, 18 Oct 2011 09:59:37 +0100
->> Subject: [PATCH] net: do not take an additional reference in skb_frag_set_page
->> 
->> I audited all of the callers in the tree and only one of them (pktgen) expects
->> it to do so. Taking this reference is pretty obviously confusing and error
->> prone.
->> 
->> In particular I looked at the following commits which switched callers of
->> (__)skb_frag_set_page to the skb paged fragment api:
- ...
->> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
- ...
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> skb->truesize must account for allocated memory, not the used part of
+> it. Doing this work is important to avoid unexpected OOM situations.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-Applied, thanks everyone.
+Eric please respin this against current net-next, it doesn't apply
+after the mlx4 series I applied today.
+
+Thanks!
