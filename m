@@ -1,44 +1,46 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] route:ip_rt_frag_needed always return unzero
-Date: Wed, 19 Oct 2011 16:07:46 +0800
-Message-ID: <4E9E8552.1050405@cn.fujitsu.com>
-References: <1318921469-25599-1-git-send-email-gaofeng@cn.fujitsu.com> <1318929797.2657.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4E9E2929.7070701@cn.fujitsu.com> <1318996187.19139.8.camel@edumazet-laptop> <4E9E5E1C.5020603@cn.fujitsu.com> <20111019072628.GS1830@secunet.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga)
+	causes kernel oops
+Date: Wed, 19 Oct 2011 10:08:07 +0200
+Message-ID: <20111019080807.GA25099@gondor.apana.org.au>
+References: <20111018134537.GA17055@gondor.apana.org.au> <20111019.030914.218521668377472155.davem@davemloft.net> <1319008713.17914.8.camel@edumazet-laptop> <20111019.033052.851679720607111734.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:57530 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751425Ab1JSIHU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Oct 2011 04:07:20 -0400
-In-Reply-To: <20111019072628.GS1830@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, evonlanthen@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	timo.teras@iki.fi
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111019.033052.851679720607111734.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2011.10.19 15:26, Steffen Klassert wrote:
-
+On Wed, Oct 19, 2011 at 03:30:52AM -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 19 Oct 2011 09:18:33 +0200
 > 
-> On udp and raw sockets, the user is responsible to adjust the packet
-> size according to the mtu value he may find in the socket's error queue.
-> So we shoud provide the user with this information, even in the unlikely
-> case where we could not create an inet_peer.
+> > Seems fine (Maybe do the +15 in caller site ?), but we also have other
+> > problematic cases, using alloc_skb() only...
 > 
+> Ok, which ones operate over these problematic GRE tunnels?
 
-Agree.Maybe we should modify mtu immediately when create inet_peer failed
+Potentially all of them since we now support Ethernet-over-GRE.
 
-> 
-> It is valid in the sense that we should not provide the user
-> with a mtu information if we know that the value we got from
-> the icmp packet ist bogus. But perhaps we can think about
-> making the check for a valid mtu unconditionally and let
-> ip_rt_frag_needed return a valid mtu in any case.
-> 
-> 
+I think Eric's initial patch is probably the safest bet for rc10.
+We can then work on the proper fix for the next release.
 
-I think we should return the pmtu in icmp packet to the raw socket,
-and the valid mtu to tcp_v4_err or something else.
+As to the latter, I've just done a grep over net and it seems that
+all users of LL_ALLOCATED_SPACE fall into two cases, alloc_skb users
+or sock_alloc_send_skb (including pskb) users.
 
-thanks Steffen.
+For alloc_skb we could add a new helper.  While for the other
+case we could either create a new helper or just add an extra
+dev argument that may be NULL for those that don't care about
+LL_ALLOCATED_SPACE.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
