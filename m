@@ -1,24 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: fix wrong eee setting for rlt8111evl
-Date: Wed, 19 Oct 2011 16:57:42 -0400 (EDT)
-Message-ID: <20111019.165742.1621277627528277376.davem@davemloft.net>
-References: <1318572877-1549-1-git-send-email-hayeswang@realtek.com>
+Subject: Re: [PATCH] net: Move rcu_barrier from rollback_registered_many to
+ netdev_run_todo.
+Date: Wed, 19 Oct 2011 16:59:54 -0400 (EDT)
+Message-ID: <20111019.165954.1408534680992838617.davem@davemloft.net>
+References: <m1r52g7zf0.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318572877-1549-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51971 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753892Ab1JSU75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 16:59:57 -0400
+In-Reply-To: <m1r52g7zf0.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 14 Oct 2011 14:14:37 +0800
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 14 Oct 2011 01:25:23 -0700
 
-> Correct the wrong parameter for setting EEE for RTL8111E-VL.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> This patch moves the rcu_barrier from rollback_registered_many
+> (inside the rtnl_lock) into netdev_run_todo (just outside the rtnl_lock).
+> This allows us to gain the full benefit of sychronize_net calling
+> synchronize_rcu_expedited when the rtnl_lock is held.
+> 
+> The rcu_barrier in rollback_registered_many was originally a synchronize_net
+> but was promoted to be a rcu_barrier() when it was found that people were
+> unnecessarily hitting the 250ms wait in netdev_wait_allrefs().  Changing
+> the rcu_barrier back to a synchronize_net is therefore safe.
+> 
+> Since we only care about waiting for the rcu callbacks before we get
+> to netdev_wait_allrefs() it is also safe to move the wait into
+> netdev_run_todo.
+> 
+> This was tested by creating and destroying 1000 tap devices and observing
+> /proc/lock_stat.  /proc/lock_stat reports this change reduces the hold
+> times of the rtnl_lock by a factor of 10.  There was no observable
+> difference in the amount of time it takes to destroy a network device.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-Francois, want me to apply this directly or will you handle it?
+Applied to net-next, thanks Eric.
