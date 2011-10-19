@@ -1,46 +1,83 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga)
-	causes kernel oops
-Date: Wed, 19 Oct 2011 10:08:07 +0200
-Message-ID: <20111019080807.GA25099@gondor.apana.org.au>
-References: <20111018134537.GA17055@gondor.apana.org.au> <20111019.030914.218521668377472155.davem@davemloft.net> <1319008713.17914.8.camel@edumazet-laptop> <20111019.033052.851679720607111734.davem@davemloft.net>
+From: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Subject: [PATCH net -v2] [BUGFIX] bonding: use flush_delayed_work_sync in
+ bond_close
+Date: Wed, 19 Oct 2011 17:17:57 +0900
+Message-ID: <20111019081757.12455.24788.stgit@ltc219.sdl.hitachi.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, evonlanthen@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	timo.teras@iki.fi
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111019.033052.851679720607111734.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yrl.pp-manager.tt@hitachi.com,
+	Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	WANG Cong <xiyou.wangcong@gmail.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail7.hitachi.co.jp ([133.145.228.42]:34451 "EHLO
+	mail7.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755565Ab1JSIMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 04:12:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 19, 2011 at 03:30:52AM -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 19 Oct 2011 09:18:33 +0200
-> 
-> > Seems fine (Maybe do the +15 in caller site ?), but we also have other
-> > problematic cases, using alloc_skb() only...
-> 
-> Ok, which ones operate over these problematic GRE tunnels?
+The bond_close() calls cancel_delayed_work() to cancel delayed works.
+It, however, cannot cancel works that were already queued in workqueue.
+The bond_open() initializes work->data, and proccess_one_work() refers
+get_work_cwq(work)->wq->flags. The get_work_cwq() returns NULL when
+work->data has been initialized. Thus, a panic occurs.
 
-Potentially all of them since we now support Ethernet-over-GRE.
+This patch uses flush_delayed_work_sync() instead of cancel_delayed_work()
+in bond_close(). It cancels delayed timer and waits for work to finish
+execution. So, it can avoid the null pointer dereference due to the
+parallel executions of proccess_one_work() and initializing proccess
+of bond_open().
 
-I think Eric's initial patch is probably the safest bet for rc10.
-We can then work on the proper fix for the next release.
+Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: WANG Cong <xiyou.wangcong@gmail.com>
+---
 
-As to the latter, I've just done a grep over net and it seems that
-all users of LL_ALLOCATED_SPACE fall into two cases, alloc_skb users
-or sock_alloc_send_skb (including pskb) users.
+ drivers/net/bonding/bond_main.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-For alloc_skb we could add a new helper.  While for the other
-case we could either create a new helper or just add an extra
-dev argument that may be NULL for those that don't care about
-LL_ALLOCATED_SPACE.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index de3d351..a4353f9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3504,27 +3504,27 @@ static int bond_close(struct net_device *bond_dev)
+ 	write_unlock_bh(&bond->lock);
+ 
+ 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
+-		cancel_delayed_work(&bond->mii_work);
++		flush_delayed_work_sync(&bond->mii_work);
+ 	}
+ 
+ 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
+-		cancel_delayed_work(&bond->arp_work);
++		flush_delayed_work_sync(&bond->arp_work);
+ 	}
+ 
+ 	switch (bond->params.mode) {
+ 	case BOND_MODE_8023AD:
+-		cancel_delayed_work(&bond->ad_work);
++		flush_delayed_work_sync(&bond->ad_work);
+ 		break;
+ 	case BOND_MODE_TLB:
+ 	case BOND_MODE_ALB:
+-		cancel_delayed_work(&bond->alb_work);
++		flush_delayed_work_sync(&bond->alb_work);
+ 		break;
+ 	default:
+ 		break;
+ 	}
+ 
+ 	if (delayed_work_pending(&bond->mcast_work))
+-		cancel_delayed_work(&bond->mcast_work);
++		flush_delayed_work_sync(&bond->mcast_work);
+ 
+ 	if (bond_is_lb(bond)) {
+ 		/* Must be called only after all
