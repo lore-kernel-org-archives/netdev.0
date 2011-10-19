@@ -1,59 +1,52 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] igb: fix a compile warning
-Date: Wed, 19 Oct 2011 16:52:35 +0800
-Message-ID: <1319014355-15678-1-git-send-email-roy.qing.li@gmail.com>
+From: Ajith Adapa <adapa.ajith@gmail.com>
+Subject: Re: kenel level packet capturing
+Date: Wed, 19 Oct 2011 14:22:35 +0530
+Message-ID: <CADAe=++9WYg6nGH1vZ0BZKP5CDHO30i-pNVhBzgO9C-6FQX6cQ@mail.gmail.com>
+References: <CAKj1SsP+GE=QqN8nx7aaAxXE8BODKb=vns_=SnbyySQjZp3-pg@mail.gmail.com>
+ <CAKj1SsOnYsOXjRBKm+=hTnEiesXrC3h0Q-KN2b61nPSQud9wMA@mail.gmail.com> <20111019.031314.1383303852454510720.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: raviraj.j1991@gmail.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45533 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752283Ab1JSIwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 04:52:45 -0400
-Received: by wyg36 with SMTP id 36so1470884wyg.19
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2011 01:52:44 -0700 (PDT)
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:34317 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752415Ab1JSIxH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 04:53:07 -0400
+In-Reply-To: <20111019.031314.1383303852454510720.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: RongQing Li <roy.qing.li@gmail.com>
+Yeah you are right David. But ..
 
-control these three function declarations and
-definitions with same macro CONFIG_PCI_IOV
+=46or a newbie who just know more about linux userspace level need to
+know starting steps like where to start from and flow of packet might
+be confusing because of the level of abstraction being used. I guess
+it might take some time until you are really serious about making
+hands dirty :)
 
-drivers/net/ethernet/intel/igb/igb_main.c:165:
-warning: =E2=80=98igb_vf_configure=E2=80=99 declared =E2=80=98static=E2=
-=80=99 but never defined
-drivers/net/ethernet/intel/igb/igb_main.c:166:
-warning: =E2=80=98igb_find_enabled_vfs=E2=80=99 declared =E2=80=98stati=
-c=E2=80=99 but never defined
-drivers/net/ethernet/intel/igb/igb_main.c:167:
-warning: =E2=80=98igb_check_vf_assignment=E2=80=99 declared =E2=80=98st=
-atic=E2=80=99 but never defined
+Regards,
+Ajith
 
-Signed-off-by: RongQing Li <roy.qing.li@gmail.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/et=
-hernet/intel/igb/igb_main.c
-index 837adbb..5d16cdc 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -162,9 +162,12 @@ static int igb_ndo_set_vf_bw(struct net_device *ne=
-tdev, int vf, int tx_rate);
- static int igb_ndo_get_vf_config(struct net_device *netdev, int vf,
- 				 struct ifla_vf_info *ivi);
- static void igb_check_vf_rate_limit(struct igb_adapter *);
-+
-+#ifdef CONFIG_PCI_IOV
- static int igb_vf_configure(struct igb_adapter *adapter, int vf);
- static int igb_find_enabled_vfs(struct igb_adapter *adapter);
- static int igb_check_vf_assignment(struct igb_adapter *adapter);
-+#endif
-=20
- #ifdef CONFIG_PM
- static int igb_suspend(struct pci_dev *, pm_message_t);
---=20
-1.7.1
+
+On Wed, Oct 19, 2011 at 12:43 PM, David Miller <davem@davemloft.net> wr=
+ote:
+>
+> From: raviraj joshi <raviraj.j1991@gmail.com>
+> Date: Wed, 19 Oct 2011 12:24:01 +0530
+>
+> > We are finding it difficult to understand kenel networking code.
+>
+> That's surprising, because the Linux networking stack is the cleanest
+> real world networking implementation on the planet.
+>
+> Perhaps you should think about re-evaluating your project choice?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-d=
+evel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
+ml
