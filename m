@@ -1,93 +1,43 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] Fix guest memory leak and panic
-Date: Wed, 19 Oct 2011 09:55:11 +0100
-Message-ID: <1319014511.3385.72.camel@zakaz.uk.xensource.com>
-References: <20111018080523.16861.55402.sendpatchset@krkumar2.in.ibm.com>
-	 <1318927016.16132.49.camel@zakaz.uk.xensource.com>
-	 <1318931232.16132.65.camel@zakaz.uk.xensource.com>
-	 <1318944002.2657.76.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] route:ip_rt_frag_needed always return unzero
+Date: Wed, 19 Oct 2011 16:59:15 +0800
+Message-ID: <4E9E9163.1090008@cn.fujitsu.com>
+References: <1318921469-25599-1-git-send-email-gaofeng@cn.fujitsu.com> <1318929797.2657.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <4E9E2929.7070701@cn.fujitsu.com> <1318996187.19139.8.camel@edumazet-laptop> <4E9E5E1C.5020603@cn.fujitsu.com> <20111019072628.GS1830@secunet.com> <4E9E8552.1050405@cn.fujitsu.com> <20111019083832.GT1830@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2@in.ibm.com>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	"mst@redhat.com" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318944002.2657.76.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:54588 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752114Ab1JSI6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Oct 2011 04:58:48 -0400
+In-Reply-To: <20111019083832.GT1830@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-10-18 at 14:20 +0100, Eric Dumazet wrote:
-> But I suggest using get_page(pkt_dev->page), this seems more obvious to
-> me [ This was how I wrote the thing ;) ]
+2011.10.19 16:38, Steffen Klassert wrote:
+> On Wed, Oct 19, 2011 at 04:07:46PM +0800, Gao feng wrote:
+>> 2011.10.19 15:26, Steffen Klassert wrote:
+>>
+>>>
+>>> It is valid in the sense that we should not provide the user
+>>> with a mtu information if we know that the value we got from
+>>> the icmp packet ist bogus. But perhaps we can think about
+>>> making the check for a valid mtu unconditionally and let
+>>> ip_rt_frag_needed return a valid mtu in any case.
+>>>
+>>>
+>>
+>> I think we should return the pmtu in icmp packet to the raw socket,
+>> and the valid mtu to tcp_v4_err or something else.
+>>
+> 
+> Why you want to handle raw sockets different here?
+> 
 
-I guess it depends on whether you consider the reference to be on the
-page or to be on the frag (which contains the page). The distinction
-would only matter if pktgen were to transition to using the forthcoming
-destructors though.
-
-Here's a version like you describe:
-
-8<---------------------------------------------------------------
-
->From 369022220db31efb9c261cbabcb890a4d216a176 Mon Sep 17 00:00:00 2001
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Tue, 18 Oct 2011 09:59:37 +0100
-Subject: [PATCH] net: do not take an additional reference in skb_frag_set_page
-
-I audited all of the callers in the tree and only one of them (pktgen) expects
-it to do so. Taking this reference is pretty obviously confusing and error
-prone.
-
-In particular I looked at the following commits which switched callers of
-(__)skb_frag_set_page to the skb paged fragment api:
-
-6a930b9f163d7e6d9ef692e05616c4ede65038ec cxgb3: convert to SKB paged frag API.
-5dc3e196ea21e833128d51eb5b788a070fea1f28 myri10ge: convert to SKB paged frag API.
-0e0634d20dd670a89af19af2a686a6cce943ac14 vmxnet3: convert to SKB paged frag API.
-86ee8130a46769f73f8f423f99dbf782a09f9233 virtionet: convert to SKB paged frag API.
-4a22c4c919c201c2a7f4ee09e672435a3072d875 sfc: convert to SKB paged frag API.
-18324d690d6a5028e3c174fc1921447aedead2b8 cassini: convert to SKB paged frag API.
-b061b39e3ae18ad75466258cf2116e18fa5bbd80 benet: convert to SKB paged frag API.
-b7b6a688d217936459ff5cf1087b2361db952509 bnx2: convert to SKB paged frag API.
-804cf14ea5ceca46554d5801e2817bba8116b7e5 net: xfrm: convert to SKB frag APIs
-ea2ab69379a941c6f8884e290fdd28c93936a778 net: convert core to skb paged frag APIs
-
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
----
- include/linux/skbuff.h |    1 -
- net/core/pktgen.c      |    1 +
- 2 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 64f8695..78741da 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1765,7 +1765,6 @@ static inline void *skb_frag_address_safe(const skb_frag_t *frag)
- static inline void __skb_frag_set_page(skb_frag_t *frag, struct page *page)
- {
- 	frag->page = page;
--	__skb_frag_ref(frag);
- }
- 
- /**
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 796044a..e81f5d0 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2602,6 +2602,7 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 				if (!pkt_dev->page)
- 					break;
- 			}
-+			get_page(pkt_dev->page);
- 			skb_frag_set_page(skb, i, pkt_dev->page);
- 			skb_shinfo(skb)->frags[i].page_offset = 0;
- 			/*last fragment, fill rest of data*/
--- 
-1.7.2.5
+Return the pmtu in icmp packet to the raw socket,
+let user space program to decide what to do.
+BUT this is not important.
