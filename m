@@ -1,141 +1,117 @@
-From: "Arend van Spriel" <arend@broadcom.com>
-Subject: Re: BUG: All network processes hang (brcmsmac/wpa_supplicant)
-Date: Wed, 19 Oct 2011 18:48:17 +0200
-Message-ID: <4E9EFF51.6000104__9733.09526821158$1319042953$gmane$org@broadcom.com>
-References: <20111019123602.GA11883@schottelius.org>
- <1319028563.8416.1.camel@edumazet-laptop>
- <20111019130749.GD11883@schottelius.org>
- <20111019142837.GA1414@schottelius.org> <4E9EE20F.1030403@broadcom.com>
- <20111019145501.GB1414@schottelius.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: Conforming to -D_FORTIFY_SOURCE=2
+ restrictions
+Date: Wed, 19 Oct 2011 09:50:52 -0700
+Message-ID: <20111019095052.4e3001da@nehalam.linuxnetplumber.net>
+References: <CAGBH1r6P_nmVhSQ7d9sj1qU_1VY7QssWm3ftS4mNcQjyAuCcqA@mail.gmail.com>
+	<20111017082307.46a994a8@nehalam.linuxnetplumber.net>
+	<CAGBH1r66sTJUiq=EaqgsW-3nKzhhJoQ1Bwd9EC6AmsEd-E8SRQ@mail.gmail.com>
+	<1319023851.3103.17.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
- boundary=------------enigA07F9DB473624253F0F2E7DF;
- micalg=pgp-sha1;
- protocol="application/pgp-signature"
-To: "Nico Schottelius" <nico-linux-20111017@schottelius.org>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireles
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bin Li <libin.charles@gmail.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1847 "EHLO mms2.broadcom.com"
+Received: from mail.vyatta.com ([76.74.103.46]:35632 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751363Ab1JSQsf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Oct 2011 12:48:35 -0400
-In-Reply-To: <20111019145501.GB1414@schottelius.org>
+	id S1751363Ab1JSQuz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 12:50:55 -0400
+In-Reply-To: <1319023851.3103.17.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 19 Oct 2011 13:30:51 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
---------------enigA07F9DB473624253F0F2E7DF
-Content-Type: multipart/mixed;
- boundary="------------050700030803050803080209"
-
-This is a multi-part message in MIME format.
---------------050700030803050803080209
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 10/19/2011 04:55 PM, Nico Schottelius wrote:
-> Hey Arend,
+> Le mercredi 19 octobre 2011 =E0 17:15 +0800, Bin Li a =E9crit :
+> > Stephen,
+> >=20
+> >  You can reproduce this issue in 2.6.37 like below. And the previou=
+s
+> > gdb log is after the install the debuginfo package in SUSE.
+> >=20
+> > # ip -6 xfrm state add src 3ffe:501:ffff:ff03:21a:64ff:fe12:e4c1 ds=
+t
+> > 3ffe:501:ffff:ff05:200:ff:fe00:c1c1 proto ah spi 0x1000 mode transp=
+ort
+> > auth md5 "TAHITEST89ABCDEF"
+> >=20
+> > *** buffer overflow detected ***: ip terminated
+> > =3D=3D=3D=3D=3D=3D=3D Backtrace: =3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > /lib/libc.so.6(__fortify_fail+0x40)[0xb76d0070]
+> > /lib/libc.so.6(+0xe8e27)[0xb76cde27]
+> > /lib/libc.so.6(+0xe8317)[0xb76cd317]
+> > ip[0x806d6c4]
+> > ip(do_xfrm_state+0x120)[0x806dc70]
+> > ip(do_xfrm+0x81)[0x806ad51]
+> > ip[0x804c355]
+> > ip(main+0x476)[0x804caa6]
+> > /lib/libc.so.6(__libc_start_main+0xfe)[0xb75fbc2e]
+> > ip[0x804c261]
+> > =3D=3D=3D=3D=3D=3D=3D Memory map: =3D=3D=3D=3D=3D=3D=3D=3D
+> > 08048000-08087000 r-xp 00000000 08:01 4465       /sbin/ip
+> > 08087000-08088000 r--p 0003e000 08:01 4465       /sbin/ip
+> > 08088000-0808a000 rw-p 0003f000 08:01 4465       /sbin/ip
+> > 0808a000-080ad000 rw-p 00000000 00:00 0          [heap]
+> > b75c6000-b75e2000 r-xp 00000000 08:01 131084     /lib/libgcc_s.so.1
+> > b75e2000-b75e3000 r--p 0001b000 08:01 131084     /lib/libgcc_s.so.1
+> > b75e3000-b75e4000 rw-p 0001c000 08:01 131084     /lib/libgcc_s.so.1
+> > b75e4000-b75e5000 rw-p 00000000 00:00 0
+> > b75e5000-b774b000 r-xp 00000000 08:01 131375     /lib/libc-2.11.3.s=
+o
+> > b774b000-b774c000 ---p 00166000 08:01 131375     /lib/libc-2.11.3.s=
+o
+> > b774c000-b774e000 r--p 00166000 08:01 131375     /lib/libc-2.11.3.s=
+o
+> > b774e000-b774f000 rw-p 00168000 08:01 131375     /lib/libc-2.11.3.s=
+o
+> > b774f000-b7752000 rw-p 00000000 00:00 0
+> > b7752000-b7755000 r-xp 00000000 08:01 131428     /lib/libdl-2.11.3.=
+so
+> > b7755000-b7756000 r--p 00002000 08:01 131428     /lib/libdl-2.11.3.=
+so
+> > b7756000-b7757000 rw-p 00003000 08:01 131428     /lib/libdl-2.11.3.=
+so
+> > b7774000-b7775000 rw-p 00000000 00:00 0
+> > b7775000-b7794000 r-xp 00000000 08:01 154467     /lib/ld-2.11.3.so
+> > b7794000-b7795000 r--p 0001e000 08:01 154467     /lib/ld-2.11.3.so
+> > b7795000-b7796000 rw-p 0001f000 08:01 154467     /lib/ld-2.11.3.so
+> > bfa02000-bfa23000 rw-p 00000000 00:00 0          [stack]
+> > ffffe000-fffff000 r-xp 00000000 00:00 0          [vdso]
+> > Aborted
+> >=20
+> > And If without -D_FORTIFY_SOURCE=3D2 in gcc, it works fine, so It's=
+ a
+> > bug in iproute2 which is not conforming to -D_FORTIFY_SOURCE=3D2
+> > restrictions.
+> >=20
 >=20
+> FORTIFY assumes we cant copy a string on alg.u.alg.alg_key !
 >=20
-> Arend van Spriel [Wed, Oct 19, 2011 at 04:43:27PM +0200]:
->> I actually don't see the rtnl_lock or mutex_lock that was listed in yo=
-ur
->> original dmesg. There are a lot of warning traces from mac80211.c.
+> This completely precludes 0-sized arrays
+>=20
+> struct xfrm_algo {
+>         char            alg_name[64];
+>         unsigned int    alg_key_len;    /* in bits */
+>         char            alg_key[0];
+> };
+>=20
+> struct {
+>       union {
+>           struct xfrm_algo alg;
+>           struct xfrm_algo_aead aead;
+>           struct xfrm_algo_auth auth;
+>       } u;
+>       char buf[XFRM_ALGO_KEY_BUF_SIZE];
+> } alg =3D {};
+>=20
+> I would say its a FORTIFY bug. This kind of construct is perfectly
+> valid.
 
-The warnings are probably a diversion. This is the warning in
-ieee80211_rx():
+Maybe it will handle flexible style arrays.
+See also:
+   http://gcc.gnu.org/onlinedocs/gcc/Zero-Length.html
 
-			if (WARN_ON(status->rate_idx < 0 ||
-				    status->rate_idx >=3D sband->n_bitrates))
-				goto drop;
-			rate =3D &sband->bitrates[status->rate_idx];
-
-This means that the driver (brcmsmac) provides a data packet with an
-out-of-range rate index. This reminded me of a fix I made about a month
-ago. Could you apply the attached patch file. It is based on:
-
-commit bee709ab1d390afe69e4407bc86bb706c6fb2965
-Merge: ad1c761 1f2c7e9
-Author: Nico Schottelius <nico@kr.ethz.ch>
-Date:   Tue Oct 18 00:04:05 2011 +0200
-
-    Merge branch 'fix-edp-vdd-power' of ../keithp/linux
-
-As it drops receive packets it may be your problem. Is your AP on 5GHz?
-
-Gr. AvS
-
---------------050700030803050803080209
-Content-Type: text/x-patch;
- name="0001-staging-brcm80211-fix-for-rate-index-in-receive-stat.patch"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
- filename*0="0001-staging-brcm80211-fix-for-rate-index-in-receive-stat.pa";
- filename*1="tch"
-
-=46rom 7d14bd6cbfbf26369c5958e56a468fd8429841d7 Mon Sep 17 00:00:00 2001
-From: Arend van Spriel <arend@broadcom.com>
-Date: Wed, 19 Oct 2011 18:42:45 +0200
-Subject: [PATCH] staging: brcm80211: fix for rate index in receive status=
-
-
-Made a patch for Nico to try whether this resolves his issue.
-
-Signed-off-by: Arend van Spriel <arend@broadcom.com>
----
- drivers/staging/brcm80211/brcmsmac/main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/staging/brcm80211/brcmsmac/main.c b/drivers/staging/=
-brcm80211/brcmsmac/main.c
-index 1763c45..49c8eb9 100644
---- a/drivers/staging/brcm80211/brcmsmac/main.c
-+++ b/drivers/staging/brcm80211/brcmsmac/main.c
-@@ -4608,6 +4608,10 @@ prep_mac80211_status(struct brcms_c_info *wlc, str=
-uct d11rxhdr *rxh,
- 			wiphy_err(wlc->wiphy, "%s: Unknown rate\n", __func__);
- 		}
-=20
-+		/* DEBUG: fix rate index in receive status */
-+		if (rx_status->band =3D=3D IEEE80211_BAND_5GHZ)
-+			rx_status->rate_idx -=3D 4;
-+
- 		/* Determine short preamble and rate_idx */
- 		preamble =3D 0;
- 		if (IS_CCK(rspec)) {
---=20
-1.7.4.1
-
-
---------------050700030803050803080209--
-
---------------enigA07F9DB473624253F0F2E7DF
-Content-Type: application/pgp-signature;
- name=signature.asc
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment;
- filename=signature.asc
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iQIcBAEBAgAGBQJOnv9VAAoJELcEx/G14aEWmocQAKMxRi2iV1qeli1CWe5ehupH
-QjYI2u8n2a4uNhlBi0W29BYTaxngF0ukdcnck1026oZrSEnW9POEnk+cN4kFxDWA
-lV52DeKJuQ/RRY+BPK+uy1XVl1ZhRf/xp7EKwEphTs2iElHE7BxOGd/52G3vLJys
-ggSq6bzfbVQGarsNhPdztmdrwSoNVh5L2y3Dt5vKtWKNc8hbs2oAoxjxt3Otdke1
-zX6rkWnqKLy6tWBwU+xckBV8cf5XSF3cxFVNiHnzOAFisLjXbTHIAqe0F7J3dqUW
-2diWMo9C8vAp8WCntmP4NDn729JRQXXL61cfysE8MxiRUQd2/7OMVRhtvXUDI/DU
-qPxfyYuZSXgp+ch5qSxwPb9QN7Sm4uDkfU8tMIJTvClF9Ff/PRnpE/IQoqK7jVWL
-JObNrCXZMWpDo6KnBTU/7i3Pr7ayZu/hTzbWuM1lafiAgEdLzcDqgJ7PwwUs+5Ne
-TZMZ4V2KK1r4DW+yHUiEGdTPTS04mDr/MOPwXSgKHtRsmO7XUlGmNtt0G2F2FMO6
-RIKbREpCR57Zd5q07x98cBEe7FOsjVuQ2dslH95mKfo8NmjfbDREoWdl24iMxcti
-7DhuC9EJhWLM76MHt4+3M+IZIJOyrA89ITTdCKWeXWKFfdPcVpbgTW5xw4aswRR2
-3cuxlCwS7r4TGzTRm/K7
-=0p/5
------END PGP SIGNATURE-----
-
---------------enigA07F9DB473624253F0F2E7DF--
+At this time, I won't accept the patch that uses alloca() just to deal
+with this FORTIFY bug.
