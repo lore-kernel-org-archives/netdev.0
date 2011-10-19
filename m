@@ -1,44 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 1/1] net: validate HWTSTAMP ioctl parameters
-Date: Wed, 19 Oct 2011 22:16:56 +0100
-Message-ID: <1319059016.2829.68.camel@bwh-desktop>
-References: <cover.1318584677.git.richard.cochran@omicron.at>
-	 <eca6d279cd96da44d9ad26bdda8fc8c2130c03c1.1318584677.git.richard.cochran@omicron.at>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace aware
+Date: Wed, 19 Oct 2011 06:52:28 -0700
+Message-ID: <m1sjmpytpf.fsf@fess.ebiederm.org>
+References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
+	<1318974898-21431-10-git-send-email-serge@hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:35442 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754181Ab1JSVQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 17:16:59 -0400
-In-Reply-To: <eca6d279cd96da44d9ad26bdda8fc8c2130c03c1.1318584677.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	oleg@redhat.com, richard@nod.at, mikevs@xs4all.net,
+	segoon@openwall.com, gregkh@suse.de, dhowells@redhat.com,
+	eparis@redhat.com, "Serge E. Hallyn" <serge.hallyn@canonical.com>,
+	netdev@vger.kernel.org
+To: Serge Hallyn <serge@hallyn.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318974898-21431-10-git-send-email-serge@hallyn.com> (Serge
+	Hallyn's message of "Tue, 18 Oct 2011 21:54:58 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-10-14 at 11:37 +0200, Richard Cochran wrote:
-> This patch adds a sanity check on the values provided by user space for
-> the hardware time stamping configuration. If the values lie outside of
-> the absolute limits, then the ioctl request will be denied.
-[...]
+Serge Hallyn <serge@hallyn.com> writes:
 
-What does this validation buy us?  The driver still has to copy the
-values into kernel space again, at which point they may have been
-changed to be invalid.  Depending on how the driver uses them (perhaps
-as array indices), it may have to validate them again to avoid a
-security vulnerability.
+> From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
+>
+> Currently uids are compared without regard for the user namespace.
+> Fix that to prevent tasks in a different user namespace from
+> wrongly matching on SCM_CREDENTIALS.
+>
+> In the past, either your uids had to match, or you had to have
+> CAP_SETXID.  In a namespaced world, you must either (both be in the
+> same user namespace and have your uids match), or you must have
+> CAP_SETXID targeted at the other user namespace.  The latter can
+> happen for instance if uid 500 created a new user namespace and
+> now interacts with uid 0 in it.
 
-I think that either SIOCHWTSTAMP should be handled through a discrete
-device operation (not ndo_ioctl) which receives a pointer to the
-validated structure in kernel memory, or a validation function should be
-exported to drivers so that they can call it from their ndo_ioctl
-implementations after copying the structure into kernel memory.
+Serge this approach is wrong.
 
-Ben.
+Because we pass the cred and the pid through the socket socket itself
+is just a conduit and should be ignored in this context.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The only interesting test should be are you allowed to impersonate other
+users in your current userk namespace.
+
+So it should be possible to simplify the entire patch to just:
+ static __inline__ int scm_check_creds(struct ucred *creds)
+ {
+ 	const struct cred *cred = current_cred();
++	struct user_namespace *ns = cred->user_ns;
+
+-	if ((creds->pid == task_tgid_vnr(current) || capable(CAP_SYS_ADMIN)) &&
+-	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
+-	      creds->uid == cred->suid) || capable(CAP_SETUID)) &&
+-	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
+-	      creds->gid == cred->sgid) || capable(CAP_SETGID))) {
++	if ((creds->pid == task_tgid_vnr(current) || ns_capable(ns, CAP_SYS_ADMIN)) &&
++	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
++	      creds->uid == cred->suid) || ns_capable(ns, CAP_SETUID)) &&
++	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
++	      creds->gid == cred->sgid) || ns_capable(ns, CAP_SETGID))) {
+  	       return 0;
+  	}
+  	return -EPERM;
+  }
