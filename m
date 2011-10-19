@@ -1,49 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net -v2] [BUGFIX] bonding: use local function pointer
- of bond->recv_probe in bond_handle_frame
-Date: Wed, 19 Oct 2011 00:14:47 -0400 (EDT)
-Message-ID: <20111019.001447.91777553130308365.davem@davemloft.net>
-References: <20111013020429.3554.78679.stgit@ltc219.sdl.hitachi.co.jp>
-	<1318997127.19139.14.camel@edumazet-laptop>
+Subject: Re: [PATCH 0/3] net: time stamping fixes
+Date: Wed, 19 Oct 2011 00:16:10 -0400 (EDT)
+Message-ID: <20111019.001610.312990203017422173.davem@davemloft.net>
+References: <56185ca8a7dc0223031ca0f0996302cac1b497eb.1318444117.git.richard.cochran@omicron.at>
+	<cover.1318498805.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mitsuo.hayasaka.hu@hitachi.com, fubar@us.ibm.com,
-	andy@greyhouse.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com,
-	xiyou.wangcong@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318997127.19139.14.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	johannes@sipsolutions.net
+To: richardcochran@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:44979 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122Ab1JSERS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 00:17:18 -0400
+In-Reply-To: <cover.1318498805.git.richard.cochran@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 19 Oct 2011 06:05:27 +0200
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Thu, 13 Oct 2011 11:46:26 +0200
 
-> Le jeudi 13 octobre 2011 =E0 11:04 +0900, Mitsuo Hayasaka a =E9crit :
->> The bond->recv_probe is called in bond_handle_frame() when
->> a packet is received, but bond_close() sets it to NULL. So,
->> a panic occurs when both functions work in parallel.
->>=20
->> Why this happen:
->> After null pointer check of bond->recv_probe, an sk_buff is
->> duplicated and bond->recv_probe is called in bond_handle_frame.
->> So, a panic occurs when bond_close() is called between the
->> check and call of bond->recv_probe.
->>=20
->> Patch:
->> This patch uses a local function pointer of bond->recv_probe
->> in bond_handle_frame(). So, it can avoid the null pointer
->> dereference.
->>=20
->>=20
->> Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
- ...
-> Sorry, I forgot to add my official ack. Even if not a perfect patch, =
-its
-> a step into right direction.
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> The first patch fixes a bug in the time stamping code introduced in
+> v2.6.36 of the kernel.
+> 
+> The other two patches depend on the first patch and fix two bugs in a
+> PTP Hardware Clock driver. This driver was first introduced in Linux
+> version 3.0.
+> 
+> Richard Cochran (3):
+>   net: hold sock reference while processing tx timestamps
+>   dp83640: use proper function to free transmit time stamping packets
+>   dp83640: free packet queues on remove
 
-Thanks for reviewing Eric, applied.
+Johannes and Eric, please help review Richard's fixes here.
+
+Thanks!
