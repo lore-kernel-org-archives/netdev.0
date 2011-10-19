@@ -1,40 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] neigh: fix rcu splat in neigh_update()
-Date: Wed, 19 Oct 2011 19:39:10 -0400 (EDT)
-Message-ID: <20111019.193910.388701305423765916.davem@davemloft.net>
-References: <1318926762-14563-1-git-send-email-roy.qing.li@gmail.com>
-	<1318929095.2657.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH] Fix guest memory leak and panic
+Date: Wed, 19 Oct 2011 19:38:16 -0400 (EDT)
+Message-ID: <20111019.193816.1914930895184608328.davem@davemloft.net>
+References: <OFB632D60B.6534A38B-ON6525792D.003A1B21-6525792D.003B0DB8@in.ibm.com>
+	<1318935055.3385.0.camel@zakaz.uk.xensource.com>
+	<OFF565DE9F.92BF6FE5-ON6525792D.00488336-6525792D.00494D56@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roy.qing.li@gmail.com, ari.m.savolainen@gmail.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51136 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754680Ab1JSXjO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 19:39:14 -0400
-In-Reply-To: <1318929095.2657.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Ian.Campbell@citrix.com, linux-kernel@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	virtualization@lists.linux-foundation.org
+To: krkumar2@in.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <OFF565DE9F.92BF6FE5-ON6525792D.00488336-6525792D.00494D56@in.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 18 Oct 2011 11:11:35 +0200
 
-> Le mardi 18 octobre 2011 =E0 16:32 +0800, roy.qing.li@gmail.com a =E9=
-crit :
->> when use dst_get_neighbour to get neighbour, we need=20
->> rcu_read_lock to protect, since dst_get_neighbour uses
->> rcu_dereference.
->>=20
->> The bug was reported by Ari Savolainen <ari.m.savolainen@gmail.com>
->>=20
-> ...
->>=20
->> Reported-by: Ari Savolainen <ari.m.savolainen@gmail.com>
->> Signed-off-by: RongQing <roy.qing.li@gmail.com>
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Krishna could you please respin your original patch, fixing the subject
+and adjusting the commit message to indicate this is a cleanup.
 
-Applied, thanks.
+Assume I have applied Ian's patch, because that's what I'm about to
+do.
+
+Thanks!
