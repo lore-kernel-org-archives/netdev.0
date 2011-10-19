@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: kenel level packet capturing
-Date: Wed, 19 Oct 2011 03:13:14 -0400 (EDT)
-Message-ID: <20111019.031314.1383303852454510720.davem@davemloft.net>
-References: <CAKj1SsP+GE=QqN8nx7aaAxXE8BODKb=vns_=SnbyySQjZp3-pg@mail.gmail.com>
-	<CAKj1SsOnYsOXjRBKm+=hTnEiesXrC3h0Q-KN2b61nPSQud9wMA@mail.gmail.com>
+Subject: Re: [PATCH net-next] net: add skb frag size accessors
+Date: Wed, 19 Oct 2011 03:13:43 -0400 (EDT)
+Message-ID: <20111019.031343.1993209929822862836.davem@davemloft.net>
+References: <1318279267.2567.19.camel@edumazet-laptop>
+	<1319007624.16303.5.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org
-To: raviraj.j1991@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAKj1SsOnYsOXjRBKm+=hTnEiesXrC3h0Q-KN2b61nPSQud9wMA@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51131 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590Ab1JSHNq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 03:13:46 -0400
+In-Reply-To: <1319007624.16303.5.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: raviraj joshi <raviraj.j1991@gmail.com>
-Date: Wed, 19 Oct 2011 12:24:01 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 19 Oct 2011 09:00:24 +0200
 
-> We are finding it difficult to understand kenel networking code.
+> To ease skb->truesize sanitization, its better to be able to localize
+> all references to skb frags size.
+> 
+> Define accessors : skb_frag_size() to fetch frag size, and
+> skb_frag_size_{set|add|sub}() to manipulate it.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-That's surprising, because the Linux networking stack is the cleanest
-real world networking implementation on the planet.
-
-Perhaps you should think about re-evaluating your project choice?
+Applied, thanks for respinning this Eric.
