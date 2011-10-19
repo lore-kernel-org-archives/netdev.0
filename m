@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bluetooth: Properly clone LSM attributes to newly
- created child connections
-Date: Tue, 18 Oct 2011 23:36:56 -0400 (EDT)
-Message-ID: <20111018.233656.1245200653040022710.davem@davemloft.net>
-References: <20111007194059.12345.13398.stgit@sifl>
+Subject: Re: [net-next v2] cs89x0: Move the driver into the Cirrus dir
+Date: Tue, 18 Oct 2011 23:42:05 -0400 (EDT)
+Message-ID: <20111018.234205.1412280184407630539.davem@davemloft.net>
+References: <1318061264-25310-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: pmoore@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20111007194059.12345.13398.stgit@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	nelson@crynwr.com, akpm@linux-foundation.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:47234 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753156Ab1JSDmT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 23:42:19 -0400
+In-Reply-To: <1318061264-25310-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Fri, 07 Oct 2011 15:40:59 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat,  8 Oct 2011 01:07:44 -0700
 
-> The Bluetooth stack has internal connection handlers for all of the various
-> Bluetooth protocols, and unfortunately, they are currently lacking the LSM
-> hooks found in the core network stack's connection handlers.  I say
-> unfortunately, because this can cause problems for users who have have an
-> LSM enabled and are using certain Bluetooth devices.  See one problem
-> report below:
+> The cs89x0 driver was initial placed in the apple/ when it
+> should have been placed in the cirrus/.  This resolves the
+> issue by moving the dirver and fixing up the respective
+> Kconfig(s) and Makefile(s).
 > 
->  * http://bugzilla.redhat.com/show_bug.cgi?id=741703
+> Thanks to Sascha for reporting the issue.
 > 
-> In order to keep things simple at this point in time, this patch fixes the
-> problem by cloning the parent socket's LSM attributes to the newly created
-> child socket.  If we decide we need a more elaborate LSM marking mechanism
-> for Bluetooth (I somewhat doubt this) we can always revisit this decision
-> in the future.
+> -v2 Fix a config error that was introduced with v1 by removing
+>     the dependency on MACE for NET_VENDOR_APPLE.
 > 
-> Reported-by: James M. Cape <jcape@ignore-your.tv>
-> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> CC: Russell Nelson <nelson@crynwr.com>
+> CC: Andrew Morton <akpm@linux-foundation.org>
+> Reported-by: Sascha Hauer <s.hauer@pengutronix.de>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied, thanks!
+Applied, thanks.
