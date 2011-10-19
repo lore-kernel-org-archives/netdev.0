@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] xfrm6: Don't call icmpv6_send on local error
-Date: Tue, 18 Oct 2011 23:53:26 -0400 (EDT)
-Message-ID: <20111018.235326.728003889061782561.davem@davemloft.net>
-References: <20111011114251.GH1830@secunet.com>
-	<20111011114430.GJ1830@secunet.com>
+Subject: Re: [PATCH v2] netconsole: enable netconsole can make net_device
+ refcnt incorrent
+Date: Tue, 18 Oct 2011 23:55:39 -0400 (EDT)
+Message-ID: <20111018.235539.636455324005288300.davem@davemloft.net>
+References: <1318385291-15483-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<20111012102344.0b718260@asterix.rh>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:32980 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:32992 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753560Ab1JSDxc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 23:53:32 -0400
-In-Reply-To: <20111011114430.GJ1830@secunet.com>
+	with ESMTP id S1753596Ab1JSDzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 23:55:47 -0400
+In-Reply-To: <20111012102344.0b718260@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 11 Oct 2011 13:44:30 +0200
+From: Flavio Leitner <fbl@redhat.com>
+Date: Wed, 12 Oct 2011 10:23:44 -0300
 
-> Calling icmpv6_send() on a local message size error leads to
-> an incorrect update of the path mtu. So use xfrm6_local_rxpmtu()
-> to notify about the pmtu if the IPV6_DONTFRAG socket option is
-> set on an udp or raw socket, according RFC 3542 and use
-> ipv6_local_error() otherwise.
+> On Wed, 12 Oct 2011 10:08:11 +0800
+> Gao feng <gaofeng@cn.fujitsu.com> wrote:
 > 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> There is no check if netconsole is enabled current.
+>> so when exec echo 1 > enabled;
+>> the reference of net_device will increment always.
+>> 
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>> ---
+>>  drivers/net/netconsole.c |    5 +++++
+>>  1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> Looks better, thanks!
+> Acked-by: Flavio Leitner <fbl@redhat.com>
 
-Applied.
+Applied, thanks everyone.
