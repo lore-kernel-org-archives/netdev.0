@@ -1,39 +1,28 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] Disable TCP_DEBUG and FASTRETRANS_DEBUG by default
-Date: Wed, 19 Oct 2011 15:16:00 -0200
-Message-ID: <20111019151600.67cd99e6@asterix.rh>
-References: <1318883125-29500-1-git-send-email-dpmcgee@gmail.com>
-	<20111017.175238.18474279385644215.davem@davemloft.net>
+From: "Help Desk" <cus_care18@yahoo.com>
+Subject: EMAIL VERIFICATION.
+Date: Wed, 19 Oct 2011 18:25:33 -0000
+Message-ID: <SERVEUR-SMTPdnHM3SO000001aa@smtp1.infonet-services.fr>
+Reply-To: "Help Desk" <cus_care18@yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dpmcgee@gmail.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111017.175238.18474279385644215.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [194.206.24.120] ([194.206.24.120]:4212 "EHLO
+	smtp1.infonet-services.fr" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756877Ab1JSRTB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 13:19:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Oct 2011 17:52:38 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+--
+CLICK REPLY BEFORE FILLING DETAILS
 
-> From: Dan McGee <dpmcgee@gmail.com>
-> Date: Mon, 17 Oct 2011 15:25:24 -0500
-> 
-> > If these are truly debug options, they should be turned off by default
-> > and can be tweaked if necessary. Fix one usage of the flag to use #if
-> > instead of #ifdef so defining to zero is acceptable.
-> > 
-> > Signed-off-by: Dan McGee <dpmcgee@gmail.com>
-> 
-> Illegal window shrinks are a serious issue, and the fact that everyone
-> will see those messages by default and sometimes report them has been
-> tremendously useful.
->
+Attention:
 
-Agreed. I recently got bug report because of that message.  It is useful
-and doesn't disturbe when network is fine, so please don't remove it.
+An Attempt has been made to login from a new computer. For the security of
+your account, we are poised to open a query. Kindly verify your login
+details by responding to this email and providing your Username/ID {_______}
+Password {_______} Alternate Password {_______} in the spaces.
 
-fbl
+Do not ignore this message to avoid termination of your webmail account.
