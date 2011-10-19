@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] [IPV6] cleanup: remove unnecessary
- include.
-Date: Wed, 19 Oct 2011 19:27:00 -0400 (EDT)
-Message-ID: <20111019.192700.1285146703102209795.davem@davemloft.net>
-References: <CAGXs5wWNwy-dWaXMVp62FiaXxiKnDNNE3PX3DtqPVs9VCY+kMA@mail.gmail.com>
+Subject: Re: [PATCH] NET: asix: fix ethtool -e for AX88178 USB dongle
+Date: Wed, 19 Oct 2011 19:31:24 -0400 (EDT)
+Message-ID: <20111019.193124.1671539300674527473.davem@davemloft.net>
+References: <1318866666-956-1-git-send-email-grundler@chromium.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wkevils@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51859 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754660Ab1JSX1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 19:27:02 -0400
-In-Reply-To: <CAGXs5wWNwy-dWaXMVp62FiaXxiKnDNNE3PX3DtqPVs9VCY+kMA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	allan@asix.com.tw, freddy@asix.com.tw
+To: grundler@chromium.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318866666-956-1-git-send-email-grundler@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kevin Wilson <wkevils@gmail.com>
-Date: Sun, 16 Oct 2011 17:21:57 +0200
+From: Grant Grundler <grundler@chromium.org>
+Date: Mon, 17 Oct 2011 08:51:06 -0700
 
-> This cleanup patch removes unnecessary include from net/ipv6/ip6_fib.c.
->
-> Signed-off-by: Kevin Wilson <wkevils@gmail.com>
+> "ethtool -e ethX" dumps EEPROM data. Patch sets EEPROM length for device.
+> Ethtool works alot better when the kernel believes the length is > 0.
+> 
+> From: Allan Chou <allan@asix.com.tw>
+> Signed-off-by: Grant Grundler <grundler@chromium.org>
 
-Applied.
+Applied to net-next, thanks.
