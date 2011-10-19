@@ -1,76 +1,41 @@
-From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-Subject: [PATCHv2] ll_temac: Add support for ethtool
-Date: Wed, 19 Oct 2011 09:35:25 +0200
-Message-ID: <1319009725-7869-1-git-send-email-ricardo.ribalda@gmail.com>
-Cc: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-To: davem@davemloft.net, ian.campbell@citrix.com,
-	jeffrey.t.kirsher@intel.com, grant.likely@secretlab.ca,
-	jpirko@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: RE: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
+ Ethernet driver
+Date: Wed, 19 Oct 2011 07:44:02 +0000
+Message-ID: <6349D7A510622448B1BA0967850A8438011CBA5D@nasanexd02d.na.qualcomm.com>
+References: <1319009213-20627-1-git-send-email-cloud.ren@atheros.com>
+ <20111019.033324.1233460304204609569.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111019.033324.1233460304204609569.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables the ethtool interface. The implementation is done
-using the libphy helper functions.
+Ok. What logging interfaces can I use? Are they dev_err, dev_info and dev_warn ? thanks
 
----
-v2: Fixed propossed by Ben Hutchings
-	- Rebase to net/next
-	- Code Style
 
-v1: Add reviewed by
 
-Reviewed-by: Grant Likely <grant.likely@secretlab.ca>
-Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Wednesday, October 19, 2011 3:33 PM
+To: Ren, Cloud
+Cc: Rodriguez, Luis; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+Subject: Re: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161 Ethernet driver
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index 66e3c36..2e90c01 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -955,6 +955,32 @@ static const struct attribute_group temac_attr_group = {
- 	.attrs = temac_device_attrs,
- };
- 
-+/* ethtool support */
-+static int temac_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-+{
-+	struct temac_local *lp = netdev_priv(ndev);
-+	return phy_ethtool_gset(lp->phy_dev, cmd);
-+}
-+
-+static int temac_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-+{
-+	struct temac_local *lp = netdev_priv(ndev);
-+	return phy_ethtool_sset(lp->phy_dev, cmd);
-+}
-+
-+static int temac_nway_reset(struct net_device *ndev)
-+{
-+	struct temac_local *lp = netdev_priv(ndev);
-+	return phy_start_aneg(lp->phy_dev);
-+}
-+
-+static const struct ethtool_ops temac_ethtool_ops = {
-+	.get_settings = temac_get_settings,
-+	.set_settings = temac_set_settings,
-+	.nway_reset = temac_nway_reset,
-+	.get_link = ethtool_op_get_link,
-+};
-+
- static int __devinit temac_of_probe(struct platform_device *op)
- {
- 	struct device_node *np;
-@@ -976,6 +1002,7 @@ static int __devinit temac_of_probe(struct platform_device *op)
- 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
- 	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
- 	ndev->netdev_ops = &temac_netdev_ops;
-+	ndev->ethtool_ops = &temac_ethtool_ops;
- #if 0
- 	ndev->features |= NETIF_F_IP_CSUM; /* Can checksum TCP/UDP over IPv4. */
- 	ndev->features |= NETIF_F_HW_CSUM; /* Can checksum all the packets. */
--- 
-1.7.7
+From: <cloud.ren@Atheros.com>
+Date: Wed, 19 Oct 2011 15:26:53 +0800
+
+> +#define HW_PRINT(_klv, _fmt, _args...) \
+> +	if (ALX_HW_MSG_LV_##_klv || ALX_HW_MSG_LV_ALL) {\
+> +		printk(KERN_##_klv ALX_HW_MSG_PFX_NAME "%s: " _fmt, \
+> +			__func__, ## _args); \
+> +	}
+
+Do not create your own network driver debugging facilities and macros for logging messages, we have rich debugging and logging level interfaces that network drivers can use exactly for this purpose.
