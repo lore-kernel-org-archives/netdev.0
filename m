@@ -1,42 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga) causes
- kernel oops
-Date: Wed, 19 Oct 2011 09:52:19 +0200
-Message-ID: <1319010739.18562.6.camel@edumazet-laptop>
-References: <20111018134537.GA17055@gondor.apana.org.au>
-	 <20111019.030914.218521668377472155.davem@davemloft.net>
-	 <1319008713.17914.8.camel@edumazet-laptop>
-	 <20111019.033052.851679720607111734.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bonding: fix wrong port enabling in 802.3ad
+Date: Wed, 19 Oct 2011 03:53:43 -0400 (EDT)
+Message-ID: <20111019.035343.1749126014967505732.davem@davemloft.net>
+References: <1318526483-16073-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: herbert@gondor.hengli.com.au, evonlanthen@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	timo.teras@iki.fi
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36922 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751870Ab1JSHwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 03:52:39 -0400
-In-Reply-To: <20111019.033052.851679720607111734.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:35128 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754994Ab1JSHyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 03:54:09 -0400
+In-Reply-To: <1318526483-16073-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 19 octobre 2011 =C3=A0 03:30 -0400, David Miller a =C3=A9cr=
-it :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 19 Oct 2011 09:18:33 +0200
->=20
-> > Seems fine (Maybe do the +15 in caller site ?), but we also have ot=
-her
-> > problematic cases, using alloc_skb() only...
->=20
-> Ok, which ones operate over these problematic GRE tunnels?
->=20
+From: Flavio Leitner <fbl@redhat.com>
+Date: Thu, 13 Oct 2011 14:21:23 -0300
 
-I was more thinking of general idea to allow any device to change its
-needed headroom.
+> The port shouldn't be enabled unless its current MUX
+> state is DISTRIBUTING which is correctly handled by
+> ad_mux_machine(), otherwise the packet sent can be
+> lost because the other end may not be ready.
+> 
+> The issue happens on every port initialization, but
+> as the ports are expected to move quickly to DISTRIBUTING,
+> it doesn't cause much problem.  However, it does cause
+> constant packet loss if the other peer has the port
+> configured to stay in STANDBY (i.e. SYNC set to OFF).
+> 
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
 
-=46or GRE tunnels, I dont think IPv6 fragmentation could be relevant,
-but maybe IGMP could trigger a problem ?
+Applied, thanks.
