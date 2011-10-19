@@ -1,75 +1,40 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 7/8 RFC v2] macvtap: Add support to set MAC/VLAN
-	filter rtnl link operations
-Date: Tue, 18 Oct 2011 23:26:30 -0700
-Message-ID: <20111019062630.7242.99374.stgit@savbu-pc100.cisco.com>
-References: <20111019062543.7242.3969.stgit@savbu-pc100.cisco.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] route:ip_rt_frag_needed always return unzero
+Date: Wed, 19 Oct 2011 14:36:47 +0800
+Message-ID: <4E9E6FFF.80802@cn.fujitsu.com>
+References: <1318921469-25599-1-git-send-email-gaofeng@cn.fujitsu.com>		 <1318929797.2657.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>		 <4E9E2929.7070701@cn.fujitsu.com>	 <1318996187.19139.8.camel@edumazet-laptop>	 <4E9E5E1C.5020603@cn.fujitsu.com> <1319003231.16303.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, dragos.tatulea@gmail.com, arnd@arndb.de,
-	kvm@vger.kernel.org, mst@redhat.com, davem@davemloft.net,
-	mchan@broadcom.com, dwang2@cisco.com, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, kaber@trash.net, benve@cisco.com
-To: netdev@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20111019062543.7242.3969.stgit@savbu-pc100.cisco.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:61951 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751102Ab1JSGgT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 02:36:19 -0400
+In-Reply-To: <1319003231.16303.2.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roprabhu@cisco.com>
+2011.10.19 13:47, Eric Dumazet wrote:
+> Le mercredi 19 octobre 2011 =C3=A0 13:20 +0800, Gao feng a =C3=A9crit=
+ :
+>=20
+>> In orig ip_rt_frag_need,
+>> zero can be return only when pmtu(get from icmp packet) is zero and =
+peer is NULL.
+>> in this case,raw_icmp_error will not be call too.this is valid??
+>=20
+> I dont know, tell me.
+>=20
+> I am afraid you're adding a possible regression here.
+>=20
+> pmtu from icmp_packet is not zero in the common case.
+>=20
+>=20
 
-This patch adds support to set MAC and VLAN filter rtnl_link_ops
-on a macvtap interface. It adds support for set_rx_addr_filter and
-set_rx_vlan_filter rtnl link operations. These operations inturn call the
-equivalent operations defined in macvlan
-
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
----
- drivers/net/macvtap.c |   22 ++++++++++++++++++----
- 1 files changed, 18 insertions(+), 4 deletions(-)
-
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 3da5578..8a2cb59 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -273,6 +273,18 @@ static int macvtap_receive(struct sk_buff *skb)
- 	return macvtap_forward(skb->dev, skb);
- }
- 
-+static int macvtap_set_rx_addr_filter(struct net_device *dev,
-+	struct nlattr *tb[])
-+{
-+	return macvlan_set_rx_addr_filter(dev, tb);
-+}
-+
-+static int macvtap_set_rx_vlan_filter(struct net_device *dev,
-+	struct nlattr *tb[])
-+{
-+	return macvlan_set_rx_vlan_filter(dev, tb);
-+}
-+
- static int macvtap_newlink(struct net *src_net,
- 			   struct net_device *dev,
- 			   struct nlattr *tb[],
-@@ -317,10 +329,12 @@ static void macvtap_setup(struct net_device *dev)
- }
- 
- static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
--	.kind		= "macvtap",
--	.setup		= macvtap_setup,
--	.newlink	= macvtap_newlink,
--	.dellink	= macvtap_dellink,
-+	.kind				= "macvtap",
-+	.setup				= macvtap_setup,
-+	.newlink			= macvtap_newlink,
-+	.dellink			= macvtap_dellink,
-+	.set_rx_addr_filter		= macvtap_set_rx_addr_filter,
-+	.set_rx_vlan_filter		= macvtap_set_rx_vlan_filter,
- };
- 
- 
-
+AS raw socket is special,I think it's should call raw_icmp_error even t=
+he icmp packet is invalid.
+if I am right,I think it's another BUG.
