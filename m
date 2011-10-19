@@ -1,83 +1,43 @@
-From: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-Subject: [PATCH net -v2] [BUGFIX] bonding: use flush_delayed_work_sync in
- bond_close
-Date: Wed, 19 Oct 2011 17:17:57 +0900
-Message-ID: <20111019081757.12455.24788.stgit@ltc219.sdl.hitachi.co.jp>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] route:ip_rt_frag_needed always return unzero
+Date: Wed, 19 Oct 2011 10:38:32 +0200
+Message-ID: <20111019083832.GT1830@secunet.com>
+References: <1318921469-25599-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1318929797.2657.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <4E9E2929.7070701@cn.fujitsu.com>
+ <1318996187.19139.8.camel@edumazet-laptop>
+ <4E9E5E1C.5020603@cn.fujitsu.com>
+ <20111019072628.GS1830@secunet.com>
+ <4E9E8552.1050405@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yrl.pp-manager.tt@hitachi.com,
-	Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	WANG Cong <xiyou.wangcong@gmail.com>
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, netdev@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.hitachi.co.jp ([133.145.228.42]:34451 "EHLO
-	mail7.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755565Ab1JSIMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 04:12:38 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:57495 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752427Ab1JSIim (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Oct 2011 04:38:42 -0400
+Content-Disposition: inline
+In-Reply-To: <4E9E8552.1050405@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_close() calls cancel_delayed_work() to cancel delayed works.
-It, however, cannot cancel works that were already queued in workqueue.
-The bond_open() initializes work->data, and proccess_one_work() refers
-get_work_cwq(work)->wq->flags. The get_work_cwq() returns NULL when
-work->data has been initialized. Thus, a panic occurs.
+On Wed, Oct 19, 2011 at 04:07:46PM +0800, Gao feng wrote:
+> 2011.10.19 15:26, Steffen Klassert wrote:
+> 
+> > 
+> > It is valid in the sense that we should not provide the user
+> > with a mtu information if we know that the value we got from
+> > the icmp packet ist bogus. But perhaps we can think about
+> > making the check for a valid mtu unconditionally and let
+> > ip_rt_frag_needed return a valid mtu in any case.
+> > 
+> > 
+> 
+> I think we should return the pmtu in icmp packet to the raw socket,
+> and the valid mtu to tcp_v4_err or something else.
+> 
 
-This patch uses flush_delayed_work_sync() instead of cancel_delayed_work()
-in bond_close(). It cancels delayed timer and waits for work to finish
-execution. So, it can avoid the null pointer dereference due to the
-parallel executions of proccess_one_work() and initializing proccess
-of bond_open().
-
-Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Cc: WANG Cong <xiyou.wangcong@gmail.com>
----
-
- drivers/net/bonding/bond_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index de3d351..a4353f9 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3504,27 +3504,27 @@ static int bond_close(struct net_device *bond_dev)
- 	write_unlock_bh(&bond->lock);
- 
- 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
--		cancel_delayed_work(&bond->mii_work);
-+		flush_delayed_work_sync(&bond->mii_work);
- 	}
- 
- 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
--		cancel_delayed_work(&bond->arp_work);
-+		flush_delayed_work_sync(&bond->arp_work);
- 	}
- 
- 	switch (bond->params.mode) {
- 	case BOND_MODE_8023AD:
--		cancel_delayed_work(&bond->ad_work);
-+		flush_delayed_work_sync(&bond->ad_work);
- 		break;
- 	case BOND_MODE_TLB:
- 	case BOND_MODE_ALB:
--		cancel_delayed_work(&bond->alb_work);
-+		flush_delayed_work_sync(&bond->alb_work);
- 		break;
- 	default:
- 		break;
- 	}
- 
- 	if (delayed_work_pending(&bond->mcast_work))
--		cancel_delayed_work(&bond->mcast_work);
-+		flush_delayed_work_sync(&bond->mcast_work);
- 
- 	if (bond_is_lb(bond)) {
- 		/* Must be called only after all
+Why you want to handle raw sockets different here?
