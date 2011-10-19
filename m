@@ -1,54 +1,41 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 0/3] net: time stamping fixes
-Date: Wed, 19 Oct 2011 13:50:12 +0200
-Message-ID: <20111019115012.GA7206@netboy.at.omicron.at>
-References: <56185ca8a7dc0223031ca0f0996302cac1b497eb.1318444117.git.richard.cochran@omicron.at>
- <cover.1318498805.git.richard.cochran@omicron.at>
- <20111019.001610.312990203017422173.davem@davemloft.net>
- <1319001336.4424.8.camel@jlt3.sipsolutions.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: Remove unused variable "cs" from ip_vs_leave
+ function.
+Date: Wed, 19 Oct 2011 21:08:03 +0900
+Message-ID: <20111019120759.GC17995@verge.net.au>
+References: <1318967989-14076-1-git-send-email-krzysztof.wilczynski@linux.com>
+ <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903183@ESESSCMS0356.eemea.ericsson.se>
+ <CAC52Y8ZvgBVC4_TEBFMALa-xU84PseV6w6sJO64ch+BdAqD2aA@mail.gmail.com>
+ <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903185@ESESSCMS0356.eemea.ericsson.se>
+ <20111019104945.GA17995@verge.net.au>
+ <20111019111112.GB10008@1984>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Hans =?utf-8?Q?Schillstr=C3=B6m?= <hans.schillstrom@ericsson.com>,
+	Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:44402 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755914Ab1JSLuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 07:50:09 -0400
-Received: by yxp4 with SMTP id 4so1574337yxp.19
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2011 04:50:08 -0700 (PDT)
+Received: from kirsty.vergenet.net ([202.4.237.240]:59741 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755177Ab1JSMII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 08:08:08 -0400
 Content-Disposition: inline
-In-Reply-To: <1319001336.4424.8.camel@jlt3.sipsolutions.net>
+In-Reply-To: <20111019111112.GB10008@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 19, 2011 at 07:15:36AM +0200, Johannes Berg wrote:
-> The only thing I'm not completely sure about is whether or not it is
-> permissible to sock_hold() at that point. I'm probably just missing
-> something, but: if sk_free() was called before hard_start_xmit() which
-> will call skb_clone_tx_timestamp(), can we really call sock_hold()?
+On Wed, Oct 19, 2011 at 01:11:12PM +0200, Pablo Neira Ayuso wrote:
+> On Wed, Oct 19, 2011 at 07:49:57PM +0900, Simon Horman wrote:
+> > Yes, it seems that Pablo has picked up the change but
+> > it hasn't propagated to Dave's tree for one reason or another.
 > 
-> The reason I ask is that sock_wfree() doesn't check sk_refcnt, so if it
-> is possible for sk_free() to have been called before hard_start_xmit(),
-> maybe because the packet was stuck on the qdisc for a while, the socket
-> won't be released (sk_free checks sk_wmem_alloc) but the sk_wfree() when
-> the original skb is freed will actually free the socket, invalidating
-> the clone's sk pointer *even though* we called sock_hold() right after
-> making the clone.
+> I was waiting for david to take bugfixes for his net tree. This
+> happened yesterday. Now I'll send updates for net-next.
 > 
-> So what guarantees that sk_refcnt is still non-zero when we make the
-> clone?
+> I expect to make it along today, please, be patient, they'll show up
+> in david's net-next tree soon :-)
 
-In the non-qdisc path, the kernel is in a send() call, so the initial
-reference taken in socket() is held.
+Hi Pablo,
 
-I really don't know the qdisc code, whether it is somehow holding the
-skb->sk indirectly or not.
-
-Eric? David?
-
-> Alternatively, should sock_wfree() check sk_refcnt?
-
-That would presumably spoil the performance enhancement gained in
-commit 2b85a34e.
+thanks for the clarification. I can be patient :-)
