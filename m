@@ -1,85 +1,83 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RESEND] [PATCH] ll_temac: Add support for ethtool
-Date: Wed, 19 Oct 2011 00:29:30 +0100
-Message-ID: <1318980570.23980.28.camel@deadeye>
-References: <1318960501-3544-1-git-send-email-ricardo.ribalda@gmail.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] route:ip_rt_frag_needed always return unzero
+Date: Wed, 19 Oct 2011 09:34:33 +0800
+Message-ID: <4E9E2929.7070701@cn.fujitsu.com>
+References: <1318921469-25599-1-git-send-email-gaofeng@cn.fujitsu.com> <1318929797.2657.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, grant.likely@secretlab.ca,
-	sfr@canb.auug.org.au, u.kleine-koenig@pengutronix.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318960501-3544-1-git-send-email-ricardo.ribalda@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:50455 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752105Ab1JSBeK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 21:34:10 -0400
+In-Reply-To: <1318929797.2657.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-10-18 at 19:55 +0200, Ricardo Ribalda Delgado wrote:
-> This patch enables the ethtool interface. The implementation is done
-> using the libphy helper functions.
+2011.10.18 17:23, Eric Dumazet wrote:
+> Le mardi 18 octobre 2011 =C3=A0 15:04 +0800, Gao feng a =C3=A9crit :
+>> int function ip_rt_frag_need,if peer is null,
+>> there is no need to do ipprot->err_handler.
+>> I am right?
+>>
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>> ---
+>>  net/ipv4/route.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>> index 075212e..6cde0fa 100644
+>> --- a/net/ipv4/route.c
+>> +++ b/net/ipv4/route.c
+>> @@ -1574,7 +1574,7 @@ unsigned short ip_rt_frag_needed(struct net *n=
+et, const struct iphdr *iph,
+>> =20
+>>  		atomic_inc(&__rt_peer_genid);
+>>  	}
+>> -	return est_mtu ? : new_mtu;
+>> +	return est_mtu;
+>>  }
+>> =20
+>>  static void check_peer_pmtu(struct dst_entry *dst, struct inet_peer=
+ *peer)
+>=20
+> No idea why you want this, your changelog is a bit cryptic :)
+>=20
+> Wont this bypass the raw_icmp_error(skb, protocol, info);
+> call in icmp_unreach() as well ?
+>=20
+>=20
 
-All Ethernet drivers have been moved in net-next.  This driver is now
-under drivers/net/ethernet/xilinx.
+thanks Eric!
 
-> Reviewed-by: Grant Likely <grant.likely@secretlab.ca>
-> Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-> ---
->  drivers/net/ll_temac_main.c |   27 +++++++++++++++++++++++++++
->  1 files changed, 27 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-> index 728fe41..91a9804 100644
-> --- a/drivers/net/ll_temac_main.c
-> +++ b/drivers/net/ll_temac_main.c
-> @@ -957,6 +957,32 @@ static const struct attribute_group temac_attr_group = {
->  	.attrs = temac_device_attrs,
->  };
->  
-> +/* ethtool support */
-> +static int temac_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-> +{
-> +	struct temac_local *lp = netdev_priv(ndev);
-> +	return phy_ethtool_gset(lp->phy_dev, cmd);
-> +}
-> +
-> +static int temac_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-> +{
-> +	struct temac_local *lp = netdev_priv(ndev);
-> +	return phy_ethtool_sset(lp->phy_dev, cmd);
-> +}
-> +
-> +static int temac_nway_reset(struct net_device *ndev)
-> +{
-> +	struct temac_local *lp = netdev_priv(ndev);
-> +	return phy_start_aneg(lp->phy_dev);
-> +}
-> +
-> +static const struct ethtool_ops temac_ethtool_ops = {
-> +	.get_settings = temac_get_settings,
-> +	.set_settings = temac_set_settings,
-> +	.nway_reset = temac_nway_reset,
-> +	.get_link = ethtool_op_get_link,
-> +};
-> +
->  static int __devinit temac_of_probe(struct platform_device *op)
->  {
->  	struct device_node *np;
-> @@ -978,6 +1004,7 @@ static int __devinit temac_of_probe(struct platform_device *op)
->  	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
->  	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
->  	ndev->netdev_ops = &temac_netdev_ops;
-> +	ndev->ethtool_ops= &temac_ethtool_ops;
+I mean that the pmtu is update by inet_peer->pmtu_learned as I know.
+so in function ip_rt_frag_needed,
+if inet_peer is null or someting else make the setting of inet_peer->pm=
+tu_learned failed.
+there is no need to call function tcp_v4_err.
 
-Missing space before '='.
+the call stack is
+icmp_unreach
+  |
+  |--->ip_rt_frag_needed(fill inet_peer)
+  |
+  |--->raw_icmp_error()
+  |
+  |--->ipprot->err_handler(tcp_v4_err or something else)
+	|
+	|--->tcp_v4_err(frag need icmp is triggered by tcp packet)
+		|
+		|--->do_pmtu_discovery
+		(in this function both __sk_dst_check or dst->ops->update_pmtu
+		need struct inet_peer to update pmtu)
 
-Ben.
+so,I think when set inet_peer->pmtu_learned failed,
+in func icmp_unreach we should goto out immediately.
 
->  #if 0
->  	ndev->features |= NETIF_F_IP_CSUM; /* Can checksum TCP/UDP over IPv4. */
->  	ndev->features |= NETIF_F_HW_CSUM; /* Can checksum all the packets. */
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+And it's confuse me that why func ping_err and udp_err not update the p=
+mtu?
+What I miss?
