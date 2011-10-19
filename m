@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] net: time stamping fixes
-Date: Wed, 19 Oct 2011 00:16:10 -0400 (EDT)
-Message-ID: <20111019.001610.312990203017422173.davem@davemloft.net>
-References: <56185ca8a7dc0223031ca0f0996302cac1b497eb.1318444117.git.richard.cochran@omicron.at>
-	<cover.1318498805.git.richard.cochran@omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] l2tp: give proper headroom in pppol2tp_xmit()
+Date: Wed, 19 Oct 2011 06:24:49 +0200
+Message-ID: <1318998289.19139.18.camel@edumazet-laptop>
+References: <1318002357.3207.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111018.233444.955647916101091708.davem@davemloft.net>
+	 <1318996826.19139.11.camel@edumazet-laptop>
+	 <20111019.001216.1105373017883639047.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	johannes@sipsolutions.net
-To: richardcochran@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44979 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751122Ab1JSERS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 00:17:18 -0400
-In-Reply-To: <cover.1318498805.git.richard.cochran@omicron.at>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47713 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751092Ab1JSEYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 00:24:55 -0400
+Received: by wyg36 with SMTP id 36so1298053wyg.19
+        for <netdev@vger.kernel.org>; Tue, 18 Oct 2011 21:24:54 -0700 (PDT)
+In-Reply-To: <20111019.001216.1105373017883639047.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Thu, 13 Oct 2011 11:46:26 +0200
+Le mercredi 19 octobre 2011 =C3=A0 00:12 -0400, David Miller a =C3=A9cr=
+it :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 19 Oct 2011 06:00:26 +0200
+> >=20
+> > Target of the patch is an embedded device, MIPS based.=20
+> >=20
+> > I am not sure perf is available on it.
+>=20
+> No MIPS specific code is needed to support perf tracepoint
+> analysis features.
+>=20
 
-> The first patch fixes a bug in the time stamping code introduced in
-> v2.6.36 of the kernel.
-> 
-> The other two patches depend on the first patch and fix two bugs in a
-> PTP Hardware Clock driver. This driver was first introduced in Linux
-> version 3.0.
-> 
-> Richard Cochran (3):
->   net: hold sock reference while processing tx timestamps
->   dp83640: use proper function to free transmit time stamping packets
->   dp83640: free packet queues on remove
-
-Johannes and Eric, please help review Richard's fixes here.
-
-Thanks!
+OK then I'll take a look, thanks for the hint !
