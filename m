@@ -1,41 +1,64 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: Remove unused variable "cs" from ip_vs_leave
- function.
-Date: Wed, 19 Oct 2011 21:08:03 +0900
-Message-ID: <20111019120759.GC17995@verge.net.au>
-References: <1318967989-14076-1-git-send-email-krzysztof.wilczynski@linux.com>
- <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903183@ESESSCMS0356.eemea.ericsson.se>
- <CAC52Y8ZvgBVC4_TEBFMALa-xU84PseV6w6sJO64ch+BdAqD2aA@mail.gmail.com>
- <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903185@ESESSCMS0356.eemea.ericsson.se>
- <20111019104945.GA17995@verge.net.au>
- <20111019111112.GB10008@1984>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] smsc911x: Enable flow control advertisement
+Date: Wed, 19 Oct 2011 13:26:39 +0100
+Message-ID: <1319027199.23980.47.camel@deadeye>
+References: <1319016114-4781-1-git-send-email-kkobayas@igel.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hans =?utf-8?Q?Schillstr=C3=B6m?= <hans.schillstrom@ericsson.com>,
-	Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com,
+	dhobsong@igel.co.jp
+To: Kazunori Kobayashi <kkobayas@igel.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:59741 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755177Ab1JSMII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 08:08:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20111019111112.GB10008@1984>
+Received: from exchange.solarflare.com ([216.237.3.220]:50166 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755299Ab1JSM0v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 08:26:51 -0400
+In-Reply-To: <1319016114-4781-1-git-send-email-kkobayas@igel.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 19, 2011 at 01:11:12PM +0200, Pablo Neira Ayuso wrote:
-> On Wed, Oct 19, 2011 at 07:49:57PM +0900, Simon Horman wrote:
-> > Yes, it seems that Pablo has picked up the change but
-> > it hasn't propagated to Dave's tree for one reason or another.
+On Wed, 2011-10-19 at 18:21 +0900, Kazunori Kobayashi wrote:
+> Enable the advertisement of both symmetric pause and asymmetric pause 
+> flow control capability. 
 > 
-> I was waiting for david to take bugfixes for his net tree. This
-> happened yesterday. Now I'll send updates for net-next.
+> Signed-off-by: Kazunori Kobayashi <kkobayas@igel.co.jp>
+> ---
+>  drivers/net/smsc911x.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
 > 
-> I expect to make it along today, please, be patient, they'll show up
-> in david's net-next tree soon :-)
+> diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
+> index b9016a3..60c3bc2 100644
+> --- a/drivers/net/smsc911x.c
+> +++ b/drivers/net/smsc911x.c
 
-Hi Pablo,
+This file has been moved.
 
-thanks for the clarification. I can be patient :-)
+> @@ -800,8 +800,13 @@ static void smsc911x_phy_update_flowcontrol(struct smsc911x_data *pdata)
+>  	struct phy_device *phy_dev = pdata->phy_dev;
+>  	u32 afc = smsc911x_reg_read(pdata, AFC_CFG);
+>  	u32 flow;
+> +	u16 miiadv = smsc911x_mii_read(phy_dev->bus, phy_dev->addr,
+> +				       MII_ADVERTISE);
+>  	unsigned long flags;
+>  
+> +	miiadv |= (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
+> +	smsc911x_mii_write(phy_dev->bus, phy_dev->addr, MII_ADVERTISE, miiadv);
+
+This should be controllable through ethtool; I assume phy_ethtool_sset()
+already covers that.
+
+Further, it's far too late to change advertising when you're just about
+to resolve what was negotiated.  It has to be done before (re)starting
+autoneg.
+
+Ben.
+
+>  	if (phy_dev->duplex == DUPLEX_FULL) {
+>  		u16 lcladv = phy_read(phy_dev, MII_ADVERTISE);
+>  		u16 rmtadv = phy_read(phy_dev, MII_LPA);
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
