@@ -1,87 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch] pktgen: bug when calling ndelay in x86 architectures
-Date: Wed, 19 Oct 2011 12:13:55 +0200
-Message-ID: <1319019235.3103.10.camel@edumazet-laptop>
-References: <4E9D5E1B.3080704@gmail.com>
-	  <1318939007.2657.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	  <1318946401.23980.6.camel@deadeye>
-	 <1318949264.2657.97.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <4E9E9963.7090209@gmail.com>
+From: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+Subject: Re: [PATCH] ipvs: Remove unused variable "cs" from ip_vs_leave function.
+Date: Wed, 19 Oct 2011 11:13:51 +0100
+Message-ID: <CAC52Y8ZvgBVC4_TEBFMALa-xU84PseV6w6sJO64ch+BdAqD2aA@mail.gmail.com>
+References: <1318967989-14076-1-git-send-email-krzysztof.wilczynski@linux.com> <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903183@ESESSCMS0356.eemea.ericsson.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Robert Olsson <robert@herjulf.net>,
-	Voravit Tanyingyong <voravit@kth.se>,
-	Jens Laas <jens.laas@uadm.uu.se>
-To: Daniel Turull <daniel.turull@gmail.com>
+Cc: Simon Horman <horms@verge.net.au>,
+	Patrick McHardy <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Hans_Schillstr=C3=B6m?= <hans.schillstrom@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:57262 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752106Ab1JSKOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 06:14:01 -0400
-Received: by bkbzt19 with SMTP id zt19so1899799bkb.19
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2011 03:14:00 -0700 (PDT)
-In-Reply-To: <4E9E9963.7090209@gmail.com>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:54405 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751978Ab1JSKOW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 06:14:22 -0400
+Received: by qyk4 with SMTP id 4so4184668qyk.19
+        for <netdev@vger.kernel.org>; Wed, 19 Oct 2011 03:14:21 -0700 (PDT)
+In-Reply-To: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903183@ESESSCMS0356.eemea.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 19 octobre 2011 =C3=A0 11:33 +0200, Daniel Turull a =C3=A9c=
-rit :
-> Hi,
-> then if we want to use the spin more often.
-> maybe we can increase the constant from 100000 (0.1ms) to 1000000 (1m=
-s)?
-> How was the current value chosen?
->=20
+Hello,
 
-Based on user needs ;)
+[...]
+> In my code there is another fix needed as well (todays net-next)
+> i.e. =C2=A0usage od cs =C2=A0"cs =3D ip_vs_set_state(cp, IP_VS_DIR_IN=
+PUT, skb, pd)"
+[...]
 
-> I did some measurements of the inter-arrival time between packets
-> and with bigger values the maximal is reduced in the rates between
-> 2kpps and 20kpps.
->=20
+Well spotted in terms of "net-next" branch and/or repository.
 
-ndelay()/udelay() have some inaccuracies, for 'long' values, because of
-rounding errors.
+In my case, I was working against "ipvs-next" using Simon's tree on
+github (I have made the fork when kernel.org facilities were not
+available at the time): https://github.com/horms/ipvs-next, and the
+code line you still appear to have in Dave's "net-next" (if that is
+the one) was amended in the following commit made against "ipvs-next":
 
-If we spin, just call ktime_now() in a loop until spin_until is
-reached...
 
-That way you get max possible resolution, given kernel time service
-constraints.
+commit 833656973cde30ba067a994c4802ebab6c9557ee
+Author: Simon Horman <horms@verge.net.au>
+Date:   Fri Sep 16 14:11:49 2011 +0900
 
-Untested patch :
+    ipvs: Remove unused return value of protocol state transitions
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 38d6577..5c7e900 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2145,9 +2145,11 @@ static void spin(struct pktgen_dev *pkt_dev, kti=
-me_t spin_until)
- 	}
-=20
- 	start_time =3D ktime_now();
--	if (remaining < 100000)
--		ndelay(remaining);	/* really small just spin */
--	else {
-+	if (remaining < 100000) {
-+		do {
-+			end_time =3D ktime_now();
-+		} while (ktime_lt(end_time, spin_until));
-+	} else {
- 		/* see do_nanosleep */
- 		hrtimer_init_sleeper(&t, current);
- 		do {
-@@ -2162,8 +2164,8 @@ static void spin(struct pktgen_dev *pkt_dev, ktim=
-e_t spin_until)
- 			hrtimer_cancel(&t.timer);
- 		} while (t.task && pkt_dev->running && !signal_pending(current));
- 		__set_current_state(TASK_RUNNING);
-+		end_time =3D ktime_now();
- 	}
--	end_time =3D ktime_now();
-=20
- 	pkt_dev->idle_acc +=3D ktime_to_ns(ktime_sub(end_time, start_time));
- 	pkt_dev->next_tx =3D ktime_add_ns(spin_until, pkt_dev->delay);
+    Acked-by: Julian Anastasov <ja@ssi.bg>
+    Acked-by Hans Schillstrom <hans@schillstrom.com>
+    Signed-off-by: Simon Horman <horms@verge.net.au>
+    Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+
+It wasn't there when I went about cleaning unused declaration of "cs".
+I guess we have to make sure that everything between github (and
+repositories there) and kernel.org repositories like Dave's "net-next"
+align and holds water. Just by looking at some files, I can see that
+"net-next" is missing some commits.
+
+KW
