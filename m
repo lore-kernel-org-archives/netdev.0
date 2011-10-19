@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6 V2] mlx4_en: Data path optimizations and bug fix
-Date: Wed, 19 Oct 2011 03:47:37 -0400 (EDT)
-Message-ID: <20111019.034737.335798410486856821.davem@davemloft.net>
-References: <4E9D67FC.7000902@mellanox.co.il>
+Subject: Re: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
+ Ethernet driver
+Date: Wed, 19 Oct 2011 03:50:00 -0400 (EDT)
+Message-ID: <20111019.035000.931404890148181821.davem@davemloft.net>
+References: <1319009213-20627-1-git-send-email-cloud.ren@atheros.com>
+	<20111019.033324.1233460304204609569.davem@davemloft.net>
+	<6349D7A510622448B1BA0967850A8438011CBA5D@nasanexd02d.na.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52285 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753194Ab1JSHro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 03:47:44 -0400
-In-Reply-To: <4E9D67FC.7000902@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rodrigue@qca.qualcomm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: cjren@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6349D7A510622448B1BA0967850A8438011CBA5D@nasanexd02d.na.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Tue, 18 Oct 2011 13:50:20 +0200
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Date: Wed, 19 Oct 2011 07:44:02 +0000
 
-> This is V2 of the patches sent yesterday.
-> The differences comparing to V1 are:
-> 1. Remove patch 3/7 : "Incoming traffic alignment optimizations" following Eric's comments for a rework.
-> 2. Using static seed value for Toeplitz function, rather then randomizing the value each time
+> Ok. What logging interfaces can I use? Are they dev_err, dev_info and dev_warn ? thanks
 
-Applied, thanks.
+netif_*(), they check netif_msg_*() to see if the particular kind
+of logging message is enabled or not, and this can be set dynamically
+if you code your driver to properly set netdev->msg_enable.
+
+Use other drivers as examples.
