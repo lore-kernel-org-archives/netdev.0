@@ -1,46 +1,32 @@
 From: Nico Schottelius <nico-linux-20111017@schottelius.org>
 Subject: Re: BUG: All network processes hang (brcmsmac/wpa_supplicant)
-Date: Wed, 19 Oct 2011 15:07:49 +0200
-Message-ID: <20111019130749.GD11883@schottelius.org>
+Date: Wed, 19 Oct 2011 15:09:23 +0200
+Message-ID: <20111019130923.GA5382@schottelius.org>
 References: <20111019123602.GA11883@schottelius.org>
  <1319028563.8416.1.camel@edumazet-laptop>
+ <4E9EC96E.8020303@broadcom.com>
+ <1319029529.8416.3.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nico Schottelius <nico-linux-20111017@schottelius.org>,
-	Arend van Spriel <arend@broadcom.com>,
+Cc: Arend van Spriel <arend@broadcom.com>,
+	Nico Schottelius <nico-linux-20111017@schottelius.org>,
 	LKML <linux-kernel@vger.kernel.org>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1319028563.8416.1.camel@edumazet-laptop>
+In-Reply-To: <1319029529.8416.3.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Eric,
+Eric Dumazet [Wed, Oct 19, 2011 at 03:05:29PM +0200]:
+> [...]
+> make menuconfig
+>  -> Kernel hacking
+>    -> Lock debugging: prove locking correctness
 
-Eric Dumazet [Wed, Oct 19, 2011 at 02:49:23PM +0200]:
-> 
-> Sorry, no CONFIG_LOCKDEP in your config or dmesg. Maybe you sent a
-> previous dmesg/config file ?
-> 
-> Note that you have "CONFIG_LOCKDEP_SUPPORT=y", not "CONFIG_LOCKDEP=y"
-
-Right, make all told me to setup CONFIG_LOCKDEP_SUPPORT=y, but I've
-setup CONFIG_LOCKDEP=y manually in .config as I haven't found the entry
-in menuconfig.
-
-It seems that this option was removed from .config in the build process,
-though.
-
-Should I set it up via
-
-  make -j5 CONFIG_LOCKDEP=y CONFIG_LOCKDEP_SUPPORT=y 
-
-?
-
-Cheers,
+Alright, rebuilding.
 
 Nico
 
