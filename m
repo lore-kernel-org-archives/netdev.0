@@ -1,52 +1,37 @@
-From: Nico Schottelius <nico-linux-20111017@schottelius.org>
-Subject: Re: BUG: All network processes hang (brcmsmac/wpa_supplicant)
-Date: Wed, 19 Oct 2011 16:58:00 +0200
-Message-ID: <20111019145800.GC1414@schottelius.org>
-References: <20111019123602.GA11883@schottelius.org>
- <1319028563.8416.1.camel@edumazet-laptop>
- <20111019130749.GD11883@schottelius.org>
- <20111019142837.GA1414@schottelius.org>
- <1319035584.8416.34.camel@edumazet-laptop>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH net-next] igb: fix a compile warning
+Date: Wed, 19 Oct 2011 09:28:54 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F075501A1776E6B@orsmsx508.amr.corp.intel.com>
+References: <1319014355-15678-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nico Schottelius <nico-linux-20111017@schottelius.org>,
-	Arend van Spriel <arend@broadcom.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1319035584.8416.34.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "roy.qing.li@gmail.com" <roy.qing.li@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:52564 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752844Ab1JSQ24 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Oct 2011 12:28:56 -0400
+In-Reply-To: <1319014355-15678-1-git-send-email-roy.qing.li@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet [Wed, Oct 19, 2011 at 04:46:24PM +0200]:
-> Le mercredi 19 octobre 2011 =E0 16:28 +0200, Nico Schottelius a =E9cr=
-it :
-> > Triggered it!=20
-> >=20
-> > And also got the traceback!
-> >=20
-> > Dmesg + log attached, let me know when I can pull the fix from
-> > somewhere.
-> >=20
->=20
-> Sorry, I cant see same messages in your dmesg, no mention of stuck
-> processes (blocked for more than 120 seconds.)
->=20
-> By the way, please update to latest 3.1.rc10
-=20
-I can rebuild Linus' tree if you want, but only use it temporarily due
-to the other errors mentioned in the previous message.
-
-If you've a tree somewhere that merges on top of Keith+Jiri,
-I'd try to merge that one as well, to make the mba more usable.
-
-Cheers,
-
-Nico
-
---=20
-PGP key: 7ED9 F7D3 6B10 81D7 0EC5  5C09 D7DC C8E4 3187 7DF0
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIHJveS5xaW5nLmxpQGdtYWlsLmNvbQ0KPiBTZW50OiBXZWRuZXNkYXksIE9jdG9iZXIg
+MTksIDIwMTEgMTo1MyBBTQ0KPiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0
+OiBbUEFUQ0ggbmV0LW5leHRdIGlnYjogZml4IGEgY29tcGlsZSB3YXJuaW5nDQo+IA0KPiBGcm9t
+OiBSb25nUWluZyBMaSA8cm95LnFpbmcubGlAZ21haWwuY29tPg0KPiANCj4gY29udHJvbCB0aGVz
+ZSB0aHJlZSBmdW5jdGlvbiBkZWNsYXJhdGlvbnMgYW5kDQo+IGRlZmluaXRpb25zIHdpdGggc2Ft
+ZSBtYWNybyBDT05GSUdfUENJX0lPVg0KPiANCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+aWdiL2lnYl9tYWluLmM6MTY1Og0KPiB3YXJuaW5nOiDigJhpZ2JfdmZfY29uZmlndXJl4oCZIGRl
+Y2xhcmVkIOKAmHN0YXRpY+KAmSBidXQgbmV2ZXIgZGVmaW5lZA0KPiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYzoxNjY6DQo+IHdhcm5pbmc6IOKAmGlnYl9maW5kX2Vu
+YWJsZWRfdmZz4oCZIGRlY2xhcmVkIOKAmHN0YXRpY+KAmSBidXQgbmV2ZXIgZGVmaW5lZA0KPiBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYzoxNjc6DQo+IHdhcm5pbmc6
+IOKAmGlnYl9jaGVja192Zl9hc3NpZ25tZW504oCZIGRlY2xhcmVkIOKAmHN0YXRpY+KAmSBidXQg
+bmV2ZXIgZGVmaW5lZA0KPiANCj4gU2lnbmVkLW9mZi1ieTogUm9uZ1FpbmcgTGkgPHJveS5xaW5n
+LmxpQGdtYWlsLmNvbT4NCg0KQWNrZWQtYnk6IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50
+ZWwuY29tPg0KDQo=
