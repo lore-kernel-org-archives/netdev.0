@@ -1,78 +1,69 @@
-From: Jacob Keller <jacob.keller@gmail.com>
-Subject: Re: [net-next 5/6] ixgbe: add hardware timestamping support
-Date: Wed, 19 Oct 2011 10:04:33 -0700
-Message-ID: <CA+P7+xoP7VE0FEKnLCbzygw499xLr1PFynPn6W0+ud6KwZHgEg@mail.gmail.com>
-References: <1318854062-3628-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1318854062-3628-6-git-send-email-jeffrey.t.kirsher@intel.com> <20111017164433.GA2028@netboy.at.omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Richard Cochran <richardcochran@gmail.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH 00/10] Doorbell drop recovery for T4 iWARP
+Date: Wed, 19 Oct 2011 22:40:54 +0530
+Message-ID: <1319044264-779-1-git-send-email-vipul@chelsio.com>
+Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
+	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
+	Vipul Pandya <vipul@chelsio.com>
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57482 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753596Ab1JSREy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 13:04:54 -0400
-Received: by wyg36 with SMTP id 36so1961598wyg.19
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2011 10:04:53 -0700 (PDT)
-In-Reply-To: <20111017164433.GA2028@netboy.at.omicron.at>
+Received: from stargate.chelsio.com ([67.207.112.58]:10756 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756842Ab1JSRNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 13:13:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 17, 2011 at 9:44 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Mon, Oct 17, 2011 at 05:21:01AM -0700, Jeff Kirsher wrote:
->> The cyclecounter has the potential to miss a wrap-around of the
->> systim register (this should occur no more often than every 35
->> seconds) unless some activity regarding the cycle counter occurs at
->> least once within this time. This version adds a cycle counter read
->> every time the watchdog task is run, which should occur at least onc=
-e
->> within this timeframe. Any packets being timestamped will also count
->> as a read due to the call to timecompare_update.
->
-> So, is this wrap around due to the fact that you are tied to the
-> system time via time_compare? Or, putting it another way, can't you
-> program the hardware time stamping unit so that the registers have
-> some reasonable resolution (like 64 bits worth of nanoseconds) and
-> just offer RAW timestamps?
+This patch-series implements doorbell drop recovery for T4 iWARP driver.
 
-The wrap around is due to hardware limitations. The ixgbe devices
-cannot support 64bits worth of nanoseconds and still have the ability
-to adjust the frequency in parts per billion. A larger increment
-increases the resolution available for frequency adjustments, but
-decreases the time it takes for the cycle counter to wrap around.
+In the event where DBs are dropped application can get stalled for one or more
+reasons. So, we recover RDMA and LLD queues in such an event.
+We also take care for handling DB overflow events.
 
->
-> I would really like to move away from the timecompare hacks and
-> towards a proper PHC->SYS PPS solution.
->
+The patch-series also has some bug fixes, adds RDMA debugfs stats and removes
+kfifo usage for ID mangement.
 
-I agree that this is the correct approach. The timecompare
-functionality does have issues.
+The patch-series is based on linux-next, and involves changes on
+drivers/net/ethernet/chelsio/cxgb4 and drivers/infiniband/hw/cxgb4.
 
->> This version fixes an issue regarding timecompare not updating
->> detected skew after the clock offset is changed due to ptpd or outsi=
-de
->> influence from the OS. Now the skew detection is forced just before =
-we
->> hand a timestamp up to the kernel stack
->
-> Again, doing the update thing on every packet won't work for real
-> world PTP scenarios.
->
-Which is why the PHC solution is better. Work on implementing this
-support is in progress. Out of curiosity, what is the sync rate for
-the scenario that breaks this? I would like to try that rate out on my
-setup.
+The changes on drivers/infiniband/hw/cxgb4 are dependent on the changes of
+drivers/net/ethernet/chelsio/cxgb4 for the T4-iWARP driver to build correctly.
+So, we request to merge the entire patch-series through one tree - either
+through Roland's tree, or through Dave Miller's tree.
 
-> Thanks,
-> Richard
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+Both linux-rdma and netdev are included in this post for review.
+
+Vipul Pandya (10):
+  cxgb4: Detect DB FULL events and notify RDMA ULD.
+  cxgb4: DB Drop Recovery for RDMA and LLD queues.
+  cxgb4: DB Drop Recovery for RDMA and LLD queues.
+  RDMA/cxgb4: Add debugfs rdma memory stats
+  RDMA/cxgb4: Add DB Overflow Avoidance.
+  RDMA/cxgb4: disable interrupts in c4iw_ev_dispatch().
+  RDMA/cxgb4: DB Drop Recovery for RDMA and LLD queues.
+  RDMA/cxgb4: Use vmalloc for debugfs qp dump. Allows dumping thousands
+    of qps.
+  RDMA/cxgb4: remove kfifo usage
+  RDMA/cxgb4: Add query_qp support in driver to query the qp state
+    before flushing.
+
+ drivers/infiniband/hw/cxgb4/Makefile            |    2 +-
+ drivers/infiniband/hw/cxgb4/cm.c                |   23 ++-
+ drivers/infiniband/hw/cxgb4/device.c            |  339 ++++++++++++++++++++++-
+ drivers/infiniband/hw/cxgb4/ev.c                |    8 +-
+ drivers/infiniband/hw/cxgb4/id_table.c          |  112 ++++++++
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |  134 ++++++++--
+ drivers/infiniband/hw/cxgb4/mem.c               |   21 +-
+ drivers/infiniband/hw/cxgb4/provider.c          |   19 +-
+ drivers/infiniband/hw/cxgb4/qp.c                |  105 +++++++-
+ drivers/infiniband/hw/cxgb4/resource.c          |  180 +++++-------
+ drivers/infiniband/hw/cxgb4/t4.h                |   24 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   11 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  235 +++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   11 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   22 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   62 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   53 ++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   28 ++
+ 18 files changed, 1218 insertions(+), 171 deletions(-)
+ create mode 100644 drivers/infiniband/hw/cxgb4/id_table.c
