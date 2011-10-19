@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-next [PATCH 1/1] ipv4: compat_ioctl is local to af_inet.c,
- make it static
-Date: Wed, 19 Oct 2011 19:24:57 -0400 (EDT)
-Message-ID: <20111019.192457.1533133942407044961.davem@davemloft.net>
-References: <20111015192656.GA4066@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH net-next-2.6] [IPV6] cleanup: remove unnecessary
+ include.
+Date: Wed, 19 Oct 2011 19:27:00 -0400 (EDT)
+Message-ID: <20111019.192700.1285146703102209795.davem@davemloft.net>
+References: <CAGXs5wWNwy-dWaXMVp62FiaXxiKnDNNE3PX3DtqPVs9VCY+kMA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+To: wkevils@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57942 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51859 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752048Ab1JSX0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 19:26:03 -0400
-In-Reply-To: <20111015192656.GA4066@gerrit.erg.abdn.ac.uk>
+	with ESMTP id S1754660Ab1JSX1C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 19:27:02 -0400
+In-Reply-To: <CAGXs5wWNwy-dWaXMVp62FiaXxiKnDNNE3PX3DtqPVs9VCY+kMA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Sat, 15 Oct 2011 13:26:56 -0600
+From: Kevin Wilson <wkevils@gmail.com>
+Date: Sun, 16 Oct 2011 17:21:57 +0200
 
-> ipv4: compat_ioctl is local to af_inet.c, make it static
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> This cleanup patch removes unnecessary include from net/ipv6/ip6_fib.c.
+>
+> Signed-off-by: Kevin Wilson <wkevils@gmail.com>
 
-Applied, thanks.
+Applied.
