@@ -1,28 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8] stmmac: update to Oct 2011 version (v4)
-Date: Wed, 19 Oct 2011 18:53:33 -0400 (EDT)
-Message-ID: <20111019.185333.662646079035921153.davem@davemloft.net>
-References: <1318932085-14927-1-git-send-email-peppe.cavallaro@st.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
+ Ethernet driver
+Date: Wed, 19 Oct 2011 15:59:18 -0700
+Message-ID: <1319065158.27047.6.camel@Joe-Laptop>
+References: <1319009213-20627-1-git-send-email-cloud.ren@atheros.com>
+	 <20111019222140.GA9937@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56194 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752607Ab1JSWxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 18:53:39 -0400
-In-Reply-To: <1318932085-14927-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cloud.ren@atheros.com, davem@davemloft.net,
+	Luis.Rodriguez@atheros.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111019222140.GA9937@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Tue, 18 Oct 2011 12:01:17 +0200
+On Thu, 2011-10-20 at 00:21 +0200, Francois Romieu wrote:
+> cloud.ren@atheros.com <cloud.ren@atheros.com> :
+> > diff --git a/drivers/net/ethernet/atheros/alx/alc_cb.c b/drivers/net/ethernet/atheros/alx/alc_cb.c
+> [...]
 
-> This patches update the driver adding the chained
-> descriptor mode and some new useful fixes.
-> 
-> I've reviewed some patches after the V1/2/3 and added new ones:
+A bunch of good style comments.
 
-All applied, with the updated version of patch #8.
+> > +	hw->autoneg_advertised = (ALX_LINK_SPEED_1GB_FULL |
+> > +				  ALX_LINK_SPEED_10_HALF  |
+> > +				  ALX_LINK_SPEED_10_FULL  |
+> > +				  ALX_LINK_SPEED_100_HALF |
+> > +				  ALX_LINK_SPEED_100_FULL);
+> Parenthesis abuse.
+
+Maybe.  I use parenthesis too, but not the trailing | alignment.
+emacs does leading alignment nicely when you use an open paren.
