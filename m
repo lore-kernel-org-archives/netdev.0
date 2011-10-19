@@ -1,49 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BUG in skb_pull with e1000e, PPTP, and L2TP
-Date: Wed, 19 Oct 2011 03:51:01 -0400 (EDT)
-Message-ID: <20111019.035101.1022527921339689585.davem@davemloft.net>
-References: <1318910393.2571.47.camel@edumazet-laptop>
-	<20111019.033154.371626230759904957.davem@davemloft.net>
-	<1319010435.18562.3.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, despite@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1319010435.18562.3.camel@edumazet-laptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 19 Oct 2011 09:47:15 +0200
+Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga) causes
+ kernel oops
+Date: Wed, 19 Oct 2011 09:52:19 +0200
+Message-ID: <1319010739.18562.6.camel@edumazet-laptop>
+References: <20111018134537.GA17055@gondor.apana.org.au>
+	 <20111019.030914.218521668377472155.davem@davemloft.net>
+	 <1319008713.17914.8.camel@edumazet-laptop>
+	 <20111019.033052.851679720607111734.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.hengli.com.au, evonlanthen@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	timo.teras@iki.fi
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:36922 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751870Ab1JSHwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 03:52:39 -0400
+In-Reply-To: <20111019.033052.851679720607111734.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I incorrectly thought this driver was at the same location in net &
-> net-next, and I my net-next tree was more convenient to compile this.
-> 
-> I can respin patch on net tree if you prefer.
+Le mercredi 19 octobre 2011 =C3=A0 03:30 -0400, David Miller a =C3=A9cr=
+it :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 19 Oct 2011 09:18:33 +0200
+>=20
+> > Seems fine (Maybe do the +15 in caller site ?), but we also have ot=
+her
+> > problematic cases, using alloc_skb() only...
+>=20
+> Ok, which ones operate over these problematic GRE tunnels?
+>=20
 
-No need, I took care of adjusting the paths.
+I was more thinking of general idea to allow any device to change its
+needed headroom.
 
-Thanks!
-
-------------------------------------------------------------------------------
-All the data continuously generated in your IT infrastructure contains a
-definitive record of customers, application performance, security
-threats, fraudulent activity and more. Splunk takes this data and makes
-sense of it. Business sense. IT sense. Common sense.
-http://p.sf.net/sfu/splunk-d2d-oct
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+=46or GRE tunnels, I dont think IPv6 fragmentation could be relevant,
+but maybe IGMP could trigger a problem ?
