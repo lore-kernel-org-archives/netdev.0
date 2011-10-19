@@ -1,41 +1,70 @@
-From: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Subject: RE: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
- Ethernet driver
-Date: Wed, 19 Oct 2011 07:44:02 +0000
-Message-ID: <6349D7A510622448B1BA0967850A8438011CBA5D@nasanexd02d.na.qualcomm.com>
-References: <1319009213-20627-1-git-send-email-cloud.ren@atheros.com>
- <20111019.033324.1233460304204609569.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG in skb_pull with e1000e, PPTP, and L2TP
+Date: Wed, 19 Oct 2011 09:47:15 +0200
+Message-ID: <1319010435.18562.3.camel@edumazet-laptop>
+References: <1318904666.2571.33.camel@edumazet-laptop>
+	<1318909879.2571.43.camel@edumazet-laptop>
+	<1318910393.2571.47.camel@edumazet-laptop>
+	<20111019.033154.371626230759904957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, despite@gmail.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111019.033324.1233460304204609569.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20111019.033154.371626230759904957.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Ok. What logging interfaces can I use? Are they dev_err, dev_info and dev_warn ? thanks
-
-
-
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Wednesday, October 19, 2011 3:33 PM
-To: Ren, Cloud
-Cc: Rodriguez, Luis; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-Subject: Re: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161 Ethernet driver
-
-From: <cloud.ren@Atheros.com>
-Date: Wed, 19 Oct 2011 15:26:53 +0800
-
-> +#define HW_PRINT(_klv, _fmt, _args...) \
-> +	if (ALX_HW_MSG_LV_##_klv || ALX_HW_MSG_LV_ALL) {\
-> +		printk(KERN_##_klv ALX_HW_MSG_PFX_NAME "%s: " _fmt, \
-> +			__func__, ## _args); \
-> +	}
-
-Do not create your own network driver debugging facilities and macros for logging messages, we have rich debugging and logging level interfaces that network drivers can use exactly for this purpose.
+TGUgbWVyY3JlZGkgMTkgb2N0b2JyZSAyMDExIMOgIDAzOjMxIC0wNDAwLCBEYXZpZCBNaWxsZXIg
+YSDDqWNyaXQgOgo+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4K
+PiBEYXRlOiBUdWUsIDE4IE9jdCAyMDExIDA1OjU5OjUzICswMjAwCj4gCj4gPiBbUEFUQ0ggdjJd
+IHBwdHA6IHBwdHBfcmN2X2NvcmUoKSBtaXNzZXMgcHNrYl9tYXlfcHVsbCgpIGNhbGwKPiA+IAo+
+ID4gZTEwMDBlIHVzZXMgcGFnZWQgZnJhZ3MsIHNvIGFueSBsYXllciBpbmNvcnJlY3RseSBwdWxs
+aW5nIGJ5dGVzIGZyb20gc2tiCj4gPiBjYW4gdHJpZ2dlciBhIEJVRyBpbiBza2JfcHVsbCgpCj4g
+PiAKPiA+IFs5NTEuMTQyNzM3XSAgWzxmZmZmZmZmZjgxM2QyZjM2Pl0gc2tiX3B1bGwrMHgxNS8w
+eDE3Cj4gPiBbOTUxLjE0MjczN10gIFs8ZmZmZmZmZmZhMDI4NjgyND5dIHBwdHBfcmN2X2NvcmUr
+MHgxMjYvMHgxOWEgW3BwdHBdCj4gPiBbOTUxLjE1MjcyNV0gIFs8ZmZmZmZmZmY4MTNkMTdjND5d
+IHNrX3JlY2VpdmVfc2tiKzB4NjkvMHgxMDUKPiA+IFs5NTEuMTYzNTU4XSAgWzxmZmZmZmZmZmEw
+Mjg2OTkzPl0gcHB0cF9yY3YrMHhjOC8weGRjIFtwcHRwXQo+ID4gWzk1MS4xNjUwOTJdICBbPGZm
+ZmZmZmZmYTAyODAwYTM+XSBncmVfcmN2KzB4NjIvMHg3NSBbZ3JlXQo+ID4gWzk1MS4xNjUwOTJd
+ICBbPGZmZmZmZmZmODE0MTA3ODQ+XSBpcF9sb2NhbF9kZWxpdmVyX2ZpbmlzaCsweDE1MC8weDFj
+MQo+ID4gWzk1MS4xNzc1OTldICBbPGZmZmZmZmZmODE0MTA2MzQ+XSA/IGlwX2xvY2FsX2RlbGl2
+ZXJfZmluaXNoKzB4MC8weDFjMQo+ID4gWzk1MS4xNzc1OTldICBbPGZmZmZmZmZmODE0MTA4NDY+
+XSBORl9IT09LLmNsb25lLjcrMHg1MS8weDU4Cj4gPiBbOTUxLjE3NzU5OV0gIFs8ZmZmZmZmZmY4
+MTQxMDk5Nj5dIGlwX2xvY2FsX2RlbGl2ZXIrMHg1MS8weDU1Cj4gPiBbOTUxLjE3NzU5OV0gIFs8
+ZmZmZmZmZmY4MTQxMDViOT5dIGlwX3Jjdl9maW5pc2grMHgzMWEvMHgzM2UKPiA+IFs5NTEuMTc3
+NTk5XSAgWzxmZmZmZmZmZjgxNDEwMjlmPl0gPyBpcF9yY3ZfZmluaXNoKzB4MC8weDMzZQo+ID4g
+Wzk1MS4yMDQ4OThdICBbPGZmZmZmZmZmODE0MTA4NDY+XSBORl9IT09LLmNsb25lLjcrMHg1MS8w
+eDU4Cj4gPiBbOTUxLjIxNDY1MV0gIFs8ZmZmZmZmZmY4MTQxMGJiNT5dIGlwX3JjdisweDIxYi8w
+eDI0Ngo+ID4gCj4gPiBwcHRwX3Jjdl9jb3JlKCkgaXMgYSBuaWNlIGV4YW1wbGUgb2YgYSBmdW5j
+dGlvbiBhc3N1bWluZyBldmVyeXRoaW5nIGl0Cj4gPiBuZWVkcyBpcyBhdmFpbGFibGUgaW4gc2ti
+IGhlYWQuCj4gPiAKPiA+IFJlcG9ydGVkLWJ5OiBCcmFkbGV5IFBldGVyc29uIDxkZXNwaXRlQGdt
+YWlsLmNvbT4KPiA+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdt
+YWlsLmNvbT4KPiAKPiBJIGFzc3VtZSBieSB0aGUgZHJpdmVyIHBhdGhzIGluIHRoZSBwYXRjaCB0
+aGF0IHlvdSB0aGluayB0aGlzCj4gaXMgJ25ldC1uZXh0JyBtYXRlcmlhbCBhbmQgbm90IHN1aXRh
+YmxlIGZvciBwbGFpbiAnbmV0JywgcmlnaHQ/CgpJIGluY29ycmVjdGx5IHRob3VnaHQgdGhpcyBk
+cml2ZXIgd2FzIGF0IHRoZSBzYW1lIGxvY2F0aW9uIGluIG5ldCAmCm5ldC1uZXh0LCBhbmQgSSBt
+eSBuZXQtbmV4dCB0cmVlIHdhcyBtb3JlIGNvbnZlbmllbnQgdG8gY29tcGlsZSB0aGlzLgoKSSBj
+YW4gcmVzcGluIHBhdGNoIG9uIG5ldCB0cmVlIGlmIHlvdSBwcmVmZXIuCgpUaGFua3MKCgoKLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tCkFsbCB0aGUgZGF0YSBjb250aW51b3VzbHkgZ2VuZXJhdGVkIGlu
+IHlvdXIgSVQgaW5mcmFzdHJ1Y3R1cmUgY29udGFpbnMgYQpkZWZpbml0aXZlIHJlY29yZCBvZiBj
+dXN0b21lcnMsIGFwcGxpY2F0aW9uIHBlcmZvcm1hbmNlLCBzZWN1cml0eQp0aHJlYXRzLCBmcmF1
+ZHVsZW50IGFjdGl2aXR5IGFuZCBtb3JlLiBTcGx1bmsgdGFrZXMgdGhpcyBkYXRhIGFuZCBtYWtl
+cwpzZW5zZSBvZiBpdC4gQnVzaW5lc3Mgc2Vuc2UuIElUIHNlbnNlLiBDb21tb24gc2Vuc2UuCmh0
+dHA6Ly9wLnNmLm5ldC9zZnUvc3BsdW5rLWQyZC1vY3QKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRl
+dmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9s
+aXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7
+IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93
+aXJlZAo=
