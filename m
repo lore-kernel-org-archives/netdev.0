@@ -1,63 +1,44 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace aware
-Date: Wed, 19 Oct 2011 06:52:28 -0700
-Message-ID: <m1sjmpytpf.fsf@fess.ebiederm.org>
-References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
-	<1318974898-21431-10-git-send-email-serge@hallyn.com>
+Subject: Re: [PATCH 0/5] Better namespace handling for /sys/class/net/bonding_masters
+Date: Wed, 19 Oct 2011 06:27:25 -0700
+Message-ID: <m18voh158i.fsf@fess.ebiederm.org>
+References: <m1hb3dbae5.fsf@fess.ebiederm.org>
+	<20111019.000932.523712028439316177.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	oleg@redhat.com, richard@nod.at, mikevs@xs4all.net,
-	segoon@openwall.com, gregkh@suse.de, dhowells@redhat.com,
-	eparis@redhat.com, "Serge E. Hallyn" <serge.hallyn@canonical.com>,
-	netdev@vger.kernel.org
-To: Serge Hallyn <serge@hallyn.com>
+Cc: gregkh@suse.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, htejun@gmail.com, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1318974898-21431-10-git-send-email-serge@hallyn.com> (Serge
-	Hallyn's message of "Tue, 18 Oct 2011 21:54:58 +0000")
+In-Reply-To: <20111019.000932.523712028439316177.davem@davemloft.net> (David
+	Miller's message of "Wed, 19 Oct 2011 00:09:32 -0400 (EDT)")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Serge Hallyn <serge@hallyn.com> writes:
+David Miller <davem@davemloft.net> writes:
 
-> From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Thu, 13 Oct 2011 00:47:46 -0700
 >
-> Currently uids are compared without regard for the user namespace.
-> Fix that to prevent tasks in a different user namespace from
-> wrongly matching on SCM_CREDENTIALS.
+>> Greg, Dave I'm don't know whose tree to merge this through as this code
+>> is equally device-core and networking.  I am hoping that we can get this
+>> improvement merged for 3.2.
 >
-> In the past, either your uids had to match, or you had to have
-> CAP_SETXID.  In a namespaced world, you must either (both be in the
-> same user namespace and have your uids match), or you must have
-> CAP_SETXID targeted at the other user namespace.  The latter can
-> happen for instance if uid 500 created a new user namespace and
-> now interacts with uid 0 in it.
+> I'm happy to take this series into my net-next tree.
+>
+> Greg?  Any objections?
 
-Serge this approach is wrong.
+on the 13th Greg said:
 
-Because we pass the cred and the pid through the socket socket itself
-is just a conduit and should be ignored in this context.
+> These all look fine to me, and I have no problem with them going through
+> the network tree as that will most likely be the easiest way due to any
+> potential merge issues.
+> 
+> David, feel free to add an:
+> 	Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
+> 
+> to these patches and take them through your tree if that is ok with you.
+> If not, I can also always take them through mine, it's your choice.
 
-The only interesting test should be are you allowed to impersonate other
-users in your current userk namespace.
-
-So it should be possible to simplify the entire patch to just:
- static __inline__ int scm_check_creds(struct ucred *creds)
- {
- 	const struct cred *cred = current_cred();
-+	struct user_namespace *ns = cred->user_ns;
-
--	if ((creds->pid == task_tgid_vnr(current) || capable(CAP_SYS_ADMIN)) &&
--	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
--	      creds->uid == cred->suid) || capable(CAP_SETUID)) &&
--	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
--	      creds->gid == cred->sgid) || capable(CAP_SETGID))) {
-+	if ((creds->pid == task_tgid_vnr(current) || ns_capable(ns, CAP_SYS_ADMIN)) &&
-+	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
-+	      creds->uid == cred->suid) || ns_capable(ns, CAP_SETUID)) &&
-+	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
-+	      creds->gid == cred->sgid) || ns_capable(ns, CAP_SETGID))) {
-  	       return 0;
-  	}
-  	return -EPERM;
-  }
+Eric
