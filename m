@@ -1,40 +1,32 @@
-From: "Webmail Administrator" <chinmaya@iitk.ac.in>
-Subject: (unknown)
-Date: Thu, 20 Oct 2011 01:04:33 +0530
-Message-ID: <160de73f2ac69161f052ba815bf2c088.squirrel__39795.5626402565$1319053724$gmane$org@webmail.iitk.ac.in>
-Reply-To: webmailservice@info.info
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: Allow skb_recycle_check to be done in stages
+Date: Wed, 19 Oct 2011 16:00:02 -0400 (EDT)
+Message-ID: <20111019.160002.1466712773120379478.davem@davemloft.net>
+References: <1318516435-24314-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: afleming@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.iitk.ac.in ([202.3.77.189]:57959 "EHLO mail4.iitk.ac.in"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753095Ab1JSTsP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Oct 2011 15:48:15 -0400
-Subject: 
+Received: from shards.monkeyblade.net ([198.137.202.13]:59686 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527Ab1JSUAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 16:00:08 -0400
+In-Reply-To: <1318516435-24314-1-git-send-email-afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andy Fleming <afleming@freescale.com>
+Date: Thu, 13 Oct 2011 09:33:54 -0500
 
+> skb_recycle_check resets the skb if it's eligible for recycling.
+> However, there are times when a driver might want to optionally
+> manipulate the skb data with the skb before resetting the skb,
+> but after it has determined eligibility.  We do this by splitting the
+> eligibility check from the skb reset, creating two inline functions to
+> accomplish that task.
+> 
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
 
-
-mailbox has exceeded the storage limit which is 20GB as set by your
-administrator,you are currently running on 20.9GB,you may not be able t=
-o
-send or receive new mail until you re-validate your mailbox.To re-valid=
-ate
-your mailbox please click this
-https://docs.google.com/spreadsheet/viewform?formkey=3DdGh2MnVmNjBMdTlQ=
-VUswa3pEWXozTlE6MQ
-
-
-Warning!!! All Webmail. Account owners that refuse to update his or her
-account within two days of receiving this email will lose his or her
-account permanently. AGB =A9 upc cablecom GmbH 2011. We apologize for a=
-ny
-inconvenience this may have cause you. Thank you for using Webmail
-
-
-System Administrator.
-Customer Care Unit.
+Applied.
