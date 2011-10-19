@@ -1,86 +1,107 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net -v2] [BUGFIX] bonding: use flush_delayed_work_sync in bond_close
-Date: Wed, 19 Oct 2011 11:01:02 -0700
-Message-ID: <27007.1319047262@death>
-References: <20111019081757.12455.24788.stgit@ltc219.sdl.hitachi.co.jp>
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com,
-	WANG Cong <xiyou.wangcong@gmail.com>
-To: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <20111019081757.12455.24788.stgit@ltc219.sdl.hitachi.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: raj@tardy.cup.hp.com (Rick Jones)
+Subject: [PATCH net-next] Add ethtool -g support to virtio_net
+Date: Wed, 19 Oct 2011 11:10:59 -0700 (PDT)
+Message-ID: <20111019181059.C644A29003F6@tardy>
+To: <netdev@vger.kernel.org>, <rusty@rustcorp.com.au>,
+	<mst@redhat.com>, <virtualization@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:45008 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625Ab1JSSLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 14:11:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com> wrote:
+From: Rick Jones <rick.jones2@hp.com>
 
->The bond_close() calls cancel_delayed_work() to cancel delayed works.
->It, however, cannot cancel works that were already queued in workqueue.
->The bond_open() initializes work->data, and proccess_one_work() refers
->get_work_cwq(work)->wq->flags. The get_work_cwq() returns NULL when
->work->data has been initialized. Thus, a panic occurs.
->
->This patch uses flush_delayed_work_sync() instead of cancel_delayed_work()
->in bond_close(). It cancels delayed timer and waits for work to finish
->execution. So, it can avoid the null pointer dereference due to the
->parallel executions of proccess_one_work() and initializing proccess
->of bond_open().
+Add support for reporting ring sizes via ethtool -g to the virtio_net
+driver.
 
-	I'm setting up to test this.  I have a dim recollection that we
-tried this some years ago, and there was a different deadlock that
-manifested through the flush path.  Perhaps changes since then have
-removed that problem.
-
-	-J
-
->Signed-off-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
->Reviewed-by: WANG Cong <xiyou.wangcong@gmail.com>
->Cc: Jay Vosburgh <fubar@us.ibm.com>
->Cc: Andy Gospodarek <andy@greyhouse.net>
->Cc: WANG Cong <xiyou.wangcong@gmail.com>
->---
->
-> drivers/net/bonding/bond_main.c |   10 +++++-----
-> 1 files changed, 5 insertions(+), 5 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index de3d351..a4353f9 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -3504,27 +3504,27 @@ static int bond_close(struct net_device *bond_dev)
-> 	write_unlock_bh(&bond->lock);
->
-> 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
->-		cancel_delayed_work(&bond->mii_work);
->+		flush_delayed_work_sync(&bond->mii_work);
-> 	}
->
-> 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
->-		cancel_delayed_work(&bond->arp_work);
->+		flush_delayed_work_sync(&bond->arp_work);
-> 	}
->
-> 	switch (bond->params.mode) {
-> 	case BOND_MODE_8023AD:
->-		cancel_delayed_work(&bond->ad_work);
->+		flush_delayed_work_sync(&bond->ad_work);
-> 		break;
-> 	case BOND_MODE_TLB:
-> 	case BOND_MODE_ALB:
->-		cancel_delayed_work(&bond->alb_work);
->+		flush_delayed_work_sync(&bond->alb_work);
-> 		break;
-> 	default:
-> 		break;
-> 	}
->
-> 	if (delayed_work_pending(&bond->mcast_work))
->-		cancel_delayed_work(&bond->mcast_work);
->+		flush_delayed_work_sync(&bond->mcast_work);
->
-> 	if (bond_is_lb(bond)) {
-> 		/* Must be called only after all
->
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+Tested briefly in a single guest:
+
+raj@raj-ubuntu-guest:~$ ethtool -g eth0
+Ring parameters for eth0:
+Pre-set maximums:
+RX:		256
+RX Mini:	0
+RX Jumbo:	0
+TX:		256
+Current hardware settings:
+RX:		256
+RX Mini:	0
+RX Jumbo:	0
+TX:		256
+
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b8225f3..3e642a4 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -880,8 +880,21 @@ static void virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
+ 		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
+ }
+ 
++static void virtnet_get_ringparam(struct net_device *dev,
++				struct ethtool_ringparam *ring)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++
++	ring->rx_max_pending = virtqueue_get_vring_size(vi->rvq);
++	ring->tx_max_pending = virtqueue_get_vring_size(vi->svq);
++	ring->rx_pending = ring->rx_max_pending;
++	ring->tx_pending = ring->tx_max_pending;
++
++}
++
+ static const struct ethtool_ops virtnet_ethtool_ops = {
+ 	.get_link = ethtool_op_get_link,
++	.get_ringparam = virtnet_get_ringparam,
+ };
+ 
+ #define MIN_MTU 68
+diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+index 68b9136..4acf888 100644
+--- a/drivers/virtio/virtio_ring.c
++++ b/drivers/virtio/virtio_ring.c
+@@ -529,4 +529,14 @@ void vring_transport_features(struct virtio_device *vdev)
+ }
+ EXPORT_SYMBOL_GPL(vring_transport_features);
+ 
++/* return the size of the vring within the virtqueue */
++unsigned int virtqueue_get_vring_size(struct virtqueue *_vq)
++{
++
++	struct vring_virtqueue *vq = to_vvq(_vq);
++
++	return vq->vring.num;
++}
++EXPORT_SYMBOL_GPL(virtqueue_get_vring_size);
++
+ MODULE_LICENSE("GPL");
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index 7108857..851ebf1 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -61,6 +61,9 @@ struct virtqueue {
+  * virtqueue_detach_unused_buf: detach first unused buffer
+  * 	vq: the struct virtqueue we're talking about.
+  * 	Returns NULL or the "data" token handed to add_buf
++ * virtqueue_get_vring_size: return the size of the virtqueue's vring
++ *	vq: the struct virtqueue containing the vring of interest.
++ *	Returns the size of the vring.
+  *
+  * Locking rules are straightforward: the driver is responsible for
+  * locking.  No two operations may be invoked simultaneously, with the exception
+@@ -97,6 +100,8 @@ bool virtqueue_enable_cb_delayed(struct virtqueue *vq);
+ 
+ void *virtqueue_detach_unused_buf(struct virtqueue *vq);
+ 
++unsigned int virtqueue_get_vring_size(struct virtqueue *vq);
++
+ /**
+  * virtio_device - representation of a device using virtio
+  * @index: unique position on the virtio bus
