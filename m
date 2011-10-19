@@ -1,98 +1,51 @@
-From: Nico Schottelius <nico-linux-20111017@schottelius.org>
-Subject: Re: BUG: All network processes hang (brcmsmac/wpa_supplicant)
-Date: Wed, 19 Oct 2011 16:55:01 +0200
-Message-ID: <20111019145501.GB1414@schottelius.org>
-References: <20111019123602.GA11883@schottelius.org>
- <1319028563.8416.1.camel@edumazet-laptop>
- <20111019130749.GD11883@schottelius.org>
- <20111019142837.GA1414@schottelius.org>
- <4E9EE20F.1030403@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 6/7] mlx4_en: Adding rxhash support
+Date: Wed, 19 Oct 2011 15:57:08 +0100
+Message-ID: <1319036228.2829.14.camel@bwh-desktop>
+References: <4E9C8D8B.90606@mellanox.co.il>
+	 <1318902525.2571.24.camel@edumazet-laptop>
+	 <953B660C027164448AE903364AC447D2235EEB65@MTLDAG01.mtl.com>
+	 <1318926870.2657.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <953B660C027164448AE903364AC447D2235EEC80@MTLDAG01.mtl.com>
+	 <20111018083606.6367ff50@nehalam.linuxnetplumber.net>
+	 <1318966500.2783.124.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="aVD9QWMuhilNxW9f"
-Cc: Nico Schottelius <nico-linux-20111017@schottelius.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, wey-yi.w.guy@intel.com
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4E9EE20F.1030403@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:2242 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755010Ab1JSO5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 10:57:12 -0400
+In-Reply-To: <1318966500.2783.124.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2011-10-18 at 20:35 +0100, Ben Hutchings wrote:
+[...]
+> There was also a proposal a while back that we should try to make the
+> hash symmetric w.r.t. RX and TX addresses, so that both directions of a
+> flow through a router/bridge are aligned.  I think this was to be done
+> by repeating a 16-bit pattern across the key.  Not sure whether that's
+> worthwhile.
 
---aVD9QWMuhilNxW9f
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+That also makes it relatively cheap to calculate in software, which
+DragonflyBSD does:
 
-Hey Arend,
+http://gitweb.dragonflybsd.org/dragonfly.git/blob/master:/sys/net/toeplitz.c
+http://gitweb.dragonflybsd.org/dragonfly.git/blob/master:/sys/net/toeplitz2.h
 
+(the latter file appears to assume that in_addr_t/in_port_t are byte-
+swapped i.e. the host is little-endian).
 
-Arend van Spriel [Wed, Oct 19, 2011 at 04:43:27PM +0200]:
-> I actually don't see the rtnl_lock or mutex_lock that was listed in your
-> original dmesg. There are a lot of warning traces from mac80211.c.
+Ben.
 
-Oh, sorry, ip r was stuck already and I didn't wait 120 seconds!
-
-
-> The other interesting thing is the following:
->=20
-> [  367.389096] wlan0: deauthenticating from 00:03:52:e3:0e:10 by local
-> choice (reason=3D3)
-> [  367.416312] cfg80211: Calling CRDA to update world regulatory domain
-> [  369.367667] wlan0: direct probe to 00:03:52:2c:01:00 (try 1/3)
-> [  369.565008] wlan0: direct probe to 00:03:52:2c:01:00 (try 2/3)
-> [  369.764891] wlan0: direct probe to 00:03:52:2c:01:00 (try 3/3)
-> [  369.964768] wlan0: direct probe to 00:03:52:2c:01:00 timed out
-> [  381.310339] wlan0: direct probe to 00:0f:61:1a:0c:50 (try 1/3)
-> [  381.508071] wlan0: direct probe to 00:0f:61:1a:0c:50 (try 2/3)
-> [  381.707955] wlan0: direct probe to 00:0f:61:1a:0c:50 (try 3/3)
-> [  381.907788] wlan0: direct probe to 00:0f:61:1a:0c:50 timed out
-> [  393.250073] wlan0: direct probe to 00:03:52:2c:01:00 (try 1/3)
-> [  393.447810] wlan0: direct probe to 00:03:52:2c:01:00 (try 2/3)
-> [  393.647700] wlan0: direct probe to 00:03:52:2c:01:00 (try 3/3)
-> [  393.847576] wlan0: direct probe to 00:03:52:2c:01:00 timed out
-> [  405.183177] wlan0: direct probe to 00:0f:61:1a:1d:30 (try 1/3)
-> [  405.380906] wlan0: direct probe to 00:0f:61:1a:1d:30 (try 2/3)
-> [  405.580773] wlan0: direct probe to 00:0f:61:1a:1d:30 (try 3/3)
-> [  405.780658] wlan0: direct probe to 00:0f:61:1a:1d:30 timed out
->=20
-> There is another thread title "iwlagn is getting very shaky". It makes
-> me wonder.
->=20
-> Where did you get your kernel from. From you dmesg I see:
-
-It's a mix of Keith's and Jiri's branches:
-
-http://www.nico.schottelius.org/blog/macbook-air-42-touchpad-keyboard-corre=
-ct-screen-resolution/
-
-Those two are needed to get screen/keyboard/mouse working on the MacBook Ai=
-r.
-
-You can pull the merged result directly from
-
-  git://git.schottelius.org/foreign/linux-keith-jiri-mba
-
-Cheers,
-
-Nico
-
---=20
-PGP key: 7ED9 F7D3 6B10 81D7 0EC5  5C09 D7DC C8E4 3187 7DF0
-
---aVD9QWMuhilNxW9f
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEARECAAYFAk6e5MUACgkQ19zI5DGHffBr0wCeM96ozFmOYLKh1B+U0EaeIy3p
-JXkAnim2zo3iXin25eIHBdvHPGLpQ1Jc
-=9rDo
------END PGP SIGNATURE-----
-
---aVD9QWMuhilNxW9f--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
