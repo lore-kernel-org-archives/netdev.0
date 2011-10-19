@@ -1,100 +1,80 @@
 From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH 06/10] RDMA/cxgb4: disable interrupts in c4iw_ev_dispatch().
-Date: Wed, 19 Oct 2011 22:41:00 +0530
-Message-ID: <1319044264-779-7-git-send-email-vipul@chelsio.com>
+Subject: [PATCH 08/10] RDMA/cxgb4: Use vmalloc for debugfs qp dump. Allows dumping thousands of qps.
+Date: Wed, 19 Oct 2011 22:41:02 +0530
+Message-ID: <1319044264-779-9-git-send-email-vipul@chelsio.com>
 References: <1319044264-779-1-git-send-email-vipul@chelsio.com>
 Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
 	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
 	Vipul Pandya <vipul@chelsio.com>
 To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29373 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:32286 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756904Ab1JSRNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 13:13:35 -0400
+	with ESMTP id S1756923Ab1JSRNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 13:13:42 -0400
 In-Reply-To: <1319044264-779-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Use GFP_ATOMIC in _insert_handle() if ints are disabled.
-
-	Don't panic if we get an abort with no endpoint found. Just log a
-	warning.
+	Log active open failures of interest.
 
 Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c       |    5 ++++-
- drivers/infiniband/hw/cxgb4/ev.c       |    8 ++++----
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    2 +-
- 3 files changed, 9 insertions(+), 6 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c     |   18 ++++++++++++++++++
+ drivers/infiniband/hw/cxgb4/device.c |    4 ++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index b36cdac..c51818a 100644
+index c51818a..3d87d02 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -1360,7 +1360,10 @@ static int abort_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+@@ -1411,6 +1411,24 @@ static int act_open_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		return 0;
+ 	}
  
- 	ep = lookup_tid(t, tid);
- 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
--	BUG_ON(!ep);
-+	if (!ep) {
-+		printk(KERN_WARNING MOD "Abort rpl to freed endpoint\n");
-+		return 0;
++	/*
++	 * Log interesting failures.
++	 */
++	switch (status) {
++	case CPL_ERR_CONN_RESET:
++	case CPL_ERR_CONN_TIMEDOUT:
++		break;
++	default:
++		printk(KERN_INFO MOD "Active open failure - "
++		       "atid %u status %u errno %d %pI4:%u->%pI4:%u\n",
++		       atid, status, status2errno(status),
++		       &ep->com.local_addr.sin_addr.s_addr,
++		       ntohs(ep->com.local_addr.sin_port),
++		       &ep->com.remote_addr.sin_addr.s_addr,
++		       ntohs(ep->com.remote_addr.sin_port));
++		break;
 +	}
- 	mutex_lock(&ep->com.mutex);
- 	switch (ep->com.state) {
- 	case ABORTING:
-diff --git a/drivers/infiniband/hw/cxgb4/ev.c b/drivers/infiniband/hw/cxgb4/ev.c
-index c13041a..e9eac34 100644
---- a/drivers/infiniband/hw/cxgb4/ev.c
-+++ b/drivers/infiniband/hw/cxgb4/ev.c
-@@ -81,7 +81,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
- 	struct c4iw_qp *qhp;
- 	u32 cqid;
++
+ 	connect_reply_upcall(ep, status2errno(status));
+ 	state_set(&ep->com, DEAD);
  
--	spin_lock(&dev->lock);
-+	spin_lock_irq(&dev->lock);
- 	qhp = get_qhp(dev, CQE_QPID(err_cqe));
- 	if (!qhp) {
- 		printk(KERN_ERR MOD "BAD AE qpid 0x%x opcode %d "
-@@ -90,7 +90,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
- 		       CQE_OPCODE(err_cqe), CQE_STATUS(err_cqe),
- 		       CQE_TYPE(err_cqe), CQE_WRID_HI(err_cqe),
- 		       CQE_WRID_LOW(err_cqe));
--		spin_unlock(&dev->lock);
-+		spin_unlock_irq(&dev->lock);
- 		goto out;
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index bdb398f..8545629 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -121,7 +121,7 @@ static int qp_release(struct inode *inode, struct file *file)
+ 		printk(KERN_INFO "%s null qpd?\n", __func__);
+ 		return 0;
  	}
+-	kfree(qpd->buf);
++	vfree(qpd->buf);
+ 	kfree(qpd);
+ 	return 0;
+ }
+@@ -145,7 +145,7 @@ static int qp_open(struct inode *inode, struct file *file)
+ 	spin_unlock_irq(&qpd->devp->lock);
  
-@@ -106,13 +106,13 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
- 		       CQE_OPCODE(err_cqe), CQE_STATUS(err_cqe),
- 		       CQE_TYPE(err_cqe), CQE_WRID_HI(err_cqe),
- 		       CQE_WRID_LOW(err_cqe));
--		spin_unlock(&dev->lock);
-+		spin_unlock_irq(&dev->lock);
- 		goto out;
- 	}
- 
- 	c4iw_qp_add_ref(&qhp->ibqp);
- 	atomic_inc(&chp->refcnt);
--	spin_unlock(&dev->lock);
-+	spin_unlock_irq(&dev->lock);
- 
- 	/* Bad incoming write */
- 	if (RQ_TYPE(err_cqe) &&
-diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 1924c19..2ce7741 100644
---- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-+++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -246,7 +246,7 @@ static inline int _insert_handle(struct c4iw_dev *rhp, struct idr *idr,
- 	int newid;
- 
- 	do {
--		if (!idr_pre_get(idr, GFP_KERNEL))
-+		if (!idr_pre_get(idr, lock ? GFP_KERNEL : GFP_ATOMIC))
- 			return -ENOMEM;
- 		if (lock)
- 			spin_lock_irq(&rhp->lock);
+ 	qpd->bufsize = count * 128;
+-	qpd->buf = kmalloc(qpd->bufsize, GFP_KERNEL);
++	qpd->buf = vmalloc(qpd->bufsize);
+ 	if (!qpd->buf) {
+ 		ret = -ENOMEM;
+ 		goto err1;
 -- 
 1.7.1
