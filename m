@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] l2tp: give proper headroom in pppol2tp_xmit()
-Date: Tue, 18 Oct 2011 23:34:44 -0400 (EDT)
-Message-ID: <20111018.233444.955647916101091708.davem@davemloft.net>
-References: <1318002357.3207.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: [PATCH] bluetooth: Properly clone LSM attributes to newly
+ created child connections
+Date: Tue, 18 Oct 2011 23:36:56 -0400 (EDT)
+Message-ID: <20111018.233656.1245200653040022710.davem@davemloft.net>
+References: <20111007194059.12345.13398.stgit@sifl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55078 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989Ab1JSDer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Oct 2011 23:34:47 -0400
-In-Reply-To: <1318002357.3207.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: pmoore@redhat.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20111007194059.12345.13398.stgit@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 07 Oct 2011 17:45:57 +0200
+From: Paul Moore <pmoore@redhat.com>
+Date: Fri, 07 Oct 2011 15:40:59 -0400
 
-> pppol2tp_xmit() calls skb_cow_head(skb, 2) before calling
-> l2tp_xmit_skb()
+> The Bluetooth stack has internal connection handlers for all of the various
+> Bluetooth protocols, and unfortunately, they are currently lacking the LSM
+> hooks found in the core network stack's connection handlers.  I say
+> unfortunately, because this can cause problems for users who have have an
+> LSM enabled and are using certain Bluetooth devices.  See one problem
+> report below:
 > 
-> Then l2tp_xmit_skb() calls again skb_cow_head(skb, large_headroom)
+>  * http://bugzilla.redhat.com/show_bug.cgi?id=741703
 > 
-> This patchs changes the first skb_cow_head() call to supply the needed
-> headroom to make sure at most one (expensive) pskb_expand_head() is
-> done.
+> In order to keep things simple at this point in time, this patch fixes the
+> problem by cloning the parent socket's LSM attributes to the newly created
+> child socket.  If we decide we need a more elaborate LSM marking mechanism
+> for Bluetooth (I somewhat doubt this) we can always revisit this decision
+> in the future.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> Maybe we should add a counter to help diagnose too many
-> pskb_expand_head() calls...
+> Reported-by: James M. Cape <jcape@ignore-your.tv>
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
 
-Applied.
-
-I think it's the kind of event that deserves a tracepoint, this way one
-could use perf to notice and diagnose such problems.
+Applied, thanks!
