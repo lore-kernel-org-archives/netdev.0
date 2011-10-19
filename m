@@ -1,89 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Comment on nf_queue NF_STOLEN patch
-Date: Wed, 19 Oct 2011 06:10:35 +0200
-Message-ID: <1318997435.19139.16.camel@edumazet-laptop>
-References: <4E988B1E.5000606@itcare.pl>
-	 <CAEuXFEy89F_=J_PJMSbQ1fDcOEkkpz2vucq3LcToi7rTcZHcDA@mail.gmail.com>
-	 <4E9DCEAD.7070603@verizon.net> <1318973032.19139.5.camel@edumazet-laptop>
-	 <4E9DF0EB.8080008@verizon.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] l2tp: give proper headroom in pppol2tp_xmit()
+Date: Wed, 19 Oct 2011 00:12:16 -0400 (EDT)
+Message-ID: <20111019.001216.1105373017883639047.davem@davemloft.net>
+References: <1318002357.3207.28.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<20111018.233444.955647916101091708.davem@davemloft.net>
+	<1318996826.19139.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, Florian Westphal <fw@strlen.de>
-To: Jim Sansing <jjsansing@verizon.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4E9DF0EB.8080008@verizon.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:34973 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753895Ab1JSEMT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 00:12:19 -0400
+In-Reply-To: <1318996826.19139.11.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 18 octobre 2011 =C3=A0 17:34 -0400, Jim Sansing a =C3=A9crit :
-> Eric Dumazet wrote:
-> > Le mardi 18 octobre 2011 =C3=A0 15:08 -0400, Jim Sansing a =C3=A9cr=
-it :
-> >  =20
-> >> I have been working on a kernel module that registers with netfilt=
-er,
-> >> and I noticed that a patch was added to nf_queue that changed the
-> >> handling of return code NF_FILTER from 'do nothing' to 'free the s=
-kb'.=20
-> >> I'm not sure which kernel version this went in, but the date of th=
-e
-> >> patch is Feb, 19, 2010.
-> >>
-> >> Everything I have read about netfilter states that it is up to the
-> >> netfilter hook to free the skb if NF_STOLEN is returned.  The
-> >> implications of this patch from a hook programming perspective are=
-:
-> >>
-> >> 1) If the skb is used after the return from the hook, it must be c=
-loned.
-> >> 2) The original skb must not be freed.
-> >>
-> >> I suggest that a comment be added to include/linux/netfilter.h tha=
-t says
-> >> explicitly the skb will be freed if NF_STOLEN is returned.
-> >>    =20
-> >
-> > But its not true. Just read the code.
-> >
-> > If you are working on this stuff I recommend you take a look at
-> > commits :
-> >
-> > c6675233f9015d3c0460c8aab53ed9b99d915c64
-> > (netfilter: nf_queue: reject NF_STOLEN verdicts from userspace)
-> >
-> > fad54440438a7c231a6ae347738423cbabc936d9
-> > (netfilter: avoid double free in nf_reinject)
-> >
-> > 64507fdbc29c3a622180378210ecea8659b14e40
-> > (netfilter: nf_queue: fix NF_STOLEN skb leak)
-> >
-> > 3bc38712e3a6e0596ccb6f8299043a826f983701
-> > ([NETFILTER]: nf_queue: handle NF_STOP and unknown verdicts in
-> > nf_reinject)
-> >
-> >  =20
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 19 Oct 2011 06:00:26 +0200
+
+> Le mardi 18 octobre 2011 =E0 23:34 -0400, David Miller a =E9crit :
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> > Maybe we should add a counter to help diagnose too many
+>> > pskb_expand_head() calls...
+>>=20
 >=20
-> I see that fad54440438a7c231a6ae347738423cbabc936d9 (netfilter: avoid
-> double free in nf_reinject) returns the switch case for NF_STOLEN bac=
-k
-> to the original state, but I just downloaded 3.0.4, and the skb is st=
-ill
-> freed.  So for some versions of the kernel, the situation exists.=20
-> Hopefully anyone who runs into it will find this thread.
+>> I think it's the kind of event that deserves a tracepoint, this way =
+one
+>> could use perf to notice and diagnose such problems.
 >=20
+> Target of the patch is an embedded device, MIPS based.=20
+>=20
+> I am not sure perf is available on it.
 
-Hopefully netfilter guys (CCed) will sort out the problem and ask stabl=
-e
-submissions, if not already done. 3.0.4 is quite old :)
+No MIPS specific code is needed to support perf tracepoint
+analysis features.
 
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And even if core perf support were required, MIPS's lack of proper
+perf support would not the basis upon which we would add features.
