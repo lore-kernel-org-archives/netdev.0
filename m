@@ -1,48 +1,55 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH] virtio_net: Clean up set_skb_frag()
-Date: Thu, 20 Oct 2011 13:47:27 +0530
-Message-ID: <20111020081727.509.83122.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, Krishna Kumar <krkumar2@in.ibm.com>,
-	virtualization@lists.linux-foundation.org
-To: rusty@rustcorp.com.au, mst@redhat.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
+ Ethernet driver
+Date: Thu, 20 Oct 2011 04:45:41 -0400 (EDT)
+Message-ID: <20111020.044541.970282389722164761.davem@davemloft.net>
+References: <1319093184-19696-1-git-send-email-cloud.ren@Atheros.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Luis.Rodriguez@Atheros.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: cloud.ren@Atheros.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1319093184-19696-1-git-send-email-cloud.ren@Atheros.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove manual initialization in set_skb_frag, and instead
-use __skb_fill_page_desc() to do the same. Patch tested
-on net-next.
+From: <cloud.ren@Atheros.com>
+Date: Thu, 20 Oct 2011 14:46:24 +0800
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- drivers/net/virtio_net.c |   13 +++++--------
- 1 file changed, 5 insertions(+), 8 deletions(-)
+> +#define __far
 
-diff -ruNp org/drivers/net/virtio_net.c new/drivers/net/virtio_net.c
---- org/drivers/net/virtio_net.c	2011-10-20 08:34:31.000000000 +0530
-+++ new/drivers/net/virtio_net.c	2011-10-20 08:43:57.000000000 +0530
-@@ -143,18 +143,15 @@ static void skb_xmit_done(struct virtque
- static void set_skb_frag(struct sk_buff *skb, struct page *page,
- 			 unsigned int offset, unsigned int *len)
- {
-+	int size = min((unsigned)PAGE_SIZE - offset, *len);
- 	int i = skb_shinfo(skb)->nr_frags;
--	skb_frag_t *f;
- 
--	f = &skb_shinfo(skb)->frags[i];
--	skb_frag_size_set(f, min((unsigned)PAGE_SIZE - offset, *len));
--	f->page_offset = offset;
--	__skb_frag_set_page(f, page);
-+	__skb_fill_page_desc(skb, i, page, offset, size);
- 
--	skb->data_len += skb_frag_size(f);
--	skb->len += skb_frag_size(f);
-+	skb->data_len += size;
-+	skb->len += size;
- 	skb_shinfo(skb)->nr_frags++;
--	*len -= skb_frag_size(f);
-+	*len -= size;
- }
- 
- static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+So much unused crap left in these header files, get rid of this stuff.
+
++#define ALX_HW_WARN(_fmt, _args...) \
++		ALX_HW_PRINTA(WARNING, _fmt, ## _args)
++
++#define ALX_HW_INFO(_fmt, _args...) \
++		ALX_HW_PRINTA(INFO, _fmt, ## _args)
++
++#define ALX_HW_DBG(_fmt, _args...) \
++		ALX_HW_PRINTA(DEBUG, _fmt, ## _args)
++
+
+We told you to get rid of your customized debug logging interfaces,
+yet all of this stuff is still there.
+
++/* delay function */
++#define US_DELAY(_hw, _n)	__US_DELAY(_n)
++#define MS_DELAY(_hw, _n)	__MS_DELAY(_n)
++#define __US_DELAY(_n)		udelay(_n)
++#define __MS_DELAY(_n)		mdelay(_n)
+
+Useless wrappers for standard kernel interfaces, kill this.
+
++#define DEBUG_INFO(_a, _b)
++#define DEBUG_INFOS(_a, _b)
+
+Again we told you to get rid of this stuff.
+
+I suspect it's going to take may rounds of feedback before this driver
+is anywhere near ready for inclusion.
+
+Please just submit it to staging and let it cook there for a couple
+weeks in the interests of our sanity.
