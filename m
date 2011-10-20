@@ -1,66 +1,68 @@
-From: Jon Mason <mason@myri.com>
-Subject: Re: [PATCH net-next] myri10ge: fix truesize underestimation
-Date: Thu, 20 Oct 2011 15:33:58 -0500
-Message-ID: <CAMaF-rN8K3hDiwwqh_eGQ0nrxskn+7r9Rn_yDJ46aesKR77nbg@mail.gmail.com>
-References: <1319141403.2854.17.camel@edumazet-laptop>
+From: "Luis R. Rodriguez" <mcgrof@frijolero.org>
+Subject: Re: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161 Ethernet driver
+Date: Thu, 20 Oct 2011 13:33:57 -0700
+Message-ID: <CAB=NE6W6Gc+dN3SzX00VwO9iheemNzhRQ34KuvMtZsBqVJQhJQ@mail.gmail.com>
+References: <1319093184-19696-1-git-send-email-cloud.ren@Atheros.com>
+ <20111020.044541.970282389722164761.davem@davemloft.net> <6349D7A510622448B1BA0967850A8438011CC21D@nasanexd02d.na.qualcomm.com>
+ <20111020.052506.373437241768777548.davem@davemloft.net> <6349D7A510622448B1BA0967850A8438011CC2A0@nasanexd02d.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Gallatin <gallatin@myri.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:33264 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752249Ab1JTUd7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 16:33:59 -0400
-Received: by vcge1 with SMTP id e1so2813302vcg.19
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 13:33:58 -0700 (PDT)
-In-Reply-To: <1319141403.2854.17.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6349D7A510622448B1BA0967850A8438011CC2A0@nasanexd02d.na.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2011 at 3:10 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> skb->truesize must account for allocated memory, not the used part of
-> it. Doing this work is important to avoid unexpected OOM situations.
+On Thu, Oct 20, 2011 at 2:48 AM, Ren, Cloud <cjren@qca.qualcomm.com> wr=
+ote:
 >
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>>From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+>>Date: Thu, 20 Oct 2011 09:23:07 +0000
+>>
+>>> As you saw, should I do the two following steps?
+>>> 1. I firstly try to submit code to linux-staging.git.
+>>> 2. After the driver have been accepted by =C2=A0linux-staging.git, =
+I submit to net-
+>>next.git again.
+>>
+>>You submit and get it into staging so that it can sit there for some =
+time and get
+>>reviewed and improved by others.
+>>
+>>One doesn't submit directly to net-next right after it gets into stag=
+ing, staging
+>>is a place where your driver lives while it still smelly funky and ne=
+eds more
+>>work.
+>
+> The driver will support the next generation NICs of Atheros. Meanwhil=
+e, the driver can
+> also have better optimization for AR8131 and AR8151 than atl1c. For s=
+ome reason, we
+> don't plan to patch atl1c driver to support our new NIC, such as AR81=
+61. So I hope the driver
+> can stay in net-next in the end. Of course, I will be responsible for=
+ modify source code and
+> let it match kernel requirements.
 
-Acked-by: Jon Mason <mason@myri.com>
+Cloud,
 
-> CC: Jon Mason <mason@myri.com>
-> ---
-> =A0drivers/net/ethernet/myricom/myri10ge/myri10ge.c | =A0 =A03 ++-
-> =A01 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drive=
-rs/net/ethernet/myricom/myri10ge/myri10ge.c
-> index c970a48..0778edc 100644
-> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> @@ -1210,7 +1210,6 @@ myri10ge_rx_skb_build(struct sk_buff *skb, u8 *=
- va,
-> =A0 =A0 =A0 =A0struct skb_frag_struct *skb_frags;
->
-> =A0 =A0 =A0 =A0skb->len =3D skb->data_len =3D len;
-> - =A0 =A0 =A0 skb->truesize =3D len + sizeof(struct sk_buff);
-> =A0 =A0 =A0 =A0/* attach the page(s) */
->
-> =A0 =A0 =A0 =A0skb_frags =3D skb_shinfo(skb)->frags;
-> @@ -1385,6 +1384,8 @@ myri10ge_rx_done(struct myri10ge_slice_state *s=
-s, int len, __wsum csum,
-> =A0 =A0 =A0 =A0if (skb_frag_size(&skb_shinfo(skb)->frags[0]) <=3D 0) =
-{
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb_frag_unref(skb, 0);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb_shinfo(skb)->nr_frags =3D 0;
-> + =A0 =A0 =A0 } else {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->truesize +=3D bytes * skb_shinfo(s=
-kb)->nr_frags;
-> =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0skb->protocol =3D eth_type_trans(skb, dev);
-> =A0 =A0 =A0 =A0skb_record_rx_queue(skb, ss - &mgp->ss[0]);
->
->
->
+If you want to skip staging (which I recommend) then you need to
+address all upstream concerns expressed. Given that you indicate that
+you will be working on following up with the driver until its
+acceptable upstream my recommendation is either to clean up the driver
+very well and review it internally at Atheros prior to a public
+submission *or* just dump into staging and get the benefit of
+community cleanup and eventually wait until it is ready for proper
+upstream. If you want internal private review at Atheros you can use
+the internal private ath9k-devel list.
+
+Also are you going to maintain the older atlx drivers? While at it can
+you clear up who maintains what as far as Atheros is concerned for
+Ethernet?
+
+  Luis
