@@ -1,36 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel panic from tg3 net driver
-Date: Thu, 20 Oct 2011 22:17:47 +0200
-Message-ID: <1319141867.2854.19.camel@edumazet-laptop>
-References: <CAEbykaX4UPDBxOHmNr=dodaquSPjhPr-pLCcUn5hSu4-xLZy-g@mail.gmail.com>
-	 <20111020.155659.486754557434415381.davem@davemloft.net>
-	 <1319141125.2854.14.camel@edumazet-laptop>
-	 <20111020.161147.33259825921677777.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dev: use name hash for dev_seq_ops
+Date: Thu, 20 Oct 2011 16:17:41 -0400 (EDT)
+Message-ID: <20111020.161741.1961240945982687125.davem@davemloft.net>
+References: <1319097717-14910-1-git-send-email-mmaruseac@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ari.m.savolainen@gmail.com, richardcochran@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, eric.dumazet@gmail.com,
+	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dbaluta@ixiacom.com, mmaruseac@ixiacom.com
+To: mihai.maruseac@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111020.161147.33259825921677777.davem@davemloft.net>
+In-Reply-To: <1319097717-14910-1-git-send-email-mmaruseac@ixiacom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 20 octobre 2011 =C3=A0 16:11 -0400, David Miller a =C3=A9crit =
-:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 20 Oct 2011 22:05:25 +0200
->=20
-> > And I think this was fixed yesterday ?
-> >=20
-> > De: 	roy.qing.li@gmail.com
-> > =C3=80: 	ari.m.savolainen@gmail.com, netdev@vger.kernel.org
-> > Sujet: 	[PATCH net-next] neigh: fix rcu splat in neigh_update()
-> > Date: 	Tue, 18 Oct 2011 16:32:42 +0800 (18/10/2011 10:32:42)
-> >=20
->=20
-> Good catch, it seems to be this bug.
+From: Mihai Maruseac <mihai.maruseac@gmail.com>
+Date: Thu, 20 Oct 2011 11:01:57 +0300
 
-Oh well, sorry, it seems it was one bug hit during bisection, but maybe
-its completely unrelated to the real problem.
+> Instead of using the dev->next chain and trying to resync at each call to
+> dev_seq_start, use the name hash, keeping the bucket and the offset in
+> seq->private field.
+
+I'm totally fine with this patch from a technical perspective, but I'd
+like one small thing tidied up before I apply this.
+
+> +	unsigned int pos; /* bucket << 24 + offset */
+
+Please don't mention this as a constant in the comment, if we ever
+change NETDEV_HASHBITS this comment will be inaccurate.
+
+I'd suggest putting the BUCKET_SPACE define before the dev_iter_state
+definition, and using BUCKET_SPACE in the comment instead of 24.
+
+Thanks.
