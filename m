@@ -1,46 +1,193 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [RFD] Network configuration data in sysfs
-Date: Mon, 24 Oct 2011 14:46:49 +0200
-Message-ID: <CAPXgP10PZU+xSbQW-CH-E5rCk3-=1k-AvAs=tF8fAnz7QsmJRw@mail.gmail.com>
-References: <20111024013406.GA24158@shutemov.name> <20111023.232416.1038111296509565828.davem@davemloft.net>
- <20111024042400.GA31344@shutemov.name> <20111024.005900.1091819103500072631.davem@davemloft.net>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH 3/4] net: xen-netback: use API provided by xenbus module
+ to map rings
+Date: Thu, 20 Oct 2011 17:00:53 -0400
+Message-ID: <20111020210053.GA19558@phenom.dumpdata.com>
+References: <1319107519-2253-1-git-send-email-david.vrabel@citrix.com>
+ <1319107519-2253-4-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kirill@shutemov.name, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	gregkh@suse.de, gladkov.alexey@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:40325 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932288Ab1JXMrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 08:47:11 -0400
-Received: by ggnb1 with SMTP id b1so5682602ggn.19
-        for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 05:47:10 -0700 (PDT)
-In-Reply-To: <20111024.005900.1091819103500072631.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xensource.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
+To: David Vrabel <david.vrabel@citrix.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1319107519-2253-4-git-send-email-david.vrabel@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 24, 2011 at 06:59, David Miller <davem@davemloft.net> wrote:
-> From: "Kirill A. Shutemov" <kirill@shutemov.name>
-> Date: Mon, 24 Oct 2011 07:24:00 +0300
->
->> On Sun, Oct 23, 2011 at 11:24:16PM -0400, David Miller wrote:
->>> From: "Kirill A. Shutemov" <kirill@shutemov.name>
->>> Date: Mon, 24 Oct 2011 04:34:07 +0300
->>>
->>> You can use netlink to perform any configuration change you want, or
->>> to view any network configuration setting.
->>
->> You need /sbin/ip or similar tool to do this, right?
->
-> I'm talking about udev using netlink natively.
+On Thu, Oct 20, 2011 at 11:45:18AM +0100, David Vrabel wrote:
+> The xenbus module provides xenbus_map_ring_valloc() and
+> xenbus_map_ring_vfree().  Use these to map the Tx and Rx ring pages
+> granted by the frontend.
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-Kirill, what exactly is the use case? And why what does udev support
-mean in that context?
 
-I doubt that "not having /sbin/ip installed" should be a reason to add
-and expose complex interfaces in /sys, while we already have a
-perfectly working native way to do it.
+Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 
-Kay
+> Dave, this is a standalone patch and can be applied independently of
+> the rest of the series.
+
+.. or Dave, if you would like I can carry these patches.
+
+> 
+>  drivers/net/xen-netback/common.h  |   11 ++---
+>  drivers/net/xen-netback/netback.c |   80 ++++++++-----------------------------
+>  2 files changed, 22 insertions(+), 69 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index 161f207..94b79c3 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -58,10 +58,6 @@ struct xenvif {
+>  	u8               fe_dev_addr[6];
+>  
+>  	/* Physical parameters of the comms window. */
+> -	grant_handle_t   tx_shmem_handle;
+> -	grant_ref_t      tx_shmem_ref;
+> -	grant_handle_t   rx_shmem_handle;
+> -	grant_ref_t      rx_shmem_ref;
+>  	unsigned int     irq;
+>  
+>  	/* List of frontends to notify after a batch of frames sent. */
+> @@ -70,8 +66,6 @@ struct xenvif {
+>  	/* The shared rings and indexes. */
+>  	struct xen_netif_tx_back_ring tx;
+>  	struct xen_netif_rx_back_ring rx;
+> -	struct vm_struct *tx_comms_area;
+> -	struct vm_struct *rx_comms_area;
+>  
+>  	/* Frontend feature information. */
+>  	u8 can_sg:1;
+> @@ -106,6 +100,11 @@ struct xenvif {
+>  	wait_queue_head_t waiting_to_free;
+>  };
+>  
+> +static inline struct xenbus_device *xenvif_to_xenbus_device(struct xenvif *vif)
+> +{
+> +	return to_xenbus_device(vif->dev->dev.parent);
+> +}
+> +
+>  #define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
+>  #define XEN_NETIF_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
+>  
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index fd00f25..3af2924 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1577,88 +1577,42 @@ static int xen_netbk_kthread(void *data)
+>  
+>  void xen_netbk_unmap_frontend_rings(struct xenvif *vif)
+>  {
+> -	struct gnttab_unmap_grant_ref op;
+> -
+> -	if (vif->tx.sring) {
+> -		gnttab_set_unmap_op(&op, (unsigned long)vif->tx_comms_area->addr,
+> -				    GNTMAP_host_map, vif->tx_shmem_handle);
+> -
+> -		if (HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1))
+> -			BUG();
+> -	}
+> -
+> -	if (vif->rx.sring) {
+> -		gnttab_set_unmap_op(&op, (unsigned long)vif->rx_comms_area->addr,
+> -				    GNTMAP_host_map, vif->rx_shmem_handle);
+> -
+> -		if (HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1))
+> -			BUG();
+> -	}
+> -	if (vif->rx_comms_area)
+> -		free_vm_area(vif->rx_comms_area);
+> -	if (vif->tx_comms_area)
+> -		free_vm_area(vif->tx_comms_area);
+> +	if (vif->tx.sring)
+> +		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
+> +					vif->tx.sring);
+> +	if (vif->rx.sring)
+> +		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
+> +					vif->rx.sring);
+>  }
+>  
+>  int xen_netbk_map_frontend_rings(struct xenvif *vif,
+>  				 grant_ref_t tx_ring_ref,
+>  				 grant_ref_t rx_ring_ref)
+>  {
+> -	struct gnttab_map_grant_ref op;
+> +	void *addr;
+>  	struct xen_netif_tx_sring *txs;
+>  	struct xen_netif_rx_sring *rxs;
+>  
+>  	int err = -ENOMEM;
+>  
+> -	vif->tx_comms_area = alloc_vm_area(PAGE_SIZE);
+> -	if (vif->tx_comms_area == NULL)
+> +	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
+> +				     tx_ring_ref, &addr);
+> +	if (err)
+>  		goto err;
+>  
+> -	vif->rx_comms_area = alloc_vm_area(PAGE_SIZE);
+> -	if (vif->rx_comms_area == NULL)
+> -		goto err;
+> -
+> -	gnttab_set_map_op(&op, (unsigned long)vif->tx_comms_area->addr,
+> -			  GNTMAP_host_map, tx_ring_ref, vif->domid);
+> -
+> -	if (HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
+> -		BUG();
+> -
+> -	if (op.status) {
+> -		netdev_warn(vif->dev,
+> -			    "failed to map tx ring. err=%d status=%d\n",
+> -			    err, op.status);
+> -		err = op.status;
+> -		goto err;
+> -	}
+> -
+> -	vif->tx_shmem_ref    = tx_ring_ref;
+> -	vif->tx_shmem_handle = op.handle;
+> -
+> -	txs = (struct xen_netif_tx_sring *)vif->tx_comms_area->addr;
+> +	txs = (struct xen_netif_tx_sring *)addr;
+>  	BACK_RING_INIT(&vif->tx, txs, PAGE_SIZE);
+>  
+> -	gnttab_set_map_op(&op, (unsigned long)vif->rx_comms_area->addr,
+> -			  GNTMAP_host_map, rx_ring_ref, vif->domid);
+> -
+> -	if (HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
+> -		BUG();
+> -
+> -	if (op.status) {
+> -		netdev_warn(vif->dev,
+> -			    "failed to map rx ring. err=%d status=%d\n",
+> -			    err, op.status);
+> -		err = op.status;
+> +	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
+> +				     rx_ring_ref, &addr);
+> +	if (err)
+>  		goto err;
+> -	}
+> -
+> -	vif->rx_shmem_ref     = rx_ring_ref;
+> -	vif->rx_shmem_handle  = op.handle;
+> -	vif->rx_req_cons_peek = 0;
+>  
+> -	rxs = (struct xen_netif_rx_sring *)vif->rx_comms_area->addr;
+> +	rxs = (struct xen_netif_rx_sring *)addr;
+>  	BACK_RING_INIT(&vif->rx, rxs, PAGE_SIZE);
+>  
+> +	vif->rx_req_cons_peek = 0;
+> +
+>  	return 0;
+>  
+>  err:
+> -- 
+> 1.7.2.5
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
