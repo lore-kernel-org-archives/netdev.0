@@ -1,93 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH V2 net-next] mlx4_en: fix skb truesize underestimation
-Date: Thu, 20 Oct 2011 06:49:52 +0200
-Message-ID: <1319086192.8416.42.camel@edumazet-laptop>
-References: <1318932782.2657.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 3/4] ipv4: Fix inetpeer expiration handling
+Date: Thu, 20 Oct 2011 14:24:33 +0800
+Message-ID: <4E9FBEA1.2050407@cn.fujitsu.com>
+References: <20111011110842.GC1830@secunet.com> <20111011111122.GF1830@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44775 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752701Ab1JTFjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 01:39:48 -0400
-Received: by wyg36 with SMTP id 36so2480138wyg.19
-        for <netdev@vger.kernel.org>; Wed, 19 Oct 2011 22:39:47 -0700 (PDT)
-In-Reply-To: <1318932782.2657.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from cn.fujitsu.com ([222.73.24.84]:51663 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932243Ab1JTGYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Oct 2011 02:24:16 -0400
+In-Reply-To: <20111011111122.GF1830@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb->truesize must account for allocated memory, not the used part of
-it. Doing this work is important to avoid unexpected OOM situations.
+2011.10.11 19:11, Steffen Klassert wrote:
+> We leak a trigger to check if the learned pmtu information has
+> expired, so the learned pmtu informations never expire. This patch
+> add such a trigger to ipv4_dst_check().
+> 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/ipv4/route.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 9a6623e..cda370c 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1660,6 +1660,10 @@ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
+>  
+>  	if (rt_is_expired(rt))
+>  		return NULL;
+> +
+> +	if (rt->peer && peer_pmtu_expired(rt->peer))
+> +		dst_metric_set(dst, RTAX_MTU, rt->peer->pmtu_orig);
+> +
+>  	if (rt->rt_peer_genid != rt_peer_genid()) {
+>  		struct inet_peer *peer;
+>  
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
-V2: respin after recent patches
+there are serval problem.
+1:rt->peer maybe null,we should call rt_bind_peer just like the code below.
+2:rt->peer_pmtu_orig is null. if we hasn't send packet before,the func check_peer_pmtu hasn't be called.
+  so the peer->pmtu_orig is null.
+3:when rt->rt_peer_genid != rt_peer_genid(), we has no need to do dst_metric_set(dst, RTAX_MTU, rt->peer->pmtu_orig),
+  because check_peer_pmtu will do this.
 
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |   11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+what about this patch?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 9b18d85..9aec8b8 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -404,10 +404,11 @@ void mlx4_en_deactivate_rx_ring(struct mlx4_en_priv *priv,
- static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 				    struct mlx4_en_rx_desc *rx_desc,
- 				    struct skb_frag_struct *skb_frags,
--				    struct skb_frag_struct *skb_frags_rx,
-+				    struct sk_buff *skb,
- 				    struct mlx4_en_rx_alloc *page_alloc,
- 				    int length)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 04a14db..45782d2 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1655,17 +1655,17 @@ static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
+ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
  {
-+	struct skb_frag_struct *skb_frags_rx = skb_shinfo(skb)->frags;
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_frag_info *frag_info;
- 	int nr;
-@@ -423,6 +424,7 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 		skb_frags_rx[nr].page = skb_frags[nr].page;
- 		skb_frag_size_set(&skb_frags_rx[nr], skb_frag_size(&skb_frags[nr]));
- 		skb_frags_rx[nr].page_offset = skb_frags[nr].page_offset;
-+		skb->truesize += frag_info->frag_stride;
- 		dma = be64_to_cpu(rx_desc->data[nr].addr);
- 
- 		/* Allocate a replacement page */
-@@ -470,7 +472,6 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 	skb->dev = priv->dev;
- 	skb_reserve(skb, NET_IP_ALIGN);
- 	skb->len = length;
--	skb->truesize = length + sizeof(struct sk_buff);
- 
- 	/* Get pointer to first fragment so we could copy the headers into the
- 	 * (linear part of the) skb */
-@@ -490,8 +491,7 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 
- 		/* Move relevant fragments to skb */
- 		used_frags = mlx4_en_complete_rx_desc(priv, rx_desc, skb_frags,
--						      skb_shinfo(skb)->frags,
--						      page_alloc, length);
-+						      skb, page_alloc, length);
- 		if (unlikely(!used_frags)) {
- 			kfree_skb(skb);
- 			return NULL;
-@@ -600,7 +600,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 
- 					nr = mlx4_en_complete_rx_desc(
- 						priv, rx_desc,
--						skb_frags, skb_shinfo(gro_skb)->frags,
-+						skb_frags, gro_skb,
- 						ring->page_alloc, length);
- 					if (!nr)
- 						goto next;
-@@ -608,7 +608,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					skb_shinfo(gro_skb)->nr_frags = nr;
- 					gro_skb->len = length;
- 					gro_skb->data_len = length;
--					gro_skb->truesize += length;
- 					gro_skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 					if (cqe->vlan_my_qpn &
+        struct rtable *rt = (struct rtable *) dst;
++       struct inet_peer *peer;
+
+        if (rt_is_expired(rt))
+                return NULL;
+-       if (rt->rt_peer_genid != rt_peer_genid()) {
+-               struct inet_peer *peer;
+
+-               if (!rt->peer)
+-                       rt_bind_peer(rt, rt->rt_dst, 0);
++       if (!rt->peer)
++               rt_bind_peer(rt, rt->rt_dst, 0);
+
+-               peer = rt->peer;
+-               if (peer) {
++       peer = rt->peer;
++       if (peer) {
++               if (rt->rt_peer_genid != rt_peer_genid()) {
+                        check_peer_pmtu(dst, peer);
+
+                        if (peer->redirect_learned.a4 &&
+@@ -1673,9 +1673,12 @@ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
+                                if (check_peer_redir(dst, peer))
+                                        return NULL;
+                        }
+-               }
+
+-               rt->rt_peer_genid = rt_peer_genid();
++                       rt->rt_peer_genid = rt_peer_genid();
++
++               }else if(peer_pmtu_expired(peer))
++                       dst_metric_set(dst,RTAX_MTU,peer->pmtu_orig);
++
+        }
+        return dst;
+ }
