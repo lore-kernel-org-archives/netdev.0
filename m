@@ -1,99 +1,32 @@
-From: "Serge E. Hallyn" <serge@hallyn.com>
-Subject: Re: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace
- aware
-Date: Thu, 20 Oct 2011 14:24:07 +0000
-Message-ID: <20111020142407.GA2118@hallyn.com>
-References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
- <1318974898-21431-10-git-send-email-serge@hallyn.com>
- <m1sjmpytpf.fsf@fess.ebiederm.org>
- <20111020125801.GA1315@hallyn.com>
- <m1fwinvl8u.fsf@fess.ebiederm.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/5] macvtap fixes.
+Date: Thu, 20 Oct 2011 07:24:59 -0700
+Message-ID: <m1wrbzu4ec.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	oleg@redhat.com, richard@nod.at, mikevs@xs4all.net,
-	segoon@openwall.com, gregkh@suse.de, dhowells@redhat.com,
-	eparis@redhat.com, "Serge E. Hallyn" <serge.hallyn@canonical.com>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: <netdev@vger.kernel.org>, Arnd Bergmann <arnd@arnd.de>,
+	Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Shirly Ma <mashirley@us.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 50-56-35-84.static.cloud-ips.com ([50.56.35.84]:35636 "EHLO
-	mail" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752331Ab1JTOXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Oct 2011 10:23:46 -0400
-Content-Disposition: inline
-In-Reply-To: <m1fwinvl8u.fsf@fess.ebiederm.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:57567 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752326Ab1JTOYc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 10:24:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> "Serge E. Hallyn" <serge@hallyn.com> writes:
-> 
-> > Quoting Eric W. Biederman (ebiederm@xmission.com):
-> >> Serge Hallyn <serge@hallyn.com> writes:
-> >> 
-> >> > From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
-> >> >
-> >> > Currently uids are compared without regard for the user namespace.
-> >> > Fix that to prevent tasks in a different user namespace from
-> >> > wrongly matching on SCM_CREDENTIALS.
-> >> >
-> >> > In the past, either your uids had to match, or you had to have
-> >> > CAP_SETXID.  In a namespaced world, you must either (both be in the
-> >> > same user namespace and have your uids match), or you must have
-> >> > CAP_SETXID targeted at the other user namespace.  The latter can
-> >> > happen for instance if uid 500 created a new user namespace and
-> >> > now interacts with uid 0 in it.
-> >> 
-> >> Serge this approach is wrong.
-> >
-> > Thanks for looking, Eric.
-> >
-> >> Because we pass the cred and the pid through the socket socket itself
-> >> is just a conduit and should be ignored in this context.
-> >
-> > Ok, that makes sense, but
-> >
-> >> The only interesting test should be are you allowed to impersonate other
-> >> users in your current userk namespace.
-> >
-> > Why in your current user namespace?  Shouldn't it be in the
-> > target user ns?  I understand it could be wrong to tie the
-> > user ns owning the socket to the target userns (though I still
-> > kind of like it), but just because I have CAP_SETUID in my
-> > own user_ns doesn't mean I should be able to pose as another
-> > uid in your user_ns.
-> 
-> First and foremost it is important that you be able if you have the
-> capability to impersonate other users in your current user namespace.
-> That is what the capability actually controls.
-> 
-> None of this allows you to impersonate any user in any other user
-> namespace.  The translation between users prevents that.
-> 
-> > (Now I also see that cred_to_ucred() translates to the current
-> > user_ns, so that should have been a hint to me before about
-> > your intent, but I'm not convinced I agree with your intent).
-> >
-> > And you do the same with the pid.  Why is that a valid assumption?
-> 
-> Yes.  Basically all the code is allow you to impersonate people you
-> would have been able to impersonate before.  If your target is in
-> another namespace you can not fool them.
-> 
-> With pids the logic should be a lot clearer.  Pretend to be a pid you can
-> see in your current pid namespace.  Lookup and convert to struct pid aka
-> the namespace agnostic object.  On output return the pid value that
-> the target process will know you as.
-> 
-> Ultimately I think we need a ns_capable for the current user namespace
-> instead of a global one.  But I don't see any rush to introduce
-> ns_capable here.
 
-I think I agree - I was mistakenly thinking that without this patch
-there is an opportunity for a less privileged task in child user ns
-to impersonate, but that's not possible, so let's drop this patch
-for now!
+This series of patches fixes a series of minor bugs in the macvtap code.
 
-thanks,
--serge
+The fixes to handle failures in newlink and the change in how we handle
+minor device number allocations are particularly significant.
+
+Eric W. Biederman (5):
+      macvtap: Close a race between macvtap_open and macvtap_dellink.
+      macvtap: Fix macvtap_open races in the zero copy enable code.
+      macvtap: Don't leak unreceived packets when we delete a macvtap device.
+      macvtap: Rewrite macvtap_newlink so the error handling works.
+      macvtap: Fix the minor device number allocation
