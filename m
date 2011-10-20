@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] virtio_net: fix truesize underestimation
-Date: Thu, 20 Oct 2011 05:23:54 -0400 (EDT)
-Message-ID: <20111020.052354.2288803249088439664.davem@davemloft.net>
-References: <1319102086.3781.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga)
+ causes kernel oops
+Date: Thu, 20 Oct 2011 05:30:50 -0400 (EDT)
+Message-ID: <20111020.053050.383972361986316046.davem@davemloft.net>
+References: <1319008713.17914.8.camel@edumazet-laptop>
+	<20111019.033052.851679720607111734.davem@davemloft.net>
+	<20111019080807.GA25099@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, krkumar2@in.ibm.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44271 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349Ab1JTJ1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 05:27:05 -0400
-In-Reply-To: <1319102086.3781.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, evonlanthen@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	timo.teras@iki.fi
+To: herbert@gondor.hengli.com.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111019080807.GA25099@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Oct 2011 11:14:46 +0200
+From: Herbert Xu <herbert@gondor.hengli.com.au>
+Date: Wed, 19 Oct 2011 10:08:07 +0200
 
-> We must account in skb->truesize, the size of the fragments, not the
-> used part of them.
-> 
-> Doing this work is important to avoid unexpected OOM situations.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> I think Eric's initial patch is probably the safest bet for rc10.
+> We can then work on the proper fix for the next release.
 
-Applied.
+There are two "initial patch", I wonder which one you mean.
+
+There's his really first patch, which remoevs the lines in IP_GRE
+which change dev->needed_headroom.  I was under the impression we
+were against doing that.
+
+The other patch he posted duplicates the device attribute variable
+caching in two functions.
+
+My patch is just a tweak so that we only do this sequence in one
+place, the new sock_alloc_send_skb_reserve() helper, instead of
+in both the ipv4 and ipv6 RAW code.
+
+So I'm a little confused what your suggestion for rc10 really
+is :-)
