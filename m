@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio_net: Clean up set_skb_frag()
-Date: Thu, 20 Oct 2011 04:54:11 -0400 (EDT)
-Message-ID: <20111020.045411.1875503503183541494.davem@davemloft.net>
-References: <20111020081727.509.83122.sendpatchset@krkumar2.in.ibm.com>
-	<1319100362.3781.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bnx2x: fix skb truesize underestimation
+Date: Thu, 20 Oct 2011 11:00:23 +0200
+Message-ID: <1319101223.3781.7.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: krkumar2@in.ibm.com, rusty@rustcorp.com.au, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319100362.3781.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:40922 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752033Ab1JTJA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 05:00:27 -0400
+Received: by ggnb1 with SMTP id b1so2559808ggn.19
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 02:00:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Oct 2011 10:46:02 +0200
+bnx2x allocates a full page per fragment.
 
-> Le jeudi 20 octobre 2011 =E0 13:47 +0530, Krishna Kumar a =E9crit :
->> Remove manual initialization in set_skb_frag, and instead
->> use __skb_fill_page_desc() to do the same. Patch tested
->> on net-next.
->>=20
->> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-=2E..
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+We must account in skb->truesize, the size of the fragment, not the used
+part of it.
+    
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied, thanks.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index dd8ee56..580b44e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -454,7 +454,7 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 		skb_fill_page_desc(skb, j, old_rx_pg.page, 0, frag_len);
+ 
+ 		skb->data_len += frag_len;
+-		skb->truesize += frag_len;
++		skb->truesize += SGE_PAGE_SIZE * PAGES_PER_SGE;
+ 		skb->len += frag_len;
+ 
+ 		frag_size -= frag_len;
