@@ -1,40 +1,20 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [IEEE802.15.4][6LoWPAN] draft for fragmentation support
-Date: Thu, 20 Oct 2011 15:11:17 +0200
-Message-ID: <1319116277.7735.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111020111718.GA32181@avtobot.ww600.siemens.net>
-	 <1319114385.3781.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <CAJmB2rCe3BJKD07TOSyAT0vbDq_K1VHLOtECqeOMzaTsg3DokA@mail.gmail.com>
+From: Park Zihao <rodneyko@netvigator.com>
+Subject: Requesting for your partnership
+Date: Thu, 20 Oct 2011 20:42:58 +0800 (HKT)
+Message-ID: <867080874.436290.1319114578749.JavaMail.root__9391.79509082369$1319116502$gmane$org@wzbmbs02>
+Reply-To: "park.zihao1@w.cn" <park.zihao1@w.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, dbaryshkov@gmail.com, slapin@ossfans.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jonsmirl@gmail.com
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:50917 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751028Ab1JTNLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 09:11:21 -0400
-Received: by yxl42 with SMTP id 42so198728yxl.19
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 06:11:21 -0700 (PDT)
-In-Reply-To: <CAJmB2rCe3BJKD07TOSyAT0vbDq_K1VHLOtECqeOMzaTsg3DokA@mail.gmail.com>
+Received: from ocmas07a.static.netvigator.com ([219.76.94.32]:51306 "EHLO
+	ocmas07.netvigator.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751788Ab1JTNOe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 09:14:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 20 octobre 2011 =C3=A0 16:50 +0400, Alexander Smirnov a =C3=A9=
-crit :
-> Hi Eric,
->=20
-> thank you for the replies. And another question I forgot to ask:
->=20
-> when I send fragments, I still have original skb buffer. What should =
-I
-> do with it, is there any
-> "proper/good" ways to drop it? Because I've already fragmented it and
-> do not need to send
-> original skb to queue.
 
-I dont quite understand. Once your xmits are done, you must free the
-original skb.
+
+I am Mr Park Zihao, an Account Officer with the International bank of Taipei,I need your assistance in a business deal and you will be paid 30% for your Management Fees". Please reply for details
