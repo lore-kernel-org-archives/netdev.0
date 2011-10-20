@@ -1,33 +1,36 @@
 From: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Subject: [RFC PATCH 0/17] Miscellaneous generic PHY layer improvements
-Date: Thu, 20 Oct 2011 17:00:07 -0400
-Message-ID: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
-Cc: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+Subject: [RFC PATCH 02/17] of_mdio: Don't phy_scan_fixups() twice
+Date: Thu, 20 Oct 2011 17:00:09 -0400
+Message-ID: <1319144425-15547-3-git-send-email-Kyle.D.Moffett@boeing.com>
+References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
+Cc: Kyle Moffett <Kyle.D.Moffett@boeing.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	devicetree-discuss@lists.ozlabs.org
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 26.241.167.70.in-addr.border.exmeritus.com ([70.167.241.26]:35656
-	"EHLO border.exmeritus.com" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752198Ab1JTVIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 17:08:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello all,
+The "phy_device_register()" call 5 lines down already calls
+phy_scan_fixups(), there's no need to do it a second time.
 
-I have had the following series of phylib improvements and bugfixes
-kicking around in a GIT repository for over a year and I finally
-decided to get around to submitting them.
+Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+---
+ drivers/of/of_mdio.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-They are some preparatory work for later patches that I am still
-working on to support unidirectional ethernet links in phylib.
-
-These patches are currently based on v3.1-rc9; I apologize if these
-conflict with any existing ongoing work.  Please let me know and I am
-happy to respin against the appropriate tree.
-
-Cheers,
-Kyle Moffett
-
---
-Curious about my work on the Debian powerpcspe port?
-I'm keeping a blog here: http://pureperl.blogspot.com/
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index d35e300..980c079 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -83,7 +83,6 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 				addr);
+ 			continue;
+ 		}
+-		phy_scan_fixups(phy);
+ 
+ 		/* Associate the OF node with the device structure so it
+ 		 * can be looked up later */
+-- 
+1.7.2.5
