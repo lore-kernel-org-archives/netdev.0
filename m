@@ -1,43 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] pktgen: bug when calling ndelay in x86 architectures
-Date: Thu, 20 Oct 2011 16:24:44 -0400 (EDT)
-Message-ID: <20111020.162444.559487256559727633.davem@davemloft.net>
-References: <1318939007.2657.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1318946401.23980.6.camel@deadeye>
-	<1318949264.2657.97.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Jon Mason <mason@myri.com>
+Subject: Re: [PATCH net-next] myri10ge: fix truesize underestimation
+Date: Thu, 20 Oct 2011 15:33:58 -0500
+Message-ID: <CAMaF-rN8K3hDiwwqh_eGQ0nrxskn+7r9Rn_yDJ46aesKR77nbg@mail.gmail.com>
+References: <1319141403.2854.17.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, daniel.turull@gmail.com,
-	netdev@vger.kernel.org, robert@herjulf.net, voravit@kth.se,
-	jens.laas@uadm.uu.se
-To: eric.dumazet@gmail.com
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Gallatin <gallatin@myri.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33821 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554Ab1JTU2H convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 16:28:07 -0400
-In-Reply-To: <1318949264.2657.97.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:33264 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752249Ab1JTUd7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 16:33:59 -0400
+Received: by vcge1 with SMTP id e1so2813302vcg.19
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 13:33:58 -0700 (PDT)
+In-Reply-To: <1319141403.2854.17.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 18 Oct 2011 16:47:44 +0200
+On Thu, Oct 20, 2011 at 3:10 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> skb->truesize must account for allocated memory, not the used part of
+> it. Doing this work is important to avoid unexpected OOM situations.
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-> Le mardi 18 octobre 2011 =E0 15:00 +0100, Ben Hutchings a =E9crit :
->=20
->> AIUI, the reason for limits on delays is not that it's bad practice =
-to
->> spin for so long, but that the delay calculations may overflow or
->> otherwise become inaccurate.
->=20
-> OK, I can understand that, then a more appropriate patch would be :
+Acked-by: Jon Mason <mason@myri.com>
 
-I think doing the udelay/ndelay thing is the way to go for 'net' and
--stable.  We can do something sophisticated with ktime et al. in
-'net-next'.
-
-Eric, could you please formally submit this patch with proper
-changelog etc.?
-
-Thanks.
+> CC: Jon Mason <mason@myri.com>
+> ---
+> =A0drivers/net/ethernet/myricom/myri10ge/myri10ge.c | =A0 =A03 ++-
+> =A01 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drive=
+rs/net/ethernet/myricom/myri10ge/myri10ge.c
+> index c970a48..0778edc 100644
+> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+> @@ -1210,7 +1210,6 @@ myri10ge_rx_skb_build(struct sk_buff *skb, u8 *=
+ va,
+> =A0 =A0 =A0 =A0struct skb_frag_struct *skb_frags;
+>
+> =A0 =A0 =A0 =A0skb->len =3D skb->data_len =3D len;
+> - =A0 =A0 =A0 skb->truesize =3D len + sizeof(struct sk_buff);
+> =A0 =A0 =A0 =A0/* attach the page(s) */
+>
+> =A0 =A0 =A0 =A0skb_frags =3D skb_shinfo(skb)->frags;
+> @@ -1385,6 +1384,8 @@ myri10ge_rx_done(struct myri10ge_slice_state *s=
+s, int len, __wsum csum,
+> =A0 =A0 =A0 =A0if (skb_frag_size(&skb_shinfo(skb)->frags[0]) <=3D 0) =
+{
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb_frag_unref(skb, 0);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb_shinfo(skb)->nr_frags =3D 0;
+> + =A0 =A0 =A0 } else {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->truesize +=3D bytes * skb_shinfo(s=
+kb)->nr_frags;
+> =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0skb->protocol =3D eth_type_trans(skb, dev);
+> =A0 =A0 =A0 =A0skb_record_rx_queue(skb, ss - &mgp->ss[0]);
+>
+>
+>
