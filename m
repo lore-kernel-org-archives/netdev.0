@@ -1,36 +1,39 @@
 From: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Subject: [RFC PATCH 02/17] of_mdio: Don't phy_scan_fixups() twice
-Date: Thu, 20 Oct 2011 17:00:09 -0400
-Message-ID: <1319144425-15547-3-git-send-email-Kyle.D.Moffett@boeing.com>
+Subject: [RFC PATCH 03/17] greth: Allow PHYs to override ->read_status
+Date: Thu, 20 Oct 2011 17:00:10 -0400
+Message-ID: <1319144425-15547-4-git-send-email-Kyle.D.Moffett@boeing.com>
 References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
 Cc: Kyle Moffett <Kyle.D.Moffett@boeing.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	devicetree-discuss@lists.ozlabs.org
+	Kristoffer Glembo <kristoffer@gaisler.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The "phy_device_register()" call 5 lines down already calls
-phy_scan_fixups(), there's no need to do it a second time.
+Instead of manually calling genphy_read_status(), the greth driver
+should call phy_read_status() to allow the PHY driver to override the
+read_status method with its own version.
+
+NOTE: Completely untested. Needs somebody with hardware to try it out.
 
 Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
 ---
- drivers/of/of_mdio.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/greth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index d35e300..980c079 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -83,7 +83,6 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 				addr);
- 			continue;
+diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+index 52a3900..e7f268f 100644
+--- a/drivers/net/greth.c
++++ b/drivers/net/greth.c
+@@ -1367,7 +1367,7 @@ static int greth_mdio_init(struct greth_private *greth)
+ 		timeout = jiffies + 6*HZ;
+ 		while (!phy_aneg_done(greth->phy) && time_before(jiffies, timeout)) {
  		}
--		phy_scan_fixups(phy);
+-		genphy_read_status(greth->phy);
++		phy_read_status(greth->phy);
+ 		greth_link_change(greth->netdev);
+ 	}
  
- 		/* Associate the OF node with the device structure so it
- 		 * can be looked up later */
 -- 
 1.7.2.5
