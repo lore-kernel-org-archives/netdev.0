@@ -1,178 +1,136 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCH 3/4] net: xen-netback: use API provided by xenbus module to map rings
-Date: Thu, 20 Oct 2011 11:45:18 +0100
-Message-ID: <1319107519-2253-4-git-send-email-david.vrabel@citrix.com>
-References: <1319107519-2253-1-git-send-email-david.vrabel@citrix.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [RFC PATCH 0/5] SUNRPC: "RPC pipefs per network namespace"	preparations
+Date: Thu, 20 Oct 2011 15:06:46 +0400
+Message-ID: <4EA000C6.1040502@parallels.com>
+References: <20111017120629.4541.67395.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: xen-devel@lists.xensource.com, linux-kernel@vger.kernel.org,
-	David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org,
-	"David S . Miller" <davem@davemloft.net>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bfields@fieldses.org" <bfields@fieldses.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319107519-2253-1-git-send-email-david.vrabel@citrix.com>
+In-Reply-To: <20111017120629.4541.67395.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The xenbus module provides xenbus_map_ring_valloc() and
-xenbus_map_ring_vfree().  Use these to map the Tx and Rx ring pages
-granted by the frontend.
+Guys, please, spend some of your expensive time to review this patch-se=
+t briefly.
+This is not for commit, but just an idea representation.
+I really need some opinions about it, since all my further work aroud R=
+PC pipefs=20
+depends on it.
+IOW I need to now, does anyone has something against this idea.
+Trond, please, respond, does this idea suits you in general or not?
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
----
-Dave, this is a standalone patch and can be applied independently of
-the rest of the series.
+17.10.2011 17:10, Stanislav Kinsbursky =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> Hello to everyone.
+> RPC pipefs file system have to work per network namespace context is =
+required
+> prior to any NFS modifications.
+> This is a way how to do it. I'll really appreciate for any comments.
+>
+> There are several statements about how to make RPC pipefs working per=
+ network
+> namespace context.
+> Here they are:
+> 1) RPC pipefs should be mounted per network namespace context.
+> 2) RPC pipefs superblock should holds network namespace while active.
+> 3) RPC pipefs lookup and readir should be perfomed in network namespa=
+ce context
+> it was mounted. IOW, user-space process, working in another network n=
+amespace
+> context, should see RPC pipefs dentries from network namespace contex=
+t this
+> mount-point was created (like it was done for sysfs).
+>
+> These statement leads to some restrictions which we must follow durin=
+g
+> implementation. Here are they:
+> 1) RPC pipefs mount can't be performed in kernel context since new su=
+per block
+> will holds networks namespace reference and it's impossible to recogn=
+ize, when
+> and how we have to release this mount point. IOW rpc_get_mount() and
+> rpc_put_mount() have to be removed.
+> 2) RPC pipefs should provide some new helpers to lookup directory den=
+try for
+> those modules which creates pipes, because without RPC pipefs mount p=
+oint
+> general lookup can't be performed.
+> 3) These methods must garantee, that pipefs superblock will be active=
+ during
+> pipes creation and destruction.
+>
+> So, here is the idea of making RPC pipefs works per network namespace=
+ context:
+> 1) RPC pipefs superblock should holds network namespcae context while=
+ active.
+> 2) RPC pipefs should send notification events on superblock creation =
+and
+> destruction.
+> 3) RPC pipefs should provide "lookup dentry by name" method for notif=
+ication
+> subscribers.
+> 4) RPC pipefs should place superblock reference on current network na=
+mespace
+> context on creation and remove it on destruction.
+> 5) RPC pipefs should provide safe "lookup dentry by name" method for =
+per-net
+> operations, which garantees, that superblock is active, while
+> per-net-operations are performing.
+> 6) Client and cache directories creation and destruction should be pe=
+rformed
+> also on superblock creation and destruction notification events. Note=
+: generic
+> creation (like now) can fail (if no superblock is not created yet).
+> 7) Pipes creation and destruction should be performed on superblock c=
+reation
+> and destruction events. Also pipes operations should be performed dur=
+ing
+> per-net operation and in this case they could fail (due to the same r=
+eason as
+> in statement above).
+>
+> This patch-set implements first 5 points and thus doesn't affects cur=
+rent RPC
+> pipefs logic.
+>
+> The only problem about I'm not sure how to solve properly yet, is aut=
+h gss
+> pipes creations operations. Hoping for some help with it.
+>
+>
+> The following series consists of:
+>
+> ---
+>
+> Stanislav Kinsbursky (5):
+>        SUNRPC: hold current network namespace while pipefs superblock=
+ is active
+>        SUNRPC: send notification events on pipefs sb creation and des=
+truction
+>        SUNRPC: pipefs dentry lookup helper introduced
+>        SUNRPC: put pipefs superblock link on network namespace
+>        SUNRPC: pipefs per-net operations helper introduced
+>
+>
+>   include/linux/sunrpc/rpc_pipe_fs.h |   16 ++++++
+>   net/sunrpc/netns.h                 |    3 +
+>   net/sunrpc/rpc_pipe.c              |  103 +++++++++++++++++++++++++=
++++++++++++
+>   net/sunrpc/sunrpc_syms.c           |    1
+>   4 files changed, 122 insertions(+), 1 deletions(-)
+>
 
- drivers/net/xen-netback/common.h  |   11 ++---
- drivers/net/xen-netback/netback.c |   80 ++++++++-----------------------------
- 2 files changed, 22 insertions(+), 69 deletions(-)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 161f207..94b79c3 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -58,10 +58,6 @@ struct xenvif {
- 	u8               fe_dev_addr[6];
- 
- 	/* Physical parameters of the comms window. */
--	grant_handle_t   tx_shmem_handle;
--	grant_ref_t      tx_shmem_ref;
--	grant_handle_t   rx_shmem_handle;
--	grant_ref_t      rx_shmem_ref;
- 	unsigned int     irq;
- 
- 	/* List of frontends to notify after a batch of frames sent. */
-@@ -70,8 +66,6 @@ struct xenvif {
- 	/* The shared rings and indexes. */
- 	struct xen_netif_tx_back_ring tx;
- 	struct xen_netif_rx_back_ring rx;
--	struct vm_struct *tx_comms_area;
--	struct vm_struct *rx_comms_area;
- 
- 	/* Frontend feature information. */
- 	u8 can_sg:1;
-@@ -106,6 +100,11 @@ struct xenvif {
- 	wait_queue_head_t waiting_to_free;
- };
- 
-+static inline struct xenbus_device *xenvif_to_xenbus_device(struct xenvif *vif)
-+{
-+	return to_xenbus_device(vif->dev->dev.parent);
-+}
-+
- #define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
- #define XEN_NETIF_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
- 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index fd00f25..3af2924 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1577,88 +1577,42 @@ static int xen_netbk_kthread(void *data)
- 
- void xen_netbk_unmap_frontend_rings(struct xenvif *vif)
- {
--	struct gnttab_unmap_grant_ref op;
--
--	if (vif->tx.sring) {
--		gnttab_set_unmap_op(&op, (unsigned long)vif->tx_comms_area->addr,
--				    GNTMAP_host_map, vif->tx_shmem_handle);
--
--		if (HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1))
--			BUG();
--	}
--
--	if (vif->rx.sring) {
--		gnttab_set_unmap_op(&op, (unsigned long)vif->rx_comms_area->addr,
--				    GNTMAP_host_map, vif->rx_shmem_handle);
--
--		if (HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1))
--			BUG();
--	}
--	if (vif->rx_comms_area)
--		free_vm_area(vif->rx_comms_area);
--	if (vif->tx_comms_area)
--		free_vm_area(vif->tx_comms_area);
-+	if (vif->tx.sring)
-+		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
-+					vif->tx.sring);
-+	if (vif->rx.sring)
-+		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
-+					vif->rx.sring);
- }
- 
- int xen_netbk_map_frontend_rings(struct xenvif *vif,
- 				 grant_ref_t tx_ring_ref,
- 				 grant_ref_t rx_ring_ref)
- {
--	struct gnttab_map_grant_ref op;
-+	void *addr;
- 	struct xen_netif_tx_sring *txs;
- 	struct xen_netif_rx_sring *rxs;
- 
- 	int err = -ENOMEM;
- 
--	vif->tx_comms_area = alloc_vm_area(PAGE_SIZE);
--	if (vif->tx_comms_area == NULL)
-+	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
-+				     tx_ring_ref, &addr);
-+	if (err)
- 		goto err;
- 
--	vif->rx_comms_area = alloc_vm_area(PAGE_SIZE);
--	if (vif->rx_comms_area == NULL)
--		goto err;
--
--	gnttab_set_map_op(&op, (unsigned long)vif->tx_comms_area->addr,
--			  GNTMAP_host_map, tx_ring_ref, vif->domid);
--
--	if (HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
--		BUG();
--
--	if (op.status) {
--		netdev_warn(vif->dev,
--			    "failed to map tx ring. err=%d status=%d\n",
--			    err, op.status);
--		err = op.status;
--		goto err;
--	}
--
--	vif->tx_shmem_ref    = tx_ring_ref;
--	vif->tx_shmem_handle = op.handle;
--
--	txs = (struct xen_netif_tx_sring *)vif->tx_comms_area->addr;
-+	txs = (struct xen_netif_tx_sring *)addr;
- 	BACK_RING_INIT(&vif->tx, txs, PAGE_SIZE);
- 
--	gnttab_set_map_op(&op, (unsigned long)vif->rx_comms_area->addr,
--			  GNTMAP_host_map, rx_ring_ref, vif->domid);
--
--	if (HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
--		BUG();
--
--	if (op.status) {
--		netdev_warn(vif->dev,
--			    "failed to map rx ring. err=%d status=%d\n",
--			    err, op.status);
--		err = op.status;
-+	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
-+				     rx_ring_ref, &addr);
-+	if (err)
- 		goto err;
--	}
--
--	vif->rx_shmem_ref     = rx_ring_ref;
--	vif->rx_shmem_handle  = op.handle;
--	vif->rx_req_cons_peek = 0;
- 
--	rxs = (struct xen_netif_rx_sring *)vif->rx_comms_area->addr;
-+	rxs = (struct xen_netif_rx_sring *)addr;
- 	BACK_RING_INIT(&vif->rx, rxs, PAGE_SIZE);
- 
-+	vif->rx_req_cons_peek = 0;
-+
- 	return 0;
- 
- err:
--- 
-1.7.2.5
+--=20
+Best regards,
+Stanislav Kinsbursky
