@@ -1,85 +1,56 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace aware
-Date: Thu, 20 Oct 2011 06:35:45 -0700
-Message-ID: <m1fwinvl8u.fsf@fess.ebiederm.org>
-References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
-	<1318974898-21431-10-git-send-email-serge@hallyn.com>
-	<m1sjmpytpf.fsf@fess.ebiederm.org> <20111020125801.GA1315@hallyn.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch] pktgen: bug when calling ndelay in x86 architectures
+Date: Thu, 20 Oct 2011 15:44:13 +0200
+Message-ID: <1319118253.7735.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <4E9D5E1B.3080704@gmail.com>
+	   <1318939007.2657.57.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	   <1318946401.23980.6.camel@deadeye>
+	  <1318949264.2657.97.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	  <4E9E9963.7090209@gmail.com> <1319019235.3103.10.camel@edumazet-laptop>
+	 <4EA020B3.4030208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	oleg@redhat.com, richard@nod.at, mikevs@xs4all.net,
-	segoon@openwall.com, gregkh@suse.de, dhowells@redhat.com,
-	eparis@redhat.com, "Serge E. Hallyn" <serge.hallyn@canonical.com>,
-	netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serge@hallyn.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111020125801.GA1315@hallyn.com> (Serge E. Hallyn's message of
-	"Thu, 20 Oct 2011 12:58:01 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Robert Olsson <robert@herjulf.net>,
+	Voravit Tanyingyong <voravit@kth.se>,
+	Jens Laas <jens.laas@uadm.uu.se>
+To: Daniel Turull <daniel.turull@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55074 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752755Ab1JTNoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 09:44:19 -0400
+Received: by wyg36 with SMTP id 36so2886585wyg.19
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 06:44:18 -0700 (PDT)
+In-Reply-To: <4EA020B3.4030208@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Serge E. Hallyn" <serge@hallyn.com> writes:
+Le jeudi 20 octobre 2011 =C3=A0 15:22 +0200, Daniel Turull a =C3=A9crit=
+ :
+> Hi,
+>=20
+> I tested the patch and it works well.
+>=20
 
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
->> Serge Hallyn <serge@hallyn.com> writes:
->> 
->> > From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
->> >
->> > Currently uids are compared without regard for the user namespace.
->> > Fix that to prevent tasks in a different user namespace from
->> > wrongly matching on SCM_CREDENTIALS.
->> >
->> > In the past, either your uids had to match, or you had to have
->> > CAP_SETXID.  In a namespaced world, you must either (both be in the
->> > same user namespace and have your uids match), or you must have
->> > CAP_SETXID targeted at the other user namespace.  The latter can
->> > happen for instance if uid 500 created a new user namespace and
->> > now interacts with uid 0 in it.
->> 
->> Serge this approach is wrong.
->
-> Thanks for looking, Eric.
->
->> Because we pass the cred and the pid through the socket socket itself
->> is just a conduit and should be ignored in this context.
->
-> Ok, that makes sense, but
->
->> The only interesting test should be are you allowed to impersonate other
->> users in your current userk namespace.
->
-> Why in your current user namespace?  Shouldn't it be in the
-> target user ns?  I understand it could be wrong to tie the
-> user ns owning the socket to the target userns (though I still
-> kind of like it), but just because I have CAP_SETUID in my
-> own user_ns doesn't mean I should be able to pose as another
-> uid in your user_ns.
+Thanks !
 
-First and foremost it is important that you be able if you have the
-capability to impersonate other users in your current user namespace.
-That is what the capability actually controls.
 
-None of this allows you to impersonate any user in any other user
-namespace.  The translation between users prevents that.
+>=20
+> I think if we increase the constant to 1ms, we will reduce the jitter=
+ if we have
+> a rate between 1kpps and 10 kpps, but I guess is not a big deal.
+>=20
 
-> (Now I also see that cred_to_ucred() translates to the current
-> user_ns, so that should have been a hint to me before about
-> your intent, but I'm not convinced I agree with your intent).
->
-> And you do the same with the pid.  Why is that a valid assumption?
 
-Yes.  Basically all the code is allow you to impersonate people you
-would have been able to impersonate before.  If your target is in
-another namespace you can not fool them.
+> I've plot this new graph with this patch:
+> http://tslab.ssvl.kth.se/pktgen/img/inter_eric1.eps
 
-With pids the logic should be a lot clearer.  Pretend to be a pid you can
-see in your current pid namespace.  Lookup and convert to struct pid aka
-the namespace agnostic object.  On output return the pid value that
-the target process will know you as.
+Unfortunately, the sender cpu might be preempted by timer irq or other
+expensive irq, so the Min/Max values are not very different I guess.
 
-Ultimately I think we need a ns_capable for the current user namespace
-instead of a global one.  But I don't see any rush to introduce
-ns_capable here.
+I dont understand your Min values.
 
-Eric
+At 100 pps, how is it possible to have a Min value of ~5000 ns ?
