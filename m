@@ -1,35 +1,27 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-10-18 (more
-	regression fixes)
-Date: Thu, 20 Oct 2011 17:42:07 -0400 (EDT)
-Message-ID: <20111020.174207.279240796157428159.davem@davemloft.net>
-References: <1318971669-941-1-git-send-email-lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: remove unused tcp_fin() parameters
+Date: Thu, 20 Oct 2011 17:44:24 -0400 (EDT)
+Message-ID: <20111020.174424.1612732575369559136.davem@davemloft.net>
+References: <1319145084.2854.42.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: lindner_marek-LWAfsSFWpa4@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1318971669-941-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:48237 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751719Ab1JTVo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 17:44:27 -0400
+In-Reply-To: <1319145084.2854.42.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Date: Tue, 18 Oct 2011 23:01:07 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 20 Oct 2011 23:11:24 +0200
 
-> we have identified and fixed 2 more critical bugs in the linux-3.1
-> code base. We are somewhat late in the 3.1 release cycle but hoped
-> to take advantage of the delayed release to get these patches 
-> included before the final version is out.
+> tcp_fin() only needs socket pointer, we can remove skb and th params.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Pulled, thanks Marek.
+Applied, thanks Eric.
