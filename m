@@ -1,57 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] virtio_net: fix truesize underestimation
-Date: Thu, 20 Oct 2011 11:14:46 +0200
-Message-ID: <1319102086.3781.13.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: RE: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
+ Ethernet driver
+Date: Thu, 20 Oct 2011 09:23:07 +0000
+Message-ID: <6349D7A510622448B1BA0967850A8438011CC21D@nasanexd02d.na.qualcomm.com>
+References: <1319093184-19696-1-git-send-email-cloud.ren@Atheros.com>
+ <20111020.044541.970282389722164761.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Krishna Kumar <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:41500 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751268Ab1JTJOu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 05:14:50 -0400
-Received: by yxl42 with SMTP id 42so12325yxl.19
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 02:14:49 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111020.044541.970282389722164761.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We must account in skb->truesize, the size of the fragments, not the
-used part of them.
 
-Doing this work is important to avoid unexpected OOM situations.
+>From: <cloud.ren@Atheros.com>
+>Date: Thu, 20 Oct 2011 14:46:24 +0800
+>
+>> +#define __far
+>
+>So much unused crap left in these header files, get rid of this stuff.
+>
+>+#define ALX_HW_WARN(_fmt, _args...) \
+>+		ALX_HW_PRINTA(WARNING, _fmt, ## _args)
+>+
+>+#define ALX_HW_INFO(_fmt, _args...) \
+>+		ALX_HW_PRINTA(INFO, _fmt, ## _args)
+>+
+>+#define ALX_HW_DBG(_fmt, _args...) \
+>+		ALX_HW_PRINTA(DEBUG, _fmt, ## _args)
+>+
+>
+>We told you to get rid of your customized debug logging interfaces, yet all of
+>this stuff is still there.
+>
+>+/* delay function */
+>+#define US_DELAY(_hw, _n)	__US_DELAY(_n)
+>+#define MS_DELAY(_hw, _n)	__MS_DELAY(_n)
+>+#define __US_DELAY(_n)		udelay(_n)
+>+#define __MS_DELAY(_n)		mdelay(_n)
+>
+>Useless wrappers for standard kernel interfaces, kill this.
+>
+>+#define DEBUG_INFO(_a, _b)
+>+#define DEBUG_INFOS(_a, _b)
+>
+>Again we told you to get rid of this stuff.
+>
+>I suspect it's going to take may rounds of feedback before this driver is
+>anywhere near ready for inclusion.
+>
+>Please just submit it to staging and let it cook there for a couple weeks in the
+>interests of our sanity.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Rusty Russell <rusty@rustcorp.com.au>
-CC: "Michael S. Tsirkin" <mst@redhat.com>
-CC: virtualization@lists.linux-foundation.org
-CC: Krishna Kumar <krkumar2@in.ibm.com>
----
- drivers/net/virtio_net.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index abbf34f..765ab9a 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -150,6 +150,7 @@ static void set_skb_frag(struct sk_buff *skb, struct page *page,
- 
- 	skb->data_len += size;
- 	skb->len += size;
-+	skb->truesize += PAGE_SIZE;
- 	skb_shinfo(skb)->nr_frags++;
- 	*len -= size;
- }
-@@ -287,7 +288,6 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
- 	}
- 
- 	hdr = skb_vnet_hdr(skb);
--	skb->truesize += skb->data_len;
- 
- 	u64_stats_update_begin(&stats->syncp);
- 	stats->rx_bytes += skb->len;
+As you saw, should I do the two following steps?
+1. I firstly try to submit code to linux-staging.git. 
+2. After the driver have been accepted by  linux-staging.git, I submit to net-next.git again.
