@@ -1,8 +1,8 @@
-From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
+From: "Serge E. Hallyn" <serge@hallyn.com>
 Subject: Re: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace
  aware
-Date: Thu, 20 Oct 2011 09:14:40 -0500
-Message-ID: <20111020141440.GA6201@sergelap>
+Date: Thu, 20 Oct 2011 14:24:07 +0000
+Message-ID: <20111020142407.GA2118@hallyn.com>
 References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
  <1318974898-21431-10-git-send-email-serge@hallyn.com>
  <m1sjmpytpf.fsf@fess.ebiederm.org>
@@ -10,16 +10,21 @@ References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
  <m1fwinvl8u.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Serge E. Hallyn" <serge@hallyn.com>, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, oleg@redhat.com, richard@nod.at,
-	mikevs@xs4all.net, segoon@openwall.com, gregkh@suse.de,
-	dhowells@redhat.com, eparis@redhat.com, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	oleg@redhat.com, richard@nod.at, mikevs@xs4all.net,
+	segoon@openwall.com, gregkh@suse.de, dhowells@redhat.com,
+	eparis@redhat.com, "Serge E. Hallyn" <serge.hallyn@canonical.com>,
+	netdev@vger.kernel.org
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 50-56-35-84.static.cloud-ips.com ([50.56.35.84]:35636 "EHLO
+	mail" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752331Ab1JTOXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Oct 2011 10:23:46 -0400
 Content-Disposition: inline
 In-Reply-To: <m1fwinvl8u.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Quoting Eric W. Biederman (ebiederm@xmission.com):
 > "Serge E. Hallyn" <serge@hallyn.com> writes:
@@ -79,15 +84,16 @@ Quoting Eric W. Biederman (ebiederm@xmission.com):
 > With pids the logic should be a lot clearer.  Pretend to be a pid you can
 > see in your current pid namespace.  Lookup and convert to struct pid aka
 > the namespace agnostic object.  On output return the pid value that
-
-No.  That conversion is happending before the user-specified pid is
-set.
-
 > the target process will know you as.
 > 
 > Ultimately I think we need a ns_capable for the current user namespace
 > instead of a global one.  But I don't see any rush to introduce
 > ns_capable here.
-> 
-> Eric
-> 
+
+I think I agree - I was mistakenly thinking that without this patch
+there is an opportunity for a less privileged task in child user ns
+to impersonate, but that's not possible, so let's drop this patch
+for now!
+
+thanks,
+-serge
