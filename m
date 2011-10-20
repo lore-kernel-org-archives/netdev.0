@@ -1,98 +1,48 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH 3/4] ipv4: Fix inetpeer expiration handling
-Date: Thu, 20 Oct 2011 14:24:33 +0800
-Message-ID: <4E9FBEA1.2050407@cn.fujitsu.com>
-References: <20111011110842.GC1830@secunet.com> <20111011111122.GF1830@secunet.com>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: BUG: All network processes hang (brcmsmac/wpa_supplicant)
+Date: Thu, 20 Oct 2011 08:28:55 +0200
+Message-ID: <4E9FBFA7.4040502__9825.54240986264$1319092174$gmane$org@broadcom.com>
+References: <20111019123602.GA11883@schottelius.org>
+ <1319028563.8416.1.camel@edumazet-laptop>
+ <20111019130749.GD11883@schottelius.org>
+ <20111019142837.GA1414@schottelius.org> <4E9EE20F.1030403@broadcom.com>
+ <20111019145501.GB1414@schottelius.org> <4E9EFF51.6000104@broadcom.com>
+ <20111019214250.GC2432@schottelius.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;
+ charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+To: "Nico Schottelius" <nico-linux-20111017@schottelius.org>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireles
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51663 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932243Ab1JTGYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Oct 2011 02:24:16 -0400
-In-Reply-To: <20111011111122.GF1830@secunet.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:1383 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751579Ab1JTG3K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Oct 2011 02:29:10 -0400
+In-Reply-To: <20111019214250.GC2432@schottelius.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011.10.11 19:11, Steffen Klassert wrote:
-> We leak a trigger to check if the learned pmtu information has
-> expired, so the learned pmtu informations never expire. This patch
-> add such a trigger to ipv4_dst_check().
+On 10/19/2011 11:42 PM, Nico Schottelius wrote:
 > 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/ipv4/route.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
+> I'll soon (Friday) leave the environment permanently,
+> thus testing will not be easily possible anymore.
+
+Let's hope we have a conclusion by then.
+
+> If this issue is 5Ghz related only, can I somehow trigger it without an AP
+> running in that band / i.e. make the card try to use the 5 Ghz band although
+> there is no ap nearby?
 > 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 9a6623e..cda370c 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1660,6 +1660,10 @@ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
->  
->  	if (rt_is_expired(rt))
->  		return NULL;
-> +
-> +	if (rt->peer && peer_pmtu_expired(rt->peer))
-> +		dst_metric_set(dst, RTAX_MTU, rt->peer->pmtu_orig);
-> +
->  	if (rt->rt_peer_genid != rt_peer_genid()) {
->  		struct inet_peer *peer;
->  
+> Cheers,
+> 
+> Nico
+> 
 
-there are serval problem.
-1:rt->peer maybe null,we should call rt_bind_peer just like the code below.
-2:rt->peer_pmtu_orig is null. if we hasn't send packet before,the func check_peer_pmtu hasn't be called.
-  so the peer->pmtu_orig is null.
-3:when rt->rt_peer_genid != rt_peer_genid(), we has no need to do dst_metric_set(dst, RTAX_MTU, rt->peer->pmtu_orig),
-  because check_peer_pmtu will do this.
+The warning is in the receive path so you need some transmitter to sent
+packets to you. So you need the AP. If you can provide 'iwconfig' output
+when associated it will tell on which channel it is.
 
-what about this patch?
-
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 04a14db..45782d2 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1655,17 +1655,17 @@ static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
- static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
- {
-        struct rtable *rt = (struct rtable *) dst;
-+       struct inet_peer *peer;
-
-        if (rt_is_expired(rt))
-                return NULL;
--       if (rt->rt_peer_genid != rt_peer_genid()) {
--               struct inet_peer *peer;
-
--               if (!rt->peer)
--                       rt_bind_peer(rt, rt->rt_dst, 0);
-+       if (!rt->peer)
-+               rt_bind_peer(rt, rt->rt_dst, 0);
-
--               peer = rt->peer;
--               if (peer) {
-+       peer = rt->peer;
-+       if (peer) {
-+               if (rt->rt_peer_genid != rt_peer_genid()) {
-                        check_peer_pmtu(dst, peer);
-
-                        if (peer->redirect_learned.a4 &&
-@@ -1673,9 +1673,12 @@ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
-                                if (check_peer_redir(dst, peer))
-                                        return NULL;
-                        }
--               }
-
--               rt->rt_peer_genid = rt_peer_genid();
-+                       rt->rt_peer_genid = rt_peer_genid();
-+
-+               }else if(peer_pmtu_expired(peer))
-+                       dst_metric_set(dst,RTAX_MTU,peer->pmtu_orig);
-+
-        }
-        return dst;
- }
+Gr. AvS
