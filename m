@@ -1,98 +1,36 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] route: fix ICMP redirect validation
-Date: Thu, 20 Oct 2011 15:47:02 -0200
-Message-ID: <20111020154702.13f69021@asterix.rh>
-References: <1317824404-9513-1-git-send-email-fbl@redhat.com>
-	<20111017.194344.510280595317217573.davem@davemloft.net>
-	<20111019160537.4aeedef8@asterix.rh>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: iwlagn: WARN_ON() in iwl_get_idle_rx_chain_count()
+Date: Thu, 20 Oct 2011 20:57:56 +0200
+Message-ID: <20111020185756.GA24185@rere.qmqm.pl>
+References: <20111014150219.GA20672@rere.qmqm.pl>
+ <1318606158.12009.2.camel@wwguy-ubuntu>
+ <20111014192105.GA23640@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Intel Linux Wireless <ilw@linux.intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: wwguy <wey-yi.w.guy@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64990 "EHLO mx1.redhat.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:53327 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754314Ab1JTRrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Oct 2011 13:47:06 -0400
-In-Reply-To: <20111019160537.4aeedef8@asterix.rh>
+	id S1751422Ab1JTS57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Oct 2011 14:57:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20111014192105.GA23640@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Oct 2011 16:05:37 -0200
-Flavio Leitner <fbl@redhat.com> wrote:
+On Fri, Oct 14, 2011 at 09:21:05PM +0200, Micha=B3 Miros=B3aw wrote:
+> On Fri, Oct 14, 2011 at 08:29:18AM -0700, wwguy wrote:
+> > Could you try the attach patch and see if it fix your problem.
+> [attached patch removed]
+> Backported and applied. I'll test it for couple of days.
 
-> On Mon, 17 Oct 2011 19:43:44 -0400 (EDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Flavio Leitner <fbl@redhat.com>
-> > Date: Wed,  5 Oct 2011 11:20:04 -0300
-> > 
-> > > The commit f39925dbde7788cfb96419c0f092b086aa325c0f
-> > > (ipv4: Cache learned redirect information in inetpeer.)
-> > > removed some ICMP packet validations which are required by
-> > > RFC 1122, section 3.2.2.2:
-> > 
-> > The reason for putting this into the inetpeer cache was so that we
-> > didn't need to consult the routing cache at all.  We're working to
-> > remove it at some point, so every dependency matters.
-> > 
-> > Can you implement this such that only an inetpeer cache probe is
-> > necessary?
-> > 
-> 
-> Sure, I have reviewed your patch series to remove the routing
-> cache and I believe this version works with and without it, though
-> I have tested only with current net-next code.
-> 
-> Thanks for your time reviewing, I appreciate it.
-...
-> @@ -1331,13 +1337,40 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
->  			goto reject_redirect;
->  	}
->  
-> -	peer = inet_getpeer_v4(daddr, 1);
-> -	if (peer) {
-> -		peer->redirect_learned.a4 = new_gw;
-> +	memset(&fl4, 0, sizeof(fl4));
-> +	fl4.daddr = daddr;
-> +	for (s = 0; s < 2; s++) {
-> +		for (i = 0; i < 2; i++) {
-> +			fl4.flowi4_oif = ikeys[i];
-> +			fl4.saddr = skeys[s];
-> +			rt = __ip_route_output_key(net, &fl4);
-> +			if (IS_ERR(rt))
-> +				continue;
->  
-> -		inet_putpeer(peer);
-> +			if (rt->dst.error || rt->dst.dev != dev ||
-> +			    rt->rt_gateway != old_gw) {
-> +				ip_rt_put(rt);
-> +				continue;
-> +			}
->  
-> -		atomic_inc(&__rt_peer_genid);
-> +			peer = rt->peer;
-> +			if (!peer) {
-> +				peer = inet_getpeer_v4(daddr, 1);
-> +				putpeer = true;
-> +			}
+I haven't tripped on the warnings in those last days with your
+patch applied. I think the backported version should be included
+in 3.1.
 
-I was reviewing this again and instead of doing the above, it would
-be better to use rt_bind_peer() to update rt->peer as well.
-
-                        if (!rt->peer)
-                                rt_bind_peer(rt, rt->rt_dst, 1);
-
-                        peer = rt->peer;
-                        if (peer) {
-                                peer->redirect_learned.a4 = new_gw;
-                                atomic_inc(&__rt_peer_genid);
-                        }
-
-
-but I am not sure if I understood you completely when you say
-to do such that only an inetpeer cache probe is necessary.
-
-thanks again,
-fbl
+Best Regards,
+Micha=B3 Miros=B3aw
