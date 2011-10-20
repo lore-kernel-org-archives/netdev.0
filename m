@@ -1,56 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: use TCP_DEFAULT_INIT_RCVWND in
- tcp_fixup_rcvbuf()
-Date: Thu, 20 Oct 2011 16:13:56 -0400 (EDT)
-Message-ID: <20111020.161356.2120784879469409197.davem@davemloft.net>
-References: <1319138186.2854.5.camel@edumazet-laptop>
-	<20111020.155002.555965434596006787.davem@davemloft.net>
-	<1319140954.2854.12.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel panic from tg3 net driver
+Date: Thu, 20 Oct 2011 22:17:47 +0200
+Message-ID: <1319141867.2854.19.camel@edumazet-laptop>
+References: <CAEbykaX4UPDBxOHmNr=dodaquSPjhPr-pLCcUn5hSu4-xLZy-g@mail.gmail.com>
+	 <20111020.155659.486754557434415381.davem@davemloft.net>
+	 <1319141125.2854.14.camel@edumazet-laptop>
+	 <20111020.161147.33259825921677777.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:50256 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751082Ab1JTUN7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 16:13:59 -0400
-In-Reply-To: <1319140954.2854.12.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ari.m.savolainen@gmail.com, richardcochran@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111020.161147.33259825921677777.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Oct 2011 22:02:34 +0200
+Le jeudi 20 octobre 2011 =C3=A0 16:11 -0400, David Miller a =C3=A9crit =
+:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 20 Oct 2011 22:05:25 +0200
+>=20
+> > And I think this was fixed yesterday ?
+> >=20
+> > De: 	roy.qing.li@gmail.com
+> > =C3=80: 	ari.m.savolainen@gmail.com, netdev@vger.kernel.org
+> > Sujet: 	[PATCH net-next] neigh: fix rcu splat in neigh_update()
+> > Date: 	Tue, 18 Oct 2011 16:32:42 +0800 (18/10/2011 10:32:42)
+> >=20
+>=20
+> Good catch, it seems to be this bug.
 
-> Le jeudi 20 octobre 2011 =E0 15:50 -0400, David Miller a =E9crit :
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Thu, 20 Oct 2011 21:16:26 +0200
->>=20
->> > Since commit 356f039822b (TCP: increase default initial receive
->> > window.), we allow sender to send 10 (TCP_DEFAULT_INIT_RCVWND) seg=
-ments.
->> >=20
->> > Change tcp_fixup_rcvbuf() to reflect this change, even if no real =
-change=20
->> > is expected, since sysctl_tcp_rmem[1] =3D 87380 and this value
->> > is bigger than tcp_fixup_rcvbuf() computed rcvmem (~23720)
->> >=20
->> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->>  ...
->> > +	unsigned int mss =3D min_t(unsigned int, tp->advmss, 1460);
->>=20
->> I don't understand where this calculation comes from, and even if it
->> should be obvious it isn't to me and deserves a mention in the commi=
-t
->> message at a minimum.
->=20
-> This is the calculation done in commit 356f039822b as well.
->=20
-> The window is 10*MSS, but no more than 14600
->=20
-> On loopback, this matters, because we could end with rcvmem=3D219680
-
-Thanks, please help weak brains like mine by adding this to the commit =
-message.
-:-)
+Oh well, sorry, it seems it was one bug hit during bisection, but maybe
+its completely unrelated to the real problem.
