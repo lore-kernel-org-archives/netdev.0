@@ -1,34 +1,98 @@
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: Re: [PATCH 07/10] RDMA/cxgb4: DB Drop Recovery for RDMA and LLD queues.
-Date: Thu, 20 Oct 2011 12:28:07 -0500
-Message-ID: <4EA05A27.9090605@opengridcomputing.com>
-References: <1319044264-779-1-git-send-email-vipul@chelsio.com> <1319044264-779-8-git-send-email-vipul@chelsio.com> <CAL1RGDWCfJHD+PjXQ3STk4uc-fEyQ2GsQR5ALU6i4-f7w2bXUA@mail.gmail.com> <4EA030F5.3000007@opengridcomputing.com> <CAL1RGDUDk_MAM+S+MaEcPQzug8TvE-mFAfNqX3FqRApLQu9H2g@mail.gmail.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH] route: fix ICMP redirect validation
+Date: Thu, 20 Oct 2011 15:47:02 -0200
+Message-ID: <20111020154702.13f69021@asterix.rh>
+References: <1317824404-9513-1-git-send-email-fbl@redhat.com>
+	<20111017.194344.510280595317217573.davem@davemloft.net>
+	<20111019160537.4aeedef8@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL1RGDUDk_MAM+S+MaEcPQzug8TvE-mFAfNqX3FqRApLQu9H2g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Flavio Leitner <fbl@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:64990 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754314Ab1JTRrG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Oct 2011 13:47:06 -0400
+In-Reply-To: <20111019160537.4aeedef8@asterix.rh>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2011 12:17 PM, Roland Dreier wrote:
->> I believe 5 and 7 have build dependencies.
-> Right, missed that one too.
->
-> But it seems 4,6,8,9,10 are independent of the rest of the series?
->
-> ie I can trivially apply them and then worry about working out
-> the drivers/net / drivers/infiniband interdependency a bit later?
->
+On Wed, 19 Oct 2011 16:05:37 -0200
+Flavio Leitner <fbl@redhat.com> wrote:
 
-Some of these might be dependent on prior patches the series.   But if they aren't, yes, you could do that.
+> On Mon, 17 Oct 2011 19:43:44 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Flavio Leitner <fbl@redhat.com>
+> > Date: Wed,  5 Oct 2011 11:20:04 -0300
+> > 
+> > > The commit f39925dbde7788cfb96419c0f092b086aa325c0f
+> > > (ipv4: Cache learned redirect information in inetpeer.)
+> > > removed some ICMP packet validations which are required by
+> > > RFC 1122, section 3.2.2.2:
+> > 
+> > The reason for putting this into the inetpeer cache was so that we
+> > didn't need to consult the routing cache at all.  We're working to
+> > remove it at some point, so every dependency matters.
+> > 
+> > Can you implement this such that only an inetpeer cache probe is
+> > necessary?
+> > 
+> 
+> Sure, I have reviewed your patch series to remove the routing
+> cache and I believe this version works with and without it, though
+> I have tested only with current net-next code.
+> 
+> Thanks for your time reviewing, I appreciate it.
+...
+> @@ -1331,13 +1337,40 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+>  			goto reject_redirect;
+>  	}
+>  
+> -	peer = inet_getpeer_v4(daddr, 1);
+> -	if (peer) {
+> -		peer->redirect_learned.a4 = new_gw;
+> +	memset(&fl4, 0, sizeof(fl4));
+> +	fl4.daddr = daddr;
+> +	for (s = 0; s < 2; s++) {
+> +		for (i = 0; i < 2; i++) {
+> +			fl4.flowi4_oif = ikeys[i];
+> +			fl4.saddr = skeys[s];
+> +			rt = __ip_route_output_key(net, &fl4);
+> +			if (IS_ERR(rt))
+> +				continue;
+>  
+> -		inet_putpeer(peer);
+> +			if (rt->dst.error || rt->dst.dev != dev ||
+> +			    rt->rt_gateway != old_gw) {
+> +				ip_rt_put(rt);
+> +				continue;
+> +			}
+>  
+> -		atomic_inc(&__rt_peer_genid);
+> +			peer = rt->peer;
+> +			if (!peer) {
+> +				peer = inet_getpeer_v4(daddr, 1);
+> +				putpeer = true;
+> +			}
 
-Stevo
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I was reviewing this again and instead of doing the above, it would
+be better to use rt_bind_peer() to update rt->peer as well.
+
+                        if (!rt->peer)
+                                rt_bind_peer(rt, rt->rt_dst, 1);
+
+                        peer = rt->peer;
+                        if (peer) {
+                                peer->redirect_learned.a4 = new_gw;
+                                atomic_inc(&__rt_peer_genid);
+                        }
+
+
+but I am not sure if I understood you completely when you say
+to do such that only an inetpeer cache probe is necessary.
+
+thanks again,
+fbl
