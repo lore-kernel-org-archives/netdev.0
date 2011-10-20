@@ -1,77 +1,132 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] tcp: use TCP_DEFAULT_INIT_RCVWND in
- tcp_fixup_rcvbuf()
-Date: Thu, 20 Oct 2011 22:41:21 +0200
-Message-ID: <1319143281.2854.25.camel@edumazet-laptop>
-References: <1319138186.2854.5.camel@edumazet-laptop>
-	 <20111020.155002.555965434596006787.davem@davemloft.net>
-	 <1319140954.2854.12.camel@edumazet-laptop>
-	 <20111020.161356.2120784879469409197.davem@davemloft.net>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next-2.6 PATCH 0/8 RFC v2] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Thu, 20 Oct 2011 13:43:39 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F075501A19FF1D8@orsmsx508.amr.corp.intel.com>
+References: <43F901BD926A4E43B106BF17856F075501A177719C@orsmsx508.amr.corp.intel.com>
+ <CAC49D8A.374FB%roprabhu@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:44099 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751716Ab1JTUl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 16:41:27 -0400
-Received: by wwn22 with SMTP id 22so31944wwn.1
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 13:41:26 -0700 (PDT)
-In-Reply-To: <20111020.161356.2120784879469409197.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "sri@us.ibm.com" <sri@us.ibm.com>,
+	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"dwang2@cisco.com" <dwang2@cisco.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"benve@cisco.com" <benve@cisco.com>
+To: Roopa Prabhu <roprabhu@cisco.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <CAC49D8A.374FB%roprabhu@cisco.com>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 356f039822b (TCP: increase default initial receive
-window.), we allow sender to send 10 (TCP_DEFAULT_INIT_RCVWND) segments.
+> -----Original Message-----
+> From: Roopa Prabhu [mailto:roprabhu@cisco.com]
+> Sent: Wednesday, October 19, 2011 3:30 PM
+> To: Rose, Gregory V; netdev@vger.kernel.org
+> Cc: sri@us.ibm.com; dragos.tatulea@gmail.com; arnd@arndb.de;
+> kvm@vger.kernel.org; mst@redhat.com; davem@davemloft.net;
+> mchan@broadcom.com; dwang2@cisco.com; shemminger@vyatta.com;
+> eric.dumazet@gmail.com; kaber@trash.net; benve@cisco.com
+> Subject: Re: [net-next-2.6 PATCH 0/8 RFC v2] macvlan: MAC Address
+> filtering support for passthru mode
+> 
+> 
+> 
+> 
+> On 10/19/11 2:06 PM, "Rose, Gregory V" <gregory.v.rose@intel.com> wrote:
+> 
+> >> -----Original Message-----
+> >> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org]
+> >> On Behalf Of Roopa Prabhu
+> >> Sent: Tuesday, October 18, 2011 11:26 PM
+> >> To: netdev@vger.kernel.org
+> >> Cc: sri@us.ibm.com; dragos.tatulea@gmail.com; arnd@arndb.de;
+> >> kvm@vger.kernel.org; mst@redhat.com; davem@davemloft.net;
+> >> mchan@broadcom.com; dwang2@cisco.com; shemminger@vyatta.com;
+> >> eric.dumazet@gmail.com; kaber@trash.net; benve@cisco.com
+> >> Subject: [net-next-2.6 PATCH 0/8 RFC v2] macvlan: MAC Address filtering
+> >> support for passthru mode
+> >>
+> >
+> > [snip...]
+> >
+> >>
+> >>
+> >> Note: The choice of rtnl_link_ops was because I saw the use case for
+> >> this in virtual devices that need  to do filtering in sw like macvlan
+> >> and tun. Hw devices usually have filtering in hw with netdev->uc and
+> >> mc lists to indicate active filters. But I can move from rtnl_link_ops
+> >> to netdev_ops if that is the preferred way to go and if there is a
+> >> need to support this interface on all kinds of interfaces.
+> >> Please suggest.
+> >
+> > I'm still digesting the rest of the RFC patches but I did want to
+> quickly jump
+> > in and push for adding this support in netdev_ops.  I would like to see
+> these
+> > features available in more devices than just macvtap and macvlan.  I can
+> > conceive
+> > of use cases for multiple HW MAC and VLAN filters for a VF device that
+> isn't
+> > owned by a macvlan/macvtap interface and only has netdev_ops support.
+> In this
+> > case it would be necessary to program the filters directly to the VF
+> device
+> > interface or PF interface (or lowerdev as you refer to it) instead of
+> going
+> > through macvlan/macvtap.
+> >
+> > This work dovetails nicely with some work I've been doing and I'd be
+> very
+> > interested
+> > in helping move this forward if we could work out the details that would
+> allow
+> > support
+> > of the features we (and the community) require.
+> 
+> Great. Thanks. I will definitely be interested to get this patch working
+> for
+> any other use case you have.
+> 
+> Moving the ops to netdev should be trivial. You probably want the ops to
+> work on the VF via the PF, like the existing ndo_set_vf_mac etc.
 
-Change tcp_fixup_rcvbuf() to reflect this change, even if no real change
-is expected, since sysctl_tcp_rmem[1] = 87380 and this value
-is bigger than tcp_fixup_rcvbuf() computed rcvmem (~23720)
+That is correct, so we would need to add some way to pass the VF number to the op.
+In addition, there are use cases for multiple MAC address filters for the Physical
+Function (PF) so we would like to be able to identify to the netdev op that it is
+supposed to perform the action on the PF filters instead of a VF.
 
-Note: Since commit 356f039822b limited default window to maximum of
-10*1460 and 2*MSS, we use same heuristic in this patch.
+An example of this would be when an administrator has created some number of VFs
+for a given PF but is also running the PF in bridged (i.e. promiscuous) mode so that it
+can support purely SW emulated network connections in some VMs that have low network
+latency and bandwidth requirements while reserving the VFs for VMs that require the low latency, high throughput that directly assigned VFs can provide.  In this case an
+emulated SW interface in a VM is unable to properly communicate with VFs on the same
+PF because the emulated SW interface's MAC address isn't programmed into the HW filters
+on the PF.  If we could use this op to program the MAC address and VLAN filters of
+the emulated SW interfaces into the PF HW a VF could then properly communicate across
+the NIC's internal VEB to the emulated SW interfaces.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp_input.c |   23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
+> Yes, lets work out the details and I can move this to netdev->ops. Let me
+> know.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 1e848b2..e8e6d49 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -345,17 +345,24 @@ static void tcp_grow_window(struct sock *sk, struct sk_buff *skb)
- 
- static void tcp_fixup_rcvbuf(struct sock *sk)
- {
--	struct tcp_sock *tp = tcp_sk(sk);
--	int rcvmem = SKB_TRUESIZE(tp->advmss + MAX_TCP_HEADER);
-+	u32 mss = tcp_sk(sk)->advmss;
-+	u32 icwnd = TCP_DEFAULT_INIT_RCVWND;
-+	int rcvmem;
- 
--	/* Try to select rcvbuf so that 4 mss-sized segments
--	 * will fit to window and corresponding skbs will fit to our rcvbuf.
--	 * (was 3; 4 is minimum to allow fast retransmit to work.)
-+	/* Limit to 10 segments if mss <= 1460,
-+	 * or 14600/mss segments, with a minimum of two segments.
- 	 */
--	while (tcp_win_from_space(rcvmem) < tp->advmss)
-+	if (mss > 1460)
-+		icwnd = max_t(u32, (1460 * TCP_DEFAULT_INIT_RCVWND) / mss, 2);
-+
-+	rcvmem = SKB_TRUESIZE(mss + MAX_TCP_HEADER);
-+	while (tcp_win_from_space(rcvmem) < mss)
- 		rcvmem += 128;
--	if (sk->sk_rcvbuf < 4 * rcvmem)
--		sk->sk_rcvbuf = min(4 * rcvmem, sysctl_tcp_rmem[2]);
-+
-+	rcvmem *= icwnd;
-+
-+	if (sk->sk_rcvbuf < rcvmem)
-+		sk->sk_rcvbuf = min(rcvmem, sysctl_tcp_rmem[2]);
- }
- 
- /* 4. Try to fixup all. It is made immediately after connection enters
+I think essentially if you could add some parameter to the ops to specify whether it
+is addressing a VF or the PF and then if it is a VF further specify the VF number we
+would be very close to addressing the requirements of many valuable use cases in
+addition to the ones you have identified in your RFC.
+
+Does that sound reasonable?
+
+Thanks,
+
+- Greg
+
