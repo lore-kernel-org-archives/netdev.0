@@ -1,160 +1,122 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 3/6] cxgb4: convert to SKB paged frag API.
-Date: Thu, 20 Oct 2011 10:01:46 +0100
-Message-ID: <1319101309-28431-3-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 5/6] cxgbi: convert to SKB paged frag API.
+Date: Thu, 20 Oct 2011 10:01:48 +0100
+Message-ID: <1319101309-28431-5-git-send-email-ian.campbell@citrix.com>
 References: <1319101275.3385.129.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Dimitris Michailidis <dm@chelsio.com>, netdev@vger.kernel.org
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	James Bottomley <James.Bottomley@suse.de>,
+	Karen Xie <kxie@chelsio.com>, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:20430 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755682Ab1JTJCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 05:02:18 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <1319101275.3385.129.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Dimitris Michailidis <dm@chelsio.com>
+Cc: "James E.J. Bottomley" <JBottomley@parallels.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Mike Christie <michaelc@cs.wisc.edu>
+Cc: James Bottomley <James.Bottomley@suse.de>
+Cc: Karen Xie <kxie@chelsio.com>
+Cc: linux-scsi@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/sge.c   |   45 ++++++++++++++-------------
- 2 files changed, 24 insertions(+), 23 deletions(-)
+ drivers/scsi/cxgbi/libcxgbi.c |   28 +++++++++++++++-------------
+ drivers/scsi/cxgbi/libcxgbi.h |    2 +-
+ 2 files changed, 16 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 223a7f7..0fe1885 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -326,7 +326,7 @@ struct sge_fl {                     /* SGE free-buffer queue state */
- 
- /* A packet gather list */
- struct pkt_gl {
--	skb_frag_t frags[MAX_SKB_FRAGS];
-+	struct page_frag frags[MAX_SKB_FRAGS];
- 	void *va;                         /* virtual address of first byte */
- 	unsigned int nfrags;              /* # of fragments */
- 	unsigned int tot_len;             /* total length of fragments */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 14f31d3..ddc1698 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -215,8 +215,8 @@ static int map_skb(struct device *dev, const struct sk_buff *skb,
- 	end = &si->frags[si->nr_frags];
- 
- 	for (fp = si->frags; fp < end; fp++) {
--		*++addr = dma_map_page(dev, fp->page, fp->page_offset,
--				       skb_frag_size(fp), DMA_TO_DEVICE);
-+		*++addr = skb_frag_dma_map(dev, fp, 0, skb_frag_size(fp),
-+					   DMA_TO_DEVICE);
- 		if (dma_mapping_error(dev, *addr))
- 			goto unwind;
- 	}
-@@ -1409,22 +1409,23 @@ int cxgb4_ofld_send(struct net_device *dev, struct sk_buff *skb)
- }
- EXPORT_SYMBOL(cxgb4_ofld_send);
- 
--static inline void copy_frags(struct skb_shared_info *ssi,
-+static inline void copy_frags(struct sk_buff *skb,
- 			      const struct pkt_gl *gl, unsigned int offset)
- {
--	unsigned int n;
-+	int i;
- 
- 	/* usually there's just one frag */
--	ssi->frags[0].page = gl->frags[0].page;
--	ssi->frags[0].page_offset = gl->frags[0].page_offset + offset;
--	skb_frag_size_set(&ssi->frags[0], skb_frag_size(&gl->frags[0]) - offset);
--	ssi->nr_frags = gl->nfrags;
--	n = gl->nfrags - 1;
--	if (n)
--		memcpy(&ssi->frags[1], &gl->frags[1], n * sizeof(skb_frag_t));
-+	__skb_fill_page_desc(skb, 0, gl->frags[0].page,
-+			     gl->frags[0].offset + offset,
-+			     gl->frags[0].size - offset);
-+	skb_shinfo(skb)->nr_frags = gl->nfrags;
-+	for (i = 1; i < gl->nfrags; i++)
-+		__skb_fill_page_desc(skb, i, gl->frags[i].page,
-+				     gl->frags[i].offset,
-+				     gl->frags[i].size);
- 
- 	/* get a reference to the last page, we don't own it */
--	get_page(gl->frags[n].page);
-+	get_page(gl->frags[gl->nfrags - 1].page);
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index be69da3..1c1329b 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -1787,7 +1787,7 @@ static int sgl_seek_offset(struct scatterlist *sgl, unsigned int sgcnt,
  }
  
- /**
-@@ -1459,7 +1460,7 @@ struct sk_buff *cxgb4_pktgl_to_skb(const struct pkt_gl *gl,
- 		__skb_put(skb, pull_len);
- 		skb_copy_to_linear_data(skb, gl->va, pull_len);
- 
--		copy_frags(skb_shinfo(skb), gl, pull_len);
-+		copy_frags(skb, gl, pull_len);
- 		skb->len = gl->tot_len;
- 		skb->data_len = skb->len - pull_len;
- 		skb->truesize += skb->data_len;
-@@ -1478,7 +1479,7 @@ EXPORT_SYMBOL(cxgb4_pktgl_to_skb);
- static void t4_pktgl_free(const struct pkt_gl *gl)
+ static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
+-				unsigned int dlen, skb_frag_t *frags,
++				unsigned int dlen, struct page_frag *frags,
+ 				int frag_max)
  {
- 	int n;
--	const skb_frag_t *p;
-+	const struct page_frag *p;
+ 	unsigned int datalen = dlen;
+@@ -1814,8 +1814,8 @@ static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
+ 		copy = min(datalen, sglen);
+ 		if (i && page == frags[i - 1].page &&
+ 		    sgoffset + sg->offset ==
+-			frags[i - 1].page_offset + skb_frag_size(&frags[i - 1])) {
+-			skb_frag_size_add(&frags[i - 1], copy);
++			frags[i - 1].offset + frags[i - 1].size) {
++			frags[i - 1].size += copy;
+ 		} else {
+ 			if (i >= frag_max) {
+ 				pr_warn("too many pages %u, dlen %u.\n",
+@@ -1824,8 +1824,8 @@ static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
+ 			}
  
- 	for (p = gl->frags, n = gl->nfrags - 1; n--; p++)
- 		put_page(p->page);
-@@ -1522,7 +1523,7 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
- 		return;
- 	}
+ 			frags[i].page = page;
+-			frags[i].page_offset = sg->offset + sgoffset;
+-			skb_frag_size_set(&frags[i], copy);
++			frags[i].offset = sg->offset + sgoffset;
++			frags[i].size = copy;
+ 			i++;
+ 		}
+ 		datalen -= copy;
+@@ -1944,15 +1944,15 @@ int cxgbi_conn_init_pdu(struct iscsi_task *task, unsigned int offset,
+ 		if (tdata->nr_frags > MAX_SKB_FRAGS ||
+ 		    (padlen && tdata->nr_frags == MAX_SKB_FRAGS)) {
+ 			char *dst = skb->data + task->hdr_len;
+-			skb_frag_t *frag = tdata->frags;
++			struct page_frag *frag = tdata->frags;
  
--	copy_frags(skb_shinfo(skb), gl, RX_PKT_PAD);
-+	copy_frags(skb, gl, RX_PKT_PAD);
- 	skb->len = gl->tot_len - RX_PKT_PAD;
- 	skb->data_len = skb->len;
- 	skb->truesize += skb->data_len;
-@@ -1698,7 +1699,7 @@ static int process_responses(struct sge_rspq *q, int budget)
- 		rmb();
- 		rsp_type = RSPD_TYPE(rc->type_gen);
- 		if (likely(rsp_type == RSP_TYPE_FLBUF)) {
--			skb_frag_t *fp;
-+			struct page_frag *fp;
- 			struct pkt_gl si;
- 			const struct rx_sw_desc *rsd;
- 			u32 len = ntohl(rc->pldbuflen_qid), bufsz, frags;
-@@ -1717,9 +1718,9 @@ static int process_responses(struct sge_rspq *q, int budget)
- 				rsd = &rxq->fl.sdesc[rxq->fl.cidx];
- 				bufsz = get_buf_size(rsd);
- 				fp->page = rsd->page;
--				fp->page_offset = q->offset;
--				skb_frag_size_set(fp, min(bufsz, len));
--				len -= skb_frag_size(fp);
-+				fp->offset = q->offset;
-+				fp->size = min(bufsz, len);
-+				len -= fp->size;
- 				if (!len)
- 					break;
- 				unmap_rx_buf(q->adap, &rxq->fl);
-@@ -1731,16 +1732,16 @@ static int process_responses(struct sge_rspq *q, int budget)
- 			 */
- 			dma_sync_single_for_cpu(q->adap->pdev_dev,
- 						get_buf_addr(rsd),
--						skb_frag_size(fp), DMA_FROM_DEVICE);
-+						fp->size, DMA_FROM_DEVICE);
+ 			/* data fits in the skb's headroom */
+ 			for (i = 0; i < tdata->nr_frags; i++, frag++) {
+ 				char *src = kmap_atomic(frag->page,
+ 							KM_SOFTIRQ0);
  
- 			si.va = page_address(si.frags[0].page) +
--				si.frags[0].page_offset;
-+				si.frags[0].offset;
- 			prefetch(si.va);
- 
- 			si.nfrags = frags + 1;
- 			ret = q->handler(q, q->cur_desc, &si);
- 			if (likely(ret == 0))
--				q->offset += ALIGN(skb_frag_size(fp), FL_ALIGN);
-+				q->offset += ALIGN(fp->size, FL_ALIGN);
- 			else
- 				restore_rx_bufs(&si, &rxq->fl, frags);
- 		} else if (likely(rsp_type == RSP_TYPE_CPL)) {
+-				memcpy(dst, src+frag->page_offset, skb_frag_size(frag));
+-				dst += skb_frag_size(frag);
++				memcpy(dst, src+frag->offset, frag->size);
++				dst += frag->size;
+ 				kunmap_atomic(src, KM_SOFTIRQ0);
+ 			}
+ 			if (padlen) {
+@@ -1962,11 +1962,13 @@ int cxgbi_conn_init_pdu(struct iscsi_task *task, unsigned int offset,
+ 			skb_put(skb, count + padlen);
+ 		} else {
+ 			/* data fit into frag_list */
+-			for (i = 0; i < tdata->nr_frags; i++)
+-				get_page(tdata->frags[i].page);
+-
+-			memcpy(skb_shinfo(skb)->frags, tdata->frags,
+-				sizeof(skb_frag_t) * tdata->nr_frags);
++			for (i = 0; i < tdata->nr_frags; i++) {
++				__skb_fill_page_desc(skb, i,
++						tdata->frags[i].page,
++						tdata->frags[i].offset,
++						tdata->frags[i].size);
++				skb_frag_ref(skb, i);
++			}
+ 			skb_shinfo(skb)->nr_frags = tdata->nr_frags;
+ 			skb->len += count;
+ 			skb->data_len += count;
+diff --git a/drivers/scsi/cxgbi/libcxgbi.h b/drivers/scsi/cxgbi/libcxgbi.h
+index 9267844..3a25b11 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.h
++++ b/drivers/scsi/cxgbi/libcxgbi.h
+@@ -574,7 +574,7 @@ struct cxgbi_endpoint {
+ #define MAX_PDU_FRAGS	((ULP2_MAX_PDU_PAYLOAD + 512 - 1) / 512)
+ struct cxgbi_task_data {
+ 	unsigned short nr_frags;
+-	skb_frag_t frags[MAX_PDU_FRAGS];
++	struct page_frag frags[MAX_PDU_FRAGS];
+ 	struct sk_buff *skb;
+ 	unsigned int offset;
+ 	unsigned int count;
 -- 
 1.7.2.5
+
