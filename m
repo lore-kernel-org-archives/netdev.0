@@ -1,28 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] myri10ge: fix truesize underestimation
-Date: Thu, 20 Oct 2011 17:42:32 -0400 (EDT)
-Message-ID: <20111020.174232.432401897148828163.davem@davemloft.net>
-References: <1319141403.2854.17.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-10-18 (more
+	regression fixes)
+Date: Thu, 20 Oct 2011 17:42:07 -0400 (EDT)
+Message-ID: <20111020.174207.279240796157428159.davem@davemloft.net>
+References: <1318971669-941-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mason@myri.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48131 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752618Ab1JTVmg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 17:42:36 -0400
-In-Reply-To: <1319141403.2854.17.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: lindner_marek-LWAfsSFWpa4@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1318971669-941-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Oct 2011 22:10:03 +0200
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Date: Tue, 18 Oct 2011 23:01:07 +0200
 
-> skb->truesize must account for allocated memory, not the used part of
-> it. Doing this work is important to avoid unexpected OOM situations.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> we have identified and fixed 2 more critical bugs in the linux-3.1
+> code base. We are somewhat late in the 3.1 release cycle but hoped
+> to take advantage of the delayed release to get these patches 
+> included before the final version is out.
 
-Applied.
+Pulled, thanks Marek.
