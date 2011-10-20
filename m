@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCBN net-next] mlx4_en: fix skb truesize underestimation
-Date: Wed, 19 Oct 2011 19:53:41 -0400 (EDT)
-Message-ID: <20111019.195341.1872717723240004710.davem@davemloft.net>
-References: <1318932782.2657.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.co.il
-To: eric.dumazet@gmail.com
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH] ipv4: avoid useless call of the function check_peer_pmtu
+Date: Thu, 20 Oct 2011 09:34:09 +0800
+Message-ID: <1319074449-10892-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58577 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010Ab1JSXxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Oct 2011 19:53:51 -0400
-In-Reply-To: <1318932782.2657.36.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from cn.fujitsu.com ([222.73.24.84]:49321 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755839Ab1JTBdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Oct 2011 21:33:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 18 Oct 2011 12:13:02 +0200
+In func ipv4_dst_check,check_peer_pmtu should be called only when peer is updated.
+So,if the peer is not updated in ip_rt_frag_needed,we can not inc __rt_peer_genid.
 
-> skb->truesize must account for allocated memory, not the used part of
-> it. Doing this work is important to avoid unexpected OOM situations.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/ipv4/route.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-Eric please respin this against current net-next, it doesn't apply
-after the mlx4 series I applied today.
-
-Thanks!
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 075212e..04a14db 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1568,11 +1568,10 @@ unsigned short ip_rt_frag_needed(struct net *net, const struct iphdr *iph,
+ 			est_mtu = mtu;
+ 			peer->pmtu_learned = mtu;
+ 			peer->pmtu_expires = pmtu_expires;
++			atomic_inc(&__rt_peer_genid);
+ 		}
+ 
+ 		inet_putpeer(peer);
+-
+-		atomic_inc(&__rt_peer_genid);
+ 	}
+ 	return est_mtu ? : new_mtu;
+ }
+-- 
+1.7.1
