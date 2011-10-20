@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: constify skbuff and Qdisc elements
-Date: Thu, 20 Oct 2011 17:46:00 -0400 (EDT)
-Message-ID: <20111020.174600.1796651676095457975.davem@davemloft.net>
-References: <1319146917.2854.46.camel@edumazet-laptop>
+Subject: Re: [PATCH] net: Fix driver name for mdio-gpio.c
+Date: Thu, 20 Oct 2011 17:48:07 -0400 (EDT)
+Message-ID: <20111020.174807.1345631716931276111.davem@davemloft.net>
+References: <1318943051-22432-1-git-send-email-eibach@gdsys.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48256 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609Ab1JTVqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 17:46:04 -0400
-In-Reply-To: <1319146917.2854.46.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	grant.likely@secretlab.ca
+To: eibach@gdsys.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1318943051-22432-1-git-send-email-eibach@gdsys.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Oct 2011 23:41:57 +0200
+From: Dirk Eibach <eibach@gdsys.de>
+Date: Tue, 18 Oct 2011 15:04:11 +0200
 
-> Preliminary patch before tcp constification
+> Since commit
+> "7488876... dt/net: Eliminate users of of_platform_{,un}register_driver"
+> there are two platform drivers named "mdio-gpio" registered.
+> I renamed the of variant to "mdio-ofgpio".
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Dirk Eibach <eibach@gdsys.de>
 
-Applied, thanks Eric.
+Applied, thanks.
