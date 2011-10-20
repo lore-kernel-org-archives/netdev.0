@@ -1,194 +1,212 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 2/6] mlx4: convert to SKB paged frag API.
-Date: Thu, 20 Oct 2011 10:01:45 +0100
-Message-ID: <1319101309-28431-2-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 4/6] cxgb4vf: convert to SKB paged frag API.
+Date: Thu, 20 Oct 2011 10:01:47 +0100
+Message-ID: <1319101309-28431-4-git-send-email-ian.campbell@citrix.com>
 References: <1319101275.3385.129.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.citrix.com ([66.165.176.89]:26442 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755979Ab1JTJBz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Oct 2011 05:01:55 -0400
+	id S1755923Ab1JTJB5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Oct 2011 05:01:57 -0400
 In-Reply-To: <1319101275.3385.129.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Casey Leedom <leedom@chelsio.com>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |   32 ++++++++++++++--------------
- drivers/net/ethernet/mellanox/mlx4/en_tx.c |   20 +++--------------
- 2 files changed, 20 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c     |   92 ++++++++++-------------
+ 2 files changed, 41 insertions(+), 53 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 9b18d85..af26983 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -44,7 +44,7 @@
- 
- static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
- 			      struct mlx4_en_rx_desc *rx_desc,
--			      struct skb_frag_struct *skb_frags,
-+			      struct page_frag *skb_frags,
- 			      struct mlx4_en_rx_alloc *ring_alloc,
- 			      int i)
- {
-@@ -61,7 +61,7 @@ static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
- 			return -ENOMEM;
- 
- 		skb_frags[i].page = page_alloc->page;
--		skb_frags[i].page_offset = page_alloc->offset;
-+		skb_frags[i].offset = page_alloc->offset;
- 		page_alloc->page = page;
- 		page_alloc->offset = frag_info->frag_align;
- 	} else {
-@@ -69,11 +69,11 @@ static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
- 		get_page(page);
- 
- 		skb_frags[i].page = page;
--		skb_frags[i].page_offset = page_alloc->offset;
-+		skb_frags[i].offset = page_alloc->offset;
- 		page_alloc->offset += frag_info->frag_stride;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+index 594334d..611396c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+@@ -144,7 +144,7 @@ struct sge_fl {
+  * An ingress packet gather list.
+  */
+ struct pkt_gl {
+-	skb_frag_t frags[MAX_SKB_FRAGS];
++	struct page_frag frags[MAX_SKB_FRAGS];
+ 	void *va;			/* virtual address of first byte */
+ 	unsigned int nfrags;		/* # of fragments */
+ 	unsigned int tot_len;		/* total length of fragments */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index c2d456d..8d5d55a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -296,8 +296,8 @@ static int map_skb(struct device *dev, const struct sk_buff *skb,
+ 	si = skb_shinfo(skb);
+ 	end = &si->frags[si->nr_frags];
+ 	for (fp = si->frags; fp < end; fp++) {
+-		*++addr = dma_map_page(dev, fp->page, fp->page_offset,
+-				       skb_frag_size(fp), DMA_TO_DEVICE);
++		*++addr = skb_frag_dma_map(dev, fp, 0, skb_frag_size(fp),
++					   DMA_TO_DEVICE);
+ 		if (dma_mapping_error(dev, *addr))
+ 			goto unwind;
  	}
- 	dma = pci_map_single(mdev->pdev, page_address(skb_frags[i].page) +
--			     skb_frags[i].page_offset, frag_info->frag_size,
-+			     skb_frags[i].offset, frag_info->frag_size,
- 			     PCI_DMA_FROMDEVICE);
- 	rx_desc->data[i].addr = cpu_to_be64(dma);
- 	return 0;
-@@ -157,8 +157,8 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
- 				   struct mlx4_en_rx_ring *ring, int index)
- {
- 	struct mlx4_en_rx_desc *rx_desc = ring->buf + (index * ring->stride);
--	struct skb_frag_struct *skb_frags = ring->rx_info +
--					    (index << priv->log_rx_info);
-+	struct page_frag *skb_frags = ring->rx_info +
-+				      (index << priv->log_rx_info);
- 	int i;
- 
- 	for (i = 0; i < priv->num_frags; i++)
-@@ -183,7 +183,7 @@ static void mlx4_en_free_rx_desc(struct mlx4_en_priv *priv,
- 				 int index)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
--	struct skb_frag_struct *skb_frags;
-+	struct page_frag *skb_frags;
- 	struct mlx4_en_rx_desc *rx_desc = ring->buf + (index << ring->log_stride);
- 	dma_addr_t dma;
- 	int nr;
-@@ -194,7 +194,7 @@ static void mlx4_en_free_rx_desc(struct mlx4_en_priv *priv,
- 		dma = be64_to_cpu(rx_desc->data[nr].addr);
- 
- 		en_dbg(DRV, priv, "Unmapping buffer at dma:0x%llx\n", (u64) dma);
--		pci_unmap_single(mdev->pdev, dma, skb_frag_size(&skb_frags[nr]),
-+		pci_unmap_single(mdev->pdev, dma, skb_frags[nr].size,
- 				 PCI_DMA_FROMDEVICE);
- 		put_page(skb_frags[nr].page);
- 	}
-@@ -403,7 +403,7 @@ void mlx4_en_deactivate_rx_ring(struct mlx4_en_priv *priv,
- /* Unmap a completed descriptor and free unused pages */
- static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 				    struct mlx4_en_rx_desc *rx_desc,
--				    struct skb_frag_struct *skb_frags,
-+				    struct page_frag *skb_frags,
- 				    struct skb_frag_struct *skb_frags_rx,
- 				    struct mlx4_en_rx_alloc *page_alloc,
- 				    int length)
-@@ -420,9 +420,9 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 			break;
- 
- 		/* Save page reference in skb */
--		skb_frags_rx[nr].page = skb_frags[nr].page;
--		skb_frag_size_set(&skb_frags_rx[nr], skb_frag_size(&skb_frags[nr]));
--		skb_frags_rx[nr].page_offset = skb_frags[nr].page_offset;
-+		__skb_frag_set_page(&skb_frags_rx[nr], skb_frags[nr].page);
-+		skb_frag_size_set(&skb_frags_rx[nr], skb_frags[nr].size);
-+		skb_frags_rx[nr].page_offset = skb_frags[nr].offset;
- 		dma = be64_to_cpu(rx_desc->data[nr].addr);
- 
- 		/* Allocate a replacement page */
-@@ -444,7 +444,7 @@ fail:
- 	 * the descriptor) of this packet; remaining fragments are reused... */
- 	while (nr > 0) {
- 		nr--;
--		put_page(skb_frags_rx[nr].page);
-+		__skb_frag_unref(&skb_frags_rx[nr]);
- 	}
- 	return 0;
+@@ -1357,6 +1357,35 @@ out_free:
  }
-@@ -452,7 +452,7 @@ fail:
  
- static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 				      struct mlx4_en_rx_desc *rx_desc,
--				      struct skb_frag_struct *skb_frags,
-+				      struct page_frag *skb_frags,
- 				      struct mlx4_en_rx_alloc *page_alloc,
- 				      unsigned int length)
+ /**
++ *	copy_frags - copy fragments from gather list into skb_shared_info
++ *	@skb: destination skb
++ *	@gl: source internal packet gather list
++ *	@offset: packet start offset in first page
++ *
++ *	Copy an internal packet gather list into a Linux skb_shared_info
++ *	structure.
++ */
++static inline void copy_frags(struct sk_buff *skb,
++			      const struct pkt_gl *gl,
++			      unsigned int offset)
++{
++	int i;
++
++	/* usually there's just one frag */
++	__skb_fill_page_desc(skb, 0, gl->frags[0].page,
++			     gl->frags[0].offset + offset,
++			     gl->frags[0].size - offset);
++	skb_shinfo(skb)->nr_frags = gl->nfrags;
++	for (i = 1; i < gl->nfrags; i++)
++		__skb_fill_page_desc(skb, i, gl->frags[i].page,
++				     gl->frags[i].offset,
++				     gl->frags[i].size);
++
++	/* get a reference to the last page, we don't own it */
++	get_page(gl->frags[gl->nfrags - 1].page);
++}
++
++/**
+  *	t4vf_pktgl_to_skb - build an sk_buff from a packet gather list
+  *	@gl: the gather list
+  *	@skb_len: size of sk_buff main body if it carries fragments
+@@ -1369,7 +1398,6 @@ struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
+ 				  unsigned int skb_len, unsigned int pull_len)
  {
-@@ -474,7 +474,7 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
- 
- 	/* Get pointer to first fragment so we could copy the headers into the
- 	 * (linear part of the) skb */
--	va = page_address(skb_frags[0].page) + skb_frags[0].page_offset;
-+	va = page_address(skb_frags[0].page) + skb_frags[0].offset;
- 
- 	if (length <= SMALL_PACKET_SIZE) {
- 		/* We are copying all relevant data to the skb - temporarily
-@@ -533,7 +533,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_cqe *cqe;
- 	struct mlx4_en_rx_ring *ring = &priv->rx_ring[cq->ring];
--	struct skb_frag_struct *skb_frags;
-+	struct page_frag *skb_frags;
- 	struct mlx4_en_rx_desc *rx_desc;
  	struct sk_buff *skb;
- 	int index;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 75dda26..75338eb 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -460,26 +460,13 @@ static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind)
- 		}
+-	struct skb_shared_info *ssi;
+ 
+ 	/*
+ 	 * If the ingress packet is small enough, allocate an skb large enough
+@@ -1396,21 +1424,10 @@ struct sk_buff *t4vf_pktgl_to_skb(const struct pkt_gl *gl,
+ 		__skb_put(skb, pull_len);
+ 		skb_copy_to_linear_data(skb, gl->va, pull_len);
+ 
+-		ssi = skb_shinfo(skb);
+-		ssi->frags[0].page = gl->frags[0].page;
+-		ssi->frags[0].page_offset = gl->frags[0].page_offset + pull_len;
+-		skb_frag_size_set(&ssi->frags[0], skb_frag_size(&gl->frags[0]) - pull_len);
+-		if (gl->nfrags > 1)
+-			memcpy(&ssi->frags[1], &gl->frags[1],
+-			       (gl->nfrags-1) * sizeof(skb_frag_t));
+-		ssi->nr_frags = gl->nfrags;
+-
++		copy_frags(skb, gl, pull_len);
+ 		skb->len = gl->tot_len;
+ 		skb->data_len = skb->len - pull_len;
+ 		skb->truesize += skb->data_len;
+-
+-		/* Get a reference for the last page, we don't own it */
+-		get_page(gl->frags[gl->nfrags - 1].page);
+ 	}
+ 
+ out:
+@@ -1434,35 +1451,6 @@ void t4vf_pktgl_free(const struct pkt_gl *gl)
  }
  
--static void *get_frag_ptr(struct sk_buff *skb)
+ /**
+- *	copy_frags - copy fragments from gather list into skb_shared_info
+- *	@si: destination skb shared info structure
+- *	@gl: source internal packet gather list
+- *	@offset: packet start offset in first page
+- *
+- *	Copy an internal packet gather list into a Linux skb_shared_info
+- *	structure.
+- */
+-static inline void copy_frags(struct skb_shared_info *si,
+-			      const struct pkt_gl *gl,
+-			      unsigned int offset)
 -{
--	struct skb_frag_struct *frag =  &skb_shinfo(skb)->frags[0];
--	struct page *page = frag->page;
--	void *ptr;
+-	unsigned int n;
 -
--	ptr = page_address(page);
--	if (unlikely(!ptr))
--		return NULL;
+-	/* usually there's just one frag */
+-	si->frags[0].page = gl->frags[0].page;
+-	si->frags[0].page_offset = gl->frags[0].page_offset + offset;
+-	skb_frag_size_set(&si->frags[0], skb_frag_size(&gl->frags[0]) - offset);
+-	si->nr_frags = gl->nfrags;
 -
--	return ptr + frag->page_offset;
+-	n = gl->nfrags - 1;
+-	if (n)
+-		memcpy(&si->frags[1], &gl->frags[1], n * sizeof(skb_frag_t));
+-
+-	/* get a reference to the last page, we don't own it */
+-	get_page(gl->frags[n].page);
 -}
 -
- static int is_inline(struct sk_buff *skb, void **pfrag)
- {
- 	void *ptr;
+-/**
+  *	do_gro - perform Generic Receive Offload ingress packet processing
+  *	@rxq: ingress RX Ethernet Queue
+  *	@gl: gather list for ingress packet
+@@ -1484,7 +1472,7 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
+ 		return;
+ 	}
  
- 	if (inline_thold && !skb_is_gso(skb) && skb->len <= inline_thold) {
- 		if (skb_shinfo(skb)->nr_frags == 1) {
--			ptr = get_frag_ptr(skb);
-+			ptr = skb_frag_address_safe(&skb_shinfo(skb)->frags[0]);
- 			if (unlikely(!ptr))
- 				return 0;
+-	copy_frags(skb_shinfo(skb), gl, PKTSHIFT);
++	copy_frags(skb, gl, PKTSHIFT);
+ 	skb->len = gl->tot_len - PKTSHIFT;
+ 	skb->data_len = skb->len;
+ 	skb->truesize += skb->data_len;
+@@ -1667,7 +1655,7 @@ int process_responses(struct sge_rspq *rspq, int budget)
+ 		rmb();
+ 		rsp_type = RSPD_TYPE(rc->type_gen);
+ 		if (likely(rsp_type == RSP_TYPE_FLBUF)) {
+-			skb_frag_t *fp;
++			struct page_frag *fp;
+ 			struct pkt_gl gl;
+ 			const struct rx_sw_desc *sdesc;
+ 			u32 bufsz, frag;
+@@ -1701,9 +1689,9 @@ int process_responses(struct sge_rspq *rspq, int budget)
+ 				sdesc = &rxq->fl.sdesc[rxq->fl.cidx];
+ 				bufsz = get_buf_size(sdesc);
+ 				fp->page = sdesc->page;
+-				fp->page_offset = rspq->offset;
+-				skb_frag_size_set(fp, min(bufsz, len));
+-				len -= skb_frag_size(fp);
++				fp->offset = rspq->offset;
++				fp->size = min(bufsz, len);
++				len -= fp->size;
+ 				if (!len)
+ 					break;
+ 				unmap_rx_buf(rspq->adapter, &rxq->fl);
+@@ -1717,9 +1705,9 @@ int process_responses(struct sge_rspq *rspq, int budget)
+ 			 */
+ 			dma_sync_single_for_cpu(rspq->adapter->pdev_dev,
+ 						get_buf_addr(sdesc),
+-						skb_frag_size(fp), DMA_FROM_DEVICE);
++						fp->size, DMA_FROM_DEVICE);
+ 			gl.va = (page_address(gl.frags[0].page) +
+-				 gl.frags[0].page_offset);
++				 gl.frags[0].offset);
+ 			prefetch(gl.va);
  
-@@ -756,8 +743,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		/* Map fragments */
- 		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
- 			frag = &skb_shinfo(skb)->frags[i];
--			dma = pci_map_page(mdev->dev->pdev, frag->page, frag->page_offset,
--					   skb_frag_size(frag), PCI_DMA_TODEVICE);
-+			dma = skb_frag_dma_map(&mdev->dev->pdev->dev, frag,
-+					       0, skb_frag_size(frag),
-+					       DMA_TO_DEVICE);
- 			data->addr = cpu_to_be64(dma);
- 			data->lkey = cpu_to_be32(mdev->mr.key);
- 			wmb();
+ 			/*
+@@ -1728,7 +1716,7 @@ int process_responses(struct sge_rspq *rspq, int budget)
+ 			 */
+ 			ret = rspq->handler(rspq, rspq->cur_desc, &gl);
+ 			if (likely(ret == 0))
+-				rspq->offset += ALIGN(skb_frag_size(fp), FL_ALIGN);
++				rspq->offset += ALIGN(fp->size, FL_ALIGN);
+ 			else
+ 				restore_rx_bufs(&gl, &rxq->fl, frag);
+ 		} else if (likely(rsp_type == RSP_TYPE_CPL)) {
 -- 
 1.7.2.5
