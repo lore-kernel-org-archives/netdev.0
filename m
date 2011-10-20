@@ -1,69 +1,54 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [RFC PATCH 06/17] phy_driver: Add and use phy_driver_[un]register_multiple()
-Date: Thu, 20 Oct 2011 17:15:54 -0400
-Message-ID: <201110201715.58441.vapier@gentoo.org>
-References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com> <1319144425-15547-7-git-send-email-Kyle.D.Moffett@boeing.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2518635.yaTGvqVo4f";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@conan.davemloft.net>,
-	Greg Dietsche <Gregory.Dietsche@cuw.edu>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	David Daney <ddaney@caviumnetworks.com>,
-	Arnaud Patard <arnaud.patard@rtp-net.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Baruch Siach <baruch@tkos.co.il>,
-	Stephen Hemminger <shemminger@vyatta.com>,
+From: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+Subject: [RFC PATCH 12/17] tc35815: Use standard phy_init_hw() instead of BMCR_RESET bit
+Date: Thu, 20 Oct 2011 17:00:19 -0400
+Message-ID: <1319144425-15547-13-git-send-email-Kyle.D.Moffett@boeing.com>
+References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
+Cc: Kyle Moffett <Kyle.D.Moffett@boeing.com>,
 	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+	Paul <paul.gortmaker@windriver.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319144425-15547-7-git-send-email-Kyle.D.Moffett@boeing.com>
+In-Reply-To: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2518635.yaTGvqVo4f
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
+The PHY should not be manually reset with the BMCR, as that will undo
+board-specific PHY fixups and driver-specific phy->drv->config_init().
 
-On Thursday 20 October 2011 17:00:13 Kyle Moffett wrote:
-> +	return phy_driver_register_multiple(bcm63xx_drivers,
-> +			ARRAY_SIZE(bcm63xx_drivers));
+Instead, the PHY should be reset using phy_init_hw().
 
-if only the arm ARRAY_AND_SIZE() macro could gain traction in the wider tree:
-	return phy_driver_register_multiple(ARRAY_AND_SIZE(bcm63xx_drivers));
+NOTE: Depends on earlier phy_init_hw() patch.
 
-ignoring that, this patch looks cool
+Not-yet-Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+---
+ drivers/net/tc35815.c |   15 ++-------------
+ 1 files changed, 2 insertions(+), 13 deletions(-)
 
-Acked-by: Mike Frysinger <vapier@gentoo.org>
--mike
-
---nextPart2518635.yaTGvqVo4f
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJOoI+OAAoJEEFjO5/oN/WBsHMP/jZTwb5Xeq8jBajesYQifnXR
-0D8NsclNkel6sI7JcvWaMc8LwPQAjauwG5LY3bCD/meJE/WijKcnpYzbppMkKlBB
-9oJgMJzINdzOQG6S2zMiMPF6uyfvBrVrh/6KAS/LRH9WebGjQGWcT3yGaZHt6F0J
-rnFsEh3Qj4TM5hFjjrWQucDSePBfSYA4xe/dmG7O35NR0R/PyZ/VZdtXTRHLoRiS
-icg+nKxMZ1/Xa6rDugCXdbnpCD89wPJzSgZ7TRBJeCSUBR1Ny/MYmtXMLKZlhSxQ
-qLiXLYORWZKUlHfiNwSrpnaHA+dJBaEXIBSuI3/aoAkbm5ZuTTlQL5I6cbtenU/a
-7R96d6/J+P9k3PJiYL3MLoOTrJyzoQ8UNDmR+NlWOnswuQImJE45jWuBZOm4RDRW
-a7K3e8FAmEhl890pOB1dcsQTg4GjIN4UgkOBuyhLtn2VMAe3VHNjSssVWdFfQ9Ma
-k6kijdVn5pewdAZROBYZlSq9hzcfgluoOTsCgrwARDmfN07xBWkm/gq68/gSvbx4
-VVb4A8RMtMsGro3naHky95nNAflbd+5BbsUSZpMdWaBEHyAjjFqBUVqsHrW1dAiN
-+4jUOLTwzpAswwKBU2X9LV+Ee5Ztj4hZ/Sg65trK4DQe+2KRNvFpckn9TV2L3WsS
-ku8l1lKtCbGH/t/auRru
-=hN1g
------END PGP SIGNATURE-----
-
---nextPart2518635.yaTGvqVo4f--
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index 4a55a16..c3422f8 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -1175,19 +1175,8 @@ static void tc35815_restart(struct net_device *dev)
+ {
+ 	struct tc35815_local *lp = netdev_priv(dev);
+ 
+-	if (lp->phy_dev) {
+-		int timeout;
+-
+-		phy_write(lp->phy_dev, MII_BMCR, BMCR_RESET);
+-		timeout = 100;
+-		while (--timeout) {
+-			if (!(phy_read(lp->phy_dev, MII_BMCR) & BMCR_RESET))
+-				break;
+-			udelay(1);
+-		}
+-		if (!timeout)
+-			printk(KERN_ERR "%s: BMCR reset failed.\n", dev->name);
+-	}
++	if (lp->phy_dev)
++		phy_init_hw(lp->phy_dev);
+ 
+ 	spin_lock_bh(&lp->rx_lock);
+ 	spin_lock_irq(&lp->lock);
+-- 
+1.7.2.5
