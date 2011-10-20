@@ -1,20 +1,49 @@
-From: Park Zihao <rodneyko@netvigator.com>
-Subject: Requesting for your partnership
-Date: Thu, 20 Oct 2011 20:42:58 +0800 (HKT)
-Message-ID: <867080874.436290.1319114578749.JavaMail.root__9391.79509082369$1319116502$gmane$org@wzbmbs02>
-Reply-To: "park.zihao1@w.cn" <park.zihao1@w.cn>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: Re: [IEEE802.15.4][6LoWPAN] draft for fragmentation support
+Date: Thu, 20 Oct 2011 17:13:27 +0400
+Message-ID: <4EA01E77.8040300@gmail.com>
+References: <20111020111718.GA32181@avtobot.ww600.siemens.net> <1319114385.3781.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <CAJmB2rCe3BJKD07TOSyAT0vbDq_K1VHLOtECqeOMzaTsg3DokA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	slapin@ossfans.org, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, jonsmirl@gmail.com
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ocmas07a.static.netvigator.com ([219.76.94.32]:51306 "EHLO
-	ocmas07.netvigator.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751788Ab1JTNOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 09:14:34 -0400
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:38194 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753482Ab1JTNO5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 09:14:57 -0400
+Received: by wwe6 with SMTP id 6so4151467wwe.1
+        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 06:14:56 -0700 (PDT)
+In-Reply-To: <CAJmB2rCe3BJKD07TOSyAT0vbDq_K1VHLOtECqeOMzaTsg3DokA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi, Alexander, colleagues,
 
+On 10/20/2011 04:50 PM, Alexander Smirnov wrote:
+> Hi Eric,
+>
+> thank you for the replies. And another question I forgot to ask:
+>
+> when I send fragments, I still have original skb buffer. What should I
+> do with it, is there any
+> "proper/good" ways to drop it? Because I've already fragmented it and
+> do not need to send
+> original skb to queue.
 
-I am Mr Park Zihao, an Account Officer with the International bank of Taipei,I need your assistance in a business deal and you will be paid 30% for your Management Fees". Please reply for details
+You might want to check the TCP/IP fragmentation code path. I think you 
+can drop it with kfree_skb, but I ain't sure ATM.
+
+>
+> Thank you,
+> Alexander
+
+P.S. Top posting is really a bad style. And it's now that welcome in the 
+MLs.
+
+-- 
+With best wishes
+Dmitry
