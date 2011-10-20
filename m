@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] igbvf: fix truesize underestimation
-Date: Thu, 20 Oct 2011 17:42:26 -0400 (EDT)
-Message-ID: <20111020.174226.1424871936693188167.davem@davemloft.net>
-References: <1319138538.2854.9.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next] myri10ge: fix truesize underestimation
+Date: Thu, 20 Oct 2011 17:42:32 -0400 (EDT)
+Message-ID: <20111020.174232.432401897148828163.davem@davemloft.net>
+References: <1319141403.2854.17.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, mason@myri.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48126 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:48131 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752470Ab1JTVma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 17:42:30 -0400
-In-Reply-To: <1319138538.2854.9.camel@edumazet-laptop>
+	with ESMTP id S1752618Ab1JTVmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 17:42:36 -0400
+In-Reply-To: <1319141403.2854.17.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Oct 2011 21:22:18 +0200
+Date: Thu, 20 Oct 2011 22:10:03 +0200
 
-> igbvf allocates half a page per skb fragment. We must account
-> PAGE_SIZE/2 increments on skb->truesize, not the actual frag length.
+> skb->truesize must account for allocated memory, not the used part of
+> it. Doing this work is important to avoid unexpected OOM situations.
 > 
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
