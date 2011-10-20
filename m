@@ -1,64 +1,75 @@
 From: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Subject: [RFC PATCH 11/17] sh_eth: Don't unnecessarily reset the PHY
-Date: Thu, 20 Oct 2011 17:00:18 -0400
-Message-ID: <1319144425-15547-12-git-send-email-Kyle.D.Moffett@boeing.com>
+Subject: [RFC PATCH 10/17] pxa186_eth: Use standardized phy_init_hw() for PHY reset
+Date: Thu, 20 Oct 2011 17:00:17 -0400
+Message-ID: <1319144425-15547-11-git-send-email-Kyle.D.Moffett@boeing.com>
 References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
 Cc: Kyle Moffett <Kyle.D.Moffett@boeing.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Kuninori Morimoto <morimoto.kuninori@renesas.com>
+	Richard Cochran <richard.cochran@omicron.at>,
+	Joe Perches <joe@perches.com>, Jon Mason <jdmason@kudzu.us>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The PHY is already reset during driver probing, and this manual reset
-afterwards will wipe out board-specific PHY fixups and driver-specific
-phy->drv->config_init() register tweaks.
+The PHY does not need to be reset immediately before phy_attach(), as
+that function will call phy_init_hw() properly on its own.  Furthermore,
+the PHY should not be manually reset, as that will undo board-specific
+PHY fixups and driver-specific phy->drv->config_init() register tweaks.
 
-Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+NOTE: Depends on earlier phy_init_hw() patch.
+
+Not-yet-Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
 ---
- drivers/net/sh_eth.c |   19 +------------------
- 1 files changed, 1 insertions(+), 18 deletions(-)
+ drivers/net/pxa168_eth.c |   21 +--------------------
+ 1 files changed, 1 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index 1c1666e..7ef4378 100644
---- a/drivers/net/sh_eth.c
-+++ b/drivers/net/sh_eth.c
-@@ -1235,23 +1235,6 @@ static int sh_eth_phy_init(struct net_device *ndev)
- 	return 0;
+diff --git a/drivers/net/pxa168_eth.c b/drivers/net/pxa168_eth.c
+index d17d062..ab3bca9 100644
+--- a/drivers/net/pxa168_eth.c
++++ b/drivers/net/pxa168_eth.c
+@@ -323,23 +323,6 @@ static void ethernet_phy_set_addr(struct pxa168_eth_private *pep, int phy_addr)
+ 	wrl(pep, PHY_ADDRESS, reg_data);
  }
  
--/* PHY control start function */
--static int sh_eth_phy_start(struct net_device *ndev)
+-static void ethernet_phy_reset(struct pxa168_eth_private *pep)
 -{
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--	int ret;
+-	int data;
 -
--	ret = sh_eth_phy_init(ndev);
--	if (ret)
--		return ret;
+-	data = phy_read(pep->phy, MII_BMCR);
+-	if (data < 0)
+-		return;
 -
--	/* reset phy - this also wakes it from PDOWN */
--	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
--	phy_start(mdp->phydev);
+-	data |= BMCR_RESET;
+-	if (phy_write(pep->phy, MII_BMCR, data) < 0)
+-		return;
 -
--	return 0;
+-	do {
+-		data = phy_read(pep->phy, MII_BMCR);
+-	} while (data >= 0 && data & BMCR_RESET);
 -}
 -
- static int sh_eth_get_settings(struct net_device *ndev,
- 			struct ethtool_cmd *ecmd)
+ static void rxq_refill(struct net_device *dev)
  {
-@@ -1410,7 +1393,7 @@ static int sh_eth_open(struct net_device *ndev)
- 		goto out_free_irq;
+ 	struct pxa168_eth_private *pep = netdev_priv(dev);
+@@ -647,7 +630,7 @@ static void eth_port_start(struct net_device *dev)
+ 		struct ethtool_cmd cmd;
  
- 	/* PHY control start*/
--	ret = sh_eth_phy_start(ndev);
-+	ret = sh_eth_phy_init(ndev);
- 	if (ret)
- 		goto out_free_irq;
+ 		pxa168_get_settings(pep->dev, &cmd);
+-		ethernet_phy_reset(pep);
++		phy_init_hw(pep->phy);
+ 		pxa168_set_settings(pep->dev, &cmd);
+ 	}
  
+@@ -1393,8 +1376,6 @@ static struct phy_device *phy_scan(struct pxa168_eth_private *pep, int phy_addr)
+ static void phy_init(struct pxa168_eth_private *pep, int speed, int duplex)
+ {
+ 	struct phy_device *phy = pep->phy;
+-	ethernet_phy_reset(pep);
+-
+ 	phy_attach(pep->dev, dev_name(&phy->dev), 0, PHY_INTERFACE_MODE_MII);
+ 
+ 	if (speed == 0) {
 -- 
 1.7.2.5
