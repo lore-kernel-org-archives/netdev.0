@@ -1,63 +1,31 @@
-From: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Subject: RE: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
- Ethernet driver
-Date: Thu, 20 Oct 2011 09:23:07 +0000
-Message-ID: <6349D7A510622448B1BA0967850A8438011CC21D@nasanexd02d.na.qualcomm.com>
-References: <1319093184-19696-1-git-send-email-cloud.ren@Atheros.com>
- <20111020.044541.970282389722164761.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] skb fragment API: convert network drivers (part V,
+ take 2)
+Date: Thu, 20 Oct 2011 05:23:33 -0400 (EDT)
+Message-ID: <20111020.052333.865812021350188883.davem@davemloft.net>
+References: <1319101275.3385.129.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111020.044541.970282389722164761.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org
+To: Ian.Campbell@citrix.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1319101275.3385.129.camel@zakaz.uk.xensource.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Date: Thu, 20 Oct 2011 10:01:15 +0100
 
->From: <cloud.ren@Atheros.com>
->Date: Thu, 20 Oct 2011 14:46:24 +0800
->
->> +#define __far
->
->So much unused crap left in these header files, get rid of this stuff.
->
->+#define ALX_HW_WARN(_fmt, _args...) \
->+		ALX_HW_PRINTA(WARNING, _fmt, ## _args)
->+
->+#define ALX_HW_INFO(_fmt, _args...) \
->+		ALX_HW_PRINTA(INFO, _fmt, ## _args)
->+
->+#define ALX_HW_DBG(_fmt, _args...) \
->+		ALX_HW_PRINTA(DEBUG, _fmt, ## _args)
->+
->
->We told you to get rid of your customized debug logging interfaces, yet all of
->this stuff is still there.
->
->+/* delay function */
->+#define US_DELAY(_hw, _n)	__US_DELAY(_n)
->+#define MS_DELAY(_hw, _n)	__MS_DELAY(_n)
->+#define __US_DELAY(_n)		udelay(_n)
->+#define __MS_DELAY(_n)		mdelay(_n)
->
->Useless wrappers for standard kernel interfaces, kill this.
->
->+#define DEBUG_INFO(_a, _b)
->+#define DEBUG_INFOS(_a, _b)
->
->Again we told you to get rid of this stuff.
->
->I suspect it's going to take may rounds of feedback before this driver is
->anywhere near ready for inclusion.
->
->Please just submit it to staging and let it cook there for a couple weeks in the
->interests of our sanity.
+> The following series is the second attempt to convert a fifth (and
+> hopefully final) batch of network drivers to the SKB pages fragment API
+> introduced in 131ea6675c76.
 
-As you saw, should I do the two following steps?
-1. I firstly try to submit code to linux-staging.git. 
-2. After the driver have been accepted by  linux-staging.git, I submit to net-next.git again.
+Applied, thanks Ian.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
