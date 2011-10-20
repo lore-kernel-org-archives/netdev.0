@@ -1,69 +1,194 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 1/6] mm: add a "struct page_frag" type containing a page, offset and length
-Date: Thu, 20 Oct 2011 10:01:44 +0100
-Message-ID: <1319101309-28431-1-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 2/6] mlx4: convert to SKB paged frag API.
+Date: Thu, 20 Oct 2011 10:01:45 +0100
+Message-ID: <1319101309-28431-2-git-send-email-ian.campbell@citrix.com>
 References: <1319101275.3385.129.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-        Christoph Hellwig <hch@infradead.org>,
-        David Miller <davem@davemloft.net>, linux-mm@kvack.org,
-        linux-kernel@vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:26442 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755979Ab1JTJBz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Oct 2011 05:01:55 -0400
 In-Reply-To: <1319101275.3385.129.camel@zakaz.uk.xensource.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-A few network drivers currently use skb_frag_struct for this purpose but I have
-patches which add additional fields and semantics there which these other uses
-do not want.
-
-A structure for reference sub-page regions seems like a generally useful thing
-so do so instead of adding a network subsystem specific structure.
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Acked-by: Jens Axboe <jaxboe@fusionio.com>
-Acked-by: David Rientjes <rientjes@google.com>
-Acked-by: Andrew Morton <akpm@linux-foundation.org>
-Cc: Christoph Hellwig <hch@infradead.org>
-Cc: David Miller <davem@davemloft.net>
-Cc: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org
-[since v1: s/struct subpage/struct page_frag/ on advice from Christoph]
-[since v2: s/page_offset/offset/ on advice from Andrew]
+Cc: netdev@vger.kernel.org
 ---
- include/linux/mm_types.h |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |   32 ++++++++++++++--------------
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |   20 +++--------------
+ 2 files changed, 20 insertions(+), 32 deletions(-)
 
-diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-index 774b895..29971a5 100644
---- a/include/linux/mm_types.h
-+++ b/include/linux/mm_types.h
-@@ -135,6 +135,17 @@ struct page {
- #endif
- ;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 9b18d85..af26983 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -44,7 +44,7 @@
  
-+struct page_frag {
-+	struct page *page;
-+#if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
-+	__u32 offset;
-+	__u32 size;
-+#else
-+	__u16 offset;
-+	__u16 size;
-+#endif
-+};
-+
- typedef unsigned long __nocast vm_flags_t;
+ static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
+ 			      struct mlx4_en_rx_desc *rx_desc,
+-			      struct skb_frag_struct *skb_frags,
++			      struct page_frag *skb_frags,
+ 			      struct mlx4_en_rx_alloc *ring_alloc,
+ 			      int i)
+ {
+@@ -61,7 +61,7 @@ static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
+ 			return -ENOMEM;
  
- /*
+ 		skb_frags[i].page = page_alloc->page;
+-		skb_frags[i].page_offset = page_alloc->offset;
++		skb_frags[i].offset = page_alloc->offset;
+ 		page_alloc->page = page;
+ 		page_alloc->offset = frag_info->frag_align;
+ 	} else {
+@@ -69,11 +69,11 @@ static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
+ 		get_page(page);
+ 
+ 		skb_frags[i].page = page;
+-		skb_frags[i].page_offset = page_alloc->offset;
++		skb_frags[i].offset = page_alloc->offset;
+ 		page_alloc->offset += frag_info->frag_stride;
+ 	}
+ 	dma = pci_map_single(mdev->pdev, page_address(skb_frags[i].page) +
+-			     skb_frags[i].page_offset, frag_info->frag_size,
++			     skb_frags[i].offset, frag_info->frag_size,
+ 			     PCI_DMA_FROMDEVICE);
+ 	rx_desc->data[i].addr = cpu_to_be64(dma);
+ 	return 0;
+@@ -157,8 +157,8 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
+ 				   struct mlx4_en_rx_ring *ring, int index)
+ {
+ 	struct mlx4_en_rx_desc *rx_desc = ring->buf + (index * ring->stride);
+-	struct skb_frag_struct *skb_frags = ring->rx_info +
+-					    (index << priv->log_rx_info);
++	struct page_frag *skb_frags = ring->rx_info +
++				      (index << priv->log_rx_info);
+ 	int i;
+ 
+ 	for (i = 0; i < priv->num_frags; i++)
+@@ -183,7 +183,7 @@ static void mlx4_en_free_rx_desc(struct mlx4_en_priv *priv,
+ 				 int index)
+ {
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+-	struct skb_frag_struct *skb_frags;
++	struct page_frag *skb_frags;
+ 	struct mlx4_en_rx_desc *rx_desc = ring->buf + (index << ring->log_stride);
+ 	dma_addr_t dma;
+ 	int nr;
+@@ -194,7 +194,7 @@ static void mlx4_en_free_rx_desc(struct mlx4_en_priv *priv,
+ 		dma = be64_to_cpu(rx_desc->data[nr].addr);
+ 
+ 		en_dbg(DRV, priv, "Unmapping buffer at dma:0x%llx\n", (u64) dma);
+-		pci_unmap_single(mdev->pdev, dma, skb_frag_size(&skb_frags[nr]),
++		pci_unmap_single(mdev->pdev, dma, skb_frags[nr].size,
+ 				 PCI_DMA_FROMDEVICE);
+ 		put_page(skb_frags[nr].page);
+ 	}
+@@ -403,7 +403,7 @@ void mlx4_en_deactivate_rx_ring(struct mlx4_en_priv *priv,
+ /* Unmap a completed descriptor and free unused pages */
+ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 				    struct mlx4_en_rx_desc *rx_desc,
+-				    struct skb_frag_struct *skb_frags,
++				    struct page_frag *skb_frags,
+ 				    struct skb_frag_struct *skb_frags_rx,
+ 				    struct mlx4_en_rx_alloc *page_alloc,
+ 				    int length)
+@@ -420,9 +420,9 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 			break;
+ 
+ 		/* Save page reference in skb */
+-		skb_frags_rx[nr].page = skb_frags[nr].page;
+-		skb_frag_size_set(&skb_frags_rx[nr], skb_frag_size(&skb_frags[nr]));
+-		skb_frags_rx[nr].page_offset = skb_frags[nr].page_offset;
++		__skb_frag_set_page(&skb_frags_rx[nr], skb_frags[nr].page);
++		skb_frag_size_set(&skb_frags_rx[nr], skb_frags[nr].size);
++		skb_frags_rx[nr].page_offset = skb_frags[nr].offset;
+ 		dma = be64_to_cpu(rx_desc->data[nr].addr);
+ 
+ 		/* Allocate a replacement page */
+@@ -444,7 +444,7 @@ fail:
+ 	 * the descriptor) of this packet; remaining fragments are reused... */
+ 	while (nr > 0) {
+ 		nr--;
+-		put_page(skb_frags_rx[nr].page);
++		__skb_frag_unref(&skb_frags_rx[nr]);
+ 	}
+ 	return 0;
+ }
+@@ -452,7 +452,7 @@ fail:
+ 
+ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 				      struct mlx4_en_rx_desc *rx_desc,
+-				      struct skb_frag_struct *skb_frags,
++				      struct page_frag *skb_frags,
+ 				      struct mlx4_en_rx_alloc *page_alloc,
+ 				      unsigned int length)
+ {
+@@ -474,7 +474,7 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 
+ 	/* Get pointer to first fragment so we could copy the headers into the
+ 	 * (linear part of the) skb */
+-	va = page_address(skb_frags[0].page) + skb_frags[0].page_offset;
++	va = page_address(skb_frags[0].page) + skb_frags[0].offset;
+ 
+ 	if (length <= SMALL_PACKET_SIZE) {
+ 		/* We are copying all relevant data to the skb - temporarily
+@@ -533,7 +533,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_cqe *cqe;
+ 	struct mlx4_en_rx_ring *ring = &priv->rx_ring[cq->ring];
+-	struct skb_frag_struct *skb_frags;
++	struct page_frag *skb_frags;
+ 	struct mlx4_en_rx_desc *rx_desc;
+ 	struct sk_buff *skb;
+ 	int index;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 75dda26..75338eb 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -460,26 +460,13 @@ static inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind)
+ 		}
+ }
+ 
+-static void *get_frag_ptr(struct sk_buff *skb)
+-{
+-	struct skb_frag_struct *frag =  &skb_shinfo(skb)->frags[0];
+-	struct page *page = frag->page;
+-	void *ptr;
+-
+-	ptr = page_address(page);
+-	if (unlikely(!ptr))
+-		return NULL;
+-
+-	return ptr + frag->page_offset;
+-}
+-
+ static int is_inline(struct sk_buff *skb, void **pfrag)
+ {
+ 	void *ptr;
+ 
+ 	if (inline_thold && !skb_is_gso(skb) && skb->len <= inline_thold) {
+ 		if (skb_shinfo(skb)->nr_frags == 1) {
+-			ptr = get_frag_ptr(skb);
++			ptr = skb_frag_address_safe(&skb_shinfo(skb)->frags[0]);
+ 			if (unlikely(!ptr))
+ 				return 0;
+ 
+@@ -756,8 +743,9 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* Map fragments */
+ 		for (i = skb_shinfo(skb)->nr_frags - 1; i >= 0; i--) {
+ 			frag = &skb_shinfo(skb)->frags[i];
+-			dma = pci_map_page(mdev->dev->pdev, frag->page, frag->page_offset,
+-					   skb_frag_size(frag), PCI_DMA_TODEVICE);
++			dma = skb_frag_dma_map(&mdev->dev->pdev->dev, frag,
++					       0, skb_frag_size(frag),
++					       DMA_TO_DEVICE);
+ 			data->addr = cpu_to_be64(dma);
+ 			data->lkey = cpu_to_be32(mdev->mr.key);
+ 			wmb();
 -- 
 1.7.2.5
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
