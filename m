@@ -1,51 +1,56 @@
-From: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
-Subject: [PATCH] ipvs: Fix compilation error in ip_vs.h for ip_vs_confirm_conntrack function.
-Date: Thu, 20 Oct 2011 13:18:04 +0100
-Message-ID: <1319113084-7498-1-git-send-email-krzysztof.wilczynski@linux.com>
+From: "bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [RFC PATCH 0/5] SUNRPC: "RPC pipefs per network namespace"
+ preparations
+Date: Thu, 20 Oct 2011 08:32:42 -0400
+Message-ID: <20111020123242.GN5444@fieldses.org>
+References: <20111017120629.4541.67395.stgit@localhost6.localdomain6>
+ <4EA000C6.1040502@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:36930 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751055Ab1JTMSS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 08:18:18 -0400
-Received: by wyg36 with SMTP id 36so2800130wyg.19
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 05:18:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"neilb-l3A5Bk7waGM@public.gmane.org" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4EA000C6.1040502-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is to address the following error during the compilation:
+On Thu, Oct 20, 2011 at 03:06:46PM +0400, Stanislav Kinsbursky wrote:
+> Guys, please, spend some of your expensive time to review this patch-set briefly.
 
-  In file included from kernel/sysctl_binary.c:6:
-  include/net/ip_vs.h:1406: error: expected identifier or =E2=80=98(=E2=
-=80=99 before =E2=80=98{=E2=80=99 token
-  make[1]: *** [kernel/sysctl_binary.o] Error 1
-  make[1]: *** Waiting for unfinished jobs....
+I'll try to take a look soon, but I'm travelling tomorrow through the
+31st, and things will be a little hectic.
 
-That manifests itself when CONFIG_IP_VS_NFCT is undefined in .config fi=
-le.
+Just one quick comment:
 
-Signed-off-by: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
----
- include/net/ip_vs.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> >The only problem about I'm not sure how to solve properly yet, is auth gss
+> >pipes creations operations. Hoping for some help with it.
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 139784e..de527d1 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1395,7 +1395,7 @@ static inline void ip_vs_update_conntrack(struct =
-sk_buff *skb,
- {
- }
-=20
--static inline int ip_vs_confirm_conntrack(struct sk_buff *skb);
-+static inline int ip_vs_confirm_conntrack(struct sk_buff *skb)
- {
- 	return NF_ACCEPT;
- }
---=20
-1.7.7
+I suspect one reason it may be a little complicated is the
+upcall-version switching.  The old version is deprecated, and there's no
+need to support the combination of the old version with the a new
+feature like containers.  And now that it's been there a while the
+version-switching code already achieved its goal of avoiding a flag day.
+So, one approach might be:
+
+	- move all the code for the old gss upcall and for the version
+	  switching under a new CONFIG_DEPRECATED_GSS, or similar.
+	- print a warning if the old stuff is used, and plan to rip it
+	  out completely in a future kernel version.
+	- do something that works just in the !CONFIG_DEPRECATED_GSS
+	  case.
+
+Would that help?
+
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
