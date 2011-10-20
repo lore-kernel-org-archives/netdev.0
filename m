@@ -1,45 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: change capability used by socket options
- IP{,V6}_TRANSPARENT
-Date: Thu, 20 Oct 2011 00:34:58 -0400 (EDT)
-Message-ID: <20111020.003458.1034042223691970343.davem@davemloft.net>
-References: <CANP3RGf1ZyNEiADXMsD1C=4GMyOMvxEZQ93nYpghhXhCJKNF6Q@mail.gmail.com>
-	<20111020.001939.548341110762997206.davem@davemloft.net>
-	<CAHo-OoxYiqSOg6fPWWAaocF2L3DzyV_UFYT0CPRGVd7LNxDCwg@mail.gmail.com>
+From: "Webmail Administrator" <chinmaya@iitk.ac.in>
+Subject: (unknown)
+Date: Thu, 20 Oct 2011 10:07:20 +0530
+Message-ID: <aa58c0a5cf4e40475b1abadd5025d04e.squirrel__35274.4347801947$1319086410$gmane$org@webmail.iitk.ac.in>
+Reply-To: info@info.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bazsi@balabit.hu
-To: zenczykowski@gmail.com
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56278 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751295Ab1JTEfE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 00:35:04 -0400
-In-Reply-To: <CAHo-OoxYiqSOg6fPWWAaocF2L3DzyV_UFYT0CPRGVd7LNxDCwg@mail.gmail.com>
+Received: from mail4.iitk.ac.in ([202.3.77.189]:47347 "EHLO mail4.iitk.ac.in"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752091Ab1JTExI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Oct 2011 00:53:08 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Wed, 19 Oct 2011 21:31:06 -0700
 
->> A process with CAP_NET_RAW can spit whatever crap they want onto the
->> network, and receive all packets with impunity.
->=20
-> Agreed.  But it can do so via raw sockets, it cannot do so via normal
-> udp/tcp/ip sockets.
-> That's why I'd like to relax the permissions check on being able to
-> switch a socket
-> into transparent mode.  A process with CAP_NET_RAW can already pretty
-> much emulate
-> that behaviour by using raw sockets - it just can't do that using the
-> higher level, often more
-> usable/useful socket/protocol apis.
->=20
->> I can't see what this buys us at all, sorry.
->=20
-> See above.
 
-Ok, I'm convinced, send me that patch without the warning messages.
 
-Thanks.
+mailbox has exceeded the storage limit which is 20GB as set by your
+administrator,you are currently running on 20.9GB,you may not be able t=
+o
+send or receive new mail until you re-validate your mailbox.To re-valid=
+ate
+your mailbox please click this
+https://docs.google.com/spreadsheet/viewform?formkey=3DdEVmalNhbnJTU0FF=
+WXlFSGJPVFNtaFE6MQ
+
+
+Warning!!! All Webmail. Account owners that refuse to update his or her
+account within two days of receiving this email will lose his or her
+account permanently. AGB =A9 upc cablecom GmbH 2011. We apologize for a=
+ny
+inconvenience this may have cause you. Thank you for using Webmail
+
+
+System Administrator.
+Customer Care Unit.
