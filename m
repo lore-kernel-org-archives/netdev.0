@@ -1,61 +1,70 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] rtnetlink: Add missing manual netlink notification in dev_change_net_namespaces
-Date: Fri, 21 Oct 2011 09:24:20 -0700
-Message-ID: <m1ty72l3d7.fsf_-_@fess.ebiederm.org>
-References: <CAChaegkomwjL0X7HnfLi1XH26jDKOL6fCgjfms67cjjU4gRXPg@mail.gmail.com>
-	<m1r54s8lq4.fsf@fess.ebiederm.org>
-	<CAChaegm2d3LywMAcq66PgPZwF5Fu=_zuqcTh8VdCG6zvhyPJXQ@mail.gmail.com>
-	<CAChaeg=1WSU0webhYDpQcnq3cJje17FQ5Z8rypD8sdkyzcLT-g@mail.gmail.com>
-	<m14o1e71qe.fsf@fess.ebiederm.org>
-	<CAChaegnHchLT0BV-_RaPT2-J3ZLin_U1x8X0KBi7ku1MArug1g@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] dev: use name hash for dev_seq_ops
+Date: Fri, 21 Oct 2011 10:07:59 -0700
+Message-ID: <20111021100759.0a6bba45@s6510.linuxnetplumber.net>
+References: <1319097717-14910-1-git-send-email-mmaruseac@ixiacom.com>
+	<1319179510-10715-1-git-send-email-mmaruseac@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kaber@trash.net,
-	David Lamparter <equinox@diac24.net>,
-	Renato Westphal <renatowestphal@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:36037 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753408Ab1JUQXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 12:23:51 -0400
-In-Reply-To: <CAChaegnHchLT0BV-_RaPT2-J3ZLin_U1x8X0KBi7ku1MArug1g@mail.gmail.com>
-	(Renato Westphal's message of "Fri, 19 Aug 2011 11:38:33 -0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dbaluta@ixiacom.com, Mihai Maruseac <mmaruseac@ixiacom.com>
+To: Mihai Maruseac <mihai.maruseac@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1319179510-10715-1-git-send-email-mmaruseac@ixiacom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 21 Oct 2011 09:45:10 +0300
+Mihai Maruseac <mihai.maruseac@gmail.com> wrote:
 
-Renato Westphal noticed that since commit a2835763e130c343ace5320c20d33c281e7097b7
-"rtnetlink: handle rtnl_link netlink notifications manually" was merged
-we no longer send a netlink message when a networking device is moved
-from one network namespace to another.
+> Instead of using the dev->next chain and trying to resync at each call to
+> dev_seq_start, use the name hash, keeping the bucket and the offset in
+> seq->private field.
+> 
+> Tests revealed the following results for ifconfig > /dev/null
+> 	* 1000 interfaces:
+> 		* 0.114s without patch
+> 		* 0.089s with patch
+> 	* 3000 interfaces:
+> 		* 0.489s without patch
+> 		* 0.110s with patch
+> 	* 5000 interfaces:
+> 		* 1.363s without patch
+> 		* 0.250s with patch
+> 	* 128000 interfaces (other setup):
+> 		* ~100s without patch
+> 		* ~30s with patch
+> 
+> Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
+> ---
+>  net/core/dev.c |   84 ++++++++++++++++++++++++++++++++++++++++++++++----------
+>  1 files changed, 69 insertions(+), 15 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 70ecb86..6edbcc5 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4041,6 +4041,60 @@ static int dev_ifconf(struct net *net, char __user *arg)
+>  }
+>  
+>  #ifdef CONFIG_PROC_FS
+> +
+> +#define BUCKET_SPACE (32 - NETDEV_HASHBITS)
+> +
+> +struct dev_iter_state {
+> +	struct seq_net_private p;
+> +	unsigned int pos; /* bucket << BUCKET_SPACE + offset */
+> +};
+> +
+> +#define get_bucket(x) ((x) >> BUCKET_SPACE)
+> +#define get_offset(x) ((x) & ((1 << BUCKET_SPACE) - 1))
+> +#define set_bucket_offset(b, o) ((b) << BUCKET_SPACE | (o))
+> +
+> +static inline struct net_device *dev_from_same_bucket(struct seq_file *seq)
+>
 
-Fix this by adding the missing manual notification in dev_change_net_namespaces.
-
-Since all network devices that are processed by dev_change_net_namspaces are
-in the initialized state the complicated tests that guard the manual
-rtmsg_ifinfo calls in rollback_registered and register_netdevice are
-unnecessary and we can just perform a plain notification.
-
-Cc: stable@kernel.org
-Tested-by: Renato Westphal <renatowestphal@gmail.com>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- net/core/dev.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ad5d702..b7ba81a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6266,6 +6266,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	*/
- 	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
- 	call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
-+	rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
- 
- 	/*
- 	 *	Flush the unicast and multicast chains
--- 
-1.7.2.5
+Why are all these function marked inline? They are big, hardly hot path
+and better to not continue the bad practice of inlining too much code.
