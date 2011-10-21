@@ -1,50 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: add const qualifiers where possible
-Date: Fri, 21 Oct 2011 10:21:03 +0200
-Message-ID: <1319185263.2338.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1319179993.2854.63.camel@edumazet-laptop>
-	 <20111021.025549.113655582134326444.davem@redhat.com>
-	 <20111021.033648.1029307040209750463.davem@davemloft.net>
+From: "Yan, Zheng" <zheng.z.yan@linux.intel.com>
+Subject: Re: IPsec performance bug
+Date: Fri, 21 Oct 2011 16:28:30 +0800
+Message-ID: <CAAM7YAkxP06_=y1wg4P1JhPDWhZgRM6+wbFQRG5PFkAq8vgsTw@mail.gmail.com>
+References: <20111019212229.72078d51.kim.phillips@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	hirofumi@mail.parknet.co.jp
+To: Kim Phillips <kim.phillips@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:42906 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751363Ab1JUIVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 04:21:08 -0400
-Received: by wyg36 with SMTP id 36so3694804wyg.19
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2011 01:21:07 -0700 (PDT)
-In-Reply-To: <20111021.033648.1029307040209750463.davem@davemloft.net>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:58226 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268Ab1JUI2b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 04:28:31 -0400
+Received: by vcge1 with SMTP id e1so3104034vcg.19
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2011 01:28:30 -0700 (PDT)
+In-Reply-To: <20111019212229.72078d51.kim.phillips@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 21 octobre 2011 =C3=A0 03:36 -0400, David Miller a =C3=A9cr=
-it :
+On Thu, Oct 20, 2011 at 10:22 AM, Kim Phillips
+<kim.phillips@freescale.com> wrote:
+> Hi,
+>
+> I'm trying to debug an IPSec forwarding performance slowdown on a
+> p2020 dual-core powerpc linux box using s/w crypto (no crypto h/w
+> offload enabled) between vanilla kernel versions 2.6.35 and 3.0.
+> Using a h/w packet generator set to 64-byte packets, I get the
+> following results:
+>
+> v2.6.35: 48.5kpps
+> v3.0.0: =A0 0.2kpps
+> v3.0.7: =A0 0.2kpps
+> v3.1.0-rc9-01707-gf7ba35d (a recent net-next): 13.6kpps
+>
+> I was able to bisect the problem down to the following commit:
+>
+> 7e1dc7b6f709dfc1a9ab4b320dbe723f45992693 is the first bad commit
+> commit 7e1dc7b6f709dfc1a9ab4b320dbe723f45992693
+> Author: David S. Miller <davem@davemloft.net>
+> Date: =A0 Sat Mar 12 02:42:11 2011 -0500
+>
+> =A0 =A0net: Use flowi4 and flowi6 in xfrm layer.
+>
+> =A0 =A0Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> And, indeed, going back one commit (i.e., v2.6.38-rc8-1468-g2032656
+> and manually applying commit 7313714: =A0"xfrm: fix
+> __xfrm_route_forward ()"), brings performance back to ~50kpps from
+> 0.2kpps.
+>
+> Tracing shows that the commit breaks the route cache [1], and I
+> understand there is major surgery going on in the area [2], so I
+> suppose my question is twofold:
+>
+> (a) was such a large performance drop to be expected for v3.0?
+>
+> (b) any ideas how to fix? =A0I don't know much about routing
+> internals, but in ip_route_input_common(), if I remove the input
+> interface comparison (rth->rt_route_iif ^ iif), I get some
+> performance back, but the system becomes unstable (it's booted over
+> nfs).
+>
+> Thanks,
+>
+> Kim
+>
 
-> You can't make the argument to __sk_dst_get() const, because lock_is_=
-held()
-> does not take a const pointer argument.
->=20
-> include/net/sock.h: In function =E2=80=98__sk_dst_get=E2=80=99:
-> include/net/sock.h:1315:2: warning: passing argument 1 of =E2=80=98lo=
-ck_is_held=E2=80=99 discards =E2=80=98const=E2=80=99 qualifier from poi=
-nter target type [enabled by default]
-> include/linux/lockdep.h:324:12: note: expected =E2=80=98struct lockde=
-p_map *=E2=80=99 but argument is of type =E2=80=98const struct lockdep_=
-map *=E2=80=99
->=20
-> I'm reverting.
+Looks like xfrm4_fill_dst() reset rt->rt_route_iif to 0, it makes the
+comparison (rth->rt_route_iif ^ iif) in
+ip_route_input_common() return false.
 
-Thats strange, I built with LOCKDEP enabled here...
+Please try patch below. It improves the performance of 3.1-rc10
+kernel. (I'm not sure the patch is harmless)
 
-# grep LOCKDEP .config
-CONFIG_LOCKDEP_SUPPORT=3Dy
-CONFIG_LOCKDEP=3Dy
-# CONFIG_DEBUG_LOCKDEP is not set
-
-
-I'll take a look,
-Thanks
+---
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index fc5368a..88a0972 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -82,7 +82,6 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst,
+struct net_device *dev,
+ 	rt->rt_key_dst =3D fl4->daddr;
+ 	rt->rt_key_src =3D fl4->saddr;
+ 	rt->rt_key_tos =3D fl4->flowi4_tos;
+-	rt->rt_route_iif =3D fl4->flowi4_iif;
+ 	rt->rt_iif =3D fl4->flowi4_iif;
+ 	rt->rt_oif =3D fl4->flowi4_oif;
+ 	rt->rt_mark =3D fl4->flowi4_mark;
