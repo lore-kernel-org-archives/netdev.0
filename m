@@ -1,60 +1,70 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 1/2] ipvs: Remove unused variable "cs" from ip_vs_leave function.
-Date: Fri, 21 Oct 2011 10:33:02 +0900
-Message-ID: <1319160783-28422-2-git-send-email-horms@verge.net.au>
-References: <1319160783-28422-1-git-send-email-horms@verge.net.au>
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: RE: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
+ Ethernet driver
+Date: Fri, 21 Oct 2011 02:21:44 +0000
+Message-ID: <6349D7A510622448B1BA0967850A8438011CC7CA@nasanexd02d.na.qualcomm.com>
+References: <1319093184-19696-1-git-send-email-cloud.ren@Atheros.com>
+ <20111020.044541.970282389722164761.davem@davemloft.net>
+ <6349D7A510622448B1BA0967850A8438011CC21D@nasanexd02d.na.qualcomm.com>
+ <20111020.052506.373437241768777548.davem@davemloft.net>
+ <6349D7A510622448B1BA0967850A8438011CC2A0@nasanexd02d.na.qualcomm.com>
+ <CAB=NE6W6Gc+dN3SzX00VwO9iheemNzhRQ34KuvMtZsBqVJQhJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1319160783-28422-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Luis R. Rodriguez" <mcgrof@frijolero.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAB=NE6W6Gc+dN3SzX00VwO9iheemNzhRQ34KuvMtZsBqVJQhJQ@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
-
-This is to address the following warning during compilation time:
-
-  net/netfilter/ipvs/ip_vs_core.c: In function =E2=80=98ip_vs_leave=E2=80=
-=99:
-  net/netfilter/ipvs/ip_vs_core.c:532: warning: unused variable =E2=80=98=
-cs=E2=80=99
-
-This variable is indeed no longer in use.
-
-Signed-off-by: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_core.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs=
-_core.c
-index 46a8130..093cc32 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -529,7 +529,7 @@ int ip_vs_leave(struct ip_vs_service *svc, struct s=
-k_buff *skb,
- 	   a cache_bypass connection entry */
- 	ipvs =3D net_ipvs(net);
- 	if (ipvs->sysctl_cache_bypass && svc->fwmark && unicast) {
--		int ret, cs;
-+		int ret;
- 		struct ip_vs_conn *cp;
- 		unsigned int flags =3D (svc->flags & IP_VS_SVC_F_ONEPACKET &&
- 				      iph.protocol =3D=3D IPPROTO_UDP)?
---=20
-1.7.6.3
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pk9uIFRodSwgT2N0IDIwLCAyMDExIGF0IDI6NDggQU0sIFJlbiwgQ2xvdWQgPGNqcmVuQHFjYS5x
+dWFsY29tbS5jb20+DQo+d3JvdGU6DQo+Pg0KPj4+RnJvbTogIlJlbiwgQ2xvdWQiIDxjanJlbkBx
+Y2EucXVhbGNvbW0uY29tPg0KPj4+RGF0ZTogVGh1LCAyMCBPY3QgMjAxMSAwOToyMzowNyArMDAw
+MA0KPj4+DQo+Pj4+IEFzIHlvdSBzYXcsIHNob3VsZCBJIGRvIHRoZSB0d28gZm9sbG93aW5nIHN0
+ZXBzPw0KPj4+PiAxLiBJIGZpcnN0bHkgdHJ5IHRvIHN1Ym1pdCBjb2RlIHRvIGxpbnV4LXN0YWdp
+bmcuZ2l0Lg0KPj4+PiAyLiBBZnRlciB0aGUgZHJpdmVyIGhhdmUgYmVlbiBhY2NlcHRlZCBieSDC
+oGxpbnV4LXN0YWdpbmcuZ2l0LCBJDQo+Pj4+IHN1Ym1pdCB0byBuZXQtDQo+Pj5uZXh0LmdpdCBh
+Z2Fpbi4NCj4+Pg0KPj4+WW91IHN1Ym1pdCBhbmQgZ2V0IGl0IGludG8gc3RhZ2luZyBzbyB0aGF0
+IGl0IGNhbiBzaXQgdGhlcmUgZm9yIHNvbWUNCj4+PnRpbWUgYW5kIGdldCByZXZpZXdlZCBhbmQg
+aW1wcm92ZWQgYnkgb3RoZXJzLg0KPj4+DQo+Pj5PbmUgZG9lc24ndCBzdWJtaXQgZGlyZWN0bHkg
+dG8gbmV0LW5leHQgcmlnaHQgYWZ0ZXIgaXQgZ2V0cyBpbnRvDQo+Pj5zdGFnaW5nLCBzdGFnaW5n
+IGlzIGEgcGxhY2Ugd2hlcmUgeW91ciBkcml2ZXIgbGl2ZXMgd2hpbGUgaXQgc3RpbGwNCj4+PnNt
+ZWxseSBmdW5reSBhbmQgbmVlZHMgbW9yZSB3b3JrLg0KPj4NCj4+IFRoZSBkcml2ZXIgd2lsbCBz
+dXBwb3J0IHRoZSBuZXh0IGdlbmVyYXRpb24gTklDcyBvZiBBdGhlcm9zLg0KPj4gTWVhbndoaWxl
+LCB0aGUgZHJpdmVyIGNhbiBhbHNvIGhhdmUgYmV0dGVyIG9wdGltaXphdGlvbiBmb3IgQVI4MTMx
+IGFuZA0KPj4gQVI4MTUxIHRoYW4gYXRsMWMuIEZvciBzb21lIHJlYXNvbiwgd2UgZG9uJ3QgcGxh
+biB0byBwYXRjaCBhdGwxYw0KPj4gZHJpdmVyIHRvIHN1cHBvcnQgb3VyIG5ldyBOSUMsIHN1Y2gg
+YXMgQVI4MTYxLiBTbyBJIGhvcGUgdGhlIGRyaXZlcg0KPj4gY2FuIHN0YXkgaW4gbmV0LW5leHQg
+aW4gdGhlIGVuZC4gT2YgY291cnNlLCBJIHdpbGwgYmUgcmVzcG9uc2libGUgZm9yIG1vZGlmeQ0K
+PnNvdXJjZSBjb2RlIGFuZCBsZXQgaXQgbWF0Y2gga2VybmVsIHJlcXVpcmVtZW50cy4NCj4NCj5D
+bG91ZCwNCj4NCj5JZiB5b3Ugd2FudCB0byBza2lwIHN0YWdpbmcgKHdoaWNoIEkgcmVjb21tZW5k
+KSB0aGVuIHlvdSBuZWVkIHRvIGFkZHJlc3MgYWxsDQo+dXBzdHJlYW0gY29uY2VybnMgZXhwcmVz
+c2VkLiBHaXZlbiB0aGF0IHlvdSBpbmRpY2F0ZSB0aGF0IHlvdSB3aWxsIGJlDQo+d29ya2luZyBv
+biBmb2xsb3dpbmcgdXAgd2l0aCB0aGUgZHJpdmVyIHVudGlsIGl0cyBhY2NlcHRhYmxlIHVwc3Ry
+ZWFtIG15DQo+cmVjb21tZW5kYXRpb24gaXMgZWl0aGVyIHRvIGNsZWFuIHVwIHRoZSBkcml2ZXIg
+dmVyeSB3ZWxsIGFuZCByZXZpZXcgaXQNCj5pbnRlcm5hbGx5IGF0IEF0aGVyb3MgcHJpb3IgdG8g
+YSBwdWJsaWMgc3VibWlzc2lvbiAqb3IqIGp1c3QgZHVtcCBpbnRvIHN0YWdpbmcNCj5hbmQgZ2V0
+IHRoZSBiZW5lZml0IG9mIGNvbW11bml0eSBjbGVhbnVwIGFuZCBldmVudHVhbGx5IHdhaXQgdW50
+aWwgaXQgaXMgcmVhZHkNCj5mb3IgcHJvcGVyIHVwc3RyZWFtLiBJZiB5b3Ugd2FudCBpbnRlcm5h
+bCBwcml2YXRlIHJldmlldyBhdCBBdGhlcm9zIHlvdSBjYW4NCj51c2UgdGhlIGludGVybmFsIHBy
+aXZhdGUgYXRoOWstZGV2ZWwgbGlzdC4NCj4NCj5BbHNvIGFyZSB5b3UgZ29pbmcgdG8gbWFpbnRh
+aW4gdGhlIG9sZGVyIGF0bHggZHJpdmVycz8gV2hpbGUgYXQgaXQgY2FuIHlvdSBjbGVhcg0KPnVw
+IHdobyBtYWludGFpbnMgd2hhdCBhcyBmYXIgYXMgQXRoZXJvcyBpcyBjb25jZXJuZWQgZm9yIEV0
+aGVybmV0Pw0KPg0KPiAgTHVpcw0KDQpEZWFyIEx1aXMNCg0KVGhhbmtzIGZvciB5b3VyIHN1Z2dl
+c3Rpb25zLiBJIHdvdWxkIHJhdGhlciBkbyBhbiBpbnRlcm5hbCByZXZpZXcgdGhhbiBvbmx5IHN1
+Ym1pdCB0byBzdGFnaW5nLg0KQWx4IGRyaXZlciBpcyBvbmUgb2YgdGhlIG1vc3QgaW1wb3J0YW50
+IGRyaXZlcnMgZm9yIEF0aGVyb3MgRXRoZXJuZXQuIEl0J3MgZWFzaWVyIHRvIG1haW50YWluLiAN
+CkJlY2F1c2UgaXQgc2hhcmVzIG1hbnkgY29kZXMgd2l0aCBvdGhlciBkcml2ZXJzIG9uIGRpZmZl
+cmVudCBPU3MsIGl0IGNhbiBiZSBjb252ZW5pZW50IHRvIHBhdGNoDQpzb21lIGlzc3VlcyB3aGlj
+aCBhcmUgZm91bmQgb24gZGlmZmVyZW50IE9Tcy4NCg0KSSdtIGdvaW5nIHRvIG1haW50YWluIGFs
+eCBsaW51eCBkcml2ZXIuIGFseCBsaW51eCBkcml2ZXIgY2FuIHN1cHBvcnQgYWxsIE5JQ3Mgd2hp
+Y2ggYXRsMWMgbGludXggZHJpdmVyIHN1cHBvcnRzLg0KU28gd2UgZG9uJ3QgcGxhbiB0byBtYWlu
+dGFpbiBhdGwxYyBkcml2ZXIuIGF0bDFlIGFuZCBhdGx4IGRyaXZlciBhcmUgYWxzbyBtYWludGFp
+bmVkIGJ5IG1lLiBCdXQgbWF5YmUgSSBjYW4NCm5vdCByZXNwb25zZSByZXF1ZXN0cyBmb3IgdGhv
+c2UgZHJpdmVycyBvbiB0aW1lLCBiZWNhdXNlIHNvbWV0aW1lcyBJIGFtIGJ1c3kgYXQgYWx4IGRy
+aXZlci4NCg0KY2xvdWQNCg0KDQo=
