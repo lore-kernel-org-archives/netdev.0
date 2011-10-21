@@ -1,75 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: md5: dont write skb head in
- tcp_md5_hash_header()
-Date: Fri, 21 Oct 2011 14:01:35 +0200
-Message-ID: <1319198495.2338.34.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Questions about CHECKSUM_COMPLETE
+Date: Fri, 21 Oct 2011 13:09:34 +0100
+Message-ID: <1319198974.2918.35.camel@deadeye>
+References: <CAF5V5FbthBZ3QFzCUVov8MZ9TgF=+B6XM3eR+cyizbzcT-6v-A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: fengcheng lu <sparking.lu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:63509 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754456Ab1JUMBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 08:01:38 -0400
-Received: by wwn22 with SMTP id 22so775717wwn.1
-        for <netdev@vger.kernel.org>; Fri, 21 Oct 2011 05:01:37 -0700 (PDT)
+Received: from mail.solarflare.com ([216.237.3.220]:21111 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754587Ab1JUMJq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 08:09:46 -0400
+In-Reply-To: <CAF5V5FbthBZ3QFzCUVov8MZ9TgF=+B6XM3eR+cyizbzcT-6v-A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp_md5_hash_header() writes into skb header a temporary zero value,
-this might confuse other users of this area.
+On Thu, 2011-10-20 at 23:05 -0400, fengcheng lu wrote:
+> Hello everyone
+> 
+> I have one question about the CHECKSUM_COMPLETE. When
+> CHECK_SUM_COMPLETE is set, which data does the skb->csum computed by
+> hardware cover?
+> 
+> I thought skb->csum only covers the Transport header (e.g. TCP/UDP) +
+> Transport payload + pseudo header. However, after I read the vlan
+> codes (vlan_skb_recv in the vlan_dev.c of linux kernel 2.6.27.19), I
+> become confuse.
+> 
+> The vlan_skb_recv calls skb_pull_rcsum which updates the skb->csum if
+> CHECKSUM_COMPLETE is set. It implies the vlan  header is also covered
+> by the skb->csum. so I wonder if the skb->csum cover the whole data
+> besides the eth header (14 bytes).
 
-Since tcphdr is small (20 bytes), copy it in a temporary variable and
-make the change in the copy.
+That's right, it's supposed to cover the complete packet (as seen by
+Linux, so not including an Ethernet CRC).  The hardware doesn't need to
+parse L3/L4 headers to implement this.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/tcp.h |    2 +-
- net/ipv4/tcp.c    |   14 ++++++++------
- 2 files changed, 9 insertions(+), 7 deletions(-)
+If the hardware you're dealing with doesn't calculate the full checksum
+but it does parse headers and verify checksums for specific protocols
+then you can set ip_summed = CHECKSUM_UNNECESSARY if the checksums are
+OK.
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 3edef0b..910cc29 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1209,7 +1209,7 @@ extern void tcp_free_md5sig_pool(void);
- extern struct tcp_md5sig_pool	*tcp_get_md5sig_pool(void);
- extern void tcp_put_md5sig_pool(void);
- 
--extern int tcp_md5_hash_header(struct tcp_md5sig_pool *, struct tcphdr *);
-+extern int tcp_md5_hash_header(struct tcp_md5sig_pool *, const struct tcphdr *);
- extern int tcp_md5_hash_skb_data(struct tcp_md5sig_pool *, const struct sk_buff *,
- 				 unsigned header_len);
- extern int tcp_md5_hash_key(struct tcp_md5sig_pool *hp,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 704adad..eefc61e 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2994,17 +2994,19 @@ void tcp_put_md5sig_pool(void)
- EXPORT_SYMBOL(tcp_put_md5sig_pool);
- 
- int tcp_md5_hash_header(struct tcp_md5sig_pool *hp,
--			struct tcphdr *th)
-+			const struct tcphdr *th)
- {
- 	struct scatterlist sg;
-+	struct tcphdr hdr;
- 	int err;
- 
--	__sum16 old_checksum = th->check;
--	th->check = 0;
-+	/* We are not allowed to change tcphdr, make a local copy */
-+	memcpy(&hdr, th, sizeof(hdr));
-+	hdr.check = 0;
-+
- 	/* options aren't included in the hash */
--	sg_init_one(&sg, th, sizeof(struct tcphdr));
--	err = crypto_hash_update(&hp->md5_desc, &sg, sizeof(struct tcphdr));
--	th->check = old_checksum;
-+	sg_init_one(&sg, &hdr, sizeof(hdr));
-+	err = crypto_hash_update(&hp->md5_desc, &sg, sizeof(hdr));
- 	return err;
- }
- EXPORT_SYMBOL(tcp_md5_hash_header);
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
