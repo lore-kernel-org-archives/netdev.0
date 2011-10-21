@@ -1,70 +1,96 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] net: ipv6: Allow netlink to set IPv6 address scope
-Date: Thu, 20 Oct 2011 21:25:19 -0700
-Message-ID: <CAHo-OozPF1o0qD2PHHwskce=H4DpwR3FSTksLB31mF4K0Bdh4w@mail.gmail.com>
-References: <20111005201559.E544016A599@drone1.mtv.corp.google.com>
-	<4E931A46.1040905@hp.com>
-	<CAKD1Yr29dAC+_=bT5-_W3XuTzoxMiEzOhpHvwrAzyA8NdcCjSQ@mail.gmail.com>
-	<4E98981D.6080908@hp.com>
-	<CAKD1Yr0EQ0P8e1V7pw48F2LMPCFKuZHm0DGoq8VM+LeKO_aZhQ@mail.gmail.com>
-	<4E9B7A9F.7000302@hp.com>
-	<CAKD1Yr0mnSM5EyVhJDPyq3Obe2WNiEjgQ=0uQ-r39Fg9WTsVmw@mail.gmail.com>
-	<4E9C9ED6.9080601@hp.com>
+From: Kyle Moffett <kyle@moffetthome.net>
+Subject: Re: [RFC PATCH 05/17] phy_driver: Make .read_status()/.config_aneg() optional
+Date: Fri, 21 Oct 2011 01:13:30 -0400
+Message-ID: <CAGZ=bqJNRCiiT6KvQBkZ5fs6b=RQG92xtmf1cGe1s9mdcbcDFA@mail.gmail.com>
+References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
+ <1319144425-15547-6-git-send-email-Kyle.D.Moffett@boeing.com>
+ <201110201710.17519.vapier@gentoo.org> <201110201714.36533.vapier@gentoo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Lorenzo Colitti <lorenzo@google.com>, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:38354 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432Ab1JUEZU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 00:25:20 -0400
-Received: by gyb13 with SMTP id 13so3498154gyb.19
-        for <netdev@vger.kernel.org>; Thu, 20 Oct 2011 21:25:20 -0700 (PDT)
-In-Reply-To: <4E9C9ED6.9080601@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kyle Moffett <Kyle.D.Moffett@boeing.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Dietsche <Gregory.Dietsche@cuw.edu>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	David Daney <ddaney@caviumnetworks.com>,
+	Arnaud Patard <arnaud.patard@rtp-net.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Baruch Siach <baruch@tkos.co.il>,
+	Thorsten Schubert <tshu@msc-ge.com>,
+	David Decotigny <decot@google.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-doc@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <201110201714.36533.vapier@gentoo.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> RFC 3879 deprecated site-local addresses because the were non-unique and thus
->> ambiguous, and if they leak, they cause problems. This is not an issue
->> in the use
->> case I presented, because the addresses are syntactically global
->> addresses - they
->> just don't have global reachability.
+Oops, I just realized that I may have misused
+scripts/get_maintainer.pl... it seems to have added about 20 CCs to
+this email, sorry!
+
+On Thu, Oct 20, 2011 at 17:14, Mike Frysinger <vapier@gentoo.org> wrote=
+:
+> On Thursday 20 October 2011 17:10:12 Mike Frysinger wrote:
+>> On Thursday 20 October 2011 17:00:12 Kyle Moffett wrote:
+>> > Approximately 90% of the PHY drivers follow the PHY layer docs and
+>> > simply use &genphy_read_status and &genphy_config_aneg. =C2=A0Ther=
+e would
+>> > seem to be little point in requiring them all to manually specify =
+those
+>> > functions.
+>>
+>> well, it does make sense if you think about the compile vs build tim=
+e
+>> overhead. =C2=A0yes, your patch does make things much nicer to read,=
+ and a
+>> little easier to maintain the source. =C2=A0however, it adds runtime=
+ overhead
+>> (checking the func pointers) while the func pointer storage is uncha=
+nged
+>> (it's now a NULL pointer instead of pointing to the genphy funcs).
+>> personally, i think the savings in runtime and smaller compiled code=
+ is
+>> more important. =C2=A0so i'm going to NAK this. =C2=A0sorry.
 >
-> Not very global then :(
-
-They're globally unique.
-Global does not imply being able to reach the internet, or being able
-to be reached from the internet.
-
-Whatever the RFC's say, that's just a sad fact of life.
-
->> I don't think it's a good idea. Waiting for an IETF working group to
->> produce a standard
->> when it doesn't even have a problem statement finalized could take years.
+> ah, sorry, i was thinking this was u-boot since we were just having
+> conversations there.
 >
-> It would be useful to give some input there, even if the Linux-specific
-> implementation of any standard plays with bits in the ifaddr.
+> since this is Linux, and i don't have real standing in the general ne=
+tdev
+> community, i can't really NAK here. =C2=A0but i think my comment stil=
+l stands in
+> that this patch makes things much worse than the minor code style imp=
+rovement.
 
-I'm afraid this is a real problem _right_ now, a solution is required
-and we can't really afford to wait a year while working groups work
-out a bugfix.
+I would argue that the PHY layer itself is not remotely a hot-path,
+especially not to the level of caring about an extra if statement.  A
+single phy_read() is a sleeping call which goes over a slow serial
+bus, so code maintainability is much more important.
 
-> In my opinion it just feels like a hack, because things won't work when your
-> wifi attaches to a walled garden, or there's a third interface - who wins the
-> tiebreaker?
+At the higher level, the reason for this change is that currently
+genphy_config_aneg() is currently responsible both for configuring
+auto-negotiation *AND* counterintuitively for configuring forced-mode
+links.  A lot of PHY drivers need to override just one or the other,
+which results in either a lot of copy-pasted code in individual PHY
+drivers or in a duplicate test for autoneg-vs-fixed-mode before
+calling the primary genphy_config_aneg() function.
 
-I would tend to agree that this is a little hacky... but, ultimately,
-I always claim that policy should belong in userspace - not in the
-kernel.
-If userspace administrator wants to shoot himself, he can do that in
-plenty of ways already.
+In order to split that up and refactor it, I would like to minimize
+the number of callers and references to config_aneg() to minimize the
+number of places that have to be changed to match.  Since all the rest
+of the PHY functions are already conditionals, making these two also
+conditional didn't seem to be a big deal.
 
-> I do see your point that it will help with the problem you're trying to solve,
-> hopefully someone else will offer their opinion.
+Cheers,
+Kyle Moffett
 
-I'm a little biased here, but I'd prefer my cellphone to just work ;-)
-
-- Maciej
+--=20
+Curious about my work on the Debian powerpcspe port?
+I'm keeping a blog here: http://pureperl.blogspot.com/
