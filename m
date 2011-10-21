@@ -1,70 +1,105 @@
-From: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Subject: RE: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161
- Ethernet driver
-Date: Fri, 21 Oct 2011 02:21:44 +0000
-Message-ID: <6349D7A510622448B1BA0967850A8438011CC7CA@nasanexd02d.na.qualcomm.com>
+From: "Luis R. Rodriguez" <mcgrof@frijolero.org>
+Subject: Re: [patch net-next]alx: Atheros AR8131/AR8151/AR8152/AR8161 Ethernet driver
+Date: Thu, 20 Oct 2011 19:36:37 -0700
+Message-ID: <CAB=NE6W4v-SqxQ5uDvREACKH7cWHzpvZu4tNT1zy8iFKsiK96g@mail.gmail.com>
 References: <1319093184-19696-1-git-send-email-cloud.ren@Atheros.com>
- <20111020.044541.970282389722164761.davem@davemloft.net>
- <6349D7A510622448B1BA0967850A8438011CC21D@nasanexd02d.na.qualcomm.com>
- <20111020.052506.373437241768777548.davem@davemloft.net>
- <6349D7A510622448B1BA0967850A8438011CC2A0@nasanexd02d.na.qualcomm.com>
- <CAB=NE6W6Gc+dN3SzX00VwO9iheemNzhRQ34KuvMtZsBqVJQhJQ@mail.gmail.com>
+ <20111020.044541.970282389722164761.davem@davemloft.net> <6349D7A510622448B1BA0967850A8438011CC21D@nasanexd02d.na.qualcomm.com>
+ <20111020.052506.373437241768777548.davem@davemloft.net> <6349D7A510622448B1BA0967850A8438011CC2A0@nasanexd02d.na.qualcomm.com>
+ <CAB=NE6W6Gc+dN3SzX00VwO9iheemNzhRQ34KuvMtZsBqVJQhJQ@mail.gmail.com> <6349D7A510622448B1BA0967850A8438011CC7CA@nasanexd02d.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Luis R. Rodriguez" <mcgrof@frijolero.org>
+To: "Ren, Cloud" <cjren@qca.qualcomm.com>,
+	Xiong Huang <xiong@qca.qualcomm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6W6Gc+dN3SzX00VwO9iheemNzhRQ34KuvMtZsBqVJQhJQ@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <6349D7A510622448B1BA0967850A8438011CC7CA@nasanexd02d.na.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pk9uIFRodSwgT2N0IDIwLCAyMDExIGF0IDI6NDggQU0sIFJlbiwgQ2xvdWQgPGNqcmVuQHFjYS5x
-dWFsY29tbS5jb20+DQo+d3JvdGU6DQo+Pg0KPj4+RnJvbTogIlJlbiwgQ2xvdWQiIDxjanJlbkBx
-Y2EucXVhbGNvbW0uY29tPg0KPj4+RGF0ZTogVGh1LCAyMCBPY3QgMjAxMSAwOToyMzowNyArMDAw
-MA0KPj4+DQo+Pj4+IEFzIHlvdSBzYXcsIHNob3VsZCBJIGRvIHRoZSB0d28gZm9sbG93aW5nIHN0
-ZXBzPw0KPj4+PiAxLiBJIGZpcnN0bHkgdHJ5IHRvIHN1Ym1pdCBjb2RlIHRvIGxpbnV4LXN0YWdp
-bmcuZ2l0Lg0KPj4+PiAyLiBBZnRlciB0aGUgZHJpdmVyIGhhdmUgYmVlbiBhY2NlcHRlZCBieSDC
-oGxpbnV4LXN0YWdpbmcuZ2l0LCBJDQo+Pj4+IHN1Ym1pdCB0byBuZXQtDQo+Pj5uZXh0LmdpdCBh
-Z2Fpbi4NCj4+Pg0KPj4+WW91IHN1Ym1pdCBhbmQgZ2V0IGl0IGludG8gc3RhZ2luZyBzbyB0aGF0
-IGl0IGNhbiBzaXQgdGhlcmUgZm9yIHNvbWUNCj4+PnRpbWUgYW5kIGdldCByZXZpZXdlZCBhbmQg
-aW1wcm92ZWQgYnkgb3RoZXJzLg0KPj4+DQo+Pj5PbmUgZG9lc24ndCBzdWJtaXQgZGlyZWN0bHkg
-dG8gbmV0LW5leHQgcmlnaHQgYWZ0ZXIgaXQgZ2V0cyBpbnRvDQo+Pj5zdGFnaW5nLCBzdGFnaW5n
-IGlzIGEgcGxhY2Ugd2hlcmUgeW91ciBkcml2ZXIgbGl2ZXMgd2hpbGUgaXQgc3RpbGwNCj4+PnNt
-ZWxseSBmdW5reSBhbmQgbmVlZHMgbW9yZSB3b3JrLg0KPj4NCj4+IFRoZSBkcml2ZXIgd2lsbCBz
-dXBwb3J0IHRoZSBuZXh0IGdlbmVyYXRpb24gTklDcyBvZiBBdGhlcm9zLg0KPj4gTWVhbndoaWxl
-LCB0aGUgZHJpdmVyIGNhbiBhbHNvIGhhdmUgYmV0dGVyIG9wdGltaXphdGlvbiBmb3IgQVI4MTMx
-IGFuZA0KPj4gQVI4MTUxIHRoYW4gYXRsMWMuIEZvciBzb21lIHJlYXNvbiwgd2UgZG9uJ3QgcGxh
-biB0byBwYXRjaCBhdGwxYw0KPj4gZHJpdmVyIHRvIHN1cHBvcnQgb3VyIG5ldyBOSUMsIHN1Y2gg
-YXMgQVI4MTYxLiBTbyBJIGhvcGUgdGhlIGRyaXZlcg0KPj4gY2FuIHN0YXkgaW4gbmV0LW5leHQg
-aW4gdGhlIGVuZC4gT2YgY291cnNlLCBJIHdpbGwgYmUgcmVzcG9uc2libGUgZm9yIG1vZGlmeQ0K
-PnNvdXJjZSBjb2RlIGFuZCBsZXQgaXQgbWF0Y2gga2VybmVsIHJlcXVpcmVtZW50cy4NCj4NCj5D
-bG91ZCwNCj4NCj5JZiB5b3Ugd2FudCB0byBza2lwIHN0YWdpbmcgKHdoaWNoIEkgcmVjb21tZW5k
-KSB0aGVuIHlvdSBuZWVkIHRvIGFkZHJlc3MgYWxsDQo+dXBzdHJlYW0gY29uY2VybnMgZXhwcmVz
-c2VkLiBHaXZlbiB0aGF0IHlvdSBpbmRpY2F0ZSB0aGF0IHlvdSB3aWxsIGJlDQo+d29ya2luZyBv
-biBmb2xsb3dpbmcgdXAgd2l0aCB0aGUgZHJpdmVyIHVudGlsIGl0cyBhY2NlcHRhYmxlIHVwc3Ry
-ZWFtIG15DQo+cmVjb21tZW5kYXRpb24gaXMgZWl0aGVyIHRvIGNsZWFuIHVwIHRoZSBkcml2ZXIg
-dmVyeSB3ZWxsIGFuZCByZXZpZXcgaXQNCj5pbnRlcm5hbGx5IGF0IEF0aGVyb3MgcHJpb3IgdG8g
-YSBwdWJsaWMgc3VibWlzc2lvbiAqb3IqIGp1c3QgZHVtcCBpbnRvIHN0YWdpbmcNCj5hbmQgZ2V0
-IHRoZSBiZW5lZml0IG9mIGNvbW11bml0eSBjbGVhbnVwIGFuZCBldmVudHVhbGx5IHdhaXQgdW50
-aWwgaXQgaXMgcmVhZHkNCj5mb3IgcHJvcGVyIHVwc3RyZWFtLiBJZiB5b3Ugd2FudCBpbnRlcm5h
-bCBwcml2YXRlIHJldmlldyBhdCBBdGhlcm9zIHlvdSBjYW4NCj51c2UgdGhlIGludGVybmFsIHBy
-aXZhdGUgYXRoOWstZGV2ZWwgbGlzdC4NCj4NCj5BbHNvIGFyZSB5b3UgZ29pbmcgdG8gbWFpbnRh
-aW4gdGhlIG9sZGVyIGF0bHggZHJpdmVycz8gV2hpbGUgYXQgaXQgY2FuIHlvdSBjbGVhcg0KPnVw
-IHdobyBtYWludGFpbnMgd2hhdCBhcyBmYXIgYXMgQXRoZXJvcyBpcyBjb25jZXJuZWQgZm9yIEV0
-aGVybmV0Pw0KPg0KPiAgTHVpcw0KDQpEZWFyIEx1aXMNCg0KVGhhbmtzIGZvciB5b3VyIHN1Z2dl
-c3Rpb25zLiBJIHdvdWxkIHJhdGhlciBkbyBhbiBpbnRlcm5hbCByZXZpZXcgdGhhbiBvbmx5IHN1
-Ym1pdCB0byBzdGFnaW5nLg0KQWx4IGRyaXZlciBpcyBvbmUgb2YgdGhlIG1vc3QgaW1wb3J0YW50
-IGRyaXZlcnMgZm9yIEF0aGVyb3MgRXRoZXJuZXQuIEl0J3MgZWFzaWVyIHRvIG1haW50YWluLiAN
-CkJlY2F1c2UgaXQgc2hhcmVzIG1hbnkgY29kZXMgd2l0aCBvdGhlciBkcml2ZXJzIG9uIGRpZmZl
-cmVudCBPU3MsIGl0IGNhbiBiZSBjb252ZW5pZW50IHRvIHBhdGNoDQpzb21lIGlzc3VlcyB3aGlj
-aCBhcmUgZm91bmQgb24gZGlmZmVyZW50IE9Tcy4NCg0KSSdtIGdvaW5nIHRvIG1haW50YWluIGFs
-eCBsaW51eCBkcml2ZXIuIGFseCBsaW51eCBkcml2ZXIgY2FuIHN1cHBvcnQgYWxsIE5JQ3Mgd2hp
-Y2ggYXRsMWMgbGludXggZHJpdmVyIHN1cHBvcnRzLg0KU28gd2UgZG9uJ3QgcGxhbiB0byBtYWlu
-dGFpbiBhdGwxYyBkcml2ZXIuIGF0bDFlIGFuZCBhdGx4IGRyaXZlciBhcmUgYWxzbyBtYWludGFp
-bmVkIGJ5IG1lLiBCdXQgbWF5YmUgSSBjYW4NCm5vdCByZXNwb25zZSByZXF1ZXN0cyBmb3IgdGhv
-c2UgZHJpdmVycyBvbiB0aW1lLCBiZWNhdXNlIHNvbWV0aW1lcyBJIGFtIGJ1c3kgYXQgYWx4IGRy
-aXZlci4NCg0KY2xvdWQNCg0KDQo=
+On Thu, Oct 20, 2011 at 7:21 PM, Ren, Cloud <cjren@qca.qualcomm.com> wr=
+ote:
+>>On Thu, Oct 20, 2011 at 2:48 AM, Ren, Cloud <cjren@qca.qualcomm.com>
+>>wrote:
+>>>
+>>>>From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+>>>>Date: Thu, 20 Oct 2011 09:23:07 +0000
+>>>>
+>>>>> As you saw, should I do the two following steps?
+>>>>> 1. I firstly try to submit code to linux-staging.git.
+>>>>> 2. After the driver have been accepted by =C2=A0linux-staging.git=
+, I
+>>>>> submit to net-
+>>>>next.git again.
+>>>>
+>>>>You submit and get it into staging so that it can sit there for som=
+e
+>>>>time and get reviewed and improved by others.
+>>>>
+>>>>One doesn't submit directly to net-next right after it gets into
+>>>>staging, staging is a place where your driver lives while it still
+>>>>smelly funky and needs more work.
+>>>
+>>> The driver will support the next generation NICs of Atheros.
+>>> Meanwhile, the driver can also have better optimization for AR8131 =
+and
+>>> AR8151 than atl1c. For some reason, we don't plan to patch atl1c
+>>> driver to support our new NIC, such as AR8161. So I hope the driver
+>>> can stay in net-next in the end. Of course, I will be responsible f=
+or modify
+>>source code and let it match kernel requirements.
+>>
+>>Cloud,
+>>
+>>If you want to skip staging (which I recommend) then you need to addr=
+ess all
+>>upstream concerns expressed. Given that you indicate that you will be
+>>working on following up with the driver until its acceptable upstream=
+ my
+>>recommendation is either to clean up the driver very well and review =
+it
+>>internally at Atheros prior to a public submission *or* just dump int=
+o staging
+>>and get the benefit of community cleanup and eventually wait until it=
+ is ready
+>>for proper upstream. If you want internal private review at Atheros y=
+ou can
+>>use the internal private ath9k-devel list.
+>>
+>>Also are you going to maintain the older atlx drivers? While at it ca=
+n you clear
+>>up who maintains what as far as Atheros is concerned for Ethernet?
+>>
+>> =C2=A0Luis
+>
+> Dear Luis
+>
+> Thanks for your suggestions. I would rather do an internal review tha=
+n only submit to staging.
+> Alx driver is one of the most important drivers for Atheros Ethernet.=
+ It's easier to maintain.
+> Because it shares many codes with other drivers on different OSs, it =
+can be convenient to patch
+> some issues which are found on different OSs.
+>
+> I'm going to maintain alx linux driver. alx linux driver can support =
+all NICs which atl1c linux driver supports.
+> So we don't plan to maintain atl1c driver. atl1e and atlx driver are =
+also maintained by me. But maybe I can
+> not response requests for those drivers on time, because sometimes I =
+am busy at alx driver.
+
+Are there issues with the atl1x driver that are fixed in the alx
+driver? How many ? Do we expect to find many more ? If there isn't
+much churn then why not let atl1x rot to death while atx can move
+without atl1x support at all upstream?
+
+A driver replacement for atl1x seems fair only if you can ensure there
+will be no regressions Vs the atx driver code. I'd much prefer an atx
+driver that *is* actively maintained by Atheros than only Gigabit
+support for atx, and an orphaned atl1x driver but if we don't expect
+much changes to go for atl1x what is the point?
+
+  Luis
