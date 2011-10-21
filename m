@@ -1,65 +1,42 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: Kernel panic from tg3 net driver
-Date: Fri, 21 Oct 2011 18:48:43 +0800
-Message-ID: <CAJFZqHzWUsP7szrjVwmW5+HWRND3R4qxWcnK=bqbsgL6F7XGeA@mail.gmail.com>
-References: <CAEbykaX4UPDBxOHmNr=dodaquSPjhPr-pLCcUn5hSu4-xLZy-g@mail.gmail.com>
-	<20111020.155659.486754557434415381.davem@davemloft.net>
-	<1319141125.2854.14.camel@edumazet-laptop>
-	<20111020.161147.33259825921677777.davem@davemloft.net>
-	<1319141867.2854.19.camel@edumazet-laptop>
-	<CAEbykaWhh12pM2jRSzfGig=jeKhVWSdxfwuXHFvLTt14=BYTbA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, richardcochran@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ari Savolainen <ari.m.savolainen@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEbykaWhh12pM2jRSzfGig=jeKhVWSdxfwuXHFvLTt14=BYTbA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH v2 0/3]  net: time stamping fixes
+Date: Fri, 21 Oct 2011 12:49:14 +0200
+Message-ID: <cover.1319193734.git.richard.cochran@omicron.at>
+References: <56185ca8a7dc0223031ca0f0996302cac1b497eb.1318444117.git.richard.cochran@omicron.at>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:53783 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754306Ab1JUKtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 06:49:32 -0400
+Received: by bkbzt19 with SMTP id zt19so4694404bkb.19
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2011 03:49:31 -0700 (PDT)
+In-Reply-To: <56185ca8a7dc0223031ca0f0996302cac1b497eb.1318444117.git.richard.cochran@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ari:
+[ Changes in v2: use atomic_inc_not_zero per Eric's suggestion. ]
 
-Are you sure the patch is applied correctly and the log is same?
-If the log is not same, could you paste it again.
+The first patch fixes a bug in the time stamping code introduced in
+v2.6.36 of the kernel.
 
-Thanks
+The other two patches depend on the first patch and fix two bugs in a
+PTP Hardware Clock driver. This driver was first introduced in Linux
+version 3.0.
 
-BR
+Richard Cochran (3):
+  net: hold sock reference while processing tx timestamps
+  dp83640: use proper function to free transmit time stamping packets
+  dp83640: free packet queues on remove
 
-2011/10/21 Ari Savolainen <ari.m.savolainen@gmail.com>:
-> That's right. I tried the patch and it didn't help.
->
-> Ari
->
-> 2011/10/20 Eric Dumazet <eric.dumazet@gmail.com>:
->> Le jeudi 20 octobre 2011 =E0 16:11 -0400, David Miller a =E9crit :
->>> From: Eric Dumazet <eric.dumazet@gmail.com>
->>> Date: Thu, 20 Oct 2011 22:05:25 +0200
->>>
->>> > And I think this was fixed yesterday ?
->>> >
->>> > De: =A0 =A0 =A0 =A0 roy.qing.li@gmail.com
->>> > =C0: =A0ari.m.savolainen@gmail.com, netdev@vger.kernel.org
->>> > Sujet: =A0 =A0 =A0[PATCH net-next] neigh: fix rcu splat in neigh_=
-update()
->>> > Date: =A0 =A0 =A0 Tue, 18 Oct 2011 16:32:42 +0800 (18/10/2011 10:=
-32:42)
->>> >
->>>
->>> Good catch, it seems to be this bug.
->>
->> Oh well, sorry, it seems it was one bug hit during bisection, but ma=
-ybe
->> its completely unrelated to the real problem.
->>
->>
->>
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+ drivers/net/phy/dp83640.c |   11 +++++++++--
+ include/linux/phy.h       |    2 +-
+ include/linux/skbuff.h    |    7 ++++++-
+ net/core/timestamping.c   |   12 ++++++++++--
+ 4 files changed, 26 insertions(+), 6 deletions(-)
+
+-- 
+1.7.2.5
