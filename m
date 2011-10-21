@@ -1,141 +1,161 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net -v2] [BUGFIX] bonding: use flush_delayed_work_sync in bond_close
-Date: Thu, 20 Oct 2011 23:26:36 -0700
-Message-ID: <17144.1319178396@death>
-References: <20111019081757.12455.24788.stgit@ltc219.sdl.hitachi.co.jp> <27007.1319047262@death> <20111019114129.162d895a@nehalam.linuxnetplumber.net> <29731.1319051397@death> <CAM_iQpV8089aU8gfeo8KotTNXQbx4ficMeBX69Nin_yXzqcEKg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
-To: =?us-ascii?Q?=3D=3FUTF-8=3FQ=3FAm=3DC3=3DA9rico=5FWang=3F=3D?=
-	<xiyou.wangcong@gmail.com>
+From: Mihai Maruseac <mihai.maruseac@gmail.com>
+Subject: [PATCH] dev: use name hash for dev_seq_ops
+Date: Fri, 21 Oct 2011 09:45:10 +0300
+Message-ID: <1319179510-10715-1-git-send-email-mmaruseac@ixiacom.com>
+References: <1319097717-14910-1-git-send-email-mmaruseac@ixiacom.com>
+Cc: mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dbaluta@ixiacom.com, Mihai Maruseac <mmaruseac@ixiacom.com>
+To: davem@davemloft.net, shemminger@vyatta.com, eric.dumazet@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <CAM_iQpV8089aU8gfeo8KotTNXQbx4ficMeBX69Nin_yXzqcEKg@mail.gmail.com>
+In-Reply-To: <1319097717-14910-1-git-send-email-mmaruseac@ixiacom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am=C3=A9rico Wang <xiyou.wangcong@gmail.com> wrote:
+Instead of using the dev->next chain and trying to resync at each call to
+dev_seq_start, use the name hash, keeping the bucket and the offset in
+seq->private field.
 
->On Thu, Oct 20, 2011 at 3:09 AM, Jay Vosburgh <fubar@us.ibm.com> wrote=
-:
->> Stephen Hemminger <shemminger@vyatta.com> wrote:
->>
->>>On Wed, 19 Oct 2011 11:01:02 -0700
->>>Jay Vosburgh <fubar@us.ibm.com> wrote:
->>>
->>>> Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com> wrote:
->>>>
->>>> >The bond_close() calls cancel_delayed_work() to cancel delayed wo=
-rks.
->>>> >It, however, cannot cancel works that were already queued in work=
-queue.
->>>> >The bond_open() initializes work->data, and proccess_one_work() r=
-efers
->>>> >get_work_cwq(work)->wq->flags. The get_work_cwq() returns NULL wh=
-en
->>>> >work->data has been initialized. Thus, a panic occurs.
->>>> >
->>>> >This patch uses flush_delayed_work_sync() instead of cancel_delay=
-ed_work()
->>>> >in bond_close(). It cancels delayed timer and waits for work to f=
-inish
->>>> >execution. So, it can avoid the null pointer dereference due to t=
-he
->>>> >parallel executions of proccess_one_work() and initializing procc=
-ess
->>>> >of bond_open().
->>>>
->>>> =C2=A0 =C2=A0 =C2=A0I'm setting up to test this. =C2=A0I have a di=
-m recollection that we
->>>> tried this some years ago, and there was a different deadlock that
->>>> manifested through the flush path. =C2=A0Perhaps changes since the=
-n have
->>>> removed that problem.
->>>>
->>>> =C2=A0 =C2=A0 =C2=A0-J
->>>
->>>Won't this deadlock on RTNL. =C2=A0The problem is that:
->>>
->>> =C2=A0 CPU0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0CPU1
->>> =C2=A0rtnl_lock
->>> =C2=A0 =C2=A0 =C2=A0bond_close
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 delayed_work
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 mii_work
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 read_lock(bond=
-->lock);
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 read_unlock(bo=
-nd->lock);
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 rtnl_lock... w=
-aiting for CPU0
->>> =C2=A0 =C2=A0 =C2=A0flush_delayed_work_sync
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0waiting for delayed_work to finis=
-h...
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0Yah, that was it. =C2=A0We discussed this=
- a couple of years ago in
->> regards to a similar patch:
->>
->> http://lists.openwall.net/netdev/2009/12/17/3
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0The short version is that we could rework=
- the rtnl_lock inside
->> the montiors to be conditional and retry on failure (where "retry" m=
-eans
->> "reschedule the work and try again later," not "spin retrying on rtn=
-l").
->> That should permit the use of flush or cancel to terminate the work
->> items.
->
->Yes? Even if we use rtnl_trylock(), doesn't flush_delayed_work_sync()
->still queue the pending delayed work and wait for it to be finished?
+Tests revealed the following results for ifconfig > /dev/null
+	* 1000 interfaces:
+		* 0.114s without patch
+		* 0.089s with patch
+	* 3000 interfaces:
+		* 0.489s without patch
+		* 0.110s with patch
+	* 5000 interfaces:
+		* 1.363s without patch
+		* 0.250s with patch
+	* 128000 interfaces (other setup):
+		* ~100s without patch
+		* ~30s with patch
 
-	Yes, it does.  The original patch wants to use flush instead of
-cancel to wait for the work to finish, because there's evidently a
-possibility of getting back into bond_open before the work item
-executes, and bond_open would reinitialize the work queue and corrupt
-the queued work item.
-
-	The original patch series, and recipe for destruction, is here:
-
-	http://www.spinics.net/lists/netdev/msg176382.html
-
-	I've been unable to reproduce the work queue panic locally,
-although it sounds plausible.
-
-	Mitsuo: can you provide the precise bonding configuration you're
-using to induce the problem?  Driver options, number and type of slaves=
-,
-etc.
-
->Maybe I am too blind, why do we need rtnl_lock for cancel_delayed_work=
-()
->inside bond_close()?
-
-	We don't need RTNL for cancel/flush.  However, bond_close is an
-ndo_stop operation, and is called in the dev_close path, which always
-occurs under RTNL.  The mii / arp monitor work functions separately
-acquire RTNL if they need to perform various failover related
-operations.
-
-	I'm working on a patch that should resolve the mii / arp monitor
-RTNL problem as I described above (if rtnl_trylock fails, punt and
-reschedule the work).  I need to rearrange the netdev_bonding_change
-stuff a bit as well, since it acquires RTNL separately.
-
-	Once these changes are made to mii / arp monitor, then
-bond_close can call flush instead of cancel, which should eliminate the
-original problem described at the top.
-
-	-J
-
+Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ net/core/dev.c |   84 ++++++++++++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 69 insertions(+), 15 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 70ecb86..6edbcc5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4041,6 +4041,60 @@ static int dev_ifconf(struct net *net, char __user *arg)
+ }
+ 
+ #ifdef CONFIG_PROC_FS
++
++#define BUCKET_SPACE (32 - NETDEV_HASHBITS)
++
++struct dev_iter_state {
++	struct seq_net_private p;
++	unsigned int pos; /* bucket << BUCKET_SPACE + offset */
++};
++
++#define get_bucket(x) ((x) >> BUCKET_SPACE)
++#define get_offset(x) ((x) & ((1 << BUCKET_SPACE) - 1))
++#define set_bucket_offset(b, o) ((b) << BUCKET_SPACE | (o))
++
++static inline struct net_device *dev_from_same_bucket(struct seq_file *seq)
++{
++	struct dev_iter_state *state = seq->private;
++	struct net *net = seq_file_net(seq);
++	struct net_device *dev;
++	struct hlist_node *p;
++	struct hlist_head *h;
++	unsigned int count, bucket, offset;
++
++	bucket = get_bucket(state->pos);
++	offset = get_offset(state->pos);
++	h = &net->dev_name_head[bucket];
++	count = 0;
++	hlist_for_each_entry_rcu(dev, p, h, name_hlist) {
++		if (count++ == offset) {
++			state->pos = set_bucket_offset(bucket, count);
++			return dev;
++		}
++	}
++
++	return NULL;
++}
++
++static inline struct net_device *dev_from_new_bucket(struct seq_file *seq)
++{
++	struct dev_iter_state *state = seq->private;
++	struct net_device *dev;
++	unsigned int bucket;
++
++	bucket = get_bucket(state->pos);
++	do {
++		dev = dev_from_same_bucket(seq);
++		if (dev)
++			return dev;
++
++		bucket++;
++		state->pos = set_bucket_offset(bucket, 0);
++	} while (bucket < NETDEV_HASHENTRIES);
++
++	return NULL;
++}
++
+ /*
+  *	This is invoked by the /proc filesystem handler to display a device
+  *	in detail.
+@@ -4048,33 +4102,33 @@ static int dev_ifconf(struct net *net, char __user *arg)
+ void *dev_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(RCU)
+ {
+-	struct net *net = seq_file_net(seq);
+-	loff_t off;
+-	struct net_device *dev;
++	struct dev_iter_state *state = seq->private;
+ 
+ 	rcu_read_lock();
+ 	if (!*pos)
+ 		return SEQ_START_TOKEN;
+ 
+-	off = 1;
+-	for_each_netdev_rcu(net, dev)
+-		if (off++ == *pos)
+-			return dev;
++	/* check for end of the hash */
++	if (state->pos == 0 && *pos > 1)
++		return NULL;
+ 
+-	return NULL;
++	return dev_from_new_bucket(seq);
+ }
+ 
+ void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct net_device *dev = v;
++	struct net_device *dev;
++
++	++*pos;
+ 
+ 	if (v == SEQ_START_TOKEN)
+-		dev = first_net_device_rcu(seq_file_net(seq));
+-	else
+-		dev = next_net_device_rcu(dev);
++		return dev_from_new_bucket(seq);
+ 
+-	++*pos;
+-	return dev;
++	dev = dev_from_same_bucket(seq);
++	if (dev)
++		return dev;
++
++	return dev_from_new_bucket(seq);
+ }
+ 
+ void dev_seq_stop(struct seq_file *seq, void *v)
+@@ -4173,7 +4227,7 @@ static const struct seq_operations dev_seq_ops = {
+ static int dev_seq_open(struct inode *inode, struct file *file)
+ {
+ 	return seq_open_net(inode, file, &dev_seq_ops,
+-			    sizeof(struct seq_net_private));
++			    sizeof(struct dev_iter_state));
+ }
+ 
+ static const struct file_operations dev_seq_fops = {
+-- 
+1.7.4.1
