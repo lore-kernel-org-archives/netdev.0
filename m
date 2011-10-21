@@ -1,31 +1,30 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] dev: use name hash for dev_seq_ops
-Date: Fri, 21 Oct 2011 02:55:38 -0400 (EDT)
-Message-ID: <20111021.025538.1690130663514126869.davem@redhat.com>
-References: <1319097717-14910-1-git-send-email-mmaruseac@ixiacom.com>
-	<1319179510-10715-1-git-send-email-mmaruseac@ixiacom.com>
+Subject: Re: [PATCH 0/5] macvtap fixes.
+Date: Fri, 21 Oct 2011 02:56:07 -0400 (EDT)
+Message-ID: <20111021.025607.2193225431127507358.davem@redhat.com>
+References: <m1wrbzu4ec.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, eric.dumazet@gmail.com,
-	mirq-linux@rere.qmqm.pl, therbert@google.com, jpirko@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dbaluta@ixiacom.com, mmaruseac@ixiacom.com
-To: mihai.maruseac@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319179510-10715-1-git-send-email-mmaruseac@ixiacom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, arnd@arnd.de, jasowang@redhat.com,
+	mst@redhat.com, ian.campbell@citrix.com, mashirley@us.ibm.com
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:15971 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751124Ab1JUG4S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Oct 2011 02:56:18 -0400
+In-Reply-To: <m1wrbzu4ec.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mihai Maruseac <mihai.maruseac@gmail.com>
-Date: Fri, 21 Oct 2011 09:45:10 +0300
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 20 Oct 2011 07:24:59 -0700
 
-> Instead of using the dev->next chain and trying to resync at each call to
-> dev_seq_start, use the name hash, keeping the bucket and the offset in
-> seq->private field.
 > 
-> Tests revealed the following results for ifconfig > /dev/null
- ...
-> Signed-off-by: Mihai Maruseac <mmaruseac@ixiacom.com>
+> This series of patches fixes a series of minor bugs in the macvtap code.
+> 
+> The fixes to handle failures in newlink and the change in how we handle
+> minor device number allocations are particularly significant.
 
-Applied.
+Applied to net-next, thanks.
