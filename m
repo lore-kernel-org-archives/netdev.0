@@ -1,56 +1,33 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: Fix compilation error in ip_vs.h for
- ip_vs_confirm_conntrack function.
-Date: Fri, 21 Oct 2011 10:25:13 +0900
-Message-ID: <20111021012513.GA24998@verge.net.au>
-References: <1319113084-7498-1-git-send-email-krzysztof.wilczynski@linux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:43923 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095Ab1JUBZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Oct 2011 21:25:17 -0400
-Content-Disposition: inline
-In-Reply-To: <1319113084-7498-1-git-send-email-krzysztof.wilczynski@linux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [GIT PULL nf-next] IPVS
+Date: Fri, 21 Oct 2011 10:33:01 +0900
+Message-ID: <1319160783-28422-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 20, 2011 at 01:18:04PM +0100, Krzysztof Wilczynski wrote:
-> This is to address the following error during the compilation:
->=20
->   In file included from kernel/sysctl_binary.c:6:
->   include/net/ip_vs.h:1406: error: expected identifier or =E2=80=98(=E2=
-=80=99 before =E2=80=98{=E2=80=99 token
->   make[1]: *** [kernel/sysctl_binary.o] Error 1
->   make[1]: *** Waiting for unfinished jobs....
->=20
-> That manifests itself when CONFIG_IP_VS_NFCT is undefined in .config =
-file.
->=20
-> Signed-off-by: Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
-> ---
->  include/net/ip_vs.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> index 139784e..de527d1 100644
-> --- a/include/net/ip_vs.h
-> +++ b/include/net/ip_vs.h
-> @@ -1395,7 +1395,7 @@ static inline void ip_vs_update_conntrack(struc=
-t sk_buff *skb,
->  {
->  }
-> =20
-> -static inline int ip_vs_confirm_conntrack(struct sk_buff *skb);
-> +static inline int ip_vs_confirm_conntrack(struct sk_buff *skb)
->  {
->  	return NF_ACCEPT;
->  }
+Hi Pablo,
 
-Thanks Krzysztof,
+please consider pulling the following to get compile fix
+and cleanup patches from Krzysztof Wilczynski.
 
-that fixes a brown paper bag effort from me.
+The following changes since commit 2ca5b853f1dd81c605ddc8a55e06bdad85636597:
+
+  netfilter: export NAT definitions through linux/netfilter_ipv4/nf_nat.h (2011-10-11 03:32:34 +0200)
+
+are available in the git repository at:
+  git://github.com/horms/ipvs-next.git master
+
+Krzysztof Wilczynski (2):
+      ipvs: Remove unused variable "cs" from ip_vs_leave function.
+      ipvs: Fix compilation error in ip_vs.h for ip_vs_confirm_conntrack function.
+
+ include/net/ip_vs.h             |    2 +-
+ net/netfilter/ipvs/ip_vs_core.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
