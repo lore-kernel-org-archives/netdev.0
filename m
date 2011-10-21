@@ -1,37 +1,54 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [net-next 3/5] igb: Fix for Alt MAC Address feature on 82580 and
- later devices
-Date: Fri, 21 Oct 2011 13:11:46 +0200
-Message-ID: <20111021111146.GH651279@jupiter.n2.diac24.net>
-References: <1319193121-2729-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1319193121-2729-4-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 1/3] net: hold sock reference while processing tx
+ timestamps
+Date: Fri, 21 Oct 2011 13:31:50 +0200
+Message-ID: <1319196710.2338.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <cover.1319193734.git.richard.cochran@omicron.at>
+	 <f13715e7d094e7989581f5eacf0efe9d15379e10.1319193734.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	stable@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:34658 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754341Ab1JULL4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Oct 2011 07:11:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1319193121-2729-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:34151 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753541Ab1JULby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 07:31:54 -0400
+In-Reply-To: <f13715e7d094e7989581f5eacf0efe9d15379e10.1319193734.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 21, 2011 at 03:31:59AM -0700, Jeff Kirsher wrote:
-> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> 
-> In 82580 and later devices, the alternate MAC address feature is
-> completely handled by the option ROM and software does not handle
-> it anymore.  This patch changes the check_alt_mac_addr function to
-> exit immediately if device is 82580 or later.
+Le vendredi 21 octobre 2011 =C3=A0 12:49 +0200, Richard Cochran a =C3=A9=
+crit :
+> The pair of functions,
+>=20
+>  * skb_clone_tx_timestamp()
+>  * skb_complete_tx_timestamp()
+>=20
+> were designed to allow timestamping in PHY devices. The first
+> function, called during the MAC driver's hard_xmit method, identifies
+> PTP protocol packets, clones them, and gives them to the PHY device
+> driver. The PHY driver may hold onto the packet and deliver it at a
+> later time using the second function, which adds the packet to the
+> socket's error queue.
+>=20
+> As pointed out by Johannes, nothing prevents the socket from
+> disappearing while the cloned packet is sitting in the PHY driver
+> awaiting a timestamp. This patch fixes the issue by taking a referenc=
+e
+> on the socket for each such packet. In addition, the comments
+> regarding the usage of these function are expanded to highlight the
+> rule that PHY drivers must use skb_complete_tx_timestamp() to release
+> the packet, in order to release the socket reference, too.
+>=20
+> These functions first appeared in v2.6.36.
+>=20
+> Reported-by: Johannes Berg <johannes@sipsolutions.net>
+> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+> Cc: <stable@vger.kernel.org>
+> ---
 
-'Stupid' question: what happens if you put such a card with an x86 
-Option ROM into a, say, PowerPC server?
-
-Just feeling like the devil's advocate today :)
-
-
--David
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
