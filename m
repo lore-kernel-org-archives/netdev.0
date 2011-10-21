@@ -1,39 +1,50 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next] tcp: add const qualifiers where possible
-Date: Fri, 21 Oct 2011 03:36:48 -0400 (EDT)
-Message-ID: <20111021.033648.1029307040209750463.davem@davemloft.net>
+Date: Fri, 21 Oct 2011 10:21:03 +0200
+Message-ID: <1319185263.2338.1.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 References: <1319179993.2854.63.camel@edumazet-laptop>
-	<20111021.025549.113655582134326444.davem@redhat.com>
+	 <20111021.025549.113655582134326444.davem@redhat.com>
+	 <20111021.033648.1029307040209750463.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48841 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752841Ab1JUHgx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 03:36:53 -0400
-In-Reply-To: <20111021.025549.113655582134326444.davem@redhat.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:42906 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363Ab1JUIVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Oct 2011 04:21:08 -0400
+Received: by wyg36 with SMTP id 36so3694804wyg.19
+        for <netdev@vger.kernel.org>; Fri, 21 Oct 2011 01:21:07 -0700 (PDT)
+In-Reply-To: <20111021.033648.1029307040209750463.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUByZWRoYXQuY29tPg0KRGF0ZTogRnJpLCAyMSBPY3Qg
-MjAxMSAwMjo1NTo0OSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJpYy5k
-dW1hemV0QGdtYWlsLmNvbT4NCj4gRGF0ZTogRnJpLCAyMSBPY3QgMjAxMSAwODo1MzoxMyArMDIw
-MA0KPiANCj4+IEFkZGluZyBjb25zdCBxdWFsaWZpZXJzIHRvIHBvaW50ZXJzIGNhbiBlYXNlIGNv
-ZGUgcmV2aWV3LCBhbmQgc3BvdCBzb21lDQo+PiBidWdzLiBJdCBtaWdodCBhbGxvdyBjb21waWxl
-ciB0byBvcHRpbWl6ZSBjb2RlIGZ1cnRoZXIuDQo+PiANCj4+IEZvciBleGFtcGxlLCBpcyBpdCBs
-ZWdhbCB0byB0ZW1wb3Jhcnkgd3JpdGUgYSBudWxsIGNrc3VtIGludG8gdGNwaGRyDQo+PiBpbiB0
-Y3BfbWQ1X2hhc2hfaGVhZGVyKCkgPyBJIGFtIGFmcmFpZCBhIHNuaWZmZXIgY291bGQgY2F0Y2gg
-dGhlDQo+PiB0ZW1wb3JhcnkgbnVsbCB2YWx1ZS4uLg0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBF
-cmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+DQo+IA0KPiBBcHBsaWVkLg0KDQpZ
-b3UgY2FuJ3QgbWFrZSB0aGUgYXJndW1lbnQgdG8gX19za19kc3RfZ2V0KCkgY29uc3QsIGJlY2F1
-c2UgbG9ja19pc19oZWxkKCkNCmRvZXMgbm90IHRha2UgYSBjb25zdCBwb2ludGVyIGFyZ3VtZW50
-Lg0KDQppbmNsdWRlL25ldC9zb2NrLmg6IEluIGZ1bmN0aW9uIKFfX3NrX2RzdF9nZXSiOg0KaW5j
-bHVkZS9uZXQvc29jay5oOjEzMTU6Mjogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAxIG9mIKFs
-b2NrX2lzX2hlbGSiIGRpc2NhcmRzIKFjb25zdKIgcXVhbGlmaWVyIGZyb20gcG9pbnRlciB0YXJn
-ZXQgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KaW5jbHVkZS9saW51eC9sb2NrZGVwLmg6MzI0
-OjEyOiBub3RlOiBleHBlY3RlZCChc3RydWN0IGxvY2tkZXBfbWFwICqiIGJ1dCBhcmd1bWVudCBp
-cyBvZiB0eXBlIKFjb25zdCBzdHJ1Y3QgbG9ja2RlcF9tYXAgKqINCg0KSSdtIHJldmVydGluZy4N
-Cg==
+Le vendredi 21 octobre 2011 =C3=A0 03:36 -0400, David Miller a =C3=A9cr=
+it :
+
+> You can't make the argument to __sk_dst_get() const, because lock_is_=
+held()
+> does not take a const pointer argument.
+>=20
+> include/net/sock.h: In function =E2=80=98__sk_dst_get=E2=80=99:
+> include/net/sock.h:1315:2: warning: passing argument 1 of =E2=80=98lo=
+ck_is_held=E2=80=99 discards =E2=80=98const=E2=80=99 qualifier from poi=
+nter target type [enabled by default]
+> include/linux/lockdep.h:324:12: note: expected =E2=80=98struct lockde=
+p_map *=E2=80=99 but argument is of type =E2=80=98const struct lockdep_=
+map *=E2=80=99
+>=20
+> I'm reverting.
+
+Thats strange, I built with LOCKDEP enabled here...
+
+# grep LOCKDEP .config
+CONFIG_LOCKDEP_SUPPORT=3Dy
+CONFIG_LOCKDEP=3Dy
+# CONFIG_DEBUG_LOCKDEP is not set
+
+
+I'll take a look,
+Thanks
