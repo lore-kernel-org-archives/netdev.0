@@ -1,56 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [BUG] bonding : LOCKDEP warning
-Date: Sat, 22 Oct 2011 09:36:27 +0200
-Message-ID: <1319268987.6180.21.camel@edumazet-laptop>
+From: Ari Savolainen <ari.m.savolainen@gmail.com>
+Subject: Re: [PATCH] tg3: fix tigon3_dma_hwbug_workaround()
+Date: Sat, 22 Oct 2011 10:54:33 +0300
+Message-ID: <CAEbykaVif3Mi50aDzY5p09iHC3DgtbYFQBGPAWiLa8hhyk5w8A@mail.gmail.com>
+References: <CAEbykaX4UPDBxOHmNr=dodaquSPjhPr-pLCcUn5hSu4-xLZy-g@mail.gmail.com>
+	<20111020.155659.486754557434415381.davem@davemloft.net>
+	<1319141125.2854.14.camel@edumazet-laptop>
+	<20111020.161147.33259825921677777.davem@davemloft.net>
+	<1319141867.2854.19.camel@edumazet-laptop>
+	<CAEbykaWhh12pM2jRSzfGig=jeKhVWSdxfwuXHFvLTt14=BYTbA@mail.gmail.com>
+	<CAJFZqHzWUsP7szrjVwmW5+HWRND3R4qxWcnK=bqbsgL6F7XGeA@mail.gmail.com>
+	<CAEbykaVJneQ0ozUvYh2PRn-p_BowL4z4_4Y8EFCdO9mOsNX7OQ@mail.gmail.com>
+	<1319265470.6180.13.camel@edumazet-laptop>
+	<1319268338.6180.20.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57366 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752138Ab1JVHgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2011 03:36:32 -0400
-Received: by wyg36 with SMTP id 36so4654833wyg.19
-        for <netdev@vger.kernel.org>; Sat, 22 Oct 2011 00:36:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: RongQing Li <roy.qing.li@gmail.com>,
+	David Miller <davem@davemloft.net>, richardcochran@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1319268338.6180.20.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On latest net-next I got following splat
+I tried a similar patch earlier and got another panic with that. I was
+quite tired at that time and may have made a mistake. I'll test Eric's
+patch either later today or tomorrow.
 
-[    5.749651] bonding: Ethernet Channel Bonding Driver: v3.7.1 (April 27, 2011)
-[    5.749655] bonding: MII link monitoring set to 100 ms
-[    5.749676] BUG: key f49a831c not in .data!
-[    5.749677] ------------[ cut here ]------------
-[    5.749752] WARNING: at kernel/lockdep.c:2897 lockdep_init_map+0x1c3/0x460()
-[    5.749809] Hardware name: ProLiant BL460c G1
-[    5.749862] Modules linked in: bonding(+)
-[    5.749978] Pid: 3177, comm: modprobe Not tainted 3.1.0-rc9-02177-gf2d1a4e-dirty #1157
-[    5.750066] Call Trace:
-[    5.750120]  [<c1352c2f>] ? printk+0x18/0x21
-[    5.750176]  [<c103112d>] warn_slowpath_common+0x6d/0xa0
-[    5.750231]  [<c1060133>] ? lockdep_init_map+0x1c3/0x460
-[    5.750287]  [<c1060133>] ? lockdep_init_map+0x1c3/0x460
-[    5.750342]  [<c103117d>] warn_slowpath_null+0x1d/0x20
-[    5.750398]  [<c1060133>] lockdep_init_map+0x1c3/0x460
-[    5.750453]  [<c1355ddd>] ? _raw_spin_unlock+0x1d/0x20
-[    5.750510]  [<c11255c8>] ? sysfs_new_dirent+0x68/0x110
-[    5.750565]  [<c1124d4b>] sysfs_add_file_mode+0x8b/0xe0
-[    5.750621]  [<c1124db3>] sysfs_add_file+0x13/0x20
-[    5.750675]  [<c1124e7c>] sysfs_create_file+0x1c/0x20
-[    5.750737]  [<c1208f09>] class_create_file+0x19/0x20
-[    5.750794]  [<c12c186f>] netdev_class_create_file+0xf/0x20
-[    5.750853]  [<f85deaf4>] bond_create_sysfs+0x44/0x90 [bonding]
-[    5.750911]  [<f8410947>] ? bond_create_proc_dir+0x1e/0x3e [bonding]
-[    5.750970]  [<f841007e>] bond_net_init+0x7e/0x87 [bonding]
-[    5.751026]  [<f8410000>] ? 0xf840ffff
-[    5.751080]  [<c12abc7a>] ops_init.clone.4+0xba/0x100
-[    5.751135]  [<c12abdb2>] ? register_pernet_subsys+0x12/0x30
-[    5.751191]  [<c12abd03>] register_pernet_operations.clone.3+0x43/0x80
-[    5.751249]  [<c12abdb9>] register_pernet_subsys+0x19/0x30
-[    5.751306]  [<f84108b9>] bonding_init+0x832/0x8a2 [bonding]
-[    5.751363]  [<c10011f0>] do_one_initcall+0x30/0x160
-[    5.751420]  [<f8410087>] ? bond_net_init+0x87/0x87 [bonding]
-[    5.751477]  [<c106d5cf>] sys_init_module+0xef/0x1890
-[    5.751533]  [<c1356490>] sysenter_do_call+0x12/0x36
-[    5.751588] ---[ end trace 89f492d83a7f5006 ]---
+Ari
+
+2011/10/22 Eric Dumazet <eric.dumazet@gmail.com>:
+> Ari got kernel panics using tg3 NIC, and bisected to 2669069aacc9 "tg=
+3:
+> enable transmit time stamping."
+>
+> This is because tigon3_dma_hwbug_workaround() might alloc a new skb a=
+nd
+> free the original. We panic when skb_tx_timestamp() is called on free=
+d
+> skb.
+>
+> Reported-by: Ari Savolainen <ari.m.savolainen@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> =A0drivers/net/tg3.c | =A0 =A08 ++++----
+> =A01 file changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index 4a1374d..6149dc5 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -6029,12 +6029,12 @@ static void tg3_tx_skb_unmap(struct tg3_napi =
+*tnapi, u32 entry, int last)
+>
+> =A0/* Workaround 4GB and 40-bit hardware DMA bugs. */
+> =A0static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0struct sk_buff *skb,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0struct sk_buff **pskb,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 u32 *entry, u32 *budget,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 u32 base_flags, u32 mss, u32 vlan)
+> =A0{
+> =A0 =A0 =A0 =A0struct tg3 *tp =3D tnapi->tp;
+> - =A0 =A0 =A0 struct sk_buff *new_skb;
+> + =A0 =A0 =A0 struct sk_buff *new_skb, *skb =3D *pskb;
+> =A0 =A0 =A0 =A0dma_addr_t new_addr =3D 0;
+> =A0 =A0 =A0 =A0int ret =3D 0;
+>
+> @@ -6076,7 +6076,7 @@ static int tigon3_dma_hwbug_workaround(struct t=
+g3_napi *tnapi,
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0dev_kfree_skb(skb);
+> -
+> + =A0 =A0 =A0 *pskb =3D new_skb;
+> =A0 =A0 =A0 =A0return ret;
+> =A0}
+>
+> @@ -6305,7 +6305,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buf=
+f *skb, struct net_device *dev)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 */
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0entry =3D tnapi->tx_prod;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0budget =3D tg3_tx_avail(tnapi);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tigon3_dma_hwbug_workaround(tnapi, =
+skb, &entry, &budget,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tigon3_dma_hwbug_workaround(tnapi, =
+&skb, &entry, &budget,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0base_flags, mss, vlan))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto out_unlock;
+> =A0 =A0 =A0 =A0}
+>
+>
+>
