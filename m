@@ -1,144 +1,205 @@
-From: Adrian George Sav <adi_sav@yahoo.com>
-Subject: Kernel driver r8169 not working for Realtek 8111E onboard network card
-Date: Sat, 22 Oct 2011 08:22:21 -0700 (PDT)
-Message-ID: <1319296941.68390.YahooMailNeo@web161905.mail.bf1.yahoo.com>
-Reply-To: Adrian George Sav <adi_sav@yahoo.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next V2] net: introduce ethernet teaming device
+Date: Sat, 22 Oct 2011 17:55:40 +0200
+Message-ID: <20111022155540.GB2028@minipsycho.orion>
+References: <1319200747-2508-1-git-send-email-jpirko@redhat.com>
+ <3128.1319221621@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, andy@greyhouse.net, tgraf@infradead.org,
+	ebiederm@xmission.com, mirqus@gmail.com, kaber@trash.net,
+	greearb@candelatech.com, jesse@nicira.com, fbl@redhat.com,
+	benjamin.poirier@gmail.com, jzupka@redhat.com
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm37-vm7.bullet.mail.bf1.yahoo.com ([72.30.238.207]:24073 "HELO
-	nm37-vm7.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753147Ab1JVP3E convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Oct 2011 11:29:04 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:64386 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753562Ab1JVPz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Oct 2011 11:55:56 -0400
+Content-Disposition: inline
+In-Reply-To: <3128.1319221621@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Fri, Oct 21, 2011 at 08:27:01PM CEST, fubar@us.ibm.com wrote:
+>Jiri Pirko <jpirko@redhat.com> wrote:
+>
+>>This patch introduces new network device called team. It supposes to be
+>>very fast, simple, userspace-driven alternative to existing bonding
+>>driver.
+>>
+>>Userspace library called libteam with couple of demo apps is available
+>>here:
+>>https://github.com/jpirko/libteam
+>>Note it's still in its dipers atm.
+>>
+>>team<->libteam use generic netlink for communication. That and rtnl
+>>suppose to be the only way to configure team device, no sysfs etc.
+>>
+>>Python binding basis for libteam was recently introduced (some need
+>>still need to be done on it though). Daemon providing arpmon/miimon
+>>active-backup functionality will be introduced shortly.
+>>All what's necessary is already implemented in kernel team driver.
+>>
+>>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>
+>>v1->v2:
+>>	- modes are made as modules. Makes team more modular and
+>>	  extendable.
+>>	- several commenters' nitpicks found on v1 were fixed
+>>	- several other bugs were fixed.
+>>	- note I ignored Eric's comment about roundrobin port selector
+>>	  as Eric's way may be easily implemented as another mode (mode
+>>	  "random") in future.
+>>---
+>
+>[...]
+>
+>>+static int team_port_add(struct team *team, struct net_device *port_dev)
+>>+{
+>>+	struct net_device *dev = team->dev;
+>>+	struct team_port *port;
+>>+	char *portname = port_dev->name;
+>>+	char tmp_addr[ETH_ALEN];
+>>+	int err;
+>>+
+>>+	if (port_dev->flags & IFF_LOOPBACK ||
+>>+	    port_dev->type != ARPHRD_ETHER) {
+>>+		netdev_err(dev, "Device %s is of an unsupported type\n",
+>>+			   portname);
+>>+		return -EINVAL;
+>>+	}
+>>+
+>>+	if (team_port_exists(port_dev)) {
+>>+		netdev_err(dev, "Device %s is already a port "
+>>+				"of a team device\n", portname);
+>>+		return -EBUSY;
+>>+	}
+>>+
+>>+	if (port_dev->flags & IFF_UP) {
+>>+		netdev_err(dev, "Device %s is up. Set it down before adding it as a team port\n",
+>>+			   portname);
+>>+		return -EBUSY;
+>>+	}
+>>+
+>>+	port = kzalloc(sizeof(struct team_port), GFP_KERNEL);
+>>+	if (!port)
+>>+		return -ENOMEM;
+>>+
+>>+	port->dev = port_dev;
+>>+	port->team = team;
+>>+
+>>+	port->orig.mtu = port_dev->mtu;
+>>+	err = dev_set_mtu(port_dev, dev->mtu);
+>>+	if (err) {
+>>+		netdev_dbg(dev, "Error %d calling dev_set_mtu\n", err);
+>>+		goto err_set_mtu;
+>>+	}
+>>+
+>>+	memcpy(port->orig.dev_addr, port_dev->dev_addr, ETH_ALEN);
+>>+	random_ether_addr(tmp_addr);
+>>+	err = __set_port_mac(port_dev, tmp_addr);
+>>+	if (err) {
+>>+		netdev_dbg(dev, "Device %s mac addr set failed\n",
+>>+			   portname);
+>>+		goto err_set_mac_rand;
+>>+	}
+>>+
+>>+	err = dev_open(port_dev);
+>>+	if (err) {
+>>+		netdev_dbg(dev, "Device %s opening failed\n",
+>>+			   portname);
+>>+		goto err_dev_open;
+>>+	}
+>>+
+>>+	err = team_port_set_orig_mac(port);
+>>+	if (err) {
+>>+		netdev_dbg(dev, "Device %s mac addr set failed - Device does not support addr change when it's opened\n",
+>>+			   portname);
+>>+		goto err_set_mac_opened;
+>>+	}
+>
+>	This will exclude a number of devices that bonding currently
+>provides at least partial support for.
+>
+>	Most of those are older 10 or 10/100 Ethernet drivers (anything
+>that uses eth_mac_addr for its ndo_set_mac_address, I think; there look
+>to be about 140 or so of those), but it also includes Infiniband (which
+>is excluded explicitly elsewhere).
 
-I am having trouble with the r8169 kernel driver for Realtek 8111E netw=
-ork card.
-The NIC works intermittently and horribly with this driver. Unusable.
+Team supports only ETH atm. I think it can be easily extended to support
+Infiniband in future. But that's not priority now.
 
-Below is my config. I am happy to provide any and every other necessary=
- information to help in solving this.
+The "life mac change" check can be easily moved into port_enter mode
+callback to let the mode decide. Then FOM active can be easily implemented
+as another mode.
 
-Thank you.
+>
+>	Another small set of Ethernet devices (those that currently need
+>bonding's fail_over_mac option) do permit setting the MAC while open,
+>but will misbehave if multiple ports are set to the same MAC.  The usual
+>suspects here are ehea and qeth, which are partition-aware devices for
+>IBM's pseries and zseries hardware, but there may be others I'm not
+>familiar with.
 
-Motherboard: ASUS P8P67(REV 3.1)
+Actually this (FOM2) is very close to the behaviour "activebackup" team
+mode has now.
 
-Kernel: up to 2.6.39
 
-lspci -vv:
------------------------------------------------------------------------=
--------------------------------------
+>
+>	If these will be permanent limitations of the team driver, then
+>this should (eventually) be in the documentation.
+>
+>	Also, from looking at the code, it's not obvious if nesting of
+>teams is supported or not.  I'm not seeing anything in the code that
+>would prohibit adding a team device as a port to another team.  If
+>nesting of teams is undesirable, it should probably be explicitly tested
+>for and disallowed.
 
-07:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/81=
-68B PCI Express Gigabit Ethernet controller (rev 06)
-=A0=A0=A0=A0=A0=A0=A0 Subsystem: ASUSTeK Computer Inc. P8P67 Deluxe Mot=
-herboard [Realtek RTL8111E]
-=A0=A0=A0=A0=A0=A0=A0 Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV-=
- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-=A0=A0=A0=A0=A0=A0=A0 Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3D=
-fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-=A0=A0=A0=A0=A0=A0=A0 Latency: 0, Cache Line Size: 64 bytes
-=A0=A0=A0=A0=A0=A0=A0 Interrupt: pin A routed to IRQ 66
-=A0=A0=A0=A0=A0=A0=A0 Region 0: I/O ports at d000 [size=3D256]
-=A0=A0=A0=A0=A0=A0=A0 Region 2: Memory at d0004000 (64-bit, prefetchabl=
-e) [size=3D4K]
-=A0=A0=A0=A0=A0=A0=A0 Region 4: Memory at d0000000 (64-bit, prefetchabl=
-e) [size=3D16K]
-=A0=A0=A0=A0=A0=A0=A0 Capabilities: [40] Power Management version 3
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Flags: PMEClk- DSI- D1+ D=
-2+ AuxCurrent=3D375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Status: D0 NoSoftRst+ PME=
--Enable- DSel=3D0 DScale=3D0 PME-
-=A0=A0=A0=A0=A0=A0=A0 Capabilities: [50] MSI: Enable+ Count=3D1/1 Maska=
-ble- 64bit+
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Address: 00000000feeff00c=
-=A0 Data: 417a
-=A0=A0=A0=A0=A0=A0=A0 Capabilities: [70] Express (v2) Endpoint, MSI 01
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 DevCap: MaxPayload 128 by=
-tes, PhantFunc 0, Latency L0s <512ns, L1 <64us
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 E=
-xtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 DevCtl: Report errors: Co=
-rrectable- Non-Fatal- Fatal- Unsupported-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 R=
-lxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 M=
-axPayload 128 bytes, MaxReadReq 4096 bytes
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 DevSta: CorrErr+ UncorrEr=
-r- FatalErr- UnsuppReq+ AuxPwr+ TransPend-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 LnkCap: Port #0, Speed 2.=
-5GT/s, Width x1, ASPM L0s L1, Latency L0 unlimited, L1 <64us
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 C=
-lockPM+ Surprise- LLActRep- BwNot-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 LnkCtl: ASPM Disabled; RC=
-B 64 bytes Disabled- Retrain- CommClk+
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 E=
-xtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 LnkSta: Speed 2.5GT/s, Wi=
-dth x1, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 DevCap2: Completion Timeo=
-ut: Range ABCD, TimeoutDis+
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 DevCtl2: Completion Timeo=
-ut: 50us to 50ms, TimeoutDis-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 LnkCtl2: Target Link Spee=
-d: 2.5GT/s, EnterCompliance- SpeedDis-, Selectable De-emphasis: -6dB
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
- Transmit Margin: Normal Operating Range, EnterModifiedCompliance- Comp=
-lianceSOS-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
- Compliance De-emphasis: -6dB
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 LnkSta2: Current De-empha=
-sis Level: -6dB
-=A0=A0=A0=A0=A0=A0=A0 Capabilities: [b0] MSI-X: Enable- Count=3D4 Maske=
-d-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Vector table: BAR=3D4 off=
-set=3D00000000
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 PBA: BAR=3D4 offset=3D000=
-00800
-=A0=A0=A0=A0=A0=A0=A0 Capabilities: [d0] Vital Product Data
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Unknown small resource ty=
-pe 00, will not decode more.
-=A0=A0=A0=A0=A0=A0=A0 Capabilities: [100 v1] Advanced Error Reporting
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 UESta:=A0 DLP- SDES- TLP-=
- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSV=
-iol-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 UEMsk:=A0 DLP- SDES- TLP-=
- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSV=
-iol-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 UESvrt: DLP+ SDES+ TLP- F=
-CP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSVio=
-l-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 CESta:=A0 RxErr- BadTLP- =
-BadDLLP- Rollover- Timeout- NonFatalErr+
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 CEMsk:=A0 RxErr- BadTLP- =
-BadDLLP- Rollover- Timeout- NonFatalErr+
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 AERCap: First Error Point=
-er: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
-=A0=A0=A0=A0=A0=A0=A0 Capabilities: [140 v1] Virtual Channel
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Caps:=A0=A0 LPEVC=3D0 Ref=
-Clk=3D100ns PATEntryBits=3D1
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Arb:=A0=A0=A0 Fixed- WRR3=
-2- WRR64- WRR128-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Ctrl:=A0=A0 ArbSelect=3DF=
-ixed
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 Status: InProgress-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 VC0:=A0=A0=A0 Caps:=A0=A0=
- PATOffset=3D00 MaxTimeSlots=3D1 RejSnoopTrans-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 A=
-rb:=A0=A0=A0 Fixed- WRR32- WRR64- WRR128- TWRR128- WRR256-
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 C=
-trl:=A0=A0 Enable+ ID=3D0 ArbSelect=3DFixed TC/VC=3D01
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 S=
-tatus: NegoPending- InProgress-
-=A0=A0=A0=A0=A0=A0=A0 Capabilities: [160 v1] Device Serial Number 01-00=
--00-00-68-4c-e0-00
-=A0=A0=A0=A0=A0=A0=A0 Kernel driver in use: r8169
-=A0=A0=A0=A0=A0=A0=A0 Kernel modules: r8169
------------------------------------------------------------------------=
--------------------------------------
+Nesting is allowed.
+
+
+
+>
+>[...]
+>
+>>+static int __init team_module_init(void)
+>>+{
+>>+	int err;
+>>+
+>>+	register_netdevice_notifier(&team_notifier_block);
+>>+
+>>+	err = rtnl_link_register(&team_link_ops);
+>>+	if (err)
+>>+		goto err_rtln_reg;
+>>+
+>>+	err = team_nl_init();
+>>+	if (err)
+>>+		goto err_nl_init;
+>>+
+>>+	return 0;
+>>+
+>>+err_nl_init:
+>>+	rtnl_link_unregister(&team_link_ops);
+>>+
+>>+err_rtln_reg:
+>>+	unregister_netdevice_notifier(&team_notifier_block);
+>
+>	Minor nit: I suspect you meant "err_rtnl_reg" here, and in the
+>goto above.
+
+Corrected.
+
+Thanks Jay.
+
+
+Jirka
+
+>
+>	-J
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
