@@ -1,8 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [RFC v2 PATCH 4/4] virtio-net: notify guest to annouce itself
-Date: Sat, 22 Oct 2011 13:39:07 +0800
-Message-ID: <20111022053907.21526.81697.stgit@dhcp-8-146.nay.redhat.com>
-References: <20111022053540.21526.61249.stgit@dhcp-8-146.nay.redhat.com>
+Subject: [RFC v2 PATCH 5/4 PATCH] virtio-net: send gratuitous packet when
+	needed
+Date: Sat, 22 Oct 2011 13:43:11 +0800
+Message-ID: <20111022054311.21798.3340.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,92 +10,134 @@ Cc: pbonzini@redhat.com, rusty@rustcorp.com.au, kvm@vger.kernel.org,
 	netdev@vger.kernel.org
 To: aliguori@us.ibm.com, quintela@redhat.com, jan.kiszka@siemens.com,
 	mst@redhat.com, qemu-devel@nongnu.org, blauwirbel@gmail.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20111022053540.21526.61249.stgit@dhcp-8-146.nay.redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59140 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750927Ab1JVFnW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Oct 2011 01:43:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It's hard to track all mac address and its usage (vlan, bondings,
-ipv6) in qemu to send gratituous packet in qemu side, so the better
-choice is let guest do it.
+This make let virtio-net driver can send gratituous packet by a new
+config bit - VIRTIO_NET_S_ANNOUNCE in each config update
+interrupt. When this bit is set by backend, the driver would schedule
+a workqueue to send gratituous packet through NETDEV_NOTIFY_PEERS.
 
-The patch introduces a new rw config status bit of virtio-net,
-VIRTIO_NET_S_ANNOUNCE which is used to notify guest to announce itself
-( such as sending gratituous packets ) through config update
-interrupt. When gust have done the annoucement, it should clear that
-bit.
+This feature is negotiated through bit VIRTIO_NET_F_GUEST_ANNOUNCE.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- hw/virtio-net.c |   20 +++++++++++++++++++-
- hw/virtio-net.h |    2 ++
- 2 files changed, 21 insertions(+), 1 deletions(-)
+ drivers/net/virtio_net.c   |   31 ++++++++++++++++++++++++++++++-
+ include/linux/virtio_net.h |    2 ++
+ 2 files changed, 32 insertions(+), 1 deletions(-)
 
-diff --git a/hw/virtio-net.c b/hw/virtio-net.c
-index 8c2f460..7f844e7 100644
---- a/hw/virtio-net.c
-+++ b/hw/virtio-net.c
-@@ -95,6 +95,10 @@ static void virtio_net_set_config(VirtIODevice *vdev, const uint8_t *config)
-         memcpy(n->mac, netcfg.mac, ETH_ALEN);
-         qemu_format_nic_info_str(&n->nic->nc, n->mac);
-     }
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b8225f3..1cdecf7 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -71,6 +71,9 @@ struct virtnet_info {
+ 	/* Work struct for refilling if we run low on memory. */
+ 	struct delayed_work refill;
+ 
++	/* Work struct for send gratituous packet. */
++	struct work_struct announce;
 +
-+    if (memcmp(&netcfg.status, &n->status, sizeof(n->status))) {
-+        memcpy(&n->status, &netcfg.status, sizeof(n->status));
-+    }
+ 	/* Chain pages by the private ptr. */
+ 	struct page *pages;
+ 
+@@ -507,6 +510,13 @@ static void refill_work(struct work_struct *work)
+ 		schedule_delayed_work(&vi->refill, HZ/2);
  }
  
- static bool virtio_net_started(VirtIONet *n, uint8_t status)
-@@ -227,7 +231,7 @@ static uint32_t virtio_net_get_features(VirtIODevice *vdev, uint32_t features)
- {
-     VirtIONet *n = to_virtio_net(vdev);
- 
--    features |= (1 << VIRTIO_NET_F_MAC);
-+    features |= (1 << VIRTIO_NET_F_MAC | 1 << VIRTIO_NET_F_GUEST_ANNOUNCE);
- 
-     if (peer_has_vnet_hdr(n)) {
-         tap_using_vnet_hdr(n->nic->nc.peer, 1);
-@@ -983,6 +987,19 @@ static void virtio_net_cleanup(VLANClientState *nc)
-     n->nic = NULL;
- }
- 
-+static int virtio_net_announce(VLANClientState *nc)
++static void announce_work(struct work_struct *work)
 +{
-+    VirtIONet *n = DO_UPCAST(NICState, nc, nc)->opaque;
-+
-+    if (n->vdev.guest_features & (0x1 << VIRTIO_NET_F_GUEST_ANNOUNCE)) {
-+        n->status |= VIRITO_NET_S_ANNOUNCE;
-+        virtio_notify_config(&n->vdev);
-+        return 0;
-+    }
-+
-+    return 1;
++	struct virtnet_info *vi = container_of(work, struct virtnet_info,
++					       announce);
++	netif_notify_peers(vi->dev);
 +}
 +
- static NetClientInfo net_virtio_info = {
-     .type = NET_CLIENT_TYPE_NIC,
-     .size = sizeof(NICState),
-@@ -990,6 +1007,7 @@ static NetClientInfo net_virtio_info = {
-     .receive = virtio_net_receive,
-         .cleanup = virtio_net_cleanup,
-     .link_status_changed = virtio_net_set_link_status,
-+    .announce = virtio_net_announce,
+ static int virtnet_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
+@@ -923,11 +933,22 @@ static void virtnet_update_status(struct virtnet_info *vi)
+ 			      &v, sizeof(v));
+ 
+ 	/* Ignore unknown (future) status bits */
+-	v &= VIRTIO_NET_S_LINK_UP;
++	v &= VIRTIO_NET_S_LINK_UP | VIRTIO_NET_S_ANNOUNCE;
+ 
+ 	if (vi->status == v)
+ 		return;
+ 
++	if (v & VIRTIO_NET_S_ANNOUNCE) {
++		if ((v & VIRTIO_NET_S_LINK_UP) &&
++		    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
++			schedule_work(&vi->announce);
++		v &= ~VIRTIO_NET_S_ANNOUNCE;
++                vi->vdev->config->set(vi->vdev,
++                                      offsetof(struct virtio_net_config,
++		                               status),
++                                      &v, sizeof(v));
++	}
++
+ 	vi->status = v;
+ 
+ 	if (vi->status & VIRTIO_NET_S_LINK_UP) {
+@@ -937,6 +958,7 @@ static void virtnet_update_status(struct virtnet_info *vi)
+ 		netif_carrier_off(vi->dev);
+ 		netif_stop_queue(vi->dev);
+ 	}
++
+ }
+ 
+ static void virtnet_config_changed(struct virtio_device *vdev)
+@@ -1016,6 +1038,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		goto free;
+ 
+ 	INIT_DELAYED_WORK(&vi->refill, refill_work);
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
++		INIT_WORK(&vi->announce, announce_work);
+ 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
+ 	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
+ 
+@@ -1077,6 +1101,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ unregister:
+ 	unregister_netdev(dev);
+ 	cancel_delayed_work_sync(&vi->refill);
++	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
++		cancel_work_sync(&vi->announce);
+ free_vqs:
+ 	vdev->config->del_vqs(vdev);
+ free_stats:
+@@ -1118,6 +1144,8 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
+ 
+ 	unregister_netdev(vi->dev);
+ 	cancel_delayed_work_sync(&vi->refill);
++	if(virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ANNOUNCE))
++		cancel_work_sync(&vi->announce);
+ 
+ 	/* Free unused buffers in both send and recv, if any. */
+ 	free_unused_bufs(vi);
+@@ -1144,6 +1172,7 @@ static unsigned int features[] = {
+ 	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
+ 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+ 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
++	VIRTIO_NET_F_GUEST_ANNOUNCE,
  };
  
- VirtIODevice *virtio_net_init(DeviceState *dev, NICConf *conf,
-diff --git a/hw/virtio-net.h b/hw/virtio-net.h
-index 4468741..c47bd52 100644
---- a/hw/virtio-net.h
-+++ b/hw/virtio-net.h
-@@ -44,8 +44,10 @@
- #define VIRTIO_NET_F_CTRL_RX    18      /* Control channel RX mode support */
- #define VIRTIO_NET_F_CTRL_VLAN  19      /* Control channel VLAN filtering */
- #define VIRTIO_NET_F_CTRL_RX_EXTRA 20   /* Extra RX mode control support */
-+#define VIRTIO_NET_F_GUEST_ANNOUNCE 21  /* Guest can announce itself */
+ static struct virtio_driver virtio_net_driver = {
+diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+index 970d5a2..44a38d6 100644
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -49,8 +49,10 @@
+ #define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
+ #define VIRTIO_NET_F_CTRL_VLAN	19	/* Control channel VLAN filtering */
+ #define VIRTIO_NET_F_CTRL_RX_EXTRA 20	/* Extra RX mode control support */
++#define VIRTIO_NET_F_GUEST_ANNOUNCE 21  /* Guest can send gratituous packet */
  
- #define VIRTIO_NET_S_LINK_UP    1       /* Link is up */
-+#define VIRITO_NET_S_ANNOUNCE   2       /* Announcement is needed */
+ #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
++#define VIRTIO_NET_S_ANNOUNCE   2       /* Announcement is needed */
  
- #define TX_TIMER_INTERVAL 150000 /* 150 us */
- 
-
+ struct virtio_net_config {
+ 	/* The config defining mac address (if VIRTIO_NET_F_MAC) */
