@@ -1,66 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: avoid frag allocation for small frames
-Date: Sat, 22 Oct 2011 14:23:57 +0200
-Message-ID: <1319286237.6180.49.camel@edumazet-laptop>
+From: Mohammed Shafi <shafi.wireless@gmail.com>
+Subject: Re: [PATCH] jme: fix irq storm after suspend/resume
+Date: Sat, 22 Oct 2011 18:39:22 +0530
+Message-ID: <CAD2nsn2pMma4y2RyX_tyxohV3AtNnOa_t8UOR4cJdrABzehMeg@mail.gmail.com>
+References: <20111022125620.GA2256@ecki.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Adrian Chadd <adrian@freebsd.org>
+To: Clemens Buchacher <drizzd@aon.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60043 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43713 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753696Ab1JVMYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2011 08:24:04 -0400
-Received: by wyg36 with SMTP id 36so4781472wyg.19
-        for <netdev@vger.kernel.org>; Sat, 22 Oct 2011 05:24:02 -0700 (PDT)
+	with ESMTP id S1752740Ab1JVNJZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2011 09:09:25 -0400
+In-Reply-To: <20111022125620.GA2256@ecki.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcp_sendmsg() uses select_size() helper to choose skb head size when a
-new skb must be allocated.
+On Sat, Oct 22, 2011 at 6:26 PM, Clemens Buchacher <drizzd@aon.at> wrot=
+e:
+> If the device is down during suspend/resume, interrupts are enabled
+> without a registered interrupt handler, causing a storm of
+> unhandled interrupts until the IRQ is disabled because "nobody
+> cared".
 
-If GSO is enabled for the socket, current strategy is to force all
-payload data to be outside of headroom, in PAGE fragments.
+thank you so much for fixing this. incredible persistence from your sid=
+e!
 
-This strategy is not welcome for small packets, wasting memory.
+>
+> Instead, check that the device is up before touching it in the
+> suspend/resume code.
+>
+> Fixes https://bugzilla.kernel.org/show_bug.cgi?id=3D39112
+>
+> Helped-by: Adrian Chadd <adrian@freebsd.org>
+> Helped-by: Mohammed Shafi <shafi.wireless@gmail.com>
+> Signed-off-by: Clemens Buchacher <drizzd@aon.at>
+> ---
+>
+> Unfortunately, bugzilla.kernel.org is still down. There is at least
+> one other person who reported the issue, and I don't have their
+> email address. So for now, I am the only one who tested this fix.
+>
+> The patch applies to current tip (2efd7c0) of Linus' tree. I also
+> tested it based on v3.0 and it worked the same.
+>
+> Many thanks to Adrian and Mohammed for helping me debug this issue.
+> See this thread for the history:
+> =A0http://mid.gmane.org/20110827113253.GA1444@ecki
+>
+> =A0drivers/net/jme.c | =A0 =A06 ++++++
+> =A01 files changed, 6 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+> index 3ac262f..7a8a3b6 100644
+> --- a/drivers/net/jme.c
+> +++ b/drivers/net/jme.c
+> @@ -3131,6 +3131,9 @@ jme_suspend(struct device *dev)
+> =A0 =A0 =A0 =A0struct net_device *netdev =3D pci_get_drvdata(pdev);
+> =A0 =A0 =A0 =A0struct jme_adapter *jme =3D netdev_priv(netdev);
+>
+> + =A0 =A0 =A0 if (!netif_running(netdev))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+> +
+> =A0 =A0 =A0 =A0atomic_dec(&jme->link_changing);
+>
+> =A0 =A0 =A0 =A0netif_device_detach(netdev);
+> @@ -3171,6 +3174,9 @@ jme_resume(struct device *dev)
+> =A0 =A0 =A0 =A0struct net_device *netdev =3D pci_get_drvdata(pdev);
+> =A0 =A0 =A0 =A0struct jme_adapter *jme =3D netdev_priv(netdev);
+>
+> + =A0 =A0 =A0 if (!netif_running(netdev))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+> +
+> =A0 =A0 =A0 =A0jme_clear_pm(jme);
+> =A0 =A0 =A0 =A0jme_phy_on(jme);
+> =A0 =A0 =A0 =A0if (test_bit(JME_FLAG_SSET, &jme->flags))
+> --
+> 1.7.7
+>
+>
 
-Experiments show that best results are obtained when using 2048 bytes
-for skb head (This includes the skb overhead and various headers)
 
-This patch provides better len/truesize ratios for packets sent to
-loopback device, and reduce memory needs for in-flight loopback packets,
-particularly on arches with big pages.
 
-If a sender sends many 1-byte packets to an unresponsive application,
-receiver rmem_alloc will grow faster and will stop queuing these packets
-sooner, or will collapse its receive queue to free excess memory.
-
-netperf -t TCP_RR results are improved by ~4 %, and many workloads are
-improved as well (tbench, mysql...)
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 704adad..cd45b44 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -897,9 +897,12 @@ static inline int select_size(const struct sock *sk, int sg)
- 	int tmp = tp->mss_cache;
- 
- 	if (sg) {
--		if (sk_can_gso(sk))
--			tmp = 0;
--		else {
-+		if (sk_can_gso(sk)) {
-+			/* Small frames wont use a full page:
-+			 * Payload will immediately follow tcp header.
-+			 */
-+			tmp = SKB_WITH_OVERHEAD(2048 - MAX_TCP_HEADER);
-+		} else {
- 			int pgbreak = SKB_MAX_HEAD(MAX_TCP_HEADER);
- 
- 			if (tmp >= pgbreak &&
+--=20
+shafi
