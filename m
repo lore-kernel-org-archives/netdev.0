@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [RFC v2 PATCH 1/4] announce self after vm start
-Date: Sat, 22 Oct 2011 13:38:37 +0800
-Message-ID: <20111022053837.21526.60734.stgit@dhcp-8-146.nay.redhat.com>
+Subject: [RFC v2 PATCH 2/4] net: export announce_self_create()
+Date: Sat, 22 Oct 2011 13:38:47 +0800
+Message-ID: <20111022053847.21526.77472.stgit@dhcp-8-146.nay.redhat.com>
 References: <20111022053540.21526.61249.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,56 +10,115 @@ Cc: pbonzini@redhat.com, rusty@rustcorp.com.au, kvm@vger.kernel.org,
 	netdev@vger.kernel.org
 To: aliguori@us.ibm.com, quintela@redhat.com, jan.kiszka@siemens.com,
 	mst@redhat.com, qemu-devel@nongnu.org, blauwirbel@gmail.com
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <20111022053540.21526.61249.stgit@dhcp-8-146.nay.redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We send gratituous packets to let switch to update its mac address
-table, this is only done after migration currently because guest may
-move to the host with another port connect to switch.
-
-Unfortunately this kind of notification is also needed for continue a
-stopped vm as the mac address table entry may not existed because of
-aging. This patch solve this by call qemu_announce_self() in
-vm_start() instead of in process_incoming_migration(). Through this,
-gratituous packets were sent each time when vm starts.
+Export and move announce_self_create() to net.c in order to be used by model
+specific announcing function.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- migration.c |    1 -
- vl.c        |    1 +
- 2 files changed, 1 insertions(+), 1 deletions(-)
+ net.c    |   31 +++++++++++++++++++++++++++++++
+ net.h    |    1 +
+ savevm.c |   32 --------------------------------
+ 3 files changed, 32 insertions(+), 32 deletions(-)
 
-diff --git a/migration.c b/migration.c
-index 77a51ad..3326b02 100644
---- a/migration.c
-+++ b/migration.c
-@@ -67,7 +67,6 @@ void process_incoming_migration(QEMUFile *f)
-         fprintf(stderr, "load of migration failed\n");
-         exit(0);
-     }
--    qemu_announce_self();
-     DPRINTF("successfully loaded vm state\n");
+diff --git a/net.c b/net.c
+index d05930c..516ff9e 100644
+--- a/net.c
++++ b/net.c
+@@ -42,6 +42,37 @@ static QTAILQ_HEAD(, VLANClientState) non_vlan_clients;
  
-     if (autostart) {
-diff --git a/vl.c b/vl.c
-index dbf7778..e4408e0 100644
---- a/vl.c
-+++ b/vl.c
-@@ -1262,6 +1262,7 @@ void vm_start(void)
-         vm_state_notify(1, RUN_STATE_RUNNING);
-         resume_all_vcpus();
-         monitor_protocol_event(QEVENT_RESUME, NULL);
-+        qemu_announce_self();
-     }
- }
+ int default_net = 1;
  
++#ifndef ETH_P_RARP
++#define ETH_P_RARP 0x8035
++#endif
++#define ARP_HTYPE_ETH 0x0001
++#define ARP_PTYPE_IP 0x0800
++#define ARP_OP_REQUEST_REV 0x3
++
++int announce_self_create(uint8_t *buf, uint8_t *mac_addr)
++{
++    /* Ethernet header. */
++    memset(buf, 0xff, 6);         /* destination MAC addr */
++    memcpy(buf + 6, mac_addr, 6); /* source MAC addr */
++    *(uint16_t *)(buf + 12) = htons(ETH_P_RARP); /* ethertype */
++
++    /* RARP header. */
++    *(uint16_t *)(buf + 14) = htons(ARP_HTYPE_ETH); /* hardware addr space */
++    *(uint16_t *)(buf + 16) = htons(ARP_PTYPE_IP); /* protocol addr space */
++    *(buf + 18) = 6; /* hardware addr length (ethernet) */
++    *(buf + 19) = 4; /* protocol addr length (IPv4) */
++    *(uint16_t *)(buf + 20) = htons(ARP_OP_REQUEST_REV); /* opcode */
++    memcpy(buf + 22, mac_addr, 6); /* source hw addr */
++    memset(buf + 28, 0x00, 4);     /* source protocol addr */
++    memcpy(buf + 32, mac_addr, 6); /* target hw addr */
++    memset(buf + 38, 0x00, 4);     /* target protocol addr */
++
++    /* Padding to get up to 60 bytes (ethernet min packet size, minus FCS). */
++    memset(buf + 42, 0x00, 18);
++
++    return 60; /* len (FCS will be added by hardware) */
++}
++
+ /***********************************************************/
+ /* network device redirectors */
+ 
+diff --git a/net.h b/net.h
+index 9f633f8..4943d4b 100644
+--- a/net.h
++++ b/net.h
+@@ -178,5 +178,6 @@ int do_netdev_del(Monitor *mon, const QDict *qdict, QObject **ret_data);
+ void qdev_set_nic_properties(DeviceState *dev, NICInfo *nd);
+ 
+ int net_handle_fd_param(Monitor *mon, const char *param);
++int announce_self_create(uint8_t *buf, uint8_t *mac_addr);
+ 
+ #endif
+diff --git a/savevm.c b/savevm.c
+index bf4d0e7..8293ee6 100644
+--- a/savevm.c
++++ b/savevm.c
+@@ -85,38 +85,6 @@
+ 
+ #define SELF_ANNOUNCE_ROUNDS 5
+ 
+-#ifndef ETH_P_RARP
+-#define ETH_P_RARP 0x8035
+-#endif
+-#define ARP_HTYPE_ETH 0x0001
+-#define ARP_PTYPE_IP 0x0800
+-#define ARP_OP_REQUEST_REV 0x3
+-
+-static int announce_self_create(uint8_t *buf,
+-				uint8_t *mac_addr)
+-{
+-    /* Ethernet header. */
+-    memset(buf, 0xff, 6);         /* destination MAC addr */
+-    memcpy(buf + 6, mac_addr, 6); /* source MAC addr */
+-    *(uint16_t *)(buf + 12) = htons(ETH_P_RARP); /* ethertype */
+-
+-    /* RARP header. */
+-    *(uint16_t *)(buf + 14) = htons(ARP_HTYPE_ETH); /* hardware addr space */
+-    *(uint16_t *)(buf + 16) = htons(ARP_PTYPE_IP); /* protocol addr space */
+-    *(buf + 18) = 6; /* hardware addr length (ethernet) */
+-    *(buf + 19) = 4; /* protocol addr length (IPv4) */
+-    *(uint16_t *)(buf + 20) = htons(ARP_OP_REQUEST_REV); /* opcode */
+-    memcpy(buf + 22, mac_addr, 6); /* source hw addr */
+-    memset(buf + 28, 0x00, 4);     /* source protocol addr */
+-    memcpy(buf + 32, mac_addr, 6); /* target hw addr */
+-    memset(buf + 38, 0x00, 4);     /* target protocol addr */
+-
+-    /* Padding to get up to 60 bytes (ethernet min packet size, minus FCS). */
+-    memset(buf + 42, 0x00, 18);
+-
+-    return 60; /* len (FCS will be added by hardware) */
+-}
+-
+ static void qemu_announce_self_iter(NICState *nic, void *opaque)
+ {
+     uint8_t buf[60];
+
