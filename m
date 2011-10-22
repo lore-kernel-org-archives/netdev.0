@@ -1,175 +1,117 @@
-From: =?UTF-8?B?RGF2aWQgVMOkaHQ=?= <dave.taht@gmail.com>
-Subject: Re: [PATCH] net: add sysctl allow_so_priority for SO_PRIORITY setsockopt
-Date: Sat, 22 Oct 2011 11:01:18 +0200
-Message-ID: <4EA2865E.2050305@gmail.com>
-References: <1319235725-3046-1-git-send-email-zenczykowski@gmail.com> <20111022.000406.350185785547409199.davem@davemloft.net> <CAHo-OoxtAmzPjr4R7jQOk9GGQo7i-qVmoaY8vTYDQDj1HXsPNA@mail.gmail.com> <20111022.025836.1306779710775525629.davem@davemloft.net> <CAHo-OoyVSbsxb8U3Y5WCNRsxjr00g1O3HJcT1fmu5cmP5i-JsA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG] bonding : LOCKDEP warning
+Date: Sat, 22 Oct 2011 11:05:49 +0200
+Message-ID: <1319274349.6180.23.camel@edumazet-laptop>
+References: <1319268987.6180.21.camel@edumazet-laptop>
+	 <m14nz1l8mc.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010207080509020400080605"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?UTF-8?B?TWFjaWVqIMW7ZW5jenlrb3dza2k=?= <zenczykowski@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37990 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:36363 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753414Ab1JVJBX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2011 05:01:23 -0400
-Received: by wyg36 with SMTP id 36so4691033wyg.19
-        for <netdev@vger.kernel.org>; Sat, 22 Oct 2011 02:01:22 -0700 (PDT)
-In-Reply-To: <CAHo-OoyVSbsxb8U3Y5WCNRsxjr00g1O3HJcT1fmu5cmP5i-JsA@mail.gmail.com>
+	with ESMTP id S1753048Ab1JVJFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2011 05:05:55 -0400
+Received: by wyg36 with SMTP id 36so4693298wyg.19
+        for <netdev@vger.kernel.org>; Sat, 22 Oct 2011 02:05:54 -0700 (PDT)
+In-Reply-To: <m14nz1l8mc.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010207080509020400080605
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-
-On 10/22/2011 10:27 AM, Maciej Żenczykowski wrote:
->> I also don't see why we'd want to allow disabling this either.
-
-I have been watching this and the other capability patches go by with 
-interest. My use case is that I would like to be running "named" as a 
-non-root user, but would like it to vary the dscp (tos) field on a per 
-connection basis.
-
-tcp zone transfers = bulk
-tcp/udp queries = something like interactive | CS5 (this moves dns 
-queries into the VI queue on wireless - which can also be done with 
-SO_PRIORITY)
-
-Having TOS modification as a grant-able capability and otherwise 
-restricting it makes some sense in a world of otherwise unrestricted 
-user programs in the clouds, however I note that setting CS1, reducing 
-something from best effort to background, should also be allowed 
-universally.
-
-I note that another way to hammer down someone elses (guest machine, 
-external router, etc) TOS settings would be to do it in iptables, but to 
-do it on a fine grained basis at present would take up to 63 iptables 
-rules...
-
-lastly...
-
-The skb->priority field needs some re-thought. In the case of wireless, 
-it selects a different tx queue based on magic (see net/wireless/utils.c)
-
-         /* skb->priority values from 256->263 are magic values to
-          * directly indicate a specific 802.1d priority.  This is used
-          * to allow 802.1d priority to be passed directly in from VLAN
-          * tags, etc.
-          */
-         if (skb->priority >= 256 && skb->priority <= 263)
-                 return skb->priority - 256;
-
-
-classification is an aristotelian rathole!
-
->> I really hate these patches that offer ways to disable things
->> that normally work, and thus break apps when the non-default
->> is selected.
-> Well... the purpose of settings like this is precisely to break functionality
-> when the default is not set ;-)
->
->> I kind of have a feeling the kind of situation you're trying to
->> account for, you have some cloud where people run random stuff
->> that you don't control.
-> Yes, I have control of the kernel, I have control of root, I have control of
-> some daemons that are running on the machine, but I don't really have
-> control of the entirety of userspace, some of it I have source code for
-> and could audit to guarantee correctness (but I can't really enforce
-> that on the users, ultimately they can run any binary),
-> and for some of it I don't even have that.  Either way, it's much
-> easier to delegate setting policy to
-> userspace management daemon(s), and leave enforcing it to the kernel.
-> This is just one more such knob.
->
->> But you didn't specify this, and we just have to guess.  Why don't you
->> describe the specific situation where you want to modify this setting?
->> Please do this instead of just talking about what the side effects are
->> inside of the kernel.  That's much less interesting when it comes to
->> patches like this.
-> Very well, that's a good point.
->
-> Here's an attempt to provide some insight.
->
-> I am attempting to allow not-fully-code-audited nor fully trusted apps to run
-> in a cgroup containerized environment, with many apps in many
-> containers (not 1:1, has hierarchies) on a single kernel.
-> The apps are in the believed to not be actively malicious class, but
-> very likely to be buggy, or written by ill-advised programmers based
-> on wrong/outdated or otherwise incorrect documentation.  I cannot rely
-> on unprivileged userspace getting things right.
-> I have to have some mechanism to grant these apps permissions to
-> utilize specific levels of network fabric priority.  For this I have
-> the aforementioned per-cgroup allowed TOS settings.  VLANs are not appropriate
-> because a client with high priority net privs is allowed to send a
-> request to a server with no special priority permissions.
-> (there are further patches to support tcp tos reflection so the server
-> can automatically respond with the client's priority)
->
-> Multiqueue networking combined with hardware priority queues and xps
-> desires to use skb->priority + active cpu for tx queue selection.
-> In this particular case TX queue selection should happen based on the
-> TOS priority.
-> Setting TOS automatically sets sk_priority (and hence skb->priority).
-> So all's good, so long as userspace doesn't go and change the
-> sk_priority field via SO_PRIORITY and break the mapping.
->
-> As a further note:
->
-> Some of these apps may be a little more special, a little more
-> audited, and a little more trusted.
-> Enough so that they might be granted CAP_NET_RAW, but not enough so
-> that they can get CAP_NET_ADMIN.
-> Hence the general desire for CAP_NET_ADMIN to control general
-> machine-global networking state, but not have it control
-> per-socket or per-packet settings.  ie. bringing up or down an
-> interface affects everyone (hence must be CAP_NET_ADMIN, and much more
-> tightly controlled), while spoofing a packet doesn't really negatively
-> affect anyone (you can't assume the network is trusted, so there can
-> be
-> external sources of spoofing or eavesdropping anyway).
->
+Le samedi 22 octobre 2011 =C3=A0 01:43 -0700, Eric W. Biederman a =C3=A9=
+crit :
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>=20
+> > On latest net-next I got following splat
+>=20
+> Eric it is going to be a little bit before I can test this but I beli=
+eve
+> we just need the one fix in the patch below.  Can you verify this fix=
+es
+> your lockdep issue.
+>=20
+> Thanks,
+>=20
+> Eric
+>=20
+>=20
+> From 60aeafd8976a1117e118574ada44a79b69c75e70 Mon Sep 17 00:00:00 200=
+1
+> From: Eric W. Biederman <ebiederm@xmission.com>
+> Date: Sat, 22 Oct 2011 01:36:18 -0700
+> Subject: [PATCH] bonding:  Add a forgetten sysfs_attr_init on class_a=
+ttr_bonding_masters
+>=20
+> When I made class_attr_bonding_matters per network namespace and dyna=
+mically
+> allocated I overlooked the need for calling sysfs_attr_init.  Oops.
+>=20
+> This fixes the following lockdep splat:
+>=20
+> [    5.749651] bonding: Ethernet Channel Bonding Driver: v3.7.1 (Apri=
+l 27, 2011)
+> [    5.749655] bonding: MII link monitoring set to 100 ms
+> [    5.749676] BUG: key f49a831c not in .data!
+> [    5.749677] ------------[ cut here ]------------
+> [    5.749752] WARNING: at kernel/lockdep.c:2897 lockdep_init_map+0x1=
+c3/0x460()
+> [    5.749809] Hardware name: ProLiant BL460c G1
+> [    5.749862] Modules linked in: bonding(+)
+> [    5.749978] Pid: 3177, comm: modprobe Not tainted 3.1.0-rc9-02177-=
+gf2d1a4e-dirty #1157
+> [    5.750066] Call Trace:
+> [    5.750120]  [<c1352c2f>] ? printk+0x18/0x21
+> [    5.750176]  [<c103112d>] warn_slowpath_common+0x6d/0xa0
+> [    5.750231]  [<c1060133>] ? lockdep_init_map+0x1c3/0x460
+> [    5.750287]  [<c1060133>] ? lockdep_init_map+0x1c3/0x460
+> [    5.750342]  [<c103117d>] warn_slowpath_null+0x1d/0x20
+> [    5.750398]  [<c1060133>] lockdep_init_map+0x1c3/0x460
+> [    5.750453]  [<c1355ddd>] ? _raw_spin_unlock+0x1d/0x20
+> [    5.750510]  [<c11255c8>] ? sysfs_new_dirent+0x68/0x110
+> [    5.750565]  [<c1124d4b>] sysfs_add_file_mode+0x8b/0xe0
+> [    5.750621]  [<c1124db3>] sysfs_add_file+0x13/0x20
+> [    5.750675]  [<c1124e7c>] sysfs_create_file+0x1c/0x20
+> [    5.750737]  [<c1208f09>] class_create_file+0x19/0x20
+> [    5.750794]  [<c12c186f>] netdev_class_create_file+0xf/0x20
+> [    5.750853]  [<f85deaf4>] bond_create_sysfs+0x44/0x90 [bonding]
+> [    5.750911]  [<f8410947>] ? bond_create_proc_dir+0x1e/0x3e [bondin=
+g]
+> [    5.750970]  [<f841007e>] bond_net_init+0x7e/0x87 [bonding]
+> [    5.751026]  [<f8410000>] ? 0xf840ffff
+> [    5.751080]  [<c12abc7a>] ops_init.clone.4+0xba/0x100
+> [    5.751135]  [<c12abdb2>] ? register_pernet_subsys+0x12/0x30
+> [    5.751191]  [<c12abd03>] register_pernet_operations.clone.3+0x43/=
+0x80
+> [    5.751249]  [<c12abdb9>] register_pernet_subsys+0x19/0x30
+> [    5.751306]  [<f84108b9>] bonding_init+0x832/0x8a2 [bonding]
+> [    5.751363]  [<c10011f0>] do_one_initcall+0x30/0x160
+> [    5.751420]  [<f8410087>] ? bond_net_init+0x87/0x87 [bonding]
+> [    5.751477]  [<c106d5cf>] sys_init_module+0xef/0x1890
+> [    5.751533]  [<c1356490>] sysenter_do_call+0x12/0x36
+> [    5.751588] ---[ end trace 89f492d83a7f5006 ]---
+>=20
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 > ---
->
-> I could attempt to publish the vast majority of our internal
-> networking code base (there isn't really anything secret in there),
-> but it's based on 2.6.34 and even after two years of attempting to
-> clean it up and refactor it (along with a rebase from 2.6.26, and all
-> while actively continuing development) I'm still not at the point were
-> I would consider this to be a particular useful course of action
-> (there's a lot of bugfixes of bugfixes of crappy patches in there,
-> plus hacks, plus tons of backports from upstream, and tons of code
-> which is upstream but slightly differently then we have it internally,
-> because we had it first, and pushed v2 upstream, etc...).  Instead I'm
-> trying to get the easy hanging fruit out of the way, rebase our
-> patches onto probably 3.2 or 3.3, likely sending some more your way
-> during the process, and see where that leaves us.  Basically trying to
-> reduce the delta.  We will always have internal only patches, but the
-> fewer, the less burden for us, hence I'm trying to get the ones I
-> believe to be potentially useful externally upstreamed.  Obviously
-> whatever patches you don't accept, we'll still keep around locally.
->
-> Maciej
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  drivers/net/bonding/bond_sysfs.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/b=
+ond_sysfs.c
+> index 6044ff8..5a20804 100644
+> --- a/drivers/net/bonding/bond_sysfs.c
+> +++ b/drivers/net/bonding/bond_sysfs.c
+> @@ -1675,6 +1675,7 @@ int bond_create_sysfs(struct bond_net *bn)
+>  	int ret;
+> =20
+>  	bn->class_attr_bonding_masters =3D class_attr_bonding_masters;
+> +	sysfs_attr_init(&bn->class_attr_bonding_masters.attr);
+> =20
+>  	ret =3D netdev_class_create_file(&bn->class_attr_bonding_masters);
+>  	/*
 
 
--- 
-Dave Täht
+Reported-and-tested-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-
---------------010207080509020400080605
-Content-Type: text/x-vcard; charset=utf-8;
- name="dave_taht.vcf"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="dave_taht.vcf"
-
-YmVnaW46dmNhcmQNCmZuO3F1b3RlZC1wcmludGFibGU6RGF2ZSBUPUMzPUE0aHQNCm47cXVv
-dGVkLXByaW50YWJsZTpUPUMzPUE0aHQ7RGF2ZQ0KZW1haWw7aW50ZXJuZXQ6ZGF2ZS50YWh0
-QGdtYWlsLmNvbQ0KdGVsO2hvbWU6MS0yMzktODI5LTU2MDgNCnRlbDtjZWxsOjA2Mzg2NDUz
-NzQNCngtbW96aWxsYS1odG1sOkZBTFNFDQp2ZXJzaW9uOjIuMQ0KZW5kOnZjYXJkDQoNCg==
---------------010207080509020400080605--
+Thanks a lot Eric !
