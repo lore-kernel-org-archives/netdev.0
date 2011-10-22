@@ -1,30 +1,77 @@
-From: "Mantas M." <grawity@gmail.com>
-Subject: Re: [PATCH] jme: fix irq storm after suspend/resume
-Date: Sat, 22 Oct 2011 19:27:09 +0300
-Message-ID: <j7uqst$kpc$1@dough.gmane.org>
-References: <20111022125620.GA2256@ecki.lan>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next V2] net: introduce ethernet teaming device
+Date: Sat, 22 Oct 2011 18:51:22 +0200
+Message-ID: <1319302282.6180.60.camel@edumazet-laptop>
+References: <1319200747-2508-1-git-send-email-jpirko@redhat.com>
+	 <1319208237.32161.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111022151346.GA2028@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111022125620.GA2256@ecki.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
+	jzupka@redhat.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:48444 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754031Ab1JVQvb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2011 12:51:31 -0400
+Received: by wyg36 with SMTP id 36so4910193wyg.19
+        for <netdev@vger.kernel.org>; Sat, 22 Oct 2011 09:51:30 -0700 (PDT)
+In-Reply-To: <20111022151346.GA2028@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22/10/11 15:56, Clemens Buchacher wrote:
-> If the device is down during suspend/resume, interrupts are enabled
-> without a registered interrupt handler, causing a storm of
-> unhandled interrupts until the IRQ is disabled because "nobody
-> cared".
->
-> Instead, check that the device is up before touching it in the
-> suspend/resume code.
->
-> Fixes https://bugzilla.kernel.org/show_bug.cgi?id=39112
+Le samedi 22 octobre 2011 =C3=A0 17:13 +0200, Jiri Pirko a =C3=A9crit :
+> >> +
+> >> +/************************
+> >> + * Rx path frame handler
+> >> + ************************/
+> >> +
+> >> +/* note: already called with rcu_read_lock */
+> >> +static rx_handler_result_t team_handle_frame(struct sk_buff **psk=
+b)
+> >> +{
+> >> +	struct sk_buff *skb =3D *pskb;
+> >> +	struct team_port *port;
+> >> +	struct team *team;
+> >> +	rx_handler_result_t res =3D RX_HANDLER_ANOTHER;
+> >> +
+> >> +	skb =3D skb_share_check(skb, GFP_ATOMIC);
+> >> +	if (!skb)
+> >> +		return RX_HANDLER_CONSUMED;
+> >> +
+> >> +	*pskb =3D skb;
+> >> +
+> >> +	port =3D team_port_get_rcu(skb->dev);
+> >> +	team =3D port->team;
+> >> +
+> >> +	if (team->mode_ops.receive)
+> >
+> >Hmm, you need ACCESS_ONCE() here or rcu_dereference()
+> >
+> >See commit 4d97480b1806e883eb (bonding: use local function pointer o=
+f
+> >bond->recv_probe in bond_handle_frame) for reference
+>=20
+> I do not think so. Because mode_ops.receive changes only from
+> __team_change_mode() and this can be called only in case no ports are=
+ in
+> team. And team_port_del() calls synchronize_rcu().
+>=20
 
-Just tested the patch, suspend/resume works well.
 
--- 
-Mantas M.
+
+We are used to code following this template :
+
+if (ops->handler)
+	ops->handler(arguments);
+
+But this is valid only because ops points to constant memory.
+
+
+In your case, we really see its not true, dont try to pretend its safe.
