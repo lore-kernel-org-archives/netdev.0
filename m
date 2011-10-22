@@ -1,77 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next V2] net: introduce ethernet teaming device
-Date: Sat, 22 Oct 2011 18:51:22 +0200
-Message-ID: <1319302282.6180.60.camel@edumazet-laptop>
-References: <1319200747-2508-1-git-send-email-jpirko@redhat.com>
-	 <1319208237.32161.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111022151346.GA2028@minipsycho.orion>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Kernel driver r8169 not working for Realtek 8111E onboard network card
+Date: Sat, 22 Oct 2011 23:44:43 +0200
+Message-ID: <20111022214443.GA21689@electric-eye.fr.zoreil.com>
+References: <1319296941.68390.YahooMailNeo@web161905.mail.bf1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
-	jzupka@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Adrian George Sav <adi_sav@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48444 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754031Ab1JVQvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2011 12:51:31 -0400
-Received: by wyg36 with SMTP id 36so4910193wyg.19
-        for <netdev@vger.kernel.org>; Sat, 22 Oct 2011 09:51:30 -0700 (PDT)
-In-Reply-To: <20111022151346.GA2028@minipsycho.orion>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58514 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752071Ab1JVVr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Oct 2011 17:47:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1319296941.68390.YahooMailNeo@web161905.mail.bf1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 22 octobre 2011 =C3=A0 17:13 +0200, Jiri Pirko a =C3=A9crit :
-> >> +
-> >> +/************************
-> >> + * Rx path frame handler
-> >> + ************************/
-> >> +
-> >> +/* note: already called with rcu_read_lock */
-> >> +static rx_handler_result_t team_handle_frame(struct sk_buff **psk=
-b)
-> >> +{
-> >> +	struct sk_buff *skb =3D *pskb;
-> >> +	struct team_port *port;
-> >> +	struct team *team;
-> >> +	rx_handler_result_t res =3D RX_HANDLER_ANOTHER;
-> >> +
-> >> +	skb =3D skb_share_check(skb, GFP_ATOMIC);
-> >> +	if (!skb)
-> >> +		return RX_HANDLER_CONSUMED;
-> >> +
-> >> +	*pskb =3D skb;
-> >> +
-> >> +	port =3D team_port_get_rcu(skb->dev);
-> >> +	team =3D port->team;
-> >> +
-> >> +	if (team->mode_ops.receive)
-> >
-> >Hmm, you need ACCESS_ONCE() here or rcu_dereference()
-> >
-> >See commit 4d97480b1806e883eb (bonding: use local function pointer o=
-f
-> >bond->recv_probe in bond_handle_frame) for reference
->=20
-> I do not think so. Because mode_ops.receive changes only from
-> __team_change_mode() and this can be called only in case no ports are=
- in
-> team. And team_port_del() calls synchronize_rcu().
->=20
+Adrian George Sav <adi_sav@yahoo.com> :
+[...]
+> I am having trouble with the r8169 kernel driver for Realtek 8111E network
+> card. The NIC works intermittently and horribly with this driver. Unusable.
+> 
+> Below is my config. I am happy to provide any and every other necessary
+> information to help in solving this.
 
+Up to 2.6.39 ?
 
+Your r8169 driver is too old. Please try current -rc and send your dmesg
+including the XID line from the r8169 driver.
 
-We are used to code following this template :
-
-if (ops->handler)
-	ops->handler(arguments);
-
-But this is valid only because ops points to constant memory.
-
-
-In your case, we really see its not true, dont try to pretend its safe.
+-- 
+Ueimor
