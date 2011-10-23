@@ -1,84 +1,46 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next V2] net: introduce ethernet teaming device
-Date: Sun, 23 Oct 2011 17:50:53 +0200
-Message-ID: <20111023155051.GA2141@minipsycho.redhat.com>
-References: <1319200747-2508-1-git-send-email-jpirko@redhat.com>
- <1319208237.32161.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
- <20111022151346.GA2028@minipsycho.orion>
- <1319302282.6180.60.camel@edumazet-laptop>
- <20111023082545.GA15908@minipsycho.orion>
- <1319366709.27507.14.camel@edumazet-laptop>
- <20111023125101.GA20078@minipsycho.orion>
- <1319380668.27507.19.camel@edumazet-laptop>
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: Re: [PATCH 05/10] RDMA/cxgb4: Add DB Overflow Avoidance.
+Date: Sun, 23 Oct 2011 10:33:49 -0500
+Message-ID: <4EA433DD.6090805@opengridcomputing.com>
+References: <1319044264-779-1-git-send-email-vipul@chelsio.com> <1319044264-779-6-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
-	jzupka@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11055 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751538Ab1JWPvY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Oct 2011 11:51:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1319380668.27507.19.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1319044264-779-6-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Oct 23, 2011 at 04:37:48PM CEST, eric.dumazet@gmail.com wrote:
->Le dimanche 23 octobre 2011 =E0 14:51 +0200, Jiri Pirko a =E9crit :
->
->> Yes. And team->mode_ops.receive can change only after synchronize_rc=
-u is
->> done. It's not possible it changes within the window you are talking=
- about.
->
->If it was true, you would not need the synchronize_rcu() call you adde=
-d
->in __team_change_mode() :
->
->
->----------------------------------------------------------------------
->
->static int __team_change_mode(struct team *team,
->                             const struct team_mode *new_mode)
->{
->       /* Check if mode was previously set and do cleanup if so */
->       if (team->mode_kind) {
->               void (*exit_op)(struct team *team) =3D team->mode_ops.e=
-xit;
->
->               /* Clear ops area so no callback is called any longer *=
-/
->               team_mode_ops_clear(&team->mode_ops);
->
->               synchronize_rcu();
->
->               if (exit_op)
->                       exit_op(team);
->
->
->----------------------------------------------------------------------=
--
->
->So the question is : Why do you have this synchronize_rcu() call here =
-?
 
-You are right. This call is redundant here. I'll remove it.
-This also means I can use memset & memcpy for mode_ops after all.
-
-I'll change that and add comment about this locking situation to avoid
-confusion.
-
-Thanks a lot Eric!
-
-Jirka
-
+On 10/19/2011 12:10 PM, Vipul Pandya wrote:
+>          - get FULL/EMPTY/DROP events from LLD
 >
+>          - on FULL event, disable normal user mode DB rings.
 >
+>          - add modify_qp semantics to allow user processes to call into
+>          the kernel to ring doobells without overflowing.
 >
+>          Add DB Full/Empty/Drop stats.
+>
+>          Mark queues when created indicating the doorbell state.
+>
+>          If we're in the middle of db overflow avoidance, then newly created
+>          queues should start out in this mode.
+>
+
+Hey Vipul,
+
+I just realized, we need to bump the ABI for iw_cxgb4 with this series 
+so the user mode library can know if the driver supports the kernel mode 
+db ringing. So bump C4IW_UVERBS_ABI_VERSION to 3.
+
+Steve.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
