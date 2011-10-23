@@ -1,103 +1,37 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipv4: fix ipsec forward performance regression
-Date: Sun, 23 Oct 2011 17:52:46 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1110231533410.1499@ja.ssi.bg>
-References: <4EA3C91C.3090801@intel.com>
+From: Kartik Chandran <kartik@aristanetworks.com>
+Subject: Re: [PATCH net-next] bonding: fix wrong port enabling in 802.3ad
+Date: Sun, 23 Oct 2011 08:04:09 -0700
+Message-ID: <CAGMsbm4NvX1G6xZyM-cuW_VoJgm=w2o2n3XqzSit0umcGuRqVA@mail.gmail.com>
+References: <CAGMsbm4DMPfT6zSZp+fH2XB_gRUHR9FSRDxcwBJVCOhUi4j9AA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	Kim Phillips <kim.phillips@freescale.com>
-To: "Yan, Zheng" <zheng.z.yan@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Sriram Chidambaram <srichida@aristanetworks.com>,
+	Hugh Holbrook <holbrook@aristanetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:50535 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755597Ab1JWOvO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Oct 2011 10:51:14 -0400
-In-Reply-To: <4EA3C91C.3090801@intel.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:49091 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755336Ab1JWPEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 11:04:10 -0400
+Received: by ggnb1 with SMTP id b1so5039911ggn.19
+        for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 08:04:09 -0700 (PDT)
+In-Reply-To: <CAGMsbm4DMPfT6zSZp+fH2XB_gRUHR9FSRDxcwBJVCOhUi4j9AA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+By a strange coincidence, we ran into this exact issue last week while
+experimenting with the "standby" state, where we discovered that the
+current implementation in bond_3ad does not pay attention to the Mux
+SM state when deciding to enable a slave port for transmission, which
+causes misbehavior in forwarding on the partner side.
 
-	Hello,
+Since the question was raised on the thread about what the 802.3ad
+spec says in this respect, we can confidently answer that the spec
+clearly mandates that the aggregator should include a port for
+transmission only when it goes to DISTRIBUTING ( in independent
+control  mode) and COLLECTING+DISTRIBUTING (in coupled mode).
 
-On Sun, 23 Oct 2011, Yan, Zheng wrote:
+We are testing this extensively right now, so I'm happy to try out
+this patch and report back with findings.
 
-> There is bug in commit 5e2b61f(ipv4: Remove flowi from struct rtable).
-> It makes xfrm4_fill_dst() modify wrong data structure.
-> 
-> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
-> ---
->  net/ipv4/xfrm4_policy.c |   14 +++++++-------
->  1 files changed, 7 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-> index fc5368a..a0b4c5d 100644
-> --- a/net/ipv4/xfrm4_policy.c
-> +++ b/net/ipv4/xfrm4_policy.c
-> @@ -79,13 +79,13 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
->  	struct rtable *rt = (struct rtable *)xdst->route;
->  	const struct flowi4 *fl4 = &fl->u.ip4;
->  
-> -	rt->rt_key_dst = fl4->daddr;
-> -	rt->rt_key_src = fl4->saddr;
-> -	rt->rt_key_tos = fl4->flowi4_tos;
-> -	rt->rt_route_iif = fl4->flowi4_iif;
-> -	rt->rt_iif = fl4->flowi4_iif;
-> -	rt->rt_oif = fl4->flowi4_oif;
-> -	rt->rt_mark = fl4->flowi4_mark;
-> +	xdst->u.rt.rt_key_dst = fl4->daddr;
-> +	xdst->u.rt.rt_key_src = fl4->saddr;
-> +	xdst->u.rt.rt_key_tos = fl4->flowi4_tos;
-> +	xdst->u.rt.rt_route_iif = fl4->flowi4_iif;
-
-	May be I'm missing something but I don't see where
-flowi4_iif is set for the forwarding case. __xfrm_route_forward
-calls xfrm_decode_session which does not appear to set
-flowi4_iif. When providing fl4 for output routes flowi4_iif
-is always set to 0, so it represents rt_route_iif. But
-then there are 2 variants for __ip_route_output_key:
-
-- ip_route_output_slow sets flowi4_iif to loopback and
-flowi4_oif to outdev during lookup but never restores them
-to original values. It is assumed that caller uses outdev
-from dst, not from flowi4_oif.
-
-- for cached route we do not update flowi4_iif and flowi4_oif
-in __ip_route_output_key, so the resulting fl4 can not be
-used for these values. I assume, the current rules are that
-only fl4.saddr and daddr are updated while flowi4_iif and
-flowi4_oif are not. It looks wrong flowi code to rely on them.
-
-	Currently, we have 3 values for devices:
-
-rt_iif: indev for input routes, resulting outdev for output routes
-which plays the role as indev for loopback traffic.
-
-rt_oif: original outdev key, 0 for input routes, can be 0 for
-output routes if socket is not bound to oif
-
-rt_route_iif: indev for input routes, 0 for output routes
-
-	With above rules for flowi4_iif and flowi4_oif
-it is impossible to select value for rt_iif from fl4.
-
-	I don't know the xfrm code well, may be after the
-mentioned change we damaged rt_oif and rt_route_iif values
-for cached dst which can lead to using slow path all the time.
-Even if rt_intern_hash() avoids caching similar dsts multiple
-times, if cached entry is damaged we will add more and
-more new entries after every damage.
-
-> +	xdst->u.rt.rt_iif = fl4->flowi4_iif;
-> +	xdst->u.rt.rt_oif = fl4->flowi4_oif;
-> +	xdst->u.rt.rt_mark = fl4->flowi4_mark;
->  
->  	xdst->u.dst.dev = dev;
->  	dev_hold(dev);
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-Kartik
