@@ -1,37 +1,84 @@
-From: Kartik Chandran <kartik@aristanetworks.com>
-Subject: Re: [PATCH net-next] bonding: fix wrong port enabling in 802.3ad
-Date: Sun, 23 Oct 2011 08:04:09 -0700
-Message-ID: <CAGMsbm4NvX1G6xZyM-cuW_VoJgm=w2o2n3XqzSit0umcGuRqVA@mail.gmail.com>
-References: <CAGMsbm4DMPfT6zSZp+fH2XB_gRUHR9FSRDxcwBJVCOhUi4j9AA@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next V2] net: introduce ethernet teaming device
+Date: Sun, 23 Oct 2011 17:50:53 +0200
+Message-ID: <20111023155051.GA2141@minipsycho.redhat.com>
+References: <1319200747-2508-1-git-send-email-jpirko@redhat.com>
+ <1319208237.32161.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20111022151346.GA2028@minipsycho.orion>
+ <1319302282.6180.60.camel@edumazet-laptop>
+ <20111023082545.GA15908@minipsycho.orion>
+ <1319366709.27507.14.camel@edumazet-laptop>
+ <20111023125101.GA20078@minipsycho.orion>
+ <1319380668.27507.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Sriram Chidambaram <srichida@aristanetworks.com>,
-	Hugh Holbrook <holbrook@aristanetworks.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
+	jzupka@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:49091 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755336Ab1JWPEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 11:04:10 -0400
-Received: by ggnb1 with SMTP id b1so5039911ggn.19
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 08:04:09 -0700 (PDT)
-In-Reply-To: <CAGMsbm4DMPfT6zSZp+fH2XB_gRUHR9FSRDxcwBJVCOhUi4j9AA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:11055 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751538Ab1JWPvY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Oct 2011 11:51:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1319380668.27507.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By a strange coincidence, we ran into this exact issue last week while
-experimenting with the "standby" state, where we discovered that the
-current implementation in bond_3ad does not pay attention to the Mux
-SM state when deciding to enable a slave port for transmission, which
-causes misbehavior in forwarding on the partner side.
+Sun, Oct 23, 2011 at 04:37:48PM CEST, eric.dumazet@gmail.com wrote:
+>Le dimanche 23 octobre 2011 =E0 14:51 +0200, Jiri Pirko a =E9crit :
+>
+>> Yes. And team->mode_ops.receive can change only after synchronize_rc=
+u is
+>> done. It's not possible it changes within the window you are talking=
+ about.
+>
+>If it was true, you would not need the synchronize_rcu() call you adde=
+d
+>in __team_change_mode() :
+>
+>
+>----------------------------------------------------------------------
+>
+>static int __team_change_mode(struct team *team,
+>                             const struct team_mode *new_mode)
+>{
+>       /* Check if mode was previously set and do cleanup if so */
+>       if (team->mode_kind) {
+>               void (*exit_op)(struct team *team) =3D team->mode_ops.e=
+xit;
+>
+>               /* Clear ops area so no callback is called any longer *=
+/
+>               team_mode_ops_clear(&team->mode_ops);
+>
+>               synchronize_rcu();
+>
+>               if (exit_op)
+>                       exit_op(team);
+>
+>
+>----------------------------------------------------------------------=
+-
+>
+>So the question is : Why do you have this synchronize_rcu() call here =
+?
 
-Since the question was raised on the thread about what the 802.3ad
-spec says in this respect, we can confidently answer that the spec
-clearly mandates that the aggregator should include a port for
-transmission only when it goes to DISTRIBUTING ( in independent
-control  mode) and COLLECTING+DISTRIBUTING (in coupled mode).
+You are right. This call is redundant here. I'll remove it.
+This also means I can use memset & memcpy for mode_ops after all.
 
-We are testing this extensively right now, so I'm happy to try out
-this patch and report back with findings.
+I'll change that and add comment about this locking situation to avoid
+confusion.
 
--Kartik
+Thanks a lot Eric!
+
+Jirka
+
+>
+>
+>
