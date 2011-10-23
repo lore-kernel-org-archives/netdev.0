@@ -1,66 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next V2] net: introduce ethernet teaming device
-Date: Sun, 23 Oct 2011 16:37:48 +0200
-Message-ID: <1319380668.27507.19.camel@edumazet-laptop>
-References: <1319200747-2508-1-git-send-email-jpirko@redhat.com>
-	 <1319208237.32161.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111022151346.GA2028@minipsycho.orion>
-	 <1319302282.6180.60.camel@edumazet-laptop>
-	 <20111023082545.GA15908@minipsycho.orion>
-	 <1319366709.27507.14.camel@edumazet-laptop>
-	 <20111023125101.GA20078@minipsycho.orion>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: fix ipsec forward performance regression
+Date: Sun, 23 Oct 2011 17:52:46 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1110231533410.1499@ja.ssi.bg>
+References: <4EA3C91C.3090801@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
-	jzupka@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	Kim Phillips <kim.phillips@freescale.com>
+To: "Yan, Zheng" <zheng.z.yan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:41331 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755649Ab1JWOhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 10:37:55 -0400
-Received: by wwe6 with SMTP id 6so7785796wwe.1
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 07:37:54 -0700 (PDT)
-In-Reply-To: <20111023125101.GA20078@minipsycho.orion>
+Received: from ja.ssi.bg ([178.16.129.10]:50535 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755597Ab1JWOvO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Oct 2011 10:51:14 -0400
+In-Reply-To: <4EA3C91C.3090801@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 23 octobre 2011 =C3=A0 14:51 +0200, Jiri Pirko a =C3=A9crit=
- :
 
-> Yes. And team->mode_ops.receive can change only after synchronize_rcu=
- is
-> done. It's not possible it changes within the window you are talking =
-about.
+	Hello,
 
-If it was true, you would not need the synchronize_rcu() call you added
-in __team_change_mode() :
+On Sun, 23 Oct 2011, Yan, Zheng wrote:
 
+> There is bug in commit 5e2b61f(ipv4: Remove flowi from struct rtable).
+> It makes xfrm4_fill_dst() modify wrong data structure.
+> 
+> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+> ---
+>  net/ipv4/xfrm4_policy.c |   14 +++++++-------
+>  1 files changed, 7 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+> index fc5368a..a0b4c5d 100644
+> --- a/net/ipv4/xfrm4_policy.c
+> +++ b/net/ipv4/xfrm4_policy.c
+> @@ -79,13 +79,13 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+>  	struct rtable *rt = (struct rtable *)xdst->route;
+>  	const struct flowi4 *fl4 = &fl->u.ip4;
+>  
+> -	rt->rt_key_dst = fl4->daddr;
+> -	rt->rt_key_src = fl4->saddr;
+> -	rt->rt_key_tos = fl4->flowi4_tos;
+> -	rt->rt_route_iif = fl4->flowi4_iif;
+> -	rt->rt_iif = fl4->flowi4_iif;
+> -	rt->rt_oif = fl4->flowi4_oif;
+> -	rt->rt_mark = fl4->flowi4_mark;
+> +	xdst->u.rt.rt_key_dst = fl4->daddr;
+> +	xdst->u.rt.rt_key_src = fl4->saddr;
+> +	xdst->u.rt.rt_key_tos = fl4->flowi4_tos;
+> +	xdst->u.rt.rt_route_iif = fl4->flowi4_iif;
 
-----------------------------------------------------------------------
+	May be I'm missing something but I don't see where
+flowi4_iif is set for the forwarding case. __xfrm_route_forward
+calls xfrm_decode_session which does not appear to set
+flowi4_iif. When providing fl4 for output routes flowi4_iif
+is always set to 0, so it represents rt_route_iif. But
+then there are 2 variants for __ip_route_output_key:
 
-static int __team_change_mode(struct team *team,
-                             const struct team_mode *new_mode)
-{
-       /* Check if mode was previously set and do cleanup if so */
-       if (team->mode_kind) {
-               void (*exit_op)(struct team *team) =3D team->mode_ops.ex=
-it;
+- ip_route_output_slow sets flowi4_iif to loopback and
+flowi4_oif to outdev during lookup but never restores them
+to original values. It is assumed that caller uses outdev
+from dst, not from flowi4_oif.
 
-               /* Clear ops area so no callback is called any longer */
-               team_mode_ops_clear(&team->mode_ops);
+- for cached route we do not update flowi4_iif and flowi4_oif
+in __ip_route_output_key, so the resulting fl4 can not be
+used for these values. I assume, the current rules are that
+only fl4.saddr and daddr are updated while flowi4_iif and
+flowi4_oif are not. It looks wrong flowi code to rely on them.
 
-               synchronize_rcu();
+	Currently, we have 3 values for devices:
 
-               if (exit_op)
-                       exit_op(team);
+rt_iif: indev for input routes, resulting outdev for output routes
+which plays the role as indev for loopback traffic.
 
+rt_oif: original outdev key, 0 for input routes, can be 0 for
+output routes if socket is not bound to oif
 
------------------------------------------------------------------------
+rt_route_iif: indev for input routes, 0 for output routes
 
-So the question is : Why do you have this synchronize_rcu() call here ?
+	With above rules for flowi4_iif and flowi4_oif
+it is impossible to select value for rt_iif from fl4.
+
+	I don't know the xfrm code well, may be after the
+mentioned change we damaged rt_oif and rt_route_iif values
+for cached dst which can lead to using slow path all the time.
+Even if rt_intern_hash() avoids caching similar dsts multiple
+times, if cached entry is damaged we will add more and
+more new entries after every damage.
+
+> +	xdst->u.rt.rt_iif = fl4->flowi4_iif;
+> +	xdst->u.rt.rt_oif = fl4->flowi4_oif;
+> +	xdst->u.rt.rt_mark = fl4->flowi4_mark;
+>  
+>  	xdst->u.dst.dev = dev;
+>  	dev_hold(dev);
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
