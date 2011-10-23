@@ -1,46 +1,73 @@
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: Re: [PATCH 05/10] RDMA/cxgb4: Add DB Overflow Avoidance.
-Date: Sun, 23 Oct 2011 10:33:49 -0500
-Message-ID: <4EA433DD.6090805@opengridcomputing.com>
-References: <1319044264-779-1-git-send-email-vipul@chelsio.com> <1319044264-779-6-git-send-email-vipul@chelsio.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1319044264-779-6-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Hofmeister <andi@collax.com>
+Subject: [PATCH] ipv6: Do not use routes from locally generated RAs
+Date: Sun, 23 Oct 2011 18:41:11 +0200
+Message-ID: <1319388071-21323-1-git-send-email-andi@collax.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.collax.com ([213.218.25.154]:47135 "EHLO mail.collax.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752197Ab1JWQuT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Oct 2011 12:50:19 -0400
+Received: from localhost (mail.collax.com [127.0.0.1])
+	by localhost (Postfix) with ESMTP id E783B15F8063
+	for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 18:41:11 +0200 (CEST)
+Received: from mail.collax.com ([127.0.0.1])
+	by localhost (mail.collax.com [127.0.0.1]) (amavisd-new, port 10033)
+	with ESMTP id nbxTR9t0ty2C for <netdev@vger.kernel.org>;
+	Sun, 23 Oct 2011 18:41:11 +0200 (CEST)
+Received: from vmhost.coreworks.de (unknown [172.16.0.12])
+	by mail.collax.com (Postfix) with ESMTP id A7F5615F805F
+	for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 18:41:11 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+When hybrid mode is enabled (accept_ra == 2), the kernel also sees RAs
+generated locally. This is useful since it allows the kernel to auto-configure
+its own interface addresses.
 
-On 10/19/2011 12:10 PM, Vipul Pandya wrote:
->          - get FULL/EMPTY/DROP events from LLD
->
->          - on FULL event, disable normal user mode DB rings.
->
->          - add modify_qp semantics to allow user processes to call into
->          the kernel to ring doobells without overflowing.
->
->          Add DB Full/Empty/Drop stats.
->
->          Mark queues when created indicating the doorbell state.
->
->          If we're in the middle of db overflow avoidance, then newly created
->          queues should start out in this mode.
->
+However, if 'accept_ra_defrtr' and/or 'accept_ra_rtr_pref' are set and the
+locally generated RAs announce the default route and/or other route information,
+the kernel happily inserts bogus routes with its own address as gateway.
 
-Hey Vipul,
+With this patch, adding routes from an RA will be skiped when the RAs source
+address matches any local address, just as if 'accept_ra_defrtr' and
+'accept_ra_rtr_pref' were set to 0.
+---
+ net/ipv6/ndisc.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-I just realized, we need to bump the ABI for iw_cxgb4 with this series 
-so the user mode library can know if the driver supports the kernel mode 
-db ringing. So bump C4IW_UVERBS_ABI_VERSION to 3.
-
-Steve.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 67501b6..00fa46e1 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1226,6 +1226,9 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 	if (!in6_dev->cnf.accept_ra_defrtr)
+ 		goto skip_defrtr;
+ 
++	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr, NULL, 0))
++		goto skip_defrtr;
++
+ 	lifetime = ntohs(ra_msg->icmph.icmp6_rt_lifetime);
+ 
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+@@ -1350,6 +1353,9 @@ skip_linkparms:
+ 		goto out;
+ 
+ #ifdef CONFIG_IPV6_ROUTE_INFO
++	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr, NULL, 0))
++		goto skip_routeinfo;
++
+ 	if (in6_dev->cnf.accept_ra_rtr_pref && ndopts.nd_opts_ri) {
+ 		struct nd_opt_hdr *p;
+ 		for (p = ndopts.nd_opts_ri;
+@@ -1367,6 +1373,8 @@ skip_linkparms:
+ 				      &ipv6_hdr(skb)->saddr);
+ 		}
+ 	}
++
++skip_routeinfo:
+ #endif
+ 
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+-- 
+1.7.6.1
