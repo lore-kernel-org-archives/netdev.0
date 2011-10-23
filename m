@@ -1,83 +1,122 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next V2] net: introduce ethernet teaming device
-Date: Sun, 23 Oct 2011 12:45:09 +0200
-Message-ID: <1319366709.27507.14.camel@edumazet-laptop>
-References: <1319200747-2508-1-git-send-email-jpirko@redhat.com>
-	 <1319208237.32161.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111022151346.GA2028@minipsycho.orion>
-	 <1319302282.6180.60.camel@edumazet-laptop>
-	 <20111023082545.GA15908@minipsycho.orion>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH 00/28 v6] m68k: Convert to genirq
+Date: Sun, 23 Oct 2011 21:29:10 +1000
+Message-ID: <4EA3FA86.7000905@snapgear.com>
+References: <1315742394-16036-1-git-send-email-geert@linux-m68k.org>	<CAMuHMdWOhKcoDoyTnKJzruZ=gpV5uKNFpXnGCkrac7oEkCihJw@mail.gmail.com> <CAMuHMdX7C5NU5_MO5GdO=Pf2X59B3vFo4Y9B5wg-NQzwVbbLZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
-	jzupka@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:48816 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753024Ab1JWKpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 06:45:15 -0400
-Received: by wwe6 with SMTP id 6so7636745wwe.1
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 03:45:14 -0700 (PDT)
-In-Reply-To: <20111023082545.GA15908@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-m68k@lists.linux-m68k.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdX7C5NU5_MO5GdO=Pf2X59B3vFo4Y9B5wg-NQzwVbbLZA@mail.gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 23 octobre 2011 =C3=A0 10:25 +0200, Jiri Pirko a =C3=A9crit=
- :
+Hi Geert,
 
-> Please forgive me, it's possible I'm missing something. But I see no =
-way how
-> team->mode_ops.receive can change during team_handle_frame (holding
-> rcu_read_lock) for the reason I stated earlier.
->=20
-> team_port_del() calls netdev_rx_handler_unregister() and after that i=
-t
-> calls synchronize_rcu(). That ensures that by the finish of team_port=
-_del()
-> run, team_handle_frame() is not called for this port anymore.
->=20
-> And this combined with "if (!list_empty(&team->port_list))" check in
-> team_change_mode() ensures safety.
->=20
-> Of course team_port_del() and team_change_mode() are both protected b=
-y
-> team->lock so they are mutually excluded.
+On 10/23/2011 07:49 PM, Geert Uytterhoeven wrote:
+> On Thu, Oct 20, 2011 at 14:18, Geert Uytterhoeven<geert@linux-m68k.or=
+g>  wrote:
+>> On Sun, Sep 11, 2011 at 13:59, Geert Uytterhoeven<geert@linux-m68k.o=
+rg>  wrote:
+>>> This patch series converts the m68k/mmu (nommu was converted before=
+)
+>>> architecture to the generic hardirq framework.
+>>>
+>>> =C3=A1- [01/28] genirq: Add missing "else" in irq_shutdown()
+>>> =C3=A1- [02/28] ide-{cd,floppy,tape}: Do not include<linux/irq.>
+>>> =C3=A1- [03/28] keyboard: Do not include<linux/irq.>
+>>> =C3=A1- [04/28] m68k/irq: Rename irq_controller to irq_chip
+>>> =C3=A1- [05/28] m68k/irq: Kill irq_node_t typedef, always use struc=
+t irq_node
+>>> =C3=A1- [06/28] m68k/irq: Rename irq_node to irq_data
+>>> =C3=A1- [07/28] m68k/irq: Switch irq_chip methods to "struct irq_da=
+ta *data"
+>>> =C3=A1- [08/28] m68k/irq: Rename setup_irq() to m68k_setup_irq() an=
+d make it static
+>>> =C3=A1- [09/28] m68k/irq: Extract irq_set_chip()
+>>> =C3=A1- [10/28] m68k/irq: Add m68k_setup_irq_controller()
+>>> =C3=A1- [11/28] m68k/irq: Rename {,__}m68k_handle_int()
+>>> =C3=A1- [12/28] m68k/irq: Remove obsolete IRQ_FLG_* definitions and=
+ users
+>>> =C3=A1- [13/28] m68k/irq: Add genirq support
+>>> =C3=A1- [14/28] m68k/atari: Convert Atari to genirq
+>>> =C3=A1- [15/28] m68k/atari: Remove code and comments about differen=
+t irq types
+>>> =C3=A1- [16/28] m68k/amiga: Refactor amiints.c
+>>> =C3=A1- [17/28] m68k/amiga: Convert Amiga to genirq
+>>> =C3=A1- [18/28] m68k/amiga: Optimize interrupts using chain handler=
+s
+>>> =C3=A1- [19/28] m68k/mac: Convert Mac to genirq
+>>> =C3=A1- [20/28] m68k/mac: Optimize interrupts using chain handlers
+>>> =C3=A1- [21/28] m68k/hp300: Convert HP9000/300 and HP9000/400 to ge=
+nirq
+>>> =C3=A1- [22/28] m68k/vme: Convert VME to genirq
+>>> =C3=A1- [23/28] m68k/apollo: Convert Apollo to genirq
+>>> =C3=A1- [24/28] m68k/sun3: Use the kstat_irqs_cpu() wrapper
+>>> =C3=A1- [25/28] m68k/sun3: Convert Sun3/3x to genirq
+>>> =C3=A1- [26/28] m68k/q40: Convert Q40/Q60 to genirq
+>>> =C3=A1- [27/28] m68k/irq: Remove obsolete m68k irq framework
+>>> =C3=A1- [28/28] m68k/irq: Remove obsolete support for user vector i=
+nterrupt fixups
+>>>
+>>> Overview:
+>>> =C3=A1- [01] is a fix for the core genirq code,
+>>
+>> This went into v3.1-rc6.
+>>
+>>> =C3=A1- [02-03] are fixes to avoid compile problems later in the co=
+nversion
+>>> =C3=A1 =C3=A1process,
+>>
+>> The keyboard path went into the tty -next tree.
+>> The IDE one is still pending (I've just resent it).
+>
+> The IDE one got acked in the mean time.
+>
+>>> I will update my m68k-genirq branch as soon as master.kernel.org is=
+ available
+>>> again.
+>>
+>> Updated, on top of m68k master (which is at v3.1-rc10 now).
+>> http://git.kernel.org/?p=3Dlinux/kernel/git/geert/linux-m68k.git;a=3D=
+shortlog;h=3Drefs/heads/m68k-genirq
+>>
+>> If noone objects, I'd like to add this to the m68k master and for-3.=
+2 branches.
+>
+> I added it to m68k master.
+>
+> As there were several merge conflicts with current -next
+> (arch/m68k/kernel/Makefile_mm
+> due to the mmu/nommu merge, and drivers/net/macsonic.c in [12/28] due
+> to the network
+> driver reshuffling dance), I did not add it to for-3.2 and for-next,
+> but to for-3.3.
+>
+> Depending on Stephen's return during or after the merge window, and
+> the merge timing
+> of the m68knommu and netdev trees, I may stil try to sneak it in 3.2,=
+ though.
 
-Oh well.
+I can ask Linus to pull the m68knommu tree early in the merge window,
+if that will help.
 
-Jirka, I believe I do understand how RCU is working ;)
-
-There is an obvious problem I pointed to you, but you persist leaving
-this potential bug.
-
-After netdev_rx_handler_unregister(), you can still have other cpus
-calling your handler and reading/using previous memory content. Only
-after synchronize_rcu() you can be safe. But in your patch the bug
-window is _exactly_ _before_ synchronize_rcu() returns.
-
-Your spinlock wont help you at all, since readers dont take it.
-Spinlock only protects writers.
+Regards
+Greg
 
 
-So a reader, even holding rcu lock, can really see two different
-mode_ops.receive values for the :
-
-if (team->mode_ops.receive)
-	res =3D team->mode_ops.receive(team, port, skb);
-
-
-rcu_lock() doesnt mean the reader can see an unique .receive value,
-
-I am afraid you misunderstood the point.
-
-Real point of RCU here is that the _writer_ wont returns from
-synchronize_rcu() if at least one reader is still running the handler.
-
-No problem with me, I'll just post a patch later, I just cant Ack your
-work as is.
+-----------------------------------------------------------------------=
+-
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.co=
+m
+SnapGear Group, McAfee                      PHONE:       +61 7 3435 288=
+8
+8 Gardner Close,                            FAX:         +61 7 3891 363=
+0
+Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.co=
+m
