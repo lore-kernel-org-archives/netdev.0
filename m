@@ -1,218 +1,66 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: [PATCH 03/16] mac_sonic: add irq resources and cleanup
-Date: Mon, 24 Oct 2011 01:11:11 +1100
-Message-ID: <20111023141124.538715283@telegraphics.com.au>
-References: <20111023141108.856998818@telegraphics.com.au>
-Cc: linux-m68k@vger.kernel.org, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-Content-Disposition: inline; filename=macsonic-platform-irq-rsrc
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next V2] net: introduce ethernet teaming device
+Date: Sun, 23 Oct 2011 16:37:48 +0200
+Message-ID: <1319380668.27507.19.camel@edumazet-laptop>
+References: <1319200747-2508-1-git-send-email-jpirko@redhat.com>
+	 <1319208237.32161.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111022151346.GA2028@minipsycho.orion>
+	 <1319302282.6180.60.camel@edumazet-laptop>
+	 <20111023082545.GA15908@minipsycho.orion>
+	 <1319366709.27507.14.camel@edumazet-laptop>
+	 <20111023125101.GA20078@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
+	jzupka@redhat.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41331 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755649Ab1JWOhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 10:37:55 -0400
+Received: by wwe6 with SMTP id 6so7785796wwe.1
+        for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 07:37:54 -0700 (PDT)
+In-Reply-To: <20111023125101.GA20078@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make better use of the SONIC platform device by adding irq resources. This moves the via_type logic out of the NIC device driver which improves modularity.
+Le dimanche 23 octobre 2011 =C3=A0 14:51 +0200, Jiri Pirko a =C3=A9crit=
+ :
 
-Since interrupt handlers now run with CPU interrupts disabled, we don't need the macsonic_interrupt() wrapper. Remove it.
+> Yes. And team->mode_ops.receive can change only after synchronize_rcu=
+ is
+> done. It's not possible it changes within the window you are talking =
+about.
 
-For consistency, rename retval as err.
+If it was true, you would not need the synchronize_rcu() call you added
+in __team_change_mode() :
 
-Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 
-Index: linux-m68k/arch/m68k/mac/config.c
-===================================================================
---- linux-m68k.orig/arch/m68k/mac/config.c	2011-10-22 23:02:22.000000000 +1100
-+++ linux-m68k/arch/m68k/mac/config.c	2011-10-23 00:51:11.000000000 +1100
-@@ -936,9 +936,16 @@ static struct platform_device esp_1_pdev
- 	.id		= 1,
- };
- 
-+static struct resource sonic_rsrcs[] = {
-+	{ .flags = IORESOURCE_IRQ },
-+	{ .flags = IORESOURCE_IRQ },
-+};
-+
- static struct platform_device sonic_pdev = {
- 	.name		= "macsonic",
- 	.id		= -1,
-+	.num_resources  = ARRAY_SIZE(sonic_rsrcs),
-+	.resource       = sonic_rsrcs,
- };
- 
- static struct platform_device mace_pdev = {
-@@ -1002,6 +1009,10 @@ int __init mac_platform_init(void)
- 
- 	switch (macintosh_config->ether_type) {
- 	case MAC_ETHER_SONIC:
-+		sonic_rsrcs[0].start = sonic_rsrcs[0].end = IRQ_NUBUS_9;
-+		if (via_alt_mapping)
-+			sonic_rsrcs[1].start = sonic_rsrcs[1].end = IRQ_AUTO_3;
-+
- 		platform_device_register(&sonic_pdev);
- 		break;
- 	case MAC_ETHER_MACE:
-Index: linux-m68k/drivers/net/macsonic.c
-===================================================================
---- linux-m68k.orig/drivers/net/macsonic.c	2011-10-22 23:02:38.000000000 +1100
-+++ linux-m68k/drivers/net/macsonic.c	2011-10-22 23:02:38.000000000 +1100
-@@ -60,7 +60,6 @@
- #include <asm/dma.h>
- #include <asm/macintosh.h>
- #include <asm/macints.h>
--#include <asm/mac_via.h>
- 
- static char mac_sonic_string[] = "macsonic";
- 
-@@ -127,61 +126,49 @@ static inline void bit_reverse_addr(unsi
- 		addr[i] = bitrev8(addr[i]);
- }
- 
--static irqreturn_t macsonic_interrupt(int irq, void *dev_id)
--{
--	irqreturn_t result;
--	unsigned long flags;
--
--	local_irq_save(flags);
--	result = sonic_interrupt(irq, dev_id);
--	local_irq_restore(flags);
--	return result;
--}
--
- static int macsonic_open(struct net_device* dev)
- {
--	int retval;
-+	struct sonic_local *lp = netdev_priv(dev);
-+	int err;
- 
--	retval = request_irq(dev->irq, sonic_interrupt, 0, "sonic", dev);
--	if (retval) {
--		printk(KERN_ERR "%s: unable to get IRQ %d.\n",
--				dev->name, dev->irq);
--		goto err;
--	}
--	/* Under the A/UX interrupt scheme, the onboard SONIC interrupt comes
--	 * in at priority level 3. However, we sometimes get the level 2 inter-
--	 * rupt as well, which must prevent re-entrance of the sonic handler.
--	 */
--	if (dev->irq == IRQ_AUTO_3) {
--		retval = request_irq(IRQ_NUBUS_9, macsonic_interrupt, 0,
--				     "sonic", dev);
--		if (retval) {
--			printk(KERN_ERR "%s: unable to get IRQ %d.\n",
--					dev->name, IRQ_NUBUS_9);
--			goto err_irq;
-+	err = request_irq(dev->irq, sonic_interrupt, 0, "SONIC", dev);
-+	if (err) {
-+		pr_err("%s: unable to get IRQ %d\n", dev->name, dev->irq);
-+		goto out;
-+	}
-+	if (lp->irq1) {
-+		err = request_irq(lp->irq1, sonic_interrupt, 0, "SONIC", dev);
-+		if (err) {
-+			pr_err("%s: unable to get IRQ %d\n",
-+			       dev->name, lp->irq1);
-+			goto out_irq;
- 		}
- 	}
--	retval = sonic_open(dev);
--	if (retval)
--		goto err_irq_nubus;
-+	err = sonic_open(dev);
-+	if (err)
-+		goto out_irq1;
-+
- 	return 0;
- 
--err_irq_nubus:
--	if (dev->irq == IRQ_AUTO_3)
--		free_irq(IRQ_NUBUS_9, dev);
--err_irq:
-+out_irq1:
-+	if (lp->irq1)
-+		free_irq(lp->irq1, dev);
-+out_irq:
- 	free_irq(dev->irq, dev);
--err:
--	return retval;
-+out:
-+	return err;
- }
- 
- static int macsonic_close(struct net_device* dev)
- {
-+	struct sonic_local *lp = netdev_priv(dev);
- 	int err;
-+
- 	err = sonic_close(dev);
-+
-+	if (lp->irq1)
-+		free_irq(lp->irq1, dev);
- 	free_irq(dev->irq, dev);
--	if (dev->irq == IRQ_AUTO_3)
--		free_irq(IRQ_NUBUS_9, dev);
- 	return err;
- }
- 
-@@ -310,8 +297,9 @@ static void __devinit mac_onboard_sonic_
- 	random_ether_addr(dev->dev_addr);
- }
- 
--static int __devinit mac_onboard_sonic_probe(struct net_device *dev)
-+static int __devinit mac_onboard_sonic_probe(struct platform_device *pdev)
- {
-+	struct net_device *dev = platform_get_drvdata(pdev);
- 	struct sonic_local* lp = netdev_priv(dev);
- 	int sr;
- 	int commslot = 0;
-@@ -348,10 +336,12 @@ static int __devinit mac_onboard_sonic_p
- 	/* Danger!  My arms are flailing wildly!  You *must* set lp->reg_offset
- 	 * and dev->base_addr before using SONIC_READ() or SONIC_WRITE() */
- 	dev->base_addr = ONBOARD_SONIC_REGISTERS;
--	if (via_alt_mapping)
--		dev->irq = IRQ_AUTO_3;
--	else
--		dev->irq = IRQ_NUBUS_9;
-+
-+	dev->irq = platform_get_irq(pdev, 0);
-+	lp->irq1 = platform_get_irq(pdev, 1);
-+
-+	if (!dev->irq)
-+		return -ENODEV;
- 
- 	if (!sonic_version_printed) {
- 		printk(KERN_INFO "%s", version);
-@@ -590,7 +580,7 @@ static int __devinit mac_sonic_probe(str
- 	platform_set_drvdata(pdev, dev);
- 
- 	/* This will catch fatal stuff like -ENOMEM as well as success */
--	err = mac_onboard_sonic_probe(dev);
-+	err = mac_onboard_sonic_probe(pdev);
- 	if (err == 0)
- 		goto found;
- 	if (err != -ENODEV)
-Index: linux-m68k/drivers/net/sonic.h
-===================================================================
---- linux-m68k.orig/drivers/net/sonic.h	2011-10-22 23:02:22.000000000 +1100
-+++ linux-m68k/drivers/net/sonic.h	2011-10-22 23:02:38.000000000 +1100
-@@ -318,6 +318,9 @@ struct sonic_local {
- 	unsigned int eol_rx;
- 	unsigned int eol_tx;           /* last unacked transmit packet */
- 	unsigned int next_tx;          /* next free TD */
-+#ifdef CONFIG_MAC
-+	int irq1;                      /* Second IRQ for Mac Quadras */
-+#endif
- 	struct device *device;         /* generic device */
- 	struct net_device_stats stats;
- };
-Index: linux-m68k/arch/m68k/mac/via.c
-===================================================================
---- linux-m68k.orig/arch/m68k/mac/via.c	2011-10-22 23:02:38.000000000 +1100
-+++ linux-m68k/arch/m68k/mac/via.c	2011-10-23 00:51:10.000000000 +1100
-@@ -40,7 +40,6 @@
- volatile __u8 *via1, *via2;
- int rbv_present;
- int via_alt_mapping;
--EXPORT_SYMBOL(via_alt_mapping);
- static __u8 rbv_clear;
- 
- /*
+----------------------------------------------------------------------
+
+static int __team_change_mode(struct team *team,
+                             const struct team_mode *new_mode)
+{
+       /* Check if mode was previously set and do cleanup if so */
+       if (team->mode_kind) {
+               void (*exit_op)(struct team *team) =3D team->mode_ops.ex=
+it;
+
+               /* Clear ops area so no callback is called any longer */
+               team_mode_ops_clear(&team->mode_ops);
+
+               synchronize_rcu();
+
+               if (exit_op)
+                       exit_op(team);
+
+
+-----------------------------------------------------------------------
+
+So the question is : Why do you have this synchronize_rcu() call here ?
