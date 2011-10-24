@@ -1,74 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Flow classifier proto-dst and TOS (and proto-src)
-Date: Mon, 24 Oct 2011 06:02:11 +0200
-Message-ID: <1319428931.2517.28.camel@edumazet-laptop>
-References: <1318697463.7169.21.camel@ganymede>
-	 <1318831799.2500.25.camel@edumazet-laptop>
-	 <1319418232.20602.16.camel@ganymede>
+From: "Serge E. Hallyn" <serge@hallyn.com>
+Subject: Re: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace
+ aware
+Date: Mon, 24 Oct 2011 04:15:29 +0000
+Message-ID: <20111024041529.GA23618@hallyn.com>
+References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
+ <1318974898-21431-10-git-send-email-serge@hallyn.com>
+ <m1sjmpytpf.fsf@fess.ebiederm.org>
+ <20111020125801.GA1315@hallyn.com>
+ <m1fwinvl8u.fsf@fess.ebiederm.org>
+ <20111020141440.GA6201@sergelap>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Dan Siemon <dan@coverfire.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:34527 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751185Ab1JXECP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 00:02:15 -0400
-Received: by wyg36 with SMTP id 36so5721263wyg.19
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 21:02:14 -0700 (PDT)
-In-Reply-To: <1319418232.20602.16.camel@ganymede>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	oleg@redhat.com, richard@nod.at, mikevs@xs4all.net,
+	segoon@openwall.com, gregkh@suse.de, dhowells@redhat.com,
+	eparis@redhat.com, netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serge.hallyn@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111020141440.GA6201@sergelap>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 23 octobre 2011 =C3=A0 21:03 -0400, Dan Siemon a =C3=A9crit=
- :
-> On Mon, 2011-10-17 at 08:09 +0200, Eric Dumazet wrote:
-> > Le samedi 15 octobre 2011 =C3=A0 12:51 -0400, Dan Siemon a =C3=A9cr=
-it :
-> > > cls_flow.c: flow_get_proto_dst()
-> > >=20
-> > > The proto-dst key returns the destination port for UDP, TCP and a=
- few
-> > > other protocols [see proto_ports_offset()]. For ICMP and IPIP it =
-falls
-> > > back to:
-> > >=20
-> > > return addr_fold(skb_dst(skb)) ^ (__force u16)skb->protocol;
-> > >=20
-> > > Since Linux maintains a dst_entry for each TOS value this causes =
-the
-> > > returned value to be affected by the TOS which is unexpected and
-> > > probably broken.
-> >=20
-> > Hi Dan
-> >=20
-> > I think Patrick did this on purpose, because of of the lack of
-> > perturbation in cls_flow.c : If all these frames were mapped to a s=
-ingle
-> > flow, they might interfere with an other regular flow and hurt it.
-> >=20
-> > I dont qualify existing code as buggy. Its about fallback behavior
-> > anyway (I dont think its even documented)
->=20
-> Thanks for the review Eric.
->=20
-> Won't virtually all uses of proto-dst also use the dst key anyway? In
-> which case this fallback does nothing except make the TOS effect the
-> hash output because the dst will be the same and dst_entry would be t=
-he
-> same if it wasn't for the different TOS (by far the common case). I
-> don't see the value of the unintuitive behavior.
->=20
-> I'm not certain this is a problem but also note that including TOS wi=
-ll
-> mean that packets within a tunnel will be reordered if 'tos inherit' =
-is
-> set on the tunnel and only the typical src,dst,proto,proto-src,proto-=
-dst
-> is used. Again, probably not expected.
+Quoting Serge E. Hallyn (serge.hallyn@canonical.com):
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
+> > "Serge E. Hallyn" <serge@hallyn.com> writes:
+> > 
+> > > Quoting Eric W. Biederman (ebiederm@xmission.com):
+> > >> Serge Hallyn <serge@hallyn.com> writes:
+> > >> 
+> > >> > From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
+> > >> >
+> > >> > Currently uids are compared without regard for the user namespace.
+> > >> > Fix that to prevent tasks in a different user namespace from
+> > >> > wrongly matching on SCM_CREDENTIALS.
+> > >> >
+> > >> > In the past, either your uids had to match, or you had to have
+> > >> > CAP_SETXID.  In a namespaced world, you must either (both be in the
+> > >> > same user namespace and have your uids match), or you must have
+> > >> > CAP_SETXID targeted at the other user namespace.  The latter can
+> > >> > happen for instance if uid 500 created a new user namespace and
+> > >> > now interacts with uid 0 in it.
+> > >> 
+> > >> Serge this approach is wrong.
+> > >
+> > > Thanks for looking, Eric.
+> > >
+> > >> Because we pass the cred and the pid through the socket socket itself
+> > >> is just a conduit and should be ignored in this context.
+> > >
+> > > Ok, that makes sense, but
+> > >
+> > >> The only interesting test should be are you allowed to impersonate other
+> > >> users in your current userk namespace.
+> > >
+> > > Why in your current user namespace?  Shouldn't it be in the
+> > > target user ns?  I understand it could be wrong to tie the
+> > > user ns owning the socket to the target userns (though I still
+> > > kind of like it), but just because I have CAP_SETUID in my
+> > > own user_ns doesn't mean I should be able to pose as another
+> > > uid in your user_ns.
+> > 
+> > First and foremost it is important that you be able if you have the
+> > capability to impersonate other users in your current user namespace.
+> > That is what the capability actually controls.
+> > 
+> > None of this allows you to impersonate any user in any other user
+> > namespace.  The translation between users prevents that.
+> > 
+> > > (Now I also see that cred_to_ucred() translates to the current
+> > > user_ns, so that should have been a hint to me before about
+> > > your intent, but I'm not convinced I agree with your intent).
+> > >
+> > > And you do the same with the pid.  Why is that a valid assumption?
+> > 
+> > Yes.  Basically all the code is allow you to impersonate people you
+> > would have been able to impersonate before.  If your target is in
+> > another namespace you can not fool them.
+> > 
+> > With pids the logic should be a lot clearer.  Pretend to be a pid you can
+> > see in your current pid namespace.  Lookup and convert to struct pid aka
+> > the namespace agnostic object.  On output return the pid value that
+> 
+> No.  That conversion is happending before the user-specified pid is
+> set.
 
-Hmm, it seems cls_flow now supports "perturbation", so my prior argumen=
-t
-is not true anymore. I guess your patch would be fine, but I prefer
-waiting Patrick review on it ;)
+Never mind, it all gets a little convoluted, but I see how it works,
+and - when the time comes - how to do it right for userns.  :)  Sorry
+about that.
+
+thanks,
+-serge
