@@ -1,49 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Add ethtool -g support to virtio_net
-Date: Mon, 24 Oct 2011 02:15:07 -0400 (EDT)
-Message-ID: <20111024.021507.180958091503375041.davem@davemloft.net>
-References: <8762jk2j2r.fsf@rustcorp.com.au>
-	<20111023.232604.18246342474494526.davem@davemloft.net>
-	<20111024053103.GA24528@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/5] macvtap fixes.
+Date: Mon, 24 Oct 2011 08:31:06 +0200
+Message-ID: <20111024063105.GA25117@redhat.com>
+References: <m1wrbzu4ec.fsf@fess.ebiederm.org>
+ <20111021.025607.2193225431127507358.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, raj@tardy.cup.hp.com,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: mst@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org, arnd@arnd.de,
+	jasowang@redhat.com, ian.campbell@citrix.com, mashirley@us.ibm.com
+To: David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60248 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752736Ab1JXGTO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 02:19:14 -0400
-In-Reply-To: <20111024053103.GA24528@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41387 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753224Ab1JXGai (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Oct 2011 02:30:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20111021.025607.2193225431127507358.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 24 Oct 2011 07:31:05 +0200
+On Fri, Oct 21, 2011 at 02:56:07AM -0400, David Miller wrote:
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Thu, 20 Oct 2011 07:24:59 -0700
+> 
+> > 
+> > This series of patches fixes a series of minor bugs in the macvtap code.
+> > 
+> > The fixes to handle failures in newlink and the change in how we handle
+> > minor device number allocations are particularly significant.
+> 
+> Applied to net-next, thanks.
 
-> On Sun, Oct 23, 2011 at 11:26:04PM -0400, David Miller wrote:
->> From: Rusty Russell <rusty@rustcorp.com.au>
->> Date: Thu, 20 Oct 2011 18:25:24 +1030
->> 
->> > On Wed, 19 Oct 2011 11:10:59 -0700 (PDT), raj@tardy.cup.hp.com (Rick Jones) wrote:
->> >> From: Rick Jones <rick.jones2@hp.com>
->> >> 
->> >> Add support for reporting ring sizes via ethtool -g to the virtio_net
->> >> driver.
->> >> 
->> >> Signed-off-by: Rick Jones <rick.jones2@hp.com>
->> > 
->> > Acked-by: Rusty Russell <rusty@rustcorp.com.au>
->> > 
->> > MST, want me to take this, or do you?
->> 
->> I can also take it directly, just let me know.
-> 
-> Please do, thanks very much.
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> 
+The 'Don't leak unreceived packets' patch probably makes sense in 'net'.
 
-Done.
+-- 
+MST
