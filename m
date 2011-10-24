@@ -1,100 +1,43 @@
-From: Dan Siemon <dan@coverfire.com>
-Subject: Re: [PATCH] cls_flow: Add tunnel support to the flow classifier
-Date: Sun, 23 Oct 2011 21:21:26 -0400
-Message-ID: <1319419287.20602.21.camel@ganymede>
-References: <1318806373.7169.35.camel@ganymede>
-	 <1318833623.2500.45.camel@edumazet-laptop>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Subject: Re: [RFD] Network configuration data in sysfs
+Date: Mon, 24 Oct 2011 04:34:07 +0300
+Message-ID: <20111024013406.GA24158@shutemov.name>
+References: <20111023233558.GA23264@shutemov.name>
+ <20111023.204943.1509703901636083438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-	protocol="application/pgp-signature"; boundary="=-lApaNl+PCDBrCudpUy2q"
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, gregkh@suse.de,
+	gladkov.alexey@gmail.com
+To: David Miller <davem@davemloft.net>, kay.sievers@vrfy.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alpha.coverfire.com ([69.41.199.58]:51581 "EHLO
-	alpha.coverfire.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752541Ab1JXBV3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 21:21:29 -0400
-In-Reply-To: <1318833623.2500.45.camel@edumazet-laptop>
+Received: from shutemov.name ([188.40.19.243]:40094 "EHLO shutemov.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752594Ab1JXBeI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Oct 2011 21:34:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20111023.204943.1509703901636083438.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Oct 23, 2011 at 08:49:43PM -0400, David Miller wrote:
+> From: "Kirill A. Shutemov" <kirill@shutemov.name>
+> Date: Mon, 24 Oct 2011 02:35:58 +0300
+> 
+> > Is there something fundamental preventing us to have sysfs interface for
+> > network configuration?
+> 
+> Netlink already provides everything sysfs would potentially provide as
+> well as event tracking.
 
---=-lApaNl+PCDBrCudpUy2q
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Not everything. You still need special utilities to view/change the
+configuration.
 
-On Mon, 2011-10-17 at 08:40 +0200, Eric Dumazet wrote:
-> Le dimanche 16 octobre 2011 =C3=A0 19:06 -0400, Dan Siemon a =C3=A9crit :
-> > When used on an interface carrying tunneled traffic the flow classifier
-> > can't look into the tunnels so all of the traffic within the tunnel is
-> > treated as a single flow. This does not allow any type of intelligent
-> > queuing to occur. This patch adds new keys to the flow classifier which
-> > look inside the tunnel. Presently IP-IP, IP-IPv6, IPv6-IPv6 and IPv6-IP
-> > tunnels are supported.
-> >=20
-> > If you are interested I have posted some background and experimental
-> > results at:
-> > http://www.coverfire.com/archives/2011/10/16/making-the-linux-flow-clas=
-sifier-tunnel-aware/
-> >=20
-> > The related iproute2 patch can be found at the above URL as well.
-> >=20
-> > Signed-off-by: Dan Siemon <dan@coverfire.com>
-> >=20
->=20
-> Hi Dan
->=20
-> You're adding a lot of code (omitting the diffstat :( ) for a specific
-> usage, yet GRE tunnels are not supported.
+> udev could just listen to a netlink socket and notice all changes to
+> addresses, routes, and device states.
 
-Thanks for the review.
+Yes, potentially. I'm not sure if it fits well to udev design.
+Kay, any comments?
 
-Are you arguing this use case isn't worth addressing or that there is a
-more efficient way to implement this with less code?
-
-> IPv6 part is also a bit limited : It assumes TCP/UDP headers are the
-> first ones. Maybe its time to use ipv6_skip_exthdr() ?
-
-I noticed this too but the existing src-proto and dst-proto don't handle
-this case either. Maybe I can look into fixing those as well.
-
-> Note also that if we pull (with pskb_network_may_pull()) too many bytes,
-> we kill routing performance on paged frags devices, wich are now
-> becoming very common.
-
-I don't know what paged frag devices means but I trust you are correct :)
-
-The existing keys also use pskb_network_may_pull(). Should they be changed =
-as well?
-
-> Adding tunnel support and deep packet inspection might require the use
-> of skb_header_pointer() wich does the copy of needed data without
-> requiring expensive reallocation of skb head.
-
-I'll look into this but it may be a while before I have an updated
-patch.
-
---=-lApaNl+PCDBrCudpUy2q
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAABCAAGBQJOpL2WAAoJEJKXGLoTP2w+RQoQAJ7gkGpdUTBaod9WGjn4XRjG
-zA+q9kGabBqCkvGVQGNJMPM31WdrGicK97ReG8xIo5CWQHsPqZxOKxowojRUvRaX
-cwsaJTdFT4PWE4zacFVREAK7MqQRqRJpRQBegOxalmlLUQVTn7S4prqSxBzczb3a
-mWFVgK7425Lpxu1Kzb21pOn3kns3Tz90pFdatFw+S4TeO8lQRBQ3kzn0Qz6XKLfO
-NHGmOwWt7tXuv9b/M+uRZ/bPPzPCipkEYvNyJMA5XQUBvYk5yBcOGnBjKA54ABtx
-rovwEBWkXOFQzB4G1HW7CG3r48KMqZ5HwFGEWHLh11OMwzA2ftYYeSwlKPefOR9/
-t15jJCjQY4qvVyyxpFdCUq0MUNzdlczhgTMQQm+/zcqZgeEDU0zVrYRcJzzOe3o0
-TxIOOZOXcqolc+JxFhGaZCMjnFKuk34Sv5346N2KNN+bOaf96YK7UpWlV7UhriH8
-+JwviodhWemmjj7ZL641b0F4p+hEBgjTw5g8GCeXq/7e1OEUw1HVl3NTAvL97m3k
-BrZlfXDkWUyA5TqCa83z+UCenASv9Z7FqCPB34ZRX6UDomZmzoJhigGF9o70JSEP
-z2wK0KyEaTSQ+GWhcaSb+RgobSMCL5jI9Z9W7bv/hEUvzgqKp6f8+gacSfohAf9H
-OQ7zIYc73r4XZPP+FJ2q
-=+3Ns
------END PGP SIGNATURE-----
-
---=-lApaNl+PCDBrCudpUy2q--
+-- 
+ Kirill A. Shutemov
