@@ -1,41 +1,49 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] Add ethtool -g support to virtio_net
-Date: Mon, 24 Oct 2011 15:11:31 +1030
-Message-ID: <87r5230zno.fsf@rustcorp.com.au>
-References: <20111019181059.C644A29003F6@tardy> <8762jk2j2r.fsf@rustcorp.com.au> <20111023.232604.18246342474494526.davem@davemloft.net>
+Date: Mon, 24 Oct 2011 02:15:07 -0400 (EDT)
+Message-ID: <20111024.021507.180958091503375041.davem@davemloft.net>
+References: <8762jk2j2r.fsf@rustcorp.com.au>
+	<20111023.232604.18246342474494526.davem@davemloft.net>
+	<20111024053103.GA24528@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: raj@tardy.cup.hp.com, netdev@vger.kernel.org, mst@redhat.com,
-	virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rusty@rustcorp.com.au, raj@tardy.cup.hp.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:57108 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753018Ab1JXGMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Oct 2011 02:12:25 -0400
-In-Reply-To: <20111023.232604.18246342474494526.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60248 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752736Ab1JXGTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 02:19:14 -0400
+In-Reply-To: <20111024053103.GA24528@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 23 Oct 2011 23:26:04 -0400 (EDT), David Miller <davem@davemloft.net> wrote:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Thu, 20 Oct 2011 18:25:24 +1030
-> 
-> > On Wed, 19 Oct 2011 11:10:59 -0700 (PDT), raj@tardy.cup.hp.com (Rick Jones) wrote:
-> >> From: Rick Jones <rick.jones2@hp.com>
-> >> 
-> >> Add support for reporting ring sizes via ethtool -g to the virtio_net
-> >> driver.
-> >> 
-> >> Signed-off-by: Rick Jones <rick.jones2@hp.com>
-> > 
-> > Acked-by: Rusty Russell <rusty@rustcorp.com.au>
-> > 
-> > MST, want me to take this, or do you?
-> 
-> I can also take it directly, just let me know.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 24 Oct 2011 07:31:05 +0200
 
-I'm happy with that.
+> On Sun, Oct 23, 2011 at 11:26:04PM -0400, David Miller wrote:
+>> From: Rusty Russell <rusty@rustcorp.com.au>
+>> Date: Thu, 20 Oct 2011 18:25:24 +1030
+>> 
+>> > On Wed, 19 Oct 2011 11:10:59 -0700 (PDT), raj@tardy.cup.hp.com (Rick Jones) wrote:
+>> >> From: Rick Jones <rick.jones2@hp.com>
+>> >> 
+>> >> Add support for reporting ring sizes via ethtool -g to the virtio_net
+>> >> driver.
+>> >> 
+>> >> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+>> > 
+>> > Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+>> > 
+>> > MST, want me to take this, or do you?
+>> 
+>> I can also take it directly, just let me know.
+> 
+> Please do, thanks very much.
+> 
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> 
 
-Thanks,
-Rusty.
+Done.
