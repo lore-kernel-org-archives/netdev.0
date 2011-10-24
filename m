@@ -1,163 +1,383 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] bnx2x: Adding FW 7.0.29.0
-Date: Mon, 24 Oct 2011 16:33:17 +0200
-Message-ID: <1319466799.13738.108.camel@shinybook.infradead.org>
-References: <1318860047-5044-1-git-send-email-dmitry@broadcom.com>
-	 <1318867968.5817.1.camel@lb-tlvb-dmitry>
-	 <1319464676.6155.3.camel@lb-tlvb-dmitry>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-ujfLlvWWQ+ygHtKjnfQ5"
-Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:42121 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755762Ab1JXOdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 10:33:23 -0400
-In-Reply-To: <1319464676.6155.3.camel@lb-tlvb-dmitry>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH V2 05/10] RDMA/cxgb4: Add DB Overflow Avoidance.
+Date: Mon, 24 Oct 2011 20:42:31 +0530
+Message-ID: <1319469151-20748-1-git-send-email-vipul@chelsio.com>
+Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
+	Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+        - get FULL/EMPTY/DROP events from LLD
 
---=-ujfLlvWWQ+ygHtKjnfQ5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+        - on FULL event, disable normal user mode DB rings.
 
-On Mon, 2011-10-24 at 15:57 +0200, Dmitry Kravkov wrote:
-> On Mon, 2011-10-17 at 09:12 -0700, Dmitry Kravkov wrote:
-> > On Mon, 2011-10-17 at 07:00 -0700, Dmitry Kravkov wrote:
-> > > Includes fixes for the following issues:
-> > >   1. (iSCSI) Arrival of un-solicited ASYNC message causes
-> > >      firmware to abort the connection with RST.
-> > >   2. (FCoE) There is a probability that truncated FCoE packet on
-> > >      RX path won't get detected which might lead to FW assert.
-> > >   3. (iSCSI) Arrival of target-initiated NOP-IN during intense
-> > >      ISCSI traffic might lead to FW assert.
-> > >   4. (iSCSI) Chip hangs when in case of retransmission not aligned
-> > >      to 4-bytes from the beginning of iSCSI PDU.
-> > >   5. (FCoE) Arrival of packets beyond task IO size can lead to crash.
-> > >=20
->=20
-> David, do you have estimation to handle the request? We have pending
-> patch for net-next. Thanks.
+        - add modify_qp semantics to allow user processes to call into
+        the kernel to ring doobells without overflowing.
 
-Pushed to git.infradead.org; thanks. I'll work on getting the tree back
-onto git.kernel.org now I'm sitting at a table with the admin...
+        Add DB Full/Empty/Drop stats.
 
---=20
-dwmw2
+        Mark queues when created indicating the doorbell state.
 
---=-ujfLlvWWQ+ygHtKjnfQ5
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
+        If we're in the middle of db overflow avoidance, then newly created
+        queues should start out in this mode.
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIITvzCCBi0w
-ggQVoAMCAQICAwCtOTANBgkqhkiG9w0BAQUFADBUMRQwEgYDVQQKEwtDQWNlcnQgSW5jLjEeMBwG
-A1UECxMVaHR0cDovL3d3dy5DQWNlcnQub3JnMRwwGgYDVQQDExNDQWNlcnQgQ2xhc3MgMyBSb290
-MB4XDTEwMDYxMjEwMDMwMFoXDTEyMDYxMTEwMDMwMFowgegxGDAWBgNVBAMTD0RhdmlkIFdvb2Ro
-b3VzZTEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzEfMB0GCSqGSIb3DQEJARYQ
-ZGF2aWRAd29vZGhvdS5zZTEoMCYGCSqGSIb3DQEJARYZZGF2aWQud29vZGhvdXNlQGludGVsLmNv
-bTEkMCIGCSqGSIb3DQEJARYVZHdtdzJAbGludXguaW50ZWwuY29tMTcwNQYJKoZIhvcNAQkBFigx
-MDg3MmEwN2Y2ZDdlMWUwN2Y1NWZmMTcyYTAzYjMwMGVlYWFkMjAzMIIBIjANBgkqhkiG9w0BAQEF
-AAOCAQ8AMIIBCgKCAQEA29OPhNvMxBMW83psWdVhZDtmJvgN+tBEp1r6MZamONsR0k81a6fDFwJz
-M0fEzEbV/bDG102QyX/xXC/0IpKV4acnqESC+sTHUmRwxfRKGNmR6t2iwEs2Y5kQDF31JxbCt49w
-AlhLMAa+e1MBZ7vO0uDmRuJpS7+ZdHboq7cdk6dyoeumGv5sl6U/SPK9rL4KzULtqQaw6Wucd6MJ
-irIggEHfCNqeT5a+TyuH4zKCwv9nblIGXq9wt+yqu5t/RicGaKPnXSqo/WpJAGggaO8g92mnYlVl
-Wu/b9bYVISwQ8LI0sEtjN1WnP5AQO2f59bdPAVk4Rn25HceOO4NvlG47LwIDAQABo4IBcTCCAW0w
-DAYDVR0TAQH/BAIwADBWBglghkgBhvhCAQ0ESRZHVG8gZ2V0IHlvdXIgb3duIGNlcnRpZmljYXRl
-IGZvciBGUkVFIGhlYWQgb3ZlciB0byBodHRwOi8vd3d3LkNBY2VydC5vcmcwQAYDVR0lBDkwNwYI
-KwYBBQUHAwQGCCsGAQUFBwMCBgorBgEEAYI3CgMEBgorBgEEAYI3CgMDBglghkgBhvhCBAEwMgYI
-KwYBBQUHAQEEJjAkMCIGCCsGAQUFBzABhhZodHRwOi8vb2NzcC5jYWNlcnQub3JnMIGOBgNVHREE
-gYYwgYOBE2R3bXcyQGluZnJhZGVhZC5vcmeBEGRhdmlkQHdvb2Rob3Uuc2WBGWRhdmlkLndvb2Ro
-b3VzZUBpbnRlbC5jb22BFWR3bXcyQGxpbnV4LmludGVsLmNvbYEoMTA4NzJhMDdmNmQ3ZTFlMDdm
-NTVmZjE3MmEwM2IzMDBlZWFhZDIwMzANBgkqhkiG9w0BAQUFAAOCAgEAXm+SUO1/TSeGJK0D9pAm
-E9LTFkdlgbaD6HXGbS0TNUDyfLFkacc2F1JLoWcoFwcL6Rup5o/Rt4QYDBPWgF9EXFvqsc9SLrSe
-X6VwRj7vI40x19ThE2A1Y8DzBJ9+2MzIR6hd5n9axATCOIRhmZVjX1cRkwshEGvAn8mTYGhWttkx
-WhBcaAuCd9OOQqUwfxTUXiSfVumPUNrrbuvaH6MjrNjDrXdvicL26Y+AzFSJn3o8DShjjMhkUx9l
-qV46BpjSGIuvkHhcLkGJ3Y1YmtOX1hwT+Z+d/10WJh8ZG2FqIlJtPtqvHK5ol/KvdzMwmMBd4qFj
-YAO32vf7zde+jdTHNp2Mb15bJHhNdGOsZicpGue42fg3deZQFe1E2KBl9VO09fjncjt9YdhCUtxO
-buDnoOixY6YSJgSmGJB2Xs+TE5gps4UiiOYen+NeJkuwg5x9vmyraU061Uc0csfc/E5IoxhTX/Pc
-H+zXiER8aSjA/9MXQfrJM2xkY6UNKlDbCYSLKnH/O02eu7Hma6lB4wtcY8ECu7LJuFY2448Quolv
-SQfQLRvKauGFGUAhbPClOxObuv/fNzA+lfg8DX2y5jXDutnpvBGgsplKxoah01SZfR9zNqxodPx2
-srKhujBNB+WiAZntMf0xp4e0JPMlTFxm3tbY9wuBSyTJyueO9hUkbN4wggYtMIIEFaADAgECAgMA
-rTkwDQYJKoZIhvcNAQEFBQAwVDEUMBIGA1UEChMLQ0FjZXJ0IEluYy4xHjAcBgNVBAsTFWh0dHA6
-Ly93d3cuQ0FjZXJ0Lm9yZzEcMBoGA1UEAxMTQ0FjZXJ0IENsYXNzIDMgUm9vdDAeFw0xMDA2MTIx
-MDAzMDBaFw0xMjA2MTExMDAzMDBaMIHoMRgwFgYDVQQDEw9EYXZpZCBXb29kaG91c2UxIjAgBgkq
-hkiG9w0BCQEWE2R3bXcyQGluZnJhZGVhZC5vcmcxHzAdBgkqhkiG9w0BCQEWEGRhdmlkQHdvb2Ro
-b3Uuc2UxKDAmBgkqhkiG9w0BCQEWGWRhdmlkLndvb2Rob3VzZUBpbnRlbC5jb20xJDAiBgkqhkiG
-9w0BCQEWFWR3bXcyQGxpbnV4LmludGVsLmNvbTE3MDUGCSqGSIb3DQEJARYoMTA4NzJhMDdmNmQ3
-ZTFlMDdmNTVmZjE3MmEwM2IzMDBlZWFhZDIwMzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
-ggEBANvTj4TbzMQTFvN6bFnVYWQ7Zib4DfrQRKda+jGWpjjbEdJPNWunwxcCczNHxMxG1f2wxtdN
-kMl/8Vwv9CKSleGnJ6hEgvrEx1JkcMX0ShjZkerdosBLNmOZEAxd9ScWwrePcAJYSzAGvntTAWe7
-ztLg5kbiaUu/mXR26Ku3HZOncqHrphr+bJelP0jyvay+Cs1C7akGsOlrnHejCYqyIIBB3wjank+W
-vk8rh+MygsL/Z25SBl6vcLfsqrubf0YnBmij510qqP1qSQBoIGjvIPdpp2JVZVrv2/W2FSEsEPCy
-NLBLYzdVpz+QEDtn+fW3TwFZOEZ9uR3HjjuDb5RuOy8CAwEAAaOCAXEwggFtMAwGA1UdEwEB/wQC
-MAAwVgYJYIZIAYb4QgENBEkWR1RvIGdldCB5b3VyIG93biBjZXJ0aWZpY2F0ZSBmb3IgRlJFRSBo
-ZWFkIG92ZXIgdG8gaHR0cDovL3d3dy5DQWNlcnQub3JnMEAGA1UdJQQ5MDcGCCsGAQUFBwMEBggr
-BgEFBQcDAgYKKwYBBAGCNwoDBAYKKwYBBAGCNwoDAwYJYIZIAYb4QgQBMDIGCCsGAQUFBwEBBCYw
-JDAiBggrBgEFBQcwAYYWaHR0cDovL29jc3AuY2FjZXJ0Lm9yZzCBjgYDVR0RBIGGMIGDgRNkd213
-MkBpbmZyYWRlYWQub3JngRBkYXZpZEB3b29kaG91LnNlgRlkYXZpZC53b29kaG91c2VAaW50ZWwu
-Y29tgRVkd213MkBsaW51eC5pbnRlbC5jb22BKDEwODcyYTA3ZjZkN2UxZTA3ZjU1ZmYxNzJhMDNi
-MzAwZWVhYWQyMDMwDQYJKoZIhvcNAQEFBQADggIBAF5vklDtf00nhiStA/aQJhPS0xZHZYG2g+h1
-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
-AAAAAA==
+        Bump the C4IW_UVERBS_ABI_VERSION to 2 so the user mode library can
+        know if the driver supports the kernel mode db ringing.
 
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+---
+V2: Bump C4IW_UVERBS_ABI_VERSION to 2
 
---=-ujfLlvWWQ+ygHtKjnfQ5--
+ drivers/infiniband/hw/cxgb4/device.c   |   84 +++++++++++++++++++++++++++++--
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |   37 ++++++++++++--
+ drivers/infiniband/hw/cxgb4/qp.c       |   51 +++++++++++++++++++-
+ drivers/infiniband/hw/cxgb4/user.h     |    2 +-
+ 4 files changed, 162 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index 8483111..9062ed9 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -44,6 +44,12 @@ MODULE_DESCRIPTION("Chelsio T4 RDMA Driver");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
++struct uld_ctx {
++	struct list_head entry;
++	struct cxgb4_lld_info lldi;
++	struct c4iw_dev *dev;
++};
++
+ static LIST_HEAD(uld_ctx_list);
+ static DEFINE_MUTEX(dev_mutex);
+ 
+@@ -263,6 +269,9 @@ static int stats_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq, "  OCQPMEM: %10llu %10llu %10llu\n",
+ 			dev->rdev.stats.ocqp.total, dev->rdev.stats.ocqp.cur,
+ 			dev->rdev.stats.ocqp.max);
++	seq_printf(seq, "  DB FULL: %10llu\n", dev->rdev.stats.db_full);
++	seq_printf(seq, " DB EMPTY: %10llu\n", dev->rdev.stats.db_empty);
++	seq_printf(seq, "  DB DROP: %10llu\n", dev->rdev.stats.db_drop);
+ 	return 0;
+ }
+ 
+@@ -283,6 +292,9 @@ static ssize_t stats_clear(struct file *file, const char __user *buf,
+ 	dev->rdev.stats.pbl.max = 0;
+ 	dev->rdev.stats.rqt.max = 0;
+ 	dev->rdev.stats.ocqp.max = 0;
++	dev->rdev.stats.db_full = 0;
++	dev->rdev.stats.db_empty = 0;
++	dev->rdev.stats.db_drop = 0;
+ 	mutex_unlock(&dev->rdev.stats.lock);
+ 	return count;
+ }
+@@ -443,12 +455,6 @@ static void c4iw_rdev_close(struct c4iw_rdev *rdev)
+ 	c4iw_destroy_resource(&rdev->resource);
+ }
+ 
+-struct uld_ctx {
+-	struct list_head entry;
+-	struct cxgb4_lld_info lldi;
+-	struct c4iw_dev *dev;
+-};
+-
+ static void c4iw_dealloc(struct uld_ctx *ctx)
+ {
+ 	c4iw_rdev_close(&ctx->dev->rdev);
+@@ -514,6 +520,7 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
+ 	idr_init(&devp->mmidr);
+ 	spin_lock_init(&devp->lock);
+ 	mutex_init(&devp->rdev.stats.lock);
++	mutex_init(&devp->db_mutex);
+ 
+ 	if (c4iw_debugfs_root) {
+ 		devp->debugfs_root = debugfs_create_dir(
+@@ -659,11 +666,76 @@ static int c4iw_uld_state_change(void *handle, enum cxgb4_state new_state)
+ 	return 0;
+ }
+ 
++static int disable_qp_db(int id, void *p, void *data)
++{
++	struct c4iw_qp *qp = p;
++
++	t4_disable_wq_db(&qp->wq);
++	return 0;
++}
++
++static void stop_queues(struct uld_ctx *ctx)
++{
++	spin_lock_irq(&ctx->dev->lock);
++	ctx->dev->db_state = FLOW_CONTROL;
++	idr_for_each(&ctx->dev->qpidr, disable_qp_db, NULL);
++	spin_unlock_irq(&ctx->dev->lock);
++}
++
++static int enable_qp_db(int id, void *p, void *data)
++{
++	struct c4iw_qp *qp = p;
++
++	t4_enable_wq_db(&qp->wq);
++	return 0;
++}
++
++static void resume_queues(struct uld_ctx *ctx)
++{
++	spin_lock_irq(&ctx->dev->lock);
++	ctx->dev->db_state = NORMAL;
++	idr_for_each(&ctx->dev->qpidr, enable_qp_db, NULL);
++	spin_unlock_irq(&ctx->dev->lock);
++}
++
++static int c4iw_uld_control(void *handle, enum cxgb4_control control, ...)
++{
++	struct uld_ctx *ctx = handle;
++
++	switch (control) {
++	case CXGB4_CONTROL_DB_FULL:
++		stop_queues(ctx);
++		mutex_lock(&ctx->dev->rdev.stats.lock);
++		ctx->dev->rdev.stats.db_full++;
++		mutex_unlock(&ctx->dev->rdev.stats.lock);
++		break;
++	case CXGB4_CONTROL_DB_EMPTY:
++		resume_queues(ctx);
++		mutex_lock(&ctx->dev->rdev.stats.lock);
++		ctx->dev->rdev.stats.db_empty++;
++		mutex_unlock(&ctx->dev->rdev.stats.lock);
++		break;
++	case CXGB4_CONTROL_DB_DROP:
++		printk(KERN_WARNING MOD "%s: Fatal DB DROP\n",
++		       pci_name(ctx->lldi.pdev));
++		mutex_lock(&ctx->dev->rdev.stats.lock);
++		ctx->dev->rdev.stats.db_drop++;
++		mutex_unlock(&ctx->dev->rdev.stats.lock);
++		break;
++	default:
++		printk(KERN_WARNING MOD "%s: unknown control cmd %u\n",
++		       pci_name(ctx->lldi.pdev), control);
++		break;
++	}
++	return 0;
++}
++
+ static struct cxgb4_uld_info c4iw_uld_info = {
+ 	.name = DRV_NAME,
+ 	.add = c4iw_uld_add,
+ 	.rx_handler = c4iw_uld_rx_handler,
+ 	.state_change = c4iw_uld_state_change,
++	.control = c4iw_uld_control,
+ };
+ 
+ static int __init c4iw_init_module(void)
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index ec7c848..1924c19 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -117,6 +117,9 @@ struct c4iw_stats {
+ 	struct c4iw_stat pbl;
+ 	struct c4iw_stat rqt;
+ 	struct c4iw_stat ocqp;
++	u64  db_full;
++	u64  db_empty;
++	u64  db_drop;
+ };
+ 
+ struct c4iw_rdev {
+@@ -192,6 +195,12 @@ static inline int c4iw_wait_for_reply(struct c4iw_rdev *rdev,
+ 	return wr_waitp->ret;
+ }
+ 
++enum db_state {
++	NORMAL = 0,
++	FLOW_CONTROL = 1,
++	RECOVERY = 2
++};
++
+ struct c4iw_dev {
+ 	struct ib_device ibdev;
+ 	struct c4iw_rdev rdev;
+@@ -200,7 +209,9 @@ struct c4iw_dev {
+ 	struct idr qpidr;
+ 	struct idr mmidr;
+ 	spinlock_t lock;
++	struct mutex db_mutex;
+ 	struct dentry *debugfs_root;
++	enum db_state db_state;
+ };
+ 
+ static inline struct c4iw_dev *to_c4iw_dev(struct ib_device *ibdev)
+@@ -228,8 +239,8 @@ static inline struct c4iw_mr *get_mhp(struct c4iw_dev *rhp, u32 mmid)
+ 	return idr_find(&rhp->mmidr, mmid);
+ }
+ 
+-static inline int insert_handle(struct c4iw_dev *rhp, struct idr *idr,
+-				void *handle, u32 id)
++static inline int _insert_handle(struct c4iw_dev *rhp, struct idr *idr,
++				 void *handle, u32 id, int lock)
+ {
+ 	int ret;
+ 	int newid;
+@@ -237,15 +248,29 @@ static inline int insert_handle(struct c4iw_dev *rhp, struct idr *idr,
+ 	do {
+ 		if (!idr_pre_get(idr, GFP_KERNEL))
+ 			return -ENOMEM;
+-		spin_lock_irq(&rhp->lock);
++		if (lock)
++			spin_lock_irq(&rhp->lock);
+ 		ret = idr_get_new_above(idr, handle, id, &newid);
+ 		BUG_ON(newid != id);
+-		spin_unlock_irq(&rhp->lock);
++		if (lock)
++			spin_unlock_irq(&rhp->lock);
+ 	} while (ret == -EAGAIN);
+ 
+ 	return ret;
+ }
+ 
++static inline int insert_handle(struct c4iw_dev *rhp, struct idr *idr,
++				void *handle, u32 id)
++{
++	return _insert_handle(rhp, idr, handle, id, 1);
++}
++
++static inline int insert_handle_nolock(struct c4iw_dev *rhp, struct idr *idr,
++				       void *handle, u32 id)
++{
++	return _insert_handle(rhp, idr, handle, id, 0);
++}
++
+ static inline void remove_handle(struct c4iw_dev *rhp, struct idr *idr, u32 id)
+ {
+ 	spin_lock_irq(&rhp->lock);
+@@ -369,6 +394,8 @@ struct c4iw_qp_attributes {
+ 	struct c4iw_ep *llp_stream_handle;
+ 	u8 layer_etype;
+ 	u8 ecode;
++	u16 sq_db_inc;
++	u16 rq_db_inc;
+ };
+ 
+ struct c4iw_qp {
+@@ -443,6 +470,8 @@ static inline void insert_mmap(struct c4iw_ucontext *ucontext,
+ 
+ enum c4iw_qp_attr_mask {
+ 	C4IW_QP_ATTR_NEXT_STATE = 1 << 0,
++	C4IW_QP_ATTR_SQ_DB = 1<<1,
++	C4IW_QP_ATTR_RQ_DB = 1<<2,
+ 	C4IW_QP_ATTR_ENABLE_RDMA_READ = 1 << 7,
+ 	C4IW_QP_ATTR_ENABLE_RDMA_WRITE = 1 << 8,
+ 	C4IW_QP_ATTR_ENABLE_RDMA_BIND = 1 << 9,
+diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
+index 74df98e..36fc94d 100644
+--- a/drivers/infiniband/hw/cxgb4/qp.c
++++ b/drivers/infiniband/hw/cxgb4/qp.c
+@@ -34,6 +34,10 @@
+ 
+ #include "iw_cxgb4.h"
+ 
++static int db_delay_usecs = 1;
++module_param(db_delay_usecs, int, 0644);
++MODULE_PARM_DESC(db_delay_usecs, "Usecs to delay awaiting db fifo to drain");
++
+ static int ocqp_support = 1;
+ module_param(ocqp_support, int, 0644);
+ MODULE_PARM_DESC(ocqp_support, "Support on-chip SQs (default=1)");
+@@ -1117,6 +1121,29 @@ out:
+ 	return ret;
+ }
+ 
++/*
++ * Called by the library when the qp has user dbs disabled due to
++ * a DB_FULL condition.  This function will single-thread all user
++ * DB rings to avoid overflowing the hw db-fifo.
++ */
++static int ring_kernel_db(struct c4iw_qp *qhp, u32 qid, u16 inc)
++{
++	int delay = db_delay_usecs;
++
++	mutex_lock(&qhp->rhp->db_mutex);
++	do {
++		if (cxgb4_dbfifo_count(qhp->rhp->rdev.lldi.ports[0], 1) < 768) {
++			writel(V_QID(qid) | V_PIDX(inc), qhp->wq.db);
++			break;
++		}
++		set_current_state(TASK_UNINTERRUPTIBLE);
++		schedule_timeout(usecs_to_jiffies(delay));
++		delay = min(delay << 1, 200000);
++	} while (1);
++	mutex_unlock(&qhp->rhp->db_mutex);
++	return 0;
++}
++
+ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
+ 		   enum c4iw_qp_attr_mask mask,
+ 		   struct c4iw_qp_attributes *attrs,
+@@ -1165,6 +1192,15 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
+ 		qhp->attr = newattr;
+ 	}
+ 
++	if (mask & C4IW_QP_ATTR_SQ_DB) {
++		ret = ring_kernel_db(qhp, qhp->wq.sq.qid, attrs->sq_db_inc);
++		goto out;
++	}
++	if (mask & C4IW_QP_ATTR_RQ_DB) {
++		ret = ring_kernel_db(qhp, qhp->wq.rq.qid, attrs->rq_db_inc);
++		goto out;
++	}
++
+ 	if (!(mask & C4IW_QP_ATTR_NEXT_STATE))
+ 		goto out;
+ 	if (qhp->attr.state == attrs->next_state)
+@@ -1454,7 +1490,11 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
+ 	init_waitqueue_head(&qhp->wait);
+ 	atomic_set(&qhp->refcnt, 1);
+ 
+-	ret = insert_handle(rhp, &rhp->qpidr, qhp, qhp->wq.sq.qid);
++	spin_lock_irq(&rhp->lock);
++	if (rhp->db_state != NORMAL)
++		t4_disable_wq_db(&qhp->wq);
++	ret = insert_handle_nolock(rhp, &rhp->qpidr, qhp, qhp->wq.sq.qid);
++	spin_unlock_irq(&rhp->lock);
+ 	if (ret)
+ 		goto err2;
+ 
+@@ -1598,6 +1638,15 @@ int c4iw_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
+ 			 C4IW_QP_ATTR_ENABLE_RDMA_WRITE |
+ 			 C4IW_QP_ATTR_ENABLE_RDMA_BIND) : 0;
+ 
++	/*
++	 * Use SQ_PSN and RQ_PSN to pass in IDX_INC values for
++	 * ringing the queue db when we're in DB_FULL mode.
++	 */
++	attrs.sq_db_inc = attr->sq_psn;
++	attrs.rq_db_inc = attr->rq_psn;
++	mask |= (attr_mask & IB_QP_SQ_PSN) ? C4IW_QP_ATTR_SQ_DB : 0;
++	mask |= (attr_mask & IB_QP_RQ_PSN) ? C4IW_QP_ATTR_RQ_DB : 0;
++
+ 	return c4iw_modify_qp(rhp, qhp, mask, &attrs, 0);
+ }
+ 
+diff --git a/drivers/infiniband/hw/cxgb4/user.h b/drivers/infiniband/hw/cxgb4/user.h
+index e6669d5..32b754c 100644
+--- a/drivers/infiniband/hw/cxgb4/user.h
++++ b/drivers/infiniband/hw/cxgb4/user.h
+@@ -32,7 +32,7 @@
+ #ifndef __C4IW_USER_H__
+ #define __C4IW_USER_H__
+ 
+-#define C4IW_UVERBS_ABI_VERSION	1
++#define C4IW_UVERBS_ABI_VERSION	2
+ 
+ /*
+  * Make sure that all structs defined in this file remain laid out so
+-- 
+1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
