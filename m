@@ -1,47 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: avoid frag allocation for small frames
-Date: Mon, 24 Oct 2011 01:53:00 -0400 (EDT)
-Message-ID: <20111024.015300.2004557385108450324.davem@davemloft.net>
-References: <1319286237.6180.49.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next-2.6 PATCH 8/8 RFC v2] macvtap: Add support to get
+ MAC/VLAN filter rtnl link operations
+Date: Mon, 24 Oct 2011 07:56:34 +0200
+Message-ID: <20111024055633.GC24528@redhat.com>
+References: <20111019062543.7242.3969.stgit@savbu-pc100.cisco.com>
+ <20111019062636.7242.46889.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51246 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991Ab1JXFxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 01:53:04 -0400
-In-Reply-To: <1319286237.6180.49.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sri@us.ibm.com, dragos.tatulea@gmail.com,
+	arnd@arndb.de, kvm@vger.kernel.org, davem@davemloft.net,
+	mchan@broadcom.com, dwang2@cisco.com, shemminger@vyatta.com,
+	eric.dumazet@gmail.com, kaber@trash.net, benve@cisco.com
+To: Roopa Prabhu <roprabhu@cisco.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111019062636.7242.46889.stgit@savbu-pc100.cisco.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 22 Oct 2011 14:23:57 +0200
+On Tue, Oct 18, 2011 at 11:26:36PM -0700, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roprabhu@cisco.com>
+> 
+> This patch adds support to get MAC and VLAN filter rtnl_link_ops
+> on a macvtap interface. It adds support for get_rx_addr_filter_size,
+> get_rx_vlan_filter_size, fill_rx_addr_filter and fill_rx_vlan_filter
+> rtnl link operations. Calls equivalent macvlan operations.
+> 
+> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+> Signed-off-by: Christian Benvenuti <benve@cisco.com>
+> Signed-off-by: David Wang <dwang2@cisco.com>
+> ---
+>  drivers/net/macvtap.c |   27 +++++++++++++++++++++++++++
+>  1 files changed, 27 insertions(+), 0 deletions(-)
+> 
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 8a2cb59..9b40de7 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -285,6 +285,29 @@ static int macvtap_set_rx_vlan_filter(struct net_device *dev,
+>  	return macvlan_set_rx_vlan_filter(dev, tb);
+>  }
+>  
+> +static int macvtap_fill_rx_addr_filter(struct sk_buff *skb,
+> +	const struct net_device *dev)
+> +{
+> +	return macvlan_fill_rx_addr_filter(skb, dev);
+> +}
+> +
+> +static int macvtap_fill_rx_vlan_filter(struct sk_buff *skb,
+> +	const struct net_device *dev)
+> +{
+> +	return macvlan_fill_rx_vlan_filter(skb, dev);
+> +}
+> +
+> +static size_t macvtap_get_rx_addr_filter_size(const struct net_device *dev)
+> +{
+> +	return macvlan_get_rx_addr_filter_size(dev);
+> +}
+> +
+> +static size_t macvtap_get_rx_vlan_filter_size(const struct net_device *dev)
+> +{
+> +	return macvlan_get_rx_vlan_filter_size(dev);
+> +}
 
-> tcp_sendmsg() uses select_size() helper to choose skb head size when a
-> new skb must be allocated.
-> 
-> If GSO is enabled for the socket, current strategy is to force all
-> payload data to be outside of headroom, in PAGE fragments.
-> 
-> This strategy is not welcome for small packets, wasting memory.
-> 
-> Experiments show that best results are obtained when using 2048 bytes
-> for skb head (This includes the skb overhead and various headers)
-> 
-> This patch provides better len/truesize ratios for packets sent to
-> loopback device, and reduce memory needs for in-flight loopback packets,
-> particularly on arches with big pages.
-> 
-> If a sender sends many 1-byte packets to an unresponsive application,
-> receiver rmem_alloc will grow faster and will stop queuing these packets
-> sooner, or will collapse its receive queue to free excess memory.
-> 
-> netperf -t TCP_RR results are improved by ~4 %, and many workloads are
-> improved as well (tbench, mysql...)
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+So why do we need the above wrappers? Can't use macvlanXXX directly?
 
-Applied, thanks Eric.
+> +
+> +
+
+don't add double emoty lines pls.
+
+>  static int macvtap_newlink(struct net *src_net,
+>  			   struct net_device *dev,
+>  			   struct nlattr *tb[],
+> @@ -335,6 +358,10 @@ static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
+>  	.dellink			= macvtap_dellink,
+>  	.set_rx_addr_filter		= macvtap_set_rx_addr_filter,
+>  	.set_rx_vlan_filter		= macvtap_set_rx_vlan_filter,
+> +	.get_rx_addr_filter_size	= macvtap_get_rx_addr_filter_size,
+> +	.get_rx_vlan_filter_size	= macvtap_get_rx_vlan_filter_size,
+> +	.fill_rx_addr_filter		= macvtap_fill_rx_addr_filter,
+> +	.fill_rx_vlan_filter		= macvtap_fill_rx_vlan_filter,
+>  };
+>  
+>  
