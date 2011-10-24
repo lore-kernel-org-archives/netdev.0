@@ -1,80 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next-2.6 PATCH 7/8 RFC v2] macvtap: Add support to set
- MAC/VLAN filter rtnl link operations
-Date: Mon, 24 Oct 2011 07:57:25 +0200
-Message-ID: <20111024055725.GD24528@redhat.com>
-References: <20111019062543.7242.3969.stgit@savbu-pc100.cisco.com>
- <20111019062630.7242.99374.stgit@savbu-pc100.cisco.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net-next] Add ethtool -g support to virtio_net
+Date: Mon, 24 Oct 2011 15:11:31 +1030
+Message-ID: <87r5230zno.fsf@rustcorp.com.au>
+References: <20111019181059.C644A29003F6@tardy> <8762jk2j2r.fsf@rustcorp.com.au> <20111023.232604.18246342474494526.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, sri@us.ibm.com, dragos.tatulea@gmail.com,
-	arnd@arndb.de, kvm@vger.kernel.org, davem@davemloft.net,
-	mchan@broadcom.com, dwang2@cisco.com, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, kaber@trash.net, benve@cisco.com
-To: Roopa Prabhu <roprabhu@cisco.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111019062630.7242.99374.stgit@savbu-pc100.cisco.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: raj@tardy.cup.hp.com, netdev@vger.kernel.org, mst@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:57108 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753018Ab1JXGMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Oct 2011 02:12:25 -0400
+In-Reply-To: <20111023.232604.18246342474494526.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 18, 2011 at 11:26:30PM -0700, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roprabhu@cisco.com>
+On Sun, 23 Oct 2011 23:26:04 -0400 (EDT), David Miller <davem@davemloft.net> wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Thu, 20 Oct 2011 18:25:24 +1030
 > 
-> This patch adds support to set MAC and VLAN filter rtnl_link_ops
-> on a macvtap interface. It adds support for set_rx_addr_filter and
-> set_rx_vlan_filter rtnl link operations. These operations inturn call the
-> equivalent operations defined in macvlan
+> > On Wed, 19 Oct 2011 11:10:59 -0700 (PDT), raj@tardy.cup.hp.com (Rick Jones) wrote:
+> >> From: Rick Jones <rick.jones2@hp.com>
+> >> 
+> >> Add support for reporting ring sizes via ethtool -g to the virtio_net
+> >> driver.
+> >> 
+> >> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> > 
+> > Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> > 
+> > MST, want me to take this, or do you?
 > 
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: Christian Benvenuti <benve@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
-> ---
->  drivers/net/macvtap.c |   22 ++++++++++++++++++----
->  1 files changed, 18 insertions(+), 4 deletions(-)
-> 
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 3da5578..8a2cb59 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -273,6 +273,18 @@ static int macvtap_receive(struct sk_buff *skb)
->  	return macvtap_forward(skb->dev, skb);
->  }
->  
-> +static int macvtap_set_rx_addr_filter(struct net_device *dev,
-> +	struct nlattr *tb[])
-> +{
-> +	return macvlan_set_rx_addr_filter(dev, tb);
-> +}
-> +
-> +static int macvtap_set_rx_vlan_filter(struct net_device *dev,
-> +	struct nlattr *tb[])
-> +{
-> +	return macvlan_set_rx_vlan_filter(dev, tb);
-> +}
-> +
->  static int macvtap_newlink(struct net *src_net,
->  			   struct net_device *dev,
->  			   struct nlattr *tb[],
+> I can also take it directly, just let me know.
 
+I'm happy with that.
 
-Can use macvlanXXX directly here? Why wrap it?
-
-> @@ -317,10 +329,12 @@ static void macvtap_setup(struct net_device *dev)
->  }
->  
->  static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
-> -	.kind		= "macvtap",
-> -	.setup		= macvtap_setup,
-> -	.newlink	= macvtap_newlink,
-> -	.dellink	= macvtap_dellink,
-> +	.kind				= "macvtap",
-> +	.setup				= macvtap_setup,
-> +	.newlink			= macvtap_newlink,
-> +	.dellink			= macvtap_dellink,
-> +	.set_rx_addr_filter		= macvtap_set_rx_addr_filter,
-> +	.set_rx_vlan_filter		= macvtap_set_rx_vlan_filter,
->  };
->  
->  
+Thanks,
+Rusty.
