@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cls_flow: Add tunnel support to the flow classifier
-Date: Mon, 24 Oct 2011 18:36:40 -0400 (EDT)
-Message-ID: <20111024.183640.270445902457677669.davem@davemloft.net>
-References: <1319419287.20602.21.camel@ganymede>
-	<1319426081.2517.20.camel@edumazet-laptop>
-	<1319428781.2517.26.camel@edumazet-laptop>
+Subject: Re: [PATCH] ipv6: Do not use routes from locally generated RAs
+Date: Mon, 24 Oct 2011 18:37:15 -0400 (EDT)
+Message-ID: <20111024.183715.460582802706449552.davem@davemloft.net>
+References: <1319388071-21323-1-git-send-email-andi@collax.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan@coverfire.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: andi@collax.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51114 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:52032 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753486Ab1JXWgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:36:46 -0400
-In-Reply-To: <1319428781.2517.26.camel@edumazet-laptop>
+	with ESMTP id S1752808Ab1JXWhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:37:38 -0400
+In-Reply-To: <1319388071-21323-1-git-send-email-andi@collax.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 24 Oct 2011 05:59:41 +0200
+From: Andreas Hofmeister <andi@collax.com>
+Date: Sun, 23 Oct 2011 18:41:11 +0200
 
-> [PATCH net-next] net_sched: cls_flow: use skb_header_pointer()
+> When hybrid mode is enabled (accept_ra == 2), the kernel also sees RAs
+> generated locally. This is useful since it allows the kernel to auto-configure
+> its own interface addresses.
 > 
-> Dan Siemon would like to add tunnelling support to cls_flow
+> However, if 'accept_ra_defrtr' and/or 'accept_ra_rtr_pref' are set and the
+> locally generated RAs announce the default route and/or other route information,
+> the kernel happily inserts bogus routes with its own address as gateway.
 > 
-> This preliminary patch introduces use of skb_header_pointer() to help
-> this task, while avoiding skb head reallocation because of deep packet
-> inspection.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> With this patch, adding routes from an RA will be skiped when the RAs source
+> address matches any local address, just as if 'accept_ra_defrtr' and
+> 'accept_ra_rtr_pref' were set to 0.
 
-Applied.
+Please make a fresh full resubmission of this patch and add an
+appropriate Signed-off-by: tag to your commit message.
+
+Thanks.
