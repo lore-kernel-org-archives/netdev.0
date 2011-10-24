@@ -1,371 +1,172 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] cls_flow: Add tunnel support to the flow classifier
-Date: Mon, 24 Oct 2011 05:59:41 +0200
-Message-ID: <1319428781.2517.26.camel@edumazet-laptop>
-References: <1318806373.7169.35.camel@ganymede>
-	 <1318833623.2500.45.camel@edumazet-laptop>
-	 <1319419287.20602.21.camel@ganymede>
-	 <1319426081.2517.20.camel@edumazet-laptop>
+From: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
+Subject: Re: [PATCH net -v2] [BUGFIX] bonding: use flush_delayed_work_sync
+ in bond_close
+Date: Mon, 24 Oct 2011 13:00:46 +0900
+Message-ID: <4EA4E2EE.4050201@hitachi.com>
+References: <20111019081757.12455.24788.stgit@ltc219.sdl.hitachi.co.jp> <27007.1319047262@death> <20111019114129.162d895a@nehalam.linuxnetplumber.net> <29731.1319051397@death> <CAM_iQpV8089aU8gfeo8KotTNXQbx4ficMeBX69Nin_yXzqcEKg@mail.gmail.com> <17144.1319178396@death> <14766.1319245142@death>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Dan Siemon <dan@coverfire.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63380 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752941Ab1JXD7q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 23:59:46 -0400
-Received: by wyg36 with SMTP id 36so5720231wyg.19
-        for <netdev@vger.kernel.org>; Sun, 23 Oct 2011 20:59:44 -0700 (PDT)
-In-Reply-To: <1319426081.2517.20.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	=?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <14766.1319245142@death>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 24 octobre 2011 =C3=A0 05:14 +0200, Eric Dumazet a =C3=A9crit =
-:
-
-> If you prefer, I can do the preliminary work=20
+(2011/10/22 9:59), Jay Vosburgh wrote:
+> Jay Vosburgh <fubar@us.ibm.com> wrote:
 >=20
+>> Am=C3=A9rico Wang <xiyou.wangcong@gmail.com> wrote:
+>>
+>>> On Thu, Oct 20, 2011 at 3:09 AM, Jay Vosburgh <fubar@us.ibm.com> wr=
+ote:
+>>>> Stephen Hemminger <shemminger@vyatta.com> wrote:
+>>>>
+>>>>> On Wed, 19 Oct 2011 11:01:02 -0700
+>>>>> Jay Vosburgh <fubar@us.ibm.com> wrote:
+>>>>>
+>>>>>> Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com> wrote:
+>>>>>>
+>>>>>>> The bond_close() calls cancel_delayed_work() to cancel delayed =
+works.
+>>>>>>> It, however, cannot cancel works that were already queued in wo=
+rkqueue.
+>>>>>>> The bond_open() initializes work->data, and proccess_one_work()=
+ refers
+>>>>>>> get_work_cwq(work)->wq->flags. The get_work_cwq() returns NULL =
+when
+>>>>>>> work->data has been initialized. Thus, a panic occurs.
+>>>>>>>
+>>>>>>> This patch uses flush_delayed_work_sync() instead of cancel_del=
+ayed_work()
+>>>>>>> in bond_close(). It cancels delayed timer and waits for work to=
+ finish
+>>>>>>> execution. So, it can avoid the null pointer dereference due to=
+ the
+>>>>>>> parallel executions of proccess_one_work() and initializing pro=
+ccess
+>>>>>>> of bond_open().
+>>>>>>
+>>>>>>      I'm setting up to test this.  I have a dim recollection tha=
+t we
+>>>>>> tried this some years ago, and there was a different deadlock th=
+at
+>>>>>> manifested through the flush path.  Perhaps changes since then h=
+ave
+>>>>>> removed that problem.
+>>>>>>
+>>>>>>      -J
+>>>>>
+>>>>> Won't this deadlock on RTNL.  The problem is that:
+>>>>>
+>>>>>   CPU0                            CPU1
+>>>>>  rtnl_lock
+>>>>>      bond_close
+>>>>>                                 delayed_work
+>>>>>                                   mii_work
+>>>>>                                     read_lock(bond->lock);
+>>>>>                                     read_unlock(bond->lock);
+>>>>>                                     rtnl_lock... waiting for CPU0
+>>>>>      flush_delayed_work_sync
+>>>>>          waiting for delayed_work to finish...
+>>>>
+>>>>        Yah, that was it.  We discussed this a couple of years ago =
+in
+>>>> regards to a similar patch:
+>>>>
+>>>> http://lists.openwall.net/netdev/2009/12/17/3
+>>>>
+>>>>        The short version is that we could rework the rtnl_lock ins=
+ide
+>>>> the montiors to be conditional and retry on failure (where "retry"=
+ means
+>>>> "reschedule the work and try again later," not "spin retrying on r=
+tnl").
+>>>> That should permit the use of flush or cancel to terminate the wor=
+k
+>>>> items.
+>>>
+>>> Yes? Even if we use rtnl_trylock(), doesn't flush_delayed_work_sync=
+()
+>>> still queue the pending delayed work and wait for it to be finished=
+?
+>>
+>> 	Yes, it does.  The original patch wants to use flush instead of
+>> cancel to wait for the work to finish, because there's evidently a
+>> possibility of getting back into bond_open before the work item
+>> executes, and bond_open would reinitialize the work queue and corrup=
+t
+>> the queued work item.
+>>
+>> 	The original patch series, and recipe for destruction, is here:
+>>
+>> 	http://www.spinics.net/lists/netdev/msg176382.html
+>>
+>> 	I've been unable to reproduce the work queue panic locally,
+>> although it sounds plausible.
+>>
+>> 	Mitsuo: can you provide the precise bonding configuration you're
+>> using to induce the problem?  Driver options, number and type of sla=
+ves,
+>> etc.
+>>
+>>> Maybe I am too blind, why do we need rtnl_lock for cancel_delayed_w=
+ork()
+>>> inside bond_close()?
+>>
+>> 	We don't need RTNL for cancel/flush.  However, bond_close is an
+>> ndo_stop operation, and is called in the dev_close path, which alway=
+s
+>> occurs under RTNL.  The mii / arp monitor work functions separately
+>> acquire RTNL if they need to perform various failover related
+>> operations.
+>>
+>> 	I'm working on a patch that should resolve the mii / arp monitor
+>> RTNL problem as I described above (if rtnl_trylock fails, punt and
+>> reschedule the work).  I need to rearrange the netdev_bonding_change
+>> stuff a bit as well, since it acquires RTNL separately.
+>>
+>> 	Once these changes are made to mii / arp monitor, then
+>> bond_close can call flush instead of cancel, which should eliminate =
+the
+>> original problem described at the top.
+>=20
+> 	Just an update: there are three functions that may deadlock if
+> the cancel work calls are changed to flush_sync.  There are two
+> rtnl_lock calls in each of the bond_mii_monitor and
+> bond_activebackup_arp_mon functions, and one more in the
+> bond_alb_monitor.
+>=20
+> 	Still testing to make sure I haven't missed anything, and I
+> still haven't been able to reproduce Mitsuo's original failure.
 
-Since it is a bit tricky, I finished it.
 
-It'll be easier for you to use existing functions without copy/paste,
-since I added an "nhoff" argument that you can play with (skipping
-tunnel header)
+The interval of mii_mon was set to 1 to reproduce this bug easily and=20
+the 802.3ad mode was used. Then, I executed the following command.
 
-Please test it !
+# while true; do ifconfig bond0 down; done &
+# while true; do ifconfig bond0 up; done &
 
-Thanks
+This bug rarely occurs since it is the severe timing problem.
+I found that it is more easily to reproduce this bug when using guest O=
+S.
 
-[PATCH net-next] net_sched: cls_flow: use skb_header_pointer()
+=46or example, it took one to three days for me to reproduce it on host=
+ OS,=20
+but some hours on guest OS.
 
-Dan Siemon would like to add tunnelling support to cls_flow
+Thanks.
 
-This preliminary patch introduces use of skb_header_pointer() to help
-this task, while avoiding skb head reallocation because of deep packet
-inspection.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/sched/cls_flow.c |  188 ++++++++++++++++++++---------------------
- 1 file changed, 96 insertions(+), 92 deletions(-)
-
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 6994214..9e087d8 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -65,132 +65,134 @@ static inline u32 addr_fold(void *addr)
- 	return (a & 0xFFFFFFFF) ^ (BITS_PER_LONG > 32 ? a >> 32 : 0);
- }
-=20
--static u32 flow_get_src(struct sk_buff *skb)
-+static u32 flow_get_src(const struct sk_buff *skb, int nhoff)
- {
-+	__be32 *data =3D NULL, hdata;
-+
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
--		if (pskb_network_may_pull(skb, sizeof(struct iphdr)))
--			return ntohl(ip_hdr(skb)->saddr);
-+		data =3D skb_header_pointer(skb,
-+					  nhoff + offsetof(struct iphdr,
-+							   saddr),
-+					  4, &hdata);
- 		break;
- 	case htons(ETH_P_IPV6):
--		if (pskb_network_may_pull(skb, sizeof(struct ipv6hdr)))
--			return ntohl(ipv6_hdr(skb)->saddr.s6_addr32[3]);
-+		data =3D skb_header_pointer(skb,
-+					 nhoff + offsetof(struct ipv6hdr,
-+							  saddr.s6_addr32[3]),
-+					 4, &hdata);
- 		break;
- 	}
-=20
-+	if (data)
-+		return ntohl(*data);
- 	return addr_fold(skb->sk);
- }
-=20
--static u32 flow_get_dst(struct sk_buff *skb)
-+static u32 flow_get_dst(const struct sk_buff *skb, int nhoff)
- {
-+	__be32 *data =3D NULL, hdata;
-+
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
--		if (pskb_network_may_pull(skb, sizeof(struct iphdr)))
--			return ntohl(ip_hdr(skb)->daddr);
-+		data =3D skb_header_pointer(skb,
-+					  nhoff + offsetof(struct iphdr,
-+							   daddr),
-+					  4, &hdata);
- 		break;
- 	case htons(ETH_P_IPV6):
--		if (pskb_network_may_pull(skb, sizeof(struct ipv6hdr)))
--			return ntohl(ipv6_hdr(skb)->daddr.s6_addr32[3]);
-+		data =3D skb_header_pointer(skb,
-+					 nhoff + offsetof(struct ipv6hdr,
-+							  daddr.s6_addr32[3]),
-+					 4, &hdata);
- 		break;
- 	}
-=20
-+	if (data)
-+		return ntohl(*data);
- 	return addr_fold(skb_dst(skb)) ^ (__force u16)skb->protocol;
- }
-=20
--static u32 flow_get_proto(struct sk_buff *skb)
-+static u32 flow_get_proto(const struct sk_buff *skb, int nhoff)
- {
-+	__u8 *data =3D NULL, hdata;
-+
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
--		return pskb_network_may_pull(skb, sizeof(struct iphdr)) ?
--		       ip_hdr(skb)->protocol : 0;
-+		data =3D skb_header_pointer(skb,
-+					  nhoff + offsetof(struct iphdr,
-+							   protocol),
-+					  1, &hdata);
-+		break;
- 	case htons(ETH_P_IPV6):
--		return pskb_network_may_pull(skb, sizeof(struct ipv6hdr)) ?
--		       ipv6_hdr(skb)->nexthdr : 0;
--	default:
--		return 0;
-+		data =3D skb_header_pointer(skb,
-+					 nhoff + offsetof(struct ipv6hdr,
-+							  nexthdr),
-+					 1, &hdata);
-+		break;
- 	}
-+	if (data)
-+		return *data;
-+	return 0;
- }
-=20
--static u32 flow_get_proto_src(struct sk_buff *skb)
-+/* helper function to get either src or dst port */
-+static __be16 *flow_get_proto_common(const struct sk_buff *skb, int nh=
-off,
-+				     __be16 *_port, int dst)
- {
-+	__be16 *port =3D NULL;
-+	int poff;
-+
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP): {
--		struct iphdr *iph;
--		int poff;
-+		struct iphdr *iph, _iph;
-=20
--		if (!pskb_network_may_pull(skb, sizeof(*iph)))
-+		iph =3D skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
-+		if (!iph)
- 			break;
--		iph =3D ip_hdr(skb);
- 		if (ip_is_fragment(iph))
- 			break;
- 		poff =3D proto_ports_offset(iph->protocol);
--		if (poff >=3D 0 &&
--		    pskb_network_may_pull(skb, iph->ihl * 4 + 2 + poff)) {
--			iph =3D ip_hdr(skb);
--			return ntohs(*(__be16 *)((void *)iph + iph->ihl * 4 +
--						 poff));
--		}
-+		if (poff >=3D 0)
-+			port =3D skb_header_pointer(skb,
-+					nhoff + iph->ihl * 4 + poff + dst,
-+					sizeof(*_port), _port);
- 		break;
- 	}
- 	case htons(ETH_P_IPV6): {
--		struct ipv6hdr *iph;
--		int poff;
-+		struct ipv6hdr *iph, _iph;
-=20
--		if (!pskb_network_may_pull(skb, sizeof(*iph)))
-+		iph =3D skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
-+		if (!iph)
- 			break;
--		iph =3D ipv6_hdr(skb);
- 		poff =3D proto_ports_offset(iph->nexthdr);
--		if (poff >=3D 0 &&
--		    pskb_network_may_pull(skb, sizeof(*iph) + poff + 2)) {
--			iph =3D ipv6_hdr(skb);
--			return ntohs(*(__be16 *)((void *)iph + sizeof(*iph) +
--						 poff));
--		}
-+		if (poff >=3D 0)
-+			port =3D skb_header_pointer(skb,
-+					nhoff + sizeof(*iph) + poff + dst,
-+					sizeof(*_port), _port);
- 		break;
- 	}
- 	}
-=20
--	return addr_fold(skb->sk);
-+	return port;
- }
-=20
--static u32 flow_get_proto_dst(struct sk_buff *skb)
-+static u32 flow_get_proto_src(const struct sk_buff *skb, int nhoff)
- {
--	switch (skb->protocol) {
--	case htons(ETH_P_IP): {
--		struct iphdr *iph;
--		int poff;
-+	__be16 _port, *port =3D flow_get_proto_common(skb, nhoff, &_port, 0);
-=20
--		if (!pskb_network_may_pull(skb, sizeof(*iph)))
--			break;
--		iph =3D ip_hdr(skb);
--		if (ip_is_fragment(iph))
--			break;
--		poff =3D proto_ports_offset(iph->protocol);
--		if (poff >=3D 0 &&
--		    pskb_network_may_pull(skb, iph->ihl * 4 + 4 + poff)) {
--			iph =3D ip_hdr(skb);
--			return ntohs(*(__be16 *)((void *)iph + iph->ihl * 4 +
--						 2 + poff));
--		}
--		break;
--	}
--	case htons(ETH_P_IPV6): {
--		struct ipv6hdr *iph;
--		int poff;
-+	if (port)
-+		return ntohs(*port);
-=20
--		if (!pskb_network_may_pull(skb, sizeof(*iph)))
--			break;
--		iph =3D ipv6_hdr(skb);
--		poff =3D proto_ports_offset(iph->nexthdr);
--		if (poff >=3D 0 &&
--		    pskb_network_may_pull(skb, sizeof(*iph) + poff + 4)) {
--			iph =3D ipv6_hdr(skb);
--			return ntohs(*(__be16 *)((void *)iph + sizeof(*iph) +
--						 poff + 2));
--		}
--		break;
--	}
--	}
-+	return addr_fold(skb->sk);
-+}
-+
-+static u32 flow_get_proto_dst(const struct sk_buff *skb, int nhoff)
-+{
-+	__be16 _port, *port =3D flow_get_proto_common(skb, nhoff, &_port, 2);
-+
-+	if (port)
-+		return ntohs(*port);
-=20
- 	return addr_fold(skb_dst(skb)) ^ (__force u16)skb->protocol;
- }
-@@ -223,7 +225,7 @@ static u32 flow_get_nfct(const struct sk_buff *skb)
- #define CTTUPLE(skb, member)						\
- ({									\
- 	enum ip_conntrack_info ctinfo;					\
--	struct nf_conn *ct =3D nf_ct_get(skb, &ctinfo);			\
-+	const struct nf_conn *ct =3D nf_ct_get(skb, &ctinfo);		\
- 	if (ct =3D=3D NULL)							\
- 		goto fallback;						\
- 	ct->tuplehash[CTINFO2DIR(ctinfo)].tuple.member;			\
-@@ -236,7 +238,7 @@ static u32 flow_get_nfct(const struct sk_buff *skb)
- })
- #endif
-=20
--static u32 flow_get_nfct_src(struct sk_buff *skb)
-+static u32 flow_get_nfct_src(const struct sk_buff *skb, int nhoff)
- {
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
-@@ -245,10 +247,10 @@ static u32 flow_get_nfct_src(struct sk_buff *skb)
- 		return ntohl(CTTUPLE(skb, src.u3.ip6[3]));
- 	}
- fallback:
--	return flow_get_src(skb);
-+	return flow_get_src(skb, nhoff);
- }
-=20
--static u32 flow_get_nfct_dst(struct sk_buff *skb)
-+static u32 flow_get_nfct_dst(const struct sk_buff *skb, int nhoff)
- {
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
-@@ -257,21 +259,21 @@ static u32 flow_get_nfct_dst(struct sk_buff *skb)
- 		return ntohl(CTTUPLE(skb, dst.u3.ip6[3]));
- 	}
- fallback:
--	return flow_get_dst(skb);
-+	return flow_get_dst(skb, nhoff);
- }
-=20
--static u32 flow_get_nfct_proto_src(struct sk_buff *skb)
-+static u32 flow_get_nfct_proto_src(const struct sk_buff *skb, int nhof=
-f)
- {
- 	return ntohs(CTTUPLE(skb, src.u.all));
- fallback:
--	return flow_get_proto_src(skb);
-+	return flow_get_proto_src(skb, nhoff);
- }
-=20
--static u32 flow_get_nfct_proto_dst(struct sk_buff *skb)
-+static u32 flow_get_nfct_proto_dst(const struct sk_buff *skb, int nhof=
-f)
- {
- 	return ntohs(CTTUPLE(skb, dst.u.all));
- fallback:
--	return flow_get_proto_dst(skb);
-+	return flow_get_proto_dst(skb, nhoff);
- }
-=20
- static u32 flow_get_rtclassid(const struct sk_buff *skb)
-@@ -313,17 +315,19 @@ static u32 flow_get_rxhash(struct sk_buff *skb)
-=20
- static u32 flow_key_get(struct sk_buff *skb, int key)
- {
-+	int nhoff =3D skb_network_offset(skb);
-+
- 	switch (key) {
- 	case FLOW_KEY_SRC:
--		return flow_get_src(skb);
-+		return flow_get_src(skb, nhoff);
- 	case FLOW_KEY_DST:
--		return flow_get_dst(skb);
-+		return flow_get_dst(skb, nhoff);
- 	case FLOW_KEY_PROTO:
--		return flow_get_proto(skb);
-+		return flow_get_proto(skb, nhoff);
- 	case FLOW_KEY_PROTO_SRC:
--		return flow_get_proto_src(skb);
-+		return flow_get_proto_src(skb, nhoff);
- 	case FLOW_KEY_PROTO_DST:
--		return flow_get_proto_dst(skb);
-+		return flow_get_proto_dst(skb, nhoff);
- 	case FLOW_KEY_IIF:
- 		return flow_get_iif(skb);
- 	case FLOW_KEY_PRIORITY:
-@@ -333,13 +337,13 @@ static u32 flow_key_get(struct sk_buff *skb, int =
-key)
- 	case FLOW_KEY_NFCT:
- 		return flow_get_nfct(skb);
- 	case FLOW_KEY_NFCT_SRC:
--		return flow_get_nfct_src(skb);
-+		return flow_get_nfct_src(skb, nhoff);
- 	case FLOW_KEY_NFCT_DST:
--		return flow_get_nfct_dst(skb);
-+		return flow_get_nfct_dst(skb, nhoff);
- 	case FLOW_KEY_NFCT_PROTO_SRC:
--		return flow_get_nfct_proto_src(skb);
-+		return flow_get_nfct_proto_src(skb, nhoff);
- 	case FLOW_KEY_NFCT_PROTO_DST:
--		return flow_get_nfct_proto_dst(skb);
-+		return flow_get_nfct_proto_dst(skb, nhoff);
- 	case FLOW_KEY_RTCLASSID:
- 		return flow_get_rtclassid(skb);
- 	case FLOW_KEY_SKUID:
+>=20
+> 	-J
+>=20
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>=20
+>=20
