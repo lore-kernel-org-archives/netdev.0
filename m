@@ -1,193 +1,201 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH 3/4] net: xen-netback: use API provided by xenbus module
- to map rings
-Date: Thu, 20 Oct 2011 17:00:53 -0400
-Message-ID: <20111020210053.GA19558@phenom.dumpdata.com>
-References: <1319107519-2253-1-git-send-email-david.vrabel@citrix.com>
- <1319107519-2253-4-git-send-email-david.vrabel@citrix.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: [patch net-next V4] net: introduce ethernet teaming device
+Date: Mon, 24 Oct 2011 09:09:19 -0400
+Message-ID: <20111024130918.GB24473@synalogic.ca>
+References: <1319444005-1281-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: xen-devel@lists.xensource.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
-To: David Vrabel <david.vrabel@citrix.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
+	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com,
+	fbl@redhat.com, jzupka@redhat.com,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:42745 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932318Ab1JXNJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 09:09:27 -0400
+Received: by gyb13 with SMTP id 13so5701789gyb.19
+        for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 06:09:27 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1319107519-2253-4-git-send-email-david.vrabel@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1319444005-1281-1-git-send-email-jpirko@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 20, 2011 at 11:45:18AM +0100, David Vrabel wrote:
-> The xenbus module provides xenbus_map_ring_valloc() and
-> xenbus_map_ring_vfree().  Use these to map the Tx and Rx ring pages
-> granted by the frontend.
+On 11/10/24 10:13, Jiri Pirko wrote:
+> This patch introduces new network device called team. It supposes to be
+> very fast, simple, userspace-driven alternative to existing bonding
+> driver.
 > 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-
-
-Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-
-> Dave, this is a standalone patch and can be applied independently of
-> the rest of the series.
-
-.. or Dave, if you would like I can carry these patches.
-
+> Userspace library called libteam with couple of demo apps is available
+> here:
+> https://github.com/jpirko/libteam
+> Note it's still in its dipers atm.
 > 
->  drivers/net/xen-netback/common.h  |   11 ++---
->  drivers/net/xen-netback/netback.c |   80 ++++++++-----------------------------
->  2 files changed, 22 insertions(+), 69 deletions(-)
+> team<->libteam use generic netlink for communication. That and rtnl
+> suppose to be the only way to configure team device, no sysfs etc.
 > 
-> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index 161f207..94b79c3 100644
-> --- a/drivers/net/xen-netback/common.h
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -58,10 +58,6 @@ struct xenvif {
->  	u8               fe_dev_addr[6];
->  
->  	/* Physical parameters of the comms window. */
-> -	grant_handle_t   tx_shmem_handle;
-> -	grant_ref_t      tx_shmem_ref;
-> -	grant_handle_t   rx_shmem_handle;
-> -	grant_ref_t      rx_shmem_ref;
->  	unsigned int     irq;
->  
->  	/* List of frontends to notify after a batch of frames sent. */
-> @@ -70,8 +66,6 @@ struct xenvif {
->  	/* The shared rings and indexes. */
->  	struct xen_netif_tx_back_ring tx;
->  	struct xen_netif_rx_back_ring rx;
-> -	struct vm_struct *tx_comms_area;
-> -	struct vm_struct *rx_comms_area;
->  
->  	/* Frontend feature information. */
->  	u8 can_sg:1;
-> @@ -106,6 +100,11 @@ struct xenvif {
->  	wait_queue_head_t waiting_to_free;
->  };
->  
-> +static inline struct xenbus_device *xenvif_to_xenbus_device(struct xenvif *vif)
+> Python binding basis for libteam was recently introduced (some need
+> still need to be done on it though). Daemon providing arpmon/miimon
+> active-backup functionality will be introduced shortly.
+> All what's necessary is already implemented in kernel team driver.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> 
+> v3->v4:
+> 	- remove redundant synchronize_rcu from __team_change_mode()
+> 	- revert "set and clear of mode_ops happens per pointer, not per
+> 	  byte"
+> 	- extend comment of function __team_change_mode()
+> 
+> v2->v3:
+> 	- team_change_mtu() user rcu version of list traversal to unwind
+> 	- set and clear of mode_ops happens per pointer, not per byte
+> 	- port hashlist changed to be embedded into team structure
+> 	- error branch in team_port_enter() does cleanup now
+> 	- fixed rtln->rtnl
+> 
+> v1->v2:
+> 	- modes are made as modules. Makes team more modular and
+> 	  extendable.
+> 	- several commenters' nitpicks found on v1 were fixed
+> 	- several other bugs were fixed.
+> 	- note I ignored Eric's comment about roundrobin port selector
+> 	  as Eric's way may be easily implemented as another mode (mode
+> 	  "random") in future.
+> ---
+>  Documentation/networking/team.txt         |    2 +
+>  MAINTAINERS                               |    7 +
+>  drivers/net/Kconfig                       |    2 +
+>  drivers/net/Makefile                      |    1 +
+>  drivers/net/team/Kconfig                  |   38 +
+>  drivers/net/team/Makefile                 |    7 +
+>  drivers/net/team/team.c                   | 1573 +++++++++++++++++++++++++++++
+>  drivers/net/team/team_mode_activebackup.c |  152 +++
+>  drivers/net/team/team_mode_roundrobin.c   |  107 ++
+>  include/linux/Kbuild                      |    1 +
+>  include/linux/if.h                        |    1 +
+>  include/linux/if_team.h                   |  231 +++++
+>  include/linux/rculist.h                   |   14 +
+
+I think you're missing some CC's for the modifications to this file.
+I've taken the liberty of adding Dipankar and Paul to the discussion.
+
+>  13 files changed, 2136 insertions(+), 0 deletions(-)
+>  create mode 100644 Documentation/networking/team.txt
+>  create mode 100644 drivers/net/team/Kconfig
+>  create mode 100644 drivers/net/team/Makefile
+>  create mode 100644 drivers/net/team/team.c
+>  create mode 100644 drivers/net/team/team_mode_activebackup.c
+>  create mode 100644 drivers/net/team/team_mode_roundrobin.c
+>  create mode 100644 include/linux/if_team.h
+> 
+
+[...]
+
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> new file mode 100644
+> index 0000000..acfef4c
+> --- /dev/null
+> +++ b/drivers/net/team/team.c
+> +
+[...]
+> +static int team_change_mtu(struct net_device *dev, int new_mtu)
 > +{
-> +	return to_xenbus_device(vif->dev->dev.parent);
+> +	struct team *team = netdev_priv(dev);
+> +	struct team_port *port;
+> +	int err;
+> +
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(port, &team->port_list, list) {
+> +		err = dev_set_mtu(port->dev, new_mtu);
+> +		if (err) {
+> +			netdev_err(dev, "Device %s failed to change mtu",
+> +				   port->dev->name);
+> +			goto unwind;
+> +		}
+> +	}
+> +	rcu_read_unlock();
+> +
+> +	dev->mtu = new_mtu;
+> +
+> +	return 0;
+> +
+> +unwind:
+> +	list_for_each_entry_continue_reverse_rcu(port, &team->port_list, list)
+> +		dev_set_mtu(port->dev, dev->mtu);
+> +
+> +	rcu_read_unlock();
+> +	return err;
 > +}
 > +
->  #define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
->  #define XEN_NETIF_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
->  
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index fd00f25..3af2924 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1577,88 +1577,42 @@ static int xen_netbk_kthread(void *data)
->  
->  void xen_netbk_unmap_frontend_rings(struct xenvif *vif)
->  {
-> -	struct gnttab_unmap_grant_ref op;
-> -
-> -	if (vif->tx.sring) {
-> -		gnttab_set_unmap_op(&op, (unsigned long)vif->tx_comms_area->addr,
-> -				    GNTMAP_host_map, vif->tx_shmem_handle);
-> -
-> -		if (HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1))
-> -			BUG();
-> -	}
-> -
-> -	if (vif->rx.sring) {
-> -		gnttab_set_unmap_op(&op, (unsigned long)vif->rx_comms_area->addr,
-> -				    GNTMAP_host_map, vif->rx_shmem_handle);
-> -
-> -		if (HYPERVISOR_grant_table_op(GNTTABOP_unmap_grant_ref, &op, 1))
-> -			BUG();
-> -	}
-> -	if (vif->rx_comms_area)
-> -		free_vm_area(vif->rx_comms_area);
-> -	if (vif->tx_comms_area)
-> -		free_vm_area(vif->tx_comms_area);
-> +	if (vif->tx.sring)
-> +		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
-> +					vif->tx.sring);
-> +	if (vif->rx.sring)
-> +		xenbus_unmap_ring_vfree(xenvif_to_xenbus_device(vif),
-> +					vif->rx.sring);
->  }
->  
->  int xen_netbk_map_frontend_rings(struct xenvif *vif,
->  				 grant_ref_t tx_ring_ref,
->  				 grant_ref_t rx_ring_ref)
->  {
-> -	struct gnttab_map_grant_ref op;
-> +	void *addr;
->  	struct xen_netif_tx_sring *txs;
->  	struct xen_netif_rx_sring *rxs;
->  
->  	int err = -ENOMEM;
->  
-> -	vif->tx_comms_area = alloc_vm_area(PAGE_SIZE);
-> -	if (vif->tx_comms_area == NULL)
-> +	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
-> +				     tx_ring_ref, &addr);
-> +	if (err)
->  		goto err;
->  
-> -	vif->rx_comms_area = alloc_vm_area(PAGE_SIZE);
-> -	if (vif->rx_comms_area == NULL)
-> -		goto err;
-> -
-> -	gnttab_set_map_op(&op, (unsigned long)vif->tx_comms_area->addr,
-> -			  GNTMAP_host_map, tx_ring_ref, vif->domid);
-> -
-> -	if (HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
-> -		BUG();
-> -
-> -	if (op.status) {
-> -		netdev_warn(vif->dev,
-> -			    "failed to map tx ring. err=%d status=%d\n",
-> -			    err, op.status);
-> -		err = op.status;
-> -		goto err;
-> -	}
-> -
-> -	vif->tx_shmem_ref    = tx_ring_ref;
-> -	vif->tx_shmem_handle = op.handle;
-> -
-> -	txs = (struct xen_netif_tx_sring *)vif->tx_comms_area->addr;
-> +	txs = (struct xen_netif_tx_sring *)addr;
->  	BACK_RING_INIT(&vif->tx, txs, PAGE_SIZE);
->  
-> -	gnttab_set_map_op(&op, (unsigned long)vif->rx_comms_area->addr,
-> -			  GNTMAP_host_map, rx_ring_ref, vif->domid);
-> -
-> -	if (HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op, 1))
-> -		BUG();
-> -
-> -	if (op.status) {
-> -		netdev_warn(vif->dev,
-> -			    "failed to map rx ring. err=%d status=%d\n",
-> -			    err, op.status);
-> -		err = op.status;
-> +	err = xenbus_map_ring_valloc(xenvif_to_xenbus_device(vif),
-> +				     rx_ring_ref, &addr);
-> +	if (err)
->  		goto err;
-> -	}
-> -
-> -	vif->rx_shmem_ref     = rx_ring_ref;
-> -	vif->rx_shmem_handle  = op.handle;
-> -	vif->rx_req_cons_peek = 0;
->  
-> -	rxs = (struct xen_netif_rx_sring *)vif->rx_comms_area->addr;
-> +	rxs = (struct xen_netif_rx_sring *)addr;
->  	BACK_RING_INIT(&vif->rx, rxs, PAGE_SIZE);
->  
-> +	vif->rx_req_cons_peek = 0;
 > +
->  	return 0;
+
+[...]
+
+> diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+> index d079290..7586b2c 100644
+> --- a/include/linux/rculist.h
+> +++ b/include/linux/rculist.h
+> @@ -288,6 +288,20 @@ static inline void list_splice_init_rcu(struct list_head *list,
+>  	     pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
 >  
->  err:
+>  /**
+> + * list_for_each_entry_continue_reverse_rcu - iterate backwards from the given point
+> + * @pos:	the type * to use as a loop cursor.
+> + * @head:	the head for your list.
+> + * @member:	the name of the list_struct within the struct.
+> + *
+> + * Start to iterate over list of given type backwards, continuing after
+> + * the current position.
+> + */
+> +#define list_for_each_entry_continue_reverse_rcu(pos, head, member)	\
+> +	for (pos = list_entry_rcu(pos->member.prev, typeof(*pos), member); \
+> +	     &pos->member != (head);	\
+> +	     pos = list_entry_rcu(pos->member.prev, typeof(*pos), member))
+> +
+
+rcu lists can be modified while they are traversed with *_rcu()
+primitives. This benefit comes with the constraint that they may only be
+traversed forwards. This is implicit in the choice of *_rcu()
+list-traversal primitives: they only go forwards.
+
+You suggest to add a backwards rcu list-traversal primitive. But
+consider what happens in this sequence:
+
+CPU0					CPU1
+list_for_each_entry_continue_reverse_rcu(...)
+pos = list_entry_rcu(pos->member.prev, typeof(*pos), member)
+					list_del_rcu(&pos->member)
+					{ (&pos->member)->prev = LIST_POISON2 }
+pos = list_entry_rcu(pos->member.prev, typeof(*pos), member)
+    = container_of(LIST_POISON2, typeof(*pos), member)
+do_something(*pos)
+    BAM!
+
+Going back to the problem you're trying to solve in team_change_mtu(),
+I think you could either:
+1) take team->lock instead of rcu_read_lock() throughout this particular
+function
+2) save each deleted element in a separate list on the side in case it's
+necessary to roll back
+3) remove the rcu double locking, rely on rtnl and add some
+ASSERT_RTNL() if desired. You've said that you don't want to rely on
+rtnl and you want to use separate locking but I fail to see what
+advantage that brings to balance out the extra complexity in code and
+execution? Please clarify this.
+
+Thanks,
+-Ben
+
+> +/**
+>   * hlist_del_rcu - deletes entry from hash list without re-initialization
+>   * @n: the element to delete from the hash list.
+>   *
 > -- 
-> 1.7.2.5
+> 1.7.6
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
