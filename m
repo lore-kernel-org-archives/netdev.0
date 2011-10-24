@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] be2net: fixes
-Date: Mon, 24 Oct 2011 18:35:46 -0400 (EDT)
-Message-ID: <20111024.183546.495965585975609045.davem@davemloft.net>
-References: <1319460303-25560-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: |PATCH net-next] tg3: add tx_dropped counter
+Date: Mon, 24 Oct 2011 18:35:56 -0400 (EDT)
+Message-ID: <20111024.183556.175862455915569616.davem@davemloft.net>
+References: <1319478783.3064.4.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51094 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:51099 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752725Ab1JXWfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:35:51 -0400
-In-Reply-To: <1319460303-25560-1-git-send-email-sathya.perla@emulex.com>
+	with ESMTP id S1752725Ab1JXWgB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:36:01 -0400
+In-Reply-To: <1319478783.3064.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Mon, 24 Oct 2011 18:14:59 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 24 Oct 2011 19:53:03 +0200
 
-> Pls apply.
+> If a frame cant be transmitted, it is silently discarded.
 > 
-> Sathya Perla (4):
->   be2net: add vlan/rx-mode/flow-control config to be_setup()
->   be2net: refactor VF setup/teardown code into be_vf_setup/clear()
->   be2net: don't create multiple TXQs in BE2
->   be2net: don't create multiple RX/TX rings in multi channel mode
+> Add a counter to report these errors to user.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, but many of your commit messages were poorly formatted (lines
-exceeding 80 columns) and patches #1 and #2 had several trailing
-whitespace errors.
-
-I fixed this all up, but you have to be better than this.
+Applied.
