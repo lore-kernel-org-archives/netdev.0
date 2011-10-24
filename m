@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFD] Network configuration data in sysfs
-Date: Sun, 23 Oct 2011 23:24:16 -0400 (EDT)
-Message-ID: <20111023.232416.1038111296509565828.davem@davemloft.net>
-References: <20111023233558.GA23264@shutemov.name>
-	<20111023.204943.1509703901636083438.davem@davemloft.net>
-	<20111024013406.GA24158@shutemov.name>
+Subject: Re: [PATCH net-next] Add ethtool -g support to virtio_net
+Date: Sun, 23 Oct 2011 23:26:04 -0400 (EDT)
+Message-ID: <20111023.232604.18246342474494526.davem@davemloft.net>
+References: <20111019181059.C644A29003F6@tardy>
+	<8762jk2j2r.fsf@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kay.sievers@vrfy.org, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	gregkh@suse.de, gladkov.alexey@gmail.com
-To: kirill@shutemov.name
+Cc: raj@tardy.cup.hp.com, netdev@vger.kernel.org, mst@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41136 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41168 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752708Ab1JXD1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 23:27:06 -0400
-In-Reply-To: <20111024013406.GA24158@shutemov.name>
+	with ESMTP id S1752708Ab1JXDaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Oct 2011 23:30:14 -0400
+In-Reply-To: <8762jk2j2r.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kirill A. Shutemov" <kirill@shutemov.name>
-Date: Mon, 24 Oct 2011 04:34:07 +0300
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Thu, 20 Oct 2011 18:25:24 +1030
 
-> On Sun, Oct 23, 2011 at 08:49:43PM -0400, David Miller wrote:
->> From: "Kirill A. Shutemov" <kirill@shutemov.name>
->> Date: Mon, 24 Oct 2011 02:35:58 +0300
+> On Wed, 19 Oct 2011 11:10:59 -0700 (PDT), raj@tardy.cup.hp.com (Rick Jones) wrote:
+>> From: Rick Jones <rick.jones2@hp.com>
 >> 
->> > Is there something fundamental preventing us to have sysfs interface for
->> > network configuration?
+>> Add support for reporting ring sizes via ethtool -g to the virtio_net
+>> driver.
 >> 
->> Netlink already provides everything sysfs would potentially provide as
->> well as event tracking.
+>> Signed-off-by: Rick Jones <rick.jones2@hp.com>
 > 
-> Not everything. You still need special utilities to view/change the
-> configuration.
+> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> 
+> MST, want me to take this, or do you?
 
-You can use netlink to perform any configuration change you want, or
-to view any network configuration setting.
+I can also take it directly, just let me know.
