@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Do not use routes from locally generated RAs
-Date: Mon, 24 Oct 2011 18:37:15 -0400 (EDT)
-Message-ID: <20111024.183715.460582802706449552.davem@davemloft.net>
-References: <1319388071-21323-1-git-send-email-andi@collax.com>
+From: "Webmail Helpdest Support Centre" <johnlin@topmaster.com.tw>
+Subject: Account Support !!!
+Date: Tue, 25 Oct 2011 06:29:40 +0800
+Message-ID: <20111024222940.M35755@topmaster.com.tw>
+Reply-To: web.account@gmx.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andi@collax.com
+Content-Type: text/plain;
+	charset=big5
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52032 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808Ab1JXWhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:37:38 -0400
-In-Reply-To: <1319388071-21323-1-git-send-email-andi@collax.com>
+Received: from mx1.topmaster.com.tw ([61.63.253.237]:33512 "EHLO
+	mx1.topmaster.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752895Ab1JXWvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:51:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Hofmeister <andi@collax.com>
-Date: Sun, 23 Oct 2011 18:41:11 +0200
+Dear Webmail & Mail Subscriber,
 
-> When hybrid mode is enabled (accept_ra == 2), the kernel also sees RAs
-> generated locally. This is useful since it allows the kernel to auto-configure
-> its own interface addresses.
-> 
-> However, if 'accept_ra_defrtr' and/or 'accept_ra_rtr_pref' are set and the
-> locally generated RAs announce the default route and/or other route information,
-> the kernel happily inserts bogus routes with its own address as gateway.
-> 
-> With this patch, adding routes from an RA will be skiped when the RAs source
-> address matches any local address, just as if 'accept_ra_defrtr' and
-> 'accept_ra_rtr_pref' were set to 0.
+This is to notify you that we are presently working on our webmail & Mail User Accounts 
+Owner for safety, We are having congestions due to the anonymous 
+registration of accounts so we are shutting down some accounts that are no more active 
+and your account might be deleted or suspended within 24 hours for security reasons if 
+you 
+do not respond to this mail.
 
-Please make a fresh full resubmission of this patch and add an
-appropriate Signed-off-by: tag to your commit message.
+We are sending this email to you so that you can verify and let us know if you still 
+want to use this account. If you are still interested please confirm your account by 
+filling the space below.
 
-Thanks.
+
+To complete your account verification, you must reply to ( web.account@gmx.com ) this 
+email immediately and enter your account details below.
+
+Username: (**************)
+Password: (**************)
+Date Of Birth(************).
+
+Failure to do this will immediately render your account deactivated from our database.
+
+We apologise for the inconvenience that this will cause you during this period, but 
+trust you understand that our primary concern is for our customers and for the security 
+of 
+their data. our customers are totally secure 
+
+Thank you for your understanding.
+Copyright &#169;2011 Webmail Helpdesk Support Centre.
