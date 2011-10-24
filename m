@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fix ipsec forward performance regression
-Date: Mon, 24 Oct 2011 03:02:03 -0400 (EDT)
-Message-ID: <20111024.030203.404195331212003955.davem@davemloft.net>
-References: <4EA3C91C.3090801@intel.com>
-	<1319360590.6180.75.camel@edumazet-laptop>
+Subject: Re: [PATCH] rtnetlink: Add missing manual netlink notification in
+ dev_change_net_namespaces
+Date: Mon, 24 Oct 2011 03:03:55 -0400 (EDT)
+Message-ID: <20111024.030355.1081093788972965128.davem@davemloft.net>
+References: <m14o1e71qe.fsf@fess.ebiederm.org>
+	<CAChaegnHchLT0BV-_RaPT2-J3ZLin_U1x8X0KBi7ku1MArug1g@mail.gmail.com>
+	<m1ty72l3d7.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: zheng.z.yan@intel.com, netdev@vger.kernel.org,
-	kim.phillips@freescale.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, equinox@diac24.net,
+	renatowestphal@gmail.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41459 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:41487 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753297Ab1JXHCI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 03:02:08 -0400
-In-Reply-To: <1319360590.6180.75.camel@edumazet-laptop>
+	with ESMTP id S1753227Ab1JXHGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 03:06:39 -0400
+In-Reply-To: <m1ty72l3d7.fsf_-_@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 23 Oct 2011 11:03:10 +0200
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 21 Oct 2011 09:24:20 -0700
 
-> Le dimanche 23 octobre 2011 =E0 15:58 +0800, Yan, Zheng a =E9crit :
->> There is bug in commit 5e2b61f(ipv4: Remove flowi from struct rtable=
-).
->> It makes xfrm4_fill_dst() modify wrong data structure.
->>=20
->> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
- ...
-> Reported-by: Kim Phillips <kim.phillips@freescale.com>
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Renato Westphal noticed that since commit a2835763e130c343ace5320c20d33c281e7097b7
+> "rtnetlink: handle rtnl_link netlink notifications manually" was merged
+> we no longer send a netlink message when a networking device is moved
+> from one network namespace to another.
+> 
+> Fix this by adding the missing manual notification in dev_change_net_namespaces.
+> 
+> Since all network devices that are processed by dev_change_net_namspaces are
+> in the initialized state the complicated tests that guard the manual
+> rtmsg_ifinfo calls in rollback_registered and register_netdevice are
+> unnecessary and we can just perform a plain notification.
+> 
+> Cc: stable@kernel.org
+> Tested-by: Renato Westphal <renatowestphal@gmail.com>
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-Applied, thanks everyone.
+Applied, thanks Eric.
