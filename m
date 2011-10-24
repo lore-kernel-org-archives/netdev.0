@@ -1,101 +1,85 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: -next: NET_VENDOR_8390 dependencies
-Date: Sun, 23 Oct 2011 22:07:22 -0700
-Message-ID: <1319432843.10258.11.camel@jtkirshe-mobl>
-References: <CAMuHMdW6hC1JchxVL9-4f58a8Vg7cF+97BbKePxjEDHY3H8wNw@mail.gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC v2 PATCH 5/4 PATCH] virtio-net: send
+ gratuitous packet when needed
+Date: Mon, 24 Oct 2011 07:25:26 +0200
+Message-ID: <20111024052526.GA2362@redhat.com>
+References: <20111022054311.21798.3340.stgit@dhcp-8-146.nay.redhat.com>
+	<87ty6z10f8.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-EFcc7WH1LVdV0FTMYrcl"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdW6hC1JchxVL9-4f58a8Vg7cF+97BbKePxjEDHY3H8wNw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: aliguori@us.ibm.com, kvm@vger.kernel.org, quintela@redhat.com,
+	jan.kiszka@siemens.com, Jason Wang <jasowang@redhat.com>,
+	qemu-devel@nongnu.org, blauwirbel@gmail.com,
+	netdev@vger.kernel.org, pbonzini@redhat.com
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+Content-Disposition: inline
+In-Reply-To: <87ty6z10f8.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Oct 24, 2011 at 02:54:59PM +1030, Rusty Russell wrote:
+> On Sat, 22 Oct 2011 13:43:11 +0800, Jason Wang <jasowang@redhat.com> wrote:
+> > This make let virtio-net driver can send gratituous packet by a new
+> > config bit - VIRTIO_NET_S_ANNOUNCE in each config update
+> > interrupt. When this bit is set by backend, the driver would schedule
+> > a workqueue to send gratituous packet through NETDEV_NOTIFY_PEERS.
+> > 
+> > This feature is negotiated through bit VIRTIO_NET_F_GUEST_ANNOUNCE.
+> > 
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> 
+> This seems like a huge layering violation.  Imagine this in real
+> hardware, for example.
 
---=-EFcc7WH1LVdV0FTMYrcl
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+commits 06c4648d46d1b757d6b9591a86810be79818b60c
+and 99606477a5888b0ead0284fecb13417b1da8e3af
+document the need for this:
 
-On Sun, 2011-10-23 at 14:21 -0700, Geert Uytterhoeven wrote:
-> drivers/net/ethernet/8390/Kconfig:
->=20
-> config NET_VENDOR_8390
->         bool "National Semi-conductor 8390 devices"
->         default y
->         depends on NET_VENDOR_NATSEMI && (AMIGA_PCMCIA || PCI || SUPERH |=
-| \
->                    ISA || MCA || EISA || MAC || M32R || MACH_TX49XX || \
->                    MCA_LEGACY || H8300 || ARM || MIPS || ZORRO || PCMCIA =
-|| \
->                    EXPERIMENTAL)
->         ---help---
->           If you have a network (Ethernet) card belonging to this class, =
-say Y
->           and read the Ethernet-HOWTO, available from
->           <http://www.tldp.org/docs.html#howto>.
->=20
->           Note that the answer to this question doesn't directly affect t=
-he
->           kernel: saying N will just cause the configurator to skip all
->           the questions about Western Digital cards. If you say Y, you wi=
-ll be
->           asked for your specific card in the following questions.
->=20
-> So NET_VENDOR_8390 depends on NET_VENDOR_NATSEMI.
->=20
-> drivers/net/ethernet/natsemi/Kconfig:
->=20
-> config NET_VENDOR_NATSEMI
->         bool "National Semi-conductor devices"
->         default y
->         depends on MCA || MAC || MACH_JAZZ || PCI || XTENSA_PLATFORM_XT20=
-00
->         ---help---
->           If you have a network (Ethernet) card belonging to this class, =
-say Y
->           and read the Ethernet-HOWTO, available from
->           <http://www.tldp.org/docs.html#howto>.
->=20
->           Note that the answer to this question doesn't directly affect t=
-he
->           kernel: saying N will just cause the configurator to skip all
->           the questions about National Semi-conductor devices. If you say=
- Y,
->           you will be asked for your specific card in the following quest=
-ions.
->=20
-> But NET_VENDOR_NATSEMI will never be true for several of the other
-> dependencies of NET_VENDOR_8390 (e.g. AMIGA_PCMCIA, EISA, H8300, ARM,
-> ZORRO, PCMCIA)?
->=20
+NETDEV_NOTIFY_PEERS notifier indicates that a device moved to a 
+different physical link.
+	and
+In real hardware such notifications are only
+generated when the device comes up or the address changes.
 
-You are correct, I will put together a patch to fix that.  Thanks!
+So hypervisor could get the same behaviour by sending link up/down
+events, this is just an optimization so guest won't do
+unecessary stuff like try to reconfigure an IP address.
 
---=-EFcc7WH1LVdV0FTMYrcl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Maybe LOCATION_CHANGE would be a better name?
 
-iQIcBAABCgAGBQJOpPKKAAoJEOVv75VaS+3Op58P/2ovL0Gp45bCSCDv9hAe+iNg
-CoWkoJzEv69OAmmLZRjwiZHNZ2hUk+DuIlAss3JCVDQHfbx7ICXquN1zKGLwfPed
-KlqzpC8vHP06RdCg0UQJZoD7THMTAflMLm6cx9vKW9TFq10sjvV2iZJlFDq5+vT2
-aTsZ3GIkwS65gHuyE/XaPZoRtaP01Je5R3oUZaVJ5YgrwVgOePC1YYd4/c1Iv8jE
-Q3jUS0TfIy1Lq7dsjy9ZZ3RGyIwrQguIdI8ocpjuVLxmT68Kq/f4A3qhizSj0Do4
-uKf5JWBZsU/6x8u6OzpHiIkAclEJAPSTk2O5gc1OhuyZkQiR0Gl51CPNDY7pLI8m
-9s5+596EmQ/rEosVVduvbnkYFjX8LT8cDZtRHxKMGCXTT6q1UXTu8qCLWnbhbMAs
-2foJNYkV4ZifzMkGY44qyUKi9/UBzc+sp2rMMf4BNjUfWPitjoM+dcpRaY/FQQqh
-l/jUCeD3UvYHlg8+qT2dtXl1w40TZo/R/j94rJnG3nMozx0EzCg6jZXLId1jsF4P
-XgYFVBSeC7zNZ+W9MAFStiQ80zaKBdXeWvC3oaC62ynS+H9gbG/OMasks2Qhty3V
-BBwGS6WegINoqB7SjRcegUFR0bCeGyDWhE5zD/yrp+WaKKX/Wl+sWwaoZFbGMPQt
-CUVRUb/3zUvB6+Vt0rJ5
-=trgz
------END PGP SIGNATURE-----
 
---=-EFcc7WH1LVdV0FTMYrcl--
+> There may be a good reason why virtual devices might want this kind of
+> reconfiguration cheat, which is unnecessary for normal machines,
+
+I think yes, the difference with real hardware is guest can change
+location without link getting dropped.
+FWIW, Xen seems to use this capability too.
+
+> but
+> it'd have to be spelled out clearly in the spec to justify it...
+> 
+> Cheers,
+> Rusty.
+
+Agree, and I'd like to see the spec too. The interface seems
+to involve the guest clearing the status bit when it detects
+an event?
+
+Also - how does it interact with the link up event?
+We probably don't want to schedule this when we detect
+a link status change or during initialization, as
+this patch seems to do? What if link goes down
+while the work is running? Is that OK?
+
+-- 
+MST
