@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: |PATCH net-next] tg3: add tx_dropped counter
-Date: Mon, 24 Oct 2011 18:35:56 -0400 (EDT)
-Message-ID: <20111024.183556.175862455915569616.davem@davemloft.net>
-References: <1319478783.3064.4.camel@edumazet-laptop>
+Subject: Re: [PATCH] caif: fix cfcnfg_add_phy_layer() leaks
+Date: Mon, 24 Oct 2011 18:36:23 -0400 (EDT)
+Message-ID: <20111024.183623.551713905402332500.davem@davemloft.net>
+References: <alpine.LNX.2.00.1110242359160.19795@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51099 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752725Ab1JXWgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:36:01 -0400
-In-Reply-To: <1319478783.3064.4.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sjur.brandeland@stericsson.com
+To: jj@chaosbits.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1110242359160.19795@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 24 Oct 2011 19:53:03 +0200
+From: Jesper Juhl <jj@chaosbits.net>
+Date: Tue, 25 Oct 2011 00:01:00 +0200 (CEST)
 
-> If a frame cant be transmitted, it is silently discarded.
+> There are two locations where we 'goto out' after having allocated
+> memory for 'phyinfo' but have not yet assigned it to anything. At the
+> 'out:' label we'll exit from the function and 'phyinfo' will go out of
+> scope and thus we leak the memory we allocated.
 > 
-> Add a counter to report these errors to user.
+> This patch frees the memory before jumping to 'out:', thus fixing the
+> leaks.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-Applied.
+The code in net-next looks a lot different, please see if the issue
+still exists there and resubmit if so, thanks!
