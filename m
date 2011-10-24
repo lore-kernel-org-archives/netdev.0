@@ -1,94 +1,48 @@
-From: "Serge E. Hallyn" <serge@hallyn.com>
-Subject: Re: [PATCH 9/9] make net/core/scm.c uid comparisons user namespace
- aware
-Date: Mon, 24 Oct 2011 04:15:29 +0000
-Message-ID: <20111024041529.GA23618@hallyn.com>
-References: <1318974898-21431-1-git-send-email-serge@hallyn.com>
- <1318974898-21431-10-git-send-email-serge@hallyn.com>
- <m1sjmpytpf.fsf@fess.ebiederm.org>
- <20111020125801.GA1315@hallyn.com>
- <m1fwinvl8u.fsf@fess.ebiederm.org>
- <20111020141440.GA6201@sergelap>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Subject: Re: [RFD] Network configuration data in sysfs
+Date: Mon, 24 Oct 2011 07:24:00 +0300
+Message-ID: <20111024042400.GA31344@shutemov.name>
+References: <20111023233558.GA23264@shutemov.name>
+ <20111023.204943.1509703901636083438.davem@davemloft.net>
+ <20111024013406.GA24158@shutemov.name>
+ <20111023.232416.1038111296509565828.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	oleg@redhat.com, richard@nod.at, mikevs@xs4all.net,
-	segoon@openwall.com, gregkh@suse.de, dhowells@redhat.com,
-	eparis@redhat.com, netdev@vger.kernel.org
-To: "Serge E. Hallyn" <serge.hallyn@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: kay.sievers@vrfy.org, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	gregkh@suse.de, gladkov.alexey@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shutemov.name ([188.40.19.243]:56216 "EHLO shutemov.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752653Ab1JXEYB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Oct 2011 00:24:01 -0400
 Content-Disposition: inline
-In-Reply-To: <20111020141440.GA6201@sergelap>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20111023.232416.1038111296509565828.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Serge E. Hallyn (serge.hallyn@canonical.com):
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
-> > "Serge E. Hallyn" <serge@hallyn.com> writes:
-> > 
-> > > Quoting Eric W. Biederman (ebiederm@xmission.com):
-> > >> Serge Hallyn <serge@hallyn.com> writes:
-> > >> 
-> > >> > From: "Serge E. Hallyn" <serge.hallyn@canonical.com>
-> > >> >
-> > >> > Currently uids are compared without regard for the user namespace.
-> > >> > Fix that to prevent tasks in a different user namespace from
-> > >> > wrongly matching on SCM_CREDENTIALS.
-> > >> >
-> > >> > In the past, either your uids had to match, or you had to have
-> > >> > CAP_SETXID.  In a namespaced world, you must either (both be in the
-> > >> > same user namespace and have your uids match), or you must have
-> > >> > CAP_SETXID targeted at the other user namespace.  The latter can
-> > >> > happen for instance if uid 500 created a new user namespace and
-> > >> > now interacts with uid 0 in it.
-> > >> 
-> > >> Serge this approach is wrong.
-> > >
-> > > Thanks for looking, Eric.
-> > >
-> > >> Because we pass the cred and the pid through the socket socket itself
-> > >> is just a conduit and should be ignored in this context.
-> > >
-> > > Ok, that makes sense, but
-> > >
-> > >> The only interesting test should be are you allowed to impersonate other
-> > >> users in your current userk namespace.
-> > >
-> > > Why in your current user namespace?  Shouldn't it be in the
-> > > target user ns?  I understand it could be wrong to tie the
-> > > user ns owning the socket to the target userns (though I still
-> > > kind of like it), but just because I have CAP_SETUID in my
-> > > own user_ns doesn't mean I should be able to pose as another
-> > > uid in your user_ns.
-> > 
-> > First and foremost it is important that you be able if you have the
-> > capability to impersonate other users in your current user namespace.
-> > That is what the capability actually controls.
-> > 
-> > None of this allows you to impersonate any user in any other user
-> > namespace.  The translation between users prevents that.
-> > 
-> > > (Now I also see that cred_to_ucred() translates to the current
-> > > user_ns, so that should have been a hint to me before about
-> > > your intent, but I'm not convinced I agree with your intent).
-> > >
-> > > And you do the same with the pid.  Why is that a valid assumption?
-> > 
-> > Yes.  Basically all the code is allow you to impersonate people you
-> > would have been able to impersonate before.  If your target is in
-> > another namespace you can not fool them.
-> > 
-> > With pids the logic should be a lot clearer.  Pretend to be a pid you can
-> > see in your current pid namespace.  Lookup and convert to struct pid aka
-> > the namespace agnostic object.  On output return the pid value that
+On Sun, Oct 23, 2011 at 11:24:16PM -0400, David Miller wrote:
+> From: "Kirill A. Shutemov" <kirill@shutemov.name>
+> Date: Mon, 24 Oct 2011 04:34:07 +0300
 > 
-> No.  That conversion is happending before the user-specified pid is
-> set.
+> > On Sun, Oct 23, 2011 at 08:49:43PM -0400, David Miller wrote:
+> >> From: "Kirill A. Shutemov" <kirill@shutemov.name>
+> >> Date: Mon, 24 Oct 2011 02:35:58 +0300
+> >> 
+> >> > Is there something fundamental preventing us to have sysfs interface for
+> >> > network configuration?
+> >> 
+> >> Netlink already provides everything sysfs would potentially provide as
+> >> well as event tracking.
+> > 
+> > Not everything. You still need special utilities to view/change the
+> > configuration.
+> 
+> You can use netlink to perform any configuration change you want, or
+> to view any network configuration setting.
 
-Never mind, it all gets a little convoluted, but I see how it works,
-and - when the time comes - how to do it right for userns.  :)  Sorry
-about that.
+You need /sbin/ip or similar tool to do this, right?
 
-thanks,
--serge
+-- 
+ Kirill A. Shutemov
