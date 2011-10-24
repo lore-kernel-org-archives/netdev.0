@@ -1,72 +1,63 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH V2 2/4] MIPS: Add board support for Loongson1B
-Date: Mon, 24 Oct 2011 17:35:17 +0200
-Message-ID: <4EA585B5.5030405@st.com>
-References: <1319192888-21465-1-git-send-email-keguang.zhang@gmail.com> <1319192888-21465-2-git-send-email-keguang.zhang@gmail.com> <CAD+V5YKBkW52_md9rBeVZ1RXq2FGEXt=Ergsw+z8txMreZdNsA@mail.gmail.com> <4EA5117C.3000402@st.com> <CAJhJPsVSzXXmBOwLaGNtOsxhVEyC0fAJtiBvEWzcKcSDC8NEcA@mail.gmail.com> <4EA557B2.4020504@st.com> <CAJhJPsXxUAuF9HdivLd66MQC45mz-iYAuF1SdGdU=-duxJJ5bQ@mail.gmail.com>
+From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Subject: Re: [non-quoted-printable PATCH] Fix caif BUG() with network namespaces
+Date: Mon, 24 Oct 2011 17:51:54 +0200
+Message-ID: <CAJK669ar5ASsX+wEv2EwwaeBoHYtr3Uq+sG1RWroViYGOVgytw@mail.gmail.com>
+References: <1319230309.19448.10.camel@shinybook.infradead.org>
+	<CAJK669a0cX73J0pEr3EtCkbxsaHRfxnS-56Q3Q5ANdKd47mnrg@mail.gmail.com>
+	<1319405079.13738.72.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wu Zhangjin <wuzhangjin@gmail.com>, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
-	r0bertz@gentoo.org, netdev@vger.kernel.org
-To: Kelvin Cheung <keguang.zhang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJhJPsXxUAuF9HdivLd66MQC45mz-iYAuF1SdGdU=-duxJJ5bQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "davem@redhat.com" <davem@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Woodhouse, David" <david.woodhouse@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:45208 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932804Ab1JXPvy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 11:51:54 -0400
+Received: by qyk4 with SMTP id 4so2370842qyk.19
+        for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 08:51:54 -0700 (PDT)
+In-Reply-To: <1319405079.13738.72.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/24/2011 4:05 PM, Kelvin Cheung wrote:
-> 2011/10/24, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
->> Hello Kelvin.
->>
->> On 10/24/2011 12:36 PM, Kelvin Cheung wrote:
->>
->> [snip]
->>
->>> According to datasheet of Loongson 1B, the buffer size in RX/TX
->>> descriptor is only 2KB. So the Loongson1B's GMAC could not handle
->>> jumbo frames. And the second buffer is useless in this case. Am I
->>> right? Is there a better way than ifdef CONFIG_MACH_LOONGSON1 to
->>> avoid duplicate code?
->>
->> Sorry for my misunderstanding.
->>
->> I think you have to use the normal descriptor and remove the enh_desc
->> from the platform w/o modifying the driver at all.
->>
->> The driver will be able to select/configure all automatically (also jumbo).
->>
->> Let me know.
-> 
-> That's the problem.
-> The bitfield definition of Loongson1B is also different from normal descriptor.
+Hi David,
 
-The problem is not in the Loongson1B gmac.
+> The caif code will register its own pernet_operations, and then regis=
+ter
+> a netdevice_notifier. Each time the netdevice_notifier is triggered,
+> it'll do some stuff... including a lookup of its own pernet stuff wit=
+h
+> net_generic().
+>
+> If the net_generic() call ever returns NULL, the caif code will BUG()=
+=2E
+> That doesn't seem *so* unreasonable, I suppose =E2=80=94 it does seem=
+ like it
+> should never happen.
+>
+> However, it *does* happen. When we clone a network namespace,
+> setup_net() runs through all the pernet_operations one at a time. It
+> gets to loopback before it gets to caif. And loopback_net_init()
+> registers a netdevice... while caif hasn't been initialised. So the c=
+aif
+> netdevice notifier triggers, and immediately goes BUG().
+>
+> I'm not entirely sure how best to fix this in the general case. Perha=
+ps
+> the netdevice_notifier registration should be pernet too, rather than
+> global? Or perhaps we should suppress the notifier calls during
+> setup_net() and flush them at the end after everything has been
+> initialised?
+>
+> But really, I'm inclined to just take the simple approach. Make
+> caif_device_notify() *not* go looking for its pernet data structures =
+if
+> the device it's being notified about isn't a caif device in the first
+> place. This simple patch is sufficient to avoid the problem, and is
+> probably good enough.
+> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-The normal descriptor fields in the stmmac refer to an old synopsys
-databook.
-New chips have the same structure you have added; so we should fix this
-in the driver w/o breaking the compatibility for old chips.
-I kindly ask you to confirm if the currently normal descriptor structure
-(w/o your changes) doesn't work on your platform.
-Did you test it?
-
-> Moreover, I want to enable the TX checksum offload function which is
-> not supported in normal descriptor.
-> Any suggestions?
-
-It is supported but you have to pass from the platform: tx_coe = 1.
-
-Peppe
-> 
->> Note:
->> IIRC, there is a bit difference in case of normal descriptors for
->> Synopsys databook newer than the 1.91 (I used for testing this mode).
->> In any case, I remember that, on some platforms, the normal descriptors
->> have been used w/o problems also on these new chip generations.
->>
->> Peppe
->>
->>
-> 
-> 
+Thank you for analyzing and fixing this David, this looks good to me.
+Acked-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
