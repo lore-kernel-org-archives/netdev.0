@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] caif: fix cfcnfg_add_phy_layer() leaks
-Date: Mon, 24 Oct 2011 18:36:23 -0400 (EDT)
-Message-ID: <20111024.183623.551713905402332500.davem@davemloft.net>
-References: <alpine.LNX.2.00.1110242359160.19795@swampdragon.chaosbits.net>
+Subject: Re: [PATCH] cls_flow: Add tunnel support to the flow classifier
+Date: Mon, 24 Oct 2011 18:36:40 -0400 (EDT)
+Message-ID: <20111024.183640.270445902457677669.davem@davemloft.net>
+References: <1319419287.20602.21.camel@ganymede>
+	<1319426081.2517.20.camel@edumazet-laptop>
+	<1319428781.2517.26.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sjur.brandeland@stericsson.com
-To: jj@chaosbits.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1110242359160.19795@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dan@coverfire.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51114 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753486Ab1JXWgq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:36:46 -0400
+In-Reply-To: <1319428781.2517.26.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Tue, 25 Oct 2011 00:01:00 +0200 (CEST)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 24 Oct 2011 05:59:41 +0200
 
-> There are two locations where we 'goto out' after having allocated
-> memory for 'phyinfo' but have not yet assigned it to anything. At the
-> 'out:' label we'll exit from the function and 'phyinfo' will go out of
-> scope and thus we leak the memory we allocated.
+> [PATCH net-next] net_sched: cls_flow: use skb_header_pointer()
 > 
-> This patch frees the memory before jumping to 'out:', thus fixing the
-> leaks.
+> Dan Siemon would like to add tunnelling support to cls_flow
 > 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> This preliminary patch introduces use of skb_header_pointer() to help
+> this task, while avoiding skb head reallocation because of deep packet
+> inspection.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-The code in net-next looks a lot different, please see if the issue
-still exists there and resubmit if so, thanks!
+Applied.
