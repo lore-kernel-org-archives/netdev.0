@@ -1,50 +1,76 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Kernel driver r8169 not working for Realtek 8111E onboard network card
-Date: Mon, 24 Oct 2011 23:10:01 +0200
-Message-ID: <20111024211001.GA16830@electric-eye.fr.zoreil.com>
-References: <1319296941.68390.YahooMailNeo@web161905.mail.bf1.yahoo.com> <20111022214443.GA21689@electric-eye.fr.zoreil.com> <1319482444.38178.YahooMailNeo@web161917.mail.bf1.yahoo.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: Bug#645308: tg3 broken for NetXtreme 5714S in squeeze 6.0.3
+ installer
+Date: Mon, 24 Oct 2011 14:24:09 -0700
+Message-ID: <20111024212409.GA29764@mcarlson.broadcom.com>
+References: <20111017135457.GL22096@torres.zugschlus.de>
+ <1318861800.3340.21.camel@deadeye>
+ <20111017144825.GM22096@torres.zugschlus.de>
+ <20111017160812.GL3366@decadent.org.uk>
+ <1318901100.3340.36.camel@deadeye>
+ <20111018142056.GF29261@torres.zugschlus.de>
+ <1319084914.23980.96.camel@deadeye>
+ <20111021090046.GA13930@torres.zugschlus.de>
+ <20111021090811.GA5993@torres.zugschlus.de>
+ <1319199579.2918.42.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Adrian George Sav <adi_sav@yahoo.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"645308@bugs.debian.org" <645308@bugs.debian.org>,
+	"Marc Haber" <mh+debian-bugs@zugschlus.de>,
+	netdev <netdev@vger.kernel.org>
+To: "Ben Hutchings" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:38210 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755993Ab1JXVNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 17:13:25 -0400
+Received: from mms1.broadcom.com ([216.31.210.17]:2979 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756019Ab1JXVXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Oct 2011 17:23:11 -0400
+In-Reply-To: <1319199579.2918.42.camel@deadeye>
 Content-Disposition: inline
-In-Reply-To: <1319482444.38178.YahooMailNeo@web161917.mail.bf1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adrian George Sav <adi_sav@yahoo.com> :
-> I don't know what you mean by "current -rc", the release candidate ve=
-rsion
-> of the kernel or maybe of the driver ?
+On Fri, Oct 21, 2011 at 05:19:39AM -0700, Ben Hutchings wrote:
+> On Fri, 2011-10-21 at 11:08 +0200, Marc Haber wrote:
+> > On Fri, Oct 21, 2011 at 11:00:46AM +0200, Marc Haber wrote:
+> > > On Thu, Oct 20, 2011 at 05:28:34AM +0100, Ben Hutchings wrote:
+> > > > I don't see any changes that would obviously change the way this device
+> > > > is reconfigured during a down/up cycle.  There were some changes to
+> > > > power management that should just let the PCI core do some work that the
+> > > > driver used to, but it's possible that the result isn't quite the same.
+> > > > I built a module with those reverted; source and binary attached.  Could
+> > > > you test that?  I checked that d-i does include an insmod command.
+> > > 
+> > > The squeeze 6.0.3 installer with the shipped tg3.ko replaced with
+> > > yours boots and networks just fine without any workaround and without
+> > > manual interaction.
+> > 
+> > I was a bit fast on that. The interface now fails right in the middle
+> > of installation and needs the modprobe -r, modprobe stunt to network
+> > again.
+> 
+> Matt, Michael,
+> 
+> The tg3 driver has regressed for the 5714S since Linux 2.6.32.  Marc
+> Haber found this in the backported version included in our stable
+> update, but also confirmed it in Linux 3.0.
+> 
+> Bringing the interface down and then up again (which the installer does
+> for some reason) can leave it unable to pass traffic (possibly after
+> working for a few packets) until the module is reloaded.
+> 
+> I asked Marc to check whether reverting the power management changes
+> (071697e2bcd8dff2af4d6fdd6525c2324f89553b,
+> d237d9ecf06a00f0ebca657958cf2a1e92940796) made a difference, but it
+> doesn't seem to.
+> 
+> There is more information in the bug log at
+> <http://bugs.debian.org/645308>.
 
-Recent 3.1-rc kernel. You can go with 3.1 now.
-
-[...]
-> Trying to solve this, I installed the latest version of ubuntu, becau=
-se I
-> saw it has a new kernel, 3.0.0.12, but no improvement.
-
-See below.
-
-[...]
-> [=C2=A0=C2=A0=C2=A0 0.000000] Linux version 3.0.0-12-generic (buildd@=
-vernadsky) (gcc version 4.6.1 (Ubuntu/Linaro 4.6.1-9ubuntu3) ) #20-Ubun=
-tu SMP Fri Oct 7 14:50:42 UTC 2011 (Ubuntu 3.0.0-12.20-generic 3.0.4)
-[...]
-> [=C2=A0=C2=A0=C2=A0 1.893490] r8169 0000:07:00.0: eth0: RTL8168b/8111=
-b at 0xf802e000, f4:6d:04:40:36:6f, XID 0c900800 IRQ 48
-                                           ^^^^^^^^^^^^^^
-If it was recent enough, the kernel would say "RTL8168evl/8111evl".
-
-If you want to use jumbo frames, you will have to use David Miller's -n=
-ext
-branch or wait for 3.1-rc1.
-
---=20
-Ueimor
+Where can I get the sources for this driver?  Commit
+9e975cc291d80d5e4562d6bed15ec171e896d69b, entitled
+"tg3: Fix io failures after chip reset" has been a common source of
+problems.
