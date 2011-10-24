@@ -1,44 +1,36 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC v2 PATCH 5/4 PATCH] virtio-net: send
-	gratuitous packet when needed
-Date: Mon, 24 Oct 2011 14:54:59 +1030
-Message-ID: <87ty6z10f8.fsf@rustcorp.com.au>
-References: <20111022054311.21798.3340.stgit@dhcp-8-146.nay.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFD] Network configuration data in sysfs
+Date: Mon, 24 Oct 2011 00:59:00 -0400 (EDT)
+Message-ID: <20111024.005900.1091819103500072631.davem@davemloft.net>
+References: <20111024013406.GA24158@shutemov.name>
+	<20111023.232416.1038111296509565828.davem@davemloft.net>
+	<20111024042400.GA31344@shutemov.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pbonzini@redhat.com, kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>, aliguori@us.ibm.com, quintela@redhat.com,
-	jan.kiszka@siemens.com, mst@redhat.com, qemu-devel@nongnu.org,
-	blauwirbel@gmail.com
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <20111022054311.21798.3340.stgit@dhcp-8-146.nay.redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kay.sievers@vrfy.org, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	gregkh@suse.de, gladkov.alexey@gmail.com
+To: kirill@shutemov.name
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42345 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751523Ab1JXFBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 01:01:49 -0400
+In-Reply-To: <20111024042400.GA31344@shutemov.name>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 22 Oct 2011 13:43:11 +0800, Jason Wang <jasowang@redhat.com> wrote:
-> This make let virtio-net driver can send gratituous packet by a new
-> config bit - VIRTIO_NET_S_ANNOUNCE in each config update
-> interrupt. When this bit is set by backend, the driver would schedule
-> a workqueue to send gratituous packet through NETDEV_NOTIFY_PEERS.
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Date: Mon, 24 Oct 2011 07:24:00 +0300
+
+> On Sun, Oct 23, 2011 at 11:24:16PM -0400, David Miller wrote:
+>> From: "Kirill A. Shutemov" <kirill@shutemov.name>
+>> Date: Mon, 24 Oct 2011 04:34:07 +0300
+>> 
+>> You can use netlink to perform any configuration change you want, or
+>> to view any network configuration setting.
 > 
-> This feature is negotiated through bit VIRTIO_NET_F_GUEST_ANNOUNCE.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> You need /sbin/ip or similar tool to do this, right?
 
-This seems like a huge layering violation.  Imagine this in real
-hardware, for example.
-
-There may be a good reason why virtual devices might want this kind of
-reconfiguration cheat, which is unnecessary for normal machines, but
-it'd have to be spelled out clearly in the spec to justify it...
-
-Cheers,
-Rusty.
+I'm talking about udev using netlink natively.
