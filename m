@@ -1,33 +1,50 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 07/10] RDMA/cxgb4: DB Drop Recovery for RDMA and LLD
- queues.
-Date: Mon, 24 Oct 2011 17:12:09 -0400 (EDT)
-Message-ID: <20111024.171209.1856294221956226756.davem@davemloft.net>
-References: <4EA05A27.9090605@opengridcomputing.com>
-	<20111020.165703.1713724038045504243.davem@davemloft.net>
-	<4EA5814F.6080801@chelsio.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Kernel driver r8169 not working for Realtek 8111E onboard network card
+Date: Mon, 24 Oct 2011 23:10:01 +0200
+Message-ID: <20111024211001.GA16830@electric-eye.fr.zoreil.com>
+References: <1319296941.68390.YahooMailNeo@web161905.mail.bf1.yahoo.com> <20111022214443.GA21689@electric-eye.fr.zoreil.com> <1319482444.38178.YahooMailNeo@web161917.mail.bf1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4EA5814F.6080801-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Adrian George Sav <adi_sav@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:38210 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755993Ab1JXVNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 17:13:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1319482444.38178.YahooMailNeo@web161917.mail.bf1.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Mon, 24 Oct 2011 20:46:31 +0530
+Adrian George Sav <adi_sav@yahoo.com> :
+> I don't know what you mean by "current -rc", the release candidate ve=
+rsion
+> of the kernel or maybe of the driver ?
 
-> 1. We would like to recommend that all the patches get included in
-> Roland's infiniband tree since it has build dependencies.
+Recent 3.1-rc kernel. You can go with 3.1 now.
 
-This is fine with me.  It just means that Roland's tree has to have
-net-next included in it already, because otherwise the paths to
-the cxgb4 driver under drivers/net won't be right.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[...]
+> Trying to solve this, I installed the latest version of ubuntu, becau=
+se I
+> saw it has a new kernel, 3.0.0.12, but no improvement.
+
+See below.
+
+[...]
+> [=C2=A0=C2=A0=C2=A0 0.000000] Linux version 3.0.0-12-generic (buildd@=
+vernadsky) (gcc version 4.6.1 (Ubuntu/Linaro 4.6.1-9ubuntu3) ) #20-Ubun=
+tu SMP Fri Oct 7 14:50:42 UTC 2011 (Ubuntu 3.0.0-12.20-generic 3.0.4)
+[...]
+> [=C2=A0=C2=A0=C2=A0 1.893490] r8169 0000:07:00.0: eth0: RTL8168b/8111=
+b at 0xf802e000, f4:6d:04:40:36:6f, XID 0c900800 IRQ 48
+                                           ^^^^^^^^^^^^^^
+If it was recent enough, the kernel would say "RTL8168evl/8111evl".
+
+If you want to use jumbo frames, you will have to use David Miller's -n=
+ext
+branch or wait for 3.1-rc1.
+
+--=20
+Ueimor
