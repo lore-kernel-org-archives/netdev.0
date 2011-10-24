@@ -1,174 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next-2.6 PATCH 0/8 RFC v2] macvlan: MAC Address filtering
- support for passthru mode
-Date: Mon, 24 Oct 2011 07:47:11 +0200
-Message-ID: <20111024054710.GB24528@redhat.com>
-References: <20111019062543.7242.3969.stgit@savbu-pc100.cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: avoid frag allocation for small frames
+Date: Mon, 24 Oct 2011 01:53:00 -0400 (EDT)
+Message-ID: <20111024.015300.2004557385108450324.davem@davemloft.net>
+References: <1319286237.6180.49.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, sri@us.ibm.com, dragos.tatulea@gmail.com,
-	arnd@arndb.de, kvm@vger.kernel.org, davem@davemloft.net,
-	mchan@broadcom.com, dwang2@cisco.com, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, kaber@trash.net, benve@cisco.com
-To: Roopa Prabhu <roprabhu@cisco.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49573 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751358Ab1JXFqU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Oct 2011 01:46:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20111019062543.7242.3969.stgit@savbu-pc100.cisco.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51246 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752991Ab1JXFxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 01:53:04 -0400
+In-Reply-To: <1319286237.6180.49.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 18, 2011 at 11:25:54PM -0700, Roopa Prabhu wrote:
-> v1 version of this RFC patch was posted at http://www.spinics.net/lists/netdev/msg174245.html
-> 
-> Today macvtap used in virtualized environment does not have support to 
-> propagate MAC, VLAN and interface flags from guest to lowerdev.
-> Which means to be able to register additional VLANs, unicast and multicast
-> addresses or change pkt filter flags in the guest, the lowerdev has to be
-> put in promisocous mode. Today the only macvlan mode that supports this is 
-> the PASSTHRU mode and it puts the lower dev in promiscous mode.
-> 
-> PASSTHRU mode was added primarily for the SRIOV usecase. In PASSTHRU mode 
-> there is a 1-1 mapping between macvtap and physical NIC or VF.
-> 
-> There are two problems with putting the lowerdev in promiscous mode (ie SRIOV 
-> VF's):
-> 	- Some SRIOV cards dont support promiscous mode today (Thread on Intel
-> 	driver indicates that http://lists.openwall.net/netdev/2011/09/27/6)
-> 	- For the SRIOV NICs that support it, Putting the lowerdev in 
-> 	promiscous mode leads to additional traffic being sent up to the 
-> 	guest virtio-net to filter result in extra overheads.
-> 	
-> Both the above problems can be solved by offloading filtering to the 
-> lowerdev hw. ie lowerdev does not need to be in promiscous mode as 
-> long as the guest filters are passed down to the lowerdev. 
-> 
-> This patch basically adds the infrastructure to set and get MAC and VLAN 
-> filters on an interface via rtnetlink. And adds support in macvlan and macvtap
-> to allow set and get filter operations.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 22 Oct 2011 14:23:57 +0200
 
-Looks sane to me. Some minor comments below.
-
-> Earlier version of this patch provided the TUNSETTXFILTER macvtap interface 
-> for setting address filtering. In response to feedback, This version 
-> introduces a netlink interface for the same.
+> tcp_sendmsg() uses select_size() helper to choose skb head size when a
+> new skb must be allocated.
 > 
-> Response to some of the questions raised during v1:
+> If GSO is enabled for the socket, current strategy is to force all
+> payload data to be outside of headroom, in PAGE fragments.
 > 
-> - Netlink interface:
-> 	This patch provides the following netlink interface to set mac and vlan
-> 	filters :
-> 	[IFLA_RX_FILTER] = {
-> 		[IFLA_ADDR_FILTER] = {
-> 			[IFLA_ADDR_FILTER_FLAGS]
-> 			[IFLA_ADDR_FILTER_UC_LIST] = {
-> 				[IFLA_ADDR_LIST_ENTRY]
-> 			}
-> 			[IFLA_ADDR_FILTER_MC_LIST] = {
-> 				[IFLA_ADDR_LIST_ENTRY]
-> 			}
-> 		}
-> 		[IFLA_VLAN_FILTER] = {
-> 			[IFLA_VLAN_BITMAP]
-> 		}
-> 	}
+> This strategy is not welcome for small packets, wasting memory.
 > 
-> 	Note: The IFLA_VLAN_FILTER is a nested attribute and contains only 
-> 	IFLA_VLAN_BITMAP today. The idea is that the IFLA_VLAN_FILTER can
-> 	be extended tomorrow to use a vlan list option if some implementations 
-> 	prefer a list instead. 
+> Experiments show that best results are obtained when using 2048 bytes
+> for skb head (This includes the skb overhead and various headers)
 > 
-> 	And it provides the following rtnl_link_ops to set/get MAC/VLAN filters:
+> This patch provides better len/truesize ratios for packets sent to
+> loopback device, and reduce memory needs for in-flight loopback packets,
+> particularly on arches with big pages.
 > 
->        int                     (*set_rx_addr_filter)(struct net_device *dev,
->                                                struct nlattr *tb[]);
->        int                     (*set_rx_vlan_filter)(struct net_device *dev,
->                                                 struct nlattr *tb[]);
->        size_t                  (*get_rx_addr_filter_size)(const struct 
-> 					net_device *dev);
->        size_t                  (*get_rx_vlan_filter_size)(const struct 
-> 					net_device *dev);
->        int                     (*fill_rx_addr_filter)(struct sk_buff *skb,
->                                                 const struct net_device *dev);
->        int                     (*fill_rx_vlan_filter)(struct sk_buff *skb,
->                                                 const struct net_device *dev);
+> If a sender sends many 1-byte packets to an unresponsive application,
+> receiver rmem_alloc will grow faster and will stop queuing these packets
+> sooner, or will collapse its receive queue to free excess memory.
 > 
+> netperf -t TCP_RR results are improved by ~4 %, and many workloads are
+> improved as well (tbench, mysql...)
 > 
-> 	Note: The choice of rtnl_link_ops was because I saw the use case for 
-> 	this in virtual devices that need  to do filtering in sw like macvlan 
-> 	and tun. Hw devices usually have filtering in hw with netdev->uc and 
-> 	mc lists to indicate active filters. But I can move from rtnl_link_ops 
-> 	to netdev_ops if that is the preferred way to go and if there is a 
-> 	need to support this interface on all kinds of interfaces. 
-> 	Please suggest.
-> 	
-> - Protection against address spoofing:
-> 	- This patch adds filtering support only for macvtap PASSTHRU 
-> 	Mode. PASSTHRU mode is used mainly with SRIOV VF's. And SRIOV VF's 
-> 	come with anti mac/vlan spoofing support. (Recently added 
-> 	IFLA_VF_SPOOFCHK). In 802.1Qbh case the port profile has a knob to
-> 	enable/disable anti spoof check. Lowerdevice drivers also enforce limits
-> 	on the number of address registrations allowed.
-> 
-> - Support for multiqueue devices: Enable filtering on individual queues (?):
-> 	AFAIK, there is no netdev interface to install per queue hw 
-> 	filters for a multi queue interface. And also I dont know of any hw 
-> 	that provides an interface to set hw filters on a per queue basis.
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-VMDq hardware would support this, no?
-
-> 	A multi queue device appears as a single lowerdev (ie netdev) and
-> 	uses the same uc and mc lists to setup unicast and multicast hw filters.
-> 	So i dont see a huge problem with this patch coming in the way for
-> 	multi queue devices.
->
-> - Support for non-PASSTHRU mode:
-> 	I started implementing this. But there are a couple of problems.	
-> 	- The lowerdev may not be a SRIOV VF and may not have 
-> 	anti spoof capability
-
-Anti-spoofing a really a separate feature, isn't it?
-
-> 	- Today, in non-PASSTHRU cases macvlan_handle_frame assumes that 
-> 	every macvlan device on top of the lowerdev has a single unique mac.
-> 	And the macvlans are hashed on that single mac address. 
-> 	To support filtering for non-PASSTHRU mode in addition to this 
-> 	patch the following needs to be done:
-> 		- non-passthru mode with a single macvlan over a lower dev
-> 		can be treated as PASSTHRU case
-> 		- For non-PASSTHRU mode with multiple macvlans over a single 
-> 		lower dev:  
-> 			- Multiple unicast mac's now need to be hashed to the 
-> 			same macvlan device. The macvlan hash needs to change 
-> 			for lookup based on any one of the multiple unicast 
-> 			addresses a macvlan is interested in
-> 			- We need to consider vlans during the lookup too
-> 			- So the macvlan device hash needs to hash on both mac 
-> 			and vlan
-
-It might be useful to expose the filters to the device.
-
-> 		- But the support for filtering in non-PASSTHRU mode can be 
-> 		built on this patch
-
-
-Agree, this can be added gradually.
-
-> This patch series implements the following 
-> 01/8 rtnetlink: Netlink interface for setting MAC and VLAN filters
-> 02/8 rtnetlink: Add rtnl link operations for MAC address and VLAN filtering
-> 03/8 rtnetlink: Add support to set MAC/VLAN filters
-> 04/8 rtnetlink: Add support to get MAC/VLAN filters
-> 05/8 macvlan: Add support to set MAC/VLAN filter rtnl link operations
-> 06/8 macvlan: Add support to get MAC/VLAN filter rtnl link operations
-> 07/8 macvtap: Add support to set MAC/VLAN filter rtnl link operations
-> 08/8 macvtap: Add support to get MAC/VLAN filter rtnl link operations
-> 
-> Please comment. Thanks.
-> 
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: Christian Benvenuti <benve@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
+Applied, thanks Eric.
