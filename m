@@ -1,77 +1,72 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 07/10] RDMA/cxgb4: DB Drop Recovery for RDMA and LLD queues.
-Date: Mon, 24 Oct 2011 20:46:31 +0530
-Message-ID: <4EA5814F.6080801@chelsio.com>
-References: <4EA030F5.3000007@opengridcomputing.com> <CAL1RGDUDk_MAM+S+MaEcPQzug8TvE-mFAfNqX3FqRApLQu9H2g@mail.gmail.com> <4EA05A27.9090605@opengridcomputing.com> <20111020.165703.1713724038045504243.davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH V2 2/4] MIPS: Add board support for Loongson1B
+Date: Mon, 24 Oct 2011 17:35:17 +0200
+Message-ID: <4EA585B5.5030405@st.com>
+References: <1319192888-21465-1-git-send-email-keguang.zhang@gmail.com> <1319192888-21465-2-git-send-email-keguang.zhang@gmail.com> <CAD+V5YKBkW52_md9rBeVZ1RXq2FGEXt=Ergsw+z8txMreZdNsA@mail.gmail.com> <4EA5117C.3000402@st.com> <CAJhJPsVSzXXmBOwLaGNtOsxhVEyC0fAJtiBvEWzcKcSDC8NEcA@mail.gmail.com> <4EA557B2.4020504@st.com> <CAJhJPsXxUAuF9HdivLd66MQC45mz-iYAuF1SdGdU=-duxJJ5bQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111020.165703.1713724038045504243.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Wu Zhangjin <wuzhangjin@gmail.com>, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	r0bertz@gentoo.org, netdev@vger.kernel.org
+To: Kelvin Cheung <keguang.zhang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJhJPsXxUAuF9HdivLd66MQC45mz-iYAuF1SdGdU=-duxJJ5bQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 21-10-2011 02:27, David Miller wrote:
-
-> From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-> Date: Thu, 20 Oct 2011 12:28:07 -0500
-> 
->> On 10/20/2011 12:17 PM, Roland Dreier wrote:
->>>> I believe 5 and 7 have build dependencies.
->>> Right, missed that one too.
->>>
->>> But it seems 4,6,8,9,10 are independent of the rest of the series?
->>>
->>> ie I can trivially apply them and then worry about working out
->>> the drivers/net / drivers/infiniband interdependency a bit later?
->>>
+On 10/24/2011 4:05 PM, Kelvin Cheung wrote:
+> 2011/10/24, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
+>> Hello Kelvin.
 >>
->> Some of these might be dependent on prior patches the series.  But if
->> they aren't, yes, you could do that.
+>> On 10/24/2011 12:36 PM, Kelvin Cheung wrote:
+>>
+>> [snip]
+>>
+>>> According to datasheet of Loongson 1B, the buffer size in RX/TX
+>>> descriptor is only 2KB. So the Loongson1B's GMAC could not handle
+>>> jumbo frames. And the second buffer is useless in this case. Am I
+>>> right? Is there a better way than ifdef CONFIG_MACH_LOONGSON1 to
+>>> avoid duplicate code?
+>>
+>> Sorry for my misunderstanding.
+>>
+>> I think you have to use the normal descriptor and remove the enh_desc
+>> from the platform w/o modifying the driver at all.
+>>
+>> The driver will be able to select/configure all automatically (also jumbo).
+>>
+>> Let me know.
 > 
-> So, how do you guys want to do this?  If you give me a list of which
-> patches I should put into net-next and leave the rest to the infiniband
-> tree, that'd work fine for me as long as net-next is left in a working
-> state independent of the infiniband tree.
+> That's the problem.
+> The bitfield definition of Loongson1B is also different from normal descriptor.
 
+The problem is not in the Loongson1B gmac.
 
-Hi Dave Miller/Roland,
+The normal descriptor fields in the stmmac refer to an old synopsys
+databook.
+New chips have the same structure you have added; so we should fix this
+in the driver w/o breaking the compatibility for old chips.
+I kindly ask you to confirm if the currently normal descriptor structure
+(w/o your changes) doesn't work on your platform.
+Did you test it?
 
-With respect to above dependencies we did some experiments and found
-following things
+> Moreover, I want to enable the TX checksum offload function which is
+> not supported in normal descriptor.
+> Any suggestions?
 
-1. We can apply three cxgb4 patches, 01 02 and 03, on net-next tree
-successfully and build it.
+It is supported but you have to pass from the platform: tx_coe = 1.
 
-2. Out of 7 RDMA/cxgb4 patches only 04, 08 and 10 can be applied
-trivially and driver can be built successfully. If we try to apply
-remaining patches, 05 06 07 and 09, either they will fail to apply or
-give build failure. Moreover patches 05, 06, 07 and 09 can be applied on
-top of 04, 08 and 10 cleanly.
-
-Based on above results we would like to propose following two things.
-
-1. We would like to recommend that all the patches get included in
-Roland's infiniband tree since it has build dependencies.
-
-2. Alternatively,
-- Patches 01, 02 and 03 can be included in net-next tree.
-- Patches 04, 08 and 10 can be included in Roland's infiniband tree at
-present.
-- Patches 05, 06, 07 and 09 have to wait till the net-next hits the
-3.2-rc1.
-
-Please let us know if you have any other suggestions.
-
-Thanks,
-Vipul
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Peppe
+> 
+>> Note:
+>> IIRC, there is a bit difference in case of normal descriptors for
+>> Synopsys databook newer than the 1.91 (I used for testing this mode).
+>> In any case, I remember that, on some platforms, the normal descriptors
+>> have been used w/o problems also on these new chip generations.
+>>
+>> Peppe
+>>
+>>
+> 
+> 
