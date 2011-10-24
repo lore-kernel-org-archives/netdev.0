@@ -1,33 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] w5300: add WIZnet W5300 Ethernet driver
-Date: Mon, 24 Oct 2011 18:21:42 -0400 (EDT)
-Message-ID: <20111024.182142.2299822581628382143.davem@davemloft.net>
-References: <1319272916-5541-1-git-send-email-kth3321@gmail.com>
+Subject: Re: [non-quoted-printable PATCH] Fix caif BUG() with network
+ namespaces
+Date: Mon, 24 Oct 2011 18:28:31 -0400 (EDT)
+Message-ID: <20111024.182831.489446218871753789.davem@davemloft.net>
+References: <CAJK669a0cX73J0pEr3EtCkbxsaHRfxnS-56Q3Q5ANdKd47mnrg@mail.gmail.com>
+	<1319405079.13738.72.camel@shinybook.infradead.org>
+	<CAJK669ar5ASsX+wEv2EwwaeBoHYtr3Uq+sG1RWroViYGOVgytw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com, suhwan@wiznet.co.kr, bongbong@wiznet.co.kr
-To: kth3321@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319272916-5541-1-git-send-email-kth3321@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: david.woodhouse@intel.com, netdev@vger.kernel.org
+To: sjurbren@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:59640 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662Ab1JXW2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 18:28:35 -0400
+In-Reply-To: <CAJK669ar5ASsX+wEv2EwwaeBoHYtr3Uq+sG1RWroViYGOVgytw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Taehun Kim <kth3321@gmail.com>
-Date: Sat, 22 Oct 2011 17:41:56 +0900
-
-> +struct wiz_private {
-> +	void __iomem *base;
-> +	struct net_device *dev;
-> +	u8 rxbuf_conf[MAX_SOCK_NUM];
-> +	u8 txbuf_conf[MAX_SOCK_NUM];
-> +	struct net_device_stats stats;
-> +	struct napi_struct napi;
-> +	spinlock_t lock;
-> +	u32 msg_enable;
-> +};
-
-You don't need to have a private net_device_stats, just use the
-one in struct net_device, and then you can also get rid of your
-private ->ndo_get_stats() method.
+RnJvbTogU2p1ciBCcsOmbmRlbGFuZCA8c2p1cmJyZW5AZ21haWwuY29tPg0KRGF0ZTogTW9uLCAy
+NCBPY3QgMjAxMSAxNzo1MTo1NCArMDIwMA0KDQo+IEhpIERhdmlkLA0KPiANCj4+IFRoZSBjYWlm
+IGNvZGUgd2lsbCByZWdpc3RlciBpdHMgb3duIHBlcm5ldF9vcGVyYXRpb25zLCBhbmQgdGhlbiBy
+ZWdpc3Rlcg0KPj4gYSBuZXRkZXZpY2Vfbm90aWZpZXIuIEVhY2ggdGltZSB0aGUgbmV0ZGV2aWNl
+X25vdGlmaWVyIGlzIHRyaWdnZXJlZCwNCj4+IGl0J2xsIGRvIHNvbWUgc3R1ZmYuLi4gaW5jbHVk
+aW5nIGEgbG9va3VwIG9mIGl0cyBvd24gcGVybmV0IHN0dWZmIHdpdGgNCj4+IG5ldF9nZW5lcmlj
+KCkuDQo+Pg0KPj4gSWYgdGhlIG5ldF9nZW5lcmljKCkgY2FsbCBldmVyIHJldHVybnMgTlVMTCwg
+dGhlIGNhaWYgY29kZSB3aWxsIEJVRygpLg0KPj4gVGhhdCBkb2Vzbid0IHNlZW0gKnNvKiB1bnJl
+YXNvbmFibGUsIEkgc3VwcG9zZSDigJQgaXQgZG9lcyBzZWVtIGxpa2UgaXQNCj4+IHNob3VsZCBu
+ZXZlciBoYXBwZW4uDQo+Pg0KPj4gSG93ZXZlciwgaXQgKmRvZXMqIGhhcHBlbi4gV2hlbiB3ZSBj
+bG9uZSBhIG5ldHdvcmsgbmFtZXNwYWNlLA0KPj4gc2V0dXBfbmV0KCkgcnVucyB0aHJvdWdoIGFs
+bCB0aGUgcGVybmV0X29wZXJhdGlvbnMgb25lIGF0IGEgdGltZS4gSXQNCj4+IGdldHMgdG8gbG9v
+cGJhY2sgYmVmb3JlIGl0IGdldHMgdG8gY2FpZi4gQW5kIGxvb3BiYWNrX25ldF9pbml0KCkNCj4+
+IHJlZ2lzdGVycyBhIG5ldGRldmljZS4uLiB3aGlsZSBjYWlmIGhhc24ndCBiZWVuIGluaXRpYWxp
+c2VkLiBTbyB0aGUgY2FpZg0KPj4gbmV0ZGV2aWNlIG5vdGlmaWVyIHRyaWdnZXJzLCBhbmQgaW1t
+ZWRpYXRlbHkgZ29lcyBCVUcoKS4NCj4+DQo+PiBJJ20gbm90IGVudGlyZWx5IHN1cmUgaG93IGJl
+c3QgdG8gZml4IHRoaXMgaW4gdGhlIGdlbmVyYWwgY2FzZS4gUGVyaGFwcw0KPj4gdGhlIG5ldGRl
+dmljZV9ub3RpZmllciByZWdpc3RyYXRpb24gc2hvdWxkIGJlIHBlcm5ldCB0b28sIHJhdGhlciB0
+aGFuDQo+PiBnbG9iYWw/IE9yIHBlcmhhcHMgd2Ugc2hvdWxkIHN1cHByZXNzIHRoZSBub3RpZmll
+ciBjYWxscyBkdXJpbmcNCj4+IHNldHVwX25ldCgpIGFuZCBmbHVzaCB0aGVtIGF0IHRoZSBlbmQg
+YWZ0ZXIgZXZlcnl0aGluZyBoYXMgYmVlbg0KPj4gaW5pdGlhbGlzZWQ/DQo+Pg0KPj4gQnV0IHJl
+YWxseSwgSSdtIGluY2xpbmVkIHRvIGp1c3QgdGFrZSB0aGUgc2ltcGxlIGFwcHJvYWNoLiBNYWtl
+DQo+PiBjYWlmX2RldmljZV9ub3RpZnkoKSAqbm90KiBnbyBsb29raW5nIGZvciBpdHMgcGVybmV0
+IGRhdGEgc3RydWN0dXJlcyBpZg0KPj4gdGhlIGRldmljZSBpdCdzIGJlaW5nIG5vdGlmaWVkIGFi
+b3V0IGlzbid0IGEgY2FpZiBkZXZpY2UgaW4gdGhlIGZpcnN0DQo+PiBwbGFjZS4gVGhpcyBzaW1w
+bGUgcGF0Y2ggaXMgc3VmZmljaWVudCB0byBhdm9pZCB0aGUgcHJvYmxlbSwgYW5kIGlzDQo+PiBw
+cm9iYWJseSBnb29kIGVub3VnaC4NCj4+IFNpZ25lZC1vZmYtYnk6IERhdmlkIFdvb2Rob3VzZSA8
+RGF2aWQuV29vZGhvdXNlQGludGVsLmNvbT4NCj4gDQo+IFRoYW5rIHlvdSBmb3IgYW5hbHl6aW5n
+IGFuZCBmaXhpbmcgdGhpcyBEYXZpZCwgdGhpcyBsb29rcyBnb29kIHRvIG1lLg0KPiBBY2tlZC1i
+eTogU2p1ciBCcsOmbmRlbGFuZCA8c2p1ci5icmFuZGVsYW5kQHN0ZXJpY3Nzb24uY29tPg0KDQpE
+YXZpZCBXLiwgdGhlIGNvcHkgdGhhdCBlbmRlZCB1cCBpbiBwYXRjaHdvcmsgd2FzIHVzaW5nIERP
+UyBuZXdsaW5lczoNCg0KaHR0cDovL3BhdGNod29yay5vemxhYnMub3JnL3BhdGNoLzEyMTI1MC8N
+Cg0KQ2xpY2sgb24gRG93bmxvYWQgIm1ib3giIHRvIHNlZSB3aGF0IEkgbWVhbi4NCg0KQ2FuIHlv
+dSBnZXQgeW91ciBlbWFpbCBjb25maWd1cmF0aW9uIHN0cmFpZ2h0ZW5lZCBvdXQgYmVmb3JlDQpy
+ZXN1Ym1pdHRpbmcgdGhpcyBwYXRjaCBhIHRoaXJkIHRpbWU/DQoNClRoYW5rcy4NCg==
