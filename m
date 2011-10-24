@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] jme: fix irq storm after suspend/resume
-Date: Mon, 24 Oct 2011 02:58:22 -0400 (EDT)
-Message-ID: <20111024.025822.548298031734112062.davem@davemloft.net>
-References: <20111022125620.GA2256@ecki.lan>
-	<j7uqst$kpc$1@dough.gmane.org>
+Subject: Re: [PATCH] ipv4: fix ipsec forward performance regression
+Date: Mon, 24 Oct 2011 03:01:45 -0400 (EDT)
+Message-ID: <20111024.030145.705404671921819890.davem@davemloft.net>
+References: <4EA3C91C.3090801@intel.com>
+	<alpine.LFD.2.00.1110231533410.1499@ja.ssi.bg>
+	<4EA4B451.7010708@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: grawity@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <j7uqst$kpc$1@dough.gmane.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ja@ssi.bg, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	kim.phillips@freescale.com
+To: zheng.z.yan@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:51568 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025Ab1JXHCB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Oct 2011 03:02:01 -0400
+In-Reply-To: <4EA4B451.7010708@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Mantas M." <grawity@gmail.com>
-Date: Sat, 22 Oct 2011 19:27:09 +0300
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Date: Mon, 24 Oct 2011 08:41:53 +0800
 
-> On 22/10/11 15:56, Clemens Buchacher wrote:
->> If the device is down during suspend/resume, interrupts are enabled
->> without a registered interrupt handler, causing a storm of
->> unhandled interrupts until the IRQ is disabled because "nobody
->> cared".
->>
->> Instead, check that the device is up before touching it in the
->> suspend/resume code.
->>
->> Fixes https://bugzilla.kernel.org/show_bug.cgi?id=39112
-> 
-> Just tested the patch, suspend/resume works well.
+> My understanding is that xfrm_dst(s) are managed by the flow cache
+> (net/core/flow.c). We don't put them into the routing cache.
 
-Applied, thanks.
+This is correct.
