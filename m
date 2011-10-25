@@ -1,51 +1,42 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH] net: allow CAP_NET_RAW to setsockopt SO_PRIORITY
-Date: Mon, 24 Oct 2011 21:47:18 -0700
-Message-ID: <1319518038-28679-1-git-send-email-zenczykowski@gmail.com>
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next 0/4] be2net: fixes
+Date: Mon, 24 Oct 2011 21:49:41 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F642EFEC8162@EXMAIL.ad.emulex.com>
+References: <1319460303-25560-1-git-send-email-sathya.perla@emulex.com>
+ <20111024.183546.495965585975609045.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:43511 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751212Ab1JYErc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 00:47:32 -0400
-Received: by ywm3 with SMTP id 3so121775ywm.19
-        for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 21:47:31 -0700 (PDT)
+Received: from exht1.emulex.com ([138.239.113.183]:27221 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751313Ab1JYEuE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 00:50:04 -0400
+In-Reply-To: <20111024.183546.495965585975609045.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =C5=BBenczykowski <maze@google.com>
-
-It is my belief that CAP_NET_ADMIN is and should continue to be about
-configuring the system as a whole, not about configuring per-socket
-or per-packet parameters.
-
-Sending and receiving raw packets is what CAP_NET_RAW is all about.
-Hence it makes sense to allow a CAP_NET_RAW process to set the
-priority of sockets and thus packets it sends.
-
-Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
----
- net/core/sock.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 5a08762..3d163b6 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -612,7 +612,8 @@ set_rcvbuf:
- 		break;
-=20
- 	case SO_PRIORITY:
--		if ((val >=3D 0 && val <=3D 6) || capable(CAP_NET_ADMIN))
-+		if ((val >=3D 0 && val <=3D 6)
-+		    || capable(CAP_NET_ADMIN) || capable(CAP_NET_RAW))
- 			sk->sk_priority =3D val;
- 		else
- 			ret =3D -EPERM;
---=20
-1.7.3.1
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Tuesday, October 25, 2011 4:06 AM
+>
+>From: Sathya Perla <sathya.perla@emulex.com>
+>Date: Mon, 24 Oct 2011 18:14:59 +0530
+>
+>> Pls apply.
+>>
+>> Sathya Perla (4):
+>>   be2net: add vlan/rx-mode/flow-control config to be_setup()
+>>   be2net: refactor VF setup/teardown code into be_vf_setup/clear()
+>>   be2net: don't create multiple TXQs in BE2
+>>   be2net: don't create multiple RX/TX rings in multi channel mode
+>
+>Applied, but many of your commit messages were poorly formatted (lines
+>exceeding 80 columns) and patches #1 and #2 had several trailing
+>whitespace errors.
+>
+>I fixed this all up, but you have to be better than this.
+Dave, thanks. Will be careful....
