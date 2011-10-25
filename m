@@ -1,70 +1,60 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Tue, 25 Oct 2011 14:26:53 +0200
-Message-ID: <CA+55aFzkZofnUmBOGVvmNKyA0_FApo73xZ7J=aevbHPS_0+xKQ@mail.gmail.com>
-References: <20111025.063206.2273357152859701628.davem@davemloft.net>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Linux 3.1-rc9
+Date: Tue, 25 Oct 2011 14:30:50 +0200 (CEST)
+Message-ID: <alpine.LFD.2.02.1110251419170.21837@ionos>
+References: <alpine.LFD.2.02.1110182146440.3240@ionos> <20111024190203.GA24410@hostway.ca> <CA+55aFwzAM6zhqCYJwoRxCdLJB+h84BDqzhF0RNQ6Jg9SQFjSA@mail.gmail.com> <20111025.050113.1678938946604302787.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	"John W. Linville"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: torvalds@linux-foundation.org, sim@hostway.ca,
+	netdev@vger.kernel.org, a.p.zijlstra@chello.nl,
+	linux-kernel@vger.kernel.org, davej@redhat.com,
+	schwidefsky@de.ibm.com, mingo@elte.hu
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111025.063206.2273357152859701628.davem@davemloft.net>
+In-Reply-To: <20111025.050113.1678938946604302787.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 25, 2011 at 12:32 PM, David Miller <davem@davemloft.net> wrote:
->
-> The most visible thing in here is the reorganization of the drivers
-> under drivers/net.
+On Tue, 25 Oct 2011, David Miller wrote:
 
-Nope, the most visible thing are some new annoying warnings, that seem
-absolutely broken.
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Tue, 25 Oct 2011 09:13:48 +0200
+> 
+> > Added netdev, because this seems to be a generic networking bug (ABBA
+> > between sk_lock and icsk_retransmit_timer if my quick scan looks
+> > correct).
+> > 
+> > Davem?
+> 
+> I suspect that's all just a side effect of whatever is creating the
+> preempt_count imbalance.
 
-At the very minimum, that WARN_ON(1) should be a WARN_ON_ONCE() or
-something like that. Because showing it over an dover again is not
-helpful.
+Something is holding socket lock and it was acquired in sk_clone()
+which does bh_lock_sock() and returns with the lock held, though I got
+completely lost in the gazillions of possible callchains ...
 
-Added the people who signed off on the changes to the affected files,
-since they hopefully know why this happens and can fix it..
+While staring at it I found an missing unlock in sk_clone() itself,
+but that's not the one which causes the leak. Lockdep would have
+complained about that separately :)
 
-                      Linus
+Thanks,
 
----
-[   83.111504] wlan0: authenticate with 00:3a:98:27:aa:50 (try 1)
-[   83.111547] ------------[ cut here ]------------
-[   83.111563] WARNING: at include/net/mac80211.h:3570
-rate_control_send_low+0xf5/0x230()
-[   83.111568] Hardware name: 1294A58
-[   83.111571] Modules linked in: iwlwifi [last unloaded: scsi_wait_scan]
-[   83.111584] Pid: 955, comm: kworker/u:3 Tainted: G        W
-3.1.0-02609-gc9d6329c3586 #51
-[   83.111588] Call Trace:
-[   83.111601]  [<ffffffff81044d3f>] warn_slowpath_common+0x7f/0xc0
-[   83.111608]  [<ffffffff81044d9a>] warn_slowpath_null+0x1a/0x20
-[   83.111616]  [<ffffffff817afb85>] rate_control_send_low+0xf5/0x230
-[   83.111630]  [<ffffffffa0004e08>] rs_get_rate+0x58/0x1c0 [iwlwifi]
-[   83.111638]  [<ffffffff817b00f6>] rate_control_get_rate+0x96/0x170
-[   83.111648]  [<ffffffff817b9207>] invoke_tx_handlers+0x7e7/0x1130
-[   83.111658]  [<ffffffff815bdbf1>] ? led_trigger_event+0x81/0x90
-[   83.111665]  [<ffffffff817ba513>] ieee80211_tx+0x73/0xe0
-[   83.111671]  [<ffffffff817ba7a8>] ieee80211_xmit+0x88/0xc0
-[   83.111677]  [<ffffffff817bb5da>] ieee80211_tx_skb+0x5a/0x70
-[   83.111684]  [<ffffffff817a8536>] ieee80211_send_nullfunc+0x56/0x70
-[   83.111691]  [<ffffffff817a3fe1>] ieee80211_offchannel_return+0x1f1/0x200
-[   83.111699]  [<ffffffff817ac192>] ieee80211_work_work+0x5a2/0x1460
-[   83.111708]  [<ffffffff8167df17>] ? __kfree_skb+0x47/0xa0
-[   83.111718]  [<ffffffff8105f103>] ? cwq_activate_first_delayed+0x53/0x150
-[   83.111725]  [<ffffffff817abbf0>] ? free_work+0x20/0x20
-[   83.111733]  [<ffffffff810619cc>] process_one_work+0x12c/0x4e0
-[   83.111741]  [<ffffffff8106212e>] worker_thread+0x15e/0x340
-[   83.111749]  [<ffffffff81061fd0>] ? rescuer_thread+0x210/0x210
-[   83.111755]  [<ffffffff81066d3c>] kthread+0x8c/0xa0
-[   83.111765]  [<ffffffff817e8d34>] kernel_thread_helper+0x4/0x10
-[   83.111772]  [<ffffffff81066cb0>] ? kthread_worker_fn+0x190/0x190
-[   83.111779]  [<ffffffff817e8d30>] ? gs_change+0xb/0xb
-[   83.111783] ---[ end trace 95cdc4f2a378cb79 ]---
+	tglx
+
+--------->
+Subject: net: Unlock sock before calling sk_free()
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+
+Index: linux-2.6/net/core/sock.c
+===================================================================
+--- linux-2.6.orig/net/core/sock.c
++++ linux-2.6/net/core/sock.c
+@@ -1260,6 +1260,7 @@ struct sock *sk_clone(const struct sock 
+ 			/* It is still raw copy of parent, so invalidate
+ 			 * destructor and make plain sk_free() */
+ 			newsk->sk_destruct = NULL;
++			bh_unlock_sock(newsk);
+ 			sk_free(newsk);
+ 			newsk = NULL;
+ 			goto out;
