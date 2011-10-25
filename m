@@ -1,70 +1,54 @@
-From: "Moffett, Kyle D" <Kyle.D.Moffett@boeing.com>
-Subject: Re: [RFC PATCH 11/17] sh_eth: Don't unnecessarily reset the PHY
-Date: Tue, 25 Oct 2011 11:00:31 -0500
-Message-ID: <47C02D56-BA6A-4568-8676-E979A13CBD0B@boeing.com>
-References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
- <1319144425-15547-12-git-send-email-Kyle.D.Moffett@boeing.com>
- <4EA69972.4090004@renesas.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] net: make bonding slaves honour master's skb->priority
+Date: Tue, 25 Oct 2011 09:45:35 -0700
+Message-ID: <7147.1319561135@death>
+References: <1319517660-22085-1-git-send-email-zenczykowski@gmail.com> <1319519056-21677-1-git-send-email-zenczykowski@gmail.com> <20111025110808.27db8487@asterix.rh> <CANP3RGeMbVFf6oL3+9i8h43q1ycdzcA47rNfzeyLWpi8M8ZV5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Kuninori Morimoto <morimoto.kuninori@renesas.com>
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EA69972.4090004@renesas.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Flavio Leitner <fbl@redhat.com>, netdev@vger.kernel.org
+To: =?us-ascii?Q?=3D=3FUTF-8=3FQ=3FMaciej=5F=3DC5=3DBBenczykowski=3F=3D?=
+	<zenczykowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:41136 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625Ab1JYQts convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 12:49:48 -0400
+Received: from /spool/local
+	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Tue, 25 Oct 2011 10:47:13 -0600
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p9PGjgAd078304
+	for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 10:45:42 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p9PGjf6o011112
+	for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 10:45:41 -0600
+In-reply-to: <CANP3RGeMbVFf6oL3+9i8h43q1ycdzcA47rNfzeyLWpi8M8ZV5w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Oct 25, 2011, at 07:11, Yoshihiro Shimoda wrote:
-> 2011/10/21 6:00, Kyle Moffett wrote:
->> Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
->> ---
->> drivers/net/sh_eth.c |   19 +------------------
->> 1 files changed, 1 insertions(+), 18 deletions(-)
->> 
->> diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
->> index 1c1666e..7ef4378 100644
->> --- a/drivers/net/sh_eth.c
->> +++ b/drivers/net/sh_eth.c
->> @@ -1235,23 +1235,6 @@ static int sh_eth_phy_init(struct net_device *ndev)
->> 	return 0;
->> }
->> 
->> -/* PHY control start function */
->> -static int sh_eth_phy_start(struct net_device *ndev)
->> -{
->> -	struct sh_eth_private *mdp = netdev_priv(ndev);
->> -	int ret;
->> -
->> -	ret = sh_eth_phy_init(ndev);
->> -	if (ret)
->> -		return ret;
->> -
->> -	/* reset phy - this also wakes it from PDOWN */
->> -	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
->> -	phy_start(mdp->phydev);
-> 
-> I think that the driver needs the phy_start().
-> So, I removed the phy_write() only. Then, the driver could work correctly.
-> 
-> Therefore, I would to remove the following code only.
-> Do you think about this?
-> 
->> -	/* reset phy - this also wakes it from PDOWN */
->> -	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
+Maciej =C5=BBenczykowski <zenczykowski@gmail.com> wrote:
 
-You're right, sorry about that.  I think I mis-merged this when I rebased
-from a much earlier commit.  The simple removal of the BMCR_RESET write
-should achieve what I was intending.
+>> I tripped on it few times and never understood why we
+>> were fixing the priority at this point.
+>> thanks,
+>
+>It looks like ancient code, going all the way back to something like
+>Linux 2.4.14 (if I recall my git blame session correctly).
+>I can't think of a good reason for this...
 
-Cheers,
-Kyle Moffett
+	I believe this line goes back to the beginning, prior to git or
+bk.  The skb->priority probably meant something different than it does
+today.
 
---
-Curious about my work on the Debian powerpcspe port?
-I'm keeping a blog here: http://pureperl.blogspot.com/
+	In any event, I'm fine with the code change.  There's still no
+actual log message, but if Davem is ok with that I'm ok with it, given
+the trivial nature of the change.
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
