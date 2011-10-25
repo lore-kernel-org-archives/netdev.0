@@ -1,48 +1,76 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [RFC PATCH 06/17] phy_driver: Add and use phy_driver_[un]register_multiple()
-Date: Tue, 25 Oct 2011 01:41:48 -0400
-Message-ID: <CAJaTeTr2XXeq7HU1k6TU6kZCXj4ud0wUMiuA+3-2uHziK-3WmQ@mail.gmail.com>
-References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
- <1319144425-15547-7-git-send-email-Kyle.D.Moffett@boeing.com>
- <201110201715.58441.vapier@gentoo.org> <20111025050003.GC798@ponder.secretlab.ca>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the bluetooth tree with Linus' tree
+Date: Tue, 25 Oct 2011 17:25:09 +1100
+Message-ID: <20111025172509.931831a5ad9ae3dab8fca562@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kyle Moffett <Kyle.D.Moffett@boeing.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@conan.davemloft.net>,
-	Greg Dietsche <Gregory.Dietsche@cuw.edu>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	David Daney <ddaney@caviumnetworks.com>,
-	Arnaud Patard <arnaud.patard@rtp-net.org>,
-	Baruch Siach <baruch@tkos.co.il>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111025050003.GC798@ponder.secretlab.ca>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__25_Oct_2011_17_25_09_+1100_RCSxjPHuGjtwZXBB"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Paul Moore <pmoore@redhat.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Andrei Emeltchenko <andrei.emeltchenko@intel.com>
+To: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 25, 2011 at 01:00, Grant Likely wrote:
-> On Thu, Oct 20, 2011 at 05:15:54PM -0400, Mike Frysinger wrote:
->> On Thursday 20 October 2011 17:00:13 Kyle Moffett wrote:
->> > + =A0 return phy_driver_register_multiple(bcm63xx_drivers,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ARRAY_SIZE(bcm63xx_drivers))=
-;
->>
->> if only the arm ARRAY_AND_SIZE() macro could gain traction in the wi=
-der tree:
->> =A0 =A0 =A0 return phy_driver_register_multiple(ARRAY_AND_SIZE(bcm63=
-xx_drivers));
->
-> Propose a patch to move it from arch/arm to include/linux/kernel.h.
-> This is the first I've heard of this macro, but I would probably use
-> it.
+--Signature=_Tue__25_Oct_2011_17_25_09_+1100_RCSxjPHuGjtwZXBB
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-i thought last time rmk suggested it, things got shot down.  but maybe
-i remember wrong ... it has been a while since i proposed something
-that generated bike shedding, so i'll try again.
--mike
+Hi Gustavo,
+
+Today's linux-next merge of the bluetooth tree got a conflict in
+net/bluetooth/l2cap_sock.c between commit 6230c9b4f895 ("bluetooth:
+Properly clone LSM attributes to newly created child connections") from
+Linus' tree and commit 15770b1ab974 ("Bluetooth: convert force_active
+variable to flag in l2cap chan") from the bluetooth tree.
+
+I fixed it up (see below) and can carry the fix as necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/bluetooth/l2cap_sock.c
+index e829236,836d12e..0000000
+--- a/net/bluetooth/l2cap_sock.c
++++ b/net/bluetooth/l2cap_sock.c
+@@@ -931,12 -944,7 +946,9 @@@ static void l2cap_sock_init(struct soc
+  		chan->max_tx =3D pchan->max_tx;
+  		chan->tx_win =3D pchan->tx_win;
+  		chan->sec_level =3D pchan->sec_level;
+- 		chan->role_switch =3D pchan->role_switch;
+- 		chan->force_reliable =3D pchan->force_reliable;
+- 		chan->flushable =3D pchan->flushable;
+- 		chan->force_active =3D pchan->force_active;
++ 		chan->flags =3D pchan->flags;
+ +
+ +		security_sk_clone(parent, sk);
+  	} else {
+ =20
+  		switch (sk->sk_type) {
+
+--Signature=_Tue__25_Oct_2011_17_25_09_+1100_RCSxjPHuGjtwZXBB
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJOplZFAAoJEECxmPOUX5FEgjsP+wfLQkTRW/iVuvDvHajKcV+y
+FJpd3aVPJ62dP9hiswggUDoF1UTiynf9VkpeCPTsYTWlNeT/9lgykVLn/3HK72fp
+04WSu8hK3QIgyOtqTBwolDkcQahaaaJtDvHb7PQIBky9+NW+ucPAGkd0E7lEdgtt
+K31b+sUFNvlT1wUodXf+zcFNTUXfwBbo6wALWaY7hL+D+5sQX07kQ1zpqlqRuY5F
+zTSEPAhdw2sjllYpEz3oT/eILykLilc9HDcplhzDqOTPT5P4NS8aOKO4i0McSXq4
+E0YdhWvQLDMzmvDG6SDyci0ibi/q1gxHHLPjGqt+FbDJuLDA3atwgEoFhr/SjFeK
+jtTVm/SLIyfmHfmcS6vSealoN6+2UVy2oGVfc58T41e2azYUUeD/HQsB3BneGO5g
+rZ01rNnfO0hbPHoikUjiBr/rj2B0iWOs4B8zwoYEO89YoxyvxQZMoZG3LF88f+Qt
+ZG442D4P1uHd2vVboIBqVTv2nTO0DdXCjAlmoZyJnsrWf/SAFyI+VcSi6G9+yNiw
+EjOE7UYRe+dhRYYNUPJtudhoIVPhkpA857oc1xJETpNL3CBmOOIUOdDjMwRfrcgA
+N86LFVt2JNQYIGn3yk9svVZFz4vitSbCTJJS4jNboHUUdPkO4zIA3EGF+YNN2y1O
+2x2S9uKZxYJFTJM7hrb/
+=xLtF
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__25_Oct_2011_17_25_09_+1100_RCSxjPHuGjtwZXBB--
