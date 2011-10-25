@@ -1,38 +1,70 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] net: make bonding slaves honour master's skb->priority
-Date: Tue, 25 Oct 2011 09:25:25 -0700
-Message-ID: <CANP3RGeMbVFf6oL3+9i8h43q1ycdzcA47rNfzeyLWpi8M8ZV5w@mail.gmail.com>
-References: <1319517660-22085-1-git-send-email-zenczykowski@gmail.com>
-	<1319519056-21677-1-git-send-email-zenczykowski@gmail.com>
-	<20111025110808.27db8487@asterix.rh>
+From: "Moffett, Kyle D" <Kyle.D.Moffett@boeing.com>
+Subject: Re: [RFC PATCH 11/17] sh_eth: Don't unnecessarily reset the PHY
+Date: Tue, 25 Oct 2011 11:00:31 -0500
+Message-ID: <47C02D56-BA6A-4568-8676-E979A13CBD0B@boeing.com>
+References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
+ <1319144425-15547-12-git-send-email-Kyle.D.Moffett@boeing.com>
+ <4EA69972.4090004@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Flavio Leitner <fbl@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:57664 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751482Ab1JYQZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 12:25:28 -0400
-Received: from hpaq13.eem.corp.google.com (hpaq13.eem.corp.google.com [172.25.149.13])
-	by smtp-out.google.com with ESMTP id p9PGPRdf027477
-	for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 09:25:27 -0700
-Received: from pzk2 (pzk2.prod.google.com [10.243.19.130])
-	by hpaq13.eem.corp.google.com with ESMTP id p9PGPFUu014843
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 09:25:26 -0700
-Received: by pzk2 with SMTP id 2so2499116pzk.0
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 09:25:25 -0700 (PDT)
-In-Reply-To: <20111025110808.27db8487@asterix.rh>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Kuninori Morimoto <morimoto.kuninori@renesas.com>
+To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EA69972.4090004@renesas.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I tripped on it few times and never understood why we
-> were fixing the priority at this point.
-> thanks,
+On Oct 25, 2011, at 07:11, Yoshihiro Shimoda wrote:
+> 2011/10/21 6:00, Kyle Moffett wrote:
+>> Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+>> ---
+>> drivers/net/sh_eth.c |   19 +------------------
+>> 1 files changed, 1 insertions(+), 18 deletions(-)
+>> 
+>> diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
+>> index 1c1666e..7ef4378 100644
+>> --- a/drivers/net/sh_eth.c
+>> +++ b/drivers/net/sh_eth.c
+>> @@ -1235,23 +1235,6 @@ static int sh_eth_phy_init(struct net_device *ndev)
+>> 	return 0;
+>> }
+>> 
+>> -/* PHY control start function */
+>> -static int sh_eth_phy_start(struct net_device *ndev)
+>> -{
+>> -	struct sh_eth_private *mdp = netdev_priv(ndev);
+>> -	int ret;
+>> -
+>> -	ret = sh_eth_phy_init(ndev);
+>> -	if (ret)
+>> -		return ret;
+>> -
+>> -	/* reset phy - this also wakes it from PDOWN */
+>> -	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
+>> -	phy_start(mdp->phydev);
+> 
+> I think that the driver needs the phy_start().
+> So, I removed the phy_write() only. Then, the driver could work correctly.
+> 
+> Therefore, I would to remove the following code only.
+> Do you think about this?
+> 
+>> -	/* reset phy - this also wakes it from PDOWN */
+>> -	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
 
-It looks like ancient code, going all the way back to something like
-Linux 2.4.14 (if I recall my git blame session correctly).
-I can't think of a good reason for this...
+You're right, sorry about that.  I think I mis-merged this when I rebased
+from a much earlier commit.  The simple removal of the BMCR_RESET write
+should achieve what I was intending.
 
-- Maciej
+Cheers,
+Kyle Moffett
+
+--
+Curious about my work on the Debian powerpcspe port?
+I'm keeping a blog here: http://pureperl.blogspot.com/
