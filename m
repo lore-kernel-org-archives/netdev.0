@@ -1,88 +1,21 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next V4] net: introduce ethernet teaming device
-Date: Tue, 25 Oct 2011 08:42:41 +0200
-Message-ID: <20111025064240.GA2070@minipsycho>
-References: <1319444005-1281-1-git-send-email-jpirko@redhat.com>
- <20111025000232.GC20605@gospo.rdu.redhat.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [RFC PATCH 08/17] drivers/net/bfin_mac: Don't unnecessarily reset
+ the PHY
+Date: Tue, 25 Oct 2011 02:59:53 -0400
+Message-ID: <CAJaTeTpzi4t7Qg2ncstLMqXZtNb7ptGmyRVfp6KPQN9OT59o_Q@mail.gmail.com>
+References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com> <1319144425-15547-9-git-send-email-Kyle.D.Moffett@boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, fubar@us.ibm.com, tgraf@infradead.org,
-	ebiederm@xmission.com, mirqus@gmail.com, kaber@trash.net,
-	greearb@candelatech.com, jesse@nicira.com, fbl@redhat.com,
-	benjamin.poirier@gmail.com, jzupka@redhat.com
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1028 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753189Ab1JYGnU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Oct 2011 02:43:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20111025000232.GC20605@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@conan.davemloft.net>,
+	Sonic Zhang <sonic.zhang@analog.com>,
+	Tobias Klauser <tklauser@distanz.ch>,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1319144425-15547-9-git-send-email-Kyle.D.Moffett@boeing.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Oct 25, 2011 at 02:02:33AM CEST, andy@greyhouse.net wrote:
->On Mon, Oct 24, 2011 at 10:13:25AM +0200, Jiri Pirko wrote:
->> This patch introduces new network device called team. It supposes to be
->> very fast, simple, userspace-driven alternative to existing bonding
->> driver.
->> 
->> Userspace library called libteam with couple of demo apps is available
->> here:
->> https://github.com/jpirko/libteam
->> Note it's still in its dipers atm.
->> 
->> team<->libteam use generic netlink for communication. That and rtnl
->> suppose to be the only way to configure team device, no sysfs etc.
->> 
->> Python binding basis for libteam was recently introduced (some need
->> still need to be done on it though). Daemon providing arpmon/miimon
->> active-backup functionality will be introduced shortly.
->> All what's necessary is already implemented in kernel team driver.
->> 
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> 
->> v3->v4:
->> 	- remove redundant synchronize_rcu from __team_change_mode()
->> 	- revert "set and clear of mode_ops happens per pointer, not per
->> 	  byte"
->> 	- extend comment of function __team_change_mode()
->> 
->> v2->v3:
->> 	- team_change_mtu() user rcu version of list traversal to unwind
->> 	- set and clear of mode_ops happens per pointer, not per byte
->> 	- port hashlist changed to be embedded into team structure
->> 	- error branch in team_port_enter() does cleanup now
->> 	- fixed rtln->rtnl
->> 
->> v1->v2:
->> 	- modes are made as modules. Makes team more modular and
->> 	  extendable.
->> 	- several commenters' nitpicks found on v1 were fixed
->> 	- several other bugs were fixed.
->> 	- note I ignored Eric's comment about roundrobin port selector
->> 	  as Eric's way may be easily implemented as another mode (mode
->> 	  "random") in future.
->
->Jiri,
->
->I've been following this work closely since your first post and now to
->wonder if you could create a 'team' tree somewhere.  It would be nice if
->there was a repo that we could clone for testing and a base for others
->to help with the development and provide patches.
->
->It also might avoid so much of this back and forth, so that you are not
->on v37 by the time the code meets everyones needs. :-)
->
->Once the code goes mainline and Dave pulls your tree, you could then
->remove it.
-
-I believe v5 will be the one :)
-
-Jirka
-
->
->-andy
->
+Acked-by: Mike Frysinger <vapier@gentoo.org>
+-mike
