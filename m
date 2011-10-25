@@ -1,105 +1,70 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: [PATCH] linux-next: et131x: Fixups due to merge issues from staging
- tree
-Date: Tue, 25 Oct 2011 13:15:52 +0100
-Message-ID: <20111025121551.GA2108@marke.airties>
-References: <20111025192636.f816c8860ee168a0a4756eda@canb.auug.org.au>
-Reply-To: 20111025192636.f816c8860ee168a0a4756eda@canb.auug.org.au
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 25 Oct 2011 14:26:53 +0200
+Message-ID: <CA+55aFzkZofnUmBOGVvmNKyA0_FApo73xZ7J=aevbHPS_0+xKQ@mail.gmail.com>
+References: <20111025.063206.2273357152859701628.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mark Einon <mark.einon@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111025192636.f816c8860ee168a0a4756eda@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	"John W. Linville"
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111025.063206.2273357152859701628.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Oct 25, 2011 at 12:32 PM, David Miller <davem@davemloft.net> wrote:
+>
+> The most visible thing in here is the reorganization of the drivers
+> under drivers/net.
 
-Manually merged changes from commits afc4b13df143, bf3f1a6081aa and 5d6bcdfe38ce into et131x.c as identified in email below.
+Nope, the most visible thing are some new annoying warnings, that seem
+absolutely broken.
 
-Also removed dependency on NETDEV_1000 in Kconfig, which no longer exists.
+At the very minimum, that WARN_ON(1) should be a WARN_ON_ONCE() or
+something like that. Because showing it over an dover again is not
+helpful.
 
-Greg: This patch should also be good for the staging tree.
+Added the people who signed off on the changes to the affected files,
+since they hopefully know why this happens and can fix it..
 
-----------------------------------------------------------
-Date: Tue, 25 Oct 2011 19:26:36 +1100
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-To: Greg KH <greg@kroah.com>
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org, Jiri Pirko
-<jpirko@redhat.com>, Ian Campbell <Ian.Campbell@citrix.com>, David Miller
-<davem@davemloft.net>, <netdev@vger.kernel.org>, Mark Einon
-<mark.einon@gmail.com>
-Subject: linux-next: manual merge of the staging tree with the net-next tree
+                      Linus
 
-Hi Greg,
-
-Today's linux-next merge of the staging tree got a conflict in
-drivers/staging/et131x/et1310_tx.c drivers/staging/et131x/et131x_netdev.c
-between commits afc4b13df143 ("net: remove use of ndo_set_multicast_list
-in drivers"), bf3f1a6081aa ("et131x: convert to SKB paged frag API") and
-5d6bcdfe38ce ("net: use DMA_x_DEVICE and dma_mapping_error with
-skb_frag_dma_map") from the net-next tree and commit d2796743cba2
-("staging: et131x: Put all .c files into one big file") from the staging
-tree.
-
-The latter removed these files, so I did that but more fixup is proably
-needed.
------------------------------------------------------------
-
-Signed-off-by: Mark Einon <mark.einon@gmail.com>
 ---
- drivers/staging/et131x/Kconfig  |    2 +-
- drivers/staging/et131x/et131x.c |   14 +++++++-------
- 2 files changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/staging/et131x/Kconfig b/drivers/staging/et131x/Kconfig
-index f0ed08d..9e1864c 100644
---- a/drivers/staging/et131x/Kconfig
-+++ b/drivers/staging/et131x/Kconfig
-@@ -1,6 +1,6 @@
- config ET131X
- 	tristate "Agere ET-1310 Gigabit Ethernet support"
--	depends on NETDEV_1000 && PCI
-+	depends on PCI
- 	default n
- 	---help---
- 	  This driver supports Agere ET-1310 ethernet adapters.
-diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
-index 45b88d4..32c805b 100644
---- a/drivers/staging/et131x/et131x.c
-+++ b/drivers/staging/et131x/et131x.c
-@@ -3403,12 +3403,12 @@ static int nic_send_packet(struct et131x_adapter *adapter, struct tcb *tcb)
- 			 * returned by dma_map_page() is always 32-bit
- 			 * addressable (as defined by the pci/dma subsystem)
- 			 */
--			desc[frag++].addr_lo =
--			    dma_map_page(&adapter->pdev->dev,
--					 frags[i - 1].page,
--					 frags[i - 1].page_offset,
--					 frags[i - 1].size,
--					 DMA_TO_DEVICE);
-+			desc[frag++].addr_lo = skb_frag_dma_map(
-+                                                       &adapter->pdev->dev,
-+                                                       &frags[i - 1],
-+                                                       0,
-+                                                       frags[i - 1].size,
-+                                                       DMA_TO_DEVICE);
- 		}
- 	}
- 
-@@ -5233,7 +5233,7 @@ static const struct net_device_ops et131x_netdev_ops = {
- 	.ndo_open		= et131x_open,
- 	.ndo_stop		= et131x_close,
- 	.ndo_start_xmit		= et131x_tx,
--	.ndo_set_multicast_list	= et131x_multicast,
-+	.ndo_set_rx_mode        = et131x_multicast,
- 	.ndo_tx_timeout		= et131x_tx_timeout,
- 	.ndo_change_mtu		= et131x_change_mtu,
- 	.ndo_set_mac_address	= et131x_set_mac_addr,
--- 
-1.7.6.4
+[   83.111504] wlan0: authenticate with 00:3a:98:27:aa:50 (try 1)
+[   83.111547] ------------[ cut here ]------------
+[   83.111563] WARNING: at include/net/mac80211.h:3570
+rate_control_send_low+0xf5/0x230()
+[   83.111568] Hardware name: 1294A58
+[   83.111571] Modules linked in: iwlwifi [last unloaded: scsi_wait_scan]
+[   83.111584] Pid: 955, comm: kworker/u:3 Tainted: G        W
+3.1.0-02609-gc9d6329c3586 #51
+[   83.111588] Call Trace:
+[   83.111601]  [<ffffffff81044d3f>] warn_slowpath_common+0x7f/0xc0
+[   83.111608]  [<ffffffff81044d9a>] warn_slowpath_null+0x1a/0x20
+[   83.111616]  [<ffffffff817afb85>] rate_control_send_low+0xf5/0x230
+[   83.111630]  [<ffffffffa0004e08>] rs_get_rate+0x58/0x1c0 [iwlwifi]
+[   83.111638]  [<ffffffff817b00f6>] rate_control_get_rate+0x96/0x170
+[   83.111648]  [<ffffffff817b9207>] invoke_tx_handlers+0x7e7/0x1130
+[   83.111658]  [<ffffffff815bdbf1>] ? led_trigger_event+0x81/0x90
+[   83.111665]  [<ffffffff817ba513>] ieee80211_tx+0x73/0xe0
+[   83.111671]  [<ffffffff817ba7a8>] ieee80211_xmit+0x88/0xc0
+[   83.111677]  [<ffffffff817bb5da>] ieee80211_tx_skb+0x5a/0x70
+[   83.111684]  [<ffffffff817a8536>] ieee80211_send_nullfunc+0x56/0x70
+[   83.111691]  [<ffffffff817a3fe1>] ieee80211_offchannel_return+0x1f1/0x200
+[   83.111699]  [<ffffffff817ac192>] ieee80211_work_work+0x5a2/0x1460
+[   83.111708]  [<ffffffff8167df17>] ? __kfree_skb+0x47/0xa0
+[   83.111718]  [<ffffffff8105f103>] ? cwq_activate_first_delayed+0x53/0x150
+[   83.111725]  [<ffffffff817abbf0>] ? free_work+0x20/0x20
+[   83.111733]  [<ffffffff810619cc>] process_one_work+0x12c/0x4e0
+[   83.111741]  [<ffffffff8106212e>] worker_thread+0x15e/0x340
+[   83.111749]  [<ffffffff81061fd0>] ? rescuer_thread+0x210/0x210
+[   83.111755]  [<ffffffff81066d3c>] kthread+0x8c/0xa0
+[   83.111765]  [<ffffffff817e8d34>] kernel_thread_helper+0x4/0x10
+[   83.111772]  [<ffffffff81066cb0>] ? kthread_worker_fn+0x190/0x190
+[   83.111779]  [<ffffffff817e8d30>] ? gs_change+0xb/0xb
+[   83.111783] ---[ end trace 95cdc4f2a378cb79 ]---
