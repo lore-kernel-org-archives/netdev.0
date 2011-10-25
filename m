@@ -1,59 +1,49 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Wed, 26 Oct 2011 00:55:30 +1100
-Message-ID: <20111026005530.a4bd779e1a8182ea57dbf99f@canb.auug.org.au>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v2 0/4] Series short description
+Date: Tue, 25 Oct 2011 17:57:40 +0300
+Message-ID: <20111025135637.5286.89632.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__26_Oct_2011_00_55_30_+1100_+b=cS15HvDQ15HZi"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linus <torvalds@linux-foundation.org>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bfields@fieldses.org, davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__26_Oct_2011_00_55_30_+1100_+b=cS15HvDQ15HZi
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This patch-set was created in context of clone of git branch:
+git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git
+and rebased on tag "v3.1".
 
-Hi all,
+This patch-set virtualizes rpcbind clients per network namespace context. IOW,
+each network namespace will have its own pair of rpcbind clients (if the would
+be created by request).
 
-After merging the net-next tree, today's linux-next build (powerpc
-pseries_defconfig) failed like this:
+Note:
+1) this patch-set depends on "SUNRPC: make rpcbind clients allocated and
+destroyed dynamically" patch-set which has been send earlier.
+2) init_net pointer is still used instead of current->nsproxy->net_ns,
+because I'm not sure yet about how to virtualize services.
+I.e. NFS callback services will be per netns. NFSd service will be per netns
+too from my pow. But Lockd can be per netns or one for all.
+And also we have NFSd file system, which is not virtualized yet.
 
-drivers/net/ethernet/ibm/ehea/ehea_main.c: In function 'write_swqe2_data':
-drivers/net/ethernet/ibm/ehea/ehea_main.c:1692: error: implicit declaration=
- of function 'frag_size'
+The following series consists of:
 
-Presumably caused by commit 9e903e085262 ("net: add skb frag size
-accessors").  I guess it should have been "skb_frag_size()".
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+---
 
---Signature=_Wed__26_Oct_2011_00_55_30_+1100_+b=cS15HvDQ15HZi
-Content-Type: application/pgp-signature
+Stanislav Kinsbursky (4):
+      SUNRPC: rpcbind clients internals virtualization
+      SUNRPC: use virtualized rpcbind internals instead of static ones
+      SUNRPC: optimize net_ns dereferencing in rpcbind creation calls
+      SUNRPC: optimize net_ns dereferencing in rpcbind registering calls
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIcBAEBCAAGBQJOpr/SAAoJEECxmPOUX5FEd+AQAIGk6I3YRTJ9RGHMU6MUEeEl
-J/VtRXodJfUdQxPGVPZth2F4ygGf4zRd+f2eYjikSL3RNCBZ9pdBzbffhtVaIO/U
-myXMPzXuk4DWryMj9wknqH5pnazxHXH65fTllQLwcjVOgfYHOmGFAVSMIbhlrjM7
-zBDG1dWLbth9v3z2/AkCQo6G09D57qGkXkDlszAVCyosmntJBmdvAHXkLJCMVDhm
-cAbxOW5ZBAh8PRspnIKYSyCAG4vC20t7DsY/V0krPU5Xi9KoAR2iud6lUSNK5sH8
-vFy4vxJQo5U6RnlZKPV2j3vEfYRlJABHwWdcNnTD+TrDweMLXq2kp3cjoZBDLBGx
-fiNs9DKgm1OjdvaA/nV+Bs/gXI2iVF6u4nXKg/gC+6Ona0eN2y1HBZ2PAOoBg4oF
-ZRqViID3mMhWFXMUTwjrDyVpYONGoFCVU85c8cST3ThUlo0tHvbinGQeocs5dbWW
-iqyZ0pgzWJa/wR4IDS2is4MQAPyoVeGXbVqQpYoKEW8Hmr9TerX+hB2nKrJCG4Ug
-uvAPjcR/Y4XrGE035hflNHRzWGS/UBUWsw0KmAXLE3aIJa2T6pmVDoxqSnrp1bLd
-H0eX+XO8J4+Qz+CMg0ypbnel+xXnjeeMaJiLF18Mvgy+kmjdV8GL+XRS5+DDDqJI
-WfXGMPn4mWU9YCdv+A8s
-=L8W+
------END PGP SIGNATURE-----
+ net/sunrpc/netns.h     |    5 ++
+ net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++----------------------
+ 2 files changed, 61 insertions(+), 47 deletions(-)
 
---Signature=_Wed__26_Oct_2011_00_55_30_+1100_+b=cS15HvDQ15HZi--
+-- 
+Signature
