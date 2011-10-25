@@ -1,7 +1,8 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v4 7/9] ethtool: prepare for larger netdev_features_t type
+Subject: [PATCH v4 6/9] net: ethtool: use C99 array initialization for
+ feature-names table
 Date: Tue, 25 Oct 2011 02:36:33 +0200 (CEST)
-Message-ID: <02176ecc95664bab68d408b76f3face4994e8e83.1319495302.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <ceecd5ce953f85aeeeb821c4111ecf3ffa70bd1a.1319495302.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1319495301.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,111 +11,115 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:45089 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:45090 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756072Ab1JYAgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756121Ab1JYAgi (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 24 Oct 2011 20:36:38 -0400
 In-Reply-To: <cover.1319495301.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2:	changed loop in ethtool_set_features() per Ben's suggestion
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- net/core/ethtool.c |   42 ++++++++++++++++++++++++++----------------
- 1 files changed, 26 insertions(+), 16 deletions(-)
+ net/core/ethtool.c |   74 +++++++++++++++++++++++++-------------------=
+-------
+ 1 files changed, 36 insertions(+), 38 deletions(-)
 
 diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 817ad4b..bbf84fe 100644
+index f135f1c..817ad4b 100644
 --- a/net/core/ethtool.c
 +++ b/net/core/ethtool.c
-@@ -38,7 +38,7 @@ EXPORT_SYMBOL(ethtool_op_get_link);
+@@ -40,6 +40,42 @@ EXPORT_SYMBOL(ethtool_op_get_link);
 =20
- /* Handlers for each ethtool command */
+ #define ETHTOOL_DEV_FEATURE_WORDS	1
 =20
--#define ETHTOOL_DEV_FEATURE_WORDS	1
-+#define ETHTOOL_DEV_FEATURE_WORDS	((NETDEV_FEATURE_COUNT + 31) / 32)
-=20
- static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GS=
++static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GS=
 TRING_LEN] =3D {
- 	[NETIF_F_SG_BIT] =3D               "tx-scatter-gather",
-@@ -82,16 +82,20 @@ static int ethtool_get_features(struct net_device *=
-dev, void __user *useraddr)
- 		.cmd =3D ETHTOOL_GFEATURES,
- 		.size =3D ETHTOOL_DEV_FEATURE_WORDS,
- 	};
--	struct ethtool_get_features_block features[ETHTOOL_DEV_FEATURE_WORDS]=
- =3D {
--		{
--			.available =3D dev->hw_features,
--			.requested =3D dev->wanted_features,
--			.active =3D dev->features,
--			.never_changed =3D NETIF_F_NEVER_CHANGE,
--		},
--	};
-+	struct ethtool_get_features_block features[ETHTOOL_DEV_FEATURE_WORDS]=
-;
- 	u32 __user *sizeaddr;
- 	u32 copy_size;
-+	int i;
++	[NETIF_F_SG_BIT] =3D               "tx-scatter-gather",
++	[NETIF_F_IP_CSUM_BIT] =3D          "tx-checksum-ipv4",
++	[NETIF_F_NO_CSUM_BIT] =3D          "tx-checksum-unneeded",
++	[NETIF_F_HW_CSUM_BIT] =3D          "tx-checksum-ip-generic",
++	[NETIF_F_IPV6_CSUM_BIT] =3D        "tx-checksum-ipv6",
++	[NETIF_F_HIGHDMA_BIT] =3D          "highdma",
++	[NETIF_F_FRAGLIST_BIT] =3D         "tx-scatter-gather-fraglist",
++	[NETIF_F_HW_VLAN_TX_BIT] =3D       "tx-vlan-hw-insert",
 +
-+	/* in case feature bits run out again */
-+	BUILD_BUG_ON(ETHTOOL_DEV_FEATURE_WORDS*sizeof(u32) > sizeof(netdev_fe=
-atures_t));
++	[NETIF_F_HW_VLAN_RX_BIT] =3D       "rx-vlan-hw-parse",
++	[NETIF_F_HW_VLAN_FILTER_BIT] =3D   "rx-vlan-filter",
++	[NETIF_F_VLAN_CHALLENGED_BIT] =3D  "vlan-challenged",
++	[NETIF_F_GSO_BIT] =3D              "tx-generic-segmentation",
++	[NETIF_F_LLTX_BIT] =3D             "tx-lockless",
++	[NETIF_F_NETNS_LOCAL_BIT] =3D      "netns-local",
++	[NETIF_F_GRO_BIT] =3D              "rx-gro",
++	[NETIF_F_LRO_BIT] =3D              "rx-lro",
 +
-+	for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
-+		features[i].available =3D (u32)(dev->hw_features >> (32*i));
-+		features[i].requested =3D (u32)(dev->wanted_features >> (32*i));
-+		features[i].active =3D (u32)(dev->features >> (32*i));
-+		features[i].never_changed =3D (u32)(NETIF_F_NEVER_CHANGE >> (32*i));
-+	}
-=20
- 	sizeaddr =3D useraddr + offsetof(struct ethtool_gfeatures, size);
- 	if (get_user(copy_size, sizeaddr))
-@@ -113,7 +117,8 @@ static int ethtool_set_features(struct net_device *=
-dev, void __user *useraddr)
++	[NETIF_F_TSO_BIT] =3D              "tx-tcp-segmentation",
++	[NETIF_F_UFO_BIT] =3D              "tx-udp-fragmentation",
++	[NETIF_F_GSO_ROBUST_BIT] =3D       "tx-gso-robust",
++	[NETIF_F_TSO_ECN_BIT] =3D          "tx-tcp-ecn-segmentation",
++	[NETIF_F_TSO6_BIT] =3D             "tx-tcp6-segmentation",
++	[NETIF_F_FSO_BIT] =3D              "tx-fcoe-segmentation",
++
++	[NETIF_F_FCOE_CRC_BIT] =3D         "tx-checksum-fcoe-crc",
++	[NETIF_F_SCTP_CSUM_BIT] =3D        "tx-checksum-sctp",
++	[NETIF_F_FCOE_MTU_BIT] =3D         "fcoe-mtu",
++	[NETIF_F_NTUPLE_BIT] =3D           "rx-ntuple-filter",
++	[NETIF_F_RXHASH_BIT] =3D           "rx-hashing",
++	[NETIF_F_RXCSUM_BIT] =3D           "rx-checksum",
++	[NETIF_F_NOCACHE_COPY_BIT] =3D     "tx-nocache-copy",
++	[NETIF_F_LOOPBACK_BIT] =3D         "loopback",
++};
++
+ static int ethtool_get_features(struct net_device *dev, void __user *u=
+seraddr)
  {
- 	struct ethtool_sfeatures cmd;
- 	struct ethtool_set_features_block features[ETHTOOL_DEV_FEATURE_WORDS]=
-;
--	int ret =3D 0;
-+	netdev_features_t wanted =3D 0, valid =3D 0;
-+	int i, ret =3D 0;
-=20
- 	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
- 		return -EFAULT;
-@@ -125,19 +130,24 @@ static int ethtool_set_features(struct net_device=
- *dev, void __user *useraddr)
- 	if (copy_from_user(features, useraddr, sizeof(features)))
- 		return -EFAULT;
-=20
--	if (features[0].valid & ~NETIF_F_ETHTOOL_BITS)
-+	for (i =3D 0; i < ETHTOOL_DEV_FEATURE_WORDS; ++i) {
-+		valid |=3D (netdev_features_t)features[i].valid << (32*i);
-+		wanted |=3D (netdev_features_t)features[i].requested << (32*i);
-+	}
-+
-+	if (valid & ~NETIF_F_ETHTOOL_BITS)
- 		return -EINVAL;
-=20
--	if (features[0].valid & ~dev->hw_features) {
--		features[0].valid &=3D dev->hw_features;
-+	if (valid & ~dev->hw_features) {
-+		valid &=3D dev->hw_features;
- 		ret |=3D ETHTOOL_F_UNSUPPORTED;
- 	}
-=20
--	dev->wanted_features &=3D ~features[0].valid;
--	dev->wanted_features |=3D features[0].valid & features[0].requested;
-+	dev->wanted_features &=3D ~valid;
-+	dev->wanted_features |=3D wanted & valid;
- 	__netdev_update_features(dev);
-=20
--	if ((dev->wanted_features ^ dev->features) & features[0].valid)
-+	if ((dev->wanted_features ^ dev->features) & valid)
- 		ret |=3D ETHTOOL_F_WISH;
-=20
+ 	struct ethtool_gfeatures cmd =3D {
+@@ -107,44 +143,6 @@ static int ethtool_set_features(struct net_device =
+*dev, void __user *useraddr)
  	return ret;
+ }
+=20
+-static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * =
+32][ETH_GSTRING_LEN] =3D {
+-	/* NETIF_F_SG */              "tx-scatter-gather",
+-	/* NETIF_F_IP_CSUM */         "tx-checksum-ipv4",
+-	/* NETIF_F_NO_CSUM */         "tx-checksum-unneeded",
+-	/* NETIF_F_HW_CSUM */         "tx-checksum-ip-generic",
+-	/* NETIF_F_IPV6_CSUM */       "tx-checksum-ipv6",
+-	/* NETIF_F_HIGHDMA */         "highdma",
+-	/* NETIF_F_FRAGLIST */        "tx-scatter-gather-fraglist",
+-	/* NETIF_F_HW_VLAN_TX */      "tx-vlan-hw-insert",
+-
+-	/* NETIF_F_HW_VLAN_RX */      "rx-vlan-hw-parse",
+-	/* NETIF_F_HW_VLAN_FILTER */  "rx-vlan-filter",
+-	/* NETIF_F_VLAN_CHALLENGED */ "vlan-challenged",
+-	/* NETIF_F_GSO */             "tx-generic-segmentation",
+-	/* NETIF_F_LLTX */            "tx-lockless",
+-	/* NETIF_F_NETNS_LOCAL */     "netns-local",
+-	/* NETIF_F_GRO */             "rx-gro",
+-	/* NETIF_F_LRO */             "rx-lro",
+-
+-	/* NETIF_F_TSO */             "tx-tcp-segmentation",
+-	/* NETIF_F_UFO */             "tx-udp-fragmentation",
+-	/* NETIF_F_GSO_ROBUST */      "tx-gso-robust",
+-	/* NETIF_F_TSO_ECN */         "tx-tcp-ecn-segmentation",
+-	/* NETIF_F_TSO6 */            "tx-tcp6-segmentation",
+-	/* NETIF_F_FSO */             "tx-fcoe-segmentation",
+-	"",
+-	"",
+-
+-	/* NETIF_F_FCOE_CRC */        "tx-checksum-fcoe-crc",
+-	/* NETIF_F_SCTP_CSUM */       "tx-checksum-sctp",
+-	/* NETIF_F_FCOE_MTU */        "fcoe-mtu",
+-	/* NETIF_F_NTUPLE */          "rx-ntuple-filter",
+-	/* NETIF_F_RXHASH */          "rx-hashing",
+-	/* NETIF_F_RXCSUM */          "rx-checksum",
+-	/* NETIF_F_NOCACHE_COPY */    "tx-nocache-copy",
+-	/* NETIF_F_LOOPBACK */        "loopback",
+-};
+-
+ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+ {
+ 	const struct ethtool_ops *ops =3D dev->ethtool_ops;
 --=20
 1.7.6.3
