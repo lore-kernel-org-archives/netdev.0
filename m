@@ -1,7 +1,7 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v6 5/8] SUNRPC: cleanup service destruction
-Date: Tue, 25 Oct 2011 14:17:18 +0300
-Message-ID: <20111025101716.12689.81697.stgit@localhost6.localdomain6>
+Subject: [PATCH v6 4/8] SUNRPC: setup rpcbind clients if service requires it
+Date: Tue, 25 Oct 2011 14:17:08 +0300
+Message-ID: <20111025101705.12689.68022.stgit@localhost6.localdomain6>
 References: <20111025100826.12689.46944.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,24 +15,42 @@ In-Reply-To: <20111025100826.12689.46944.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-svc_unregister() call have to be removed from svc_destroy() since it will be
-called in sv_shutdown callback.
+New function ("svc_uses_rpcbind") will be used to detect, that new service will
+send portmapper register calls. For such services we will create rpcbind
+clients and remove all stale portmap registrations.
+Also, svc_rpcb_cleanup() will be set as sv_shutdown callback for such services
+in case of this field wasn't initialized earlier. This will allow to destroy
+rpcbind clients when no other users of them left.
+
+Note: Currently, any creating service will be detected as portmap user.
+Probably, this is wrong. But now it depends on program versions "vs_hidden"
+flag.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/svc.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ net/sunrpc/svc.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 918edc3..407462f 100644
+index d2d61bf..918edc3 100644
 --- a/net/sunrpc/svc.c
 +++ b/net/sunrpc/svc.c
-@@ -530,7 +530,6 @@ svc_destroy(struct svc_serv *serv)
- 	if (svc_serv_is_pooled(serv))
- 		svc_pool_map_put();
+@@ -454,8 +454,15 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+ 		spin_lock_init(&pool->sp_lock);
+ 	}
  
+-	/* Remove any stale portmap registrations */
 -	svc_unregister(serv);
- 	kfree(serv->sv_pools);
- 	kfree(serv);
++	if (svc_uses_rpcbind(serv)) {
++	       	if (svc_rpcb_setup(serv) < 0) {
++			kfree(serv->sv_pools);
++			kfree(serv);
++			return NULL;
++		}
++		if (!serv->sv_shutdown)
++			serv->sv_shutdown = svc_rpcb_cleanup;
++	}
+ 
+ 	return serv;
  }
