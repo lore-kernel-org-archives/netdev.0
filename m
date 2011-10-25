@@ -1,67 +1,31 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] net: make bonding slaves honour master's skb->priority
-Date: Mon, 24 Oct 2011 21:58:48 -0700
-Message-ID: <32080.1319518728@death>
+Date: Tue, 25 Oct 2011 00:58:59 -0400 (EDT)
+Message-ID: <20111025.005859.101223081342927863.davem@davemloft.net>
 References: <1319517660-22085-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-	netdev@vger.kernel.org
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Cc: maze@google.com, netdev@vger.kernel.org
+To: zenczykowski@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:41526 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751651Ab1JYE6y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 00:58:54 -0400
-Received: from /spool/local
-	by e3.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Tue, 25 Oct 2011 00:58:53 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p9P4wpKM205030
-	for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 00:58:51 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p9P4wo2G018792
-	for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 02:58:51 -0200
-In-reply-to: <1319517660-22085-1-git-send-email-zenczykowski@gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50261 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751651Ab1JYE7C convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 00:59:02 -0400
+In-Reply-To: <1319517660-22085-1-git-send-email-zenczykowski@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Maciej =C5=BBenczykowski <zenczykowski@gmail.com> wrote:
+=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
+Date: Mon, 24 Oct 2011 21:41:00 -0700
 
->From: Maciej =C5=BBenczykowski <maze@google.com>
->
->Change-Id: Ieea6ff9aacacb1eb8c52308c8bfe091acbfc09b2
+> From: Maciej =AFenczykowski <maze@google.com>
+>=20
+> Change-Id: Ieea6ff9aacacb1eb8c52308c8bfe091acbfc09b2
 
-	The code change itself is ok, but I'm not sure what this
-Change-Id is.  With a regular log message, this should be fine to apply=
-=2E
+What are these Change-Id tags?  Please don't put these in
+your commit message.
 
-	-J
-
-
->Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
->---
-> drivers/net/bonding/bond_main.c |    1 -
-> 1 files changed, 0 insertions(+), 1 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bon=
-d_main.c
->index 41430ba..2cbc2f8 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -395,7 +395,6 @@ int bond_dev_queue_xmit(struct bonding *bond, stru=
-ct sk_buff *skb,
-> 			struct net_device *slave_dev)
-> {
-> 	skb->dev =3D slave_dev;
->-	skb->priority =3D 1;
->
-> 	skb->queue_mapping =3D bond_queue_mapping(skb);
->
->--=20
->1.7.3.1
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+I'm dropping this patch, you'll need to resubmit it without
+this thing.
