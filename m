@@ -1,67 +1,112 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: [RFC PATCH 11/17] sh_eth: Don't unnecessarily reset the PHY
-Date: Tue, 25 Oct 2011 20:11:46 +0900
-Message-ID: <4EA69972.4090004@renesas.com>
-References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
- <1319144425-15547-12-git-send-email-Kyle.D.Moffett@boeing.com>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v6 1/8] SUNRPC: introduce helpers for reference counted
+ rpcbind clients
+Date: Tue, 25 Oct 2011 13:16:09 +0200
+Message-ID: <1319541369.2716.1.camel@lade.trondhjem.org>
+References: <20111025100826.12689.46944.stgit@localhost6.localdomain6>
+	 <20111025101608.12689.68689.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Kuninori Morimoto <morimoto.kuninori@renesas.com>
-To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1319144425-15547-12-git-send-email-Kyle.D.Moffett@boeing.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111025101608.12689.68689.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-2011/10/21 6:00, Kyle Moffett wrote:
-> The PHY is already reset during driver probing, and this manual reset
-> afterwards will wipe out board-specific PHY fixups and driver-specific
-> phy->drv->config_init() register tweaks.
-
-Thank you for your patch. I think so.
-However, the patch cannot work correctly on my environment.
-
-> Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-> ---
->  drivers/net/sh_eth.c |   19 +------------------
->  1 files changed, 1 insertions(+), 18 deletions(-)
+On Tue, 2011-10-25 at 14:16 +0300, Stanislav Kinsbursky wrote: 
+> v6:
+> 1) added write memory barrier to rpcb_set_local to make sure, that rpcbind
+> clients become valid before rpcb_users assignment
+> 2) explicitly set rpcb_users to 1 instead of incrementing it (looks clearer from
+> my pow).
 > 
-> diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-> index 1c1666e..7ef4378 100644
-> --- a/drivers/net/sh_eth.c
-> +++ b/drivers/net/sh_eth.c
-> @@ -1235,23 +1235,6 @@ static int sh_eth_phy_init(struct net_device *ndev)
->  	return 0;
+> v5: fixed races with rpcb_users in rpcb_get_local()
+> 
+> This helpers will be used for dynamical creation and destruction of rpcbind
+> clients.
+> Variable rpcb_users is actually a counter of lauched RPC services. If rpcbind
+> clients has been created already, then we just increase rpcb_users.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> 
+> ---
+>  net/sunrpc/rpcb_clnt.c |   54 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 54 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+> index e45d2fb..9fcdb42 100644
+> --- a/net/sunrpc/rpcb_clnt.c
+> +++ b/net/sunrpc/rpcb_clnt.c
+> @@ -114,6 +114,9 @@ static struct rpc_program	rpcb_program;
+>  static struct rpc_clnt *	rpcb_local_clnt;
+>  static struct rpc_clnt *	rpcb_local_clnt4;
+>  
+> +DEFINE_SPINLOCK(rpcb_clnt_lock);
+> +unsigned int			rpcb_users;
+> +
+>  struct rpcbind_args {
+>  	struct rpc_xprt *	r_xprt;
+>  
+> @@ -161,6 +164,57 @@ static void rpcb_map_release(void *data)
+>  	kfree(map);
 >  }
 >  
-> -/* PHY control start function */
-> -static int sh_eth_phy_start(struct net_device *ndev)
-> -{
-> -	struct sh_eth_private *mdp = netdev_priv(ndev);
-> -	int ret;
-> -
-> -	ret = sh_eth_phy_init(ndev);
-> -	if (ret)
-> -		return ret;
-> -
-> -	/* reset phy - this also wakes it from PDOWN */
-> -	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
-> -	phy_start(mdp->phydev);
+> +static int rpcb_get_local(void)
+> +{
+> +	int cnt;
+> +
+> +	spin_lock(&rpcb_clnt_lock);
+> +	if (rpcb_users)
+> +		rpcb_users++;
+> +	cnt = rpcb_users;
+> +	spin_unlock(&rpcb_clnt_lock);
+> +
+> +	return cnt;
+> +}
+> +
+> +void rpcb_put_local(void)
+> +{
+> +	struct rpc_clnt *clnt = rpcb_local_clnt;
+> +	struct rpc_clnt *clnt4 = rpcb_local_clnt4;
+> +	int shutdown;
+> +
+> +	spin_lock(&rpcb_clnt_lock);
+> +	if (--rpcb_users == 0) {
+> +		rpcb_local_clnt = NULL;
+> +		rpcb_local_clnt4 = NULL;
+> +	}
+> +	shutdown = !rpcb_users;
+> +	spin_unlock(&rpcb_clnt_lock);
+> +
+> +	if (shutdown) {
+> +		/*
+> +		 * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
+> +		 */
+> +		if (clnt4)
+> +			rpc_shutdown_client(clnt4);
+> +		if (clnt)
+> +			rpc_shutdown_client(clnt);
+> +	}
+> +	return;
 
-I think that the driver needs the phy_start().
-So, I removed the phy_write() only. Then, the driver could work correctly.
+I'm removing this before applying...
 
-Therefore, I would to remove the following code only.
-Do you think about this?
+> +}
+> +
 
-> -	/* reset phy - this also wakes it from PDOWN */
-> -	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
+-- 
+Trond Myklebust
+Linux NFS client maintainer
 
-Thanks,
-Yoshihiro Shimoda
+NetApp
+Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+www.netapp.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
