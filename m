@@ -1,7 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v6 2/8] SUNRPC: use rpcbind reference counting helpers
-Date: Tue, 25 Oct 2011 14:16:48 +0300
-Message-ID: <20111025101644.12689.45595.stgit@localhost6.localdomain6>
+Subject: [PATCH v6 3/8] SUNRPC: introduce svc helpers for prepairing rpcbind
+	infrastructure
+Date: Tue, 25 Oct 2011 14:16:58 +0300
+Message-ID: <20111025101656.12689.66420.stgit@localhost6.localdomain6>
 References: <20111025100826.12689.46944.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,52 +16,86 @@ In-Reply-To: <20111025100826.12689.46944.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All is simple: we just increase users counter if rpcbind clients has been
-created already. Otherwise we create them and set users counter to 1.
+This helpers will be used only for those services, that will send portmapper
+registration calls.
 
 Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 ---
- net/sunrpc/rpcb_clnt.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
+ include/linux/sunrpc/clnt.h |    2 ++
+ net/sunrpc/rpcb_clnt.c      |    2 +-
+ net/sunrpc/svc.c            |   35 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 38 insertions(+), 1 deletions(-)
 
+diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
+index db7bcaf..1eb437d 100644
+--- a/include/linux/sunrpc/clnt.h
++++ b/include/linux/sunrpc/clnt.h
+@@ -135,6 +135,8 @@ void		rpc_shutdown_client(struct rpc_clnt *);
+ void		rpc_release_client(struct rpc_clnt *);
+ void		rpc_task_release_client(struct rpc_task *);
+ 
++int		rpcb_create_local(void);
++void		rpcb_put_local(void);
+ int		rpcb_register(u32, u32, int, unsigned short);
+ int		rpcb_v4_register(const u32 program, const u32 version,
+ 				 const struct sockaddr *address,
 diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 9fcdb42..7e5a0f8 100644
+index 7e5a0f8..dba2331 100644
 --- a/net/sunrpc/rpcb_clnt.c
 +++ b/net/sunrpc/rpcb_clnt.c
-@@ -259,9 +259,7 @@ static int rpcb_create_local_unix(void)
- 		clnt4 = NULL;
- 	}
- 
--	/* Protected by rpcb_create_local_mutex */
--	rpcb_local_clnt = clnt;
--	rpcb_local_clnt4 = clnt4;
-+	rpcb_set_local(clnt, clnt4);
- 
- out:
- 	return result;
-@@ -313,9 +311,7 @@ static int rpcb_create_local_net(void)
- 		clnt4 = NULL;
- 	}
- 
--	/* Protected by rpcb_create_local_mutex */
--	rpcb_local_clnt = clnt;
--	rpcb_local_clnt4 = clnt4;
-+	rpcb_set_local(clnt, clnt4);
- 
- out:
- 	return result;
-@@ -330,11 +326,11 @@ static int rpcb_create_local(void)
+@@ -321,7 +321,7 @@ out:
+  * Returns zero on success, otherwise a negative errno value
+  * is returned.
+  */
+-static int rpcb_create_local(void)
++int rpcb_create_local(void)
+ {
  	static DEFINE_MUTEX(rpcb_create_local_mutex);
  	int result = 0;
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index 6a69a11..d2d61bf 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -354,6 +354,41 @@ svc_pool_for_cpu(struct svc_serv *serv, int cpu)
+ 	return &serv->sv_pools[pidx % serv->sv_nrpools];
+ }
  
--	if (rpcb_local_clnt)
-+	if (rpcb_get_local())
- 		return result;
++static int svc_rpcb_setup(struct svc_serv *serv)
++{
++	int err;
++
++	err = rpcb_create_local();
++	if (err)
++		return err;
++
++	/* Remove any stale portmap registrations */
++	svc_unregister(serv);
++	return 0;
++}
++
++static void svc_rpcb_cleanup(struct svc_serv *serv)
++{
++	svc_unregister(serv);
++	rpcb_put_local();
++}
++
++static int svc_uses_rpcbind(struct svc_serv *serv)
++{
++	struct svc_program	*progp;
++	unsigned int		i;
++
++	for (progp = serv->sv_program; progp; progp = progp->pg_next) {
++		for (i = 0; i < progp->pg_nvers; i++) {
++			if (progp->pg_vers[i] == NULL)
++				continue;
++			if (progp->pg_vers[i]->vs_hidden == 0)
++				return 1;
++		}
++	}
++
++	return 0;
++}
  
- 	mutex_lock(&rpcb_create_local_mutex);
--	if (rpcb_local_clnt)
-+	if (rpcb_get_local())
- 		goto out;
- 
- 	if (rpcb_create_local_unix() != 0)
+ /*
+  * Create an RPC service
