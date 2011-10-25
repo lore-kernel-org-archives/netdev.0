@@ -1,77 +1,63 @@
-From: Kazunori Kobayashi <kkobayas@igel.co.jp>
-Subject: Re: [PATCH] smsc911x: Enable flow control advertisement
-Date: Tue, 25 Oct 2011 17:20:26 +0900
-Message-ID: <4EA6714A.5010903@igel.co.jp>
-References: <1319016114-4781-1-git-send-email-kkobayas@igel.co.jp> <1319027199.23980.47.camel@deadeye>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging tree with the net-next tree
+Date: Tue, 25 Oct 2011 19:26:36 +1100
+Message-ID: <20111025192636.f816c8860ee168a0a4756eda@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com,
-	dhobsong@igel.co.jp
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:37387 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753601Ab1JYIUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 04:20:41 -0400
-Received: by ywm3 with SMTP id 3so255872ywm.19
-        for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 01:20:41 -0700 (PDT)
-In-Reply-To: <1319027199.23980.47.camel@deadeye>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__25_Oct_2011_19_26_36_+1100_5+fykKIOW=qJZ7+d"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Pirko <jpirko@redhat.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mark Einon <mark.einon@gmail.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> This should be controllable through ethtool; I assume phy_ethtool_sset()
-> already covers that.
-I found that the flow control could be enabled by changing the
-kernel configuration.
-I just set CONFIG_SMSC_PHY in "PHY Device support and infrastructure".
+--Signature=_Tue__25_Oct_2011_19_26_36_+1100_5+fykKIOW=qJZ7+d
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Please ignore this patch.
+Hi Greg,
 
-(2011/10/19 21:26), Ben Hutchings wrote:
-> On Wed, 2011-10-19 at 18:21 +0900, Kazunori Kobayashi wrote:
->> Enable the advertisement of both symmetric pause and asymmetric pause 
->> flow control capability. 
->>
->> Signed-off-by: Kazunori Kobayashi <kkobayas@igel.co.jp>
->> ---
->>  drivers/net/smsc911x.c |    5 +++++
->>  1 files changed, 5 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
->> index b9016a3..60c3bc2 100644
->> --- a/drivers/net/smsc911x.c
->> +++ b/drivers/net/smsc911x.c
-> 
-> This file has been moved.
-> 
->> @@ -800,8 +800,13 @@ static void smsc911x_phy_update_flowcontrol(struct smsc911x_data *pdata)
->>  	struct phy_device *phy_dev = pdata->phy_dev;
->>  	u32 afc = smsc911x_reg_read(pdata, AFC_CFG);
->>  	u32 flow;
->> +	u16 miiadv = smsc911x_mii_read(phy_dev->bus, phy_dev->addr,
->> +				       MII_ADVERTISE);
->>  	unsigned long flags;
->>  
->> +	miiadv |= (ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
->> +	smsc911x_mii_write(phy_dev->bus, phy_dev->addr, MII_ADVERTISE, miiadv);
-> 
-> This should be controllable through ethtool; I assume phy_ethtool_sset()
-> already covers that.
-> 
-> Further, it's far too late to change advertising when you're just about
-> to resolve what was negotiated.  It has to be done before (re)starting
-> autoneg.
-> 
-> Ben.
-> 
->>  	if (phy_dev->duplex == DUPLEX_FULL) {
->>  		u16 lcladv = phy_read(phy_dev, MII_ADVERTISE);
->>  		u16 rmtadv = phy_read(phy_dev, MII_LPA);
-> 
+Today's linux-next merge of the staging tree got a conflict in
+drivers/staging/et131x/et1310_tx.c drivers/staging/et131x/et131x_netdev.c
+between commits afc4b13df143 ("net: remove use of ndo_set_multicast_list
+in drivers"), bf3f1a6081aa ("et131x: convert to SKB paged frag API") and
+5d6bcdfe38ce ("net: use DMA_x_DEVICE and dma_mapping_error with
+skb_frag_dma_map") from the net-next tree and commit d2796743cba2
+("staging: et131x: Put all .c files into one big file") from the staging
+tree.
 
--- 
----------------------------------
-IGEL Co.,Ltd. Kazunori Kobayashi
-kkobayas@igel.co.jp
-http://www.igel.co.jp/
+The latter removed these files, so I did that but more fixup is proably
+needed.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__25_Oct_2011_19_26_36_+1100_5+fykKIOW=qJZ7+d
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBCAAGBQJOpnK8AAoJEECxmPOUX5FE4DkP/A+8ojZnxf73+gX+05N+PFD4
+Fe6VxHQR4eMCVNvY6CKmtCngwMHyDeWqXqSneOSB2bFrVDg6gpMTujMqaceoq4mt
+3J1QpZbJ6yGYhkYf3QqC7C5AgEgvThqcRS4C7pLukzNZDno7os26Lp095eIPyJDf
+9wAMr1oAn1Q/6Um0uRazC/RRCv0B0RsQGUhFGvua1E3bgKVYzOVmD4kyRGky6CiU
+VbUWIa+0pSZ1JaUR1zaHF+N1A/s1gtkVarc0iO7SbifK1x5Wq7e+BA72guTzaDGQ
+DMGLeC2C854j+WDbv1yiQ+KwCsyiEjMnITHDGmzVsd8nW3VxA1xg4/hSpQma0ktE
+ecQzFgl1R8/7NnT5unTkvTW+tU2dLtsO/y7952aXHLTS5qSImI5fMN2AhHTAD0UE
+luUQAx82VYFVwQI5MrYwPkEJkt8ycZ4VtOvlQQ54EFyuW80efF1ZGRB9wtNmgtKf
+J5+AHZ6n0EawwdkCpVmTVwiJClIShUgpNlStGVzXTKsmo0wA+j+D9RCYJNcHB3jS
+fKTHIjj+VGzDH37R5tznQqPxU9ZafPR91vLadNRizyuHGCwA6sYOsNp8E2DDlaYw
+gaPTxSoT7RpcKCIh16bjpijVeBaTXH7FrbPPkGXjTXlbQ0+mJOTuE2ycEp7Vx7GO
+idBP6fqx5yZ8ivpBzht/
+=Ti4E
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__25_Oct_2011_19_26_36_+1100_5+fykKIOW=qJZ7+d--
