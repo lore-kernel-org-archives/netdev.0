@@ -1,36 +1,49 @@
-From: "Microsoft maintenance center" <webaccountsuer@activate.com>
-Subject: Dear Account User.
-Date: Tue, 25 Oct 2011 15:44:07 +0800
-Message-ID: <1319571888_242691@smtp-std3.fnbs.net.my>
-Reply-To: <webmai_lservicemaintenance@consultant.com>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [RFD] Network configuration data in sysfs
+Date: Tue, 25 Oct 2011 09:57:00 +0200
+Message-ID: <CAPXgP11UEm49edrsyP3pD2HPNZCGRgGTWjSyw5VoqwsQT-UmOw@mail.gmail.com>
+References: <20111024013406.GA24158@shutemov.name> <20111023.232416.1038111296509565828.davem@davemloft.net>
+ <20111024042400.GA31344@shutemov.name> <20111024.005900.1091819103500072631.davem@davemloft.net>
+ <CAPXgP10PZU+xSbQW-CH-E5rCk3-=1k-AvAs=tF8fAnz7QsmJRw@mail.gmail.com> <4EA5FA9B.5050908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, kirill@shutemov.name,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, gregkh@suse.de
+To: Alexey Gladkov <gladkov.alexey@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw-web.fnbs.net.my ([202.9.108.176]:36132 "EHLO
-	smtp-gw-web.fnbs.net.my" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752350Ab1JYHoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 03:44:32 -0400
-Received: from smtp-std3.fnbs.net.my (pop-std3.hostpro2u.com [202.9.108.203])
-	by smtp-gw-web.fnbs.net.my (SMTP Mailer) with ESMTP id 4A50535287B
-	for <netdev@vger.kernel.org>; Wed, 26 Oct 2011 00:12:10 +0800 (MYT)
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:49931 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753006Ab1JYH5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 03:57:20 -0400
+Received: by ggnb1 with SMTP id b1so239041ggn.19
+        for <netdev@vger.kernel.org>; Tue, 25 Oct 2011 00:57:20 -0700 (PDT)
+In-Reply-To: <4EA5FA9B.5050908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-THIS Email is from Microsoft maintenance center.Customer Care and we are sending it to every Email User Accounts Owner for safety. we are having congestions due to the anonymous registration of Microsoft maintenance center.  so we are shutting down some  accounts user and your account was among those to be deleted.We are sending you this email so that you can verify and let us know if you still want to use this account.If you are still interested please confirm your account  and removal of all unused  Accounts,  would be shutting down all unused Accounts, You will have to confirm your E-mail by filling out your Login Information below after clicking the reply button, or your account will be suspended within 24 hours for security reasons.
+On Tue, Oct 25, 2011 at 01:54, Alexey Gladkov <gladkov.alexey@gmail.com> wrote:
+> 24.10.2011 16:46, Kay Sievers wrote:
+>> Kirill, what exactly is the use case? And why what does udev support
+>> mean in that context?
+>>
+>> I doubt that "not having /sbin/ip installed" should be a reason to add
+>> and expose complex interfaces in /sys, while we already have a
+>> perfectly working native way to do it.
+>
+> Adding NETLINK_ROUTE in udev is a way to perform some actions in case
+> of network events without polling. Now there are only a few specific
+> daemons (NM, connman etc) that are listen to the netlink socket and
+> setup the network his own way.
 
-* Email Username: 
+I'm not really convinced that udev should be in charge of network
+config changes, it's a really complex area. Udev is a generic kernel
+device manager, not a network setup manager.
 
-* Password:
+Our point of view is, that all services depending on network state
+changes should listen to netlink themselves, and not be worked around
+with tools like udev to execute stuff and notify them.
 
-* Date of Birth:
+But again, what's the use-case for that you have in mind?
 
-* Country Or Territory:
-
-After following the instructions in the sheet, your account will not be interrupted and will continue as normal. Thanks for your attention to this request. We apologize for any inconveniences. Warning!!! Account owner that refuses to update his/her account after two weeks of receiving this warning will lose his or her account permanently
-Yours Faithfully,
-  Customer Care
-Case Number: 5268689
-Property: Account Security
+Kay
