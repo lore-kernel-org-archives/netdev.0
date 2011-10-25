@@ -1,36 +1,38 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v6 1/8] SUNRPC: introduce helpers for reference counted
- rpcbind clients
-Date: Tue, 25 Oct 2011 17:25:14 +0400
-Message-ID: <4EA6B8BA.2030709@parallels.com>
-References: <20111025100826.12689.46944.stgit@localhost6.localdomain6>		 <20111025101608.12689.68689.stgit@localhost6.localdomain6>	 <1319541369.2716.1.camel@lade.trondhjem.org>	 <4EA6AE87.5000309@parallels.com> <1319546750.2716.5.camel@lade.trondhjem.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319546750.2716.5.camel@lade.trondhjem.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Subject: [PATCH] net: ucc_geth, increase no. of HW RX descriptors
+Date: Tue, 25 Oct 2011 15:17:10 +0200
+Message-ID: <1319548630-6561-1-git-send-email-Joakim.Tjernlund@transmode.se>
+Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+To: Anton Vorontsov <avorontsov@ru.mvista.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.transmode.se ([195.58.98.146]:46694 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933399Ab1JYN1P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Oct 2011 09:27:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-25.10.2011 16:45, Trond Myklebust =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->
-> The empty 'return' at the end of a void function: it is 100%
-> redundant...
->
+In a busy network we see ucc_geth is dropping RX pkgs every now
+and then. Increase the first RX queues HW descriptors from
+16 to 32 to deal with this.
 
-O, yes, of course. Sorry.
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+---
+ drivers/net/ucc_geth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
---=20
-Best regards,
-Stanislav Kinsbursky
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index fa00935..04e22ff 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -134,7 +134,7 @@ static struct ucc_geth_info ugeth_primary_info = {
+ 			TX_BD_RING_LEN},
+ 
+ 	.bdRingLenRx = {
+-			RX_BD_RING_LEN,
++			RX_BD_RING_LEN*2,
+ 			RX_BD_RING_LEN,
+ 			RX_BD_RING_LEN,
+ 			RX_BD_RING_LEN,
+-- 
+1.7.3.4
