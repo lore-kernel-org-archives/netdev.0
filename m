@@ -1,45 +1,46 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH] net: make bonding slaves honour master's skb->priority
-Date: Mon, 24 Oct 2011 22:04:16 -0700
-Message-ID: <1319519056-21677-1-git-send-email-zenczykowski@gmail.com>
-References: <1319517660-22085-1-git-send-email-zenczykowski@gmail.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] net: allow CAP_NET_RAW to setsockopt SO_PRIORITY
+Date: Mon, 24 Oct 2011 22:07:20 -0700
+Message-ID: <CANP3RGfdimCqGL=kdVQdYY0KHqVuVL3CL6arRh3EhdNhyrv9cw@mail.gmail.com>
+References: <1319518038-28679-1-git-send-email-zenczykowski@gmail.com>
+	<20111025.005819.456617923859129015.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:48159 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752563Ab1JYFEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 01:04:46 -0400
-Received: by ggnb1 with SMTP id b1so130039ggn.19
-        for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 22:04:46 -0700 (PDT)
-In-Reply-To: <1319517660-22085-1-git-send-email-zenczykowski@gmail.com>
+Received: from smtp-out.google.com ([74.125.121.67]:44536 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752746Ab1JYFHX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 01:07:23 -0400
+Received: from hpaq1.eem.corp.google.com (hpaq1.eem.corp.google.com [172.25.149.1])
+	by smtp-out.google.com with ESMTP id p9P57LlW027837
+	for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 22:07:21 -0700
+Received: from pzk36 (pzk36.prod.google.com [10.243.19.164])
+	by hpaq1.eem.corp.google.com with ESMTP id p9P56AjA006655
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 22:07:20 -0700
+Received: by pzk36 with SMTP id 36so578641pzk.7
+        for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 22:07:20 -0700 (PDT)
+In-Reply-To: <20111025.005819.456617923859129015.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =C5=BBenczykowski <maze@google.com>
+> SO_PRIORITY influences the packet scheduler and internal
+> queueing policies, not just the packet contents that hit
+> the wire.
+>
+> Thus CAP_NET_ADMIN is the appropriate capability check.
 
-Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
----
- drivers/net/bonding/bond_main.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+I can certainly see why you would think that, but:
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index 41430ba..2cbc2f8 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -395,7 +395,6 @@ int bond_dev_queue_xmit(struct bonding *bond, struc=
-t sk_buff *skb,
- 			struct net_device *slave_dev)
- {
- 	skb->dev =3D slave_dev;
--	skb->priority =3D 1;
-=20
- 	skb->queue_mapping =3D bond_queue_mapping(skb);
-=20
---=20
-1.7.3.1
+A raw socket can already spew traffic, ie. packets, with any content.
+This includes VLAN tags and IPv4 TOS field, and IPv6 TCLASS field.
+These are the fields used for packet prioritization at switches and in
+the rest of network fabric.
+
+AFAICT, it makes no sense to allow a raw socket to prioritize traffic
+outside of the host, but
+not allow it to prioritize traffic in the host.
+
+- Maciej
