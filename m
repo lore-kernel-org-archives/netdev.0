@@ -1,88 +1,42 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Tue, 25 Oct 2011 13:46:11 +0200
-Message-ID: <CA+55aFw1GVvszqoC_f0RAvG5t1xj0CSYLhLU=y0gQ+_54Gsomw@mail.gmail.com>
-References: <20111025.063206.2273357152859701628.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: PROBLEM: System call 'sendmsg' of process ospfd (quagga)
+	causes kernel oops
+Date: Tue, 25 Oct 2011 13:54:25 +0200
+Message-ID: <20111025115425.GA1530@gondor.apana.org.au>
+References: <1319008713.17914.8.camel@edumazet-laptop> <20111019.033052.851679720607111734.davem@davemloft.net> <20111019080807.GA25099@gondor.apana.org.au> <20111020.053050.383972361986316046.davem@davemloft.net> <20111020093541.GA3024@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Greg KH <gregkh@suse.de>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Mikulas Patocka <mpatocka@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, evonlanthen@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	timo.teras@iki.fi
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111025.063206.2273357152859701628.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20111020093541.GA3024@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 25, 2011 at 12:32 PM, David Miller <davem@davemloft.net> wr=
-ote:
+On Thu, Oct 20, 2011 at 11:35:41AM +0200, Herbert Xu wrote:
 >
-> I have to say I was really impressed with GIT's rename detection. =A0=
-=46or
-> example, when I'd pull bug fixes from the 'net' tree into this
-> 'net-next' tree, GIT would figure it out and cleanly merge in the
-> fixes even though the file names were completely different.
+> In the time being I'll look more closely at all the users of
+> needed_headroom to see if there's anything we've missed.
 
-Sadly, it doesn't work with files that aren't moved, but are split
-into lots of files. So I got a conflict on the drivers/net/Kconfig
-file due to the file being moved to tons of different locations. But
-the change was pretty trivial, so I think I got that trivially right
-too.
+OK I've reviewed all the users of needed_headroom and I haven't
+found anything other than the cases that we have enumerated.
 
-> I'll also note that I had to bump GIT's diff.renamelimit to about 100=
-0
-> to generate this pull request.
+One thing I noticed is that the macro LL_ALLOCATED_SPACE is
+completely bogus and buggy.  It applies the alignment to the
+sum of headroom and tailroom.  However, the alignment is then
+applied separately to the headroom when reserving, meaning that
+we may end up with insufficient tailroom.
 
-Yeah. You can probably just set it to zero to disable the limiting
-entirely. The reason for the rename limit is for crazy use cases on
-smaller machines than you'll probably ever use. So the git default
-values tend to try to be safe for people who have smaller machines.
+So I'm going to get rid of LL_ALLOCATED_SPACE completely and
+replace it with explicit references to the tailroom as it doesn't
+need the alignment anyway (The headroom needs alignment since
+we use it to ensure the head is aligned).
 
-> I think that, without the driver renames, this is actually a smaller
-> networking pull request than usual for the merge window.
-
-This had an annoying conflict with some of the driver base changes. It
-was made doubly annoying by the fact that Greg seems to use some
-seriously bad drugs, and creates totally crap commit messages that are
-just annoying when you have to look at them because there's some
-conflict.
-
-Greg - please fix your crazy tools. Look at this:
-
-   git log fs/sysfs/dir.c
-
-and tell me why the f*&% you have commit messages like this:
-
-  commit 4f72c0cab40536a0be501d85ea4918467ab82ad5
-  Author: Mikulas Patocka <mpatocka@redhat.com>
-  Date:   Mon Jul 25 17:55:57 2011 -0400
-
-      sysfs: use rb-tree for name lookups
-
-      sysfs: use rb-tree for name lookups
-
-      Use red-black tree for name lookups.
-
-      Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-      Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
-and there's a *lot* of them. That duplication of the header line is
-useless. It is *doubly* useless to then have a "body" of the commit
-that just says the same thing *again*. Christ!
-
-EVERY SINGLE COMMIT from Mikulas has that problem. WHY?
-
-So stop duplicating the header line! And make the body of the commit
-actually tell us something *useful*.
-
-Anyway, after that rant about really bad practices, let me say that I
-did fix up the conflict and I think it's right. But I won't guarantee
-it, so please check the changes to fs/sysfs/dir.c.
-
-I added Mikulas, Greg and Eric Biederman to the email, because those
-three people seem to be the ones that caused the conflicts in that
-file. Please do check out my conflict resolution.
-
-                   Linus
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
