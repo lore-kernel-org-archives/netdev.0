@@ -1,47 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: make bonding slaves honour master's skb->priority
-Date: Tue, 25 Oct 2011 19:22:46 -0400 (EDT)
-Message-ID: <20111025.192246.402731945970959971.davem@davemloft.net>
-References: <20111025110808.27db8487@asterix.rh>
-	<CANP3RGeMbVFf6oL3+9i8h43q1ycdzcA47rNfzeyLWpi8M8ZV5w@mail.gmail.com>
-	<7147.1319561135@death>
+Subject: Re: [PATCH] Fix caif BUG() with network namespaces
+Date: Tue, 25 Oct 2011 19:22:59 -0400 (EDT)
+Message-ID: <20111025.192259.258695838207862829.davem@davemloft.net>
+References: <CAJK669ar5ASsX+wEv2EwwaeBoHYtr3Uq+sG1RWroViYGOVgytw@mail.gmail.com>
+	<20111024.182831.489446218871753789.davem@davemloft.net>
+	<1319527522.24797.10.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: zenczykowski@gmail.com, fbl@redhat.com, netdev@vger.kernel.org
-To: fubar@us.ibm.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: sjurbren@gmail.com, netdev@vger.kernel.org
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55269 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:55289 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753798Ab1JYXWw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 19:22:52 -0400
-In-Reply-To: <7147.1319561135@death>
+	with ESMTP id S1753798Ab1JYXYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 19:24:21 -0400
+In-Reply-To: <1319527522.24797.10.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jay Vosburgh <fubar@us.ibm.com>
-Date: Tue, 25 Oct 2011 09:45:35 -0700
-
-> Maciej =AFenczykowski <zenczykowski@gmail.com> wrote:
->=20
->>> I tripped on it few times and never understood why we
->>> were fixing the priority at this point.
->>> thanks,
->>
->>It looks like ancient code, going all the way back to something like
->>Linux 2.4.14 (if I recall my git blame session correctly).
->>I can't think of a good reason for this...
->=20
-> 	I believe this line goes back to the beginning, prior to git or
-> bk.  The skb->priority probably meant something different than it doe=
-s
-> today.
->=20
-> 	In any event, I'm fine with the code change.  There's still no
-> actual log message, but if Davem is ok with that I'm ok with it, give=
-n
-> the trivial nature of the change.
->=20
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-Applied, thanks everyone.
+RnJvbTogRGF2aWQgV29vZGhvdXNlIDxkd213MkBpbmZyYWRlYWQub3JnPg0KRGF0ZTogVHVlLCAy
+NSBPY3QgMjAxMSAwOToyNToyMSArMDIwMA0KDQo+IFRoZSBjYWlmIGNvZGUgd2lsbCByZWdpc3Rl
+ciBpdHMgb3duIHBlcm5ldF9vcGVyYXRpb25zLCBhbmQgdGhlbiByZWdpc3Rlcg0KPiBhIG5ldGRl
+dmljZV9ub3RpZmllci4gRWFjaCB0aW1lIHRoZSBuZXRkZXZpY2Vfbm90aWZpZXIgaXMgdHJpZ2dl
+cmVkLA0KPiBpdCdsbCBkbyBzb21lIHN0dWZmLi4uIGluY2x1ZGluZyBhIGxvb2t1cCBvZiBpdHMg
+b3duIHBlcm5ldCBzdHVmZiB3aXRoDQo+IG5ldF9nZW5lcmljKCkuDQo+IA0KPiBJZiB0aGUgbmV0
+X2dlbmVyaWMoKSBjYWxsIGV2ZXIgcmV0dXJucyBOVUxMLCB0aGUgY2FpZiBjb2RlIHdpbGwgQlVH
+KCkuDQo+IFRoYXQgZG9lc24ndCBzZWVtICpzbyogdW5yZWFzb25hYmxlLCBJIHN1cHBvc2Ug4oCU
+IGl0IGRvZXMgc2VlbSBsaWtlIGl0DQo+IHNob3VsZCBuZXZlciBoYXBwZW4uDQo+IA0KPiBIb3dl
+dmVyLCBpdCAqZG9lcyogaGFwcGVuLiBXaGVuIHdlIGNsb25lIGEgbmV0d29yayBuYW1lc3BhY2Us
+DQo+IHNldHVwX25ldCgpIHJ1bnMgdGhyb3VnaCBhbGwgdGhlIHBlcm5ldF9vcGVyYXRpb25zIG9u
+ZSBhdCBhIHRpbWUuIEl0DQo+IGdldHMgdG8gbG9vcGJhY2sgYmVmb3JlIGl0IGdldHMgdG8gY2Fp
+Zi4gQW5kIGxvb3BiYWNrX25ldF9pbml0KCkNCj4gcmVnaXN0ZXJzIGEgbmV0ZGV2aWNlLi4uIHdo
+aWxlIGNhaWYgaGFzbid0IGJlZW4gaW5pdGlhbGlzZWQuIFNvIHRoZSBjYWlmDQo+IG5ldGRldmlj
+ZSBub3RpZmllciB0cmlnZ2VycywgYW5kIGltbWVkaWF0ZWx5IGdvZXMgQlVHKCkuDQo+IA0KPiBX
+ZSBjb3VsZCBpbWFnaW5lIGEgY29tcGxleCBhbmQgb3ZlcmVuZ2luZWVyZWQgc29sdXRpb24gdG8g
+dGhpcyBnZW5lcmljDQo+IGNsYXNzIG9mIHByb2JsZW1zLCBidXQgdGhpcyBwYXRjaCB0YWtlcyB0
+aGUgc2ltcGxlIGFwcHJvYWNoLiBJdCBqdXN0DQo+IG1ha2VzIGNhaWZfZGV2aWNlX25vdGlmeSgp
+ICpub3QqIGdvIGxvb2tpbmcgZm9yIGl0cyBwZXJuZXQgZGF0YQ0KPiBzdHJ1Y3R1cmVzIGlmIHRo
+ZSBkZXZpY2UgaXQncyBiZWluZyBub3RpZmllZCBhYm91dCBpc24ndCBhIGNhaWYgZGV2aWNlDQo+
+IGluIHRoZSBmaXJzdCBwbGFjZS4NCj4gDQo+IENjOiBzdGFibGVAa2VybmVsLm9yZw0KPiBTaWdu
+ZWQtb2ZmLWJ5OiBEYXZpZCBXb29kaG91c2UgPERhdmlkLldvb2Rob3VzZUBpbnRlbC5jb20+DQo+
+IEFja2VkLWJ5OiBTanVyIEJyw6ZuZGVsYW5kIDxzanVyLmJyYW5kZWxhbmRAc3Rlcmljc3Nvbi5j
+b20+DQoNCkFwcGxpZWQsIHRoYW5rcy4NCg==
