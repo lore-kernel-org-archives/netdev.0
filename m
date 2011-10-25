@@ -1,46 +1,35 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [RFC PATCH 02/17] of_mdio: Don't phy_scan_fixups() twice
-Date: Tue, 25 Oct 2011 06:56:02 +0200
-Message-ID: <20111025045602.GB798@ponder.secretlab.ca>
-References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
- <1319144425-15547-3-git-send-email-Kyle.D.Moffett@boeing.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: allow CAP_NET_RAW to setsockopt SO_PRIORITY
+Date: Tue, 25 Oct 2011 00:58:19 -0400 (EDT)
+Message-ID: <20111025.005819.456617923859129015.davem@davemloft.net>
+References: <1319518038-28679-1-git-send-email-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org
-To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1319144425-15547-3-git-send-email-Kyle.D.Moffett@boeing.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: maze@google.com, netdev@vger.kernel.org
+To: zenczykowski@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:50250 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751651Ab1JYE6Y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 00:58:24 -0400
+In-Reply-To: <1319518038-28679-1-git-send-email-zenczykowski@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 20, 2011 at 05:00:09PM -0400, Kyle Moffett wrote:
-> The "phy_device_register()" call 5 lines down already calls
-> phy_scan_fixups(), there's no need to do it a second time.
-> 
-> Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
+Date: Mon, 24 Oct 2011 21:47:18 -0700
 
-Applied, thanks.
+> It is my belief that CAP_NET_ADMIN is and should continue to be about
+> configuring the system as a whole, not about configuring per-socket
+> or per-packet parameters.
+>=20
+> Sending and receiving raw packets is what CAP_NET_RAW is all about.
+> Hence it makes sense to allow a CAP_NET_RAW process to set the
+> priority of sockets and thus packets it sends.
 
-g.
+SO_PRIORITY influences the packet scheduler and internal
+queueing policies, not just the packet contents that hit
+the wire.
 
-> ---
->  drivers/of/of_mdio.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index d35e300..980c079 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -83,7 +83,6 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
->  				addr);
->  			continue;
->  		}
-> -		phy_scan_fixups(phy);
->  
->  		/* Associate the OF node with the device structure so it
->  		 * can be looked up later */
-> -- 
-> 1.7.2.5
-> 
+Thus CAP_NET_ADMIN is the appropriate capability check.
