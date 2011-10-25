@@ -1,49 +1,88 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] net: allow CAP_NET_RAW to setsockopt SO_PRIORITY
-Date: Mon, 24 Oct 2011 23:30:55 -0700
-Message-ID: <CAHo-OowQakvfW_T0uPgBaUCheMehTzyGnOp0hqC+-SNdJVBjMg@mail.gmail.com>
-References: <1319518038-28679-1-git-send-email-zenczykowski@gmail.com>
-	<20111025.005819.456617923859129015.davem@davemloft.net>
-	<CANP3RGfdimCqGL=kdVQdYY0KHqVuVL3CL6arRh3EhdNhyrv9cw@mail.gmail.com>
-	<20111025.022546.1784159727449615100.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next V4] net: introduce ethernet teaming device
+Date: Tue, 25 Oct 2011 08:42:41 +0200
+Message-ID: <20111025064240.GA2070@minipsycho>
+References: <1319444005-1281-1-git-send-email-jpirko@redhat.com>
+ <20111025000232.GC20605@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, tgraf@infradead.org,
+	ebiederm@xmission.com, mirqus@gmail.com, kaber@trash.net,
+	greearb@candelatech.com, jesse@nicira.com, fbl@redhat.com,
+	benjamin.poirier@gmail.com, jzupka@redhat.com
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:56913 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913Ab1JYGa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 02:30:56 -0400
-Received: by qabj40 with SMTP id j40so83410qab.19
-        for <netdev@vger.kernel.org>; Mon, 24 Oct 2011 23:30:56 -0700 (PDT)
-In-Reply-To: <20111025.022546.1784159727449615100.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:1028 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753189Ab1JYGnU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Oct 2011 02:43:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20111025000232.GC20605@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> SO_PRIORITY can control prioritizations that are not influenced
-> by packet contents.
+Tue, Oct 25, 2011 at 02:02:33AM CEST, andy@greyhouse.net wrote:
+>On Mon, Oct 24, 2011 at 10:13:25AM +0200, Jiri Pirko wrote:
+>> This patch introduces new network device called team. It supposes to be
+>> very fast, simple, userspace-driven alternative to existing bonding
+>> driver.
+>> 
+>> Userspace library called libteam with couple of demo apps is available
+>> here:
+>> https://github.com/jpirko/libteam
+>> Note it's still in its dipers atm.
+>> 
+>> team<->libteam use generic netlink for communication. That and rtnl
+>> suppose to be the only way to configure team device, no sysfs etc.
+>> 
+>> Python binding basis for libteam was recently introduced (some need
+>> still need to be done on it though). Daemon providing arpmon/miimon
+>> active-backup functionality will be introduced shortly.
+>> All what's necessary is already implemented in kernel team driver.
+>> 
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> 
+>> v3->v4:
+>> 	- remove redundant synchronize_rcu from __team_change_mode()
+>> 	- revert "set and clear of mode_ops happens per pointer, not per
+>> 	  byte"
+>> 	- extend comment of function __team_change_mode()
+>> 
+>> v2->v3:
+>> 	- team_change_mtu() user rcu version of list traversal to unwind
+>> 	- set and clear of mode_ops happens per pointer, not per byte
+>> 	- port hashlist changed to be embedded into team structure
+>> 	- error branch in team_port_enter() does cleanup now
+>> 	- fixed rtln->rtnl
+>> 
+>> v1->v2:
+>> 	- modes are made as modules. Makes team more modular and
+>> 	  extendable.
+>> 	- several commenters' nitpicks found on v1 were fixed
+>> 	- several other bugs were fixed.
+>> 	- note I ignored Eric's comment about roundrobin port selector
+>> 	  as Eric's way may be easily implemented as another mode (mode
+>> 	  "random") in future.
 >
-> There is a huge difference.
+>Jiri,
+>
+>I've been following this work closely since your first post and now to
+>wonder if you could create a 'team' tree somewhere.  It would be nice if
+>there was a repo that we could clone for testing and a base for others
+>to help with the development and provide patches.
+>
+>It also might avoid so much of this back and forth, so that you are not
+>on v37 by the time the code meets everyones needs. :-)
+>
+>Once the code goes mainline and Dave pulls your tree, you could then
+>remove it.
 
-I do agree that it can do that, but I'm not sure the difference is
-huge as you so put it.
-In the vast majority of cases prioritization is desired based on some
-meaningful aspect
-of a packet that can also be observed later on in the network - hence
-vlan tags, tos/tclass marks,
-protocol, port numbers and the like.
+I believe v5 will be the one :)
 
-I guess to me, in the real world (or at least the portion of it I'm
-aware of), the difference is minor at best.
+Jirka
 
-Being able to select xmit queues, is kind of like being able to select
-output device.
-You give a CAP_NET_RAW process raw access to the wire - prioritization seems
-just one more aspect of this.  Especially since this isn't permanently
-reconfiguring anything.
-
-Anyway, enough discussion ;-)
-
-Cheers,
-Maciej
+>
+>-andy
+>
