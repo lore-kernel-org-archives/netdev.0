@@ -1,50 +1,31 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] net: make bonding slaves honour master's skb->priority
-Date: Tue, 25 Oct 2011 11:08:08 -0200
-Message-ID: <20111025110808.27db8487@asterix.rh>
-References: <1319517660-22085-1-git-send-email-zenczykowski@gmail.com>
-	<1319519056-21677-1-git-send-email-zenczykowski@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 25 Oct 2011 15:12:46 +0200
+Message-ID: <CA+55aFyVdz5Fcksr5=krkcy6WDVVFD75yKq4h3GJYBq411nt-g@mail.gmail.com>
+References: <20111025.063206.2273357152859701628.davem@davemloft.net>
+ <CA+55aFw1GVvszqoC_f0RAvG5t1xj0CSYLhLU=y0gQ+_54Gsomw@mail.gmail.com> <m1wrbtb4rj.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <maze@google.com>,
-	netdev@vger.kernel.org
-To: Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35899 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933213Ab1JYNIN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 09:08:13 -0400
-In-Reply-To: <1319519056-21677-1-git-send-email-zenczykowski@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, Greg KH <gregkh@suse.de>,
+	Mikulas Patocka <mpatocka@redhat.com>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1wrbtb4rj.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Oct 2011 22:04:16 -0700
-Maciej =C5=BBenczykowski <zenczykowski@gmail.com> wrote:
+On Tue, Oct 25, 2011 at 3:05 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>
+> The meat of my change seems to have gotten lost in the conflict
+> resolution. =A0Fixes in the patch below.
 
-> From: Maciej =C5=BBenczykowski <maze@google.com>
->=20
-> Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
-> ---
->  drivers/net/bonding/bond_main.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
->=20
-> diff --git a/drivers/net/bonding/bond_main.c
-> b/drivers/net/bonding/bond_main.c index 41430ba..2cbc2f8 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -395,7 +395,6 @@ int bond_dev_queue_xmit(struct bonding *bond,
-> struct sk_buff *skb, struct net_device *slave_dev)
->  {
->  	skb->dev =3D slave_dev;
-> -	skb->priority =3D 1;
-> =20
->  	skb->queue_mapping =3D bond_queue_mapping(skb);
-> =20
+Duh. I was thinking about that when doing the merge, but then never
+did the fixups. My bad.
 
-I tripped on it few times and never understood why we
-were fixing the priority at this point.
-thanks,
+Thanks, applied,
 
-Acked-by: Flavio Leitner <fbl@redhat.com>
-=20
+                Linus
