@@ -1,96 +1,113 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [RFC PATCH 05/17] phy_driver: Make .read_status()/.config_aneg() optional
-Date: Tue, 25 Oct 2011 03:06:15 -0400
-Message-ID: <CAJaTeTpZ4s3s1Xiy1Ng-hMiuGVTmJepRUHD-Cx4ruxBf+X7MzA@mail.gmail.com>
-References: <1319144425-15547-1-git-send-email-Kyle.D.Moffett@boeing.com>
- <1319144425-15547-6-git-send-email-Kyle.D.Moffett@boeing.com>
- <201110201710.17519.vapier@gentoo.org> <201110201714.36533.vapier@gentoo.org> <CAGZ=bqJNRCiiT6KvQBkZ5fs6b=RQG92xtmf1cGe1s9mdcbcDFA@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH V2 2/4] MIPS: Add board support for Loongson1B
+Date: Tue, 25 Oct 2011 09:09:52 +0200
+Message-ID: <4EA660C0.1020901@st.com>
+References: <1319192888-21465-1-git-send-email-keguang.zhang@gmail.com> <1319192888-21465-2-git-send-email-keguang.zhang@gmail.com> <CAD+V5YKBkW52_md9rBeVZ1RXq2FGEXt=Ergsw+z8txMreZdNsA@mail.gmail.com> <4EA5117C.3000402@st.com> <CAJhJPsVSzXXmBOwLaGNtOsxhVEyC0fAJtiBvEWzcKcSDC8NEcA@mail.gmail.com> <4EA557B2.4020504@st.com> <CAJhJPsXxUAuF9HdivLd66MQC45mz-iYAuF1SdGdU=-duxJJ5bQ@mail.gmail.com> <4EA585B5.5030405@st.com> <CAJhJPsVu7hahhmUvPQ=s=AqvXGhU-05x=GqQ29Mo6PZ8cTtefA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kyle Moffett <Kyle.D.Moffett@boeing.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Dietsche <Gregory.Dietsche@cuw.edu>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	David Daney <ddaney@caviumnetworks.com>,
-	Arnaud Patard <arnaud.patard@rtp-net.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Baruch Siach <baruch@tkos.co.il>,
-	Thorsten Schubert <tshu@msc-ge.com>,
-	David Decotigny <decot@google.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Lucas De Marchi <lucas.demarchi@profusion.mobi>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-doc@vger.kernel.org
-To: Kyle Moffett <kyle@moffetthome.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CAGZ=bqJNRCiiT6KvQBkZ5fs6b=RQG92xtmf1cGe1s9mdcbcDFA@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Wu Zhangjin <wuzhangjin@gmail.com>, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	r0bertz@gentoo.org, netdev@vger.kernel.org
+To: Kelvin Cheung <keguang.zhang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJhJPsVu7hahhmUvPQ=s=AqvXGhU-05x=GqQ29Mo6PZ8cTtefA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 21, 2011 at 01:13, Kyle Moffett wrote:
-> On Thu, Oct 20, 2011 at 17:14, Mike Frysinger wrote:
->> On Thursday 20 October 2011 17:10:12 Mike Frysinger wrote:
->>> On Thursday 20 October 2011 17:00:12 Kyle Moffett wrote:
->>> > Approximately 90% of the PHY drivers follow the PHY layer docs an=
-d
->>> > simply use &genphy_read_status and &genphy_config_aneg. =A0There =
-would
->>> > seem to be little point in requiring them all to manually specify=
- those
->>> > functions.
+On 10/25/2011 4:12 AM, Kelvin Cheung wrote:
+> 2011/10/24, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
+>> On 10/24/2011 4:05 PM, Kelvin Cheung wrote:
+>>> 2011/10/24, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
+>>>> Hello Kelvin.
+>>>>
+>>>> On 10/24/2011 12:36 PM, Kelvin Cheung wrote:
+>>>>
+>>>> [snip]
+>>>>
+>>>>> According to datasheet of Loongson 1B, the buffer size in RX/TX
+>>>>> descriptor is only 2KB. So the Loongson1B's GMAC could not handle
+>>>>> jumbo frames. And the second buffer is useless in this case. Am I
+>>>>> right? Is there a better way than ifdef CONFIG_MACH_LOONGSON1 to
+>>>>> avoid duplicate code?
+>>>>
+>>>> Sorry for my misunderstanding.
+>>>>
+>>>> I think you have to use the normal descriptor and remove the enh_desc
+>>>> from the platform w/o modifying the driver at all.
+>>>>
+>>>> The driver will be able to select/configure all automatically (also
+>>>> jumbo).
+>>>>
+>>>> Let me know.
 >>>
->>> well, it does make sense if you think about the compile vs build ti=
-me
->>> overhead. =A0yes, your patch does make things much nicer to read, a=
-nd a
->>> little easier to maintain the source. =A0however, it adds runtime o=
-verhead
->>> (checking the func pointers) while the func pointer storage is unch=
-anged
->>> (it's now a NULL pointer instead of pointing to the genphy funcs).
->>> personally, i think the savings in runtime and smaller compiled cod=
-e is
->>> more important. =A0so i'm going to NAK this. =A0sorry.
+>>> That's the problem.
+>>> The bitfield definition of Loongson1B is also different from normal
+>>> descriptor.
 >>
->> ah, sorry, i was thinking this was u-boot since we were just having
->> conversations there.
+>> The problem is not in the Loongson1B gmac.
+> 
+> I found that the bit checksum_insertion is not existed in normal descriptor.
+> 
+>> The normal descriptor fields in the stmmac refer to an old synopsys
+>> databook.
+> 
+> Could you send me the new databook of Synopsys GMAC?
+> 
+>> New chips have the same structure you have added; so we should fix this
+>> in the driver w/o breaking the compatibility for old chips.
+> 
+> Agree.
+> 
+>> I kindly ask you to confirm if the currently normal descriptor structure
+>> (w/o your changes) doesn't work on your platform.
+>> Did you test it?
+> 
+> Well, the normal descriptor works on my platform except TX checksum offload.
+
+ok! I suspected that.
+
+
+>>> Moreover, I want to enable the TX checksum offload function which is
+>>> not supported in normal descriptor.
+>>> Any suggestions?
 >>
->> since this is Linux, and i don't have real standing in the general n=
-etdev
->> community, i can't really NAK here. =A0but i think my comment still =
-stands in
->> that this patch makes things much worse than the minor code style im=
-provement.
->
-> I would argue that the PHY layer itself is not remotely a hot-path,
-> especially not to the level of caring about an extra if statement. =A0=
-A
-> single phy_read() is a sleeping call which goes over a slow serial
-> bus, so code maintainability is much more important.
+>> It is supported but you have to pass from the platform: tx_coe = 1.
+> 
+> I noticed that the flag csum_insertion is passed to
+> ndesc_prepare_tx_desc() in stmmac_xmit(). But ndesc_prepare_tx_desc()
+> just ignores it.
+> In other words, the TX checksum offload function is disabled in normal
+> descriptor currently.
+> 
+> Should we fix this problem for normal descriptor?
 
-i disagree.  ignoring that, what you ultimately desire can be
-accomplished without bloating the kernel.
+Yes, we should. If you agree, I'll update the normal descriptor
+structure to yours. This is the normal descriptor used in newer GMAC.
+Tx csum will be done for normal descriptors in case of these GMAC
+devices and not for old MAC10/100. For the MAC10/100 some bits for
+normal descriptors are reserved and won't be used at all.
 
-option 1: this can be done in the registration func just like the mtd
-layer.  if (!func_pointer) func_pointer =3D default;
+I'll also verify that the patch doesn't break the back-compatibility
+with old MAC10/100. I have the HW where doing the tests.
 
-option 2: introduce a new macro in the common phy header similar to:
-  #define PHY_DRIVER_DEFAULT_FUNCS \
-    .config_aneg =3D genphy_config_aneg, \
-    .read_status =3D genphy_read_status
-and then use that in the phy_driver init structs:
-  struct phy_driver bcm5411_driver =3D {
-    PHY_DRIVER_DEFAULT_FUNCS,
-    .config_aneg =3D bcm5411_config_aneg,
-    ...
+After that, I'll prepare the patch for net-next and for your kernel.
 
-however, imo, these func pointer arrays really should be in the
-=2Erodata section with proper const markers.  this would require
-breaking out into a new phy_driver_opts struct since the phy_driver
-struct has read/write fields (like the list structure).  option 2
-should allow this to work.
--mike
+> 
+>> Peppe
+>>>
+>>>> Note:
+>>>> IIRC, there is a bit difference in case of normal descriptors for
+>>>> Synopsys databook newer than the 1.91 (I used for testing this mode).
+>>>> In any case, I remember that, on some platforms, the normal descriptors
+>>>> have been used w/o problems also on these new chip generations.
+>>>>
+>>>> Peppe
+>>>>
+>>>>
+>>>
+>>>
+>>
+>>
+> 
+> 
