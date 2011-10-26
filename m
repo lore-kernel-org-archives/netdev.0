@@ -1,55 +1,113 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 6/7] bnx2x: use FW 7.0.29.0
-Date: Wed, 26 Oct 2011 11:40:38 +0200
-Message-ID: <1319622039-10553-7-git-send-email-yanivr@broadcom.com>
+Subject: [net 4/7] bnx2x: Fix 54618se LED behavior
+Date: Wed, 26 Oct 2011 11:40:36 +0200
+Message-ID: <1319622039-10553-5-git-send-email-yanivr@broadcom.com>
 References: <1319622039-10553-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Yaniv Rosner" <yanivr@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4258 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2937 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754602Ab1JZHlT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Oct 2011 03:41:19 -0400
+	id S1754672Ab1JZHlP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Oct 2011 03:41:15 -0400
 In-Reply-To: <1319622039-10553-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
-
-The FW includes the following fixes:
-  1. (iSCSI) Arrival of un-solicited ASYNC message causes
-     firmware to abort the connection with RST.
-  2. (FCoE) There is a probability that truncated FCoE packet on
-     RX path won't get detected which might lead to FW assert.
-  3. (iSCSI) Arrival of target-initiated NOP-IN during intense
-     ISCSI traffic might lead to FW assert.
-  4. (iSCSI) Chip hangs when in case of retransmission not aligned
-     to 4-bytes from the beginning of iSCSI PDU.
-  5. (FCoE) Arrival of packets beyond task IO size can lead to crash.
-
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_hsi.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |   44 ++++++++++++++++++++-------------------
+ 1 files changed, 23 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
-index dc24de4..8beb5b5 100644
---- a/drivers/net/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x/bnx2x_hsi.h
-@@ -2548,7 +2548,7 @@ struct host_func_stats {
+diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
+index ea2a11d..5acf274 100644
+--- a/drivers/net/bnx2x/bnx2x_link.c
++++ b/drivers/net/bnx2x/bnx2x_link.c
+@@ -5993,7 +5993,13 @@ int bnx2x_set_led(struct link_params *params,
+ 		       SHARED_HW_CFG_LED_MAC1);
  
- #define BCM_5710_FW_MAJOR_VERSION			7
- #define BCM_5710_FW_MINOR_VERSION			0
--#define BCM_5710_FW_REVISION_VERSION		23
-+#define BCM_5710_FW_REVISION_VERSION		29
- #define BCM_5710_FW_ENGINEERING_VERSION		0
- #define BCM_5710_FW_COMPILE_FLAGS			1
+ 		tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
+-		EMAC_WR(bp, EMAC_REG_EMAC_LED, (tmp | EMAC_LED_OVERRIDE));
++		if (params->phy[EXT_PHY1].type ==
++			  PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE)
++			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp & 0xfff1);
++		else {
++			EMAC_WR(bp, EMAC_REG_EMAC_LED,
++				(tmp | EMAC_LED_OVERRIDE));
++		}
+ 		break;
  
+ 	case LED_MODE_OPER:
+@@ -6046,8 +6052,15 @@ int bnx2x_set_led(struct link_params *params,
+ 			else
+ 				REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4,
+ 				       hw_led_mode);
++		} else if ((params->phy[EXT_PHY1].type ==
++			    PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) &&
++			   (mode != LED_MODE_OPER)) {
++			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4, 0);
++			tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
++			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp | 0x3);
+ 		} else
+-			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4, hw_led_mode);
++			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4,
++			       hw_led_mode);
+ 
+ 		REG_WR(bp, NIG_REG_LED_CONTROL_OVERRIDE_TRAFFIC_P0 + port*4, 0);
+ 		/* Set blinking rate to ~15.9Hz */
+@@ -6059,8 +6072,13 @@ int bnx2x_set_led(struct link_params *params,
+ 			       LED_BLINK_RATE_VAL_E1X_E2);
+ 		REG_WR(bp, NIG_REG_LED_CONTROL_BLINK_RATE_ENA_P0 +
+ 		       port*4, 1);
+-		tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
+-		EMAC_WR(bp, EMAC_REG_EMAC_LED, (tmp & (~EMAC_LED_OVERRIDE)));
++		if ((params->phy[EXT_PHY1].type !=
++		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) &&
++		    (mode != LED_MODE_OPER)) {
++			tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
++			EMAC_WR(bp, EMAC_REG_EMAC_LED,
++				(tmp & (~EMAC_LED_OVERRIDE)));
++		}
+ 
+ 		if (CHIP_IS_E1(bp) &&
+ 		    ((speed == SPEED_2500) ||
+@@ -10304,22 +10322,6 @@ static int bnx2x_54618se_config_init(struct bnx2x_phy *phy,
+ 	return 0;
+ }
+ 
+-static void bnx2x_54618se_set_link_led(struct bnx2x_phy *phy,
+-				       struct link_params *params, u8 mode)
+-{
+-	struct bnx2x *bp = params->bp;
+-	DP(NETIF_MSG_LINK, "54618SE set link led (mode=%x)\n", mode);
+-	switch (mode) {
+-	case LED_MODE_FRONT_PANEL_OFF:
+-	case LED_MODE_OFF:
+-	case LED_MODE_OPER:
+-	case LED_MODE_ON:
+-	default:
+-		break;
+-	}
+-	return;
+-}
+-
+ static void bnx2x_54618se_link_reset(struct bnx2x_phy *phy,
+ 				     struct link_params *params)
+ {
+@@ -11095,7 +11097,7 @@ static struct bnx2x_phy phy_54618se = {
+ 	.config_loopback = (config_loopback_t)bnx2x_54618se_config_loopback,
+ 	.format_fw_ver	= (format_fw_ver_t)NULL,
+ 	.hw_reset	= (hw_reset_t)NULL,
+-	.set_link_led	= (set_link_led_t)bnx2x_54618se_set_link_led,
++	.set_link_led	= (set_link_led_t)NULL,
+ 	.phy_specific_func = (phy_specific_func_t)NULL
+ };
+ /*****************************************************************/
 -- 
 1.7.7.1
