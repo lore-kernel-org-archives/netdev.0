@@ -1,52 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv4: use IS_ENABLED() macro to cleanup code
-Date: Wed, 26 Oct 2011 10:05:10 +0200
-Message-ID: <1319616310.18883.16.camel@edumazet-laptop>
-References: <1319526752.3834.12.camel@edumazet-laptop>
-	 <20111025.193037.1312584002692004360.davem@davemloft.net>
-	 <1319610874.18883.8.camel@edumazet-laptop>
-	 <1319616054.11727.19.camel@deadeye>
+From: Linus Walleij <linus.walleij@stericsson.com>
+Subject: [PATCH 1/2] net/smsc911x: Always wait for the chip to be ready
+Date: Wed, 26 Oct 2011 10:05:43 +0200
+Message-ID: <1319616343-6357-1-git-send-email-linus.walleij@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain
+Cc: Mathieu Poirer <mathieu.poirier@linaro.org>,
+	Robert Marklund <robert.marklund@stericsson.com>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: <netdev@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62196 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754827Ab1JZIFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 04:05:18 -0400
-Received: by wwe6 with SMTP id 6so2030401wwe.1
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2011 01:05:16 -0700 (PDT)
-In-Reply-To: <1319616054.11727.19.camel@deadeye>
+Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:39611 "EHLO
+	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754838Ab1JZIGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 04:06:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 26 octobre 2011 =C3=A0 10:00 +0200, Ben Hutchings a =C3=A9c=
-rit :
-> On Wed, 2011-10-26 at 08:34 +0200, Eric Dumazet wrote:
-> > Le mardi 25 octobre 2011 =C3=A0 19:30 -0400, David Miller a =C3=A9c=
-rit :
-> >=20
-> > > net/ipv4/ip_sockglue.c: In function =E2=80=98do_ip_setsockopt=E2=80=
-=99:
-> > > net/ipv4/ip_sockglue.c:523:29: error: =E2=80=98LOOPBACK4_IPV6=E2=80=
-=99 undeclared (first use in this function)
-> > > net/ipv4/ip_sockglue.c:523:29: note: each undeclared identifier i=
-s reported only once for each function it appears in
-> > >=20
-> > > This fails because ip_sockglue.c guards the net/transp_v6.h heade=
-r
-> > > inclusion with a real CPP guard.
-> >=20
-> > Yep, it seems compiler was not able to perform optimisation of dead
-> > code.
-> [...]
->=20
-> No, the compiler is just checking the code further than you wanted
-> before optimising it away.
->=20
+From: Robert Marklund <robert.marklund@stericsson.com>
 
-Well, I was not saying compiler was guilty here.
+Wait for the chip to be ready before any access to it. On the
+Snowball platform we need to enable an external regulator before
+the chip comes online, and then it happens that the device is
+not yet ready at probe time, so let's wait for it.
 
-Dead code must be parsed and compiled too.
+Signed-off-by: Robert Marklund <robert.marklund@stericsson.com>
+Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+---
+ drivers/net/ethernet/smsc/smsc911x.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index d2be42a..8843071 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -1937,6 +1937,7 @@ static int __devinit smsc911x_init(struct net_device *dev)
+ {
+ 	struct smsc911x_data *pdata = netdev_priv(dev);
+ 	unsigned int byte_test;
++	unsigned int to = 100;
+ 
+ 	SMSC_TRACE(pdata, probe, "Driver Parameters:");
+ 	SMSC_TRACE(pdata, probe, "LAN base: 0x%08lX",
+@@ -1952,6 +1953,17 @@ static int __devinit smsc911x_init(struct net_device *dev)
+ 		return -ENODEV;
+ 	}
+ 
++	/*
++	 * poll the READY bit in PMT_CTRL. Any other access to the device is
++	 * forbidden while this bit isn't set. Try for 100ms
++	 */
++	while (!(smsc911x_reg_read(pdata, PMT_CTRL) & PMT_CTRL_READY_) && --to)
++		udelay(1000);
++	if (to == 0) {
++		pr_err("Device not READY in 100ms aborting\n");
++		return -ENODEV;
++	}
++
+ 	/* Check byte ordering */
+ 	byte_test = smsc911x_reg_read(pdata, BYTE_TEST);
+ 	SMSC_TRACE(pdata, probe, "BYTE_TEST: 0x%08X", byte_test);
+-- 
+1.7.3.2
