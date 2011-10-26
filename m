@@ -1,47 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 25 Oct 2011 20:32:20 -0400 (EDT)
-Message-ID: <20111025.203220.473592143736213946.davem@davemloft.net>
+From: "erh" <pattonfnkdozp@yahoo.cn>
+Subject: =?utf-8?B?ZXJo5L2g5aW9MQ==?=
+Date: Wed, 26 Oct 2011 09:52:34 +0800
+Message-ID: <D7D41083811CDE583175AEACD54507F3@smx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from n3a.bullet.mail.cnh.yahoo.com ([203.209.250.184]:25147 "HELO
+	n3a.bullet.mail.cnh.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754554Ab1JZBwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 21:52:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Three bug fixes here, including the sk_clone() error path unlock
-fix from Thomas Gleixner.
-
-As for the wireless warning spew, it is my understanding that person
-most able to fix that bug is in the same room with you right now (hi
-Johannes Berg :-)
-
-Please pull, thanks a lot!
-
-The following changes since commit 7670c7010c7b367ca40c3aba02afb3614976=
-4a6e:
-
-  Merge branch 'for-linus' of git://github.com/gregungerer/m68knommu (2=
-011-10-25 16:25:48 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-David Woodhouse (1):
-      caif: Fix BUG() with network namespaces
-
-Maciej =AFenczykowski (1):
-      net: make bonding slaves honour master's skb->priority
-
-Thomas Gleixner (1):
-      net: Unlock sock before calling sk_free()
-
- drivers/net/bonding/bond_main.c |    1 -
- net/caif/caif_dev.c             |    5 +++--
- net/core/sock.c                 |    1 +
- 3 files changed, 4 insertions(+), 3 deletions(-)
+DQog5pys5YWs5Y+4546w5pyJKOWVhuWTgemUgOWUru+8m+W7uuetkeW3peeoi++8m+ijheS/ruiu
+vuiuoe+8m+W5v+WRiu+8m+enn+i1ge+8m+acjeWKoeWSqOivojvliqDlt6Xkv67nkIbvvJvov5Do
+vpPvvJvppJDppa7kvY/lrr87DQoNCua1t+WFszvlop7lgLznqI7nrYnnrYkgKeOAguWmgui0teWF
+rOWPuOmcgOimgeaIkeWPuOS7o+W8gOeZvOelqO+8jOmcgOaPkOWJjeWQkeaIkeWPuOaPkOS+m+WH
+huehruivpue7hueahOi1hOaWmea4heWNle+8m+Wmgui0teWFrA0KDQoNCuWPuOaJgOWcqOWcsOaY
+r+WFtuWug+ecgeOAgeW4gueahO+8jOacrOWFrOWPuOmDveaYr+S7peW/q+mAkuaKlemAkueahOaW
+ueW8jyAoMjTlsI/ml7boh7M0OOWwj+aXtuWIsOi+vinvvIzlubblj6/kuIrnvZHmn6Xor6LpqowN
+Cg0K6K+B44CC5pS25Yiw56Gu6K6k5peg6K+v5ZCO5YaN57uZ5oiR5Y+45YiS6LSmKOaVsOmHj+mH
+kemineWkp+WPr+WGjeWVhuiuqOS8mOaDoOeojueOhynjgILor6bmg4XmrKLov47mnaXnlLXlkqjo
+r6IhIOmhuuelneWVhuelui4gDQoNCuiBlOezu+eUteivnTEzNjkyMjY0MTY45ZGo55uK6IOcUVEx
+OTc5OTY5Mzc0DQoNCg==
