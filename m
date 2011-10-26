@@ -1,129 +1,73 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC v2 PATCH 5/4 PATCH] virtio-net: send
- gratuitous packet when needed
-Date: Wed, 26 Oct 2011 12:49:28 +0800
-Message-ID: <4EA79158.7050607@redhat.com>
-References: <20111022054311.21798.3340.stgit@dhcp-8-146.nay.redhat.com>
-	<87ty6z10f8.fsf@rustcorp.com.au> <20111024052526.GA2362@redhat.com>
-	<4EA62401.5000602@redhat.com> <20111025154106.GA22553@redhat.com>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [Qemu-devel] [RFC v2 PATCH 4/4] virtio-net: notify guest to
+ annouce itself
+Date: Tue, 25 Oct 2011 23:19:29 -0700
+Message-ID: <CAJSP0QVmrDC5S5+QmadEGN8GPT3WtC7RvO12sN3Fr5KMvp+SAA@mail.gmail.com>
+References: <20111022053540.21526.61249.stgit@dhcp-8-146.nay.redhat.com>
+	<20111022053907.21526.81697.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: aliguori@us.ibm.com, kvm@vger.kernel.org, quintela@redhat.com,
-	jan.kiszka@siemens.com, Rusty Russell <rusty@rustcorp.com.au>,
-	qemu-devel@nongnu.org, blauwirbel@gmail.com,
-	netdev@vger.kernel.org, pbonzini@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <20111025154106.GA22553@redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: aliguori@us.ibm.com, quintela@redhat.com, jan.kiszka@siemens.com,
+	mst@redhat.com, qemu-devel@nongnu.org, blauwirbel@gmail.com,
+	pbonzini@redhat.com, rusty@rustcorp.com.au, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:45877 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751938Ab1JZGTa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 02:19:30 -0400
+In-Reply-To: <20111022053907.21526.81697.stgit@dhcp-8-146.nay.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2011 11:41 PM, Michael S. Tsirkin wrote:
-> On Tue, Oct 25, 2011 at 10:50:41AM +0800, Jason Wang wrote:
->> On 10/24/2011 01:25 PM, Michael S. Tsirkin wrote:
->>> On Mon, Oct 24, 2011 at 02:54:59PM +1030, Rusty Russell wrote:
->>>> On Sat, 22 Oct 2011 13:43:11 +0800, Jason Wang <jasowang@redhat.com> wrote:
->>>>> This make let virtio-net driver can send gratituous packet by a new
->>>>> config bit - VIRTIO_NET_S_ANNOUNCE in each config update
->>>>> interrupt. When this bit is set by backend, the driver would schedule
->>>>> a workqueue to send gratituous packet through NETDEV_NOTIFY_PEERS.
->>>>>
->>>>> This feature is negotiated through bit VIRTIO_NET_F_GUEST_ANNOUNCE.
->>>>>
->>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>>
->>>> This seems like a huge layering violation.  Imagine this in real
->>>> hardware, for example.
->>>
->>> commits 06c4648d46d1b757d6b9591a86810be79818b60c
->>> and 99606477a5888b0ead0284fecb13417b1da8e3af
->>> document the need for this:
->>>
->>> NETDEV_NOTIFY_PEERS notifier indicates that a device moved to a 
->>> different physical link.
->>> 	and
->>> In real hardware such notifications are only
->>> generated when the device comes up or the address changes.
->>>
->>> So hypervisor could get the same behaviour by sending link up/down
->>> events, this is just an optimization so guest won't do
->>> unecessary stuff like try to reconfigure an IP address.
->>>
->>>
->>> Maybe LOCATION_CHANGE would be a better name?
->>>
->>
->> ANNOUNCE_SELF?
-> 
-> It would be nice to formulate what kind of event
-> are we notifying the guest about.
-> The announce part of it is really up to the guest, isn't it?
-> 
+On Fri, Oct 21, 2011 at 10:39 PM, Jason Wang <jasowang@redhat.com> wrot=
+e:
+> diff --git a/hw/virtio-net.c b/hw/virtio-net.c
+> index 8c2f460..7f844e7 100644
+> --- a/hw/virtio-net.c
+> +++ b/hw/virtio-net.c
+> @@ -95,6 +95,10 @@ static void virtio_net_set_config(VirtIODevice *vd=
+ev, const uint8_t *config)
+> =A0 =A0 =A0 =A0 memcpy(n->mac, netcfg.mac, ETH_ALEN);
+> =A0 =A0 =A0 =A0 qemu_format_nic_info_str(&n->nic->nc, n->mac);
+> =A0 =A0 }
+> +
+> + =A0 =A0if (memcmp(&netcfg.status, &n->status, sizeof(n->status))) {
+> + =A0 =A0 =A0 =A0memcpy(&n->status, &netcfg.status, sizeof(n->status)=
+);
+> + =A0 =A0}
 
-Right.
+The memcpy() can be done unconditionally.
 
->>>
->>>> There may be a good reason why virtual devices might want this kind of
->>>> reconfiguration cheat, which is unnecessary for normal machines,
->>>
->>> I think yes, the difference with real hardware is guest can change
->>> location without link getting dropped.
->>> FWIW, Xen seems to use this capability too.
->>
->> So does ms netvsc.
->>
->>>
->>>> but
->>>> it'd have to be spelled out clearly in the spec to justify it...
->>>>
->>>> Cheers,
->>>> Rusty.
->>>
->>> Agree, and I'd like to see the spec too. The interface seems
->>> to involve the guest clearing the status bit when it detects
->>> an event?
->>
->> I would describe this in spec. The interface need guest to clear the
->> status bit, this would let the back-end know it has finished the work as
->> we may need to send the gratuitous packets many times.
->>
->>>
->>> Also - how does it interact with the link up event?
->>> We probably don't want to schedule this when we detect
->>> a link status change or during initialization, as
->>> this patch seems to do? What if link goes down
->>> while the work is running? Is that OK?
->>>
->>
->> Looks like there's are duplications if guest enable arp_notify vm is
->> started,
-> 
-> How hard would it be to avoid these duplicates?
+> =A0}
+>
+> =A0static bool virtio_net_started(VirtIONet *n, uint8_t status)
+> @@ -227,7 +231,7 @@ static uint32_t virtio_net_get_features(VirtIODev=
+ice *vdev, uint32_t features)
+> =A0{
+> =A0 =A0 VirtIONet *n =3D to_virtio_net(vdev);
+>
+> - =A0 =A0features |=3D (1 << VIRTIO_NET_F_MAC);
+> + =A0 =A0features |=3D (1 << VIRTIO_NET_F_MAC | 1 << VIRTIO_NET_F_GUE=
+ST_ANNOUNCE);
+>
+> =A0 =A0 if (peer_has_vnet_hdr(n)) {
+> =A0 =A0 =A0 =A0 tap_using_vnet_hdr(n->nic->nc.peer, 1);
+> @@ -983,6 +987,19 @@ static void virtio_net_cleanup(VLANClientState *=
+nc)
+> =A0 =A0 n->nic =3D NULL;
+> =A0}
+>
+> +static int virtio_net_announce(VLANClientState *nc)
+> +{
+> + =A0 =A0VirtIONet *n =3D DO_UPCAST(NICState, nc, nc)->opaque;
+> +
+> + =A0 =A0if (n->vdev.guest_features & (0x1 << VIRTIO_NET_F_GUEST_ANNO=
+UNCE)) {
+> + =A0 =A0 =A0 =A0n->status |=3D VIRITO_NET_S_ANNOUNCE;
 
-Not hard, it could be done in backend by distinguishing the reason :
-fresh start or cont after migration or stop.
+Typo, should be VIRTIO_NET_S_ANNOUNCE.
 
-> 
->> but we need to handle the situation that resuming a stopped
->> virtual machine.
->>
->> For the link down race, I don't see any real issue, either dropping or
->> queued.
-> 
-> For example, you do
->         unregister_netdev(vi->dev);
->         cancel_work_sync(&vi->announce);
-> 
-> which looks scary as announce seems to use the netdev.
-> 
-
-oops, it's a bug, I would fix it. Thanks
+Stefan
