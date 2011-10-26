@@ -1,39 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] stmmac: fix NULL pointer dereference in
- capabilities fixup
-Date: Wed, 26 Oct 2011 18:34:20 -0400 (EDT)
-Message-ID: <20111026.183420.270100530207344332.davem@davemloft.net>
-References: <1319637339-14866-1-git-send-email-peppe.cavallaro@st.com>
-	<1319637339-14866-2-git-send-email-peppe.cavallaro@st.com>
-	<20111026.172330.67657472938640633.davem@davemloft.net>
+Subject: Re: asix usb network driver: nfg
+Date: Wed, 26 Oct 2011 19:40:45 -0400 (EDT)
+Message-ID: <20111026.194045.2019668159403582571.davem@davemloft.net>
+References: <4EA89972.5060101@teksavvy.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, keguang.zhang@gmail.com, angus.clark@st.com
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:32901 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753181Ab1JZWe2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 18:34:28 -0400
-In-Reply-To: <20111026.172330.67657472938640633.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kernel@teksavvy.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EA89972.5060101@teksavvy.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 26 Oct 2011 17:23:30 -0400 (EDT)
+From: Mark Lord <kernel@teksavvy.com>
+Date: Wed, 26 Oct 2011 19:36:18 -0400
 
-> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> Date: Wed, 26 Oct 2011 15:55:38 +0200
+> So, the in-kernel asix driver seems badly broken for a lot of hardware,
+> and the vendor driver also has a slight race somewhere that is cured
+> by enabling debug logging.
 > 
->> From: Angus Clark <angus.clark@st.com>
->> 
->> Signed-off-by: Angus Clark <angus.clark@st.com>
->> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> 
-> Applied.
+> Is there an asix driver maintainer, or anyone else with the time
+> to step up and try to fix these issues?
 
-I've reverted these three patches, please resubmit after you've
-addressed Ben Hutchings concerns about priv->phydev
-
-Thanks.
+The issues you speak of are well known for at least two years but
+nobody wants to work on this.
