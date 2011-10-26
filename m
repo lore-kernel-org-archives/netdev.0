@@ -1,36 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: use IS_ENABLED() macro to cleanup code
-Date: Tue, 25 Oct 2011 19:30:37 -0400 (EDT)
-Message-ID: <20111025.193037.1312584002692004360.davem@davemloft.net>
-References: <1319526752.3834.12.camel@edumazet-laptop>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: Bug#645308: tg3 broken for NetXtreme 5714S in squeeze 6.0.3
+ installer
+Date: Tue, 25 Oct 2011 17:20:32 -0700
+Message-ID: <20111026002032.GA31575@mcarlson.broadcom.com>
+References: <20111017144825.GM22096@torres.zugschlus.de>
+ <20111017160812.GL3366@decadent.org.uk>
+ <1318901100.3340.36.camel@deadeye>
+ <20111018142056.GF29261@torres.zugschlus.de>
+ <1319084914.23980.96.camel@deadeye>
+ <20111021090046.GA13930@torres.zugschlus.de>
+ <20111021090811.GA5993@torres.zugschlus.de>
+ <1319199579.2918.42.camel@deadeye>
+ <20111024212409.GA29764@mcarlson.broadcom.com>
+ <1319500074.31243.47.camel@deadeye>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"645308@bugs.debian.org" <645308@bugs.debian.org>,
+	"Marc Haber" <mh+debian-bugs@zugschlus.de>,
+	netdev <netdev@vger.kernel.org>
+To: "Ben Hutchings" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:54265 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753799Ab1JYXal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Oct 2011 19:30:41 -0400
-In-Reply-To: <1319526752.3834.12.camel@edumazet-laptop>
+Received: from mms3.broadcom.com ([216.31.210.19]:2805 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752168Ab1JZATa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Oct 2011 20:19:30 -0400
+In-Reply-To: <1319500074.31243.47.camel@deadeye>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVHVlLCAy
-NSBPY3QgMjAxMSAwOToxMjozMiArMDIwMA0KDQo+IFJlbW92ZSBzb21lIHVnbHkgI2lmZGVmLCB1
-c2luZyBJU19FTkFCTEVEKENPTkZJR194eHgpIG1hY3JvDQo+IA0KPiBJU19FTkFCTEVEKENPTkZJ
-R194eHgpIGV2YWx1YXRlcyB0byAxIGlmIENPTkZJR194eHggaXMgc2V0IHRvICd5JyBvciAnbScN
-Cj4gDQo+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNv
-bT4NCg0KSSBjYW4gdW5kZXJzdGFuZCB0aGUgZGVzaXJlIHRvIGRvIHRoaXMsIGJ1dCBpdCBpcyBn
-b2luZyB0byBydW4NCmFmb3VsIGluIGNhc2VzIHdoZXJlIHRoZSBkZWZpbml0aW9ucyBvZiBkYXRh
-c3RydWN0dXJlcyBpbiBoZWFkZXINCmZpbGVzIGFyZSBwcm90ZWN0ZWQgYnkgcmVhbCBDUFAgaWZk
-ZWYgZ3VhcmRzIHJhdGhlciB0aGFuIHRoZXNlDQpydW4tdGltZSB2YXJpYW50cy4NCg0KU28geW91
-IGJ1aWxkIHRlc3RlZCB0aGlzIHdpdGggSVBWNiBkaXNhYmxlZCwgcmlnaHQ/DQoNCkRpZG4ndCB0
-aGluayBzby4uLg0KDQpuZXQvaXB2NC9pcF9zb2NrZ2x1ZS5jOiBJbiBmdW5jdGlvbiChZG9faXBf
-c2V0c29ja29wdKI6DQpuZXQvaXB2NC9pcF9zb2NrZ2x1ZS5jOjUyMzoyOTogZXJyb3I6IKFMT09Q
-QkFDSzRfSVBWNqIgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24pDQpuZXQv
-aXB2NC9pcF9zb2NrZ2x1ZS5jOjUyMzoyOTogbm90ZTogZWFjaCB1bmRlY2xhcmVkIGlkZW50aWZp
-ZXIgaXMgcmVwb3J0ZWQgb25seSBvbmNlIGZvciBlYWNoIGZ1bmN0aW9uIGl0IGFwcGVhcnMgaW4N
-Cg0KVGhpcyBmYWlscyBiZWNhdXNlIGlwX3NvY2tnbHVlLmMgZ3VhcmRzIHRoZSBuZXQvdHJhbnNw
-X3Y2LmggaGVhZGVyDQppbmNsdXNpb24gd2l0aCBhIHJlYWwgQ1BQIGd1YXJkLg0K
+On Mon, Oct 24, 2011 at 04:47:54PM -0700, Ben Hutchings wrote:
+> On Mon, 2011-10-24 at 14:24 -0700, Matt Carlson wrote:
+> > On Fri, Oct 21, 2011 at 05:19:39AM -0700, Ben Hutchings wrote:
+> > > On Fri, 2011-10-21 at 11:08 +0200, Marc Haber wrote:
+> > > > On Fri, Oct 21, 2011 at 11:00:46AM +0200, Marc Haber wrote:
+> > > > > On Thu, Oct 20, 2011 at 05:28:34AM +0100, Ben Hutchings wrote:
+> > > > > > I don't see any changes that would obviously change the way this device
+> > > > > > is reconfigured during a down/up cycle.  There were some changes to
+> > > > > > power management that should just let the PCI core do some work that the
+> > > > > > driver used to, but it's possible that the result isn't quite the same.
+> > > > > > I built a module with those reverted; source and binary attached.  Could
+> > > > > > you test that?  I checked that d-i does include an insmod command.
+> > > > > 
+> > > > > The squeeze 6.0.3 installer with the shipped tg3.ko replaced with
+> > > > > yours boots and networks just fine without any workaround and without
+> > > > > manual interaction.
+> > > > 
+> > > > I was a bit fast on that. The interface now fails right in the middle
+> > > > of installation and needs the modprobe -r, modprobe stunt to network
+> > > > again.
+> > > 
+> > > Matt, Michael,
+> > > 
+> > > The tg3 driver has regressed for the 5714S since Linux 2.6.32.  Marc
+> > > Haber found this in the backported version included in our stable
+> > > update, but also confirmed it in Linux 3.0.
+> > > 
+> > > Bringing the interface down and then up again (which the installer does
+> > > for some reason) can leave it unable to pass traffic (possibly after
+> > > working for a few packets) until the module is reloaded.
+> > > 
+> > > I asked Marc to check whether reverting the power management changes
+> > > (071697e2bcd8dff2af4d6fdd6525c2324f89553b,
+> > > d237d9ecf06a00f0ebca657958cf2a1e92940796) made a difference, but it
+> > > doesn't seem to.
+> > > 
+> > > There is more information in the bug log at
+> > > <http://bugs.debian.org/645308>.
+> > 
+> > Where can I get the sources for this driver?  Commit
+> > 9e975cc291d80d5e4562d6bed15ec171e896d69b, entitled
+> > "tg3: Fix io failures after chip reset" has been a common source of
+> > problems.
+> 
+> Our current package has Linux 3.0.6 which includes the backport of that
+> change.  However, it is *not* included in my backport to 2.6.32 so it
+> doesn't explain the original report.
+> 
+> The backported version can be found in:
+> 
+> git://anonscm.debian.org/kernel/linux-2.6.git squeeze
+
+The kernel version of that repository is 3.0.0-rc1.  Am I looking in the
+right place?
+
+But you're right.  The version of the driver in that repository does not
+have the change.
