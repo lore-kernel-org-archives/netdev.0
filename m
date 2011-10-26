@@ -1,68 +1,52 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [PATCH] HFSC (7) & (8) documentation + assorted changes
-Date: Wed, 26 Oct 2011 06:02:10 -0400
-Message-ID: <CAJaTeTom1yW_22CbTUa+6iMMpFsomnMhm6-WV0Uft+0FrzjqvQ@mail.gmail.com>
-References: <1319616922-18034-1-git-send-email-vapier@gentoo.org> <4EA7D268.1050504@ziu.info>
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Subject: Re: [PATCH 2/2] net/smsc911x: Add regulator support
+Date: Wed, 26 Oct 2011 12:17:51 +0200
+Message-ID: <20111026101750.GA2921@opensource.wolfsonmicro.com>
+References: <1319616356-6391-1-git-send-email-linus.walleij@stericsson.com>
+ <20111026083838.GA9157@opensource.wolfsonmicro.com>
+ <4EA7D1F5.2030904@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-To: Michal Soltys <soltys@ziu.info>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Mathieu Poirer <mathieu.poirier@linaro.org>,
+	Robert MARKLUND <robert.marklund@stericsson.com>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Linus Walleij <linus.walleij@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:38054 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932647Ab1JZKCa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 06:02:30 -0400
-Received: by iaby12 with SMTP id y12so1555520iab.19
-        for <netdev@vger.kernel.org>; Wed, 26 Oct 2011 03:02:30 -0700 (PDT)
-In-Reply-To: <4EA7D268.1050504@ziu.info>
+Received: from opensource.wolfsonmicro.com ([80.75.67.52]:53392 "EHLO
+	opensource.wolfsonmicro.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932603Ab1JZKRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 06:17:53 -0400
+Content-Disposition: inline
+In-Reply-To: <4EA7D1F5.2030904@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 26, 2011 at 05:27, Michal Soltys wrote:
-> On 26.10.2011 10:15, Mike Frysinger wrote:
->> I've read it many times over, but it's a lengthy chunk of text - so =
-try
->> to be understanding in case I made some mistakes.
->
-> TBH, I planned to do some fixes / corrections (minor ones) to the ver=
-sion I
-> submitted back then, though I had two doubts after looking at it afte=
-r a bit
-> of time:
->
-> - too long / too detailed / hard to read
-> =A0(or ITOW, following HFSC paper to closely to be of practical use f=
-or
-> =A0someone just wanting to know how it works, without [too] gritty
-> =A0details)
+On Wed, Oct 26, 2011 at 11:25:09AM +0200, Linus Walleij wrote:
+> On 10/26/2011 10:38 AM, Mark Brown wrote:
 
-i think there should be something here about HFSC.  having too much
-information in a man page is better than none at all imo.
+> >This has the same issue as last time - if you've got conditional code
+> >like this in the body of the driver something is going wrong.  Unless
+> >the supply is genuinely optional and might not be physically present on
+> >some systems the driver should fail if it can't get it.  The regulator
+> >API will stub itself out when not in use.
 
-> - some friendlier format with man export (asciidoc ? yodl ?
-> =A0reText ? etc. - not sure what's it the policy regarding iproute2)
-> =A0as otherwise it will be quite a burden to maintain / update.
+> That solves the issue for platforms with no regulator
+> support at all.
 
-that's orthogonal to the patch i think.  all the iproute2 man pages
-are written in roff.  let's keep that sep from getting HFSC
-documentation into the tree.
+No, it solves the problem for all platforms.
 
-> If my memory serves right, one of the corner cases described in it mi=
-ght
-> have been fixed by a patch I submitted a good few months ago, though =
-I'll
-> have to read it to be sure. And there're few other small long-overdue
-> patches I'm sitting on (they won't change anything algorithmically, b=
-ut at
-> least one could be noted in the text - though that can be changed any=
- time
-> in the future, and if the patches get accepted at all of course).
->
-> Another thing was minor kernel patch to stab, and the docs assumed it=
- was
-> added (not sure if you corrected it).
+> Then we have platforms with regulator support, but no
+> regulator for this hardware, because that one happens
+> to be always-on in these systems.
 
-if you want to post updates to the content, i can take care of the
-*roff formatting.
--mike
+Right, this is extremely common and is exactly what the fixed voltage
+regulator is there for - if you've got an always on regulator in your
+system define a fixed voltage regulator to represent it.
+
+> Shall we have CONFIG_SMC911X select
+> REGULATOR_DUMMY?
+
+No, nothing should be selecting that.  Users can enable it for their
+systems if they want it.
