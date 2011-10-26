@@ -1,113 +1,194 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net 4/7] bnx2x: Fix 54618se LED behavior
-Date: Wed, 26 Oct 2011 11:40:36 +0200
-Message-ID: <1319622039-10553-5-git-send-email-yanivr@broadcom.com>
-References: <1319622039-10553-1-git-send-email-yanivr@broadcom.com>
+From: Kelvin Cheung <keguang.zhang@gmail.com>
+Subject: Re: [PATCH V2 2/4] MIPS: Add board support for Loongson1B
+Date: Wed, 26 Oct 2011 15:48:26 +0800
+Message-ID: <CAJhJPsUfk9PbQoTnBnxv7n+aWY0qFPqWpy23nVw6S_v9=S2Q6A@mail.gmail.com>
+References: <1319192888-21465-1-git-send-email-keguang.zhang@gmail.com>
+	<1319192888-21465-2-git-send-email-keguang.zhang@gmail.com>
+	<CAD+V5YKBkW52_md9rBeVZ1RXq2FGEXt=Ergsw+z8txMreZdNsA@mail.gmail.com>
+	<4EA5117C.3000402@st.com>
+	<CAJhJPsVSzXXmBOwLaGNtOsxhVEyC0fAJtiBvEWzcKcSDC8NEcA@mail.gmail.com>
+	<4EA557B2.4020504@st.com>
+	<CAJhJPsXxUAuF9HdivLd66MQC45mz-iYAuF1SdGdU=-duxJJ5bQ@mail.gmail.com>
+	<4EA585B5.5030405@st.com>
+	<CAJhJPsVu7hahhmUvPQ=s=AqvXGhU-05x=GqQ29Mo6PZ8cTtefA@mail.gmail.com>
+	<4EA660C0.1020901@st.com>
+	<4EA6716A.80307@st.com>
+	<CAJhJPsU3KMNuGcKaKf3H4pUCeu1+vnEz4DgO_jbm+wDQb1G4OA@mail.gmail.com>
+	<4EA7B4D7.9000101@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Yaniv Rosner" <yanivr@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2937 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754672Ab1JZHlP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Oct 2011 03:41:15 -0400
-In-Reply-To: <1319622039-10553-1-git-send-email-yanivr@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Wu Zhangjin <wuzhangjin@gmail.com>, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
+	r0bertz@gentoo.org, netdev@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EA7B4D7.9000101@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_link.c |   44 ++++++++++++++++++++-------------------
- 1 files changed, 23 insertions(+), 21 deletions(-)
+It's perfect now.
+Please add me to CC list when you send the new patch.
 
-diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index ea2a11d..5acf274 100644
---- a/drivers/net/bnx2x/bnx2x_link.c
-+++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -5993,7 +5993,13 @@ int bnx2x_set_led(struct link_params *params,
- 		       SHARED_HW_CFG_LED_MAC1);
- 
- 		tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
--		EMAC_WR(bp, EMAC_REG_EMAC_LED, (tmp | EMAC_LED_OVERRIDE));
-+		if (params->phy[EXT_PHY1].type ==
-+			  PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE)
-+			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp & 0xfff1);
-+		else {
-+			EMAC_WR(bp, EMAC_REG_EMAC_LED,
-+				(tmp | EMAC_LED_OVERRIDE));
-+		}
- 		break;
- 
- 	case LED_MODE_OPER:
-@@ -6046,8 +6052,15 @@ int bnx2x_set_led(struct link_params *params,
- 			else
- 				REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4,
- 				       hw_led_mode);
-+		} else if ((params->phy[EXT_PHY1].type ==
-+			    PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) &&
-+			   (mode != LED_MODE_OPER)) {
-+			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4, 0);
-+			tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
-+			EMAC_WR(bp, EMAC_REG_EMAC_LED, tmp | 0x3);
- 		} else
--			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4, hw_led_mode);
-+			REG_WR(bp, NIG_REG_LED_MODE_P0 + port*4,
-+			       hw_led_mode);
- 
- 		REG_WR(bp, NIG_REG_LED_CONTROL_OVERRIDE_TRAFFIC_P0 + port*4, 0);
- 		/* Set blinking rate to ~15.9Hz */
-@@ -6059,8 +6072,13 @@ int bnx2x_set_led(struct link_params *params,
- 			       LED_BLINK_RATE_VAL_E1X_E2);
- 		REG_WR(bp, NIG_REG_LED_CONTROL_BLINK_RATE_ENA_P0 +
- 		       port*4, 1);
--		tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
--		EMAC_WR(bp, EMAC_REG_EMAC_LED, (tmp & (~EMAC_LED_OVERRIDE)));
-+		if ((params->phy[EXT_PHY1].type !=
-+		     PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM54618SE) &&
-+		    (mode != LED_MODE_OPER)) {
-+			tmp = EMAC_RD(bp, EMAC_REG_EMAC_LED);
-+			EMAC_WR(bp, EMAC_REG_EMAC_LED,
-+				(tmp & (~EMAC_LED_OVERRIDE)));
-+		}
- 
- 		if (CHIP_IS_E1(bp) &&
- 		    ((speed == SPEED_2500) ||
-@@ -10304,22 +10322,6 @@ static int bnx2x_54618se_config_init(struct bnx2x_phy *phy,
- 	return 0;
- }
- 
--static void bnx2x_54618se_set_link_led(struct bnx2x_phy *phy,
--				       struct link_params *params, u8 mode)
--{
--	struct bnx2x *bp = params->bp;
--	DP(NETIF_MSG_LINK, "54618SE set link led (mode=%x)\n", mode);
--	switch (mode) {
--	case LED_MODE_FRONT_PANEL_OFF:
--	case LED_MODE_OFF:
--	case LED_MODE_OPER:
--	case LED_MODE_ON:
--	default:
--		break;
--	}
--	return;
--}
--
- static void bnx2x_54618se_link_reset(struct bnx2x_phy *phy,
- 				     struct link_params *params)
- {
-@@ -11095,7 +11097,7 @@ static struct bnx2x_phy phy_54618se = {
- 	.config_loopback = (config_loopback_t)bnx2x_54618se_config_loopback,
- 	.format_fw_ver	= (format_fw_ver_t)NULL,
- 	.hw_reset	= (hw_reset_t)NULL,
--	.set_link_led	= (set_link_led_t)bnx2x_54618se_set_link_led,
-+	.set_link_led	= (set_link_led_t)NULL,
- 	.phy_specific_func = (phy_specific_func_t)NULL
- };
- /*****************************************************************/
+Thanks a lot for your help.
+
+2011/10/26, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
+> Hello Kelvin
+>
+> On 10/26/2011 6:27 AM, Kelvin Cheung wrote:
+>> Hi Giuseppe,
+>>
+>> This patch works well on Loongson1B platform except one thing.
+>> The rx checksum offload of normal descriptor is disabled by default.
+>> So, I enabled this functon. And one minor tweak is added to your patch.
+>> What about your opinion?
+>
+> Yes, I had not enabled the rx coe. I'm resending your patch (v3) where I
+> fixed a problem. Old mac10/100 has no rx csum in HW. So I added an extra
+> check.
+> Let me consider it the final version. ;-)
+>
+> Thanks a lot for you effort.
+> I'll send it for net-next now.
+>
+> Regards
+> Peppe
+>
+>>
+>> BTW, tx checksum insertion works now.
+>>
+>> 2011/10/25, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
+>>> On 10/25/2011 9:09 AM, Giuseppe CAVALLARO wrote:
+>>>> On 10/25/2011 4:12 AM, Kelvin Cheung wrote:
+>>>>> 2011/10/24, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
+>>>>>> On 10/24/2011 4:05 PM, Kelvin Cheung wrote:
+>>>>>>> 2011/10/24, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
+>>>>>>>> Hello Kelvin.
+>>>>>>>>
+>>>>>>>> On 10/24/2011 12:36 PM, Kelvin Cheung wrote:
+>>>>>>>>
+>>>>>>>> [snip]
+>>>>>>>>
+>>>>>>>>> According to datasheet of Loongson 1B, the buffer size in RX/TX
+>>>>>>>>> descriptor is only 2KB. So the Loongson1B's GMAC could not handle
+>>>>>>>>> jumbo frames. And the second buffer is useless in this case. Am I
+>>>>>>>>> right? Is there a better way than ifdef CONFIG_MACH_LOONGSON1 to
+>>>>>>>>> avoid duplicate code?
+>>>>>>>>
+>>>>>>>> Sorry for my misunderstanding.
+>>>>>>>>
+>>>>>>>> I think you have to use the normal descriptor and remove the
+>>>>>>>> enh_desc
+>>>>>>>> from the platform w/o modifying the driver at all.
+>>>>>>>>
+>>>>>>>> The driver will be able to select/configure all automatically (also
+>>>>>>>> jumbo).
+>>>>>>>>
+>>>>>>>> Let me know.
+>>>>>>>
+>>>>>>> That's the problem.
+>>>>>>> The bitfield definition of Loongson1B is also different from normal
+>>>>>>> descriptor.
+>>>>>>
+>>>>>> The problem is not in the Loongson1B gmac.
+>>>>>
+>>>>> I found that the bit checksum_insertion is not existed in normal
+>>>>> descriptor.
+>>>>>
+>>>>>> The normal descriptor fields in the stmmac refer to an old synopsys
+>>>>>> databook.
+>>>>>
+>>>>> Could you send me the new databook of Synopsys GMAC?
+>>>>>
+>>>>>> New chips have the same structure you have added; so we should fix
+>>>>>> this
+>>>>>> in the driver w/o breaking the compatibility for old chips.
+>>>>>
+>>>>> Agree.
+>>>>>
+>>>>>> I kindly ask you to confirm if the currently normal descriptor
+>>>>>> structure
+>>>>>> (w/o your changes) doesn't work on your platform.
+>>>>>> Did you test it?
+>>>>>
+>>>>> Well, the normal descriptor works on my platform except TX checksum
+>>>>> offload.
+>>>>
+>>>> ok! I suspected that.
+>>>>
+>>>>
+>>>>>>> Moreover, I want to enable the TX checksum offload function which is
+>>>>>>> not supported in normal descriptor.
+>>>>>>> Any suggestions?
+>>>>>>
+>>>>>> It is supported but you have to pass from the platform: tx_coe = 1.
+>>>>>
+>>>>> I noticed that the flag csum_insertion is passed to
+>>>>> ndesc_prepare_tx_desc() in stmmac_xmit(). But ndesc_prepare_tx_desc()
+>>>>> just ignores it.
+>>>>> In other words, the TX checksum offload function is disabled in normal
+>>>>> descriptor currently.
+>>>>>
+>>>>> Should we fix this problem for normal descriptor?
+>>>>
+>>>> Yes, we should. If you agree, I'll update the normal descriptor
+>>>> structure to yours. This is the normal descriptor used in newer GMAC.
+>>>> Tx csum will be done for normal descriptors in case of these GMAC
+>>>> devices and not for old MAC10/100. For the MAC10/100 some bits for
+>>>> normal descriptors are reserved and won't be used at all.
+>>>>
+>>>> I'll also verify that the patch doesn't break the back-compatibility
+>>>> with old MAC10/100. I have the HW where doing the tests.
+>>>>
+>>>> After that, I'll prepare the patch for net-next and for your kernel.
+>>>
+>>> Hello Kelvin
+>>>
+>>> attached the patch tested on my development kernel.
+>>> It runs fine on old and new mac devices.
+>>>
+>>> Can you try it on your side? Hmm, it is likely it won't apply fine on
+>>> your tree but you know the changes ;-).
+>>>
+>>> If ok, I'll rework it for net-next and send it to the mailing list.
+>>>
+>>> Thanks
+>>> Peppe
+>>>
+>>>>
+>>>>>
+>>>>>> Peppe
+>>>>>>>
+>>>>>>>> Note:
+>>>>>>>> IIRC, there is a bit difference in case of normal descriptors for
+>>>>>>>> Synopsys databook newer than the 1.91 (I used for testing this
+>>>>>>>> mode).
+>>>>>>>> In any case, I remember that, on some platforms, the normal
+>>>>>>>> descriptors
+>>>>>>>> have been used w/o problems also on these new chip generations.
+>>>>>>>>
+>>>>>>>> Peppe
+>>>>>>>>
+>>>>>>>>
+>>>>>>>
+>>>>>>>
+>>>>>>
+>>>>>>
+>>>>>
+>>>>>
+>>>>
+>>>> --
+>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>> the body of a message to majordomo@vger.kernel.org
+>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>
+>>>
+>>>
+>>
+>>
+>
+>
+
+
 -- 
-1.7.7.1
+Best Regards!
+Kelvin
