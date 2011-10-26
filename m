@@ -1,116 +1,143 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [virtio-spec: RFC PATCH] virtio-spec:
-	introduce	VIRTIO_NET_F_GUEST_ANNOUNCE
-Date: Wed, 26 Oct 2011 16:49:12 +0800
-Message-ID: <20111026084912.19391.26534.stgit@dhcp-8-146.nay.redhat.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next V5] net: introduce ethernet teaming device
+Date: Wed, 26 Oct 2011 10:49:57 +0200
+Message-ID: <20111026084946.GA2030@minipsycho.redhat.com>
+References: <1319547821-1045-1-git-send-email-jpirko@redhat.com>
+ <1319549255.10883.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, rusty@rustcorp.com.au, qemu-devel@nongnu.org,
-	kvm@vger.kernel.org, mst@redhat.com
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
+	jzupka@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:17884 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932413Ab1JZIuU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Oct 2011 04:50:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1319549255.10883.16.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Network connections in guest need to be kept after migration. This is done by
-sending gratuitous packet and let switch learn new port of the mac
-address. As hypervisor does not have the knowledge of guest network
-configurations such as tagged vlan or ipv6, it may require guest to send
-gratuitous packet.
+Tue, Oct 25, 2011 at 03:27:35PM CEST, eric.dumazet@gmail.com wrote:
+>Le mardi 25 octobre 2011 =E0 15:03 +0200, Jiri Pirko a =E9crit :
+>> This patch introduces new network device called team. It supposes to=
+ be
+>> very fast, simple, userspace-driven alternative to existing bonding
+>> driver.
+>>=20
+>> Userspace library called libteam with couple of demo apps is availab=
+le
+>> here:
+>> https://github.com/jpirko/libteam
+>> Note it's still in its dipers atm.
+>>=20
+>> team<->libteam use generic netlink for communication. That and rtnl
+>> suppose to be the only way to configure team device, no sysfs etc.
+>>=20
+>> Python binding basis for libteam was recently introduced (some need
+>> still need to be done on it though). Daemon providing arpmon/miimon
+>> active-backup functionality will be introduced shortly.
+>> All what's necessary is already implemented in kernel team driver.
+>>=20
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>=20
+>> v4->v5:
+>> 	- team_change_mtu() uses team->lock while travesing though port
+>> 	  list
+>> 	- mac address changes are moved completely to jurisdiction of
+>> 	  userspace daemon. This way the daemon can do FOM1, FOM2 and
+>> 	  possibly other weird things with mac addresses.
+>> 	  Only round-robin mode sets up all ports to bond's address then
+>> 	  enslaved.
+>> 	- Extended Kconfig text
+>
+>
+>Following is not called under rcu, but rtnl or team spinlock held.
+>
+>Therefore, team_get_port_by_index_rcu() is not the right thing.
 
-This patch introduces a new feature bit of virtio network adapter -
-VIRTIO_NET_F_GUEST_ANNOUNCE which is used to indicate the ability to send
-gratuitous packets by guest. A new status bit - VIRTIO_NET_S_ANNOUNCE is also
-introduced to notify the guest the need for sending gratuitous packet. When
-guest notice this, it should clear it and send the gratuitous packet.
+Yes, this is bug, I missed this.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- virtio-spec.lyx |   45 ++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 44 insertions(+), 1 deletions(-)
+>
+>+static void __reconstruct_port_hlist(struct team *team, int rm_index)
+>+{
+>+       int i;
+>+       struct team_port *port;
+>+
+>+       for (i =3D rm_index + 1; i < team->port_count; i++) {
+>+               port =3D team_get_port_by_index_rcu(team, i);
+>+               hlist_del_rcu(&port->hlist);
+>+               port->index--;
+>+               hlist_add_head_rcu(&port->hlist,
+>+                                  team_port_index_hash(team, port->in=
+dex));
+>+       }
+>+}
+>+
+>
+>In fact, I claim most of your rcu_read_lock() in management side are
+>bogus and obfuscate code.
+>
+>RCU is an exact science, not a commodity.
+>
+>When RCU is used, rcu_read_lock()/rcu_read_unlock() are used by reader=
+s,
+>not managers :
+>
+>They should use a spin/mutex(rtnl usually in network land)
+>and normal reads, no need for rcu_something
+>
+>Only writes must take care of concurrent readers (aka rcu_assign_point=
+er())
+>
+>For example:
+>
+>team_nl_fill_port_list_get_changed() should not use
+>	list_for_each_entry_rcu(port, &team->port_list, list) {
+>but a regular
+>	list_for_each_entry(port, &team->port_list, list) {
 
-diff --git a/virtio-spec.lyx b/virtio-spec.lyx
-index 6426f8f..87733b9 100644
---- a/virtio-spec.lyx
-+++ b/virtio-spec.lyx
-@@ -4133,6 +4133,14 @@ VIRTIO_NET_F_CTRL_VLAN
- (19) Control channel VLAN filtering.
- \end_layout
- 
-+\begin_layout Description
-+VIRTIO_NET_F_GUEST_ANNOUNCE
-+\begin_inset space ~
-+\end_inset
-+
-+(21) Guest can send gratuitous packets.
-+\end_layout
-+
- \end_deeper
- \begin_layout Description
- Device
-@@ -4146,7 +4154,8 @@ configuration
- layout Two configuration fields are currently defined.
-  The mac address field always exists (though is only valid if VIRTIO_NET_F_MAC
-  is set), and the status field only exists if VIRTIO_NET_F_STATUS is set.
-- Only one bit is currently defined for the status field: VIRTIO_NET_S_LINK_UP.
-+ Two bits are currently defined for the status field: VIRTIO_NET_S_LINK_UP
-+ and VIRTIO_NET_S_ANOUNCE.
-  
- \begin_inset listings
- inline false
-@@ -4159,6 +4168,11 @@ status open
- 
- \begin_layout Plain Layout
- 
-+#define VIRTIO_NET_S_ANNOUNCE	2
-+\end_layout
-+
-+\begin_layout Plain Layout
-+
- \end_layout
- 
- \begin_layout Plain Layout
-@@ -5015,6 +5029,35 @@ Both the VIRTIO_NET_CTRL_VLAN_ADD and VIRTIO_NET_CTRL_VLAN_DEL command take
-  a 16-bit VLAN id as the command-specific-data.
- \end_layout
- 
-+\begin_layout Subsection*
-+Gratuitous Packet Sending
-+\end_layout
-+
-+\begin_layout Standard
-+If the driver negotiates the VIRTIO_NET_F_GUEST_ANNOUNCE, it can send gratuitous
-+ packet.
-+ Gratuitous packet were used to notify the change of physical link and it
-+ is usually sent after migration.
-+ As hypervisor does not have the knowledge of guest network configuration
-+ (ie.
-+ tagged vlan), it would demand guest to send gratuitous packet by setting
-+ VIRTIO_NET_S_ANNOUNCE bit in status field.
-+ Guest needs to check VIRTIO_NET_S_ANNOUNCE bit in status field when it
-+ notices the changes of device configuration.
-+\end_layout
-+
-+\begin_layout Standard
-+Processing this notification invloves:
-+\end_layout
-+
-+\begin_layout Enumerate
-+Clear VIRTIO_NET_S_ANNOUNCE bit in the status field.
-+\end_layout
-+
-+\begin_layout Enumerate
-+Send the gratuitous packets.
-+\end_layout
-+
- \begin_layout Chapter*
- Appendix D: Block Device
- \end_layout
+Nod. This I missed as well.
+
+>
+>
+>team_nl_team_get() should not play with RCU either.
+>	It can use __dev_get_by_index() instead of dev_get_by_index_rcu()
+
+Not true. RTNL is not held here.
+
+
+>
+>Comment in front of team_nl_team_get() is bogus as well :
+>
+>/*
+> * Netlink cmd functions should be locked by following two functions.
+> * To ensure team_uninit would not be called in between, hold rcu_read=
+_lock
+> * all the time.
+> */
+>
+>How can holding rcu_read_lock() can prevent another cpu doing whatever=
+ he wants ?
+>
+>It seems you believe rcu_read_lock() is a read_lock(), but it isnt.
+
+I'm aware. But in this particular case, holding rcu_read_lock
+effectively does the thing. Because team_uninit is called from
+rollback_registered_many() after synchronize_net is called. The thing i=
+s
+that holding rcu_read_lock ensures that team->dev does not disappear
+until team_nl_team_put() is called.
+
+>
+>Using right API is essential to get appropriate LOCKDEP semantic and
+>code maintainability.
+>
+>
+>
