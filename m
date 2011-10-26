@@ -1,194 +1,48 @@
-From: Kelvin Cheung <keguang.zhang@gmail.com>
-Subject: Re: [PATCH V2 2/4] MIPS: Add board support for Loongson1B
-Date: Wed, 26 Oct 2011 15:48:26 +0800
-Message-ID: <CAJhJPsUfk9PbQoTnBnxv7n+aWY0qFPqWpy23nVw6S_v9=S2Q6A@mail.gmail.com>
-References: <1319192888-21465-1-git-send-email-keguang.zhang@gmail.com>
-	<1319192888-21465-2-git-send-email-keguang.zhang@gmail.com>
-	<CAD+V5YKBkW52_md9rBeVZ1RXq2FGEXt=Ergsw+z8txMreZdNsA@mail.gmail.com>
-	<4EA5117C.3000402@st.com>
-	<CAJhJPsVSzXXmBOwLaGNtOsxhVEyC0fAJtiBvEWzcKcSDC8NEcA@mail.gmail.com>
-	<4EA557B2.4020504@st.com>
-	<CAJhJPsXxUAuF9HdivLd66MQC45mz-iYAuF1SdGdU=-duxJJ5bQ@mail.gmail.com>
-	<4EA585B5.5030405@st.com>
-	<CAJhJPsVu7hahhmUvPQ=s=AqvXGhU-05x=GqQ29Mo6PZ8cTtefA@mail.gmail.com>
-	<4EA660C0.1020901@st.com>
-	<4EA6716A.80307@st.com>
-	<CAJhJPsU3KMNuGcKaKf3H4pUCeu1+vnEz4DgO_jbm+wDQb1G4OA@mail.gmail.com>
-	<4EA7B4D7.9000101@st.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] ipv4: use IS_ENABLED() macro to cleanup code
+Date: Wed, 26 Oct 2011 10:00:54 +0200
+Message-ID: <1319616054.11727.19.camel@deadeye>
+References: <1319526752.3834.12.camel@edumazet-laptop>
+	 <20111025.193037.1312584002692004360.davem@davemloft.net>
+	 <1319610874.18883.8.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Wu Zhangjin <wuzhangjin@gmail.com>, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org, ralf@linux-mips.org,
-	r0bertz@gentoo.org, netdev@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EA7B4D7.9000101@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:31666 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754790Ab1JZIBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 04:01:04 -0400
+In-Reply-To: <1319610874.18883.8.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It's perfect now.
-Please add me to CC list when you send the new patch.
+On Wed, 2011-10-26 at 08:34 +0200, Eric Dumazet wrote:
+> Le mardi 25 octobre 2011 =C3=A0 19:30 -0400, David Miller a =C3=A9cri=
+t :
+>=20
+> > net/ipv4/ip_sockglue.c: In function =E2=80=98do_ip_setsockopt=E2=80=
+=99:
+> > net/ipv4/ip_sockglue.c:523:29: error: =E2=80=98LOOPBACK4_IPV6=E2=80=
+=99 undeclared (first use in this function)
+> > net/ipv4/ip_sockglue.c:523:29: note: each undeclared identifier is =
+reported only once for each function it appears in
+> >=20
+> > This fails because ip_sockglue.c guards the net/transp_v6.h header
+> > inclusion with a real CPP guard.
+>=20
+> Yep, it seems compiler was not able to perform optimisation of dead
+> code.
+[...]
 
-Thanks a lot for your help.
+No, the compiler is just checking the code further than you wanted
+before optimising it away.
 
-2011/10/26, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
-> Hello Kelvin
->
-> On 10/26/2011 6:27 AM, Kelvin Cheung wrote:
->> Hi Giuseppe,
->>
->> This patch works well on Loongson1B platform except one thing.
->> The rx checksum offload of normal descriptor is disabled by default.
->> So, I enabled this functon. And one minor tweak is added to your patch.
->> What about your opinion?
->
-> Yes, I had not enabled the rx coe. I'm resending your patch (v3) where I
-> fixed a problem. Old mac10/100 has no rx csum in HW. So I added an extra
-> check.
-> Let me consider it the final version. ;-)
->
-> Thanks a lot for you effort.
-> I'll send it for net-next now.
->
-> Regards
-> Peppe
->
->>
->> BTW, tx checksum insertion works now.
->>
->> 2011/10/25, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
->>> On 10/25/2011 9:09 AM, Giuseppe CAVALLARO wrote:
->>>> On 10/25/2011 4:12 AM, Kelvin Cheung wrote:
->>>>> 2011/10/24, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
->>>>>> On 10/24/2011 4:05 PM, Kelvin Cheung wrote:
->>>>>>> 2011/10/24, Giuseppe CAVALLARO <peppe.cavallaro@st.com>:
->>>>>>>> Hello Kelvin.
->>>>>>>>
->>>>>>>> On 10/24/2011 12:36 PM, Kelvin Cheung wrote:
->>>>>>>>
->>>>>>>> [snip]
->>>>>>>>
->>>>>>>>> According to datasheet of Loongson 1B, the buffer size in RX/TX
->>>>>>>>> descriptor is only 2KB. So the Loongson1B's GMAC could not handle
->>>>>>>>> jumbo frames. And the second buffer is useless in this case. Am I
->>>>>>>>> right? Is there a better way than ifdef CONFIG_MACH_LOONGSON1 to
->>>>>>>>> avoid duplicate code?
->>>>>>>>
->>>>>>>> Sorry for my misunderstanding.
->>>>>>>>
->>>>>>>> I think you have to use the normal descriptor and remove the
->>>>>>>> enh_desc
->>>>>>>> from the platform w/o modifying the driver at all.
->>>>>>>>
->>>>>>>> The driver will be able to select/configure all automatically (also
->>>>>>>> jumbo).
->>>>>>>>
->>>>>>>> Let me know.
->>>>>>>
->>>>>>> That's the problem.
->>>>>>> The bitfield definition of Loongson1B is also different from normal
->>>>>>> descriptor.
->>>>>>
->>>>>> The problem is not in the Loongson1B gmac.
->>>>>
->>>>> I found that the bit checksum_insertion is not existed in normal
->>>>> descriptor.
->>>>>
->>>>>> The normal descriptor fields in the stmmac refer to an old synopsys
->>>>>> databook.
->>>>>
->>>>> Could you send me the new databook of Synopsys GMAC?
->>>>>
->>>>>> New chips have the same structure you have added; so we should fix
->>>>>> this
->>>>>> in the driver w/o breaking the compatibility for old chips.
->>>>>
->>>>> Agree.
->>>>>
->>>>>> I kindly ask you to confirm if the currently normal descriptor
->>>>>> structure
->>>>>> (w/o your changes) doesn't work on your platform.
->>>>>> Did you test it?
->>>>>
->>>>> Well, the normal descriptor works on my platform except TX checksum
->>>>> offload.
->>>>
->>>> ok! I suspected that.
->>>>
->>>>
->>>>>>> Moreover, I want to enable the TX checksum offload function which is
->>>>>>> not supported in normal descriptor.
->>>>>>> Any suggestions?
->>>>>>
->>>>>> It is supported but you have to pass from the platform: tx_coe = 1.
->>>>>
->>>>> I noticed that the flag csum_insertion is passed to
->>>>> ndesc_prepare_tx_desc() in stmmac_xmit(). But ndesc_prepare_tx_desc()
->>>>> just ignores it.
->>>>> In other words, the TX checksum offload function is disabled in normal
->>>>> descriptor currently.
->>>>>
->>>>> Should we fix this problem for normal descriptor?
->>>>
->>>> Yes, we should. If you agree, I'll update the normal descriptor
->>>> structure to yours. This is the normal descriptor used in newer GMAC.
->>>> Tx csum will be done for normal descriptors in case of these GMAC
->>>> devices and not for old MAC10/100. For the MAC10/100 some bits for
->>>> normal descriptors are reserved and won't be used at all.
->>>>
->>>> I'll also verify that the patch doesn't break the back-compatibility
->>>> with old MAC10/100. I have the HW where doing the tests.
->>>>
->>>> After that, I'll prepare the patch for net-next and for your kernel.
->>>
->>> Hello Kelvin
->>>
->>> attached the patch tested on my development kernel.
->>> It runs fine on old and new mac devices.
->>>
->>> Can you try it on your side? Hmm, it is likely it won't apply fine on
->>> your tree but you know the changes ;-).
->>>
->>> If ok, I'll rework it for net-next and send it to the mailing list.
->>>
->>> Thanks
->>> Peppe
->>>
->>>>
->>>>>
->>>>>> Peppe
->>>>>>>
->>>>>>>> Note:
->>>>>>>> IIRC, there is a bit difference in case of normal descriptors for
->>>>>>>> Synopsys databook newer than the 1.91 (I used for testing this
->>>>>>>> mode).
->>>>>>>> In any case, I remember that, on some platforms, the normal
->>>>>>>> descriptors
->>>>>>>> have been used w/o problems also on these new chip generations.
->>>>>>>>
->>>>>>>> Peppe
->>>>>>>>
->>>>>>>>
->>>>>>>
->>>>>>>
->>>>>>
->>>>>>
->>>>>
->>>>>
->>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>
->>>
->>>
->>
->>
->
->
+Ben.
 
-
--- 
-Best Regards!
-Kelvin
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
