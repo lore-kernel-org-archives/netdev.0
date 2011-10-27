@@ -1,27 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/7] bnx2x: driver and firmware fixes
-Date: Thu, 27 Oct 2011 16:20:37 -0400 (EDT)
-Message-ID: <20111027.162037.1553352795068220238.davem@davemloft.net>
-References: <1319728191-24938-1-git-send-email-yanivr@broadcom.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH v3 0/3] SUNRPC: rcbind clients virtualization
+Date: Thu, 27 Oct 2011 16:25:14 -0400
+Message-ID: <20111027202514.GA31669@fieldses.org>
+References: <20111027180824.20459.23219.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yanivr@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35980 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752424Ab1J0UUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 16:20:44 -0400
-In-Reply-To: <1319728191-24938-1-git-send-email-yanivr@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org,
+	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net, devel@openvz.org
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111027180824.20459.23219.stgit@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Date: Thu, 27 Oct 2011 17:09:44 +0200
+On Thu, Oct 27, 2011 at 10:10:43PM +0300, Stanislav Kinsbursky wrote:
+> v3:
+> 1) First two patches from previous version were squashed.
+> 
+> This patch-set was created in context of clone of git branch:
+> git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git
+> and rebased on tag "v3.1".
+> 
+> This patch-set virtualizes rpcbind clients per network namespace context. IOW,
+> each network namespace will have its own pair of rpcbind clients (if they would
+> be created by request).
+> 
+> Note:
+> 1) this patch-set depends on "SUNRPC: make rpcbind clients allocated and
+> destroyed dynamically" patch-set which has been send earlier.
+> 2) init_net pointer is still used instead of current->nsproxy->net_ns,
+> because I'm not sure yet about how to virtualize services. I.e. NFS callback
+> services will be per netns. NFSd service will be per netns too from my pow. But
+> Lockd can be per netns or one for all.
 
-> The following patch series describe few link fixes and firmware update.
->  
-> Please consider applying it to net.
+I'm not sure what you mean by that; could you explain?
 
-All applied, thank you.
+--b.
+
+> And also we have NFSd file system, which
+> is not virtualized yet.
+> 
+> The following series consists of:
+> 
+> ---
+> 
+> Stanislav Kinsbursky (3):
+>       SUNRPC: move rpcbind internals to sunrpc part of network namespace context
+>       SUNRPC: optimize net_ns dereferencing in rpcbind creation calls
+>       SUNRPC: optimize net_ns dereferencing in rpcbind registering calls
+> 
+> 
+>  net/sunrpc/netns.h     |    5 ++
+>  net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++----------------------
+>  2 files changed, 61 insertions(+), 47 deletions(-)
+> 
+> -- 
+> Signature
