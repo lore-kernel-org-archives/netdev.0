@@ -1,35 +1,149 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: asix usb network driver: nfg
-Date: Wed, 26 Oct 2011 22:17:19 -0400 (EDT)
-Message-ID: <20111026.221719.2216112919297458522.davem@davemloft.net>
-References: <4EA89972.5060101@teksavvy.com>
-	<20111026.194045.2019668159403582571.davem@davemloft.net>
-	<4EA8B283.3010105@teksavvy.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kernel@teksavvy.com
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: [PATCH 2/5] eeprom_93cx6: Add write support
+Date: Wed, 26 Oct 2011 19:17:47 -0700
+Message-ID: <1319681870-11972-3-git-send-email-sboyd@codeaurora.org>
+References: <1319681870-11972-1-git-send-email-sboyd@codeaurora.org>
+Cc: linux-kernel@vger.kernel.org, Sebastien Jan <s-jan@ti.com>,
+	netdev@vger.kernel.org, Wolfram Sang <w.sang@pengutronix.de>,
+	Jean Delvare <khali@linux-fr.org>
+To: Ben Dooks <ben@simtec.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35087 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077Ab1J0CRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 22:17:25 -0400
-In-Reply-To: <4EA8B283.3010105@teksavvy.com>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:10069 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753901Ab1J0CRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Oct 2011 22:17:54 -0400
+In-Reply-To: <1319681870-11972-1-git-send-email-sboyd@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Lord <kernel@teksavvy.com>
-Date: Wed, 26 Oct 2011 21:23:15 -0400
+From: Ben Dooks <ben@simtec.co.uk>
 
-> Any strong advance objections to replacing the in-kernel version
-> with a (fixed) vendor open source version?
+Add support for writing data to EEPROM.
 
-It need to meet the coding etc. standards for inclusion, last
-time I looked at it their driver indeed need a bit of cleaning
-up.
+Signed-off-by: Ben Dooks <ben@simtec.co.uk>
+Cc: Wolfram Sang <w.sang@pengutronix.de>
+Cc: Jean Delvare <khali@linux-fr.org>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
+Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+---
+ drivers/misc/eeprom/eeprom_93cx6.c |   85 ++++++++++++++++++++++++++++++++++++
+ include/linux/eeprom_93cx6.h       |    6 +++
+ 2 files changed, 91 insertions(+), 0 deletions(-)
 
-It's a sad situation, they started with the upstream driver and
-just hacked on it however they pleased in their private copy.
-So now we have this huge divergance and no effort on their part
-to rectify things.
+diff --git a/drivers/misc/eeprom/eeprom_93cx6.c b/drivers/misc/eeprom/eeprom_93cx6.c
+index a6037af..0ff4b02 100644
+--- a/drivers/misc/eeprom/eeprom_93cx6.c
++++ b/drivers/misc/eeprom/eeprom_93cx6.c
+@@ -234,3 +234,88 @@ void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom, const u8 word,
+ }
+ EXPORT_SYMBOL_GPL(eeprom_93cx6_multiread);
+ 
++/**
++ * eeprom_93cx6_wren - set the write enable state
++ * @eeprom: Pointer to eeprom structure
++ * @enable: true to enable writes, otherwise disable writes
++ *
++ * Set the EEPROM write enable state to either allow or deny
++ * writes depending on the @enable value.
++ */
++void eeprom_93cx6_wren(struct eeprom_93cx6 *eeprom, bool enable)
++{
++	u16 command;
++
++	/* start the command */
++	eeprom_93cx6_startup(eeprom);
++
++	/* create command to enable/disable */
++
++	command = enable ? PCI_EEPROM_EWEN_OPCODE : PCI_EEPROM_EWDS_OPCODE;
++	command <<= (eeprom->width - 2);
++
++	eeprom_93cx6_write_bits(eeprom, command,
++				PCI_EEPROM_WIDTH_OPCODE + eeprom->width);
++
++	eeprom_93cx6_cleanup(eeprom);
++}
++EXPORT_SYMBOL_GPL(eeprom_93cx6_wren);
++
++/**
++ * eeprom_93cx6_write - write data to the EEPROM
++ * @eeprom: Pointer to eeprom structure
++ * @addr: Address to write data to.
++ * @data: The data to write to address @addr.
++ *
++ * Write the @data to the specified @addr in the EEPROM and
++ * waiting for the device to finish writing.
++ *
++ * Note, since we do not expect large number of write operations
++ * we delay in between parts of the operation to avoid using excessive
++ * amounts of CPU time busy waiting.
++ */
++void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom, u8 addr, u16 data)
++{
++	int timeout = 100;
++	u16 command;
++
++	/* start the command */
++	eeprom_93cx6_startup(eeprom);
++
++	command = PCI_EEPROM_WRITE_OPCODE << eeprom->width;
++	command |= addr;
++
++	/* send write command */
++	eeprom_93cx6_write_bits(eeprom, command,
++				PCI_EEPROM_WIDTH_OPCODE + eeprom->width);
++
++	/* send data */
++	eeprom_93cx6_write_bits(eeprom, data, 16);
++
++	/* get ready to check for busy */
++	eeprom->drive_data = 0;
++	eeprom->reg_chip_select = 1;
++	eeprom->register_write(eeprom);
++
++	/* wait at-least 250ns to get DO to be the busy signal */
++	usleep_range(1000, 2000);
++
++	/* wait for DO to go high to signify finish */
++
++	while (true) {
++		eeprom->register_read(eeprom);
++
++		if (eeprom->reg_data_out)
++			break;
++
++		usleep_range(1000, 2000);
++
++		if (--timeout <= 0) {
++			printk(KERN_ERR "%s: timeout\n", __func__);
++			break;
++		}
++	}
++
++	eeprom_93cx6_cleanup(eeprom);
++}
++EXPORT_SYMBOL_GPL(eeprom_93cx6_write);
+diff --git a/include/linux/eeprom_93cx6.h b/include/linux/eeprom_93cx6.h
+index e04546e..e50f98b 100644
+--- a/include/linux/eeprom_93cx6.h
++++ b/include/linux/eeprom_93cx6.h
+@@ -33,6 +33,7 @@
+ #define PCI_EEPROM_WIDTH_93C86	8
+ #define PCI_EEPROM_WIDTH_OPCODE	3
+ #define PCI_EEPROM_WRITE_OPCODE	0x05
++#define PCI_EEPROM_ERASE_OPCODE 0x07
+ #define PCI_EEPROM_READ_OPCODE	0x06
+ #define PCI_EEPROM_EWDS_OPCODE	0x10
+ #define PCI_EEPROM_EWEN_OPCODE	0x13
+@@ -74,3 +75,8 @@ extern void eeprom_93cx6_read(struct eeprom_93cx6 *eeprom,
+ 	const u8 word, u16 *data);
+ extern void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom,
+ 	const u8 word, __le16 *data, const u16 words);
++
++extern void eeprom_93cx6_wren(struct eeprom_93cx6 *eeprom, bool enable);
++
++extern void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom,
++			       u8 addr, u16 data);
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
