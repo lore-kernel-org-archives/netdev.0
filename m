@@ -1,55 +1,40 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: drivers/net/ethernet/apple
-Date: Thu, 27 Oct 2011 07:16:54 +0200
-Message-ID: <CAMuHMdUW5PjPU7qNOPA16CbxHJs-bL4r+aFcEGV95SDRBotXRg@mail.gmail.com>
-References: <CAMuHMdXxqKoPNNo9a+VK-Yzu0Qp-8zY2+OhHL6pDPF=dsnNK5Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: tcp: fix TCLASS value in ACK messages sent from
+ TIME_WAIT
+Date: Thu, 27 Oct 2011 01:32:28 -0400 (EDT)
+Message-ID: <20111027.013228.1551611920578436871.davem@davemloft.net>
+References: <20111026.155908.1133603039272144196.davem@davemloft.net>
+	<20111026.160159.696019885442921932.davem@davemloft.net>
+	<1319690022.3436.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdXxqKoPNNo9a+VK-Yzu0Qp-8zY2+OhHL6pDPF=dsnNK5Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:42325 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751565Ab1J0Fcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 01:32:32 -0400
+In-Reply-To: <1319690022.3436.10.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 27 Oct 2011 06:33:42 +0200
 
-On Tue, Oct 25, 2011 at 22:19, Geert Uytterhoeven <geert@linux-m68k.org=
-> wrote:
-> drivers/net/ethernet/apple/mac89x0.c is a driver for the Crystal Semi=
-conductor
-> (Now Cirrus Logic) CS89[02]0, so it belongs in drivers/net/ethernet/c=
-irrus,
-> next to cs89x0.c.
+> [PATCH] ipv6: tcp: fix TCLASS value in ACK messages sent from TIME_WAIT
+> 
+> commit 66b13d99d96a (ipv4: tcp: fix TOS value in ACK messages sent from
+> TIME_WAIT) fixed IPv4 only.
+> 
+> This part is for the IPv6 side, adding a tclass param to ip6_xmit()
+> 
+> We alias tw_tclass and tw_tos, if socket family is INET6.
+> 
+> [ if sockets is ipv4-mapped, only IP_TOS socket option is used to fill
+> TOS field, TCLASS is not taken into account ]
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-And on the first -next run since its inclusion:
-
-| drivers/net/ethernet/apple/mac89x0.c:107:20: error: cs89x0.h: No
-such file or directory
-
-it needs the (shared) header file which is in drivers/net/ethernet/cirr=
-us/.
-
-http://kisskb.ellerman.id.au/kisskb/buildresult/4835488/
-
-> And according to drivers/net/ethernet/apple/mace.h, "mace" is the
-> "Am79C940 MACE (Medium Access Control for Ethernet)", so mace and
-> macmace should be in drivers/net/ethernet/amd/.
-
-Gr{oetje,eeting}s,
-
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+Applied, thanks!
