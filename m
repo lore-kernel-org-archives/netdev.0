@@ -1,96 +1,44 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v3 3/3] SUNRPC: optimize net_ns dereferencing in rpcbind
-	registering calls
-Date: Thu, 27 Oct 2011 22:30:17 +0300
-Message-ID: <20111027181123.20459.37129.stgit@localhost6.localdomain6>
-References: <20111027180824.20459.23219.stgit@localhost6.localdomain6>
+From: Mark Lord <kernel@teksavvy.com>
+Subject: Re: asix usb network driver: nfg
+Date: Thu, 27 Oct 2011 14:48:03 -0400
+Message-ID: <4EA9A763.3000607@teksavvy.com>
+References: <4EA89972.5060101@teksavvy.com> <20111026.194045.2019668159403582571.davem@davemloft.net> <4EA8B283.3010105@teksavvy.com> <20111026.221719.2216112919297458522.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111027180824.20459.23219.stgit@localhost6.localdomain6>
+In-Reply-To: <20111026.221719.2216112919297458522.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Static rpcbind registering functions can be parametrized by network namespace
-pointer, calculated only once, instead of using init_net pointer (or taking it
-from current when virtualization will be comleted) in many places.
+On 11-10-26 10:17 PM, David Miller wrote:
+> From: Mark Lord <kernel@teksavvy.com>
+> Date: Wed, 26 Oct 2011 21:23:15 -0400
+> 
+>> Any strong advance objections to replacing the in-kernel version
+>> with a (fixed) vendor open source version?
+> 
+> It need to meet the coding etc. standards for inclusion, last
+> time I looked at it their driver indeed need a bit of cleaning up.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Yeah, okay -- I've got approval to spend some paid time on the effort,
+so I'll have a deeper look at things.
 
----
- net/sunrpc/rpcb_clnt.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+> It's a sad situation, they started with the upstream driver and
+> just hacked on it however they pleased in their private copy.
+> So now we have this huge divergance and no effort on their part
+> to rectify things.
 
-diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 8c873a8..cc0f402 100644
---- a/net/sunrpc/rpcb_clnt.c
-+++ b/net/sunrpc/rpcb_clnt.c
-@@ -451,14 +451,14 @@ int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
- /*
-  * Fill in AF_INET family-specific arguments to register
-  */
--static int rpcb_register_inet4(const struct sockaddr *sap,
-+static int rpcb_register_inet4(struct sunrpc_net *sn,
-+			       const struct sockaddr *sap,
- 			       struct rpc_message *msg)
- {
- 	const struct sockaddr_in *sin = (const struct sockaddr_in *)sap;
- 	struct rpcbind_args *map = msg->rpc_argp;
- 	unsigned short port = ntohs(sin->sin_port);
- 	int result;
--	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
- 
- 	map->r_addr = rpc_sockaddr2uaddr(sap);
- 
-@@ -479,14 +479,14 @@ static int rpcb_register_inet4(const struct sockaddr *sap,
- /*
-  * Fill in AF_INET6 family-specific arguments to register
-  */
--static int rpcb_register_inet6(const struct sockaddr *sap,
-+static int rpcb_register_inet6(struct sunrpc_net *sn,
-+			       const struct sockaddr *sap,
- 			       struct rpc_message *msg)
- {
- 	const struct sockaddr_in6 *sin6 = (const struct sockaddr_in6 *)sap;
- 	struct rpcbind_args *map = msg->rpc_argp;
- 	unsigned short port = ntohs(sin6->sin6_port);
- 	int result;
--	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
- 
- 	map->r_addr = rpc_sockaddr2uaddr(sap);
- 
-@@ -504,10 +504,10 @@ static int rpcb_register_inet6(const struct sockaddr *sap,
- 	return result;
- }
- 
--static int rpcb_unregister_all_protofamilies(struct rpc_message *msg)
-+static int rpcb_unregister_all_protofamilies(struct sunrpc_net *sn,
-+					     struct rpc_message *msg)
- {
- 	struct rpcbind_args *map = msg->rpc_argp;
--	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
- 
- 	dprintk("RPC:       unregistering [%u, %u, '%s'] with "
- 		"local rpcbind\n",
-@@ -580,13 +580,13 @@ int rpcb_v4_register(const u32 program, const u32 version,
- 		return -EPROTONOSUPPORT;
- 
- 	if (address == NULL)
--		return rpcb_unregister_all_protofamilies(&msg);
-+		return rpcb_unregister_all_protofamilies(sn, &msg);
- 
- 	switch (address->sa_family) {
- 	case AF_INET:
--		return rpcb_register_inet4(address, &msg);
-+		return rpcb_register_inet4(sn, address, &msg);
- 	case AF_INET6:
--		return rpcb_register_inet6(address, &msg);
-+		return rpcb_register_inet6(sn, address, &msg);
- 	}
- 
- 	return -EAFNOSUPPORT;
+Will there be any issues with "Signed-Off-By" on this?
+It's all GPL, by License, but we don't necessarily know who
+make what changes to their driver since they forked it.
+I don't think that matters much, but then what I think doesn't matter much
+either. :)
+
+But it is the only one of the two that's close to working
+(and does work when DEBUG messages are enabled -- a timing issue
+somewhere that I'll fix).
+
+Thanks David.
