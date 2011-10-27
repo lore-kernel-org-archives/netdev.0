@@ -1,66 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Add TCP_NO_DELAYED_ACK socket option
-Date: Thu, 27 Oct 2011 12:24:32 +0200
-Message-ID: <1319711072.2601.18.camel@edumazet-laptop>
-References: <fc8b00b9978b4f956fa705badfaa138854abf919.1319595687.git.luto@amacapital.net>
+From: MONEY GRAM TRANSFER <nicole.wimmer@meduniwien.ac.at>
+Subject: (unknown)
+Date: Thu, 27 Oct 2011 12:16:15 +0100
+Message-ID: <949e4e4121c836a186081e4dbdcac43c__18045.4570254826$1319714992$gmane$org@mail.meduniwien.ac.at>
+Reply-To: <allandavis_transfer15@yahoo.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:63154 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753835Ab1J0KYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 06:24:37 -0400
-Received: by pzk36 with SMTP id 36so7058075pzk.1
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2011 03:24:37 -0700 (PDT)
-In-Reply-To: <fc8b00b9978b4f956fa705badfaa138854abf919.1319595687.git.luto@amacapital.net>
+Received: from manon.srv.meduniwien.ac.at ([149.148.224.15]:48978 "EHLO
+	smtpa.meduniwien.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754091Ab1J0L3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 07:29:23 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 25 octobre 2011 =C3=A0 19:25 -0700, Andy Lutomirski a =C3=A9cr=
-it :
-> When talking to an unfixable interactive peer that fails to set
-> TCP_NODELAY, disabling delayed ACKs can help mitigate the problem.
-> This is an evil thing to do, but if the entire network is private,
-> it's not that evil.
->=20
-> This works around a problem with the remote *application*, so make
-> it a socket option instead of a sysctl or a per-route option.
->=20
-> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
-> ---
->=20
-> This patch is a bit embarrassing.  We talk to remote applications ove=
-r
-> TCP that are very much interactive but don't set TCP_NODELAY.  These
-> applications apparently cannot be fixed.  As a partial workaround, if=
- we
-> ACK every incoming segment, then as long as they don't transmit two
-> segments per rtt, we do pretty well.
->=20
-> Windows can do something similar, but it's per interface instead of p=
-er
-> socket:
->=20
-> http://support.microsoft.com/kb/328890
+My working partner in relationship with
+HSBC London has concluded that our working
+partner has helped us to send you first payment of US$5,000 to you as
+instructed by United Nation government and will
+keep sending you $5000 twice a week until
+the payment of (US$820,000) is completed
+within six months and here is the information
 
-Hi Andy
 
-Yet another delayed ack hacking proposal :)
+MONEY GRAM TRANSFER REFERENCE:2116-3297
 
-Well, to be honest, I find the MS Windows tunable more generic.
-[ But doing it for a whole interface is wrong, it should be per socket
-to allow best tuning ]
+SENDER'S NAME: BARBARA FINSON
+AMOUNT: US$5000
 
-Setting the value to 4 (instead of default 2) for example would _reduce=
-_
-number of ACK packets in bulk transferts [ We can do that if GRO is on,
-as a side effect ]
+To track your funds you are to forward money gram
+Transfer agent Mr Allan Davis
 
-Also the 40ms/200ms values (TCP_DELACK_{MIN|MAX}) could be tunables.
-(system or per socket)
-RFC 1122 says it SHOULD be less than 500ms. The time criteria is IMHO
-far more palatable for an application author than "number of delayed
-acks"
+
+Your Name.__________________________
+Phone number __________________________
+
+
+Contact Allan Davis for the funds clearance
+certificate necessary for the realisation of your funds
+
+E-mail:allandavis_transfer15@yahoo.co.jp
+D/L: Tel:+44 7031899744
+
+
+Please direct all enquiring to:
+Allan Davis
+
+Best Regards,
