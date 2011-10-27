@@ -1,68 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: add calxeda xgmac ethernet driver
-Date: Wed, 26 Oct 2011 20:35:52 -0700
-Message-ID: <1319686552.21924.47.camel@Joe-Laptop>
-References: <1319684206-473-1-git-send-email-robherring2@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: tcp: fix TCLASS value in ACK messages sent from
+ TIME_WAIT
+Date: Thu, 27 Oct 2011 06:30:08 +0200
+Message-ID: <1319689808.3436.6.camel@edumazet-laptop>
+References: <1319611331.18883.13.camel@edumazet-laptop>
+	 <20111026.155908.1133603039272144196.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	Rob Herring <rob.herring@calxeda.com>
-To: Rob Herring <robherring2@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:34757 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752451Ab1J0Dfx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Oct 2011 23:35:53 -0400
-In-Reply-To: <1319684206-473-1-git-send-email-robherring2@gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:60784 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750773Ab1J0EaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 00:30:18 -0400
+Received: by wyg36 with SMTP id 36so2381396wyg.19
+        for <netdev@vger.kernel.org>; Wed, 26 Oct 2011 21:30:17 -0700 (PDT)
+In-Reply-To: <20111026.155908.1133603039272144196.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-10-26 at 21:56 -0500, Rob Herring wrote:
-> Add support for the XGMAC 10Gb ethernet device in the Calxeda Highbank
-> SOC.
+Le mercredi 26 octobre 2011 =C3=A0 15:59 -0400, David Miller a =C3=A9cr=
+it :
 
-Hi Rob, just trivia:
+> Did you happen to check to see that this does the right thing for
+> V4 mapped ipv6 sockets?
+>=20
 
-Most of the logging dev_<level> messages
-should be netdev_<level>
+This is handled by prior patch, and this new patch doesnt break it
 
-Adding #define pr_fmt KBUILD_MODNAME ": " fmt
-before any #include would be useful to prefix
-the module name to pr_<level> output.
-
-> +static int desc_get_tx_status(struct xgmac_extra_stats *x,
-> +			      struct xgmac_dma_desc *p, void __iomem *ioaddr)
-> +{
-[]
-> +	if (status & TXDESC_JABBER_TIMEOUT) {
-> +		pr_debug("\tjabber_timeout error\n");
-> +		x->tx_jabber++;
-> +	}
-
-Adding pr_fmt, the output would become:
-calxeda_xgmac: 	jabber_timeout error
-
-[]
-> +static void xgmac_rx_refill(struct xgmac_priv *priv)
-
-> +		dev_dbg(priv->device, "rx ring: head %d, tail %d\n",
-> +			priv->rx_head, priv->rx_tail);
-
-	netdev_dbg(priv->dev, "rx ring: head %d, tail %d\n",
-		   etc...)
-[]
-> +static int xgmac_open(struct net_device *dev)
-> +{
-[]
-> +	if (!is_valid_ether_addr(dev->dev_addr)) {
-> +		random_ether_addr(dev->dev_addr);
-> +		dev_dbg(priv->device, "generated random MAC address %pM\n",
-> +			dev->dev_addr);
-
-		netdev_dbg(dev, "generated random MAC address %pM\n",
-			   dev->dev_addr);
-
-etc...
-
-cheers, Joe
+(tw->tw_tclass is overwritten by tclass, only on true/AF_INET6 ipv6
+sockets)
