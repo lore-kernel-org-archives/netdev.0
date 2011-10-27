@@ -1,60 +1,54 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH v3 0/3] SUNRPC: rcbind clients virtualization
-Date: Thu, 27 Oct 2011 16:25:14 -0400
-Message-ID: <20111027202514.GA31669@fieldses.org>
-References: <20111027180824.20459.23219.stgit@localhost6.localdomain6>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [PATCH 2/2 v3] net/smsc911x: Add regulator support
+Date: Thu, 27 Oct 2011 22:59:14 +0200
+Message-ID: <CAJaTeTpzFOdgqGH3vDWY8Mdx7zra8R9nUQYHgsEBfy_yGkEWOw@mail.gmail.com>
+References: <1319719691-15799-1-git-send-email-linus.walleij@stericsson.com>
+ <CAJaTeTrzFwxsn22U-NHQ8iCiaUM+mj8PyicavR-DN0HgE08ZEQ@mail.gmail.com> <20111027154638.GA16946@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org,
-	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net, devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111027180824.20459.23219.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linus Walleij <linus.walleij@stericsson.com>,
+	netdev@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Mathieu Poirer <mathieu.poirier@linaro.org>,
+	Robert Marklund <robert.marklund@stericsson.com>,
+	Paul Mundt <lethal@linux-sh.org>, linux-sh@vger.kernel.org,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Tony Lindgren <tony@atomide.com>, linux-omap@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20111027154638.GA16946@sirena.org.uk>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 27, 2011 at 10:10:43PM +0300, Stanislav Kinsbursky wrote:
-> v3:
-> 1) First two patches from previous version were squashed.
-> 
-> This patch-set was created in context of clone of git branch:
-> git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git
-> and rebased on tag "v3.1".
-> 
-> This patch-set virtualizes rpcbind clients per network namespace context. IOW,
-> each network namespace will have its own pair of rpcbind clients (if they would
-> be created by request).
-> 
-> Note:
-> 1) this patch-set depends on "SUNRPC: make rpcbind clients allocated and
-> destroyed dynamically" patch-set which has been send earlier.
-> 2) init_net pointer is still used instead of current->nsproxy->net_ns,
-> because I'm not sure yet about how to virtualize services. I.e. NFS callback
-> services will be per netns. NFSd service will be per netns too from my pow. But
-> Lockd can be per netns or one for all.
+On Thu, Oct 27, 2011 at 17:46, Mark Brown wrote:
+> On Thu, Oct 27, 2011 at 03:21:47PM +0200, Mike Frysinger wrote:
+>> my gut reaction: smsc911x is working just fine without regulator
+>> support for many people, so why do we suddenly need to make it a
+>> requirement ? =A0this is a fairly small amount of code, so adding a
+>> smsc911x Kconfig symbol to control the regulator support seems like
+>> overkill. =A0only other option would be to change the patch to not m=
+ake
+>> missing regulators non-fatal. =A0so i'd probably lean towards the la=
+tter
+>> (and it sounds like you changed this with earlier versions).
+>
+> The regulator API contains a series of generic facilities for stubbin=
+g
+> itself out when not in use - there's no need for individual drivers t=
+o
+> worry about this stuff, they should just rely on the framework. =A0Th=
+e
+> main one at the minute is REGULATOR_DUMMY which does what you suggest
+> and makes regulator_get() never fail.
 
-I'm not sure what you mean by that; could you explain?
-
---b.
-
-> And also we have NFSd file system, which
-> is not virtualized yet.
-> 
-> The following series consists of:
-> 
-> ---
-> 
-> Stanislav Kinsbursky (3):
->       SUNRPC: move rpcbind internals to sunrpc part of network namespace context
->       SUNRPC: optimize net_ns dereferencing in rpcbind creation calls
->       SUNRPC: optimize net_ns dereferencing in rpcbind registering calls
-> 
-> 
->  net/sunrpc/netns.h     |    5 ++
->  net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++----------------------
->  2 files changed, 61 insertions(+), 47 deletions(-)
-> 
-> -- 
-> Signature
+i saw that !CONFIG_REGULATOR works great.  my concern is that these
+boards don't define any regulators for smsc resources, so if
+CONFIG_REGULATOR is enabled to test out unrelated daughter cards, i
+don't want the network driver suddenly failing.  Linus' comments
+suggest that this is what would happen unless each board file has its
+smsc platform resources extended.  maybe i misunderstood what he was sa=
+ying ?
+-mike
