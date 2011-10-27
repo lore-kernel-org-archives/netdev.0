@@ -1,85 +1,66 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v2 1/4] SUNRPC: rpcbind clients internals virtualization
-Date: Thu, 27 Oct 2011 14:04:37 +0400
-Message-ID: <4EA92CB5.8040805@parallels.com>
-References: <20111025135637.5286.89632.stgit@localhost6.localdomain6> <20111025135749.5286.57091.stgit@localhost6.localdomain6> <4EA8FD98.9040500@netapp.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Add TCP_NO_DELAYED_ACK socket option
+Date: Thu, 27 Oct 2011 12:24:32 +0200
+Message-ID: <1319711072.2601.18.camel@edumazet-laptop>
+References: <fc8b00b9978b4f956fa705badfaa138854abf919.1319595687.git.luto@amacapital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bfields@fieldses.org" <bfields@fieldses.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Bryan Schumaker <bjschuma@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EA8FD98.9040500@netapp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f42.google.com ([209.85.210.42]:63154 "EHLO
+	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753835Ab1J0KYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 06:24:37 -0400
+Received: by pzk36 with SMTP id 36so7058075pzk.1
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2011 03:24:37 -0700 (PDT)
+In-Reply-To: <fc8b00b9978b4f956fa705badfaa138854abf919.1319595687.git.luto@amacapital.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-27.10.2011 10:43, Bryan Schumaker =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On 10/25/2011 10:57 AM, Stanislav Kinsbursky wrote:
->> This patch moves static rpcbind internals to sunrpc part of network =
-namespace
->
-> Rather than saying that this patch moves the static internals, could =
-you say that it creates the new network namespace internals?  The next =
-patch switches things over, so it's not really correct to say that this=
- one moves everything.
->
-> Alternatively, could this patch be merged with the next one so that y=
-ou create and switch over to the new internals all at once?
->
-> - Bryan
->
+Le mardi 25 octobre 2011 =C3=A0 19:25 -0700, Andy Lutomirski a =C3=A9cr=
+it :
+> When talking to an unfixable interactive peer that fails to set
+> TCP_NODELAY, disabling delayed ACKs can help mitigate the problem.
+> This is an evil thing to do, but if the entire network is private,
+> it's not that evil.
+>=20
+> This works around a problem with the remote *application*, so make
+> it a socket option instead of a sysctl or a per-route option.
+>=20
+> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+> ---
+>=20
+> This patch is a bit embarrassing.  We talk to remote applications ove=
+r
+> TCP that are very much interactive but don't set TCP_NODELAY.  These
+> applications apparently cannot be fixed.  As a partial workaround, if=
+ we
+> ACK every incoming segment, then as long as they don't transmit two
+> segments per rtt, we do pretty well.
+>=20
+> Windows can do something similar, but it's per interface instead of p=
+er
+> socket:
+>=20
+> http://support.microsoft.com/kb/328890
 
-Yep, you right, Thanks.
-Will resend it.
+Hi Andy
 
->> context. This will allow to create rcpbind clients per network names=
-pace.
->>
->> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->>
->> ---
->>   net/sunrpc/netns.h |    5 +++++
->>   1 files changed, 5 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
->> index d013bf2..83eede3 100644
->> --- a/net/sunrpc/netns.h
->> +++ b/net/sunrpc/netns.h
->> @@ -9,6 +9,11 @@ struct cache_detail;
->>   struct sunrpc_net {
->>   	struct proc_dir_entry *proc_net_rpc;
->>   	struct cache_detail *ip_map_cache;
->> +
->> +	struct rpc_clnt *rpcb_local_clnt;
->> +	struct rpc_clnt *rpcb_local_clnt4;
->> +	spinlock_t rpcb_clnt_lock;
->> +	unsigned int rpcb_users;
->>   };
->>
->>   extern int sunrpc_net_id;
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-nfs"=
- in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" =
-in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yet another delayed ack hacking proposal :)
 
+Well, to be honest, I find the MS Windows tunable more generic.
+[ But doing it for a whole interface is wrong, it should be per socket
+to allow best tuning ]
 
---=20
-Best regards,
-Stanislav Kinsbursky
+Setting the value to 4 (instead of default 2) for example would _reduce=
+_
+number of ACK packets in bulk transferts [ We can do that if GRO is on,
+as a side effect ]
+
+Also the 40ms/200ms values (TCP_DELACK_{MIN|MAX}) could be tunables.
+(system or per socket)
+RFC 1122 says it SHOULD be less than 500ms. The time criteria is IMHO
+far more palatable for an application author than "number of delayed
+acks"
