@@ -1,50 +1,48 @@
 From: Mark Lord <kernel@teksavvy.com>
-Subject: asix usb network driver: nfg
-Date: Wed, 26 Oct 2011 19:36:18 -0400
-Message-ID: <4EA89972.5060101@teksavvy.com>
+Subject: Re: asix usb network driver: nfg
+Date: Wed, 26 Oct 2011 21:23:15 -0400
+Message-ID: <4EA8B283.3010105@teksavvy.com>
+References: <4EA89972.5060101@teksavvy.com> <20111026.194045.2019668159403582571.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111026.194045.2019668159403582571.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For the longest time, the asix driver was _the_ usb network device of choice.
-But for kernels of the last year or two, it simply has not been working
-reliably here with a variety of 10, 100, and 1000 mbit USB devices.
+On 11-10-26 07:40 PM, David Miller wrote:
+> From: Mark Lord <kernel@teksavvy.com>
+> Date: Wed, 26 Oct 2011 19:36:18 -0400
+> 
+>> So, the in-kernel asix driver seems badly broken for a lot of hardware,
+>> and the vendor driver also has a slight race somewhere that is cured
+>> by enabling debug logging.
+>>
+>> Is there an asix driver maintainer, or anyone else with the time
+>> to step up and try to fix these issues?
+> 
+> The issues you speak of are well known for at least two years but
+> nobody wants to work on this.
 
-When it fails, one just sees it sitting there trying to do DHCP,
-but it's outbound packets never arrive at the DHCP server.
-It can listen just fine, though (wireshark), so I suspect some
-sort of blockage in the transmit path.
+Okay, that's useful to know.
 
-With some devices, it sometimes works when unplugged (USB) and replugged,
-but usually that doesn't help at all here.
+I think I may be able to get some funding to take a crack at perhaps
+figuring out the "DEBUG" race thing in the vendor's copy of the driver,
+since that one seems to be in the better shape of the two.
 
-And even when it does manage to transmit and negotiate DHCP,
-a suspend/resume cycle is enough to kill it again.
+Any strong advance objections to replacing the in-kernel version
+with a (fixed) vendor open source version?
 
-Google reveals that this is also the case for at least a few others,
-and some distro forums have been directing troubled users to download
-the vendor's latest open source driver to get things working again.
+It appears that the two share a common heritage, but somewhere along the
+line the in-kernel one stopped being maintained as well as the external one.
 
-     http://www.asix.com.tw/download.php?sub=searchresult&PItemID=84&download=driver
+Assuming I get approval, I'll try and fix the vendor version,
+tidy it up to pass checkpatch.pl with flying colours,
+and then submit the resulting diff to you.
 
-The driver there does indeed work better with some of my devices,
-and oddly enough when I uncomment the "// #define DEBUG" line
-it then works perfectly for me here.  Just like the old days,
-except noisier in the syslog.  :)
+Hopeless, or would you perhaps accept such a wholesale change?
 
-Even suspend/resume work again.
-
-So, the in-kernel asix driver seems badly broken for a lot of hardware,
-and the vendor driver also has a slight race somewhere that is cured
-by enabling debug logging.
-
-Is there an asix driver maintainer, or anyone else with the time
-to step up and try to fix these issues?
-
-Thanks
-Mark
+Thanks David.
