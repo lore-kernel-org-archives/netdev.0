@@ -1,7 +1,7 @@
 From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net v2 3/7] bnx2x: Fix RX/TX problem caused by the MAC layer
-Date: Thu, 27 Oct 2011 17:09:47 +0200
-Message-ID: <1319728191-24938-4-git-send-email-yanivr@broadcom.com>
+Subject: [net v2 2/7] bnx2x: Add link retry to 578xx-KR
+Date: Thu, 27 Oct 2011 17:09:46 +0200
+Message-ID: <1319728191-24938-3-git-send-email-yanivr@broadcom.com>
 References: <1319728191-24938-1-git-send-email-yanivr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,136 +11,214 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1462 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3254 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752954Ab1J0NKI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Oct 2011 09:10:08 -0400
+	id S1752822Ab1J0NKF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Oct 2011 09:10:05 -0400
 In-Reply-To: <1319728191-24938-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a problem in which the host stops receiving data after
-restarting the interface. This issue is caused by combination of incorrect
-data path tap closure, along with missing MAC reset.
+This fix solves a problem of no link on 578xx-KR by retrying to link up to
+four timer using the periodic function.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   45 ++++++++++++++++------
- 1 files changed, 33 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |  117 +++++++++++++++++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h |    3 +
+ 2 files changed, 104 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index a47db9d..23333e0 100644
+index edc9259..a47db9d 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -1494,6 +1494,18 @@ static void bnx2x_set_xumac_nig(struct link_params *params,
- 	       NIG_REG_P0_MAC_PAUSE_OUT_EN, tx_pause_en);
+@@ -261,6 +261,7 @@
+ 
+ #define MAX_PACKET_SIZE					(9700)
+ #define WC_UC_TIMEOUT					100
++#define MAX_KR_LINK_RETRY				4
+ 
+ /**********************************************************/
+ /*                     INTERFACE                          */
+@@ -3578,6 +3579,11 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 	u16 val16 = 0, lane, bam37 = 0;
+ 	struct bnx2x *bp = params->bp;
+ 	DP(NETIF_MSG_LINK, "Enable Auto Negotiation for KR\n");
++
++	/* Disable Autoneg: re-enable it after adv is done. */
++	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
++			 MDIO_WC_REG_IEEE0BLK_MIICNTL, 0);
++
+ 	/* Check adding advertisement for 1G KX */
+ 	if (((vars->line_speed == SPEED_AUTO_NEG) &&
+ 	     (phy->speed_cap_mask & PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)) ||
+@@ -3619,9 +3625,6 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+ 			 MDIO_WC_REG_CL72_USERB0_CL72_2P5_DEF_CTRL,
+ 			 0x03f0);
+-	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+-			 MDIO_WC_REG_CL72_USERB0_CL72_MISC1_CONTROL,
+-			 0x383f);
+ 
+ 	/* Advertised speeds */
+ 	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
+@@ -3648,19 +3651,22 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 	/* Advertise pause */
+ 	bnx2x_ext_phy_set_pause(params, phy, vars);
+ 
+-	/* Enable Autoneg */
+-	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
+-			 MDIO_WC_REG_IEEE0BLK_MIICNTL, 0x1000);
+-
+-	/* Over 1G - AN local device user page 1 */
+-	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+-			MDIO_WC_REG_DIGITAL3_UP1, 0x1f);
++	vars->rx_tx_asic_rst = MAX_KR_LINK_RETRY;
+ 
+ 	bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
+ 			MDIO_WC_REG_DIGITAL5_MISC7, &val16);
+ 
+ 	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+ 			 MDIO_WC_REG_DIGITAL5_MISC7, val16 | 0x100);
++
++	/* Over 1G - AN local device user page 1 */
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			MDIO_WC_REG_DIGITAL3_UP1, 0x1f);
++
++	/* Enable Autoneg */
++	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
++			 MDIO_WC_REG_IEEE0BLK_MIICNTL, 0x1000);
++
  }
  
-+static void bnx2x_umac_disable(struct link_params *params)
+ static void bnx2x_warpcore_set_10G_KR(struct bnx2x_phy *phy,
+@@ -4129,6 +4135,85 @@ static int bnx2x_is_sfp_module_plugged(struct bnx2x_phy *phy,
+ 	else
+ 		return 0;
+ }
++static int bnx2x_warpcore_get_sigdet(struct bnx2x_phy *phy,
++					struct link_params *params)
 +{
-+	u32 umac_base = params->port ? GRCBASE_UMAC1 : GRCBASE_UMAC0;
++	u16 gp2_status_reg0, lane;
 +	struct bnx2x *bp = params->bp;
-+	if (!(REG_RD(bp, MISC_REG_RESET_REG_2) &
-+		   (MISC_REGISTERS_RESET_REG_2_UMAC0 << params->port)))
-+		return;
 +
-+	/* Disable RX and TX */
-+	REG_WR(bp, umac_base + UMAC_REG_COMMAND_CONFIG, 0);
++	lane = bnx2x_get_warpcore_lane(phy, params);
++
++	bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD, MDIO_WC_REG_GP2_STATUS_GP_2_0,
++				 &gp2_status_reg0);
++
++	return (gp2_status_reg0 >> (8+lane)) & 0x1;
 +}
 +
- static void bnx2x_umac_enable(struct link_params *params,
- 			    struct link_vars *vars, u8 lb)
- {
-@@ -1603,8 +1615,9 @@ static u8 bnx2x_is_4_port_mode(struct bnx2x *bp)
- }
- 
- /* Define the XMAC mode */
--static void bnx2x_xmac_init(struct bnx2x *bp, u32 max_speed)
-+static void bnx2x_xmac_init(struct link_params *params, u32 max_speed)
- {
++static void bnx2x_warpcore_config_runtime(struct bnx2x_phy *phy,
++				       struct link_params *params,
++				       struct link_vars *vars)
++{
 +	struct bnx2x *bp = params->bp;
- 	u32 is_port4mode = bnx2x_is_4_port_mode(bp);
++	u32 serdes_net_if;
++	u16 gp_status1 = 0, lnkup = 0, lnkup_kr = 0;
++	u16 lane = bnx2x_get_warpcore_lane(phy, params);
++
++	vars->turn_to_run_wc_rt = vars->turn_to_run_wc_rt ? 0 : 1;
++
++	if (!vars->turn_to_run_wc_rt)
++		return;
++
++	/* return if there is no link partner */
++	if (!(bnx2x_warpcore_get_sigdet(phy, params))) {
++		DP(NETIF_MSG_LINK, "bnx2x_warpcore_get_sigdet false\n");
++		return;
++	}
++
++	if (vars->rx_tx_asic_rst) {
++		serdes_net_if = (REG_RD(bp, params->shmem_base +
++				offsetof(struct shmem_region, dev_info.
++				port_hw_config[params->port].default_cfg)) &
++				PORT_HW_CFG_NET_SERDES_IF_MASK);
++
++		switch (serdes_net_if) {
++		case PORT_HW_CFG_NET_SERDES_IF_KR:
++			/* Do we get link yet? */
++			bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD, 0x81d1,
++								&gp_status1);
++			lnkup = (gp_status1 >> (8+lane)) & 0x1;/* 1G */
++				/*10G KR*/
++			lnkup_kr = (gp_status1 >> (12+lane)) & 0x1;
++
++			DP(NETIF_MSG_LINK,
++				"gp_status1 0x%x\n", gp_status1);
++
++			if (lnkup_kr || lnkup) {
++					vars->rx_tx_asic_rst = 0;
++					DP(NETIF_MSG_LINK,
++					"link up, rx_tx_asic_rst 0x%x\n",
++					vars->rx_tx_asic_rst);
++			} else {
++				/*reset the lane to see if link comes up.*/
++				bnx2x_warpcore_reset_lane(bp, phy, 1);
++				bnx2x_warpcore_reset_lane(bp, phy, 0);
++
++				/* restart Autoneg */
++				bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
++					MDIO_WC_REG_IEEE0BLK_MIICNTL, 0x1200);
++
++				vars->rx_tx_asic_rst--;
++				DP(NETIF_MSG_LINK, "0x%x retry left\n",
++				vars->rx_tx_asic_rst);
++			}
++			break;
++
++		default:
++			break;
++		}
++
++	} /*params->rx_tx_asic_rst*/
++
++}
  
- 	/**
-@@ -1614,7 +1627,8 @@ static void bnx2x_xmac_init(struct bnx2x *bp, u32 max_speed)
- 	* ports of the path
- 	**/
- 
--	if (is_port4mode && (REG_RD(bp, MISC_REG_RESET_REG_2) &
-+	if ((CHIP_NUM(bp) == CHIP_NUM_57840) &&
-+	    (REG_RD(bp, MISC_REG_RESET_REG_2) &
- 	     MISC_REGISTERS_RESET_REG_2_XMAC)) {
- 		DP(NETIF_MSG_LINK,
- 		   "XMAC already out of reset in 4-port mode\n");
-@@ -1681,10 +1695,6 @@ static void bnx2x_xmac_disable(struct link_params *params)
- 		       (pfc_ctrl | (1<<1)));
- 		DP(NETIF_MSG_LINK, "Disable XMAC on port %x\n", port);
- 		REG_WR(bp, xmac_base + XMAC_REG_CTRL, 0);
--		usleep_range(1000, 1000);
--		bnx2x_set_xumac_nig(params, 0, 0);
--		REG_WR(bp, xmac_base + XMAC_REG_CTRL,
--		       XMAC_CTRL_REG_SOFT_RESET);
+ static void bnx2x_warpcore_config_init(struct bnx2x_phy *phy,
+ 				       struct link_params *params,
+@@ -12339,11 +12424,6 @@ void bnx2x_period_func(struct link_params *params, struct link_vars *vars)
+ {
+ 	struct bnx2x *bp = params->bp;
+ 	u16 phy_idx;
+-	if (!params) {
+-		DP(NETIF_MSG_LINK, "Uninitialized params !\n");
+-		return;
+-	}
+-
+ 	for (phy_idx = INT_PHY; phy_idx < MAX_PHYS; phy_idx++) {
+ 		if (params->phy[phy_idx].flags & FLAGS_TX_ERROR_CHECK) {
+ 			bnx2x_set_aer_mmd(params, &params->phy[phy_idx]);
+@@ -12352,8 +12432,13 @@ void bnx2x_period_func(struct link_params *params, struct link_vars *vars)
+ 		}
  	}
- }
  
-@@ -1697,7 +1707,7 @@ static int bnx2x_xmac_enable(struct link_params *params,
- 
- 	xmac_base = (params->port) ? GRCBASE_XMAC1 : GRCBASE_XMAC0;
- 
--	bnx2x_xmac_init(bp, vars->line_speed);
-+	bnx2x_xmac_init(params, vars->line_speed);
- 
- 	/*
- 	 * This register determines on which events the MAC will assert
-@@ -6310,8 +6320,10 @@ static int bnx2x_update_link_down(struct link_params *params,
- 		       MISC_REGISTERS_RESET_REG_2_CLEAR,
- 	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
- 	}
 -	if (CHIP_IS_E3(bp))
 +	if (CHIP_IS_E3(bp)) {
- 		bnx2x_xmac_disable(params);
-+		bnx2x_umac_disable(params);
++		struct bnx2x_phy *phy = &params->phy[INT_PHY];
++		bnx2x_set_aer_mmd(params, phy);
+ 		bnx2x_check_over_curr(params, vars);
++		bnx2x_warpcore_config_runtime(phy, params, vars);
 +	}
- 
- 	return 0;
++
  }
-@@ -11810,8 +11822,10 @@ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
- 	/* Stop BigMac rx */
- 	if (!CHIP_IS_E3(bp))
- 		bnx2x_bmac_rx_disable(bp, port);
--	else
-+	else {
- 		bnx2x_xmac_disable(params);
-+		bnx2x_umac_disable(params);
-+	}
- 	/* disable emac */
- 	if (!CHIP_IS_E3(bp))
- 		REG_WR(bp, NIG_REG_NIG_EMAC0_EN + port*4, 0);
-@@ -11849,14 +11863,21 @@ int bnx2x_link_reset(struct link_params *params, struct link_vars *vars,
- 	if (params->phy[INT_PHY].link_reset)
- 		params->phy[INT_PHY].link_reset(
- 			&params->phy[INT_PHY], params);
--	/* reset BigMac */
--	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
--	       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
  
- 	/* disable nig ingress interface */
- 	if (!CHIP_IS_E3(bp)) {
-+		/* reset BigMac */
-+		REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_2_CLEAR,
-+		       (MISC_REGISTERS_RESET_REG_2_RST_BMAC0 << port));
- 		REG_WR(bp, NIG_REG_BMAC0_IN_EN + port*4, 0);
- 		REG_WR(bp, NIG_REG_EMAC0_IN_EN + port*4, 0);
-+	} else {
-+		u32 xmac_base = (params->port) ? GRCBASE_XMAC1 : GRCBASE_XMAC0;
-+		bnx2x_set_xumac_nig(params, 0, 0);
-+		if (REG_RD(bp, MISC_REG_RESET_REG_2) &
-+		    MISC_REGISTERS_RESET_REG_2_XMAC)
-+			REG_WR(bp, xmac_base + XMAC_REG_CTRL,
-+			       XMAC_CTRL_REG_SOFT_RESET);
- 	}
- 	vars->link_up = 0;
- 	vars->phy_flags = 0;
+ u8 bnx2x_hw_lock_required(struct bnx2x *bp, u32 shmem_base, u32 shmem2_base)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+index c12db6d..2a46e63 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+@@ -303,6 +303,9 @@ struct link_vars {
+ #define PERIODIC_FLAGS_LINK_EVENT	0x0001
+ 
+ 	u32 aeu_int_mask;
++	u8 rx_tx_asic_rst;
++	u8 turn_to_run_wc_rt;
++	u16 rsrv2;
+ };
+ 
+ /***********************************************************/
 -- 
 1.7.2.2
