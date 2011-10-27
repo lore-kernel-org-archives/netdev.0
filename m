@@ -1,8 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [RFC v3 PATCH 2/4] net: model specific announcing
-	support
-Date: Thu, 27 Oct 2011 16:48:45 +0800
-Message-ID: <20111027084845.15020.31881.stgit@dhcp-8-146.nay.redhat.com>
+Subject: [RFC v3 PATCH 3/4] virtio-net: notify guest to annouce itself
+Date: Thu, 27 Oct 2011 16:48:55 +0800
+Message-ID: <20111027084855.15020.80416.stgit@dhcp-8-146.nay.redhat.com>
 References: <20111027084700.15020.24087.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,67 +10,99 @@ Cc: netdev@vger.kernel.org, kvm@vger.kernel.org
 To: aliguori@us.ibm.com, mst@redhat.com, jan.kiszka@siemens.com,
 	rusty@rustcorp.com.au, qemu-devel@nongnu.org, blauwirbel@gmail.com,
 	stefanha@gmail.com
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <20111027084700.15020.24087.stgit@dhcp-8-146.nay.redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces a function pointer in NetClientInfo which is
-called during self announcement to do the model specific announcing.
+It's hard to track all mac address and its usage (vlan, bondings,
+ipv6) in qemu to send proper gratituous packet. The better choice is
+let guest to do it.
 
-The first user would be virtio-net.
+The patch introduces a new rw config status bit of virtio-net,
+VIRTIO_NET_S_ANNOUNCE which is used to notify guest to announce
+presence of its link through config update interrupt. When gust have
+done the annoucement, it should clear that bit.
+
+The feature is negotiated by bit VIRTIO_NET_F_ANNOUNCE.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- net.h    |    2 ++
- savevm.c |    8 +++++---
- 2 files changed, 7 insertions(+), 3 deletions(-)
+ hw/virtio-net.c |   18 +++++++++++++++++-
+ hw/virtio-net.h |    3 +++
+ 2 files changed, 20 insertions(+), 1 deletions(-)
 
-diff --git a/net.h b/net.h
-index 9f633f8..7654769 100644
---- a/net.h
-+++ b/net.h
-@@ -46,6 +46,7 @@ typedef ssize_t (NetReceive)(VLANClientState *, const uint8_t *, size_t);
- typedef ssize_t (NetReceiveIOV)(VLANClientState *, const struct iovec *, int);
- typedef void (NetCleanup) (VLANClientState *);
- typedef void (LinkStatusChanged)(VLANClientState *);
-+typedef int (NetAnnounce)(VLANClientState *);
- 
- typedef struct NetClientInfo {
-     net_client_type type;
-@@ -57,6 +58,7 @@ typedef struct NetClientInfo {
-     NetCleanup *cleanup;
-     LinkStatusChanged *link_status_changed;
-     NetPoll *poll;
-+    NetAnnounce *announce;
- } NetClientInfo;
- 
- struct VLANClientState {
-diff --git a/savevm.c b/savevm.c
-index 73ee6e2..46389b2 100644
---- a/savevm.c
-+++ b/savevm.c
-@@ -122,10 +122,12 @@ static void qemu_announce_self_iter(NICState *nic, void *opaque)
- {
-     uint8_t buf[60];
-     int len;
-+    NetAnnounce *func = nic->nc.info->announce;
- 
--    len = announce_self_create(buf, nic->conf->macaddr.a);
--
--    qemu_send_packet_raw(&nic->nc, buf, len);
-+    if (func == NULL || func(&nic->nc) != 0) {
-+        len = announce_self_create(buf, nic->conf->macaddr.a);
-+        qemu_send_packet_raw(&nic->nc, buf, len);
-+    }
+diff --git a/hw/virtio-net.c b/hw/virtio-net.c
+index 8c2f460..5451eec 100644
+--- a/hw/virtio-net.c
++++ b/hw/virtio-net.c
+@@ -95,6 +95,8 @@ static void virtio_net_set_config(VirtIODevice *vdev, const uint8_t *config)
+         memcpy(n->mac, netcfg.mac, ETH_ALEN);
+         qemu_format_nic_info_str(&n->nic->nc, n->mac);
+     }
++
++    memcpy(&n->status, &netcfg.status, sizeof(n->status));
  }
  
+ static bool virtio_net_started(VirtIONet *n, uint8_t status)
+@@ -227,7 +229,7 @@ static uint32_t virtio_net_get_features(VirtIODevice *vdev, uint32_t features)
+ {
+     VirtIONet *n = to_virtio_net(vdev);
  
+-    features |= (1 << VIRTIO_NET_F_MAC);
++    features |= (1 << VIRTIO_NET_F_MAC | 1 << VIRTIO_NET_F_GUEST_ANNOUNCE);
+ 
+     if (peer_has_vnet_hdr(n)) {
+         tap_using_vnet_hdr(n->nic->nc.peer, 1);
+@@ -983,6 +985,19 @@ static void virtio_net_cleanup(VLANClientState *nc)
+     n->nic = NULL;
+ }
+ 
++static int virtio_net_announce(VLANClientState *nc)
++{
++    VirtIONet *n = DO_UPCAST(NICState, nc, nc)->opaque;
++
++    if (n->vdev.guest_features & (0x1 << VIRTIO_NET_F_GUEST_ANNOUNCE)) {
++        n->status |= VIRTIO_NET_S_ANNOUNCE;
++        virtio_notify_config(&n->vdev);
++        return 0;
++    }
++
++    return 1;
++}
++
+ static NetClientInfo net_virtio_info = {
+     .type = NET_CLIENT_TYPE_NIC,
+     .size = sizeof(NICState),
+@@ -990,6 +1005,7 @@ static NetClientInfo net_virtio_info = {
+     .receive = virtio_net_receive,
+         .cleanup = virtio_net_cleanup,
+     .link_status_changed = virtio_net_set_link_status,
++    .announce = virtio_net_announce,
+ };
+ 
+ VirtIODevice *virtio_net_init(DeviceState *dev, NICConf *conf,
+diff --git a/hw/virtio-net.h b/hw/virtio-net.h
+index 4468741..9f8cea7 100644
+--- a/hw/virtio-net.h
++++ b/hw/virtio-net.h
+@@ -44,8 +44,10 @@
+ #define VIRTIO_NET_F_CTRL_RX    18      /* Control channel RX mode support */
+ #define VIRTIO_NET_F_CTRL_VLAN  19      /* Control channel VLAN filtering */
+ #define VIRTIO_NET_F_CTRL_RX_EXTRA 20   /* Extra RX mode control support */
++#define VIRTIO_NET_F_GUEST_ANNOUNCE 21  /* Guest can announce itself */
+ 
+ #define VIRTIO_NET_S_LINK_UP    1       /* Link is up */
++#define VIRTIO_NET_S_ANNOUNCE   2       /* Announcement is needed */
+ 
+ #define TX_TIMER_INTERVAL 150000 /* 150 us */
+ 
+@@ -176,6 +178,7 @@ struct virtio_net_ctrl_mac {
+         DEFINE_PROP_BIT("guest_tso6", _state, _field, VIRTIO_NET_F_GUEST_TSO6, true), \
+         DEFINE_PROP_BIT("guest_ecn", _state, _field, VIRTIO_NET_F_GUEST_ECN, true), \
+         DEFINE_PROP_BIT("guest_ufo", _state, _field, VIRTIO_NET_F_GUEST_UFO, true), \
++        DEFINE_PROP_BIT("guest_announce", _state, _field, VIRTIO_NET_F_GUEST_ANNOUNCE, true), \
+         DEFINE_PROP_BIT("host_tso4", _state, _field, VIRTIO_NET_F_HOST_TSO4, true), \
+         DEFINE_PROP_BIT("host_tso6", _state, _field, VIRTIO_NET_F_HOST_TSO6, true), \
+         DEFINE_PROP_BIT("host_ecn", _state, _field, VIRTIO_NET_F_HOST_ECN, true), \
+
