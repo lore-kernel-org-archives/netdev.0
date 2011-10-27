@@ -1,40 +1,51 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: [PATCH 2/2 v3] net/smsc911x: Add regulator support
-Date: Thu, 27 Oct 2011 23:42:41 +0200
-Message-ID: <20111027214241.GA11534@opensource.wolfsonmicro.com>
-References: <1319719691-15799-1-git-send-email-linus.walleij@stericsson.com>
- <CAJaTeTrzFwxsn22U-NHQ8iCiaUM+mj8PyicavR-DN0HgE08ZEQ@mail.gmail.com>
- <20111027154638.GA16946@sirena.org.uk>
- <CAJaTeTpzFOdgqGH3vDWY8Mdx7zra8R9nUQYHgsEBfy_yGkEWOw@mail.gmail.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] MAINTAINERS: Remove quotes of maintaners's names
+Date: Thu, 27 Oct 2011 23:53:39 +0200
+Message-ID: <20111027215339.GA3653@merkur.ravnborg.org>
+References: <1319739381-5244-1-git-send-email-marcos.mage@gmail.com> <610B86C6-622E-4EFE-89DF-BF09BDB4D765@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Walleij <linus.walleij@stericsson.com>,
-	netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Mathieu Poirer <mathieu.poirier@linaro.org>,
-	Robert Marklund <robert.marklund@stericsson.com>,
-	Paul Mundt <lethal@linux-sh.org>, linux-sh@vger.kernel.org,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Tony Lindgren <tony@atomide.com>, linux-omap@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Mike Frysinger <vapier@gentoo.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
+Cc: Marcos Paulo de Souza <marcos.mage@gmail.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAJaTeTpzFOdgqGH3vDWY8Mdx7zra8R9nUQYHgsEBfy_yGkEWOw@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
+In-Reply-To: <610B86C6-622E-4EFE-89DF-BF09BDB4D765@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 27, 2011 at 10:59:14PM +0200, Mike Frysinger wrote:
+On Thu, Oct 27, 2011 at 02:35:54PM -0700, Kirsher, Jeffrey T wrote:
+> On Oct 27, 2011, at 14:14, "Marcos Paulo de Souza" <marcos.mage@gmail.com> wrote:
+> 
+> > Signed-off-by: Marcos Paulo de Souza <marcos.mage@gmail.com>
+> > ---
+> > MAINTAINERS |  128 +++++++++++++++++++++++++++++-----------------------------
+> > 1 files changed, 64 insertions(+), 64 deletions(-)
+> >
+> > diff --git a/MAINTAINERS b/MAINTAINERS
+> > index 27af9c9..0bea8d7 100644
+> > --- a/MAINTAINERS
+> > +++ b/MAINTAINERS
+> > @@ -140,7 +140,7 @@ S:  Supported
+> > F:     drivers/scsi/3w-*
+> >
+> > 53C700 AND 53C700-66 SCSI DRIVER
+> > -M:     "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+> > +M:     James E.J. Bottomley <James.Bottomley@HansenPartnership.com>
+> > L:     linux-scsi@vger.kernel.org
+> > S:     Maintained
+> > F:     drivers/scsi/53c700*
+> > @@ -422,7 +422,7 @@ F:  drivers/char/agp/
+> > F:     include/linux/agp*
+> >
+> 
+> Adding lkml and netdev mailing lists...
+> 
+> The reason these names are in quotes is because they need to be wrapped in quotes when used in a git patch (I.e. CC: "David S. Miller" <davem@davemloft.net>) because of the . in the friendly name.
 
-> i saw that !CONFIG_REGULATOR works great.  my concern is that these
-> boards don't define any regulators for smsc resources, so if
-> CONFIG_REGULATOR is enabled to test out unrelated daughter cards, i
-> don't want the network driver suddenly failing.  Linus' comments
-> suggest that this is what would happen unless each board file has its
-> smsc platform resources extended.  maybe i misunderstood what he was saying ?
+And anyone that copy'n'paste the name to their mail client would also by screwed if
+the quotes are missing.
 
-That's the case that's handled by CONFIG_REGULATOR_DUMMY - if the lookup
-fails the core will provide a virtual regulator to the consumer.  If
-you're running a setup like that you probably want to enable dummy
-regulators anyway.
+	Sam
