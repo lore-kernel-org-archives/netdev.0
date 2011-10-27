@@ -1,61 +1,74 @@
-From: Bryan Schumaker <bjschuma-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 1/4] SUNRPC: rpcbind clients internals virtualization
-Date: Thu, 27 Oct 2011 02:43:36 -0400
-Message-ID: <4EA8FD98.9040500@netapp.com>
-References: <20111025135637.5286.89632.stgit@localhost6.localdomain6> <20111025135749.5286.57091.stgit@localhost6.localdomain6>
+From: =?ISO-8859-1?Q?David_T=E4ht?= <dave.taht@gmail.com>
+Subject: adding nat awareness in routing daemons?
+Date: Thu, 27 Oct 2011 09:04:31 +0200
+Message-ID: <4EA9027F.7000702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: multipart/mixed;
+ boundary="------------000706060206030302010200"
+To: netdev@vger.kernel.org, bloat-devel@lists.bufferbloat.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37749 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750889Ab1J0HEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 03:04:41 -0400
+Received: by faan17 with SMTP id n17so2311355faa.19
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2011 00:04:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------000706060206030302010200
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+
+after shooting myself in the foot on this several times in the past 
+couple months, I thought I'd ask...
+
+Is there a way to determine generically (in linux at least) if outgoing 
+addresses on an interface are being NATTed or not? via netlink? I can 
+come up with a way to do this via parsing iptables's nat table but 
+that's kind of ugly.
+
+The scenario I have is two (or more) routers with their external 
+interfaces connected to a shared ethernet/cable segment. Both do NAT on 
+their external interfaces for ipv4 (but don't do nat, at least 
+currently, for ipv6). Their private networks are usually connected 
+together via various means (mesh mostly), which can fail, and it would 
+be nice to be able to add the external connectivity as a fallback 
+without having to worry about NAT.
+
+e.g. something like
+
+if (nat_status(&this_interface)) {
+         if(this_interface & IPV4_NO_NAT) send_route4_calculations();
+         if(this_interface & IPV6_NO_NAT) send_route6_calculations();
+}
+
+Where I did myself in on this was in the lab
+
+http://io.lab.bufferbloat.net:8080/
+
+
+-- 
+Dave Täht
+
+
+--------------000706060206030302010200
+Content-Type: text/x-vcard; charset=utf-8;
+ name="dave_taht.vcf"
 Content-Transfer-Encoding: 7bit
-Cc: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20111025135749.5286.57091.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: attachment;
+ filename="dave_taht.vcf"
 
-On 10/25/2011 10:57 AM, Stanislav Kinsbursky wrote:
-> This patch moves static rpcbind internals to sunrpc part of network namespace
+begin:vcard
+fn;quoted-printable:Dave T=C3=A4ht
+n;quoted-printable:T=C3=A4ht;Dave
+email;internet:dave.taht@gmail.com
+tel;home:1-239-829-5608
+tel;cell:0638645374
+x-mozilla-html:FALSE
+version:2.1
+end:vcard
 
-Rather than saying that this patch moves the static internals, could you say that it creates the new network namespace internals?  The next patch switches things over, so it's not really correct to say that this one moves everything.
 
-Alternatively, could this patch be merged with the next one so that you create and switch over to the new internals all at once?
-
-- Bryan
-
-> context. This will allow to create rcpbind clients per network namespace.
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> 
-> ---
->  net/sunrpc/netns.h |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
-> index d013bf2..83eede3 100644
-> --- a/net/sunrpc/netns.h
-> +++ b/net/sunrpc/netns.h
-> @@ -9,6 +9,11 @@ struct cache_detail;
->  struct sunrpc_net {
->  	struct proc_dir_entry *proc_net_rpc;
->  	struct cache_detail *ip_map_cache;
-> +
-> +	struct rpc_clnt *rpcb_local_clnt;
-> +	struct rpc_clnt *rpcb_local_clnt4;
-> +	spinlock_t rpcb_clnt_lock;
-> +	unsigned int rpcb_users;
->  };
->  
->  extern int sunrpc_net_id;
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--------------000706060206030302010200--
