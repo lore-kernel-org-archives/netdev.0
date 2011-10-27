@@ -1,66 +1,70 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: drivers/net/ethernet/apple
-Date: Thu, 27 Oct 2011 10:40:30 +0200
-Message-ID: <CAMuHMdUXg3D=+dCHZ=OwzfD2eejSaB73Y-sgv2cXoH4cnjzV5w@mail.gmail.com>
-References: <CAMuHMdXxqKoPNNo9a+VK-Yzu0Qp-8zY2+OhHL6pDPF=dsnNK5Q@mail.gmail.com>
-	<CAMuHMdUW5PjPU7qNOPA16CbxHJs-bL4r+aFcEGV95SDRBotXRg@mail.gmail.com>
-	<1319701536.10258.74.camel@jtkirshe-mobl>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [RFC v3 PATCH 0/4] Send gratuitous packets by guest
+Date: Thu, 27 Oct 2011 16:48:26 +0800
+Message-ID: <20111027084700.15020.24087.stgit@dhcp-8-146.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319701536.10258.74.camel@jtkirshe-mobl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org
+To: aliguori@us.ibm.com, mst@redhat.com, jan.kiszka@siemens.com,
+	rusty@rustcorp.com.au, qemu-devel@nongnu.org, blauwirbel@gmail.com,
+	stefanha@gmail.com
+Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 27, 2011 at 09:45, Jeff Kirsher <jeffrey.t.kirsher@intel.co=
-m> wrote:
-> On Wed, 2011-10-26 at 22:16 -0700, Geert Uytterhoeven wrote:
->> On Tue, Oct 25, 2011 at 22:19, Geert Uytterhoeven
->> <geert@linux-m68k.org> wrote:
->> > drivers/net/ethernet/apple/mac89x0.c is a driver for the Crystal
->> Semiconductor
->> > (Now Cirrus Logic) CS89[02]0, so it belongs in
->> drivers/net/ethernet/cirrus,
->> > next to cs89x0.c.
->>
->> And on the first -next run since its inclusion:
->>
->> | drivers/net/ethernet/apple/mac89x0.c:107:20: error: cs89x0.h: No
->> such file or directory
->>
->> it needs the (shared) header file which is in
->> drivers/net/ethernet/cirrus/.
->>
->> http://kisskb.ellerman.id.au/kisskb/buildresult/4835488/
->
-> Ah, yeah, now it is coming back to me why I placed cs89x0.[ch] in the
-> drivers/net/ethernet/apple/ because it was grouped with the "common"
-> drivers. =C2=A0The intent was to group drivers that use common code t=
-ogether.
->
-> I can put together a patch to fix this if you are not able to.
+We only track primary mac address in qemu and send rarp packets after
+migration to notify the switch to update its mac address table. This
+may not works when guest have complicated network configurations such
+as tagged vlan or ipv6, those connections may be lost or stalled after
+migration.
 
-I will create a patch to move mac89x0 to .../cirrus, when I get to comp=
-iling a
-Mac kernel myself.
+One method to handle them is snooping the network traffic in qemu and
+recording use of mac, but this method would hurt performance and is
+impossible for network backend such as vhost.
 
-Gr{oetje,eeting}s,
+So the best method to address it is to let guest instead of qemu to
+send gratuitous packet. This series first add a model specific
+fucntion which can let nic model to implement its own announce
+method and then implement a virtio-net specific function to
+let guest send the gratitous packet.
 
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
+Changes from v2:
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
+- Conditionally send the notification interrupt to guest (only for
+migration, cont, loadvm).
+- Remove the unused patch of function export.
+- Typos and other comments from Stefan Hajnoczi.
+- Disable guest announce for compat machine types.
 
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+---
+
+Jason Wang (4):
+      announce self after vm start
+      net: model specific announcing support
+      virtio-net: notify guest to annouce itself
+      virtio-net: compat guest announce support.
+
+
+ gdbstub.c       |    2 +-
+ hw/pc_piix.c    |   16 ++++++++++++++++
+ hw/virtio-net.c |   18 +++++++++++++++++-
+ hw/virtio-net.h |    3 +++
+ migration.c     |    4 ++--
+ monitor.c       |    4 ++--
+ net.h           |    2 ++
+ savevm.c        |   10 ++++++----
+ sysemu.h        |    2 +-
+ vl.c            |    7 +++++--
+ 10 files changed, 55 insertions(+), 13 deletions(-)
+
+-- 
+Jason Wang
