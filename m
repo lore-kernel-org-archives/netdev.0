@@ -1,48 +1,592 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH v6 5/8] SUNRPC: cleanup service destruction
-Date: Thu, 27 Oct 2011 17:30:38 -0400
-Message-ID: <20111027213038.GD31669@fieldses.org>
-References: <20111025100826.12689.46944.stgit@localhost6.localdomain6>
- <20111025101716.12689.81697.stgit@localhost6.localdomain6>
+From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] MAINTAINERS: Remove quotes of maintaners's names
+Date: Thu, 27 Oct 2011 14:35:54 -0700
+Message-ID: <610B86C6-622E-4EFE-89DF-BF09BDB4D765@intel.com>
+References: <1319739381-5244-1-git-send-email-marcos.mage@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org,
-	xemul@parallels.com, neilb@suse.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net, devel@openvz.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	Marcos Paulo de Souza <marcos.mage@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Marcos Paulo de Souza <marcos.mage@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111025101716.12689.81697.stgit@localhost6.localdomain6>
+In-Reply-To: <1319739381-5244-1-git-send-email-marcos.mage@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 25, 2011 at 02:17:18PM +0300, Stanislav Kinsbursky wrote:
-> svc_unregister() call have to be removed from svc_destroy() since it will be
-> called in sv_shutdown callback.
+On Oct 27, 2011, at 14:14, "Marcos Paulo de Souza" <marcos.mage@gmail.com> wrote:
 
-It would be clearer that you're *moving* this if this were merged with
-the following patch.  And without doing that the series isn't quite
-bisectable, unless I'm missing something.
-
---b.
-
-> 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> 
+> Signed-off-by: Marcos Paulo de Souza <marcos.mage@gmail.com>
 > ---
->  net/sunrpc/svc.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-> index 918edc3..407462f 100644
-> --- a/net/sunrpc/svc.c
-> +++ b/net/sunrpc/svc.c
-> @@ -530,7 +530,6 @@ svc_destroy(struct svc_serv *serv)
->  	if (svc_serv_is_pooled(serv))
->  		svc_pool_map_put();
->  
-> -	svc_unregister(serv);
->  	kfree(serv->sv_pools);
->  	kfree(serv);
->  }
-> 
+> MAINTAINERS |  128 +++++++++++++++++++++++++++++-----------------------------
+> 1 files changed, 64 insertions(+), 64 deletions(-)
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 27af9c9..0bea8d7 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -140,7 +140,7 @@ S:  Supported
+> F:     drivers/scsi/3w-*
+>
+> 53C700 AND 53C700-66 SCSI DRIVER
+> -M:     "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+> +M:     James E.J. Bottomley <James.Bottomley@HansenPartnership.com>
+> L:     linux-scsi@vger.kernel.org
+> S:     Maintained
+> F:     drivers/scsi/53c700*
+> @@ -422,7 +422,7 @@ F:  drivers/char/agp/
+> F:     include/linux/agp*
+>
+> AHA152X SCSI DRIVER
+> -M:     "Juergen E. Fischer" <fischer@norbit.de>
+> +M:     Juergen E. Fischer <fischer@norbit.de>
+> L:     linux-scsi@vger.kernel.org
+> S:     Maintained
+> F:     drivers/scsi/aha152x*
+> @@ -1096,7 +1096,7 @@ F:        arch/arm/mach-shmobile/
+> F:     drivers/sh/
+>
+> ARM/TELECHIPS ARM ARCHITECTURE
+> -M:     "Hans J. Koch" <hjk@hansjkoch.de>
+> +M:     Hans J. Koch <hjk@hansjkoch.de>
+> L:     linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+> S:     Maintained
+> F:     arch/arm/plat-tcc/
+> @@ -1108,7 +1108,7 @@ L:        linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+> S:     Maintained
+>
+> ARM/TETON BGA MACHINE SUPPORT
+> -M:     "Mark F. Brown" <mark.brown314@gmail.com>
+> +M:     Mark F. Brown <mark.brown314@gmail.com>
+> L:     linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+> S:     Maintained
+>
+> @@ -1200,7 +1200,7 @@ F:        drivers/platform/x86/asus*.c
+> F:     drivers/platform/x86/eeepc*.c
+>
+> ASUS ASB100 HARDWARE MONITOR DRIVER
+> -M:     "Mark M. Hoffman" <mhoffman@lightlink.com>
+> +M:     Mark M. Hoffman <mhoffman@lightlink.com>
+> L:     lm-sensors@lm-sensors.org
+> S:     Maintained
+> F:     drivers/hwmon/asb100.c
+> @@ -1223,14 +1223,14 @@ F:      drivers/misc/eeprom/at24.c
+> F:     include/linux/i2c/at24.h
+>
+> ATA OVER ETHERNET (AOE) DRIVER
+> -M:     "Ed L. Cashin" <ecashin@coraid.com>
+> +M:     Ed L. Cashin <ecashin@coraid.com>
+> W:     http://www.coraid.com/support/linux
+> S:     Supported
+> F:     Documentation/aoe/
+> F:     drivers/block/aoe/
+>
+> ATHEROS ATH GENERIC UTILITIES
+> -M:     "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
+> +M:     Luis R. Rodriguez <mcgrof@qca.qualcomm.com>
+> L:     linux-wireless@vger.kernel.org
+> S:     Supported
+> F:     drivers/net/wireless/ath/*
+> @@ -1238,7 +1238,7 @@ F:        drivers/net/wireless/ath/*
+> ATHEROS ATH5K WIRELESS DRIVER
+> M:     Jiri Slaby <jirislaby@gmail.com>
+> M:     Nick Kossifidis <mickflemm@gmail.com>
+> -M:     "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
+> +M:     Luis R. Rodriguez <mcgrof@qca.qualcomm.com>
+> M:     Bob Copeland <me@bobcopeland.com>
+> L:     linux-wireless@vger.kernel.org
+> L:     ath5k-devel@lists.ath5k.org
+> @@ -1255,7 +1255,7 @@ S:        Supported
+> F:     drivers/net/wireless/ath/ath6kl/
+>
+> ATHEROS ATH9K WIRELESS DRIVER
+> -M:     "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
+> +M:     Luis R. Rodriguez <mcgrof@qca.qualcomm.com>
+> M:     Jouni Malinen <jouni@qca.qualcomm.com>
+> M:     Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>
+> M:     Senthil Balasubramanian <senthilb@qca.qualcomm.com>
+> @@ -1436,7 +1436,7 @@ F:        Documentation/filesystems/befs.txt
+> F:     fs/befs/
+>
+> BFS FILE SYSTEM
+> -M:     "Tigran A. Aivazian" <tigran@aivazian.fsnet.co.uk>
+> +M:     Tigran A. Aivazian <tigran@aivazian.fsnet.co.uk>
+> S:     Maintained
+> F:     Documentation/filesystems/bfs.txt
+> F:     fs/bfs/
+> @@ -1504,7 +1504,7 @@ F:        drivers/mtd/devices/block2mtd.c
+>
+> BLUETOOTH DRIVERS
+> M:     Marcel Holtmann <marcel@holtmann.org>
+> -M:     "Gustavo F. Padovan" <padovan@profusion.mobi>
+> +M:     Gustavo F. Padovan <padovan@profusion.mobi>
+> L:     linux-bluetooth@vger.kernel.org
+> W:     http://www.bluez.org/
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/padovan/bluetooth-2.6.git
+> @@ -1513,7 +1513,7 @@ F:        drivers/bluetooth/
+>
+> BLUETOOTH SUBSYSTEM
+> M:     Marcel Holtmann <marcel@holtmann.org>
+> -M:     "Gustavo F. Padovan" <padovan@profusion.mobi>
+> +M:     Gustavo F. Padovan <padovan@profusion.mobi>
+> L:     linux-bluetooth@vger.kernel.org
+> W:     http://www.bluez.org/
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/padovan/bluetooth-2.6.git
+> @@ -1659,7 +1659,7 @@ F:        net/caif/
+>
+> CALGARY x86-64 IOMMU
+> M:     Muli Ben-Yehuda <muli@il.ibm.com>
+> -M:     "Jon D. Mason" <jdmason@kudzu.us>
+> +M:     Jon D. Mason <jdmason@kudzu.us>
+> L:     discuss@x86-64.org
+> S:     Maintained
+> F:     arch/x86/kernel/pci-calgary_64.c
+> @@ -1925,7 +1925,7 @@ F:        drivers/cpufreq/
+> F:     include/linux/cpufreq.h
+>
+> CPUID/MSR DRIVER
+> -M:     "H. Peter Anvin" <hpa@zytor.com>
+> +M:     H. Peter Anvin <hpa@zytor.com>
+> S:     Maintained
+> F:     arch/x86/kernel/cpuid.c
+> F:     arch/x86/kernel/msr.c
+> @@ -1962,7 +1962,7 @@ F:        drivers/tty/serial/crisv10.*
+>
+> CRYPTO API
+> M:     Herbert Xu <herbert@gondor.apana.org.au>
+> -M:     "David S. Miller" <davem@davemloft.net>
+> +M:     David S. Miller <davem@davemloft.net>
+> L:     linux-crypto@vger.kernel.org
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/herbert/crypto-2.6.git
+> S:     Maintained
+> @@ -2116,7 +2116,7 @@ F:        Documentation/networking/decnet.txt
+> F:     net/decnet/
+>
+> DEFXX FDDI NETWORK DRIVER
+> -M:     "Maciej W. Rozycki" <macro@linux-mips.org>
+> +M:     Maciej W. Rozycki <macro@linux-mips.org>
+> S:     Maintained
+> F:     drivers/net/fddi/defxx.*
+>
+> @@ -2169,7 +2169,7 @@ F:        include/linux/device-mapper.h
+> F:     include/linux/dm-*.h
+>
+> DIGI INTL. EPCA DRIVER
+> -M:     "Digi International, Inc" <Eng.Linux@digi.com>
+> +M:     Digi International, Inc <Eng.Linux@digi.com>
+> L:     Eng.Linux@digi.com
+> W:     http://www.digi.com
+> S:     Orphan
+> @@ -2248,7 +2248,7 @@ S:        Maintained
+> F:     Documentation/
+>
+> DOUBLETALK DRIVER
+> -M:     "James R. Van Zandt" <jrv@vanzandt.mv.com>
+> +M:     James R. Van Zandt <jrv@vanzandt.mv.com>
+> L:     blinux-list@redhat.com
+> S:     Maintained
+> F:     drivers/char/dtlk.c
+> @@ -2317,7 +2317,7 @@ F:        lib/dynamic_debug.c
+> F:     include/linux/dynamic_debug.h
+>
+> DZ DECSTATION DZ11 SERIAL DRIVER
+> -M:     "Maciej W. Rozycki" <macro@linux-mips.org>
+> +M:     Maciej W. Rozycki <macro@linux-mips.org>
+> S:     Maintained
+> F:     drivers/tty/serial/dz.*
+>
+> @@ -2436,7 +2436,7 @@ F:        include/linux/edac_mce.h
+>
+> EDAC-I82975X
+> M:     Ranganathan Desikan <ravi@jetztechnologies.com>
+> -M:     "Arvind R." <arvino55@gmail.com>
+> +M:     Arvind R. <arvino55@gmail.com>
+> L:     bluesmoke-devel@lists.sourceforge.net (moderated for non-subscribers)
+> W:     bluesmoke.sourceforge.net
+> S:     Maintained
+> @@ -2565,7 +2565,7 @@ F:        fs/ext3/
+> F:     include/linux/ext3*
+>
+> EXT4 FILE SYSTEM
+> -M:     "Theodore Ts'o" <tytso@mit.edu>
+> +M:     Theodore Ts'o <tytso@mit.edu>
+> M:     Andreas Dilger <adilger.kernel@dilger.ca>
+> L:     linux-ext4@vger.kernel.org
+> W:     http://ext4.wiki.kernel.org
+> @@ -2759,7 +2759,7 @@ F:        fs/freevxfs/
+>
+> FREEZER
+> M:     Pavel Machek <pavel@ucw.cz>
+> -M:     "Rafael J. Wysocki" <rjw@sisk.pl>
+> +M:     Rafael J. Wysocki <rjw@sisk.pl>
+> L:     linux-pm@vger.kernel.org
+> S:     Supported
+> F:     Documentation/power/freezing-of-tasks.txt
+> @@ -2840,7 +2840,7 @@ S:        Maintained
+> F:     include/asm-generic
+>
+> GENERIC UIO DRIVER FOR PCI DEVICES
+> -M:     "Michael S. Tsirkin" <mst@redhat.com>
+> +M:     Michael S. Tsirkin <mst@redhat.com>
+> L:     kvm@vger.kernel.org
+> S:     Supported
+> F:     drivers/uio/uio_pci_generic.c
+> @@ -2991,7 +2991,7 @@ F:        Documentation/blockdev/cpqarray.txt
+> F:     drivers/block/cpqarray.*
+>
+> HEWLETT-PACKARD SMART ARRAY RAID DRIVER (hpsa)
+> -M:     "Stephen M. Cameron" <scameron@beardog.cce.hp.com>
+> +M:     Stephen M. Cameron <scameron@beardog.cce.hp.com>
+> L:     iss_storagedev@hp.com
+> S:     Supported
+> F:     Documentation/scsi/hpsa.txt
+> @@ -3021,7 +3021,7 @@ F:        drivers/video/hgafb.c
+>
+> HIBERNATION (aka Software Suspend, aka swsusp)
+> M:     Pavel Machek <pavel@ucw.cz>
+> -M:     "Rafael J. Wysocki" <rjw@sisk.pl>
+> +M:     Rafael J. Wysocki <rjw@sisk.pl>
+> L:     linux-pm@vger.kernel.org
+> S:     Supported
+> F:     arch/x86/power/
+> @@ -3101,7 +3101,7 @@ F:        drivers/char/hpet.c
+> F:     include/linux/hpet.h
+>
+> HPET:  x86
+> -M:     "Venkatesh Pallipadi (Venki)" <venki@google.com>
+> +M:     Venkatesh Pallipadi (Venki) <venki@google.com>
+> S:     Maintained
+> F:     arch/x86/kernel/hpet.c
+> F:     arch/x86/include/asm/hpet.h
+> @@ -3130,14 +3130,14 @@ S:      Maintained
+> F:     fs/hugetlbfs/
+>
+> I2C/SMBUS STUB DRIVER
+> -M:     "Mark M. Hoffman" <mhoffman@lightlink.com>
+> +M:     Mark M. Hoffman <mhoffman@lightlink.com>
+> L:     linux-i2c@vger.kernel.org
+> S:     Maintained
+> F:     drivers/i2c/busses/i2c-stub.c
+>
+> I2C SUBSYSTEM
+> -M:     "Jean Delvare (PC drivers, core)" <khali@linux-fr.org>
+> -M:     "Ben Dooks (embedded platforms)" <ben-linux@fluff.org>
+> +M:     Jean Delvare (PC drivers, core) <khali@linux-fr.org>
+> +M:     Ben Dooks (embedded platforms) <ben-linux@fluff.org>
+> L:     linux-i2c@vger.kernel.org
+> W:     http://i2c.wiki.kernel.org/
+> T:     quilt kernel.org/pub/linux/kernel/people/jdelvare/linux-2.6/jdelvare-i2c/
+> @@ -3156,12 +3156,12 @@ S:      Maintained
+> F:     drivers/i2c/busses/i2c-tiny-usb.c
+>
+> i386 BOOT CODE
+> -M:     "H. Peter Anvin" <hpa@zytor.com>
+> +M:     H. Peter Anvin <hpa@zytor.com>
+> S:     Maintained
+> F:     arch/x86/boot/
+>
+> i386 SETUP CODE / CPU ERRATA WORKAROUNDS
+> -M:     "H. Peter Anvin" <hpa@zytor.com>
+> +M:     H. Peter Anvin <hpa@zytor.com>
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/hpa/linux-2.6-x86setup.git
+> S:     Maintained
+>
+> @@ -3199,7 +3199,7 @@ S:        Supported
+> F:     drivers/scsi/ips.*
+>
+> IDE SUBSYSTEM
+> -M:     "David S. Miller" <davem@davemloft.net>
+> +M:     David S. Miller <davem@davemloft.net>
+> L:     linux-ide@vger.kernel.org
+> Q:     http://patchwork.ozlabs.org/project/linux-ide/list/
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/davem/ide-2.6.git
+> @@ -3647,7 +3647,7 @@ F:        include/linux/ext3_jbd.h
+> F:     include/linux/jbd.h
+>
+> JOURNALLING LAYER FOR BLOCK DEVICES (JBD2)
+> -M:     "Theodore Ts'o" <tytso@mit.edu>
+> +M:     Theodore Ts'o <tytso@mit.edu>
+> L:     linux-ext4@vger.kernel.org
+> S:     Maintained
+> F:     fs/jbd2/
+> @@ -3713,7 +3713,7 @@ W:        http://kernelnewbies.org/KernelJanitors
+> S:     Odd Fixes
+>
+> KERNEL NFSD, SUNRPC, AND LOCKD SERVERS
+> -M:     "J. Bruce Fields" <bfields@fieldses.org>
+> +M:     J. Bruce Fields <bfields@fieldses.org>
+> M:     Neil Brown <neilb@suse.de>
+> L:     linux-nfs@vger.kernel.org
+> W:     http://nfs.sourceforge.net/
+> @@ -3848,7 +3848,7 @@ F:        mm/kmemleak-test.c
+> KPROBES
+> M:     Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+> M:     Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+> -M:     "David S. Miller" <davem@davemloft.net>
+> +M:     David S. Miller <davem@davemloft.net>
+> M:     Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+> S:     Maintained
+> F:     Documentation/kprobes.txt
+> @@ -3872,7 +3872,7 @@ F:        include/*/lapb.h
+> F:     net/lapb/
+>
+> LASI 53c700 driver for PARISC
+> -M:     "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+> +M:     James E.J. Bottomley <James.Bottomley@HansenPartnership.com>
+> L:     linux-scsi@vger.kernel.org
+> S:     Maintained
+> F:     Documentation/scsi/53c700.txt
+> @@ -4040,7 +4040,7 @@ F:        include/linux/lockdep.h
+> F:     kernel/lockdep*
+>
+> LOGICAL DISK MANAGER SUPPORT (LDM, Windows 2000/XP/Vista Dynamic Disks)
+> -M:     "Richard Russon (FlatCap)" <ldm@flatcap.org>
+> +M:     Richard Russon (FlatCap) <ldm@flatcap.org>
+> L:     linux-ntfs-dev@lists.sourceforge.net
+> W:     http://www.linux-ntfs.org/content/view/19/37/
+> S:     Maintained
+> @@ -4191,14 +4191,14 @@ F:      drivers/video/matrox/matroxfb_*
+> F:     include/linux/matroxfb.h
+>
+> MAX1668 TEMPERATURE SENSOR DRIVER
+> -M:     "David George" <david.george@ska.ac.za>
+> +M:     David George <david.george@ska.ac.za>
+> L:     lm-sensors@lm-sensors.org
+> S:     Maintained
+> F:     Documentation/hwmon/max1668
+> F:     drivers/hwmon/max1668.c
+>
+> MAX6650 HARDWARE MONITOR AND FAN CONTROLLER DRIVER
+> -M:     "Hans J. Koch" <hjk@hansjkoch.de>
+> +M:     Hans J. Koch <hjk@hansjkoch.de>
+> L:     lm-sensors@lm-sensors.org
+> S:     Maintained
+> F:     Documentation/hwmon/max6650
+> @@ -4318,7 +4318,7 @@ F:        Documentation/serial/moxa-smartio
+> F:     drivers/tty/mxser.*
+>
+> MSI LAPTOP SUPPORT
+> -M:     "Lee, Chun-Yi" <jlee@novell.com>
+> +M:     Lee, Chun-Yi <jlee@novell.com>
+> L:     platform-driver-x86@vger.kernel.org
+> S:     Maintained
+> F:     drivers/platform/x86/msi-laptop.c
+> @@ -4392,7 +4392,7 @@ S:        Odd Fixes
+> F:     fs/ncpfs/
+>
+> NCR DUAL 700 SCSI DRIVER (MICROCHANNEL)
+> -M:     "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+> +M:     James E.J. Bottomley <James.Bottomley@HansenPartnership.com>
+> L:     linux-scsi@vger.kernel.org
+> S:     Maintained
+> F:     drivers/scsi/NCR_D700.*
+> @@ -4475,7 +4475,7 @@ W:        https://fedorahosted.org/dropwatch/
+> F:     net/core/drop_monitor.c
+>
+> NETWORKING [GENERAL]
+> -M:     "David S. Miller" <davem@davemloft.net>
+> +M:     David S. Miller <davem@davemloft.net>
+> L:     netdev@vger.kernel.org
+> W:     http://www.linuxfoundation.org/en/Net
+> W:     http://patchwork.ozlabs.org/project/netdev/list/
+> @@ -4489,7 +4489,7 @@ F:        include/linux/net.h
+> F:     include/linux/netdevice.h
+>
+> NETWORKING [IPv4/IPv6]
+> -M:     "David S. Miller" <davem@davemloft.net>
+> +M:     David S. Miller <davem@davemloft.net>
+> M:     Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> M:     James Morris <jmorris@namei.org>
+> M:     Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> @@ -4508,7 +4508,7 @@ L:        netdev@vger.kernel.org
+> S:     Maintained
+>
+> NETWORKING [WIRELESS]
+> -M:     "John W. Linville" <linville@tuxdriver.com>
+> +M:     John W. Linville <linville@tuxdriver.com>
+> L:     linux-wireless@vger.kernel.org
+> Q:     http://patchwork.kernel.org/project/linux-wireless/list/
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
+> @@ -4896,7 +4896,7 @@ F:        drivers/block/paride/
+> PARISC ARCHITECTURE
+> M:     Kyle McMartin <kyle@mcmartin.ca>
+> M:     Helge Deller <deller@gmx.de>
+> -M:     "James E.J. Bottomley" <jejb@parisc-linux.org>
+> +M:     James E.J. Bottomley <jejb@parisc-linux.org>
+> L:     linux-parisc@vger.kernel.org
+> W:     http://www.parisc-linux.org/
+> Q:     http://patchwork.kernel.org/project/linux-parisc/list/
+> @@ -5164,7 +5164,7 @@ F:        Documentation/preempt-locking.txt
+> F:     include/linux/preempt.h
+>
+> PRISM54 WIRELESS DRIVER
+> -M:     "Luis R. Rodriguez" <mcgrof@gmail.com>
+> +M:     Luis R. Rodriguez <mcgrof@gmail.com>
+> L:     linux-wireless@vger.kernel.org
+> W:     http://wireless.kernel.org/en/users/Drivers/p54
+> S:     Obsolete
+> @@ -5384,7 +5384,7 @@ F:        drivers/net/wireless/ray*
+>
+> RCUTORTURE MODULE
+> M:     Josh Triplett <josh@freedesktop.org>
+> -M:     "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> +M:     Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> S:     Supported
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/paulmck/linux-2.6-rcu.git
+> F:     Documentation/RCU/torture.txt
+> @@ -5408,7 +5408,7 @@ F:        net/rds/
+>
+> READ-COPY UPDATE (RCU)
+> M:     Dipankar Sarma <dipankar@in.ibm.com>
+> -M:     "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> +M:     Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> W:     http://www.rdrop.com/users/paulmck/rclock/
+> S:     Supported
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/paulmck/linux-2.6-rcu.git
+> @@ -5480,7 +5480,7 @@ F:        include/net/rose.h
+> F:     net/rose/
+>
+> RTL8180 WIRELESS DRIVER
+> -M:     "John W. Linville" <linville@tuxdriver.com>
+> +M:     John W. Linville <linville@tuxdriver.com>
+> L:     linux-wireless@vger.kernel.org
+> W:     http://linuxwireless.org/
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-testing.git
+> @@ -5661,7 +5661,7 @@ F:        drivers/scsi/sg.c
+> F:     include/scsi/sg.h
+>
+> SCSI SUBSYSTEM
+> -M:     "James E.J. Bottomley" <JBottomley@parallels.com>
+> +M:     James E.J. Bottomley <JBottomley@parallels.com>
+> L:     linux-scsi@vger.kernel.org
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/jejb/scsi-misc-2.6.git
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/jejb/scsi-rc-fixes-2.6.git
+> @@ -5886,7 +5886,7 @@ S:        Maintained
+> F:     drivers/net/ethernet/sis/sis900.*
+>
+> SIS 96X I2C/SMBUS DRIVER
+> -M:     "Mark M. Hoffman" <mhoffman@lightlink.com>
+> +M:     Mark M. Hoffman <mhoffman@lightlink.com>
+> L:     linux-i2c@vger.kernel.org
+> S:     Maintained
+> F:     Documentation/i2c/busses/i2c-sis96x
+> @@ -5948,7 +5948,7 @@ F:        Documentation/hwmon/sch5627
+> F:     drivers/hwmon/sch5627.c
+>
+> SMSC47B397 HARDWARE MONITOR DRIVER
+> -M:     "Mark M. Hoffman" <mhoffman@lightlink.com>
+> +M:     Mark M. Hoffman <mhoffman@lightlink.com>
+> L:     lm-sensors@lm-sensors.org
+> S:     Maintained
+> F:     Documentation/hwmon/smsc47b397
+> @@ -6054,7 +6054,7 @@ F:        sound/soc/
+> F:     include/sound/soc*
+>
+> SPARC + UltraSPARC (sparc/sparc64)
+> -M:     "David S. Miller" <davem@davemloft.net>
+> +M:     David S. Miller <davem@davemloft.net>
+> L:     sparclinux@vger.kernel.org
+> Q:     http://patchwork.ozlabs.org/project/sparclinux/list/
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/davem/sparc-2.6.git
+> @@ -6064,7 +6064,7 @@ F:        arch/sparc/
+> F:     drivers/sbus/
+>
+> SPARC SERIAL DRIVERS
+> -M:     "David S. Miller" <davem@davemloft.net>
+> +M:     David S. Miller <davem@davemloft.net>
+> L:     sparclinux@vger.kernel.org
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/davem/sparc-2.6.git
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/davem/sparc-next-2.6.git
+> @@ -6349,7 +6349,7 @@ F:        drivers/sh/
+> SUSPEND TO RAM
+> M:     Len Brown <len.brown@intel.com>
+> M:     Pavel Machek <pavel@ucw.cz>
+> -M:     "Rafael J. Wysocki" <rjw@sisk.pl>
+> +M:     Rafael J. Wysocki <rjw@sisk.pl>
+> L:     linux-pm@vger.kernel.org
+> S:     Supported
+> F:     Documentation/power/
+> @@ -6402,8 +6402,8 @@ F:        include/net/pkt_cls.h
+> F:     net/sched/
+>
+> TCP LOW PRIORITY MODULE
+> -M:     "Wong Hoi Sing, Edison" <hswong3i@gmail.com>
+> -M:     "Hung Hing Lun, Mike" <hlhung3i@gmail.com>
+> +M:     Wong Hoi Sing, Edison <hswong3i@gmail.com>
+> +M:     Hung Hing Lun, Mike <hlhung3i@gmail.com>
+> W:     http://tcp-lp-mod.sourceforge.net/
+> S:     Maintained
+> F:     net/ipv4/tcp_lp.c
+> @@ -6586,7 +6586,7 @@ F:        Documentation/networking/tuntap.txt
+> F:     arch/um/os-Linux/drivers/
+>
+> TURBOCHANNEL SUBSYSTEM
+> -M:     "Maciej W. Rozycki" <macro@linux-mips.org>
+> +M:     Maciej W. Rozycki <macro@linux-mips.org>
+> S:     Maintained
+> F:     drivers/tc/
+> F:     include/linux/tc.h
+> @@ -6983,7 +6983,7 @@ F:        fs/hostfs/
+> F:     fs/hppfs/
+>
+> USERSPACE I/O (UIO)
+> -M:     "Hans J. Koch" <hjk@hansjkoch.de>
+> +M:     Hans J. Koch <hjk@hansjkoch.de>
+> M:     Greg Kroah-Hartman <gregkh@suse.de>
+> S:     Maintained
+> F:     Documentation/DocBook/uio-howto.tmpl
+> @@ -7029,7 +7029,7 @@ F:        include/linux/virtio_console.h
+>
+> VIRTIO CORE, NET AND BLOCK DRIVERS
+> M:     Rusty Russell <rusty@rustcorp.com.au>
+> -M:     "Michael S. Tsirkin" <mst@redhat.com>
+> +M:     Michael S. Tsirkin <mst@redhat.com>
+> L:     virtualization@lists.linux-foundation.org
+> S:     Maintained
+> F:     drivers/virtio/
+> @@ -7038,7 +7038,7 @@ F:        drivers/block/virtio_blk.c
+> F:     include/linux/virtio_*.h
+>
+> VIRTIO HOST (VHOST)
+> -M:     "Michael S. Tsirkin" <mst@redhat.com>
+> +M:     Michael S. Tsirkin <mst@redhat.com>
+> L:     kvm@vger.kernel.org
+> L:     virtualization@lists.linux-foundation.org
+> L:     netdev@vger.kernel.org
+> @@ -7096,7 +7096,7 @@ F:        include/linux/vlynq.h
+>
+> VMWARE VMXNET3 ETHERNET DRIVER
+> M:     Shreyas Bhatewara <sbhatewara@vmware.com>
+> -M:     "VMware, Inc." <pv-drivers@vmware.com>
+> +M:     VMware, Inc. <pv-drivers@vmware.com>
+> L:     netdev@vger.kernel.org
+> S:     Maintained
+> F:     drivers/net/vmxnet3/
+> @@ -7293,7 +7293,7 @@ F:        net/x25/
+> X86 ARCHITECTURE (32-BIT AND 64-BIT)
+> M:     Thomas Gleixner <tglx@linutronix.de>
+> M:     Ingo Molnar <mingo@redhat.com>
+> -M:     "H. Peter Anvin" <hpa@zytor.com>
+> +M:     H. Peter Anvin <hpa@zytor.com>
+> M:     x86@kernel.org
+> T:     git git://git.kernel.org/pub/scm/linux/kernel/git/x86/linux-2.6-x86.git
+> S:     Maintained
+> @@ -7412,7 +7412,7 @@ S:        Odd Fixes
+> F:     drivers/media/video/zoran/
+>
+> ZS DECSTATION Z85C30 SERIAL DRIVER
+> -M:     "Maciej W. Rozycki" <macro@linux-mips.org>
+> +M:     Maciej W. Rozycki <macro@linux-mips.org>
+> S:     Maintained
+> F:     drivers/tty/serial/zs.*
+>
+> --
+> 1.7.4.4
+>
+
+Adding lkml and netdev mailing lists...
+
+The reason these names are in quotes is because they need to be wrapped in quotes when used in a git patch (I.e. CC: "David S. Miller" <davem@davemloft.net>) because of the . in the friendly name.
