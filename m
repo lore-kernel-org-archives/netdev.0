@@ -1,24 +1,25 @@
-From: Karel Rericha <karel@maxtel.cz>
-Subject: Quick Fair Queue scheduler maturity and examples
-Date: Thu, 27 Oct 2011 13:30:33 +0200
-Message-ID: <CAN==1RowdZ094pkOA3vbs-fd3g-NSABqaGC3WXSPL8Y0Lqg+fQ@mail.gmail.com>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net-next-2.6 0/2] be2net: fixes
+Date: Thu, 27 Oct 2011 22:41:47 +0530
+Message-ID: <900362ce-e840-44cb-bfcf-72eba609edf3@exht2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:41144 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754122Ab1J0Lae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 07:30:34 -0400
-Received: by vws1 with SMTP id 1so2289682vws.19
-        for <netdev@vger.kernel.org>; Thu, 27 Oct 2011 04:30:34 -0700 (PDT)
+Received: from exht2.emulex.com ([138.239.113.184]:6187 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754207Ab1J0Lp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 07:45:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi list,
+Pls apply.
 
-has anyone some experience about QFQ and its maturity ? I was not able
-to find anything more than patches and papers, real world examples and
-info are nonexistent.
+Somnath Kotur (2):
+  be2net: Refactored be_cmds.c file.
+  be2net: Changing MAC Address of a VF (in SR-IOV case) was broken.
 
-Thanks, Karel
+ drivers/net/ethernet/emulex/benet/be_cmds.c |  400 ++++++++-------------------
+ drivers/net/ethernet/emulex/benet/be_main.c |   28 +-
+ 2 files changed, 133 insertions(+), 295 deletions(-)
