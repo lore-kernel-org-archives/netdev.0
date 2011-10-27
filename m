@@ -1,52 +1,24 @@
-From: MONEY GRAM TRANSFER <nicole.wimmer@meduniwien.ac.at>
-Subject: (unknown)
-Date: Thu, 27 Oct 2011 12:16:15 +0100
-Message-ID: <949e4e4121c836a186081e4dbdcac43c__18045.4570254826$1319714992$gmane$org@mail.meduniwien.ac.at>
-Reply-To: <allandavis_transfer15@yahoo.co.jp>
+From: Karel Rericha <karel@maxtel.cz>
+Subject: Quick Fair Queue scheduler maturity and examples
+Date: Thu, 27 Oct 2011 13:30:33 +0200
+Message-ID: <CAN==1RowdZ094pkOA3vbs-fd3g-NSABqaGC3WXSPL8Y0Lqg+fQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from manon.srv.meduniwien.ac.at ([149.148.224.15]:48978 "EHLO
-	smtpa.meduniwien.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754091Ab1J0L3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 07:29:23 -0400
-Subject: 
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:41144 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754122Ab1J0Lae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 07:30:34 -0400
+Received: by vws1 with SMTP id 1so2289682vws.19
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2011 04:30:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My working partner in relationship with
-HSBC London has concluded that our working
-partner has helped us to send you first payment of US$5,000 to you as
-instructed by United Nation government and will
-keep sending you $5000 twice a week until
-the payment of (US$820,000) is completed
-within six months and here is the information
+Hi list,
 
+has anyone some experience about QFQ and its maturity ? I was not able
+to find anything more than patches and papers, real world examples and
+info are nonexistent.
 
-MONEY GRAM TRANSFER REFERENCE:2116-3297
-
-SENDER'S NAME: BARBARA FINSON
-AMOUNT: US$5000
-
-To track your funds you are to forward money gram
-Transfer agent Mr Allan Davis
-
-
-Your Name.__________________________
-Phone number __________________________
-
-
-Contact Allan Davis for the funds clearance
-certificate necessary for the realisation of your funds
-
-E-mail:allandavis_transfer15@yahoo.co.jp
-D/L: Tel:+44 7031899744
-
-
-Please direct all enquiring to:
-Allan Davis
-
-Best Regards,
+Thanks, Karel
