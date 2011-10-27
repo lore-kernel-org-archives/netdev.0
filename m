@@ -1,277 +1,262 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [RFC PATCH 3/5] net: Add & modify tracepoints to skb FCLONE_SCRATCH paths
-Date: Thu, 27 Oct 2011 15:53:39 -0400
-Message-ID: <1319745221-30880-4-git-send-email-nhorman@tuxdriver.com>
+Subject: [RFC PATCH 4/5] perf: add perf script to monitor efficiency increase in FCLONE_SCRATCH api
+Date: Thu, 27 Oct 2011 15:53:40 -0400
+Message-ID: <1319745221-30880-5-git-send-email-nhorman@tuxdriver.com>
 References: <1319745221-30880-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@updev.think-freely.org>,
+Cc: root <root@updev.think-freely.org>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38402 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38411 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752520Ab1J0Tyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 15:54:33 -0400
+	with ESMTP id S1752520Ab1J0Tyh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 15:54:37 -0400
 In-Reply-To: <1319745221-30880-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@updev.think-freely.org>
+From: root <root@updev.think-freely.org>
 
-Since skbs that are fcloned via the FCLONE_SCRATCH method are opportunistic, it
-would be nice to have some feedback on how efficiently the path is acting.
-These tracepoints provide the infrastructure needed to create perf scripts that
-let us measure things like the number of skbs that are converted for
-FCLONE_SCRATCH use, the number of scratch skbs that actually get
-allocated, and the average per-packet time spent in the napi softirq context.
+Since the FCLONE_SCRATCH mehanism is opportunistic, gathering internally
+fragmented memory when available, its beneficial to know how efficiently its
+working, so that tuning can be implemented to optimize it.  This patch adds a
+perf script to export data collected via the previously added tracepoints.
 
 Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 CC: "David S. Miller" <davem@davemloft.net>
 ---
- include/linux/skbuff.h      |   21 +--------------------
- include/trace/events/napi.h |   41 +++++++++++++++++++++++++++++++++++++++++
- include/trace/events/skb.h  |   41 +++++++++++++++++++++++++++++++++++++++++
- net/core/dev.c              |    2 ++
- net/core/skbuff.c           |   37 +++++++++++++++++++++++++++++++++----
- 5 files changed, 118 insertions(+), 24 deletions(-)
+ .../scripts/python/bin/net-fscratch-stats-record   |    4 +
+ .../scripts/python/bin/net-fscratch-stats-report   |    4 +
+ tools/perf/scripts/python/net-fscratch.py          |  198 ++++++++++++++++++++
+ 3 files changed, 206 insertions(+), 0 deletions(-)
+ create mode 100644 tools/perf/scripts/python/bin/net-fscratch-stats-record
+ create mode 100644 tools/perf/scripts/python/bin/net-fscratch-stats-report
+ create mode 100644 tools/perf/scripts/python/net-fscratch.py
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e04fa48..77e3605 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2540,26 +2540,7 @@ extern unsigned int skb_make_fclone_scratch(struct sk_buff *skb);
- /*
-  * Allocates an skb out of our scratch space
-  */
--static inline struct sk_buff *alloc_fscratch_skb(struct sk_buff *skb)
--{
--	struct skb_scr_control *sctl = skb_get_scratch_control(skb);
--	struct sk_buff *sskb;
--
--	BUG_ON(skb->fclone != SKB_FCLONE_SCRATCH);
--	BUG_ON(!sctl);
--	BUG_ON(sctl->owner != skb);
--	if (skb_queue_empty(&sctl->scr_skbs))
--		return NULL;
--
--	sskb = __skb_dequeue(&sctl->scr_skbs);
--
--	/*
--	 * Mark us as a scratch skb, so we get properly kfree-ed
--	 */
--	sskb->fclone = SKB_FCLONE_SCRATCH;
--
--	return sskb;
--}
-+extern struct sk_buff *alloc_fscratch_skb(struct sk_buff *skb);
- 
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
-diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
-index 8fe1e93..5af5675 100644
---- a/include/trace/events/napi.h
-+++ b/include/trace/events/napi.h
-@@ -7,6 +7,7 @@
- #include <linux/netdevice.h>
- #include <linux/tracepoint.h>
- #include <linux/ftrace.h>
-+#include <linux/kernel_stat.h>
- 
- #define NO_DEV "(no_device)"
- 
-@@ -30,6 +31,46 @@ TRACE_EVENT(napi_poll,
- 		__entry->napi, __get_str(dev_name))
- );
- 
-+TRACE_EVENT(napi_schedule,
+diff --git a/tools/perf/scripts/python/bin/net-fscratch-stats-record b/tools/perf/scripts/python/bin/net-fscratch-stats-record
+new file mode 100644
+index 0000000..7aae593
+--- /dev/null
++++ b/tools/perf/scripts/python/bin/net-fscratch-stats-record
+@@ -0,0 +1,4 @@
++#!/bin/bash
++perf record 	-e skb:skb_make_fclone_scratch -e skb:alloc_fscratch_skb \
++		-e napi:napi_schedule -e napi:napi_complete \
++		-e napi:napi_poll -e net:netif_receive_skb $@
+diff --git a/tools/perf/scripts/python/bin/net-fscratch-stats-report b/tools/perf/scripts/python/bin/net-fscratch-stats-report
+new file mode 100644
+index 0000000..85bb867
+--- /dev/null
++++ b/tools/perf/scripts/python/bin/net-fscratch-stats-report
+@@ -0,0 +1,4 @@
++#!/bin/bash
++# description: display a process of packet and processing time
 +
-+	TP_PROTO(struct napi_struct *napi),
++perf script -s "$PERF_EXEC_PATH"/scripts/python/net-fscratch.py $@
+diff --git a/tools/perf/scripts/python/net-fscratch.py b/tools/perf/scripts/python/net-fscratch.py
+new file mode 100644
+index 0000000..f9ae5c9
+--- /dev/null
++++ b/tools/perf/scripts/python/net-fscratch.py
+@@ -0,0 +1,198 @@
++# Display a process of packets and processed time.
++# It helps us to investigate networking or network device.
++#
++# options
++# tx: show only tx chart
++# rx: show only rx chart
++# dev=: show only thing related to specified device
++# debug: work with debug mode. It shows buffer status.
 +
-+	TP_ARGS(napi),
++import os
++import sys
 +
-+	TP_STRUCT__entry(
-+		__field(	struct napi_struct *,	napi)
-+		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
-+	),
++sys.path.append(os.environ['PERF_EXEC_PATH'] + \
++	'/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
 +
-+	TP_fast_assign(
-+		__entry->napi = napi;
-+		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
-+	),
++from perf_trace_context import *
++from Core import *
++from Util import *
 +
-+	TP_printk("napi schedule on napi struct %p for device %s",
-+		__entry->napi, __get_str(dev_name))
-+);
++parent_skbs = {}
 +
-+TRACE_EVENT(napi_complete,
++total_parents=0
++total_children_avail=0
++total_children_used=0
++total_orphans=0
 +
-+	TP_PROTO(struct napi_struct *napi),
++IDX_FC_COUNT=0
++IDX_FC_KIDS=1
 +
-+	TP_ARGS(napi),
++STATE_START_TIMING=0
++STATE_TIMING=1
++STATE_COLLECT_TIMING=2
++STATE_RESET=3
 +
-+	TP_STRUCT__entry(
-+		__field(	struct napi_struct *,	napi)
-+		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
-+	),
++cpu_cycle_stats = {}
++cpu_total_stats = {}
 +
-+	TP_fast_assign(
-+		__entry->napi = napi;
-+		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
-+	),
++class cpuCycleStats():
++	def __init__(self):
++		self.start_rx_time = 0
++		self.end_rx_time = 0
++		self.state = STATE_RESET
++		self.total_rx_frames = 0
 +
-+	TP_printk("napi complete on napi struct %p for device %s",
-+		__entry->napi, __get_str(dev_name))
-+);
++class cpuTotalStats():
++	def __init__(self):
++		self.total_frames = 0
++		self.total_napi_time = 0
++		self.napi_sc_cycles = 0
 +
- #undef NO_DEV
- 
- #endif /* _TRACE_NAPI_H_ */
-diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-index 0c68ae22..3b83438 100644
---- a/include/trace/events/skb.h
-+++ b/include/trace/events/skb.h
-@@ -69,6 +69,47 @@ TRACE_EVENT(skb_copy_datagram_iovec,
- 	TP_printk("skbaddr=%p len=%d", __entry->skbaddr, __entry->len)
- );
- 
-+TRACE_EVENT(skb_make_fclone_scratch,
++def gather_fclone_use_stats(stat):
++	global total_parents
++	global total_children_avail
++	global total_children_used
 +
-+	TP_PROTO(struct sk_buff *skb, int count),
++	total_parents = total_parents+1
++	total_children_avail = total_children_avail + stat[IDX_FC_COUNT]
++	total_children_used = total_children_used + stat[IDX_FC_KIDS]
 +
-+	TP_ARGS(skb, count),
++# called from perf, when it finds a correspoinding event
++def skb__skb_make_fclone_scratch(event_name, context, common_cpu,
++ common_secs, common_nsecs, common_pid, common_comm,
++ skb, name, fccount):
++	global parent_skbs
 +
-+	TP_STRUCT__entry(
-+		__field(	const struct sk_buff *,	skb)
-+		__string(	name, skb->dev ? skb->dev->name : "unknown")
-+		__field(	int,			fccount)
-+	),
++	if (skb in parent_skbs.keys()):
++		gather_fclone_use_stats(parent_skbs[skb])
++		parent_skbs[skb] = None
 +
-+	TP_fast_assign(
-+		__entry->skb = skb;
-+		__assign_str(name, skb->dev ? skb->dev->name : "unknown");
-+		__entry->fccount = count;
-+	),
++	parent_skbs[skb] = [fccount, 0]
 +
-+	TP_printk("skb= %p, dev=%s, count=%d", __entry->skb,
-+		  __get_str(name), __entry->fccount)
-+);
++def skb__alloc_fscratch_skb(event_name, context, common_cpu,
++	common_secs, common_nsecs, common_pid, common_comm,
++	parent, child):
++	global parent_skbs
++	global total_orphans
 +
-+TRACE_EVENT(alloc_fscratch_skb,
++	if (child == 0):
++		#We didn't have an fscratch_child to allocate
++		return
 +
-+	TP_PROTO(const struct sk_buff *parent, const struct sk_buff *child),
++	try:
++		parent_skbs[parent][IDX_FC_KIDS] += 1
++	except:
++		total_orphans += 1
 +
-+	TP_ARGS(parent, child),
++def napi__napi_schedule(event_name, context, common_cpu,
++	common_secs, common_nsecs, common_pid, common_comm,
++	napi, dev_name):
++	global cpu_cycle_stats
 +
-+	TP_STRUCT__entry(
-+		__field(	const struct sk_buff *, parent)
-+		__field(	const struct sk_buff *, child)
-+	),
++	if (common_cpu in cpu_cycle_stats.keys()):
++		return;
 +
-+	TP_fast_assign(
-+		__entry->parent = parent;
-+		__entry->child = child;
-+	),
++	cpu_cycle_stats[common_cpu] = cpuCycleStats()
++	cpu_cycle_stats[common_cpu].state = STATE_START_TIMING
++	return
 +
-+	TP_printk("parent=%p, child=%p", __entry->parent, __entry->child)
-+);
++def napi__napi_complete(event_name, context, common_cpu,
++	common_secs, common_nsecs, common_pid, common_comm,
++	napi, dev_name):
++	global cpu_cycle_stats
++	global cpu_total_stats
 +
- #endif /* _TRACE_SKB_H */
- 
- /* This part must be outside protection */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b7ba81a..1af4c02 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2579,6 +2579,7 @@ int weight_p __read_mostly = 64;            /* old backlog weight */
- static inline void ____napi_schedule(struct softnet_data *sd,
- 				     struct napi_struct *napi)
- {
-+	trace_napi_schedule(napi);
- 	list_add_tail(&napi->poll_list, &sd->poll_list);
- 	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
- }
-@@ -3829,6 +3830,7 @@ void __napi_complete(struct napi_struct *n)
- 	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
- 	BUG_ON(n->gro_list);
- 
-+	trace_napi_complete(n);
- 	list_del(&n->poll_list);
- 	smp_mb__before_clear_bit();
- 	clear_bit(NAPI_STATE_SCHED, &n->state);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 6fdf1a7..0347446 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3221,6 +3221,30 @@ void __skb_warn_lro_forwarding(const struct sk_buff *skb)
- }
- EXPORT_SYMBOL(__skb_warn_lro_forwarding);
- 
-+/*
-+ * Allocates an skb out of our scratch space
-+ */
-+struct sk_buff *alloc_fscratch_skb(struct sk_buff *skb)
-+{
-+	struct skb_scr_control *sctl = skb_get_scratch_control(skb);
-+	struct sk_buff *sskb = NULL;
 +
-+	BUG_ON(skb->fclone != SKB_FCLONE_SCRATCH);
-+	BUG_ON(!sctl);
-+	BUG_ON(sctl->owner != skb);
++	if (common_cpu not in cpu_cycle_stats.keys()):
++		return
 +
-+	sskb = __skb_dequeue(&sctl->scr_skbs);
++	if (cpu_cycle_stats[common_cpu].state == STATE_TIMING):
++		cpu_cycle_stats[common_cpu].state = STATE_COLLECT_TIMING
 +
-+	/*
-+	 * Mark us as a scratch skb, so we get properly kfree-ed
-+	 */
-+	sskb->fclone = SKB_FCLONE_SCRATCH;
 +
-+	trace_alloc_fscratch_skb(skb, sskb);
-+	return sskb;
-+}
-+EXPORT_SYMBOL(alloc_fscratch_skb);
++def napi__napi_poll(event_name, context, common_cpu,
++        common_secs, common_nsecs, common_pid, common_comm,
++        napi, dev_name):
++	global cpu_cycle_stats
++	global cpu_total_stats
 +
- unsigned int skb_make_fclone_scratch(struct sk_buff *skb)
- {
- 	size_t bufsz, totsz, scrsz, tmpsz;
-@@ -3228,15 +3252,16 @@ unsigned int skb_make_fclone_scratch(struct sk_buff *skb)
- 	struct sk_buff *scr_skb;
- 	struct skb_shared_info *old_info;
- 	bool format_tail = false;
-+	int fclone_count = 0;
- 
- 	if (skb_shared(skb))
--		return 0;
-+		goto out;
- 
- 	/*
- 	 * Cant do scratch space on fcloned skbs
- 	 */
- 	if (skb->fclone)
--		return 0;
-+		goto out;
- 
- 	if ((skb->end - skb->tail) > sizeof(struct skb_shared_info)) {
- 		old_info = skb_shinfo(skb);
-@@ -3257,7 +3282,7 @@ unsigned int skb_make_fclone_scratch(struct sk_buff *skb)
- 		 sizeof(struct skb_shared_info);
- 
- 	if ((bufsz + sizeof(struct skb_scr_control)) >= totsz)
--		return 0;
-+		goto out;
- 
- 	/*
- 	 * And this is the leftover area, minus sizeof(int) to store the number
-@@ -3278,6 +3303,10 @@ unsigned int skb_make_fclone_scratch(struct sk_buff *skb)
- 
- 	skb->fclone = SKB_FCLONE_SCRATCH;
- 
--	return skb_queue_len(&sctl->scr_skbs);
-+	fclone_count = skb_queue_len(&sctl->scr_skbs);
-+out:
-+	trace_skb_make_fclone_scratch(skb, fclone_count);
-+	return fclone_count;
- 
- }
-+EXPORT_SYMBOL(skb_make_fclone_scratch);
++	if (common_cpu not in cpu_cycle_stats.keys()):
++		return
++
++
++	if (common_cpu not in cpu_total_stats.keys()):
++		cpu_total_stats[common_cpu] = cpuTotalStats()
++
++	state = cpu_cycle_stats[common_cpu].state
++
++	if (state == STATE_COLLECT_TIMING):
++		cpu_total_stats[common_cpu].napi_sc_cycles += 1
++
++	if (cpu_cycle_stats[common_cpu].end_rx_time == cpu_cycle_stats[common_cpu].start_rx_time):
++		cpu_cycle_stats[common_cpu].end_rx_time = common_nsecs
++
++	if ((state == STATE_COLLECT_TIMING) or (state == STATE_TIMING)):
++		if (cpu_cycle_stats[common_cpu].end_rx_time > cpu_cycle_stats[common_cpu].start_rx_time):
++			napi_time = cpu_cycle_stats[common_cpu].end_rx_time - cpu_cycle_stats[common_cpu].start_rx_time
++		else:
++			napi_time = cpu_cycle_stats[common_cpu].start_rx_time - cpu_cycle_stats[common_cpu].end_rx_time
++
++		if (napi_time == 0):
++			cpu_cycle_stats[common_cpu].total_rx_frames = 0
++
++		cpu_total_stats[common_cpu].total_frames += cpu_cycle_stats[common_cpu].total_rx_frames
++		cpu_total_stats[common_cpu].total_napi_time += napi_time
++		cpu_cycle_stats[common_cpu] = cpuCycleStats()
++		cpu_cycle_stats[common_cpu].state = STATE_START_TIMING
++
++
++def net__netif_receive_skb(event_name, context, common_cpu,
++        common_secs, common_nsecs, common_pid, common_comm,
++        skbaddr, len, name):
++	global cpu_cycle_stats
++
++	if (common_cpu not in cpu_cycle_stats.keys()):
++		return
++
++	if (cpu_cycle_stats[common_cpu].state == STATE_START_TIMING):
++		cpu_cycle_stats[common_cpu].state = STATE_TIMING
++		cpu_cycle_stats[common_cpu].start_rx_time = common_nsecs
++
++
++	if (cpu_cycle_stats[common_cpu].state == STATE_TIMING):
++		cpu_cycle_stats[common_cpu].total_rx_frames += 1
++		cpu_cycle_stats[common_cpu].end_rx_time = common_nsecs
++
++
++def trace_end():
++	global parent_skbs
++	global total_parents
++        global total_children_avail
++        global total_children_used
++	global total_orphans
++	global cpu_total_stats
++
++	for i in parent_skbs.keys():
++		gather_fclone_use_stats(parent_skbs[i])
++	try:
++		avg_offer_skb = str(total_children_avail / total_parents)
++		avg_used_skb = str(total_children_used / total_parents)
++	except:
++		avg_offer_skb = str(0)
++		avg_used_skb = str(0)
++
++	print "Performance report:"
++	print "Skbs marked as having scratch space available: " + str(total_parents)
++	print "Total fclone_scratch skb children available: " + str(total_children_avail)
++	print "Total fclone_scratch skb children used: " + str(total_children_used)
++	print "Total orphans: " + str(total_orphans)
++	print "Average number of scratch skbs available: " + avg_offer_skb
++	print "Average number of scratch skbs used: " + avg_used_skb
++	for i in cpu_total_stats.keys():
++		tframe = cpu_total_stats[i].total_frames
++		ttime = cpu_total_stats[i].total_napi_time
++		try:
++			print "CPU " + str(i) + " avg napi latency " + str(ttime/tframe) + " nsec/frame (" + str(ttime) + " " + str(tframe) + ")"
++		except:
++			print "CPU " + str(i) + " avg napi latency 0 usec/frame (" + str(ttime) + " " + str(tframe) + ")"
++		print "CPU " + str(i) + " napi sched/complete cycles: " + str(cpu_total_stats[i].napi_sc_cycles)
 -- 
 1.7.6.4
