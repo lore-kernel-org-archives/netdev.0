@@ -1,31 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix route error binding peer in func
- icmp6_dst_alloc
-Date: Fri, 28 Oct 2011 16:36:33 -0400 (EDT)
-Message-ID: <20111028.163633.356080215479479922.davem@davemloft.net>
-References: <1319806017-6131-1-git-send-email-omarapazanadi@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	gaofeng@cn.fujitsu.com
-To: omarapazanadi@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:33132 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751128Ab1J1Ugn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 16:36:43 -0400
-In-Reply-To: <1319806017-6131-1-git-send-email-omarapazanadi@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] i825xx: Fix incorrect dependency for BVME6000_NET
+Date: Fri, 28 Oct 2011 22:53:32 +0200
+Message-ID: <1319835212-19473-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao feng <omarapazanadi@gmail.com>
-Date: Fri, 28 Oct 2011 20:46:57 +0800
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ drivers/net/ethernet/i825xx/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> in func icmp6_dst_alloc,dst_metric_set call ipv6_cow_metrics to set metric.
-> ipv6_cow_metrics may will call rt6_bind_peer to set rt6_info->rt6i_peer.
-> So,we should move ipv6_addr_copy before dst_metric_set to make sure rt6_bind_peer success.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-
-Applied, thanks.
+diff --git a/drivers/net/ethernet/i825xx/Kconfig b/drivers/net/ethernet/i825xx/Kconfig
+index 2be4698..ca1ae98 100644
+--- a/drivers/net/ethernet/i825xx/Kconfig
++++ b/drivers/net/ethernet/i825xx/Kconfig
+@@ -85,7 +85,7 @@ config APRICOT
+ 
+ config BVME6000_NET
+ 	tristate "BVME6000 Ethernet support"
+-	depends on BVME6000MVME16x
++	depends on BVME6000
+ 	---help---
+ 	  This is the driver for the Ethernet interface on BVME4000 and
+ 	  BVME6000 VME boards.  Say Y here to include the driver for this chip
+-- 
+1.7.0.4
