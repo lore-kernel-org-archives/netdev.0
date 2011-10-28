@@ -1,50 +1,44 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC v2] tcp: Export TCP Delayed ACK parameters to user
-Date: Fri, 28 Oct 2011 14:53:29 -0700
-Message-ID: <CALCETrUbWiRLXtpny-M6=ufaSXwgXXNpKKBFm-hGomo6G_sg3g@mail.gmail.com>
-References: <1319756841-2051-1-git-send-email-dbaluta@ixiacom.com>
-	<1319836443-4419-1-git-send-email-dbaluta@ixiacom.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Cannot remove GRE interface in wireless-next (3.0.0 based)
+Date: Fri, 28 Oct 2011 14:59:23 -0700
+Message-ID: <4EAB25BB.6070607@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, rick.jones2@hp.com
-To: Daniel Baluta <dbaluta@ixiacom.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:33820 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933452Ab1J1Vxa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 17:53:30 -0400
-Received: by ywm3 with SMTP id 3so4050154ywm.19
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2011 14:53:29 -0700 (PDT)
-In-Reply-To: <1319836443-4419-1-git-send-email-dbaluta@ixiacom.com>
+Received: from mail.candelatech.com ([208.74.158.172]:43110 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755777Ab1J1V7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 17:59:24 -0400
+Received: from [192.168.100.111] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id p9SLxNiY008745
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 28 Oct 2011 14:59:24 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 28, 2011 at 2:14 PM, Daniel Baluta <dbaluta@ixiacom.com> wr=
-ote:
-> RFC2581 ($4.2) specifies when an ACK should be generated as follows:
->
-> " .. an ACK SHOULD be generated for at least every second
-> =A0full-sized segment, and MUST be generated within 500 ms
-> =A0of the arrival of the first unacknowledged packet.
-> "
->
-> We export the number of segments and the timeout limits
-> specified above, so that a user can tune them according
-> to its needs.
->
-> Specifically:
-> =A0 =A0 =A0 =A0* /proc/sys/net/ipv4/tcp_delack_segs, represents
-> =A0 =A0 =A0 =A0the threshold for the number of segments.
-> =A0 =A0 =A0 =A0* /proc/sys/net/ipv4/tcp_delack_min, specifies
-> =A0 =A0 =A0 =A0the minimum timeout value
-> =A0 =A0 =A0 =A0* /proc/sys/net/ipv4/tcp_delack_max, specifies
-> =A0 =A0 =A0 =A0the maximum timeout value.
+I'm not sure if wireless-next is up to date with the rest of the
+kernel (it sort of seems not based on the kernel version), but
+thought I'd report this GRE issue:
 
-This is neat, but IMO it should be per socket -- I (and possibly most
-other people who would use it) want to do this kind of tuning per
-flow, not per-route or per-interface.
+[root@lec2010-ath9k-1 lanforge]# ip tunnel del gre0
+ioctl: Operation not permitted
+[root@lec2010-ath9k-1 lanforge]# ifconfig gre0
+gre0      Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+           NOARP MULTICAST  MTU:1476  Metric:1
+           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:0
+           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
 
---Andy
+I'll dig into it further if I get a chance, but stuck in the
+wireless stack at the moment...
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
