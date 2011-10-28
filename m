@@ -1,79 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] tcp: Export TCP Delayed ACK parameters to user
-Date: Fri, 28 Oct 2011 10:44:01 +0200
-Message-ID: <1319791441.23112.80.camel@edumazet-laptop>
-References: <1319756841-2051-1-git-send-email-dbaluta@ixiacom.com>
-	 <1319760097.19125.55.camel@edumazet-laptop>
-	 <CAEnQRZAj4H9neNsGB8hkrQO5trvP8QimhKhpnwchjTVrAo2LGQ@mail.gmail.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [PATCH v3 0/3] SUNRPC: rcbind clients virtualization
+Date: Fri, 28 Oct 2011 13:24:45 +0400
+Message-ID: <4EAA74DD.3070708@parallels.com>
+References: <20111027180824.20459.23219.stgit@localhost6.localdomain6> <20111027202514.GA31669@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-To: Daniel Baluta <daniel.baluta@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49625 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215Ab1J1IoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 04:44:15 -0400
-Received: by wyg36 with SMTP id 36so3640203wyg.19
-        for <netdev@vger.kernel.org>; Fri, 28 Oct 2011 01:44:14 -0700 (PDT)
-In-Reply-To: <CAEnQRZAj4H9neNsGB8hkrQO5trvP8QimhKhpnwchjTVrAo2LGQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	"neilb@suse.de" <neilb@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111027202514.GA31669@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 28 octobre 2011 =C3=A0 11:01 +0300, Daniel Baluta a =C3=A9c=
-rit :
-> On Fri, Oct 28, 2011 at 3:01 AM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> > Le vendredi 28 octobre 2011 =C3=A0 02:07 +0300, Daniel Baluta a =C3=
-=A9crit :
-> >> RFC2581 ($4.2) specifies when an ACK should be generated as follow=
-s:
-> >>
-> >> " .. an ACK SHOULD be generated for at least every second
-> >>   full-sized segment, and MUST be generated within 500 ms
-> >>   of the arrival of the first unacknowledged packet.
-> >> "
-> >>
-> >> We export the number of segments and the timeout limits
-> >> specified above, so that a user can tune them according
-> >> to its needs.
-> >>
-> >
-> > Well, this requires user has a machine exclusive use :)
->=20
-> So, this means that setting parameters system wide
-> isn't an option?
->=20
+28.10.2011 00:25, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Thu, Oct 27, 2011 at 10:10:43PM +0300, Stanislav Kinsbursky wrote:
+>> v3:
+>> 1) First two patches from previous version were squashed.
+>>
+>> This patch-set was created in context of clone of git branch:
+>> git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git
+>> and rebased on tag "v3.1".
+>>
+>> This patch-set virtualizes rpcbind clients per network namespace con=
+text. IOW,
+>> each network namespace will have its own pair of rpcbind clients (if=
+ they would
+>> be created by request).
+>>
+>> Note:
+>> 1) this patch-set depends on "SUNRPC: make rpcbind clients allocated=
+ and
+>> destroyed dynamically" patch-set which has been send earlier.
+>> 2) init_net pointer is still used instead of current->nsproxy->net_n=
+s,
+>> because I'm not sure yet about how to virtualize services. I.e. NFS =
+callback
+>> services will be per netns. NFSd service will be per netns too from =
+my pow. But
+>> Lockd can be per netns or one for all.
+>
+> I'm not sure what you mean by that; could you explain?
+>
 
-It is a first step, but we can notice a global setting might please one
-application but negatively impact other applications.
+This patch-set was created before you've sent your NFSd plan and we dis=
+acussed=20
+Lockd per netns.
+So, this sentence: "NFSd service will be per netns too from my pow" is =
+obsolete.=20
+And Lockd will be one for all.
+Or you are asking about something else?
 
-I guess some users will want a per socket option, but this can come
-later. An other idea to save space on socket structures would be to
-select two set of values depending on TOS/TCLASS.
+> --b.
+>
+>> And also we have NFSd file system, which
+>> is not virtualized yet.
+>>
+>> The following series consists of:
+>>
+>> ---
+>>
+>> Stanislav Kinsbursky (3):
+>>        SUNRPC: move rpcbind internals to sunrpc part of network name=
+space context
+>>        SUNRPC: optimize net_ns dereferencing in rpcbind creation cal=
+ls
+>>        SUNRPC: optimize net_ns dereferencing in rpcbind registering =
+calls
+>>
+>>
+>>   net/sunrpc/netns.h     |    5 ++
+>>   net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++----------=
+------------
+>>   2 files changed, 61 insertions(+), 47 deletions(-)
+>>
+>> --
+>> Signature
 
-I can imagine ssh (lowdelay) and scp (throughput) wanting different
-behavior here.
 
-> On Windows there is a global setting TcpAckFrequency [1],
-> which is similar with our tcp_delack_{min,max}.
->=20
-> On Solaris there is a global option tcp_deferred_acks_max [2],
-> which is similar with our tcp_delack_segs.
->=20
-
-and also has tcp_deferred_ack_interval
-
-> Thanks for your comments, I will post an updated patch asap.
->=20
-> Daniel.
->=20
-> [1] http://support.microsoft.com/kb/328890
-> [2] http://www.sean.de/Solaris/soltune.html
-
-Dont forget to CC Andy Lutomirski <luto@amacapital.net>, he might be
-interested being part of the process.
-
-Thanks
+--=20
+Best regards,
+Stanislav Kinsbursky
