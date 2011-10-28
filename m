@@ -1,59 +1,45 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: >Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
-Date: Fri, 28 Oct 2011 05:40:53 -0700
-Message-ID: <CA+55aFxy6VSBbikFrfXwUPOafihR+MOdi+yKSp_6qz7_Vax_YA@mail.gmail.com>
-References: <1319764761.23112.14.camel@edumazet-laptop> <20111028012521.GF25795@one.firstfloor.org>
- <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
- <1319766293.6759.17.camel@deadeye> <1319770376.23112.58.camel@edumazet-laptop>
- <1319772566.6759.27.camel@deadeye> <1319777025.23112.67.camel@edumazet-laptop>
- <CA+55aFzHf563auNYdNeJnsbbry1OUfkepkiVHt7Fy-bG64Fruw@mail.gmail.com>
- <1319803781.23112.113.camel@edumazet-laptop> <CA+55aFxzgc5pC1p6J8YADNDwmAjUYNRKLvir6OQMueWqUXOaEQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxzgc5pC1p6J8YADNDwmAjUYNRKLvir6OQMueWqUXOaEQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <omarapazanadi@gmail.com>
+Subject: [PATCH] ipv6: fix route error binding peer in func icmp6_dst_alloc
+Date: Fri, 28 Oct 2011 20:46:57 +0800
+Message-ID: <1319806017-6131-1-git-send-email-omarapazanadi@gmail.com>
+Cc: netdev@vger.kernel.org, gaofeng@cn.fujitsu.com,
+	Gao feng <omarapazanadi@gmail.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:54057 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753241Ab1J1MrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 08:47:09 -0400
+Received: by qabj40 with SMTP id j40so3614743qab.19
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2011 05:47:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 28, 2011 at 5:19 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
-> "Sane interfaces" are important. Insane interfaces lead to bugs.
+in func icmp6_dst_alloc,dst_metric_set call ipv6_cow_metrics to set metric.
+ipv6_cow_metrics may will call rt6_bind_peer to set rt6_info->rt6i_peer.
+So,we should move ipv6_addr_copy before dst_metric_set to make sure rt6_bind_peer success.
 
-Qutie frankly, if I do "atomic_read()", I do expect to get a single
-value. If I don't get a single value, but some mixture of two values,
-I'd personally go
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/ipv6/route.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-  wtf, what does that "atomic" mean in "atomic_read()"?
-
-and I think that's a reasonable wtf to ask.
-
-That said, as mentioned, I don't know of any way to tell gcc "at most once".
-
-Hmm.
-
-Except perhaps using inline asm. Something like this might work:
-
-  static inline int atomic_read(const atomic_t *v)
-  {
-       int val;
-       asm("":"=r" (val):"0" (v->value));
-       return val;
-  }
-
-(totally untested, but you get the idea: use a non-volatile asm to
-make sure that gcc doesn't think it can re-load the value).
-
-That's the trick we use in asmlinkage_protect() and a couple of other
-places. It *should* make gcc able to optimize the value away entirely
-if it isn't used, but will stop gcc from doing the reload magic.
-
-Does that work for the test-case with VM_BUG_ON()?
-
-                          Linus
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index fb545ed..57b82dc 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1086,11 +1086,10 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 	rt->dst.output  = ip6_output;
+ 	dst_set_neighbour(&rt->dst, neigh);
+ 	atomic_set(&rt->dst.__refcnt, 1);
+-	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 255);
+-
+ 	ipv6_addr_copy(&rt->rt6i_dst.addr, addr);
+ 	rt->rt6i_dst.plen = 128;
+ 	rt->rt6i_idev     = idev;
++	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 255);
+ 
+ 	spin_lock_bh(&icmp6_dst_lock);
+ 	rt->dst.next = icmp6_dst_gc_list;
+-- 
+1.7.5.4
