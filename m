@@ -1,52 +1,50 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH v4 0/9] Cleanup and extension of netdev features
-Date: Fri, 28 Oct 2011 23:47:12 +0200
-Message-ID: <20111028214712.GA1787@rere.qmqm.pl>
-References: <cover.1319495301.git.mirq-linux@rere.qmqm.pl>
- <1319513754.3834.4.camel@edumazet-laptop>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [RFC v2] tcp: Export TCP Delayed ACK parameters to user
+Date: Fri, 28 Oct 2011 14:53:29 -0700
+Message-ID: <CALCETrUbWiRLXtpny-M6=ufaSXwgXXNpKKBFm-hGomo6G_sg3g@mail.gmail.com>
+References: <1319756841-2051-1-git-send-email-dbaluta@ixiacom.com>
+	<1319836443-4419-1-git-send-email-dbaluta@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, rick.jones2@hp.com
+To: Daniel Baluta <dbaluta@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:38198 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933414Ab1J1VrP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Oct 2011 17:47:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1319513754.3834.4.camel@edumazet-laptop>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:33820 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933452Ab1J1Vxa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 17:53:30 -0400
+Received: by ywm3 with SMTP id 3so4050154ywm.19
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2011 14:53:29 -0700 (PDT)
+In-Reply-To: <1319836443-4419-1-git-send-email-dbaluta@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 25, 2011 at 05:35:54AM +0200, Eric Dumazet wrote:
-> Le mardi 25 octobre 2011 =C3=A0 02:36 +0200, Micha=C5=82 Miros=C5=82a=
-w a =C3=A9crit :
-> > Commit fd38f734 (igbvf: convert to ndo_fix_features) removed last u=
-se
-> > of old ethtool ops for controlling netdevice's features. This serie=
-s
-> > finishes the cleanup and extends feature pool to 64 bits.
-> >=20
-> > Also, there's additional patch that removes NETIF_F_NO_CSUM as it i=
-s
-> > now, and has been for some time, equivalent to NETIF_F_HW_CSUM.
-> >=20
-> > To see the new features in action, you need ethtool patched with:
-> >=20
-> > http://patchwork.ozlabs.org/patch/96374/
-> >=20
-> > Not much has changed in those patches compared to last version I po=
-sted
-> > in June.
-> This reminds me current net-next is busted for bond/vlan, I dont know
-> why.
-[cut ethtool output]
+On Fri, Oct 28, 2011 at 2:14 PM, Daniel Baluta <dbaluta@ixiacom.com> wr=
+ote:
+> RFC2581 ($4.2) specifies when an ACK should be generated as follows:
+>
+> " .. an ACK SHOULD be generated for at least every second
+> =A0full-sized segment, and MUST be generated within 500 ms
+> =A0of the arrival of the first unacknowledged packet.
+> "
+>
+> We export the number of segments and the timeout limits
+> specified above, so that a user can tune them according
+> to its needs.
+>
+> Specifically:
+> =A0 =A0 =A0 =A0* /proc/sys/net/ipv4/tcp_delack_segs, represents
+> =A0 =A0 =A0 =A0the threshold for the number of segments.
+> =A0 =A0 =A0 =A0* /proc/sys/net/ipv4/tcp_delack_min, specifies
+> =A0 =A0 =A0 =A0the minimum timeout value
+> =A0 =A0 =A0 =A0* /proc/sys/net/ipv4/tcp_delack_max, specifies
+> =A0 =A0 =A0 =A0the maximum timeout value.
 
-Sorry for late reply. Is it broken also for bridge? Those two drivers s=
-hare
-almost the same code that propagates features.
+This is neat, but IMO it should be per socket -- I (and possibly most
+other people who would use it) want to do this kind of tuning per
+flow, not per-route or per-interface.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+--Andy
