@@ -1,53 +1,69 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: >Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
-Date: Fri, 28 Oct 2011 07:55:10 -0700
-Message-ID: <CA+55aFxvcvUopBc-Q6Fp87asTuBohev8Xdm67jcKfy4Z4_BZRg@mail.gmail.com>
-References: <1319764761.23112.14.camel@edumazet-laptop> <20111028012521.GF25795@one.firstfloor.org>
- <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
- <1319766293.6759.17.camel@deadeye> <1319770376.23112.58.camel@edumazet-laptop>
- <1319772566.6759.27.camel@deadeye> <1319777025.23112.67.camel@edumazet-laptop>
- <CA+55aFzHf563auNYdNeJnsbbry1OUfkepkiVHt7Fy-bG64Fruw@mail.gmail.com>
- <1319803781.23112.113.camel@edumazet-laptop> <CA+55aFxzgc5pC1p6J8YADNDwmAjUYNRKLvir6OQMueWqUXOaEQ@mail.gmail.com>
- <CA+55aFxy6VSBbikFrfXwUPOafihR+MOdi+yKSp_6qz7_Vax_YA@mail.gmail.com> <1319813252.23112.122.camel@edumazet-laptop>
+From: Arvid Brodin <arvid.brodin@enea.com>
+Subject: Re: bridge: HSR support
+Date: Fri, 28 Oct 2011 17:34:18 +0200
+Message-ID: <4EAACB7A.4090207@enea.com>
+References: <4E948A04.8060400@enea.com> <20111011112821.28cd3e51@nehalam.linuxnetplumber.net> <4E94D67A.9060207@enea.com> <4EA5738B.8080008@enea.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319813252.23112.122.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Arvid Brodin <arvid.brodin@enea.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sestofw01.enea.se ([192.36.1.252]:13219 "HELO mx-3.enea.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S932447Ab1J1PeV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Oct 2011 11:34:21 -0400
+In-Reply-To: <4EA5738B.8080008@enea.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 28, 2011 at 7:47 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->
-> So we need a similar idea to remove the volatile from :
->
-> static __always_inline int constant_test_bit(unsigned int nr, const v=
-olatile unsigned long *addr)
-> {
-> return ((1UL << (nr % BITS_PER_LONG)) &
-> =A0 =A0 =A0 =A0 (addr[nr / BITS_PER_LONG])) !=3D 0;
+Arvid Brodin wrote:
+> Stephen Hemminger wrote:
+>> On Tue, 11 Oct 2011 20:25:08 +0200
+>> Arvid Brodin <arvid.brodin@enea.com> wrote:
+>>
+>>> Hi,
+>>>
+>>> I want to add support for HSR ("High-availability Seamless Redundancy",
+>>> IEC-62439-3) to the bridge code. With HSR, all connected units have two network
+>>> ports and are connected in a ring. All new Ethernet packets are sent on both
+>>> ports (or passed through if the current unit is not the originating unit). The
+>>> same packet is never passed twice. Non-HSR units are not allowed in the ring.
+>>>
+>>> This gives instant, reconfiguration-free failover.
+>>>
+*snip*
+> 
+> I need to do two things:
+> 
+> 1) Bind two network interfaces into one (say, eth0 & eth1 => hsr0). Frames sent on
+>    hsr0 should get an HSR tag (including the correct EtherType) and go out on both
+>    eth0 and eth1.
+> 
+> 2) Ingress frames on eth0 & eth1, with EtherType 0x88fb, should be captured and 
+>    handled specially (either received on hsr0 or forwarded to the other bound 
+>    physical interface).
+> 
+> Any ideas on the best way to implement this -- what's the nicest place to "hook
+> into" for this?
+> 
 
-Ho humm. Yeah, I think "test_bit()" falls under the same logic: we do
-not want to combine multiple test-bits into one (because we know there
-are people looping on it), and we do want to guarantee "access at most
-once" semantics, but as with "atomic_read()" we should be able to
-optimize away a totally unused test-bit.
+Ok, so after a lot of reading and looking through code I have this idea of a
+standalone solution:
 
-The same "empty asm" trick would work there, I think, rather than
-using "volatile" (well, the function declaration would still have
-"volatile" because it's legal to use a volatile data type, but we'd
-cast it away and use the asm trick for the access instead) .
+1) Add ioctls to create (and remove) "hsr" netdevs which encapsulates two
+   physical Ethernet interfaces each (somewhat like the bridge code does, but
+   with precisely 2 interfaces slaved).
 
-Maybe we should make it a generic helper macro ("ACCESS_AT_MOST_ONCE()"=
-)?
+2) Use dev_add_pack() to register protocol ("EtherType") 0x88FB. The device
+   that the frames come in on are checked for being a slave to a hsr netdev,
+   and handled accordingly.
 
-Comments? I think I'm open to tested patches..
+It would be great to get some input on the sanity of this solution before I get
+too much time invested in it!
 
-                      Linus
+
+Thanks,
+-- 
+Arvid Brodin
+Enea Services Stockholm AB
