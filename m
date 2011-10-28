@@ -1,41 +1,61 @@
-From: "Yan, Zheng" <zheng.z.yan@intel.com>
-Subject: Re: [PATCH] xfrm: fix error checking in xfrm_output_gso
-Date: Fri, 28 Oct 2011 08:47:34 +0800
-Message-ID: <4EA9FBA6.1070806@intel.com>
-References: <4EA8ED1E.6080808@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] should VM_BUG_ON(cond) really evaluate cond
+Date: Fri, 28 Oct 2011 03:19:21 +0200
+Message-ID: <1319764761.23112.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:38473 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751447Ab1J1Arf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Oct 2011 20:47:35 -0400
-In-Reply-To: <4EA8ED1E.6080808@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/27/2011 01:33 PM, Yan, Zheng wrote:
-> xfrm_output2() returns 1 on success. This bug makes xfrm_output_gso()
-> drop all segments except the first one.
-> 
-> Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
-> ---
-> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-> index 47bacd8..04e963a 100644
-> --- a/net/xfrm/xfrm_output.c
-> +++ b/net/xfrm/xfrm_output.c
-> @@ -159,7 +159,7 @@ static int xfrm_output_gso(struct sk_buff *skb)
->  		segs->next = NULL;
->  		err = xfrm_output2(segs);
->  
-> -		if (unlikely(err)) {
-> +		if (unlikely(err < 0)) {
->  			while ((segs = nskb)) {
->  				nskb = segs->next;
->  				segs->next = NULL;
+In commit 4e60c86bd9e (gcc-4.6: mm: fix unused but set warnings)
+Andi forced VM_BUG_ON(cond) to evaluate cond, even if CONFIG_DEBUG_VM is
+not set :
 
-Return 1 means collision, please ignore this patch. Thanks
+#ifdef CONFIG_DEBUG_VM
+#define VM_BUG_ON(cond) BUG_ON(cond)
+#else
+#define VM_BUG_ON(cond) do { (void)(cond); } while (0)
+#endif
+
+As a side effect, get_page()/put_page_testzero() are performing more bus
+transactions on contended cache line on some workloads (tcp on loopback
+for example, where a page is acting as a shared buffer)
+
+0,05 :  ffffffff815e4775:       je     ffffffff815e4970 <tcp_sendmsg+0xc80>
+0,05 :  ffffffff815e477b:       mov    0x1c(%r9),%eax    // useless                  
+3,32 :  ffffffff815e477f:       mov    (%r9),%rax        // useless                  
+0,51 :  ffffffff815e4782:       lock incl 0x1c(%r9)                        
+3,87 :  ffffffff815e4787:       mov    (%r9),%rax                          
+0,00 :  ffffffff815e478a:       test   $0x80,%ah                           
+0,00 :  ffffffff815e478d:       jne    ffffffff815e49f2 <tcp_sendmsg+0xd02>      
+
+Of course, we have to understand why
+
+(void) (atomic_read(&some_atomic) == 1);
+
+generates asm code...
+
+	mov  some_atomic,%eax
+
+Ah yes, this is because of the volatile...
+
+static inline int atomic_read(const atomic_t *v)
+{
+	return (*(volatile int *)&(v)->counter);
+}
+
+So maybe a fix would be to introduce an atomic_read_stable() variant ?
+
+static inline int atomic_read_stable(const atomic_t *v)
+{
+	return v->counter;
+}
+
+Thanks !
