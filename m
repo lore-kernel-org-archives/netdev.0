@@ -1,49 +1,36 @@
-From: Andi Kleen <andi@firstfloor.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
-Date: Fri, 28 Oct 2011 03:25:21 +0200
-Message-ID: <20111028012521.GF25795@one.firstfloor.org>
-References: <1319764761.23112.14.camel@edumazet-laptop>
+Date: Thu, 27 Oct 2011 18:34:48 -0700
+Message-ID: <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
+References: <1319764761.23112.14.camel@edumazet-laptop> <20111028012521.GF25795@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andi Kleen <andi@firstfloor.org>,
 	netdev <netdev@vger.kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1319764761.23112.14.camel@edumazet-laptop>
+In-Reply-To: <20111028012521.GF25795@one.firstfloor.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 28, 2011 at 03:19:21AM +0200, Eric Dumazet wrote:
-> In commit 4e60c86bd9e (gcc-4.6: mm: fix unused but set warnings)
-> Andi forced VM_BUG_ON(cond) to evaluate cond, even if CONFIG_DEBUG_VM is
-> not set :
-> 
-> #ifdef CONFIG_DEBUG_VM
-> #define VM_BUG_ON(cond) BUG_ON(cond)
-> #else
-> #define VM_BUG_ON(cond) do { (void)(cond); } while (0)
-> #endif
+On Thu, Oct 27, 2011 at 6:25 PM, Andi Kleen <andi@firstfloor.org> wrote:
+>
+> Seems reasonable too. In fact we usually should have memory barriers
+> for this anyways which obsolete the volatile.
 
-Eventually the warnings were disabled in the Makefile.
-So it would be reasonable to just revert that patch now, at least
-for VM_BUG_ON, if it costs performance.
+No we shouldn't. Memory barriers are insanely expensive, and pointless
+for atomics - that aren't ordered anyway.
 
-> 
-> So maybe a fix would be to introduce an atomic_read_stable() variant ?
-> 
-> static inline int atomic_read_stable(const atomic_t *v)
-> {
-> 	return v->counter;
-> }
+You may mean compiler barriers.
 
-Seems reasonable too. In fact we usually should have memory barriers
-for this anyways which obsolete the volatile.
+That said, removing the volatile entirely might be a good idea, and
+never mind any barriers at all. The ordering for atomics really isn't
+well enough specified that we should care. So I wouldn't object to a
+patch that just removes the volatile entirely, but it would have to be
+accompanied with quite a bit of testing, in case some odd case ends up
+depending on it. But nothing *should* be looping on those things
+anyway.
 
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+                       Linus
