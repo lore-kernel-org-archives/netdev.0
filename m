@@ -1,58 +1,133 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH 7/7] SUNRPC: added debug messages to RPC pipefs
-Date: Fri, 28 Oct 2011 18:26:14 +0300
-Message-ID: <20111028142614.5796.43437.stgit@localhost6.localdomain6>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [PATCH 6/7] SUNRPC: pipefs per-net operations helper introduced
+Date: Fri, 28 Oct 2011 18:26:07 +0300
+Message-ID: <20111028142607.5796.11555.stgit@localhost6.localdomain6>
 References: <20111028142245.5796.89937.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111028142245.5796.89937.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111028142245.5796.89937.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds debug messages for notification events.
+During per-net pipes creation and destruction we have to make sure, that pipefs
+sb exists for the whole creation/destruction cycle. This is done by using
+special mutex which controls pipefs sb reference on network namespace context.
+Helper consists of two parts: first of them (rpc_get_dentry_net) searches for
+dentry with specified name and returns with mutex taken on success. When pipe
+creation or destructions is completed, caller should release this mutex by
+rpc_put_dentry_net call.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 
 ---
- net/sunrpc/rpc_pipe.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+ include/linux/sunrpc/rpc_pipe_fs.h |    4 ++++
+ net/sunrpc/netns.h                 |    1 +
+ net/sunrpc/rpc_pipe.c              |   36 ++++++++++++++++++++++++++++++++++++
+ net/sunrpc/sunrpc_syms.c           |    1 +
+ 4 files changed, 42 insertions(+), 0 deletions(-)
 
+diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
+index 4a327ad..271e1b2 100644
+--- a/include/linux/sunrpc/rpc_pipe_fs.h
++++ b/include/linux/sunrpc/rpc_pipe_fs.h
+@@ -55,6 +55,10 @@ enum {
+ extern struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
+ 				      const unsigned char *dir_name);
+ 
++extern void rpc_pipefs_init_net(struct net *net);
++extern struct super_block *rpc_get_sb_net(const struct net *net);
++extern void rpc_put_sb_net(const struct net *net);
++
+ extern int rpc_queue_upcall(struct inode *, struct rpc_pipe_msg *);
+ 
+ struct rpc_clnt;
+diff --git a/net/sunrpc/netns.h b/net/sunrpc/netns.h
+index b384252..11d2f48 100644
+--- a/net/sunrpc/netns.h
++++ b/net/sunrpc/netns.h
+@@ -11,6 +11,7 @@ struct sunrpc_net {
+ 	struct cache_detail *ip_map_cache;
+ 
+ 	struct super_block *pipefs_sb;
++	struct mutex pipefs_sb_lock;
+ };
+ 
+ extern int sunrpc_net_id;
 diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index cbf213e..42e4b6e 100644
+index 5c313d3..cbf213e 100644
 --- a/net/sunrpc/rpc_pipe.c
 +++ b/net/sunrpc/rpc_pipe.c
-@@ -33,6 +33,10 @@
- #include "netns.h"
- #include "sunrpc.h"
+@@ -1036,6 +1036,40 @@ struct dentry *rpc_d_lookup_sb(const struct super_block *sb,
+ }
+ EXPORT_SYMBOL_GPL(rpc_d_lookup_sb);
  
-+#define RPCDBG_FACILITY RPCDBG_DEBUG
++void rpc_pipefs_init_net(struct net *net)
++{
++	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
 +
-+#define NET_NAME(net)	((net == &init_net) ? " (init_net)" : "")
++	mutex_init(&sn->pipefs_sb_lock);
++}
 +
- static struct vfsmount *rpc_mnt __read_mostly;
- static int rpc_mount_count;
++/*
++ * This call will be used for per network namespace operations calls.
++ * Note: Function will be returned with pipefs_sb_lock taken if superblock was
++ * found. This lock have to be released by rpc_put_sb_net() when all operations
++ * will be completed.
++ */
++struct super_block *rpc_get_sb_net(const struct net *net)
++{
++	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
++
++	mutex_lock(&sn->pipefs_sb_lock);
++	if (sn->pipefs_sb)
++		return sn->pipefs_sb;
++	mutex_unlock(&sn->pipefs_sb_lock);
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(rpc_get_sb_net);
++
++void rpc_put_sb_net(const struct net *net)
++{
++	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
++
++	BUG_ON(sn->pipefs_sb == NULL);
++	mutex_unlock(&sn->pipefs_sb_lock);
++}
++EXPORT_SYMBOL_GPL(rpc_put_sb_net);
++
+ static int
+ rpc_fill_super(struct super_block *sb, void *data, int silent)
+ {
+@@ -1090,7 +1124,9 @@ void rpc_kill_sb(struct super_block *sb)
+ 	struct net *net = sb->s_fs_info;
+ 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
  
-@@ -1095,6 +1099,8 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- 	}
- 	if (rpc_populate(root, files, RPCAUTH_lockd, RPCAUTH_RootEOF, NULL))
- 		return -ENOMEM;
-+	dprintk("RPC:	sending pipefs MOUNT notification for net %p%s\n", net,
-+								NET_NAME(net));
- 	err = blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
- 					   RPC_PIPEFS_MOUNT,
- 					   sb);
-@@ -1128,6 +1134,8 @@ void rpc_kill_sb(struct super_block *sb)
++	mutex_lock(&sn->pipefs_sb_lock);
  	sn->pipefs_sb = NULL;
- 	mutex_unlock(&sn->pipefs_sb_lock);
++	mutex_unlock(&sn->pipefs_sb_lock);
  	put_net(net);
-+	dprintk("RPC:	sending pipefs UMOUNT notification for net %p%s\n", net,
-+								NET_NAME(net));
  	blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
  					   RPC_PIPEFS_UMOUNT,
- 					   sb);
+diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
+index 9d08091..880de8b 100644
+--- a/net/sunrpc/sunrpc_syms.c
++++ b/net/sunrpc/sunrpc_syms.c
+@@ -38,6 +38,7 @@ static __net_init int sunrpc_init_net(struct net *net)
+ 	if (err)
+ 		goto err_ipmap;
+ 
++	rpc_pipefs_init_net(net);
+ 	return 0;
+ 
+ err_ipmap:
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
