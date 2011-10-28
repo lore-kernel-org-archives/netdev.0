@@ -1,223 +1,76 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 6/6 RFC v3] macvlan: Add support to get MAC/VLAN
-	filter netdev ops
-Date: Fri, 28 Oct 2011 19:34:35 -0700
-Message-ID: <20111029023435.5198.78831.stgit@rhel6.1>
-References: <20111029023159.5198.60245.stgit@rhel6.1>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 2/2 v3] net/smsc911x: Add regulator support
+Date: Fri, 28 Oct 2011 22:33:53 +0200
+Message-ID: <20111028203353.GE23421@pengutronix.de>
+References: <1319719691-15799-1-git-send-email-linus.walleij@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, dragos.tatulea@gmail.com, kvm@vger.kernel.org,
-	arnd@arndb.de, mst@redhat.com, davem@davemloft.net,
-	gregory.v.rose@intel.com, mchan@broadcom.com, dwang2@cisco.com,
-	shemminger@vyatta.com, eric.dumazet@gmail.com, kaber@trash.net,
-	benve@cisco.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Mathieu Poirer <mathieu.poirier@linaro.org>,
+	Robert Marklund <robert.marklund@stericsson.com>,
+	Paul Mundt <lethal@linux-sh.org>, linux-sh@vger.kernel.org,
+	Tony Lindgren <tony@atomide.com>, linux-omap@vger.kernel.org,
+	Mike Frysinger <vapier@gentoo.org>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Linus Walleij <linus.walleij@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-4.cisco.com ([173.36.130.15]:47426 "EHLO
-	mtv-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932187Ab1J1Sh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 14:37:27 -0400
-In-Reply-To: <20111029023159.5198.60245.stgit@rhel6.1>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:40099 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932754Ab1J1UeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 16:34:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1319719691-15799-1-git-send-email-linus.walleij@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roprabhu@cisco.com>
+Hi Linus,
 
-This patch adds support to get MAC and VLAN filter netdev ops
-on a macvlan interface. It adds support for get_rx_filter_addr_size,
-get_rx_filter_vlan_size, fill_rx_filter_addr and fill_rx_filter_vlan
-netdev ops
+On Thu, Oct 27, 2011 at 02:48:11PM +0200, Linus Walleij wrote:
+> From: Robert Marklund <robert.marklund@stericsson.com>
+> 
+> Add some basic regulator support for the power pins, as needed
+> by the ST-Ericsson Snowball platform that powers up the SMSC911
+> chip using an external regulator.
+> 
+> Platforms that use regulators and the smsc911x and have no defined
+> regulator for the smsc911x and claim complete regulator
+> constraints with no dummy regulators will need to provide it, for
+> example using a fixed voltage regulator. It appears that this may
+> affect (apart from Ux500 Snowball) possibly these archs/machines
+> that from some grep:s appear to define both CONFIG_SMSC911X and
+> CONFIG_REGULATOR:
+> 
+> - ARM Freescale mx3 and OMAP 2 plus, Raumfeld machines
+> - Blackfin
+> - Super-H
+> 
 
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
----
- drivers/net/macvlan.c |  158 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 158 insertions(+), 0 deletions(-)
+...
+
+>  
+> +
+> +/*
+> + * Request or free resources, currently just regulators.
+> + *
+> + * The SMSC911x has two power pins: vddvario and vdd33a, in designs where
+> + * these are not always-on we need to request regulators to be turned on
+> + * before we can try to access the device registers.
+> + */
+> +static int smsc911x_request_free_resources(struct platform_device *pdev,
+> +		bool request)
+
+I had to look twice at this function name. First I thought "request the
+free resources?", which other resources would you request if not the
+free ones? I think it would be nicer to have two functions instead.
+Just my 2 cents.
+
+Sascha
 
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 9d8cbe3..15dd7de 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -616,6 +616,55 @@ static int macvlan_set_rx_filter_vlan(struct net_device *dev, int vf,
- 	return 0;
- }
- 
-+static size_t macvlan_get_rx_filter_vlan_size(const struct net_device *dev,
-+					      int vf)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	struct net_device *lowerdev = vlan->lowerdev;
-+	const struct net_device_ops *ops = lowerdev->netdev_ops;
-+
-+	if (vf != SELF_VF)
-+		return -EINVAL;
-+
-+	switch (vlan->mode) {
-+	case MACVLAN_MODE_PASSTHRU:
-+		if (ops->ndo_get_rx_filter_vlan_size)
-+			return ops->ndo_get_rx_filter_vlan_size(dev, vf);
-+		/* IFLA_RX_FILTER_VLAN_BITMAP */
-+		return nla_total_size(VLAN_BITMAP_SIZE);
-+	default:
-+		return 0;
-+	}
-+}
-+
-+static int macvlan_get_rx_filter_vlan(const struct net_device *dev, int vf,
-+				      struct sk_buff *skb)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	struct net_device *lowerdev = vlan->lowerdev;
-+	const struct net_device_ops *ops = lowerdev->netdev_ops;
-+
-+	if (vf != SELF_VF)
-+		return -EINVAL;
-+
-+	switch (vlan->mode) {
-+	case MACVLAN_MODE_PASSTHRU:
-+		if (ops->ndo_get_rx_filter_vlan)
-+			return ops->ndo_get_rx_filter_vlan(dev, vf, skb);
-+
-+		NLA_PUT(skb, IFLA_RX_FILTER_VLAN_BITMAP, VLAN_BITMAP_SIZE,
-+			vlan->vlan_filter);
-+		break;
-+	default:
-+		return -ENODATA; /* No data to Fill */
-+	}
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
- static int macvlan_addr_in_hw_list(struct netdev_hw_addr_list *list,
- 				   u8 *addr, int addrlen)
- {
-@@ -795,6 +844,111 @@ static int macvlan_set_rx_filter_addr(struct net_device *dev, int vf,
- 	return 0;
- }
- 
-+static size_t macvlan_get_rx_filter_addr_passthru_size(
-+			const struct net_device *dev, int vf)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	struct net_device *lowerdev = vlan->lowerdev;
-+	const struct net_device_ops *ops = lowerdev->netdev_ops;
-+	size_t size;
-+
-+	if (ops->ndo_get_rx_filter_addr_size)
-+		return ops->ndo_get_rx_filter_addr_size(dev, vf);
-+
-+	/* IFLA_RX_FILTER_ADDR_FLAGS */
-+	size = nla_total_size(sizeof(u32));
-+
-+	if (netdev_uc_count(dev))
-+		/* IFLA_RX_FILTER_ADDR_UC_LIST */
-+		size += nla_total_size(netdev_uc_count(dev) *
-+				       ETH_ALEN * sizeof(struct nlattr));
-+
-+	if (netdev_mc_count(dev))
-+		/* IFLA_RX_FILTER_ADDR_MC_LIST */
-+		size += nla_total_size(netdev_mc_count(dev) *
-+				       ETH_ALEN * sizeof(struct nlattr));
-+
-+	return size;
-+}
-+
-+static size_t macvlan_get_rx_filter_addr_size(const struct net_device *dev,
-+					      int vf)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+
-+	if (vf != SELF_VF)
-+		return -EINVAL;
-+
-+	switch (vlan->mode) {
-+	case MACVLAN_MODE_PASSTHRU:
-+		return macvlan_get_rx_filter_addr_passthru_size(dev, vf);
-+	default:
-+		return 0;
-+	}
-+}
-+
-+static int macvlan_get_rx_filter_addr_passthru(const struct net_device *dev,
-+					       int vf, struct sk_buff *skb)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	struct net_device *lowerdev = vlan->lowerdev;
-+	const struct net_device_ops *ops = lowerdev->netdev_ops;
-+	struct nlattr *uninitialized_var(uc_list), *mc_list;
-+	struct netdev_hw_addr *ha;
-+
-+	if (ops->ndo_get_rx_filter_addr)
-+		return ops->ndo_get_rx_filter_addr(dev, vf, skb);
-+
-+	NLA_PUT_U32(skb, IFLA_RX_FILTER_ADDR_FLAGS,
-+		dev->flags & RX_FILTER_FLAGS);
-+
-+	if (netdev_uc_count(dev)) {
-+		uc_list = nla_nest_start(skb, IFLA_RX_FILTER_ADDR_UC_LIST);
-+		if (uc_list == NULL)
-+			goto nla_put_failure;
-+
-+		netdev_for_each_uc_addr(ha, dev) {
-+			NLA_PUT(skb, IFLA_ADDR_LIST_ENTRY, ETH_ALEN, ha->addr);
-+		}
-+		nla_nest_end(skb, uc_list);
-+	}
-+
-+	if (netdev_mc_count(dev)) {
-+		mc_list = nla_nest_start(skb, IFLA_RX_FILTER_ADDR_MC_LIST);
-+		if (mc_list == NULL)
-+			goto nla_uc_list_cancel;
-+
-+		netdev_for_each_mc_addr(ha, dev) {
-+			NLA_PUT(skb, IFLA_ADDR_LIST_ENTRY, ETH_ALEN, ha->addr);
-+		}
-+		nla_nest_end(skb, mc_list);
-+	}
-+
-+	return 0;
-+
-+nla_uc_list_cancel:
-+	if (netdev_uc_count(dev))
-+		nla_nest_cancel(skb, uc_list);
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static int macvlan_get_rx_filter_addr(const struct net_device *dev, int vf,
-+				      struct sk_buff *skb)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+
-+	if (vf != SELF_VF)
-+		return -EINVAL;
-+
-+	switch (vlan->mode) {
-+	case MACVLAN_MODE_PASSTHRU:
-+		return macvlan_get_rx_filter_addr_passthru(dev, vf, skb);
-+	default:
-+		return -ENODATA; /* No data to Fill */
-+	}
-+}
-+
- static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 					struct ethtool_drvinfo *drvinfo)
- {
-@@ -831,7 +985,11 @@ static const struct net_device_ops macvlan_netdev_ops = {
- 	.ndo_vlan_rx_add_vid		= macvlan_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid		= macvlan_vlan_rx_kill_vid,
- 	.ndo_set_rx_filter_addr		= macvlan_set_rx_filter_addr,
-+	.ndo_get_rx_filter_addr_size	= macvlan_get_rx_filter_addr_size,
-+	.ndo_get_rx_filter_addr		= macvlan_get_rx_filter_addr,
- 	.ndo_set_rx_filter_vlan		= macvlan_set_rx_filter_vlan,
-+	.ndo_get_rx_filter_vlan_size	= macvlan_get_rx_filter_vlan_size,
-+	.ndo_get_rx_filter_vlan		= macvlan_get_rx_filter_vlan,
- };
- 
- void macvlan_common_setup(struct net_device *dev)
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
