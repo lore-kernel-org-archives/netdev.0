@@ -1,69 +1,103 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v7 7/7] SUNRPC: remove rpcbind clients destruction on module
-	cleanup
-Date: Fri, 28 Oct 2011 14:54:02 +0300
-Message-ID: <20111028105400.24628.78761.stgit@localhost6.localdomain6>
-References: <20111028104530.24628.23631.stgit@localhost6.localdomain6>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH] net: allow vlan traffic to be received under
+ bond
+Date: Fri, 28 Oct 2011 13:06:26 +0200
+Message-ID: <1319799986.23112.101.camel@edumazet-laptop>
+References: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>
+	 <4E972301.4030004@intel.com>
+	 <CAEP_g=9dk_ERdnw4Hw_8RO8Z23E1g2Q9G=AxPkiaVhwbHvo47A@mail.gmail.com>
+	 <20111018.234723.1235424375699917420.davem@davemloft.net>
+	 <1319796053.23112.92.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bfields@fieldses.org, davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111028104530.24628.23631.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jesse@nicira.com, john.r.fastabend@intel.com,
+	hans.schillstrom@ericsson.com, jpirko@redhat.com,
+	mbizon@freebox.fr, netdev@vger.kernel.org, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43002 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755391Ab1J1LTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 07:19:35 -0400
+Received: by wyg36 with SMTP id 36so3768010wyg.19
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2011 04:19:34 -0700 (PDT)
+In-Reply-To: <1319796053.23112.92.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rpcbind clients destruction during SUNRPC module removing is obsolete since now
-those clients are destroying during last RPC service shutdown.
+Le vendredi 28 octobre 2011 =C3=A0 12:00 +0200, Eric Dumazet a =C3=A9cr=
+it :
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> Oh well, this broke my setup, a very basic one.
+>=20
+> eth1 and eth2 on a bonding device, bond0, active-backup
+>=20
+> some vlans on top of bond0, say vlan.103
+>=20
+> $ ip link show dev vlan.103
+> 8: vlan.103@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
+> pfifo_fast state UP qlen 100
+>     link/ether 00:1e:0b:ec:d3:d2 brd ff:ff:ff:ff:ff:ff
+>=20
+>=20
+> arp_rcv() now gets packets with skb->type PACKET_OTHERHOST and drops
+> such packets.
+>=20
+>      [000] 52870.115435: skb_gro_reset_offset <-napi_gro_receive
+>      [000] 52870.115435: dev_gro_receive <-napi_gro_receive
+>      [000] 52870.115435: napi_skb_finish <-napi_gro_receive
+>      [000] 52870.115435: netif_receive_skb <-napi_skb_finish
+>      [000] 52870.115435: get_rps_cpu <-netif_receive_skb
+>      [000] 52870.115435: __netif_receive_skb <-netif_receive_skb
+>      [000] 52870.115436: vlan_do_receive <-__netif_receive_skb
+>      [000] 52870.115436: bond_handle_frame <-__netif_receive_skb
+>      [000] 52870.115436: vlan_do_receive <-__netif_receive_skb
+>      [000] 52870.115436: arp_rcv <-__netif_receive_skb
+>      [000] 52870.115436: kfree_skb <-arp_rcv
+>      [000] 52870.115437: __kfree_skb <-kfree_skb
+>      [000] 52870.115437: skb_release_head_state <-__kfree_skb
+>      [000] 52870.115437: skb_release_data <-__kfree_skb
+>      [000] 52870.115437: kfree <-skb_release_data
+>      [000] 52870.115437: kmem_cache_free <-__kfree_skb
+>=20
+>=20
+> By the way, we have no SNMP counter here so I spent some time to trac=
+k
+> this. I'll send a patch for this.
+>=20
+> If this host initiates the trafic, all is well.
+>=20
+> Please guys, can we get back ARP or revert this patch ?
 
----
- net/sunrpc/rpcb_clnt.c   |   12 ------------
- net/sunrpc/sunrpc_syms.c |    3 ---
- 2 files changed, 0 insertions(+), 15 deletions(-)
+=46ollowing patch cures the problem, I am not sure its the right fix.
 
-diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 115c691..983b74f 100644
---- a/net/sunrpc/rpcb_clnt.c
-+++ b/net/sunrpc/rpcb_clnt.c
-@@ -1100,15 +1100,3 @@ static struct rpc_program rpcb_program = {
- 	.version	= rpcb_version,
- 	.stats		= &rpcb_stats,
- };
--
--/**
-- * cleanup_rpcb_clnt - remove xprtsock's sysctls, unregister
-- *
-- */
--void cleanup_rpcb_clnt(void)
--{
--	if (rpcb_local_clnt4)
--		rpc_shutdown_client(rpcb_local_clnt4);
--	if (rpcb_local_clnt)
--		rpc_shutdown_client(rpcb_local_clnt);
--}
-diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
-index 9d08091..8ec9778 100644
---- a/net/sunrpc/sunrpc_syms.c
-+++ b/net/sunrpc/sunrpc_syms.c
-@@ -61,8 +61,6 @@ static struct pernet_operations sunrpc_net_ops = {
- 
- extern struct cache_detail unix_gid_cache;
- 
--extern void cleanup_rpcb_clnt(void);
--
- static int __init
- init_sunrpc(void)
- {
-@@ -102,7 +100,6 @@ out:
- static void __exit
- cleanup_sunrpc(void)
- {
--	cleanup_rpcb_clnt();
- 	rpcauth_remove_module();
- 	cleanup_socket_xprt();
- 	svc_cleanup_xprt_sock();
+Problem is we dont know how many times vlan_do_receive() can be called
+for a packet.
+
+Only last call should set/mess pkt_type to PACKET_OTHERHOST.
+
+So the caller should be responsible for this, not vlan_do_receive()
+
+
+Alternative would be to check skb->dev->rx_handler being NULL,
+but its not clean.
+
+=46ollowing patch is a hack because it handles multicast/broadcast traf=
+ic
+only. Unicast is already handled in lines 26-33, this is why we didnt
+catch the problem.
+
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index f1f2f7b..6861899 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -13,7 +13,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
+=20
+ 	vlan_dev =3D vlan_find_dev(skb->dev, vlan_id);
+ 	if (!vlan_dev) {
+-		if (vlan_id)
++		if (vlan_id && skb->pkt_type =3D=3D PACKET_HOST)
+ 			skb->pkt_type =3D PACKET_OTHERHOST;
+ 		return false;
+ 	}
