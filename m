@@ -1,8 +1,9 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v3 0/3] SUNRPC: rcbind clients virtualization
-Date: Fri, 28 Oct 2011 13:24:45 +0400
-Message-ID: <4EAA74DD.3070708@parallels.com>
-References: <20111027180824.20459.23219.stgit@localhost6.localdomain6> <20111027202514.GA31669@fieldses.org>
+Subject: Re: [PATCH v6 4/8] SUNRPC: setup rpcbind clients if service requires
+ it
+Date: Fri, 28 Oct 2011 13:27:01 +0400
+Message-ID: <4EAA7565.1040101@parallels.com>
+References: <20111025100826.12689.46944.stgit@localhost6.localdomain6> <20111025101705.12689.68022.stgit@localhost6.localdomain6> <20111027212732.GC31669@fieldses.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
@@ -17,73 +18,72 @@ Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
 	"devel@openvz.org" <devel@openvz.org>
 To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111027202514.GA31669@fieldses.org>
+In-Reply-To: <20111027212732.GC31669@fieldses.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-28.10.2011 00:25, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Thu, Oct 27, 2011 at 10:10:43PM +0300, Stanislav Kinsbursky wrote:
->> v3:
->> 1) First two patches from previous version were squashed.
+28.10.2011 01:27, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Tue, Oct 25, 2011 at 02:17:08PM +0300, Stanislav Kinsbursky wrote:
+>> New function ("svc_uses_rpcbind") will be used to detect, that new s=
+ervice will
+>> send portmapper register calls. For such services we will create rpc=
+bind
+>> clients and remove all stale portmap registrations.
+>> Also, svc_rpcb_cleanup() will be set as sv_shutdown callback for suc=
+h services
+>> in case of this field wasn't initialized earlier. This will allow to=
+ destroy
+>> rpcbind clients when no other users of them left.
 >>
->> This patch-set was created in context of clone of git branch:
->> git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git
->> and rebased on tag "v3.1".
+>> Note: Currently, any creating service will be detected as portmap us=
+er.
+>> Probably, this is wrong. But now it depends on program versions "vs_=
+hidden"
+>> flag.
 >>
->> This patch-set virtualizes rpcbind clients per network namespace con=
-text. IOW,
->> each network namespace will have its own pair of rpcbind clients (if=
- they would
->> be created by request).
->>
->> Note:
->> 1) this patch-set depends on "SUNRPC: make rpcbind clients allocated=
- and
->> destroyed dynamically" patch-set which has been send earlier.
->> 2) init_net pointer is still used instead of current->nsproxy->net_n=
-s,
->> because I'm not sure yet about how to virtualize services. I.e. NFS =
-callback
->> services will be per netns. NFSd service will be per netns too from =
-my pow. But
->> Lockd can be per netns or one for all.
->
-> I'm not sure what you mean by that; could you explain?
->
-
-This patch-set was created before you've sent your NFSd plan and we dis=
-acussed=20
-Lockd per netns.
-So, this sentence: "NFSd service will be per netns too from my pow" is =
-obsolete.=20
-And Lockd will be one for all.
-Or you are asking about something else?
-
-> --b.
->
->> And also we have NFSd file system, which
->> is not virtualized yet.
->>
->> The following series consists of:
+>> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
 >>
 >> ---
+>>   net/sunrpc/svc.c |   11 +++++++++--
+>>   1 files changed, 9 insertions(+), 2 deletions(-)
 >>
->> Stanislav Kinsbursky (3):
->>        SUNRPC: move rpcbind internals to sunrpc part of network name=
-space context
->>        SUNRPC: optimize net_ns dereferencing in rpcbind creation cal=
-ls
->>        SUNRPC: optimize net_ns dereferencing in rpcbind registering =
-calls
+>> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+>> index d2d61bf..918edc3 100644
+>> --- a/net/sunrpc/svc.c
+>> +++ b/net/sunrpc/svc.c
+>> @@ -454,8 +454,15 @@ __svc_create(struct svc_program *prog, unsigned=
+ int bufsize, int npools,
+>>   		spin_lock_init(&pool->sp_lock);
+>>   	}
 >>
+>> -	/* Remove any stale portmap registrations */
+>> -	svc_unregister(serv);
+>> +	if (svc_uses_rpcbind(serv)) {
+>> +	       	if (svc_rpcb_setup(serv)<  0) {
+>> +			kfree(serv->sv_pools);
+>> +			kfree(serv);
+>> +			return NULL;
+>
+> Nit: could we convert this (and the previous failure to allocate
+> sv_pools) to the usual pattern of collecting the cleanup at the end a=
+nd
+> jumping to it with a goto?
+>
+
+Sure, we can. I will implement this "goto pattern", is you insist.
+
+> Looks fine otherwise.
+>
+> --b.
+>
+>> +		}
+>> +		if (!serv->sv_shutdown)
+>> +			serv->sv_shutdown =3D svc_rpcb_cleanup;
+>> +	}
 >>
->>   net/sunrpc/netns.h     |    5 ++
->>   net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++----------=
-------------
->>   2 files changed, 61 insertions(+), 47 deletions(-)
+>>   	return serv;
+>>   }
 >>
->> --
->> Signature
 
 
 --=20
