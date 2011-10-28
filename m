@@ -1,13 +1,12 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v6 4/8] SUNRPC: setup rpcbind clients if service requires
- it
-Date: Fri, 28 Oct 2011 13:27:01 +0400
-Message-ID: <4EAA7565.1040101@parallels.com>
-References: <20111025100826.12689.46944.stgit@localhost6.localdomain6> <20111025101705.12689.68022.stgit@localhost6.localdomain6> <20111027212732.GC31669@fieldses.org>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH v3 0/3] SUNRPC: rcbind clients virtualization
+Date: Fri, 28 Oct 2011 05:30:36 -0400
+Message-ID: <20111028093036.GA2604@fieldses.org>
+References: <20111027180824.20459.23219.stgit@localhost6.localdomain6>
+ <20111027202514.GA31669@fieldses.org>
+ <4EAA74DD.3070708@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
 	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
 	Pavel Emelianov <xemul@parallels.com>,
@@ -16,76 +15,53 @@ Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"devel@openvz.org" <devel@openvz.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111027212732.GC31669@fieldses.org>
+Content-Disposition: inline
+In-Reply-To: <4EAA74DD.3070708@parallels.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-28.10.2011 01:27, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Tue, Oct 25, 2011 at 02:17:08PM +0300, Stanislav Kinsbursky wrote:
->> New function ("svc_uses_rpcbind") will be used to detect, that new s=
-ervice will
->> send portmapper register calls. For such services we will create rpc=
-bind
->> clients and remove all stale portmap registrations.
->> Also, svc_rpcb_cleanup() will be set as sv_shutdown callback for suc=
-h services
->> in case of this field wasn't initialized earlier. This will allow to=
- destroy
->> rpcbind clients when no other users of them left.
->>
->> Note: Currently, any creating service will be detected as portmap us=
-er.
->> Probably, this is wrong. But now it depends on program versions "vs_=
-hidden"
->> flag.
->>
->> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
->>
->> ---
->>   net/sunrpc/svc.c |   11 +++++++++--
->>   1 files changed, 9 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
->> index d2d61bf..918edc3 100644
->> --- a/net/sunrpc/svc.c
->> +++ b/net/sunrpc/svc.c
->> @@ -454,8 +454,15 @@ __svc_create(struct svc_program *prog, unsigned=
- int bufsize, int npools,
->>   		spin_lock_init(&pool->sp_lock);
->>   	}
->>
->> -	/* Remove any stale portmap registrations */
->> -	svc_unregister(serv);
->> +	if (svc_uses_rpcbind(serv)) {
->> +	       	if (svc_rpcb_setup(serv)<  0) {
->> +			kfree(serv->sv_pools);
->> +			kfree(serv);
->> +			return NULL;
->
-> Nit: could we convert this (and the previous failure to allocate
-> sv_pools) to the usual pattern of collecting the cleanup at the end a=
-nd
-> jumping to it with a goto?
->
+On Fri, Oct 28, 2011 at 01:24:45PM +0400, Stanislav Kinsbursky wrote:
+> This patch-set was created before you've sent your NFSd plan and we
+> disacussed Lockd per netns.
+> So, this sentence: "NFSd service will be per netns too from my pow"
+> is obsolete. And Lockd will be one for all.
 
-Sure, we can. I will implement this "goto pattern", is you insist.
+I believe lockd should be pert-netns--at least that's what the server
+needs.
 
-> Looks fine otherwise.
->
-> --b.
->
->> +		}
->> +		if (!serv->sv_shutdown)
->> +			serv->sv_shutdown =3D svc_rpcb_cleanup;
->> +	}
->>
->>   	return serv;
->>   }
->>
+(The single lockd thread may handle requests from all netns, but it
+should behave like a different service depending on netns, so its data
+structures, etc. will need to be per-ns.
 
+--b.
 
---=20
-Best regards,
-Stanislav Kinsbursky
+> Or you are asking about something else?
+> 
+> >--b.
+> >
+> >>And also we have NFSd file system, which
+> >>is not virtualized yet.
+> >>
+> >>The following series consists of:
+> >>
+> >>---
+> >>
+> >>Stanislav Kinsbursky (3):
+> >>       SUNRPC: move rpcbind internals to sunrpc part of network namespace context
+> >>       SUNRPC: optimize net_ns dereferencing in rpcbind creation calls
+> >>       SUNRPC: optimize net_ns dereferencing in rpcbind registering calls
+> >>
+> >>
+> >>  net/sunrpc/netns.h     |    5 ++
+> >>  net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++----------------------
+> >>  2 files changed, 61 insertions(+), 47 deletions(-)
+> >>
+> >>--
+> >>Signature
+> 
+> 
+> -- 
+> Best regards,
+> Stanislav Kinsbursky
