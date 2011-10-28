@@ -1,67 +1,31 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: -next: NET_VENDOR_8390 dependencies
-Date: Fri, 28 Oct 2011 22:35:09 +0200
-Message-ID: <CAMuHMdU3H63vx8436fdm_WBuPBwqNxHtPiAO9j6RhMn0VCAy2w@mail.gmail.com>
-References: <CAMuHMdW6hC1JchxVL9-4f58a8Vg7cF+97BbKePxjEDHY3H8wNw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: fix route error binding peer in func
+ icmp6_dst_alloc
+Date: Fri, 28 Oct 2011 16:36:33 -0400 (EDT)
+Message-ID: <20111028.163633.356080215479479922.davem@davemloft.net>
+References: <1319806017-6131-1-git-send-email-omarapazanadi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdW6hC1JchxVL9-4f58a8Vg7cF+97BbKePxjEDHY3H8wNw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	gaofeng@cn.fujitsu.com
+To: omarapazanadi@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:33132 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751128Ab1J1Ugn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 16:36:43 -0400
+In-Reply-To: <1319806017-6131-1-git-send-email-omarapazanadi@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 23, 2011 at 23:21, Geert Uytterhoeven <geert@linux-m68k.org=
-> wrote:
-> drivers/net/ethernet/8390/Kconfig:
->
-> config NET_VENDOR_8390
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0depends on NET_VENDOR_NATSEMI && (AMIGA_PC=
-MCIA || PCI || SUPERH || \
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ISA ||=
- MCA || EISA || MAC || M32R || MACH_TX49XX || \
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 MCA_LE=
-GACY || H8300 || ARM || MIPS || ZORRO || PCMCIA || \
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 EXPERI=
-MENTAL)
+From: Gao feng <omarapazanadi@gmail.com>
+Date: Fri, 28 Oct 2011 20:46:57 +0800
 
-> So NET_VENDOR_8390 depends on NET_VENDOR_NATSEMI.
+> in func icmp6_dst_alloc,dst_metric_set call ipv6_cow_metrics to set metric.
+> ipv6_cow_metrics may will call rt6_bind_peer to set rt6_info->rt6i_peer.
+> So,we should move ipv6_addr_copy before dst_metric_set to make sure rt6_bind_peer success.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 
-> config NET_VENDOR_NATSEMI
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0depends on MCA || MAC || MACH_JAZZ || PCI =
-|| XTENSA_PLATFORM_XT2000
-
-> But NET_VENDOR_NATSEMI will never be true for several of the other
-> dependencies of NET_VENDOR_8390 (e.g. AMIGA_PCMCIA, EISA, H8300, ARM,
-> ZORRO, PCMCIA)?
-
-There's a similar issue with:
-
-config NET_VENDOR_I825XX
-        depends on NET_VENDOR_INTEL && (ISA || ISA_DMA_API || ARM || \
-                   ARCH_ACORN || MCA || MCA_LEGACY || SNI_RM || SUN3 ||=
- \
-                   GSC || BVME6000 || MVME16x || EXPERIMENTAL)
-
-But:
-
-config NET_VENDOR_INTEL
-        depends on PCI || PCI_MSI
-
-Gr{oetje,eeting}s,
-
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+Applied, thanks.
