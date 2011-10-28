@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: Remove quotes of maintaners's names
-Date: Thu, 27 Oct 2011 23:01:20 -0400 (EDT)
-Message-ID: <20111027.230120.1348321590012576474.davem@davemloft.net>
-References: <1319739381-5244-1-git-send-email-marcos.mage@gmail.com>
-	<610B86C6-622E-4EFE-89DF-BF09BDB4D765@intel.com>
+Subject: Re: [PATCH net -v2] [BUGFIX] bonding: use flush_delayed_work_sync
+ in bond_close
+Date: Thu, 27 Oct 2011 23:15:20 -0400 (EDT)
+Message-ID: <20111027.231520.698587739433841485.davem@davemloft.net>
+References: <4EA4E2EE.4050201@hitachi.com>
+	<2216.1319650260@death>
+	<4EAA0ADF.5020504@hitachi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: marcos.mage@gmail.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	shemminger@vyatta.com, andy@greyhouse.net,
+	linux-kernel@vger.kernel.org, yrl.pp-manager.tt@hitachi.com
+To: mitsuo.hayasaka.hu@hitachi.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <610B86C6-622E-4EFE-89DF-BF09BDB4D765@intel.com>
+In-Reply-To: <4EAA0ADF.5020504@hitachi.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Date: Thu, 27 Oct 2011 14:35:54 -0700
+From: HAYASAKA Mitsuo <mitsuo.hayasaka.hu@hitachi.com>
+Date: Fri, 28 Oct 2011 10:52:31 +0900
 
-> The reason these names are in quotes is because they need to be
-> wrapped in quotes when used in a git patch (I.e. CC: "David
-> S. Miller" <davem@davemloft.net>) because of the . in the friendly
-> name.
+> I checked your patch, and any problems have not been observed for
+> almost one day although I could reproduce the BUG in the latest net-next
+> without it. 
+> 
+> I think this patch works well.
+> 
+> Tested-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
 
-That's correct, if a character such as "." appears in an email
-header field it must be surrounded by double quotes, as per
-SMTP rules.
+Jay, please formally submit this patch with proper signoffs etc.
 
-VGER rejects any email where this rule is not followed properly.
+Thanks!
