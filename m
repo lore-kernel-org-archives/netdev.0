@@ -1,114 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: >Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
-Date: Fri, 28 Oct 2011 06:43:45 +0200
-Message-ID: <1319777025.23112.67.camel@edumazet-laptop>
-References: <1319764761.23112.14.camel@edumazet-laptop>
-	 <20111028012521.GF25795@one.firstfloor.org>
-	 <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
-	 <1319766293.6759.17.camel@deadeye>
-	 <1319770376.23112.58.camel@edumazet-laptop>
-	 <1319772566.6759.27.camel@deadeye>
+From: Daniel Baluta <daniel.baluta@gmail.com>
+Subject: Re: [RFC] tcp: Export TCP Delayed ACK parameters to user
+Date: Fri, 28 Oct 2011 11:01:51 +0300
+Message-ID: <CAEnQRZAj4H9neNsGB8hkrQO5trvP8QimhKhpnwchjTVrAo2LGQ@mail.gmail.com>
+References: <1319756841-2051-1-git-send-email-dbaluta@ixiacom.com>
+	<1319760097.19125.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:51467 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740Ab1J1En5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 00:43:57 -0400
-In-Reply-To: <1319772566.6759.27.camel@deadeye>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:56526 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932085Ab1J1IBw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 04:01:52 -0400
+Received: by qabj40 with SMTP id j40so3411232qab.19
+        for <netdev@vger.kernel.org>; Fri, 28 Oct 2011 01:01:51 -0700 (PDT)
+In-Reply-To: <1319760097.19125.55.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 28 octobre 2011 =C3=A0 04:29 +0100, Ben Hutchings a =C3=A9c=
-rit :
-> On Fri, 2011-10-28 at 04:52 +0200, Eric Dumazet wrote:
-> > Le vendredi 28 octobre 2011 =C3=A0 02:44 +0100, Ben Hutchings a =C3=
-=A9crit :
-> >=20
-> > > Whether or not it needs to provide any ordering guarantee, atomic=
-_read()
-> > > must never read more than once, and I think that requires the vol=
-atile
-> > > qualification.  It might be clearer to use the ACCESS_ONCE macro,
-> > > however.
-> > >=20
-> >=20
-> > Where this requirement comes from ?
->=20
-> That is the conventional behaviour of 'atomic' operations, and caller=
-s
-> may depend on it.
->=20
+On Fri, Oct 28, 2011 at 3:01 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le vendredi 28 octobre 2011 =E0 02:07 +0300, Daniel Baluta a =E9crit =
+:
+>> RFC2581 ($4.2) specifies when an ACK should be generated as follows:
+>>
+>> " .. an ACK SHOULD be generated for at least every second
+>> =A0 full-sized segment, and MUST be generated within 500 ms
+>> =A0 of the arrival of the first unacknowledged packet.
+>> "
+>>
+>> We export the number of segments and the timeout limits
+>> specified above, so that a user can tune them according
+>> to its needs.
+>>
+>
+> Well, this requires user has a machine exclusive use :)
 
-Thats your opinion, not a fact documented in
-Documentation/atomic_ops.txt
+So, this means that setting parameters system wide
+isn't an option?
 
-<QUOTE>
----------------------------------------------------------
-Next, we have:
+On Windows there is a global setting TcpAckFrequency [1],
+which is similar with our tcp_delack_{min,max}.
 
-        #define atomic_read(v)  ((v)->counter)
+On Solaris there is a global option tcp_deferred_acks_max [2],
+which is similar with our tcp_delack_segs.
 
-which simply reads the counter value currently visible to the calling t=
-hread.
-The read is atomic in that the return value is guaranteed to be one of =
-the
-values initialized or modified with the interface operations if a prope=
-r
-implicit or explicit memory barrier is used after possible runtime
-initialization by any other thread and the value is modified only with =
-the
-interface operations.  atomic_read does not guarantee that the runtime
-initialization by any other thread is visible yet, so the user of the
-interface must take care of that with a proper implicit or explicit mem=
-ory
-barrier.
+Thanks for your comments, I will post an updated patch asap.
 
-*** WARNING: atomic_read() and atomic_set() DO NOT IMPLY BARRIERS! ***
+Daniel.
 
-Some architectures may choose to use the volatile keyword, barriers, or=
- inline
-assembly to guarantee some degree of immediacy for atomic_read() and
-atomic_set().  This is not uniformly guaranteed, and may change in the =
-future,
-so all users of atomic_t should treat atomic_read() and atomic_set() as=
- simple
-C statements that may be reordered or optimized away entirely by the co=
-mpiler
-or processor, and explicitly invoke the appropriate compiler and/or mem=
-ory
-barrier for each use case.  Failure to do so will result in code that m=
-ay
-suddenly break when used with different architectures or compiler
-optimizations, or even changes in unrelated code which changes how the
-compiler optimizes the section accessing atomic_t variables.
-
-*** YOU HAVE BEEN WARNED! ***
----------------------------------------------------------------
-</QUOTE>
-
-The only requirement of atomic_read() is that it must return value
-before or after an atomic_write(), not a garbled value.
-
-So the ACCESS_ONCE semantic is on the write side (the atomic itself
-cannot be used as a temporary variable. It must contain only two value
-of atomic_{write|add|sub}() [ prior to the operation, after the
-operation ]
-
-In fact, if a compiler is stupid enough to issue two reads on following
-code :
-
-static inline atomic_read(const atomic_t *p)
-{
-	return p->value;
-}
-
-Then its fine, because in the end the returned value will be the old or
-new one.
+[1] http://support.microsoft.com/kb/328890
+[2] http://www.sean.de/Solaris/soltune.html
