@@ -1,43 +1,114 @@
-From: Kumar Sanghvi <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH V2 02/10] cxgb4: Common platform specific changes for DB
- Drop Recovery
-Date: Fri, 28 Oct 2011 23:52:35 +0530
-Message-ID: <20111028182234.GA11554@kumars-PC.asicdesigners.com>
-References: <1319130620-9240-1-git-send-email-vipul@chelsio.com>
- <8A71B368A89016469F72CD08050AD3340A3D3120@maui.asicdesigners.com>
- <CAL1RGDXoeJNYz3R58bU-ixRyY1uKNgGPdUrWZ4nbcuyRDjL6Cg@mail.gmail.com>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 8/8 RFC v2] macvtap: Add support to get
+ MAC/VLAN filter rtnl link operations
+Date: Fri, 28 Oct 2011 11:24:19 -0700
+Message-ID: <CAD04163.382EE%roprabhu@cisco.com>
+References: <20111024055633.GC24528@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Felix Marti <felix-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Divy Le Ray <divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	Dimitrios Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAL1RGDXoeJNYz3R58bU-ixRyY1uKNgGPdUrWZ4nbcuyRDjL6Cg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <sri@us.ibm.com>,
+	<dragos.tatulea@gmail.com>, <arnd@arndb.de>, <kvm@vger.kernel.org>,
+	<davem@davemloft.net>, <mchan@broadcom.com>, <dwang2@cisco.com>,
+	<shemminger@vyatta.com>, <eric.dumazet@gmail.com>,
+	<kaber@trash.net>, <benve@cisco.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtv-iport-3.cisco.com ([173.36.130.14]:23366 "EHLO
+	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754037Ab1J1SYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 14:24:21 -0400
+In-Reply-To: <20111024055633.GC24528@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Roland,
 
-On Fri, Oct 28, 2011 at 10:59:47 -0700, Roland Dreier wrote:
-> On Thu, Oct 20, 2011 at 10:18 AM, Felix Marti <felix-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org> wrote:
-> > Don't add stuff to the t4fw_interface.h, that is owned by firmware.
+
+
+On 10/23/11 10:56 PM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
+
+> On Tue, Oct 18, 2011 at 11:26:36PM -0700, Roopa Prabhu wrote:
+>> From: Roopa Prabhu <roprabhu@cisco.com>
+>> 
+>> This patch adds support to get MAC and VLAN filter rtnl_link_ops
+>> on a macvtap interface. It adds support for get_rx_addr_filter_size,
+>> get_rx_vlan_filter_size, fill_rx_addr_filter and fill_rx_vlan_filter
+>> rtnl link operations. Calls equivalent macvlan operations.
+>> 
+>> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+>> Signed-off-by: Christian Benvenuti <benve@cisco.com>
+>> Signed-off-by: David Wang <dwang2@cisco.com>
+>> ---
+>>  drivers/net/macvtap.c |   27 +++++++++++++++++++++++++++
+>>  1 files changed, 27 insertions(+), 0 deletions(-)
+>> 
+>> 
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index 8a2cb59..9b40de7 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -285,6 +285,29 @@ static int macvtap_set_rx_vlan_filter(struct net_device
+>> *dev,
+>> return macvlan_set_rx_vlan_filter(dev, tb);
+>>  }
+>>  
+>> +static int macvtap_fill_rx_addr_filter(struct sk_buff *skb,
+>> + const struct net_device *dev)
+>> +{
+>> + return macvlan_fill_rx_addr_filter(skb, dev);
+>> +}
+>> +
+>> +static int macvtap_fill_rx_vlan_filter(struct sk_buff *skb,
+>> + const struct net_device *dev)
+>> +{
+>> + return macvlan_fill_rx_vlan_filter(skb, dev);
+>> +}
+>> +
+>> +static size_t macvtap_get_rx_addr_filter_size(const struct net_device *dev)
+>> +{
+>> + return macvlan_get_rx_addr_filter_size(dev);
+>> +}
+>> +
+>> +static size_t macvtap_get_rx_vlan_filter_size(const struct net_device *dev)
+>> +{
+>> + return macvlan_get_rx_vlan_filter_size(dev);
+>> +}
 > 
-> Vipul, do you plan to respin to handle Felix's comment?
+> So why do we need the above wrappers? Can't use macvlanXXX directly?
 > 
->  - R.
-Vipul is on leave, so replying on his behalf.
 
-Vipul did a respin of this patch, and posted the V3 version.
-Its available here:
-http://www.mail-archive.com/linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg09659.html
+I had followed the existing macvtap rtnl_link_ops convention here.
+It seems cleaner this way. You can define the macvtap ops static and
+Call equivalent macvlan functions from it if required. It  also gives you
+flexibility in adding any macvtap specific stuff before or after you call
+the macvlan equivalent function (like some of the macvtap rtnl link ops
+already do today)
+
+In any case this part and the below empty line error goes away in the new
+version.
 
 Thanks,
-Kumar.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Roopa
+
+
+>> +
+>> +
+> 
+> don't add double emoty lines pls.
+> 
+>>  static int macvtap_newlink(struct net *src_net,
+>>   struct net_device *dev,
+>>   struct nlattr *tb[],
+>> @@ -335,6 +358,10 @@ static struct rtnl_link_ops macvtap_link_ops
+>> __read_mostly = {
+>> .dellink   = macvtap_dellink,
+>> .set_rx_addr_filter  = macvtap_set_rx_addr_filter,
+>> .set_rx_vlan_filter  = macvtap_set_rx_vlan_filter,
+>> + .get_rx_addr_filter_size = macvtap_get_rx_addr_filter_size,
+>> + .get_rx_vlan_filter_size = macvtap_get_rx_vlan_filter_size,
+>> + .fill_rx_addr_filter  = macvtap_fill_rx_addr_filter,
+>> + .fill_rx_vlan_filter  = macvtap_fill_rx_vlan_filter,
+>>  };
+>>  
+>>  
