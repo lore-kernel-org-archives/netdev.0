@@ -1,18 +1,54 @@
-From: lisa hedstrand <lisa_hedstrand@indiatimes.com>
-Subject: Hello
-Date: Fri, 28 Oct 2011 16:54:31 +0530 (IST)
-Message-ID: <252183411.936431319801071593.JavaMail.root__20892.2769212679$1319801083$gmane$org@tilmb17.indiatimes.com>
-Reply-To: lisa hedstrand <lisahedstrand@yahoo.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: >Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
+Date: Fri, 28 Oct 2011 04:37:53 -0700
+Message-ID: <CA+55aFzHf563auNYdNeJnsbbry1OUfkepkiVHt7Fy-bG64Fruw@mail.gmail.com>
+References: <1319764761.23112.14.camel@edumazet-laptop> <20111028012521.GF25795@one.firstfloor.org>
+ <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
+ <1319766293.6759.17.camel@deadeye> <1319770376.23112.58.camel@edumazet-laptop>
+ <1319772566.6759.27.camel@deadeye> <1319777025.23112.67.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from trx4.indiatimes.com ([223.165.24.215]:46053 "EHLO
-	trx4.indiatimes.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932412Ab1J1LY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 07:24:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1319777025.23112.67.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-My name is Miss Lisa Please accept my apology if my mode of contacting you will in any way offend you. I am compelled to contact you via this medium because i needed a friend from that part of the world. We will get to know each other in details if my proposition accepted. l am a student in UK but originally from USA.
+On Thu, Oct 27, 2011 at 9:43 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> The only requirement of atomic_read() is that it must return value
+> before or after an atomic_write(), not a garbled value.
+
+The problem is that gcc *can* return a garbled value.
+
+> In fact, if a compiler is stupid enough to issue two reads on following
+> code :
+
+The compiler really *can* be that "stupid". Except the code tends to
+look like this:
+
+   int value = atomic_read(&atomic_var);
+   if (value > 10)
+     return;
+   .. do something with value ..
+
+and gcc may decide - under register pressure, and in the absense of a
+'volatile' - to read 'value' first once for that "> 10" check, and
+then it drops the registers and instead of saving it on the stack
+frame, it can decide to re-load it from atomic_var.
+
+IOW, "value" could be two or more different values: one value when
+testing, and *another* value in "do something with value".
+
+This is why we have "ACCESS_ONCE()".
+
+Whether atomics guarantee ACCESS_ONCE() semantics or not is not
+entirely clear. But afaik, there is no way to tell gcc "access at
+*most* once, and never ever reload".
+
+                             Linus
