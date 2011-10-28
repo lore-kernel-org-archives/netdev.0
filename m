@@ -1,54 +1,34 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
-Date: Fri, 28 Oct 2011 04:29:26 +0100
-Message-ID: <1319772566.6759.27.camel@deadeye>
-References: <1319764761.23112.14.camel@edumazet-laptop>
-	 <20111028012521.GF25795@one.firstfloor.org>
-	 <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
-	 <1319766293.6759.17.camel@deadeye>
-	 <1319770376.23112.58.camel@edumazet-laptop>
+From: "Yan, Zheng" <zheng.z.yan@intel.com>
+Subject: [PATCH] ipv6: fix error propagation in ip6_ufo_append_data()
+Date: Fri, 28 Oct 2011 12:24:20 +0800
+Message-ID: <4EAA2E74.2000703@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1319770376.23112.58.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:61759 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750834Ab1J1EYW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Oct 2011 00:24:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-10-28 at 04:52 +0200, Eric Dumazet wrote:
-> Le vendredi 28 octobre 2011 =C3=A0 02:44 +0100, Ben Hutchings a =C3=A9=
-crit :
->=20
-> > Whether or not it needs to provide any ordering guarantee, atomic_r=
-ead()
-> > must never read more than once, and I think that requires the volat=
-ile
-> > qualification.  It might be clearer to use the ACCESS_ONCE macro,
-> > however.
-> >=20
->=20
-> Where this requirement comes from ?
+We should return errcode from sock_alloc_send_skb()
 
-That is the conventional behaviour of 'atomic' operations, and callers
-may depend on it.
-
-> Maybe then introduce atomic_read_once() for users really needing it :=
-)
->
-> ACCESS_ONCE will force the read/move instruction I try to avoid :(
-[...]
-
-I'm sure you can find some other way to avoid it.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Zheng Yan <zheng.z.yan@intel.com>
+---
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index ff30047..84d0bd5 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1123,7 +1123,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 			hh_len + fragheaderlen + transhdrlen + 20,
+ 			(flags & MSG_DONTWAIT), &err);
+ 		if (skb == NULL)
+-			return -ENOMEM;
++			return err;
+ 
+ 		/* reserve space for Hardware header */
+ 		skb_reserve(skb, hh_len);
