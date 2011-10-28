@@ -1,56 +1,56 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [PATCH 2/2 v3] net/smsc911x: Add regulator support
-Date: Sat, 29 Oct 2011 01:33:16 +0200
-Message-ID: <CAJaTeTqerTxTnxB9jkeYGUkCRoaeOuzQPaQ0jyE7yjw7jO6rFQ@mail.gmail.com>
-References: <1319719691-15799-1-git-send-email-linus.walleij@stericsson.com> <20111028203353.GE23421@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Walleij <linus.walleij@stericsson.com>,
-	netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Mathieu Poirer <mathieu.poirier@linaro.org>,
-	Robert Marklund <robert.marklund@stericsson.com>,
-	Paul Mundt <lethal@linux-sh.org>, linux-sh@vger.kernel.org,
-	Tony Lindgren <tony@atomide.com>, linux-omap@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20111028203353.GE23421@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 2/5] drivers/net/wireless/brcm80211/brcmsmac/dma.c: eliminate a null pointer dereference
+Date: Sat, 29 Oct 2011 01:58:14 +0200
+Message-ID: <1319846297-2985-2-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 28, 2011 at 22:33, Sascha Hauer wrote:
-> On Thu, Oct 27, 2011 at 02:48:11PM +0200, Linus Walleij wrote:
->> +/*
->> + * Request or free resources, currently just regulators.
->> + *
->> + * The SMSC911x has two power pins: vddvario and vdd33a, in designs=
- where
->> + * these are not always-on we need to request regulators to be turn=
-ed on
->> + * before we can try to access the device registers.
->> + */
->> +static int smsc911x_request_free_resources(struct platform_device *=
-pdev,
->> + =A0 =A0 =A0 =A0 =A0 =A0 bool request)
->
-> I had to look twice at this function name. First I thought "request t=
-he
-> free resources?", which other resources would you request if not the
-> free ones? I think it would be nicer to have two functions instead.
-> Just my 2 cents.
+From: Julia Lawall <julia@diku.dk>
 
-i'll add my 2 cents and we'll almost have a nickle.  maybe i'm dense,
-but i had to look (more than) twice at both funcs before i could get
-my head around what was happening.  no, it's not complicated, but it
-is unusual in the kernel world.  either that or i haven't read enough
-kernel code to consider this a common paradigm.  hopefully it's the
-former ;).
--mike
---
-To unsubscribe from this list: send the line "unsubscribe linux-omap" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Delete di->name from the error reporting code, as it is meaningless if di
+is NULL.
+
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@r@
+expression E, E1;
+identifier f;
+statement S1,S2,S3;
+@@
+
+if (E == NULL)
+{
+  ... when != if (E == NULL || ...) S1 else S2
+      when != E = E1
+*E->f
+  ... when any
+  return ...;
+}
+else S3
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/wireless/brcm80211/brcmsmac/dma.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/dma.c b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+index b56a302..1d66f53 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/dma.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+@@ -361,7 +361,7 @@ static uint _dma_ctrlflags(struct dma_info *di, uint mask, uint flags)
+ 	uint dmactrlflags = di->dma.dmactrlflags;
+ 
+ 	if (di == NULL) {
+-		DMA_ERROR(("%s: _dma_ctrlflags: NULL dma handle\n", di->name));
++		DMA_ERROR(("_dma_ctrlflags: NULL dma handle\n"));
+ 		return 0;
+ 	}
+ 
