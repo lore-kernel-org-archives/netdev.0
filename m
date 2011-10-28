@@ -1,8 +1,8 @@
 From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [PATCH v3 0/3] SUNRPC: rcbind clients virtualization
-Date: Fri, 28 Oct 2011 13:41:49 +0400
-Message-ID: <4EAA78DD.2000408@parallels.com>
-References: <20111027180824.20459.23219.stgit@localhost6.localdomain6> <20111027202514.GA31669@fieldses.org> <4EAA74DD.3070708@parallels.com> <20111028093036.GA2604@fieldses.org>
+Subject: Re: [PATCH v6 5/8] SUNRPC: cleanup service destruction
+Date: Fri, 28 Oct 2011 13:49:12 +0400
+Message-ID: <4EAA7A98.5070502@parallels.com>
+References: <20111025100826.12689.46944.stgit@localhost6.localdomain6> <20111025101716.12689.81697.stgit@localhost6.localdomain6> <20111027213038.GD31669@fieldses.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
@@ -16,79 +16,51 @@ Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"devel@openvz.org" <devel@openvz.org>
 To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111028093036.GA2604@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:44444 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755008Ab1J1Jsa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Oct 2011 05:48:30 -0400
+In-Reply-To: <20111027213038.GD31669@fieldses.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-28.10.2011 13:30, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Fri, Oct 28, 2011 at 01:24:45PM +0400, Stanislav Kinsbursky wrote:
->> This patch-set was created before you've sent your NFSd plan and we
->> disacussed Lockd per netns.
->> So, this sentence: "NFSd service will be per netns too from my pow"
->> is obsolete. And Lockd will be one for all.
+28.10.2011 01:30, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Tue, Oct 25, 2011 at 02:17:18PM +0300, Stanislav Kinsbursky wrote:
+>> svc_unregister() call have to be removed from svc_destroy() since it=
+ will be
+>> called in sv_shutdown callback.
 >
-> I believe lockd should be pert-netns--at least that's what the server
-> needs.
->
-> (The single lockd thread may handle requests from all netns, but it
-> should behave like a different service depending on netns, so its dat=
-a
-> structures, etc. will need to be per-ns.
+> It would be clearer that you're *moving* this if this were merged wit=
+h
+> the following patch.  And without doing that the series isn't quite
+> bisectable, unless I'm missing something.
 >
 
-Sure. Looks like we have misunderstanding here. When I said, that Lockd=
- should=20
-be one for all, I meaned, that we will have only one kthread for all ns=
- (not one=20
-per ns). Private data will be per net ns, of course.
-
-BTW, Bruce, please, have a brief look at my e-mail to linux-nfs@vger.ke=
-rnel.org=20
-named "SUNRPC: non-exclusive pipe creation".
-I've done a lot in "RPC pipefs per net ns" task, and going to send firs=
-t patches=20
-soon. But right now I'm really confused will this non-exclusive pipes c=
-reation=20
-and almost ready so remove this functionality. But I'm afraid, that I'v=
-e missed=20
-something. Would be greatly appreciate for your opinion about my questi=
-on.
+Yes, you are right. Will resend new version soon.
 
 > --b.
 >
->> Or you are asking about something else?
 >>
->>> --b.
->>>
->>>> And also we have NFSd file system, which
->>>> is not virtualized yet.
->>>>
->>>> The following series consists of:
->>>>
->>>> ---
->>>>
->>>> Stanislav Kinsbursky (3):
->>>>        SUNRPC: move rpcbind internals to sunrpc part of network na=
-mespace context
->>>>        SUNRPC: optimize net_ns dereferencing in rpcbind creation c=
-alls
->>>>        SUNRPC: optimize net_ns dereferencing in rpcbind registerin=
-g calls
->>>>
->>>>
->>>>   net/sunrpc/netns.h     |    5 ++
->>>>   net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++--------=
---------------
->>>>   2 files changed, 61 insertions(+), 47 deletions(-)
->>>>
->>>> --
->>>> Signature
+>> Signed-off-by: Stanislav Kinsbursky<skinsbursky@parallels.com>
 >>
+>> ---
+>>   net/sunrpc/svc.c |    1 -
+>>   1 files changed, 0 insertions(+), 1 deletions(-)
 >>
->> --
->> Best regards,
->> Stanislav Kinsbursky
+>> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+>> index 918edc3..407462f 100644
+>> --- a/net/sunrpc/svc.c
+>> +++ b/net/sunrpc/svc.c
+>> @@ -530,7 +530,6 @@ svc_destroy(struct svc_serv *serv)
+>>   	if (svc_serv_is_pooled(serv))
+>>   		svc_pool_map_put();
+>>
+>> -	svc_unregister(serv);
+>>   	kfree(serv->sv_pools);
+>>   	kfree(serv);
+>>   }
+>>
 
 
 --=20
