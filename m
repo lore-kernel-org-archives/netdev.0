@@ -1,54 +1,131 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next] bnx2x: Disable LRO on FCoE or iSCSI boot
- device
-Date: Thu, 27 Oct 2011 16:30:35 -0700
-Message-ID: <1319758235.7658.92.camel@HP1>
-References: <1318563481-19631-1-git-send-email-mchan@broadcom.com>
- <20111019.160653.684945718064985511.davem@davemloft.net>
- <1319055172.7658.33.camel@HP1>
- <20111019.164702.1494656842101009040.davem@davemloft.net>
- <4E9F38D6.6030700@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] tcp: Export TCP Delayed ACK parameters to user
+Date: Fri, 28 Oct 2011 02:01:37 +0200
+Message-ID: <1319760097.19125.55.camel@edumazet-laptop>
+References: <1319756841-2051-1-git-send-email-dbaluta@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "John Fastabend" <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: Daniel Baluta <dbaluta@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2924 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751421Ab1J0Xkv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Oct 2011 19:40:51 -0400
-In-Reply-To: <4E9F38D6.6030700@intel.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63398 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750975Ab1J1ABt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Oct 2011 20:01:49 -0400
+Received: by wwe6 with SMTP id 6so4996355wwe.1
+        for <netdev@vger.kernel.org>; Thu, 27 Oct 2011 17:01:48 -0700 (PDT)
+In-Reply-To: <1319756841-2051-1-git-send-email-dbaluta@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le vendredi 28 octobre 2011 =C3=A0 02:07 +0300, Daniel Baluta a =C3=A9c=
+rit :
+> RFC2581 ($4.2) specifies when an ACK should be generated as follows:
+>=20
+> " .. an ACK SHOULD be generated for at least every second
+>   full-sized segment, and MUST be generated within 500 ms
+>   of the arrival of the first unacknowledged packet.
+> "
+>=20
+> We export the number of segments and the timeout limits
+> specified above, so that a user can tune them according
+> to its needs.
+>=20
 
-On Wed, 2011-10-19 at 13:53 -0700, John Fastabend wrote:
-> As a reference point this works fine in both FCoE and iSCSI stacks
-> today. The device is reset or link is lost for whatever reason
-> when the link comes back up the stack logs back in, enumerates
-> the luns and the scsi stack recovers as expected.
-> 
-> Firmware should do the equivalent login, lun enumeration, etc as
-> needed.
+Well, this requires user has a machine exclusive use :)
 
-Just a quick follow-up on this issue.  Our firmware actually performs
-the same logout before the reset and login after the reset.  For iSCSI,
-the problem on our device was actually caused by our userspace daemon
-logging events to a log file in the root fs.  The file I/O was blocked
-and the daemon could not proceed to do the important operations during
-the reset, and this caused filesystem I/O errors.  We have now fixed the
-problem in the userspace daemon.
+> Specifically:
+> 	* /proc/sys/net/ipv4/tcp_delack_segs, represents
+> 	the threshold for the number of segments.
+> 	* /proc/sys/net/ipv4/tcp_delack_min, specifies
+> 	the minimum timeout value
+> 	* /proc/sys/net/ipv4/tcp_delack_max, specifies
+> 	the maximum timeout value.
+>=20
 
-For FCoE, there is no logging issue and the root fs failure seems to
-happen only in a multipath configuration with all paths going down for a
-short time (caused by reset in this case).  We believe this also affects
-other devices and not just ours.  We are now working with the multipath
-maintainer to understand this issue.
 
-So this confirms that the original patch for bnx2x is not needed.
+> Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
+> ---
+>  include/net/tcp.h          |   20 +++++++++++++++++---
+>  net/ipv4/sysctl_net_ipv4.c |   21 +++++++++++++++++++++
+>  net/ipv4/tcp.c             |    5 +++--
+>  net/ipv4/tcp_input.c       |    7 +++++--
+>  net/ipv4/tcp_output.c      |    4 +++-
+>  5 files changed, 49 insertions(+), 8 deletions(-)
+>=20
 
-Thanks.
+Missing Documentation changes
+
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index e147f42..f3b0c17 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -111,14 +111,21 @@ extern void tcp_time_wait(struct sock *sk, int =
+state, int timeo);
+>  				  * TIME-WAIT timer.
+>  				  */
+> =20
+> -#define TCP_DELACK_MAX	((unsigned)(HZ/5))	/* maximal time to delay b=
+efore sending an ACK */
+> +/* default maximum time to delay before sending an ACK */
+> +#define TCP_DELACK_MAX_DEFAULT	((unsigned)(HZ/5))
+> +
+>  #if HZ >=3D 100
+> -#define TCP_DELACK_MIN	((unsigned)(HZ/25))	/* minimal time to delay =
+before sending an ACK */
+> +/* default minimum time to delay before sending an ACK */
+> +#define TCP_DELACK_MIN_DEFAULT	((unsigned)(HZ/25))
+>  #define TCP_ATO_MIN	((unsigned)(HZ/25))
+>  #else
+> -#define TCP_DELACK_MIN	4U
+> +#define TCP_DELACK_MIN_DEFAULT	4U
+>  #define TCP_ATO_MIN	4U
+>  #endif
+> +
+> +#define TCP_DELACK_MIN sysctl_tcp_delack_min
+> +#define TCP_DELACK_MAX sysctl_tcp_delack_max
+
+Hmm, please try to compile dccp as a module :)
+
+You need some EXPORT_SYMBOL() definitions.
+
+=46rankly, I suggest removing TCP_DELACK_{MIN|MAX} to avoid unecessary
+layer, and use sysctl_tcp_delack_{min|max} instead
+
+
+> +
+>  #define TCP_RTO_MAX	((unsigned)(120*HZ))
+>  #define TCP_RTO_MIN	((unsigned)(HZ/5))
+>  #define TCP_TIMEOUT_INIT ((unsigned)(1*HZ))	/* RFC2988bis initial RT=
+O value	*/
+> @@ -251,6 +258,9 @@ extern int sysctl_tcp_max_ssthresh;
+>  extern int sysctl_tcp_cookie_size;
+>  extern int sysctl_tcp_thin_linear_timeouts;
+>  extern int sysctl_tcp_thin_dupack;
+> +extern int sysctl_tcp_delack_segs;
+> +extern int sysctl_tcp_delack_min;
+> +extern int sysctl_tcp_delack_max;
+> =20
+>  extern atomic_long_t tcp_memory_allocated;
+>  extern struct percpu_counter tcp_sockets_allocated;
+> @@ -1557,6 +1567,10 @@ static inline struct tcp_extend_values *tcp_xv=
+(struct request_values *rvp)
+>  {
+>  	return (struct tcp_extend_values *)rvp;
+>  }
+
+
+> +static inline int tcp_snd_thresh(struct sock *sk)
+
+I am not sure name is properly chosen, its about delack or not ?
+
+const struct *sk
+
+> +{
+> +	return inet_csk(sk)->icsk_ack.rcv_mss * sysctl_tcp_delack_segs;
+> +}
+> =20
+
+Thanks !
