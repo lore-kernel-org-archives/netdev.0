@@ -1,44 +1,98 @@
 From: John <linux@8192.net>
-Subject: [PATCH 0/2] bonding: Doesn't support IPv6
-Date: Fri, 28 Oct 2011 18:08:00 -0700
-Message-ID: <4EAB51F0.6030105@8192.net>
+Subject: [PATCH 1/2] bonding: Doesn't support IPv6
+Date: Fri, 28 Oct 2011 18:18:13 -0700
+Message-ID: <4EAB5455.5080004@8192.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: andy@greyhouse.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp191.iad.emailsrvr.com ([207.97.245.191]:49892 "EHLO
+Received: from smtp191.iad.emailsrvr.com ([207.97.245.191]:32873 "EHLO
 	smtp191.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755417Ab1J2BQm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 21:16:42 -0400
+	with ESMTP id S1753771Ab1J2BSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 21:18:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the "bonding" driver does not support load balancing outgoing 
-traffic in LACP mode for IPv6 traffic. IPv4 (and TCP or UDP over IPv4) 
-are currently supported; this patch adds transmit hashing for IPv6 (and 
-TCP or UDP over IPv6), bringing IPv6 up to par with IPv4 support in the 
-bonding driver.
+--- a/drivers/net/bonding/bond_main.c	2011-04-19 11:18:48.000000000 -0700
++++ b/drivers/net/bonding/bond_main.c	2011-10-27 11:26:20.000000000 -0700
+@@ -3533,14 +3533,26 @@
+  static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
+  {
+  	struct ethhdr *data = (struct ethhdr *)skb->data;
+-	struct iphdr *iph = ip_hdr(skb);
 
-The algorithm chosen (xor'ing the bottom three quads and then xor'ing 
-that down into the bottom byte) was chosen after testing almost 400,000 
-unique IPv6 addresses harvested from server logs. This algorithm had the 
-most even distribution for both big- and little-endian architectures 
-while still using few instructions.
+-	if (skb->protocol == htons(ETH_P_IP)) {
++	if (skb->protocol == htons(ETH_P_IP) &&
++		skb_network_header_len(skb) >= sizeof(struct iphdr)) {
++		struct iphdr *iph = ip_hdr(skb);
+  		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
+  			(data->h_dest[5] ^ data->h_source[5])) % count;
++	} else if (skb->protocol == htons(ETH_P_IPV6) &&
++		skb_network_header_len(skb) >= sizeof(struct ipv6hdr)) {
++		struct ipv6hdr *ipv6h = ipv6_hdr(skb);
++		u32 v6hash =
++			(ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
++			(ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
++			(ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
++		v6hash = (v6hash >> 16) ^ (v6hash >> 8) ^ v6hash;
++		return (v6hash ^ data->h_dest[5] ^ data->h_source[5]) % count;
+  	}
 
-Fragmented IPv6 packets are handled the same way as fragmented IPv4 
-packets, ie, they are not balanced based on layer 4 information. 
-Additionally, IPv6 packets with intermediate headers are not balanced 
-based on layer 4 information. In practice these intermediate headers are 
-rare and this should not cause any problems, the alternative (a 
-packet-parsing loop and look-up table) seemed slow and complicated for 
-little gain.
+-	return (data->h_dest[5] ^ data->h_source[5]) % count;
++	if (skb_headlen(skb) >= 6)
++		return (data->h_dest[5] ^ data->h_source[5]) % count;
++	return 0;
+  }
 
-This is an update to a prior patch I submitted. This version includes 
-bounds checking not present in the original driver or my prior patch. 
-Included with the patch is an update to the bonding documentation.
+  /*
+@@ -3551,22 +3563,39 @@
+  static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
+  {
+  	struct ethhdr *data = (struct ethhdr *)skb->data;
+-	struct iphdr *iph = ip_hdr(skb);
+-	__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
+-	int layer4_xor = 0;
++	u32 layer4_xor = 0;
 
-Patch has been tested and performs as expected.
+  	if (skb->protocol == htons(ETH_P_IP)) {
++		struct iphdr *iph = ip_hdr(skb);
++		__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
++		if (iph->ihl * sizeof(u32) + sizeof(__be16) * 2 >
++			skb_headlen(skb) - skb_network_offset(skb)) goto SHORT_HEADER;
+  		if (!(iph->frag_off & htons(IP_MF|IP_OFFSET)) &&
+-		    (iph->protocol == IPPROTO_TCP ||
+-		     iph->protocol == IPPROTO_UDP)) {
++			(iph->protocol == IPPROTO_TCP ||
++			iph->protocol == IPPROTO_UDP)) {
+  			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
+  		}
+  		return (layer4_xor ^
+  			((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
+-
+-	}
+-
+-	return (data->h_dest[5] ^ data->h_source[5]) % count;
++	} else if (skb->protocol == htons(ETH_P_IPV6)) {
++		struct ipv6hdr *ipv6h = ipv6_hdr(skb);
++		__be16 *layer4hdrv6 = (__be16 *)((u8 *)ipv6h + sizeof(*ipv6h));
++		if (sizeof(struct ipv6hdr) + sizeof(__be16) * 2 >
++			skb_headlen(skb) - skb_network_offset(skb)) goto SHORT_HEADER;
++		if (ipv6h->nexthdr == IPPROTO_TCP || ipv6h->nexthdr == IPPROTO_UDP) {
++			layer4_xor = (*layer4hdrv6 ^ *(layer4hdrv6 + 1));
++		}
++		layer4_xor ^=
++			(ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
++			(ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
++			(ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
++		return ((layer4_xor >> 16) ^ (layer4_xor >> 8) ^ layer4_xor) % count;
++	}
++
++	SHORT_HEADER:
++	if (skb_headlen(skb) >= 6)
++		return (data->h_dest[5] ^ data->h_source[5]) % count;
++	return 0;
+  }
 
-John
+  /*
