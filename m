@@ -1,98 +1,77 @@
 From: John <linux@8192.net>
-Subject: [PATCH 1/2] bonding: Doesn't support IPv6
-Date: Fri, 28 Oct 2011 18:18:13 -0700
-Message-ID: <4EAB5455.5080004@8192.net>
+Subject: [PATCH 2/2] bonding: Doesn't support IPv6
+Date: Fri, 28 Oct 2011 18:18:39 -0700
+Message-ID: <4EAB546F.3060800@8192.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: andy@greyhouse.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp191.iad.emailsrvr.com ([207.97.245.191]:32873 "EHLO
+Received: from smtp191.iad.emailsrvr.com ([207.97.245.191]:53713 "EHLO
 	smtp191.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753771Ab1J2BSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 21:18:11 -0400
+	with ESMTP id S932806Ab1J2BSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Oct 2011 21:18:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---- a/drivers/net/bonding/bond_main.c	2011-04-19 11:18:48.000000000 -0700
-+++ b/drivers/net/bonding/bond_main.c	2011-10-27 11:26:20.000000000 -0700
-@@ -3533,14 +3533,26 @@
-  static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
-  {
-  	struct ethhdr *data = (struct ethhdr *)skb->data;
--	struct iphdr *iph = ip_hdr(skb);
+--- a/Documentation/networking/bonding.txt	2011-09-01 12:15:38.000000000 -0700
++++ b/Documentation/networking/bonding.txt	2011-09-26 10:23:43.000000000 -0700
+@@ -709,12 +709,22 @@
+  		protocol information to generate the hash.
 
--	if (skb->protocol == htons(ETH_P_IP)) {
-+	if (skb->protocol == htons(ETH_P_IP) &&
-+		skb_network_header_len(skb) >= sizeof(struct iphdr)) {
-+		struct iphdr *iph = ip_hdr(skb);
-  		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
-  			(data->h_dest[5] ^ data->h_source[5])) % count;
-+	} else if (skb->protocol == htons(ETH_P_IPV6) &&
-+		skb_network_header_len(skb) >= sizeof(struct ipv6hdr)) {
-+		struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+		u32 v6hash =
-+			(ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
-+			(ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
-+			(ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
-+		v6hash = (v6hash >> 16) ^ (v6hash >> 8) ^ v6hash;
-+		return (v6hash ^ data->h_dest[5] ^ data->h_source[5]) % count;
-  	}
+  		Uses XOR of hardware MAC addresses and IP addresses to
+-		generate the hash.  The formula is
++		generate the hash.  The IPv4 formula is
 
--	return (data->h_dest[5] ^ data->h_source[5]) % count;
-+	if (skb_headlen(skb) >= 6)
-+		return (data->h_dest[5] ^ data->h_source[5]) % count;
-+	return 0;
-  }
+  		(((source IP XOR dest IP) AND 0xffff) XOR
+  			( source MAC XOR destination MAC ))
+  				modulo slave count
 
-  /*
-@@ -3551,22 +3563,39 @@
-  static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
-  {
-  	struct ethhdr *data = (struct ethhdr *)skb->data;
--	struct iphdr *iph = ip_hdr(skb);
--	__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
--	int layer4_xor = 0;
-+	u32 layer4_xor = 0;
-
-  	if (skb->protocol == htons(ETH_P_IP)) {
-+		struct iphdr *iph = ip_hdr(skb);
-+		__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
-+		if (iph->ihl * sizeof(u32) + sizeof(__be16) * 2 >
-+			skb_headlen(skb) - skb_network_offset(skb)) goto SHORT_HEADER;
-  		if (!(iph->frag_off & htons(IP_MF|IP_OFFSET)) &&
--		    (iph->protocol == IPPROTO_TCP ||
--		     iph->protocol == IPPROTO_UDP)) {
-+			(iph->protocol == IPPROTO_TCP ||
-+			iph->protocol == IPPROTO_UDP)) {
-  			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
-  		}
-  		return (layer4_xor ^
-  			((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
--
--	}
--
--	return (data->h_dest[5] ^ data->h_source[5]) % count;
-+	} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+		__be16 *layer4hdrv6 = (__be16 *)((u8 *)ipv6h + sizeof(*ipv6h));
-+		if (sizeof(struct ipv6hdr) + sizeof(__be16) * 2 >
-+			skb_headlen(skb) - skb_network_offset(skb)) goto SHORT_HEADER;
-+		if (ipv6h->nexthdr == IPPROTO_TCP || ipv6h->nexthdr == IPPROTO_UDP) {
-+			layer4_xor = (*layer4hdrv6 ^ *(layer4hdrv6 + 1));
-+		}
-+		layer4_xor ^=
-+			(ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
-+			(ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
-+			(ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
-+		return ((layer4_xor >> 16) ^ (layer4_xor >> 8) ^ layer4_xor) % count;
-+	}
++        The IPv6 forumla is
 +
-+	SHORT_HEADER:
-+	if (skb_headlen(skb) >= 6)
-+		return (data->h_dest[5] ^ data->h_source[5]) % count;
-+	return 0;
-  }
++        iphash =
++             (source ip quad 2 XOR dest IP quad 2) XOR
++             (source ip quad 3 XOR dest IP quad 3) XOR
++             (source ip quad 4 XOR dest IP quad 4)
++
++        (iphash >> 16) XOR (iphash >> 8) XOR iphash
++            modulo slave count
++
+  		This algorithm will place all traffic to a particular
+  		network peer on the same slave.  For non-IP traffic,
+  		the formula is the same as for the layer2 transmit
+@@ -735,19 +745,30 @@
+  		slaves, although a single connection will not span
+  		multiple slaves.
 
-  /*
+-		The formula for unfragmented TCP and UDP packets is
++		The formula for unfragmented IPv4 TCP and UDP packets is
+
+  		((source port XOR dest port) XOR
+  			 ((source IP XOR dest IP) AND 0xffff)
+  				modulo slave count
+
+-		For fragmented TCP or UDP packets and all other IP
+-		protocol traffic, the source and destination port
++		The formula for unfragmented IPv6 TCP and UDP packets is
++
++		iphash =
++			 (source ip quad 2 XOR dest IP quad 2) XOR
++			 (source ip quad 3 XOR dest IP quad 3) XOR
++			 (source ip quad 4 XOR dest IP quad 4)
++
++		((source port XOR dest port) XOR
++			 (iphash >> 16) XOR (iphash >> 8) XOR iphash
++				modulo slave count
++
++		For fragmented TCP or UDP packets and all other IPv4 and
++		IPv6 protocol traffic, the source and destination port
+  		information is omitted.  For non-IP traffic, the
+  		formula is the same as for the layer2 transmit hash
+  		policy.
+
+-		This policy is intended to mimic the behavior of
++		The IPv4 policy is intended to mimic the behavior of
+  		certain switches, notably Cisco switches with PFC2 as
+  		well as some Foundry and IBM products.
