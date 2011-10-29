@@ -1,246 +1,42 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [net-next PATCH] net: allow vlan traffic to be received under
- bond
-Date: Sat, 29 Oct 2011 16:59:01 +0200
-Message-ID: <20111029145900.GA2053@minipsycho.orion>
-References: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>
- <4E972301.4030004@intel.com>
- <CAEP_g=9dk_ERdnw4Hw_8RO8Z23E1g2Q9G=AxPkiaVhwbHvo47A@mail.gmail.com>
- <20111018.234723.1235424375699917420.davem@davemloft.net>
- <1319796053.23112.92.camel@edumazet-laptop>
- <1319799986.23112.101.camel@edumazet-laptop>
- <4EAB62F0.2040101@intel.com>
- <1319883746.2586.33.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: >Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
+Date: Sat, 29 Oct 2011 17:43:04 +0200
+Message-ID: <1319902984.2586.35.camel@edumazet-laptop>
+References: <1319764761.23112.14.camel@edumazet-laptop>
+	 <20111028012521.GF25795@one.firstfloor.org>
+	 <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
+	 <1319766293.6759.17.camel@deadeye>
+	 <1319770376.23112.58.camel@edumazet-laptop>
+	 <1319772566.6759.27.camel@deadeye>
+	 <1319777025.23112.67.camel@edumazet-laptop>
+	 <CA+55aFzHf563auNYdNeJnsbbry1OUfkepkiVHt7Fy-bG64Fruw@mail.gmail.com>
+	 <1319803781.23112.113.camel@edumazet-laptop>
+	 <CA+55aFxzgc5pC1p6J8YADNDwmAjUYNRKLvir6OQMueWqUXOaEQ@mail.gmail.com>
+	 <CA+55aFxy6VSBbikFrfXwUPOafihR+MOdi+yKSp_6qz7_Vax_YA@mail.gmail.com>
+	 <1319813252.23112.122.camel@edumazet-laptop>
+	 <CA+55aFxvcvUopBc-Q6Fp87asTuBohev8Xdm67jcKfy4Z4_BZRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"hans.schillstrom@ericsson.com" <hans.schillstrom@ericsson.com>,
-	"mbizon@freebox.fr" <mbizon@freebox.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58381 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932744Ab1J2O7M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Oct 2011 10:59:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1319883746.2586.33.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxvcvUopBc-Q6Fp87asTuBohev8Xdm67jcKfy4Z4_BZRg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Oct 29, 2011 at 12:22:26PM CEST, eric.dumazet@gmail.com wrote:
->Le vendredi 28 octobre 2011 =E0 19:20 -0700, John Fastabend a =E9crit =
-:
->
->> Thanks Eric! Thought about this some and I haven't come up
->> with anything better yet. Even though this might be a slight
->> hack I would prefer this to reverting the patch.
->>=20
->> I'll think about this more tomorrow. Would you be against
->> submitting this patch?
->
->I cant submit this patch, because its a hack and partial fix.
->
->For Unicast packets, we still do the wrong thing : setting their
->pkt_type to PACKET_OTHERHOST before the call to rx_handler :
->
->In this case, bond_handle_frame() wont handle this packet correctly in
->some cases (BOND_MODE_ALB ...). I suppose bridge might be confused as
->well. So other problems remain.
->
->We should delay the PACKET_OTHERHOST setting to the last moment, that =
-is
->the last time vlan_do_receive() is called.
->
->What about following patch instead ?
->
->[PATCH] vlan: allow nested vlan_do_receive()
->
->commit 2425717b27eb (net: allow vlan traffic to be received under bond=
-)
->broke ARP processing on vlan on top of bonding.
->
->       +-------+
->eth0 --| bond0 |---bond0.103
->eth1 --|       |
->       +-------+
->
->52870.115435: skb_gro_reset_offset <-napi_gro_receive
->52870.115435: dev_gro_receive <-napi_gro_receive
->52870.115435: napi_skb_finish <-napi_gro_receive
->52870.115435: netif_receive_skb <-napi_skb_finish
->52870.115435: get_rps_cpu <-netif_receive_skb
->52870.115435: __netif_receive_skb <-netif_receive_skb
->52870.115436: vlan_do_receive <-__netif_receive_skb
->52870.115436: bond_handle_frame <-__netif_receive_skb
->52870.115436: vlan_do_receive <-__netif_receive_skb
->52870.115436: arp_rcv <-__netif_receive_skb
->52870.115436: kfree_skb <-arp_rcv
->
->Packet is dropped in arp_rcv() because its pkt_type was set to
->PACKET_OTHERHOST in the first vlan_do_receive() call, since no eth0.10=
-3
->exists.
->
->We really need to change pkt_type only if no more rx_handler is about =
-to
->be called for the packet.
->
->Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->---
-> include/linux/if_vlan.h |    8 +++++---
-> net/8021q/vlan_core.c   |    7 +++++--
-> net/core/dev.c          |    4 ++--
-> 3 files changed, 12 insertions(+), 7 deletions(-)
->
->diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
->index 44da482..95874ff 100644
->--- a/include/linux/if_vlan.h
->+++ b/include/linux/if_vlan.h
->@@ -106,7 +106,8 @@ extern struct net_device *__vlan_find_dev_deep(str=
-uct net_device *real_dev,
-> extern struct net_device *vlan_dev_real_dev(const struct net_device *=
-dev);
-> extern u16 vlan_dev_vlan_id(const struct net_device *dev);
->=20
->-extern bool vlan_do_receive(struct sk_buff **skb);
->+extern bool vlan_do_receive(struct sk_buff **skb,
->+			    rx_handler_func_t *rx_handler);
-> extern struct sk_buff *vlan_untag(struct sk_buff *skb);
->=20
-> #else
->@@ -128,9 +129,10 @@ static inline u16 vlan_dev_vlan_id(const struct n=
-et_device *dev)
-> 	return 0;
-> }
->=20
->-static inline bool vlan_do_receive(struct sk_buff **skb)
->+static inline bool vlan_do_receive(struct sk_buff **skb,
->+				   rx_handler_func_t *rx_handler)
-> {
->-	if ((*skb)->vlan_tci & VLAN_VID_MASK)
->+	if (((*skb)->vlan_tci & VLAN_VID_MASK) && !rx_handler)
-> 		(*skb)->pkt_type =3D PACKET_OTHERHOST;
-> 	return false;
-> }
->diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
->index f1f2f7b..3ec1ada 100644
->--- a/net/8021q/vlan_core.c
->+++ b/net/8021q/vlan_core.c
->@@ -4,7 +4,7 @@
-> #include <linux/netpoll.h>
-> #include "vlan.h"
->=20
->-bool vlan_do_receive(struct sk_buff **skbp)
->+bool vlan_do_receive(struct sk_buff **skbp, rx_handler_func_t *rx_han=
-dler)
-> {
-> 	struct sk_buff *skb =3D *skbp;
-> 	u16 vlan_id =3D skb->vlan_tci & VLAN_VID_MASK;
->@@ -13,7 +13,10 @@ bool vlan_do_receive(struct sk_buff **skbp)
->=20
-> 	vlan_dev =3D vlan_find_dev(skb->dev, vlan_id);
-> 	if (!vlan_dev) {
->-		if (vlan_id)
->+		/* Only the last call to vlan_do_receive() should change
->+		 * pkt_type to PACKET_OTHERHOST
->+		 */
->+		if (vlan_id && !rx_handler)
-> 			skb->pkt_type =3D PACKET_OTHERHOST;
-> 		return false;
-> 	}
->diff --git a/net/core/dev.c b/net/core/dev.c
->index edcf019..40976b4 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -3283,18 +3283,18 @@ another_round:
-> ncls:
-> #endif
->=20
->+	rx_handler =3D rcu_dereference(skb->dev->rx_handler);
-> 	if (vlan_tx_tag_present(skb)) {
-> 		if (pt_prev) {
-> 			ret =3D deliver_skb(skb, pt_prev, orig_dev);
-> 			pt_prev =3D NULL;
-> 		}
->-		if (vlan_do_receive(&skb))
->+		if (vlan_do_receive(&skb, rx_handler))
+Le vendredi 28 octobre 2011 =C3=A0 07:55 -0700, Linus Torvalds a =C3=A9=
+crit :
 
-I must say I do not like passing rx_handler out like this. Apart it's
-not nice, it might be misleading....
+> Maybe we should make it a generic helper macro ("ACCESS_AT_MOST_ONCE(=
+)")?
+>=20
+> Comments? I think I'm open to tested patches..
+>=20
 
-How about something like following instead? I must test it but I believ=
-e
-it should resolve the problem.
-
-
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 44da482..165a487 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -130,8 +130,6 @@ static inline u16 vlan_dev_vlan_id(const struct net=
-_device *dev)
-=20
- static inline bool vlan_do_receive(struct sk_buff **skb)
- {
--	if ((*skb)->vlan_tci & VLAN_VID_MASK)
--		(*skb)->pkt_type =3D PACKET_OTHERHOST;
- 	return false;
- }
-=20
-@@ -141,6 +139,14 @@ static inline struct sk_buff *vlan_untag(struct sk=
-_buff *skb)
- }
- #endif
-=20
-+static inline void vlan_handle_leftover(struct sk_buff *skb)
-+{
-+	u16 vlan_id =3D skb->vlan_tci & VLAN_VID_MASK;
-+
-+	if (vlan_id)
-+		skb->pkt_type =3D PACKET_OTHERHOST;
-+}
-+
- /**
-  * vlan_insert_tag - regular VLAN tag inserting
-  * @skb: skbuff to tag
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index f1f2f7b..540da12 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -12,11 +12,8 @@ bool vlan_do_receive(struct sk_buff **skbp)
- 	struct vlan_pcpu_stats *rx_stats;
-=20
- 	vlan_dev =3D vlan_find_dev(skb->dev, vlan_id);
--	if (!vlan_dev) {
--		if (vlan_id)
--			skb->pkt_type =3D PACKET_OTHERHOST;
-+	if (!vlan_dev)
- 		return false;
--	}
-=20
- 	skb =3D *skbp =3D skb_share_check(skb, GFP_ATOMIC);
- 	if (unlikely(!skb))
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b7ba81a..6fdfcc9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3314,6 +3314,14 @@ ncls:
- 		}
- 	}
-=20
-+	if (vlan_tx_tag_present(skb)) {
-+		/*
-+		 * Tag is still present here. That means there's no device
-+		 * set up for this vlan id. So handle these leftovers here.
-+		 */
-+		vlan_handle_leftover(skb);
-+	}
-+
- 	/* deliver only exact match when indicated */
- 	null_or_dev =3D deliver_exact ? skb->dev : NULL;
-=20
+I am currently travelling, but can do that Monday/Tuesday if nobody
+beats me ;)
