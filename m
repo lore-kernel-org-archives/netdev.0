@@ -1,44 +1,58 @@
-From: Taehun Kim <kth3321@gmail.com>
-Subject: Re: [PATCH net-next] w5300: add WIZnet W5300 Ethernet driver
-Date: Sun, 30 Oct 2011 03:29:59 +0900
-Message-ID: <CAOkfWjf722hrPs4_Sj2vACHMD_8UaEx7pHN6JaLZ+ysFdaELcg@mail.gmail.com>
-References: <1319272916-5541-1-git-send-email-kth3321@gmail.com>
-	<20111024.182142.2299822581628382143.davem@davemloft.net>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Logic bug in B.A.T.M.A.N. advanced driver
+Date: Sat, 29 Oct 2011 20:45:43 +0200
+Message-ID: <4EAC49D7.2060609@intra2net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	romieu@fr.zoreil.com, suhwan@wiznet.co.kr, bongbong@wiznet.co.kr
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111024.182142.2299822581628382143.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
+To: Marek Lindner <lindner_marek@yahoo.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from re04.intra2net.com ([82.165.46.26]:43761 "EHLO
+	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933900Ab1J2Spr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 14:45:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2011/10/25 David Miller <davem@davemloft.net>:
-> From: Taehun Kim <kth3321@gmail.com>
-> Date: Sat, 22 Oct 2011 17:41:56 +0900
->
->> +struct wiz_private {
->> + =C2=A0 =C2=A0 void __iomem *base;
->> + =C2=A0 =C2=A0 struct net_device *dev;
->> + =C2=A0 =C2=A0 u8 rxbuf_conf[MAX_SOCK_NUM];
->> + =C2=A0 =C2=A0 u8 txbuf_conf[MAX_SOCK_NUM];
->> + =C2=A0 =C2=A0 struct net_device_stats stats;
->> + =C2=A0 =C2=A0 struct napi_struct napi;
->> + =C2=A0 =C2=A0 spinlock_t lock;
->> + =C2=A0 =C2=A0 u32 msg_enable;
->> +};
->
-> You don't need to have a private net_device_stats, just use the
-> one in struct net_device, and then you can also get rid of your
-> private ->ndo_get_stats() method.
->
+Hi Marek,
 
-Thank you for your feedback :)
+Consider this code from "net/batman-adv/bitarray.c":
 
-I am working on this drive by referencing other Ethernet drivers.
-I have one question.
+int bit_get_packet(void *priv, unsigned long *seq_bits,
+		    int32_t seq_num_diff, int set_mark)
+{
+        ...
 
-Should I suggest the updated driver patch to this thread or new
-thread?
+	if ((seq_num_diff >= TQ_LOCAL_WINDOW_SIZE)
+		|| (seq_num_diff < EXPECTED_SEQNO_RANGE)) {
+		bat_dbg(DBG_BATMAN, bat_priv,
+			"We missed a lot of packets (%i) !\n",
+			seq_num_diff - 1);
+		bit_reset_window(seq_bits);
+		if (set_mark)
+			bit_mark(seq_bits, 0);
+		return 1;
+	}
+-----------------------------------
+
+The defines from "main.h":
+#define TQ_LOCAL_WINDOW_SIZE 64
+#define EXPECTED_SEQNO_RANGE	65536
+
+
+So that if() statement will translate to:
+
+-----------------------------------
+	if ((seq_num_diff >= 64)
+		|| (seq_num_diff < 65536)) {
+-----------------------------------
+
+and this will always evaluate to true.
+
+Detected by "cppcheck":
+"[net/batman-adv/bitarray.c:157]: (warning) Mutual exclusion over ||
+always evaluates to true. Did you intend to use && instead?"
+
+Cheers,
+Thomas
