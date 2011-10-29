@@ -1,58 +1,45 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Logic bug in B.A.T.M.A.N. advanced driver
-Date: Sat, 29 Oct 2011 20:45:43 +0200
-Message-ID: <4EAC49D7.2060609@intra2net.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Broken link in /sys/class/net/ [was: [GIT] Networking]
+Date: Sun, 30 Oct 2011 01:03:30 +0200
+Message-ID: <4EAC8642.3050309@suse.cz>
+References: <20111025.063206.2273357152859701628.davem@davemloft.net> <CA+55aFw1GVvszqoC_f0RAvG5t1xj0CSYLhLU=y0gQ+_54Gsomw@mail.gmail.com> <20111025131315.GA1899@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-To: Marek Lindner <lindner_marek@yahoo.de>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Mikulas Patocka <mpatocka@redhat.com>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jiri Slaby <jirislaby@gmail.com>
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from re04.intra2net.com ([82.165.46.26]:43761 "EHLO
-	re04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933900Ab1J2Spr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 14:45:47 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:50623 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755272Ab1J2XDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 19:03:35 -0400
+In-Reply-To: <20111025131315.GA1899@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marek,
+On 10/25/2011 03:13 PM, Greg KH wrote:
+> On Tue, Oct 25, 2011 at 01:46:11PM +0200, Linus Torvalds wrote:
+>> Anyway, after that rant about really bad practices, let me say that I
+>> did fix up the conflict and I think it's right. But I won't guarantee
+>> it, so please check the changes to fs/sysfs/dir.c.
+> 
+> I think it looks ok, I've booted the merge result, and am typing and
+> sending this from the new kernel, and it hasn't crashed yet :)
 
-Consider this code from "net/batman-adv/bitarray.c":
+Hi, maybe this was not caused by the merge, but the patch[1] causes this
+mess in /sys/class/net/ for me:
+l????????? ? ?    ?    ?             ? eth1
 
-int bit_get_packet(void *priv, unsigned long *seq_bits,
-		    int32_t seq_num_diff, int set_mark)
-{
-        ...
+This happens after one renames a net device -- the new name is eth1 here.
 
-	if ((seq_num_diff >= TQ_LOCAL_WINDOW_SIZE)
-		|| (seq_num_diff < EXPECTED_SEQNO_RANGE)) {
-		bat_dbg(DBG_BATMAN, bat_priv,
-			"We missed a lot of packets (%i) !\n",
-			seq_num_diff - 1);
-		bit_reset_window(seq_bits);
-		if (set_mark)
-			bit_mark(seq_bits, 0);
-		return 1;
-	}
------------------------------------
+[1] 4f72c0cab40 (sysfs: use rb-tree for name lookups)
 
-The defines from "main.h":
-#define TQ_LOCAL_WINDOW_SIZE 64
-#define EXPECTED_SEQNO_RANGE	65536
-
-
-So that if() statement will translate to:
-
------------------------------------
-	if ((seq_num_diff >= 64)
-		|| (seq_num_diff < 65536)) {
------------------------------------
-
-and this will always evaluate to true.
-
-Detected by "cppcheck":
-"[net/batman-adv/bitarray.c:157]: (warning) Mutual exclusion over ||
-always evaluates to true. Did you intend to use && instead?"
-
-Cheers,
-Thomas
+regards,
+-- 
+js
+suse labs
