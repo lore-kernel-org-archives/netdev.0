@@ -1,42 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: >Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
-Date: Sat, 29 Oct 2011 17:43:04 +0200
-Message-ID: <1319902984.2586.35.camel@edumazet-laptop>
-References: <1319764761.23112.14.camel@edumazet-laptop>
-	 <20111028012521.GF25795@one.firstfloor.org>
-	 <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
-	 <1319766293.6759.17.camel@deadeye>
-	 <1319770376.23112.58.camel@edumazet-laptop>
-	 <1319772566.6759.27.camel@deadeye>
-	 <1319777025.23112.67.camel@edumazet-laptop>
-	 <CA+55aFzHf563auNYdNeJnsbbry1OUfkepkiVHt7Fy-bG64Fruw@mail.gmail.com>
-	 <1319803781.23112.113.camel@edumazet-laptop>
-	 <CA+55aFxzgc5pC1p6J8YADNDwmAjUYNRKLvir6OQMueWqUXOaEQ@mail.gmail.com>
-	 <CA+55aFxy6VSBbikFrfXwUPOafihR+MOdi+yKSp_6qz7_Vax_YA@mail.gmail.com>
-	 <1319813252.23112.122.camel@edumazet-laptop>
-	 <CA+55aFxvcvUopBc-Q6Fp87asTuBohev8Xdm67jcKfy4Z4_BZRg@mail.gmail.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: VLAN Question
+Date: Sat, 29 Oct 2011 17:51:12 +0200
+Message-ID: <4EAC20F0.9060508@gmail.com>
+References: <CANgyXsS=cE_ONExEuOvL7NEme1xCTM5s2Eek+oM6SXu_0g_bAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxvcvUopBc-Q6Fp87asTuBohev8Xdm67jcKfy4Z4_BZRg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Roya Kachooei <rkachooei@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41601 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932484Ab1J2Puu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 11:50:50 -0400
+Received: by wwe6 with SMTP id 6so7121612wwe.1
+        for <netdev@vger.kernel.org>; Sat, 29 Oct 2011 08:50:49 -0700 (PDT)
+In-Reply-To: <CANgyXsS=cE_ONExEuOvL7NEme1xCTM5s2Eek+oM6SXu_0g_bAQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 28 octobre 2011 =C3=A0 07:55 -0700, Linus Torvalds a =C3=A9=
-crit :
+Le 29/10/2011 15:35, Roya Kachooei a =E9crit :
+> Hi there
+>
+>
+> My question is that is it possible to bond or aggregate two virtual
+> interfaces created by VLAN?
+>
+> In other words is it possible to bond two virtual links for improving
+> fail over and load balance?
 
-> Maybe we should make it a generic helper macro ("ACCESS_AT_MOST_ONCE(=
-)")?
->=20
-> Comments? I think I'm open to tested patches..
->=20
+If both virtual links are supported by the same physical link, nothing =
+will improve.
 
-I am currently travelling, but can do that Monday/Tuesday if nobody
-beats me ;)
+That being said, some people used VLAN to provide end-to-end links, acr=
+oss one or several common=20
+switches.
+
+       +-eth0-----vlan-100-----eth0-+
+       |                            |
+bond0-+                            +-bond0
+       |                            |
+       +-eth1-----vlan-200-----eth1-+
+
+	Nicolas.
