@@ -1,44 +1,46 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/2] bonding: Doesn't support IPv6
-Date: Sat, 29 Oct 2011 09:55:29 +0200
-Message-ID: <CAHXqBF+CcX=FQNSSsdsEAc9jAqi0G3RNLPjRCcc7wJ+QYnzzSA@mail.gmail.com>
-References: <4EAB5455.5080004@8192.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, andy@greyhouse.net
-To: John <linux@8192.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:46098 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753312Ab1J2Hzu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 03:55:50 -0400
-Received: by iaby12 with SMTP id y12so4887309iab.19
-        for <netdev@vger.kernel.org>; Sat, 29 Oct 2011 00:55:50 -0700 (PDT)
-In-Reply-To: <4EAB5455.5080004@8192.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: pull request: batman-adv 2011-10-29
+Date: Sat, 29 Oct 2011 10:06:43 +0200
+Message-ID: <1319875606-7794-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-2011/10/29 John <linux@8192.net>:
-> --- a/drivers/net/bonding/bond_main.c =A0 2011-04-19 11:18:48.0000000=
-00 -0700
-> +++ b/drivers/net/bonding/bond_main.c =A0 2011-10-27 11:26:20.0000000=
-00 -0700
-[...]
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 v6hash =3D (v6hash >> 16) ^ (v6hash >> =
-8) ^ v6hash;
+Hi David,
 
-This XORs in only 3 of 4 bytes, and assuming count > 256 (its unlikely
-you have more than 256 slaves in bond) the most significant byte is
-wasted. It should be:
+we have 3 more bugfixes for you which we would like to see getting
+merged into net-next/linux-3.2. They fix refcounting, a crash on
+module unload and a protocol handling bug.
 
-v6hash ^=3D v6hash >> 16;
-v6hash ^=3D v6hash >> 8;
+Thanks,
+Marek
 
-Same for IPv4 part.
+The following changes since commit 9d8523931f7f5eb8900077f0da0fbe6b8ad0010b:
 
-OTOH, if that was your intention, then the description in your mail was=
- wrong.
+  batman-adv: correctly set the data field in the TT_REPONSE packet (2011-10-18 22:45:10 +0200)
 
-Best Regards,
-Micha=B3 Miros=B3aw
+are available in the git repository at:
+  git://git.open-mesh.org/linux-merge.git batman-adv/maint
+
+Antonio Quartulli (1):
+      batman-adv: unify hash_entry field position in tt_local/global_entry
+
+Simon Wunderlich (2):
+      batman-adv: remove references for global tt entries
+      batman-adv: add sanity check when removing global tts
+
+ net/batman-adv/translation-table.c |   17 ++++++++++++++++-
+ net/batman-adv/types.h             |    4 ++--
+ 2 files changed, 18 insertions(+), 3 deletions(-)
