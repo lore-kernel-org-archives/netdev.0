@@ -1,113 +1,116 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH] net: allow vlan traffic to be received under
- bond
-Date: Fri, 28 Oct 2011 19:20:32 -0700
-Message-ID: <4EAB62F0.2040101@intel.com>
-References: <C8A6796DE7C66C4ABCBC18106CB6C1CC106D903179@ESESSCMS0356.eemea.ericsson.se>  <4E972301.4030004@intel.com>  <CAEP_g=9dk_ERdnw4Hw_8RO8Z23E1g2Q9G=AxPkiaVhwbHvo47A@mail.gmail.com>  <20111018.234723.1235424375699917420.davem@davemloft.net>  <1319796053.23112.92.camel@edumazet-laptop> <1319799986.23112.101.camel@edumazet-laptop>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH 2/5] drivers/net/wireless/brcm80211/brcmsmac/dma.c: eliminate
+ a null pointer dereference
+Date: Sat, 29 Oct 2011 13:27:33 +1100
+Message-ID: <4EAB6495.40707@gmail.com>
+References: <1319846297-2985-2-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"hans.schillstrom@ericsson.com" <hans.schillstrom@ericsson.com>,
-	"jpirko@redhat.com" <jpirko@redhat.com>,
-	"mbizon@freebox.fr" <mbizon@freebox.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:63413 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756064Ab1J2CUd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Oct 2011 22:20:33 -0400
-In-Reply-To: <1319799986.23112.101.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1319846297-2985-2-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/28/2011 4:06 AM, Eric Dumazet wrote:
-> Le vendredi 28 octobre 2011 =C3=A0 12:00 +0200, Eric Dumazet a =C3=A9=
-crit :
->=20
->> Oh well, this broke my setup, a very basic one.
->>
->> eth1 and eth2 on a bonding device, bond0, active-backup
->>
->> some vlans on top of bond0, say vlan.103
->>
->> $ ip link show dev vlan.103
->> 8: vlan.103@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
->> pfifo_fast state UP qlen 100
->>     link/ether 00:1e:0b:ec:d3:d2 brd ff:ff:ff:ff:ff:ff
->>
->>
->> arp_rcv() now gets packets with skb->type PACKET_OTHERHOST and drops
->> such packets.
->>
->>      [000] 52870.115435: skb_gro_reset_offset <-napi_gro_receive
->>      [000] 52870.115435: dev_gro_receive <-napi_gro_receive
->>      [000] 52870.115435: napi_skb_finish <-napi_gro_receive
->>      [000] 52870.115435: netif_receive_skb <-napi_skb_finish
->>      [000] 52870.115435: get_rps_cpu <-netif_receive_skb
->>      [000] 52870.115435: __netif_receive_skb <-netif_receive_skb
->>      [000] 52870.115436: vlan_do_receive <-__netif_receive_skb
->>      [000] 52870.115436: bond_handle_frame <-__netif_receive_skb
->>      [000] 52870.115436: vlan_do_receive <-__netif_receive_skb
->>      [000] 52870.115436: arp_rcv <-__netif_receive_skb
->>      [000] 52870.115436: kfree_skb <-arp_rcv
->>      [000] 52870.115437: __kfree_skb <-kfree_skb
->>      [000] 52870.115437: skb_release_head_state <-__kfree_skb
->>      [000] 52870.115437: skb_release_data <-__kfree_skb
->>      [000] 52870.115437: kfree <-skb_release_data
->>      [000] 52870.115437: kmem_cache_free <-__kfree_skb
->>
->>
->> By the way, we have no SNMP counter here so I spent some time to tra=
-ck
->> this. I'll send a patch for this.
->>
->> If this host initiates the trafic, all is well.
->>
->> Please guys, can we get back ARP or revert this patch ?
->=20
-> Following patch cures the problem, I am not sure its the right fix.
->=20
-> Problem is we dont know how many times vlan_do_receive() can be calle=
-d
-> for a packet.
->=20
-> Only last call should set/mess pkt_type to PACKET_OTHERHOST.
->=20
-> So the caller should be responsible for this, not vlan_do_receive()
->=20
->=20
-> Alternative would be to check skb->dev->rx_handler being NULL,
-> but its not clean.
->=20
-> Following patch is a hack because it handles multicast/broadcast traf=
-ic
-> only. Unicast is already handled in lines 26-33, this is why we didnt
-> catch the problem.
->=20
-> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> index f1f2f7b..6861899 100644
-> --- a/net/8021q/vlan_core.c
-> +++ b/net/8021q/vlan_core.c
-> @@ -13,7 +13,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
-> =20
->  	vlan_dev =3D vlan_find_dev(skb->dev, vlan_id);
->  	if (!vlan_dev) {
-> -		if (vlan_id)
-> +		if (vlan_id && skb->pkt_type =3D=3D PACKET_HOST)
->  			skb->pkt_type =3D PACKET_OTHERHOST;
->  		return false;
+On 29/10/11 10:58, Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Delete di->name from the error reporting code, as it is meaningless if di
+> is NULL.
+> 
+> The semantic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @r@
+> expression E, E1;
+> identifier f;
+> statement S1,S2,S3;
+> @@
+> 
+> if (E == NULL)
+> {
+>   ... when != if (E == NULL || ...) S1 else S2
+>       when != E = E1
+> *E->f
+>   ... when any
+>   return ...;
+> }
+> else S3
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> ---
+>  drivers/net/wireless/brcm80211/brcmsmac/dma.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/dma.c b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+> index b56a302..1d66f53 100644
+> --- a/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+> +++ b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+> @@ -361,7 +361,7 @@ static uint _dma_ctrlflags(struct dma_info *di, uint mask, uint flags)
+>  	uint dmactrlflags = di->dma.dmactrlflags;
+
+If di is null, we've already failed as it's dereferenced here.
+
+>  	if (di == NULL) {
+> -		DMA_ERROR(("%s: _dma_ctrlflags: NULL dma handle\n", di->name));
+> +		DMA_ERROR(("_dma_ctrlflags: NULL dma handle\n"));
+>  		return 0;
 >  	}
->=20
 
-Thanks Eric! Thought about this some and I haven't come up
-with anything better yet. Even though this might be a slight
-hack I would prefer this to reverting the patch.
+So, a better patch would be something like this:
 
-I'll think about this more tomorrow. Would you be against
-submitting this patch?
+(apologies if this doesn't apply - I've pretty much built it manually)
 
-=2EJohn
+---
+
+Though it's unlikely, di may be null, so we can't dereference
+di->dma.dmactrlflags until we've checked it.
+
+Move this de-reference after the check, and adjust the error
+message to not require de-referencing di.
+
+This is based upon Julia's original patch:
+<1319846297-2985-2-git-send-email-julia@diku.dk>
+
+Reported-by: Julia Lawall <julia@diku.dk>
+Signed-off-by: Julian Calaby <julian.calaby@gmail.com>
+CC: Julia Lawall <julia@diku.dk>
+
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/dma.c b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+index b56a302..6ebec8f 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/dma.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/dma.c
+@@ -358,13 +358,14 @@ static uint nrxdactive(struct dma_info *di, uint h, uint t
+ 
+ static uint _dma_ctrlflags(struct dma_info *di, uint mask, uint flags)
+ {
+-       uint dmactrlflags = di->dma.dmactrlflags;
++       uint dmactrlflags;
+ 
+        if (di == NULL) {
+-               DMA_ERROR(("%s: _dma_ctrlflags: NULL dma handle\n", di->name));
++               DMA_ERROR(("_dma_ctrlflags: NULL dma handle\n"));
+                return 0;
+        }
+ 
++       dmactrlflags = di->dma.dmactrlflags;
+        dmactrlflags &= ~mask;
+        dmactrlflags |= flags;
+ 
+
+
+
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
+.Plan: http://sites.google.com/site/juliancalaby
