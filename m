@@ -1,154 +1,88 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH v2] vlan: allow nested vlan_do_receive()
-Date: Sat, 29 Oct 2011 18:28:40 +0200
-Message-ID: <20111029162839.GC2053@minipsycho.orion>
-References: <4E972301.4030004@intel.com>
- <CAEP_g=9dk_ERdnw4Hw_8RO8Z23E1g2Q9G=AxPkiaVhwbHvo47A@mail.gmail.com>
- <20111018.234723.1235424375699917420.davem@davemloft.net>
- <1319796053.23112.92.camel@edumazet-laptop>
- <1319799986.23112.101.camel@edumazet-laptop>
- <4EAB62F0.2040101@intel.com>
- <1319883746.2586.33.camel@edumazet-laptop>
- <20111029145900.GA2053@minipsycho.orion>
- <1319904026.2586.42.camel@edumazet-laptop>
- <1319904819.2586.45.camel@edumazet-laptop>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: >Re: [RFC] should VM_BUG_ON(cond) really evaluate cond
+Date: Sat, 29 Oct 2011 10:34:30 -0700
+Message-ID: <CA+55aFz=sxRjw6u-ww0P=9hhvWaZP=+QJZ68W+B9WtvQqj9Ogg@mail.gmail.com>
+References: <1319764761.23112.14.camel@edumazet-laptop> <20111028012521.GF25795@one.firstfloor.org>
+ <CA+55aFy9oJSK99K=brRzSfSnLocO=PuS7yuKkAcw3t5hATJrfw@mail.gmail.com>
+ <1319766293.6759.17.camel@deadeye> <1319770376.23112.58.camel@edumazet-laptop>
+ <1319772566.6759.27.camel@deadeye> <1319777025.23112.67.camel@edumazet-laptop>
+ <CA+55aFzHf563auNYdNeJnsbbry1OUfkepkiVHt7Fy-bG64Fruw@mail.gmail.com>
+ <1319803781.23112.113.camel@edumazet-laptop> <CA+55aFxzgc5pC1p6J8YADNDwmAjUYNRKLvir6OQMueWqUXOaEQ@mail.gmail.com>
+ <CA+55aFxy6VSBbikFrfXwUPOafihR+MOdi+yKSp_6qz7_Vax_YA@mail.gmail.com>
+ <1319813252.23112.122.camel@edumazet-laptop> <CA+55aFxvcvUopBc-Q6Fp87asTuBohev8Xdm67jcKfy4Z4_BZRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"hans.schillstrom@ericsson.com" <hans.schillstrom@ericsson.com>,
-	"mbizon@freebox.fr" <mbizon@freebox.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>
+Content-Type: multipart/mixed; boundary=0016e6dbde153dff8004b0736cee
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28842 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933458Ab1J2Q2v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Oct 2011 12:28:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1319904819.2586.45.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFxvcvUopBc-Q6Fp87asTuBohev8Xdm67jcKfy4Z4_BZRg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Oct 29, 2011 at 06:13:39PM CEST, eric.dumazet@gmail.com wrote:
->commit 2425717b27eb (net: allow vlan traffic to be received under bond)
->broke ARP processing on vlan on top of bonding.
->
->       +-------+
->eth0 --| bond0 |---bond0.103
->eth1 --|       |
->       +-------+
->
->52870.115435: skb_gro_reset_offset <-napi_gro_receive
->52870.115435: dev_gro_receive <-napi_gro_receive
->52870.115435: napi_skb_finish <-napi_gro_receive
->52870.115435: netif_receive_skb <-napi_skb_finish
->52870.115435: get_rps_cpu <-netif_receive_skb
->52870.115435: __netif_receive_skb <-netif_receive_skb
->52870.115436: vlan_do_receive <-__netif_receive_skb
->52870.115436: bond_handle_frame <-__netif_receive_skb
->52870.115436: vlan_do_receive <-__netif_receive_skb
->52870.115436: arp_rcv <-__netif_receive_skb
->52870.115436: kfree_skb <-arp_rcv
->
->Packet is dropped in arp_rcv() because its pkt_type was set to
->PACKET_OTHERHOST in the first vlan_do_receive() call, since no eth0.103
->exists.
->
->We really need to change pkt_type only if no more rx_handler is about to
->be called for the packet.
->
->Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->---
->V2 : change the vlan_do_receive() added argument to be a boolean
->
-> include/linux/if_vlan.h |    6 +++---
-> net/8021q/vlan_core.c   |    7 +++++--
-> net/core/dev.c          |    4 ++--
-> 3 files changed, 10 insertions(+), 7 deletions(-)
->
->diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
->index 44da482..12d5543 100644
->--- a/include/linux/if_vlan.h
->+++ b/include/linux/if_vlan.h
->@@ -106,7 +106,7 @@ extern struct net_device *__vlan_find_dev_deep(struct net_device *real_dev,
-> extern struct net_device *vlan_dev_real_dev(const struct net_device *dev);
-> extern u16 vlan_dev_vlan_id(const struct net_device *dev);
-> 
->-extern bool vlan_do_receive(struct sk_buff **skb);
->+extern bool vlan_do_receive(struct sk_buff **skb, bool last_handler);
-> extern struct sk_buff *vlan_untag(struct sk_buff *skb);
-> 
-> #else
->@@ -128,9 +128,9 @@ static inline u16 vlan_dev_vlan_id(const struct net_device *dev)
-> 	return 0;
-> }
-> 
->-static inline bool vlan_do_receive(struct sk_buff **skb)
->+static inline bool vlan_do_receive(struct sk_buff **skb, bool last_handler)
-> {
->-	if ((*skb)->vlan_tci & VLAN_VID_MASK)
->+	if (((*skb)->vlan_tci & VLAN_VID_MASK) && last_handler)
-> 		(*skb)->pkt_type = PACKET_OTHERHOST;
-> 	return false;
-> }
->diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
->index f1f2f7b..163397f 100644
->--- a/net/8021q/vlan_core.c
->+++ b/net/8021q/vlan_core.c
->@@ -4,7 +4,7 @@
-> #include <linux/netpoll.h>
-> #include "vlan.h"
-> 
->-bool vlan_do_receive(struct sk_buff **skbp)
->+bool vlan_do_receive(struct sk_buff **skbp, bool last_handler)
-> {
-> 	struct sk_buff *skb = *skbp;
-> 	u16 vlan_id = skb->vlan_tci & VLAN_VID_MASK;
->@@ -13,7 +13,10 @@ bool vlan_do_receive(struct sk_buff **skbp)
-> 
-> 	vlan_dev = vlan_find_dev(skb->dev, vlan_id);
-> 	if (!vlan_dev) {
->-		if (vlan_id)
->+		/* Only the last call to vlan_do_receive() should change
->+		 * pkt_type to PACKET_OTHERHOST
->+		 */
->+		if (vlan_id && last_handler)
-> 			skb->pkt_type = PACKET_OTHERHOST;
-> 		return false;
-> 	}
->diff --git a/net/core/dev.c b/net/core/dev.c
->index edcf019..6ba50a1 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -3283,18 +3283,18 @@ another_round:
-> ncls:
-> #endif
-> 
->+	rx_handler = rcu_dereference(skb->dev->rx_handler);
-> 	if (vlan_tx_tag_present(skb)) {
-> 		if (pt_prev) {
-> 			ret = deliver_skb(skb, pt_prev, orig_dev);
-> 			pt_prev = NULL;
-> 		}
->-		if (vlan_do_receive(&skb))
->+		if (vlan_do_receive(&skb, !rx_handler))
+--0016e6dbde153dff8004b0736cee
+Content-Type: text/plain; charset=ISO-8859-1
 
-This I had on mind as well. Looks nicer. I have one another thought how
-to resolve this. I will try it and let you know by tomorrow.
-
-Jirka
-
-> 			goto another_round;
-> 		else if (unlikely(!skb))
-> 			goto out;
-> 	}
-> 
->-	rx_handler = rcu_dereference(skb->dev->rx_handler);
-> 	if (rx_handler) {
-> 		if (pt_prev) {
-> 			ret = deliver_skb(skb, pt_prev, orig_dev);
+On Fri, Oct 28, 2011 at 7:55 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
 >
->
+> Comments? I think I'm open to tested patches..
+
+Here's a *untested* patch.
+
+In particular, I worry that I'd need to add a "#include
+<linux/compiler.h>" to some header file, although I suspect it gets
+included some way regardless.
+
+And when I say "untested", I mean it. I verified that this makes
+*some* difference to the generated code, but I didn't actually check
+if it really matters, or if it actually compiles and works in general.
+
+Caveat tester,
+
+                                Linus
+
+--0016e6dbde153dff8004b0736cee
+Content-Type: text/x-patch; charset=US-ASCII; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gucw3idn0
+
+IGFyY2gveDg2L2luY2x1ZGUvYXNtL2JpdG9wcy5oIHwgICAgNSArKystLQogaW5jbHVkZS9hc20t
+Z2VuZXJpYy9hdG9taWMuaCAgfCAgICAyICstCiBpbmNsdWRlL2xpbnV4L2NvbXBpbGVyLmggICAg
+ICB8ICAgIDcgKysrKysrKwogMyBmaWxlcyBjaGFuZ2VkLCAxMSBpbnNlcnRpb25zKCspLCAzIGRl
+bGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2FyY2gveDg2L2luY2x1ZGUvYXNtL2JpdG9wcy5oIGIv
+YXJjaC94ODYvaW5jbHVkZS9hc20vYml0b3BzLmgKaW5kZXggMTc3NWQ2ZTU5MjBlLi5lMzk4MmNi
+NDJmZTUgMTAwNjQ0Ci0tLSBhL2FyY2gveDg2L2luY2x1ZGUvYXNtL2JpdG9wcy5oCisrKyBiL2Fy
+Y2gveDg2L2luY2x1ZGUvYXNtL2JpdG9wcy5oCkBAIC0zMDgsOCArMzA4LDkgQEAgc3RhdGljIGlu
+bGluZSBpbnQgdGVzdF9hbmRfY2hhbmdlX2JpdChpbnQgbnIsIHZvbGF0aWxlIHVuc2lnbmVkIGxv
+bmcgKmFkZHIpCiAKIHN0YXRpYyBfX2Fsd2F5c19pbmxpbmUgaW50IGNvbnN0YW50X3Rlc3RfYml0
+KHVuc2lnbmVkIGludCBuciwgY29uc3Qgdm9sYXRpbGUgdW5zaWduZWQgbG9uZyAqYWRkcikKIHsK
+LQlyZXR1cm4gKCgxVUwgPDwgKG5yICUgQklUU19QRVJfTE9ORykpICYKLQkJKGFkZHJbbnIgLyBC
+SVRTX1BFUl9MT05HXSkpICE9IDA7CisJdW5zaWduZWQgbG9uZyAqd29yZCA9IChuciAvIEJJVFNf
+UEVSX0xPTkcpICsgKHVuc2lnbmVkIGxvbmcgKilhZGRyOworCXVuc2lnbmVkIGxvbmcgYml0ID0g
+MVVMIDw8IChuciAlIEJJVFNfUEVSX0xPTkcpOworCXJldHVybiAoYml0ICYgQUNDRVNTX0FUX01P
+U1RfT05DRSgqd29yZCkpICE9IDA7CiB9CiAKIHN0YXRpYyBpbmxpbmUgaW50IHZhcmlhYmxlX3Rl
+c3RfYml0KGludCBuciwgdm9sYXRpbGUgY29uc3QgdW5zaWduZWQgbG9uZyAqYWRkcikKZGlmZiAt
+LWdpdCBhL2luY2x1ZGUvYXNtLWdlbmVyaWMvYXRvbWljLmggYi9pbmNsdWRlL2FzbS1nZW5lcmlj
+L2F0b21pYy5oCmluZGV4IGUzNzk2M2MxZGY0ZC4uYzA1ZTIxZjdhOTg1IDEwMDY0NAotLS0gYS9p
+bmNsdWRlL2FzbS1nZW5lcmljL2F0b21pYy5oCisrKyBiL2luY2x1ZGUvYXNtLWdlbmVyaWMvYXRv
+bWljLmgKQEAgLTM5LDcgKzM5LDcgQEAKICAqIEF0b21pY2FsbHkgcmVhZHMgdGhlIHZhbHVlIG9m
+IEB2LgogICovCiAjaWZuZGVmIGF0b21pY19yZWFkCi0jZGVmaW5lIGF0b21pY19yZWFkKHYpCSgq
+KHZvbGF0aWxlIGludCAqKSYodiktPmNvdW50ZXIpCisjZGVmaW5lIGF0b21pY19yZWFkKHYpCUFD
+Q0VTU19BVF9NT1NUX09OQ0UoKHYpLT5jb3VudGVyKQogI2VuZGlmCiAKIC8qKgpkaWZmIC0tZ2l0
+IGEvaW5jbHVkZS9saW51eC9jb21waWxlci5oIGIvaW5jbHVkZS9saW51eC9jb21waWxlci5oCmlu
+ZGV4IDMyMGQ2Yzk0ZmY4NC4uZDMwZmZjNjg1MjQxIDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4
+L2NvbXBpbGVyLmgKKysrIGIvaW5jbHVkZS9saW51eC9jb21waWxlci5oCkBAIC0zMDgsNCArMzA4
+LDExIEBAIHZvaWQgZnRyYWNlX2xpa2VseV91cGRhdGUoc3RydWN0IGZ0cmFjZV9icmFuY2hfZGF0
+YSAqZiwgaW50IHZhbCwgaW50IGV4cGVjdCk7CiAgKi8KICNkZWZpbmUgQUNDRVNTX09OQ0UoeCkg
+KCoodm9sYXRpbGUgdHlwZW9mKHgpICopJih4KSkKIAorLyoKKyAqIExpa2UgQUNDRVNTX09OQ0Us
+IGJ1dCBjYW4gYmUgb3B0aW1pemVkIGF3YXkgaWYgbm90aGluZyB1c2VzIHRoZSB2YWx1ZSwKKyAq
+IGFuZC9vciBtZXJnZWQgd2l0aCBwcmV2aW91cyBub24tT05DRSBhY2Nlc3Nlcy4KKyAqLworI2Rl
+ZmluZSBBQ0NFU1NfQVRfTU9TVF9PTkNFKHgpIFwKKwkoeyB0eXBlb2YoeCkgX195OyBhc20oIiI6
+Ij1yIiAoX195KToiMCIgKHgpKTsgX195OyB9KQorCiAjZW5kaWYgLyogX19MSU5VWF9DT01QSUxF
+Ul9IICovCg==
+--0016e6dbde153dff8004b0736cee--
