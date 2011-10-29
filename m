@@ -1,70 +1,47 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: [PATCH 3/3] batman-adv: unify hash_entry field
-	position in tt_local/global_entry
-Date: Sat, 29 Oct 2011 10:06:46 +0200
-Message-ID: <1319875606-7794-4-git-send-email-lindner_marek@yahoo.de>
-References: <1319875606-7794-1-git-send-email-lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1319875606-7794-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] bonding: Doesn't support IPv6
+Date: Sat, 29 Oct 2011 10:49:22 +0200
+Message-ID: <1319878162.2586.5.camel@edumazet-laptop>
+References: <4EAB5455.5080004@8192.net>
+	 <CAHXqBF+CcX=FQNSSsdsEAc9jAqi0G3RNLPjRCcc7wJ+QYnzzSA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John <linux@8192.net>, netdev@vger.kernel.org, andy@greyhouse.net
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:35746 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751183Ab1J2Itb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 04:49:31 -0400
+Received: by ywm3 with SMTP id 3so4355795ywm.19
+        for <netdev@vger.kernel.org>; Sat, 29 Oct 2011 01:49:31 -0700 (PDT)
+In-Reply-To: <CAHXqBF+CcX=FQNSSsdsEAc9jAqi0G3RNLPjRCcc7wJ+QYnzzSA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Le samedi 29 octobre 2011 =C3=A0 09:55 +0200, Micha=C5=82 Miros=C5=82aw=
+ a =C3=A9crit :
+> 2011/10/29 John <linux@8192.net>:
+> > --- a/drivers/net/bonding/bond_main.c   2011-04-19 11:18:48.0000000=
+00 -0700
+> > +++ b/drivers/net/bonding/bond_main.c   2011-10-27 11:26:20.0000000=
+00 -0700
+> [...]
+> > +               v6hash =3D (v6hash >> 16) ^ (v6hash >> 8) ^ v6hash;
+>=20
+> This XORs in only 3 of 4 bytes, and assuming count > 256 (its unlikel=
+y
+> you have more than 256 slaves in bond) the most significant byte is
+> wasted. It should be:
+>=20
+> v6hash ^=3D v6hash >> 16;
+> v6hash ^=3D v6hash >> 8;
+>=20
+> Same for IPv4 part.
+>=20
+> OTOH, if that was your intention, then the description in your mail w=
+as wrong.
+>=20
 
-Function tt_response_fill_table() actually uses a tt_local_entry pointer to
-iterate either over the local or the global table entries (it depends on the
-what hash table is passed as argument). To iterate over such entries the
-hlist_for_each_entry_rcu() macro has to access their "hash_entry" field which
-MUST be at the same position in both the tt_global/local_entry structures.
-
-Reported-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
-Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
----
- net/batman-adv/types.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 1ae3557..ab8d0fe 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -224,22 +224,22 @@ struct socket_packet {
- 
- struct tt_local_entry {
- 	uint8_t addr[ETH_ALEN];
-+	struct hlist_node hash_entry;
- 	unsigned long last_seen;
- 	uint16_t flags;
- 	atomic_t refcount;
- 	struct rcu_head rcu;
--	struct hlist_node hash_entry;
- };
- 
- struct tt_global_entry {
- 	uint8_t addr[ETH_ALEN];
-+	struct hlist_node hash_entry; /* entry in the global table */
- 	struct orig_node *orig_node;
- 	uint8_t ttvn;
- 	uint16_t flags; /* only TT_GLOBAL_ROAM is used */
- 	unsigned long roam_at; /* time at which TT_GLOBAL_ROAM was set */
- 	atomic_t refcount;
- 	struct rcu_head rcu;
--	struct hlist_node hash_entry; /* entry in the global table */
- };
- 
- struct tt_change_node {
--- 
-1.7.5.4
+Same end result :)
