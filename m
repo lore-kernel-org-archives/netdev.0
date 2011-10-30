@@ -1,56 +1,55 @@
-From: David Fries <david@fries.net>
-Subject: hiberante hangs TCP Re: [EXAMPLE CODE] Parasite thread injection
- and TCP connection hijacking
-Date: Sat, 29 Oct 2011 23:48:21 -0500
-Message-ID: <20111030044821.GA23741@spacedout.fries.net>
-References: <20110806121247.GC23937@htj.dyndns.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-10-29
+Date: Sun, 30 Oct 2011 03:07:45 -0400 (EDT)
+Message-ID: <20111030.030745.1245988853394270780.davem@davemloft.net>
+References: <1319875606-7794-1-git-send-email-lindner_marek@yahoo.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110806121247.GC23937@htj.dyndns.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: lindner_marek-LWAfsSFWpa4@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1319875606-7794-1-git-send-email-lindner_marek-LWAfsSFWpa4@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 06, 2011 at 02:12:47PM +0200, Tejun Heo wrote:
-> Hello, guys.
-> 
-> So, here's transparent TCP connection hijacking (ie. checkpointing in
-> one process and restoring in another) which adds only relatively small
-> pieces to the kernel.  It's by no means complete but already works
-> rather reliably in my test setup even with heavy delay induced with
-> tc.
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Date: Sat, 29 Oct 2011 10:06:43 +0200
 
-I saw the write up on this on lwn.net, pretty creative by the way, and
-it got me thinking about a different checkpoint/restart problem I've
-been running into.  Specifically in hibernating to disk.  In the
-hibernate case active TCP connections hang after resuming, while an
-idle TCP connection will continue after the system is back up.  My
-observation is the kernel checkpoints itself to memory, enables
-devices, writes out that checkpoint image to storage, then powers off.
-The problem is if TCP packets are received while writing to storage,
-the kernel will continue to queue and ack those TCP packets, but the
-running kernel and it's network state is shortly lost.  When the
-computer resumes, those TCP byte sequences hang the TCP connection for
-an extended period of time while the resumed computer refuses to
-acknowledge the data that was received after checkpointing and the now
-running kernel knew nothing about, and the other computer tries in
-vain to resend any data that hadn't yet been acknowledged, which is
-always after the data that was lost, until one of them eventually
-gives up.
+>   git://git.open-mesh.org/linux-merge.git batman-adv/maint
 
-I've been wondering if it was safe or possible to leave any network
-interfaces down after the checkpoint, or what the right solution would
-be.  I didn't think marking every TCP connection with a ZOMBIE_KERNEL
-bit just after the kernel checkpoint (for the kernel is walking dead
-and won't remember anything that happens), and then prevent any TCP
-acks from being sent for those connections would be the right
-solution.  I've taken to unplugging the physical lan cable,
-hibernating to disk, and plugging it back in after the system is down,
-to avoid the problem.  Any ideas?
+Pulled, but long term you should shore up your datastructures to
+handle that issue in patch #3.
 
--- 
-David Fries <david@fries.net>    PGP pub CB1EE8F0
-http://fries.net/~david/
+Make a common header:
+
+	struct tt_entry_common {
+		u8 addr[ETH_ALEN];
+		struct hlist_node hash_entry;
+	};
+
+Then use that at the beginning of both structures:
+
+	struct tt_local_entry {
+		struct tt_entry_common common;
+		unsigned long last_seen;
+		...
+	};
+
+	struct tt_global_entry {
+		struct tt_entry_comomn common;
+		struct orig_node *orig_node;
+		...
+	};
+
+And &p->common is what gets passed into tt_response_fill_table().
