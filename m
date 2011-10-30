@@ -1,53 +1,35 @@
-From: "Webmail Email Owner" <info@upgrade.com>
-Subject: Dear Webmail Email Owner
-Date: Sun, 30 Oct 2011 00:29:46 -0500
-Message-ID: <20111030052946.M1721@upgrade.com>
-Reply-To: webaccuppi@zbavitu.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: fix route lookup in addrconf_prefix_rcv()
+Date: Sun, 30 Oct 2011 04:13:17 -0400 (EDT)
+Message-ID: <20111030.041317.762958848567532756.davem@davemloft.net>
+References: <1319635469-19016-1-git-send-email-andi@collax.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="----=neXtPaRt_1319960207"
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: andi@collax.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fvilla.educadgo.gob.mx ([200.79.124.190]:46368 "EHLO fvilla"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751383Ab1J3H1K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Oct 2011 03:27:10 -0400
+Received: from shards.monkeyblade.net ([198.137.202.13]:53414 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752862Ab1J3INh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2011 04:13:37 -0400
+In-Reply-To: <1319635469-19016-1-git-send-email-andi@collax.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Andreas Hofmeister <andi@collax.com>
+Date: Wed, 26 Oct 2011 15:24:29 +0200
 
-------=neXtPaRt_1319960207
-Content-Type: text/plain;
-	charset=iso-8859-1
+> The route lookup to find a previously auto-configured route for a prefixes used
+> to use rt6_lookup(), with the prefix from the RA used as an address. However,
+> that kind of lookup ignores routing tables, the prefix length and route flags,
+> so when there were other matching routes, even in different tables and/or with
+> a different prefix length, the wrong route would be manipulated.
+> 
+> Now, a new function "addrconf_get_prefix_route()" is used for the route lookup,
+> which searches in RT6_TABLE_PREFIX and takes the prefix-length and route flags
+> into account.
+> 
+> Signed-off-by: Andreas Hofmeister <andi@collax.com>
 
-Dear Webmail Email Owner
-
-Due to the congestion in all Webmail users and removal of all unused Webmail  
-Accounts, We would be shutting down all unused Accounts, You will have to 
-confirm your E-mail by filling out your Login Information below after 
-clicking the reply button, or your account will be suspended within 24hours 
-for security reasons. please send details of login to this 
-email;webaccuppi@zbavitu.com.
-
-
-*Domain\Username: .........................
-*Email Address: .........................
-*Password: .........................
-*Date of Birth: .....................
-*Country Or Territory: ......
-
-
-After following the instructions in the sheet, your account will not 
-beinterrupted and will continue as normal. Thanks for your attention to this 
-request. We apologize for any inconveniences.
-
-Warning!!! Account owner that refuses to update his/her account after
-two weeks of receiving this warning will lose his or her account permanently.
-Sincerely,
-
-
-------=neXtPaRt_1319960207
-Content-Type: text/plain;
-
-LIBRE DE VIRUS
-
-------=neXtPaRt_1319960207--
+Applied, thanks a lot.
