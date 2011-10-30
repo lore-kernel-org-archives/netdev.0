@@ -1,79 +1,56 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Broken link in /sys/class/net/ [was: [GIT] Networking]
-Date: Sat, 29 Oct 2011 21:49:47 -0700
-Message-ID: <m11utvytg4.fsf@fess.ebiederm.org>
-References: <20111025.063206.2273357152859701628.davem@davemloft.net>
-	<CA+55aFw1GVvszqoC_f0RAvG5t1xj0CSYLhLU=y0gQ+_54Gsomw@mail.gmail.com>
-	<20111025131315.GA1899@suse.de> <4EAC8642.3050309@suse.cz>
+From: David Fries <david@fries.net>
+Subject: hiberante hangs TCP Re: [EXAMPLE CODE] Parasite thread injection
+ and TCP connection hijacking
+Date: Sat, 29 Oct 2011 23:48:21 -0500
+Message-ID: <20111030044821.GA23741@spacedout.fries.net>
+References: <20110806121247.GC23937@htj.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Mikulas Patocka <mpatocka@redhat.com>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jiri Slaby <jirislaby@gmail.com>
-To: Jiri Slaby <jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EAC8642.3050309@suse.cz> (Jiri Slaby's message of "Sun, 30 Oct
-	2011 01:03:30 +0200")
+Content-Disposition: inline
+In-Reply-To: <20110806121247.GC23937@htj.dyndns.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Slaby <jslaby@suse.cz> writes:
+On Sat, Aug 06, 2011 at 02:12:47PM +0200, Tejun Heo wrote:
+> Hello, guys.
+> 
+> So, here's transparent TCP connection hijacking (ie. checkpointing in
+> one process and restoring in another) which adds only relatively small
+> pieces to the kernel.  It's by no means complete but already works
+> rather reliably in my test setup even with heavy delay induced with
+> tc.
 
-> On 10/25/2011 03:13 PM, Greg KH wrote:
->> On Tue, Oct 25, 2011 at 01:46:11PM +0200, Linus Torvalds wrote:
->>> Anyway, after that rant about really bad practices, let me say that I
->>> did fix up the conflict and I think it's right. But I won't guarantee
->>> it, so please check the changes to fs/sysfs/dir.c.
->> 
->> I think it looks ok, I've booted the merge result, and am typing and
->> sending this from the new kernel, and it hasn't crashed yet :)
->
-> Hi, maybe this was not caused by the merge, but the patch[1] causes this
-> mess in /sys/class/net/ for me:
-> l????????? ? ?    ?    ?             ? eth1
->
-> This happens after one renames a net device -- the new name is eth1 here.
->
-> [1] 4f72c0cab40 (sysfs: use rb-tree for name lookups)
+I saw the write up on this on lwn.net, pretty creative by the way, and
+it got me thinking about a different checkpoint/restart problem I've
+been running into.  Specifically in hibernating to disk.  In the
+hibernate case active TCP connections hang after resuming, while an
+idle TCP connection will continue after the system is back up.  My
+observation is the kernel checkpoints itself to memory, enables
+devices, writes out that checkpoint image to storage, then powers off.
+The problem is if TCP packets are received while writing to storage,
+the kernel will continue to queue and ack those TCP packets, but the
+running kernel and it's network state is shortly lost.  When the
+computer resumes, those TCP byte sequences hang the TCP connection for
+an extended period of time while the resumed computer refuses to
+acknowledge the data that was received after checkpointing and the now
+running kernel knew nothing about, and the other computer tries in
+vain to resend any data that hadn't yet been acknowledged, which is
+always after the data that was lost, until one of them eventually
+gives up.
 
-This looks pretty fixable but today sysfs_rename does not do anything
-with the to move a renamed entry to a different position in the rbtree.
+I've been wondering if it was safe or possible to leave any network
+interfaces down after the checkpoint, or what the right solution would
+be.  I didn't think marking every TCP connection with a ZOMBIE_KERNEL
+bit just after the kernel checkpoint (for the kernel is walking dead
+and won't remember anything that happens), and then prevent any TCP
+acks from being sent for those connections would be the right
+solution.  I've taken to unplugging the physical lan cable,
+hibernating to disk, and plugging it back in after the system is down,
+to avoid the problem.  Any ideas?
 
-If the directory itself changes sysfs_rename should be fine, and it
-looks like a trivial patch to always apply the directory rename logic
-in sysfs_rename. 
-
-I think all we need is something like the untested patch below to fix
-the network device rename problem.
-
-Eric
-
-diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
-index 48ffbdf..a294068 100644
---- a/fs/sysfs/dir.c
-+++ b/fs/sysfs/dir.c
-@@ -865,14 +865,13 @@ int sysfs_rename(struct sysfs_dirent *sd,
- 		sd->s_name = new_name;
- 	}
- 
--	/* Remove from old parent's list and insert into new parent's list. */
--	if (sd->s_parent != new_parent_sd) {
--		sysfs_unlink_sibling(sd);
--		sysfs_get(new_parent_sd);
--		sysfs_put(sd->s_parent);
--		sd->s_parent = new_parent_sd;
--		sysfs_link_sibling(sd);
--	}
-+	/* Move to the appropriate place in the appropriate directories rbtree. */
-+	sysfs_unlink_sibling(sd);
-+	sysfs_get(new_parent_sd);
-+	sysfs_put(sd->s_parent);
-+	sd->s_parent = new_parent_sd;
-+	sysfs_link_sibling(sd);
-+
- 	sd->s_ns = new_ns;
- 
- 	error = 0;
+-- 
+David Fries <david@fries.net>    PGP pub CB1EE8F0
+http://fries.net/~david/
