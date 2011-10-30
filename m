@@ -1,36 +1,36 @@
-From: Lisa Carlson-Mcwhirter <lcarlson@lcps.k12.nm.us>
-Subject: RE: Your mailbox storage limit has been
-Date: Sun, 30 Oct 2011 03:16:57 +0000
-Message-ID: <C83F56469920854F9FCCD1085C44D1B6371D31EC@EXCHANGE2.lcpsad.internal>
-References: <C83F56469920854F9FCCD1085C44D1B6371D1F85@EXCHANGE2.lcpsad.internal>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC v2] tcp: Export TCP Delayed ACK parameters to user
+Date: Sun, 30 Oct 2011 00:13:49 -0400 (EDT)
+Message-ID: <20111030.001349.204270613645747531.davem@davemloft.net>
+References: <4EAB2F58.7080509@hp.com>
+	<20111028.222430.1568567893138453593.davem@davemloft.net>
+	<CAEnQRZCggUnoVZXyXfZ6-Om+hwQL_6Oo3dPODsXAH+iJYqN=jw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Lisa Carlson-Mcwhirter <lcarlson@lcps.k12.nm.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, eric.dumazet@gmail.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, luto@amacapital.net
+To: dbaluta@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mbox.lcps.k12.nm.us ([207.108.244.13]:53467 "EHLO
-	mbox.lcps.k12.nm.us" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933352Ab1J3D22 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 23:28:28 -0400
-In-Reply-To: <C83F56469920854F9FCCD1085C44D1B6371D1F85@EXCHANGE2.lcpsad.internal>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:36626 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707Ab1J3EQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2011 00:16:56 -0400
+In-Reply-To: <CAEnQRZCggUnoVZXyXfZ6-Om+hwQL_6Oo3dPODsXAH+iJYqN=jw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Date: Sat, 29 Oct 2011 15:32:25 +0300
 
-________________________________________
-From: Lisa Carlson-Mcwhirter
-Sent: Saturday, October 29, 2011 8:24 PM
-To: Lisa Carlson-Mcwhirter
-Subject: Your mailbox storage limit has been
+> * count number of bytes instead of number of segments.
 
-Your mailbox storage limit has been
+The standard way Linux TCP analyzes connection state based upon
+packets, not bytes.
 
-Your mailbox storage limit has been exceeded until you re-validate your
-mailbox you can not send or recieve e-mail.To re-validate your mailbox
-please CLICK the below link
+I don't see any value for changing something so fundamental just
+for the sake of avoiding the multiply in an obscure facility.
 
-http://www.ndiweb.com/phpform/use/Adminhel/form1.html
-
-Thanks
-System Administrator
+I asked you to make an incision less invasive, yet you're proposal
+here more invasive.
