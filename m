@@ -1,88 +1,37 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: Broken link in /sys/class/net/ [was: [GIT] Networking]
-Date: Sun, 30 Oct 2011 21:49:40 +0100
-Message-ID: <4EADB864.3060702@suse.cz>
-References: <20111025.063206.2273357152859701628.davem@davemloft.net> <CA+55aFw1GVvszqoC_f0RAvG5t1xj0CSYLhLU=y0gQ+_54Gsomw@mail.gmail.com> <20111025131315.GA1899@suse.de> <4EAC8642.3050309@suse.cz> <m11utvytg4.fsf@fess.ebiederm.org>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: [PATCH] batman-adv: Fix range check for expected
+	packets
+Date: Sun, 30 Oct 2011 21:58:48 +0100
+Message-ID: <201110302158.48772.lindner_marek@yahoo.de>
+References: <4EAC49D7.2060609@intra2net.com>
+	<1319988163-3249-1-git-send-email-siwu@hrz.tu-chemnitz.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>, Greg KH <gregkh@suse.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Mikulas Patocka <mpatocka@redhat.com>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:37153 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752100Ab1J3Utp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2011 16:49:45 -0400
-In-Reply-To: <m11utvytg4.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1319988163-3249-1-git-send-email-siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/30/2011 05:49 AM, Eric W. Biederman wrote:
-> Jiri Slaby <jslaby@suse.cz> writes:
-> 
->> On 10/25/2011 03:13 PM, Greg KH wrote:
->>> On Tue, Oct 25, 2011 at 01:46:11PM +0200, Linus Torvalds wrote:
->>>> Anyway, after that rant about really bad practices, let me say that I
->>>> did fix up the conflict and I think it's right. But I won't guarantee
->>>> it, so please check the changes to fs/sysfs/dir.c.
->>>
->>> I think it looks ok, I've booted the merge result, and am typing and
->>> sending this from the new kernel, and it hasn't crashed yet :)
->>
->> Hi, maybe this was not caused by the merge, but the patch[1] causes this
->> mess in /sys/class/net/ for me:
->> l????????? ? ?    ?    ?             ? eth1
->>
->> This happens after one renames a net device -- the new name is eth1 here.
->>
->> [1] 4f72c0cab40 (sysfs: use rb-tree for name lookups)
-> 
-> This looks pretty fixable but today sysfs_rename does not do anything
-> with the to move a renamed entry to a different position in the rbtree.
-> 
-> If the directory itself changes sysfs_rename should be fine, and it
-> looks like a trivial patch to always apply the directory rename logic
-> in sysfs_rename. 
-> 
-> I think all we need is something like the untested patch below to fix
-> the network device rename problem.
+On Sunday, October 30, 2011 16:22:43 Simon Wunderlich wrote:
+> The check for new packets in the future used a wrong binary operator,
+> which makes the check expression always true and accepting too many
+> packets.
 
-Looks like it works. Thanks.
+Applied in revision 00ca20e.
 
-> diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
-> index 48ffbdf..a294068 100644
-> --- a/fs/sysfs/dir.c
-> +++ b/fs/sysfs/dir.c
-> @@ -865,14 +865,13 @@ int sysfs_rename(struct sysfs_dirent *sd,
->  		sd->s_name = new_name;
->  	}
->  
-> -	/* Remove from old parent's list and insert into new parent's list. */
-> -	if (sd->s_parent != new_parent_sd) {
-> -		sysfs_unlink_sibling(sd);
-> -		sysfs_get(new_parent_sd);
-> -		sysfs_put(sd->s_parent);
-> -		sd->s_parent = new_parent_sd;
-> -		sysfs_link_sibling(sd);
-> -	}
-> +	/* Move to the appropriate place in the appropriate directories rbtree. */
-> +	sysfs_unlink_sibling(sd);
-> +	sysfs_get(new_parent_sd);
-> +	sysfs_put(sd->s_parent);
-> +	sd->s_parent = new_parent_sd;
-> +	sysfs_link_sibling(sd);
-> +
->  	sd->s_ns = new_ns;
->  
->  	error = 0;
-> 
-
-
--- 
-js
-suse labs
+Thanks,
+Marek
