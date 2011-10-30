@@ -1,7 +1,7 @@
 From: Fidelity Trust Loan Service <cdamiani@criba.edu.ar>
 Subject: Dear Sir/Madam
-Date: Sat, 29 Oct 2011 22:05:54 -0300
-Message-ID: <20111029220554.3p6f3arbi8k0ks0c@webmail.criba.edu.ar>
+Date: Sat, 29 Oct 2011 23:14:08 -0300
+Message-ID: <20111029231408.gvvl6mi9kwg80cos@webmail.criba.edu.ar>
 Reply-To: info@fidelityservice.ce.ms
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -11,10 +11,10 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mecha.criba.edu.ar ([190.124.192.8]:50973 "EHLO
+Received: from mecha.criba.edu.ar ([190.124.192.8]:41560 "EHLO
 	mecha.criba.edu.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933087Ab1J3Bji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 21:39:38 -0400
+	with ESMTP id S933352Ab1J3C66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Oct 2011 22:58:58 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
