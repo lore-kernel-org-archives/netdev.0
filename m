@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] qlcnic: Fixes
-Date: Sun, 30 Oct 2011 03:10:13 -0400 (EDT)
-Message-ID: <20111030.031013.1822669803201046347.davem@davemloft.net>
-References: <1319842636-14936-1-git-send-email-anirban.chakraborty@qlogic.com>
-	<1319842636-14936-6-git-send-email-anirban.chakraborty@qlogic.com>
+Subject: Re: [PATCH net-next] bonding: eliminate bond_close race conditions
+Date: Sun, 30 Oct 2011 03:13:45 -0400 (EDT)
+Message-ID: <20111030.031345.1770003622707654735.davem@davemloft.net>
+References: <4EAA0ADF.5020504@hitachi.com>
+	<20111027.231520.698587739433841485.davem@davemloft.net>
+	<21320.1319852570@death>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: anirban.chakraborty@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40375 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751548Ab1J3HKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Oct 2011 03:10:16 -0400
-In-Reply-To: <1319842636-14936-6-git-send-email-anirban.chakraborty@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mitsuo.hayasaka.hu@hitachi.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, shemminger@vyatta.com,
+	andy@greyhouse.net, linux-kernel@vger.kernel.org,
+	yrl.pp-manager.tt@hitachi.com
+To: fubar@us.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <21320.1319852570@death>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Date: Fri, 28 Oct 2011 15:57:16 -0700
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Fri, 28 Oct 2011 18:42:50 -0700
 
-> Please apply the series to net-next. Thanks.
+> 
+> 	This patch resolves two sets of race conditions.
+ ...
+> Tested-by: Mitsuo Hayasaka <mitsuo.hayasaka.hu@hitachi.com>
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-All seem like reasonable bug fixes so applied to 'net', thanks.
+Applied, thanks a lot Jay.
