@@ -1,82 +1,53 @@
-From: Weiping Pan <wpan@redhat.com>
-Subject: [PATCH] bonding:update speed/duplex for NETDEV_CHANGE
-Date: Mon, 31 Oct 2011 22:19:41 +0800
-Message-ID: <e00468a2cbb8a25d7a89028e876769449454309f.1320070684.git.wpan@redhat.com>
-References: <4EAE0D9A.9060408@gmail.com>
-Cc: fubar@us.ibm.com, andy@greyhouse.net, linux-kernel@vger.kernel.org,
-	Weiping Pan <wpan@redhat.com>
+From: Matthijs Kooijman <matthijs@stdin.nl>
+Subject: [PATCH] vlan: Don't propagate flag changes on down interfaces.
+Date: Mon, 31 Oct 2011 15:53:13 +0100
+Message-ID: <1320072793-16490-1-git-send-email-matthijs@stdin.nl>
+References: <20111031134411.GG14392@login.drsnuggles.stderr.nl>
+Cc: Matthijs Kooijman <matthijs@stdin.nl>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EAE0D9A.9060408@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 84-245-11-97.dsl.cambrium.nl ([84.245.11.97]:60878 "EHLO
+	grubby.stderr.nl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933175Ab1JaP3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 11:29:07 -0400
+In-Reply-To: <20111031134411.GG14392@login.drsnuggles.stderr.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Zheng Liang(lzheng@redhat.com) found a bug that if we config bonding with
-arp monitor, sometimes bonding driver cannot get the speed and duplex from
-its slaves, it will assume them to be 100Mb/sec and Full, please see
-/proc/net/bonding/bond0.
-But there is no such problem when uses miimon.
+When (de)configuring a vlan interface, the IFF_ALLMULTI ans IFF_PROMISC
+flags are cleared or set on the underlying interface. So, if these flags
+are changed on a vlan interface that is not up, the flags underlying
+interface might be set or cleared twice.
 
-(Take igb for example)
-I find that the reason is that after dev_open() in bond_enslave(),
-bond_update_speed_duplex() will call igb_get_settings()
-, but in that function,
-it runs ethtool_cmd_speed_set(ecmd, -1); ecmd->duplex = -1;
-because igb get an error value of status.
-So even dev_open() is called, but the device is not really ready to get its
-settings.
+Only propagating flag changes when a device is up makes sure this does
+not happen. It also makes sure that an underlying device is not set to
+promiscuous or allmulti mode for a vlan device that is down.
 
-Maybe it is safe for us to call igb_get_settings() only after
-this message shows up, that is "igb: p4p1 NIC Link is Up 1000 Mbps Full Duplex,
-Flow Control: RX".
-
-So I prefer to update the speed and duplex for a slave when reseices
-NETDEV_CHANGE/NETDEV_UP event.
-
-Signed-off-by: Weiping Pan <wpan@redhat.com>
+Signed-off-by: Matthijs Kooijman <matthijs@stdin.nl>
 ---
- drivers/net/bonding/bond_main.c |   19 ++++++++-----------
- 1 files changed, 8 insertions(+), 11 deletions(-)
+ net/8021q/vlan_dev.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c34cc1e..f5458eb 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3220,6 +3220,7 @@ static int bond_slave_netdev_event(unsigned long event,
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 9d40a07..0e72689 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -470,10 +470,12 @@ static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
  {
- 	struct net_device *bond_dev = slave_dev->master;
- 	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave = NULL;
+ 	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
  
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
-@@ -3230,20 +3231,16 @@ static int bond_slave_netdev_event(unsigned long event,
- 				bond_release(bond_dev, slave_dev);
- 		}
- 		break;
-+	case NETDEV_UP:
- 	case NETDEV_CHANGE:
--		if (bond->params.mode == BOND_MODE_8023AD || bond_is_lb(bond)) {
--			struct slave *slave;
--
--			slave = bond_get_slave_by_dev(bond, slave_dev);
--			if (slave) {
--				u32 old_speed = slave->speed;
--				u8  old_duplex = slave->duplex;
--
--				bond_update_speed_duplex(slave);
-+		slave = bond_get_slave_by_dev(bond, slave_dev);
-+		if (slave) {
-+			u32 old_speed = slave->speed;
-+			u8  old_duplex = slave->duplex;
+-	if (change & IFF_ALLMULTI)
+-		dev_set_allmulti(real_dev, dev->flags & IFF_ALLMULTI ? 1 : -1);
+-	if (change & IFF_PROMISC)
+-		dev_set_promiscuity(real_dev, dev->flags & IFF_PROMISC ? 1 : -1);
++	if (dev->flags & IFF_UP) {
++		if (change & IFF_ALLMULTI)
++			dev_set_allmulti(real_dev, dev->flags & IFF_ALLMULTI ? 1 : -1);
++		if (change & IFF_PROMISC)
++			dev_set_promiscuity(real_dev, dev->flags & IFF_PROMISC ? 1 : -1);
++	}
+ }
  
--				if (bond_is_lb(bond))
--					break;
-+			bond_update_speed_duplex(slave);
- 
-+			if (bond->params.mode == BOND_MODE_8023AD) {
- 				if (old_speed != slave->speed)
- 					bond_3ad_adapter_speed_changed(slave);
- 				if (old_duplex != slave->duplex)
+ static void vlan_dev_set_rx_mode(struct net_device *vlan_dev)
 -- 
-1.7.4
+1.7.7
