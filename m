@@ -1,44 +1,221 @@
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Subject: [PATCH] neigh: print nud_state in neigh timer handler.
-Date: Mon, 31 Oct 2011 23:10:48 +0200
-Message-ID: <1320095448-5228-1-git-send-email-dbaluta@ixiacom.com>
-Cc: eric.dumazet@gmail.com, gregory.v.rose@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	Daniel Baluta <daniel.baluta@gmail.com>,
-	Daniel Baluta <dbaluta@ixiacom.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:44483 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869Ab1JaVL1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 17:11:27 -0400
-Received: by bkbzt4 with SMTP id zt4so2503884bkb.19
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2011 14:11:26 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Boaz Harrosh <bharrosh@panasas.com>
+Subject: 3c505.c: Does not compile on linus/master  [f362f98]
+Date: Mon, 31 Oct 2011 14:12:20 -0700
+Message-ID: <4EAF0F34.4070702@panasas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+To: Philip Blundell <philb@gnu.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Baluta <daniel.baluta@gmail.com>
+Doing an "make ARCH=3Di386 allmodconfig" on  linus/master  [f362f98] gi=
+ves me the below
+compilation breakage.
 
-For debugging purposes it is useful to know the exact state of a
-non NUD_IN_TIMER neighbour entry whose timer handler just expired.
+(Fedora_15_amd64 machine)
 
-Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
----
- net/core/neighbour.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+It's probably old news but I thought I'll report it as part of my oblig=
+ation
+as a Kernel monkey
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 909ecb3..6a8a311 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -874,7 +874,7 @@ static void neigh_timer_handler(unsigned long arg)
- 
- 	if (!(state & NUD_IN_TIMER)) {
- #ifndef CONFIG_SMP
--		printk(KERN_WARNING "neigh: timer & !nud_in_timer\n");
-+		printk(KERN_WARNING "neigh: timer & !nud_in_timer, state:0x%x\n", state);
- #endif
- 		goto out;
- 	}
--- 
-1.7.1
+Cheers
+Boaz
+----
+
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98send_pcb=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:390:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:390:4: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:436:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:435:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98start_receive=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:557:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:557:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98receive_packet=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:629:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:629:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_interrupt=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:667:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:665:5: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:689:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:689:6: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:724:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:723:8: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:729:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:728:9: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:736:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:736:8: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:746:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:746:7: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:756:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:755:7: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:766:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:765:7: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:776:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:775:7: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:792:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:792:7: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:800:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:800:7: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:821:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:820:6: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_open=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:854:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:854:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:916:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:916:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:940:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:940:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:962:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:962:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98send_packet=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:992:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:992:4: error: expected =E2=80=98}=E2=80=99 before =E2=80=98=
+=2E=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1014:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1014:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1040:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1040:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_timeout=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1057:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1057:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_start_xmit=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1079:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1079:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1088:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1088:4: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1094:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1094:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_get_stats=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1113:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1113:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_close=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1175:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1175:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_set_mc_list=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1219:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1219:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1253:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1253:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_sense=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1289:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1289:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c: In function =E2=80=98elp_autodetect=E2=80=99:
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1355:1: error: expected identifier before string constant
+/net/ca-quad-11a-boot/samana/bharrosh/git/loo-ct/drivers/net/ethernet/i=
+825xx/3c505.c:1355:3: error: expected =E2=80=98}=E2=80=99 before =E2=80=
+=98.=E2=80=99 token
