@@ -1,56 +1,127 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] bonding:update speed/duplex for NETDEV_CHANGE
-Date: Mon, 31 Oct 2011 22:41:39 +0000
-Message-ID: <1320100899.2735.19.camel@bwh-desktop>
-References: <4EAE0D9A.9060408@gmail.com>
-	 <e00468a2cbb8a25d7a89028e876769449454309f.1320070684.git.wpan@redhat.com>
-	 <1320084906.2735.9.camel@bwh-desktop> <14973.1320093129@death>
-	 <1320094108.2735.15.camel@bwh-desktop>  <16441.1320096188@death>
+From: "Reuben Dowle" <Reuben.Dowle@navico.com>
+Subject: RE: [PATCH] flexcan: Fix CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK
+Date: Tue, 1 Nov 2011 11:43:59 +1300
+Message-ID: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA211@exch01-aklnz.MARINE.NET.INT>
+References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA1DD@exch01-aklnz.MARINE.NET
+ .INT> <4EAF21A6.702@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Weiping Pan <wpan@redhat.com>, <netdev@vger.kernel.org>,
-	<andy@greyhouse.net>, <linux-kernel@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <16441.1320096188@death>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>
+To: "Marc Kleine-Budde" <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <4EAF21A6.702@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-10-31 at 14:23 -0700, Jay Vosburgh wrote:
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
+Currently the flexcan driver uses hardware local echo. This blindly
+echoes all transmitted frames to all receiving sockets, regardless what
+CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK are set to.
+
+This patch now submits transmitted frames to be echoed in the transmit
+complete interrupt, preserving the reference to the sending socket.
+This allows the can protocol to correctly handle the local echo.
+
+Signed-off-by: Reuben Dowle <reuben.dowle@navico.com>
+
+---
+ drivers/net/can/flexcan.c |   19 +++++++++++++++----
+ 1 files changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c index e023379..542ada8 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -302,7 +302,7 @@ static int flexcan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	flexcan_write(can_id, &regs->cantxfg[FLEXCAN_TX_BUF_ID].can_id);
+ 	flexcan_write(ctrl, &regs->cantxfg[FLEXCAN_TX_BUF_ID].can_ctrl);
+ 
+-	kfree_skb(skb);
++	can_put_echo_skb(skb, dev, 0);
+ 
+ 	/* tx_packets is incremented in flexcan_irq */
+ 	stats->tx_bytes += cf->can_dlc;
+@@ -612,6 +612,7 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
+ 		/* tx_bytes is incremented in flexcan_start_xmit */
+ 		stats->tx_packets++;
+ 		flexcan_write((1 << FLEXCAN_TX_BUF_ID), &regs->iflag1);
++		can_get_echo_skb(dev, 0);
+ 		netif_wake_queue(dev);
+ 	}
+ 
+@@ -670,6 +671,8 @@ static int flexcan_chip_start(struct net_device *dev)
+ 	int err;
+ 	u32 reg_mcr, reg_ctrl;
+ 
++	can_free_echo_skb(dev, 0);
++
+ 	/* enable module */
+ 	flexcan_chip_enable(priv);
+ 
+@@ -697,12 +700,13 @@ static int flexcan_chip_start(struct net_device *dev)
+ 	 * only supervisor access
+ 	 * enable warning int
+ 	 * choose format C
++	 * disable local echo
+ 	 *
+ 	 */
+ 	reg_mcr = flexcan_read(&regs->mcr);
+ 	reg_mcr |= FLEXCAN_MCR_FRZ | FLEXCAN_MCR_FEN | FLEXCAN_MCR_HALT |
+ 		FLEXCAN_MCR_SUPV | FLEXCAN_MCR_WRN_EN |
+-		FLEXCAN_MCR_IDAM_C;
++		FLEXCAN_MCR_IDAM_C | FLEXCAN_MCR_SRX_DIS;
+ 	dev_dbg(dev->dev.parent, "%s: writing mcr=0x%08x", __func__, reg_mcr);
+ 	flexcan_write(reg_mcr, &regs->mcr);
+ 
+@@ -970,7 +974,7 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
+ 		goto failed_map;
+ 	}
+ 
+-	dev = alloc_candev(sizeof(struct flexcan_priv), 0);
++	dev = alloc_candev(sizeof(struct flexcan_priv), 1);
+ 	if (!dev) {
+ 		err = -ENOMEM;
+ 		goto failed_alloc;
+@@ -978,7 +982,14 @@ static int __devinit flexcan_probe(struct platform_device *pdev)
+ 
+ 	dev->netdev_ops = &flexcan_netdev_ops;
+ 	dev->irq = irq;
+-	dev->flags |= IFF_ECHO; /* we support local echo in hardware */
++
++	/* Driver supports local echo.
++	 * We support local echo in hardware, however this is not used because
++	 * hardware local echo loses the sending socket reference
++	 * (thus CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK socket options
++	 *  would not work)
++	 */
++	dev->flags |= IFF_ECHO;
+ 
+ 	priv = netdev_priv(dev);
+ 	priv->can.clock.freq = clock_freq;
+---
+
+> -----Original Message-----
+> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
+> Sent: Tuesday, November 01, 2011 11:31 AM
+> To: Reuben Dowle
+> Cc: netdev@vger.kernel.org; linux-can@vger.kernel.org
+> Subject: Re: [PATCH] flexcan: Fix CAN_RAW_RECV_OWN_MSGS and
+> CAN_RAW_LOOPBACK
 > 
-> >On Mon, 2011-10-31 at 13:32 -0700, Jay Vosburgh wrote:
-> >[...]
-> >> 	This particular case arises only during enslavement.  The call
-> >> to bond_update_speed_duplex call has failed, but the device is marked by
-> >> bonding to be up.  Bonding complains that the device isn't down, but it
-> >> cannot get speed and duplex, and therefore is assuming them to be
-> >> 100/Full.
-> >> 
-> >> 	The catch is that this happens only for the ARP monitor, because
-> >> it initially presumes a slave to be up regardless of actual carrier
-> >> state (for historical reasons related to very old 10 or 10/100 drivers,
-> >> prior to the introduction of netif_carrier_*).
+> On 10/31/2011 11:18 PM, Reuben Dowle wrote:
+> > Currently the flexcan driver uses hardware local echo. This blindly
+> echos all transmitted frames to all receiving sockets, regardless what
+> CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK are set to.
 > >
-> >Right, I gathered that.  Is there any reason to use the ARP monitor when
-> >all slaves support link state notification?  Maybe the bonding
-> >documentation should recommend miimon in section 7, not just in section
-> >2.
+> > This patch now submits transmitted frames to be echoed in the
+> transmit complete interrupt, preserving the reference to the sending
+> socket. This allows the can protocol to correctly handle the local
+> echo.
+> >
+> > Signed-off-by: Reuben Dowle <reuben.dowle@navico.com>
 > 
-> 	The ARP monitor can validate that traffic actually flows from
-> the slave to some destination in the switch domain (and back), so, for
-> example, it's useful in cases that multiple switch hops exist between
-> the host and the local router.  A link failure in the middle of the path
-> won't affect carrier on the local device, but still may cause a
-> communications break.
+> Patch looks quite good. Can you please wrap the description to about 72
+> chars?
 
-Then the ARP monitor should gracefully handle the case where a new slave
-has link down, as proposed.
 
-Ben.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
