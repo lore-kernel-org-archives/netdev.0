@@ -1,18 +1,51 @@
-From: FBI <oussy7@cox.net>
-Subject: !
-Date: Mon, 31 Oct 2011 10:58:44 -0700
-Message-ID: <20111031135844.HNKA7.4546.imail@fed1rmwml30>
-Reply-To: scam_t@aim.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] bonding:update speed/duplex for NETDEV_CHANGE
+Date: Mon, 31 Oct 2011 18:15:06 +0000
+Message-ID: <1320084906.2735.9.camel@bwh-desktop>
+References: <4EAE0D9A.9060408@gmail.com>
+	 <e00468a2cbb8a25d7a89028e876769449454309f.1320070684.git.wpan@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fed1rmfepo103.cox.net ([68.230.241.145]:55088 "EHLO
-	fed1rmfepo103.cox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932287Ab1JaSL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 14:11:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <fubar@us.ibm.com>, <andy@greyhouse.net>,
+	<linux-kernel@vger.kernel.org>
+To: Weiping Pan <wpan@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e00468a2cbb8a25d7a89028e876769449454309f.1320070684.git.wpan@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Get  back  now  for  your  money  that  you  lost   to  scammers  back  now  reply  back!
+On Mon, 2011-10-31 at 22:19 +0800, Weiping Pan wrote:
+> Zheng Liang(lzheng@redhat.com) found a bug that if we config bonding with
+> arp monitor, sometimes bonding driver cannot get the speed and duplex from
+> its slaves, it will assume them to be 100Mb/sec and Full, please see
+> /proc/net/bonding/bond0.
+> But there is no such problem when uses miimon.
+> 
+> (Take igb for example)
+> I find that the reason is that after dev_open() in bond_enslave(),
+> bond_update_speed_duplex() will call igb_get_settings()
+> , but in that function,
+> it runs ethtool_cmd_speed_set(ecmd, -1); ecmd->duplex = -1;
+> because igb get an error value of status.
+> So even dev_open() is called, but the device is not really ready to get its
+> settings.
+> 
+> Maybe it is safe for us to call igb_get_settings() only after
+> this message shows up, that is "igb: p4p1 NIC Link is Up 1000 Mbps Full Duplex,
+> Flow Control: RX".
+[...]
+
+For any device with autonegotiation enabled, you generally cannot get
+the speed and duplex settings until the link is up.  While the link is
+down, you may see a value of 0, ~0, or the best mode currently
+advertised.  So I think that the bonding driver should avoid updating
+the slave speed and duplex values whenever autoneg is enabled and the
+link is down.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
