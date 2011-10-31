@@ -1,12 +1,13 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next-2.6 PATCH 0/6 RFC v3] macvlan: MAC Address filtering
-	support for passthru mode
-Date: Mon, 31 Oct 2011 09:38:58 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F075501A1BD5241@orsmsx508.amr.corp.intel.com>
-References: <20111029023159.5198.60245.stgit@rhel6.1>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 0/6 RFC v3] macvlan: MAC Address filtering
+ support for passthru mode
+Date: Mon, 31 Oct 2011 10:09:28 -0700
+Message-ID: <CAD42458.3856A%roprabhu@cisco.com>
+References: <43F901BD926A4E43B106BF17856F075501A1BD5241@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
 Cc: "sri@us.ibm.com" <sri@us.ibm.com>,
 	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
 	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
@@ -18,64 +19,84 @@ Cc: "sri@us.ibm.com" <sri@us.ibm.com>,
 	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
 	"kaber@trash.net" <kaber@trash.net>,
 	"benve@cisco.com" <benve@cisco.com>
-To: Roopa Prabhu <roprabhu@cisco.com>,
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15036 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753741Ab1JaQjA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Oct 2011 12:39:00 -0400
-In-Reply-To: <20111029023159.5198.60245.stgit@rhel6.1>
-Content-Language: en-US
+Received: from mtv-iport-2.cisco.com ([173.36.130.13]:39488 "EHLO
+	mtv-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932637Ab1JaRJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 13:09:32 -0400
+In-Reply-To: <43F901BD926A4E43B106BF17856F075501A1BD5241@orsmsx508.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIFJvb3BhIFByYWJodQ0KPiBTZW50OiBGcmlkYXksIE9jdG9iZXIgMjgsIDIwMTEgNzoz
-NCBQTQ0KPiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBDYzogc3JpQHVzLmlibS5jb207
-IGRyYWdvcy50YXR1bGVhQGdtYWlsLmNvbTsga3ZtQHZnZXIua2VybmVsLm9yZzsNCj4gYXJuZEBh
-cm5kYi5kZTsgbXN0QHJlZGhhdC5jb207IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IFJvc2UsIEdyZWdv
-cnkgVjsNCj4gbWNoYW5AYnJvYWRjb20uY29tOyBkd2FuZzJAY2lzY28uY29tOyBzaGVtbWluZ2Vy
-QHZ5YXR0YS5jb207DQo+IGVyaWMuZHVtYXpldEBnbWFpbC5jb207IGthYmVyQHRyYXNoLm5ldDsg
-YmVudmVAY2lzY28uY29tDQo+IFN1YmplY3Q6IFtuZXQtbmV4dC0yLjYgUEFUQ0ggMC82IFJGQyB2
-M10gbWFjdmxhbjogTUFDIEFkZHJlc3MgZmlsdGVyaW5nDQo+IHN1cHBvcnQgZm9yIHBhc3N0aHJ1
-IG1vZGUNCj4gDQo+IHYyIC0+IHYzDQo+IC0gTW92ZWQgc2V0IGFuZCBnZXQgZmlsdGVyIG9wcyBm
-cm9tIHJ0bmxfbGlua19vcHMgdG8gbmV0ZGV2X29wcw0KPiAtIFN1cHBvcnQgZm9yIFNSSU9WIFZG
-cy4NCj4gCVtOb3RlOiBUaGUgZ2V0IGZpbHRlcnMgbXNnIG1pZ2h0IGdldCB0b28gYmlnIGZvciBT
-UklPViB2ZnMuDQo+ICAgICAgICAgQnV0IHRoaXMgcGF0Y2ggZm9sbG93cyBleGlzdGluZyBzcmlv
-diB2ZiBnZXQgY29kZSBhbmQNCj4gCWFjY29tb2RhdGUgZmlsdGVycyBmb3IgYWxsIFZGJ3MgaW4g
-YSBQRi4NCj4gICAgICAgICBBbmQgZm9yIHRoZSBTUklPViBjYXNlIEkgaGF2ZSBvbmx5IHRlc3Rl
-ZCB0aGUgZmFjdCB0aGF0IHRoZSBWRg0KPiAJYXJndW1lbnRzIGFyZSBnZXR0aW5nIGRlbGl2ZXJl
-ZCB0byBydG5ldGxpbmsgY29ycmVjdGx5LiBUaGUgcmVzdCBvZg0KPiAJdGhlIGNvZGUgZm9sbG93
-cyBleGlzdGluZyBzcmlvdiB2ZiBoYW5kbGluZyBjb2RlIHNvIGl0IHNob3VsZCB3b3JrDQo+IAlq
-dXN0IGZpbmVdDQo+IC0gRml4ZWQgYWxsIG9wIGFuZCBuZXRsaW5rIGF0dHJpYnV0ZSBuYW1lcyB0
-byBzdGFydCB3aXRoIElGTEFfUlhfRklMVEVSDQo+IC0gQ2hhbmdlZCBtYWN2bGFuIGZpbHRlciBv
-cHMgdG8gY2FsbCBjb3JyZXNwb25kaW5nIGxvd2VyZGV2IG9wIGlmIGxvd2VyZGV2DQo+ICAgc3Vw
-cG9ydHMgaXQgZm9yIHBhc3N0aHJ1IG1vZGUuIEVsc2UgaXQgZmFsbHMgYmFjayBvbiBtYWN2bGFu
-IGhhbmRsaW5nDQo+IHRoZQ0KPiAgIGZpbHRlcnMgbG9jYWxseSBhcyBpbiB2MSBhbmQgdjINCj4g
-DQo+IHYxIC0+IHYyDQo+IC0gSW5zdGVhZCBvZiBUVU5TRVRUWEZJTFRFUiBpbnRyb2R1Y2VkIHJ0
-bmV0bGluayBpbnRlcmZhY2UgZm9yIHRoZSBzYW1lDQo+IA0KDQpbc25pcC4uLl0NCg0KPiANCj4g
-VGhpcyBwYXRjaCBzZXJpZXMgaW1wbGVtZW50cyB0aGUgZm9sbG93aW5nDQo+IDAxLzYgcnRuZXRs
-aW5rOiBOZXRsaW5rIGludGVyZmFjZSBmb3Igc2V0dGluZyBNQUMgYW5kIFZMQU4gZmlsdGVycw0K
-PiAwMi82IG5ldGRldjogQWRkIG5ldGRldl9vcHMgdG8gc2V0IGFuZCBnZXQgTUFDL1ZMQU4gcngg
-ZmlsdGVycw0KPiAwMy82IHJ0bmV0bGluazogQWRkIHN1cHBvcnQgdG8gc2V0IE1BQy9WTEFOIGZp
-bHRlcnMNCj4gMDQvNiBydG5ldGxpbms6IEFkZCBzdXBwb3J0IHRvIGdldCBNQUMvVkxBTiBmaWx0
-ZXJzDQo+IDA1LzYgbWFjdmxhbjogQWRkIHN1cHBvcnQgdG8gc2V0IE1BQy9WTEFOIGZpbHRlciBu
-ZXRkZXYgb3BzDQo+IDA2LzYgbWFjdmxhbjogQWRkIHN1cHBvcnQgdG8gZ2V0IE1BQy9WTEFOIGZp
-bHRlciBuZXRkZXYgb3BzDQo+IA0KPiBQbGVhc2UgY29tbWVudC4gVGhhbmtzLg0KDQpBZnRlciBz
-b21lIHByZWxpbWluYXJ5IHJldmlldyB0aGlzIGxvb2tzIHByZXR0eSBnb29kIHRvIG1lIGluIHNv
-IGZhciBhcyBhZGRpbmcgdGhlIG5lY2Vzc2FyeSBob29rcyB0byBkbyB3aGF0IEkgbmVlZCB0byBk
-by4gIEkgYXBwcmVjaWF0ZSB5b3VyIGVmZm9ydCBvbiB0aGlzLg0KDQpJJ20gc29ydCBvZiBhIGhh
-bmRzLW9uIHR5cGUgb2YgcGVyc29uIHNvIEkgbmVlZCB0byBhcHBseSB0aGlzIHBhdGNoIHRvIGEg
-cHJpdmF0ZSBnaXQgdHJlZSBhbmQgdGhlbiB0YWtlIGl0IGZvciBhIHRlc3QgZHJpdmUgKHNvIHRv
-IHNwZWFrKS4gIElmIEkgaGF2ZSBmdXJ0aGVyIGNvbW1lbnRzIEknbGwgZ2V0IGJhY2sgdG8geW91
-Lg0KDQpEaWQgeW91IGhhdmUgYW55IHBsYW5zIGZvciBtb2RpZnlpbmcgYW55IHVzZXIgc3BhY2Ug
-dG9vbHMgc3VjaCBhcyAnaXAnIHRvIHVzZSB0aGlzIGludGVyZmFjZT8NCg0KLSBHcmVnDQoNCj4g
-DQo+IFNpZ25lZC1vZmYtYnk6IFJvb3BhIFByYWJodSA8cm9wcmFiaHVAY2lzY28uY29tPg0KPiBT
-aWduZWQtb2ZmLWJ5OiBDaHJpc3RpYW4gQmVudmVudXRpIDxiZW52ZUBjaXNjby5jb20+DQo+IFNp
-Z25lZC1vZmYtYnk6IERhdmlkIFdhbmcgPGR3YW5nMkBjaXNjby5jb20+DQo+IC0tDQo+IFRvIHVu
-c3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRk
-ZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwu
-b3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFq
-b3Jkb21vLWluZm8uaHRtbA0K
+
+
+
+On 10/31/11 9:38 AM, "Rose, Gregory V" <gregory.v.rose@intel.com> wrote:
+
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>> On Behalf Of Roopa Prabhu
+>> Sent: Friday, October 28, 2011 7:34 PM
+>> To: netdev@vger.kernel.org
+>> Cc: sri@us.ibm.com; dragos.tatulea@gmail.com; kvm@vger.kernel.org;
+>> arnd@arndb.de; mst@redhat.com; davem@davemloft.net; Rose, Gregory V;
+>> mchan@broadcom.com; dwang2@cisco.com; shemminger@vyatta.com;
+>> eric.dumazet@gmail.com; kaber@trash.net; benve@cisco.com
+>> Subject: [net-next-2.6 PATCH 0/6 RFC v3] macvlan: MAC Address filtering
+>> support for passthru mode
+>> 
+>> v2 -> v3
+>> - Moved set and get filter ops from rtnl_link_ops to netdev_ops
+>> - Support for SRIOV VFs.
+>> [Note: The get filters msg might get too big for SRIOV vfs.
+>>         But this patch follows existing sriov vf get code and
+>> accomodate filters for all VF's in a PF.
+>>         And for the SRIOV case I have only tested the fact that the VF
+>> arguments are getting delivered to rtnetlink correctly. The rest of
+>> the code follows existing sriov vf handling code so it should work
+>> just fine]
+>> - Fixed all op and netlink attribute names to start with IFLA_RX_FILTER
+>> - Changed macvlan filter ops to call corresponding lowerdev op if lowerdev
+>>   supports it for passthru mode. Else it falls back on macvlan handling
+>> the
+>>   filters locally as in v1 and v2
+>> 
+>> v1 -> v2
+>> - Instead of TUNSETTXFILTER introduced rtnetlink interface for the same
+>> 
+> 
+> [snip...]
+> 
+>> 
+>> This patch series implements the following
+>> 01/6 rtnetlink: Netlink interface for setting MAC and VLAN filters
+>> 02/6 netdev: Add netdev_ops to set and get MAC/VLAN rx filters
+>> 03/6 rtnetlink: Add support to set MAC/VLAN filters
+>> 04/6 rtnetlink: Add support to get MAC/VLAN filters
+>> 05/6 macvlan: Add support to set MAC/VLAN filter netdev ops
+>> 06/6 macvlan: Add support to get MAC/VLAN filter netdev ops
+>> 
+>> Please comment. Thanks.
+> 
+> After some preliminary review this looks pretty good to me in so far as adding
+> the necessary hooks to do what I need to do.  I appreciate your effort on
+> this.
+> 
+> I'm sort of a hands-on type of person so I need to apply this patch to a
+> private git tree and then take it for a test drive (so to speak).  If I have
+> further comments I'll get back to you.
+> 
+Sounds good. 
+
+> Did you have any plans for modifying any user space tools such as 'ip' to use
+> this interface?
+> 
+
+Yes, I have an iproute2 sample patch for setting and displaying the filters
+which I have been using to test this interface. I can send the patch to you
+after some cleanup if you think it will be useful for you to try out this
+interface.
+
+Thanks Greg.
