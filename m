@@ -1,70 +1,76 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/1] drivers/net/ethernet/i825xx/3c505.c: fix build with dynamic debug
-Date: Mon, 31 Oct 2011 12:54:09 -0700
-Message-ID: <201110311954.p9VJs9VO002313@hpaq3.eem.corp.google.com>
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: Re: [RFC v2] tcp: Export TCP Delayed ACK parameters to user
+Date: Mon, 31 Oct 2011 22:02:19 +0200
+Message-ID: <CAEnQRZAGc42q1LCEDs=QigLkXeHBui=KnAm5=5xrEzvA-LDcGg@mail.gmail.com>
+References: <CAEnQRZCxSPb8NRceB+tfdZnkN=K-jGbdmXDgNwEhZFYAWGmvAg@mail.gmail.com>
+	<20111028.183107.2091450715774357523.davem@davemloft.net>
+	<4EAB2F58.7080509@hp.com>
+	<20111028.222430.1568567893138453593.davem@davemloft.net>
+	<CAEnQRZCggUnoVZXyXfZ6-Om+hwQL_6Oo3dPODsXAH+iJYqN=jw@mail.gmail.com>
+	<4EAEE487.5080905@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ASCII
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, akpm@google.com,
-	jbaron@redhat.com, philb@gnu.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org, luto@amacapital.net
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:9160 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751579Ab1JaTyW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 15:54:22 -0400
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:54326 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933834Ab1JaUCU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 16:02:20 -0400
+Received: by qyk27 with SMTP id 27so6667751qyk.19
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2011 13:02:19 -0700 (PDT)
+In-Reply-To: <4EAEE487.5080905@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@google.com>
-Subject: drivers/net/ethernet/i825xx/3c505.c: fix build with dynamic debug
+On Mon, Oct 31, 2011 at 8:10 PM, Rick Jones <rick.jones2@hp.com> wrote:
+> Whether tracked as bytes or segments, my take is that to ask applicat=
+ions to
+> have to think about another non-portable socket option is ungood. =A0=
+I would
+> suggest taking the time to work-out the automagic heuristic to drop t=
+he
+> deferred ACK count on connections where it being large is un-desirabl=
+e and
+> then not need to worry about the limits being global.
 
-The `#define filename' screws up the expansion of
-DEFINE_DYNAMIC_DEBUG_METADATA:
+Your suggestion deserves further investigation, it looks tricky to
+find a good heuristic for increasing/decreasing the ACK deferred count.
 
-drivers/net/ethernet/i825xx/3c505.c: In function 'send_pcb':
-drivers/net/ethernet/i825xx/3c505.c:390: error: expected identifier before string constant
-drivers/net/ethernet/i825xx/3c505.c:390: error: expected '}' before '.' token
-drivers/net/ethernet/i825xx/3c505.c:436: error: expected identifier before string constant
-drivers/net/ethernet/i825xx/3c505.c:435: error: expected '}' before '.' token
-drivers/net/ethernet/i825xx/3c505.c: In function 'start_receive':
-drivers/net/ethernet/i825xx/3c505.c:557: error: expected identifier before string constant
-drivers/net/ethernet/i825xx/3c505.c:557: error: expected '}' before '.' token
-drivers/net/ethernet/i825xx/3c505.c: In function 'receive_packet':
-drivers/net/ethernet/i825xx/3c505.c:629: error: expected identifier before string constant
+>
+> Given the stack's existing propensity to try to decide when to increa=
+se the
+> window I might even go so far as to suggest the sense of the heuristi=
+c be
+> flipped and it seek to decide when it is ok to increase the number of
+> segments/bytes per ACK. =A0To what extent one needs to go beyond what=
+ happens
+> already with the stretching of ACKs via GRO/LRO or if that mechanism =
+can
+> serve as part of the logic of the heuristic is probably a fertile are=
+a for
+> discussion.
+>
+> If I recall correctly, in one of your earlier posts you mentioned som=
+ething
+> about a 20% performance boost. =A0What were the specific conditions o=
+f that
+> testing? =A0Was it over a setup where the receiver already had LRO/GR=
+O or was
+> it over a more plain receiver NIC without that functionality?
 
-etc
+If I remember correctly on the receiver side there was no LRO/GRO, but =
+we
+tweaked some of /proc/sys/net/ipv4 parameters (e.g tcp_rmem).
+Also, the traffic was highly unidirectional with many clients feeding m=
+ultimedia
+content to a server.
 
-So remove that #define and "open-code" it.
+Anyhow, we used our custom kernel which is an older kernel version.
+Are there any recommended benchmarks/tools for testing this kind of par=
+ameters?
 
-Cc: Philip Blundell <philb@gnu.org>
-Cc: David Miller <davem@davemloft.net>
-Cc: Jason Baron <jbaron@redhat.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/net/ethernet/i825xx/3c505.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff -puN drivers/net/ethernet/i825xx/3c505.c~drivers-net-ethernet-i825xx-3c505c-fix-build-with-dynamic-debug drivers/net/ethernet/i825xx/3c505.c
---- a/drivers/net/ethernet/i825xx/3c505.c~drivers-net-ethernet-i825xx-3c505c-fix-build-with-dynamic-debug
-+++ a/drivers/net/ethernet/i825xx/3c505.c
-@@ -126,15 +126,13 @@
-  *
-  *********************************************************/
- 
--#define filename __FILE__
--
- #define timeout_msg "*** timeout at %s:%s (line %d) ***\n"
- #define TIMEOUT_MSG(lineno) \
--	pr_notice(timeout_msg, filename, __func__, (lineno))
-+	pr_notice(timeout_msg, __FILE__, __func__, (lineno))
- 
- #define invalid_pcb_msg "*** invalid pcb length %d at %s:%s (line %d) ***\n"
- #define INVALID_PCB_MSG(len) \
--	pr_notice(invalid_pcb_msg, (len), filename, __func__, __LINE__)
-+	pr_notice(invalid_pcb_msg, (len), __FILE__, __func__, __LINE__)
- 
- #define search_msg "%s: Looking for 3c505 adapter at address %#x..."
- 
-_
+Daniel.
