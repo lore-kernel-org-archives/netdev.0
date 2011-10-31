@@ -1,53 +1,81 @@
-From: Matthijs Kooijman <matthijs@stdin.nl>
-Subject: [PATCH] vlan: Don't propagate flag changes on down interfaces.
-Date: Mon, 31 Oct 2011 15:53:13 +0100
-Message-ID: <1320072793-16490-1-git-send-email-matthijs@stdin.nl>
-References: <20111031134411.GG14392@login.drsnuggles.stderr.nl>
-Cc: Matthijs Kooijman <matthijs@stdin.nl>
-To: netdev@vger.kernel.org
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next-2.6 PATCH 0/6 RFC v3] macvlan: MAC Address filtering
+	support for passthru mode
+Date: Mon, 31 Oct 2011 09:38:58 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F075501A1BD5241@orsmsx508.amr.corp.intel.com>
+References: <20111029023159.5198.60245.stgit@rhel6.1>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "sri@us.ibm.com" <sri@us.ibm.com>,
+	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"dwang2@cisco.com" <dwang2@cisco.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"benve@cisco.com" <benve@cisco.com>
+To: Roopa Prabhu <roprabhu@cisco.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 84-245-11-97.dsl.cambrium.nl ([84.245.11.97]:60878 "EHLO
-	grubby.stderr.nl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933175Ab1JaP3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 11:29:07 -0400
-In-Reply-To: <20111031134411.GG14392@login.drsnuggles.stderr.nl>
+Received: from mga02.intel.com ([134.134.136.20]:15036 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753741Ab1JaQjA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Oct 2011 12:39:00 -0400
+In-Reply-To: <20111029023159.5198.60245.stgit@rhel6.1>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When (de)configuring a vlan interface, the IFF_ALLMULTI ans IFF_PROMISC
-flags are cleared or set on the underlying interface. So, if these flags
-are changed on a vlan interface that is not up, the flags underlying
-interface might be set or cleared twice.
-
-Only propagating flag changes when a device is up makes sure this does
-not happen. It also makes sure that an underlying device is not set to
-promiscuous or allmulti mode for a vlan device that is down.
-
-Signed-off-by: Matthijs Kooijman <matthijs@stdin.nl>
----
- net/8021q/vlan_dev.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 9d40a07..0e72689 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -470,10 +470,12 @@ static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
- {
- 	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
- 
--	if (change & IFF_ALLMULTI)
--		dev_set_allmulti(real_dev, dev->flags & IFF_ALLMULTI ? 1 : -1);
--	if (change & IFF_PROMISC)
--		dev_set_promiscuity(real_dev, dev->flags & IFF_PROMISC ? 1 : -1);
-+	if (dev->flags & IFF_UP) {
-+		if (change & IFF_ALLMULTI)
-+			dev_set_allmulti(real_dev, dev->flags & IFF_ALLMULTI ? 1 : -1);
-+		if (change & IFF_PROMISC)
-+			dev_set_promiscuity(real_dev, dev->flags & IFF_PROMISC ? 1 : -1);
-+	}
- }
- 
- static void vlan_dev_set_rx_mode(struct net_device *vlan_dev)
--- 
-1.7.7
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIFJvb3BhIFByYWJodQ0KPiBTZW50OiBGcmlkYXksIE9jdG9iZXIgMjgsIDIwMTEgNzoz
+NCBQTQ0KPiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBDYzogc3JpQHVzLmlibS5jb207
+IGRyYWdvcy50YXR1bGVhQGdtYWlsLmNvbTsga3ZtQHZnZXIua2VybmVsLm9yZzsNCj4gYXJuZEBh
+cm5kYi5kZTsgbXN0QHJlZGhhdC5jb207IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IFJvc2UsIEdyZWdv
+cnkgVjsNCj4gbWNoYW5AYnJvYWRjb20uY29tOyBkd2FuZzJAY2lzY28uY29tOyBzaGVtbWluZ2Vy
+QHZ5YXR0YS5jb207DQo+IGVyaWMuZHVtYXpldEBnbWFpbC5jb207IGthYmVyQHRyYXNoLm5ldDsg
+YmVudmVAY2lzY28uY29tDQo+IFN1YmplY3Q6IFtuZXQtbmV4dC0yLjYgUEFUQ0ggMC82IFJGQyB2
+M10gbWFjdmxhbjogTUFDIEFkZHJlc3MgZmlsdGVyaW5nDQo+IHN1cHBvcnQgZm9yIHBhc3N0aHJ1
+IG1vZGUNCj4gDQo+IHYyIC0+IHYzDQo+IC0gTW92ZWQgc2V0IGFuZCBnZXQgZmlsdGVyIG9wcyBm
+cm9tIHJ0bmxfbGlua19vcHMgdG8gbmV0ZGV2X29wcw0KPiAtIFN1cHBvcnQgZm9yIFNSSU9WIFZG
+cy4NCj4gCVtOb3RlOiBUaGUgZ2V0IGZpbHRlcnMgbXNnIG1pZ2h0IGdldCB0b28gYmlnIGZvciBT
+UklPViB2ZnMuDQo+ICAgICAgICAgQnV0IHRoaXMgcGF0Y2ggZm9sbG93cyBleGlzdGluZyBzcmlv
+diB2ZiBnZXQgY29kZSBhbmQNCj4gCWFjY29tb2RhdGUgZmlsdGVycyBmb3IgYWxsIFZGJ3MgaW4g
+YSBQRi4NCj4gICAgICAgICBBbmQgZm9yIHRoZSBTUklPViBjYXNlIEkgaGF2ZSBvbmx5IHRlc3Rl
+ZCB0aGUgZmFjdCB0aGF0IHRoZSBWRg0KPiAJYXJndW1lbnRzIGFyZSBnZXR0aW5nIGRlbGl2ZXJl
+ZCB0byBydG5ldGxpbmsgY29ycmVjdGx5LiBUaGUgcmVzdCBvZg0KPiAJdGhlIGNvZGUgZm9sbG93
+cyBleGlzdGluZyBzcmlvdiB2ZiBoYW5kbGluZyBjb2RlIHNvIGl0IHNob3VsZCB3b3JrDQo+IAlq
+dXN0IGZpbmVdDQo+IC0gRml4ZWQgYWxsIG9wIGFuZCBuZXRsaW5rIGF0dHJpYnV0ZSBuYW1lcyB0
+byBzdGFydCB3aXRoIElGTEFfUlhfRklMVEVSDQo+IC0gQ2hhbmdlZCBtYWN2bGFuIGZpbHRlciBv
+cHMgdG8gY2FsbCBjb3JyZXNwb25kaW5nIGxvd2VyZGV2IG9wIGlmIGxvd2VyZGV2DQo+ICAgc3Vw
+cG9ydHMgaXQgZm9yIHBhc3N0aHJ1IG1vZGUuIEVsc2UgaXQgZmFsbHMgYmFjayBvbiBtYWN2bGFu
+IGhhbmRsaW5nDQo+IHRoZQ0KPiAgIGZpbHRlcnMgbG9jYWxseSBhcyBpbiB2MSBhbmQgdjINCj4g
+DQo+IHYxIC0+IHYyDQo+IC0gSW5zdGVhZCBvZiBUVU5TRVRUWEZJTFRFUiBpbnRyb2R1Y2VkIHJ0
+bmV0bGluayBpbnRlcmZhY2UgZm9yIHRoZSBzYW1lDQo+IA0KDQpbc25pcC4uLl0NCg0KPiANCj4g
+VGhpcyBwYXRjaCBzZXJpZXMgaW1wbGVtZW50cyB0aGUgZm9sbG93aW5nDQo+IDAxLzYgcnRuZXRs
+aW5rOiBOZXRsaW5rIGludGVyZmFjZSBmb3Igc2V0dGluZyBNQUMgYW5kIFZMQU4gZmlsdGVycw0K
+PiAwMi82IG5ldGRldjogQWRkIG5ldGRldl9vcHMgdG8gc2V0IGFuZCBnZXQgTUFDL1ZMQU4gcngg
+ZmlsdGVycw0KPiAwMy82IHJ0bmV0bGluazogQWRkIHN1cHBvcnQgdG8gc2V0IE1BQy9WTEFOIGZp
+bHRlcnMNCj4gMDQvNiBydG5ldGxpbms6IEFkZCBzdXBwb3J0IHRvIGdldCBNQUMvVkxBTiBmaWx0
+ZXJzDQo+IDA1LzYgbWFjdmxhbjogQWRkIHN1cHBvcnQgdG8gc2V0IE1BQy9WTEFOIGZpbHRlciBu
+ZXRkZXYgb3BzDQo+IDA2LzYgbWFjdmxhbjogQWRkIHN1cHBvcnQgdG8gZ2V0IE1BQy9WTEFOIGZp
+bHRlciBuZXRkZXYgb3BzDQo+IA0KPiBQbGVhc2UgY29tbWVudC4gVGhhbmtzLg0KDQpBZnRlciBz
+b21lIHByZWxpbWluYXJ5IHJldmlldyB0aGlzIGxvb2tzIHByZXR0eSBnb29kIHRvIG1lIGluIHNv
+IGZhciBhcyBhZGRpbmcgdGhlIG5lY2Vzc2FyeSBob29rcyB0byBkbyB3aGF0IEkgbmVlZCB0byBk
+by4gIEkgYXBwcmVjaWF0ZSB5b3VyIGVmZm9ydCBvbiB0aGlzLg0KDQpJJ20gc29ydCBvZiBhIGhh
+bmRzLW9uIHR5cGUgb2YgcGVyc29uIHNvIEkgbmVlZCB0byBhcHBseSB0aGlzIHBhdGNoIHRvIGEg
+cHJpdmF0ZSBnaXQgdHJlZSBhbmQgdGhlbiB0YWtlIGl0IGZvciBhIHRlc3QgZHJpdmUgKHNvIHRv
+IHNwZWFrKS4gIElmIEkgaGF2ZSBmdXJ0aGVyIGNvbW1lbnRzIEknbGwgZ2V0IGJhY2sgdG8geW91
+Lg0KDQpEaWQgeW91IGhhdmUgYW55IHBsYW5zIGZvciBtb2RpZnlpbmcgYW55IHVzZXIgc3BhY2Ug
+dG9vbHMgc3VjaCBhcyAnaXAnIHRvIHVzZSB0aGlzIGludGVyZmFjZT8NCg0KLSBHcmVnDQoNCj4g
+DQo+IFNpZ25lZC1vZmYtYnk6IFJvb3BhIFByYWJodSA8cm9wcmFiaHVAY2lzY28uY29tPg0KPiBT
+aWduZWQtb2ZmLWJ5OiBDaHJpc3RpYW4gQmVudmVudXRpIDxiZW52ZUBjaXNjby5jb20+DQo+IFNp
+Z25lZC1vZmYtYnk6IERhdmlkIFdhbmcgPGR3YW5nMkBjaXNjby5jb20+DQo+IC0tDQo+IFRvIHVu
+c3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRk
+ZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwu
+b3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFq
+b3Jkb21vLWluZm8uaHRtbA0K
