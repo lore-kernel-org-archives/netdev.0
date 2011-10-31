@@ -1,127 +1,27 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH] SUNRPC: remove non-exclusive pipe creation from RPC pipefs
-Date: Mon, 31 Oct 2011 16:07:59 +0300
-Message-ID: <20111031120732.7345.69154.stgit@localhost6.localdomain6>
+From: "onbbhpv" <tianjuan@mymyle.com>
+Subject: =?utf-8?B?5bel56iL5oub5qCHODIwNTQ1Mw==?=
+Date: Mon, 31 Oct 2011 14:40:13 +0800
+Message-ID: <AF44482C298FA71E20CF1D83E8B3F5FF@ibw>
+Reply-To: <et123e@sina.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, devel@openvz.org
-To: bfields@fieldses.org, Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <jayo@macau.ctm.net>, <367@690665.htm>,
+	<shaoyunjuan@everymail.net>, <1260806118@qq.com>,
+	<netdev@vger.kernel.org>, <dior@macau.ctm.net>,
+	<taizhouyizhouzy@163.com>, <esdx@macau.ctm.ne
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [114.80.200.122] ([114.80.200.122]:43425 "EHLO mail.mymyle.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S934432Ab1JaMxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Oct 2011 08:53:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch-set was created in context of clone of git branch:
-git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git
-and rebased on tag "v3.1".
-
-SUNRPC pipefs non-exclusive pipe creation code looks obsolete. IOW, as I see
-it, all pipes are creating with unique full path and only once.
-
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-
----
- include/linux/sunrpc/rpc_pipe_fs.h |    1 -
- net/sunrpc/rpc_pipe.c              |   44 +++++-------------------------------
- 2 files changed, 6 insertions(+), 39 deletions(-)
-
-diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index 271e1b2..80606ab 100644
---- a/include/linux/sunrpc/rpc_pipe_fs.h
-+++ b/include/linux/sunrpc/rpc_pipe_fs.h
-@@ -30,7 +30,6 @@ struct rpc_inode {
- 	int pipelen;
- 	int nreaders;
- 	int nwriters;
--	int nkern_readwriters;
- 	wait_queue_head_t waitq;
- #define RPC_PIPE_WAIT_FOR_OPEN	1
- 	int flags;
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 42e4b6e..a1f23c4 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -558,7 +558,6 @@ static int __rpc_mkpipe(struct inode *dir, struct dentry *dentry,
- 	if (err)
- 		return err;
- 	rpci = RPC_I(dentry->d_inode);
--	rpci->nkern_readwriters = 1;
- 	rpci->private = private;
- 	rpci->flags = flags;
- 	rpci->ops = ops;
-@@ -591,16 +590,12 @@ static int __rpc_unlink(struct inode *dir, struct dentry *dentry)
- static int __rpc_rmpipe(struct inode *dir, struct dentry *dentry)
- {
- 	struct inode *inode = dentry->d_inode;
--	struct rpc_inode *rpci = RPC_I(inode);
- 
--	rpci->nkern_readwriters--;
--	if (rpci->nkern_readwriters != 0)
--		return 0;
- 	rpc_close_pipes(inode);
- 	return __rpc_unlink(dir, dentry);
- }
- 
--static struct dentry *__rpc_lookup_create(struct dentry *parent,
-+static struct dentry *__rpc_lookup_create_exclusive(struct dentry *parent,
- 					  struct qstr *name)
- {
- 	struct dentry *dentry;
-@@ -608,27 +603,13 @@ static struct dentry *__rpc_lookup_create(struct dentry *parent,
- 	dentry = d_lookup(parent, name);
- 	if (!dentry) {
- 		dentry = d_alloc(parent, name);
--		if (!dentry) {
--			dentry = ERR_PTR(-ENOMEM);
--			goto out_err;
--		}
-+		if (!dentry)
-+			return ERR_PTR(-ENOMEM);
- 	}
--	if (!dentry->d_inode)
-+	if (dentry->d_inode == NULL) {
- 		d_set_d_op(dentry, &rpc_dentry_operations);
--out_err:
--	return dentry;
--}
--
--static struct dentry *__rpc_lookup_create_exclusive(struct dentry *parent,
--					  struct qstr *name)
--{
--	struct dentry *dentry;
--
--	dentry = __rpc_lookup_create(parent, name);
--	if (IS_ERR(dentry))
--		return dentry;
--	if (dentry->d_inode == NULL)
- 		return dentry;
-+	}
- 	dput(dentry);
- 	return ERR_PTR(-EEXIST);
- }
-@@ -816,22 +797,9 @@ struct dentry *rpc_mkpipe(struct dentry *parent, const char *name,
- 	q.hash = full_name_hash(q.name, q.len),
- 
- 	mutex_lock_nested(&dir->i_mutex, I_MUTEX_PARENT);
--	dentry = __rpc_lookup_create(parent, &q);
-+	dentry = __rpc_lookup_create_exclusive(parent, &q);
- 	if (IS_ERR(dentry))
- 		goto out;
--	if (dentry->d_inode) {
--		struct rpc_inode *rpci = RPC_I(dentry->d_inode);
--		if (rpci->private != private ||
--				rpci->ops != ops ||
--				rpci->flags != flags) {
--			dput (dentry);
--			err = -EBUSY;
--			goto out_err;
--		}
--		rpci->nkern_readwriters++;
--		goto out;
--	}
--
- 	err = __rpc_mkpipe(dir, dentry, umode, &rpc_pipe_fops,
- 			   private, ops, flags);
- 	if (err)
+MTQ6NDA6MjPkvaDlpb3vvIzmiJHku6zlhawg5Y+45pyJ5Y+RIHFz56Wo5Y+v5Lul5LyYIOaDoOWv
+ueWklnFs5byA77yM5pmu6YCa44CB5aKe5YC844CB5pyN5Yqh44CB5ZWG5Lia562J5Y+RcWEg56Wo
+77yMKOWPr+S7pemqjOivgeWQjuS7mG3mrL7vvInmnKzkv6Eg5oGv6ZW/IOacn+acieaViO+8jOiB
+lG3ns7vmlrnlvI/or7flgZrkv53nlZnlpIfpnIDopoHml7bnlKjvvIzogZQg57O75Lq677ybdmfl
+kagg5bCP5aeQMTU5LTE5ODgtNjA2Oe+8iOacnyDlvoXkuI7kvaDnmoTlkIgg5L2c77yJfcK35a2m
+6ICM5LyY5Lmm5bqX77ya5oCd5LiO5a2m55qE4oCc5bm/5bee5rm+4oCdDQo=
