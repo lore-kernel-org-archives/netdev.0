@@ -1,76 +1,50 @@
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Subject: Re: [RFC v2] tcp: Export TCP Delayed ACK parameters to user
-Date: Mon, 31 Oct 2011 22:02:19 +0200
-Message-ID: <CAEnQRZAGc42q1LCEDs=QigLkXeHBui=KnAm5=5xrEzvA-LDcGg@mail.gmail.com>
-References: <CAEnQRZCxSPb8NRceB+tfdZnkN=K-jGbdmXDgNwEhZFYAWGmvAg@mail.gmail.com>
-	<20111028.183107.2091450715774357523.davem@davemloft.net>
-	<4EAB2F58.7080509@hp.com>
-	<20111028.222430.1568567893138453593.davem@davemloft.net>
-	<CAEnQRZCggUnoVZXyXfZ6-Om+hwQL_6Oo3dPODsXAH+iJYqN=jw@mail.gmail.com>
-	<4EAEE487.5080905@hp.com>
+From: Andreas Hofmeister <andi@collax.com>
+Subject: Subnet router anycast for FE80/10 ?
+Date: Mon, 31 Oct 2011 21:22:41 +0100
+Message-ID: <4EAF0391.80907@collax.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org, luto@amacapital.net
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:54326 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933834Ab1JaUCU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 16:02:20 -0400
-Received: by qyk27 with SMTP id 27so6667751qyk.19
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2011 13:02:19 -0700 (PDT)
-In-Reply-To: <4EAEE487.5080905@hp.com>
+Received: from mail.collax.com ([213.218.25.154]:54418 "EHLO mail.collax.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751964Ab1JaUWo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Oct 2011 16:22:44 -0400
+Received: from localhost (mail.collax.com [127.0.0.1])
+	by localhost (Postfix) with ESMTP id 5F84B15F801C
+	for <netdev@vger.kernel.org>; Mon, 31 Oct 2011 21:22:42 +0100 (CET)
+Received: from mail.collax.com ([127.0.0.1])
+	by localhost (mail.collax.com [127.0.0.1]) (amavisd-new, port 10033)
+	with ESMTP id TMjAxOjGZXgk for <netdev@vger.kernel.org>;
+	Mon, 31 Oct 2011 21:22:41 +0100 (CET)
+Received: from andinc.coreworks.de (unknown [172.16.1.3])
+	by mail.collax.com (Postfix) with ESMTPSA id 8FD2D15F801A
+	for <netdev@vger.kernel.org>; Mon, 31 Oct 2011 21:22:41 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 31, 2011 at 8:10 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> Whether tracked as bytes or segments, my take is that to ask applicat=
-ions to
-> have to think about another non-portable socket option is ungood. =A0=
-I would
-> suggest taking the time to work-out the automagic heuristic to drop t=
-he
-> deferred ACK count on connections where it being large is un-desirabl=
-e and
-> then not need to worry about the limits being global.
+Hi,
 
-Your suggestion deserves further investigation, it looks tricky to
-find a good heuristic for increasing/decreasing the ACK deferred count.
+I noticed that once forwarding has been enabled on an interface, there 
+is a "subnet router anycast address" for the link-local address prefix 
+FE80/10.
 
->
-> Given the stack's existing propensity to try to decide when to increa=
-se the
-> window I might even go so far as to suggest the sense of the heuristi=
-c be
-> flipped and it seek to decide when it is ok to increase the number of
-> segments/bytes per ACK. =A0To what extent one needs to go beyond what=
- happens
-> already with the stretching of ACKs via GRO/LRO or if that mechanism =
-can
-> serve as part of the logic of the heuristic is probably a fertile are=
-a for
-> discussion.
->
-> If I recall correctly, in one of your earlier posts you mentioned som=
-ething
-> about a 20% performance boost. =A0What were the specific conditions o=
-f that
-> testing? =A0Was it over a setup where the receiver already had LRO/GR=
-O or was
-> it over a more plain receiver NIC without that functionality?
+This address seems not to be explicitly mentioned in any RFC, but RFC 
+4291 says "All routers are required to support the Subnet-Router anycast 
+addresses for the subnets to which they have interfaces."
 
-If I remember correctly on the receiver side there was no LRO/GRO, but =
-we
-tweaked some of /proc/sys/net/ipv4 parameters (e.g tcp_rmem).
-Also, the traffic was highly unidirectional with many clients feeding m=
-ultimedia
-content to a server.
+In the sense that a Linux router actually has an address FE80/10 on each 
+ipv6 enabled interface, it seems to be correct to also have FE80:: as an 
+anycast address on all interfaces which have ipv6 and forwarding enabled.
 
-Anyhow, we used our custom kernel which is an older kernel version.
-Are there any recommended benchmarks/tools for testing this kind of par=
-ameters?
+But then, FE80/10 is not actually supposed to be routed at all and so a 
+router cannot not really be a router for that particular subnet ?
 
-Daniel.
+Or is "FE80::" just supposed to be the anycast equivalent for the "all 
+routers" multicast address ff02::2 ?
+
+Maybe someone on this list could enlighten me.
+
+Ciao
+  Andi
