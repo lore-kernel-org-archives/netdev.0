@@ -1,55 +1,104 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC v2] tcp: Export TCP Delayed ACK parameters to user
-Date: Mon, 31 Oct 2011 14:29:30 -0700
-Message-ID: <4EAF133A.2080505@hp.com>
-References: <CAEnQRZCxSPb8NRceB+tfdZnkN=K-jGbdmXDgNwEhZFYAWGmvAg@mail.gmail.com> <20111028.183107.2091450715774357523.davem@davemloft.net> <4EAB2F58.7080509@hp.com> <20111028.222430.1568567893138453593.davem@davemloft.net> <CAEnQRZCggUnoVZXyXfZ6-Om+hwQL_6Oo3dPODsXAH+iJYqN=jw@mail.gmail.com> <4EAEE487.5080905@hp.com> <CAEnQRZAGc42q1LCEDs=QigLkXeHBui=KnAm5=5xrEzvA-LDcGg@mail.gmail.com>
+From: akpm@linux-foundation.org
+Subject: [patch 1/1] net/netfilter/nf_conntrack_netlink.c: fix Oops on container destroy
+Date: Mon, 31 Oct 2011 14:33:12 -0700
+Message-ID: <201110312133.p9VLXDUu003535@hpaq6.eem.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org, luto@amacapital.net
-To: Daniel Baluta <dbaluta@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:12054 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141Ab1JaV3e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 17:29:34 -0400
-In-Reply-To: <CAEnQRZAGc42q1LCEDs=QigLkXeHBui=KnAm5=5xrEzvA-LDcGg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ASCII
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, akpm@linux-foundation.org,
+	alex@alex.org.uk, stable@kernel.org, stable@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/31/2011 01:02 PM, Daniel Baluta wrote:
-> On Mon, Oct 31, 2011 at 8:10 PM, Rick Jones<rick.jones2@hp.com>  wrote:
->> Whether tracked as bytes or segments, my take is that to ask applications to
->> have to think about another non-portable socket option is ungood.  I would
->> suggest taking the time to work-out the automagic heuristic to drop the
->> deferred ACK count on connections where it being large is un-desirable and
->> then not need to worry about the limits being global.
->
-> Your suggestion deserves further investigation, it looks tricky to
-> find a good heuristic for increasing/decreasing the ACK deferred count.
+From: Alex Bligh <alex@alex.org.uk>
+Subject: net/netfilter/nf_conntrack_netlink.c: fix Oops on container destroy
 
-Well, presumably you can observe the behaviour of some HP-UX and/or 
-Solaris receivers to get some ideas.
+Problem:
 
->> If I recall correctly, in one of your earlier posts you mentioned something
->> about a 20% performance boost.  What were the specific conditions of that
->> testing?  Was it over a setup where the receiver already had LRO/GRO or was
->> it over a more plain receiver NIC without that functionality?
->
-> If I remember correctly on the receiver side there was no LRO/GRO, but we
-> tweaked some of /proc/sys/net/ipv4 parameters (e.g tcp_rmem).
-> Also, the traffic was highly unidirectional with many clients feeding multimedia
-> content to a server.
->
-> Anyhow, we used our custom kernel which is an older kernel version.
-> Are there any recommended benchmarks/tools for testing this kind of parameters?
+A repeatable Oops can be caused if a container with networking
+unshared is destroyed when it has nf_conntrack entries yet to expire.
 
-Well, the last time I was tilting after the ACK avoidance windmill I 
-used my favorite tool, netperf.  I believe I posted some HP-UX data 
-showing the effect of different values of tcp_deferred_ack_max.  Both on 
-throughput, and on CPU utilization/service demand.  Of course, I have 
-something of a bias in that regard :)
+A copy of the oops follows below. A perl program generating the oops
+repeatably is attached inline below.
 
-rick jones
+Analysis:
+
+The oops is called from cleanup_net when the namespace is
+destroyed. conntrack iterates through outstanding events and calls
+death_by_timeout on each of them, which in turn produces a call to
+ctnetlink_conntrack_event. This calls nf_netlink_has_listeners, which
+oopses because net->nfnl is NULL.
+
+The perl program generates the container through fork() then
+clone(NS_NEWNET). I does not explicitly	set up netlink
+explicitly set up netlink, but I presume it was set up else net->nfnl
+would have been NULL earlier (i.e. when an earlier connection
+timed out). This would thus suggest that net->nfnl is made NULL
+during the destruction of the container, which I think is done by
+nfnetlink_net_exit_batch.
+
+I can see that the various subsystems are deinitialised in the opposite
+order to which the relevant register_pernet_subsys calls are called,
+and both nf_conntrack and nfnetlink_net_ops register their relevant
+subsystems. If nfnetlink_net_ops registered later than nfconntrack,
+then its exit routine would have been called first, which would cause
+the oops described. I am not sure there is anything to prevent this
+happening in a container environment.
+
+Whilst there's perhaps a more complex problem revolving around ordering
+of subsystem deinit, it seems to me that missing a netlink event on a
+container that is dying is not a disaster. An early check for net->nfnl
+being non-NULL in ctnetlink_conntrack_event appears to fix this. There
+may remain a potential race condition if it becomes NULL immediately
+after being checked (I am not sure any lock is held at this point or
+how synchronisation for subsystem deinitialization works).
+
+Patch:
+
+The patch attached should apply on everything from 2.6.26 (if not before)
+onwards; it appears to be a problem on all kernels. This was taken against
+Ubuntu-3.0.0-11.17 which is very close to 3.0.4. I have torture-tested it
+with the above perl script for 15 minutes or so; the perl script hung the
+machine within 20 seconds without this patch.
+
+Applicability:
+
+If this is the right solution, it should be applied to all stable kernels
+as well as head. Apart from the minor overhead of checking one variable
+against NULL, it can never 'do the wrong thing', because if net->nfnl
+is NULL, an oops will inevitably result. Therefore, checking is a reasonable
+thing to do unless it can be proven than net->nfnl will never be NULL.
+
+Check net->nfnl for NULL in ctnetlink_conntrack_event to avoid Oops on
+container destroy
+
+Signed-off-by: Alex Bligh <alex@alex.org.uk>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>
+Cc: <stable@kernel.org>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ net/netfilter/nf_conntrack_netlink.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff -puN net/netfilter/nf_conntrack_netlink.c~net-netfilter-nf_conntrack_netlinkc-fix-oops-on-container-destroy net/netfilter/nf_conntrack_netlink.c
+--- a/net/netfilter/nf_conntrack_netlink.c~net-netfilter-nf_conntrack_netlinkc-fix-oops-on-container-destroy
++++ a/net/netfilter/nf_conntrack_netlink.c
+@@ -570,6 +570,11 @@ ctnetlink_conntrack_event(unsigned int e
+ 		return 0;
+ 
+ 	net = nf_ct_net(ct);
++
++	/* container deinit, netlink may have died before death_by_timeout */
++	if (!net->nfnl)
++		return 0;
++
+ 	if (!item->report && !nfnetlink_has_listeners(net, group))
+ 		return 0;
+ 
+_
