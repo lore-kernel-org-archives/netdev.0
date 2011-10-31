@@ -1,43 +1,69 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC v2] tcp: Export TCP Delayed ACK parameters to user
-Date: Mon, 31 Oct 2011 11:10:15 -0700
-Message-ID: <4EAEE487.5080905@hp.com>
-References: <CAEnQRZCxSPb8NRceB+tfdZnkN=K-jGbdmXDgNwEhZFYAWGmvAg@mail.gmail.com> <20111028.183107.2091450715774357523.davem@davemloft.net> <4EAB2F58.7080509@hp.com> <20111028.222430.1568567893138453593.davem@davemloft.net> <CAEnQRZCggUnoVZXyXfZ6-Om+hwQL_6Oo3dPODsXAH+iJYqN=jw@mail.gmail.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [PATCH 2/2 v4] net/smsc911x: Add regulator support
+Date: Mon, 31 Oct 2011 14:21:15 -0400
+Message-ID: <201110311421.18653.vapier@gentoo.org>
+References: <1320064719-14449-1-git-send-email-robert.marklund@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart2026611.Zm7YYLeAMb";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org, luto@amacapital.net
-To: Daniel Baluta <dbaluta@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:24220 "EHLO
-	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933655Ab1JaSTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 14:19:19 -0400
-In-Reply-To: <CAEnQRZCggUnoVZXyXfZ6-Om+hwQL_6Oo3dPODsXAH+iJYqN=jw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Mathieu Poirier <mathieu.poirier@linaro.org>,
+	Paul Mundt <lethal@linux-sh.org>, linux-sh@vger.kernel.org,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Tony Lindgren <tony@atomide.com>, linux-omap@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Robert Marklund <robert.marklund@stericsson.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1320064719-14449-1-git-send-email-robert.marklund@stericsson.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Whether tracked as bytes or segments, my take is that to ask 
-applications to have to think about another non-portable socket option 
-is ungood.  I would suggest taking the time to work-out the automagic 
-heuristic to drop the deferred ACK count on connections where it being 
-large is un-desirable and then not need to worry about the limits being 
-global.
+--nextPart2026611.Zm7YYLeAMb
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-Given the stack's existing propensity to try to decide when to increase 
-the window I might even go so far as to suggest the sense of the 
-heuristic be flipped and it seek to decide when it is ok to increase the 
-number of segments/bytes per ACK.  To what extent one needs to go beyond 
-what happens already with the stretching of ACKs via GRO/LRO or if that 
-mechanism can serve as part of the logic of the heuristic is probably a 
-fertile area for discussion.
+On Monday 31 October 2011 08:38:39 Robert Marklund wrote:
+> ChangeLog v3->v4:
+> - Remove dual prints and old comment on Mike's request.
+> - Split the request_free fucntion on Mike and Sascha request.
 
-If I recall correctly, in one of your earlier posts you mentioned 
-something about a 20% performance boost.  What were the specific 
-conditions of that testing?  Was it over a setup where the receiver 
-already had LRO/GRO or was it over a more plain receiver NIC without 
-that functionality?
+would be nice if the enable/disable were split as well ...
 
-rick jones
+>  	iounmap(pdata->ioaddr);
+>=20
+> +	(void)smsc911x_enable_disable_resources(pdev, false);
+
+i don't think the (void) cast is necessary
+
+otherwise looks fine
+=2Dmike
+
+--nextPart2026611.Zm7YYLeAMb
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
+
+iQIcBAABAgAGBQJOruceAAoJEEFjO5/oN/WBcEAP/37XHSiSXFvf1xdbFmVmVH20
+I9kwyxsxV/A7v3czWCf88uAXhOeDGVC7gWesSDt1qgighu3HK+Idyjegg1T2lsG+
+m0v98wG1b/RQDJJ0NJq+0xoqY9va0qLw27Y6S0Bkzg9fYfElFoRQr9p68cFnY9rO
+25oT6Ebd8ha7LyrN8pQXv8Ghy3ZN2Lhr/zvasbfE8wFTRddoqBmWSHWtlslZXxcx
+fjMEVMr1L5PoBiCD1v4ZM77k3BXPBL2kLFmW2PxI5S3gCCfj7UKXBKtozbsw6VpX
+6/AyWnRSK08kziBnmEcisNitjElBrk4hS/5j4zkHlvQ8PnTRfWBlSeqKw3NW0Euu
+51usSjczj22TepHaELzpkvAHNPG5IC336ZXGvlI7JUUYM4qfN1d+FDj2V5izgOpM
+mZBs+PfYSRRCrwv5h7bXkAov4RUdNEWWo34y9U58ulbWFF50L0FrwCdp3Hn7ywSI
+cLng/BSg726VMrVDZuk4UvFUzx+1YlaJw6E4HTdUDWyw4y+dEMXH8pUQcIF4tWoA
+nK/CxWeyB1GMMwNrKDyWiwi1H5MzkCQ3VDKJK0MSuN4GA3WRMMg1nUH2xpNxNAmy
+sOiOIUPFpLzc/GvKxVZNVKAxYm7aXb8kP9J/wsjsj3XLnhYkCOf9WMIpPDG9XcRR
+TtXLTcJxl/QS/hLcqRj+
+=zKGV
+-----END PGP SIGNATURE-----
+
+--nextPart2026611.Zm7YYLeAMb--
