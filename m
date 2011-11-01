@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next-net] ipv6: Use hlist_for_each_entry_rcu_bh() in
- ipv6_chk_same_addr()
-Date: Tue, 01 Nov 2011 03:53:23 -0400 (EDT)
-Message-ID: <20111101.035323.458528114788135444.davem@davemloft.net>
-References: <1320125455-25222-1-git-send-email-roy.qing.li@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [patch 1/1] net/netfilter/nf_conntrack_netlink.c: fix Oops on
+ container destroy
+Date: Tue, 1 Nov 2011 09:07:15 +0100
+Message-ID: <20111101080715.GA4268@1984>
+References: <201110312133.p9VLXDUu003535@hpaq6.eem.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60957 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751940Ab1KAHx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 03:53:26 -0400
-In-Reply-To: <1320125455-25222-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, alex@alex.org.uk,
+	stable@kernel.org, stable@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201110312133.p9VLXDUu003535@hpaq6.eem.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roy.qing.li@gmail.com
-Date: Tue,  1 Nov 2011 13:30:55 +0800
+On Mon, Oct 31, 2011 at 02:33:12PM -0700, akpm@linux-foundation.org wrote:
+> diff -puN net/netfilter/nf_conntrack_netlink.c~net-netfilter-nf_conntrack_netlinkc-fix-oops-on-container-destroy net/netfilter/nf_conntrack_netlink.c
+> --- a/net/netfilter/nf_conntrack_netlink.c~net-netfilter-nf_conntrack_netlinkc-fix-oops-on-container-destroy
+> +++ a/net/netfilter/nf_conntrack_netlink.c
+> @@ -570,6 +570,11 @@ ctnetlink_conntrack_event(unsigned int e
+>  		return 0;
+>  
+>  	net = nf_ct_net(ct);
+> +
+> +	/* container deinit, netlink may have died before death_by_timeout */
+> +	if (!net->nfnl)
+> +		return 0;
+> +
 
-> From: RongQing.Li <roy.qing.li@gmail.com>
-> 
-> Replace hlist_for_each_entry and hlist_for_each_entry_rcu with
-> hlist_for_each_entry_rcu_bh() in ipv6_chk_same_addr and
-> ipv6_chk_addr to keep that all dereference methods for addr_list
-> are same, and take advantage of _rcu_bh() critical section
-> checking and prevention from compiler merging or refetching.
-> 
-> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+This patch is a workaround and it is incomplete (it doesn't include
+the expectation part). The correct fix requires to finish container
+support for nfnetlink, which seems incomplete.
 
-Callers are already in an RCU section with BH disabled when these
-functions are invoked.
+I was expecting some feedback from Alexey Dobriyan with no success.
+
+If we apply this, we'll have to apply similar workaround in other
+parts of the code.
