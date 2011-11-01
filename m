@@ -1,46 +1,38 @@
-From: Marcos Paulo de Souza <marcos.mage@gmail.com>
-Subject: [PATCH] include: linux: skbuf.h: Fix parameter documentation
-Date: Mon, 31 Oct 2011 23:11:45 -0200
-Message-ID: <1320109905-12721-1-git-send-email-marcos.mage@gmail.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Marcos Paulo de Souza <marcos.mage@gmail.com>
-To: rdunlap@xenotime.net
+From: "Webmail Upgrade Team" <upgradeteam@adm.cgmh.org.tw>
+Subject: Note...
+Date: Tue, 1 Nov 2011 10:02:12 +0800
+Message-ID: <20111101020212.M66587@adm.cgmh.org.tw>
+Reply-To: upgradeteam@adim.tw
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset=big5
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:60613 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067Ab1KABL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 21:11:57 -0400
-Received: by gyb13 with SMTP id 13so6492621gyb.19
-        for <netdev@vger.kernel.org>; Mon, 31 Oct 2011 18:11:56 -0700 (PDT)
+Received: from lnksmtp.cgmh.org.tw ([60.250.255.94]:37384 "EHLO
+	lnksmtp.cgmh.org.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752190Ab1KACCR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 22:02:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes parameter name of skb_frag_dmamap function to silence warning on
-make htmldocs.
+Dear Account Owner,
 
-Signed-off-by: Marcos Paulo de Souza <marcos.mage@gmail.com>
----
- include/linux/skbuff.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Your mailbox has exceeded the storage limit which is 20GB as set by your 
+administrator,you are currently running
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6a6b352..fe86488 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1806,12 +1806,12 @@ static inline void skb_frag_set_page(struct sk_buff *skb, int f,
- 
- /**
-  * skb_frag_dma_map - maps a paged fragment via the DMA API
-- * @device: the device to map the fragment to
-+ * @dev: the device to map the fragment to
-  * @frag: the paged fragment to map
-  * @offset: the offset within the fragment (starting at the
-  *          fragment's own offset)
-  * @size: the number of bytes to map
-- * @direction: the direction of the mapping (%PCI_DMA_*)
-+ * @dir: the direction of the mapping (%PCI_DMA_*)
-  *
-  * Maps the page associated with @frag to @device.
-  */
--- 
-1.7.4.1
+on 20.9GB,you may not be able to send or receive new mail until you re-
+validate your mailbox.To re-validate your
+
+mailbox please click the linkbelow:
+
+https://docs.google.com/spreadsheet/
+viewform?formkey=dDBiVGNBMm1KbG9mWmVBbkRrS3E4THc6MQ
+
+
+Warning!!! All Account owners that refuse to update his or her account within 
+two days of receiving this
+
+email will lose his or her account permanently. AGB &#194;&#169; upc cablecom GmbH 
+2011. We apologize for any
+
+inconvenience this may have cause you. Thank you for using this Account
