@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neigh: print nud_state in neigh timer handler.
-Date: Tue, 01 Nov 2011 17:44:11 -0400 (EDT)
-Message-ID: <20111101.174411.1200019350687608200.davem@davemloft.net>
-References: <1320095448-5228-1-git-send-email-dbaluta@ixiacom.com>
+Subject: Re: [PATCH] vlan: Don't propagate flag changes on down interfaces.
+Date: Tue, 01 Nov 2011 17:51:13 -0400 (EDT)
+Message-ID: <20111101.175113.2141024983069963090.davem@davemloft.net>
+References: <20111031134411.GG14392@login.drsnuggles.stderr.nl>
+	<1320072793-16490-1-git-send-email-matthijs@stdin.nl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, gregory.v.rose@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	daniel.baluta@gmail.com
-To: dbaluta@ixiacom.com
+Cc: netdev@vger.kernel.org
+To: matthijs@stdin.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:53627 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:59962 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754614Ab1KAVoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 17:44:20 -0400
-In-Reply-To: <1320095448-5228-1-git-send-email-dbaluta@ixiacom.com>
+	with ESMTP id S1753565Ab1KAVvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 17:51:20 -0400
+In-Reply-To: <1320072793-16490-1-git-send-email-matthijs@stdin.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Date: Mon, 31 Oct 2011 23:10:48 +0200
+From: Matthijs Kooijman <matthijs@stdin.nl>
+Date: Mon, 31 Oct 2011 15:53:13 +0100
 
-> From: Daniel Baluta <daniel.baluta@gmail.com>
+> When (de)configuring a vlan interface, the IFF_ALLMULTI ans IFF_PROMISC
+> flags are cleared or set on the underlying interface. So, if these flags
+> are changed on a vlan interface that is not up, the flags underlying
+> interface might be set or cleared twice.
 > 
-> For debugging purposes it is useful to know the exact state of a
-> non NUD_IN_TIMER neighbour entry whose timer handler just expired.
+> Only propagating flag changes when a device is up makes sure this does
+> not happen. It also makes sure that an underlying device is not set to
+> promiscuous or allmulti mode for a vlan device that is down.
 > 
-> Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
+> Signed-off-by: Matthijs Kooijman <matthijs@stdin.nl>
 
-This debugging log message is dubious.
-
-Also, it is protected by !SMP and I can almost guarentee you that whatever
-condition makes it happen leigitmately on SMP also can be triggered with
-preemption enabled on !SMP.
-
-So I'm going to simply remove this debug message entirely instead.
+Applied, thanks.
