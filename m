@@ -1,34 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: make the tcp and udp file_operations for the
- /proc stuff const
-Date: Tue, 01 Nov 2011 17:56:33 -0400 (EDT)
-Message-ID: <20111101.175633.1920208937281416034.davem@davemloft.net>
-References: <20111030094630.47e247ae@infradead.org>
+Subject: Re: [PATCH] [RESEND] [TRIVIAL] isdn: hisax: Fix typo 'HISAX_DE_AOC'
+Date: Tue, 01 Nov 2011 17:59:34 -0400 (EDT)
+Message-ID: <20111101.175934.515290888619215019.davem@davemloft.net>
+References: <1319976044.14409.14.camel@x61.thuisdomein>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: arjan@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:49188 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753588Ab1KAV5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 17:57:41 -0400
-In-Reply-To: <20111030094630.47e247ae@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
+	isdn@linux-pingi.de, netdev@vger.kernel.org
+To: pebolle@tiscali.nl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1319976044.14409.14.camel@x61.thuisdomein>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arjan van de Ven <arjan@infradead.org>
-Date: Sun, 30 Oct 2011 09:46:30 -0700
+From: Paul Bolle <pebolle@tiscali.nl>
+Date: Sun, 30 Oct 2011 13:00:44 +0100
 
-> the tcp and udp code creates a set of struct file_operations at runtime
-> while it can also be done at compile time, with the added benefit of then
-> having these file operations be const.
+> That should probably be 'CONFIG_DE_AOC'.
 > 
-> the trickiest part was to get the "THIS_MODULE" reference right; the naive
-> method of declaring a struct in the place of registration would not work
-> for this reason.
-> 
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 
-I have no problem with this, applied, thanks.
+Applied, thanks.
