@@ -1,59 +1,46 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] flexcan: Fix CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK
-Date: Mon, 31 Oct 2011 23:49:41 +0100
-Message-ID: <4EAF2605.9090005@pengutronix.de>
-References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA1DD@exch01-aklnz.MARINE.NET .INT> <4EAF21A6.702@pengutronix.de> <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA211@exch01-aklnz.MARINE.NET.INT>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig634FF29769D5BE5F73619BE1"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: Reuben Dowle <Reuben.Dowle@navico.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA211@exch01-aklnz.MARINE.NET.INT>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcos Paulo de Souza <marcos.mage@gmail.com>
+Subject: [PATCH] include: linux: skbuf.h: Fix parameter documentation
+Date: Mon, 31 Oct 2011 23:11:45 -0200
+Message-ID: <1320109905-12721-1-git-send-email-marcos.mage@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Marcos Paulo de Souza <marcos.mage@gmail.com>
+To: rdunlap@xenotime.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:60613 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751067Ab1KABL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Oct 2011 21:11:57 -0400
+Received: by gyb13 with SMTP id 13so6492621gyb.19
+        for <netdev@vger.kernel.org>; Mon, 31 Oct 2011 18:11:56 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig634FF29769D5BE5F73619BE1
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Fixes parameter name of skb_frag_dmamap function to silence warning on
+make htmldocs.
 
-On 10/31/2011 11:43 PM, Reuben Dowle wrote:
-> Currently the flexcan driver uses hardware local echo. This blindly
-> echoes all transmitted frames to all receiving sockets, regardless what=
+Signed-off-by: Marcos Paulo de Souza <marcos.mage@gmail.com>
+---
+ include/linux/skbuff.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-> CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK are set to.
->=20
-> This patch now submits transmitted frames to be echoed in the transmit
-> complete interrupt, preserving the reference to the sending socket.
-> This allows the can protocol to correctly handle the local echo.
->=20
-> Signed-off-by: Reuben Dowle <reuben.dowle@navico.com>
-
-there were some comments inline in my original mail.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig634FF29769D5BE5F73619BE1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk6vJgoACgkQjTAFq1RaXHNUkACdF14ux33YGhFhmHgX67uSvXvQ
-wi0An2zj3bvjkPQFDPRwk1Gc88hPciKa
-=OCF1
------END PGP SIGNATURE-----
-
---------------enig634FF29769D5BE5F73619BE1--
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 6a6b352..fe86488 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1806,12 +1806,12 @@ static inline void skb_frag_set_page(struct sk_buff *skb, int f,
+ 
+ /**
+  * skb_frag_dma_map - maps a paged fragment via the DMA API
+- * @device: the device to map the fragment to
++ * @dev: the device to map the fragment to
+  * @frag: the paged fragment to map
+  * @offset: the offset within the fragment (starting at the
+  *          fragment's own offset)
+  * @size: the number of bytes to map
+- * @direction: the direction of the mapping (%PCI_DMA_*)
++ * @dir: the direction of the mapping (%PCI_DMA_*)
+  *
+  * Maps the page associated with @frag to @device.
+  */
+-- 
+1.7.4.1
