@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 15/21] Convert cmdline_msglvl into array of named
- flags; convert back at run-time
-Date: Tue, 1 Nov 2011 23:19:40 +0000
-Message-ID: <1320189580.2758.45.camel@bwh-desktop>
+Subject: [PATCH ethtool 16/21] Replace global devname variable with a field
+ in struct cmd_context
+Date: Tue, 1 Nov 2011 23:20:04 +0000
+Message-ID: <1320189604.2758.46.camel@bwh-desktop>
 References: <1320186901.2758.30.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,155 +10,130 @@ Content-Transfer-Encoding: 7bit
 Cc: <linux-net-drivers@solarflare.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:38491 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:38537 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932086Ab1KAXTo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 19:19:44 -0400
+	with ESMTP id S932086Ab1KAXUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 19:20:07 -0400
 In-Reply-To: <1320186901.2758.30.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cmdline_msglvl is used both in do_gset() and do_sset(), but it refers
-to variables only used in do_sset().  I want to get rid of the global
-variables without duplicating the flag definitions.  So separate out
-the flag definitions into a new structure and generate cmdline_msglvl
-from that at run-time.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- ethtool.c |   79 ++++++++++++++++++++++++++++++++++---------------------------
- 1 files changed, 44 insertions(+), 35 deletions(-)
+ ethtool.c  |   24 +++++++++++-------------
+ internal.h |    1 +
+ 2 files changed, 12 insertions(+), 13 deletions(-)
 
 diff --git a/ethtool.c b/ethtool.c
-index 7bdf173..438fc26 100644
+index 438fc26..d0929c7 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -426,6 +426,11 @@ struct cmdline_info {
- 	void *seen_val;
- };
- 
-+struct flag_info {
-+	const char *name;
-+	u32 value;
-+};
-+
- static struct cmdline_info cmdline_gregs[] = {
- 	{ "raw", CMDL_BOOL, &gregs_dump_raw, NULL },
- 	{ "hex", CMDL_BOOL, &gregs_dump_hex, NULL },
-@@ -511,37 +516,22 @@ static struct cmdline_info cmdline_coalesce[] = {
- 	{ "tx-frames-high", CMDL_S32, &coal_tx_frames_high_wanted, &ecoal.tx_max_coalesced_frames_high },
- };
- 
--static struct cmdline_info cmdline_msglvl[] = {
--	{ "drv", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_DRV, &msglvl_mask },
--	{ "probe", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_PROBE, &msglvl_mask },
--	{ "link", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_LINK, &msglvl_mask },
--	{ "timer", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_TIMER, &msglvl_mask },
--	{ "ifdown", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_IFDOWN, &msglvl_mask },
--	{ "ifup", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_IFUP, &msglvl_mask },
--	{ "rx_err", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_RX_ERR, &msglvl_mask },
--	{ "tx_err", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_TX_ERR, &msglvl_mask },
--	{ "tx_queued", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_TX_QUEUED, &msglvl_mask },
--	{ "intr", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_INTR, &msglvl_mask },
--	{ "tx_done", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_TX_DONE, &msglvl_mask },
--	{ "rx_status", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_RX_STATUS, &msglvl_mask },
--	{ "pktdata", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_PKTDATA, &msglvl_mask },
--	{ "hw", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_HW, &msglvl_mask },
--	{ "wol", CMDL_FLAG, &msglvl_wanted, NULL,
--	  NETIF_MSG_WOL, &msglvl_mask },
-+static const struct flag_info flags_msglvl[] = {
-+	{ "drv",	NETIF_MSG_DRV },
-+	{ "probe",	NETIF_MSG_PROBE },
-+	{ "link",	NETIF_MSG_LINK },
-+	{ "timer",	NETIF_MSG_TIMER },
-+	{ "ifdown",	NETIF_MSG_IFDOWN },
-+	{ "ifup",	NETIF_MSG_IFUP },
-+	{ "rx_err",	NETIF_MSG_RX_ERR },
-+	{ "tx_err",	NETIF_MSG_TX_ERR },
-+	{ "tx_queued",	NETIF_MSG_TX_QUEUED },
-+	{ "intr",	NETIF_MSG_INTR },
-+	{ "tx_done",	NETIF_MSG_TX_DONE },
-+	{ "rx_status",	NETIF_MSG_RX_STATUS },
-+	{ "pktdata",	NETIF_MSG_PKTDATA },
-+	{ "hw",		NETIF_MSG_HW },
-+	{ "wol",	NETIF_MSG_WOL },
- };
- 
- static long long
-@@ -694,16 +684,28 @@ static void parse_generic_cmdline(struct cmd_context *ctx,
- 	}
+@@ -285,8 +285,6 @@ static int show_usage(struct cmd_context *ctx)
+ 	return 0;
  }
  
-+static void flag_to_cmdline_info(const char *name, u32 value,
-+				 u32 *wanted, u32 *mask,
-+				 struct cmdline_info *cli)
-+{
-+	memset(cli, 0, sizeof(*cli));
-+	cli->name = name;
-+	cli->type = CMDL_FLAG;
-+	cli->flag_val = value;
-+	cli->wanted_val = wanted;
-+	cli->seen_val = mask;
-+}
-+
- static void
--print_flags(const struct cmdline_info *info, unsigned int n_info, u32 value)
-+print_flags(const struct flag_info *info, unsigned int n_info, u32 value)
- {
- 	const char *sep = "";
+-static char *devname = NULL;
+-
+ static int goffload_changed = 0;
+ static int off_csum_rx_wanted = -1;
+ static int off_csum_tx_wanted = -1;
+@@ -1540,7 +1538,7 @@ static int do_gpause(struct cmd_context *ctx)
+ 	if (ctx->argc != 0)
+ 		exit_bad_args();
  
- 	while (n_info) {
--		if (info->type == CMDL_FLAG && value & info->flag_val) {
-+		if (value & info->value) {
- 			printf("%s%s", sep, info->name);
- 			sep = " ";
--			value &= ~info->flag_val;
-+			value &= ~info->value;
- 		}
- 		++info;
- 		--n_info;
-@@ -2037,7 +2039,7 @@ static int do_gset(struct cmd_context *ctx)
- 		fprintf(stdout, "	Current message level: 0x%08x (%d)\n"
- 			"			       ",
- 			edata.data, edata.data);
--		print_flags(cmdline_msglvl, ARRAY_SIZE(cmdline_msglvl),
-+		print_flags(flags_msglvl, ARRAY_SIZE(flags_msglvl),
- 			    edata.data);
- 		fprintf(stdout, "\n");
- 		allfail = 0;
-@@ -2064,11 +2066,18 @@ static int do_gset(struct cmd_context *ctx)
+-	fprintf(stdout, "Pause parameters for %s:\n", devname);
++	fprintf(stdout, "Pause parameters for %s:\n", ctx->devname);
  
- static int do_sset(struct cmd_context *ctx)
- {
-+	struct cmdline_info cmdline_msglvl[ARRAY_SIZE(flags_msglvl)];
- 	int argc = ctx->argc;
- 	char **argp = ctx->argp;
- 	int i;
- 	int err;
+ 	epause.cmd = ETHTOOL_GPAUSEPARAM;
+ 	err = send_ioctl(ctx, &epause);
+@@ -1662,7 +1660,7 @@ static int do_gring(struct cmd_context *ctx)
+ 	if (ctx->argc != 0)
+ 		exit_bad_args();
  
-+	for (i = 0; i < ARRAY_SIZE(flags_msglvl); i++)
-+		flag_to_cmdline_info(flags_msglvl[i].name,
-+				     flags_msglvl[i].value,
-+				     &msglvl_wanted, &msglvl_mask,
-+				     &cmdline_msglvl[i]);
-+
- 	for (i = 0; i < argc; i++) {
- 		if (!strcmp(argp[i], "speed")) {
- 			gset_changed = 1;
+-	fprintf(stdout, "Ring parameters for %s:\n", devname);
++	fprintf(stdout, "Ring parameters for %s:\n", ctx->devname);
+ 
+ 	ering.cmd = ETHTOOL_GRINGPARAM;
+ 	err = send_ioctl(ctx, &ering);
+@@ -1721,7 +1719,7 @@ static int do_gchannels(struct cmd_context *ctx)
+ 	if (ctx->argc != 0)
+ 		exit_bad_args();
+ 
+-	fprintf(stdout, "Channel parameters for %s:\n", devname);
++	fprintf(stdout, "Channel parameters for %s:\n", ctx->devname);
+ 
+ 	echannels.cmd = ETHTOOL_GCHANNELS;
+ 	err = send_ioctl(ctx, &echannels);
+@@ -1744,7 +1742,7 @@ static int do_gcoalesce(struct cmd_context *ctx)
+ 	if (ctx->argc != 0)
+ 		exit_bad_args();
+ 
+-	fprintf(stdout, "Coalesce parameters for %s:\n", devname);
++	fprintf(stdout, "Coalesce parameters for %s:\n", ctx->devname);
+ 
+ 	ecoal.cmd = ETHTOOL_GCOALESCE;
+ 	err = send_ioctl(ctx, &ecoal);
+@@ -1802,7 +1800,7 @@ static int do_goffload(struct cmd_context *ctx)
+ 	if (ctx->argc != 0)
+ 		exit_bad_args();
+ 
+-	fprintf(stdout, "Offload parameters for %s:\n", devname);
++	fprintf(stdout, "Offload parameters for %s:\n", ctx->devname);
+ 
+ 	eval.cmd = ETHTOOL_GRXCSUM;
+ 	err = send_ioctl(ctx, &eval);
+@@ -2009,7 +2007,7 @@ static int do_gset(struct cmd_context *ctx)
+ 	if (ctx->argc != 0)
+ 		exit_bad_args();
+ 
+-	fprintf(stdout, "Settings for %s:\n", devname);
++	fprintf(stdout, "Settings for %s:\n", ctx->devname);
+ 
+ 	ecmd.cmd = ETHTOOL_GSET;
+ 	err = send_ioctl(ctx, &ecmd);
+@@ -2744,7 +2742,7 @@ static int do_grxfhindir(struct cmd_context *ctx)
+ 	}
+ 
+ 	printf("RX flow hash indirection table for %s with %llu RX ring(s):\n",
+-	       devname, ring_count.data);
++	       ctx->devname, ring_count.data);
+ 	for (i = 0; i < indir->size; i++) {
+ 		if (i % 8 == 0)
+ 			printf("%5u: ", i);
+@@ -3222,17 +3220,17 @@ int main(int argc, char **argp, char **envp)
+ 
+ opt_found:
+ 	if (want_device) {
+-		devname = *argp++;
++		ctx.devname = *argp++;
+ 		argc--;
+ 
+-		if (devname == NULL)
++		if (ctx.devname == NULL)
+ 			exit_bad_args();
+-		if (strlen(devname) >= IFNAMSIZ)
++		if (strlen(ctx.devname) >= IFNAMSIZ)
+ 			exit_bad_args();
+ 
+ 		/* Setup our control structures. */
+ 		memset(&ctx.ifr, 0, sizeof(ctx.ifr));
+-		strcpy(ctx.ifr.ifr_name, devname);
++		strcpy(ctx.ifr.ifr_name, ctx.devname);
+ 
+ 		/* Open control socket. */
+ 		ctx.fd = socket(AF_INET, SOCK_DGRAM, 0);
+diff --git a/internal.h b/internal.h
+index eb13db8..cb126b3 100644
+--- a/internal.h
++++ b/internal.h
+@@ -90,6 +90,7 @@ static inline int test_bit(unsigned int nr, const unsigned long *addr)
+ 
+ /* Context for sub-commands */
+ struct cmd_context {
++	const char *devname;	/* net device name */
+ 	int fd;			/* socket suitable for ethtool ioctl */
+ 	struct ifreq ifr;	/* ifreq suitable for ethtool ioctl */
+ 	int argc;		/* number of arguments to the sub-command */
 -- 
 1.7.4.4
 
