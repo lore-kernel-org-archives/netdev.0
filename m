@@ -1,68 +1,63 @@
-From: Stefan Becker <chemobejk@gmail.com>
-Subject: Re: [PATCH] r8169: Fix WOL in power down case
-Date: Tue, 1 Nov 2011 17:28:46 +0000 (UTC)
-Message-ID: <loom.20111101T174532-579@post.gmane.org>
-References: <20111007221906.810698ba9bf825566a2478bb@gmx.de> <20111007210017.GA27820@electric-eye.fr.zoreil.com> <20111007214200.GA28365@electric-eye.fr.zoreil.com> <20111008003156.ef4dfaa76576ca8079edfbb9@gmx.de> <20111007232834.GA29770@electric-eye.fr.zoreil.com> <20111009104907.0c6cd439900ca5eb7789295f@gmx.de> <20111009115438.GA12343@electric-eye.fr.zoreil.com> <20111009191331.cbfca0b6b724921f35fd8c41@gmx.de>
+From: Thomas Backlund <tmb@mageia.org>
+Subject: Re: spamm of cfg80211: Calling CRDA to update world regulatory domain
+Date: Tue, 01 Nov 2011 20:44:50 +0200
+Message-ID: <4EB03E22.2090304@mageia.org>
+References: <4EB00DD3.7090701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:51660 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753691Ab1KARaI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Nov 2011 13:30:08 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1RLIA0-00066G-Lk
-	for netdev@vger.kernel.org; Tue, 01 Nov 2011 18:30:04 +0100
-Received: from 86-60-137-83-dyn-dsl.ssp.fi ([86.60.137.83])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2011 18:30:04 +0100
-Received: from chemobejk by 86-60-137-83-dyn-dsl.ssp.fi with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2011 18:30:04 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@kernel.org,
+	linux-wireless@vger.kernel.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EB00DD3.7090701@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marc Ballarin <ballarin.marc <at> gmx.de> writes:
-> 
-> On Sun, 9 Oct 2011 13:54:38 +0200
-> Francois Romieu <romieu <at> fr.zoreil.com> wrote:
-> 
-> > ...
-> > Moreover, the patch duplicates a chunk of conditional code:
-> > 1) it bloats the driver (ok, we have seen worse...).
-> > 2) you can bet that both instances won't be updated if / when
-> >    RTL_GIGA_MAC_VER_xy appears.
-> 
-> I thought so 
-> 
-> > 
-> > The patch below should fix it.
-> 
-> Yes, it works fine here. Thanks a lot.
-> 
+Justin P. Mattock skrev 1.11.2011 17:18:
+> is there a way to get rid of this annoying spamming of the regulatory?
+>
+>
+> [ 338.519037] cfg80211: Calling CRDA to update world regulatory domain
+> [ 338.523266] cfg80211: World regulatory domain updated:
+> [ 338.523269] cfg80211: (start_freq - end_freq @ bandwidth),
+> (max_antenna_gain, max_eirp)
+> [ 338.523272] cfg80211: (2402000 KHz - 2472000 KHz @ 40000 KHz), (300
+> mBi, 2000 mBm)
+> [ 338.523276] cfg80211: (2457000 KHz - 2482000 KHz @ 20000 KHz), (300
+> mBi, 2000 mBm)
+> [ 338.523279] cfg80211: (2474000 KHz - 2494000 KHz @ 20000 KHz), (300
+> mBi, 2000 mBm)
+> [ 338.523281] cfg80211: (5170000 KHz - 5250000 KHz @ 40000 KHz), (300
+> mBi, 2000 mBm)
+> [ 338.523284] cfg80211: (5735000 KHz - 5835000 KHz @ 40000 KHz), (300
+> mBi, 2000 mBm)
+> [ 340.948738] wlan1: authenticate with 00:1d:a2:d8:7e:70 (try 1)
+> [ 340.950479] wlan1: authenticated
+> [ 340.950707] wlan1: associate with 00:1d:a2:d8:7e:70 (try 1)
+> [ 340.953611] wlan1: RX ReassocResp from 00:1d:a2:d8:7e:70 (capab=0x401
+> status=0 aid=79)
+> [ 340.953614] wlan1: associated
+> [ 458.646604] wlan1: deauthenticated from 00:1d:a2:d8:7e:70 (Reason: 2)
+>
+>
+> my entire syslog is filled with the above.
+>
 
-I just upgraded to Fedora 16 with Kernel 3.1.0 and WoL stopped working in the
-power down case on my R8168 :-(
 
-[    8.557372] r8169 0000:02:00.0: eth0: RTL8168c/8111c at 0xf809a000,
-00:1f:d0:5a:22:77, XID 1c4000c0 IRQ 43
+Are you using networkmanager or systemd or even both ?
+Atleast at some point networkmanager have had problems when trying to
+activate wireless faster than the hw like, so you get into
+auth/deauth loop, and for every time interface restart gets detected,
+setting crda gets triggered.
 
-02:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd.
-RTL8111/8168B PCI Express Gigabit Ethernet controller [10ec:8168] (rev 02)
+For me systemd also has had the same problems for me from time to time,
+and the only way to get wireless up then is to disable it for a
+~5+ seconds with the hw killswitch, and when I re-enable it, network 
+comes up as intended.
 
-I've checked the SRPM and git commit 649b3b8c4e868 with the fix discussed here
-is included. It obviously doesn't work for my HW.
+This happends for me with atleast 3.0 and 3.1 kernels and Intel 4965AGN 
+wireless connecting to a 11N 5GHz AP.
 
-According to the code the combination "RTL8168c/8111c" means RTL_GIGA_MAC_VER_19
-to _22, so the code changes in the fix commit don't apply to them. Could it be
-that the fix doesn't cover all the necessary HW?
-
-Regards,
-
-           Stefan
-
-PS: Please CC me in your reply, as I don't read the mailing list.
+--
+Thomas
