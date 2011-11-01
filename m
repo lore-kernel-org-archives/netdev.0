@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 20/21] Run tests in-process
-Date: Tue, 1 Nov 2011 23:23:46 +0000
-Message-ID: <1320189826.2758.52.camel@bwh-desktop>
+Subject: [PATCH ethtool 21/21] Rearrange definitions and remove unnecessary
+ forward declarations
+Date: Tue, 1 Nov 2011 23:24:14 +0000
+Message-ID: <1320189854.2758.53.camel@bwh-desktop>
 References: <1320186901.2758.30.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,280 +10,524 @@ Content-Transfer-Encoding: 7bit
 Cc: <linux-net-drivers@solarflare.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:38829 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:38874 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932447Ab1KAXXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 19:23:50 -0400
+	with ESMTP id S1755056Ab1KAXYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 19:24:18 -0400
 In-Reply-To: <1320186901.2758.30.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change definition of main() and use of exit() so that ethtool commands
-can be tested without starting a new process.  This will allow deeper
-testing that covers ioctl requests and responses.
+Most functions in ethtool.c are defined before use.  The major
+exception is that the args array refers to a large number of functions
+defined after it.  Move the args array and show_usage() functions down,
+and move a few other functions up.
 
-Fix the obvious socket and memory leaks.
+This leaves just one forward declaration in ethtool.c, which is
+unavoidable because show_usage() and args refer to each other.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- Makefile.am    |    6 +---
- ethtool.c      |   25 +++++++++++++-------
- internal.h     |    5 ++++
- test-cmdline.c |    6 +++++
- test-common.c  |   65 +++++++++++++++++++++++++++++++------------------------
- 5 files changed, 66 insertions(+), 41 deletions(-)
+ ethtool.c |  447 ++++++++++++++++++++++++++++---------------------------------
+ 1 files changed, 204 insertions(+), 243 deletions(-)
 
-diff --git a/Makefile.am b/Makefile.am
-index 4b0eb17..cfc2b79 100644
---- a/Makefile.am
-+++ b/Makefile.am
-@@ -12,11 +12,9 @@ ethtool_SOURCES = ethtool.c ethtool-copy.h internal.h \
- 		  rxclass.c
- 
- TESTS = test-cmdline
--check_PROGRAMS = test-cmdline test-one-cmdline
--test_cmdline_SOURCES = test-cmdline.c test-common.c
-+check_PROGRAMS = test-cmdline
-+test_cmdline_SOURCES = test-cmdline.c test-common.c $(ethtool_SOURCES) 
- test_cmdline_CFLAGS = -DTEST_ETHTOOL
--test_one_cmdline_SOURCES = $(ethtool_SOURCES)
--test_one_cmdline_CFLAGS = -DTEST_ETHTOOL
- 
- dist-hook:
- 	cp $(top_srcdir)/ethtool.spec $(distdir)
 diff --git a/ethtool.c b/ethtool.c
-index 8e757e9..f192376 100644
+index f192376..d59ca31 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -259,7 +259,7 @@ static void exit_bad_args(void)
- 	fprintf(stderr,
- 		"ethtool: bad command line argument(s)\n"
- 		"For more information run ethtool -h\n");
--	exit(1);
-+	ethtool_exit(1);
- }
- 
- static int show_usage(struct cmd_context *ctx)
-@@ -2754,6 +2754,7 @@ static int do_grxfhindir(struct cmd_context *ctx)
- 	err = send_ioctl(ctx, indir);
- 	if (err < 0) {
- 		perror("Cannot get RX flow hash indirection table");
-+		free(indir);
- 		return 103;
- 	}
- 
-@@ -2766,6 +2767,8 @@ static int do_grxfhindir(struct cmd_context *ctx)
- 		if (i % 8 == 7)
- 			fputc('\n', stdout);
- 	}
-+
-+	free(indir);
- 	return 0;
- }
- 
-@@ -2817,14 +2820,16 @@ static int do_srxfhindir(struct cmd_context *ctx)
- 		if (sum == 0) {
- 			fprintf(stderr,
- 				"At least one weight must be non-zero\n");
--			exit(1);
-+			free(indir);
-+			ethtool_exit(1);
- 		}
- 
- 		if (sum > indir->size) {
- 			fprintf(stderr,
- 				"Total weight exceeds the size of the "
- 				"indirection table\n");
--			exit(1);
-+			free(indir);
-+			ethtool_exit(1);
- 		}
- 
- 		j = -1;
-@@ -2844,6 +2849,7 @@ static int do_srxfhindir(struct cmd_context *ctx)
- 		return 105;
- 	}
- 
-+	free(indir);
- 	return 0;
- }
- 
-@@ -3199,18 +3205,15 @@ static int do_setfwdump(struct cmd_context *ctx)
- 	return 0;
- }
- 
-+#ifndef TEST_ETHTOOL
- int send_ioctl(struct cmd_context *ctx, void *cmd)
- {
--#ifndef TEST_ETHTOOL
- 	ctx->ifr.ifr_data = cmd;
- 	return ioctl(ctx->fd, SIOCETHTOOL, &ctx->ifr);
--#else
--	/* If we get this far then parsing succeeded */
--	exit(0);
--#endif
- }
-+#endif
- 
--int main(int argc, char **argp, char **envp)
-+int ethtool_main(int argc, char **argp)
- {
- 	int (*func)(struct cmd_context *);
- 	int want_device;
-@@ -3265,12 +3268,16 @@ opt_found:
- 		memset(&ctx.ifr, 0, sizeof(ctx.ifr));
- 		strcpy(ctx.ifr.ifr_name, ctx.devname);
- 
-+#ifndef TEST_ETHTOOL
- 		/* Open control socket. */
- 		ctx.fd = socket(AF_INET, SOCK_DGRAM, 0);
- 		if (ctx.fd < 0) {
- 			perror("Cannot get control socket");
- 			return 70;
- 		}
-+#else
-+		ctx.fd = -1;
-+#endif
- 	} else {
- 		ctx.fd = -1;
- 	}
-diff --git a/internal.h b/internal.h
-index cb126b3..8505396 100644
---- a/internal.h
-+++ b/internal.h
-@@ -98,7 +98,12 @@ struct cmd_context {
+@@ -64,194 +64,6 @@ enum {
  };
- 
- #ifdef TEST_ETHTOOL
-+int ethtool_main(int argc, char **argp);
-+void ethtool_exit(int rc) __attribute__((noreturn));
- int test_cmdline(const char *args);
-+#else
-+#define ethtool_main(...) main(__VA_ARGS__)
-+#define ethtool_exit(rc) exit(rc)
  #endif
  
- int send_ioctl(struct cmd_context *ctx, void *cmd);
-diff --git a/test-cmdline.c b/test-cmdline.c
-index 7dd3b7c..df1aeed 100644
---- a/test-cmdline.c
-+++ b/test-cmdline.c
-@@ -213,6 +213,12 @@ static struct test_case {
- 	{ 1, "-0" },
- };
- 
-+int send_ioctl(struct cmd_context *ctx, void *cmd)
-+{
-+	/* If we get this far then parsing succeeded */
-+	ethtool_exit(0);
-+}
-+
- int main(void)
- {
- 	struct test_case *tc;
-diff --git a/test-common.c b/test-common.c
-index 4ea84c8..5a06ac7 100644
---- a/test-common.c
-+++ b/test-common.c
-@@ -7,22 +7,27 @@
-  * by the Free Software Foundation, incorporated herein by reference.
-  */
- 
-+#include <setjmp.h>
- #include <stdlib.h>
- #include <string.h>
- #include <sys/fcntl.h>
--#include <sys/wait.h>
- #include <unistd.h>
- #include "internal.h"
- 
-+static jmp_buf test_return;
-+
-+void ethtool_exit(int rc)
-+{
-+	longjmp(test_return, rc + 1);
-+}
-+
- int test_cmdline(const char *args)
- {
- 	int argc, i;
- 	char **argv;
- 	const char *arg;
- 	size_t len;
--	pid_t pid;
--	int dev_null;
--	int status;
-+	int dev_null = -1, old_stdout = -1, old_stderr = -1;
- 	int rc;
- 
- 	/* Convert line to argv */
-@@ -56,35 +61,39 @@ int test_cmdline(const char *args)
- 	}
- 
- 	fflush(NULL);
--	pid = fork();
+-static int show_usage(struct cmd_context *ctx);
+-static int do_version(struct cmd_context *ctx);
+-static int parse_wolopts(char *optstr, u32 *data);
+-static char *unparse_wolopts(int wolopts);
+-static void get_mac_addr(char *src, unsigned char *dest);
+-static int do_gdrv(struct cmd_context *ctx);
+-static int do_gset(struct cmd_context *ctx);
+-static int do_sset(struct cmd_context *ctx);
+-static int do_gregs(struct cmd_context *ctx);
+-static int do_nway_rst(struct cmd_context *ctx);
+-static int do_geeprom(struct cmd_context *ctx);
+-static int do_seeprom(struct cmd_context *ctx);
+-static int do_test(struct cmd_context *ctx);
+-static int do_phys_id(struct cmd_context *ctx);
+-static int do_gpause(struct cmd_context *ctx);
+-static int do_spause(struct cmd_context *ctx);
+-static int do_gring(struct cmd_context *ctx);
+-static int do_sring(struct cmd_context *ctx);
+-static int do_schannels(struct cmd_context *ctx);
+-static int do_gchannels(struct cmd_context *ctx);
+-static int do_gcoalesce(struct cmd_context *ctx);
+-static int do_scoalesce(struct cmd_context *ctx);
+-static int do_goffload(struct cmd_context *ctx);
+-static int do_soffload(struct cmd_context *ctx);
+-static int do_gstats(struct cmd_context *ctx);
+-static int rxflow_str_to_type(const char *str);
+-static int parse_rxfhashopts(char *optstr, u32 *data);
+-static char *unparse_rxfhashopts(u64 opts);
+-static int dump_rxfhash(int fhash, u64 val);
+-static int do_srxclass(struct cmd_context *ctx);
+-static int do_grxclass(struct cmd_context *ctx);
+-static int do_grxfhindir(struct cmd_context *ctx);
+-static int do_srxfhindir(struct cmd_context *ctx);
+-static int do_srxclsrule(struct cmd_context *ctx);
+-static int do_grxclsrule(struct cmd_context *ctx);
+-static int do_flash(struct cmd_context *ctx);
+-static int do_permaddr(struct cmd_context *ctx);
+-static int do_getfwdump(struct cmd_context *ctx);
+-static int do_setfwdump(struct cmd_context *ctx);
 -
--	/* Child */
--	if (pid == 0) {
--		dup2(dev_null, STDIN_FILENO);
--		if (!getenv("ETHTOOL_TEST_VERBOSE")) {
--			dup2(dev_null, STDOUT_FILENO);
--			dup2(dev_null, STDERR_FILENO);
-+	dup2(dev_null, STDIN_FILENO);
-+	if (!getenv("ETHTOOL_TEST_VERBOSE")) {
-+		old_stdout = dup(STDOUT_FILENO);
-+		if (old_stdout < 0) {
-+			perror("dup stdout");
-+			rc = -1;
-+			goto out;
- 		}
--		execv("./test-one-cmdline", argv);
--		_exit(126);
-+		dup2(dev_null, STDOUT_FILENO);
-+		old_stderr = dup(STDERR_FILENO);
-+		if (old_stderr < 0) {
-+			perror("dup stderr");
-+			rc = -1;
-+			goto out;
+-static const struct option {
+-	const char *opts;
+-	int want_device;
+-	int (*func)(struct cmd_context *);
+-	char *help;
+-	char *opthelp;
+-} args[] = {
+-	{ "-s|--change", 1, do_sset, "Change generic options",
+-	  "		[ speed %d ]\n"
+-	  "		[ duplex half|full ]\n"
+-	  "		[ port tp|aui|bnc|mii|fibre ]\n"
+-	  "		[ autoneg on|off ]\n"
+-	  "		[ advertise %x ]\n"
+-	  "		[ phyad %d ]\n"
+-	  "		[ xcvr internal|external ]\n"
+-	  "		[ wol p|u|m|b|a|g|s|d... ]\n"
+-	  "		[ sopass %x:%x:%x:%x:%x:%x ]\n"
+-	  "		[ msglvl %d | msglvl type on|off ... ]\n" },
+-	{ "-a|--show-pause", 1, do_gpause, "Show pause options" },
+-	{ "-A|--pause", 1, do_spause, "Set pause options",
+-	  "		[ autoneg on|off ]\n"
+-	  "		[ rx on|off ]\n"
+-	  "		[ tx on|off ]\n" },
+-	{ "-c|--show-coalesce", 1, do_gcoalesce, "Show coalesce options" },
+-	{ "-C|--coalesce", 1, do_scoalesce, "Set coalesce options",
+-	  "		[adaptive-rx on|off]\n"
+-	  "		[adaptive-tx on|off]\n"
+-	  "		[rx-usecs N]\n"
+-	  "		[rx-frames N]\n"
+-	  "		[rx-usecs-irq N]\n"
+-	  "		[rx-frames-irq N]\n"
+-	  "		[tx-usecs N]\n"
+-	  "		[tx-frames N]\n"
+-	  "		[tx-usecs-irq N]\n"
+-	  "		[tx-frames-irq N]\n"
+-	  "		[stats-block-usecs N]\n"
+-	  "		[pkt-rate-low N]\n"
+-	  "		[rx-usecs-low N]\n"
+-	  "		[rx-frames-low N]\n"
+-	  "		[tx-usecs-low N]\n"
+-	  "		[tx-frames-low N]\n"
+-	  "		[pkt-rate-high N]\n"
+-	  "		[rx-usecs-high N]\n"
+-	  "		[rx-frames-high N]\n"
+-	  "		[tx-usecs-high N]\n"
+-	  "		[tx-frames-high N]\n"
+-	  "		[sample-interval N]\n" },
+-	{ "-g|--show-ring", 1, do_gring, "Query RX/TX ring parameters" },
+-	{ "-G|--set-ring", 1, do_sring, "Set RX/TX ring parameters",
+-	  "		[ rx N ]\n"
+-	  "		[ rx-mini N ]\n"
+-	  "		[ rx-jumbo N ]\n"
+-	  "		[ tx N ]\n" },
+-	{ "-k|--show-offload", 1, do_goffload,
+-	  "Get protocol offload information" },
+-	{ "-K|--offload", 1, do_soffload, "Set protocol offload",
+-	  "		[ rx on|off ]\n"
+-	  "		[ tx on|off ]\n"
+-	  "		[ sg on|off ]\n"
+-	  "		[ tso on|off ]\n"
+-	  "		[ ufo on|off ]\n"
+-	  "		[ gso on|off ]\n"
+-	  "		[ gro on|off ]\n"
+-	  "		[ lro on|off ]\n"
+-	  "		[ rxvlan on|off ]\n"
+-	  "		[ txvlan on|off ]\n"
+-	  "		[ ntuple on|off ]\n"
+-	  "		[ rxhash on|off ]\n"
+-	},
+-	{ "-i|--driver", 1, do_gdrv, "Show driver information" },
+-	{ "-d|--register-dump", 1, do_gregs, "Do a register dump",
+-	  "		[ raw on|off ]\n"
+-	  "		[ file FILENAME ]\n" },
+-	{ "-e|--eeprom-dump", 1, do_geeprom, "Do a EEPROM dump",
+-	  "		[ raw on|off ]\n"
+-	  "		[ offset N ]\n"
+-	  "		[ length N ]\n" },
+-	{ "-E|--change-eeprom", 1, do_seeprom,
+-	  "Change bytes in device EEPROM",
+-	  "		[ magic N ]\n"
+-	  "		[ offset N ]\n"
+-	  "		[ length N ]\n"
+-	  "		[ value N ]\n" },
+-	{ "-r|--negotiate", 1, do_nway_rst, "Restart N-WAY negotiation" },
+-	{ "-p|--identify", 1, do_phys_id,
+-	  "Show visible port identification (e.g. blinking)",
+-	  "               [ TIME-IN-SECONDS ]\n" },
+-	{ "-t|--test", 1, do_test, "Execute adapter self test",
+-	  "               [ online | offline | external_lb ]\n" },
+-	{ "-S|--statistics", 1, do_gstats, "Show adapter statistics" },
+-	{ "-n|--show-nfc", 1, do_grxclass,
+-	  "Show Rx network flow classification options",
+-	  "		[ rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|"
+-	  "tcp6|udp6|ah6|esp6|sctp6 ]\n" },
+-	{ "-f|--flash", 1, do_flash,
+-	  "Flash firmware image from the specified file to a region on the device",
+-	  "               FILENAME [ REGION-NUMBER-TO-FLASH ]\n" },
+-	{ "-N|--config-nfc", 1, do_srxclass,
+-	  "Configure Rx network flow classification options",
+-	  "		[ rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|"
+-	  "tcp6|udp6|ah6|esp6|sctp6 m|v|t|s|d|f|n|r... ]\n" },
+-	{ "-x|--show-rxfh-indir", 1, do_grxfhindir,
+-	  "Show Rx flow hash indirection" },
+-	{ "-X|--set-rxfh-indir", 1, do_srxfhindir,
+-	  "Set Rx flow hash indirection",
+-	  "		equal N | weight W0 W1 ...\n" },
+-	{ "-U|--config-ntuple", 1, do_srxclsrule,
+-	  "Configure Rx ntuple filters and actions",
+-	  "		[ delete %d ] |\n"
+-	  "		[ flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4\n"
+-	  "			[ src %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]\n"
+-	  "			[ dst %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]\n"
+-	  "			[ proto %d [m %x] ]\n"
+-	  "			[ src-ip %d.%d.%d.%d [m %d.%d.%d.%d] ]\n"
+-	  "			[ dst-ip %d.%d.%d.%d [m %d.%d.%d.%d] ]\n"
+-	  "			[ tos %d [m %x] ]\n"
+-	  "			[ l4proto %d [m %x] ]\n"
+-	  "			[ src-port %d [m %x] ]\n"
+-	  "			[ dst-port %d [m %x] ]\n"
+-	  "			[ spi %d [m %x] ]\n"
+-	  "			[ vlan-etype %x [m %x] ]\n"
+-	  "			[ vlan %x [m %x] ]\n"
+-	  "			[ user-def %x [m %x] ]\n"
+-	  "			[ action %d ]\n"
+-	  "			[ loc %d]]\n" },
+-	{ "-u|--show-ntuple", 1, do_grxclsrule,
+-	  "Get Rx ntuple filters and actions",
+-	  "		[ rule %d ]\n"},
+-	{ "-P|--show-permaddr", 1, do_permaddr,
+-	  "Show permanent hardware address" },
+-	{ "-w|--get-dump", 1, do_getfwdump,
+-	  "Get dump flag, data",
+-	  "		[ data FILENAME ]\n" },
+-	{ "-W|--set-dump", 1, do_setfwdump,
+-	  "Set dump flag of the device",
+-	  "		N\n"},
+-	{ "-l|--show-channels", 1, do_gchannels, "Query Channels" },
+-	{ "-L|--set-channels", 1, do_schannels, "Set Channels",
+-	  "               [ rx N ]\n"
+-	  "               [ tx N ]\n"
+-	  "               [ other N ]\n"
+-	  "               [ combined N ]\n" },
+-	{ "-h|--help", 0, show_usage, "Show this help" },
+-	{ "--version", 0, do_version, "Show version number" },
+-	{}
+-};
+-
+-
+ static void exit_bad_args(void) __attribute__((noreturn));
+ 
+ static void exit_bad_args(void)
+@@ -262,29 +74,6 @@ static void exit_bad_args(void)
+ 	ethtool_exit(1);
+ }
+ 
+-static int show_usage(struct cmd_context *ctx)
+-{
+-	int i;
+-
+-	/* ethtool -h */
+-	fprintf(stdout, PACKAGE " version " VERSION "\n");
+-	fprintf(stdout,
+-		"Usage:\n"
+-		"        ethtool DEVNAME\t"
+-		"Display standard information about device\n");
+-	for (i = 0; args[i].opts; i++) {
+-		fputs("        ethtool ", stdout);
+-		fprintf(stdout, "%s %s\t%s\n",
+-			args[i].opts,
+-			args[i].want_device ? "DEVNAME" : "\t",
+-			args[i].help);
+-		if (args[i].opthelp)
+-			fputs(args[i].opthelp, stdout);
+-	}
+-
+-	return 0;
+-}
+-
+ typedef enum {
+ 	CMDL_NONE,
+ 	CMDL_BOOL,
+@@ -379,6 +168,22 @@ static u32 get_u32(char *str, int base)
+ 	return get_uint_range(str, base, 0xffffffff);
+ }
+ 
++static void get_mac_addr(char *src, unsigned char *dest)
++{
++	int count;
++	int i;
++	int buf[ETH_ALEN];
++
++	count = sscanf(src, "%2x:%2x:%2x:%2x:%2x:%2x",
++		&buf[0], &buf[1], &buf[2], &buf[3], &buf[4], &buf[5]);
++	if (count != ETH_ALEN)
++		exit_bad_args();
++
++	for (i = 0; i < count; i++) {
++		dest[i] = buf[i];
++	}
++}
++
+ static void parse_generic_cmdline(struct cmd_context *ctx,
+ 				  int *changed,
+ 				  struct cmdline_info *info,
+@@ -791,26 +596,6 @@ static int dump_drvinfo(struct ethtool_drvinfo *info)
+ 	return 0;
+ }
+ 
+-static int dump_wol(struct ethtool_wolinfo *wol)
+-{
+-	fprintf(stdout, "	Supports Wake-on: %s\n",
+-		unparse_wolopts(wol->supported));
+-	fprintf(stdout, "	Wake-on: %s\n",
+-		unparse_wolopts(wol->wolopts));
+-	if (wol->supported & WAKE_MAGICSECURE) {
+-		int i;
+-		int delim = 0;
+-		fprintf(stdout, "        SecureOn password: ");
+-		for (i = 0; i < SOPASS_MAX; i++) {
+-			fprintf(stdout, "%s%02x", delim?":":"", wol->sopass[i]);
+-			delim=1;
+-		}
+-		fprintf(stdout, "\n");
+-	}
+-
+-	return 0;
+-}
+-
+ static int parse_wolopts(char *optstr, u32 *data)
+ {
+ 	*data = 0;
+@@ -877,20 +662,24 @@ static char *unparse_wolopts(int wolopts)
+ 	return buf;
+ }
+ 
+-static void get_mac_addr(char *src, unsigned char *dest)
++static int dump_wol(struct ethtool_wolinfo *wol)
+ {
+-	int count;
+-	int i;
+-	int buf[ETH_ALEN];
+-
+-	count = sscanf(src, "%2x:%2x:%2x:%2x:%2x:%2x",
+-		&buf[0], &buf[1], &buf[2], &buf[3], &buf[4], &buf[5]);
+-	if (count != ETH_ALEN)
+-		exit_bad_args();
+-
+-	for (i = 0; i < count; i++) {
+-		dest[i] = buf[i];
++	fprintf(stdout, "	Supports Wake-on: %s\n",
++		unparse_wolopts(wol->supported));
++	fprintf(stdout, "	Wake-on: %s\n",
++		unparse_wolopts(wol->wolopts));
++	if (wol->supported & WAKE_MAGICSECURE) {
++		int i;
++		int delim = 0;
++		fprintf(stdout, "        SecureOn password: ");
++		for (i = 0; i < SOPASS_MAX; i++) {
++			fprintf(stdout, "%s%02x", delim?":":"", wol->sopass[i]);
++			delim=1;
 +		}
-+		dup2(dev_null, STDERR_FILENO);
++		fprintf(stdout, "\n");
  	}
++
++	return 0;
+ }
  
--	/* Parent */
--	if (pid < 0) {
--		perror("fork");
--		close(dev_null);
--		rc = -1;
--		goto out;
--	}
--	close(dev_null);
--	if (waitpid(pid, &status, 0) < 0) {
--		perror("waitpid");
--		rc = -1;
--		goto out;
--	}
--	rc = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-+	rc = setjmp(test_return);
-+	rc = rc ? rc - 1 : ethtool_main(argc, argv);
+ static int parse_rxfhashopts(char *optstr, u32 *data)
+@@ -3213,6 +3002,178 @@ int send_ioctl(struct cmd_context *ctx, void *cmd)
+ }
+ #endif
  
- out:
-+	fflush(NULL);
-+	if (old_stderr >= 0) {
-+		dup2(old_stderr, STDERR_FILENO);
-+		close(old_stderr);
++static int show_usage(struct cmd_context *ctx);
++
++static const struct option {
++	const char *opts;
++	int want_device;
++	int (*func)(struct cmd_context *);
++	char *help;
++	char *opthelp;
++} args[] = {
++	{ "-s|--change", 1, do_sset, "Change generic options",
++	  "		[ speed %d ]\n"
++	  "		[ duplex half|full ]\n"
++	  "		[ port tp|aui|bnc|mii|fibre ]\n"
++	  "		[ autoneg on|off ]\n"
++	  "		[ advertise %x ]\n"
++	  "		[ phyad %d ]\n"
++	  "		[ xcvr internal|external ]\n"
++	  "		[ wol p|u|m|b|a|g|s|d... ]\n"
++	  "		[ sopass %x:%x:%x:%x:%x:%x ]\n"
++	  "		[ msglvl %d | msglvl type on|off ... ]\n" },
++	{ "-a|--show-pause", 1, do_gpause, "Show pause options" },
++	{ "-A|--pause", 1, do_spause, "Set pause options",
++	  "		[ autoneg on|off ]\n"
++	  "		[ rx on|off ]\n"
++	  "		[ tx on|off ]\n" },
++	{ "-c|--show-coalesce", 1, do_gcoalesce, "Show coalesce options" },
++	{ "-C|--coalesce", 1, do_scoalesce, "Set coalesce options",
++	  "		[adaptive-rx on|off]\n"
++	  "		[adaptive-tx on|off]\n"
++	  "		[rx-usecs N]\n"
++	  "		[rx-frames N]\n"
++	  "		[rx-usecs-irq N]\n"
++	  "		[rx-frames-irq N]\n"
++	  "		[tx-usecs N]\n"
++	  "		[tx-frames N]\n"
++	  "		[tx-usecs-irq N]\n"
++	  "		[tx-frames-irq N]\n"
++	  "		[stats-block-usecs N]\n"
++	  "		[pkt-rate-low N]\n"
++	  "		[rx-usecs-low N]\n"
++	  "		[rx-frames-low N]\n"
++	  "		[tx-usecs-low N]\n"
++	  "		[tx-frames-low N]\n"
++	  "		[pkt-rate-high N]\n"
++	  "		[rx-usecs-high N]\n"
++	  "		[rx-frames-high N]\n"
++	  "		[tx-usecs-high N]\n"
++	  "		[tx-frames-high N]\n"
++	  "		[sample-interval N]\n" },
++	{ "-g|--show-ring", 1, do_gring, "Query RX/TX ring parameters" },
++	{ "-G|--set-ring", 1, do_sring, "Set RX/TX ring parameters",
++	  "		[ rx N ]\n"
++	  "		[ rx-mini N ]\n"
++	  "		[ rx-jumbo N ]\n"
++	  "		[ tx N ]\n" },
++	{ "-k|--show-offload", 1, do_goffload,
++	  "Get protocol offload information" },
++	{ "-K|--offload", 1, do_soffload, "Set protocol offload",
++	  "		[ rx on|off ]\n"
++	  "		[ tx on|off ]\n"
++	  "		[ sg on|off ]\n"
++	  "		[ tso on|off ]\n"
++	  "		[ ufo on|off ]\n"
++	  "		[ gso on|off ]\n"
++	  "		[ gro on|off ]\n"
++	  "		[ lro on|off ]\n"
++	  "		[ rxvlan on|off ]\n"
++	  "		[ txvlan on|off ]\n"
++	  "		[ ntuple on|off ]\n"
++	  "		[ rxhash on|off ]\n"
++	},
++	{ "-i|--driver", 1, do_gdrv, "Show driver information" },
++	{ "-d|--register-dump", 1, do_gregs, "Do a register dump",
++	  "		[ raw on|off ]\n"
++	  "		[ file FILENAME ]\n" },
++	{ "-e|--eeprom-dump", 1, do_geeprom, "Do a EEPROM dump",
++	  "		[ raw on|off ]\n"
++	  "		[ offset N ]\n"
++	  "		[ length N ]\n" },
++	{ "-E|--change-eeprom", 1, do_seeprom,
++	  "Change bytes in device EEPROM",
++	  "		[ magic N ]\n"
++	  "		[ offset N ]\n"
++	  "		[ length N ]\n"
++	  "		[ value N ]\n" },
++	{ "-r|--negotiate", 1, do_nway_rst, "Restart N-WAY negotiation" },
++	{ "-p|--identify", 1, do_phys_id,
++	  "Show visible port identification (e.g. blinking)",
++	  "               [ TIME-IN-SECONDS ]\n" },
++	{ "-t|--test", 1, do_test, "Execute adapter self test",
++	  "               [ online | offline | external_lb ]\n" },
++	{ "-S|--statistics", 1, do_gstats, "Show adapter statistics" },
++	{ "-n|--show-nfc", 1, do_grxclass,
++	  "Show Rx network flow classification options",
++	  "		[ rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|"
++	  "tcp6|udp6|ah6|esp6|sctp6 ]\n" },
++	{ "-f|--flash", 1, do_flash,
++	  "Flash firmware image from the specified file to a region on the device",
++	  "               FILENAME [ REGION-NUMBER-TO-FLASH ]\n" },
++	{ "-N|--config-nfc", 1, do_srxclass,
++	  "Configure Rx network flow classification options",
++	  "		[ rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|"
++	  "tcp6|udp6|ah6|esp6|sctp6 m|v|t|s|d|f|n|r... ]\n" },
++	{ "-x|--show-rxfh-indir", 1, do_grxfhindir,
++	  "Show Rx flow hash indirection" },
++	{ "-X|--set-rxfh-indir", 1, do_srxfhindir,
++	  "Set Rx flow hash indirection",
++	  "		equal N | weight W0 W1 ...\n" },
++	{ "-U|--config-ntuple", 1, do_srxclsrule,
++	  "Configure Rx ntuple filters and actions",
++	  "		[ delete %d ] |\n"
++	  "		[ flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4\n"
++	  "			[ src %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]\n"
++	  "			[ dst %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]\n"
++	  "			[ proto %d [m %x] ]\n"
++	  "			[ src-ip %d.%d.%d.%d [m %d.%d.%d.%d] ]\n"
++	  "			[ dst-ip %d.%d.%d.%d [m %d.%d.%d.%d] ]\n"
++	  "			[ tos %d [m %x] ]\n"
++	  "			[ l4proto %d [m %x] ]\n"
++	  "			[ src-port %d [m %x] ]\n"
++	  "			[ dst-port %d [m %x] ]\n"
++	  "			[ spi %d [m %x] ]\n"
++	  "			[ vlan-etype %x [m %x] ]\n"
++	  "			[ vlan %x [m %x] ]\n"
++	  "			[ user-def %x [m %x] ]\n"
++	  "			[ action %d ]\n"
++	  "			[ loc %d]]\n" },
++	{ "-u|--show-ntuple", 1, do_grxclsrule,
++	  "Get Rx ntuple filters and actions",
++	  "		[ rule %d ]\n"},
++	{ "-P|--show-permaddr", 1, do_permaddr,
++	  "Show permanent hardware address" },
++	{ "-w|--get-dump", 1, do_getfwdump,
++	  "Get dump flag, data",
++	  "		[ data FILENAME ]\n" },
++	{ "-W|--set-dump", 1, do_setfwdump,
++	  "Set dump flag of the device",
++	  "		N\n"},
++	{ "-l|--show-channels", 1, do_gchannels, "Query Channels" },
++	{ "-L|--set-channels", 1, do_schannels, "Set Channels",
++	  "               [ rx N ]\n"
++	  "               [ tx N ]\n"
++	  "               [ other N ]\n"
++	  "               [ combined N ]\n" },
++	{ "-h|--help", 0, show_usage, "Show this help" },
++	{ "--version", 0, do_version, "Show version number" },
++	{}
++};
++
++static int show_usage(struct cmd_context *ctx)
++{
++	int i;
++
++	/* ethtool -h */
++	fprintf(stdout, PACKAGE " version " VERSION "\n");
++	fprintf(stdout,
++		"Usage:\n"
++		"        ethtool DEVNAME\t"
++		"Display standard information about device\n");
++	for (i = 0; args[i].opts; i++) {
++		fputs("        ethtool ", stdout);
++		fprintf(stdout, "%s %s\t%s\n",
++			args[i].opts,
++			args[i].want_device ? "DEVNAME" : "\t",
++			args[i].help);
++		if (args[i].opthelp)
++			fputs(args[i].opthelp, stdout);
 +	}
-+	if (old_stdout >= 0) {
-+		dup2(old_stdout, STDOUT_FILENO);
-+		close(old_stdout);
-+	}
-+	if (dev_null >= 0)
-+		close(dev_null);
- 	for (i = 0; i < argc; i++)
- 		free(argv[i]);
- 	free(argv);
++
++	return 0;
++}
++
+ int ethtool_main(int argc, char **argp)
+ {
+ 	int (*func)(struct cmd_context *);
 -- 
 1.7.4.4
-
 
 
 -- 
