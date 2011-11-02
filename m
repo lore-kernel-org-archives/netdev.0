@@ -1,54 +1,56 @@
-From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-Subject: [PATCH] ll_temac: Add support for phy_mii_ioctl
-Date: Wed,  2 Nov 2011 14:14:06 +0100
-Message-ID: <1320239646-15377-1-git-send-email-ricardo.ribalda@gmail.com>
-Cc: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-To: davem@davemloft.net, ian.campbell@citrix.com,
-	eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-	jpirko@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: hiberante hangs TCP Re: [EXAMPLE CODE] Parasite
+ thread injection and TCP connection hijacking
+Date: Wed, 2 Nov 2011 08:10:39 -0700
+Message-ID: <20111102151039.GA12543@dhcp-172-17-108-109.mtv.corp.google.com>
+References: <20110806121247.GC23937@htj.dyndns.org>
+	<20111030044821.GA23741@spacedout.fries.net>
+	<20111030201618.GA7696@google.com>
+	<CAJ0PZbSRX6Rqn5NnnMkVGrPovtSuc2NWasysOYnjr3j9rON1VQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	David Fries <david@fries.net>, linux-kernel@vger.kernel.org
+To: MyungJoo Ham <myungjoo.ham@gmail.com>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <CAJ0PZbSRX6Rqn5NnnMkVGrPovtSuc2NWasysOYnjr3j9rON1VQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This patch enables the ioctl support for the driver. So userspace
-programs like mii-tool can work.
+Hello,
 
-Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+On Wed, Nov 02, 2011 at 06:44:31PM +0900, MyungJoo Ham wrote:
+> > Hmmm... sounds like taking down network interfaces before starting
+> > hibernation sequence should be enough, which shouldn't be too
+> > difficult to implement from userland. =A0Rafael, what do you think?
+> >
+> > Thanks.
+> =
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index 4d1658e..b26e5ee 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -915,12 +915,26 @@ temac_poll_controller(struct net_device *ndev)
- }
- #endif
- 
-+static int temac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
-+{
-+	struct temac_local *lp = netdev_priv(ndev);
-+
-+	if (!netif_running(ndev))
-+		return -EINVAL;
-+
-+	if (!lp->phy_dev)
-+		return -EINVAL;
-+
-+	return phy_mii_ioctl(lp->phy_dev, rq, cmd);
-+}
-+
- static const struct net_device_ops temac_netdev_ops = {
- 	.ndo_open = temac_open,
- 	.ndo_stop = temac_stop,
- 	.ndo_start_xmit = temac_start_xmit,
- 	.ndo_set_mac_address = netdev_set_mac_address,
- 	.ndo_validate_addr = eth_validate_addr,
-+	.ndo_do_ioctl = temac_ioctl,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = temac_poll_controller,
- #endif
--- 
-1.7.7.1
+> Um... it seems that the "thaw" callbacks of network interfaces or TCP
+> should do something on this.
+> =
+
+> Probably, the "thaw" callbacks should make sure that the TCP
+> connections are closed?
+
+I don't think it's a good idea to diddle with TCP connections from
+that layer.  From what I understand, it seem all we need is plugging
+tx/rx while preparing for hibernation.  That shouldn't be too
+difficult.
+
+Thanks.
+
+-- =
+
+tejun
