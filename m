@@ -1,127 +1,78 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: ARP garbage collection issues in 3.1?
-Date: Wed, 2 Nov 2011 15:34:43 +1100
-Message-ID: <20111102153443.38cc1e5c@kryten>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: on bnx2x firmware...
+Date: Wed, 02 Nov 2011 04:36:54 +0000
+Message-ID: <1320208614.3079.5.camel@deadeye>
+References: <CAHo-OowF1LNmL0P_Rt=oKmhZMt=CVaVsAYkh_XqVJEOzBPXV7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-FVwH6U6a2uUhzz3rQQhW"
+Cc: Linux NetDev <netdev@vger.kernel.org>
+To: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:46284 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750781Ab1KBEep (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Nov 2011 00:34:45 -0400
-Received: from kryten (ppp121-44-79-234.lns20.syd6.internode.on.net [121.44.79.234])
-	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-	(Client did not present a certificate)
-	by ozlabs.org (Postfix) with ESMTPSA id 5946CB6F6F
-	for <netdev@vger.kernel.org>; Wed,  2 Nov 2011 15:34:44 +1100 (EST)
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54594 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750781Ab1KBEhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 00:37:14 -0400
+In-Reply-To: <CAHo-OowF1LNmL0P_Rt=oKmhZMt=CVaVsAYkh_XqVJEOzBPXV7w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hi,
+--=-FVwH6U6a2uUhzz3rQQhW
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I've been getting complaints about machines not garbage collecting
-ARP entries. The network in question has a lot of MAC addresses on it
-(probably more than gc_thresh3 - 1024), but this machine is only
-talking over the network to a few targets.
+On Tue, 2011-11-01 at 18:01 -0700, Maciej =C5=BBenczykowski wrote:
+> ((v3.1))$ cat drivers/net/bnx2x/bnx2x_hsi.h | egrep BCM_5710_FW_
+>=20
+> #define BCM_5710_FW_MAJOR_VERSION                       7
+> #define BCM_5710_FW_MINOR_VERSION                       0
+> #define BCM_5710_FW_REVISION_VERSION            23
+> #define BCM_5710_FW_ENGINEERING_VERSION         0
+>=20
+> So the desired firmware is version 7.0.23.0
+>=20
+> ((v3.1))$ find | egrep bnx2x | egrep fw
+> ./firmware/bnx2x/bnx2x-e1-6.2.9.0.fw.ihex
+> ./firmware/bnx2x/bnx2x-e2-6.2.9.0.fw.ihex
+> ./firmware/bnx2x/bnx2x-e1h-6.2.9.0.fw.ihex
+> ./drivers/net/bnx2x/bnx2x_fw_defs.h
+> ./drivers/net/bnx2x/bnx2x_fw_file_hdr.h
+>=20
+> So it doesn't look like the in-tree fw matches the bnx2x driver in
+> released v3.1.
+> I can find this firmware in the firmware repository.
+[...]
 
-Over a period of hours or days the ARP table slowly grows until it hits
-gc_thresh3 and at that stage we get "Neighbour table overflow" errors.
-Increasing gc_thresh3 makes the issue go away as expected. The question
-is, why isn't this slow growth of the ARP table being managed by the
-gc_thresh1 and gc_thresh2 watermarks?
+That's where it belongs.  But there is some confusion/disagreement on
+this point.
 
-I tried this simple test on 3.1-git*:
+Ben.
 
-machine A:
-for i in `seq 2 254`; do ifconfig eth0:$i 192.168.111.$i; done
+--=20
+Ben Hutchings
+Sturgeon's Law: Ninety percent of everything is crap.
 
-machine B:
-echo 64 > /proc/sys/net/ipv4/neigh/default/gc_thresh1
-echo 128 > /proc/sys/net/ipv4/neigh/default/gc_thresh2
-echo 192 > /proc/sys/net/ipv4/neigh/default/gc_thresh3
+--=-FVwH6U6a2uUhzz3rQQhW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-ifconfig eth0:1 192.168.111.1
-for i in `seq 2 254`; do ping -c 1 192.168.111.$i; done
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-I was expecting to get the "Neighbour table overflow" errors and then
-after a period of time the route and ARP garbage collection would kick
-in. I waited for over an hour and this had not happened, we had
-gc_thresh3 (192) ARP entries and no new ARP entries could be added to
-the table.
+iQIVAwUATrDI5ue/yOyVhhEJAQqaSg/+LlCkJZ8BH8VPynWRda8dYAR3OCCLcaku
+g/uPwOwOxtrTlIFK56isIE/L1CmdbN1luyqaCfoREIeiUDDbECCdQRJlU8fPiMRq
+gY0bAamkOfjGY9UqgLWuMwKt69TYX4cwft5fujDRwqVql+/RgrZYCKrQNMosll6W
+qpXKCuUZw00C6qK+khwxbkGo8joTrvZiU/3Lfm2DuQfV8Xlh37oiTGPVEc5HZGUf
+taupA797ieH+4W2uGlD37bHSZ7hDEVjnpsdZ+BFFLY7kc62VBc2kSAACp3a6bAvi
+uqJnBhE1n0uoYJqJoHb2K1TDQDGxrmK+D/ajJBYKIN2SLKBZybZ2dBl6Sjw1zej+
+ZtzcQfWgXy9Bjfj1ydrsQ01pxTjMCSM63BaVY3KRWBuECVeazvyx17jyG8P9T848
+LPtQGY1ivc1q2Zh7Ogrz3b0a4MNST0mcEQT8nwSX74cUVh0JZ1ypiyKQiuadmsyh
+5k0iSZ+M/VdZHkiX+BIXDsqQyEkOTw71J7gvL0P2ePmWbfdB6TGLFgQEjWKkK8bB
+z1SjISBGURvKeATPY4jnMhNr8dRqomItD4HIXRA8mHGlyKi9wQc05+QqAx63Kbcy
+yB7IQ0L4QpkmQZLQPA423KKA8ndp0khl/0X2qcmjaeGJXdGgT+R/njzUs4LslPVu
+46m1jc1lay8=
+=mMgE
+-----END PGP SIGNATURE-----
 
-The problem seems to be that our neighbour garbage collection thresholds
-are set low (1024) and our route threshold is set high (524288). When we
-get into trouble we do try to garbage collect routes but
-rt_garbage_collect never sees enough entries to invoke garbage
-collection. In effect the ARP entries are pinned, and gc_thresh1
-gc_thresh2 are useless.
-
-My first thought was the patch below. It does help but it's Russian
-Roulette since we shoot one entry down at random and it might not be
-one in the neighbour table. As such, it often takes a number of goes to
-clear a stale ARP entry.
-
-Any ideas how we could make this behave a bit better? I know setting
-gc_thresh3 higher is the ultimate solution, but if gc_thresh1 and
-gc_thresh2 are always below the route threshold we should either fix
-this issue or remove them completely.
-
-Anton
-
----
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 155138d..8104d41 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -876,7 +876,7 @@ static void rt_emergency_hash_rebuild(struct net *net)
-    and when load increases it reduces to limit cache size.
-  */
- 
--static int rt_garbage_collect(struct dst_ops *ops)
-+static int __rt_garbage_collect(struct dst_ops *ops, int force)
- {
- 	static unsigned long expire = RT_GC_TIMEOUT;
- 	static unsigned long last_gc;
-@@ -895,7 +895,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
- 
- 	RT_CACHE_STAT_INC(gc_total);
- 
--	if (now - last_gc < ip_rt_gc_min_interval &&
-+	if (!force && now - last_gc < ip_rt_gc_min_interval &&
- 	    entries < ip_rt_max_size) {
- 		RT_CACHE_STAT_INC(gc_ignored);
- 		goto out;
-@@ -920,6 +920,9 @@ static int rt_garbage_collect(struct dst_ops *ops)
- 		equilibrium = entries - goal;
- 	}
- 
-+	if (force)
-+		goal = 1;
-+
- 	if (now - last_gc >= ip_rt_gc_min_interval)
- 		last_gc = now;
- 
-@@ -996,6 +999,11 @@ work_done:
- out:	return 0;
- }
- 
-+static int rt_garbage_collect(struct dst_ops *ops)
-+{
-+	return __rt_garbage_collect(ops, 0);
-+}
-+
- /*
-  * Returns number of entries in a hash chain that have different hash_inputs
-  */
-@@ -1192,7 +1200,7 @@ restart:
- 				int saved_int = ip_rt_gc_min_interval;
- 				ip_rt_gc_elasticity	= 1;
- 				ip_rt_gc_min_interval	= 0;
--				rt_garbage_collect(&ipv4_dst_ops);
-+				__rt_garbage_collect(&ipv4_dst_ops, 1);
- 				ip_rt_gc_min_interval	= saved_int;
- 				ip_rt_gc_elasticity	= saved_elasticity;
- 				goto restart;
+--=-FVwH6U6a2uUhzz3rQQhW--
