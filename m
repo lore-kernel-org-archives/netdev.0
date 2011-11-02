@@ -1,63 +1,63 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Subnet router anycast for FE80/10 ?
-Date: Wed, 2 Nov 2011 10:52:57 -0700
-Message-ID: <OFCBEF5360.F10E7D75-ON8825793C.00613C5C-8825793C.00623B8A@us.ibm.com>
-References: <4EAF0391.80907@collax.com> <20111102153809.GH297914@jupiter.n2.diac24.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Linux 3.1-rc9
+Date: Wed, 02 Nov 2011 18:53:32 +0100
+Message-ID: <1320256412.2292.17.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1318874090.4172.84.camel@twins>
+	 <CA+55aFwCBy=4YK6amE=H-BYu9-boj4Po2Zkgf4V261mCx0DC4A@mail.gmail.com>
+	 <1318879396.4172.92.camel@twins> <alpine.LFD.2.02.1110172237030.3240@ionos>
+	 <alpine.LFD.2.02.1110181037120.3240@ionos> <1318928713.21167.4.camel@twins>
+	 <20111018182046.GF1309@hostway.ca>
+	 <alpine.LFD.2.02.1110182146440.3240@ionos>
+	 <20111024190203.GA24410@hostway.ca> <20111025202049.GB25043@hostway.ca>
+	 <20111031173246.GA10614@hostway.ca>
+	 <alpine.LFD.2.02.1111021725550.2829@ionos>
+	 <1320254854.2292.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <CA+55aFxKtA0XXtiKgKC5qHmFuTv2=TbuMEczkegJKY4Uy00a-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Andreas Hofmeister <andi@collax.com>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Gleixner <tglx@linutronix.de>, Simon Kirby <sim@hostway.ca>,
+	David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:38136 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756044Ab1KBRxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 13:53:11 -0400
-Received: from /spool/local
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Wed, 2 Nov 2011 11:53:09 -0600
-In-Reply-To: <20111102153809.GH297914@jupiter.n2.diac24.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:33370 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755870Ab1KBRxg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 13:53:36 -0400
+In-Reply-To: <CA+55aFxKtA0XXtiKgKC5qHmFuTv2=TbuMEczkegJKY4Uy00a-g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 11/02/2011 08:38:09 AM:
+Le mercredi 02 novembre 2011 =C3=A0 10:46 -0700, Linus Torvalds a =C3=A9=
+crit :
+> On Wed, Nov 2, 2011 at 10:27 AM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> >
+> > I believe it might come from commit 0e734419
+> > (ipv4: Use inet_csk_route_child_sock() in DCCP and TCP.)
+> >
+> > In case inet_csk_route_child_sock() returns NULL, we dont release s=
+ocket
+> > lock.
+>=20
+> Hmm. I'm not seeing it. We're not even taking the socket lock there.
+> Or is it hidden somehow?
+>=20
+>                     Linus
 
-> From: David Lamparter <equinox@diac24.net>
+tcp_v4_syn_recv_sock()
+{
+	newsk =3D tcp_create_openreq_child(sk, req, skb);
 
-> > This address seems not to be explicitly mentioned in any RFC, but RFC 
-> > 4291 says "All routers are required to support the Subnet-Router 
-anycast 
-> > addresses for the subnets to which they have interfaces."
-> 
-> That this directly contradicts RFC 2526 which specifies the
-> subnet-router anycast address to be either ::ffff:ffff:ffff:ff80 or
-> ::fcff:ffff:ffff:ff80 depending on the phase of the moon (well,
-> interface type actually, but same thing. Also, the /64 <> /10
-> distinction would matter here.)
+=2E..
+=09
 
-        The subnet-router anycast address is defined in section 2.6.1 of 
-RFC 4291
-to be "all 0's" for the prefix. The definition above is for reserved 
-anycast
-addresses. RFC 2526 says "IPv6 defines a required Subnet-Router anycast 
-address [3]
-for all routers within a subnet prefix, and allows additional anycast 
-addresses to
-be taken from the unicast address space. This document defines an 
-additional set
-of reserved anycast addresses...".
+}
 
-> 
-> ... it's actually fairly hard to implement this at all. The idea of
-> "Anycast" is that even if you have 1000 routers, only one router will
-> receive the packet. The network is supposed to magically take care of
-> that, but in reality this only works with Layer 3/IPv6
-
-        The host implementation is very straightforward. Not every host
-on a segment has to use the *same* host for an anycast address (it's
-kind of the point that it won't, in fact). A host simply needs to
-do a solicitation for the anycast address and keep the first one that
-answers (by definition, the "closest").
-
-                                                                +-DLS
+newsk is locked at this point.
