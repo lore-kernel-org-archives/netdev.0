@@ -1,55 +1,63 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: Linux 3.1-rc9
-Date: Wed, 2 Nov 2011 18:10:23 -0400
-Message-ID: <20111102221023.GA27457@home.goodmis.org>
-References: <CA+55aFwCBy=4YK6amE=H-BYu9-boj4Po2Zkgf4V261mCx0DC4A@mail.gmail.com>
- <1318879396.4172.92.camel@twins>
- <alpine.LFD.2.02.1110172237030.3240@ionos>
- <alpine.LFD.2.02.1110181037120.3240@ionos>
- <1318928713.21167.4.camel@twins>
- <20111018182046.GF1309@hostway.ca>
- <alpine.LFD.2.02.1110182146440.3240@ionos>
- <20111024190203.GA24410@hostway.ca>
- <20111025202049.GB25043@hostway.ca>
- <20111031173246.GA10614@hostway.ca>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] macvlan: receive multicast with local address
+Date: Wed, 2 Nov 2011 15:11:53 -0700
+Message-ID: <20111102151153.028e222f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Network Development <netdev@vger.kernel.org>
-To: Simon Kirby <sim@hostway.ca>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111031173246.GA10614@hostway.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:51797 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751818Ab1KBWL4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Nov 2011 18:11:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thomas pointed me here.
+When implementing VRRP v2 using macvlan several problems were
+discovered.  VRRP is weird in that all routers participating
+in a redundant group use the same virtual MAC address.
+Macvlan is a natural driver to use for this but it doesn't
+work.  The problem is that packets with a macvlan device's
+source address are not received.
 
-On Mon, Oct 31, 2011 at 10:32:46AM -0700, Simon Kirby wrote:
-> [104661.244767] 
-> [104661.244767]  Possible unsafe locking scenario:
-> [104661.244767]        
-> [104661.244767]        CPU0                    CPU1
-> [104661.244767]        ----                    ----
-> [104661.244767]   lock(slock-AF_INET);
-> [104661.244767]                                lock(slock-AF_INET);
-> [104661.244767]                                lock(slock-AF_INET);
-> [104661.244767]   lock(slock-AF_INET);
-> [104661.244767] 
-> [104661.244767]  *** DEADLOCK ***
-> [104661.244767] 
+The problem is actually a regression that date back almost 2 years now.
+The original problems started with:
 
-Bah, I used the __print_lock_name() function to show the lock names in
-the above, which leaves off the subclass number. I'll go write up a
-patch that fixes that.
+commit 618e1b7482f7a8a4c6c6e8ccbe140e4c331df4e9
+Author: Arnd Bergmann <arnd@arndb.de>
+Date:   Thu Nov 26 06:07:10 2009 +0000
 
-Thanks,
+    macvlan: implement bridge, VEPA and private mode
+    
+This patches restores the original 2.6.32 behavior. Allowing multicast
+packets received with the VRRP source address to be received.
 
--- Steve
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
+This should go to -net, and -stable (since it is a regression).
+
+P.s: The VEPA patch also introduced another regression, it changed
+the default mode from private to VEPA which also breaks application
+assumptions. But changing it back after 2 years also risks also breaking
+things.
+
+--- a/drivers/net/macvlan.c	2011-11-02 13:12:52.186069720 -0700
++++ b/drivers/net/macvlan.c	2011-11-02 14:50:54.476670346 -0700
+@@ -192,6 +192,13 @@ static rx_handler_result_t macvlan_handl
+ 			 */
+ 			macvlan_broadcast(skb, port, src->dev,
+ 					  MACVLAN_MODE_VEPA);
++		else {
++			/* forward to original port. */
++			vlan = src;
++			ret = macvlan_broadcast_one(skb, vlan, eth, 0);
++			goto out;
++		}
++
+ 		return RX_HANDLER_PASS;
+ 	}
+ 
