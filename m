@@ -1,116 +1,32 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: Linux 3.1-rc9
-Date: Wed, 2 Nov 2011 19:00:10 -0400
-Message-ID: <20111102230009.GB27457@home.goodmis.org>
-References: <1318879396.4172.92.camel@twins>
- <alpine.LFD.2.02.1110172237030.3240@ionos>
- <alpine.LFD.2.02.1110181037120.3240@ionos>
- <1318928713.21167.4.camel@twins>
- <20111018182046.GF1309@hostway.ca>
- <alpine.LFD.2.02.1110182146440.3240@ionos>
- <20111024190203.GA24410@hostway.ca>
- <20111025202049.GB25043@hostway.ca>
- <20111031173246.GA10614@hostway.ca>
- <20111102221023.GA27457@home.goodmis.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Add back alignment for size for __alloc_skb
+Date: Wed, 02 Nov 2011 19:09:55 -0400 (EDT)
+Message-ID: <20111102.190955.1902322759075682192.davem@davemloft.net>
+References: <20111102224317.GM31337@atomide.com>
+	<4EB1CA4F.3090403@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Network Development <netdev@vger.kernel.org>
-To: Simon Kirby <sim@hostway.ca>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111102221023.GA27457@home.goodmis.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tony@atomide.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <4EB1CA4F.3090403@gmail.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 02, 2011 at 06:10:23PM -0400, Steven Rostedt wrote:
-> Thomas pointed me here.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 02 Nov 2011 23:55:11 +0100
+
+> There is a problem with your kmalloc() or alignments on your architecture.
 > 
-> On Mon, Oct 31, 2011 at 10:32:46AM -0700, Simon Kirby wrote:
-> > [104661.244767] 
-> > [104661.244767]  Possible unsafe locking scenario:
-> > [104661.244767]        
-> > [104661.244767]        CPU0                    CPU1
-> > [104661.244767]        ----                    ----
-> > [104661.244767]   lock(slock-AF_INET);
-> > [104661.244767]                                lock(slock-AF_INET);
-> > [104661.244767]                                lock(slock-AF_INET);
-> > [104661.244767]   lock(slock-AF_INET);
-> > [104661.244767] 
-> > [104661.244767]  *** DEADLOCK ***
-> > [104661.244767] 
-> 
-> Bah, I used the __print_lock_name() function to show the lock names in
-> the above, which leaves off the subclass number. I'll go write up a
-> patch that fixes that.
-> 
+> What is the SMP_CACHE_BYTES value ?
 
-Simon,
+kmalloc() behavior doesn't have anything to do with this bug.
 
-If you are still triggering the bug. Could you do me a favor and apply
-the following patch. Just to make sure it fixes the confusing output
-from above.
+The issue is calculation of skb->end, which is based upon calculated
+'size' variable.
 
-Thanks,
+skb->end determines alignment of skb_shared_info, which is where the
+alignment problem is occuring for Tony.
 
--- Steve
-
-
-diff --git a/kernel/lockdep.c b/kernel/lockdep.c
-index 91d67ce..d821ac9 100644
---- a/kernel/lockdep.c
-+++ b/kernel/lockdep.c
-@@ -490,16 +490,22 @@ void get_usage_chars(struct lock_class *class, char usage[LOCK_USAGE_CHARS])
- 	usage[i] = '\0';
- }
- 
--static int __print_lock_name(struct lock_class *class)
-+static void __print_lock_name(struct lock_class *class)
- {
- 	char str[KSYM_NAME_LEN];
- 	const char *name;
- 
- 	name = class->name;
--	if (!name)
-+	if (!name) {
- 		name = __get_key_name(class->key, str);
--
--	return printk("%s", name);
-+		printk("%s", name);
-+	} else {
-+		printk("%s", name);
-+		if (class->name_version > 1)
-+			printk("#%d", class->name_version);
-+		if (class->subclass)
-+			printk("/%d", class->subclass);
-+	}
- }
- 
- static void print_lock_name(struct lock_class *class)
-@@ -509,17 +515,8 @@ static void print_lock_name(struct lock_class *class)
- 
- 	get_usage_chars(class, usage);
- 
--	name = class->name;
--	if (!name) {
--		name = __get_key_name(class->key, str);
--		printk(" (%s", name);
--	} else {
--		printk(" (%s", name);
--		if (class->name_version > 1)
--			printk("#%d", class->name_version);
--		if (class->subclass)
--			printk("/%d", class->subclass);
--	}
-+	printk(" (");
-+	__print_lock_name(class);
- 	printk("){%s}", usage);
- }
- 
