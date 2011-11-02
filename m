@@ -1,73 +1,85 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 6/6] [6LoWPAN] update documentation
-Date: Wed,  2 Nov 2011 19:35:54 +0300
-Message-ID: <1320251754-2971-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-References: <20111102162520.GA2669@avtobot.cybertron>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: Linux 3.1-rc9
+Date: Wed, 2 Nov 2011 17:40:53 +0100 (CET)
+Message-ID: <alpine.LFD.2.02.1111021725550.2829@ionos>
+References: <1318874090.4172.84.camel@twins> <CA+55aFwCBy=4YK6amE=H-BYu9-boj4Po2Zkgf4V261mCx0DC4A@mail.gmail.com> <1318879396.4172.92.camel@twins> <alpine.LFD.2.02.1110172237030.3240@ionos> <alpine.LFD.2.02.1110181037120.3240@ionos> <1318928713.21167.4.camel@twins>
+ <20111018182046.GF1309@hostway.ca> <alpine.LFD.2.02.1110182146440.3240@ionos> <20111024190203.GA24410@hostway.ca> <20111025202049.GB25043@hostway.ca> <20111031173246.GA10614@hostway.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20111102162520.GA2669-AUGNqIMGY+bGcXpsla5Oef8+0UxHXcjY@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Network Development <netdev@vger.kernel.org>
+To: Simon Kirby <sim@hostway.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.linutronix.de ([62.245.132.108]:55675 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932601Ab1KBQlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 12:41:01 -0400
+In-Reply-To: <20111031173246.GA10614@hostway.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds chapter to documentation which describes how to use
-6lowpan technology.
+On Mon, 31 Oct 2011, Simon Kirby wrote:
+> On Tue, Oct 25, 2011 at 01:20:49PM -0700, Simon Kirby wrote:
+> 
+> > On Mon, Oct 24, 2011 at 12:02:03PM -0700, Simon Kirby wrote:
+> > 
+> > > Ok, hit the hang about 4 more times, but only this morning on a box with
+> > > a serial cable attached. Yay!
+> > 
+> > Here's lockdep output from another box. This one looks a bit different.
+> 
+> One more, again a bit different. The last few lockups have looked like
+> this. Not sure why, but we're hitting this at a few a day now. Thomas,
+> this is without your patch, but as you said, that's right before a free
+> and should print a separate lockdep warning.
+> 
+> No "huh" lines until after the trace on this one. I'll move to 3.1 with
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- Documentation/networking/ieee802154.txt |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+), 0 deletions(-)
+That means that the lockdep warning hit in the same net_rx cycle
+before the leak was detected by the softirq code.
 
-diff --git a/Documentation/networking/ieee802154.txt b/Documentation/networking/ieee802154.txt
-index 23c995e..7d50b26 100644
---- a/Documentation/networking/ieee802154.txt
-+++ b/Documentation/networking/ieee802154.txt
-@@ -78,3 +78,29 @@ in software. This is currently WIP.
- 
- See header include/net/mac802154.h and several drivers in drivers/ieee802154/.
- 
-+6LoWPAN Linux implementation
-+============================
-+
-+The IEEE 802.15.4 standard specifies an MTU of 128 bytes, yielding about 80
-+octets of actual MAC payload once security is turned on, on a wireless link
-+with a link throughput of 250 kbps or less.  The 6LoWPAN adaptation format
-+[RFC4944] was specified to carry IPv6 datagrams over such constrained links,
-+taking into account limited bandwidth, memory, or energy resources that are
-+expected in applications such as wireless Sensor Networks.  [RFC4944] defines
-+a Mesh Addressing header to support sub-IP forwarding, a Fragmentation header
-+to support the IPv6 minimum MTU requirement [RFC2460], and stateless header
-+compression for IPv6 datagrams (LOWPAN_HC1 and LOWPAN_HC2) to reduce the
-+relatively large IPv6 and UDP headers down to (in the best case) several bytes.
-+
-+All the code related to 6lowpan you may find in files: net/ieee802154/6lowpan.*
-+
-+To setup 6lowpan interface you need:
-+1. Add IEEE802.15.4 interface and initialize PANid;
-+2. Add 6lowpan interface by command like:
-+   # ip link add link wpan0 name lowpan0 type lowpan
-+3. Set MAC (if needs):
-+   # ip link set lowpan0 address de:ad:be:ef:ca:fe:ba:be
-+4. Bring up 'lowpan0' interface
-+
-+
-+
--- 
-1.7.2.5
+> cherry-picked b0691c8e now.
 
+Can you please add the debug patch below and try the following:
 
-------------------------------------------------------------------------------
-RSA&#174; Conference 2012
-Save $700 by Nov 18
-Register now&#33;
-http://p.sf.net/sfu/rsa-sfdev2dev1
+Enable CONFIG_FUNCTION_TRACER & CONFIG_FUNCTION_GRAPH_TRACER
+
+# cd $DEBUGFSMOUNTPOINT/tracing
+# echo sk_clone >set_ftrace_filter
+# echo function >current_tracer
+# echo 1 >options/func_stack_trace
+
+Now wait until it reproduces (which stops the trace) and read out
+
+# cat trace >/tmp/trace.txt
+
+Please provide the trace file along with the lockdep splat. That
+should tell us which callchain is responsible for the spinlock
+leakage.
+
+Thanks,
+
+	tglx
+
+--------------->
+ kernel/softirq.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: linux-2.6/kernel/softirq.c
+===================================================================
+--- linux-2.6.orig/kernel/softirq.c
++++ linux-2.6/kernel/softirq.c
+@@ -238,6 +238,7 @@ restart:
+ 			h->action(h);
+ 			trace_softirq_exit(vec_nr);
+ 			if (unlikely(prev_count != preempt_count())) {
++				tracing_off();
+ 				printk(KERN_ERR "huh, entered softirq %u %s %p"
+ 				       "with preempt_count %08x,"
+ 				       " exited with %08x?\n", vec_nr,
