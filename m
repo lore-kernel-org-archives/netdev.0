@@ -1,45 +1,136 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Tony Lindgren <tony@atomide.com>
 Subject: Re: [PATCH] net: Add back alignment for size for __alloc_skb
-Date: Thu, 03 Nov 2011 00:31:19 +0100
-Message-ID: <4EB1D2C7.2070700@gmail.com>
-References: <4EB1CA4F.3090403@gmail.com> <20111102.190955.1902322759075682192.davem@davemloft.net> <4EB1CEC4.3090909@gmail.com> <20111102.191716.1682282796914825621.davem@davemloft.net> <20111102231917.GN31337@atomide.com> <4EB1D05B.6020605@gmail.com> <20111102232403.GO31337@atomide.com>
+Date: Wed, 2 Nov 2011 16:40:28 -0700
+Message-ID: <20111102234028.GP31337@atomide.com>
+References: <4EB1CA4F.3090403@gmail.com>
+ <20111102.190955.1902322759075682192.davem@davemloft.net>
+ <4EB1CEC4.3090909@gmail.com>
+ <20111102.191716.1682282796914825621.davem@davemloft.net>
+ <20111102231917.GN31337@atomide.com>
+ <4EB1D05B.6020605@gmail.com>
+ <20111102232403.GO31337@atomide.com>
+ <4EB1D2C7.2070700@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20111102232403.GO31337@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4EB1D2C7.2070700@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/11/2011 00:24, Tony Lindgren wrote:
-
-
+* Eric Dumazet <eric.dumazet@gmail.com> [111102 15:56]:
+> On 03/11/2011 00:24, Tony Lindgren wrote:
 > 
-> Seems to be SLOB for omap1_defconfig.
 > 
-> Tony
+> > 
+> > Seems to be SLOB for omap1_defconfig.
+> > 
+> > Tony
+> 
+> 
+> OK this makes sense now
+> 
+> Your patch is absolutely needed, I completely forgot about SLOB :(
+> 
+> since, kmalloc(386) on SLOB gives exactly ksize=386 bytes, not nearest
+> power of two.
+> 
+> [   60.305763] malloc(size=385)->ffff880112c11e38 ksize=386 -> nsize=2
+> [   60.305921] malloc(size=385)->ffff88007c92ce28 ksize=386 -> nsize=2
+> [   60.306898] malloc(size=656)->ffff88007c44ad28 ksize=656 -> nsize=272
+> [   60.325385] malloc(size=656)->ffff88007c575868 ksize=656 -> nsize=272
+> [   60.325531] malloc(size=656)->ffff88011c777230 ksize=656 -> nsize=272
+> [   60.325701] malloc(size=656)->ffff880114011008 ksize=656 -> nsize=272
+> [   60.346716] malloc(size=385)->ffff880114142008 ksize=386 -> nsize=2
+> [   60.346900] malloc(size=385)->ffff88011c777690 ksize=386 -> nsize=2
+> 
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Thanks !
+
+OK, thanks for explaining why it happens :) I also verified this does
+not happen with SLAB or SLUB, only with SLOB.
+
+I've updated the patch withyour comments and ack, updated patch below.
+
+Regards,
+
+Tony 
 
 
-OK this makes sense now
+From: Tony Lindgren <tony@atomide.com>
+Date: Wed, 2 Nov 2011 15:46:41 -0700
+Subject: [PATCH] net: Add back alignment for size for __alloc_skb
 
-Your patch is absolutely needed, I completely forgot about SLOB :(
+Commit 87fb4b7b533073eeeaed0b6bf7c2328995f6c075 (net: more
+accurate skb truesize) changed the alignment of size. This
+can cause problems at least on some machines with NFS root:
 
-since, kmalloc(386) on SLOB gives exactly ksize=386 bytes, not nearest
-power of two.
+Unhandled fault: alignment exception (0x801) at 0xc183a43a
+Internal error: : 801 [#1] PREEMPT
+Modules linked in:
+CPU: 0    Not tainted  (3.1.0-08784-g5eeee4a #733)
+pc : [<c02fbba0>]    lr : [<c02fbb9c>]    psr: 60000013
+sp : c180fef8  ip : 00000000  fp : c181f580
+r10: 00000000  r9 : c044b28c  r8 : 00000001
+r7 : c183a3a0  r6 : c1835be0  r5 : c183a412  r4 : 000001f2
+r3 : 00000000  r2 : 00000000  r1 : ffffffe6  r0 : c183a43a
+Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
+Control: 0005317f  Table: 10004000  DAC: 00000017
+Process swapper (pid: 1, stack limit = 0xc180e270)
+Stack: (0xc180fef8 to 0xc1810000)
+fee0:                                                       00000024 00000000
+ff00: 00000000 c183b9c0 c183b8e0 c044b28c c0507ccc c019dfc4 c180ff2c c0503cf8
+ff20: c180ff4c c180ff4c 00000000 c1835420 c182c740 c18349c0 c05233c0 00000000
+ff40: 00000000 c00e6bb8 c180e000 00000000 c04dd82c c0507e7c c050cc18 c183b9c0
+ff60: c05233c0 00000000 00000000 c01f34f4 c0430d70 c019d364 c04dd898 c04dd898
+ff80: c04dd82c c0507e7c c180e000 00000000 c04c584c c01f4918 c04dd898 c04dd82c
+ffa0: c04ddd28 c180e000 00000000 c0008758 c181fa60 3231d82c 00000037 00000000
+ffc0: 00000000 c04dd898 c04dd82c c04ddd28 00000013 00000000 00000000 00000000
+ffe0: 00000000 c04b2224 00000000 c04b21a0 c001056c c001056c 00000000 00000000
+Function entered at [<c02fbba0>] from [<c019dfc4>]
+Function entered at [<c019dfc4>] from [<c01f34f4>]
+Function entered at [<c01f34f4>] from [<c01f4918>]
+Function entered at [<c01f4918>] from [<c0008758>]
+Function entered at [<c0008758>] from [<c04b2224>]
+Function entered at [<c04b2224>] from [<c001056c>]
+Code: e1a00005 e3a01028 ebfa7cb0 e35a0000 (e5858028)
 
-[   60.305763] malloc(size=385)->ffff880112c11e38 ksize=386 -> nsize=2
-[   60.305921] malloc(size=385)->ffff88007c92ce28 ksize=386 -> nsize=2
-[   60.306898] malloc(size=656)->ffff88007c44ad28 ksize=656 -> nsize=272
-[   60.325385] malloc(size=656)->ffff88007c575868 ksize=656 -> nsize=272
-[   60.325531] malloc(size=656)->ffff88011c777230 ksize=656 -> nsize=272
-[   60.325701] malloc(size=656)->ffff880114011008 ksize=656 -> nsize=272
-[   60.346716] malloc(size=385)->ffff880114142008 ksize=386 -> nsize=2
-[   60.346900] malloc(size=385)->ffff88011c777690 ksize=386 -> nsize=2
+Here PC is at __alloc_skb and &shinfo->dataref is unaligned because
+skb->end can be unaligned without this patch.
+
+As explained by Eric Dumazet <eric.dumazet@gmail.com>, this happens
+only with SLOB, and not with SLAB or SLUB:
+
+* Eric Dumazet <eric.dumazet@gmail.com> [111102 15:56]:
+>
+> Your patch is absolutely needed, I completely forgot about SLOB :(
+>
+> since, kmalloc(386) on SLOB gives exactly ksize=386 bytes, not nearest
+> power of two.
+>
+> [   60.305763] malloc(size=385)->ffff880112c11e38 ksize=386 -> nsize=2
+> [   60.305921] malloc(size=385)->ffff88007c92ce28 ksize=386 -> nsize=2
+> [   60.306898] malloc(size=656)->ffff88007c44ad28 ksize=656 -> nsize=272
+> [   60.325385] malloc(size=656)->ffff88007c575868 ksize=656 -> nsize=272
+> [   60.325531] malloc(size=656)->ffff88011c777230 ksize=656 -> nsize=272
+> [   60.325701] malloc(size=656)->ffff880114011008 ksize=656 -> nsize=272
+> [   60.346716] malloc(size=385)->ffff880114142008 ksize=386 -> nsize=2
+> [   60.346900] malloc(size=385)->ffff88011c777690 ksize=386 -> nsize=2
 
 Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Tony Lindgren <tony@atomide.com>
 
-Thanks !
-
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -189,6 +189,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	 * aligned memory blocks, unless SLUB/SLAB debug is enabled.
+ 	 * Both skb->head and skb_shared_info are cache line aligned.
+ 	 */
++	size = SKB_DATA_ALIGN(size);
+ 	size += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 	data = kmalloc_node_track_caller(size, gfp_mask, node);
+ 	if (!data)
