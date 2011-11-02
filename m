@@ -1,43 +1,79 @@
-From: "Reuben Dowle" <Reuben.Dowle@navico.com>
-Subject: RE: [PATCH] flexcan: Fix CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK
-Date: Thu, 3 Nov 2011 10:31:13 +1300
-Message-ID: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA8E0@exch01-aklnz.MARINE.NET.INT>
-References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA1DD@exch01-aklnz.MARINE.NET
- .INT> <20111102080438.GA324@e-circ.dyndns.org>
- <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA803@exch01-aklnz.MARINE.NET.INT>
- <4EB1A883.2040605@hartkopp.net>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: Subnet router anycast for FE80/10 ?
+Date: Wed, 2 Nov 2011 22:53:59 +0100
+Message-ID: <20111102215359.GJ297914@jupiter.n2.diac24.net>
+References: <4EAF0391.80907@collax.com>
+ <20111102153809.GH297914@jupiter.n2.diac24.net>
+ <OFCBEF5360.F10E7D75-ON8825793C.00613C5C-8825793C.00623B8A@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: "Kurt Van Dijck" <kurt.van.dijck@eia.be>, <netdev@vger.kernel.org>,
-	<linux-can@vger.kernel.org>
-To: "Oliver Hartkopp" <socketcan@hartkopp.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+	Andreas Hofmeister <andi@collax.com>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vw-hfger.navico.com ([81.89.228.210]:2400 "EHLO
-	VW-HFGER.navico.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750817Ab1KBVbW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 17:31:22 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <4EB1A883.2040605@hartkopp.net>
+Received: from spaceboyz.net ([87.106.131.203]:53351 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751023Ab1KBVyM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Nov 2011 17:54:12 -0400
+Content-Disposition: inline
+In-Reply-To: <OFCBEF5360.F10E7D75-ON8825793C.00613C5C-8825793C.00623B8A@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+DQo+ID4gSWYgd2UgY2hhbmdlIHRoZSBiZWhhdmlvdXIgb2YgZmxleGNhbiwgSSB0aGlu
-ayBhdDkxIGFuZCBzbGNhbiBzaG91bGQNCj4gYmUgY2hhbmdlZCB0b28sIGJlY2F1c2UgdGhp
-cyBzaG91bGQgYmUgaGFuZGxlZCBjb25zaXN0ZW50bHkgYWNyb3NzIGFsbA0KPiBkcml2ZXJz
-IEkgd291bGQgdGhpbmsuDQo+IA0KPiANCj4gQXQgbGVhc3QgdGhlIHNsY2FuIGRyaXZlciBk
-b2VzIG5vdCBzdXBwb3J0IHRoZSBjb3JyZWN0IGVjaG8gb2YgQ0FODQo+IGZyYW1lcyBvbg0K
-PiBkcml2ZXIgbGV2ZWwgYXQgYWxsLiBUaGUgc2xjYW4gZHJpdmVyIGFkYXB0cyBDQU4gZnJh
-bWVzIHRvIGEgc2VyaWFsDQo+IGxpbmUgQ0FODQo+IGFkYXB0ZXIgd2hlcmUgdGhlIGZlZWRi
-YWNrIG9mIHN1Y2Nlc3NmdWwgdHJhbnNtaXNzaW9uIGlzIG5vdA0KPiBndWFyYW50ZWVkL2No
-ZWNrZWQgd2l0aGluIHRoZSBzZXJpYWwgZGF0YSBzdHJlYW0uIFRoZXJlZm9yZSB0aGUNCj4g
-aW50ZXJmYWNlIGZsYWcNCj4gSUZGX0VDSE8gaXMgbm90IHNldCBpbiB0aGUgc2xjYW4gZHJp
-dmVyIGFuZCB0aGUgbG9jYWwgZWNobyBpcyBwZXJmb3JtZWQNCj4gaW4NCj4gYWZfY2FuLmMg
-KGFzIGEgd29ya2Fyb3VuZCkuDQo+IA0KPiBSZWdhcmRzLA0KPiBPbGl2ZXINCg0KVGhhdHMg
-ZmluZSBmb3IgdGhlIGVjaG8gYmVoYXZpb3VyLCBidXQgZG9lcyBub3QgcmVhbGx5IGFuc3dl
-ciB3aHkgdGhlIHNsY2FuDQooYW5kIGZsZXhjYW4pIGRyaXZlciBpcyBzZXR0aW5nIHRoZSBz
-dGF0cyBmb3IgdHhfcGFja2V0cyBhbmQgdHhfYnl0ZXMgYXQgDQpkaWZmZXJlbnQgcG9pbnRz
-IGluIHRoZSB0cmFuc21pc3Npb24gbG9naWMuIFRvIG15IG1pbmQsIGVpdGhlciB3ZSB0aGlu
-ayB0aGUNCnBhY2tldCBoYXMgdHJhbnNtaXR0ZWQgKGFsb25nIHdpdGggaXRzIGJ5dGVzKSBz
-byB3ZSBzaG91bGQgaW5jcmVtZW50IGJvdGgsDQpvciB3ZSBzaG91bGQgaW5jcmVtZW50IG5l
-aXRoZXIuDQoNClJldWJlbg0KDQo=
+On Wed, Nov 02, 2011 at 10:52:57AM -0700, David Stevens wrote:
+> > > This address seems not to be explicitly mentioned in any RFC, but RFC 
+> > > 4291 says "All routers are required to support the Subnet-Router 
+> anycast 
+> > > addresses for the subnets to which they have interfaces."
+> > 
+> > That this directly contradicts RFC 2526 which specifies the
+> > subnet-router anycast address to be either ::ffff:ffff:ffff:ff80 or
+> > ::fcff:ffff:ffff:ff80 depending on the phase of the moon (well,
+> > interface type actually, but same thing. Also, the /64 <> /10
+> > distinction would matter here.)
+>
+>         The subnet-router anycast address is defined in section 2.6.1 of 
+> RFC 4291 to be "all 0's" for the prefix. The definition above is for
+> reserved anycast addresses. RFC 2526 says "IPv6 defines a required
+> Subnet-Router anycast address [3] for all routers within a subnet prefix,
+> and allows additional anycast addresses to be taken from the unicast
+> address space. This document defines an additional set of reserved
+> anycast addresses...".
+
+Argh. I got thoroughly confused. Please ignore everything I said.
+
+> > [...] only one router will receive the packet [...]
+> 
+>         The host implementation is very straightforward. Not every host
+> on a segment has to use the *same* host for an anycast address (it's
+> kind of the point that it won't, in fact). A host simply needs to
+> do a solicitation for the anycast address and keep the first one that
+> answers (by definition, the "closest").
+
+Right. Sorry. I was half-asleep when I wrote my previous mail and
+clearly didn't think through the entire problem. I should probably stop
+writing mails when not at least 80% awake :).
+
+Neighbor Discovery can indeed select one of the anycast hosts and talk
+to it using its lower-layer address, and no other host should
+receive/process the packet.
+
+Going back to Andreas's original question about Subnet-Router Anycast
+for fe80::/64 (or /10), RFC 4291 says
+   +------------------------------------------------+----------------+
+   |                   subnet prefix                | 00000000000000 |
+   +------------------------------------------------+----------------+
+
+   The "subnet prefix" in an anycast address is the prefix that
+   identifies a specific link.
+
+But fe80::/64 does not identify a specific link, as it is link-local and
+would specify all links but not one specifically. So, fe80:: is not a
+Subnet-Router anycast address, I'd say.
+
+
+Hoping I was awake enough this time...
+
+
+-David
