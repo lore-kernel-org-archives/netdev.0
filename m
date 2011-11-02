@@ -1,37 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Reset IPCB on forward non-local
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Bridge] [PATCH] bridge: Reset IPCB on forward non-local
  packets in br_handle_frame_finish()
-Date: Wed, 02 Nov 2011 16:09:05 -0400 (EDT)
-Message-ID: <20111102.160905.1169586186411464818.davem@davemloft.net>
+Date: Wed, 2 Nov 2011 13:14:45 -0700
+Message-ID: <20111102131445.28a92335@nehalam.linuxnetplumber.net>
 References: <4EB19549.4010601@parallels.com>
+	<20111102123106.107f4cb8@nehalam.linuxnetplumber.net>
+	<CAPDOV48k=0c1anx7DC57u0x84tUVsFDQNO6=MiT+9eEE=Egi2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, devel@openvz.org,
-	herbert@gondor.hengli.com.au
-To: vvs@parallels.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <4EB19549.4010601@parallels.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Vasily Averin <vvs@parallels.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>, devel@openvz.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Daniel Robbins <drobbins@funtoo.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36865 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750967Ab1KBUOs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Nov 2011 16:14:48 -0400
+In-Reply-To: <CAPDOV48k=0c1anx7DC57u0x84tUVsFDQNO6=MiT+9eEE=Egi2A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vasily Averin <vvs@parallels.com>
-Date: Wed, 02 Nov 2011 23:08:57 +0400
+On Wed, 2 Nov 2011 13:45:29 -0600
+Daniel Robbins <drobbins@funtoo.org> wrote:
 
-> if dst is not local br_handle_frame_finish() does not clone original skb and
-> forgets to reset IPCB before return to IP stack. it can lead to stack corruption
-> in icmp_send()
+> On Wed, Nov 2, 2011 at 1:31 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> >
+> > What kernel version are you using? There were several previous fixes
+> > in br_netfilter to deal with this type of issue over the last year.
 > 
-> Signed-off-by: Vasily Averin <vvs@sw.ru>
+> It's a kernel from this obscure company called Red Hat, and they
+> include it in this product called Red Hat Enterprise Linux 6.
+> 
+> Specifically, 042stab37.1 :)
+> 
+> -Daniel
 
-Nothing is worse than posting a patch that doesn't even compile.
-
-And I really mean _nothing_.
+The pay for their tech support and have them fix it.
+BTW - the problem was fixed upstream a long time ago, the upstream
+kernel moves fast and RHEL probably froze many months before their
+release.
