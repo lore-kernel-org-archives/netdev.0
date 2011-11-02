@@ -1,44 +1,37 @@
-From: Daniel Robbins <drobbins@funtoo.org>
-Subject: Re: [PATCH] bridge: Reset IPCB on forward non-local
- packets in br_handle_frame_finish()
-Date: Wed, 2 Nov 2011 14:23:16 -0600
-Message-ID: <CAPDOV48MiYxzQWNv-4-KZJKrr+K59gA_kpCHMaXP7pzDx6bbGg@mail.gmail.com>
-References: <4EB19549.4010601@parallels.com>
-	<20111102123106.107f4cb8@nehalam.linuxnetplumber.net>
-	<CAPDOV48k=0c1anx7DC57u0x84tUVsFDQNO6=MiT+9eEE=Egi2A@mail.gmail.com>
-	<20111102131445.28a92335@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH ethtool 20/21] Run tests in-process
+Date: Wed, 2 Nov 2011 20:25:51 +0000
+Message-ID: <1320265551.2782.9.camel@bwh-desktop>
+References: <1320186901.2758.30.camel@bwh-desktop>
+	 <1320189826.2758.52.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Vasily Averin <vvs@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>, devel@openvz.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111102131445.28a92335@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-net-drivers@solarflare.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:25074 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505Ab1KBUZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 16:25:58 -0400
+In-Reply-To: <1320189826.2758.52.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 2, 2011 at 2:14 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
->
-> The pay for their tech support and have them fix it.
-> BTW - the problem was fixed upstream a long time ago, the upstream
-> kernel moves fast and RHEL probably froze many months before their
-> release.
+On Tue, 2011-11-01 at 23:23 +0000, Ben Hutchings wrote:
+> Change definition of main() and use of exit() so that ethtool commands
+> can be tested without starting a new process.  This will allow deeper
+> testing that covers ioctl requests and responses.
+> 
+> Fix the obvious socket and memory leaks.
+[...]
 
-OK, thanks for the info. I moved my server to Linux ~3.1.0 and will be
-tracking mainline instead of using RHEL from this point forward. I am
-sick of dealing with the stale networking code in RHEL kernels.
+Unfortunately there are more potential resource leaks than these.  I'll
+defer this for now.
 
-Thanks and Regards,
+Ben.
 
-Daniel
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
