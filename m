@@ -1,83 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] i825xx:xscale:8390:freescale: Fix Kconfig dependancies
-Date: Wed,  2 Nov 2011 03:30:52 -0700
-Message-ID: <1320229852-18161-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:35712 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751777Ab1KBKbK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Nov 2011 06:31:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Quick Fair Queue scheduler maturity and examples
+Date: Wed, 02 Nov 2011 11:31:09 +0100
+Message-ID: <1320229869.2292.5.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <CAN==1RowdZ094pkOA3vbs-fd3g-NSABqaGC3WXSPL8Y0Lqg+fQ@mail.gmail.com>
+	<1319716772.2601.26.camel@edumazet-laptop>
+	<CAN==1Rq+WEcezLPNPNug2V11nftDkm2=aRKw95u_R8OPGxG72g@mail.gmail.com>
+	<1319731732.2601.40.camel@edumazet-laptop>
+	<1319732832.2601.43.camel@edumazet-laptop>
+	<CAN==1Ro3Va7JHfOoENu=gJqfaktrqLvpo3NWV8=ZB9OKtyfeYQ@mail.gmail.com>
+	<4EB115F7.5070203@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Karel Rericha <karel-OywlmTeUC4alVyrhU4qvOw@public.gmane.org>,
+	bloat <bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
+To: David =?ISO-8859-1?Q?T=E4ht?= <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
+In-Reply-To: <4EB115F7.5070203-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/bloat>,
+	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/bloat>
+List-Post: <mailto:bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
+List-Help: <mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/bloat>,
+	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=subscribe>
+Sender: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
+Errors-To: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-i825xx and xscale are "sub" Kconfigs to NET_VENDOR_INTEL, so
-NET_VENDOR_INTEL should contain ALL the dependencies of the
-"sub" Kconfigs.
-
-Same with 8390 is a "sub" Kconfig to NET_VENDOR_NATSEMI, so
-NET_VENDOR_NATSEMI needs to contains ALL the dependencies.
-
-Freescale Kconfig only had fs_enet as a sub Kconfig, and already
-contained the needed dependencies, just cleaned up the dependencies.
-
-Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/freescale/Kconfig |    3 +--
- drivers/net/ethernet/intel/Kconfig     |    6 +++++-
- drivers/net/ethernet/natsemi/Kconfig   |    6 +++++-
- 3 files changed, 11 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index 1cf6716..c520cfd 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -7,8 +7,7 @@ config NET_VENDOR_FREESCALE
- 	default y
- 	depends on FSL_SOC || QUICC_ENGINE || CPM1 || CPM2 || PPC_MPC512x || \
- 		   M523x || M527x || M5272 || M528x || M520x || M532x || \
--		   ARCH_MXC || ARCH_MXS || \
--		   (PPC_MPC52xx && PPC_BESTCOMM)
-+		   ARCH_MXC || ARCH_MXS || (PPC_MPC52xx && PPC_BESTCOMM)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 61029dc..7621316 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -5,7 +5,11 @@
- config NET_VENDOR_INTEL
- 	bool "Intel devices"
- 	default y
--	depends on PCI || PCI_MSI
-+	depends on PCI || PCI_MSI || ISA || ISA_DMA_API || ARM || \
-+		   ARCH_ACORN || MCA || MCA_LEGACY || SNI_RM || SUN3 || \
-+		   GSC || BVME6000 || MVME16x || ARCH_ENP2611 || \
-+		   (ARM && ARCH_IXP4XX && IXP4XX_NPE && IXP4XX_QMGR) || \
-+		   EXPERIMENTAL
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-diff --git a/drivers/net/ethernet/natsemi/Kconfig b/drivers/net/ethernet/natsemi/Kconfig
-index 4a6b9fd..c708bc3 100644
---- a/drivers/net/ethernet/natsemi/Kconfig
-+++ b/drivers/net/ethernet/natsemi/Kconfig
-@@ -5,7 +5,11 @@
- config NET_VENDOR_NATSEMI
- 	bool "National Semi-conductor devices"
- 	default y
--	depends on MCA || MAC || MACH_JAZZ || PCI || XTENSA_PLATFORM_XT2000
-+	depends on AMIGA_PCMCIA || ARM || EISA || EXPERIMENTAL || H8300 || \
-+		   ISA || M32R || MAC || MACH_JAZZ || MACH_TX49XX || MCA || \
-+		   MCA_LEGACY || MIPS || PCI || PCMCIA || SUPERH || \
-+		   XTENSA_PLATFORM_XT2000 || ZORRO
-+		   
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
--- 
-1.7.6.4
+TGUgbWVyY3JlZGkgMDIgbm92ZW1icmUgMjAxMSDDoCAxMTowNSArMDEwMCwgRGF2aWQgVMOkaHQg
+YSDDqWNyaXQgOgo+IChFeGFtcGxlIGVsaWRlZCwgc2VlIHRocmVhZCBvbiBuZXRkZXYpCj4gCj4g
+T24gMTEvMDIvMjAxMSAxMDozNiBBTSwgS2FyZWwgUmVyaWNoYSB3cm90ZToKPiA+IDIwMTEvMTAv
+MjcgRXJpYyBEdW1hemV0PGVyaWMuZHVtYXpldEBnbWFpbC5jb20+Ogo+ID4gVGhhbmtzIGZvciBl
+eGFtcGxlIEVyaWMuIEJ1dCBpdCBvbmx5IGFkZGVkIG1vcmUgY29uZnVzaW9uIHRvIG1lIG5vdyAK
+PiA+IDotKSBJIHdhcyB1bmRlciBpbXByZXNzaW9uIChhbmQgcmVhZCBzb21ld2hlcmUpIHRoYXQg
+UUZRIGlzIG5vbiB3b3JrIAo+ID4gY29uc2VydmluZyBzY2hlZHVsZXIgc28gSSBjYW4gdXNlIGl0
+IG1vcmUgb3IgbGVzcyBsaWtlIEhUQiBvciBIRlNDIHRvIAo+ID4gc2V0IGJhbmR3aWR0aCBjb25z
+dHJhaW50cyB0byBmbG93cy4gQnV0IGZyb20gdGhpcyBleGFtcGxlIChhbmQgZnJvbSAKPiA+IHNv
+dXJjZXMvcGF0Y2hlcy9wYXBlcnMgSSB0cnkgbm90IHRvIHByZXRlbmQgSSBmdWxseSB1bmRlcnN0
+YW5kKSBpdCAKPiA+IGxvb2tzIHRvIG1lIGxpa2Ugc29tZSBtdWx0aXF1ZXVlIHNjaGVkdWxlciB3
+aXRoIGFyYml0cmFyeSBudW1iZXIgb2YgCj4gPiBxdWV1ZXMgYW5kIGFiaWxpdHkgdG8gYXJiaXRy
+YXJ5IGFzc2lnbiBmbG93cyB0byB0aGlzIHF1ZXVlcy4gU28gc29tZSAKPiA+IHNvcnQgb2YgZmFp
+ciBkaXZpc2lvbiBvZiBhdmFpbGFibGUgYmFuZHdpZHRoIHRvIGZsb3dzIHdpdGhvdXQgCj4gPiBh
+cmJpdHJhcnkgYmFuZHdpZHRoIGNhcHMgdG8gdGhlc2UgZmxvd3MuIAo+IFRoaXMgaXMgd2hhdCBJ
+IHdhbnQhIEl0IG1heSBub3QgYmUgd2hhdCB5b3Ugd2FudC4uLgo+ID4gSSByZWFsbHkgZG9udCBz
+ZWUgd2hhdCBpcyBub24gd29yayBjb25zZXJ2aW5nIGhlcmUgOi1TIFBsZWFzZSBzYXZlIG15IAo+
+ID4gc291bCBhbmQgZW5saWdodGVuIG1lIGJlY2F1c2UgSSBhbSBhdCBkZWFkIGVuZCBub3cgOi0p
+Cj4gCj4gSSBpbml0aWFsbHkgaGFkIGdyZWF0IGhvcGUgZm9yIFFGUSBhcyBJJ3ZlIGJlZW4gc2F5
+aW5nIChtb3N0bHkgCj4gcHJpdmF0ZWx5KSB0aGF0ICJQRklGT19GQVNUIG11c3QgZGllIiBmb3Ig
+b3ZlciBhIHllYXIgbm93LiBXaGF0IHRvIAo+IHJlcGxhY2UgaXQgd2l0aCBpcyBhIHJhdGhlciBs
+YXJnZSBxdWVzdGlvbiwgYnV0IEkgZmVsdCBhIHN0YXJ0IHdvdWxkIGJlIAo+IHRvIGFkb3B0IHNv
+bWUgRlEgYWxnb3JpdGhtLiBPdmVyIHRoZSBsYXN0IGNvdXBsZSB3ZWVrcyBJIHJlYWQgYWxsIHRo
+ZSAKPiBwYXBlcnMgcmVnYXJkaW5nIERSUiBhbmQgUUZRIGFuZCBhbHNvIHBva2VkIGludG8gdGhl
+IHNvdXJjZSBjb2RlIGFuZCAKPiBsaWtlIHlvdSwgYW0gc2VyaW91c2x5IHVuLWVubGlnaHRlbmVk
+Lgo+IAo+IEkgdGhpbmsgZXJpYydzIGV4YW1wbGUgaXMgbWlzbGVhZGluZyBhcyBoZSBkaXZpZGVk
+IHVwIHRoZSBxdWV1ZXMgYnkgCj4gYmFuZHdpZHRoLCByYXRoZXIgdGhhbiBmbG93LCBpbiB0aGUg
+Zmlyc3QgdGllciBvZiBoaXMgdGMgaGllcmFyY2h5LiAKPiB1c2VmdWwgYXMgYSB0ZXN0Li4uCgpJ
+dCBzZWVtcyB0aGVyZSBpcyBhIGJpdCBvZiBtaXN1bmRlcnN0YW5kaW5nIGhlcmUuCgpRRlEgaXMg
+bm90IGEgJ2FsbCBpcyBpbmNsdWRlZCcgaW4gb25lIHFkaXNjLCBsaWtlIFNGUQoKWW91IHJlYWxs
+eSBuZWVkIHRvIHNldHVwIHFmcSBjbGFzc2VzLCBhbmQgZGVzY3JpYmUgaG93IHBhY2tldHMgYXJl
+Cm1hcHBlZCB0byBxZnEgY2xhc3NlcyAodGhpcyBpcyBkb25lIGJ5IGFuIGV4dGVybmFsIGZsb3cg
+Y2xhc3NpZmllcikKCkl0IGFsc28gaGFzIG5vIGludGVybmFsIChkZWZhdWx0KSBmbG93IGNsYXNz
+aWZpZXIgbGlrZSBTRlEgZGlkLgoKSXQgaGFzIG9mIGNvdXJzZSBubyBiYW5kd2lkdGggY29uc3Ry
+YWludHMuIElmIHlvdSBuZWVkIHRvIHNoYXBlIGFuZCB1c2UKUUZRLCB5b3UnbGwgaGF2ZSB0byB1
+c2UgUUZRICsgYSBzaGFwaW5nIHFkaXNjLiAoVGhpcyBpcyB3aHkgSSB1c2VkIEhUQgppbiBteSBz
+Y3JpcHQgYmVjYXVzZSBJIHdhbnRlZCB0byBzaGFwZSkKCklmIHlvdSBkb250IG5lZWQgdG8gc2hh
+cGUsIHlvdSBzdGlsbCBuZWVkIHRvIGRlc2NyaWJlL3NldHVwIHFmcSBjbGFzc2VzCmFuZCBjaG9z
+ZSBhcHByb3ByaWF0ZSBmbG93IGNsYXNzaWZpZXIuCgoKCl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fCkJsb2F0IG1haWxpbmcgbGlzdApCbG9hdEBsaXN0cy5i
+dWZmZXJibG9hdC5uZXQKaHR0cHM6Ly9saXN0cy5idWZmZXJibG9hdC5uZXQvbGlzdGluZm8vYmxv
+YXQK
