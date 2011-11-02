@@ -1,269 +1,43 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] af_packet: de-inline some helper functions
-Date: Wed, 2 Nov 2011 14:00:49 -0700
-Message-ID: <20111102210049.GA3697@quad.lixom.net>
-References: <1320266081-1387-1-git-send-email-olof@lixom.net>
- <20111102.163658.136546552375950246.davem@davemloft.net>
+From: "Reuben Dowle" <Reuben.Dowle@navico.com>
+Subject: RE: [PATCH] flexcan: Fix CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK
+Date: Thu, 3 Nov 2011 10:31:13 +1300
+Message-ID: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA8E0@exch01-aklnz.MARINE.NET.INT>
+References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA1DD@exch01-aklnz.MARINE.NET
+ .INT> <20111102080438.GA324@e-circ.dyndns.org>
+ <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA803@exch01-aklnz.MARINE.NET.INT>
+ <4EB1A883.2040605@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, loke.chetan@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: "Kurt Van Dijck" <kurt.van.dijck@eia.be>, <netdev@vger.kernel.org>,
+	<linux-can@vger.kernel.org>
+To: "Oliver Hartkopp" <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:54320 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751436Ab1KBVAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 17:00:30 -0400
-Received: by qabj40 with SMTP id j40so561281qab.19
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2011 14:00:30 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20111102.163658.136546552375950246.davem@davemloft.net>
+Received: from vw-hfger.navico.com ([81.89.228.210]:2400 "EHLO
+	VW-HFGER.navico.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750817Ab1KBVbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 17:31:22 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <4EB1A883.2040605@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This popped some compiler errors due to mismatched prototypes. Just
-remove most manual inlines, the compiler should be able to figure out
-what makes sense to inline and not.
-
-net/packet/af_packet.c:252: warning: 'prb_curr_blk_in_use' declared inline after being called
-net/packet/af_packet.c:252: warning: previous declaration of 'prb_curr_blk_in_use' was here
-net/packet/af_packet.c:258: warning: 'prb_queue_frozen' declared inline after being called
-net/packet/af_packet.c:258: warning: previous declaration of 'prb_queue_frozen' was here
-net/packet/af_packet.c:248: warning: 'packet_previous_frame' declared inline after being called
-net/packet/af_packet.c:248: warning: previous declaration of 'packet_previous_frame' was here
-net/packet/af_packet.c:251: warning: 'packet_increment_head' declared inline after being called
-net/packet/af_packet.c:251: warning: previous declaration of 'packet_increment_head' was here
-
-Signed-off-by: Olof Johansson <olof@lixom.net>
-Cc: Chetan Loke <loke.chetan@gmail.com>
----
-On Wed, Nov 02, 2011 at 04:36:58PM -0400, David Miller wrote:
-> From: Olof Johansson <olof@lixom.net>
-> Date: Wed,  2 Nov 2011 13:34:41 -0700
-> 
-> > Dave, let me know if you prefer to shuffle code around and move the
-> > inline helpers to the top instead -- I went with the smaller change by
-> > default.
-> 
-> Inline shouldn't be used at all, let the compiler decide.
-
-Sounds reasonable. How about this -- I took out all but one that was
-static inline __pure? 
-
-I could go back and do only those who cause warnings if you prefer, but
-that would mean it would be a bit random what is inline and not when
-someone reads the code down the road.
-
-
--Olof
-
- net/packet/af_packet.c |   52 ++++++++++++++++++++++++------------------------
- 1 files changed, 26 insertions(+), 26 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 03bb45a..82a6f34 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -335,7 +335,7 @@ struct packet_skb_cb {
- 	(((x)->kactive_blk_num < ((x)->knum_blocks-1)) ? \
- 	((x)->kactive_blk_num+1) : 0)
- 
--static inline struct packet_sock *pkt_sk(struct sock *sk)
-+static struct packet_sock *pkt_sk(struct sock *sk)
- {
- 	return (struct packet_sock *)sk;
- }
-@@ -477,7 +477,7 @@ static void *packet_lookup_frame(struct packet_sock *po,
- 	return h.raw;
- }
- 
--static inline void *packet_current_frame(struct packet_sock *po,
-+static void *packet_current_frame(struct packet_sock *po,
- 		struct packet_ring_buffer *rb,
- 		int status)
- {
-@@ -715,7 +715,7 @@ out:
- 	spin_unlock(&po->sk.sk_receive_queue.lock);
- }
- 
--static inline void prb_flush_block(struct tpacket_kbdq_core *pkc1,
-+static void prb_flush_block(struct tpacket_kbdq_core *pkc1,
- 		struct tpacket_block_desc *pbd1, __u32 status)
- {
- 	/* Flush everything minus the block header */
-@@ -793,7 +793,7 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
- 	pkc1->kactive_blk_num = GET_NEXT_PRB_BLK_NUM(pkc1);
- }
- 
--static inline void prb_thaw_queue(struct tpacket_kbdq_core *pkc)
-+static void prb_thaw_queue(struct tpacket_kbdq_core *pkc)
- {
- 	pkc->reset_pending_on_curr_blk = 0;
- }
-@@ -869,7 +869,7 @@ static void prb_open_block(struct tpacket_kbdq_core *pkc1,
-  *         case and __packet_lookup_frame_in_block will check if block-0
-  *         is free and can now be re-used.
-  */
--static inline void prb_freeze_queue(struct tpacket_kbdq_core *pkc,
-+static void prb_freeze_queue(struct tpacket_kbdq_core *pkc,
- 				  struct packet_sock *po)
- {
- 	pkc->reset_pending_on_curr_blk = 1;
-@@ -940,36 +940,36 @@ static void prb_retire_current_block(struct tpacket_kbdq_core *pkc,
- 	BUG();
- }
- 
--static inline int prb_curr_blk_in_use(struct tpacket_kbdq_core *pkc,
-+static int prb_curr_blk_in_use(struct tpacket_kbdq_core *pkc,
- 				      struct tpacket_block_desc *pbd)
- {
- 	return TP_STATUS_USER & BLOCK_STATUS(pbd);
- }
- 
--static inline int prb_queue_frozen(struct tpacket_kbdq_core *pkc)
-+static int prb_queue_frozen(struct tpacket_kbdq_core *pkc)
- {
- 	return pkc->reset_pending_on_curr_blk;
- }
- 
--static inline void prb_clear_blk_fill_status(struct packet_ring_buffer *rb)
-+static void prb_clear_blk_fill_status(struct packet_ring_buffer *rb)
- {
- 	struct tpacket_kbdq_core *pkc  = GET_PBDQC_FROM_RB(rb);
- 	atomic_dec(&pkc->blk_fill_in_prog);
- }
- 
--static inline void prb_fill_rxhash(struct tpacket_kbdq_core *pkc,
-+static void prb_fill_rxhash(struct tpacket_kbdq_core *pkc,
- 			struct tpacket3_hdr *ppd)
- {
- 	ppd->hv1.tp_rxhash = skb_get_rxhash(pkc->skb);
- }
- 
--static inline void prb_clear_rxhash(struct tpacket_kbdq_core *pkc,
-+static void prb_clear_rxhash(struct tpacket_kbdq_core *pkc,
- 			struct tpacket3_hdr *ppd)
- {
- 	ppd->hv1.tp_rxhash = 0;
- }
- 
--static inline void prb_fill_vlan_info(struct tpacket_kbdq_core *pkc,
-+static void prb_fill_vlan_info(struct tpacket_kbdq_core *pkc,
- 			struct tpacket3_hdr *ppd)
- {
- 	if (vlan_tx_tag_present(pkc->skb)) {
-@@ -991,7 +991,7 @@ static void prb_run_all_ft_ops(struct tpacket_kbdq_core *pkc,
- 		prb_clear_rxhash(pkc, ppd);
- }
- 
--static inline void prb_fill_curr_block(char *curr,
-+static void prb_fill_curr_block(char *curr,
- 				struct tpacket_kbdq_core *pkc,
- 				struct tpacket_block_desc *pbd,
- 				unsigned int len)
-@@ -1071,7 +1071,7 @@ static void *__packet_lookup_frame_in_block(struct packet_sock *po,
- 	return NULL;
- }
- 
--static inline void *packet_current_rx_frame(struct packet_sock *po,
-+static void *packet_current_rx_frame(struct packet_sock *po,
- 					    struct sk_buff *skb,
- 					    int status, unsigned int len)
- {
-@@ -1091,7 +1091,7 @@ static inline void *packet_current_rx_frame(struct packet_sock *po,
- 	}
- }
- 
--static inline void *prb_lookup_block(struct packet_sock *po,
-+static void *prb_lookup_block(struct packet_sock *po,
- 				     struct packet_ring_buffer *rb,
- 				     unsigned int previous,
- 				     int status)
-@@ -1104,7 +1104,7 @@ static inline void *prb_lookup_block(struct packet_sock *po,
- 	return pbd;
- }
- 
--static inline int prb_previous_blk_num(struct packet_ring_buffer *rb)
-+static int prb_previous_blk_num(struct packet_ring_buffer *rb)
- {
- 	unsigned int prev;
- 	if (rb->prb_bdqc.kactive_blk_num)
-@@ -1115,7 +1115,7 @@ static inline int prb_previous_blk_num(struct packet_ring_buffer *rb)
- }
- 
- /* Assumes caller has held the rx_queue.lock */
--static inline void *__prb_previous_block(struct packet_sock *po,
-+static void *__prb_previous_block(struct packet_sock *po,
- 					 struct packet_ring_buffer *rb,
- 					 int status)
- {
-@@ -1123,7 +1123,7 @@ static inline void *__prb_previous_block(struct packet_sock *po,
- 	return prb_lookup_block(po, rb, previous, status);
- }
- 
--static inline void *packet_previous_rx_frame(struct packet_sock *po,
-+static void *packet_previous_rx_frame(struct packet_sock *po,
- 					     struct packet_ring_buffer *rb,
- 					     int status)
- {
-@@ -1133,7 +1133,7 @@ static inline void *packet_previous_rx_frame(struct packet_sock *po,
- 	return __prb_previous_block(po, rb, status);
- }
- 
--static inline void packet_increment_rx_head(struct packet_sock *po,
-+static void packet_increment_rx_head(struct packet_sock *po,
- 					    struct packet_ring_buffer *rb)
- {
- 	switch (po->tp_version) {
-@@ -1148,7 +1148,7 @@ static inline void packet_increment_rx_head(struct packet_sock *po,
- 	}
- }
- 
--static inline void *packet_previous_frame(struct packet_sock *po,
-+static void *packet_previous_frame(struct packet_sock *po,
- 		struct packet_ring_buffer *rb,
- 		int status)
- {
-@@ -1156,7 +1156,7 @@ static inline void *packet_previous_frame(struct packet_sock *po,
- 	return packet_lookup_frame(po, rb, previous, status);
- }
- 
--static inline void packet_increment_head(struct packet_ring_buffer *buff)
-+static void packet_increment_head(struct packet_ring_buffer *buff)
- {
- 	buff->head = buff->head != buff->frame_max ? buff->head+1 : 0;
- }
-@@ -1558,7 +1558,7 @@ out_free:
- 	return err;
- }
- 
--static inline unsigned int run_filter(const struct sk_buff *skb,
-+static unsigned int run_filter(const struct sk_buff *skb,
- 				      const struct sock *sk,
- 				      unsigned int res)
- {
-@@ -2167,10 +2167,10 @@ out:
- 	return err;
- }
- 
--static inline struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
--					       size_t reserve, size_t len,
--					       size_t linear, int noblock,
--					       int *err)
-+static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
-+				        size_t reserve, size_t len,
-+				        size_t linear, int noblock,
-+				        int *err)
- {
- 	struct sk_buff *skb;
- 
-@@ -3494,7 +3494,7 @@ static void free_pg_vec(struct pgv *pg_vec, unsigned int order,
- 	kfree(pg_vec);
- }
- 
--static inline char *alloc_one_pg_vec_page(unsigned long order)
-+static char *alloc_one_pg_vec_page(unsigned long order)
- {
- 	char *buffer = NULL;
- 	gfp_t gfp_flags = GFP_KERNEL | __GFP_COMP |
--- 
-1.7.4.1
+PiA+DQo+ID4gSWYgd2UgY2hhbmdlIHRoZSBiZWhhdmlvdXIgb2YgZmxleGNhbiwgSSB0aGlu
+ayBhdDkxIGFuZCBzbGNhbiBzaG91bGQNCj4gYmUgY2hhbmdlZCB0b28sIGJlY2F1c2UgdGhp
+cyBzaG91bGQgYmUgaGFuZGxlZCBjb25zaXN0ZW50bHkgYWNyb3NzIGFsbA0KPiBkcml2ZXJz
+IEkgd291bGQgdGhpbmsuDQo+IA0KPiANCj4gQXQgbGVhc3QgdGhlIHNsY2FuIGRyaXZlciBk
+b2VzIG5vdCBzdXBwb3J0IHRoZSBjb3JyZWN0IGVjaG8gb2YgQ0FODQo+IGZyYW1lcyBvbg0K
+PiBkcml2ZXIgbGV2ZWwgYXQgYWxsLiBUaGUgc2xjYW4gZHJpdmVyIGFkYXB0cyBDQU4gZnJh
+bWVzIHRvIGEgc2VyaWFsDQo+IGxpbmUgQ0FODQo+IGFkYXB0ZXIgd2hlcmUgdGhlIGZlZWRi
+YWNrIG9mIHN1Y2Nlc3NmdWwgdHJhbnNtaXNzaW9uIGlzIG5vdA0KPiBndWFyYW50ZWVkL2No
+ZWNrZWQgd2l0aGluIHRoZSBzZXJpYWwgZGF0YSBzdHJlYW0uIFRoZXJlZm9yZSB0aGUNCj4g
+aW50ZXJmYWNlIGZsYWcNCj4gSUZGX0VDSE8gaXMgbm90IHNldCBpbiB0aGUgc2xjYW4gZHJp
+dmVyIGFuZCB0aGUgbG9jYWwgZWNobyBpcyBwZXJmb3JtZWQNCj4gaW4NCj4gYWZfY2FuLmMg
+KGFzIGEgd29ya2Fyb3VuZCkuDQo+IA0KPiBSZWdhcmRzLA0KPiBPbGl2ZXINCg0KVGhhdHMg
+ZmluZSBmb3IgdGhlIGVjaG8gYmVoYXZpb3VyLCBidXQgZG9lcyBub3QgcmVhbGx5IGFuc3dl
+ciB3aHkgdGhlIHNsY2FuDQooYW5kIGZsZXhjYW4pIGRyaXZlciBpcyBzZXR0aW5nIHRoZSBz
+dGF0cyBmb3IgdHhfcGFja2V0cyBhbmQgdHhfYnl0ZXMgYXQgDQpkaWZmZXJlbnQgcG9pbnRz
+IGluIHRoZSB0cmFuc21pc3Npb24gbG9naWMuIFRvIG15IG1pbmQsIGVpdGhlciB3ZSB0aGlu
+ayB0aGUNCnBhY2tldCBoYXMgdHJhbnNtaXR0ZWQgKGFsb25nIHdpdGggaXRzIGJ5dGVzKSBz
+byB3ZSBzaG91bGQgaW5jcmVtZW50IGJvdGgsDQpvciB3ZSBzaG91bGQgaW5jcmVtZW50IG5l
+aXRoZXIuDQoNClJldWJlbg0KDQo=
