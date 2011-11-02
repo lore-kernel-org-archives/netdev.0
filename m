@@ -1,309 +1,137 @@
-From: Matti Vaittinen <matti.vaittinen@nsn.com>
-Subject: [PATCH v3] IPv6 - support for NLM_F_* flags at routing requests
-Date: Wed, 02 Nov 2011 10:04:58 +0200
-Message-ID: <1320221098.3425.8.camel@lakki>
+From: Karel Rericha <karel@maxtel.cz>
+Subject: Re: Quick Fair Queue scheduler maturity and examples
+Date: Wed, 2 Nov 2011 10:36:31 +0100
+Message-ID: <CAN==1Ro3Va7JHfOoENu=gJqfaktrqLvpo3NWV8=ZB9OKtyfeYQ@mail.gmail.com>
+References: <CAN==1RowdZ094pkOA3vbs-fd3g-NSABqaGC3WXSPL8Y0Lqg+fQ@mail.gmail.com>
+	<1319716772.2601.26.camel@edumazet-laptop>
+	<CAN==1Rq+WEcezLPNPNug2V11nftDkm2=aRKw95u_R8OPGxG72g@mail.gmail.com>
+	<1319731732.2601.40.camel@edumazet-laptop>
+	<1319732832.2601.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: davem <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:14883 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752504Ab1KBIFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 04:05:10 -0400
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:38626 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619Ab1KBJgc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 05:36:32 -0400
+Received: by vws1 with SMTP id 1so234412vws.19
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2011 02:36:31 -0700 (PDT)
+In-Reply-To: <1319732832.2601.43.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Once more.. Changed returnvalue -EINVAL to -ENOENT for case
-where NLM_F_REPLACE is specified without NLM_F_CREATE, and no
-matching route is found.
+2011/10/27 Eric Dumazet <eric.dumazet@gmail.com>:
+> Le jeudi 27 octobre 2011 =E0 18:08 +0200, Eric Dumazet a =E9crit :
+>> Le jeudi 27 octobre 2011 =E0 14:46 +0200, Karel Rericha a =E9crit :
+>>
+>> > Actually I am doing some reseach to replace our main shaping machi=
+ne
+>> > with 60 000+ htb classes, which now saturates 12 core Xeon Westmer=
+e to
+>> > 30% (there are five gigabit network ports on each interface affini=
+ted
+>> > to cores). AFAIK QFQ should be O(1) complexity so it would bring
+>> > saturation a requirements for number of cores down considerably (H=
+TB
+>> > has O(log(N)) complexity).
+>> >
+>> > I have test machine and about two months to decide if we will stay
+>> > with HTB or we will try something else. So it would be VERY helpfu=
+l,
+>> > if you would search you memory instead your dead disk :-) and send=
+ me
+>> > some example of QFQ usage, if I can ask for a little of your time.=
+ I
+>> > promise to have results published here in return.
+>> >
+>> > Thanks, Karel
+>> >
+>>
+>> That seems a good challenge to me ;)
+>>
+>> First upgrade to a recent kernel with QFQ included.
+>> Also upgrade iproute2 to a recent enough version as well.
+>>
+>> Then you discover "tc =A0... qfq help" is not that helpful :(
+>>
+>> # tc qdisc add dev eth3 root qfq help
+>> Usage: ... qfq
+>>
+>> OK, its parameters are :
+>>
+>> =A0 =A0 =A0 qfq weight num1 [maxpkt BYTES]
+>>
+>> You should not touch maxpkt, its default value being 2048
+>>
+>> Oh well, I just tried the obvious and my (remote) machine doesnt ans=
+wer
+>> to me anymore...
+>>
+>> Time for a bit of debugging I am afraid :(
+>
+> Never mind, it was an user error :)
+>
+> Here is what I used during my tests, I guess you can adapt your
+> scripts...
+>
+> DEV=3Deth3
+> RATE=3D"rate 40Mbit"
+> TNETS=3D"10.2.2.0/25"
+> ALLOT=3D"allot 20000"
+>
+> tc qdisc del dev dummy0 root 2>/dev/null
+>
+> tc qdisc add dev $DEV root handle 1: cbq avpkt 1000 rate 1000Mbit \
+> =A0 =A0 =A0 =A0bandwidth 1000Mbit
+> tc class add dev $DEV parent 1: classid 1:1 \
+> =A0 =A0 =A0 =A0est 1sec 8sec cbq allot 10000 mpu 64 \
+> =A0 =A0 =A0 =A0rate 1000Mbit prio 1 avpkt 1500 bounded
+>
+> # output to test nets : =A040 Mbit limit
+> tc class add dev $DEV parent 1:1 classid 1:11 \
+> =A0 =A0 =A0 =A0est 1sec 8sec cbq $ALLOT mpu 64 =A0 =A0 =A0\
+> =A0 =A0 =A0 =A0$RATE prio 2 avpkt 1400 bounded
+>
+> tc qdisc add dev $DEV parent 1:11 handle 11: =A0\
+> =A0 =A0 =A0 =A0est 1sec 8sec qfq
+>
+> tc filter add dev $DEV protocol ip parent 11: handle 3 \
+> =A0 =A0 =A0 =A0flow hash keys rxhash divisor 8
+>
+> for i in `seq 1 8`
+> do
+> =A0classid=3D11:$(printf %x $i)
+> =A0tc class add dev $DEV classid $classid qfq
+> =A0tc qdisc add dev $DEV parent $classid pfifo limit 30
+> done
+>
+> for privnet in $TNETS
+> do
+> =A0 =A0 =A0 =A0tc filter add dev $DEV parent 1: protocol ip prio 100 =
+u32 \
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0match ip dst $privnet flowid 1:11
+> done
+>
+> tc filter add dev $DEV parent 1: protocol ip prio 100 u32 \
+> =A0 =A0 =A0 =A0match ip protocol 0 0x00 flowid 1:1
+>
+> iperf -u -c 10.2.2.1 -P 32 -l 50
+>
+>
+>
 
+Thanks for example Eric.
 
+But it only added more confusion to me now :-) I was under impression
+(and read somewhere) that QFQ is non work conserving scheduler so I
+can use it more or less like HTB or HFSC to set bandwidth constraints
+to flows. But from this example (and from sources/patches/papers I try
+not to pretend I fully understand) it looks to me like some multiqueue
+scheduler with arbitrary number of queues and ability to arbitrary
+assign flows to this queues. So some sort of fair division of
+available bandwidth to flows without arbitrary bandwidth caps to these
+flows. I really dont see what is non work conserving here :-S
 
-The support for NLM_F_* flags at IPv6 routing requests.
-
-If no NLM_F_CREATE flag is not defined for RTM_NEWROUTE request,
-warning is printed, but no error is returned. Instead new route is added.
-
-Exception is when NLM_F_REPLACE flag is given without NLM_F_CREATE, and
-no matching route is found. In this case it should be safe to assume
-that the request issuer is familiar with NLM_F_* flags, and does really
-not want route to be created. 
-
-Specifying NLM_F_REPLACE flag will now make the kernel to search for
-matching route, and replace it with new one. If no route is found and
-NLM_F_CREATE is specified as well, then new route is created.
-
-Also, specifying NLM_F_EXCL will yield returning of error if matching route
-is found.
-
-
-Signed-off-by: Matti Vaittinen <Mazziesaccount@gmail.com>
----
-diff -uNr linux-3.1-rc4.orig/net/ipv6/ip6_fib.c linux-3.1-rc4.new/net/ipv6/ip6_fib.c
---- linux-3.1-rc4.orig/net/ipv6/ip6_fib.c	2011-11-01 14:01:55.000000000 +0200
-+++ linux-3.1-rc4.new/net/ipv6/ip6_fib.c	2011-11-02 08:37:21.000000000 +0200
-@@ -429,17 +429,34 @@
- 
- static struct fib6_node * fib6_add_1(struct fib6_node *root, void *addr,
- 				     int addrlen, int plen,
--				     int offset)
-+				     int offset, struct nl_info *info)
- {
- 	struct fib6_node *fn, *in, *ln;
- 	struct fib6_node *pn = NULL;
- 	struct rt6key *key;
- 	int	bit;
-+
-+
-+	int allow_create = 1;
-+	int replace_required = 0;
-+
-+
- 	__be32	dir = 0;
- 	__u32	sernum = fib6_new_sernum();
- 
- 	RT6_TRACE("fib6_add_1\n");
- 
-+	if (NULL != info &&
-+	    NULL != info->nlh &&
-+	    (info->nlh->nlmsg_flags&NLM_F_REPLACE)) {
-+		replace_required = 1;
-+	}
-+	if (NULL != info &&
-+	    NULL != info->nlh &&
-+	    !(info->nlh->nlmsg_flags&NLM_F_CREATE)) {
-+			allow_create = 0;
-+	}
-+
- 	/* insert node in tree */
- 
- 	fn = root;
-@@ -451,8 +468,12 @@
- 		 *	Prefix match
- 		 */
- 		if (plen < fn->fn_bit ||
--		    !ipv6_prefix_equal(&key->addr, addr, fn->fn_bit))
-+		    !ipv6_prefix_equal(&key->addr, addr, fn->fn_bit)) {
-+			if (!allow_create)
-+				printk(KERN_WARNING
-+				    "NLM_F_CREATE should be specified when creating new rt\n");
- 			goto insert_above;
-+		}
- 
- 		/*
- 		 *	Exact match ?
-@@ -481,10 +502,27 @@
- 		fn = dir ? fn->right: fn->left;
- 	} while (fn);
- 
-+
-+	if (replace_required && !allow_create) {
-+		/* We should not create new node because
-+		 * NLM_F_REPLACE was specified without NLM_F_CREATE
-+		 * I assume it is safe to require NLM_F_CREATE when
-+		 * REPLACE flag is used! Later we may want to remove the
-+		 * check for replace_required, because according
-+		 * to netlink specification, NLM_F_CREATE
-+		 * MUST be specified if new route is created.
-+		 * That would keep IPv6 consistent with IPv4
-+		 */
-+		printk(KERN_WARNING
-+		    "NLM_F_CREATE should be specified when creating new rt - ignoring request\n");
-+		return ERR_PTR(-ENOENT);
-+	}
- 	/*
- 	 *	We walked to the bottom of tree.
- 	 *	Create new leaf node without children.
- 	 */
-+	if (!allow_create)
-+		printk(KERN_WARNING "NLM_F_CREATE should be specified when creating new rt\n");
- 
- 	ln = node_alloc();
- 
-@@ -567,7 +605,6 @@
- 		fn->parent = in;
- 
- 		ln->fn_sernum = sernum;
--
- 		if (addr_bit_set(addr, bit)) {
- 			in->right = ln;
- 			in->left  = fn;
-@@ -585,6 +622,7 @@
- 
- 		ln = node_alloc();
- 
-+
- 		if (ln == NULL)
- 			return NULL;
- 
-@@ -618,6 +656,12 @@
- {
- 	struct rt6_info *iter = NULL;
- 	struct rt6_info **ins;
-+	int replace = (NULL != info &&
-+	    NULL != info->nlh &&
-+	    (info->nlh->nlmsg_flags&NLM_F_REPLACE));
-+	int add = ((NULL == info || NULL == info->nlh) ||
-+	    (info->nlh->nlmsg_flags&NLM_F_CREATE));
-+	int found = 0;
- 
- 	ins = &fn->leaf;
- 
-@@ -630,6 +674,13 @@
- 			/*
- 			 *	Same priority level
- 			 */
-+			if (NULL != info->nlh &&
-+			    (info->nlh->nlmsg_flags&NLM_F_EXCL))
-+				return -EEXIST;
-+			if (replace) {
-+				found++;
-+				break;
-+			}
- 
- 			if (iter->rt6i_dev == rt->rt6i_dev &&
- 			    iter->rt6i_idev == rt->rt6i_idev &&
-@@ -659,19 +710,41 @@
- 	/*
- 	 *	insert node
- 	 */
-+	if (!replace) {
-+		if (!add)
-+			printk(KERN_WARNING "NLM_F_CREATE should be specified when creating new rt\n");
-+
-+add:
-+		rt->dst.rt6_next = iter;
-+		*ins = rt;
-+		rt->rt6i_node = fn;
-+		atomic_inc(&rt->rt6i_ref);
-+		inet6_rt_notify(RTM_NEWROUTE, rt, info);
-+		info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
-+
-+		if ((fn->fn_flags & RTN_RTINFO) == 0) {
-+			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
-+			fn->fn_flags |= RTN_RTINFO;
-+		}
- 
--	rt->dst.rt6_next = iter;
--	*ins = rt;
--	rt->rt6i_node = fn;
--	atomic_inc(&rt->rt6i_ref);
--	inet6_rt_notify(RTM_NEWROUTE, rt, info);
--	info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
--
--	if ((fn->fn_flags & RTN_RTINFO) == 0) {
--		info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
--		fn->fn_flags |= RTN_RTINFO;
-+	} else {
-+		if (!found) {
-+			if (add)
-+				goto add;
-+			printk(KERN_WARNING "add rtinfo to node - NLM_F_REPLACE specified, but no existing node found! bailing out\n");
-+			return -ENOENT;
-+		}
-+		*ins = rt;
-+		rt->rt6i_node = fn;
-+		rt->dst.rt6_next = iter->dst.rt6_next;
-+		atomic_inc(&rt->rt6i_ref);
-+		inet6_rt_notify(RTM_NEWROUTE, rt, info);
-+		rt6_release(iter);
-+		if ((fn->fn_flags & RTN_RTINFO) == 0) {
-+			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
-+			fn->fn_flags |= RTN_RTINFO;
-+		}
- 	}
--
- 	return 0;
- }
- 
-@@ -700,10 +773,29 @@
- {
- 	struct fib6_node *fn, *pn = NULL;
- 	int err = -ENOMEM;
-+	int allow_create = 1;
-+	int allow_replace = 1;
-+	if (NULL != info &&
-+	    NULL != info->nlh &&
-+	    !(info->nlh->nlmsg_flags&NLM_F_REPLACE)) {
-+		allow_replace = 0;
-+	}
-+	if (NULL != info &&
-+	    NULL != info->nlh &&
-+	    !(info->nlh->nlmsg_flags&NLM_F_CREATE)) {
-+			allow_create = 0;
-+	}
-+	if (!allow_create && !allow_replace)
-+		printk(KERN_WARNING "RTM_NEWROUTE with no NLM_F_CREATE or NLM_F_REPLACE\n");
- 
- 	fn = fib6_add_1(root, &rt->rt6i_dst.addr, sizeof(struct in6_addr),
--			rt->rt6i_dst.plen, offsetof(struct rt6_info, rt6i_dst));
-+		    rt->rt6i_dst.plen, offsetof(struct rt6_info, rt6i_dst),
-+		    info);
- 
-+	if (-ENOENT == PTR_ERR(fn)) {
-+		err = -ENOENT;
-+		fn = NULL;
-+	}
- 	if (fn == NULL)
- 		goto out;
- 
-@@ -716,6 +808,8 @@
- 		if (fn->subtree == NULL) {
- 			struct fib6_node *sfn;
- 
-+			if (!allow_create)
-+				printk(KERN_WARNING "NLM_F_CREATE should be specified when creating new rt\n");
- 			/*
- 			 * Create subtree.
- 			 *
-@@ -740,7 +834,8 @@
- 
- 			sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
- 					sizeof(struct in6_addr), rt->rt6i_src.plen,
--					offsetof(struct rt6_info, rt6i_src));
-+					offsetof(struct rt6_info, rt6i_src),
-+				    info);
- 
- 			if (sn == NULL) {
- 				/* If it is failed, discard just allocated
-@@ -757,8 +852,13 @@
- 		} else {
- 			sn = fib6_add_1(fn->subtree, &rt->rt6i_src.addr,
- 					sizeof(struct in6_addr), rt->rt6i_src.plen,
--					offsetof(struct rt6_info, rt6i_src));
-+					offsetof(struct rt6_info, rt6i_src),
-+					info);
- 
-+			if (-ENOENT == PTR_ERR(sn)) {
-+				err = -ENOENT;
-+				sn = NULL;
-+			}
- 			if (sn == NULL)
- 				goto st_failure;
- 		}
-diff -uNr linux-3.1-rc4.orig/net/ipv6/route.c linux-3.1-rc4.new/net/ipv6/route.c
---- linux-3.1-rc4.orig/net/ipv6/route.c	2011-11-01 14:01:55.000000000 +0200
-+++ linux-3.1-rc4.new/net/ipv6/route.c	2011-10-27 10:45:05.000000000 +0300
-@@ -1223,9 +1223,18 @@
- 	if (cfg->fc_metric == 0)
- 		cfg->fc_metric = IP6_RT_PRIO_USER;
- 
--	table = fib6_new_table(net, cfg->fc_table);
-+	err = -ENOBUFS;
-+	if (NULL != cfg->fc_nlinfo.nlh &&
-+	    !(cfg->fc_nlinfo.nlh->nlmsg_flags&NLM_F_CREATE)) {
-+		table = fib6_get_table(net, cfg->fc_table);
-+		if (table == NULL) {
-+			printk(KERN_WARNING "NLM_F_CREATE should be specified when creating new rt\n");
-+			table = fib6_new_table(net, cfg->fc_table);
-+		}
-+	} else {
-+		table = fib6_new_table(net, cfg->fc_table);
-+	}
- 	if (table == NULL) {
--		err = -ENOBUFS;
- 		goto out;
- 	}
- 
+Please save my soul and enlighten me because I am at dead end now :-)
