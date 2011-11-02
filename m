@@ -1,92 +1,109 @@
-From: MyungJoo Ham <myungjoo.ham@gmail.com>
-Subject: Re: hiberante hangs TCP Re: [EXAMPLE CODE] Parasite
- thread injection and TCP connection hijacking
-Date: Wed, 2 Nov 2011 18:44:31 +0900
-Message-ID: <CAJ0PZbSRX6Rqn5NnnMkVGrPovtSuc2NWasysOYnjr3j9rON1VQ@mail.gmail.com>
-References: <20110806121247.GC23937@htj.dyndns.org>
-	<20111030044821.GA23741@spacedout.fries.net>
-	<20111030201618.GA7696@google.com>
+From: =?ISO-8859-1?Q?David_T=E4ht?= <dave.taht@gmail.com>
+Subject: Re: Quick Fair Queue scheduler maturity and examples
+Date: Wed, 02 Nov 2011 11:05:43 +0100
+Message-ID: <4EB115F7.5070203@gmail.com>
+References: <CAN==1RowdZ094pkOA3vbs-fd3g-NSABqaGC3WXSPL8Y0Lqg+fQ@mail.gmail.com> <1319716772.2601.26.camel@edumazet-laptop> <CAN==1Rq+WEcezLPNPNug2V11nftDkm2=aRKw95u_R8OPGxG72g@mail.gmail.com> <1319731732.2601.40.camel@edumazet-laptop> <1319732832.2601.43.camel@edumazet-laptop> <CAN==1Ro3Va7JHfOoENu=gJqfaktrqLvpo3NWV8=ZB9OKtyfeYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
-	David Fries <david@fries.net>, linux-kernel@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111030201618.GA7696@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------060507090002020507020401"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	bloat <bloat@lists.bufferbloat.net>
+To: Karel Rericha <karel@maxtel.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45478 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754312Ab1KBKFs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 06:05:48 -0400
+Received: by wyh15 with SMTP id 15so1280559wyh.19
+        for <netdev@vger.kernel.org>; Wed, 02 Nov 2011 03:05:47 -0700 (PDT)
+In-Reply-To: <CAN==1Ro3Va7JHfOoENu=gJqfaktrqLvpo3NWV8=ZB9OKtyfeYQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 31, 2011 at 5:16 AM, Tejun Heo <tj@kernel.org> wrote:
-> (cc'ing Rafael and linux-pm)
->
-> On Sat, Oct 29, 2011 at 11:48:21PM -0500, David Fries wrote:
->> I saw the write up on this on lwn.net, pretty creative by the way, and
->> it got me thinking about a different checkpoint/restart problem I've
->> been running into. =A0Specifically in hibernating to disk. =A0In the
->> hibernate case active TCP connections hang after resuming, while an
->> idle TCP connection will continue after the system is back up. =A0My
->> observation is the kernel checkpoints itself to memory, enables
->> devices, writes out that checkpoint image to storage, then powers off.
->> The problem is if TCP packets are received while writing to storage,
->> the kernel will continue to queue and ack those TCP packets, but the
->> running kernel and it's network state is shortly lost. =A0When the
->> computer resumes, those TCP byte sequences hang the TCP connection for
->> an extended period of time while the resumed computer refuses to
->> acknowledge the data that was received after checkpointing and the now
->> running kernel knew nothing about, and the other computer tries in
->> vain to resend any data that hadn't yet been acknowledged, which is
->> always after the data that was lost, until one of them eventually
->> gives up.
->>
->> I've been wondering if it was safe or possible to leave any network
->> interfaces down after the checkpoint, or what the right solution would
->> be. =A0I didn't think marking every TCP connection with a ZOMBIE_KERNEL
->> bit just after the kernel checkpoint (for the kernel is walking dead
->> and won't remember anything that happens), and then prevent any TCP
->> acks from being sent for those connections would be the right
->> solution. =A0I've taken to unplugging the physical lan cable,
->> hibernating to disk, and plugging it back in after the system is down,
->> to avoid the problem. =A0Any ideas?
->
-> Hmmm... sounds like taking down network interfaces before starting
-> hibernation sequence should be enough, which shouldn't be too
-> difficult to implement from userland. =A0Rafael, what do you think?
->
-> Thanks.
+This is a multi-part message in MIME format.
+--------------060507090002020507020401
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
 
-Um... it seems that the "thaw" callbacks of network interfaces or TCP
-should do something on this.
+(Example elided, see thread on netdev)
 
-Probably, the "thaw" callbacks should make sure that the TCP
-connections are closed?
+On 11/02/2011 10:36 AM, Karel Rericha wrote:
+> 2011/10/27 Eric Dumazet<eric.dumazet@gmail.com>:
+> Thanks for example Eric. But it only added more confusion to me now 
+> :-) I was under impression (and read somewhere) that QFQ is non work 
+> conserving scheduler so I can use it more or less like HTB or HFSC to 
+> set bandwidth constraints to flows. But from this example (and from 
+> sources/patches/papers I try not to pretend I fully understand) it 
+> looks to me like some multiqueue scheduler with arbitrary number of 
+> queues and ability to arbitrary assign flows to this queues. So some 
+> sort of fair division of available bandwidth to flows without 
+> arbitrary bandwidth caps to these flows. 
+This is what I want! It may not be what you want...
+> I really dont see what is non work conserving here :-S Please save my 
+> soul and enlighten me because I am at dead end now :-)
+
+I initially had great hope for QFQ as I've been saying (mostly 
+privately) that "PFIFO_FAST must die" for over a year now. What to 
+replace it with is a rather large question, but I felt a start would be 
+to adopt some FQ algorithm. Over the last couple weeks I read all the 
+papers regarding DRR and QFQ and also poked into the source code and 
+like you, am seriously un-enlightened.
+
+I think eric's example is misleading as he divided up the queues by 
+bandwidth, rather than flow, in the first tier of his tc hierarchy. 
+useful as a test...
+
+That said, buried in one of the papers on QFQ is the item that it isn't 
+entirely fair queuing, as it has a maximum MSS of 5, rather than 1. 
+Still that would be an improvement over diffserv based classification in 
+the general case, and being somewhat bursty actually helps with 802.11n 
+packet aggregation (at present).
+
+Anyway, I've built QFQ into the latest cerowrt and am building it for 
+another machine, and will try to come up with good ways to configure it 
+this week.
+
+My use cases are different than yours, however.
+
+On a wireless STA (a laptop) - FQ all flows originating from that box. 
+This would, for example, jump a DNS packet, ping, or TCP SYN attempt - 
+to near the beginning of the transmit buffer while another elephant flow 
+is taking place.
+
+On the AP, FQ across the clients (so aggregation works better and 
+bittorrent is suppressed), and FQ within each flow from/to that client 
+(so as to reduce head of line blocking and have better performance for 
+things like dns/ping/etc) - this would apply to the internal wireless 
+and wired interfaces. As for the gateway interface, FQ across 
+originating clients as well (but far more stuff than that needs to happen)
+
+Haven't a clue how to do any of that right at all, at present. Clues 
+wanted. I emailed one of the authors of QFQ for a clue, no reply as yet....
+
+PS Also along the way whilst poking into that source code I found that 
+there was already a fifo_drop_head tc queue type, which strikes me as 
+almost useful for VO and VI wireless queues...
+
+-- 
+Dave Täht
 
 
+--------------060507090002020507020401
+Content-Type: text/x-vcard; charset=utf-8;
+ name="dave_taht.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="dave_taht.vcf"
 
-Cheers,
-MyungJoo
+begin:vcard
+fn;quoted-printable:Dave T=C3=A4ht
+n;quoted-printable:T=C3=A4ht;Dave
+email;internet:dave.taht@gmail.com
+tel;home:1-239-829-5608
+tel;cell:0638645374
+x-mozilla-html:FALSE
+version:2.1
+end:vcard
 
 
->
-> --
-> tejun
-> _______________________________________________
-> linux-pm mailing list
-> linux-pm@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/linux-pm
->
-
-
-
--- =
-
-MyungJoo Ham, Ph.D.
-Mobile Software Platform Lab, DMC Business, Samsung Electronics
+--------------060507090002020507020401--
