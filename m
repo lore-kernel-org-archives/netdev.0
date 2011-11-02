@@ -1,49 +1,125 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 3/6] [6LoWPAN] set proper netdev flags
-Date: Wed,  2 Nov 2011 19:34:48 +0300
-Message-ID: <1320251688-2859-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 4/6] [6LoWPAN] UDP header compression
+Date: Wed,  2 Nov 2011 19:35:11 +0300
+Message-ID: <1320251711-2897-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <20111102162520.GA2669@avtobot.cybertron>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:34899 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932731Ab1KBQeM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 12:34:12 -0400
-Received: by mail-wy0-f174.google.com with SMTP id 15so329878wyh.19
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2011 09:34:11 -0700 (PDT)
-In-Reply-To: <20111102162520.GA2669@avtobot.cybertron>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20111102162520.GA2669-AUGNqIMGY+bGcXpsla5Oef8+0UxHXcjY@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes settings for device initialization which makes possible to
-use NDISC and TCP.
+This patch adds support for UDP header compression.
+Derived from Contiki OS.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ net/ieee802154/6lowpan.c |   51 ++++++++++++++++++++++++++++++++++++++++++---
+ net/ieee802154/6lowpan.h |    5 ++++
+ 2 files changed, 52 insertions(+), 4 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index e5709fa..c4aae4e 100644
+index c4aae4e..6da3357 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -967,13 +967,12 @@ static void lowpan_setup(struct net_device *dev)
- 	dev->addr_len		= IEEE802154_ADDR_LEN;
- 	memset(dev->broadcast, 0xff, IEEE802154_ADDR_LEN);
- 	dev->type		= ARPHRD_IEEE802154;
--	dev->features		= NETIF_F_NO_CSUM;
- 	/* Frame Control + Sequence Number + Address fields + Security Header */
- 	dev->hard_header_len	= 2 + 1 + 20 + 14;
- 	dev->needed_tailroom	= 2; /* FCS */
- 	dev->mtu		= 1281;
- 	dev->tx_queue_len	= 0;
--	dev->flags		= IFF_NOARP | IFF_BROADCAST;
-+	dev->flags		= IFF_BROADCAST | IFF_MULTICAST;
- 	dev->watchdog_timeo	= 0;
+@@ -365,8 +365,6 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	if (hdr->nexthdr == UIP_PROTO_UDP)
+ 		iphc0 |= LOWPAN_IPHC_NH_C;
  
- 	dev->netdev_ops		= &lowpan_netdev_ops;
+-/* TODO: next header compression */
+-
+ 	if ((iphc0 & LOWPAN_IPHC_NH_C) == 0) {
+ 		*hc06_ptr = hdr->nexthdr;
+ 		hc06_ptr += 1;
+@@ -454,8 +452,53 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 		}
+ 	}
+ 
+-	/* TODO: UDP header compression */
+-	/* TODO: Next Header compression */
++	/* UDP header compression */
++	if (hdr->nexthdr == UIP_PROTO_UDP) {
++		struct udphdr *uh = udp_hdr(skb);
++
++		pr_debug("(%s): UDP header compression\n", __func__);
++
++		if (((uh->source & LOWPAN_NHC_UDP_4BIT_MASK) ==
++					LOWPAN_NHC_UDP_4BIT_PORT) &&
++		    ((uh->dest & LOWPAN_NHC_UDP_4BIT_MASK) ==
++					LOWPAN_NHC_UDP_4BIT_PORT)) {
++			pr_debug("(%s): both ports compression to 4 bits\n",
++								__func__);
++			*hc06_ptr = LOWPAN_NHC_UDP_CS_P_11;
++			*(hc06_ptr + 1) = /* subtraction is faster */
++			   (u8)((uh->dest - LOWPAN_NHC_UDP_4BIT_PORT) +
++			       ((uh->source & LOWPAN_NHC_UDP_4BIT_PORT) << 4));
++			hc06_ptr += 2;
++		} else if ((uh->dest & LOWPAN_NHC_UDP_8BIT_MASK) ==
++				LOWPAN_NHC_UDP_8BIT_PORT) {
++			pr_debug("(%s): remove 8 bits of dest\n", __func__);
++			*hc06_ptr = LOWPAN_NHC_UDP_CS_P_01;
++			memcpy(hc06_ptr + 1, &uh->source, 2);
++			*(hc06_ptr + 3) =
++				(u8)(uh->dest - LOWPAN_NHC_UDP_8BIT_PORT);
++			hc06_ptr += 4;
++		} else if ((uh->source & LOWPAN_NHC_UDP_8BIT_MASK) ==
++				LOWPAN_NHC_UDP_8BIT_PORT) {
++			pr_debug("(%s): remove 8 bits of source\n", __func__);
++			*hc06_ptr = LOWPAN_NHC_UDP_CS_P_10;
++			memcpy(hc06_ptr + 1, &uh->dest, 2);
++			*(hc06_ptr + 3) =
++				(u8)(uh->source - LOWPAN_NHC_UDP_8BIT_PORT);
++			hc06_ptr += 4;
++		} else {
++			pr_debug("(%s): can't compress header\n", __func__);
++			*hc06_ptr = LOWPAN_NHC_UDP_CS_P_00;
++			memcpy(hc06_ptr + 1, &uh->source, 2);
++			memcpy(hc06_ptr + 3, &uh->dest, 2);
++			hc06_ptr += 5;
++		}
++
++		/* checksum is always inline */
++		memcpy(hc06_ptr, &uh->check, 2);
++		hc06_ptr += 2;
++	}
++
++	/* TODO: other NH types support? */
+ 
+ 	head[0] = iphc0;
+ 	head[1] = iphc1;
+diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+index 5d2e5a0..aeff3f3 100644
+--- a/net/ieee802154/6lowpan.h
++++ b/net/ieee802154/6lowpan.h
+@@ -219,6 +219,11 @@
+ #define LOWPAN_NHC_UDP_CHECKSUMC	0x04
+ #define LOWPAN_NHC_UDP_CHECKSUMI	0x00
+ 
++#define LOWPAN_NHC_UDP_4BIT_PORT	0xF0B0
++#define LOWPAN_NHC_UDP_4BIT_MASK	0xFFF0
++#define LOWPAN_NHC_UDP_8BIT_PORT	0xF000
++#define LOWPAN_NHC_UDP_8BIT_MASK	0xFF00
++
+ /* values for port compression, _with checksum_ ie bit 5 set to 0 */
+ #define LOWPAN_NHC_UDP_CS_P_00	0xF0 /* all inline */
+ #define LOWPAN_NHC_UDP_CS_P_01	0xF1 /* source 16bit inline,
 -- 
 1.7.2.5
+
+
+------------------------------------------------------------------------------
+RSA&#174; Conference 2012
+Save $700 by Nov 18
+Register now&#33;
+http://p.sf.net/sfu/rsa-sfdev2dev1
