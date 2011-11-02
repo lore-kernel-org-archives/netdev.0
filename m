@@ -1,43 +1,92 @@
-From: Mihai Maruseac <mihai.maruseac@gmail.com>
-Subject: TCP_CORK questions
-Date: Wed, 2 Nov 2011 11:43:06 +0200
-Message-ID: <CAOMsUML9ijO3WQetPLyo9nbfLNKUVuN5aanL_dCbJuKZUUwsmQ@mail.gmail.com>
+From: MyungJoo Ham <myungjoo.ham@gmail.com>
+Subject: Re: hiberante hangs TCP Re: [EXAMPLE CODE] Parasite
+ thread injection and TCP connection hijacking
+Date: Wed, 2 Nov 2011 18:44:31 +0900
+Message-ID: <CAJ0PZbSRX6Rqn5NnnMkVGrPovtSuc2NWasysOYnjr3j9rON1VQ@mail.gmail.com>
+References: <20110806121247.GC23937@htj.dyndns.org>
+	<20111030044821.GA23741@spacedout.fries.net>
+	<20111030201618.GA7696@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: kernelnewbies@kernelnewbies.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:47910 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752772Ab1KBJn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 05:43:28 -0400
-Received: by iage36 with SMTP id e36so866810iag.19
-        for <netdev@vger.kernel.org>; Wed, 02 Nov 2011 02:43:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+	David Fries <david@fries.net>, linux-kernel@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <20111030201618.GA7696@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/linux-pm/>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, Oct 31, 2011 at 5:16 AM, Tejun Heo <tj@kernel.org> wrote:
+> (cc'ing Rafael and linux-pm)
+>
+> On Sat, Oct 29, 2011 at 11:48:21PM -0500, David Fries wrote:
+>> I saw the write up on this on lwn.net, pretty creative by the way, and
+>> it got me thinking about a different checkpoint/restart problem I've
+>> been running into. =A0Specifically in hibernating to disk. =A0In the
+>> hibernate case active TCP connections hang after resuming, while an
+>> idle TCP connection will continue after the system is back up. =A0My
+>> observation is the kernel checkpoints itself to memory, enables
+>> devices, writes out that checkpoint image to storage, then powers off.
+>> The problem is if TCP packets are received while writing to storage,
+>> the kernel will continue to queue and ack those TCP packets, but the
+>> running kernel and it's network state is shortly lost. =A0When the
+>> computer resumes, those TCP byte sequences hang the TCP connection for
+>> an extended period of time while the resumed computer refuses to
+>> acknowledge the data that was received after checkpointing and the now
+>> running kernel knew nothing about, and the other computer tries in
+>> vain to resend any data that hadn't yet been acknowledged, which is
+>> always after the data that was lost, until one of them eventually
+>> gives up.
+>>
+>> I've been wondering if it was safe or possible to leave any network
+>> interfaces down after the checkpoint, or what the right solution would
+>> be. =A0I didn't think marking every TCP connection with a ZOMBIE_KERNEL
+>> bit just after the kernel checkpoint (for the kernel is walking dead
+>> and won't remember anything that happens), and then prevent any TCP
+>> acks from being sent for those connections would be the right
+>> solution. =A0I've taken to unplugging the physical lan cable,
+>> hibernating to disk, and plugging it back in after the system is down,
+>> to avoid the problem. =A0Any ideas?
+>
+> Hmmm... sounds like taking down network interfaces before starting
+> hibernation sequence should be enough, which shouldn't be too
+> difficult to implement from userland. =A0Rafael, what do you think?
+>
+> Thanks.
 
-We are using TCP_CORK with TCP_NODELAY. We are setting TCP_NODELAY
-first and then setting TCP_CORK before sending a bunch of data
-buffers. After sending all the buffers we are clearing TCP_CORK. The
-expectation -- as per manpage -- is that when TCP_CORK is set small
-data packets will not be sent. When TCP_CORK is removed it will
-immediately send out the remaining data even if the remaining amount
-is very small.
+Um... it seems that the "thaw" callbacks of network interfaces or TCP
+should do something on this.
 
-However, this is not the observed behavior. Small packets are sent at
-an approximatively constant rate. Digging further into the manpage for
-tcp we saw that there is a 200ms ceiling on the time for which the
-output is corked. Can we change this limit somehow? Ideally, in our
-case we would like to have userspace mark a socket such that it will
-only send full packets as long as it is marked, even if the completion
-comes after a long time.
+Probably, the "thaw" callbacks should make sure that the TCP
+connections are closed?
 
-Digging into tcp.c when the socket options are set, we found that if
-when setting TCP_NAGLE_CORK we also disable TCP_NAGLE_PUSH the code
-works as intended. Is this the right way to solve it? Code comments
-suggest that disabling this flag there has no effect.
 
-Thanks,
-Mihai
+
+Cheers,
+MyungJoo
+
+
+>
+> --
+> tejun
+> _______________________________________________
+> linux-pm mailing list
+> linux-pm@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/linux-pm
+>
+
+
+
+-- =
+
+MyungJoo Ham, Ph.D.
+Mobile Software Platform Lab, DMC Business, Samsung Electronics
