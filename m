@@ -1,39 +1,50 @@
-From: Daniel Robbins <drobbins@funtoo.org>
-Subject: Re: [PATCH] bridge: Reset IPCB on forward non-local
- packets in br_handle_frame_finish()
-Date: Wed, 2 Nov 2011 13:45:29 -0600
-Message-ID: <CAPDOV48k=0c1anx7DC57u0x84tUVsFDQNO6=MiT+9eEE=Egi2A@mail.gmail.com>
-References: <4EB19549.4010601@parallels.com>
-	<20111102123106.107f4cb8@nehalam.linuxnetplumber.net>
+From: "Reuben Dowle" <Reuben.Dowle@navico.com>
+Subject: RE: [PATCH] flexcan: Fix CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK
+Date: Thu, 3 Nov 2011 08:46:06 +1300
+Message-ID: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA803@exch01-aklnz.MARINE.NET.INT>
+References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA1DD@exch01-aklnz.MARINE.NET
+ .INT> <20111102080438.GA324@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Vasily Averin <vvs@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>, devel@openvz.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20111102123106.107f4cb8@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>
+To: "Kurt Van Dijck" <kurt.van.dijck@eia.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vw-hfger.navico.com ([81.89.228.210]:2743 "EHLO
+	VW-HFGER.navico.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790Ab1KBTqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 15:46:15 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20111102080438.GA324@e-circ.dyndns.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 2, 2011 at 1:31 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
->
-> What kernel version are you using? There were several previous fixes
-> in br_netfilter to deal with this type of issue over the last year.
-
-It's a kernel from this obscure company called Red Hat, and they
-include it in this product called Red Hat Enterprise Linux 6.
-
-Specifically, 042stab37.1 :)
-
--Daniel
+PiA+ICAJZmxleGNhbl93cml0ZShjdHJsLCAmcmVncy0+Y2FudHhmZ1tGTEVYQ0FOX1RYX0JV
+Rl9JRF0uY2FuX2N0cmwpOw0KPiA+DQo+ID4gLQlrZnJlZV9za2Ioc2tiKTsNCj4gPiArCWNh
+bl9wdXRfZWNob19za2Ioc2tiLCBkZXYsIDApOw0KPiA+DQo+ID4gIAkvKiB0eF9wYWNrZXRz
+IGlzIGluY3JlbWVudGVkIGluIGZsZXhjYW5faXJxICovDQo+ID4gIAlzdGF0cy0+dHhfYnl0
+ZXMgKz0gY2YtPmNhbl9kbGM7DQo+IFdoeSBub3QgbW92ZSB0aGUgc3RhdGlzdGljcyB0byB0
+aGUgcGxhY2Ugd2hlcmUgdGhlIGVjaG9fc2tiIGlzIHBvcHBlZD8NCj4gV2hlbiBubyBmcmFt
+ZSBnZXRzIG91dCAoZHVlIHRvIHdoYXRldmVyIHJlYXNvbiksIHRoZSBzdGF0aXN0aWNzIG1h
+eQ0KPiBoYXZlDQo+IGluY3JlbWVudGVkLg0KPiANCj4gT3IgbWF5YmUgdGhpcyBuZWVkcyBh
+IHNlcGVyYXRlIHBhdGNoPw0KPiANCj4gVGhlIHJlc3QgbG9va3MgZ29vZC4NCj4gDQo+IEt1
+cnQNCg0KSSB0aGluayB5b3UgYXJlIHJpZ2h0IC0gaW5jcmVtZW50aW5nIHRoZSB0eF9ieXRl
+cyBhdCB0aGlzIHBvaW50IGRvZXMgbm90IHNlZW0gcmlnaHQuIEl0IG1ha2VzIG1vc3Qgc2Vu
+c2UgdG8gaW5jcmVtZW50IHRoZSBieXRlcyBhbmQgcGFja2V0cyBhdCB0aGUgc2FtZSB0aW1l
+IHdoZW4gdHggaXMgY29uZmlybWVkIGJ5IHRoZSBpbnRlcnJ1cHQuIExvb2tpbmcgdGhyb3Vn
+aCB0aGUgdmFyaW91cyBjYW4gZHJpdmVycywgdGhlcmUgc2VlbXMgdG8gYmUgMiBhcHByb2Fj
+aGVzIHRvIHRoaXM6IGF0OTEsIHNsY2FuIGFuZCBmbGV4Y2FuIGFyZSBpbmNyZW1lbnRpbmcg
+dHhfYnl0ZXMgd2hlbiB0eCBpcyBzdGFydGVkLCBhbmQgdHhfcGFja2V0cyBpbiBjb21wbGV0
+ZSBpcnEsIHdoZXJlYXMgdmNhbiwgbWNwMjUxeCwgcGNoLCBoZWNjLCBzb2Z0aW5nLCBzamEx
+MDAwLCBjX2NhbiBkbyBpdCBpbiB0eCBjb21wbGV0ZSBpcnEuDQoNClNvIEkgdGhpbmsgdGhp
+cyBpcyBhIHNsaWdodGx5IGRpZmZlcmVudCBpc3N1ZSB0byB0aGUgb25lIEkgd2FzIHBhdGNo
+aW5nLCB3aGljaCBhZmZlY3RzIGEgY291cGxlIG9mIGRyaXZlcnMuIFRoZSBtYWpvcml0eSBv
+ZiBkcml2ZXJzIHNlZW0gdG8gYmUgZG9pbmcgaXQgdGhlIHdheSB5b3Ugc3VnZ2VzdCwgYnV0
+IEkgYW0gbm90IGZhbWlsaWFyIGVub3VnaCB3aXRoIHRoZSBsaW51eCBjYW4gbGF5ZXIgdG8g
+c2F5IG9uZSB3YXkgb3IgdGhlIG90aGVyLiBJIHRoaW5rIGlmIGl0IGlzIGRvbmUgaG93IGZs
+ZXhjYW4gaXMgZG9pbmcgaXQsIHRoZW4geW91IHdvdWxkIGdldCB0eF9ieXRlcyBhbHdheXMg
+Z2V0cyBpbmNyZW1lbnRlZCwgZXZlbiB3aGVuIHRoZSB0eCBpcyBkcm9wcGVkIGR1ZSB0byBi
+dXMgb2ZmLg0KDQpJZiB3ZSBjaGFuZ2UgdGhlIGJlaGF2aW91ciBvZiBmbGV4Y2FuLCBJIHRo
+aW5rIGF0OTEgYW5kIHNsY2FuIHNob3VsZCBiZSBjaGFuZ2VkIHRvbywgYmVjYXVzZSB0aGlz
+IHNob3VsZCBiZSBoYW5kbGVkIGNvbnNpc3RlbnRseSBhY3Jvc3MgYWxsIGRyaXZlcnMgSSB3
+b3VsZCB0aGluay4NCg0KUmV1YmVuDQoNCg==
