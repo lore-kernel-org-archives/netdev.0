@@ -1,69 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fix NULL dereference in x25_recvmsg
-Date: Wed, 02 Nov 2011 03:21:28 +0100
-Message-ID: <1320200488.4728.29.camel@edumazet-laptop>
+From: Dave Jones <davej@redhat.com>
+Subject: [v2] Fix NULL dereference in x25_recvmsg
+Date: Tue, 1 Nov 2011 22:26:44 -0400
+Message-ID: <20111102022644.GB8512@redhat.com>
 References: <20111102015315.GA6569@redhat.com>
-	 <1320199845.4728.23.camel@edumazet-laptop>
-	 <20111102021525.GA8512@redhat.com>
-	 <1320200358.4728.28.camel@edumazet-laptop>
+ <1320200165.4728.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Matthew Daley <mattjd@gmail.com>
-To: Dave Jones <davej@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:65107 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756217Ab1KBCVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Nov 2011 22:21:35 -0400
-Received: by wyh15 with SMTP id 15so1022998wyh.19
-        for <netdev@vger.kernel.org>; Tue, 01 Nov 2011 19:21:33 -0700 (PDT)
-In-Reply-To: <1320200358.4728.28.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:26814 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754394Ab1KBC0r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Nov 2011 22:26:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1320200165.4728.25.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 02 novembre 2011 =C3=A0 03:19 +0100, Eric Dumazet a =C3=A9c=
-rit :
-> Le mardi 01 novembre 2011 =C3=A0 22:15 -0400, Dave Jones a =C3=A9crit=
- :
-> > On Wed, Nov 02, 2011 at 03:10:45AM +0100, Eric Dumazet wrote:
-> >  > Le mardi 01 novembre 2011 =C3=A0 21:53 -0400, Dave Jones a =C3=A9=
-crit :
-> >  > > commit cb101ed2 in 3.0 introduced a bug in x25_recvmsg()
-> >  > > When passed bogus junk from userspace, x25->neighbour can be N=
-ULL,
-> >  > > as shown in this oops..
-> >  > >=20
-> >  >=20
-> >  > Your patch seems fine but :
-> >  >=20
-> >  > Are you sure this bug is not present on previous kernels ?
-> >  >=20
-> >  > It seems we had prior to this commit :
-> >  >=20
-> >  > skb_pull(skb, x25->neighbour->extended ?
-> >  > 	X25_EXT_MIN_LEN : X25_STD_MIN_LEN);
-> >=20
-> > It might have been possible with a specifically crafted set of argu=
-ments.
-> >=20
-> > It never showed up in testing before now, probably because we were
-> > returning from the function before we got to that skb_pull
-> > via all the other tests that get performed.
-> >=20
->=20
-> neighbour is not an x25_recvmsg() argument, but related to x25 socket
-> state.
->=20
-> Maybe your tests dont try to use x25_recvmsg() while socket has no
-> neighbour...
->=20
-> This bug was there before the cb101ed2 commit.
->=20
+commit cb101ed2 in 3.0 introduced a bug in x25_recvmsg()
+When passed bogus junk from userspace, x25->neighbour can be NULL,
+as shown in this oops..
 
-Ah ok, I see now, we exited early because of=20
+BUG: unable to handle kernel NULL pointer dereference at 000000000000001c
+IP: [<ffffffffa05482bd>] x25_recvmsg+0x4d/0x280 [x25]
+PGD 1015f3067 PUD 105072067 PMD 0 
+Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+CPU 0 
+Pid: 27928, comm: iknowthis Not tainted 3.1.0+ #2 Gigabyte Technology Co., Ltd. GA-MA78GM-S2H/GA-MA78GM-S2H
+RIP: 0010:[<ffffffffa05482bd>]  [<ffffffffa05482bd>] x25_recvmsg+0x4d/0x280 [x25]
+RSP: 0018:ffff88010c0b7cc8  EFLAGS: 00010282
+RAX: 0000000000000000 RBX: ffff88010c0b7d78 RCX: 0000000000000c02
+RDX: ffff88010c0b7d78 RSI: ffff88011c93dc00 RDI: ffff880103f667b0
+RBP: ffff88010c0b7d18 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000000 R12: ffff880103f667b0
+R13: 0000000000000000 R14: 0000000000000000 R15: 0000000000000000
+FS:  00007f479ce7f700(0000) GS:ffff88012a600000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 000000000000001c CR3: 000000010529e000 CR4: 00000000000006f0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process iknowthis (pid: 27928, threadinfo ffff88010c0b6000, task ffff880103faa4f0)
+Stack:
+ 0000000000000c02 0000000000000c02 ffff88010c0b7d18 ffffff958153cb37
+ ffffffff8153cb60 0000000000000c02 ffff88011c93dc00 0000000000000000
+ 0000000000000c02 ffff88010c0b7e10 ffff88010c0b7de8 ffffffff815372c2
+Call Trace:
+ [<ffffffff8153cb60>] ? sock_update_classid+0xb0/0x180
+ [<ffffffff815372c2>] sock_aio_read.part.10+0x142/0x150
+ [<ffffffff812d6752>] ? inode_has_perm+0x62/0xa0
+ [<ffffffff815372fd>] sock_aio_read+0x2d/0x40
+ [<ffffffff811b05e2>] do_sync_read+0xd2/0x110
+ [<ffffffff812d3796>] ? security_file_permission+0x96/0xb0
+ [<ffffffff811b0a91>] ? rw_verify_area+0x61/0x100
+ [<ffffffff811b103d>] vfs_read+0x16d/0x180
+ [<ffffffff811b109d>] sys_read+0x4d/0x90
+ [<ffffffff81657282>] system_call_fastpath+0x16/0x1b
+Code: 8b 66 20 4c 8b 32 48 89 d3 48 89 4d b8 45 89 c7 c7 45 cc 95 ff ff ff 4d 85 e4 0f 84 ed 01 00 00 49 8b 84 24 18 05 00 00 4c 89 e7 
+ 78 1c 01 45 19 ed 31 f6 e8 d5 37 ff e0 41 0f b6 44 24 0e 41 
 
-if (sk->sk_state !=3D TCP_ESTABLISHED)
-	goto out;
+Signed-off-by: Dave Jones <davej@redhat.com>
 
-So yes, commit cb101ed2 is the bug origin, sorry for the noise.
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 5f03e4e..3e16c6a 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -1261,14 +1261,19 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	struct x25_sock *x25 = x25_sk(sk);
+ 	struct sockaddr_x25 *sx25 = (struct sockaddr_x25 *)msg->msg_name;
+ 	size_t copied;
+-	int qbit, header_len = x25->neighbour->extended ?
+-		X25_EXT_MIN_LEN : X25_STD_MIN_LEN;
+-
++	int qbit, header_len;
+ 	struct sk_buff *skb;
+ 	unsigned char *asmptr;
+ 	int rc = -ENOTCONN;
+ 
+ 	lock_sock(sk);
++
++	if (x25->neighbour == NULL)
++		goto out;
++
++	header_len = x25->neighbour->extended ?
++		X25_EXT_MIN_LEN : X25_STD_MIN_LEN;
++
+ 	/*
+ 	 * This works for seqpacket too. The receiver has ordered the queue for
+ 	 * us! We do one quick check first though
