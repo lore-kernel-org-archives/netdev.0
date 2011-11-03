@@ -1,12 +1,12 @@
-From: Thomas Gleixner <tglx@linutronix.de>
+From: Simon Kirby <sim@hostway.ca>
 Subject: Re: Linux 3.1-rc9
-Date: Thu, 3 Nov 2011 01:24:39 +0100 (CET)
-Message-ID: <alpine.LFD.2.02.1111030121540.2829@ionos>
-References: <1318928713.21167.4.camel@twins> <20111018182046.GF1309@hostway.ca> <alpine.LFD.2.02.1110182146440.3240@ionos> <20111024190203.GA24410@hostway.ca> <20111025202049.GB25043@hostway.ca> <20111031173246.GA10614@hostway.ca> <alpine.LFD.2.02.1111021725550.2829@ionos>
- <1320254854.2292.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1320256157.2292.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1320256701.2292.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111102191621.GF5971@hostway.ca> <4EB1C770.7070605@gmail.com>
+Date: Wed, 2 Nov 2011 17:52:55 -0700
+Message-ID: <20111103005255.GL5971@hostway.ca>
+References: <alpine.LFD.2.02.1110182146440.3240@ionos> <20111024190203.GA24410@hostway.ca> <20111025202049.GB25043@hostway.ca> <20111031173246.GA10614@hostway.ca> <alpine.LFD.2.02.1111021725550.2829@ionos> <1320254854.2292.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1320256157.2292.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1320256701.2292.19.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <20111102191621.GF5971@hostway.ca> <4EB1C770.7070605@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Kirby <sim@hostway.ca>, David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
@@ -17,12 +17,18 @@ Cc: Simon Kirby <sim@hostway.ca>, David Miller <davem@davemloft.net>,
 	Balazs Scheidler <bazsi@balabit.hu>,
 	KOVACS Krisztian <hidden@balabit.hu>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from peace.netnation.com ([204.174.223.2]:49071 "EHLO
+	peace.netnation.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752698Ab1KCAxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Nov 2011 20:53:00 -0400
+Content-Disposition: inline
 In-Reply-To: <4EB1C770.7070605@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Nov 2011, Eric Dumazet wrote:
+On Wed, Nov 02, 2011 at 11:42:56PM +0100, Eric Dumazet wrote:
+
 > On 02/11/2011 20:16, Simon Kirby wrote:
 > 
 >  
@@ -68,15 +74,6 @@ On Wed, 2 Nov 2011, Eric Dumazet wrote:
 > Tested-by: Eric Dumazet <eric.dumazet@gmail.com>
 > CC: Balazs Scheidler <bazsi@balabit.hu>
 > CC: KOVACS Krisztian <hidden@balabit.hu>
-
-Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
-
-You probably also want: CC: stable@vger.kernel.org
-
-Thanks,
-
-	tglx
-
 > ---
 >  net/dccp/ipv4.c     |    1 +
 >  net/ipv4/tcp_ipv4.c |    1 +
@@ -106,4 +103,12 @@ Thanks,
 >  	sock_put(newsk);
 >  	goto exit;
 >  }
-> 
+
+Tested-by: Simon Kirby <sim@hostway.ca>
+
+I tried many times, with route unreach/blackhole, and could not reproduce
+the issue with this patch applied.
+
+Thanks!
+
+Simon-
