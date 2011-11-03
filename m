@@ -1,225 +1,154 @@
-From: Matti Vaittinen <matti.vaittinen@nsn.com>
-Subject: [PATCH 2/2] IPv6 - support for NLM_F_* flags at IPv6 routing
- requests
-Date: Thu, 03 Nov 2011 09:16:19 +0200
-Message-ID: <1320304579.2755.1.camel@lakki>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH V2] Add platform driver support to the CS890x driver
+Date: Thu, 3 Nov 2011 09:06:15 +0100
+Message-ID: <20111103080615.GD16886@pengutronix.de>
+References: <20110913074626.GM28624@pengutronix.de>
+ <1317148076-14931-1-git-send-email-jaccon.bastiaansen@gmail.com>
+ <CAGzjT4eKJCf36_n-W-XpiFUymUZj=tVzXYp2DNJFXb-Wjz6RVA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: davem <davem@davemloft.net>, shemminger@vyatta.com
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Uwe =?iso-8859-15?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, kernel@pengutronix.de
+To: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd002.nsn-inter.net ([93.183.12.31]:10243 "EHLO
-	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754580Ab1KCHRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 03:17:09 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:48811 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755267Ab1KCIGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 04:06:18 -0400
+Content-Disposition: inline
+In-Reply-To: <CAGzjT4eKJCf36_n-W-XpiFUymUZj=tVzXYp2DNJFXb-Wjz6RVA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The support for NLM_F_* flags at IPv6 routing requests.
+Hi Jaccon,
 
-If NLM_F_CREATE flag is not defined for RTM_NEWROUTE request,
-warning is printed, but no error is returned. Instead new route is added.
+On Sun, Oct 09, 2011 at 10:51:23PM +0200, Jaccon Bastiaansen wrote:
+> Hello,
+>=20
+> This patch hasn't been sent to the netdev mailing list before, sorry =
+for that.
 
-Exception is when NLM_F_REPLACE flag is given without NLM_F_CREATE, and
-no matching route is found. In this case it should be safe to assume
-that the request issuer is familiar with NLM_F_* flags, and does really
-not want route to be created.
+I appreciate what you are trying to do. The cs89x0 is still not dead an=
+d
+it's quite annoying that we do not have proper platform device driver
+support for it. Unfortunately your patch was ignored by the important
+people, so can you respin it? You should create a proper series from it
+with one patch for the driver and one patch per board. This helps to
+increase your visibility and also you can set the individual board
+maintainers on Cc for their board. Please also Cc
+netdev@vger.kernel.org and the arm linux kernel mailing list.
+Your patch also contains some cleanups like the removal of the unused
+QQ2440. You should create a seperate patch for this, then it will be
+easier to review (and also people love to read 'cleanup' in a patch
+subject ;)
 
-Specifying NLM_F_REPLACE flag will now make the kernel to search for
-matching route, and replace it with new one. If no route is found and
-NLM_F_CREATE is specified as well, then new route is created.
+Your mailer turns tabs into spaces, you should fix this before
+resending.
 
-Also, specifying NLM_F_EXCL will yield returning of error if matching route
-is found.
-
-Patch is created against linux-3.1-rc4
+Some more comments inline.
 
 
+>=20
+> +static struct resource ixdp2x01_cs8900_resources[] =3D {
+> + =A0 =A0 =A0 {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 .start =A0=3D (u32)IXDP2X01_CS8900_VIRT=
+_BASE,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 .end =A0 =A0=3D (u32)IXDP2X01_CS8900_VI=
+RT_BASE + 0x1000 - 1,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 .flags =A0=3D IORESOURCE_MEM,
+> + =A0 =A0 =A0 },
 
-Signed-off-by: Matti Vaittinen <Mazziesaccount@gmail.com>
+This is wrong. resources are about physical addresses, not virtual. You
+have to ioremap them in the driver.
 
-diff -uNr linux-3.1-rc4.orig/net/ipv6/ip6_fib.c linux-3.1-rc4.new/net/ipv6/ip6_fib.c
---- linux-3.1-rc4.orig/net/ipv6/ip6_fib.c	2011-11-01 14:01:55.000000000 +0200
-+++ linux-3.1-rc4.new/net/ipv6/ip6_fib.c	2011-11-03 08:34:51.000000000 +0200
-@@ -429,7 +429,8 @@
- 
- static struct fib6_node * fib6_add_1(struct fib6_node *root, void *addr,
- 				     int addrlen, int plen,
--				     int offset)
-+				     int offset, int allow_create,
-+				     int replace_required)
- {
- 	struct fib6_node *fn, *in, *ln;
- 	struct fib6_node *pn = NULL;
-@@ -451,8 +452,12 @@
- 		 *	Prefix match
- 		 */
- 		if (plen < fn->fn_bit ||
--		    !ipv6_prefix_equal(&key->addr, addr, fn->fn_bit))
-+		    !ipv6_prefix_equal(&key->addr, addr, fn->fn_bit)) {
-+			if (!allow_create)
-+				printk(KERN_WARNING
-+				    "NLM_F_CREATE should be specified when creating new rt\n");
- 			goto insert_above;
-+		}
- 
- 		/*
- 		 *	Exact match ?
-@@ -481,10 +486,26 @@
- 		fn = dir ? fn->right: fn->left;
- 	} while (fn);
- 
-+	if (replace_required && !allow_create) {
-+		/* We should not create new node because
-+		 * NLM_F_REPLACE was specified without NLM_F_CREATE
-+		 * I assume it is safe to require NLM_F_CREATE when
-+		 * REPLACE flag is used! Later we may want to remove the
-+		 * check for replace_required, because according
-+		 * to netlink specification, NLM_F_CREATE
-+		 * MUST be specified if new route is created.
-+		 * That would keep IPv6 consistent with IPv4
-+		 */
-+		printk(KERN_WARNING
-+		    "NLM_F_CREATE should be specified when creating new rt - ignoring request\n");
-+		return ERR_PTR(-ENOENT);
-+	}
- 	/*
- 	 *	We walked to the bottom of tree.
- 	 *	Create new leaf node without children.
- 	 */
-+	if (!allow_create)
-+		printk(KERN_WARNING "NLM_F_CREATE should be specified when creating new rt\n");
- 
- 	ln = node_alloc();
- 
-@@ -618,6 +639,12 @@
- {
- 	struct rt6_info *iter = NULL;
- 	struct rt6_info **ins;
-+	int replace = (NULL != info &&
-+	    NULL != info->nlh &&
-+	    (info->nlh->nlmsg_flags&NLM_F_REPLACE));
-+	int add = ((NULL == info || NULL == info->nlh) ||
-+	    (info->nlh->nlmsg_flags&NLM_F_CREATE));
-+	int found = 0;
- 
- 	ins = &fn->leaf;
- 
-@@ -630,6 +657,13 @@
- 			/*
- 			 *	Same priority level
- 			 */
-+			if (NULL != info->nlh &&
-+			    (info->nlh->nlmsg_flags&NLM_F_EXCL))
-+				return -EEXIST;
-+			if (replace) {
-+				found++;
-+				break;
-+			}
- 
- 			if (iter->rt6i_dev == rt->rt6i_dev &&
- 			    iter->rt6i_idev == rt->rt6i_idev &&
-@@ -659,17 +693,40 @@
- 	/*
- 	 *	insert node
- 	 */
-+	if (!replace) {
-+		if (!add)
-+			printk(KERN_WARNING "NLM_F_CREATE should be specified when creating new rt\n");
-+
-+add:
-+		rt->dst.rt6_next = iter;
-+		*ins = rt;
-+		rt->rt6i_node = fn;
-+		atomic_inc(&rt->rt6i_ref);
-+		inet6_rt_notify(RTM_NEWROUTE, rt, info);
-+		info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
-+
-+		if ((fn->fn_flags & RTN_RTINFO) == 0) {
-+			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
-+			fn->fn_flags |= RTN_RTINFO;
-+		}
- 
--	rt->dst.rt6_next = iter;
--	*ins = rt;
--	rt->rt6i_node = fn;
--	atomic_inc(&rt->rt6i_ref);
--	inet6_rt_notify(RTM_NEWROUTE, rt, info);
--	info->nl_net->ipv6.rt6_stats->fib_rt_entries++;
--
--	if ((fn->fn_flags & RTN_RTINFO) == 0) {
--		info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
--		fn->fn_flags |= RTN_RTINFO;
-+	} else {
-+		if (!found) {
-+			if (add)
-+				goto add;
-+			printk(KERN_WARNING "add rtinfo to node - NLM_F_REPLACE specified, but no existing node found! bailing out\n");
-+			return -ENOENT;
-+		}
-+		*ins = rt;
-+		rt->rt6i_node = fn;
-+		rt->dst.rt6_next = iter->dst.rt6_next;
-+		atomic_inc(&rt->rt6i_ref);
-+		inet6_rt_notify(RTM_NEWROUTE, rt, info);
-+		rt6_release(iter);
-+		if ((fn->fn_flags & RTN_RTINFO) == 0) {
-+			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
-+			fn->fn_flags |= RTN_RTINFO;
-+		}
- 	}
- 
- 	return 0;
-@@ -700,9 +757,25 @@
- {
- 	struct fib6_node *fn, *pn = NULL;
- 	int err = -ENOMEM;
-+	int allow_create = 1;
-+	int replace_required = 0;
-+	if (NULL != info && NULL != info->nlh) {
-+		if (!(info->nlh->nlmsg_flags&NLM_F_CREATE))
-+			allow_create = 0;
-+		if ((info->nlh->nlmsg_flags&NLM_F_REPLACE))
-+			replace_required = 1;
-+	}
-+	if (!allow_create && !replace_required)
-+		printk(KERN_WARNING "RTM_NEWROUTE with no NLM_F_CREATE or NLM_F_REPLACE\n");
- 
- 	fn = fib6_add_1(root, &rt->rt6i_dst.addr, sizeof(struct in6_addr),
--			rt->rt6i_dst.plen, offsetof(struct rt6_info, rt6i_dst));
-+		    rt->rt6i_dst.plen, offsetof(struct rt6_info, rt6i_dst),
-+		    allow_create, replace_required);
-+
-+	if (IS_ERR(fn)) {
-+		err = PTR_ERR(fn);
-+		fn = NULL;
-+	}
- 
- 	if (fn == NULL)
- 		goto out;
-@@ -740,7 +813,8 @@
- 
- 			sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
- 					sizeof(struct in6_addr), rt->rt6i_src.plen,
--					offsetof(struct rt6_info, rt6i_src));
-+					offsetof(struct rt6_info, rt6i_src),
-+					allow_create, replace_required);
- 
- 			if (sn == NULL) {
- 				/* If it is failed, discard just allocated
-@@ -757,8 +831,13 @@
- 		} else {
- 			sn = fib6_add_1(fn->subtree, &rt->rt6i_src.addr,
- 					sizeof(struct in6_addr), rt->rt6i_src.plen,
--					offsetof(struct rt6_info, rt6i_src));
-+					offsetof(struct rt6_info, rt6i_src),
-+					allow_create, replace_required);
- 
-+			if (IS_ERR(sn)) {
-+				err = PTR_ERR(sn);
-+				sn = NULL;
-+			}
- 			if (sn == NULL)
- 				goto st_failure;
- 		}
+> diff --git a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+> index 537a4b2..b7fb3bc 100644
+> --- a/drivers/net/cs89x0.c
+> +++ b/drivers/net/cs89x0.c
+> @@ -12,6 +12,14 @@
+> =A0 =A0 =A0 =A0 The author may be reached at nelson@crynwr.com, Crynw=
+r
+> =A0 =A0 =A0 =A0 Software, 521 Pleasant Valley Rd., Potsdam, NY 13676
+>=20
+> +Sources
+> +
+> + =A0 =A0 =A0 Crynwr packet driver epktisa.
+> +
+> + =A0 =A0 =A0 Crystal Semiconductor data sheets.
+> +
+> +
+> +
+
+This seems unrelated to this patch. Please drop.
+
+> =A0 Changelog:
+>=20
+> =A0 Mike Cruse =A0 =A0 =A0 =A0: mcruse@cti-ltd.com
+> @@ -98,39 +106,14 @@
+> =A0 Domenico Andreoli : cavokz@gmail.com
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 : QQ2440 platform support
+>=20
+> + =A0Jaccon Bastiaansen: jaccon.bastiaansen@gmail.com
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 : added platform driver support
+
+The history in git is enough (and even better) than the changelog in th=
+e
+file headers. Please drop this.
+
+> +
+> +#ifdef CONFIG_CS89x0_PLATFORM
+> +static int cs89x0_platform_probe(struct platform_device *pdev)
+> +{
+> + =A0 =A0 =A0 struct net_device *dev =3D alloc_etherdev(sizeof(struct=
+ net_local));
+> + =A0 =A0 =A0 struct resource *mem_res;
+> + =A0 =A0 =A0 struct resource *irq_res;
+> + =A0 =A0 =A0 int err;
+> +
+> + =A0 =A0 =A0 if (!dev)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENODEV;
+> +
+> + =A0 =A0 =A0 mem_res =3D platform_get_resource(pdev, IORESOURCE_MEM,=
+ 0);
+> + =A0 =A0 =A0 irq_res =3D platform_get_resource(pdev, IORESOURCE_IRQ,=
+ 0);
+> + =A0 =A0 =A0 if (mem_res =3D=3D NULL || irq_res =3D=3D NULL) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_warning("memory and/or interrupt res=
+ource missing.\n");
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D -ENOENT;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 cs8900_irq_map[0] =3D irq_res->start;
+
+This limits the driver to a single instance. I think this is ok for now
+as an intermediate step, but you should check this and bail out with
+-EBUSY if a second instance is registered.
+
+> + =A0 =A0 =A0 err =3D cs89x0_probe1(dev, mem_res->start, 0);
+> + =A0 =A0 =A0 if (err) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_warning("no cs8900 or cs8920 detecte=
+d.\n");
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 platform_set_drvdata(pdev, dev);
+> + =A0 =A0 =A0 return 0;
+> +out:
+> + =A0 =A0 =A0 free_netdev(dev);
+> + =A0 =A0 =A0 return err;
+> +}
+
+Sascha
+
+--=20
+Pengutronix e.K.                           |                           =
+  |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0  =
+  |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-555=
+5 |
