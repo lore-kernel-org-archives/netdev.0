@@ -1,52 +1,62 @@
-From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 3/4] be2net: Prevent CQ full condition for Lancer
-Date: Thu, 3 Nov 2011 17:19:55 +0530
-Message-ID: <290ebf9d-a94c-411c-bcd9-4b38efe1b587@exht2.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-To: <netdev@vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH] net/can/mscan: add listen only mode
+Date: Thu,  3 Nov 2011 14:00:43 +0100
+Message-ID: <1320325243-24907-1-git-send-email-mkl@pengutronix.de>
+Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
+To: linux-can@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:24424 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755789Ab1KCLuy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 07:50:54 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49182 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933143Ab1KCNAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 09:00:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Indicate to HW that the CQ is cleaned up before posting new RX buffers.
-This prevents the HW to go into CQ full error condition.
+This patch adds listen only mode to the mscan controller.
 
-Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 2180497..30606f5 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1905,6 +1905,8 @@ loop_continue:
- 		be_rx_stats_update(rxo, rxcp);
- 	}
+...can be pulled via:
+
+The following changes since commit 8b3408f8ee994973869d8ba32c5bf482bc4ddca4:
+
+  dp83640: free packet queues on remove (2011-10-24 19:14:50 -0400)
+
+are available in the git repository at:
+  git://git.pengutronix.de/git/mkl/linux-2.6.git can/mscan-listen-only-for-net-next
+
+Marc Kleine-Budde (1):
+      net/can/mscan: add listen only mode
+
+ drivers/net/can/mscan/mscan.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+index ec4a311..74f3b18 100644
+--- a/drivers/net/can/mscan/mscan.c
++++ b/drivers/net/can/mscan/mscan.c
+@@ -581,7 +581,10 @@ static int mscan_open(struct net_device *dev)
  
-+	be_cq_notify(adapter, rx_cq->id, false, work_done);
-+
- 	/* Refill the queue */
- 	if (work_done && atomic_read(&rxo->q.used) < RX_FRAGS_REFILL_WM)
- 		be_post_rx_frags(rxo, GFP_ATOMIC);
-@@ -1912,10 +1914,8 @@ loop_continue:
- 	/* All consumed */
- 	if (work_done < budget) {
- 		napi_complete(napi);
--		be_cq_notify(adapter, rx_cq->id, true, work_done);
--	} else {
--		/* More to be consumed; continue with interrupts disabled */
--		be_cq_notify(adapter, rx_cq->id, false, work_done);
-+		/* Arm CQ */
-+		be_cq_notify(adapter, rx_cq->id, true, 0);
- 	}
- 	return work_done;
- }
+ 	priv->open_time = jiffies;
+ 
+-	clrbits8(&regs->canctl1, MSCAN_LISTEN);
++	if (ctrlmode.flags & CAN_CTRLMODE_LISTENONLY)
++		setbits8(&regs->canctl1, MSCAN_LISTEN);
++	else
++		clrbits8(&regs->canctl1, MSCAN_LISTEN);
+ 
+ 	ret = mscan_start(dev);
+ 	if (ret)
+@@ -690,7 +693,8 @@ struct net_device *alloc_mscandev(void)
+ 	priv->can.bittiming_const = &mscan_bittiming_const;
+ 	priv->can.do_set_bittiming = mscan_do_set_bittiming;
+ 	priv->can.do_set_mode = mscan_do_set_mode;
+-	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
++	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
++		CAN_CTRLMODE_LISTENONLY;
+ 
+ 	for (i = 0; i < TX_QUEUE_SIZE; i++) {
+ 		priv->tx_queue[i].id = i;
 -- 
-1.6.0.2
+1.7.4.1
