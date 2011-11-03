@@ -1,41 +1,51 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 2/2] flexcan: Fix CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK
-Date: Thu, 03 Nov 2011 11:03:46 +0100
-Message-ID: <4EB26702.60506@hartkopp.net>
-References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA8E0@exch01-aklnz.MARINE.NET.INT> <1320313675-30749-1-git-send-email-mkl@pengutronix.de> <1320313675-30749-3-git-send-email-mkl@pengutronix.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] netlink: validate NLA_MSECS length
+Date: Thu, 03 Nov 2011 11:07:32 +0100
+Message-ID: <1320314852.3950.36.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kurt.van.dijck@eia.be, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Reuben.Dowle@navico.com
-To: Marc Kleine-Budde <mkl@pengutronix.de>
+Cc: Thomas Graf <tgraf@suug.ch>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:27225 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754740Ab1KCKEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 06:04:11 -0400
-In-Reply-To: <1320313675-30749-3-git-send-email-mkl@pengutronix.de>
+Received: from he.sipsolutions.net ([78.46.109.217]:45506 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754740Ab1KCKHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 06:07:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03.11.2011 10:47, Marc Kleine-Budde wrote:
+From: Johannes Berg <johannes.berg@intel.com>
 
-> @@ -609,9 +605,10 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
->  
->  	/* transmission complete interrupt */
->  	if (reg_iflag1 & (1 << FLEXCAN_TX_BUF_ID)) {
-> -		/* tx_bytes is incremented in flexcan_start_xmit */
-> +		stats->tx_bytes += can_get_echo_skb(dev, 0);
->  		stats->tx_packets++;
->  		flexcan_write((1 << FLEXCAN_TX_BUF_ID), &regs->iflag1);
-> +		can_get_echo_skb(dev, 0);
->  		netif_wake_queue(dev);
->  	}
+L2TP for example uses NLA_MSECS like this:
+policy:
+        [L2TP_ATTR_RECV_TIMEOUT]        = { .type = NLA_MSECS, },
+code:
+        if (info->attrs[L2TP_ATTR_RECV_TIMEOUT])
+                cfg.reorder_timeout = nla_get_msecs(info->attrs[L2TP_ATTR_RECV_TIMEOUT]);
 
+As nla_get_msecs() is essentially nla_get_u64() plus the
+conversion to a HZ-based value, this will not properly
+reject attributes from userspace that aren't long enough
+and might overrun the message.
 
-What's the reason for the second can_get_echo_skb() here?
+Add NLA_MSECS to the attribute minlen array to check the
+size properly.
 
-IIRC the skb is already netif_rx'ed and consumed by the first attempt.
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: stable@vger.kernel.org
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ lib/nlattr.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Regards,
-Oliver
+--- a/lib/nlattr.c	2011-04-29 11:34:55.000000000 +0200
++++ b/lib/nlattr.c	2011-11-03 11:02:10.000000000 +0100
+@@ -20,6 +20,7 @@ static const u16 nla_attr_minlen[NLA_TYP
+ 	[NLA_U16]	= sizeof(u16),
+ 	[NLA_U32]	= sizeof(u32),
+ 	[NLA_U64]	= sizeof(u64),
++	[NLA_MSECS]	= sizeof(u64),
+ 	[NLA_NESTED]	= NLA_HDRLEN,
+ };
+ 
