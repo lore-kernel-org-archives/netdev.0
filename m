@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 06/10] ixgbe: fix smatch splat due to missing NULL check
-Date: Wed,  2 Nov 2011 17:19:57 -0700
-Message-ID: <1320279601-1276-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 09/10] ixgbe: DCB, return max for IEEE traffic classes
+Date: Wed,  2 Nov 2011 17:20:00 -0700
+Message-ID: <1320279601-1276-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1320279601-1276-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,77 +10,64 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:64280 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754281Ab1KCAUI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Nov 2011 20:20:08 -0400
+	id S1754452Ab1KCAUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Nov 2011 20:20:09 -0400
 In-Reply-To: <1320279601-1276-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Fastabend <john.r.fastabend@intel.com>
 
-ixgbe_ieee_ets and ixgbe_ieee_pfc are intialized at
-the same time. Do a check for both before configuring
-IEEE802.1Qaz. Also max_frame was causing a sparse
-warning resolved here as well.
+Returning the max traffic classes on get requests simplifies
+user space configurations because applications will know
+explicitly how many traffic classes can be used.
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Typical switch implementations use 2 or 3 traffic classes
+so this not seen often today. And user space can learn
+the number of traffic classes by return codes but this
+allows user space to configure ixgbe correctly at the
+start.
+
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   33 +++++++++----------------
- 1 files changed, 12 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 2e9fd9d..8ef92d1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3345,34 +3345,25 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+index 3631d63..33b93ff 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+@@ -561,11 +561,12 @@ static int ixgbe_dcbnl_ieee_getets(struct net_device *dev,
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ieee_ets *my_ets = adapter->ixgbe_ieee_ets;
  
- 	hw->mac.ops.set_vfta(&adapter->hw, 0, 0, true);
- 
--	/* reconfigure the hardware */
--	if (adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE) {
- #ifdef IXGBE_FCOE
--		if (adapter->netdev->features & NETIF_F_FCOE_MTU)
--			max_frame = max(max_frame, IXGBE_FCOE_JUMBO_FRAME_SIZE);
-+	if (adapter->netdev->features & NETIF_F_FCOE_MTU)
-+		max_frame = max(max_frame, IXGBE_FCOE_JUMBO_FRAME_SIZE);
- #endif
++	ets->ets_cap = adapter->dcb_cfg.num_tcs.pg_tcs;
 +
-+	/* reconfigure the hardware */
-+	if (adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE) {
- 		ixgbe_dcb_calculate_tc_credits(hw, &adapter->dcb_cfg, max_frame,
- 						DCB_TX_CONFIG);
- 		ixgbe_dcb_calculate_tc_credits(hw, &adapter->dcb_cfg, max_frame,
- 						DCB_RX_CONFIG);
- 		ixgbe_dcb_hw_config(hw, &adapter->dcb_cfg);
--	} else {
--		struct net_device *dev = adapter->netdev;
--
--		if (adapter->ixgbe_ieee_ets) {
--			struct ieee_ets *ets = adapter->ixgbe_ieee_ets;
--			int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
--
--			ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
--		}
--
--		if (adapter->ixgbe_ieee_pfc) {
--			struct ieee_pfc *pfc = adapter->ixgbe_ieee_pfc;
--			u8 *prio_tc = adapter->ixgbe_ieee_ets->prio_tc;
--
--			ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en,
--						prio_tc);
--		}
-+	} else if (adapter->ixgbe_ieee_ets && adapter->ixgbe_ieee_pfc) {
-+		ixgbe_dcb_hw_ets(&adapter->hw,
-+				 adapter->ixgbe_ieee_ets,
-+				 max_frame);
-+		ixgbe_dcb_hw_pfc_config(&adapter->hw,
-+					adapter->ixgbe_ieee_pfc->pfc_en,
-+					adapter->ixgbe_ieee_ets->prio_tc);
- 	}
+ 	/* No IEEE PFC settings available */
+ 	if (!my_ets)
+-		return -EINVAL;
++		return 0;
  
- 	/* Enable RSS Hash per TC */
+-	ets->ets_cap = adapter->dcb_cfg.num_tcs.pg_tcs;
+ 	ets->cbs = my_ets->cbs;
+ 	memcpy(ets->tc_tx_bw, my_ets->tc_tx_bw, sizeof(ets->tc_tx_bw));
+ 	memcpy(ets->tc_rx_bw, my_ets->tc_rx_bw, sizeof(ets->tc_rx_bw));
+@@ -621,11 +622,12 @@ static int ixgbe_dcbnl_ieee_getpfc(struct net_device *dev,
+ 	struct ieee_pfc *my_pfc = adapter->ixgbe_ieee_pfc;
+ 	int i;
+ 
++	pfc->pfc_cap = adapter->dcb_cfg.num_tcs.pfc_tcs;
++
+ 	/* No IEEE PFC settings available */
+ 	if (!my_pfc)
+-		return -EINVAL;
++		return 0;
+ 
+-	pfc->pfc_cap = adapter->dcb_cfg.num_tcs.pfc_tcs;
+ 	pfc->pfc_en = my_pfc->pfc_en;
+ 	pfc->mbc = my_pfc->mbc;
+ 	pfc->delay = my_pfc->delay;
 -- 
 1.7.6.4
