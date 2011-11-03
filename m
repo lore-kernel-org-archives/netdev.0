@@ -1,73 +1,60 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 0/2] clean up tx_bytes accounting
-Date: Thu, 03 Nov 2011 16:03:23 +0100
-Message-ID: <4EB2AD3B.6030207@pengutronix.de>
-References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA8E0@exch01-aklnz.MARINE.NET.INT> <1320313675-30749-1-git-send-email-mkl@pengutronix.de> <20111103100333.GD317@e-circ.dyndns.org> <4EB27026.90301@pengutronix.de> <4EB2A4DA.6040800@hartkopp.net> <20111103143752.GB7718@e-circ.dyndns.org>
+From: Thibault Roulet <tr@omch.ch>
+Subject: Bug#647513: TX watchdog fires for ipheth after phone upgraded to iOS 5
+Date: Thu, 03 Nov 2011 16:09:31 +0100
+Message-ID: <4EB2AEAB.6010603@omch.ch>
+References: <20111103135222.3555.69704.reportbug@thib.infomaniak.ch> <1320331171.3079.31.camel@deadeye>
+Reply-To: Thibault Roulet <tr@omch.ch>, 647513@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig79094C66FF7D3F8E36ABA301"
-To: Oliver Hartkopp <socketcan@hartkopp.net>, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Reuben.Dowle@navico.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56995 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932495Ab1KCPD2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 11:03:28 -0400
-In-Reply-To: <20111103143752.GB7718@e-circ.dyndns.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Diego Giagio <diego@giagio.com>, 647513@bugs.debian.org,
+        netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.647513.B647513.132033297514785@bugs.debian.org>
+In-Reply-To: <1320331171.3079.31.camel@deadeye>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig79094C66FF7D3F8E36ABA301
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
 
-On 11/03/2011 03:37 PM, Kurt Van Dijck wrote:
-> On Thu, Nov 03, 2011 at 03:27:38PM +0100, Oliver Hartkopp wrote:
+On 11/03/2011 03:39 PM, Ben Hutchings wrote:
+> On Thu, 2011-11-03 at 14:52 +0100, darx wrote:
+>> Package: linux-2.6
+>> Version: 3.0.0-3
+>> Severity: important
+>> Tags: upstream
+>>
+>> Hi,
+>>
+>> After IOS5 update on my iphone when I plug it on my Debian, it crashes.
+>
+> No it doesn't.
 
->>>> Next step would be to do the statistics inside can_get_echo_skb(), b=
-ut that's
->>>> affecting all drivers using it ...
->>>> Kurt
->>>
->>> Interesting idea
+well, "crash" is a bit strong. It looks like a kernel hickups
+
+>
+>> As I'm using it as a modem it's quite problematic.
 >>
 >>
->> Yes, but then the name of the function is not appropriate anymore.
->>
->> The return value for can_get_echo_skb() gives a silent improvement tha=
-t can be
->> adopted by CAN drivers by the time. But hiding more functionality insi=
-de this
->> function may lead to misunderstandings.
-> That's what I described with the obscure phrase "..." :-)
->=20
-> Marc's proposed patch is indeed easier to digest at the time.
+>> Nov  3 14:16:51 thib kernel: [  371.824017] ------------[ cut here
+>> ]------------
+>> Nov  3 14:16:51 thib kernel: [  371.824024] WARNING: at /build/buildd-
+>> linux-2.6_3.0.0-3-amd64-9ClimQ/linux-2.6-3.0.0/debian/build/source_amd64_none/net/sched/sch_generic.c:255
+>> dev_watchdog+0xe9/0x148()
+>> Nov  3 14:16:51 thib kernel: [  371.824027] Hardware name: OptiPlex 780
+>> Nov  3 14:16:51 thib kernel: [  371.824029] NETDEV WATCHDOG: eth1 (ipheth):
+>> transmit queue 0 timed out
+> [...]
+>
+> Diego, please can you investigate this.
+>
 
-+1, I'll repost my fixed branch. Let's first integrate that one.
+Oh and I can add that I tested on this DELL Optiplex 780 machine and also a small HP mini 5101 laptop (same debian 
+version). Same error.
 
-Marc
+Thanks
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig79094C66FF7D3F8E36ABA301
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk6yrT4ACgkQjTAFq1RaXHO1IQCdHWvuRhO6Gmb+CT0Sc2QEkaIz
-6cEAnjaJQGeZm99kQoV0GKNJ1EsTZL0U
-=WJkx
------END PGP SIGNATURE-----
-
---------------enig79094C66FF7D3F8E36ABA301--
+Thib
