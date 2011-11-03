@@ -1,51 +1,64 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH] tg3: fix error handling in tg3_open
-Date: Thu,  3 Nov 2011 19:36:43 +0900
-Message-ID: <1320316603-8355-1-git-send-email-akinobu.mita@gmail.com>
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: netdev@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 0/2] clean up tx_bytes accounting
+Date: Thu, 03 Nov 2011 11:42:46 +0100
+Message-ID: <4EB27026.90301@pengutronix.de>
+References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA8E0@exch01-aklnz.MARINE.NET.INT> <1320313675-30749-1-git-send-email-mkl@pengutronix.de> <20111103100333.GD317@e-circ.dyndns.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig564E1C69008B5819EDE655C7"
+To: socketcan@hartkopp.net, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, Reuben.Dowle@navico.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:50928 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752670Ab1KCKgT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 06:36:19 -0400
-Received: by ywf7 with SMTP id 7so1168941ywf.19
-        for <netdev@vger.kernel.org>; Thu, 03 Nov 2011 03:36:18 -0700 (PDT)
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:59655 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932216Ab1KCKmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 06:42:50 -0400
+In-Reply-To: <20111103100333.GD317@e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If one of the request_irq calls fails in tg3_open, all interrupts
-allocated with request_irq should be freed before returning error.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig564E1C69008B5819EDE655C7
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-But it accidentally attempts to free the same invalid IRQ repeatedly.
+On 11/03/2011 11:03 AM, Kurt Van Dijck wrote:
+> On Thu, Nov 03, 2011 at 10:47:53AM +0100, Marc Kleine-Budde wrote:
+>> Hello,
+>>
+>> what about turning can_get_echo_skb() into a helper function which ret=
+urns the number
+>> of tx'ed bytes.
+> That would work.
+>=20
+> Next step would be to do the statistics inside can_get_echo_skb(), but =
+that's
+> affecting all drivers using it ...
+> Kurt
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Matt Carlson <mcarlson@broadcom.com>
-Cc: Michael Chan <mchan@broadcom.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
----
- drivers/net/ethernet/broadcom/tg3.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+Interesting idea
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 161cbbb..13c4054 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -9674,8 +9674,10 @@ static int tg3_open(struct net_device *dev)
- 		struct tg3_napi *tnapi = &tp->napi[i];
- 		err = tg3_request_irq(tp, i);
- 		if (err) {
--			for (i--; i >= 0; i--)
-+			for (i--; i >= 0; i--) {
-+				tnapi = &tp->napi[i];
- 				free_irq(tnapi->irq_vec, tnapi);
-+			}
- 			break;
- 		}
- 	}
--- 
-1.7.4.4
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig564E1C69008B5819EDE655C7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk6ycCkACgkQjTAFq1RaXHPNuACeKqWNP3E0ELafQAf1/HACOHth
+GQ8An1o2sjTdkWE/3TNyjvAXlTf4D5i4
+=PubU
+-----END PGP SIGNATURE-----
+
+--------------enig564E1C69008B5819EDE655C7--
