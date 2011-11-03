@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 08/10] ixgbe: fix reading of the buffer returned by the firmware
-Date: Wed,  2 Nov 2011 17:19:59 -0700
-Message-ID: <1320279601-1276-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 04/10] ixgbe: Fix link issues caused by a reset while interface is down
+Date: Wed,  2 Nov 2011 17:19:55 -0700
+Message-ID: <1320279601-1276-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1320279601-1276-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,74 +10,49 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:37902 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753215Ab1KCAUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Nov 2011 20:20:09 -0400
+	id S1754414Ab1KCAUG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Nov 2011 20:20:06 -0400
 In-Reply-To: <1320279601-1276-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch fixes some issues found in the buffer read portion of
-ixgbe_host_interface_command()
+Interface fails to obtain link on 82599 SFP in the following scenario:
 
-- use `bi` as the buffer index counter instead of `i`
-- add conversion to native cpu byte ordering on register read
-- fix conversion from bytes to dword
-- use dword_len instead of buf_len when reading the register
+1. Set advertised speed to GB:
+ethtool -s eth0 advertise 0x20
+
+2. Bring interface down
+ip link set eth0 down
+
+3. Issue any command that leads to a reset:
+ethtool -t eth0
+
+4. Bring link back up:
+ip link set eth0 up
+
+Following patch makes sure that the driver flaps the Tx laser every time
+ixgbe_start_hw() is called, and not only when the speed is set.
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   20 +++++++++++---------
- 1 files changed, 11 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 834f044..f1365fe 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3344,7 +3344,7 @@ static u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
- static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 					u32 length)
- {
--	u32 hicr, i;
-+	u32 hicr, i, bi;
- 	u32 hdr_size = sizeof(struct ixgbe_hic_hdr);
- 	u8 buf_len, dword_len;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 09b8e88..b7abf43 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6125,7 +6125,6 @@ static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
+ 	autoneg = hw->phy.autoneg_advertised;
+ 	if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
+ 		hw->mac.ops.get_link_capabilities(hw, &autoneg, &negotiation);
+-	hw->mac.autotry_restart = false;
+ 	if (hw->mac.ops.setup_link)
+ 		hw->mac.ops.setup_link(hw, autoneg, negotiation, true);
  
-@@ -3398,9 +3398,9 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 	dword_len = hdr_size >> 2;
- 
- 	/* first pull in the header so we know the buffer length */
--	for (i = 0; i < dword_len; i++) {
--		buffer[i] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
--		le32_to_cpus(&buffer[i]);
-+	for (bi = 0; bi < dword_len; bi++) {
-+		buffer[bi] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, bi);
-+		le32_to_cpus(&buffer[bi]);
- 	}
- 
- 	/* If there is any thing in data position pull it in */
-@@ -3414,12 +3414,14 @@ static s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 		goto out;
- 	}
- 
--	/* Calculate length in DWORDs, add one for odd lengths */
--	dword_len = (buf_len + 1) >> 2;
-+	/* Calculate length in DWORDs, add 3 for odd lengths */
-+	dword_len = (buf_len + 3) >> 2;
- 
--	/* Pull in the rest of the buffer (i is where we left off)*/
--	for (; i < buf_len; i++)
--		buffer[i] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, i);
-+	/* Pull in the rest of the buffer (bi is where we left off)*/
-+	for (; bi <= dword_len; bi++) {
-+		buffer[bi] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, bi);
-+		le32_to_cpus(&buffer[bi]);
-+	}
- 
- out:
- 	return ret_val;
 -- 
 1.7.6.4
