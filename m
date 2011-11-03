@@ -1,51 +1,51 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] netlink: validate NLA_MSECS length
-Date: Thu, 03 Nov 2011 11:07:32 +0100
-Message-ID: <1320314852.3950.36.camel@jlt3.sipsolutions.net>
+Subject: [PATCH] netlink: clarify attribute length check documentation
+Date: Thu, 03 Nov 2011 11:10:05 +0100
+Message-ID: <1320315005.3950.37.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Thomas Graf <tgraf@suug.ch>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:45506 "EHLO
+Received: from he.sipsolutions.net ([78.46.109.217]:45515 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754740Ab1KCKHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 06:07:40 -0400
+	with ESMTP id S1751346Ab1KCKKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 06:10:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Johannes Berg <johannes.berg@intel.com>
 
-L2TP for example uses NLA_MSECS like this:
-policy:
-        [L2TP_ATTR_RECV_TIMEOUT]        = { .type = NLA_MSECS, },
-code:
-        if (info->attrs[L2TP_ATTR_RECV_TIMEOUT])
-                cfg.reorder_timeout = nla_get_msecs(info->attrs[L2TP_ATTR_RECV_TIMEOUT]);
-
-As nla_get_msecs() is essentially nla_get_u64() plus the
-conversion to a HZ-based value, this will not properly
-reject attributes from userspace that aren't long enough
-and might overrun the message.
-
-Add NLA_MSECS to the attribute minlen array to check the
-size properly.
+The documentation for how the length of attributes
+is checked is wrong ("Exact length" isn't true, the
+policy checks are for "minimum length") and a bit
+misleading. Make it more complete and explain what
+really happens.
 
 Cc: Thomas Graf <tgraf@suug.ch>
-Cc: stable@vger.kernel.org
 Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- lib/nlattr.c |    1 +
- 1 file changed, 1 insertion(+)
+ include/net/netlink.h |   11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
---- a/lib/nlattr.c	2011-04-29 11:34:55.000000000 +0200
-+++ b/lib/nlattr.c	2011-11-03 11:02:10.000000000 +0100
-@@ -20,6 +20,7 @@ static const u16 nla_attr_minlen[NLA_TYP
- 	[NLA_U16]	= sizeof(u16),
- 	[NLA_U32]	= sizeof(u32),
- 	[NLA_U64]	= sizeof(u64),
-+	[NLA_MSECS]	= sizeof(u64),
- 	[NLA_NESTED]	= NLA_HDRLEN,
- };
- 
+--- a/include/net/netlink.h	2011-11-03 09:26:05.000000000 +0100
++++ b/include/net/netlink.h	2011-11-03 11:01:22.000000000 +0100
+@@ -192,8 +192,15 @@ enum {
+  *    NLA_NUL_STRING       Maximum length of string (excluding NUL)
+  *    NLA_FLAG             Unused
+  *    NLA_BINARY           Maximum length of attribute payload
+- *    NLA_NESTED_COMPAT    Exact length of structure payload
+- *    All other            Exact length of attribute payload
++ *    NLA_NESTED           Don't use `len' field -- length verification is
++ *                         done by checking len of nested header (or empty)
++ *    NLA_NESTED_COMPAT    Minimum length of structure payload
++ *    NLA_U8, NLA_U16,
++ *    NLA_U32, NLA_U64,
++ *    NLA_MSECS            Leaving the length field zero will verify the
++ *                         given type fits, using it verifies minimum length
++ *                         just like "All other"
++ *    All other            Minimum length of attribute payload
+  *
+  * Example:
+  * static const struct nla_policy my_policy[ATTR_MAX+1] = {
