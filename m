@@ -1,51 +1,70 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] netlink: clarify attribute length check documentation
-Date: Thu, 03 Nov 2011 11:10:05 +0100
-Message-ID: <1320315005.3950.37.camel@jlt3.sipsolutions.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 2/2] flexcan: Fix CAN_RAW_RECV_OWN_MSGS and CAN_RAW_LOOPBACK
+Date: Thu, 03 Nov 2011 11:17:57 +0100
+Message-ID: <4EB26A55.6010207@pengutronix.de>
+References: <70F6AAAFDC054F41B9994A9BCD3DF64E16FAA8E0@exch01-aklnz.MARINE.NET.INT> <1320313675-30749-1-git-send-email-mkl@pengutronix.de> <1320313675-30749-3-git-send-email-mkl@pengutronix.de> <4EB26702.60506@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig666DB3A492637A04FFAEDCBD"
+Cc: kurt.van.dijck@eia.be, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, Reuben.Dowle@navico.com
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:45515 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346Ab1KCKKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 06:10:10 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:40313 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346Ab1KCKSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 06:18:04 -0400
+In-Reply-To: <4EB26702.60506@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig666DB3A492637A04FFAEDCBD
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-The documentation for how the length of attributes
-is checked is wrong ("Exact length" isn't true, the
-policy checks are for "minimum length") and a bit
-misleading. Make it more complete and explain what
-really happens.
+On 11/03/2011 11:03 AM, Oliver Hartkopp wrote:
+> On 03.11.2011 10:47, Marc Kleine-Budde wrote:
+>=20
+>> @@ -609,9 +605,10 @@ static irqreturn_t flexcan_irq(int irq, void *dev=
+_id)
+>> =20
+>>  	/* transmission complete interrupt */
+>>  	if (reg_iflag1 & (1 << FLEXCAN_TX_BUF_ID)) {
+>> -		/* tx_bytes is incremented in flexcan_start_xmit */
+>> +		stats->tx_bytes +=3D can_get_echo_skb(dev, 0);
+>>  		stats->tx_packets++;
+>>  		flexcan_write((1 << FLEXCAN_TX_BUF_ID), &regs->iflag1);
+>> +		can_get_echo_skb(dev, 0);
+>>  		netif_wake_queue(dev);
+>>  	}
+>=20
+>=20
+> What's the reason for the second can_get_echo_skb() here?
+doh!
 
-Cc: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- include/net/netlink.h |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+Marc
 
---- a/include/net/netlink.h	2011-11-03 09:26:05.000000000 +0100
-+++ b/include/net/netlink.h	2011-11-03 11:01:22.000000000 +0100
-@@ -192,8 +192,15 @@ enum {
-  *    NLA_NUL_STRING       Maximum length of string (excluding NUL)
-  *    NLA_FLAG             Unused
-  *    NLA_BINARY           Maximum length of attribute payload
-- *    NLA_NESTED_COMPAT    Exact length of structure payload
-- *    All other            Exact length of attribute payload
-+ *    NLA_NESTED           Don't use `len' field -- length verification is
-+ *                         done by checking len of nested header (or empty)
-+ *    NLA_NESTED_COMPAT    Minimum length of structure payload
-+ *    NLA_U8, NLA_U16,
-+ *    NLA_U32, NLA_U64,
-+ *    NLA_MSECS            Leaving the length field zero will verify the
-+ *                         given type fits, using it verifies minimum length
-+ *                         just like "All other"
-+ *    All other            Minimum length of attribute payload
-  *
-  * Example:
-  * static const struct nla_policy my_policy[ATTR_MAX+1] = {
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig666DB3A492637A04FFAEDCBD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk6yalcACgkQjTAFq1RaXHNpCwCgmPcg5j1RXsonn+1Vn7LUfkE8
+ibQAn0pYADO03LgK2bc9C5pKS0PmSFO5
+=hEeX
+-----END PGP SIGNATURE-----
+
+--------------enig666DB3A492637A04FFAEDCBD--
