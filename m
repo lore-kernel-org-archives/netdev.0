@@ -1,57 +1,66 @@
-From: Simon Kirby <sim@hostway.ca>
-Subject: Re: Linux 3.1-rc9
-Date: Wed, 2 Nov 2011 17:17:21 -0700
-Message-ID: <20111103001721.GK5971@hostway.ca>
-References: <1318928713.21167.4.camel@twins> <20111018182046.GF1309@hostway.ca> <alpine.LFD.2.02.1110182146440.3240@ionos> <20111024190203.GA24410@hostway.ca> <20111025202049.GB25043@hostway.ca> <20111031173246.GA10614@hostway.ca> <20111102221023.GA27457@home.goodmis.org> <20111102230009.GB27457@home.goodmis.org> <20111103000941.GJ5971@hostway.ca> <1320279351.4793.60.camel@gandalf.stny.rr.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Network Development <netdev@vger.kernel.org>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1320279351.4793.60.camel@gandalf.stny.rr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 00/10][pull request] Intel Wired LAN Driver Update
+Date: Wed,  2 Nov 2011 17:19:51 -0700
+Message-ID: <1320279601-1276-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:37902 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754192Ab1KCAUD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Nov 2011 20:20:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 02, 2011 at 08:15:51PM -0400, Steven Rostedt wrote:
+The following series contains fixes to e100, e1000e, igb, ixgbe and
+ixgbevf.  The bulk of the fixes are to ixgbe.  Here is a summary
+of the changes:
 
-> On Wed, 2011-11-02 at 17:09 -0700, Simon Kirby wrote:
-> >  
-> > [   49.032008] other info that might help us debug this:
-> > [   49.032008] 
-> > [   49.032008]  Possible unsafe locking scenario:
-> > [   49.032008] 
-> > [   49.032008]        CPU0                    CPU1
-> > [   49.032008]        ----                    ----
-> > [   49.032008]   lock(slock-AF_INET);
-> > [   49.039565]                                lock(slock-AF_INET/1);
-> > [   49.039565]                                lock(slock-AF_INET);
-> > [   49.039565]   lock(slock-AF_INET/1);
-> > [   49.039565] 
-> > [   49.039565]  *** DEADLOCK ***
-> > [   49.039565] 
-> 
-> > Did that help? I'm not sure if that's what you wanted to see...
-> 
-> 
-> Yes, this looks much better than what you previously showed. The added
-> "/1" makes a world of difference.
-> 
-> Thanks!
-> 
-> I'll add your "Tested-by". Seems rather strange as we didn't fix the bug
-> you are chasing, but instead fixed the output of what the bug
-> produced ;)
+e100 - make sure VLAN support is not advertised for older adapters
+e1000e - fix a debugging message
+igb -  fix a PHY cable length unit detection
+ixgbe - fix the following: link issues, reading of buffer, disable Tx
+  laser at probe, compiler warnings, missing NULL check and DCB IEEE
+  traffic classes
+ixgbevf - bump version
 
-Well, I was testing this without Eric's patch as I figured you wanted to
-see the splat. :) Testing again with Eric's patch now.
+The following are changes since commit 2edcd4ca43df3c1d1d392753531cc73a53e709ba:
+  net: fix typo in drivers/net/ethernet/xilinx/ll_temac_main.c
+and are available in the git repository at
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net.git
 
-Simon-
+Bruce Allan (1):
+  e1000e: demote a debugging WARN to a debug log message
+
+Emil Tantilov (3):
+  ixgbe: Fix link issues caused by a reset while interface is down
+  ixgbe: fix disabling of Tx laser at probe
+  ixgbe: fix reading of the buffer returned by the firmware
+
+Greg Rose (2):
+  ixgbe: Fix compiler warnings
+  ixgbevf: Update release version
+
+Jesse Brandeburg (1):
+  e100: make sure vlan support isn't advertised on old adapters
+
+John Fastabend (2):
+  ixgbe: fix smatch splat due to missing NULL check
+  ixgbe: DCB, return max for IEEE traffic classes
+
+Kantecki, Tomasz (1):
+  igb: Fix for I347AT4 PHY cable length unit detection
+
+ drivers/net/ethernet/intel/e100.c                 |    4 ++
+ drivers/net/ethernet/intel/e1000e/ich8lan.c       |    3 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.c        |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |   20 +++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c   |   10 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   48 ++++++++------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h    |    2 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    2 +-
+ 8 files changed, 45 insertions(+), 46 deletions(-)
+
+-- 
+1.7.6.4
