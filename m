@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PROBLEM: pppol2tp over pppoe NULL pointer dereference
-Date: Thu, 03 Nov 2011 18:02:42 -0400 (EDT)
-Message-ID: <20111103.180242.2078132551762504503.davem@davemloft.net>
-References: <1320217652.30178.1.camel@edumazet-laptop>
-	<CAKpUy7Y794CJkAEtbsbTecbPq+KkniSTx4ftCncohzGsuJfk-w@mail.gmail.com>
-	<1320310064.2344.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Subject: Re: Linux 3.1-rc9
+Date: Thu, 03 Nov 2011 18:07:33 -0400 (EDT)
+Message-ID: <20111103.180733.1492714521890801071.davem@davemloft.net>
+References: <20111102191621.GF5971@hostway.ca>
+	<4EB1C770.7070605@gmail.com>
+	<20111103005255.GL5971@hostway.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: spiked.yar@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, tglx@linutronix.de, a.p.zijlstra@chello.nl,
+	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
+	davej@redhat.com, schwidefsky@de.ibm.com, mingo@elte.hu,
+	netdev@vger.kernel.org, bazsi@balabit.hu, hidden@balabit.hu
+To: sim@hostway.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:58512 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36679 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752954Ab1KCWCp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 18:02:45 -0400
-In-Reply-To: <1320310064.2344.3.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	with ESMTP id S1752282Ab1KCWJJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 18:09:09 -0400
+In-Reply-To: <20111103005255.GL5971@hostway.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 03 Nov 2011 09:47:44 +0100
+From: Simon Kirby <sim@hostway.ca>
+Date: Wed, 2 Nov 2011 17:52:55 -0700
 
-> Le jeudi 03 novembre 2011 =E0 02:35 +0400, Misha Labjuk a =E9crit :
->> Thanks!!  Panic disappeared.
->>=20
->=20
-> Here is the official patch submission again (not mangled this time),
-> thanks !
->=20
-> [PATCH] l2tp: fix race in l2tp_recv_dequeue()
+>> [PATCH] net: add missing bh_unlock_sock() calls
+ ...
+> Tested-by: Simon Kirby <sim@hostway.ca>
+> 
+> I tried many times, with route unreach/blackhole, and could not reproduce
+> the issue with this patch applied.
 
-Applied and queued up for -stable, thanks!
+Applied and queued up for -stable, thanks everyone!
