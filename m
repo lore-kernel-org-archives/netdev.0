@@ -1,35 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Linux 3.1-rc9
-Date: Thu, 03 Nov 2011 18:07:33 -0400 (EDT)
-Message-ID: <20111103.180733.1492714521890801071.davem@davemloft.net>
-References: <20111102191621.GF5971@hostway.ca>
-	<4EB1C770.7070605@gmail.com>
-	<20111103005255.GL5971@hostway.ca>
+Subject: Re: [PATCH] net: Add back alignment for size for __alloc_skb
+Date: Thu, 03 Nov 2011 18:09:47 -0400 (EDT)
+Message-ID: <20111103.180947.1752241500828191615.davem@davemloft.net>
+References: <20111102232403.GO31337@atomide.com>
+	<4EB1D2C7.2070700@gmail.com>
+	<20111102234028.GP31337@atomide.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, tglx@linutronix.de, a.p.zijlstra@chello.nl,
-	torvalds@linux-foundation.org, linux-kernel@vger.kernel.org,
-	davej@redhat.com, schwidefsky@de.ibm.com, mingo@elte.hu,
-	netdev@vger.kernel.org, bazsi@balabit.hu, hidden@balabit.hu
-To: sim@hostway.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36679 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752282Ab1KCWJJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 18:09:09 -0400
-In-Reply-To: <20111103005255.GL5971@hostway.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org
+To: tony@atomide.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111102234028.GP31337@atomide.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Kirby <sim@hostway.ca>
-Date: Wed, 2 Nov 2011 17:52:55 -0700
+From: Tony Lindgren <tony@atomide.com>
+Date: Wed, 2 Nov 2011 16:40:28 -0700
 
->> [PATCH] net: add missing bh_unlock_sock() calls
- ...
-> Tested-by: Simon Kirby <sim@hostway.ca>
-> 
-> I tried many times, with route unreach/blackhole, and could not reproduce
-> the issue with this patch applied.
+> Subject: [PATCH] net: Add back alignment for size for __alloc_skb
 
-Applied and queued up for -stable, thanks everyone!
+Applied, thanks a lot!
