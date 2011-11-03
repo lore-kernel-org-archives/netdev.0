@@ -1,58 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 04/10] ixgbe: Fix link issues caused by a reset while interface is down
-Date: Wed,  2 Nov 2011 17:19:55 -0700
-Message-ID: <1320279601-1276-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 06/10] ixgbe: fix smatch splat due to missing NULL check
+Date: Wed,  2 Nov 2011 17:19:57 -0700
+Message-ID: <1320279601-1276-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1320279601-1276-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:37902 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:64280 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754414Ab1KCAUG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Nov 2011 20:20:06 -0400
+	id S1754281Ab1KCAUI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Nov 2011 20:20:08 -0400
 In-Reply-To: <1320279601-1276-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Interface fails to obtain link on 82599 SFP in the following scenario:
+ixgbe_ieee_ets and ixgbe_ieee_pfc are intialized at
+the same time. Do a check for both before configuring
+IEEE802.1Qaz. Also max_frame was causing a sparse
+warning resolved here as well.
 
-1. Set advertised speed to GB:
-ethtool -s eth0 advertise 0x20
-
-2. Bring interface down
-ip link set eth0 down
-
-3. Issue any command that leads to a reset:
-ethtool -t eth0
-
-4. Bring link back up:
-ip link set eth0 up
-
-Following patch makes sure that the driver flaps the Tx laser every time
-ixgbe_start_hw() is called, and not only when the speed is set.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   33 +++++++++----------------
+ 1 files changed, 12 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 09b8e88..b7abf43 100644
+index 2e9fd9d..8ef92d1 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6125,7 +6125,6 @@ static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
- 	autoneg = hw->phy.autoneg_advertised;
- 	if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
- 		hw->mac.ops.get_link_capabilities(hw, &autoneg, &negotiation);
--	hw->mac.autotry_restart = false;
- 	if (hw->mac.ops.setup_link)
- 		hw->mac.ops.setup_link(hw, autoneg, negotiation, true);
+@@ -3345,34 +3345,25 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
  
+ 	hw->mac.ops.set_vfta(&adapter->hw, 0, 0, true);
+ 
+-	/* reconfigure the hardware */
+-	if (adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE) {
+ #ifdef IXGBE_FCOE
+-		if (adapter->netdev->features & NETIF_F_FCOE_MTU)
+-			max_frame = max(max_frame, IXGBE_FCOE_JUMBO_FRAME_SIZE);
++	if (adapter->netdev->features & NETIF_F_FCOE_MTU)
++		max_frame = max(max_frame, IXGBE_FCOE_JUMBO_FRAME_SIZE);
+ #endif
++
++	/* reconfigure the hardware */
++	if (adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE) {
+ 		ixgbe_dcb_calculate_tc_credits(hw, &adapter->dcb_cfg, max_frame,
+ 						DCB_TX_CONFIG);
+ 		ixgbe_dcb_calculate_tc_credits(hw, &adapter->dcb_cfg, max_frame,
+ 						DCB_RX_CONFIG);
+ 		ixgbe_dcb_hw_config(hw, &adapter->dcb_cfg);
+-	} else {
+-		struct net_device *dev = adapter->netdev;
+-
+-		if (adapter->ixgbe_ieee_ets) {
+-			struct ieee_ets *ets = adapter->ixgbe_ieee_ets;
+-			int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
+-
+-			ixgbe_dcb_hw_ets(&adapter->hw, ets, max_frame);
+-		}
+-
+-		if (adapter->ixgbe_ieee_pfc) {
+-			struct ieee_pfc *pfc = adapter->ixgbe_ieee_pfc;
+-			u8 *prio_tc = adapter->ixgbe_ieee_ets->prio_tc;
+-
+-			ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc->pfc_en,
+-						prio_tc);
+-		}
++	} else if (adapter->ixgbe_ieee_ets && adapter->ixgbe_ieee_pfc) {
++		ixgbe_dcb_hw_ets(&adapter->hw,
++				 adapter->ixgbe_ieee_ets,
++				 max_frame);
++		ixgbe_dcb_hw_pfc_config(&adapter->hw,
++					adapter->ixgbe_ieee_pfc->pfc_en,
++					adapter->ixgbe_ieee_ets->prio_tc);
+ 	}
+ 
+ 	/* Enable RSS Hash per TC */
 -- 
 1.7.6.4
