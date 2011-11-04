@@ -1,93 +1,170 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 3/8] tg3: Fix 4k skb error recovery path
-Date: Fri, 4 Nov 2011 12:15:00 -0700
-Message-ID: <1320434105-12898-4-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 6/8] tg3: Schedule at most one tg3_reset_task run
+Date: Fri, 4 Nov 2011 12:15:03 -0700
+Message-ID: <1320434105-12898-7-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3460 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3465 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755640Ab1KDTN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755873Ab1KDTN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 4 Nov 2011 15:13:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On the error recovery resource unwind path, it is possible for the
-driver to attempt to unmap a fragment that hadn't been mapped.  This
-patch fixes the problem by correcting the "last" parameter supplied.
+It is possible for multiple threads in the tg3 driver to each attempt to
+schedule a run of tg3_reset_task().  The multiple tg3_reset_task
+executions could all wind up on the same queue (and execute serially) or
+wind up on the queues of another processor (which could execute in
+parallel).  Either scenario is not what was truly desired.
+
+This patch adds a new flag, TG3_FLAG_RESET_TASK_PENDING, and uses it to
+determine whether or not to schedule another run of tg3_reset_task().
+With the new flag comes two new functions to facilitate scheduling and
+descheduling of tg3_reset_task().
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   33 ++++++++++++++++++++++++---------
+ drivers/net/ethernet/broadcom/tg3.h |    1 +
+ 2 files changed, 25 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 507b73b..3a75179 100644
+index 6973d01..d4a85b7 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -6507,7 +6507,7 @@ static void tg3_tx_skb_unmap(struct tg3_napi *tnapi, u32 entry, int last)
- 		txb = &tnapi->tx_buffers[entry];
+@@ -5929,6 +5929,18 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ 	return work_done;
+ }
+ 
++static inline void tg3_reset_task_schedule(struct tg3 *tp)
++{
++	if (!test_and_set_bit(TG3_FLAG_RESET_TASK_PENDING, tp->tg3_flags))
++		schedule_work(&tp->reset_task);
++}
++
++static inline void tg3_reset_task_cancel(struct tg3 *tp)
++{
++	cancel_work_sync(&tp->reset_task);
++	tg3_flag_clear(tp, RESET_TASK_PENDING);
++}
++
+ static int tg3_poll_msix(struct napi_struct *napi, int budget)
+ {
+ 	struct tg3_napi *tnapi = container_of(napi, struct tg3_napi, napi);
+@@ -5969,7 +5981,7 @@ static int tg3_poll_msix(struct napi_struct *napi, int budget)
+ tx_recovery:
+ 	/* work_done is guaranteed to be less than budget. */
+ 	napi_complete(napi);
+-	schedule_work(&tp->reset_task);
++	tg3_reset_task_schedule(tp);
+ 	return work_done;
+ }
+ 
+@@ -6004,7 +6016,7 @@ static void tg3_process_error(struct tg3 *tp)
+ 	tg3_dump_state(tp);
+ 
+ 	tg3_flag_set(tp, ERROR_PROCESSED);
+-	schedule_work(&tp->reset_task);
++	tg3_reset_task_schedule(tp);
+ }
+ 
+ static int tg3_poll(struct napi_struct *napi, int budget)
+@@ -6051,7 +6063,7 @@ static int tg3_poll(struct napi_struct *napi, int budget)
+ tx_recovery:
+ 	/* work_done is guaranteed to be less than budget. */
+ 	napi_complete(napi);
+-	schedule_work(&tp->reset_task);
++	tg3_reset_task_schedule(tp);
+ 	return work_done;
+ }
+ 
+@@ -6345,6 +6357,7 @@ static void tg3_reset_task(struct work_struct *work)
+ 	tg3_full_lock(tp, 0);
+ 
+ 	if (!netif_running(tp->dev)) {
++		tg3_flag_clear(tp, RESET_TASK_PENDING);
+ 		tg3_full_unlock(tp);
+ 		return;
+ 	}
+@@ -6382,6 +6395,8 @@ out:
+ 
+ 	if (!err)
+ 		tg3_phy_start(tp);
++
++	tg3_flag_clear(tp, RESET_TASK_PENDING);
+ }
+ 
+ static void tg3_tx_timeout(struct net_device *dev)
+@@ -6393,7 +6408,7 @@ static void tg3_tx_timeout(struct net_device *dev)
+ 		tg3_dump_state(tp);
  	}
  
--	for (i = 0; i < last; i++) {
-+	for (i = 0; i <= last; i++) {
- 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+-	schedule_work(&tp->reset_task);
++	tg3_reset_task_schedule(tp);
+ }
  
- 		entry = NEXT_TX(entry);
-@@ -6568,7 +6568,7 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
- 			if (tg3_tx_frag_set(tnapi, entry, budget, new_addr,
- 					    new_skb->len, base_flags,
- 					    mss, vlan)) {
--				tg3_tx_skb_unmap(tnapi, save_entry, 0);
-+				tg3_tx_skb_unmap(tnapi, save_entry, -1);
- 				dev_kfree_skb(new_skb);
- 				ret = -1;
- 			}
-@@ -6758,11 +6758,10 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (tg3_tx_frag_set(tnapi, &entry, &budget, mapping, len, base_flags |
- 			  ((skb_shinfo(skb)->nr_frags == 0) ? TXD_FLAG_END : 0),
--			    mss, vlan))
-+			    mss, vlan)) {
- 		would_hit_hwbug = 1;
--
- 	/* Now loop through additional data fragments, and queue them. */
--	if (skb_shinfo(skb)->nr_frags > 0) {
-+	} else if (skb_shinfo(skb)->nr_frags > 0) {
- 		u32 tmp_mss = mss;
- 
- 		if (!tg3_flag(tp, HW_TSO_1) &&
-@@ -6831,7 +6830,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- 
- dma_error:
--	tg3_tx_skb_unmap(tnapi, tnapi->tx_prod, i);
-+	tg3_tx_skb_unmap(tnapi, tnapi->tx_prod, --i);
- 	tnapi->tx_buffers[tnapi->tx_prod].skb = NULL;
- drop:
- 	dev_kfree_skb(skb);
-@@ -7284,7 +7283,8 @@ static void tg3_free_rings(struct tg3 *tp)
- 			if (!skb)
- 				continue;
- 
--			tg3_tx_skb_unmap(tnapi, i, skb_shinfo(skb)->nr_frags);
-+			tg3_tx_skb_unmap(tnapi, i,
-+					 skb_shinfo(skb)->nr_frags - 1);
- 
- 			dev_kfree_skb_any(skb);
+ /* Test for DMA buffers crossing any 4GB boundaries: 4G, 8G, etc */
+@@ -9228,7 +9243,7 @@ static void tg3_timer(unsigned long __opaque)
+ 		if (!(tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
+ 			tg3_flag_set(tp, RESTART_TIMER);
+ 			spin_unlock(&tp->lock);
+-			schedule_work(&tp->reset_task);
++			tg3_reset_task_schedule(tp);
+ 			return;
  		}
-@@ -11523,7 +11523,7 @@ static int tg3_run_loopback(struct tg3 *tp, u32 pktsz, bool tso_loopback)
- 			break;
  	}
+@@ -9785,7 +9800,7 @@ static int tg3_close(struct net_device *dev)
+ 	struct tg3 *tp = netdev_priv(dev);
  
--	tg3_tx_skb_unmap(tnapi, tnapi->tx_prod - 1, 0);
-+	tg3_tx_skb_unmap(tnapi, tnapi->tx_prod - 1, -1);
- 	dev_kfree_skb(skb);
+ 	tg3_napi_disable(tp);
+-	cancel_work_sync(&tp->reset_task);
++	tg3_reset_task_cancel(tp);
  
- 	if (tx_idx != tnapi->tx_prod)
+ 	netif_tx_stop_all_queues(dev);
+ 
+@@ -15685,7 +15700,7 @@ static void __devexit tg3_remove_one(struct pci_dev *pdev)
+ 		if (tp->fw)
+ 			release_firmware(tp->fw);
+ 
+-		cancel_work_sync(&tp->reset_task);
++		tg3_reset_task_cancel(tp);
+ 
+ 		if (tg3_flag(tp, USE_PHYLIB)) {
+ 			tg3_phy_fini(tp);
+@@ -15719,7 +15734,7 @@ static int tg3_suspend(struct device *device)
+ 	if (!netif_running(dev))
+ 		return 0;
+ 
+-	flush_work_sync(&tp->reset_task);
++	tg3_reset_task_cancel(tp);
+ 	tg3_phy_stop(tp);
+ 	tg3_netif_stop(tp);
+ 
+@@ -15835,7 +15850,7 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
+ 	tg3_flag_clear(tp, RESTART_TIMER);
+ 
+ 	/* Want to make sure that the reset task doesn't run */
+-	cancel_work_sync(&tp->reset_task);
++	tg3_reset_task_cancel(tp);
+ 	tg3_flag_clear(tp, TX_RECOVERY_PENDING);
+ 	tg3_flag_clear(tp, RESTART_TIMER);
+ 
+diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+index acfa265..610fd84 100644
+--- a/drivers/net/ethernet/broadcom/tg3.h
++++ b/drivers/net/ethernet/broadcom/tg3.h
+@@ -2922,6 +2922,7 @@ enum TG3_FLAGS {
+ 	TG3_FLAG_APE_HAS_NCSI,
+ 	TG3_FLAG_5717_PLUS,
+ 	TG3_FLAG_4K_FIFO_LIMIT,
++	TG3_FLAG_RESET_TASK_PENDING,
+ 
+ 	/* Add new flags before this comment and TG3_FLAG_NUMBER_OF_FLAGS */
+ 	TG3_FLAG_NUMBER_OF_FLAGS,	/* Last entry in enum TG3_FLAGS */
 -- 
 1.7.3.4
