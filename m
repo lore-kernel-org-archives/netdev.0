@@ -1,36 +1,22 @@
-From: "Mr.Andrew Wong" <atendimento@unipe.br>
-Subject: Dear Friend
-Date: Fri, 4 Nov 2011 05:35:50 -0300 (BRT)
-Message-ID: <2118599.68461320395750752.JavaMail.root@webserver.unipe.br>
-Reply-To: "Mr.Andrew Wong" <mr.andrew.wong16@gmail.com>
+From: Kevin Wilson <wkevils@gmail.com>
+Subject: iproute2 neighboring
+Date: Fri, 4 Nov 2011 13:11:08 +0200
+Message-ID: <CAGXs5wUEiS-vpdsCDoyva2Vg9XKBmbJgoPVOXUXD0u9+PzXH=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.unipe.br ([189.17.100.200]:46354 "EHLO webserver.unipe.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751686Ab1KDJZu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Nov 2011 05:25:50 -0400
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:43787 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180Ab1KDLLI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 07:11:08 -0400
+Received: by vws1 with SMTP id 1so1734704vws.19
+        for <netdev@vger.kernel.org>; Fri, 04 Nov 2011 04:11:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-I need your assistance to transfer Abandoned sum of $8.5  Million Dollars in Alliance Bank in Kuala Lumpur Malaysia,
- Own by a billionaire Business Mogul Late Mr. Moises Saba Masri, a Jew
-from Mexico who was a victim of a helicopter crash since 2010 year,
-resulting to his death and his family members.
-You can see more information about Saba Masri Mr.Moises unfortunate end
-accident on the website-link below.
-
-http://www.ynetnews.com/articles/0,7340,L-3832556,00.html.
-
-We share in ratio 60%/40%. Reply if interested reply via email: mr.andrew.wong16@gmail.com
-
-Best Regard
-
-Mr.Andrew Wong
-
-
---
+Hi,
+It seems to me that "ip -6 neigh show" does not show multicast entries from
+IPv6 neighboring  table. Is there a reason for this ?
+rgs,
+Kevin
