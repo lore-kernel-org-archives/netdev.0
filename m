@@ -1,40 +1,50 @@
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: [PATCH] net: add calxeda xgmac ethernet driver
-Date: Fri, 4 Nov 2011 12:57:38 -0400
-Message-ID: <CACxGe6shx0V1tGd1NGgt4tfd3AsKk6+RgPQg=aNRKh-DGERWhg@mail.gmail.com>
-References: <1319684206-473-1-git-send-email-robherring2@gmail.com>
- <CACxGe6sAFUwQc5Nk=gGLC+si-_C32AWu=E14vBkSm7YCFhazFg@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [GIT] Networking
+Date: Fri, 04 Nov 2011 18:03:42 +0100
+Message-ID: <1320426222.3969.121.camel@jlt3.sipsolutions.net>
+References: <20111025.063206.2273357152859701628.davem@davemloft.net>
+	 <CA+55aFzkZofnUmBOGVvmNKyA0_FApo73xZ7J=aevbHPS_0+xKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
-To: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <CACxGe6sAFUwQc5Nk=gGLC+si-_C32AWu=E14vBkSm7YCFhazFg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Cc: David Miller <davem@davemloft.net>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Stanislaw Gruszka <sgruszka@redhat.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFzkZofnUmBOGVvmNKyA0_FApo73xZ7J=aevbHPS_0+xKQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 4, 2011 at 12:57 PM, Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org> wrote:
-> On Wed, Oct 26, 2011 at 10:56 PM, Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> From: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
->>
->> Add support for the XGMAC 10Gb ethernet device in the Calxeda Highbank
->> SOC.
->>
->> Signed-off-by: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
->
-> Sinker question: is this a driver for an entirely new GMAC device
-> (designed from scratch) or is it based on an existing IP block?
+On Tue, 2011-10-25 at 12:26 +0000, Linus Torvalds wrote:
+> On Tue, Oct 25, 2011 at 12:32 PM, David Miller <davem@davemloft.net> wrote:
+> >
+> > The most visible thing in here is the reorganization of the drivers
+> > under drivers/net.
+> 
+> Nope, the most visible thing are some new annoying warnings, that seem
+> absolutely broken.
+> 
+> At the very minimum, that WARN_ON(1) should be a WARN_ON_ONCE() or
+> something like that. Because showing it over an dover again is not
+> helpful.
+> 
+> Added the people who signed off on the changes to the affected files,
+> since they hopefully know why this happens and can fix it..
 
-s/sinker/stinker/
+Sorry for the late reply.
 
-g.
+I think this was actually caused by some changes from Ben Greear
+"optimising" stuff in net/mac80211/work.c and keeping the wrong channel,
+Stanislaw was also looking at this at some point I think. I agree that
+it would be good to change to WARN_ON_ONCE(), will do that.
+
+The warning itself has been around forever, but the fact that it
+triggers now is probably related to the channel work & band switches.
+
+johannes
