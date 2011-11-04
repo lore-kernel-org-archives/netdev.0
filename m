@@ -1,99 +1,141 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 5/8] tg3: Obtain PCI function number from device
-Date: Fri, 4 Nov 2011 12:15:02 -0700
-Message-ID: <1320434105-12898-6-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 1/8] tg3: Fix APE mutex init and use
+Date: Fri, 4 Nov 2011 12:14:58 -0700
+Message-ID: <1320434105-12898-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com,
+	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1783 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3456 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756108Ab1KDTOD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Nov 2011 15:14:03 -0400
+	id S1755758Ab1KDTN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Nov 2011 15:13:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds code to attempt to obtain the PCI function number from
-the device rather than accept the number handed by the kernel.  In
-pass-through scenarios, the function number handed by the kernel may not
-reflect the true function of the device.
+APE mutex register blocks are shared by all ports of multiport devices.
+For some mutexing purposes, each function is assigned their own
+register.  For other cases, each function is assigned its own request
+and grant bits of a single register.  For the latter cases, the tg3
+driver is incorrectly allowing each function to use the same set of
+grant / request bits.  This patch fixes the code so that each function
+uses the appropriate bitset.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   30 ++++++++++++++++++++++++------
- drivers/net/ethernet/broadcom/tg3.h |    9 +++++++++
- 2 files changed, 33 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   44 ++++++++++++++++++----------------
+ drivers/net/ethernet/broadcom/tg3.h |   10 +++++--
+ 2 files changed, 30 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 0413e1e..6973d01 100644
+index 161cbbb..3590163 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -14230,12 +14230,30 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	val = tr32(MEMARB_MODE);
- 	tw32(MEMARB_MODE, val | MEMARB_MODE_ENABLE);
+@@ -628,19 +628,23 @@ static void tg3_ape_lock_init(struct tg3 *tp)
+ 		regbase = TG3_APE_PER_LOCK_GRANT;
  
--	if (tg3_flag(tp, PCIX_MODE)) {
--		pci_read_config_dword(tp->pdev,
--				      tp->pcix_cap + PCI_X_STATUS, &val);
--		tp->pci_fn = val & 0x7;
--	} else {
--		tp->pci_fn = PCI_FUNC(tp->pdev->devfn) & 3;
-+	tp->pci_fn = PCI_FUNC(tp->pdev->devfn) & 3;
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
-+	    tg3_flag(tp, 5780_CLASS)) {
-+		if (tg3_flag(tp, PCIX_MODE)) {
-+			pci_read_config_dword(tp->pdev,
-+					      tp->pcix_cap + PCI_X_STATUS,
-+					      &val);
-+			tp->pci_fn = val & 0x7;
+ 	/* Make sure the driver hasn't any stale locks. */
+-	for (i = 0; i < 8; i++) {
+-		if (i == TG3_APE_LOCK_GPIO)
+-			continue;
+-		tg3_ape_write32(tp, regbase + 4 * i, APE_LOCK_GRANT_DRIVER);
++	for (i = TG3_APE_LOCK_PHY0; i <= TG3_APE_LOCK_GPIO; i++) {
++		switch (i) {
++		case TG3_APE_LOCK_PHY0:
++		case TG3_APE_LOCK_PHY1:
++		case TG3_APE_LOCK_PHY2:
++		case TG3_APE_LOCK_PHY3:
++			bit = APE_LOCK_GRANT_DRIVER;
++			break;
++		default:
++			if (!tp->pci_fn)
++				bit = APE_LOCK_GRANT_DRIVER;
++			else
++				bit = 1 << tp->pci_fn;
 +		}
-+	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
-+		tg3_read_mem(tp, NIC_SRAM_CPMU_STATUS, &val);
-+		if ((val & NIC_SRAM_CPMUSTAT_SIG_MSK) ==
-+		    NIC_SRAM_CPMUSTAT_SIG) {
-+			tp->pci_fn = val & TG3_CPMU_STATUS_FMSK_5717;
-+			tp->pci_fn = tp->pci_fn ? 1 : 0;
-+		}
-+	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
-+		   GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
-+		tg3_read_mem(tp, NIC_SRAM_CPMU_STATUS, &val);
-+		if ((val & NIC_SRAM_CPMUSTAT_SIG_MSK) ==
-+		    NIC_SRAM_CPMUSTAT_SIG) {
-+			tp->pci_fn = (val & TG3_CPMU_STATUS_FMSK_5719) >>
-+				     TG3_CPMU_STATUS_FSHFT_5719;
-+		}
++		tg3_ape_write32(tp, regbase + 4 * i, bit);
  	}
  
- 	/* Get eeprom hw config before calling tg3_set_power_state().
+-	/* Clear the correct bit of the GPIO lock too. */
+-	if (!tp->pci_fn)
+-		bit = APE_LOCK_GRANT_DRIVER;
+-	else
+-		bit = 1 << tp->pci_fn;
+-
+-	tg3_ape_write32(tp, regbase + 4 * TG3_APE_LOCK_GPIO, bit);
+ }
+ 
+ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+@@ -658,6 +662,10 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ 			return 0;
+ 	case TG3_APE_LOCK_GRC:
+ 	case TG3_APE_LOCK_MEM:
++		if (!tp->pci_fn)
++			bit = APE_LOCK_REQ_DRIVER;
++		else
++			bit = 1 << tp->pci_fn;
+ 		break;
+ 	default:
+ 		return -EINVAL;
+@@ -673,11 +681,6 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ 
+ 	off = 4 * locknum;
+ 
+-	if (locknum != TG3_APE_LOCK_GPIO || !tp->pci_fn)
+-		bit = APE_LOCK_REQ_DRIVER;
+-	else
+-		bit = 1 << tp->pci_fn;
+-
+ 	tg3_ape_write32(tp, req + off, bit);
+ 
+ 	/* Wait for up to 1 millisecond to acquire lock. */
+@@ -710,6 +713,10 @@ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
+ 			return;
+ 	case TG3_APE_LOCK_GRC:
+ 	case TG3_APE_LOCK_MEM:
++		if (!tp->pci_fn)
++			bit = APE_LOCK_GRANT_DRIVER;
++		else
++			bit = 1 << tp->pci_fn;
+ 		break;
+ 	default:
+ 		return;
+@@ -720,11 +727,6 @@ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
+ 	else
+ 		gnt = TG3_APE_PER_LOCK_GRANT;
+ 
+-	if (locknum != TG3_APE_LOCK_GPIO || !tp->pci_fn)
+-		bit = APE_LOCK_GRANT_DRIVER;
+-	else
+-		bit = 1 << tp->pci_fn;
+-
+ 	tg3_ape_write32(tp, gnt + 4 * locknum, bit);
+ }
+ 
 diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 03fab8c..acfa265 100644
+index f32f288..03fab8c 100644
 --- a/drivers/net/ethernet/broadcom/tg3.h
 +++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -1095,6 +1095,11 @@
- #define TG3_CPMU_CLCK_ORIDE		0x00003624
- #define  CPMU_CLCK_ORIDE_MAC_ORIDE_EN	 0x80000000
+@@ -2344,9 +2344,13 @@
+ #define  APE_PER_LOCK_GRANT_DRIVER	 0x00001000
  
-+#define TG3_CPMU_STATUS			0x0000362c
-+#define  TG3_CPMU_STATUS_FMSK_5717	 0x20000000
-+#define  TG3_CPMU_STATUS_FMSK_5719	 0xc0000000
-+#define  TG3_CPMU_STATUS_FSHFT_5719	 30
-+
- #define TG3_CPMU_CLCK_STAT		0x00003630
- #define  CPMU_CLCK_STAT_MAC_CLCK_MASK	 0x001f0000
- #define  CPMU_CLCK_STAT_MAC_CLCK_62_5	 0x00000000
-@@ -2128,6 +2133,10 @@
- #define  NIC_SRAM_RGMII_EXT_IBND_RX_EN	 0x00000008
- #define  NIC_SRAM_RGMII_EXT_IBND_TX_EN	 0x00000010
+ /* APE convenience enumerations. */
+-#define TG3_APE_LOCK_GRC                1
+-#define TG3_APE_LOCK_MEM                4
+-#define TG3_APE_LOCK_GPIO               7
++#define TG3_APE_LOCK_PHY0		0
++#define TG3_APE_LOCK_GRC		1
++#define TG3_APE_LOCK_PHY1		2
++#define TG3_APE_LOCK_PHY2		3
++#define TG3_APE_LOCK_MEM		4
++#define TG3_APE_LOCK_PHY3		5
++#define TG3_APE_LOCK_GPIO		7
  
-+#define NIC_SRAM_CPMU_STATUS		0x00000e00
-+#define  NIC_SRAM_CPMUSTAT_SIG		0x0000362c
-+#define  NIC_SRAM_CPMUSTAT_SIG_MSK	0x0000ffff
-+
- #define NIC_SRAM_RX_MINI_BUFFER_DESC	0x00001000
+ #define TG3_EEPROM_SB_F1R2_MBA_OFF	0x10
  
- #define NIC_SRAM_DMA_DESC_POOL_BASE	0x00002000
 -- 
 1.7.3.4
