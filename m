@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net v2 6/8] forcedeth: Fix a race during rmmod of forcedeth
-Date: Thu,  3 Nov 2011 18:41:21 -0700
-Message-ID: <267015997eb594f2fd859acd572aa20dfc3e3e63.1320369398.git.david.decotigny@google.com>
+Subject: [PATCH net v2 8/8] forcedeth: fix a few sparse warnings (variable shadowing)
+Date: Thu,  3 Nov 2011 18:41:23 -0700
+Message-ID: <02dc92aa978f9e91a866b5167ed0b14c337d4d5f.1320369398.git.david.decotigny@google.com>
 References: <cover.1320369398.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -9,79 +9,146 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
 	Szymon Janc <szymon@janc.net.pl>,
-	Salman Qazi <sqazi@google.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:52675 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754309Ab1KDBmV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Nov 2011 21:42:21 -0400
 In-Reply-To: <cover.1320369398.git.david.decotigny@google.com>
 In-Reply-To: <cover.1320369398.git.david.decotigny@google.com>
 References: <cover.1320369398.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Salman Qazi <sqazi@google.com>
-
-The race was between del_timer_sync and nv_do_stats_poll called through
-nv_get_ethtool_stats.  To prevent this, we have to introduce mutual
-exclusion between nv_get_ethtool_stats and del_timer_sync.  Notice
-that we don't put the mutual exclusion in nv_do_stats_poll.  That's
-because doing so would result in a deadlock, since it is a timer
-callback and hence already waited for by timer deletion.
+This fixes the following sparse warnings:
+drivers/net/ethernet/nvidia/forcedeth.c:2113:7: warning: symbol 'size' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2102:6: originally declared here
+drivers/net/ethernet/nvidia/forcedeth.c:2155:7: warning: symbol 'size' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2102:6: originally declared here
+drivers/net/ethernet/nvidia/forcedeth.c:2227:7: warning: symbol 'size' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2215:6: originally declared here
+drivers/net/ethernet/nvidia/forcedeth.c:2271:7: warning: symbol 'size' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2215:6: originally declared here
+drivers/net/ethernet/nvidia/forcedeth.c:2986:20: warning: symbol 'addr' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2963:6: originally declared here
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |   34 +++++++++++++++---------------
+ 1 files changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 0af12a8..7996782 100644
+index 5442638..913f054 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -3937,6 +3937,10 @@ static void nv_poll_controller(struct net_device *dev)
- }
- #endif
+@@ -2110,10 +2110,10 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
  
-+/* No locking is needed as long as this is in the timer
-+ * callback.  However, any other callers must call this
-+ * function with np->lock held.
-+ */
- static void nv_do_stats_poll(unsigned long data)
- {
- 	struct net_device *dev = (struct net_device *) data;
-@@ -4589,12 +4593,17 @@ static int nv_get_sset_count(struct net_device *dev, int sset)
+ 	/* add fragments to entries count */
+ 	for (i = 0; i < fragments; i++) {
+-		u32 size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
++		u32 frag_size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
  
- static void nv_get_ethtool_stats(struct net_device *dev, struct ethtool_stats *estats, u64 *buffer)
- {
-+	unsigned long flags;
- 	struct fe_priv *np = netdev_priv(dev);
+-		entries += (size >> NV_TX2_TSO_MAX_SHIFT) +
+-			   ((size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
++		entries += (frag_size >> NV_TX2_TSO_MAX_SHIFT) +
++			   ((frag_size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
+ 	}
  
-+	spin_lock_irqsave(&np->lock, flags);
-+
- 	/* update stats */
- 	nv_do_stats_poll((unsigned long)dev);
+ 	spin_lock_irqsave(&np->lock, flags);
+@@ -2152,13 +2152,13 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* setup the fragments */
+ 	for (i = 0; i < fragments; i++) {
+ 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+-		u32 size = skb_frag_size(frag);
++		u32 frag_size = skb_frag_size(frag);
+ 		offset = 0;
  
- 	memcpy(buffer, &np->estats, nv_get_sset_count(dev, ETH_SS_STATS)*sizeof(u64));
-+
-+	spin_unlock_irqrestore(&np->lock, flags);
- }
+ 		do {
+ 			prev_tx = put_tx;
+ 			prev_tx_ctx = np->put_tx_ctx;
+-			bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
++			bcnt = (frag_size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : frag_size;
+ 			np->put_tx_ctx->dma = skb_frag_dma_map(
+ 							&np->pci_dev->dev,
+ 							frag, offset,
+@@ -2170,12 +2170,12 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			put_tx->flaglen = cpu_to_le32((bcnt-1) | tx_flags);
  
- static int nv_link_test(struct net_device *dev)
-@@ -5189,13 +5198,13 @@ static int nv_close(struct net_device *dev)
+ 			offset += bcnt;
+-			size -= bcnt;
++			frag_size -= bcnt;
+ 			if (unlikely(put_tx++ == np->last_tx.orig))
+ 				put_tx = np->first_tx.orig;
+ 			if (unlikely(np->put_tx_ctx++ == np->last_tx_ctx))
+ 				np->put_tx_ctx = np->first_tx_ctx;
+-		} while (size);
++		} while (frag_size);
+ 	}
  
- 	spin_lock_irq(&np->lock);
- 	np->in_shutdown = 1;
-+	del_timer_sync(&np->stats_poll);
- 	spin_unlock_irq(&np->lock);
- 	nv_napi_disable(dev);
- 	synchronize_irq(np->pci_dev->irq);
+ 	/* set last fragment flag  */
+@@ -2224,10 +2224,10 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
  
- 	del_timer_sync(&np->oom_kick);
- 	del_timer_sync(&np->nic_poll);
--	del_timer_sync(&np->stats_poll);
+ 	/* add fragments to entries count */
+ 	for (i = 0; i < fragments; i++) {
+-		u32 size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
++		u32 frag_size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
  
- 	netif_stop_queue(dev);
- 	spin_lock_irq(&np->lock);
+-		entries += (size >> NV_TX2_TSO_MAX_SHIFT) +
+-			   ((size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
++		entries += (frag_size >> NV_TX2_TSO_MAX_SHIFT) +
++			   ((frag_size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
+ 	}
+ 
+ 	spin_lock_irqsave(&np->lock, flags);
+@@ -2268,13 +2268,13 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 	/* setup the fragments */
+ 	for (i = 0; i < fragments; i++) {
+ 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+-		u32 size = skb_frag_size(frag);
++		u32 frag_size = skb_frag_size(frag);
+ 		offset = 0;
+ 
+ 		do {
+ 			prev_tx = put_tx;
+ 			prev_tx_ctx = np->put_tx_ctx;
+-			bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
++			bcnt = (frag_size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : frag_size;
+ 			np->put_tx_ctx->dma = skb_frag_dma_map(
+ 							&np->pci_dev->dev,
+ 							frag, offset,
+@@ -2287,12 +2287,12 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 			put_tx->flaglen = cpu_to_le32((bcnt-1) | tx_flags);
+ 
+ 			offset += bcnt;
+-			size -= bcnt;
++			frag_size -= bcnt;
+ 			if (unlikely(put_tx++ == np->last_tx.ex))
+ 				put_tx = np->first_tx.ex;
+ 			if (unlikely(np->put_tx_ctx++ == np->last_tx_ctx))
+ 				np->put_tx_ctx = np->first_tx_ctx;
+-		} while (size);
++		} while (frag_size);
+ 	}
+ 
+ 	/* set last fragment flag  */
+@@ -2983,11 +2983,11 @@ static void nv_set_multicast(struct net_device *dev)
+ 				struct netdev_hw_addr *ha;
+ 
+ 				netdev_for_each_mc_addr(ha, dev) {
+-					unsigned char *addr = ha->addr;
++					unsigned char *hw_addr = ha->addr;
+ 					u32 a, b;
+ 
+-					a = le32_to_cpu(*(__le32 *) addr);
+-					b = le16_to_cpu(*(__le16 *) (&addr[4]));
++					a = le32_to_cpu(*(__le32 *) hw_addr);
++					b = le16_to_cpu(*(__le16 *) (&hw_addr[4]));
+ 					alwaysOn[0] &= a;
+ 					alwaysOff[0] &= ~a;
+ 					alwaysOn[1] &= b;
 -- 
 1.7.3.1
