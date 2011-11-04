@@ -1,112 +1,131 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH 7/8] tg3: Eliminate timer race with reset_task
-Date: Fri, 4 Nov 2011 12:15:04 -0700
-Message-ID: <1320434105-12898-8-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH 2/8] tg3: Fix 4k tx bd segmentation code
+Date: Fri, 4 Nov 2011 12:14:59 -0700
+Message-ID: <1320434105-12898-3-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3457 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1773 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755859Ab1KDTN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Nov 2011 15:13:56 -0400
+	id S1756100Ab1KDTOD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Nov 2011 15:14:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During shutdown, it is impossible to reliably disable the timer and
-reset_task threads.  Each thread can schedule the other, which leads to
-shutdown code that chases its tail.
-
-To fix the problem, this patch removes the ability of tg3_reset_task to
-schedule a new timer thread.  To support this change, tg3_timer no
-longer terminates itself, but rather goes into a polling mode.
+The new 4k tx bd segmentation code had a bug in the error cleanup path.
+If the driver did not map all the physical fragments, the abort path
+would wind up advancing the producer index beyond the point where the
+setup code stopped.  This would ultimately turn into a tx recovery error
+where the driver would expect the skb pointer to be set when it isn't.
+This patch fixes the problem, and then makes the code a little easier to
+understand.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   14 ++------------
- drivers/net/ethernet/broadcom/tg3.h |    1 -
- 2 files changed, 2 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   47 ++++++++++++++++++-----------------
+ 1 files changed, 24 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index d4a85b7..cc7349f 100644
+index 3590163..507b73b 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -6352,7 +6352,6 @@ static void tg3_reset_task(struct work_struct *work)
- {
- 	struct tg3 *tp = container_of(work, struct tg3, reset_task);
- 	int err;
--	unsigned int restart_timer;
+@@ -6444,31 +6444,26 @@ static bool tg3_tx_frag_set(struct tg3_napi *tnapi, u32 *entry, u32 *budget,
+ 		hwbug = 1;
  
- 	tg3_full_lock(tp, 0);
+ 	if (tg3_flag(tp, 4K_FIFO_LIMIT)) {
++		u32 prvidx = *entry;
+ 		u32 tmp_flag = flags & ~TXD_FLAG_END;
+-		while (len > TG3_TX_BD_DMA_MAX) {
++		while (len > TG3_TX_BD_DMA_MAX && *budget) {
+ 			u32 frag_len = TG3_TX_BD_DMA_MAX;
+ 			len -= TG3_TX_BD_DMA_MAX;
  
-@@ -6370,9 +6369,6 @@ static void tg3_reset_task(struct work_struct *work)
- 
- 	tg3_full_lock(tp, 1);
- 
--	restart_timer = tg3_flag(tp, RESTART_TIMER);
--	tg3_flag_clear(tp, RESTART_TIMER);
+-			if (len) {
+-				tnapi->tx_buffers[*entry].fragmented = true;
+-				/* Avoid the 8byte DMA problem */
+-				if (len <= 8) {
+-					len += TG3_TX_BD_DMA_MAX / 2;
+-					frag_len = TG3_TX_BD_DMA_MAX / 2;
+-				}
+-			} else
+-				tmp_flag = flags;
 -
- 	if (tg3_flag(tp, TX_RECOVERY_PENDING)) {
- 		tp->write32_tx_mbox = tg3_write32_tx_mbox;
- 		tp->write32_rx_mbox = tg3_write_flush_reg32;
-@@ -6387,9 +6383,6 @@ static void tg3_reset_task(struct work_struct *work)
+-			if (*budget) {
+-				tg3_tx_set_bd(&tnapi->tx_ring[*entry], map,
+-					      frag_len, tmp_flag, mss, vlan);
+-				(*budget)--;
+-				*entry = NEXT_TX(*entry);
+-			} else {
+-				hwbug = 1;
+-				break;
++			/* Avoid the 8byte DMA problem */
++			if (len <= 8) {
++				len += TG3_TX_BD_DMA_MAX / 2;
++				frag_len = TG3_TX_BD_DMA_MAX / 2;
+ 			}
  
- 	tg3_netif_start(tp);
- 
--	if (restart_timer)
--		mod_timer(&tp->timer, jiffies + 1);
--
- out:
- 	tg3_full_unlock(tp);
- 
-@@ -9218,7 +9211,7 @@ static void tg3_timer(unsigned long __opaque)
- {
- 	struct tg3 *tp = (struct tg3 *) __opaque;
- 
--	if (tp->irq_sync)
-+	if (tp->irq_sync || tg3_flag(tp, RESET_TASK_PENDING))
- 		goto restart_timer;
- 
- 	spin_lock(&tp->lock);
-@@ -9241,10 +9234,9 @@ static void tg3_timer(unsigned long __opaque)
++			tnapi->tx_buffers[*entry].fragmented = true;
++
++			tg3_tx_set_bd(&tnapi->tx_ring[*entry], map,
++				      frag_len, tmp_flag, mss, vlan);
++			*budget -= 1;
++			prvidx = *entry;
++			*entry = NEXT_TX(*entry);
++
+ 			map += frag_len;
  		}
  
- 		if (!(tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
--			tg3_flag_set(tp, RESTART_TIMER);
- 			spin_unlock(&tp->lock);
- 			tg3_reset_task_schedule(tp);
--			return;
-+			goto restart_timer;
+@@ -6476,10 +6471,11 @@ static bool tg3_tx_frag_set(struct tg3_napi *tnapi, u32 *entry, u32 *budget,
+ 			if (*budget) {
+ 				tg3_tx_set_bd(&tnapi->tx_ring[*entry], map,
+ 					      len, flags, mss, vlan);
+-				(*budget)--;
++				*budget -= 1;
+ 				*entry = NEXT_TX(*entry);
+ 			} else {
+ 				hwbug = 1;
++				tnapi->tx_buffers[prvidx].fragmented = false;
+ 			}
+ 		}
+ 	} else {
+@@ -6561,6 +6557,8 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
+ 			dev_kfree_skb(new_skb);
+ 			ret = -1;
+ 		} else {
++			u32 save_entry = *entry;
++
+ 			base_flags |= TXD_FLAG_END;
+ 
+ 			tnapi->tx_buffers[*entry].skb = new_skb;
+@@ -6570,7 +6568,7 @@ static int tigon3_dma_hwbug_workaround(struct tg3_napi *tnapi,
+ 			if (tg3_tx_frag_set(tnapi, entry, budget, new_addr,
+ 					    new_skb->len, base_flags,
+ 					    mss, vlan)) {
+-				tg3_tx_skb_unmap(tnapi, *entry, 0);
++				tg3_tx_skb_unmap(tnapi, save_entry, 0);
+ 				dev_kfree_skb(new_skb);
+ 				ret = -1;
+ 			}
+@@ -6786,11 +6784,14 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			if (dma_mapping_error(&tp->pdev->dev, mapping))
+ 				goto dma_error;
+ 
+-			if (tg3_tx_frag_set(tnapi, &entry, &budget, mapping,
++			if (!budget ||
++			    tg3_tx_frag_set(tnapi, &entry, &budget, mapping,
+ 					    len, base_flags |
+ 					    ((i == last) ? TXD_FLAG_END : 0),
+-					    tmp_mss, vlan))
++					    tmp_mss, vlan)) {
+ 				would_hit_hwbug = 1;
++				break;
++			}
  		}
  	}
  
-@@ -15847,12 +15839,10 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
- 	tg3_netif_stop(tp);
- 
- 	del_timer_sync(&tp->timer);
--	tg3_flag_clear(tp, RESTART_TIMER);
- 
- 	/* Want to make sure that the reset task doesn't run */
- 	tg3_reset_task_cancel(tp);
- 	tg3_flag_clear(tp, TX_RECOVERY_PENDING);
--	tg3_flag_clear(tp, RESTART_TIMER);
- 
- 	netif_device_detach(netdev);
- 
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 610fd84..94b4bd0 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -2879,7 +2879,6 @@ enum TG3_FLAGS {
- 	TG3_FLAG_JUMBO_CAPABLE,
- 	TG3_FLAG_CHIP_RESETTING,
- 	TG3_FLAG_INIT_COMPLETE,
--	TG3_FLAG_RESTART_TIMER,
- 	TG3_FLAG_TSO_BUG,
- 	TG3_FLAG_IS_5788,
- 	TG3_FLAG_MAX_RXPEND_64,
 -- 
 1.7.3.4
