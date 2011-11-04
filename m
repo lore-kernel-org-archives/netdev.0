@@ -1,64 +1,31 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [GIT] Networking
-Date: Fri, 04 Nov 2011 10:07:17 -0700
-Message-ID: <4EB41BC5.4010304@candelatech.com>
-References: <20111025.063206.2273357152859701628.davem@davemloft.net>  <CA+55aFzkZofnUmBOGVvmNKyA0_FApo73xZ7J=aevbHPS_0+xKQ@mail.gmail.com> <1320426222.3969.121.camel@jlt3.sipsolutions.net>
+From: David Decotigny <david.decotigny@google.com>
+Subject: Re: [PATCH net v2 1/8] forcedeth: Improve stats counters
+Date: Fri, 4 Nov 2011 10:17:35 -0700
+Message-ID: <CAG88wWbgR7pKgtBMqYTYi+3q76VDaobAUDkyOtbNgv8biCXCZA@mail.gmail.com>
+References: <cover.1320369398.git.david.decotigny@google.com>
+ <f005f434ebc4922bbcc1b7bf6949bb3b7c45fbe8.1320369398.git.david.decotigny@google.com>
+ <20111104075414.3f674ba8@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stanislaw Gruszka <sgruszka@redhat.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:60446 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219Ab1KDRHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 13:07:35 -0400
-In-Reply-To: <1320426222.3969.121.camel@jlt3.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	Mandeep Baines <msb@google.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111104075414.3f674ba8@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/04/2011 10:03 AM, Johannes Berg wrote:
-> On Tue, 2011-10-25 at 12:26 +0000, Linus Torvalds wrote:
->> On Tue, Oct 25, 2011 at 12:32 PM, David Miller<davem@davemloft.net>  wrote:
->>>
->>> The most visible thing in here is the reorganization of the drivers
->>> under drivers/net.
->>
->> Nope, the most visible thing are some new annoying warnings, that seem
->> absolutely broken.
->>
->> At the very minimum, that WARN_ON(1) should be a WARN_ON_ONCE() or
->> something like that. Because showing it over an dover again is not
->> helpful.
->>
->> Added the people who signed off on the changes to the affected files,
->> since they hopefully know why this happens and can fix it..
->
-> Sorry for the late reply.
->
-> I think this was actually caused by some changes from Ben Greear
-> "optimising" stuff in net/mac80211/work.c and keeping the wrong channel,
-> Stanislaw was also looking at this at some point I think. I agree that
-> it would be good to change to WARN_ON_ONCE(), will do that.
->
-> The warning itself has been around forever, but the fact that it
-> triggers now is probably related to the channel work&  band switches.
+Hi all,
 
-There are patches for the work_work bugs I introduced, and they
-are in wireless-testing, and were CC'd to stable as far as I
-can tell.
+On Fri, Nov 4, 2011 at 7:54 AM, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> Why not convert it to 64 bit stats as well.
 
-Thanks,
-Ben
+Doing it for next version of patch series. So please hang on...
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Regards,
