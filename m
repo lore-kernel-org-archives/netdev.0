@@ -1,50 +1,84 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: [RFC] The Linux kernel IPv6 stack don't follow the RFC 4942 recommendation
-Date: Fri, 4 Nov 2011 07:46:28 -0700 (PDT)
-Message-ID: <1320417988.69298.YahooMailNeo@web126013.mail.ne1.yahoo.com>
-Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net v2 1/8] forcedeth: Improve stats counters
+Date: Fri, 4 Nov 2011 07:54:14 -0700
+Message-ID: <20111104075414.3f674ba8@nehalam.linuxnetplumber.net>
+References: <cover.1320369398.git.david.decotigny@google.com>
+	<f005f434ebc4922bbcc1b7bf6949bb3b7c45fbe8.1320369398.git.david.decotigny@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm36-vm7.bullet.mail.ne1.yahoo.com ([98.138.229.119]:20959 "HELO
-	nm36-vm7.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751443Ab1KDOwr convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Nov 2011 10:52:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	Mandeep Baines <msb@google.com>
+To: David Decotigny <david.decotigny@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f005f434ebc4922bbcc1b7bf6949bb3b7c45fbe8.1320369398.git.david.decotigny@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu,  3 Nov 2011 18:41:16 -0700
+David Decotigny <david.decotigny@google.com> wrote:
 
-I do some tests on a Linux 3.0 kernel with IPv6 forwarding mode enabled=
-=2E
+> From: Mandeep Baines <msb@google.com>
+> 
+> Rx byte count was off; instead use the hardware's count.  Tx packet
+> count was counting pre-TSO packets; instead count on-the-wire packets.
+> Report hardware dropped frame count as rx_fifo_errors.
+> 
+> - The count of transmitted packets reported by the forcedeth driver
+>   reports pre-TSO (TCP Segmentation Offload) packet counts and not the
+>   count of the number of packets sent on the wire. This change fixes
+>   the forcedeth driver to report the correct count. Fixed the code by
+>   copying the count stored in the NIC H/W to the value reported by the
+>   driver.
+> 
+> - Count rx_drop_frame errors as rx_fifo_errors:
+>   We see a lot of rx_drop_frame errors if we disable the rx bottom-halves
+>   for too long.  Normally, rx_fifo_errors would be counted in this case.
+>   The rx_drop_frame error count is private to forcedeth and is not
+>   reported by ifconfig or sysfs.  The rx_fifo_errors count is currently
+>   unused in the forcedeth driver.  It is reported by ifconfig as overruns.
+>   This change reports rx_drop_frame errors as rx_fifo_errors.
+> 
+> 
+> 
+> Signed-off-by: David Decotigny <david.decotigny@google.com>
+> ---
+>  drivers/net/ethernet/nvidia/forcedeth.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+> index 1e37eb9..64b1c7c 100644
+> --- a/drivers/net/ethernet/nvidia/forcedeth.c
+> +++ b/drivers/net/ethernet/nvidia/forcedeth.c
+> @@ -1682,6 +1682,7 @@ static void nv_get_hw_stats(struct net_device *dev)
+>  		np->estats.tx_pause += readl(base + NvRegTxPause);
+>  		np->estats.rx_pause += readl(base + NvRegRxPause);
+>  		np->estats.rx_drop_frame += readl(base + NvRegRxDropFrame);
+> +		np->estats.rx_errors_total += np->estats.rx_drop_frame;
+>  	}
+>  
+>  	if (np->driver_data & DEV_HAS_STATISTICS_V3) {
+> @@ -1706,11 +1707,14 @@ static struct net_device_stats *nv_get_stats(struct net_device *dev)
+>  		nv_get_hw_stats(dev);
+>  
+>  		/* copy to net_device stats */
+> +		dev->stats.tx_packets = np->estats.tx_packets;
+> +		dev->stats.rx_bytes = np->estats.rx_bytes;
+>  		dev->stats.tx_bytes = np->estats.tx_bytes;
+>  		dev->stats.tx_fifo_errors = np->estats.tx_fifo_errors;
+>  		dev->stats.tx_carrier_errors = np->estats.tx_carrier_errors;
+>  		dev->stats.rx_crc_errors = np->estats.rx_crc_errors;
+>  		dev->stats.rx_over_errors = np->estats.rx_over_errors;
+> +		dev->stats.rx_fifo_errors = np->estats.rx_drop_frame;
+>  		dev->stats.rx_errors = np->estats.rx_errors_total;
+>  		dev->stats.tx_errors = np->estats.tx_errors_total;
+>  	}
 
-When I ping (ICMPv6 echo request) on one of its Subnet-Router anycast a=
-ddresses
-(SRAA, http://tools.ietf.org/html/rfc4291#section-2.6.1),
-the Linux kernel reply with an unicast source address, not the anycast =
-one.
 
-When I send an IPv6 UDP packet to a server on Linux on one of its SRAA,
-the Linux kernel build a reply with an unicast source address, not the =
-anycast one.
-
-The RFC 4942 states (http://tools.ietf.org/html/rfc4942#section-2.1.6) =
-:
-2.1.6. Anycast Traffic Identification and Security
-[. . .]
-=A0  To avoid exposing knowledge about the internal structure of the
-=A0  network, it is recommended that anycast servers now take advantage=
- of
-=A0  the ability to return responses with the anycast address as the
-=A0  source address if possible.
-
-Also, If the source address of reply differs from destination address o=
-f the request, many applications are broken.
-Please let me know your feedback.
-
-
-Thanks,
-=46rancois-Xavier Le Bail
+Why not convert it to 64 bit stats as well.
