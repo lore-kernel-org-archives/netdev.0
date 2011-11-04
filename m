@@ -1,76 +1,112 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] bonding: comparing a u8 with -1 is always false
-Date: Fri, 4 Nov 2011 21:21:38 +0300
-Message-ID: <20111104182138.GB5796@elgon.mountain>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH 7/8] tg3: Eliminate timer race with reset_task
+Date: Fri, 4 Nov 2011 12:15:04 -0700
+Message-ID: <1320434105-12898-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org
-To: Weiping Pan <wpan@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:53951 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932320Ab1KDSWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 14:22:00 -0400
-Content-Disposition: inline
+Received: from mms1.broadcom.com ([216.31.210.17]:3457 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755859Ab1KDTN4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Nov 2011 15:13:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-slave->duplex is a u8 type so the in bond_info_show_slave() when we
-check "if (slave->duplex == -1)", it's always false.
+During shutdown, it is impossible to reliably disable the timer and
+reset_task threads.  Each thread can schedule the other, which leads to
+shutdown code that chases its tail.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+To fix the problem, this patch removes the ability of tg3_reset_task to
+schedule a new timer thread.  To support this change, tg3_timer no
+longer terminates itself, but rather goes into a polling mode.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b2b9109..b0c5772 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -560,8 +560,8 @@ static int bond_update_speed_duplex(struct slave *slave)
- 	u32 slave_speed;
- 	int res;
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   14 ++------------
+ drivers/net/ethernet/broadcom/tg3.h |    1 -
+ 2 files changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index d4a85b7..cc7349f 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6352,7 +6352,6 @@ static void tg3_reset_task(struct work_struct *work)
+ {
+ 	struct tg3 *tp = container_of(work, struct tg3, reset_task);
+ 	int err;
+-	unsigned int restart_timer;
  
--	slave->speed = -1;
--	slave->duplex = -1;
-+	slave->speed = SPEED_UNKNOWN;
-+	slave->duplex = DUPLEX_UNKNOWN;
+ 	tg3_full_lock(tp, 0);
  
- 	res = __ethtool_get_settings(slave_dev, &ecmd);
- 	if (res < 0)
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index 2acf0b0..ad284ba 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -158,12 +158,12 @@ static void bond_info_show_slave(struct seq_file *seq,
- 	seq_printf(seq, "\nSlave Interface: %s\n", slave->dev->name);
- 	seq_printf(seq, "MII Status: %s\n",
- 		   (slave->link == BOND_LINK_UP) ?  "up" : "down");
--	if (slave->speed == -1)
-+	if (slave->speed == SPEED_UNKNOWN)
- 		seq_printf(seq, "Speed: %s\n", "Unknown");
- 	else
- 		seq_printf(seq, "Speed: %d Mbps\n", slave->speed);
+@@ -6370,9 +6369,6 @@ static void tg3_reset_task(struct work_struct *work)
  
--	if (slave->duplex == -1)
-+	if (slave->duplex == DUPLEX_UNKNOWN)
- 		seq_printf(seq, "Duplex: %s\n", "Unknown");
- 	else
- 		seq_printf(seq, "Duplex: %s\n", slave->duplex ? "full" : "half");
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 45f00b6..de33de1 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -1097,10 +1097,12 @@ struct ethtool_ops {
- #define SPEED_1000		1000
- #define SPEED_2500		2500
- #define SPEED_10000		10000
-+#define SPEED_UNKNOWN		-1
+ 	tg3_full_lock(tp, 1);
  
- /* Duplex, half or full. */
- #define DUPLEX_HALF		0x00
- #define DUPLEX_FULL		0x01
-+#define DUPLEX_UNKNOWN		0xff
+-	restart_timer = tg3_flag(tp, RESTART_TIMER);
+-	tg3_flag_clear(tp, RESTART_TIMER);
+-
+ 	if (tg3_flag(tp, TX_RECOVERY_PENDING)) {
+ 		tp->write32_tx_mbox = tg3_write32_tx_mbox;
+ 		tp->write32_rx_mbox = tg3_write_flush_reg32;
+@@ -6387,9 +6383,6 @@ static void tg3_reset_task(struct work_struct *work)
  
- /* Which connector port. */
- #define PORT_TP			0x00
+ 	tg3_netif_start(tp);
+ 
+-	if (restart_timer)
+-		mod_timer(&tp->timer, jiffies + 1);
+-
+ out:
+ 	tg3_full_unlock(tp);
+ 
+@@ -9218,7 +9211,7 @@ static void tg3_timer(unsigned long __opaque)
+ {
+ 	struct tg3 *tp = (struct tg3 *) __opaque;
+ 
+-	if (tp->irq_sync)
++	if (tp->irq_sync || tg3_flag(tp, RESET_TASK_PENDING))
+ 		goto restart_timer;
+ 
+ 	spin_lock(&tp->lock);
+@@ -9241,10 +9234,9 @@ static void tg3_timer(unsigned long __opaque)
+ 		}
+ 
+ 		if (!(tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
+-			tg3_flag_set(tp, RESTART_TIMER);
+ 			spin_unlock(&tp->lock);
+ 			tg3_reset_task_schedule(tp);
+-			return;
++			goto restart_timer;
+ 		}
+ 	}
+ 
+@@ -15847,12 +15839,10 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
+ 	tg3_netif_stop(tp);
+ 
+ 	del_timer_sync(&tp->timer);
+-	tg3_flag_clear(tp, RESTART_TIMER);
+ 
+ 	/* Want to make sure that the reset task doesn't run */
+ 	tg3_reset_task_cancel(tp);
+ 	tg3_flag_clear(tp, TX_RECOVERY_PENDING);
+-	tg3_flag_clear(tp, RESTART_TIMER);
+ 
+ 	netif_device_detach(netdev);
+ 
+diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+index 610fd84..94b4bd0 100644
+--- a/drivers/net/ethernet/broadcom/tg3.h
++++ b/drivers/net/ethernet/broadcom/tg3.h
+@@ -2879,7 +2879,6 @@ enum TG3_FLAGS {
+ 	TG3_FLAG_JUMBO_CAPABLE,
+ 	TG3_FLAG_CHIP_RESETTING,
+ 	TG3_FLAG_INIT_COMPLETE,
+-	TG3_FLAG_RESTART_TIMER,
+ 	TG3_FLAG_TSO_BUG,
+ 	TG3_FLAG_IS_5788,
+ 	TG3_FLAG_MAX_RXPEND_64,
+-- 
+1.7.3.4
