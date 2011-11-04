@@ -1,66 +1,76 @@
-From: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: add calxeda xgmac ethernet driver
-Date: Fri, 04 Nov 2011 15:52:01 -0500
-Message-ID: <4EB45071.8000406@gmail.com>
-References: <1319684206-473-1-git-send-email-robherring2@gmail.com>
- <CACxGe6sAFUwQc5Nk=gGLC+si-_C32AWu=E14vBkSm7YCFhazFg@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] bonding: comparing a u8 with -1 is always false
+Date: Fri, 4 Nov 2011 23:53:51 +0300
+Message-ID: <20111104205351.GQ4682@mwanda>
+References: <20111104182138.GB5796@elgon.mountain>
+ <10444.1320436921@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <CACxGe6sAFUwQc5Nk=gGLC+si-_C32AWu=E14vBkSm7YCFhazFg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="E50aLcSU4JxQSj/B"
+Cc: Weiping Pan <wpan@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:48808 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752256Ab1KDVDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 17:03:32 -0400
+Content-Disposition: inline
+In-Reply-To: <10444.1320436921@death>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Grant,
 
-On 11/04/2011 11:57 AM, Grant Likely wrote:
-> On Wed, Oct 26, 2011 at 10:56 PM, Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> From: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
->>
->> Add support for the XGMAC 10Gb ethernet device in the Calxeda Highbank
->> SOC.
->>
->> Signed-off-by: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
-> 
-> Sinker question: is this a driver for an entirely new GMAC device
-> (designed from scratch) or is it based on an existing IP block?
-> 
+--E50aLcSU4JxQSj/B
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Of course I'd rather use a existing driver. It is a new IP block.
+On Fri, Nov 04, 2011 at 01:02:01PM -0700, Jay Vosburgh wrote:
+>=20
+> 	Since you #define SPEED_UNKNOWN to -1 (below), how does this
+> actually change anything?  Did you mean 0xffff (because struct
+> ethtool_cmd's speed is a u16)?
+>=20
 
->> +/**
->> + * xgmac_init - Entry point for the driver
->> + * Description: This function is the entry point for the driver.
->> + */
->> +static int __init xgmac_init(void)
->> +{
->> +       return platform_driver_register(&xgmac_driver);
->> +}
->> +module_init(xgmac_init);
->> +
->> +/**
->> + * xgmac_cleanup_module - Cleanup routine for the driver
->> + * Description: This function is the cleanup routine for the driver.
->> + */
->> +static void __exit xgmac_exit(void)
->> +{
->> +       platform_driver_unregister(&xgmac_driver);
->> +}
->> +module_exit(xgmac_exit);
-> 
-> You can drop some boilerplate with module_platform_driver() now.
+Sorry I could have explained this better in the changelog.  The
+slave->speed is stored in a u32 and the -1 works fine as is.
+Obviously, as you point out the define doesn't change anything.  I
+just changed it so it would look symetric with DUPLEX_UNKNOWN.
 
-Okay.
+But I think you missed that I defined #define DUPLEX_UNKNOWN 0xff.
+Before it we used a -1 for both and that didn't work.
 
-Rob
+I can resend this with a note about the SPEED_UNKNOWN cleanup if
+you'd like.  I'll do that tomorrow or Sunday.
+
+regards,
+dan carpenter
+
+
+--E50aLcSU4JxQSj/B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJOtFDfAAoJEOnZkXI/YHqRmPYP/35o3YOc3OojI1Cc+VirkM6o
+RCfJzvGPdD0CqcUmvh9DzdOReITHCsn1GsgM65Y84bytThbnmyCuJzAVO87nYvIR
+w5RqUhDfnnzWk86FSbZX5J7oAgriRWBIRX8piNNHOJwulNKFOKCBMPyWjzBdJ5Y2
++MV8JXfwyMdpQOVvqO4QaqaspH61C2T0E3aIHTjJWwfZqWReVy4DksQF0E5RpmXi
+3zn/DxTV+j1l2RZv00kWpsG3rqwNAfxSSHSnqiqW3A2bINPMrHEMsDFiNlqne1hN
+MG6b1Sre13xQIii8304JeSHK+1ICi/oH2ZJW7BVEB+/dV8FsdQoJ53pojO62Ayzq
+JutTf1PJeLK0WXnSFpC7p1/wvAjKeSE7Os31a+oAyJZv08Dh95A3F3uDULHZ7a6e
+EEWy29n5XioXi6CppXtjAtAijq1n+8qURwCmr5qYw8kld6aLFioo/jkO9rIFiyC3
+95/11UhuBqgBO4QhVlx6WNDGPmHtfJfftp3kSm6eLt5ZCs62q1WHOKyquy5fo4oi
++mIyakbhsuy1EXCueVNJu7D5ibFVVfkCuuNUkcXyVGUC2nvlxGYe2+tRtJJpdRfP
+39hL/yOn6K+hzVafKAsvCRrna865lmFP0ldKAIJ5plGL/o/8ilfHvJ2twKVRELOX
+okaNeMMpkNweAipNUblr
+=BjYY
+-----END PGP SIGNATURE-----
+
+--E50aLcSU4JxQSj/B--
