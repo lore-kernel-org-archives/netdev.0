@@ -1,59 +1,70 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: iproute2 neighboring
-Date: Fri, 4 Nov 2011 08:54:04 -0700 (PDT)
-Message-ID: <1320422044.81742.YahooMailNeo@web126019.mail.ne1.yahoo.com>
-References: <CAGXs5wUEiS-vpdsCDoyva2Vg9XKBmbJgoPVOXUXD0u9+PzXH=w@mail.gmail.com> <OFD3A98142.1EDCCB6F-ON8825793E.0055C070-8825793E.0056A45E@us.ibm.com>
-Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC 4942
+ recommendation
+Date: Fri, 04 Nov 2011 17:24:20 +0100
+Message-ID: <1320423860.16609.4.camel@edumazet-laptop>
+References: <1320417988.69298.YahooMailNeo@web126013.mail.ne1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netdev-owner@vger.kernel.org" <netdev-owner@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>,
-	Kevin Wilson <wkevils@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Fran=E7ois-Xavier?= Le Bail <fx.lebail@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm20-vm1.bullet.mail.ne1.yahoo.com ([98.138.91.21]:25819 "HELO
-	nm20-vm1.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755554Ab1KDPyG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Nov 2011 11:54:06 -0400
-In-Reply-To: <OFD3A98142.1EDCCB6F-ON8825793E.0055C070-8825793E.0056A45E@us.ibm.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:61279 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755880Ab1KDQYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 12:24:24 -0400
+Received: by wwi36 with SMTP id 36so3723144wwi.1
+        for <netdev@vger.kernel.org>; Fri, 04 Nov 2011 09:24:23 -0700 (PDT)
+In-Reply-To: <1320417988.69298.YahooMailNeo@web126013.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-
-
------ Original Message -----
-> From: David Stevens <dlstevens@us.ibm.com>
-> To: Kevin Wilson <wkevils@gmail.com>
-> Cc: netdev@vger.kernel.org; netdev-owner@vger.kernel.org
-> Sent: Friday, November 4, 2011 4:46 PM
-> Subject: Re: iproute2 neighboring
+Le vendredi 04 novembre 2011 =C3=A0 07:46 -0700, Fran=C3=A7ois-Xavier L=
+e Bail a
+=C3=A9crit :
+> Hi,
 >=20
->>  From: Kevin Wilson <wkevils@gmail.com>
+> I do some tests on a Linux 3.0 kernel with IPv6 forwarding mode enabl=
+ed.
 >=20
->>  Hi,
->>  It seems to me that "ip -6 neigh show" does not show multicast=20
-> entries=20
-> from
->>  IPv6 neighboring=A0 table. Is there a reason for this ?
+> When I ping (ICMPv6 echo request) on one of its Subnet-Router anycast=
+ addresses
+> (SRAA, http://tools.ietf.org/html/rfc4291#section-2.6.1),
+> the Linux kernel reply with an unicast source address, not the anycas=
+t one.
 >=20
-> Multicast memberships aren't in the neighbor table. The
-> neighbor table is for translating protocol addresses to
-> MAC addresses and that translation is fixed for multicast
-> destinations.
+> When I send an IPv6 UDP packet to a server on Linux on one of its SRA=
+A,
+> the Linux kernel build a reply with an unicast source address, not th=
+e anycast one.
 >=20
-> You can see group memberships with "netstat -g". There are also
-> some data in /proc/net/{dev_mcast,igmp6,mcfilter6} depending on
-> what you're looking for.
->=20
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 +-DLS
 
-Hi,
+Nothing in the kernel builds a reply to an UDP packet.
 
-You can also see group memberships with "ip m".
+I would say the user application is responsible to build an answer, and
+chose appropriate source address.
 
-=46ran=E7ois-Xavier
+If your application uses a ANY_ADDR bind, then it must appropriate
+action so that a good source address is used in answers.
+
+In case of IPv6 socket, I advise you take a look at IPV6_PKTINFO /
+IPV6_RECVPKTINFO options.
+
+
+> The RFC 4942 states (http://tools.ietf.org/html/rfc4942#section-2.1.6=
+) :
+> 2.1.6. Anycast Traffic Identification and Security
+> [. . .]
+>    To avoid exposing knowledge about the internal structure of the
+>    network, it is recommended that anycast servers now take advantage=
+ of
+>    the ability to return responses with the anycast address as the
+>    source address if possible.
+>=20
+> Also, If the source address of reply differs from destination address=
+ of the request, many applications are broken.
+> Please let me know your feedback.
+>=20
+
+'anycast servers' are a combination of kernel and userland parts.
