@@ -1,22 +1,32 @@
-From: Kevin Wilson <wkevils@gmail.com>
-Subject: iproute2 neighboring
-Date: Fri, 4 Nov 2011 13:11:08 +0200
-Message-ID: <CAGXs5wUEiS-vpdsCDoyva2Vg9XKBmbJgoPVOXUXD0u9+PzXH=w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: iproute2 neighboring
+Date: Fri, 04 Nov 2011 12:55:54 +0100
+Message-ID: <1320407754.3556.11.camel@edumazet-laptop>
+References: <CAGXs5wUEiS-vpdsCDoyva2Vg9XKBmbJgoPVOXUXD0u9+PzXH=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Kevin Wilson <wkevils@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:43787 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180Ab1KDLLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 07:11:08 -0400
-Received: by vws1 with SMTP id 1so1734704vws.19
-        for <netdev@vger.kernel.org>; Fri, 04 Nov 2011 04:11:08 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:38606 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753806Ab1KDL4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 07:56:02 -0400
+Received: by wwi36 with SMTP id 36so3356074wwi.1
+        for <netdev@vger.kernel.org>; Fri, 04 Nov 2011 04:56:01 -0700 (PDT)
+In-Reply-To: <CAGXs5wUEiS-vpdsCDoyva2Vg9XKBmbJgoPVOXUXD0u9+PzXH=w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-It seems to me that "ip -6 neigh show" does not show multicast entries from
-IPv6 neighboring  table. Is there a reason for this ?
-rgs,
-Kevin
+Le vendredi 04 novembre 2011 =C3=A0 13:11 +0200, Kevin Wilson a =C3=A9c=
+rit :
+> Hi,
+> It seems to me that "ip -6 neigh show" does not show multicast entrie=
+s from
+> IPv6 neighboring  table. Is there a reason for this ?
+> rgs,
+
+What would be a neighbour entry for multicast ipv4 or ipv6 ?
+
+Could you describe your need ?
