@@ -1,58 +1,33 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] net: Handle different key sizes between address
- families in flow cache
-Date: Fri, 4 Nov 2011 14:24:39 -0700
-Message-ID: <20111104212439.GA27324@kroah.com>
-References: <20111101185022.b156ea957baf286f1bf00f9c@freescale.com>
- <20111101.203430.110242050755204948.davem@davemloft.net>
- <20111103135851.2229247682ec040d653479e1@freescale.com>
- <20111103.224329.2276058062630695656.davem@davemloft.net>
- <20111104144659.3e0a30afffffd9dd73cf740e@freescale.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [net-next 03/10] seeq: Move the SEEQ drivers
+Date: Fri, 4 Nov 2011 21:35:10 +0000
+Message-ID: <20111104213509.GE12913@n2100.arm.linux.org.uk>
+References: <1313134384-7287-1-git-send-email-jeffrey.t.kirsher@intel.com> <1313134384-7287-4-git-send-email-jeffrey.t.kirsher@intel.com> <20111104172446.GB12913@n2100.arm.linux.org.uk> <1320441002.5386.4.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
-	eric.dumazet@gmail.com, zheng.z.yan@intel.com,
-	netdev@vger.kernel.org, David Ward <david.ward@ll.mit.edu>
-To: Kim Phillips <kim.phillips@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Hamish Coleman <hamish@zot.apana.org.au>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5.smtp.messagingengine.com ([66.111.4.29]:57993 "EHLO
-	out5.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754574Ab1KDV1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 17:27:37 -0400
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:37369 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752393Ab1KDVfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 17:35:30 -0400
 Content-Disposition: inline
-In-Reply-To: <20111104144659.3e0a30afffffd9dd73cf740e@freescale.com>
+In-Reply-To: <1320441002.5386.4.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 04, 2011 at 02:46:59PM -0500, Kim Phillips wrote:
-> commit aa1c366e4febc7f5c2b84958a2dd7cd70e28f9d0 upstream.
->=20
-> With the conversion of struct flowi to a union of AF-specific structs=
-, some
-> operations on the flow cache need to account for the exact size of th=
-e key.
->=20
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> Cc: stable@vger.kernel.org # v3.0.x
-> ---
-> This patch is the result of a clean cherry-pick onto v3.0.8.
-> It restores IPSec fwding performance from ~4kpps back to ~44kpps on
-> a P2020DS board.
+On Fri, Nov 04, 2011 at 02:10:02PM -0700, Jeff Kirsher wrote:
+> I just submitted a patch to resolve this issue with the "sub" Kconfig's
+> having a dependency which is not reflected in the "parent" Kconfig.
+> 
+> http://patchwork.ozlabs.org/patch/123250/
 
-Too bad you forgot to build this patch after you applied it:
-  CC      init/main.o
-In file included from include/linux/security.h:39:0,
-                 from init/main.c:32:
-include/net/flow.h: In function =E2=80=98flow_key_size=E2=80=99:
-include/net/flow.h:174:3: error: size of unnamed array is negative
-include/net/flow.h:177:3: error: size of unnamed array is negative
+Thanks, that seems to fix the issues for me.  For that patch:
 
-Please be kind to your poor over-worked stable kernel maintainer and do
-the decent thing and TEST YOUR PATCH before you ask him to accept it.
-
-bah, I think it's time for the weekend to start a bit earlier than norm=
-al...
-
-greg k-h
+Tested-by: Russell King <rmk+kernel@arm.linux.org.uk>
