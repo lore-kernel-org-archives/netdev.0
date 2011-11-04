@@ -1,105 +1,54 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH v3 0/3] SUNRPC: rcbind clients virtualization
-Date: Fri, 4 Nov 2011 18:10:45 -0400
-Message-ID: <20111104221045.GL721@fieldses.org>
-References: <20111027180824.20459.23219.stgit@localhost6.localdomain6>
- <20111027202514.GA31669@fieldses.org>
- <4EAA74DD.3070708@parallels.com>
- <20111028093036.GA2604@fieldses.org>
- <4EAA78DD.2000408@parallels.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] sky2: fix regression on Yukon Optima
+Date: Fri, 4 Nov 2011 15:17:17 -0700
+Message-ID: <20111104151717.0f4666ac@nehalam.linuxnetplumber.net>
+References: <201110171434.50436.pavel@netsafe.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Pavel Emelianov <xemul@parallels.com>,
-	"neilb@suse.de" <neilb@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4EAA78DD.2000408@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pavel Mateja <pavel@netsafe.cz>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42758 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753132Ab1KDWRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Nov 2011 18:17:20 -0400
+In-Reply-To: <201110171434.50436.pavel@netsafe.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 28, 2011 at 01:41:49PM +0400, Stanislav Kinsbursky wrote:
-> 28.10.2011 13:30, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >On Fri, Oct 28, 2011 at 01:24:45PM +0400, Stanislav Kinsbursky wrote=
-:
-> >>This patch-set was created before you've sent your NFSd plan and we
-> >>disacussed Lockd per netns.
-> >>So, this sentence: "NFSd service will be per netns too from my pow"
-> >>is obsolete. And Lockd will be one for all.
-> >
-> >I believe lockd should be pert-netns--at least that's what the serve=
-r
-> >needs.
-> >
-> >(The single lockd thread may handle requests from all netns, but it
-> >should behave like a different service depending on netns, so its da=
-ta
-> >structures, etc. will need to be per-ns.
-> >
->=20
-> Sure. Looks like we have misunderstanding here. When I said, that
-> Lockd should be one for all, I meaned, that we will have only one
-> kthread for all ns (not one per ns). Private data will be per net
-> ns, of course.
->=20
-> BTW, Bruce, please, have a brief look at my e-mail to
-> linux-nfs@vger.kernel.org named "SUNRPC: non-exclusive pipe
-> creation".
-> I've done a lot in "RPC pipefs per net ns" task, and going to send
-> first patches soon. But right now I'm really confused will this
-> non-exclusive pipes creation and almost ready so remove this
-> functionality. But I'm afraid, that I've missed something. Would be
-> greatly appreciate for your opinion about my question.
+Changes to support other Optima types, introduced an accidental
+regression that caused 88E8059 to come up in 10Mbit/sec.
 
-Sorry for the delay--it looks reasonable to me on a quick skim, but I'm
-assuming it's Trond that will need to review this.
+The Yukon Optima supports a reverse auto-negotiation feature that
+was incorrectly setup, and not needed. The feature could be used to
+allow wake-on-lan at higher speeds. But doing it correctly would require
+other changes to initialization.
 
---b.
+Reported-by: Pavel Mateja <pavel@netsafe.cz>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
->=20
-> >--b.
-> >
-> >>Or you are asking about something else?
-> >>
-> >>>--b.
-> >>>
-> >>>>And also we have NFSd file system, which
-> >>>>is not virtualized yet.
-> >>>>
-> >>>>The following series consists of:
-> >>>>
-> >>>>---
-> >>>>
-> >>>>Stanislav Kinsbursky (3):
-> >>>>       SUNRPC: move rpcbind internals to sunrpc part of network n=
-amespace context
-> >>>>       SUNRPC: optimize net_ns dereferencing in rpcbind creation =
-calls
-> >>>>       SUNRPC: optimize net_ns dereferencing in rpcbind registeri=
-ng calls
-> >>>>
-> >>>>
-> >>>>  net/sunrpc/netns.h     |    5 ++
-> >>>>  net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++-------=
----------------
-> >>>>  2 files changed, 61 insertions(+), 47 deletions(-)
-> >>>>
-> >>>>--
-> >>>>Signature
-> >>
-> >>
-> >>--
-> >>Best regards,
-> >>Stanislav Kinsbursky
->=20
->=20
-> --=20
-> Best regards,
-> Stanislav Kinsbursky
+---
+This version is for current driver organization (post 3.1).
+Same fix applies but to drivers/net/sky2.c in -stable.
+
+--- a/drivers/net/ethernet/marvell/sky2.c	2011-11-02 15:38:11.677011133 -0700
++++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-04 15:01:51.310888300 -0700
+@@ -366,17 +366,6 @@ static void sky2_phy_init(struct sky2_hw
+ 				gm_phy_write(hw, port, PHY_MARV_FE_SPEC_2, spec);
+ 			}
+ 		} else {
+-			if (hw->chip_id >= CHIP_ID_YUKON_OPT) {
+-				u16 ctrl2 = gm_phy_read(hw, port, PHY_MARV_EXT_CTRL_2);
+-
+-				/* enable PHY Reverse Auto-Negotiation */
+-				ctrl2 |= 1u << 13;
+-
+-				/* Write PHY changes (SW-reset must follow) */
+-				gm_phy_write(hw, port, PHY_MARV_EXT_CTRL_2, ctrl2);
+-			}
+-
+-
+ 			/* disable energy detect */
+ 			ctrl &= ~PHY_M_PC_EN_DET_MSK;
+ 
