@@ -1,39 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: fix regression on Yukon Optima
-Date: Fri, 04 Nov 2011 18:20:11 -0400 (EDT)
-Message-ID: <20111104.182011.780847885736173054.davem@davemloft.net>
-References: <201110171434.50436.pavel@netsafe.cz>
-	<20111104151717.0f4666ac@nehalam.linuxnetplumber.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: what's in a bus_info
+Date: Fri, 04 Nov 2011 15:27:23 -0700
+Message-ID: <4EB466CB.2040506@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pavel@netsafe.cz, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: rusty@rustcorp.com.au, mst@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44593 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753132Ab1KDWUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 18:20:17 -0400
-In-Reply-To: <20111104151717.0f4666ac@nehalam.linuxnetplumber.net>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:8650 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754761Ab1KDW1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 18:27:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 4 Nov 2011 15:17:17 -0700
+...or would an interface name smell as sweet? (as PCI bus addressing)
 
-> Changes to support other Optima types, introduced an accidental
-> regression that caused 88E8059 to come up in 10Mbit/sec.
-> 
-> The Yukon Optima supports a reverse auto-negotiation feature that
-> was incorrectly setup, and not needed. The feature could be used to
-> allow wake-on-lan at higher speeds. But doing it correctly would require
-> other changes to initialization.
-> 
-> Reported-by: Pavel Mateja <pavel@netsafe.cz>
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ---
-> This version is for current driver organization (post 3.1).
-> Same fix applies but to drivers/net/sky2.c in -stable.
+Is there a "standard" for what is returned in bus_info of 
+ethtool_drvinfo?  I have been very used to seeing PCI bus addressing 
+information in that field (at least as displayed by ethtool -i) and when 
+I went to "leverage how to" from other drivers, to add "native" ethtool 
+-i support to virtio_net, I ended-up with "eth0" rather than the PCI 
+information I see in lspci output and in ethtool -i against other 
+devices.  Including an emulated e1000 interface in the same kernel.
 
-Applied and queued up for -stable, thanks.
+What I'm doing is calling pci_name(), feeding it with to_pci_dev() from 
+the address of the struct device in the struct net_device.  The perhaps 
+overly paranoid work-in-progress:
+
+static void virtnet_get_drvinfo(struct net_device *dev,
+                                 struct ethtool_drvinfo *info)
+{
+
+         struct device *dev_dev;
+         struct pci_dev *pci_dev = NULL;
+
+
+         dev_dev = &(dev->dev);
+         if (dev_dev != NULL)
+                 pci_dev = to_pci_dev(dev_dev);
+         strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
+         strlcpy(info->version,"I am versionless", sizeof(info->version));
+         strlcpy(info->fw_version,"I have no firmware", 
+sizeof(info->fw_version));
+         strlcpy(info->bus_info,
+                 (pci_dev != NULL) ? pci_name(pci_dev) : "",
+                 sizeof(info->bus_info));
+
+}
+
+So, with the emulated e1000 I get:
+
+raj@raj-ubuntu-guest:~$ ethtool -i eth0
+driver: e1000
+version: 7.3.21-k8-NAPI
+firmware-version: N/A
+bus-info: 0000:00:11.0
+raj@raj-ubuntu-guest:~$
+
+and I see that the e1000 driver calls pci_name().  However, the code 
+above, when I boot the guest with the virtio device gives me:
+
+raj@raj-ubuntu-guest:~$ ethtool -i eth0
+driver: virtio_net
+version: I am versionless
+firmware-version: I have no firmware
+bus-info: eth0
+
+00:03.0 Ethernet controller: Red Hat, Inc Virtio network device
+
+Am I chasing the wrong pointers?  Is it  a function of virtio?
+
+rick jones
+
+BTW, I notice some drivers call strlcpy and some strncpy, and some even 
+call strcpy.  Is there one that is meant to be preferred over the others?
