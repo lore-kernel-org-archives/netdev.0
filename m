@@ -1,44 +1,42 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] macvlan: receive multicast with local address
-Date: Fri, 04 Nov 2011 17:40:05 -0400 (EDT)
-Message-ID: <20111104.174005.1467761740413516054.davem@redhat.com>
-References: <20111102151153.028e222f@nehalam.linuxnetplumber.net>
+Subject: Re: [net] i825xx:xscale:8390:freescale: Fix Kconfig dependancies
+Date: Fri, 04 Nov 2011 17:41:59 -0400 (EDT)
+Message-ID: <20111104.174159.1262489521924521081.davem@redhat.com>
+References: <1320229852-18161-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58659 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59987 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752214Ab1KDVkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Nov 2011 17:40:09 -0400
-In-Reply-To: <20111102151153.028e222f@nehalam.linuxnetplumber.net>
+	id S1751493Ab1KDVmB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Nov 2011 17:42:01 -0400
+In-Reply-To: <1320229852-18161-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 2 Nov 2011 15:11:53 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  2 Nov 2011 03:30:52 -0700
 
-> When implementing VRRP v2 using macvlan several problems were
-> discovered.  VRRP is weird in that all routers participating
-> in a redundant group use the same virtual MAC address.
-> Macvlan is a natural driver to use for this but it doesn't
-> work.  The problem is that packets with a macvlan device's
-> source address are not received.
+> i825xx and xscale are "sub" Kconfigs to NET_VENDOR_INTEL, so
+> NET_VENDOR_INTEL should contain ALL the dependencies of the
+> "sub" Kconfigs.
 > 
-> The problem is actually a regression that date back almost 2 years now.
-> The original problems started with:
+> Same with 8390 is a "sub" Kconfig to NET_VENDOR_NATSEMI, so
+> NET_VENDOR_NATSEMI needs to contains ALL the dependencies.
 > 
-> commit 618e1b7482f7a8a4c6c6e8ccbe140e4c331df4e9
-> Author: Arnd Bergmann <arnd@arndb.de>
-> Date:   Thu Nov 26 06:07:10 2009 +0000
+> Freescale Kconfig only had fs_enet as a sub Kconfig, and already
+> contained the needed dependencies, just cleaned up the dependencies.
 > 
->     macvlan: implement bridge, VEPA and private mode
->     
-> This patches restores the original 2.6.32 behavior. Allowing multicast
-> packets received with the VRRP source address to be received.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied and queued up for -stable, thanks.
+Applied, but:
+
+> +		   XTENSA_PLATFORM_XT2000 || ZORRO
+> +		   
+>  	---help---
+
+I removed that extraneous white-space-only line before "--help--"
