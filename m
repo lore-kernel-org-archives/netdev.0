@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net v4 3/4] forcedeth: Improve stats counters
-Date: Fri,  4 Nov 2011 21:04:41 -0700
-Message-ID: <89fdc051c9f2289c56fe4f3e901ebc171ed2778d.1320463771.git.david.decotigny@google.com>
+Subject: [PATCH net v4 4/4] forcedeth: fix a few sparse warnings (variable shadowing)
+Date: Fri,  4 Nov 2011 21:04:42 -0700
+Message-ID: <b42241015ecab122886533aa2511a1554af08297.1320463771.git.david.decotigny@google.com>
 References: <cover.1320463771.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -9,74 +9,142 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
 	Szymon Janc <szymon@janc.net.pl>,
-	Mandeep Baines <msb@google.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:19366 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750848Ab1KEEFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2011 00:05:03 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1320463771.git.david.decotigny@google.com>
 In-Reply-To: <cover.1320463771.git.david.decotigny@google.com>
 References: <cover.1320463771.git.david.decotigny@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mandeep Baines <msb@google.com>
-
-Rx byte count was off; instead use the hardware's count.  Tx packet
-count was counting pre-TSO packets; instead count on-the-wire packets.
-Report hardware dropped frame count as rx_fifo_errors.
-
-- The count of transmitted packets reported by the forcedeth driver
-  reports pre-TSO (TCP Segmentation Offload) packet counts and not the
-  count of the number of packets sent on the wire. This change fixes
-  the forcedeth driver to report the correct count. Fixed the code by
-  copying the count stored in the NIC H/W to the value reported by the
-  driver.
-
-- Count rx_drop_frame errors as rx_fifo_errors:
-  We see a lot of rx_drop_frame errors if we disable the rx bottom-halves
-  for too long.  Normally, rx_fifo_errors would be counted in this case.
-  The rx_drop_frame error count is private to forcedeth and is not
-  reported by ifconfig or sysfs.  The rx_fifo_errors count is currently
-  unused in the forcedeth driver.  It is reported by ifconfig as overruns.
-  This change reports rx_drop_frame errors as rx_fifo_errors.
+This fixes the following sparse warnings:
+drivers/net/ethernet/nvidia/forcedeth.c:2113:7: warning: symbol 'size' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2102:6: originally declared here
+drivers/net/ethernet/nvidia/forcedeth.c:2155:7: warning: symbol 'size' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2102:6: originally declared here
+drivers/net/ethernet/nvidia/forcedeth.c:2227:7: warning: symbol 'size' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2215:6: originally declared here
+drivers/net/ethernet/nvidia/forcedeth.c:2271:7: warning: symbol 'size' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2215:6: originally declared here
+drivers/net/ethernet/nvidia/forcedeth.c:2986:20: warning: symbol 'addr' shadows an earlier one
+drivers/net/ethernet/nvidia/forcedeth.c:2963:6: originally declared here
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |   34 +++++++++++++++---------------
+ 1 files changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 0bcb18e..fe2ba70 100644
+index fe2ba70..d32cd4b 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -1682,6 +1682,7 @@ static void nv_get_hw_stats(struct net_device *dev)
- 		np->estats.tx_pause += readl(base + NvRegTxPause);
- 		np->estats.rx_pause += readl(base + NvRegRxPause);
- 		np->estats.rx_drop_frame += readl(base + NvRegRxDropFrame);
-+		np->estats.rx_errors_total += np->estats.rx_drop_frame;
+@@ -2103,10 +2103,10 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* add fragments to entries count */
+ 	for (i = 0; i < fragments; i++) {
+-		u32 size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
++		u32 frag_size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+ 
+-		entries += (size >> NV_TX2_TSO_MAX_SHIFT) +
+-			   ((size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
++		entries += (frag_size >> NV_TX2_TSO_MAX_SHIFT) +
++			   ((frag_size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
  	}
  
- 	if (np->driver_data & DEV_HAS_STATISTICS_V3) {
-@@ -1706,11 +1707,14 @@ static struct net_device_stats *nv_get_stats(struct net_device *dev)
- 		nv_get_hw_stats(dev);
+ 	spin_lock_irqsave(&np->lock, flags);
+@@ -2145,13 +2145,13 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* setup the fragments */
+ 	for (i = 0; i < fragments; i++) {
+ 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+-		u32 size = skb_frag_size(frag);
++		u32 frag_size = skb_frag_size(frag);
+ 		offset = 0;
  
- 		/* copy to net_device stats */
-+		dev->stats.tx_packets = np->estats.tx_packets;
-+		dev->stats.rx_bytes = np->estats.rx_bytes;
- 		dev->stats.tx_bytes = np->estats.tx_bytes;
- 		dev->stats.tx_fifo_errors = np->estats.tx_fifo_errors;
- 		dev->stats.tx_carrier_errors = np->estats.tx_carrier_errors;
- 		dev->stats.rx_crc_errors = np->estats.rx_crc_errors;
- 		dev->stats.rx_over_errors = np->estats.rx_over_errors;
-+		dev->stats.rx_fifo_errors = np->estats.rx_drop_frame;
- 		dev->stats.rx_errors = np->estats.rx_errors_total;
- 		dev->stats.tx_errors = np->estats.tx_errors_total;
+ 		do {
+ 			prev_tx = put_tx;
+ 			prev_tx_ctx = np->put_tx_ctx;
+-			bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
++			bcnt = (frag_size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : frag_size;
+ 			np->put_tx_ctx->dma = skb_frag_dma_map(
+ 							&np->pci_dev->dev,
+ 							frag, offset,
+@@ -2163,12 +2163,12 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			put_tx->flaglen = cpu_to_le32((bcnt-1) | tx_flags);
+ 
+ 			offset += bcnt;
+-			size -= bcnt;
++			frag_size -= bcnt;
+ 			if (unlikely(put_tx++ == np->last_tx.orig))
+ 				put_tx = np->first_tx.orig;
+ 			if (unlikely(np->put_tx_ctx++ == np->last_tx_ctx))
+ 				np->put_tx_ctx = np->first_tx_ctx;
+-		} while (size);
++		} while (frag_size);
  	}
+ 
+ 	/* set last fragment flag  */
+@@ -2217,10 +2217,10 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 
+ 	/* add fragments to entries count */
+ 	for (i = 0; i < fragments; i++) {
+-		u32 size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
++		u32 frag_size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+ 
+-		entries += (size >> NV_TX2_TSO_MAX_SHIFT) +
+-			   ((size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
++		entries += (frag_size >> NV_TX2_TSO_MAX_SHIFT) +
++			   ((frag_size & (NV_TX2_TSO_MAX_SIZE-1)) ? 1 : 0);
+ 	}
+ 
+ 	spin_lock_irqsave(&np->lock, flags);
+@@ -2261,13 +2261,13 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 	/* setup the fragments */
+ 	for (i = 0; i < fragments; i++) {
+ 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+-		u32 size = skb_frag_size(frag);
++		u32 frag_size = skb_frag_size(frag);
+ 		offset = 0;
+ 
+ 		do {
+ 			prev_tx = put_tx;
+ 			prev_tx_ctx = np->put_tx_ctx;
+-			bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
++			bcnt = (frag_size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : frag_size;
+ 			np->put_tx_ctx->dma = skb_frag_dma_map(
+ 							&np->pci_dev->dev,
+ 							frag, offset,
+@@ -2280,12 +2280,12 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 			put_tx->flaglen = cpu_to_le32((bcnt-1) | tx_flags);
+ 
+ 			offset += bcnt;
+-			size -= bcnt;
++			frag_size -= bcnt;
+ 			if (unlikely(put_tx++ == np->last_tx.ex))
+ 				put_tx = np->first_tx.ex;
+ 			if (unlikely(np->put_tx_ctx++ == np->last_tx_ctx))
+ 				np->put_tx_ctx = np->first_tx_ctx;
+-		} while (size);
++		} while (frag_size);
+ 	}
+ 
+ 	/* set last fragment flag  */
+@@ -2933,11 +2933,11 @@ static void nv_set_multicast(struct net_device *dev)
+ 				struct netdev_hw_addr *ha;
+ 
+ 				netdev_for_each_mc_addr(ha, dev) {
+-					unsigned char *addr = ha->addr;
++					unsigned char *hw_addr = ha->addr;
+ 					u32 a, b;
+ 
+-					a = le32_to_cpu(*(__le32 *) addr);
+-					b = le16_to_cpu(*(__le16 *) (&addr[4]));
++					a = le32_to_cpu(*(__le32 *) hw_addr);
++					b = le16_to_cpu(*(__le16 *) (&hw_addr[4]));
+ 					alwaysOn[0] &= a;
+ 					alwaysOff[0] &= ~a;
+ 					alwaysOn[1] &= b;
 -- 
 1.7.3.1
