@@ -1,62 +1,68 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net v3 0/9] forcedeth: minor fixes for stats, rmmod, sparse
-Date: Fri,  4 Nov 2011 18:53:24 -0700
-Message-ID: <cover.1320457247.git.david.decotigny@google.com>
+Subject: [PATCH net v3 7/9] forcedeth: new ethtool stat "tx_timeout" to account for tx_timeouts
+Date: Fri,  4 Nov 2011 18:53:31 -0700
+Message-ID: <aa39e2d520ce56c6010c2a8f590d94ba9a10ef2a.1320457247.git.david.decotigny@google.com>
+References: <cover.1320457247.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
 	Szymon Janc <szymon@janc.net.pl>,
+	Sameer Nanda <snanda@google.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:44272 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751413Ab1KEBx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 21:53:58 -0400
+In-Reply-To: <cover.1320457247.git.david.decotigny@google.com>
+In-Reply-To: <cover.1320457247.git.david.decotigny@google.com>
+References: <cover.1320457247.git.david.decotigny@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changes since v2:
- - removed "Fix a race during rmmod of forcedeth" from the series
-   (will look at it separately with original author)
- - added "remove unneeded stats updates" and "64-bit stats"
- - reordered patches
+From: Sameer Nanda <snanda@google.com>
 
-Changes since v1:
- - rebased on top of netdev tip
- - do not repeat name of device in netdev_dbg
- - do not completely mute TX timeout messages when debug_tx_timeout is
-   not set
- - make debug_tx_timeout writable in /sys/module
- Note: I am re-submitting "expose module parameters in /sys/module" as
-       it can be useful in production and I was assured it doesn't add
-       much memory overhead by the sysfs maintainers.
-
-Tested:
-  16-way x86_64 SMP, dual forcedeth ->
-  RX bytes:7244556582 (7.2 GB)  TX bytes:181904254 (181.9 MB)
+This change publishes a new ethtool stats: tx_timeout that counts the
+number of times the tx_timeout callback was triggered.
 
 
-############################################
-# Patch Set Summary:
 
-David Decotigny (4):
-  forcedeth: expose module parameters in /sys/module
-  forcedeth: remove unneeded stats updates
-  forcedeth: 64-bit stats
-  forcedeth: fix a few sparse warnings (variable shadowing)
+Signed-off-by: David Decotigny <david.decotigny@google.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Mandeep Baines (1):
-  forcedeth: Improve stats counters
-
-Mike Ditto (2):
-  forcedeth: Add messages to indicate using MSI or MSI-X
-  forcedeth: Acknowledge only interrupts that are being processed
-
-Sameer Nanda (2):
-  forcedeth: allow to silence tx_timeout debug messages
-  forcedeth: new ethtool stat "tx_timeout" to account for tx_timeouts
-
- drivers/net/ethernet/nvidia/forcedeth.c |  269 ++++++++++++++++---------------
- 1 files changed, 142 insertions(+), 127 deletions(-)
-
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index b26e7db..90cdf26 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -633,6 +633,7 @@ static const struct nv_ethtool_str nv_estats_str[] = {
+ 	{ "rx_packets" },
+ 	{ "rx_errors_total" },
+ 	{ "tx_errors_total" },
++	{ "tx_timeout" },
+ 
+ 	/* version 2 stats */
+ 	{ "tx_deferral" },
+@@ -673,6 +674,7 @@ struct nv_ethtool_stats {
+ 	u64 rx_packets;
+ 	u64 rx_errors_total;
+ 	u64 tx_errors_total;
++	u64 tx_timeout;
+ 
+ 	/* version 2 stats */
+ 	u64 tx_deferral;
+@@ -2529,6 +2531,8 @@ static void nv_tx_timeout(struct net_device *dev)
+ 
+ 	spin_lock_irq(&np->lock);
+ 
++	np->estats.tx_timeout++;
++
+ 	/* 1) stop tx engine */
+ 	nv_stop_tx(dev);
+ 
 -- 
 1.7.3.1
