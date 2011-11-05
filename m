@@ -1,61 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: what's in a bus_info
-Date: Fri, 4 Nov 2011 17:07:05 -0700
-Message-ID: <20111104170705.0553b8cf@nehalam.linuxnetplumber.net>
-References: <4EB466CB.2040506@hp.com>
-	<1320447726.2753.30.camel@bwh-desktop>
-	<4EB475CC.1000601@hp.com>
-	<1320450167.2753.39.camel@bwh-desktop>
-	<4EB47DB1.2000005@hp.com>
+From: Tabi Timur-B04825 <B04825@freescale.com>
+Subject: Re: [PATCH 6/7] fsl_pmc: Add API to enable device as wakeup event
+ source
+Date: Sat, 5 Nov 2011 00:08:24 +0000
+Message-ID: <CAOZdJXXB9zJWqC+kPq7ZDdzePtp8XNBnWcf5UmE8Ye50U-G7Dg@mail.gmail.com>
+References: <1320410349-14600-1-git-send-email-chenhui.zhao@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, mst@redhat.com
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	Li Yang-R58472 <r58472@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Zhao Chenhui-B35336 <B35336@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60399 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751747Ab1KEAHH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Nov 2011 20:07:07 -0400
-In-Reply-To: <4EB47DB1.2000005@hp.com>
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:11841
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751747Ab1KEAIk convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Nov 2011 20:08:40 -0400
+In-Reply-To: <1320410349-14600-1-git-send-email-chenhui.zhao@freescale.com>
+Content-Language: en-US
+Content-ID: <04AD0AE3E3676645AFF176EA30732915@freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 04 Nov 2011 17:05:05 -0700
-Rick Jones <rick.jones2@hp.com> wrote:
+On Fri, Nov 4, 2011 at 7:39 AM, Zhao Chenhui <chenhui.zhao@freescale.co=
+m> wrote:
 
-> On 11/04/2011 04:42 PM, Ben Hutchings wrote:
-> > On Fri, 2011-11-04 at 16:31 -0700, Rick Jones wrote:
-> 
-> >> I guess that wraps back around to the question of whether there is a
-> >> "standard" for what should be in bus_info.  And if it is impractical to
-> >> get the PCI bus information,
-> >
-> > I'm not that familiar with virtio, but would I be right in thinking that
-> > the virtio 'bus' device is likely to be the child of a PCI device?  So
-> > then you mgiht want to get bus_name() for the grandparent of the net
-> > device:
-> > 	dev_dev = dev->dev.parent->parent;
-> > (possibly checking for nulls).
-> 
-> I'll take a look.
-> 
-> > If there's some reasonable way to distinguish a 'real' from a virtual
-> > bus then we could have the generic implementation try to follow parents
-> > until it finds a bus device.  However I think the device model
-> > maintainers have been gradually moving away from the bus/class
-> > distinction and so we may not be able to do that.
-> >
-> >> whether it is better to return virtioN or
-> >> ethN.  Or perhaps something else entirely.
-> > [...]
-> >
-> > Returning the device name seems entirely unhelpful since the user
-> > already has that.  'virtioN' is perhaps not much better though.
-> 
-> Agreed, but thought I should ask :)
+> + =A0 =A0 =A0 if (!pmc_regs) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_WARNING "PMC is unavailable=
+\n");
 
-My view of bus_info, is that it is an informational string for administrators.
-Tools shouldn't depend on the value.  If a tool wants to find out about
-the physical device, then it should readlink the value of /sys/class/net/ethX/device
+Use pr_warn() and the other pr_xxx functions.
+
+> + =A0 =A0 =A0 pmcdr_mask =3D (u32 *)of_get_property(clk_np, "fsl,pmcd=
+r-mask", NULL);
+
+The typecast is unnecessary here.
+
+> + =A0 =A0 =A0 /* clear to enable clock in low power mode */
+> + =A0 =A0 =A0 if (enable)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 clrbits32(&pmc_regs->pmcdr, *pmcdr_mask=
+);
+> + =A0 =A0 =A0 else
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 setbits32(&pmc_regs->pmcdr, *pmcdr_mask=
+);
+
+You need to use be32_to_cpup() when dereferencing a pointer to a
+device tree property.
+
+--=20
+Timur Tabi
+Linux kernel developer at Freescale
