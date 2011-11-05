@@ -1,53 +1,69 @@
-From: Tabi Timur-B04825 <B04825@freescale.com>
-Subject: Re: [PATCH 6/7] fsl_pmc: Add API to enable device as wakeup event
- source
-Date: Sat, 5 Nov 2011 00:08:24 +0000
-Message-ID: <CAOZdJXXB9zJWqC+kPq7ZDdzePtp8XNBnWcf5UmE8Ye50U-G7Dg@mail.gmail.com>
-References: <1320410349-14600-1-git-send-email-chenhui.zhao@freescale.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: what's in a bus_info
+Date: Fri, 04 Nov 2011 18:17:08 -0700
+Message-ID: <4EB48E94.7010804@hp.com>
+References: <4EB466CB.2040506@hp.com> <1320447726.2753.30.camel@bwh-desktop> <4EB475CC.1000601@hp.com> <1320450167.2753.39.camel@bwh-desktop> <4EB47DB1.2000005@hp.com> <20111104170705.0553b8cf@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	Li Yang-R58472 <r58472@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Zhao Chenhui-B35336 <B35336@freescale.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, mst@redhat.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:11841
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751747Ab1KEAIk convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Nov 2011 20:08:40 -0400
-In-Reply-To: <1320410349-14600-1-git-send-email-chenhui.zhao@freescale.com>
-Content-Language: en-US
-Content-ID: <04AD0AE3E3676645AFF176EA30732915@freescale.net>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:38788 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457Ab1KEBRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 21:17:10 -0400
+In-Reply-To: <20111104170705.0553b8cf@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 4, 2011 at 7:39 AM, Zhao Chenhui <chenhui.zhao@freescale.co=
-m> wrote:
+On 11/04/2011 05:07 PM, Stephen Hemminger wrote:
+> My view of bus_info, is that it is an informational string for administrators.
+> Tools shouldn't depend on the value.  If a tool wants to find out about
+> the physical device, then it should readlink the value of /sys/class/net/ethX/device
 
-> + =A0 =A0 =A0 if (!pmc_regs) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_WARNING "PMC is unavailable=
-\n");
+Just a quick look under device for the virtio_net interface shows it 
+isn't quite as "complete" as a bare iron tg3 interface (as an example)
 
-Use pr_warn() and the other pr_xxx functions.
+The bare iron tg3 example:
+raj@tardy:~$ ls /sys/class/net/eth0/device
+broken_parity_status      enable         net        resource0
+class                     firmware_node  numa_node  subsystem
+config                    irq            power      subsystem_device
+consistent_dma_mask_bits  local_cpulist  remove     subsystem_vendor
+device                    local_cpus     rescan     uevent
+dma_mask_bits             modalias       reset      vendor
+driver                    msi_bus        resource   vpd
 
-> + =A0 =A0 =A0 pmcdr_mask =3D (u32 *)of_get_property(clk_np, "fsl,pmcd=
-r-mask", NULL);
+The virtio_net interface:
 
-The typecast is unnecessary here.
+raj@raj-ubuntu-guest:~$ ls /sys/class/net/eth0/device
+device  features  net    status     uevent
+driver  modalias  power  subsystem  vendor
 
-> + =A0 =A0 =A0 /* clear to enable clock in low power mode */
-> + =A0 =A0 =A0 if (enable)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 clrbits32(&pmc_regs->pmcdr, *pmcdr_mask=
-);
-> + =A0 =A0 =A0 else
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 setbits32(&pmc_regs->pmcdr, *pmcdr_mask=
-);
 
-You need to use be32_to_cpup() when dereferencing a pointer to a
-device tree property.
+I have found that if I add a function to return a struct pci_dev * given 
+a struct virtio_device, to virtio/virtio_pci.c and do a pci_name() 
+against that, I do get a familiar looking bus address:
 
---=20
-Timur Tabi
-Linux kernel developer at Freescale
+raj@raj-ubuntu-guest:~$ ethtool -i eth0
+driver: virtio_net
+version: I am versionless
+firmware-version: I have no firmware
+bus-info: 0000:00:03.0
+
+and it even matches the lspci output for the guest:
+
+00:03.0 Ethernet controller: Red Hat, Inc Virtio network device
+
+(still my "playing around" version, hence the silly strings in version 
+and firmware-version)
+
+I suppose the question becomes whether it is worthwhile to clean it up 
+and submit.    I'm also thinking it would be goodness to start 
+displaying some sort of version number, and if there is anything the 
+driver might query to fill-in as a firmware-version - perhaps something 
+about the version of the driver on the other side?
+
+rick jones
