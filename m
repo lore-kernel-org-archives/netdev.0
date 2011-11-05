@@ -1,69 +1,78 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: what's in a bus_info
-Date: Fri, 04 Nov 2011 18:17:08 -0700
-Message-ID: <4EB48E94.7010804@hp.com>
-References: <4EB466CB.2040506@hp.com> <1320447726.2753.30.camel@bwh-desktop> <4EB475CC.1000601@hp.com> <1320450167.2753.39.camel@bwh-desktop> <4EB47DB1.2000005@hp.com> <20111104170705.0553b8cf@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, mst@redhat.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:38788 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752457Ab1KEBRK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 21:17:10 -0400
-In-Reply-To: <20111104170705.0553b8cf@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <david.decotigny@google.com>
+Subject: [PATCH net v3 6/9] forcedeth: Improve stats counters
+Date: Fri,  4 Nov 2011 18:53:30 -0700
+Message-ID: <64785e32eaf317a78b0fc0bd6d63dcbcfc64d464.1320457247.git.david.decotigny@google.com>
+References: <cover.1320457247.git.david.decotigny@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	Mandeep Baines <msb@google.com>,
+	David Decotigny <david.decotigny@google.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1320457247.git.david.decotigny@google.com>
+In-Reply-To: <cover.1320457247.git.david.decotigny@google.com>
+References: <cover.1320457247.git.david.decotigny@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/04/2011 05:07 PM, Stephen Hemminger wrote:
-> My view of bus_info, is that it is an informational string for administrators.
-> Tools shouldn't depend on the value.  If a tool wants to find out about
-> the physical device, then it should readlink the value of /sys/class/net/ethX/device
+From: Mandeep Baines <msb@google.com>
 
-Just a quick look under device for the virtio_net interface shows it 
-isn't quite as "complete" as a bare iron tg3 interface (as an example)
+Rx byte count was off; instead use the hardware's count.  Tx packet
+count was counting pre-TSO packets; instead count on-the-wire packets.
+Report hardware dropped frame count as rx_fifo_errors.
 
-The bare iron tg3 example:
-raj@tardy:~$ ls /sys/class/net/eth0/device
-broken_parity_status      enable         net        resource0
-class                     firmware_node  numa_node  subsystem
-config                    irq            power      subsystem_device
-consistent_dma_mask_bits  local_cpulist  remove     subsystem_vendor
-device                    local_cpus     rescan     uevent
-dma_mask_bits             modalias       reset      vendor
-driver                    msi_bus        resource   vpd
+- The count of transmitted packets reported by the forcedeth driver
+  reports pre-TSO (TCP Segmentation Offload) packet counts and not the
+  count of the number of packets sent on the wire. This change fixes
+  the forcedeth driver to report the correct count. Fixed the code by
+  copying the count stored in the NIC H/W to the value reported by the
+  driver.
 
-The virtio_net interface:
-
-raj@raj-ubuntu-guest:~$ ls /sys/class/net/eth0/device
-device  features  net    status     uevent
-driver  modalias  power  subsystem  vendor
+- Count rx_drop_frame errors as rx_fifo_errors:
+  We see a lot of rx_drop_frame errors if we disable the rx bottom-halves
+  for too long.  Normally, rx_fifo_errors would be counted in this case.
+  The rx_drop_frame error count is private to forcedeth and is not
+  reported by ifconfig or sysfs.  The rx_fifo_errors count is currently
+  unused in the forcedeth driver.  It is reported by ifconfig as overruns.
+  This change reports rx_drop_frame errors as rx_fifo_errors.
 
 
-I have found that if I add a function to return a struct pci_dev * given 
-a struct virtio_device, to virtio/virtio_pci.c and do a pci_name() 
-against that, I do get a familiar looking bus address:
 
-raj@raj-ubuntu-guest:~$ ethtool -i eth0
-driver: virtio_net
-version: I am versionless
-firmware-version: I have no firmware
-bus-info: 0000:00:03.0
+Signed-off-by: David Decotigny <david.decotigny@google.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-and it even matches the lspci output for the guest:
-
-00:03.0 Ethernet controller: Red Hat, Inc Virtio network device
-
-(still my "playing around" version, hence the silly strings in version 
-and firmware-version)
-
-I suppose the question becomes whether it is worthwhile to clean it up 
-and submit.    I'm also thinking it would be goodness to start 
-displaying some sort of version number, and if there is anything the 
-driver might query to fill-in as a firmware-version - perhaps something 
-about the version of the driver on the other side?
-
-rick jones
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 38d8391..b26e7db 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -1687,6 +1687,7 @@ static void nv_get_hw_stats(struct net_device *dev)
+ 		np->estats.tx_pause += readl(base + NvRegTxPause);
+ 		np->estats.rx_pause += readl(base + NvRegRxPause);
+ 		np->estats.rx_drop_frame += readl(base + NvRegRxDropFrame);
++		np->estats.rx_errors_total += np->estats.rx_drop_frame;
+ 	}
+ 
+ 	if (np->driver_data & DEV_HAS_STATISTICS_V3) {
+@@ -1711,11 +1712,14 @@ static struct net_device_stats *nv_get_stats(struct net_device *dev)
+ 		nv_get_hw_stats(dev);
+ 
+ 		/* copy to net_device stats */
++		dev->stats.tx_packets = np->estats.tx_packets;
++		dev->stats.rx_bytes = np->estats.rx_bytes;
+ 		dev->stats.tx_bytes = np->estats.tx_bytes;
+ 		dev->stats.tx_fifo_errors = np->estats.tx_fifo_errors;
+ 		dev->stats.tx_carrier_errors = np->estats.tx_carrier_errors;
+ 		dev->stats.rx_crc_errors = np->estats.rx_crc_errors;
+ 		dev->stats.rx_over_errors = np->estats.rx_over_errors;
++		dev->stats.rx_fifo_errors = np->estats.rx_drop_frame;
+ 		dev->stats.rx_errors = np->estats.rx_errors_total;
+ 		dev->stats.tx_errors = np->estats.tx_errors_total;
+ 	}
+-- 
+1.7.3.1
