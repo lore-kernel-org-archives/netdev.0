@@ -1,94 +1,100 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC 4942 recommendation
-Date: Sat, 5 Nov 2011 01:39:52 -0700 (PDT)
-Message-ID: <1320482392.98040.YahooMailNeo@web126003.mail.ne1.yahoo.com>
-References: <1320417988.69298.YahooMailNeo@web126013.mail.ne1.yahoo.com> <1320423860.16609.4.camel@edumazet-laptop>
-Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: better pcpu data alignment
+Date: Sat, 05 Nov 2011 10:19:28 +0100
+Message-ID: <1320484768.16609.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm18-vm1.bullet.mail.ne1.yahoo.com ([98.138.91.64]:36314 "HELO
-	nm18-vm1.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750920Ab1KEIqY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Nov 2011 04:46:24 -0400
-In-Reply-To: <1320423860.16609.4.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37330 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752064Ab1KEJTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Nov 2011 05:19:33 -0400
+Received: by wyh15 with SMTP id 15so3018954wyh.19
+        for <netdev@vger.kernel.org>; Sat, 05 Nov 2011 02:19:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From: Eric Dumazet <eric.dumazet@gmail.com>
->To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
->Sent: Friday, November 4, 2011 5:24 PM
->Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC 49=
-42 recommendation
->
->Le vendredi 04 novembre 2011 =E0 07:46 -0700, Fran=E7ois-Xavier Le Bai=
-l a
->=E9crit :
->> I do some tests on a Linux 3.0 kernel with IPv6 forwarding mode enab=
-led.
->>=20
->> When I ping (ICMPv6 echo request) on one of its Subnet-Router anycas=
-t addresses
->> (SRAA, http://tools.ietf.org/html/rfc4291#section-2.6.1),
->> the Linux kernel reply with an unicast source address, not the anyca=
-st one.
->>=20
->> When I send an IPv6 UDP packet to a server on Linux on one of its SR=
-AA,
->> the Linux kernel build a reply with an unicast source address, not t=
-he anycast one.
+Tunnels can force an alignment of their percpu data to reduce number of
+cache lines used in fast path, or read in .ndo_get_stats()
 
+percpu_alloc() is a very fine grained allocator, so any small hole will
+be used anyway.
 
-Thanks for your answer.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/veth.c    |    2 +-
+ net/ipv4/ip_gre.c     |    2 +-
+ net/ipv4/ipip.c       |    2 +-
+ net/ipv6/ip6_tunnel.c |    2 +-
+ net/ipv6/sit.c        |    2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
 
->Nothing in the kernel builds a reply to an UDP packet.
-
-You are right. I meant that in some cases the kernel selects the source=
- address
-of the reply.
-
->I would say the user application is responsible to build an answer, an=
-d
->chose appropriate source address.
-
-
-OK.
-
-
->If your application uses a ANY_ADDR bind, then it must appropriate
->action so that a good source address is used in answers.
->
->In case of IPv6 socket, I advise you take a look at IPV6_PKTINFO /
->IPV6_RECVPKTINFO options.
-
-
-I will study and test these options for my application server.
-
->> The RFC 4942 states (http://tools.ietf.org/html/rfc4942#section-2.1.=
-6) :
->> 2.1.6. Anycast Traffic Identification and Security
->> [. . .]
->>=A0 =A0 To avoid exposing knowledge about the internal structure of t=
-he
->>=A0 =A0 network, it is recommended that anycast servers now take adva=
-ntage of
->>=A0 =A0 the ability to return responses with the anycast address as t=
-he
->>=A0 =A0 source address if possible.
->>=20
->> Also, If the source address of reply differs from destination addres=
-s of the request, many applications are broken.
->> Please let me know your feedback.
->>=20
->
->'anycast servers' are a combination of kernel and userland parts.
-
-
-Agreed, but remain the case of ICMPv6 echo request/reply, which I think=
- is in kernel.
-
-=46rancois-Xavier
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 5b23767..dd303a9 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -26,8 +26,8 @@
+ 
+ struct veth_net_stats {
+ 	u64			rx_packets;
+-	u64			tx_packets;
+ 	u64			rx_bytes;
++	u64			tx_packets;
+ 	u64			tx_bytes;
+ 	u64			rx_dropped;
+ 	struct u64_stats_sync	syncp;
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index d55110e..38f7c07 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -171,7 +171,7 @@ struct pcpu_tstats {
+ 	unsigned long	rx_bytes;
+ 	unsigned long	tx_packets;
+ 	unsigned long	tx_bytes;
+-};
++} __attribute__((aligned(4*sizeof(unsigned long))));
+ 
+ static struct net_device_stats *ipgre_get_stats(struct net_device *dev)
+ {
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 065effd..9490690 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -148,7 +148,7 @@ struct pcpu_tstats {
+ 	unsigned long	rx_bytes;
+ 	unsigned long	tx_packets;
+ 	unsigned long	tx_bytes;
+-};
++} __attribute__((aligned(4*sizeof(unsigned long))));
+ 
+ static struct net_device_stats *ipip_get_stats(struct net_device *dev)
+ {
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index bdc15c9..f36ca13 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -93,7 +93,7 @@ struct pcpu_tstats {
+ 	unsigned long	rx_bytes;
+ 	unsigned long	tx_packets;
+ 	unsigned long	tx_bytes;
+-};
++} __attribute__((aligned(4*sizeof(unsigned long))));
+ 
+ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+ {
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index a7a1860..cec0938 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -91,7 +91,7 @@ struct pcpu_tstats {
+ 	unsigned long	rx_bytes;
+ 	unsigned long	tx_packets;
+ 	unsigned long	tx_bytes;
+-};
++} __attribute__((aligned(4*sizeof(unsigned long))));
+ 
+ static struct net_device_stats *ipip6_get_stats(struct net_device *dev)
+ {
