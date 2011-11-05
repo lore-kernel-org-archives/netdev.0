@@ -1,31 +1,38 @@
-From: Feng King <kinwin2008@gmail.com>
-Subject: [PATCH] tcp: Fix comments for Nagle algorithm
-Date: Sat,  5 Nov 2011 22:23:23 +0800
-Message-ID: <1320503003-5169-1-git-send-email-kinwin2008@gmail.com>
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	Feng King <kinwin2008@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Bootsdiy <bootsdiy@alshayauae.ae>
+Subject: (unknown)
+Date: Sat, 05 Nov 2011 19:53:01 +0400
+Message-ID: <1fe0b8ab0ac4a887c78d4f2a0cedea01__25753.9580612958$1320509578$gmane$org@alshayauae.ae>
+Reply-To: bienvenidosa@gncn.net
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1.alshayauae.ae ([94.200.30.181]:3466 "EHLO ns1.alshayauae.ae"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752670Ab1KEQMe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Nov 2011 12:12:34 -0400
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TCP_NODELAY is weaker than TCP_CORK, when TCP_CORK was set, small
-segments will always pass Nagle test regardless of TCP_NODELAY option.
 
-Signed-off-by: Feng King <kinwin2008@gmail.com>
+Dear Webmail Account Owner,
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 882e0b0..a908f95 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1377,7 +1377,7 @@ static inline int tcp_minshall_check(const struct tcp_sock *tp)
- /* Return 0, if packet can be sent now without violation Nagle's rules:
-  * 1. It is full sized.
-  * 2. Or it contains FIN. (already checked by caller)
-- * 3. Or TCP_NODELAY was set.
-+ * 3. Or TCP_CORK is not set, and TCP_NODELAY is set.
-  * 4. Or TCP_CORK is not set, and all sent packets are ACKed.
-  *    With Minshall's modification: all sent small packets are ACKed.
-  */
--- 
-1.7.1
+This message is from Webmail messaging center to all Webmail account owners. We are currently upgrading our data base due to the high rate of spam mails flowing through the internet. Update and by filling your account detail with below infromation:
+
+****************************************************************************
+CONFIRM YOUR EMAIL IDENTITY BELOW
+Email Username/Login ID : .....
+EMAIL Password : ..............
+Confirm Password :.............
+Date of Birth : ...............
+*****************************************************************************
+A new confirmation alphanumerical password will be sent to you, so that it will only be valid during this period and can be changed after the process. Failiure to send us your account detail your account will be deleted from our data base
+
+We apologize for any inconvenience this might cause for this period, but we are here to serve you better and provide more technology which revolves around e-mail Internet networking.
+
+
+
+Thanks
+Webmail Project Team.
