@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net v3 2/9] forcedeth: Acknowledge only interrupts that are being processed
-Date: Fri,  4 Nov 2011 18:53:26 -0700
-Message-ID: <63e4171ea60b7c5422794fba99a9cc155f546d1c.1320457247.git.david.decotigny@google.com>
+Subject: [PATCH net v3 1/9] forcedeth: Add messages to indicate using MSI or MSI-X
+Date: Fri,  4 Nov 2011 18:53:25 -0700
+Message-ID: <957ee9aa69d13affbde9b7eb76cf7a2ab7f2c5ce.1320457247.git.david.decotigny@google.com>
 References: <cover.1320457247.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -21,63 +21,35 @@ List-Id: netdev.vger.kernel.org
 
 From: Mike Ditto <mditto@google.com>
 
-This is to avoid a race, accidentally acknowledging an interrupt that
-we didn't notice and won't immediately process.  This is based solely
-on code inspection; it is not known if there was an actual bug here.
+This adds a few debug messages to indicate whether PCIe interrupts are
+signaled with MSI or MSI-X.
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 2f884fc..9aefee1 100644
+index 1e37eb9..2f884fc 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -3398,7 +3398,8 @@ static irqreturn_t nv_nic_irq_tx(int foo, void *data)
- 
- 	for (i = 0;; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_TX_ALL;
--		writel(NVREG_IRQ_TX_ALL, base + NvRegMSIXIrqStatus);
-+		writel(events, base + NvRegMSIXIrqStatus);
-+		netdev_dbg(dev, "tx irq events: %08x\n", events);
- 		if (!(events & np->irqmask))
- 			break;
- 
-@@ -3509,7 +3510,8 @@ static irqreturn_t nv_nic_irq_rx(int foo, void *data)
- 
- 	for (i = 0;; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_RX_ALL;
--		writel(NVREG_IRQ_RX_ALL, base + NvRegMSIXIrqStatus);
-+		writel(events, base + NvRegMSIXIrqStatus);
-+		netdev_dbg(dev, "rx irq events: %08x\n", events);
- 		if (!(events & np->irqmask))
- 			break;
- 
-@@ -3553,7 +3555,8 @@ static irqreturn_t nv_nic_irq_other(int foo, void *data)
- 
- 	for (i = 0;; i++) {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_OTHER;
--		writel(NVREG_IRQ_OTHER, base + NvRegMSIXIrqStatus);
-+		writel(events, base + NvRegMSIXIrqStatus);
-+		netdev_dbg(dev, "irq events: %08x\n", events);
- 		if (!(events & np->irqmask))
- 			break;
- 
-@@ -3617,10 +3620,10 @@ static irqreturn_t nv_nic_irq_test(int foo, void *data)
- 
- 	if (!(np->msi_flags & NV_MSI_X_ENABLED)) {
- 		events = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
--		writel(NVREG_IRQ_TIMER, base + NvRegIrqStatus);
-+		writel(events & NVREG_IRQ_TIMER, base + NvRegIrqStatus);
- 	} else {
- 		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
--		writel(NVREG_IRQ_TIMER, base + NvRegMSIXIrqStatus);
-+		writel(events & NVREG_IRQ_TIMER, base + NvRegMSIXIrqStatus);
+@@ -3737,6 +3737,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				writel(0, base + NvRegMSIXMap0);
+ 				writel(0, base + NvRegMSIXMap1);
+ 			}
++			netdev_info(dev, "MSI-X enabled\n");
+ 		}
  	}
- 	pci_push(base);
- 	if (!(events & NVREG_IRQ_TIMER))
+ 	if (ret != 0 && np->msi_flags & NV_MSI_CAPABLE) {
+@@ -3758,6 +3759,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 			writel(0, base + NvRegMSIMap1);
+ 			/* enable msi vector 0 */
+ 			writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
++			netdev_info(dev, "MSI enabled\n");
+ 		}
+ 	}
+ 	if (ret != 0) {
 -- 
 1.7.3.1
