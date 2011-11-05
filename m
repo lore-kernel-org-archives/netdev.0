@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net v3 5/9] forcedeth: remove unneeded stats updates
-Date: Fri,  4 Nov 2011 18:53:29 -0700
-Message-ID: <2ce059f7685a2519d3856ee328dcced54993b56e.1320457247.git.david.decotigny@google.com>
+Subject: [PATCH net v3 8/9] forcedeth: 64-bit stats
+Date: Fri,  4 Nov 2011 18:53:32 -0700
+Message-ID: <4c77142ad7c6019e908884723d3c299163a55e2e.1320457247.git.david.decotigny@google.com>
 References: <cover.1320457247.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -18,126 +18,181 @@ References: <cover.1320457247.git.david.decotigny@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Function ndo_get_stats() updates most of the stats from hardware
-registers, making the manual updates un-needed. This change removes
-these manual updates. Main exception is rx_missed_errors which needs
-manual update. Another exception is rx_packets, still updated manually
-in this commit to make sure this patch doesn't change behavior of
-driver (this is addressed by a later commit in this series).
+This converts forcedeth stats to be 64-bits. It also improves
+accounting for dropped rx frames.
+
+Tested:
+  16-way SMP x86_64 ->
+  RX bytes:7244556582 (7.2 GB)  TX bytes:181904254 (181.9 MB)
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   35 +------------------------------
- 1 files changed, 1 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |   69 +++++++++++++++++++-----------
+ 1 files changed, 44 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 295652d..38d8391 100644
+index 90cdf26..08c512b 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -2379,16 +2379,8 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 		if (np->desc_ver == DESC_VER_1) {
- 			if (flags & NV_TX_LASTPACKET) {
- 				if (flags & NV_TX_ERROR) {
--					if (flags & NV_TX_UNDERFLOW)
--						dev->stats.tx_fifo_errors++;
--					if (flags & NV_TX_CARRIERLOST)
--						dev->stats.tx_carrier_errors++;
- 					if ((flags & NV_TX_RETRYERROR) && !(flags & NV_TX_RETRYCOUNT_MASK))
- 						nv_legacybackoff_reseed(dev);
--					dev->stats.tx_errors++;
--				} else {
--					dev->stats.tx_packets++;
--					dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
- 				}
- 				dev_kfree_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
-@@ -2397,16 +2389,8 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 		} else {
- 			if (flags & NV_TX2_LASTPACKET) {
- 				if (flags & NV_TX2_ERROR) {
--					if (flags & NV_TX2_UNDERFLOW)
--						dev->stats.tx_fifo_errors++;
--					if (flags & NV_TX2_CARRIERLOST)
--						dev->stats.tx_carrier_errors++;
- 					if ((flags & NV_TX2_RETRYERROR) && !(flags & NV_TX2_RETRYCOUNT_MASK))
- 						nv_legacybackoff_reseed(dev);
--					dev->stats.tx_errors++;
--				} else {
--					dev->stats.tx_packets++;
--					dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
- 				}
- 				dev_kfree_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
-@@ -2439,9 +2423,7 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 		nv_unmap_txskb(np, np->get_tx_ctx);
+@@ -799,6 +799,8 @@ struct fe_priv {
+ 	struct timer_list stats_poll;
+ 	u32 nic_poll_irq;
+ 	int rx_ring_size;
++	unsigned long stats_rx_dropped;
++	unsigned long stats_rx_missed_errors;
  
- 		if (flags & NV_TX2_LASTPACKET) {
--			if (!(flags & NV_TX2_ERROR))
--				dev->stats.tx_packets++;
--			else {
-+			if (flags & NV_TX2_ERROR) {
- 				if ((flags & NV_TX2_RETRYERROR) && !(flags & NV_TX2_RETRYCOUNT_MASK)) {
- 					if (np->driver_data & DEV_HAS_GEAR_MODE)
- 						nv_gear_backoff_reseed(dev);
-@@ -2649,7 +2631,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 					if ((flags & NV_RX_ERROR_MASK) == NV_RX_ERROR4) {
- 						len = nv_getlen(dev, skb->data, len);
- 						if (len < 0) {
--							dev->stats.rx_errors++;
- 							dev_kfree_skb(skb);
- 							goto next_pkt;
- 						}
-@@ -2663,11 +2644,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 					else {
- 						if (flags & NV_RX_MISSEDFRAME)
- 							dev->stats.rx_missed_errors++;
--						if (flags & NV_RX_CRCERR)
--							dev->stats.rx_crc_errors++;
--						if (flags & NV_RX_OVERFLOW)
--							dev->stats.rx_over_errors++;
--						dev->stats.rx_errors++;
- 						dev_kfree_skb(skb);
- 						goto next_pkt;
- 					}
-@@ -2683,7 +2659,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 					if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_ERROR4) {
- 						len = nv_getlen(dev, skb->data, len);
- 						if (len < 0) {
--							dev->stats.rx_errors++;
- 							dev_kfree_skb(skb);
- 							goto next_pkt;
- 						}
-@@ -2695,11 +2670,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 					}
+ 	/* media detection workaround.
+ 	 * Locking: Within irq hander or disable_irq+spin_lock(&np->lock);
+@@ -821,6 +823,7 @@ struct fe_priv {
+ 	struct nv_skb_map *tx_change_owner;
+ 	struct nv_skb_map *tx_end_flip;
+ 	int tx_stop;
++	unsigned long stats_tx_dropped;
+ 
+ 	/* msi/msi-x fields */
+ 	u32 msi_flags;
+@@ -1700,33 +1703,47 @@ static void nv_get_hw_stats(struct net_device *dev)
+ }
+ 
+ /*
+- * nv_get_stats: dev->get_stats function
++ * nv_get_stats: dev->ndo_get_stats64 function
+  * Get latest stats value from the nic.
+  * Called with read_lock(&dev_base_lock) held for read -
+  * only synchronized against unregister_netdevice.
+  */
+-static struct net_device_stats *nv_get_stats(struct net_device *dev)
++static struct rtnl_link_stats64*
++nv_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *storage)
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+ 
+ 	/* If the nic supports hw counters then retrieve latest values */
+-	if (np->driver_data & (DEV_HAS_STATISTICS_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_STATISTICS_V3)) {
++	if (np->driver_data & (DEV_HAS_STATISTICS_V1
++			       | DEV_HAS_STATISTICS_V2
++			       | DEV_HAS_STATISTICS_V3)) {
+ 		nv_get_hw_stats(dev);
+ 
+-		/* copy to net_device stats */
+-		dev->stats.tx_packets = np->estats.tx_packets;
+-		dev->stats.rx_bytes = np->estats.rx_bytes;
+-		dev->stats.tx_bytes = np->estats.tx_bytes;
+-		dev->stats.tx_fifo_errors = np->estats.tx_fifo_errors;
+-		dev->stats.tx_carrier_errors = np->estats.tx_carrier_errors;
+-		dev->stats.rx_crc_errors = np->estats.rx_crc_errors;
+-		dev->stats.rx_over_errors = np->estats.rx_over_errors;
+-		dev->stats.rx_fifo_errors = np->estats.rx_drop_frame;
+-		dev->stats.rx_errors = np->estats.rx_errors_total;
+-		dev->stats.tx_errors = np->estats.tx_errors_total;
+-	}
+-
+-	return &dev->stats;
++		/* generic stats */
++		storage->rx_packets = np->estats.rx_packets;
++		storage->tx_packets = np->estats.tx_packets;
++		storage->rx_bytes   = np->estats.rx_bytes;
++		storage->tx_bytes   = np->estats.tx_bytes;
++		storage->rx_errors  = np->estats.rx_errors_total;
++		storage->tx_errors  = np->estats.tx_errors_total;
++		storage->rx_dropped = np->stats_rx_dropped;
++		storage->tx_dropped = np->stats_tx_dropped;
++		storage->multicast  = np->estats.rx_multicast;
++
++		/* detailed rx_errors */
++		storage->rx_length_errors = np->estats.rx_length_error;
++		storage->rx_over_errors   = np->estats.rx_over_errors;
++		storage->rx_crc_errors    = np->estats.rx_crc_errors;
++		storage->rx_frame_errors  = np->estats.rx_frame_align_error;
++		storage->rx_fifo_errors   = np->estats.rx_drop_frame;
++		storage->rx_missed_errors = np->stats_rx_missed_errors;
++
++		/* detailed tx_errors */
++		storage->tx_carrier_errors = np->estats.tx_carrier_errors;
++		storage->tx_fifo_errors    = np->estats.tx_fifo_errors;
++	}
++
++	return storage;
+ }
+ 
+ /*
+@@ -1759,8 +1776,10 @@ static int nv_alloc_rx(struct net_device *dev)
+ 				np->put_rx.orig = np->first_rx.orig;
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+-		} else
++		} else {
++			np->stats_rx_dropped++;
+ 			return 1;
++		}
+ 	}
+ 	return 0;
+ }
+@@ -1791,8 +1810,10 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 				np->put_rx.ex = np->first_rx.ex;
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+-		} else
++		} else {
++			np->stats_rx_dropped++;
+ 			return 1;
++		}
+ 	}
+ 	return 0;
+ }
+@@ -1928,7 +1949,7 @@ static void nv_drain_tx(struct net_device *dev)
+ 			np->tx_ring.ex[i].buflow = 0;
+ 		}
+ 		if (nv_release_txskb(np, &np->tx_skb[i]))
+-			dev->stats.tx_dropped++;
++			np->stats_tx_dropped++;
+ 		np->tx_skb[i].dma = 0;
+ 		np->tx_skb[i].dma_len = 0;
+ 		np->tx_skb[i].dma_single = 0;
+@@ -2651,7 +2672,7 @@ static int nv_rx_process(struct net_device *dev, int limit)
  					/* the rest are hard errors */
  					else {
--						if (flags & NV_RX2_CRCERR)
--							dev->stats.rx_crc_errors++;
--						if (flags & NV_RX2_OVERFLOW)
--							dev->stats.rx_over_errors++;
--						dev->stats.rx_errors++;
+ 						if (flags & NV_RX_MISSEDFRAME)
+-							dev->stats.rx_missed_errors++;
++							np->stats_rx_missed_errors++;
  						dev_kfree_skb(skb);
  						goto next_pkt;
  					}
-@@ -2717,7 +2687,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
+@@ -2694,7 +2715,6 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 		skb_put(skb, len);
  		skb->protocol = eth_type_trans(skb, dev);
  		napi_gro_receive(&np->napi, skb);
- 		dev->stats.rx_packets++;
--		dev->stats.rx_bytes += len;
+-		dev->stats.rx_packets++;
  next_pkt:
  		if (unlikely(np->get_rx.orig++ == np->last_rx.orig))
  			np->get_rx.orig = np->first_rx.orig;
-@@ -2800,9 +2769,7 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+@@ -2777,7 +2797,6 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
  				__vlan_hwaccel_put_tag(skb, vid);
  			}
  			napi_gro_receive(&np->napi, skb);
--
- 			dev->stats.rx_packets++;
--			dev->stats.rx_bytes += len;
+-			dev->stats.rx_packets++;
  		} else {
  			dev_kfree_skb(skb);
  		}
+@@ -5199,7 +5218,7 @@ static int nv_close(struct net_device *dev)
+ static const struct net_device_ops nv_netdev_ops = {
+ 	.ndo_open		= nv_open,
+ 	.ndo_stop		= nv_close,
+-	.ndo_get_stats		= nv_get_stats,
++	.ndo_get_stats64	= nv_get_stats64,
+ 	.ndo_start_xmit		= nv_start_xmit,
+ 	.ndo_tx_timeout		= nv_tx_timeout,
+ 	.ndo_change_mtu		= nv_change_mtu,
+@@ -5216,7 +5235,7 @@ static const struct net_device_ops nv_netdev_ops = {
+ static const struct net_device_ops nv_netdev_ops_optimized = {
+ 	.ndo_open		= nv_open,
+ 	.ndo_stop		= nv_close,
+-	.ndo_get_stats		= nv_get_stats,
++	.ndo_get_stats64	= nv_get_stats64,
+ 	.ndo_start_xmit		= nv_start_xmit_optimized,
+ 	.ndo_tx_timeout		= nv_tx_timeout,
+ 	.ndo_change_mtu		= nv_change_mtu,
 -- 
 1.7.3.1
