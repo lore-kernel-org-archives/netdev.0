@@ -1,83 +1,103 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: Re: [stable] net: Handle different key sizes between address
- families in flow cache
-Date: Fri, 4 Nov 2011 21:29:58 -0500
-Message-ID: <20111104212958.5d54152b38050e2a0917d575@freescale.com>
-References: <20111101185022.b156ea957baf286f1bf00f9c@freescale.com>
-	<20111101.203430.110242050755204948.davem@davemloft.net>
-	<20111103135851.2229247682ec040d653479e1@freescale.com>
-	<20111103.224329.2276058062630695656.davem@davemloft.net>
-	<20111104144659.3e0a30afffffd9dd73cf740e@freescale.com>
-	<20111104212439.GA27324@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <stable@vger.kernel.org>,
-	<eric.dumazet@gmail.com>, <zheng.z.yan@intel.com>,
-	<netdev@vger.kernel.org>, David Ward <david.ward@ll.mit.edu>
-To: Greg KH <greg@kroah.com>
+From: Michal Soltys <soltys@ziu.info>
+Subject: [PATCH 02/11] sch_hfsc.c: go passive after cl_vt update in update_vf()
+Date: Sat,  5 Nov 2011 03:32:48 +0100
+Message-ID: <1320460377-8682-3-git-send-email-soltys@ziu.info>
+References: <1320460377-8682-1-git-send-email-soltys@ziu.info>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:30102
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752180Ab1KECa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 22:30:58 -0400
-In-Reply-To: <20111104212439.GA27324@kroah.com>
+Received: from tha.ppgk.com.pl ([77.252.116.179]:6168 "EHLO tha.ppgk.com.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753429Ab1KECdI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Nov 2011 22:33:08 -0400
+In-Reply-To: <1320460377-8682-1-git-send-email-soltys@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 4 Nov 2011 14:24:39 -0700
-Greg KH <greg@kroah.com> wrote:
+In contrast to RT and UL curves - which are based on actual time and
+can always be properly initialized, LS is based on virtual time, which
+we initialize manually, in three possible ways:
 
-> On Fri, Nov 04, 2011 at 02:46:59PM -0500, Kim Phillips wrote:
-> > commit aa1c366e4febc7f5c2b84958a2dd7cd70e28f9d0 upstream.
-> > 
-> > With the conversion of struct flowi to a union of AF-specific structs, some
-> > operations on the flow cache need to account for the exact size of the key.
-> > 
-> > Signed-off-by: David Ward <david.ward@ll.mit.edu>
-> > Signed-off-by: David S. Miller <davem@davemloft.net>
-> > Cc: stable@vger.kernel.org # v3.0.x
-> > ---
-> > This patch is the result of a clean cherry-pick onto v3.0.8.
-> > It restores IPSec fwding performance from ~4kpps back to ~44kpps on
-> > a P2020DS board.
-> 
-> Too bad you forgot to build this patch after you applied it:
->   CC      init/main.o
-> In file included from include/linux/security.h:39:0,
->                  from init/main.c:32:
-> include/net/flow.h: In function 'flow_key_size':
-> include/net/flow.h:174:3: error: size of unnamed array is negative
-> include/net/flow.h:177:3: error: size of unnamed array is negative
-> 
-> Please be kind to your poor over-worked stable kernel maintainer and do
-> the decent thing and TEST YOUR PATCH before you ask him to accept it.
-> 
-> bah, I think it's time for the weekend to start a bit earlier than normal...
+1. (max + min) / 2 of active siblings (min must not be upperlimited)
+2. do not adjust existing vt, if parent has the same backlog period and
+   newly calculated vt is smaller
+3. initialize to cumulative cvtmax of all periods
 
-so sorry I hadn't tested 64-bit.
+In the hfsc paper, update_vf() was not responsible for setting class
+passive - it only updated linksharing related stuff. So update
+chores first, passivity second (if applicable).
 
-I found the problem - upstream commit aa1c366 depends on
-upstream commit 728871b:
+In one of the patches to altq, setting class passive was merged into
+update_vf(), but in doing so, go_passive condition was checked /before/
+vt update.
 
-commit 728871bc05afc8ff310b17dba3e57a2472792b13
-Author: David Ward <david.ward@ll.mit.edu>
-Date:   Mon Sep 5 16:47:23 2011 +0000
+This conflicts with point (2.), as vt tested at that point doesn't
+reflect the situation after the last dequeue - and we update virtual
+time curve later, after updating vt itself.
 
-    net: Align AF-specific flowi structs to long
-    
-    AF-specific flowi structs are now passed to flow_key_compare, which must
-    also be aligned to a long.
-    
-    Signed-off-by: David Ward <david.ward@ll.mit.edu>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+It also kind of conflicts with (3.) for single-packet backlog periods,
+as vt will never move to the right, but total work will keep increasing
+(this is handled by rtsc_min() conditions though, so the results are
+still generally valid).
 
-so, one more time, in stable sign-off area format:
+Signed-off-by: Michal Soltys <soltys@ziu.info>
+---
+ net/sched/sch_hfsc.c |   33 +++++++++++++++++----------------
+ 1 files changed, 17 insertions(+), 16 deletions(-)
 
-Cc: <stable@vger.kernel.org> # v3.0.x: 728871b: net: Align AF-specific flowi structs to long
-Cc: <stable@vger.kernel.org> # v3.0.x
-
-build tested on 32- and 64-bit powerpc, and ARCH=x86
-{i386,x86_64}_defconfig.
-
-Kim
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 261accc..6b73725 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -776,6 +776,22 @@ update_vf(struct hfsc_class *cl, unsigned int len, u64 cur_time)
+ 		if (!(cl->cl_flags & HFSC_FSC) || cl->cl_nactive == 0)
+ 			continue;
+ 
++		/* update vt */
++		cl->cl_vt = rtsc_y2x(&cl->cl_virtual, cl->cl_total)
++			    - cl->cl_vtoff + cl->cl_vtadj;
++
++		/*
++		 * fixup vt due to upperlimit (if applicable)
++		 *
++		 * if vt of the class is smaller than cvtmin,
++		 * the class was skipped in the past due to non-fit.
++		 * if so, we need to adjust vtadj.
++		 */
++		if (cl->cl_vt < cl->cl_parent->cl_cvtmin) {
++			cl->cl_vtadj += cl->cl_parent->cl_cvtmin - cl->cl_vt;
++			cl->cl_vt = cl->cl_parent->cl_cvtmin;
++		}
++
+ 		if (go_passive && --cl->cl_nactive == 0)
+ 			go_passive = 1;
+ 		else
+@@ -797,25 +813,10 @@ update_vf(struct hfsc_class *cl, unsigned int len, u64 cur_time)
+ 			continue;
+ 		}
+ 
+-		/*
+-		 * update vt and f
+-		 */
+-		cl->cl_vt = rtsc_y2x(&cl->cl_virtual, cl->cl_total)
+-			    - cl->cl_vtoff + cl->cl_vtadj;
+-
+-		/*
+-		 * if vt of the class is smaller than cvtmin,
+-		 * the class was skipped in the past due to non-fit.
+-		 * if so, we need to adjust vtadj.
+-		 */
+-		if (cl->cl_vt < cl->cl_parent->cl_cvtmin) {
+-			cl->cl_vtadj += cl->cl_parent->cl_cvtmin - cl->cl_vt;
+-			cl->cl_vt = cl->cl_parent->cl_cvtmin;
+-		}
+-
+ 		/* update the vt tree */
+ 		vttree_update(cl);
+ 
++		/* update ft */
+ 		if (cl->cl_flags & HFSC_USC) {
+ 			cl->cl_myf = cl->cl_myfadj + rtsc_y2x(&cl->cl_ulimit,
+ 							      cl->cl_total);
+-- 
+1.7.7.1
