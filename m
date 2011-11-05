@@ -1,50 +1,86 @@
 From: Michal Soltys <soltys@ziu.info>
-Subject: [PATCH/RFC 00/11] HFSC patches
-Date: Sat,  5 Nov 2011 03:32:46 +0100
-Message-ID: <1320460377-8682-1-git-send-email-soltys@ziu.info>
+Subject: [PATCH 01/11] sch_hfsc.c: update_d() fixup
+Date: Sat,  5 Nov 2011 03:32:47 +0100
+Message-ID: <1320460377-8682-2-git-send-email-soltys@ziu.info>
+References: <1320460377-8682-1-git-send-email-soltys@ziu.info>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tha.ppgk.com.pl ([77.252.116.179]:38979 "EHLO tha.ppgk.com.pl"
+Received: from tha.ppgk.com.pl ([77.252.116.179]:13585 "EHLO tha.ppgk.com.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753426Ab1KECdH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753359Ab1KECdH (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 4 Nov 2011 22:33:07 -0400
+In-Reply-To: <1320460377-8682-1-git-send-email-soltys@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Those are most of the patches I've been sitting on for a while. For the most
-part they are either small corrections or simplifications (marked with s) - but
-there are also some new things (marked with !), the most interesting being #8
-probably.
+The deadline time is generated from total rt work + size of the next packet.
 
-All changes are richly commented in respective commit messages. I've been using
-them for a while - so unless I missed some subtlety, all should be fine.
+Now, when a packet gets dequeued by linkshare criterion, we have to
+update the deadline time to match the new situation (that's the job of
+update_d()) - but to do that properly, we have to subtract the size of
+the packet just dequeued, when calling rtsc_min().
 
-Apart from these, there's still one subtle thing to do w.r.t. cl_cvtmin (during
-init_vf(), as this value is lagged relatively to the situation at the time of
-enqueue).
+This is actually stated in hfsc paper very clearly, but got (probably)
+missed during altq days (or due to some patch at some point).
 
-On a side note, I was thinking about something like hfsc-strict or so - where
-[uplink] interface could be upperlimited on hfsc qdisc level, but all the class
-upperlimit would be otherwise gone. Not sure if anyone would be even interested
-in something like that at all.
+Signed-off-by: Michal Soltys <soltys@ziu.info>
+---
+ net/sched/sch_hfsc.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-
-Michal Soltys (11):
-  sch_hfsc.c: update_d() fixup
-  sch_hfsc.c: go passive after cl_vt update in update_vf()
-  sch_hfsc.c: rtsc_min() convex/convex case fixup
-s sch_hfsc.c: remove initial check in vttree_get_minvt() (optional)
-s sch_hfsc.c: don't subtract from cl_vtoff and cl_cvtoff
-s sch_hfsc.c: seg_y2x(), rtsc_y2x(), hfsc_change_class() minor changes
-s sch_hfsc.c: make cl_vt keep all periods in itself
-! sch_hfsc.c: update speed table, add explanations, increase accuracy
-s sch_hfsc.c: split update_vf()
-! sch_hfsc.c: make sure classes are able to use 1st segment on fresh backlog period
-s sch_hfsc.c: remove cl_vtadj, shift virtual curve instead
-
- net/sched/sch_hfsc.c |  373 +++++++++++++++++++++++++++-----------------------
- 1 files changed, 203 insertions(+), 170 deletions(-)
-
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 6488e64..261accc 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -650,9 +650,9 @@ update_ed(struct hfsc_class *cl, unsigned int next_len)
+ }
+ 
+ static inline void
+-update_d(struct hfsc_class *cl, unsigned int next_len)
++update_d(struct hfsc_class *cl, unsigned int curr_len, unsigned int next_len)
+ {
+-	cl->cl_d = rtsc_y2x(&cl->cl_deadline, cl->cl_cumul + next_len);
++	cl->cl_d = rtsc_y2x(&cl->cl_deadline, cl->cl_cumul - curr_len + next_len);
+ }
+ 
+ static inline void
+@@ -1610,7 +1610,7 @@ hfsc_dequeue(struct Qdisc *sch)
+ 	struct hfsc_class *cl;
+ 	struct sk_buff *skb;
+ 	u64 cur_time;
+-	unsigned int next_len;
++	unsigned int curr_len, next_len;
+ 	int realtime = 0;
+ 
+ 	if (sch->q.qlen == 0)
+@@ -1640,14 +1640,16 @@ hfsc_dequeue(struct Qdisc *sch)
+ 	}
+ 
+ 	skb = qdisc_dequeue_peeked(cl->qdisc);
++	curr_len = qdisc_pkt_len(skb);
++
+ 	if (skb == NULL) {
+ 		qdisc_warn_nonwc("HFSC", cl->qdisc);
+ 		return NULL;
+ 	}
+ 
+-	update_vf(cl, qdisc_pkt_len(skb), cur_time);
++	update_vf(cl, curr_len, cur_time);
+ 	if (realtime)
+-		cl->cl_cumul += qdisc_pkt_len(skb);
++		cl->cl_cumul += curr_len;
+ 
+ 	if (cl->qdisc->q.qlen != 0) {
+ 		if (cl->cl_flags & HFSC_RSC) {
+@@ -1656,7 +1658,7 @@ hfsc_dequeue(struct Qdisc *sch)
+ 			if (realtime)
+ 				update_ed(cl, next_len);
+ 			else
+-				update_d(cl, next_len);
++				update_d(cl, curr_len, next_len);
+ 		}
+ 	} else {
+ 		/* the class becomes passive */
 -- 
 1.7.7.1
