@@ -1,59 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: dst->obsolete has become pointless
-Date: Fri, 04 Nov 2011 23:09:10 -0400 (EDT)
-Message-ID: <20111104.230910.520924516201406800.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH/RFC 00/11] HFSC patches
+Date: Sat, 05 Nov 2011 04:48:00 +0100
+Message-ID: <4EB4B1F0.20404@trash.net>
+References: <1320460377-8682-1-git-send-email-soltys@ziu.info>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: steffen.klassert@secunet.com, timo.teras@iki.fi
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michal Soltys <soltys@ziu.info>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46208 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752454Ab1KEDJc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 23:09:32 -0400
+Received: from stinky.trash.net ([213.144.137.162]:61819 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753545Ab1KED4I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Nov 2011 23:56:08 -0400
+In-Reply-To: <1320460377-8682-1-git-send-email-soltys@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 05.11.2011 03:32, Michal Soltys wrote:
+> Those are most of the patches I've been sitting on for a while. For the most
+> part they are either small corrections or simplifications (marked with s) - but
+> there are also some new things (marked with !), the most interesting being #8
+> probably.
+> 
+> All changes are richly commented in respective commit messages. I've been using
+> them for a while - so unless I missed some subtlety, all should be fine.
 
-While researching the things unearthed by Steffen Klassert wrt. PMTU
-handling in the current tree I went to do some research on what the
-real story is wrt. dst->obsolete.
+Thanks Michal. It has been quite a while since I've last looked
+at this and this is complicated stuff, please give me a few days
+to review your patches.
 
-And sure enough EVERY SINGLE ipv4 and ipv6 route is created with
-obsolete set to -1, so we unconditionally always invoke ->dst_check().
+> Apart from these, there's still one subtle thing to do w.r.t. cl_cvtmin (during
+> init_vf(), as this value is lagged relatively to the situation at the time of
+> enqueue).
+> 
+> On a side note, I was thinking about something like hfsc-strict or so - where
+> [uplink] interface could be upperlimited on hfsc qdisc level, but all the class
+> upperlimit would be otherwise gone. Not sure if anyone would be even interested
+> in something like that at all.
 
-This makes it completely pointless as an optimization to avoid calling
-the dst_ops->dst_check() method.  It never triggers.
-
-This stems from Timo's change to make route expiry properly visible
-to IPSEC stacked routes:
-
---
-commit d11a4dc18bf41719c9f0d7ed494d295dd2973b92
-Author: Timo Ter=E4s <timo.teras@iki.fi>
-Date:   Thu Mar 18 23:20:20 2010 +0000
-
-    ipv4: check rt_genid in dst_check
-=2E..
---
-
-Only DecNET creates routes with obsolete initially set to zero, and
-therefore only hits ->dst_check() when dst_free is invoked on the route
-during a flush of the decnet routing tables.
-
-And actually this is how ipv4 operated before we started using
-generation counts instead of flushing the entire table.  IPV6 seems to
-always have used the FIB6 tree serial numbers for expiration checking
-and therefore always set obsolete to -1 on new routes.
-
-So we can't just get rid of the dst->obsolete check in dst_check() and
-__sk_dst_check() because that will break DecNET because DecNET's
-->dst_check() handler assumes that if it was called then the route
-is obsolete and it just plainly returns NULL to tell the caller the
-route is in fact invalid.
-
-The current situation looks quite terrible, because these functions loo=
-k
-like they optimize away the check op call, but in reality for ipv4 and
-ipv6 they do not.
+So classes would just use link-sharing curves? That's
+already possible, so I probably don't get your idea.
