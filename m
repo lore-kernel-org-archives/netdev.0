@@ -1,121 +1,129 @@
 From: Michal Soltys <soltys@ziu.info>
-Subject: [PATCH 07/11] sch_hfsc.c: make cl_vt keep all periods in itself
-Date: Sat,  5 Nov 2011 03:32:53 +0100
-Message-ID: <1320460377-8682-8-git-send-email-soltys@ziu.info>
+Subject: [PATCH 06/11] sch_hfsc.c: seg_y2x(), rtsc_y2x(), hfsc_change_class() minor changes
+Date: Sat,  5 Nov 2011 03:32:52 +0100
+Message-ID: <1320460377-8682-7-git-send-email-soltys@ziu.info>
 References: <1320460377-8682-1-git-send-email-soltys@ziu.info>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tha.ppgk.com.pl ([77.252.116.179]:15225 "EHLO tha.ppgk.com.pl"
+Received: from tha.ppgk.com.pl ([77.252.116.179]:2710 "EHLO tha.ppgk.com.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753546Ab1KECdK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753429Ab1KECdK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 4 Nov 2011 22:33:10 -0400
 In-Reply-To: <1320460377-8682-1-git-send-email-soltys@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, cl_vt is kept at all cost to be relative to actual backlog
-period - thus we have cl_vtoff that is carefully updated to track
-current "start" of vt; cl_vtmax, that keeps highest vt seen among
-siblings in last backlog period; cl_cvtoff that keeps sum of all
-previous cl_vtmax.
+hfsc_change_class():
 
-Despite that, the actual service curve is always updated from "full" vt,
-and subsequent computations have vtoff part subtracted.
+Make sure that invalid input (flat 2nd segment, USC without FSC) is not
+allowed. Even though userspace (tc) does the respective checks as well - we
+want to verify if everything is in order before the following seg_y2x() change
+(and some other userspace tools not doing such checks might exist):
 
-This is unnecessary, as vt can simply keep all vtoff values in itself -
-while keeping the algorithm behaviour exactly the same.
+seg_y2x():
 
-This change allows us to remove cl_vtoff (no longer needed - part of
-cl_vt now) and cl_cvtmax (no longer needed, cl_cvtoff is updated
-directly from cl_vt).
+All callers (actually there's only one - rtsc_y2x()) guarantee that the
+slope argument actually makese sense (otherwise the results would be
+unusable) - so we don't heave to check for +inf case.
 
-Signed-off-by: Michal Soltys <soltys@ziu.info>
+rtsc_y2x():
+
+In case of flat 1st segment of a service curve, the function always
+returns maximum a, such that f(a) = y (for our curves then, a = x + dx).
+To keep things consistent (and continuous), we also return x+dx for
+values < y.
 ---
- net/sched/sch_hfsc.c |   37 ++++++++++++-------------------------
- 1 files changed, 12 insertions(+), 25 deletions(-)
+ net/sched/sch_hfsc.c |   39 +++++++++++++++++++++++++++++----------
+ 1 files changed, 29 insertions(+), 10 deletions(-)
 
 diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 8da2d88..ceff8a6 100644
+index e0cf11b..8da2d88 100644
 --- a/net/sched/sch_hfsc.c
 +++ b/net/sched/sch_hfsc.c
-@@ -152,9 +152,8 @@ struct hfsc_class {
- 					   (monotonic within a period) */
- 	u64	cl_vtadj;		/* intra-period cumulative vt
- 					   adjustment */
--	u64	cl_vtoff;		/* inter-period cumulative vt offset */
--	u64	cl_cvtmax;		/* max child's vt in the last period */
--	u64	cl_cvtoff;		/* cumulative cvtmax of all periods */
-+	u64	cl_cvtoff;		/* last (biggest) vt seen between
-+					   siblings */
+@@ -400,6 +400,8 @@ seg_y2x(u64 y, u64 ism)
+ {
+ 	u64 x;
  
- 	struct internal_sc cl_rsc;	/* internal real-time service curve */
- 	struct internal_sc cl_fsc;	/* internal fair service curve */
-@@ -710,26 +709,17 @@ init_vf(struct hfsc_class *cl, unsigned int len)
- 			} else {
- 				/*
- 				 * first child for a new parent backlog period.
--				 * add parent's cvtmax to cvtoff to make a new
--				 * vt (vtoff + vt) larger than the vt in the
--				 * last period for all children.
-+				 * use the biggest vt seen between siblings so far
- 				 */
--				vt = cl->cl_parent->cl_cvtmax;
--				cl->cl_parent->cl_cvtoff += vt;
--				cl->cl_parent->cl_cvtmax = 0;
--				cl->cl_parent->cl_cvtmin = 0;
--				cl->cl_vt = 0;
-+				cl->cl_vt = cl->cl_parent->cl_cvtoff;
-+				cl->cl_parent->cl_cvtmin = cl->cl_vt;
- 			}
++	/* callers guarantee that ism is not infinity */
++#if 0
+ 	if (y == 0)
+ 		x = 0;
+ 	else if (ism == HT_INFINITY)
+@@ -408,6 +410,8 @@ seg_y2x(u64 y, u64 ism)
+ 		x = (y >> ISM_SHIFT) * ism
+ 		    + (((y & ISM_MASK) * ism) >> ISM_SHIFT);
+ 	}
++#endif
++	x = (y >> ISM_SHIFT) * ism + (((y & ISM_MASK) * ism) >> ISM_SHIFT);
+ 	return x;
+ }
  
--			cl->cl_vtoff = cl->cl_parent->cl_cvtoff;
+@@ -509,7 +513,7 @@ rtsc_y2x(struct runtime_sc *rtsc, u64 y)
+ {
+ 	u64 x;
+ 
+-	if (y < rtsc->y)
++	if (y < rtsc->y && rtsc->dy != 0)
+ 		x = rtsc->x;
+ 	else if (y <= rtsc->y + rtsc->dy) {
+ 		/* x belongs to the 1st segment */
+@@ -985,22 +989,40 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 
+ 	if (tb[TCA_HFSC_RSC]) {
+ 		rsc = nla_data(tb[TCA_HFSC_RSC]);
+-		if (rsc->m1 == 0 && rsc->m2 == 0)
+-			rsc = NULL;
++		if (rsc->m2 == 0) {
++			if (rsc->m1 != 0)
++				return -EINVAL;
++			else
++				rsc = NULL;
++		}
+ 	}
+ 
+ 	if (tb[TCA_HFSC_FSC]) {
+ 		fsc = nla_data(tb[TCA_HFSC_FSC]);
+-		if (fsc->m1 == 0 && fsc->m2 == 0)
+-			fsc = NULL;
++		if (fsc->m2 == 0) {
++			if (fsc->m1 != 0)
++				return -EINVAL;
++			else
++				fsc = NULL;
++		}
+ 	}
+ 
+ 	if (tb[TCA_HFSC_USC]) {
+ 		usc = nla_data(tb[TCA_HFSC_USC]);
+-		if (usc->m1 == 0 && usc->m2 == 0)
+-			usc = NULL;
++		if (usc->m2 == 0) {
++			if (usc->m1 != 0)
++				return -EINVAL;
++			else
++				usc = NULL;
++		}
+ 	}
+ 
++	if (rsc == NULL && fsc == NULL)
++		return -EINVAL;
++
++	if (fsc == NULL && usc != NULL)
++		return -EINVAL;
++
+ 	if (cl != NULL) {
+ 		if (parentid) {
+ 			if (cl->cl_parent &&
+@@ -1053,9 +1075,6 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	if (hfsc_find_class(classid, sch))
+ 		return -EEXIST;
+ 
+-	if (rsc == NULL && fsc == NULL)
+-		return -EINVAL;
 -
- 			/* update the virtual curve */
--			vt = cl->cl_vt + cl->cl_vtoff;
--			rtsc_min(&cl->cl_virtual, &cl->cl_fsc, vt,
--						      cl->cl_total);
--			cl->cl_vtadj = 0;
-+			rtsc_min(&cl->cl_virtual, &cl->cl_fsc, cl->cl_vt, cl->cl_total);
- 
--			cl->cl_vtperiod++;  /* increment vt period */
-+			cl->cl_vtadj = 0;
-+			cl->cl_vtperiod++;
- 			cl->cl_parentperiod = cl->cl_parent->cl_vtperiod;
- 			if (cl->cl_parent->cl_nactive == 0)
- 				cl->cl_parentperiod++;
-@@ -778,8 +768,7 @@ update_vf(struct hfsc_class *cl, unsigned int len, u64 cur_time)
- 			continue;
- 
- 		/* update vt */
--		cl->cl_vt = rtsc_y2x(&cl->cl_virtual, cl->cl_total)
--			    - cl->cl_vtoff + cl->cl_vtadj;
-+		cl->cl_vt = rtsc_y2x(&cl->cl_virtual, cl->cl_total) + cl->cl_vtadj;
- 
- 		/*
- 		 * fixup vt due to upperlimit (if applicable)
-@@ -801,9 +790,9 @@ update_vf(struct hfsc_class *cl, unsigned int len, u64 cur_time)
- 		if (go_passive) {
- 			/* no more active child, going passive */
- 
--			/* update cvtmax of the parent class */
--			if (cl->cl_vt > cl->cl_parent->cl_cvtmax)
--				cl->cl_parent->cl_cvtmax = cl->cl_vt;
-+			/* update cl_cvtoff of the parent class */
-+			if (cl->cl_vt > cl->cl_parent->cl_cvtoff)
-+				cl->cl_parent->cl_cvtoff = cl->cl_vt;
- 
- 			/* remove this class from the vt tree */
- 			vttree_remove(cl);
-@@ -1507,9 +1496,7 @@ hfsc_reset_class(struct hfsc_class *cl)
- 	cl->cl_e            = 0;
- 	cl->cl_vt           = 0;
- 	cl->cl_vtadj        = 0;
--	cl->cl_vtoff        = 0;
- 	cl->cl_cvtmin       = 0;
--	cl->cl_cvtmax       = 0;
- 	cl->cl_cvtoff       = 0;
- 	cl->cl_vtperiod     = 0;
- 	cl->cl_parentperiod = 0;
+ 	cl = kzalloc(sizeof(struct hfsc_class), GFP_KERNEL);
+ 	if (cl == NULL)
+ 		return -ENOBUFS;
 -- 
 1.7.7.1
