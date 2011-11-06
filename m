@@ -1,38 +1,52 @@
-From: "CARLSBEG MALAYSIA" <aaron_eckhart@web.de>
-Subject: -C O N G R A T U  L A T I O N S-
-Date: Sun, 06 Nov 2011 20:37:27 +0800
-Message-ID: <20111106123731.72F509C158@smtpauth.surewest.net>
-Reply-To: carlsberg.claim@kimo.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rc2.surewest.net ([66.60.130.51]:34440 "EHLO rc2.surewest.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751525Ab1KFMnO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2011 07:43:14 -0500
-Received: from smtp3.surewest.net ([66.60.130.145])
-          by rc2.surewest.net ({1b970212-ad71-403b-a2dd-d897d2565e71})
-          via TCP (outbound) with ESMTP id 20111106123732303
-          for <netdev@vger.kernel.org>;
-          Sun, 06 Nov 2011 12:37:32 +0000
-Received: from smtpauth.surewest.net (smtpauth.surewest.net [66.60.130.153])
-	by smtp3.surewest.net (Postfix) with ESMTP id 4350A89736
-	for <netdev@vger.kernel.org>; Sun,  6 Nov 2011 04:37:32 -0800 (PST)
-Received: from [10.1.1.3] (unknown [180.75.140.161])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtpauth.surewest.net (Postfix) with ESMTPSA id 72F509C158
-	for <netdev@vger.kernel.org>; Sun,  6 Nov 2011 04:37:31 -0800 (PST)
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 3/5] net/mac80211/debugfs.c: use kstrtoul, etc
+Date: Sun,  6 Nov 2011 14:26:48 +0100
+Message-ID: <1320586010-21931-4-git-send-email-julia@diku.dk>
+References: <1320586010-21931-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1320586010-21931-1-git-send-email-julia@diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
--CARLSBERG MALAYSIA 2011 AWARD-
+From: Julia Lawall <julia@diku.dk>
 
--YOUR EMAIL HAS BEEN SELECTED & HAVE BEEN AWARDED $650,000.00 USD BY CARLSBERG MALAYSIA-
-To Claim Your Prize, Immediately Contact:
-Name: MR.FADIL BIN HASSAN
-Email: mcarlsberg@kimo.com
-Phone: :+60164671274
+Use kstrtoul, etc instead of the now deprecated strict_strtoul, etc.
+
+A semantic patch rule for the kstrtoul case is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression a,b;
+{int,long} *c;
+@@
+
+-strict_strtoul
++kstrtoul
+ (a,b,c)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ net/mac80211/debugfs.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -u -p a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+--- a/net/mac80211/debugfs.c
++++ b/net/mac80211/debugfs.c
+@@ -190,7 +190,7 @@ static ssize_t uapsd_max_sp_len_write(st
+ 		return -EFAULT;
+ 	buf[len] = '\0';
+ 
+-	ret = strict_strtoul(buf, 0, &val);
++	ret = kstrtoul(buf, 0, &val);
+ 
+ 	if (ret)
+ 		return -EINVAL;
