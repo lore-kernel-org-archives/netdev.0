@@ -1,56 +1,52 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] net, wireless, mwifiex: Fix mem leak in
- mwifiex_update_curr_bss_params()
-Date: Sun, 6 Nov 2011 22:58:31 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1111062255310.5763@swampdragon.chaosbits.net>
+From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+Subject: Re: Linux Route Cache performance tests
+Date: Sun, 06 Nov 2011 22:57:39 +0100
+Message-ID: <4EB702D3.1090703@itcare.pl>
+References: <4EB6AE62.5050803@itcare.pl>    <1320600597.6506.7.camel@edumazet-laptop> <4EB6D1D8.8040604@itcare.pl>   <1320605326.6506.27.camel@edumazet-laptop> <4EB6DE06.7050009@itcare.pl>  <1320608290.6506.33.camel@edumazet-laptop> <4EB6ED2E.1070106@itcare.pl> <1320614788.6506.38.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Bing Zhao <bzhao@marvell.com>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.iq.pl ([86.111.241.19]:38474 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750939Ab1KFV5k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Nov 2011 16:57:40 -0500
+In-Reply-To: <1320614788.6506.38.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If kmemdup() fails we leak the memory allocated to bss_desc.
-This patch fixes the leak.
-I also removed the pointless default assignment of 'NULL' to 'bss_desc' 
-while I was there anyway.
+W dniu 2011-11-06 22:26, Eric Dumazet pisze:
+> Le dimanche 06 novembre 2011 =C3=A0 21:25 +0100, Pawe=C5=82 Staszewsk=
+i a =C3=A9crit :
+>> Yes with this is a little problem i think with kernel 3.1 because
+>> dmesg | egrep  '(rhash)|(route)'
+>> [    0.000000] Command line: root=3D/dev/md2 rhash_entries=3D2097152
+>> [    0.000000] Kernel command line: root=3D/dev/md2 rhash_entries=3D=
+2097152
+>> [    4.697294] IP route cache hash table entries: 524288 (order: 10,
+>> 4194304 bytes)
+>>
+>>
+> Dont tell me you _still_ use a 32bit kernel ?
+no it is 64bit :)
+Linux localhost 3.1.0 #16 SMP Sun Nov 6 18:09:48 CET 2011 x86_64 Intel(=
+R)
+:)
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/net/wireless/mwifiex/scan.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
- note: patch is compile tested only since I don't have the hardware.
-
-diff --git a/drivers/net/wireless/mwifiex/scan.c b/drivers/net/wireless/mwifiex/scan.c
-index dae8dbb..8a3f959 100644
---- a/drivers/net/wireless/mwifiex/scan.c
-+++ b/drivers/net/wireless/mwifiex/scan.c
-@@ -1469,7 +1469,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv, u8 *bssid,
- 			       s32 rssi, const u8 *ie_buf, size_t ie_len,
- 			       u16 beacon_period, u16 cap_info_bitmap, u8 band)
- {
--	struct mwifiex_bssdescriptor *bss_desc = NULL;
-+	struct mwifiex_bssdescriptor *bss_desc;
- 	int ret;
- 	unsigned long flags;
- 	u8 *beacon_ie;
-@@ -1484,6 +1484,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv, u8 *bssid,
- 
- 	beacon_ie = kmemdup(ie_buf, ie_len, GFP_KERNEL);
- 	if (!beacon_ie) {
-+		kfree(bss_desc);
- 		dev_err(priv->adapter->dev, " failed to alloc beacon_ie\n");
- 		return -ENOMEM;
- 	}
--- 
-1.7.7.2
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+> If so, you need to tweak alloc_large_system_hash() to use vmalloc,
+> because you hit MAX_ORDER (10) page allocations.
+funny then :)
+Maybee i turned off too many kernel features
+> But considering LOWMEM is about 700 Mbytes, you wont be able to creat=
+e a
+> lot of route cache entries.
+>
+> Come on, do us a favor, and enter new era of computing.
+>
+>
+>
+>
+>
