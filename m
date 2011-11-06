@@ -1,13 +1,14 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 2/5] net/sunrpc: use kstrtoul, etc
-Date: Sun,  6 Nov 2011 14:26:47 +0100
-Message-ID: <1320586010-21931-3-git-send-email-julia@diku.dk>
+Subject: [PATCH 4/5] net/rfkill/core.c: use kstrtoul, etc
+Date: Sun,  6 Nov 2011 14:26:49 +0100
+Message-ID: <1320586010-21931-5-git-send-email-julia@diku.dk>
 References: <1320586010-21931-1-git-send-email-julia@diku.dk>
-Cc: kernel-janitors@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>
+Cc: kernel-janitors@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1320586010-21931-1-git-send-email-julia@diku.dk>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -34,62 +35,27 @@ expression a,b;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- net/sunrpc/addr.c     |    6 +++---
- net/sunrpc/auth.c     |    2 +-
- net/sunrpc/xprtsock.c |    2 +-
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ net/rfkill/core.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff -u -p a/net/sunrpc/addr.c b/net/sunrpc/addr.c
---- a/net/sunrpc/addr.c
-+++ b/net/sunrpc/addr.c
-@@ -182,7 +182,7 @@ static int rpc_parse_scope_id(const char
- 			scope_id = dev->ifindex;
- 			dev_put(dev);
- 		} else {
--			if (strict_strtoul(p, 10, &scope_id) == 0) {
-+			if (kstrtoul(p, 10, &scope_id) == 0) {
- 				kfree(p);
- 				return 0;
- 			}
-@@ -322,7 +322,7 @@ size_t rpc_uaddr2sockaddr(const char *ua
- 	c = strrchr(buf, '.');
- 	if (unlikely(c == NULL))
- 		return 0;
--	if (unlikely(strict_strtoul(c + 1, 10, &portlo) != 0))
-+	if (unlikely(kstrtoul(c + 1, 10, &portlo) != 0))
- 		return 0;
- 	if (unlikely(portlo > 255))
- 		return 0;
-@@ -331,7 +331,7 @@ size_t rpc_uaddr2sockaddr(const char *ua
- 	c = strrchr(buf, '.');
- 	if (unlikely(c == NULL))
- 		return 0;
--	if (unlikely(strict_strtoul(c + 1, 10, &porthi) != 0))
-+	if (unlikely(kstrtoul(c + 1, 10, &porthi) != 0))
- 		return 0;
- 	if (unlikely(porthi > 255))
- 		return 0;
-diff -u -p a/net/sunrpc/auth.c b/net/sunrpc/auth.c
---- a/net/sunrpc/auth.c
-+++ b/net/sunrpc/auth.c
-@@ -47,7 +47,7 @@ static int param_set_hashtbl_sz(const ch
+diff -u -p a/net/rfkill/core.c b/net/rfkill/core.c
+--- a/net/rfkill/core.c
++++ b/net/rfkill/core.c
+@@ -644,7 +644,7 @@ static ssize_t rfkill_soft_store(struct
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
  
- 	if (!val)
- 		goto out_inval;
--	ret = strict_strtoul(val, 0, &num);
-+	ret = kstrtoul(val, 0, &num);
- 	if (ret == -EINVAL)
- 		goto out_inval;
- 	nbits = fls(num);
-diff -u -p a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -2925,7 +2925,7 @@ static int param_set_uint_minmax(const c
+-	err = strict_strtoul(buf, 0, &state);
++	err = kstrtoul(buf, 0, &state);
+ 	if (err)
+ 		return err;
  
- 	if (!val)
- 		return -EINVAL;
--	ret = strict_strtoul(val, 0, &num);
-+	ret = kstrtoul(val, 0, &num);
- 	if (ret == -EINVAL || num < min || num > max)
- 		return -EINVAL;
- 	*((unsigned int *)kp->arg) = num;
+@@ -688,7 +688,7 @@ static ssize_t rfkill_state_store(struct
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	err = strict_strtoul(buf, 0, &state);
++	err = kstrtoul(buf, 0, &state);
+ 	if (err)
+ 		return err;
+ 
