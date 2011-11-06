@@ -1,46 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Linux Route Cache performance tests
-Date: Sun, 06 Nov 2011 22:26:28 +0100
-Message-ID: <1320614788.6506.38.camel@edumazet-laptop>
-References: <4EB6AE62.5050803@itcare.pl>
-	   <1320600597.6506.7.camel@edumazet-laptop> <4EB6D1D8.8040604@itcare.pl>
-	  <1320605326.6506.27.camel@edumazet-laptop> <4EB6DE06.7050009@itcare.pl>
-	 <1320608290.6506.33.camel@edumazet-laptop> <4EB6ED2E.1070106@itcare.pl>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] net, wireless, mwifiex: Fix mem leak in
+ mwifiex_update_curr_bss_params()
+Date: Sun, 6 Nov 2011 22:58:31 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1111062255310.5763@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:45774 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132Ab1KFV0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2011 16:26:33 -0500
-Received: by wyh15 with SMTP id 15so3911208wyh.19
-        for <netdev@vger.kernel.org>; Sun, 06 Nov 2011 13:26:32 -0800 (PST)
-In-Reply-To: <4EB6ED2E.1070106@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Bing Zhao <bzhao@marvell.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 06 novembre 2011 =C3=A0 21:25 +0100, Pawe=C5=82 Staszewski =
-a =C3=A9crit :
-> Yes with this is a little problem i think with kernel 3.1 because
-> dmesg | egrep  '(rhash)|(route)'
-> [    0.000000] Command line: root=3D/dev/md2 rhash_entries=3D2097152
-> [    0.000000] Kernel command line: root=3D/dev/md2 rhash_entries=3D2=
-097152
-> [    4.697294] IP route cache hash table entries: 524288 (order: 10,=20
-> 4194304 bytes)
->=20
->=20
+If kmemdup() fails we leak the memory allocated to bss_desc.
+This patch fixes the leak.
+I also removed the pointless default assignment of 'NULL' to 'bss_desc' 
+while I was there anyway.
 
-Dont tell me you _still_ use a 32bit kernel ?
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/net/wireless/mwifiex/scan.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-If so, you need to tweak alloc_large_system_hash() to use vmalloc,
-because you hit MAX_ORDER (10) page allocations.
+ note: patch is compile tested only since I don't have the hardware.
 
-But considering LOWMEM is about 700 Mbytes, you wont be able to create =
-a
-lot of route cache entries.
+diff --git a/drivers/net/wireless/mwifiex/scan.c b/drivers/net/wireless/mwifiex/scan.c
+index dae8dbb..8a3f959 100644
+--- a/drivers/net/wireless/mwifiex/scan.c
++++ b/drivers/net/wireless/mwifiex/scan.c
+@@ -1469,7 +1469,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv, u8 *bssid,
+ 			       s32 rssi, const u8 *ie_buf, size_t ie_len,
+ 			       u16 beacon_period, u16 cap_info_bitmap, u8 band)
+ {
+-	struct mwifiex_bssdescriptor *bss_desc = NULL;
++	struct mwifiex_bssdescriptor *bss_desc;
+ 	int ret;
+ 	unsigned long flags;
+ 	u8 *beacon_ie;
+@@ -1484,6 +1484,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv, u8 *bssid,
+ 
+ 	beacon_ie = kmemdup(ie_buf, ie_len, GFP_KERNEL);
+ 	if (!beacon_ie) {
++		kfree(bss_desc);
+ 		dev_err(priv->adapter->dev, " failed to alloc beacon_ie\n");
+ 		return -ENOMEM;
+ 	}
+-- 
+1.7.7.2
 
-Come on, do us a favor, and enter new era of computing.
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
