@@ -1,67 +1,65 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the origin tree
-Date: Mon, 7 Nov 2011 10:12:02 +1100
-Message-ID: <20111107101202.96fcb76d580e5265bd99aeee@canb.auug.org.au>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] rtl8192e: Don't copy huge struct by value (and make it
+ const).
+Date: Mon, 7 Nov 2011 00:21:26 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1111070017220.5763@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Mon__7_Nov_2011_10_12_02_+1100_Bu3e=1AuJqKkLT07"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrea Merello <andreamrl@tiscali.it>,
+	Mike McCormack <mikem@ring3k.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org
+To: devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__7_Nov_2011_10_12_02_+1100_Bu3e=1AuJqKkLT07
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+rtllib_is_shortslot() takes one argument - a struct that's more than a
+kilobyte large. It should take a pointer instead of copying such a
+huge struct - and the argument might as well be declared 'const' now
+that we are at it, since it is not modified. This patch makes these
+changes.
 
-Hi Linus,
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/staging/rtl8192e/rtllib.h         |    2 +-
+ drivers/staging/rtl8192e/rtllib_softmac.c |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-Starting with the origin tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+diff --git a/drivers/staging/rtl8192e/rtllib.h b/drivers/staging/rtl8192e/rtllib.h
+index de25975..3a52120 100644
+--- a/drivers/staging/rtl8192e/rtllib.h
++++ b/drivers/staging/rtl8192e/rtllib.h
+@@ -2804,7 +2804,7 @@ extern int rtllib_wx_set_gen_ie(struct rtllib_device *ieee, u8 *ie, size_t len);
+ 
+ /* rtllib_softmac.c */
+ extern short rtllib_is_54g(struct rtllib_network *net);
+-extern short rtllib_is_shortslot(struct rtllib_network net);
++extern short rtllib_is_shortslot(const struct rtllib_network *net);
+ extern int rtllib_rx_frame_softmac(struct rtllib_device *ieee,
+ 				   struct sk_buff *skb,
+ 				   struct rtllib_rx_stats *rx_stats, u16 type,
+diff --git a/drivers/staging/rtl8192e/rtllib_softmac.c b/drivers/staging/rtl8192e/rtllib_softmac.c
+index b508685..fa774cf 100644
+--- a/drivers/staging/rtl8192e/rtllib_softmac.c
++++ b/drivers/staging/rtl8192e/rtllib_softmac.c
+@@ -28,9 +28,9 @@ short rtllib_is_54g(struct rtllib_network *net)
+ 	return (net->rates_ex_len > 0) || (net->rates_len > 4);
+ }
+ 
+-short rtllib_is_shortslot(struct rtllib_network net)
++short rtllib_is_shortslot(const struct rtllib_network *net)
+ {
+-	return net.capability & WLAN_CAPABILITY_SHORT_SLOT_TIME;
++	return net->capability & WLAN_CAPABILITY_SHORT_SLOT_TIME;
+ }
+ 
+ /* returns the total length needed for pleacing the RATE MFIE
+-- 
+1.7.7.2
 
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c: In function 'ixgbe_set_inter=
-rupt_capability':
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:4724:3: error: implicit decla=
-ration of function 'ixgbe_disable_sriov'
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c: In function 'ixgbe_remove':
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:7773:3: error: implicit decla=
-ration of function 'ixgbe_check_vf_assignment'
 
-Caused by commit 9487dc844054 ("ixgbe: Fix compiler warnings") which hid
-the declarations of ixgbe_disable_sriov() and ixgbe_check_vf_assignment()
-when CONFIG_PCI_IOV is not defined.
-
-I have reverted that commit for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Mon__7_Nov_2011_10_12_02_+1100_Bu3e=1AuJqKkLT07
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJOtxRCAAoJEECxmPOUX5FE0YoP/3K3tJkPzrzI4G5HUuC9r7hu
-leD55/bXhI87iuHiluFLZHFhTGagbjIGQkWF3fXY/lNz3R/qU+E5Z+RmkP9pJ3p+
-wTI52FK76l9LwTUqfj4Yjyt7DWV+5fCMKBJ0WhBwSy7BQzXnq+CccwWbrod7bxKa
-jwKTRdFOMH+C9FtTGhavL06rqfrFbupIGe2dK9hfsjrnHW2JrorClHly0/gVvcqt
-5Q2XfVAX+NkVcbwCAZ34XKS5R3eBU1hpb6N5JfX28x555GwjPzVIcANWRh6RtFSn
-A+TvQ42Lt/pvrIsPWrwvUouBMuXbOOLz38iU1OLM9HFLhLMd7z83Ux/sEJ0c+Z8l
-YZePi6yQdG3gAU5sstd99PKqpGH1dauiweyTEWOSWOGGpjhbhAclifnwpovuUwgZ
-7Rh+kh29dHkNll23XaDiQc3npSyplMVPCH5Eb1FUfbFoysvKTsc7NqqUKxnlzHZJ
-Jxjxmif/ker3ULNV3bhVvOAVJ3s5Ewc6SYO/xvAjpaxSLy5cdcPy9eB8SyzYTWds
-qE7vdLL6ttyXGHes/oT590qfB76pEgkHKA5lF5GAkhfCp1jPiBFXH0V3F7F3tdw8
-xh5XPI3TJPOLmfyjgBp45X4BJOFC5OlkdbR4tPynFjfh1rkubcD9R+UGZV78qQvJ
-KjzmXbyuopzLQw27tJnB
-=kUQX
------END PGP SIGNATURE-----
-
---Signature=_Mon__7_Nov_2011_10_12_02_+1100_Bu3e=1AuJqKkLT07--
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
