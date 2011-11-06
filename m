@@ -1,52 +1,27 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: Linux Route Cache performance tests
-Date: Sun, 06 Nov 2011 22:57:39 +0100
-Message-ID: <4EB702D3.1090703@itcare.pl>
-References: <4EB6AE62.5050803@itcare.pl>    <1320600597.6506.7.camel@edumazet-laptop> <4EB6D1D8.8040604@itcare.pl>   <1320605326.6506.27.camel@edumazet-laptop> <4EB6DE06.7050009@itcare.pl>  <1320608290.6506.33.camel@edumazet-laptop> <4EB6ED2E.1070106@itcare.pl> <1320614788.6506.38.camel@edumazet-laptop>
+From: "LEUNG Cheung" <leungcheng@bitscn.net>
+Subject: [SPAM:#] Business proposal
+Date: Mon, 7 Nov 2011 06:16:32 +0800
+Message-ID: <9090_1320617817_4EB70758_9090_16991_1_20111106221648.51FA94702FD@smtp.stanford.edu>
+Reply-To: <leungchung@bitscn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:38474 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750939Ab1KFV5k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Nov 2011 16:57:40 -0500
-In-Reply-To: <1320614788.6506.38.camel@edumazet-laptop>
+Received: from smtp-grey.Stanford.EDU ([171.67.219.80]:35998 "EHLO
+	smtp-grey.stanford.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752148Ab1KFWZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2011 17:25:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 2011-11-06 22:26, Eric Dumazet pisze:
-> Le dimanche 06 novembre 2011 =C3=A0 21:25 +0100, Pawe=C5=82 Staszewsk=
-i a =C3=A9crit :
->> Yes with this is a little problem i think with kernel 3.1 because
->> dmesg | egrep  '(rhash)|(route)'
->> [    0.000000] Command line: root=3D/dev/md2 rhash_entries=3D2097152
->> [    0.000000] Kernel command line: root=3D/dev/md2 rhash_entries=3D=
-2097152
->> [    4.697294] IP route cache hash table entries: 524288 (order: 10,
->> 4194304 bytes)
->>
->>
-> Dont tell me you _still_ use a 32bit kernel ?
-no it is 64bit :)
-Linux localhost 3.1.0 #16 SMP Sun Nov 6 18:09:48 CET 2011 x86_64 Intel(=
-R)
-:)
+Hello,
+I am sending you this brief letter to solicit your partnership to transfer a total sum of $22.5 million Dollars 
+from Hong Kong to your country. We shall share in the ratio of 40/60 (40% for you and 60% for me) when 
+the transfer is finally made, more details and procedures will be sent to you when I receive your response.
 
-> If so, you need to tweak alloc_large_system_hash() to use vmalloc,
-> because you hit MAX_ORDER (10) page allocations.
-funny then :)
-Maybee i turned off too many kernel features
-> But considering LOWMEM is about 700 Mbytes, you wont be able to creat=
-e a
-> lot of route cache entries.
->
-> Come on, do us a favor, and enter new era of computing.
->
->
->
->
->
+Thank you and have a great day.
+
+Best Regards,
+Mr. LEUNG Cheung
