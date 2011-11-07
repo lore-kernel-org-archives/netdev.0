@@ -1,46 +1,34 @@
-From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Subject: Re: linux-next: build failure after merge of the origin tree
-Date: Sun, 6 Nov 2011 21:29:36 -0800
-Message-ID: <EAE7BD3E-8965-47A4-B3CA-01686E2602C2@intel.com>
-References: <20111107101202.96fcb76d580e5265bd99aeee@canb.auug.org.au>
- <20111106.205259.1237400984015921904.davem@davemloft.net>
- <20111107134706.3e7fc633f913b5e155153127@canb.auug.org.au>
- <20111106.223619.1348742215191441592.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Regarding Routing table in Linux kernel
+Date: Mon, 07 Nov 2011 07:21:29 +0100
+Message-ID: <1320646889.6506.46.camel@edumazet-laptop>
+References: <CADAe=+J-yjh-GujhVY58qKirGNANQ6fUnPdzvoQzQSxMDv7VPw@mail.gmail.com>
+	 <1320601372.6506.11.camel@edumazet-laptop>
+	 <CADAe=+KTYAGT4N9R2eTHstbBP89PJPD57jYNp6diGocnoYkaFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20111106.223619.1348742215191441592.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ajith Adapa <adapa.ajith@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61359 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751681Ab1KGGVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 01:21:33 -0500
+Received: by wyh15 with SMTP id 15so4131828wyh.19
+        for <netdev@vger.kernel.org>; Sun, 06 Nov 2011 22:21:32 -0800 (PST)
+In-Reply-To: <CADAe=+KTYAGT4N9R2eTHstbBP89PJPD57jYNp6diGocnoYkaFw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Le lundi 07 novembre 2011 =C3=A0 09:52 +0530, Ajith Adapa a =C3=A9crit =
+:
 
+> I will check it with the latest kernel. Actually I am just checking i=
+n
+> a 2.6.18 kernel.
+>=20
 
-Cheers,
-Jeff
-
-On Nov 6, 2011, at 19:38, "David Miller" <davem@davemloft.net> wrote:
-
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 7 Nov 2011 13:47:06 +1100
-> 
->>> If you just revert the commit in origin from -next, then you will get
->>> conflicts with you pull the net.git tree in.
->> 
->> I got no conflicts when I merged in the net tree and can see no fix for
->> this problem in the net tree.  My current head of the net tree is 1a6422f
->> "etherh: Add MAINTAINERS entry for etherh".
-> 
-> Ok, Jeff please take a look at this and send me a fix soon.
-> 
-> Thanks.
-
-Ok Dave, at this point, I am puttying together a patch to revert this fix since it appears that more trouble comes with this fix.  I will take a look at it quickly before sending out a patch to fix the issue.
+2.6.18 is very old in this respect. Lot of things changed in recent
+kernels in route cache handling. We no longer have long pauses because
+of garbage collector runs.
