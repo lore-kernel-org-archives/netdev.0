@@ -1,67 +1,52 @@
 From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: linux-next: build failure after merge of the origin tree
-Date: Mon, 7 Nov 2011 08:46:35 -0800
-Message-ID: <43F901BD926A4E43B106BF17856F075501A1CCA399@orsmsx508.amr.corp.intel.com>
-References: <20111107101202.96fcb76d580e5265bd99aeee@canb.auug.org.au>
- <20111106.205259.1237400984015921904.davem@davemloft.net>
- <20111107134706.3e7fc633f913b5e155153127@canb.auug.org.au>
- <20111106.223619.1348742215191441592.davem@davemloft.net>
- <EAE7BD3E-8965-47A4-B3CA-01686E2602C2@intel.com>
+Subject: RE: ixgbe: compilation failed if CONFIG_PCI_IOV isn't set
+Date: Mon, 7 Nov 2011 08:47:09 -0800
+Message-ID: <43F901BD926A4E43B106BF17856F075501A1CCA39D@orsmsx508.amr.corp.intel.com>
+References: <20111106000819.GC12157@vaio>
+ <1320549540.5386.29.camel@jtkirshe-mobl>
+ <CAJZOPZJrrSFr_WvXWpd9xH1ioa9kmg+KX8Xzx940DB=_V4W6EQ@mail.gmail.com>
+ <20111107124641.GB28044@vaio>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
-	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <EAE7BD3E-8965-47A4-B3CA-01686E2602C2@intel.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Li, Sibai" <sibai.li@intel.com>
+To: Alexander Kolesen <kolesen.a@gmail.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:48393 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932668Ab1KGQrT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 11:47:19 -0500
+In-Reply-To: <20111107124641.GB28044@vaio>
 Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 > -----Original Message-----
-> From: Kirsher, Jeffrey T
-> Sent: Sunday, November 06, 2011 9:30 PM
-> To: David Miller
-> Cc: sfr@canb.auug.org.au; torvalds@linux-foundation.org; linux-
-> next@vger.kernel.org; linux-kernel@vger.kernel.org; Rose, Gregory V;
-> netdev@vger.kernel.org
-> Subject: Re: linux-next: build failure after merge of the origin tree
-> 
-> 
-> 
-> Cheers,
-> Jeff
-> 
-> On Nov 6, 2011, at 19:38, "David Miller" <davem@davemloft.net> wrote:
-> 
-> > From: Stephen Rothwell <sfr@canb.auug.org.au>
-> > Date: Mon, 7 Nov 2011 13:47:06 +1100
+> From: Alexander Kolesen [mailto:kolesen.a@gmail.com]
+> Sent: Monday, November 07, 2011 4:47 AM
+> To: Or Gerlitz
+> Cc: Kirsher, Jeffrey T; netdev@vger.kernel.org; Rose, Gregory V; Li, =
+Sibai
+> Subject: Re: ixgbe: compilation failed if CONFIG_PCI_IOV isn't set
+>=20
+> > On Sun, Nov 6, 2011 at 5:18 AM, Jeff Kirsher
+> > <jeffrey.t.kirsher@intel.com> wrote:
+> > > Was with the latest kernel from David Miller's net.gt tree? =A0I =
+just
+> ask
+> > > because I just pushed a patch (a couple of days ago) to resolve
+> > > compilation errors when CONFIG_PCI_IOV is not enabled by Greg Ros=
+e.
 > >
-> >>> If you just revert the commit in origin from -next, then you will get
-> >>> conflicts with you pull the net.git tree in.
-> >>
-> >> I got no conflicts when I merged in the net tree and can see no fix for
-> >> this problem in the net tree.  My current head of the net tree is
-> 1a6422f
-> >> "etherh: Add MAINTAINERS entry for etherh".
+> > In my case it was with Linus tree from github
 > >
-> > Ok, Jeff please take a look at this and send me a fix soon.
-> >
-> > Thanks.
-> 
-> Ok Dave, at this point, I am puttying together a patch to revert this fix
-> since it appears that more trouble comes with this fix.  I will take a
-> look at it quickly before sending out a patch to fix the issue.
+> > Or.
+> It was with Linus tree, but David Miller's net.gt alsa has this issue=
+=2E
 
-My bad...  I fixed a compiler warning that occurred with CONFIG_PCI_IOV turned on and didn't realize that my patch would cause an error when turning it back off.
-
-I'll have it fixed ASAP.
+Yeah, I'll have it fixed soon.  My apologies.
 
 - Greg
