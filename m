@@ -1,78 +1,47 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: [PATCH] net, wireless, mwifiex: Fix mem leak in
- mwifiex_update_curr_bss_params()
-Date: Mon, 7 Nov 2011 11:27:25 -0800
-Message-ID: <477F20668A386D41ADCC57781B1F7043081814452B@SC-VEXCH1.marvell.com>
-References: <alpine.LNX.2.00.1111062255310.5763@swampdragon.chaosbits.net>
- <4EB70920.80905@linux.vnet.ibm.com>
+From: Maz The Northener <mazziesaccount@gmail.com>
+Subject: Re: patch "workflow" - what deferred state means?
+Date: Mon, 7 Nov 2011 22:08:00 +0200
+Message-ID: <CANhJrGMsM7Pc9j0SB4G4Xxym0LLYmtaUq--vyPgt+7HWNz7H0Q@mail.gmail.com>
+References: <CANhJrGNsyD1vsRA4xhgD3KrY9ZcdNOyM4JsM+kf71Pt9KTqh-Q@mail.gmail.com>
+	<20111107.141421.1710547287569203789.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	Jesper Juhl <jj@chaosbits.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EB70920.80905@linux.vnet.ibm.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:54433 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879Ab1KGUIB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 15:08:01 -0500
+Received: by qao25 with SMTP id 25so984865qao.19
+        for <netdev@vger.kernel.org>; Mon, 07 Nov 2011 12:08:00 -0800 (PST)
+In-Reply-To: <20111107.141421.1710547287569203789.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On 11/07/2011 03:28 AM, Jesper Juhl wrote:
-> > If kmemdup() fails we leak the memory allocated to bss_desc.
-> > This patch fixes the leak.
-> > I also removed the pointless default assignment of 'NULL' to 'bss_desc'
-> > while I was there anyway.
-> >
-> > Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+I was talking about http://patchwork.ozlabs.org/patch/123407/ and
+patchwork.ozlabs.org/patch/123406/
 
-Hi Jesper,
+On 11/7/11, David Miller <davem@davemloft.net> wrote:
+> From: Maz The Northener <mazziesaccount@gmail.com>
+> Date: Mon, 7 Nov 2011 21:07:45 +0200
+>
+>> So is the different states of patches explained somewhere?
+>
+> Tell us what specific patch you're talking about and maybe we
+> can give you an answer.
+>
 
-Thanks for the patch.
 
-> 
-> Looks good to me.
-> Reviewed-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+-- 
 
-Hi Srivatsa,
+-Matti "Maz" Vaittinen
+CWF coding team leader
+http://www.curlysworldoffreeware.com/
 
-Thanks for your review.
-
-Acked-by: Bing Zhao <bzhao@marvell.com>
-
-Thanks,
-Bing
-
-> 
-> Thanks,
-> Srivatsa S. Bhat
-> 
-> > ---
-> >  drivers/net/wireless/mwifiex/scan.c |    3 ++-
-> >  1 files changed, 2 insertions(+), 1 deletions(-)
-> >
-> >  note: patch is compile tested only since I don't have the hardware.
-> >
-> > diff --git a/drivers/net/wireless/mwifiex/scan.c b/drivers/net/wireless/mwifiex/scan.c
-> > index dae8dbb..8a3f959 100644
-> > --- a/drivers/net/wireless/mwifiex/scan.c
-> > +++ b/drivers/net/wireless/mwifiex/scan.c
-> > @@ -1469,7 +1469,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv, u8 *bssid,
-> >  			       s32 rssi, const u8 *ie_buf, size_t ie_len,
-> >  			       u16 beacon_period, u16 cap_info_bitmap, u8 band)
-> >  {
-> > -	struct mwifiex_bssdescriptor *bss_desc = NULL;
-> > +	struct mwifiex_bssdescriptor *bss_desc;
-> >  	int ret;
-> >  	unsigned long flags;
-> >  	u8 *beacon_ie;
-> > @@ -1484,6 +1484,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv, u8 *bssid,
-> >
-> >  	beacon_ie = kmemdup(ie_buf, ie_len, GFP_KERNEL);
-> >  	if (!beacon_ie) {
-> > +		kfree(bss_desc);
-> >  		dev_err(priv->adapter->dev, " failed to alloc beacon_ie\n");
-> >  		return -ENOMEM;
-> >  	}
+BrakesAreForCowards!!!
+When you feel blue, no one sees your tears... When your down, no one
+understands your struggle...
+When you feel happy, no one notices your smile...
+But fart just once...
+I would love to create a freeware game with C - unless I was working at NSN.
