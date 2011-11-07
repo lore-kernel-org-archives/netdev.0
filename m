@@ -1,49 +1,112 @@
 From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH 1/2] net: vlan: 802.1ad S-VLAN support
-Date: Mon, 7 Nov 2011 23:18:23 +0100
-Message-ID: <20111107221823.GE1833899@jupiter.n2.diac24.net>
+Subject: Re: [PATCH net-next 0/2] 802.1ad S-VLAN support
+Date: Tue, 8 Nov 2011 00:07:11 +0100
+Message-ID: <20111107230710.GF1833899@jupiter.n2.diac24.net>
 References: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
- <1320512055-1231037-2-git-send-email-equinox@diac24.net>
- <20111107134401.21cb3bf0@nehalam.linuxnetplumber.net>
+ <1320678704.3020.33.camel@bwh-desktop>
+ <20111107154857.GC1833899@jupiter.n2.diac24.net>
+ <1320701749.3020.70.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Lamparter <equinox@diac24.net>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:42767 "EHLO spaceboyz.net"
+Received: from spaceboyz.net ([87.106.131.203]:50376 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751067Ab1KGWS3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Nov 2011 17:18:29 -0500
+	id S1753822Ab1KGXHU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Nov 2011 18:07:20 -0500
 Content-Disposition: inline
-In-Reply-To: <20111107134401.21cb3bf0@nehalam.linuxnetplumber.net>
+In-Reply-To: <1320701749.3020.70.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 07, 2011 at 01:44:01PM -0800, Stephen Hemminger wrote:
-> On Sat,  5 Nov 2011 17:54:14 +0100
-> David Lamparter <equinox@diac24.net> wrote:
-> 
-> > +#define vlangrp_for_each_dev(i, grp, vlandev) \
-> > +	for (i = 0; i < VLAN_N_VID * VLAN_N_PROTOCOL; i++) \
-> > +		if ((vlandev = vlan_group_get_device_pidx(grp, \
-> > +					i / VLAN_N_VID, i % VLAN_N_VID)))
-> > +			/* { code here } */
-> > +
-> 
-> Please just open code this. Macro's make the code harder
-> to parse for humans. There are a few exceptions like.
->   LIST_FOREACH_RCU()
+On Mon, Nov 07, 2011 at 09:35:49PM +0000, Ben Hutchings wrote:
+> On Mon, 2011-11-07 at 16:48 +0100, David Lamparter wrote:
+> > On Mon, Nov 07, 2011 at 03:11:44PM +0000, Ben Hutchings wrote:
+> > > We definitely need to think about how MTU/MRU are configured when
+> > > multiple VLAN tags are used, though I don't think it's essential to do
+> > > before this goes in.  To be slightly more blunt than your documentation,
+> > > our current handling of MTU/MRU and VLANs is a botch.
+[...]
+> >
+> > Yes, what i'd like to do is introduce a new field into struct netdevice
+> > that tracks the hardware Max Frame Size; it'd be a read-only field
+> > that's initialized once by the driver. (The field would only be used by
+> > ethernet-like devices.) To get things started easier, the field can have
+> > a default value like 0xffff, so if the driver doesn't set it we end up
+> > with the same old nothing-checked behaviour.
+[...]
+>
+> The driver for a physical device may still need to know the overall
+> MTU/MRU.  Certainly in case of hardware/drivers which do not support DMA
+> scatter we do not want the driver to allocate oversized buffers.  Also
+> some devices may partition internal FIFOs according to the MTU/MRU and
+> we should nto unnecessarily reduce the maximum number of packets that
+> can fit in those FIFOs.
+>
+> So I think that instead of propagating MFS down, we should propagate MTU
+> change requests up, but maintaining a distinction between the MTUs for
+> untagged and tagged (with different types) packets..
 
-That macro is the same kind as LIST_FOREACH_RCU, as its name says, a
-"for_each" wrapper. I think it actually makes the code easier to read.
-Plus, if the code is there 10 times instead of one, that's 10 times the
-chance to break one of the copypastas.
+Hmm. I think we need to cleanly separate MTU and MFS. MTU is used for
+upper layer stuff like setting TCP MSS, IP fragment size, etc.
 
-A quick "git grep -i '#define.*for.*each'" indicates that this kind
-of macro is quite common with 428 grep results
-(e.g. bond_for_each_slave, for_each_sas_task, ...)
+MFS is the actual ethernet thing, and it's quite independent from the
+MTU. Imagine the following example case:
+
+subnet 1 has legacy 100 mbit hosts with 1514 byte limit. So it runs at
+MTU 1500. subnet 2 is used for SAN and has all-9216-equipment. We have a
+server connected with eth0 (9216 capable hw). The ethernet switch feeds
+subnet 1 untagged and subnet 2 tagged 1Q id 2 ("eth0.2").
+
+The current code cannot handle this since if eth0 MTU = 1500, eth0.2
+cannot be set to 9200. (vlan_dev_change_mtu:
+	if (vlan_dev_info(dev)->real_dev->mtu < new_mtu
+		return -ERANGE;
+Note that raising eth0's MTU is wrong because now the box will send 9k
+IP packets to those poor 100mbit hosts... the only way around this would
+be to add MTU values to the routes for that subnet.
+
+So, I'd like to define "MTU" to be layer 3 and "MFS" to be layer 2. The
+essential distinction is that the MFS value is interdependent between
+VLANs and their masters while the MTU can be arbitrarily set (within MFS
+limits).
+
+> we should propagate MTU change requests up
+
+Hm. If we propagate the MFS up, we either need to track the different
+requestors so we can notice when we can lower it back down, or we end up
+ever just raising the value.
+
+How about instead of propagating the MFS up, we provide an user knob to
+adjust the MFS (on physical devices)?
+
+Might also be relevant for lxc/network namespaces; i don't think a
+containered uid0 should have the possibility to increase your NIC's
+buffers by x6 by changing the MTU on his VLAN...
+
+(I'd still keep a max_mfs field, just to export these bits of knowledge
+from the driver to userspace. I remember a recent thread about e100 and
+hardware limits...)
+
+> > 	dev->hw_features = NETIF_F_ALL_CSUM | NETIF_F_SG |
+> > 			   NETIF_F_FRAGLIST | NETIF_F_ALL_TSO |
+> > 			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CSUM |
+> > 			   NETIF_F_ALL_FCOE;
+>
+> Those are the features that can *potentially* be toggled.
+>
+> > which is pretty much the "basic" set. I don't see why any of that should
+> > differ for 802.1ad (or even 802.1ah), but my understanding is barely
+> > enough to tell that these flags should work for 802.1ad.
+>
+> See vlan_dev_fix_features() and note that vlan_features is zero for a
+> VLAN device.
+
+I admit ignorance and am duly reading code - in fact, I should probably
+not use vlan_features for 802.1ad S-VLANs and instead force the features
+to 0 to be on the safe side...
 
 
 -David
