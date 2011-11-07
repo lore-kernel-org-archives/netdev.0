@@ -1,44 +1,46 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] usbnet: fix oops in usbnet_start_xmit
-Date: Mon, 7 Nov 2011 15:42:04 +0100
-Message-ID: <20111107144204.GA344@cherladcori01>
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Subject: [PATCH v2] usbnet: fix oops in usbnet_start_xmit
+Date: Mon, 07 Nov 2011 18:54:58 +0300
+Message-ID: <20111107145458.29997.79829.stgit@zurg>
 References: <20111106183337.5379.4356.stgit@zurg>
- <20111107133351.GA1484@cherladcori01>
- <4EB7E5A2.2070407@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Neukum <oneukum@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"devel@openvz.org" <devel@openvz.org>,
-	Michael Riesch <michael@riesch.at>
-To: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Riesch <michael@riesch.at>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, devel@openvz.org
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:55647 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754691Ab1KGOmQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 09:42:16 -0500
-Received: by wwf22 with SMTP id 22so4990368wwf.1
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2011 06:42:15 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4EB7E5A2.2070407@openvz.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:59393 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753971Ab1KGOzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 09:55:02 -0500
+Received: by bke11 with SMTP id 11so3653917bke.19
+        for <netdev@vger.kernel.org>; Mon, 07 Nov 2011 06:55:01 -0800 (PST)
+In-Reply-To: <20111106183337.5379.4356.stgit@zurg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 07, 2011 at 06:05:22PM +0400, Konstantin Khlebnikov wrote:
-> Richard Cochran wrote:
-> >On Sun, Nov 06, 2011 at 10:33:37PM +0300, Konstantin Khlebnikov wrote:
-> >>This patch fixes the bug added in commit v3.1-rc7-1055-gf9b491e
-> >>SKB can be NULL at this point, at least for cdc-ncm.
-> >
-> >What? You mean .ndo_start_xmit is called with skb NULL?
-> 
-> no. cdc_ncm call usbnet_start_xmit with NULL skb from timer handler
-> and tx_fixup hook pickup skb from internal context. yeah, it really messy.
+This patch fixes the bug added in commit v3.1-rc7-1055-gf9b491e
+SKB can be NULL at this point, at least for cdc-ncm.
 
-You said it.
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
+---
+ drivers/net/usb/usbnet.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Can you please submit the fix suggested by Michael and myself?
-
-Thanks,
-Richard
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 7d60821..fae0fbd 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1057,7 +1057,8 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 	unsigned long		flags;
+ 	int retval;
+ 
+-	skb_tx_timestamp(skb);
++	if (skb)
++		skb_tx_timestamp(skb);
+ 
+ 	// some devices want funky USB-level framing, for
+ 	// win32 driver (usually) and/or hardware quirks
