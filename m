@@ -1,41 +1,67 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: commit 0bdb0bd0 breaks shutdown/reboot
-Date: Mon, 7 Nov 2011 08:45:40 -0800
-Message-ID: <20111107084540.7ffc913f@nehalam.linuxnetplumber.net>
-References: <20111107153119.GA11724@comet.dominikbrodowski.net>
-	<20111107081316.2e1cc2cb@nehalam.linuxnetplumber.net>
-	<20111107163227.GA17798@isilmar-3.linta.de>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: linux-next: build failure after merge of the origin tree
+Date: Mon, 7 Nov 2011 08:46:35 -0800
+Message-ID: <43F901BD926A4E43B106BF17856F075501A1CCA399@orsmsx508.amr.corp.intel.com>
+References: <20111107101202.96fcb76d580e5265bd99aeee@canb.auug.org.au>
+ <20111106.205259.1237400984015921904.davem@davemloft.net>
+ <20111107134706.3e7fc633f913b5e155153127@canb.auug.org.au>
+ <20111106.223619.1348742215191441592.davem@davemloft.net>
+ <EAE7BD3E-8965-47A4-B3CA-01686E2602C2@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Dominik Brodowski <linux@dominikbrodowski.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38078 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754911Ab1KGQpm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Nov 2011 11:45:42 -0500
-In-Reply-To: <20111107163227.GA17798@isilmar-3.linta.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "sfr@canb.auug.org.au" <sfr@canb.auug.org.au>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <EAE7BD3E-8965-47A4-B3CA-01686E2602C2@intel.com>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 7 Nov 2011 17:32:27 +0100
-Dominik Brodowski <linux@dominikbrodowski.net> wrote:
 
-> On Mon, Nov 07, 2011 at 08:13:16AM -0800, Stephen Hemminger wrote:
-> > Does this help?
-> 
-> Unfortunately, no. Reboots still fail.
-> 
-> > 
-> > Subject: sky2: block irq's on down
-> > 
-> > Need to block IRQ's from phy changes to prevent stray IRQ's when
-> > device is down.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> Thanks anyway,
-> 	Dominik
 
-Are you using Wake On Lan?
+> -----Original Message-----
+> From: Kirsher, Jeffrey T
+> Sent: Sunday, November 06, 2011 9:30 PM
+> To: David Miller
+> Cc: sfr@canb.auug.org.au; torvalds@linux-foundation.org; linux-
+> next@vger.kernel.org; linux-kernel@vger.kernel.org; Rose, Gregory V;
+> netdev@vger.kernel.org
+> Subject: Re: linux-next: build failure after merge of the origin tree
+> 
+> 
+> 
+> Cheers,
+> Jeff
+> 
+> On Nov 6, 2011, at 19:38, "David Miller" <davem@davemloft.net> wrote:
+> 
+> > From: Stephen Rothwell <sfr@canb.auug.org.au>
+> > Date: Mon, 7 Nov 2011 13:47:06 +1100
+> >
+> >>> If you just revert the commit in origin from -next, then you will get
+> >>> conflicts with you pull the net.git tree in.
+> >>
+> >> I got no conflicts when I merged in the net tree and can see no fix for
+> >> this problem in the net tree.  My current head of the net tree is
+> 1a6422f
+> >> "etherh: Add MAINTAINERS entry for etherh".
+> >
+> > Ok, Jeff please take a look at this and send me a fix soon.
+> >
+> > Thanks.
+> 
+> Ok Dave, at this point, I am puttying together a patch to revert this fix
+> since it appears that more trouble comes with this fix.  I will take a
+> look at it quickly before sending out a patch to fix the issue.
+
+My bad...  I fixed a compiler warning that occurred with CONFIG_PCI_IOV turned on and didn't realize that my patch would cause an error when turning it back off.
+
+I'll have it fixed ASAP.
+
+- Greg
