@@ -1,46 +1,52 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Re: Regarding Routing table in Linux kernel
-Date: Mon, 7 Nov 2011 09:52:21 +0530
-Message-ID: <CADAe=+KTYAGT4N9R2eTHstbBP89PJPD57jYNp6diGocnoYkaFw@mail.gmail.com>
-References: <CADAe=+J-yjh-GujhVY58qKirGNANQ6fUnPdzvoQzQSxMDv7VPw@mail.gmail.com>
- <1320601372.6506.11.camel@edumazet-laptop>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH] data: hello
+Date: Mon, 07 Nov 2011 10:46:14 +0530
+Message-ID: <4EB7699E.3060508@linux.vnet.ibm.com>
+References: <1320502893-5136-1-git-send-email-kinwin2008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:38755 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750705Ab1KGEWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Nov 2011 23:22:53 -0500
-Received: by faao14 with SMTP id o14so4722999faa.19
-        for <netdev@vger.kernel.org>; Sun, 06 Nov 2011 20:22:52 -0800 (PST)
-In-Reply-To: <1320601372.6506.11.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: Feng King <kinwin2008@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1320502893-5136-1-git-send-email-kinwin2008@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for the reply
+On 11/05/2011 07:51 PM, Feng King wrote:
+>  great
+> 
+> 
+> Signed-off-by: Feng King <kinwin2008@gmail.com>
+> ---
+>  b |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>  create mode 100644 b
+> 
+> diff --git a/b b/b
+> new file mode 100644
+> index 0000000..a60a1f3
+> --- /dev/null
+> +++ b/b
+> @@ -0,0 +1 @@
+> +hell
 
->> 1. Why does the linux kernel use hashing table for storing routing
->> entries when there is patricia trie or radix tree which is more faster
->> than Hash table ?
->
-> I think you are mistaken. Routes are stored in a trie in recent kernels.
->
-> And route cache is scheduled to be removed at some point.
->
-> In normal situation, one hash lookup is the faster way to find a random
-> item, its a single memory cache line cost.
+Hi Feng and other potential contributors,
 
-I will check it with the latest kernel. Actually I am just checking in
-a 2.6.18 kernel.
+Usually kernel developers simply ignore spam or filter it out. But since
+you also sent a patch after this mail, I am replying to this.
 
->> 2. Is there any way we can test the performance of an routing
->> algorithm before deploying in a real time scenario to check its
->> performance ? I would like to test one of my implementations to check
->> if there are any performance gains or not ?
->
-> Sorry there is no general answer. It all depends on your needs.
+Please don't spam LKML with "test" emails like this. Already LKML receives
+far more _useful_ emails than what one can possibly read, so adding junk
+like this to that pile only annoys people. And please bear in mind that it
+also gives a bad impression about the sender and may also tempt people to
+ignore your patches on purpose, as a natural human tendency.
 
-Hmm .. Seems there is no simple way for it other than trying out in
-real time scenario :(
+If you have genuine contributions to make, like patches or bug reports or
+even want to ask questions, please feel free to do so directly. That's what
+this mailing list is for, after all.
+
+
+Thanks,
+Srivatsa S. Bhat
