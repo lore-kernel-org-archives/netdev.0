@@ -1,36 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net-next tree question: time to submit new features
-Date: Mon, 07 Nov 2011 09:22:13 +0100
-Message-ID: <1320654133.6506.48.camel@edumazet-laptop>
-References: <CAJmB2rAHiFopSxBVco6=7fgPi3XezSncrYw-NVtxq1otcMSTqw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:54903 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751445Ab1KGIWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 03:22:18 -0500
-Received: by wwi36 with SMTP id 36so6353293wwi.1
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2011 00:22:16 -0800 (PST)
-In-Reply-To: <CAJmB2rAHiFopSxBVco6=7fgPi3XezSncrYw-NVtxq1otcMSTqw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Weinberger <richard@nod.at>
+Subject: [PATCH 3/3] wanrouter: Remove kernel_lock annotations
+Date: Mon,  7 Nov 2011 09:24:21 +0100
+Message-ID: <1320654261-4473-1-git-send-email-richard@nod.at>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Richard Weinberger <richard@nod.at>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 07 novembre 2011 =C3=A0 11:11 +0300, Alexander Smirnov a =C3=A9=
-crit :
-> Hello everybody,
->=20
-> last week I sent to the list patch series for 6LoWPAN, but the reply
-> was that it wasn't proper time for submitting new features right in
-> the middle of merge window.
->=20
-> Could anyone please specify when the net-next tree opens back and the
-> 'proper' time comes?
->=20
+The BKL is gone, these annotations are useless.
 
-It reopens after Linus announces linux-3.x.0-rc1=20
+Signed-off-by: Richard Weinberger <richard@nod.at>
+---
+ net/wanrouter/wanproc.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-Right now, we are in the 'merge window'.
+diff --git a/net/wanrouter/wanproc.c b/net/wanrouter/wanproc.c
+index f346395..c43612e 100644
+--- a/net/wanrouter/wanproc.c
++++ b/net/wanrouter/wanproc.c
+@@ -81,7 +81,6 @@ static struct proc_dir_entry *proc_router;
+  *	Iterator
+  */
+ static void *r_start(struct seq_file *m, loff_t *pos)
+-	__acquires(kernel_lock)
+ {
+ 	struct wan_device *wandev;
+ 	loff_t l = *pos;
+@@ -103,7 +102,6 @@ static void *r_next(struct seq_file *m, void *v, loff_t *pos)
+ }
+ 
+ static void r_stop(struct seq_file *m, void *v)
+-	__releases(kernel_lock)
+ {
+ 	mutex_unlock(&config_mutex);
+ }
+-- 
+1.7.7
