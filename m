@@ -1,84 +1,78 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH net-next 0/2] 802.1ad S-VLAN support
-Date: Mon, 7 Nov 2011 16:48:57 +0100
-Message-ID: <20111107154857.GC1833899@jupiter.n2.diac24.net>
-References: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
- <1320678704.3020.33.camel@bwh-desktop>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 6/7] fsl_pmc: Add API to enable device as wakeup event
+ source
+Date: Mon, 7 Nov 2011 09:49:39 -0600
+Message-ID: <4EB7FE13.1000501@freescale.com>
+References: <1320410349-14600-1-git-send-email-chenhui.zhao@freescale.com> <4EB455B1.8030009@freescale.com> <20111107112236.GB16470@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
+	<leoli@freescale.com>
+To: Zhao Chenhui <chenhui.zhao@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:57971 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751071Ab1KGPtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Nov 2011 10:49:09 -0500
-Content-Disposition: inline
-In-Reply-To: <1320678704.3020.33.camel@bwh-desktop>
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:4173
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751071Ab1KGPts (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 10:49:48 -0500
+In-Reply-To: <20111107112236.GB16470@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 07, 2011 at 03:11:44PM +0000, Ben Hutchings wrote:
-> On Sat, 2011-11-05 at 17:54 +0100, David Lamparter wrote:
-> > this kernel patch, together with the iproute2 userspace support,
-> > allows creating 802.1ad S-VLAN devices.
-[...]
-> We definitely need to think about how MTU/MRU are configured when
-> multiple VLAN tags are used, though I don't think it's essential to do
-> before this goes in.  To be slightly more blunt than your documentation,
-> our current handling of MTU/MRU and VLANs is a botch.
+On 11/07/2011 05:22 AM, Zhao Chenhui wrote:
+> On Fri, Nov 04, 2011 at 04:14:25PM -0500, Scott Wood wrote:
+>> On 11/04/2011 07:39 AM, Zhao Chenhui wrote:
+>>> +	if (enable && !device_may_wakeup(&pdev->dev))
+>>> +		return -EINVAL;
+>>> +
+>>> +	clk_np = of_parse_phandle(pdev->dev.of_node, "clk-handle", 0);
+>>> +	if (!clk_np)
+>>> +		return -EINVAL;
+>>> +
+>>> +	pmcdr_mask = (u32 *)of_get_property(clk_np, "fsl,pmcdr-mask", NULL);
+>>> +	if (!pmcdr_mask) {
+>>> +		ret = -EINVAL;
+>>> +		goto out;
+>>> +	}
+>>> +
+>>> +	/* clear to enable clock in low power mode */
+>>> +	if (enable)
+>>> +		clrbits32(&pmc_regs->pmcdr, *pmcdr_mask);
+>>> +	else
+>>> +		setbits32(&pmc_regs->pmcdr, *pmcdr_mask);
+>>
+>> We should probably initialize PMCDR to all bits set (or at least all
+>> ones we know are valid) -- the default should be "not a wakeup source".
+> 
+> I think it should be initialized in u-boot.
 
-I fully agree, both on the botch and on fixing it separately.
+I don't see it.  If you mean you think this should be added to U-Boot, I
+disagree.  U-Boot does not use this, and we should not add gratuitous
+U-Boot dependencies to Linux -- especially in cases where there are
+existing U-Boots in use for relevant boards, that do not have this.
 
-> Do you have any plan to improve that?
+>>> +/**
+>>> + * pmc_enable_lossless - enable lossless ethernet in low power mode
+>>> + * @enable: True to enable event generation; false to disable
+>>> + */
+>>> +void pmc_enable_lossless(int enable)
+>>> +{
+>>> +	if (enable && has_lossless)
+>>> +		setbits32(&pmc_regs->pmcsr, PMCSR_LOSSLESS);
+>>> +	else
+>>> +		clrbits32(&pmc_regs->pmcsr, PMCSR_LOSSLESS);
+>>> +}
+>>> +EXPORT_SYMBOL_GPL(pmc_enable_lossless);
+>>> +#endif
+>>
+>> Won't we overwrite this later?
+>>
+>> -Scott
+> 
+> Do you have any idea?
 
-Yes, what i'd like to do is introduce a new field into struct netdevice
-that tracks the hardware Max Frame Size; it'd be a read-only field
-that's initialized once by the driver. (The field would only be used by
-ethernet-like devices.) To get things started easier, the field can have
-a default value like 0xffff, so if the driver doesn't set it we end up
-with the same old nothing-checked behaviour.
+Set a flag that the code that enters (deep) sleep can use.
 
-MTU change requests from userspace are then validated against the MFS
-field for ethernet devices.
+Also, rename function to mpc85xx_pmc_set_lossless_ethernet().
 
-Each VLAN device created will inherit its parent's value minus 4 (minus
-16 for 802.1ah Mac-in-Mac, I'm working on that currently).
-
-A nice side-effect would be that we can export this value in sysfs so
-the admin easily can see the hardware limitations. No more trial & error
-to find that r8169 (or was it forcedeth?) has the totally weird value of
-7200... ("almost-jumbo-frames-but-not-quite")
-
-
-Anyway, I'm still in the "design" phase with regards to two points:
-
- - bridge - is the MFS field allowed to change when we add/remove
-   devices? Is there a notification e.g. for VLANs on top of the bridge?
-
- - "speshul" hardware. I think I saw chips that support "1514 bytes" and
-   "1514 bytes + 1 vlan tag" but not "1518 bytes". If this is indeed a
-   case we want to support (no idea if it is), we could add a separate
-   "extra_vlans" field that is 1 for those devices. (It would only be
-   used for protocol-0x8100 802.1Q vlans).
-
-> Or to allow use of offload features for multiple-tagged packets?
-
-Hm. Well... I have yet to do quite a bit of reading to understand all of
-the offload mechanisms. What the 802.1Q code currently does is
-
-	dev->hw_features = NETIF_F_ALL_CSUM | NETIF_F_SG |
-			   NETIF_F_FRAGLIST | NETIF_F_ALL_TSO |
-			   NETIF_F_HIGHDMA | NETIF_F_SCTP_CSUM |
-			   NETIF_F_ALL_FCOE;
-
-which is pretty much the "basic" set. I don't see why any of that should
-differ for 802.1ad (or even 802.1ah), but my understanding is barely
-enough to tell that these flags should work for 802.1ad.
-
-
-Comments very welcome,
-
-
--David
+-Scott
