@@ -1,58 +1,49 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re[2]:  [v2 PATCH 1/2] NETFILTER module xt_hmark new target
-	for HASH based fw
-Date: Mon, 7 Nov 2011 23:14:38 +0100 (CET)
-Message-ID: <0hivdsb.17b7b3e4ecaab40c6692abe7114c9f3a@obelix.schillstrom.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 1/2] net: vlan: 802.1ad S-VLAN support
+Date: Mon, 7 Nov 2011 23:18:23 +0100
+Message-ID: <20111107221823.GE1833899@jupiter.n2.diac24.net>
+References: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
+ <1320512055-1231037-2-git-send-email-equinox@diac24.net>
+ <20111107134401.21cb3bf0@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "Pablo Neira Ayuso" <pablo@netfilter.org>,
-	"Hans Schillstrom" <hans.schillstrom@ericsson.com>,
-	kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Jan Engelhardt" <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:42767 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751067Ab1KGWS3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Nov 2011 17:18:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20111107134401.21cb3bf0@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Mon, Nov 07, 2011 at 01:44:01PM -0800, Stephen Hemminger wrote:
+> On Sat,  5 Nov 2011 17:54:14 +0100
+> David Lamparter <equinox@diac24.net> wrote:
+> 
+> > +#define vlangrp_for_each_dev(i, grp, vlandev) \
+> > +	for (i = 0; i < VLAN_N_VID * VLAN_N_PROTOCOL; i++) \
+> > +		if ((vlandev = vlan_group_get_device_pidx(grp, \
+> > +					i / VLAN_N_VID, i % VLAN_N_VID)))
+> > +			/* { code here } */
+> > +
+> 
+> Please just open code this. Macro's make the code harder
+> to parse for humans. There are a few exceptions like.
+>   LIST_FOREACH_RCU()
+
+That macro is the same kind as LIST_FOREACH_RCU, as its name says, a
+"for_each" wrapper. I think it actually makes the code easier to read.
+Plus, if the code is there 10 times instead of one, that's 10 times the
+chance to break one of the copypastas.
+
+A quick "git grep -i '#define.*for.*each'" indicates that this kind
+of macro is quite common with 428 grep results
+(e.g. bond_for_each_slave, for_each_sas_task, ...)
 
 
-Hello
->
->On Monday 2011-11-07 01:52, Pablo Neira Ayuso wrote:
->>> +static __u32 get_hash(struct sk_buff *skb, struct xt_hmark_info *info)
->>> +{
->>> +	int nhoff, hash = 0, poff, proto, frag = 0;
->>> +	struct iphdr *ip;
->>> +	u8 ip_proto;
->>> +	u32 addr1, addr2, ihl;
->>> +	u16 snatport = 0, dnatport = 0;
->>> +	union {
->>> +		u32 v32;
->>> +		u16 v16[2];
->>> +	} ports;
->>> +
->>> +	nhoff = skb_network_offset(skb);
->>> +	proto = skb->protocol;
->>> +
->>> +	if (!proto && skb->sk) {
->>> +		if (skb->sk->sk_family == AF_INET)
->>> +			proto = __constant_htons(ETH_P_IP);
->>> +		else if (skb->sk->sk_family == AF_INET6)
->>> +			proto = __constant_htons(ETH_P_IPV6);
->>
->>You already have the layer3 protocol number in xt_action_param. No
->>need to use the socket information then.
->
->xt_action_param.family (NFPROTO_) is not the same class af AF_ or ETH_.
->Though, wouldn't proto = skb->proto; just be simpler here?
-
-Well it's not always set ...
-
-I think I will split the get_hash() into  get_ipv4_hash() and get_ipv6_hash()
-as Pablo suggest in prev mail. 
-In that case it would be no cost to use xt_action_param ->family to separate  IPv6 / 4  
-
-Thanks
-Hans
-
+-David
