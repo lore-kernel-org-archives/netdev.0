@@ -1,90 +1,184 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: data corruption in skge hardware
-Date: Mon, 7 Nov 2011 09:13:27 -0800
-Message-ID: <20111107091327.79a8c6da@nehalam.linuxnetplumber.net>
-References: <Pine.LNX.4.64.1111071109410.18030@hs20-bc2-1.build.redhat.com>
+From: Glauber Costa <glommer@parallels.com>
+Subject: RE: [PATCH v5 04/10] per-cgroup tcp buffers control
+Date: Mon, 7 Nov 2011 17:28:50 +0000
+Message-ID: <D1C30CD88081EA42BD6A1AA039A44650705B78@US-EXCH1.sw.swsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Mikulas Patocka <mpatocka@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60537 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751480Ab1KGRN3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Nov 2011 12:13:29 -0500
-In-Reply-To: <Pine.LNX.4.64.1111071109410.18030@hs20-bc2-1.build.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "paul@paulmenage.org" <paul@paulmenage.org>,
+	"lizf@cn.fujitsu.com" <lizf@cn.fujitsu.com>,
+	"kamezawa.hiroyu@jp.fujitsu.com" <kamezawa.hiroyu@jp.fujitsu.com>,
+	"ebiederm@xmission.com" <ebiederm@xmission.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"gthelen@google.com" <gthelen@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
+	"kirill@shutemov.name" <kirill@shutemov.name>,
+	Andrey Vagin <avagin@parallels.com>,
+	"devel@openvz.org" <devel@openvz.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	Glauber Costa <glommer@parallels.com>,
+	"kamezawa.hiroyu@jp.fujtisu.com" <kamezawa.hiroyu@jp.fujtisu.com>
+To: Glauber Costa <glommer@parallels.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 7 Nov 2011 11:42:11 -0500 (EST)
-Mikulas Patocka <mpatocka@redhat.com> wrote:
+Ok, I forgot to change the temporary name I was using for the jump label. Shame on me :)
 
-> Hi
-> 
-> I found a data corruption in skge network card.
-> 
-> The card is this: "03:06.0 Ethernet controller: 3Com Corporation 3c940 
-> 10/100/1000Base-T [Marvell] (rev 10)"
-> 
-> The machine is two quad core Opterons with HT2000 north bridge and HT1000 
-> south bridge.
-> 
-> When "scatter-gather" and "generic-segmentation-offload" are enabled, the 
-> card sends out corrupted packets.
-> 
-> It normally manifests as a ssh connection drop once per few days, but I 
-> found a workload that triggers this bug quickly.
-> 
-> I ran tcpdump on both sending and receiving machine and caught the packet 
-> corruption:
-> 
-> correct packet (on the sending machine):
-> 19:03:21.131836 IP hydra.ssh > phoebe.58913: Flags [P.], seq 53712:53808, 
-> ack 1, win 193, options [nop,nop,TS val 8677173 ecr 1211608], length 96
->         0x0000:  4510 0094 c7bf 4000 4006 f12d c0a8 8007
->         0x0010:  c0a8 800e 0016 e621 2d64 84e6 1fc2 3f5b
->         0x0020:  8018 00c1 81ed 0000 0101 080a 0084 6735
->         0x0030:  0012 7cd8 4301 4af9 87c9 d2b4 8ba6 aedb
->         0x0040:  0572 1738 93db 789c 634b 4386 d013 db27
->         0x0050:  258b 6fa6 743c d429 a5e1 162f 2721 19bf
->         0x0060:  6669 a5c3 6bea 89ec a635 b8b4 8727 38c1
->         0x0070:  139f 5989 781b 49dd 79f5 4dfe 78ac ecb0
->         0x0080:  546c 33e0 0953 04bc 0647 a9d4 2fc4 cba0
->         0x0090:  44b2 3b01
-> 
-> incorrect packet (on the receiving machine):
-> 19:03:21.133174 IP hydra.ssh > phoebe.58913: Flags [P.], seq 53712:53808, 
-> ack 1, win 193, options [nop,nop,TS val 8677173 ecr 1211608], length 96
->         0x0000:  4510 0094 c7bf 4000 4006 f12d c0a8 8007
->         0x0010:  c0a8 800e 0016 e621 2d64 84e6 1fc2 3f5b
->         0x0020:  8018 00c1 6aa4 0000 0101 080a 0084 6735
->         0x0030:  0012 7cd8 0000 0000 0000 0000 0010 0000
->         0x0040:  0000 0000 0000 0000 0000 0000 0000 0000
->         0x0050:  0000 0000 0000 0000 0000 00c0 dc92 4702
->         0x0060:  88ff ff00 0000 0000 0000 0000 0000 0000
->         0x0070:  0000 0000 0000 0000 0000 0000 0000 0000
->         0x0080:  0000 0000 0000 0000 0000 0000 0000 0000
->         0x0090:  0000 00e0
-> 
-> Obviously, scatter-gather doesn't work, the header is correct, but the 
-> packet body was likely read from random memory.
-> 
-> I tried to use "clflush" instruction on the transmit descriptor and the 
-> packet body to test if it is a cache-coherency issue, but the corruption 
-> was still there.
-> 
-> I tried to limit memory to 2G to test if it was a problem with high 
-> memory, but the corruption was still there.
-> 
-> I tries olded kernels (as far as 2.6.34), the corruption was still there, 
-> but it took much more time to trigger it with old kernels.
-> 
-> 
-> Do you have other reports of data corruption with skge hardware? Shouldn't 
-> the driver set "scatter-gather" off by default because it is unreliable?
+--- Mensagem Original ---
 
-No reports, of problems.
-Scatter-gather is used all the time by normal TCP connections.
-I suspect something different because of the IOMMU and separate sockets.
+De: Glauber Costa <glommer@parallels.com>
+Enviado: 7 de novembro de 2011 07/11/11
+Para: linux-kernel@vger.kernel.org
+Cc: paul@paulmenage.org, lizf@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com, ebiederm@xmission.com, davem@davemloft.net, gthelen@google.com, netdev@vger.kernel.org, linux-mm@kvack.org, kirill@shutemov.name, Andrey Vagin <avagin@parallels.com>, devel@openvz.org, eric.dumazet@gmail.com, Glauber Costa <glommer@parallels.com>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujtisu.com>
+Assunto: [PATCH v5 04/10] per-cgroup tcp buffers control
+
+With all the infrastructure in place, this patch implements
+per-cgroup control for tcp memory pressure handling.
+
+A resource conter is used to control allocated memory, except
+for the root cgroup, that will keep using global counters.
+
+This patch is the one that actually enables/disables the
+jump labels controlling cgroup. To this point, they were always
+disabled.
+
+Signed-off-by: Glauber Costa <glommer@parallels.com>
+CC: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujtisu.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Eric W. Biederman <ebiederm@xmission.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/tcp.h       |   18 +++++++
+ include/net/transp_v6.h |    1 +
+ mm/memcontrol.c         |  125 ++++++++++++++++++++++++++++++++++++++++++++++-
+ net/core/sock.c         |   46 +++++++++++++++--
+ net/ipv4/af_inet.c      |    3 +
+ net/ipv4/tcp_ipv4.c     |   12 +++++
+ net/ipv6/af_inet6.c     |    3 +
+ net/ipv6/tcp_ipv6.c     |   10 ++++
+ 8 files changed, 211 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index ccaa3b6..7301ca8 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -253,6 +253,22 @@ extern int sysctl_tcp_cookie_size;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
+ 
++struct tcp_memcontrol {
++	/* per-cgroup tcp memory pressure knobs */
++	struct res_counter tcp_memory_allocated;
++	struct percpu_counter tcp_sockets_allocated;
++	/* those two are read-mostly, leave them at the end */
++	long tcp_prot_mem[3];
++	int tcp_memory_pressure;
++};
++
++long *sysctl_mem_tcp(struct mem_cgroup *memcg);
++struct percpu_counter *sockets_allocated_tcp(struct mem_cgroup *memcg);
++int *memory_pressure_tcp(struct mem_cgroup *memcg);
++struct res_counter *memory_allocated_tcp(struct mem_cgroup *memcg);
++int tcp_init_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
++void tcp_destroy_cgroup(struct cgroup *cgrp, struct cgroup_subsys *ss);
++
+ extern atomic_long_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+ extern int tcp_memory_pressure;
+@@ -305,6 +321,7 @@ static inline int tcp_synq_no_recent_overflow(const struct sock *sk)
+ }
+ 
+ extern struct proto tcp_prot;
++extern struct cg_proto tcp_cg_prot;
+ 
+ #define TCP_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.tcp_statistics, field)
+ #define TCP_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.tcp_statistics, field)
+@@ -1022,6 +1039,7 @@ static inline void tcp_openreq_init(struct request_sock *req,
+ 	ireq->loc_port = tcp_hdr(skb)->dest;
+ }
+ 
++extern void tcp_enter_memory_pressure_cg(struct sock *sk);
+ extern void tcp_enter_memory_pressure(struct sock *sk);
+ 
+ static inline int keepalive_intvl_when(const struct tcp_sock *tp)
+diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
+index 498433d..1e18849 100644
+--- a/include/net/transp_v6.h
++++ b/include/net/transp_v6.h
+@@ -11,6 +11,7 @@ extern struct proto rawv6_prot;
+ extern struct proto udpv6_prot;
+ extern struct proto udplitev6_prot;
+ extern struct proto tcpv6_prot;
++extern struct cg_proto tcpv6_cg_prot;
+ 
+ struct flowi6;
+ 
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 7d684d0..f14d7d2 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -49,6 +49,9 @@
+ #include <linux/cpu.h>
+ #include <linux/oom.h>
+ #include "internal.h"
++#ifdef CONFIG_INET
++#include <net/tcp.h>
++#endif
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -294,6 +297,10 @@ struct mem_cgroup {
+ 	 */
+ 	struct mem_cgroup_stat_cpu nocpu_base;
+ 	spinlock_t pcp_counter_lock;
++
++#ifdef CONFIG_INET
++	struct tcp_memcontrol tcp;
++#endif
+ };
+ 
+ /* Stuffs for move charges at task migration. */
+@@ -377,7 +384,7 @@ enum mem_type {
+ #define MEM_CGROUP_RECLAIM_SOFT		(1 << MEM_CGROUP_RECLAIM_SOFT_BIT)
+ 
+ static struct mem_cgroup *parent_mem_cgroup(struct mem_cgroup *memcg);
+-
++static struct mem_cgroup *mem_cgroup_from_cont(struct cgroup *cont);
+ static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
+ {
+ 	return (mem == root_mem_cgroup);
+@@ -387,6 +394,7 @@ static inline bool mem_cgroup_is_root(struct mem_cgroup *mem)
+ #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
+ #ifdef CONFIG_INET
+ #include <net/sock.h>
++#include <net/ip.h>
+ 
+ void sock_update_memcg(struct sock *sk)
+ {
+@@ -451,6 +459,93 @@ u64 memcg_memory_allocated_read(struct mem_cgroup *memcg, struct cg_proto *prot)
+ 				    RES_USAGE) >> PAGE_SHIFT ;
+ }
+ EXPORT_SYMBOL(memcg_memory_allocated_read);
++/*
++ * Pressure flag: try to collapse.
++ * Technical note: it is used by multiple contexts non atomically.
++ * All the __sk_mem_schedule() is of this nature: accounting
++ * is strict, actions are advisory and have some latency.
++ */
++void tcp_enter_memory_pressure_cg(struct sock *sk)
++{
++	struct mem_cgroup *memcg = sk->sk_cgrp;
++	if (!memcg->tcp.tcp_memory_pressure) {
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPMEMORYPRESSURES);
++		memcg->tcp.tcp_memory_pressure = 1;
++	}
++}
++EXPORT_SYMBOL(tcp_enter_memory_pressure_cg);
++
++long *sysctl_mem_tcp(struct mem_cgroup *memcg)
++{
++	return memcg
