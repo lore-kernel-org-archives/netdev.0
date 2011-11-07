@@ -1,72 +1,64 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [GIT] Networking
-Date: Mon, 7 Nov 2011 12:40:55 +0100
-Message-ID: <20111107114054.GA2395@redhat.com>
-References: <20111025.063206.2273357152859701628.davem@davemloft.net>
- <CA+55aFzkZofnUmBOGVvmNKyA0_FApo73xZ7J=aevbHPS_0+xKQ@mail.gmail.com>
- <1320426222.3969.121.camel@jlt3.sipsolutions.net>
+From: Eliad Peller <eliad@wizery.com>
+Subject: Re: [PATCH 3/5] net/mac80211/debugfs.c: use kstrtoul, etc
+Date: Mon, 7 Nov 2011 13:47:27 +0200
+Message-ID: <CAB3XZEfHV+sO=+vJdZUQVqXFtHvZyhJQ1Cm8LJ8Puyz9eqq9Kg@mail.gmail.com>
+References: <1320586010-21931-1-git-send-email-julia@diku.dk>
+	<1320586010-21931-4-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"Guy, Wey-Yi W" <wey-yi.w.guy@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	kernel-janitors@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1320426222.3969.121.camel@jlt3.sipsolutions.net>
+In-Reply-To: <1320586010-21931-4-git-send-email-julia@diku.dk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 04, 2011 at 06:03:42PM +0100, Johannes Berg wrote:
-> On Tue, 2011-10-25 at 12:26 +0000, Linus Torvalds wrote:
-> > On Tue, Oct 25, 2011 at 12:32 PM, David Miller <davem@davemloft.net> wrote:
-> > >
-> > > The most visible thing in here is the reorganization of the drivers
-> > > under drivers/net.
-> > 
-> > Nope, the most visible thing are some new annoying warnings, that seem
-> > absolutely broken.
-> > 
-> > At the very minimum, that WARN_ON(1) should be a WARN_ON_ONCE() or
-> > something like that. Because showing it over an dover again is not
-> > helpful.
-> > 
-> > Added the people who signed off on the changes to the affected files,
-> > since they hopefully know why this happens and can fix it..
-> 
-> Sorry for the late reply.
-> 
-> I think this was actually caused by some changes from Ben Greear
-> "optimising" stuff in net/mac80211/work.c and keeping the wrong channel,
-> Stanislaw was also looking at this at some point I think. I agree that
-> it would be good to change to WARN_ON_ONCE(), will do that.
-> 
-> The warning itself has been around forever, but the fact that it
-> triggers now is probably related to the channel work & band switches.
+On Sun, Nov 6, 2011 at 3:26 PM, Julia Lawall <julia@diku.dk> wrote:
+> From: Julia Lawall <julia@diku.dk>
+>
+> Use kstrtoul, etc instead of the now deprecated strict_strtoul, etc.
+>
+> A semantic patch rule for the kstrtoul case is as follows:
+> (http://coccinelle.lip6.fr/)
+>
+> // <smpl>
+> @@
+> expression a,b;
+> {int,long} *c;
+> @@
+>
+> -strict_strtoul
+> +kstrtoul
+> =A0(a,b,c)
+> // </smpl>
+>
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+>
+> ---
+> =A0net/mac80211/debugfs.c | =A0 =A02 +-
+> =A01 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff -u -p a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+> --- a/net/mac80211/debugfs.c
+> +++ b/net/mac80211/debugfs.c
+> @@ -190,7 +190,7 @@ static ssize_t uapsd_max_sp_len_write(st
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EFAULT;
+> =A0 =A0 =A0 =A0buf[len] =3D '\0';
+>
+> - =A0 =A0 =A0 ret =3D strict_strtoul(buf, 0, &val);
+> + =A0 =A0 =A0 ret =3D kstrtoul(buf, 0, &val);
+>
+> =A0 =A0 =A0 =A0if (ret)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EINVAL;
+>
 
-I think this problem is related with linuxcon :-) and it is not current
-regression, i.e. Ben's off-channel code was already committed in 3.0.
-I have also RHEL6 - 2.6.32 bug report about that:
-https://bugzilla.redhat.com/show_bug.cgi?id=749125
+maybe while cleaning it up change copy_from_user +
+strict_stroul/kstroul -> kstroul_from_user?
 
-Probably there was something special on linuxcon wireless network (i.e.
-big contention) what cause people start to see this warning. Eventually
-nobody use wireless except conferences :-/
-
-I have one pending patch which fix other instance of the warning (started
-at ieee80211_tx_status()). I'll post it today. As Ben mentioned, two
-fixes are pending in wireless-testing tree:
-
-http://git.kernel.org/?p=linux/kernel/git/linville/wireless-testing.git;a=commitdiff;h=682ba5a44516529b29fc780c055e06104d36e31e
-http://git.kernel.org/?p=linux/kernel/git/linville/wireless-testing.git;a=commitdiff;h=776308dd5fa8a41e8bbb79818a66bd68a7db757e 
-
-However, I'm not sure if that cover all possible situations when
-warning can be triggered. We need to do a careful review of channel
-switching in mac80211.
-
-Stanislaw
+Eliad.
