@@ -1,59 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Linux Route Cache performance tests
-Date: Mon, 7 Nov 2011 13:42:44 +0000
-Message-ID: <1320673364.3020.21.camel@bwh-desktop>
-References: <4EB6AE62.5050803@itcare.pl>
-	 <1320600597.6506.7.camel@edumazet-laptop> <4EB6D1D8.8040604@itcare.pl>
-	 <1320605326.6506.27.camel@edumazet-laptop> <4EB6DE06.7050009@itcare.pl>
-	 <1320608290.6506.33.camel@edumazet-laptop>
+From: Michael Riesch <michael@riesch.at>
+Subject: Re: [PATCH] usbnet: fix oops in usbnet_start_xmit
+Date: Mon, 07 Nov 2011 14:29:13 +0100
+Message-ID: <1320672553.2909.41.camel@malcolm>
+References: <20111106183337.5379.4356.stgit@zurg>
+Reply-To: michael@riesch.at
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, devel@openvz.org
+To: Konstantin Khlebnikov <khlebnikov@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:18826 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754394Ab1KGNmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 08:42:49 -0500
-In-Reply-To: <1320608290.6506.33.camel@edumazet-laptop>
+Received: from smtprelay02.ispgateway.de ([80.67.31.29]:44726 "EHLO
+	smtprelay02.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754691Ab1KGNoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 08:44:09 -0500
+In-Reply-To: <20111106183337.5379.4356.stgit@zurg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-11-06 at 20:38 +0100, Eric Dumazet wrote:
-> Le dimanche 06 novembre 2011 =C3=A0 20:20 +0100, Pawe=C5=82 Staszewsk=
-i a =C3=A9crit :
-[...]
-> > So the point of this test was figure out how much of route cache en=
-tries=20
-> > Linux can handle without dropping performance.
->=20
-> No need to even do a bench, its pretty easy to understand how a hash
-> table is handled.
->=20
-> Allowing long chains is not good.
->=20
-> With your 512k slots hash table, you cannot expect handling 1.4M rout=
-es
-> with optimal performance. End of story.
->=20
-> Since route hash table is allocated at boot time, only way to change =
-its
-> size is using "rhash_entries=3D2097152" boot parameter.
->=20
-> If it still doesnt fly, try with "rhash_entries=3D4194304"
 
-A routing cache this big is not going to fit in the processor caches,
-anyway; in fact even the hash table may not.  So a routing cache hit is
-likely to involve processor cache misses.  After David's work to make
-cacheless operation faster, I suspect that such a 'hit' can be a net
-loss.  But it *is* necessary to run a benchmark to answer this (and the
-answer will obviously vary between systems).
+On Sun, 2011-11-06 at 22:33 +0300, Konstantin Khlebnikov wrote:
+> This patch fixes the bug added in commit v3.1-rc7-1055-gf9b491e
+> SKB can be NULL at this point, at least for cdc-ncm.
 
-Ben.
+OK, I didn't think of that, but...
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> Let's call skb_tx_timestamp() after driver specific tx-fixup hacks.
+
+... the reason I put the skb_tx_timestamp() call before the tx_fixup is
+that these hacks often perform skb_push/skb_pull or any other kind of
+framing. This may result (at least in the case of the asix drivers) in
+perfectly correct PTP packets being not recognized as such by the packet
+filter.
+
+Can we do a check like this:
+	if(skb) skb_tx_timestamp()
+	tx_fixup()
+?
+
+Regards, Michael
