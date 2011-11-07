@@ -1,74 +1,81 @@
-From: Chris Siebenmann <cks@cs.toronto.edu>
-Subject: Bug? GRE tunnel periodically won't transmit some packets
-Date: Mon, 07 Nov 2011 11:21:17 -0500
-Message-ID: <20111107162117.5330236221@apps0.cs.toronto.edu>
-Cc: cks@cs.toronto.edu
-To: netdev@vger.kernel.org
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: data corruption in skge hardware
+Date: Mon, 7 Nov 2011 11:42:11 -0500 (EST)
+Message-ID: <Pine.LNX.4.64.1111071109410.18030@hs20-bc2-1.build.redhat.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cliff.cs.toronto.edu ([128.100.3.120]:52031 "EHLO
-	cliff.cs.toronto.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752932Ab1KGQln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 11:41:43 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:42654 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754911Ab1KGQmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Nov 2011 11:42:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- I have a weird problem where a GRE tunnel periodically won't transmit
-some (TCP) packets, while at the same time it will transmit others just
-fine. This is happening in the current kernel.org git head kernel as
-well as earlier ones.
+Hi
 
- The networking environment is a GRE tunnel over IPSec in tunnel mode
-('esp/tunnel/...') over a DSL PPPoE link. What I observe is that
-periodically outbound SSH connections stall early in the protocol
-negociation, and other TCP connections can similarly stall. Sometimes
-they recover and sometimes they time out. The problem is pretty
-reproducable and regular, although not constant (sometimes the affected
-packets get through right away).
+I found a data corruption in skge network card.
 
- I have tcpdump'd both the GRE tunnel device and the underlying DSL
-PPPoE device and during a stall, the GRE tcpdump will show packets being
-sent that do not appear on the DSL PPPoE link. All of the packets that
-I've seen stalling have had 500 data octets.
+The card is this: "03:06.0 Ethernet controller: 3Com Corporation 3c940 
+10/100/1000Base-T [Marvell] (rev 10)"
 
-Typical packets are:
-	IP 128.100.3.52.52063 > 128.100.3.51.ssh: Flags [.], seq 22:522, ack 22, win 91, options [nop,nop,TS val 143020 ecr 966040433], length 500
+The machine is two quad core Opterons with HT2000 north bridge and HT1000 
+south bridge.
 
-(here 128.100.3.52 is the GRE tunnel IP address of the machine
-experiencing problems)
+When "scatter-gather" and "generic-segmentation-offload" are enabled, the 
+card sends out corrupted packets.
 
-or ttcp:
-	IP 128.100.3.52.46585 > 128.100.3.51.5001: Flags [.], seq 1:501, ack 1, win 91, options [nop,nop,TS val 729200 ecr 979199256], length 500
+It normally manifests as a ssh connection drop once per few days, but I 
+found a workload that triggers this bug quickly.
 
-Ttcp had a whole run of 'length 500' packets fail to go through. SSH
-will actually successfully transmit later (different-length) packets,
-eg:
-	128.100.3.52.52063 > 128.100.3.51.ssh: Flags [P.], seq 522:926, ack 22, win 91, options [nop,nop,TS val 143037 ecr 966040450], length 404
+I ran tcpdump on both sending and receiving machine and caught the packet 
+corruption:
 
- The DSL PPPoE link has an MTU of 1492 and the GRE tunnel has an MTU of
-1200 (on both ends). As far as I can tell they do pass packets of this
-size. *However*, on kernels that display this problem tracepath and 'ip
-route show table cache' both report that the GRE tunnel has a path MTU
-of 854 going from 128.100.3.52 to 128.100.3.51; however, 128.100.3.51
-sees a pmtu of 1200 for the path to 128.100.3.52.
+correct packet (on the sending machine):
+19:03:21.131836 IP hydra.ssh > phoebe.58913: Flags [P.], seq 53712:53808, 
+ack 1, win 193, options [nop,nop,TS val 8677173 ecr 1211608], length 96
+        0x0000:  4510 0094 c7bf 4000 4006 f12d c0a8 8007
+        0x0010:  c0a8 800e 0016 e621 2d64 84e6 1fc2 3f5b
+        0x0020:  8018 00c1 81ed 0000 0101 080a 0084 6735
+        0x0030:  0012 7cd8 4301 4af9 87c9 d2b4 8ba6 aedb
+        0x0040:  0572 1738 93db 789c 634b 4386 d013 db27
+        0x0050:  258b 6fa6 743c d429 a5e1 162f 2721 19bf
+        0x0060:  6669 a5c3 6bea 89ec a635 b8b4 8727 38c1
+        0x0070:  139f 5989 781b 49dd 79f5 4dfe 78ac ecb0
+        0x0080:  546c 33e0 0953 04bc 0647 a9d4 2fc4 cba0
+        0x0090:  44b2 3b01
 
- The machine experiencing these problems is a 64-bit x86_64 Fedora 15
-machine with various kernels. The problem does not happen with the
-current Fedora 14 kernel (nominally 2.6.35.14); it does happen with the
-Fedora 15 kernel ('2.6.40.6' aka some version of 3.0.0), the Fedora 16
-kernel (some version of 3.1.0) and on the current kernel.org git head
-as of last night. I am not running NetworkManager; all networking is
-statically configured and not changing during operation, and my IPSec
-setup is statically keyed[*].
+incorrect packet (on the receiving machine):
+19:03:21.133174 IP hydra.ssh > phoebe.58913: Flags [P.], seq 53712:53808, 
+ack 1, win 193, options [nop,nop,TS val 8677173 ecr 1211608], length 96
+        0x0000:  4510 0094 c7bf 4000 4006 f12d c0a8 8007
+        0x0010:  c0a8 800e 0016 e621 2d64 84e6 1fc2 3f5b
+        0x0020:  8018 00c1 6aa4 0000 0101 080a 0084 6735
+        0x0030:  0012 7cd8 0000 0000 0000 0000 0010 0000
+        0x0040:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0050:  0000 0000 0000 0000 0000 00c0 dc92 4702
+        0x0060:  88ff ff00 0000 0000 0000 0000 0000 0000
+        0x0070:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0080:  0000 0000 0000 0000 0000 0000 0000 0000
+        0x0090:  0000 00e0
 
- I would be happy to run any debugging tests or give any further
-information that people want. Should I try a different kernel git
-repo than Linus's kernel.org one?
+Obviously, scatter-gather doesn't work, the header is correct, but the 
+packet body was likely read from random memory.
 
- Thanks in advance.
+I tried to use "clflush" instruction on the transmit descriptor and the 
+packet body to test if it is a cache-coherency issue, but the corruption 
+was still there.
 
-(While I'm reading the mailing list I'm not directly subscribed to it,
-so copying me on replies will make sure that I see them immediately.)
+I tried to limit memory to 2G to test if it was a problem with high 
+memory, but the corruption was still there.
 
-	- cks
-[*: I'm aware that this is not ideal from a security perspective since
-    it relies on me manually rekeying everything every so often.]
+I tries olded kernels (as far as 2.6.34), the corruption was still there, 
+but it took much more time to trigger it with old kernels.
+
+
+Do you have other reports of data corruption with skge hardware? Shouldn't 
+the driver set "scatter-gather" off by default because it is unreliable?
+
+Mikulas
