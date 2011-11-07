@@ -1,46 +1,52 @@
-From: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Subject: [PATCH v2] usbnet: fix oops in usbnet_start_xmit
-Date: Mon, 07 Nov 2011 18:54:58 +0300
-Message-ID: <20111107145458.29997.79829.stgit@zurg>
-References: <20111106183337.5379.4356.stgit@zurg>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 0/2] 802.1ad S-VLAN support
+Date: Mon, 7 Nov 2011 15:11:44 +0000
+Message-ID: <1320678704.3020.33.camel@bwh-desktop>
+References: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Riesch <michael@riesch.at>,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, devel@openvz.org
-To: Oliver Neukum <oneukum@suse.de>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:59393 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753971Ab1KGOzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 09:55:02 -0500
-Received: by bke11 with SMTP id 11so3653917bke.19
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2011 06:55:01 -0800 (PST)
-In-Reply-To: <20111106183337.5379.4356.stgit@zurg>
+Received: from mail.solarflare.com ([216.237.3.220]:25885 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819Ab1KGPLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 10:11:48 -0500
+In-Reply-To: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the bug added in commit v3.1-rc7-1055-gf9b491e
-SKB can be NULL at this point, at least for cdc-ncm.
+On Sat, 2011-11-05 at 17:54 +0100, David Lamparter wrote:
+> Hi DaveM, hi everyone,
+> 
+> 
+> this kernel patch, together with the iproute2 userspace support,
+> allows creating 802.1ad S-VLAN devices.
+> 
+> This feature might have weird interactions with hardware VLAN
+> acceleration. I've done my best to make sure it doesn't break
+> 802.1Q, but my access to hardware is rather limited. I did grep
+> & scan all drivers for maybe-affected vlan behaviour and found
+> nothing. I've tested on e1000, forcedeth, virtio and a Kirkwood
+> ARM.
 
-Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
----
- drivers/net/usb/usbnet.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+I didn't try it at all, but it looks reasonable to me.
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 7d60821..fae0fbd 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1057,7 +1057,8 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 	unsigned long		flags;
- 	int retval;
- 
--	skb_tx_timestamp(skb);
-+	if (skb)
-+		skb_tx_timestamp(skb);
- 
- 	// some devices want funky USB-level framing, for
- 	// win32 driver (usually) and/or hardware quirks
+We definitely need to think about how MTU/MRU are configured when
+multiple VLAN tags are used, though I don't think it's essential to do
+before this goes in.  To be slightly more blunt than your documentation,
+our current handling of MTU/MRU and VLANs is a botch.
+
+Do you have any plan to improve that?  Or to allow use of offload
+features for multiple-tagged packets?
+
+Ben.
+
+> It'd be nice to get this into the next merge window to get some
+> people with funny hardware a nice smoke trail...
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
