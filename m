@@ -1,47 +1,39 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-ext PATCH] ixgbe: Fix compile for kernel without
- CONFIG_PCI_IOV defined
-Date: Mon, 7 Nov 2011 10:25:32 -0800
-Message-ID: <43F901BD926A4E43B106BF17856F075501A1CCA520@orsmsx508.amr.corp.intel.com>
-References: <20111107174417.8638.87569.stgit@gitlad.jf.intel.com>
- <20111107.132340.124929090969671336.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] usbnet: fix oops in usbnet_start_xmit
+Date: Mon, 07 Nov 2011 13:26:55 -0500 (EST)
+Message-ID: <20111107.132655.1787743558315240070.davem@davemloft.net>
+References: <20111106183337.5379.4356.stgit@zurg>
+	<20111107145458.29997.79829.stgit@zurg>
+	<20111107173919.GA2730@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: khlebnikov@openvz.org, oneukum@suse.de, michael@riesch.at,
+	alexey.orishko@gmail.com, netdev@vger.kernel.org, devel@openvz.org
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:65033 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932491Ab1KGSZd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 13:25:33 -0500
-In-Reply-To: <20111107.132340.124929090969671336.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([198.137.202.13]:43746 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000Ab1KGS1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 13:27:07 -0500
+In-Reply-To: <20111107173919.GA2730@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, November 07, 2011 10:24 AM
-> To: Rose, Gregory V
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [net-ext PATCH] ixgbe: Fix compile for kernel without
-> CONFIG_PCI_IOV defined
-> 
-> From: Greg Rose <gregory.v.rose@intel.com>
-> Date: Mon, 07 Nov 2011 09:44:17 -0800
-> 
-> > Fix compiler errors and warnings with CONFIG_PCI_IOV defined and not
-> > defined.
-> >
-> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> 
-> It's "net-next" not "net-ext" :-)
-> 
-> Applied, thanks.
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Mon, 7 Nov 2011 18:39:19 +0100
 
-Ugh... I'm really stepping in it deep.
+> On Mon, Nov 07, 2011 at 06:54:58PM +0300, Konstantin Khlebnikov wrote:
+>> This patch fixes the bug added in commit v3.1-rc7-1055-gf9b491e
+>> SKB can be NULL at this point, at least for cdc-ncm.
+>> 
+>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
+> 
+> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-Thanks Dave,
+Applied, but the overall logic in the usbnet transmit path definitely
+could use a good reconsideration and cleanup.
 
-- Greg
+I'm even open to having generic support at the generic net device TX
+level to fixup the segmentation layout of the SKB so that it meets
+the device's requirements.  We can do it more efficiently there too.
