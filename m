@@ -1,80 +1,59 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] usbnet: fix oops in usbnet_start_xmit
-Date: Mon, 7 Nov 2011 14:33:51 +0100
-Message-ID: <20111107133351.GA1484@cherladcori01>
-References: <20111106183337.5379.4356.stgit@zurg>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Linux Route Cache performance tests
+Date: Mon, 7 Nov 2011 13:42:44 +0000
+Message-ID: <1320673364.3020.21.camel@bwh-desktop>
+References: <4EB6AE62.5050803@itcare.pl>
+	 <1320600597.6506.7.camel@edumazet-laptop> <4EB6D1D8.8040604@itcare.pl>
+	 <1320605326.6506.27.camel@edumazet-laptop> <4EB6DE06.7050009@itcare.pl>
+	 <1320608290.6506.33.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, devel@openvz.org,
-	Michael Riesch <michael@riesch.at>
-To: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:51830 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754394Ab1KGNeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 08:34:04 -0500
-Received: by eye27 with SMTP id 27so3420573eye.19
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2011 05:34:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20111106183337.5379.4356.stgit@zurg>
+Received: from exchange.solarflare.com ([216.237.3.220]:18826 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754394Ab1KGNmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 08:42:49 -0500
+In-Reply-To: <1320608290.6506.33.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 06, 2011 at 10:33:37PM +0300, Konstantin Khlebnikov wrote:
-> This patch fixes the bug added in commit v3.1-rc7-1055-gf9b491e
-> SKB can be NULL at this point, at least for cdc-ncm.
+On Sun, 2011-11-06 at 20:38 +0100, Eric Dumazet wrote:
+> Le dimanche 06 novembre 2011 =C3=A0 20:20 +0100, Pawe=C5=82 Staszewsk=
+i a =C3=A9crit :
+[...]
+> > So the point of this test was figure out how much of route cache en=
+tries=20
+> > Linux can handle without dropping performance.
+>=20
+> No need to even do a bench, its pretty easy to understand how a hash
+> table is handled.
+>=20
+> Allowing long chains is not good.
+>=20
+> With your 512k slots hash table, you cannot expect handling 1.4M rout=
+es
+> with optimal performance. End of story.
+>=20
+> Since route hash table is allocated at boot time, only way to change =
+its
+> size is using "rhash_entries=3D2097152" boot parameter.
+>=20
+> If it still doesnt fly, try with "rhash_entries=3D4194304"
 
-What? You mean .ndo_start_xmit is called with skb NULL?
+A routing cache this big is not going to fit in the processor caches,
+anyway; in fact even the hash table may not.  So a routing cache hit is
+likely to involve processor cache misses.  After David's work to make
+cacheless operation faster, I suspect that such a 'hit' can be a net
+loss.  But it *is* necessary to run a benchmark to answer this (and the
+answer will obviously vary between systems).
 
-> Let's call skb_tx_timestamp() after driver specific tx-fixup hacks.
+Ben.
 
-No, that won't work.
-
-That call is before the fixup on purpose, because some fixups add
-padding in front of the Ethernet payload, and this will spoil the PTP
-packet detection filter.
-
-I don't know why the skb can be NULL here. If that is really the case,
-then the correct fix is:
-
-	if (skb)
-		skb_tx_timestamp(skb);
-
-Thanks,
-Richard
-
-
-> 
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
-> ---
->  drivers/net/usb/usbnet.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 7d60821..485be70 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -1057,8 +1057,6 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
->  	unsigned long		flags;
->  	int retval;
->  
-> -	skb_tx_timestamp(skb);
-> -
->  	// some devices want funky USB-level framing, for
->  	// win32 driver (usually) and/or hardware quirks
->  	if (info->tx_fixup) {
-> @@ -1075,6 +1073,8 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
->  	}
->  	length = skb->len;
->  
-> +	skb_tx_timestamp(skb);
-> +
->  	if (!(urb = usb_alloc_urb (0, GFP_ATOMIC))) {
->  		netif_dbg(dev, tx_err, dev->net, "no urb\n");
->  		goto drop;
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
