@@ -1,26 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: patch "workflow" - what deferred state means?
-Date: Mon, 07 Nov 2011 14:14:21 -0500 (EST)
-Message-ID: <20111107.141421.1710547287569203789.davem@davemloft.net>
-References: <CANhJrGNsyD1vsRA4xhgD3KrY9ZcdNOyM4JsM+kf71Pt9KTqh-Q@mail.gmail.com>
+From: Bing Zhao <bzhao@marvell.com>
+Subject: RE: [PATCH] net, wireless, mwifiex: Fix mem leak in
+ mwifiex_update_curr_bss_params()
+Date: Mon, 7 Nov 2011 11:27:25 -0800
+Message-ID: <477F20668A386D41ADCC57781B1F7043081814452B@SC-VEXCH1.marvell.com>
+References: <alpine.LNX.2.00.1111062255310.5763@swampdragon.chaosbits.net>
+ <4EB70920.80905@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mazziesaccount@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:57581 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829Ab1KGTO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 14:14:28 -0500
-In-Reply-To: <CANhJrGNsyD1vsRA4xhgD3KrY9ZcdNOyM4JsM+kf71Pt9KTqh-Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	Jesper Juhl <jj@chaosbits.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EB70920.80905@linux.vnet.ibm.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Maz The Northener <mazziesaccount@gmail.com>
-Date: Mon, 7 Nov 2011 21:07:45 +0200
+> On 11/07/2011 03:28 AM, Jesper Juhl wrote:
+> > If kmemdup() fails we leak the memory allocated to bss_desc.
+> > This patch fixes the leak.
+> > I also removed the pointless default assignment of 'NULL' to 'bss_desc'
+> > while I was there anyway.
+> >
+> > Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-> So is the different states of patches explained somewhere?
+Hi Jesper,
 
-Tell us what specific patch you're talking about and maybe we
-can give you an answer.
+Thanks for the patch.
+
+> 
+> Looks good to me.
+> Reviewed-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+
+Hi Srivatsa,
+
+Thanks for your review.
+
+Acked-by: Bing Zhao <bzhao@marvell.com>
+
+Thanks,
+Bing
+
+> 
+> Thanks,
+> Srivatsa S. Bhat
+> 
+> > ---
+> >  drivers/net/wireless/mwifiex/scan.c |    3 ++-
+> >  1 files changed, 2 insertions(+), 1 deletions(-)
+> >
+> >  note: patch is compile tested only since I don't have the hardware.
+> >
+> > diff --git a/drivers/net/wireless/mwifiex/scan.c b/drivers/net/wireless/mwifiex/scan.c
+> > index dae8dbb..8a3f959 100644
+> > --- a/drivers/net/wireless/mwifiex/scan.c
+> > +++ b/drivers/net/wireless/mwifiex/scan.c
+> > @@ -1469,7 +1469,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv, u8 *bssid,
+> >  			       s32 rssi, const u8 *ie_buf, size_t ie_len,
+> >  			       u16 beacon_period, u16 cap_info_bitmap, u8 band)
+> >  {
+> > -	struct mwifiex_bssdescriptor *bss_desc = NULL;
+> > +	struct mwifiex_bssdescriptor *bss_desc;
+> >  	int ret;
+> >  	unsigned long flags;
+> >  	u8 *beacon_ie;
+> > @@ -1484,6 +1484,7 @@ mwifiex_update_curr_bss_params(struct mwifiex_private *priv, u8 *bssid,
+> >
+> >  	beacon_ie = kmemdup(ie_buf, ie_len, GFP_KERNEL);
+> >  	if (!beacon_ie) {
+> > +		kfree(bss_desc);
+> >  		dev_err(priv->adapter->dev, " failed to alloc beacon_ie\n");
+> >  		return -ENOMEM;
+> >  	}
