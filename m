@@ -1,40 +1,43 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 3/3] wanrouter: Remove kernel_lock annotations
-Date: Mon,  7 Nov 2011 09:24:21 +0100
-Message-ID: <1320654261-4473-1-git-send-email-richard@nod.at>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Weinberger <richard@nod.at>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next] IPVS
+Date: Mon, 7 Nov 2011 09:29:56 +0100
+Message-ID: <20111107082956.GA32329@1984>
+References: <1319160783-28422-1-git-send-email-horms@verge.net.au>
+ <20111021072715.GA842@1984>
+ <20111107030659.GA24405@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111107030659.GA24405@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The BKL is gone, these annotations are useless.
+Hi Simon,
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
----
- net/wanrouter/wanproc.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+On Mon, Nov 07, 2011 at 12:07:01PM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> I am a little confused. The nf-next branch seems to have disappeared.
+> 
+> Could you consider pulling git://github.com/horms/ipvs-next.git master
+> to get the following changes that were in your nf-next branch.
 
-diff --git a/net/wanrouter/wanproc.c b/net/wanrouter/wanproc.c
-index f346395..c43612e 100644
---- a/net/wanrouter/wanproc.c
-+++ b/net/wanrouter/wanproc.c
-@@ -81,7 +81,6 @@ static struct proc_dir_entry *proc_router;
-  *	Iterator
-  */
- static void *r_start(struct seq_file *m, loff_t *pos)
--	__acquires(kernel_lock)
- {
- 	struct wan_device *wandev;
- 	loff_t l = *pos;
-@@ -103,7 +102,6 @@ static void *r_next(struct seq_file *m, void *v, loff_t *pos)
- }
- 
- static void r_stop(struct seq_file *m, void *v)
--	__releases(kernel_lock)
- {
- 	mutex_unlock(&config_mutex);
- }
--- 
-1.7.7
+I was late to get it into net-next. Since net-next became net after
+the 3.1 release, my moved those changes to net to get it into 3.2
+once Linus announced that the merge window was opened again.
+
+> Or would
+> you like me to rebase the ipvs patches (9 or the 11 changes below) on
+> top of git://1984.lsi.us.es/net-next/.git master ?
+
+They are already in net davem's tree, they will be included in the
+upcoming 3.2 release.
+
+http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet.git&a=search&h=HEAD&st=commit&s=Neira
