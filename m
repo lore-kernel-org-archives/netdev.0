@@ -1,44 +1,62 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] ipv6: drop packets when source address is multicast
-Date: Tue, 08 Nov 2011 09:41:42 -0500
-Message-ID: <4EB93FA6.3090709@hp.com>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re[2]:  [v2 PATCH 1/2] NETFILTER module xt_hmark new target
+	for HASH based fw
+Date: Tue, 8 Nov 2011 16:12:27 +0100 (CET)
+Message-ID: <b328f1j.5274a2398142147da04eb5e915d63283@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kumar Sanghvi <divinekumar@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:8503 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755121Ab1KHOvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 09:51:42 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Hans Schillstrom" <hans.schillstrom@ericsson.com>,
+	kaber@trash.net, jengelh@medozas.de,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: "Pablo Neira Ayuso" <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC 4291 Section 2.7 says Multicast addresses must not be used as source
-addresses in IPv6 packets - drop them on input so we don't process the
-packet further.
+>
+>On Tue, Nov 08, 2011 at 12:29:53AM +0100, Hans Schillstrom wrote:
+>> >We prefer skb_header_pointer instead. If conntrack is enabled, we can
+>> >benefit from defragmention. 
+>> 
+>> In  our case conntrack will not be there
+>
+>Yes, but if conntrack is there, we benefit from fragment reassembly if
+>you use skb_header_pointer.
+>
+>> >Please, replace all pskb_may_pull by skb_header_pointer in this code.
+>> >
+>> >We can assume that the IP header is linear (not fragmented).
+>> 
+>> I ran in to this issue in IPv6 testing so I got a little bit "paranoid".
+>> Are you sure that the embedded IP and L4 header in the ICMP msg also is unfragmented.  
+>> Is this true for both IPv6 & IPv4 ?
+>
+>No sorry. I was refering to normal IP header in one packet.
+>
+>> From what I remember  when I was testing IPv6  icmp and digged into the original header (on a 2.6.32 kernel)  
+>> pskb_may_pull was needed.
+>
+>Yes, it is indeed needed.
+>
+>> [snip]
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-Reported-and-Tested-by: Kumar Sanghvi <divinekumar@gmail.com>
+[snip]
 
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 027c7ff..a46c64e 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -111,6 +111,14 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	    ipv6_addr_loopback(&hdr->daddr))
- 		goto err;
- 
-+	/*
-+	 * RFC4291 2.7
-+	 * Multicast addresses must not be used as source addresses in IPv6
-+	 * packets or appear in any Routing header.
-+	 */
-+	if (ipv6_addr_is_multicast(&hdr->saddr))
-+		goto err;
-+
- 	skb->transport_header = skb->network_header + sizeof(*hdr);
- 	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
- 
+
+>
+>Welcome, let's see if we can get this into 3.3 since we cannot make it
+>for 3.2.
+>
+>BTW, do you have some number of this running with and without
+>conntrack? It would be interesting to have.
+
+I didn't save them,  but I can make a new benchmark later on.
+
+Regards
+Hans
+
+
+
+
