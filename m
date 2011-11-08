@@ -1,7 +1,7 @@
 From: Michio Honda <micchie@sfc.wide.ad.jp>
-Subject: [PATCH 2/2] sctp: fasthandoff with ASCONF at server-node
-Date: Wed, 9 Nov 2011 01:23:15 +0900
-Message-ID: <32B0E489-560D-4FC8-88C2-FBD490D9E45C@sfc.wide.ad.jp>
+Subject: [PATCH 1/2] sctp: fasthandoff with ASCONF at mobile-node
+Date: Wed, 9 Nov 2011 01:23:07 +0900
+Message-ID: <E3745FDE-AFD0-402B-AB36-4FAB640BBCE6@sfc.wide.ad.jp>
 Mime-Version: 1.0 (Apple Message framework v1251.1)
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
@@ -9,60 +9,79 @@ Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>,
 	Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:55331 "EHLO
+Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:55332 "EHLO
 	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751437Ab1KHQb5 convert rfc822-to-8bit (ORCPT
+	with ESMTP id S1751351Ab1KHQb5 convert rfc822-to-8bit (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 11:31:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From 0c0019a3d219bd900bedbadfa6a3b3733d9ca49c Mon Sep 17 00:00:00 2001
+>From d42e880c330693ceb0e03a48d1e4347b190d0cce Mon Sep 17 00:00:00 2001
 From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Fri, 17 Jun 2011 11:22:35 +0900
-Subject: [PATCH 2/2] sctp: fasthandoff with ASCONF at server-node
+Date: Fri, 17 Jun 2011 11:03:23 +0900
+Subject: [PATCH 1/2] sctp: fasthandoff with ASCONF at mobile-node
 
-Retransmit chunks to newly confirmed destination when ASCONF and
-HEARTBEAT negotiation has success with a single-homed peer.
+Fast retransmission after changing the last address
+with ASCONF negotiation
 
 Signed-off-by: Michio Honda <micchie@sfc.wide.ad.jp>
 ---
- net/sctp/sm_sideeffect.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ include/net/sctp/structs.h |    1 +
+ net/sctp/sm_make_chunk.c   |    4 +++-
+ net/sctp/transport.c       |   16 ++++++++++++++++
+ 3 files changed, 20 insertions(+), 1 deletions(-)
 
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 76388b0..1ff51c9 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -666,6 +666,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 				  struct sctp_chunk *chunk)
- {
- 	sctp_sender_hb_info_t *hbinfo;
-+	int was_unconfirmed = 0;
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index e90e7a9..3382615 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1085,6 +1085,7 @@ void sctp_transport_burst_reset(struct sctp_transport *);
+ unsigned long sctp_transport_timeout(struct sctp_transport *);
+ void sctp_transport_reset(struct sctp_transport *);
+ void sctp_transport_update_pmtu(struct sctp_transport *, u32);
++void sctp_transport_immediate_rtx(struct sctp_transport *);
  
- 	/* 8.3 Upon the receipt of the HEARTBEAT ACK, the sender of the
- 	 * HEARTBEAT should clear the error counter of the destination
-@@ -692,9 +693,11 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 	/* Mark the destination transport address as active if it is not so
- 	 * marked.
- 	 */
--	if ((t->state == SCTP_INACTIVE) || (t->state == SCTP_UNCONFIRMED))
-+	if ((t->state == SCTP_INACTIVE) || (t->state == SCTP_UNCONFIRMED)) {
-+		was_unconfirmed = 1;
- 		sctp_assoc_control_transport(asoc, t, SCTP_TRANSPORT_UP,
- 					     SCTP_HEARTBEAT_SUCCESS);
+ 
+ /* This is the structure we use to queue packets as they come into
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 0121e0a..a85eeeb 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3400,8 +3400,10 @@ int sctp_process_asconf_ack(struct sctp_association *asoc,
+ 		asconf_len -= length;
+ 	}
+ 
+-	if (no_err && asoc->src_out_of_asoc_ok)
++	if (no_err && asoc->src_out_of_asoc_ok) {
+ 		asoc->src_out_of_asoc_ok = 0;
++		sctp_transport_immediate_rtx(asoc->peer.primary_path);
 +	}
  
- 	/* The receiver of the HEARTBEAT ACK should also perform an
- 	 * RTT measurement for that destination transport address
-@@ -712,6 +715,9 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 	/* Update the heartbeat timer.  */
- 	if (!mod_timer(&t->hb_timer, sctp_transport_timeout(t)))
- 		sctp_transport_hold(t);
-+
-+	if (was_unconfirmed && asoc->peer.transport_count == 1)
-+		sctp_transport_immediate_rtx(t);
+ 	/* Free the cached last sent asconf chunk. */
+ 	list_del_init(&asconf->transmitted_list);
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 394c57c..3889330 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -641,3 +641,19 @@ void sctp_transport_reset(struct sctp_transport *t)
+ 	t->cacc.next_tsn_at_change = 0;
+ 	t->cacc.cacc_saw_newack = 0;
  }
- 
- 
++
++/* Schedule retransmission on the given transport */
++void sctp_transport_immediate_rtx(struct sctp_transport *t)
++{
++	/* Stop pending T3_rtx_timer */
++	if (timer_pending(&t->T3_rtx_timer)) {
++		(void)del_timer(&t->T3_rtx_timer);
++		sctp_transport_put(t);
++	}
++	sctp_retransmit(&t->asoc->outqueue, t, SCTP_RTXR_T3_RTX);
++	if (!timer_pending(&t->T3_rtx_timer)) {
++		if (!mod_timer(&t->T3_rtx_timer, jiffies + t->rto))
++			sctp_transport_hold(t);
++	}
++	return;
++}
 -- 
 1.7.3.2
