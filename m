@@ -1,65 +1,93 @@
-From: Nico Erfurth <ne@erfurth.eu>
-Subject: [PATCH 1/1] [SMSC75xx] Fix incorrect usage of NET_IP_ALIGN
-Date: Tue,  8 Nov 2011 18:30:40 +0100
-Message-ID: <1320773440-30122-1-git-send-email-ne@erfurth.eu>
-Cc: Phil Sutter <phil@nwl.cc>, stable@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Nico Erfurth <ne@erfurth.eu>
-To: netdev@vger.kernel.org
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] net: Handle different key sizes between address
+ families in flow cache
+Date: Tue, 8 Nov 2011 08:53:17 -0800
+Message-ID: <20111108165317.GB25206@kroah.com>
+References: <20111101185022.b156ea957baf286f1bf00f9c@freescale.com>
+ <20111101.203430.110242050755204948.davem@davemloft.net>
+ <20111103135851.2229247682ec040d653479e1@freescale.com>
+ <20111103.224329.2276058062630695656.davem@davemloft.net>
+ <20111104144659.3e0a30afffffd9dd73cf740e@freescale.com>
+ <20111104212439.GA27324@kroah.com>
+ <20111104212958.5d54152b38050e2a0917d575@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+	eric.dumazet@gmail.com, zheng.z.yan@intel.com,
+	netdev@vger.kernel.org, David Ward <david.ward@ll.mit.edu>
+To: Kim Phillips <kim.phillips@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.erfurth.eu ([89.107.64.155]:52837 "EHLO mail.erfurth.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754415Ab1KHQ6i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Nov 2011 11:58:38 -0500
+Received: from out1.smtp.messagingengine.com ([66.111.4.25]:33299 "EHLO
+	out1.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752924Ab1KHRCx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 12:02:53 -0500
+Received: from compute1.internal (compute1.nyi.mail.srv.osa [10.202.2.41])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id BC438210E2
+	for <netdev@vger.kernel.org>; Tue,  8 Nov 2011 11:54:12 -0500 (EST)
+Content-Disposition: inline
+In-Reply-To: <20111104212958.5d54152b38050e2a0917d575@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver used NET_IP_ALIGN to remove some additional padding inside of
-the rx_fixup function. On many architectures NET_IP_ALIGN defaults to 2
-which removed the correct amount of bytes.
+On Fri, Nov 04, 2011 at 09:29:58PM -0500, Kim Phillips wrote:
+> On Fri, 4 Nov 2011 14:24:39 -0700
+> Greg KH <greg@kroah.com> wrote:
+> 
+> > On Fri, Nov 04, 2011 at 02:46:59PM -0500, Kim Phillips wrote:
+> > > commit aa1c366e4febc7f5c2b84958a2dd7cd70e28f9d0 upstream.
+> > > 
+> > > With the conversion of struct flowi to a union of AF-specific structs, some
+> > > operations on the flow cache need to account for the exact size of the key.
+> > > 
+> > > Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> > > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > > Cc: stable@vger.kernel.org # v3.0.x
+> > > ---
+> > > This patch is the result of a clean cherry-pick onto v3.0.8.
+> > > It restores IPSec fwding performance from ~4kpps back to ~44kpps on
+> > > a P2020DS board.
+> > 
+> > Too bad you forgot to build this patch after you applied it:
+> >   CC      init/main.o
+> > In file included from include/linux/security.h:39:0,
+> >                  from init/main.c:32:
+> > include/net/flow.h: In function 'flow_key_size':
+> > include/net/flow.h:174:3: error: size of unnamed array is negative
+> > include/net/flow.h:177:3: error: size of unnamed array is negative
+> > 
+> > Please be kind to your poor over-worked stable kernel maintainer and do
+> > the decent thing and TEST YOUR PATCH before you ask him to accept it.
+> > 
+> > bah, I think it's time for the weekend to start a bit earlier than normal...
+> 
+> so sorry I hadn't tested 64-bit.
+> 
+> I found the problem - upstream commit aa1c366 depends on
+> upstream commit 728871b:
+> 
+> commit 728871bc05afc8ff310b17dba3e57a2472792b13
+> Author: David Ward <david.ward@ll.mit.edu>
+> Date:   Mon Sep 5 16:47:23 2011 +0000
+> 
+>     net: Align AF-specific flowi structs to long
+>     
+>     AF-specific flowi structs are now passed to flow_key_compare, which must
+>     also be aligned to a long.
+>     
+>     Signed-off-by: David Ward <david.ward@ll.mit.edu>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> so, one more time, in stable sign-off area format:
+> 
+> Cc: <stable@vger.kernel.org> # v3.0.x: 728871b: net: Align AF-specific flowi structs to long
+> Cc: <stable@vger.kernel.org> # v3.0.x
+> 
+> build tested on 32- and 64-bit powerpc, and ARCH=x86
+> {i386,x86_64}_defconfig.
 
-On MCORE2-machines commit ea812ca1b06113597adcd8e70c0f84a413d97544
-introduces a change which sets NET_IP_ALIGN to 0 by default. Which
-triggered the bug on these machines.
+Can you please resend the original patch I needed to apply here as well?
+It's long-gone in my deleted inbox.
 
-This fix introduces a new RXW_PADDING define and uses this instead of
-NET_IP_ALIGN. The name was taken from the original SMSC7500 driver which
-is provided by SMSC.
+thanks,
 
-Signed-off-by: Nico Erfurth <ne@erfurth.eu>
-Tested-by: Phil Sutter <phil@nwl.cc>
----
- drivers/net/usb/smsc75xx.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
-index 22a7cf9..a5b9b12 100644
---- a/drivers/net/usb/smsc75xx.c
-+++ b/drivers/net/usb/smsc75xx.c
-@@ -51,6 +51,7 @@
- #define USB_VENDOR_ID_SMSC		(0x0424)
- #define USB_PRODUCT_ID_LAN7500		(0x7500)
- #define USB_PRODUCT_ID_LAN7505		(0x7505)
-+#define RXW_PADDING			2
- 
- #define check_warn(ret, fmt, args...) \
- 	({ if (ret < 0) netdev_warn(dev->net, fmt, ##args); })
-@@ -1088,13 +1089,13 @@ static int smsc75xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 
- 		memcpy(&rx_cmd_b, skb->data, sizeof(rx_cmd_b));
- 		le32_to_cpus(&rx_cmd_b);
--		skb_pull(skb, 4 + NET_IP_ALIGN);
-+		skb_pull(skb, 4 + RXW_PADDING);
- 
- 		packet = skb->data;
- 
- 		/* get the packet length */
--		size = (rx_cmd_a & RX_CMD_A_LEN) - NET_IP_ALIGN;
--		align_count = (4 - ((size + NET_IP_ALIGN) % 4)) % 4;
-+		size = (rx_cmd_a & RX_CMD_A_LEN) - RXW_PADDING;
-+		align_count = (4 - ((size + RXW_PADDING) % 4)) % 4;
- 
- 		if (unlikely(rx_cmd_a & RX_CMD_A_RED)) {
- 			netif_dbg(dev, rx_err, dev->net,
--- 
-1.7.3.4
+greg k-h
