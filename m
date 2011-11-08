@@ -1,41 +1,55 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 1/2] net/smsc911x: Always wait for the chip to be ready
-Date: Tue, 8 Nov 2011 11:34:01 +0100
-Message-ID: <CAKnu2MoraoPsqBa9KSHHCG=8avrk_thdNEox1RUTRUGZKr14kA@mail.gmail.com>
-References: <1319616343-6357-1-git-send-email-linus.walleij@stericsson.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH v4 0/3] SUNRPC: rcbind clients virtualization
+Date: Tue, 08 Nov 2011 14:41:05 +0300
+Message-ID: <20111108104023.1714.87978.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Mathieu Poirer <mathieu.poirier@linaro.org>,
-	Robert Marklund <robert.marklund@stericsson.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64313 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753478Ab1KHKeC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 05:34:02 -0500
-Received: by wyh15 with SMTP id 15so308419wyh.19
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 02:34:01 -0800 (PST)
-In-Reply-To: <1319616343-6357-1-git-send-email-linus.walleij@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbottomley@parallels.com, bfields@fieldses.org,
+	davem@davemloft.net, devel@openvz.org
+To: Trond.Myklebust@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2011/10/26 Linus Walleij <linus.walleij@stericsson.com>:
+This patch-set was created in context of clone of git branch:
+git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
 
-> From: Robert Marklund <robert.marklund@stericsson.com>
->
-> Wait for the chip to be ready before any access to it. On the
-> Snowball platform we need to enable an external regulator before
-> the chip comes online, and then it happens that the device is
-> not yet ready at probe time, so let's wait for it.
->
-> Signed-off-by: Robert Marklund <robert.marklund@stericsson.com>
-> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+v4:
+1) Rebased of current repo state (i.e. all commits pulled before apply)
 
-Since there doesn't seem to be any consternation concerning
-this first patch, can it be applied?
+v3:
+1) First two patches from previous version were squashed.
 
-Yours,
-Linus Walleij
+I feel it is ready for inclusion when the next merge window opens if no
+objections wil appear.
+
+This patch-set virtualizes rpcbind clients per network namespace context. IOW,
+each network namespace will have its own pair of rpcbind clients (if they would
+be created by request).
+
+Note:
+init_net pointer is still used instead of current->nsproxy->net_ns, because I'm
+not sure yet about how to virtualize services. I.e. NFS callback services will
+be per netns. NFSd service will be per netns too from my pow. But Lockd can be
+per netns or one for all. And also we have NFSd file system, which is not
+virtualized yet.
+
+The following series consists of:
+
+---
+
+Stanislav Kinsbursky (3):
+      SUNRPC: move rpcbind internals to sunrpc part of network namespace context
+      SUNRPC: optimize net_ns dereferencing in rpcbind creation calls
+      SUNRPC: optimize net_ns dereferencing in rpcbind registering calls
+
+
+ net/sunrpc/netns.h     |    5 ++
+ net/sunrpc/rpcb_clnt.c |  103 ++++++++++++++++++++++++++----------------------
+ 2 files changed, 61 insertions(+), 47 deletions(-)
+
+-- 
+Signature
