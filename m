@@ -1,60 +1,66 @@
-From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-Subject: [RESEND] ll_temac: Add support for phy_mii_ioctl
-Date: Tue,  8 Nov 2011 10:47:45 +0100
-Message-ID: <1320745665-11688-1-git-send-email-ricardo.ribalda@gmail.com>
-Cc: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-To: davem@davemloft.net, ian.campbell@citrix.com,
-	eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-	jpirko@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug? GRE tunnel periodically won't transmit some packets
+Date: Tue, 08 Nov 2011 11:25:38 +0100
+Message-ID: <1320747938.2487.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <20111108070819.C643236221@apps0.cs.toronto.edu>
+	 <1320737641.8976.4.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Chris Siebenmann <cks@cs.toronto.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:63467 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:48658 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238Ab1KHJrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 04:47:51 -0500
+	with ESMTP id S1751475Ab1KHKZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 05:25:42 -0500
+Received: by bke11 with SMTP id 11so233383bke.19
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 02:25:41 -0800 (PST)
+In-Reply-To: <1320737641.8976.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the ioctl support for the driver. So userspace
-programs like mii-tool can work.
+Le mardi 08 novembre 2011 =C3=A0 08:34 +0100, Eric Dumazet a =C3=A9crit=
+ :
+> Le mardi 08 novembre 2011 =C3=A0 02:08 -0500, Chris Siebenmann a =C3=A9=
+crit :
+>=20
+> >  Let me know if you want a full dump of 'ip link show' (with or
+> > without verbosity).
+> >=20
+> > 	- cks
+>=20
+> Oh yes, I meant "ip -s -s link show dev extun"
+>=20
+> to get detailed infos :
+>=20
+> # ip -s -s link show dev ppp0
+> 8: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc
+> pfifo_fast state UNKNOWN qlen 3
+>     link/ppp=20
+>     RX: bytes  packets  errors  dropped overrun mcast  =20
+>     21120910   21103    0       0       0       0     =20
+>     RX errors: length  crc     frame   fifo    missed
+>                0        0       0       0       0     =20
+>     TX: bytes  packets  errors  dropped carrier collsns=20
+>     1310652    13736    0       0       0       0     =20
+>     TX errors: aborted fifo    window  heartbeat
+>                0        0       0       0     =20
+>=20
 
-Resend in merge window
 
-Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+Hmm, by the way, I see the default device queue length of ppp is 3
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index 4d1658e..b26e5ee 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -915,12 +915,26 @@ temac_poll_controller(struct net_device *ndev)
- }
- #endif
- 
-+static int temac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
-+{
-+	struct temac_local *lp = netdev_priv(ndev);
-+
-+	if (!netif_running(ndev))
-+		return -EINVAL;
-+
-+	if (!lp->phy_dev)
-+		return -EINVAL;
-+
-+	return phy_mii_ioctl(lp->phy_dev, rq, cmd);
-+}
-+
- static const struct net_device_ops temac_netdev_ops = {
- 	.ndo_open = temac_open,
- 	.ndo_stop = temac_stop,
- 	.ndo_start_xmit = temac_start_xmit,
- 	.ndo_set_mac_address = netdev_set_mac_address,
- 	.ndo_validate_addr = eth_validate_addr,
-+	.ndo_do_ioctl = temac_ioctl,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = temac_poll_controller,
- #endif
--- 
-1.7.7.1
+You might have packet drops at the ppp0 device itself
+
+ip -s -s link show dev ppp0 ; tc -s -d qdisc show dev ppp0
+
+You could try to increase ppp0 queue length or install a classifier wit=
+h
+128 packet limit.
+
+ifconfig ppp0 txqueuelen 32
+
+or :
+
+tc qdisc add dev ppp0 root sfq
