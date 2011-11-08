@@ -1,25 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] sctp: Patches for fasthandoff
-Date: Tue, 08 Nov 2011 15:16:29 -0500 (EST)
-Message-ID: <20111108.151629.645549894117116964.davem@davemloft.net>
-References: <27205644-2484-4072-8689-1504958C9B73@sfc.wide.ad.jp>
+Subject: Re: [RESEND] ll_temac: Add support for phy_mii_ioctl
+Date: Tue, 08 Nov 2011 15:16:50 -0500 (EST)
+Message-ID: <20111108.151650.2211132862241211917.davem@davemloft.net>
+References: <1320745665-11688-1-git-send-email-ricardo.ribalda@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: weiyj.lk@gmail.com, netdev@vger.kernel.org
-To: micchie@sfc.wide.ad.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46431 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754692Ab1KHUQg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 15:16:36 -0500
-In-Reply-To: <27205644-2484-4072-8689-1504958C9B73@sfc.wide.ad.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ian.campbell@citrix.com, eric.dumazet@gmail.com,
+	jeffrey.t.kirsher@intel.com, jpirko@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ricardo.ribalda@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1320745665-11688-1-git-send-email-ricardo.ribalda@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michio Honda <micchie@sfc.wide.ad.jp>
-Date: Wed, 9 Nov 2011 01:23:01 +0900
+From: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
+Date: Tue,  8 Nov 2011 10:47:45 +0100
 
-> Series of 2 patches for retransmission immediately after the address reconfiguration including disconnected period.  
+> This patch enables the ioctl support for the driver. So userspace
+> programs like mii-tool can work.
+> 
+> Resend in merge window
+> 
+> Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
 
-Both applied, thanks.
+Applied.
