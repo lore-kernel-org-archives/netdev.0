@@ -1,53 +1,63 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: [PATCH series][6LoWPAN]
-Date: Tue, 8 Nov 2011 08:34:30 -0500
-Message-ID: <20111108133430.GA14607@synalogic.ca>
-References: <20111102162520.GA2669@avtobot.cybertron>
- <20111102.155751.937213919986688678.davem@davemloft.net>
- <CAJmB2rDYKwVAeqkNYVu95=asR2RjTPZrCnfaBMgDdhqv=Nu+Ng@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 7/7] gianfar: add support for wake-on-packet
+Date: Tue, 8 Nov 2011 07:42:09 -0600
+Message-ID: <5D4A38A7-B662-40CC-97AB-9E2A64531776@kernel.crashing.org>
+References: <1320410403-14639-1-git-send-email-chenhui.zhao@freescale.com> <4EB45515.6060405@freescale.com> <3F607A5180246847A760FD34122A1E052BC9C7@039-SN1MPN1-004.039d.mgd.msft.net>
+Mime-Version: 1.0 (Apple Message framework v1251.1)
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8BIT
+Cc: Wood Scott-B07421 <B07421@freescale.com>,
+	Zhao Chenhui-B35336 <B35336@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	Fleming Andy-AFLEMING <afleming@freescale.com>
+To: Li Yang-R58472 <r58472@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:54913 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754242Ab1KHNef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 08:34:35 -0500
-Received: by vcbf1 with SMTP id f1so372907vcb.19
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 05:34:34 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAJmB2rDYKwVAeqkNYVu95=asR2RjTPZrCnfaBMgDdhqv=Nu+Ng@mail.gmail.com>
+Received: from gate.crashing.org ([63.228.1.57]:50571 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751927Ab1KHNmX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 08:42:23 -0500
+In-Reply-To: <3F607A5180246847A760FD34122A1E052BC9C7@039-SN1MPN1-004.039d.mgd.msft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/11/04 22:19, Alexander Smirnov wrote:
-> Hello everybody,
-> 
-> 2011/11/2, David Miller <davem@davemloft.net>:
-> > From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-> > Date: Wed, 2 Nov 2011 19:25:20 +0300
-> >
-> >> The following patch series adds both major feature and minor fixes.
-> >> Please find detailed description in each of the patches.
-> >
-> > Right in the middle of the merge window is not the time to be
-> > submitting new features.
-> >
-> > You'll need to repost these when the net-next tree opens back
-> > up.
-> >
-> 
-> sorry if my question looks too silly, but I'm not so long here and
-> don't know all the patch-submitting-process details. :-(
-> 
-> Could anyone please describe me (or link to some wiki) the merge
-> process, how the new merge window is announced, what the proper time
-> to send bug fixes/new features and so on..
-> 
-> Thank you for your time!
 
-You may find answers in Documentation/development-process/ (in the
-kernel source tree).
+On Nov 8, 2011, at 5:20 AM, Li Yang-R58472 wrote:
 
--Ben
+> 
+> 
+>> -----Original Message-----
+>> From: linuxppc-dev-bounces+leoli=freescale.com@lists.ozlabs.org
+>> [mailto:linuxppc-dev-bounces+leoli=freescale.com@lists.ozlabs.org] On
+>> Behalf Of Scott Wood
+>> Sent: Saturday, November 05, 2011 5:12 AM
+>> To: Zhao Chenhui-B35336
+>> Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org; Fleming Andy-
+>> AFLEMING
+>> Subject: Re: [PATCH 7/7] gianfar: add support for wake-on-packet
+>> 
+>> On 11/04/2011 07:40 AM, Zhao Chenhui wrote:
+>>> diff --git a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+>> b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+>>> index 2c6be03..543e36c 100644
+>>> --- a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+>>> +++ b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+>>> @@ -56,6 +56,9 @@ Properties:
+>>>     hardware.
+>>>   - fsl,magic-packet : If present, indicates that the hardware supports
+>>>     waking up via magic packet.
+>>> +  - fsl,wake-on-filer : If present, indicates that the hardware
+>> supports
+>>> +    waking up via arp request to local ip address or unicast packet to
+>>> +    local mac address.
+>> 
+>> Is there any way to determine this at runtime via the device's registers?
+>> 
+>> I think TSEC_ID2[TSEC_CFG] can be used.  The manual describes it
+>> awkwardly, but it looks like 0x20 is the bit for the filer.
+> 
+> That bit only defines the filer feature but not wakeup on it.  Another solution is to get the capability from the fsl_pmc driver, but will make the driver a lot more complex.
+
+I don't believe there is a way to know this from the controller itself.  We have to use device tree for it.
+
+- k
