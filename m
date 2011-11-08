@@ -1,26 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Add IPSec IP Range in Linux kernel
-Date: Tue, 08 Nov 2011 12:16:20 -0500 (EST)
-Message-ID: <20111108.121620.2044664919065812135.davem@davemloft.net>
-References: <92909814.20111108111036@mail.ru>
-	<1320733465.21617.4.camel@ppwaskie-mobl2>
-	<CACVxJT887ATwt97iw7mPEkH+KXgy1WbsP_aUB_X-8uLQ+6YsLQ@mail.gmail.com>
+Subject: Re: dst->obsolete has become pointless
+Date: Tue, 08 Nov 2011 12:20:20 -0500 (EST)
+Message-ID: <20111108.122020.1080743546477280623.davem@davemloft.net>
+References: <20111104.230910.520924516201406800.davem@davemloft.net>
+	<20111108093424.GG22141@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, danila.st@mail.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org, linux-security-module@vger.kernel.org
-To: adobriyan@gmail.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CACVxJT887ATwt97iw7mPEkH+KXgy1WbsP_aUB_X-8uLQ+6YsLQ@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, timo.teras@iki.fi
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:35416 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754448Ab1KHRUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 12:20:36 -0500
+In-Reply-To: <20111108093424.GG22141@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 8 Nov 2011 14:08:24 +0200
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 8 Nov 2011 10:34:24 +0100
 
-> changing addr_match() is trivial for ipv4 and easy for ipv6. :-)
+> I don't know what to do with DecNET, but we probaply need to decide
+> about the future of dst->obsolete before we can fix the ipv4 PMTU
+> problems. Possible fixes might depend on whether ->dst_check() is
+> always invoked or not.
 
-No, this is not happening.  This added complexity screws up all the hash table
-and lookup optimizations we have in the XFRM layer.
+Simplest thing to do is to move dst->obsolete check into DecNET's
+->dst_check() handler, then call ->dst_check() unconditionally.
+
+Then we can just set dst->obsolete to zero for all route types,
+and kill the "initial_obsolete" argument to dst_alloc() and
+associated logic.
+
+As things are currently implemented, because of how we elide the full
+table scan and flush, ipv4 and ipv6 really need to do the serial
+number check every time so we have to keep things as they are.
+
+Things get more interesting with the routing cache removed, of course,
+but that is still a long ways off. :-)
