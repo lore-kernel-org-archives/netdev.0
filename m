@@ -1,308 +1,148 @@
 From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCHv4 4/9] macb: convert printk to netdev_ and friends
-Date: Tue,  8 Nov 2011 14:13:28 +0000
-Message-ID: <1320761613-18641-5-git-send-email-jamie@jamieiles.com>
+Subject: [PATCHv4 6/9] macb: support higher rate GEM MDIO clock divisors
+Date: Tue,  8 Nov 2011 14:13:30 +0000
+Message-ID: <1320761613-18641-7-git-send-email-jamie@jamieiles.com>
 References: <1320761613-18641-1-git-send-email-jamie@jamieiles.com>
 Cc: arnd@arndb.de, Jamie Iles <jamie@jamieiles.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:42914 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932477Ab1KHONw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 09:13:52 -0500
-Received: by wwf22 with SMTP id 22so6395651wwf.1
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 06:13:51 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41484 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932377Ab1KHON4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 09:13:56 -0500
+Received: by wwi36 with SMTP id 36so805441wwi.1
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 06:13:55 -0800 (PST)
 In-Reply-To: <1320761613-18641-1-git-send-email-jamie@jamieiles.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-macb is already using the dev_dbg() and friends helpers so use netdev_()
-along with a pr_fmt() definition to make the printing a little cleaner.
+GEM devices support larger clock divisors and have a different
+range of divisors.  Program the MDIO clock divisors based on the
+device type.
 
-Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 Signed-off-by: Jamie Iles <jamie@jamieiles.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c |  113 +++++++++++++++++------------------
- 1 files changed, 54 insertions(+), 59 deletions(-)
+ drivers/net/ethernet/cadence/macb.c |   55 ++++++++++++++++++++++++++++-------
+ drivers/net/ethernet/cadence/macb.h |   11 +++++++
+ 2 files changed, 55 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index d97d9ce..26e6b04 100644
+index a7c3162..1600466 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -8,6 +8,7 @@
-  * published by the Free Software Foundation.
-  */
- 
-+#define pr_fmt(fmt) "macb: " fmt
- #include <linux/clk.h>
- #include <linux/module.h>
- #include <linux/moduleparam.h>
-@@ -82,7 +83,7 @@ static void __init macb_get_hwaddr(struct macb *bp)
- 	if (is_valid_ether_addr(addr)) {
- 		memcpy(bp->dev->dev_addr, addr, sizeof(addr));
- 	} else {
--		dev_info(&bp->pdev->dev, "invalid hw address, using random\n");
-+		netdev_info(bp->dev, "invalid hw address, using random\n");
- 		random_ether_addr(bp->dev->dev_addr);
- 	}
- }
-@@ -176,11 +177,11 @@ static void macb_handle_link_change(struct net_device *dev)
- 
- 	if (status_change) {
- 		if (phydev->link)
--			printk(KERN_INFO "%s: link up (%d/%s)\n",
--			       dev->name, phydev->speed,
--			       DUPLEX_FULL == phydev->duplex ? "Full":"Half");
-+			netdev_info(dev, "link up (%d/%s)\n", phydev->speed,
-+				    DUPLEX_FULL == phydev->duplex ?
-+				    "Full" : "Half");
- 		else
--			printk(KERN_INFO "%s: link down\n", dev->name);
-+			netdev_info(dev, "link down\n");
- 	}
+@@ -794,6 +794,48 @@ static void macb_reset_hw(struct macb *bp)
+ 	macb_readl(bp, ISR);
  }
  
-@@ -194,7 +195,7 @@ static int macb_mii_probe(struct net_device *dev)
++static u32 gem_mdc_clk_div(struct macb *bp)
++{
++	u32 config;
++	unsigned long pclk_hz = clk_get_rate(bp->pclk);
++
++	if (pclk_hz <= 20000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV8);
++	else if (pclk_hz <= 40000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV16);
++	else if (pclk_hz <= 80000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV32);
++	else if (pclk_hz <= 120000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV48);
++	else if (pclk_hz <= 160000000)
++		config = GEM_BF(CLK, GEM_CLK_DIV64);
++	else
++		config = GEM_BF(CLK, GEM_CLK_DIV96);
++
++	return config;
++}
++
++static u32 macb_mdc_clk_div(struct macb *bp)
++{
++	u32 config;
++	unsigned long pclk_hz;
++
++	if (macb_is_gem(bp))
++		return gem_mdc_clk_div(bp);
++
++	pclk_hz = clk_get_rate(bp->pclk);
++	if (pclk_hz <= 20000000)
++		config = MACB_BF(CLK, MACB_CLK_DIV8);
++	else if (pclk_hz <= 40000000)
++		config = MACB_BF(CLK, MACB_CLK_DIV16);
++	else if (pclk_hz <= 80000000)
++		config = MACB_BF(CLK, MACB_CLK_DIV32);
++	else
++		config = MACB_BF(CLK, MACB_CLK_DIV64);
++
++	return config;
++}
++
+ static void macb_init_hw(struct macb *bp)
+ {
+ 	u32 config;
+@@ -801,7 +843,7 @@ static void macb_init_hw(struct macb *bp)
+ 	macb_reset_hw(bp);
+ 	__macb_set_hwaddr(bp);
  
- 	phydev = phy_find_first(bp->mii_bus);
- 	if (!phydev) {
--		printk (KERN_ERR "%s: no PHY found\n", dev->name);
-+		netdev_err(dev, "no PHY found\n");
- 		return -1;
- 	}
+-	config = macb_readl(bp, NCFGR) & MACB_BF(CLK, -1L);
++	config = macb_mdc_clk_div(bp);
+ 	config |= MACB_BIT(PAE);		/* PAuse Enable */
+ 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
+ 	config |= MACB_BIT(BIG);		/* Receive oversized frames */
+@@ -1120,7 +1162,6 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	struct net_device *dev;
+ 	struct macb *bp;
+ 	struct phy_device *phydev;
+-	unsigned long pclk_hz;
+ 	u32 config;
+ 	int err = -ENXIO;
  
-@@ -207,7 +208,7 @@ static int macb_mii_probe(struct net_device *dev)
- 				 PHY_INTERFACE_MODE_RMII :
- 				 PHY_INTERFACE_MODE_MII);
- 	if (ret) {
--		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
-+		netdev_err(dev, "Could not attach to PHY\n");
- 		return ret;
- 	}
+@@ -1184,15 +1225,7 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	dev->base_addr = regs->start;
  
-@@ -301,14 +302,13 @@ static void macb_tx(struct macb *bp)
- 	status = macb_readl(bp, TSR);
- 	macb_writel(bp, TSR, status);
+ 	/* Set MII management clock divider */
+-	pclk_hz = clk_get_rate(bp->pclk);
+-	if (pclk_hz <= 20000000)
+-		config = MACB_BF(CLK, MACB_CLK_DIV8);
+-	else if (pclk_hz <= 40000000)
+-		config = MACB_BF(CLK, MACB_CLK_DIV16);
+-	else if (pclk_hz <= 80000000)
+-		config = MACB_BF(CLK, MACB_CLK_DIV32);
+-	else
+-		config = MACB_BF(CLK, MACB_CLK_DIV64);
++	config = macb_mdc_clk_div(bp);
+ 	macb_writel(bp, NCFGR, config);
  
--	dev_dbg(&bp->pdev->dev, "macb_tx status = %02lx\n",
--		(unsigned long)status);
-+	netdev_dbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
+ 	macb_get_hwaddr(bp);
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index d50057c..354ed8f 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -135,6 +135,9 @@
+ #define MACB_IRXFCS_OFFSET			19
+ #define MACB_IRXFCS_SIZE			1
  
- 	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
- 		int i;
--		printk(KERN_ERR "%s: TX %s, resetting buffers\n",
--			bp->dev->name, status & MACB_BIT(UND) ?
--			"underrun" : "retry limit exceeded");
-+		netdev_err(bp->dev, "TX %s, resetting buffers\n",
-+			   status & MACB_BIT(UND) ?
-+			   "underrun" : "retry limit exceeded");
++/* GEM specific NCFGR bitfields. */
++#define GEM_CLK_OFFSET				18
++#define GEM_CLK_SIZE				3
+ /* Bitfields in NSR */
+ #define MACB_NSR_LINK_OFFSET			0
+ #define MACB_NSR_LINK_SIZE			1
+@@ -249,6 +252,14 @@
+ #define MACB_CLK_DIV32				2
+ #define MACB_CLK_DIV64				3
  
- 		/* Transfer ongoing, disable transmitter, to avoid confusion */
- 		if (status & MACB_BIT(TGO))
-@@ -367,8 +367,8 @@ static void macb_tx(struct macb *bp)
- 		if (!(bufstat & MACB_BIT(TX_USED)))
- 			break;
- 
--		dev_dbg(&bp->pdev->dev, "skb %u (data %p) TX complete\n",
--			tail, skb->data);
-+		netdev_dbg(bp->dev, "skb %u (data %p) TX complete\n", tail,
-+			   skb->data);
- 		dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
- 				 DMA_TO_DEVICE);
- 		bp->stats.tx_packets++;
-@@ -393,8 +393,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 
- 	len = MACB_BFEXT(RX_FRMLEN, bp->rx_ring[last_frag].ctrl);
- 
--	dev_dbg(&bp->pdev->dev, "macb_rx_frame frags %u - %u (len %u)\n",
--		first_frag, last_frag, len);
-+	netdev_dbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
-+		   first_frag, last_frag, len);
- 
- 	skb = dev_alloc_skb(len + RX_OFFSET);
- 	if (!skb) {
-@@ -435,8 +435,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 
- 	bp->stats.rx_packets++;
- 	bp->stats.rx_bytes += len;
--	dev_dbg(&bp->pdev->dev, "received skb of length %u, csum: %08x\n",
--		skb->len, skb->csum);
-+	netdev_dbg(bp->dev, "received skb of length %u, csum: %08x\n",
-+		   skb->len, skb->csum);
- 	netif_receive_skb(skb);
- 
- 	return 0;
-@@ -513,8 +513,8 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 
- 	work_done = 0;
- 
--	dev_dbg(&bp->pdev->dev, "poll: status = %08lx, budget = %d\n",
--		(unsigned long)status, budget);
-+	netdev_dbg(bp->dev, "poll: status = %08lx, budget = %d\n",
-+		   (unsigned long)status, budget);
- 
- 	work_done = macb_rx(bp, budget);
- 	if (work_done < budget) {
-@@ -563,8 +563,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
- 
- 			if (napi_schedule_prep(&bp->napi)) {
--				dev_dbg(&bp->pdev->dev,
--					"scheduling RX softirq\n");
-+				netdev_dbg(bp->dev, "scheduling RX softirq\n");
- 				__napi_schedule(&bp->napi);
- 			}
- 		}
-@@ -585,11 +584,11 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 
- 		if (status & MACB_BIT(HRESP)) {
- 			/*
--			 * TODO: Reset the hardware, and maybe move the printk
--			 * to a lower-priority context as well (work queue?)
-+			 * TODO: Reset the hardware, and maybe move the
-+			 * netdev_err to a lower-priority context as well
-+			 * (work queue?)
- 			 */
--			printk(KERN_ERR "%s: DMA bus error: HRESP not OK\n",
--			       dev->name);
-+			netdev_err(dev, "DMA bus error: HRESP not OK\n");
- 		}
- 
- 		status = macb_readl(bp, ISR);
-@@ -625,12 +624,11 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- #ifdef DEBUG
- 	int i;
--	dev_dbg(&bp->pdev->dev,
--		"start_xmit: len %u head %p data %p tail %p end %p\n",
--		skb->len, skb->head, skb->data,
--		skb_tail_pointer(skb), skb_end_pointer(skb));
--	dev_dbg(&bp->pdev->dev,
--		"data:");
-+	netdev_dbg(bp->dev,
-+		   "start_xmit: len %u head %p data %p tail %p end %p\n",
-+		   skb->len, skb->head, skb->data,
-+		   skb_tail_pointer(skb), skb_end_pointer(skb));
-+	netdev_dbg(bp->dev, "data:");
- 	for (i = 0; i < 16; i++)
- 		printk(" %02x", (unsigned int)skb->data[i]);
- 	printk("\n");
-@@ -643,20 +641,19 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (TX_BUFFS_AVAIL(bp) < 1) {
- 		netif_stop_queue(dev);
- 		spin_unlock_irqrestore(&bp->lock, flags);
--		dev_err(&bp->pdev->dev,
--			"BUG! Tx Ring full when queue awake!\n");
--		dev_dbg(&bp->pdev->dev, "tx_head = %u, tx_tail = %u\n",
--			bp->tx_head, bp->tx_tail);
-+		netdev_err(bp->dev, "BUG! Tx Ring full when queue awake!\n");
-+		netdev_dbg(bp->dev, "tx_head = %u, tx_tail = %u\n",
-+			   bp->tx_head, bp->tx_tail);
- 		return NETDEV_TX_BUSY;
- 	}
- 
- 	entry = bp->tx_head;
--	dev_dbg(&bp->pdev->dev, "Allocated ring entry %u\n", entry);
-+	netdev_dbg(bp->dev, "Allocated ring entry %u\n", entry);
- 	mapping = dma_map_single(&bp->pdev->dev, skb->data,
- 				 len, DMA_TO_DEVICE);
- 	bp->tx_skb[entry].skb = skb;
- 	bp->tx_skb[entry].mapping = mapping;
--	dev_dbg(&bp->pdev->dev, "Mapped skb data %p to DMA addr %08lx\n",
-+	netdev_dbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
- 		skb->data, (unsigned long)mapping);
- 
- 	ctrl = MACB_BF(TX_FRMLEN, len);
-@@ -721,27 +718,27 @@ static int macb_alloc_consistent(struct macb *bp)
- 					 &bp->rx_ring_dma, GFP_KERNEL);
- 	if (!bp->rx_ring)
- 		goto out_err;
--	dev_dbg(&bp->pdev->dev,
--		"Allocated RX ring of %d bytes at %08lx (mapped %p)\n",
--		size, (unsigned long)bp->rx_ring_dma, bp->rx_ring);
-+	netdev_dbg(bp->dev,
-+		   "Allocated RX ring of %d bytes at %08lx (mapped %p)\n",
-+		   size, (unsigned long)bp->rx_ring_dma, bp->rx_ring);
- 
- 	size = TX_RING_BYTES;
- 	bp->tx_ring = dma_alloc_coherent(&bp->pdev->dev, size,
- 					 &bp->tx_ring_dma, GFP_KERNEL);
- 	if (!bp->tx_ring)
- 		goto out_err;
--	dev_dbg(&bp->pdev->dev,
--		"Allocated TX ring of %d bytes at %08lx (mapped %p)\n",
--		size, (unsigned long)bp->tx_ring_dma, bp->tx_ring);
-+	netdev_dbg(bp->dev,
-+		   "Allocated TX ring of %d bytes at %08lx (mapped %p)\n",
-+		   size, (unsigned long)bp->tx_ring_dma, bp->tx_ring);
- 
- 	size = RX_RING_SIZE * RX_BUFFER_SIZE;
- 	bp->rx_buffers = dma_alloc_coherent(&bp->pdev->dev, size,
- 					    &bp->rx_buffers_dma, GFP_KERNEL);
- 	if (!bp->rx_buffers)
- 		goto out_err;
--	dev_dbg(&bp->pdev->dev,
--		"Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
--		size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
-+	netdev_dbg(bp->dev,
-+		   "Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
-+		   size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
- 
- 	return 0;
- 
-@@ -952,7 +949,7 @@ static int macb_open(struct net_device *dev)
- 	struct macb *bp = netdev_priv(dev);
- 	int err;
- 
--	dev_dbg(&bp->pdev->dev, "open\n");
-+	netdev_dbg(bp->dev, "open\n");
- 
- 	/* if the phy is not yet register, retry later*/
- 	if (!bp->phy_dev)
-@@ -963,9 +960,8 @@ static int macb_open(struct net_device *dev)
- 
- 	err = macb_alloc_consistent(bp);
- 	if (err) {
--		printk(KERN_ERR
--		       "%s: Unable to allocate DMA memory (error %d)\n",
--		       dev->name, err);
-+		netdev_err(dev, "Unable to allocate DMA memory (error %d)\n",
-+			   err);
- 		return err;
- 	}
- 
-@@ -1174,9 +1170,8 @@ static int __init macb_probe(struct platform_device *pdev)
- 	dev->irq = platform_get_irq(pdev, 0);
- 	err = request_irq(dev->irq, macb_interrupt, 0, dev->name, dev);
- 	if (err) {
--		printk(KERN_ERR
--		       "%s: Unable to request IRQ %d (error %d)\n",
--		       dev->name, dev->irq, err);
-+		dev_err(&pdev->dev, "Unable to request IRQ %d (error %d)\n",
-+			dev->irq, err);
- 		goto err_out_iounmap;
- 	}
- 
-@@ -1228,13 +1223,13 @@ static int __init macb_probe(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, dev);
- 
--	printk(KERN_INFO "%s: Atmel MACB at 0x%08lx irq %d (%pM)\n",
--	       dev->name, dev->base_addr, dev->irq, dev->dev_addr);
-+	netdev_info(dev, "Atmel MACB at 0x%08lx irq %d (%pM)\n",
-+		dev->base_addr, dev->irq, dev->dev_addr);
- 
- 	phydev = bp->phy_dev;
--	printk(KERN_INFO "%s: attached PHY driver [%s] "
--		"(mii_bus:phy_addr=%s, irq=%d)\n", dev->name,
--		phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
-+	netdev_info(dev, "attached PHY driver [%s] "
-+		    "(mii_bus:phy_addr=%s, irq=%d)\n", phydev->drv->name,
-+		    dev_name(&phydev->dev), phydev->irq);
- 
- 	return 0;
- 
++/* GEM specific constants for CLK. */
++#define GEM_CLK_DIV8				0
++#define GEM_CLK_DIV16				1
++#define GEM_CLK_DIV32				2
++#define GEM_CLK_DIV48				3
++#define GEM_CLK_DIV64				4
++#define GEM_CLK_DIV96				5
++
+ /* Constants for MAN register */
+ #define MACB_MAN_SOF				1
+ #define MACB_MAN_WRITE				1
 -- 
 1.7.4.1
