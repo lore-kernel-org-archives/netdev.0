@@ -1,29 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sunhme: Allow usage on SBI based SBus systems
-Date: Tue, 08 Nov 2011 14:01:53 -0500 (EST)
-Message-ID: <20111108.140153.2073990811396907800.davem@davemloft.net>
-References: <Pine.LNX.4.64.1111072217540.4069@oizys.tordivel.org>
+Subject: Re: [PATCH] tcp: Fix comments for Nagle algorithm
+Date: Tue, 08 Nov 2011 14:03:12 -0500 (EST)
+Message-ID: <20111108.140312.2104080830131697151.davem@davemloft.net>
+References: <1320503003-5169-1-git-send-email-kinwin2008@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org
-To: oftedal@gmail.com
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1111072217540.4069@oizys.tordivel.org>
-Sender: sparclinux-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kinwin2008@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1320503003-5169-1-git-send-email-kinwin2008@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kjetil Oftedal <oftedal@gmail.com>
-Date: Mon, 7 Nov 2011 22:47:53 +0100 (CET)
+From: Feng King <kinwin2008@gmail.com>
+Date: Sat,  5 Nov 2011 22:23:23 +0800
 
-> To prevent the SBus driver for Sun Happy Meal cards from being loaded for 
-> PCI cards utilizing the same chipset, a filter was added to the probe 
-> function in commit 0b492fce3d72d982a7981905f85484a1e1ba7fde.
+> TCP_NODELAY is weaker than TCP_CORK, when TCP_CORK was set, small
+> segments will always pass Nagle test regardless of TCP_NODELAY option.
 > 
-> The filter was implemented by checking the name of the parent node in 
-> the OF tree. This patch extends this filter, so that the driver will 
-> load on SBus systems that are based upon SBI SBus Bridges.
-> 
-> Signed-off-by: Kjetil Oftedal <oftedal@gmail.com>
+> Signed-off-by: Feng King <kinwin2008@gmail.com>
 
 Applied, thanks.
