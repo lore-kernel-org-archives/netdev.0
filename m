@@ -1,59 +1,112 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] W5300: Add WIZnet W5300 Ethernet driver
-Date: Tue, 8 Nov 2011 20:06:58 +0000
-Message-ID: <1320782818.2799.62.camel@bwh-desktop>
-References: <1320676661-19138-1-git-send-email-kth3321@gmail.com>
-	 <1320779368.2799.55.camel@bwh-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] neigh: increase unres_qlen by one magnitude
+Date: Tue, 08 Nov 2011 21:11:25 +0100
+Message-ID: <1320783085.2588.17.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <suhwan@wiznet.co.kr>,
-	<bongbong@wiznet.co.kr>
-To: Taehun Kim <kth3321@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1320779368.2799.55.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39714 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769Ab1KHUL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 15:11:28 -0500
+Received: by wyh15 with SMTP id 15so902030wyh.19
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 12:11:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-11-08 at 19:09 +0000, Ben Hutchings wrote:
-> On Mon, 2011-11-07 at 23:37 +0900, Taehun Kim wrote: 
-[...]
-> > +/* Default MAC address. */
-> > +static __initdata u8 w5300_defmac[6] = {0x00, 0x08, 0xDC, 0xA0, 0x00, 0x01};
-> 
-> This is not suitable as a default MAC address.
+unres_qlen is the number of frames we are able to queue per unresolved
+neighbour. Its default value (3) was never changed and is responsible
+for strange drops, especially if IP fragments are used, or multiple
+sessions start in parallel. TCP initial congestion window is now bigger
+than 3.
 
-Really you mustn't use a fixed default at all.
+$ arp -d 192.168.20.108 ; ping -c 2 -s 8000 192.168.20.108
+PING 192.168.20.108 (192.168.20.108) 8000(8028) bytes of data.
+8008 bytes from 192.168.20.108: icmp_seq=2 ttl=64 time=0.322 ms
 
-[...]
-> > +/* Interrupt Handler(ISR) */
-> > +static irqreturn_t wiz_interrupt(int irq, void *dev_instance)
-> > +{
-> > +	struct net_device *dev = dev_instance;
-> > +	struct wiz_private *wp = netdev_priv(dev);
-> > +	int timeout = 100;
-> > +	u16 isr, ssr;
-> > +	int s;
-> > +
-> > +	isr = w5300_read(wp, IR);
-> > +
-> > +	/* Completing all interrupts at a time. */
-> > +	while (isr && timeout--) {
-> 
-> Why would you need to repeat this?  You disable the interrupt 
-[...]
+--- 192.168.20.108 ping statistics ---
+2 packets transmitted, 1 received, 50% packet loss, time 1001ms
+rtt min/avg/max/mdev = 0.322/0.322/0.322/0.000 ms
 
-I'm not sure what I was starting to say there.
+Since available memory per machine increased quite a lot since 1999, I
+believe its safe to expand unres_qlen to a more reasonable value.
 
-But I really don't see any justification for this loop.  Perhaps it's
-left over from a non-NAPI implementation?  Just acknowledge the
-interrupt, schedule NAPI as appropriate, and let the kernel call the
-interrupt handler again if another interrupt is raised.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ Documentation/networking/ip-sysctl.txt |    4 ++++
+ net/atm/clip.c                         |    2 +-
+ net/decnet/dn_neigh.c                  |    2 +-
+ net/ipv4/arp.c                         |    2 +-
+ net/ipv6/ndisc.c                       |    2 +-
+ 5 files changed, 8 insertions(+), 4 deletions(-)
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index cb7f314..ff44664 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -31,6 +31,10 @@ neigh/default/gc_thresh3 - INTEGER
+ 	when using large numbers of interfaces and when communicating
+ 	with large numbers of directly-connected peers.
+ 
++neigh/default/unres_qlen - INTEGER
++	The maximum number of packets which may be queued for each
++	unresolved address by other network layers.
++
+ mtu_expires - INTEGER
+ 	Time, in seconds, that cached PMTU information is kept.
+ 
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index 8523940..50ebab6 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -329,7 +329,7 @@ static struct neigh_table clip_tbl = {
+ 		.gc_staletime 		= 60 * HZ,
+ 		.reachable_time 	= 30 * HZ,
+ 		.delay_probe_time 	= 5 * HZ,
+-		.queue_len 		= 3,
++		.queue_len 		= 32,
+ 		.ucast_probes 		= 3,
+ 		.mcast_probes 		= 3,
+ 		.anycast_delay 		= 1 * HZ,
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index 7f0eb08..c26abe2 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -107,7 +107,7 @@ struct neigh_table dn_neigh_table = {
+ 		.gc_staletime =	60 * HZ,
+ 		.reachable_time =		30 * HZ,
+ 		.delay_probe_time =	5 * HZ,
+-		.queue_len =		3,
++		.queue_len =		32,
+ 		.ucast_probes =	0,
+ 		.app_probes =		0,
+ 		.mcast_probes =	0,
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 96a164a..66e7eb0 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -177,7 +177,7 @@ struct neigh_table arp_tbl = {
+ 		.gc_staletime		= 60 * HZ,
+ 		.reachable_time		= 30 * HZ,
+ 		.delay_probe_time	= 5 * HZ,
+-		.queue_len		= 3,
++		.queue_len		= 32,
+ 		.ucast_probes		= 3,
+ 		.mcast_probes		= 3,
+ 		.anycast_delay		= 1 * HZ,
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 44e5b7f..0250a88 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -141,7 +141,7 @@ struct neigh_table nd_tbl = {
+ 		.gc_staletime		= 60 * HZ,
+ 		.reachable_time		= ND_REACHABLE_TIME,
+ 		.delay_probe_time	= 5 * HZ,
+-		.queue_len		= 3,
++		.queue_len		= 32,
+ 		.ucast_probes		= 3,
+ 		.mcast_probes		= 3,
+ 		.anycast_delay		= 1 * HZ,
