@@ -1,87 +1,104 @@
 From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: Re: [PATCH 6/6] [6LoWPAN] update documentation
-Date: Tue, 8 Nov 2011 18:32:28 +0400
-Message-ID: <CALT56yOb5oZLEuHcM8dM8_gpT7mzV+9_YbsxWL3nU2N3ypCg3w@mail.gmail.com>
+Subject: Re: [PATCH 5/6] [6LoWPAN] UDP header decompression
+Date: Tue, 8 Nov 2011 18:40:25 +0400
+Message-ID: <CALT56yOS3MWZBMTtJ4V5j+K8XGV2eLAAjsPAwD5dU7j57hLceQ@mail.gmail.com>
 References: <20111102162520.GA2669@avtobot.cybertron>
-	<1320251754-2971-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	<1320251732-2934-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net,
 	netdev@vger.kernel.org
 To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f42.google.com ([209.85.210.42]:48423 "EHLO
-	mail-pz0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754854Ab1KHOcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 09:32:32 -0500
-Received: by pzk2 with SMTP id 2so1597150pzk.1
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 06:32:32 -0800 (PST)
-In-Reply-To: <1320251754-2971-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:56503 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754927Ab1KHOkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 09:40:33 -0500
+Received: by qao25 with SMTP id 25so475390qao.19
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 06:40:32 -0800 (PST)
+In-Reply-To: <1320251732-2934-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 11/2/11, Alexander Smirnov <alex.bluesman.smirnov@gmail.com> wrote:
-> This patch adds chapter to documentation which describes how to use
-> 6lowpan technology.
+> This patch provides possibility to decompress UDP headers.
+> Derived from Contiki OS.
+
+This asks to go to a separate function.
+
 >
 > Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 > ---
->  Documentation/networking/ieee802154.txt |   26 ++++++++++++++++++++++++++
->  1 files changed, 26 insertions(+), 0 deletions(-)
+>  net/ieee802154/6lowpan.c |   50
+> +++++++++++++++++++++++++++++++++++++++++++++-
+>  1 files changed, 49 insertions(+), 1 deletions(-)
 >
-> diff --git a/Documentation/networking/ieee802154.txt
-> b/Documentation/networking/ieee802154.txt
-> index 23c995e..7d50b26 100644
-> --- a/Documentation/networking/ieee802154.txt
-> +++ b/Documentation/networking/ieee802154.txt
-> @@ -78,3 +78,29 @@ in software. This is currently WIP.
+> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+> index 6da3357..49f42a8 100644
+> --- a/net/ieee802154/6lowpan.c
+> +++ b/net/ieee802154/6lowpan.c
+> @@ -839,7 +839,55 @@ lowpan_process_data(struct sk_buff *skb)
+>  			goto drop;
+>  	}
 >
->  See header include/net/mac802154.h and several drivers in
-> drivers/ieee802154/.
+> -	/* TODO: UDP header parse */
+> +	/* UDP data uncompression */
+> +	if (iphc0 & LOWPAN_IPHC_NH_C) {
+> +		tmp = lowpan_fetch_skb_u8(skb);
+> +
+> +		if ((tmp & LOWPAN_NHC_UDP_MASK) == LOWPAN_NHC_UDP_ID) {
+> +			struct udphdr *uh = udp_hdr(skb);
+> +
+> +			pr_debug("(%s): UDP header uncompression\n", __func__);
+> +			switch (tmp & LOWPAN_NHC_UDP_CS_P_11) {
+> +			case LOWPAN_NHC_UDP_CS_P_00:
+> +				memcpy(&uh->source, &skb->data[0], 2);
+> +				memcpy(&uh->dest, &skb->data[2], 2);
+> +				skb_pull(skb, 4);
+> +				break;
+> +			case LOWPAN_NHC_UDP_CS_P_01:
+> +				memcpy(&uh->source, &skb->data[0], 2);
+> +				uh->dest =
+> +				   skb->data[2] + LOWPAN_NHC_UDP_8BIT_PORT;
+> +				skb_pull(skb, 3);
+> +				break;
+> +			case LOWPAN_NHC_UDP_CS_P_10:
+> +				uh->source = skb->data[0] + LOWPAN_NHC_UDP_8BIT_PORT;
+> +				memcpy(&uh->dest, &skb->data[1], 2);
+> +				skb_pull(skb, 3);
+> +				break;
+> +			case LOWPAN_NHC_UDP_CS_P_11:
+> +				uh->source =
+> +				   LOWPAN_NHC_UDP_4BIT_PORT + (skb->data[0] >> 4);
+> +				uh->dest =
+> +				   LOWPAN_NHC_UDP_4BIT_PORT + (skb->data[0] & 0x0f);
+> +				skb_pull(skb, 1);
+> +				break;
+> +			default:
+> +				pr_debug("(%s) ERROR: unknown UDP format\n", __func__);
+> +				goto drop;
+> +			}
+> +
+> +			pr_debug("(%s): uncompressed UDP ports: src = %d, dst = %d\n",
+> +					__func__, uh->source, uh->dest);
+> +
+> +			/* copy checksum */
+> +			memcpy(&uh->check, &skb->data[0], 2);
+> +			skb_pull(skb, 2);
+> +		} else {
+> +			pr_debug("(%s): ERROR: unsupported NH format\n",
+> +								__func__);
+> +			goto drop;
+> +		}
+> +	}
 >
-> +6LoWPAN Linux implementation
-> +============================
-> +
-> +The IEEE 802.15.4 standard specifies an MTU of 128 bytes, yielding about 80
-> +octets of actual MAC payload once security is turned on, on a wireless link
-> +with a link throughput of 250 kbps or less.  The 6LoWPAN adaptation format
-> +[RFC4944] was specified to carry IPv6 datagrams over such constrained
-> links,
-> +taking into account limited bandwidth, memory, or energy resources that are
-> +expected in applications such as wireless Sensor Networks.  [RFC4944]
-> defines
-> +a Mesh Addressing header to support sub-IP forwarding, a Fragmentation
-> header
-> +to support the IPv6 minimum MTU requirement [RFC2460], and stateless header
-> +compression for IPv6 datagrams (LOWPAN_HC1 and LOWPAN_HC2) to reduce the
-> +relatively large IPv6 and UDP headers down to (in the best case) several
-> bytes.
+>  	/* Not fragmented package */
+>  	hdr.payload_len = htons(skb->len);
+> --
+> 1.7.2.5
+>
+>
 
-It might be a good idea to mention fresh RFC 6282, to note that it
-updates RFC 4944,
-deprecating old compression schemes and adding a new one. Then you can
-add a note
-that following RFC 6282 6lowpan code doesn't implement compression via
-HC1 and HC2
-schemes (it doesn't, am I right?).
-
-> +
-> +All the code related to 6lowpan you may find in files:
-> net/ieee802154/6lowpan.*
-> +
-> +To setup 6lowpan interface you need:
-> +1. Add IEEE802.15.4 interface and initialize PANid;
-> +2. Add 6lowpan interface by command like:
-> +   # ip link add link wpan0 name lowpan0 type lowpan
-
-Does this work with busybox ip or only with iproute2?
-
-> +3. Set MAC (if needs):
-> +   # ip link set lowpan0 address de:ad:be:ef:ca:fe:ba:be
-
-IIRC address can be also specified at the step 2.
-
-> +4. Bring up 'lowpan0' interface
 
 -- 
 With best wishes
