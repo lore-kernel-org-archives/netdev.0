@@ -1,111 +1,168 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: DMA-API check_sync errors with 3.2
-Date: Tue, 8 Nov 2011 13:16:17 -0500
-Message-ID: <20111108181617.GA5743@hmsreliant.think-freely.org>
-References: <20111108173153.GE14216@zod.bos.redhat.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next-2.6 PATCH 0/8 RFC v2] macvlan: MAC Address filtering
+	support for passthru mode
+Date: Tue, 8 Nov 2011 10:31:35 -0800
+Message-ID: <43F901BD926A4E43B106BF17856F075501A1D4A736@orsmsx508.amr.corp.intel.com>
+References: <20111019062543.7242.3969.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joerg Roedel <joerg.roedel@amd.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fedoraproject.org
-To: Josh Boyer <jwboyer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37923 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751501Ab1KHSQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 13:16:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20111108173153.GE14216@zod.bos.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "sri@us.ibm.com" <sri@us.ibm.com>,
+	"dragos.tatulea@gmail.com" <dragos.tatulea@gmail.com>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"mchan@broadcom.com" <mchan@broadcom.com>,
+	"dwang2@cisco.com" <dwang2@cisco.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"benve@cisco.com" <benve@cisco.com>
+To: Roopa Prabhu <roprabhu@cisco.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20111019062543.7242.3969.stgit@savbu-pc100.cisco.com>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 08, 2011 at 12:31:53PM -0500, Josh Boyer wrote:
-> Hi All,
-> 
-> We have a few reports coming in on 3.2 git snapshots and 3.2-rc1
-> where the DMA-API reports an error about a driver trying to sync
-> memory it has not allocated.  I've seen a couple reports of this for
-> sky2 and one for tg3, but I'm not sure if it's a driver problem or
-> something a bit more generic.  An example trace is below:
-> 
-> backtrace:
-> :WARNING: at lib/dma-debug.c:965 check_sync+0x2a8/0x530()
-> :Hardware name: P5K-E
-> :sky2 0000:02:00.0: DMA-API: device driver tries to sync DMA memory it has not
-> allocated [device address=0x0000000105258040] [size=60 bytes]
-> :Modules linked in: fuse lp parport ebtable_nat ebtables ipt_MASQUERADE
-> iptable_nat nf_nat xt_CHECKSUM iptable_mangle tun bridge lockd stp llc
-> ip6t_REJECT nf_conntrack_netbios_ns nf_conntrack_broadcast nf_conntrack_ipv6
-> nf_defrag_ipv6 nf_conntrack_ipv4 nf_defrag_ipv4 ip6table_filter xt_state
-> nf_conntrack ip6_tables raid1 uvcvideo videodev snd_usb_audio
-> snd_hda_codec_hdmi media v4l2_compat_ioctl32 snd_usbmidi_lib joydev snd_rawmidi
-> snd_seq_device snd_hda_codec_analog snd_hda_intel snd_hda_codec snd_hwdep
-> snd_pcm snd_timer snd microcode i2c_i801 iTCO_wdt iTCO_vendor_support serio_raw
-> sky2 asus_atk0110 soundcore snd_page_alloc configfs virtio_net kvm_intel kvm
-> uinput sunrpc raid10 btrfs zlib_deflate libcrc32c ata_generic pata_acpi
-> firewire_ohci firewire_core crc_itu_t pata_jmicron radeon ttm drm_kms_helper
-> drm i2c_algo_bit i2c_core [last unloaded: scsi_wait_scan]
-> :Pid: 2520, comm: boinc Not tainted 3.2.0-0.rc0.git6.0.fc17.x86_64 #1
-> :Call Trace:
-> : <IRQ>  [<ffffffff8107ce9f>] warn_slowpath_common+0x7f/0xc0
-> : [<ffffffff8107cf96>] warn_slowpath_fmt+0x46/0x50
-> : [<ffffffff81325658>] check_sync+0x2a8/0x530
-> : [<ffffffff81311c8e>] ? random32+0x2e/0x40
-> : [<ffffffff81325b62>] debug_dma_sync_single_for_cpu+0x42/0x50
-> : [<ffffffff81192cac>] ? ksize+0x1c/0xc0
-> : [<ffffffff813217cc>] ? is_swiotlb_buffer+0x3c/0x50
-> : [<ffffffff81321fe8>] ? swiotlb_sync_single+0x38/0x80
-> : [<ffffffff8132212c>] ? swiotlb_sync_single_for_cpu+0xc/0x10
-> : [<ffffffffa0331873>] sky2_poll+0x573/0xd90 [sky2]
-> : [<ffffffff815454e1>] ? net_rx_action+0xa1/0x460
-> : [<ffffffff815455a9>] net_rx_action+0x169/0x460
-> : [<ffffffff81020c89>] ? sched_clock+0x9/0x10
-> : [<ffffffff810ab9b5>] ? sched_clock_local+0x25/0x90
-> : [<ffffffff810858f8>] __do_softirq+0xc8/0x3a0
-> : [<ffffffff810ab9b5>] ? sched_clock_local+0x25/0x90
-> : [<ffffffff81685efc>] call_softirq+0x1c/0x30
-> : [<ffffffff8101b385>] do_softirq+0xa5/0xe0
-> : [<ffffffff81085f2e>] irq_exit+0xbe/0xf0
-> : [<ffffffff816867d3>] do_IRQ+0x63/0xe0
-> : [<ffffffff8167b673>] common_interrupt+0x73/0x73
-> : <EOI>  [<ffffffff8167b719>] ? retint_swapgs+0x13/0x1b
-> 
-> From what I can tell, net_rx_action is calling dma_issue_pending_all at
-> the end of the function and this is forcing the flush and check (though
-> I really haven't figured out why), and it's being attributed to the driver.
-> 
-> Originally there was a suggestion that c6a21d0b8d (dma-debug:
-> hash_bucket_find needs to allow for offsets within an entry) would solve
-> the issue, but that seems to have not proven true.  We still see this on
-> kernels that have that commit included.  I've linked the bug reports below.
-> 
-> Any ideas?
-> 
-> josh
-> 
-> https://bugzilla.redhat.com/show_bug.cgi?id=751005
-> https://bugzilla.redhat.com/show_bug.cgi?id=751797
-> https://bugzilla.redhat.com/show_bug.cgi?id=752113
-> 
-> 
-The trace above looks to me like sky2_poll is calling receive_copy, which does
-the pci_dma_sync_single_for_cpu, which resolves into the
-swiotlb_sync_single_for_cpu call, and that triggers the warning.
-
-Looking at the bugs, its hard to say exactly whats going on.  The sky2 case
-looks like it should have easily found the hash bucket it needed (Juding by the
-nice page aligned address for the dma rangs 0x0000000105258040), but the tg3
-case looks like the dma address is just bogus (from bz 7451005, the device
-address is 0x00000000d1668988, which doesn't look like anything a dma engine or
-iotlb should return as a dma address.  It might mean that tg3 is breaking up
-operations on its allocated dma ranges, which would cause this kind of warning,
-but I cant' see where thats happening.
-
-My first suggestion would be to, if you are able, instrument (via printk or
-stap), get_hash_bucket and hash_bucket_find, so as to dump out the entire hash
-table to the console when the failure occurs.  I know that will cause lots of
-performance issues, but if this can be reproduced in a non-production
-environment, it would let us at least see if we're just not finding the right
-entry, or if the right entry doesn't exist.
-Neil
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIFJvb3BhIFByYWJodQ0KPiBTZW50OiBUdWVzZGF5LCBPY3RvYmVyIDE4LCAyMDExIDEx
+OjI2IFBNDQo+IFRvOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBzcmlAdXMuaWJtLmNv
+bTsgZHJhZ29zLnRhdHVsZWFAZ21haWwuY29tOyBhcm5kQGFybmRiLmRlOw0KPiBrdm1Admdlci5r
+ZXJuZWwub3JnOyBtc3RAcmVkaGF0LmNvbTsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gbWNoYW5A
+YnJvYWRjb20uY29tOyBkd2FuZzJAY2lzY28uY29tOyBzaGVtbWluZ2VyQHZ5YXR0YS5jb207DQo+
+IGVyaWMuZHVtYXpldEBnbWFpbC5jb207IGthYmVyQHRyYXNoLm5ldDsgYmVudmVAY2lzY28uY29t
+DQo+IFN1YmplY3Q6IFtuZXQtbmV4dC0yLjYgUEFUQ0ggMC84IFJGQyB2Ml0gbWFjdmxhbjogTUFD
+IEFkZHJlc3MgZmlsdGVyaW5nDQo+IHN1cHBvcnQgZm9yIHBhc3N0aHJ1IG1vZGUNCj4gDQo+IHYx
+IHZlcnNpb24gb2YgdGhpcyBSRkMgcGF0Y2ggd2FzIHBvc3RlZCBhdA0KPiBodHRwOi8vd3d3LnNw
+aW5pY3MubmV0L2xpc3RzL25ldGRldi9tc2cxNzQyNDUuaHRtbA0KPiANCj4gVG9kYXkgbWFjdnRh
+cCB1c2VkIGluIHZpcnR1YWxpemVkIGVudmlyb25tZW50IGRvZXMgbm90IGhhdmUgc3VwcG9ydCB0
+bw0KPiBwcm9wYWdhdGUgTUFDLCBWTEFOIGFuZCBpbnRlcmZhY2UgZmxhZ3MgZnJvbSBndWVzdCB0
+byBsb3dlcmRldi4NCj4gV2hpY2ggbWVhbnMgdG8gYmUgYWJsZSB0byByZWdpc3RlciBhZGRpdGlv
+bmFsIFZMQU5zLCB1bmljYXN0IGFuZCBtdWx0aWNhc3QNCj4gYWRkcmVzc2VzIG9yIGNoYW5nZSBw
+a3QgZmlsdGVyIGZsYWdzIGluIHRoZSBndWVzdCwgdGhlIGxvd2VyZGV2IGhhcyB0byBiZQ0KPiBw
+dXQgaW4gcHJvbWlzb2NvdXMgbW9kZS4gVG9kYXkgdGhlIG9ubHkgbWFjdmxhbiBtb2RlIHRoYXQg
+c3VwcG9ydHMgdGhpcyBpcw0KPiB0aGUgUEFTU1RIUlUgbW9kZSBhbmQgaXQgcHV0cyB0aGUgbG93
+ZXIgZGV2IGluIHByb21pc2NvdXMgbW9kZS4NCj4gDQo+IFBBU1NUSFJVIG1vZGUgd2FzIGFkZGVk
+IHByaW1hcmlseSBmb3IgdGhlIFNSSU9WIHVzZWNhc2UuIEluIFBBU1NUSFJVIG1vZGUNCj4gdGhl
+cmUgaXMgYSAxLTEgbWFwcGluZyBiZXR3ZWVuIG1hY3Z0YXAgYW5kIHBoeXNpY2FsIE5JQyBvciBW
+Ri4NCj4gDQo+IFRoZXJlIGFyZSB0d28gcHJvYmxlbXMgd2l0aCBwdXR0aW5nIHRoZSBsb3dlcmRl
+diBpbiBwcm9taXNjb3VzIG1vZGUgKGllDQo+IFNSSU9WDQo+IFZGJ3MpOg0KPiAJLSBTb21lIFNS
+SU9WIGNhcmRzIGRvbnQgc3VwcG9ydCBwcm9taXNjb3VzIG1vZGUgdG9kYXkgKFRocmVhZCBvbg0K
+PiBJbnRlbA0KPiAJZHJpdmVyIGluZGljYXRlcyB0aGF0IGh0dHA6Ly9saXN0cy5vcGVud2FsbC5u
+ZXQvbmV0ZGV2LzIwMTEvMDkvMjcvNikNCj4gCS0gRm9yIHRoZSBTUklPViBOSUNzIHRoYXQgc3Vw
+cG9ydCBpdCwgUHV0dGluZyB0aGUgbG93ZXJkZXYgaW4NCj4gCXByb21pc2NvdXMgbW9kZSBsZWFk
+cyB0byBhZGRpdGlvbmFsIHRyYWZmaWMgYmVpbmcgc2VudCB1cCB0byB0aGUNCj4gCWd1ZXN0IHZp
+cnRpby1uZXQgdG8gZmlsdGVyIHJlc3VsdCBpbiBleHRyYSBvdmVyaGVhZHMuDQo+IA0KPiBCb3Ro
+IHRoZSBhYm92ZSBwcm9ibGVtcyBjYW4gYmUgc29sdmVkIGJ5IG9mZmxvYWRpbmcgZmlsdGVyaW5n
+IHRvIHRoZQ0KPiBsb3dlcmRldiBody4gaWUgbG93ZXJkZXYgZG9lcyBub3QgbmVlZCB0byBiZSBp
+biBwcm9taXNjb3VzIG1vZGUgYXMNCj4gbG9uZyBhcyB0aGUgZ3Vlc3QgZmlsdGVycyBhcmUgcGFz
+c2VkIGRvd24gdG8gdGhlIGxvd2VyZGV2Lg0KPiANCj4gVGhpcyBwYXRjaCBiYXNpY2FsbHkgYWRk
+cyB0aGUgaW5mcmFzdHJ1Y3R1cmUgdG8gc2V0IGFuZCBnZXQgTUFDIGFuZCBWTEFODQo+IGZpbHRl
+cnMgb24gYW4gaW50ZXJmYWNlIHZpYSBydG5ldGxpbmsuIEFuZCBhZGRzIHN1cHBvcnQgaW4gbWFj
+dmxhbiBhbmQNCj4gbWFjdnRhcA0KPiB0byBhbGxvdyBzZXQgYW5kIGdldCBmaWx0ZXIgb3BlcmF0
+aW9ucy4NCj4gDQo+IEVhcmxpZXIgdmVyc2lvbiBvZiB0aGlzIHBhdGNoIHByb3ZpZGVkIHRoZSBU
+VU5TRVRUWEZJTFRFUiBtYWN2dGFwDQo+IGludGVyZmFjZQ0KPiBmb3Igc2V0dGluZyBhZGRyZXNz
+IGZpbHRlcmluZy4gSW4gcmVzcG9uc2UgdG8gZmVlZGJhY2ssIFRoaXMgdmVyc2lvbg0KPiBpbnRy
+b2R1Y2VzIGEgbmV0bGluayBpbnRlcmZhY2UgZm9yIHRoZSBzYW1lLg0KPiANCj4gUmVzcG9uc2Ug
+dG8gc29tZSBvZiB0aGUgcXVlc3Rpb25zIHJhaXNlZCBkdXJpbmcgdjE6DQo+IA0KPiAtIE5ldGxp
+bmsgaW50ZXJmYWNlOg0KPiAJVGhpcyBwYXRjaCBwcm92aWRlcyB0aGUgZm9sbG93aW5nIG5ldGxp
+bmsgaW50ZXJmYWNlIHRvIHNldCBtYWMgYW5kDQo+IHZsYW4NCj4gCWZpbHRlcnMgOg0KPiAJW0lG
+TEFfUlhfRklMVEVSXSA9IHsNCj4gCQlbSUZMQV9BRERSX0ZJTFRFUl0gPSB7DQo+IAkJCVtJRkxB
+X0FERFJfRklMVEVSX0ZMQUdTXQ0KPiAJCQlbSUZMQV9BRERSX0ZJTFRFUl9VQ19MSVNUXSA9IHsN
+Cj4gCQkJCVtJRkxBX0FERFJfTElTVF9FTlRSWV0NCj4gCQkJfQ0KPiAJCQlbSUZMQV9BRERSX0ZJ
+TFRFUl9NQ19MSVNUXSA9IHsNCj4gCQkJCVtJRkxBX0FERFJfTElTVF9FTlRSWV0NCj4gCQkJfQ0K
+PiAJCX0NCj4gCQlbSUZMQV9WTEFOX0ZJTFRFUl0gPSB7DQo+IAkJCVtJRkxBX1ZMQU5fQklUTUFQ
+XQ0KPiAJCX0NCj4gCX0NCj4gDQo+IAlOb3RlOiBUaGUgSUZMQV9WTEFOX0ZJTFRFUiBpcyBhIG5l
+c3RlZCBhdHRyaWJ1dGUgYW5kIGNvbnRhaW5zIG9ubHkNCj4gCUlGTEFfVkxBTl9CSVRNQVAgdG9k
+YXkuIFRoZSBpZGVhIGlzIHRoYXQgdGhlIElGTEFfVkxBTl9GSUxURVIgY2FuDQo+IAliZSBleHRl
+bmRlZCB0b21vcnJvdyB0byB1c2UgYSB2bGFuIGxpc3Qgb3B0aW9uIGlmIHNvbWUNCj4gaW1wbGVt
+ZW50YXRpb25zDQo+IAlwcmVmZXIgYSBsaXN0IGluc3RlYWQuDQo+IA0KPiAJQW5kIGl0IHByb3Zp
+ZGVzIHRoZSBmb2xsb3dpbmcgcnRubF9saW5rX29wcyB0byBzZXQvZ2V0IE1BQy9WTEFODQo+IGZp
+bHRlcnM6DQo+IA0KPiAgICAgICAgaW50ICAgICAgICAgICAgICAgICAgICAgKCpzZXRfcnhfYWRk
+cl9maWx0ZXIpKHN0cnVjdCBuZXRfZGV2aWNlDQo+ICpkZXYsDQo+ICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc3RydWN0IG5sYXR0ciAqdGJbXSk7DQo+ICAg
+ICAgICBpbnQgICAgICAgICAgICAgICAgICAgICAoKnNldF9yeF92bGFuX2ZpbHRlcikoc3RydWN0
+IG5ldF9kZXZpY2UNCj4gKmRldiwNCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgc3RydWN0IG5sYXR0ciAqdGJbXSk7DQo+ICAgICAgICBzaXplX3QgICAg
+ICAgICAgICAgICAgICAoKmdldF9yeF9hZGRyX2ZpbHRlcl9zaXplKShjb25zdCBzdHJ1Y3QNCj4g
+CQkJCQluZXRfZGV2aWNlICpkZXYpOw0KPiAgICAgICAgc2l6ZV90ICAgICAgICAgICAgICAgICAg
+KCpnZXRfcnhfdmxhbl9maWx0ZXJfc2l6ZSkoY29uc3Qgc3RydWN0DQo+IAkJCQkJbmV0X2Rldmlj
+ZSAqZGV2KTsNCj4gICAgICAgIGludCAgICAgICAgICAgICAgICAgICAgICgqZmlsbF9yeF9hZGRy
+X2ZpbHRlcikoc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UNCj4gKmRldik7
+DQo+ICAgICAgICBpbnQgICAgICAgICAgICAgICAgICAgICAoKmZpbGxfcnhfdmxhbl9maWx0ZXIp
+KHN0cnVjdCBza19idWZmICpza2IsDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIGNvbnN0IHN0cnVjdCBuZXRfZGV2aWNlDQo+ICpkZXYpOw0KPiANCj4g
+DQo+IAlOb3RlOiBUaGUgY2hvaWNlIG9mIHJ0bmxfbGlua19vcHMgd2FzIGJlY2F1c2UgSSBzYXcg
+dGhlIHVzZSBjYXNlIGZvcg0KPiAJdGhpcyBpbiB2aXJ0dWFsIGRldmljZXMgdGhhdCBuZWVkICB0
+byBkbyBmaWx0ZXJpbmcgaW4gc3cgbGlrZQ0KPiBtYWN2bGFuDQo+IAlhbmQgdHVuLiBIdyBkZXZp
+Y2VzIHVzdWFsbHkgaGF2ZSBmaWx0ZXJpbmcgaW4gaHcgd2l0aCBuZXRkZXYtPnVjIGFuZA0KPiAJ
+bWMgbGlzdHMgdG8gaW5kaWNhdGUgYWN0aXZlIGZpbHRlcnMuIEJ1dCBJIGNhbiBtb3ZlIGZyb20N
+Cj4gcnRubF9saW5rX29wcw0KPiAJdG8gbmV0ZGV2X29wcyBpZiB0aGF0IGlzIHRoZSBwcmVmZXJy
+ZWQgd2F5IHRvIGdvIGFuZCBpZiB0aGVyZSBpcyBhDQo+IAluZWVkIHRvIHN1cHBvcnQgdGhpcyBp
+bnRlcmZhY2Ugb24gYWxsIGtpbmRzIG9mIGludGVyZmFjZXMuDQo+IAlQbGVhc2Ugc3VnZ2VzdC4N
+Cj4gDQo+IC0gUHJvdGVjdGlvbiBhZ2FpbnN0IGFkZHJlc3Mgc3Bvb2Zpbmc6DQo+IAktIFRoaXMg
+cGF0Y2ggYWRkcyBmaWx0ZXJpbmcgc3VwcG9ydCBvbmx5IGZvciBtYWN2dGFwIFBBU1NUSFJVDQo+
+IAlNb2RlLiBQQVNTVEhSVSBtb2RlIGlzIHVzZWQgbWFpbmx5IHdpdGggU1JJT1YgVkYncy4gQW5k
+IFNSSU9WIFZGJ3MNCj4gCWNvbWUgd2l0aCBhbnRpIG1hYy92bGFuIHNwb29maW5nIHN1cHBvcnQu
+IChSZWNlbnRseSBhZGRlZA0KPiAJSUZMQV9WRl9TUE9PRkNISykuIEluIDgwMi4xUWJoIGNhc2Ug
+dGhlIHBvcnQgcHJvZmlsZSBoYXMgYSBrbm9iIHRvDQo+IAllbmFibGUvZGlzYWJsZSBhbnRpIHNw
+b29mIGNoZWNrLiBMb3dlcmRldmljZSBkcml2ZXJzIGFsc28gZW5mb3JjZQ0KPiBsaW1pdHMNCj4g
+CW9uIHRoZSBudW1iZXIgb2YgYWRkcmVzcyByZWdpc3RyYXRpb25zIGFsbG93ZWQuDQo+IA0KPiAt
+IFN1cHBvcnQgZm9yIG11bHRpcXVldWUgZGV2aWNlczogRW5hYmxlIGZpbHRlcmluZyBvbiBpbmRp
+dmlkdWFsIHF1ZXVlcw0KPiAoPyk6DQo+IAlBRkFJSywgdGhlcmUgaXMgbm8gbmV0ZGV2IGludGVy
+ZmFjZSB0byBpbnN0YWxsIHBlciBxdWV1ZSBodw0KPiAJZmlsdGVycyBmb3IgYSBtdWx0aSBxdWV1
+ZSBpbnRlcmZhY2UuIEFuZCBhbHNvIEkgZG9udCBrbm93IG9mIGFueSBodw0KPiAJdGhhdCBwcm92
+aWRlcyBhbiBpbnRlcmZhY2UgdG8gc2V0IGh3IGZpbHRlcnMgb24gYSBwZXIgcXVldWUgYmFzaXMu
+DQo+IAlBIG11bHRpIHF1ZXVlIGRldmljZSBhcHBlYXJzIGFzIGEgc2luZ2xlIGxvd2VyZGV2IChp
+ZSBuZXRkZXYpIGFuZA0KPiAJdXNlcyB0aGUgc2FtZSB1YyBhbmQgbWMgbGlzdHMgdG8gc2V0dXAg
+dW5pY2FzdCBhbmQgbXVsdGljYXN0IGh3DQo+IGZpbHRlcnMuDQo+IAlTbyBpIGRvbnQgc2VlIGEg
+aHVnZSBwcm9ibGVtIHdpdGggdGhpcyBwYXRjaCBjb21pbmcgaW4gdGhlIHdheSBmb3INCj4gCW11
+bHRpIHF1ZXVlIGRldmljZXMuDQo+IA0KPiAtIFN1cHBvcnQgZm9yIG5vbi1QQVNTVEhSVSBtb2Rl
+Og0KPiAJSSBzdGFydGVkIGltcGxlbWVudGluZyB0aGlzLiBCdXQgdGhlcmUgYXJlIGEgY291cGxl
+IG9mIHByb2JsZW1zLg0KPiAJLSBUaGUgbG93ZXJkZXYgbWF5IG5vdCBiZSBhIFNSSU9WIFZGIGFu
+ZCBtYXkgbm90IGhhdmUNCj4gCWFudGkgc3Bvb2YgY2FwYWJpbGl0eQ0KPiAJLSBUb2RheSwgaW4g
+bm9uLVBBU1NUSFJVIGNhc2VzIG1hY3ZsYW5faGFuZGxlX2ZyYW1lIGFzc3VtZXMgdGhhdA0KPiAJ
+ZXZlcnkgbWFjdmxhbiBkZXZpY2Ugb24gdG9wIG9mIHRoZSBsb3dlcmRldiBoYXMgYSBzaW5nbGUg
+dW5pcXVlIG1hYy4NCj4gCUFuZCB0aGUgbWFjdmxhbnMgYXJlIGhhc2hlZCBvbiB0aGF0IHNpbmds
+ZSBtYWMgYWRkcmVzcy4NCj4gCVRvIHN1cHBvcnQgZmlsdGVyaW5nIGZvciBub24tUEFTU1RIUlUg
+bW9kZSBpbiBhZGRpdGlvbiB0byB0aGlzDQo+IAlwYXRjaCB0aGUgZm9sbG93aW5nIG5lZWRzIHRv
+IGJlIGRvbmU6DQo+IAkJLSBub24tcGFzc3RocnUgbW9kZSB3aXRoIGEgc2luZ2xlIG1hY3ZsYW4g
+b3ZlciBhIGxvd2VyIGRldg0KPiAJCWNhbiBiZSB0cmVhdGVkIGFzIFBBU1NUSFJVIGNhc2UNCj4g
+CQktIEZvciBub24tUEFTU1RIUlUgbW9kZSB3aXRoIG11bHRpcGxlIG1hY3ZsYW5zIG92ZXIgYSBz
+aW5nbGUNCj4gCQlsb3dlciBkZXY6DQo+IAkJCS0gTXVsdGlwbGUgdW5pY2FzdCBtYWMncyBub3cg
+bmVlZCB0byBiZSBoYXNoZWQgdG8gdGhlDQo+IAkJCXNhbWUgbWFjdmxhbiBkZXZpY2UuIFRoZSBt
+YWN2bGFuIGhhc2ggbmVlZHMgdG8gY2hhbmdlDQo+IAkJCWZvciBsb29rdXAgYmFzZWQgb24gYW55
+IG9uZSBvZiB0aGUgbXVsdGlwbGUgdW5pY2FzdA0KPiAJCQlhZGRyZXNzZXMgYSBtYWN2bGFuIGlz
+IGludGVyZXN0ZWQgaW4NCj4gCQkJLSBXZSBuZWVkIHRvIGNvbnNpZGVyIHZsYW5zIGR1cmluZyB0
+aGUgbG9va3VwIHRvbw0KPiAJCQktIFNvIHRoZSBtYWN2bGFuIGRldmljZSBoYXNoIG5lZWRzIHRv
+IGhhc2ggb24gYm90aCBtYWMNCj4gCQkJYW5kIHZsYW4NCj4gCQktIEJ1dCB0aGUgc3VwcG9ydCBm
+b3IgZmlsdGVyaW5nIGluIG5vbi1QQVNTVEhSVSBtb2RlIGNhbiBiZQ0KPiAJCWJ1aWx0IG9uIHRo
+aXMgcGF0Y2gNCj4gDQo+IFRoaXMgcGF0Y2ggc2VyaWVzIGltcGxlbWVudHMgdGhlIGZvbGxvd2lu
+Zw0KPiAwMS84IHJ0bmV0bGluazogTmV0bGluayBpbnRlcmZhY2UgZm9yIHNldHRpbmcgTUFDIGFu
+ZCBWTEFOIGZpbHRlcnMNCj4gMDIvOCBydG5ldGxpbms6IEFkZCBydG5sIGxpbmsgb3BlcmF0aW9u
+cyBmb3IgTUFDIGFkZHJlc3MgYW5kIFZMQU4NCj4gZmlsdGVyaW5nDQo+IDAzLzggcnRuZXRsaW5r
+OiBBZGQgc3VwcG9ydCB0byBzZXQgTUFDL1ZMQU4gZmlsdGVycw0KPiAwNC84IHJ0bmV0bGluazog
+QWRkIHN1cHBvcnQgdG8gZ2V0IE1BQy9WTEFOIGZpbHRlcnMNCj4gMDUvOCBtYWN2bGFuOiBBZGQg
+c3VwcG9ydCB0byBzZXQgTUFDL1ZMQU4gZmlsdGVyIHJ0bmwgbGluayBvcGVyYXRpb25zDQo+IDA2
+LzggbWFjdmxhbjogQWRkIHN1cHBvcnQgdG8gZ2V0IE1BQy9WTEFOIGZpbHRlciBydG5sIGxpbmsg
+b3BlcmF0aW9ucw0KPiAwNy84IG1hY3Z0YXA6IEFkZCBzdXBwb3J0IHRvIHNldCBNQUMvVkxBTiBm
+aWx0ZXIgcnRubCBsaW5rIG9wZXJhdGlvbnMNCj4gMDgvOCBtYWN2dGFwOiBBZGQgc3VwcG9ydCB0
+byBnZXQgTUFDL1ZMQU4gZmlsdGVyIHJ0bmwgbGluayBvcGVyYXRpb25zDQo+IA0KPiBQbGVhc2Ug
+Y29tbWVudC4gVGhhbmtzLg0KDQpJIGhhdmUgZmluaXNoZWQgbXkgcHJlbGltaW5hcnkgZXZhbHVh
+dGlvbiBhbmQgdGVzdGluZyBvZiB0aGVzZSBSRkMgcGF0Y2hlcyBhbmQgZmluZCB0aGF0IHRoZSBm
+ZWF0dXJlcyB0aGF0IHdlIHdvdWxkIHJlcXVpcmUgYXJlIHByZXNlbnQgYW5kIGZ1bmN0aW9uYWwu
+ICBJIGhhdmVuJ3QgZnVsbHkgZmxlc2hlZCBvdXQgdGhlICdnZXQnIG9wZXJhdGlvbnMgaW4gbXkg
+b3duIGRyaXZlciB5ZXQgYnV0IHRoZSAnc2V0JyByb3V0aW5lcyBhcmUgYWxsIGRvaW5nIHdoYXQg
+d2UgbmVlZCB0aGVtIHRvIGRvLg0KDQpUaGFua3MgZm9yIHlvdXIgd29yayBvbiB0aGlzIFJvb3Bh
+IQ0KDQotIEdyZWcNCg0KPiANCj4gU2lnbmVkLW9mZi1ieTogUm9vcGEgUHJhYmh1IDxyb3ByYWJo
+dUBjaXNjby5jb20+DQo+IFNpZ25lZC1vZmYtYnk6IENocmlzdGlhbiBCZW52ZW51dGkgPGJlbnZl
+QGNpc2NvLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTogRGF2aWQgV2FuZyA8ZHdhbmcyQGNpc2NvLmNv
+bT4NCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUg
+InVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9y
+ZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3Zn
+ZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo=
