@@ -1,194 +1,111 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH] tcp: fixes for DSACK-based undo of cwnd reduction during fast recovery
-Date: Tue,  8 Nov 2011 13:07:11 -0500
-Message-ID: <1320775631-16341-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
-	Nandita Dukkipati <nanditad@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: DMA-API check_sync errors with 3.2
+Date: Tue, 8 Nov 2011 13:16:17 -0500
+Message-ID: <20111108181617.GA5743@hmsreliant.think-freely.org>
+References: <20111108173153.GE14216@zod.bos.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Joerg Roedel <joerg.roedel@amd.com>,
+	Dan Williams <dan.j.williams@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fedoraproject.org
+To: Josh Boyer <jwboyer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:44159 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756211Ab1KHSHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 13:07:51 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37923 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751501Ab1KHSQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 13:16:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20111108173153.GE14216@zod.bos.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes for some issues that prevent DSACKs from allowing TCP senders to
-undo cwnd reductions made during fast recovery.
+On Tue, Nov 08, 2011 at 12:31:53PM -0500, Josh Boyer wrote:
+> Hi All,
+> 
+> We have a few reports coming in on 3.2 git snapshots and 3.2-rc1
+> where the DMA-API reports an error about a driver trying to sync
+> memory it has not allocated.  I've seen a couple reports of this for
+> sky2 and one for tg3, but I'm not sure if it's a driver problem or
+> something a bit more generic.  An example trace is below:
+> 
+> backtrace:
+> :WARNING: at lib/dma-debug.c:965 check_sync+0x2a8/0x530()
+> :Hardware name: P5K-E
+> :sky2 0000:02:00.0: DMA-API: device driver tries to sync DMA memory it has not
+> allocated [device address=0x0000000105258040] [size=60 bytes]
+> :Modules linked in: fuse lp parport ebtable_nat ebtables ipt_MASQUERADE
+> iptable_nat nf_nat xt_CHECKSUM iptable_mangle tun bridge lockd stp llc
+> ip6t_REJECT nf_conntrack_netbios_ns nf_conntrack_broadcast nf_conntrack_ipv6
+> nf_defrag_ipv6 nf_conntrack_ipv4 nf_defrag_ipv4 ip6table_filter xt_state
+> nf_conntrack ip6_tables raid1 uvcvideo videodev snd_usb_audio
+> snd_hda_codec_hdmi media v4l2_compat_ioctl32 snd_usbmidi_lib joydev snd_rawmidi
+> snd_seq_device snd_hda_codec_analog snd_hda_intel snd_hda_codec snd_hwdep
+> snd_pcm snd_timer snd microcode i2c_i801 iTCO_wdt iTCO_vendor_support serio_raw
+> sky2 asus_atk0110 soundcore snd_page_alloc configfs virtio_net kvm_intel kvm
+> uinput sunrpc raid10 btrfs zlib_deflate libcrc32c ata_generic pata_acpi
+> firewire_ohci firewire_core crc_itu_t pata_jmicron radeon ttm drm_kms_helper
+> drm i2c_algo_bit i2c_core [last unloaded: scsi_wait_scan]
+> :Pid: 2520, comm: boinc Not tainted 3.2.0-0.rc0.git6.0.fc17.x86_64 #1
+> :Call Trace:
+> : <IRQ>  [<ffffffff8107ce9f>] warn_slowpath_common+0x7f/0xc0
+> : [<ffffffff8107cf96>] warn_slowpath_fmt+0x46/0x50
+> : [<ffffffff81325658>] check_sync+0x2a8/0x530
+> : [<ffffffff81311c8e>] ? random32+0x2e/0x40
+> : [<ffffffff81325b62>] debug_dma_sync_single_for_cpu+0x42/0x50
+> : [<ffffffff81192cac>] ? ksize+0x1c/0xc0
+> : [<ffffffff813217cc>] ? is_swiotlb_buffer+0x3c/0x50
+> : [<ffffffff81321fe8>] ? swiotlb_sync_single+0x38/0x80
+> : [<ffffffff8132212c>] ? swiotlb_sync_single_for_cpu+0xc/0x10
+> : [<ffffffffa0331873>] sky2_poll+0x573/0xd90 [sky2]
+> : [<ffffffff815454e1>] ? net_rx_action+0xa1/0x460
+> : [<ffffffff815455a9>] net_rx_action+0x169/0x460
+> : [<ffffffff81020c89>] ? sched_clock+0x9/0x10
+> : [<ffffffff810ab9b5>] ? sched_clock_local+0x25/0x90
+> : [<ffffffff810858f8>] __do_softirq+0xc8/0x3a0
+> : [<ffffffff810ab9b5>] ? sched_clock_local+0x25/0x90
+> : [<ffffffff81685efc>] call_softirq+0x1c/0x30
+> : [<ffffffff8101b385>] do_softirq+0xa5/0xe0
+> : [<ffffffff81085f2e>] irq_exit+0xbe/0xf0
+> : [<ffffffff816867d3>] do_IRQ+0x63/0xe0
+> : [<ffffffff8167b673>] common_interrupt+0x73/0x73
+> : <EOI>  [<ffffffff8167b719>] ? retint_swapgs+0x13/0x1b
+> 
+> From what I can tell, net_rx_action is calling dma_issue_pending_all at
+> the end of the function and this is forcing the flush and check (though
+> I really haven't figured out why), and it's being attributed to the driver.
+> 
+> Originally there was a suggestion that c6a21d0b8d (dma-debug:
+> hash_bucket_find needs to allow for offsets within an entry) would solve
+> the issue, but that seems to have not proven true.  We still see this on
+> kernels that have that commit included.  I've linked the bug reports below.
+> 
+> Any ideas?
+> 
+> josh
+> 
+> https://bugzilla.redhat.com/show_bug.cgi?id=751005
+> https://bugzilla.redhat.com/show_bug.cgi?id=751797
+> https://bugzilla.redhat.com/show_bug.cgi?id=752113
+> 
+> 
+The trace above looks to me like sky2_poll is calling receive_copy, which does
+the pci_dma_sync_single_for_cpu, which resolves into the
+swiotlb_sync_single_for_cpu call, and that triggers the warning.
 
-There were a few related bugs/issues:
+Looking at the bugs, its hard to say exactly whats going on.  The sky2 case
+looks like it should have easily found the hash bucket it needed (Juding by the
+nice page aligned address for the dma rangs 0x0000000105258040), but the tg3
+case looks like the dma address is just bogus (from bz 7451005, the device
+address is 0x00000000d1668988, which doesn't look like anything a dma engine or
+iotlb should return as a dma address.  It might mean that tg3 is breaking up
+operations on its allocated dma ranges, which would cause this kind of warning,
+but I cant' see where thats happening.
 
-1) Senders ignored DSACKs after recovery when there were no
-outstanding packets (a common scenario for HTTP servers).
-
-2) When the ACK field is below snd_una (which can happen when ACKs are
-reordered), senders ignored DSACKs (preventing undo) and passed up
-chances to send out more packets based on any newly-SACKed packets.
-
-3) Senders were overriding cwnd values picked during an undo by
-calling tcp_moderate_cwnd() in tcp_try_to_open().
-
-The fixes:
-
-(1) When there are no outstanding packets (the "no_queue" goto label),
-use DSACKs to undo congestion window reductions.
-
-(2) When the ACK field is below snd_una (the "old_ack" goto label),
-process any DSACKs and try to send out more packets based on
-newly-SACKed packets.
-
-(3) Don't moderate cwnd in tcp_try_to_open() if we're in TCP_CA_Open,
-since doing so is generally unnecessary and specifically would
-override a DSACK-based undo of a cwnd reduction made in fast recovery.
-
-(4) Simplify the congestion avoidance state machine by removing the
-behavior where SACK-enabled connections hung around in the
-TCP_CA_Disorder state just waiting for DSACKs. Instead, when snd_una
-advances to high_seq or beyond we typically move to TCP_CA_Open
-immediately and allow an undo in either TCP_CA_Open or TCP_CA_Disorder
-if we later receive enough DSACKs. Previously, SACK-enabled
-connections hung around in TCP_CA_Disorder state while
-snd_una==high_seq, just waiting to accumulate DSACKs and hopefully
-undo a cwnd reduction. This could and did lead to the following
-unfortunate scenario: if some incoming ACKs advance snd_una beyond
-high_seq then we were setting undo_marker to 0 and moving to
-TCP_CA_Open, so if (due to reordering in the ACK return path) we
-shortly thereafter received a DSACK then we were no longer able to
-undo the cwnd reduction.
-
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_input.c |   44 +++++++++++++++++++++++---------------------
- 1 files changed, 23 insertions(+), 21 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 52b5c2d..78dd38c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2858,7 +2858,7 @@ static void tcp_try_keep_open(struct sock *sk)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int state = TCP_CA_Open;
- 
--	if (tcp_left_out(tp) || tcp_any_retrans_done(sk) || tp->undo_marker)
-+	if (tcp_left_out(tp) || tcp_any_retrans_done(sk))
- 		state = TCP_CA_Disorder;
- 
- 	if (inet_csk(sk)->icsk_ca_state != state) {
-@@ -2881,7 +2881,8 @@ static void tcp_try_to_open(struct sock *sk, int flag)
- 
- 	if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
- 		tcp_try_keep_open(sk);
--		tcp_moderate_cwnd(tp);
-+		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Open)
-+			tcp_moderate_cwnd(tp);
- 	} else {
- 		tcp_cwnd_down(sk, flag);
- 	}
-@@ -3009,11 +3010,11 @@ static void tcp_update_cwnd_in_recovery(struct sock *sk, int newly_acked_sacked,
-  * tcp_xmit_retransmit_queue().
-  */
- static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
--				  int newly_acked_sacked, int flag)
-+				  int newly_acked_sacked, bool is_dupack,
-+				  int flag)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
--	int is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
- 	int do_lost = is_dupack || ((flag & FLAG_DATA_SACKED) &&
- 				    (tcp_fackets_out(tp) > tp->reordering));
- 	int fast_rexmit = 0, mib_idx;
-@@ -3066,17 +3067,6 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
- 			}
- 			break;
- 
--		case TCP_CA_Disorder:
--			tcp_try_undo_dsack(sk);
--			if (!tp->undo_marker ||
--			    /* For SACK case do not Open to allow to undo
--			     * catching for all duplicate ACKs. */
--			    tcp_is_reno(tp) || tp->snd_una != tp->high_seq) {
--				tp->undo_marker = 0;
--				tcp_set_ca_state(sk, TCP_CA_Open);
--			}
--			break;
--
- 		case TCP_CA_Recovery:
- 			if (tcp_is_reno(tp))
- 				tcp_reset_reno_sack(tp);
-@@ -3117,7 +3107,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
- 				tcp_add_reno_sack(sk);
- 		}
- 
--		if (icsk->icsk_ca_state == TCP_CA_Disorder)
-+		if (icsk->icsk_ca_state <= TCP_CA_Disorder)
- 			tcp_try_undo_dsack(sk);
- 
- 		if (!tcp_time_to_recover(sk)) {
-@@ -3681,10 +3671,12 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	u32 prior_snd_una = tp->snd_una;
- 	u32 ack_seq = TCP_SKB_CB(skb)->seq;
- 	u32 ack = TCP_SKB_CB(skb)->ack_seq;
-+	bool is_dupack = false;
- 	u32 prior_in_flight;
- 	u32 prior_fackets;
- 	int prior_packets;
- 	int prior_sacked = tp->sacked_out;
-+	int pkts_acked = 0;
- 	int newly_acked_sacked = 0;
- 	int frto_cwnd = 0;
- 
-@@ -3757,6 +3749,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	/* See if we can take anything off of the retransmit queue. */
- 	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una);
- 
-+	pkts_acked = prior_packets - tp->packets_out;
- 	newly_acked_sacked = (prior_packets - prior_sacked) -
- 			     (tp->packets_out - tp->sacked_out);
- 
-@@ -3771,8 +3764,9 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
- 		    tcp_may_raise_cwnd(sk, flag))
- 			tcp_cong_avoid(sk, ack, prior_in_flight);
--		tcp_fastretrans_alert(sk, prior_packets - tp->packets_out,
--				      newly_acked_sacked, flag);
-+		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
-+		tcp_fastretrans_alert(sk, pkts_acked, newly_acked_sacked,
-+				      is_dupack, flag);
- 	} else {
- 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
- 			tcp_cong_avoid(sk, ack, prior_in_flight);
-@@ -3784,6 +3778,10 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	return 1;
- 
- no_queue:
-+	/* If data was DSACKed, see if we can undo a cwnd reduction. */
-+	if (flag & FLAG_DSACKING_ACK)
-+		tcp_fastretrans_alert(sk, pkts_acked, newly_acked_sacked,
-+				      is_dupack, flag);
- 	/* If this ack opens up a zero window, clear backoff.  It was
- 	 * being used to time the probes, and is probably far higher than
- 	 * it needs to be for normal retransmission.
-@@ -3797,10 +3795,14 @@ invalid_ack:
- 	return -1;
- 
- old_ack:
-+	/* If data was SACKed, tag it and see if we should send more data.
-+	 * If data was DSACKed, see if we can undo a cwnd reduction.
-+	 */
- 	if (TCP_SKB_CB(skb)->sacked) {
--		tcp_sacktag_write_queue(sk, skb, prior_snd_una);
--		if (icsk->icsk_ca_state == TCP_CA_Open)
--			tcp_try_keep_open(sk);
-+		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una);
-+		newly_acked_sacked = tp->sacked_out - prior_sacked;
-+		tcp_fastretrans_alert(sk, pkts_acked, newly_acked_sacked,
-+				      is_dupack, flag);
- 	}
- 
- 	SOCK_DEBUG(sk, "Ack %u before %u:%u\n", ack, tp->snd_una, tp->snd_nxt);
--- 
-1.7.3.1
+My first suggestion would be to, if you are able, instrument (via printk or
+stap), get_hash_bucket and hash_bucket_find, so as to dump out the entire hash
+table to the console when the failure occurs.  I know that will cause lots of
+performance issues, but if this can be reproduced in a non-production
+environment, it would let us at least see if we're just not finding the right
+entry, or if the right entry doesn't exist.
+Neil
