@@ -1,79 +1,96 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] net: drivers/net/hippi/Kconfig should be sourced
-Date: Tue, 08 Nov 2011 12:40:24 -0800
-Message-ID: <1320784825.4829.13.camel@jtkirshe-mobl>
-References: <1320784270.14409.404.camel@x61.thuisdomein>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_choke: use skb_header_pointer()
+Date: Tue, 08 Nov 2011 21:45:04 +0100
+Message-ID: <1320785104.26025.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-o+0bKM9+vRYAR7mC2V4y"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1320784270.14409.404.camel@x61.thuisdomein>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-o+0bKM9+vRYAR7mC2V4y
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2011-11-08 at 12:31 -0800, Paul Bolle wrote:
-> Commit ff5a3b509e ("hippi: Move the HIPPI driver") moved the HIPPI
-> driver into drivers/net/hippi. It didn't source
-> drivers/net/hippi/Kconfig though, so it didn't make all necessary
-> Kconfig changes. So let drivers/net/kconfig source HIPPI's Kconfig file.
->=20
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
-> git grep tested only. Perhaps the exact spot where
-> drivers/net/hippi/Kconfig gets sourced is relevant, so this needs
-> (build) testing by people actually familiar with the HIPPI driver.=20
->=20
->  drivers/net/Kconfig |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 583f66c..654a5e9 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -245,6 +245,8 @@ source "drivers/net/ethernet/Kconfig"
-> =20
->  source "drivers/net/fddi/Kconfig"
-> =20
-> +source "drivers/net/hippi/Kconfig"
-> +
->  config NET_SB1000
->  	tristate "General Instruments Surfboard 1000"
->  	depends on PNP
-
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-
---=-o+0bKM9+vRYAR7mC2V4y
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:42454 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933278Ab1KHUpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 15:45:08 -0500
+Received: by wyh15 with SMTP id 15so935917wyh.19
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 12:45:06 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Remove the assumption that skb_get_rxhash() makes IP header and ports
+linear, and use skb_header_pointer() instead in choke_match_flow()
 
-iQIcBAABCgAGBQJOuZO4AAoJEOVv75VaS+3O8JoQAI7CmXOAI5+txJioPIjdgVJZ
-Jtf11kUvMw87KUo4dxq5icOBi4Ci70cpmDq8v16y2Be+I57nNx85VtAQrYiqHyIG
-xGmdKKcSUXCepxGmw3LwFR9CwrASqvafBEPFpiGZoq6+XRYrOs/p+mr18vSa18kr
-fuDIVDe5xoA7XIu4HHdaEezzisLAgN1evewS+7N5rkXqu0rUwu9AZvhu0g3z5jAn
-ByGL/k9mEKCI+8Qx+Gvxf8ErRtyjYaLVl8ZyMVZt9GE/FrfCEOac+NAe8sT0txBm
-f64pCUwJbeXfImRPW5iXr8n04MHTPSWJsD9KpWLSERscHAaNuRI+hs4ZpHAXrtuQ
-Kgm7cIqfoaLJBo6nVQF+M7AjPKMWBiuaEy3CrR0T1gRkKQSYJIRY3qxHOXQ6voe6
-/QaPWYM9iNKVoHJ1CdJ0XNdvsKQyIdKNKl4Ulu1KtSxKBIfQ2JogUTUFdFtt+eoj
-fiu9gjBFYEoG1RyjXokEdxGU3ZkF/dNjBsvZnc8re3jpJQhE1u7AQlHzemMmcpVd
-m0/GUQf3nYpZ8ylOEQ5HIaywj/qO+bsIvc/JFV/zkS/C77MdveUzhtRaY+7spSvW
-7+2xoLVz0eKENu2ZajB6LDq6Omg6i7vyfuBhutC0eMClIpzVYhxw3tyjVlelB5CP
-9xmpwluK14UiLNpmAiMN
-=sIrU
------END PGP SIGNATURE-----
+This permits __skb_get_rxhash() to use skb_header_pointer() eventually.
 
---=-o+0bKM9+vRYAR7mC2V4y--
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/sch_choke.c |   27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index 3422b25..061bcb7 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -152,15 +152,14 @@ static bool choke_match_flow(struct sk_buff *skb1,
+ {
+ 	int off1, off2, poff;
+ 	const u32 *ports1, *ports2;
++	u32 _ports1, _ports2;
+ 	u8 ip_proto;
+ 	__u32 hash1;
+ 
+ 	if (skb1->protocol != skb2->protocol)
+ 		return false;
+ 
+-	/* Use hash value as quick check
+-	 * Assumes that __skb_get_rxhash makes IP header and ports linear
+-	 */
++	/* Use rxhash value as quick check */
+ 	hash1 = skb_get_rxhash(skb1);
+ 	if (!hash1 || hash1 != skb_get_rxhash(skb2))
+ 		return false;
+@@ -172,10 +171,12 @@ static bool choke_match_flow(struct sk_buff *skb1,
+ 	switch (skb1->protocol) {
+ 	case __constant_htons(ETH_P_IP): {
+ 		const struct iphdr *ip1, *ip2;
++		struct iphdr _ip1, _ip2;
+ 
+-		ip1 = (const struct iphdr *) (skb1->data + off1);
+-		ip2 = (const struct iphdr *) (skb2->data + off2);
+-
++		ip1 = skb_header_pointer(skb1, off1, sizeof(_ip1), &_ip1);
++		ip2 = skb_header_pointer(skb2, off2, sizeof(_ip2), &_ip2);
++		if (!ip1 || !ip2)
++			return false;
+ 		ip_proto = ip1->protocol;
+ 		if (ip_proto != ip2->protocol ||
+ 		    ip1->saddr != ip2->saddr || ip1->daddr != ip2->daddr)
+@@ -190,9 +191,12 @@ static bool choke_match_flow(struct sk_buff *skb1,
+ 
+ 	case __constant_htons(ETH_P_IPV6): {
+ 		const struct ipv6hdr *ip1, *ip2;
++		struct ipv6hdr _ip1, _ip2;
+ 
+-		ip1 = (const struct ipv6hdr *) (skb1->data + off1);
+-		ip2 = (const struct ipv6hdr *) (skb2->data + off2);
++		ip1 = skb_header_pointer(skb1, off1, sizeof(_ip1), &_ip1);
++		ip2 = skb_header_pointer(skb2, off2, sizeof(_ip2), &_ip2);
++		if (!ip1 || !ip2)
++			return false;
+ 
+ 		ip_proto = ip1->nexthdr;
+ 		if (ip_proto != ip2->nexthdr ||
+@@ -214,8 +218,11 @@ static bool choke_match_flow(struct sk_buff *skb1,
+ 	off1 += poff;
+ 	off2 += poff;
+ 
+-	ports1 = (__force u32 *)(skb1->data + off1);
+-	ports2 = (__force u32 *)(skb2->data + off2);
++	ports1 = skb_header_pointer(skb1, off1, sizeof(_ports1), &_ports1);
++	ports2 = skb_header_pointer(skb2, off2, sizeof(_ports2), &_ports2);
++	if (!ports1 || !ports2)
++		return false;
++
+ 	return *ports1 == *ports2;
+ }
+ 
