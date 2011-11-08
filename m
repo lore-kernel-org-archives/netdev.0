@@ -1,59 +1,120 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v2 7/7] SUNRPC: added debug messages to RPC pipefs
-Date: Tue, 08 Nov 2011 15:13:10 +0300
-Message-ID: <20111108111310.6206.97621.stgit@localhost6.localdomain6>
-References: <20111108111056.6206.11410.stgit@localhost6.localdomain6>
+From: Li Yang-R58472 <r58472@freescale.com>
+Subject: RE: [PATCH 7/7] gianfar: add support for wake-on-packet
+Date: Tue, 8 Nov 2011 11:20:30 +0000
+Message-ID: <3F607A5180246847A760FD34122A1E052BC9C7@039-SN1MPN1-004.039d.mgd.msft.net>
+References: <1320410403-14639-1-git-send-email-chenhui.zhao@freescale.com>
+ <4EB45515.6060405@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111108111056.6206.11410.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	Fleming Andy-AFLEMING <afleming@freescale.com>
+To: Wood Scott-B07421 <B07421@freescale.com>,
+	Zhao Chenhui-B35336 <B35336@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:3026 "EHLO
+	TX2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752651Ab1KHLUd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 06:20:33 -0500
+In-Reply-To: <4EB45515.6060405@freescale.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds debug messages for notification events.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
----
- net/sunrpc/rpc_pipe.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+>-----Original Message-----
+>From: linuxppc-dev-bounces+leoli=freescale.com@lists.ozlabs.org
+>[mailto:linuxppc-dev-bounces+leoli=freescale.com@lists.ozlabs.org] On
+>Behalf Of Scott Wood
+>Sent: Saturday, November 05, 2011 5:12 AM
+>To: Zhao Chenhui-B35336
+>Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org; Fleming Andy-
+>AFLEMING
+>Subject: Re: [PATCH 7/7] gianfar: add support for wake-on-packet
+>
+>On 11/04/2011 07:40 AM, Zhao Chenhui wrote:
+>> diff --git a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+>b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+>> index 2c6be03..543e36c 100644
+>> --- a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+>> +++ b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+>> @@ -56,6 +56,9 @@ Properties:
+>>      hardware.
+>>    - fsl,magic-packet : If present, indicates that the hardware supports
+>>      waking up via magic packet.
+>> +  - fsl,wake-on-filer : If present, indicates that the hardware
+>supports
+>> +    waking up via arp request to local ip address or unicast packet to
+>> +    local mac address.
+>
+>Is there any way to determine this at runtime via the device's registers?
+>
+>I think TSEC_ID2[TSEC_CFG] can be used.  The manual describes it
+>awkwardly, but it looks like 0x20 is the bit for the filer.
 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index e40ec55..0cafd59 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -33,6 +33,10 @@
- #include "netns.h"
- #include "sunrpc.h"
- 
-+#define RPCDBG_FACILITY RPCDBG_DEBUG
-+
-+#define NET_NAME(net)	((net == &init_net) ? " (init_net)" : "")
-+
- static struct vfsmount *rpc_mnt __read_mostly;
- static int rpc_mount_count;
- 
-@@ -1083,6 +1087,8 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
- 	}
- 	if (rpc_populate(root, files, RPCAUTH_lockd, RPCAUTH_RootEOF, NULL))
- 		return -ENOMEM;
-+	dprintk("RPC:	sending pipefs MOUNT notification for net %p%s\n", net,
-+								NET_NAME(net));
- 	err = blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
- 					   RPC_PIPEFS_MOUNT,
- 					   sb);
-@@ -1116,6 +1122,8 @@ void rpc_kill_sb(struct super_block *sb)
- 	sn->pipefs_sb = NULL;
- 	mutex_unlock(&sn->pipefs_sb_lock);
- 	put_net(net);
-+	dprintk("RPC:	sending pipefs UMOUNT notification for net %p%s\n", net,
-+								NET_NAME(net));
- 	blocking_notifier_call_chain(&rpc_pipefs_notifier_list,
- 					   RPC_PIPEFS_UMOUNT,
- 					   sb);
+That bit only defines the filer feature but not wakeup on it.  Another solution is to get the capability from the fsl_pmc driver, but will make the driver a lot more complex.
+
+>
+>> @@ -751,7 +764,6 @@ static int gfar_of_init(struct platform_device
+>*ofdev, struct net_device **pdev)
+>>  			FSL_GIANFAR_DEV_HAS_PADDING |
+>>  			FSL_GIANFAR_DEV_HAS_CSUM |
+>>  			FSL_GIANFAR_DEV_HAS_VLAN |
+>> -			FSL_GIANFAR_DEV_HAS_MAGIC_PACKET |
+>>  			FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
+>>  			FSL_GIANFAR_DEV_HAS_TIMER;
+>
+>This is an unrelated change.  Are there any eTSECs that don't support
+>magic packet?
+
+I'm not sure.  But as we have the property for it in device tree, we use it.
+
+>
+>> +static int gfar_get_ip(struct net_device *dev)
+>> +{
+>> +	struct gfar_private *priv = netdev_priv(dev);
+>> +	struct in_device *in_dev = (struct in_device *)dev->ip_ptr;
+>> +	struct in_ifaddr *ifa;
+>> +
+>> +	if (in_dev != NULL) {
+>> +		ifa = (struct in_ifaddr *)in_dev->ifa_list;
+>> +		if (ifa != NULL) {
+>> +			memcpy(priv->ip_addr, &ifa->ifa_address, 4);
+>> +			return 0;
+>> +		}
+>> +	}
+>> +	return -ENOENT;
+>> +}
+>
+>Unnecessary cast, ifa_list is already struct in_ifaddr *.
+>
+>Better, use for_primary_ifa(), and document that you won't wake on ARP
+>packets for secondary IP addresses.
+>
+>>  static int gfar_suspend(struct device *dev)
+>>  {
+>> @@ -1268,9 +1443,17 @@ static int gfar_suspend(struct device *dev)
+>>  	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+>>  	unsigned long flags;
+>>  	u32 tempval;
+>> -
+>>  	int magic_packet = priv->wol_en &&
+>> -		(priv->device_flags & FSL_GIANFAR_DEV_HAS_MAGIC_PACKET);
+>> +		(priv->wol_opts & GIANFAR_WOL_MAGIC);
+>> +	int arp_packet = priv->wol_en &&
+>> +		(priv->wol_opts & GIANFAR_WOL_ARP);
+>> +
+>> +	if (arp_packet) {
+>> +		pmc_enable_wake(priv->ofdev, PM_SUSPEND_MEM, 1);
+>> +		pmc_enable_lossless(1);
+>> +		gfar_arp_suspend(ndev);
+>> +		return 0;
+>> +	}
+>
+>How do we know this isn't standby?
+
+Maybe we can remove the PM state parameter from the API.
+
+- Leo
