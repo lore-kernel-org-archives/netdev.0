@@ -1,137 +1,118 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: [PATCH v2] SUNRPC: remove non-exclusive pipe creation from RPC pipefs
-Date: Tue, 08 Nov 2011 15:09:19 +0300
-Message-ID: <20111108110833.5785.46542.stgit@localhost6.localdomain6>
+From: Li Yang-R58472 <r58472@freescale.com>
+Subject: RE: [PATCH 6/7] fsl_pmc: Add API to enable device as wakeup event
+ source
+Date: Tue, 8 Nov 2011 11:12:09 +0000
+Message-ID: <3F607A5180246847A760FD34122A1E052BC9B1@039-SN1MPN1-004.039d.mgd.msft.net>
+References: <1320410349-14600-1-git-send-email-chenhui.zhao@freescale.com>
+ <4EB455B1.8030009@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: Wood Scott-B07421 <B07421@freescale.com>,
+	Zhao Chenhui-B35336 <B35336@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:9317 "EHLO
+	TX2EHSOBE007.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751546Ab1KHLMW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 06:12:22 -0500
+In-Reply-To: <4EB455B1.8030009@freescale.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch-set was created in context of clone of git branch:
-git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
 
-v2:
-1) Rebased of current repo state (i.e. all commits were pulled before apply)
 
-I feel it is ready for inclusion if no objections will appear.
+>-----Original Message-----
+>From: linuxppc-dev-bounces+leoli=freescale.com@lists.ozlabs.org
+>[mailto:linuxppc-dev-bounces+leoli=freescale.com@lists.ozlabs.org] On
+>Behalf Of Scott Wood
+>Sent: Saturday, November 05, 2011 5:14 AM
+>To: Zhao Chenhui-B35336
+>Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org
+>Subject: Re: [PATCH 6/7] fsl_pmc: Add API to enable device as wakeup event
+>source
+>
+>On 11/04/2011 07:39 AM, Zhao Chenhui wrote:
+>> @@ -45,6 +46,72 @@ static int has_lossless;
+>>   * code can be compatible with both 32-bit & 36-bit */  extern void
+>> mpc85xx_enter_deep_sleep(u64 ccsrbar, u32 powmgtreq);
+>>
+>> +#ifdef CONFIG_FSL_PMC
+>> +/**
+>> + * pmc_enable_wake - enable OF device as wakeup event source
+>> + * @pdev: platform device affected
+>> + * @state: PM state from which device will issue wakeup events
+>> + * @enable: True to enable event generation; false to disable
+>> + *
+>> + * This enables the device as a wakeup event source, or disables it.
+>> + *
+>> + * RETURN VALUE:
+>> + * 0 is returned on success
+>> + * -EINVAL is returned if device is not supposed to wake up the
+>> +system
+>> + * Error code depending on the platform is returned if both the
+>> +platform and
+>> + * the native mechanism fail to enable the generation of wake-up
+>> +events  */ int pmc_enable_wake(struct platform_device *pdev,
+>> +				suspend_state_t state, bool enable)
+>
+>"pmc" is too generic for a global function.  If this can be either enable
+>or disable, perhaps it should be something like mpc85xx_pmc_set_wake().
+>
+>> +{
+>> +	int ret = 0;
+>> +	struct device_node *clk_np;
+>> +	u32 *pmcdr_mask;
+>> +
+>> +	if (!pmc_regs) {
+>> +		printk(KERN_WARNING "PMC is unavailable\n");
+>> +		return -ENOMEM;
+>> +	}
+>
+>-ENOMEM is not appropriate here, maybe -ENODEV?
+>
+>Should print __func__ so the user knows what's complaining.
+>
+>> +	if (enable && !device_may_wakeup(&pdev->dev))
+>> +		return -EINVAL;
+>> +
+>> +	clk_np = of_parse_phandle(pdev->dev.of_node, "clk-handle", 0);
+>> +	if (!clk_np)
+>> +		return -EINVAL;
+>> +
+>> +	pmcdr_mask = (u32 *)of_get_property(clk_np, "fsl,pmcdr-mask", NULL);
+>> +	if (!pmcdr_mask) {
+>> +		ret = -EINVAL;
+>> +		goto out;
+>> +	}
+>> +
+>> +	/* clear to enable clock in low power mode */
+>> +	if (enable)
+>> +		clrbits32(&pmc_regs->pmcdr, *pmcdr_mask);
+>> +	else
+>> +		setbits32(&pmc_regs->pmcdr, *pmcdr_mask);
+>
+>We should probably initialize PMCDR to all bits set (or at least all ones
+>we know are valid) -- the default should be "not a wakeup source".
 
-SUNRPC pipefs non-exclusive pipe creation code looks obsolete. IOW, as I see
-it, all pipes are creating with unique full path and only once.
+Ideally I agree with you.  But currently we only have the UI of changing wake-up source for Ethernet device.  Will do when we can change all of the devices.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>
+>> +/**
+>> + * pmc_enable_lossless - enable lossless ethernet in low power mode
+>> + * @enable: True to enable event generation; false to disable  */
+>> +void pmc_enable_lossless(int enable) {
+>> +	if (enable && has_lossless)
+>> +		setbits32(&pmc_regs->pmcsr, PMCSR_LOSSLESS);
+>> +	else
+>> +		clrbits32(&pmc_regs->pmcsr, PMCSR_LOSSLESS); }
+>> +EXPORT_SYMBOL_GPL(pmc_enable_lossless);
+>> +#endif
+>
+>Won't we overwrite this later?
 
----
- include/linux/sunrpc/rpc_pipe_fs.h |    1 -
- net/sunrpc/rpc_pipe.c              |   44 +++++-------------------------------
- 2 files changed, 6 insertions(+), 39 deletions(-)
+You are right.  Will remove the code that overwrite this.
 
-diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index e4ea430..08aae01 100644
---- a/include/linux/sunrpc/rpc_pipe_fs.h
-+++ b/include/linux/sunrpc/rpc_pipe_fs.h
-@@ -30,7 +30,6 @@ struct rpc_inode {
- 	int pipelen;
- 	int nreaders;
- 	int nwriters;
--	int nkern_readwriters;
- 	wait_queue_head_t waitq;
- #define RPC_PIPE_WAIT_FOR_OPEN	1
- 	int flags;
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index bfddd68..e2f7b7f 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -555,7 +555,6 @@ static int __rpc_mkpipe(struct inode *dir, struct dentry *dentry,
- 	if (err)
- 		return err;
- 	rpci = RPC_I(dentry->d_inode);
--	rpci->nkern_readwriters = 1;
- 	rpci->private = private;
- 	rpci->flags = flags;
- 	rpci->ops = ops;
-@@ -588,16 +587,12 @@ static int __rpc_unlink(struct inode *dir, struct dentry *dentry)
- static int __rpc_rmpipe(struct inode *dir, struct dentry *dentry)
- {
- 	struct inode *inode = dentry->d_inode;
--	struct rpc_inode *rpci = RPC_I(inode);
- 
--	rpci->nkern_readwriters--;
--	if (rpci->nkern_readwriters != 0)
--		return 0;
- 	rpc_close_pipes(inode);
- 	return __rpc_unlink(dir, dentry);
- }
- 
--static struct dentry *__rpc_lookup_create(struct dentry *parent,
-+static struct dentry *__rpc_lookup_create_exclusive(struct dentry *parent,
- 					  struct qstr *name)
- {
- 	struct dentry *dentry;
-@@ -605,27 +600,13 @@ static struct dentry *__rpc_lookup_create(struct dentry *parent,
- 	dentry = d_lookup(parent, name);
- 	if (!dentry) {
- 		dentry = d_alloc(parent, name);
--		if (!dentry) {
--			dentry = ERR_PTR(-ENOMEM);
--			goto out_err;
--		}
-+		if (!dentry)
-+			return ERR_PTR(-ENOMEM);
- 	}
--	if (!dentry->d_inode)
-+	if (dentry->d_inode == NULL) {
- 		d_set_d_op(dentry, &rpc_dentry_operations);
--out_err:
--	return dentry;
--}
--
--static struct dentry *__rpc_lookup_create_exclusive(struct dentry *parent,
--					  struct qstr *name)
--{
--	struct dentry *dentry;
--
--	dentry = __rpc_lookup_create(parent, name);
--	if (IS_ERR(dentry))
--		return dentry;
--	if (dentry->d_inode == NULL)
- 		return dentry;
-+	}
- 	dput(dentry);
- 	return ERR_PTR(-EEXIST);
- }
-@@ -813,22 +794,9 @@ struct dentry *rpc_mkpipe(struct dentry *parent, const char *name,
- 	q.hash = full_name_hash(q.name, q.len),
- 
- 	mutex_lock_nested(&dir->i_mutex, I_MUTEX_PARENT);
--	dentry = __rpc_lookup_create(parent, &q);
-+	dentry = __rpc_lookup_create_exclusive(parent, &q);
- 	if (IS_ERR(dentry))
- 		goto out;
--	if (dentry->d_inode) {
--		struct rpc_inode *rpci = RPC_I(dentry->d_inode);
--		if (rpci->private != private ||
--				rpci->ops != ops ||
--				rpci->flags != flags) {
--			dput (dentry);
--			err = -EBUSY;
--			goto out_err;
--		}
--		rpci->nkern_readwriters++;
--		goto out;
--	}
--
- 	err = __rpc_mkpipe(dir, dentry, umode, &rpc_pipe_fops,
- 			   private, ops, flags);
- 	if (err)
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Leo
