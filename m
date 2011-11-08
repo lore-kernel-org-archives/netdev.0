@@ -1,160 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug? GRE tunnel periodically won't transmit some packets
-Date: Tue, 08 Nov 2011 15:05:53 +0100
-Message-ID: <1320761153.3444.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <20111108130555.D6FE6361C8@apps0.cs.toronto.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Chris Siebenmann <cks@cs.toronto.edu>
+From: Jamie Iles <jamie@jamieiles.com>
+Subject: [PATCHv4 0/9] macb: add support for Cadence GEM
+Date: Tue,  8 Nov 2011 14:13:24 +0000
+Message-ID: <1320761613-18641-1-git-send-email-jamie@jamieiles.com>
+Cc: arnd@arndb.de, Jamie Iles <jamie@jamieiles.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:65127 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63521 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751840Ab1KHOF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 09:05:57 -0500
-Received: by wyh15 with SMTP id 15so503428wyh.19
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 06:05:56 -0800 (PST)
-In-Reply-To: <20111108130555.D6FE6361C8@apps0.cs.toronto.edu>
+	with ESMTP id S1752302Ab1KHONn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 09:13:43 -0500
+Received: by wyh15 with SMTP id 15so512103wyh.19
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 06:13:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 08 novembre 2011 =C3=A0 08:05 -0500, Chris Siebenmann a =C3=A9=
-crit :
-> | Le mardi 08 novembre 2011 =C3=A0 02:08 -0500, Chris Siebenmann a =C3=
-=A9crit :
-> | >  Let me know if you want a full dump of 'ip link show' (with or
-> | > without verbosity).
-> | >=20
-> | > 	- cks
-> |=20
-> | Oh yes, I meant "ip -s -s link show dev extun"
->=20
-> 7: extun: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1200 qdisc noqueue stat=
-e UNKNOWN=20
->     link/gre 66.96.18.208 peer 128.100.3.58
->     RX: bytes  packets  errors  dropped overrun mcast  =20
->     3465662    19823    0       0       0       0     =20
->     RX errors: length  crc     frame   fifo    missed
->                0        0       0       0       0     =20
->     TX: bytes  packets  errors  dropped carrier collsns=20
->     2590152    30918    18      0       0       0     =20
->     TX errors: aborted fifo    window  heartbeat
->                0        0       0       0     =20
->=20
-> Then:
-> | You might have packet drops at the ppp0 device itself
-> |=20
-> | ip -s -s link show dev ppp0 ; tc -s -d qdisc show dev ppp0
->=20
-> ; ip -s -s link show dev ppp0 ; tc -s -d qdisc show dev ppp0
-> 5: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1492 qdisc pfi=
-fo_fast state UNKNOWN qlen 3
->     link/ppp=20
->     RX: bytes  packets  errors  dropped overrun mcast  =20
->     1065281803 2474545  0       0       0       0     =20
->     RX errors: length  crc     frame   fifo    missed
->                0        0       0       0       0     =20
->     TX: bytes  packets  errors  dropped carrier collsns=20
->     1046103545 2887730  0       0       0       0     =20
->     TX errors: aborted fifo    window  heartbeat
->                0        0       0       0     =20
-> qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 =
-1 1 1 1 1 1 1
->  Sent 1046103557 bytes 2887727 pkt (dropped 20, overlimits 0 requeues=
- 0)=20
->  backlog 0b 0p requeues 0=20
->=20
->  I have now seen 552-byte mtus listed in 'ip route show table cache'
-> output. I can include the full output if you think it's of interest.
-> One of the remote IPs is a host we run, so I was able to test ssh to =
-it
-> and it did not stall and did not seem to use 'length 500' packets in =
-the
-> SSH connection, so this may be a red herring.
->=20
-> Okay, I just rebooted the machine (into the Fedora 15 kernel) and had
-> the problem reproduce. This time ppp0 shows no dropped packets while
-> extun counts up errors and I have a 552 mtu route (actually several o=
-f
-> them) in 'ip route show table cache':
->=20
-> 6: extun: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1200 qdisc noqueue stat=
-e UNKNOWN=20
->     link/gre 66.96.18.208 peer 128.100.3.58
->     RX: bytes  packets  errors  dropped overrun mcast  =20
->     119000     653      0       0       0       0     =20
->     RX errors: length  crc     frame   fifo    missed
->                0        0       0       0       0     =20
->     TX: bytes  packets  errors  dropped carrier collsns=20
->     85848      989      17      0       0       0     =20
->     TX errors: aborted fifo    window  heartbeat
->                0        0       0       0     =20
->=20
-> 4: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1492 qdisc pfi=
-fo_fast state UNKNOWN qlen 3
->     link/ppp=20
->     RX: bytes  packets  errors  dropped overrun mcast  =20
->     2152137    3743     0       0       0       0     =20
->     RX errors: length  crc     frame   fifo    missed
->                0        0       0       0       0     =20
->     TX: bytes  packets  errors  dropped carrier collsns=20
->     360478     4022     0       0       0       0     =20
->     TX errors: aborted fifo    window  heartbeat
->                0        0       0       0     =20
-> qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 =
-1 1 1 1 1 1 1
->  Sent 360438 bytes 4018 pkt (dropped 0, overlimits 0 requeues 0)=20
->  backlog 0b 0p requeues 0=20
->=20
-> Routes with low mtus for either the GRE gateway target or the host I =
-am
-> trying to ssh to:
->=20
-> 128.100.3.51 dev extun  src 128.100.3.52=20
->     cache  expires 401sec ipid 0x941a mtu 552 rtt 27ms rttvar 27ms cw=
-nd 10
-> --
-> 128.100.3.58 from 128.100.3.52 dev extun=20
->     cache  expires 397sec ipid 0xdeda mtu 614 rtt 15ms rttvar 15ms cw=
-nd 10
-> --
-> 128.100.3.58 from 66.96.18.208 dev ppp0=20
->     cache  expires 397sec ipid 0xdeda mtu 614 rtt 15ms rttvar 15ms cw=
-nd 10
-> --
-> 128.100.3.58 from 66.96.18.208 dev ppp0=20
->     cache  expires 397sec ipid 0xdeda mtu 614 rtt 15ms rttvar 15ms cw=
-nd 10
-> --
-> 128.100.3.51 from 128.100.3.52 dev extun=20
->     cache  expires 401sec ipid 0x941a mtu 552 rtt 27ms rttvar 27ms cw=
-nd 10
-> 128.100.3.58 dev extun  src 128.100.3.52=20
->     cache  expires 397sec ipid 0xdeda mtu 614 rtt 15ms rttvar 15ms cw=
-nd 10
-> --
-> 128.100.3.51 from 128.100.3.52 tos throughput dev extun=20
->     cache  expires 401sec ipid 0x941a mtu 552 rtt 27ms rttvar 27ms cw=
-nd 10
-> 128.100.3.51 from 128.100.3.52 dev extun=20
->     cache  expires 401sec ipid 0x941a mtu 552 rtt 27ms rttvar 27ms cw=
-nd 10
-> 128.100.3.51 from 128.100.3.52 tos lowdelay dev extun=20
->     cache  expires 401sec ipid 0x941a mtu 552 rtt 27ms rttvar 27ms cw=
-nd 10
->=20
->  With the problem not happening any more, 'ip route' shows only a few
-> mtu 552 routes, none to the machines I am doing test ssh's to. The fi=
-nal
-> error count was 46 errors on extun (with 0 for all of the specific
-> causes) and no errors or dropped packets on ppp0.
->=20
+I've rebased these patches onto v3.2-rc1 to include the Ethernet driver
+moves and the addition of a couple of new AT91 boards but otherwise this
+is the same series as before.
 
-So it appears the drop is in gre xmit because frame is bigger than
-mtu...
+If we can get these into next then that would be great (I can publish
+these to a branch for a pull request I guess through the arm-soc tree?).
 
-Maybe you receive some strange ICMP (ICMP_FRAG_NEEDED) from a buggy
-host ?
+Jamie Iles (9):
+  at91: provide macb clks with "pclk" and "hclk" name
+  macb: remove conditional clk handling
+  macb: unify at91 and avr32 platform data
+  macb: convert printk to netdev_ and friends
+  macb: initial support for Cadence GEM
+  macb: support higher rate GEM MDIO clock divisors
+  macb: support statistics for GEM devices
+  macb: support DMA bus widths > 32 bits
+  macb: allow GEM to have configurable receive buffer size
 
-You could catch it with "tcpdump -s 1000 -i any icmp" maybe...
+ arch/arm/mach-at91/at91cap9.c               |    8 +-
+ arch/arm/mach-at91/at91cap9_devices.c       |    6 +-
+ arch/arm/mach-at91/at91rm9200_devices.c     |    6 +-
+ arch/arm/mach-at91/at91sam9260.c            |    8 +-
+ arch/arm/mach-at91/at91sam9260_devices.c    |    6 +-
+ arch/arm/mach-at91/at91sam9263.c            |    8 +-
+ arch/arm/mach-at91/at91sam9263_devices.c    |    6 +-
+ arch/arm/mach-at91/at91sam9g45.c            |    8 +-
+ arch/arm/mach-at91/at91sam9g45_devices.c    |    6 +-
+ arch/arm/mach-at91/board-1arm.c             |    2 +-
+ arch/arm/mach-at91/board-afeb-9260v1.c      |    2 +-
+ arch/arm/mach-at91/board-cam60.c            |    2 +-
+ arch/arm/mach-at91/board-cap9adk.c          |    2 +-
+ arch/arm/mach-at91/board-carmeva.c          |    2 +-
+ arch/arm/mach-at91/board-cpu9krea.c         |    2 +-
+ arch/arm/mach-at91/board-cpuat91.c          |    2 +-
+ arch/arm/mach-at91/board-csb337.c           |    2 +-
+ arch/arm/mach-at91/board-csb637.c           |    2 +-
+ arch/arm/mach-at91/board-eb9200.c           |    2 +-
+ arch/arm/mach-at91/board-ecbat91.c          |    2 +-
+ arch/arm/mach-at91/board-eco920.c           |    2 +-
+ arch/arm/mach-at91/board-foxg20.c           |    2 +-
+ arch/arm/mach-at91/board-gsia18s.c          |    2 +-
+ arch/arm/mach-at91/board-kafa.c             |    2 +-
+ arch/arm/mach-at91/board-kb9202.c           |    2 +-
+ arch/arm/mach-at91/board-neocore926.c       |    2 +-
+ arch/arm/mach-at91/board-pcontrol-g20.c     |    2 +-
+ arch/arm/mach-at91/board-picotux200.c       |    2 +-
+ arch/arm/mach-at91/board-qil-a9260.c        |    2 +-
+ arch/arm/mach-at91/board-rm9200dk.c         |    2 +-
+ arch/arm/mach-at91/board-rm9200ek.c         |    2 +-
+ arch/arm/mach-at91/board-rsi-ews.c          |    2 +-
+ arch/arm/mach-at91/board-sam9-l9260.c       |    2 +-
+ arch/arm/mach-at91/board-sam9260ek.c        |    2 +-
+ arch/arm/mach-at91/board-sam9263ek.c        |    2 +-
+ arch/arm/mach-at91/board-sam9g20ek.c        |    2 +-
+ arch/arm/mach-at91/board-sam9m10g45ek.c     |    2 +-
+ arch/arm/mach-at91/board-snapper9260.c      |    2 +-
+ arch/arm/mach-at91/board-stamp9g20.c        |    2 +-
+ arch/arm/mach-at91/board-usb-a926x.c        |    2 +-
+ arch/arm/mach-at91/board-yl-9200.c          |    2 +-
+ arch/arm/mach-at91/include/mach/board.h     |   14 +-
+ arch/avr32/boards/atngw100/setup.c          |    2 +-
+ arch/avr32/boards/atstk1000/atstk1002.c     |    2 +-
+ arch/avr32/boards/favr-32/setup.c           |    2 +-
+ arch/avr32/boards/hammerhead/setup.c        |    2 +-
+ arch/avr32/boards/merisc/setup.c            |    2 +-
+ arch/avr32/boards/mimc200/setup.c           |    2 +-
+ arch/avr32/mach-at32ap/at32ap700x.c         |    8 +-
+ arch/avr32/mach-at32ap/include/mach/board.h |    7 +-
+ drivers/net/ethernet/cadence/Kconfig        |   16 +-
+ drivers/net/ethernet/cadence/at91_ether.c   |    3 +-
+ drivers/net/ethernet/cadence/at91_ether.h   |    4 +-
+ drivers/net/ethernet/cadence/macb.c         |  338 +++++++++++++++++----------
+ drivers/net/ethernet/cadence/macb.h         |  150 ++++++++++++-
+ include/linux/platform_data/macb.h          |   17 ++
+ 56 files changed, 489 insertions(+), 206 deletions(-)
+ create mode 100644 include/linux/platform_data/macb.h
+
+-- 
+1.7.4.1
