@@ -1,96 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] sch_choke: use skb_header_pointer()
-Date: Tue, 08 Nov 2011 21:45:04 +0100
-Message-ID: <1320785104.26025.5.camel@edumazet-laptop>
+From: Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/5] net/sunrpc: use kstrtoul, etc
+Date: Tue, 8 Nov 2011 23:45:55 +0300
+Message-ID: <20111108204555.GA4379@p183.telecom.by>
+References: <1320586010-21931-1-git-send-email-julia@diku.dk>
+ <1320586010-21931-3-git-send-email-julia@diku.dk>
+ <20111108193817.GA3453@p183.telecom.by>
+ <alpine.DEB.2.02.1111082113380.1880@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:42454 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933278Ab1KHUpI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 15:45:08 -0500
-Received: by wyh15 with SMTP id 15so935917wyh.19
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 12:45:06 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1111082113380.1880@hadrien>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Remove the assumption that skb_get_rxhash() makes IP header and ports
-linear, and use skb_header_pointer() instead in choke_match_flow()
+On Tue, Nov 08, 2011 at 09:19:30PM +0100, Julia Lawall wrote:
+> 
+> 
+> On Tue, 8 Nov 2011, Alexey Dobriyan wrote:
+> 
+> > On Sun, Nov 06, 2011 at 02:26:47PM +0100, Julia Lawall wrote:
+> >> @@
+> >> expression a,b;
+> >> {int,long} *c;
+> >> @@
+> >>
+> >> -strict_strtoul
+> >> +kstrtoul
+> >
+> > No, no, no!
+> 
+> Sorry, this was not the real rule I used for the strtoul case.  Instead I 
+> used the following:
+> 
+> @@
+> typedef ulong;
+> expression a,b;
+> {ulong,unsigned long,unsigned int,size_t} *c;
+> @@
+> 
+> -strict_strtoul
+> +kstrtoul
+>   (a,b,c)
+> 
+> But now I have seen that there is a separate function for integers, so I 
+> have made a rule to use that function when the type is unsigned int.
+> 
+> > In every case see the type or real data and use appropriate function.
+> > kstrtou8() for ports.
+> 
+> The type of the destination variable in all of these cases is unsigned 
+> long.  But maybe that is not enough information to make the 
+> transformation in the right way.
 
-This permits __skb_get_rxhash() to use skb_header_pointer() eventually.
+That's because previous functions following libc didn't accept anything
+less than unsigned long.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/sched/sch_choke.c |   27 +++++++++++++++++----------
- 1 file changed, 17 insertions(+), 10 deletions(-)
+For these conversion, one should literally look at every usecase and
+see what types data have for real (not unsigned long) and
+make conversion and remove explicit EINVAL checks if necesasry.
 
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index 3422b25..061bcb7 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -152,15 +152,14 @@ static bool choke_match_flow(struct sk_buff *skb1,
- {
- 	int off1, off2, poff;
- 	const u32 *ports1, *ports2;
-+	u32 _ports1, _ports2;
- 	u8 ip_proto;
- 	__u32 hash1;
- 
- 	if (skb1->protocol != skb2->protocol)
- 		return false;
- 
--	/* Use hash value as quick check
--	 * Assumes that __skb_get_rxhash makes IP header and ports linear
--	 */
-+	/* Use rxhash value as quick check */
- 	hash1 = skb_get_rxhash(skb1);
- 	if (!hash1 || hash1 != skb_get_rxhash(skb2))
- 		return false;
-@@ -172,10 +171,12 @@ static bool choke_match_flow(struct sk_buff *skb1,
- 	switch (skb1->protocol) {
- 	case __constant_htons(ETH_P_IP): {
- 		const struct iphdr *ip1, *ip2;
-+		struct iphdr _ip1, _ip2;
- 
--		ip1 = (const struct iphdr *) (skb1->data + off1);
--		ip2 = (const struct iphdr *) (skb2->data + off2);
--
-+		ip1 = skb_header_pointer(skb1, off1, sizeof(_ip1), &_ip1);
-+		ip2 = skb_header_pointer(skb2, off2, sizeof(_ip2), &_ip2);
-+		if (!ip1 || !ip2)
-+			return false;
- 		ip_proto = ip1->protocol;
- 		if (ip_proto != ip2->protocol ||
- 		    ip1->saddr != ip2->saddr || ip1->daddr != ip2->daddr)
-@@ -190,9 +191,12 @@ static bool choke_match_flow(struct sk_buff *skb1,
- 
- 	case __constant_htons(ETH_P_IPV6): {
- 		const struct ipv6hdr *ip1, *ip2;
-+		struct ipv6hdr _ip1, _ip2;
- 
--		ip1 = (const struct ipv6hdr *) (skb1->data + off1);
--		ip2 = (const struct ipv6hdr *) (skb2->data + off2);
-+		ip1 = skb_header_pointer(skb1, off1, sizeof(_ip1), &_ip1);
-+		ip2 = skb_header_pointer(skb2, off2, sizeof(_ip2), &_ip2);
-+		if (!ip1 || !ip2)
-+			return false;
- 
- 		ip_proto = ip1->nexthdr;
- 		if (ip_proto != ip2->nexthdr ||
-@@ -214,8 +218,11 @@ static bool choke_match_flow(struct sk_buff *skb1,
- 	off1 += poff;
- 	off2 += poff;
- 
--	ports1 = (__force u32 *)(skb1->data + off1);
--	ports2 = (__force u32 *)(skb2->data + off2);
-+	ports1 = skb_header_pointer(skb1, off1, sizeof(_ports1), &_ports1);
-+	ports2 = skb_header_pointer(skb2, off2, sizeof(_ports2), &_ports2);
-+	if (!ports1 || !ports2)
-+		return false;
-+
- 	return *ports1 == *ports2;
- }
- 
+In sunrpc case: switch to kstrtou8 + remove "> 255" check.
+
+This program doesn't and won't do that.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
