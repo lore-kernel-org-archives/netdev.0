@@ -1,59 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] ipv4: Update pmtu informations on inetpeer only
- for output routes
-Date: Tue, 08 Nov 2011 14:36:30 -0500 (EST)
-Message-ID: <20111108.143630.106539981030509701.davem@davemloft.net>
-References: <20111011110842.GC1830@secunet.com>
-	<20111011111027.GE1830@secunet.com>
-	<20111012.170805.2172804476308993385.davem@davemloft.net>
+From: Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/5] net/sunrpc: use kstrtoul, etc
+Date: Tue, 8 Nov 2011 22:38:18 +0300
+Message-ID: <20111108193817.GA3453@p183.telecom.by>
+References: <1320586010-21931-1-git-send-email-julia@diku.dk>
+ <1320586010-21931-3-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:41727 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753215Ab1KHTge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 14:36:34 -0500
-In-Reply-To: <20111012.170805.2172804476308993385.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1320586010-21931-3-git-send-email-julia-dAYI7NvHqcQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 12 Oct 2011 17:08:05 -0400 (EDT)
+On Sun, Nov 06, 2011 at 02:26:47PM +0100, Julia Lawall wrote:
+> @@
+> expression a,b;
+> {int,long} *c;
+> @@
+> 
+> -strict_strtoul
+> +kstrtoul
 
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Tue, 11 Oct 2011 13:10:27 +0200
-> 
->> @@ -1817,9 +1819,14 @@ static void rt_init_metrics(struct rtable *rt, const struct flowi4 *fl4,
->>  		if (inet_metrics_new(peer))
->>  			memcpy(peer->metrics, fi->fib_metrics,
->>  			       sizeof(u32) * RTAX_MAX);
->> -		dst_init_metrics(&rt->dst, peer->metrics, false);
->>  
->> -		check_peer_pmtu(&rt->dst, peer);
->> +		dst_init_metrics(dst, peer->metrics, false);
->> +		check_peer_pmtu(dst, peer);
->> +
->> +		if (rt_is_input_route(rt))
->> +			dst_metric_set(dst, RTAX_MTU,
->> +				       dst->ops->default_mtu(dst));
->> +
-> 
-> You really can't do this, it's going to kill all of the memory savings from
-> storing metrics in the inetpeer cache.
-> 
-> Every input route is going to have it's metrics COW'd with this change.
-> 
-> The whole idea is to use defaults as heavily as possible, and that's
-> the entire reason why the dst->ops->default_mtu() method exists, so
-> that we can just leave the values alone and have read-only copies %99
-> of the time.
-> 
-> Please rearrange your fix so that these goals are still achieved.
+No, no, no!
 
-What I think you can do to solve this problem is explicitly use
-dst->ops->default_mtu() in ip_forward() instead of dst_mtu().
+In every case see the type or real data and use appropriate function.
+kstrtou8() for ports.
+This program creates lots of bogus patches in this case.
 
-That way you won't use the cached PMTU for input routes.
+> --- a/net/sunrpc/addr.c
+> +++ b/net/sunrpc/addr.c
+> @@ -322,7 +322,7 @@ size_t rpc_uaddr2sockaddr(const char *ua
+>  	c = strrchr(buf, '.');
+>  	if (unlikely(c == NULL))
+>  		return 0;
+> -	if (unlikely(strict_strtoul(c + 1, 10, &portlo) != 0))
+> +	if (unlikely(kstrtoul(c + 1, 10, &portlo) != 0))
+>  		return 0;
+>  	if (unlikely(portlo > 255))
+>  		return 0;
+> @@ -331,7 +331,7 @@ size_t rpc_uaddr2sockaddr(const char *ua
+>  	c = strrchr(buf, '.');
+>  	if (unlikely(c == NULL))
+>  		return 0;
+> -	if (unlikely(strict_strtoul(c + 1, 10, &porthi) != 0))
+> +	if (unlikely(kstrtoul(c + 1, 10, &porthi) != 0))
+>  		return 0;
+>  	if (unlikely(porthi > 255))
+>  		return 0;
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
