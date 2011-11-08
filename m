@@ -1,68 +1,137 @@
-From: Li Yang-R58472 <r58472@freescale.com>
-Subject: RE: [PATCH 7/7] gianfar: add support for wake-on-packet
-Date: Tue, 8 Nov 2011 11:07:54 +0000
-Message-ID: <3F607A5180246847A760FD34122A1E052BC98E@039-SN1MPN1-004.039d.mgd.msft.net>
-References: <1320410403-14639-1-git-send-email-chenhui.zhao@freescale.com>
- <4EB45515.6060405@freescale.com> <4EB4558A.8070105@freescale.com>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [PATCH v2] SUNRPC: remove non-exclusive pipe creation from RPC pipefs
+Date: Tue, 08 Nov 2011 15:09:19 +0300
+Message-ID: <20111108110833.5785.46542.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- Fleming Andy-AFLEMING <afleming@freescale.com>
-To: Wood Scott-B07421 <B07421@freescale.com>, Zhao Chenhui-B35336
- <B35336@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <4EB4558A.8070105@freescale.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+This patch-set was created in context of clone of git branch:
+git://git.linux-nfs.org/projects/trondmy/nfs-2.6.git.
 
+v2:
+1) Rebased of current repo state (i.e. all commits were pulled before apply)
 
->-----Original Message-----
->From: linuxppc-dev-bounces+leoli=freescale.com@lists.ozlabs.org
->[mailto:linuxppc-dev-bounces+leoli=freescale.com@lists.ozlabs.org] On
->Behalf Of Scott Wood
->Sent: Saturday, November 05, 2011 5:14 AM
->To: Zhao Chenhui-B35336
->Cc: netdev@vger.kernel.org; linuxppc-dev@lists.ozlabs.org; Fleming Andy-
->AFLEMING
->Subject: Re: [PATCH 7/7] gianfar: add support for wake-on-packet
->
->On 11/04/2011 04:11 PM, Scott Wood wrote:
->> On 11/04/2011 07:40 AM, Zhao Chenhui wrote:
->>>  static int gfar_suspend(struct device *dev)  { @@ -1268,9 +1443,17
->>> @@ static int gfar_suspend(struct device *dev)
->>>  	struct gfar __iomem *regs = priv->gfargrp[0].regs;
->>>  	unsigned long flags;
->>>  	u32 tempval;
->>> -
->>>  	int magic_packet = priv->wol_en &&
->>> -		(priv->device_flags & FSL_GIANFAR_DEV_HAS_MAGIC_PACKET);
->>> +		(priv->wol_opts & GIANFAR_WOL_MAGIC);
->>> +	int arp_packet = priv->wol_en &&
->>> +		(priv->wol_opts & GIANFAR_WOL_ARP);
->>> +
->>> +	if (arp_packet) {
->>> +		pmc_enable_wake(priv->ofdev, PM_SUSPEND_MEM, 1);
->>> +		pmc_enable_lossless(1);
->>> +		gfar_arp_suspend(ndev);
->>> +		return 0;
->>> +	}
->>
->> How do we know this isn't standby?
->
->Or suspend to disk, for that matter?
+I feel it is ready for inclusion if no objections will appear.
 
-There is nothing we can do for hibernation.  The whole system is literally off.
+SUNRPC pipefs non-exclusive pipe creation code looks obsolete. IOW, as I see
+it, all pipes are creating with unique full path and only once.
 
-- Leo
+Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+
+---
+ include/linux/sunrpc/rpc_pipe_fs.h |    1 -
+ net/sunrpc/rpc_pipe.c              |   44 +++++-------------------------------
+ 2 files changed, 6 insertions(+), 39 deletions(-)
+
+diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
+index e4ea430..08aae01 100644
+--- a/include/linux/sunrpc/rpc_pipe_fs.h
++++ b/include/linux/sunrpc/rpc_pipe_fs.h
+@@ -30,7 +30,6 @@ struct rpc_inode {
+ 	int pipelen;
+ 	int nreaders;
+ 	int nwriters;
+-	int nkern_readwriters;
+ 	wait_queue_head_t waitq;
+ #define RPC_PIPE_WAIT_FOR_OPEN	1
+ 	int flags;
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index bfddd68..e2f7b7f 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -555,7 +555,6 @@ static int __rpc_mkpipe(struct inode *dir, struct dentry *dentry,
+ 	if (err)
+ 		return err;
+ 	rpci = RPC_I(dentry->d_inode);
+-	rpci->nkern_readwriters = 1;
+ 	rpci->private = private;
+ 	rpci->flags = flags;
+ 	rpci->ops = ops;
+@@ -588,16 +587,12 @@ static int __rpc_unlink(struct inode *dir, struct dentry *dentry)
+ static int __rpc_rmpipe(struct inode *dir, struct dentry *dentry)
+ {
+ 	struct inode *inode = dentry->d_inode;
+-	struct rpc_inode *rpci = RPC_I(inode);
+ 
+-	rpci->nkern_readwriters--;
+-	if (rpci->nkern_readwriters != 0)
+-		return 0;
+ 	rpc_close_pipes(inode);
+ 	return __rpc_unlink(dir, dentry);
+ }
+ 
+-static struct dentry *__rpc_lookup_create(struct dentry *parent,
++static struct dentry *__rpc_lookup_create_exclusive(struct dentry *parent,
+ 					  struct qstr *name)
+ {
+ 	struct dentry *dentry;
+@@ -605,27 +600,13 @@ static struct dentry *__rpc_lookup_create(struct dentry *parent,
+ 	dentry = d_lookup(parent, name);
+ 	if (!dentry) {
+ 		dentry = d_alloc(parent, name);
+-		if (!dentry) {
+-			dentry = ERR_PTR(-ENOMEM);
+-			goto out_err;
+-		}
++		if (!dentry)
++			return ERR_PTR(-ENOMEM);
+ 	}
+-	if (!dentry->d_inode)
++	if (dentry->d_inode == NULL) {
+ 		d_set_d_op(dentry, &rpc_dentry_operations);
+-out_err:
+-	return dentry;
+-}
+-
+-static struct dentry *__rpc_lookup_create_exclusive(struct dentry *parent,
+-					  struct qstr *name)
+-{
+-	struct dentry *dentry;
+-
+-	dentry = __rpc_lookup_create(parent, name);
+-	if (IS_ERR(dentry))
+-		return dentry;
+-	if (dentry->d_inode == NULL)
+ 		return dentry;
++	}
+ 	dput(dentry);
+ 	return ERR_PTR(-EEXIST);
+ }
+@@ -813,22 +794,9 @@ struct dentry *rpc_mkpipe(struct dentry *parent, const char *name,
+ 	q.hash = full_name_hash(q.name, q.len),
+ 
+ 	mutex_lock_nested(&dir->i_mutex, I_MUTEX_PARENT);
+-	dentry = __rpc_lookup_create(parent, &q);
++	dentry = __rpc_lookup_create_exclusive(parent, &q);
+ 	if (IS_ERR(dentry))
+ 		goto out;
+-	if (dentry->d_inode) {
+-		struct rpc_inode *rpci = RPC_I(dentry->d_inode);
+-		if (rpci->private != private ||
+-				rpci->ops != ops ||
+-				rpci->flags != flags) {
+-			dput (dentry);
+-			err = -EBUSY;
+-			goto out_err;
+-		}
+-		rpci->nkern_readwriters++;
+-		goto out;
+-	}
+-
+ 	err = __rpc_mkpipe(dir, dentry, umode, &rpc_pipe_fops,
+ 			   private, ops, flags);
+ 	if (err)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
