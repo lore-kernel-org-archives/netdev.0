@@ -1,43 +1,53 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] ipv4: fix a bug in strict route gateway comparation.
-Date: Tue, 08 Nov 2011 16:44:40 +0800
-Message-ID: <4EB8EBF8.1080508@cn.fujitsu.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: increase the delay parameter of pm_schedule_suspend
+Date: Tue, 8 Nov 2011 10:07:16 +0100
+Message-ID: <20111108090716.GA4885@electric-eye.fr.zoreil.com>
+References: <1320734677-1372-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52430 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753534Ab1KHIoS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Nov 2011 03:44:18 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1320734677-1372-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit def57687 (ipv4: Elide use of rt->rt_dst in ip_forward())
-we use iph->daddr for strict route gateway comparation, Unfortunately
-skb_rtable(skb) has been updated in ip_options_rcv_srr() for the
-nexthop in SRR option but iph->daddr *not* updated, So rt->rt_dst is
-not equals to iph->daddr, We should use the updated rt->rt_dst instead.
+Hayes Wang <hayeswang@realtek.com> :
+> The link down would occur when reseting PHY. And it would take about 2 ~ 5 seconds
+> from link down to link up. If the delay of pm_schedule_suspend is not long enough,
+> the device would enter runtime_suspend before link up. After link up, the device
+> would wake up and reset PHY again. Then, you would find the driver keep in a loop
+> of runtime_suspend and rumtime_resume.
 
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- net/ipv4/ip_forward.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 3b34d1c..99461f0 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -84,7 +84,7 @@ int ip_forward(struct sk_buff *skb)
- 
- 	rt = skb_rtable(skb);
- 
--	if (opt->is_strictroute && ip_hdr(skb)->daddr != rt->rt_gateway)
-+	if (opt->is_strictroute && rt->rt_dst != rt->rt_gateway)
- 		goto sr_failed;
- 
- 	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
+So far the worst offender here is the 8111evl (RTL_GIGA_MAC_VER_34) with a
+max delay a bit below 4000 ms.
+
+[...]
+[ 4195.444121] r8169 0000:03:00.0: 8111e-vl-0: link up
+[ 4195.549396] r8169 0000:03:00.0: 8111e-vl-0: link down
+[ 4195.888002] r8169 0000:03:00.0: 8111e-vl-0: link up
+[ 4199.444120] r8169 0000:03:00.0: 8111e-vl-0: link up
+[ 4199.582073] r8169 0000:03:00.0: 8111e-vl-0: link down
+
+[...]
+[ 4171.580422] r8169 0000:03:00.0: 8111e-vl-0: link down
+[ 4171.904002] r8169 0000:03:00.0: 8111e-vl-0: link up
+[ 4175.444131] r8169 0000:03:00.0: 8111e-vl-0: link up
+[ 4175.547453] r8169 0000:03:00.0: 8111e-vl-0: link down
+
+The 8168d-vb-gr (RTL_GIGA_MAC_VER_26) and the 8168b (RTL_GIGA_MAC_VER_12)
+worked out of the box without the patch - at least with a kernel including
+Rafael's recent changes - and the old PCI 8169 always worked.
+
+I have not tested the 8168f nor the 810x yet.
+
+Increasing the delay over and over in the driver alone will not ensure
+that the system is always stable but it should send the stuff on a far
+enough orbit for some time.
+
 -- 
-1.7.3.2
+Ueimor
