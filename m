@@ -1,145 +1,153 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [PATCH v4 2/3] SUNRPC: optimize net_ns dereferencing in rpcbind
-	creation calls
-Date: Tue, 08 Nov 2011 14:41:27 +0300
-Message-ID: <20111108104126.1714.42996.stgit@localhost6.localdomain6>
-References: <20111108104023.1714.87978.stgit@localhost6.localdomain6>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [v2 PATCH 1/2] NETFILTER module xt_hmark new target for HASH
+ based fw
+Date: Tue, 8 Nov 2011 11:51:10 +0100
+Message-ID: <20111108105110.GA15798@1984>
+References: <0hivdsb.f18682ec9367f08c76301d993553f1b8@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, xemul@parallels.com, neilb@suse.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbottomley@parallels.com, bfields@fieldses.org,
-	davem@davemloft.net, devel@openvz.org
-To: Trond.Myklebust@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111108104023.1714.87978.stgit@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>, kaber@trash.net,
+	jengelh@medozas.de, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Hans Schillstrom <hans@schillstrom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:56699 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750892Ab1KHKvS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Nov 2011 05:51:18 -0500
+Content-Disposition: inline
+In-Reply-To: <0hivdsb.f18682ec9367f08c76301d993553f1b8@obelix.schillstrom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Static rpcbind creation functions can be parametrized by network namespace
-pointer, calculated only once, instead of using init_net pointer (or taking it
-from current when virtualization will be comleted) in many places.
+On Tue, Nov 08, 2011 at 12:29:53AM +0100, Hans Schillstrom wrote:
+> >We prefer skb_header_pointer instead. If conntrack is enabled, we can
+> >benefit from defragmention. 
+> 
+> In  our case conntrack will not be there
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Yes, but if conntrack is there, we benefit from fragment reassembly if
+you use skb_header_pointer.
 
----
- net/sunrpc/rpcb_clnt.c |   35 +++++++++++++++++++----------------
- 1 files changed, 19 insertions(+), 16 deletions(-)
+> >Please, replace all pskb_may_pull by skb_header_pointer in this code.
+> >
+> >We can assume that the IP header is linear (not fragmented).
+> 
+> I ran in to this issue in IPv6 testing so I got a little bit "paranoid".
+> Are you sure that the embedded IP and L4 header in the ICMP msg also is unfragmented.  
+> Is this true for both IPv6 & IPv4 ?
 
-diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 7d32f19..3df276a 100644
---- a/net/sunrpc/rpcb_clnt.c
-+++ b/net/sunrpc/rpcb_clnt.c
-@@ -161,10 +161,10 @@ static void rpcb_map_release(void *data)
- 	kfree(map);
- }
- 
--static int rpcb_get_local(void)
-+static int rpcb_get_local(struct net *net)
- {
- 	int cnt;
--	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
- 
- 	spin_lock(&sn->rpcb_clnt_lock);
- 	if (sn->rpcb_users)
-@@ -201,9 +201,10 @@ void rpcb_put_local(void)
- 	}
- }
- 
--static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
-+static void rpcb_set_local(struct net *net, struct rpc_clnt *clnt,
-+			struct rpc_clnt *clnt4)
- {
--	struct sunrpc_net *sn = net_generic(&init_net, sunrpc_net_id);
-+	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
- 
- 	/* Protected by rpcb_create_local_mutex */
- 	sn->rpcb_local_clnt = clnt;
-@@ -211,22 +212,23 @@ static void rpcb_set_local(struct rpc_clnt *clnt, struct rpc_clnt *clnt4)
- 	smp_wmb(); 
- 	sn->rpcb_users = 1;
- 	dprintk("RPC:       created new rpcb local clients (rpcb_local_clnt: "
--			"%p, rpcb_local_clnt4: %p)\n", sn->rpcb_local_clnt,
--			sn->rpcb_local_clnt4);
-+			"%p, rpcb_local_clnt4: %p) for net %p%s\n",
-+			sn->rpcb_local_clnt, sn->rpcb_local_clnt4,
-+			net, (net == &init_net) ? " (init_net)" : "");
- }
- 
- /*
-  * Returns zero on success, otherwise a negative errno value
-  * is returned.
-  */
--static int rpcb_create_local_unix(void)
-+static int rpcb_create_local_unix(struct net *net)
- {
- 	static const struct sockaddr_un rpcb_localaddr_rpcbind = {
- 		.sun_family		= AF_LOCAL,
- 		.sun_path		= RPCBIND_SOCK_PATHNAME,
- 	};
- 	struct rpc_create_args args = {
--		.net		= &init_net,
-+		.net		= net,
- 		.protocol	= XPRT_TRANSPORT_LOCAL,
- 		.address	= (struct sockaddr *)&rpcb_localaddr_rpcbind,
- 		.addrsize	= sizeof(rpcb_localaddr_rpcbind),
-@@ -259,7 +261,7 @@ static int rpcb_create_local_unix(void)
- 		clnt4 = NULL;
- 	}
- 
--	rpcb_set_local(clnt, clnt4);
-+	rpcb_set_local(net, clnt, clnt4);
- 
- out:
- 	return result;
-@@ -269,7 +271,7 @@ out:
-  * Returns zero on success, otherwise a negative errno value
-  * is returned.
-  */
--static int rpcb_create_local_net(void)
-+static int rpcb_create_local_net(struct net *net)
- {
- 	static const struct sockaddr_in rpcb_inaddr_loopback = {
- 		.sin_family		= AF_INET,
-@@ -277,7 +279,7 @@ static int rpcb_create_local_net(void)
- 		.sin_port		= htons(RPCBIND_PORT),
- 	};
- 	struct rpc_create_args args = {
--		.net		= &init_net,
-+		.net		= net,
- 		.protocol	= XPRT_TRANSPORT_TCP,
- 		.address	= (struct sockaddr *)&rpcb_inaddr_loopback,
- 		.addrsize	= sizeof(rpcb_inaddr_loopback),
-@@ -311,7 +313,7 @@ static int rpcb_create_local_net(void)
- 		clnt4 = NULL;
- 	}
- 
--	rpcb_set_local(clnt, clnt4);
-+	rpcb_set_local(net, clnt, clnt4);
- 
- out:
- 	return result;
-@@ -325,16 +327,17 @@ int rpcb_create_local(void)
- {
- 	static DEFINE_MUTEX(rpcb_create_local_mutex);
- 	int result = 0;
-+	struct net *net = &init_net;
- 
--	if (rpcb_get_local())
-+	if (rpcb_get_local(net))
- 		return result;
- 
- 	mutex_lock(&rpcb_create_local_mutex);
--	if (rpcb_get_local())
-+	if (rpcb_get_local(net))
- 		goto out;
- 
--	if (rpcb_create_local_unix() != 0)
--		result = rpcb_create_local_net();
-+	if (rpcb_create_local_unix(net) != 0)
-+		result = rpcb_create_local_net(net);
- 
- out:
- 	mutex_unlock(&rpcb_create_local_mutex);
+No sorry. I was refering to normal IP header in one packet.
+
+> From what I remember  when I was testing IPv6  icmp and digged into the original header (on a 2.6.32 kernel)  
+> pskb_may_pull was needed.
+
+Yes, it is indeed needed.
+
+> [snip]
+> 
+> >> +/*
+> >> + * Calc hash value, special casre is taken on icmp and fragmented messages
+> >> + * i.e. fragmented messages don't use ports.
+> >> + */
+> >> +static __u32 get_hash(struct sk_buff *skb, struct xt_hmark_info *info)
+> >
+> >This function seems to big to me, please, split it into smaller
+> >chunks, like get_hash_ipv4, get_hash_ipv6 and get_hash_ports.
+> >
+> 
+> Good catch I'll do that,
+> 
+> >> +{
+> >> +	int nhoff, hash = 0, poff, proto, frag = 0;
+> >> +	struct iphdr *ip;
+> >> +	u8 ip_proto;
+> >> +	u32 addr1, addr2, ihl;
+> >> +	u16 snatport = 0, dnatport = 0;
+> >> +	union {
+> >> +		u32 v32;
+> >> +		u16 v16[2];
+> >> +	} ports;
+> >> +
+> >> +	nhoff = skb_network_offset(skb);
+> >> +	proto = skb->protocol;
+> >> +
+> >> +	if (!proto && skb->sk) {
+> >> +		if (skb->sk->sk_family == AF_INET)
+> >> +			proto = __constant_htons(ETH_P_IP);
+> >> +		else if (skb->sk->sk_family == AF_INET6)
+> >> +			proto = __constant_htons(ETH_P_IPV6);
+> >
+> >You already have the layer3 protocol number in xt_action_param. No
+> >need to use the socket information then.
+> 
+> When splitting get_hash()  above  will  be removed,  xt_action_param ->family will be used for selection.
+> 
+> [snip]
+> >> +
+> >> +		if (!ct || !nf_ct_is_confirmed(ct))
+> >
+> >You seem to (ab)use nf_ct_is_confirmed to make sure you're not in the
+> >original direction. Better use the direction that you get by means of
+> >nf_ct_get.
+> >
+> I'm not sure I follow you here ?
+
+OK, why are you using nf_ct_is_confirmed here? :-)
+
+> >> +			break;
+> >> +		otuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+> >> +		/* On the "return flow", to get the original address
+> >> +		 * i,e, replace the source address.
+> >> +		 */
+> >> +		if (ct->status & IPS_DST_NAT &&
+> >> +		    info->flags & XT_HMARK_USE_DNAT) {
+> >> +			rtuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+> >> +			addr1 = (__force u32) otuple->dst.u3.in.s_addr;
+> >> +			dnatport = otuple->dst.u.udp.port;
+> >> +		}
+> >> +		/* On the "return flow", to get the original address
+> >> +		 * i,e, replace the destination address.
+> >> +		 */
+> >> +		if (ct->status & IPS_SRC_NAT &&
+> >> +		    info->flags & XT_HMARK_USE_SNAT) {
+> >> +			rtuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+> >> +			addr2 = (__force u32) otuple->src.u3.in.s_addr;
+> >> +			snatport = otuple->src.u.udp.port;
+> >> +		}
+> >> +		break;
+> >> +	}
+> 
+> [snip]
+> 
+> >> +			case NEXTHDR_NONE:
+> >> +				nhoff += hdrlen;
+> >> +				goto hdr_rdy;
+> >> +			default:
+> >> +				goto done;
+> >
+> >This goto doesn't make too much sense to me, better return 0.
+> 
+> hmmm 
+> kind of left overs,  Actually all "goto done" can be replaced by return 0
+
+no problem, just comestic change ;-)
+
+> [snip]
+> 
+> >> +done:
+> >> +	return 0;
+> >> +}
+> >
+> >I'll try to find more time to look into this. Specifically, I want to
+> >review the IPv6 bits more carefully.
+> 
+> The IPv6 header recursion is not obvious, and it's hard to test all cases :-)
+> 
+> I really appreciate you review
+
+Welcome, let's see if we can get this into 3.3 since we cannot make it
+for 3.2.
+
+BTW, do you have some number of this running with and without
+conntrack? It would be interesting to have.
