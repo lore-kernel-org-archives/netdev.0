@@ -1,34 +1,24 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] net-netlink: Add a new attribute to expose TCLASS values
- via netlink
-Date: Mon, 7 Nov 2011 16:29:06 -0800
-Message-ID: <CANP3RGftp4992SgoqW04tZwCuo4_mQcJ26qr=Op30rkyt5NWOw@mail.gmail.com>
-References: <1320711791-11005-1-git-send-email-zenczykowski@gmail.com>
-	<20111107162704.0b569074@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: commit 0bdb0bd0 breaks shutdown/reboot
+Date: Mon, 7 Nov 2011 16:57:20 -0800
+Message-ID: <20111107165720.59e4eb13@nehalam.linuxnetplumber.net>
+References: <20111107153119.GA11724@comet.dominikbrodowski.net>
+	<20111107081316.2e1cc2cb@nehalam.linuxnetplumber.net>
+	<20111107163227.GA17798@isilmar-3.linta.de>
+	<20111107084540.7ffc913f@nehalam.linuxnetplumber.net>
+	<20111107170814.GA7657@comet.dominikbrodowski.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Murali Raja <muralira@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Dominik Brodowski <linux@dominikbrodowski.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:57963 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371Ab1KHA3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Nov 2011 19:29:08 -0500
-Received: by ggnb2 with SMTP id b2so5846336ggn.19
-        for <netdev@vger.kernel.org>; Mon, 07 Nov 2011 16:29:07 -0800 (PST)
-In-Reply-To: <20111107162704.0b569074@nehalam.linuxnetplumber.net>
+Received: from mail.vyatta.com ([76.74.103.46]:51734 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751205Ab1KHA5W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Nov 2011 19:57:22 -0500
+In-Reply-To: <20111107170814.GA7657@comet.dominikbrodowski.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Do we really want to continue to expose that as a supported
-> API. I would argue it was a mistake in the original implementation.
-
-Yes, that's an interesting question...
-
-However, can this be changed at this point in time?
-
-Theoretically network fabric hardware could interpret v4 and v6 dscp
-code points differently
-(don't think anyone sane would do really want to do this though...)
+I can reproduce on my laptop, let me investigate.
