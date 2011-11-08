@@ -1,41 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] sweep the floors and convert some
- .get_drvinfo routines to strlcpy
-Date: Tue, 08 Nov 2011 15:17:46 -0500 (EST)
-Message-ID: <20111108.151746.1961969455753450861.davem@davemloft.net>
-References: <20111107232927.ADF412900440@tardy>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] net: drivers/net/hippi/Kconfig should be sourced
+Date: Tue, 08 Nov 2011 21:31:10 +0100
+Message-ID: <1320784270.14409.404.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dave@thedillows.org,
-	klassert@mathematik.tu-chemnitz.de, ionut@badula.org,
-	jcliburn@gmail.com, chris.snook@gmail.com, mchan@broadcom.com,
-	eilong@broadcom.com, mcarlson@broadcom.com, rmody@brocade.com,
-	grundler@parisc-linux.org, ajit.khaparde@emulex.com,
-	buytenh@wantstofly.org, shemminger@linux-foundation.org,
-	thockin@hockin.org, jdmason@kudzu.us, sony.chacko@qlogic.com,
-	anirban.chakraborty@qlogic.com, romieu@fr.zoreil.com,
-	steve.glendinning@smsc.com
-To: raj@tardy.cup.hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:48209 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502Ab1KHUXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 15:23:23 -0500
-In-Reply-To: <20111107232927.ADF412900440@tardy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: raj@tardy.cup.hp.com (Rick Jones)
-Date: Mon,  7 Nov 2011 15:29:27 -0800 (PST)
+Commit ff5a3b509e ("hippi: Move the HIPPI driver") moved the HIPPI
+driver into drivers/net/hippi. It didn't source
+drivers/net/hippi/Kconfig though, so it didn't make all necessary
+Kconfig changes. So let drivers/net/kconfig source HIPPI's Kconfig file.
 
-> From: Rick Jones <rick.jones2@hp.com>
-> 
-> Per the mention made by Ben Hutchings that strlcpy is now the preferred
-> string copy routine for a .get_drvinfo routine, do a bit of floor
-> sweeping and convert some of the as-yet unconverted ethernet drivers to
-> it.
-> 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+git grep tested only. Perhaps the exact spot where
+drivers/net/hippi/Kconfig gets sourced is relevant, so this needs
+(build) testing by people actually familiar with the HIPPI driver. 
 
-Applied.
+ drivers/net/Kconfig |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 583f66c..654a5e9 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -245,6 +245,8 @@ source "drivers/net/ethernet/Kconfig"
+ 
+ source "drivers/net/fddi/Kconfig"
+ 
++source "drivers/net/hippi/Kconfig"
++
+ config NET_SB1000
+ 	tristate "General Instruments Surfboard 1000"
+ 	depends on PNP
+-- 
+1.7.4.4
