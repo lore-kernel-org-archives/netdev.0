@@ -1,102 +1,55 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH] r8169: more driver shutdown WoL regression.
-Date: Wed, 9 Nov 2011 15:49:51 +0800
-Message-ID: <E6A5E7482020466E82FD141C8CD92D9A@realtek.com.tw>
-References: <20111108223502.GA20437@electric-eye.fr.zoreil.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] neigh: replace unres_qlen by unres_qlen_bytes
+Date: Wed, 09 Nov 2011 08:55:25 +0100
+Message-ID: <1320825325.26025.51.camel@edumazet-laptop>
+References: <1320792301.26025.21.camel@edumazet-laptop>
+	 <20111108.174820.558780148839093199.davem@davemloft.net>
+	 <1320797656.26025.43.camel@edumazet-laptop>
+	 <20111109.001843.1753987502002673227.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: 'Stefan Becker' <chemobejk@gmail.com>,
-	'David Miller' <davem@davemloft.net>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:57734 "EHLO
-	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400Ab1KIHuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 02:50:10 -0500
-In-Reply-To: <20111108223502.GA20437@electric-eye.fr.zoreil.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45855 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751427Ab1KIHza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 02:55:30 -0500
+Received: by wyh15 with SMTP id 15so1320151wyh.19
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 23:55:28 -0800 (PST)
+In-Reply-To: <20111109.001843.1753987502002673227.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Wednesday, November 09, 2011 6:35 AM
-> To: netdev@vger.kernel.org
-> Cc: Stefan Becker; David Miller; Hayeswang
-> Subject: [PATCH] r8169: more driver shutdown WoL regression.
-> 
-> Almost the same narrative as 649b3b8c4e8681de443b4dc9e387c3036369e02e
-> but with more experimental data.
-> 
-> Stefan Becker has reported that the same kind of fix as the one
-> introduced in 649b3b8c4e8681de443b4dc9e387c3036369e02e ("r8169: fix
-> driver shutdown WoL regression") before 3.1 was released is required
-> for his 8168c (RTL_GIGA_MAC_VER_22).
-> 
-> I have tested a few chipsets as well:
-> - without patch, shutdown + WoL works fine for :
->   o RTL_GIGA_MAC_VER_30 (8105e and 8105evc)
->   o RTL_GIGA_MAC_VER_33 (8168ed)
->   o RTL_GIGA_MAC_VER_34 (8168evl)
->   o RTL_GIGA_MAC_VER_35 (8168f)
->   o RTL_GIGA_MAC_VER_06 (plain old PCI 8169sc)
-> - without patch, shutdown + WoL is broken with :
->   o RTL_GIGA_MAC_VER_26 (8168d-vb-gr)
->   o RTL_GIGA_MAC_VER_25 (8168d-gr)
->   o RTL_GIGA_MAC_VER_12 (8168b)
->   o RTL_GIGA_MAC_VER_09 (both 8102e-vb-gr and 8103e-gr)
-> 
+Le mercredi 09 novembre 2011 =C3=A0 00:18 -0500, David Miller a =C3=A9c=
+rit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 09 Nov 2011 01:14:16 +0100
+>=20
+> > unres_qlen is the number of frames we are able to queue per unresol=
+ved
+> > neighbour. Its default value (3) was never changed and is responsib=
+le
+> > for strange drops, especially if IP fragments are used, or multiple
+> > sessions start in parallel. TCP initial congestion window is now bi=
+gger
+> > than 3.
+>=20
+> BTW, it has been observed in practice that if a long living connectio=
+n
+> suddently sends a burst of traffic after a very long idle period
+> (hitting ARP expiry) or something invalidates the ARP entry in use, w=
+e
+> will drop frames.  Because even if the ARP reply comes "fast" it's
+> never quick enough to beat the burst of frames.
+>=20
+> And if this happens in a scenerio where such lost packets potentially
+> mean lost money...
 
-I am confused with your results. According to the information from hw and my
-tests, the chips which need enable RxConfig for WOL are 8105e series, 8168e
-series, 8168evl, and 8168f series. The previous chips, include 8168d, work fine
-for WOL without enabling RxConfig.
-PS. I test 8111d (RTL_GIGA_MAC_VER_25) and 8111e (RTL_GIGA_MAC_VER_33) with
-kernel 3.1.0.
+I'll submit a more complete patch, including a fallback support of
+unres_qlen, and one missing initializer in nl_ntbl_parm_policy[]
 
-Besides, I find rtl_shutdown would call rtl8169_net_suspend, rtl8169_net_suspend
-would call rtl_pll_power_down, and rtl_pll_power_down would call
-r810x_pll_power_down or r8168_pll_power_down. Finally, I find
-rtl_wol_suspend_quirk would be called. Is it necessary to call
-rtl_wol_suspend_quirk again in rtl_shutdown?
++	[NDTPA_QUEUE_LENBYTES]          =3D { .type =3D NLA_U32 },
 
-> I have widened rtl_wol_suspend_quirk a bit beyond those data 
-> to include
-> a broader subset of chipsets from the same families, thus 
-> including the
-> 8168cp and 8168dp.
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Tested-by: Stefan Becker <chemobejk@gmail.com>
-> Cc: Hayes <hayeswang@realtek.com>
-> ---
-> 
->  Hayes, any insight ?
-> 
->  drivers/net/ethernet/realtek/r8169.c |   12 ++++++++++++
->  1 files changed, 12 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c 
-> b/drivers/net/ethernet/realtek/r8169.c
-> index 92b45f0..829674d 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -3496,6 +3496,18 @@ static void 
-> rtl_wol_suspend_quirk(struct rtl8169_private *tp)
->  	void __iomem *ioaddr = tp->mmio_addr;
->  
->  	switch (tp->mac_version) {
-> +	case RTL_GIGA_MAC_VER_07:
-> +	case RTL_GIGA_MAC_VER_08:
-> +	case RTL_GIGA_MAC_VER_09:
-> +	case RTL_GIGA_MAC_VER_11:
-> +	case RTL_GIGA_MAC_VER_12:
-> +	case RTL_GIGA_MAC_VER_17:
-> +	case RTL_GIGA_MAC_VER_19:
-> +	case RTL_GIGA_MAC_VER_20:
-> +	case RTL_GIGA_MAC_VER_21:
-> +	case RTL_GIGA_MAC_VER_22:
-> +	case RTL_GIGA_MAC_VER_25:
-> +	case RTL_GIGA_MAC_VER_26:
->  	case RTL_GIGA_MAC_VER_29:
->  	case RTL_GIGA_MAC_VER_30:
->  	case RTL_GIGA_MAC_VER_32:
+=20
