@@ -1,32 +1,36 @@
-From: Daniil Stolnikov <danila.st@mail.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Add IPSec IP Range in Linux kernel
-Date: Wed, 9 Nov 2011 10:43:09 +0800
-Message-ID: <1683717478.20111109104309@mail.ru>
-References: <20111108.204253.891598837549584662.davem@davemloft.net> <20111109015406.GA10800@gondor.apana.org.au>
-Reply-To: Daniil Stolnikov <danila.st@mail.ru>
+Date: Wed, 9 Nov 2011 11:27:30 +0800
+Message-ID: <20111109032729.GA11312@gondor.apana.org.au>
+References: <552673196.20111109103207@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	<linux-crypto@vger.kernel.org>,
-	<linux-security-module@vger.kernel.org>, <davem@davemloft.net>,
-	<adobriyan@gmail.com>, <peter.p.waskiewicz.jr@intel.com>,
-	<davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20111109015406.GA10800@gondor.apana.org.au>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	linux-security-module@vger.kernel.org, adobriyan@gmail.com,
+	peter.p.waskiewicz.jr@intel.com
+To: Daniil Stolnikov <danila.st@mail.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <552673196.20111109103207@mail.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Daniil Stolnikov <danila.st@mail.ru> wrote:
+>> Like I said, if you want address ranges, ask the userland IPSEC daemon
+>> authors to synthesize it.
+> 
+> In this letter, the mailing list http://marc.info/?l=strongswan-users&m=130613736616488&w=4 strongswan-users say that their product has support for IP ranges, but the stack of Linux is based on network masks. So I do not understand how this would work without the support at the kernel level? How will coordination of policies?
 
-> Alternatively you can do this with marking and use netfilter
-> to set the mark.
+Simple, you break a range policy into parts that can be expressed
+as network/mask and install multiple policies.  The actual policies
+in the kernel just has to have the same effect as the one you
+negotiated with the other side, it does not have to look the same.
 
-> Cheers,
+This is also why you can do the same thing with masks + netfilter.
 
-We focus on connections to devices zywall. If you choose to zywall IP range as the remote side will not harmonize policies. The connection is not established. And this alternative makes no sense.
-
-Regards
-Daniil Stolnikov
-
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
