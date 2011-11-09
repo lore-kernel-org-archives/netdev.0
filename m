@@ -1,41 +1,75 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] neigh: replace unres_qlen by unres_qlen_bytes
-Date: Tue, 8 Nov 2011 17:05:42 -0800
-Message-ID: <20111108170542.18595c52@nehalam.linuxnetplumber.net>
-References: <1320783085.2588.17.camel@edumazet-laptop>
-	<20111108.172448.2101648110512252549.davem@davemloft.net>
-	<1320792301.26025.21.camel@edumazet-laptop>
-	<20111108.174820.558780148839093199.davem@davemloft.net>
-	<1320797656.26025.43.camel@edumazet-laptop>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH] tcp: fixes for DSACK-based undo of cwnd reduction during
+ fast recovery
+Date: Tue, 8 Nov 2011 17:18:34 -0800
+Message-ID: <CAK6E8=dXtgi+W9JQg9ruwU8JxYJf-T7OMad7RhNckFAxsYFndg@mail.gmail.com>
+References: <1320775631-16341-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi, Nandita Dukkipati <nanditad@google.com>,
+	Tom Herbert <therbert@google.com>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52337 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751190Ab1KIBFp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Nov 2011 20:05:45 -0500
-In-Reply-To: <1320797656.26025.43.camel@edumazet-laptop>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:50499 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751281Ab1KIBSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 20:18:55 -0500
+Received: by qao25 with SMTP id 25so1100936qao.19
+        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 17:18:55 -0800 (PST)
+In-Reply-To: <1320775631-16341-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 09 Nov 2011 01:14:16 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Tue, Nov 8, 2011 at 10:07 AM, Neal Cardwell <ncardwell@google.com> wrote:
+> Fixes for some issues that prevent DSACKs from allowing TCP senders to
+> undo cwnd reductions made during fast recovery.
+>
+> There were a few related bugs/issues:
+>
+> 1) Senders ignored DSACKs after recovery when there were no
+> outstanding packets (a common scenario for HTTP servers).
+>
+> 2) When the ACK field is below snd_una (which can happen when ACKs are
+> reordered), senders ignored DSACKs (preventing undo) and passed up
+> chances to send out more packets based on any newly-SACKed packets.
+>
+> 3) Senders were overriding cwnd values picked during an undo by
+> calling tcp_moderate_cwnd() in tcp_try_to_open().
+>
+> The fixes:
+>
+> (1) When there are no outstanding packets (the "no_queue" goto label),
+> use DSACKs to undo congestion window reductions.
+>
+> (2) When the ACK field is below snd_una (the "old_ack" goto label),
+> process any DSACKs and try to send out more packets based on
+> newly-SACKed packets.
+>
+> (3) Don't moderate cwnd in tcp_try_to_open() if we're in TCP_CA_Open,
+> since doing so is generally unnecessary and specifically would
+> override a DSACK-based undo of a cwnd reduction made in fast recovery.
+>
+> (4) Simplify the congestion avoidance state machine by removing the
+> behavior where SACK-enabled connections hung around in the
+> TCP_CA_Disorder state just waiting for DSACKs. Instead, when snd_una
+> advances to high_seq or beyond we typically move to TCP_CA_Open
+> immediately and allow an undo in either TCP_CA_Open or TCP_CA_Disorder
+> if we later receive enough DSACKs. Previously, SACK-enabled
+> connections hung around in TCP_CA_Disorder state while
+> snd_una==high_seq, just waiting to accumulate DSACKs and hopefully
+> undo a cwnd reduction. This could and did lead to the following
+> unfortunate scenario: if some incoming ACKs advance snd_una beyond
+> high_seq then we were setting undo_marker to 0 and moving to
+> TCP_CA_Open, so if (due to reordering in the ACK return path) we
+> shortly thereafter received a DSACK then we were no longer able to
+> undo the cwnd reduction.
+>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-> [PATCH V2 net-next] neigh: replace unres_qlen by unres_qlen_bytes
-> 
-> unres_qlen is the number of frames we are able to queue per unresolved
-> neighbour. Its default value (3) was never changed and is responsible
-> for strange drops, especially if IP fragments are used, or multiple
-> sessions start in parallel. TCP initial congestion window is now bigger
-> than 3.
 
-I don't understand this argument.
-TCP won't send data until the initial SYN is acked. And the SYN can't
-be sent until the ARP is resolved.
-
-The only use case for this is for applications that open lots of connections
-to the same destination as once (a.k.a TCP accelerators) to get around
-TCP slow start.
+FWIW. This undo-fix patch on Google Web servers increased the undos in
+loss by 46% and in disorder by 17%. It also corrects the SNMP stats
+TCPTimeouts, TCPRenoFailures, TCPSackFailures by moving state into
+open, instead of disorder, after recovery.
