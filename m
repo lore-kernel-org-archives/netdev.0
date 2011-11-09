@@ -1,55 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf-next] IPVS
-Date: Wed, 9 Nov 2011 09:58:07 +0900
-Message-ID: <20111109005805.GA26937@verge.net.au>
-References: <1319160783-28422-1-git-send-email-horms@verge.net.au>
- <20111021072715.GA842@1984>
- <20111107030659.GA24405@verge.net.au>
- <20111107082956.GA32329@1984>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] neigh: replace unres_qlen by unres_qlen_bytes
+Date: Tue, 8 Nov 2011 17:05:42 -0800
+Message-ID: <20111108170542.18595c52@nehalam.linuxnetplumber.net>
+References: <1320783085.2588.17.camel@edumazet-laptop>
+	<20111108.172448.2101648110512252549.davem@davemloft.net>
+	<1320792301.26025.21.camel@edumazet-laptop>
+	<20111108.174820.558780148839093199.davem@davemloft.net>
+	<1320797656.26025.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111107082956.GA32329@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52337 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751190Ab1KIBFp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Nov 2011 20:05:45 -0500
+In-Reply-To: <1320797656.26025.43.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+On Wed, 09 Nov 2011 01:14:16 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-On Mon, Nov 07, 2011 at 09:29:56AM +0100, Pablo Neira Ayuso wrote:
-> Hi Simon,
+> [PATCH V2 net-next] neigh: replace unres_qlen by unres_qlen_bytes
 > 
-> On Mon, Nov 07, 2011 at 12:07:01PM +0900, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > I am a little confused. The nf-next branch seems to have disappeared.
-> > 
-> > Could you consider pulling git://github.com/horms/ipvs-next.git master
-> > to get the following changes that were in your nf-next branch.
-> 
-> I was late to get it into net-next. Since net-next became net after
-> the 3.1 release, my moved those changes to net to get it into 3.2
-> once Linus announced that the merge window was opened again.
-> 
-> > Or would
-> > you like me to rebase the ipvs patches (9 or the 11 changes below) on
-> > top of git://1984.lsi.us.es/net-next/.git master ?
-> 
-> They are already in net davem's tree, they will be included in the
-> upcoming 3.2 release.
-> 
-> http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet.git&a=search&h=HEAD&st=commit&s=Neira
+> unres_qlen is the number of frames we are able to queue per unresolved
+> neighbour. Its default value (3) was never changed and is responsible
+> for strange drops, especially if IP fragments are used, or multiple
+> sessions start in parallel. TCP initial congestion window is now bigger
+> than 3.
 
-Thanks, and sorry for missing that when I checked yesterday.
+I don't understand this argument.
+TCP won't send data until the initial SYN is acked. And the SYN can't
+be sent until the ARP is resolved.
 
-Could you suggest which tree and branch I should base the master branch of my
-ipvs and ipvs-next trees on? Their purposes are to provide a reference for
-people wishing to fix or enhance IPVS and a mechanism to send pull requests to
-you. As of now I am using the master branch of your net tree for both.
-
+The only use case for this is for applications that open lots of connections
+to the same destination as once (a.k.a TCP accelerators) to get around
+TCP slow start.
