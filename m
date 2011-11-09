@@ -1,176 +1,64 @@
-From: Hemant Vilas RAMDASI <hemant.ramdasi@stericsson.com>
-Subject: [PATCH] Phonet: set the pipe handle using setsockopt
-Date: Wed,  9 Nov 2011 16:50:53 +0530
-Message-ID: <1320837653-7471-1-git-send-email-hemant.ramdasi@stericsson.com>
-Cc: netdev@vger.kernel.org,
-	Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>,
-	Hemant Ramdasi <hemant.ramdasi@stericsson.com>
-To: remi.denis-courmont@nokia.com
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 1/4] ipv4: Fix pmtu propagating
+Date: Wed, 9 Nov 2011 13:08:51 +0100
+Message-ID: <20111109120851.GA10138@secunet.com>
+References: <4E9E9366.1050702@cn.fujitsu.com>
+ <20111019.153208.1743995025598236810.davem@davemloft.net>
+ <20111108.141950.1576262997640523669.davem@davemloft.net>
+ <20111108.143302.907625740390232791.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:37570 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750923Ab1KILVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 06:21:08 -0500
+Received: from a.mx.secunet.com ([195.81.216.161]:39109 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752650Ab1KIMIz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Nov 2011 07:08:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20111108.143302.907625740390232791.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
+On Tue, Nov 08, 2011 at 02:33:02PM -0500, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 08 Nov 2011 14:19:50 -0500 (EST)
+> 
+> > I suspect that your real problem has nothing to do with UDP or RAW,
+> > but rather the issue is that entries already in the routing cache
+> > with a NULL peer need to be refreshed with peer information created
+> > in another context.
 
-This provides flexibility to set the pipe handle
-using setsockopt and enable the same.
+Yes, that's the problem.
 
-Signed-off-by: Hemant Ramdasi <hemant.ramdasi@stericsson.com>
-Signed-off-by: Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
----
- include/linux/phonet.h |    2 +
- net/phonet/pep.c       |   86 ++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 86 insertions(+), 2 deletions(-)
+> 
+> So you want something like this patch:
+> 
 
-diff --git a/include/linux/phonet.h b/include/linux/phonet.h
-index 6fb1384..491caec 100644
---- a/include/linux/phonet.h
-+++ b/include/linux/phonet.h
-@@ -37,6 +37,8 @@
- #define PNPIPE_ENCAP		1
- #define PNPIPE_IFINDEX		2
- #define PNPIPE_HANDLE		3
-+#define PNPIPE_ENABLE		4
-+#define PNPIPE_INITSTATE	5
- 
- #define PNADDR_ANY		0
- #define PNADDR_BROADCAST	0xFC
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index f17fd84..3109563 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -167,6 +167,12 @@ static int pipe_handler_send_created_ind(struct sock *sk)
- 				data, 4, GFP_ATOMIC);
- }
- 
-+static int pipe_handler_send_enabled_ind(struct sock *sk)
-+{
-+	return pep_indicate(sk, PNS_PIPE_ENABLED_IND, 0 /* sub-blocks */,
-+				NULL, 0, GFP_ATOMIC);
-+}
-+
- static int pep_accept_conn(struct sock *sk, struct sk_buff *skb)
- {
- 	static const u8 data[20] = {
-@@ -533,6 +539,17 @@ static int pep_connresp_rcv(struct sock *sk, struct sk_buff *skb)
- 	return pipe_handler_send_created_ind(sk);
- }
- 
-+static int pep_enableresp_rcv(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct pnpipehdr *hdr = pnp_hdr(skb);
-+
-+	if (hdr->error_code != PN_PIPE_NO_ERROR)
-+		return -ECONNREFUSED;
-+
-+	return pipe_handler_send_enabled_ind(sk);
-+}
-+
-+
- /* Queue an skb to an actively connected sock.
-  * Socket lock must be held. */
- static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
-@@ -578,6 +595,28 @@ static int pipe_handler_do_rcv(struct sock *sk, struct sk_buff *skb)
- 			sk->sk_state = TCP_CLOSE_WAIT;
- 			break;
- 		}
-+		if (pn->init_enable == PN_PIPE_DISABLE)
-+			sk->sk_state = TCP_SYN_RECV;
-+		else {
-+			sk->sk_state = TCP_ESTABLISHED;
-+
-+			if (!pn_flow_safe(pn->tx_fc)) {
-+				atomic_set(&pn->tx_credits, 1);
-+				sk->sk_write_space(sk);
-+			}
-+			pipe_grant_credits(sk, GFP_ATOMIC);
-+
-+		}
-+		break;
-+
-+    case PNS_PEP_ENABLE_RESP:
-+		if (sk->sk_state != TCP_SYN_SENT)
-+			break;
-+
-+		if (pep_enableresp_rcv(sk, skb)) {
-+			sk->sk_state = TCP_CLOSE_WAIT;
-+			break;
-+		}
- 
- 		sk->sk_state = TCP_ESTABLISHED;
- 		if (!pn_flow_safe(pn->tx_fc)) {
-@@ -863,9 +902,27 @@ static int pep_sock_connect(struct sock *sk, struct sockaddr *addr, int len)
- 	int err;
- 	u8 data[4] = { 0 /* sub-blocks */, PAD, PAD, PAD };
- 
--	pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
-+	if (pn->pipe_handle == PN_PIPE_INVALID_HANDLE)
-+		pn->pipe_handle = 1; /* anything but INVALID_HANDLE */
-+
- 	err = pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
--					PN_PIPE_ENABLE, data, 4);
-+					pn->init_enable, data, 4);
-+
-+	if (err) {
-+		pn->pipe_handle = PN_PIPE_INVALID_HANDLE;
-+		return err;
-+	}
-+	sk->sk_state = TCP_SYN_SENT;
-+	return 0;
-+}
-+
-+static int pep_sock_enable(struct sock *sk, struct sockaddr *addr, int len)
-+{
-+	struct pep_sock *pn = pep_sk(sk);
-+	int err;
-+
-+	err = pipe_handler_request(sk, PNS_PEP_ENABLE_REQ, PAD,
-+				NULL, 0);
- 	if (err) {
- 		pn->pipe_handle = PN_PIPE_INVALID_HANDLE;
- 		return err;
-@@ -959,6 +1016,24 @@ static int pep_setsockopt(struct sock *sk, int level, int optname,
- 		}
- 		goto out_norel;
- 
-+	case PNPIPE_HANDLE:
-+		if (val)
-+			pn->pipe_handle = val;
-+		else
-+			err = -EINVAL;
-+		break;
-+
-+	case PNPIPE_ENABLE:
-+		err = pep_sock_enable(sk, NULL, 0);
-+		break;
-+
-+	case PNPIPE_INITSTATE:
-+		if ((val == PN_PIPE_DISABLE) || (val == PN_PIPE_ENABLE))
-+			pn->init_enable = val;
-+		else
-+			err = -EINVAL;
-+		break;
-+
- 	default:
- 		err = -ENOPROTOOPT;
- 	}
-@@ -994,6 +1069,13 @@ static int pep_getsockopt(struct sock *sk, int level, int optname,
- 			return -EINVAL;
- 		break;
- 
-+	case PNPIPE_ENABLE:
-+		if (sk->sk_state != TCP_ESTABLISHED)
-+			return -EINVAL;
-+		else
-+			val = 1;
-+		break;
-+
- 	default:
- 		return -ENOPROTOOPT;
- 	}
+Originally, I wanted to fix it with the patch below.
+
+Given the fact that dst->obsolete is not null, this should
+do the same like your patch for output routes. During the
+tests with this patch I noticed a problem with that.
+Unfortunately I can't remember what it was...
+
+I'll do some investigating, perhaps I can get it back to my mind.
+
+I did some quick tests with this and with your patch and both
+seem to fix the problem at the first glance.
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 511f4a7..ac189c9 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2723,7 +2723,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *flp4)
+ 		    !((rth->rt_key_tos ^ flp4->flowi4_tos) &
+ 			    (IPTOS_RT_MASK | RTO_ONLINK)) &&
+ 		    net_eq(dev_net(rth->dst.dev), net) &&
+-		    !rt_is_expired(rth)) {
++		    (rth = (struct rtable *) dst_check(&rth->dst, 0)) && rth) {
+ 			dst_use(&rth->dst, jiffies);
+ 			RT_CACHE_STAT_INC(out_hit);
+ 			rcu_read_unlock_bh();
 -- 
-1.7.4.3
+1.7.0.4
