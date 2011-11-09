@@ -1,103 +1,38 @@
-From: Mark Kamichoff <prox@prolixium.com>
-Subject: [PATCH] net/usb: Misc. fixes for the LG-VL600 LTE USB modem
-Date: Tue,  8 Nov 2011 22:10:00 -0500
-Message-ID: <1320808200-28209-1-git-send-email-prox@prolixium.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mark Kamichoff <prox@prolixium.com>
-To: oliver@neukum.name, gregkh@suse.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] neigh: replace unres_qlen by unres_qlen_bytes
+Date: Wed, 09 Nov 2011 00:18:43 -0500 (EST)
+Message-ID: <20111109.001843.1753987502002673227.davem@davemloft.net>
+References: <1320792301.26025.21.camel@edumazet-laptop>
+	<20111108.174820.558780148839093199.davem@davemloft.net>
+	<1320797656.26025.43.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:37500 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750927Ab1KIFSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 00:18:45 -0500
+In-Reply-To: <1320797656.26025.43.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add checking for valid magic values (needed for stability in the event
-corrupted packets are received) and remove some other unneeded checks.
-Also, fix flagging device as WWAN (Bugzilla bug #39952).
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 09 Nov 2011 01:14:16 +0100
 
-Signed-off-by: Mark Kamichoff <prox@prolixium.com>
----
- drivers/net/usb/cdc_ether.c |    2 +-
- drivers/net/usb/lg-vl600.c  |   30 ++++++++++++++----------------
- 2 files changed, 15 insertions(+), 17 deletions(-)
+> unres_qlen is the number of frames we are able to queue per unresolved
+> neighbour. Its default value (3) was never changed and is responsible
+> for strange drops, especially if IP fragments are used, or multiple
+> sessions start in parallel. TCP initial congestion window is now bigger
+> than 3.
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index c924ea2..99ed6eb 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -567,7 +567,7 @@ static const struct usb_device_id	products [] = {
- {
- 	USB_DEVICE_AND_INTERFACE_INFO(0x1004, 0x61aa, USB_CLASS_COMM,
- 			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
--	.driver_info = (unsigned long)&wwan_info,
-+	.driver_info = 0,
- },
- 
- /*
-diff --git a/drivers/net/usb/lg-vl600.c b/drivers/net/usb/lg-vl600.c
-index d43db32..b975a39 100644
---- a/drivers/net/usb/lg-vl600.c
-+++ b/drivers/net/usb/lg-vl600.c
-@@ -144,10 +144,11 @@ static int vl600_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 	}
- 
- 	frame = (struct vl600_frame_hdr *) buf->data;
--	/* NOTE: Should check that frame->magic == 0x53544448?
--	 * Otherwise if we receive garbage at the beginning of the frame
--	 * we may end up allocating a huge buffer and saving all the
--	 * future incoming data into it.  */
-+	/* Yes, check that frame->magic == 0x53544448 (or 0x44544d48),
-+	 * otherwise we may run out of memory w/a bad packet */
-+	if (ntohl(frame->magic) != 0x53544448 &&
-+			ntohl(frame->magic) != 0x44544d48)
-+		goto error;
- 
- 	if (buf->len < sizeof(*frame) ||
- 			buf->len != le32_to_cpup(&frame->len)) {
-@@ -209,8 +210,9 @@ static int vl600_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 			 * for IPv6 packets, and set the ethertype to IPv6
- 			 * (0x86dd) so Linux can understand it.
- 			 */
--			if ((buf->data[sizeof(*ethhdr)] & 0xf0) == 0x60)
--				ethhdr->h_proto = __constant_htons(ETH_P_IPV6);
-+			if ((buf->data[sizeof(*ethhdr)] & 0xf0) == 0x60) {
-+				ethhdr->h_proto = htons(ETH_P_IPV6);
-+			}
- 		}
- 
- 		if (count) {
-@@ -296,6 +298,11 @@ encapsulate:
- 	 * overwrite the remaining fields.
- 	 */
- 	packet = (struct vl600_pkt_hdr *) skb->data;
-+	/* The VL600 wants IPv6 packets to have an IPv4 ethertype
-+	 * Since this modem only supports IPv4 and IPv6, just set all
-+	 * frames to 0x0800 (ETH_P_IP)
-+	 */
-+	packet->h_proto = htons(ETH_P_IP);
- 	memset(&packet->dummy, 0, sizeof(packet->dummy));
- 	packet->len = cpu_to_le32(orig_len);
- 
-@@ -308,21 +315,12 @@ encapsulate:
- 	if (skb->len < full_len) /* Pad */
- 		skb_put(skb, full_len - skb->len);
- 
--	/* The VL600 wants IPv6 packets to have an IPv4 ethertype
--	 * Check if this is an IPv6 packet, and set the ethertype
--	 * to 0x800
--	 */
--	if ((skb->data[sizeof(struct vl600_pkt_hdr *) + 0x22] & 0xf0) == 0x60) {
--		skb->data[sizeof(struct vl600_pkt_hdr *) + 0x20] = 0x08;
--		skb->data[sizeof(struct vl600_pkt_hdr *) + 0x21] = 0;
--	}
--
- 	return skb;
- }
- 
- static const struct driver_info	vl600_info = {
- 	.description	= "LG VL600 modem",
--	.flags		= FLAG_ETHER | FLAG_RX_ASSEMBLE,
-+	.flags		= FLAG_RX_ASSEMBLE | FLAG_WWAN,
- 	.bind		= vl600_bind,
- 	.unbind		= vl600_unbind,
- 	.status		= usbnet_cdc_status,
--- 
-1.7.5.4
+BTW, it has been observed in practice that if a long living connection
+suddently sends a burst of traffic after a very long idle period
+(hitting ARP expiry) or something invalidates the ARP entry in use, we
+will drop frames.  Because even if the ARP reply comes "fast" it's
+never quick enough to beat the burst of frames.
+
+And if this happens in a scenerio where such lost packets potentially
+mean lost money...
