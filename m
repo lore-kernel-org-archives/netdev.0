@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fix for ip_options_rcv_srr() daddr update.
-Date: Wed, 09 Nov 2011 15:59:36 -0500 (EST)
-Message-ID: <20111109.155936.1972852290616131285.davem@davemloft.net>
-References: <4EBA2E30.8050102@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] ipv4: reduce percpu needs for icmpmsg mibs
+Date: Wed, 09 Nov 2011 16:04:38 -0500 (EST)
+Message-ID: <20111109.160438.1236405221658994935.davem@davemloft.net>
+References: <1320793483.26025.29.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: lw@cn.fujitsu.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56802 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:44482 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753513Ab1KIU7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 15:59:43 -0500
-In-Reply-To: <4EBA2E30.8050102@cn.fujitsu.com>
+	with ESMTP id S1756075Ab1KIVEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 16:04:41 -0500
+In-Reply-To: <1320793483.26025.29.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li Wei <lw@cn.fujitsu.com>
-Date: Wed, 09 Nov 2011 15:39:28 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 09 Nov 2011 00:04:43 +0100
 
-> When opt->srr_is_hit is set skb_rtable(skb) has been updated for
-> 'nexthop' and iph->daddr should always equals to skb_rtable->rt_dst
-> holds, We need update iph->daddr either.
+> Reading /proc/net/snmp on a machine with a lot of cpus is very expensive
+> (can be ~88000 us).
 > 
-> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> This is because ICMPMSG MIB uses 4096 bytes per cpu, and folding values
+> for all possible cpus can read 16 Mbytes of memory.
+> 
+> ICMP messages are not considered as fast path on a typical server, and
+> eventually few cpus handle them anyway. We can afford an atomic
+> operation instead of using percpu data.
+> 
+> This saves 4096 bytes per cpu and per network namespace.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> If this patch is accepted, I'll submit the IPv6 part as well.
 
-Applied, thank you.
+Looks good, applied, thanks Eric.
