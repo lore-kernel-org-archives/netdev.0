@@ -1,69 +1,59 @@
-From: Daniil Stolnikov <danila.st@mail.ru>
-Subject: Re: Add IPSec IP Range in Linux kernel
-Date: Wed, 9 Nov 2011 15:25:58 +0800
-Message-ID: <1674049620.20111109152558@mail.ru>
-References: <552673196.20111109103207@mail.ru> <20111109032729.GA11312@gondor.apana.org.au>
-Reply-To: Daniil Stolnikov <danila.st@mail.ru>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: re: usbnet: fix oops in usbnet_start_xmit
+Date: Wed, 9 Nov 2011 10:34:59 +0300
+Message-ID: <20111109073459.GA14409@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	<linux-crypto@vger.kernel.org>,
-	<linux-security-module@vger.kernel.org>, <davem@davemloft.net>,
-	<adobriyan@gmail.com>, <peter.p.waskiewicz.jr@intel.com>,
-	<davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20111109032729.GA11312@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Simple, you break a range policy into parts that can be expressed
-> as network/mask and install multiple policies.  The actual policies
-> in the kernel just has to have the same effect as the one you
-> negotiated with the other side, it does not have to look the same.
+Hello Konstantin Khlebnikov,
 
-> This is also why you can do the same thing with masks + netfilter.
+This is a semi-automatic email about new static checker warnings.
 
-> Cheers,
+The patch 23ba07991dad: "usbnet: fix oops in usbnet_start_xmit" from 
+Nov 7, 2011, leads to the following Smatch complaint:
 
+drivers/net/usb/usbnet.c +1077 usbnet_start_xmit()
+	 error: we previously assumed 'skb' could be null (see line 1060)
 
-Please describe in detail, including the schema and sample configuration files!
+drivers/net/usb/usbnet.c
+  1059	
+  1060		if (skb)
+                    ^^^
+check introduced here.
 
-The fact that I have already tried some options and I did not. Here is a link to a Russian-language correspondence on my problem: http://www.opennet.ru/openforum/vsluhforumID10/4941.html.
+  1061			skb_tx_timestamp(skb);
+  1062	
+  1063		// some devices want funky USB-level framing, for
+  1064		// win32 driver (usually) and/or hardware quirks
+  1065		if (info->tx_fixup) {
+  1066			skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
+  1067			if (!skb) {
+  1068				if (netif_msg_tx_err(dev)) {
+  1069					netif_dbg(dev, tx_err, dev->net, "can't tx_fixup skb\n");
+  1070					goto drop;
+  1071				} else {
+  1072					/* cdc_ncm collected packet; waits for more */
+  1073					goto not_drop;
+  1074				}
+  1075			}
+  1076		}
+  1077		length = skb->len;
+                         ^^^^^^^^
+dereference without checking.
 
-Once again, draw a diagram of which should be implemented:
+  1078	
+  1079		if (!(urb = usb_alloc_urb (0, GFP_ATOMIC))) {
 
-                 (server)                                                        (client 1)
-                 _______                                                          _______
-                 |      |                                                        |      |---192.168.7.1
-                 |      |                                                        |      |---192.168.7.2
-192.168.1.0/24---|      |192.168.5.1/24----------------------------192.168.5.2/24|      |---192.168.7.3
-                 |      |                       |                                |      |---192.168.7.4
-                 |______|                       |                                |______|---192.168.7.5      
-                                                |
-                                                |                                 (client 2)
-                                                |                                _______
-                                                |                                |      |---192.168.7.6
-                                                |                                |      |---192.168.7.7
-                                                -------------------192.168.5.3/24|      |---192.168.7.8
-                                                |                                |      |---192.168.7.9
-                                                |                                |______|---192.168.7.10
-                                                |
-                                                |                                 (client 3)
-                                                |                                _______
-                                                |                                |      |---192.168.7.11
-                                                |                                |      |---192.168.7.12
-                                                -------------------192.168.5.4/24|      |---192.168.7.13
-                                                                                 |      |---192.168.7.14
-                                                                                 |______|---192.168.7.15
+regards,
+dan carpenter
 
-
-Tried to do the following:
-
-1) network to host. The connection of course been established, but not all traffic be encrypted.
-2) host to host. similarly to 1.
-3) network to IP range. I tried different configurations, but the connection did not succeed.
-
-So I came to the conclusion that when we point to the IP range zywall IPSec we actually prescribe what kind of traffic will be encrypted. The rest will be routed but no encryption. Correct if I'm wrong.
-If you are not working hard to lay out the configuration files!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
