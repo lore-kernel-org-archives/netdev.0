@@ -1,38 +1,50 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH]  flow_cache_flush soft lockup with heavy ipsec traffic
-Date: Wed, 9 Nov 2011 14:43:48 +0100
-Message-ID: <20111109134348.GD10138@secunet.com>
-References: <4EBA7038.4050702@mt.lv>
- <1320844564.3916.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCHv4 4/9] macb: convert printk to netdev_ and friends
+Date: Wed, 09 Nov 2011 05:46:08 -0800
+Message-ID: <1320846368.6923.24.camel@Joe-Laptop>
+References: <1320761613-18641-1-git-send-email-jamie@jamieiles.com>
+	 <1320761613-18641-5-git-send-email-jamie@jamieiles.com>
+	 <1320844247.6923.18.camel@Joe-Laptop> <20111109131421.GC4253@totoro>
+	 <20111109133726.GD4253@totoro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maris Paupe <marisp@mt.lv>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: Jamie Iles <jamie@jamieiles.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:40274 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752021Ab1KINny (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Nov 2011 08:43:54 -0500
-Content-Disposition: inline
-In-Reply-To: <1320844564.3916.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from perches-mx.perches.com ([206.117.179.246]:39656 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753037Ab1KINqJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Nov 2011 08:46:09 -0500
+In-Reply-To: <20111109133726.GD4253@totoro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 09, 2011 at 02:16:04PM +0100, Eric Dumazet wrote:
-> 
-> Sorry, I dont understand your patch.
-> 
-> BH are disabled by the spin_lock_bh() call.
-> 
-> Once flow_cache_entry are in garbage list, nothing but garbage collector
-> can access them. I see no possible deadlock. Or there is a bug somewhere
-> and your patch avoid it.
-> 
-> Whole point of using a work queue to perform garbage collect was to not
-> hold BH too long (allowing sotirq to process incoming packets), so you
-> basically remove what was done in commit 8e4795605d.
-> 
+On Wed, 2011-11-09 at 13:37 +0000, Jamie Iles wrote:
+> OK, here's an updated patch.  Thanks again Joe!
 
-I guess this tries to address a problem that was already discussed here:
+Hi Jamie, thanks for updating, one possible thing.
 
-http://patchwork.ozlabs.org/patch/116457/
+> @@ -625,15 +625,12 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  
+>  #ifdef DEBUG
+>  	int i;
+> -	dev_dbg(&bp->pdev->dev,
+> -		"start_xmit: len %u head %p data %p tail %p end %p\n",
+> -		skb->len, skb->head, skb->data,
+> -		skb_tail_pointer(skb), skb_end_pointer(skb));
+> -	dev_dbg(&bp->pdev->dev,
+> -		"data:");
+> -	for (i = 0; i < 16; i++)
+> -		printk(" %02x", (unsigned int)skb->data[i]);
+> -	printk("\n");
+> +	netdev_dbg(bp->dev,
+> +		   "start_xmit: len %u head %p data %p tail %p end %p\n",
+> +		   skb->len, skb->head, skb->data,
+> +		   skb_tail_pointer(skb), skb_end_pointer(skb));
+> +	print_hex_dump(KERN_DEBUG, "data: ", DUMP_PREFIX_OFFSET, 16, 1,
+> +		       skb->data, 16, true);
+>  #endif
+
+I think there an unused variable "i" warning now
+if DEBUG is #defined.
