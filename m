@@ -1,119 +1,96 @@
-From: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH] Phonet: set the pipe handle using setsockopt
-Date: Wed, 09 Nov 2011 17:00:48 +0200
-Message-ID: <6033284.KrP4yu8ukf@hector>
-References: <1320837653-7471-1-git-send-email-hemant.ramdasi@stericsson.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: [PATCH 0/4] skb paged fragment destructors
+Date: Wed, 9 Nov 2011 15:01:35 +0000
+Message-ID: <1320850895.955.172.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Dinesh Kumar Sharma <dinesh.sharma@stericsson.com>
-To: ext Hemant Vilas RAMDASI <hemant.ramdasi@stericsson.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.1.47]:59822 "EHLO mgw-sa01.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750749Ab1KIPAq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 10:00:46 -0500
-In-Reply-To: <1320837653-7471-1-git-send-email-hemant.ramdasi@stericsson.com>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:25179 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754146Ab1KIPBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 10:01:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Inline...
+The following series makes use of the skb fragment API (which is in 3.2)
+to add a per-paged-fragment destructor callback. This can be used by
+creators of skbs who are interested in the lifecycle of the pages
+included in that skb after they have handed it off to the network stack.
+I think these have all been posted before, but have been backed up
+behind the skb fragment API.
 
-Le Mercredi 9 Novembre 2011 16:50:53 ext Hemant Vilas RAMDASI a =E9crit=
- :
-> @@ -863,9 +902,27 @@ static int pep_sock_connect(struct sock *sk, str=
-uct
-> sockaddr *addr, int len) int err;
->  	u8 data[4] =3D { 0 /* sub-blocks */, PAD, PAD, PAD };
->=20
-> -	pn->pipe_handle =3D 1; /* anything but INVALID_HANDLE */
-> +	if (pn->pipe_handle =3D=3D PN_PIPE_INVALID_HANDLE)
-> +		pn->pipe_handle =3D 1; /* anything but INVALID_HANDLE */
-> +
->  	err =3D pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
-> -					PN_PIPE_ENABLE, data, 4);
-> +					pn->init_enable, data, 4);
-> +
-> +	if (err) {
-> +		pn->pipe_handle =3D PN_PIPE_INVALID_HANDLE;
+The mail at [0] contains some more background and rationale but
+basically the completed series will allow entities which inject pages
+into the networking stack to receive a notification when the stack has
+really finished with those pages (i.e. including retransmissions,
+clones, pull-ups etc) and not just when the original skb is finished
+with, which is beneficial to many subsystems which wish to inject pages
+into the network stack without giving up full ownership of those page's
+lifecycle. It implements something broadly along the lines of what was
+described in [1].
 
-This undoes the setsockopt() silently. I'm not sure you intend this?
+I have also included a patch to the RPC subsystem which uses this API to
+fix the bug which I describe at [2].
 
-> +		return err;
-> +	}
-> +	sk->sk_state =3D TCP_SYN_SENT;
-> +	return 0;
-> +}
-> +
-> +static int pep_sock_enable(struct sock *sk, struct sockaddr *addr, i=
-nt len)
-> +{
-> +	struct pep_sock *pn =3D pep_sk(sk);
-> +	int err;
-> +
-> +	err =3D pipe_handler_request(sk, PNS_PEP_ENABLE_REQ, PAD,
-> +				NULL, 0);
->  	if (err) {
->  		pn->pipe_handle =3D PN_PIPE_INVALID_HANDLE;
->  		return err;
-> @@ -959,6 +1016,24 @@ static int pep_setsockopt(struct sock *sk, int =
-level,
-> int optname, }
->  		goto out_norel;
->=20
-> +	case PNPIPE_HANDLE:
-> +		if (val)
-> +			pn->pipe_handle =3D val;
-> +		else
-> +			err =3D -EINVAL;
-> +		break;
+I presented this work at LPC in September and there was a
+question/concern raised (by Jesse Brandenburg IIRC) regarding the
+overhead of adding this extra field per fragment. If I understand
+correctly it seems that in the there have been performance regressions
+in the past with allocations outgrowing one allocation size bucket and
+therefore using the next. The change in datastructure size resulting
+from this series is:
+					  BEFORE	AFTER
+AMD64:	sizeof(struct skb_frag_struct)	= 16		24
+	sizeof(struct skb_shared_info)	= 344		488
+	sizeof(struct sk_buff)		= 240		240
 
-Why is zero a special case? What about out-of-range values?
+i386:	sizeof(struct skb_frag_struct)	= 8		12
+	sizeof(struct skb_shared_info)	= 188		260
+	sizeof(struct sk_buff)		= 192		192
 
-> +
-> +	case PNPIPE_ENABLE:
-> +		err =3D pep_sock_enable(sk, NULL, 0);
-> +		break;
+(I think these are representative of 32 and 64 bit arches generally)
 
-This is reintroducing the problems with the older code. As far as I kno=
-w, =20
-setsockopt() needs to be idempotent, which this does not seem to be?
+On amd64 this doesn't in itself push the shared_info over a slab
+boundary but since the linear data is part of the same allocation the
+size of the linear data which will push us into the next size is reduced
+from 168 to 24 bytes, which is effectively the same thing as pushing
+directly into the next size. On i386 we go straight to the next bucket
+(although the 68 bytes available slack for linear area becomes 252 in
+that larger size).
 
-> +
-> +	case PNPIPE_INITSTATE:
-> +		if ((val =3D=3D PN_PIPE_DISABLE) || (val =3D=3D PN_PIPE_ENABLE))
-> +			pn->init_enable =3D val;
-> +		else
-> +			err =3D -EINVAL;
-> +		break;
+I'm not sure if this is a showstopper or the particular issue with slab
+still exists (or maybe it was only slab/slub/slob specific?). I need to
+find some benchmark which might demonstrate the issue (presumably
+something where frames are commonly 24<size<168). Jesse, any hints on
+how to test this or references to the previous occurrence(s) would be
+gratefully accepted.
 
-It looks like there is no use-case for init-enabled pipes then, right? =
-How=20
-about dropping this extra bit of code and assuming connect()ed pipes ar=
-e=20
-always init-disabled?
+Possible solutions all seem a bit fugly:
 
-> +
->  	default:
->  		err =3D -ENOPROTOOPT;
->  	}
-> @@ -994,6 +1069,13 @@ static int pep_getsockopt(struct sock *sk, int =
-level,
-> int optname, return -EINVAL;
->  		break;
->=20
-> +	case PNPIPE_ENABLE:
-> +		if (sk->sk_state !=3D TCP_ESTABLISHED)
-> +			return -EINVAL;
-> +		else
-> +			val =3D 1;
-> +		break;
-> +
->  	default:
->  		return -ENOPROTOOPT;
->  	}
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+      * suitably sized slab caches appropriate to these new sizes (no
+        suitable number leaps out at me...)
+      * split linear data allocation and shinfo allocation into two. I
+        suspect this will have its own performance implications? On the
+        positive side skb_shared_info could come from its own fixed size
+        pool/cache which might have some benefits
+      * steal a bit a pointer to indicate destructor pointer vs regular
+        struct page pointer (moving the struct page into the destructor
+        datastructure for that case). Stops us sharing a single
+        destructor between multiple pages, but that isn't critical
+      * add a bitmap to shinfo indicating the kind of each frag.
+        Requires modification of anywhere which propagates the page
+        member (doable, but another huge series)
+      * some sort of pointer compression scheme?
+
+I'm sure there are others I'm not seeing right now.
+
+Cheers,
+Ian.
+
+[0] http://marc.info/?l=linux-netdev&m=131072801125521&w=2
+[1] http://marc.info/?l=linux-netdev&m=130925719513084&w=2
+[2] http://marc.info/?l=linux-nfs&m=122424132729720&w=2
