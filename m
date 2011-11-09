@@ -1,59 +1,55 @@
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: re: usbnet: fix oops in usbnet_start_xmit
-Date: Wed, 9 Nov 2011 10:34:59 +0300
-Message-ID: <20111109073459.GA14409@elgon.mountain>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv4: fix a bug in SRR option matching.
+Date: Wed, 09 Nov 2011 15:37:55 +0800
+Message-ID: <4EBA2DD3.1070204@cn.fujitsu.com>
+References: <4EB8E0B8.40500@cn.fujitsu.com> <20111108.120621.691425261290061620.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:60301 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753238Ab1KIHhd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Nov 2011 02:37:33 -0500
+In-Reply-To: <20111108.120621.691425261290061620.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Konstantin Khlebnikov,
+> From: Li Wei <lw@cn.fujitsu.com>
+> Date: Tue, 08 Nov 2011 15:56:40 +0800
+> 
+>> Since commit 7be799a7 (ipv4: Remove rt->rt_dst reference from
+>> ip_forward_options()) and commit 0374d9ce (ipv4: Kill spurious
+>> write to iph->daddr in ip_forward_options()) we use iph->daddr
+>> for SRR option matching and assume iph->daddr equals to rt->rt_dst,
+>> Unfortunately skb_rtable(skb) has been updated in ip_options_rcv_srr()
+>> for the nexthop in SRR option but iph->daddr *not* updated,
+>> We should use the updated rt->rt_dst for SRR option matching
+>> and update iph->daddr here.
+>>
+>> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> 
+> Please replace this by whatever logic ip_options_rcv_srr() uses to
+> determine the destination address.
+> 
+> I would strongly encourage you, when fixing bugs like this, to use
+> as a hint the intentions of the commit which introduced the bug.  And
+> try as hard as possible to retain the goals of the guilty commit.
+> 
+> In this case, that means not introducing references to rt->rt_dst
+> back into the code.
+> 
+> Thank you.
+> 
+> 
 
-This is a semi-automatic email about new static checker warnings.
+Thank you for your advice, I reviewed the code again think that as you said
+in commit def57687, "No matter what kind of header mangling occurs due to IP
+options processing, rt->rt_dst will always equal iph->daddr in the packet",
+iph->daddr in ip_options_rcv_srr() should be updated either as skb_rtable(skb)
+has been updated for 'nexthop'. So we can elide all rt->rt_dst reference
+in ip_forward() and ip_forward_options().
 
-The patch 23ba07991dad: "usbnet: fix oops in usbnet_start_xmit" from 
-Nov 7, 2011, leads to the following Smatch complaint:
-
-drivers/net/usb/usbnet.c +1077 usbnet_start_xmit()
-	 error: we previously assumed 'skb' could be null (see line 1060)
-
-drivers/net/usb/usbnet.c
-  1059	
-  1060		if (skb)
-                    ^^^
-check introduced here.
-
-  1061			skb_tx_timestamp(skb);
-  1062	
-  1063		// some devices want funky USB-level framing, for
-  1064		// win32 driver (usually) and/or hardware quirks
-  1065		if (info->tx_fixup) {
-  1066			skb = info->tx_fixup (dev, skb, GFP_ATOMIC);
-  1067			if (!skb) {
-  1068				if (netif_msg_tx_err(dev)) {
-  1069					netif_dbg(dev, tx_err, dev->net, "can't tx_fixup skb\n");
-  1070					goto drop;
-  1071				} else {
-  1072					/* cdc_ncm collected packet; waits for more */
-  1073					goto not_drop;
-  1074				}
-  1075			}
-  1076		}
-  1077		length = skb->len;
-                         ^^^^^^^^
-dereference without checking.
-
-  1078	
-  1079		if (!(urb = usb_alloc_urb (0, GFP_ATOMIC))) {
-
-regards,
-dan carpenter
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I will submit another patch to fix this bug.
