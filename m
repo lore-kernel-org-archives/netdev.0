@@ -1,32 +1,48 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 2/5] net/sunrpc: use kstrtoul, etc
-Date: Wed, 9 Nov 2011 07:15:32 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1111090710000.1899@hadrien>
-References: <1320586010-21931-1-git-send-email-julia@diku.dk> <1320586010-21931-3-git-send-email-julia@diku.dk> <20111108193817.GA3453@p183.telecom.by> <alpine.DEB.2.02.1111082113380.1880@hadrien>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Large file copy to NFS mounted directory causes delay in other
+ application packets
+Date: Wed, 09 Nov 2011 07:24:35 +0100
+Message-ID: <1320819875.26025.48.camel@edumazet-laptop>
+References: <1320816503.73813.YahooMailNeo@web160718.mail.bf1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	kernel-janitors@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Manavalan Krishnan <manavalan_k@yahoo.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1111082113380.1880@hadrien>
+In-Reply-To: <1320816503.73813.YahooMailNeo@web160718.mail.bf1.yahoo.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In looking through some examples, I see, e.g.:
+Le mardi 08 novembre 2011 =C3=A0 21:28 -0800, Manavalan Krishnan a =C3=A9=
+crit :
+> Hi All
+>=20
+> I have two systems with two network interfaces each(eth0 and eth1). I
+> am running linux-HA (heartbeat deamon) on both the systems and they
+> use eth0 for exchanging heartbeats. I have NFS mounted directory in
+> one system and the NFS client uses the interface eth1.=20
+>=20
+> I try to copy a large file to NFS mounted directory. But the heartbea=
+t
+> daemons misses the heartbeat packets from peers while copy is under
+> progress. I did tcpdump and found that the heartbeat packets are
+> delayed for few seconds before sent out on eth0. When I stop the file
+> copy, the heartbeats are delivered properly. It seems linux kernel
+> somehow giving priority for NFS packets(generated from the file copy)
+> over other application packets.
+>=20
+> Any thoughts on this behavior? Is there any way we can avoid this so
+> that application packets get equal chance while large file copy to NF=
+S
+> mounted directory under progress?
+>=20
+CC netdev
 
- 	if (strict_strtoul(buf, 10, &val) < 0)
-  		return -EINVAL;
- 	if (val < 1 || val > 2)
-  		return -EINVAL;
+1) Is your NFS using UDP or TCP ?
+2) Is your eth0 dedicated to heartbeats and eth1 to NFS traffic ?
+3) How do you know heartbeats are delayed ?
+4) Is your server CPU bounded ?
 
-In this case the only valid values are 1 and 2, which are much smaller 
-than the u8 range.  Is it useful to use kstrtou8 anyway?  I see that 
-kstrtou8 returns -ERANGE not -EINVAL when the value is out of bounds.  If 
-kstrtou8 is to be used, should the subsequent if (val < 1 || val > 2) now 
-return -ERANGE to be consistent?
-
-julia
+Thanks
