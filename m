@@ -1,106 +1,50 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH] libteam: fix function names to include 'bond'
-Date: Wed, 9 Nov 2011 21:23:08 -0200
-Message-ID: <20111109212308.4f89739e@asterix.rh>
-References: <1319660867-945-1-git-send-email-jpirko@redhat.com>
-	<1320862846-6000-1-git-send-email-fbl@redhat.com>
-	<20111109220423.GA2112@minipsycho>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next v1 0/9] forcedeth: stats & debug enhancements
+Date: Wed, 9 Nov 2011 23:41:13 +0000
+Message-ID: <1320882073.2781.20.camel@bwh-desktop>
+References: <cover.1320875577.git.david.decotigny@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
-	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
-	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com,
-	benjamin.poirier@gmail.com, jzupka@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63934 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756580Ab1KIXXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Nov 2011 18:23:31 -0500
-In-Reply-To: <20111109220423.GA2112@minipsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Decotigny <david.decotigny@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1320875577.git.david.decotigny@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 9 Nov 2011 23:04:25 +0100
-Jiri Pirko <jpirko@redhat.com> wrote:
-
+On Wed, 2011-11-09 at 14:09 -0800, David Decotigny wrote:
+> These changes implement the ndo_get_stats64 API and add a few more
+> stats and debugging features for forcedeth. They also ensure that
+> stats updates are correct in SMP systems, 32 or 64-bits.
 > 
-> Hi Flavio.
-> 
-> Thomas included these 2 functions in latest libnl upstream. Bond
-> versions wouldn't work because of "bond" type check.
-> 
+> Regarding the "implement ndo_get_stats64() API" patch, I'm not sure
+> I'm using the right way to protect the 64b stats. Ideally, I would
+> like them to be non-blocking (u64_stats_sync.h), but as there are
+> several sources for updates, I don't think I can do without locking or
+> per-CPU stats.
 
-Yeah, my first option would be using git repo, but the one
-mentioned in the page seems to be off and I am not finding
-another one.  Do you have the repo url handy?
+The important thing is that the fast path remains fast, and I think
+you've achieved that (due to patch 4/9).  The data path doesn't have to
+acquire the stats lock and it only has to use atomic operations in some
+error cases.
 
-Anyway, I've tried here with my patch applied and it didn't work.
-Every packet transmitted increased TX dropped in ifconfig team0
-output. The tcpdump attached to the slave doesn't show anything,
-the packets appear only when attached to team0.
+> Would per-CPU stats be better here (note: I expect the
+> contention on netdev_priv(dev)->stats_lock to be _VERY_ low)?
+[...]
 
-When I ping the team0 host from another host, both slave and
-team0 RX dropped increases at the same rate. tcpdump attached
-to the slave shows the packet coming.
+Only queue-less software devices should maintain per-CPU stats.  For any
+device with queues, servicing of each queue must already be serialised
+and software stats can be maintained per-queue.  In the single-queue
+case this means per-device.
 
-Well, maybe this is an effect of having used the wrong libnl
-version, though the team_monitor seems to be working just fine.
-(patch applied on top of net-next of today, commit e56c57d,
- followed the exact same steps as in HOWTO.BASICS)
+Ben.
 
-I am planning to upgrade the system to the new fedora and
-try again after that.  If I have time, I will follow up with
-fresh results.
-
-thanks,
-fbl
-
-> Jirka
-> 
-> Wed, Nov 09, 2011 at 07:20:46PM CET, fbl@redhat.com wrote:
-> >Signed-off-by: Flavio Leitner <fbl@redhat.com>
-> >---
-> >
-> > I found those while trying to test V6 patch using latest
-> > libteam (commit 5e9790816606a6dd4e7f6f32c0bb0c45e5d13b31)
-> > and libnl-3.2.2 (last stable).
-> > thanks,
-> > fbl
-> >
-> > lib/libteam.c |    4 ++--
-> > 1 files changed, 2 insertions(+), 2 deletions(-)
-> >
-> >diff --git a/lib/libteam.c b/lib/libteam.c
-> >index feb13b6..e7ae6b0 100644
-> >--- a/lib/libteam.c
-> >+++ b/lib/libteam.c
-> >@@ -1331,7 +1331,7 @@ int team_port_add(struct team_handle *th,
-> >uint32_t port_ifindex)
-> > {
-> > 	int err;
-> > 
-> >-	err = rtnl_link_enslave_ifindex(th->nl_cli.sock,
-> >th->ifindex,
-> >+	err = rtnl_link_bond_enslave_ifindex(th->nl_cli.sock,
-> >th->ifindex,
-> > 					port_ifindex);
-> > 	return -nl2syserr(err);
-> > }
-> >@@ -1350,6 +1350,6 @@ int team_port_remove(struct team_handle *th,
-> >uint32_t port_ifindex)
-> > {
-> > 	int err;
-> > 
-> >-	err = rtnl_link_release_ifindex(th->nl_cli.sock,
-> >port_ifindex);
-> >+	err = rtnl_link_bond_release_ifindex(th->nl_cli.sock,
-> >port_ifindex);
-> > 	return -nl2syserr(err);
-> > }
-> >-- 
-> >1.7.6
-> >
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
