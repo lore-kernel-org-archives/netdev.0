@@ -1,8 +1,8 @@
 From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 1/6 v4] rtnetlink: Netlink interface for setting
-	MAC and VLAN filters
-Date: Tue, 08 Nov 2011 23:55:40 -0800
-Message-ID: <20111109075540.13549.82297.stgit@rhel6.1>
+Subject: [net-next-2.6 PATCH 2/6 v4] net: Add netdev_ops to set and get
+	MAC/VLAN rx filters
+Date: Tue, 08 Nov 2011 23:55:45 -0800
+Message-ID: <20111109075545.13549.64199.stgit@rhel6.1>
 References: <20111109075449.13549.58135.stgit@rhel6.1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,186 +14,84 @@ Cc: chrisw@redhat.com, sri@us.ibm.com, dragos.tatulea@gmail.com,
 	benve@cisco.com
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtv-iport-2.cisco.com ([173.36.130.13]:44859 "EHLO
-	mtv-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932781Ab1KHX7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 18:59:16 -0500
+Received: from mtv-iport-1.cisco.com ([173.36.130.12]:15073 "EHLO
+	mtv-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932781Ab1KHX7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 18:59:20 -0500
 In-Reply-To: <20111109075449.13549.58135.stgit@rhel6.1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roprabhu@cisco.com>
 
-This patch introduces the following netlink interface to set
-MAC and VLAN filters on an network interface. It can be used to
-set RX filter on any network interface (if supported by the driver) and
-also on a SRIOV VF via its PF
+This patch adds the following netdev_ops to set and get MAC/VLAN
+filters on a SRIOV VF or any netdev interface. Each op takes a vf argument.
+vf value of SELF_VF or -1 is for applying the operation directly on the
+interface.
 
-Interface to set RX filter on a SRIOV VF
-[IFLA_VF_RX_FILTERS] = {
-	[IFLA_VF_RX_FILTER] = {
-		[IFLA_RX_FILTER_VF]
-		[IFLA_RX_FILTER_ADDR] = {
-			[IFLA_RX_FILTER_ADDR_FLAGS]
-			[IFLA_RX_FILTER_ADDR_UC_LIST] = {
-				[IFLA_ADDR_LIST_ENTRY]
-			}
-			[IFLA_RX_FILTER_ADDR_MC_LIST] = {
-				[IFLA_ADDR_LIST_ENTRY]
-			}
-		}
-		[IFLA_RX_FILTER_VLAN] = {
-			[IFLA_RX_FILTER_VLAN_BITMAP]
-		}
-	}
-	...
-}
+ndo_set_rx_filter_addr - to set address filter
+ndo_get_rx_filter_addr_size - to get address filter size
+ndo_get_rx_filter_addr - To get addr filter
 
-Interface to set RX filter on any network interface.:
-[IFLA_RX_FILTER] = {
-	[IFLA_RX_FILTER_VF]
-	[IFLA_RX_FILTER_ADDR] = {
-		[IFLA_RX_FILTER_ADDR_FLAGS]
-		[IFLA_RX_FILTER_ADDR_UC_LIST] = {
-			[IFLA_ADDR_LIST_ENTRY]
-		}
-		[IFLA_RX_FILTER_ADDR_MC_LIST] = {
-			[IFLA_ADDR_LIST_ENTRY]
-		}
-	}
-	[IFLA_RX_FILTER_VLAN] = {
-		[IFLA_RX_FILTER_VLAN_BITMAP]
-	}
-}
+ndo_set_rx_filter_vlan - to set vlan filter
+ndo_get_rx_filter_vlan_size - to get vlan filter size
+ndo_get_rx_filter_vlan - To get vlan filter
 
 Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
 Signed-off-by: Christian Benvenuti <benve@cisco.com>
 Signed-off-by: David Wang <dwang2@cisco.com>
 ---
- include/linux/if_link.h |   61 +++++++++++++++++++++++++++++++++++++++++++++++
- net/core/rtnetlink.c    |   20 +++++++++++++++
- 2 files changed, 81 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |   32 ++++++++++++++++++++++++++++++++
+ 1 files changed, 32 insertions(+), 0 deletions(-)
 
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index c52d4b5..74a9f17 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -137,6 +137,8 @@ enum {
- 	IFLA_AF_SPEC,
- 	IFLA_GROUP,		/* Group the device belongs to */
- 	IFLA_NET_NS_FD,
-+	IFLA_VF_RX_FILTERS,
-+	IFLA_RX_FILTER,
- 	__IFLA_MAX
- };
- 
-@@ -390,4 +392,63 @@ struct ifla_port_vsi {
- 	__u8 pad[3];
- };
- 
-+/* VF rx filters management section
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cbeb586..3cbd700 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -855,6 +855,20 @@ struct netdev_tc_txq {
+  *	feature set might be less than what was returned by ndo_fix_features()).
+  *	Must return >0 or -errno if it changed dev->features itself.
+  *
++ * Address Filter management functions:
++ * int (*ndo_set_rx_filter_addr)(struct net_device *dev, int vf,
++ *				 struct nlattr *tb[]);
++ * size_t (*ndo_get_rx_filter_addr_size)(const struct net_device *dev, int vf);
++ * int (*ndo_get_rx_filter_addr)(const struct net_device *dev, int vf,
++ *				 struct sk_buff *skb);
 + *
-+ *	Nested layout of set/get msg is:
++ * Vlan Filter management functions:
++ * int (*ndo_set_rx_filter_vlan)(struct net_device *dev, int vf,
++ *				 struct nlattr *tb[]);
++ * size_t (*ndo_get_rx_filter_vlan_size)(const struct net_device *dev, int vf);
++ * int (*ndo_get_rx_filter_vlan)(const struct net_device *dev, int vf,
++ *				 struct sk_buff *skb);
 + *
-+ *	[IFLA_VF_RX_FILTERS]
-+ *		[IFLA_VF_RX_FILTER]
-+ *			[IFLA_RX_FILTER_*], ...
-+ *		[IFLA_VF_RX_FILTER]
-+ *			[IFLA_RX_FILTER_*], ...
-+ *		...
-+ *	[IFLA_RX_FILTER]
-+ *		[IFLA_RX_FILTER_*], ...
-+ */
-+enum {
-+	IFLA_VF_RX_FILTER_UNSPEC,
-+	IFLA_VF_RX_FILTER,			/* nest */
-+	__IFLA_VF_RX_FILTER_MAX,
-+};
-+
-+#define IFLA_VF_RX_FILTER_MAX (__IFLA_VF_RX_FILTER_MAX - 1)
-+
-+enum {
-+	IFLA_RX_FILTER_UNSPEC,
-+	IFLA_RX_FILTER_VF,		/* __u32 */
-+	IFLA_RX_FILTER_ADDR,
-+	IFLA_RX_FILTER_VLAN,
-+	__IFLA_RX_FILTER_MAX,
-+};
-+#define IFLA_RX_FILTER_MAX (__IFLA_RX_FILTER_MAX - 1)
-+
-+enum {
-+	IFLA_RX_FILTER_ADDR_UNSPEC,
-+	IFLA_RX_FILTER_ADDR_FLAGS,
-+	IFLA_RX_FILTER_ADDR_UC_LIST,
-+	IFLA_RX_FILTER_ADDR_MC_LIST,
-+	__IFLA_RX_FILTER_ADDR_MAX,
-+};
-+#define IFLA_RX_FILTER_ADDR_MAX (__IFLA_RX_FILTER_ADDR_MAX - 1)
-+
-+#define RX_FILTER_FLAGS (IFF_UP | IFF_BROADCAST | IFF_MULTICAST | \
-+				IFF_PROMISC | IFF_ALLMULTI)
-+
-+enum {
-+	IFLA_ADDR_LIST_UNSPEC,
-+	IFLA_ADDR_LIST_ENTRY,
-+	__IFLA_ADDR_LIST_MAX,
-+};
-+#define IFLA_ADDR_LIST_MAX (__IFLA_ADDR_LIST_MAX - 1)
-+
-+enum {
-+	IFLA_RX_FILTER_VLAN_UNSPEC,
-+	IFLA_RX_FILTER_VLAN_BITMAP,
-+	__IFLA_RX_FILTER_VLAN_MAX,
-+};
-+#define IFLA_RX_FILTER_VLAN_MAX (__IFLA_RX_FILTER_VLAN_MAX - 1)
-+
-+#define VLAN_BITMAP_SPLIT_MAX 8
-+#define VLAN_BITMAP_SIZE	(VLAN_N_VID/VLAN_BITMAP_SPLIT_MAX)
-+
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 9083e82..9eead8e 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -42,6 +42,7 @@
- 
- #include <linux/inet.h>
- #include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
- #include <net/ip.h>
- #include <net/protocol.h>
- #include <net/arp.h>
-@@ -1097,6 +1098,8 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
- 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
- 	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
-+	[IFLA_VF_RX_FILTERS]	= { .type = NLA_NESTED },
-+	[IFLA_RX_FILTER]	= { .type = NLA_NESTED },
- };
- EXPORT_SYMBOL(ifla_policy);
- 
-@@ -1132,6 +1135,23 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
- 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
+  */
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -948,6 +962,24 @@ struct net_device_ops {
+ 						    u32 features);
+ 	int			(*ndo_set_features)(struct net_device *dev,
+ 						    u32 features);
++	int			(*ndo_set_rx_filter_addr)(
++						struct net_device *dev, int vf,
++						struct nlattr *tb[]);
++	size_t			(*ndo_get_rx_filter_addr_size)(
++						const struct net_device *dev,
++						int vf);
++	int			(*ndo_get_rx_filter_addr)(
++						const struct net_device *dev,
++						int vf, struct sk_buff *skb);
++	int			(*ndo_set_rx_filter_vlan)(
++						struct net_device *dev, int vf,
++						struct nlattr *tb[]);
++	size_t			(*ndo_get_rx_filter_vlan_size)(
++						const struct net_device *dev,
++						int vf);
++	int			(*ndo_get_rx_filter_vlan)(
++						const struct net_device *dev,
++						int vf, struct sk_buff *skb);
  };
  
-+static const struct nla_policy ifla_rx_filter_policy[IFLA_RX_FILTER_MAX+1] = {
-+	[IFLA_RX_FILTER_VF]	= { .type = NLA_U32 },
-+	[IFLA_RX_FILTER_ADDR]	= { .type = NLA_NESTED },
-+	[IFLA_RX_FILTER_VLAN]	= { .type = NLA_NESTED },
-+};
-+
-+static const struct nla_policy ifla_addr_filter_policy[IFLA_RX_FILTER_ADDR_MAX+1] = {
-+	[IFLA_RX_FILTER_ADDR_FLAGS]	= { .type = NLA_U32 },
-+	[IFLA_RX_FILTER_ADDR_UC_LIST]	= { .type = NLA_NESTED },
-+	[IFLA_RX_FILTER_ADDR_MC_LIST]	= { .type = NLA_NESTED },
-+};
-+
-+static const struct nla_policy ifla_vlan_filter_policy[IFLA_RX_FILTER_VLAN_MAX+1] = {
-+	[IFLA_RX_FILTER_VLAN_BITMAP]	= { .type = NLA_BINARY,
-+					    .len = VLAN_BITMAP_SIZE },
-+};
-+
- struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
- {
- 	struct net *net;
+ /*
