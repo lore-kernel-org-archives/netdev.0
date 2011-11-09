@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] iMX28 Ethernet driver fix
-Date: Wed, 09 Nov 2011 16:11:34 -0500 (EST)
-Message-ID: <20111109.161134.468360904095628089.davem@davemloft.net>
-References: <20111109124411.GA31046@axolotl.localnet>
+Subject: Re: [PATCH] net: drivers/net/hippi/Kconfig should be sourced
+Date: Wed, 09 Nov 2011 16:15:03 -0500 (EST)
+Message-ID: <20111109.161503.1008747144388695505.davem@davemloft.net>
+References: <1320784270.14409.404.camel@x61.thuisdomein>
+	<20111109.154643.2008804116058722848.davem@davemloft.net>
+	<1320872916.27598.49.camel@x61.thuisdomein>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: phorton@bitbox.co.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40426 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933093Ab1KIVNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 16:13:49 -0500
-In-Reply-To: <20111109124411.GA31046@axolotl.localnet>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: pebolle@tiscali.nl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1320872916.27598.49.camel@x61.thuisdomein>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Peter Horton <phorton@bitbox.co.uk>
-Date: Wed, 9 Nov 2011 12:44:11 +0000
+From: Paul Bolle <pebolle@tiscali.nl>
+Date: Wed, 09 Nov 2011 22:08:36 +0100
 
-> -	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
-> +	if ((((unsigned long) bufaddr) & FEC_ALIGNMENT) ||
-> +		((id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) &&
-> +		skb_cloned(skb)))
-> +	{
+> Would it be better if I hadn't submitted this as a patch
 
-Please format this condition properly:
+Yes, because eventually someone who actually cared about the
+situation would submit a properly tested patch.
 
-	if (A ||
-	    (B &&
-             C)) {
+If nobody else notices the problem, that's fine too, because it means
+nobody else cares about whether HIPPI is missing from the build or
+not.
