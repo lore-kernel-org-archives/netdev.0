@@ -1,96 +1,113 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/4] skb paged fragment destructors
-Date: Wed, 09 Nov 2011 18:49:44 +0100
-Message-ID: <1320860984.3916.33.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1320850895.955.172.camel@zakaz.uk.xensource.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] net/usb: Misc. fixes for the LG-VL600 LTE USB modem
+Date: Wed, 09 Nov 2011 11:51:44 -0600
+Message-ID: <1320861104.24903.4.camel@dcbw.foobar.com>
+References: <1320808200-28209-1-git-send-email-prox@prolixium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60257 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751285Ab1KIRtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 12:49:47 -0500
-Received: by wyh15 with SMTP id 15so1858840wyh.19
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2011 09:49:46 -0800 (PST)
-In-Reply-To: <1320850895.955.172.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: oliver@neukum.name, gregkh@suse.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mark Kamichoff <prox@prolixium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1320808200-28209-1-git-send-email-prox@prolixium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 09 novembre 2011 =C3=A0 15:01 +0000, Ian Campbell a =C3=A9c=
-rit :
-> The following series makes use of the skb fragment API (which is in 3=
-=2E2)
-> to add a per-paged-fragment destructor callback. This can be used by
-> creators of skbs who are interested in the lifecycle of the pages
-> included in that skb after they have handed it off to the network sta=
-ck.
-> I think these have all been posted before, but have been backed up
-> behind the skb fragment API.
->=20
-> The mail at [0] contains some more background and rationale but
-> basically the completed series will allow entities which inject pages
-> into the networking stack to receive a notification when the stack ha=
-s
-> really finished with those pages (i.e. including retransmissions,
-> clones, pull-ups etc) and not just when the original skb is finished
-> with, which is beneficial to many subsystems which wish to inject pag=
-es
-> into the network stack without giving up full ownership of those page=
-'s
-> lifecycle. It implements something broadly along the lines of what wa=
-s
-> described in [1].
->=20
-> I have also included a patch to the RPC subsystem which uses this API=
- to
-> fix the bug which I describe at [2].
->=20
-> I presented this work at LPC in September and there was a
-> question/concern raised (by Jesse Brandenburg IIRC) regarding the
-> overhead of adding this extra field per fragment. If I understand
-> correctly it seems that in the there have been performance regression=
-s
-> in the past with allocations outgrowing one allocation size bucket an=
-d
-> therefore using the next. The change in datastructure size resulting
-> from this series is:
-> 					  BEFORE	AFTER
-> AMD64:	sizeof(struct skb_frag_struct)	=3D 16		24
-> 	sizeof(struct skb_shared_info)	=3D 344		488
+On Tue, 2011-11-08 at 22:10 -0500, Mark Kamichoff wrote:
+> Add checking for valid magic values (needed for stability in the event
+> corrupted packets are received) and remove some other unneeded checks.
+> Also, fix flagging device as WWAN (Bugzilla bug #39952).
+> 
+> Signed-off-by: Mark Kamichoff <prox@prolixium.com>
+> ---
+>  drivers/net/usb/cdc_ether.c |    2 +-
+>  drivers/net/usb/lg-vl600.c  |   30 ++++++++++++++----------------
+>  2 files changed, 15 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+> index c924ea2..99ed6eb 100644
+> --- a/drivers/net/usb/cdc_ether.c
+> +++ b/drivers/net/usb/cdc_ether.c
+> @@ -567,7 +567,7 @@ static const struct usb_device_id	products [] = {
+>  {
+>  	USB_DEVICE_AND_INTERFACE_INFO(0x1004, 0x61aa, USB_CLASS_COMM,
+>  			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
+> -	.driver_info = (unsigned long)&wwan_info,
+> +	.driver_info = 0,
+>  },
+>  
+>  /*
+> diff --git a/drivers/net/usb/lg-vl600.c b/drivers/net/usb/lg-vl600.c
+> index d43db32..b975a39 100644
+> --- a/drivers/net/usb/lg-vl600.c
+> +++ b/drivers/net/usb/lg-vl600.c
+> @@ -144,10 +144,11 @@ static int vl600_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+>  	}
+>  
+>  	frame = (struct vl600_frame_hdr *) buf->data;
+> -	/* NOTE: Should check that frame->magic == 0x53544448?
+> -	 * Otherwise if we receive garbage at the beginning of the frame
+> -	 * we may end up allocating a huge buffer and saving all the
+> -	 * future incoming data into it.  */
+> +	/* Yes, check that frame->magic == 0x53544448 (or 0x44544d48),
+> +	 * otherwise we may run out of memory w/a bad packet */
+> +	if (ntohl(frame->magic) != 0x53544448 &&
+> +			ntohl(frame->magic) != 0x44544d48)
+> +		goto error;
+>  
+>  	if (buf->len < sizeof(*frame) ||
+>  			buf->len != le32_to_cpup(&frame->len)) {
+> @@ -209,8 +210,9 @@ static int vl600_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+>  			 * for IPv6 packets, and set the ethertype to IPv6
+>  			 * (0x86dd) so Linux can understand it.
+>  			 */
+> -			if ((buf->data[sizeof(*ethhdr)] & 0xf0) == 0x60)
+> -				ethhdr->h_proto = __constant_htons(ETH_P_IPV6);
+> +			if ((buf->data[sizeof(*ethhdr)] & 0xf0) == 0x60) {
+> +				ethhdr->h_proto = htons(ETH_P_IPV6);
+> +			}
 
-Thats a real problem, because 488 is soo big. (its even rounded to 512
-bytes)
+This change seems somewhat gratuitous; what's the reason for (a) the
+switch from __constant_htons() to plain htons() and (b) adding the {} ?
 
-Now, on x86, a half page (2048 bytes) wont be big enough to contain a
-typical frame (MTU=3D1500)
+Dan
 
-NET_SKB_PAD (64) + 1500 + 14 + 512 > 2048
-
-
-Even if we dont round 488 to 512, (no cache align skb_shared_info) we
-have a problem.
-
-NET_SKB_PAD (64) + 1500 + 14 + 488 > 2048
-
-Why not using a low order bit to mark 'page' being a pointer to=20
-
-struct skb_frag_page_desc {
-	struct page *p;
-	atomic_t ref;
-	int (*destroy)(void *data);
-/*	void *data; */ /* no need, see container_of() */
-};
-
-struct skb_frag_struct {
-        struct {
-                union {
-			struct page *p; /* low order bit not set */
-			struct skb_frag_page_desc *skbpage; /* low order bit set */
-		};
-        } page;
-=2E..
+>  		}
+>  
+>  		if (count) {
+> @@ -296,6 +298,11 @@ encapsulate:
+>  	 * overwrite the remaining fields.
+>  	 */
+>  	packet = (struct vl600_pkt_hdr *) skb->data;
+> +	/* The VL600 wants IPv6 packets to have an IPv4 ethertype
+> +	 * Since this modem only supports IPv4 and IPv6, just set all
+> +	 * frames to 0x0800 (ETH_P_IP)
+> +	 */
+> +	packet->h_proto = htons(ETH_P_IP);
+>  	memset(&packet->dummy, 0, sizeof(packet->dummy));
+>  	packet->len = cpu_to_le32(orig_len);
+>  
+> @@ -308,21 +315,12 @@ encapsulate:
+>  	if (skb->len < full_len) /* Pad */
+>  		skb_put(skb, full_len - skb->len);
+>  
+> -	/* The VL600 wants IPv6 packets to have an IPv4 ethertype
+> -	 * Check if this is an IPv6 packet, and set the ethertype
+> -	 * to 0x800
+> -	 */
+> -	if ((skb->data[sizeof(struct vl600_pkt_hdr *) + 0x22] & 0xf0) == 0x60) {
+> -		skb->data[sizeof(struct vl600_pkt_hdr *) + 0x20] = 0x08;
+> -		skb->data[sizeof(struct vl600_pkt_hdr *) + 0x21] = 0;
+> -	}
+> -
+>  	return skb;
+>  }
+>  
+>  static const struct driver_info	vl600_info = {
+>  	.description	= "LG VL600 modem",
+> -	.flags		= FLAG_ETHER | FLAG_RX_ASSEMBLE,
+> +	.flags		= FLAG_RX_ASSEMBLE | FLAG_WWAN,
+>  	.bind		= vl600_bind,
+>  	.unbind		= vl600_unbind,
+>  	.status		= usbnet_cdc_status,
