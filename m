@@ -1,89 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [REPOST patch net-next V6] net: introduce ethernet teaming
- device
-Date: Thu, 10 Nov 2011 00:53:09 +0100
-Message-ID: <1320882789.5825.10.camel@edumazet-laptop>
-References: <1320876793-1158-1-git-send-email-jpirko@redhat.com>
-	 <1320880355.5825.1.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: dst->obsolete has become pointless
+Date: Wed, 09 Nov 2011 15:56:09 -0800
+Message-ID: <1320882969.6923.29.camel@Joe-Laptop>
+References: <20111108.122020.1080743546477280623.davem@davemloft.net>
+	 <20111108.135901.1506278599930259562.davem@davemloft.net>
+	 <1320842948.6923.3.camel@Joe-Laptop>
+	 <20111109.142044.1307358041881082836.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
-	jzupka@redhat.com, ivecera@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	timo.teras@iki.fi
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44810 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753979Ab1KIXxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 18:53:22 -0500
-Received: by wyh15 with SMTP id 15so2167662wyh.19
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2011 15:53:21 -0800 (PST)
-In-Reply-To: <1320880355.5825.1.camel@edumazet-laptop>
+Received: from perches-mx.perches.com ([206.117.179.246]:60336 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752566Ab1KIX4K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Nov 2011 18:56:10 -0500
+In-Reply-To: <20111109.142044.1307358041881082836.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 10 novembre 2011 =C3=A0 00:12 +0100, Eric Dumazet a =C3=A9crit=
- :
-> Le mercredi 09 novembre 2011 =C3=A0 23:13 +0100, Jiri Pirko a =C3=A9c=
-rit :
-> > This patch introduces new network device called team. It supposes t=
-o be
-> > very fast, simple, userspace-driven alternative to existing bonding
-> > driver.
->=20
-> ...
->=20
-> > +/*
-> > + * note: already called with rcu_read_lock
-> > + */
-> > +static netdev_tx_t team_xmit(struct sk_buff *skb, struct net_devic=
-e *dev)
-> > +{
-> > +	struct team *team =3D netdev_priv(dev);
-> > +	bool tx_success =3D false;
-> > +	unsigned int len =3D skb->len;
-> > +
-> > +	/*
-> > +	 * Ensure transmit function is called only in case there is at le=
-ast
-> > +	 * one port present.
-> > +	 */
-> > +	if (likely(!list_empty(&team->port_list) && team->mode_ops.transm=
-it))
-> > +		tx_success =3D team->mode_ops.transmit(team, skb);
+On Wed, 2011-11-09 at 14:20 -0500, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Wed, 09 Nov 2011 04:49:08 -0800
+> 
+> > On Tue, 2011-11-08 at 13:59 -0500, David Miller wrote:
+> >> net: Kill pointless and misleading checks on dst->obsolete.
+> > []
+> >> Therefore rename it to dst->freed, and make it take on only the values
+> >> "0" and "1".
+> >> diff --git a/include/net/dst.h b/include/net/dst.h
+> > []
+> >> @@ -55,7 +55,7 @@ struct dst_entry {
+> >>  #define DST_NOCOUNT		0x0020
+> >>  
+> >>  	short			error;
+> >> -	short			obsolete;
+> >> +	unsigned short		freed;
+> > 
+> > perhaps
+> > 	bool freed;
+> > 	bool __pad3;
+> > just to mark the available space a bit more obviously.
+> 
+> Hmmm, what is a bool's defined type anyways?  It is a char on every
+> architecture and ABI?
 
-Not clear why its so complex here.
+As far as I know, other than being large enough to
+store a 1 and 0, it's implementation defined.
 
-When you manipulate team->port_list and make it empty, why dont you set
-team->mode_ops.transmit to a helper function, freeing the skb and
-returning false.
+Just like an unsigned short.
 
-Also, instead of setting .transmit to NULL, you also could set it to
-same helper function.
-
-This way you could just do in fast path :
-
-	tx_succcess =3D team->mode_ops.transmit(team, skb);
-
-Avoiding two tests
-
-> > +	if (tx_success) {
-> > +		struct team_pcpu_stats *pcpu_stats;
-> > +
-> > +		pcpu_stats =3D this_cpu_ptr(team->pcpu_stats);
-> > +		u64_stats_update_begin(&pcpu_stats->syncp);
-> > +		pcpu_stats->tx_packets++;
-> > +		pcpu_stats->tx_bytes +=3D len;
-> > +		u64_stats_update_end(&pcpu_stats->syncp);
-> > +	} else {
-> > +		this_cpu_inc(team->pcpu_stats->tx_dropped);
-> > +	}
-> > +
-> > +	return NETDEV_TX_OK;
-> > +}
-> > +
->=20
+I _believe_ gcc uses unsigned char width for
+_Bool in all normal cases though.
