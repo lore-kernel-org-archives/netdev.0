@@ -1,57 +1,57 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: [PATCH] libteam: fix function names to include 'bond'
-Date: Wed,  9 Nov 2011 16:20:46 -0200
-Message-ID: <1320862846-6000-1-git-send-email-fbl@redhat.com>
-References: <1319660867-945-1-git-send-email-jpirko@redhat.com>
-Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
-	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
-	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com,
-	benjamin.poirier@gmail.com, jzupka@redhat.com,
-	Flavio Leitner <fbl@redhat.com>
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6959 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751010Ab1KISVR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Nov 2011 13:21:17 -0500
-In-Reply-To: <1319660867-945-1-git-send-email-jpirko@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Lord <kernel@teksavvy.com>
+Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
+Date: Wed, 09 Nov 2011 13:22:26 -0500
+Message-ID: <4EBAC4E2.70808@teksavvy.com>
+References: <4EA89972.5060101@teksavvy.com>  <20111026.194045.2019668159403582571.davem@davemloft.net>  <4EA8B283.3010105@teksavvy.com>  <20111026.221719.2216112919297458522.davem@davemloft.net>  <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>  <4EBAA967.10403@teksavvy.com> <1320856444.18929.78.camel@deadeye>  <4EBAAEA5.1060408@teksavvy.com> <4EBAB0EA.1050102@teksavvy.com>  <4EBAB643.8020603@teksavvy.com> <1320859911.2781.1.camel@bwh-desktop>  <4EBABAFD.6050604@teksavvy.com> <1320860895.2781.6.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1320860895.2781.6.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
----
+On 11-11-09 12:48 PM, Ben Hutchings wrote:
+> On Wed, 2011-11-09 at 12:40 -0500, Mark Lord wrote:
+>> On 11-11-09 12:31 PM, Ben Hutchings wrote:
+>>> On Wed, 2011-11-09 at 12:20 -0500, Mark Lord wrote:
+>>>> On 11-11-09 11:57 AM, Mark Lord wrote:
+>>>>> On 11-11-09 11:47 AM, Mark Lord wrote:
+>>>>> ..
+>>>>>> Note:  I'm looking at smsc95xx.c and smsc75xx.c for examples,
+>>>>>> and they both have the same problem I'll have here:
+>>>>>>
+>>>>>> How to update the csum settings atomically.
+>>>>>> A spinlock is no good, because config register access is over USB.
+>>>>>
+>>>>> Nevermind.. a slight change in the logic and all is well again.
+>>>> ..
+>>>>
+>>>> Or even simpler (below).  I don't think this method requires any
+>>>> extra locking, but I'm still open to persuasion.  :)
+>>>
+>>> Looks reasonable, but...
+>>>
+>>>> static int ax88772b_set_features(struct net_device *netdev, u32 features)
+>>>> {
+>>>>         struct usbnet *dev = netdev_priv(netdev);
+>>>>         struct ax88772b_data *priv = (struct ax88772b_data *)dev->driver_priv;
+>>>>         u16 tx_csum = 0, rx_csum = 0;
+>>>>
+>>>>         priv->features = features & (NETIF_F_HW_CSUM | NETIF_F_RXCSUM);
+>>>
+>>> ...why do you need priv->features at all?
+>>
+>>
+>> There's code elsewhere that takes action under some conditions
+>> based on the current setting of the NETIF_F_RXCSUM flag.
+>>
+>> I don't claim to fully understand what's going on,
+>> but it doesn't care much about races on set/clear of the flag.
+> 
+> And it can use dev->features.
 
- I found those while trying to test V6 patch using latest
- libteam (commit 5e9790816606a6dd4e7f6f32c0bb0c45e5d13b31)
- and libnl-3.2.2 (last stable).
- thanks,
- fbl
-
- lib/libteam.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/lib/libteam.c b/lib/libteam.c
-index feb13b6..e7ae6b0 100644
---- a/lib/libteam.c
-+++ b/lib/libteam.c
-@@ -1331,7 +1331,7 @@ int team_port_add(struct team_handle *th, uint32_t port_ifindex)
- {
- 	int err;
- 
--	err = rtnl_link_enslave_ifindex(th->nl_cli.sock, th->ifindex,
-+	err = rtnl_link_bond_enslave_ifindex(th->nl_cli.sock, th->ifindex,
- 					port_ifindex);
- 	return -nl2syserr(err);
- }
-@@ -1350,6 +1350,6 @@ int team_port_remove(struct team_handle *th, uint32_t port_ifindex)
- {
- 	int err;
- 
--	err = rtnl_link_release_ifindex(th->nl_cli.sock, port_ifindex);
-+	err = rtnl_link_bond_release_ifindex(th->nl_cli.sock, port_ifindex);
- 	return -nl2syserr(err);
- }
--- 
-1.7.6
+Oh, is that kosher?    Looks great to me!
