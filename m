@@ -1,40 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V4 net-next] neigh: new unresolved queue limits
-Date: Wed, 09 Nov 2011 16:21:37 -0500 (EST)
-Message-ID: <20111109.162137.808999062815992591.davem@davemloft.net>
-References: <1320837249.2315.26.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111109.161644.505896539772671525.davem@davemloft.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless 2011-11-09
+Date: Wed, 9 Nov 2011 16:25:05 -0500
+Message-ID: <20111109212505.GC10712@tuxdriver.com>
+References: <20111109193504.GA32400@tuxdriver.com>
+ <20111109.162015.2261725491621555303.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:37435 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754031Ab1KIVVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 16:21:40 -0500
-In-Reply-To: <20111109.161644.505896539772671525.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="BOKacYhQ+x31HxR3"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111109.162015.2261725491621555303.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 09 Nov 2011 16:16:44 -0500 (EST)
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 09 Nov 2011 12:14:09 +0100
-> 
->> unres_qlen is the number of frames we are able to queue per unresolved
->> neighbour. Its default value (3) was never changed and is responsible
->> for strange drops, especially if IP fragments are used, or multiple
->> sessions start in parallel. Even a single tcp flow can hit this limit.
->  ...
-> 
-> Ok, I've applied this, let's see what happens :-)
+--BOKacYhQ+x31HxR3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Early answer, build fails.
+On Wed, Nov 09, 2011 at 04:20:15PM -0500, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Wed, 9 Nov 2011 14:35:04 -0500
+>=20
+> > Regarding the Bluetooth fixes, Gustavo says this:
+> >=20
+> > Please let me know if there are problems!
+>=20
+> Gustavo says what? :-)
 
-Please test build this patch with DECNET enabled and resubmit.  The
-decnet neigh layer still refers to the removed ->queue_len member.
+Hmmm...obviously not my best day...
 
-Thanks.
+Gustavo says:
+
+"3 more fixes to linux 3.2. One is USB device id addition and the other two
+patches combined fixes a connection issue. The first one from Arek Lichwa
+revert the wrong fix and a second commit from Andrzej Kaczmarek fix the iss=
+ue
+properly."
+
+Hth! :-)
+
+John
+
+P.S.  Pull request head is commit e29ec6247053ad60bd0b36f155b647364a615097.
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--BOKacYhQ+x31HxR3
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJOuu+xAAoJEJctW/TcYTgGQUAP+wfBT9FFB/oB3lNqu2j3GgEs
+b4TfFi716y+kJJfRBrJuliz9UaO0k483e+hZ8a7fhaMgoMmPMWWKvLFqQLY/ldNJ
++/iSDQSWgbZ8MPsd9GmwRih9FCpdmS4sGizPbaZL/twqEcSUrP+VfhRhI93KZsLE
+s2YWdm7di1kzaSvrT3+/GD67Hj9NXVhy5x/RhYemiqEbb7w9jP1uxo6Ywk7/5V4S
+DtwYqxNqE4vAl2GZ5Au/kJnSAf6DDGVBMwenlGQPwJhHq1eRAtCNTujsrJGf/RUo
+rFvbVQhX+LhyHiMudCJrHmNpLGAlHowis/W2veV9uUEJXlHeAgMiLeC7aYtEV/Lp
+RJ20xy1C0XxsZ91jKf7imv/vpgA7YNHjuqZcQvvfmyVYwH98U/5v5fgRKhaJ6RBd
+FLekA32cm3Ew5Ns+r1QkJHj43tJceu/kDfmGmIBPkn6KHaeYIECKczoS8qTmxMBX
+jimF9cGK2lMHFdTuksKnx6Avj1g2teZraX5dj1Qr0QBP1nmh45+aGk4/E2u59sy3
+4gHmFoaS48HJvtpszEnQ3r18YxV48W3mMEe9MCfaRi2KXvotz80JnUSSRkTPsu7j
+VojCim4DCCaA6fMHlVPPF7bFpv7NWVvdlUFDfRKewP4WLTsQMGTXG6b01jMzZTrm
+UadbLQi3b1jJAlB+T3cb
+=mfb8
+-----END PGP SIGNATURE-----
+
+--BOKacYhQ+x31HxR3--
