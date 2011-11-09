@@ -1,52 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: drivers/net/hippi/Kconfig should be sourced
-Date: Wed, 09 Nov 2011 15:46:43 -0500 (EST)
-Message-ID: <20111109.154643.2008804116058722848.davem@davemloft.net>
-References: <1320784270.14409.404.camel@x61.thuisdomein>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: pebolle@tiscali.nl
+From: Marcos Paulo de Souza <marcos.mage@gmail.com>
+Subject: [PATCH 1/2] include/net/cfg80211.h: Fix issue of make htmldocs
+Date: Wed,  9 Nov 2011 18:46:12 -0200
+Message-ID: <1320871572-3430-1-git-send-email-marcos.mage@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, rdunlap@xenotime.net,
+	Marcos Paulo de Souza <marcos.mage@gmail.com>
+To: johannes@supsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:45583 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754874Ab1KIUqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 15:46:49 -0500
-In-Reply-To: <1320784270.14409.404.camel@x61.thuisdomein>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:40996 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754874Ab1KIUsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 15:48:35 -0500
+Received: by yenr9 with SMTP id r9so1096035yen.19
+        for <netdev@vger.kernel.org>; Wed, 09 Nov 2011 12:48:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Tue, 08 Nov 2011 21:31:10 +0100
+Make documentation of member sta_modify_mask of struct
+station_parameters and sta_flags of struct station_info.
 
-> Commit ff5a3b509e ("hippi: Move the HIPPI driver") moved the HIPPI
-> driver into drivers/net/hippi. It didn't source
-> drivers/net/hippi/Kconfig though, so it didn't make all necessary
-> Kconfig changes. So let drivers/net/kconfig source HIPPI's Kconfig file.
-> 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
-> git grep tested only. Perhaps the exact spot where
-> drivers/net/hippi/Kconfig gets sourced is relevant, so this needs
-> (build) testing by people actually familiar with the HIPPI driver. 
+Signed-off-by: Marcos Paulo de Souza <marcos.mage@gmail.com>
+---
+ include/net/cfg80211.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Please at least type "make oldconfig" with CONFIG_HIPPI enabled or
-similar before submitting patches like this.
-
-There is nothing architecture or platform specific about getting
-the option enabled enough for you to see this:
-
-drivers/net/hippi/Kconfig:40: syntax error
-drivers/net/hippi/Kconfig:20: missing end statement for this entry
-drivers/net/Kconfig:28: missing end statement for this entry
-drivers/Kconfig:1: missing end statement for this entry
-drivers/net/hippi/Kconfig:39: invalid statement
-drivers/net/Kconfig:341: unexpected end statement
-drivers/Kconfig:139: unexpected end statement
-make[1]: *** [oldconfig] Error 1
-make: *** [oldconfig] Error 2
-
-I've fixed this up but if you can't be bothered to type "make" I
-seriously can't be bothered to even look at your patch submissions.
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+index 92cf1c2..bbf6bf7 100644
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -447,6 +447,7 @@ enum station_parameters_apply_mask {
+  *	(bitmask of BIT(NL80211_STA_FLAG_...))
+  * @sta_flags_set: station flags values
+  *	(bitmask of BIT(NL80211_STA_FLAG_...))
++ * @sta_modify_mask: apply new uAPSD parameters
+  * @listen_interval: listen interval or -1 for no change
+  * @aid: AID or zero for no change
+  * @plink_action: plink action to take
+@@ -606,6 +607,7 @@ struct sta_bss_parameters {
+  * @tx_failed: number of failed transmissions (retries exceeded, no ACK)
+  * @rx_dropped_misc:  Dropped for un-specified reason.
+  * @bss_param: current BSS parameters
++ * @sta_flags: Station flags mask/set
+  * @generation: generation number for nl80211 dumps.
+  *	This number should increase every time the list of stations
+  *	changes, i.e. when a station is added or removed, so that
+-- 
+1.7.4.4
