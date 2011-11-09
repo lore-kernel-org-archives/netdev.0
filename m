@@ -1,343 +1,120 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCHv4 4/9] macb: convert printk to netdev_ and friends
-Date: Wed, 9 Nov 2011 13:37:26 +0000
-Message-ID: <20111109133726.GD4253@totoro>
-References: <1320761613-18641-1-git-send-email-jamie@jamieiles.com>
- <1320761613-18641-5-git-send-email-jamie@jamieiles.com>
- <1320844247.6923.18.camel@Joe-Laptop>
- <20111109131421.GC4253@totoro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	arnd@arndb.de
-To: Jamie Iles <jamie@jamieiles.com>
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: [PATCH Kernel-3.1.0] mdio-gpio: Add reset functionality to mdio-gpio driver.
+Date: Wed,  9 Nov 2011 13:38:51 +0000
+Message-ID: <1320845931-25782-1-git-send-email-srinivas.kandagatla@st.com>
+Cc: davem@davemloft.net, stuart.menefy@st.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:42696 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751344Ab1KINha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 08:37:30 -0500
-Received: by wwf22 with SMTP id 22so7797401wwf.1
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2011 05:37:29 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20111109131421.GC4253@totoro>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:39396 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753263Ab1KINnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 08:43:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 09, 2011 at 01:14:21PM +0000, Jamie Iles wrote:
-> Hi Joe,
-> 
-> On Wed, Nov 09, 2011 at 05:10:47AM -0800, Joe Perches wrote:
-> > On Tue, 2011-11-08 at 14:13 +0000, Jamie Iles wrote:
-> > > macb is already using the dev_dbg() and friends helpers so use netdev_()
-> > > along with a pr_fmt() definition to make the printing a little cleaner.
-> > trivia...
-> 
-> All valid comments.  I'll fix all of these up.
-> 
-> Thanks for taking a look!
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-OK, here's an updated patch.  Thanks again Joe!
+This patch adds phy reset functionality to mdio-bitbang driver. Now
+mdio_gpio_platform_data has new member as function pointer which can be
+filled at the bsp level for a callback from phy infrastructure. Also the
+mdio-bitbang driver fills-in the reset function of mii_bus structure.
 
-8<---
+Without this patch the bsp level code has to takecare of the reseting
+PHY's on the bus, which become bit hacky for every bsp and
+phy-infrastructure is ignored aswell.
 
-Subject: [PATCHv5] macb: convert printk to netdev_ and friends
-
-macb is already using the dev_dbg() and friends helpers so use netdev_()
-along with a pr_fmt() definition to make the printing a little cleaner.
-
-v5:	- cleanups suggested by Joe Perches
-
-Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Signed-off-by: Jamie Iles <jamie@jamieiles.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Tested-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Cc: Stuart Menefy <stuart.menefy@st.com>
 ---
- drivers/net/ethernet/cadence/macb.c |  119 ++++++++++++++++------------------
- 1 files changed, 56 insertions(+), 63 deletions(-)
+Hi All,
+Recently In my attempt to get mdio-bitbang driver working to debug 
+an issue, I have noticed that mii bus reset functionality is 
+missing in the mdio-bitbang driver.
+This functionality is very much needed to reset devices on the mii-bus. 
+Without this functionality BSP level code has to add code to do reset 
+before the mdio-bitbang driver probe is called.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index d97d9ce..b171dc2 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -8,6 +8,7 @@
-  * published by the Free Software Foundation.
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- #include <linux/clk.h>
- #include <linux/module.h>
- #include <linux/moduleparam.h>
-@@ -82,7 +83,7 @@ static void __init macb_get_hwaddr(struct macb *bp)
- 	if (is_valid_ether_addr(addr)) {
- 		memcpy(bp->dev->dev_addr, addr, sizeof(addr));
- 	} else {
--		dev_info(&bp->pdev->dev, "invalid hw address, using random\n");
-+		netdev_info(bp->dev, "invalid hw address, using random\n");
- 		random_ether_addr(bp->dev->dev_addr);
- 	}
- }
-@@ -176,11 +177,12 @@ static void macb_handle_link_change(struct net_device *dev)
- 
- 	if (status_change) {
- 		if (phydev->link)
--			printk(KERN_INFO "%s: link up (%d/%s)\n",
--			       dev->name, phydev->speed,
--			       DUPLEX_FULL == phydev->duplex ? "Full":"Half");
-+			netdev_info(dev, "link up (%d/%s)\n",
-+				    phydev->speed,
-+				    phydev->duplex == DUPLEX_FULL ?
-+				    "Full" : "Half");
- 		else
--			printk(KERN_INFO "%s: link down\n", dev->name);
-+			netdev_info(dev, "link down\n");
- 	}
+As mii-bus infrastructure already provides the mii-bus drivers to 
+support reset function callbacks, Its much neat way to get reset 
+functionality support in to mdio-bitbang driver.
+
+This patch adds reset functionality to mdio-gpio driver.
+
+thanks,
+srini
+
+
+ drivers/net/phy/mdio-bitbang.c |    9 +++++++++
+ drivers/net/phy/mdio-gpio.c    |    1 +
+ include/linux/mdio-bitbang.h   |    3 +++
+ include/linux/mdio-gpio.h      |    2 ++
+ 4 files changed, 15 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/phy/mdio-bitbang.c b/drivers/net/phy/mdio-bitbang.c
+index 6539189..4b99cfc 100644
+--- a/drivers/net/phy/mdio-bitbang.c
++++ b/drivers/net/phy/mdio-bitbang.c
+@@ -202,6 +202,14 @@ static int mdiobb_write(struct mii_bus *bus, int phy, int reg, u16 val)
+ 	return 0;
  }
  
-@@ -194,7 +196,7 @@ static int macb_mii_probe(struct net_device *dev)
++static int mdiobb_reset(struct mii_bus *bus)
++{
++	struct mdiobb_ctrl *ctrl = bus->priv;
++	if (ctrl->ops->reset)
++		ctrl->ops->reset(bus);
++	return 0;
++}
++
+ struct mii_bus *alloc_mdio_bitbang(struct mdiobb_ctrl *ctrl)
+ {
+ 	struct mii_bus *bus;
+@@ -214,6 +222,7 @@ struct mii_bus *alloc_mdio_bitbang(struct mdiobb_ctrl *ctrl)
  
- 	phydev = phy_find_first(bp->mii_bus);
- 	if (!phydev) {
--		printk (KERN_ERR "%s: no PHY found\n", dev->name);
-+		netdev_err(dev, "no PHY found\n");
- 		return -1;
- 	}
+ 	bus->read = mdiobb_read;
+ 	bus->write = mdiobb_write;
++	bus->reset = mdiobb_reset;
+ 	bus->priv = ctrl;
  
-@@ -207,7 +209,7 @@ static int macb_mii_probe(struct net_device *dev)
- 				 PHY_INTERFACE_MODE_RMII :
- 				 PHY_INTERFACE_MODE_MII);
- 	if (ret) {
--		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
-+		netdev_err(dev, "Could not attach to PHY\n");
- 		return ret;
- 	}
+ 	return bus;
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 2843c90..367e0d0 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -97,6 +97,7 @@ static struct mii_bus * __devinit mdio_gpio_bus_init(struct device *dev,
+ 	bitbang->ctrl.ops = &mdio_gpio_ops;
+ 	bitbang->mdc = pdata->mdc;
+ 	bitbang->mdio = pdata->mdio;
++	mdio_gpio_ops.reset = pdata->reset;
  
-@@ -301,14 +303,13 @@ static void macb_tx(struct macb *bp)
- 	status = macb_readl(bp, TSR);
- 	macb_writel(bp, TSR, status);
+ 	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
+ 	if (!new_bus)
+diff --git a/include/linux/mdio-bitbang.h b/include/linux/mdio-bitbang.h
+index 8ea9a42..7c88677 100644
+--- a/include/linux/mdio-bitbang.h
++++ b/include/linux/mdio-bitbang.h
+@@ -27,6 +27,9 @@ struct mdiobb_ops {
  
--	dev_dbg(&bp->pdev->dev, "macb_tx status = %02lx\n",
--		(unsigned long)status);
-+	netdev_dbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
+ 	/* Retrieve the state Management Data I/O pin. */
+ 	int (*get_mdio_data)(struct mdiobb_ctrl *ctrl);
++
++	/* reset callback */
++	int (*reset)(struct mii_bus *bus);
+ };
  
- 	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
- 		int i;
--		printk(KERN_ERR "%s: TX %s, resetting buffers\n",
--			bp->dev->name, status & MACB_BIT(UND) ?
--			"underrun" : "retry limit exceeded");
-+		netdev_err(bp->dev, "TX %s, resetting buffers\n",
-+			   status & MACB_BIT(UND) ?
-+			   "underrun" : "retry limit exceeded");
+ struct mdiobb_ctrl {
+diff --git a/include/linux/mdio-gpio.h b/include/linux/mdio-gpio.h
+index e9d3fdf..7c9fe3c 100644
+--- a/include/linux/mdio-gpio.h
++++ b/include/linux/mdio-gpio.h
+@@ -20,6 +20,8 @@ struct mdio_gpio_platform_data {
  
- 		/* Transfer ongoing, disable transmitter, to avoid confusion */
- 		if (status & MACB_BIT(TGO))
-@@ -367,8 +368,8 @@ static void macb_tx(struct macb *bp)
- 		if (!(bufstat & MACB_BIT(TX_USED)))
- 			break;
+ 	unsigned int phy_mask;
+ 	int irqs[PHY_MAX_ADDR];
++	/* reset callback */
++	int (*reset)(struct mii_bus *bus);
+ };
  
--		dev_dbg(&bp->pdev->dev, "skb %u (data %p) TX complete\n",
--			tail, skb->data);
-+		netdev_dbg(bp->dev, "skb %u (data %p) TX complete\n",
-+			   tail, skb->data);
- 		dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
- 				 DMA_TO_DEVICE);
- 		bp->stats.tx_packets++;
-@@ -393,8 +394,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 
- 	len = MACB_BFEXT(RX_FRMLEN, bp->rx_ring[last_frag].ctrl);
- 
--	dev_dbg(&bp->pdev->dev, "macb_rx_frame frags %u - %u (len %u)\n",
--		first_frag, last_frag, len);
-+	netdev_dbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
-+		   first_frag, last_frag, len);
- 
- 	skb = dev_alloc_skb(len + RX_OFFSET);
- 	if (!skb) {
-@@ -435,8 +436,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 
- 	bp->stats.rx_packets++;
- 	bp->stats.rx_bytes += len;
--	dev_dbg(&bp->pdev->dev, "received skb of length %u, csum: %08x\n",
--		skb->len, skb->csum);
-+	netdev_dbg(bp->dev, "received skb of length %u, csum: %08x\n",
-+		   skb->len, skb->csum);
- 	netif_receive_skb(skb);
- 
- 	return 0;
-@@ -513,8 +514,8 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 
- 	work_done = 0;
- 
--	dev_dbg(&bp->pdev->dev, "poll: status = %08lx, budget = %d\n",
--		(unsigned long)status, budget);
-+	netdev_dbg(bp->dev, "poll: status = %08lx, budget = %d\n",
-+		   (unsigned long)status, budget);
- 
- 	work_done = macb_rx(bp, budget);
- 	if (work_done < budget) {
-@@ -563,8 +564,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
- 
- 			if (napi_schedule_prep(&bp->napi)) {
--				dev_dbg(&bp->pdev->dev,
--					"scheduling RX softirq\n");
-+				netdev_dbg(bp->dev, "scheduling RX softirq\n");
- 				__napi_schedule(&bp->napi);
- 			}
- 		}
-@@ -585,11 +585,11 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 
- 		if (status & MACB_BIT(HRESP)) {
- 			/*
--			 * TODO: Reset the hardware, and maybe move the printk
--			 * to a lower-priority context as well (work queue?)
-+			 * TODO: Reset the hardware, and maybe move the
-+			 * netdev_err to a lower-priority context as well
-+			 * (work queue?)
- 			 */
--			printk(KERN_ERR "%s: DMA bus error: HRESP not OK\n",
--			       dev->name);
-+			netdev_err(dev, "DMA bus error: HRESP not OK\n");
- 		}
- 
- 		status = macb_readl(bp, ISR);
-@@ -625,15 +625,12 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- #ifdef DEBUG
- 	int i;
--	dev_dbg(&bp->pdev->dev,
--		"start_xmit: len %u head %p data %p tail %p end %p\n",
--		skb->len, skb->head, skb->data,
--		skb_tail_pointer(skb), skb_end_pointer(skb));
--	dev_dbg(&bp->pdev->dev,
--		"data:");
--	for (i = 0; i < 16; i++)
--		printk(" %02x", (unsigned int)skb->data[i]);
--	printk("\n");
-+	netdev_dbg(bp->dev,
-+		   "start_xmit: len %u head %p data %p tail %p end %p\n",
-+		   skb->len, skb->head, skb->data,
-+		   skb_tail_pointer(skb), skb_end_pointer(skb));
-+	print_hex_dump(KERN_DEBUG, "data: ", DUMP_PREFIX_OFFSET, 16, 1,
-+		       skb->data, 16, true);
- #endif
- 
- 	len = skb->len;
-@@ -643,21 +640,20 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (TX_BUFFS_AVAIL(bp) < 1) {
- 		netif_stop_queue(dev);
- 		spin_unlock_irqrestore(&bp->lock, flags);
--		dev_err(&bp->pdev->dev,
--			"BUG! Tx Ring full when queue awake!\n");
--		dev_dbg(&bp->pdev->dev, "tx_head = %u, tx_tail = %u\n",
--			bp->tx_head, bp->tx_tail);
-+		netdev_err(bp->dev, "BUG! Tx Ring full when queue awake!\n");
-+		netdev_dbg(bp->dev, "tx_head = %u, tx_tail = %u\n",
-+			   bp->tx_head, bp->tx_tail);
- 		return NETDEV_TX_BUSY;
- 	}
- 
- 	entry = bp->tx_head;
--	dev_dbg(&bp->pdev->dev, "Allocated ring entry %u\n", entry);
-+	netdev_dbg(bp->dev, "Allocated ring entry %u\n", entry);
- 	mapping = dma_map_single(&bp->pdev->dev, skb->data,
- 				 len, DMA_TO_DEVICE);
- 	bp->tx_skb[entry].skb = skb;
- 	bp->tx_skb[entry].mapping = mapping;
--	dev_dbg(&bp->pdev->dev, "Mapped skb data %p to DMA addr %08lx\n",
--		skb->data, (unsigned long)mapping);
-+	netdev_dbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
-+		   skb->data, (unsigned long)mapping);
- 
- 	ctrl = MACB_BF(TX_FRMLEN, len);
- 	ctrl |= MACB_BIT(TX_LAST);
-@@ -721,27 +717,27 @@ static int macb_alloc_consistent(struct macb *bp)
- 					 &bp->rx_ring_dma, GFP_KERNEL);
- 	if (!bp->rx_ring)
- 		goto out_err;
--	dev_dbg(&bp->pdev->dev,
--		"Allocated RX ring of %d bytes at %08lx (mapped %p)\n",
--		size, (unsigned long)bp->rx_ring_dma, bp->rx_ring);
-+	netdev_dbg(bp->dev,
-+		   "Allocated RX ring of %d bytes at %08lx (mapped %p)\n",
-+		   size, (unsigned long)bp->rx_ring_dma, bp->rx_ring);
- 
- 	size = TX_RING_BYTES;
- 	bp->tx_ring = dma_alloc_coherent(&bp->pdev->dev, size,
- 					 &bp->tx_ring_dma, GFP_KERNEL);
- 	if (!bp->tx_ring)
- 		goto out_err;
--	dev_dbg(&bp->pdev->dev,
--		"Allocated TX ring of %d bytes at %08lx (mapped %p)\n",
--		size, (unsigned long)bp->tx_ring_dma, bp->tx_ring);
-+	netdev_dbg(bp->dev,
-+		   "Allocated TX ring of %d bytes at %08lx (mapped %p)\n",
-+		   size, (unsigned long)bp->tx_ring_dma, bp->tx_ring);
- 
- 	size = RX_RING_SIZE * RX_BUFFER_SIZE;
- 	bp->rx_buffers = dma_alloc_coherent(&bp->pdev->dev, size,
- 					    &bp->rx_buffers_dma, GFP_KERNEL);
- 	if (!bp->rx_buffers)
- 		goto out_err;
--	dev_dbg(&bp->pdev->dev,
--		"Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
--		size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
-+	netdev_dbg(bp->dev,
-+		   "Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
-+		   size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
- 
- 	return 0;
- 
-@@ -952,7 +948,7 @@ static int macb_open(struct net_device *dev)
- 	struct macb *bp = netdev_priv(dev);
- 	int err;
- 
--	dev_dbg(&bp->pdev->dev, "open\n");
-+	netdev_dbg(bp->dev, "open\n");
- 
- 	/* if the phy is not yet register, retry later*/
- 	if (!bp->phy_dev)
-@@ -963,9 +959,8 @@ static int macb_open(struct net_device *dev)
- 
- 	err = macb_alloc_consistent(bp);
- 	if (err) {
--		printk(KERN_ERR
--		       "%s: Unable to allocate DMA memory (error %d)\n",
--		       dev->name, err);
-+		netdev_err(dev, "Unable to allocate DMA memory (error %d)\n",
-+			   err);
- 		return err;
- 	}
- 
-@@ -1174,9 +1169,8 @@ static int __init macb_probe(struct platform_device *pdev)
- 	dev->irq = platform_get_irq(pdev, 0);
- 	err = request_irq(dev->irq, macb_interrupt, 0, dev->name, dev);
- 	if (err) {
--		printk(KERN_ERR
--		       "%s: Unable to request IRQ %d (error %d)\n",
--		       dev->name, dev->irq, err);
-+		dev_err(&pdev->dev, "Unable to request IRQ %d (error %d)\n",
-+			dev->irq, err);
- 		goto err_out_iounmap;
- 	}
- 
-@@ -1228,13 +1222,12 @@ static int __init macb_probe(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, dev);
- 
--	printk(KERN_INFO "%s: Atmel MACB at 0x%08lx irq %d (%pM)\n",
--	       dev->name, dev->base_addr, dev->irq, dev->dev_addr);
-+	netdev_info(dev, "Atmel MACB at 0x%08lx irq %d (%pM)\n",
-+		dev->base_addr, dev->irq, dev->dev_addr);
- 
- 	phydev = bp->phy_dev;
--	printk(KERN_INFO "%s: attached PHY driver [%s] "
--		"(mii_bus:phy_addr=%s, irq=%d)\n", dev->name,
--		phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
-+	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
-+		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
- 
- 	return 0;
- 
+ #endif /* __LINUX_MDIO_GPIO_H */
 -- 
-1.7.4.1
+1.6.3.3
