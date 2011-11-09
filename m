@@ -1,148 +1,201 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: reduce percpu needs for icmpmsg mibs
-Date: Wed, 09 Nov 2011 00:04:43 +0100
-Message-ID: <1320793483.26025.29.camel@edumazet-laptop>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH 0/6 v4] macvlan: MAC Address filtering support
+	for passthru mode
+Date: Tue, 08 Nov 2011 23:55:35 -0800
+Message-ID: <20111109075449.13549.58135.stgit@rhel6.1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62241 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753353Ab1KHXEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Nov 2011 18:04:47 -0500
-Received: by wyh15 with SMTP id 15so1056325wyh.19
-        for <netdev@vger.kernel.org>; Tue, 08 Nov 2011 15:04:46 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chrisw@redhat.com, sri@us.ibm.com, dragos.tatulea@gmail.com,
+	kvm@vger.kernel.org, arnd@arndb.de, mst@redhat.com,
+	gregory.v.rose@intel.com, mchan@broadcom.com, dwang2@cisco.com,
+	shemminger@vyatta.com, eric.dumazet@gmail.com, kaber@trash.net,
+	benve@cisco.com
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Reading /proc/net/snmp on a machine with a lot of cpus is very expensive
-(can be ~88000 us).
+v3 -> v4
+- Removed RFC in subject-prefix
+- Regenerated patches over latest net-next
+(no code changes)
 
-This is because ICMPMSG MIB uses 4096 bytes per cpu, and folding values
-for all possible cpus can read 16 Mbytes of memory.
+Thanks to Greg Rose <gregory.v.rose@intel.com> for evaluating v3
 
-ICMP messages are not considered as fast path on a typical server, and
-eventually few cpus handle them anyway. We can afford an atomic
-operation instead of using percpu data.
+v2 -> v3
+- Moved set and get filter ops from rtnl_link_ops to netdev_ops
+- Support for SRIOV VFs.
+	[Note: The get filters msg (in the way current get rtnetlink handles
+	it) might get too big for SRIOV vfs. This patch follows existing sriov 
+	vf get code and tries to accomodate filters for all VF's in a PF. 
+        And for the SRIOV case I have only tested the fact that the VF 
+	arguments are getting delivered to rtnetlink correctly. The code
+	follows existing sriov vf handling code so rest of it should work fine]
+- Fixed all op and netlink attribute names to start with IFLA_RX_FILTER
+- Changed macvlan filter ops to call corresponding lowerdev op if lowerdev 
+  supports it for passthru mode. Else it falls back on macvlan handling the 
+  filters locally as in v1 and v2
 
-This saves 4096 bytes per cpu and per network namespace.
+v1 -> v2
+- Instead of TUNSETTXFILTER introduced rtnetlink interface for the same
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-If this patch is accepted, I'll submit the IPv6 part as well.
 
- include/net/icmp.h      |    4 ++--
- include/net/netns/mib.h |    2 +-
- include/net/snmp.h      |    2 +-
- net/ipv4/af_inet.c      |    8 ++++----
- net/ipv4/proc.c         |    9 ++++-----
- 5 files changed, 12 insertions(+), 13 deletions(-)
+Background and details:
+=======================
+Today macvtap used in virtualized environment does not have support to 
+propagate MAC, VLAN and interface flags from guest to lowerdev.
+Which means to be able to register additional VLANs, unicast and multicast
+addresses or change pkt filter flags in the guest, the lowerdev has to be
+put in promisocous mode. Today the only macvlan mode that supports this is 
+the PASSTHRU mode and it puts the lower dev in promiscous mode.
 
-diff --git a/include/net/icmp.h b/include/net/icmp.h
-index f0698b9..75d6156 100644
---- a/include/net/icmp.h
-+++ b/include/net/icmp.h
-@@ -31,8 +31,8 @@ struct icmp_err {
- extern const struct icmp_err icmp_err_convert[];
- #define ICMP_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.icmp_statistics, field)
- #define ICMP_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.icmp_statistics, field)
--#define ICMPMSGOUT_INC_STATS(net, field)	SNMP_INC_STATS((net)->mib.icmpmsg_statistics, field+256)
--#define ICMPMSGIN_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.icmpmsg_statistics, field)
-+#define ICMPMSGOUT_INC_STATS(net, field)	SNMP_INC_STATS_ATOMIC_LONG((net)->mib.icmpmsg_statistics, field+256)
-+#define ICMPMSGIN_INC_STATS_BH(net, field)	SNMP_INC_STATS_ATOMIC_LONG((net)->mib.icmpmsg_statistics, field)
- 
- struct dst_entry;
- struct net_proto_family;
-diff --git a/include/net/netns/mib.h b/include/net/netns/mib.h
-index 0b44112..f360135 100644
---- a/include/net/netns/mib.h
-+++ b/include/net/netns/mib.h
-@@ -10,7 +10,7 @@ struct netns_mib {
- 	DEFINE_SNMP_STAT(struct udp_mib, udp_statistics);
- 	DEFINE_SNMP_STAT(struct udp_mib, udplite_statistics);
- 	DEFINE_SNMP_STAT(struct icmp_mib, icmp_statistics);
--	DEFINE_SNMP_STAT(struct icmpmsg_mib, icmpmsg_statistics);
-+	DEFINE_SNMP_STAT_ATOMIC(struct icmpmsg_mib, icmpmsg_statistics);
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 	struct proc_dir_entry *proc_net_devsnmp6;
-diff --git a/include/net/snmp.h b/include/net/snmp.h
-index 8f0f9ac..0feafa6 100644
---- a/include/net/snmp.h
-+++ b/include/net/snmp.h
-@@ -67,7 +67,7 @@ struct icmp_mib {
- 
- #define ICMPMSG_MIB_MAX	__ICMPMSG_MIB_MAX
- struct icmpmsg_mib {
--	unsigned long	mibs[ICMPMSG_MIB_MAX];
-+	atomic_long_t	mibs[ICMPMSG_MIB_MAX];
- };
- 
- /* ICMP6 (IPv6-ICMP) */
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 1b5096a..b2bbcd0 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1572,9 +1572,9 @@ static __net_init int ipv4_mib_init_net(struct net *net)
- 			  sizeof(struct icmp_mib),
- 			  __alignof__(struct icmp_mib)) < 0)
- 		goto err_icmp_mib;
--	if (snmp_mib_init((void __percpu **)net->mib.icmpmsg_statistics,
--			  sizeof(struct icmpmsg_mib),
--			  __alignof__(struct icmpmsg_mib)) < 0)
-+	net->mib.icmpmsg_statistics = kzalloc(sizeof(struct icmpmsg_mib),
-+					      GFP_KERNEL);
-+	if (!net->mib.icmpmsg_statistics)
- 		goto err_icmpmsg_mib;
- 
- 	tcp_mib_init(net);
-@@ -1598,7 +1598,7 @@ err_tcp_mib:
- 
- static __net_exit void ipv4_mib_exit_net(struct net *net)
- {
--	snmp_mib_free((void __percpu **)net->mib.icmpmsg_statistics);
-+	kfree(net->mib.icmpmsg_statistics);
- 	snmp_mib_free((void __percpu **)net->mib.icmp_statistics);
- 	snmp_mib_free((void __percpu **)net->mib.udplite_statistics);
- 	snmp_mib_free((void __percpu **)net->mib.udp_statistics);
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 466ea8b..961eed4 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -288,7 +288,7 @@ static void icmpmsg_put(struct seq_file *seq)
- 
- 	count = 0;
- 	for (i = 0; i < ICMPMSG_MIB_MAX; i++) {
--		val = snmp_fold_field((void __percpu **) net->mib.icmpmsg_statistics, i);
-+		val = atomic_long_read(&net->mib.icmpmsg_statistics->mibs[i]);
- 		if (val) {
- 			type[count] = i;
- 			vals[count++] = val;
-@@ -307,6 +307,7 @@ static void icmp_put(struct seq_file *seq)
- {
- 	int i;
- 	struct net *net = seq->private;
-+	atomic_long_t *ptr = net->mib.icmpmsg_statistics->mibs;
- 
- 	seq_puts(seq, "\nIcmp: InMsgs InErrors");
- 	for (i=0; icmpmibmap[i].name != NULL; i++)
-@@ -319,15 +320,13 @@ static void icmp_put(struct seq_file *seq)
- 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_INERRORS));
- 	for (i=0; icmpmibmap[i].name != NULL; i++)
- 		seq_printf(seq, " %lu",
--			snmp_fold_field((void __percpu **) net->mib.icmpmsg_statistics,
--				icmpmibmap[i].index));
-+			   atomic_long_read(ptr + icmpmibmap[i].index));
- 	seq_printf(seq, " %lu %lu",
- 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_OUTMSGS),
- 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_OUTERRORS));
- 	for (i=0; icmpmibmap[i].name != NULL; i++)
- 		seq_printf(seq, " %lu",
--			snmp_fold_field((void __percpu **) net->mib.icmpmsg_statistics,
--				icmpmibmap[i].index | 0x100));
-+			   atomic_long_read(ptr + (icmpmibmap[i].index | 0x100)));
- }
- 
- /*
+PASSTHRU mode was added primarily for the SRIOV usecase. In PASSTHRU mode 
+there is a 1-1 mapping between macvtap and physical NIC or VF.
+
+There are two problems with putting the lowerdev in promiscous mode (ie SRIOV 
+VF's):
+	- Some SRIOV cards dont support promiscous mode today (Thread on Intel
+	driver indicates that http://lists.openwall.net/netdev/2011/09/27/6)
+	- For the SRIOV NICs that support it, Putting the lowerdev in 
+	promiscous mode leads to additional traffic being sent up to the 
+	guest virtio-net to filter result in extra overheads.
+	
+Both the above problems can be solved by offloading filtering to the 
+lowerdev hw. ie lowerdev does not need to be in promiscous mode as 
+long as the guest filters are passed down to the lowerdev. 
+
+This patch basically adds the infrastructure to set and get MAC and VLAN 
+filters on an interface via rtnetlink. It adds new netlink msg and netdev
+ops for the same. And implements these ops in macvlan for passthru mode.
+
+- Netlink interface:
+    This patch provides the following netlink interface to set mac and vlan
+    filters :
+
+    Interface to set RX filter on a SRIOV VF:
+    [IFLA_VF_RX_FILTERS] = {
+    	[IFLA_VF_RX_FILTER] = {
+    		[IFLA_RX_FILTER_VF]
+    		[IFLA_RX_FILTER_ADDR] = {
+    			[IFLA_RX_FILTER_ADDR_FLAGS]
+    			[IFLA_RX_FILTER_ADDR_UC_LIST] = {
+    				[IFLA_ADDR_LIST_ENTRY]
+    			}
+    			[IFLA_RX_FILTER_ADDR_MC_LIST] = {
+    				[IFLA_ADDR_LIST_ENTRY]
+    			}
+    		}
+    		[IFLA_RX_FILTER_VLAN] = {
+    			[IFLA_RX_FILTER_VLAN_BITMAP]
+    		}
+    	}
+    	...
+    }
+    
+    Interface to set RX filter on a any network interface.:
+    [IFLA_RX_FILTER] = {
+    	[IFLA_RX_FILTER_VF]
+    	[IFLA_RX_FILTER_ADDR] = {
+    		[IFLA_RX_FILTER_ADDR_FLAGS]
+    		[IFLA_RX_FILTER_ADDR_UC_LIST] = {
+    			[IFLA_ADDR_LIST_ENTRY]
+    		}
+    		[IFLA_RX_FILTER_ADDR_MC_LIST] = {
+    			[IFLA_ADDR_LIST_ENTRY]
+    		}
+    	}
+    	[IFLA_RX_FILTER_VLAN] = {
+    		[IFLA_RX_FILTER_VLAN_BITMAP]
+	}
+    } 
+
+    Note1: The IFLA_RX_FILTER_VLAN is a nested attribute, but contains only 
+    IFLA_RX_FILTER_VLAN_BITMAP today. The idea is that the IFLA_RX_FILTER_VLAN 
+    can be extended tomorrow to have a vlan list if some implementations 
+    prefer a list instead. 
+
+    And it provides the following netdev_ops to set/get MAC/VLAN filters:
+
+    int                     (*ndo_set_rx_filter_addr)(
+	                                        struct net_device *dev, int vf,
+                                                struct nlattr *tb[]);
+    int                     (*ndo_set_rx_filter_vlan)(
+                                                struct net_device *dev, int vf,
+                                                struct nlattr *tb[]);
+    size_t                  (*ndo_get_rx_filter_addr_size)(
+                                                const struct net_device *dev,
+                                                int vf);
+    size_t                  (*ndo_get_rx_filter_vlan_size)(
+                                                const struct net_device *dev,
+                                                int vf);
+    int                     (*ndo_get_rx_filter_addr)(
+                                                const struct net_device *dev,
+                                                int vf, struct sk_buff *skb);
+    int                     (*ndo_get_rx_filter_vlan)(
+                                                const struct net_device *dev,
+                                                int vf, struct sk_buff *skb);
+
+Some answers to questions that were raised during the review:
+- Protection against address spoofing:
+	- This patch adds filtering support only for macvtap PASSTHRU 
+	Mode. PASSTHRU mode is used mainly with SRIOV VF's. And SRIOV VF's 
+	come with anti mac/vlan spoofing support in the lowerdev driver. 
+	(netdev infrastructure to support this was added recently 
+	with IFLA_VF_SPOOFCHK). For 802.1Qbh devices, the port profile has a 
+	knob to enable/disable anti spoof check. Lowerdevice drivers also 
+	enforce limits on the number of address registrations allowed. 
+	For non-SRIOV VF's its the responsibility of the lowerdev driver
+	to implement any such protection. The currrent netdev hooks for 
+	SRIOV VF's spoof check could be extended to accomodate any network 
+	interface in the future.
+
+- Support for multiqueue devices: Enable filtering on individual queues (?):
+	As i understand after the thread between (Micheal and Greg),
+	VMdq Linux implementation is not in yet and dont know how its going to
+	take shape. But Intel VMdq devices do accept filters on a per-queue
+	basis. Since the netdev infrastructure for VMdq is not in yet, Its
+	hard to say how this patch can support it.
+
+	This patch makes use of current netdev infrastructure for setting
+	address and vlan filters. And if that changes for vmdq tomorrow,
+	then the work that this patch represents can be modified to accomodate
+	vmdq devices at that time. 
+
+	So i dont see a huge problem with this patch coming in the way for
+	vmdq devices.
+
+- Support for non-PASSTHRU mode:
+	I started implementing this. But there are a couple of problems.	
+	- Today, in non-PASSTHRU cases macvlan_handle_frame assumes that 
+	every macvlan device has a single unique mac.
+	And the macvlans are hashed on that single mac address. 
+	To support filtering for non-PASSTHRU mode in addition to this 
+	patch the following needs to be done:
+		- non-passthru mode with a single macvlan over a lower dev
+		can be treated as PASSTHRU case
+		- For non-PASSTHRU mode with multiple macvlans over a single 
+		lower dev:  
+			- Multiple unicast mac's now need to be hashed to the 
+			same macvlan device. The macvlan hash needs to change 
+			for lookup based on any one of the multiple unicast 
+			addresses a macvlan is interested in
+			- We need to consider vlans during the lookup too
+			- So the macvlan device hash needs to hash on both mac 
+			and vlan
+		- But the support for filtering in non-PASSTHRU mode can be 
+		built on this patch
+
+This patch series implements the following 
+01/6 rtnetlink: Netlink interface for setting MAC and VLAN filters
+02/6 netdev: Add netdev_ops to set and get MAC/VLAN rx filters
+03/6 rtnetlink: Add support to set MAC/VLAN filters
+04/6 rtnetlink: Add support to get MAC/VLAN filters
+05/6 macvlan: Add support to set MAC/VLAN filter netdev ops
+06/6 macvlan: Add support to get MAC/VLAN filter netdev ops
+
+Please comment. Thanks.
+
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
