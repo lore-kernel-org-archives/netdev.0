@@ -1,44 +1,71 @@
-From: Mark Lord <kernel@teksavvy.com>
-Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
-Date: Wed, 09 Nov 2011 11:25:11 -0500
-Message-ID: <4EBAA967.10403@teksavvy.com>
-References: <4EA89972.5060101@teksavvy.com>  <20111026.194045.2019668159403582571.davem@davemloft.net>  <4EA8B283.3010105@teksavvy.com>  <20111026.221719.2216112919297458522.davem@davemloft.net>  <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 1/4] net: add support for per-paged-fragment destructors
+Date: Wed, 9 Nov 2011 16:25:14 +0000
+Message-ID: <1320855914.955.184.camel@zakaz.uk.xensource.com>
+References: <1320850895.955.172.camel@zakaz.uk.xensource.com>
+	 <1320850927-30240-1-git-send-email-ian.campbell@citrix.com>
+	 <20111109153300.GA11617@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1320266549.2782.21.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:58788 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932293Ab1KIQZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 11:25:24 -0500
+In-Reply-To: <20111109153300.GA11617@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-11-02 04:42 PM, Ben Hutchings wrote:
-> On Wed, 2011-11-02 at 15:36 -0400, Mark Lord wrote:
+On Wed, 2011-11-09 at 15:33 +0000, Micha=C5=82 Miros=C5=82aw wrote:
+> On Wed, Nov 09, 2011 at 03:02:04PM +0000, Ian Campbell wrote:
+> > Entities which care about the complete lifecycle of pages which the=
+y inject
+> > into the network stack via an skb paged fragment can choose to set =
+this
+> > destructor in order to receive a callback when the stack is really =
+finished
+> > with a page (including all clones, retransmits, pull-ups etc etc).
 > [...]
->> First cut (for review) at updating the in-kernel asix usb/network driver
->> from the latest vendor GPL version of the driver, obtained from here:
->>
->>   http://www.asix.com.tw/download.php?sub=searchresult&PItemID=84&download=driver
-..
->> --- linux-3.0/drivers/net/usb/asix.c	2011-10-12 17:59:03.000000000 -0400
->> +++ linux/drivers/net/usb/asix.c	2011-11-01 19:00:50.051289683 -0400
-> [...]
-...
->> +	.set_tx_csum		= ax88772b_set_tx_csum,
->> +	.get_tx_csum		= ax88772b_get_tx_csum,
->> +	.get_rx_csum		= ax88772b_get_rx_csum,
->> +	.set_rx_csum		= ax88772b_set_rx_csum,
->> +};
-> 
-> The various ethtool operations for offload flags are being (or have
-> been) removed.  The driver must set net_device::hw_features and
-> implement net_device_ops::ndo_set_features instead.
+> > --- a/include/linux/skbuff.h
+> > +++ b/include/linux/skbuff.h
+> > @@ -139,9 +139,16 @@ struct sk_buff;
+> > =20
+> >  typedef struct skb_frag_struct skb_frag_t;
+> > =20
+> > +struct skb_frag_destructor {
+> > +	atomic_t ref;
+> > +	int (*destroy)(void *data);
+> > +	void *data;
+> > +};
+> > +
+> >  struct skb_frag_struct {
+> >  	struct {
+> >  		struct page *p;
+> > +		struct skb_frag_destructor *destructor;
+> >  	} page;
+>=20
+> You can get rid of the data field of skb_frag_destructor: if destroy(=
+) gets
+> pointer to the destroyed struct skb_frag_set_destructor, its users ca=
+n
+> get at containing struct via container_of() if needed and the memory
+> pointed to by data won't have to be managed separately.
 
-Okay, I see what to do for the rx_csum stuff, based on other drivers.
+At the moment you can share one destructor between all the frags,
+whereas data is specific to the frag. At the moment the only user is th=
+e
+rpc patch which doesn't make use of this capability (i.e. it could use
+container_of) but I'm not sure about other potential users yet.
 
-But is there anything to replace the tx_csum stuff,
-or should I just remove it entirely without a substitute?
+> Nice work, BTW!
 
-(thanks).
+Thanks.
+
+>=20
+> Best Regards,
+> Micha=C5=82 Miros=C5=82aw
