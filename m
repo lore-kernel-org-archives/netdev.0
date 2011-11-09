@@ -1,75 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv4: PKTINFO doesnt need dst reference
-Date: Wed, 09 Nov 2011 23:03:03 +0100
-Message-ID: <1320876183.3272.8.camel@edumazet-laptop>
-References: <1320673364.3020.21.camel@bwh-desktop>
-	 <1320676422.2361.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1320859475.3916.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111109.163708.2156133928191684256.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] libteam: fix function names to include 'bond'
+Date: Wed, 9 Nov 2011 23:04:25 +0100
+Message-ID: <20111109220423.GA2112@minipsycho>
+References: <1319660867-945-1-git-send-email-jpirko@redhat.com>
+ <1320862846-6000-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, pstaszewski@itcare.pl,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
+	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com,
+	benjamin.poirier@gmail.com, jzupka@redhat.com
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:37013 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805Ab1KIWDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 17:03:08 -0500
-Received: by eye27 with SMTP id 27so1911046eye.19
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2011 14:03:07 -0800 (PST)
-In-Reply-To: <20111109.163708.2156133928191684256.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:4674 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753503Ab1KIWEo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Nov 2011 17:04:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1320862846-6000-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 09 novembre 2011 =C3=A0 16:37 -0500, David Miller a =C3=A9c=
-rit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 09 Nov 2011 18:24:35 +0100
->=20
-> > [PATCH net-next] ipv4: IP_PKTINFO doesnt need dst reference
-> >=20
-> > When a socket uses IP_PKTINFO notifications, we currently force a d=
-st
-> > reference for each received skb. Reader has to access dst to get ne=
-eded
-> > information (rt_iif & rt_spec_dst) and must release dst reference.
-> >=20
-> > We also forced a dst reference if skb was put in socket backlog, ev=
-en
-> > without IP_PKTINFO handling. This happens under stress/load.
-> >=20
-> > We can instead store the needed information in skb->cb[], so that o=
-nly
-> > softirq handler really access dst, improving cache hit ratios.
-> >=20
-> > This removes two atomic operations per packet, and false sharing as
-> > well.
-> >=20
-> > On a benchmark using a mono threaded receiver (doing only recvmsg()
-> > calls), I can reach 720.000 pps instead of 570.000 pps.
-> >=20
-> > IP_PKTINFO is typically used by DNS servers, and any multihomed awa=
-re
-> > UDP application.
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Looks good, if it compiles I'll push it out to net-next :-)
 
-Arg :(  I cross my fingers :)
+Hi Flavio.
 
-BTW, on my bnx2x adapter, even small UDP frames use more than PAGE_SIZE
-bytes :
+Thomas included these 2 functions in latest libnl upstream. Bond
+versions wouldn't work because of "bond" type check.
 
-skb->truesize=3D4352 len=3D26 (payload only)
+Jirka
 
-Truesize being now more precise, we hit badly the shared
-udp_memory_allocated, even with single frames.
-
-I wonder if we shouldnt increase SK_MEM_QUANTUM a bit to avoid
-ping/pong...
-
--#define SK_MEM_QUANTUM ((int)PAGE_SIZE)
-+#define SK_MEM_QUANTUM ((int)PAGE_SIZE * 2)
+Wed, Nov 09, 2011 at 07:20:46PM CET, fbl@redhat.com wrote:
+>Signed-off-by: Flavio Leitner <fbl@redhat.com>
+>---
+>
+> I found those while trying to test V6 patch using latest
+> libteam (commit 5e9790816606a6dd4e7f6f32c0bb0c45e5d13b31)
+> and libnl-3.2.2 (last stable).
+> thanks,
+> fbl
+>
+> lib/libteam.c |    4 ++--
+> 1 files changed, 2 insertions(+), 2 deletions(-)
+>
+>diff --git a/lib/libteam.c b/lib/libteam.c
+>index feb13b6..e7ae6b0 100644
+>--- a/lib/libteam.c
+>+++ b/lib/libteam.c
+>@@ -1331,7 +1331,7 @@ int team_port_add(struct team_handle *th, uint32_t port_ifindex)
+> {
+> 	int err;
+> 
+>-	err = rtnl_link_enslave_ifindex(th->nl_cli.sock, th->ifindex,
+>+	err = rtnl_link_bond_enslave_ifindex(th->nl_cli.sock, th->ifindex,
+> 					port_ifindex);
+> 	return -nl2syserr(err);
+> }
+>@@ -1350,6 +1350,6 @@ int team_port_remove(struct team_handle *th, uint32_t port_ifindex)
+> {
+> 	int err;
+> 
+>-	err = rtnl_link_release_ifindex(th->nl_cli.sock, port_ifindex);
+>+	err = rtnl_link_bond_release_ifindex(th->nl_cli.sock, port_ifindex);
+> 	return -nl2syserr(err);
+> }
+>-- 
+>1.7.6
+>
