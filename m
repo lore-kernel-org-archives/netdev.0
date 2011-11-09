@@ -1,41 +1,101 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: dst->obsolete has become pointless
-Date: Wed, 09 Nov 2011 04:49:08 -0800
-Message-ID: <1320842948.6923.3.camel@Joe-Laptop>
-References: <20111104.230910.520924516201406800.davem@davemloft.net>
-	 <20111108093424.GG22141@secunet.com>
-	 <20111108.122020.1080743546477280623.davem@davemloft.net>
-	 <20111108.135901.1506278599930259562.davem@davemloft.net>
+Subject: Re: [PATCHv4 4/9] macb: convert printk to netdev_ and friends
+Date: Wed, 09 Nov 2011 05:10:47 -0800
+Message-ID: <1320844247.6923.18.camel@Joe-Laptop>
+References: <1320761613-18641-1-git-send-email-jamie@jamieiles.com>
+	 <1320761613-18641-5-git-send-email-jamie@jamieiles.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	timo.teras@iki.fi
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: Jamie Iles <jamie@jamieiles.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:43578 "EHLO
+Received: from perches-mx.perches.com ([206.117.179.246]:40342 "EHLO
 	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753982Ab1KIMtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Nov 2011 07:49:09 -0500
-In-Reply-To: <20111108.135901.1506278599930259562.davem@davemloft.net>
+	id S1751231Ab1KINKr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Nov 2011 08:10:47 -0500
+In-Reply-To: <1320761613-18641-5-git-send-email-jamie@jamieiles.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-11-08 at 13:59 -0500, David Miller wrote:
-> net: Kill pointless and misleading checks on dst->obsolete.
-[]
-> Therefore rename it to dst->freed, and make it take on only the values
-> "0" and "1".
-> diff --git a/include/net/dst.h b/include/net/dst.h
-[]
-> @@ -55,7 +55,7 @@ struct dst_entry {
->  #define DST_NOCOUNT		0x0020
->  
->  	short			error;
-> -	short			obsolete;
-> +	unsigned short		freed;
+On Tue, 2011-11-08 at 14:13 +0000, Jamie Iles wrote:
+> macb is already using the dev_dbg() and friends helpers so use netdev_()
+> along with a pr_fmt() definition to make the printing a little cleaner.
+trivia...
 
-perhaps
-	bool freed;
-	bool __pad3;
-just to mark the available space a bit more obviously.
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+[]
+> @@ -8,6 +8,7 @@
+>   * published by the Free Software Foundation.
+>   */
+>  
+> +#define pr_fmt(fmt) "macb: " fmt
+
+I think this is better as
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
+> @@ -176,11 +177,11 @@ static void macb_handle_link_change(struct net_device *dev)
+>  
+>  	if (status_change) {
+>  		if (phydev->link)
+> -			printk(KERN_INFO "%s: link up (%d/%s)\n",
+> -			       dev->name, phydev->speed,
+> -			       DUPLEX_FULL == phydev->duplex ? "Full":"Half");
+> +			netdev_info(dev, "link up (%d/%s)\n", phydev->speed,
+> +				    DUPLEX_FULL == phydev->duplex ?
+> +				    "Full" : "Half");
+
+Couple of very trivial style things here.
+I think this is better as var == const and I also try
+to keep arguments on a single line where possible and
+when not possible, more arguments after the format to
+seoarate lines.
+
+			netdev_info(dev, "link up (%d/%s)\n",
+				    phydev->speed,
+				    phydev->duplex == DUPLEX_FULL ?
+				    "Full" : "Half");
+[]
+> @@ -625,12 +624,11 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  
+>  #ifdef DEBUG
+>  	int i;
+> -	dev_dbg(&bp->pdev->dev,
+> -		"start_xmit: len %u head %p data %p tail %p end %p\n",
+> -		skb->len, skb->head, skb->data,
+> -		skb_tail_pointer(skb), skb_end_pointer(skb));
+> -	dev_dbg(&bp->pdev->dev,
+> -		"data:");
+> +	netdev_dbg(bp->dev,
+> +		   "start_xmit: len %u head %p data %p tail %p end %p\n",
+> +		   skb->len, skb->head, skb->data,
+> +		   skb_tail_pointer(skb), skb_end_pointer(skb));
+> +	netdev_dbg(bp->dev, "data:");
+>  	for (i = 0; i < 16; i++)
+>  		printk(" %02x", (unsigned int)skb->data[i]);
+>  	printk("\n");
+
+Maybe print_hex_dump
+
+> @@ -1228,13 +1223,13 @@ static int __init macb_probe(struct platform_device *pdev)
+>  
+>  	platform_set_drvdata(pdev, dev);
+>  
+> -	printk(KERN_INFO "%s: Atmel MACB at 0x%08lx irq %d (%pM)\n",
+> -	       dev->name, dev->base_addr, dev->irq, dev->dev_addr);
+> +	netdev_info(dev, "Atmel MACB at 0x%08lx irq %d (%pM)\n",
+> +		dev->base_addr, dev->irq, dev->dev_addr);
+>  
+>  	phydev = bp->phy_dev;
+> -	printk(KERN_INFO "%s: attached PHY driver [%s] "
+> -		"(mii_bus:phy_addr=%s, irq=%d)\n", dev->name,
+> -		phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
+> +	netdev_info(dev, "attached PHY driver [%s] "
+> +		    "(mii_bus:phy_addr=%s, irq=%d)\n", phydev->drv->name,
+> +		    dev_name(&phydev->dev), phydev->irq);
+
+Coalescing formats can also be done to make
+it slightly easier to grep.
+
+	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
