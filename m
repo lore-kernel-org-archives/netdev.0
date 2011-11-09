@@ -1,52 +1,35 @@
-From: Mark Lord <kernel@teksavvy.com>
-Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
-Date: Wed, 09 Nov 2011 11:57:14 -0500
-Message-ID: <4EBAB0EA.1050102@teksavvy.com>
-References: <4EA89972.5060101@teksavvy.com>   <20111026.194045.2019668159403582571.davem@davemloft.net>   <4EA8B283.3010105@teksavvy.com>   <20111026.221719.2216112919297458522.davem@davemloft.net>   <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>  <4EBAA967.10403@teksavvy.com> <1320856444.18929.78.camel@deadeye> <4EBAAEA5.1060408@teksavvy.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] staging: octeon-ethernet: Fix compile error caused by
+ changed to struct skb_frag_struct.
+Date: Wed, 9 Nov 2011 17:17:14 +0000
+Message-ID: <20111109171714.GA31771@linux-mips.org>
+References: <1320698970-1854-1-git-send-email-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EBAAEA5.1060408@teksavvy.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org, gregkh@suse.de,
+	devel@driverdev.osuosl.org, ddaney.cavm@gmail.com
+To: David Daney <david.daney@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:40420 "EHLO linux-mips.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751294Ab1KIRRc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Nov 2011 12:17:32 -0500
+Content-Disposition: inline
+In-Reply-To: <1320698970-1854-1-git-send-email-david.daney@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-11-09 11:47 AM, Mark Lord wrote:
-..
-> Note:  I'm looking at smsc95xx.c and smsc75xx.c for examples,
-> and they both have the same problem I'll have here:
+On Mon, Nov 07, 2011 at 12:49:30PM -0800, David Daney wrote:
+
+> Evidently the definition of struct skb_frag_struct has changed, so we
+> need to change to match it.
 > 
-> How to update the csum settings atomically.
-> A spinlock is no good, because config register access is over USB.
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> ---
 
-Nevermind.. a slight change in the logic and all is well again.
+As usual for this drive I've applied this to the MIPS tree and will
+send it to Linus in a few days unless somebody objects.
 
-static int ax88772b_set_features(struct net_device *netdev, u32 features)
-{
-        struct usbnet *dev = netdev_priv(netdev);
-        struct ax88772b_data *priv = (struct ax88772b_data *)dev->driver_priv;
-        unsigned long flags;
-        u16 tx_csum = 0, rx_csum = 0;
+Thanks,
 
-        spin_lock_irqsave(&priv->features_lock, flags);
-        if (features & NETIF_F_HW_CSUM) {
-                priv->checksum |= AX_TX_CHECKSUM;
-                tx_csum = AX_TXCOE_DEF_CSUM;
-        } else
-                priv->checksum &= ~AX_TX_CHECKSUM;
-        if (features & NETIF_F_RXCSUM) {
-                priv->checksum |= AX_RX_CHECKSUM;
-                rx_csum = AX_RXCOE_DEF_CSUM;
-        } else
-                priv->checksum &= ~AX_RX_CHECKSUM;
-        spin_unlock_irqrestore(&priv->features_lock, flags);
-
-        ax8817x_write_cmd(dev, AX_CMD_WRITE_RXCOE_CTL,
-                                 rx_csum, 0, 0, NULL);
-        ax8817x_write_cmd(dev, AX_CMD_WRITE_TXCOE_CTL,
-                                 tx_csum, 0, 0, NULL);
-        return 0;
-}
+  Ralf
