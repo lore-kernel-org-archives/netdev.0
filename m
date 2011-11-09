@@ -1,45 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2011-11-09
-Date: Wed, 09 Nov 2011 16:35:08 -0500 (EST)
-Message-ID: <20111109.163508.1148793883067089950.davem@davemloft.net>
-References: <20111109193504.GA32400@tuxdriver.com>
-	<20111109.162015.2261725491621555303.davem@davemloft.net>
-	<20111109212505.GC10712@tuxdriver.com>
+Subject: Re: [PATCH net-next] ipv4: PKTINFO doesnt need dst reference
+Date: Wed, 09 Nov 2011 16:37:08 -0500 (EST)
+Message-ID: <20111109.163708.2156133928191684256.davem@davemloft.net>
+References: <1320673364.3020.21.camel@bwh-desktop>
+	<1320676422.2361.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	<1320859475.3916.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111109212505.GC10712@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, pstaszewski@itcare.pl,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60707 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961Ab1KIVhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 16:37:19 -0500
+In-Reply-To: <1320859475.3916.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 9 Nov 2011 16:25:05 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 09 Nov 2011 18:24:35 +0100
 
-> On Wed, Nov 09, 2011 at 04:20:15PM -0500, David Miller wrote:
->> From: "John W. Linville" <linville@tuxdriver.com>
->> Date: Wed, 9 Nov 2011 14:35:04 -0500
->> 
->> > Regarding the Bluetooth fixes, Gustavo says this:
->> > 
->> > Please let me know if there are problems!
->> 
->> Gustavo says what? :-)
+> [PATCH net-next] ipv4: IP_PKTINFO doesnt need dst reference
 > 
-> Hmmm...obviously not my best day...
+> When a socket uses IP_PKTINFO notifications, we currently force a dst
+> reference for each received skb. Reader has to access dst to get needed
+> information (rt_iif & rt_spec_dst) and must release dst reference.
 > 
-> Gustavo says:
+> We also forced a dst reference if skb was put in socket backlog, even
+> without IP_PKTINFO handling. This happens under stress/load.
 > 
-> "3 more fixes to linux 3.2. One is USB device id addition and the other two
-> patches combined fixes a connection issue. The first one from Arek Lichwa
-> revert the wrong fix and a second commit from Andrzej Kaczmarek fix the issue
-> properly."
+> We can instead store the needed information in skb->cb[], so that only
+> softirq handler really access dst, improving cache hit ratios.
 > 
-> Hth! :-)
+> This removes two atomic operations per packet, and false sharing as
+> well.
+> 
+> On a benchmark using a mono threaded receiver (doing only recvmsg()
+> calls), I can reach 720.000 pps instead of 570.000 pps.
+> 
+> IP_PKTINFO is typically used by DNS servers, and any multihomed aware
+> UDP application.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-That's better :-)
-
-Pulled, thanks a lot John!
+Looks good, if it compiles I'll push it out to net-next :-)
