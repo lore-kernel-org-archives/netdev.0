@@ -1,60 +1,61 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: Re: [PATCHv4 4/9] macb: convert printk to netdev_ and friends
-Date: Wed, 9 Nov 2011 13:55:46 +0000
-Message-ID: <20111109135546.GE4253@totoro>
-References: <1320761613-18641-1-git-send-email-jamie@jamieiles.com>
- <1320761613-18641-5-git-send-email-jamie@jamieiles.com>
- <1320844247.6923.18.camel@Joe-Laptop>
- <20111109131421.GC4253@totoro>
- <20111109133726.GD4253@totoro>
- <1320846368.6923.24.camel@Joe-Laptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next] IPVS
+Date: Wed, 9 Nov 2011 15:36:41 +0100
+Message-ID: <20111109143641.GA24174@1984>
+References: <1319160783-28422-1-git-send-email-horms@verge.net.au>
+ <20111021072715.GA842@1984>
+ <20111107030659.GA24405@verge.net.au>
+ <20111107082956.GA32329@1984>
+ <20111109005805.GA26937@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Iles <jamie@jamieiles.com>, netdev@vger.kernel.org,
-	arnd@arndb.de
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44493 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751023Ab1KINzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 08:55:50 -0500
-Received: by wyh15 with SMTP id 15so1616833wyh.19
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2011 05:55:49 -0800 (PST)
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1320846368.6923.24.camel@Joe-Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111109005805.GA26937@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 09, 2011 at 05:46:08AM -0800, Joe Perches wrote:
-> On Wed, 2011-11-09 at 13:37 +0000, Jamie Iles wrote:
-> > OK, here's an updated patch.  Thanks again Joe!
+On Wed, Nov 09, 2011 at 09:58:07AM +0900, Simon Horman wrote:
+> Hi Pablo,
 > 
-> Hi Jamie, thanks for updating, one possible thing.
+> On Mon, Nov 07, 2011 at 09:29:56AM +0100, Pablo Neira Ayuso wrote:
+> > Hi Simon,
+> > 
+> > On Mon, Nov 07, 2011 at 12:07:01PM +0900, Simon Horman wrote:
+> > > Hi Pablo,
+> > > 
+> > > I am a little confused. The nf-next branch seems to have disappeared.
+> > > 
+> > > Could you consider pulling git://github.com/horms/ipvs-next.git master
+> > > to get the following changes that were in your nf-next branch.
+> > 
+> > I was late to get it into net-next. Since net-next became net after
+> > the 3.1 release, my moved those changes to net to get it into 3.2
+> > once Linus announced that the merge window was opened again.
+> > 
+> > > Or would
+> > > you like me to rebase the ipvs patches (9 or the 11 changes below) on
+> > > top of git://1984.lsi.us.es/net-next/.git master ?
+> > 
+> > They are already in net davem's tree, they will be included in the
+> > upcoming 3.2 release.
+> > 
+> > http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet.git&a=search&h=HEAD&st=commit&s=Neira
 > 
-> > @@ -625,15 +625,12 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  
-> >  #ifdef DEBUG
-> >  	int i;
-> > -	dev_dbg(&bp->pdev->dev,
-> > -		"start_xmit: len %u head %p data %p tail %p end %p\n",
-> > -		skb->len, skb->head, skb->data,
-> > -		skb_tail_pointer(skb), skb_end_pointer(skb));
-> > -	dev_dbg(&bp->pdev->dev,
-> > -		"data:");
-> > -	for (i = 0; i < 16; i++)
-> > -		printk(" %02x", (unsigned int)skb->data[i]);
-> > -	printk("\n");
-> > +	netdev_dbg(bp->dev,
-> > +		   "start_xmit: len %u head %p data %p tail %p end %p\n",
-> > +		   skb->len, skb->head, skb->data,
-> > +		   skb_tail_pointer(skb), skb_end_pointer(skb));
-> > +	print_hex_dump(KERN_DEBUG, "data: ", DUMP_PREFIX_OFFSET, 16, 1,
-> > +		       skb->data, 16, true);
-> >  #endif
+> Thanks, and sorry for missing that when I checked yesterday.
 > 
-> I think there an unused variable "i" warning now
-> if DEBUG is #defined.
+> Could you suggest which tree and branch I should base the master branch of my
+> ipvs and ipvs-next trees on? Their purposes are to provide a reference for
+> people wishing to fix or enhance IPVS and a mechanism to send pull requests to
+> you. As of now I am using the master branch of your net tree for both.
 
-Good eyes!  I've fixed that but won't repost it.
+The 1984.lsi.us.es trees are fine.
 
-Jamie
+There are no branch yet because I have no patches queued for upstream
+so far. You can use master if you don't see any nf branch, OK?
