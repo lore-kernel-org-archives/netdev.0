@@ -1,49 +1,35 @@
-From: Daniil Stolnikov <danila.st@mail.ru>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Add IPSec IP Range in Linux kernel
-Date: Wed, 9 Nov 2011 09:36:07 +0800
-Message-ID: <1289495586.20111109093607@mail.ru>
-References: <92909814.20111108111036@mail.ru> <1320733465.21617.4.camel@ppwaskie-mobl2> <CACVxJT887ATwt97iw7mPEkH+KXgy1WbsP_aUB_X-8uLQ+6YsLQ@mail.gmail.com> <20111108.121620.2044664919065812135.davem@davemloft.net>
-Reply-To: Daniil Stolnikov <danila.st@mail.ru>
+Date: Tue, 08 Nov 2011 20:42:53 -0500 (EST)
+Message-ID: <20111108.204253.891598837549584662.davem@davemloft.net>
+References: <CACVxJT887ATwt97iw7mPEkH+KXgy1WbsP_aUB_X-8uLQ+6YsLQ@mail.gmail.com>
+	<20111108.121620.2044664919065812135.davem@davemloft.net>
+	<1289495586.20111109093607@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: 8BIT
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	<linux-crypto@vger.kernel.org>,
-	<linux-security-module@vger.kernel.org>, <davem@davemloft.net>,
-	<adobriyan@gmail.com>, <peter.p.waskiewicz.jr@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111108.121620.2044664919065812135.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+	linux-crypto@vger.kernel.org,
+	linux-security-module@vger.kernel.org, adobriyan@gmail.com,
+	peter.p.waskiewicz.jr@intel.com
+To: danila.st@mail.ru
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1289495586.20111109093607@mail.ru>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Daniil Stolnikov <danila.st@mail.ru>
-> Date: Tue, 08 Nov 2011 12:40:13 +0400
+From: Daniil Stolnikov <danila.st@mail.ru>
+Date: Wed, 9 Nov 2011 09:36:07 +0800
 
->> I turned to you, the developers, but rather to urge you to implement
->> this feature using IP range.
+> I never imagined that it will cause some difficulties.
 
-> This won't be implemented, the keys used for IPSEC rule lookups supported by
-> the kernel are already way too complex.
+Ever feature has side effects and costs associated with it.  Some of
+which can be non-trivial.
 
-> From: Alexey Dobriyan <adobriyan@gmail.com>
-> Date: Tue, 8 Nov 2011 14:08:24 +0200
+Like I said, if you want address ranges, ask the userland IPSEC daemon
+authors to synthesize it.
 
->> changing addr_match() is trivial for ipv4 and easy for ipv6. :-)
-
-> No, this is not happening.  This added complexity screws up all the hash table
-> and lookup optimizations we have in the XFRM layer.
-
-I never imagined that it will cause some difficulties. Several questions arise:
-
-1) How complex is this implementation?
-2) How to do this time?
-3) Will this feature is implemented vsetaki? If so, how soon and what will it take?
-
-
-> Ranges can be synthesized by userspace, and that's the way it has to
-> be supported.
-
-That is, you want to say that all this can be done at the user level? How so?
-
-In general, if there are alternative implementations of this feature without support at the kernel level? What are some loopholes, tricks? It is meant to create multiple connections to the same subnet subranges without the use of masks such as / 29. Perhaps this can be achieved through l2tp? There, in the present setup IP range. Or is it both?
+I'm really not able to devote the time necessary to explain every
+nuance of how we store IPSEC rules in the kernel side database and
+what implications that has for expanding the kind of match keys we
+support.
