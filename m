@@ -1,67 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] drivers/net/usb/asix:  resync from vendor's copy
-Date: Wed, 9 Nov 2011 17:31:51 +0000
-Message-ID: <1320859911.2781.1.camel@bwh-desktop>
-References: <4EA89972.5060101@teksavvy.com>
-	 <20111026.194045.2019668159403582571.davem@davemloft.net>
-	 <4EA8B283.3010105@teksavvy.com>
-	 <20111026.221719.2216112919297458522.davem@davemloft.net>
-	 <4EB19BBE.5050602@teksavvy.com> <1320266549.2782.21.camel@bwh-desktop>
-	 <4EBAA967.10403@teksavvy.com> <1320856444.18929.78.camel@deadeye>
-	 <4EBAAEA5.1060408@teksavvy.com> <4EBAB0EA.1050102@teksavvy.com>
-	 <4EBAB643.8020603@teksavvy.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] wireless: libertas: fix unaligned le64 accesses
+Date: Wed, 09 Nov 2011 11:34:40 -0600
+Message-ID: <1320860080.24903.2.camel@dcbw.foobar.com>
+References: <1320827440-16904-1-git-send-email-realmz6@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Mark Lord <kernel@teksavvy.com>
+Cc: "open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	"open list:NETWORKING [WIREL..." <linux-wireless@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Steven Miao <realmz6@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EBAB643.8020603@teksavvy.com>
+In-Reply-To: <1320827440-16904-1-git-send-email-realmz6@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-11-09 at 12:20 -0500, Mark Lord wrote:
-> On 11-11-09 11:57 AM, Mark Lord wrote:
-> > On 11-11-09 11:47 AM, Mark Lord wrote:
-> > ..
-> >> Note:  I'm looking at smsc95xx.c and smsc75xx.c for examples,
-> >> and they both have the same problem I'll have here:
-> >>
-> >> How to update the csum settings atomically.
-> >> A spinlock is no good, because config register access is over USB.
-> > 
-> > Nevermind.. a slight change in the logic and all is well again.
-> ..
+On Wed, 2011-11-09 at 16:30 +0800, Steven Miao wrote:
+> use get_unaligned_le64() to get timestamp
 > 
-> Or even simpler (below).  I don't think this method requires any
-> extra locking, but I'm still open to persuasion.  :)
+> Signed-off-by: Steven Miao <realmz6@gmail.com>
 
-Looks reasonable, but...
+Acked-by: Dan Williams <dcbw@redhat.com>
 
-> static int ax88772b_set_features(struct net_device *netdev, u32 features)
-> {
->         struct usbnet *dev = netdev_priv(netdev);
->         struct ax88772b_data *priv = (struct ax88772b_data *)dev->driver_priv;
->         u16 tx_csum = 0, rx_csum = 0;
+> ---
+>  drivers/net/wireless/libertas/cfg.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
->         priv->features = features & (NETIF_F_HW_CSUM | NETIF_F_RXCSUM);
-
-...why do you need priv->features at all?
-
-Ben.
-
->         if (features & NETIF_F_HW_CSUM)
->                 tx_csum = AX_TXCOE_DEF_CSUM;
->         if (features & NETIF_F_RXCSUM)
->                 rx_csum = AX_RXCOE_DEF_CSUM;
->         ax8817x_write_cmd(dev, AX_CMD_WRITE_RXCOE_CTL, rx_csum, 0, 0, NULL);
->         ax8817x_write_cmd(dev, AX_CMD_WRITE_TXCOE_CTL, tx_csum, 0, 0, NULL);
->         return 0;
-> }
-> 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> diff --git a/drivers/net/wireless/libertas/cfg.c b/drivers/net/wireless/libertas/cfg.c
+> index b456a53..f23c2b1 100644
+> --- a/drivers/net/wireless/libertas/cfg.c
+> +++ b/drivers/net/wireless/libertas/cfg.c
+> @@ -630,7 +630,7 @@ static int lbs_ret_scan(struct lbs_private *priv, unsigned long dummy,
+>  			if (channel &&
+>  			    !(channel->flags & IEEE80211_CHAN_DISABLED))
+>  				cfg80211_inform_bss(wiphy, channel,
+> -					bssid, le64_to_cpu(*(__le64 *)tsfdesc),
+> +					bssid, get_unaligned_le64(tsfdesc),
+>  					capa, intvl, ie, ielen,
+>  					LBS_SCAN_RSSI_TO_MBM(rssi),
+>  					GFP_KERNEL);
