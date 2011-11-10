@@ -1,41 +1,93 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 09/13] bnx2x: add pri_map module parameter
-Date: Thu, 10 Nov 2011 17:39:47 +0000
-Message-ID: <1320946787.2851.2.camel@bwh-desktop>
-References: <1320938054-31288-1-git-send-email-dmitry@broadcom.com>
-	 <1320938054-31288-10-git-send-email-dmitry@broadcom.com>
+From: David Decotigny <david.decotigny@google.com>
+Subject: Re: [PATCH net-next v1 4/9] forcedeth: stats for rx_packets based on
+ hardware registers
+Date: Thu, 10 Nov 2011 10:45:43 -0800
+Message-ID: <CAG88wWbq4Gn-DTTkNNQkzG7p7db1xEUYmPYQNx0oKZP8FetJZA@mail.gmail.com>
+References: <cover.1320875577.git.david.decotigny@google.com> <30a7c46d924c29d1faf879bc9522e4ec8565d378.1320875577.git.david.decotigny@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:37814 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752714Ab1KJRjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 12:39:55 -0500
-In-Reply-To: <1320938054-31288-10-git-send-email-dmitry@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Decotigny <david.decotigny@google.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <30a7c46d924c29d1faf879bc9522e4ec8565d378.1320875577.git.david.decotigny@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-11-10 at 17:14 +0200, Dmitry Kravkov wrote:
-> From: Ariel Elior <ariele@broadcom.com>
-> 
-> The optional parameter pri_map is used to map the
-> skb->priority to a Class Of Service (CoS) in the HW.
-> This 32 bit parameter is evaluated by the  driver as 8
-> values of 4 bits each. Each nibble sets the desired
-> HW queue number for that priority.
-[...]
+Hi all,
 
-You should implement ndo_tc_setup instead of adding a driver-specific
-parameter (that should be per-device anyway).
+After discussion with original author of patch  "forcedeth: statistics
+optimization" (21828163b2b31e0675cb3e66a2a4a231dec06236), I will
+revise this strategy, and step back to using software counters to make
+the accounting of packets received at software level more accurate.
+Will send an update to this series shortly.
 
-Ben.
+Regards,
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--
+David Decotigny
+
+
+On Wed, Nov 9, 2011 at 2:09 PM, David Decotigny
+<david.decotigny@google.com> wrote:
+> Use the hardware registers instead of a software implementation to
+> account for the number of RX packets.
+>
+>
+>
+> Signed-off-by: David Decotigny <david.decotigny@google.com>
+> ---
+> =A0drivers/net/ethernet/nvidia/forcedeth.c | =A0 =A03 +--
+> =A01 files changed, 1 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/et=
+hernet/nvidia/forcedeth.c
+> index cd7f83d..0071d5c 100644
+> --- a/drivers/net/ethernet/nvidia/forcedeth.c
+> +++ b/drivers/net/ethernet/nvidia/forcedeth.c
+> @@ -1712,6 +1712,7 @@ static struct net_device_stats *nv_get_stats(st=
+ruct net_device *dev)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0nv_get_hw_stats(dev);
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* copy to net_device stats */
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->stats.rx_packets =3D np->estats.rx=
+_packets;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev->stats.tx_packets =3D np->estats.t=
+x_packets;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev->stats.rx_bytes =3D np->estats.rx_=
+bytes;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev->stats.tx_bytes =3D np->estats.tx_=
+bytes;
+> @@ -2690,7 +2691,6 @@ static int nv_rx_process(struct net_device *dev=
+, int limit)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb_put(skb, len);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0skb->protocol =3D eth_type_trans(skb, =
+dev);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0napi_gro_receive(&np->napi, skb);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->stats.rx_packets++;
+> =A0next_pkt:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (unlikely(np->get_rx.orig++ =3D=3D =
+np->last_rx.orig))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0np->get_rx.orig =3D np=
+->first_rx.orig;
+> @@ -2773,7 +2773,6 @@ static int nv_rx_process_optimized(struct net_d=
+evice *dev, int limit)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0__vlan=
+_hwaccel_put_tag(skb, vid);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0napi_gro_receive(&np->=
+napi, skb);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->stats.rx_packets++=
+;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0} else {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_kfree_skb(skb);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> --
+> 1.7.3.1
+>
+>
