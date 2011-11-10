@@ -1,79 +1,97 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [065/264] MAINTANERS: update Qualcomm Atheros addresses
-Date: Wed, 09 Nov 2011 13:31:52 -0800
-Message-ID: <20111109213148.638821009@clark.kroah.org>
-References: <20111109213508.GA3476@kroah.com>
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, stable@kernel.org,
-	netdev@vger.kernel.org, jouni@qca.qualcomm.com,
-	yangjie@qca.qualcomm.com, vthiagar@qca.qualcomm.com,
-	senthilb@qca.qualcomm.com,
-	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111109213508.GA3476@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-3.1-stable review patch.  If anyone has any objections, please let me know.
-
-------------------
-
-From: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
-
-commit fe8e084455f273b32cc57a5fbaf6c22ef984d657 upstream.
-
-Qualcomm ate up Atheros, all of the old e-mail addresses
-no longer work and e-mails sent to it will bounce. Update
-the addresses to the new shiny Qualcomm Atheros (QCA) ones.
-
-Cc: stable@kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] bridge: add NTF_USE support
+Date: Wed, 9 Nov 2011 20:30:08 -0800
+Message-ID: <20111109203008.6bebce8d@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-Cc: jouni@qca.qualcomm.com
-Cc: yangjie@qca.qualcomm.com
-Cc: vthiagar@qca.qualcomm.com
-Cc: senthilb@qca.qualcomm.com
-Signed-off-by: Luis R. Rodriguez <mcgrof@qca.qualcomm.com>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:46916 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965045Ab1KJEaL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Nov 2011 23:30:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
----
- MAINTAINERS |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+More changes to the recent code to support control of forwarding
+database via netlink.
+   * Support NTF_USE like neighbour table
+   * Validate state bits from application
+   * Only send notifications (and change bits) if new entry is
+     different.
 
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1230,7 +1230,7 @@ F:	Documentation/aoe/
- F:	drivers/block/aoe/
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+--- a/net/bridge/br_fdb.c	2011-11-02 11:14:06.009407558 -0700
++++ b/net/bridge/br_fdb.c	2011-11-07 08:30:00.882705168 -0800
+@@ -556,7 +556,7 @@ skip:
+ 	return skb->len;
+ }
  
- ATHEROS ATH GENERIC UTILITIES
--M:	"Luis R. Rodriguez" <lrodriguez@atheros.com>
-+M:	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
- L:	linux-wireless@vger.kernel.org
- S:	Supported
- F:	drivers/net/wireless/ath/*
-@@ -1238,7 +1238,7 @@ F:	drivers/net/wireless/ath/*
- ATHEROS ATH5K WIRELESS DRIVER
- M:	Jiri Slaby <jirislaby@gmail.com>
- M:	Nick Kossifidis <mickflemm@gmail.com>
--M:	"Luis R. Rodriguez" <lrodriguez@atheros.com>
-+M:	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
- M:	Bob Copeland <me@bobcopeland.com>
- L:	linux-wireless@vger.kernel.org
- L:	ath5k-devel@lists.ath5k.org
-@@ -1247,10 +1247,10 @@ S:	Maintained
- F:	drivers/net/wireless/ath/ath5k/
+-/* Create new static fdb entry */
++/* Update (create or replace) forwarding database entry */
+ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+ 			 __u16 state, __u16 flags)
+ {
+@@ -575,16 +575,21 @@ static int fdb_add_entry(struct net_brid
+ 	} else {
+ 		if (flags & NLM_F_EXCL)
+ 			return -EEXIST;
++	}
++
++	if (fdb_to_nud(fdb) != state) {
++		if (state & NUD_PERMANENT)
++			fdb->is_local = fdb->is_static = 1;
++		else if (state & NUD_NOARP) {
++			fdb->is_local = 0;
++			fdb->is_static = 1;
++		} else
++			fdb->is_local = fdb->is_static = 0;
  
- ATHEROS ATH9K WIRELESS DRIVER
--M:	"Luis R. Rodriguez" <lrodriguez@atheros.com>
--M:	Jouni Malinen <jmalinen@atheros.com>
--M:	Vasanthakumar Thiagarajan <vasanth@atheros.com>
--M:	Senthil Balasubramanian <senthilkumar@atheros.com>
-+M:	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>
-+M:	Jouni Malinen <jouni@qca.qualcomm.com>
-+M:	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>
-+M:	Senthil Balasubramanian <senthilb@qca.qualcomm.com>
- L:	linux-wireless@vger.kernel.org
- L:	ath9k-devel@lists.ath9k.org
- W:	http://wireless.kernel.org/en/users/Drivers/ath9k
+-		if (flags & NLM_F_REPLACE)
+-			fdb->updated = fdb->used = jiffies;
+-		fdb->is_local = fdb->is_static = 0;
++		fdb->updated = fdb->used = jiffies;
++		fdb_notify(fdb, RTM_NEWNEIGH);
+ 	}
+ 
+-	if (state & NUD_PERMANENT)
+-		fdb->is_local = fdb->is_static = 1;
+-	else if (state & NUD_NOARP)
+-		fdb->is_static = 1;
+ 	return 0;
+ }
+ 
+@@ -627,6 +632,11 @@ int br_fdb_add(struct sk_buff *skb, stru
+ 		return -EINVAL;
+ 	}
+ 
++	if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
++		pr_info("bridge: RTM_NEWNEIGH with invalid state %#x\n", ndm->ndm_state);
++		return -EINVAL;
++	}
++
+ 	p = br_port_get_rtnl(dev);
+ 	if (p == NULL) {
+ 		pr_info("bridge: RTM_NEWNEIGH %s not a bridge port\n",
+@@ -634,9 +644,15 @@ int br_fdb_add(struct sk_buff *skb, stru
+ 		return -EINVAL;
+ 	}
+ 
+-	spin_lock_bh(&p->br->hash_lock);
+-	err = fdb_add_entry(p, addr, ndm->ndm_state, nlh->nlmsg_flags);
+-	spin_unlock_bh(&p->br->hash_lock);
++	if (ndm->ndm_flags & NTF_USE) {
++		rcu_read_lock();
++		br_fdb_update(p->br, p, addr);
++		rcu_read_unlock();
++	} else {
++		spin_lock_bh(&p->br->hash_lock);
++		err = fdb_add_entry(p, addr, ndm->ndm_state, nlh->nlmsg_flags);
++		spin_unlock_bh(&p->br->hash_lock);
++	}
+ 
+ 	return err;
+ }
