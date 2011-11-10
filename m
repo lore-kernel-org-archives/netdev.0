@@ -1,133 +1,145 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC 4942 recommendation
-Date: Thu, 10 Nov 2011 07:23:22 -0800 (PST)
-Message-ID: <1320938602.20312.YahooMailNeo@web126017.mail.ne1.yahoo.com>
-References: <1320417988.69298.YahooMailNeo@web126013.mail.ne1.yahoo.com>   <1320423860.16609.4.camel@edumazet-laptop>   <1320482392.98040.YahooMailNeo@web126003.mail.ne1.yahoo.com>  <1320485406.16908.4.camel@edumazet-laptop>  <1320922725.65072.YahooMailNeo@web126002.mail.ne1.yahoo.com> <1320924445.2310.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1320929648.97649.YahooMailNeo@web126007.mail.ne1.yahoo.com>
-Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: creating netdev queues on the fly?
+Date: Thu, 10 Nov 2011 16:25:25 +0100
+Message-ID: <CAA93jw7ECQegWj6rpd48sbmDQUjorCYzXANXJSj0baHtxzC7EA@mail.gmail.com>
+References: <1320933501.3967.68.camel@jlt3.sipsolutions.net>
+	<CAGXE3d-_RFgW_zwfX2vTBe1psXmgoBFO5pd5cAgtYo=Jwpddhw@mail.gmail.com>
+	<7be02f26a67fac4c7448a74f1f17aa01@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Helmut Schaa <helmut.schaa@googlemail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Denys Fedoryshchenko <denys@wbc.net.sa>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm28-vm1.bullet.mail.ne1.yahoo.com ([98.138.91.35]:45791 "HELO
-	nm28-vm1.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S935154Ab1KJPXX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Nov 2011 10:23:23 -0500
-In-Reply-To: <1320929648.97649.YahooMailNeo@web126007.mail.ne1.yahoo.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:40350 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934229Ab1KJPZ1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 10:25:27 -0500
+In-Reply-To: <7be02f26a67fac4c7448a74f1f17aa01@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------ Original Message -----
+On Thu, Nov 10, 2011 at 3:55 PM, Denys Fedoryshchenko <denys@wbc.net.sa=
+> wrote:
+> On Thu, 10 Nov 2011 15:40:01 +0100, Helmut Schaa wrote:
+>>>
+>>> I think this might also make implementing reservation (tspec) easie=
+r.
+>>> Not sure if anyone wants/needs that though.
+>>
+>> Wouldn't it be possible to implement something like this as a qdisc =
+on top
+>> of
+>> mq that makes use of the current tx rate per station to distribute
+>> the airtime
+>> equitably?
+>>
+>> Of course this would require the qdisc to know the tx rate a priori =
+but
+>> for
+>> mac80211 drivers we could just use last_tx_rate as an estimate ...
 
-> From: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
-> To: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-> Sent: Thursday, November 10, 2011 1:54 PM
-> Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC 4=
-942 recommendation
->=20
-> ----- Original Message -----
->>  From: Eric Dumazet <eric.dumazet@gmail.com>
->>  To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
->>  Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
->>  Sent: Thursday, November 10, 2011 12:27 PM
->>  Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC=
-=20
-> 4942 recommendation
->>=20
->>  Le jeudi 10 novembre 2011 =E0 02:58 -0800, Fran=E7ois-Xavier Le Bai=
-l a
->>  =E9crit :
->>> =A0 ----- Original Message -----
->>>=20
->>> =A0 > From: Eric Dumazet <eric.dumazet@gmail.com>
->>> =A0 > To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
->>> =A0 > Cc: "netdev@vger.kernel.org"=20
-> <netdev@vger.kernel.org>
->>> =A0 > Sent: Saturday, November 5, 2011 10:30 AM
->>> =A0 > Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow=20
-> the=20
->>  RFC 4942 recommendation
->>> =A0 >=20
->>> =A0 > Le samedi 05 novembre 2011 =E0 01:39 -0700, Fran=E7ois-Xavier=
- Le Bail=20
-> a
->>> =A0 > =E9crit :
->>> =A0 >=20
->>> =A0 >>=20
->>> =A0 >>=A0 I will study and test these options for my application=20
-> server
->>> =A0 >=20
->>> =A0 > Here is a sample of use of the IPv4 part, an udpecho service =
-that=20
-> use
->>> =A0 > IP_PKTINFO and IP_RECVTOS/IP_TOS to be able to use multihomed=
-=20
-> machine,
->>> =A0 > and reflect TOS field as well.
->>> =A0 > [. . .]
->>>=20
->>> =A0 Hi,
->>>=20
->>> =A0 I have updated the code for IPv6.
->>>=20
->>> =A0 When a UDP client send to an unicast address on a multihomed Li=
-nux=20
-> 3.0.0=20
->>  host, from another host, it's OK.
->>> =A0 For example :
->>> =A0 setup 2001::1 on eth0, 2a01::1 on eth1.
->>> =A0 send to 2001::1, recv from 2001::1.
->>> =A0 send to 2a01::1, recv from 2a01::1.
->>>=20
->>> =A0 When the UDP client send to an Subnet-Router anycast address on=
- a=20
->>  multihomed Linux 3.0.0 host, from another host, it's KO.
->>> =A0 send to 2001:: or 2a01::, the udpecho server display "sendmsg:=20
-> Invalid=20
->>  argument".
->>>=20
->>> =A0 Any idea ?
->>=20
->>  Could you describe the setup of this machine ?
->>=20
->>  ip -6 addr
->>  ip -6 ro
->=20
-> The server has ipv6 forwarding on.
->=20
-> # ip -6 a
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436=20
-> =A0=A0=A0 inet6 ::1/128 scope host=20
-> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-> =A0=A0=A0 inet6 2a01::1/64 scope global=20
-> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
-> =A0=A0=A0 inet6 fe80::20c:29ff:fecc:bc43/64 scope link=20
-> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
-> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-> =A0=A0=A0 inet6 2001::1/64 scope global=20
-> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
-> =A0=A0=A0 inet6 fe80::20c:29ff:fecc:bc4d/64 scope link=20
-> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
->=20
-> # ip -6 r
-> 2001::/64 dev eth1=A0 proto kernel=A0 metric 256=20
-> 2a01::/64 dev eth0=A0 proto kernel=A0 metric 256=20
-> fe80::/64 dev eth1=A0 proto kernel=A0 metric 256=20
-> fe80::/64 dev eth0=A0 proto kernel=A0 metric 256=20
-> default via 2001::2 dev eth1=A0 metric 1024=20
->=20
-> 2001::2 is the address of the other (client) host.
+Need last_aggregation_depth bytes and packets and last feasible
+versions of those for an estimate with n. completion rate, perhaps...
 
-I put a printk in addrconf.c at the beginning of ipv6_get_saddr_eval fu=
-nction.
-In th OK case : nothing is print.
-In the KO case : many printk messages.
+>>
+>> Helmut
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
+> Maybe someone will make something like "tfifo" in future :)
 
-Any problem in RFC 3484 code ?
+Did some of it last weekend. Code doesn't work yet - I mixed in too
+many of the ideas mentioned in
+my earlier, longer, more difficult to read missive. Time based queue
+limits are an important part of the answer, however.
 
-Thanks,
-=46rancois-Xavier
+Our current fixed packet queue limits are merely a proxy for time. At
+100Mbit ethernet, they were 100ms - which is conus distances...
+
+ and I'd hope that someone more knowledgable than I at these layers
+take all this on...
+
+Two notes:
+
+1) Getting 'time' from the kernel is expensive. And: System time wander=
+s.
+
+mac80211 Wifi devices however do export a get_tsf function which could
+be used as a relative-to-the-queue clock - and we actually don't need
+accuracy down to the level of get_tsf (25ns)
+
+2) You need to get a timestamp on entry to the first queue and check
+against the allowable latency on exit from the last. So to construct a
+tc chain you'd want a tfifo (timestamp on entry), fifot (check
+timestamp against limit on dequeue), and for the simplest of
+applications : tfifot (timestamp on entry, check on exit)
+
+
+> And when clients are connected, each have his own queue.
+
+Needed, yes. Particularly with mixed g/n, but also to optimize
+aggregation AND fairness.
+
+>
+> then, for example qdisc add dev wlan0 parent 1:10 handle 10 tfifo lim=
+it
+> 100ms
+> If packet are older than 100ms will be dropped, or new packets are no=
+t
+> added, if
+> there is packet older than 100ms are not sent yet.
+
+Aside from me calling it 'tfifot last weekend, yes. Though I prefer
+using 'timelimit' as the key name, to distinguish between previous
+overloaded uses of the word limit.
+
+
+>
+> I am not sure that bandwidth will be distributed fairly, it is differ=
+ent
+> question,
+> probably each queue should have some "limited chunk of time" to send =
+data.
+
+Round robin with random starting points for each cycle through the
+stations in what I was calling a 'grouper' in the previous mail.
+
+> And again, 802.11a/b/g at least are half-duplex and CSMA, and without
+> polling/TDMA or CTS/RTS tricks
+> it will be complicated to give guaranteed chunks of time.
+
+I *think* but am not sure that what I have described interacts with
+the EDCA reasonably well.
+
+>
+> P.S. That's just a dream :)
+>
+> ---
+> Network engineer
+> Denys Fedoryshchenko
+>
+> P.O.Box 41553 Jeddah 21531
+> Tel: =A0 920023422
+> Fax: =A0+966 26501784
+> E-Mail: denys@wbc.net.sa
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wirel=
+ess" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
+
+
+
+--=20
+Dave T=E4ht
+SKYPE: davetaht
+US Tel: 1-239-829-5608
+=46R Tel: 0638645374
+http://www.bufferbloat.net
