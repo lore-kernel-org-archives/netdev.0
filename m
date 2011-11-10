@@ -1,69 +1,81 @@
-From: Richard Zhao <richard.zhao@linaro.org>
-Subject: [PATCH 1/1] net: fec: convert to clk_prepare/clk_unprepare
-Date: Thu, 10 Nov 2011 13:01:44 +0800
-Message-ID: <1320901304-13157-1-git-send-email-richard.zhao@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
-	<kernel@pengutronix.de>, <shawn.guo@linaro.org>,
-	<eric.miao@linaro.org>, Richard Zhao <richard.zhao@linaro.org>
-To: <netdev@vger.kernel.org>
+From: Chris Siebenmann <cks@cs.toronto.edu>
+Subject: Re: Bug? GRE tunnel periodically won't transmit some packets
+Date: Thu, 10 Nov 2011 00:16:49 -0500
+Message-ID: <20111110051649.505C8362D2@apps0.cs.toronto.edu>
+References: <1320761153.3444.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Cc: Chris Siebenmann <cks@cs.toronto.edu>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe006.messaging.microsoft.com ([213.199.154.144]:32830
-	"EHLO DB3EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751379Ab1KJFCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 00:02:04 -0500
+Received: from cliff.cs.toronto.edu ([128.100.3.120]:42684 "EHLO
+	cliff.cs.toronto.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933921Ab1KJFQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 00:16:50 -0500
+In-reply-to: eric.dumazet's message of Tue, 08 Nov 2011 15:05:53 +0100.
+             <1320761153.3444.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
----
- drivers/net/ethernet/freescale/fec.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+| So it appears the drop is in gre xmit because frame is bigger than
+| mtu...
+| 
+| Maybe you receive some strange ICMP (ICMP_FRAG_NEEDED) from a buggy
+| host ?
+| 
+| You could catch it with "tcpdump -s 1000 -i any icmp" maybe...
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 1124ce0..92e3585 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1588,6 +1588,7 @@ fec_probe(struct platform_device *pdev)
- 		ret = PTR_ERR(fep->clk);
- 		goto failed_clk;
- 	}
-+	clk_prepare(fep->clk);
- 	clk_enable(fep->clk);
- 
- 	ret = fec_enet_init(ndev);
-@@ -1612,6 +1613,7 @@ failed_register:
- failed_mii_init:
- failed_init:
- 	clk_disable(fep->clk);
-+	clk_unprepare(fep->clk);
- 	clk_put(fep->clk);
- failed_clk:
- 	for (i = 0; i < FEC_IRQ_NUM; i++) {
-@@ -1639,6 +1641,7 @@ fec_drv_remove(struct platform_device *pdev)
- 	fec_stop(ndev);
- 	fec_enet_mii_remove(fep);
- 	clk_disable(fep->clk);
-+	clk_unprepare(fep->clk);
- 	clk_put(fep->clk);
- 	iounmap(fep->hwp);
- 	unregister_netdev(ndev);
-@@ -1665,6 +1668,7 @@ fec_suspend(struct device *dev)
- 		netif_device_detach(ndev);
- 	}
- 	clk_disable(fep->clk);
-+	clk_unprepare(fep->clk);
- 
- 	return 0;
- }
-@@ -1675,6 +1679,7 @@ fec_resume(struct device *dev)
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 
-+	clk_prepare(fep->clk);
- 	clk_enable(fep->clk);
- 	if (netif_running(ndev)) {
- 		fec_restart(ndev, fep->full_duplex);
--- 
-1.7.5.4
+ The problem went away for several days and then came roaring back
+just now. I couldn't see any outside ICMP messages like this while
+the problem was happening. I did see ICMP messages, but they were
+locally generated:
+
+	IP 128.100.3.52 > 128.100.3.52: ICMP 128.100.3.51 unreachable - need to frag (mtu 478), length 556
+
+(I verified that these were for the things that were stalling with
+'tcpdump -vv -ee'.)
+
+At the time that this was happening, I could see a lot of 'ip route show
+table cache' entries like this:
+
+	128.100.3.58 from 66.96.18.208 dev ppp0  src 66.96.18.208
+	    cache  expires 286sec ipid 0xdeda mtu 552 rtt 44ms rttvar 30ms ssthresh 7 cwnd 9 iif lo
+
+There were a bunch of other 'mtu 552' routes. Flushing the routing cache
+(with 'ip route flush cache; ip route show table cache' to verify that
+it had flushed) did not change the situation; the problem continued and
+the 'mtu 552' routes came back as fast as I could check (it appeared to
+be the moment that the routing cache was repopulated, there they were).
+
+ In general the route cache appears to have strangely low MTUs listed
+for the remote end of the tunnel (at least after the problem's
+happened), eg:
+
+	128.100.3.58 from 66.96.18.208 dev ppp0 
+	    cache  expires 203sec ipid 0xdeda mtu 934 rtt 44ms rttvar 30ms ssthresh 7 cwnd 9
+	128.100.3.58 from 66.96.18.208 dev ppp0  src 66.96.18.208 
+	    cache  expires 203sec ipid 0xdeda mtu 934 rtt 44ms rttvar 30ms ssthresh 7 cwnd 9 iif lo
+
+I would normally expect this to be 1492, the PPP link MTU.
+
+ This does not seem to happen on the Fedora 14 kernel (the one where
+the problem doesn't happen). There the route is listed as:
+
+	128.100.3.58 from 66.96.18.208 dev ppp0 
+	    cache  mtu 1492 advmss 1452 hoplimit 64
+	128.100.3.58 from 66.96.18.208 dev ppp0 
+	    cache  mtu 1492 advmss 1452 hoplimit 64
+
+(to quote what I *think* are the relevant entries.)
+
+ Since things may be pointing towards routing cache oddities, I should
+mention that I have a somewhat peculiar policy based routing setup
+involving this GRE tunnel. While it's been working fine for literally
+years, it's possible that recent changes in the area changed something
+so that peculiar things now happen; if you think it might be relevant, I
+can provide a dump of the routing rules and explain the setup.
+
+(Part of why this occurs to me now is that I know it's possible to have
+a connection to 128.100.3.58 (the remote end of the tunnel) that runs
+through the tunnel itself, and I've seen such routes appear in the 'ip
+route show table cache' output.)
+
+		- cks
