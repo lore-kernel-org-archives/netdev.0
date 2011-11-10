@@ -1,156 +1,131 @@
-From: Jiang Wang <Jiang.Wang@riverbed.com>
-Subject: RE: 82574 link speed problem (resend, corrected log format)
-Date: Thu, 10 Nov 2011 22:20:05 +0000
-Message-ID: <CEE05A0D7856E14880AD5560634EBEA82AA5C260__21019.1640806899$1320963622$gmane$org@365EXCH-MBX-P5.nbttech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Prasanna Panchamukhi <Prasanna.Panchamukhi@riverbed.com>
-To: "bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"jeffrey.e.pieper@intel.com" <jeffrey.e.pieper@intel.com>,
-	"e1000-dev
+From: David Decotigny <david.decotigny@google.com>
+Subject: [PATCH FIX net v1] forcedeth: fix ifconfig stats on hardware without extended stats support
+Date: Thu, 10 Nov 2011 15:10:40 -0800
+Message-ID: <202cfa353085f52352650ecc169cbee66a034301.1320966597.git.david.decotigny@google.com>
+References: <cover.1320966597.git.david.decotigny@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	David Decotigny <david.decotigny@google.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from incomingmail.riverbed.com ([208.70.196.45]:54345 "EHLO
-	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932590Ab1KJWUH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 17:20:07 -0500
-Content-Language: en-US
+Received: from mail-ww0-f74.google.com ([74.125.82.74]:34194 "EHLO
+	mail-ww0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755196Ab1KJXeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 18:34:44 -0500
+Received: by wwe5 with SMTP id 5so8279wwe.1
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 15:34:43 -0800 (PST)
+In-Reply-To: <cover.1320966597.git.david.decotigny@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This change makes sure that tx_packets/rx_bytes ifconfig counters are
+updated even on NICs that don't provide hardware support for these
+stats. In that case, they are updated in software.
 
-I found a link speed problem for 82574L NIC on a server machine. The NIC sometimes shows as 100Mbps and sometimes shows as 1Gbps when connected to the same switch with 1Gbps capability. Following are the details:
-
-The NIC is set to use auto negotiation, and from the ethtool, I can see it supports and advertises all the 10, 100 and 1000 Mbps speeds. At the beginning, the link speed is 1Gbps, then I disable WOL (ethtool -s eth1 wol d). Next I run following script:
-
-ifconfig ethx down
-sleep y
-ifconfig ethx up
-
-When y is less than 10 seconds, the speed after up is 1Gbps. When y is more than 13 seconds, the speed becomes 100 Mbps. This is very reliable. I run the script many times and the link speed always depends on the sleep time. I read the link speed from both ethtool and dmesg, and I also verified the speed from the switch (Netgear FS726T). 
-
-Following is ethtool output:
-ethtool eth5
-Settings for eth5:
-        Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
-                                1000baseT/Full 
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
-                                1000baseT/Full 
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Speed: 100Mb/s
-        Duplex: Full
-        Port: Twisted Pair
-        PHYAD: 1
-        Transceiver: internal
-        Auto-negotiation: on
-        MDI-X: off
-        Supports Wake-on: pumbg
-        Wake-on: d
-        Current message level: 0x00000001 (1)
-                               drv
-        Link detected: yes
+Related commit: "forcedeth: Improve stats counters" (0bdfea8ba8)
 
 
-Following is from dmesg:
 
-commands:
-#if down
-sleep 3
-#if up
+Signed-off-by: David Decotigny <david.decotigny@google.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |   34 ++++++++++++++++++++++++++----
+ 1 files changed, 29 insertions(+), 5 deletions(-)
 
-dmesg log below:
-
-Nov 10 10:03:21 localhost avahi-daemon[3703]: Withdrawing address record for fe80::20e:b6ff:fe9a:f694 on eth5.
-Nov 10 10:03:24 localhost kernel: ADDRCONF(NETDEV_UP): eth5: link is not ready Nov 10 10:03:26 localhost kernel: e1000e: eth5 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx Nov 10 10:03:26 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth5: link becomes ready Nov 10 10:03:28 localhost avahi-daemon[3703]: New relevant interface eth5.IPv6 for mDNS.
-Nov 10 10:03:28 localhost avahi-daemon[3703]: Joining mDNS multicast group on interface eth5.IPv6 with address fe80::20e:b6ff:fe9a:f694.
-Nov 10 10:03:28 localhost avahi-daemon[3703]: Registering new address record for fe80::20e:b6ff:fe9a:f694 on eth5.
-Nov 10 10:05:32 localhost avahi-daemon[3703]: Interface eth5.IPv6 no longer relevant for mDNS.
-Nov 10 10:05:32 localhost avahi-daemon[3703]: Leaving mDNS multicast group on interface eth5.IPv6 with address fe80::20e:b6ff:fe9a:f694.
-
-
-commands:
-#if down
-sleep 13
-#if up
-
-dmesg log below:
-
-Nov 10 10:05:32 localhost avahi-daemon[3703]: Withdrawing address record for fe80::20e:b6ff:fe9a:f694 on eth5.
-Nov 10 10:05:45 localhost kernel: ADDRCONF(NETDEV_UP): eth5: link is not ready Nov 10 10:05:47 localhost kernel: e1000e: eth5 NIC Link is Up 100 Mbps Full Duplex, Flow Control: Rx/Tx Nov 10 10:05:47 localhost kernel: e1000e 0000:04:00.0: eth5: 10/100 speed: disabling TSO Nov 10 10:05:47 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth5: link becomes ready Nov 10 10:05:49 localhost avahi-daemon[3703]: New relevant interface eth5.IPv6 for mDNS.
-Nov 10 10:05:49 localhost avahi-daemon[3703]: Joining mDNS multicast group on interface eth5.IPv6 with address fe80::20e:b6ff:fe9a:f694.
-
-The kernel I am using is vanilla Linux 3.0.8 and the e1000e driver is 1.6.3-NAPI downloaded from sourceforge. I also tested with CentOS5.5 and Ubuntu 11.04, and the same problem exists.  In addition, I tried to connect to the different port on the switch, connect to another port on the same machine, and connect to a laptop. All showed the same problem.
-
-If WOL is not disabled, there is no problem. But in my case, I need to disable WOL. When WOL is disabled, the PHY will be shutdown after ifconfig down. 
-
-To debug, I print out the PHY_1000T_STATUS register in the e1000e_watchdog_task. When the speed is 1G, this register has some value like 0x2c00, 0x7c00, or 0x7800. It means the NIC detects the link partner has 1G capability.  When the speed becomes 100 M, the PHY_1000T_STATUS is always 0x4000. But the link party (the switch) doesn't change. Only difference is the sleep time between down/up the NIC. I also print out the E1000_POEMB (offset 0XF10), which is correct, 0x30d. 
-
-Following is the log for ifdown, sleep3, ifup (this time, I used a different NIC):
-
-Nov  9 10:51:31 localhost kernel: watchdog: start
-Nov  9 10:51:31 localhost kernel: ====iterations is 1, interval is 0
-Nov  9 10:51:31 localhost kernel: ret: 0, PHY_AUTONEG_ADV 0xde1
-Nov  9 10:51:31 localhost kernel: ret: 0, PHY_LP_ABILITY 0xc5e1
-Nov  9 10:51:31 localhost kernel: ret: 0, PHY_AUTONEG_EXP 0xf
-Nov  9 10:51:31 localhost kernel: ret: 0, PHY_1000T_CTRL 0x200
-Nov  9 10:51:31 localhost kernel: ret: 0, PHY_1000T_STATUS 0x4000
-Nov  9 10:51:31 localhost kernel: ret: 0, PHY_EXT_STATUS 0x3000
-Nov  9 10:51:31 localhost kernel: watchdog ret
-Nov  9 10:51:32 localhost kernel: watchdog: start
-Nov  9 10:51:32 localhost kernel: ====iterations is 1, interval is 0
-Nov  9 10:51:32 localhost kernel: ret: 0, PHY_AUTONEG_ADV 0xde1
-Nov  9 10:51:32 localhost kernel: ret: 0, PHY_LP_ABILITY 0xc5e1
-Nov  9 10:51:32 localhost kernel: ret: 0, PHY_AUTONEG_EXP 0xf
-Nov  9 10:51:32 localhost kernel: ret: 0, PHY_1000T_CTRL 0x200
-Nov  9 10:51:32 localhost kernel: ret: 0, PHY_1000T_STATUS 0x2c00
-Nov  9 10:51:32 localhost kernel: ret: 0, PHY_EXT_STATUS 0x3000
-Nov  9 10:51:32 localhost kernel: e1000e: eth6 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
-Nov  9 10:51:32 localhost kernel: watchdog ret
-Nov  9 10:51:32 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth6: link becomes ready
-Nov  9 10:51:33 localhost avahi-daemon[3777]: New relevant interface eth6.IPv6 for mDNS.
-Nov  9 10:51:33 localhost avahi-daemon[3777]: Joining mDNS multicast group on interface eth6.IPv6 with address fe80::21b:21ff:fec5:f92f.
-Nov  9 10:51:33 localhost avahi-daemon[3777]: Registering new address record for fe80::21b:21ff:fec5:f92f on eth6.
-Nov  9 10:51:34 localhost kernel: ====iterations is 1, interval is 0
-Nov  9 10:51:34 localhost kernel: ret: 0, PHY_AUTONEG_ADV 0xde1
-
-Following is the log for ifdown, sleep 13, ifup:
-
-Nov  9 10:52:59 localhost kernel: watchdog: start
-Nov  9 10:52:59 localhost kernel: ====iterations is 1, interval is 0
-Nov  9 10:52:59 localhost kernel: ret: 0, PHY_AUTONEG_ADV 0xde1
-Nov  9 10:52:59 localhost kernel: ret: 0, PHY_LP_ABILITY 0xc5e1
-Nov  9 10:52:59 localhost kernel: ret: 0, PHY_AUTONEG_EXP 0xf
-Nov  9 10:52:59 localhost kernel: ret: 0, PHY_1000T_CTRL 0x200
-Nov  9 10:52:59 localhost kernel: ret: 0, PHY_1000T_STATUS 0x4000
-Nov  9 10:52:59 localhost kernel: ret: 0, PHY_EXT_STATUS 0x3000
-Nov  9 10:52:59 localhost kernel: e1000e: eth6 NIC Link is Up 100 Mbps Full Duplex, Flow Control: Rx/Tx
-Nov  9 10:52:59 localhost kernel: e1000e 0000:04:00.0: eth6: 10/100 speed: disabling TSO
-Nov  9 10:52:59 localhost kernel: watchdog ret
-Nov  9 10:52:59 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth6: link becomes ready
-Nov  9 10:53:00 localhost avahi-daemon[3777]: New relevant interface eth6.IPv6 for mDNS.
-Nov  9 10:53:00 localhost avahi-daemon[3777]: Joining mDNS multicast group on interface eth6.IPv6 with address fe80::21b:21ff:fec5:f92f.
-Nov  9 10:53:00 localhost avahi-daemon[3777]: Registering new address record for fe80::21b:21ff:fec5:f92f on eth6.
-
-Also, I tried to modify the auto negotiation and only advertise speed 1G, then the speed can stay in 1G even after sleeping for a long time.
-
-I am not sure how to proceed to identify which component is wrong and how to solve this problem. Please give me some suggestions. I am happy to do more tests or try different patches. Thanks.
-
-Regards,
-
-Jiang
-
-
--------------------------------------
-Jiang Wang
-Member of Technical Staff
-Riverbed Technology
-Tel: (408) 522-5109
-Email: Jiang.Wang@riverbed.com
-www.riverbed.com
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 1dca570..c0afe8e 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -90,6 +90,7 @@
+ #define DEV_HAS_STATISTICS_V2      0x0000400  /* device supports hw statistics version 2 */
+ #define DEV_HAS_STATISTICS_V3      0x0000800  /* device supports hw statistics version 3 */
+ #define DEV_HAS_STATISTICS_V12     0x0000600  /* device supports hw statistics version 1 and 2 */
++#define DEV_HAS_STATISTICS_V23     0x0000c00  /* device supports hw statistics version 2 and 3 */
+ #define DEV_HAS_STATISTICS_V123    0x0000e00  /* device supports hw statistics version 1, 2, and 3 */
+ #define DEV_HAS_TEST_EXTENDED      0x0001000  /* device supports extended diagnostic test */
+ #define DEV_HAS_MGMT_UNIT          0x0002000  /* device supports management unit */
+@@ -1703,12 +1704,19 @@ static struct net_device_stats *nv_get_stats(struct net_device *dev)
+ 	struct fe_priv *np = netdev_priv(dev);
+ 
+ 	/* If the nic supports hw counters then retrieve latest values */
+-	if (np->driver_data & (DEV_HAS_STATISTICS_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_STATISTICS_V3)) {
++	if (np->driver_data & DEV_HAS_STATISTICS_V123) {
++		/* query hardware */
+ 		nv_get_hw_stats(dev);
+ 
+ 		/* copy to net_device stats */
+-		dev->stats.tx_packets = np->estats.tx_packets;
+-		dev->stats.rx_bytes = np->estats.rx_bytes;
++
++		if (np->driver_data & DEV_HAS_STATISTICS_V23) {
++			/* When HW stats are available for following
++			 * stats, we use them. Otherwise they are
++			 * updated by software. */
++			dev->stats.tx_packets = np->estats.tx_packets;
++			dev->stats.rx_bytes = np->estats.rx_bytes;
++		}
+ 		dev->stats.tx_bytes = np->estats.tx_bytes;
+ 		dev->stats.tx_fifo_errors = np->estats.tx_fifo_errors;
+ 		dev->stats.tx_carrier_errors = np->estats.tx_carrier_errors;
+@@ -2378,8 +2386,12 @@ static int nv_tx_done(struct net_device *dev, int limit)
+ 		if (np->desc_ver == DESC_VER_1) {
+ 			if (flags & NV_TX_LASTPACKET) {
+ 				if (flags & NV_TX_ERROR) {
+-					if ((flags & NV_TX_RETRYERROR) && !(flags & NV_TX_RETRYCOUNT_MASK))
++					if ((flags & NV_TX_RETRYERROR)
++					    && !(flags & NV_TX_RETRYCOUNT_MASK))
+ 						nv_legacybackoff_reseed(dev);
++				} else if (unlikely(!(np->driver_data
++						      & DEV_HAS_STATISTICS_V23))) {
++					dev->stats.tx_packets++;
+ 				}
+ 				dev_kfree_skb_any(np->get_tx_ctx->skb);
+ 				np->get_tx_ctx->skb = NULL;
+@@ -2388,8 +2400,12 @@ static int nv_tx_done(struct net_device *dev, int limit)
+ 		} else {
+ 			if (flags & NV_TX2_LASTPACKET) {
+ 				if (flags & NV_TX2_ERROR) {
+-					if ((flags & NV_TX2_RETRYERROR) && !(flags & NV_TX2_RETRYCOUNT_MASK))
++					if ((flags & NV_TX2_RETRYERROR)
++					    && !(flags & NV_TX2_RETRYCOUNT_MASK))
+ 						nv_legacybackoff_reseed(dev);
++				} else if (unlikely(!(np->driver_data
++						      & DEV_HAS_STATISTICS_V23))) {
++					dev->stats.tx_packets++;
+ 				}
+ 				dev_kfree_skb_any(np->get_tx_ctx->skb);
+ 				np->get_tx_ctx->skb = NULL;
+@@ -2429,6 +2445,9 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
+ 					else
+ 						nv_legacybackoff_reseed(dev);
+ 				}
++			} else if (unlikely(!(np->driver_data
++					      & DEV_HAS_STATISTICS_V23))) {
++				dev->stats.tx_packets++;
+ 			}
+ 
+ 			dev_kfree_skb_any(np->get_tx_ctx->skb);
+@@ -2678,6 +2697,8 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 		skb->protocol = eth_type_trans(skb, dev);
+ 		napi_gro_receive(&np->napi, skb);
+ 		dev->stats.rx_packets++;
++		if (unlikely(!(np->driver_data & DEV_HAS_STATISTICS_V23)))
++			dev->stats.rx_bytes += len;
+ next_pkt:
+ 		if (unlikely(np->get_rx.orig++ == np->last_rx.orig))
+ 			np->get_rx.orig = np->first_rx.orig;
+@@ -2761,6 +2782,9 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+ 			}
+ 			napi_gro_receive(&np->napi, skb);
+ 			dev->stats.rx_packets++;
++			if (unlikely(!(np->driver_data
++				       & DEV_HAS_STATISTICS_V23)))
++				dev->stats.rx_bytes += len;
+ 		} else {
+ 			dev_kfree_skb(skb);
+ 		}
+-- 
+1.7.3.1
