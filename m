@@ -1,117 +1,80 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH] libteam: fix function names to include 'bond'
-Date: Thu, 10 Nov 2011 07:41:55 +0100
-Message-ID: <20111110064154.GA2058@minipsycho>
-References: <1319660867-945-1-git-send-email-jpirko@redhat.com>
- <1320862846-6000-1-git-send-email-fbl@redhat.com>
- <20111109220423.GA2112@minipsycho>
- <20111109212308.4f89739e@asterix.rh>
+Subject: Re: [REPOST patch net-next V6] net: introduce ethernet teaming device
+Date: Thu, 10 Nov 2011 07:48:08 +0100
+Message-ID: <20111110064807.GB2058@minipsycho>
+References: <1320876793-1158-1-git-send-email-jpirko@redhat.com>
+ <1320880355.5825.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
-	eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
-	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
-	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com,
-	benjamin.poirier@gmail.com, jzupka@redhat.com
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
+	jzupka@redhat.com, ivecera@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65398 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50364 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752316Ab1KJGm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Nov 2011 01:42:26 -0500
+	id S1752883Ab1KJGsU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Nov 2011 01:48:20 -0500
 Content-Disposition: inline
-In-Reply-To: <20111109212308.4f89739e@asterix.rh>
+In-Reply-To: <1320880355.5825.1.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Nov 10, 2011 at 12:23:08AM CET, fbl@redhat.com wrote:
->On Wed, 9 Nov 2011 23:04:25 +0100
->Jiri Pirko <jpirko@redhat.com> wrote:
+Thu, Nov 10, 2011 at 12:12:35AM CET, eric.dumazet@gmail.com wrote:
+>Le mercredi 09 novembre 2011 =E0 23:13 +0100, Jiri Pirko a =E9crit :
+>> This patch introduces new network device called team. It supposes to=
+ be
+>> very fast, simple, userspace-driven alternative to existing bonding
+>> driver.
 >
->> 
->> Hi Flavio.
->> 
->> Thomas included these 2 functions in latest libnl upstream. Bond
->> versions wouldn't work because of "bond" type check.
->> 
+>...
 >
->Yeah, my first option would be using git repo, but the one
->mentioned in the page seems to be off and I am not finding
->another one.  Do you have the repo url handy?
+>> +/*
+>> + * note: already called with rcu_read_lock
+>> + */
+>> +static netdev_tx_t team_xmit(struct sk_buff *skb, struct net_device=
+ *dev)
+>> +{
+>> +	struct team *team =3D netdev_priv(dev);
+>> +	bool tx_success =3D false;
+>> +	unsigned int len =3D skb->len;
+>> +
+>> +	/*
+>> +	 * Ensure transmit function is called only in case there is at lea=
+st
+>> +	 * one port present.
+>> +	 */
+>> +	if (likely(!list_empty(&team->port_list) && team->mode_ops.transmi=
+t))
+>> +		tx_success =3D team->mode_ops.transmit(team, skb);
+>> +	if (tx_success) {
+>> +		struct team_pcpu_stats *pcpu_stats;
+>> +
+>> +		pcpu_stats =3D this_cpu_ptr(team->pcpu_stats);
+>> +		u64_stats_update_begin(&pcpu_stats->syncp);
+>> +		pcpu_stats->tx_packets++;
+>> +		pcpu_stats->tx_bytes +=3D len;
+>> +		u64_stats_update_end(&pcpu_stats->syncp);
+>> +	} else {
+>> +		this_cpu_inc(team->pcpu_stats->tx_dropped);
+>> +	}
+>> +
+>> +	return NETDEV_TX_OK;
+>> +}
+>> +
+>
+>If skb is not transmitted, its leaked.
 
-git://git.infradead.org/users/tgr/libnl.git
-
+dev_kfree_skb is called from module transmit functions to handle free o=
+f
+skb when needed. But I see now that in case when
+(likely(!list_empty(&team->port_list) && team->mode_ops.transmit)) =3D=3D=
+ false
+this would leak. I'm going to rewrite this bit somehow.
 >
->Anyway, I've tried here with my patch applied and it didn't work.
->Every packet transmitted increased TX dropped in ifconfig team0
->output. The tcpdump attached to the slave doesn't show anything,
->the packets appear only when attached to team0.
 >
->When I ping the team0 host from another host, both slave and
->team0 RX dropped increases at the same rate. tcpdump attached
->to the slave shows the packet coming.
->
->Well, maybe this is an effect of having used the wrong libnl
->version, though the team_monitor seems to be working just fine.
->(patch applied on top of net-next of today, commit e56c57d,
-> followed the exact same steps as in HOWTO.BASICS)
-
-Oh. I changed activebackup mode behaviour in V4 or V5 of kernel patch.
-Now it's needed to adjust mac address of ports by hand. I'll refresh
-HOWTO.BASICS shortly. 
-
->
->I am planning to upgrade the system to the new fedora and
->try again after that.  If I have time, I will follow up with
->fresh results.
->
->thanks,
->fbl
->
->> Jirka
->> 
->> Wed, Nov 09, 2011 at 07:20:46PM CET, fbl@redhat.com wrote:
->> >Signed-off-by: Flavio Leitner <fbl@redhat.com>
->> >---
->> >
->> > I found those while trying to test V6 patch using latest
->> > libteam (commit 5e9790816606a6dd4e7f6f32c0bb0c45e5d13b31)
->> > and libnl-3.2.2 (last stable).
->> > thanks,
->> > fbl
->> >
->> > lib/libteam.c |    4 ++--
->> > 1 files changed, 2 insertions(+), 2 deletions(-)
->> >
->> >diff --git a/lib/libteam.c b/lib/libteam.c
->> >index feb13b6..e7ae6b0 100644
->> >--- a/lib/libteam.c
->> >+++ b/lib/libteam.c
->> >@@ -1331,7 +1331,7 @@ int team_port_add(struct team_handle *th,
->> >uint32_t port_ifindex)
->> > {
->> > 	int err;
->> > 
->> >-	err = rtnl_link_enslave_ifindex(th->nl_cli.sock,
->> >th->ifindex,
->> >+	err = rtnl_link_bond_enslave_ifindex(th->nl_cli.sock,
->> >th->ifindex,
->> > 					port_ifindex);
->> > 	return -nl2syserr(err);
->> > }
->> >@@ -1350,6 +1350,6 @@ int team_port_remove(struct team_handle *th,
->> >uint32_t port_ifindex)
->> > {
->> > 	int err;
->> > 
->> >-	err = rtnl_link_release_ifindex(th->nl_cli.sock,
->> >port_ifindex);
->> >+	err = rtnl_link_bond_release_ifindex(th->nl_cli.sock,
->> >port_ifindex);
->> > 	return -nl2syserr(err);
->> > }
->> >-- 
->> >1.7.6
->> >
 >
