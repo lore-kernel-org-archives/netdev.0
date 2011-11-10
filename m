@@ -1,7 +1,7 @@
 From: Jiang Wang <Jiang.Wang@riverbed.com>
-Subject: 82574 link speed problem
-Date: Thu, 10 Nov 2011 21:45:39 +0000
-Message-ID: <CEE05A0D7856E14880AD5560634EBEA82AA5C212@365EXCH-MBX-P5.nbttech.com>
+Subject: RE: 82574 link speed problem (resend, corrected log format)
+Date: Thu, 10 Nov 2011 22:20:05 +0000
+Message-ID: <CEE05A0D7856E14880AD5560634EBEA82AA5C260__21019.1640806899$1320963622$gmane$org@365EXCH-MBX-P5.nbttech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -11,10 +11,10 @@ To: "bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
 	"jeffrey.e.pieper@intel.com" <jeffrey.e.pieper@intel.com>,
 	"e1000-dev
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.riverbed.com ([208.70.196.44]:6085 "EHLO
-	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932444Ab1KJVzL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 16:55:11 -0500
+Received: from incomingmail.riverbed.com ([208.70.196.45]:54345 "EHLO
+	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932590Ab1KJWUH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 17:20:07 -0500
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -68,10 +68,7 @@ sleep 3
 dmesg log below:
 
 Nov 10 10:03:21 localhost avahi-daemon[3703]: Withdrawing address record for fe80::20e:b6ff:fe9a:f694 on eth5.
-Nov 10 10:03:24 localhost kernel: ADDRCONF(NETDEV_UP): eth5: link is not ready
-Nov 10 10:03:26 localhost kernel: e1000e: eth5 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
-Nov 10 10:03:26 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth5: link becomes ready
-Nov 10 10:03:28 localhost avahi-daemon[3703]: New relevant interface eth5.IPv6 for mDNS.
+Nov 10 10:03:24 localhost kernel: ADDRCONF(NETDEV_UP): eth5: link is not ready Nov 10 10:03:26 localhost kernel: e1000e: eth5 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx Nov 10 10:03:26 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth5: link becomes ready Nov 10 10:03:28 localhost avahi-daemon[3703]: New relevant interface eth5.IPv6 for mDNS.
 Nov 10 10:03:28 localhost avahi-daemon[3703]: Joining mDNS multicast group on interface eth5.IPv6 with address fe80::20e:b6ff:fe9a:f694.
 Nov 10 10:03:28 localhost avahi-daemon[3703]: Registering new address record for fe80::20e:b6ff:fe9a:f694 on eth5.
 Nov 10 10:05:32 localhost avahi-daemon[3703]: Interface eth5.IPv6 no longer relevant for mDNS.
@@ -86,11 +83,7 @@ sleep 13
 dmesg log below:
 
 Nov 10 10:05:32 localhost avahi-daemon[3703]: Withdrawing address record for fe80::20e:b6ff:fe9a:f694 on eth5.
-Nov 10 10:05:45 localhost kernel: ADDRCONF(NETDEV_UP): eth5: link is not ready
-Nov 10 10:05:47 localhost kernel: e1000e: eth5 NIC Link is Up 100 Mbps Full Duplex, Flow Control: Rx/Tx
-Nov 10 10:05:47 localhost kernel: e1000e 0000:04:00.0: eth5: 10/100 speed: disabling TSO
-Nov 10 10:05:47 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth5: link becomes ready
-Nov 10 10:05:49 localhost avahi-daemon[3703]: New relevant interface eth5.IPv6 for mDNS.
+Nov 10 10:05:45 localhost kernel: ADDRCONF(NETDEV_UP): eth5: link is not ready Nov 10 10:05:47 localhost kernel: e1000e: eth5 NIC Link is Up 100 Mbps Full Duplex, Flow Control: Rx/Tx Nov 10 10:05:47 localhost kernel: e1000e 0000:04:00.0: eth5: 10/100 speed: disabling TSO Nov 10 10:05:47 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth5: link becomes ready Nov 10 10:05:49 localhost avahi-daemon[3703]: New relevant interface eth5.IPv6 for mDNS.
 Nov 10 10:05:49 localhost avahi-daemon[3703]: Joining mDNS multicast group on interface eth5.IPv6 with address fe80::20e:b6ff:fe9a:f694.
 
 The kernel I am using is vanilla Linux 3.0.8 and the e1000e driver is 1.6.3-NAPI downloaded from sourceforge. I also tested with CentOS5.5 and Ubuntu 11.04, and the same problem exists.  In addition, I tried to connect to the different port on the switch, connect to another port on the same machine, and connect to a laptop. All showed the same problem.
@@ -101,6 +94,7 @@ To debug, I print out the PHY_1000T_STATUS register in the e1000e_watchdog_task.
 
 Following is the log for ifdown, sleep3, ifup (this time, I used a different NIC):
 
+Nov  9 10:51:31 localhost kernel: watchdog: start
 Nov  9 10:51:31 localhost kernel: ====iterations is 1, interval is 0
 Nov  9 10:51:31 localhost kernel: ret: 0, PHY_AUTONEG_ADV 0xde1
 Nov  9 10:51:31 localhost kernel: ret: 0, PHY_LP_ABILITY 0xc5e1
@@ -126,18 +120,8 @@ Nov  9 10:51:33 localhost avahi-daemon[3777]: Registering new address record for
 Nov  9 10:51:34 localhost kernel: ====iterations is 1, interval is 0
 Nov  9 10:51:34 localhost kernel: ret: 0, PHY_AUTONEG_ADV 0xde1
 
-
 Following is the log for ifdown, sleep 13, ifup:
 
-Nov  9 10:52:57 localhost kernel: ====iterations is 1, interval is 0
-Nov  9 10:52:57 localhost kernel: ADDRCONF(NETDEV_UP): eth6: link is not ready
-Nov  9 10:52:57 localhost kernel: ret: 0, PHY_AUTONEG_ADV 0xde1
-Nov  9 10:52:57 localhost kernel: ret: 0, PHY_LP_ABILITY 0x0
-Nov  9 10:52:57 localhost kernel: ret: 0, PHY_AUTONEG_EXP 0x4
-Nov  9 10:52:57 localhost kernel: ret: 0, PHY_1000T_CTRL 0x200
-Nov  9 10:52:57 localhost kernel: ret: 0, PHY_1000T_STATUS 0x0
-Nov  9 10:52:57 localhost kernel: ret: 0, PHY_EXT_STATUS 0x3000
-Nov  9 10:52:57 localhost kernel: watchdog ret
 Nov  9 10:52:59 localhost kernel: watchdog: start
 Nov  9 10:52:59 localhost kernel: ====iterations is 1, interval is 0
 Nov  9 10:52:59 localhost kernel: ret: 0, PHY_AUTONEG_ADV 0xde1
@@ -153,7 +137,6 @@ Nov  9 10:52:59 localhost kernel: ADDRCONF(NETDEV_CHANGE): eth6: link becomes re
 Nov  9 10:53:00 localhost avahi-daemon[3777]: New relevant interface eth6.IPv6 for mDNS.
 Nov  9 10:53:00 localhost avahi-daemon[3777]: Joining mDNS multicast group on interface eth6.IPv6 with address fe80::21b:21ff:fec5:f92f.
 Nov  9 10:53:00 localhost avahi-daemon[3777]: Registering new address record for fe80::21b:21ff:fec5:f92f on eth6.
-
 
 Also, I tried to modify the auto negotiation and only advertise speed 1G, then the speed can stay in 1G even after sleeping for a long time.
 
