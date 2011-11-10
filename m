@@ -1,66 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: creating netdev queues on the fly?
-Date: Thu, 10 Nov 2011 14:58:21 +0100
-Message-ID: <1320933501.3967.68.camel@jlt3.sipsolutions.net>
+From: Mark Lord <kernel@teksavvy.com>
+Subject: Re: [PATCH v2] drivers/net/usb/asix:  resync from vendor's copy
+Date: Thu, 10 Nov 2011 09:01:26 -0500
+Message-ID: <4EBBD936.40705@teksavvy.com>
+References: <4EA89972.5060101@teksavvy.com> <20111026.194045.2019668159403582571.davem@davemloft.net> <4EA8B283.3010105@teksavvy.com> <20111026.221719.2216112919297458522.davem@davemloft.net> <4EB19BBE.5050602@teksavvy.com> <4EBAB8F5.1010101@teksavvy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:48134 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498Ab1KJN63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 08:58:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Michal Marek <mmarek@suse.cz>,
+	Grant Grundler <grundler@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EBAB8F5.1010101@teksavvy.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 11-11-09 12:31 PM, Mark Lord wrote:
+> Second pass (for review) at updating the in-kernel asix usb/network driver
+> from the v4.1.0 vendor GPL version of the driver, obtained from here:
+> 
+>   http://www.asix.com.tw/download.php?sub=searchresult&PItemID=84&download=driver
+> 
+> The original vendor copy used a local "axusbnet" middleware (rather than "usbnet").
+> I've converted it back to using "usbnet", made a ton of cosmetic changes
+> to get it to pass checkpatch.pl, and removed a small amount of code duplication.
+> 
+> The tx/rx checksum code has been updated per Ben's comments,
+> and the duplicated MII_* definitions have been removed.
+> I've changed the version string to be "4.1.0-kernel",
+> to reflect the vendor's code version while also distinguishing
+> this port from the original vendor code.
+> 
+> It can use more work going forward, but it is important to get it upstream
+> sooner than later -- the current in-kernel driver fails with many devices,
+> both old and new.  This updated version works with everything I have available
+> to test with, and also handles suspend / resume (unlike the in-kernel one).
+> 
+> Signed-off-by: Mark Lord <mlord@pobox.com>
+...
 
-I've been thinking about how we manage TX queues in wifi and right now
-we just split things up by access category for QoS purposes.
+Okay, the vendor has told me to cease development on this now.
+They prefer instead to feed small parts of their mainline driver
+to Grant Grundler as issues arise, rather than to get the whole
+thing upstream.
 
-However we have the issue that we might be pushing data to stations with
-completely different speeds. Onn wired, where our outgoing speed is
-essentially constant and some router/switch has to drop packets for the
-slow link:
+So be it.
 
-machine A === 1000mbps link ==== [switch] === 1000mbps === machine B
-                                     |
-                                     +--- 100mbps link --- machine C
-
-But on wireless we really transmit to slow stations only with a slow
-speed, so our outgoing speed differs. I think the scenario is quite
-different, also because the speed can vary obviously.
-
-So to get to my question: What if we could create netdev queues on the
-fly?
-
-The reason to do that is that we really don't want to reserve some 8000
-queues just because somebody could possibly try to create 2000
-connections (2007 is the theoretical max due to protocol restrictions)
-to the AP interface. We also don't really want to create a netdev for
-each peer (though you could implement it that way today).
-
-I looked at this and it doesn't seem terrible. Creating & destroying the
-queues might be tricky though. I think ndo_select_queue might return the
-queue pointer instead of an index, and then that queue could be used.
-The normal queues would still be in an array, with maybe a linked list
-of extra queues that were dynamically created. Obviously the driver
-would have to be able to manage that.
-
-Ultimately, all the frames will of course end up on the same four
-hardware queues again. But this would some better management, and piled
-up traffic to one station that suddenly dies wouldn't impact performance
-for all others as badly as it does today since we wouldn't let all those
-frames pile up on the hardware queues, they'd only get there with some
-mechanism that might take airtime into account.
-
-I think this might also make implementing reservation (tspec) easier.
-Not sure if anyone wants/needs that though.
-
-
-Am I completely crazy?
-
-
-johannes
+Cheers
