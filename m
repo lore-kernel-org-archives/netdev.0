@@ -1,83 +1,133 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next 06/13] bnx2x: DCBX: use #define instead of
- magic
-Date: Thu, 10 Nov 2011 17:14:07 +0200
-Message-ID: <1320938054-31288-7-git-send-email-dmitry@broadcom.com>
-References: <1320938054-31288-1-git-send-email-dmitry@broadcom.com>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC 4942 recommendation
+Date: Thu, 10 Nov 2011 07:23:22 -0800 (PST)
+Message-ID: <1320938602.20312.YahooMailNeo@web126017.mail.ne1.yahoo.com>
+References: <1320417988.69298.YahooMailNeo@web126013.mail.ne1.yahoo.com>   <1320423860.16609.4.camel@edumazet-laptop>   <1320482392.98040.YahooMailNeo@web126003.mail.ne1.yahoo.com>  <1320485406.16908.4.camel@edumazet-laptop>  <1320922725.65072.YahooMailNeo@web126002.mail.ne1.yahoo.com> <1320924445.2310.0.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> <1320929648.97649.YahooMailNeo@web126007.mail.ne1.yahoo.com>
+Reply-To: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2416 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935058Ab1KJPOe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Nov 2011 10:14:34 -0500
-In-Reply-To: <1320938054-31288-1-git-send-email-dmitry@broadcom.com>
+Received: from nm28-vm1.bullet.mail.ne1.yahoo.com ([98.138.91.35]:45791 "HELO
+	nm28-vm1.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S935154Ab1KJPXX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Nov 2011 10:23:23 -0500
+In-Reply-To: <1320929648.97649.YahooMailNeo@web126007.mail.ne1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |    6 +++---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h |    4 +++-
- 2 files changed, 6 insertions(+), 4 deletions(-)
+----- Original Message -----
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index a0598fd..5051cf3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -874,7 +874,7 @@ static void bnx2x_dcbx_admin_mib_updated_params(struct bnx2x *bp,
- 		/*For IEEE admin_recommendation_bw_precentage
- 		 *For IEEE admin_recommendation_ets_pg */
- 		af->pfc.pri_en_bitmap = (u8)dp->admin_pfc_bitmap;
--		for (i = 0; i < 4; i++) {
-+		for (i = 0; i < DCBX_CONFIG_MAX_APP_PROTOCOL; i++) {
- 			if (dp->admin_priority_app_table[i].valid) {
- 				struct bnx2x_admin_priority_app_table *table =
- 					dp->admin_priority_app_table;
-@@ -2249,7 +2249,7 @@ static int bnx2x_set_admin_app_up(struct bnx2x *bp, u8 idtype, u16 idval, u8 up)
- 	int i, ff;
- 
- 	/* iterate over the app entries looking for idtype and idval */
--	for (i = 0, ff = -1; i < 4; i++) {
-+	for (i = 0, ff = -1; i < DCBX_CONFIG_MAX_APP_PROTOCOL; i++) {
- 		struct bnx2x_admin_priority_app_table *app_ent =
- 			&bp->dcbx_config_params.admin_priority_app_table[i];
- 		if (bnx2x_admin_app_is_equal(app_ent, idtype, idval))
-@@ -2258,7 +2258,7 @@ static int bnx2x_set_admin_app_up(struct bnx2x *bp, u8 idtype, u16 idval, u8 up)
- 		if (ff < 0 && !app_ent->valid)
- 			ff = i;
- 	}
--	if (i < 4)
-+	if (i < DCBX_CONFIG_MAX_APP_PROTOCOL)
- 		/* if found overwrite up */
- 		bp->dcbx_config_params.
- 			admin_priority_app_table[i].priority = up;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
-index 2c6a3bc..2ab9254 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.h
-@@ -90,6 +90,7 @@ struct bnx2x_admin_priority_app_table {
- 		u32 app_id;
- };
- 
-+#define DCBX_CONFIG_MAX_APP_PROTOCOL 4
- struct bnx2x_config_dcbx_params {
- 	u32 overwrite_settings;
- 	u32 admin_dcbx_version;
-@@ -109,7 +110,8 @@ struct bnx2x_config_dcbx_params {
- 	u32 admin_recommendation_bw_precentage[8];
- 	u32 admin_recommendation_ets_pg[8];
- 	u32 admin_pfc_bitmap;
--	struct bnx2x_admin_priority_app_table admin_priority_app_table[4];
-+	struct bnx2x_admin_priority_app_table
-+		admin_priority_app_table[DCBX_CONFIG_MAX_APP_PROTOCOL];
- 	u32 admin_default_priority;
- };
- 
--- 
-1.7.7.2
+> From: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
+> To: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+> Sent: Thursday, November 10, 2011 1:54 PM
+> Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC 4=
+942 recommendation
+>=20
+> ----- Original Message -----
+>>  From: Eric Dumazet <eric.dumazet@gmail.com>
+>>  To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
+>>  Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+>>  Sent: Thursday, November 10, 2011 12:27 PM
+>>  Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow the RFC=
+=20
+> 4942 recommendation
+>>=20
+>>  Le jeudi 10 novembre 2011 =E0 02:58 -0800, Fran=E7ois-Xavier Le Bai=
+l a
+>>  =E9crit :
+>>> =A0 ----- Original Message -----
+>>>=20
+>>> =A0 > From: Eric Dumazet <eric.dumazet@gmail.com>
+>>> =A0 > To: Fran=E7ois-Xavier Le Bail <fx.lebail@yahoo.com>
+>>> =A0 > Cc: "netdev@vger.kernel.org"=20
+> <netdev@vger.kernel.org>
+>>> =A0 > Sent: Saturday, November 5, 2011 10:30 AM
+>>> =A0 > Subject: Re: [RFC] The Linux kernel IPv6 stack don't follow=20
+> the=20
+>>  RFC 4942 recommendation
+>>> =A0 >=20
+>>> =A0 > Le samedi 05 novembre 2011 =E0 01:39 -0700, Fran=E7ois-Xavier=
+ Le Bail=20
+> a
+>>> =A0 > =E9crit :
+>>> =A0 >=20
+>>> =A0 >>=20
+>>> =A0 >>=A0 I will study and test these options for my application=20
+> server
+>>> =A0 >=20
+>>> =A0 > Here is a sample of use of the IPv4 part, an udpecho service =
+that=20
+> use
+>>> =A0 > IP_PKTINFO and IP_RECVTOS/IP_TOS to be able to use multihomed=
+=20
+> machine,
+>>> =A0 > and reflect TOS field as well.
+>>> =A0 > [. . .]
+>>>=20
+>>> =A0 Hi,
+>>>=20
+>>> =A0 I have updated the code for IPv6.
+>>>=20
+>>> =A0 When a UDP client send to an unicast address on a multihomed Li=
+nux=20
+> 3.0.0=20
+>>  host, from another host, it's OK.
+>>> =A0 For example :
+>>> =A0 setup 2001::1 on eth0, 2a01::1 on eth1.
+>>> =A0 send to 2001::1, recv from 2001::1.
+>>> =A0 send to 2a01::1, recv from 2a01::1.
+>>>=20
+>>> =A0 When the UDP client send to an Subnet-Router anycast address on=
+ a=20
+>>  multihomed Linux 3.0.0 host, from another host, it's KO.
+>>> =A0 send to 2001:: or 2a01::, the udpecho server display "sendmsg:=20
+> Invalid=20
+>>  argument".
+>>>=20
+>>> =A0 Any idea ?
+>>=20
+>>  Could you describe the setup of this machine ?
+>>=20
+>>  ip -6 addr
+>>  ip -6 ro
+>=20
+> The server has ipv6 forwarding on.
+>=20
+> # ip -6 a
+> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436=20
+> =A0=A0=A0 inet6 ::1/128 scope host=20
+> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
+> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+> =A0=A0=A0 inet6 2a01::1/64 scope global=20
+> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
+> =A0=A0=A0 inet6 fe80::20c:29ff:fecc:bc43/64 scope link=20
+> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
+> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+> =A0=A0=A0 inet6 2001::1/64 scope global=20
+> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
+> =A0=A0=A0 inet6 fe80::20c:29ff:fecc:bc4d/64 scope link=20
+> =A0=A0=A0=A0=A0=A0 valid_lft forever preferred_lft forever
+>=20
+> # ip -6 r
+> 2001::/64 dev eth1=A0 proto kernel=A0 metric 256=20
+> 2a01::/64 dev eth0=A0 proto kernel=A0 metric 256=20
+> fe80::/64 dev eth1=A0 proto kernel=A0 metric 256=20
+> fe80::/64 dev eth0=A0 proto kernel=A0 metric 256=20
+> default via 2001::2 dev eth1=A0 metric 1024=20
+>=20
+> 2001::2 is the address of the other (client) host.
+
+I put a printk in addrconf.c at the beginning of ipv6_get_saddr_eval fu=
+nction.
+In th OK case : nothing is print.
+In the KO case : many printk messages.
+
+Any problem in RFC 3484 code ?
+
+Thanks,
+=46rancois-Xavier
