@@ -1,56 +1,57 @@
-From: Nick Bowler <nbowler@elliptictech.com>
-Subject: [PATCH] ah: Don't return NET_XMIT_DROP on input.
-Date: Thu, 10 Nov 2011 14:01:27 -0500
-Message-ID: <1320951687-21491-1-git-send-email-nbowler@elliptictech.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Toerless Eckert <Toerless.Eckert@Informatik.Uni-Erlangen.de>
+Subject: netdev: fwmarks questions
+Date: Thu, 10 Nov 2011 20:12:56 +0100
+Message-ID: <20111110191255.GK14734@faui40p.informatik.uni-erlangen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:44904 "EHLO
+	faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751696Ab1KJTTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 14:19:11 -0500
+Received: from faui40p.informatik.uni-erlangen.de (faui40p.informatik.uni-erlangen.de [131.188.34.77])
+	by faui40.informatik.uni-erlangen.de (Postfix) with ESMTP id 3B4A058C551
+	for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 20:12:56 +0100 (CET)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the ahash driver returns -EBUSY, AH4/6 input functions return
-NET_XMIT_DROP, presumably copied from the output code path.  But
-returning transmit codes on input doesn't make a lot of sense.
-Since NET_XMIT_DROP is a positive int, this gets interpreted as
-the next header type (i.e., success).  As that can only end badly,
-remove the check.
+[ Sorry if this is the wron mailing list. Please let me know if so, and
+  recommend a better list for these questions]
 
-Signed-off-by: Nick Bowler <nbowler@elliptictech.com>
----
-This appears to be another longstanding issue (since the initial ahash
-conversion circa 2.6.33), but there doesn't seem to be many ahash
-drivers in the tree that can possibly trigger it.  Furthermore, most
-if not all of these drivers require special hardware.
+a) What APIs exist to set fwmarks for sockets. SO far i could only find:
+   setsockopt(,SO_MARK,). But is there for example any system call to
+   set the fwmark for all sockets of a process - and which is inherited
+   across forks ? If not that, then anything else ?
 
- net/ipv4/ah4.c |    2 --
- net/ipv6/ah6.c |    2 --
- 2 files changed, 0 insertions(+), 4 deletions(-)
+b) Assume i have two physical ethernet interfaces,
+   eth0 ip-address 10.1.1.1/24
+   eth1 ip-address 10.10.10.1/24
 
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index c7056b2..36d1440 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -369,8 +369,6 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
- 		if (err == -EINPROGRESS)
- 			goto out;
- 
--		if (err == -EBUSY)
--			err = NET_XMIT_DROP;
- 		goto out_free;
- 	}
- 
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index eb71dbc..0873a21 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -581,8 +581,6 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
- 		if (err == -EINPROGRESS)
- 			goto out;
- 
--		if (err == -EBUSY)
--			err = NET_XMIT_DROP;
- 		goto out_free;
- 	}
- 
--- 
-1.7.3.4
+   I do create a new routing table foobar. I populate it only with routes
+   for eth1 (eg: interface route and maybe default route).
+
+   ip route add 10.10.10.0/24 eth1 src 10.10.10.1  table foobar
+   ip route add default via 10.10.10.254           table vvlan
+
+   I do map this routing table to some fwmark 1234 via eg:
+
+   ip rule add fwmark 1234 table foobar
+
+   Now i have an app with a socket like this:
+
+     s = socket( ...ipv4...)
+     setsockopt(s, ... SO_MARK, 1234)
+     listen(s, 10)
+   
+   Question: Would s also accept incoming connections that came in over
+   eth0, eg: to eth0, 10.1.1.1 ?
+
+   Logically i think the socket should not accept such connections, but
+   only those to eth1, or whatever else i have in my routing table foobar,
+   but i have found no documentation that explains how listen() actually
+   works when you use fwmarks.
+
+Cheers
+    Toerless
