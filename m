@@ -1,43 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next V7] net: introduce ethernet teaming device
-Date: Thu, 10 Nov 2011 17:02:10 +0100
-Message-ID: <1320940930.10042.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1320939698-1062-1-git-send-email-jpirko@redhat.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: creating netdev queues on the fly?
+Date: Thu, 10 Nov 2011 17:26:09 +0100
+Message-ID: <1320942369.3967.127.camel@jlt3.sipsolutions.net>
+References: <1320933501.3967.68.camel@jlt3.sipsolutions.net>
+	 <1320935713.2310.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 (sfid-20111110_153533_082549_9B566EB4)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
-	jzupka@redhat.com, ivecera@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35691 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752827Ab1KJQCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 11:02:15 -0500
-Received: by wyh15 with SMTP id 15so2864893wyh.19
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 08:02:14 -0800 (PST)
-In-Reply-To: <1320939698-1062-1-git-send-email-jpirko@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1320935713.2310.9.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC> (sfid-20111110_153533_082549_9B566EB4)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 10 novembre 2011 =C3=A0 16:41 +0100, Jiri Pirko a =C3=A9crit :
-> This patch introduces new network device called team. It supposes to =
-be
-> very fast, simple, userspace-driven alternative to existing bonding
-> driver.
->=20
+On Thu, 2011-11-10 at 15:35 +0100, Eric Dumazet wrote:
 
-> +static bool team_dummy_transmit(struct team *team, struct sk_buff *s=
-kb)
-> +{
-> +	dev_kfree_skb(skb);
-> +	return false;
-> +}
-> +
+> > So to get to my question: What if we could create netdev queues on the
+> > fly?
 
-ndo_start_xmit() method can be called with IRQ disabled (netpoll ?), so
-dev_kfree_skb_any() is better ?
+> In term of qdisc management I believe its a bit complex if we start to
+> dynamically add netdev queues :)
+
+Yeah I was thinking that would be the problematic part.
+
+> My first idea would be to extend Qdisc management so that a device can
+> callback qdisc when a frame is finaly delivered / consumed / discarded.
+> 
+> We currently only have qdisc->enqueue() and qdisc->dequeue(), we could
+> add qdisc->deliver_callback(skb)
+> 
+> You keep devices as they are, with a netdevqueue per hardware queue.
+> 
+> Then, using a Qdisc like existing ones, but with a limit of
+> outstanding(given to device but not yet consumed) packets per class.
+> 
+> external tc classifier would deliver a hash/index depending on remote
+> station.
+
+So basically you'd have a class for each station? Or a class for each
+station/AC? That's a lot of classes rather than queues, are they
+pre-allocated, or does it not matter? Overall that sounds like a good
+approach.
+
+> As a bonus you can get all the existing rate estimators / QOS /
+> shapers ...
+
+Yeah ... I guess I need to start learning tc :)
+
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
