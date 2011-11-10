@@ -1,47 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [REPOST patch net-next V6] net: introduce ethernet teaming
- device
-Date: Thu, 10 Nov 2011 08:02:19 +0100
-Message-ID: <1320908539.16265.2.camel@edumazet-laptop>
-References: <1320876793-1158-1-git-send-email-jpirko@redhat.com>
-	 <1320880355.5825.1.camel@edumazet-laptop>
-	 <20111110064807.GB2058@minipsycho>
-	 <1320907983.16265.1.camel@edumazet-laptop>
+From: Stefan Becker <chemobejk@gmail.com>
+Subject: Re: [PATCH] r8169: more driver shutdown WoL regression.
+Date: Thu, 10 Nov 2011 11:40:22 +0200
+Message-ID: <CAOJ2eMe7o4sSMiokhGQc17m1-g5qT5jihv=nT1YanxxJdHE-aw@mail.gmail.com>
+References: <20111108223502.GA20437@electric-eye.fr.zoreil.com>
+	<E6A5E7482020466E82FD141C8CD92D9A@realtek.com.tw>
+	<20111109222556.GA8226@electric-eye.fr.zoreil.com>
+	<DCB55CA56A5546B4B7350912D30EC679@realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
-	jzupka@redhat.com, ivecera@redhat.com
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57425 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:65295 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752316Ab1KJHCZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 02:02:25 -0500
-Received: by wwh12 with SMTP id 12so1873401wwh.1
-        for <netdev@vger.kernel.org>; Wed, 09 Nov 2011 23:02:24 -0800 (PST)
-In-Reply-To: <1320907983.16265.1.camel@edumazet-laptop>
+	with ESMTP id S1755410Ab1KJJkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 04:40:23 -0500
+Received: by wwh12 with SMTP id 12so2053872wwh.1
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 01:40:22 -0800 (PST)
+In-Reply-To: <DCB55CA56A5546B4B7350912D30EC679@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 10 novembre 2011 =C3=A0 07:53 +0100, Eric Dumazet a =C3=A9crit=
- :
-> Le jeudi 10 novembre 2011 =C3=A0 07:48 +0100, Jiri Pirko a =C3=A9crit=
- :
->=20
-> > dev_kfree_skb is called from module transmit functions to handle fr=
-ee of
-> > skb when needed. But I see now that in case when
-> > (likely(!list_empty(&team->port_list) && team->mode_ops.transmit)) =
-=3D=3D false
-> > this would leak. I'm going to rewrite this bit somehow.
->=20
-> This is the leak I mentioned, I thought it was obvious :)
->=20
-> If you return NETDEV_TX_OK, then the skb must have been consumed.
+On Thu, Nov 10, 2011 at 6:11 AM, hayeswang <hayeswang@realtek.com> wrote:
+>
+> I find that the magic packet which I send is the broadcast packet, and the one
+> which you send is the unicast packet. That is, you could wake up the system by
+> using broadcast magic packet for the previous chips without the patch.
 
-I meant : consumed or queued in a device transmit queue...
+Confirmed. If I use the "-b" option in ether-wake WoL works for my
+system with plain 3.1 kernel, i.e. without the patch.
+
+[    8.357467] r8169 0000:02:00.0: eth0: RTL8168c/8111c at 0xf37be000,
+00:1f:d0:5a:22:77, XID 1c4000c0 IRQ 43
+
+> However,
+> if you prefer to unicast magic packet, this patch is necessary.
+
+As "-b" is not the default for ether-wake it will come as a surprise
+for the user that WoL is no longer working. Maybe we should reword the
+patch subject to:
+
+  r8169: driver shutdown unicast WoL regression
+
+Regards,
+
+          Stefan
