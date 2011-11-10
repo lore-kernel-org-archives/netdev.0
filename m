@@ -1,72 +1,115 @@
-From: Denys Fedoryshchenko <denys-ArQk2d8GGkZT5gTzvV8LJA@public.gmane.org>
-Subject: Re: creating netdev queues on the =?UTF-8?Q?fly=3F?=
-Date: Thu, 10 Nov 2011 16:55:54 +0200
-Message-ID: <7be02f26a67fac4c7448a74f1f17aa01@visp.net.lb>
-References: <1320933501.3967.68.camel@jlt3.sipsolutions.net>
- <CAGXE3d-_RFgW_zwfX2vTBe1psXmgoBFO5pd5cAgtYo=Jwpddhw@mail.gmail.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2x: reduce skb truesize by 50%
+Date: Thu, 10 Nov 2011 17:05:26 +0200
+Message-ID: <1320937526.307.0.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1320673364.3020.21.camel@bwh-desktop>
+ <1320676422.2361.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <1320859475.3916.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+ <20111109.163708.2156133928191684256.davem@davemloft.net>
+ <1320876183.3272.8.camel@edumazet-laptop>
+ <1320884940.5825.34.camel@edumazet-laptop>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGXE3d-_RFgW_zwfX2vTBe1psXmgoBFO5pd5cAgtYo=Jwpddhw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David Miller" <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4191 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934117Ab1KJPIA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 10:08:00 -0500
+In-Reply-To: <1320884940.5825.34.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- On Thu, 10 Nov 2011 15:40:01 +0100, Helmut Schaa wrote:
->>
->> I think this might also make implementing reservation (tspec) 
->> easier.
->> Not sure if anyone wants/needs that though.
->
-> Wouldn't it be possible to implement something like this as a qdisc 
-> on top of
-> mq that makes use of the current tx rate per station to distribute
-> the airtime
-> equitably?
->
-> Of course this would require the qdisc to know the tx rate a priori 
-> but for
-> mac80211 drivers we could just use last_tx_rate as an estimate ...
->
-> Helmut
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, 2011-11-09 at 16:29 -0800, Eric Dumazet wrote:
+> Le mercredi 09 novembre 2011 =C3=A0 23:03 +0100, Eric Dumazet a =C3=A9=
+crit :
+>=20
+> > BTW, on my bnx2x adapter, even small UDP frames use more than PAGE_=
+SIZE
+> > bytes :
+> >=20
+> > skb->truesize=3D4352 len=3D26 (payload only)
+> >=20
+>=20
+> > I wonder if we shouldnt increase SK_MEM_QUANTUM a bit to avoid
+> > ping/pong...
+> >=20
+> > -#define SK_MEM_QUANTUM ((int)PAGE_SIZE)
+> > +#define SK_MEM_QUANTUM ((int)PAGE_SIZE * 2)
+> >=20
+>=20
+> Following patch also helps a lot, even with only two cpus (one handli=
+ng
+> device interrupts, one running the application thread)
+>=20
+> [PATCH net-next] bnx2x: reduce skb truesize by ~50%
+>=20
+> bnx2x uses following formula to compute its rx_buf_sz :
+>=20
+> dev->mtu + 2*L1_CACHE_BYTES + 14 + 8 + 8
+>=20
+> Then core network adds NET_SKB_PAD and SKB_DATA_ALIGN(sizeof(struct
+> skb_shared_info))
+>=20
+> Final allocated size for skb head on x86_64 (L1_CACHE_BYTES =3D 64,
+> MTU=3D1500) : 2112 bytes : SLUB/SLAB round this to 4096 bytes.
+>=20
+> Since skb truesize is then bigger than SK_MEM_QUANTUM, we have lot of
+> false sharing because of mem_reclaim in UDP stack.
+>=20
+> One possible way to half truesize is to lower the need by 64 bytes (2=
+112
+> -> 2048 bytes)
+>=20
+> This way, skb->truesize is lower than SK_MEM_QUANTUM and we get bette=
+r
+> performance.
+>=20
+> (760.000 pps on a rx UDP monothread benchmark, instead of 720.000 pps=
+)
+>=20
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Eilon Greenstein <eilong@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x.h |   11 ++++++++---
+>  1 file changed, 8 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/ne=
+t/ethernet/broadcom/bnx2x/bnx2x.h
+> index aec7212..ebbdc55 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+> @@ -1185,9 +1185,14 @@ struct bnx2x {
+>  #define ETH_MAX_PACKET_SIZE		1500
+>  #define ETH_MAX_JUMBO_PACKET_SIZE	9600
+> =20
+> -	/* Max supported alignment is 256 (8 shift) */
+> -#define BNX2X_RX_ALIGN_SHIFT		((L1_CACHE_SHIFT < 8) ? \
+> -					 L1_CACHE_SHIFT : 8)
+> +/* Max supported alignment is 256 (8 shift)
+> + * It should ideally be min(L1_CACHE_SHIFT, 8)
+> + * Choosing 5 (32 bytes) permits to get skb heads of 2048 bytes
+> + * instead of 4096 bytes.
+> + * With SLUB/SLAB allocators, data will be cache line aligned anyway=
+=2E
+> + */
+> +#define BNX2X_RX_ALIGN_SHIFT		5
+> +
 
- Maybe someone will make something like "tfifo" in future :)
- And when clients are connected, each have his own queue.
+Hi Eric,
 
- then, for example qdisc add dev wlan0 parent 1:10 handle 10 tfifo limit 
- 100ms
- If packet are older than 100ms will be dropped, or new packets are not 
- added, if
- there is packet older than 100ms are not sent yet.
+This can seriously hurt the PCI utilization. So in scenarios in which
+the PCI is the bottle neck, you will see performance degradation. We ar=
+e
+looking at alternatives to reduce the allocation, but it is taking a
+while. Please hold off with this patch.
 
- I am not sure that bandwidth will be distributed fairly, it is 
- different question,
- probably each queue should have some "limited chunk of time" to send 
- data.
- And again, 802.11a/b/g at least are half-duplex and CSMA, and without 
- polling/TDMA or CTS/RTS tricks
- it will be complicated to give guaranteed chunks of time.
-
- P.S. That's just a dream :)
-
- ---
- Network engineer
- Denys Fedoryshchenko
-
- P.O.Box 41553 Jeddah 21531
- Tel:   920023422
- Fax:  +966 26501784
- E-Mail: denys-ArQk2d8GGkZT5gTzvV8LJA@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Eilon
