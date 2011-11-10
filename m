@@ -1,43 +1,54 @@
-From: Mark Lord <kernel@teksavvy.com>
-Subject: Re: [PATCH v2] drivers/net/usb/asix: resync from vendor's copy
-Date: Thu, 10 Nov 2011 15:17:26 -0500
-Message-ID: <4EBC3156.2050409@teksavvy.com>
-References: <4EA89972.5060101@teksavvy.com> <20111026.194045.2019668159403582571.davem@davemloft.net> <4EA8B283.3010105@teksavvy.com> <20111026.221719.2216112919297458522.davem@davemloft.net> <4EB19BBE.5050602@teksavvy.com> <4EBAB8F5.1010101@teksavvy.com> <4EBBD936.40705@teksavvy.com> <CANEJEGuS1w_rPsjOfY8TqP=TewjRLSdEeR+OmaGB3G4LQZg82Q@mail.gmail.com>
+From: Dmitry Kravkov <dkravkov@gmail.com>
+Subject: Re: [PATCH net-next 09/13] bnx2x: add pri_map module parameter
+Date: Thu, 10 Nov 2011 22:21:45 +0200
+Message-ID: <CAM8tLiN=E2=a0TEYgw6mc70-vJU0dHjP4F4PpKUk8+3zvQPnAg@mail.gmail.com>
+References: <1320938054-31288-1-git-send-email-dmitry@broadcom.com>
+	<1320938054-31288-10-git-send-email-dmitry@broadcom.com>
+	<1320946787.2851.2.camel@bwh-desktop>
+	<CAM8tLiMATfsH1mqmgrALX9o+5nWEahntCAc2ewm0RF_kbt=82A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Michal Marek <mmarek@suse.cz>, Freddy Xin <freddy@asix.com.tw>,
-	"ASIX Allan Email [office]" <allan@asix.com.tw>
-To: Grant Grundler <grundler@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dmitry Kravkov <dmitry@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Ariel Elior <ariele@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport2-out.teksavvy.com ([206.248.154.181]:43180 "EHLO
-	ironport2-out.pppoe.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752038Ab1KJUR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 15:17:28 -0500
-In-Reply-To: <CANEJEGuS1w_rPsjOfY8TqP=TewjRLSdEeR+OmaGB3G4LQZg82Q@mail.gmail.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:49485 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965Ab1KJUVq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 15:21:46 -0500
+Received: by bke11 with SMTP id 11so2680492bke.19
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 12:21:45 -0800 (PST)
+In-Reply-To: <CAM8tLiMATfsH1mqmgrALX9o+5nWEahntCAc2ewm0RF_kbt=82A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11-11-10 11:54 AM, Grant Grundler wrote:
-> ...  and I was certain on their own, ASIX
-> wouldn't get that upstream in one shot. No one knows them. No one
-> trusts them. Asix never mentioned that they had already hired you to
-> do it (and I am pretty sure you could have).
-
-Just to clarify, ASIX did not contract me for any of this.
-Rather, another of my clients requires working ASIX USB support,
-and approved my working on that at their expense.
-
-I've got working ASIX support now, just not in the mainline kernel.
-The code is GPL, so we could stuff it in anyway,
-but I think it would be better to do so with the
-full cooperation of the nice folks at ASIX.
-
-But for now, they seem happy to prefer feeding patches
-only as requested, currently through Grant, rather than
-trying to get the in-kernel driver brought fully up to date.
-
-Cheers
+Resending for netdev
+On Thu, Nov 10, 2011 at 10:18 PM, Dmitry Kravkov <dkravkov@gmail.com> w=
+rote:
+>
+> On Thu, Nov 10, 2011 at 7:39 PM, Ben Hutchings <bhutchings@solarflare=
+=2Ecom> wrote:
+>>
+>> On Thu, 2011-11-10 at 17:14 +0200, Dmitry Kravkov wrote:
+>> > From: Ariel Elior <ariele@broadcom.com>
+>> >
+>> > The optional parameter pri_map is used to map the
+>> > skb->priority to a Class Of Service (CoS) in the HW.
+>> > This 32 bit parameter is evaluated by the =A0driver as 8
+>> > values of 4 bits each. Each nibble sets the desired
+>> > HW queue number for that priority.
+>> [...]
+>>
+>> You should implement ndo_tc_setup instead of adding a driver-specifi=
+c
+>> parameter (that should be per-device anyway).
+>
+> bnx2x has ndo_setup_tc, but the callback configures device for number=
+ of traffic
+> only, when=A0actual mapping of priority to cos is done according to D=
+CB negotiation.
+> The parameter allow user to force mapping if the link partner is not =
+DCB capable.
+>
