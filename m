@@ -1,40 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: dst->obsolete has become pointless
-Date: Wed, 09 Nov 2011 19:47:19 -0500 (EST)
-Message-ID: <20111109.194719.1584771347434777010.davem@davemloft.net>
-References: <1320882969.6923.29.camel@Joe-Laptop>
-	<20111109.192427.661860445333469011.davem@davemloft.net>
-	<1320885223.5825.37.camel@edumazet-laptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-next] IPVS
+Date: Thu, 10 Nov 2011 10:22:24 +0900
+Message-ID: <20111110012222.GE9202@verge.net.au>
+References: <1319160783-28422-1-git-send-email-horms@verge.net.au>
+ <20111021072715.GA842@1984>
+ <20111107030659.GA24405@verge.net.au>
+ <20111107082956.GA32329@1984>
+ <20111109005805.GA26937@verge.net.au>
+ <20111109143641.GA24174@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, steffen.klassert@secunet.com,
-	netdev@vger.kernel.org, timo.teras@iki.fi
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46625 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933409Ab1KJArj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Nov 2011 19:47:39 -0500
-In-Reply-To: <1320885223.5825.37.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111109143641.GA24174@1984>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 10 Nov 2011 01:33:43 +0100
+On Wed, Nov 09, 2011 at 03:36:41PM +0100, Pablo Neira Ayuso wrote:
+> On Wed, Nov 09, 2011 at 09:58:07AM +0900, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > On Mon, Nov 07, 2011 at 09:29:56AM +0100, Pablo Neira Ayuso wrote:
+> > > Hi Simon,
+> > > 
+> > > On Mon, Nov 07, 2011 at 12:07:01PM +0900, Simon Horman wrote:
+> > > > Hi Pablo,
+> > > > 
+> > > > I am a little confused. The nf-next branch seems to have disappeared.
+> > > > 
+> > > > Could you consider pulling git://github.com/horms/ipvs-next.git master
+> > > > to get the following changes that were in your nf-next branch.
+> > > 
+> > > I was late to get it into net-next. Since net-next became net after
+> > > the 3.1 release, my moved those changes to net to get it into 3.2
+> > > once Linus announced that the merge window was opened again.
+> > > 
+> > > > Or would
+> > > > you like me to rebase the ipvs patches (9 or the 11 changes below) on
+> > > > top of git://1984.lsi.us.es/net-next/.git master ?
+> > > 
+> > > They are already in net davem's tree, they will be included in the
+> > > upcoming 3.2 release.
+> > > 
+> > > http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet.git&a=search&h=HEAD&st=commit&s=Neira
+> > 
+> > Thanks, and sorry for missing that when I checked yesterday.
+> > 
+> > Could you suggest which tree and branch I should base the master branch of my
+> > ipvs and ipvs-next trees on? Their purposes are to provide a reference for
+> > people wishing to fix or enhance IPVS and a mechanism to send pull requests to
+> > you. As of now I am using the master branch of your net tree for both.
+> 
+> The 1984.lsi.us.es trees are fine.
+> 
+> There are no branch yet because I have no patches queued for upstream
+> so far. You can use master if you don't see any nf branch, OK?
 
-> Now some information was migrated to inetpeer, I wonder if we could not
-> allocate a private dst for a socket ?
-
-Yes, and in fact we are well equipted to support this kind of notion
-exactly because we can detect route invalidity with simply serial
-number comparisons.
-
-All the necessary mechanics are there.  Simply allocate the cloned
-route with DST_NOCOUNT, do not put it into any tables, and copy over
-the necessary information.
-
-Even things like __sk_dst_check() will just work transparently.
-
-There might be some gotchas wrt. stacked IPSEC routes, but I don't
-anticipate any real serious problems.
+Ok :)
