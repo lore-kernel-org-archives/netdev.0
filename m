@@ -1,81 +1,117 @@
-From: Chris Siebenmann <cks@cs.toronto.edu>
-Subject: Re: Bug? GRE tunnel periodically won't transmit some packets
-Date: Thu, 10 Nov 2011 00:16:49 -0500
-Message-ID: <20111110051649.505C8362D2@apps0.cs.toronto.edu>
-References: <1320761153.3444.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-Cc: Chris Siebenmann <cks@cs.toronto.edu>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH] libteam: fix function names to include 'bond'
+Date: Thu, 10 Nov 2011 07:41:55 +0100
+Message-ID: <20111110064154.GA2058@minipsycho>
+References: <1319660867-945-1-git-send-email-jpirko@redhat.com>
+ <1320862846-6000-1-git-send-email-fbl@redhat.com>
+ <20111109220423.GA2112@minipsycho>
+ <20111109212308.4f89739e@asterix.rh>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
+	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com,
+	benjamin.poirier@gmail.com, jzupka@redhat.com
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cliff.cs.toronto.edu ([128.100.3.120]:42684 "EHLO
-	cliff.cs.toronto.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933921Ab1KJFQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 00:16:50 -0500
-In-reply-to: eric.dumazet's message of Tue, 08 Nov 2011 15:05:53 +0100.
-             <1320761153.3444.4.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from mx1.redhat.com ([209.132.183.28]:65398 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752316Ab1KJGm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Nov 2011 01:42:26 -0500
+Content-Disposition: inline
+In-Reply-To: <20111109212308.4f89739e@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| So it appears the drop is in gre xmit because frame is bigger than
-| mtu...
-| 
-| Maybe you receive some strange ICMP (ICMP_FRAG_NEEDED) from a buggy
-| host ?
-| 
-| You could catch it with "tcpdump -s 1000 -i any icmp" maybe...
+Thu, Nov 10, 2011 at 12:23:08AM CET, fbl@redhat.com wrote:
+>On Wed, 9 Nov 2011 23:04:25 +0100
+>Jiri Pirko <jpirko@redhat.com> wrote:
+>
+>> 
+>> Hi Flavio.
+>> 
+>> Thomas included these 2 functions in latest libnl upstream. Bond
+>> versions wouldn't work because of "bond" type check.
+>> 
+>
+>Yeah, my first option would be using git repo, but the one
+>mentioned in the page seems to be off and I am not finding
+>another one.  Do you have the repo url handy?
 
- The problem went away for several days and then came roaring back
-just now. I couldn't see any outside ICMP messages like this while
-the problem was happening. I did see ICMP messages, but they were
-locally generated:
+git://git.infradead.org/users/tgr/libnl.git
 
-	IP 128.100.3.52 > 128.100.3.52: ICMP 128.100.3.51 unreachable - need to frag (mtu 478), length 556
+>
+>Anyway, I've tried here with my patch applied and it didn't work.
+>Every packet transmitted increased TX dropped in ifconfig team0
+>output. The tcpdump attached to the slave doesn't show anything,
+>the packets appear only when attached to team0.
+>
+>When I ping the team0 host from another host, both slave and
+>team0 RX dropped increases at the same rate. tcpdump attached
+>to the slave shows the packet coming.
+>
+>Well, maybe this is an effect of having used the wrong libnl
+>version, though the team_monitor seems to be working just fine.
+>(patch applied on top of net-next of today, commit e56c57d,
+> followed the exact same steps as in HOWTO.BASICS)
 
-(I verified that these were for the things that were stalling with
-'tcpdump -vv -ee'.)
+Oh. I changed activebackup mode behaviour in V4 or V5 of kernel patch.
+Now it's needed to adjust mac address of ports by hand. I'll refresh
+HOWTO.BASICS shortly. 
 
-At the time that this was happening, I could see a lot of 'ip route show
-table cache' entries like this:
-
-	128.100.3.58 from 66.96.18.208 dev ppp0  src 66.96.18.208
-	    cache  expires 286sec ipid 0xdeda mtu 552 rtt 44ms rttvar 30ms ssthresh 7 cwnd 9 iif lo
-
-There were a bunch of other 'mtu 552' routes. Flushing the routing cache
-(with 'ip route flush cache; ip route show table cache' to verify that
-it had flushed) did not change the situation; the problem continued and
-the 'mtu 552' routes came back as fast as I could check (it appeared to
-be the moment that the routing cache was repopulated, there they were).
-
- In general the route cache appears to have strangely low MTUs listed
-for the remote end of the tunnel (at least after the problem's
-happened), eg:
-
-	128.100.3.58 from 66.96.18.208 dev ppp0 
-	    cache  expires 203sec ipid 0xdeda mtu 934 rtt 44ms rttvar 30ms ssthresh 7 cwnd 9
-	128.100.3.58 from 66.96.18.208 dev ppp0  src 66.96.18.208 
-	    cache  expires 203sec ipid 0xdeda mtu 934 rtt 44ms rttvar 30ms ssthresh 7 cwnd 9 iif lo
-
-I would normally expect this to be 1492, the PPP link MTU.
-
- This does not seem to happen on the Fedora 14 kernel (the one where
-the problem doesn't happen). There the route is listed as:
-
-	128.100.3.58 from 66.96.18.208 dev ppp0 
-	    cache  mtu 1492 advmss 1452 hoplimit 64
-	128.100.3.58 from 66.96.18.208 dev ppp0 
-	    cache  mtu 1492 advmss 1452 hoplimit 64
-
-(to quote what I *think* are the relevant entries.)
-
- Since things may be pointing towards routing cache oddities, I should
-mention that I have a somewhat peculiar policy based routing setup
-involving this GRE tunnel. While it's been working fine for literally
-years, it's possible that recent changes in the area changed something
-so that peculiar things now happen; if you think it might be relevant, I
-can provide a dump of the routing rules and explain the setup.
-
-(Part of why this occurs to me now is that I know it's possible to have
-a connection to 128.100.3.58 (the remote end of the tunnel) that runs
-through the tunnel itself, and I've seen such routes appear in the 'ip
-route show table cache' output.)
-
-		- cks
+>
+>I am planning to upgrade the system to the new fedora and
+>try again after that.  If I have time, I will follow up with
+>fresh results.
+>
+>thanks,
+>fbl
+>
+>> Jirka
+>> 
+>> Wed, Nov 09, 2011 at 07:20:46PM CET, fbl@redhat.com wrote:
+>> >Signed-off-by: Flavio Leitner <fbl@redhat.com>
+>> >---
+>> >
+>> > I found those while trying to test V6 patch using latest
+>> > libteam (commit 5e9790816606a6dd4e7f6f32c0bb0c45e5d13b31)
+>> > and libnl-3.2.2 (last stable).
+>> > thanks,
+>> > fbl
+>> >
+>> > lib/libteam.c |    4 ++--
+>> > 1 files changed, 2 insertions(+), 2 deletions(-)
+>> >
+>> >diff --git a/lib/libteam.c b/lib/libteam.c
+>> >index feb13b6..e7ae6b0 100644
+>> >--- a/lib/libteam.c
+>> >+++ b/lib/libteam.c
+>> >@@ -1331,7 +1331,7 @@ int team_port_add(struct team_handle *th,
+>> >uint32_t port_ifindex)
+>> > {
+>> > 	int err;
+>> > 
+>> >-	err = rtnl_link_enslave_ifindex(th->nl_cli.sock,
+>> >th->ifindex,
+>> >+	err = rtnl_link_bond_enslave_ifindex(th->nl_cli.sock,
+>> >th->ifindex,
+>> > 					port_ifindex);
+>> > 	return -nl2syserr(err);
+>> > }
+>> >@@ -1350,6 +1350,6 @@ int team_port_remove(struct team_handle *th,
+>> >uint32_t port_ifindex)
+>> > {
+>> > 	int err;
+>> > 
+>> >-	err = rtnl_link_release_ifindex(th->nl_cli.sock,
+>> >port_ifindex);
+>> >+	err = rtnl_link_bond_release_ifindex(th->nl_cli.sock,
+>> >port_ifindex);
+>> > 	return -nl2syserr(err);
+>> > }
+>> >-- 
+>> >1.7.6
+>> >
+>
