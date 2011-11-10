@@ -1,48 +1,52 @@
-From: Stefan Becker <chemobejk@gmail.com>
-Subject: Re: [PATCH] r8169: more driver shutdown WoL regression.
-Date: Thu, 10 Nov 2011 11:40:22 +0200
-Message-ID: <CAOJ2eMe7o4sSMiokhGQc17m1-g5qT5jihv=nT1YanxxJdHE-aw@mail.gmail.com>
-References: <20111108223502.GA20437@electric-eye.fr.zoreil.com>
-	<E6A5E7482020466E82FD141C8CD92D9A@realtek.com.tw>
-	<20111109222556.GA8226@electric-eye.fr.zoreil.com>
-	<DCB55CA56A5546B4B7350912D30EC679@realtek.com.tw>
+From: Hemant-vilas RAMDASI <hemant.ramdasi@stericsson.com>
+Subject: RE: [PATCH] Phonet: set the pipe handle using setsockopt
+Date: Thu, 10 Nov 2011 10:44:54 +0100
+Message-ID: <81C3A93C17462B4BBD7E272753C105791FB090A127@EXDCVYMBSTM005.EQ1STM.local>
+References: <1320837653-7471-1-git-send-email-hemant.ramdasi@stericsson.com>
+ <6033284.KrP4yu8ukf@hector>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: hayeswang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dinesh Kumar SHARMA (STE)" <dinesh.sharma@stericsson.com>
+To: =?iso-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:65295 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755410Ab1KJJkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 04:40:23 -0500
-Received: by wwh12 with SMTP id 12so2053872wwh.1
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 01:40:22 -0800 (PST)
-In-Reply-To: <DCB55CA56A5546B4B7350912D30EC679@realtek.com.tw>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:35317 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757538Ab1KJJpE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Nov 2011 04:45:04 -0500
+In-Reply-To: <6033284.KrP4yu8ukf@hector>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 10, 2011 at 6:11 AM, hayeswang <hayeswang@realtek.com> wrote:
->
-> I find that the magic packet which I send is the broadcast packet, and the one
-> which you send is the unicast packet. That is, you could wake up the system by
-> using broadcast magic packet for the previous chips without the patch.
+Remi,
 
-Confirmed. If I use the "-b" option in ether-wake WoL works for my
-system with plain 3.1 kernel, i.e. without the patch.
+> -----Original Message-----
+> From: R=E9mi Denis-Courmont [mailto:remi.denis-courmont@nokia.com]
+> Sent: Wednesday, November 09, 2011 8:31 PM
+> To: Hemant-vilas RAMDASI
+> Cc: netdev@vger.kernel.org; Dinesh Kumar SHARMA (STE)
+> Subject: Re: [PATCH] Phonet: set the pipe handle using setsockopt
+>=20
+> Inline...
+>=20
+> Le Mercredi 9 Novembre 2011 16:50:53 ext Hemant Vilas RAMDASI a =E9cr=
+it :
 
-[    8.357467] r8169 0000:02:00.0: eth0: RTL8168c/8111c at 0xf37be000,
-00:1f:d0:5a:22:77, XID 1c4000c0 IRQ 43
+[...]
 
-> However,
-> if you prefer to unicast magic packet, this patch is necessary.
+>=20
+> It looks like there is no use-case for init-enabled pipes then, right=
+?
+> How
+> about dropping this extra bit of code and assuming connect()ed pipes
+> are
+> always init-disabled?
 
-As "-b" is not the default for ether-wake it will come as a surprise
-for the user that WoL is no longer working. Maybe we should reword the
-patch subject to:
-
-  r8169: driver shutdown unicast WoL regression
+VT pipes can still be init-enabled.
 
 Regards,
-
-          Stefan
+Hemant=20
