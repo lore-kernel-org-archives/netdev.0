@@ -1,116 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bnx2x: reduce skb truesize by 50%
-Date: Thu, 10 Nov 2011 17:45:12 +0100
-Message-ID: <1320943512.10042.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1320673364.3020.21.camel@bwh-desktop>
-	 <1320676422.2361.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1320859475.3916.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <20111109.163708.2156133928191684256.davem@davemloft.net>
-	 <1320876183.3272.8.camel@edumazet-laptop>
-	 <1320884940.5825.34.camel@edumazet-laptop>
-	 <1320937526.307.0.camel@lb-tlvb-eilong.il.broadcom.com>
-	 <1320938878.2310.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	 <1320942423.307.10.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: [PATCH v2] drivers/net/usb/asix: resync from vendor's copy
+Date: Thu, 10 Nov 2011 08:54:31 -0800
+Message-ID: <CANEJEGuS1w_rPsjOfY8TqP=TewjRLSdEeR+OmaGB3G4LQZg82Q@mail.gmail.com>
+References: <4EA89972.5060101@teksavvy.com>
+	<20111026.194045.2019668159403582571.davem@davemloft.net>
+	<4EA8B283.3010105@teksavvy.com>
+	<20111026.221719.2216112919297458522.davem@davemloft.net>
+	<4EB19BBE.5050602@teksavvy.com>
+	<4EBAB8F5.1010101@teksavvy.com>
+	<4EBBD936.40705@teksavvy.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: eilong@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64530 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753473Ab1KJQpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 11:45:16 -0500
-Received: by wwh12 with SMTP id 12so2656192wwh.1
-        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 08:45:15 -0800 (PST)
-In-Reply-To: <1320942423.307.10.camel@lb-tlvb-eilong.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Michal Marek <mmarek@suse.cz>, Freddy Xin <freddy@asix.com.tw>,
+	"ASIX Allan Email [office]" <allan@asix.com.tw>
+To: Mark Lord <kernel@teksavvy.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4EBBD936.40705@teksavvy.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 10 novembre 2011 =C3=A0 18:27 +0200, Eilon Greenstein a =C3=A9=
-crit :
-> On Thu, 2011-11-10 at 07:27 -0800, Eric Dumazet wrote:
-> > Le jeudi 10 novembre 2011 =C3=A0 17:05 +0200, Eilon Greenstein a =C3=
-=A9crit :
-> > > > --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-> > > > +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-> > > > @@ -1185,9 +1185,14 @@ struct bnx2x {
-> > > >  #define ETH_MAX_PACKET_SIZE		1500
-> > > >  #define ETH_MAX_JUMBO_PACKET_SIZE	9600
-> > > > =20
-> > > > -	/* Max supported alignment is 256 (8 shift) */
-> > > > -#define BNX2X_RX_ALIGN_SHIFT		((L1_CACHE_SHIFT < 8) ? \
-> > > > -					 L1_CACHE_SHIFT : 8)
-> > > > +/* Max supported alignment is 256 (8 shift)
-> > > > + * It should ideally be min(L1_CACHE_SHIFT, 8)
-> > > > + * Choosing 5 (32 bytes) permits to get skb heads of 2048 byte=
-s
-> > > > + * instead of 4096 bytes.
-> > > > + * With SLUB/SLAB allocators, data will be cache line aligned =
-anyway.
-> > > > + */
-> > > > +#define BNX2X_RX_ALIGN_SHIFT		5
-> > > > +
-> > >=20
-> > > Hi Eric,
-> > >=20
-> > > This can seriously hurt the PCI utilization. So in scenarios in w=
-hich
-> > > the PCI is the bottle neck, you will see performance degradation.=
- We are
-> > > looking at alternatives to reduce the allocation, but it is takin=
-g a
-> > > while. Please hold off with this patch.
-> >=20
-> > What do you mean exactly ?
-> >=20
-> > This patch doesnt change skb->data alignment, its still 64 bytes
-> > aligned. (cqe_fp->placement_offset =3D=3D 2). PCI utilization is th=
-e same.
-> >=20
-> > Only SLOB could get a misalignement, but who uses SLOB for performa=
-nce ?
->=20
-> Obviously you are right... But the FW is configured to the wrong
-> alignment and that will affect the end alignment (padding) which is
-> significant in small packets scenarios where the PCI is the bottle ne=
-ck.
++ASIX (Freddy Xin and Allan)
 
-Yes, I fully understand.
+On Thu, Nov 10, 2011 at 6:01 AM, Mark Lord <kernel@teksavvy.com> wrote:
+> On 11-11-09 12:31 PM, Mark Lord wrote:
+>> Second pass (for review) at updating the in-kernel asix usb/network =
+driver
+>> from the v4.1.0 vendor GPL version of the driver, obtained from here=
+:
+>>
+>> =C2=A0 http://www.asix.com.tw/download.php?sub=3Dsearchresult&PItemI=
+D=3D84&download=3Ddriver
+>>
+>> The original vendor copy used a local "axusbnet" middleware (rather =
+than "usbnet").
+>> I've converted it back to using "usbnet", made a ton of cosmetic cha=
+nges
+>> to get it to pass checkpatch.pl, and removed a small amount of code =
+duplication.
+>>
+>> The tx/rx checksum code has been updated per Ben's comments,
+>> and the duplicated MII_* definitions have been removed.
+>> I've changed the version string to be "4.1.0-kernel",
+>> to reflect the vendor's code version while also distinguishing
+>> this port from the original vendor code.
+>>
+>> It can use more work going forward, but it is important to get it up=
+stream
+>> sooner than later -- the current in-kernel driver fails with many de=
+vices,
+>> both old and new. =C2=A0This updated version works with everything I=
+ have available
+>> to test with, and also handles suspend / resume (unlike the in-kerne=
+l one).
+>>
+>> Signed-off-by: Mark Lord <mlord@pobox.com>
+> ...
+>
+> Okay, the vendor has told me to cease development on this now.
+> They prefer instead to feed small parts of their mainline driver
+> to Grant Grundler as issues arise, rather than to get the whole
+> thing upstream.
 
->=20
-> > Alternative would be to check why hardware need 2*L1_CACHE_BYTES ex=
-tra
-> > room for alignment... Normaly it could be 1*L1_CACHE_BYTES ?
->=20
-> Again - you are a mind reader :) This is what we are looking into rig=
-ht
-> now. The problem is that `if` the buffer is not aligned (SLOB) we can
-> overstep the allocated boundaries by configuring the FW to align.
->=20
-> >  	/* FW use 2 Cache lines Alignment for start packet and size  */
-> > -#define BNX2X_FW_RX_ALIGN              (2 << BNX2X_RX_ALIGN_SHIFT)
-> > +#define BNX2X_FW_RX_ALIGN              (1 << BNX2X_RX_ALIGN_SHIFT)
-> >=20
-> >=20
+Hi Mark,
+I'm very surprise a second time now. It's partly my own fault since
+I'm not following netdev.  Until you contacted me privately 8 days
+ago, I didn't know that you had been working with ASIX on asix.c. That
+was the first surprise.
 
-I did a SLOB test (and my patch included as well)
+The second surprise is ASIX suggested I'm going to be the conduit for
+all their patches upstream. I never committed to that.  I was very
+clear that I would help them get started by feeding 3 small patches to
+"upstream". I've fulfilled that commitment (3 fixes plus one cleanup).
+  I have one more patch (work in progress:
+https://gerrit.chromium.org/gerrit/11485 ) I'd like to see go in and
+then they have to start "catching their own fish".
 
-skb->len=3D66 pad=3D26 wkb->data=3D0xffff8801194da048 truesize=3D2304
+The statement above implies Google has an economic interest in their
+products and AFAIK that's not true. We do not buy their product in
+volume. Getting this working has sort of been my 20% project over the
+past couple of months. It would have been cheaper buy USB ethernet
+dongles from a vendor with working Linux support and *give* them to
+our partners who need them.
 
-So skb->data + pad -> 0xffff8801194da062 : So a 32bytes alignement + 2
-bytes to align IP header. (BTW we dont really need it, NET_IP_ALIGN is
-now 0 on most x86 platforms ?)
+Lastly, offlist I have expressed my opinion about 5K line patches to
+you and to ASIX.  I'm not allowed to push such large patches into
+Chromium.org (upstream first!) and I was certain on their own, ASIX
+wouldn't get that upstream in one shot. No one knows them. No one
+trusts them. Asix never mentioned that they had already hired you to
+do it (and I am pretty sure you could have). So I feel a bit blind
+sided (as you probably do to) by how events are unfolding here. ASIX
+may still need help to *continue* upstreaming additional functionality
+(e.g. CSO/TSO) and I will remind ASIX of that in future
+communications.
 
-In the end, we get 98 bytes of 'skb reserve', and also 64 bytes of extr=
-a
-headroom _after_ the end of full frame.
+*sigh*
 
-In my understanding, hardware alignement should be between 0 and 63, no=
-t
-0 and 127.
+cheers,
+grant
 
-So maybe only BNX2X_FW_RX_ALIGN is twice the needed amount.
+
+> So be it.
+>
+> Cheers
+>
