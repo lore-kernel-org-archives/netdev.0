@@ -1,50 +1,52 @@
-From: Mark Lord <kernel@teksavvy.com>
-Subject: Re: [PATCH v2] drivers/net/usb/asix:  resync from vendor's copy
-Date: Thu, 10 Nov 2011 09:01:26 -0500
-Message-ID: <4EBBD936.40705@teksavvy.com>
-References: <4EA89972.5060101@teksavvy.com> <20111026.194045.2019668159403582571.davem@davemloft.net> <4EA8B283.3010105@teksavvy.com> <20111026.221719.2216112919297458522.davem@davemloft.net> <4EB19BBE.5050602@teksavvy.com> <4EBAB8F5.1010101@teksavvy.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] r8169: more driver shutdown WoL regression.
+Date: Thu, 10 Nov 2011 14:02:24 +0000
+Message-ID: <1320933744.18929.82.camel@deadeye>
+References: <20111108223502.GA20437@electric-eye.fr.zoreil.com>
+	 <E6A5E7482020466E82FD141C8CD92D9A@realtek.com.tw>
+	 <20111109222556.GA8226@electric-eye.fr.zoreil.com>
+	 <DCB55CA56A5546B4B7350912D30EC679@realtek.com.tw>
+	 <20111110104117.GA23906@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Michal Marek <mmarek@suse.cz>,
-	Grant Grundler <grundler@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4EBAB8F5.1010101@teksavvy.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hayeswang <hayeswang@realtek.com>, <netdev@vger.kernel.org>,
+	'Stefan Becker' <chemobejk@gmail.com>,
+	'David Miller' <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:14922 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751498Ab1KJOCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 09:02:34 -0500
+In-Reply-To: <20111110104117.GA23906@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11-11-09 12:31 PM, Mark Lord wrote:
-> Second pass (for review) at updating the in-kernel asix usb/network driver
-> from the v4.1.0 vendor GPL version of the driver, obtained from here:
+On Thu, 2011-11-10 at 11:41 +0100, Francois Romieu wrote:
+> hayeswang <hayeswang@realtek.com> :
+> [...]
+> > I find that the magic packet which I send is the broadcast packet, and the one
+> > which you send is the unicast packet. That is, you could wake up the system by
+> > using broadcast magic packet for the previous chips without the patch. However,
+> > if you prefer to unicast magic packet, this patch is necessary. Besides, no
+> > matter broadcast or unicast magic packet, the patch is necessary for 8105,
+> > 8168e, and later chips.
 > 
->   http://www.asix.com.tw/download.php?sub=searchresult&PItemID=84&download=driver
+> Ok, it makes some sense now.
 > 
-> The original vendor copy used a local "axusbnet" middleware (rather than "usbnet").
-> I've converted it back to using "usbnet", made a ton of cosmetic changes
-> to get it to pass checkpatch.pl, and removed a small amount of code duplication.
-> 
-> The tx/rx checksum code has been updated per Ben's comments,
-> and the duplicated MII_* definitions have been removed.
-> I've changed the version string to be "4.1.0-kernel",
-> to reflect the vendor's code version while also distinguishing
-> this port from the original vendor code.
-> 
-> It can use more work going forward, but it is important to get it upstream
-> sooner than later -- the current in-kernel driver fails with many devices,
-> both old and new.  This updated version works with everything I have available
-> to test with, and also handles suspend / resume (unlike the in-kernel one).
-> 
-> Signed-off-by: Mark Lord <mlord@pobox.com>
-...
+> I am inclined to enable a broad understanding of ethtool WAKE_MAGIC
+> feature as AMD's magic packet white paper does not limit it to
+> broadcast packets and explicitely quotes unicast and multicast.
+> Ben (and others), any opinion ?
+[...]
 
-Okay, the vendor has told me to cease development on this now.
-They prefer instead to feed small parts of their mainline driver
-to Grant Grundler as issues arise, rather than to get the whole
-thing upstream.
+Sorry, I've never looked into WoL in detail so I'm not sure quite what
+the intended semantics of WAKE_MAGIC are.
 
-So be it.
+Ben.
 
-Cheers
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
