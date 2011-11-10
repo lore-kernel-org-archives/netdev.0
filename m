@@ -1,53 +1,43 @@
-From: Andrew Vagin <avagin@openvz.org>
-Subject: [PATCH] bridge: Fix potential deadlock on br->multicast_lock
-Date: Thu, 10 Nov 2011 18:48:03 +0300
-Message-ID: <1320940083-3719823-1-git-send-email-avagin@openvz.org>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@openvz.org, avagin@openvz.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next V7] net: introduce ethernet teaming device
+Date: Thu, 10 Nov 2011 17:02:10 +0100
+Message-ID: <1320940930.10042.2.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1320939698-1062-1-git-send-email-jpirko@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
+	jzupka@redhat.com, ivecera@redhat.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35691 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752827Ab1KJQCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 11:02:15 -0500
+Received: by wyh15 with SMTP id 15so2864893wyh.19
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 08:02:14 -0800 (PST)
+In-Reply-To: <1320939698-1062-1-git-send-email-jpirko@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-multicast_lock is taken in softirq context, so we should use
-spin_lock_bh() in userspace.
+Le jeudi 10 novembre 2011 =C3=A0 16:41 +0100, Jiri Pirko a =C3=A9crit :
+> This patch introduces new network device called team. It supposes to =
+be
+> very fast, simple, userspace-driven alternative to existing bonding
+> driver.
+>=20
 
-call-chain in softirq context:
-run_timer_softirq()
-	br_multicast_query_expired()
+> +static bool team_dummy_transmit(struct team *team, struct sk_buff *s=
+kb)
+> +{
+> +	dev_kfree_skb(skb);
+> +	return false;
+> +}
+> +
 
-call-chain in userspace:
-sysfs_write_file()
-	store_multicast_snooping()
-		br_multicast_toggle()
-
-Signed-off-by: Andrew Vagin <avagin@openvz.org>
----
- net/bridge/br_multicast.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 995cbe0..2eefe27 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1770,7 +1770,7 @@ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
- 	int err = 0;
- 	struct net_bridge_mdb_htable *mdb;
- 
--	spin_lock(&br->multicast_lock);
-+	spin_lock_bh(&br->multicast_lock);
- 	if (br->multicast_disabled == !val)
- 		goto unlock;
- 
-@@ -1806,7 +1806,7 @@ rollback:
- 	}
- 
- unlock:
--	spin_unlock(&br->multicast_lock);
-+	spin_unlock_bh(&br->multicast_lock);
- 
- 	return err;
- }
--- 
-1.7.1
+ndo_start_xmit() method can be called with IRQ disabled (netpoll ?), so
+dev_kfree_skb_any() is better ?
