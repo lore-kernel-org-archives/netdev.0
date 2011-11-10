@@ -1,21 +1,23 @@
 From: Toerless Eckert <Toerless.Eckert@Informatik.Uni-Erlangen.de>
-Subject: netdev: fwmarks questions
-Date: Thu, 10 Nov 2011 20:12:56 +0100
-Message-ID: <20111110191255.GK14734@faui40p.informatik.uni-erlangen.de>
+Subject: Re: netdev: fwmarks questions
+Date: Thu, 10 Nov 2011 20:22:53 +0100
+Message-ID: <20111110192253.GL14734@faui40p.informatik.uni-erlangen.de>
+References: <20111110191255.GK14734@faui40p.informatik.uni-erlangen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Toerless Eckert <Toerless.Eckert@Informatik.Uni-Erlangen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:44904 "EHLO
+Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:44912 "EHLO
 	faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751696Ab1KJTTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 14:19:11 -0500
-Received: from faui40p.informatik.uni-erlangen.de (faui40p.informatik.uni-erlangen.de [131.188.34.77])
-	by faui40.informatik.uni-erlangen.de (Postfix) with ESMTP id 3B4A058C551
-	for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 20:12:56 +0100 (CET)
+	by vger.kernel.org with ESMTP id S1751730Ab1KJTWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 14:22:55 -0500
 Content-Disposition: inline
+In-Reply-To: <20111110191255.GK14734@faui40p.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Typo in config below fixed
 
 [ Sorry if this is the wron mailing list. Please let me know if so, and
   recommend a better list for these questions]
@@ -33,7 +35,7 @@ b) Assume i have two physical ethernet interfaces,
    for eth1 (eg: interface route and maybe default route).
 
    ip route add 10.10.10.0/24 eth1 src 10.10.10.1  table foobar
-   ip route add default via 10.10.10.254           table vvlan
+   ip route add default via 10.10.10.254           table foobar
 
    I do map this routing table to some fwmark 1234 via eg:
 
