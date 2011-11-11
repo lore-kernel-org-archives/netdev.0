@@ -1,252 +1,997 @@
-From: ddaney.cavm@gmail.com
-Subject: [PATCH 8/8] staging: octeon_ethernet: Convert to use device tree.
-Date: Thu, 10 Nov 2011 18:22:04 -0800
-Message-ID: <1320978124-13042-9-git-send-email-ddaney.cavm@gmail.com>
-References: <1320978124-13042-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: David Daney <david.daney@cavium.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@suse.de>, devel@driverdev.osuosl.org
-To: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1320978124-13042-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arkadiusz =?utf-8?q?Mi=C5=9Bkiewicz?= <a.miskiewicz@gmail.com>
+Subject: Re: tg3: BMC stops responding in 3.0
+Date: Fri, 11 Nov 2011 05:30:51 +0100
+Message-ID: <201111110530.52206.a.miskiewicz@gmail.com>
+References: <201109232145.50449.a.miskiewicz@gmail.com> <201110010737.59434.a.miskiewicz@gmail.com> <201110261749.28799.a.miskiewicz@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Michael Chan" <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Matt Carlson" <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:45314 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751146Ab1KKEa5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 23:30:57 -0500
+Received: by bke11 with SMTP id 11so2943561bke.19
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 20:30:55 -0800 (PST)
+In-Reply-To: <201110261749.28799.a.miskiewicz@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+On Wednesday 26 of October 2011, Arkadiusz Mi=C5=9Bkiewicz wrote:
+> On Saturday 01 of October 2011, Arkadiusz Mi=C5=9Bkiewicz wrote:
+> > On Saturday 01 of October 2011, Matt Carlson wrote:
+> > > On Fri, Sep 30, 2011 at 01:06:25AM -0700, Arkadiusz Mi??kiewicz w=
+rote:
+> > > > On Friday 30 of September 2011, Matt Carlson wrote:
+> > > > > On Mon, Sep 26, 2011 at 11:31:33AM -0700, Arkadiusz Mi??kiewi=
+cz wrote:
+> > > > > > On Monday 26 of September 2011, Matt Carlson wrote:
+> > > > > > > On Fri, Sep 23, 2011 at 12:45:50PM -0700, Arkadiusz Mi??k=
+iewicz
+> >=20
+> > wrote:
+> > > > > > > > Hi,
+> > > > > > > >=20
+> > > > > > > > I was using 2.6.38.8 and recently tried to switch to 3.=
+0.4 on
+> > > > > > > > Tyan S2891 platform.
+> > > > > > > >=20
+> > > > > > > > This platform uses tg3:
+> > > > > > > > tg3 0000:0a:09.1: eth1: Tigon3 [partno(BCM95704) rev 20=
+03]
+> > > > > > > > (PCIX:133MHz:64- bit) MAC address 00:e0:81:33:5e:af
+> > > > > > > > tg3 0000:0a:09.1: eth1: attached PHY is 5704
+> > > > > > > > (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > > > > > > > tg3 0000:0a:09.1: eth1: RXcsums[1] LinkChgREG[0] MIirq[=
+0]
+> > > > > > > > ASF[0] TSOcap[1] tg3 0000:0a:09.1: eth1: dma_rwctrl[769=
+f4000]
+> > > > > > > > dma_mask[64-bit]
+> > > > > > > >=20
+> > > > > > > > With 2.6.38.8 everything was working fine. With 3.0.4 t=
+here
+> > > > > > > > is a problem. As soon as tg3 module is loaded or eth0
+> > > > > > > > configured (can't tell which one since the machine is 4=
+00km
+> > > > > > > > away from me and I have no way to play with it other th=
+an
+> > > > > > > > ipmi or ssh) BMC stops responding (so all ipmitool comm=
+ands
+> > > > > > > > over LAN stop working). Normal tg3 activity is not affe=
+cted
+> > > > > > > > - I can ssh-in without a problem etc but ipmi over lan
+> > > > > > > > doesn't work.
+> > > > > > > >=20
+> > > > > > > > From ssh console "ipmitool lan print" works, shows data=
+ but
+> > > > > > > > for example after "ipmitool mc reset cold" it doesn't
+> > > > > > > > recover - ipmitool returns "Invalid channel: 255". I ha=
+ve to
+> > > > > > > > reboot to 2.6.38.8 and then issue "ipmitool mc reset co=
+ld"
+> > > > > > > > to recover.
+> > > > > > > >=20
+> > > > > > > > Any idea which tg3 change could break this? Can't bisec=
+t this
+> > > > > > > > due remote access only.
+> > > > > > > >=20
+> > > > > > > > I was hoping that maybe
+> > > > > > > > 9e975cc291d80d5e4562d6bed15ec171e896d69b "tg3: Fix io
+> > > > > > > > failures after chip reset" will fix things for me but n=
+o -
+> > > > > > > > this doesn't help.
+> > > > > > >=20
+> > > > > > > What version of the tg3 driver are you working with?
+> > > > > >=20
+> > > > > > The one in 3.0.4 kernel. I think it's 3.119 (at least modin=
+fo
+> > > > > > says so).
+> > > > >=20
+> > > > > Unfortunately there were a lot of changes between 3.117 and
+> > > > > 3.119(+). Is there any way you can narrow down the gap?
+> > > >=20
+> > > > The machines are 400km away from me and it's hard to debug that=
+ way
+> > > > then ipmi/network conectivity is in stake :-/ I could try some =
+form
+> > > > of bisecting but need to know if all git versions between 3.117=
+ and
+> > > > 3.119 were known to be safe and working? I don't want to loose =
+any
+> > > > conectivity to this machine.
+> > > >=20
+> > > > I was going to try 2.6.39 but it looks like it also uses 3.117
+> > > > driver.
+> > >=20
+> > > O.K.  Can you give me the details of your machine?  Maybe we have=
+ the
+> > > exact machine or a machine similar enough to reproduce the proble=
+m
+> > > with.
+>=20
+> Did you have any chance to find and test on a similar system?
 
-Get MAC address and PHY connection from the device tree.
+I was finally able to bisect the thing. Reverting commit below from 3.0=
+ kernel
+makes my IPMI working even after tg3 is loaded.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@suse.de>
-Cc: devel@driverdev.osuosl.org 
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/staging/octeon/ethernet-mdio.c   |   28 +++++----
- drivers/staging/octeon/ethernet.c        |   91 ++++++++++++++++++------------
- drivers/staging/octeon/octeon-ethernet.h |    3 +
- 3 files changed, 72 insertions(+), 50 deletions(-)
+commit 0da0606f493c5cdab74bdcc96b12f4305ad94085
+Author: Matt Carlson <mcarlson@broadcom.com>
+Date:   Thu May 19 12:12:53 2011 +0000
 
-diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/octeon/ethernet-mdio.c
-index 63800ba..f15b31b 100644
---- a/drivers/staging/octeon/ethernet-mdio.c
-+++ b/drivers/staging/octeon/ethernet-mdio.c
-@@ -28,6 +28,7 @@
- #include <linux/ethtool.h>
- #include <linux/phy.h>
- #include <linux/ratelimit.h>
-+#include <linux/of_mdio.h>
- 
- #include <net/dst.h>
- 
-@@ -161,22 +162,23 @@ static void cvm_oct_adjust_link(struct net_device *dev)
- int cvm_oct_phy_setup_device(struct net_device *dev)
- {
- 	struct octeon_ethernet *priv = netdev_priv(dev);
-+	struct device_node *phy_node;
- 
--	int phy_addr = cvmx_helper_board_get_mii_address(priv->port);
--	if (phy_addr != -1) {
--		char phy_id[20];
-+	if (!priv->of_node)
-+		return 0;
- 
--		snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, "0", phy_addr);
-+	phy_node = of_parse_phandle(priv->of_node, "phy-handle", 0);
-+	if (!phy_node)
-+		return 0;
- 
--		priv->phydev = phy_connect(dev, phy_id, cvm_oct_adjust_link, 0,
--					PHY_INTERFACE_MODE_GMII);
-+	priv->phydev = of_phy_connect(dev, phy_node, cvm_oct_adjust_link, 0,
-+				      PHY_INTERFACE_MODE_GMII);
-+
-+	if (priv->phydev == NULL)
-+		return -ENODEV;
-+
-+	priv->last_link = 0;
-+	phy_start_aneg(priv->phydev);
- 
--		if (IS_ERR(priv->phydev)) {
--			priv->phydev = NULL;
--			return -1;
--		}
--		priv->last_link = 0;
--		phy_start_aneg(priv->phydev);
--	}
- 	return 0;
- }
-diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
-index 9112cd8..5e96da6 100644
---- a/drivers/staging/octeon/ethernet.c
-+++ b/drivers/staging/octeon/ethernet.c
-@@ -31,6 +31,7 @@
- #include <linux/etherdevice.h>
- #include <linux/phy.h>
- #include <linux/slab.h>
-+#include <linux/of_net.h>
- 
- #include <net/dst.h>
- 
-@@ -112,15 +113,6 @@ int rx_napi_weight = 32;
- module_param(rx_napi_weight, int, 0444);
- MODULE_PARM_DESC(rx_napi_weight, "The NAPI WEIGHT parameter.");
- 
--/*
-- * The offset from mac_addr_base that should be used for the next port
-- * that is configured.  By convention, if any mgmt ports exist on the
-- * chip, they get the first mac addresses, The ports controlled by
-- * this driver are numbered sequencially following any mgmt addresses
-- * that may exist.
-- */
--static unsigned int cvm_oct_mac_addr_offset;
--
- /**
-  * cvm_oct_poll_queue - Workqueue for polling operations.
-  */
-@@ -447,26 +439,16 @@ static int cvm_oct_common_set_mac_address(struct net_device *dev, void *addr)
- int cvm_oct_common_init(struct net_device *dev)
- {
- 	struct octeon_ethernet *priv = netdev_priv(dev);
--	struct sockaddr sa;
--	u64 mac = ((u64)(octeon_bootinfo->mac_addr_base[0] & 0xff) << 40) |
--		((u64)(octeon_bootinfo->mac_addr_base[1] & 0xff) << 32) |
--		((u64)(octeon_bootinfo->mac_addr_base[2] & 0xff) << 24) |
--		((u64)(octeon_bootinfo->mac_addr_base[3] & 0xff) << 16) |
--		((u64)(octeon_bootinfo->mac_addr_base[4] & 0xff) << 8) |
--		(u64)(octeon_bootinfo->mac_addr_base[5] & 0xff);
--
--	mac += cvm_oct_mac_addr_offset;
--	sa.sa_data[0] = (mac >> 40) & 0xff;
--	sa.sa_data[1] = (mac >> 32) & 0xff;
--	sa.sa_data[2] = (mac >> 24) & 0xff;
--	sa.sa_data[3] = (mac >> 16) & 0xff;
--	sa.sa_data[4] = (mac >> 8) & 0xff;
--	sa.sa_data[5] = mac & 0xff;
--
--	if (cvm_oct_mac_addr_offset >= octeon_bootinfo->mac_addr_count)
--		printk(KERN_DEBUG "%s: Using MAC outside of the assigned range:"
--			" %pM\n", dev->name, sa.sa_data);
--	cvm_oct_mac_addr_offset++;
-+	struct sockaddr sa = {0};
-+	const u8 *mac = NULL;
-+
-+	if (priv->of_node)
-+		mac = of_get_mac_address(priv->of_node);
-+
-+	if (mac)
-+		memcpy(sa.sa_data, mac, ETH_ALEN);
-+	else
-+		dev_hw_addr_random(dev, sa.sa_data);
- 
- 	/*
- 	 * Force the interface to use the POW send if always_use_pow
-@@ -594,22 +576,55 @@ static const struct net_device_ops cvm_oct_pow_netdev_ops = {
- 
- extern void octeon_mdiobus_force_mod_depencency(void);
- 
-+static struct device_node * __init cvm_oct_of_get_child(const struct device_node *parent,
-+							int reg_val)
-+{
-+	struct device_node *node = NULL;
-+	int size;
-+	const __be32 *addr;
-+
-+	for (;;) {
-+		node = of_get_next_child(parent, node);
-+		if (!node)
-+			break;
-+		addr = of_get_property(node, "reg", &size);
-+		if (addr && (be32_to_cpu(*addr) == reg_val))
-+			break;
-+	}
-+	return node;
-+}
-+
-+static struct device_node * __init cvm_oct_node_for_port(struct device_node *pip,
-+							 int interface, int port)
-+{
-+	struct device_node *ni, *np;
-+
-+	ni = cvm_oct_of_get_child(pip, interface);
-+	if (!ni)
-+		return NULL;
-+
-+	np = cvm_oct_of_get_child(ni, port);
-+	of_node_put(ni);
-+
-+	return np;
-+}
-+
- static int __init cvm_oct_init_module(void)
- {
- 	int num_interfaces;
- 	int interface;
- 	int fau = FAU_NUM_PACKET_BUFFERS_TO_FREE;
- 	int qos;
-+	struct device_node *pip;
- 
- 	octeon_mdiobus_force_mod_depencency();
- 	pr_notice("cavium-ethernet %s\n", OCTEON_ETHERNET_VERSION);
- 
--	if (OCTEON_IS_MODEL(OCTEON_CN52XX))
--		cvm_oct_mac_addr_offset = 2; /* First two are the mgmt ports. */
--	else if (OCTEON_IS_MODEL(OCTEON_CN56XX))
--		cvm_oct_mac_addr_offset = 1; /* First one is the mgmt port. */
--	else
--		cvm_oct_mac_addr_offset = 0;
-+	pip = of_find_node_by_path("pip");
-+	if (!pip) {
-+		pr_err("Error: No 'pip' in /aliases\n");
-+		return -EINVAL;
-+	}
- 
- 	cvm_oct_poll_queue = create_singlethread_workqueue("octeon-ethernet");
- 	if (cvm_oct_poll_queue == NULL) {
-@@ -688,10 +703,11 @@ static int __init cvm_oct_init_module(void)
- 		    cvmx_helper_interface_get_mode(interface);
- 		int num_ports = cvmx_helper_ports_on_interface(interface);
- 		int port;
-+		int port_index;
- 
--		for (port = cvmx_helper_get_ipd_port(interface, 0);
-+		for (port_index = 0, port = cvmx_helper_get_ipd_port(interface, 0);
- 		     port < cvmx_helper_get_ipd_port(interface, num_ports);
--		     port++) {
-+		     port_index++, port++) {
- 			struct octeon_ethernet *priv;
- 			struct net_device *dev =
- 			    alloc_etherdev(sizeof(struct octeon_ethernet));
-@@ -702,6 +718,7 @@ static int __init cvm_oct_init_module(void)
- 
- 			/* Initialize the device private structure. */
- 			priv = netdev_priv(dev);
-+			priv->of_node = cvm_oct_node_for_port(pip, interface, port_index);
- 
- 			INIT_DELAYED_WORK(&priv->port_periodic_work,
- 					  cvm_oct_periodic_worker);
-diff --git a/drivers/staging/octeon/octeon-ethernet.h b/drivers/staging/octeon/octeon-ethernet.h
-index d581925..9360e22 100644
---- a/drivers/staging/octeon/octeon-ethernet.h
-+++ b/drivers/staging/octeon/octeon-ethernet.h
-@@ -31,6 +31,8 @@
- #ifndef OCTEON_ETHERNET_H
- #define OCTEON_ETHERNET_H
- 
-+#include <linux/of.h>
-+
- /**
-  * This is the definition of the Ethernet driver's private
-  * driver state stored in netdev_priv(dev).
-@@ -59,6 +61,7 @@ struct octeon_ethernet {
- 	void (*poll) (struct net_device *dev);
- 	struct delayed_work	port_periodic_work;
- 	struct work_struct	port_work;	/* may be unused. */
-+	struct device_node	*of_node;
- };
- 
- int cvm_oct_free_work(void *work_queue_entry);
--- 
-1.7.2.3
+    tg3: Consolidate all netdev feature assignments
+
+    This patch consolidates all the netdev feature bit assignments to o=
+ne
+    location.
+
+    Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+    Reviewed-by: Michael Chan <mchan@broadcom.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+git bisect start 'drivers/net/tg3.c'
+# good: [61c4f2c81c61f73549928dfd9f3e8f26aa36a8cf] Linux 2.6.39
+git bisect good 61c4f2c81c61f73549928dfd9f3e8f26aa36a8cf
+# bad: [02f8c6aee8df3cdc935e9bdd4f2d020306035dbe] Linux 3.0
+git bisect bad 02f8c6aee8df3cdc935e9bdd4f2d020306035dbe
+# good: [470078312515f12e7cd916f1bd002acad313b9c8] tg3: Add additional =
+EEE messaging
+git bisect good 470078312515f12e7cd916f1bd002acad313b9c8
+# good: [1ff30a59f6d0c754e99442501a5145bdbbcfa6ea] tg3: Fix 57765 B0 da=
+ta corruption
+git bisect good 1ff30a59f6d0c754e99442501a5145bdbbcfa6ea
+# bad: [0da0606f493c5cdab74bdcc96b12f4305ad94085] tg3: Consolidate all =
+netdev feature assignments
+git bisect bad 0da0606f493c5cdab74bdcc96b12f4305ad94085
+# good: [42b64a450b81ec9e8cdd5b3fb13613ab9bb25048] tg3: Consolidate aut=
+oneg advertisement setup code
+git bisect good 42b64a450b81ec9e8cdd5b3fb13613ab9bb25048
+# good: [4452d0999906e3e26b718566362e943fcaa3d694] tg3: Fix stats for 5=
+704 and later devices
+git bisect good 4452d0999906e3e26b718566362e943fcaa3d694
+# good: [dabc5c670d3f86d15ee4f42ab38ec5bd2682487d] tg3: Move TSO_CAPABL=
+E assignment
+git bisect good dabc5c670d3f86d15ee4f42ab38ec5bd2682487d
+
+
+
+>=20
+> > It's 1U server, with Tyan S2891 mainboard and some chenbro chassis.=
+ ipmi
+> > and eth0 share physical rj45 port in the server.
+> >=20
+> > lspci & dmidecode below:
+> >=20
+> > 00:00.0 Memory controller: nVidia Corporation CK804 Memory Controll=
+er
+> > (rev a3) Subsystem: Tyan Computer Thunder K8SRE Mainboard
+> >=20
+> > 	Flags: bus master, 66MHz, fast devsel, latency 0
+> > 	Capabilities: [44] HyperTransport: Slave or Primary Interface
+> > 	Capabilities: [e0] HyperTransport: MSI Mapping Enable+ Fixed-
+> >=20
+> > 00:01.0 ISA bridge: nVidia Corporation CK804 ISA Bridge (rev a3)
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: bus master, 66MHz, fast devsel, latency 0
+> > 	I/O ports at 8c00 [size=3D1K]
+> >=20
+> > 00:01.1 SMBus: nVidia Corporation CK804 SMBus (rev a2)
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: 66MHz, fast devsel
+> > 	I/O ports at 1000 [size=3D32]
+> > 	I/O ports at 5000 [size=3D64]
+> > 	I/O ports at 5040 [size=3D64]
+> > 	Capabilities: [44] Power Management version 2
+> >=20
+> > 00:02.0 USB Controller: nVidia Corporation CK804 USB Controller (re=
+v a2)
+> > (prog-if 10 [OHCI])
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: bus master, 66MHz, fast devsel, latency 0, IRQ 10
+> > 	Memory at dd000000 (32-bit, non-prefetchable) [size=3D4K]
+> > 	Capabilities: [44] Power Management version 2
+> >=20
+> > 00:02.1 USB Controller: nVidia Corporation CK804 USB Controller (re=
+v a3)
+> > (prog-if 20 [EHCI])
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: bus master, 66MHz, fast devsel, latency 0, IRQ 7
+> > 	Memory at dd001000 (32-bit, non-prefetchable) [size=3D256]
+> > 	Capabilities: [44] Debug port: BAR=3D1 offset=3D0098
+> > 	Capabilities: [80] Power Management version 2
+> >=20
+> > 00:06.0 IDE interface: nVidia Corporation CK804 IDE (rev f2) (prog-=
+if 8a
+> > [Master SecP PriP])
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: bus master, 66MHz, fast devsel, latency 0
+> > 	[virtual] Memory at 000001f0 (32-bit, non-prefetchable) [size=3D8]
+> > 	[virtual] Memory at 000003f0 (type 3, non-prefetchable) [size=3D1]
+> > 	[virtual] Memory at 00000170 (32-bit, non-prefetchable) [size=3D8]
+> > 	[virtual] Memory at 00000370 (type 3, non-prefetchable) [size=3D1]
+> > 	I/O ports at 1400 [size=3D16]
+> > 	Capabilities: [44] Power Management version 2
+> >=20
+> > 00:07.0 IDE interface: nVidia Corporation CK804 Serial ATA Controll=
+er
+> > (rev f3) (prog-if 85 [Master SecO PriO])
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: bus master, 66MHz, fast devsel, latency 0, IRQ 11
+> > 	I/O ports at 1440 [size=3D8]
+> > 	I/O ports at 1434 [size=3D4]
+> > 	I/O ports at 1438 [size=3D8]
+> > 	I/O ports at 1430 [size=3D4]
+> > 	I/O ports at 1410 [size=3D16]
+> > 	Memory at dd002000 (32-bit, non-prefetchable) [size=3D4K]
+> > 	Capabilities: [44] Power Management version 2
+> >=20
+> > 00:08.0 IDE interface: nVidia Corporation CK804 Serial ATA Controll=
+er
+> > (rev f3) (prog-if 85 [Master SecO PriO])
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: bus master, 66MHz, fast devsel, latency 0, IRQ 10
+> > 	I/O ports at 1458 [size=3D8]
+> > 	I/O ports at 144c [size=3D4]
+> > 	I/O ports at 1450 [size=3D8]
+> > 	I/O ports at 1448 [size=3D4]
+> > 	I/O ports at 1420 [size=3D16]
+> > 	Memory at dd003000 (32-bit, non-prefetchable) [size=3D4K]
+> > 	Capabilities: [44] Power Management version 2
+> >=20
+> > 00:09.0 PCI bridge: nVidia Corporation CK804 PCI Bridge (rev a2) (p=
+rog-if
+> > 00 [Normal decode])
+> >=20
+> > 	Flags: bus master, 66MHz, fast devsel, latency 0
+> > 	Bus: primary=3D00, secondary=3D01, subordinate=3D01, sec-latency=3D=
+64
+> > 	I/O behind bridge: 00002000-00002fff
+> > 	Memory behind bridge: dd100000-deffffff
+> > 	Prefetchable memory behind bridge: d0000000-d00fffff
+> >=20
+> > 00:0e.0 PCI bridge: nVidia Corporation CK804 PCIE Bridge (rev a3)
+> > (prog-if 00 [Normal decode])
+> >=20
+> > 	Flags: bus master, fast devsel, latency 0
+> > 	Bus: primary=3D00, secondary=3D02, subordinate=3D02, sec-latency=3D=
+0
+> > 	Capabilities: [40] Power Management version 2
+> > 	Capabilities: [48] MSI: Enable- Count=3D1/2 Maskable- 64bit+
+> > 	Capabilities: [58] HyperTransport: MSI Mapping Enable- Fixed-
+> > 	Capabilities: [80] Express Root Port (Slot+), MSI 00
+> > 	Kernel driver in use: pcieport
+> >=20
+> > 00:18.0 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opte=
+ron]
+> > HyperTransport Technology Configuration
+> >=20
+> > 	Flags: fast devsel
+> > 	Capabilities: [80] HyperTransport: Host or Secondary Interface
+> > 	Capabilities: [a0] HyperTransport: Host or Secondary Interface
+> > 	Capabilities: [c0] HyperTransport: Host or Secondary Interface
+> >=20
+> > 00:18.1 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opte=
+ron]
+> > Address Map
+> >=20
+> > 	Flags: fast devsel
+> >=20
+> > 00:18.2 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opte=
+ron]
+> > DRAM Controller
+> >=20
+> > 	Flags: fast devsel
+> >=20
+> > 00:18.3 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opte=
+ron]
+> > Miscellaneous Control
+> >=20
+> > 	Flags: fast devsel
+> >=20
+> > 00:19.0 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opte=
+ron]
+> > HyperTransport Technology Configuration
+> >=20
+> > 	Flags: fast devsel
+> > 	Capabilities: [80] HyperTransport: Host or Secondary Interface
+> > 	Capabilities: [a0] HyperTransport: Host or Secondary Interface
+> > 	Capabilities: [c0] HyperTransport: Host or Secondary Interface
+> >=20
+> > 00:19.1 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opte=
+ron]
+> > Address Map
+> >=20
+> > 	Flags: fast devsel
+> >=20
+> > 00:19.2 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opte=
+ron]
+> > DRAM Controller
+> >=20
+> > 	Flags: fast devsel
+> >=20
+> > 00:19.3 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opte=
+ron]
+> > Miscellaneous Control
+> >=20
+> > 	Flags: fast devsel
+> >=20
+> > 01:07.0 VGA compatible controller: ATI Technologies Inc Rage XL (re=
+v 27)
+> > (prog-if 00 [VGA controller])
+> >=20
+> > 	Subsystem: ATI Technologies Inc Rage XL
+> > 	Flags: bus master, stepping, medium devsel, latency 66, IRQ 11
+> > 	Memory at de000000 (32-bit, non-prefetchable) [size=3D16M]
+> > 	I/O ports at 2000 [size=3D256]
+> > 	Memory at dd100000 (32-bit, non-prefetchable) [size=3D4K]
+> > 	[virtual] Expansion ROM at d0000000 [disabled] [size=3D128K]
+> > 	Capabilities: [5c] Power Management version 2
+> >=20
+> > 08:0a.0 PCI bridge: Advanced Micro Devices [AMD] AMD-8131 PCI-X Bri=
+dge
+> > (rev 12) (prog-if 00 [Normal decode])
+> >=20
+> > 	Flags: bus master, 66MHz, medium devsel, latency 64
+> > 	Bus: primary=3D08, secondary=3D09, subordinate=3D09, sec-latency=3D=
+64
+> > 	I/O behind bridge: 00003000-00003fff
+> > 	Memory behind bridge: df300000-df3fffff
+> > 	Prefetchable memory behind bridge: 00000000df500000-00000000df5fff=
+ff
+> > 	Capabilities: [a0] PCI-X bridge device
+> > 	Capabilities: [b8] HyperTransport: Interrupt Discovery and Configu=
+ration
+> > 	Capabilities: [c0] HyperTransport: Slave or Primary Interface
+> >=20
+> > 08:0a.1 PIC: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC (re=
+v 01)
+> > (prog-if 10 [IO-APIC])
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: bus master, medium devsel, latency 0
+> > 	Memory at df200000 (64-bit, non-prefetchable) [size=3D4K]
+> >=20
+> > 08:0b.0 PCI bridge: Advanced Micro Devices [AMD] AMD-8131 PCI-X Bri=
+dge
+> > (rev 12) (prog-if 00 [Normal decode])
+> >=20
+> > 	Flags: bus master, 66MHz, medium devsel, latency 64
+> > 	Bus: primary=3D08, secondary=3D0a, subordinate=3D0a, sec-latency=3D=
+64
+> > 	Memory behind bridge: df400000-df4fffff
+> > 	Capabilities: [a0] PCI-X bridge device
+> > 	Capabilities: [b8] HyperTransport: Interrupt Discovery and Configu=
+ration
+> >=20
+> > 08:0b.1 PIC: Advanced Micro Devices [AMD] AMD-8131 PCI-X IOAPIC (re=
+v 01)
+> > (prog-if 10 [IO-APIC])
+> >=20
+> > 	Subsystem: Tyan Computer Device 2891
+> > 	Flags: bus master, medium devsel, latency 0
+> > 	Memory at df201000 (64-bit, non-prefetchable) [size=3D4K]
+> >=20
+> > 09:08.0 Fibre Channel: QLogic Corp. ISP2312-based 2Gb Fibre Channel=
+ to
+> > PCI-X HBA (rev 02)
+> >=20
+> > 	Subsystem: Compaq Computer Corporation Device 0100
+> > 	Flags: bus master, 66MHz, medium devsel, latency 128, IRQ 24
+> > 	I/O ports at 3000 [size=3D256]
+> > 	Memory at df300000 (64-bit, non-prefetchable) [size=3D4K]
+> > 	[virtual] Expansion ROM at df500000 [disabled] [size=3D128K]
+> > 	Capabilities: [44] Power Management version 2
+> > 	Capabilities: [4c] PCI-X non-bridge device
+> > 	Capabilities: [54] MSI: Enable- Count=3D1/8 Maskable- 64bit+
+> > 	Capabilities: [64] CompactPCI hot-swap <?>
+> > 	Kernel driver in use: qla2xxx
+> >=20
+> > 0a:09.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704
+> > Gigabit Ethernet (rev 03)
+> >=20
+> > 	Subsystem: Broadcom Corporation NetXtreme BCM5704 Gigabit Ethernet
+> > 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 28
+> > 	Memory at df410000 (64-bit, non-prefetchable) [size=3D64K]
+> > 	Memory at df400000 (64-bit, non-prefetchable) [size=3D64K]
+> > 	Capabilities: [40] PCI-X non-bridge device
+> > 	Capabilities: [48] Power Management version 2
+> > 	Capabilities: [50] Vital Product Data
+> > 	Capabilities: [58] MSI: Enable- Count=3D1/8 Maskable- 64bit+
+> > 	Kernel driver in use: tg3
+> >=20
+> > 0a:09.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5704
+> > Gigabit Ethernet (rev 03)
+> >=20
+> > 	Subsystem: Broadcom Corporation NetXtreme BCM5704 Gigabit Ethernet
+> > 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 29
+> > 	Memory at df430000 (64-bit, non-prefetchable) [size=3D64K]
+> > 	Memory at df420000 (64-bit, non-prefetchable) [size=3D64K]
+> > 	Capabilities: [40] PCI-X non-bridge device
+> > 	Capabilities: [48] Power Management version 2
+> > 	Capabilities: [50] Vital Product Data
+> > 	Capabilities: [58] MSI: Enable- Count=3D1/8 Maskable- 64bit+
+> > 	Kernel driver in use: tg3
+> >=20
+> > # dmidecode 2.11
+> > SMBIOS version fixup (2.33 -> 2.3).
+> > SMBIOS 2.3 present.
+> > 34 structures occupying 1202 bytes.
+> > Table at 0x7FFEF000.
+> >=20
+> > Handle 0x0000, DMI type 0, 20 bytes
+> > BIOS Information
+> >=20
+> > 	Vendor: Phoenix Technologies Ltd.
+> > 	Version: 2003Q2
+> > 	Release Date: 03/27/2006
+> > 	Address: 0xE65B0
+> > 	Runtime Size: 105040 bytes
+> > 	ROM Size: 1024 kB
+> > =09
+> > 	Characteristics:
+> > 		PCI is supported
+> > 		PNP is supported
+> > 		BIOS is upgradeable
+> > 		BIOS shadowing is allowed
+> > 		ESCD support is available
+> > 		Boot from CD is supported
+> > 		Selectable boot is supported
+> > 		EDD is supported
+> > 		5.25"/360 kB floppy services are supported (int 13h)
+> > 		5.25"/1.2 MB floppy services are supported (int 13h)
+> > 		3.5"/720 kB floppy services are supported (int 13h)
+> > 		3.5"/2.88 MB floppy services are supported (int 13h)
+> > 		Print screen service is supported (int 5h)
+> > 		8042 keyboard services are supported (int 9h)
+> > 		Serial services are supported (int 14h)
+> > 		Printer services are supported (int 17h)
+> > 		CGA/mono video services are supported (int 10h)
+> > 		ACPI is supported
+> > 		USB legacy is supported
+> >=20
+> > Handle 0x0001, DMI type 1, 25 bytes
+> > System Information
+> >=20
+> > 	Manufacturer: TYAN Computer Corp
+> > 	Product Name: S2891
+> > 	Version: REFERENCE
+> > 	Serial Number: 0123456789
+> > 	UUID: Not Settable
+> > 	Wake-up Type: Power Switch
+> >=20
+> > Handle 0x0002, DMI type 2, 8 bytes
+> > Base Board Information
+> >=20
+> > 	Manufacturer: TYAN Computer Corp
+> > 	Product Name: GT24-B2891
+> > 	Version: REFERENCE
+> > 	Serial Number: 0123456789
+> >=20
+> > Handle 0x0003, DMI type 3, 17 bytes
+> > Chassis Information
+> >=20
+> > 	Manufacturer: TYAN Computer Corp
+> > 	Type: Main Server Chassis
+> > 	Lock: Not Present
+> > 	Version: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Boot-up State: Unknown
+> > 	Power Supply State: Unknown
+> > 	Thermal State: Unknown
+> > 	Security Status: Unknown
+> > 	OEM Information: 0x00000000
+> >=20
+> > Handle 0x0004, DMI type 4, 35 bytes
+> > Processor Information
+> >=20
+> > 	Socket Designation: CPU0-Socket 940
+> > 	Type: Central Processor
+> > 	Family: Opteron
+> > 	Manufacturer: AMD
+> > 	ID: 12 0F 02 00 FF FB 8B 17
+> > 	Signature: Family 15, Model 33, Stepping 2
+> > =09
+> > 	Flags:
+> > 		FPU (Floating-point unit on-chip)
+> > 		VME (Virtual mode extension)
+> > 		DE (Debugging extension)
+> > 		PSE (Page size extension)
+> > 		TSC (Time stamp counter)
+> > 		MSR (Model specific registers)
+> > 		PAE (Physical address extension)
+> > 		MCE (Machine check exception)
+> > 		CX8 (CMPXCHG8 instruction supported)
+> > 		APIC (On-chip APIC hardware supported)
+> > 		SEP (Fast system call)
+> > 		MTRR (Memory type range registers)
+> > 		PGE (Page global enable)
+> > 		MCA (Machine check architecture)
+> > 		CMOV (Conditional move instruction supported)
+> > 		PAT (Page attribute table)
+> > 		PSE-36 (36-bit page size extension)
+> > 		CLFSH (CLFLUSH instruction supported)
+> > 		MMX (MMX technology supported)
+> > 		FXSR (FXSAVE and FXSTOR instructions supported)
+> > 		SSE (Streaming SIMD extensions)
+> > 		SSE2 (Streaming SIMD extensions 2)
+> > 		HTT (Multi-threading)
+> > =09
+> > 	Version: AMD
+> > 	Voltage: 1.2 V
+> > 	External Clock: 200 MHz
+> > 	Max Speed: 3000 MHz
+> > 	Current Speed: 2000 MHz
+> > 	Status: Populated, Enabled
+> > 	Upgrade: None
+> > 	L1 Cache Handle: 0x0006
+> > 	L2 Cache Handle: 0x0007
+> > 	L3 Cache Handle: Not Provided
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0005, DMI type 4, 35 bytes
+> > Processor Information
+> >=20
+> > 	Socket Designation: CPU1-Socket 940
+> > 	Type: Central Processor
+> > 	Family: Opteron
+> > 	Manufacturer: AMD
+> > 	ID: 12 0F 02 00 FF FB 8B 17
+> > 	Signature: Family 15, Model 33, Stepping 2
+> > =09
+> > 	Flags:
+> > 		FPU (Floating-point unit on-chip)
+> > 		VME (Virtual mode extension)
+> > 		DE (Debugging extension)
+> > 		PSE (Page size extension)
+> > 		TSC (Time stamp counter)
+> > 		MSR (Model specific registers)
+> > 		PAE (Physical address extension)
+> > 		MCE (Machine check exception)
+> > 		CX8 (CMPXCHG8 instruction supported)
+> > 		APIC (On-chip APIC hardware supported)
+> > 		SEP (Fast system call)
+> > 		MTRR (Memory type range registers)
+> > 		PGE (Page global enable)
+> > 		MCA (Machine check architecture)
+> > 		CMOV (Conditional move instruction supported)
+> > 		PAT (Page attribute table)
+> > 		PSE-36 (36-bit page size extension)
+> > 		CLFSH (CLFLUSH instruction supported)
+> > 		MMX (MMX technology supported)
+> > 		FXSR (FXSAVE and FXSTOR instructions supported)
+> > 		SSE (Streaming SIMD extensions)
+> > 		SSE2 (Streaming SIMD extensions 2)
+> > 		HTT (Multi-threading)
+> > =09
+> > 	Version: AMD
+> > 	Voltage: 1.2 V
+> > 	External Clock: 200 MHz
+> > 	Max Speed: 3000 MHz
+> > 	Current Speed: 2000 MHz
+> > 	Status: Populated, Enabled
+> > 	Upgrade: None
+> > 	L1 Cache Handle: 0x0008
+> > 	L2 Cache Handle: 0x0009
+> > 	L3 Cache Handle: Not Provided
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0006, DMI type 7, 19 bytes
+> > Cache Information
+> >=20
+> > 	Socket Designation: H0 L1 Cache
+> > 	Configuration: Enabled, Not Socketed, Level 1
+> > 	Operational Mode: Write Back
+> > 	Location: Internal
+> > 	Installed Size: 64 kB
+> > 	Maximum Size: 64 kB
+> > =09
+> > 	Supported SRAM Types:
+> > 		Burst
+> > 		Pipeline Burst
+> > 		Asynchronous
+> > =09
+> > 	Installed SRAM Type: Asynchronous
+> > 	Speed: Unknown
+> > 	Error Correction Type: Unknown
+> > 	System Type: Unknown
+> > 	Associativity: Unknown
+> >=20
+> > Handle 0x0007, DMI type 7, 19 bytes
+> > Cache Information
+> >=20
+> > 	Socket Designation: H0 L2 Cache
+> > 	Configuration: Enabled, Not Socketed, Level 2
+> > 	Operational Mode: Write Through
+> > 	Location: Internal
+> > 	Installed Size: 2048 kB
+> > 	Maximum Size: 1024 kB
+> > =09
+> > 	Supported SRAM Types:
+> > 		Burst
+> > 		Pipeline Burst
+> > 		Synchronous
+> > =09
+> > 	Installed SRAM Type: Synchronous
+> > 	Speed: Unknown
+> > 	Error Correction Type: Unknown
+> > 	System Type: Unified
+> > 	Associativity: Unknown
+> >=20
+> > Handle 0x0008, DMI type 7, 19 bytes
+> > Cache Information
+> >=20
+> > 	Socket Designation: H1 L1 Cache
+> > 	Configuration: Enabled, Not Socketed, Level 1
+> > 	Operational Mode: Write Back
+> > 	Location: Internal
+> > 	Installed Size: 64 kB
+> > 	Maximum Size: 64 kB
+> > =09
+> > 	Supported SRAM Types:
+> > 		Burst
+> > 		Pipeline Burst
+> > 		Asynchronous
+> > =09
+> > 	Installed SRAM Type: Asynchronous
+> > 	Speed: Unknown
+> > 	Error Correction Type: Unknown
+> > 	System Type: Unknown
+> > 	Associativity: Unknown
+> >=20
+> > Handle 0x0009, DMI type 7, 19 bytes
+> > Cache Information
+> >=20
+> > 	Socket Designation: H1 L2 Cache
+> > 	Configuration: Enabled, Not Socketed, Level 2
+> > 	Operational Mode: Write Through
+> > 	Location: Internal
+> > 	Installed Size: 2048 kB
+> > 	Maximum Size: 1024 kB
+> > =09
+> > 	Supported SRAM Types:
+> > 		Burst
+> > 		Pipeline Burst
+> > 		Synchronous
+> > =09
+> > 	Installed SRAM Type: Synchronous
+> > 	Speed: Unknown
+> > 	Error Correction Type: Unknown
+> > 	System Type: Unified
+> > 	Associativity: Unknown
+> >=20
+> > Handle 0x000A, DMI type 8, 9 bytes
+> > Port Connector Information
+> >=20
+> > 	Internal Reference Designator: J2
+> > 	Internal Connector Type: PS/2
+> > 	External Reference Designator: PS/2 Mouse
+> > 	External Connector Type: PS/2
+> > 	Port Type: Mouse Port
+> >=20
+> > Handle 0x000B, DMI type 9, 13 bytes
+> > System Slot Information
+> >=20
+> > 	Designation: PCI Slot 1
+> > 	Type: 32-bit PCI
+> > 	Current Usage: Unknown
+> > 	Length: Long
+> > 	ID: 0
+> > =09
+> > 	Characteristics:
+> > 		3.3 V is provided
+> > 		PME signal is supported
+> >=20
+> > Handle 0x000C, DMI type 11, 5 bytes
+> > OEM Strings
+> >=20
+> > 	String 1: 0
+> > 	String 2: 0
+> > 	String 3: .........................
+> >=20
+> > Handle 0x000D, DMI type 16, 15 bytes
+> > Physical Memory Array
+> >=20
+> > 	Location: System Board Or Motherboard
+> > 	Use: System Memory
+> > 	Error Correction Type: Single-bit ECC
+> > 	Maximum Capacity: 32 GB
+> > 	Error Information Handle: Not Provided
+> > 	Number Of Devices: 8
+> >=20
+> > Handle 0x000E, DMI type 17, 27 bytes
+> > Memory Device
+> >=20
+> > 	Array Handle: 0x000D
+> > 	Error Information Handle: No Error
+> > 	Total Width: 128 bits
+> > 	Data Width: 64 bits
+> > 	Size: 8192 MB
+> > 	Form Factor: DIMM
+> > 	Set: 1
+> > 	Locator: C0_DIMM0
+> > 	Bank Locator: Bank 0
+> > 	Type: DRAM
+> > 	Type Detail: Synchronous
+> > 	Speed: Unknown
+> > 	Manufacturer: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x000F, DMI type 17, 27 bytes
+> > Memory Device
+> >=20
+> > 	Array Handle: 0x000D
+> > 	Error Information Handle: No Error
+> > 	Total Width: 128 bits
+> > 	Data Width: 64 bits
+> > 	Size: 8192 MB
+> > 	Form Factor: DIMM
+> > 	Set: 2
+> > 	Locator: C0_DIMM1
+> > 	Bank Locator: Bank 1
+> > 	Type: DRAM
+> > 	Type Detail: Synchronous
+> > 	Speed: Unknown
+> > 	Manufacturer: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0010, DMI type 17, 27 bytes
+> > Memory Device
+> >=20
+> > 	Array Handle: 0x000D
+> > 	Error Information Handle: No Error
+> > 	Total Width: 128 bits
+> > 	Data Width: 64 bits
+> > 	Size: 8192 MB
+> > 	Form Factor: DIMM
+> > 	Set: 3
+> > 	Locator: C0_DIMM2
+> > 	Bank Locator: Bank 2
+> > 	Type: DRAM
+> > 	Type Detail: Synchronous
+> > 	Speed: Unknown
+> > 	Manufacturer: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0011, DMI type 17, 27 bytes
+> > Memory Device
+> >=20
+> > 	Array Handle: 0x000D
+> > 	Error Information Handle: No Error
+> > 	Total Width: 128 bits
+> > 	Data Width: 64 bits
+> > 	Size: 8192 MB
+> > 	Form Factor: DIMM
+> > 	Set: 3
+> > 	Locator: C0_DIMM3
+> > 	Bank Locator: Bank 3
+> > 	Type: DRAM
+> > 	Type Detail: Synchronous
+> > 	Speed: Unknown
+> > 	Manufacturer: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0012, DMI type 17, 27 bytes
+> > Memory Device
+> >=20
+> > 	Array Handle: 0x000D
+> > 	Error Information Handle: No Error
+> > 	Total Width: 128 bits
+> > 	Data Width: 64 bits
+> > 	Size: 8192 MB
+> > 	Form Factor: DIMM
+> > 	Set: 3
+> > 	Locator: C0_DIMM0
+> > 	Bank Locator: Bank 0
+> > 	Type: DRAM
+> > 	Type Detail: Synchronous
+> > 	Speed: Unknown
+> > 	Manufacturer: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0013, DMI type 17, 27 bytes
+> > Memory Device
+> >=20
+> > 	Array Handle: 0x000D
+> > 	Error Information Handle: No Error
+> > 	Total Width: 128 bits
+> > 	Data Width: 64 bits
+> > 	Size: 8192 MB
+> > 	Form Factor: DIMM
+> > 	Set: 3
+> > 	Locator: C1_DIMM1
+> > 	Bank Locator: Bank 1
+> > 	Type: DRAM
+> > 	Type Detail: Synchronous
+> > 	Speed: Unknown
+> > 	Manufacturer: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0014, DMI type 17, 27 bytes
+> > Memory Device
+> >=20
+> > 	Array Handle: 0x000D
+> > 	Error Information Handle: No Error
+> > 	Total Width: Unknown
+> > 	Data Width: Unknown
+> > 	Size: No Module Installed
+> > 	Form Factor: DIMM
+> > 	Set: 3
+> > 	Locator: C1_DIMM2
+> > 	Bank Locator: Bank 2
+> > 	Type: DRAM
+> > 	Type Detail: Synchronous
+> > 	Speed: Unknown
+> > 	Manufacturer: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0015, DMI type 17, 27 bytes
+> > Memory Device
+> >=20
+> > 	Array Handle: 0x000D
+> > 	Error Information Handle: No Error
+> > 	Total Width: Unknown
+> > 	Data Width: Unknown
+> > 	Size: No Module Installed
+> > 	Form Factor: DIMM
+> > 	Set: 3
+> > 	Locator: C1_DIMM3
+> > 	Bank Locator: Bank 3
+> > 	Type: DRAM
+> > 	Type Detail: Synchronous
+> > 	Speed: Unknown
+> > 	Manufacturer: Not Specified
+> > 	Serial Number: Not Specified
+> > 	Asset Tag: Not Specified
+> > 	Part Number: Not Specified
+> >=20
+> > Handle 0x0016, DMI type 19, 15 bytes
+> > Memory Array Mapped Address
+> >=20
+> > 	Starting Address: 0x00000000000
+> > 	Ending Address: 0x00BFFFFFFFF
+> > 	Range Size: 48 GB
+> > 	Physical Array Handle: 0x000D
+> > 	Partition Width: 2
+> >=20
+> > Handle 0x0017, DMI type 20, 19 bytes
+> > Memory Device Mapped Address
+> >=20
+> > 	Starting Address: 0x00000000000
+> > 	Ending Address: 0x001FFFFFFFF
+> > 	Range Size: 8 GB
+> > 	Physical Device Handle: 0x000E
+> > 	Memory Array Mapped Address Handle: 0x0016
+> > 	Partition Row Position: 1
+> > 	Interleaved Data Depth: 1
+> >=20
+> > Handle 0x0018, DMI type 20, 19 bytes
+> > Memory Device Mapped Address
+> >=20
+> > 	Starting Address: 0x00200000000
+> > 	Ending Address: 0x003FFFFFFFF
+> > 	Range Size: 8 GB
+> > 	Physical Device Handle: 0x000F
+> > 	Memory Array Mapped Address Handle: 0x0016
+> > 	Partition Row Position: 1
+> > 	Interleaved Data Depth: 1
+> >=20
+> > Handle 0x0019, DMI type 20, 19 bytes
+> > Memory Device Mapped Address
+> >=20
+> > 	Starting Address: 0x00400000000
+> > 	Ending Address: 0x005FFFFFFFF
+> > 	Range Size: 8 GB
+> > 	Physical Device Handle: 0x0010
+> > 	Memory Array Mapped Address Handle: 0x0016
+> > 	Partition Row Position: 1
+> > 	Interleaved Data Depth: 1
+> >=20
+> > Handle 0x001A, DMI type 20, 19 bytes
+> > Memory Device Mapped Address
+> >=20
+> > 	Starting Address: 0x00600000000
+> > 	Ending Address: 0x007FFFFFFFF
+> > 	Range Size: 8 GB
+> > 	Physical Device Handle: 0x0011
+> > 	Memory Array Mapped Address Handle: 0x0016
+> > 	Partition Row Position: 1
+> > 	Interleaved Data Depth: 1
+> >=20
+> > Handle 0x001B, DMI type 20, 19 bytes
+> > Memory Device Mapped Address
+> >=20
+> > 	Starting Address: 0x00800000000
+> > 	Ending Address: 0x009FFFFFFFF
+> > 	Range Size: 8 GB
+> > 	Physical Device Handle: 0x0012
+> > 	Memory Array Mapped Address Handle: 0x0016
+> > 	Partition Row Position: 1
+> > 	Interleaved Data Depth: 1
+> >=20
+> > Handle 0x001C, DMI type 20, 19 bytes
+> > Memory Device Mapped Address
+> >=20
+> > 	Starting Address: 0x00A00000000
+> > 	Ending Address: 0x00BFFFFFFFF
+> > 	Range Size: 8 GB
+> > 	Physical Device Handle: 0x0013
+> > 	Memory Array Mapped Address Handle: 0x0016
+> > 	Partition Row Position: 1
+> > 	Interleaved Data Depth: 1
+> >=20
+> > Handle 0x001D, DMI type 20, 19 bytes
+> > Memory Device Mapped Address
+> >=20
+> > 	Starting Address: 0x00BFFFFFC00
+> > 	Ending Address: 0x00BFFFFFFFF
+> > 	Range Size: 1 kB
+> > 	Physical Device Handle: 0x0014
+> > 	Memory Array Mapped Address Handle: 0x0016
+> > 	Partition Row Position: 1
+> > 	Interleaved Data Depth: 1
+> >=20
+> > Handle 0x001E, DMI type 20, 19 bytes
+> > Memory Device Mapped Address
+> >=20
+> > 	Starting Address: 0x00BFFFFFC00
+> > 	Ending Address: 0x00BFFFFFFFF
+> > 	Range Size: 1 kB
+> > 	Physical Device Handle: 0x0015
+> > 	Memory Array Mapped Address Handle: 0x0016
+> > 	Partition Row Position: 1
+> > 	Interleaved Data Depth: 1
+> >=20
+> > Handle 0x001F, DMI type 32, 20 bytes
+> > System Boot Information
+> >=20
+> > 	Status: <OUT OF SPEC>
+> >=20
+> > Handle 0x0020, DMI type 38, 18 bytes
+> > IPMI Device Information
+> >=20
+> > 	Interface Type: KCS (Keyboard Control Style)
+> > 	Specification Version: 2.0
+> > 	I2C Slave Address: 0x10
+> > 	NV Storage Device: Not Present
+> > 	Base Address: 0x0000000000000CA8 (I/O)
+> > 	Register Spacing: 32-bit Boundaries
+> > 	Interrupt Polarity: Active Low
+> > 	Interrupt Trigger Mode: Edge
+> >=20
+> > Handle 0x0021, DMI type 127, 4 bytes
+> > End Of Table
+
+
+--=20
+Arkadiusz Mi=C5=9Bkiewicz        PLD/Linux Team
+arekm / maven.pl            http://ftp.pld-linux.org/
