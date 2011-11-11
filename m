@@ -1,7 +1,7 @@
 From: Richard Zhao <richard.zhao@linaro.org>
-Subject: [PATCH V2 13/14] i2c: imx: add clk_prepare/clk_unprepare
-Date: Fri, 11 Nov 2011 09:10:28 +0800
-Message-ID: <1320973829-4388-14-git-send-email-richard.zhao@linaro.org>
+Subject: [PATCH V2 14/14] mmc: sdhci-esdhc-imx: add clk_prepare/clk_unprepare
+Date: Fri, 11 Nov 2011 09:10:29 +0800
+Message-ID: <1320973829-4388-15-git-send-email-richard.zhao@linaro.org>
 References: <1320973829-4388-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,30 +27,39 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
 ---
- drivers/i2c/busses/i2c-imx.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/mmc/host/sdhci-esdhc-imx.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/i2c/busses/i2c-imx.c b/drivers/i2c/busses/i2c-imx.c
-index 58832e5..8d1ab6f 100644
---- a/drivers/i2c/busses/i2c-imx.c
-+++ b/drivers/i2c/busses/i2c-imx.c
-@@ -196,7 +196,7 @@ static int i2c_imx_start(struct imx_i2c_struct *i2c_imx)
+diff --git a/drivers/mmc/host/sdhci-esdhc-imx.c b/drivers/mmc/host/sdhci-esdhc-imx.c
+index ae57769..f1ae37e 100644
+--- a/drivers/mmc/host/sdhci-esdhc-imx.c
++++ b/drivers/mmc/host/sdhci-esdhc-imx.c
+@@ -462,7 +462,7 @@ static int __devinit sdhci_esdhc_imx_probe(struct platform_device *pdev)
+ 		err = PTR_ERR(clk);
+ 		goto err_clk_get;
+ 	}
+-	clk_enable(clk);
++	clk_prepare_enable(clk);
+ 	pltfm_host->clk = clk;
  
- 	dev_dbg(&i2c_imx->adapter.dev, "<%s>\n", __func__);
+ 	if (!is_imx25_esdhc(imx_data))
+@@ -550,7 +550,7 @@ no_card_detect_irq:
+ 		gpio_free(boarddata->wp_gpio);
+ no_card_detect_pin:
+ no_board_data:
+-	clk_disable(pltfm_host->clk);
++	clk_disable_unprepare(pltfm_host->clk);
+ 	clk_put(pltfm_host->clk);
+ err_clk_get:
+ 	kfree(imx_data);
+@@ -577,7 +577,7 @@ static int __devexit sdhci_esdhc_imx_remove(struct platform_device *pdev)
+ 		gpio_free(boarddata->cd_gpio);
+ 	}
  
--	clk_enable(i2c_imx->clk);
-+	clk_prepare_enable(i2c_imx->clk);
- 	writeb(i2c_imx->ifdr, i2c_imx->base + IMX_I2C_IFDR);
- 	/* Enable I2C controller */
- 	writeb(0, i2c_imx->base + IMX_I2C_I2SR);
-@@ -245,7 +245,7 @@ static void i2c_imx_stop(struct imx_i2c_struct *i2c_imx)
+-	clk_disable(pltfm_host->clk);
++	clk_disable_unprepare(pltfm_host->clk);
+ 	clk_put(pltfm_host->clk);
+ 	kfree(imx_data);
  
- 	/* Disable I2C controller */
- 	writeb(0, i2c_imx->base + IMX_I2C_I2CR);
--	clk_disable(i2c_imx->clk);
-+	clk_disable_unprepare(i2c_imx->clk);
- }
- 
- static void __init i2c_imx_set_clk(struct imx_i2c_struct *i2c_imx,
 -- 
 1.7.5.4
