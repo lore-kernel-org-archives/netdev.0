@@ -1,167 +1,31 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 4/4] be2net: stop issuing FW cmds if any cmd times out
-Date: Fri, 11 Nov 2011 10:48:00 +0530
-Message-ID: <1320988680-7842-5-git-send-email-sathya.perla@emulex.com>
-References: <1320988680-7842-1-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 0/4] be2net fixes
+Date: Fri, 11 Nov 2011 10:47:56 +0530
+Message-ID: <1320988680-7842-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht2.emulex.com ([138.239.113.184]:4695 "EHLO
 	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751523Ab1KKFUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 00:20:35 -0500
-In-Reply-To: <1320988680-7842-1-git-send-email-sathya.perla@emulex.com>
+	with ESMTP id S1751107Ab1KKFUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 00:20:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A FW cmd timeout (with a sufficiently large timeout value in the
-order of tens of seconds) indicates an unresponsive FW. In this state
-issuing further cmds and waiting for a completion will only stall the process.
+Pls apply. Thanks.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    8 ++++++-
- drivers/net/ethernet/emulex/benet/be_cmds.c |   29 ++++++++++----------------
- drivers/net/ethernet/emulex/benet/be_main.c |    2 +
- 3 files changed, 20 insertions(+), 19 deletions(-)
+Sathya Perla (4):
+  be2net: init (vf)_if_handle/vf_pmac_id to handle failure scenarios
+  be2net: stop checking the UE registers after an EEH error
+  be2net: don't log more than one error on detecting EEH/UE errors
+  be2net: stop issuing FW cmds if any cmd times out
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 4163980..34f162d 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -350,6 +350,8 @@ struct be_adapter {
- 	u32 beacon_state;	/* for set_phys_id */
- 
- 	bool eeh_err;
-+	bool ue_detected;
-+	bool fw_timeout;
- 	u32 port_num;
- 	bool promiscuous;
- 	bool wol;
-@@ -357,7 +359,6 @@ struct be_adapter {
- 	u32 function_caps;
- 	u32 rx_fc;		/* Rx flow control */
- 	u32 tx_fc;		/* Tx flow control */
--	bool ue_detected;
- 	bool stats_cmd_sent;
- 	int link_speed;
- 	u8 port_type;
-@@ -522,6 +523,11 @@ static inline bool be_multi_rxq(const struct be_adapter *adapter)
- 	return adapter->num_rx_qs > 1;
- }
- 
-+static inline bool be_error(struct be_adapter *adapter)
-+{
-+	return adapter->eeh_err || adapter->ue_detected || adapter->fw_timeout;
-+}
-+
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
- 		u16 num_popped);
- extern void be_link_status_update(struct be_adapter *adapter, u32 link_status);
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 94cd77c..ad3eef0 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -31,7 +31,7 @@ static void be_mcc_notify(struct be_adapter *adapter)
- 	struct be_queue_info *mccq = &adapter->mcc_obj.q;
- 	u32 val = 0;
- 
--	if (adapter->eeh_err)
-+	if (be_error(adapter))
- 		return;
- 
- 	val |= mccq->id & DB_MCCQ_RING_ID_MASK;
-@@ -263,10 +263,10 @@ static int be_mcc_wait_compl(struct be_adapter *adapter)
- 	int i, num, status = 0;
- 	struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
- 
--	if (adapter->eeh_err)
--		return -EIO;
--
- 	for (i = 0; i < mcc_timeout; i++) {
-+		if (be_error(adapter))
-+			return -EIO;
-+
- 		num = be_process_mcc(adapter, &status);
- 		if (num)
- 			be_cq_notify(adapter, mcc_obj->cq.id,
-@@ -277,7 +277,8 @@ static int be_mcc_wait_compl(struct be_adapter *adapter)
- 		udelay(100);
- 	}
- 	if (i == mcc_timeout) {
--		dev_err(&adapter->pdev->dev, "mccq poll timed out\n");
-+		dev_err(&adapter->pdev->dev, "FW not responding\n");
-+		adapter->fw_timeout = true;
- 		return -1;
- 	}
- 	return status;
-@@ -295,10 +296,10 @@ static int be_mbox_db_ready_wait(struct be_adapter *adapter, void __iomem *db)
- 	int msecs = 0;
- 	u32 ready;
- 
--	if (adapter->eeh_err)
--		return -EIO;
--
- 	do {
-+		if (be_error(adapter))
-+			return -EIO;
-+
- 		ready = ioread32(db);
- 		if (ready == 0xffffffff)
- 			return -1;
-@@ -308,7 +309,8 @@ static int be_mbox_db_ready_wait(struct be_adapter *adapter, void __iomem *db)
- 			break;
- 
- 		if (msecs > 4000) {
--			dev_err(&adapter->pdev->dev, "mbox poll timed out\n");
-+			dev_err(&adapter->pdev->dev, "FW not responding\n");
-+			adapter->fw_timeout = true;
- 			be_detect_dump_ue(adapter);
- 			return -1;
- 		}
-@@ -546,9 +548,6 @@ int be_cmd_fw_clean(struct be_adapter *adapter)
- 	u8 *wrb;
- 	int status;
- 
--	if (adapter->eeh_err)
--		return -EIO;
--
- 	if (mutex_lock_interruptible(&adapter->mbox_lock))
- 		return -1;
- 
-@@ -1012,9 +1011,6 @@ int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- 	u8 subsys = 0, opcode = 0;
- 	int status;
- 
--	if (adapter->eeh_err)
--		return -EIO;
--
- 	if (mutex_lock_interruptible(&adapter->mbox_lock))
- 		return -1;
- 
-@@ -1136,9 +1132,6 @@ int be_cmd_if_destroy(struct be_adapter *adapter, int interface_id, u32 domain)
- 	struct be_cmd_req_if_destroy *req;
- 	int status;
- 
--	if (adapter->eeh_err)
--		return -EIO;
--
- 	if (interface_id == -1)
- 		return 0;
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 0e97b6d..ce20d64 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3569,6 +3569,8 @@ static pci_ers_result_t be_eeh_reset(struct pci_dev *pdev)
- 
- 	dev_info(&adapter->pdev->dev, "EEH reset\n");
- 	adapter->eeh_err = false;
-+	adapter->ue_detected = false;
-+	adapter->fw_timeout = false;
- 
- 	status = pci_enable_device(pdev);
- 	if (status)
+ drivers/net/ethernet/emulex/benet/be.h      |   16 ++++---
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   49 +++++++-------------
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    4 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |   66 ++++++++++++++++-----------
+ 4 files changed, 69 insertions(+), 66 deletions(-)
+
 -- 
 1.7.4
