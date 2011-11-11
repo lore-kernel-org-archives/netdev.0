@@ -1,62 +1,57 @@
-From: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH V3 11/14] serial: imx: add clk_prepare/clk_unprepare
-Date: Fri, 11 Nov 2011 18:50:34 +0800
-Message-ID: <1321008637-19999-12-git-send-email-richard.zhao@linaro.org>
+From: Richard Zhao <richard.zhao@linaro.org>
+Subject: [PATCH V3 10/14] ARM: mxs: add clk_prepare/clk_unprepare
+Date: Fri, 11 Nov 2011 18:50:33 +0800
+Message-ID: <1321008637-19999-11-git-send-email-richard.zhao@linaro.org>
 References: <1321008637-19999-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, <amit.kucheria-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	<kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>, <cjb-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>,
-	<alan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, <eric.miao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1321008637-19999-1-git-send-email-richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux@arm.linux.org.uk>, <amit.kucheria@canonical.com>,
+	<kernel@pengutronix.de>, <ben-linux@fluff.org>, <cjb@laptop.org>,
+	<alan@linux.intel.com>, <eric.miao@linaro.org>,
+	Richard Zhao <richard.zhao@linaro.org>
+To: <linux-arm-kernel@lists.infradead.org>,
+	<linux-i2c@vger.kernel.org>, <linux-mmc@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-serial@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:51823
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755534Ab1KKKvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 05:51:35 -0500
+In-Reply-To: <1321008637-19999-1-git-send-email-richard.zhao@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
 ---
- drivers/tty/serial/imx.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
+ arch/arm/mach-mxs/system.c |    2 +-
+ arch/arm/mach-mxs/timer.c  |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/tty/serial/imx.c b/drivers/tty/serial/imx.c
-index 163fc90..8f3709f 100644
---- a/drivers/tty/serial/imx.c
-+++ b/drivers/tty/serial/imx.c
-@@ -1390,7 +1390,7 @@ static int serial_imx_probe(struct platform_device *pdev)
- 		ret = PTR_ERR(sport->clk);
- 		goto unmap;
- 	}
--	clk_enable(sport->clk);
-+	clk_prepare_enable(sport->clk);
+diff --git a/arch/arm/mach-mxs/system.c b/arch/arm/mach-mxs/system.c
+index 20ec3bd..9760a12 100644
+--- a/arch/arm/mach-mxs/system.c
++++ b/arch/arm/mach-mxs/system.c
+@@ -66,7 +66,7 @@ static int __init mxs_arch_reset_init(void)
  
- 	sport->port.uartclk = clk_get_rate(sport->clk);
+ 	clk = clk_get_sys("rtc", NULL);
+ 	if (!IS_ERR(clk))
+-		clk_enable(clk);
++		clk_prepare_enable(clk);
  
-@@ -1413,8 +1413,8 @@ deinit:
- 	if (pdata && pdata->exit)
- 		pdata->exit(pdev);
- clkput:
-+	clk_disable_unprepare(sport->clk);
- 	clk_put(sport->clk);
--	clk_disable(sport->clk);
- unmap:
- 	iounmap(sport->port.membase);
- free:
-@@ -1434,11 +1434,10 @@ static int serial_imx_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+diff --git a/arch/arm/mach-mxs/timer.c b/arch/arm/mach-mxs/timer.c
+index cace0d2..564a632 100644
+--- a/arch/arm/mach-mxs/timer.c
++++ b/arch/arm/mach-mxs/timer.c
+@@ -245,7 +245,7 @@ static int __init mxs_clocksource_init(struct clk *timer_clk)
  
- 	if (sport) {
- 		uart_remove_one_port(&imx_reg, &sport->port);
-+		clk_disable_unprepare(sport->clk);
- 		clk_put(sport->clk);
- 	}
+ void __init mxs_timer_init(struct clk *timer_clk, int irq)
+ {
+-	clk_enable(timer_clk);
++	clk_prepare_enable(timer_clk);
  
--	clk_disable(sport->clk);
--
- 	if (pdata && pdata->exit)
- 		pdata->exit(pdev);
- 
+ 	/*
+ 	 * Initialize timers to a known state
 -- 
 1.7.5.4
