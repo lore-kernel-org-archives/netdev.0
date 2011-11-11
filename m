@@ -1,65 +1,91 @@
-From: Richard Zhao <richard.zhao@linaro.org>
-Subject: [PATCH V2 14/14] mmc: sdhci-esdhc-imx: add clk_prepare/clk_unprepare
-Date: Fri, 11 Nov 2011 09:10:29 +0800
-Message-ID: <1320973829-4388-15-git-send-email-richard.zhao@linaro.org>
-References: <1320973829-4388-1-git-send-email-richard.zhao@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: amit.kucheria@canonical.com, linux@arm.linux.org.uk, kernel@pengutronix.de,
- eric.miao@linaro.org, ben-linux@fluff.org, cjb@laptop.org,
- Richard Zhao <richard.zhao@linaro.org>, alan@linux.intel.com
-To: <linux-arm-kernel@lists.infradead.org>, <linux-i2c@vger.kernel.org>,
- <linux-mmc@vger.kernel.org>, <netdev@vger.kernel.org>,
- <linux-serial@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1320973829-4388-1-git-send-email-richard.zhao@linaro.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: David Decotigny <david.decotigny@google.com>
+Subject: [PATCH net-next v2 07/10] forcedeth: account for dropped RX frames
+Date: Thu, 10 Nov 2011 17:31:32 -0800
+Message-ID: <d92ce3b825650e1be19baa6379e8dd51d886c65b.1320974990.git.david.decotigny@google.com>
+References: <cover.1320974990.git.david.decotigny@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	David Decotigny <david.decotigny@google.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f202.google.com ([209.85.215.202]:63779 "EHLO
+	mail-ey0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305Ab1KKBcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Nov 2011 20:32:14 -0500
+Received: by eyg5 with SMTP id 5so80452eyg.1
+        for <netdev@vger.kernel.org>; Thu, 10 Nov 2011 17:32:13 -0800 (PST)
+In-Reply-To: <cover.1320974990.git.david.decotigny@google.com>
+In-Reply-To: <cover.1320974990.git.david.decotigny@google.com>
+References: <cover.1320974990.git.david.decotigny@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
+This adds the stats counter for dropped RX frames.
+
+
+
+Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/mmc/host/sdhci-esdhc-imx.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/mmc/host/sdhci-esdhc-imx.c b/drivers/mmc/host/sdhci-esdhc-imx.c
-index ae57769..f1ae37e 100644
---- a/drivers/mmc/host/sdhci-esdhc-imx.c
-+++ b/drivers/mmc/host/sdhci-esdhc-imx.c
-@@ -462,7 +462,7 @@ static int __devinit sdhci_esdhc_imx_probe(struct platform_device *pdev)
- 		err = PTR_ERR(clk);
- 		goto err_clk_get;
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index cabc121..0a979b8 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -824,6 +824,7 @@ struct fe_priv {
+ 	/* RX software stats */
+ 	struct nv_driver_stat stat_rx_bytes; /* not always available in HW */
+ 	struct nv_driver_stat stat_rx_missed_errors;
++	struct nv_driver_stat stat_rx_dropped;
+ 
+ 	/* media detection workaround.
+ 	 * Locking: Within irq hander or disable_irq+spin_lock(&np->lock);
+@@ -1738,6 +1739,7 @@ static void nv_update_stats(struct net_device *dev)
+ 	/* update software stats */
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_bytes);
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_missed_errors);
++	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_dropped);
+ 
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_packets);
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_dropped);
+@@ -1780,6 +1782,8 @@ nv_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *storage)
+ 		storage->tx_bytes   = np->estats.tx_bytes;
+ 		storage->rx_errors  = np->estats.rx_errors_total;
+ 		storage->tx_errors  = np->estats.tx_errors_total;
++		storage->rx_dropped = NV_DRIVER_STAT_GET_TOTAL(
++			&np->stat_rx_dropped);
+ 		storage->tx_dropped = NV_DRIVER_STAT_GET_TOTAL(
+ 			&np->stat_tx_dropped);
+ 
+@@ -1835,8 +1839,10 @@ static int nv_alloc_rx(struct net_device *dev)
+ 				np->put_rx.orig = np->first_rx.orig;
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+-		} else
++		} else {
++			NV_DRIVER_STAT_ATOMIC_INC(&np->stat_rx_dropped);
+ 			return 1;
++		}
  	}
--	clk_enable(clk);
-+	clk_prepare_enable(clk);
- 	pltfm_host->clk = clk;
- 
- 	if (!is_imx25_esdhc(imx_data))
-@@ -550,7 +550,7 @@ no_card_detect_irq:
- 		gpio_free(boarddata->wp_gpio);
- no_card_detect_pin:
- no_board_data:
--	clk_disable(pltfm_host->clk);
-+	clk_disable_unprepare(pltfm_host->clk);
- 	clk_put(pltfm_host->clk);
- err_clk_get:
- 	kfree(imx_data);
-@@ -577,7 +577,7 @@ static int __devexit sdhci_esdhc_imx_remove(struct platform_device *pdev)
- 		gpio_free(boarddata->cd_gpio);
+ 	return 0;
+ }
+@@ -1867,8 +1873,10 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 				np->put_rx.ex = np->first_rx.ex;
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+-		} else
++		} else {
++			NV_DRIVER_STAT_ATOMIC_INC(&np->stat_rx_dropped);
+ 			return 1;
++		}
  	}
- 
--	clk_disable(pltfm_host->clk);
-+	clk_disable_unprepare(pltfm_host->clk);
- 	clk_put(pltfm_host->clk);
- 	kfree(imx_data);
- 
+ 	return 0;
+ }
 -- 
-1.7.5.4
+1.7.3.1
