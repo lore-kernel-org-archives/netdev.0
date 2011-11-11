@@ -1,49 +1,62 @@
-From: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH v2] Phonet: set the pipe handle using setsockopt
-Date: Fri, 11 Nov 2011 12:48:38 +0200
-Message-ID: <5696139.FOg8GYBkFq@hector>
-References: <1320918622-22740-1-git-send-email-hemant.ramdasi@stericsson.com> <97b602ea42b0467fa4e9f63a909f9080@chewa.net> <81C3A93C17462B4BBD7E272753C105791FB090A941@EXDCVYMBSTM005.EQ1STM.local>
+From: Richard Zhao <richard.zhao@linaro.org>
+Subject: [PATCH V3 00/14] add clk_prepare/clk_unprepare to imx drivers
+Date: Fri, 11 Nov 2011 18:50:23 +0800
+Message-ID: <1321008637-19999-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux@arm.linux.org.uk>, <amit.kucheria@canonical.com>,
+	<kernel@pengutronix.de>, <ben-linux@fluff.org>, <cjb@laptop.org>,
+	<alan@linux.intel.com>, <eric.miao@linaro.org>
+To: <linux-arm-kernel@lists.infradead.org>,
+	<linux-i2c@vger.kernel.org>, <linux-mmc@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-serial@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.1.48]:21900 "EHLO mgw-sa02.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753776Ab1KKKs2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 05:48:28 -0500
-Received: from hector.localnet (esdhcp034217.research.nokia.com [172.21.34.217])
-	by mgw-sa02.nokia.com (Switch-3.4.4/Switch-3.4.4) with ESMTP id pABAmQF5013229
-	for <netdev@vger.kernel.org>; Fri, 11 Nov 2011 12:48:26 +0200
-In-Reply-To: <81C3A93C17462B4BBD7E272753C105791FB090A941@EXDCVYMBSTM005.EQ1STM.local>
+Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:50781
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751412Ab1KKKuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 05:50:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le Vendredi 11 Novembre 2011 11:31:51 ext Hemant-vilas RAMDASI a =E9cri=
-t :
-> > -----Original Message-----
-> > From: R=E9mi Denis-Courmont [mailto:remi@remlab.net]
-> > Sent: Thursday, November 10, 2011 4:07 PM
-> > To: Hemant-vilas RAMDASI
-> > Cc: remi.denis-courmont@nokia.com; netdev@vger.kernel.org; Dinesh K=
-umar
-> > SHARMA (STE)
-> > Subject: Re: [PATCH v2] Phonet: set the pipe handle using setsockop=
-t
-> >=20
-> > This still does not follow the setter/getter level-trigger semantic=
-s of
-> > (s|g)etsockopt().
->=20
->=20
-> We are still not sure about your concern. Can you suggest another way=
- to do'
-> this?
+Changes since V2:
+ - fix clk_prepare_enable bug
 
-Like every body else, I have my own work and life to attend to.
-I cannot fix other people's problems.
+Changes since V1:
+ - Add common helper functions clk_prepare_enable/clk_disable_unprepare
+ - serial/imx: move clk_disable_unprepare before clk_put
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
+Richard Zhao (14):
+      clk: add helper functions clk_prepare_enable and clk_disable_unprepare
+      ARM: mxc: time: add clk_prepare/clk_unprepare
+      ARM: mxc: ahci: add clk_prepare/clk_unprepare
+      ARM: mxc: pwm: add clk_prepare/clk_unprepare
+      ARM: mxc: epit: add clk_prepare/clk_unprepare
+      ARM: mxc: arch_reset: add clk_prepare/clk_unprepare
+      ARM: mxc: audmux-v2: add clk_prepare/clk_unprepare
+      ARM: pm-imx5: add clk_prepare/clk_unprepare
+      ARM: mx31moboard: add clk_prepare/clk_unprepare
+      ARM: mxs: add clk_prepare/clk_unprepare
+      serial: imx: add clk_prepare/clk_unprepare
+      net: fec: add clk_prepare/clk_unprepare
+      i2c: imx: add clk_prepare/clk_unprepare
+      mmc: sdhci-esdhc-imx: add clk_prepare/clk_unprepare
+
+ arch/arm/mach-imx/mach-mx31moboard.c          |    2 +-
+ arch/arm/mach-mx5/pm-imx5.c                   |    4 ++--
+ arch/arm/mach-mxs/system.c                    |    2 +-
+ arch/arm/mach-mxs/timer.c                     |    2 +-
+ arch/arm/plat-mxc/audmux-v2.c                 |    8 ++++----
+ arch/arm/plat-mxc/devices/platform-ahci-imx.c |   16 ++++++++--------
+ arch/arm/plat-mxc/epit.c                      |    2 +-
+ arch/arm/plat-mxc/pwm.c                       |    4 ++--
+ arch/arm/plat-mxc/system.c                    |    2 +-
+ arch/arm/plat-mxc/time.c                      |    2 +-
+ drivers/i2c/busses/i2c-imx.c                  |    4 ++--
+ drivers/mmc/host/sdhci-esdhc-imx.c            |    6 +++---
+ drivers/net/ethernet/freescale/fec.c          |   10 +++++-----
+ drivers/tty/serial/imx.c                      |    7 +++----
+ include/linux/clk.h                           |   20 ++++++++++++++++++++
+ 15 files changed, 55 insertions(+), 36 deletions(-)
+
+Thanks
+Richard
