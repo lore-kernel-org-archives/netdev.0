@@ -1,7 +1,7 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 1/4] be2net: init (vf)_if_handle/vf_pmac_id to handle failure scenarios
-Date: Fri, 11 Nov 2011 10:47:57 +0530
-Message-ID: <1320988680-7842-2-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 2/4] be2net: stop checking the UE registers after an EEH error
+Date: Fri, 11 Nov 2011 10:47:58 +0530
+Message-ID: <1320988680-7842-3-git-send-email-sathya.perla@emulex.com>
 References: <1320988680-7842-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,227 +9,41 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht2.emulex.com ([138.239.113.184]:4695 "EHLO
 	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751257Ab1KKFUe (ORCPT
+	with ESMTP id S1751387Ab1KKFUe (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 00:20:34 -0500
 In-Reply-To: <1320988680-7842-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Initialize if_handle, vf_if_handle and vf_pmac_id with "-1" so that in
-failure cases when be_clear() is called, we can skip over
-if_destroy/pmac_del cmds if they have not been created.
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    8 +--
- drivers/net/ethernet/emulex/benet/be_cmds.c |    9 +++-
- drivers/net/ethernet/emulex/benet/be_cmds.h |    4 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   55 +++++++++++++++------------
- 4 files changed, 42 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 644e8fe..4163980 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -289,14 +289,12 @@ struct be_drv_stats {
- 
- struct be_vf_cfg {
- 	unsigned char vf_mac_addr[ETH_ALEN];
--	u32 vf_if_handle;
--	u32 vf_pmac_id;
-+	int vf_if_handle;
-+	int vf_pmac_id;
- 	u16 vf_vlan_tag;
- 	u32 vf_tx_rate;
- };
- 
--#define BE_INVALID_PMAC_ID		0xffffffff
--
- struct be_adapter {
- 	struct pci_dev *pdev;
- 	struct net_device *netdev;
-@@ -347,7 +345,7 @@ struct be_adapter {
- 
- 	/* Ethtool knobs and info */
- 	char fw_ver[FW_VER_LEN];
--	u32 if_handle;		/* Used to configure filtering */
-+	int if_handle;		/* Used to configure filtering */
- 	u32 pmac_id;		/* MAC addr handle used by BE card */
- 	u32 beacon_state;	/* for set_phys_id */
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 2c7b366..c5912c4 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -695,12 +695,15 @@ err:
- }
- 
- /* Uses synchronous MCCQ */
--int be_cmd_pmac_del(struct be_adapter *adapter, u32 if_id, u32 pmac_id, u32 dom)
-+int be_cmd_pmac_del(struct be_adapter *adapter, u32 if_id, int pmac_id, u32 dom)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_pmac_del *req;
- 	int status;
- 
-+	if (pmac_id == -1)
-+		return 0;
-+
- 	spin_lock_bh(&adapter->mcc_lock);
- 
- 	wrb = wrb_from_mccq(adapter);
-@@ -1136,7 +1139,7 @@ err:
- }
- 
- /* Uses MCCQ */
--int be_cmd_if_destroy(struct be_adapter *adapter, u32 interface_id, u32 domain)
-+int be_cmd_if_destroy(struct be_adapter *adapter, int interface_id, u32 domain)
- {
- 	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_if_destroy *req;
-@@ -1145,7 +1148,7 @@ int be_cmd_if_destroy(struct be_adapter *adapter, u32 interface_id, u32 domain)
- 	if (adapter->eeh_err)
- 		return -EIO;
- 
--	if (!interface_id)
-+	if (interface_id == -1)
- 		return 0;
- 
- 	spin_lock_bh(&adapter->mcc_lock);
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index a35cd03..0818039 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1417,11 +1417,11 @@ extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
- extern int be_cmd_pmac_add(struct be_adapter *adapter, u8 *mac_addr,
- 			u32 if_id, u32 *pmac_id, u32 domain);
- extern int be_cmd_pmac_del(struct be_adapter *adapter, u32 if_id,
--			u32 pmac_id, u32 domain);
-+			int pmac_id, u32 domain);
- extern int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags,
- 			u32 en_flags, u8 *mac, u32 *if_handle, u32 *pmac_id,
- 			u32 domain);
--extern int be_cmd_if_destroy(struct be_adapter *adapter, u32 if_handle,
-+extern int be_cmd_if_destroy(struct be_adapter *adapter, int if_handle,
- 			u32 domain);
- extern int be_cmd_eq_create(struct be_adapter *adapter,
- 			struct be_queue_info *eq, int eq_delay);
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index bf266a0..83d971d 100644
+index 83d971d..99da07f 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -848,15 +848,11 @@ static int be_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
- 	if (!is_valid_ether_addr(mac) || (vf >= num_vfs))
- 		return -EINVAL;
+@@ -1978,6 +1978,9 @@ void be_detect_dump_ue(struct be_adapter *adapter)
+ 	u32 sliport_status = 0, sliport_err1 = 0, sliport_err2 = 0;
+ 	u32 i;
  
--	if (adapter->vf_cfg[vf].vf_pmac_id != BE_INVALID_PMAC_ID)
--		status = be_cmd_pmac_del(adapter,
--					adapter->vf_cfg[vf].vf_if_handle,
--					adapter->vf_cfg[vf].vf_pmac_id, vf + 1);
-+	status = be_cmd_pmac_del(adapter, adapter->vf_cfg[vf].vf_if_handle,
-+				adapter->vf_cfg[vf].vf_pmac_id, vf + 1);
- 
--	status = be_cmd_pmac_add(adapter, mac,
--				adapter->vf_cfg[vf].vf_if_handle,
-+	status = be_cmd_pmac_add(adapter, mac, adapter->vf_cfg[vf].vf_if_handle,
- 				&adapter->vf_cfg[vf].vf_pmac_id, vf + 1);
--
- 	if (status)
- 		dev_err(&adapter->pdev->dev, "MAC %pM set on VF %d Failed\n",
- 				mac, vf);
-@@ -2488,17 +2484,13 @@ static void be_vf_clear(struct be_adapter *adapter)
- {
- 	u32 vf;
- 
--	for (vf = 0; vf < num_vfs; vf++) {
--		if (adapter->vf_cfg[vf].vf_pmac_id != BE_INVALID_PMAC_ID)
--			be_cmd_pmac_del(adapter,
--					adapter->vf_cfg[vf].vf_if_handle,
--					adapter->vf_cfg[vf].vf_pmac_id, vf + 1);
--	}
-+	for (vf = 0; vf < num_vfs; vf++)
-+		be_cmd_pmac_del(adapter, adapter->vf_cfg[vf].vf_if_handle,
-+				adapter->vf_cfg[vf].vf_pmac_id, vf + 1);
- 
- 	for (vf = 0; vf < num_vfs; vf++)
--		if (adapter->vf_cfg[vf].vf_if_handle)
--			be_cmd_if_destroy(adapter,
--				adapter->vf_cfg[vf].vf_if_handle, vf + 1);
-+		be_cmd_if_destroy(adapter, adapter->vf_cfg[vf].vf_if_handle,
-+				vf + 1);
- }
- 
- static int be_clear(struct be_adapter *adapter)
-@@ -2511,22 +2503,30 @@ static int be_clear(struct be_adapter *adapter)
- 	be_mcc_queues_destroy(adapter);
- 	be_rx_queues_destroy(adapter);
- 	be_tx_queues_destroy(adapter);
--	adapter->eq_next_idx = 0;
--
--	adapter->be3_native = false;
--	adapter->promiscuous = false;
- 
- 	/* tell fw we're done with firing cmds */
- 	be_cmd_fw_clean(adapter);
- 	return 0;
- }
- 
-+static void be_vf_setup_init(struct be_adapter *adapter)
-+{
-+	int vf;
++	if (adapter->eeh_err || adapter->ue_detected)
++		return;
 +
-+	for (vf = 0; vf < num_vfs; vf++) {
-+		adapter->vf_cfg[vf].vf_if_handle = -1;
-+		adapter->vf_cfg[vf].vf_pmac_id = -1;
-+	}
-+}
-+
- static int be_vf_setup(struct be_adapter *adapter)
- {
- 	u32 cap_flags, en_flags, vf;
- 	u16 lnk_speed;
- 	int status;
+ 	if (lancer_chip(adapter)) {
+ 		sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
+ 		if (sliport_status & SLIPORT_STATUS_ERR_MASK) {
+@@ -2039,8 +2042,7 @@ static void be_worker(struct work_struct *work)
+ 	struct be_rx_obj *rxo;
+ 	int i;
  
-+	be_vf_setup_init(adapter);
-+
- 	cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST;
- 	for (vf = 0; vf < num_vfs; vf++) {
- 		status = be_cmd_if_create(adapter, cap_flags, en_flags, NULL,
-@@ -2534,7 +2534,6 @@ static int be_vf_setup(struct be_adapter *adapter)
- 					NULL, vf+1);
- 		if (status)
- 			goto err;
--		adapter->vf_cfg[vf].vf_pmac_id = BE_INVALID_PMAC_ID;
- 	}
+-	if (!adapter->ue_detected)
+-		be_detect_dump_ue(adapter);
++	be_detect_dump_ue(adapter);
  
- 	if (!lancer_chip(adapter)) {
-@@ -2555,6 +2554,16 @@ err:
- 	return status;
- }
- 
-+static void be_setup_init(struct be_adapter *adapter)
-+{
-+	adapter->vlan_prio_bmap = 0xff;
-+	adapter->link_speed = -1;
-+	adapter->if_handle = -1;
-+	adapter->be3_native = false;
-+	adapter->promiscuous = false;
-+	adapter->eq_next_idx = 0;
-+}
-+
- static int be_setup(struct be_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
-@@ -2563,9 +2572,7 @@ static int be_setup(struct be_adapter *adapter)
- 	int status;
- 	u8 mac[ETH_ALEN];
- 
--	/* Allow all priorities by default. A GRP5 evt may modify this */
--	adapter->vlan_prio_bmap = 0xff;
--	adapter->link_speed = -1;
-+	be_setup_init(adapter);
- 
- 	be_cmd_req_native_mode(adapter);
- 
+ 	/* when interrupts are not yet enabled, just reap any pending
+ 	* mcc completions */
 -- 
 1.7.4
