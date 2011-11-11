@@ -1,7 +1,7 @@
 From: Richard Zhao <richard.zhao@linaro.org>
-Subject: [PATCH V3 07/14] ARM: mxc: audmux-v2: add clk_prepare/clk_unprepare
-Date: Fri, 11 Nov 2011 18:50:30 +0800
-Message-ID: <1321008637-19999-8-git-send-email-richard.zhao@linaro.org>
+Subject: [PATCH V3 12/14] net: fec: add clk_prepare/clk_unprepare
+Date: Fri, 11 Nov 2011 18:50:35 +0800
+Message-ID: <1321008637-19999-13-git-send-email-richard.zhao@linaro.org>
 References: <1321008637-19999-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,55 +12,66 @@ Cc: <linux@arm.linux.org.uk>, <amit.kucheria@canonical.com>,
 To: <linux-arm-kernel@lists.infradead.org>,
 	<linux-i2c@vger.kernel.org>, <linux-mmc@vger.kernel.org>,
 	<netdev@vger.kernel.org>, <linux-serial@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:51630
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755172Ab1KKKvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 05:51:14 -0500
+Return-path: <linux-serial-owner@vger.kernel.org>
 In-Reply-To: <1321008637-19999-1-git-send-email-richard.zhao@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
 ---
- arch/arm/plat-mxc/audmux-v2.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/freescale/fec.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm/plat-mxc/audmux-v2.c b/arch/arm/plat-mxc/audmux-v2.c
-index 8cced35..0e51fc3 100644
---- a/arch/arm/plat-mxc/audmux-v2.c
-+++ b/arch/arm/plat-mxc/audmux-v2.c
-@@ -73,13 +73,13 @@ static ssize_t audmux_read_file(struct file *file, char __user *user_buf,
- 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 1124ce0..e96fa44 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -1588,7 +1588,7 @@ fec_probe(struct platform_device *pdev)
+ 		ret = PTR_ERR(fep->clk);
+ 		goto failed_clk;
+ 	}
+-	clk_enable(fep->clk);
++	clk_prepare_enable(fep->clk);
  
- 	if (audmux_clk)
--		clk_enable(audmux_clk);
-+		clk_prepare_enable(audmux_clk);
+ 	ret = fec_enet_init(ndev);
+ 	if (ret)
+@@ -1611,7 +1611,7 @@ failed_register:
+ 	fec_enet_mii_remove(fep);
+ failed_mii_init:
+ failed_init:
+-	clk_disable(fep->clk);
++	clk_disable_unprepare(fep->clk);
+ 	clk_put(fep->clk);
+ failed_clk:
+ 	for (i = 0; i < FEC_IRQ_NUM; i++) {
+@@ -1638,7 +1638,7 @@ fec_drv_remove(struct platform_device *pdev)
  
- 	ptcr = readl(audmux_base + MXC_AUDMUX_V2_PTCR(port));
- 	pdcr = readl(audmux_base + MXC_AUDMUX_V2_PDCR(port));
- 
- 	if (audmux_clk)
--		clk_disable(audmux_clk);
-+		clk_disable_unprepare(audmux_clk);
- 
- 	ret = snprintf(buf, PAGE_SIZE, "PDCR: %08x\nPTCR: %08x\n",
- 		       pdcr, ptcr);
-@@ -172,13 +172,13 @@ int mxc_audmux_v2_configure_port(unsigned int port, unsigned int ptcr,
- 		return -ENOSYS;
- 
- 	if (audmux_clk)
--		clk_enable(audmux_clk);
-+		clk_prepare_enable(audmux_clk);
- 
- 	writel(ptcr, audmux_base + MXC_AUDMUX_V2_PTCR(port));
- 	writel(pdcr, audmux_base + MXC_AUDMUX_V2_PDCR(port));
- 
- 	if (audmux_clk)
--		clk_disable(audmux_clk);
-+		clk_disable_unprepare(audmux_clk);
+ 	fec_stop(ndev);
+ 	fec_enet_mii_remove(fep);
+-	clk_disable(fep->clk);
++	clk_disable_unprepare(fep->clk);
+ 	clk_put(fep->clk);
+ 	iounmap(fep->hwp);
+ 	unregister_netdev(ndev);
+@@ -1664,7 +1664,7 @@ fec_suspend(struct device *dev)
+ 		fec_stop(ndev);
+ 		netif_device_detach(ndev);
+ 	}
+-	clk_disable(fep->clk);
++	clk_disable_unprepare(fep->clk);
  
  	return 0;
  }
+@@ -1675,7 +1675,7 @@ fec_resume(struct device *dev)
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
+-	clk_enable(fep->clk);
++	clk_prepare_enable(fep->clk);
+ 	if (netif_running(ndev)) {
+ 		fec_restart(ndev, fep->full_duplex);
+ 		netif_device_attach(ndev);
 -- 
 1.7.5.4
+
+
