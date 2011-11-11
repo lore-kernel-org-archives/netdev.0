@@ -1,84 +1,56 @@
-From: Josh Boyer <jwboyer@redhat.com>
-Subject: [PATCH] ip6_tunnel: copy parms.name after register_netdevice
-Date: Thu, 10 Nov 2011 20:10:23 -0500
-Message-ID: <20111111011023.GE2170@zod.bos.redhat.com>
+From: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH V2 01/14] clk: add helper functions clk_prepare_enable and clk_disable_unprepare
+Date: Fri, 11 Nov 2011 09:10:16 +0800
+Message-ID: <1320973829-4388-2-git-send-email-richard.zhao@linaro.org>
+References: <1320973829-4388-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, <amit.kucheria-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	<kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>, <cjb-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>,
+	<alan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, <eric.miao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1320973829-4388-1-git-send-email-richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Commit 1c5cae815d removed an explicit call to dev_alloc_name in ip6_tnl_create
-because register_netdevice will now create a valid name.  This works for the
-net_device itself.
-
-However the tunnel keeps a copy of the name in the parms structure for the
-ip6_tnl associated with the tunnel.  parms.name is set by copying the net_device
-name in ip6_tnl_dev_init_gen.  That function is called from ip6_tnl_dev_init in
-ip6_tnl_create, but it is done before register_netdevice is called so the name
-is set to a bogus value in the parms.name structure.
-
-This shows up if you do a simple tunnel add, followed by a tunnel show:
-
-[root@localhost ~]# ip -6 tunnel add remote fec0::100 local fec0::200
-[root@localhost ~]# ip -6 tunnel show
-ip6tnl0: ipv6/ipv6 remote :: local :: encaplimit 0 hoplimit 0 tclass 0x00 flowlabel 0x00000 (flowinfo 0x00000000)
-ip6tnl%d: ipv6/ipv6 remote fec0::100 local fec0::200 encaplimit 4 hoplimit 64 tclass 0x00 flowlabel 0x00000 (flowinfo 0x00000000)
-[root@localhost ~]#
-
-Fix this by moving the strcpy out of ip6_tnl_dev_init_gen, and calling it after
-register_netdevice has successfully returned.
-
-Cc: stable@vger.kernel.org
-Signed-off-by: Josh Boyer <jwboyer@redhat.com>
+Signed-off-by: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 ---
- net/ipv6/ip6_tunnel.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ include/linux/clk.h |   19 +++++++++++++++++++
+ 1 files changed, 19 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index bdc15c9..09b50d6 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -288,6 +288,8 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct ip6_tnl_parm *p)
+diff --git a/include/linux/clk.h b/include/linux/clk.h
+index 7213b52..63985f7 100644
+--- a/include/linux/clk.h
++++ b/include/linux/clk.h
+@@ -107,6 +107,25 @@ static inline void clk_unprepare(struct clk *clk)
+ }
+ #endif
  
- 	if ((err = register_netdevice(dev)) < 0)
- 		goto failed_free;
-+	
-+	strcpy(t->parms.name, dev->name);
- 
- 	dev_hold(dev);
- 	ip6_tnl_link(ip6n, t);
-@@ -1407,7 +1409,6 @@ ip6_tnl_dev_init_gen(struct net_device *dev)
- 	struct ip6_tnl *t = netdev_priv(dev);
- 
- 	t->dev = dev;
--	strcpy(t->parms.name, dev->name);
- 	dev->tstats = alloc_percpu(struct pcpu_tstats);
- 	if (!dev->tstats)
- 		return -ENOMEM;
-@@ -1487,6 +1488,7 @@ static void __net_exit ip6_tnl_destroy_tunnels(struct ip6_tnl_net *ip6n)
- static int __net_init ip6_tnl_init_net(struct net *net)
- {
- 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
-+	struct ip6_tnl *t = NULL;
- 	int err;
- 
- 	ip6n->tnls[0] = ip6n->tnls_wc;
-@@ -1507,6 +1509,10 @@ static int __net_init ip6_tnl_init_net(struct net *net)
- 	err = register_netdev(ip6n->fb_tnl_dev);
- 	if (err < 0)
- 		goto err_register;
++static inline int clk_prepare_enable(struct clk *clk)
++{
++	int ret;
 +
-+	t = netdev_priv(ip6n->fb_tnl_dev);
++	ret = clk_prepare(clk);
++	if (!ret)
++		ret = clk_enable(clk);
++	if (ret)
++		clk_unprepare(clk);
 +
-+	strcpy(t->parms.name, ip6n->fb_tnl_dev->name);
- 	return 0;
- 
- err_register:
++	return ret;
++}
++
++static inline void clk_disable_unprepare(struct clk *clk)
++{
++	clk_disable(clk);
++	clk_unprepare(clk);
++}
++
+ /**
+  * clk_get_rate - obtain the current clock rate (in Hz) for a clock source.
+  *		  This is only valid once the clock source has been enabled.
 -- 
-1.7.7
+1.7.5.4
