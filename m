@@ -1,51 +1,77 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH 1/1] net: fec: convert to clk_prepare/clk_unprepare
-Date: Sat, 12 Nov 2011 13:49:39 +0100
-Message-ID: <20111112124939.GJ5011@pengutronix.de>
-References: <1320901304-13157-1-git-send-email-richard.zhao@linaro.org>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH 1/2] net: vlan: 802.1ad S-VLAN support
+Date: Sat, 12 Nov 2011 15:14:29 +0100
+Message-ID: <20111112141429.GA41984@jupiter.n2.diac24.net>
+References: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
+ <1320512055-1231037-2-git-send-email-equinox@diac24.net>
+ <20111111.202235.1981500713669985784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, kernel@pengutronix.de,
-	shawn.guo@linaro.org, eric.miao@linaro.org
-To: Richard Zhao <richard.zhao@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: equinox@diac24.net, netdev@vger.kernel.org, kaber@trash.net,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:44566 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752596Ab1KLMtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 07:49:43 -0500
+Received: from spaceboyz.net ([87.106.131.203]:33049 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753530Ab1KLOOi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Nov 2011 09:14:38 -0500
 Content-Disposition: inline
-In-Reply-To: <1320901304-13157-1-git-send-email-richard.zhao@linaro.org>
+In-Reply-To: <20111111.202235.1981500713669985784.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Richard,
+On Fri, Nov 11, 2011 at 08:22:35PM -0500, David Miller wrote:
+> > @@ -87,7 +97,8 @@ struct vlan_group {
+> >  					    */
+> >  	unsigned int		nr_vlans;
+> >  	struct hlist_node	hlist;	/* linked list */
+> > -	struct net_device **vlan_devices_arrays[VLAN_GROUP_ARRAY_SPLIT_PARTS];
+> > +	struct net_device **vlan_devices_arrays[VLAN_N_PROTOCOL]
+> > +						[VLAN_GROUP_ARRAY_SPLIT_PARTS];
+> >  	struct rcu_head		rcu;
+> >  };
+> 
+> This is a terrible waste of memory.  You're now using 5 times as much space,
+> the vast majority of which will be entirely unused.
 
-On Thu, Nov 10, 2011 at 01:01:44PM +0800, Richard Zhao wrote:
-> Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
-> ---
->  drivers/net/ethernet/freescale/fec.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ether=
-net/freescale/fec.c
-> index 1124ce0..92e3585 100644
-> --- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@ -1588,6 +1588,7 @@ fec_probe(struct platform_device *pdev)
->  		ret =3D PTR_ERR(fep->clk);
->  		goto failed_clk;
->  	}
-> +	clk_prepare(fep->clk);
-What about error checking?
+VLAN_GROUP_ARRAY_SPLIT_PARTS is 8; so the memory consumption of this was
+previously 8 * ptr = 64 bytes and is now 5 * 8 * ptr = 320 bytes. I thought
+those extra 256 bytes per VLAN-carrying master device are worth the
+simplicity, especially since this saves me impacts on 802.1Q C-VLAN
+lookup performance elsewhere.
 
-Best regards
-Uwe
+The individual VLAN_GROUP_ARRAY_SPLIT_PARTS are allocated on-demand in
+vlan_group_prealloc_vid (net/8021q/vlan.c). They aren't freed if they
+get empty, only when all VLANs disappear; that's an issue with the
+existing code that could be fixed independently.
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+> I don't even think it's semantically correct, all these alias QinQ protocol
+> values don't provide completely new VLAN_ID name spaces at all.  So this
+> layout doesn't even make any sense, you're allowing for something that isn't
+> even allowed.
+
+The namespaces are separate. 802.1ad goes to quite some lengths to
+replace all occurences of "VLAN ID" with "C-VLAN ID" and introduces the
+separate "S-VLAN ID".
+
+Nortel's 0x9?00 protocol values have no spec that i know of... oh, I
+could save 192 bytes with an "[ ] Legacy Nortel protocol IDs" switch,
+I guess.
+
+> Rework these datastructures to eliminate the wastage please.
+
+I could reverse the order of the id vs. protocol lookups, i.e. grab the
+VLAN ID from the table as it was previously and then go hunt for the
+device with the correct protocol. That'd require chain-linking or
+tabling the devices and make 802.1Q normal/C-VLAN device lookups
+slower, which I'd very much like to avoid.
+
+The alternative would be a completely different structure for non-0x8100
+VLANs, but that's an entirely different level of complexity there, which
+I'm also trying to avoid...
+
+
+Well, hmm... Suggestions?
+
+
+-equi
