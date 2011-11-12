@@ -1,47 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next V8] net: introduce ethernet teaming device
-Date: Sun, 13 Nov 2011 16:09:51 -0500 (EST)
-Message-ID: <20111113.160951.1905657808657009542.davem@davemloft.net>
-References: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
+From: "''Susan Wright''" <info@efisa.org>
+Subject: Confirm  Mail Receipt!!!
+Date: Sat, 12 Nov 2011 13:48:16 +0100
+Message-ID: <201111121249.pACCgpJ0047019@ttc-net.ru>
+Reply-To: ttialmed@mail2uk.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
-	jzupka@redhat.com, ivecera@redhat.com
-To: jpirko@redhat.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <info@efisa.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:60404 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676Ab1KMVMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 16:12:16 -0500
-In-Reply-To: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
+Received: from ns1.ttc-net.ru ([217.21.209.8]:62821 "EHLO ttc-net.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751976Ab1KMVSm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 16:18:42 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Sat, 12 Nov 2011 09:16:48 +0100
+Good Day
 
-> This patch introduces new network device called team. It supposes to be
-> very fast, simple, userspace-driven alternative to existing bonding
-> driver.
-> 
-> Userspace library called libteam with couple of demo apps is available
-> here:
-> https://github.com/jpirko/libteam
-> Note it's still in its dipers atm.
-> 
-> team<->libteam use generic netlink for communication. That and rtnl
-> suppose to be the only way to configure team device, no sysfs etc.
-> 
-> Python binding of libteam was recently introduced.
-> Daemon providing arpmon/miimon active-backup functionality will be
-> introduced shortly. All what's necessary is already implemented in
-> kernel team driver.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+I have been directed to contact you by my boss, Mr. Tia  Almeida, the P=
+rincipal Assurance Manager of BANCO EFISA. He has an urgent business pr=
+oposal for your consideration and acceptance valued =A310,000,000.00 GB=
+P he wishes to discuss with you. Kindly indicate your interest and get =
+back to enable him furnish you with more information/details and modali=
+ties on this proposal via his private email address: ttialmed@mail2uk.c=
+om
 
-Applied, thanks for all of your hard work.
+Sincerely,
+
+Secretary
