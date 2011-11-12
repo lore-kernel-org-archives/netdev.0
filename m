@@ -1,58 +1,55 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/2] net: vlan: 802.1ad S-VLAN support
-Date: Sat, 12 Nov 2011 17:06:40 +0100
-Message-ID: <CAHXqBF+vKX9k7QTsO4rhGmzMHVWBEkxMvXwnvYD64O+Dbka2=Q@mail.gmail.com>
-References: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
- <1320512055-1231037-2-git-send-email-equinox@diac24.net> <20111111.202235.1981500713669985784.davem@davemloft.net>
- <20111112141429.GA41984@jupiter.n2.diac24.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: send/receive data via eth0/1 external loop ?
+Date: Sat, 12 Nov 2011 20:31:13 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1111122028420.2562@ja.ssi.bg>
+References: <104297899.1282710.1321058833510.JavaMail.fmail@mwmweb017>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net
-To: David Lamparter <equinox@diac24.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Roland Kletzing <devzero@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:35639 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754395Ab1KLQHC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 11:07:02 -0500
-Received: by iage36 with SMTP id e36so5277560iag.19
-        for <netdev@vger.kernel.org>; Sat, 12 Nov 2011 08:07:01 -0800 (PST)
-In-Reply-To: <20111112141429.GA41984@jupiter.n2.diac24.net>
+Received: from ja.ssi.bg ([178.16.129.10]:34865 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751757Ab1KLSas (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Nov 2011 13:30:48 -0500
+In-Reply-To: <104297899.1282710.1321058833510.JavaMail.fmail@mwmweb017>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/11/12 David Lamparter <equinox@diac24.net>:
-> On Fri, Nov 11, 2011 at 08:22:35PM -0500, David Miller wrote:
->> > @@ -87,7 +97,8 @@ struct vlan_group {
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 */
->> > =A0 =A0 unsigned int =A0 =A0 =A0 =A0 =A0 =A0nr_vlans;
->> > =A0 =A0 struct hlist_node =A0 =A0 =A0 hlist; =A0/* linked list */
->> > - =A0 struct net_device **vlan_devices_arrays[VLAN_GROUP_ARRAY_SPL=
-IT_PARTS];
->> > + =A0 struct net_device **vlan_devices_arrays[VLAN_N_PROTOCOL]
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0 [VLAN_GROUP_ARRAY_SPLIT_PARTS];
->> > =A0 =A0 struct rcu_head =A0 =A0 =A0 =A0 rcu;
->> > =A0};
->>
->> This is a terrible waste of memory. =A0You're now using 5 times as m=
-uch space,
->> the vast majority of which will be entirely unused.
->
-> VLAN_GROUP_ARRAY_SPLIT_PARTS is 8; so the memory consumption of this =
-was
-> previously 8 * ptr =3D 64 bytes and is now 5 * 8 * ptr =3D 320 bytes.=
- I thought
-> those extra 256 bytes per VLAN-carrying master device are worth the
-> simplicity, especially since this saves me impacts on 802.1Q C-VLAN
-> lookup performance elsewhere.
 
-I misread this as a table of all VLANs. It doesn't look that terrible
-now compared to old scheme. In the case when you have only a handful
-of VLANs configured you waste a 4kB per VLAN (but that's how it is
-done already).
+	Hello,
 
-Best Regards,
-Micha=B3 Miros=B3aw
+On Sat, 12 Nov 2011, Roland Kletzing wrote:
+
+> Hello,
+> i`m searching for a while now, but i did not find a solution, so forgive when
+> i`m (as a user) asking for expert help here.
+> 
+> I want to do some network stress/burn-in and quality/reliability testing,
+> i.e. i want to send/receive large amounts of data trough the systems network
+> interfaces without the need of hogging the net or other systems.
+> 
+> so, that test should run "loopback", i.e. connecting eth0+1 via crossover cable
+> or via locally attached switch. I don`t want to use a second system for that.
+> 
+> testing at ip/tcp level would be favourable , but raw eth level would be also fine.
+> 
+> But how ?
+> What appears simple on a first view, seems to be difficult.... :(
+> 
+> All i came across is this report:
+> http://www.zyztematik.com/?p=10
+> and this description of a patch:
+> http://www.ssi.bg/~ja/send-to-self.txt
+> 
+> Does somebody know a proper way of achieving this without patching the
+> kernel ?
+
+	You can use accept_local flag and rule with pref 0:
+
+http://marc.info/?l=linux-netdev&m=125983955627148&w=2
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
