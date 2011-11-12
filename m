@@ -1,86 +1,44 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [RFC] [ver3 PATCH 0/6] Implement multiqueue virtio-net
-Date: Sat, 12 Nov 2011 09:20:02 +0200
-Message-ID: <1321082402.1952.5.camel@lappy>
-References: <20111112054546.9555.7764.sendpatchset@krkumar2.in.ibm.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next V7] net: introduce ethernet teaming device
+Date: Sat, 12 Nov 2011 09:18:48 +0100
+Message-ID: <20111112081847.GA2130@minipsycho.orion>
+References: <20111111170509.581c4ca2@asterix.rh>
+ <20111111175845.10c82c3c@asterix.rh>
+ <20111112001459.GA2448@minipsycho.orion>
+ <20111112.004555.1043819970109229358.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au, virtualization@lists.linux-foundation.org,
-	davem@davemloft.net
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: fbl@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, benjamin.poirier@gmail.com, jzupka@redhat.com,
+	ivecera@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:35961 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751963Ab1KLHWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 02:22:00 -0500
-In-Reply-To: <20111112054546.9555.7764.sendpatchset@krkumar2.in.ibm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27446 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751928Ab1KLITA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Nov 2011 03:19:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20111112.004555.1043819970109229358.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-11-12 at 11:15 +0530, Krishna Kumar wrote:
-> Sasha Levin <levinsasha928@gmail.com> wrote on 11/12/2011 03:32:04 AM:
-> 
-> > I'm seeing this BUG() sometimes when running it using a small patch I
-> > did for KVM tool:
-> > 
-> > [    1.281531] Call Trace:
-> > [    1.281531]  [<ffffffff8138a0e5>] ? free_rq_sq+0x2c/0xce
-> > [    1.281531]  [<ffffffff8138bb63>] ? virtnet_probe+0x81c/0x855
-> > [    1.281531]  [<ffffffff8129c9e7>] ? virtio_dev_probe+0xa7/0xc6
-> > [    1.281531]  [<ffffffff8134d2c3>] ? driver_probe_device+0xb2/0x142
-> > [    1.281531]  [<ffffffff8134d3a2>] ? __driver_attach+0x4f/0x6f
-> > [    1.281531]  [<ffffffff8134d353>] ? driver_probe_device+0x142/0x142
-> > [    1.281531]  [<ffffffff8134c3ab>] ? bus_for_each_dev+0x47/0x72
-> > [    1.281531]  [<ffffffff8134c90d>] ? bus_add_driver+0xa2/0x1e6
-> > [    1.281531]  [<ffffffff81cc1b36>] ? tun_init+0x89/0x89
-> > [    1.281531]  [<ffffffff8134db59>] ? driver_register+0x8d/0xf8
-> > [    1.281531]  [<ffffffff81cc1b36>] ? tun_init+0x89/0x89
-> > [    1.281531]  [<ffffffff81c98ac1>] ? do_one_initcall+0x78/0x130
-> > [    1.281531]  [<ffffffff81c98c0e>] ? kernel_init+0x95/0x113
-> > [    1.281531]  [<ffffffff81658274>] ? kernel_thread_helper+0x4/0x10
-> > [    1.281531]  [<ffffffff81c98b79>] ? do_one_initcall+0x130/0x130
-> > [    1.281531]  [<ffffffff81658270>] ? gs_change+0x13/0x13
-> > [    1.281531] Code: c2 85 d2 48 0f 45 2d d1 39 ce 00 eb 22 65 8b 14 25
-> > 90 cc 00 00 48 8b 05 f0 a6 bc 00 48 63 d2 4c 89 e7 48 03 3c d0 e8 83 dd
-> > 00 00 
-> > [    1.281531]  8b 68 10 44 89 e6 48 89 ef 2b 75 18 e8 e4 f1 ff ff 8b 05
-> > fd 
-> > [    1.281531] RIP  [<ffffffff810b3ac7>] free_percpu+0x9a/0x104
-> > [    1.281531]  RSP <ffff88001383fd50>
-> > [    1.281531] CR2: 0000000000000010
-> > [    1.281531] ---[ end trace 68cbc23dfe2fe62a ]---
-> > 
-> > I don't have time today to dig into it, sorry.
-> 
-> Thanks for the report.
-> 
-> free_rq_sq() was being called twice in the failure path. The second
-> call panic'd since it had freed the same pointers earlier.
-> 
-> 1. free_rq_sq() was being called twice in the failure path.
->    virtnet_setup_vqs() had already freed up rq/sq on error, and
->    virtnet_probe() tried to do it again. Fix it in virtnet_probe
->    by moving the call up.
-> 2. Make free_rq_sq() re-entrant by setting freed pointers to NULL.
-> 3. Remove free_stats() as it was being called only once.
-> 
-> Sasha, could you please try this patch on top of existing patches?
-> 
-> thanks!
-> 
-> Signed-off-by: krkumar2@in.ibm.com
-> ---
-[snip]
+Sat, Nov 12, 2011 at 06:45:55AM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jpirko@redhat.com>
+>Date: Sat, 12 Nov 2011 01:15:00 +0100
+>
+>> Yes, this should be checked. I missed that. I would like to address this
+>> as follow up patch because I'm sure it's not the last bug in team (I
+>> would be sending Vx of the patch for long time :( )
+>
+>No, Jiri.  Known bugs with obvious fixes get fixed first.
+>
+>You see it as an endless process, but rather the code just isn't ready
+>yet if people can still find easy to diagnose and fix flaws so
+>quickly.
 
-I've tested it and it looks good, no BUG() or panic.
+Okay, v8 posted.
 
-I would suggest adding some output if we take the failure path, since
-while the guest does boot peacefully, it doesn't have a network
-interface and there's nothing in the boot log to indicate anything has
-gone wrong.
-
--- 
-
-Sasha.
+thanks Dave.
