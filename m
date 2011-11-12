@@ -1,43 +1,51 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: add module param for control of ASPM  disable
-Date: Sat, 12 Nov 2011 11:46:24 +0100
-Message-ID: <20111112104624.GA24870@electric-eye.fr.zoreil.com>
-References: <1321052755-15368-1-git-send-email-tbroch@chromium.org> <20111112045935.GA24292@srcf.ucam.org>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH 1/1] net: fec: convert to clk_prepare/clk_unprepare
+Date: Sat, 12 Nov 2011 13:49:39 +0100
+Message-ID: <20111112124939.GJ5011@pengutronix.de>
+References: <1320901304-13157-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Garrett <mjg59@srcf.ucam.org>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
-To: Todd Broch <tbroch@chromium.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, kernel@pengutronix.de,
+	shawn.guo@linaro.org, eric.miao@linaro.org
+To: Richard Zhao <richard.zhao@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:60906 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709Ab1KLKvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 05:51:25 -0500
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:44566 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752596Ab1KLMtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 07:49:43 -0500
 Content-Disposition: inline
-In-Reply-To: <20111112045935.GA24292@srcf.ucam.org>
+In-Reply-To: <1320901304-13157-1-git-send-email-richard.zhao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Matthew Garrett <mjg59@srcf.ucam.org> :
-> On Fri, Nov 11, 2011 at 03:05:55PM -0800, Todd Broch wrote:
-> > ASPM has been disabled in this driver by default as its been
-> > implicated in stability issues on at least one platform.  This CL adds
-> > a  module parameter to allow control of ASPM disable.  The default
-> > value is to enable ASPM again as its provides signficant (200mW) power
-> > savings on the platform I tested.
-> 
-> The default is then to break some hardware. That's not reasonable. 
-> Instead, we need to identify which chip versions are broken and limit 
-> the blacklist to them.
+Hello Richard,
 
-Yes, assuming it's only a device problem.
+On Thu, Nov 10, 2011 at 01:01:44PM +0800, Richard Zhao wrote:
+> Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ether=
+net/freescale/fec.c
+> index 1124ce0..92e3585 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -1588,6 +1588,7 @@ fec_probe(struct platform_device *pdev)
+>  		ret =3D PTR_ERR(fep->clk);
+>  		goto failed_clk;
+>  	}
+> +	clk_prepare(fep->clk);
+What about error checking?
 
-Todd, which chipset(s) (XID or such) was it tested with ?
+Best regards
+Uwe
 
-It would be nice to know the kind of use as well (desktop / laptop / server).
-
-Btw, what is a 'CL' ?
-
--- 
-Ueimor
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
