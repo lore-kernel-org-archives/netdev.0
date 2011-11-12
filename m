@@ -1,60 +1,133 @@
-From: Todd Broch <tbroch@chromium.org>
-Subject: [PATCH] r8169: add module param for control of ASPM  disable
-Date: Fri, 11 Nov 2011 15:05:55 -0800
-Message-ID: <1321052755-15368-1-git-send-email-tbroch@chromium.org>
-Cc: netdev@vger.kernel.org, Todd Broch <tbroch@chromium.org>
-To: Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next V7] net: introduce ethernet teaming device
+Date: Sat, 12 Nov 2011 01:15:00 +0100
+Message-ID: <20111112001459.GA2448@minipsycho.orion>
+References: <1320939698-1062-1-git-send-email-jpirko@redhat.com>
+ <20111111160441.5ab366cc@asterix.rh>
+ <20111111170509.581c4ca2@asterix.rh>
+ <20111111175845.10c82c3c@asterix.rh>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, andy@greyhouse.net,
+	tgraf@infradead.org, ebiederm@xmission.com, mirqus@gmail.com,
+	kaber@trash.net, greearb@candelatech.com, jesse@nicira.com,
+	benjamin.poirier@gmail.com, jzupka@redhat.com, ivecera@redhat.com
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:53643 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753445Ab1KKXGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 18:06:09 -0500
-Received: by yenr9 with SMTP id r9so3640192yen.19
-        for <netdev@vger.kernel.org>; Fri, 11 Nov 2011 15:06:08 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:28105 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751851Ab1KLAPR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Nov 2011 19:15:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20111111175845.10c82c3c@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ASPM has been disabled in this driver by default as its been
-implicated in stability issues on at least one platform.  This CL adds
-a  module parameter to allow control of ASPM disable.  The default
-value is to enable ASPM again as its provides signficant (200mW) power
-savings on the platform I tested.
+Fri, Nov 11, 2011 at 08:58:45PM CET, fbl@redhat.com wrote:
+>On Fri, 11 Nov 2011 17:05:09 -0200
+>Flavio Leitner <fbl@redhat.com> wrote:
+>
+>> On Fri, 11 Nov 2011 16:04:41 -0200
+>> Flavio Leitner <fbl@redhat.com> wrote:
+>> 
+>> > On Thu, 10 Nov 2011 16:41:38 +0100
+>> > Jiri Pirko <jpirko@redhat.com> wrote:
+>> > 
+>> > > This patch introduces new network device called team. It supposes to be
+>> > > very fast, simple, userspace-driven alternative to existing bonding
+>> > > driver.
+>> > > 
+>> > > Userspace library called libteam with couple of demo apps is available
+>> > > here:
+>> > > https://github.com/jpirko/libteam
+>> > > Note it's still in its dipers atm.
+>> > > 
+>> > > team<->libteam use generic netlink for communication. That and rtnl
+>> > > suppose to be the only way to configure team device, no sysfs etc.
+>> > > 
+>> > > Python binding of libteam was recently introduced.
+>> > > Daemon providing arpmon/miimon active-backup functionality will be
+>> > > introduced shortly. All what's necessary is already implemented in
+>> > > kernel team driver.
+>> > > 
+>> > > Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> > > 
+>> > > v6->v7:
+>> > > 	- transmit and receive functions are not checked in hot paths.
+>> > > 	  That also resolves memory leak on transmit when no port is
+>> > > 	  present
+>> > > 
+>> > 
+>> > You're right. No need to patch those function names if we use libnl
+>> > from git.
+>> > 
+>> > [...]
+>> > > +static void team_vlan_rx_add_vid(struct net_device *dev, uint16_t vid)
+>> > > +{
+>> > > +	struct team *team = netdev_priv(dev);
+>> > > +	struct team_port *port;
+>> > > +
+>> > > +	rcu_read_lock();
+>> > > +	list_for_each_entry_rcu(port, &team->port_list, list) {
+>> > > +		const struct net_device_ops *ops = port->dev->netdev_ops;
+>> > > +
+>> > > +		ops->ndo_vlan_rx_add_vid(port->dev, vid);
+>> > 
+>> > This causes a oops when enslaving a tg3 device because there is
+>> > no ndo_vlan_rx_add_vid().
+>> > 
+>> Sorry, I should have said when bring team0 up:
+>> 
+>> [root@f16i7 ~]# ip link set team0 up
+>> Killed
+>> 
+>> BUG: unable to handle kernel NULL pointer dereference at           (null)
+>> IP: [<          (null)>]           (null)
+>> PGD 18ee5b067 PUD 18d9cd067 PMD 0
+>> Oops: 0010 [#1] SMP
+>> d_timer snd soundcore snd_page_alloc pl2303 usbserial iTCO_wdt iTCO_vendor_support raid0 i2c_i801 pcspkr microcode serio_raw uinput floppy joydev ipv6 autofs4 ata_generic firewire_ohci pata_acpi firewire_core crc_itu_t pata_marvell nouveau ttm drm_kms_helper drm hwmon i2c_algo_bit i2c_core mxm_wmi wmi video [last unloaded: scsi_wait_scan]
+>> 
+>> Pid: 21877, comm: ip Not tainted 3.2.0-rc1-10901-g40709d7 #31                  /DX58SO
+>> RIP: 0010:[<0000000000000000>]  [<          (null)>]           (null)
+>> RSP: 0018:ffff88018eecd6a0  EFLAGS: 00010283
+>> RAX: ffffffffa02a4370 RBX: ffff8801a4d04500 RCX: 0000000000000e7f
+>> RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff880198356000
+>> RBP: ffff88018eecd6d8 R08: 0000000000000001 R09: 0000000000000000
+>> R10: 0000000000000000 R11: ffff880181d57600 R12: 0000000000000000
+>> R13: ffff8801a526f7d8 R14: ffffffffa032f0c0 R15: 0000000000000000
+>> FS:  00007f52ae475700(0000) GS:ffff8801afcc0000(0000) knlGS:0000000000000000
+>> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>> CR2: 0000000000000000 CR3: 00000001983ab000 CR4: 00000000000006e0
+>> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+>> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+>> Process ip (pid: 21877, threadinfo ffff88018eecc000, task ffff88018db8aea0)
+>>
+>
+>I patched the kernel to test if there is ops->ndo_vlan_rx_add_vid before
+>call it and works out, no more oopses.
 
-Signed-off-by: Todd Broch <tbroch@chromium.org>
----
- drivers/net/r8169.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+Yes, this should be checked. I missed that. I would like to address this
+as follow up patch because I'm sure it's not the last bug in team (I
+would be sending Vx of the patch for long time :( )
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 5f838ef..05769fa0 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -671,6 +671,10 @@ struct rtl8169_private {
- #define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN);
- };
- 
-+static int aspm_disable = 0;
-+module_param(aspm_disable, bool, 0444);
-+MODULE_PARM_DESC(aspm_disable, "Disable ASPM completely.");
-+
- MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
- MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
- module_param(use_dac, int, 0);
-@@ -3291,8 +3295,12 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	/* disable ASPM completely as that cause random device stop working
- 	 * problems as well as full system hangs for some PCIe devices users */
--	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
--				     PCIE_LINK_STATE_CLKPM);
-+	if (aspm_disable) {
-+		pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
-+				       PCIE_LINK_STATE_L1 |
-+				       PCIE_LINK_STATE_CLKPM);
-+		dprintk("ASPM disabled");
-+	}
- 
- 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
- 	rc = pci_enable_device(pdev);
--- 
-1.7.3.1
+>
+>Well, as there is no active-backup daemon yet (right?), only the link
+>notification is sent to team_monitor when I remove the cable from the
+>NIC, so I have to switch manually active and backup slaves.
+
+Correct. I plan to do very simple active-backup daemon written in python
+in matter of days. Keep pulling libteam git.
+
+>
+>ping -f, ssh, and a script to change active slave every second are 
+>running in parallel. 
+>
+>I haven't noticed any other issue so far.
+
+Thanks for testing this Flavio!
+
+Jirka
+
+>fbl
