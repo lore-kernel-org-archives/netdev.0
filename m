@@ -1,48 +1,42 @@
-From: "Roland Kletzing" <devzero@web.de>
-Subject: send/receive data via eth0/1 external loop ?
-Date: Sat, 12 Nov 2011 01:47:13 +0100 (CET)
-Message-ID: <104297899.1282710.1321058833510.JavaMail.fmail@mwmweb017>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: vlan: 802.1ad S-VLAN support
+Date: Fri, 11 Nov 2011 20:22:35 -0500 (EST)
+Message-ID: <20111111.202235.1981500713669985784.davem@davemloft.net>
+References: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
+	<1320512055-1231037-2-git-send-email-equinox@diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: equinox@diac24.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate05.web.de ([217.72.192.243]:53376 "EHLO
-	fmmailgate05.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755227Ab1KLAxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 19:53:44 -0500
-Received: from web.de
-	by fmmailgate05.web.de (Postfix) with ESMTP id 8129B67938B5
-	for <netdev@vger.kernel.org>; Sat, 12 Nov 2011 01:47:13 +0100 (CET)
+Received: from shards.monkeyblade.net ([198.137.202.13]:59324 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755075Ab1KLBZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Nov 2011 20:25:21 -0500
+In-Reply-To: <1320512055-1231037-2-git-send-email-equinox@diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-i`m searching for a while now, but i did not find a solution, so forgive when
-i`m (as a user) asking for expert help here.
+From: David Lamparter <equinox@diac24.net>
+Date: Sat,  5 Nov 2011 17:54:14 +0100
 
-I want to do some network stress/burn-in and quality/reliability testing,
-i.e. i want to send/receive large amounts of data trough the systems network
-interfaces without the need of hogging the net or other systems.
+> @@ -87,7 +97,8 @@ struct vlan_group {
+>  					    */
+>  	unsigned int		nr_vlans;
+>  	struct hlist_node	hlist;	/* linked list */
+> -	struct net_device **vlan_devices_arrays[VLAN_GROUP_ARRAY_SPLIT_PARTS];
+> +	struct net_device **vlan_devices_arrays[VLAN_N_PROTOCOL]
+> +						[VLAN_GROUP_ARRAY_SPLIT_PARTS];
+>  	struct rcu_head		rcu;
+>  };
 
-so, that test should run "loopback", i.e. connecting eth0+1 via crossover cable
-or via locally attached switch. I don`t want to use a second system for that.
+This is a terrible waste of memory.  You're now using 5 times as much space,
+the vast majority of which will be entirely unused.
 
-testing at ip/tcp level would be favourable , but raw eth level would be also fine.
+I don't even think it's semantically correct, all these alias QinQ protocol
+values don't provide completely new VLAN_ID name spaces at all.  So this
+layout doesn't even make any sense, you're allowing for something that isn't
+even allowed.
 
-But how ?
-What appears simple on a first view, seems to be difficult.... :(
-
-All i came across is this report:
-http://www.zyztematik.com/?p=10
-and this description of a patch:
-http://www.ssi.bg/~ja/send-to-self.txt
-
-Does somebody know a proper way of achieving this without patching the
-kernel ?
-
-regards
-Roland
-___________________________________________________________
-SMS schreiben mit WEB.DE FreeMail - einfach, schnell und
-kostenguenstig. Jetzt gleich testen! http://f.web.de/?mc=021192
+Rework these datastructures to eliminate the wastage please.
