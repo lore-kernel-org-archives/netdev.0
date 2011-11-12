@@ -1,38 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next V7] net: introduce ethernet teaming device
-Date: Sat, 12 Nov 2011 00:45:55 -0500 (EST)
-Message-ID: <20111112.004555.1043819970109229358.davem@davemloft.net>
-References: <20111111170509.581c4ca2@asterix.rh>
-	<20111111175845.10c82c3c@asterix.rh>
-	<20111112001459.GA2448@minipsycho.orion>
+Subject: Re: [PATCH net-next 09/13] bnx2x: add pri_map module parameter
+Date: Sat, 12 Nov 2011 00:50:29 -0500 (EST)
+Message-ID: <20111112.005029.2184476880178665420.davem@davemloft.net>
+References: <1320938054-31288-1-git-send-email-dmitry@broadcom.com>
+	<1320938054-31288-10-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fbl@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
-	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
-	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
-	jesse@nicira.com, benjamin.poirier@gmail.com, jzupka@redhat.com,
-	ivecera@redhat.com
-To: jpirko@redhat.com
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:56405 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:56415 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142Ab1KLFsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 00:48:50 -0500
-In-Reply-To: <20111112001459.GA2448@minipsycho.orion>
+	with ESMTP id S1751580Ab1KLFuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 00:50:32 -0500
+In-Reply-To: <1320938054-31288-10-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Sat, 12 Nov 2011 01:15:00 +0100
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Thu, 10 Nov 2011 17:14:10 +0200
 
-> Yes, this should be checked. I missed that. I would like to address this
-> as follow up patch because I'm sure it's not the last bug in team (I
-> would be sending Vx of the patch for long time :( )
+> From: Ariel Elior <ariele@broadcom.com>
+> 
+> The optional parameter pri_map is used to map the
+> skb->priority to a Class Of Service (CoS) in the HW.
+> This 32 bit parameter is evaluated by the  driver as 8
+> values of 4 bits each. Each nibble sets the desired
+> HW queue number for that priority.
+> 
+> Also:
+> on the 5771x family this feature is unavailable (a single COS services all).
+> on the 57712 family two classes of service are available.
+> on the 578xx family three classes of service are availabe.
+> configuring  priorities to unavailable COSs will log an error and default to
+> COS 0.
+> 
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-No, Jiri.  Known bugs with obvious fixes get fixed first.
+You can't do driver specific things like this.
 
-You see it as an endless process, but rather the code just isn't ready
-yet if people can still find easy to diagnose and fix flaws so
-quickly.
+Make a generic facility that any driver can make use of, not just
+your's.
