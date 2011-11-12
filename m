@@ -1,160 +1,248 @@
-From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH FIX net v2] forcedeth: fix stats on hardware without extended stats support
-Date: Fri, 11 Nov 2011 18:27:34 -0800
-Message-ID: <51c23650f3fc6e48b652a7ab322ca09a1cb7cbcc.1321064621.git.david.decotigny@google.com>
-References: <cover.1321064621.git.david.decotigny@google.com>
+From: Sanjay Hortikar <horti@google.com>
+Subject: [PATCH net-next v2] net-forcedeth: Add internal loopback support for forcedeth NICs.
+Date: Fri, 11 Nov 2011 18:11:21 -0800
+Message-ID: <0a790bcdac9827d6e4a9162cc8f6b5bcb70acd4e.1321063429.git.horti@google.com>
+References: <cover.1321063429.git.horti@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	David Decotigny <david.decotigny@google.com>,
 	Ian Campbell <ian.campbell@citrix.com>,
+	Rick Jones <rick.jones2@hp.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
-	Szymon Janc <szymon@janc.net.pl>,
-	Richard Jones <rick.jones2@hp.com>,
-	Ayaz Abdulla <AAbdulla@nvidia.com>
+	Sanjay Hortikar <horti@google.com>,
+	Mahesh Bandewar <maheshb@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1321064621.git.david.decotigny@google.com>
+In-Reply-To: <cover.1321063429.git.horti@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This change makes sure that tx_packets/rx_bytes ifconfig counters are
-updated even on NICs that don't provide hardware support for these
-stats: they are now updated in software. For the sake of consistency,
-we also now have tx_bytes updated in software (hardware counters
-include ethernet CRC, and software doesn't account for it).
+Support enabling/disabling/querying internal loopback mode for
+forcedeth NICs using ethtool.
 
-This reverts parts of:
- - "forcedeth: statistics optimization" (21828163b2)
- - "forcedeth: Improve stats counters" (0bdfea8ba8)
- - "forcedeth: remove unneeded stats updates" (4687f3f364)
-
-Tested:
-  pktgen + loopback (http://patchwork.ozlabs.org/patch/124698/)
-  reports identical tx_packets/rx_packets and tx_bytes/rx_bytes.
-
-
-
-Signed-off-by: David Decotigny <david.decotigny@google.com>
+Signed-off-by: Sanjay Hortikar <horti@google.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   36 +++++++++++++++++++++++-------
- 1 files changed, 27 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |  156 ++++++++++++++++++++++++++++++-
+ 1 files changed, 155 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 1dca570..1c61d36 100644
+index d24c45b..e8a5ae3 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -609,7 +609,7 @@ struct nv_ethtool_str {
- };
+@@ -3003,6 +3003,73 @@ static void nv_update_pause(struct net_device *dev, u32 pause_flags)
+ 	}
+ }
  
- static const struct nv_ethtool_str nv_estats_str[] = {
--	{ "tx_bytes" },
-+	{ "tx_bytes" }, /* includes Ethernet FCS CRC */
- 	{ "tx_zero_rexmt" },
- 	{ "tx_one_rexmt" },
- 	{ "tx_many_rexmt" },
-@@ -637,7 +637,7 @@ static const struct nv_ethtool_str nv_estats_str[] = {
- 	/* version 2 stats */
- 	{ "tx_deferral" },
- 	{ "tx_packets" },
--	{ "rx_bytes" },
-+	{ "rx_bytes" }, /* includes Ethernet FCS CRC */
- 	{ "tx_pause" },
- 	{ "rx_pause" },
- 	{ "rx_drop_frame" },
-@@ -649,7 +649,7 @@ static const struct nv_ethtool_str nv_estats_str[] = {
- };
- 
- struct nv_ethtool_stats {
--	u64 tx_bytes;
-+	u64 tx_bytes; /* should be ifconfig->tx_bytes + 4*tx_packets */
- 	u64 tx_zero_rexmt;
- 	u64 tx_one_rexmt;
- 	u64 tx_many_rexmt;
-@@ -670,14 +670,14 @@ struct nv_ethtool_stats {
- 	u64 rx_unicast;
- 	u64 rx_multicast;
- 	u64 rx_broadcast;
--	u64 rx_packets;
-+	u64 rx_packets; /* should be ifconfig->rx_packets */
- 	u64 rx_errors_total;
- 	u64 tx_errors_total;
- 
- 	/* version 2 stats */
- 	u64 tx_deferral;
--	u64 tx_packets;
--	u64 rx_bytes;
-+	u64 tx_packets; /* should be ifconfig->tx_packets */
-+	u64 rx_bytes;   /* should be ifconfig->rx_bytes + 4*rx_packets */
- 	u64 tx_pause;
- 	u64 rx_pause;
- 	u64 rx_drop_frame;
-@@ -1706,10 +1706,17 @@ static struct net_device_stats *nv_get_stats(struct net_device *dev)
- 	if (np->driver_data & (DEV_HAS_STATISTICS_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_STATISTICS_V3)) {
- 		nv_get_hw_stats(dev);
- 
-+		/*
-+		 * Note: because HW stats are not always available and
-+		 * for consistency reasons, the following ifconfig
-+		 * stats are managed by software: rx_bytes, tx_bytes,
-+		 * rx_packets and tx_packets. The related hardware
-+		 * stats reported by ethtool should be equivalent to
-+		 * these ifconfig stats, with 4 additional bytes per
-+		 * packet (Ethernet FCS CRC).
-+		 */
++static void nv_force_linkspeed(struct net_device *dev, int speed, int duplex)
++{
++	struct fe_priv *np = netdev_priv(dev);
++	u8 __iomem *base = get_hwbase(dev);
++	u32 phyreg, txreg;
++	int mii_status;
 +
- 		/* copy to net_device stats */
--		dev->stats.tx_packets = np->estats.tx_packets;
--		dev->stats.rx_bytes = np->estats.rx_bytes;
--		dev->stats.tx_bytes = np->estats.tx_bytes;
- 		dev->stats.tx_fifo_errors = np->estats.tx_fifo_errors;
- 		dev->stats.tx_carrier_errors = np->estats.tx_carrier_errors;
- 		dev->stats.rx_crc_errors = np->estats.rx_crc_errors;
-@@ -2380,6 +2387,9 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 				if (flags & NV_TX_ERROR) {
- 					if ((flags & NV_TX_RETRYERROR) && !(flags & NV_TX_RETRYCOUNT_MASK))
- 						nv_legacybackoff_reseed(dev);
-+				} else {
-+					dev->stats.tx_packets++;
-+					dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
- 				}
- 				dev_kfree_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
-@@ -2390,6 +2400,9 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 				if (flags & NV_TX2_ERROR) {
- 					if ((flags & NV_TX2_RETRYERROR) && !(flags & NV_TX2_RETRYCOUNT_MASK))
- 						nv_legacybackoff_reseed(dev);
-+				} else {
-+					dev->stats.tx_packets++;
-+					dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
- 				}
- 				dev_kfree_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
-@@ -2429,6 +2442,9 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 					else
- 						nv_legacybackoff_reseed(dev);
- 				}
-+			} else {
-+				dev->stats.tx_packets++;
-+				dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
- 			}
++	np->linkspeed = NVREG_LINKSPEED_FORCE|speed;
++	np->duplex = duplex;
++
++	/* see if gigabit phy */
++	mii_status = mii_rw(dev, np->phyaddr, MII_BMSR, MII_READ);
++	if (mii_status & PHY_GIGABIT) {
++		np->gigabit = PHY_GIGABIT;
++		phyreg = readl(base + NvRegSlotTime);
++		phyreg &= ~(0x3FF00);
++		if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_10)
++			phyreg |= NVREG_SLOTTIME_10_100_FULL;
++		else if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_100)
++			phyreg |= NVREG_SLOTTIME_10_100_FULL;
++		else if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_1000)
++			phyreg |= NVREG_SLOTTIME_1000_FULL;
++		writel(phyreg, base + NvRegSlotTime);
++	}
++
++	phyreg = readl(base + NvRegPhyInterface);
++	phyreg &= ~(PHY_HALF|PHY_100|PHY_1000);
++	if (np->duplex == 0)
++		phyreg |= PHY_HALF;
++	if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_100)
++		phyreg |= PHY_100;
++	else if ((np->linkspeed & NVREG_LINKSPEED_MASK) ==
++							NVREG_LINKSPEED_1000)
++		phyreg |= PHY_1000;
++	writel(phyreg, base + NvRegPhyInterface);
++
++	if (phyreg & PHY_RGMII) {
++		if ((np->linkspeed & NVREG_LINKSPEED_MASK) ==
++							NVREG_LINKSPEED_1000)
++			txreg = NVREG_TX_DEFERRAL_RGMII_1000;
++		else
++			txreg = NVREG_TX_DEFERRAL_RGMII_10_100;
++	} else {
++		txreg = NVREG_TX_DEFERRAL_DEFAULT;
++	}
++	writel(txreg, base + NvRegTxDeferral);
++
++	if (np->desc_ver == DESC_VER_1) {
++		txreg = NVREG_TX_WM_DESC1_DEFAULT;
++	} else {
++		if ((np->linkspeed & NVREG_LINKSPEED_MASK) ==
++					 NVREG_LINKSPEED_1000)
++			txreg = NVREG_TX_WM_DESC2_3_1000;
++		else
++			txreg = NVREG_TX_WM_DESC2_3_DEFAULT;
++	}
++	writel(txreg, base + NvRegTxWatermark);
++
++	writel(NVREG_MISC1_FORCE | (np->duplex ? 0 : NVREG_MISC1_HD),
++			base + NvRegMisc1);
++	pci_push(base);
++	writel(np->linkspeed, base + NvRegLinkSpeed);
++	pci_push(base);
++
++	return;
++}
++
+ /**
+  * nv_update_linkspeed: Setup the MAC according to the link partner
+  * @dev: Network device to be configured
+@@ -3024,11 +3091,25 @@ static int nv_update_linkspeed(struct net_device *dev)
+ 	int newls = np->linkspeed;
+ 	int newdup = np->duplex;
+ 	int mii_status;
++	u32 bmcr;
+ 	int retval = 0;
+ 	u32 control_1000, status_1000, phyreg, pause_flags, txreg;
+ 	u32 txrxFlags = 0;
+ 	u32 phy_exp;
  
- 			dev_kfree_skb_any(np->get_tx_ctx->skb);
-@@ -2678,6 +2694,7 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 		skb->protocol = eth_type_trans(skb, dev);
- 		napi_gro_receive(&np->napi, skb);
- 		dev->stats.rx_packets++;
-+		dev->stats.rx_bytes += len;
- next_pkt:
- 		if (unlikely(np->get_rx.orig++ == np->last_rx.orig))
- 			np->get_rx.orig = np->first_rx.orig;
-@@ -2761,6 +2778,7 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
- 			}
- 			napi_gro_receive(&np->napi, skb);
- 			dev->stats.rx_packets++;
-+			dev->stats.rx_bytes += len;
- 		} else {
- 			dev_kfree_skb(skb);
- 		}
++	/* If device loopback is enabled, set carrier on and enable max link
++	 * speed.
++	 */
++	bmcr = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
++	if (bmcr & BMCR_LOOPBACK) {
++		if (netif_running(dev)) {
++			nv_force_linkspeed(dev, NVREG_LINKSPEED_1000, 1);
++			if (!netif_carrier_ok(dev))
++				netif_carrier_on(dev);
++		}
++		return 1;
++	}
++
+ 	/* BMSR_LSTATUS is latched, read it twice:
+ 	 * we want the current value.
+ 	 */
+@@ -4455,6 +4536,61 @@ static int nv_set_pauseparam(struct net_device *dev, struct ethtool_pauseparam*
+ 	return 0;
+ }
+ 
++static int nv_set_loopback(struct net_device *dev, u32 features)
++{
++	struct fe_priv *np = netdev_priv(dev);
++	unsigned long flags;
++	u32 miicontrol;
++	int err, retval = 0;
++
++	spin_lock_irqsave(&np->lock, flags);
++	miicontrol = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
++	if (features & NETIF_F_LOOPBACK) {
++		if (miicontrol & BMCR_LOOPBACK) {
++			spin_unlock_irqrestore(&np->lock, flags);
++			netdev_info(dev, "Loopback already enabled\n");
++			return 0;
++		}
++		nv_disable_irq(dev);
++		/* Turn on loopback mode */
++		miicontrol |= BMCR_LOOPBACK | BMCR_FULLDPLX | BMCR_SPEED1000;
++		err = mii_rw(dev, np->phyaddr, MII_BMCR, miicontrol);
++		if (err) {
++			retval = PHY_ERROR;
++			spin_unlock_irqrestore(&np->lock, flags);
++			phy_init(dev);
++		} else {
++			if (netif_running(dev)) {
++				/* Force 1000 Mbps full-duplex */
++				nv_force_linkspeed(dev, NVREG_LINKSPEED_1000,
++									 1);
++				/* Force link up */
++				netif_carrier_on(dev);
++			}
++			spin_unlock_irqrestore(&np->lock, flags);
++			netdev_info(dev,
++				"Internal PHY loopback mode enabled.\n");
++		}
++	} else {
++		if (!(miicontrol & BMCR_LOOPBACK)) {
++			spin_unlock_irqrestore(&np->lock, flags);
++			netdev_info(dev, "Loopback already disabled\n");
++			return 0;
++		}
++		nv_disable_irq(dev);
++		/* Turn off loopback */
++		spin_unlock_irqrestore(&np->lock, flags);
++		netdev_info(dev, "Internal PHY loopback mode disabled.\n");
++		phy_init(dev);
++	}
++	msleep(500);
++	spin_lock_irqsave(&np->lock, flags);
++	nv_enable_irq(dev);
++	spin_unlock_irqrestore(&np->lock, flags);
++
++	return retval;
++}
++
+ static u32 nv_fix_features(struct net_device *dev, u32 features)
+ {
+ 	/* vlan is dependent on rx checksum offload */
+@@ -4490,6 +4626,13 @@ static int nv_set_features(struct net_device *dev, u32 features)
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+ 	u32 changed = dev->features ^ features;
++	int retval;
++
++	if ((changed & NETIF_F_LOOPBACK) && netif_running(dev)) {
++		retval = nv_set_loopback(dev, features);
++		if (retval != 0)
++			return retval;
++	}
+ 
+ 	if (changed & NETIF_F_RXCSUM) {
+ 		spin_lock_irq(&np->lock);
+@@ -5124,6 +5267,12 @@ static int nv_open(struct net_device *dev)
+ 
+ 	spin_unlock_irq(&np->lock);
+ 
++	/* If the loopback feature was set while the device was down, make sure
++	 * that it's set correctly now.
++	 */
++	if (dev->features & NETIF_F_LOOPBACK)
++		nv_set_loopback(dev, dev->features);
++
+ 	return 0;
+ out_drain:
+ 	nv_drain_rxtx(dev);
+@@ -5328,6 +5477,9 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 
+ 	dev->features |= dev->hw_features;
+ 
++	/* Add loopback capability to the device. */
++	dev->hw_features |= NETIF_F_LOOPBACK;
++
+ 	np->pause_flags = NV_PAUSEFRAME_RX_CAPABLE | NV_PAUSEFRAME_RX_REQ | NV_PAUSEFRAME_AUTONEG;
+ 	if ((id->driver_data & DEV_HAS_PAUSEFRAME_TX_V1) ||
+ 	    (id->driver_data & DEV_HAS_PAUSEFRAME_TX_V2) ||
+@@ -5603,12 +5755,14 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 	dev_info(&pci_dev->dev, "ifname %s, PHY OUI 0x%x @ %d, addr %pM\n",
+ 		 dev->name, np->phy_oui, np->phyaddr, dev->dev_addr);
+ 
+-	dev_info(&pci_dev->dev, "%s%s%s%s%s%s%s%s%s%sdesc-v%u\n",
++	dev_info(&pci_dev->dev, "%s%s%s%s%s%s%s%s%s%s%sdesc-v%u\n",
+ 		 dev->features & NETIF_F_HIGHDMA ? "highdma " : "",
+ 		 dev->features & (NETIF_F_IP_CSUM | NETIF_F_SG) ?
+ 			"csum " : "",
+ 		 dev->features & (NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX) ?
+ 			"vlan " : "",
++		 dev->features & (NETIF_F_LOOPBACK) ?
++			"loopback " : "",
+ 		 id->driver_data & DEV_HAS_POWER_CNTRL ? "pwrctl " : "",
+ 		 id->driver_data & DEV_HAS_MGMT_UNIT ? "mgmt " : "",
+ 		 id->driver_data & DEV_NEED_TIMERIRQ ? "timirq " : "",
 -- 
 1.7.3.1
