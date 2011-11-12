@@ -1,75 +1,31 @@
-From: "Roland Kletzing" <devzero@web.de>
-Subject: Re: send/receive data via eth0/1 external loop ?
-Date: Sat, 12 Nov 2011 19:50:33 +0100 (CET)
-Message-ID: <795974251.12417.1321123833884.JavaMail.fmail@mwmweb006>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: vlan: 802.1ad S-VLAN support
+Date: Sat, 12 Nov 2011 17:22:18 -0500 (EST)
+Message-ID: <20111112.172218.203118257266590280.davem@davemloft.net>
+References: <1320512055-1231037-2-git-send-email-equinox@diac24.net>
+	<20111111.202235.1981500713669985784.davem@davemloft.net>
+	<20111112141429.GA41984@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Julian Anastasov" <ja@ssi.bg>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, mirqus@gmail.com
+To: equinox@diac24.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmmailgate05.web.de ([217.72.192.243]:46962 "EHLO
-	fmmailgate05.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183Ab1KLSuf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 13:50:35 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:35815 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220Ab1KLWZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 17:25:06 -0500
+In-Reply-To: <20111112141429.GA41984@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-great, thanks!
+From: David Lamparter <equinox@diac24.net>
+Date: Sat, 12 Nov 2011 15:14:29 +0100
 
+> Well, hmm... Suggestions?
 
------Urspr=C3=BCngliche Nachricht-----
-Von: "Julian Anastasov" <ja@ssi.bg>
-Gesendet: 12.11.2011 19:31:13
-An: "Roland Kletzing" <devzero@web.de>
-Betreff: Re: send/receive data via eth0/1 external loop ?
+The feature is important to you, therefore you're the one who needs
+to figure out how to avoid the memory bloat.
 
->
-> Hello,
->
->On Sat, 12 Nov 2011, Roland Kletzing wrote:
->
->> Hello,
->> i`m searching for a while now, but i did not find a solution, so for=
-give when
->> i`m (as a user) asking for expert help here.
->>
->> I want to do some network stress/burn-in and quality/reliability tes=
-ting,
->> i.e. i want to send/receive large amounts of data trough the systems=
- network
->> interfaces without the need of hogging the net or other systems.
->>
->> so, that test should run "loopback", i.e. connecting eth0+1 via cros=
-sover cable
->> or via locally attached switch. I don`t want to use a second system =
-for that.
->>
->> testing at ip/tcp level would be favourable , but raw eth level woul=
-d be also fine.
->>
->> But how ?
->> What appears simple on a first view, seems to be difficult.... :(
->>
->> All i came across is this report:
->> http://www.zyztematik.com/?p=3D10
->> and this description of a patch:
->> http://www.ssi.bg/~ja/send-to-self.txt
->>
->> Does somebody know a proper way of achieving this without patching t=
-he
->> kernel ?
->
-> You can use accept_local flag and rule with pref 0:
->
->http://marc.info/?l=3Dlinux-netdev&m=3D125983955627148&w=3D2
->
->Regards
->
->--
->Julian Anastasov <ja@ssi.bg>
-
-
-___________________________________________________________
-SMS schreiben mit WEB.DE FreeMail - einfach, schnell und
-kostenguenstig. Jetzt gleich testen! http://f.web.de/?mc=3D021192
+And no, config options aren't how to do this, every distribution
+(and therefore %99 of users) will have it enabled.
