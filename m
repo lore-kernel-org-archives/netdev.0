@@ -1,28 +1,58 @@
-From: Christopher Knight Morrow <cmorrow@uaeu.ac.ae>
-Subject: Dear Winner
-Date: Sat, 12 Nov 2011 11:48:48 +0400
-Message-ID: <AB25A1E85FFDDB4AA76DB797BFEF2680012A81C7D5C1@PEXCCR.uaeu.ac.ae>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 1/2] net: vlan: 802.1ad S-VLAN support
+Date: Sat, 12 Nov 2011 10:25:31 +0100
+Message-ID: <CAHXqBFJu6Za=PYNytJ0Q+DyqAz_rfs1oobBc97zrbM56qmTcNA@mail.gmail.com>
+References: <1320512055-1231037-1-git-send-email-equinox@diac24.net>
+ <1320512055-1231037-2-git-send-email-equinox@diac24.net> <20111111.202235.1981500713669985784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: equinox@diac24.net, netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmc.antispam.uaeu.ac.ae ([178.250.250.41]:39986 "EHLO
-	fmc.antispam.uaeu.ac.ae" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751928Ab1KLI05 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 03:26:57 -0500
-Content-Language: en-US
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:58019 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341Ab1KLJZy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 04:25:54 -0500
+Received: by iage36 with SMTP id e36so5017849iag.19
+        for <netdev@vger.kernel.org>; Sat, 12 Nov 2011 01:25:53 -0800 (PST)
+In-Reply-To: <20111111.202235.1981500713669985784.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2011/11/12 David Miller <davem@davemloft.net>:
+> From: David Lamparter <equinox@diac24.net>
+> Date: Sat, =A05 Nov 2011 17:54:14 +0100
+>
+>> @@ -87,7 +97,8 @@ struct vlan_group {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 */
+>> =A0 =A0 =A0 unsigned int =A0 =A0 =A0 =A0 =A0 =A0nr_vlans;
+>> =A0 =A0 =A0 struct hlist_node =A0 =A0 =A0 hlist; =A0/* linked list *=
+/
+>> - =A0 =A0 struct net_device **vlan_devices_arrays[VLAN_GROUP_ARRAY_S=
+PLIT_PARTS];
+>> + =A0 =A0 struct net_device **vlan_devices_arrays[VLAN_N_PROTOCOL]
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 [VLAN_GROUP_ARRAY_SPLIT_PARTS];
+>> =A0 =A0 =A0 struct rcu_head =A0 =A0 =A0 =A0 rcu;
+>> =A0};
+> This is a terrible waste of memory. =A0You're now using 5 times as mu=
+ch space,
+> the vast majority of which will be entirely unused.
+>
+> I don't even think it's semantically correct, all these alias QinQ pr=
+otocol
+> values don't provide completely new VLAN_ID name spaces at all. =A0So=
+ this
+> layout doesn't even make any sense, you're allowing for something tha=
+t isn't
+> even allowed.
 
+While I agree about the memory usage argument, I also like the
+separation idea as is. If you want VLANs encapsulated in other
+protocols to alias, then you can still do it by attaching them to
+properly configured bond or bridge.
 
-
-Dear Winner,
-I am please to announce to you that your email has just won the sum of
-500,000.00 GBP from MICROSOFT LOTTERY SWEEPSTAKES DRAW.Your email address as drawn and attached ID number: BLF/9080648302/11. contact Jim Frank who shall by duty guide you through the process to facilitate the release of your winnings to you 
-Mr Jim Frank
-E-mail: jimfrank39@gmail.com
-
-Online Director
-Christopher Knight
+Best Regards,
+Micha=B3 Miros=B3aw
