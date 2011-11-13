@@ -1,58 +1,104 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH v2 net-next 07/12] bnx2x: simplify definition of
- RX_SGE_MASK_LEN and use it.
-Date: Sun, 13 Nov 2011 14:47:24 +0200
-Message-ID: <1321188449-5822-8-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH v2 net-next 09/12] bnx2x: add fan failure event handling
+Date: Sun, 13 Nov 2011 14:47:26 +0200
+Message-ID: <1321188449-5822-10-git-send-email-dmitry@broadcom.com>
 References: <1321188449-5822-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+Cc: "Ariel Elior" <ariele@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4273 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4279 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752567Ab1KMMrr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Nov 2011 07:47:47 -0500
+	id S1752831Ab1KMMrw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Nov 2011 07:47:52 -0500
 In-Reply-To: <1321188449-5822-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ariel Elior <ariele@broadcom.com>
+
+Shut down the device in case of fan failure to prevent HW damage.
+
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |    3 +--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    3 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   24 +++++++++++++++++++++-
+ 2 files changed, 26 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index e17a739..b78c384 100644
+index 23e91f4..78613ef 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -411,8 +411,7 @@ union db_prod {
+@@ -1141,6 +1141,7 @@ struct bnx2x_fw_stats_data {
+ enum {
+ 	BNX2X_SP_RTNL_SETUP_TC,
+ 	BNX2X_SP_RTNL_TX_TIMEOUT,
++	BNX2X_SP_RTNL_FAN_FAILURE,
+ };
  
  
- /* Number of u64 elements in SGE mask array */
--#define RX_SGE_MASK_LEN			((NUM_RX_SGE_PAGES * RX_SGE_CNT) / \
--					 BIT_VEC64_ELEM_SZ)
-+#define RX_SGE_MASK_LEN			(NUM_RX_SGE / BIT_VEC64_ELEM_SZ)
- #define RX_SGE_MASK_LEN_MASK		(RX_SGE_MASK_LEN - 1)
- #define NEXT_SGE_MASK_ELEM(el)		(((el) + 1) & RX_SGE_MASK_LEN_MASK)
+@@ -2048,6 +2049,8 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define BNX2X_VPD_LEN			128
+ #define VENDOR_ID_LEN			4
  
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 59f1291..e8efb01 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -874,8 +874,7 @@ static inline void bnx2x_clear_sge_mask_next_elems(struct bnx2x_fastpath *fp)
- static inline void bnx2x_init_sge_ring_bit_mask(struct bnx2x_fastpath *fp)
++int bnx2x_close(struct net_device *dev);
++
+ /* Congestion management fairness mode */
+ #define CMNG_FNS_NONE		0
+ #define CMNG_FNS_MINMAX		1
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 967c41b..33ff60d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -3299,6 +3299,17 @@ static inline void bnx2x_fan_failure(struct bnx2x *bp)
+ 	netdev_err(bp->dev, "Fan Failure on Network Controller has caused"
+ 	       " the driver to shutdown the card to prevent permanent"
+ 	       " damage.  Please contact OEM Support for assistance\n");
++
++	/*
++	 * Scheudle device reset (unload)
++	 * This is due to some boards consuming sufficient power when driver is
++	 * up to overheat if fan fails.
++	 */
++	smp_mb__before_clear_bit();
++	set_bit(BNX2X_SP_RTNL_FAN_FAILURE, &bp->sp_rtnl_state);
++	smp_mb__after_clear_bit();
++	schedule_delayed_work(&bp->sp_rtnl_task, 0);
++
+ }
+ 
+ static inline void bnx2x_attn_int_deasserted0(struct bnx2x *bp, u32 attn)
+@@ -8503,6 +8514,17 @@ sp_rtnl_not_reset:
+ 	if (test_and_clear_bit(BNX2X_SP_RTNL_SETUP_TC, &bp->sp_rtnl_state))
+ 		bnx2x_setup_tc(bp->dev, bp->dcbx_port_params.ets.num_of_cos);
+ 
++	/*
++	 * in case of fan failure we need to reset id if the "stop on error"
++	 * debug flag is set, since we trying to prevent permanent overheating
++	 * damage
++	 */
++	if (test_and_clear_bit(BNX2X_SP_RTNL_FAN_FAILURE, &bp->sp_rtnl_state)) {
++		DP(BNX2X_MSG_SP, "fan failure detected. Unloading driver");
++		netif_device_detach(bp->dev);
++		bnx2x_close(bp->dev);
++	}
++
+ sp_rtnl_exit:
+ 	rtnl_unlock();
+ }
+@@ -9969,7 +9991,7 @@ static int bnx2x_open(struct net_device *dev)
+ }
+ 
+ /* called with rtnl_lock */
+-static int bnx2x_close(struct net_device *dev)
++int bnx2x_close(struct net_device *dev)
  {
- 	/* Set the mask to all 1-s: it's faster to compare to 0 than to 0xf-s */
--	memset(fp->sge_mask, 0xff,
--	       (NUM_RX_SGE >> BIT_VEC64_ELEM_SHIFT)*sizeof(u64));
-+	memset(fp->sge_mask, 0xff, RX_SGE_MASK_LEN * sizeof(u64));
+ 	struct bnx2x *bp = netdev_priv(dev);
  
- 	/* Clear the two last indices in the page to 1:
- 	   these are the indices that correspond to the "next" element,
 -- 
 1.7.7.2
