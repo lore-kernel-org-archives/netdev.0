@@ -1,63 +1,74 @@
-From: Richard Zhao <richard.zhao@linaro.org>
-Subject: Re: [PATCH 1/1] net: fec: convert to clk_prepare/clk_unprepare
-Date: Sun, 13 Nov 2011 11:34:33 +0800
-Message-ID: <20111113033427.GC2425@richard-laptop>
-References: <1320901304-13157-1-git-send-email-richard.zhao@linaro.org>
- <20111112124939.GJ5011@pengutronix.de>
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH Fix] mlx4_en: Remove FCS bytes from packet length.
+Date: Sun, 13 Nov 2011 09:35:26 +0200
+Message-ID: <4EBF733E.5020801@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, kernel@pengutronix.de,
-	shawn.guo@linaro.org, eric.miao@linaro.org
-To: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:63949 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918Ab1KMDfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Nov 2011 22:35:47 -0500
-Received: by iage36 with SMTP id e36so5748514iag.19
-        for <netdev@vger.kernel.org>; Sat, 12 Nov 2011 19:35:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20111112124939.GJ5011@pengutronix.de>
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:42129 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752025Ab1KMKHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 05:07:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Uwe,
-On Sat, Nov 12, 2011 at 01:49:39PM +0100, Uwe Kleine-K=F6nig wrote:
-> Hello Richard,
->=20
-> On Thu, Nov 10, 2011 at 01:01:44PM +0800, Richard Zhao wrote:
-> > Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
-> > ---
-> >  drivers/net/ethernet/freescale/fec.c |    5 +++++
-> >  1 files changed, 5 insertions(+), 0 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/eth=
-ernet/freescale/fec.c
-> > index 1124ce0..92e3585 100644
-> > --- a/drivers/net/ethernet/freescale/fec.c
-> > +++ b/drivers/net/ethernet/freescale/fec.c
-> > @@ -1588,6 +1588,7 @@ fec_probe(struct platform_device *pdev)
-> >  		ret =3D PTR_ERR(fep->clk);
-> >  		goto failed_clk;
-> >  	}
-> > +	clk_prepare(fep->clk);
-> What about error checking?
-The goal of the patch is migrating to the new generic clock framework.
-If the original driver has error check of clk_enable, I also added erro=
-r check of
-clk_prepare. And I've sent out new version patch, which use clk_prepare=
-_enable.
 
-Richard
->=20
-> Best regards
-> Uwe
->=20
-> --=20
-> Pengutronix e.K.                           | Uwe Kleine-K=F6nig      =
-      |
-> Industrial Linux Solutions                 | http://www.pengutronix.d=
-e/  |
+When HW doesn't remove FCS bytes they are reported in the completion
+byte count, we don't need to take them to skb.
+
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    6 +++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    2 ++
+ 2 files changed, 7 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index b89c36d..72f353e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -581,6 +581,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		 * Packet is OK - process it.
+ 		 */
+ 		length = be32_to_cpu(cqe->byte_cnt);
++		length -= ring->fcs_del;
+ 		ring->bytes += length;
+ 		ring->packets++;
+ 
+@@ -813,8 +814,11 @@ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv, int qpn,
+ 	context->db_rec_addr = cpu_to_be64(ring->wqres.db.dma);
+ 
+ 	/* Cancel FCS removal if FW allows */
+-	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP)
++	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP) {
+ 		context->param3 |= cpu_to_be32(1 << 29);
++		ring->fcs_del = FCS_SIZE;
++	} else
++		ring->fcs_del = 0;
+ 
+ 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, context, qp, state);
+ 	if (err) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 8fda331c..d93476b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -140,6 +140,7 @@ enum {
+ #define MLX4_EN_TX_POLL_TIMEOUT	(HZ / 4)
+ 
+ #define ETH_LLC_SNAP_SIZE	8
++#define FCS_SIZE		4
+ 
+ #define SMALL_PACKET_SIZE      (256 - NET_IP_ALIGN)
+ #define HEADER_COPY_SIZE       (128 - NET_IP_ALIGN)
+@@ -272,6 +273,7 @@ struct mlx4_en_rx_ring {
+ 	u32 prod;
+ 	u32 cons;
+ 	u32 buf_size;
++	u8  fcs_del;
+ 	void *buf;
+ 	void *rx_info;
+ 	unsigned long bytes;
+-- 
+1.7.7
