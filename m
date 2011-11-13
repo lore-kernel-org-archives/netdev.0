@@ -1,7 +1,7 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 2/8 2.6.32] udp: use limited socket backlog
-Date: Sun, 13 Nov 2011 23:17:35 +0300
-Message-ID: <20111113201735.GC1362@elgon.mountain>
+Subject: [patch 3/8 2.6.32] x25: use limited socket backlog
+Date: Sun, 13 Nov 2011 23:18:01 +0300
+Message-ID: <20111113201801.GD1362@elgon.mountain>
 References: <20111113201336.GA1362@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,91 +9,45 @@ Cc: Greg Kroah-Hartman <greg@kroah.com>, Zhu Yi <yi.zhu@intel.com>,
 	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
 To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:39589 "EHLO
+Received: from rcsinet15.oracle.com ([148.87.113.117]:39634 "EHLO
 	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777Ab1KMURz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 15:17:55 -0500
+	with ESMTP id S1751956Ab1KMUST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 15:18:19 -0500
 Content-Disposition: inline
 In-Reply-To: <20111113201336.GA1362@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I had to make some changes to the first chunk in net/ipv6/udp.c to
-make this to apply.
+This applied without changes to the original patch.
 
->From 55349790d7cbf0d381873a7ece1dcafcffd4aaa9 Mon Sep 17 00:00:00 2001
+>From 2499849ee8f513e795b9f2c19a42d6356e4943a4 Mon Sep 17 00:00:00 2001
 From: Zhu Yi <yi.zhu@intel.com>
-Date: Thu, 4 Mar 2010 18:01:42 +0000
-Subject: [PATCH] udp: use limited socket backlog
+Date: Thu, 4 Mar 2010 18:01:46 +0000
+Subject: [PATCH] x25: use limited socket backlog
 
-Make udp adapt to the limited socket backlog change.
+Make x25 adapt to the limited socket backlog change.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: Andrew Hendry <andrew.hendry@gmail.com>
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 0ac8833..2eaeaf1 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1177,8 +1177,10 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	bh_lock_sock(sk);
- 	if (!sock_owned_by_user(sk))
- 		rc = __udp_queue_rcv_skb(sk, skb);
--	else
--		sk_add_backlog(sk, skb);
-+	else if (sk_add_backlog_limited(sk, skb)) {
-+		bh_unlock_sock(sk);
-+		goto drop;
-+	}
- 	bh_unlock_sock(sk);
- 
- 	return rc;
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index ca520d4..4400eb0 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -473,16 +473,19 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 			bh_lock_sock(sk2);
- 			if (!sock_owned_by_user(sk2))
- 				udpv6_queue_rcv_skb(sk2, buff);
--			else
--				sk_add_backlog(sk2, buff);
-+			else if (sk_add_backlog_limited(sk2, buff)) {
-+				kfree_skb(buff);
-+				bh_unlock_sock(sk2);
-+				goto out;
-+			}
- 			bh_unlock_sock(sk2);
+ net/x25/x25_dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/x25/x25_dev.c b/net/x25/x25_dev.c
+index 3e1efe5..a9da0dc 100644
+--- a/net/x25/x25_dev.c
++++ b/net/x25/x25_dev.c
+@@ -53,7 +53,7 @@ static int x25_receive_data(struct sk_buff *skb, struct x25_neigh *nb)
+ 		if (!sock_owned_by_user(sk)) {
+ 			queued = x25_process_rx_frame(sk, skb);
+ 		} else {
+-			sk_add_backlog(sk, skb);
++			queued = !sk_add_backlog_limited(sk, skb);
  		}
- 	}
- 	bh_lock_sock(sk);
- 	if (!sock_owned_by_user(sk))
- 		udpv6_queue_rcv_skb(sk, skb);
--	else
--		sk_add_backlog(sk, skb);
-+	else if (sk_add_backlog_limited(sk, skb))
-+		kfree_skb(skb);
- 	bh_unlock_sock(sk);
- out:
- 	spin_unlock(&hslot->lock);
-@@ -601,8 +604,12 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	bh_lock_sock(sk);
- 	if (!sock_owned_by_user(sk))
- 		udpv6_queue_rcv_skb(sk, skb);
--	else
--		sk_add_backlog(sk, skb);
-+	else if (sk_add_backlog_limited(sk, skb)) {
-+		atomic_inc(&sk->sk_drops);
-+		bh_unlock_sock(sk);
-+		sock_put(sk);
-+		goto discard;
-+	}
- 	bh_unlock_sock(sk);
- 	sock_put(sk);
- 	return 0;
+ 		bh_unlock_sock(sk);
+ 		sock_put(sk);
+-- 
+1.7.8.rc0.dirty
