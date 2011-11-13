@@ -1,45 +1,47 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH] rds: drop "select LLIST"
-Date: Sun, 13 Nov 2011 14:36:37 +0100
-Message-ID: <1321191397.20271.62.camel@x61.thuisdomein>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: [PATCH v2 net-next 07/12] bnx2x: simplify definition of
+ RX_SGE_MASK_LEN and use it.
+Date: Sun, 13 Nov 2011 15:37:44 +0200
+Message-ID: <1321191464.4651.4.camel@lb-tlvb-dmitry>
+References: <1321188449-5822-1-git-send-email-dmitry@broadcom.com>
+ <1321188449-5822-8-git-send-email-dmitry@broadcom.com>
+ <1321189845.2069.4.camel@Joe-Laptop>
+Reply-To: dmitry@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Joe Perches" <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:2918 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753783Ab1KMNhv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Nov 2011 08:37:51 -0500
+In-Reply-To: <1321189845.2069.4.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 1bc144b625 ("net, rds, Replace xlist in net/rds/xlist.h with
-llist") added "select LLIST" to the RDS_RDMA Kconfig entry. But there is
-no Kconfig symbol named LLIST. The select statement for that symbol is a
-nop. Drop it.
+On Sun, 2011-11-13 at 05:10 -0800, Joe Perches wrote:
+> On Sun, 2011-11-13 at 14:47 +0200, Dmitry Kravkov wrote:
+> > diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+> []
+> > @@ -874,8 +874,7 @@ static inline void bnx2x_clear_sge_mask_next_elems(struct bnx2x_fastpath *fp)
+> >  static inline void bnx2x_init_sge_ring_bit_mask(struct bnx2x_fastpath *fp)
+> >  {
+> >  	/* Set the mask to all 1-s: it's faster to compare to 0 than to 0xf-s */
+> > -	memset(fp->sge_mask, 0xff,
+> > -	       (NUM_RX_SGE >> BIT_VEC64_ELEM_SHIFT)*sizeof(u64));
+> > +	memset(fp->sge_mask, 0xff, RX_SGE_MASK_LEN * sizeof(u64));
+> 
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x.h:
+> 	u64			sge_mask[RX_SGE_MASK_LEN];
+> 
+> perhaps this is more readable as:
+> 	memset(fp->sge_mask, 0xff, sizeof(fp->sge_mask));
+> 
+> 
 
-lib/llist.o is builtin, so all that's needed to use the llist
-functionality is to include linux/llist.h, which this commit also did.
-
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
----
-Tested with "yes "" | make config" before and after applying this patch.
-Identical .config files were generated, as was expected
-
- net/rds/Kconfig |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/net/rds/Kconfig b/net/rds/Kconfig
-index 4cf6dc7..ec753b3 100644
---- a/net/rds/Kconfig
-+++ b/net/rds/Kconfig
-@@ -9,7 +9,6 @@ config RDS
- 
- config RDS_RDMA
- 	tristate "RDS over Infiniband and iWARP"
--	select LLIST
- 	depends on RDS && INFINIBAND && INFINIBAND_ADDR_TRANS
- 	---help---
- 	  Allow RDS to use Infiniband and iWARP as a transport.
--- 
-1.7.4.4
+You're right, I'll fix it. Thanks.
