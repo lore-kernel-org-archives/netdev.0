@@ -1,74 +1,88 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH Fix] mlx4_en: Remove FCS bytes from packet length.
-Date: Sun, 13 Nov 2011 09:35:26 +0200
-Message-ID: <4EBF733E.5020801@mellanox.co.il>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 4/4] sunrpc: use SKB fragment destructors to delay
+ completion until page is released by network stack.
+Date: Sun, 13 Nov 2011 12:17:14 +0200
+Message-ID: <20111113101713.GB15322@redhat.com>
+References: <1320850895.955.172.camel@zakaz.uk.xensource.com>
+ <1320850927-30240-4-git-send-email-ian.campbell@citrix.com>
+ <20111111123824.GA23902@redhat.com>
+ <1321017627.955.254.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Brown <neilb@suse.de>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:42129 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752025Ab1KMKHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 05:07:46 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:8365 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750944Ab1KMKQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Nov 2011 05:16:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1321017627.955.254.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Nov 11, 2011 at 01:20:27PM +0000, Ian Campbell wrote:
+> On Fri, 2011-11-11 at 12:38 +0000, Michael S. Tsirkin wrote:
+> > On Wed, Nov 09, 2011 at 03:02:07PM +0000, Ian Campbell wrote:
+> > > This prevents an issue where an ACK is delayed, a retransmit is queued (either
+> > > at the RPC or TCP level) and the ACK arrives before the retransmission hits the
+> > > wire. If this happens to an NFS WRITE RPC then the write() system call
+> > > completes and the userspace process can continue, potentially modifying data
+> > > referenced by the retransmission before the retransmission occurs.
+> > > 
+> > > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> > > Acked-by: Trond Myklebust <Trond.Myklebust@netapp.com>
+> > > Cc: "David S. Miller" <davem@davemloft.net>
+> > > Cc: Neil Brown <neilb@suse.de>
+> > > Cc: "J. Bruce Fields" <bfields@fieldses.org>
+> > > Cc: linux-nfs@vger.kernel.org
+> > > Cc: netdev@vger.kernel.org
+> > 
+> > So this blocks the system call until all page references
+> > are gone, right?
+> 
+> Right. The alternative is to return to userspace while the network stack
+> still has a reference to the buffer which was passed in -- that's the
+> exact class of problem this patch is supposed to fix.
 
-When HW doesn't remove FCS bytes they are reported in the completion
-byte count, we don't need to take them to skb.
+BTW, the increased latency and the overhead extra wakeups might for some
+workloads be greater than the cost of the data copy.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    6 +++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    2 ++
- 2 files changed, 7 insertions(+), 1 deletions(-)
+> > But, there's no upper limit on how long the
+> > page is referenced, correct?
+> 
+> Correct.
+> 
+> >  consider a bridged setup
+> > with an skb queued at a tap device - this cause one process
+> > to block another one by virtue of not consuming a cloned skb?
+> 
+> Hmm, yes.
+> 
+> One approach might be to introduce the concept of an skb timeout to the
+> stack as a whole and cancel (or deep copy) after that timeout occurs.
+> That's going to be tricky though I suspect...
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b89c36d..72f353e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -581,6 +581,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		 * Packet is OK - process it.
- 		 */
- 		length = be32_to_cpu(cqe->byte_cnt);
-+		length -= ring->fcs_del;
- 		ring->bytes += length;
- 		ring->packets++;
- 
-@@ -813,8 +814,11 @@ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv, int qpn,
- 	context->db_rec_addr = cpu_to_be64(ring->wqres.db.dma);
- 
- 	/* Cancel FCS removal if FW allows */
--	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP)
-+	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP) {
- 		context->param3 |= cpu_to_be32(1 << 29);
-+		ring->fcs_del = FCS_SIZE;
-+	} else
-+		ring->fcs_del = 0;
- 
- 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, context, qp, state);
- 	if (err) {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 8fda331c..d93476b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -140,6 +140,7 @@ enum {
- #define MLX4_EN_TX_POLL_TIMEOUT	(HZ / 4)
- 
- #define ETH_LLC_SNAP_SIZE	8
-+#define FCS_SIZE		4
- 
- #define SMALL_PACKET_SIZE      (256 - NET_IP_ALIGN)
- #define HEADER_COPY_SIZE       (128 - NET_IP_ALIGN)
-@@ -272,6 +273,7 @@ struct mlx4_en_rx_ring {
- 	u32 prod;
- 	u32 cons;
- 	u32 buf_size;
-+	u8  fcs_del;
- 	void *buf;
- 	void *rx_info;
- 	unsigned long bytes;
+Further, an application might use signals such as SIGALARM,
+delaying them significantly will cause trouble.
+
+> A simpler option would be to have an end points such as a tap device
+
+Which end points would that be? Doesn't this affect a packet socket
+with matching filters? A userspace TCP socket that happens to
+reside on the same box?  It also seems that at least with a tap device
+an skb can get queued in a qdisk, also indefinitely, right?
+
+> which can swallow skbs for arbitrary times implement a policy in this
+> regard, either to deep copy or drop after a timeout?
+> 
+> Ian.
+
+Or deep copy immediately?
+
 -- 
-1.7.7
+MST
