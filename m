@@ -1,31 +1,44 @@
-From: "''Susan Wright''" <info@efisa.org>
-Subject: Confirm  Mail Receipt!!!
-Date: Sat, 12 Nov 2011 13:48:16 +0100
-Message-ID: <201111121249.pACCgpJ0047019@ttc-net.ru>
-Reply-To: ttialmed@mail2uk.com
+From: Miroslav Kratochvil <exa.exa@gmail.com>
+Subject: tc: deleting single entry from filter hashtable
+Date: Sun, 13 Nov 2011 22:19:49 +0100
+Message-ID: <CAO0uZ+9N9zwt07EdQzz6KjGcpRT7rdmpaBvHoE0TLDXe-0kxMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@efisa.org>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.ttc-net.ru ([217.21.209.8]:62821 "EHLO ttc-net.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751976Ab1KMVSm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 16:18:42 -0500
-Content-Description: Mail message body
+Received: from mail-iy0-f174.google.com ([209.85.210.174]:43477 "EHLO
+	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751976Ab1KMVTu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 16:19:50 -0500
+Received: by iage36 with SMTP id e36so6464374iag.19
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2011 13:19:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good Day
+Hello,
 
-I have been directed to contact you by my boss, Mr. Tia  Almeida, the P=
-rincipal Assurance Manager of BANCO EFISA. He has an urgent business pr=
-oposal for your consideration and acceptance valued =A310,000,000.00 GB=
-P he wishes to discuss with you. Kindly indicate your interest and get =
-back to enable him furnish you with more information/details and modali=
-ties on this proposal via his private email address: ttialmed@mail2uk.c=
-om
+I have following problem: For performance reasons I've been using a
+setup known from LARTC as 'hashing filters', just like here:
 
-Sincerely,
+http://lartc.org/howto/lartc.adv-filter.hashing.html
 
-Secretary
+For the same performance reasons, I'd like to be able to delete or
+change a _single_ entry from the hash table, so I don't need to refill
+the whole table on every change I need to do (which can get pretty
+slow for amount of entries over 10k, even when using a C program that
+pushes the commands right into 'tc -batch')
+
+Question: Is the single deletion/modification possible? If not --
+judging from the lack of the documentation on given subject I kindof
+expect that it's not possible -- is there any other possibility to
+delete at least some reasonably small subset of the hash table that
+could be modified and recreated quickly?
+
+Also, here's my (failed) approach: I tried to assign different prio's
+to all hashtable entries so they could be deleted by reference to that
+prio, but after passing through TC they got created with the same prio
+anyway..
+
+Thanks for any help with this problem,
+
+-mk
