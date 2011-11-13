@@ -1,90 +1,80 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: [LARTC] LARTC mailing list
-Date: Sun, 13 Nov 2011 22:56:29 +0100
-Message-ID: <CAA93jw49j--DFrj-040ii6Tp4S3v=QVKzUS8ShtBf_dG9zAoRw@mail.gmail.com>
-References: <4EA2BF3D.1010107@linuxsystems.it>
-	<1319292634.26402.6302.camel@andybev-desktop>
-	<alpine.LNX.2.01.1111021641440.17999@frira.zrqbmnf.qr>
-	<1321220521.1965.13.camel@andybev-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bnx2x: reduce skb truesize by 50%
+Date: Sun, 13 Nov 2011 23:00:57 +0100
+Message-ID: <1321221657.17837.51.camel@edumazet-laptop>
+References: <1320673364.3020.21.camel@bwh-desktop>
+	 <1320676422.2361.18.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1320859475.3916.21.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111109.163708.2156133928191684256.davem@davemloft.net>
+	 <1320876183.3272.8.camel@edumazet-laptop>
+	 <1320884940.5825.34.camel@edumazet-laptop>
+	 <1320937526.307.0.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <1320938878.2310.15.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1320942423.307.10.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <1320943512.10042.14.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <1321210419.3101.1.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <1321213338.17837.38.camel@edumazet-laptop>
+	 <1321214895.3101.3.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	"Linux Advanced Routing & Traffic Control project"
-	<lartc@lists.linuxsystems.it>, linux-new-lists@vger.kernel.org,
-	netfilter@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Beverley <andy@andybev.com>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <1321220521.1965.13.camel@andybev-desktop>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: eilong@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33954 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753337Ab1KMWBC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 17:01:02 -0500
+Received: by wyh15 with SMTP id 15so5340433wyh.19
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2011 14:01:01 -0800 (PST)
+In-Reply-To: <1321214895.3101.3.camel@lb-tlvb-eilong.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 13, 2011 at 10:42 PM, Andrew Beverley <andy@andybev.com> wr=
-ote:
-> On Wed, 2011-11-02 at 16:43 +0100, Jan Engelhardt wrote:
->> On Saturday 2011-10-22 16:10, Andrew Beverley wrote:
->>
->> >On Sat, 2011-10-22 at 15:03 +0200, Niccol=F2 Belli wrote:
->> >> Is someone still interested to bring LARTC to a new life?
->> >> I'm sorry for the subscription but the list didn't work anymore a=
-nd it
->> >> was unfeasible to CC 30+ addresses. Let me know if you want to
->> >> unsubscribe and you don't know how to.
->> >
->> >Thanks for doing this Niccolo. However, I'd rather see it hosted at
->> >vger.kernel.org for all the reasons previously outlined.
->> >
->> >I was actually going to suggest a new list called net-users instead=
+Le dimanche 13 novembre 2011 =C3=A0 22:08 +0200, Eilon Greenstein a =C3=
+=A9crit :
+> On Sun, 2011-11-13 at 11:42 -0800, Eric Dumazet wrote:
+> > Le dimanche 13 novembre 2011 =C3=A0 20:53 +0200, Eilon Greenstein a=
+ =C3=A9crit :
+> >=20
+> > > I=E2=80=99m not sure I=E2=80=99m following the math over here. As=
+suming L1 is 64 bytes,
+> > > we need up to 63 bytes to align the start address (assuming SLOB =
+is
+> > > being used) and additional (up to) 63 bytes at the end. That can =
+sum up
+> > > to 126 bytes  am I missing something?
+> > >=20
+> >=20
+> > What do you really mean by aligning the end ?
+>=20
+> I mean padding it to full cache line.
+>=20
+> > How can both start and end of a frame can be aligned ?
+>=20
+> The packet will start at aligned address and (using padding) will end=
+ at
+> cache line boundaries.
+>=20
+
+OK, so hardware adds up to 63 bytes of padding at the end of the packet=
 =2E
->> >There is netdev, netfilter-devel and netfilter, but not a general
->> >networking users list.
->> >
->> >User questions do get asked on netdev, and some non-netfilter quest=
-ions
->> >get asked on the netfilter list, but it would seem sensible to have=
- a
->> >general networking users list that would include LARTC questions.
->> >
->> >Comments anyone?
->>
->> Might as well just go to netfilter for now, it's not like as if the
->> traffic was as much as linux-kernel.
->
-> Yep, may as well, they seem to be posted there anyway. I was just
-> conscious that there doesn't appear to be many "tc" experts, because
-> those sort of questions don't get much of a response.
 
-I would be interested in seeing a resurrected 'tc' list aimed more at
-users/sysadmins than developers.
+> > If hardware needs extra room after the end of frame, then we alread=
+y
+> > have it (since we store struct skb_shared_info here)
+>=20
+> We have some space in there, but as far as I can tell it's not up to =
+63
+> bytes, right? We will overrun the dataref.
+>=20
 
-There has been a lot of mostly theoretical discussion about aqms and
-the like on the bloat and bloat-devel lists, but when it comes down to
-something that will actually work, not so much...
+OK then we need using build_skb() for this driver :)
 
->
-> I'd love to spend some time on some tc documentation one day...
+http://lists.openwall.net/netdev/2011/07/11/19
 
-The tc documentation is littered with less than useful examples, when
-they do exist, which is not often enough, and much of the public
-documentation is old or hard to understand.
-
-and I'd be glad to help get all that sorted out.
-
->
-> Andy
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
-
-
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
+This way, we build the skb_shared_info content _after_ frame is
+delivered by device.
