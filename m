@@ -1,49 +1,34 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] Net, libertas: Resolve memory leak in
- if_spi_host_to_card()
-Date: Sun, 13 Nov 2011 22:14:32 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1111132211580.3368@swampdragon.chaosbits.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3 net-next 09/12] bnx2x: add fan failure event handling
+Date: Sun, 13 Nov 2011 13:11:57 -0800
+Message-ID: <1321218717.15834.11.camel@Joe-Laptop>
+References: <1321194872-8276-1-git-send-email-dmitry@broadcom.com>
+	 <1321194872-8276-10-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrey Yurovsky <andrey@cozybit.com>,
-	Colin McCabe <colin@cozybit.com>,
-	Dan Williams <dcbw@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Ariel Elior <ariele@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Dmitry Kravkov <dmitry@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:41889 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751592Ab1KMVL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Nov 2011 16:11:59 -0500
+In-Reply-To: <1321194872-8276-10-git-send-email-dmitry@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If we hit the default case in the switch in if_spi_host_to_card() we'll leak
-the memory we allocated for 'packet'. This patch resolves the leak by freeing
-the allocated memory in that case.
+On Sun, 2011-11-13 at 16:34 +0200, Dmitry Kravkov wrote:
+> From: Ariel Elior <ariele@broadcom.com>
+> Shut down the device in case of fan failure to prevent HW damage.
+trivia.
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+[]
+> @@ -8503,6 +8514,17 @@ sp_rtnl_not_reset:
+[]
+> +	if (test_and_clear_bit(BNX2X_SP_RTNL_FAN_FAILURE, &bp->sp_rtnl_state)) {
+> +		DP(BNX2X_MSG_SP, "fan failure detected. Unloading driver");
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/net/wireless/libertas/if_spi.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
- Compile tested only due to lack of hardware.
-
-diff --git a/drivers/net/wireless/libertas/if_spi.c b/drivers/net/wireless/libertas/if_spi.c
-index 11b69b3..728baa4 100644
---- a/drivers/net/wireless/libertas/if_spi.c
-+++ b/drivers/net/wireless/libertas/if_spi.c
-@@ -995,6 +995,7 @@ static int if_spi_host_to_card(struct lbs_private *priv,
- 		spin_unlock_irqrestore(&card->buffer_lock, flags);
- 		break;
- 	default:
-+		kfree(packet);
- 		netdev_err(priv->dev, "can't transfer buffer of type %d\n",
- 			   type);
- 		err = -EINVAL;
--- 
-1.7.7.3
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+Missing a trailing "\n".
