@@ -1,62 +1,58 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH v3 net-next 11/12] bnx2x: Remove on-stack napi struct
- variable
-Date: Sun, 13 Nov 2011 16:34:31 +0200
-Message-ID: <1321194872-8276-12-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH v3 net-next 07/12] bnx2x: simplify definition of
+ RX_SGE_MASK_LEN and use it.
+Date: Sun, 13 Nov 2011 16:34:27 +0200
+Message-ID: <1321194872-8276-8-git-send-email-dmitry@broadcom.com>
 References: <1321194872-8276-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Ariel Elior" <ariele@broadcom.com>,
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1899 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1461 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754175Ab1KMOfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Nov 2011 09:35:05 -0500
+	id S1754116Ab1KMOew (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Nov 2011 09:34:52 -0500
 In-Reply-To: <1321194872-8276-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
-
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |    3 +--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index e9a91a3..13dad92 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -79,19 +79,21 @@ static inline void bnx2x_bz_fp(struct bnx2x *bp, int index)
-  * @to:		destination FP index
-  *
-  * Makes sure the contents of the bp->fp[to].napi is kept
-- * intact.
-+ * intact. This is done by first copying the napi struct from
-+ * the target to the source, and then mem copying the entire
-+ * source onto the target
-  */
- static inline void bnx2x_move_fp(struct bnx2x *bp, int from, int to)
- {
- 	struct bnx2x_fastpath *from_fp = &bp->fp[from];
- 	struct bnx2x_fastpath *to_fp = &bp->fp[to];
--	struct napi_struct orig_napi = to_fp->napi;
-+
-+	/* Copy the NAPI object as it has been already initialized */
-+	from_fp->napi = to_fp->napi;
-+
- 	/* Move bnx2x_fastpath contents */
- 	memcpy(to_fp, from_fp, sizeof(*to_fp));
- 	to_fp->index = to;
--
--	/* Restore the NAPI object as it has been already initialized */
--	to_fp->napi = orig_napi;
- }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index e17a739..b78c384 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -411,8 +411,7 @@ union db_prod {
  
- int load_count[2][3] = { {0} }; /* per-path: 0-common, 1-port0, 2-port1 */
+ 
+ /* Number of u64 elements in SGE mask array */
+-#define RX_SGE_MASK_LEN			((NUM_RX_SGE_PAGES * RX_SGE_CNT) / \
+-					 BIT_VEC64_ELEM_SZ)
++#define RX_SGE_MASK_LEN			(NUM_RX_SGE / BIT_VEC64_ELEM_SZ)
+ #define RX_SGE_MASK_LEN_MASK		(RX_SGE_MASK_LEN - 1)
+ #define NEXT_SGE_MASK_ELEM(el)		(((el) + 1) & RX_SGE_MASK_LEN_MASK)
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 59f1291..260226d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -874,8 +874,7 @@ static inline void bnx2x_clear_sge_mask_next_elems(struct bnx2x_fastpath *fp)
+ static inline void bnx2x_init_sge_ring_bit_mask(struct bnx2x_fastpath *fp)
+ {
+ 	/* Set the mask to all 1-s: it's faster to compare to 0 than to 0xf-s */
+-	memset(fp->sge_mask, 0xff,
+-	       (NUM_RX_SGE >> BIT_VEC64_ELEM_SHIFT)*sizeof(u64));
++	memset(fp->sge_mask, 0xff, sizeof(fp->sge_mask));
+ 
+ 	/* Clear the two last indices in the page to 1:
+ 	   these are the indices that correspond to the "next" element,
 -- 
 1.7.7.2
