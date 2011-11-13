@@ -1,34 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v3 net-next 09/12] bnx2x: add fan failure event handling
-Date: Sun, 13 Nov 2011 13:11:57 -0800
-Message-ID: <1321218717.15834.11.camel@Joe-Laptop>
-References: <1321194872-8276-1-git-send-email-dmitry@broadcom.com>
-	 <1321194872-8276-10-git-send-email-dmitry@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next V8] net: introduce ethernet teaming device
+Date: Sun, 13 Nov 2011 16:09:51 -0500 (EST)
+Message-ID: <20111113.160951.1905657808657009542.davem@davemloft.net>
+References: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
+	jzupka@redhat.com, ivecera@redhat.com
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41889 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751592Ab1KMVL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Nov 2011 16:11:59 -0500
-In-Reply-To: <1321194872-8276-10-git-send-email-dmitry@broadcom.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:60404 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676Ab1KMVMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 16:12:16 -0500
+In-Reply-To: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-11-13 at 16:34 +0200, Dmitry Kravkov wrote:
-> From: Ariel Elior <ariele@broadcom.com>
-> Shut down the device in case of fan failure to prevent HW damage.
-trivia.
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-[]
-> @@ -8503,6 +8514,17 @@ sp_rtnl_not_reset:
-[]
-> +	if (test_and_clear_bit(BNX2X_SP_RTNL_FAN_FAILURE, &bp->sp_rtnl_state)) {
-> +		DP(BNX2X_MSG_SP, "fan failure detected. Unloading driver");
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Sat, 12 Nov 2011 09:16:48 +0100
 
-Missing a trailing "\n".
+> This patch introduces new network device called team. It supposes to be
+> very fast, simple, userspace-driven alternative to existing bonding
+> driver.
+> 
+> Userspace library called libteam with couple of demo apps is available
+> here:
+> https://github.com/jpirko/libteam
+> Note it's still in its dipers atm.
+> 
+> team<->libteam use generic netlink for communication. That and rtnl
+> suppose to be the only way to configure team device, no sysfs etc.
+> 
+> Python binding of libteam was recently introduced.
+> Daemon providing arpmon/miimon active-backup functionality will be
+> introduced shortly. All what's necessary is already implemented in
+> kernel team driver.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+Applied, thanks for all of your hard work.
