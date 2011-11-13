@@ -1,40 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 00/12] bnx2x series
-Date: Sun, 13 Nov 2011 16:06:13 -0500 (EST)
-Message-ID: <20111113.160613.382531598058533705.davem@davemloft.net>
-References: <1321194872-8276-1-git-send-email-dmitry@broadcom.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] Net, libertas: Resolve memory leak in
+ if_spi_host_to_card()
+Date: Sun, 13 Nov 2011 22:14:32 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1111132211580.3368@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:35808 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690Ab1KMVGQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 16:06:16 -0500
-In-Reply-To: <1321194872-8276-1-git-send-email-dmitry@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrey Yurovsky <andrey@cozybit.com>,
+	Colin McCabe <colin@cozybit.com>,
+	Dan Williams <dcbw@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Sun, 13 Nov 2011 16:34:20 +0200
+If we hit the default case in the switch in if_spi_host_to_card() we'll leak
+the memory we allocated for 'packet'. This patch resolves the leak by freeing
+the allocated memory in that case.
 
-> Changes from v2:
->     - Patch: "bnx2x: simplify definition of RX_SGE_MASK_LEN and use it"
->       fixed according to Joe Perches <joe@perches.com> comment.
->   
-> Changes from v1:
->     - Removed patch with pri_map module parameter.  
-> 
-> 
-> Hello Dave,
-> 
-> The series includes re-enabling FCoE and DCB for 578xx devices,
-> some improvements in licensing for cnic,   
-> DCBX propagation in MF modes, handling of fan failures,
-> removing napi struct from the stack and performs some code clean-ups. 
-> 
-> Please consider applying the series to net-next.
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ drivers/net/wireless/libertas/if_spi.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Applied, thanks.
+ Compile tested only due to lack of hardware.
+
+diff --git a/drivers/net/wireless/libertas/if_spi.c b/drivers/net/wireless/libertas/if_spi.c
+index 11b69b3..728baa4 100644
+--- a/drivers/net/wireless/libertas/if_spi.c
++++ b/drivers/net/wireless/libertas/if_spi.c
+@@ -995,6 +995,7 @@ static int if_spi_host_to_card(struct lbs_private *priv,
+ 		spin_unlock_irqrestore(&card->buffer_lock, flags);
+ 		break;
+ 	default:
++		kfree(packet);
+ 		netdev_err(priv->dev, "can't transfer buffer of type %d\n",
+ 			   type);
+ 		err = -EINVAL;
+-- 
+1.7.7.3
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
