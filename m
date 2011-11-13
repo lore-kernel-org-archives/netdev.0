@@ -1,62 +1,57 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH v2 net-next 11/12] bnx2x: Remove on-stack napi struct
- variable
-Date: Sun, 13 Nov 2011 14:47:28 +0200
-Message-ID: <1321188449-5822-12-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH v2 net-next 01/12] bnx2x: allow FCoE and DCB for 578xx
+Date: Sun, 13 Nov 2011 14:47:18 +0200
+Message-ID: <1321188449-5822-2-git-send-email-dmitry@broadcom.com>
 References: <1321188449-5822-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Ariel Elior" <ariele@broadcom.com>,
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4273 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4268 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752846Ab1KMMrw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Nov 2011 07:47:52 -0500
+	id S1752556Ab1KMMrr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Nov 2011 07:47:47 -0500
 In-Reply-To: <1321188449-5822-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
-
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c  |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index e9a91a3..13dad92 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -79,19 +79,21 @@ static inline void bnx2x_bz_fp(struct bnx2x *bp, int index)
-  * @to:		destination FP index
-  *
-  * Makes sure the contents of the bp->fp[to].napi is kept
-- * intact.
-+ * intact. This is done by first copying the napi struct from
-+ * the target to the source, and then mem copying the entire
-+ * source onto the target
-  */
- static inline void bnx2x_move_fp(struct bnx2x *bp, int from, int to)
- {
- 	struct bnx2x_fastpath *from_fp = &bp->fp[from];
- 	struct bnx2x_fastpath *to_fp = &bp->fp[to];
--	struct napi_struct orig_napi = to_fp->napi;
-+
-+	/* Copy the NAPI object as it has been already initialized */
-+	from_fp->napi = to_fp->napi;
-+
- 	/* Move bnx2x_fastpath contents */
- 	memcpy(to_fp, from_fp, sizeof(*to_fp));
- 	to_fp->index = to;
--
--	/* Restore the NAPI object as it has been already initialized */
--	to_fp->napi = orig_napi;
- }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+index 51bd748..5cba9d7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+@@ -923,7 +923,7 @@ static void bnx2x_dcbx_admin_mib_updated_params(struct bnx2x *bp,
  
- int load_count[2][3] = { {0} }; /* per-path: 0-common, 1-port0, 2-port1 */
+ void bnx2x_dcbx_set_state(struct bnx2x *bp, bool dcb_on, u32 dcbx_enabled)
+ {
+-	if (!CHIP_IS_E1x(bp) && !CHIP_IS_E3(bp)) {
++	if (!CHIP_IS_E1x(bp)) {
+ 		bp->dcb_state = dcb_on;
+ 		bp->dcbx_enabled = dcbx_enabled;
+ 	} else {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 6486ab8..6f3a784 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -10817,8 +10817,8 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 	bp->qm_cid_count = bnx2x_set_qm_cid_count(bp);
+ 
+ #ifdef BCM_CNIC
+-	/* disable FCOE L2 queue for E1x and E3*/
+-	if (CHIP_IS_E1x(bp) || CHIP_IS_E3(bp))
++	/* disable FCOE L2 queue for E1x */
++	if (CHIP_IS_E1x(bp))
+ 		bp->flags |= NO_FCOE_FLAG;
+ 
+ #endif
 -- 
 1.7.7.2
