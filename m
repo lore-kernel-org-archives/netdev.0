@@ -1,44 +1,54 @@
-From: Miroslav Kratochvil <exa.exa@gmail.com>
-Subject: tc: deleting single entry from filter hashtable
-Date: Sun, 13 Nov 2011 22:19:49 +0100
-Message-ID: <CAO0uZ+9N9zwt07EdQzz6KjGcpRT7rdmpaBvHoE0TLDXe-0kxMg@mail.gmail.com>
+From: Andrew Beverley <andy@andybev.com>
+Subject: Re: [LARTC] LARTC mailing list
+Date: Sun, 13 Nov 2011 21:39:06 +0000
+Message-ID: <1321220346.1965.10.camel@andybev-desktop>
+References: <4EA2BF3D.1010107@linuxsystems.it>
+	 <1319292634.26402.6302.camel@andybev-desktop>
+	 <20111102175414.GA10307@synalogic.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:43477 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751976Ab1KMVTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 16:19:50 -0500
-Received: by iage36 with SMTP id e36so6464374iag.19
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2011 13:19:49 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Advanced Routing & Traffic Control project
+	<lartc@lists.linuxsystems.it>, linux-new-lists@vger.kernel.org,
+	netfilter@vger.kernel.org, netdev@vger.kernel.org
+To: Benjamin Poirier <benjamin.poirier@gmail.com>
+Return-path: <linux-new-lists-owner@vger.kernel.org>
+In-Reply-To: <20111102175414.GA10307@synalogic.ca>
+Sender: linux-new-lists-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Wed, 2011-11-02 at 13:54 -0400, Benjamin Poirier wrote:
+> On 11/10/22 15:10, Andrew Beverley wrote:
+> > On Sat, 2011-10-22 at 15:03 +0200, Niccol=C3=B2 Belli wrote:
+> > > Is someone still interested to bring LARTC to a new life?
+> > > I'm sorry for the subscription but the list didn't work anymore a=
+nd it=20
+> > > was unfeasible to CC 30+ addresses. Let me know if you want to=20
+> > > unsubscribe and you don't know how to.
+> >=20
+> > Thanks for doing this Niccolo. However, I'd rather see it hosted at
+> > vger.kernel.org for all the reasons previously outlined.
+> >=20
+> > I was actually going to suggest a new list called net-users instead=
+=2E
+> > There is netdev, netfilter-devel and netfilter, but not a general
+> > networking users list.
+>=20
+> Isn't that what linux-net@vger.kernel.org is/was supposed to be about=
+?
 
-I have following problem: For performance reasons I've been using a
-setup known from LARTC as 'hashing filters', just like here:
+Hmmm, hadn't even come across that before.
 
-http://lartc.org/howto/lartc.adv-filter.hashing.html
+> Not sure what's its status, it's no longer listed on
+> http://vger.kernel.org/vger-lists.html, the last message I've receive=
+d
+> on it was a month ago and it was mostly spam before that.
 
-For the same performance reasons, I'd like to be able to delete or
-change a _single_ entry from the hash table, so I don't need to refill
-the whole table on every change I need to do (which can get pretty
-slow for amount of entries over 10k, even when using a C program that
-pushes the commands right into 'tc -batch')
+Maybe not much interest for a users' list then...
 
-Question: Is the single deletion/modification possible? If not --
-judging from the lack of the documentation on given subject I kindof
-expect that it's not possible -- is there any other possibility to
-delete at least some reasonably small subset of the hash table that
-could be modified and recreated quickly?
 
-Also, here's my (failed) approach: I tried to assign different prio's
-to all hashtable entries so they could be deleted by reference to that
-prio, but after passing through TC they got created with the same prio
-anyway..
-
-Thanks for any help with this problem,
-
--mk
+--
+To unsubscribe from this list: send the line "unsubscribe linux-new-lis=
+ts" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
