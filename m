@@ -1,90 +1,52 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: bonding xmit_policy
-Date: Sun, 13 Nov 2011 21:26:50 +0100
-Message-ID: <4EC0280A.3060100@gmail.com>
-References: <CANj2Ebfj+7R+wCK7jJennBN7_6THJGqs8FWSAPOv7BYYsR=u9w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/8 2.6.32] CVE-2010-4251: packet backlog can get too
+ large
+Date: Sun, 13 Nov 2011 15:58:51 -0500 (EST)
+Message-ID: <20111113.155851.2167389434844487922.davem@davemloft.net>
+References: <20111113201336.GA1362@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Simon Chen <simonchennj@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stable@vger.kernel.org, greg@kroah.com, netdev@vger.kernel.org,
+	yi.zhu@intel.com, eric.dumazet@gmail.com
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:39331 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308Ab1KMU0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 15:26:52 -0500
-Received: by wwi18 with SMTP id 18so4056035wwi.1
-        for <netdev@vger.kernel.org>; Sun, 13 Nov 2011 12:26:51 -0800 (PST)
-In-Reply-To: <CANj2Ebfj+7R+wCK7jJennBN7_6THJGqs8FWSAPOv7BYYsR=u9w@mail.gmail.com>
+Received: from shards.monkeyblade.net ([198.137.202.13]:56824 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105Ab1KMU7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 15:59:04 -0500
+In-Reply-To: <20111113201336.GA1362@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 13/11/2011 03:55, Simon Chen a =E9crit :
-> Hi folks,
->
-> It looks like that there are three entries in xmit_policy (hashing fo=
-r
-> deciding egress phy int) for bonded interfaces:
->
-> const struct bond_parm_tbl xmit_hashtype_tbl[] =3D {
-> {       "layer2",               BOND_XMIT_POLICY_LAYER2},
-> {       "layer3+4",             BOND_XMIT_POLICY_LAYER34},
-> {       "layer2+3",             BOND_XMIT_POLICY_LAYER23},
-> {       NULL,                   -1},
-> };
->
->
-> We can set the xmit_policy either at module initiation, or later via
-> /sys. However, this xmit_policy isn't really read anywhere. Are
-> different policies really implemented?
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Sun, 13 Nov 2011 23:13:36 +0300
 
-The table is used in two different locations:
+> This patch series is to address CVE-2010-4251 for the 2.6.32 stable
+> kernel.  Here is the CVE summary:
+> 
+>  "The socket implementation in net/core/sock.c in the Linux kernel
+>   before 2.6.34 does not properly manage a backlog of received
+>   packets, which allows remote attackers to cause a denial of service
+>   (memory consumption) by sending a large amount of network traffic,
+>   as demonstrated by netperf UDP tests."
+> 
+> [patch 1/8] introduces sk_add_backlog_limited()
+> [patch 2-7/8] change each network protocol to use sk_add_backlog_limited()
+> 	where appropriate.
+> [patch 8/8] renames sk_add_backlog() to __sk_add_backlog() and
+> 	sk_add_backlog_limited() to sk_add_backlog().
+> 
+> The patches mostly apply without changes.  The exception is:
+> [patch 2/8] udp: use limited socket backlog
+> Then the rename [patch 8/8] needed to be changed as well to match.
 
-In drivers/net/bonding/bond_main.c:
+These changes are way too intrusive and potentially regression
+inducing for -stable inclusion, especially a kernel that is in such
+deep maintainence mode as 2.6.32 is.
 
-	xmit_hashtype =3D bond_parse_parm(xmit_hash_policy, xmit_hashtype_tbl)=
-;
-	[...]
-	params->xmit_policy =3D xmit_hashtype;
+Also, I tend to personally submit networking -stable patches, so please
+do not bypass me in this manner and instead recommend such submissions
+on the netdev list so I can evaluate the request.
 
-In drivers/net/bonding/bond_sysfs.c:
-
-	new_value =3D bond_parse_parm(buf, xmit_hashtype_tbl);
-	[...]
-	bonds->params.xmit_policy =3D new_value;
-
-Then, in drivers/net/bonding/bond_main.c, the value in bonds->params.xm=
-it_policy is used to setup a=20
-callback into bond->xmit_hash_policy.
-
-	static void bond_set_xmit_hash_policy(struct bonding *bond)
-	{
-	        switch (bond->params.xmit_policy) {
-	        case BOND_XMIT_POLICY_LAYER23:
-	                bond->xmit_hash_policy =3D bond_xmit_hash_policy_l23;
-	                break;
-	        case BOND_XMIT_POLICY_LAYER34:
-	                bond->xmit_hash_policy =3D bond_xmit_hash_policy_l34;
-	                break;
-	        case BOND_XMIT_POLICY_LAYER2:
-         	default:
-	                bond->xmit_hash_policy =3D bond_xmit_hash_policy_l2;
-	                break;
-	        }
-	}
-
-Then, in drivers/net/bonding/bond_3ad.c and in drivers/net/bonding/bond=
-_main.c, the callback is used=20
-to select a slave for xmit, for the two modes where xmit_hash_policy ha=
-ve a meaning:
-
-         slave_agg_no =3D bond->xmit_hash_policy(skb, slaves_in_agg);
-
-         slave_no =3D bond->xmit_hash_policy(skb, bond->slave_cnt);
-
-
-So, yes, those policies are really implemented.
-
-	Nicolas.
+Thanks.
