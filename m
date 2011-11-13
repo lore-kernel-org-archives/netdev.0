@@ -1,25 +1,35 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: Re: [PATCH 03/16] mac_sonic: add irq resources and cleanup
-Date: Mon, 14 Nov 2011 01:30:25 +1100 (EST)
-Message-ID: <alpine.LNX.2.00.1111140125340.2656@nippy.intranet>
-References: <20111023141108.856998818@telegraphics.com.au> <20111023141124.538715283@telegraphics.com.au> <CAMuHMdUHbqqt9Rce=Mh5A0GB_BHJX21dBSggFcqb9q4omDuyBQ@mail.gmail.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH v3 net-next 00/12] bnx2x series
+Date: Sun, 13 Nov 2011 16:34:20 +0200
+Message-ID: <1321194872-8276-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, linux-m68k@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdUHbqqt9Rce=Mh5A0GB_BHJX21dBSggFcqb9q4omDuyBQ@mail.gmail.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1435 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753781Ab1KMOeh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Nov 2011 09:34:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Changes from v2:
+    - Patch: "bnx2x: simplify definition of RX_SGE_MASK_LEN and use it"
+      fixed according to Joe Perches <joe@perches.com> comment.
+  
+Changes from v1:
+    - Removed patch with pri_map module parameter.  
 
 
-On Sun, 13 Nov 2011, Geert Uytterhoeven wrote:
+Hello Dave,
 
-> Please wrap lines at 75, for easier to read "git log" output.
+The series includes re-enabling FCoE and DCB for 578xx devices,
+some improvements in licensing for cnic,   
+DCBX propagation in MF modes, handling of fan failures,
+removing napi struct from the stack and performs some code clean-ups. 
 
-Yes, sorry about that. It was my first batch submission by "quilt mail" 
-(in the past I've always used Alpine to hard wrap individual patch 
-headers). I can fix them up and re-submit if that's easier for you.
+Please consider applying the series to net-next.
 
-Finn
+Thanks
+Dmitry
