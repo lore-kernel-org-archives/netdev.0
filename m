@@ -1,7 +1,7 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 3/8 2.6.32] x25: use limited socket backlog
-Date: Sun, 13 Nov 2011 23:18:01 +0300
-Message-ID: <20111113201801.GD1362@elgon.mountain>
+Subject: [patch 4/8 2.6.32] sctp: use limited socket backlog
+Date: Sun, 13 Nov 2011 23:18:24 +0300
+Message-ID: <20111113201823.GE1362@elgon.mountain>
 References: <20111113201336.GA1362@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,10 +9,10 @@ Cc: Greg Kroah-Hartman <greg@kroah.com>, Zhu Yi <yi.zhu@intel.com>,
 	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
 To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:39634 "EHLO
+Received: from rcsinet15.oracle.com ([148.87.113.117]:39675 "EHLO
 	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956Ab1KMUST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 15:18:19 -0500
+	with ESMTP id S1752764Ab1KMUSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 15:18:43 -0500
 Content-Disposition: inline
 In-Reply-To: <20111113201336.GA1362@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
@@ -20,34 +20,116 @@ List-ID: <netdev.vger.kernel.org>
 
 This applied without changes to the original patch.
 
->From 2499849ee8f513e795b9f2c19a42d6356e4943a4 Mon Sep 17 00:00:00 2001
+>From 50b1a782f845140f4138f14a1ce8a4a6dd0cc82f Mon Sep 17 00:00:00 2001
 From: Zhu Yi <yi.zhu@intel.com>
-Date: Thu, 4 Mar 2010 18:01:46 +0000
-Subject: [PATCH] x25: use limited socket backlog
+Date: Thu, 4 Mar 2010 18:01:44 +0000
+Subject: [PATCH] sctp: use limited socket backlog
 
-Make x25 adapt to the limited socket backlog change.
+Make sctp adapt to the limited socket backlog change.
 
-Cc: Andrew Hendry <andrew.hendry@gmail.com>
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: Sridhar Samudrala <sri@us.ibm.com>
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- net/x25/x25_dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/sctp/input.c  |   42 +++++++++++++++++++++++++++---------------
+ net/sctp/socket.c |    3 +++
+ 2 files changed, 30 insertions(+), 15 deletions(-)
 
-diff --git a/net/x25/x25_dev.c b/net/x25/x25_dev.c
-index 3e1efe5..a9da0dc 100644
---- a/net/x25/x25_dev.c
-+++ b/net/x25/x25_dev.c
-@@ -53,7 +53,7 @@ static int x25_receive_data(struct sk_buff *skb, struct x25_neigh *nb)
- 		if (!sock_owned_by_user(sk)) {
- 			queued = x25_process_rx_frame(sk, skb);
- 		} else {
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index c0c973e..cbc0636 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -75,7 +75,7 @@ static struct sctp_association *__sctp_lookup_association(
+ 					const union sctp_addr *peer,
+ 					struct sctp_transport **pt);
+ 
+-static void sctp_add_backlog(struct sock *sk, struct sk_buff *skb);
++static int sctp_add_backlog(struct sock *sk, struct sk_buff *skb);
+ 
+ 
+ /* Calculate the SCTP checksum of an SCTP packet.  */
+@@ -265,8 +265,13 @@ int sctp_rcv(struct sk_buff *skb)
+ 	}
+ 
+ 	if (sock_owned_by_user(sk)) {
++		if (sctp_add_backlog(sk, skb)) {
++			sctp_bh_unlock_sock(sk);
++			sctp_chunk_free(chunk);
++			skb = NULL; /* sctp_chunk_free already freed the skb */
++			goto discard_release;
++		}
+ 		SCTP_INC_STATS_BH(SCTP_MIB_IN_PKT_BACKLOG);
+-		sctp_add_backlog(sk, skb);
+ 	} else {
+ 		SCTP_INC_STATS_BH(SCTP_MIB_IN_PKT_SOFTIRQ);
+ 		sctp_inq_push(&chunk->rcvr->inqueue, chunk);
+@@ -336,8 +341,10 @@ int sctp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ 		sctp_bh_lock_sock(sk);
+ 
+ 		if (sock_owned_by_user(sk)) {
 -			sk_add_backlog(sk, skb);
-+			queued = !sk_add_backlog_limited(sk, skb);
- 		}
- 		bh_unlock_sock(sk);
- 		sock_put(sk);
+-			backloged = 1;
++			if (sk_add_backlog_limited(sk, skb))
++				sctp_chunk_free(chunk);
++			else
++				backloged = 1;
+ 		} else
+ 			sctp_inq_push(inqueue, chunk);
+ 
+@@ -362,22 +369,27 @@ done:
+ 	return 0;
+ }
+ 
+-static void sctp_add_backlog(struct sock *sk, struct sk_buff *skb)
++static int sctp_add_backlog(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct sctp_chunk *chunk = SCTP_INPUT_CB(skb)->chunk;
+ 	struct sctp_ep_common *rcvr = chunk->rcvr;
++	int ret;
+ 
+-	/* Hold the assoc/ep while hanging on the backlog queue.
+-	 * This way, we know structures we need will not disappear from us
+-	 */
+-	if (SCTP_EP_TYPE_ASSOCIATION == rcvr->type)
+-		sctp_association_hold(sctp_assoc(rcvr));
+-	else if (SCTP_EP_TYPE_SOCKET == rcvr->type)
+-		sctp_endpoint_hold(sctp_ep(rcvr));
+-	else
+-		BUG();
++	ret = sk_add_backlog_limited(sk, skb);
++	if (!ret) {
++		/* Hold the assoc/ep while hanging on the backlog queue.
++		 * This way, we know structures we need will not disappear
++		 * from us
++		 */
++		if (SCTP_EP_TYPE_ASSOCIATION == rcvr->type)
++			sctp_association_hold(sctp_assoc(rcvr));
++		else if (SCTP_EP_TYPE_SOCKET == rcvr->type)
++			sctp_endpoint_hold(sctp_ep(rcvr));
++		else
++			BUG();
++	}
++	return ret;
+ 
+-	sk_add_backlog(sk, skb);
+ }
+ 
+ /* Handle icmp frag needed error. */
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index f6d1e59..dfc5c12 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3720,6 +3720,9 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
+ 	SCTP_DBG_OBJCNT_INC(sock);
+ 	percpu_counter_inc(&sctp_sockets_allocated);
+ 
++	/* Set socket backlog limit. */
++	sk->sk_backlog.limit = sysctl_sctp_rmem[1];
++
+ 	local_bh_disable();
+ 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
+ 	local_bh_enable();
 -- 
 1.7.8.rc0.dirty
