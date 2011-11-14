@@ -1,200 +1,139 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Re: net: Add network priority cgroup
-Date: Mon, 14 Nov 2011 13:32:04 +0100
-Message-ID: <CAA93jw7tQtBGFMuDiK_pRUqAdfBVqrwbMegR8gh-8KgVb19PWg@mail.gmail.com>
-References: <1320868655-32592-1-git-send-email-nhorman@tuxdriver.com>
-	<20111114114700.GA27284@hmsreliant.think-freely.org>
+From: Ian Campbell <Ian.Campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 4/4] sunrpc: use SKB fragment destructors to delay
+ completion until page is released by network stack.
+Date: Mon, 14 Nov 2011 13:07:35 +0000
+Message-ID: <1321276055.3664.67.camel@zakaz.uk.xensource.com>
+References: <1320850895.955.172.camel@zakaz.uk.xensource.com>
+	 <1320850927-30240-4-git-send-email-ian.campbell@citrix.com>
+	 <20111111123824.GA23902@redhat.com>
+	 <1321017627.955.254.camel@zakaz.uk.xensource.com>
+	 <20111113101713.GB15322@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Robert Love <robert.w.love@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:32818 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752689Ab1KNMcF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 07:32:05 -0500
-Received: by vcbgb30 with SMTP id gb30so402887vcb.19
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 04:32:05 -0800 (PST)
-In-Reply-To: <20111114114700.GA27284@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20111113101713.GB15322-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 14, 2011 at 12:47 PM, Neil Horman <nhorman@tuxdriver.com> w=
-rote:
-> On Wed, Nov 09, 2011 at 02:57:33PM -0500, Neil Horman wrote:
->> Data Center Bridging environments are currently somewhat limited in =
-their
->> ability to provide a general mechanism for controlling traffic prior=
-ity.
->> Specifically they are unable to administratively control the priorit=
-y at which
->> various types of network traffic are sent.
->>
->> Currently, the only ways to set the priority of a network buffer are=
-:
->>
->> 1) Through the use of the SO_PRIORITY socket option
->> 2) By using low level hooks, like a tc action
->>
->> (1) is difficult from an administrative perspective because it requi=
-res that the
->> application to be coded to not just assume the default priority is s=
-ufficient,
->> and must expose an administrative interface to allow priority adjust=
-ment. =A0Such
->> a solution is not scalable in a DCB environment
->>
->> (2) is also difficult, as it requires constant administrative oversi=
-ght of
->> applications so as to build appropriate rules to match traffic belon=
-ging to
->> various classes, so that priority can be appropriately set. It is fu=
-rther
->> limiting when DCB enabled hardware is in use, due to the fact that t=
-c rules are
->> only run after a root qdisc has been selected (DCB enabled hardware =
-may reserve
->> hw queues for various traffic classes and needs the priority to be s=
-et prior to
->> selecting the root qdisc)
->>
->>
->> I've discussed various solutions with John Fastabend, and we saw a c=
-group as
->> being a good general solution to this problem. =A0The network priori=
-ty cgroup
->> allows for a per-interface priority map to be built per cgroup. =A0A=
-ny traffic
->> originating from an application in a cgroup, that does not explicitl=
-y set its
->> priority with SO_PRIORITY will have its priority assigned to the val=
-ue
->> designated for that group on that interface. =A0This allows a user s=
-pace daemon,
->> when conducting LLDP negotiation with a DCB enabled peer to create a=
- cgroup
->> based on the APP_TLV value received and administratively assign appl=
-ications to
->> that priority using the existing cgroup utility infrastructure.
->>
->> Tested by John and myself, with good results
->>
->> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->> CC: John Fastabend <john.r.fastabend@intel.com>
->> CC: Robert Love <robert.w.love@intel.com>
->> CC: "David S. Miller" <davem@davemloft.net>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->>
->
-> Bump, any other thoughts here? =A0Dave T. has some reasonable thought=
-s regarding
-> the use of skb->priority, but IMO they really seem orthogonal to the =
-purpose of
-> this change. =A0Any other reviews would be welcome.
+On Sun, 2011-11-13 at 10:17 +0000, Michael S. Tsirkin wrote:
+> On Fri, Nov 11, 2011 at 01:20:27PM +0000, Ian Campbell wrote:
+> > On Fri, 2011-11-11 at 12:38 +0000, Michael S. Tsirkin wrote:
+> > > On Wed, Nov 09, 2011 at 03:02:07PM +0000, Ian Campbell wrote:
+> > > > This prevents an issue where an ACK is delayed, a retransmit is queued (either
+> > > > at the RPC or TCP level) and the ACK arrives before the retransmission hits the
+> > > > wire. If this happens to an NFS WRITE RPC then the write() system call
+> > > > completes and the userspace process can continue, potentially modifying data
+> > > > referenced by the retransmission before the retransmission occurs.
+> > > > 
+> > > > Signed-off-by: Ian Campbell <ian.campbell-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> > > > Acked-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> > > > Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> > > > Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+> > > > Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+> > > > Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > > > Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > > 
+> > > So this blocks the system call until all page references
+> > > are gone, right?
+> > 
+> > Right. The alternative is to return to userspace while the network stack
+> > still has a reference to the buffer which was passed in -- that's the
+> > exact class of problem this patch is supposed to fix.
+> 
+> BTW, the increased latency and the overhead extra wakeups might for some
+> workloads be greater than the cost of the data copy.
 
-Well, in part I've been playing catchup in the hope that lldp and
-openlldp and/or this dcb netlink layer that I don't know anything
-about (pointers please?) could help somehow to resolve the semantic
-mess skb->priority has become in the first place.
+Under normal circumstances these paths should not be activated at all.
+These only come into play if there are delays in the network coming from
+somewhere and I would expect any negative effect from that to outweigh
+either a copy or an additional wakeup.
 
-I liked what was described here.
+> > 
+> > >  consider a bridged setup
+> > > with an skb queued at a tap device - this cause one process
+> > > to block another one by virtue of not consuming a cloned skb?
+> > 
+> > Hmm, yes.
+> > 
+> > One approach might be to introduce the concept of an skb timeout to the
+> > stack as a whole and cancel (or deep copy) after that timeout occurs.
+> > That's going to be tricky though I suspect...
+> 
+> Further, an application might use signals such as SIGALARM,
+> delaying them significantly will cause trouble.
 
-"What if we did at least carve out the DCB functionality away from
-skb->priority?  Since, AIUI, we're only concerning ourselves with
-locally generated traffic here, we're talking
-about skbs that have a socket attached to them.  We could, instead of i=
-ndexing
-the prio_tc_map with skb->priority, we could index it with
-skb->dev->priomap[skb->sk->prioidx] (as provided by this patch).  The c=
-group
-then could be, instead of a strict priority cgroup, a queue_selector cg=
-roup (or
-something more appropriately named), and we don't have to touch skb->pr=
-iority at
-all.  I'd really rather not start down that road until I got more opini=
-ons and
-consensus on that, but it seems like a pretty good solution, one that w=
-ould
-allow hardware queue selection in systems that use things like DCB to c=
-o-exist
-with software queueing features."
+AIUI there is nothing to stop the SIGALARM being delivered in a timely
+manner, all which may need to be delayed is the write() returning
+-EINTR. 
 
-The piece that still kind of bothered me about the original proposal
-(and perhaps this one) was that setting SO_PRIORITY in an app means
-'give my packets more mojo'.
+When -EINTR is returned the buffer must no longer be referenced either
+implicitly or explicitly by the kernel and the write must not have
+completed and nor should it complete in the future (that way lies
+corruption of varying sorts) so copying the data pages is not helpful in
+this case.
 
-Taking something that took unprioritized packets and assigned them and
-*them only* to a hardware queue struck me as possibly deprioritizing
-the 'more mojo wanted' packets in the app(s), as they would end up in
-some other, possibly overloaded, hardware queue.
+This patch ensures that the buffer is no longer referenced when the
+write returns. It's possible that NFS might need to cancel a write
+operation in order to not complete it after returning -EINTR (I don't
+know if it does this or not) but I don't think this series impacts that
+one way or the other.
 
-So a cgroup that moves all of the packets from an application into a
-given hardware queue, and then gets scheduled normally according to
-skb->priority and friends (software queue, default of pfifo_fast,
-etc), seems to make some sense to me. (I wouldn't mind if we had
-abstractions for software queues, too, like, I need a software queue
-with these properties, find me a place for it on the hardware - but
-I'm dreaming)
+> 
+> > A simpler option would be to have an end points such as a tap device
+> 
+> Which end points would that be? Doesn't this affect a packet socket
+> with matching filters? A userspace TCP socket that happens to
+> reside on the same box?  It also seems that at least with a tap device
+> an skb can get queued in a qdisk, also indefinitely, right?
 
-One open question is where do packets generated from other subsystems
-end up, if you are using a cgroup for the app? arp, dns, etc?
+Those are all possibilities.
 
-So to rephrase your original description from this:
+In order for this patch to have any impact on any of these scenarios
+those end points would have to currently be referencing and using pages
+of data which have been "returned" to the originating user process and
+may be changing under their feet. This is without a doubt a Bad Thing.
 
->> Any traffic originating from an application in a cgroup, that does n=
-ot explicitly set its
->> priority with SO_PRIORITY will have its priority assigned to the val=
-ue
->> designated for that group on that interface.  This allows a user spa=
-ce daemon,
->> when conducting LLDP negotiation with a DCB enabled peer to create a=
- cgroup
->> based on the APP_TLV value received and administratively assign appl=
-ications to
->> that priority using the existing cgroup utility infrastructure.
-> John, Robert, if you're supportive of these changes, some Acks would =
-be
-> appreciated.
+In the normal case it is likely that the same end point which is
+injecting delay is also the one the originating process is actually
+trying to talk to and so the delay would already have been present and
+this patch doesn't delay things any further.
 
-To this:
+If there are parts of the stack which can end up holding onto an skb for
+an arbitrary amount of time then I think that is something which needs
+to be fixed up in those end points rather than in everyone who injects
+an skb into the stack. Whether an immediate deep copy or a more lazy
+approach is appropriate I suspect depends upon the exact use case of
+each end point.
 
-"Any traffic originating from an application in a cgroup,  will have
-its hardware queue  assigned to the value designated for that group on
-that interface.  This allows a user space daemon, when conducting LLDP
-negotiation with a DCB enabled peer to create a cgroup based on the
-APP_TLV value received and administratively assign applications to
-that hardware queue using the existing cgroup utility infrastructure."
+Having said that one idea which springs to mind would be to allow
+someone who has injected a page into the stack to "cancel" it. Since I
+am working on pushing the struct page * down into the struct
+skb_destructor this could be as simple as setting the page to NULL.
+However every end point would need to be taught to expect this. I'm sure
+there are also all sorts of locking nightmares underlying this idea.
+Perhaps you'd need separate reference counts for queued vs in active
+use.
 
-Assuming we're on the same page here, what the heck is APP_TLV?
+Ian.
 
-> John, Robert, if you're supportive of these changes, some Acks would =
-be
-> appreciated.
+> 
+> > which can swallow skbs for arbitrary times implement a policy in this
+> > regard, either to deep copy or drop after a timeout?
+> > 
+> > Ian.
+> 
+> Or deep copy immediately?
+> 
 
 
->
->
-> Regards
-> Neil
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
-
-
-
---=20
-Dave T=E4ht
-SKYPE: davetaht
-US Tel: 1-239-829-5608
-=46R Tel: 0638645374
-http://www.bufferbloat.net
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
