@@ -1,37 +1,37 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH] NET: MIPS: lantiq: fix etop compile error
-Date: Mon, 14 Nov 2011 16:01:18 +0100
-Message-ID: <1321282878-29372-1-git-send-email-blogic@openwrt.org>
-Cc: John Crispin <blogic@openwrt.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:60108 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751846Ab1KNOBt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Nov 2011 09:01:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: Re: [PATCH] ip6_tunnel: copy parms.name after register_netdevice
+Date: Mon, 14 Nov 2011 09:02:53 -0500
+Message-ID: <20111114140253.GA4096@zod.bos.redhat.com>
+References: <20111111011023.GE2170@zod.bos.redhat.com>
+ <20111114.002456.1590067179487443754.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jpirko@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20111114.002456.1590067179487443754.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Lantiq ETOP ethernet driver fails to build in 3.2-rc1 due to 2 missing
-header files.
+On Mon, Nov 14, 2011 at 12:24:56AM -0500, David Miller wrote:
+> From: Josh Boyer <jwboyer@redhat.com>
+> Date: Thu, 10 Nov 2011 20:10:23 -0500
+> 
+> > @@ -288,6 +288,8 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct ip6_tnl_parm *p)
+> >  
+> >  	if ((err = register_netdevice(dev)) < 0)
+> >  		goto failed_free;
+> > +	
+> > +	strcpy(t->parms.name, dev->name);
+> 
+> Trailing whitespace on that blank line you're adding.
 
-Signed-off-by: John Crispin <blogic@openwrt.org>
----
- drivers/net/ethernet/lantiq_etop.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Ugh.  Forgot to run checkpatch.  Apologies.
 
-diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
-index 6bb2b95..0b3567a 100644
---- a/drivers/net/ethernet/lantiq_etop.c
-+++ b/drivers/net/ethernet/lantiq_etop.c
-@@ -34,6 +34,8 @@
- #include <linux/init.h>
- #include <linux/delay.h>
- #include <linux/io.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/module.h>
- 
- #include <asm/checksum.h>
- 
--- 
-1.7.7.1
+> I fixed this up, applied, and queued up for -stable, thanks.
+
+Thank you.
+
+josh
