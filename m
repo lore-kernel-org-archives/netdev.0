@@ -1,41 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH FIX net v2] forcedeth: fix stats on hardware without
- extended stats support
-Date: Mon, 14 Nov 2011 00:15:14 -0500 (EST)
-Message-ID: <20111114.001514.2212530697656360412.davem@davemloft.net>
-References: <cover.1321064621.git.david.decotigny@google.com>
-	<51c23650f3fc6e48b652a7ab322ca09a1cb7cbcc.1321064621.git.david.decotigny@google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH series][6LoWPAN][net-next]
+Date: Mon, 14 Nov 2011 00:22:02 -0500 (EST)
+Message-ID: <20111114.002202.1201536915576676890.davem@davemloft.net>
+References: <20111110173258.GA8056@avtobot.cybertron>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ian.campbell@citrix.com, eric.dumazet@gmail.com,
-	jeffrey.t.kirsher@intel.com, jpirko@redhat.com, joe@perches.com,
-	szymon@janc.net.pl, rick.jones2@hp.com, AAbdulla@nvidia.com
-To: david.decotigny@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51c23650f3fc6e48b652a7ab322ca09a1cb7cbcc.1321064621.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20111110173258.GA8056-AUGNqIMGY+bGcXpsla5Oef8+0UxHXcjY@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <david.decotigny@google.com>
-Date: Fri, 11 Nov 2011 18:27:34 -0800
+From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Thu, 10 Nov 2011 20:32:58 +0300
 
-> This change makes sure that tx_packets/rx_bytes ifconfig counters are
-> updated even on NICs that don't provide hardware support for these
-> stats: they are now updated in software. For the sake of consistency,
-> we also now have tx_bytes updated in software (hardware counters
-> include ethernet CRC, and software doesn't account for it).
+> Hello all,
 > 
-> This reverts parts of:
->  - "forcedeth: statistics optimization" (21828163b2)
->  - "forcedeth: Improve stats counters" (0bdfea8ba8)
->  - "forcedeth: remove unneeded stats updates" (4687f3f364)
+> The following patch series adds both major feature and minor fixes.
+> Please find detailed description in each of the patches.
 > 
-> Tested:
->   pktgen + loopback (http://patchwork.ozlabs.org/patch/124698/)
->   reports identical tx_packets/rx_packets and tx_bytes/rx_bytes.
+> Just to summarize current development status:
+> By using MAC and PHY layers support from
+>     "http://sourceforge.net/projects/linux-zigbee"
+> project now it's possible to run generic network applications (ssh, iperf) over
+> ieee802.15.4 network.
 > 
-> Signed-off-by: David Decotigny <david.decotigny@google.com>
+> iperf shows about ~40Kbits/sec for TCP 
 
-Applied, thanks.
+All applied, thanks.
+
+In future patch submissions, please layout your Subject lines
+correctly.
+
+Everything that is inside of brackes "[]" will be removed before
+the subject line is placed at the top of the commit message.  So
+as-is, your commits would lack any kind of indication of where
+the code changes were occuring since the "6LowPAN" part was removed.
+
+In fact, you didn't mention 6LowPAN at all in the subject line
+of some of your commits.  This is unacceptable.  There must always
+be a subject prefix of the form "${SUBSYSTEM}: " so that what
+ends up in the commit message lets readers know the general area
+where the change was made.
+
+------------------------------------------------------------------------------
+RSA(R) Conference 2012
+Save $700 by Nov 18
+Register now
+http://p.sf.net/sfu/rsa-sfdev2dev1
