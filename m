@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V5 net-next] neigh: new unresolved queue limits
-Date: Mon, 14 Nov 2011 00:48:13 -0500 (EST)
-Message-ID: <20111114.004813.220637143497418040.davem@davemloft.net>
-References: <20111109.161644.505896539772671525.davem@davemloft.net>
-	<20111109.162137.808999062815992591.davem@davemloft.net>
-	<1320876434.3272.12.camel@edumazet-laptop>
+Subject: Re: [PATCH][RESEND] net/usb: Misc. fixes for the LG-VL600 LTE USB
+ modem
+Date: Mon, 14 Nov 2011 00:49:29 -0500 (EST)
+Message-ID: <20111114.004929.384609475492837593.davem@davemloft.net>
+References: <1320875290-29407-1-git-send-email-prox@prolixium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52857 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874Ab1KNFsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 00:48:16 -0500
-In-Reply-To: <1320876434.3272.12.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: oliver@neukum.name, gregkh@suse.de, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: prox@prolixium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1320875290-29407-1-git-send-email-prox@prolixium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 09 Nov 2011 23:07:14 +0100
+From: Mark Kamichoff <prox@prolixium.com>
+Date: Wed,  9 Nov 2011 16:48:10 -0500
 
-> Ouch, this was fixed on one machine yesterday, but not the other one I
-> used this morning, sorry.
+> Add checking for valid magic values (needed for stability in the event
+> corrupted packets are received) and remove some other unneeded checks.
+> Also, fix flagging device as WWAN (Bugzilla bug #39952).
 > 
-> [PATCH V5 net-next] neigh: new unresolved queue limits
+> Signed-off-by: Mark Kamichoff <prox@prolixium.com>
 
-Applied, thanks Eric.
+Applied, thanks Mark.
