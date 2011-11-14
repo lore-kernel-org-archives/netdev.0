@@ -1,47 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Sweep the last of the active
- .get_drvinfo floors under ethernet/
-Date: Mon, 14 Nov 2011 14:22:21 -0500 (EST)
-Message-ID: <20111114.142221.426237349118940895.davem@davemloft.net>
-References: <20111114181325.217C72900307@tardy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dwang2@cisco.com, netdev@vger.kernel.org, roprabhu@cisco.com,
-	e1000-devel@lists.sourceforge.net, benve@cisco.com
-To: raj@tardy.cup.hp.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20111114181325.217C72900307@tardy>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] Don't allow sharing of tx skbs on xen-netfront
+Date: Mon, 14 Nov 2011 14:22:24 -0500
+Message-ID: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	xen-devel@lists.xensource.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55707 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733Ab1KNTWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:22:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: raj@tardy.cup.hp.com (Rick Jones)
-Date: Mon, 14 Nov 2011 10:13:25 -0800 (PST)
+It was pointed out to me recently that the xen-netfront driver can't safely
+support shared skbs on transmit, since, while it doesn't maintain skb state
+directly, it does pass a pointer to the skb to the hypervisor via a list, and
+the hypervisor may expect the contents of the skb to remain stable.  Clearing
+the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
 
-> From: Rick Jones <rick.jones2@hp.com>
-> 
-> This round of floor sweeping converts strncpy calls in various .get_drvinfo
-> routines to the preferred strlcpy.  It also does a modicum of other
-> cleaning in those routines.
-> 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
+CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+CC: xen-devel@lists.xensource.com
+---
+ drivers/net/xen-netfront.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Applied, thanks for taking care of this.
-
-------------------------------------------------------------------------------
-RSA(R) Conference 2012
-Save $700 by Nov 18
-Register now
-http://p.sf.net/sfu/rsa-sfdev2dev1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 226faab..fb1077b 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1252,6 +1252,12 @@ static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev
+ 		return ERR_PTR(-ENOMEM);
+ 	}
+ 
++	/*
++	 * Since frames remain on a queue after a return from xennet_start_xmit,
++	 * we can't support tx shared skbs
++	 */
++	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
++
+ 	np                   = netdev_priv(netdev);
+ 	np->xbdev            = dev;
+ 
+-- 
+1.7.6.4
