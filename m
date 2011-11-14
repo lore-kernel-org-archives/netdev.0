@@ -1,37 +1,34 @@
-From: Josh Boyer <jwboyer@redhat.com>
-Subject: Re: [PATCH] ip6_tunnel: copy parms.name after register_netdevice
-Date: Mon, 14 Nov 2011 09:02:53 -0500
-Message-ID: <20111114140253.GA4096@zod.bos.redhat.com>
-References: <20111111011023.GE2170@zod.bos.redhat.com>
- <20111114.002456.1590067179487443754.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net, bridge: print log message after state changed
+Date: Mon, 14 Nov 2011 06:27:50 -0800
+Message-ID: <1321280870.2004.2.camel@Joe-Laptop>
+References: <1320941934-3534-1-git-send-email-holger.brunck@keymile.com>
+	 <20111114.003702.1097206603722725705.davem@davemloft.net>
+	 <1321254211.4072.29.camel@pc005091.de.keymile.net>
+	 <20111114.020749.1176229013272872343.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jpirko@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang.Fritz@keymile.com, holger.brunck@keymile.com,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	bridge@lists.linux-foundation.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20111114.002456.1590067179487443754.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:37279 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752513Ab1KNO1w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Nov 2011 09:27:52 -0500
+In-Reply-To: <20111114.020749.1176229013272872343.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2011 at 12:24:56AM -0500, David Miller wrote:
-> From: Josh Boyer <jwboyer@redhat.com>
-> Date: Thu, 10 Nov 2011 20:10:23 -0500
+On Mon, 2011-11-14 at 02:07 -0500, David Miller wrote:
+> I would never expect an "entering" message to print out after the event
+> happens, and in fact I'd _always_ want to see it beforehand so that if
+> the state change caused a crash or similar it'd be that much easier
+> to pinpoint the proper location.
 > 
-> > @@ -288,6 +288,8 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct ip6_tnl_parm *p)
-> >  
-> >  	if ((err = register_netdevice(dev)) < 0)
-> >  		goto failed_free;
-> > +	
-> > +	strcpy(t->parms.name, dev->name);
-> 
-> Trailing whitespace on that blank line you're adding.
+> I'm still not applying this.  If the other log messages behave
+> differently, they are broken, so go fix those instead.
 
-Ugh.  Forgot to run checkpatch.  Apologies.
-
-> I fixed this up, applied, and queued up for -stable, thanks.
-
-Thank you.
-
-josh
+Perhaps use "entered" after the transition or "entering" before.
