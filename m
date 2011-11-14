@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: add endline at end of message
-Date: Mon, 14 Nov 2011 14:36:47 -0500 (EST)
-Message-ID: <20111114.143647.1896233794872076304.davem@davemloft.net>
-References: <1321260039-19254-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCH] ipv4: fix a memory leak in ic_bootp_send_if
+Date: Mon, 14 Nov 2011 14:38:05 -0500 (EST)
+Message-ID: <20111114.143805.872719770519430363.davem@davemloft.net>
+References: <1321257248-14175-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dmitry@broadcom.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36641 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:38324 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754011Ab1KNTgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:36:52 -0500
-In-Reply-To: <1321260039-19254-1-git-send-email-dmitry@broadcom.com>
+	with ESMTP id S1752963Ab1KNTiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:38:08 -0500
+In-Reply-To: <1321257248-14175-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Mon, 14 Nov 2011 10:40:39 +0200
+From: roy.qing.li@gmail.com
+Date: Mon, 14 Nov 2011 15:54:08 +0800
 
-> Reported-by: Joe Perches <joe@perches.com>
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> From: RongQing.Li <roy.qing.li@gmail.com>
+> 
+> when dev_hard_header() failed, the newly allocated skb should be freed.
+> 
+> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
 
 Applied.
