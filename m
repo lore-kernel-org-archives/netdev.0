@@ -1,37 +1,49 @@
 From: Grant Grundler <grundler@chromium.org>
-Subject: [PATCH 1/5] net-next:asix: PHY_MODE_RTL8211CL should be 0xC
-Date: Mon, 14 Nov 2011 15:21:57 -0800
-Message-ID: <1321312921-7748-1-git-send-email-grundler@chromium.org>
+Subject: [PATCH 2/5] net-next:asix: poll in asix_get_phyid in case phy not ready
+Date: Mon, 14 Nov 2011 15:21:58 -0800
+Message-ID: <1321312921-7748-2-git-send-email-grundler@chromium.org>
+References: <1321312921-7748-1-git-send-email-grundler@chromium.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Allan Chou <allan@asix.com.tw>,
 	Freddy Xin <freddy@asix.com.tw>,
 	Grant Grundler <grundler@chromium.org>
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1321312921-7748-1-git-send-email-grundler@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use correct value for rtl phy support.
-(rtl phy are in AX88178 devices like NWU220G and USB2-ET1000).
+Sometimes the phy isn't ready after reset...poll and pray it will be soon.
 
-Signed-off-by: Allan Chou <allan@asix.com.tw>
-Tested-by: Grant Grundler <grundler@chromium.org>
+Signed-off-by: Freddy Xin <freddy@asix.com.tw>
+Signed-off-by: Grant Grundler <grundler@chromium.org>
 ---
- drivers/net/usb/asix.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/usb/asix.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
-index e81e22e..873860d 100644
+index 873860d..b4675e8 100644
 --- a/drivers/net/usb/asix.c
 +++ b/drivers/net/usb/asix.c
-@@ -163,7 +163,7 @@
- #define MARVELL_CTRL_TXDELAY	0x0002
- #define MARVELL_CTRL_RXDELAY	0x0080
+@@ -652,9 +652,17 @@ static u32 asix_get_phyid(struct usbnet *dev)
+ {
+ 	int phy_reg;
+ 	u32 phy_id;
++	int i;
  
--#define	PHY_MODE_RTL8211CL	0x0004
-+#define	PHY_MODE_RTL8211CL	0x000C
+-	phy_reg = asix_mdio_read(dev->net, dev->mii.phy_id, MII_PHYSID1);
+-	if (phy_reg < 0)
++	/* Poll for the rare case the FW or phy isn't ready yet.  */
++	for (i = 0; i < 100; i++) {
++		phy_reg = asix_mdio_read(dev->net, dev->mii.phy_id, MII_PHYSID1);
++		if (phy_reg != 0 && phy_reg != 0xFFFF)
++			break;
++		mdelay(1);
++	}
++
++	if (phy_reg <= 0 || phy_reg == 0xFFFF)
+ 		return 0;
  
- /* This structure cannot exceed sizeof(unsigned long [5]) AKA 20 bytes */
- struct asix_data {
+ 	phy_id = (phy_reg & 0xffff) << 16;
 -- 
 1.7.3.1
