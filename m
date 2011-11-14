@@ -1,46 +1,46 @@
-From: Martin Robert Byrnes <byrnesmartin2008@gmail.com>
-Subject: EMAIL FROM MARTIN BUSINESS PROPOSAL
-Date: Mon, 14 Nov 2011 21:44:01 +0100
-Message-ID: <20111114214401.ox8wx8rpr4g0kk4c__17355.8135786609$1321303496$gmane$org@mail.zih.tu-dresden.de>
-Reply-To: byrnesmartin2009@gmail.com
+From: Simon Kirby <sim@hostway.ca>
+Subject: Re: [3.1] Divide by zero in __tcp_select_window()
+Date: Mon, 14 Nov 2011 12:44:38 -0800
+Message-ID: <20111114204438.GC11668@hostway.ca>
+References: <20111108205411.GA23642@hostway.ca> <1320787405.26025.10.camel@edumazet-laptop> <20111114.153608.2064552703690099046.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.zih.tu-dresden.de ([141.30.67.72]:56776 "EHLO
-	mailout1.zih.tu-dresden.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753565Ab1KNUob convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Nov 2011 15:44:31 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, tglx@linutronix.de, netdev@vger.kernel.org,
+	a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
+	davej@redhat.com, schwidefsky@de.ibm.com, mingo@elte.hu
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20111114.153608.2064552703690099046.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 14, 2011 at 03:36:08PM -0500, David Miller wrote:
 
-My name is Martin Robert Byrnes and I am a United States citizen.  I was the
-head storage keeper for the United Nations storage facility in Iraq for 6
-years. During that time I was involved in some lucrative business deals with
-Iraqi citizens.
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 08 Nov 2011 22:23:25 +0100
+> 
+> > OK, it seems we let a timer running while we free the socket (same error
+> > path than your previous bug report, because of the NULL route)
+> > 
+> > We arm this keepalive timer in tcp_create_openreq_child()
+> > 
+> > net/ipv4/tcp_minisocks.c:513
+> > 	if (sock_flag(newsk, SOCK_KEEPOPEN))
+> > 		inet_csk_reset_keepalive_timer(newsk,
+> > 			keepalive_time_when(newtp));
+> > 
+> > I would try to add a call to tcp_clear_xmit_timers() as well
+> > 
+> > Please try following patch :
+> 
+> We've been waiting quite some time to get some testing validation on
+> this patch, but I think it's correct.
+> 
+> Eric can you formally submit this?  Thanks!
 
-Unfortunately I was transferred from Iraq before I was able to safely move my
-money out of Iraq.  Due to this I am in need of some assistance to move my
-money to ensure that it is safe.  I was transferred to Afghanistan which has
-limited my ability to be able to move my money on my own.  It is for this
-reason that I writing to you to ask for your assistance.
+Sorry, I'm still testing slowly, with the "crash into the new kernel"
+method. :) I'll reboot the rest shortly, but so far no recurrences on
+boxes running with this fix, and no other problems noted with it applied.
 
-To move forward together I am offering you a business proposal.  In order for
-your help in moving my money out of Iraq I am willing to offer you a  
-percentage
-of the total money.  The amounts involved in this proposal will be disclosed
-once we have established an open dialogue together.
-
-I appreciate your understanding and I know that I will hear from you  
-as soon as
-possible as this proposal is time sensitive.
-
-Martin Robert Byrnes
-CW5 OD
-(RET)
-EMAIL: byrnesmartin2009@gmail.com
+Simon-
