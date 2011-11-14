@@ -1,189 +1,75 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [RFC] kvm tools: Implement multiple VQ for virtio-net
-Date: Mon, 14 Nov 2011 12:15:40 +0200
-Message-ID: <1321265740.2425.7.camel@sasha>
-References: <1321049521-26376-1-git-send-email-levinsasha928@gmail.com>
-	 <20111113102428.GD15322@redhat.com> <1321196430.2425.2.camel@sasha>
-	 <4EC07729.3050303@gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: Disabling TCP slow start after idle
+Date: Mon, 14 Nov 2011 10:16:19 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AEBF@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, penberg@kernel.org,
-	kvm@vger.kernel.org, mingo@elte.hu, gorcunov@gmail.com,
-	Krishna Kumar <krkumar2@in.ibm.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Asias He <asias.hejun@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4EC07729.3050303@gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:50974 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753541Ab1KNKSG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 05:18:06 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15450-06 for <netdev@vger.kernel.org>;
+ Mon, 14 Nov 2011 10:18:00 +0000 (GMT)
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-11-14 at 10:04 +0800, Asias He wrote:
-> Hi, Shsha
-> 
-> On 11/13/2011 11:00 PM, Sasha Levin wrote:
-> > On Sun, 2011-11-13 at 12:24 +0200, Michael S. Tsirkin wrote:
-> >> On Sat, Nov 12, 2011 at 12:12:01AM +0200, Sasha Levin wrote:
-> >>> This is a patch based on Krishna Kumar's patch series which implements
-> >>> multiple VQ support for virtio-net.
-> >>>
-> >>> The patch was tested with ver3 of the patch.
-> >>>
-> >>> Cc: Krishna Kumar<krkumar2@in.ibm.com>
-> >>> Cc: Michael S. Tsirkin<mst@redhat.com>
-> >>> Cc: Rusty Russell<rusty@rustcorp.com.au>
-> >>> Cc: virtualization@lists.linux-foundation.org
-> >>> Cc: netdev@vger.kernel.org
-> >>> Signed-off-by: Sasha Levin<levinsasha928@gmail.com>
-> >>
-> >> Any performance numbers?
-> >
-> > I tried finding a box with more than two cores so I could test it on
-> > something like that as well.
-> >
-> >> From what I see this patch causes a performance regression on my 2 core
-> > box.
-> >
-> > I'll send an updated KVM tools patch in a bit as well.
-> >
-> > Before:
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t TCP_RR
-> > MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET
-> > to 192.168.33.4 (192.168.33.4) port 0 AF_INET : first burst 0
-> > Local /Remote
-> > Socket Size   Request  Resp.   Elapsed  Trans.
-> > Send   Recv   Size     Size    Time     Rate
-> > bytes  Bytes  bytes    bytes   secs.    per sec
-> >
-> > 16384  87380  1        1       10.00    11160.63
-> > 16384  87380
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t UDP_RR
-> > MIGRATED UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET
-> > to 192.168.33.4 (192.168.33.4) port 0 AF_INET : first burst 0
-> > Local /Remote
-> > Socket Size   Request  Resp.   Elapsed  Trans.
-> > Send   Recv   Size     Size    Time     Rate
-> > bytes  Bytes  bytes    bytes   secs.    per sec
-> >
-> > 122880 122880 1        1       10.00    12072.64
-> > 229376 229376
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t TCP_STREAM
-> > MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > 192.168.33.4 (192.168.33.4) port 0 AF_INET
-> > Recv   Send    Send
-> > Socket Socket  Message  Elapsed
-> > Size   Size    Size     Time     Throughput
-> > bytes  bytes   bytes    secs.    10^6bits/sec
-> >
-> >   87380  16384  16384    10.00    4654.50
-> >
-> > netperf -H 192.168.33.4,ipv4 -t TCP_STREAM -- -m 128
-> > MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > 192.168.33.4 (192.168.33.4) port 0 AF_INET
-> > Recv   Send    Send
-> > Socket Socket  Message  Elapsed
-> > Size   Size    Size     Time     Throughput
-> > bytes  bytes   bytes    secs.    10^6bits/sec
-> >
-> >   87380  16384    128    10.00     635.45
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t UDP_STREAM
-> > MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > 192.168.33.4 (192.168.33.4) port 0 AF_INET
-> > Socket  Message  Elapsed      Messages
-> > Size    Size     Time         Okay Errors   Throughput
-> > bytes   bytes    secs            #      #   10^6bits/sec
-> >
-> > 122880   65507   10.00      113894      0    5968.54
-> > 229376           10.00       89373           4683.54
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t UDP_STREAM -- -m 128
-> > MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > 192.168.33.4 (192.168.33.4) port 0 AF_INET
-> > Socket  Message  Elapsed      Messages
-> > Size    Size     Time         Okay Errors   Throughput
-> > bytes   bytes    secs            #      #   10^6bits/sec
-> >
-> > 122880     128   10.00      550634      0      56.38
-> > 229376           10.00      398786             40.84
-> >
-> >
-> > After:
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t TCP_RR
-> > MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET
-> > to 192.168.33.4 (192.168.33.4) port 0 AF_INET : first burst 0
-> > Local /Remote
-> > Socket Size   Request  Resp.   Elapsed  Trans.
-> > Send   Recv   Size     Size    Time     Rate
-> > bytes  Bytes  bytes    bytes   secs.    per sec
-> >
-> > 16384  87380  1        1       10.00    8952.47
-> > 16384  87380
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t UDP_RR
-> > MIGRATED UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET
-> > to 192.168.33.4 (192.168.33.4) port 0 AF_INET : first burst 0
-> > Local /Remote
-> > Socket Size   Request  Resp.   Elapsed  Trans.
-> > Send   Recv   Size     Size    Time     Rate
-> > bytes  Bytes  bytes    bytes   secs.    per sec
-> >
-> > 122880 122880 1        1       10.00    9534.52
-> > 229376 229376
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t TCP_STREAM
-> > MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > 192.168.33.4 (192.168.33.4) port 0 AF_INET
-> > Recv   Send    Send
-> > Socket Socket  Message  Elapsed
-> > Size   Size    Size     Time     Throughput
-> > bytes  bytes   bytes    secs.    10^6bits/sec
-> >
-> >   87380  16384  16384    10.13    2278.23
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t TCP_STREAM -- -m 128
-> > MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > 192.168.33.4 (192.168.33.4) port 0 AF_INET
-> > Recv   Send    Send
-> > Socket Socket  Message  Elapsed
-> > Size   Size    Size     Time     Throughput
-> > bytes  bytes   bytes    secs.    10^6bits/sec
-> >
-> >   87380  16384    128    10.00     623.27
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t UDP_STREAM
-> > MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > 192.168.33.4 (192.168.33.4) port 0 AF_INET
-> > Socket  Message  Elapsed      Messages
-> > Size    Size     Time         Okay Errors   Throughput
-> > bytes   bytes    secs            #      #   10^6bits/sec
-> >
-> > 122880   65507   10.00      136930      0    7175.72
-> > 229376           10.00       16726            876.51
-> >
-> > # netperf -H 192.168.33.4,ipv4 -t UDP_STREAM -- -m 128
-> > MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> > 192.168.33.4 (192.168.33.4) port 0 AF_INET
-> > Socket  Message  Elapsed      Messages
-> > Size    Size     Time         Okay Errors   Throughput
-> > bytes   bytes    secs            #      #   10^6bits/sec
-> >
-> > 122880     128   10.00      982492      0     100.61
-> > 229376           10.00      249597             25.56
-> >
-> 
-> Why both the bandwidth and latency performance are dropping so 
-> dramatically with multiple VQ?
+(oOriginally sent to linux-kernel@, but suggested I report here.)
 
-It looks like theres no hash sync between host and guest, which makes
-the RX VQ change for every packet. This is my guess.
+We have some connections that suffer very badly from the TCP
+'slow start' algorithm. These are connections that will
+always be local - they may be MAC-Switch-MAC using RGMII
+crossover, they might also be connected via an external
+switch. In either case the RTT is most likely to be almost
+zero, certainly below 1ms.
 
--- 
+The traffic is single packets (carrying another protocol)
+so we have Nagle disabled and the send and receive sides
+run separately. So the traffic is neither bulk, nor
+command/response.
 
-Sasha.
+This means that there is very rarely any unacked data,
+so almost every packet is sent using 'slow start'.
 
+If the external switch drops a packet (they do!) then
+slow start stops more packets being sent, and nothing
+progresses for about 1.5 seconds by which time there
+is a significant amount of traffic queued and, in some
+cases, data has to be discarded.
+
+Similar issues happen if the receiving system decides
+to defer the ack until a timer tick (instead of
+sending one after every second packet). In this case
+only 4 packets are sent. (We fixed this one be sending
+a software ACK every 4 packets.)
+
+Quite cleary the 'slow start' algorithm just doesn't
+work in these cases.
+
+I found this https://lkml.org/lkml/2010/4/9/427
+discussion about a socket option to disable slow start.
+But it seems that some people are completely against the idea.
+I'd have thought that the global option would be more of a
+problem - since that will affect ftp connections to remote
+hosts where slow start is alomost certainly benefitial.
+
+I'd have thought it would be sensible to allow one (or more)
+of the following (either as a sysctl, socket option, or
+code change):
+1) Disable slow start for the local subnet.
+2) Disable slow start for connections with very low RTT.
+3) Disable slow start for a minimum period with no traffic
+   (after the last packet is acked).
+
+I'm not sure of the resolution used by the Linux RTT
+calculations. I know NetBSD had a recent set of patches
+to fix calculation errors with low RTT because the code
+had been written when all RTT were much longer.
+
+	David
