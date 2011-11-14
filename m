@@ -1,52 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] Don't allow sharing of tx skbs on xen-netfront
-Date: Mon, 14 Nov 2011 14:22:24 -0500
-Message-ID: <1321298544-16434-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	xen-devel@lists.xensource.com
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnx2x: reduce skb truesize by 50%
+Date: Mon, 14 Nov 2011 14:21:17 -0500 (EST)
+Message-ID: <20111114.142117.1578594312371186159.davem@davemloft.net>
+References: <20111114.000811.780218767629149648.davem@davemloft.net>
+	<1321251945.17837.55.camel@edumazet-laptop>
+	<1321286265.2272.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eilong@broadcom.com, bhutchings@solarflare.com,
+	pstaszewski@itcare.pl, netdev@vger.kernel.org, tgraf@infradead.org,
+	therbert@google.com, hadi@mojatatu.com, shemminger@vyatta.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55707 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753733Ab1KNTWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:22:38 -0500
+Received: from shards.monkeyblade.net ([198.137.202.13]:44255 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733Ab1KNTWk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:22:40 -0500
+In-Reply-To: <1321286265.2272.46.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It was pointed out to me recently that the xen-netfront driver can't safely
-support shared skbs on transmit, since, while it doesn't maintain skb state
-directly, it does pass a pointer to the skb to the hypervisor via a list, and
-the hypervisor may expect the contents of the skb to remain stable.  Clearing
-the IFF_TX_SKB_SHARING flag after the call to alloc_etherdev to make it safe.
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 14 Nov 2011 16:57:45 +0100
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
-CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-CC: xen-devel@lists.xensource.com
----
- drivers/net/xen-netfront.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+> Le lundi 14 novembre 2011 =E0 07:25 +0100, Eric Dumazet a =E9crit :
+>> Le lundi 14 novembre 2011 =E0 00:08 -0500, David Miller a =E9crit :
+>>=20
+>> > I fully support bringing this thing back to life :-)
+>>=20
+>> I'll make extensive tests today and provide two patches when ready, =
+with
+>> all performance results.
+>>=20
+>> Some prefetch() calls will be removed, since build_skb() provides
+>> already cache hot skb.
+>=20
+> Impressive results :
+>=20
+> before : 720.000 pps
+> after :  820.000 pps
+>=20
+> [ One mono threaded application receiving UDP messages on a single
+> socket, asking IP_PKTINFO ancillary info ]
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 226faab..fb1077b 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1252,6 +1252,12 @@ static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev
- 		return ERR_PTR(-ENOMEM);
- 	}
- 
-+	/*
-+	 * Since frames remain on a queue after a return from xennet_start_xmit,
-+	 * we can't support tx shared skbs
-+	 */
-+	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
-+
- 	np                   = netdev_priv(netdev);
- 	np->xbdev            = dev;
- 
--- 
-1.7.6.4
+Sweeeeeet.
