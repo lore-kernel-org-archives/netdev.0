@@ -1,45 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC] kvm tools: Implement multiple VQ for virtio-net
-Date: Mon, 14 Nov 2011 15:05:07 +0200
-Message-ID: <20111114130507.GA18288@redhat.com>
-References: <1321049521-26376-1-git-send-email-levinsasha928@gmail.com>
-	<20111113102428.GD15322@redhat.com> <1321196430.2425.2.camel@sasha>
-	<4EC07729.3050303@gmail.com>
-	<CAOJsxLE4yRO+5XncrDEzVh5-RGXG+=HGTAmQ=bX=KMsDqf=feA@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 4/4] sunrpc: use SKB fragment destructors to delay completion until page is released by network stack.
+Date: Mon, 14 Nov 2011 13:25:01 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AEC1@saturn3.aculab.com>
+References: <1321276055.3664.67.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2@in.ibm.com>, kvm@vger.kernel.org,
-	Asias He <asias.hejun@gmail.com>,
-	virtualization@lists.linux-foundation.org, gorcunov@gmail.com,
-	Sasha Levin <levinsasha928@gmail.com>, netdev@vger.kernel.org,
-	mingo@elte.hu
-To: Pekka Enberg <penberg@kernel.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CAOJsxLE4yRO+5XncrDEzVh5-RGXG+=HGTAmQ=bX=KMsDqf=feA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	"Neil Brown" <neilb@suse.de>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	<linux-nfs@vger.kernel.org>
+To: "Ian Campbell" <Ian.Campbell@citrix.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:53933 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751957Ab1KNN0q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 08:26:46 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 25212-03 for <netdev@vger.kernel.org>;
+ Mon, 14 Nov 2011 13:26:42 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1321276055.3664.67.camel@zakaz.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2011 at 02:25:17PM +0200, Pekka Enberg wrote:
-> On Mon, Nov 14, 2011 at 4:04 AM, Asias He <asias.hejun@gmail.com> wrote:
-> > Why both the bandwidth and latency performance are dropping so dramatically
-> > with multiple VQ?
-> 
-> What's the expected benefit from multiple VQs
+ 
+> This prevents an issue where an ACK is delayed, a retransmit is queued
+(either
+> at the RPC or TCP level) and the ACK arrives before the retransmission
+hits the
+> wire. If this happens to an NFS WRITE RPC then the write() system call
+> completes and the userspace process can continue, potentially
+modifying data
+> referenced by the retransmission before the retransmission occurs.
 
-Heh, the original patchset didn't mention this :) It really should.
-They are supposed to speed up networking for high smp guests.
+The only problem I see is that the source address might get
+invalidated (assuming it is a user address mapped into kernel).
+Not sure what effect the fault would have...
 
-> i.e. why are doing the patches Sasha?
+If it is an RPC retransmittion the NFS write won't be
+terminated by the RPC ACK (because it is a stale ACK)
+and the destination will see two copies of the NFS write.
+(This is quite common with NFS/UDP.)
 
--- 
-MST
+If it is a TCP retransmittion, then the receiving TCP stack
+will see it as duplicate data and discard the contents
+without passing them to RPC.
+
+Interrupting an NFS write with a signal is problematic
+anyway - I'm sure I've seen systems (SYSV?) when NFS
+writes were uninterruptable. NFI how Linux handles this.
+
+	David
