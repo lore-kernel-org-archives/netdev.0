@@ -1,40 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net/smsc911x: Always wait for the chip to be ready
-Date: Mon, 14 Nov 2011 00:41:02 -0500 (EST)
-Message-ID: <20111114.004102.1105906943928703826.davem@davemloft.net>
-References: <1319616343-6357-1-git-send-email-linus.walleij@stericsson.com>
-	<CAKnu2MoraoPsqBa9KSHHCG=8avrk_thdNEox1RUTRUGZKr14kA@mail.gmail.com>
+From: Sanjay Hortikar <horti@google.com>
+Subject: Re: [PATCH net-next v2] net-forcedeth: Add internal loopback support
+ for forcedeth NICs.
+Date: Sun, 13 Nov 2011 21:41:39 -0800
+Message-ID: <CAB70Pt+1-+SiiFmif7jDiAek0x6S1MpcceXQTs-qFfLhenCzuw@mail.gmail.com>
+References: <cover.1321063429.git.horti@google.com>
+	<0a790bcdac9827d6e4a9162cc8f6b5bcb70acd4e.1321063429.git.horti@google.com>
+	<20111114.002257.1441682753359852153.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com,
-	mathieu.poirier@linaro.org, robert.marklund@stericsson.com
-To: linus.walleij@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:52876 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751719Ab1KNFlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 00:41:11 -0500
-In-Reply-To: <CAKnu2MoraoPsqBa9KSHHCG=8avrk_thdNEox1RUTRUGZKr14kA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	david.decotigny@google.com, ian.campbell@citrix.com,
+	rick.jones2@hp.com, eric.dumazet@gmail.com, maheshb@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111114.002257.1441682753359852153.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Linus Walleij <linus.walleij@linaro.org>
-Date: Tue, 8 Nov 2011 11:34:01 +0100
+Thank you.
+- S.
 
-> 2011/10/26 Linus Walleij <linus.walleij@stericsson.com>:
-> 
->> From: Robert Marklund <robert.marklund@stericsson.com>
+On Sun, Nov 13, 2011 at 9:22 PM, David Miller <davem@davemloft.net> wrote:
+> From: Sanjay Hortikar <horti@google.com>
+> Date: Fri, 11 Nov 2011 18:11:21 -0800
+>
+>> Support enabling/disabling/querying internal loopback mode for
+>> forcedeth NICs using ethtool.
 >>
->> Wait for the chip to be ready before any access to it. On the
->> Snowball platform we need to enable an external regulator before
->> the chip comes online, and then it happens that the device is
->> not yet ready at probe time, so let's wait for it.
->>
->> Signed-off-by: Robert Marklund <robert.marklund@stericsson.com>
->> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
-> 
-> Since there doesn't seem to be any consternation concerning
-> this first patch, can it be applied?
-
-Applied, thanks.
+>> Signed-off-by: Sanjay Hortikar <horti@google.com>
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>
+> Applied, thanks.
+>
