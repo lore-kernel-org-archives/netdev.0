@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fsl_pq_mdio: fix non tbi phy access
-Date: Mon, 14 Nov 2011 01:45:11 -0500 (EST)
-Message-ID: <20111114.014511.962880729020099283.davem@davemloft.net>
-References: <b693b45a689d42b60a8a9e29dcdd2fb27e20df82.1321251618.git.baruch@tkos.co.il>
+Subject: Re: [PATCH] tcp: fixes for DSACK-based undo of cwnd reduction
+ during fast recovery
+Date: Mon, 14 Nov 2011 01:45:53 -0500 (EST)
+Message-ID: <20111114.014553.1681524020036516686.davem@davemloft.net>
+References: <1320775631-16341-1-git-send-email-ncardwell@google.com>
+	<CAK6E8=dXtgi+W9JQg9ruwU8JxYJf-T7OMad7RhNckFAxsYFndg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@freescale.com
-To: baruch@tkos.co.il
+Cc: ncardwell@google.com, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi, nanditad@google.com, therbert@google.com
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40580 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:40587 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074Ab1KNGp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 01:45:29 -0500
-In-Reply-To: <b693b45a689d42b60a8a9e29dcdd2fb27e20df82.1321251618.git.baruch@tkos.co.il>
+	with ESMTP id S1751103Ab1KNGqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 01:46:05 -0500
+In-Reply-To: <CAK6E8=dXtgi+W9JQg9ruwU8JxYJf-T7OMad7RhNckFAxsYFndg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Baruch Siach <baruch@tkos.co.il>
-Date: Mon, 14 Nov 2011 08:21:30 +0200
+From: Yuchung Cheng <ycheng@google.com>
+Date: Tue, 8 Nov 2011 17:18:34 -0800
 
-> Since 952c5ca1 (fsl_pq_mdio: Clean up tbi address configuration) .probe returns
-> -EBUSY when the "tbi-phy" node is missing. Fix this.
+> On Tue, Nov 8, 2011 at 10:07 AM, Neal Cardwell <ncardwell@google.com> wrote:
+>> Fixes for some issues that prevent DSACKs from allowing TCP senders to
+>> undo cwnd reductions made during fast recovery.
+ ...
+>> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Acked-by: Yuchung Cheng <ycheng@google.com>
 > 
-> Cc: Andy Fleming <afleming@freescale.com>
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> 
+> FWIW. This undo-fix patch on Google Web servers increased the undos in
+> loss by 46% and in disorder by 17%. It also corrects the SNMP stats
+> TCPTimeouts, TCPRenoFailures, TCPSackFailures by moving state into
+> open, instead of disorder, after recovery.
 
-Applied, thanks.
+Just wanted to give you guys a heads-up that this patch will take me
+some time to review properly.
