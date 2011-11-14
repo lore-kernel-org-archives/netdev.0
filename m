@@ -1,82 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [3.1] Divide by zero in __tcp_select_window()
-Date: Mon, 14 Nov 2011 21:56:56 +0100
-Message-ID: <1321304216.2719.23.camel@edumazet-laptop>
-References: <20111108205411.GA23642@hostway.ca>
-	 <1320787405.26025.10.camel@edumazet-laptop>
-	 <20111114.153608.2064552703690099046.davem@davemloft.net>
+From: Fleming Andy-AFLEMING <afleming@freescale.com>
+Subject: Re: [PATCH] net: fsl_pq_mdio: fix non tbi phy access
+Date: Mon, 14 Nov 2011 21:04:47 +0000
+Message-ID: <C89A2124-7AB4-45B6-ACD1-8C5936027531@freescale.com>
+References: <b693b45a689d42b60a8a9e29dcdd2fb27e20df82.1321251618.git.baruch@tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sim@hostway.ca, tglx@linutronix.de, netdev@vger.kernel.org,
-	a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
-	davej@redhat.com, schwidefsky@de.ibm.com, mingo@elte.hu
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111114.153608.2064552703690099046.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Baruch Siach <baruch@tkos.co.il>
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:32597 "EHLO
+	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754819Ab1KNVEu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Nov 2011 16:04:50 -0500
+In-Reply-To: <b693b45a689d42b60a8a9e29dcdd2fb27e20df82.1321251618.git.baruch@tkos.co.il>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 14 novembre 2011 =C3=A0 15:36 -0500, David Miller a =C3=A9crit=
- :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 08 Nov 2011 22:23:25 +0100
->=20
-> > OK, it seems we let a timer running while we free the socket (same =
-error
-> > path than your previous bug report, because of the NULL route)
-> >=20
-> > We arm this keepalive timer in tcp_create_openreq_child()
-> >=20
-> > net/ipv4/tcp_minisocks.c:513
-> > 	if (sock_flag(newsk, SOCK_KEEPOPEN))
-> > 		inet_csk_reset_keepalive_timer(newsk,
-> > 			keepalive_time_when(newtp));
-> >=20
-> > I would try to add a call to tcp_clear_xmit_timers() as well
-> >=20
-> > Please try following patch :
->=20
-> We've been waiting quite some time to get some testing validation on
-> this patch, but I think it's correct.
->=20
-> Eric can you formally submit this?  Thanks!
+Well, this got applied quickly, so I guess I can't NAK, but this requires discussion.
 
-Sure, here it is.
+On Nov 14, 2011, at 0:22, "Baruch Siach" <baruch@tkos.co.il> wrote:
 
-Please Simon feel free to add your "Tested-by" signature=20
+> Since 952c5ca1 (fsl_pq_mdio: Clean up tbi address configuration) .probe returns
+> -EBUSY when the "tbi-phy" node is missing. Fix this.
 
-Thanks
+It returns an error because it finds no tbi node. Because without the tbi node, there is no way for the driver to determine which address to set.
 
-[PATCH] tcp: clear xmit timers in tcp_v4_syn_recv_sock()
+Your solution is to ignore the error, and hope. That's a broken approach. The real solution for a p1010 should be to have a tbi node in the dts.
 
-Simon Kirby reported divides by zero errors in __tcp_select_window()
+And looking at the p1010si.dtsi, I see that it's automatically there for you.
 
-This happens when inet_csk_route_child_sock() returns a NULL pointer :
+How were you breaking?
 
-We free new socket while we eventually armed keepalive timer in
-tcp_create_openreq_child()
-
-=46ix this by a call to tcp_clear_xmit_timers()
-
-[ This is a followup to commit 918eb39962dff (net: add missing
-bh_unlock_sock() calls) ]
-
-Reported-by: Simon Kirby <sim@hostway.ca>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp_ipv4.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a744315..a9db4b1 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1510,6 +1510,7 @@ exit:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
- 	return NULL;
- put_and_exit:
-+	tcp_clear_xmit_timers(newsk);
- 	bh_unlock_sock(newsk);
- 	sock_put(newsk);
- 	goto exit;
+Andy
