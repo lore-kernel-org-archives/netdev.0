@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fixes for DSACK-based undo of cwnd reduction
- during fast recovery
-Date: Mon, 14 Nov 2011 01:45:53 -0500 (EST)
-Message-ID: <20111114.014553.1681524020036516686.davem@davemloft.net>
-References: <1320775631-16341-1-git-send-email-ncardwell@google.com>
-	<CAK6E8=dXtgi+W9JQg9ruwU8JxYJf-T7OMad7RhNckFAxsYFndg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V5 net-next] neigh: new unresolved queue limits
+Date: Mon, 14 Nov 2011 07:51:35 +0100
+Message-ID: <1321253495.17837.61.camel@edumazet-laptop>
+References: <20111109.161644.505896539772671525.davem@davemloft.net>
+	 <20111109.162137.808999062815992591.davem@davemloft.net>
+	 <1320876434.3272.12.camel@edumazet-laptop>
+	 <20111114.004813.220637143497418040.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, netdev@vger.kernel.org,
-	ilpo.jarvinen@helsinki.fi, nanditad@google.com, therbert@google.com
-To: ycheng@google.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:40587 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103Ab1KNGqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 01:46:05 -0500
-In-Reply-To: <CAK6E8=dXtgi+W9JQg9ruwU8JxYJf-T7OMad7RhNckFAxsYFndg@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47159 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751974Ab1KNGvk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 01:51:40 -0500
+Received: by wyh15 with SMTP id 15so5550206wyh.19
+        for <netdev@vger.kernel.org>; Sun, 13 Nov 2011 22:51:39 -0800 (PST)
+In-Reply-To: <20111114.004813.220637143497418040.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Tue, 8 Nov 2011 17:18:34 -0800
+Le lundi 14 novembre 2011 =C3=A0 00:48 -0500, David Miller a =C3=A9crit=
+ :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 09 Nov 2011 23:07:14 +0100
+>=20
+> > Ouch, this was fixed on one machine yesterday, but not the other on=
+e I
+> > used this morning, sorry.
+> >=20
+> > [PATCH V5 net-next] neigh: new unresolved queue limits
+>=20
+> Applied, thanks Eric.
 
-> On Tue, Nov 8, 2011 at 10:07 AM, Neal Cardwell <ncardwell@google.com> wrote:
->> Fixes for some issues that prevent DSACKs from allowing TCP senders to
->> undo cwnd reductions made during fast recovery.
- ...
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
-> Acked-by: Yuchung Cheng <ycheng@google.com>
-> 
-> 
-> FWIW. This undo-fix patch on Google Web servers increased the undos in
-> loss by 46% and in disorder by 17%. It also corrects the SNMP stats
-> TCPTimeouts, TCPRenoFailures, TCPSackFailures by moving state into
-> open, instead of disorder, after recovery.
+Hi David
 
-Just wanted to give you guys a heads-up that this patch will take me
-some time to review properly.
+I realize changelog was truncated, because it contained a copy of ping
+message (--- 192.168.20.108 ping statistics ---)
+
+Normally, the marker line should contains only "---", it seems patchwor=
+k
+has a too strict behavior.=20
+
+Thanks
