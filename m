@@ -1,40 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 2/6] net/ethernet/atl1e: Disable ASPM
-Date: Mon, 14 Nov 2011 00:33:22 -0500 (EST)
-Message-ID: <20111114.003322.1579175313793306922.davem@davemloft.net>
+Subject: Re: [PATCH V2 1/6] net/ethernet/atl1c: Disable ASPM on various
+ chipsets
+Date: Mon, 14 Nov 2011 00:34:19 -0500 (EST)
+Message-ID: <20111114.003419.603215617598499123.davem@davemloft.net>
 References: <1321028064-644-1-git-send-email-mjg@redhat.com>
-	<1321028064-644-3-git-send-email-mjg@redhat.com>
-	<20111114.003113.40819474361221233.davem@davemloft.net>
+	<1321028064-644-2-git-send-email-mjg@redhat.com>
+	<20111114.003048.2051399548192848039.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	jcliburn@gmail.com, chris.snook@gmail.com
 To: mjg@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111114.003113.40819474361221233.davem@davemloft.net>
+In-Reply-To: <20111114.003048.2051399548192848039.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxNCBO
-b3YgMjAxMSAwMDozMToxMyAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IE1hdHRoZXcgR2FycmV0dCA8
-bWpnQHJlZGhhdC5jb20+DQo+IERhdGU6IEZyaSwgMTEgTm92IDIwMTEgMTE6MTQ6MjAgLTA1MDAN
-Cj4gDQo+PiBodHRwOi8vd3d3LmF0aGVyb3MuY3ovYXRoZXJvcy1pbmYtZmlsZS5waHA/aW5mPTIw
-OSZjaGlwc2V0PTQ1JnN5c3RlbT02DQo+PiBpbmRpY2F0ZXMgdGhhdCBBU1BNIGlzIGRpc2FibGVk
-IG9uIGFsbCBMMUUgaGFyZHdhcmUuIER1cGxpY2F0ZSBmb3Igc2FuaXR5Lg0KPj4gDQo+PiBTaWdu
-ZWQtb2ZmLWJ5OiBNYXR0aGV3IEdhcnJldHQgPG1qZ0ByZWRoYXQuY29tPg0KPiANCj4gQXBwbGll
-ZC4NCg0KVW1tbSwgLUVOT0JVSUxEVEVTVElORz8hPz8hDQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0
-L2F0aGVyb3MvYXRsMWUvYXRsMWVfbWFpbi5jOiBJbiBmdW5jdGlvbiChYXRsMWVfcHJvYmWiOg0K
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxZS9hdGwxZV9tYWluLmM6MjI2NzoyOiBl
-cnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goXBjaV9kaXNhYmxlX2xpbmtf
-c3RhdGWiIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxZS9hdGwxZV9tYWluLmM6MjI2NzozMTogZXJyb3I6IKFQ
-Q0lFX0xJTktfU1RBVEVfTDBToiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlv
-bikNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2F0aGVyb3MvYXRsMWUvYXRsMWVfbWFpbi5jOjIyNjc6
-MzE6IG5vdGU6IGVhY2ggdW5kZWNsYXJlZCBpZGVudGlmaWVyIGlzIHJlcG9ydGVkIG9ubHkgb25j
-ZSBmb3IgZWFjaCBmdW5jdGlvbiBpdCBhcHBlYXJzIGluDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9h
-dGhlcm9zL2F0bDFlL2F0bDFlX21haW4uYzoyMjY3OjUzOiBlcnJvcjogoVBDSUVfTElOS19TVEFU
-RV9MMaIgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24pDQpkcml2ZXJzL25l
-dC9ldGhlcm5ldC9hdGhlcm9zL2F0bDFlL2F0bDFlX21haW4uYzoyMjY4OjExOiBlcnJvcjogoVBD
-SUVfTElOS19TVEFURV9DTEtQTaIgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rp
-b24pDQo=
+
+I'm reverting all of these.
+
+You do all of that work to research the inf files and whatnot, then
+you don't even build test the patches you submit?
+
+Forget it, for something as potentially fragile as this stuff might
+be, I simply cannot trust you if you can't even do due diligence
+wrt. the build validation.
