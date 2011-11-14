@@ -1,36 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2011-11-14
-Date: Mon, 14 Nov 2011 14:49:25 -0500 (EST)
-Message-ID: <20111114.144925.1878369827907627467.davem@davemloft.net>
-References: <20111114193253.GA2499@tuxdriver.com>
+From: Martin Robert Byrnes <byrnesmartin2008@gmail.com>
+Subject: EMAIL FROM MARTIN BUSINESS PROPOSAL
+Date: Mon, 14 Nov 2011 20:16:01 +0100
+Message-ID: <20111114201601.u3icblhkow8wcsso__28397.5891689353$1321300697$gmane$org@mail.zih.tu-dresden.de>
+Reply-To: byrnesmartin2009@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111114193253.GA2499@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout1.zih.tu-dresden.de ([141.30.67.72]:46103 "EHLO
+	mailout1.zih.tu-dresden.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753044Ab1KNT5w convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Nov 2011 14:57:52 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 14 Nov 2011 14:32:54 -0500
 
-> Here is another batch of fixes intended for 3.2.  This includes an
-> mwifiex fix to enable association with "hidden" APs, a fix for avoiding
-> an unhandled RF kill interrupt when unloading iwlwifi, a NULL pointer
-> fix in the mac80211 radiotap code, a fix for ieee80211_build_probe_req
-> to pass-up a proper return code when ieee80211_probereq_get fails, a
-> race fix for mac80211 to avoid a WARNING in ieee80211_can_queue_work, a
-> NULL pointer fix in the cfg80211 regulatory code, and a fix for an
-> unaligned memory access in the libertas driver.
- ...
-> The following changes since commit 1e49570171117e547e6324c58371db4a0dc2f1db:
-> 
->   net: Fix references to deleted NET_ETHERNET Kconfig setting. (2011-11-09 19:26:53 -0500)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
+My name is Martin Robert Byrnes and I am a United States citizen.  I was the
+head storage keeper for the United Nations storage facility in Iraq for 6
+years. During that time I was involved in some lucrative business deals with
+Iraqi citizens.
 
-Pulled, thanks John!
+Unfortunately I was transferred from Iraq before I was able to safely move my
+money out of Iraq.  Due to this I am in need of some assistance to move my
+money to ensure that it is safe.  I was transferred to Afghanistan which has
+limited my ability to be able to move my money on my own.  It is for this
+reason that I writing to you to ask for your assistance.
+
+To move forward together I am offering you a business proposal.  In order for
+your help in moving my money out of Iraq I am willing to offer you a  
+percentage
+of the total money.  The amounts involved in this proposal will be disclosed
+once we have established an open dialogue together.
+
+I appreciate your understanding and I know that I will hear from you  
+as soon as
+possible as this proposal is time sensitive.
+
+Martin Robert Byrnes
+CW5 OD
+(RET)
+EMAIL: byrnesmartin2009@gmail.com
