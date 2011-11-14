@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/packet: remove dead code and unneeded variable
- from prb_setup_retire_blk_timer()
-Date: Mon, 14 Nov 2011 00:09:30 -0500 (EST)
-Message-ID: <20111114.000930.2208688710577745372.davem@davemloft.net>
-References: <alpine.LNX.2.00.1111132247440.3368@swampdragon.chaosbits.net>
+Subject: Re: [PATCH] rds: drop "select LLIST"
+Date: Mon, 14 Nov 2011 00:12:10 -0500 (EST)
+Message-ID: <20111114.001210.728555642579535986.davem@davemloft.net>
+References: <1321191397.20271.62.camel@x61.thuisdomein>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com, xiaosuo@gmail.com, greearb@candelatech.com,
-	loke.chetan@gmail.com, waltje@uWalt.NL.Mugnet.ORG,
-	gw4pts@gw4pts.ampr.org, waltje@linux.com, ross.biro@gmail.com,
-	alan@linux.intel.com
-To: jj@chaosbits.net
+Cc: venkat.x.venkatsubra@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: pebolle@tiscali.nl
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1111132247440.3368@swampdragon.chaosbits.net>
+In-Reply-To: <1321191397.20271.62.camel@x61.thuisdomein>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Sun, 13 Nov 2011 22:55:50 +0100 (CET)
+From: Paul Bolle <pebolle@tiscali.nl>
+Date: Sun, 13 Nov 2011 14:36:37 +0100
 
-> We test for 'tx_ring' being != zero and BUG() if that's the case. So after
-> that check there is no way that 'tx_ring' could be anything _but_ zero, so
-> testing it again is just dead code. Once that dead code is removed, the
-> 'pkc' local variable becomes entirely redundant, so remove that as well.
+> Commit 1bc144b625 ("net, rds, Replace xlist in net/rds/xlist.h with
+> llist") added "select LLIST" to the RDS_RDMA Kconfig entry. But there is
+> no Kconfig symbol named LLIST. The select statement for that symbol is a
+> nop. Drop it.
 > 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> lib/llist.o is builtin, so all that's needed to use the llist
+> functionality is to include linux/llist.h, which this commit also did.
+> 
+> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 
-Applied, thanks Jesper.
+Applied.
