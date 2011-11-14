@@ -1,97 +1,68 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [patch 0/8 2.6.32] CVE-2010-4251: packet backlog can get too
- large
-Date: Sun, 13 Nov 2011 23:29:09 +0000
-Message-ID: <1321226949.3059.13.camel@deadeye>
-References: <20111113201336.GA1362@elgon.mountain>
-	 <20111113.155851.2167389434844487922.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [LARTC] LARTC mailing list
+Date: Mon, 14 Nov 2011 00:44:31 +0000
+Message-ID: <1321231471.3059.30.camel@deadeye>
+References: <4EA2BF3D.1010107@linuxsystems.it>
+	 <1319292634.26402.6302.camel@andybev-desktop>
+	 <20111102175414.GA10307@synalogic.ca>
+	 <1321220346.1965.10.camel@andybev-desktop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-rNxSP/fVTWbNjPt9PlfF"
-Cc: dan.carpenter@oracle.com, stable@vger.kernel.org, greg@kroah.com,
-	netdev@vger.kernel.org, yi.zhu@intel.com, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58220 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750870Ab1KMX3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Nov 2011 18:29:32 -0500
-In-Reply-To: <20111113.155851.2167389434844487922.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Benjamin Poirier <benjamin.poirier@gmail.com>,
+	Linux Advanced Routing & Traffic Control project
+	<lartc@lists.linuxsystems.it>, <linux-new-lists@vger.kernel.org>,
+	<netfilter@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Andrew Beverley <andy@andybev.com>
+Return-path: <linux-new-lists-owner@vger.kernel.org>
+In-Reply-To: <1321220346.1965.10.camel@andybev-desktop>
+Sender: linux-new-lists-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-rNxSP/fVTWbNjPt9PlfF
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2011-11-13 at 15:58 -0500, David Miller wrote:
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Sun, 13 Nov 2011 23:13:36 +0300
+On Sun, 2011-11-13 at 21:39 +0000, Andrew Beverley wrote:
+> On Wed, 2011-11-02 at 13:54 -0400, Benjamin Poirier wrote:
+> > On 11/10/22 15:10, Andrew Beverley wrote:
+> > > On Sat, 2011-10-22 at 15:03 +0200, Niccol=C3=B2 Belli wrote:
+> > > > Is someone still interested to bring LARTC to a new life?
+> > > > I'm sorry for the subscription but the list didn't work anymore=
+ and it=20
+> > > > was unfeasible to CC 30+ addresses. Let me know if you want to=20
+> > > > unsubscribe and you don't know how to.
+> > >=20
+> > > Thanks for doing this Niccolo. However, I'd rather see it hosted =
+at
+> > > vger.kernel.org for all the reasons previously outlined.
+> > >=20
+> > > I was actually going to suggest a new list called net-users inste=
+ad.
+> > > There is netdev, netfilter-devel and netfilter, but not a general
+> > > networking users list.
+> >=20
+> > Isn't that what linux-net@vger.kernel.org is/was supposed to be abo=
+ut?
 >=20
-> > This patch series is to address CVE-2010-4251 for the 2.6.32 stable
-> > kernel.  Here is the CVE summary:
-> >=20
-> >  "The socket implementation in net/core/sock.c in the Linux kernel
-> >   before 2.6.34 does not properly manage a backlog of received
-> >   packets, which allows remote attackers to cause a denial of service
-> >   (memory consumption) by sending a large amount of network traffic,
-> >   as demonstrated by netperf UDP tests."
-> >=20
-> > [patch 1/8] introduces sk_add_backlog_limited()
-> > [patch 2-7/8] change each network protocol to use sk_add_backlog_limite=
-d()
-> > 	where appropriate.
-> > [patch 8/8] renames sk_add_backlog() to __sk_add_backlog() and
-> > 	sk_add_backlog_limited() to sk_add_backlog().
-> >=20
-> > The patches mostly apply without changes.  The exception is:
-> > [patch 2/8] udp: use limited socket backlog
-> > Then the rename [patch 8/8] needed to be changed as well to match.
+> Hmmm, hadn't even come across that before.
 >=20
-> These changes are way too intrusive and potentially regression
-> inducing for -stable inclusion, especially a kernel that is in such
-> deep maintainence mode as 2.6.32 is.
+> > Not sure what's its status, it's no longer listed on
+> > http://vger.kernel.org/vger-lists.html, the last message I've recei=
+ved
+> > on it was a month ago and it was mostly spam before that.
+>=20
+> Maybe not much interest for a users' list then...
 
-Debian 6.0 based on Linux 2.6.32 has patches #1-7, except our backport
-of #2 (for udp) looks a bit different.
-
-Apparently several other distributions have also applied these.
-
-> Also, I tend to personally submit networking -stable patches, so please
-> do not bypass me in this manner and instead recommend such submissions
-> on the netdev list so I can evaluate the request.
-
-But you've previously said that you are not submitting networking
-patches to the longterm series.  Did you change your mind?
+I suggested to David to delete the linux-net list because it had very
+low (legitimate) traffic and the people who could answer questions were
+mostly subscribed only to netdev.  And since he agreed, it's gone.
 
 Ben.
 
 --=20
-Ben Hutchings
-Never attribute to conspiracy what can adequately be explained by stupidity=
-.
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
---=-rNxSP/fVTWbNjPt9PlfF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIVAwUATsBSxee/yOyVhhEJAQr0UhAAyX/tBlZ1fY8GIUImyBMGBXq2E5DVIAEB
-lmyKzgnTSEb3UrihZkvZfuafk2UGfqTLNfilUFSMN/R/1DhGv73lcEtL0YTYJU3X
-/erifTpn4D4Xc6SdXqS9smv03LPl/Rvcg5qFETx0BHT3dsteTPxuggX8bi81mk4B
-JY9zLiTIiIU30c5mWv/tTP9VfTusOvRl1vcQG7A1E7OGggmy30YlhpsgYZln8MI8
-NQEYu7pBuH8R1SoJydECY8sFW6++qEKEoTPUaZ1fvlVXEXi/sy8HPu+6VtacwzAH
-MNeElP8uAwgbktMFfjRkbArERnayV4NozDxjfZ6bZiJiMbyoCziSq6wOuP46W6JS
-MNhVYaEaIVxmKBxfjFy3A9jSlegotnPH+LJHXRAhZ1mLcXj8r876AQdxt7PNkXZ0
-zuRiXV4nWlIsNoFNxKWDjgDNwYseybBEFmr1lPtx5dudBKoFf1CKLJPEH4xwo9DF
-NgkThq00WErSKwceh12zCBD297MWy11hGNHD7DyjoyONsasexaY9MmCP7IWfEBIe
-DFb4HS+u6GxecHu6yb+zsqHqOdoSjaLxFeBrL9tY7H81w7x8g2l342XW0hIvvegr
-7Vp9IINJ2xms8/ebrsQSgGajRKin9CuFDHhHwNgDs4OoHfPdVhwqvQayaj1O1qS2
-iXtpzYd/ovg=
-=3SuW
------END PGP SIGNATURE-----
-
---=-rNxSP/fVTWbNjPt9PlfF--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-new-lis=
+ts" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
