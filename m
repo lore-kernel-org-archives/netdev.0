@@ -1,64 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] bnx2x: uses build_skb() in receive path
-Date: Mon, 14 Nov 2011 14:22:11 -0500 (EST)
-Message-ID: <20111114.142211.330605745315729442.davem@davemloft.net>
-References: <1321286734.2272.48.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<1321289329.3101.7.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: introduce build_skb()
+Date: Mon, 14 Nov 2011 20:26:06 +0100
+Message-ID: <1321298766.2719.11.camel@edumazet-laptop>
+References: <1321286614.2272.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+	 <20111114.142153.804127798975712263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eilong@broadcom.com, pstaszewski@itcare.pl, netdev@vger.kernel.org,
 	bhutchings@solarflare.com, therbert@google.com, hadi@mojatatu.com,
 	shemminger@vyatta.com, tgraf@infradead.org,
-	herbert@gondor.hengli.com.au, jeffrey.t.kirsher@intel.com,
-	pstaszewski@itcare.pl
-To: eilong@broadcom.com
+	herbert@gondor.hengli.com.au, jeffrey.t.kirsher@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:44281 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753733Ab1KNTX2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:23:28 -0500
-In-Reply-To: <1321289329.3101.7.camel@lb-tlvb-eilong.il.broadcom.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51563 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753448Ab1KNT0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:26:11 -0500
+Received: by wwe5 with SMTP id 5so4876794wwe.1
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 11:26:10 -0800 (PST)
+In-Reply-To: <20111114.142153.804127798975712263.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Mon, 14 Nov 2011 18:48:49 +0200
+Le lundi 14 novembre 2011 =C3=A0 14:21 -0500, David Miller a =C3=A9crit=
+ :
 
-> On Mon, 2011-11-14 at 08:05 -0800, Eric Dumazet wrote:
->> bnx2x uses following formula to compute its rx_buf_sz :
->> 
->> dev->mtu + 2*L1_CACHE_BYTES + 14 + 8 + 8 + 2
->> 
->> Then core network adds NET_SKB_PAD and SKB_DATA_ALIGN(sizeof(struct
->> skb_shared_info))
->> 
->> Final allocated size for skb head on x86_64 (L1_CACHE_BYTES = 64,
->> MTU=1500) : 2112 bytes : SLUB/SLAB round this to 4096 bytes.
->> 
->> Since skb truesize is then bigger than SK_MEM_QUANTUM, we have lot of
->> false sharing because of mem_reclaim in UDP stack.
->> 
->> One possible way to half truesize is to reduce the need by 64 bytes
->> (2112 -> 2048 bytes)
->> 
->> Instead of allocating a full cache line at the end of packet for
->> alignment, we can use the fact that skb_shared_info sits at the end of
->> skb->head, and we can use this room, if we convert bnx2x to new
->> build_skb() infrastructure.
->> 
->> skb_shared_info will be initialized after hardware finished its
->> transfert, so we can eventually overwrite the final padding.
->> 
->> Using build_skb() also reduces cache line misses in the driver, since we
->> use cache hot skb instead of cold ones. Number of in-flight sk_buff
->> structures is lower, they are recycled while still hot.
->> 
->> Performance results :
->> 
->> (820.000 pps on a rx UDP monothread benchmark, instead of 720.000 pps)
-> 
-> Wow! This is very impressive. The only problem will be to back port this
-> driver now... But it is definitely worth the effort :)
+> Applied, I'll work on converting NIU over to this if I find some time=
+=2E
 
-Applied.
+I dont believe NIU needs it, since its a frag enabled driver.
+
+You already allocate a fresh skb (and attach frags to it) right before
+giving it to upper stack.
