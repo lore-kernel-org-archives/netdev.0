@@ -1,38 +1,38 @@
-From: Fleming Andy-AFLEMING <afleming@freescale.com>
-Subject: Re: [PATCH] net: fsl_pq_mdio: fix non tbi phy access
-Date: Mon, 14 Nov 2011 21:04:47 +0000
-Message-ID: <C89A2124-7AB4-45B6-ACD1-8C5936027531@freescale.com>
-References: <b693b45a689d42b60a8a9e29dcdd2fb27e20df82.1321251618.git.baruch@tkos.co.il>
+From: Miroslav Kratochvil <exa.exa@gmail.com>
+Subject: Re: tc: deleting single entry from filter hashtable
+Date: Mon, 14 Nov 2011 22:12:50 +0100
+Message-ID: <CAO0uZ+_NX2vh4DGNFNXcPzg9SiUP4yvGUxFNEZMYDENk6cwJdg@mail.gmail.com>
+References: <CAO0uZ+9N9zwt07EdQzz6KjGcpRT7rdmpaBvHoE0TLDXe-0kxMg@mail.gmail.com>
+	<1321287325.2272.52.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Baruch Siach <baruch@tkos.co.il>
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:32597 "EHLO
-	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754819Ab1KNVEu convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Nov 2011 16:04:50 -0500
-In-Reply-To: <b693b45a689d42b60a8a9e29dcdd2fb27e20df82.1321251618.git.baruch@tkos.co.il>
-Content-Language: en-US
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:33477 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756378Ab1KNVMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 16:12:51 -0500
+Received: by ywt32 with SMTP id 32so2647815ywt.19
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 13:12:50 -0800 (PST)
+In-Reply-To: <1321287325.2272.52.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Well, this got applied quickly, so I guess I can't NAK, but this requires discussion.
+> > Question: Is the single deletion/modification possible? If not --
+> > judging from the lack of the documentation on given subject I kindof
+> > expect that it's not possible -- is there any other possibility to
+> > delete at least some reasonably small subset of the hash table that
+> > could be modified and recreated quickly?
+>
+> Not sure I understand the exact problem, but it is possible to delete a
+> single filter, and add a new one.
+>
 
-On Nov 14, 2011, at 0:22, "Baruch Siach" <baruch@tkos.co.il> wrote:
+That would be nice! Could you possibly show me an exact command to
+remove one specific filter from the hash table? (In last post you only
+demonstrated adding, which works for me, and I have problems exactly
+at constructing a deletion command..)
 
-> Since 952c5ca1 (fsl_pq_mdio: Clean up tbi address configuration) .probe returns
-> -EBUSY when the "tbi-phy" node is missing. Fix this.
-
-It returns an error because it finds no tbi node. Because without the tbi node, there is no way for the driver to determine which address to set.
-
-Your solution is to ignore the error, and hope. That's a broken approach. The real solution for a p1010 should be to have a tbi node in the dts.
-
-And looking at the p1010si.dtsi, I see that it's automatically there for you.
-
-How were you breaking?
-
-Andy
+Thanks in advance,
+-mk
