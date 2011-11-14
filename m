@@ -1,68 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 1/2] net: introduce build_skb()
-Date: Mon, 14 Nov 2011 17:08:59 +0000
-Message-ID: <1321290539.2827.10.camel@bwh-desktop>
-References: <1321286614.2272.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+From: Timur Tabi <timur@freescale.com>
+Subject: Re: [PATCH] netdev/phy: Use mdiobus_read() so that proper locks are
+ taken.
+Date: Mon, 14 Nov 2011 11:10:42 -0600
+Message-ID: <4EC14B92.70607@freescale.com>
+References: <1317419482-25655-1-git-send-email-david.daney@cavium.com>	<CAOZdJXXA6nBv8Gaqu=qcL2DxjNB-ENrxameVQTep9FEbZ1jtGQ@mail.gmail.com>	<4EBC70EB.7080002@cavium.com> <CAKWjMd4WjDNHH8dOr9GPxQTC69SGgjh+euWh_DSjhtRxquB8qA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <eilong@broadcom.com>,
-	<pstaszewski@itcare.pl>, <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Jamal Hadi Salim <hadi@mojatatu.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Thomas Graf <tgraf@infradead.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Daney <david.daney@cavium.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Andy Fleming <afleming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:17240 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753373Ab1KNRJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 12:09:08 -0500
-In-Reply-To: <1321286614.2272.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:47419
+	"EHLO VA3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751963Ab1KNRKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 12:10:47 -0500
+In-Reply-To: <CAKWjMd4WjDNHH8dOr9GPxQTC69SGgjh+euWh_DSjhtRxquB8qA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-11-14 at 17:03 +0100, Eric Dumazet wrote:
-> One of the thing we discussed during netdev 2011 conference was the idea
-> to change some network drivers to allocate/populate their skb at RX
-> completion time, right before feeding the skb to network stack.
-> 
-> In old days, we allocated skbs when populating the RX ring.
-> 
-> This means bringing into cpu cache sk_buff and skb_shared_info cache
-> lines (since we clear/initialize them), then 'queue' skb->data to NIC.
-> 
-> By the time NIC fills a frame in skb->data buffer and host can process
-> it, cpu probably threw away the cache lines from its caches, because lot
-> of things happened between the allocation and final use.
+Andy Fleming wrote:
 
-This is definitely a win so long as skbs are getting merged by GRO.
-However, those cache misses take less time than skb allocation, so
-preallocation of skbs normally reduces latency.  This is why sfc has an
-adaptive buffer allocation behaviour.
+> Yes, that is correct. I have a patch, I just have to resend it. Will do
+> next time I come to a break in what I'm working on.
 
-> So the deal would be to allocate only the data buffer for the NIC to
-> populate its RX ring buffer. And use build_skb() at RX completion to
-> attach a data buffer (now filled with an ethernet frame) to a new skb,
-> initialize the skb_shared_info portion, and give the hot skb to network
-> stack.
-> 
-> build_skb() is the function to allocate an skb, caller providing the
-> data buffer that should be attached to it. Drivers are expected to call 
-> skb_reserve() right after build_skb() to adjust skb->data to the
-> Ethernet frame (usually skipping NET_SKB_PAD and NET_IP_ALIGN, but some
-> drivers might add a hardware provided alignment)
-[...]
+Can you point me to that patch, so that I can try it out now?
 
-The option to attach a heap-allocated buffer rather than allocating a
-header buffer and attaching a page might shift the balance.  I'll have
-to test this (but don't hold your breath).
+I fixed some lockdep-related code in my audio driver.  The driver was not initializing a sysfs attr structure, so I added a call to sysfs_attr_init().  But when I do that, I get the following bug report.  I don't understand the connection.
 
-Ben.
+=============================================                                   
+[ INFO: possible recursive locking detected ]                                   
+3.2.0-10b-00093-gebea711-dirty #10                                              
+---------------------------------------------                                   
+kworker/1:1/271 is trying to acquire lock:                                      
+ (&(&(priv->tx_queue[i]->txlock))->rlock){......}, at: [<c02b2e28>] lock_tx_qs+0
+x34/0x54                                                                        
+                                                                                
+but task is already holding lock:                                               
+ (&(&(priv->tx_queue[i]->txlock))->rlock){......}, at: [<c02b2e28>] lock_tx_qs+0
+x34/0x54                                                                        
+                                                                                
+other info that might help us debug this:                                       
+ Possible unsafe locking scenario:                                              
+                                                                                
+       CPU0                                                                     
+       ----                                                                     
+  lock(&(&(priv->tx_queue[i]->txlock))->rlock);                                 
+  lock(&(&(priv->tx_queue[i]->txlock))->rlock);                                 
+                                                                                
+ *** DEADLOCK ***                                                               
+                                                                                
+ May be due to missing lock nesting notation                                    
+                                                                                
+4 locks held by kworker/1:1/271:                                                
+ #0:  (events){.+.+.+}, at: [<c005b7c8>] process_one_work+0x138/0x490           
+ #1:  ((&(&dev->state_queue)->work)){+.+...}, at: [<c005b7c8>] process_one_work+
+0x138/0x490                                                                     
+ #2:  (&dev->lock){+.+...}, at: [<c02ab3cc>] phy_state_machine+0x30/0x580       
+ #3:  (&(&(priv->tx_queue[i]->txlock))->rlock){......}, at: [<c02b2e28>] lock_tx
+_qs+0x34/0x54                                                                   
+                                                                                
+stack backtrace:                                                                
+Call Trace:                                                                     
+[e69d5d80] [c0008c7c] show_stack+0x44/0x154 (unreliable)                        
+[e69d5dc0] [c007bafc] __lock_acquire+0xefc/0x1824                               
+[e69d5e70] [c007c870] lock_acquire+0x4c/0x68                                    
+[e69d5e90] [c04575d8] _raw_spin_lock+0x44/0x60                                  
+[e69d5ea0] [c02b2e28] lock_tx_qs+0x34/0x54                                      
+[e69d5ec0] [c02b2f24] adjust_link+0x34/0x1d8                                    
+[e69d5ef0] [c02ab73c] phy_state_machine+0x3a0/0x580                             
+[e69d5f10] [c005b83c] process_one_work+0x1ac/0x490                              
+[e69d5f50] [c005e4c0] worker_thread+0x18c/0x35c                                 
+[e69d5f90] [c00631d4] kthread+0x7c/0x80                                         
+[e69d5ff0] [c000e588] kernel_thread+0x4c/0x68                                   
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Timur Tabi
+Linux kernel developer at Freescale
