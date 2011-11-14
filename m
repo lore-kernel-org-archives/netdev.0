@@ -1,40 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] net: introduce build_skb()
-Date: Mon, 14 Nov 2011 14:29:16 -0500 (EST)
-Message-ID: <20111114.142916.2005300491189237669.davem@davemloft.net>
-References: <1321286614.2272.47.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-	<20111114.142153.804127798975712263.davem@davemloft.net>
-	<1321298766.2719.11.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: net/can/mscan: Fix buggy listen only mode setting
+Date: Mon, 14 Nov 2011 14:30:45 -0500 (EST)
+Message-ID: <20111114.143045.761000562641505401.davem@davemloft.net>
+References: <4EC11900.7030005@grandegger.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eilong@broadcom.com, pstaszewski@itcare.pl, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, therbert@google.com, hadi@mojatatu.com,
-	shemminger@vyatta.com, tgraf@infradead.org,
-	herbert@gondor.hengli.com.au, jeffrey.t.kirsher@intel.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:51306 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367Ab1KNTae convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:30:34 -0500
-In-Reply-To: <1321298766.2719.11.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4EC11900.7030005-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 14 Nov 2011 20:26:06 +0100
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Date: Mon, 14 Nov 2011 14:34:56 +0100
 
-> Le lundi 14 novembre 2011 =E0 14:21 -0500, David Miller a =E9crit :
->=20
->> Applied, I'll work on converting NIU over to this if I find some tim=
-e.
->=20
-> I dont believe NIU needs it, since its a frag enabled driver.
->=20
-> You already allocate a fresh skb (and attach frags to it) right befor=
-e
-> giving it to upper stack.
+> This patch fixes an issue introduced recently with commit
+> 452448f9283e1939408b397e87974a418825b0a8.
+> 
+> CC: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
-Oh I see, this is for drivers which splat the packet into a linear
-buffer to begin with.
+Applied, thanks.
