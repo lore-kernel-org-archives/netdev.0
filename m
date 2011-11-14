@@ -1,50 +1,60 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] ndo: ndo_queue_xmit/ndo_flush_xmit (was Re: [RFC]
-	[ver3 PATCH 0/6] Implement multiqueue virtio-net)
-Date: Mon, 14 Nov 2011 18:21:49 +0200
-Message-ID: <20111114162149.GA23024@redhat.com>
-References: <20111111130223.9878.59517.sendpatchset@krkumar2.in.ibm.com>
-	<20111113174827.GA23310@redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/2] bnx2x: uses build_skb() in receive path
+Date: Mon, 14 Nov 2011 16:21:27 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AEC2@saturn3.aculab.com>
+References: <1321286734.2272.48.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20111113174827.GA23310@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Tom Herbert" <therbert@google.com>,
+	"Jamal Hadi Salim" <hadi@mojatatu.com>,
+	"Stephen Hemminger" <shemminger@vyatta.com>,
+	"Thomas Graf" <tgraf@infradead.org>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+	<pstaszewski@itcare.pl>, <eilong@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:57417 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750696Ab1KNQXU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 11:23:20 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 27691-10 for <netdev@vger.kernel.org>;
+ Mon, 14 Nov 2011 16:23:09 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1321286734.2272.48.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 13, 2011 at 07:48:28PM +0200, Michael S. Tsirkin wrote:
-> @@ -863,6 +872,9 @@ struct net_device_ops {
->  	int			(*ndo_stop)(struct net_device *dev);
->  	netdev_tx_t		(*ndo_start_xmit) (struct sk_buff *skb,
->  						   struct net_device *dev);
-> +	netdev_tx_t		(*ndo_queue_xmit)(struct sk_buff *skb,
-> +						  struct net_device *dev);
-> +	void			(*ndo_flush_xmit)(struct net_device *dev);
->  	u16			(*ndo_select_queue)(struct net_device *dev,
->  						    struct sk_buff *skb);
->  	void			(*ndo_change_rx_flags)(struct net_device *dev,
-> @@ -2099,6 +2111,10 @@ extern int		dev_set_mac_address(struct net_device *,
+ 
+> bnx2x uses following formula to compute its rx_buf_sz :
+> 
+> dev->mtu + 2*L1_CACHE_BYTES + 14 + 8 + 8 + 2
+> 
+> Then core network adds NET_SKB_PAD and SKB_DATA_ALIGN(sizeof(struct
+> skb_shared_info))
+> 
+> Final allocated size for skb head on x86_64 (L1_CACHE_BYTES = 64,
+> MTU=1500) : 2112 bytes : SLUB/SLAB round this to 4096 bytes.
+> 
+> Since skb truesize is then bigger than SK_MEM_QUANTUM, we have lot of
+> false sharing because of mem_reclaim in UDP stack.
+> 
+> One possible way to half truesize is to reduce the need by 64 bytes
+> (2112 -> 2048 bytes)
 
-An alternative I considered was to add a boolean flag to ndo_start_xmit
-'bool queue' or something like this, plus ndo_flush_xmit.
-This will lead to cleaner code I think but will require all drivers
-to be changed, so for a proof of concept I decided to go for one
-that is less work.
+Would seem to be worth trying to reduce the size for systems
+where the L1 caches lines are 128 bytes - I think that includes
+some of the large ppc systems.
 
-Let me know what looks more palatable ... 
+If the alignment of the malloced memory can't be assumed/forced
+maybe one of the sub-structures could be dynamically placed
+before the data buffer?
 
--- 
-MST
+	David
