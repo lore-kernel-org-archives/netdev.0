@@ -1,66 +1,47 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH Fix V2] mlx4_en: Remove FCS bytes from packet length.
-Date: Mon, 14 Nov 2011 18:40:13 +0200
-Message-ID: <4EC1446D.4020209@mellanox.co.il>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] Sweep the last of the active
+ .get_drvinfo floors under ethernet/
+Date: Mon, 14 Nov 2011 14:22:21 -0500 (EST)
+Message-ID: <20111114.142221.426237349118940895.davem@davemloft.net>
+References: <20111114181325.217C72900307@tardy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:47360 "HELO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753323Ab1KNTUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 14:20:45 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dwang2@cisco.com, netdev@vger.kernel.org, roprabhu@cisco.com,
+	e1000-devel@lists.sourceforge.net, benve@cisco.com
+To: raj@tardy.cup.hp.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20111114181325.217C72900307@tardy>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
+From: raj@tardy.cup.hp.com (Rick Jones)
+Date: Mon, 14 Nov 2011 10:13:25 -0800 (PST)
 
-When HW doesn't remove FCS bytes they are reported in the completion
-byte count, we don't need to take them to skb.
+> From: Rick Jones <rick.jones2@hp.com>
+> 
+> This round of floor sweeping converts strncpy calls in various .get_drvinfo
+> routines to the preferred strlcpy.  It also does a modicum of other
+> cleaning in those routines.
+> 
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    6 +++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    1 +
- 2 files changed, 6 insertions(+), 1 deletions(-)
+Applied, thanks for taking care of this.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b89c36d..c2df6c3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -581,6 +581,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		 * Packet is OK - process it.
- 		 */
- 		length = be32_to_cpu(cqe->byte_cnt);
-+		length -= ring->fcs_del;
- 		ring->bytes += length;
- 		ring->packets++;
- 
-@@ -813,8 +814,11 @@ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv, int qpn,
- 	context->db_rec_addr = cpu_to_be64(ring->wqres.db.dma);
- 
- 	/* Cancel FCS removal if FW allows */
--	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP)
-+	if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_FCS_KEEP) {
- 		context->param3 |= cpu_to_be32(1 << 29);
-+		ring->fcs_del = ETH_FCS_LEN;
-+	} else
-+		ring->fcs_del = 0;
- 
- 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, context, qp, state);
- 	if (err) {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 8fda331c..207b5ad 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -272,6 +272,7 @@ struct mlx4_en_rx_ring {
- 	u32 prod;
- 	u32 cons;
- 	u32 buf_size;
-+	u8  fcs_del;
- 	void *buf;
- 	void *rx_info;
- 	unsigned long bytes;
--- 
-1.7.7
+------------------------------------------------------------------------------
+RSA(R) Conference 2012
+Save $700 by Nov 18
+Register now
+http://p.sf.net/sfu/rsa-sfdev2dev1
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
