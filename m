@@ -1,57 +1,38 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 4/4] sunrpc: use SKB fragment destructors to delay completion until page is released by network stack.
-Date: Mon, 14 Nov 2011 13:25:01 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6D8AEC1@saturn3.aculab.com>
-References: <1321276055.3664.67.camel@zakaz.uk.xensource.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: net/can/mscan: Fix buggy listen only mode setting
+Date: Mon, 14 Nov 2011 14:34:56 +0100
+Message-ID: <4EC11900.7030005@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	"Neil Brown" <neilb@suse.de>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	<linux-nfs@vger.kernel.org>
-To: "Ian Campbell" <Ian.Campbell@citrix.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-can@vger.kernel.org, Socketcan-core@lists.berlios.de,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: Netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53933 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751957Ab1KNN0q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 08:26:46 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 25212-03 for <netdev@vger.kernel.org>;
- Mon, 14 Nov 2011 13:26:42 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1321276055.3664.67.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch fixes an issue introduced recently with commit
+452448f9283e1939408b397e87974a418825b0a8.
+
+CC: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ drivers/net/can/mscan/mscan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
+index 74f3b18..1c82dd8 100644
+--- a/drivers/net/can/mscan/mscan.c
++++ b/drivers/net/can/mscan/mscan.c
+@@ -581,7 +581,7 @@ static int mscan_open(struct net_device *dev)
  
-> This prevents an issue where an ACK is delayed, a retransmit is queued
-(either
-> at the RPC or TCP level) and the ACK arrives before the retransmission
-hits the
-> wire. If this happens to an NFS WRITE RPC then the write() system call
-> completes and the userspace process can continue, potentially
-modifying data
-> referenced by the retransmission before the retransmission occurs.
-
-The only problem I see is that the source address might get
-invalidated (assuming it is a user address mapped into kernel).
-Not sure what effect the fault would have...
-
-If it is an RPC retransmittion the NFS write won't be
-terminated by the RPC ACK (because it is a stale ACK)
-and the destination will see two copies of the NFS write.
-(This is quite common with NFS/UDP.)
-
-If it is a TCP retransmittion, then the receiving TCP stack
-will see it as duplicate data and discard the contents
-without passing them to RPC.
-
-Interrupting an NFS write with a signal is problematic
-anyway - I'm sure I've seen systems (SYSV?) when NFS
-writes were uninterruptable. NFI how Linux handles this.
-
-	David
+ 	priv->open_time = jiffies;
+ 
+-	if (ctrlmode.flags & CAN_CTRLMODE_LISTENONLY)
++	if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY)
+ 		setbits8(&regs->canctl1, MSCAN_LISTEN);
+ 	else
+ 		clrbits8(&regs->canctl1, MSCAN_LISTEN);
+-- 
+1.7.6.4
