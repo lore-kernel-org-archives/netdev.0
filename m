@@ -1,19 +1,21 @@
 From: "Fritz, Wolfgang" <Wolfgang.Fritz@keymile.com>
 Subject: Re: [PATCH] net,
 	bridge: print log message after state changed
-Date: Mon, 14 Nov 2011 08:03:31 +0100
-Message-ID: <1321254211.4072.29.camel@pc005091.de.keymile.net>
+Date: Mon, 14 Nov 2011 10:10:53 +0100
+Message-ID: <1321261853.4072.75.camel@pc005091.de.keymile.net>
 References: <1320941934-3534-1-git-send-email-holger.brunck@keymile.com>
 	<20111114.003702.1097206603722725705.davem@davemloft.net>
+	<1321254211.4072.29.camel@pc005091.de.keymile.net>
+	<20111114.020749.1176229013272872343.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1362143575534058751=="
+Content-Type: multipart/mixed; boundary="===============2647726476093602713=="
 Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
 	bridge@lists.linux-foundation.org, "Brunck,
 	Holger" <holger.brunck@keymile.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-class: urn:content-classes:message
-In-Reply-To: <20111114.003702.1097206603722725705.davem@davemloft.net>
+In-Reply-To: <20111114.020749.1176229013272872343.davem@davemloft.net>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -27,56 +29,99 @@ List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===============1362143575534058751==
-Content-class: urn:content-classes:message
+--===============2647726476093602713==
 Content-Type: multipart/alternative;
-	boundary="----_=_NextPart_001_01CCA29B.843E701A"
+	boundary="----_=_NextPart_001_01CCA2AD.4F9473E6"
+Content-class: urn:content-classes:message
 
 This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01CCA29B.843E701A
+------_=_NextPart_001_01CCA2AD.4F9473E6
 Content-Type: text/plain;
 	charset="ISO-8859-15"
 Content-Transfer-Encoding: quoted-printable
 
 
-Am Montag, den 14.11.2011, 00:37 -0500 schrieb David Miller:
-> From: Holger Brunck <holger.brunck@keymile.com>
-> Date: Thu, 10 Nov 2011 17:18:54 +0100
+Am Montag, den 14.11.2011, 02:07 -0500 schrieb David Miller:
+> From: "Fritz, Wolfgang" <Wolfgang.Fritz@keymile.com>
+> Date: Mon, 14 Nov 2011 08:03:31 +0100
 >=20
-> > From: Wolfgang Fritz <wolfgang.fritz@keymile.com>
 > >=20
-> > Function br_log_state writes log message "... entering XXXX state" =
-so it
-> > should be called after the state has changed and not before.
+> > Am Montag, den 14.11.2011, 00:37 -0500 schrieb David Miller:
+> >> From: Holger Brunck <holger.brunck@keymile.com>
+> >> Date: Thu, 10 Nov 2011 17:18:54 +0100
+> >>=20
+> >> > From: Wolfgang Fritz <wolfgang.fritz@keymile.com>
+> >> >=20
+> >> > Function br_log_state writes log message "... entering XXXX =
+state" so it
+> >> > should be called after the state has changed and not before.
+> >> >=20
+> >> > Signed-off-by: Wolfgang Fritz <wolfgang.fritz@keymile.com>
+> >> > Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+> >>=20
+> >> "entering" can roughly mean "about to enter"
+> >>=20
 > >=20
-> > Signed-off-by: Wolfgang Fritz <wolfgang.fritz@keymile.com>
-> > Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+> > Exactly.
+> >=20
+> >> The message is therefore appropriately timed as far as I'm =
+concerned.
+> >>=20
+> >=20
+> > It's not.
+> >=20
+> > Please test: create a bridge with STP disabled, add an interface to =
+the
+> > bridge and set that interface down. You get the message "... =
+entering
+> > forwarding state". That's wrong because it's "about to enter" =
+disabled
+> > state some lines later.
+> >=20
+> > All other (4) calls to br_log_state are located after the state =
+change,
+> > see for example br_stp_enable_port() just some lines above the =
+patch.
 >=20
-> "entering" can roughly mean "about to enter"
+> I would never expect an "entering" message to print out after the =
+event
+> happens, and in fact I'd _always_ want to see it beforehand so that if
+> the state change caused a crash or similar it'd be that much easier
+> to pinpoint the proper location.
 >=20
 
-Exactly.
+OK. I see what you mean.
 
-> The message is therefore appropriately timed as far as I'm concerned.
->=20
+Proposal 1 (simple):=20
+- Modify log message to "Entered xxx state"
+- Apply patch
+- Do not touch other br_log_message calls.
 
-It's not.
+Proposal 2 (more complicated):
+Add parameter "newstate" to br_log_message and put br_log_message before
+the state change. Print log message only if new state !=3D current =
+state.
 
-Please test: create a bridge with STP disabled, add an interface to the
-bridge and set that interface down. You get the message "... entering
-forwarding state". That's wrong because it's "about to enter" disabled
-state some lines later.
+Advantage: Reduces log spam when STP is disabled. After the last
+modifications to the bridge code which force "forwarding" state if STP
+is disabled, you get lots of bogus messages "entering forwarding state":
 
-All other (4) calls to br_log_state are located after the state change,
-see for example br_stp_enable_port() just some lines above the patch.
+Event                    old message      new message
+link up                  learning         forwarding
+forwarding delay expired forwarding       forwarding
+interface down           disabled         forwarding
+link down                disabled         forwarding =20
+
+If you accept one of the proposals, I'll prepare a patch. Otherwise, we
+keep my original patch in our local tree.
+
+> I'm still not applying this.  If the other log messages behave
+> differently, they are broken, so go fix those instead.
 
 Regards,
-Wolfgang=20
+Wolfgang
 
-
-> I'm not applying this patch.
->=20
 --=20
 "I love deadlines. I like the whooshing sound they make as they fly by"
 (Douglas Adams)
@@ -93,7 +138,7 @@ Legal structure: GmbH, Registered office: Hanover, HRB 61069=20
 Local court Hanover, VAT-Reg.-No.: DE 812282795,=20
 WEEE-Reg.-No.: DE 59336750
 
-------_=_NextPart_001_01CCA29B.843E701A
+------_=_NextPart_001_01CCA2AD.4F9473E6
 Content-Type: text/html;
 	charset="ISO-8859-15"
 Content-Transfer-Encoding: quoted-printable
@@ -112,54 +157,113 @@ changed</TITLE>
 <!-- Converted from text/plain format -->
 <BR>
 
-<P><FONT SIZE=3D2>Am Montag, den 14.11.2011, 00:37 -0500 schrieb David =
+<P><FONT SIZE=3D2>Am Montag, den 14.11.2011, 02:07 -0500 schrieb David =
 Miller:<BR>
-&gt; From: Holger Brunck &lt;holger.brunck@keymile.com&gt;<BR>
-&gt; Date: Thu, 10 Nov 2011 17:18:54 +0100<BR>
+&gt; From: &quot;Fritz, Wolfgang&quot; =
+&lt;Wolfgang.Fritz@keymile.com&gt;<BR>
+&gt; Date: Mon, 14 Nov 2011 08:03:31 +0100<BR>
 &gt;<BR>
-&gt; &gt; From: Wolfgang Fritz &lt;wolfgang.fritz@keymile.com&gt;<BR>
 &gt; &gt;<BR>
-&gt; &gt; Function br_log_state writes log message &quot;... entering =
-XXXX state&quot; so it<BR>
-&gt; &gt; should be called after the state has changed and not =
-before.<BR>
-&gt; &gt;<BR>
-&gt; &gt; Signed-off-by: Wolfgang Fritz =
+&gt; &gt; Am Montag, den 14.11.2011, 00:37 -0500 schrieb David =
+Miller:<BR>
+&gt; &gt;&gt; From: Holger Brunck &lt;holger.brunck@keymile.com&gt;<BR>
+&gt; &gt;&gt; Date: Thu, 10 Nov 2011 17:18:54 +0100<BR>
+&gt; &gt;&gt;<BR>
+&gt; &gt;&gt; &gt; From: Wolfgang Fritz =
 &lt;wolfgang.fritz@keymile.com&gt;<BR>
-&gt; &gt; Signed-off-by: Holger Brunck =
+&gt; &gt;&gt; &gt;<BR>
+&gt; &gt;&gt; &gt; Function br_log_state writes log message &quot;... =
+entering XXXX state&quot; so it<BR>
+&gt; &gt;&gt; &gt; should be called after the state has changed and not =
+before.<BR>
+&gt; &gt;&gt; &gt;<BR>
+&gt; &gt;&gt; &gt; Signed-off-by: Wolfgang Fritz =
+&lt;wolfgang.fritz@keymile.com&gt;<BR>
+&gt; &gt;&gt; &gt; Signed-off-by: Holger Brunck =
 &lt;holger.brunck@keymile.com&gt;<BR>
-&gt;<BR>
-&gt; &quot;entering&quot; can roughly mean &quot;about to =
+&gt; &gt;&gt;<BR>
+&gt; &gt;&gt; &quot;entering&quot; can roughly mean &quot;about to =
 enter&quot;<BR>
-&gt;<BR>
-<BR>
-Exactly.<BR>
-<BR>
-&gt; The message is therefore appropriately timed as far as I'm =
+&gt; &gt;&gt;<BR>
+&gt; &gt;<BR>
+&gt; &gt; Exactly.<BR>
+&gt; &gt;<BR>
+&gt; &gt;&gt; The message is therefore appropriately timed as far as I'm =
 concerned.<BR>
+&gt; &gt;&gt;<BR>
+&gt; &gt;<BR>
+&gt; &gt; It's not.<BR>
+&gt; &gt;<BR>
+&gt; &gt; Please test: create a bridge with STP disabled, add an =
+interface to the<BR>
+&gt; &gt; bridge and set that interface down. You get the message =
+&quot;... entering<BR>
+&gt; &gt; forwarding state&quot;. That's wrong because it's &quot;about =
+to enter&quot; disabled<BR>
+&gt; &gt; state some lines later.<BR>
+&gt; &gt;<BR>
+&gt; &gt; All other (4) calls to br_log_state are located after the =
+state change,<BR>
+&gt; &gt; see for example br_stp_enable_port() just some lines above the =
+patch.<BR>
+&gt;<BR>
+&gt; I would never expect an &quot;entering&quot; message to print out =
+after the event<BR>
+&gt; happens, and in fact I'd _always_ want to see it beforehand so that =
+if<BR>
+&gt; the state change caused a crash or similar it'd be that much =
+easier<BR>
+&gt; to pinpoint the proper location.<BR>
 &gt;<BR>
 <BR>
-It's not.<BR>
+OK. I see what you mean.<BR>
 <BR>
-Please test: create a bridge with STP disabled, add an interface to =
-the<BR>
-bridge and set that interface down. You get the message &quot;... =
-entering<BR>
-forwarding state&quot;. That's wrong because it's &quot;about to =
-enter&quot; disabled<BR>
-state some lines later.<BR>
+Proposal 1 (simple):<BR>
+- Modify log message to &quot;Entered xxx state&quot;<BR>
+- Apply patch<BR>
+- Do not touch other br_log_message calls.<BR>
 <BR>
-All other (4) calls to br_log_state are located after the state =
-change,<BR>
-see for example br_stp_enable_port() just some lines above the =
-patch.<BR>
+Proposal 2 (more complicated):<BR>
+Add parameter &quot;newstate&quot; to br_log_message and put =
+br_log_message before<BR>
+the state change. Print log message only if new state !=3D current =
+state.<BR>
+<BR>
+Advantage: Reduces log spam when STP is disabled. After the last<BR>
+modifications to the bridge code which force &quot;forwarding&quot; =
+state if STP<BR>
+is disabled, you get lots of bogus messages &quot;entering forwarding =
+state&quot;:<BR>
+<BR>
+Event&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; old =
+message&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; new message<BR>
+link =
+up&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+learning&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; forwarding<BR>
+forwarding delay expired forwarding&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+forwarding<BR>
+interface =
+down&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+disabled&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; forwarding<BR>
+link =
+down&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp; =
+disabled&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
+forwarding&nbsp;<BR>
+<BR>
+If you accept one of the proposals, I'll prepare a patch. Otherwise, =
+we<BR>
+keep my original patch in our local tree.<BR>
+<BR>
+&gt; I'm still not applying this.&nbsp; If the other log messages =
+behave<BR>
+&gt; differently, they are broken, so go fix those instead.<BR>
 <BR>
 Regards,<BR>
 Wolfgang<BR>
 <BR>
-<BR>
-&gt; I'm not applying this patch.<BR>
-&gt;<BR>
 --<BR>
 &quot;I love deadlines. I like the whooshing sound they make as they fly =
 by&quot;<BR>
@@ -184,9 +288,9 @@ WEEE-Reg.-No.: DE 59336750<BR>
 
 </BODY>
 </HTML>
-------_=_NextPart_001_01CCA29B.843E701A--
+------_=_NextPart_001_01CCA2AD.4F9473E6--
 
---===============1362143575534058751==
+--===============2647726476093602713==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -196,4 +300,4 @@ _______________________________________________
 Bridge mailing list
 Bridge@lists.linux-foundation.org
 https://lists.linuxfoundation.org/mailman/listinfo/bridge
---===============1362143575534058751==--
+--===============2647726476093602713==--
