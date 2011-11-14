@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH Fix] mlx4_en: Remove FCS bytes from packet length.
-Date: Mon, 14 Nov 2011 00:13:30 -0500 (EST)
-Message-ID: <20111114.001330.804008773505285450.davem@davemloft.net>
-References: <4EBF733E.5020801@mellanox.co.il>
+Subject: Re: [PATCH FIX net v2] forcedeth: fix stats on hardware without
+ extended stats support
+Date: Mon, 14 Nov 2011 00:15:14 -0500 (EST)
+Message-ID: <20111114.001514.2212530697656360412.davem@davemloft.net>
+References: <cover.1321064621.git.david.decotigny@google.com>
+	<51c23650f3fc6e48b652a7ab322ca09a1cb7cbcc.1321064621.git.david.decotigny@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:55049 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759Ab1KNFNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 00:13:37 -0500
-In-Reply-To: <4EBF733E.5020801@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ian.campbell@citrix.com, eric.dumazet@gmail.com,
+	jeffrey.t.kirsher@intel.com, jpirko@redhat.com, joe@perches.com,
+	szymon@janc.net.pl, rick.jones2@hp.com, AAbdulla@nvidia.com
+To: david.decotigny@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51c23650f3fc6e48b652a7ab322ca09a1cb7cbcc.1321064621.git.david.decotigny@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Sun, 13 Nov 2011 09:35:26 +0200
+From: David Decotigny <david.decotigny@google.com>
+Date: Fri, 11 Nov 2011 18:27:34 -0800
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> index 8fda331c..d93476b 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> @@ -140,6 +140,7 @@ enum {
->  #define MLX4_EN_TX_POLL_TIMEOUT	(HZ / 4)
->  
->  #define ETH_LLC_SNAP_SIZE	8
-> +#define FCS_SIZE		4
->  
+> This change makes sure that tx_packets/rx_bytes ifconfig counters are
+> updated even on NICs that don't provide hardware support for these
+> stats: they are now updated in software. For the sake of consistency,
+> we also now have tx_bytes updated in software (hardware counters
+> include ethernet CRC, and software doesn't account for it).
+> 
+> This reverts parts of:
+>  - "forcedeth: statistics optimization" (21828163b2)
+>  - "forcedeth: Improve stats counters" (0bdfea8ba8)
+>  - "forcedeth: remove unneeded stats updates" (4687f3f364)
+> 
+> Tested:
+>   pktgen + loopback (http://patchwork.ozlabs.org/patch/124698/)
+>   reports identical tx_packets/rx_packets and tx_bytes/rx_bytes.
+> 
+> Signed-off-by: David Decotigny <david.decotigny@google.com>
 
-Please use ETH_FCS_LEN from linux/if_ether.h
+Applied, thanks.
