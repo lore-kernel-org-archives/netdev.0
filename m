@@ -1,38 +1,37 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: net/can/mscan: Fix buggy listen only mode setting
-Date: Mon, 14 Nov 2011 14:34:56 +0100
-Message-ID: <4EC11900.7030005@grandegger.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-can@vger.kernel.org, Socketcan-core@lists.berlios.de,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: Netdev@vger.kernel.org
+From: John Crispin <blogic@openwrt.org>
+Subject: [PATCH] NET: MIPS: lantiq: fix etop compile error
+Date: Mon, 14 Nov 2011 16:01:18 +0100
+Message-ID: <1321282878-29372-1-git-send-email-blogic@openwrt.org>
+Cc: John Crispin <blogic@openwrt.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:60108 "EHLO nbd.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751846Ab1KNOBt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Nov 2011 09:01:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes an issue introduced recently with commit
-452448f9283e1939408b397e87974a418825b0a8.
+The Lantiq ETOP ethernet driver fails to build in 3.2-rc1 due to 2 missing
+header files.
 
-CC: Marc Kleine-Budde <mkl@pengutronix.de>
-Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Signed-off-by: John Crispin <blogic@openwrt.org>
 ---
- drivers/net/can/mscan/mscan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/lantiq_etop.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/can/mscan/mscan.c b/drivers/net/can/mscan/mscan.c
-index 74f3b18..1c82dd8 100644
---- a/drivers/net/can/mscan/mscan.c
-+++ b/drivers/net/can/mscan/mscan.c
-@@ -581,7 +581,7 @@ static int mscan_open(struct net_device *dev)
+diff --git a/drivers/net/ethernet/lantiq_etop.c b/drivers/net/ethernet/lantiq_etop.c
+index 6bb2b95..0b3567a 100644
+--- a/drivers/net/ethernet/lantiq_etop.c
++++ b/drivers/net/ethernet/lantiq_etop.c
+@@ -34,6 +34,8 @@
+ #include <linux/init.h>
+ #include <linux/delay.h>
+ #include <linux/io.h>
++#include <linux/dma-mapping.h>
++#include <linux/module.h>
  
- 	priv->open_time = jiffies;
+ #include <asm/checksum.h>
  
--	if (ctrlmode.flags & CAN_CTRLMODE_LISTENONLY)
-+	if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY)
- 		setbits8(&regs->canctl1, MSCAN_LISTEN);
- 	else
- 		clrbits8(&regs->canctl1, MSCAN_LISTEN);
 -- 
-1.7.6.4
+1.7.7.1
