@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip6_tunnel: copy parms.name after register_netdevice
-Date: Mon, 14 Nov 2011 00:24:56 -0500 (EST)
-Message-ID: <20111114.002456.1590067179487443754.davem@davemloft.net>
-References: <20111111011023.GE2170@zod.bos.redhat.com>
+Subject: Re: [PATCH] fsl_pq_mdio: Clean up tbi address configuration
+Date: Mon, 14 Nov 2011 00:26:30 -0500 (EST)
+Message-ID: <20111114.002630.2254622894958283155.davem@davemloft.net>
+References: <1321024239-18861-1-git-send-email-afleming@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: jwboyer@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111111011023.GE2170@zod.bos.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: afleming@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([198.137.202.13]:43568 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751158Ab1KNF0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 00:26:36 -0500
+In-Reply-To: <1321024239-18861-1-git-send-email-afleming@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Josh Boyer <jwboyer@redhat.com>
-Date: Thu, 10 Nov 2011 20:10:23 -0500
+From: Andy Fleming <afleming@freescale.com>
+Date: Fri, 11 Nov 2011 09:10:39 -0600
 
-> @@ -288,6 +288,8 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct ip6_tnl_parm *p)
->  
->  	if ((err = register_netdevice(dev)) < 0)
->  		goto failed_free;
-> +	
-> +	strcpy(t->parms.name, dev->name);
+> The code for setting the address of the internal TBI PHY was
+> convoluted enough without a maze of ifdefs. Clean it up a bit
+> so we allow the logic to fail down to -ENODEV at the end of
+> the if/else ladder, rather than using ifdefs to repeat the same
+> failure code over and over.
+> 
+> Also, remove the support for the auto-configuration. I'm not aware of
+> anyone using it, and it ends up using the bus mutex before it's been
+> initialized.
+> 
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
 
-Trailing whitespace on that blank line you're adding.
-
-I fixed this up, applied, and queued up for -stable, thanks.
+Applied, thanks.
