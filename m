@@ -1,37 +1,68 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESUBMIT2 net-next 1/2] IPv6 routing, NLM_F_* flag
- support: warn if NEWROUTE lacks of both CREATE and REPLACE flags
-Date: Mon, 14 Nov 2011 02:06:17 -0500 (EST)
-Message-ID: <20111114.020617.136865443034405914.davem@davemloft.net>
-References: <1321254611.23935.15.camel@hakki>
+Subject: Re: [PATCH] net,
+	bridge: print log message after state changed
+Date: Mon, 14 Nov 2011 02:07:49 -0500 (EST)
+Message-ID: <20111114.020749.1176229013272872343.davem@davemloft.net>
+References: <1320941934-3534-1-git-send-email-holger.brunck@keymile.com>
+	<20111114.003702.1097206603722725705.davem@davemloft.net>
+	<1321254211.4072.29.camel@pc005091.de.keymile.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: matti.vaittinen@nsn.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43167 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752897Ab1KNHGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 02:06:24 -0500
-In-Reply-To: <1321254611.23935.15.camel@hakki>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	bridge@lists.linux-foundation.org, holger.brunck@keymile.com
+To: Wolfgang.Fritz@keymile.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1321254211.4072.29.camel@pc005091.de.keymile.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+From: "Fritz, Wolfgang" <Wolfgang.Fritz@keymile.com>
+Date: Mon, 14 Nov 2011 08:03:31 +0100
 
-These changes still has problems.
+> 
+> Am Montag, den 14.11.2011, 00:37 -0500 schrieb David Miller:
+>> From: Holger Brunck <holger.brunck@keymile.com>
+>> Date: Thu, 10 Nov 2011 17:18:54 +0100
+>> 
+>> > From: Wolfgang Fritz <wolfgang.fritz@keymile.com>
+>> > 
+>> > Function br_log_state writes log message "... entering XXXX state" so it
+>> > should be called after the state has changed and not before.
+>> > 
+>> > Signed-off-by: Wolfgang Fritz <wolfgang.fritz@keymile.com>
+>> > Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+>> 
+>> "entering" can roughly mean "about to enter"
+>> 
+> 
+> Exactly.
+> 
+>> The message is therefore appropriately timed as far as I'm concerned.
+>> 
+> 
+> It's not.
+> 
+> Please test: create a bridge with STP disabled, add an interface to the
+> bridge and set that interface down. You get the message "... entering
+> forwarding state". That's wrong because it's "about to enter" disabled
+> state some lines later.
+> 
+> All other (4) calls to br_log_state are located after the state change,
+> see for example br_stp_enable_port() just some lines above the patch.
 
-These warning messages are poorly formatted.  Some of them don't even indicate
-that ipv6 is involved by printing out an appropriate subsystem prefix.
+I would never expect an "entering" message to print out after the event
+happens, and in fact I'd _always_ want to see it beforehand so that if
+the state change caused a crash or similar it'd be that much easier
+to pinpoint the proper location.
 
-And frankly, they are ugly, and not the kind of thing I want the networking
-code spitting out.
-
-Consolidate these messages into something that has good form and will indicate,
-consistently, where the trouble is occuring.
-
-And I still submit that perhaps these ugly messages are an indicate of how
-bad an idea these changes are in the first place.  We've lived with the
-current behavior for 15 years or more, nobody cared.  What changed?
-What can't you do with the current setup?  And why can't you do it without
-requiring operations that work currently to change semantics?
+I'm still not applying this.  If the other log messages behave
+differently, they are broken, so go fix those instead.
