@@ -1,52 +1,81 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] Net, libertas: Resolve memory leak in
- if_spi_host_to_card()
-Date: Mon, 14 Nov 2011 16:43:10 -0600
-Message-ID: <1321310590.16847.3.camel@dcbw.foobar.com>
-References: <alpine.LNX.2.00.1111132211580.3368@swampdragon.chaosbits.net>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: fixes for DSACK-based undo of cwnd reduction during
+ fast recovery
+Date: Mon, 14 Nov 2011 18:03:37 -0500
+Message-ID: <CADVnQyn7czRocYV3-goTtwqCDg9MBv+bTHeZ-A8R4n45LH8L=g@mail.gmail.com>
+References: <1320775631-16341-1-git-send-email-ncardwell@google.com>
+	<20111114.152359.1131974895743731960.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrey Yurovsky <andrey@cozybit.com>,
-	Colin McCabe <colin@cozybit.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1111132211580.3368@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi,
+	nanditad@google.com, ycheng@google.com, therbert@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:45727 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753559Ab1KNXDi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 18:03:38 -0500
+Received: by ywt32 with SMTP id 32so2749774ywt.19
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 15:03:38 -0800 (PST)
+In-Reply-To: <20111114.152359.1131974895743731960.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-11-13 at 22:14 +0100, Jesper Juhl wrote:
-> If we hit the default case in the switch in if_spi_host_to_card() we'll leak
-> the memory we allocated for 'packet'. This patch resolves the leak by freeing
-> the allocated memory in that case.
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+On Mon, Nov 14, 2011 at 3:23 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Neal Cardwell <ncardwell@google.com>
+> Date: Tue, =A08 Nov 2011 13:07:11 -0500
+>
+>> (2) When the ACK field is below snd_una (the "old_ack" goto label),
+>> process any DSACKs and try to send out more packets based on
+>> newly-SACKed packets.
+>
+> This seems dubious.
+>
+> An older ACK should not have more uptodate SACK information than a ne=
+wer
+> ACK.
+>
 
-Acked-by: Dan Williams <dcbw@redhat.com>
+I grant that it is a rare corner case, but it is possible if there is
+reordering and packet loss in both directions.
 
-> ---
->  drivers/net/wireless/libertas/if_spi.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
->  Compile tested only due to lack of hardware.
-> 
-> diff --git a/drivers/net/wireless/libertas/if_spi.c b/drivers/net/wireless/libertas/if_spi.c
-> index 11b69b3..728baa4 100644
-> --- a/drivers/net/wireless/libertas/if_spi.c
-> +++ b/drivers/net/wireless/libertas/if_spi.c
-> @@ -995,6 +995,7 @@ static int if_spi_host_to_card(struct lbs_private *priv,
->  		spin_unlock_irqrestore(&card->buffer_lock, flags);
->  		break;
->  	default:
-> +		kfree(packet);
->  		netdev_err(priv->dev, "can't transfer buffer of type %d\n",
->  			   type);
->  		err = -EINVAL;
-> -- 
-> 1.7.7.3
-> 
-> 
+In fact, AFAICT the code path to handle this corner case is already
+there: AFAICT we call tcp_sacktag_write_queue() in the old_ack code
+path exactly because it is possible for old ACKs to carry SACK ranges
+that we haven't seen yet. If this is not possible then it seems we
+should remove the old_ack code path.
+
+Let me try to lay out a specific example:
+
+Suppose a sender sends packets 1-12, and there is lots of loss and
+reordering in both directions.
+
+Suppose the receiver sends the following ACKs with SACK blocks, in the
+following order (using packet numbers rather than sequence numbers):
+
+(1) ack 1, sack <3-4>
+(2) ack 1, sack <3-4 6>
+(3) ack 1, sack <3-4 6 8>
+(4) ack 1, sack <3-4 6 8 10>
+(5) ack 1, sack <6 8 10 12>
+(6) ack 2, sack <6 8 10 12>
+
+Note that starting at ACK (5) the receiver is limited by the fact that
+TCP options can only hold 4 SACK ranges, so the SACK for 3-4 "falls
+off" the SACK block set.
+
+Now suppose the ACKs are reordered, and some are dropped, so that the
+sender receives the ACKs in this order:
+
+(6) ack 2, sack <6 8 10 12>
+(1) ack 1, sack <3-4>
+
+The arrival of (6) advances snd_una to 2. Now the question is what to
+do when (1), with an ACK field below snd_una, arrives at the
+sender. The existing code tags packets 3-4 as SACKed, but does not use
+this newly SACK-tagged data to send out new data. This commit proposes
+to use the newly SACK-tagged 3-4 to send out new data.
+
+neal
