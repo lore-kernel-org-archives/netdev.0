@@ -1,81 +1,115 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] net-netlink: Add a new attribute to expose TCLASS values
- via netlink
-Date: Mon, 14 Nov 2011 22:13:28 -0800
-Message-ID: <CAHo-OozYtgN9_TdOTs+40JKpSZmi2c-6yrbjFS2hViFv_QY-5Q@mail.gmail.com>
-References: <CAHo-OozNP2qi_RMjO7rS1=fyaU8w_3aZZLptqnYAkCAwhQDj_w@mail.gmail.com>
-	<20111109.205344.49946086292195784.davem@davemloft.net>
-	<CAHo-OoybYpiusVFbDLEhS2ayPOVC1sXt7WZvpgW-Fk7ZqKj+SQ@mail.gmail.com>
-	<20111114.010752.2129864130433732501.davem@davemloft.net>
+From: Simon Chen <simonchennj@gmail.com>
+Subject: Re: bonding xmit_policy
+Date: Tue, 15 Nov 2011 01:20:36 -0500
+Message-ID: <CANj2EbfM+5+AFYkU+erMZBtf0cCXkoDGRrXLGQFHYVL_6qvWFw@mail.gmail.com>
+References: <CANj2Ebfj+7R+wCK7jJennBN7_6THJGqs8FWSAPOv7BYYsR=u9w@mail.gmail.com>
+	<4EC0280A.3060100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux NetDev <netdev@vger.kernel.org>,
-	MuraliRaja Muniraju <muralira@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:50970 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642Ab1KOGNb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 01:13:31 -0500
-Received: by vws1 with SMTP id 1so5929968vws.19
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 22:13:30 -0800 (PST)
-In-Reply-To: <20111114.010752.2129864130433732501.davem@davemloft.net>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:65349 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752120Ab1KOGUh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 01:20:37 -0500
+Received: by mail-fx0-f46.google.com with SMTP id n18so71878fag.19
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 22:20:37 -0800 (PST)
+In-Reply-To: <4EC0280A.3060100@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/11/13 David Miller <davem@davemloft.net>:
->>>> Yes, but an ipv6 socket is permitted to setsockopt SOL_IP in addit=
-ion to SOL_IPV6.
->>>> As such, one can simply setsockopt(ipv6_socket, SOL_IP, IP_TOS, va=
-lue).
->>>
->>> That's my whole point, this operation isn't currently possible, the
->>> socket ops for ipv4 setsockopt() aren't hooked up to ipv6 mapped
->>> sockets in the kernel right now.
+Thanks, my bad.
+
+It is pretty strange that when I use 802.3ad mode, all my packets
+(from different TCP flows) egress the same NIC even though I choose
+xmit_policy to be layer3+4. That's why I wasn't quite sure whether the
+policy is indeed in place.
+
+When I switch to balance-xor mode, the packets are roughly evenly
+distributed across two NICs.
+
+-Simon
+
+On Sun, Nov 13, 2011 at 3:26 PM, Nicolas de Peslo=FCan
+<nicolas.2p.debian@gmail.com> wrote:
+> Le 13/11/2011 03:55, Simon Chen a =E9crit :
 >>
->> http://lxr.linux.no/linux+v3.1/net/ipv6/ipv6_sockglue.c#L822
+>> Hi folks,
+>>
+>> It looks like that there are three entries in xmit_policy (hashing f=
+or
+>> deciding egress phy int) for bonded interfaces:
+>>
+>> const struct bond_parm_tbl xmit_hashtype_tbl[] =3D {
+>> { =A0 =A0 =A0 "layer2", =A0 =A0 =A0 =A0 =A0 =A0 =A0 BOND_XMIT_POLICY=
+_LAYER2},
+>> { =A0 =A0 =A0 "layer3+4", =A0 =A0 =A0 =A0 =A0 =A0 BOND_XMIT_POLICY_L=
+AYER34},
+>> { =A0 =A0 =A0 "layer2+3", =A0 =A0 =A0 =A0 =A0 =A0 BOND_XMIT_POLICY_L=
+AYER23},
+>> { =A0 =A0 =A0 NULL, =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 -1},
+>> };
+>>
+>>
+>> We can set the xmit_policy either at module initiation, or later via
+>> /sys. However, this xmit_policy isn't really read anywhere. Are
+>> different policies really implemented?
 >
-> That definitely destroys the basis for all of my arguments :-)
+> The table is used in two different locations:
 >
-> I'm going to add the TCLASS inet_diag patch, but can you find a clean=
-er
-> way to make sure that all types of sockets have the value initialized
-> to something sane? =C2=A0The one you posted wasn't... optimal :-)
+> In drivers/net/bonding/bond_main.c:
 >
-> Thanks.
-
-I only realized just now that I had replied only to you and not to all.
-I hope you don't mind that I'm adding everyone back into the loop.
-
-(a) if we keep tos/tclass distinct.
-
-We should make sure to get this patch (and the as yet unwritten
-followup) into 3.2-final and not 3.3-rc1 (ie. net/master and not
-net-next/master).
-Since it does slightly change userspace visible API (thankfully, it
-was just added so it's not yet too late to change it).
-[FYI, I already see this patch in net/master - thanks!]
-
-As for the followup, I can see three ways to proceed.
-- The first involves figuring out what type of socket we're dealing
-with when we look at it (ie. something like the RFC patch I posted - I
-don't think it's going to be much prettier no matter what one does -
-there's simply a lot of complexity...)
-- The second involves keeping some sort of type-of-ip-socket
-field/bitmap (none, ipv4 only, ipv4/ipv6 dual stack, ipv6 only)
-directly in the socket.  This is probably much harder to get right
-(changes all over the stack), but may have long term benefits???
-- The third involves punting on the problem, we handle the simple
-cases in kernel and sometimes return excess information to userspace
-(ie. we take the RFC patch and strip out the address comparisons and
-error on the side of returning 'true') -> it's userspace's problem to
-sift through the excess garbage.
-
-(b) personally I would still prefer to just merge tos and tclass and
-get rid of the distinction... is this minor-but-userspace-visible-api
-change out of the question?
-
-- Maciej
+> =A0 =A0 =A0 =A0xmit_hashtype =3D bond_parse_parm(xmit_hash_policy, xm=
+it_hashtype_tbl);
+> =A0 =A0 =A0 =A0[...]
+> =A0 =A0 =A0 =A0params->xmit_policy =3D xmit_hashtype;
+>
+> In drivers/net/bonding/bond_sysfs.c:
+>
+> =A0 =A0 =A0 =A0new_value =3D bond_parse_parm(buf, xmit_hashtype_tbl);
+> =A0 =A0 =A0 =A0[...]
+> =A0 =A0 =A0 =A0bonds->params.xmit_policy =3D new_value;
+>
+> Then, in drivers/net/bonding/bond_main.c, the value in
+> bonds->params.xmit_policy is used to setup a callback into
+> bond->xmit_hash_policy.
+>
+> =A0 =A0 =A0 =A0static void bond_set_xmit_hash_policy(struct bonding *=
+bond)
+> =A0 =A0 =A0 =A0{
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0switch (bond->params.xmit_policy) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case BOND_XMIT_POLICY_LAYER23:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bond->xmit_hash_policy=
+ =3D bond_xmit_hash_policy_l23;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case BOND_XMIT_POLICY_LAYER34:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bond->xmit_hash_policy=
+ =3D bond_xmit_hash_policy_l34;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case BOND_XMIT_POLICY_LAYER2:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0default:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bond->xmit_hash_policy=
+ =3D bond_xmit_hash_policy_l2;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0}
+>
+> Then, in drivers/net/bonding/bond_3ad.c and in
+> drivers/net/bonding/bond_main.c, the callback is used to select a sla=
+ve for
+> xmit, for the two modes where xmit_hash_policy have a meaning:
+>
+> =A0 =A0 =A0 =A0slave_agg_no =3D bond->xmit_hash_policy(skb, slaves_in=
+_agg);
+>
+> =A0 =A0 =A0 =A0slave_no =3D bond->xmit_hash_policy(skb, bond->slave_c=
+nt);
+>
+>
+> So, yes, those policies are really implemented.
+>
+> =A0 =A0 =A0 =A0Nicolas.
+>
