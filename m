@@ -1,96 +1,100 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 4/5] [PATCH] qeth: l3 fix rcu splat in xmit
-Date: Tue, 15 Nov 2011 13:31:15 +0100
-Message-ID: <20111115123152.579843098@de.ibm.com>
-References: <20111115123111.128739986@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:49753 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752151Ab1KOMbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 07:31:55 -0500
-Content-Disposition: inline; filename=622-qeth-rcu-xmit-splat.diff
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Weiping Pan <wpan@redhat.com>
+Subject: [PATCH V2] vlan:return error when real dev is enslaved
+Date: Tue, 15 Nov 2011 20:44:16 +0800
+Message-ID: <d7ea491a500c99c0b4839ddcedab027a3c865c59.1321360959.git.wpan@redhat.com>
+References: <CAM_iQpXCtH1cSJFsWVGrdreyhBgAjujLygktQGrK7iP-zyhN5g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Weiping Pan <wpan@redhat.com>,
+	Patrick McHardy <kaber@trash.net> (maintainer:VLAN (802.1Q)),
+	"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
+	[GENERAL]), netdev@vger.kernel.org (open list:VLAN (802.1Q)),
+	linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpXCtH1cSJFsWVGrdreyhBgAjujLygktQGrK7iP-zyhN5g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
+Qinhuibin reported a kernel panic when he do some operation about vlan.
+https://lkml.org/lkml/2011/11/6/218
 
-when use dst_get_neighbour to get neighbour, we need
-rcu_read_lock to protect, since dst_get_neighbour uses
-rcu_dereference.
+The operation is as below:
+ifconfig eth2 up
+modprobe bonding
+modprobe 8021q
+ifconfig bond0 up
+ifenslave bond0 eth2
+vconfig add eth2 3300
+vconfig add bond0 33
+vconfig rem eth2.3300
 
-===================================================
-[ INFO: suspicious rcu_dereference_check() usage. ]
----------------------------------------------------
-include/net/dst.h:91 invoked rcu_dereference_check() without protection!
-   ...
-Call Trace:
-([<0000000000011ad8>] show_trace+0x158/0x15c)
- [<00000000003c395a>] qeth_l3_hard_start_xmit+0x212/0xb2c
- [<00000000004006ac>] dev_hard_start_xmit+0x444/0x9bc
- [<000000000041effa>] sch_direct_xmit+0xd2/0x328
- [<000000000041f32a>] __qdisc_run+0xda/0x198
- [<00000000003f84b6>] net_tx_action+0x152/0x360
- [<000000000005798e>] __do_softirq+0xee/0x3b0
- [<0000000000021330>] do_softirq+0xac/0x100
-([<00000000000212f2>] do_softirq+0x6e/0x100)
- [<0000000000057142>] local_bh_enable_ip+0x11a/0x120
- [<000000000043ff50>] tcp_sendmsg+0x21c/0xe08
- [<00000000003dfcdc>] sock_sendmsg+0xc8/0x100
- [<00000000003e3d98>] SyS_sendto+0x108/0x140
- [<00000000003e3e1c>] SyS_send+0x4c/0x5c
- [<00000000003e4b62>] SyS_socketcall+0x206/0x348
- [<00000000004e95ca>] sysc_noemu+0x16/0x1c
- [<0000004a2a87dbb0>] 0x4a2a87dbb0
-INFO: lockdep is turned off.
+the panic stack is as below:
+[<ffffffffa002f1c9>] panic_event+0x49/0x70 [ipmi_msghandler]
+[<ffffffff80378917>] notifier_call_chain+0x37/0x70
+[<ffffffff80372122>] panic+0xa2/0x195
+[<ffffffff80376ed8>] oops_end+0xd8/0x140
+[<ffffffff8001bea7>] no_context+0xf7/0x280
+[<ffffffff8001c1a5>] __bad_area_nosemaphore+0x175/0x250
+[<ffffffff80376318>] page_fault+0x28/0x30
+[<ffffffffa039dabd>] igb_vlan_rx_kill_vid+0x4d/0x100 [igb]
+[<ffffffffa044045f>] bond_vlan_rx_kill_vid+0x9f/0x290 [bonding]
+[<ffffffffa047e636>] unregister_vlan_dev+0x136/0x180 [8021q]
+[<ffffffffa047ed20>] vlan_ioctl_handler+0x170/0x3f0 [8021q]
+[<ffffffff802c1d3f>] sock_ioctl+0x21f/0x280
+[<ffffffff800e6d7f>] vfs_ioctl+0x2f/0xb0
+[<ffffffff800e726b>] do_vfs_ioctl+0x3cb/0x5a0
+[<ffffffff800e74e1>] sys_ioctl+0xa1/0xb0
+[<ffffffff80007388>] system_call_fastpath+0x16/0x1b
+[<00007f108a2b8bd7>] 0x7f108a2b8bd7
+And the nic is as below:
+[root@localhost ~]# ethtool -i eth2
+driver: igb
+version: 3.0.6-k2
+firmware-version: 1.2-1
+bus-info: 0000:04:00.0
+kernel version=EF=BC=9A
+2.6.32.12-0.7 also happen in 2.6.32-131
 
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+=46or kernel 2.6.32, the reason of this bug is that when we do "vconfig=
+ add bond0 33",
+adapter->vlgrp is overwritten in igb_vlan_rx_register. So when we do "v=
+config rem
+eth2.3300", it can't find the correct vlgrp.
+
+And this bug is avoided by vlan cleanup patchset from Jiri Pirko
+<jpirko@redhat.com>, especially commit b2cb09b1a772(igb: do vlan cleanu=
+p).
+
+But it is not a correct operation to creat a vlan interface on eth2
+when it have been enslaved by bond0, so this patch is to return error
+when the real dev is already enslaved.
+
+Changelog:
+V2: use pr_err instead of pr_info
+
+Signed-off-by: Weiping Pan <wpan@redhat.com>
 ---
+ net/8021q/vlan.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
- drivers/s390/net/qeth_l3_main.c |    7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff -urpN linux-2.6/drivers/s390/net/qeth_l3_main.c linux-2.6-patched/drivers/s390/net/qeth_l3_main.c
---- linux-2.6/drivers/s390/net/qeth_l3_main.c	2011-11-14 18:26:56.000000000 +0100
-+++ linux-2.6-patched/drivers/s390/net/qeth_l3_main.c	2011-11-14 18:27:18.000000000 +0100
-@@ -2756,11 +2756,13 @@ int inline qeth_l3_get_cast_type(struct
- 	struct neighbour *n = NULL;
- 	struct dst_entry *dst;
- 
-+	rcu_read_lock();
- 	dst = skb_dst(skb);
- 	if (dst)
- 		n = dst_get_neighbour(dst);
- 	if (n) {
- 		cast_type = n->type;
-+		rcu_read_unlock();
- 		if ((cast_type == RTN_BROADCAST) ||
- 		    (cast_type == RTN_MULTICAST) ||
- 		    (cast_type == RTN_ANYCAST))
-@@ -2768,6 +2770,8 @@ int inline qeth_l3_get_cast_type(struct
- 		else
- 			return RTN_UNSPEC;
- 	}
-+	rcu_read_unlock();
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 5471628..7ce50ba 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -148,6 +148,11 @@ int vlan_check_real_dev(struct net_device *real_de=
+v, u16 vlan_id)
+ 	const char *name =3D real_dev->name;
+ 	const struct net_device_ops *ops =3D real_dev->netdev_ops;
+=20
++	if (real_dev->flags & IFF_SLAVE) {
++		pr_err("Error, %s was already enslaved\n", name);
++		return -EOPNOTSUPP;
++	}
 +
- 	/* try something else */
- 	if (skb->protocol == ETH_P_IPV6)
- 		return (skb_network_header(skb)[24] == 0xff) ?
-@@ -2847,6 +2851,8 @@ static void qeth_l3_fill_header(struct q
- 	}
- 
- 	hdr->hdr.l3.length = skb->len - sizeof(struct qeth_hdr);
-+
-+	rcu_read_lock();
- 	dst = skb_dst(skb);
- 	if (dst)
- 		n = dst_get_neighbour(dst);
-@@ -2893,6 +2899,7 @@ static void qeth_l3_fill_header(struct q
- 				QETH_CAST_UNICAST | QETH_HDR_PASSTHRU;
- 		}
- 	}
-+	rcu_read_unlock();
- }
- 
- static inline void qeth_l3_hdr_csum(struct qeth_card *card,
+ 	if (real_dev->features & NETIF_F_VLAN_CHALLENGED) {
+ 		pr_info("VLANs not supported on %s\n", name);
+ 		return -EOPNOTSUPP;
+--=20
+1.7.4.4
