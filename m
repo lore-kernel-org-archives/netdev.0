@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] net-next:asix: V2 more fixes for ax88178 phy init
- sequence
-Date: Tue, 15 Nov 2011 16:42:02 -0500 (EST)
-Message-ID: <20111115.164202.810749392412257566.davem@davemloft.net>
-References: <1321377163-26308-1-git-send-email-grundler@chromium.org>
-	<1321377163-26308-4-git-send-email-grundler@chromium.org>
+Subject: Re: [PATCH] ipv4: return NET_RX_DROP when arp_rcv drops the
+ received packet.
+Date: Tue, 15 Nov 2011 16:47:06 -0500 (EST)
+Message-ID: <20111115.164706.1420496299997283498.davem@davemloft.net>
+References: <1321322987-16042-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	allan@asix.com.tw, freddy@asix.com.tw, grundler@google.com
-To: grundler@chromium.org
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:46820 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36675 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932504Ab1KOVmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 16:42:07 -0500
-In-Reply-To: <1321377163-26308-4-git-send-email-grundler@chromium.org>
+	with ESMTP id S1753588Ab1KOVrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 16:47:08 -0500
+In-Reply-To: <1321322987-16042-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Grundler <grundler@chromium.org>
-Date: Tue, 15 Nov 2011 09:12:42 -0800
+From: roy.qing.li@gmail.com
+Date: Tue, 15 Nov 2011 10:09:47 +0800
 
-> From: Grant Grundler <grundler@google.com>
+> From: RongQing.Li <roy.qing.li@gmail.com>
 > 
-> Now works on Samsung Series 5 (chromebook)
+> return NET_RX_DROP when arp_rcv drops the received packet.
 > 
-> Two fixes here:
-> o use 0x7F mask for phymode
-> o read phyid *AFTER* phy is powered up (via GPIOs)
-> 
-> Signed-off-by: Allan Chou <allan@asix.com.tw>
-> Signed-off-by: Grant Grundler <grundler@chromium.org>
+> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
 
-Applied.
+This is not appropriate.
+
+NET_RX_DROP means that the packet was dropped because something about
+the packet's contents were not acceptable, or the packet violated our
+policies so was dropped.
+
+In this arp_rcv() case, we would have accepted the packet, but we had
+a memory allocation error.  This memory allocation error has nothing
+to do with the packet's contents, and is a transient issue.
