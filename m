@@ -1,46 +1,78 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [RFC] kvm tools: Implement multiple VQ for virtio-net
-Date: Tue, 15 Nov 2011 17:30:29 +0200
-Message-ID: <1321371029.3178.9.camel@lappy>
-References: <1321049521-26376-1-git-send-email-levinsasha928@gmail.com>
-	 <20111113102428.GD15322@redhat.com> <1321196430.2425.2.camel@sasha>
-	 <4EC07729.3050303@gmail.com> <1321265740.2425.7.camel@sasha>
-	 <OFDA747DDD.8D1C8FD8-ON65257949.001837DA-65257949.0019D25F@in.ibm.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH] net: fsl_pq_mdio: fix non tbi phy access
+Date: Tue, 15 Nov 2011 17:44:24 +0200
+Message-ID: <20111115154423.GA26481@sapphire.tkos.co.il>
+References: <b693b45a689d42b60a8a9e29dcdd2fb27e20df82.1321251618.git.baruch@tkos.co.il>
+ <C89A2124-7AB4-45B6-ACD1-8C5936027531@freescale.com>
+ <20111115051713.GA4052@sapphire.tkos.co.il>
+ <74631EEB-F6F8-4969-AD05-81DEAFB0EAB4@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Asias He <asias.hejun@gmail.com>, gorcunov@gmail.com,
-	kvm@vger.kernel.org, mingo@elte.hu,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	penberg@kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <OFDA747DDD.8D1C8FD8-ON65257949.001837DA-65257949.0019D25F@in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linuxppc-dev@lists.ozlabs.org
+To: Andy Fleming <afleming@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tango.tkos.co.il ([62.219.50.35]:54301 "EHLO tango.tkos.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756349Ab1KOPov (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Nov 2011 10:44:51 -0500
+Content-Disposition: inline
+In-Reply-To: <74631EEB-F6F8-4969-AD05-81DEAFB0EAB4@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-11-15 at 10:14 +0530, Krishna Kumar2 wrote:
-> Sasha Levin <levinsasha928@gmail.com> wrote on 11/14/2011 03:45:40 PM:
-> 
-> > > Why both the bandwidth and latency performance are dropping so
-> > > dramatically with multiple VQ?
-> >
-> > It looks like theres no hash sync between host and guest, which makes
-> > the RX VQ change for every packet. This is my guess.
-> 
-> Yes, I confirmed this happens for macvtap. I am
-> using ixgbe - it calls skb_record_rx_queue when
-> a skb is allocated, but sets rxhash when a packet
-> arrives. Macvtap is relying on record_rx_queue
-> first ahead of rxhash (as part of my patch making
-> macvtap multiqueue), hence different skbs result
-> in macvtap selecting different vq's.
+Hi Andy,
 
-I'm seeing this behavior in non-macvtep related setup as well (simple
-tap <-> virtio-net).
+On Tue, Nov 15, 2011 at 09:06:03AM -0600, Andy Fleming wrote:
+> On Nov 14, 2011, at 11:17 PM, Baruch Siach wrote:
+> > On Mon, Nov 14, 2011 at 09:04:47PM +0000, Fleming Andy-AFLEMING wrote:
+
+[snip]
+
+> >> And looking at the p1010si.dtsi, I see that it's automatically there for 
+> >> you.
+> >> 
+> >> How were you breaking?
+> > 
+> > Adding linuxppc to Cc.
+> > 
+> > My board is P1011 based, the single core version of P1020, not P1010. In 
+> > p1020si.dtsi I see no tbi node. In p1020rdb.dts I see a tbi node but only for 
+> > mdio@25000, not mdio@24000, which is what I'm using.
+> > 
+> > Am I missing something?
+> 
+> Well, that's a bug. In truth, the silicon dtsi trees should not have tbi 
+> nodes, as that's highly machine-specific. The p1020rdb is apparently relying 
+> on the old behavior, which is broken, and due to the fact that the first 
+> ethernet interface doesn't *use* the TBI PHY.
+> 
+> You should add this to your board tree:
+> 
+>                 mdio@24000 {
+> 
+>                         tbi0: tbi-phy@11 {
+>                                 reg = <0x11>;
+>                                 device_type = "tbi-phy";
+>                         };
+>                 };
+> 
+> And add the PHYs you use, as well as set reg (and the value after the "@") 
+> to something that makes sense for your board.
+
+Thanks for your detailed explanation and prompt response. I've added a tbi 
+node, dropped my patch, and now my board works as expected.
+
+> I am going to go right now, and add tbi nodes for all of the Freescale 
+> platforms. I will also modify the fsl_pq_mdio code to be more explicit about 
+> its reason for failure.
+
+Please Cc me on these.
+
+Thanks,
+baruch
 
 -- 
-
-Sasha.
-
+                                                     ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
