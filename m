@@ -1,59 +1,54 @@
-From: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH V4 14/14] mmc: sdhci-esdhc-imx: add clk_prepare/clk_unprepare
-Date: Tue, 15 Nov 2011 14:48:09 +0800
-Message-ID: <1321339689-25256-15-git-send-email-richard.zhao@linaro.org>
+From: Richard Zhao <richard.zhao@linaro.org>
+Subject: [PATCH V4 13/14] i2c: imx: add clk_prepare/clk_unprepare
+Date: Tue, 15 Nov 2011 14:48:08 +0800
+Message-ID: <1321339689-25256-14-git-send-email-richard.zhao@linaro.org>
 References: <1321339689-25256-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, <amit.kucheria-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	<kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>, <cjb-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>,
-	<alan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, <eric.miao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1321339689-25256-1-git-send-email-richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux@arm.linux.org.uk>, <amit.kucheria@canonical.com>,
+	<kernel@pengutronix.de>, <ben-linux@fluff.org>, <cjb@laptop.org>,
+	<alan@linux.intel.com>, <eric.miao@linaro.org>,
+	<richard.zhao@linaro.org>
+To: <linux-arm-kernel@lists.infradead.org>,
+	<linux-i2c@vger.kernel.org>, <linux-mmc@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-serial@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-va3.bigfish.com ([216.32.180.10]:2849 "EHLO
+	VA3EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753136Ab1KOGtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 01:49:15 -0500
+In-Reply-To: <1321339689-25256-1-git-send-email-richard.zhao@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 It's for migrating to generic clk framework API.
 
-Signed-off-by: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
 ---
- drivers/mmc/host/sdhci-esdhc-imx.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/i2c/busses/i2c-imx.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/mmc/host/sdhci-esdhc-imx.c b/drivers/mmc/host/sdhci-esdhc-imx.c
-index ae57769..f1ae37e 100644
---- a/drivers/mmc/host/sdhci-esdhc-imx.c
-+++ b/drivers/mmc/host/sdhci-esdhc-imx.c
-@@ -462,7 +462,7 @@ static int __devinit sdhci_esdhc_imx_probe(struct platform_device *pdev)
- 		err = PTR_ERR(clk);
- 		goto err_clk_get;
- 	}
--	clk_enable(clk);
-+	clk_prepare_enable(clk);
- 	pltfm_host->clk = clk;
+diff --git a/drivers/i2c/busses/i2c-imx.c b/drivers/i2c/busses/i2c-imx.c
+index 58832e5..8d1ab6f 100644
+--- a/drivers/i2c/busses/i2c-imx.c
++++ b/drivers/i2c/busses/i2c-imx.c
+@@ -196,7 +196,7 @@ static int i2c_imx_start(struct imx_i2c_struct *i2c_imx)
  
- 	if (!is_imx25_esdhc(imx_data))
-@@ -550,7 +550,7 @@ no_card_detect_irq:
- 		gpio_free(boarddata->wp_gpio);
- no_card_detect_pin:
- no_board_data:
--	clk_disable(pltfm_host->clk);
-+	clk_disable_unprepare(pltfm_host->clk);
- 	clk_put(pltfm_host->clk);
- err_clk_get:
- 	kfree(imx_data);
-@@ -577,7 +577,7 @@ static int __devexit sdhci_esdhc_imx_remove(struct platform_device *pdev)
- 		gpio_free(boarddata->cd_gpio);
- 	}
+ 	dev_dbg(&i2c_imx->adapter.dev, "<%s>\n", __func__);
  
--	clk_disable(pltfm_host->clk);
-+	clk_disable_unprepare(pltfm_host->clk);
- 	clk_put(pltfm_host->clk);
- 	kfree(imx_data);
+-	clk_enable(i2c_imx->clk);
++	clk_prepare_enable(i2c_imx->clk);
+ 	writeb(i2c_imx->ifdr, i2c_imx->base + IMX_I2C_IFDR);
+ 	/* Enable I2C controller */
+ 	writeb(0, i2c_imx->base + IMX_I2C_I2SR);
+@@ -245,7 +245,7 @@ static void i2c_imx_stop(struct imx_i2c_struct *i2c_imx)
  
+ 	/* Disable I2C controller */
+ 	writeb(0, i2c_imx->base + IMX_I2C_I2CR);
+-	clk_disable(i2c_imx->clk);
++	clk_disable_unprepare(i2c_imx->clk);
+ }
+ 
+ static void __init i2c_imx_set_clk(struct imx_i2c_struct *i2c_imx,
 -- 
 1.7.5.4
