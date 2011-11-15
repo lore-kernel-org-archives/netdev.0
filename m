@@ -1,31 +1,46 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH -next 0/4] netfilter reverse path filter matches
-Date: Tue, 15 Nov 2011 10:58:26 +0100
-Message-ID: <20111115095826.GA29506@1984>
-References: <1320877188-1972-1-git-send-email-fw@strlen.de>
- <20111114.004716.1099241210794134345.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 2/4] ipv4: Update pmtu informations on inetpeer only
+ for output routes
+Date: Tue, 15 Nov 2011 11:00:14 +0100
+Message-ID: <20111115100014.GD20943@secunet.com>
+References: <20111012.170805.2172804476308993385.davem@davemloft.net>
+ <20111108.143630.106539981030509701.davem@davemloft.net>
+ <20111114101244.GB20943@secunet.com>
+ <20111114.143320.773675445837769668.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: fw@strlen.de, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:60371 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754468Ab1KOKAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Nov 2011 05:00:16 -0500
 Content-Disposition: inline
-In-Reply-To: <20111114.004716.1099241210794134345.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20111114.143320.773675445837769668.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2011 at 12:47:16AM -0500, David Miller wrote:
-> From: Florian Westphal <fw@strlen.de>
-> Date: Wed,  9 Nov 2011 23:19:44 +0100
+On Mon, Nov 14, 2011 at 02:33:20PM -0500, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Mon, 14 Nov 2011 11:12:44 +0100
 > 
-> > Version 3 of the ipv4/v6 reverse path filter matches discussed
-> > during nfws 2011.
+> > So for the moment I'm thinking about adding an ip_dst_mtu()
+> > function that returns dst->ops->default_mtu() for input routes
+> > and dst_mtu() for output routes. Then we could convert the
+> > dst_mtu() users in net/ipv4/ over to this one.
 > 
-> I fully support these changes, please feel free to merge them in
-> via the netfilter tree and to add my ack:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> We'll need something similar for ipv6 eventually...
 
-Thanks for taking the time to review this, I need some time to test it
-here but I think we'll get it into net-next soon.
+Well, probaply. I did not test with ipv6 yet, so I focused to
+fix the ipv4 part in the first place.
+
+> 
+> I would suggest that we do away with dst_ops->default_mtu() and just
+> have dst_ops->mtu() which gets invoked unconditionally by dst_mtu().
+> 
+> You can integrate the ->default_mtu() handling and the input route
+> check into this new method.  Then IPv6 can be fixed in a
+> straightforward manner later.
+
+Ok, I'll look into this. 
