@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v4 6/8] forcedeth: account for dropped RX frames
-Date: Tue, 15 Nov 2011 11:25:39 -0800
-Message-ID: <005cae310e19433c9f68c178805f16c774e8dedd.1321384662.git.david.decotigny@google.com>
+Subject: [PATCH net-next v4 8/8] forcedeth: stats updated with a deferrable timer
+Date: Tue, 15 Nov 2011 11:25:41 -0800
+Message-ID: <ba205b5e371d4bb8a8f765ee663597238679c650.1321384662.git.david.decotigny@google.com>
 References: <cover.1321384662.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -15,74 +15,44 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f74.google.com ([74.125.82.74]:32794 "EHLO
-	mail-ww0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757317Ab1KOT0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 14:26:07 -0500
-Received: by mail-ww0-f74.google.com with SMTP id 5so146965wwe.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 11:26:07 -0800 (PST)
+Received: from mail-fx0-f74.google.com ([209.85.161.74]:61803 "EHLO
+	mail-fx0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757320Ab1KOT0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 14:26:08 -0500
+Received: by faap16 with SMTP id p16so21188faa.1
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 11:26:06 -0800 (PST)
 In-Reply-To: <cover.1321384662.git.david.decotigny@google.com>
 In-Reply-To: <cover.1321384662.git.david.decotigny@google.com>
 References: <cover.1321384662.git.david.decotigny@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds the stats counter for dropped RX frames.
+Mark stats timer as deferrable: punctuality in waking the stats timer
+callback doesn't matter much, as it is responsible only to avoid
+integer wraparound.
+
+We need at least 1 other timer to fire within 17s (fully loaded 1Gbps)
+to avoid wrap-arounds. Desired period is still 10s.
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index ff01d5e..a50c839 100644
+index 7284f40..b5c85de 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -819,6 +819,7 @@ struct fe_priv {
- 	u64 stat_rx_packets;
- 	u64 stat_rx_bytes; /* not always available in HW */
- 	u64 stat_rx_missed_errors;
-+	u64 stat_rx_dropped;
+@@ -5538,7 +5538,7 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 	init_timer(&np->nic_poll);
+ 	np->nic_poll.data = (unsigned long) dev;
+ 	np->nic_poll.function = nv_do_nic_poll;	/* timer handler */
+-	init_timer(&np->stats_poll);
++	init_timer_deferrable(&np->stats_poll);
+ 	np->stats_poll.data = (unsigned long) dev;
+ 	np->stats_poll.function = nv_do_stats_poll;	/* timer handler */
  
- 	/* media detection workaround.
- 	 * Locking: Within irq hander or disable_irq+spin_lock(&np->lock);
-@@ -1762,6 +1763,7 @@ nv_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *storage)
- 		storage->tx_packets       = np->stat_tx_packets;
- 		storage->rx_bytes         = np->stat_rx_bytes;
- 		storage->tx_bytes         = np->stat_tx_bytes;
-+		storage->rx_dropped       = np->stat_rx_dropped;
- 		storage->tx_dropped       = np->stat_tx_dropped;
- 		storage->rx_missed_errors = np->stat_rx_missed_errors;
- 	} while (u64_stats_fetch_retry(&np->swstats_syncp, syncp_start));
-@@ -1826,8 +1828,12 @@ static int nv_alloc_rx(struct net_device *dev)
- 				np->put_rx.orig = np->first_rx.orig;
- 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
- 				np->put_rx_ctx = np->first_rx_ctx;
--		} else
-+		} else {
-+			u64_stats_update_begin(&np->swstats_syncp);
-+			np->stat_rx_dropped++;
-+			u64_stats_update_end(&np->swstats_syncp);
- 			return 1;
-+		}
- 	}
- 	return 0;
- }
-@@ -1858,8 +1864,12 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
- 				np->put_rx.ex = np->first_rx.ex;
- 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
- 				np->put_rx_ctx = np->first_rx_ctx;
--		} else
-+		} else {
-+			u64_stats_update_begin(&np->swstats_syncp);
-+			np->stat_rx_dropped++;
-+			u64_stats_update_end(&np->swstats_syncp);
- 			return 1;
-+		}
- 	}
- 	return 0;
- }
 -- 
 1.7.3.1
