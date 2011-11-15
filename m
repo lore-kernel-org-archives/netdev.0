@@ -1,66 +1,135 @@
-From: James Bottomley <jbottomley@parallels.com>
-Subject: Re: [Devel] Re: [PATCH v5 00/10] per-cgroup tcp memory pressure
-Date: Tue, 15 Nov 2011 18:27:12 +0000
-Message-ID: <1321381632.3021.57.camel@dabdike.int.hansenpartnership.com>
-References: <1320679595-21074-1-git-send-email-glommer@parallels.com>
-	 <4EBAC04F.1010901@parallels.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next V8] net: introduce ethernet teaming device
+Date: Tue, 15 Nov 2011 19:35:40 +0100
+Message-ID: <1321382140.2856.38.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
+References: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
+	 <4EC160B4.2040709@hp.com> <20111115015616.GA25132@gospo.rdu.redhat.com>
+	 <4EC29FE7.70904@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Glauber Costa <glommer@parallels.com>, "linux-kernel@vger.kernel.org"
-	<linux-kernel@vger.kernel.org>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>, "paul@paulmenage.org" <paul@paulmenage.org>,
-	"lizf@cn.fujitsu.com" <lizf@cn.fujitsu.com>, "linux-mm@kvack.org"
-	<linux-mm@kvack.org>, "devel@openvz.org" <devel@openvz.org>,
-	"kirill@shutemov.name" <kirill@shutemov.name>, "gthelen@google.com"
-	<gthelen@google.com>, "kamezawa.hiroyu@jp.fujitsu.com"
-	<kamezawa.hiroyu@jp.fujitsu.com>
-To: "davem@davemloft.net" <davem@davemloft.net>, "eric.dumazet@gmail.com"
-	<eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4EBAC04F.1010901@parallels.com>
-Content-Language: en-US
-Content-ID: <1EAD5527F120CB4E80CCB5C5CB27495B@sw.swsoft.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, bhutchings@solarflare.com,
+	shemminger@vyatta.com, fubar@us.ibm.com, tgraf@infradead.org,
+	ebiederm@xmission.com, mirqus@gmail.com, kaber@trash.net,
+	greearb@candelatech.com, jesse@nicira.com, fbl@redhat.com,
+	benjamin.poirier@gmail.com, jzupka@redhat.com, ivecera@redhat.com
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:65045 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752161Ab1KOSfq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 13:35:46 -0500
+Received: by wwe5 with SMTP id 5so6573877wwe.1
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 10:35:44 -0800 (PST)
+In-Reply-To: <4EC29FE7.70904@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDExLTExLTA5IGF0IDE2OjAyIC0wMjAwLCBHbGF1YmVyIENvc3RhIHdyb3RlOg0K
-PiBPbiAxMS8wNy8yMDExIDAxOjI2IFBNLCBHbGF1YmVyIENvc3RhIHdyb3RlOg0KPiA+IEhpIGFs
-bCwNCj4gPg0KPiA+IFRoaXMgaXMgbXkgbmV3IGF0dGVtcHQgYXQgaW1wbGVtZW50aW5nIHBlci1j
-Z3JvdXAgdGNwIG1lbW9yeSBwcmVzc3VyZS4NCj4gPiBJIGFtIHBhcnRpY3VsYXJseSBpbnRlcmVz
-dGVkIGluIHdoYXQgdGhlIG5ldHdvcmsgZm9sa3MgaGF2ZSB0byBjb21tZW50IG9uDQo+ID4gaXQ6
-IG15IG1haW4gZ29hbCBpcyB0byBhY2hpZXZlIHRoZSBsZWFzdCBpbXBhY3QgcG9zc2libGUgaW4g
-dGhlIG5ldHdvcmsgY29kZS4NCj4gPg0KPiA+IEhlcmUncyBhIGJyaWVmIGRlc2NyaXB0aW9uIG9m
-IG15IGFwcHJvYWNoOg0KPiA+DQo+ID4gV2hlbiBvbmx5IHRoZSByb290IGNncm91cCBpcyBwcmVz
-ZW50LCB0aGUgY29kZSBzaG91bGQgYmVoYXZlIHRoZSBzYW1lIHdheSBhcw0KPiA+IGJlZm9yZSAt
-IHdpdGggdGhlIGV4Y2VwdGlvbiBvZiB0aGUgaW5jbHVzaW9uIG9mIGFuIGV4dHJhIGZpZWxkIGlu
-IHN0cnVjdCBzb2NrLA0KPiA+IGFuZCBvbmUgaW4gc3RydWN0IHByb3RvLiBBbGwgdGVzdHMgYXJl
-IHBhdGNoZWQgb3V0IHdpdGggc3RhdGljIGJyYW5jaCwgYW5kIHdlDQo+ID4gc3RpbGwgYWNjZXNz
-IGFkZHJlc3NlcyBkaXJlY3RseSAtIHRoZSBzYW1lIGFzIHdlIGRpZCBiZWZvcmUuDQo+ID4NCj4g
-PiBXaGVuIGEgY2dyb3VwIG90aGVyIHRoYW4gcm9vdCBpcyBjcmVhdGVkLCB3ZSBwYXRjaCBpbiB0
-aGUgYnJhbmNoZXMsIGFuZCBhY2NvdW50DQo+ID4gcmVzb3VyY2VzIGZvciB0aGF0IGNncm91cC4g
-VGhlIHZhcmlhYmxlcyBpbiB0aGUgcm9vdCBjZ3JvdXAgYXJlIHN0aWxsIHVwZGF0ZWQuDQo+ID4g
-SWYgd2Ugd2VyZSB0byB0cnkgdG8gYmUgMTAwICUgY29oZXJlbnQgd2l0aCB0aGUgbWVtY2cgY29k
-ZSwgdGhhdCBzaG91bGQgZGVwZW5kDQo+ID4gb24gdXNlX2hpZXJhcmNoeS4gSG93ZXZlciwgSSBm
-ZWVsIHRoYXQgdGhpcyBpcyBhIGdvb2QgY29tcHJvbWlzZSBpbiB0ZXJtcyBvZg0KPiA+IGxlYXZp
-bmcgdGhlIG5ldHdvcmsgY29kZSB1bnRvdWNoZWQsIGFuZCBzdGlsbCBoYXZpbmcgYSBnbG9iYWwg
-dmlzaW9uIG9mIGl0cw0KPiA+IHJlc291cmNlcy4gSSBhbHNvIGRvIG5vdCBjb21wdXRlIG1heF91
-c2FnZSBmb3IgdGhlIHJvb3QgY2dyb3VwLCBmb3IgYSBzaW1pbGFyDQo+ID4gcmVhc29uLg0KPiA+
-DQo+ID4gUGxlYXNlIGxldCBtZSBrbm93IHdoYXQgeW91IHRoaW5rIG9mIGl0Lg0KPiANCj4gRGF2
-ZSwgRXJpYywNCj4gDQo+IENhbiB5b3UgbGV0IG1lIGtub3cgd2hhdCB5b3UgdGhpbmsgb2YgdGhl
-IGdlbmVyYWwgYXBwcm9hY2ggSSd2ZSBmb2xsb3dlZCANCj4gaW4gdGhpcyBzZXJpZXM/IFRoZSBp
-bXBhY3Qgb24gdGhlIGNvbW1vbiBjYXNlIHNob3VsZCBiZSBtaW5pbWFsLCBvciBhdCANCj4gbGVh
-c3QgYXMgZXhwZW5zaXZlIGFzIGEgc3RhdGljIGJyYW5jaCAoMCBpbiBtb3N0IGFyY2hlcywgSSBi
-ZWxpZXZlKS4NCj4gDQo+IEkgYW0gbW9zdGx5IGludGVyZXN0ZWQgaW4ga25vd2luZyBpZiB0aGlz
-IGEgdmFsaWQgcHVyc3VlIHBhdGguIEknbGwgYmUgDQo+IGhhcHB5IHRvIGFkZHJlc3MgYW55IHNw
-ZWNpZmljIGNvbmNlcm5zIHlvdSBoYXZlIG9uY2UgeW91J3JlIG9rIHdpdGggdGhlIA0KPiBnZW5l
-cmFsIGFwcHJvYWNoLg0KDQpQaW5nIG9uIHRoaXMsIHBsZWFzZS4gIFdlJ3JlIGJsb2NrZWQgb24g
-dGhpcyBwYXRjaCBzZXQgdW50aWwgd2UgY2FuIGdldA0KYW4gYWNrIHRoYXQgdGhlIGFwcHJvYWNo
-IGlzIGFjY2VwdGFibGUgdG8gbmV0d29yayBwZW9wbGUuDQoNClRoYW5rcywNCg0KSmFtZXMNCg0K
+Le mardi 15 novembre 2011 =C3=A0 09:22 -0800, Rick Jones a =C3=A9crit :
+> > On most modern systems I suspect there will be little to no differe=
+nce
+> > between bonding RX peformance and team performance.
+> >
+> > If there is any now, I suspect team and bond performance to be simi=
+lar
+> > by the time team has to account for the corner-cases bonding has al=
+ready
+> > resolved.  :-)
+> >
+> > Benchmarks may prove otherwise, but I've yet to see Jiri produce
+> > anything.  My initial testing doesn't demonstrate any measureable
+> > differences with 1Gbps interfaces on a multi-core, multi-socket sys=
+tem.
+>=20
+> I wouldn't expect much difference in terms of bandwidth, I was thinki=
+ng=20
+> the demonstration would be made in the area of service demand (CPU=20
+> consumed per unit work) and perhaps aggregate packets per second.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Well,
+
+bonding is a NETIF_F_LLTX driver, but uses following rwlock in xmit
+path :
+
+read_lock(&bond->curr_slave_lock);
+=2E..
+read_unlock(&bond->curr_slave_lock);
+
+Two atomic operations on a contended cache line.
+
+On a 16 cpu machine, here is some "perf stat" data of such workload :
+(each thread doing 10.000.000 atomic_inc(&somesharedvar) )
+
+# perf stat ./atomic 16
+
+ Performance counter stats for './atomic 16':
+
+      48016,104204 task-clock                #   15,566 CPUs utilized  =
+       =20
+               555 context-switches          #    0,000 M/sec          =
+       =20
+                15 CPU-migrations            #    0,000 M/sec          =
+       =20
+               175 page-faults               #    0,000 M/sec          =
+       =20
+   121 669 943 013 cycles                    #    2,534 GHz            =
+       =20
+   121 321 455 748 stalled-cycles-frontend   #   99,71% frontend cycles=
+ idle  =20
+   103 375 494 290 stalled-cycles-backend    #   84,96% backend  cycles=
+ idle  =20
+       611 624 619 instructions              #    0,01  insns per cycle=
+       =20
+                                             #   198,36  stalled cycles=
+ per insn
+       184 530 032 branches                  #    3,843 M/sec          =
+       =20
+           581 513 branch-misses             #    0,32% of all branches=
+       =20
+
+       3,084672937 seconds time elapsed
+
+Cost per 'read_lock/read_unlock pair' : at least 616 ns
+
+While on one cpu only :
+
+# perf stat ./atomic 1
+
+ Performance counter stats for './atomic 1':
+
+         83,475050 task-clock                #    0,998 CPUs utilized  =
+       =20
+                 3 context-switches          #    0,000 M/sec          =
+       =20
+                 1 CPU-migrations            #    0,000 M/sec          =
+       =20
+               144 page-faults               #    0,002 M/sec          =
+       =20
+       211 508 600 cycles                    #    2,534 GHz            =
+       =20
+       193 502 947 stalled-cycles-frontend   #   91,49% frontend cycles=
+ idle  =20
+       124 428 400 stalled-cycles-backend    #   58,83% backend  cycles=
+ idle  =20
+        30 870 434 instructions              #    0,15  insns per cycle=
+       =20
+                                             #    6,27  stalled cycles =
+per insn
+        10 163 364 branches                  #  121,753 M/sec          =
+       =20
+             9 633 branch-misses             #    0,09% of all branches=
+       =20
+
+       0,083679928 seconds time elapsed
+
+Cost per 'read_lock/read_unlock pair' : 16 ns
+
+
+Of course, bonding could be changed to use RCU as well,
+if someone feels the need.
+
+But teaming was designed to be RCU ready from the beginning.
+
+exi
