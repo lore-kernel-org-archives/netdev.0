@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v3 7/9] forcedeth: new ethtool stat counter for TX timeouts
-Date: Mon, 14 Nov 2011 16:11:17 -0800
-Message-ID: <cfddaec4b8bdd66e27295a86978af744eae2dd85.1321313729.git.david.decotigny@google.com>
+Subject: [PATCH net-next v3 8/9] forcedeth: stats updated with a deferrable timer
+Date: Mon, 14 Nov 2011 16:11:18 -0800
+Message-ID: <6a56ea00fc2319ead99aebbd6cbcbb10114dfda1.1321313729.git.david.decotigny@google.com>
 References: <cover.1321313729.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -14,67 +14,45 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Ayaz Abdulla <AAbdulla@nvidia.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f202.google.com ([74.125.82.202]:59965 "EHLO
+	mail-wy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756832Ab1KOALv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 19:11:51 -0500
+Received: by wye20 with SMTP id 20so104359wye.1
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 16:11:49 -0800 (PST)
 In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
 In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
 References: <cover.1321313729.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This change publishes a new ethtool stats: tx_timeout that counts the
-number of times the tx_timeout callback was triggered.
+Mark stats timer as deferrable: punctuality in waking the stats timer
+callback doesn't matter much, as it is responsible only to avoid
+integer wraparound.
+
+We need at least 1 other timer to fire within 17s (fully loaded 1Gbps)
+to avoid wrap-arounds. Desired period is still 10s.
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 84e8d17..dd24035 100644
+index dd24035..50133f1 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -633,6 +633,7 @@ static const struct nv_ethtool_str nv_estats_str[] = {
- 	{ "rx_packets" },
- 	{ "rx_errors_total" },
- 	{ "tx_errors_total" },
-+	{ "tx_timeout" },
+@@ -5540,7 +5540,7 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 	init_timer(&np->nic_poll);
+ 	np->nic_poll.data = (unsigned long) dev;
+ 	np->nic_poll.function = nv_do_nic_poll;	/* timer handler */
+-	init_timer(&np->stats_poll);
++	init_timer_deferrable(&np->stats_poll);
+ 	np->stats_poll.data = (unsigned long) dev;
+ 	np->stats_poll.function = nv_do_stats_poll;	/* timer handler */
  
- 	/* version 2 stats */
- 	{ "tx_deferral" },
-@@ -673,6 +674,7 @@ struct nv_ethtool_stats {
- 	u64 rx_packets; /* should be ifconfig->rx_packets */
- 	u64 rx_errors_total;
- 	u64 tx_errors_total;
-+	u64 tx_timeout;
- 
- 	/* version 2 stats */
- 	u64 tx_deferral;
-@@ -852,6 +854,7 @@ struct fe_priv {
- 	struct nv_driver_stat stat_tx_packets; /* not always available in HW */
- 	struct nv_driver_stat stat_tx_bytes;
- 	struct nv_driver_stat stat_tx_dropped;
-+	atomic_t stat_tx_timeout;  /* TX timeouts since last nv_update_stats */
- 
- 	/* msi/msi-x fields */
- 	u32 msi_flags;
-@@ -1746,6 +1749,7 @@ static void nv_update_stats(struct net_device *dev)
- 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_packets);
- 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_bytes);
- 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_dropped);
-+	np->estats.tx_timeout += atomic_xchg(&np->stat_tx_timeout, 0);
- }
- 
- /*
-@@ -2639,6 +2643,8 @@ static void nv_tx_timeout(struct net_device *dev)
- 		}
- 	}
- 
-+	atomic_inc(&np->stat_tx_timeout);
-+
- 	spin_lock_irq(&np->lock);
- 
- 	/* 1) stop tx engine */
 -- 
 1.7.3.1
