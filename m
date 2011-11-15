@@ -1,43 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v4 2/8] forcedeth: Add messages to indicate
- using MSI or MSI-X
-Date: Tue, 15 Nov 2011 11:32:03 -0800
-Message-ID: <1321385523.21286.12.camel@Joe-Laptop>
-References: <cover.1321384662.git.david.decotigny@google.com>
-	 <97a5a50baaca7b272dfb7a1a06e88df4888f12b9.1321384662.git.david.decotigny@google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] bonding: Don't allow mode change via sysfs with slaves
+ present
+Date: Tue, 15 Nov 2011 19:33:17 +0000
+Message-ID: <1321385597.2744.11.camel@bwh-desktop>
+References: <1321375482-8637-1-git-send-email-vfalico@redhat.com>
+	 <20111115170018.GB25132@gospo.rdu.redhat.com>  <4EC2BC6D.9000304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Szymon Janc <szymon@janc.net.pl>,
-	Richard Jones <rick.jones2@hp.com>,
-	Ayaz Abdulla <AAbdulla@nvidia.com>,
-	Mike Ditto <mditto@google.com>
-To: David Decotigny <david.decotigny@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <97a5a50baaca7b272dfb7a1a06e88df4888f12b9.1321384662.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	<netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>
+To: Nicolas de =?ISO-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:27024 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756356Ab1KOTdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 14:33:22 -0500
+In-Reply-To: <4EC2BC6D.9000304@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-11-15 at 11:25 -0800, David Decotigny wrote:
-> From: Mike Ditto <mditto@google.com>
-> 
-> This adds a few debug messages to indicate whether PCIe interrupts are
-> signaled with MSI or MSI-X.
+On Tue, 2011-11-15 at 20:24 +0100, Nicolas de Peslo=C3=BCan wrote:
+> Le 15/11/2011 18:00, Andy Gospodarek a =C3=A9crit :
+> > On Tue, Nov 15, 2011 at 05:44:42PM +0100, Veaceslav Falico wrote:
+> >> When changing mode via bonding's sysfs, the slaves are not initial=
+ized
+> >> correctly. Forbid to change modes with slaves present to ensure th=
+at every
+> >> slave is initialized correctly via bond_enslave().
+> >>
+> >> Signed-off-by: Veaceslav Falico<vfalico@redhat.com>
+> >
+> > Looks good.  This behavior forces someone who wants to change to mo=
+de to
+> > go through steps that are almost as destructive as when module opti=
+ons
+> > are used to configure the mode.  I do not see a problem with this.
+>=20
+> Except the fact that is enforce one more constraint on the exact orde=
+r one should write into sysfs=20
+> to setup a bonding interface. We already have many such constraints a=
+nd probably don't need more.
 
-Perhaps the changelog would be better without "debug".
-These added messages aren't really debug messages.
-They are emitted as netdev_info vs netdev_dbg.
+=46rom the administrator perspective, perhaps.  From the developer
+perspective, the current flexibility of bonding makes it very difficult
+to test and maintain.
 
-> diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-[]
-> @@ -3810,6 +3810,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
-> +			netdev_info(dev, "MSI-X enabled\n");
-> @@ -3831,6 +3832,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
-> +			netdev_info(dev, "MSI enabled\n");
+> Currently, it is possible to enslave slaves before selecting the mode=
+=2E The ifenslave-2.6 package=20
+> from Debian currently enslave slaves before setting the mode and woul=
+d break with this change.
+>=20
+> NAK.
+
+It sounds like this feature has to be kept and fixed, then.
+
+Ben.
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
