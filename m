@@ -1,7 +1,7 @@
 From: Richard Zhao <richard.zhao@linaro.org>
-Subject: [PATCH V4 05/14] ARM: mxc: epit: add clk_prepare/clk_unprepare
-Date: Tue, 15 Nov 2011 14:48:00 +0800
-Message-ID: <1321339689-25256-6-git-send-email-richard.zhao@linaro.org>
+Subject: [PATCH V4 08/14] ARM: pm-imx5: add clk_prepare/clk_unprepare
+Date: Tue, 15 Nov 2011 14:48:03 +0800
+Message-ID: <1321339689-25256-9-git-send-email-richard.zhao@linaro.org>
 References: <1321339689-25256-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,34 +12,41 @@ Cc: <linux@arm.linux.org.uk>, <amit.kucheria@canonical.com>,
 To: <linux-arm-kernel@lists.infradead.org>,
 	<linux-i2c@vger.kernel.org>, <linux-mmc@vger.kernel.org>,
 	<netdev@vger.kernel.org>, <linux-serial@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-va3.bigfish.com ([216.32.180.10]:12433 "EHLO
-	VA3EHSOBE007.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752711Ab1KOGsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 01:48:53 -0500
+Return-path: <linux-serial-owner@vger.kernel.org>
 In-Reply-To: <1321339689-25256-1-git-send-email-richard.zhao@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-serial-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 It's for migrating to generic clk framework API.
 
 Signed-off-by: Richard Zhao <richard.zhao@linaro.org>
 ---
- arch/arm/plat-mxc/epit.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/arm/mach-mx5/pm-imx5.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/plat-mxc/epit.c b/arch/arm/plat-mxc/epit.c
-index d3467f8..9129c9e 100644
---- a/arch/arm/plat-mxc/epit.c
-+++ b/arch/arm/plat-mxc/epit.c
-@@ -203,7 +203,7 @@ static int __init epit_clockevent_init(struct clk *timer_clk)
+diff --git a/arch/arm/mach-mx5/pm-imx5.c b/arch/arm/mach-mx5/pm-imx5.c
+index 98052fc..2bdc85f 100644
+--- a/arch/arm/mach-mx5/pm-imx5.c
++++ b/arch/arm/mach-mx5/pm-imx5.c
+@@ -22,7 +22,7 @@ static struct clk *gpc_dvfs_clk;
  
- void __init epit_timer_init(struct clk *timer_clk, void __iomem *base, int irq)
+ static int mx5_suspend_prepare(void)
  {
--	clk_enable(timer_clk);
-+	clk_prepare_enable(timer_clk);
+-	return clk_enable(gpc_dvfs_clk);
++	return clk_prepare_enable(gpc_dvfs_clk);
+ }
  
- 	timer_base = base;
+ static int mx5_suspend_enter(suspend_state_t state)
+@@ -52,7 +52,7 @@ static int mx5_suspend_enter(suspend_state_t state)
  
+ static void mx5_suspend_finish(void)
+ {
+-	clk_disable(gpc_dvfs_clk);
++	clk_disable_unprepare(gpc_dvfs_clk);
+ }
+ 
+ static int mx5_pm_valid(suspend_state_t state)
 -- 
 1.7.5.4
+
+
