@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: return NET_RX_DROP when arp_rcv drops the
- received packet.
-Date: Tue, 15 Nov 2011 16:47:06 -0500 (EST)
-Message-ID: <20111115.164706.1420496299997283498.davem@davemloft.net>
-References: <1321322987-16042-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH 1/3] net/mlx4_en: allow setting number of rx rings for
+ RSS/TCP
+Date: Tue, 15 Nov 2011 16:49:24 -0500 (EST)
+Message-ID: <20111115.164924.433752545055710503.davem@davemloft.net>
+References: <1321348446-29605-1-git-send-email-amirv@mellanox.com>
+	<1321348446-29605-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Cc: netdev@vger.kernel.org, oren@mellanox.com, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com, amirv@mellanox.co.il
+To: amirv@dev.mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:36675 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:36697 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753588Ab1KOVrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 16:47:08 -0500
-In-Reply-To: <1321322987-16042-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1753588Ab1KOVtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 16:49:40 -0500
+In-Reply-To: <1321348446-29605-2-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Tue, 15 Nov 2011 10:09:47 +0800
+From: Amir Vadai <amirv@dev.mellanox.co.il>
+Date: Tue, 15 Nov 2011 11:14:04 +0200
 
-> From: RongQing.Li <roy.qing.li@gmail.com>
-> 
-> return NET_RX_DROP when arp_rcv drops the received packet.
-> 
-> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+> +	if (priv->mdev->profile.tcp_rss == -1 ||
+> +			priv->mdev->profile.tcp_rss > priv->rx_ring_num)
 
-This is not appropriate.
+Please format your code properly:
 
-NET_RX_DROP means that the packet was dropped because something about
-the packet's contents were not acceptable, or the packet violated our
-policies so was dropped.
-
-In this arp_rcv() case, we would have accepted the packet, but we had
-a memory allocation error.  This memory allocation error has nothing
-to do with the packet's contents, and is a transient issue.
+	if (priv->mdev->profile.tcp_rss == -1 ||
+	    priv->mdev->profile.tcp_rss > priv->rx_ring_num)
