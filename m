@@ -1,7 +1,8 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v4 0/8] forcedeth: stats & debug enhancements
-Date: Tue, 15 Nov 2011 11:25:33 -0800
-Message-ID: <cover.1321384662.git.david.decotigny@google.com>
+Subject: [PATCH net-next v4 7/8] forcedeth: new ethtool stat counter for TX timeouts
+Date: Tue, 15 Nov 2011 11:25:40 -0800
+Message-ID: <52bc9f8b3924e22f6921bbc41be4865030215747.1321384662.git.david.decotigny@google.com>
+References: <cover.1321384662.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -14,72 +15,69 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1321384662.git.david.decotigny@google.com>
+In-Reply-To: <cover.1321384662.git.david.decotigny@google.com>
+References: <cover.1321384662.git.david.decotigny@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These changes implement the ndo_get_stats64 API and add a few more
-stats and debugging features for forcedeth. They also ensure that
-stats updates are correct in SMP systems, 32 or 64-bits.
-
-Changes since v3:
-  - updated get_stats64 + rx_dropped patches to use u64_stats_sync.h
-  - dropped indentation "whitespace/indentation fixes" (included in
-    get_stats64 api patch)
-
-Changes since v2:
-  - patch 1/9 is the cherry-pick of 898bdf2cb43e ("forcedeth: fix
-    stats on hardware without extended stats support")
-  - removed patch 5/10 "stats for rx_packets based on hardware
-    registers" because packets&bytes stats are updated in software
-    only (898bdf2cb43e)
-
-Changes since v1:
-  - patch 1/10 is the same as
-    http://patchwork.ozlabs.org/patch/125017/ (targetting net)
-  - other patches updated to take patch 1/10 into account
-  - various commit message updates
+This change publishes a new ethtool stats: tx_timeout that counts the
+number of times the tx_timeout callback was triggered.
 
 
-Tested:
-  ~150Mbps incoming TCP, ethtool -S in a loop, x86_64 16-way:
-     tx_bytes: 5441989419
-     rx_packets: 5439224
-     tx_timeout: 0
-     tx_packets: 5456705
-     rx_bytes: 5566763850
 
-Tested:
-  pktgen + loopback report same RX/TX packets and bytes stats
+Signed-off-by: David Decotigny <david.decotigny@google.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-Tested:
-  tests above with Kconfig DEBUG_PAGEALLOC DEBUG_MUTEXES
-  DEBUG_SPINLOCK LOCKUP_DETECTOR DEBUG_RT_MUTEXES DEBUG_LOCK_ALLOC
-  PROVE_LOCKING DEBUG_ATOMIC_SLEEP DEBUG_STACK_USAGE DEBUG_KOBJECT
-  DEBUG_VM DEBUG_LIST DEBUG_SG DEBUG_NOTIFIERS TEST_KSTRTOX
-  STRICT_DEVMEM DEBUG_STACKOVERFLOW
-
-
-############################################
-# Patch Set Summary:
-
-David Decotigny (5):
-  forcedeth: expose module parameters in /sys/module
-  forcedeth: implement ndo_get_stats64() API
-  forcedeth: account for dropped RX frames
-  forcedeth: new ethtool stat counter for TX timeouts
-  forcedeth: stats updated with a deferrable timer
-
-Mike Ditto (1):
-  forcedeth: Add messages to indicate using MSI or MSI-X
-
-Sameer Nanda (1):
-  forcedeth: allow to silence "TX timeout" debug messages
-
-david decotigny (1):
-  forcedeth: fix stats on hardware without extended stats support
-
- drivers/net/ethernet/nvidia/forcedeth.c |  344 ++++++++++++++++++++++---------
- 1 files changed, 246 insertions(+), 98 deletions(-)
-
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index a50c839..7284f40 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -634,6 +634,7 @@ static const struct nv_ethtool_str nv_estats_str[] = {
+ 	{ "rx_packets" },
+ 	{ "rx_errors_total" },
+ 	{ "tx_errors_total" },
++	{ "tx_timeout" },
+ 
+ 	/* version 2 stats */
+ 	{ "tx_deferral" },
+@@ -674,6 +675,7 @@ struct nv_ethtool_stats {
+ 	u64 rx_packets; /* should be ifconfig->rx_packets */
+ 	u64 rx_errors_total;
+ 	u64 tx_errors_total;
++	u64 tx_timeout;
+ 
+ 	/* version 2 stats */
+ 	u64 tx_deferral;
+@@ -848,6 +850,9 @@ struct fe_priv {
+ 	u64 stat_tx_bytes;
+ 	u64 stat_tx_dropped;
+ 
++	/* TX software stats exported by ethtool */
++	atomic_t stat_tx_timeout;  /* TX timeouts since last nv_update_stats */
++
+ 	/* msi/msi-x fields */
+ 	u32 msi_flags;
+ 	struct msix_entry msi_x_entry[NV_MSI_X_MAX_VECTORS];
+@@ -1731,6 +1736,8 @@ static void nv_update_stats(struct net_device *dev)
+ 		np->estats.tx_multicast += readl(base + NvRegTxMulticast);
+ 		np->estats.tx_broadcast += readl(base + NvRegTxBroadcast);
+ 	}
++
++	np->estats.tx_timeout += atomic_xchg(&np->stat_tx_timeout, 0);
+ }
+ 
+ /*
+@@ -2627,6 +2634,8 @@ static void nv_tx_timeout(struct net_device *dev)
+ 		}
+ 	}
+ 
++	atomic_inc(&np->stat_tx_timeout);
++
+ 	spin_lock_irq(&np->lock);
+ 
+ 	/* 1) stop tx engine */
 -- 
 1.7.3.1
