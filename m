@@ -1,76 +1,75 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH] bonding: Don't allow mode change via sysfs with slaves
- present
-Date: Tue, 15 Nov 2011 21:02:24 +0100
-Message-ID: <4EC2C550.6050805@gmail.com>
-References: <1321375482-8637-1-git-send-email-vfalico@redhat.com> <20111115170018.GB25132@gospo.rdu.redhat.com> <4EC2BC6D.9000304@gmail.com> <20111115193535.GC25132@gospo.rdu.redhat.com>
+From: richard -rw- weinberger <richard.weinberger@gmail.com>
+Subject: Re: Finding a hidden bound TCP socket
+Date: Tue, 15 Nov 2011 21:23:57 +0100
+Message-ID: <CAFLxGvynabpEcX2RwiLxatjOEzizj95jAVY6E4D9ymDpn8s9UA@mail.gmail.com>
+References: <CALmbKGV0g2nfNAghF5dGrt=TCyrms6RznOL8jSkg+gkgyfekLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52844 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932077Ab1KOUCZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 15:02:25 -0500
-Received: by wwe5 with SMTP id 5so6694110wwe.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 12:02:24 -0800 (PST)
-In-Reply-To: <20111115193535.GC25132@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "G. D. Fuego" <gdfuego@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALmbKGV0g2nfNAghF5dGrt=TCyrms6RznOL8jSkg+gkgyfekLg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 15/11/2011 20:35, Andy Gospodarek a =E9crit :
-> On Tue, Nov 15, 2011 at 08:24:29PM +0100, Nicolas de Peslo=FCan wrote=
-:
->> Le 15/11/2011 18:00, Andy Gospodarek a =E9crit :
->>> On Tue, Nov 15, 2011 at 05:44:42PM +0100, Veaceslav Falico wrote:
->>>> When changing mode via bonding's sysfs, the slaves are not initial=
-ized
->>>> correctly. Forbid to change modes with slaves present to ensure th=
-at every
->>>> slave is initialized correctly via bond_enslave().
->>>>
->>>> Signed-off-by: Veaceslav Falico<vfalico@redhat.com>
->>>
->>> Looks good.  This behavior forces someone who wants to change to mo=
-de to
->>> go through steps that are almost as destructive as when module opti=
-ons
->>> are used to configure the mode.  I do not see a problem with this.
->>
->> Except the fact that is enforce one more constraint on the exact ord=
-er
->> one should write into sysfs to setup a bonding interface. We already=
- have
->> many such constraints and probably don't need more.
->>
->> Currently, it is possible to enslave slaves before selecting the mod=
-e.
->> The ifenslave-2.6 package from Debian currently enslave slaves befor=
-e
->> setting the mode and would break with this change.
->>
+On Tue, Nov 15, 2011 at 8:21 PM, G. D. Fuego <gdfuego@gmail.com> wrote:
+> Hello,
 >
-> Our testing indicates that 802.3ad mode bonding will not work unless =
-the
-> devices are enslaved after the mode is set.  Does this mean that no o=
-ne
-> using Debian is using 802.2ad mode or are they just not reporting it?
+> I have a question about an odd linux networking behavior, that could
+> potentially be a local networking DoS. =A0I'm curious if anyone is
+> familiar with this behavior.
+>
+> Essentially I was assisting someone with tracking down a hidden tcp
+> connection. =A0Attempts to bind to a particular port were failing,
+> saying the socket was in use, even though netstat was not reporting
+> any sort of connection. =A0They were initially suspecting a root kit,
+> but after a bit of digging, I came across this page:
+>
+> http://dcid.me/2007/06/hidden-ports-on-linux/
+>
+> From the page:
+>
+> "Here is the idea. If you get this simple C program, it will attempt
+> to bind every TCP port from 1025 to 1050, but it will not listen on
+> them. After it is done, if you do a netstat (or fuser or lsof) nothin=
+g
+> will be shown. However, if you try to use the port, you will get an
+> error saying that it is already in use."
+>
+> I tested it out and confirmed that connections opened by their test
+> program do in fact cause the port to be unavailable for use, and they
+> are not reported in netstat, lsof, ss, or any other networking tools
+> that I tried. =A0I'm unable to to find any references to the ports be=
+ing
+> in use anywhere I've looked within /proc. =A0Are you aware of another
+> way to figure out which process may be bound to the port? =A0In our
+> case, we figured out via trial and error which software was likely
+> triggering this behavior.
+>
+> It seems to me that this could be a potentially interesting local
+> networking DoS. =A0By binding to all ephemeral ports in this way, you=
+'d
+> prevent the local system from being able to establish any tcp
+> connections, and it would be a pain to figure out which process was
+> causing the problem.
+>
+> My lame attempts to exploit this failed due to a max file descriptor
+> limit, but I'm told this could be doable by forking more processes fo=
+r
+> doing the binding.
+>
+> Is this behavior known/expected?
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
+>
 
-I don't know. Possibly, they setup the bonding by hand, instead of rely=
-ing on the bonding extensions=20
-of /etc/network/interfaces provided by the ifenslave-2.6 package.
+CC'ing netdev
 
-Having a look at popularity for the package (http://qa.debian.org/popco=
-n.php?package=3Difenslave-2.6),=20
-it is obviously not the most popular one, but...
-
-To try and fix the problem you noticed, if might be desirable to assert=
- carrier off then on for all=20
-slaves when entering 802.3ad mode.
-
-	Nicolas
+--=20
+Thanks,
+//richard
