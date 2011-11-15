@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 5/5] net-next:asix: update VERSION and white space
  changes
-Date: Mon, 14 Nov 2011 21:41:51 -0500 (EST)
-Message-ID: <20111114.214151.1988775203701808195.davem@davemloft.net>
-References: <20111114.184240.1832866874941847383.davem@davemloft.net>
-	<CANEJEGuzdxDuVysuAJPcdC7-mywa8B8JggVHe_VMTK_1j4QguQ@mail.gmail.com>
+Date: Mon, 14 Nov 2011 21:45:42 -0500 (EST)
+Message-ID: <20111114.214542.1423779515286773837.davem@davemloft.net>
+References: <CANEJEGuzdxDuVysuAJPcdC7-mywa8B8JggVHe_VMTK_1j4QguQ@mail.gmail.com>
 	<20111114.213255.2061756136146824209.davem@davemloft.net>
+	<20111114.214151.1988775203701808195.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	allan@asix.com.tw, freddy@asix.com.tw
+	allan@asix.com.tw, freddy@asix.com.tw, kernel@teksavvy.com
 To: grundler@chromium.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20111114.213255.2061756136146824209.davem@davemloft.net>
+In-Reply-To: <20111114.214151.1988775203701808195.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxNCBO
-b3YgMjAxMSAyMTozMjo1NSAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IEdyYW50IEdydW5kbGVyIDxn
-cnVuZGxlckBjaHJvbWl1bS5vcmc+DQo+IERhdGU6IE1vbiwgMTQgTm92IDIwMTEgMTY6NTQ6MzUg
-LTA4MDANCj4gDQo+PiBPbiBNb24sIE5vdiAxNCwgMjAxMSBhdCAzOjQyIFBNLCBEYXZpZCBNaWxs
-ZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IHdyb3RlOg0KPj4gLi4uDQo+Pj4gUGxlYXNlLCBqdXN0
-IHN1Ym1pdCB0aGlzIHdpdGhvdXQgdGhlIHdoaXRlc3BhY2UgYW5kIG90aGVyIGNsZWFudXANCj4+
-PiBzdHVmZi4goFJlc3RyaWN0IGl0IHRvIHJlYWwgYnVnIGZpeGVzLCBhbmQgSSdsbCBwdXNoIGl0
-IGFyb3VuZC4NCj4+IA0KPj4gSSBqdXN0IHNlbnQgYSAidjIiIG9mIDUvNSBwYXRjaCB3aGljaCBv
-bmx5IGhhcyB0aGUgVkVSU0lPTiBjaGFuZ2UuIElzDQo+PiB0aGF0IHN1ZmZpY2llbnQgb3Igc2hv
-dWxkIEkgcmVzZW5kIGFsbCA1Pw0KPiANCj4gSnVzdCByZXNwaW5uaW5nICM1IGlzIGZpbmUsIHRo
-YW5rcy4NCg0KQnV0IHRoZSBmYWN0IHRoYXQgdGhlIG90aGVyIGJpdHMgZG9uJ3QgZXZlbiBjb21w
-aWxlLi4uIHRoYXQncyBub3QgZmluZS4NCg0KZHJpdmVycy9uZXQvdXNiL2FzaXguYzogSW4gZnVu
-Y3Rpb24goWF4ODgxNzhfYmluZKI6DQpkcml2ZXJzL25ldC91c2IvYXNpeC5jOjE0NjM6MjogZXJy
-b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFheDg4MTc4X3N3X3Jlc2V0oiBb
-LVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCmNjMTogc29tZSB3YXJuaW5n
-cyBiZWluZyB0cmVhdGVkIGFzIGVycm9ycw0KDQpbZGF2ZW1AYm9yaWNoYSBuZXRdJCBnaXQgZ3Jl
-cCBheDg4MTc4X3N3X3Jlc2V0DQpkcml2ZXJzL25ldC91c2IvYXNpeC5jOglheDg4MTc4X3N3X3Jl
-c2V0KGRldiwgMCk7DQoNCkNvbWUgb24gbWFuLi4uIGFyZSB5b3Uga2lkZGluZyBtZT8NCg==
+From: David Miller <davem@davemloft.net>
+Date: Mon, 14 Nov 2011 21:41:51 -0500 (EST)
+
+> Come on man... are you kidding me?
+
+Want to know what really pisses me off about this?
+
+All of Mark Lord's hard work to bring the entire vendor driver over
+was thrown out.
+
+And it was thrown out in favor of this!  Code that doesn't even
+compile.
