@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v3 8/9] forcedeth: stats updated with a deferrable timer
-Date: Mon, 14 Nov 2011 16:11:18 -0800
-Message-ID: <6a56ea00fc2319ead99aebbd6cbcbb10114dfda1.1321313729.git.david.decotigny@google.com>
+Subject: [PATCH net-next v3 6/9] forcedeth: account for dropped RX frames
+Date: Mon, 14 Nov 2011 16:11:16 -0800
+Message-ID: <5f53bf68b155c8b8c5c045a5af6bdba414a9f11e.1321313729.git.david.decotigny@google.com>
 References: <cover.1321313729.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -17,42 +17,77 @@ To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-wy0-f202.google.com ([74.125.82.202]:59965 "EHLO
 	mail-wy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756832Ab1KOALv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 19:11:51 -0500
-Received: by wye20 with SMTP id 20so104359wye.1
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 16:11:49 -0800 (PST)
+	with ESMTP id S1756832Ab1KOAL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 19:11:58 -0500
+Received: by mail-wy0-f202.google.com with SMTP id 20so104359wye.1
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 16:11:57 -0800 (PST)
 In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
 In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
 References: <cover.1321313729.git.david.decotigny@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark stats timer as deferrable: punctuality in waking the stats timer
-callback doesn't matter much, as it is responsible only to avoid
-integer wraparound.
-
-We need at least 1 other timer to fire within 17s (fully loaded 1Gbps)
-to avoid wrap-arounds. Desired period is still 10s.
+This adds the stats counter for dropped RX frames.
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index dd24035..50133f1 100644
+index a67c1f4..84e8d17 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -5540,7 +5540,7 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- 	init_timer(&np->nic_poll);
- 	np->nic_poll.data = (unsigned long) dev;
- 	np->nic_poll.function = nv_do_nic_poll;	/* timer handler */
--	init_timer(&np->stats_poll);
-+	init_timer_deferrable(&np->stats_poll);
- 	np->stats_poll.data = (unsigned long) dev;
- 	np->stats_poll.function = nv_do_stats_poll;	/* timer handler */
+@@ -824,6 +824,7 @@ struct fe_priv {
+ 	struct nv_driver_stat stat_rx_packets;
+ 	struct nv_driver_stat stat_rx_bytes; /* not always available in HW */
+ 	struct nv_driver_stat stat_rx_missed_errors;
++	struct nv_driver_stat stat_rx_dropped;
  
+ 	/* media detection workaround.
+ 	 * Locking: Within irq hander or disable_irq+spin_lock(&np->lock);
+@@ -1740,6 +1741,7 @@ static void nv_update_stats(struct net_device *dev)
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_packets);
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_bytes);
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_missed_errors);
++	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_dropped);
+ 
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_packets);
+ 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_bytes);
+@@ -1786,6 +1788,8 @@ nv_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *storage)
+ 			&np->stat_tx_bytes);
+ 		storage->rx_errors  = np->estats.rx_errors_total;
+ 		storage->tx_errors  = np->estats.tx_errors_total;
++		storage->rx_dropped = NV_DRIVER_STAT_GET_TOTAL(
++			&np->stat_rx_dropped);
+ 		storage->tx_dropped = NV_DRIVER_STAT_GET_TOTAL(
+ 			&np->stat_tx_dropped);
+ 
+@@ -1841,8 +1845,10 @@ static int nv_alloc_rx(struct net_device *dev)
+ 				np->put_rx.orig = np->first_rx.orig;
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+-		} else
++		} else {
++			NV_DRIVER_STAT_ATOMIC_INC(&np->stat_rx_dropped);
+ 			return 1;
++		}
+ 	}
+ 	return 0;
+ }
+@@ -1873,8 +1879,10 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 				np->put_rx.ex = np->first_rx.ex;
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+-		} else
++		} else {
++			NV_DRIVER_STAT_ATOMIC_INC(&np->stat_rx_dropped);
+ 			return 1;
++		}
+ 	}
+ 	return 0;
+ }
 -- 
 1.7.3.1
