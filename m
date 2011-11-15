@@ -1,61 +1,51 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next v3 5/9] forcedeth: implement ndo_get_stats64()
- API
-Date: Mon, 14 Nov 2011 17:10:39 -0800
-Message-ID: <20111114171039.34a04369@nehalam.linuxnetplumber.net>
-References: <cover.1321313729.git.david.decotigny@google.com>
-	<e2dd16618bc1bd5108e6dea3c7531ee229e4c699.1321313729.git.david.decotigny@google.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [patch net-next V8] net: introduce ethernet teaming device
+Date: Mon, 14 Nov 2011 20:56:17 -0500
+Message-ID: <20111115015616.GA25132@gospo.rdu.redhat.com>
+References: <1321085808-6871-1-git-send-email-jpirko@redhat.com> <4EC160B4.2040709@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
-	Szymon Janc <szymon@janc.net.pl>,
-	Richard Jones <rick.jones2@hp.com>,
-	Ayaz Abdulla <AAbdulla@nvidia.com>
-To: David Decotigny <david.decotigny@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e2dd16618bc1bd5108e6dea3c7531ee229e4c699.1321313729.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net, tgraf@infradead.org, ebiederm@xmission.com,
+	mirqus@gmail.com, kaber@trash.net, greearb@candelatech.com,
+	jesse@nicira.com, fbl@redhat.com, benjamin.poirier@gmail.com,
+	jzupka@redhat.com, ivecera@redhat.com
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2845 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752544Ab1KOB4k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Nov 2011 20:56:40 -0500
+Content-Disposition: inline
+In-Reply-To: <4EC160B4.2040709@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Nov 2011 16:11:15 -0800
-David Decotigny <david.decotigny@google.com> wrote:
+On Mon, Nov 14, 2011 at 10:40:52AM -0800, Rick Jones wrote:
+> On 11/12/2011 12:16 AM, Jiri Pirko wrote:
+>> This patch introduces new network device called team. It supposes to be
+>> very fast, simple, userspace-driven alternative to existing bonding
+>> driver.
+>
+> What is the definition of "very" here - relative to bonding I presume?  
+> Are there actual performance figures available at this point?  Something  
+> along the lines of test through both on the same hardware.  I don't have  
+> HW on which to run myself but would be quite happy to help with say  
+> netperf command selection to demonstrate the difference between the two.
+>
+> happy benchmrking,
+>
 
-> This commit implements the ndo_get_stats64() API for forcedeth. Since
-> these stats are being updated from different contexts (process and
-> timer), this commit adds protection (locking + atomic variables).
-> 
-> Tested:
->   - 16-way SMP x86_64 ->
->     RX bytes:7244556582 (7.2 GB)  TX bytes:181904254 (181.9 MB)
->   - pktgen + loopback: identical rx_bytes/tx_bytes and rx_packets/tx_packets
-> 
-> 
-> 
-> Signed-off-by: David Decotigny <david.decotigny@google.com>
-> ---
->  drivers/net/ethernet/nvidia/forcedeth.c |  182 ++++++++++++++++++++++++-------
->  1 files changed, 141 insertions(+), 41 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-> index ee8cce5..a67c1f4 100644
-> --- a/drivers/net/ethernet/nvidia/forcedeth.c
-> +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-> @@ -692,6 +692,21 @@ struct nv_ethtool_stats {
->  #define NV_DEV_STATISTICS_V2_COUNT (NV_DEV_STATISTICS_V3_COUNT - 3)
->  #define NV_DEV_STATISTICS_V1_COUNT (NV_DEV_STATISTICS_V2_COUNT - 6)
->  
-> +/* driver statistics */
-> +struct nv_driver_stat {
-> +	atomic_t delta;  /* increase since last nv_update_stats() */
-> +	u64 total;  /* cumulative, requires netdev_priv(dev)->stats_lock */
-> +};
+On most modern systems I suspect there will be little to no difference
+between bonding RX peformance and team performance.
 
-Please existing u64_stats_sync rather than inventing your own
-method. The u64_stats_sync is faster and does require locking.
+If there is any now, I suspect team and bond performance to be similar
+by the time team has to account for the corner-cases bonding has already
+resolved.  :-)
+
+Benchmarks may prove otherwise, but I've yet to see Jiri produce
+anything.  My initial testing doesn't demonstrate any measureable
+differences with 1Gbps interfaces on a multi-core, multi-socket system.
+ 
