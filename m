@@ -1,34 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next v4 6/8] forcedeth: account for dropped RX
- frames
-Date: Tue, 15 Nov 2011 14:21:30 -0800
-Message-ID: <20111115142130.796d52c3@s6510.linuxnetplumber.net>
-References: <cover.1321384662.git.david.decotigny@google.com>
-	<005cae310e19433c9f68c178805f16c774e8dedd.1321384662.git.david.decotigny@google.com>
+From: Grant Grundler <grundler@chromium.org>
+Subject: Re: [PATCH 1/5] net-next:asix:PHY_MODE_RTL8211CL should be 0xC
+Date: Tue, 15 Nov 2011 14:26:32 -0800
+Message-ID: <CANEJEGt3iR1q-2200L1gAYhha4uatPKRche5dAS4bzSVm5bjTA@mail.gmail.com>
+References: <1321377163-26308-1-git-send-email-grundler@chromium.org>
+	<20111115.164134.1813312136000862195.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
-	Szymon Janc <szymon@janc.net.pl>,
-	Richard Jones <rick.jones2@hp.com>,
-	Ayaz Abdulla <AAbdulla@nvidia.com>
-To: David Decotigny <david.decotigny@google.com>
+	allan@asix.com.tw, freddy@asix.com.tw
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <005cae310e19433c9f68c178805f16c774e8dedd.1321384662.git.david.decotigny@google.com>
+In-Reply-To: <20111115.164134.1813312136000862195.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Nov 2011 11:25:39 -0800
-David Decotigny <david.decotigny@google.com> wrote:
+On Tue, Nov 15, 2011 at 1:41 PM, David Miller <davem@davemloft.net> wrote:
+> From: Grant Grundler <grundler@chromium.org>
+> Date: Tue, 15 Nov 2011 09:12:39 -0800
+>
+>> From: Grant Grundler <grundler@google.com>
+>>
+>> Use correct value for rtl phy support.
+>> (rtl phy are in AX88178 devices like NWU220G and USB2-ET1000).
+>>
+>> Signed-off-by: Allan Chou <allan@asix.com.tw>
+>> Tested-by: Grant Grundler <grundler@chromium.org>
+>
+> Applied.
 
-> This adds the stats counter for dropped RX frames.
-> 
+Dave,
+Thanks for applying the series and offering to push immediately to
+linus. I'll submit the white space/coding style clean ups after the
+frustration of my blooper has receded from your memory a bit more. :)
 
-There is already an rx_dropped statistic in netdevice structure,
-why do you need your own in ethtool?
+cheers,
+grant
