@@ -1,7 +1,7 @@
 From: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH V4 07/14] ARM: mxc: audmux-v2: add clk_prepare/clk_unprepare
-Date: Tue, 15 Nov 2011 14:48:02 +0800
-Message-ID: <1321339689-25256-8-git-send-email-richard.zhao@linaro.org>
+Subject: [PATCH V4 04/14] ARM: mxc: pwm: add clk_prepare/clk_unprepare
+Date: Tue, 15 Nov 2011 14:47:59 +0800
+Message-ID: <1321339689-25256-5-git-send-email-richard.zhao@linaro.org>
 References: <1321339689-25256-1-git-send-email-richard.zhao@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -21,44 +21,30 @@ It's for migrating to generic clk framework API.
 
 Signed-off-by: Richard Zhao <richard.zhao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 ---
- arch/arm/plat-mxc/audmux-v2.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ arch/arm/plat-mxc/pwm.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/plat-mxc/audmux-v2.c b/arch/arm/plat-mxc/audmux-v2.c
-index 8cced35..0e51fc3 100644
---- a/arch/arm/plat-mxc/audmux-v2.c
-+++ b/arch/arm/plat-mxc/audmux-v2.c
-@@ -73,13 +73,13 @@ static ssize_t audmux_read_file(struct file *file, char __user *user_buf,
- 		return -ENOMEM;
+diff --git a/arch/arm/plat-mxc/pwm.c b/arch/arm/plat-mxc/pwm.c
+index 42d74ea..68c7199b 100644
+--- a/arch/arm/plat-mxc/pwm.c
++++ b/arch/arm/plat-mxc/pwm.c
+@@ -118,7 +118,7 @@ int pwm_enable(struct pwm_device *pwm)
+ 	int rc = 0;
  
- 	if (audmux_clk)
--		clk_enable(audmux_clk);
-+		clk_prepare_enable(audmux_clk);
+ 	if (!pwm->clk_enabled) {
+-		rc = clk_enable(pwm->clk);
++		rc = clk_prepare_enable(pwm->clk);
+ 		if (!rc)
+ 			pwm->clk_enabled = 1;
+ 	}
+@@ -131,7 +131,7 @@ void pwm_disable(struct pwm_device *pwm)
+ 	writel(0, pwm->mmio_base + MX3_PWMCR);
  
- 	ptcr = readl(audmux_base + MXC_AUDMUX_V2_PTCR(port));
- 	pdcr = readl(audmux_base + MXC_AUDMUX_V2_PDCR(port));
- 
- 	if (audmux_clk)
--		clk_disable(audmux_clk);
-+		clk_disable_unprepare(audmux_clk);
- 
- 	ret = snprintf(buf, PAGE_SIZE, "PDCR: %08x\nPTCR: %08x\n",
- 		       pdcr, ptcr);
-@@ -172,13 +172,13 @@ int mxc_audmux_v2_configure_port(unsigned int port, unsigned int ptcr,
- 		return -ENOSYS;
- 
- 	if (audmux_clk)
--		clk_enable(audmux_clk);
-+		clk_prepare_enable(audmux_clk);
- 
- 	writel(ptcr, audmux_base + MXC_AUDMUX_V2_PTCR(port));
- 	writel(pdcr, audmux_base + MXC_AUDMUX_V2_PDCR(port));
- 
- 	if (audmux_clk)
--		clk_disable(audmux_clk);
-+		clk_disable_unprepare(audmux_clk);
- 
- 	return 0;
+ 	if (pwm->clk_enabled) {
+-		clk_disable(pwm->clk);
++		clk_disable_unprepare(pwm->clk);
+ 		pwm->clk_enabled = 0;
+ 	}
  }
 -- 
 1.7.5.4
