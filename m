@@ -1,7 +1,7 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v3 6/9] forcedeth: account for dropped RX frames
-Date: Mon, 14 Nov 2011 16:11:16 -0800
-Message-ID: <5f53bf68b155c8b8c5c045a5af6bdba414a9f11e.1321313729.git.david.decotigny@google.com>
+Subject: [PATCH net-next v3 3/9] forcedeth: allow to silence "TX timeout" debug messages
+Date: Mon, 14 Nov 2011 16:11:13 -0800
+Message-ID: <47650719c85908eb4dff05f5d243cc0e9e181748.1321313729.git.david.decotigny@google.com>
 References: <cover.1321313729.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -12,82 +12,165 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Szymon Janc <szymon@janc.net.pl>,
 	Richard Jones <rick.jones2@hp.com>,
 	Ayaz Abdulla <AAbdulla@nvidia.com>,
+	Sameer Nanda <snanda@google.com>,
 	David Decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f202.google.com ([74.125.82.202]:59965 "EHLO
-	mail-wy0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756832Ab1KOAL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 19:11:58 -0500
-Received: by mail-wy0-f202.google.com with SMTP id 20so104359wye.1
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 16:11:57 -0800 (PST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
 In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
 References: <cover.1321313729.git.david.decotigny@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This adds the stats counter for dropped RX frames.
+From: Sameer Nanda <snanda@google.com>
+
+This adds a new module parameter "debug_tx_timeout" to silence most
+debug messages in case of TX timeout. These messages don't provide a
+signal/noise ratio high enough for production systems and, with ~30kB
+logged each time, they tend to add to a cascade effect if the system
+is already under stress (memory pressure, disk, etc.).
+
+By default, the parameter is clear, meaning that only a single warning
+will be reported.
 
 
 
 Signed-off-by: David Decotigny <david.decotigny@google.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/nvidia/forcedeth.c |   98 ++++++++++++++++++-------------
+ 1 files changed, 57 insertions(+), 41 deletions(-)
 
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index a67c1f4..84e8d17 100644
+index fe17e42..9b917ff 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -824,6 +824,7 @@ struct fe_priv {
- 	struct nv_driver_stat stat_rx_packets;
- 	struct nv_driver_stat stat_rx_bytes; /* not always available in HW */
- 	struct nv_driver_stat stat_rx_missed_errors;
-+	struct nv_driver_stat stat_rx_dropped;
+@@ -892,6 +892,11 @@ enum {
+ static int dma_64bit = NV_DMA_64BIT_ENABLED;
  
- 	/* media detection workaround.
- 	 * Locking: Within irq hander or disable_irq+spin_lock(&np->lock);
-@@ -1740,6 +1741,7 @@ static void nv_update_stats(struct net_device *dev)
- 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_packets);
- 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_bytes);
- 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_missed_errors);
-+	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_rx_dropped);
+ /*
++ * Debug output control for tx_timeout
++ */
++static bool debug_tx_timeout = false;
++
++/*
+  * Crossover Detection
+  * Realtek 8201 phy + some OEM boards do not work properly.
+  */
+@@ -2477,56 +2482,64 @@ static void nv_tx_timeout(struct net_device *dev)
+ 	u32 status;
+ 	union ring_type put_tx;
+ 	int saved_tx_limit;
+-	int i;
  
- 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_packets);
- 	NV_DRIVER_STAT_UPDATE_TOTAL(&np->stat_tx_bytes);
-@@ -1786,6 +1788,8 @@ nv_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *storage)
- 			&np->stat_tx_bytes);
- 		storage->rx_errors  = np->estats.rx_errors_total;
- 		storage->tx_errors  = np->estats.tx_errors_total;
-+		storage->rx_dropped = NV_DRIVER_STAT_GET_TOTAL(
-+			&np->stat_rx_dropped);
- 		storage->tx_dropped = NV_DRIVER_STAT_GET_TOTAL(
- 			&np->stat_tx_dropped);
+ 	if (np->msi_flags & NV_MSI_X_ENABLED)
+ 		status = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQSTAT_MASK;
+ 	else
+ 		status = readl(base + NvRegIrqStatus) & NVREG_IRQSTAT_MASK;
  
-@@ -1841,8 +1845,10 @@ static int nv_alloc_rx(struct net_device *dev)
- 				np->put_rx.orig = np->first_rx.orig;
- 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
- 				np->put_rx_ctx = np->first_rx_ctx;
--		} else
-+		} else {
-+			NV_DRIVER_STAT_ATOMIC_INC(&np->stat_rx_dropped);
- 			return 1;
+-	netdev_info(dev, "Got tx_timeout. irq: %08x\n", status);
++	netdev_warn(dev, "Got tx_timeout. irq status: %08x\n", status);
+ 
+-	netdev_info(dev, "Ring at %lx\n", (unsigned long)np->ring_addr);
+-	netdev_info(dev, "Dumping tx registers\n");
+-	for (i = 0; i <= np->register_size; i += 32) {
+-		netdev_info(dev,
+-			    "%3x: %08x %08x %08x %08x %08x %08x %08x %08x\n",
+-			    i,
+-			    readl(base + i + 0), readl(base + i + 4),
+-			    readl(base + i + 8), readl(base + i + 12),
+-			    readl(base + i + 16), readl(base + i + 20),
+-			    readl(base + i + 24), readl(base + i + 28));
+-	}
+-	netdev_info(dev, "Dumping tx ring\n");
+-	for (i = 0; i < np->tx_ring_size; i += 4) {
+-		if (!nv_optimized(np)) {
+-			netdev_info(dev,
+-				    "%03x: %08x %08x // %08x %08x // %08x %08x // %08x %08x\n",
+-				    i,
+-				    le32_to_cpu(np->tx_ring.orig[i].buf),
+-				    le32_to_cpu(np->tx_ring.orig[i].flaglen),
+-				    le32_to_cpu(np->tx_ring.orig[i+1].buf),
+-				    le32_to_cpu(np->tx_ring.orig[i+1].flaglen),
+-				    le32_to_cpu(np->tx_ring.orig[i+2].buf),
+-				    le32_to_cpu(np->tx_ring.orig[i+2].flaglen),
+-				    le32_to_cpu(np->tx_ring.orig[i+3].buf),
+-				    le32_to_cpu(np->tx_ring.orig[i+3].flaglen));
+-		} else {
++	if (unlikely(debug_tx_timeout)) {
++		int i;
++
++		netdev_info(dev, "Ring at %lx\n", (unsigned long)np->ring_addr);
++		netdev_info(dev, "Dumping tx registers\n");
++		for (i = 0; i <= np->register_size; i += 32) {
+ 			netdev_info(dev,
+-				    "%03x: %08x %08x %08x // %08x %08x %08x // %08x %08x %08x // %08x %08x %08x\n",
++				    "%3x: %08x %08x %08x %08x "
++				    "%08x %08x %08x %08x\n",
+ 				    i,
+-				    le32_to_cpu(np->tx_ring.ex[i].bufhigh),
+-				    le32_to_cpu(np->tx_ring.ex[i].buflow),
+-				    le32_to_cpu(np->tx_ring.ex[i].flaglen),
+-				    le32_to_cpu(np->tx_ring.ex[i+1].bufhigh),
+-				    le32_to_cpu(np->tx_ring.ex[i+1].buflow),
+-				    le32_to_cpu(np->tx_ring.ex[i+1].flaglen),
+-				    le32_to_cpu(np->tx_ring.ex[i+2].bufhigh),
+-				    le32_to_cpu(np->tx_ring.ex[i+2].buflow),
+-				    le32_to_cpu(np->tx_ring.ex[i+2].flaglen),
+-				    le32_to_cpu(np->tx_ring.ex[i+3].bufhigh),
+-				    le32_to_cpu(np->tx_ring.ex[i+3].buflow),
+-				    le32_to_cpu(np->tx_ring.ex[i+3].flaglen));
++				    readl(base + i + 0), readl(base + i + 4),
++				    readl(base + i + 8), readl(base + i + 12),
++				    readl(base + i + 16), readl(base + i + 20),
++				    readl(base + i + 24), readl(base + i + 28));
 +		}
++		netdev_info(dev, "Dumping tx ring\n");
++		for (i = 0; i < np->tx_ring_size; i += 4) {
++			if (!nv_optimized(np)) {
++				netdev_info(dev,
++					    "%03x: %08x %08x // %08x %08x "
++					    "// %08x %08x // %08x %08x\n",
++					    i,
++					    le32_to_cpu(np->tx_ring.orig[i].buf),
++					    le32_to_cpu(np->tx_ring.orig[i].flaglen),
++					    le32_to_cpu(np->tx_ring.orig[i+1].buf),
++					    le32_to_cpu(np->tx_ring.orig[i+1].flaglen),
++					    le32_to_cpu(np->tx_ring.orig[i+2].buf),
++					    le32_to_cpu(np->tx_ring.orig[i+2].flaglen),
++					    le32_to_cpu(np->tx_ring.orig[i+3].buf),
++					    le32_to_cpu(np->tx_ring.orig[i+3].flaglen));
++			} else {
++				netdev_info(dev,
++					    "%03x: %08x %08x %08x "
++					    "// %08x %08x %08x "
++					    "// %08x %08x %08x "
++					    "// %08x %08x %08x\n",
++					    i,
++					    le32_to_cpu(np->tx_ring.ex[i].bufhigh),
++					    le32_to_cpu(np->tx_ring.ex[i].buflow),
++					    le32_to_cpu(np->tx_ring.ex[i].flaglen),
++					    le32_to_cpu(np->tx_ring.ex[i+1].bufhigh),
++					    le32_to_cpu(np->tx_ring.ex[i+1].buflow),
++					    le32_to_cpu(np->tx_ring.ex[i+1].flaglen),
++					    le32_to_cpu(np->tx_ring.ex[i+2].bufhigh),
++					    le32_to_cpu(np->tx_ring.ex[i+2].buflow),
++					    le32_to_cpu(np->tx_ring.ex[i+2].flaglen),
++					    le32_to_cpu(np->tx_ring.ex[i+3].bufhigh),
++					    le32_to_cpu(np->tx_ring.ex[i+3].buflow),
++					    le32_to_cpu(np->tx_ring.ex[i+3].flaglen));
++			}
+ 		}
  	}
- 	return 0;
- }
-@@ -1873,8 +1879,10 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
- 				np->put_rx.ex = np->first_rx.ex;
- 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
- 				np->put_rx_ctx = np->first_rx_ctx;
--		} else
-+		} else {
-+			NV_DRIVER_STAT_ATOMIC_INC(&np->stat_rx_dropped);
- 			return 1;
-+		}
- 	}
- 	return 0;
- }
+ 
+@@ -6156,6 +6169,9 @@ module_param(phy_cross, int, 0);
+ MODULE_PARM_DESC(phy_cross, "Phy crossover detection for Realtek 8201 phy is enabled by setting to 1 and disabled by setting to 0.");
+ module_param(phy_power_down, int, 0);
+ MODULE_PARM_DESC(phy_power_down, "Power down phy and disable link when interface is down (1), or leave phy powered up (0).");
++module_param(debug_tx_timeout, bool, 0);
++MODULE_PARM_DESC(debug_tx_timeout,
++		 "Dump tx related registers and ring when tx_timeout happens");
+ 
+ MODULE_AUTHOR("Manfred Spraul <manfred@colorfullife.com>");
+ MODULE_DESCRIPTION("Reverse Engineered nForce ethernet driver");
 -- 
 1.7.3.1
