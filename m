@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4_en: using non collapsed CQ on TX
-Date: Tue, 15 Nov 2011 16:52:19 -0500 (EST)
-Message-ID: <20111115.165219.1459508904321862383.davem@davemloft.net>
-References: <4EC23E94.2030607@mellanox.co.il>
+Subject: Re: [PATCH net-next] IPv6: Removing unnecessary NULL checks
+ introduced in 4a287eba2de395713d8b2b2aeaa69fa086832d34.
+Date: Tue, 15 Nov 2011 16:55:33 -0500 (EST)
+Message-ID: <20111115.165533.85188071326137725.davem@davemloft.net>
+References: <1321354739.1858.72.camel@hakki>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: yevgenyp@mellanox.co.il
+To: matti.vaittinen@nsn.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([198.137.202.13]:43785 "EHLO
+Received: from shards.monkeyblade.net ([198.137.202.13]:43809 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756633Ab1KOVwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 16:52:25 -0500
-In-Reply-To: <4EC23E94.2030607@mellanox.co.il>
+	with ESMTP id S1757400Ab1KOVzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 16:55:39 -0500
+In-Reply-To: <1321354739.1858.72.camel@hakki>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Tue, 15 Nov 2011 12:27:32 +0200
+From: Matti Vaittinen <matti.vaittinen@nsn.com>
+Date: Tue, 15 Nov 2011 12:58:59 +0200
 
-> Moving to regular Completion Queue implementation (not collapsed)
-> Completion for each transmitted packet is written to new entry.
+> This patch removes unnecessary NULL checks noticed by Dan Carpenter.
+> Checks were introduced in commit
+> 4a287eba2de395713d8b2b2aeaa69fa086832d34 to net-next.
 > 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> Signed-off-by: Matti Vaittinen <Mazziesaccount@gmail.com>
 
-Can the people maintaining the Mellanox driver please coordinate
-your efforts?
+Applied.
 
-I should not be seeing multiple engineers submit seperate patches
-on the same exact day to the mlx4 driver.
-
-One person should be in charge for submitting all pending patches,
-adding "From: " lines to the body of the commit message (as needed) to
-indicate authorship properly.
+I took the commit ID reference out of the subject line, that is generally
+considered bad form.
