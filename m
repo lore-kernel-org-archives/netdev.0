@@ -1,36 +1,95 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv4: fix for ip_options_rcv_srr() daddr update.
-Date: Tue, 15 Nov 2011 16:29:59 +0800
-Message-ID: <4EC22307.1000408@cn.fujitsu.com>
-References: <4EC21427.9080008@cn.fujitsu.com>	<20111115.022835.551127337110017182.davem@davemloft.net>	<4EC21A01.90702@cn.fujitsu.com> <20111115.032343.1203870624086709786.davem@davemloft.net>
+From: Weiping Pan <wpan@redhat.com>
+Subject: [PATCH] vlan:return error when real dev is enslaved
+Date: Tue, 15 Nov 2011 16:36:52 +0800
+Message-ID: <c897fa89d5ea94c6624e8cdab9787aa83526f994.1321343212.git.wpan@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50445 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753604Ab1KOI3f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 03:29:35 -0500
-In-Reply-To: <20111115.032343.1203870624086709786.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Weiping Pan <wpan@redhat.com>,
+	Patrick McHardy <kaber@trash.net> (maintainer:VLAN (802.1Q)),
+	"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
+	[GENERAL]), netdev@vger.kernel.org (open list:VLAN (802.1Q)),
+	linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> My long term plan is to eliminate cached routes, we will directly use
-> routing table entries instead.
-> 
-> In such a scheme, the member rt->rt_dst will no longer even exist.
-> 
-> This is what I've been working towards for more than a year, it is a
-> slow and very difficult transformation.
-> 
-> If you starting adding rt->rt_dst references back, we are taking
-> steps backwards.
-> 
-> 
+Qinhuibin reported a kernel panic when he do some operation about vlan.
+https://lkml.org/lkml/2011/11/6/218
 
-Thank you, I got it. 
+The operation is as below:
+ifconfig eth2 up
+modprobe bonding
+modprobe 8021q
+ifconfig bond0 up
+ifenslave bond0 eth2
+vconfig add eth2 3300
+vconfig add bond0 33
+vconfig rem eth2.3300
 
-I'll do my best to fix it but without any promise, because i am a kernel
-newbie :D
+the panic stack is as below:
+[<ffffffffa002f1c9>] panic_event+0x49/0x70 [ipmi_msghandler]
+[<ffffffff80378917>] notifier_call_chain+0x37/0x70
+[<ffffffff80372122>] panic+0xa2/0x195
+[<ffffffff80376ed8>] oops_end+0xd8/0x140
+[<ffffffff8001bea7>] no_context+0xf7/0x280
+[<ffffffff8001c1a5>] __bad_area_nosemaphore+0x175/0x250
+[<ffffffff80376318>] page_fault+0x28/0x30
+[<ffffffffa039dabd>] igb_vlan_rx_kill_vid+0x4d/0x100 [igb]
+[<ffffffffa044045f>] bond_vlan_rx_kill_vid+0x9f/0x290 [bonding]
+[<ffffffffa047e636>] unregister_vlan_dev+0x136/0x180 [8021q]
+[<ffffffffa047ed20>] vlan_ioctl_handler+0x170/0x3f0 [8021q]
+[<ffffffff802c1d3f>] sock_ioctl+0x21f/0x280
+[<ffffffff800e6d7f>] vfs_ioctl+0x2f/0xb0
+[<ffffffff800e726b>] do_vfs_ioctl+0x3cb/0x5a0
+[<ffffffff800e74e1>] sys_ioctl+0xa1/0xb0
+[<ffffffff80007388>] system_call_fastpath+0x16/0x1b
+[<00007f108a2b8bd7>] 0x7f108a2b8bd7
+And the nic is as below:
+[root@localhost ~]# ethtool -i eth2
+driver: igb
+version: 3.0.6-k2
+firmware-version: 1.2-1
+bus-info: 0000:04:00.0
+kernel version=EF=BC=9A
+2.6.32.12-0.7 also happen in 2.6.32-131
+
+=46or kernel 2.6.32, the reason of this bug is that when we do "vconfig=
+ add bond0 33",
+adapter->vlgrp is overwritten in igb_vlan_rx_register. So when we do "v=
+config rem
+eth2.3300", it can't find the correct vlgrp.
+
+And this bug is avoided by vlan cleanup patchset from Jiri Pirko
+<jpirko@redhat.com>, especially commit b2cb09b1a772(igb: do vlan cleanu=
+p).
+
+But it is not a correct operation to creat a vlan interface on eth2
+when it have been enslaved by bond0, so this patch is to return error
+when the real dev is already enslaved.
+
+Signed-off-by: Weiping Pan <wpan@redhat.com>
+---
+ net/8021q/vlan.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 5471628..8ba9226 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -148,6 +148,11 @@ int vlan_check_real_dev(struct net_device *real_de=
+v, u16 vlan_id)
+ 	const char *name =3D real_dev->name;
+ 	const struct net_device_ops *ops =3D real_dev->netdev_ops;
+=20
++	if (real_dev->flags & IFF_SLAVE) {
++		pr_info("Error, %s was already enslaved\n", name);
++		return -EOPNOTSUPP;
++	}
++
+ 	if (real_dev->features & NETIF_F_VLAN_CHALLENGED) {
+ 		pr_info("VLANs not supported on %s\n", name);
+ 		return -EOPNOTSUPP;
+--=20
+1.7.4
