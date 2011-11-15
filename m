@@ -1,7 +1,8 @@
 From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v3 0/9] forcedeth: stats & debug enhancements
-Date: Mon, 14 Nov 2011 16:11:10 -0800
-Message-ID: <cover.1321313729.git.david.decotigny@google.com>
+Subject: [PATCH net-next v3 1/9] forcedeth: fix stats on hardware without extended stats support
+Date: Mon, 14 Nov 2011 16:11:11 -0800
+Message-ID: <6be75e56196a0f77b2eda0a7742e439de6255172.1321313729.git.david.decotigny@google.com>
+References: <cover.1321313729.git.david.decotigny@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ian Campbell <ian.campbell@citrix.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
@@ -11,77 +12,156 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Szymon Janc <szymon@janc.net.pl>,
 	Richard Jones <rick.jones2@hp.com>,
 	Ayaz Abdulla <AAbdulla@nvidia.com>,
-	David Decotigny <david.decotigny@google.com>
+	david decotigny <david.decotigny@google.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f74.google.com ([209.85.161.74]:61253 "EHLO
-	mail-fx0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752631Ab1KOALb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Nov 2011 19:11:31 -0500
-Received: by faap16 with SMTP id p16so83886faa.1
-        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 16:11:30 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
+In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
+References: <cover.1321313729.git.david.decotigny@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These changes implement the ndo_get_stats64 API and add a few more
-stats and debugging features for forcedeth. They also ensure that
-stats updates are correct in SMP systems, 32 or 64-bits.
+From: david decotigny <david.decotigny@google.com>
 
-Changes since v2:
-  - patch 1/9 is the cherry-pick of 898bdf2cb43e ("forcedeth: fix
-    stats on hardware without extended stats support")
-  - removed patch 5/10 "stats for rx_packets based on hardware
-    registers" because packets&bytes stats are updated in software
-    only (898bdf2cb43e)
+This change makes sure that tx_packets/rx_bytes ifconfig counters are
+updated even on NICs that don't provide hardware support for these
+stats: they are now updated in software. For the sake of consistency,
+we also now have tx_bytes updated in software (hardware counters
+include ethernet CRC, and software doesn't account for it).
 
-Changes since v1:
-  - patch 1/10 is the same as
-    http://patchwork.ozlabs.org/patch/125017/ (targetting net)
-  - other patches updated to take patch 1/10 into account
-  - various commit message updates
-
+This reverts parts of:
+ - "forcedeth: statistics optimization" (21828163b2)
+ - "forcedeth: Improve stats counters" (0bdfea8ba8)
+ - "forcedeth: remove unneeded stats updates" (4687f3f364)
 
 Tested:
-  ~150Mbps incoming TCP, ethtool -S in a loop, x86_64 16-way:
-     tx_bytes: 5441989419
-     rx_packets: 5439224
-     tx_timeout: 0
-     tx_packets: 5456705
-     rx_bytes: 5566763850
+  pktgen + loopback (http://patchwork.ozlabs.org/patch/124698/)
+  reports identical tx_packets/rx_packets and tx_bytes/rx_bytes.
 
-Tested:
-  pktgen + loopback report same RX/TX packets and bytes stats
-
-Tested:
-  tests above with Kconfig DEBUG_PAGEALLOC DEBUG_MUTEXES
-  DEBUG_SPINLOCK LOCKUP_DETECTOR DEBUG_RT_MUTEXES DEBUG_LOCK_ALLOC
-  PROVE_LOCKING DEBUG_ATOMIC_SLEEP DEBUG_STACK_USAGE DEBUG_KOBJECT
-  DEBUG_VM DEBUG_LIST DEBUG_SG DEBUG_NOTIFIERS TEST_KSTRTOX
-  STRICT_DEVMEM DEBUG_STACKOVERFLOW
+Signed-off-by: David Decotigny <david.decotigny@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+(cherry picked from commit 898bdf2cb43eb0a962c397eb4dd1aec2c7211be2)
 
 
-############################################
-# Patch Set Summary:
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |   36 +++++++++++++++++++++++-------
+ 1 files changed, 27 insertions(+), 9 deletions(-)
 
-David Decotigny (6):
-  forcedeth: expose module parameters in /sys/module
-  forcedeth: implement ndo_get_stats64() API
-  forcedeth: account for dropped RX frames
-  forcedeth: new ethtool stat counter for TX timeouts
-  forcedeth: stats updated with a deferrable timer
-  forcedeth: whitespace/indentation fixes
-
-Mike Ditto (1):
-  forcedeth: Add messages to indicate using MSI or MSI-X
-
-Sameer Nanda (1):
-  forcedeth: allow to silence "TX timeout" debug messages
-
-david decotigny (1):
-  forcedeth: fix stats on hardware without extended stats support
-
- drivers/net/ethernet/nvidia/forcedeth.c |  342 ++++++++++++++++++++++---------
- 1 files changed, 246 insertions(+), 96 deletions(-)
-
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index e8a5ae3..374625b 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -609,7 +609,7 @@ struct nv_ethtool_str {
+ };
+ 
+ static const struct nv_ethtool_str nv_estats_str[] = {
+-	{ "tx_bytes" },
++	{ "tx_bytes" }, /* includes Ethernet FCS CRC */
+ 	{ "tx_zero_rexmt" },
+ 	{ "tx_one_rexmt" },
+ 	{ "tx_many_rexmt" },
+@@ -637,7 +637,7 @@ static const struct nv_ethtool_str nv_estats_str[] = {
+ 	/* version 2 stats */
+ 	{ "tx_deferral" },
+ 	{ "tx_packets" },
+-	{ "rx_bytes" },
++	{ "rx_bytes" }, /* includes Ethernet FCS CRC */
+ 	{ "tx_pause" },
+ 	{ "rx_pause" },
+ 	{ "rx_drop_frame" },
+@@ -649,7 +649,7 @@ static const struct nv_ethtool_str nv_estats_str[] = {
+ };
+ 
+ struct nv_ethtool_stats {
+-	u64 tx_bytes;
++	u64 tx_bytes; /* should be ifconfig->tx_bytes + 4*tx_packets */
+ 	u64 tx_zero_rexmt;
+ 	u64 tx_one_rexmt;
+ 	u64 tx_many_rexmt;
+@@ -670,14 +670,14 @@ struct nv_ethtool_stats {
+ 	u64 rx_unicast;
+ 	u64 rx_multicast;
+ 	u64 rx_broadcast;
+-	u64 rx_packets;
++	u64 rx_packets; /* should be ifconfig->rx_packets */
+ 	u64 rx_errors_total;
+ 	u64 tx_errors_total;
+ 
+ 	/* version 2 stats */
+ 	u64 tx_deferral;
+-	u64 tx_packets;
+-	u64 rx_bytes;
++	u64 tx_packets; /* should be ifconfig->tx_packets */
++	u64 rx_bytes;   /* should be ifconfig->rx_bytes + 4*rx_packets */
+ 	u64 tx_pause;
+ 	u64 rx_pause;
+ 	u64 rx_drop_frame;
+@@ -1706,10 +1706,17 @@ static struct net_device_stats *nv_get_stats(struct net_device *dev)
+ 	if (np->driver_data & (DEV_HAS_STATISTICS_V1|DEV_HAS_STATISTICS_V2|DEV_HAS_STATISTICS_V3)) {
+ 		nv_get_hw_stats(dev);
+ 
++		/*
++		 * Note: because HW stats are not always available and
++		 * for consistency reasons, the following ifconfig
++		 * stats are managed by software: rx_bytes, tx_bytes,
++		 * rx_packets and tx_packets. The related hardware
++		 * stats reported by ethtool should be equivalent to
++		 * these ifconfig stats, with 4 additional bytes per
++		 * packet (Ethernet FCS CRC).
++		 */
++
+ 		/* copy to net_device stats */
+-		dev->stats.tx_packets = np->estats.tx_packets;
+-		dev->stats.rx_bytes = np->estats.rx_bytes;
+-		dev->stats.tx_bytes = np->estats.tx_bytes;
+ 		dev->stats.tx_fifo_errors = np->estats.tx_fifo_errors;
+ 		dev->stats.tx_carrier_errors = np->estats.tx_carrier_errors;
+ 		dev->stats.rx_crc_errors = np->estats.rx_crc_errors;
+@@ -2380,6 +2387,9 @@ static int nv_tx_done(struct net_device *dev, int limit)
+ 				if (flags & NV_TX_ERROR) {
+ 					if ((flags & NV_TX_RETRYERROR) && !(flags & NV_TX_RETRYCOUNT_MASK))
+ 						nv_legacybackoff_reseed(dev);
++				} else {
++					dev->stats.tx_packets++;
++					dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
+ 				}
+ 				dev_kfree_skb_any(np->get_tx_ctx->skb);
+ 				np->get_tx_ctx->skb = NULL;
+@@ -2390,6 +2400,9 @@ static int nv_tx_done(struct net_device *dev, int limit)
+ 				if (flags & NV_TX2_ERROR) {
+ 					if ((flags & NV_TX2_RETRYERROR) && !(flags & NV_TX2_RETRYCOUNT_MASK))
+ 						nv_legacybackoff_reseed(dev);
++				} else {
++					dev->stats.tx_packets++;
++					dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
+ 				}
+ 				dev_kfree_skb_any(np->get_tx_ctx->skb);
+ 				np->get_tx_ctx->skb = NULL;
+@@ -2429,6 +2442,9 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
+ 					else
+ 						nv_legacybackoff_reseed(dev);
+ 				}
++			} else {
++				dev->stats.tx_packets++;
++				dev->stats.tx_bytes += np->get_tx_ctx->skb->len;
+ 			}
+ 
+ 			dev_kfree_skb_any(np->get_tx_ctx->skb);
+@@ -2678,6 +2694,7 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 		skb->protocol = eth_type_trans(skb, dev);
+ 		napi_gro_receive(&np->napi, skb);
+ 		dev->stats.rx_packets++;
++		dev->stats.rx_bytes += len;
+ next_pkt:
+ 		if (unlikely(np->get_rx.orig++ == np->last_rx.orig))
+ 			np->get_rx.orig = np->first_rx.orig;
+@@ -2761,6 +2778,7 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+ 			}
+ 			napi_gro_receive(&np->napi, skb);
+ 			dev->stats.rx_packets++;
++			dev->stats.rx_bytes += len;
+ 		} else {
+ 			dev_kfree_skb(skb);
+ 		}
 -- 
 1.7.3.1
