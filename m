@@ -1,135 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next V8] net: introduce ethernet teaming device
-Date: Tue, 15 Nov 2011 19:35:40 +0100
-Message-ID: <1321382140.2856.38.camel@edumazet-HP-Compaq-6005-Pro-SFF-PC>
-References: <1321085808-6871-1-git-send-email-jpirko@redhat.com>
-	 <4EC160B4.2040709@hp.com> <20111115015616.GA25132@gospo.rdu.redhat.com>
-	 <4EC29FE7.70904@hp.com>
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH V2] vlan:return error when real dev is enslaved
+Date: Tue, 15 Nov 2011 20:19:36 +0100
+Message-ID: <4EC2BB48.2070802@gmail.com>
+References: <CAM_iQpXCtH1cSJFsWVGrdreyhBgAjujLygktQGrK7iP-zyhN5g@mail.gmail.com> <d7ea491a500c99c0b4839ddcedab027a3c865c59.1321360959.git.wpan@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, bhutchings@solarflare.com,
-	shemminger@vyatta.com, fubar@us.ibm.com, tgraf@infradead.org,
-	ebiederm@xmission.com, mirqus@gmail.com, kaber@trash.net,
-	greearb@candelatech.com, jesse@nicira.com, fbl@redhat.com,
-	benjamin.poirier@gmail.com, jzupka@redhat.com, ivecera@redhat.com
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:65045 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752161Ab1KOSfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 13:35:46 -0500
-Received: by wwe5 with SMTP id 5so6573877wwe.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 10:35:44 -0800 (PST)
-In-Reply-To: <4EC29FE7.70904@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Patrick McHardy (maintainer:VLAN (802.1Q))" <kaber@trash.net>,
+	"\"David S. Miller\" (maintainer:NETWORKING [GENERAL])"
+	<davem@davemloft.net>,
+	"open list:VLAN (802.1Q)" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Weiping Pan <wpan@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d7ea491a500c99c0b4839ddcedab027a3c865c59.1321360959.git.wpan@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 15 novembre 2011 =C3=A0 09:22 -0800, Rick Jones a =C3=A9crit :
-> > On most modern systems I suspect there will be little to no differe=
-nce
-> > between bonding RX peformance and team performance.
-> >
-> > If there is any now, I suspect team and bond performance to be simi=
-lar
-> > by the time team has to account for the corner-cases bonding has al=
-ready
-> > resolved.  :-)
-> >
-> > Benchmarks may prove otherwise, but I've yet to see Jiri produce
-> > anything.  My initial testing doesn't demonstrate any measureable
-> > differences with 1Gbps interfaces on a multi-core, multi-socket sys=
-tem.
->=20
-> I wouldn't expect much difference in terms of bandwidth, I was thinki=
-ng=20
-> the demonstration would be made in the area of service demand (CPU=20
-> consumed per unit work) and perhaps aggregate packets per second.
+Le 15/11/2011 13:44, Weiping Pan a =C3=A9crit :
+> Qinhuibin reported a kernel panic when he do some operation about vla=
+n.
+> https://lkml.org/lkml/2011/11/6/218
+>
+> The operation is as below:
+> ifconfig eth2 up
+> modprobe bonding
+> modprobe 8021q
+> ifconfig bond0 up
+> ifenslave bond0 eth2
+> vconfig add eth2 3300
+> vconfig add bond0 33
+> vconfig rem eth2.3300
+>
+> the panic stack is as below:
+> [<ffffffffa002f1c9>] panic_event+0x49/0x70 [ipmi_msghandler]
+> [<ffffffff80378917>] notifier_call_chain+0x37/0x70
+> [<ffffffff80372122>] panic+0xa2/0x195
+> [<ffffffff80376ed8>] oops_end+0xd8/0x140
+> [<ffffffff8001bea7>] no_context+0xf7/0x280
+> [<ffffffff8001c1a5>] __bad_area_nosemaphore+0x175/0x250
+> [<ffffffff80376318>] page_fault+0x28/0x30
+> [<ffffffffa039dabd>] igb_vlan_rx_kill_vid+0x4d/0x100 [igb]
+> [<ffffffffa044045f>] bond_vlan_rx_kill_vid+0x9f/0x290 [bonding]
+> [<ffffffffa047e636>] unregister_vlan_dev+0x136/0x180 [8021q]
+> [<ffffffffa047ed20>] vlan_ioctl_handler+0x170/0x3f0 [8021q]
+> [<ffffffff802c1d3f>] sock_ioctl+0x21f/0x280
+> [<ffffffff800e6d7f>] vfs_ioctl+0x2f/0xb0
+> [<ffffffff800e726b>] do_vfs_ioctl+0x3cb/0x5a0
+> [<ffffffff800e74e1>] sys_ioctl+0xa1/0xb0
+> [<ffffffff80007388>] system_call_fastpath+0x16/0x1b
+> [<00007f108a2b8bd7>] 0x7f108a2b8bd7
+> And the nic is as below:
+> [root@localhost ~]# ethtool -i eth2
+> driver: igb
+> version: 3.0.6-k2
+> firmware-version: 1.2-1
+> bus-info: 0000:04:00.0
+> kernel version=EF=BC=9A
+> 2.6.32.12-0.7 also happen in 2.6.32-131
+>
+> For kernel 2.6.32, the reason of this bug is that when we do "vconfig=
+ add bond0 33",
+> adapter->vlgrp is overwritten in igb_vlan_rx_register. So when we do =
+"vconfig rem
+> eth2.3300", it can't find the correct vlgrp.
+>
+> And this bug is avoided by vlan cleanup patchset from Jiri Pirko
+> <jpirko@redhat.com>, especially commit b2cb09b1a772(igb: do vlan clea=
+nup).
+>
+> But it is not a correct operation to creat a vlan interface on eth2
+> when it have been enslaved by bond0, so this patch is to return error
+> when the real dev is already enslaved.
 
-Well,
+Why isn't this setup correct?
 
-bonding is a NETIF_F_LLTX driver, but uses following rwlock in xmit
-path :
+Compare to bridge, where ebtables allow for some sort of sharing of the=
+ physical interface between=20
+bridge and vlan.
 
-read_lock(&bond->curr_slave_lock);
-=2E..
-read_unlock(&bond->curr_slave_lock);
+I think bonding should behave the same way instead of denying this setu=
+p.
 
-Two atomic operations on a contended cache line.
-
-On a 16 cpu machine, here is some "perf stat" data of such workload :
-(each thread doing 10.000.000 atomic_inc(&somesharedvar) )
-
-# perf stat ./atomic 16
-
- Performance counter stats for './atomic 16':
-
-      48016,104204 task-clock                #   15,566 CPUs utilized  =
-       =20
-               555 context-switches          #    0,000 M/sec          =
-       =20
-                15 CPU-migrations            #    0,000 M/sec          =
-       =20
-               175 page-faults               #    0,000 M/sec          =
-       =20
-   121 669 943 013 cycles                    #    2,534 GHz            =
-       =20
-   121 321 455 748 stalled-cycles-frontend   #   99,71% frontend cycles=
- idle  =20
-   103 375 494 290 stalled-cycles-backend    #   84,96% backend  cycles=
- idle  =20
-       611 624 619 instructions              #    0,01  insns per cycle=
-       =20
-                                             #   198,36  stalled cycles=
- per insn
-       184 530 032 branches                  #    3,843 M/sec          =
-       =20
-           581 513 branch-misses             #    0,32% of all branches=
-       =20
-
-       3,084672937 seconds time elapsed
-
-Cost per 'read_lock/read_unlock pair' : at least 616 ns
-
-While on one cpu only :
-
-# perf stat ./atomic 1
-
- Performance counter stats for './atomic 1':
-
-         83,475050 task-clock                #    0,998 CPUs utilized  =
-       =20
-                 3 context-switches          #    0,000 M/sec          =
-       =20
-                 1 CPU-migrations            #    0,000 M/sec          =
-       =20
-               144 page-faults               #    0,002 M/sec          =
-       =20
-       211 508 600 cycles                    #    2,534 GHz            =
-       =20
-       193 502 947 stalled-cycles-frontend   #   91,49% frontend cycles=
- idle  =20
-       124 428 400 stalled-cycles-backend    #   58,83% backend  cycles=
- idle  =20
-        30 870 434 instructions              #    0,15  insns per cycle=
-       =20
-                                             #    6,27  stalled cycles =
-per insn
-        10 163 364 branches                  #  121,753 M/sec          =
-       =20
-             9 633 branch-misses             #    0,09% of all branches=
-       =20
-
-       0,083679928 seconds time elapsed
-
-Cost per 'read_lock/read_unlock pair' : 16 ns
-
-
-Of course, bonding could be changed to use RCU as well,
-if someone feels the need.
-
-But teaming was designed to be RCU ready from the beginning.
-
-exi
+	Nicolas.
