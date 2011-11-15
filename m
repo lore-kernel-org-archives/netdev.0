@@ -1,57 +1,81 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] tcp: fixes for DSACK-based undo of cwnd reduction during
- fast recovery
-Date: Tue, 15 Nov 2011 08:13:13 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1111150736480.24369@melkinpaasi.cs.helsinki.fi>
-References: <1320775631-16341-1-git-send-email-ncardwell@google.com> <20111114.152359.1131974895743731960.davem@davemloft.net> <CADVnQyn7czRocYV3-goTtwqCDg9MBv+bTHeZ-A8R4n45LH8L=g@mail.gmail.com> <alpine.DEB.2.00.1111150333360.24223@melkinpaasi.cs.helsinki.fi>
- <CADVnQykYW1kBopj2qpy8gt4gWejn+2k2YJg-UDHZ8uUxBXw5Zw@mail.gmail.com>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: [PATCH] net-netlink: Add a new attribute to expose TCLASS values
+ via netlink
+Date: Mon, 14 Nov 2011 22:13:28 -0800
+Message-ID: <CAHo-OozYtgN9_TdOTs+40JKpSZmi2c-6yrbjFS2hViFv_QY-5Q@mail.gmail.com>
+References: <CAHo-OozNP2qi_RMjO7rS1=fyaU8w_3aZZLptqnYAkCAwhQDj_w@mail.gmail.com>
+	<20111109.205344.49946086292195784.davem@davemloft.net>
+	<CAHo-OoybYpiusVFbDLEhS2ayPOVC1sXt7WZvpgW-Fk7ZqKj+SQ@mail.gmail.com>
+	<20111114.010752.2129864130433732501.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="8323329-1603620124-1321335620=:24369"
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, nanditad@google.com,
-	ycheng@google.com, therbert@google.com
-To: Neal Cardwell <ncardwell@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux NetDev <netdev@vger.kernel.org>,
+	MuraliRaja Muniraju <muralira@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:55517 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642Ab1KOGNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 01:13:15 -0500
-In-Reply-To: <CADVnQykYW1kBopj2qpy8gt4gWejn+2k2YJg-UDHZ8uUxBXw5Zw@mail.gmail.com>
-Content-ID: <alpine.DEB.2.00.1111150740270.24369@melkinpaasi.cs.helsinki.fi>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:50970 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751642Ab1KOGNb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 01:13:31 -0500
+Received: by vws1 with SMTP id 1so5929968vws.19
+        for <netdev@vger.kernel.org>; Mon, 14 Nov 2011 22:13:30 -0800 (PST)
+In-Reply-To: <20111114.010752.2129864130433732501.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+2011/11/13 David Miller <davem@davemloft.net>:
+>>>> Yes, but an ipv6 socket is permitted to setsockopt SOL_IP in addit=
+ion to SOL_IPV6.
+>>>> As such, one can simply setsockopt(ipv6_socket, SOL_IP, IP_TOS, va=
+lue).
+>>>
+>>> That's my whole point, this operation isn't currently possible, the
+>>> socket ops for ipv4 setsockopt() aren't hooked up to ipv6 mapped
+>>> sockets in the kernel right now.
+>>
+>> http://lxr.linux.no/linux+v3.1/net/ipv6/ipv6_sockglue.c#L822
+>
+> That definitely destroys the basis for all of my arguments :-)
+>
+> I'm going to add the TCLASS inet_diag patch, but can you find a clean=
+er
+> way to make sure that all types of sockets have the value initialized
+> to something sane? =C2=A0The one you posted wasn't... optimal :-)
+>
+> Thanks.
 
---8323329-1603620124-1321335620=:24369
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.1111150740271.24369@melkinpaasi.cs.helsinki.fi>
+I only realized just now that I had replied only to you and not to all.
+I hope you don't mind that I'm adding everyone back into the loop.
 
-On Tue, 15 Nov 2011, Neal Cardwell wrote:
-> On Mon, Nov 14, 2011 at 9:05 PM, Ilpo Järvinen
-> <ilpo.jarvinen@helsinki.fi> wrote:
-> >
-> > When you need to say "fixes 1), 2), and 3)", please stop for a moment
-> > thinking if the fixes really need to be sent as one fix or 3 fixes (a
-> > series PATCH x/3, see netdev for examples). It would make review much
-> > simpler if unrelated fixes are not put together even if all of them
-> > would be needed to get DSACK working as intented.
-> 
-> I'm happy to split this patch into a few smaller patches. I was on the
-> fence about how fine-grained to make them; I'll make them smaller.
+(a) if we keep tos/tclass distinct.
 
-Thanks. In fixes smaller is almost always better. You can then state per 
-fix very exactly what is wrong in the code and in what scenario that 
-causes problem to materialize for real. Smallness helps the review 
-enourmously and all questions raised against can then also remain more 
-focused (possibly the rest could be acked/applied immediately, which 
-happens quite often actually). You will be surprised yourself too then, 
-once you've split each patch becomes very obvious and short (and then I'll 
-be more lax about the commit message too as the diff speaks more 
-succesfully for itself ;-)).
+We should make sure to get this patch (and the as yet unwritten
+followup) into 3.2-final and not 3.3-rc1 (ie. net/master and not
+net-next/master).
+Since it does slightly change userspace visible API (thankfully, it
+was just added so it's not yet too late to change it).
+[FYI, I already see this patch in net/master - thanks!]
 
--- 
- i.
---8323329-1603620124-1321335620=:24369--
+As for the followup, I can see three ways to proceed.
+- The first involves figuring out what type of socket we're dealing
+with when we look at it (ie. something like the RFC patch I posted - I
+don't think it's going to be much prettier no matter what one does -
+there's simply a lot of complexity...)
+- The second involves keeping some sort of type-of-ip-socket
+field/bitmap (none, ipv4 only, ipv4/ipv6 dual stack, ipv6 only)
+directly in the socket.  This is probably much harder to get right
+(changes all over the stack), but may have long term benefits???
+- The third involves punting on the problem, we handle the simple
+cases in kernel and sometimes return excess information to userspace
+(ie. we take the RFC patch and strip out the address comparisons and
+error on the side of returning 'true') -> it's userspace's problem to
+sift through the excess garbage.
+
+(b) personally I would still prefer to just merge tos and tclass and
+get rid of the distinction... is this minor-but-userspace-visible-api
+change out of the question?
+
+- Maciej
