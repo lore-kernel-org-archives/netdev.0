@@ -1,78 +1,49 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH] net: fsl_pq_mdio: fix non tbi phy access
-Date: Tue, 15 Nov 2011 17:44:24 +0200
-Message-ID: <20111115154423.GA26481@sapphire.tkos.co.il>
-References: <b693b45a689d42b60a8a9e29dcdd2fb27e20df82.1321251618.git.baruch@tkos.co.il>
- <C89A2124-7AB4-45B6-ACD1-8C5936027531@freescale.com>
- <20111115051713.GA4052@sapphire.tkos.co.il>
- <74631EEB-F6F8-4969-AD05-81DEAFB0EAB4@freescale.com>
+From: Grant Grundler <grundler@chromium.org>
+Subject: Re: [PATCH 5/5] net-next:asix: update VERSION and white space changes
+Date: Tue, 15 Nov 2011 07:58:11 -0800
+Message-ID: <CANEJEGtj4ZMd2ewrMjYLjor2216UGWBhfywDEtAP0Z_+cMGqmQ@mail.gmail.com>
+References: <CANEJEGuzdxDuVysuAJPcdC7-mywa8B8JggVHe_VMTK_1j4QguQ@mail.gmail.com>
+	<20111114.213255.2061756136146824209.davem@davemloft.net>
+	<20111114.214151.1988775203701808195.davem@davemloft.net>
+	<20111114.214542.1423779515286773837.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linuxppc-dev@lists.ozlabs.org
-To: Andy Fleming <afleming@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:54301 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756349Ab1KOPov (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 10:44:51 -0500
-Content-Disposition: inline
-In-Reply-To: <74631EEB-F6F8-4969-AD05-81DEAFB0EAB4@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	allan@asix.com.tw, freddy@asix.com.tw, kernel@teksavvy.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20111114.214542.1423779515286773837.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andy,
+On Mon, Nov 14, 2011 at 6:45 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 14 Nov 2011 21:41:51 -0500 (EST)
+>
+>> Come on man... are you kidding me?
 
-On Tue, Nov 15, 2011 at 09:06:03AM -0600, Andy Fleming wrote:
-> On Nov 14, 2011, at 11:17 PM, Baruch Siach wrote:
-> > On Mon, Nov 14, 2011 at 09:04:47PM +0000, Fleming Andy-AFLEMING wrote:
+Dave,
+my apologies. That's obviously my fail.
 
-[snip]
+The problem is I can't test your git tree on my systems...but I should
+have at least compile tested it. Or just submitted the changes
+straight from chromium.org tree. *sigh*
 
-> >> And looking at the p1010si.dtsi, I see that it's automatically there for 
-> >> you.
-> >> 
-> >> How were you breaking?
-> > 
-> > Adding linuxppc to Cc.
-> > 
-> > My board is P1011 based, the single core version of P1020, not P1010. In 
-> > p1020si.dtsi I see no tbi node. In p1020rdb.dts I see a tbi node but only for 
-> > mdio@25000, not mdio@24000, which is what I'm using.
-> > 
-> > Am I missing something?
-> 
-> Well, that's a bug. In truth, the silicon dtsi trees should not have tbi 
-> nodes, as that's highly machine-specific. The p1020rdb is apparently relying 
-> on the old behavior, which is broken, and due to the fact that the first 
-> ethernet interface doesn't *use* the TBI PHY.
-> 
-> You should add this to your board tree:
-> 
->                 mdio@24000 {
-> 
->                         tbi0: tbi-phy@11 {
->                                 reg = <0x11>;
->                                 device_type = "tbi-phy";
->                         };
->                 };
-> 
-> And add the PHYs you use, as well as set reg (and the value after the "@") 
-> to something that makes sense for your board.
+> Want to know what really pisses me off about this?
+>
+> All of Mark Lord's hard work to bring the entire vendor driver over
+> was thrown out.
 
-Thanks for your detailed explanation and prompt response. I've added a tbi 
-node, dropped my patch, and now my board works as expected.
+Not entirely correct as Mark pointed out. I was able to convince ASIX
+they should be working with Mark and they committed to doing so.
 
-> I am going to go right now, and add tbi nodes for all of the Freescale 
-> platforms. I will also modify the fsl_pq_mdio code to be more explicit about 
-> its reason for failure.
+> And it was thrown out in favor of this! =C2=A0Code that doesn't even
+> compile.
 
-Please Cc me on these.
+*sigh* sorry...I'll resubmit the entire mess and compile test first. /o=
+\
 
-Thanks,
-baruch
-
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+thanks for your patience,
+grant
