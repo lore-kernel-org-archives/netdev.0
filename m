@@ -1,46 +1,50 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 2/4] ipv4: Update pmtu informations on inetpeer only
- for output routes
-Date: Tue, 15 Nov 2011 11:00:14 +0100
-Message-ID: <20111115100014.GD20943@secunet.com>
-References: <20111012.170805.2172804476308993385.davem@davemloft.net>
- <20111108.143630.106539981030509701.davem@davemloft.net>
- <20111114101244.GB20943@secunet.com>
- <20111114.143320.773675445837769668.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [v2 PATCH 1/2] NETFILTER module xt_hmark new target for HASH
+ based fw
+Date: Tue, 15 Nov 2011 11:01:00 +0100
+Message-ID: <20111115100100.GB29506@1984>
+References: <0hivdsb.f18682ec9367f08c76301d993553f1b8@obelix.schillstrom.com>
+ <20111108105110.GA15798@1984>
+ <20111113170528.GB16851@1984>
+ <201111141019.43423.hans@schillstrom.com>
+ <alpine.LNX.2.01.1111141237410.26961@frira.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:60371 "EHLO a.mx.secunet.com"
+Received: from mail.us.es ([193.147.175.20]:45019 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754468Ab1KOKAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 05:00:16 -0500
+	id S1754468Ab1KOKBC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Nov 2011 05:01:02 -0500
 Content-Disposition: inline
-In-Reply-To: <20111114.143320.773675445837769668.davem@davemloft.net>
+In-Reply-To: <alpine.LNX.2.01.1111141237410.26961@frira.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2011 at 02:33:20PM -0500, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Mon, 14 Nov 2011 11:12:44 +0100
+On Mon, Nov 14, 2011 at 12:38:28PM +0100, Jan Engelhardt wrote:
+> On Monday 2011-11-14 10:19, Hans Schillstrom wrote:
 > 
-> > So for the moment I'm thinking about adding an ip_dst_mtu()
-> > function that returns dst->ops->default_mtu() for input routes
-> > and dst_mtu() for output routes. Then we could convert the
-> > dst_mtu() users in net/ipv4/ over to this one.
+> >
+> >On Sunday, November 13, 2011 18:05:28 Pablo Neira Ayuso wrote:
+> >> BTW, I think you should split xt_HMARK to ipt_HMARK and ip6t_HMARK
+> >> (see recent Florian Westphal patches regarding reserve lookup for
+> >> instance).
+> >> 
+> >> The IPv4 and IPv6 parts for HMARK look so different that I don't think
+> >> it makes sense to keep them into one single xt_HMARK thing with all
+> >> those conditional ifdefs for IPV6.
+> >>
+> >Ok I'll do that, for some reason a thought it was better with one module.
 > 
-> We'll need something similar for ipv6 eventually...
+> So do I. The module overhead is so much larger.
 
-Well, probaply. I did not test with ipv6 yet, so I focused to
-fix the ipv4 part in the first place.
+Yes, it will if both modules are loaded.
 
-> 
-> I would suggest that we do away with dst_ops->default_mtu() and just
-> have dst_ops->mtu() which gets invoked unconditionally by dst_mtu().
-> 
-> You can integrate the ->default_mtu() handling and the input route
-> check into this new method.  Then IPv6 can be fixed in a
-> straightforward manner later.
+I think it depends, if you only load IPv4 support, the overhead will
+be smaller than having everything into one module.
 
-Ok, I'll look into this. 
+But I'm open to more discussion on this, of course.
