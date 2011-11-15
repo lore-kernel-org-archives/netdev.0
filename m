@@ -1,54 +1,85 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH] bonding: Don't allow mode change via sysfs with slaves
- present
-Date: Tue, 15 Nov 2011 20:24:29 +0100
-Message-ID: <4EC2BC6D.9000304@gmail.com>
-References: <1321375482-8637-1-git-send-email-vfalico@redhat.com> <20111115170018.GB25132@gospo.rdu.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:33602 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751471Ab1KOTYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 14:24:30 -0500
-Received: by wwe5 with SMTP id 5so6641609wwe.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 11:24:29 -0800 (PST)
-In-Reply-To: <20111115170018.GB25132@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <david.decotigny@google.com>
+Subject: [PATCH net-next v4 0/8] forcedeth: stats & debug enhancements
+Date: Tue, 15 Nov 2011 11:25:33 -0800
+Message-ID: <cover.1321384662.git.david.decotigny@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Szymon Janc <szymon@janc.net.pl>,
+	Richard Jones <rick.jones2@hp.com>,
+	Ayaz Abdulla <AAbdulla@nvidia.com>,
+	David Decotigny <david.decotigny@google.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 15/11/2011 18:00, Andy Gospodarek a =E9crit :
-> On Tue, Nov 15, 2011 at 05:44:42PM +0100, Veaceslav Falico wrote:
->> When changing mode via bonding's sysfs, the slaves are not initializ=
-ed
->> correctly. Forbid to change modes with slaves present to ensure that=
- every
->> slave is initialized correctly via bond_enslave().
->>
->> Signed-off-by: Veaceslav Falico<vfalico@redhat.com>
->
-> Looks good.  This behavior forces someone who wants to change to mode=
- to
-> go through steps that are almost as destructive as when module option=
-s
-> are used to configure the mode.  I do not see a problem with this.
+These changes implement the ndo_get_stats64 API and add a few more
+stats and debugging features for forcedeth. They also ensure that
+stats updates are correct in SMP systems, 32 or 64-bits.
 
-Except the fact that is enforce one more constraint on the exact order =
-one should write into sysfs=20
-to setup a bonding interface. We already have many such constraints and=
- probably don't need more.
+Changes since v3:
+  - updated get_stats64 + rx_dropped patches to use u64_stats_sync.h
+  - dropped indentation "whitespace/indentation fixes" (included in
+    get_stats64 api patch)
 
-Currently, it is possible to enslave slaves before selecting the mode. =
-The ifenslave-2.6 package=20
-from Debian currently enslave slaves before setting the mode and would =
-break with this change.
+Changes since v2:
+  - patch 1/9 is the cherry-pick of 898bdf2cb43e ("forcedeth: fix
+    stats on hardware without extended stats support")
+  - removed patch 5/10 "stats for rx_packets based on hardware
+    registers" because packets&bytes stats are updated in software
+    only (898bdf2cb43e)
 
-NAK.
+Changes since v1:
+  - patch 1/10 is the same as
+    http://patchwork.ozlabs.org/patch/125017/ (targetting net)
+  - other patches updated to take patch 1/10 into account
+  - various commit message updates
 
-	Nicolas.
+
+Tested:
+  ~150Mbps incoming TCP, ethtool -S in a loop, x86_64 16-way:
+     tx_bytes: 5441989419
+     rx_packets: 5439224
+     tx_timeout: 0
+     tx_packets: 5456705
+     rx_bytes: 5566763850
+
+Tested:
+  pktgen + loopback report same RX/TX packets and bytes stats
+
+Tested:
+  tests above with Kconfig DEBUG_PAGEALLOC DEBUG_MUTEXES
+  DEBUG_SPINLOCK LOCKUP_DETECTOR DEBUG_RT_MUTEXES DEBUG_LOCK_ALLOC
+  PROVE_LOCKING DEBUG_ATOMIC_SLEEP DEBUG_STACK_USAGE DEBUG_KOBJECT
+  DEBUG_VM DEBUG_LIST DEBUG_SG DEBUG_NOTIFIERS TEST_KSTRTOX
+  STRICT_DEVMEM DEBUG_STACKOVERFLOW
+
+
+############################################
+# Patch Set Summary:
+
+David Decotigny (5):
+  forcedeth: expose module parameters in /sys/module
+  forcedeth: implement ndo_get_stats64() API
+  forcedeth: account for dropped RX frames
+  forcedeth: new ethtool stat counter for TX timeouts
+  forcedeth: stats updated with a deferrable timer
+
+Mike Ditto (1):
+  forcedeth: Add messages to indicate using MSI or MSI-X
+
+Sameer Nanda (1):
+  forcedeth: allow to silence "TX timeout" debug messages
+
+david decotigny (1):
+  forcedeth: fix stats on hardware without extended stats support
+
+ drivers/net/ethernet/nvidia/forcedeth.c |  344 ++++++++++++++++++++++---------
+ 1 files changed, 246 insertions(+), 98 deletions(-)
+
+-- 
+1.7.3.1
