@@ -1,41 +1,57 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv4: fix for ip_options_rcv_srr() daddr update.
-Date: Tue, 15 Nov 2011 13:40:45 +0800
-Message-ID: <4EC1FB5D.80705@cn.fujitsu.com>
-References: <4EBA2E30.8050102@cn.fujitsu.com> <20111109.155936.1972852290616131285.davem@davemloft.net>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: fixes for DSACK-based undo of cwnd reduction during
+ fast recovery
+Date: Tue, 15 Nov 2011 08:13:13 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1111150736480.24369@melkinpaasi.cs.helsinki.fi>
+References: <1320775631-16341-1-git-send-email-ncardwell@google.com> <20111114.152359.1131974895743731960.davem@davemloft.net> <CADVnQyn7czRocYV3-goTtwqCDg9MBv+bTHeZ-A8R4n45LH8L=g@mail.gmail.com> <alpine.DEB.2.00.1111150333360.24223@melkinpaasi.cs.helsinki.fi>
+ <CADVnQykYW1kBopj2qpy8gt4gWejn+2k2YJg-UDHZ8uUxBXw5Zw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; boundary="8323329-1603620124-1321335620=:24369"
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, nanditad@google.com,
+	ycheng@google.com, therbert@google.com
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53803 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750909Ab1KOFk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 00:40:28 -0500
-In-Reply-To: <20111109.155936.1972852290616131285.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:55517 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751642Ab1KOGNP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 01:13:15 -0500
+In-Reply-To: <CADVnQykYW1kBopj2qpy8gt4gWejn+2k2YJg-UDHZ8uUxBXw5Zw@mail.gmail.com>
+Content-ID: <alpine.DEB.2.00.1111150740270.24369@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Li Wei <lw@cn.fujitsu.com>
-> Date: Wed, 09 Nov 2011 15:39:28 +0800
-> 
->> When opt->srr_is_hit is set skb_rtable(skb) has been updated for
->> 'nexthop' and iph->daddr should always equals to skb_rtable->rt_dst
->> holds, We need update iph->daddr either.
->>
->> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
-> 
-> Applied, thank you.
-> 
-> 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Hi, David
+--8323329-1603620124-1321335620=:24369
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.1111150740271.24369@melkinpaasi.cs.helsinki.fi>
 
-These days i am doing some ICMP tests and sadly found that wen can't update
-iph->daddr in ip_options_rcv_srr(), It's too early. When some exception
-ocurred later (eg. in ip_forward() when goto sr_failed) we need the ip header
-be identical to the original one as ICMP need it.
+On Tue, 15 Nov 2011, Neal Cardwell wrote:
+> On Mon, Nov 14, 2011 at 9:05 PM, Ilpo Järvinen
+> <ilpo.jarvinen@helsinki.fi> wrote:
+> >
+> > When you need to say "fixes 1), 2), and 3)", please stop for a moment
+> > thinking if the fixes really need to be sent as one fix or 3 fixes (a
+> > series PATCH x/3, see netdev for examples). It would make review much
+> > simpler if unrelated fixes are not put together even if all of them
+> > would be needed to get DSACK working as intented.
+> 
+> I'm happy to split this patch into a few smaller patches. I was on the
+> fence about how fine-grained to make them; I'll make them smaller.
 
-It seems we need rt->rt_dst in ip_forward_options() and ip_forward() instead
-of iph->daddr.
+Thanks. In fixes smaller is almost always better. You can then state per 
+fix very exactly what is wrong in the code and in what scenario that 
+causes problem to materialize for real. Smallness helps the review 
+enourmously and all questions raised against can then also remain more 
+focused (possibly the rest could be acked/applied immediately, which 
+happens quite often actually). You will be surprised yourself too then, 
+once you've split each patch becomes very obvious and short (and then I'll 
+be more lax about the commit message too as the diff speaks more 
+succesfully for itself ;-)).
+
+-- 
+ i.
+--8323329-1603620124-1321335620=:24369--
