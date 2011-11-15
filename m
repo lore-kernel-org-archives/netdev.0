@@ -1,46 +1,46 @@
-From: =?UTF-8?q?Petr=20=C5=A0abata?= <contyk@redhat.com>
-Subject: [PATCH] iproute2: Display closed UDP sockets on 'ss -ul'
-Date: Tue, 15 Nov 2011 16:19:26 +0100
-Message-ID: <1321370366-18832-1-git-send-email-contyk@redhat.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [RFC] kvm tools: Implement multiple VQ for virtio-net
+Date: Tue, 15 Nov 2011 17:30:29 +0200
+Message-ID: <1321371029.3178.9.camel@lappy>
+References: <1321049521-26376-1-git-send-email-levinsasha928@gmail.com>
+	 <20111113102428.GD15322@redhat.com> <1321196430.2425.2.camel@sasha>
+	 <4EC07729.3050303@gmail.com> <1321265740.2425.7.camel@sasha>
+	 <OFDA747DDD.8D1C8FD8-ON65257949.001837DA-65257949.0019D25F@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Petr=20=C5=A0abata?= <contyk@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30636 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755946Ab1KOPVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 10:21:53 -0500
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id pAFFLrHT013169
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 10:21:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Asias He <asias.hejun@gmail.com>, gorcunov@gmail.com,
+	kvm@vger.kernel.org, mingo@elte.hu,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	penberg@kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <OFDA747DDD.8D1C8FD8-ON65257949.001837DA-65257949.0019D25F@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch emulates 'netstat -ul' behavior, showing 'closed'
-(state 07) UDP sockets when ss is called with '-ul' options.
-Although dirty, this seems like the least invasive way to fix
-it and shouldn't really break anything.
+On Tue, 2011-11-15 at 10:14 +0530, Krishna Kumar2 wrote:
+> Sasha Levin <levinsasha928@gmail.com> wrote on 11/14/2011 03:45:40 PM:
+> 
+> > > Why both the bandwidth and latency performance are dropping so
+> > > dramatically with multiple VQ?
+> >
+> > It looks like theres no hash sync between host and guest, which makes
+> > the RX VQ change for every packet. This is my guess.
+> 
+> Yes, I confirmed this happens for macvtap. I am
+> using ixgbe - it calls skb_record_rx_queue when
+> a skb is allocated, but sets rxhash when a packet
+> arrives. Macvtap is relying on record_rx_queue
+> first ahead of rxhash (as part of my patch making
+> macvtap multiqueue), hence different skbs result
+> in macvtap selecting different vq's.
 
-Signed-off-by: Petr =C5=A0abata <contyk@redhat.com>
----
- misc/ss.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I'm seeing this behavior in non-macvtep related setup as well (simple
+tap <-> virtio-net).
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 1353620..af774d1 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2568,7 +2568,7 @@ int main(int argc, char *argv[])
- 			current_filter.states =3D SS_ALL;
- 			break;
- 		case 'l':
--			current_filter.states =3D (1<<SS_LISTEN);
-+			current_filter.states =3D (1<<SS_LISTEN) | (1<<SS_CLOSE);
- 			break;
- 		case '4':
- 			preferred_family =3D AF_INET;
---=20
-1.7.7.1
+-- 
+
+Sasha.
+
