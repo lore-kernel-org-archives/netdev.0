@@ -1,100 +1,95 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH] bonding: Don't allow mode change via sysfs with slaves
- present
-Date: Tue, 15 Nov 2011 22:04:31 +0100
-Message-ID: <20111115210431.GA9768@darkmag.usersys.redhat.com>
-References: <1321375482-8637-1-git-send-email-vfalico@redhat.com>
- <20111115170018.GB25132@gospo.rdu.redhat.com>
- <4EC2BC6D.9000304@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Unable to flush ICMP redirect routes in kernel 3.0+
+Date: Tue, 15 Nov 2011 22:09:15 +0100
+Message-ID: <1321391355.2602.0.camel@edumazet-laptop>
+References: <4EC2CA52.6020104@icdsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Ivan Zahariev <famzah@icdsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40181 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932298Ab1KOVEj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 16:04:39 -0500
-Content-Disposition: inline
-In-Reply-To: <4EC2BC6D.9000304@gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37395 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932351Ab1KOVJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 16:09:19 -0500
+Received: by wyh15 with SMTP id 15so7555924wyh.19
+        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 13:09:18 -0800 (PST)
+In-Reply-To: <4EC2CA52.6020104@icdsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 15, 2011 at 08:24:29PM +0100, Nicolas de Peslo=FCan wrote:
-> Le 15/11/2011 18:00, Andy Gospodarek a =E9crit :
-> >On Tue, Nov 15, 2011 at 05:44:42PM +0100, Veaceslav Falico wrote:
-> >>When changing mode via bonding's sysfs, the slaves are not initiali=
-zed
-> >>correctly. Forbid to change modes with slaves present to ensure tha=
-t every
-> >>slave is initialized correctly via bond_enslave().
-> >>
-> >>Signed-off-by: Veaceslav Falico<vfalico@redhat.com>
-> >
-> >Looks good.  This behavior forces someone who wants to change to mod=
-e to
-> >go through steps that are almost as destructive as when module optio=
-ns
-> >are used to configure the mode.  I do not see a problem with this.
+Le mardi 15 novembre 2011 =C3=A0 22:23 +0200, Ivan Zahariev a =C3=A9cri=
+t :
+> Hello,
 >=20
-> Except the fact that is enforce one more constraint on the exact
-> order one should write into sysfs to setup a bonding interface. We
-> already have many such constraints and probably don't need more.
+> We have changed nothing in our network infrastructure but only upgrad=
+ed=20
+> from Linux kernel 2.6.36.2 to 3.0.3. Here is the problem we are=20
+> experiencing:
 >=20
-> Currently, it is possible to enslave slaves before selecting the
-> mode. The ifenslave-2.6 package from Debian currently enslave slaves
-> before setting the mode and would break with this change.
+> ICMP redirected routes are cached forever, and they can be cleared on=
+ly=20
+> by a reboot.
+>=20
+> Here is an example:
+>=20
+> root@machine5:~# ip route get 1.1.1.1
+> 1.1.1.1 via 9.0.0.1 dev eth0  src 5.5.5.5
+>      cache <redirected>  ipid 0xfb5d rtt 1475ms rttvar 450ms cwnd 10
+>=20
+> root@machine5:~# ip route list cache match 1.1.1.1
+> 1.1.1.1 tos lowdelay via 9.0.0.1 dev eth0  src 5.5.5.5
+>      cache <redirected>  ipid 0xfb5d rtt 1475ms rttvar 450ms cwnd 10
+> 1.1.1.1 via 9.0.0.1 dev eth0  src 5.5.5.5
+>      cache <redirected>  ipid 0xfb5d rtt 1475ms rttvar 450ms cwnd 10
+> ...(two more entries, all go via 9.0.0.1)...
+>=20
+> 1.1.1.1 is the test destination address
+> 5.5.5.5 is the source IP address of "machine5" via dev eth0, the only=
+=20
+> interface besides "lo"
+> 9.0.0.1 is the incorrect gateway which we were redirected to; we want=
+ to=20
+> change the route to 9.0.0.8
+>=20
+> I found no way to clear this route. What I tried:
+>=20
+> root@machine5:~# ip route flush cache ### CACHE FLUSH ###
+> root@machine5:~# ip route list cache match 1.1.1.1 # empty
+>=20
+> root@machine5:~# ip route flush cache ### CACHE FLUSH ###
+> root@machine5:~# echo 1 > /proc/sys/net/ipv4/route/flush
+> root@machine5:~# ip route list cache match 1.1.1.1 # empty
+>=20
+> root@machine5:~# ip route get 1.1.1.1 # magically re-inserts the=20
+> <redirected> route, tcpdump sees NO ICMP traffic
+> 1.1.1.1 via 9.0.0.1 dev eth0  src 5.5.5.5
+>      cache <redirected>  ipid 0xfb5d rtt 1475ms rttvar 450ms cwnd 10
+>=20
+> I also tried to force a scheduled route flush:
+>=20
+> root@machine5:~# echo 1 > /proc/sys/net/ipv4/route/gc_timeout
+> root@machine5:~# echo 1 > /proc/sys/net/ipv4/route/gc_interval
+>=20
+> A reboot fixed it all.
+>=20
+> This may be related to the "Several major changes to our routing=20
+> infrastructure" (https://lkml.org/lkml/2011/3/16/384).
+> Other users are reporting the same problem:
+> * https://plus.google.com/u/0/117161704068825702652/posts/1UK1Rp4KA4J
+> * http://lists.debian.org/debian-kernel/2011/10/msg00633.html
+> Other similar issues:
+> * http://www.spinics.net/lists/netdev/msg176966.html
+> * http://forums.gentoo.org/viewtopic-t-901024-start-0.html
+>=20
+> This has been occurring on a few KVM guest machines and also on a=20
+> regular Linux machine, so it's not KVM related.
+>=20
+> Is this a bug, or it's me who's missing something?
+>=20
 
-Yes, it's possible, however the enslaved interfaces are initialized wit=
-h
-the current mode parameters, and when the mode is changed - they aren't
-reinitialized at all. There are a lot of mode-specific initialization s=
-tuff
-that's present only in bond_enslave(), and here are only some of the
-(most obvious) snippets:
+It is a bug, and as such could you provide needed information for us to
+reproduce it ?
 
-ALB/TLB balancing:
-<snip>
-        if (bond_is_lb(bond)) {
-                /* bond_alb_init_slave() must be called before all othe=
-r
- * stages since
-                 * it might fail and we do not want to have to undo
-                 * everything
-                 */
-                res =3D bond_alb_init_slave(bond, new_slave);
-                if (res)
-                        goto err_close;
-        }   =20
-</snip>
-
-bond_alb_init_slave() is called only in this case. This means that the =
-mac
-address won't be changed at all, and some other stuff won't be properly
-changed as well.
-
-802.3ad:
-<snip>
-        if (bond->params.mode =3D=3D BOND_MODE_8023AD) {
-                /* add lacpdu mc addr to mc list */
-                u8 lacpdu_multicast[ETH_ALEN] =3D MULTICAST_LACPDU_ADDR=
-;
-
-                dev_mc_add(slave_dev, lacpdu_multicast);
-        }
-</snip>
-
-This means that the slave device will just drop all the LACPDUs.
-
-So this means that at least two modes won't work if your first load the
-bonding module with the default mode and then change it with slaves
-attached. And I'm *really* sceptic on the other modes.
-
-So even if the kernel doesn't show any error, it still doesn't work as
-expected. To *really* fix this bug without adding any constraints would
-require quite a few lines of code, and before it is fixed this patch is=
- the
-best way to avoid it.
+What is your network setup ?
