@@ -1,57 +1,41 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/1] drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h: remove unused macro pr_fmt()
-Date: Tue, 15 Nov 2011 14:55:29 -0800
-Message-ID: <201111152255.pAFMtTo5005370@wpaz5.hot.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ASCII
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jeffrey.t.kirsher@intel.com, tomoya-linux@dsn.okisemi.com,
-	toshiharu-linux@dsn.okisemi.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f202.google.com ([209.85.215.202]:47657 "EHLO
-	mail-ey0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753657Ab1KOXCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 18:02:15 -0500
-Received: by eyg5 with SMTP id 5so200860eyg.1
-        for <netdev@vger.kernel.org>; Tue, 15 Nov 2011 15:02:14 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 1/1] net/cadence: enable by default NET_ATMEL
+Date: Tue, 15 Nov 2011 20:36:30 +0100
+Message-ID: <1321385790-15056-1-git-send-email-plagnioj@jcrosoft.com>
+Cc: netdev@vger.kernel.org,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h: remove unused macro pr_fmt()
+so the defconfig of the atmel continue to have the support of the network
+as before
 
-In file included from drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c:22:
-drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h:24:1: warning: "pr_fmt" redefined
-In file included from include/linux/kernel.h:20,
-                 from include/linux/cache.h:4,
-                 from include/linux/time.h:7,
-                 from include/linux/stat.h:60,
-                 from include/linux/module.h:10,
-                 from drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c:21:
-include/linux/printk.h:152:1: warning: this is the location of the previous definition
-
-Cc: Tomoya <tomoya-linux@dsn.okisemi.com>
-Cc: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
+Hi David,
 
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h |    2 --
- 1 file changed, 2 deletions(-)
+	can we have this for the 3.2 so the atmel continue to work as before
 
-diff -puN drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h~drivers-net-ethernet-oki-semi-pch_gbe-pch_gbeh-remove-unused-macro-pr_fmt drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h~drivers-net-ethernet-oki-semi-pch_gbe-pch_gbeh-remove-unused-macro-pr_fmt
-+++ a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-@@ -21,8 +21,6 @@
- #ifndef _PCH_GBE_H_
- #define _PCH_GBE_H_
+Best Regards,
+J.
+ drivers/net/ethernet/cadence/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
+index 98849a1..b48378a 100644
+--- a/drivers/net/ethernet/cadence/Kconfig
++++ b/drivers/net/ethernet/cadence/Kconfig
+@@ -7,6 +7,7 @@ config HAVE_NET_MACB
  
--#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
--
- #include <linux/mii.h>
- #include <linux/delay.h>
- #include <linux/pci.h>
-_
+ config NET_ATMEL
+ 	bool "Atmel devices"
++	default y
+ 	depends on HAVE_NET_MACB || (ARM && ARCH_AT91RM9200)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
+-- 
+1.7.7
