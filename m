@@ -1,58 +1,51 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding: Don't allow mode change via sysfs with slaves
-	present
-Date: Tue, 15 Nov 2011 14:35:39 -0500
-Message-ID: <20111115193535.GC25132@gospo.rdu.redhat.com>
-References: <1321375482-8637-1-git-send-email-vfalico@redhat.com> <20111115170018.GB25132@gospo.rdu.redhat.com> <4EC2BC6D.9000304@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60572 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757212Ab1KOTfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 14:35:44 -0500
-Content-Disposition: inline
-In-Reply-To: <4EC2BC6D.9000304@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <david.decotigny@google.com>
+Subject: [PATCH net-next v4 2/8] forcedeth: Add messages to indicate using MSI or MSI-X
+Date: Tue, 15 Nov 2011 11:51:12 -0800
+Message-ID: <945345f2f0c401c2d17d2b28bff279e7b3d859db.1321386214.git.david.decotigny@google.com>
+References: <97a5a50baaca7b272dfb7a1a06e88df4888f12b9.1321384662.git.david.decotigny@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Mike Ditto <mditto@google.com>,
+	David Decotigny <david.decotigny@google.com>
+To: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <97a5a50baaca7b272dfb7a1a06e88df4888f12b9.1321384662.git.david.decotigny@google.com>
+In-Reply-To: <cover.1321386214.git.david.decotigny@google.com>
+References: <cover.1321386214.git.david.decotigny@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 15, 2011 at 08:24:29PM +0100, Nicolas de Peslo=FCan wrote:
-> Le 15/11/2011 18:00, Andy Gospodarek a =E9crit :
->> On Tue, Nov 15, 2011 at 05:44:42PM +0100, Veaceslav Falico wrote:
->>> When changing mode via bonding's sysfs, the slaves are not initiali=
-zed
->>> correctly. Forbid to change modes with slaves present to ensure tha=
-t every
->>> slave is initialized correctly via bond_enslave().
->>>
->>> Signed-off-by: Veaceslav Falico<vfalico@redhat.com>
->>
->> Looks good.  This behavior forces someone who wants to change to mod=
-e to
->> go through steps that are almost as destructive as when module optio=
-ns
->> are used to configure the mode.  I do not see a problem with this.
->
-> Except the fact that is enforce one more constraint on the exact orde=
-r=20
-> one should write into sysfs to setup a bonding interface. We already =
-have=20
-> many such constraints and probably don't need more.
->
-> Currently, it is possible to enslave slaves before selecting the mode=
-=2E=20
-> The ifenslave-2.6 package from Debian currently enslave slaves before=
-=20
-> setting the mode and would break with this change.
->
+From: Mike Ditto <mditto@google.com>
 
-Our testing indicates that 802.3ad mode bonding will not work unless th=
-e
-devices are enslaved after the mode is set.  Does this mean that no one
-using Debian is using 802.2ad mode or are they just not reporting it?
+This adds a few kernel messages to indicate whether PCIe interrupts
+are signaled with MSI or MSI-X.
+
+
+
+Signed-off-by: David Decotigny <david.decotigny@google.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 374625b..fe17e42 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3810,6 +3810,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 				writel(0, base + NvRegMSIXMap0);
+ 				writel(0, base + NvRegMSIXMap1);
+ 			}
++			netdev_info(dev, "MSI-X enabled\n");
+ 		}
+ 	}
+ 	if (ret != 0 && np->msi_flags & NV_MSI_CAPABLE) {
+@@ -3831,6 +3832,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
+ 			writel(0, base + NvRegMSIMap1);
+ 			/* enable msi vector 0 */
+ 			writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
++			netdev_info(dev, "MSI enabled\n");
+ 		}
+ 	}
+ 	if (ret != 0) {
+-- 
+1.7.3.1
