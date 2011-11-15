@@ -1,50 +1,66 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [v2 PATCH 1/2] NETFILTER module xt_hmark new target for HASH
- based fw
-Date: Tue, 15 Nov 2011 11:01:00 +0100
-Message-ID: <20111115100100.GB29506@1984>
-References: <0hivdsb.f18682ec9367f08c76301d993553f1b8@obelix.schillstrom.com>
- <20111108105110.GA15798@1984>
- <20111113170528.GB16851@1984>
- <201111141019.43423.hans@schillstrom.com>
- <alpine.LNX.2.01.1111141237410.26961@frira.zrqbmnf.qr>
+From: Matti Vaittinen <matti.vaittinen@nsn.com>
+Subject: re: IPv6 routing, NLM_F_* flag support: REPLACE and EXCL
+Date: Tue, 15 Nov 2011 12:26:23 +0200
+Message-ID: <1321352783.1858.62.camel@hakki>
+References: <20111115090107.GA18307@elgon.mountain>
+Reply-To: matti.vaittinen@nsn.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hans Schillstrom <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: ext Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45019 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754468Ab1KOKBC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Nov 2011 05:01:02 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.01.1111141237410.26961@frira.zrqbmnf.qr>
+Received: from demumfd001.nsn-inter.net ([93.183.12.32]:10271 "EHLO
+	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753959Ab1KOKPB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Nov 2011 05:15:01 -0500
+In-Reply-To: <20111115090107.GA18307@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 14, 2011 at 12:38:28PM +0100, Jan Engelhardt wrote:
-> On Monday 2011-11-14 10:19, Hans Schillstrom wrote:
+On Tue, 2011-11-15 at 12:01 +0300, ext Dan Carpenter wrote:
+> flags support, warn about missing CREATE flag
 > 
-> >
-> >On Sunday, November 13, 2011 18:05:28 Pablo Neira Ayuso wrote:
-> >> BTW, I think you should split xt_HMARK to ipt_HMARK and ip6t_HMARK
-> >> (see recent Florian Westphal patches regarding reserve lookup for
-> >> instance).
-> >> 
-> >> The IPv4 and IPv6 parts for HMARK look so different that I don't think
-> >> it makes sense to keep them into one single xt_HMARK thing with all
-> >> those conditional ifdefs for IPV6.
-> >>
-> >Ok I'll do that, for some reason a thought it was better with one module.
+> Hello Matti Vaittinen,
 > 
-> So do I. The module overhead is so much larger.
+> This is a semi-automatic email about new static checker warnings.
+> 
+> The patch 4a287eba2de3: "IPv6 routing, NLM_F_* flag support: REPLACE 
+> and EXCL flags support, warn about missing CREATE flag" from Nov 14, 
+> 2011, leads to the following Smatch complaint:
+> 
+> net/ipv6/ip6_fib.c +656 fib6_add_rt2node()
+> 	 error: we previously assumed 'info' could be null (see line 641)
+> 
+> net/ipv6/ip6_fib.c
+>    640		    (info->nlh->nlmsg_flags&NLM_F_REPLACE));
+>    641		int add = ((NULL == info || NULL == info->nlh) ||
+>                             ^^^^^^^^^^^^
+> Checked here.
+> 
+>    642		    (info->nlh->nlmsg_flags&NLM_F_CREATE));
 
-Yes, it will if both modules are loaded.
+>    656				if (NULL != info->nlh &&
+>                                             ^^^^^^^^^
+> Not checked here.  Btw, I looked at the callers and info is always
+> a valid pointer.
 
-I think it depends, if you only load IPv4 support, the overhead will
-be smaller than having everything into one module.
+Yes. It really seems the info is always a valid pointer. 
+I could find only two places where this info can come from.
+First is ip6_ins_rt at route.c where info is allocated from stack. 
+Second is ip6_route_add, where info is part of the 
+fib6_config struct - and already assumed to be valid.
 
-But I'm open to more discussion on this, of course.
+
+I'll prepare a patch which removes these unnecessary checks.
+
+
+
+
+-- 
+Matti Vaittinen
++358 504863070
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Told a UDP joke the other night...
+...but I'm not sure everyone got it...
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
