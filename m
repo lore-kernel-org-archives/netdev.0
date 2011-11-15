@@ -1,58 +1,48 @@
-From: David Decotigny <david.decotigny@google.com>
-Subject: [PATCH net-next v3 2/9] forcedeth: Add messages to indicate using MSI or MSI-X
-Date: Mon, 14 Nov 2011 16:11:12 -0800
-Message-ID: <97a5a50baaca7b272dfb7a1a06e88df4888f12b9.1321313729.git.david.decotigny@google.com>
-References: <cover.1321313729.git.david.decotigny@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
-	Szymon Janc <szymon@janc.net.pl>,
-	Richard Jones <rick.jones2@hp.com>,
-	Ayaz Abdulla <AAbdulla@nvidia.com>,
-	Mike Ditto <mditto@google.com>,
-	David Decotigny <david.decotigny@google.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
-In-Reply-To: <cover.1321313729.git.david.decotigny@google.com>
-References: <cover.1321313729.git.david.decotigny@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC PATCH net-next] enable virtio_net to return bus_info in
+	ethtool -i consistent with emulated NICs
+Date: Mon, 14 Nov 2011 16:14:34 -0800
+Message-ID: <4EC1AEEA.903@hp.com>
+References: <20111114215241.5B8BF2900307@tardy>
+	<1321309800.2827.22.camel@bwh-desktop> <4EC1ACF6.9060908@hp.com>
+	<1321315839.2827.25.camel@bwh-desktop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Michael Tsirkin <mst@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1321315839.2827.25.camel@bwh-desktop>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Mike Ditto <mditto@google.com>
+>>> Please use the existing 'not implemented' value, which is the empty
+>>> string.   If you think ethtool should print some helpful message instead
+>>> of an empty string, please submit a patch for ethtool.
+>>
+>>
+>> One question - will those actually be called via an ethtool path?  In my
+>> poking about through the virtio code, I got the impression those modules
+>> were for "other than networking" sorts of things.
+>
+> I don't know; I just assumed that was why you were adding them!  In
+> other contexts such as dev_printk() this string would make even less
+> sense.
 
-This adds a few debug messages to indicate whether PCIe interrupts are
-signaled with MSI or MSI-X.
+Those were added to make sure there were no dangling references in the 
+config_ops structure defined in those files and that the code calling 
+through wouldn't go off into la-la land.  Perhaps it isn't necessary 
+with Rusty's suggestion that I check ".bus_info" against NULL? But that 
+is why those were there, and not simply the instance in virtio_pci.c. 
+I'll spin a v2 regardless.
 
-
-
-Signed-off-by: David Decotigny <david.decotigny@google.com>
----
- drivers/net/ethernet/nvidia/forcedeth.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 374625b..fe17e42 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -3810,6 +3810,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 				writel(0, base + NvRegMSIXMap0);
- 				writel(0, base + NvRegMSIXMap1);
- 			}
-+			netdev_info(dev, "MSI-X enabled\n");
- 		}
- 	}
- 	if (ret != 0 && np->msi_flags & NV_MSI_CAPABLE) {
-@@ -3831,6 +3832,7 @@ static int nv_request_irq(struct net_device *dev, int intr_test)
- 			writel(0, base + NvRegMSIMap1);
- 			/* enable msi vector 0 */
- 			writel(NVREG_MSI_VECTOR_0_ENABLED, base + NvRegMSIIrqMask);
-+			netdev_info(dev, "MSI enabled\n");
- 		}
- 	}
- 	if (ret != 0) {
--- 
-1.7.3.1
+rick
