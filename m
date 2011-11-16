@@ -1,130 +1,99 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/6] sky2: fix hang on shutdown (and other irq issues)
-Date: Wed, 16 Nov 2011 15:42:55 -0800
-Message-ID: <20111116234344.526517614@vyatta.com>
+Subject: [PATCH 3/6] sky2: rename up/down functions
+Date: Wed, 16 Nov 2011 15:42:57 -0800
+Message-ID: <20111116234344.717497342@vyatta.com>
 References: <20111116234254.319625694@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sfca-50.vyatta.com ([76.74.103.50]:48423 "EHLO fiji.vyatta.com"
+Received: from sfca-50.vyatta.com ([76.74.103.50]:48426 "EHLO fiji.vyatta.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754505Ab1KPXwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754501Ab1KPXwd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 16 Nov 2011 18:52:33 -0500
-Content-Disposition: inline; filename=sky2-sync-irq-shutdown.patch
+Content-Disposition: inline; filename=sky2-open-stop-rename.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are several problems with recent change to how IRQ's are setup.
-   * synchronize_irq in sky2_shutdown would hang because there
-     was no IRQ setup.
-   * when device was set to down, some IRQ bits left enabled so a
-     hardware error would produce IRQ with no handler
-   * quick link on Optima chip set was enabled without handler
-   * suspend/resume would leave IRQ on with no handler if device
-     was down
+The code is clearer if the up/down functions are renamed to
+open/close like other drivers.  Purely syntax change.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
----
-This needs to be applied to net-next and -net
-
---- a/drivers/net/ethernet/marvell/sky2.c	2011-11-16 15:15:48.212513321 -0800
-+++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-16 15:19:32.898508932 -0800
-@@ -1747,6 +1747,11 @@ static int sky2_up(struct net_device *de
+--- a/drivers/net/ethernet/marvell/sky2.c	2011-11-16 15:19:38.282631277 -0800
++++ b/drivers/net/ethernet/marvell/sky2.c	2011-11-16 15:19:39.518659262 -0800
+@@ -1728,7 +1728,7 @@ static int sky2_setup_irq(struct sky2_hw
  
- 	sky2_hw_up(sky2);
  
-+	if (hw->chip_id == CHIP_ID_YUKON_OPT ||
-+	    hw->chip_id == CHIP_ID_YUKON_PRM ||
-+	    hw->chip_id == CHIP_ID_YUKON_OP_2)
-+		imask |= Y2_IS_PHY_QLNK;	/* enable PHY Quick Link */
-+
- 	/* Enable interrupts from phy/mac for port */
- 	imask = sky2_read32(hw, B0_IMSK);
- 	imask |= portirq_msk[port];
-@@ -2101,15 +2106,21 @@ static int sky2_down(struct net_device *
- 
- 	netif_info(sky2, ifdown, dev, "disabling interface\n");
- 
--	/* Disable port IRQ */
--	sky2_write32(hw, B0_IMSK,
--		     sky2_read32(hw, B0_IMSK) & ~portirq_msk[sky2->port]);
--	sky2_read32(hw, B0_IMSK);
--
- 	if (hw->ports == 1) {
-+		sky2_write32(hw, B0_IMSK, 0);
-+		sky2_read32(hw, B0_IMSK);
-+
- 		napi_disable(&hw->napi);
- 		free_irq(hw->pdev->irq, hw);
- 	} else {
-+		u32 imask;
-+
-+		/* Disable port IRQ */
-+		imask  = sky2_read32(hw, B0_IMSK);
-+		imask &= ~portirq_msk[sky2->port];
-+		sky2_write32(hw, B0_IMSK, imask);
-+		sky2_read32(hw, B0_IMSK);
-+
- 		synchronize_irq(hw->pdev->irq);
- 		napi_synchronize(&hw->napi);
- 	}
-@@ -3258,7 +3269,6 @@ static void sky2_reset(struct sky2_hw *h
- 	    hw->chip_id == CHIP_ID_YUKON_PRM ||
- 	    hw->chip_id == CHIP_ID_YUKON_OP_2) {
- 		u16 reg;
--		u32 msk;
- 
- 		if (hw->chip_id == CHIP_ID_YUKON_OPT && hw->chip_rev == 0) {
- 			/* disable PCI-E PHY power down (set PHY reg 0x80, bit 7 */
-@@ -3281,11 +3291,6 @@ static void sky2_reset(struct sky2_hw *h
- 		sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
- 		sky2_pci_write16(hw, PSM_CONFIG_REG4, reg);
- 
--		/* enable PHY Quick Link */
--		msk = sky2_read32(hw, B0_IMSK);
--		msk |= Y2_IS_PHY_QLNK;
--		sky2_write32(hw, B0_IMSK, msk);
--
- 		/* check if PSMv2 was running before */
- 		reg = sky2_pci_read16(hw, PSM_CONFIG_REG3);
- 		if (reg & PCI_EXP_LNKCTL_ASPMC)
-@@ -3412,7 +3417,9 @@ static void sky2_all_down(struct sky2_hw
- 
- 	sky2_read32(hw, B0_IMSK);
- 	sky2_write32(hw, B0_IMSK, 0);
--	synchronize_irq(hw->pdev->irq);
-+
-+	if (hw->ports > 1 || netif_running(hw->dev[0]))
-+		synchronize_irq(hw->pdev->irq);
- 	napi_disable(&hw->napi);
- 
- 	for (i = 0; i < hw->ports; i++) {
-@@ -3430,7 +3437,7 @@ static void sky2_all_down(struct sky2_hw
- 
- static void sky2_all_up(struct sky2_hw *hw)
+ /* Bring up network interface. */
+-static int sky2_up(struct net_device *dev)
++static int sky2_open(struct net_device *dev)
  {
--	u32 imask = Y2_IS_BASE;
-+	u32 imask = 0;
- 	int i;
- 
- 	for (i = 0; i < hw->ports; i++) {
-@@ -3446,11 +3453,13 @@ static void sky2_all_up(struct sky2_hw *
- 		netif_wake_queue(dev);
- 	}
- 
--	sky2_write32(hw, B0_IMSK, imask);
--	sky2_read32(hw, B0_IMSK);
--
--	sky2_read32(hw, B0_Y2_SP_LISR);
--	napi_enable(&hw->napi);
-+	if (imask || hw->ports > 1) {
-+		imask |= Y2_IS_BASE;
-+		sky2_write32(hw, B0_IMSK, imask);
-+		sky2_read32(hw, B0_IMSK);
-+		sky2_read32(hw, B0_Y2_SP_LISR);
-+		napi_enable(&hw->napi);
-+	}
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+ 	struct sky2_hw *hw = sky2->hw;
+@@ -2098,7 +2098,7 @@ static void sky2_hw_down(struct sky2_por
  }
  
- static void sky2_restart(struct work_struct *work)
+ /* Network shutdown */
+-static int sky2_down(struct net_device *dev)
++static int sky2_close(struct net_device *dev)
+ {
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+ 	struct sky2_hw *hw = sky2->hw;
+@@ -2601,7 +2601,7 @@ static inline void sky2_tx_done(struct n
+ 	if (netif_running(dev)) {
+ 		sky2_tx_complete(sky2, last);
+ 
+-		/* Wake unless it's detached, and called e.g. from sky2_down() */
++		/* Wake unless it's detached, and called e.g. from sky2_close() */
+ 		if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
+ 			netif_wake_queue(dev);
+ 	}
+@@ -3391,7 +3391,7 @@ static void sky2_detach(struct net_devic
+ 		netif_tx_lock(dev);
+ 		netif_device_detach(dev);	/* stop txq */
+ 		netif_tx_unlock(dev);
+-		sky2_down(dev);
++		sky2_close(dev);
+ 	}
+ }
+ 
+@@ -3401,7 +3401,7 @@ static int sky2_reattach(struct net_devi
+ 	int err = 0;
+ 
+ 	if (netif_running(dev)) {
+-		err = sky2_up(dev);
++		err = sky2_open(dev);
+ 		if (err) {
+ 			netdev_info(dev, "could not restart %d\n", err);
+ 			dev_close(dev);
+@@ -4570,7 +4570,7 @@ static int sky2_device_event(struct noti
+ 	struct net_device *dev = ptr;
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+ 
+-	if (dev->netdev_ops->ndo_open != sky2_up || !sky2_debug)
++	if (dev->netdev_ops->ndo_open != sky2_open || !sky2_debug)
+ 		return NOTIFY_DONE;
+ 
+ 	switch (event) {
+@@ -4635,8 +4635,8 @@ static __exit void sky2_debug_cleanup(vo
+    not allowing netpoll on second port */
+ static const struct net_device_ops sky2_netdev_ops[2] = {
+   {
+-	.ndo_open		= sky2_up,
+-	.ndo_stop		= sky2_down,
++	.ndo_open		= sky2_open,
++	.ndo_stop		= sky2_close,
+ 	.ndo_start_xmit		= sky2_xmit_frame,
+ 	.ndo_do_ioctl		= sky2_ioctl,
+ 	.ndo_validate_addr	= eth_validate_addr,
+@@ -4652,8 +4652,8 @@ static const struct net_device_ops sky2_
+ #endif
+   },
+   {
+-	.ndo_open		= sky2_up,
+-	.ndo_stop		= sky2_down,
++	.ndo_open		= sky2_open,
++	.ndo_stop		= sky2_close,
+ 	.ndo_start_xmit		= sky2_xmit_frame,
+ 	.ndo_do_ioctl		= sky2_ioctl,
+ 	.ndo_validate_addr	= eth_validate_addr,
